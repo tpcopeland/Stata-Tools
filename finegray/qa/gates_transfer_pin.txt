@@ -13,6 +13,14 @@
 # pin to silence a red transfer gate destroys the only evidence that the gates
 # still describe the shipped estimator.
 
-gated_commit: a519a93
-gated_note:   last finegray commit of 2026-07-15, after the factorization gate
-              was added in 8ee687a; the tree the three ZZF gates were run on.
+gated_commit: cda50792
+gated_note:   the tree the three ZZF gates were LAST ACTUALLY RUN on --
+              run_status_gates.txt, lane=gates, 2026-09-01T21:15:38Z, verdict
+              PASS, 3/3 (recovery 8/8, coverage 1/1, factorization 10/10),
+              head_commit cda507928ab08e0414276aa292f1976b28df0adc.
+              Moved here from a519a93 on 2026-09-02.  The documented condition
+              for moving the pin -- the gates were re-run on the new commit --
+              is met by that receipt, and the transfer proof of 2026-09-02
+              shows the four delayed-entry arms byte-identical across a519a93,
+              cda50792 and HEAD (789e2635), so the move records the newer run
+              without discarding any evidence.

@@ -18,6 +18,33 @@
 suppressPackageStartupMessages({
     library(cmprsk)
 })
+
+# ---------------------------------------------------------------------------
+# ORACLE TOOLCHAIN BANNER (added 2026-09-02).  run_all.sh records "R_version"
+# in the receipt, but it does that by asking Rscript at RECEIPT time -- after
+# every oracle has already run, and saying nothing at all about which package
+# versions produced the numbers.  A crossval whose oracle silently moved from
+# one package release to another is exactly the drift a cross-validation exists
+# to catch, so every crossval_*_r.R prints its own R and package versions to
+# stdout, where the suite's .do file echoes them into the run log.
+.fg_banner <- function(pkgs) {
+    cat(sprintf("R_ENV: script=%s R=%s platform=%s\n",
+                "crossval_finegray_r.R", as.character(getRversion()), R.version$platform))
+    for (p in pkgs) {
+        v <- tryCatch(as.character(utils::packageVersion(p)),
+                      error = function(e) "NOT-INSTALLED")
+        cat(sprintf("R_ENV: package %s = %s\n", p, v))
+    }
+}
+.fg_banner(c("cmprsk", "fastcmprsk", "survival"))
+
+# REPRODUCIBILITY (added 2026-09-02).  fastcmprsk::fastCrr's variance is a
+# BOOTSTRAP (varianceControl(B = 200) below), so without a seed the SEs this
+# script emits -- and therefore crossval_finegray.do's C49 comparison against
+# them -- differed from run to run.  A cross-validation gate whose reference
+# moves on every invocation cannot be tightened, and a failure cannot be
+# reproduced.  Seed once, here, before anything random runs.
+set.seed(20260902)
 have_fast <- requireNamespace("fastcmprsk", quietly = TRUE)
 if (have_fast) {
     suppressPackageStartupMessages(library(fastcmprsk))

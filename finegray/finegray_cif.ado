@@ -41,8 +41,8 @@ program define finegray_cif, rclass sortpreserve
 
     capture noisily {
 
-    syntax [, AT(string) OVER(varname numeric) ATTime(numlist sort >=0) ///
-        TImepoints(numlist sort >=0) CI Level(string) ///
+    syntax [, AT(string) OVER(varname numeric) ATTime(string) ///
+        TImepoints(string) CI Level(string) ///
         BSTRATum(numlist max=1) ///
         SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
 
@@ -118,6 +118,32 @@ program define finegray_cif, rclass sortpreserve
         display as error "for a table at specific times, {bf:timepoints()} for a curve"
         display as error "evaluated on a grid you supply"
         exit 198
+    }
+
+    * attime() and timepoints() are declared as strings and validated here so
+    * that a bad list gets this command's message.  Declared as
+    * `numlist sort >=0', `finegray_cif, attime(-1)' died inside `syntax' on
+    * Stata's raw "invalid numlist has elements outside of allowed range"
+    * (r(125)), which names neither the option nor the rule -- out of step with
+    * every neighbouring guard.  The validated list is written back in the same
+    * expanded, sorted form `syntax' produced, so nothing downstream changes.
+    if `"`attime'"' != "" {
+        capture numlist `"`attime'"', sort range(>=0)
+        if _rc {
+            display as error "attime(): {bf:`attime'} is not a usable list of analysis times"
+            display as error "supply one or more numbers >= 0, e.g. {bf:attime(1 3 5)}"
+            exit 198
+        }
+        local attime `"`r(numlist)'"'
+    }
+    if `"`timepoints'"' != "" {
+        capture numlist `"`timepoints'"', sort range(>=0)
+        if _rc {
+            display as error "timepoints(): {bf:`timepoints'} is not a usable list of analysis times"
+            display as error "supply one or more numbers >= 0, e.g. {bf:timepoints(0(1)10)}"
+            exit 198
+        }
+        local timepoints `"`r(numlist)'"'
     }
 
     * numlist's `sort' orders a list but keeps its duplicates, and every
@@ -553,11 +579,54 @@ program define finegray_cif, rclass sortpreserve
         }
     }
 
-    * Number of estimation-sample rows, for the proportion of an unset
-    * factor indicator.  Taken once, here, because r(N) is as volatile as
-    * everything else in r().
-    quietly count if e(sample)
-    local _nes = r(N)
+    * Design weights.  A weighted fit's baseline and influence function are
+    * different curves from the unweighted ones, so the weight column is
+    * rebuilt from e(wexp) (the variables it names are in the estimation
+    * signature, verified above) and handed to every Mata entry point below.
+    *   _fg_wmata  the rebuilt column, "" on an unweighted fit
+    *   _fg_wtype  0 none, 1 pweight, 2 fweight
+    * REBUILT HERE, above the profile construction, not at the Mata call:
+    * the default profile is the estimation-sample mean, and on a weighted
+    * fit that mean is the WEIGHTED one.  Through v1.3.0 the column was not
+    * yet available when the profile was built, so a [fw=w] fit reported a
+    * default CIF at the unweighted means -- a profile the fit never saw,
+    * at rc 0 (measured against the expanded-data fit: mreldif 2.1e-3).
+    * Rebuilt after the _finegray_fv_design block above, because
+    * _finegray_weight_var runs `count' and `summarize' and so wipes r().
+    tempvar es
+    quietly gen byte `es' = e(sample)
+    local _fg_wmata ""
+    local _fg_wtype = 0
+    local _fg_aw ""
+    if `"`e(wtype)'"' != "" {
+        tempvar _fg_wv
+        _finegray_weight_var, wname(`_fg_wv') touse(`es')
+        local _fg_wmata "`_fg_wv'"
+        local _fg_wtype = r(wtype)
+        * Weight qualifier for every default-profile mean below.  aweight is
+        * the right kind for a MEAN whatever e(wtype) is: an fweight mean and
+        * an aweight mean over the same column agree exactly, and an aweight
+        * qualifier does not change N in a way `summarize, meanonly' reads.
+        * An unweighted fit leaves this empty, so its code path is the one
+        * that shipped, character for character.
+        local _fg_aw "[aweight=`_fg_wv']"
+    }
+
+    * Denominator for the proportion of an unset factor indicator: the count
+    * of estimation-sample rows, or their weight total on a weighted fit.
+    * Taken once, here, because r(N) is as volatile as everything else in r().
+    * Held in a scalar, not a local: `local x = r(sum)' renders at about 8
+    * significant digits, and the weighted default profile has to reproduce
+    * the expanded-data fit to 1e-12.
+    tempname _nes
+    if "`_fg_wmata'" != "" {
+        quietly summarize `_fg_wmata' if e(sample), meanonly
+        scalar `_nes' = r(sum)
+    }
+    else {
+        quietly count if e(sample)
+        scalar `_nes' = r(N)
+    }
 
     * over() on a covariate: it must be a model variable (raw or design
     * column), must not also be fixed by at(), and must have few enough
@@ -612,7 +681,11 @@ program define finegray_cif, rclass sortpreserve
                 }
             }
         }
-        else if `_isdir' local _ovcols "`_isdir'"
+        * A name that IS a design column is varied directly, whether or not
+        * the fit carries a factor design.  This used to sit in an `else' to
+        * the block above, so on a factor fit over(<design column>) printed
+        * the varied column on the shared "at:" line at rc 0.
+        if `_isdir' local _ovcols "`_ovcols' `_isdir'"
         local _ovcols : list uniq _ovcols
     }
 
@@ -641,7 +714,7 @@ program define finegray_cif, rclass sortpreserve
     local j 0
     foreach v of local covs {
         local ++j
-        quietly summarize `v' if e(sample), meanonly
+        quietly summarize `v' if e(sample) `_fg_aw', meanonly
         matrix `zmeans'[1, `j'] = r(mean)
     }
 
@@ -750,7 +823,7 @@ program define finegray_cif, rclass sortpreserve
         * PROPORTION for a factor indicator), so the untouched part of a mixed
         * term reads exactly as it would have without at().
         * -----------------------------------------------------------------
-        tempname _cval
+        tempname _cval _wsub
         if `"`_rvars'"' != "" {
             forvalues _c = 1/`_fvk' {
                 local _touched = 0
@@ -782,12 +855,22 @@ program define finegray_cif, rclass sortpreserve
                     else if "`_plev'" != "" {
                         * Unset factor part: its estimation-sample proportion,
                         * i.e. the mean of the indicator, which is exactly what
-                        * the untouched column would have carried.
-                        quietly count if e(sample) & `_pvar' == `_plev'
-                        scalar `_cval' = `_cval' * (r(N) / `_nes')
+                        * the untouched column would have carried.  On a
+                        * weighted fit that proportion is sum(w | level) over
+                        * sum(w), matching the weighted column mean above.
+                        if "`_fg_wmata'" != "" {
+                            quietly summarize `_fg_wmata' ///
+                                if e(sample) & `_pvar' == `_plev', meanonly
+                            scalar `_wsub' = cond(r(N) == 0, 0, r(sum))
+                            scalar `_cval' = `_cval' * (`_wsub' / `_nes')
+                        }
+                        else {
+                            quietly count if e(sample) & `_pvar' == `_plev'
+                            scalar `_cval' = `_cval' * (r(N) / `_nes')
+                        }
                     }
                     else {
-                        quietly summarize `_pvar' if e(sample), meanonly
+                        quietly summarize `_pvar' if e(sample) `_fg_aw', meanonly
                         scalar `_cval' = `_cval' * r(mean)
                     }
                 }
@@ -825,9 +908,6 @@ program define finegray_cif, rclass sortpreserve
         }
     }
 
-    tempvar es
-    quietly gen byte `es' = e(sample)
-
     * Combine multiple strata variables into a single group variable
     * (the Mata engine expects one column)
     local _byg_mata "`e(strata)'"
@@ -848,21 +928,6 @@ program define finegray_cif, rclass sortpreserve
         _finegray_weight_groups, truncstrata(`e(truncstrata)') ///
             tgname(`_tg_grp') touse(`es')
         local _tg_mata "`_tg_grp'"
-    }
-
-    * Design weights.  A weighted fit's baseline and influence function are
-    * different curves from the unweighted ones, so the weight column is
-    * rebuilt from e(wexp) (the variables it names are in the estimation
-    * signature, verified above) and handed to every Mata entry point below.
-    *   _fg_wmata  the rebuilt column, "" on an unweighted fit
-    *   _fg_wtype  0 none, 1 pweight, 2 fweight
-    local _fg_wmata ""
-    local _fg_wtype = 0
-    if `"`e(wtype)'"' != "" {
-        tempvar _fg_wv
-        _finegray_weight_var, wname(`_fg_wv') touse(`es')
-        local _fg_wmata "`_fg_wv'"
-        local _fg_wtype = r(wtype)
     }
 
     * =====================================================================

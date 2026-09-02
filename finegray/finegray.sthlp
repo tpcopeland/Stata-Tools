@@ -42,7 +42,8 @@
 {cmd:finegray}
 [{cmd:,}
 {opt noshr}
-{opt l:evel(#)}]
+{opt l:evel(#)}
+{opt coefl:egend}]
 
 {synoptset 26 tabbed}{...}
 {synopthdr}
@@ -348,6 +349,14 @@ is {cmd:c(level)}, which is initially 95; see {helpb set level}.
 results. {opt noshr} and {opt level(#)} are honoured on replay.
 
 {phang}
+{opt coeflegend} redisplays the table with the {cmd:_b[]} name of each
+coefficient in place of its statistics -- the way to read off the exact name of
+a factor design column or a {opt tvc()} interval coefficient before typing it
+into {helpb test} or {helpb lincom}. It is a replay-only option, and it may not
+be combined with {opt level(#)} or {opt noshr} ({cmd:r(198)}): the legend table
+reports neither an interval nor a coefficient scale.
+
+{phang}
 {opt basehaz} posts the baseline cumulative subdistribution hazard in
 {cmd:e(basehaz)}, a matrix with one row per distinct cause-event time (under
 {opt bstrata()}, one block per stratum). Not posted by default because building
@@ -464,8 +473,9 @@ detected by {cmd:_dta[_mi_style]} or {cmd:_dta[_mi_substyle]}, not by variable n
 {phang2}
 The header gains the {opt bstrata()} variable and {cmd:e(k_bstrata)}. {cmd:e(basehaz)} becomes
 {it:K}-by-3 ({it:bstratum}, {it:time}, {it:cumhazard}). {helpb finegray_predict} answers each row from its
-own stratum's baseline. {helpb finegray_cif} requires {opt bstratum(#)}; use {opt over()} on the
-{opt bstrata()} variable for all strata at once.
+own stratum's baseline. {helpb finegray_cif} requires {opt bstratum(#)} when there is more than one
+stratum ({cmd:e(k_bstrata)} > 1) and refuses it otherwise; use {opt over()} on
+the {opt bstrata()} variable for all strata at once.
 
 {pstd}
 A stratum with no cause event is noted and recorded in
@@ -700,11 +710,33 @@ stays unweighted, and the sandwich is the pweight one)
 {phang2}{cmd:. contrast pelnode}{p_end}
 
 {pstd}
-{bf:Delayed entry with entry strata} (schematic). Name in {opt truncstrata()}
-the covariates entry depends on, and in {opt strata()} those censoring depends
-on; read {cmd:e(lt_weight)} and the weight diagnostics before interpreting.
+{bf:Delayed entry with entry strata.} Name in {opt truncstrata()} the
+covariates entry depends on, and in {opt strata()} those censoring depends on;
+read {cmd:e(lt_weight)} and the weight diagnostics before interpreting. Entry
+below depends on {cmd:z1} and censoring does not, so the specification these
+data call for is {cmd:truncstrata(z1)} with no {opt strata()}. The block is
+self-contained and runs as printed.
 
-{phang2}{cmd:. stset time, failure(any_event==1) id(id) enter(time entry)}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 20260713}{p_end}
+{phang2}{cmd:. set obs 24000}{p_end}
+{phang2}{cmd:. gen byte z1 = runiform() < 0.5}{p_end}
+{phang2}{cmd:. gen double z2 = rnormal()}{p_end}
+{phang2}{cmd:. gen double ez = exp(0.5*z1 - 0.5*z2)}{p_end}
+{phang2}{cmd:. gen double p1 = 1 - (1 - 0.5)^ez}{p_end}
+{phang2}{cmd:. gen byte cause = cond(runiform() < p1, 1, 2)}{p_end}
+{phang2}{cmd:. gen double v = runiform()}{p_end}
+{phang2}{cmd:. gen double event_time = -ln(1 - (1 - (1 - v*p1)^(1/ez))/0.5) if cause == 1}{p_end}
+{phang2}{cmd:. replace event_time = rexponential(1/(0.5*exp(0.5*z1 + 0.5*z2))) if cause == 2}{p_end}
+{phang2}{cmd:. gen double censor_time = min(rexponential(1/0.15), 6)}{p_end}
+{phang2}{cmd:. gen double entry_time = rexponential(1/cond(z1 == 1, 1.6, 0.5))}{p_end}
+{phang2}{cmd:. gen double time = min(event_time, censor_time)}{p_end}
+{phang2}{cmd:. gen byte status = cond(event_time <= censor_time, cause, 0)}{p_end}
+{phang2}{cmd:. drop if !(entry_time < time)}{p_end}
+{phang2}{cmd:. keep in 1/4000}{p_end}
+{phang2}{cmd:. gen long id = _n}{p_end}
+{phang2}{cmd:. gen byte any_event = status > 0}{p_end}
+{phang2}{cmd:. stset time, failure(any_event == 1) id(id) enter(time entry_time)}{p_end}
 {phang2}{cmd:. finegray z1 z2, compete(status) cause(1) truncstrata(z1)}{p_end}
 {phang2}{cmd:. display "`e(lt_weight)'"}{p_end}
 {phang2}{cmd:. display e(min_weight_prob), e(max_lt_weight)}{p_end}
@@ -748,14 +780,20 @@ estimand from the time-updated coefficient {helpb stcrreg} reports.
 {phang2}{cmd:. finegray age pneumonia, compete(outcome) cause(1)}{p_end}
 
 {pstd}
-{bf:Bootstrap inference for the coefficients}
+{bf:Bootstrap inference for the coefficients.} The block above left
+{cmd:pneumonia} in memory, so this one reloads {cmd:hypoxia} first; the
+{cmd:stcrreg} comparison below then runs on the same data.
 
+{phang2}{cmd:. webuse hypoxia, clear}{p_end}
+{phang2}{cmd:. gen byte status = failtype}{p_end}
+{phang2}{cmd:. stset dftime, failure(dfcens==1) id(stnum)}{p_end}
 {phang2}{cmd:. program define fgboot, eclass}{p_end}
+{phang2}{cmd:.     version 16.0}{p_end}
 {phang2}{cmd:.     capture drop _st _d _t _t0}{p_end}
 {phang2}{cmd:.     quietly stset dftime, failure(dfcens==1) id(newid)}{p_end}
-{phang2}{cmd:.     finegray ifp tumsize pelnode, compete(status) cause(1) noshr}{p_end}
+{phang2}{cmd:.     finegray ifp tumsize pelnode, compete(status) cause(1) noshr nolog}{p_end}
 {phang2}{cmd:. end}{p_end}
-{phang2}{cmd:. bootstrap _b, reps(200) cluster(stnum) idcluster(newid): fgboot}{p_end}
+{phang2}{cmd:. bootstrap _b, reps(200) seed(13579) cluster(stnum) idcluster(newid): fgboot}{p_end}
 
 {pstd}
 {bf:Compare with stcrreg}

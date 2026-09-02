@@ -204,7 +204,15 @@ if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
         # repo, so this is a normal condition, not a defect -- but it is also not
         # evidence.  Say so loudly rather than letting a silent skip read as a
         # pass, and name the flag that fixes it.
+        #
+        # AND FAIL THE LANE (2026-09-02).  Until now NOT-RUN left the verdict
+        # untouched, so `./run_all.sh full' from a scratch copy without
+        # --source-repo printed PASS with the transfer gate never executed --
+        # which is exactly how the release receipt is produced.  The full and
+        # gates lanes are the two that CLAIM the transfer gate, so on them an
+        # unrun gate is a failed gate; the message still names the flag.
         transfer_status="NOT-RUN (no git tree for $gated_commit; pass --source-repo PATH)"
+        verdict="FAIL"
         echo "transfer_gate: $transfer_status" >&2
     else
         gt_dir="$(mktemp -d)"

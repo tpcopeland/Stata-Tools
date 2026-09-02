@@ -333,7 +333,11 @@ prediction was evaluated at{p_end}
 {phang2}{it:newvar}{cmd:_lci}: "CIF lower {it:level}% limit"{p_end}
 {phang2}{it:newvar}{cmd:_uci}: "CIF upper {it:level}% limit"{p_end}
 {phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
-{phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:varname}" for each covariate{p_end}
+{phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:term}" for each design
+column, where {it:term} is the term exactly as the fit spells it --
+{cmd:ifp} for a plain covariate, {cmd:1.pelnode} for a factor indicator,
+{cmd:1.pelnode#c.ifp} for an interaction, which is also the spelling
+{helpb finegray_phtest} reports{p_end}
 
 
 {marker author}{...}

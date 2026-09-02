@@ -321,6 +321,92 @@ else {
 }
 capture matrix drop _fg07dup _fg07dup2
 
+**# FG07-10  a negative or non-numeric attime()/timepoints() gets this
+*            command's message, not Stata's numlist complaint
+* WATCHED FAIL 2026-09-02.  attime() and timepoints() were declared
+* `numlist sort >=0', so `finegray_cif, attime(-1)' died inside `syntax' on
+* Stata's raw "invalid numlist has elements outside of allowed range" at
+* r(125) -- a message that names neither the option nor the rule, and the only
+* uncurated refusal left in this command.  Both options are now parsed as
+* strings and validated here, at r(198) with a curated message, in step with
+* every neighbouring guard.  finegray_predict's attime() already curated its
+* own message (finegray_predict.ado, "attime() must be a non-negative
+* number"); it is re-asserted below so the two cannot drift apart.
+local ++test_count
+capture noisily {
+    _mk_fg07
+
+    tempfile fg10log
+    capture log close _fg10
+    quietly log using "`fg10log'", replace text name(_fg10)
+    capture noisily finegray_cif, attime(-1) nograph
+    local rc_at = _rc
+    capture noisily finegray_cif, timepoints(-1) nograph
+    local rc_tp = _rc
+    capture noisily finegray_cif, attime(abc) nograph
+    local rc_ab = _rc
+    capture log close _fg10
+
+    display as text "  attime(-1) rc = `rc_at'; timepoints(-1) rc = `rc_tp'; attime(abc) rc = `rc_ab'"
+    assert `rc_at' == 198
+    assert `rc_tp' == 198
+    assert `rc_ab' == 198
+
+    tempname fh10
+    local blob ""
+    file open `fh10' using "`fg10log'", read text
+    file read `fh10' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh10' line
+    }
+    file close `fh10'
+    * the curated wording, and none of Stata's raw numlist wording
+    assert strpos(`"`blob'"', "attime(): ") > 0
+    assert strpos(`"`blob'"', "timepoints(): ") > 0
+    assert strpos(`"`blob'"', "is not a usable list of analysis times") > 0
+    assert strpos(`"`blob'"', "supply one or more numbers >= 0") > 0
+    assert strpos(`"`blob'"', "invalid numlist") == 0
+
+    * POSITIVE CONTROLS: every legal list still parses, including a range
+    * expression and a list numlist has to sort
+    quietly finegray_cif, attime(1 2 3) nograph
+    assert _rc == 0
+    assert rowsof(r(table)) == 3
+    quietly finegray_cif, attime(3 1 2) nograph
+    assert rowsof(r(table)) == 3
+    * sorted ascending, as `numlist sort' used to do
+    matrix _fg07srt = r(table)
+    assert _fg07srt[1,1] == 1 & _fg07srt[3,1] == 3
+    quietly finegray_cif, timepoints(0(1)5) nograph
+    assert _rc == 0
+    assert rowsof(r(table)) == 6
+    * zero is legal (>= 0, not > 0)
+    quietly finegray_cif, attime(0) nograph
+    assert _rc == 0
+
+    * finegray_predict names the same rule in its own words.  Its attime()
+    * requires a tvc() fit, so refit with one -- otherwise this reads r(198)
+    * off the "attime() requires a fit with tvc()" guard and passes for the
+    * wrong reason, which is exactly what this suite exists to prevent.
+    quietly finegray x, compete(ev) cause(1) tvc(x) tsplit(4) nolog
+    capture noisily finegray_predict pq1, xb attime(-1)
+    assert _rc == 198
+    capture drop pq1*
+    quietly finegray_predict pq1ok, xb attime(2)
+    assert _rc == 0
+    capture drop pq1ok*
+}
+if _rc == 0 {
+    display as result "  PASS: FG07-10 negative/non-numeric attime()/timepoints() refused r(198) with a curated message"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG07-10 attime()/timepoints() message (rc=`=_rc')"
+    local ++fail_count
+}
+capture matrix drop _fg07srt
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_fg07_options tests=`test_count' pass=`pass_count' fail=`fail_count'"

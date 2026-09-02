@@ -1,5 +1,5 @@
 * crossval_finegray.do - Cross-validation suite for finegray package
-* Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, benchmarks
+* Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, R oracles
 * Package: finegray v1.2.0
 
 clear all
@@ -78,7 +78,14 @@ program define _finegray_xv
     mata: assert(!hasmissing(st_matrix("e(V)")))
 end
 
-local tol = 1e-4
+* TOLERANCE 2e-6 for C1-C5 (was 1e-4, which could not fail).  finegray and
+* stcrreg solve the SAME estimating equation on these data, so the only source
+* of disagreement is where the two solvers stop.  MEASURED 2026-09-02 on the
+* hypoxia fixture and echoed by each test below: C1 1.657e-08, C2 2.853e-10,
+* C3 2.201e-12, C4 1.202e-08, C5 1.588e-07.  2e-6 is about 13x the largest of
+* them; 1e-4 was 600x it and would have accepted a coefficient wrong in its
+* fourth decimal on a comparison that agrees in its seventh.
+local tol = 2e-6
 
 * {smcl}
 * {* SECTION 1: finegray vs stcrreg — covariate combinations}{...}
@@ -94,8 +101,9 @@ capture noisily {
     restore
     _finegray_xv ifp tumsize, compete(status) cause(1) nolog
     matrix b_fg = e(b)
-    assert abs(b_fg[1,1] - b_ref[1,1]) < `tol'
-    assert abs(b_fg[1,2] - b_ref[1,2]) < `tol'
+    local _c1d = max(abs(b_fg[1,1] - b_ref[1,1]), abs(b_fg[1,2] - b_ref[1,2]))
+    display as text "  C1 max|b_fg - b_stcrreg| = " %10.3e `_c1d'
+    assert `_c1d' < `tol'
 }
 if _rc == 0 {
     display as result "  PASS: C1 2-cov cause 1 vs stcrreg"
@@ -117,7 +125,9 @@ capture noisily {
     restore
     _finegray_xv ifp, compete(status) cause(2) nolog
     local b_fg = e(b)[1,1]
-    assert abs(`b_fg' - `b_ref') < `tol'
+    local _c2d = abs(`b_fg' - `b_ref')
+    display as text "  C2 |b_fg - b_stcrreg| = " %10.3e `_c2d'
+    assert `_c2d' < `tol'
 }
 if _rc == 0 {
     display as result "  PASS: C2 1-cov cause 2 vs stcrreg"
@@ -139,9 +149,12 @@ capture noisily {
     restore
     _finegray_xv ifp tumsize pelnode, compete(status) cause(2) nolog
     matrix b_fg = e(b)
+    local _c3d = 0
     forvalues i = 1/3 {
-        assert abs(b_fg[1,`i'] - b_ref[1,`i']) < `tol'
+        local _c3d = max(`_c3d', abs(b_fg[1,`i'] - b_ref[1,`i']))
     }
+    display as text "  C3 max|b_fg - b_stcrreg| = " %10.3e `_c3d'
+    assert `_c3d' < `tol'
 }
 if _rc == 0 {
     display as result "  PASS: C3 3-cov cause 2 vs stcrreg"
@@ -163,7 +176,9 @@ capture noisily {
     restore
     _finegray_xv tumsize, compete(status) cause(1) nolog
     local b_fg = e(b)[1,1]
-    assert abs(`b_fg' - `b_ref') < `tol'
+    local _c4d = abs(`b_fg' - `b_ref')
+    display as text "  C4 |b_fg - b_stcrreg| = " %10.3e `_c4d'
+    assert `_c4d' < `tol'
 }
 if _rc == 0 {
     display as result "  PASS: C4 1-cov cause 1 (tumsize) vs stcrreg"
@@ -185,8 +200,9 @@ capture noisily {
     restore
     _finegray_xv ifp pelnode, compete(status) cause(2) nolog
     matrix b_fg = e(b)
-    assert abs(b_fg[1,1] - b_ref[1,1]) < `tol'
-    assert abs(b_fg[1,2] - b_ref[1,2]) < `tol'
+    local _c5d = max(abs(b_fg[1,1] - b_ref[1,1]), abs(b_fg[1,2] - b_ref[1,2]))
+    display as text "  C5 max|b_fg - b_stcrreg| = " %10.3e `_c5d'
+    assert `_c5d' < `tol'
 }
 if _rc == 0 {
     display as result "  PASS: C5 2-cov cause 2 (ifp pelnode) vs stcrreg"
@@ -201,8 +217,13 @@ else {
 * {* SECTION 2: SE cross-validation against stcrreg}{...}
 
 * C6: Robust SEs vs stcrreg (3-cov cause 1)
-* Note: Both use sandwich estimator but different computational approaches
-* (IPCW forward-backward scan vs data expansion). Max observed diff ~13%.
+* Note: Both use the sandwich estimator but different computational approaches
+* (IPCW forward-backward scan vs data expansion).
+* TOLERANCE 0.01.  The "Max observed diff ~13%" note this comment used to carry
+* was wrong and had been for at least a release: MEASURED 2026-09-02 the three
+* relative differences are 1.824e-04, 1.635e-04 and 8.099e-04 (echoed below).
+* 0.01 is about 12x the largest.  The 0.15 that stood here was 185x it -- a gate
+* that would have accepted an SE wrong by a seventh.
 local ++test_count
 capture noisily {
     _setup_hypoxia
@@ -218,12 +239,12 @@ capture noisily {
         local se_fg = sqrt(V_fg[`i',`i'])
         local rel_diff = abs(`se_fg' - `se_ref') / `se_ref'
         display as text "  SE var `i': fg=" %8.5f `se_fg' " ref=" %8.5f `se_ref' ///
-            " rel_diff=" %6.3f `rel_diff'
-        assert `rel_diff' < 0.15
+            " rel_diff=" %10.3e `rel_diff'
+        assert `rel_diff' < 0.01
     }
 }
 if _rc == 0 {
-    display as result "  PASS: C6 SEs vs stcrreg (< 15% rel diff)"
+    display as result "  PASS: C6 SEs vs stcrreg (< 1% rel diff)"
     local ++pass_count
 }
 else {
@@ -244,11 +265,13 @@ capture noisily {
     local se_fg = sqrt(e(V)[1,1])
     local rel_diff = abs(`se_fg' - `se_ref') / `se_ref'
     display as text "  SE cause 2: fg=" %8.5f `se_fg' " ref=" %8.5f `se_ref' ///
-        " rel_diff=" %6.3f `rel_diff'
-    assert `rel_diff' < 0.25
+        " rel_diff=" %10.3e `rel_diff'
+    * TOLERANCE 0.005.  MEASURED 2026-09-02: 3.001e-04 (echoed above), so this
+    * is about 17x the measurement.  The 0.25 that stood here could not fail.
+    assert `rel_diff' < 0.005
 }
 if _rc == 0 {
-    display as result "  PASS: C7 SE cause 2 vs stcrreg (< 25%)"
+    display as result "  PASS: C7 SE cause 2 vs stcrreg (< 0.5%)"
     local ++pass_count
 }
 else {
@@ -495,7 +518,12 @@ capture noisily {
     stset t, failure(status==1) id(id)
     stcrreg x1, compete(status == 2)
     local b_ref = e(b)[1,1]
-    assert abs(`b_fg' - `b_ref') < 0.001
+    local _c15d = abs(`b_fg' - `b_ref')
+    display as text "  C15 |b_fg - b_stcrreg| = " %10.3e `_c15d'
+    * TOLERANCE 1e-8.  Same estimating equation, seeded fixture; MEASURED
+    * 2026-09-02: 1.446e-10.  The 0.001 that stood here was seven orders above
+    * the measurement.
+    assert `_c15d' < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: C15 simulated finegray vs stcrreg"
@@ -679,148 +707,19 @@ else {
 }
 
 * {smcl}
-* {* SECTION 11: Performance benchmarks — finegray vs stcrreg}{...}
-
-display ""
-display as text _dup(60) "="
-display as text "PERFORMANCE BENCHMARKS: finegray vs stcrreg"
-display as text _dup(60) "="
-
-program define _run_benchmark
-    args n_obs seed
-    clear
-    set seed `seed'
-    set obs `n_obs'
-    gen id = _n
-    gen double x1 = rnormal()
-    gen double x2 = rnormal()
-    gen double x3 = rbinomial(1, 0.5)
-    gen double u = runiform()
-    gen double t_event = -ln(u) / exp(0.3*x1 - 0.2*x2 + 0.1*x3)
-    gen double t_censor = runiform() * 3
-    gen double t = min(t_event, t_censor)
-    gen byte d = (t_event <= t_censor)
-    gen byte status = 0
-    replace status = 1 if d == 1 & runiform() > 0.35
-    replace status = 2 if d == 1 & status == 0
-end
-
-* C21: Benchmark N=500 — finegray vs stcrreg
-local ++test_count
-capture noisily {
-    _run_benchmark 500 42
-
-    * Time finegray
-    stset t, failure(d) id(id)
-    timer clear 1
-    timer on 1
-    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
-    timer off 1
-    quietly timer list 1
-    local t_fg = r(t1)
-    local b_fg = e(b)[1,1]
-
-    * Time stcrreg (feasible at N=500)
-    stset t, failure(status==1) id(id)
-    timer clear 2
-    timer on 2
-    stcrreg x1 x2 x3, compete(status == 2)
-    timer off 2
-    quietly timer list 2
-    local t_ref = r(t2)
-    local b_ref = e(b)[1,1]
-
-    * Coefficients must match
-    assert abs(`b_fg' - `b_ref') < 0.001
-
-    local ratio = `t_ref' / max(`t_fg', 0.001)
-    display as text "  N=500: finegray=" %6.3f `t_fg' ///
-        "s  stcrreg=" %6.3f `t_ref' "s  ratio=" %6.1f `ratio' "x"
-}
-if _rc == 0 {
-    display as result "  PASS: benchmark N=500"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: benchmark N=500 (rc=`=_rc')"
-    local ++fail_count
-}
-
-* C22-C23: Benchmarks at N=2000, 5000 (finegray only — stcrreg too slow)
-foreach n_obs in 2000 5000 {
-    local ++test_count
-    capture noisily {
-        _run_benchmark `n_obs' 42
-
-        stset t, failure(d) id(id)
-        timer clear 1
-        timer on 1
-        _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
-        timer off 1
-        quietly timer list 1
-        local t_fg = r(t1)
-        assert e(converged) == 1
-        display as text "  N=`n_obs': finegray=" %6.3f `t_fg' "s"
-    }
-    if _rc == 0 {
-        display as result "  PASS: benchmark N=`n_obs' (finegray only)"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: benchmark N=`n_obs' (rc=`=_rc')"
-        local ++fail_count
-    }
-}
-
-* C24: Large benchmark N=10000 (finegray only — stcrreg too slow at this scale)
-local ++test_count
-capture noisily {
-    _run_benchmark 10000 42
-
-    stset t, failure(d) id(id)
-    timer clear 1
-    timer on 1
-    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
-    timer off 1
-    quietly timer list 1
-    local t_fg = r(t1)
-    assert e(converged) == 1
-    display as text "  N=10000: finegray=" %6.3f `t_fg' "s (stcrreg too slow to compare)"
-}
-if _rc == 0 {
-    display as result "  PASS: benchmark N=10000 (finegray only)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: benchmark N=10000 (rc=`=_rc')"
-    local ++fail_count
-}
-
-* C25: Benchmark N=50000 (finegray stress test)
-local ++test_count
-capture noisily {
-    _run_benchmark 50000 42
-
-    stset t, failure(d) id(id)
-    timer clear 1
-    timer on 1
-    _finegray_xv x1 x2 x3, compete(status) cause(1) nolog
-    timer off 1
-    quietly timer list 1
-    local t_fg = r(t1)
-    assert e(converged) == 1
-    display as text "  N=50000: finegray=" %6.3f `t_fg' "s"
-}
-if _rc == 0 {
-    display as result "  PASS: benchmark N=50000 (finegray stress)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: benchmark N=50000 (rc=`=_rc')"
-    local ++fail_count
-}
-
-display as text _dup(60) "="
+* {* SECTION 11: (moved out) Performance benchmarks}{...}
+*
+* MOVED 2026-09-02 to qa/benchmark_finegray_crossval.do.  C21-C25 were five
+* WALL-CLOCK benchmarks (N = 500, 2000, 5000, 10000, 50000) counted as five
+* CORRECTNESS tests in this suite's RESULT line, on a lane that runs on a shared
+* machine.  qa/README.md's own convention says benchmark_* files "measure
+* performance and are never correctness gates", and benchmarks are not lane
+* members (run_all.do's explicit lists).  Five tests whose verdict is a stopwatch
+* inflated this suite's pass count without cross-validating anything -- the only
+* actual cross-validation in the block was C21's coefficient comparison against
+* stcrreg at N=500, which moved with it and is now asserted at 1e-8 instead of
+* 0.001.  Run the benchmark by hand:
+*     stata-mp -b do benchmark_finegray_crossval.do
 
 * {smcl}
 * {* SECTION 12: norobust cross-validation vs stcrreg}{...}
@@ -853,15 +752,24 @@ capture noisily {
     matrix V_ref = e(V)
     matrix b_ref = e(b)
     * Coefficients should match
-    assert abs(b_fg[1,1] - b_ref[1,1]) < 0.001
-    assert abs(b_fg[1,2] - b_ref[1,2]) < 0.001
+    local _c26d = max(abs(b_fg[1,1] - b_ref[1,1]), abs(b_fg[1,2] - b_ref[1,2]))
+    display as text "  C26 max|b_fg - b_stcrreg| = " %10.3e `_c26d'
+    * TOLERANCE 2e-6.  MEASURED 2026-09-02 on this seeded fixture: 1.449e-07.
+    assert `_c26d' < 2e-6
     * SEs should be in the same range
     forvalues i = 1/2 {
         local se_fg = sqrt(V_fg[`i',`i'])
         local se_ref = sqrt(V_ref[`i',`i'])
         local ratio = `se_fg' / `se_ref'
-        display as text "  norobust SE ratio var `i': " %6.3f `ratio'
-        assert `ratio' > 0.5 & `ratio' < 2
+        display as text "  norobust SE ratio var `i': " %10.6f `ratio'
+        * BAND (0.8, 1.25).  finegray's model-based SE and stcrreg's are two
+        * different variance estimators, so this is a sanity band rather than an
+        * identity; but the band has to be able to fail.  MEASURED 2026-09-02 on
+        * this seeded fixture (set seed 55, deterministic): 0.958964 and
+        * 1.001726, i.e. a largest deviation from 1 of 4.1%.  The band is about
+        * 5x that.  The (0.5, 2) that stood here was 12x it and would have
+        * accepted an SE off by half.
+        assert `ratio' > 0.8 & `ratio' < 1.25
     }
 }
 if _rc == 0 {
@@ -909,9 +817,13 @@ capture noisily {
     stcrreg grp_1 grp_2 x1, compete(status == 2)
     matrix b_ref = e(b)
     * Coefficients must match
+    local _c27d = 0
     forvalues i = 1/3 {
-        assert abs(b_fg[1,`i'] - b_ref[1,`i']) < 0.001
+        local _c27d = max(`_c27d', abs(b_fg[1,`i'] - b_ref[1,`i']))
     }
+    display as text "  C27 max|b_fg - b_stcrreg| = " %10.3e `_c27d'
+    * TOLERANCE 1e-8.  MEASURED 2026-09-02 on this seeded fixture: 8.004e-11.
+    assert `_c27d' < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: C27 factor variable vs stcrreg (simulated)"
@@ -983,7 +895,10 @@ capture noisily {
     stset t, failure(status==1) id(id)
     stcrreg x1, compete(status == 2)
     local b_ref = e(b)[1,1]
-    assert abs(`b_fg' - `b_ref') < 0.001
+    local _c29d = abs(`b_fg' - `b_ref')
+    display as text "  C29 |b_fg - b_stcrreg| = " %10.3e `_c29d'
+    * TOLERANCE 1e-8.  MEASURED 2026-09-02 on this seeded fixture: 2.132e-12.
+    assert `_c29d' < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: C29 censvalue(5) vs stcrreg (simulated)"
@@ -1392,8 +1307,10 @@ if `r_available' {
         local r_ll = r(mean)
         local rdiff = abs(`ll_stata' - `r_ll') / abs(`r_ll')
         display as text "  loglik: Stata=" %12.4f `ll_stata' " R=" %12.4f `r_ll' ///
-            " rel_diff=" %8.6f `rdiff'
-        assert `rdiff' < 0.001
+            " rel_diff=" %10.3e `rdiff'
+        * TOLERANCE 1e-6.  MEASURED 2026-09-02: 5.030e-08, so about 20x it.
+        * The 0.001 that stood here was four orders above the measurement.
+        assert `rdiff' < 1e-6
     }
     if _rc == 0 {
         display as result "  PASS: C36 log-likelihood vs cmprsk::crr (< 0.1%)"
@@ -1893,14 +1810,19 @@ if `fastcmprsk_available' {
         local s_coef = b_stata[1, `pos']
         local adiff = abs(`s_coef' - `r_coef')
         display as text "  coef[`var']: Stata=" %10.6f `s_coef' ///
-            " fastCrr=" %10.6f `r_coef' " diff=" %8.6f `adiff'
-        if `adiff' >= 0.01 {
-            display as error "  FAIL [C45.`var']: diff `adiff' >= 0.01"
+            " fastCrr=" %10.6f `r_coef' " diff=" %10.3e `adiff'
+        * TOLERANCE 1e-6 absolute on coefficients of size 0.03 to 0.78.
+        * MEASURED 2026-09-02 (fastcmprsk 1.24.9 with a seeded fastCrr, see
+        * crossval_finegray_r.R): 2.318e-09, 2.198e-08, 4.042e-08 -- so this is
+        * about 25x the largest.  The 0.01 that stood here was absolute on a
+        * coefficient of 0.0327: it could not have failed short of a sign error.
+        if `adiff' >= 1e-6 {
+            display as error "  FAIL [C45.`var']: diff `adiff' >= 1e-6"
             local t45_pass = 0
         }
     }
     if `t45_pass' {
-        display as result "  PASS: C45 coefficients vs fastcmprsk::fastCrr (< 0.01)"
+        display as result "  PASS: C45 coefficients vs fastcmprsk::fastCrr (< 1e-6)"
         local ++pass_count
     }
     else {
@@ -1979,9 +1901,12 @@ if `fastcmprsk_available' {
         local adiff = abs(`s_cif' - `r_cif')
         local ++t48_ncmp
         display as text "  CIF(t=`tt',z=0): Stata=" %8.6f `s_cif' ///
-            " fastCrr=" %8.6f `r_cif' " diff=" %8.6f `adiff'
-        if `adiff' >= 0.01 {
-            display as error "  FAIL [C48.t`tt']: diff `adiff' >= 0.01"
+            " fastCrr=" %8.6f `r_cif' " diff=" %10.3e `adiff'
+        * TOLERANCE 1e-6 absolute on CIFs of size 0.058 to 0.078.  MEASURED
+        * 2026-09-02: 1.598e-08, 1.600e-08, 1.885e-08 -- about 50x the largest.
+        * The 0.01 that stood here was a sixth of the quantity being compared.
+        if `adiff' >= 1e-6 {
+            display as error "  FAIL [C48.t`tt']: diff `adiff' >= 1e-6"
             local t48_pass = 0
         }
     }
@@ -1990,7 +1915,7 @@ if `fastcmprsk_available' {
         local t48_pass = 0
     }
     if `t48_pass' {
-        display as result "  PASS: C48 CIF at z=0 vs fastcmprsk::fastCrr (< 0.01)"
+        display as result "  PASS: C48 CIF at z=0 vs fastcmprsk::fastCrr (< 1e-6)"
         local ++pass_count
     }
     else {
@@ -2019,15 +1944,27 @@ if `fastcmprsk_available' {
         local s_se = sqrt(V_stata[`pos', `pos'])
         local rdiff = abs(`s_se' - `r_se') / `r_se'
         display as text "  SE[`var']: Stata=" %10.6f `s_se' ///
-            " fastCrr(boot)=" %10.6f `r_se' " rel_diff=" %6.3f `rdiff'
-        if `rdiff' >= 0.50 {
-            display as error "  FAIL [C49.`var']: rel_diff `rdiff' >= 0.50"
+            " fastCrr(boot)=" %10.6f `r_se' " rel_diff=" %10.3e `rdiff'
+        * TOLERANCE 0.30 RELATIVE, and deliberately not tighter.  This is the
+        * one comparison in the block that is not an identity: fastCrr's SE is a
+        * 200-replication BOOTSTRAP standard error (varianceControl(B = 200)),
+        * finegray's is the analytic sandwich, so the two estimate the same
+        * quantity by different routes and a gap of tens of percent is the
+        * expected sampling behaviour of a 200-replication bootstrap, not a
+        * defect.  MEASURED 2026-09-02 with the R script's seed fixed:
+        * 1.517e-01, 6.071e-02, 1.680e-01.  0.30 is about 1.8x the largest --
+        * enough headroom for the bootstrap's own noise across R versions, and
+        * tight enough that a genuinely wrong analytic SE (a dropped
+        * finite-sample correction is 1/N, a wrong meat form is a factor) fails.
+        * The 0.50 that stood here was 3x the largest measurement.
+        if `rdiff' >= 0.30 {
+            display as error "  FAIL [C49.`var']: rel_diff `rdiff' >= 0.30"
             local t49_pass = 0
         }
     }
     if `t49_pass' {
         display as result ///
-            "  PASS: C49 bootstrap SEs vs analytic (< 50% — expected divergence)"
+            "  PASS: C49 bootstrap SEs vs analytic (< 30% — expected divergence)"
         local ++pass_count
     }
     else {
@@ -2061,14 +1998,17 @@ if `fastcmprsk_available' {
         local maxd = max(`d12', `d13', `d23')
         display as text "  `var': finegray=" %10.6f `s_coef' ///
             " crr=" %10.6f `crr_coef' " fastCrr=" %10.6f `fast_coef' ///
-            " max_diff=" %8.6f `maxd'
-        if `maxd' >= 0.01 {
-            display as error "  FAIL [C50.`var']: max_diff `maxd' >= 0.01"
+            " max_diff=" %10.3e `maxd'
+        * TOLERANCE 1e-6 absolute.  Three independent implementations of the
+        * same estimator on the same data.  MEASURED 2026-09-02: 3.725e-09,
+        * 2.98e-08, 5.96e-08 -- about 17x the largest.
+        if `maxd' >= 1e-6 {
+            display as error "  FAIL [C50.`var']: max_diff `maxd' >= 1e-6"
             local t50_pass = 0
         }
     }
     if `t50_pass' {
-        display as result "  PASS: C50 three-way coef agreement (< 0.01)"
+        display as result "  PASS: C50 three-way coef agreement (< 1e-6)"
         local ++pass_count
     }
     else {
@@ -2323,17 +2263,27 @@ foreach f in finegray_r_input.csv finegray_r_output.csv ///
 }
 capture rmdir "`datadir'"
 
+* A SKIPPED EXTERNAL ORACLE IS AN UNRUN CHECK, NOT A PASS (2026-09-02).
+* This suite used to print "RESULT: PASS (n passed, k skipped)" and exit 0 when
+* the R oracle was unavailable, so a machine with no R -- or with the package
+* missing -- produced a green cross-validation that had cross-validated nothing.
+* run_all.do already treats skip > 0 as a lane failure by parsing the machine
+* sentinel, but a human reading the suite's own last line was told PASS.  Match
+* crossval_pweight.do: skip > 0 exits 1, and the word PASS is not printed on a
+* skipped run.  The machine sentinel above is unchanged -- run_all.do parses
+* `RESULT: <name> tests=.. pass=.. fail=.. skip=..' and nothing else.
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
     log close _crossval_finegray
     exit 1
 }
 else if `skip_count' > 0 {
-    display as result ///
-        "RESULT: PASS (`pass_count' passed, `skip_count' skipped)"
+    display as error ///
+        "RESULT: NOT RUN (`pass_count' checked, `skip_count' SKIPPED -- an R oracle was unavailable)"
+    display as error "Install the missing R dependency and re-run; a skipped oracle is not evidence."
+    log close _crossval_finegray
+    exit 1
 }
-else {
-    display as result "RESULT: PASS (all `test_count' tests passed)"
-}
+display as result "RESULT: PASS (all `test_count' tests passed)"
 
 log close _crossval_finegray

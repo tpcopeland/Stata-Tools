@@ -28,6 +28,25 @@
 
 suppressPackageStartupMessages(library(cmprsk))
 
+# ---------------------------------------------------------------------------
+# ORACLE TOOLCHAIN BANNER (added 2026-09-02).  run_all.sh records "R_version"
+# in the receipt, but it does that by asking Rscript at RECEIPT time -- after
+# every oracle has already run, and saying nothing at all about which package
+# versions produced the numbers.  A crossval whose oracle silently moved from
+# one package release to another is exactly the drift a cross-validation exists
+# to catch, so every crossval_*_r.R prints its own R and package versions to
+# stdout, where the suite's .do file echoes them into the run log.
+.fg_banner <- function(pkgs) {
+    cat(sprintf("R_ENV: script=%s R=%s platform=%s\n",
+                "crossval_predict_phtest_r.R", as.character(getRversion()), R.version$platform))
+    for (p in pkgs) {
+        v <- tryCatch(as.character(utils::packageVersion(p)),
+                      error = function(e) "NOT-INSTALLED")
+        cat(sprintf("R_ENV: package %s = %s\n", p, v))
+    }
+}
+.fg_banner(c("cmprsk", "survival"))
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 2) {
     stop("Usage: Rscript crossval_predict_phtest_r.R <input.csv> <output_dir>")
@@ -98,34 +117,33 @@ cat(sprintf("  CIF range: [%.6f, %.6f]\n", min(cif_values), max(cif_values)))
 #    where z_bar is the IPCW-weighted mean over the risk set at t_j
 # =====================================================================
 
-# KM of censoring distribution, matching Stata's convention:
-# G[i] = KM survival AFTER processing censoring events at t[i]
-compute_G <- function(time, status) {
-    n <- length(time)
-    G <- numeric(n)
-    ord <- order(time)
-    surv <- 1.0
-    n_risk <- n
-    i <- 1
-    while (i <= n) {
-        cur_time <- time[ord[i]]
-        j <- i
-        while (j <= n && time[ord[j]] == cur_time) j <- j + 1
-        n_cens <- sum(status[ord[i:(j - 1)]] == 0)
-        if (n_cens > 0 && n_risk > 0) {
-            surv <- surv * (1 - n_cens / n_risk)
-        }
-        for (k in i:(j - 1)) {
-            G[ord[k]] <- surv
-            n_risk <- n_risk - 1
-        }
-        i <- j
+# Censoring survivor G.  REWRITTEN 2026-09-02.  What stood here was a hand
+# written Kaplan-Meier loop that reproduced finegray's own post-jump convention
+# ("G[i] = KM survival AFTER processing censoring events at t[i]") and its 1e-10
+# floor.  An oracle that reimplements the convention under test is a mirror, not
+# an independent check: the arm could not have disagreed with the package about
+# G no matter what the package did.
+#
+# It is now survival::survfit on the censoring indicator, evaluated as the LEFT
+# limit G(t-) -- the same construction crossval_finegray_zzf_r.R uses for its
+# all-cause survivor (`findInterval(u - 1e-12, ev)'), and the convention
+# crrSC::crrs and survival::finegray both use.  No floor is applied: if G
+# reaches 0 the comparison should say so rather than silently clamp.
+make_G <- function(time, status) {
+    km <- survival::survfit(survival::Surv(time, as.numeric(status == 0)) ~ 1)
+    ev <- km$time
+    sv <- km$surv
+    # G(u-) = the KM value carried by the last censoring time STRICTLY BELOW u
+    function(u) {
+        idx <- findInterval(u - 1e-12, ev)
+        c(1, sv)[idx + 1L]
     }
-    G[G < 1e-10] <- 1e-10
-    return(G)
 }
-
-G <- compute_G(df$time, df$status)
+Gfun <- make_G(df$time, df$status)
+G <- Gfun(df$time)
+if (any(!is.finite(G))) stop("censoring survivor G is nonfinite")
+cat(sprintf("  G(t-) from survival::survfit: range [%.10f, %.10f]\n",
+            min(G), max(G)))
 if (!is.null(beta_override)) {
     if (length(beta_override) != p || any(!is.finite(beta_override)))
         stop(sprintf("beta override length %d != p %d", length(beta_override), p))

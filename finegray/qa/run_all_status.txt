@@ -1,46 +1,17 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-09-01T21:54:50Z
+date:        2026-09-02T17:16:12Z
 verdict:     PASS
-pkg_tree:    386a0bc93b39e07b85ac2fd752e201b7d0f394b4 (uncommitted-changes-present; excludes this receipt, written after)
-head_commit: cda507928ab08e0414276aa292f1976b28df0adc
-provenance:  stata_dev_cli run qa finegray --repo tools --isolated --keep-logs --mode full
-run_tree:    /tmp/stata-qa-finegray-3658046-gidp2rmb/scratch1/finegray [isolated copy of the source repo]
-retained_log: /tmp/stata_dev_cli_cache/qa-logs/finegray/20260901T215450.024971573Z-81eb4f02
+pkg_tree:    096213feb982b55c492c1426d7ccf1fae15e9478 (uncommitted-changes-present)
+head_commit: 789e263504f2202ffc7caee4d05aa6c89001e73f
+provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/3b5dd218-8b08-4755-8342-06a5c30e2418/scratchpad/fixer/release/finegray [matches-source-repo (qa/ excluded)]
 stata_bin:   stata-mp
 R_version:   4.6.1
-duration:    2674 s
-#
-# pkg_tree method: sha1 over the sorted "<path> <git hash-object>" manifest of
-# every tracked and non-ignored untracked file under finegray/ EXCEPT this
-# receipt, working-tree contents.  Recompute with:
-#   git ls-files -c -o --exclude-standard finegray/ | grep -v qa/run_all_status.txt | sort | \
-#     while read -r f; do printf '%s %s\n' "$f" "$(git hash-object "$f")"; done | sha1sum
-#
-# This lane ran on the working tree AFTER the 2026-09-01 independent
-# pre-release review and its fixes (all uncommitted at the time of the run):
-# bootstrap() refused after an fweight fit (WT-15), the failure-record-not-last
-# guard for stset exit(time .) data (C7, both shapes), the RNG-state restore
-# around bootstrap() (FG-B14), attime()/timepoints() de-duplication (FG07-9),
-# the finegray_phtest column width (FG03-4), the weights coverage identities
-# (WT-16), the verbatim MI help examples (test_documentation_examples), the
-# tightened cmprsk::crr parity tolerances in crossval_finegray.do (C19, C33,
-# C34, C35, C37), and the macro-form smoke sentinel in
-# validation_finegray_zzf_coverage.do.  Two earlier full lanes on the same
-# day: the committed tree cda50792 (60/60) and an intermediate snapshot of the
-# fixes (59/60; test_finegray_sthlp_render failed on a help paragraph that was
-# rewrapped before this run).
-#
-# The gates lane has its own receipt (qa/run_status_gates.txt, 2026-09-01,
-# 3/3, run on the committed tree cda50792 before the fixes).
-# gates_transfer_proof.do is not a member of any run_all lane.
-#
-# Delta vs the 2026-08-29T14:34:16Z receipt: validation_cluster_recovery (4)
-# and crossval_public_studies (5) appear for the first time; test_finegray_weights
-# 14 -> 16, test_finegray_adversarial_v130 18 -> 19, test_documentation_examples
-# 8 -> 10, test_finegray_fg07_options 9 -> 10, test_finegray_bootstrap 9 -> 10,
-# test_finegray_fg03_diagnostic 3 -> 4.
+fg02_gate:   PASS
+wrapper_test: PASS
+transfer_gate: PASS (4 arms identical vs cda50792)
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: test_finegray tests=137 pass=137 fail=0
@@ -55,7 +26,7 @@ RESULT: test_finegray_bstrata tests=19 pass=19 fail=0
 RESULT: test_finegray_tvc tests=33 pass=33 fail=0
 RESULT: test_finegray_tvc_bstrata tests=10 pass=10 fail=0
 RESULT: test_finegray_fences tests=10 pass=10 fail=0
-RESULT: test_finegray_weights tests=16 pass=16 fail=0
+RESULT: test_finegray_weights tests=17 pass=17 fail=0
 RESULT: test_finegray_mi_lattice tests=12 pass=12 fail=0
 RESULT: test_finegray_release120 tests=7 pass=7 fail=0
 RESULT: test_finegray_ties tests=6 pass=6 fail=0
@@ -64,22 +35,22 @@ RESULT: test_finegray_variance tests=6 pass=6 fail=0
 RESULT: test_finegray_bootstrap tests=10 pass=10 fail=0
 RESULT: test_finegray_postest tests=27 pass=27 fail=0
 RESULT: test_finegray_zzf tests=28 pass=28 fail=0
-RESULT: test_finegray_cif_over tests=9 pass=9 fail=0
+RESULT: test_finegray_cif_over tests=10 pass=10 fail=0
 RESULT: test_finegray_margins tests=14 pass=14 fail=0
 RESULT: test_finegray_fvgrammar tests=8 pass=8 fail=0
 RESULT: test_finegray_at_profile tests=15 pass=15 fail=0
 RESULT: test_finegray_fg03_diagnostic tests=4 pass=4 fail=0
 RESULT: test_finegray_fg06_vce tests=3 pass=3 fail=0
-RESULT: test_finegray_fg07_options tests=10 pass=10 fail=0
+RESULT: test_finegray_fg07_options tests=11 pass=11 fail=0
 RESULT: test_finegray_nuisance tests=12 pass=12 fail=0
 RESULT: test_finegray_nuisance_lt tests=5 pass=5 fail=0
 RESULT: test_finegray_determinism tests=10 pass=10 fail=0
-RESULT: test_finegray_reporting tests=7 pass=7 fail=0
+RESULT: test_finegray_reporting tests=8 pass=8 fail=0
 RESULT: test_finegray_contracts tests=13 pass=13 fail=0
 RESULT: test_finegray_hostile tests=2 pass=2 fail=0
 RESULT: test_finegray_estimates_use tests=10 pass=10 fail=0
 RESULT: test_finegray_sthlp_render tests=8 pass=8 fail=0
-RESULT: test_documentation_examples tests=10 pass=10 fail=0
+RESULT: test_documentation_examples tests=78 pass=78 fail=0
 RESULT: validation_finegray tests=45 pass=45 fail=0
 RESULT: validation_finegray_recovery tests=4 pass=4 fail=0
 RESULT: validation_finegray_recovery_paths tests=15 pass=15 fail=0
@@ -94,10 +65,10 @@ RESULT: crossval_predict_stcrreg tests=15 pass=15 fail=0 skip=0
 RESULT: test_finegray_adversarial_v130 tests=19 pass=19 fail=0
 RESULT: test_finegray_adversarial_v120 tests=8 pass=8 fail=0
 RESULT: crossval_cif tests=2 pass=2 fail=0 skip=0
-RESULT: PASS (all 14 tests passed)
 RESULT: crossval_predict_phtest tests=14 pass=14 fail=0 skip=0
-RESULT: crossval_finegray tests=55 pass=55 fail=0 skip=0
-RESULT: PASS (all 55 tests passed)
+RESULT: PASS (all 14 tests passed)
+RESULT: crossval_finegray tests=50 pass=50 fail=0 skip=0
+RESULT: PASS (all 50 tests passed)
 RESULT: crossval_finegray_dta tests=1 pass=1 fail=0
 RESULT: crossval_finegray_zzf tests=102 pass=102 fail=0
 RESULT: crossval_nuisance tests=6 pass=6 fail=0

@@ -100,6 +100,14 @@ local NEG_Z  = 5
 
 * Z2-PREREG: preregistered behaviour of the negative control (arm D).
 *
+* SOURCE OF THIS PREREGISTRATION: qa/validation_finegray_zzf_prereg_r.R, the
+* independent R probe that derives the sign of the arm-D bias from the ZZF
+* oracle rather than from a guess.  Re-derive it with
+*     cd finegray/qa && Rscript validation_finegray_zzf_prereg_r.R
+* It is deliberately not a lane member -- it records an expectation BEFORE the
+* gated repetitions run, which is the whole point of a preregistration -- and
+* is referenced here and from qa/README.md so it cannot become an orphan.
+*
 * Entry depends on z1 ALONE, so pooling the entry distribution mis-reconstructs
 * the risk set along z1 and biases b1 downward, hard.  Both coefficients are
 * biased DOWNWARD, and both must be caught:
