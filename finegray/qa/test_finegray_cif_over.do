@@ -21,6 +21,8 @@
 *          a continuous covariate (> 20 levels), a nonexistent variable
 *   OV-08  no over(): r(table) keeps five columns and r(at) one row
 *   OV-09  a failed saving() still posts the full r() surface (side rc)
+*   OV-10  over(<design column>) on a FACTOR fit: the varied column is left
+*          off the shared `at:' line and moves across r(at) rows
 
 clear all
 set varabbrev off
@@ -376,6 +378,76 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "  FAIL: OV-09 side-effect failure keeps r() (rc=`=_rc')"
+}
+
+**# OV-10: over() naming a package-owned DESIGN COLUMN of a factor fit
+* WATCHED FAIL 2026-09-02.  `_ovcols' -- the columns held off the shared `at:'
+* line because over() varies them -- was filled from r(pieces#) when the fit
+* carried a factor design, and from the direct-column position ONLY in the
+* `else' branch.  So on a factor fit, over(_fg_pelnode_1) varied that column
+* correctly in r(at) and in the curves, while the header still printed
+* `1.pelnode=<its mean>' as though it had been held fixed there: a profile line
+* that contradicts the table under it, at rc 0.  Measured on the pre-fix build
+* (git HEAD 789e2635) the shared line read:
+*   at (estimation-sample means): 1.pelnode=0 ifp=19.8 1.pelnode#c.ifp=16.1 tumsize=5.6
+* with 1.pelnode present although over() was varying exactly that column.
+*
+* The probe reads the command's own output back out of a log, because r(at) was
+* already right on the pre-fix build -- it is the DISPLAY that disagreed with it.
+local ++test_count
+capture noisily {
+    _ov_hypoxia
+    quietly finegray i.pelnode c.ifp i.pelnode#c.ifp tumsize, compete(status) cause(1)
+    * the design column that carries the pelnode indicator
+    local _dc : word 1 of `e(designvars)'
+    display as text "  design column varied: `_dc'"
+    confirm variable `_dc'
+
+    local _lsz = c(linesize)
+    set linesize 200
+    tempfile ovlog
+    capture log close _ov10
+    quietly log using "`ovlog'", replace text name(_ov10)
+    finegray_cif, over(`_dc') attime(1 5) nograph
+    tempname A10
+    matrix `A10' = r(at)
+    local _pv10 "`r(profile_vars)'"
+    capture log close _ov10
+    set linesize `_lsz'
+
+    tempname fh10
+    local blob ""
+    file open `fh10' using "`ovlog'", read text
+    file read `fh10' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh10' line
+    }
+    file close `fh10'
+
+    * r(at): the varied column moves across the two curve rows, the others do not
+    assert rowsof(`A10') == 2
+    assert `A10'[1,1] != `A10'[2,1]
+    forvalues _c = 2/`=colsof(`A10')' {
+        assert `A10'[1,`_c'] == `A10'[2,`_c']
+    }
+    * the header names over() and leaves the varied term off the shared line
+    display as text "  profile_vars = `_pv10'"
+    display as text "  over: line printed: " (strpos(`"`blob'"', "over: `_dc'") > 0)
+    display as text "  1.pelnode= on the shared line: " (strpos(`"`blob'"', "1.pelnode=") > 0)
+    assert strpos(`"`blob'"', "over: `_dc'") > 0
+    assert strpos(`"`blob'"', "1.pelnode=") == 0
+    * the columns over() does NOT vary are still reported there
+    assert strpos(`"`blob'"', "tumsize=") > 0
+    assert strpos(`"`blob'"', "1.pelnode#c.ifp=") > 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: OV-10 over(design column) on a factor fit leaves it off the shared at: line"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: OV-10 over(design column) on a factor fit (rc=`=_rc')"
 }
 
 **# Summary

@@ -281,6 +281,15 @@ fi
 
 # 10. Run from a COPY outside any git repo: without --source-repo the receipt
 # records no hash, which is the 2026-07-22 receipt's defect.
+#
+# UPDATED 2026-09-02.  This check used to require rc == 0 -- and run_all.sh gave
+# it, because a NOT-RUN transfer gate did not set verdict=FAIL.  The release
+# receipt is produced exactly this way (a scratch copy, per CLAUDE.md isolation),
+# so `./run_all.sh full' from a copy printed PASS with the transfer gate never
+# executed.  On the two lanes that CLAIM the gate (full, gates) NOT-RUN is now a
+# FAIL: rc must be non-zero and the receipt verdict must say FAIL, while the
+# message still names --source-repo.  Watched fail: against the pre-fix
+# run_all.sh this check reports rc=0 / verdict PASS.
 ((tests += 1))
 copy_qa="$scratch/copy/finegray/qa"
 mkdir -p "$copy_qa"
@@ -290,12 +299,32 @@ FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
     "$copy_qa/run_all.sh" full >"$scratch/copy-bare.out" 2>"$scratch/copy-bare.err"
 rc=$?
 set -e
-if (( rc == 0 )) &&
+if (( rc != 0 )) &&
         grep -Eq '^pkg_tree:[[:space:]]+not-a-git-repo' "$copy_qa/run_all_status.txt" &&
-        grep -Eq '^transfer_gate: NOT-RUN ' "$copy_qa/run_all_status.txt"; then
+        grep -Eq '^transfer_gate: NOT-RUN ' "$copy_qa/run_all_status.txt" &&
+        grep -Eq '^verdict:[[:space:]]+FAIL$' "$copy_qa/run_all_status.txt" &&
+        grep -q -- '--source-repo' "$scratch/copy-bare.err"; then
     ((pass += 1))
 else
-    echo "FAIL: bare scratch-copy run did not report its missing provenance" >&2
+    echo "FAIL: an unrun transfer gate on the full lane did not fail the lane" >&2
+    ((fail += 1))
+fi
+
+# 10b. The QUICK lane does not claim the transfer gate, so a copy with no git
+# tree is not-applicable there and must still pass.  Without this the change
+# above could have been made by failing every lane.
+((tests += 1))
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
+    "$copy_qa/run_all.sh" quick >"$scratch/copy-quick.out" 2>"$scratch/copy-quick.err"
+rc=$?
+set -e
+if (( rc == 0 )) &&
+        grep -Eq '^transfer_gate: not-applicable$' "$copy_qa/run_all_status.txt" &&
+        grep -Eq '^verdict:[[:space:]]+PASS$' "$copy_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: the quick lane was failed by a transfer gate it does not claim" >&2
     ((fail += 1))
 fi
 

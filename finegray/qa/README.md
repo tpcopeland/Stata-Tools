@@ -40,6 +40,9 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `python` / `full` | `Rscript`; R packages `cmprsk`, `crrSC`, `survival`, `riskRegression`, and `prodlim` | Hard failure; a skip cannot make the lane green |
 | Optional acceleration parity | R package `fastcmprsk` | The optional comparison is omitted; core `cmprsk` parity still runs |
 | Shell wrapper | POSIX shell utilities and Python 3 | Hard failure of the wrapper gate |
+| Every lane | **Internet access** for Stata's `webuse` datasets — `webuse hypoxia` (the shared fixture), `webuse hiv_si` (`over()` and grouped-CIF examples) and `webuse pneumonia` (the internal time-varying-covariate refusal) | `r(672)`/`r(677)` from `webuse` inside the affected suites; the failure is reported against the test, not against the network |
+
+`webuse hypoxia` is cached at `` `c(tmpdir)'/finegray_hypoxia_cache.dta ``. Each suite that uses it defines a local `_finegray_use_hypoxia` helper (`test_finegray.do`, `test_finegray_v110.do`, `validation_finegray.do`, `crossval_finegray.do`, `crossval_cif.do`, `crossval_predict_phtest.do`, `crossval_predict_stcrreg.do`) which downloads once, `save`s the cache, and `use`s it on every later call — so a lane makes one network round trip for that dataset rather than one per suite. Deleting the cache file only costs a re-download; a stale cache cannot arise, because the dataset is a fixed StataCorp example. `webuse hiv_si` and `webuse pneumonia` are not cached and are fetched each time they are used, so those blocks need the network on every run.
 
 ## File index
 
@@ -129,10 +132,11 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `_finegray_qa_common.do` | Sandboxed install bootstrap and shared seeded fixture builders. |
 | `gates_transfer_proof.do` | Reproducible delayed-entry output comparison between the pinned and current trees. |
 | `benchmark_finegray_zzf.do` | Standalone scan scaling measurement; not a correctness gate and run on demand. |
+| `benchmark_finegray_crossval.do` | Wall-clock finegray-vs-`stcrreg` timings at N = 500 to 50,000, plus the one coefficient comparison that came with them. Not a correctness gate and not a lane member: these were `crossval_finegray.do`'s C21-C25 until 2026-09-02, where five stopwatch readings on a shared machine were counted as five cross-validation tests. |
 | `_benchmark_finegray_zzf_cell.do` | Fresh-process worker for one benchmark cell. |
 | `run_all.sh`, `test_run_all_wrapper.sh`, `test_finegray_fg02_failclosed.sh` | Reliable shell status, provenance/receipts, wrapper regression, and stale-oracle fail-closed checks. |
 | `crossval_tvc_r.R`, `crossval_pweight_r.R`, `crossval_bstrata_r.R`, `crossval_public_studies_r.R`, `crossval_cif_r.R`, `crossval_finegray_r.R`, `crossval_finegray_zzf_beta_r.R`, `crossval_finegray_zzf_r.R`, `crossval_nuisance_r.R`, `crossval_predict_phtest_r.R` | Independent R generators and comparison implementations used by `crossval_*`. |
-| `validation_finegray_zzf_prereg_r.R` | Independent preregistration of the recovery gate's signed controls. |
+| `validation_finegray_zzf_prereg_r.R` | Independent preregistration of the recovery gate's signed controls. Deliberately **not** a lane member: it records the expected sign of the arm-D negative-control bias, derived from the R oracle, *before* the gated repetitions run, and its output is quoted verbatim in the `Z2-PREREG` header of `validation_finegray_zzf_recovery.do` (and pointed at from `validation_finegray_zzf_coverage.do`). Re-derive with `cd finegray/qa && Rscript validation_finegray_zzf_prereg_r.R`. |
 | `gates_transfer_pin.txt`, `run_all_status.txt`, `run_status_full.txt`, `run_status_gates.txt` | Transfer baseline and machine-readable lane receipts. |
 | `_r_environment.txt`, `.gitignore` | Recorded external environment and generated-artifact policy. |
 
@@ -157,8 +161,9 @@ The runner writes suite logs in the shared `qa/` directory, so concurrent runs o
 | `full` | `core`, the two `test_finegray_adversarial_*` suites, plus `python`; default `run_all.do` and release-wrapper gate. |
 | `gates` | The three multi-hour ZZF recovery, coverage, and factorization validations, run on demand. |
 | Shell gates | Wrapper regression on non-`gates` lanes; stale-oracle gate on `python`/`full`; delayed-entry transfer proof on `full`/`gates`. |
-| Benchmark | `benchmark_finegray_zzf.do`, run manually and never interpreted as a correctness verdict. |
+| Benchmark | `benchmark_finegray_zzf.do` and `benchmark_finegray_crossval.do`, run manually and never interpreted as a correctness verdict. |
 
 ## Known gaps
 
+- **`stata-mp -b do run_all.do <lane>` does not run the three shell gates.** The fail-closed (`fg02`), wrapper-regression and delayed-entry transfer gates live in `run_all.sh`, not in `run_all.do`, so the Stata runner — and the devkit CLI, which drives `run_all.do` — reports a green lane with none of them executed. The same is true of `run_all_status.txt` when it was last written by a `run_all.sh` run: the Stata runner does not write it. **A release receipt must come from `./run_all.sh full --source-repo <git checkout>`**, run from a scratch copy, and nothing else counts as one. Without `--source-repo` the transfer gate has no git tree to extract the pinned commit from; as of 2026-09-02 that reports `NOT-RUN` and fails the `full` and `gates` lanes rather than passing them silently.
 - `full` intentionally excludes the multi-hour `gates` lane and scaling benchmark; their separate receipts and transfer pin do not substitute for rerunning them after an estimator-core change.

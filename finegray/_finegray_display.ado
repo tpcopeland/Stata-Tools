@@ -5,7 +5,7 @@
 
 /*
 Syntax:
-  _finegray_display [, level(#) noshr]
+  _finegray_display [, level(#) noshr coeflegend]
 
 WHY THIS EXISTS.  finegray's output is produced in exactly one place so that
 `finegray' typed with no varlist -- the replay every Stata e-class estimator
@@ -31,7 +31,25 @@ program define _finegray_display
     * level() is parsed as a string, not cilevel: cilevel auto-fills an omitted
     * option with c(level), which would make a replay silently redisplay at the
     * SESSION level rather than at the level the fit was reported with.
-    syntax [, Level(string) noSHR]
+    syntax [, Level(string) noSHR COEFLegend]
+
+    * coeflegend replaces the statistics with the _b[] names that index them,
+    * so neither a confidence level nor the SHR/log-SHR scale has anything to
+    * apply to.  Stata's own estimators refuse level() with coeflegend; noshr
+    * is refused for the same reason rather than accepted with no effect.
+    * (Through the 1.3.0 pre-release builds `finegray, coeflegend' was refused r(198), so the
+    * name of a tvc or factor design column could not be read off the table.)
+    if "`coeflegend'" != "" {
+        if `"`level'"' != "" {
+            display as error "level() may not be combined with coeflegend"
+            exit 198
+        }
+        if "`shr'" == "noshr" {
+            display as error "noshr may not be combined with coeflegend"
+            display as error "the legend table reports coefficient names, not a coefficient scale"
+            exit 198
+        }
+    }
 
     if `"`e(cmd)'"' != "finegray" {
         display as error "last estimates not found"
@@ -271,7 +289,10 @@ program define _finegray_display
     * =====================================================================
     * COEFFICIENT TABLE
     * =====================================================================
-    if "`shr'" == "noshr" {
+    if "`coeflegend'" != "" {
+        ereturn display, coeflegend
+    }
+    else if "`shr'" == "noshr" {
         ereturn display, level(`level')
     }
     else {

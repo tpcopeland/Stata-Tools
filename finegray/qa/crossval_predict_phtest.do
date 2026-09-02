@@ -148,9 +148,12 @@ capture noisily {
     quietly summ xb_diff, meanonly
     local max_xb = r(max)
     local mean_xb = r(mean)
-    display as text "  max |xb_stata - xb_R| = " %10.8f `max_xb'
-    display as text "  mean |xb_stata - xb_R| = " %10.8f `mean_xb'
-    assert `max_xb' < 0.001
+    display as text "  max |xb_stata - xb_R| = " %12.4e `max_xb'
+    display as text "  mean |xb_stata - xb_R| = " %12.4e `mean_xb'
+    * TOLERANCE 1e-6.  MEASURED 2026-09-02: 1.2e-07 (echoed above), so about 8x.
+    * The 0.001 that stood here was four orders above the measurement, on a
+    * linear predictor whose spread is of order 1.
+    assert `max_xb' < 1e-6
     restore
 }
 if _rc != 0 {
@@ -185,10 +188,12 @@ capture noisily {
     quietly summ cif_diff, meanonly
     local max_cif = r(max)
     local mean_cif = r(mean)
-    display as text "  max |CIF_stata - CIF_R| = " %10.8f `max_cif'
-    display as text "  mean |CIF_stata - CIF_R| = " %10.8f `mean_cif'
-    * Tier 1 tolerance for same-algorithm CIF
-    assert `max_cif' < 0.01
+    display as text "  max |CIF_stata - CIF_R| = " %12.4e `max_cif'
+    display as text "  mean |CIF_stata - CIF_R| = " %12.4e `mean_cif'
+    * TOLERANCE 1e-6.  Same-algorithm CIF, so this is an identity up to
+    * summation order.  MEASURED 2026-09-02: 6e-08 (echoed above), about 17x.
+    * The 0.01 that stood here was a sixth of the CIF being compared.
+    assert `max_cif' < 1e-6
     restore
 }
 if _rc != 0 {
@@ -383,8 +388,9 @@ capture noisily {
     assert !missing(xb_sim, r_xb)
     gen double xb_diff = abs(xb_sim - r_xb)
     quietly summ xb_diff, meanonly
-    display as text "  sim max |xb_diff| = " %10.8f r(max)
-    assert r(max) < 0.001
+    display as text "  sim max |xb_diff| = " %12.4e r(max)
+    * TOLERANCE 1e-6.  MEASURED 2026-09-02: 1.3e-07.
+    assert r(max) < 1e-6
     restore
 }
 if _rc != 0 {
@@ -413,8 +419,9 @@ capture noisily {
     assert !missing(cif_sim, r_cif)
     gen double cif_diff = abs(cif_sim - r_cif)
     quietly summ cif_diff, meanonly
-    display as text "  sim max |CIF_diff| = " %10.8f r(max)
-    assert r(max) < 0.01
+    display as text "  sim max |CIF_diff| = " %12.4e r(max)
+    * TOLERANCE 1e-6.  MEASURED 2026-09-02: 6e-08.
+    assert r(max) < 1e-6
     restore
 }
 if _rc != 0 {
@@ -590,12 +597,15 @@ capture noisily {
     gen double cif_manual = 1 - exp(-`H0' * exp(xb_ic))
     gen double cif_diff = abs(cif_ic - cif_manual) if e(sample)
     quietly summ cif_diff, meanonly
-    display as text "  max |CIF_predict - CIF_manual| = " %12.10f r(max)
+    display as text "  max |CIF_predict - CIF_manual| = " %12.4e r(max)
+    * TOLERANCE 1e-6.  MEASURED 2026-09-02: 3.53e-08.  The receipt above used to
+    * print "(< 1e-10)" beside a gate of 1e-6 -- four orders apart, so the line a
+    * reader would quote was not the line that was enforced.
     assert r(max) < 1e-6
     drop xb_ic cif_ic cif_manual cif_diff
 }
 if _rc == 0 {
-    display as result "  PASS: P13 CIF formula consistency (< 1e-10)"
+    display as result "  PASS: P13 CIF formula consistency (< 1e-6)"
     local ++pass_count
 }
 else {
@@ -708,19 +718,29 @@ foreach f in pp_hypoxia_input.csv pp_sim_input.csv ///
 }
 capture rmdir "`datadir'"
 
+display "RESULT: crossval_predict_phtest tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+
+* A SKIPPED EXTERNAL ORACLE IS AN UNRUN CHECK, NOT A PASS (2026-09-02).
+* This suite used to print "RESULT: PASS (n passed, k skipped)" and exit 0 when
+* the R oracle was unavailable, so a machine with no R -- or with the package
+* missing -- produced a green cross-validation that had cross-validated nothing.
+* run_all.do already treats skip > 0 as a lane failure by parsing the machine
+* sentinel, but a human reading the suite's own last line was told PASS.  Match
+* crossval_pweight.do: skip > 0 exits 1, and the word PASS is not printed on a
+* skipped run.  The machine sentinel above is unchanged -- run_all.do parses
+* `RESULT: <name> tests=.. pass=.. fail=.. skip=..' and nothing else.
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
     log close _crossval_pp
     exit 1
 }
 else if `skip_count' > 0 {
-    display as result ///
-        "RESULT: PASS (`pass_count' passed, `skip_count' skipped)"
+    display as error ///
+        "RESULT: NOT RUN (`pass_count' checked, `skip_count' SKIPPED -- the R oracle was unavailable)"
+    display as error "Install the missing R dependency and re-run; a skipped oracle is not evidence."
+    log close _crossval_pp
+    exit 1
 }
-else {
-    display as result "RESULT: PASS (all `test_count' tests passed)"
-}
-
-display "RESULT: crossval_predict_phtest tests=`test_count' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+display as result "RESULT: PASS (all `test_count' tests passed)"
 
 log close _crossval_pp

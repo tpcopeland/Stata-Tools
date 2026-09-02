@@ -771,14 +771,29 @@ capture noisily {
     stset dftime, failure(dfcens==1) id(stnum)
     finegray ifp tumsize pelnode, compete(status) cause(1)
     * graph options present alongside nograph: must be a no-op, payload intact
+    graph drop _all
     finegray_cif, ci nograph legend(off) title("ignored")
     assert _rc == 0
     matrix T = r(table)
     assert colsof(T) == 5
     assert r(cause) == 1
+
+    * UPGRADED 2026-09-02.  The block asserted the PAYLOAD only, so it passed
+    * whether or not nograph actually suppressed the graph.  Assert the effect:
+    * after nograph there is no graph in memory to describe, and after the same
+    * call without nograph there is one.
+    capture graph describe
+    local _rc_ng = _rc
+    finegray_cif, ci legend(off) title("drawn")
+    capture graph describe
+    local _rc_g = _rc
+    display as text "  graph describe after nograph rc = `_rc_ng'; without nograph rc = `_rc_g'"
+    assert `_rc_ng' != 0
+    assert `_rc_g' == 0
+    graph drop _all
 }
 if _rc == 0 {
-    display as result "  PASS: nograph + passthrough leaves payload intact"
+    display as result "  PASS: nograph draws no graph; the same call without it does"
     local ++pass_count
 }
 else {

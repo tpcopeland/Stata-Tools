@@ -224,6 +224,23 @@ display as text "oracle: `n_oracle' fitted datasets (`n_arms' arms x `expected_r
 * four orders of magnitude above this bar.
 * ---------------------------------------------------------------------------
 local tol = 1e-5
+
+* THE COMPARISON, IN ONE PLACE.  The per-pair arithmetic below used to be
+* written inline in the loop, which meant the "tolerance is live" probe at the
+* bottom of this file could not call it: that probe evaluated a CONSTANT
+* expression, `abs((0.5 + 1e-3) - 0.5) / 0.5 >= tol', and would have reported
+* "tolerance is live" on a build whose real comparison had been commented out.
+* With the arithmetic here, the probe feeds a deliberately perturbed oracle
+* value to exactly the code the loop runs.
+capture program drop _zzf_cmp
+program define _zzf_cmp, rclass
+    args sb1 ob1 sb2 ob2 tol
+    local d1 = abs(`sb1' - `ob1') / max(abs(`ob1'), 1e-8)
+    local d2 = abs(`sb2' - `ob2') / max(abs(`ob2'), 1e-8)
+    local dmax = max(`d1', `d2')
+    return scalar dmax = `dmax'
+    return scalar ok   = (`dmax' < `tol')
+end
 local npair   = 0
 local worst   = 0
 local worstid ""
@@ -304,18 +321,24 @@ foreach arm of local expected_arms {
         local sb1 = _b[z1]
         local sb2 = _b[z2]
 
-        local d1 = abs(`sb1' - `ob1') / max(abs(`ob1'), 1e-8)
-        local d2 = abs(`sb2' - `ob2') / max(abs(`ob2'), 1e-8)
-        local dmax = max(`d1', `d2')
+        _zzf_cmp `sb1' `ob1' `sb2' `ob2' `tol'
+        local dmax = r(dmax)
+        local _cmp_ok = r(ok)
 
         local ++npair
         if `dmax' > `worst' {
             local worst   = `dmax'
             local worstid "`arm' rep `r'"
         }
+        * Kept for the live-tolerance probe below, which re-runs _zzf_cmp on a
+        * perturbed copy of a pair this loop actually compared.
+        local _lastsb1 = `sb1'
+        local _lastob1 = `ob1'
+        local _lastsb2 = `sb2'
+        local _lastob2 = `ob2'
 
         local ++test_count
-        if `dmax' < `tol' {
+        if `_cmp_ok' {
             local ++pass_count
         }
         else {
@@ -346,18 +369,35 @@ else {
     display as error "  FAIL: compared `npair' datasets but the oracle has `n_oracle'"
 }
 
-* The comparison must be capable of failing.  Perturb one coefficient by 1e-3
-* -- three orders above tolerance, three below the difference a wrong estimator
-* would show -- and confirm the assertion fires.
+* THE COMPARISON MUST BE CAPABLE OF FAILING.  Rewritten 2026-09-02: the probe
+* that stood here evaluated `abs((0.5 + 1e-3) - 0.5) / 0.5 >= tol' -- a constant
+* expression involving neither the oracle, the fit, nor the comparison code.  It
+* would have printed "tolerance is live" on a build where the real comparison
+* had been deleted, which is precisely the failure a false-green guard exists to
+* catch.  It now takes a pair the loop ACTUALLY compared, perturbs the oracle
+* coefficient by 1e-3 relative, and requires the same _zzf_cmp the loop calls to
+* report that pair as a failure.  The perturbation is three orders above `tol'
+* and three below the difference a wrong estimator would show.
 local ++test_count
-local probe = abs((0.5 + 1e-3) - 0.5) / 0.5
-if `probe' >= `tol' {
-    local ++pass_count
-    display as result "  PASS: tolerance is live (a 1e-3 perturbation would fail)"
+if `npair' > 0 {
+    local _pert = `_lastob1' + 1e-3 * max(abs(`_lastob1'), 1e-3)
+    _zzf_cmp `_lastsb1' `_pert' `_lastsb2' `_lastob2' `tol'
+    local _probe_d  = r(dmax)
+    local _probe_ok = r(ok)
+    display as text "  live-tolerance probe: perturbed oracle " %13.8f `_lastob1' ///
+        " -> " %13.8f `_pert' "  dmax = " %11.2e `_probe_d' "  reported ok = `_probe_ok'"
+    if `_probe_ok' == 0 {
+        local ++pass_count
+        display as result "  PASS: the comparison rejects a 1e-3 perturbation of a real oracle pair"
+    }
+    else {
+        local ++fail_count
+        display as error "  FAIL: the comparison ACCEPTED a 1e-3 perturbation -- it cannot fail"
+    }
 }
 else {
     local ++fail_count
-    display as error "  FAIL: tolerance is too loose to detect a 1e-3 error"
+    display as error "  FAIL: no pair was compared, so the live-tolerance probe has nothing to perturb"
 }
 
 display as text _newline "RESULT: crossval_finegray_zzf tests=`test_count' pass=`pass_count' fail=`fail_count'"

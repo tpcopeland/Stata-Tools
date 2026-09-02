@@ -1028,6 +1028,105 @@ _fgwt_result `_rc' "WT-16 zero weights, if, in and row deletion give one fit: e(
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
+* -----------------------------------------------------------------------------
+**# WT-17  the DEFAULT finegray_cif profile is the WEIGHTED estimation-sample mean
+* -----------------------------------------------------------------------------
+* WATCHED FAIL 2026-09-02.  finegray_cif builds its default at() profile from
+* `summarize `v' if e(sample), meanonly' -- unweighted -- and the proportion of
+* an unset factor piece from an unweighted `count'.  The weight column was
+* rebuilt only later, for the Mata calls.  So an [fw=w] fit reported a default
+* CIF at a profile the fit had never seen, at rc 0.  Measured against the
+* expanded-data fit on this fixture before the fix (watched fail, pre-fix
+* finegray_cif.ado from git HEAD 789e2635): plain r(at) 2.004e-02 / r(table)
+* 2.069e-03; factor 2.004e-02 / 4.610e-03; factor+at() 9.317e-03 / 2.456e-03;
+* over(grp) 2.004e-02 / 1.922e-03 -- every arm non-zero.  After the fix all
+* eight are at summation noise, so they are asserted at 1e-12 in the style of
+* WT-15(e); the post-fix measurements are printed by the display lines below.
+*
+* The oracle is WT-03's: an fweighted fit IS the fit of the replicated data,
+* and that identity has to hold for the DEFAULT profile too, not only for a
+* profile the user types with at().  Three forms are checked, because they
+* reach three different pieces of the profile builder:
+*   (a) plain continuous fit         -- the zmeans loop
+*   (b) factor fit with at() partial -- the unset-piece branch (a factor
+*                                       proportion and a continuous mean
+*                                       inside an interaction column)
+*   (c) over()                       -- one profile per curve, same builder
+local ++test_count
+capture noisily {
+    _fgwt_data
+
+    * ---- (a) plain fit, no at() ----
+    finegray x1 [fw = fw], compete(status) cause(1) nolog
+    tempname Ta Aa
+    quietly finegray_cif, attime(0.5 1 2) ci nograph
+    matrix `Ta' = r(table)
+    matrix `Aa' = r(at)
+
+    * ---- (b) factor fit i.grp##c.x1: default, and at() on one piece only ----
+    finegray i.grp##c.x1 [fw = fw], compete(status) cause(1) nolog
+    tempname Tb Ab Tb2 Ab2
+    quietly finegray_cif, attime(0.5 1 2) ci nograph
+    matrix `Tb' = r(table)
+    matrix `Ab' = r(at)
+    * at(x1=.) leaves the grp indicator and the grp#x1 interaction pieces
+    * unset, so the proportion/mean branch of the propagation runs
+    quietly finegray_cif, attime(0.5 1 2) at(x1=0.25) ci nograph
+    matrix `Tb2' = r(table)
+    matrix `Ab2' = r(at)
+
+    * ---- (c) over(grp) on the factor fit, no at() ----
+    tempname Tc Ac
+    quietly finegray_cif, attime(1) over(grp) nograph
+    matrix `Tc' = r(table)
+    matrix `Ac' = r(at)
+
+    preserve
+    expand fw
+    gen long id2 = _n
+    quietly stset time, failure(status) id(id2)
+
+    finegray x1, compete(status) cause(1) nolog
+    quietly finegray_cif, attime(0.5 1 2) ci nograph
+    local _da_t = mreldif(r(table), `Ta')
+    local _da_a = mreldif(r(at), `Aa')
+
+    finegray i.grp##c.x1, compete(status) cause(1) nolog
+    quietly finegray_cif, attime(0.5 1 2) ci nograph
+    local _db_t = mreldif(r(table), `Tb')
+    local _db_a = mreldif(r(at), `Ab')
+    quietly finegray_cif, attime(0.5 1 2) at(x1=0.25) ci nograph
+    local _db2_t = mreldif(r(table), `Tb2')
+    local _db2_a = mreldif(r(at), `Ab2')
+    quietly finegray_cif, attime(1) over(grp) nograph
+    local _dc_t = mreldif(r(table), `Tc')
+    local _dc_a = mreldif(r(at), `Ac')
+    restore
+
+    display as text "  WT-17 plain      r(at) mreldif = " %10.3e `_da_a' ///
+        "  r(table) mreldif = " %10.3e `_da_t'
+    display as text "  WT-17 factor     r(at) mreldif = " %10.3e `_db_a' ///
+        "  r(table) mreldif = " %10.3e `_db_t'
+    display as text "  WT-17 factor+at  r(at) mreldif = " %10.3e `_db2_a' ///
+        "  r(table) mreldif = " %10.3e `_db2_t'
+    display as text "  WT-17 over(grp)  r(at) mreldif = " %10.3e `_dc_a' ///
+        "  r(table) mreldif = " %10.3e `_dc_t'
+
+    assert `_da_a'  < 1e-12
+    assert `_da_t'  < 1e-12
+    assert `_db_a'  < 1e-12
+    assert `_db_t'  < 1e-12
+    assert `_db2_a' < 1e-12
+    assert `_db2_t' < 1e-12
+    assert `_dc_a'  < 1e-12
+    assert `_dc_t'  < 1e-12
+}
+local _rc = _rc
+capture restore
+_fgwt_result `_rc' "WT-17 the default finegray_cif profile is the WEIGHTED estimation-sample mean: r(at) and r(table) equal the expanded-data fit (plain, factor, factor+at(), over())"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_weights tests=`test_count' pass=`pass_count' fail=`fail_count'"

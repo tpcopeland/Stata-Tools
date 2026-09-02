@@ -12,6 +12,25 @@
 
 suppressPackageStartupMessages(library(crrSC))
 
+# ---------------------------------------------------------------------------
+# ORACLE TOOLCHAIN BANNER (added 2026-09-02).  run_all.sh records "R_version"
+# in the receipt, but it does that by asking Rscript at RECEIPT time -- after
+# every oracle has already run, and saying nothing at all about which package
+# versions produced the numbers.  A crossval whose oracle silently moved from
+# one package release to another is exactly the drift a cross-validation exists
+# to catch, so every crossval_*_r.R prints its own R and package versions to
+# stdout, where the suite's .do file echoes them into the run log.
+.fg_banner <- function(pkgs) {
+    cat(sprintf("R_ENV: script=%s R=%s platform=%s\n",
+                "crossval_public_studies_r.R", as.character(getRversion()), R.version$platform))
+    for (p in pkgs) {
+        v <- tryCatch(as.character(utils::packageVersion(p)),
+                      error = function(e) "NOT-INSTALLED")
+        cat(sprintf("R_ENV: package %s = %s\n", p, v))
+    }
+}
+.fg_banner(c("crrSC", "survival"))
+
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 2L) {
     stop("usage: crossval_public_studies_r.R <data_csv> <oracle_csv>")

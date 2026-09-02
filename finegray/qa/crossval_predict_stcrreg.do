@@ -323,11 +323,13 @@ capture noisily {
     local r2 = abs(frt[2,2] - s_se2) / s_se2
     local r3 = abs(frt[2,3] - s_se3) / s_se3
     local mx = max(`r1', `r2', `r3')
-    display as text "    SE max rel diff = " %7.4f `mx'
-    assert `mx' < 0.02
+    display as text "    SE max rel diff = " %12.3e `mx'
+    * TOLERANCE 0.005.  MEASURED 2026-09-02: 8e-04 (echoed above), so about 6x.
+    * The 0.02 that stood here was 25x it.
+    assert `mx' < 0.005
 }
 if _rc == 0 {
-    display as result "  PASS: A9 robust SEs vs stcrreg (< 2% rel)"
+    display as result "  PASS: A9 robust SEs vs stcrreg (< 0.5% rel)"
     local ++pass_count
 }
 else {
@@ -345,11 +347,13 @@ capture noisily {
         local ru = abs(frt[6,`k'] - s_ul`k') / s_ul`k'
         local mx = max(`mx', `rl', `ru')
     }
-    display as text "    95% CI max rel diff = " %7.4f `mx'
-    assert `mx' < 0.02
+    display as text "    95% CI max rel diff = " %12.3e `mx'
+    * TOLERANCE 0.005.  MEASURED 2026-09-02: 7e-04.  The limits are built from
+    * the SEs gated above, so the two bounds match by construction.
+    assert `mx' < 0.005
 }
 if _rc == 0 {
-    display as result "  PASS: A10 SHR 95% CI vs stcrreg (< 2% rel)"
+    display as result "  PASS: A10 SHR 95% CI vs stcrreg (< 0.5% rel)"
     local ++pass_count
 }
 else {
@@ -435,10 +439,13 @@ capture noisily {
                                  abs(frtB[6,`k']-srtB[6,`k'])/srtB[6,`k'])
     }
     display as text "    cause2 SHR|diff=" %12.3e `mxshr' ///
-        "  SE rel=" %7.4f `mxse' "  CI rel=" %7.4f `mxci'
-    assert `mxshr' < 1e-4
-    assert `mxse'  < 0.02
-    assert `mxci'  < 0.02
+        "  SE rel=" %12.3e `mxse' "  CI rel=" %12.3e `mxci'
+    * TOLERANCES 1e-5 / 0.005 / 0.005.  MEASURED 2026-09-02: SHR 1.629e-07,
+    * SE 3e-04, CI 1e-04.  The 0.02 that stood on the two relative gates was
+    * about 25x and 200x their measurements.
+    assert `mxshr' < 1e-5
+    assert `mxse'  < 0.005
+    assert `mxci'  < 0.005
 }
 if _rc == 0 {
     display as result "  PASS: B3 SHR/SE/CI vs stcrreg (cause 2)"

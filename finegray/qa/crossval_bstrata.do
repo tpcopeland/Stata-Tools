@@ -380,15 +380,26 @@ capture erase "`datadir'/bstrata_r_input.csv"
 capture erase "`datadir'/bstrata_r_output.csv"
 capture rmdir "`datadir'"
 
+* A SKIPPED EXTERNAL ORACLE IS AN UNRUN CHECK, NOT A PASS (2026-09-02).
+* This suite used to print "RESULT: PASS (n passed, k skipped)" and exit 0 when
+* the R oracle was unavailable, so a machine with no R -- or with the package
+* missing -- produced a green cross-validation that had cross-validated nothing.
+* run_all.do already treats skip > 0 as a lane failure by parsing the machine
+* sentinel, but a human reading the suite's own last line was told PASS.  Match
+* crossval_pweight.do: skip > 0 exits 1, and the word PASS is not printed on a
+* skipped run.  The machine sentinel above is unchanged -- run_all.do parses
+* `RESULT: <name> tests=.. pass=.. fail=.. skip=..' and nothing else.
 if `fail_count' > 0 {
     display as error "RESULT: FAIL (`fail_count' of `test_count' tests failed)"
     log close _cvbs
     exit 1
 }
 else if `skip_count' > 0 {
-    display as result "RESULT: PASS (`pass_count' passed, `skip_count' skipped)"
+    display as error ///
+        "RESULT: NOT RUN (`pass_count' checked, `skip_count' SKIPPED -- the R oracle was unavailable)"
+    display as error "Install the missing R dependency and re-run; a skipped oracle is not evidence."
+    log close _cvbs
+    exit 1
 }
-else {
-    display as result "RESULT: PASS (all `test_count' tests passed)"
-}
+display as result "RESULT: PASS (all `test_count' tests passed)"
 log close _cvbs

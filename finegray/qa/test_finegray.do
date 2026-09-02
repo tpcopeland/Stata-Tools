@@ -224,15 +224,61 @@ else {
 * {smcl}
 * {* SECTION 3: Option tests}{...}
 
-* T9: noshr option
+* T9: noshr option -- the table actually changes scale
+* UPGRADED 2026-09-02.  This test asserted only e(converged) == 1, which is
+* true with and without noshr, so it passed on a build where the option did
+* nothing.  It now checks the EFFECT: the printed column header switches from
+* SHR to Coefficient, and r(table) row 1 carries e(b) rather than exp(e(b)).
 local ++test_count
 capture noisily {
     _setup_hypoxia
+    tempfile _t9log _t9log2
+    capture log close _t9
+    quietly log using "`_t9log'", replace text name(_t9)
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog noshr
+    * r(table) NOW, before any `capture': `capture' resets r(), so a
+    * `capture log close' placed first hands back the PREVIOUS command's
+    * r(table) at rc 0 (measured 2026-09-02 while writing this test)
+    tempname _b9 _r9 _r9row _r9b _r9exp
+    matrix `_b9' = e(b)
+    matrix `_r9' = r(table)
+    capture log close _t9
     assert e(converged) == 1
+    * a matrix subscript expression inside mreldif() is r(509); extract first
+    matrix `_r9row' = `_r9'[1, 1...]
+    * on the log-SHR scale r(table) IS e(b), and the eform flag is off
+    assert mreldif(`_r9row', `_b9') == 0
+    assert `_r9'[9, 1] == 0
+
+    quietly log using "`_t9log2'", replace text name(_t9)
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    matrix `_r9b' = r(table)
+    capture log close _t9
+    * reldif(., .) is 0 in Stata, so an empty r(table) would pass the tolerance
+    * below silently; guard both arguments first
+    scalar `_r9exp' = exp(`_b9'[1, 1])
+    assert !missing(`_r9b'[1, 1], `_r9exp')
+    assert reldif(`_r9b'[1, 1], `_r9exp') < 1e-12
+    assert `_r9b'[9, 1] == 1
+
+    tempname _fh9
+    local _blob9 ""
+    foreach _f9 in "`_t9log'" "`_t9log2'" {
+        file open `_fh9' using "`_f9'", read text
+        file read `_fh9' line
+        while r(eof) == 0 {
+            local _blob9 `"`_blob9' `line'"'
+            file read `_fh9' line
+        }
+        file close `_fh9'
+    }
+    display as text "  T9 Coefficient header printed: " (strpos(`"`_blob9'"', "Coefficient") > 0)
+    display as text "  T9 SHR header printed:         " (strpos(`"`_blob9'"', "SHR") > 0)
+    assert strpos(`"`_blob9'"', "Coefficient") > 0
+    assert strpos(`"`_blob9'"', "SHR") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: T9 noshr option"
+    display as result "  PASS: T9 noshr switches the table to the log-SHR scale"
     local ++pass_count
 }
 else {
@@ -354,15 +400,57 @@ else {
     local ++fail_count
 }
 
-* T17: nolog option (suppress iteration log)
+* T17: nolog option (suppress iteration log) -- and the log IS there without it
+* UPGRADED 2026-09-02.  This test asserted only e(converged) == 1, which holds
+* whether or not nolog suppresses anything.  It now reads the command's own
+* output back out of a log file: with nolog neither "Fitting Fine-Gray model"
+* nor any "Iteration " line may appear, and without it both must.
 local ++test_count
 capture noisily {
     _setup_hypoxia
+
+    tempfile _t17a _t17b
+    capture log close _t17
+    quietly log using "`_t17a'", replace text name(_t17)
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    capture log close _t17
     assert e(converged) == 1
+
+    capture log close _t17
+    quietly log using "`_t17b'", replace text name(_t17)
+    finegray ifp tumsize pelnode, compete(status) cause(1)
+    capture log close _t17
+    assert e(converged) == 1
+
+    tempname _fh17
+    local _q17 ""
+    file open `_fh17' using "`_t17a'", read text
+    file read `_fh17' line
+    while r(eof) == 0 {
+        local _q17 `"`_q17' `line'"'
+        file read `_fh17' line
+    }
+    file close `_fh17'
+    local _n17 ""
+    file open `_fh17' using "`_t17b'", read text
+    file read `_fh17' line
+    while r(eof) == 0 {
+        local _n17 `"`_n17' `line'"'
+        file read `_fh17' line
+    }
+    file close `_fh17'
+
+    display as text "  T17 quiet run: Fitting=" (strpos(`"`_q17'"', "Fitting Fine-Gray model") > 0) ///
+        " Iteration=" (strpos(`"`_q17'"', "Iteration ") > 0)
+    display as text "  T17 noisy run: Fitting=" (strpos(`"`_n17'"', "Fitting Fine-Gray model") > 0) ///
+        " Iteration=" (strpos(`"`_n17'"', "Iteration ") > 0)
+    assert strpos(`"`_q17'"', "Fitting Fine-Gray model") == 0
+    assert strpos(`"`_q17'"', "Iteration ") == 0
+    assert strpos(`"`_n17'"', "Fitting Fine-Gray model") > 0
+    assert strpos(`"`_n17'"', "Iteration ") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: T17 nolog option"
+    display as result "  PASS: T17 nolog suppresses the iteration log; it is printed without it"
     local ++pass_count
 }
 else {
@@ -1515,18 +1603,58 @@ else {
     local ++fail_count
 }
 
-* T68: detail option
+* T68: finegray_phtest, detail -- the per-residual rows are actually printed
+* UPGRADED 2026-09-02.  This test asserted only that r(phtest)[1,1] is a
+* correlation, which is true with and without detail, so it passed on a build
+* where detail printed nothing extra.  It now compares the two runs' output
+* line for line: the detail run must be strictly longer and must carry the
+* per-residual section its plain counterpart does not.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+
+    tempfile _t68d _t68p
+    capture log close _t68
+    quietly log using "`_t68d'", replace text name(_t68)
     finegray_phtest, detail
-    * 1.2.0 + FG-03: diagnostic surface; column 1 is a correlation in [-1,1].
+    * r(phtest) NOW: `capture' resets r(), so a `capture log close' placed
+    * between the command and this line hands back an empty matrix (the same
+    * trap documented at FG03-4 in test_finegray_fg03_diagnostic.do)
     matrix _Tph = r(phtest)
+    capture log close _t68
     assert _Tph[1,1] >= -1 & _Tph[1,1] <= 1
+
+    capture log close _t68
+    quietly log using "`_t68p'", replace text name(_t68)
+    finegray_phtest
+    capture log close _t68
+
+    tempname _fh68
+    local _nd68 = 0
+    file open `_fh68' using "`_t68d'", read text
+    file read `_fh68' line
+    while r(eof) == 0 {
+        local ++_nd68
+        file read `_fh68' line
+    }
+    file close `_fh68'
+    local _np68 = 0
+    file open `_fh68' using "`_t68p'", read text
+    file read `_fh68' line
+    while r(eof) == 0 {
+        local ++_np68
+        file read `_fh68' line
+    }
+    file close `_fh68'
+
+    display as text "  T68 detail run lines = `_nd68'; plain run lines = `_np68'"
+    * one row per cause event is a lot more than the summary table
+    assert `_nd68' > `_np68'
+    assert `_nd68' - `_np68' > 10
 }
 if _rc == 0 {
-    display as result "  PASS: T68 detail option"
+    display as result "  PASS: T68 detail prints the per-residual rows (plain run does not)"
     local ++pass_count
 }
 else {
@@ -2200,6 +2328,9 @@ capture noisily {
     _setup_hypoxia
     collect clear
     collect: finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    * e(b) NOW: the stcrreg fit below replaces it, and the read-back must be
+    * against finegray's coefficients
+    matrix _T102b = e(b)
     * stcrreg needs failure(status==1)
     stset dftime, failure(status==1) id(stnum)
     collect: stcrreg ifp tumsize pelnode, compete(status == 2)
@@ -2207,6 +2338,38 @@ capture noisily {
         coef("SHR") models("finegray \ stcrreg") ///
         title("Basic model: finegray vs stcrreg") stats(n)
     confirm file "`output_dir'/finegray_regtab.xlsx"
+
+    * UPGRADED 2026-09-02.  `confirm file' alone passes on a workbook whose
+    * finegray column is empty, or carries stcrreg's numbers, or was written
+    * from a previous run: the file existing says nothing about its contents.
+    * Read the sheet back and check that every finegray SHR in it is exp(e(b))
+    * to the two decimals regtab prints -- an empty column, a stale workbook or
+    * a column written from the wrong e(b) all fail here.  No assert runs
+    * between preserve and
+    * restore -- a failure there would leak the preserved state and make the
+    * NEXT test die r(621) instead (see the note in test_finegray_weights.do).
+    local _t102miss ""
+    local _t102col ""
+    preserve
+    quietly import excel using "`output_dir'/finegray_regtab.xlsx", ///
+        sheet("Basic") clear allstring
+    local _t102cn : colnames _T102b
+    local _j = 0
+    foreach _cn of local _t102cn {
+        local ++_j
+        * base and omitted levels carry no printed row (regtab omits them)
+        if regexm("`_cn'", "[0-9]+[bo]\.") continue
+        local _want = trim(string(exp(_T102b[1, `_j']), "%9.2f"))
+        local _t102col "`_t102col' `_want'"
+        quietly count if trim(C) == "`_want'"
+        if r(N) == 0 local _t102miss "`_t102miss' `_want'"
+    }
+    restore
+    display as text "  T102 finegray SHRs expected in column C:`_t102col'"
+    if `"`_t102miss'"' != "" {
+        display as error "  T102 SHR value(s) not found in the workbook:`_t102miss'"
+    }
+    assert `"`_t102miss'"' == ""
 }
 if _rc == 0 {
     display as result "  PASS: T102 regtab basic finegray vs stcrreg"
@@ -2245,14 +2408,41 @@ capture noisily {
     _setup_hypoxia
     collect clear
     collect: finegray i.pelnode ifp tumsize, compete(status) cause(1) nolog
+    matrix _T104b = e(b)
     stset dftime, failure(status==1) id(stnum)
     collect: stcrreg i.pelnode ifp tumsize, compete(status == 2)
     regtab, xlsx("`output_dir'/finegray_regtab.xlsx") sheet("Factor vars") ///
         coef("SHR") models("finegray \ stcrreg") ///
         title("Factor variable model: i.pelnode") stats(n)
     confirm file "`output_dir'/finegray_regtab.xlsx"
+
+    * Same read-back on the factor sheet: the indicator column is the one a
+    * mis-mapped factor design would move, and it is the first column of e(b).
+    local _t104miss ""
+    local _t104col ""
+    preserve
+    quietly import excel using "`output_dir'/finegray_regtab.xlsx", ///
+        sheet("Factor vars") clear allstring
+    local _t104cn : colnames _T104b
+    local _j = 0
+    foreach _cn of local _t104cn {
+        local ++_j
+        * base and omitted levels carry no printed row (regtab omits them)
+        if regexm("`_cn'", "[0-9]+[bo]\.") continue
+        local _want = trim(string(exp(_T104b[1, `_j']), "%9.2f"))
+        local _t104col "`_t104col' `_want'"
+        quietly count if trim(C) == "`_want'"
+        if r(N) == 0 local _t104miss "`_t104miss' `_want'"
+    }
+    restore
+    display as text "  T104 finegray SHRs expected in column C:`_t104col'"
+    if `"`_t104miss'"' != "" {
+        display as error "  T104 SHR value(s) not found in the workbook:`_t104miss'"
+    }
+    assert `"`_t104miss'"' == ""
     cap drop _fg_*
 }
+capture matrix drop _T102b _T104b
 if _rc == 0 {
     display as result "  PASS: T104 regtab factor variables"
     local ++pass_count
@@ -2736,9 +2926,39 @@ capture noisily {
     assert strpos("`lbl'", "__") == 0
     assert strpos("`lbl'", "pelnode") > 0
     drop sch sch_2
+
+    * ADDED 2026-09-02.  ONE SPELLING ACROSS THE THREE POST-ESTIMATION
+    * COMMANDS.  finegray_predict built its Schoenfeld label with
+    * subinstr("`_term'", "c.", "", .), so an interaction column was labelled
+    * "1.pelnode#ifp" while finegray_phtest's r(phtest) rowname and
+    * r(profile_vars) both carried the verbatim "1.pelnode#c.ifp" -- the same
+    * design column under two names, at rc 0.  Assert the label list IS the
+    * phtest rowname list, on a fit whose terms actually contain `c.'.
+    finegray i.pelnode##c.ifp, compete(status) cause(1) nolog
+    finegray_predict schx, schoenfeld
+    local _t124lab ""
+    foreach v of varlist schx schx_* {
+        local _l : variable label `v'
+        local _l = subinstr("`_l'", "Schoenfeld residual: ", "", 1)
+        local _t124lab "`_t124lab' `_l'"
+    }
+    local _t124lab : list retokenize _t124lab
+    quietly finegray_phtest
+    tempname _T124
+    matrix `_T124' = r(phtest)
+    local _t124row : rownames `_T124'
+    local _t124row : list retokenize _t124row
+    display as text "  T124 predict labels : `_t124lab'"
+    display as text "  T124 phtest rownames: `_t124row'"
+    assert "`_t124lab'" == "`_t124row'"
+    * and the term really does carry a `c.' part, so the assertion is not
+    * vacuously true on a design with no continuous interaction
+    assert strpos("`_t124row'", "#c.") > 0
+    drop schx*
+    cap drop _fg_*
 }
 if _rc == 0 {
-    display as result "  PASS: T124 FV Schoenfeld rebuild keeps semantic labels"
+    display as result "  PASS: T124 FV Schoenfeld labels are the phtest term spelling, verbatim"
     local ++pass_count
 }
 else {

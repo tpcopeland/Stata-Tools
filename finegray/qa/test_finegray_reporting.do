@@ -18,6 +18,9 @@
 *   a bootstrap SD of exactly zero.  These tests pin the INVARIANT (an SE that
 *   exists and is non-negative wherever the replications succeeded), not a
 *   reproduction of the negative branch: see the note at REP-5.
+*
+* REP-8   `finegray, coeflegend' replays the table with the _b[] names.
+*   FAILS on the pre-fix build, where the option was refused r(198).
 clear all
 set varabbrev off
 version 16.0
@@ -257,6 +260,73 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: REP-7 predict bootstrap invariant (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 8. `finegray, coeflegend' replays the table with the _b[] names
+* WATCHED FAIL 2026-09-02.  _finegray_display parsed only `level(string) noshr',
+* so `finegray, coeflegend' -- the replay every Stata e-class estimator answers,
+* and the only documented way to read the exact _b[] name of a tvc or factor
+* design column off the table -- was refused r(198) "option coeflegend not
+* allowed".  It is now accepted and handed to `ereturn display, coeflegend'.
+* level() and noshr are refused with it, as Stata's own estimators refuse
+* level(): the legend table reports neither a scale nor an interval.
+local ++test_count
+capture noisily {
+    _mk_fgrep
+    quietly finegray i.grp##c.x1 x2, compete(ev) cause(1) nolog
+
+    tempfile replog
+    capture log close _rep8
+    quietly log using "`replog'", replace text name(_rep8)
+    finegray, coeflegend
+    local rc_cl = _rc
+    capture log close _rep8
+    display as text "  coeflegend replay rc = `rc_cl'"
+    assert `rc_cl' == 0
+
+    tempname fh8
+    local blob ""
+    file open `fh8' using "`replog'", read text
+    file read `fh8' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh8' line
+    }
+    file close `fh8'
+
+    * the Legend column and the names it is there to show
+    assert strpos(`"`blob'"', "Legend") > 0
+    assert strpos(`"`blob'"', "_b[x2]") > 0
+    assert strpos(`"`blob'"', "_b[2.grp#c.x1]") > 0
+    * coeflegend prints names, not statistics: no SHR column, no p-values
+    assert strpos(`"`blob'"', "SHR") == 0
+    * and the header the fit prints is still there (this IS the replay)
+    assert strpos(`"`blob'"', "Fine-Gray competing risks regression") > 0
+
+    * the legend names are usable: every one indexes a real coefficient
+    assert !missing(_b[x2])
+    assert !missing(_b[2.grp#c.x1])
+
+    * combinations that have nothing to apply to are refused, not ignored
+    capture finegray, coeflegend level(90)
+    assert _rc == 198
+    capture finegray, coeflegend noshr
+    assert _rc == 198
+    * and the plain replay paths are unaffected
+    quietly finegray
+    assert _rc == 0
+    quietly finegray, noshr
+    assert _rc == 0
+    quietly finegray, level(90)
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS: REP-8 finegray, coeflegend replays with _b[] names; level()/noshr refused with it"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: REP-8 coeflegend replay (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -263,8 +263,24 @@ display as text _newline "RESULT: crossval_cif tests=`=`pass'+`fail'+`skip'' pas
 foreach f in "`_cv_in'" "`_cv_nd'" "`_cv_tm'" "`_cv_out'" {
     capture erase "`f'"
 }
+* A SKIPPED EXTERNAL ORACLE IS AN UNRUN CHECK, NOT A PASS (2026-09-02).
+* This suite used to print "RESULT: PASS (n passed, k skipped)" and exit 0 when
+* the R oracle was unavailable, so a machine with no R -- or with the package
+* missing -- produced a green cross-validation that had cross-validated nothing.
+* run_all.do already treats skip > 0 as a lane failure by parsing the machine
+* sentinel, but a human reading the suite's own last line was told PASS.  Match
+* crossval_pweight.do: skip > 0 exits 1, and the word PASS is not printed on a
+* skipped run.  The machine sentinel above is unchanged -- run_all.do parses
+* `RESULT: <name> tests=.. pass=.. fail=.. skip=..' and nothing else.
 if `fail' > 0 {
     display as error "SOME CROSSVAL CHECKS FAILED"
+    log close _cvcif
+    exit 1
+}
+if `skip' > 0 {
+    display as error ///
+        "NOT RUN: `skip' check(s) SKIPPED -- the R oracle was unavailable"
+    display as error "Install the missing R dependency and re-run; a skipped oracle is not evidence."
     log close _cvcif
     exit 1
 }

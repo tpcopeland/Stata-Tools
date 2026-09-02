@@ -79,7 +79,11 @@ data ({cmd:r(301)}); see {help finegray##mi:Multiple imputation}.
 {phang}
 {opt at(var=# ...)} sets the covariate profile at which the CIF is evaluated, for
 example {cmd:at(age=60 male=1)}. Variables not listed are held at their
-estimation-sample mean, which is also the default profile.
+estimation-sample mean, which is also the default profile. After a weighted fit
+that mean is the WEIGHTED estimation-sample mean, taken under the fit's own
+{cmd:[pweight=]}/{cmd:[fweight=]} column: an {cmd:fweight} fit therefore reports
+the same default curve as the fit of the {helpb expand}ed data. A factor
+indicator's default is its weighted sample proportion, sum(w | level) / sum(w).
 
 {phang2}
 Factor variables are named directly by their level, for example
@@ -90,8 +94,9 @@ column the variable appears in, so after
 {cmd:finegray i.pelnode c.ifp i.pelnode#c.ifp}, {cmd:at(pelnode=1 ifp=20)}
 evaluates the interaction at {cmd:1 * 20 = 20}, and {cmd:at(pelnode=0 ifp=20)}
 evaluates it at 0. Where a term mixes a variable you set with one you do not,
-the unset part is held at its estimation-sample mean. A design column that
-contains no variable you set keeps its own estimation-sample mean.
+the unset part is held at its estimation-sample mean (weighted, on a weighted
+fit). A design column that contains no variable you set keeps its own
+estimation-sample mean.
 
 {phang2}
 The package-owned design columns in {cmd:e(designvars)} may still be set by
@@ -109,7 +114,7 @@ the fit.
 {pmore}
 For a model variable, one curve is evaluated at each distinct
 estimation-sample value of {it:varname}, with every other covariate held as {opt at()}
-says (or at its estimation-sample mean); a variable that enters an interaction
+says (or at its estimation-sample mean, weighted on a weighted fit); a variable that enters an interaction
 is carried into every design column it appears in, exactly as {opt at()} does. Each
 curve is the same computation as the standalone call
 {cmd:finegray_cif, at(}{it:varname}{cmd:=}{it:level}{cmd: ...)} and agrees with it bit for bit. {it:varname} may
@@ -159,8 +164,12 @@ available; the analytic route is fixed-weight. See
 {marker bstratum}{...}
 {phang}
 {opt bstratum(#)} names the baseline stratum the CIF belongs to. {bf:Required}
-after a fit with {opt bstrata()}; refused after any other fit. A value with no
-estimation-sample subjects or no cause events is {cmd:r(459)}. Use {opt over()}
+when the fit has more than one baseline stratum ({cmd:e(k_bstrata)} > 1), since
+a covariate profile alone no longer identifies a curve there. It is refused
+({cmd:r(198)}) after every other fit -- including a {opt bstrata()} fit with a
+single stratum, which is the unstratified estimator bit for bit and has no
+stratum to name. A value with no estimation-sample subjects or no cause events
+is {cmd:r(459)}. Use {opt over()}
 on the {opt bstrata()} variable for all strata at once. See
 {help finegray_methods##bstrata:Baseline strata}.
 

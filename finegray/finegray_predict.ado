@@ -580,7 +580,12 @@ program define finegray_predict, rclass sortpreserve
             * base terms (e.g. 1b.grp) carry no coefficient
             if regexm("`_term'", "[0-9]+b\.") continue
 
-            local _label_term = subinstr("`_term'", "c.", "", .)
+            * Label with the term spelled EXACTLY as e(fvsemantic) has it --
+            * `2.grp#c.z', not `2.grp#z'.  finegray_phtest's r(phtest) rownames
+            * and r(profile_vars) both carry the verbatim term, so stripping
+            * `c.' here made the same design column go by two different names
+            * across the three post-estimation commands.
+            local _label_term "`_term'"
             local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
 
             tempvar _fgcol
