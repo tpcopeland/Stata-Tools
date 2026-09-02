@@ -279,6 +279,48 @@ else {
     local ++fail_count
 }
 
+**# FG07-9  attime()/timepoints() collapse duplicate horizons
+* WATCHED FAIL 2026-09-01: on the pre-fix build `finegray_cif, attime(1 1 2)'
+* returned a THREE-row r(table) whose first two rows were the identical t = 1
+* row, and printed t = 1 twice.  `numlist, sort' orders a list but keeps its
+* duplicates, and nothing downstream collapsed them.  The assertion is on the
+* RETURNED table, not on the printed one: a duplicate horizon is a duplicate
+* row of r(table), and a caller assembling several profiles would have
+* double-counted it.
+local ++test_count
+capture noisily {
+    _mk_fg07
+    quietly finegray_cif, attime(1 1 2) nograph
+    matrix _fg07dup = r(table)
+    display as text "  attime(1 1 2) -> r(table) has " rowsof(_fg07dup) " row(s)"
+    assert rowsof(_fg07dup) == 2
+    assert _fg07dup[1,1] == 1 & _fg07dup[2,1] == 2
+    * the deduplicated table equals the one the user could have typed
+    quietly finegray_cif, attime(1 2) nograph
+    assert mreldif(r(table), _fg07dup) == 0
+    * three copies of one horizon collapse to one row, not to zero
+    quietly finegray_cif, attime(3 3 3) nograph
+    assert rowsof(r(table)) == 1
+    * timepoints() takes the same path (curve mode)
+    quietly finegray_cif, timepoints(1 1 2 2 3) nograph
+    matrix _fg07dup2 = r(table)
+    quietly finegray_cif, timepoints(1 2 3) nograph
+    assert rowsof(_fg07dup2) == rowsof(r(table))
+    assert mreldif(r(table), _fg07dup2) == 0
+    * a list with no duplicates is untouched
+    quietly finegray_cif, attime(2 4 6) nograph
+    assert rowsof(r(table)) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: FG07-9 duplicate attime()/timepoints() horizons collapse"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG07-9 (rc=`=_rc')"
+    local ++fail_count
+}
+capture matrix drop _fg07dup _fg07dup2
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_fg07_options tests=`test_count' pass=`pass_count' fail=`fail_count'"

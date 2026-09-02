@@ -878,6 +878,156 @@ _fgwt_result `_rc' "WT-14 the rebuilt weight column is reconciled against e(sum_
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
+* -----------------------------------------------------------------------------
+**# WT-15  bootstrap() is refused after an fweight fit; the analytic CI stands in
+* -----------------------------------------------------------------------------
+* WATCHED FAIL 2026-09-01.  `bsample' resamples ROWS.  An fweighted fit stores
+* its replication in a weight column rather than in rows, so bootstrapping 600
+* rows carrying w in 1..3 resamples a design about a third the size of the one
+* the fit describes, and the replicate SD is inflated -- measured about 2x the
+* analytic SE on this fixture, at rc 0, with nothing on screen to say so.  Both
+* commands now refuse (r(198)).  pweight is NOT refused: there the weight is a
+* sampling probability attached to a row that really is one row.
+*
+* The second half is the reason the refusal is affordable: under frequency
+* weights the analytic interval is EXACT, because an fweighted fit is the fit
+* of the replicated data (WT-03), so the user loses nothing by using it.
+local ++test_count
+capture noisily {
+    _fgwt_data
+    finegray x1 i.grp [fw = fw], compete(status) cause(1) nolog
+
+    * (a) finegray_cif refuses
+    capture noisily finegray_cif, at(x1=0.3 grp=2) attime(1) ci bootstrap(25) seed(9) nograph
+    display as text "  fweight + finegray_cif bootstrap rc = `=_rc'"
+    assert _rc == 198
+    * (b) finegray_predict refuses
+    capture noisily predict double cifb, cif ci bootstrap(25) seed(9)
+    display as text "  fweight + finegray_predict bootstrap rc = `=_rc'"
+    assert _rc == 198
+    capture drop cifb*
+    * (c) the refusal is about fweights, not about bootstrap(): the same call
+    *     on a pweight fit is accepted, and on an unweighted fit too
+    finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
+    capture noisily finegray_cif, at(x1=0.3 grp=2) attime(1) ci bootstrap(25) seed(9) nograph
+    display as text "  pweight + finegray_cif bootstrap rc = `=_rc'"
+    assert _rc == 0
+    finegray x1 i.grp, compete(status) cause(1) nolog
+    capture noisily finegray_cif, at(x1=0.3 grp=2) attime(1) ci bootstrap(25) seed(9) nograph
+    assert _rc == 0
+    * (d) and it is about bootstrap(), not about ci: the analytic fweight
+    *     interval still runs
+    finegray x1 i.grp [fw = fw], compete(status) cause(1) nolog
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(0.5 1 2) ci nograph
+    tempname Tfw
+    matrix `Tfw' = r(table)
+    mata: assert(!hasmissing(st_matrix(st_local("Tfw"))))
+    quietly predict double cifw_a, cif ci
+    tempvar keeplo keephi
+    quietly gen double `keeplo' = cifw_a_lci
+    quietly gen double `keephi' = cifw_a_uci
+
+    * (e) that interval is the EXPANDED-DATA analytic interval.  Not asserted
+    *     at mreldif == 0: the expansion presents the same subjects in a
+    *     different ROW ORDER, so the risk-set sums accumulate in a different
+    *     floating-point order.  MEASURED 2026-09-01: mreldif = 1.058e-15, i.e.
+    *     summation noise and nothing else; asserted at 1e-12, three orders
+    *     above the measurement and four below WT-03's own 1e-8 bound.
+    preserve
+    expand fw
+    gen long id2 = _n
+    quietly stset time, failure(status) id(id2)
+    finegray x1 i.grp, compete(status) cause(1) nolog
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(0.5 1 2) ci nograph
+    local _d15 = mreldif(r(table), `Tfw')
+    display as text "  fweight vs expanded analytic CI table mreldif = " %10.3e `_d15'
+    assert `_d15' < 1e-12
+    restore
+}
+local _rc = _rc
+capture restore
+_fgwt_result `_rc' "WT-15 bootstrap() refused r(198) after an fweight fit (both commands); pweight and unweighted unaffected; the analytic fweight CI equals the expanded-data one"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# WT-16  zero weights and if/in select the SAME sample, bit for bit
+* -----------------------------------------------------------------------------
+* Three ways to say "leave these subjects out" -- a zero weight, an `if', and
+* deleting the rows -- must produce ONE fit.  They do not go through one code
+* path: a zero weight is dropped by the weight handler, `if'/`in' by
+* marksample, and a deleted row never reaches either.  A weight that was
+* screened in the score but not in the censoring KM, or an `in' resolved
+* against the wrong row order, would move only one of the three and would show
+* up nowhere else in this suite.  Asserted at mreldif == 0, not at 1e-10: all
+* three arms present the SAME rows in the SAME order, so any difference at all
+* is a difference in what was accumulated, not in how it was summed.
+local ++test_count
+capture noisily {
+    * (a) pweight, zero weights on the first 10 rows
+    _fgwt_data
+    quietly gen double pw0 = pw
+    quietly replace pw0 = 0 in 1/10
+    finegray x1 i.grp [pw = pw0], compete(status) cause(1) nolog
+    tempname bz Vz
+    matrix `bz' = e(b)
+    matrix `Vz' = e(V)
+    local Nz = e(N)
+    local swz = e(sum_w)
+
+    finegray x1 i.grp [pw = pw] if _n > 10, compete(status) cause(1) nolog
+    _fgwt_same e(b) `bz' "zero-weight vs if _n>10 e(b)"
+    _fgwt_same e(V) `Vz' "zero-weight vs if _n>10 e(V)"
+    assert e(N) == `Nz'
+    assert reldif(e(sum_w), `swz') < 1e-12
+
+    preserve
+    drop in 1/10
+    finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
+    _fgwt_same e(b) `bz' "zero-weight vs drop in 1/10 e(b)"
+    _fgwt_same e(V) `Vz' "zero-weight vs drop in 1/10 e(V)"
+    assert e(N) == `Nz'
+    restore
+    drop pw0
+
+    * (b) fweight with if
+    finegray x1 i.grp [fw = fw] if id <= 200, compete(status) cause(1) nolog
+    tempname bfi Vfi
+    matrix `bfi' = e(b)
+    matrix `Vfi' = e(V)
+    local Nfi = e(N)
+    preserve
+    keep if id <= 200
+    finegray x1 i.grp [fw = fw], compete(status) cause(1) nolog
+    _fgwt_same e(b) `bfi' "fw if id<=200 vs keep if id<=200 e(b)"
+    _fgwt_same e(V) `Vfi' "fw if id<=200 vs keep if id<=200 e(V)"
+    assert e(N) == `Nfi'
+    quietly summarize fw, meanonly
+    assert `Nfi' == r(sum)
+    restore
+
+    * (c) pweight with in
+    finegray x1 i.grp [pw = pw] in 1/300, compete(status) cause(1) nolog
+    tempname bpi Vpi
+    matrix `bpi' = e(b)
+    matrix `Vpi' = e(V)
+    local Npi = e(N)
+    local swpi = e(sum_w)
+    preserve
+    keep in 1/300
+    finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
+    _fgwt_same e(b) `bpi' "pw in 1/300 vs keep in 1/300 e(b)"
+    _fgwt_same e(V) `Vpi' "pw in 1/300 vs keep in 1/300 e(V)"
+    assert e(N) == `Npi'
+    assert reldif(e(sum_w), `swpi') < 1e-12
+    restore
+}
+local _rc = _rc
+capture restore
+_fgwt_result `_rc' "WT-16 zero weights, if, in and row deletion give one fit: e(b) e(V) e(N) e(sum_w) (pweight and fweight)"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_weights tests=`test_count' pass=`pass_count' fail=`fail_count'"

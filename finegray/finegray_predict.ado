@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.0  2026/08/29
+*! finegray_predict Version 1.3.0  2026/09/02
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -31,6 +31,8 @@ program define finegray_predict, rclass sortpreserve
     local _held = 0
     local _bframe = 0
     local _bh_stashed = 0
+    local _rngsaved = 0
+    local _rngstate ""
     local _created_vars ""
 
     capture noisily {
@@ -146,6 +148,27 @@ program define finegray_predict, rclass sortpreserve
         display as error "finegray_predict requires a converged fit; refit finegray"
         display as error "with a larger iterate() or a different specification"
         exit 430
+    }
+
+    * fweight and bootstrap() are incompatible.  `bsample' draws ROWS, and an
+    * fweighted fit stores its replication as a weight column rather than as
+    * rows: resampling 600 rows carrying w = 1..3 is not a resample of the
+    * sum(w) subjects the fit describes, so the replicate SD is the SD of a
+    * much smaller design and the reported SE is inflated (measured 2026-09-01:
+    * about twice the analytic one).  Refuse rather than report it.  The
+    * analytic interval needs no resampling here: under frequency weights the
+    * influence-function variance is exact, because an fweighted fit IS the fit
+    * of the replicated data (asserted bit for bit in qa/test_finegray_weights.do,
+    * WT-03).
+    if `bootstrap' > 0 & `"`e(wtype)'"' == "fweight" {
+        display as error "bootstrap() is not supported after a fit with fweights"
+        display as error "{bf:bsample} resamples rows, not the replicated subjects the"
+        display as error "frequency weights stand for, so the replicate SD would describe"
+        display as error "a smaller sample than the fit"
+        display as error "the analytic interval is exact under fweights -- use {bf:ci} without"
+        display as error "{bf:bootstrap()}, or expand the data ({bf:expand} the weight) and"
+        display as error "bootstrap the expanded fit"
+        exit 198
     }
 
     * =====================================================================
@@ -1066,6 +1089,13 @@ program define finegray_predict, rclass sortpreserve
                 * the bootstrap SE.
                 mata: _finegray_bh_stash()
                 local _bh_stashed = 1
+                * seed() must not reposition the CALLER's random-number stream:
+                * a user who asks for reproducible replicates gets them, and
+                * every rnormal() they draw afterwards is exactly the one they
+                * would have drawn had the bootstrap not run.  Snapshot here,
+                * restore in the cleanup zone (which also runs on error paths).
+                local _rngstate = c(rngstate)
+                local _rngsaved = 1
                 if "`seed'" != "" set seed `seed'
 
                 local _bok = 0
@@ -1413,6 +1443,8 @@ program define finegray_predict, rclass sortpreserve
     local rc = _rc
     if `_bframe' capture frame drop `_bf'
     if `_held' capture _estimates unhold `_esth'
+    * Give the caller back the random-number stream the bootstrap borrowed.
+    if `_rngsaved' capture set rngstate `_rngstate'
     * A bootstrap that errored mid-loop leaves the cache snapshotted; restore it so
     * the fit's baseline stays resolvable (falls back to prior behaviour if it too
     * fails -- no worse than not stashing).

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  28aug2026}{...}
+{* *! version 1.3.0  02sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -420,6 +420,15 @@ per subject are reduced. Required by post-estimation.
 subject, with {cmd:e(N)} counting subjects.
 
 {pstd}
+Because that reduction keeps one record per subject, a subject whose failure
+record is not its last record (a second failure after the first, or follow-up
+continued past the failure, both of which {cmd:stset ..., exit(time .)}
+permits) is refused with {cmd:r(198)} rather than silently reduced to its
+last record, because {cmd:finegray} models the subdistribution of a single
+first event per subject. Keep each subject's first event (re-{cmd:stset}
+without {opt exit(time .)}) or recode the outcome.
+
+{pstd}
 Items 1-3 are {bf:not} written on {cmd:mi} data; see {help finegray##mi:Multiple imputation}. Dropping {cmd:_fg_*}
 design columns is supported (post-estimation rebuilds them); altering one in
 place is {cmd:r(459)}. Do not drop {cmd:_fg_entry} while post-estimation on a
@@ -432,6 +441,13 @@ survive and must be re-declared with {cmd:estimates esample:} after {cmd:estimat
 {bf:Multiple imputation.} {cmd:finegray} runs under
 {helpb mi estimate:mi estimate, cmdok:}. All four {cmd:mi} styles work.
 
+{phang2}{cmd:. webuse hypoxia, clear}{p_end}
+{phang2}{cmd:. gen byte status = failtype}{p_end}
+{phang2}{cmd:. replace ifp = . in 1/12}{p_end}
+{phang2}{cmd:. mi set wide}{p_end}
+{phang2}{cmd:. mi register imputed ifp}{p_end}
+{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum}{p_end}
+{phang2}{cmd:. mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)}{p_end}
 {phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
 {phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp, compete(status) cause(1)}{p_end}
 
@@ -561,7 +577,12 @@ event counts.
 {pstd}
 {bf:What weights do not compose with}, each {cmd:r(198)}: {opt nuisance},
 {opt strata()}/{opt truncstrata()}, {opt bstrata()}, {opt tvc()}, delayed
-entry, and {helpb finegray_phtest}. See
+entry, and {helpb finegray_phtest}. Under {cmd:fweight}s the {opt bootstrap()}
+option of {helpb finegray_cif} and {helpb finegray_predict} is also
+{cmd:r(198)}: {helpb bsample} resamples rows, not the replicated subjects the
+frequency weights stand for. The analytic {opt ci} is exact there -- an
+fweighted fit is the fit of the replicated data -- so use it, or {helpb expand}
+the data and bootstrap the expanded fit. See
 {help finegray_methods##weights:Design weights}.
 
 {pstd}
@@ -701,6 +722,13 @@ on; read {cmd:e(lt_weight)} and the weight diagnostics before interpreting.
 {pstd}
 {bf:Multiple imputation}
 
+{phang2}{cmd:. webuse hypoxia, clear}{p_end}
+{phang2}{cmd:. gen byte status = failtype}{p_end}
+{phang2}{cmd:. replace ifp = . in 1/12}{p_end}
+{phang2}{cmd:. mi set wide}{p_end}
+{phang2}{cmd:. mi register imputed ifp}{p_end}
+{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum}{p_end}
+{phang2}{cmd:. mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)}{p_end}
 {phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
 {phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)}{p_end}
 
@@ -788,24 +816,24 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(compete)}}competing events variable name{p_end}
 {synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
 {synopt:{cmd:e(designvars)}}design columns, one per estimated coefficient{p_end}
-{synopt:{cmd:e(entryvar)}}entry-time column of a multiple-record fit{p_end}
+{synopt:{cmd:e(entryvar)}}entry-time column; only on multiple-record data{p_end}
 {synopt:{cmd:e(mi_data)}}{cmd:1} if fitted on {cmd:mi} data; empty otherwise{p_end}
 {synopt:{cmd:e(postest)}}{cmd:unavailable_mi} on such a fit; empty otherwise{p_end}
-{synopt:{cmd:e(fvvarlist)}}original factor-variable specification{p_end}
-{synopt:{cmd:e(fvsemantic)}}factor-variable expansion semantics{p_end}
-{synopt:{cmd:e(strata)}}censoring stratification variables{p_end}
-{synopt:{cmd:e(truncstrata)}}entry stratification variables{p_end}
-{synopt:{cmd:e(bstrata)}}baseline stratification variable{p_end}
-{synopt:{cmd:e(bstrata_noevent)}}strata with no cause event{p_end}
-{synopt:{cmd:e(tvc)}}variables named in {opt tvc()}{p_end}
-{synopt:{cmd:e(tsplit)}}interior interval boundaries{p_end}
-{synopt:{cmd:e(tvc_covariates)}}design columns those variables resolved to{p_end}
-{synopt:{cmd:e(tvc_pos)}}their positions in {cmd:e(designvars)}{p_end}
-{synopt:{cmd:e(tsplit_nfail)}}cause events per interval, in interval order{p_end}
+{synopt:{cmd:e(fvvarlist)}}typed factor-variable specification; with factors{p_end}
+{synopt:{cmd:e(fvsemantic)}}factor-variable expansion semantics; with factors{p_end}
+{synopt:{cmd:e(strata)}}censoring strata variables; only with {opt strata()}{p_end}
+{synopt:{cmd:e(truncstrata)}}entry strata variables; only with {opt truncstrata()}{p_end}
+{synopt:{cmd:e(bstrata)}}baseline strata variable; only with {opt bstrata()}{p_end}
+{synopt:{cmd:e(bstrata_noevent)}}strata with no cause event; only with {opt bstrata()}{p_end}
+{synopt:{cmd:e(tvc)}}variables named in {opt tvc()}; only with {opt tvc()}{p_end}
+{synopt:{cmd:e(tsplit)}}interior interval boundaries; only with {opt tvc()}{p_end}
+{synopt:{cmd:e(tvc_covariates)}}design columns they resolved to; only with {opt tvc()}{p_end}
+{synopt:{cmd:e(tvc_pos)}}their positions in {cmd:e(designvars)}; only with {opt tvc()}{p_end}
+{synopt:{cmd:e(tsplit_nfail)}}cause events per interval; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(lt_weight)}}weight computed; see {help finegray##lt:Left truncation}{p_end}
 {synopt:{cmd:e(lt_vce)}}variance computed under delayed entry{p_end}
 {synopt:{cmd:e(bh_seq)}}internal key to the cached baseline{p_end}
-{synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged by the weight diagnostics{p_end}
+{synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged; only when one fired{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
@@ -865,7 +893,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2026-08-29{p_end}
+{pstd}Version 1.3.0, 2026-09-02{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

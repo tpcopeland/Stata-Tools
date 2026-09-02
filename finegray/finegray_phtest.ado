@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.0  2026/08/29
+*! finegray_phtest Version 1.3.0  2026/09/02
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -454,16 +454,33 @@ program define finegray_phtest, rclass
         if `test_mat'[`v', 2] != `n_fail' local _show_n = 1
     }
 
+    * Width the name column to the WIDEST design name, floor 12.  A fixed
+    * %12s with abbrev(name, 12) reached the reader as a tilde stub for every
+    * design name over twelve characters, and abbrev() discards the MIDDLE:
+    * two terms that differ only there print identically, while r(phtest)
+    * carries both names in full, so the row the reader acts on is whichever
+    * he guesses.  Measured 2026-09-01 on two 29-character covariates:
+    * `aaaaaaa~e_x1' and `aaaaaaa~f_x1'.  A Stata name is at most 32
+    * characters, so the column is capped there to keep the table inside a
+    * default line.
+    local _nw = 12
+    foreach _cl of local covlabels {
+        local _l = length("`_cl'")
+        if `_l' > `_nw' local _nw = `_l'
+    }
+    if `_nw' > 32 local _nw = 32
+    local _hw = `_nw' + 1
+
     if `_show_n' {
-        display as text "{hline 13}{c TT}{hline 30}"
-        display as text %12s "Variable" " {c |}" ///
+        display as text "{hline `_hw'}{c TT}{hline 30}"
+        display as text %`_nw's "Variable" " {c |}" ///
             %14s "correlation" %10s "events"
-        display as text "{hline 13}{c +}{hline 30}"
+        display as text "{hline `_hw'}{c +}{hline 30}"
     }
     else {
-        display as text "{hline 13}{c TT}{hline 20}"
-        display as text %12s "Variable" " {c |}" %14s "correlation"
-        display as text "{hline 13}{c +}{hline 20}"
+        display as text "{hline `_hw'}{c TT}{hline 20}"
+        display as text %`_nw's "Variable" " {c |}" %14s "correlation"
+        display as text "{hline `_hw'}{c +}{hline 20}"
     }
 
     forvalues v = 1/`p' {
@@ -471,17 +488,17 @@ program define finegray_phtest, rclass
         local rho_v = `test_mat'[`v', 1]
         local n_v   = `test_mat'[`v', 2]
         if `_show_n' {
-            display as text %12s abbrev("`vname'", 12) " {c |}" ///
+            display as text %`_nw's abbrev("`vname'", `_nw') " {c |}" ///
                 as result %14.4f `rho_v' %10.0f `n_v'
         }
         else {
-            display as text %12s abbrev("`vname'", 12) " {c |}" ///
+            display as text %`_nw's abbrev("`vname'", `_nw') " {c |}" ///
                 as result %14.4f `rho_v'
         }
     }
 
-    if `_show_n' display as text "{hline 13}{c BT}{hline 30}"
-    else         display as text "{hline 13}{c BT}{hline 20}"
+    if `_show_n' display as text "{hline `_hw'}{c BT}{hline 30}"
+    else         display as text "{hline `_hw'}{c BT}{hline 20}"
     display as text ""
     display as text "Correlation of the raw Schoenfeld residual with the time"
     display as text "function; exploratory diagnostic only, no test or p-value is"

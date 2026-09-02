@@ -129,6 +129,94 @@ else {
     local ++fail_count
 }
 
+**# FG03-4  the printed Variable column carries the FULL design name
+* WATCHED FAIL 2026-09-01.  The table printed abbrev(name, 12) in a fixed %12s
+* column, so every design name over twelve characters reached the reader as a
+* tilde stub: the two 29-character covariates below printed as
+* "aaaaaaa~e_x1" and "aaaaaaa~f_x1", differing in one character, while
+* r(phtest) carried both names in full.  Two terms whose difference falls
+* inside the discarded middle print IDENTICALLY, and the row the reader acts on
+* is then whichever he guesses.  The column is now widened to the longest
+* design name (floor 12, cap 32), so nothing is dropped.
+*
+* The probe reads the command's own output back out of a log file and asserts
+* the FULL names are present and the tilde-abbreviated forms are not; asserting
+* on r(phtest) alone would pass on the pre-fix build, because the returned
+* matrix was already correct.  It is the DISPLAY that was lossy.
+local ++test_count
+capture noisily {
+    clear
+    set seed 20260901
+    quietly set obs 500
+    gen long id = _n
+    gen byte g = 1 + floor(2 * runiform())
+    * 29 characters each, differing only in the middle
+    gen double aaaaaaaaaa_bbb_ccc_ddd_eee_x1 = rnormal()
+    gen double aaaaaaaaaa_bbb_ccc_ddd_fff_x1 = rnormal()
+    gen double t = 1 + floor(8 * runiform())
+    gen byte status = cond(runiform() < .45, 1, cond(runiform() < .5, 2, 0))
+    quietly stset t, failure(status) id(id)
+    quietly finegray i.g aaaaaaaaaa_bbb_ccc_ddd_eee_x1 aaaaaaaaaa_bbb_ccc_ddd_fff_x1, compete(status) cause(1) nolog
+
+    tempfile phlog
+    capture log close _fg03ph
+    quietly log using "`phlog'", replace text name(_fg03ph)
+    finegray_phtest
+    * Grab r(phtest) NOW.  `capture' resets r(), so a `capture log close' between
+    * the command and this line silently hands back an empty matrix -- measured:
+    * rownames came back as "r1".
+    tempname P
+    matrix `P' = r(phtest)
+    capture log close _fg03ph
+
+    tempname fh
+    local blob ""
+    file open `fh' using "`phlog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    display as text "  full name 1 printed: " (strpos(`"`blob'"', "aaaaaaaaaa_bbb_ccc_ddd_eee_x1") > 0)
+    display as text "  full name 2 printed: " (strpos(`"`blob'"', "aaaaaaaaaa_bbb_ccc_ddd_fff_x1") > 0)
+    display as text "  a tilde stub printed:  " (strpos(`"`blob'"', "aaaaaaa~") > 0)
+    assert strpos(`"`blob'"', "aaaaaaaaaa_bbb_ccc_ddd_eee_x1") > 0
+    assert strpos(`"`blob'"', "aaaaaaaaaa_bbb_ccc_ddd_fff_x1") > 0
+    * no truncated form of either name reaches the reader
+    assert strpos(`"`blob'"', "aaaaaaa~") == 0
+
+    * r(phtest) was already right and must stay right
+    local rn : rownames `P'
+    display as text "  r(phtest) rownames: `rn'"
+    assert strpos("`rn'", "aaaaaaaaaa_bbb_ccc_ddd_eee_x1") > 0
+    assert strpos("`rn'", "aaaaaaaaaa_bbb_ccc_ddd_fff_x1") > 0
+
+    * a short-name fit is unchanged: the column keeps its 12-character floor
+    quietly finegray i.g, compete(status) cause(1) nolog
+    capture log close _fg03ph
+    quietly log using "`phlog'", replace text name(_fg03ph)
+    finegray_phtest
+    capture log close _fg03ph
+    local blob2 ""
+    file open `fh' using "`phlog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local blob2 `"`blob2' `line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    assert strpos(`"`blob2'"', "2.g") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: FG03-4 phtest prints full design names, no abbrev() collision"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG03-4 phtest name column (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 display as text _newline ///
     "RESULT: test_finegray_fg03_diagnostic tests=`test_count' pass=`pass_count' fail=`fail_count'"

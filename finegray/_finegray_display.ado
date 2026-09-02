@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.0  2026/08/29
+*! _finegray_display Version 1.3.0  2026/09/02
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -172,11 +172,11 @@ program define _finegray_display
     }
     display as text ""
 
-    if e(ll) != . {
+    if e(ll) < . {
         display as text "Log pseudo-likelihood" _col(24) "= " ///
             as result %12.4f e(ll)
     }
-    if e(chi2) != . {
+    if e(chi2) < . {
         display as text "Wald chi2(" as result e(df_m) ///
             as text ")" _col(24) "= " as result %10.2f e(chi2)
         display as text "Prob > chi2" _col(24) "= " as result %10.4f e(p)

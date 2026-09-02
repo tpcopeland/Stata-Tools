@@ -543,7 +543,16 @@ display as text "               why distinct estimators in the cited papers beha
 
 if !`FULL' {
     display as error _newline "SMOKE RUN -- NOT A GATE."
-    display as text "RESULT: validation_finegray_zzf_coverage tests=1 pass=0 fail=1 smoke=1"
+    * Use macros, not literal counts: the runner reads the log as data, and a
+    * SKIPPED branch is still ECHOED.  A literal `tests=1 pass=0 fail=1' echo
+    * parses as a numeric RESULT even when this branch never runs, so the runner
+    * would see two sentinels and reject the suite.  Backticked macros in the
+    * echo are unparseable; only the evaluated line carries numbers.
+    local _t = 1
+    local _p = 0
+    local _f = 1
+    local _s = 1
+    display as text "RESULT: validation_finegray_zzf_coverage tests=`_t' pass=`_p' fail=`_f' smoke=`_s'"
     log close _zzfcvg
     exit 9
 }
