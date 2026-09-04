@@ -25,6 +25,7 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_tmle_ltmle_contract.do ///
     test_msm_tte_contract.do ///
     test_iivw_contract.do ///
+    test_psdash_nullcase.do ///
     test_multigroup_detect.do test_multigroup_overlap_support.do ///
     test_multigroup_balance_weights.do ///
     test_adversarial.do test_detect_dispatch_adversarial.do ///

@@ -74,6 +74,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_reporting_exports.do` | Console and Excel report fidelity. |
 | `test_theme_removed.do` | Removed theme() parser rejection for reporting commands. |
 | `test_iivw_sample_contract.do` | Weighted outcome sample and arm-specific loss. |
+| `test_iivw_nullcase.do` | Degenerate-artifact (fail-open) contracts: a FIPTIW run whose visit- and treatment-model complete-case sets are disjoint is refused instead of committing an all-missing weight variable and its signed contract, `allowmissingweights` still accepts partial loss, and the `_iivw_assert_cardinality` helper contract. |
 | `test_iivw_stacked.do` | Independent reconstruction of the stacked sandwich. |
 | `test_iivw_stale_state.do` | Mutated-input signatures and harmless changes. |
 | `test_iivw_state_contract.do` | Pipeline characteristic transactions. |

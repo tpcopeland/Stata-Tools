@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.6.9  2026/08/30
+*! psdash_weights Version 1.7.0  2026/09/03
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -110,10 +110,26 @@ program define psdash_weights, rclass
         local extvhi = strtrim("`extvhi'")
     }
 
+    * The user-supplied wvar() has to be remembered before any auto-detection
+    * can overwrite the local (PSDASH-02).
+    local wvar_supplied = ("`wvar'" != "")
+    local wvar_user "`wvar'"
+
     if "`iivwcomponent'" != "" {
         local iivwcomponent = strlower("`iivwcomponent'")
         if !inlist("`iivwcomponent'", "treatment", "final", "visit") {
             display as error "iivwcomponent() must be treatment, final, or visit"
+            exit 198
+        }
+        * PSDASH-02 (2026-09-02 audit): iivwcomponent() used to overwrite an
+        * explicit wvar() with a characteristic-selected variable, returning
+        * rc 0 and diagnosing a weight the user never asked for. Two named
+        * inputs that disagree is a user error, not a precedence question.
+        if `wvar_supplied' {
+            display as error "wvar() and iivwcomponent() both name the weight variable to diagnose"
+            display as error "  wvar(`wvar_user') was supplied explicitly, and"
+            display as error "  iivwcomponent(`iivwcomponent') selects a weight from the iivw contract"
+            display as error "  specify one or the other"
             exit 198
         }
     }
@@ -234,15 +250,14 @@ program define psdash_weights, rclass
             display as error "  rerun iivw_weight, or specify wvar() directly"
             exit 198
         }
-        if "`iivw_treatment_wvar'" == "" {
-            local iivw_treatment_wvar : char _dta[_iivw_tw_var]
-        }
-        if "`iivw_final_wvar'" == "" {
-            local iivw_final_wvar : char _dta[_iivw_weight_var]
-        }
-        if "`iivw_visit_wvar'" == "" {
-            local iivw_visit_wvar : char _dta[_iivw_iw_var]
-        }
+        * Resolve contract (Critical Rule 14, PSDASH-02). These three names
+        * used to fall back to the raw _dta[_iivw_*] characteristics whenever
+        * _psdash_detect left them empty -- which is precisely when the
+        * producer verifier refused the metadata, or when the explicit-wvar
+        * branch above skipped detect altogether. Reading them here trusted
+        * exactly the unsigned, possibly hand-written or stale state that
+        * _psdash_verify_producer exists to reject. The component names now
+        * come only from the verified detect run.
 
         if "`iivwcomponent'" == "treatment" {
             local iivw_selected_wvar "`iivw_treatment_wvar'"
@@ -258,15 +273,16 @@ program define psdash_weights, rclass
         }
 
         if "`iivw_selected_wvar'" == "" {
-            display as error "iivwcomponent(`iivwcomponent') is unavailable in the current iivw metadata"
+            display as error "iivwcomponent(`iivwcomponent') is unavailable in the verified iivw metadata"
             if "`iivwcomponent'" == "visit" {
                 display as error "  visit weights are available after IIW/FIPTIW, not IPTW-only"
             }
             else if "`iivwcomponent'" == "treatment" {
                 display as error "  treatment weights require iivw_weight with treat() and treat_cov()"
             }
-            exit 198
         }
+        _psdash_require_meta explicit "iivwcomponent(`iivwcomponent')" ///
+            "`iivwcomponent' weight variable=`iivw_selected_wvar'"
         confirm variable `iivw_selected_wvar'
         confirm numeric variable `iivw_selected_wvar'
         local wvar "`iivw_selected_wvar'"

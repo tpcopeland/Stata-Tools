@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.6.9  2026/08/30
+*! _psdash_detect Version 1.7.0  2026/09/03
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -761,9 +761,11 @@ program define _psdash_detect, nclass
         }
 
         local tmle_estimand "`estimand'"
-        if "`tmle_estimand'" == "" {
+        * Ambient auto-detect strategy: e() and _dta[] are the same producer
+        * contract, read only after the verifier signed off; empty fails closed below.
+        if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
             local tmle_estimand "`e(estimand)'"
-            if "`tmle_estimand'" == "" {
+            if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local tmle_estimand : char _dta[_tmle_estimand]
             }
         }
@@ -815,9 +817,11 @@ program define _psdash_detect, nclass
 
         local tmle_wvar "`wvar'"
         local tmle_wvar_auto "0"
-        if "`tmle_wvar'" == "" {
+        * Ambient auto-detect strategy: e() and _dta[] are the same producer
+        * contract, read only after the verifier signed off; empty fails closed below.
+        if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
             local tmle_wvar "`e(weight_var)'"
-            if "`tmle_wvar'" == "" {
+            if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local tmle_wvar : char _dta[_tmle_weight_var]
             }
         }
@@ -935,9 +939,11 @@ program define _psdash_detect, nclass
         }
 
         local ltmle_wvar "`wvar'"
-        if "`ltmle_wvar'" == "" {
+        * Ambient auto-detect strategy: e() and _dta[] are the same producer
+        * contract, read only after the verifier signed off; empty fails closed below.
+        if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
             local ltmle_wvar "`e(weight_var)'"
-            if "`ltmle_wvar'" == "" {
+            if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local ltmle_wvar : char _dta[_ltmle_weight_var]
             }
         }
@@ -972,9 +978,11 @@ program define _psdash_detect, nclass
         }
 
         local ltmle_estimand "`estimand'"
-        if "`ltmle_estimand'" == "" {
+        * Ambient auto-detect strategy: e() and _dta[] are the same producer
+        * contract, read only after the verifier signed off; empty fails closed below.
+        if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
             local ltmle_estimand "`e(estimand)'"
-            if "`ltmle_estimand'" == "" {
+            if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local ltmle_estimand : char _dta[_ltmle_estimand]
             }
         }
