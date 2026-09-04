@@ -4883,6 +4883,7 @@ real matrix _finegray_cif_core_zzf(
     real rowvector risk0, bwd0, coreS1, zbar, zstar, bvec
     real scalar n, p, ng, M, ev, i, j, k, idx, ep, g, cur_time, coreS0
     real scalar ii, mp, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+    real scalar lp, lam
     real scalar use_pooled
 
     n = rows(Z)
@@ -5045,9 +5046,24 @@ real matrix _finegray_cif_core_zzf(
         }
         L0 = cumL[mstar]
         bvec = -bvecCS[mstar, .]
-        rstar = exp(zstar * beta)
-        cif = 1 - exp(-L0 * rstar)
-        factor = rstar * exp(-L0 * rstar)
+        lp = zstar * beta
+        if (lp >= .) {
+            /* A missing at() value or coefficient: there is no prediction.
+               The reporting layer refuses a missing CIF. */
+            out[e, 1] = .; out[e, 2] = .
+            continue
+        }
+        rstar = exp(lp)
+        lam = L0 * rstar
+        if (lam >= .) {
+            /* Overflow at a FINITE profile: same contract as
+               _finegray_cif_core below. */
+            out[e, 1] = 1; out[e, 2] = 0
+            st_local("_fg_cifovf", "1")
+            continue
+        }
+        cif = 1 - exp(-lam)
+        factor = rstar * exp(-lam)
 
         own = J(n, 1, 0)
         for (m = 1; m <= mstar; m++) {
@@ -5067,7 +5083,11 @@ real matrix _finegray_cif_core_zzf(
         q = own - expeta :* sub
         psi = factor :* (q + PSIb * (bvec + L0 * zstar)')
 
-        if (has_clust) {
+        /* colsum() drops missing entries, so a missing influence contribution
+           would silently shrink the variance.  A missing SE is the honest
+           report. */
+        if (hasmissing(psi)) V = .
+        else if (has_clust) {
             clust_sum = panelsum(psi[clust_ord], clust_info)
             V = colsum(clust_sum :^ 2)
         }
@@ -5293,6 +5313,7 @@ real matrix _finegray_cif_core(
     real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
+    real scalar lp, lam
     real scalar mp, ii, g, ng, use_pooled, nk, kk, K, nev, ee
 
     if (args() < 14) bsraw = J(rows(t), 1, 1)
@@ -5402,9 +5423,34 @@ real matrix _finegray_cif_core(
             }
             L0 = cum_invS0[mstar]
             bvec = -bvecCS[mstar, .]
-            rstar = exp(zstar * beta)
-            cif = 1 - exp(-L0 * rstar)
-            factor = rstar * exp(-L0 * rstar)
+            lp = zstar * beta
+            if (lp >= .) {
+                /* A missing at() value or coefficient: there is no
+                   prediction.  The reporting layer refuses a missing CIF. */
+                out[e, 1] = .; out[e, 2] = .
+                continue
+            }
+            rstar = exp(lp)
+            lam = L0 * rstar
+            if (lam >= .) {
+                /* exp(lp), or L0 exp(lp), exceeds maxdouble at a FINITE
+                   profile (at(x=-20000) on a fit with beta < 0).  Lambda is
+                   then above 8.9e307, exp(-Lambda) is 0 and the CIF is 1 to
+                   double precision; the influence factor exp(lp - Lambda)
+                   underflows to 0, so the delta-method SE is 0 -- the answer
+                   the arithmetic below gives one step short of the overflow
+                   (x=-800 on the same fit: (1, 0)).  Through 1.3.0 the
+                   missing rstar propagated into the CIF and the influence
+                   vector, and colsum() treated the missing contributions as
+                   zeros: (cif, se) = (., 0) at rc 0.  L0 > 0 whenever
+                   mstar > 0, so the product cannot be a 0 * missing.  The
+                   local tells finegray_cif to print a note. */
+                out[e, 1] = 1; out[e, 2] = 0
+                st_local("_fg_cifovf", "1")
+                continue
+            }
+            cif = 1 - exp(-lam)
+            factor = rstar * exp(-lam)
 
             own = J(n, 1, 0)
             for (m = 1; m <= mstar; m++) own[obsm[m]] = invS0[m]
@@ -5429,7 +5475,11 @@ real matrix _finegray_cif_core(
                fweight meat sum_i w_i psi_i^2 (w_i independent copies), and
                under cluster() the w_i psi_i are summed within cluster first
                for either type.  wtype == 0 leaves the shipped lines. */
-            if (has_clust) {
+            /* colsum() drops missing entries, so a missing influence
+               contribution would silently shrink the variance.  A missing SE
+               is the honest report. */
+            if (hasmissing(psi)) V = .
+            else if (has_clust) {
                 if (wtype) psi = w :* psi
                 clust_sum = panelsum(psi[clust_ord], clust_info)
                 V = colsum(clust_sum :^ 2)
@@ -5511,12 +5561,13 @@ real matrix _finegray_cif_core_pw(
     real colvector score_vec, clust_ord, clust_sum, bslev, bscode
     real colvector ordk, entry_ordk, evsel, inkk, etj, is_cause_j, expeta_j
     real colvector own, sub, q, psi, hi, lo, mstarv, chunk
-    real colvector Tml, obsml, invS0l, cuml, clel, clt0l, LAM
+    real colvector Tml, obsml, invS0l, cuml, clel, clt0l, LAM, OVF
     real matrix info_mat, info_inv, scores, PSIb, Gt, clust_info, Dj
     real matrix out, bvecl, Acsl, Bcsl, DPSI, BACC
     real rowvector zstar, zj, Bmstar
     real scalar n, p, pt, ne, ng, use_pooled, K, kk, nev, ee, e, i, j, g
     real scalar M_j, mstar, m, V, mj, ej, tstar, expo, c0, c1, nc, cs, ok
+    real scalar lpj
 
     /* Chunk width for the per-evaluation-point influence columns.  The
        accumulators below are rebuilt once per chunk per interval (O(n log n)),
@@ -5591,6 +5642,7 @@ real matrix _finegray_cif_core_pw(
             chunk = evsel[|c0 \ c1|]
 
             LAM  = J(nc, 1, 0)
+            OVF  = J(nc, 1, 0)
             DPSI = J(n, nc, 0)
             BACC = J(nc, pt, 0)
 
@@ -5619,8 +5671,25 @@ real matrix _finegray_cif_core_pw(
                     e = chunk[ee]
                     zstar = E[e, (2..p + 1)]
                     zj = _finegray_tvc_design(zstar, fixpos, tvcpos, nint, j)
-                    ej = exp(zj * beta)
+                    lpj = zj * beta
                     mj = cuml[mstar]
+                    if (lpj >= .) {
+                        /* Nonfinite linear predictor: no prediction.  A
+                           missing LAM stays missing through every later
+                           interval and is refused below. */
+                        LAM[ee] = .
+                        continue
+                    }
+                    ej = exp(lpj)
+                    if (ej >= . | mj * ej >= .) {
+                        /* Overflow at a FINITE profile: same contract as
+                           _finegray_cif_core.  mj > 0 whenever mstar > 0, so
+                           Lambda is above maxdouble, the CIF is 1 to double
+                           precision and every influence term carries
+                           exp(-Lambda) = 0. */
+                        OVF[ee] = 1
+                        continue
+                    }
                     LAM[ee] = LAM[ee] + mj * ej
 
                     own = J(n, 1, 0)
@@ -5645,9 +5714,20 @@ real matrix _finegray_cif_core_pw(
 
             for (ee = 1; ee <= nc; ee++) {
                 e = chunk[ee]
+                if (LAM[ee] >= .) {
+                    out[e, 1] = .; out[e, 2] = .
+                    continue
+                }
+                if (OVF[ee]) {
+                    out[e, 1] = 1; out[e, 2] = 0
+                    st_local("_fg_cifovf", "1")
+                    continue
+                }
                 expo = exp(-LAM[ee])
                 psi = expo :* (DPSI[., ee] + PSIb * BACC[ee, .]')
-                if (has_clust) {
+                /* colsum() drops missing entries; see _finegray_cif_core. */
+                if (hasmissing(psi)) V = .
+                else if (has_clust) {
                     clust_sum = panelsum(psi[clust_ord], clust_info)
                     V = colsum(clust_sum :^ 2)
                 }
@@ -5872,7 +5952,7 @@ void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar om
     /* Under bstrata() the replication's cache holds one curve per stratum; the
        requested stratum is the one the point estimate was built on. */
     H0 = _finegray_step_core(_finegray_bh_stratum(_finegray_bh_cache, lev), gg)
-    cif = 1 :- exp(-H0 :* exp(xb))
+    cif = _finegray_cif_stable(H0, J(rows(H0), 1, xb))
     st_matrix(omat, cif)
 }
 
@@ -5911,7 +5991,7 @@ void _finegray_boot_cif_obs(
     if (bsvar != "") bsvals = st_data(sel, bsvar)
     else             bsvals = J(length(sel), 1, 1)
     H0 = _finegray_step_core_bs(_finegray_bh_cache, tt, bsvals)
-    cif = 1 :- exp(-H0 :* exp(xb))
+    cif = _finegray_cif_stable(H0, xb)
     sumc = st_data(sel, sumv)
     ssc = st_data(sel, ssv)
     st_store(sel, sumv, sumc :+ cif)
@@ -6010,13 +6090,69 @@ real matrix _finegray_tvc_bhpieces_bs(
     return(D)
 }
 
+/* CIF = 1 - exp(-H0 exp(xb)), evaluated so that exp() overflow at a FINITE
+   linear predictor gives the limit the arithmetic is approaching rather than a
+   missing value.  Lambda above maxdouble means exp(-Lambda) = 0 and CIF = 1;
+   H0 = 0 (no baseline mass yet) is CIF = 0 however large xb is, where Stata's
+   0 * missing would be missing.  A missing H0 or xb stays missing: there is
+   no prediction.  Same contract as _finegray_cif_core's overflow branch. */
+real colvector _finegray_cif_stable(real colvector H0, real colvector xb)
+{
+    real colvector lam, cif
+    real scalar i
+
+    lam = H0 :* exp(xb)
+    cif = 1 :- exp(-lam)
+    if (!hasmissing(cif)) return(cif)
+    for (i = 1; i <= rows(cif); i++) {
+        if (cif[i] < .) continue
+        if (H0[i] >= . | xb[i] >= .) continue
+        cif[i] = (H0[i] > 0)
+    }
+    return(cif)
+}
+
 /* Lambda(s|z) from the per-interval baseline masses and per-interval linear
-   predictors. */
+   predictors.
+
+   rowsum() DROPS missing entries, so through 1.3.0 an interval whose
+   exp(eta_j) overflowed contributed 0 to Lambda: the CIF then came from the
+   remaining intervals alone, too small, at rc 0.  A row is now summed with
+   missing propagated; a row that comes back missing is re-walked: a missing
+   piece or eta is a missing Lambda (no prediction), an overflowed term over a
+   positive piece puts Lambda above maxdouble (returned as maxdouble(), whose
+   exp(-Lambda) is 0 and CIF is 1 as for any finite Lambda beyond ~745), and an
+   overflowed term over a zero piece is exactly 0.  Same contract as
+   _finegray_cif_core_pw. */
 real colvector _finegray_tvc_lambda(
     real matrix pieces,
     real matrix eta)
 {
-    return(rowsum(pieces :* exp(eta)))
+    real matrix term
+    real colvector lam
+    real scalar i, j, bad, ovf, acc
+
+    term = pieces :* exp(eta)
+    lam = rowsum(term, 1)
+    if (!hasmissing(lam)) return(lam)
+    for (i = 1; i <= rows(lam); i++) {
+        if (lam[i] < .) continue
+        bad = 0
+        ovf = 0
+        acc = 0
+        for (j = 1; j <= cols(term); j++) {
+            if (pieces[i, j] >= . | eta[i, j] >= .) {
+                bad = 1
+                break
+            }
+            if (term[i, j] < .) acc = acc + term[i, j]
+            else if (pieces[i, j] > 0) ovf = 1
+        }
+        if (bad) lam[i] = .
+        else if (ovf | acc >= .) lam[i] = maxdouble()   /* a term, or the sum */
+        else lam[i] = acc
+    }
+    return(lam)
 }
 
 /* Bootstrap helper (curve mode): piecewise CIF at a grid of times for one

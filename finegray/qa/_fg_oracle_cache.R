@@ -40,6 +40,18 @@
 # output path under c(tmpdir) that differs on every run, so blobs are cached by
 # POSITION in the outputs vector and restored to whatever paths this run asked
 # for.  The recorded basenames are for humans reading the index only.
+#
+# WHERE THE CACHE LIVES: OUTSIDE THE PACKAGE TREE.  FG_ORACLE_CACHE_DIR if set,
+# else R's per-user cache directory for this suite -- tools::R_user_dir(
+# "finegray_qa", "cache"), ~/.cache/R/finegray_qa on Linux.  It was first put
+# at qa/.oracle_cache/ beside the scripts, and that location never filled: the
+# devkit runs every QA lane from a throwaway scratch COPY of the package, so a
+# cache written beside the scripts was discarded with the copy, and the next
+# run recomputed every oracle again.  Nothing in the key depends on where the
+# scripts sit -- it is script CONTENT, input CONTENT, parameters and versions
+# -- so one per-user cache serves the repository checkout, every scratch copy,
+# and every clone on this machine alike, and an oracle computed once is never
+# computed again until an input genuinely changes.
 # ---------------------------------------------------------------------------
 
 .fg_script_path <- function() {
@@ -62,10 +74,17 @@
     unname(tools::md5sum(tf))
 }
 
+.fg_cache_dir <- function() {
+    d <- Sys.getenv("FG_ORACLE_CACHE_DIR")
+    if (nzchar(d)) return(path.expand(d))
+    if (getRversion() >= "4.0.0") return(tools::R_user_dir("finegray_qa", "cache"))
+    file.path(path.expand("~"), ".cache", "R", "finegray_qa")
+}
+
 .fg_cache_root <- function(name, key) {
     sp <- .fg_script_path()
     if (is.na(sp) || is.na(key)) return(NA_character_)
-    file.path(dirname(sp), ".oracle_cache", name, substr(.fg_key_hash(key), 1, 16))
+    file.path(.fg_cache_dir(), name, substr(.fg_key_hash(key), 1, 16))
 }
 
 .fg_cache_key <- function(key_files, key_values, packages) {
@@ -154,12 +173,13 @@ fg_oracle_cache <- function(name, outputs, compute,
     on   <- !nzchar(Sys.getenv("FG_ORACLE_NOCACHE")) &&
             !is.na(root) && !is.na(key)
     if (on && .fg_cache_restore(root, key, outputs)) {
-        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored, computation skipped\n",
-                    name, length(outputs)))
+        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored from %s, computation skipped\n",
+                    name, length(outputs), root))
         return(invisible("hit"))
     }
-    cat(sprintf("ORACLE CACHE %s [%s]: computing\n",
-                if (on) "MISS" else "DISABLED", name))
+    cat(sprintf("ORACLE CACHE %s [%s]: computing%s\n",
+                if (on) "MISS" else "DISABLED", name,
+                if (on) sprintf(" (will store in %s)", root) else ""))
     compute()
     if (!all(file.exists(outputs)))
         stop("oracle computation did not produce: ",
@@ -201,14 +221,16 @@ fg_oracle_cache_begin <- function(name, outputs = NA_character_,
     h <- list(name = name, root = root, key = key, outputs = outputs, on = on,
               out_dir = out_dir, out_pattern = out_pattern)
     if (on && .fg_cache_restore(root, key, outputs, out_dir)) {
-        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored, computation skipped\n",
+        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored from %s, computation skipped\n",
                     name, if (is.na(out_dir)) length(outputs)
-                          else length(list.files(out_dir, pattern = out_pattern))))
+                          else length(list.files(out_dir, pattern = out_pattern)),
+                    root))
         h$state <- "hit"
         return(h)
     }
-    cat(sprintf("ORACLE CACHE %s [%s]: computing\n",
-                if (on) "MISS" else "DISABLED", name))
+    cat(sprintf("ORACLE CACHE %s [%s]: computing%s\n",
+                if (on) "MISS" else "DISABLED", name,
+                if (on) sprintf(" (will store in %s)", root) else ""))
     h$state <- if (on) "miss" else "disabled"
     h
 }

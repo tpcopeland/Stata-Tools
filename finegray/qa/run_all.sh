@@ -103,7 +103,7 @@ fi
 # present, run the shell-level negative test that a broken/missing Rscript makes
 # the suite fail CLOSED (no stale-artifact false green).
 #
-# Not to be confused with the R ORACLE CACHE in qa/.oracle_cache (see
+# Not to be confused with the R ORACLE CACHE in ~/.cache/R/finegray_qa (see
 # qa/README.md, "Oracle caching"), which is a different thing: it lets the R
 # scripts skip recomputing a constant, and is read only by R itself.  This gate
 # stays valid under it precisely because R never runs here -- the fake Rscript

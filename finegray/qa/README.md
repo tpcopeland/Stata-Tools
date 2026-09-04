@@ -93,6 +93,8 @@ One sentence per file. The full prose that used to sit in these cells is preserv
 | `test_finegray_reporting.do` | Factor-aware profiles and complete analytic/bootstrap CIF reporting. |
 | `test_finegray_contracts.do` | Weight-stratum mapping, factor scoring, singleton strata, and fail-closed inversion. |
 | `test_finegray_nullcase.do` | Fail-open contracts (Critical Rules 14/15): degenerate artifacts that travel the whole command and produce nothing must exit nonzero and leave no half-written variable behind. Each refusal is paired with a positive control. |
+| `test_finegray_horizon_precision.do` | Explicit `attime()`/`timepoints()` horizons are used as typed: known answers at, one ulp before, and one ulp after a tied cause event; two horizons that round to the same nine digits stay two rows; duplicates collapse by value; literals beside ranges keep their precision; the default grid and `predict` agree at the event. |
+| `test_finegray_cif_overflow.do` | `exp(xb)` overflow at a finite `at()` profile: `finegray_cif` posts CIF 1 with SE 0 and no limits (never a missing CIF with a zero SE), identical to the finite row one step short of the overflow; bootstrap SD finite; `finegray_predict, cif` gives 1 after the first event and 0 before it; the piecewise `tvc()` paths agree; a nonfinite profile is refused. |
 | `test_finegray_failclosed.do` | Missing-injection regressions for the QA guard constructs themselves (FG-08A): every guard in `FAILCLOSED_GUARD_MAP.md` gets a fixture where the guarded quantity is missing, the unguarded form passes on it, and the guard exits nonzero. |
 | `test_finegray_hostile.do` | No-event and foreign-postestimation refusal with input preservation. |
 | `test_finegray_estimates_use.do` | Saved-estimate reloads for datasets saved before and after the fit, empty `e(sample)` diagnosis, `estimates esample:` recovery, and signature enforcement. |
@@ -137,9 +139,16 @@ One sentence per file. The full prose that used to sit in these cells is preserv
 
 ### Oracle caching
 
-Each `crossval_*_r.R` caches its output under `qa/.oracle_cache/<name>/<key>/`
-and recomputes only when an input actually changes; `_fg_oracle_cache.R` holds
-the shared mechanism. The key covers the calling script and anything it
+The R cross-validation oracles are computed once per machine and never again
+until an input changes. Each `crossval_*_r.R` caches its output under
+`<cache>/<name>/<key>/`, where `<cache>` is `$FG_ORACLE_CACHE_DIR` if set and
+otherwise R's per-user cache directory for the suite, `tools::R_user_dir("finegray_qa", "cache")`
+(`~/.cache/R/finegray_qa` on Linux); `_fg_oracle_cache.R` holds the shared
+mechanism. The cache is deliberately outside the package tree: the devkit runs
+every lane from a throwaway scratch copy, and a cache kept at `qa/.oracle_cache/`
+was discarded with each copy and never filled. Each suite log carries an
+`ORACLE CACHE HIT [...] restored from <dir>` or `MISS [...] computing` line per
+oracle, so a lane's log shows which oracles were recomputed and why. The key covers the calling script and anything it
 sources, the content (never the path) of every input data file, named scalar
 parameters, and the R version, platform and version of every package used. Any
 key mismatch, missing blob or md5 disagreement runs the real computation. R
@@ -152,8 +161,8 @@ Force a recompute for one run:
 FG_ORACLE_NOCACHE=1 stata-mp -b do run_all.do full
 ```
 
-Deleting `qa/.oracle_cache/` has the same effect for the next run. The cache is
-gitignored. Why it is keyed this way, and the measurement that motivated it,
+Deleting the cache directory has the same effect for the next run. The cache is
+never inside the repository, so nothing about it is tracked. Why it is keyed this way, and the measurement that motivated it,
 are in [AUDIT_NOTES.md](AUDIT_NOTES.md#oracle-caching-rationale).
 
 ### Support and out-of-band runners

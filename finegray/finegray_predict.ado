@@ -962,8 +962,18 @@ program define finegray_predict, rclass sortpreserve
         }
 
         if !`_fg_istvc' {
+            * exp(xb), or H0 exp(xb), can exceed double precision at a finite
+            * but extreme profile; Stata then returns missing for a CIF whose
+            * value is 1 to machine precision (Lambda above maxdouble), or 0
+            * when H0 is still 0 (0 * missing is missing).  Evaluate those
+            * limits; a missing H0 or xb stays missing.  The finite branch is
+            * the shipped arithmetic, unchanged.  Same contract as
+            * _finegray_cif_stable in _finegray_mata.ado.
             quietly gen `typlist' `varlist' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, which covers this branch and the piecewise one (both write `varlist')
-                1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
+                cond(!missing(`H0_val' * exp(`xb_val')), ///
+                    1 - exp(-`H0_val' * exp(`xb_val')), ///
+                    cond(missing(`H0_val') | missing(`xb_val'), ., ///
+                        cond(`H0_val' > 0, 1, 0))) if `touse'
         }
         else {
             * CIF(s|z) = 1 - exp(-sum_j m_j(s) exp(eta_j(z))), where m_j(s) is
@@ -1010,9 +1020,18 @@ program define finegray_predict, rclass sortpreserve
                 }
             }
 
-            tempvar _plam _ppiece
+            tempvar _plam _ppiece _pterm _pbad _povf
             quietly gen double `_plam' = 0 if `touse'
             quietly gen double `_ppiece' = .
+            quietly gen double `_pterm' = .
+            * Overflow bookkeeping, one flag per row: `_pbad' marks a missing
+            * piece or linear predictor (no prediction); `_povf' marks a term
+            * that exceeded double precision at a finite predictor over a
+            * positive piece (Lambda above maxdouble, CIF = 1).  A term that
+            * overflows over a ZERO piece is exactly 0.  Same contract as
+            * _finegray_tvc_lambda in _finegray_mata.ado.
+            quietly gen byte `_pbad' = 0 if `touse'
+            quietly gen byte `_povf' = 0 if `touse'
             tempvar _plov
             quietly gen double `_plov' = 0 if `touse'
             forvalues _pj = 1/`_fg_nint' {
@@ -1029,14 +1048,24 @@ program define finegray_predict, rclass sortpreserve
                         min(`H0_val', `_phi') - `_plov' if `touse'
                 }
                 quietly replace `_ppiece' = 0 if `touse' & `_ppiece' < 0
-                quietly replace `_plam' = `_plam' + ///
+                quietly replace `_pterm' = ///
                     `_ppiece' * exp(`_fg_xbfix' + `_fg_xbtv`_pj'') if `touse'
+                quietly replace `_pbad' = 1 if `touse' & (missing(`_ppiece') ///
+                    | missing(`_fg_xbfix' + `_fg_xbtv`_pj''))
+                quietly replace `_pterm' = 0 if `touse' & missing(`_pterm') ///
+                    & !`_pbad' & `_ppiece' == 0
+                quietly replace `_povf' = 1 if `touse' & missing(`_pterm') ///
+                    & !`_pbad'
+                quietly replace `_plam' = `_plam' + `_pterm' if `touse'
                 if `_pj' < `_fg_nint' {
                     if `_p_bs' quietly replace `_plov' = `_pcv`_pj'' if `touse'
                     else       quietly replace `_plov' = `_phi' if `touse'
                 }
             }
-            quietly gen `typlist' `varlist' = 1 - exp(-`_plam') if `touse'
+            * A missing `_plam' with neither flag set is the SUM overflowing,
+            * which is the same limit as a term overflowing.
+            quietly gen `typlist' `varlist' = cond(`_pbad', ., ///
+                cond(`_povf' | missing(`_plam'), 1, 1 - exp(-`_plam'))) if `touse'
         }
         local _created_vars "`varlist'"
 
