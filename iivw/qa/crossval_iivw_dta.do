@@ -83,12 +83,14 @@ restore
 * sample scaling, so the registered external crossval bound is 5 percent.
 foreach item in x time {
     local ++test_count
+    * stata-dev-ignore: rc-only-test — the CAPTURED command IS the content oracle: this asserts abs(stata - r) < 1e-5 between the two implementations' point estimates, and the rc merely relays that comparison
     capture noisily assert !missing(`stata_`item'', `r_`item'') & ///
         abs(`stata_`item'' - `r_`item'') < 1e-5
     if _rc == 0 local ++pass_count
     else local ++fail_count
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — the CAPTURED command IS the content oracle: this asserts abs(stata_se - r_se)/r_se < 0.05 between the two implementations, and the rc merely relays that comparison
     capture noisily assert !missing(`stata_`item'_se', `r_`item'_se') & ///
         abs(`stata_`item'_se' - `r_`item'_se') / `r_`item'_se' < 0.05
     if _rc == 0 local ++pass_count

@@ -32,6 +32,19 @@ global SF_PASS_COUNT = 0
 global SF_FAIL_COUNT = 0
 global SF_FAILED_TESTS ""
 
+capture program drop _sf_check_pdf
+program define _sf_check_pdf
+    args artifact tools_dir
+    tempfile result
+    shell python3 "`tools_dir'/check_artifact.py" "`artifact'" --type pdf ///
+        --min-bytes 1000 --result-file "`result'"
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    assert "`line'" == "PASS"
+end
+
 capture program drop _sf_binary_data
 program define _sf_binary_data
     clear
@@ -56,6 +69,7 @@ capture noisily {
     capture erase "`outdir'/overlap.pdf"
     psdash overlap treat ps, saving("`outdir'/overlap.pdf")
     confirm file "`outdir'/overlap.pdf"
+    _sf_check_pdf "`outdir'/overlap.pdf" "`qa_dir'/tools"
 }
 _sf_result "overlap_saving_pdf_creates_file" `=_rc'
 
@@ -64,6 +78,7 @@ capture noisily {
     capture erase "`outdir'/support.pdf"
     psdash support treat ps, saving("`outdir'/support.pdf")
     confirm file "`outdir'/support.pdf"
+    _sf_check_pdf "`outdir'/support.pdf" "`qa_dir'/tools"
 }
 _sf_result "support_saving_pdf_creates_file" `=_rc'
 
@@ -73,6 +88,7 @@ capture noisily {
     psdash balance treat ps, covariates(x1 x2) wvar(wt) loveplot ///
         saving("`outdir'/balance.pdf")
     confirm file "`outdir'/balance.pdf"
+    _sf_check_pdf "`outdir'/balance.pdf" "`qa_dir'/tools"
 }
 _sf_result "balance_loveplot_saving_pdf_creates_file" `=_rc'
 
@@ -81,6 +97,7 @@ capture noisily {
     capture erase "`outdir'/weights.pdf"
     psdash weights treat ps, wvar(wt) graph saving("`outdir'/weights.pdf")
     confirm file "`outdir'/weights.pdf"
+    _sf_check_pdf "`outdir'/weights.pdf" "`qa_dir'/tools"
 }
 _sf_result "weights_graph_saving_pdf_creates_file" `=_rc'
 
@@ -90,6 +107,7 @@ capture noisily {
     psdash combined treat ps, covariates(x1 x2) wvar(wt) ///
         saving("`outdir'/combined.pdf")
     confirm file "`outdir'/combined.pdf"
+    _sf_check_pdf "`outdir'/combined.pdf" "`qa_dir'/tools"
 }
 _sf_result "combined_saving_pdf_creates_file" `=_rc'
 

@@ -1037,6 +1037,12 @@ capture noisily {
     finegray near_sep ifp, compete(status) cause(1) nolog
     * Should converge (possibly with large coefficient) or error gracefully
     confirm matrix e(b)
+    * "graceful" means finite: a posted e(b) carrying a missing coefficient, or
+    * a missing log likelihood, is a non-convergence reported as a result
+    * stata-dev-ignore: missing-passes-assert — fail-closed: the two `assert !missing(...)' lines immediately below refuse a fit that posted missing content, which is the only way e(N) reaches this line missing
+    assert colsof(e(b)) == 2 & e(N) > 0
+    assert !missing(el(e(b), 1, 1)) & !missing(el(e(b), 1, 2))
+    assert !missing(e(ll))
     drop near_sep
 }
 if _rc == 0 {

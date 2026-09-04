@@ -97,6 +97,8 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
+{synopt:{opt font(string)}}Excel font family; default Arial{p_end}
+{synopt:{opt fontsize(#)}}Excel font size in points; default 10{p_end}
 {synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{opt foot:note(string)}}add footnote row below table{p_end}
 {synopt:{opt open}}open Excel output after export{p_end}
@@ -133,6 +135,10 @@ Stata weight syntax; see {help weight}.{p_end}
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}; default
 is {cmd:thin}{p_end}
+
+{phang}
+{opt font(string)} sets the Excel font family, and {opt fontsize(#)} sets its
+point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
 {opt by(varname)} group observations by {it:varname}{p_end}
@@ -274,6 +280,12 @@ disable{p_end}
 
 {phang}
 {opt varlabplus} add data type description after variable labels{p_end}
+
+{phang}
+{opt vars(var_spec)} explicitly defines table rows as backslash-separated
+{it:varname vartype} entries. Each entry may also supply one or two Stata
+display formats; supported row types are listed under Syntax. When omitted,
+types are inferred for the supplied varlist.{p_end}
 
 {phang}
 {opt wt(varname)} probability/IP weight (e.g. IPTW); weighted columns are % only (see {opt wtn},

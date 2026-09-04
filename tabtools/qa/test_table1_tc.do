@@ -37,6 +37,22 @@ quietly net install tabtools, from("`pkg_dir'") replace
 discard
 tabtools set clear
 
+capture program drop __tt_assert_same_data
+program define __tt_assert_same_data
+    version 17.0
+    syntax using/
+    unab memory_vars : _all
+    local memory_N = _N
+    preserve
+    quietly use `"`using'"', clear
+    unab using_vars : _all
+    local using_N = _N
+    restore
+    assert `using_N' == `memory_N'
+    assert `"`using_vars'"' == `"`memory_vars'"'
+    cf _all using `"`using'"'
+end
+
 
 **# Migrated: legacy suite: table1_tc + weighted sections
 
@@ -2785,7 +2801,7 @@ capture {
     capture table1_tc, vars(catvar cat) by(group) smd wt(wt)
     local zero_group_rc = _rc
     assert `zero_group_rc' == 498
-    cf _all using "`zero_group_before'"
+    __tt_assert_same_data using "`zero_group_before'"
 }
 if _rc == 0 {
     display as result "  PASS [1b]: table1_tc rejects a zero-weight-only comparison group"

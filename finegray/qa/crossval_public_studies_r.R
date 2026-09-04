@@ -38,6 +38,16 @@ if (length(args) != 2L) {
 data_file <- args[1L]
 oracle_file <- args[2L]
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin("public_studies",
+                              outputs = c(data_file, oracle_file),
+                              packages = c("crrSC", "survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 data(bce, package = "crrSC")
 data(center, package = "crrSC")
 
@@ -149,3 +159,4 @@ for (item in fits) {
 oracle <- do.call(rbind, rows)
 write.csv(study_data, data_file, row.names = FALSE, na = "")
 write.csv(oracle, oracle_file, row.names = FALSE)
+fg_oracle_cache_end(.fgc)

@@ -30,6 +30,7 @@
 *   S12 row order does not change the answer                       [no hidden sort]
 *   S13 e() stamps are present and say uncleared                   [the contract]
 *   S14 the gamma derivative EQUALS -(Z - weighted mean Z)          [the formula]
+*   S15 assembled hand fixture matches the full stacked covariance  [the oracle]
 * =============================================================================
 
 clear all
@@ -46,7 +47,7 @@ do "`qa_dir'/_iivw_qa_common.do"
 iivw_qa_bootstrap
 local pkg_dir "`r(pkg_dir)'"
 
-local test_count = 14
+local test_count = 15
 local pass_count = 0
 local fail_count = 0
 local failed_tests ""
@@ -388,8 +389,8 @@ else {
 
 * The stamp is the whole reason this variance may ship at all: it is derived, it
 * is not calibrated, and e(iivw_inference_status) has to keep saying so. A
-* status that silently became "cleared-at-studied-settings" would be the
-* package claiming a coverage result it has never run.
+* status that silently became cleared would claim a coverage result for a
+* source manifest the package has not run.
 quietly iivw_fit y a z1, timespec(linear) vce(stacked)
 local st_status "`e(iivw_inference_status)'"
 local st_vce    "`e(vce)'"
@@ -487,6 +488,92 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' S14"
     display "FAIL S14: the gamma derivative does not match -(Z - weighted mean)"
+}
+
+**# S15 -- assembled full covariance oracle, with mutation calibration
+
+* This fixture is intentionally independent of every fitted-model route above.
+* Its raw rows were chosen so the four ingredients can be checked by hand:
+*
+*   D = [19.95 8.65 \ 8.65 7.05]
+*   G = [.7925 .193125 \ .235 -.173125]
+*   U = [-1 0 \ 2.875 .5 \ .6375 -.2875]
+*   S = [.5 -.25 \ -.4 .6 \ .3 .2],  A^-1 = [1.2 .1 \ .1 .8]
+*
+* The oracle assembles Psi = U + S A^-T G' and the M/(M-1) sandwich
+* directly from those matrices. It shares no package fitting, score-building,
+* or Mata accumulation path with _iivw_stacked_vce.
+clear
+input byte id double(x wt err nd1 nd2 ns1 ns2)
+1  0    1     1      .2  -.3    .5  -.25
+1  1    2    -.5    -.1   .25   .5  -.25
+2  2    1.5   .75    .3   .1   -.4   .6
+2 -1     .5 -1.25    .4  -.2   -.4   .6
+3  3    1.25  .25   -.2   .35   .3   .2
+3   .5   .8  -.75    .15 -.05   .3   .2
+end
+gen double mu = 2 + .4*x
+gen double y = mu + err
+gen double _iivw_nd1 = nd1
+gen double _iivw_nd2 = nd2
+gen double _iivw_ns1 = ns1
+gen double _iivw_ns2 = ns2
+char _dta[_iivw_prefix] "_iivw_"
+
+tempname Dh Gh Uh Sh Ah Dih Ch Psih Vhand Vgot Vfhand Vfgot ///
+    Psiminus Vminus Psitrans Vtrans Psiscale Vscale Ggot
+matrix `Dh' = (19.95, 8.65 \ 8.65, 7.05)
+matrix `Gh' = (.7925, .193125 \ .235, -.173125)
+matrix `Uh' = (-1, 0 \ 2.875, .5 \ .6375, -.2875)
+matrix `Sh' = (.5, -.25 \ -.4, .6 \ .3, .2)
+matrix `Ah' = (1.2, .1 \ .1, .8)
+matrix `Dih' = invsym(`Dh')
+matrix `Ch' = `Sh' * `Ah'' * `Gh''
+matrix `Psih' = `Uh' + `Ch'
+matrix `Vhand' = `Dih' * (`Psih'' * `Psih') * (3/2) * `Dih'
+matrix `Vfhand' = `Dih' * (`Uh'' * `Uh') * (3/2) * `Dih'
+
+capture noisily _iivw_stacked_vce x, depvar(y) mu(mu) wtvar(wt) ///
+    cluster(id) varfunc(constant) scoreterms("q1 q2") ///
+    ainv("1.2 .1 .1 .8")
+local rc15 = _rc
+local d15 = .
+local df15 = .
+local dg15 = .
+if `rc15' == 0 {
+    matrix `Vgot' = r(V_stacked)
+    matrix `Vfgot' = r(V_fixed)
+    matrix `Ggot' = r(G)
+    local d15 = mreldif(`Vgot', `Vhand')
+    local df15 = mreldif(`Vfgot', `Vfhand')
+    local dg15 = mreldif(`Ggot', `Gh')
+}
+
+* Three plausible transcription defects must be materially distinguishable:
+* the Buzkova sign, a transposed cross-derivative, and an erroneous 1/M on the
+* nuisance correction. This calibrates the oracle against the exact mistakes
+* it is meant to catch, rather than merely observing that one fixture passes.
+matrix `Psiminus' = `Uh' - `Ch'
+matrix `Vminus' = `Dih' * (`Psiminus'' * `Psiminus') * (3/2) * `Dih'
+matrix `Psitrans' = `Uh' + `Sh' * `Gh' * `Ah''
+matrix `Vtrans' = `Dih' * (`Psitrans'' * `Psitrans') * (3/2) * `Dih'
+matrix `Psiscale' = `Uh' + `Ch'/3
+matrix `Vscale' = `Dih' * (`Psiscale'' * `Psiscale') * (3/2) * `Dih'
+
+display as text "S15: full oracle mreldif=" %12.3e `d15' ///
+    " fixed=" %12.3e `df15' " G=" %12.3e `dg15'
+if `rc15' == 0 & !missing(`d15', `df15', `dg15') & ///
+        `d15' < 1e-12 & `df15' < 1e-12 & `dg15' < 1e-12 & ///
+        mreldif(`Vhand', `Vminus') > 1e-4 & ///
+        mreldif(`Vhand', `Vtrans') > 1e-4 & ///
+        mreldif(`Vhand', `Vscale') > 1e-4 {
+    local ++pass_count
+    display "PASS S15: assembled full covariance matches and detects three mutations"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' S15"
+    display "FAIL S15: assembled covariance oracle or mutation calibration failed"
 }
 
 **# SUMMARY

@@ -57,6 +57,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_desctab.do` | Direct descriptive-engine behavior, option semantics, returns, styles, sinks, and cleanup. |
 | `test_effecttab.do` | Supported result sources, matrix mode, frames, formatting, and console returns. |
 | `test_effecttab_omitted.do` | Constrained margins labelling: not-estimable and unidentified cells, factor row labels, `omitlabel()`/`emptylabel()`, and `r(table)` exclusion. |
+| `test_audit_2026_09_02.do` | Extended missings, distinct missing categories, stable matrix identifiers, transactional frames, and strict private-helper contracts. |
 | `test_hrcomptab.do` | Rate/model scaffold composition, frame/workbook parity, eplot output, dependency-failure cleanup, and guards. |
 | `test_issue_review_1_11_0.do` | Regression pins for factor rendering, merging, precision, labels, legends, and whitespace. |
 | `test_option_coverage.do` | Real-invocation exercise of each public command’s option surface. |

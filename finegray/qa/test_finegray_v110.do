@@ -395,7 +395,7 @@ capture {
     finegray ifp tumsize pelnode, compete(status) cause(1)
     gen myc_lci = 1
     capture finegray_predict myc, cif ci
-    assert _rc != 0
+    assert _rc == 110
 }
 if _rc == 0 {
     display as result "  PASS: predict ci name-collision guard"
@@ -1173,9 +1173,29 @@ capture noisily {
     assert reldif(B[1, 2], _an_cif) < 1e-8
     * Bootstrap SE is independent of the ng>1 prefix-sum path but must land in
     * the same ballpark as the analytical SE.
+    *
+    * THE BOUND HERE USED TO BE `reldif(B[1,3], _an_se) < 0.5' AND WAS VACUOUS.
+    * Stata's reldif(a, b) is |a-b|/(|b|+1), so on standard errors of order 0.044
+    * it is an ABSOLUTE difference: |a-b| can never reach 0.5 for any pair of
+    * plausible standard errors, and the assertion was satisfied by a bootstrap
+    * SE of zero, or of ten times the analytic one, exactly as well as by the
+    * right answer.  (FG-08A recorded it as "too broad to be strong bootstrap-SE
+    * evidence"; it was worse than broad.)
+    *
+    * The scale-free quantity is the RATIO, and its band comes from the
+    * bootstrap's own Monte Carlo noise rather than from taste: the sampling SD
+    * of an SD estimated from B resamples is about 1/sqrt(2(B-1)), which is 9.2%
+    * at B = 60, so four of those is +/- 37%.  MEASURED 2026-09-04 on this
+    * fixture, sweeping the bootstrap seed at B = 60 (seeds 20260710, 11, 22,
+    * 33, 44, 55): ratios 0.945, 0.958, 1.017, 0.864, 1.006, 1.034 -- a spread
+    * of 0.17, consistent with that noise -- and at B = 400 (seeds 11, 22, 33):
+    * 0.956, 1.027, 0.966.  The band below is therefore about four Monte Carlo
+    * SEs wide and REJECTS a bootstrap SE that is half or double the analytic
+    * one, which the old bound accepted.
     assert B[1, 3] > 0 & B[1, 3] < .
     assert !missing(B[1, 3], _an_se)
-    assert reldif(B[1, 3], _an_se) < 0.5
+    assert _an_se > 0
+    assert inrange(B[1, 3] / _an_se, 0.65, 1.40)
     assert B[1, 4] < B[1, 2] & B[1, 2] < B[1, 5]
 
     gen double t5 = 5

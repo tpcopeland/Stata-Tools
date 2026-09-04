@@ -59,6 +59,19 @@ if (length(args) >= 3 && nzchar(args[3])) {
     beta_override <- as.numeric(strsplit(args[3], ",")[[1]])
 }
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin("predict_phtest",
+        outputs = file.path(output_dir, c("r_xb.csv", "r_cif.csv",
+                                          "r_schoenfeld.csv", "r_phtest.csv")),
+        key_files = input_file,
+        key_values = list(beta = if (length(args) >= 3) args[3] else ""),
+        packages = c("cmprsk", "survival", "crrSC"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 cov_cols <- setdiff(names(df), c("id", "time", "status"))
 Z <- as.matrix(df[, cov_cols, drop = FALSE])
@@ -242,5 +255,6 @@ if (is.null(phtest_df) || nrow(phtest_df) != 3L * p ||
 }
 write.csv(phtest_df, file.path(output_dir, "r_phtest.csv"),
           row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 
 cat(sprintf("\nAll results written to %s\n", output_dir))

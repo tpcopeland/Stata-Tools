@@ -249,13 +249,14 @@ capture noisily {
     assert !missing(r(N))
     assert r(N) >= 1
 }
+local locale_rc = _rc
 capture set dp period
-if _rc == 0 {
+if `locale_rc' == 0 {
     display as result "  PASS: set dp comma does not corrupt numeric export"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: locale dp-comma export (rc=`=_rc')"
+    display as error "  FAIL: locale dp-comma export (rc=`locale_rc')"
     local ++fail_count
 }
 

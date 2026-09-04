@@ -27,9 +27,12 @@ See {help psdash##subcommands:Subcommand syntax} for the full signature and
 {title:Description}
 
 {pstd}
-{cmd:psdash combined} coordinates overlap, balance, weight, and support panels
-on a common analysis sample. Its verdict is driven by documented panel thresholds,
-and its machine-readable findings identify the panel responsible. For longitudinal
+{cmd:psdash combined} coordinates overlap, balance, weight, and support panels; its
+shared analysis sample requires the treatment, propensity scores, and requested
+covariates; an automatically generated weight does not silently remove a
+positivity-boundary observation. Undefined requested weights instead fail before
+any panel runs. Its verdict is driven by documented panel thresholds, and its
+machine-readable findings identify the panel responsible. For longitudinal
 producer contracts it routes to period-specific diagnostics.
 
 {pstd}
@@ -41,7 +44,8 @@ The complete return contract, including {cmd:r(verdict)},
 {title:Options}
 
 {phang}
-{opt cov:ariates(varlist)} specifies covariates for the balance panel.
+{opt cov:ariates(varlist)} specifies covariates for the balance panel and accepts
+factor-variable and interaction notation.
 
 {phang}
 {opt w:var(varname)} specifies existing diagnostic weights.
@@ -107,6 +111,7 @@ variance-ratio findings remain active.
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash combined foreign ps, covariates(mpg weight length)}{p_end}
+{phang2}{cmd:. psdash combined foreign ps, covariates(i.rep78 c.weight##c.length) dryrun}{p_end}
 
 {marker results}{...}
 {title:Stored results}

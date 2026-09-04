@@ -40,7 +40,7 @@
 {cmd:comptab}
 {cmd:,}
 {opt ratef:rame(rateframe)}
-{opt modelf:ames(framelist)}
+{opt modelf:rames(framelist)}
 {opt rown:ames(string)}
 [{it:options}]
 
@@ -48,7 +48,7 @@
 {cmd:comptab}
 {it:framelist}
 {cmd:,}
-{cmdab:rown:ames(}{it:string}{cmd:)}
+{opt rown:ames(string)}
 [{it:options}]
 
 
@@ -67,8 +67,8 @@
 {synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
-{synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append to an existing Markdown file{p_end}
+{synopt:{opt mark:down(filename)}}export GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdapp:end}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name[, replace])}}save composite to a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite frame{p_end}
 {synopt:{opt forest}}draw an eplot forest plot{p_end}
@@ -166,7 +166,7 @@ Example with 3 frames: {cmd:rows(1 2 \ 1 3/5 \ 1)} extracts rows 1-2 from the fi
 frame, rows 1 and 3 through 5 from the second, and row 1 from the third.
 
 {phang}
-{cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that selects rows by rendered
+{opt rown:ames(string)} is an alternative to {opt rows()} that selects rows by rendered
 row-label pattern instead of row number. Specifications are separated by
 backslashes, one per frame. Each specification is a space-separated list of
 case-insensitive substrings matched against the first column ({cmd:A}) in the source
@@ -311,7 +311,7 @@ Excel, CSV, and frame exports{p_end}
 
 
 {phang}
-{cmdab:fra:me(} {it:name} {cmd:)} save composite to a named Stata frame; specify
+{opt fra:me(name[, replace])} save composite to a named Stata frame; specify
 {cmd:frame(name, replace)} to replace an existing frame{p_end}
 
 {marker examples}{...}

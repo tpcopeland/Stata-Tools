@@ -20,10 +20,10 @@
 {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean}
 {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
-{opt the:me(string)} {opt full} {opt digits(#)} {opt level(#)} {opt fra:me(name)}
+{opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt l:evel(#)} {opt fra:me(name)}
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(string)} {opt markdown(filename)} {opt mdappend}
+{opt csv(string)} {opt mark:down(filename)} {opt mdapp:end}
 {opt addr:ow(string asis)} {opt ref:cat(string)} {opt omitl:abel(string)}
 {opt emptyl:abel(string)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 

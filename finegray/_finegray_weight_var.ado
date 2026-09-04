@@ -1,4 +1,4 @@
-*! _finegray_weight_var Version 1.3.0  2026/09/02
+*! _finegray_weight_var Version 1.3.0  2026/09/04
 *! Rebuild the fit's design-weight column from e(wexp) for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal)
@@ -71,11 +71,39 @@ program define _finegray_weight_var, rclass
         * value-sensitive, order-invariant digest of the fit's own weight
         * column, so it moves for that change and does NOT move for a plain
         * re-sort of a variable weight.
-        * DEGRADATION, stated so nobody reads a silent pass as a check: when
-        * e(wsig) is absent -- estimates saved by a build before the digest
-        * existed, or an e() assembled by `mi estimate' -- the reconciliation
-        * above is by TOTAL only, and a compensated change of an unsignable
-        * weight input passes at rc 0.  Re-fit to get the per-observation check.
+        * DEGRADATION, and it is now AUDIBLE rather than silent: when e(wsig) is
+        * absent the reconciliation above is by TOTAL only, and a compensated
+        * change of an unsignable weight input passes at rc 0.  The else branch
+        * below says so, in the user's face, on every such call.
+        *
+        * WARNING, NOT REFUSAL, and the reason is a fact about what can reach
+        * here rather than a preference.  Two states leave e(wsig) empty:
+        *
+        *   1  Estimates from a build that predates the digest.  Weighted fits
+        *      shipped WITHOUT e(wsig) in released commits d2cb1bda and
+        *      789e2635, so `estimates use' of a legitimate weighted fit made by
+        *      the current release lands here.  Those results are correct; a
+        *      hard exit would break a working, previously supported path for
+        *      users who cannot re-fit without the original data.
+        *   2  An e() assembled by `mi estimate'.  That state never arrives:
+        *      every post-estimation entry point refuses it first and by name --
+        *      finegray_cif.ado, finegray_predict.ado and finegray_phtest.ado
+        *      each exit 301 on e(cmd) == "mi estimate" & e(cmd_mi) ==
+        *      "finegray" BEFORE any weight is rebuilt.  So a refusal here would
+        *      buy nothing on the mi path and cost the legacy one.
+        *
+        * The message is `display as error' inside the `capture noisily' block,
+        * so it survives a caller's `quietly' and prints in the error colour.
+        if `"`e(wsig)'"' == "" {
+            display as error "warning: this fit's e() carries no weight digest e(wsig)"
+            display as error "the rebuilt weights were reconciled against e(sum_w) ONLY, which is their"
+            display as error "TOTAL: a change to something the weight expression reads -- a scalar, an"
+            display as error "e() or c() value, a subscript such as w[1] -- that leaves the total unmoved,"
+            display as error "or an exchange of two subjects' weights, is NOT detected here, and this"
+            display as error "result may then be computed from a different weight column than the fit used"
+            display as error "estimates saved before this build carry no e(wsig); re-run {bf:finegray} on"
+            display as error "the current data for the per-observation check"
+        }
         if `"`e(wsig)'"' != "" {
             * Keyed by the fit's own id() variable (e(idvar)), so exchanging
             * two subjects' weights is caught; without it the digest sees only

@@ -1,4 +1,4 @@
-*! iivw Version 4.1.0  2026/09/03
+*! iivw Version 4.1.2  2026/09/04
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -28,11 +28,21 @@ program define iivw, rclass
 
     * Derive the displayed version from this file's *! header so it can never
     * drift from the package version on a bump.
-    local version "unknown"
+    *
+    * Resolve contract (Critical Rule 14, IIVW-14b). iivw.ado is an EXPLICITLY
+    * named source -- findfile is handed that exact filename -- so it is
+    * resolved completely or the command fails. The pre-4.1.1 code left the
+    * local at its "unknown" default whenever findfile missed, the file would
+    * not open, or the *! header carried no matchable version, and then printed
+    * "Version unknown" and returned r(version) = "unknown" at rc 0. An install
+    * whose header cannot be read is a broken install, not a nameless one, and
+    * `return local version' is what a downstream compatibility check reads.
+    local version ""
     capture findfile iivw.ado
     if !_rc {
+        local __iivw_ado_path "`r(fn)'"
         tempname __iivw_fh
-        capture file open `__iivw_fh' using "`r(fn)'", read text
+        capture file open `__iivw_fh' using "`__iivw_ado_path'", read text
         if !_rc {
             file read `__iivw_fh' __iivw_header_line
             file close `__iivw_fh'
@@ -41,6 +51,8 @@ program define iivw, rclass
             }
         }
     }
+    _iivw_require_meta explicit "the installed iivw.ado package header" ///
+        "version=`version'"
 
     display as text ""
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"

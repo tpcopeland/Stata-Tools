@@ -112,6 +112,7 @@ sample sizes differ.
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash weights foreign ps, detail}{p_end}
+{phang2}{cmd:. psdash weights foreign ps, trim(95) generate(iptw95)}{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -133,6 +134,7 @@ sample sizes differ.
 {synopt:{cmd:r(ess_pct_treated)}}treated-arm ESS percentage{p_end}
 {synopt:{cmd:r(ess_pct_control)}}control-arm ESS percentage{p_end}
 {synopt:{cmd:r(n_extreme)}}weights above the lower cutoff{p_end}
+{synopt:{cmd:r(n_very_extreme)}}weights above the upper cutoff{p_end}
 {synopt:{cmd:r(pct_extreme)}}percent above the lower cutoff{p_end}
 {synopt:{cmd:r(max_ratio)}}maximum-to-mean weight ratio{p_end}
 {synopt:{cmd:r(extreme_hi)}}lower extreme-weight cutoff{p_end}

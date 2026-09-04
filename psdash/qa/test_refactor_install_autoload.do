@@ -56,28 +56,32 @@ end
 
 local ++test_count
 capture noisily {
-    which psdash
-    which psdash_overlap
-    which psdash_support
-    which psdash_balance
-    which psdash_weights
-    which psdash_combined
-    which _psdash_balance_binary
-    which _psdash_balance_multigroup
-    which _psdash_detect
-    which _psdash_expand_fv
-    which _psdash_graph_export
-    which _psdash_ltmle_diagnostics
-    which _psdash_manual_detect
-    which _psdash_mgps_map
-    which _psdash_pscheck
-    which _psdash_support_stats
-    which _psdash_verify_producer
-    which _psdash_strip_fv
-    which _psdash_validate_levels
-    which _psdash_validate_psvars
-    which _psdash_weights_modify
-    which _psdash_weights_stats
+    local manifest_ados ""
+    tempname pkgfh
+    file open `pkgfh' using "`pkg_dir'/psdash.pkg", read text
+    file read `pkgfh' line
+    while r(eof) == 0 {
+        tokenize `"`line'"'
+        if "`1'" == "f" & regexm("`2'", "[.]ado$") {
+            local manifest_ados "`manifest_ados' `2'"
+        }
+        file read `pkgfh' line
+    }
+    file close `pkgfh'
+
+    local root_ados : dir "`pkg_dir'" files "*.ado", respectcase
+    local n_manifest : word count `manifest_ados'
+    local n_root : word count `root_ados'
+    assert `n_manifest' == `n_root'
+    foreach f of local root_ados {
+        local listed : list f in manifest_ados
+        assert `listed'
+    }
+    foreach f of local manifest_ados {
+        confirm file "`pkg_dir'/`f'"
+        local stem = regexr("`f'", "[.]ado$", "")
+        which `stem'
+    }
 }
 _autoload_result installed_files_are_discoverable `=_rc'
 

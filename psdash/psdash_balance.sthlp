@@ -40,7 +40,8 @@ The complete stored-result contract, including {cmd:r(balance)} and
 {title:Options}
 
 {phang}
-{opt cov:ariates(varlist)} specifies covariates to assess.
+{opt cov:ariates(varlist)} specifies covariates to assess and accepts
+factor-variable and interaction notation.
 
 {phang}
 {opt w:var(varname)} specifies existing adjustment weights.
@@ -115,6 +116,7 @@ The complete stored-result contract, including {cmd:r(balance)} and
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash balance foreign ps, covariates(mpg weight length)}{p_end}
+{phang2}{cmd:. psdash balance foreign ps, covariates(i.rep78 c.weight##c.length) nowvar}{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -138,6 +140,8 @@ The complete stored-result contract, including {cmd:r(balance)} and
 {synopt:{cmd:r(threshold)}}absolute-SMD cutoff used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}PS values exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}PS values near 0 or 1{p_end}
+{synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
+{synopt:{cmd:r(n_wt_dropped)}}missing supplied weights dropped{p_end}
 {synopt:{cmd:r(n_cov_incomplete)}}covariates with incomplete data{p_end}
 {synopt:{cmd:r(n_cov_min)}}smallest covariate-specific sample{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups{p_end}

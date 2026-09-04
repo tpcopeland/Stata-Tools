@@ -60,6 +60,16 @@ if (length(args) < 2) {
 input_file  <- args[1]
 output_file <- args[2]
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin('bstrata', outputs = output_file,
+                              key_files = input_file,
+                              packages = c("crrSC", "survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 covs <- setdiff(names(df), c("id", "time", "status", "strata", "dataset"))
 if (length(covs) == 0) stop("no covariate columns found in input CSV")
@@ -93,4 +103,5 @@ for (ds in unique(df$dataset)) {
 
 out <- do.call(rbind, results)
 write.csv(out, file = output_file, row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 cat(sprintf("wrote %d rows to %s\n", nrow(out), output_file))

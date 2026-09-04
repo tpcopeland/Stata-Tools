@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.1.0** | 2026-09-03
+**Version 4.1.2** | 2026-09-04
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -350,7 +350,7 @@ The default tie method is Efron in `iivw_weight` and `iivw_exogtest`. `iivw_bala
 
 ### Inference
 
-For IIW and IPTW GEE fits with no explicit variance request, `iivw_fit` uses `vce(bootstrap, reps(999))` with subject-level nuisance-model refitting. `vce(bootstrap, reps(#) fixedweights)` resamples subjects while holding weights fixed, and `vce(fixed)` uses the analytic cluster-robust sandwich with weights treated as known. The latter two omit weight-estimation uncertainty and should be described as such.
+For IIW and IPTW GEE fits with no explicit variance request, `iivw_fit` uses `vce(bootstrap, reps(999))` with subject-level nuisance-model refitting. The current build stamps this route `uncleared-current-build` until the long-run coverage gate is reproduced against its source manifest. `vce(bootstrap, reps(#) fixedweights)` resamples subjects while holding weights fixed, and `vce(fixed)` uses the analytic cluster-robust sandwich with weights treated as known. The latter two omit weight-estimation uncertainty and should be described as such.
 
 For a bare weighted FIPTIW GEE fit, the default is point-only at every sample size: coefficients are reported without a covariance matrix or nominal interval. Explicit `vce()` or `citype()` requests nominal inference and records its status in `e(iivw_inference_status)`; explicit `vce(stacked)` propagates the fitted-weight terms but remains `uncleared-stacked-analytic` because its larger-sample study was diagnostic rather than a release gate. Fewer than 999 bootstrap draws are allowed but are marked `uncleared-low-reps`; failed draws are an error unless `allowfailedreps` explicitly accepts them.
 
@@ -435,6 +435,8 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **4.1.2** (2026-09-04): Hardened input ownership, analysis-sample validation, transactional weight metadata rollback, and fail-closed inference gates. Expanded regression coverage for stored source-variable collisions, incomplete simulations, separator failures, FIPTIW recovery, and the assembled stacked covariance oracle; refreshed the user-facing inference contract and independent-reference workflow.
+- **4.1.1** (2026-09-04): Fail-closed resolve contract for explicitly named sources. `iivw_diagnose` now refuses stored estimates that carry no `e(depvar)` or `e(cmd)`: the comparability gate decides "same estimand" by comparing those fields across the three roles, and three estimates that carry neither compared equal on empty strings, so the gate passed vacuously and the command returned `decomposable = 1` with a printed decomposition it had never verified. `iivw` now refuses an install whose `iivw.ado` header cannot be read instead of reporting `r(version)` as "unknown" at rc 0. New internal helper `_iivw_require_meta`.
 - **4.1.0** (2026-09-03): Fail-closed commit contract for final weights. `iivw_weight` now refuses a run in which every observation is unweighted, instead of committing its signed `_iivw_` contract and returning success: `allowmissingweights` declares that a complete-case analysis is intended, and zero complete cases is not one. New internal helper `_iivw_assert_cardinality`.
 - **4.0.1** (2026-08-30): Preserved unfitted `baseline(event)` weights as missing, made the demo restore caller state on failure, corrected its exogeneity return, and repaired Viewer-width documentation tables.
 - **4.0.0** (2026-08-19): Removed journal theme presets from reporting exports and added direct `font()` and `fontsize()` options.

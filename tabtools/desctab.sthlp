@@ -109,8 +109,8 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra stripe color{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
-{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt mark:down(filename)}}export as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdapp:end}}append the Markdown table to an existing file{p_end}
 
 {syntab:Frame & Pipeline}
 {synopt:{opt fra:me(name[, replace])}}store output in a named Stata frame{p_end}
@@ -280,6 +280,12 @@ disable{p_end}
 
 {phang}
 {opt varlabplus} add data type description after variable labels{p_end}
+
+{phang}
+{opt vars(var_spec)} explicitly defines table rows as backslash-separated
+{it:varname vartype} entries. Each entry may also supply one or two Stata
+display formats; supported row types are listed under Syntax. When omitted,
+types are inferred for the supplied varlist.{p_end}
 
 {phang}
 {opt wt(varname)} probability/IP weight (e.g. IPTW); weighted columns are % only (see {opt wtn},

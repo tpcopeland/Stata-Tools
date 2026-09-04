@@ -452,6 +452,9 @@ capture noisily {
     quietly finegray Z, compete(eps) cause(1) censvalue(0) strata(cg) ///
         robust noadjust nuisance nolog
     matrix bb = e(b)
+    * the fit under test has to have produced coefficients before its Mata
+    * guard means anything
+    assert colsof(bb) == 1 & !missing(el(bb, 1, 1))
     * positive control: t0 == 0 must succeed, so the failure below is
     * attributable to t0 > 0 and not to bad arguments.
     capture mata: _fg_psi_lt_probe("Z", "cg", 0)

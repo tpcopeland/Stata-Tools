@@ -7,24 +7,25 @@ clear all
 do "`c(pwd)'/_psdash_bootstrap.do"
 
 * -------------------------------------------------------------------------
-* SETUP: simulate 3-group data
+* SETUP: reproducible 3-group fixture
 * -------------------------------------------------------------------------
-clear
-set seed 12345
-set obs 300
+capture program drop _mg_main_data
+program define _mg_main_data
+    clear
+    set seed 12345
+    set obs 300
 
-* Treatment variable: 3 groups (0, 1, 2)
-gen treat = cond(_n <= 100, 0, cond(_n <= 200, 1, 2))
+    gen treat = cond(_n <= 100, 0, cond(_n <= 200, 1, 2))
+    gen double x1 = rnormal(0, 1) + 0.3 * (treat == 1) + 0.5 * (treat == 2)
+    gen double x2 = rnormal(5, 2) - 0.2 * (treat == 1) + 0.4 * (treat == 2)
+    gen double x3 = rnormal(10, 3) + 0.1 * (treat == 1) - 0.3 * (treat == 2)
 
-* Covariates with different means across groups
-gen double x1 = rnormal(0, 1) + 0.3 * (treat == 1) + 0.5 * (treat == 2)
-gen double x2 = rnormal(5, 2) - 0.2 * (treat == 1) + 0.4 * (treat == 2)
-gen double x3 = rnormal(10, 3) + 0.1 * (treat == 1) - 0.3 * (treat == 2)
+    gen double w = 1 + 0.5 * runiform()
+    replace w = w * 1.2 if treat == 1
+    replace w = w * 0.9 if treat == 2
+end
 
-* Fake weights (GPS-based IPTW, simulated)
-gen double w = 1 + 0.5 * runiform()
-replace w = w * 1.2 if treat == 1
-replace w = w * 0.9 if treat == 2
+_mg_main_data
 
 capture program drop _mg_weights_ps_data
 program define _mg_weights_ps_data
@@ -91,6 +92,9 @@ capture confirm scalar r(n_imbalanced)
 if _rc local t2_pass = 0
 capture confirm scalar r(threshold)
 if _rc local t2_pass = 0
+if `t2_pass' {
+    if r(N) != 300 | r(K) != 3 | r(threshold) != .1 local t2_pass = 0
+}
 
 if `t2_pass' {
     display as result "T2 PASS: multi-group stored scalars present (N=" r(N) " K=" r(K) ")"
@@ -111,6 +115,11 @@ capture confirm scalar r(N_group_1)
 if _rc local t3_pass = 0
 capture confirm scalar r(N_group_2)
 if _rc local t3_pass = 0
+if `t3_pass' {
+    if r(N_group_0) != 100 | r(N_group_1) != 100 | r(N_group_2) != 100 {
+        local t3_pass = 0
+    }
+}
 
 if `t3_pass' {
     display as result "T3 PASS: per-group N present (N0=" r(N_group_0) " N1=" r(N_group_1) " N2=" r(N_group_2) ")"
@@ -126,8 +135,8 @@ else {
 local n_tests = `n_tests' + 1
 local t4_pass = 1
 if "`r(treatment)'" != "treat" local t4_pass = 0
-if "`r(levels)'" == "" local t4_pass = 0
-if "`r(reference)'" == "" local t4_pass = 0
+if "`r(levels)'" != "0 1 2" local t4_pass = 0
+if "`r(reference)'" != "0" local t4_pass = 0
 
 if `t4_pass' {
     display as result "T4 PASS: stored locals correct (ref=" r(reference) " levels=" r(levels) ")"
@@ -143,10 +152,35 @@ else {
 local n_tests = `n_tests' + 1
 capture confirm matrix r(balance)
 if _rc == 0 {
+    tempname B
+    matrix `B' = r(balance)
     local nrows = rowsof(r(balance))
     local ncols = colsof(r(balance))
-    display as result "T5 PASS: balance matrix present (" `nrows' "x" `ncols' ")"
-    local n_passed = `n_passed' + 1
+    local cnames : colnames `B'
+    local rnames : rownames `B'
+    quietly summarize x1 if treat == 1, meanonly
+    local mean_1 = r(mean)
+    quietly summarize x1 if treat == 0, meanonly
+    local mean_0 = r(mean)
+    quietly summarize x1 [aw=w] if treat == 1, meanonly
+    local mean_1_adj = r(mean)
+    quietly summarize x1 [aw=w] if treat == 0, meanonly
+    local mean_0_adj = r(mean)
+    local expected_names "Mean_1 Mean_0 SMD_1v0 VR_1v0 KS_1v0 Mean_2 Mean_0 SMD_2v0 VR_2v0 KS_2v0 MnAdj_1 MnAdj_0 SMDAdj_1v0 VRAdj_1v0 KSAdj_1v0 MnAdj_2 MnAdj_0 SMDAdj_2v0 VRAdj_2v0 KSAdj_2v0"
+    local t5_pass = (`nrows' == 3 & `ncols' == 20)
+    if "`rnames'" != "x1 x2 x3" local t5_pass = 0
+    if "`cnames'" != "`expected_names'" local t5_pass = 0
+    if reldif(`B'[1,1], `mean_1') > 1e-12 local t5_pass = 0
+    if reldif(`B'[1,2], `mean_0') > 1e-12 local t5_pass = 0
+    if reldif(`B'[1,11], `mean_1_adj') > 1e-12 local t5_pass = 0
+    if reldif(`B'[1,12], `mean_0_adj') > 1e-12 local t5_pass = 0
+    if `t5_pass' {
+        display as result "T5 PASS: balance matrix shape, names, and selected cells are exact"
+        local n_passed = `n_passed' + 1
+    }
+    else {
+        display as error "T5 FAIL: balance matrix shape, names, or selected cells are wrong"
+    }
 }
 else {
     display as error "T5 FAIL: balance matrix not returned"
@@ -169,6 +203,8 @@ else {
 * TEST 7: psdash weights with 3-group treatment + wvar
 * =========================================================================
 local n_tests = `n_tests' + 1
+quietly summarize w, meanonly
+local expected_mean_w = r(mean)
 capture noisily psdash weights treat, wvar(w)
 if _rc == 0 {
     display as result "T7 PASS: 3-group weights runs without error"
@@ -193,6 +229,14 @@ capture confirm scalar r(ess_pct)
 if _rc local t8_pass = 0
 capture confirm scalar r(mean_wt)
 if _rc local t8_pass = 0
+local got_N = r(N)
+local got_K = r(K)
+local got_mean = r(mean_wt)
+local got_levels "`r(levels)'"
+local got_reference "`r(reference)'"
+if `got_N' != 300 | `got_K' != 3 local t8_pass = 0
+if reldif(`got_mean', `expected_mean_w') > 1e-12 local t8_pass = 0
+if "`got_levels'" != "0 1 2" | "`got_reference'" != "0" local t8_pass = 0
 
 if `t8_pass' {
     display as result "T8 PASS: weight stored scalars present (N=" r(N) " K=" r(K) " ESS=" string(r(ess), "%6.1f") ")"
@@ -264,20 +308,20 @@ else {
 * TEST 12: Stabilized weights are proportional to group prevalence * w
 * =========================================================================
 local n_tests = `n_tests' + 1
-* Group 0 has 100/300 = 0.333 prevalence, so w_stab should = 0.333 * w
-quietly summarize w_stab if treat == 0 in 1
-local ws0 = r(mean)
-quietly summarize w if treat == 0 in 1
-local w0 = r(mean)
-local expected = (100/300) * `w0'
-local t12_pass = (reldif(`ws0', `expected') < 0.001)
+_mg_main_data
+capture noisily psdash weights treat, wvar(w) stabilize generate(w_stab)
+local t12_pass = (_rc == 0)
+capture confirm variable w_stab
+if _rc local t12_pass = 0
+quietly count if reldif(w_stab, (1/3) * w) > 1e-12
+if r(N) != 0 local t12_pass = 0
 
 if `t12_pass' {
-    display as result "T12 PASS: stabilized weight = P(A=a) * w (group 0)"
+    display as result "T12 PASS: fresh fixture gives P(A=a) * w in every group"
     local n_passed = `n_passed' + 1
 }
 else {
-    display as error "T12 FAIL: stabilized weight mismatch (got " `ws0' " expected " `expected' ")"
+    display as error "T12 FAIL: stabilized weights are wrong on a fresh fixture"
 }
 
 * =========================================================================

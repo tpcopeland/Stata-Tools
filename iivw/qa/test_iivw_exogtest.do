@@ -627,9 +627,63 @@ if `run_only' == 0 | `run_only' == 16 {
     }
 }
 
+**## 17. if/in scopes end-of-follow-up validation
+local ++test_count
+if `run_only' == 0 | `run_only' == 17 {
+    capture noisily {
+        _exog_independent_panel, nids(120) visits(5)
+        gen double censor_time = 20
+        * These rows are outside the requested sample. Their invalid follow-up
+        * values must not make an otherwise valid diagnostic fail.
+        replace months = 30 if id > 100 & visit == 5
+        replace censor_time = . if id > 100
+
+        iivw_exogtest y if id <= 100, id(id) time(months) maxfu(20) nolog
+        * Four observed-visit failures plus one terminal censoring interval per
+        * included subject.
+        assert r(N) == 500
+
+        iivw_exogtest y if id <= 100, id(id) time(months) ///
+            censor(censor_time) nolog replace
+        assert r(N) == 500
+    }
+    if _rc == 0 {
+        display as result "  PASS: 17 - follow-up validation respects if/in"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 17 - follow-up validation scope (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 17"
+    }
+}
+
+**## 18. missing censor values are marked out with the analysis sample
+local ++test_count
+if `run_only' == 0 | `run_only' == 18 {
+    capture noisily {
+        _exog_independent_panel, nids(100) visits(5)
+        gen double censor_time = 20
+        replace censor_time = . if id == 100
+
+        iivw_exogtest y, id(id) time(months) censor(censor_time) nolog
+        * One five-row subject is excluded. Each remaining subject contributes
+        * four observed-visit failures and one terminal censoring interval.
+        assert r(N) == 495
+    }
+    if _rc == 0 {
+        display as result "  PASS: 18 - missing censor values are marked out"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: 18 - censor markout (error `=_rc')"
+        local ++fail_count
+        local failed_tests "`failed_tests' 18"
+    }
+}
+
 **# Summary
 
 capture adopath - "`pkg_dir'"
 iivw_qa_summary, name(test_iivw_exogtest) tests(`test_count') pass(`pass_count') ///
     fail(`fail_count') runonly(`run_only') failedtests("`failed_tests'")
-

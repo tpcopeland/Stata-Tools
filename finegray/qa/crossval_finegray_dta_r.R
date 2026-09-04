@@ -31,7 +31,25 @@ if (length(args) != 2L) {
     stop("Usage: crossval_finegray_dta_r.R input.dta output.dta")
 }
 
+
 d <- read_dta(args[1])
+
+# Oracle cache (added 2026-09-04).  Keyed on the parsed DATA, not on the input
+# file's bytes: a .dta header embeds "<timestamp> 4 Sep 2026 19:11" at minute
+# granularity, so hashing the file itself made this entry miss on essentially
+# every run -- correct, but permanently useless and confusing in a log.  The
+# numbers are what can move the oracle, so the numbers are what the key holds.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin("finegray_dta", outputs = args[2],
+        key_values = list(input_data = local({
+            tf <- tempfile(fileext = ".csv")
+            on.exit(unlink(tf), add = TRUE)
+            utils::write.csv(as.data.frame(d), tf, row.names = FALSE)
+            unname(tools::md5sum(tf))
+        })),
+        packages = c("haven", "cmprsk"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
 needed <- c("time", "status", "z")
 if (!identical(sort(names(d)), sort(needed)) || any(!is.finite(as.matrix(d)))) {
     stop("fixture must contain finite time, status, and z columns only")
@@ -55,3 +73,4 @@ out <- data.frame(
 )
 if (any(!is.finite(as.matrix(out)))) stop("oracle output is nonfinite")
 write_dta(out, args[2], version = 14)
+fg_oracle_cache_end(.fgc)

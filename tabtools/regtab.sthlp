@@ -36,11 +36,11 @@ for treatment effects and margins tables.
 {opt sheet(string)} {opt sep(string asis)} {opt models(string)}
 {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept}
 {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)}
-{opt level(#)}
+{opt l:evel(#)}
 {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
-{opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
+{opt font(string)} {opt fontsize(#)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
+{opt csv(string)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)}
 {opt eplotf:rame(name[, replace])} {opt keep(varlist)}
 {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
 {opt omitl:abel(string)} {opt emptyl:abel(string)}
@@ -245,9 +245,8 @@ reports as {cmd:(omitted)} -- most often a level or term dropped for
 collinearity. Default {cmd:"Omitted"}{p_end}
 
 {phang}
-{opt emptyl:abel(string)} label for a factor cell that identifies no
-observations in the estimation sample, which Stata reports as {cmd:(empty)}.
-Default {cmd:"Empty"}{p_end}
+{opt emptyl:abel(string)} label for a factor cell that identifies no observations
+in the estimation sample, which Stata reports as {cmd:(empty)}; default {cmd:"Empty"}{p_end}
 
 {phang}
 {opt relab:el} relabel random effects using variable labels and parameter types (see Remarks){p_end}
@@ -282,13 +281,13 @@ dispersion is fixed at 1 (see Remarks).{p_end}
 
 
 {phang}
-{cmdab:headerc:olor(} {it:string} {cmd:)} custom header color (Stata color name or RGB triplet; default
+{opt headerc:olor(string)} custom header color (Stata color name or RGB triplet; default
 {cmd:"219 229 241"}){p_end}
 
 {phang}
 
 {phang}
-{cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra color (Stata color name or RGB triplet; default
+{opt zebrac:olor(string)} custom zebra color (Stata color name or RGB triplet; default
 {cmd:"237 242 249"}){p_end}
 
 {marker remarks}{title:Remarks}

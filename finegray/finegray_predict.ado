@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.0  2026/09/02
+*! finegray_predict Version 1.3.0  2026/09/04
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -962,7 +962,7 @@ program define finegray_predict, rclass sortpreserve
         }
 
         if !`_fg_istvc' {
-            quietly gen `typlist' `varlist' = ///
+            quietly gen `typlist' `varlist' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, which covers this branch and the piecewise one (both write `varlist')
                 1 - exp(-`H0_val' * exp(`xb_val')) if `touse'
         }
         else {
@@ -1039,6 +1039,19 @@ program define finegray_predict, rclass sortpreserve
             quietly gen `typlist' `varlist' = 1 - exp(-`_plam') if `touse'
         }
         local _created_vars "`varlist'"
+
+        * Commit contract (Critical Rule 15).  `touse' being non-empty is not
+        * the same fact as the CIF having a value on any of its rows.  The
+        * linear predictor is `matrix score'd from the caller's data, and a
+        * scoring covariate that is missing on every prediction row makes every
+        * CIF missing -- `finegray_predict cifhat, cif' after `replace ifp = .'
+        * returned rc 0 with 0 of 109 non-missing values, a column of pure
+        * missings labelled as a cumulative incidence.  Registered in
+        * `_created_vars' first, so the refusal drops the variable and leaves
+        * the dataset as it was.
+        _finegray_assert_cardinality `varlist', touse(`touse') ///
+            label("cif prediction")
+
         * Name the evaluation basis in the label.  `cif' without timevar()
         * evaluates at each subject's own _t and `cif timevar(h5)' at h5; the
         * generic "CIF prediction" left `describe' unable to tell the two apart,
@@ -1302,9 +1315,9 @@ program define finegray_predict, rclass sortpreserve
             quietly gen double `segp' = `se_cif' / ///
                 ((1 - `varlist') * (-ln(1 - `varlist'))) ///
                 if `touse' & `varlist' > 0 & `varlist' < 1
-            quietly gen double `lci' = ///
+            quietly gen double `lci' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
                 1 - exp(-exp(`gpt' - `z' * `segp')) if `touse'
-            quietly gen double `uci' = ///
+            quietly gen double `uci' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
                 1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
             local _created_vars "`_created_vars' `lci' `uci'"
             * A limit that could not be computed stays MISSING.  Through v1.1.0
@@ -1312,6 +1325,19 @@ program define finegray_predict, rclass sortpreserve
             * "we cannot quantify the uncertainty here" into "there is none":
             * a degenerate CIF, or an interior CIF whose SE came back nonfinite,
             * was shipped as a zero-width confidence interval.
+            *
+            * Commit contract (Critical Rule 15).  A row-wise missing limit is
+            * deliberate (see above); ALL of them missing is not a confidence
+            * interval at all.  It happens whenever the transform is undefined
+            * everywhere -- a CIF that is identically 0 at a horizon before the
+            * first cause event, or an SE that came back nonfinite on every row.
+            * `finegray_predict p, cif ci timevar(t)' with t below the first
+            * event time returned rc 0 and shipped p_lci and p_uci with 0 of 109
+            * non-missing values.  Both limits are already in `_created_vars',
+            * so the refusal removes them and the point estimate with them.
+            _finegray_assert_cardinality `lci', touse(`touse') ///
+                label("cif confidence limits")
+
             label variable `lci' "CIF lower `level'% limit"
             label variable `uci' "CIF upper `level'% limit"
         }

@@ -4,7 +4,7 @@ version 16.0
 set varabbrev off
 
 * validation_iivw_fiptiw_recovery.do - Gate 2B: recommended-path FIPTIW recovery
-* Tests: 4
+* Tests: 5
 *
 * WHAT THIS SUITE IS FOR
 * ----------------------
@@ -92,6 +92,10 @@ local MCSE_K = 3
 * while staying < the ~1 signal FIPTIW must recover to. Pilot at R=20 already
 * separated every required cell; R=50 tightens the band. FIXED before the run.
 local R = 50
+* No attempted fit may disappear from a recovery mean. These registered cells
+* are expected to converge deterministically at the fixed seeds, so the
+* completeness threshold is the full planned Monte Carlo size.
+local MIN_OK = `R'
 
 local test_count = 0
 local pass_count = 0
@@ -153,23 +157,47 @@ program define _fit4, rclass
     * one dataset in memory -> naive / IIW-only / IPTW-only / FIPTIW b[A].
     * . if a fit fails, so the caller can drop that replicate.
     capture quietly glm y A if entry==0
-    return scalar naive = cond(_rc==0, _b[A], .)
+    local rc_naive = _rc
+    local b_naive = .
+    if `rc_naive' == 0 local b_naive = _b[A]
 
-    capture quietly iivw_weight, id(id) time(t) visit_cov(Z) wtype(iivw) ///
-        censor(C) baseline(entry) nolog replace
-    capture quietly iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
-    return scalar iiw = cond(_rc==0, _b[A], .)
+    capture quietly {
+        iivw_weight, id(id) time(t) visit_cov(Z) wtype(iivw) ///
+            censor(C) baseline(entry) nolog replace
+        iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
+    }
+    local rc_iiw = _rc
+    local b_iiw = .
+    if `rc_iiw' == 0 local b_iiw = _b[A]
 
-    capture quietly iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
-        wtype(iptw) nolog replace
-    capture quietly iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
-    return scalar iptw = cond(_rc==0, _b[A], .)
+    capture quietly {
+        iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
+            wtype(iptw) nolog replace
+        iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
+    }
+    local rc_iptw = _rc
+    local b_iptw = .
+    if `rc_iptw' == 0 local b_iptw = _b[A]
 
-    capture quietly iivw_weight, id(id) time(t) treat(A) treat_cov(K1 K2 K3) ///
-        visit_cov(Z) wtype(fiptiw) censor(C) baseline(entry) nolog replace
-    return scalar treat_in_visit = r(treat_in_visit)
-    capture quietly iivw_fit y A, model(gee) timespec(none) vce(fixed) nolog replace
-    return scalar fiptiw = cond(_rc==0, _b[A], .)
+    local tiv = .
+    capture quietly iivw_weight, id(id) time(t) treat(A) ///
+        treat_cov(K1 K2 K3) visit_cov(Z) wtype(fiptiw) censor(C) ///
+        baseline(entry) nolog replace
+    local rc_fiptiw = _rc
+    if `rc_fiptiw' == 0 {
+        local tiv = r(treat_in_visit)
+        capture quietly iivw_fit y A, model(gee) timespec(none) ///
+            vce(fixed) nolog replace
+        local rc_fiptiw = _rc
+    }
+    local b_fiptiw = .
+    if `rc_fiptiw' == 0 local b_fiptiw = _b[A]
+
+    return scalar naive = `b_naive'
+    return scalar iiw = `b_iiw'
+    return scalar iptw = `b_iptw'
+    return scalar fiptiw = `b_fiptiw'
+    return scalar treat_in_visit = `tiv'
 end
 
 * =============================================================================
@@ -237,10 +265,39 @@ program define _getcell
         c_local b_`v'    = bias_`v'[1]
         c_local band_`v' = band_`v'[1]
         c_local rec_`v'  = rec_`v'[1]
+        c_local nok_`v'  = nok_`v'[1]
+        c_local sd_`v'   = sd_`v'[1]
+        c_local mcse_`v' = mcse_`v'[1]
     }
     c_local tiv = tiv_min[1]
     restore
 end
+
+* =============================================================================
+* T5 - every planned fit succeeded and every MC uncertainty estimate is finite
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 5 {
+    capture noisily {
+        use "`cells'", clear
+        foreach v in naive iiw iptw fiptiw {
+            assert nok_`v' >= `MIN_OK'
+            assert !missing(sd_`v', mcse_`v')
+            assert sd_`v' > 0
+            assert mcse_`v' > 0
+        }
+        assert !missing(tiv_min)
+    }
+    if _rc == 0 {
+        local ++pass_count
+        display as result "PASS: T5 all planned fits succeeded; SD and MCSE are finite"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' T5"
+        display as error "FAIL: T5 recovery completeness/uncertainty gate (error `=_rc')"
+    }
+}
 
 * =============================================================================
 * T1 - FIPTIW recovers in both core arms, at both sample sizes

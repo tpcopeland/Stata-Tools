@@ -15,3 +15,13 @@
 /*.log
 /*.smcl
 /data/
+
+# R oracle cache. Every crossval_*_r.R is a pure function of its inputs (fixed
+# seeds, or no RNG at all), so its output is a constant; _fg_oracle_cache.R
+# caches it here, keyed on the script + input-file content, the named
+# parameters, and the R/package/platform versions. Purely a local speedup: a
+# fresh clone has no cache and populates it on the first run. Never tracked,
+# for the same reason /data/ is not -- and because a cache committed from one
+# machine's R build is exactly the oracle drift the crossvals exist to catch.
+# Force a recompute with FG_ORACLE_NOCACHE=1, or by deleting this directory.
+/.oracle_cache/

@@ -329,6 +329,7 @@ capture noisily {
     frame tx_display: assert sentinel[1] == "display-old"
     frame tx_plot: assert sentinel[1] == "plot-old"
 }
+local tx_reg_check_rc = _rc
 
 matrix TXE = (1.2, .9, 1.6, .2)
 matrix rownames TXE = Effect
@@ -341,6 +342,7 @@ capture noisily {
     frame tx_display: assert sentinel[1] == "display-old"
     frame tx_plot: assert sentinel[1] == "plot-old"
 }
+local tx_effect_check_rc = _rc
 
 global TABTOOLS_QA_COMP_STAGE_FAIL 1
 capture noisily comptab alias_source, rows(1) ///
@@ -354,12 +356,13 @@ capture noisily {
     frame alias_source: quietly datasignature
     assert `"`r(datasignature)'"' == `"`alias_source_sig'"'
 }
-if _rc == 0 {
+local tx_comp_check_rc = _rc
+if `tx_reg_check_rc' == 0 & `tx_effect_check_rc' == 0 & `tx_comp_check_rc' == 0 {
     display as result "  PASS C02d: injected post-stage failures preserve all frame destinations and sources"
     local ++pass_count
 }
 else {
-    display as error "  FAIL C02d: post-stage transaction rollback (rc=`=_rc')"
+    display as error "  FAIL C02d: post-stage transaction rollback (regtab rc=`tx_reg_check_rc', effecttab rc=`tx_effect_check_rc', comptab rc=`tx_comp_check_rc')"
     local ++fail_count
 }
 

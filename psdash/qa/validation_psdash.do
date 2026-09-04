@@ -36,18 +36,31 @@ if `install_rc' {
 }
 
 foreach f in ///
-    "/tmp/psdash_v38_overlap.png" ///
-    "/tmp/psdash_v39_balance.png" ///
-    "/tmp/psdash_v39_balance.xlsx" ///
-    "/tmp/psdash_v40_weights.png" ///
-    "/tmp/psdash_v41_support.png" ///
-    "/tmp/psdash_v42_combined.png" {
+    "`_qa_sysroot'/psdash_v38_overlap.png" ///
+    "`_qa_sysroot'/psdash_v39_balance.png" ///
+    "`_qa_sysroot'/psdash_v39_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_v40_weights.png" ///
+    "`_qa_sysroot'/psdash_v41_support.png" ///
+    "`_qa_sysroot'/psdash_v42_combined.png" {
     capture erase "`f'"
 }
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
+
+capture program drop _psdash_check_png
+program define _psdash_check_png
+    args artifact checker
+    tempfile result
+    shell python3 "`checker'" "`artifact'" --type png ///
+        --min-width 400 --min-height 300 --result-file "`result'"
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    assert "`line'" == "PASS"
+end
 
 **# Test Data
 clear
@@ -1001,7 +1014,7 @@ capture noisily {
     gen byte treated = (_n <= 4)
     gen double ps = 0.5
 
-    local v38_png "/tmp/psdash_v38_overlap.png"
+    local v38_png "`_qa_sysroot'/psdash_v38_overlap.png"
     capture erase "`v38_png'"
 
     psdash overlap treated ps, ///
@@ -1014,6 +1027,7 @@ capture noisily {
     assert abs(r(overlap_lower) - 0.5) < 1e-10
     assert abs(r(overlap_upper) - 0.5) < 1e-10
     confirm file "`v38_png'"
+    _psdash_check_png "`v38_png'" "`qa_dir'/tools/check_artifact.py"
 }
 if _rc == 0 {
     display as result "  PASS: V38 overlap option branches preserve exact overlap"
@@ -1034,8 +1048,8 @@ capture noisily {
     gen double x2 = cond(mod(_n-1, 2)==0, 0, 1)
     gen double ps = 0.5
 
-    local v39_png "/tmp/psdash_v39_balance.png"
-    local v39_xlsx "/tmp/psdash_v39_balance.xlsx"
+    local v39_png "`_qa_sysroot'/psdash_v39_balance.png"
+    local v39_xlsx "`_qa_sysroot'/psdash_v39_balance.xlsx"
     capture erase "`v39_png'"
     capture erase "`v39_xlsx'"
 
@@ -1052,6 +1066,7 @@ capture noisily {
     assert abs(B[2,3]) < 1e-10
     assert r(n_imbalanced) == 0
     confirm file "`v39_png'"
+    _psdash_check_png "`v39_png'" "`qa_dir'/tools/check_artifact.py"
     confirm file "`v39_xlsx'"
 
     import excel using "`v39_xlsx'", sheet("ExactBal") clear allstring
@@ -1078,7 +1093,7 @@ capture noisily {
     gen double ps = 0.5
     gen double wt_const = 2
 
-    local v40_png "/tmp/psdash_v40_weights.png"
+    local v40_png "`_qa_sysroot'/psdash_v40_weights.png"
     capture erase "`v40_png'"
 
     psdash weights treated ps, wvar(wt_const) graph ///
@@ -1093,6 +1108,7 @@ capture noisily {
     assert abs(r(ess) - 4) < 1e-10
     assert abs(r(ess_pct) - 100) < 1e-10
     confirm file "`v40_png'"
+    _psdash_check_png "`v40_png'" "`qa_dir'/tools/check_artifact.py"
 }
 if _rc == 0 {
     display as result "  PASS: V40 weights graph branch preserves exact ESS"
@@ -1119,7 +1135,7 @@ capture noisily {
     replace ps = 0.70 in 7
     replace ps = 0.80 in 8
 
-    local v41_png "/tmp/psdash_v41_support.png"
+    local v41_png "`_qa_sysroot'/psdash_v41_support.png"
     capture erase "`v41_png'"
 
     psdash support treated ps, threshold(0.25) ///
@@ -1134,6 +1150,7 @@ capture noisily {
     assert abs(r(trim_lower) - 0.25) < 1e-10
     assert abs(r(trim_upper) - 0.75) < 1e-10
     confirm file "`v41_png'"
+    _psdash_check_png "`v41_png'" "`qa_dir'/tools/check_artifact.py"
 }
 if _rc == 0 {
     display as result "  PASS: V41 support option branches preserve exact trimming"
@@ -1154,7 +1171,7 @@ capture noisily {
     gen double x2 = cond(mod(_n-1, 2)==0, 0, 1)
     gen double ps = 0.5
 
-    local v42_png "/tmp/psdash_v42_combined.png"
+    local v42_png "`_qa_sysroot'/psdash_v42_combined.png"
     capture erase "`v42_png'"
 
     psdash combined treated ps, covariates(x1 x2) ///
@@ -1167,6 +1184,7 @@ capture noisily {
     assert r(n_imbalanced) == 0
     assert abs(r(threshold) - 0.25) < 1e-10
     confirm file "`v42_png'"
+    _psdash_check_png "`v42_png'" "`qa_dir'/tools/check_artifact.py"
 }
 if _rc == 0 {
     display as result "  PASS: V42 combined balance-only branch preserves exact threshold"
@@ -1182,12 +1200,12 @@ capture drop _psdash_ps
 capture drop _psdash_wt
 graph close _all
 foreach f in ///
-    "/tmp/psdash_v38_overlap.png" ///
-    "/tmp/psdash_v39_balance.png" ///
-    "/tmp/psdash_v39_balance.xlsx" ///
-    "/tmp/psdash_v40_weights.png" ///
-    "/tmp/psdash_v41_support.png" ///
-    "/tmp/psdash_v42_combined.png" {
+    "`_qa_sysroot'/psdash_v38_overlap.png" ///
+    "`_qa_sysroot'/psdash_v39_balance.png" ///
+    "`_qa_sysroot'/psdash_v39_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_v40_weights.png" ///
+    "`_qa_sysroot'/psdash_v41_support.png" ///
+    "`_qa_sysroot'/psdash_v42_combined.png" {
     capture erase "`f'"
 }
 

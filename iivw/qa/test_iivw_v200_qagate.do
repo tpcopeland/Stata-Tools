@@ -79,6 +79,7 @@ capture noisily {
         display as error "T1 FAIL: success sentinel exists after a FAILING child"
         error 9
     }
+    assert fileexists("`ok'") == 0
 
     * Succeeding child: the sentinel must appear.
     shell true && touch "`ok'"
@@ -87,6 +88,7 @@ capture noisily {
         display as error "T1 FAIL: success sentinel missing after a SUCCEEDING child"
         error 9
     }
+    assert fileexists("`ok'") == 1
     capture erase "`ok'"
 }
 if _rc == 0 {
@@ -124,6 +126,21 @@ capture noisily {
         display as error "T2 FAIL: no log produced; cannot verify the exit-code contract"
         error 9
     }
+    * A log that merely EXISTS proves nothing: batch mode writes one before the
+    * do-file runs. Read it and require the assertion failure to be recorded,
+    * or the premise of this test -- that the child really did fail -- is itself
+    * unverified.
+    tempname t2_fh
+    local t2_saw_failure = 0
+    file open `t2_fh' using "`d2'/boom.log", read text
+    file read `t2_fh' t2_line
+    while r(eof) == 0 {
+        if strpos(`"`macval(t2_line)'"', "assertion is false") local t2_saw_failure = 1
+        file read `t2_fh' t2_line
+    }
+    file close `t2_fh'
+    assert `t2_saw_failure' == 1
+
     * ...and run_all must therefore not rely on the process exit status. We pin
     * the observed behaviour rather than asserting a specific code, so that this
     * test documents reality on whatever Stata build runs it.

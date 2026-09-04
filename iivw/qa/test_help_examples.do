@@ -227,6 +227,17 @@ capture noisily {
     summarize _iivw_weight, detail
     confirm variable _iivw_weight
     confirm variable _iivw_iw
+    * `confirm variable' is existence-only: an all-missing weight column
+    * confirms exactly as well as a weighted one, which is the shape the 4.1.0
+    * commit contract exists to refuse. Assert the content the example claims.
+    quietly count if !missing(_iivw_weight)
+    assert !missing(r(N))
+    assert r(N) > 0
+    quietly summarize _iivw_weight, meanonly
+    assert r(min) > 0 & r(min) < .
+    quietly count if !missing(_iivw_iw)
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     local ++pass_count
@@ -462,8 +473,26 @@ capture noisily {
 
     iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
         adjusted(M_adjusted) exogeneity(exogenous)
+    * The example is documented as producing a decomposition; check that it
+    * did. Running to rc 0 is satisfied equally by a table of missing values.
+    * The gaps are ROWS of r(decomp), not scalars -- reading them as
+    * r(sampling_gap) yields missing, and the check would fail permanently.
+    assert "`r(depvar)'" == "price"
+    matrix h12_D = r(decomp)
+    local h12_s = rownumb(h12_D, "sampling_gap")
+    local h12_a = rownumb(h12_D, "artifact_gap")
+    local h12_t = rownumb(h12_D, "total_gap")
+    assert !missing(`h12_s', `h12_a', `h12_t')
+    assert !missing(h12_D[`h12_s',1], h12_D[`h12_a',1], h12_D[`h12_t',1])
+    assert !missing(h12_D[`h12_s',1] + h12_D[`h12_a',1])
+    assert reldif(h12_D[`h12_t',1], h12_D[`h12_s',1] + h12_D[`h12_a',1]) < 1e-10
+    matrix drop h12_D
     iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
         adjusted(M_adjusted) exogeneity(endogenous)
+    matrix h12_E = r(decomp)
+    assert !missing(h12_E[rownumb(h12_E, "sampling_gap"),1], ///
+                    h12_E[rownumb(h12_E, "artifact_gap"),1])
+    matrix drop h12_E
     iivw_diagnose mpg, unweighted(M_unweighted) weighted(M_weighted) ///
         adjusted(M_adjusted) true(0) exogeneity(unknown)
 

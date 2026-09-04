@@ -1,4 +1,4 @@
-*! _psdash_validate_psvars Version 1.7.0  2026/09/03
+*! _psdash_validate_psvars Version 1.7.1  2026/09/04
 *! Validate multi-group propensity-score variable lists
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,6 +14,12 @@ program define _psdash_validate_psvars, rclass
 
         local psvars "`varlist'"
         _psdash_validate_levels, levels(`levels')
+        local _n_levels : word count `levels'
+        if `_n_levels' != `k' {
+            display as error "requested sample contains `_n_levels' treatment levels, but the fitted model has `k'"
+            display as error "  diagnostics on a reduced-arm mlogit sample are not supported"
+            exit 198
+        }
         local _n_psvars : word count `psvars'
         if `_n_psvars' != `k' {
             display as error "psvars() requires `k' variables (one per treatment level)"

@@ -75,6 +75,10 @@ program define _reporting_diag_post, eclass
     matrix colnames `vmat' = x
     ereturn post `bmat' `vmat', obs(100)
     ereturn local cmd "regress"
+    * e(depvar) is required from 4.1.1: iivw_diagnose decides "same estimand"
+    * by comparing e(depvar)/e(cmd) across the three roles, and a mock that
+    * posts neither made that gate compare "" with "" and pass vacuously.
+    ereturn local depvar "y"
     estimates store `estname'
 end
 
@@ -111,6 +115,18 @@ end
 local ++test_count
 capture noisily {
     which _iivw_export_table
+    * `which' proves a program is reachable, not that the reachable one is the
+    * shipped helper. Resolve the file and read its header: an ado left behind
+    * by an earlier suite, or a same-named user program, answers `which' just
+    * as happily.
+    findfile _iivw_export_table.ado
+    local t1_path "`r(fn)'"
+    tempname t1_fh
+    file open `t1_fh' using "`t1_path'", read text
+    file read `t1_fh' t1_header
+    file close `t1_fh'
+    assert strpos("`t1_header'", "_iivw_export_table") > 0
+    assert strpos("`t1_header'", "Version") > 0
 }
 if _rc == 0 {
     display as result "  PASS: T1 - installed export helper available"
@@ -527,6 +543,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`gridxlsx'" Grid thin 0 0 "`gridmark'"
     confirm file "`gridmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname gridmark_fh
+    file open `gridmark_fh' using "`gridmark'", read text
+    file read `gridmark_fh' gridmark_line
+    file close `gridmark_fh'
+    assert "`gridmark_line'" == "ok"
 }
 if _rc == 0 {
     display as result "  PASS: T8 - default thin house grid, no shade"
@@ -552,6 +576,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`acxlsx'" Academic academic 0 0 "`acmark'"
     confirm file "`acmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname acmark_fh
+    file open `acmark_fh' using "`acmark'", read text
+    file read `acmark_fh' acmark_line
+    file close `acmark_fh'
+    assert "`acmark_line'" == "ok"
 }
 if _rc == 0 {
     display as result "  PASS: T9 - borderstyle(academic) three-rule layout"
@@ -578,6 +610,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`shxlsx'" Shaded thin 1 1 "`shmark'"
     confirm file "`shmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname shmark_fh
+    file open `shmark_fh' using "`shmark'", read text
+    file read `shmark_fh' shmark_line
+    file close `shmark_fh'
+    assert "`shmark_line'" == "ok"
 
     _reporting_balance_panel
     tempfile balshstub
@@ -589,6 +629,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`balshxlsx'" BalanceShaded thin 1 1 "`balshmark'"
     confirm file "`balshmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname balshmark_fh
+    file open `balshmark_fh' using "`balshmark'", read text
+    file read `balshmark_fh' balshmark_line
+    file close `balshmark_fh'
+    assert "`balshmark_line'" == "ok"
 
     _reporting_exog_panel
     tempfile exshstub
@@ -602,6 +650,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`exshxlsx'" ExogShaded thin 1 1 "`exshmark'"
     confirm file "`exshmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname exshmark_fh
+    file open `exshmark_fh' using "`exshmark'", read text
+    file read `exshmark_fh' exshmark_line
+    file close `exshmark_fh'
+    assert "`exshmark_line'" == "ok"
 }
 if _rc == 0 {
     display as result "  PASS: T10 - headershade + zebra + custom colors"
@@ -627,6 +683,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`thxlsx'" Apa academic 0 0 "`thmark'"
     confirm file "`thmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname thmark_fh
+    file open `thmark_fh' using "`thmark'", read text
+    file read `thmark_fh' thmark_line
+    file close `thmark_fh'
+    assert "`thmark_line'" == "ok"
 
     _reporting_exog_panel
     tempfile extstub
@@ -638,6 +702,14 @@ capture noisily {
     shell python3 "`qa_dir'/tools/check_iivw_style.py" ///
         "`extxlsx'" ExogApa academic 0 0 "`extmark'"
     confirm file "`extmark'"
+    * The sentinel's CONTENT, not just its presence: check_iivw_style.py
+    * writes "ok" only after every border/shade assertion passed, and a
+    * stale file from an earlier run confirms just as well.
+    tempname extmark_fh
+    file open `extmark_fh' using "`extmark'", read text
+    file read `extmark_fh' extmark_line
+    file close `extmark_fh'
+    assert "`extmark_line'" == "ok"
 }
 if _rc == 0 {
     display as result "  PASS: T11 - explicit academic formatting"

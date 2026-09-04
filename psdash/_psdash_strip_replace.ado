@@ -1,4 +1,4 @@
-*! _psdash_strip_replace Version 1.7.0  2026/09/03
+*! _psdash_strip_replace Version 1.7.1  2026/09/04
 *! Strip a redundant trailing ", replace" from a name()/saving() value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

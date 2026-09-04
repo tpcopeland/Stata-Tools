@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  02sep2026}{...}
+{* *! version 1.3.0  04sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -627,7 +627,9 @@ reconciles the rebuilt column against {cmd:e(sum_w)} and against
 {cmd:stset} {opt id()} variable ({cmd:e(idvar)}), so a change that leaves the
 total untouched -- including an exchange of two subjects' weights -- is
 refused too. Estimates saved before this build carry no {cmd:e(wsig)} and
-reconcile by total only.
+reconcile by total only; post-estimation prints a warning on every such call,
+because a change that leaves {cmd:e(sum_w)} unmoved is then undetected and the
+result may be computed from a weight column the fit never saw.
 
 
 {marker examples}{...}
@@ -739,11 +741,11 @@ stays unweighted, and the sandwich is the pweight one)
 
 {pstd}
 {bf:Delayed entry with entry strata.} Name in {opt truncstrata()} the
-covariates entry depends on, and in {opt strata()} those censoring depends on;
-read {cmd:e(lt_weight)} and the weight diagnostics before interpreting. Entry
-below depends on {cmd:z1} and censoring does not, so the specification these
-data call for is {cmd:truncstrata(z1)} with no {opt strata()}. The block is
-self-contained and runs as printed.
+covariates entry depends on, and in {opt strata()} those censoring
+depends on; read {cmd:e(lt_weight)} and the weight diagnostics before
+interpreting. Entry below depends on {cmd:z1} and censoring does not, so
+the specification these data call for is {cmd:truncstrata(z1)} with no
+{opt strata()}. The block is self-contained and runs as printed.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. set seed 20260713}{p_end}

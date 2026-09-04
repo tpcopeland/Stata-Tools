@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.1.0  2026/09/03
+*! iivw_weight Version 4.1.2  2026/09/04
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -66,6 +66,20 @@ program define iivw_weight, rclass sortpreserve
     local __iivw_bk_names ""
     local __iivw_bk_temps ""
     local __iivw_nonconv = 0
+
+    * Snapshot the complete pre-call metadata namespace. The commit clears and
+    * rewrites every _iivw_* characteristic, and the final signature step is
+    * still fallible; a failure there must restore the old contract just as the
+    * name transaction restores the old variables.
+    local __iivw_nold_chars = 0
+    local __iivw_prechars : char _dta[]
+    foreach ch of local __iivw_prechars {
+        if substr("`ch'", 1, 6) == "_iivw_" {
+            local ++__iivw_nold_chars
+            local __iivw_old_char_name`__iivw_nold_chars' "`ch'"
+            local __iivw_old_char_value`__iivw_nold_chars' : char _dta[`ch']
+        }
+    }
 
     capture noisily {
 
@@ -1271,6 +1285,7 @@ program define iivw_weight, rclass sortpreserve
                 replace `_event'   = 0         if `_newrow'
                 replace `_censrow' = 1         if `_newrow'
                 replace `_isfirst' = 0         if `_newrow'
+                * stata-dev-ignore: unchecked-commit — inside preserve (1186) / restore (1544): time is moved only on expand-created terminal rows and is discarded at restore; __iivw_n_cens_rows counted at 1267
                 replace `time'     = `_cens_t' if `_newrow'
 
                 * A censoring row is not a user observation and must never merge
@@ -1281,6 +1296,7 @@ program define iivw_weight, rclass sortpreserve
                 foreach v of local lagvars {
                     local ++__iivw_lag_ix
                     local lagname : word `__iivw_lag_ix' of `__iivw_lag_names'
+                    * stata-dev-ignore: unchecked-commit — inside preserve (1186) / restore (1544): the lag rebuild touches only expand-created terminal rows and is discarded at restore; __iivw_n_cens_rows counted at 1267
                     replace `lagname' = `v' if `_newrow'
                 }
             }
@@ -1420,6 +1436,7 @@ program define iivw_weight, rclass sortpreserve
 
                 tempvar _xb_stab
                 predict double `_xb_stab', xb
+                * stata-dev-ignore: unchecked-commit — the committed product is counted: _iivw_assert_cardinality `prefix'weight (2160) errors 2000 when no row carries a usable final weight, and prefix'weight is iw or iw*tw on every wtype
                 gen double `prefix'iw = exp(`_xb_stab' - `_xb_full')
             }
             else {
@@ -2798,9 +2815,8 @@ program define iivw_weight, rclass sortpreserve
     }
     if `rc' != 0 {
         * Roll the name transaction back: drop everything this call created,
-        * then rename the backups of the user's prior outputs into place. The
-        * contract was never touched (it is rewritten only at the commit point),
-        * so the pre-call weighting state is restored exactly.
+        * then rename the backups of the user's prior outputs into place and
+        * restore the complete pre-call characteristic namespace.
         *
         * A rollback that itself fails leaves the data in a state that matches
         * NO contract -- the previous weights half-restored under names the
@@ -2822,6 +2838,27 @@ program define iivw_weight, rclass sortpreserve
             capture drop `g'
             capture rename `__iivw_bt' `g'
             if _rc local __iivw_rollback_failed "`__iivw_rollback_failed' `g'(not restored)"
+        }
+
+        * The error may have fired after the commit began (notably in the final
+        * signature helper), so clear every characteristic written by this call
+        * before recreating the exact old namespace.
+        local __iivw_nowchars : char _dta[]
+        foreach ch of local __iivw_nowchars {
+            if substr("`ch'", 1, 6) == "_iivw_" {
+                capture char _dta[`ch'] ""
+                if _rc local __iivw_rollback_failed ///
+                    "`__iivw_rollback_failed' _dta[`ch'](not cleared)"
+            }
+        }
+        if `__iivw_nold_chars' > 0 {
+            forvalues __iivw_ci = 1/`__iivw_nold_chars' {
+                local ch "`__iivw_old_char_name`__iivw_ci''"
+                local oldvalue `"`__iivw_old_char_value`__iivw_ci''"'
+                capture char _dta[`ch'] `"`oldvalue'"'
+                if _rc local __iivw_rollback_failed ///
+                    "`__iivw_rollback_failed' _dta[`ch'](not restored)"
+            }
         }
         if "`__iivw_rollback_failed'" != "" {
             display as error ""

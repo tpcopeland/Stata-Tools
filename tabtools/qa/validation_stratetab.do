@@ -38,10 +38,15 @@ tabtools set clear
 
 
 
-* check_xlsx availability for Excel-content assertions in migrated sections
-local has_check_xlsx = 0
+* Excel-content assertions require the vendored checker; never reduce them to
+* file-existence checks when the oracle is unavailable.
 capture confirm file "`checker'"
-if _rc == 0 local has_check_xlsx = 1
+if _rc {
+    display as error "required vendored qa/tools/check_xlsx.py is missing"
+    log close _valstrate
+    exit 601
+}
+local has_check_xlsx = 1
 
 **# Migrated: structure and content
 

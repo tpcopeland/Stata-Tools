@@ -19,8 +19,10 @@ genuinely expensive; that is why the interval originally shipped without
 coverage evidence. It is not pathological and does not need "optimising."
 
 **The acceptance rule is preregistered** (`TOLERANCE_FRAMEWORK.md` §3:
-`COVERAGE_R=1000`, `COVERAGE_FLOOR=0.92`, `MCSE_K=3`). Do not tune it, do not
-reinterpret a FAIL, do not re-run with a different seed hoping for green.
+`COVERAGE_R=1000`, `COVERAGE_FLOOR=0.92`, `MCSE_K=3`). Every planned outer
+replication must contribute, the refit interval must meet the coverage rule,
+and the prespecified fixed/refit separator must be shown. Do not tune the rule,
+reinterpret a FAIL, or re-run with another seed hoping for green.
 
 ## 1. Machine prerequisites
 
@@ -160,7 +162,7 @@ Expected output per family:
 
 ```
 combine(iiw): 20 block(s), 1000 of 1000 replications (0 failed draw(s))
-RESULT: validation_iivw_inference iiw gate=PASS sims=1000 reps=999 cov_refit=0.9xx
+RESULT: validation_iivw_inference iiw gate=PASS sims=1000 reps=999 cov_wald=0.9xx
 ```
 
 ### Reading the result honestly
@@ -181,8 +183,11 @@ RESULT: validation_iivw_inference iiw gate=PASS sims=1000 reps=999 cov_refit=0.9
     the pool was not produced by one configuration, or predates the provenance
     stamp. Do not "fix" this by re-invoking combine with the other number: that
     is precisely the mislabelling the check exists to stop. Re-run the blocks.
-- `failed draw(s)` > 0 is legitimate (a replication that errored) and is
-  distinct from a missing block. A large count is worth reporting, not hiding.
+  - *"N usable rows; 1000 required"* — at least one attempted outer
+    replication failed. Diagnose and rerun it; a coverage denominator may not
+    silently shrink to the successful draws.
+- `failed draw(s)` > 0 prevents a verdict. It is distinct from a missing block,
+  but neither condition is acceptable for a release gate.
 - A `gate=FAIL` is a **result**, not a problem to be fixed. Report it with
   `cov_refit` and the manifest. It is the finding the study exists to produce.
 
@@ -223,25 +228,22 @@ suite runs in **~1.3 s** and shells out to a real `combine_iiw` per arm.
 | G7 | a mismatched master seed refuses |
 | G8 | combine aggregates without re-running the study |
 | G9 | a diagnostic run at a non-default `nsub` cannot reach a gate verdict |
+| G10 | propensity-stress rows cannot be certified as the base cell |
+| G11 | one failed outer replication prevents a verdict despite complete block ranges |
+| G12 | refit coverage without the prespecified separator produces `gate=FAIL` |
 
-Scored **4/8 against the pre-fix build, 9/9 after** — G4–G7 are the new
-provenance defect. G1/G2/G3/G8 pass on both builds by design: they are the
-regression coverage this section previously listed as missing, not evidence for
-the 2026-07-22 change. Their teeth were shown separately with surgical mutants:
-reverting the tiling proof to the old min/max check fails **G1 and only G1**;
-removing the `rowsin()` loop guard leaves combine still running after **120 s**
-against 0.07 s for the fixed build, and produces no verdict.
+G1–G12 cover tiling, provenance, completeness, and acceptance. G11 and G12
+specifically prevent the two false-green routes repaired in 4.1.2: silently
+dropping failed outer replications and treating the separator as descriptive.
 
 G3 asserts a verdict is *produced*, not that it is PASS-on-real-data — the rows
 are fabricated. Only the real release run says anything about the estimator.
 
 ## Open items — not done
 
-- The fixes to `validation_iivw_inference.do` have **not been through
-  `/reviewer`** — the 2026-07-21 pair, and the 2026-07-22 provenance stamp.
-  Per the mandatory chain they are "implemented, not reviewed".
-- **The gate itself has never been run.** SOL-04 is untouched; no coverage
-  number exists for any family.
+- **The gate has not been run against the 4.1.2 source manifest.** Historical
+  receipts remain provenance for their recorded builds, not clearance for this
+  one. Production reports `uncleared-current-build` until reproduction.
 - Full-`REPS` runtime is unmeasured (see §2).
 - `run_coverage_gate.sh` is untested at `WORKERS=22`; it was exercised at
   `WORKERS=8`, and the pool-path change of 2026-07-22 has not been exercised by

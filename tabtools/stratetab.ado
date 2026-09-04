@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.0  2026/09/03
+*! stratetab Version 2.1.1  2026/09/04
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -86,7 +86,7 @@ if "`open'" != "" & !`_has_xlsx' {
 	exit 198
 }
 
-if `_has_xlsx' & !strmatch("`xlsx'", "*.xlsx") {
+if `_has_xlsx' & !strmatch(lower("`xlsx'"), "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
 	exit 198
 }
@@ -230,6 +230,30 @@ forvalues i = 1/`outcomes' {
 			}
 		}
 	}
+}
+
+* Matrix column identities are derived from outcomeids(), not display labels.
+* Sanitize, truncate, and suffix after truncation so every name is legal and
+* distinct under Stata's 32-character name limit.
+local _matrix_cnames ""
+local _used_cnames ""
+forvalues i = 1/`outcomes' {
+	local _cname = strtoname(`"`outcome_id_`i''"')
+	local _cname = substr(`"`_cname'"', 1, 32)
+	if `"`_cname'"' == "" | strtrim(subinstr(`"`_cname'"', "_", "", .)) == "" {
+		local _cname "outcome`i'"
+	}
+	local _base_cname `"`_cname'"'
+	local _cname_i = 1
+	while strpos(" `_used_cnames' ", " `_cname' ") {
+		local ++_cname_i
+		local _suffix "_`_cname_i'"
+		local _stem_len = 32 - strlen("`_suffix'")
+		local _cname = substr(`"`_base_cname'"', 1, `_stem_len')
+		local _cname `"`_cname'`_suffix'"'
+	}
+	local _used_cnames `"`_used_cnames' `_cname'"'
+	local _matrix_cnames `"`_matrix_cnames' `_cname'"'
 }
 
 * Parse exposure labels
@@ -675,10 +699,9 @@ forvalues e = 1/`n_exposures' {
 				forvalues o = 1/`outcomes' {
 				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
-				local _rname = subinstr(`"`cat_e`e'_`i''"', " ", "_", .)
-				local _rname = subinstr(`"`_rname'"', char(34), "_", .)
+				local _rname = strtoname(`"`cat_e`e'_`i''"')
 				local _rname = substr(`"`_rname'"', 1, 32)
-				if `"`_rname'"' == "" local _rname "row`_rr'"
+				if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 					if `n_exposures' > 1 {
 						local _rname = "e`e'_`_rname'"
 						local _rname = substr("`_rname'", 1, 32)
@@ -696,18 +719,8 @@ forvalues e = 1/`n_exposures' {
 					local _rnames `"`_rnames' `_rname'"'
 				}
 				}
-		local _cnames ""
-		forvalues o = 1/`outcomes' {
-			local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
-			local _cname = subinstr(`"`_cname'"', char(34), "_", .)
-			local _cname = subinstr(`"`_cname'"', ".", "_", .)
-			local _cname = subinstr(`"`_cname'"', ",", "", .)
-			local _cname = substr(`"`_cname'"', 1, 32)
-			if `"`_cname'"' == "" local _cname "outcome`o'"
-			local _cnames `"`_cnames' `_cname'"'
-		}
-		capture matrix rownames `_rrates' = `_rnames'
-		capture matrix colnames `_rrates' = `_cnames'
+		matrix rownames `_rrates' = `_rnames'
+		matrix colnames `_rrates' = `_matrix_cnames'
 	}
 
 * Build r(ratios) matrix if rate ratios were computed
@@ -728,10 +741,9 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				forvalues o = 1/`outcomes' {
 					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
-					local _rname = subinstr(`"`cat_e`e'_`i''"', " ", "_", .)
-					local _rname = subinstr(`"`_rname'"', char(34), "_", .)
+					local _rname = strtoname(`"`cat_e`e'_`i''"')
 					local _rname = substr(`"`_rname'"', 1, 32)
-					if `"`_rname'"' == "" local _rname "row`_rr'"
+					if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 						if `n_exposures' > 2 {
 							local _rname = "e`e'_`_rname'"
 							local _rname = substr("`_rname'", 1, 32)
@@ -749,18 +761,8 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 						local _rnames `"`_rnames' `_rname'"'
 					}
 				}
-			local _cnames ""
-			forvalues o = 1/`outcomes' {
-				local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
-				local _cname = subinstr(`"`_cname'"', char(34), "_", .)
-				local _cname = subinstr(`"`_cname'"', ".", "_", .)
-				local _cname = subinstr(`"`_cname'"', ",", "", .)
-				local _cname = substr(`"`_cname'"', 1, 32)
-				if `"`_cname'"' == "" local _cname "outcome`o'"
-				local _cnames `"`_cnames' `_cname'"'
-			}
-			capture matrix rownames `_rratios' = `_rnames'
-			capture matrix colnames `_rratios' = `_cnames'
+			matrix rownames `_rratios' = `_rnames'
+			matrix colnames `_rratios' = `_matrix_cnames'
 		}
 	}
 

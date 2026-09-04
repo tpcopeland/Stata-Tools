@@ -335,7 +335,10 @@ capture noisily {
     * design. It must error until it is, rather than quietly produce a number.
     capture iivw_fit y treat x, timespec(linear) bootstrap(10) refitweights ///
         cluster(clinic) nolog replace
-    assert _rc != 0
+    * The specific code, not merely "nonzero": a refusal that arrived as an
+    * unrelated failure (a parse error, a missing variable) would satisfy
+    * `assert _rc != 0' and prove nothing about the restriction under test.
+    assert _rc == 198
     display as text "    cluster(clinic) + refitweights -> rc " _rc
 }
 if _rc == 0 {
@@ -558,7 +561,7 @@ capture noisily {
     assert "`e(iivw_refitweights)'" == "1"
     assert e(iivw_bs_reps_requested) == 999
     assert e(iivw_bs_reps_completed) == 999
-    assert "`e(iivw_inference_status)'" == "cleared-at-studied-settings"
+    assert "`e(iivw_inference_status)'" == "uncleared-current-build"
     assert "`e(iivw_ci_type)'" == "wald-normal"
     assert e(iivw_interval_available) == 1
     assert e(iivw_vce_locked) == 1
@@ -616,16 +619,8 @@ capture noisily {
     quietly iivw_fit y treat x, timespec(linear) vce(fixed) nolog replace
     assert "`e(iivw_inference_status)'" == "uncleared-fixedweights-analytic"
 
-    * Re-derived 2026-07-22. The old assertion was `!= "cleared"`, justified by
-    * "no coverage study has been run". One has now been run, and IIW/IPTW meet
-    * the preregistered rule -- so an absolute ban on the word is no longer the
-    * right contract.
-    *
-    * What replaces it is the qualifier rule: coverage was established at ONE
-    * cell per family, so the status may say `cleared-at-studied-settings` but
-    * must NEVER degrade to a bare `cleared`, which would claim coverage at
-    * every n, link and specification. This assertion fails if anyone later
-    * shortens the string -- which is the actual risk being guarded.
+    * Historical coverage receipts are not bound to the current source
+    * manifest, so no current-build route may degrade to a clearance claim.
     assert "`e(iivw_inference_status)'" != "cleared"
     quietly iivw_fit y treat x, timespec(linear) vce(bootstrap, reps(20)) nolog replace
     assert "`e(iivw_inference_status)'" != "cleared"

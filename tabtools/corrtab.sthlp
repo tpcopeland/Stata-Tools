@@ -32,9 +32,9 @@ for categorical association tables.{p_end}
 {opt upp:er} {opt full} {opt star(numlist)} {opt pval:ues}
 {opt dig:its(#)} {opt sheet(string)}
 {opt title(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt border:style(string)} {opt headerc:olor(string)}
-{opt zebrac:olor(string)} {opt zebra} {opt headers:hade}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}]{p_end}
+{opt font(string)} {opt fontsize(#)} {opt border:style(string)} {opt headerc:olor(string)}
+{opt zebrac:olor(string)} {opt zeb:ra} {opt headers:hade}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}]{p_end}
 
 {pstd}{it:varlist} must contain at least two numeric variables.{p_end}
 
@@ -122,7 +122,7 @@ the last row, both in the first column and the table body between them.{p_end}
 {opt full} display the full symmetric matrix{p_end}
 
 {phang}
-{cmdab:headers:hade} apply background fill to the header row{p_end}
+{opt headers:hade} apply background fill to the header row{p_end}
 
 {phang}
 {opt low:er} display the lower triangle only (default); only one of {opt lower}, {opt upper}, or
@@ -169,7 +169,7 @@ named sheet is replaced{p_end}
 
 
 {phang}
-{cmdab:border:style(} {it:string} {cmd:)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
 {cmd:academic}{p_end}
 
 {phang}
@@ -177,20 +177,20 @@ named sheet is replaced{p_end}
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
-{cmdab:foot:note(} {it:string} {cmd:)} footnote text below the table in smaller italic font{p_end}
+{opt foot:note(string)} footnote text below the table in smaller italic font{p_end}
 
 {phang}
-{cmdab:fra:me(} {it:name} {cmd:)} store output in a named Stata frame; specify
+{opt fra:me(name[, replace])} store output in a named Stata frame; specify
 {cmd:frame(name, replace)} to replace an existing frame{p_end}
 
 {phang}
-{cmdab:headerc:olor(} {it:string} {cmd:)} custom header color as a supported Stata color name or RGB
+{opt headerc:olor(string)} custom header color as a supported Stata color name or RGB
 triplet (e.g., {cmd:"200 220 240"}){p_end}
 
 {phang}
 
 {phang}
-{cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra stripe color as a supported Stata color name
+{opt zebrac:olor(string)} custom zebra stripe color as a supported Stata color name
 or RGB triplet{p_end}
 
 {marker examples}{...}

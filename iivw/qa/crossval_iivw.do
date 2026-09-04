@@ -3,11 +3,12 @@ set more off
 version 16.0
 set varabbrev off
 
-* crossval_iivw.do - Cross-validation of iivw against R IrregLong and FIPTIW
+* crossval_iivw.do - Cross-validation of iivw against R references
 *
 * Compares iivw_weight output to reference weights computed by:
 *   1. IrregLong (Pullenayegum) - Phenobarb dataset, IIW weights
-*   2. FIPTIW (Tompkins et al.) - Simulated data, FIPTIW weights
+*   2. A local simplified Tompkins-informed simulation and base-R/survival/
+*      geepack calculations. This is not the authors' implementation.
 *
 * Companion R scripts (run first to generate reference data):
 *   Rscript iivw/qa/crossval_irreglong.R
@@ -15,7 +16,7 @@ set varabbrev off
 *
 * Equivalences:
 *   iivw_weight (IIW)   ≈ IrregLong::iiw.weights() (CRAN)
-*   iivw_weight (FIPTIW) ≈ Tompkins et al. (2025) R implementation
+*   iivw_weight (FIPTIW) ≈ local independent R transcription of the estimand
 *
 * Usage:
 *   do iivw/qa/crossval_iivw.do          Run all tests
@@ -34,34 +35,35 @@ local run_only = `r(run_only)'
 
 
 * === Bootstrap ===
-local here "`c(pwd)'"
-local basename = substr("`here'", strrpos("`here'", "/") + 1, .)
-if "`basename'" == "qa" {
-    local qa_dir "`here'"
+local qa_dir "`c(pwd)'"
+local basename = substr("`qa_dir'", strrpos("`qa_dir'", "/") + 1, .)
+if "`basename'" != "qa" {
+    display as error "crossval_iivw.do must be run from iivw/qa"
+    exit 198
 }
-else {
-    capture confirm file "`here'/phenobarb_prepared.csv"
-    if _rc == 0 {
-        local qa_dir "`here'"
-    }
-    else {
-        capture confirm file "`here'/qa/phenobarb_prepared.csv"
-        if _rc == 0 {
-            local qa_dir "`here'/qa"
-        }
-        else {
-            capture confirm file "`here'/iivw/qa/phenobarb_prepared.csv"
-            if _rc == 0 {
-                local qa_dir "`here'/iivw/qa"
-            }
-            else {
-                local qa_dir "`here'"
-            }
-        }
-    }
-}
-local pkg_dir "`qa_dir'/.."
+local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
+local repo_dir = substr("`pkg_dir'", 1, strlen("`pkg_dir'") - 5)
 global IIVW_QA_DIR "`qa_dir'"
+
+* A standalone run must never trust the tracked CSVs merely because they
+* exist. Regenerate them and require each R script's own completion sentinel.
+* run_all.do sets IIVW_QA_REFS_FRESH only after doing the same regeneration,
+* which avoids a duplicate R pass in the full lane.
+if "${IIVW_QA_REFS_FRESH}" != "1" {
+    foreach rsrc in crossval_irreglong crossval_fiptiw {
+        capture erase "`qa_dir'/`rsrc'.ok"
+        shell cd "`repo_dir'" && Rscript iivw/qa/`rsrc'.R
+        capture confirm file "`qa_dir'/`rsrc'.ok"
+        if _rc {
+            display as error "`rsrc'.R did not run to completion"
+            display as error "  refusing stale tracked reference CSVs"
+            exit 198
+        }
+    }
+    global IIVW_QA_REFS_FRESH "1"
+}
+
+iivw_qa_sandbox, pkgdir("`pkg_dir'")
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -79,7 +81,11 @@ foreach ref in ///
     phenobarb_parity_entry_weights.csv ///
     fiptiw_simdata.csv ///
     fiptiw_coefs.csv ///
-    fiptiw_outcome_geeglm.csv {
+    fiptiw_outcome_geeglm.csv ///
+    crossval_irreglong_versions.csv ///
+    crossval_fiptiw_versions.csv ///
+    crossval_irreglong.ok ///
+    crossval_fiptiw.ok {
     capture confirm file "`qa_dir'/`ref'"
     if _rc != 0 {
         display as error "Reference data not found. Run R scripts first:"
@@ -326,7 +332,7 @@ if `run_only' == 0 | `run_only' == 4 {
 }
 
 * ============================================================
-* PART B: FIPTIW Simulation Cross-Validation (Tompkins et al. 2025)
+* PART B: FIPTIW simulation cross-validation (local R transcription)
 * ============================================================
 
 * =============================================================================
@@ -339,12 +345,14 @@ program define _load_fiptiw
     import delimited "${IIVW_QA_DIR}/fiptiw_simdata.csv", clear
     sort id time
 
-    * Break any duplicate id-time pairs
+    * Production rejects duplicate visit keys. A reference fixture with such a
+    * key is invalid; changing its time would compare a dataset R never fit.
     duplicates tag id time, gen(dup)
     quietly count if dup > 0
     if r(N) > 0 {
-        bysort id (time): replace time = time + (_n - 1) * 0.00001 ///
-            if dup > 0
+        display as error "fiptiw_simdata.csv contains duplicate id-time keys"
+        display as error "  regenerate the reference; duplicate times are not jittered"
+        error 459
     }
     drop dup
 end

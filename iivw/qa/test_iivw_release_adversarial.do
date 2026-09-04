@@ -69,8 +69,8 @@ program define _qa_iivw_file_has, rclass
     return scalar found = scalar(`found')
 end
 
-capture program drop _qa_iivw_must_contain
-program define _qa_iivw_must_contain
+capture program drop _qa_iivw_assert_contains
+program define _qa_iivw_assert_contains
     version 16.0
     syntax , FILE(string) PATTERN(string)
 
@@ -82,8 +82,8 @@ program define _qa_iivw_must_contain
     }
 end
 
-capture program drop _qa_iivw_must_not_contain
-program define _qa_iivw_must_not_contain
+capture program drop _qa_iivw_assert_absent
+program define _qa_iivw_assert_absent
     version 16.0
     syntax , FILE(string) PATTERN(string)
 
@@ -249,63 +249,63 @@ capture noisily {
     }
     assert "`sthlp_date'" != ""
 
-    _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw.pkg") ///
         pattern("d Author: Timothy P Copeland, Karolinska Institutet")
 
-    _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/stata.toc") ///
         pattern("v 3")
-    _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/stata.toc") ///
         pattern("d Stata-Tools: iivw")
-    _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/stata.toc") ///
         pattern("d Timothy P Copeland, Karolinska Institutet")
-    _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/stata.toc") ///
         pattern("d https://github.com/tpcopeland/Stata-Tools")
-    _qa_iivw_must_contain, file("`pkg_dir'/stata.toc") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/stata.toc") ///
         pattern("p iivw")
 
     local ado_files : dir "`pkg_dir'" files "*.ado"
     foreach file of local ado_files {
         local cmd = subinstr("`file'", ".ado", "", .)
-        _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
+        _qa_iivw_assert_contains, file("`pkg_dir'/`file'") ///
             pattern("*! `cmd' Version `version'  `ado_date'")
-        _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
+        _qa_iivw_assert_contains, file("`pkg_dir'/`file'") ///
             pattern("*! Author: Timothy P Copeland, Karolinska Institutet")
-        _qa_iivw_must_not_contain, file("`pkg_dir'/`file'") ///
+        _qa_iivw_assert_absent, file("`pkg_dir'/`file'") ///
             pattern("*! Department of Clinical Neuroscience")
-        _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") ///
+        _qa_iivw_assert_contains, file("`pkg_dir'/iivw.pkg") ///
             pattern("f `file'")
     }
 
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_weight.ado") ///
         pattern("could not preserve active estimation results")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_weight.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_weight.ado") ///
         pattern("could not restore active estimation results")
 
     * Author/affiliation checks apply to every help file...
     foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
-        _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
+        _qa_iivw_assert_contains, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{pstd}Timothy P Copeland, Karolinska Institutet{p_end}")
-        _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
+        _qa_iivw_assert_absent, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{pstd}Department of Clinical Neuroscience{p_end}")
     }
 
     * ...but the package version lives only in the flagship iivw.sthlp.
     * Sub-command help files intentionally carry no version line (removed in
     * v1.7.3); the version is recorded once in iivw.sthlp plus the .pkg and README.
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw.sthlp") ///
         pattern("{* *! version `version'  `sthlp_date'}")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw.sthlp") ///
         pattern("Version `version', `ado_iso'")
     foreach help in iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
-        _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
+        _qa_iivw_assert_absent, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version")
     }
 
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw.sthlp") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw.sthlp") ///
         pattern("https://github.com/tpcopeland/Stata-Tools/tree/main/iivw/demo")
-    _qa_iivw_must_not_contain, file("`pkg_dir'/iivw.sthlp") ///
+    _qa_iivw_assert_absent, file("`pkg_dir'/iivw.sthlp") ///
         pattern("The package demo, {cmd:iivw/demo/demo_iivw.do}")
 }
 if _rc == 0 {
@@ -321,17 +321,17 @@ else {
 * implicit nclass definitions in the shipped runtime surface.
 local ++test_count
 capture noisily {
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_check_passthru.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_check_passthru.ado") ///
         pattern("program define _iivw_check_passthru, nclass")
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_export_table.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_export_table.ado") ///
         pattern("program define _iivw_open_workbook, nclass")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.ado") ///
         pattern("program define _iivw_fit_replay, nclass")
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_require_converged.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_require_converged.ado") ///
         pattern("program define _iivw_require_converged, nclass")
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_require_draw_converged.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_require_draw_converged.ado") ///
         pattern("program define _iivw_require_draw_converged, nclass")
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_reserve_names.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_reserve_names.ado") ///
         pattern("program define _iivw_reserve_names, nclass")
 }
 if _rc == 0 {
@@ -347,11 +347,11 @@ else {
 * skeleton when the helper shares its file.
 local ++test_count
 capture noisily {
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_check_passthru.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_check_passthru.ado") ///
         pattern("local __iivw_passthru_old_varabbrev = c(varabbrev)")
-    _qa_iivw_must_contain, file("`pkg_dir'/_iivw_export_table.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_export_table.ado") ///
         pattern("local __iivw_open_old_varabbrev = c(varabbrev)")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.ado") ///
         pattern("local __iivw_replay_old_varabbrev = c(varabbrev)")
 }
 if _rc == 0 {
@@ -364,16 +364,16 @@ else {
 }
 
 * synoptset 24 leaves 56 rendered columns. The old e(iivw_vce) description
-* used 58 and could cascade in the Viewer. The prose needles also prevent
-* source newlines from inserting doubled spaces after sentence punctuation.
+* used 58 and could cascade in the Viewer. The prose needles also pin the
+* current inference-status language and prevent punctuation-wrap regressions.
 local ++test_count
 capture noisily {
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.sthlp") ///
         pattern("{synopt:{cmd:e(iivw_vce)}}resolved variance method; values listed below{p_end}")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.sthlp") ///
         pattern("recommendation. The FIPTIW row is not:")
-    _qa_iivw_must_contain, file("`pkg_dir'/iivw_fit.sthlp") ///
-        pattern("(n=300 for IIW/IPTW). It says nothing")
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.sthlp") ///
+        pattern("manifest. Historical results do not transfer automatically across builds.")
 }
 if _rc == 0 {
     display as result "  PASS: iivw_fit help respects Viewer width and prose reflow"
@@ -388,12 +388,12 @@ local ++test_count
 capture noisily {
     local slash = char(47)
     local personal_root "`slash'home`slash'tpcopeland`slash'"
-    _qa_iivw_must_not_contain, ///
+    _qa_iivw_assert_absent, ///
         file("`qa_dir'/COVERAGE_GATE_RUNBOOK.md") pattern("`personal_root'")
-    _qa_iivw_must_contain, file("`qa_dir'/README.md") pattern("# iivw QA")
-    _qa_iivw_must_not_contain, file("`qa_dir'/README.md") ///
+    _qa_iivw_assert_contains, file("`qa_dir'/README.md") pattern("# iivw QA")
+    _qa_iivw_assert_absent, file("`qa_dir'/README.md") ///
         pattern("# iivw QA suite")
-    _qa_iivw_must_contain, file("`qa_dir'/README.md") ///
+    _qa_iivw_assert_contains, file("`qa_dir'/README.md") ///
         pattern("See [AUDIT_NOTES.md](AUDIT_NOTES.md)")
 }
 if _rc == 0 {
@@ -454,7 +454,7 @@ capture noisily {
             display as error "missing shipped file: `file'"
             exit 601
         }
-        _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") pattern("f `file'")
+        _qa_iivw_assert_contains, file("`pkg_dir'/iivw.pkg") pattern("f `file'")
     }
     foreach file of local help_files {
         capture confirm file "`pkg_dir'/`file'"
@@ -462,7 +462,7 @@ capture noisily {
             display as error "missing shipped file: `file'"
             exit 601
         }
-        _qa_iivw_must_contain, file("`pkg_dir'/iivw.pkg") pattern("f `file'")
+        _qa_iivw_assert_contains, file("`pkg_dir'/iivw.pkg") pattern("f `file'")
     }
 }
 if _rc == 0 {
@@ -503,7 +503,7 @@ capture noisily {
     foreach file of local shipped_files {
         foreach pattern in "`dev_leak'" "`home_leak'" "`codex_leak'" ///
             "`claude_leak'" "`codex_home'" "`claude_home'" {
-            _qa_iivw_must_not_contain, file("`pkg_dir'/`file'") pattern("`pattern'")
+            _qa_iivw_assert_absent, file("`pkg_dir'/`file'") pattern("`pattern'")
         }
     }
 }
@@ -931,6 +931,7 @@ else {
 
 **# Cleanup And Summary
 
+* stata-dev-ignore: rc-only-test — teardown, not a test: this block uninstalls, restores sysdir/cwd and erases artifacts. It increments no test counter and asserts nothing because there is nothing here to assert; the pass/fail words in range belong to the suite tally below it.
 capture ado uninstall tabtools
 capture ado uninstall iivw
 discard

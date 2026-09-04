@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  03sep2026}{...}
+{* *! version 1.7.1  04sep2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -19,6 +19,13 @@
 
 {marker syntax}{...}
 {title:Syntax}
+
+{phang}
+{cmd:psdash}
+
+{pstd}
+With no subcommand, {cmd:psdash} displays the package overview and available
+subcommands.
 
 {phang}
 {cmd:psdash} {it:subcommand} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}] [{cmd:,} {it:options}]
@@ -134,7 +141,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {opt compact} {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt name(string)} {opt xlsx(filename)} {opt sheet(string)}
 {opt esti:mand(string)} {opt ext:reme(# #)}
-{opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwcomponent(string)}]
+{opt psv:ars(varlist)} {opt ref:erence(#)} {opt iivwc:omponent(string)}]
 
 {dlgtab:support}
 
@@ -427,8 +434,10 @@ included when available, with formatted headers and readable column widths.
 {opt format(string)} sets the numeric display format for SMD values. Default is {cmd:%6.3f}.
 
 {pstd}
-{bf:Interpretation:} An SMD below 0.1 in absolute value indicates adequate balance
-(Austin 2009). Variance ratios between 0.5 and 2.0 are acceptable (adjust with
+{bf:Interpretation:} An absolute SMD of 0.1 is a conventional, configurable
+screening threshold (Austin 2009), not proof of balance, exchangeability, or an
+adequate causal design. Interpret it alongside prognostic importance and the
+other distribution diagnostics. Variance ratios between 0.5 and 2.0 are acceptable (adjust with
 {opt vrbounds()}); values outside this range indicate scale imbalances that SMD
 alone can miss. The variance ratio is reported but not flagged for two-level
 covariates, where it adds nothing beyond the SMD. KS statistics are
@@ -513,8 +522,8 @@ e.g. {cmd:_iivw_weight}), and {cmd:visit} (the visit-intensity component,
 e.g. {cmd:_iivw_iw}). The visit component is descriptive only; overlap and
 support diagnostics remain treatment-propensity diagnostics. The component is
 resolved only from iivw metadata that {cmd:psdash}'s producer check has
-verified, and {opt iivwcomponent()} may not be combined with {opt wvar()}:
-two options that both name the weight variable is an error, not a precedence
+verified, and {opt iivwcomponent()} may not be combined with {opt wvar()}: two
+options that both name the weight variable is an error, not a precedence
 question.
 
 {phang}
@@ -553,8 +562,10 @@ or truncating extreme weights.
 {dlgtab:support options}
 
 {phang}
-{opt crump} applies Crump et al. (2009) optimal trimming to determine the
-support region that minimizes variance. When every assessed score is strictly
+{opt crump} applies the empirical Crump et al. (2009) trimming search. Under
+the paper's homoscedastic approximation, the selected symmetric region
+minimizes an asymptotic variance criterion for the average treatment effect in
+the retained subpopulation; it does not preserve the original-population ATE. When every assessed score is strictly
 inside (0,1), the Corollary 1 full-sample inequality is checked first and can
 return alpha = 0. When at least one interior score remains, a coarse grid search
 over alpha in [0.01, 0.49] (0.01 steps) is refined to 0.001 resolution around
@@ -641,9 +652,10 @@ axes, relevant-only floor lines, and filled three-component row.
 {pstd}
 {bf:Interpretation:} Observations outside common support lack counterparts in the
 other treatment group, violating the positivity assumption. More than 10%
-outside support warrants attention. Crump et al. (2009) optimal trimming
-identifies the subsample where treatment effect estimation is most
-efficient; the optimal alpha is typically between 0.05 and 0.15.
+outside support warrants attention. With {opt crump}, alpha is data-dependent
+and the estimand changes to the retained subpopulation; the symmetric
+{cmd:[0.1,0.9]} interval is a useful rule-of-thumb comparator, not a universal
+optimum.
 
 {dlgtab:combined options}
 
@@ -1033,6 +1045,8 @@ are not a valid multi-arm common-support rule.
 {synopt:{cmd:r(threshold)}}threshold used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
+{synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
+{synopt:{cmd:r(n_wt_dropped)}}missing supplied weights dropped{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
@@ -1088,6 +1102,8 @@ include the compared treatment levels.
 {synopt:{cmd:r(p99)}}99th percentile{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}observations with PS exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}observations with PS < 0.01 or > 0.99{p_end}
+{synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
+{synopt:{cmd:r(n_wt_dropped)}}missing supplied weights dropped{p_end}
 
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:r(wvar)}}weight variable or {cmd:auto-generated}{p_end}

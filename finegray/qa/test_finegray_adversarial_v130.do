@@ -1554,11 +1554,14 @@ capture noisily {
     * measurement and not a tautology
     assert t[1] != t0[2]
     assert t0[2] > t[1]
+    * stata-dev-ignore: missing-passes-reldif — fail-closed: `assert t[1] != t0[2]' two lines above is false when both are missing (. != . is 0), so this reldif cannot be reached with missing operands
     assert reldif(t[1], t0[2]) < 1e-13
     quietly stset t, failure(fail==1) id(id) time0(t0)
     quietly finegray z, compete(status) cause(1) nolog
     assert e(converged) == 1
+    * stata-dev-ignore: missing-passes-assert — fail-closed: `assert e(converged) == 1' on the line above is false when the fit posted nothing (. == 1 is 0), so e(N) here is a posted finite count
     assert e(N) > 0
+    * stata-dev-ignore: missing-passes-assert — fail-closed: `assert e(converged) == 1' two lines above is false when the fit posted nothing (. == 1 is 0), so e(N_fail) here is a posted finite count
     assert e(N_fail) > 0
 
     * a boundary pair a few hundred units in the last place apart -- inside
@@ -1567,6 +1570,7 @@ capture noisily {
     quietly replace t0 = t0 * (1 + 2e-14) if epi == 2
     sort id epi
     assert reldif(t[1], t0[2]) > 1e-15
+    * stata-dev-ignore: missing-passes-reldif — fail-closed: `assert reldif(t[1], t0[2]) > 1e-15' on the line above is false when both are missing (reldif(., .) == 0), so this upper bound cannot be reached with missing operands
     assert reldif(t[1], t0[2]) < 1e-12
     quietly stset t, failure(fail==1) id(id) time0(t0)
     quietly finegray z, compete(status) cause(1) nolog

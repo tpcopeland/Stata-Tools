@@ -50,7 +50,8 @@ component's observed range, and three-component graphs occupy one filled row.
 {title:Options}
 
 {phang}
-{opt cov:ariates(varlist)} supplies covariates for comparison diagnostics.
+{opt cov:ariates(varlist)} supplies covariates for comparison diagnostics and
+accepts factor-variable and interaction notation.
 
 {phang}
 {opt crump} requests Crump's binary-treatment trimming rule.
@@ -118,6 +119,7 @@ has no effect for binary treatments.
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash support foreign ps, crump nograph}{p_end}
+{phang2}{cmd:. psdash support foreign ps, threshold(.05) compare covariates(i.rep78 c.weight##c.length) nograph}{p_end}
 
 {marker results}{...}
 {title:Stored results}

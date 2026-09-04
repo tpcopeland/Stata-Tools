@@ -329,8 +329,8 @@ capture noisily {
 }
 _t "F10_balance_reports_covariate_missingness" `=_rc'
 
-display as text _n "RESULT: test_rb12_kimi_audit tests=" ///
-    %2.0f ($N_PASS + $N_FAIL) " pass=" %2.0f $N_PASS " fail=" %2.0f $N_FAIL
+local rb12_tests = $N_PASS + $N_FAIL
+display as text _n "RESULT: test_rb12_kimi_audit tests=`rb12_tests' pass=$N_PASS fail=$N_FAIL skip=0"
 if "$FAILED" != "" display as error "  failed: $FAILED"
 
 capture _rb12_qa_cleanup

@@ -215,6 +215,18 @@ FIX <- list(
     Z   = c(0,1,1,0,0,1,1,0,1,0,1,1,0,1,0,1,1,0, 1, 0)),
   f2 = F2, f4 = F4, f5 = F5, pbc = PBC)
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin("nuisance",
+        outputs = c(file.path(OUT, paste0(names(FIX), ".csv")),
+                    file.path(OUT, c("reference_answers.csv",
+                                     "reference_cov.csv"))),
+        packages = c("survival", "cmprsk"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 TOL <- 1e-8
 ref  <- list()
 cref <- list()
@@ -284,6 +296,7 @@ cat("\nwrote", nrow(ref), "reference rows to", file.path(OUT, "reference_answers
 
 cref <- do.call(rbind, cref)
 write.csv(cref, file.path(OUT, "reference_cov.csv"), row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 cat("wrote", nrow(cref), "covariance rows to", file.path(OUT, "reference_cov.csv"), "\n")
 
 # The measured psi effect, as a RANGE over every reference variance.  The help

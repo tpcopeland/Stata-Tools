@@ -74,7 +74,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_reporting_exports.do` | Console and Excel report fidelity. |
 | `test_theme_removed.do` | Removed theme() parser rejection for reporting commands. |
 | `test_iivw_sample_contract.do` | Weighted outcome sample and arm-specific loss. |
-| `test_iivw_nullcase.do` | Degenerate-artifact (fail-open) contracts: a FIPTIW run whose visit- and treatment-model complete-case sets are disjoint is refused instead of committing an all-missing weight variable and its signed contract, `allowmissingweights` still accepts partial loss, and the `_iivw_assert_cardinality` helper contract. |
+| `test_iivw_nullcase.do` | Degenerate-artifact (fail-open) contracts. Commit contract (Rule 15): a FIPTIW run whose visit- and treatment-model complete-case sets are disjoint is refused instead of committing an all-missing weight variable and its signed contract, `allowmissingweights` still accepts partial loss, and the `_iivw_assert_cardinality` helper contract. Resolve contract (Rule 14): `iivw_diagnose` refuses stored estimates carrying no `e(depvar)`/`e(cmd)` — the comparability gate compares those fields across the three roles, so three estimates carrying neither passed it on `"" == ""` — and `iivw` refuses an `iivw.ado` whose `*!` header has no readable version instead of reporting `r(version)` as `unknown`. Each refusal is paired with a positive control that must still succeed. |
 | `test_iivw_stacked.do` | Independent reconstruction of the stacked sandwich. |
 | `test_iivw_stale_state.do` | Mutated-input signatures and harmless changes. |
 | `test_iivw_state_contract.do` | Pipeline characteristic transactions. |
@@ -118,7 +118,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `validation_iivw_iptw_oracle.do` | Stabilized IPTW known-answer oracle. |
 | `validation_iivw_known_answers.do` | Additional hand-computable results. |
 | `validation_iivw_links_known_answers.do` | Exact Poisson-log quadratic-time and binomial-logit outcome-model solutions. |
-| `validation_iivw_recovery.do` | Supported-estimator parameter recovery. |
+| `validation_iivw_recovery.do` | Legacy end-at-last-visit recovery construction. |
 | `validation_iivw_recovery_extended.do` | Legacy recovery construction. |
 | `validation_iivw_recovery_extended2.do` | Additional legacy recovery construction. |
 
@@ -126,7 +126,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 
 | File | Covers |
 |---|---|
-| `crossval_iivw.do` | Weight and outcome parity with `IrregLong`, `survival`, and `geepack`. |
+| `crossval_iivw.do` | Freshly regenerated weight and outcome parity with `IrregLong`, `survival`, `geepack`, and a local simplified Tompkins-informed transcription. |
 | `crossval_iivw_external.do` | External datasets and independent IPTW/GEE references. |
 | `crossval_iivw_dta.do` | Fresh `.dta` exchange parity for baseline-event Efron weights and independence-GEE point estimates and sandwich SEs. |
 | `crossval_iivw_pbcseq.do` | Mayo PBC sequential-study parity for subject-specific censoring, lagged-outcome IIW, quadratic-time GEE, and exogeneity diagnostics. |
@@ -184,7 +184,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `quick` | Fast public-command, state, recovery, documentation, and release contracts. |
 | `core` | `quick` plus supported Stata validation, adversarial, stacked, tie, and regression suites. |
 | `full` | `core` plus regenerated R references and all cross-validation suites. |
-| `legacy` | Historical recovery constructions, outside the supported-estimator gate. |
+| `legacy` | Historical `validation_iivw_recovery*` constructions, outside the supported-estimator gate. |
 | `sensitivity` (`sim`) | Post-hoc scenario envelopes, outside validation lanes. |
 
 ## Known gaps

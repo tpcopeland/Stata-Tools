@@ -1,4 +1,4 @@
-*! finegray Version 1.3.0  2026/09/02
+*! finegray Version 1.3.0  2026/09/04
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -843,10 +843,25 @@ program define finegray, eclass sortpreserve
         gsort `_fg_id' -_t -_d -`_fg_obs'
         by `_fg_id': gen long `_fg_seen' = sum(`touse')
         gen byte `_fg_surv' = (`touse' & `_fg_seen' == 1)
+
+        * Commit contract (Critical Rule 15).  The reduction REWRITES the
+        * estimation sample, so the subjects it keeps are counted before
+        * `touse' is narrowed rather than after: the count is the same number
+        * either way (`_fg_surv' implies `touse', and every subject with a
+        * marked record keeps exactly one), but taken here it can refuse an
+        * empty result instead of describing one.  Unreachable today -- the
+        * emptiness guard above this block has already required at least one
+        * marked record, and a reduction of a non-empty sample cannot produce
+        * none -- and kept so that a future change to `_fg_seen'/`_fg_surv'
+        * fails closed rather than fitting on nothing.
+        quietly count if `_fg_surv'
+        local N = r(N)
+        if `N' == 0 {
+            display as error "no observations left after reducing to one record per subject"
+            exit 2000
+        }
         quietly replace `touse' = 0 if !`_fg_surv'
 
-        quietly count if `touse'
-        local N = r(N)
         local _fg_reduced = 1
         display as text "(note: `_fg_nrecords' records reduced to `N' subjects)"
     }

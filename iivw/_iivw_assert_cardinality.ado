@@ -1,4 +1,4 @@
-*! _iivw_assert_cardinality Version 4.1.0  2026/09/03
+*! _iivw_assert_cardinality Version 4.1.2  2026/09/04
 *! Refuse a destructive commit that would carry zero (or too few) usable values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -56,6 +56,7 @@ program define _zhou_cluster_dgp
             gen byte m = 2
         }
         else {
+            * stata-dev-ignore: unseeded-draw — this is a generator PROGRAM, not a script: every call site seeds immediately before calling it (`set seed 291002', `291003', `291004' below, and `291001' before K1's inline draws), so every draw in this file replays
             gen byte m = 2 + floor(4*runiform())
         }
 

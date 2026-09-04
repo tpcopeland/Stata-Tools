@@ -88,6 +88,50 @@ program define _vpw_check, rclass
     }
 end
 
+* ---------------------------------------------------------------------------
+* PRE-REGISTERED FAILURE RULE (added 2026-09-04)
+* ---------------------------------------------------------------------------
+* ATTRITION.  A replication whose unweighted fit, weighted fit or
+* `finegray_cif, ci' call fails is DISCARDED, and every number below is then
+* computed on the survivors.  That is selection: what gets summarised is the
+* Monte Carlo distribution CONDITIONAL on the estimator having behaved, not the
+* distribution the coverage claim is about.  The rule is
+*
+*   at least 95% of replications must be usable, for the coefficient arm and
+*   for the CIF arm separately.
+*
+* 95% bounds how much selection the reported coverage can hide: even if every
+* dropped replication would have been a non-coverage, the reported coverage
+* overstates the true one by at most 0.05.  That is larger than this file would
+* like -- it is the price of NREP being modest -- which is why the drops are
+* counted BY CAUSE and printed, and why a nonzero count is something to explain
+* rather than to note.  If this gate fails, the repair is NOT to lower it and
+* NOT to widen a band: it is to find out why the fits are failing.
+*
+* MONTE CARLO BANDS.  Replaced 2026-09-04.  Every band here was a chosen
+* number: coverage in [0.90, 0.99] and mean-SE/MC-SD in [0.85, 1.15].  At the
+* original NREP = 100 those bands were TIGHTER than the Monte Carlo noise
+* justified -- the 3-MCSE coverage band at m = 100 is 0.95 +/- 0.065 and the
+* 3-MCSE SE/SD band is 1 +/- 0.212 -- so a correctly calibrated estimator could
+* have been red-lighted by sampling noise alone, and the fix for that is not a
+* looser fixed band but more replications.  NREP is therefore raised to 400 and
+* every band is computed from the arm's own realized count m:
+*
+*   coverage  |cover - 0.95| <  3 * sqrt(0.95*0.05/m)
+*   SE/SD     |ratio - 1|    <  3 / sqrt(2m)
+*   bias      |mean - truth| <= 4 * sd/sqrt(m)          (unchanged; already MCSE)
+*
+* At m = 400 those are 0.95 +/- 0.033 and 1 +/- 0.106, both narrower than the
+* fixed bands they replace AND honest about the noise.  The nominal-95%
+* multiplier 1.96 is printed beside each coverage; 3 is the gate, because with
+* five coverage/ratio gates a 1.96 band gives a correct estimator a ~10% chance
+* of failing this file on any new RNG stream.
+*
+* NOT DONE HERE: a second structural DGP.  validation_tvc_recovery.do carries
+* that half of the FG-15 remainder (two censoring hazards and two covariate
+* laws); this file's design is Wogu et al. (2021) sec. 5's, and varying it would
+* leave the published comparison the file is built on.
+*
 * ---- truth ------------------------------------------------------------------
 local P    = 0.30
 local B11  = 0.50
@@ -97,7 +141,11 @@ local B22  = 0.50
 local CMAX = 6.0          /* censoring ~ U(0, CMAX): about 30% censored */
 local A_HI = 0.15         /* non-case inclusion probability, Z1 > 0     */
 local A_LO = 0.45         /* non-case inclusion probability, Z1 <= 0    */
-local NREP = 100
+local NREP = 400
+* Monte Carlo band multipliers -- see PRE-REGISTERED FAILURE RULE above.
+local ZCOV = 3
+local ZRAT = 3
+local ATTRIT = 0.95
 local NOBS = 4000
 local SEED = 20260828
 * the CIF truth at the profile (Z1, Z2) = (1, 0), horizon t = 1
@@ -203,9 +251,18 @@ display as text "Replications dropped: `_drop_tot'" ///
 assert `nrep_ok' + `_drop_unw' + `_drop_pw' == `NREP'
 
 local ++test_count
-_vpw_check `= `nrep_ok' >= 0.95 * `NREP'' "at least 95% of replications converged (`nrep_ok'/`NREP')"
+_vpw_check `= `nrep_ok' >= `ATTRIT' * `NREP'' ///
+    "at least `=round(100*`ATTRIT')'% of replications converged (`nrep_ok'/`NREP')"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
+
+* ---- Monte Carlo bands, computed from the realized replication count --------
+local CTOL  = `ZCOV' * sqrt(0.95 * 0.05 / `nrep_ok')
+local C196  = 1.96 * sqrt(0.95 * 0.05 / `nrep_ok')
+local RTOL  = `ZRAT' / sqrt(2 * `nrep_ok')
+display as text "Monte Carlo bands at m = `nrep_ok': coverage 0.95 +/- " ///
+    %6.4f `CTOL' " (nominal-95% band +/- " %6.4f `C196' ///
+    "); mean SE / MC SD 1 +/- " %6.4f `RTOL'
 
 * ---- summaries --------------------------------------------------------------
 foreach k in 1 2 {
@@ -252,17 +309,15 @@ foreach k in 1 2 {
     local pass_count = `pass_count' + r(pass)
     local fail_count = `fail_count' + r(fail)
 
-    * Coverage band: a binomial 95% interval on `NREP' replications is about
-    * +/- 4.5 points at 100 replications, so 0.90-0.99 is the honest window.
     local ++test_count
-    _vpw_check `= (`cvg`k'' >= 0.90) & (`cvg`k'' <= 0.99)' ///
-        "[pweight=] b1`k' 95% coverage is `cvg`k''"
+    _vpw_check `= abs(`cvg`k'' - 0.95) < `CTOL'' ///
+        "[pweight=] b1`k' 95% coverage is `cvg`k'' (band 0.95 +/- `=string(`CTOL',"%6.4f")')"
     local pass_count = `pass_count' + r(pass)
     local fail_count = `fail_count' + r(fail)
 
     local ++test_count
-    _vpw_check `= (`ratio`k'' >= 0.85) & (`ratio`k'' <= 1.15)' ///
-        "[pweight=] b1`k' mean SE / Monte Carlo SD is `ratio`k''"
+    _vpw_check `= abs(`ratio`k'' - 1) < `RTOL'' ///
+        "[pweight=] b1`k' mean SE / Monte Carlo SD is `ratio`k'' (band 1 +/- `=string(`RTOL',"%6.4f")')"
     local pass_count = `pass_count' + r(pass)
     local fail_count = `fail_count' + r(fail)
 }
@@ -287,7 +342,8 @@ display as text "  95% coverage     " %12.3f `cvg_cif'
 display as text "  mean SE / MC SD  " %12.3f `ratio_cif'
 
 local ++test_count
-_vpw_check `= `nrep_cif' >= 0.95 * `NREP'' "weighted finegray_cif, ci ran in at least 95% of replications (`nrep_cif'/`NREP')"
+_vpw_check `= `nrep_cif' >= `ATTRIT' * `NREP'' ///
+    "weighted finegray_cif, ci ran in at least `=round(100*`ATTRIT')'% of replications (`nrep_cif'/`NREP')"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
@@ -297,15 +353,19 @@ _vpw_check `= abs(`bias_cif') <= 4 * `mcse_cif'' ///
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
+* The CIF arm's own realized count, which need not equal the coefficient arm's.
+local CTOLC = `ZCOV' * sqrt(0.95 * 0.05 / `nrep_cif')
+local RTOLC = `ZRAT' / sqrt(2 * `nrep_cif')
+
 local ++test_count
-_vpw_check `= (`cvg_cif' >= 0.90) & (`cvg_cif' <= 0.99)' ///
-    "[pweight=] analytic CIF 95% coverage is `cvg_cif'"
+_vpw_check `= abs(`cvg_cif' - 0.95) < `CTOLC'' ///
+    "[pweight=] analytic CIF 95% coverage is `cvg_cif' (band 0.95 +/- `=string(`CTOLC',"%6.4f")')"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 local ++test_count
-_vpw_check `= (`ratio_cif' >= 0.85) & (`ratio_cif' <= 1.15)' ///
-    "[pweight=] CIF mean SE / Monte Carlo SD is `ratio_cif'"
+_vpw_check `= abs(`ratio_cif' - 1) < `RTOLC'' ///
+    "[pweight=] CIF mean SE / Monte Carlo SD is `ratio_cif' (band 1 +/- `=string(`RTOLC',"%6.4f")')"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

@@ -99,9 +99,16 @@ else
 fi
 
 # FG-02 fail-closed gate.  The python and full lanes run the ZZF R crossval,
-# which leaves a complete oracle cache in qa/data.  With that cache present, run
-# the shell-level negative test that a broken/missing Rscript makes the suite
-# fail CLOSED (no stale-cache false green).  It is a .sh (it manipulates PATH),
+# which leaves a complete set of oracle ARTIFACTS in qa/data.  With those
+# present, run the shell-level negative test that a broken/missing Rscript makes
+# the suite fail CLOSED (no stale-artifact false green).
+#
+# Not to be confused with the R ORACLE CACHE in qa/.oracle_cache (see
+# qa/README.md, "Oracle caching"), which is a different thing: it lets the R
+# scripts skip recomputing a constant, and is read only by R itself.  This gate
+# stays valid under it precisely because R never runs here -- the fake Rscript
+# exits nonzero without starting R, so no cache of either kind is consulted and
+# the erased index files are never regenerated.  It is a .sh (it manipulates PATH),
 # so it cannot live in run_all.do.  This gate must run BEFORE the receipt is
 # written so a failure cannot leave a falsely green committed artifact.
 fg02_status="not-applicable"

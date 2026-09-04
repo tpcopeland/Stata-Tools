@@ -18,6 +18,22 @@ capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 quietly tabtools set clear
 
+capture program drop __tt_assert_same_data
+program define __tt_assert_same_data
+    version 17.0
+    syntax using/
+    unab memory_vars : _all
+    local memory_N = _N
+    preserve
+    quietly use `"`using'"', clear
+    unab using_vars : _all
+    local using_N = _N
+    restore
+    assert `using_N' == `memory_N'
+    assert `"`using_vars'"' == `"`memory_vars'"'
+    cf _all using `"`using'"'
+end
+
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -233,7 +249,7 @@ capture noisily {
     assert "`r(rateframe)'" == "`_hr_rateframe'"
     assert "`r(modelframes)'" == "`_hr_modelframes'"
     assert "`r(effect)'" == "`_hr_effect'"
-    frame hrc_direct_parity: cf _all using "`output_dir'/hrcomptab_wrapper_parity.dta"
+    frame hrc_direct_parity: __tt_assert_same_data using "`output_dir'/hrcomptab_wrapper_parity.dta"
 
     ! python3 -c "import sys,zipfile; a=zipfile.ZipFile(sys.argv[1]); b=zipfile.ZipFile(sys.argv[2]); names=[n for n in a.namelist() if n.startswith('xl/worksheets/') or n=='xl/styles.xml']; ok=set(names)==set(n for n in b.namelist() if n.startswith('xl/worksheets/') or n=='xl/styles.xml') and all(a.read(n)==b.read(n) for n in names); open(sys.argv[3],'w').write('PASS' if ok else 'FAIL')" "`_wrapper_xlsx'" "`_direct_xlsx'" "`_xml_result'"
     tempname _xfh

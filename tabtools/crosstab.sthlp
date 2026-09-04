@@ -20,12 +20,12 @@ Markdown export
 {p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] {cmd:[fweight=}{it:exp}{cmd:]},
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
-{opt lab:el} {opt mis:sing} {opt smallc:ells(#)} {opt level(#)}
+{opt lab:el} {opt mis:sing} {opt smallc:ells(#)} {opt l:evel(#)}
 {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
+{opt font(string)} {opt fontsize(#)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}]{p_end}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -138,7 +138,7 @@ the last row, both in the first column and the table body between them.{p_end}
 {opt headerc:olor(string)} custom header color as a supported Stata color name or RGB triplet{p_end}
 
 {phang}
-{cmdab:headers:hade} apply background fill to the header row{p_end}
+{opt headers:hade} apply background fill to the header row{p_end}
 
 {phang}
 {opt lab:el} use value labels for row and column headers{p_end}
@@ -151,7 +151,9 @@ Excel, CSV, and frame exports{p_end}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
-{opt mis:sing} include observations with missing values as a separate category{p_end}
+{opt mis:sing} include observations with missing values as separate categories; system missing is
+labelled {cmd:Missing}, while extended missing values remain distinct and are
+labelled {cmd:Missing (.a)} through {cmd:Missing (.z)}.{p_end}
 
 {phang}
 {opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
@@ -187,10 +189,10 @@ honored).{p_end}
 
 
 {phang}
-{cmdab:foot:note(} {it:string} {cmd:)} footnote row below the table{p_end}
+{opt foot:note(string)} footnote row below the table{p_end}
 
 {phang}
-{cmdab:fra:me(} {it:name} {cmd:)} store the output dataset in a named Stata frame; specify
+{opt fra:me(name[, replace])} store the output dataset in a named Stata frame; specify
 {cmd:frame(name, replace)} to replace an existing frame{p_end}
 
 {phang}

@@ -63,6 +63,16 @@ if (length(args) < 2) {
 input_csv <- args[1]
 output_csv <- args[2]
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin('tvc', outputs = output_csv,
+                              key_files = input_csv,
+                              packages = c("cmprsk", "survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 dat <- read.csv(input_csv, stringsAsFactors = FALSE)
 required <- c("id", "time", "status", "dataset", "ncut", "cut1", "x1", "x2")
 missing_cols <- setdiff(required, names(dat))
@@ -180,3 +190,4 @@ for (ds in unique(dat$dataset)) {
 if (length(rows) == 0) stop("no crr fit succeeded; nothing to write")
 out <- do.call(rbind, rows)
 write.csv(out, output_csv, row.names = FALSE)
+fg_oracle_cache_end(.fgc)

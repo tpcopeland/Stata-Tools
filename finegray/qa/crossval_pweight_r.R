@@ -71,6 +71,16 @@ if (length(args) < 2) {
 input_csv <- args[1]
 output_csv <- args[2]
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin('pweight', outputs = output_csv,
+                              key_files = input_csv,
+                              packages = c("survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 dat <- read.csv(input_csv, stringsAsFactors = FALSE)
 required <- c("id", "time", "status", "dataset", "pw", "cl", "x1")
 missing_cols <- setdiff(required, names(dat))
@@ -151,4 +161,5 @@ if (anyDuplicated(results[c("dataset", "quantity", "variable")])) {
     stop("reference output contains duplicate dataset/quantity/variable keys")
 }
 write.csv(results, output_csv, row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 cat(sprintf("\ncrossval_pweight_r.R: wrote %d rows to %s\n", nrow(results), output_csv))
