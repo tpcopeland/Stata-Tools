@@ -1,39 +1,17 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        gates
-date:        2026-09-01T21:15:38Z
+date:        2026-09-04T20:08:55Z
 verdict:     PASS
-pkg_tree:    b0f24f445b206092759f118298b4567f7a2361e3 (clean; the committed tree at head_commit)
-head_commit: cda507928ab08e0414276aa292f1976b28df0adc
-provenance:  stata_dev_cli run qa finegray --repo tools --isolated --keep-logs --mode gates
-run_tree:    /tmp/stata-qa-finegray-3524401-a31mm9e2/scratch1/finegray [isolated copy of the source repo]
-retained_log: /tmp/stata_dev_cli_cache/qa-logs/finegray/20260901T211538.833969533Z-f54051cc
+pkg_tree:    0ecd32ba118b068f539a35e6c6f3964b4a362ee2 (clean)
+head_commit: c2e818f0f3d1aa38314101cd706442cdfaca739b
+provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/2d4cadc6-435a-45e4-b991-12b446e45bff/scratchpad/gates/finegray [matches-source-repo (tracked files incl. qa/; 127 files) manifest-sha256 0a70e4183742370327921531b2d1c681b90167a0e2430da41ebc59dba13ea67b]
 stata_bin:   stata-mp
 R_version:   4.6.1
-duration:    6150 s
 fg02_gate:   not-applicable
 wrapper_test: not-applicable
-transfer_gate: not run in this lane
-#
-# pkg_tree method: sha1 over the sorted "<path> <git hash-object>" manifest of
-# every tracked and non-ignored untracked file under finegray/ EXCEPT
-# qa/run_all_status.txt, working-tree contents.  Recompute with:
-#   git ls-files -c -o --exclude-standard finegray/ | grep -v qa/run_all_status.txt | sort | \
-#     while read -r f; do printf '%s %s\n' "$f" "$(git hash-object "$f")"; done | sha1sum
-#
-# This lane ran on the committed tree BEFORE the 2026-09-01 pre-release review
-# fixes (fweight x bootstrap() refusal, the failure-record-not-last guard, the
-# RNG-state restore, attime()/timepoints() de-duplication, the phtest column
-# width, and the documentation/tolerance edits).  None of those touch the
-# delayed-entry (ZZF) scan family or the three gate studies' fixtures; the
-# only post-fix change inside a gate suite is the smoke-branch RESULT sentinel
-# of validation_finegray_zzf_coverage.do, which is not evaluated in this lane.
-#
-# Gate Z-inference (validation_finegray_zzf_coverage.do, 1000 replications per
-# arm, truncation 37% to 69%): fixed_weight_sandwich covers in every arm;
-# nuisance_adjusted covers in every pooled-weight arm; model_based fails every
-# arm (coverage 0.74 to 0.91).  This is the receipt behind the Variance
-# paragraph of finegray_methods.sthlp.
+transfer_gate: PASS (4 arms identical vs cda50792)
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: validation_finegray_zzf_recovery tests=8 pass=8 fail=0 smoke=0

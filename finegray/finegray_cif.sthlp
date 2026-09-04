@@ -153,7 +153,10 @@ counts when they differ.
 {opt attime(numlist)} requests a table of the CIF at the listed time horizons
 (for example {cmd:attime(1 5 10)}) instead of a plotted curve. Combine with
 {opt ci} to include confidence limits. May not be combined with
-{opt timepoints()}.
+{opt timepoints()}. Horizons are used exactly as typed, to full double
+precision: the CIF is a step function, so a horizon at a cause-event time
+includes that event and one an ulp before it does not. Repeated horizons are
+collapsed to one row; horizons that differ in any digit are separate rows.
 
 {phang}
 {opt timepoints(numlist)} evaluates the curve at the specified times rather than
@@ -161,7 +164,8 @@ at the distinct cause-event times of the fitted baseline. May not be combined
 with {opt attime()}: both name the times the CIF is evaluated at, and
 {opt attime()} additionally selects table output over a plotted curve, so the
 combination is refused rather than resolved silently. Unlike the default grid,
-the requested grid is not thinned.
+the requested grid is not thinned. Times are used exactly as typed, as for
+{opt attime()}.
 
 {marker tvc}{...}
 {phang}
@@ -189,7 +193,12 @@ complementary log-log scale so that they remain inside (0,1). The standard error
 treats the fitted weight functions as known, so under heavy censoring or delayed
 entry it can omit weight-estimation variability; {opt bootstrap()}
 re-estimates the weight functions in each replication. See
-{help finegray_methods##cif:Cumulative incidence}.
+{help finegray_methods##cif:Cumulative incidence}. Limits are reported only
+where 0 < CIF < 1 and the standard error is positive. At a profile so extreme
+that exp(xb) exceeds double precision, the CIF is 1 and its standard error 0 to
+machine precision (the limit of the estimator at that profile, the same values
+returned one step short of the overflow) and a note says so; a profile whose
+linear predictor is not finite is refused.
 
 {phang}
 {opt bootstrap(#)} computes pointwise confidence limits by resampling

@@ -145,9 +145,17 @@ Measured on the full lane (2026-09-04): `crossval_finegray_zzf` cost **2153 s �
 98.5% of all cross-validation time** — and the other ten together cost ~56 s.
 All of it was spent recomputing a constant on every single run.
 
-So each R oracle now caches its output under `qa/.oracle_cache/<name>/<key>/`
-and recomputes **only when an input actually changes**. `_fg_oracle_cache.R`
-holds the one shared mechanism.
+So each R oracle now caches its output under `<cache>/<name>/<key>/` and
+recomputes **only when an input actually changes**. `_fg_oracle_cache.R` holds
+the one shared mechanism. `<cache>` is `$FG_ORACLE_CACHE_DIR` if set, else
+`tools::R_user_dir("finegray_qa", "cache")` (`~/.cache/R/finegray_qa` on
+Linux). The first version of this cache lived at `qa/.oracle_cache/` beside the
+scripts and never filled: the devkit runs every QA lane from a throwaway
+scratch copy of the package, so the entries were written into the copy and
+discarded with it, and the next lane recomputed everything again (observed
+2026-09-04: no cache directory existed anywhere after the lane that introduced
+it). The key does not depend on where the scripts sit, so one per-user cache
+serves the checkout, every scratch copy and every clone on the machine.
 
 **What invalidates a cache entry** — the key covers every input that can move a
 number:
@@ -182,10 +190,12 @@ a run:
 FG_ORACLE_NOCACHE=1 stata-mp -b do run_all.do full
 ```
 
-Deleting `qa/.oracle_cache/` has the same effect for the next run. The cache is
-gitignored, exactly as `qa/data/` is: a fresh clone has none and populates it on
-its first run, and a cache committed from one machine's R build would be the
-very drift the cross-validations hunt.
+Deleting the cache directory has the same effect for the next run. The cache is
+per user and outside the repository, so nothing about it is tracked: every
+checkout, clone and scratch copy on this machine shares the one cache, and a
+new machine populates its own on its first run. A cache carried from one
+machine's R build to another would be the very drift the cross-validations
+hunt, which is why it is never committed.
 
 Entries are addressed by key hash, so a script invoked twice with different
 inputs — `crossval_tvc.do`, `crossval_finegray.do` and

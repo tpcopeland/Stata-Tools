@@ -123,7 +123,10 @@ H0 is read at the largest event time less than or equal to that observation's
 time. The command uses the opt-in {cmd:e(basehaz)} matrix when present and
 otherwise uses the active fit's cached or rebuilt baseline. To predict at a
 fixed horizon for the whole sample, use {opt timevar()} with a constant time
-variable.
+variable. Where exp(z'beta) exceeds double precision at a finite linear
+predictor, the CIF is evaluated to its limit: 1 once H0(t) is positive, and 0
+before the first cause event; a missing covariate or time still gives a
+missing prediction.
 
 {marker tvc}{...}
 {phang}

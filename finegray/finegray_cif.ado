@@ -144,47 +144,84 @@ program define finegray_cif, rclass sortpreserve
     * (r(125)), which names neither the option nor the rule -- out of step with
     * every neighbouring guard.  The validated list is written back in the same
     * expanded, sorted form `syntax' produced, so nothing downstream changes.
-    if `"`attime'"' != "" {
-        capture numlist `"`attime'"', sort range(>=0)
+    * The horizons are USED AS TYPED.  numlist validates the list (a bad element
+    * gets this command's message, not `syntax''s), but its r(numlist) is text
+    * rounded to nine significant digits, and writing that back replaced the
+    * request: attime(.1000000000000001) became .1, which precedes a cause
+    * event at .1000000000000001, so the CIF there was reported as exactly 0
+    * with a note that the time precedes the first event, at rc 0.  The step
+    * function moves at the event, and 1e-16 is enough to miss it; the same
+    * rounding merged attime(.1 .1000000000000001) into one row.  So the
+    * user's own tokens are kept whenever every token is a plain number, and
+    * the list is sorted and de-duplicated BY VALUE (a string comparison would
+    * keep .1 and 0.1 as two rows).  Range syntax (0(1)10, 1/5, `to') is
+    * expanded by numlist as before: those values come from arithmetic and
+    * carry no typed precision to lose.
+    foreach _fgopt in attime timepoints {
+        if `"``_fgopt''"' == "" continue
+        capture numlist `"``_fgopt''"', sort range(>=0)
         if _rc {
-            display as error "attime(): {bf:`attime'} is not a usable list of analysis times"
-            display as error "supply one or more numbers >= 0, e.g. {bf:attime(1 3 5)}"
+            display as error "`_fgopt'(): {bf:``_fgopt''} is not a usable list of analysis times"
+            if "`_fgopt'" == "attime" {
+                display as error "supply one or more numbers >= 0, e.g. {bf:attime(1 3 5)}"
+            }
+            else display as error "supply one or more numbers >= 0, e.g. {bf:timepoints(0(1)10)}"
             exit 198
         }
-        local attime `"`r(numlist)'"'
-    }
-    if `"`timepoints'"' != "" {
-        capture numlist `"`timepoints'"', sort range(>=0)
-        if _rc {
-            display as error "timepoints(): {bf:`timepoints'} is not a usable list of analysis times"
-            display as error "supply one or more numbers >= 0, e.g. {bf:timepoints(0(1)10)}"
-            exit 198
+        local _fg_expanded `"`r(numlist)'"'
+        local _fg_raw : list retokenize `_fgopt'
+        * Token by token: a plain number is kept as typed, a one-token range
+        * (0(1)10, 1/5, 1[1]5) is expanded on its own.  The multi-token forms
+        * `1 2 to 5' and `1 2 : 5' read their step from the tokens before
+        * them, so a list containing `to' or `:' is taken from numlist whole.
+        local _fg_multi : list posof "to" in _fg_raw
+        if `_fg_multi' == 0 local _fg_multi : list posof ":" in _fg_raw
+        if `_fg_multi' == 0 {
+            local _fg_kept ""
+            foreach _v of local _fg_raw {
+                capture confirm number `_v'
+                if _rc == 0 local _fg_kept "`_fg_kept' `_v'"
+                else {
+                    * The whole list passed numlist above, so a token that
+                    * fails on its own is one that reads its neighbours;
+                    * hand the whole list to numlist's expansion instead.
+                    capture numlist "`_v'"
+                    if _rc {
+                        local _fg_multi = 1
+                        continue, break
+                    }
+                    local _fg_kept "`_fg_kept' `r(numlist)'"
+                }
+            }
         }
-        local timepoints `"`r(numlist)'"'
-    }
-
-    * numlist's `sort' orders a list but keeps its duplicates, and every
-    * duplicate became a duplicate ROW of the table (and a repeated marker on
-    * the curve): `finegray_cif, attime(1 1 2)' printed t = 1 twice at rc 0,
-    * with r(table) one ROW longer than the horizons asked for, so a caller
-    * assembling several profiles double-counted it.  A repeated
-    * horizon carries no information a single one does not, so collapse the
-    * list rather than refuse it.
-    if "`attime'" != "" {
+        if `_fg_multi' == 0 {
+            * Sort permutation by value.  Built-in Mata only: the package
+            * engine is loaded further down, after the parse.
+            mata: st_local("_fg_ord", invtokens(strofreal(order(strtoreal(tokens(st_local("_fg_kept")))', 1)')))
+            local _fg_sorted ""
+            foreach _i of local _fg_ord {
+                local _fg_sorted "`_fg_sorted' `: word `_i' of `_fg_kept''"
+            }
+        }
+        else local _fg_sorted `"`_fg_expanded'"'
+        * Collapse repeats: numlist's `sort' keeps duplicates, and every
+        * duplicate became a duplicate ROW of the table (and a repeated marker
+        * on the curve): attime(1 1 2) printed t = 1 twice at rc 0 with
+        * r(table) one row longer than the horizons asked for, so a caller
+        * assembling several profiles double-counted it.  A repeated horizon
+        * carries no information a single one does not, so collapse the list
+        * rather than refuse it.  The comparison is numeric on the sorted
+        * list, so equal values adjacent in it collapse whatever their text.
         local _fg_uniq ""
-        foreach _v of numlist `attime' {
-            local _seen : list posof "`_v'" in _fg_uniq
-            if `_seen' == 0 local _fg_uniq "`_fg_uniq' `_v'"
+        local _fg_prev ""
+        foreach _v of local _fg_sorted {
+            if "`_fg_prev'" != "" {
+                if `_v' == `_fg_prev' continue
+            }
+            local _fg_uniq "`_fg_uniq' `_v'"
+            local _fg_prev "`_v'"
         }
-        local attime : list retokenize _fg_uniq
-    }
-    if "`timepoints'" != "" {
-        local _fg_uniq ""
-        foreach _v of numlist `timepoints' {
-            local _seen : list posof "`_v'" in _fg_uniq
-            if `_seen' == 0 local _fg_uniq "`_fg_uniq' `_v'"
-        }
-        local timepoints : list retokenize _fg_uniq
+        local `_fgopt' : list retokenize _fg_uniq
     }
 
     * =====================================================================
@@ -1178,6 +1215,23 @@ program define finegray_cif, rclass sortpreserve
                 "`_O'", "`_t0var'", "`_bsvar'", strtoreal("`_bslev`g''"), "", "", ///
                 "`_fg_wmata'", `_fg_wtype')
         }
+        * A nonfinite CIF is not a result.  The engine returns a missing CIF
+        * only when the profile's linear predictor is itself nonfinite (an
+        * at() value or a coefficient that is missing); exp() overflow at an
+        * extreme but finite profile is evaluated in the engine as CIF = 1
+        * (see _finegray_cif_core in _finegray_mata.ado).  Through 1.3.0 an
+        * overflowing row was posted as (cif = ., se = 0) at rc 0: the
+        * influence contributions were missing and the variance sum treated
+        * them as zeros, so an unusable point estimate carried a fabricated
+        * zero SE.  Refuse here, before bootstrap replications are spent on
+        * it and before anything reaches r().
+        mata: st_local("_fg_nmis", strofreal(sum(st_matrix("`_O'")[., 1] :>= .)))
+        if `_fg_nmis' > 0 {
+            display as error "the CIF could not be evaluated at `_fg_nmis' of `ngrid`g'' requested time(s)"
+            if "`_overmode'" != "" display as error `"(curve `_ovvar' = `_lbl`g'')"'
+            display as error "the covariate profile gives a nonfinite linear predictor; check the at() values"
+            exit 498
+        }
     }
 
     * =====================================================================
@@ -1580,6 +1634,15 @@ program define finegray_cif, rclass sortpreserve
                 }
             }
         }
+    }
+
+    * exp(xb) overflowed double precision at a finite profile (the engine
+    * raised `_fg_cifovf'): the CIF there is 1 and its SE 0 to machine
+    * precision, which is the limit of the estimator at that profile, not
+    * evidence that the data reach it.  Say so.
+    if "`_fg_cifovf'" != "" {
+        display as text "note: exp(xb) exceeds double precision at one or more requested time(s)/profile(s);"
+        display as text "the CIF is 1 and its SE 0 to machine precision there, with no confidence limits"
     }
 
     * Last observed analysis time in the estimation sample, per curve.  Read

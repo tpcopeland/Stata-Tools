@@ -13,9 +13,15 @@
 * under a fixed seed, the other seven make no RNG call at all.  Measured
 * 2026-09-04, crossval_finegray_zzf alone cost 2153 s -- 98.5% of all crossval
 * time in this lane -- recomputing a constant on every run.  Each R oracle now
-* caches its output under qa/.oracle_cache/ and recomputes ONLY when an input
+* caches its output in a PER-USER directory outside the package tree --
+* $FG_ORACLE_CACHE_DIR if set, else R's user cache for the suite
+* (~/.cache/R/finegray_qa on Linux) -- and recomputes ONLY when an input
 * changes: the script md5, the input-file CONTENT (the paths are tmpdir and
 * differ every run), the named parameters, and the R/package/platform versions.
+* The cache is outside the tree on purpose: the devkit runs every lane from a
+* throwaway scratch copy, and a cache kept beside the scripts was discarded
+* with the copy and never filled.  After ONE run of a lane on this machine,
+* its R oracles are never recomputed again until an input genuinely changes.
 * A `HIT' line in a suite log means the oracle was restored, not recomputed;
 * `MISS' means an input genuinely changed.
 *
@@ -25,7 +31,7 @@
 * with a real status the sentinels read.  No .do file changed for the cache.
 *
 * Force a full recompute of every oracle:   FG_ORACLE_NOCACHE=1 stata-mp -b do run_all.do full
-* Or delete qa/.oracle_cache/.  Details: qa/README.md, "Oracle caching".
+* Or delete the cache directory.  Details: qa/README.md, "Oracle caching".
 
 version 16.0
 set more off
@@ -84,6 +90,7 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_determinism.do test_finegray_reporting.do ///
     test_finegray_contracts.do ///
     test_finegray_nullcase.do ///
+    test_finegray_horizon_precision.do test_finegray_cif_overflow.do ///
     test_finegray_failclosed.do ///
     test_finegray_hostile.do ///
     test_finegray_estimates_use.do ///
@@ -184,7 +191,11 @@ local n_skip = 0
 local failed_files ""
 
 display as text "finegray QA lane: `lane'"
-display as text "R oracle cache: ACTIVE (qa/.oracle_cache); set FG_ORACLE_NOCACHE=1 to force recompute"
+* The R side resolves the same default (tools::R_user_dir), so the banner
+* names the directory a HIT/MISS line in the suite logs will report.
+local _fg_oracle_dir : environment FG_ORACLE_CACHE_DIR
+if "`_fg_oracle_dir'" == "" local _fg_oracle_dir "~/.cache/R/finegray_qa (R's user cache dir)"
+display as text "R oracle cache: ACTIVE at `_fg_oracle_dir'; set FG_ORACLE_NOCACHE=1 to force recompute"
 display as text "Curated QA files: `n_discovered'"
 
 foreach f of local all_files {

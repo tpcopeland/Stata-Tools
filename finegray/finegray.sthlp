@@ -967,7 +967,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2026-09-02{p_end}
+{pstd}Version 1.3.0, 2026-09-04{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
