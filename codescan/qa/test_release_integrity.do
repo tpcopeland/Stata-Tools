@@ -21,6 +21,7 @@ local repo_dir "`pkg_dir'/.."
 * harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -303,6 +304,132 @@ else {
     local ++fail_count
 }
 
+* Viewer description-column width oracle for {synopt} rows.
+*
+* The render check above proves no literal SMCL leaks, but a description that
+* overruns the p2col description column renders perfectly as text and still
+* wraps in the Viewer -- miscounting the width, mangling the trailing {p_end},
+* and corrupting the rows after it. That is why a green package lane coexisted
+* with two shipped help files failing the structural documentation gate. The
+* column runs to source column 77 and the description starts 6 columns past the
+* {synoptset N tabbed} width, so a row has 71 - N characters. This is measured
+* on the RENDERED text: {cmd:x} prints one character, not eight.
+capture program drop _qa_smcl_render
+program define _qa_smcl_render, rclass
+    version 16.0
+    gettoken s 0 : 0
+
+    * Innermost-first: take the first closing brace and the last opening brace
+    * before it, so a nested {cmd:{it:x}} collapses correctly instead of being
+    * cut at the inner close.
+    local guard = 0
+    while strpos(`"`s'"', "}") > 0 & `guard' < 500 {
+        local ++guard
+        local q = strpos(`"`s'"', "}")
+        local head `"`=substr(`"`s'"', 1, `q' - 1)'"'
+        local p = strrpos(`"`head'"', "{")
+        if `p' == 0 {
+            local s `"`=substr(`"`s'"', 1, `q' - 1) + substr(`"`s'"', `q' + 1, .)'"'
+            continue
+        }
+        local inner `"`=substr(`"`s'"', `p' + 1, `q' - `p' - 1)'"'
+        local mapped ""
+        if ustrregexm(`"`inner'"', "^opth? ") {
+            * {opt def:ine(x)} prints "define(x)": the abbreviation colon is
+            * markup, both halves are printed.
+            local mapped `"`=subinstr(substr(`"`inner'"', strpos(`"`inner'"', " ") + 1, .), ":", "", .)'"'
+        }
+        else if ustrregexm(`"`inner'"', "^c ") {
+            * {c -(} and friends are single printed characters.
+            local mapped "x"
+        }
+        else if ustrregexm(`"`inner'"', "^(helpb|help|manhelp[a-z]*) ") {
+            * A link prints the label after the last colon, or the whole target.
+            local _lbl `"`=substr(`"`inner'"', strpos(`"`inner'"', " ") + 1, .)'"'
+            if strpos(`"`_lbl'"', ":") > 0 {
+                local _lbl `"`=substr(`"`_lbl'"', strrpos(`"`_lbl'"', ":") + 1, .)'"'
+            }
+            local mapped `"`=subinstr(`"`_lbl'"', char(34), "", .)'"'
+        }
+        else if strpos(`"`inner'"', ":") > 0 {
+            * {cmd:x}, {it:x}, {bf:x}, ... print the text after the tag.
+            local mapped `"`=substr(`"`inner'"', strpos(`"`inner'"', ":") + 1, .)'"'
+        }
+        local s `"`=substr(`"`s'"', 1, `p' - 1)'`mapped'`=substr(`"`s'"', `q' + 1, .)'"'
+    }
+    return local text `"`s'"'
+end
+
+capture program drop _qa_synopt_width
+program define _qa_synopt_width, rclass
+    version 16.0
+    syntax anything(name=files id="help files")
+
+    local files = subinstr(`"`files'"', char(34), "", .)
+    local nover 0
+    local overfiles ""
+
+    foreach f of local files {
+        capture confirm file "`f'"
+        if _rc {
+            display as error "  width: file not found: `f'"
+            local ++nover
+            local overfiles "`overfiles' `f'"
+            continue
+        }
+
+        * Default {synoptset} width is 20 when a table declares none.
+        local setw = 20
+        local lineno = 0
+        local fbad = 0
+        tempname wfh
+        file open `wfh' using "`f'", read text
+        file read `wfh' line
+        while r(eof) == 0 {
+            local ++lineno
+            if ustrregexm(`"`macval(line)'"', "\{synoptset[ ]+([0-9]+)") {
+                local setw = real(ustrregexs(1))
+            }
+            local trimmed = strtrim(`"`macval(line)'"')
+            if ustrregexm(`"`trimmed'"', "^\{synopt[ ]*:") {
+                * Skip the balanced first column, then measure what is left.
+                local depth = 0
+                local cut = 0
+                local L = strlen(`"`trimmed'"')
+                forvalues ci = 1/`L' {
+                    local ch = substr(`"`trimmed'"', `ci', 1)
+                    if "`ch'" == "{" local ++depth
+                    if "`ch'" == "}" {
+                        local --depth
+                        if `depth' == 0 {
+                            local cut = `ci'
+                            continue, break
+                        }
+                    }
+                }
+                local desc `"`=substr(`"`trimmed'"', `cut' + 1, .)'"'
+                local desc `"`=subinstr(`"`desc'"', "{p_end}", "", .)'"'
+                _qa_smcl_render `"`desc'"'
+                local w = strlen(strtrim(`"`r(text)'"'))
+                local cap = 77 - (`setw' + 6)
+                if `w' > `cap' {
+                    display as error "  synopt width: `f' line `lineno' (`w'>`cap')"
+                    local ++fbad
+                }
+            }
+            file read `wfh' line
+        }
+        file close `wfh'
+        if `fbad' > 0 {
+            local nover = `nover' + `fbad'
+            local overfiles "`overfiles' `f'"
+        }
+    }
+
+    return scalar nover = `nover'
+    return local overfiles "`overfiles'"
+end
+
 * The release gate must exercise the render axis, not only source-text markup.
 local ++test_count
 capture noisily {
@@ -349,6 +476,56 @@ else {
 }
 
 
+* Viewer column width is a shipped-documentation contract, not a style rule:
+* an over-wide {synopt} description wraps and corrupts the table around it.
+local ++test_count
+capture noisily {
+    local sthlps : dir "`pkg_dir'" files "*.sthlp"
+    local width_paths ""
+    foreach s of local sthlps {
+        local width_paths "`width_paths' `pkg_dir'/`s'"
+    }
+    _qa_synopt_width `width_paths'
+    assert r(nover) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: shipped .sthlp synopt descriptions fit the Viewer column"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: shipped .sthlp synopt width (error `=_rc')"
+    local ++fail_count
+}
+
+* Positive control: one row one character over the cap, one row exactly at it.
+* Without this the width oracle could return zero because it never measured
+* anything.
+local ++test_count
+capture noisily {
+    tempname wfh2
+    tempfile widefile
+    file open `wfh2' using "`widefile'", write replace text
+    file write `wfh2' "{smcl}" _n
+    file write `wfh2' "{synoptset 20 tabbed}{...}" _n
+    file write `wfh2' "{synopt:{opt a}}" _dup(51) "x" "{p_end}" _n
+    file write `wfh2' "{synopt:{opt b}}" _dup(52) "x" "{p_end}" _n
+    file write `wfh2' "{synopt:{opt c}}{cmd:" _dup(51) "y" "}{p_end}" _n
+    file close `wfh2'
+    _qa_synopt_width `widefile'
+    * cap = 77 - (20 + 6) = 51: the 51-character rows fit, the 52 does not, and
+    * the {cmd:} row proves markup is not counted as printed characters.
+    assert r(nover) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: synopt width oracle positive control detects an over-wide row"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: synopt width oracle positive control (error `=_rc')"
+    local ++fail_count
+}
+
+
 **# Settings hygiene
 
 * This suite must not leak a session setting to whatever runs next.
@@ -371,6 +548,7 @@ else {
 **# Summary
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_release_integrity" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_release_integrity tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

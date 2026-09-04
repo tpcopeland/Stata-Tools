@@ -197,8 +197,9 @@ if !`found_atleast' {
 * --- T5: default-frame output path still restores value labels (BUG 3).
 * Forcing the in-place (default-frame) route: no frame(), no saving(). The
 * master carries a value label on a carried variable; it must survive onto the
-* output. This exercises the branch where `clear' wipes label definitions and
-* _rm_copy_output re-creates them (the block the audit trimmed).
+* output. This pins the default route's label handling: value-label definitions
+* are frame-scoped, so the output frame's copies are what the caller ends up
+* with.
 clear
 set obs 3
 gen double ulo = 0

@@ -25,6 +25,12 @@ local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
 * Targeted reinstall so no installed copy shadows the package under test
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 cap ado uninstall eplot
 net install eplot, from("`pkg_dir'") replace
 
@@ -147,5 +153,5 @@ else {
     di as error "`nfail' test_axis_coeflabels CHECK(S) FAILED"
 }
 
-display "RESULT: test_axis_coeflabels tests=13 pass=`=`ncheck'-`nfail'' fail=`nfail' skip=0"
+_eplot_qa_result test_axis_coeflabels, tests(13) pass(`=`ncheck'-`nfail'') fail(`nfail') skip(0)
 if `nfail' > 0 exit 1

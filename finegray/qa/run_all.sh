@@ -63,7 +63,7 @@ fi
 # Never leave an earlier PASS receipt behind when the current run dies before
 # it can publish a final verdict.  The lane is validated above so the
 # lane-pinned target cannot escape qa/.
-rm -f run_all.log run_all_status.txt "run_status_${lane}.txt"
+rm -f run_all.log run_all_status.txt "run_status_${lane}.txt" run_all_inputs.sha256
 "$stata_bin" -b do run_all.do "$lane" >/dev/null 2>&1
 stata_rc=$?
 
@@ -315,14 +315,67 @@ if [[ -n "$prov_repo" ]]; then
         tree_state="clean"
     fi
     # A scratch copy is only evidence for the originating tree if it still
-    # MATCHES it.  Diff the copy under test against the named repo's working
-    # tree and say so, rather than stamping a hash the run may not correspond to.
+    # MATCHES it.  The comparison covers every TRACKED file under the package,
+    # qa/ INCLUDED: the old form excluded qa/ wholesale, so the receipt said
+    # "matches-source-repo" while saying nothing at all about the suites that
+    # had just run -- a receipt that could not vouch for its own evidence.
+    # Enumerating tracked files (rather than diffing directory trees) excludes
+    # the untracked generated artifacts -- logs, receipts, R CSV output,
+    # generated .dta/.xlsx -- without having to list them.
+    #
+    # The manifest is the second half: path + sha256 of every tracked input as
+    # it existed in the tree that RAN, written beside the receipt, with the
+    # manifest's own sha256 stamped into the receipt line.  A later reader can
+    # then re-hash the inputs and check them against a one-line digest.
     if [[ -n "$source_repo" ]]; then
-        if diff -r -q "$prov_repo/$pkg_name" "$pkg_dir" \
-                --exclude='qa' --exclude='*.log' >/dev/null 2>&1; then
-            copy_state="matches-source-repo (qa/ excluded)"
+        prov_manifest="run_all_inputs.sha256"
+        : > "$prov_manifest"
+        prov_n=0
+        prov_missing=0
+        prov_mod=0
+        prov_first=""
+        while IFS= read -r prov_rel; do
+            prov_in_pkg="${prov_rel#"$pkg_name"/}"
+            # These three are OUTPUTS of the run, not inputs to it, and they are
+            # tracked only because they are committed evidence of a PREVIOUS
+            # run.  run_all.sh deletes the two receipts before Stata starts and
+            # rewrites them below, and it writes the manifest itself, so a copy
+            # can never match the source repo on them: every isolated run
+            # reported "DIFFERS-from-source-repo (2 files, first:
+            # qa/run_all_status.txt)" whatever the inputs looked like, which
+            # made the line useless as a signal about the inputs.
+            case "$prov_in_pkg" in
+                qa/run_all_status.txt|qa/run_all_inputs.sha256) continue ;;
+                qa/run_status_*.txt) continue ;;
+                # the transfer proof rewrites PROVENANCE.txt with this run's
+                # tree path, so it is an output of the run as well
+                qa/gates_transfer/PROVENANCE.txt) continue ;;
+            esac
+            prov_src="$prov_repo/$prov_rel"
+            prov_cpy="$pkg_dir/$prov_in_pkg"
+            prov_n=$(( prov_n + 1 ))
+            # A file that is not in the copy at all and a file that is there
+            # with different content are different findings, and the old count
+            # merged them.  The manifest records only what is PRESENT, so it
+            # stays a re-checkable digest of the inputs that actually ran.
+            if [[ ! -f "$prov_cpy" ]]; then
+                prov_missing=$(( prov_missing + 1 ))
+                [[ -z "$prov_first" ]] && prov_first="$prov_in_pkg"
+                continue
+            fi
+            printf '%s  %s\n' \
+                "$(sha256sum "$prov_cpy" | cut -d' ' -f1)" "$prov_in_pkg" \
+                >> "$prov_manifest"
+            if ! cmp -s "$prov_src" "$prov_cpy"; then
+                prov_mod=$(( prov_mod + 1 ))
+                [[ -z "$prov_first" ]] && prov_first="$prov_in_pkg"
+            fi
+        done < <(git -C "$prov_repo" ls-files -- "$pkg_name")
+        prov_manifest_sha="$(sha256sum "$prov_manifest" | cut -d' ' -f1)"
+        if (( prov_missing == 0 && prov_mod == 0 )); then
+            copy_state="matches-source-repo (tracked files incl. qa/; $prov_n files) manifest-sha256 $prov_manifest_sha"
         else
-            copy_state="DIFFERS-from-source-repo"
+            copy_state="DIFFERS-from-source-repo ($prov_n tracked, $prov_missing missing, $prov_mod modified, first: $prov_first) manifest-sha256 $prov_manifest_sha"
         fi
     else
         copy_state="n/a (ran in place)"

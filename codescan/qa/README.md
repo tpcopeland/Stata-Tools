@@ -30,6 +30,13 @@ calls the same bootstrap, so running one file standalone sandboxes the install
 too rather than mutating the developer's real adopath. The bootstrap is
 idempotent, so the lane re-entering it per suite is harmless.
 
+The bootstrap returns `r(owner)`, which is `1` only for the caller that actually
+created the sandbox. Each suite passes it to `_codescan_qa_restore` just before
+publishing its handshake, so a suite run standalone puts `PLUS`/`PERSONAL` back
+where it found them and drops the scaffold globals, while a suite running inside
+`run_all.do` leaves the lane's shared sandbox alone. `run_all.do` restores its
+own saved values at the end regardless.
+
 `test_codescan_install_docs.do` is the one deliberate exception: it builds its
 own `PLUS`/`PERSONAL`/work sandbox and `cd`s into it, because its whole purpose
 is to exercise the package as a freshly installed user sees it.
@@ -94,7 +101,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 |------|------|------:|----------------|
 | `test_codescan.do` | functional | 41 | Core `codescan` behaviour: basic/regex/prefix modes, time windows, collapse, labels, `replace`, `noisily`, `if`/`in`, return values, edge cases, error handling |
 | `test_codescan_v1_fixes.do` | functional | 86 | Regression guards for the v1.0.2-v1.3.0 fixes: varabbrev restore, collapse `if`/`in`, `countdate` tag logic, name collision, missing `id`, cleanup, `codescan_describe`, `frame()`, `preserve`, `tostring`, `nodots` |
-| `test_codescan_errors.do` | functional | 33 | Error paths: `define()`/`codefile()` grammar, window and `level()` bounds, output-name collisions, extension and file-existence rejection |
+| `test_codescan_errors.do` | functional | 35 | Error paths: `define()`/`codefile()` grammar, window and `level()` bounds, output-name collisions, extension and file-existence rejection |
 | `test_codescan_functional.do` | functional | 47 | Extended functional coverage: `alldates`, `detail`, `countmode`, exclusions, codefile DTA, merge semantics, `save()`, co-occurrence, boundary name lengths, data preservation |
 | `test_codescan_edge_cases.do` | functional | 30 | `frame()`/`export()`/`graph` output, codefile edge cases, co-occurrence, single-obs and degenerate windows, extended `codescan_describe` and merge cases |
 | `test_codescan_install_verify.do` | functional | 7 | `which` resolves both commands after `net install`; README example runs; v1.4.1 regressions |
@@ -108,15 +115,16 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_v203_hardening.do` | functional | 15 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
 | `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
 | `test_codescan_v415.do` | functional | 7 | v4.1.5: Unicode `level()` prefix truncation (`usubstr` vs `substr`), `export()` pattern/exclusion `str244` width, `codescan_describe` early `save()` extension validation, `graph` bar label `format()` passthrough, `error 2000` without duplicate message |
+| `test_codescan_v421.do` | functional | 18 | v4.2.1, 8 of 18 proven red on 4.2.0: a zero-width regex keyed to a non-ASCII character rejected on the live scan axis as an inclusion and as an exclusion (with consuming non-ASCII patterns and the ASCII option-time guard as controls), casefold-equivalent `codefile()` columns refused for required and optional fields (each paired with the same call succeeding once the duplicate is dropped), and `save()` writing no codefile after an empty sample or a failing `export()` while a successful call still writes and round-trips it. The zero-width guard is the first error codescan can raise during the scan rather than while parsing options, so two blocks cover the rollback from that new failure site: an in-place `replace` over a caller variable and a `collapse` that must not consume the data |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
-| `test_codescan_oracle.do` | functional | dynamic | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
+| `test_codescan_oracle.do` | functional | 200 | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | functional | 11 | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
 | `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
-| `test_codescan_hostile.do` | functional | pending run | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
+| `test_codescan_hostile.do` | functional | 3 | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
 | `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
-| `test_documentation_examples.do` | functional | 19 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
-| `test_release_integrity.do` | functional | 9 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
+| `test_documentation_examples.do` | functional | 20 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
+| `test_release_integrity.do` | functional | 11 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
 | `validation_codescan.do` | validation | 26 | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
 | `validation_codescan_extended.do` | validation | 37 | Extended exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
 | `validation_codescan_known_answers.do` | validation | 9 | Known-answer matrix across option combinations |
@@ -160,9 +168,9 @@ the brute-force reference returns.
 | Command | Options | Returns | Status |
 |---------|--------:|--------:|--------|
 | `codescan` | 37/37 | 27/27 | covered |
-| `codescan_describe` | 4/4 | 7/7 | covered |
+| `codescan_describe` | 4/4 | 8/8 | covered |
 
-`codescan` has 27 distinct documented return names. Two names are returned from
+`codescan` has 27 distinct documented return names, and `codescan_describe` 8. Two names are returned from
 two places each, and both paths are exercised: `r(lookback)` as a scalar for a
 single window and as a macro for several, and `r(newvars)` as the
 created-variable list on the normal path and as an empty string after

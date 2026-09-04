@@ -30,6 +30,9 @@
 *   NLT-05  the psi_lt term itself is a mean-zero influence function on
 *           delayed-entry data (column sums at rounding), and the cluster()
 *           composition posts lt_vce = nuisance_adjusted with a different V.
+*   NLT-06  the printed "Variance:" line names both pieces of the sandwich in
+*           e(V): cluster() + nuisance prints the joint label, and each option
+*           alone still prints its own.
 *
 * The coverage of the resulting interval is NOT decided here: that is Gate
 * Z-inference, qa/validation_finegray_zzf_coverage.do, which fits the third
@@ -304,6 +307,80 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "  FAIL: NLT-05 mean-zero / cluster() (rc=`=_rc')"
+}
+
+**# NLT-06: the header names BOTH pieces of the variance actually in e(V)
+* The label chain in _finegray_display tested vce_meat == nuisance_adjusted
+* before e(vce) == "cluster", so a fit with cluster() AND nuisance printed
+* "nuisance-adjusted sandwich" and said nothing about the clustering -- the
+* one line of output a reader has to distinguish the two sandwiches.
+local ++test_count
+capture noisily {
+    _nlt_data, n(1200) seed(4246) lt
+    quietly gen long cl6 = mod(_n - 1, 40) + 1
+
+    tempfile hdrlog
+    tempname fh6
+
+    * both options: the joint label
+    capture log close _nlt6
+    quietly log using "`hdrlog'", replace text name(_nlt6)
+    finegray z1 z2, compete(ev) cause(1) nuisance cluster(cl6) nolog
+    capture log close _nlt6
+    local blob ""
+    file open `fh6' using "`hdrlog'", read text
+    file read `fh6' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh6' line
+    }
+    file close `fh6'
+    assert "`e(vce)'" == "cluster"
+    assert "`e(vce_meat)'" == "nuisance_adjusted"
+    assert strpos(`"`blob'"', "cluster-robust, nuisance-adjusted sandwich") > 0
+
+    * nuisance alone keeps the plain nuisance label
+    capture log close _nlt6
+    quietly log using "`hdrlog'", replace text name(_nlt6)
+    finegray z1 z2, compete(ev) cause(1) nuisance nolog
+    capture log close _nlt6
+    local blob ""
+    file open `fh6' using "`hdrlog'", read text
+    file read `fh6' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh6' line
+    }
+    file close `fh6'
+    assert strpos(`"`blob'"', "Variance:") > 0
+    assert strpos(`"`blob'"', "nuisance-adjusted sandwich") > 0
+    assert strpos(`"`blob'"', "cluster-robust, nuisance-adjusted sandwich") == 0
+
+    * cluster() alone keeps the plain cluster label
+    capture log close _nlt6
+    quietly log using "`hdrlog'", replace text name(_nlt6)
+    finegray z1 z2, compete(ev) cause(1) cluster(cl6) nolog
+    capture log close _nlt6
+    local blob ""
+    file open `fh6' using "`hdrlog'", read text
+    file read `fh6' line
+    while r(eof) == 0 {
+        local blob `"`blob' `line'"'
+        file read `fh6' line
+    }
+    file close `fh6'
+    assert strpos(`"`blob'"', "cluster-robust sandwich") > 0
+    assert strpos(`"`blob'"', "nuisance-adjusted") == 0
+}
+local _nlt6rc = _rc
+capture log close _nlt6
+if `_nlt6rc' == 0 {
+    local ++pass_count
+    display as result "  PASS: NLT-06 header names cluster and nuisance jointly"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: NLT-06 joint variance label (rc=`_nlt6rc')"
 }
 
 **# Summary

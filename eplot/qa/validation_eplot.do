@@ -28,6 +28,12 @@ if "`pkg_dir'" == "" {
 local qa_dir "`pkg_dir'/qa"
 
 // Remove any installed copy so the local package is the one tested
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 cap ado uninstall eplot
 // Add eplot directory to adopath so Stata can find the command
 adopath ++ "`pkg_dir'"
@@ -401,31 +407,43 @@ capture {
     sysuse auto, clear
     quietly regress price mpg weight foreign
     matrix B = e(b)
+    matrix V = e(V)
+    local dfr = e(df_r)
+    local crit = invttail(`dfr', (1 - c(level)/100) / 2)
 
-    eplot ., drop(_cons) name(val11, replace)
+    // coeflabels() pins deterministic row names so each coefficient can be
+    // located by identity.  Matching the SET of values, as this validation
+    // once did, cannot detect a coefficient-to-row permutation: three right
+    // numbers attached to the wrong three labels still pass a set test.
+    eplot ., drop(_cons) name(val11, replace) ///
+        coeflabels(mpg = "VMPG" weight = "VWT" foreign = "VFOR")
     matrix T = r(table)
 
-    // r(table) rows use display labels and may reorder vs e(b).
-    // Verify that all e(b) coefficient values appear in r(table) column 1.
     local n_coefs = rowsof(T)
     assert `n_coefs' == 3
 
-    // Collect all b values from r(table) into a set and verify each matches
-    // one of the e(b) values (mpg, weight, foreign)
-    local b_mpg = B[1, colnumb(B, "mpg")]
-    local b_wt  = B[1, colnumb(B, "weight")]
-    local b_for = B[1, colnumb(B, "foreign")]
+    // Display order must be estimation order, not alphabetical or arbitrary.
+    local rn : rownames T
+    assert "`rn'" == "VMPG VWT VFOR"
 
-    local matched 0
-    forvalues i = 1/`n_coefs' {
-        local ti = T[`i', 1]
-        if abs(`ti' - `b_mpg') < 1e-4 | ///
-           abs(`ti' - `b_wt')  < 1e-4 | ///
-           abs(`ti' - `b_for') < 1e-4 {
-            local ++matched
-        }
+    foreach pair in "VMPG mpg" "VWT weight" "VFOR foreign" {
+        gettoken rlab src : pair
+        local src = trim("`src'")
+        local ri = rownumb(T, "`rlab'")
+        assert !missing(`ri')
+        local bj = colnumb(B, "`src'")
+        local b_src = B[1, `bj']
+        local se_src = sqrt(V[`bj', `bj'])
+        assert abs(T[`ri', 1] - `b_src') < 1e-12
+        assert abs(T[`ri', 2] - (`b_src' - `crit' * `se_src')) < 1e-8
+        assert abs(T[`ri', 3] - (`b_src' + `crit' * `se_src')) < 1e-8
     }
-    assert `matched' == 3
+
+    // Negative control: the identity map must be able to fail.  Pointing a
+    // row name at another coefficient's value has to break the assertion.
+    local ri = rownumb(T, "VMPG")
+    local wrong = B[1, colnumb(B, "weight")]
+    assert abs(T[`ri', 1] - `wrong') > 1e-6
 }
 
 if _rc == 0 {
@@ -446,23 +464,37 @@ capture {
     sysuse auto, clear
     quietly logit foreign mpg weight
     matrix B = e(b)
+    matrix V = e(V)
+    local zcrit = invnormal(1 - (1 - c(level)/100)/2)
 
-    eplot ., drop(_cons) eform name(val12, replace)
+    eplot ., drop(_cons) eform name(val12, replace) ///
+        coeflabels(mpg = "VMPG" weight = "VWT")
     matrix T = r(table)
 
-    // With eform, r(table) should contain exp(b), not raw b
-    local b_mpg = B[1, colnumb(B, "mpg")]
-    local b_wt  = B[1, colnumb(B, "weight")]
+    assert rowsof(T) == 2
+    local rn : rownames T
+    assert "`rn'" == "VMPG VWT"
 
-    local matched 0
-    forvalues i = 1/`=rowsof(T)' {
-        local ti = T[`i', 1]
-        if abs(`ti' - exp(`b_mpg')) < 1e-4 | ///
-           abs(`ti' - exp(`b_wt'))  < 1e-4 {
-            local ++matched
-        }
+    // Each row must carry exp(b) for ITS OWN coefficient, and the interval
+    // must be the exponentiated (not the symmetric) one.
+    foreach pair in "VMPG mpg" "VWT weight" {
+        gettoken rlab src : pair
+        local src = trim("`src'")
+        local ri = rownumb(T, "`rlab'")
+        assert !missing(`ri')
+        local bj = colnumb(B, "`src'")
+        local b_src = B[1, `bj']
+        local se_src = sqrt(V[`bj', `bj'])
+        assert abs(T[`ri', 1] - exp(`b_src')) < 1e-12
+        assert abs(T[`ri', 2] - exp(`b_src' - `zcrit' * `se_src')) < 1e-8
+        assert abs(T[`ri', 3] - exp(`b_src' + `zcrit' * `se_src')) < 1e-8
+        // exp() intervals are asymmetric about the point estimate.
+        assert abs((T[`ri', 3] - T[`ri', 1]) - (T[`ri', 1] - T[`ri', 2])) > 1e-8
     }
-    assert `matched' == 2
+
+    // Negative control: raw b must NOT appear in the eform table.
+    local ri = rownumb(T, "VMPG")
+    assert abs(T[`ri', 1] - B[1, colnumb(B, "mpg")]) > 1e-6
 }
 
 if _rc == 0 {
@@ -479,7 +511,7 @@ capture graph drop val12
 display "{bf:VALIDATION SUMMARY}"
 display "Total validations:  `n_tests'"
 display as result "Passed:             `n_passed'"
-display "RESULT: validation_eplot tests=12 pass=`n_passed' fail=`n_failed' skip=0"
+_eplot_qa_result validation_eplot, tests(12) pass(`n_passed') fail(`n_failed') skip(0)
 if `n_failed' > 0 {
     display as error "Failed:             `n_failed'"
 }

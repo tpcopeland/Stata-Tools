@@ -34,15 +34,17 @@ if !inlist("`mode'", "quick", "core", "crossval", "full") {
 * Routine development lane: fast functional coverage plus the two headline
 * validation suites. No install/docs smoke, no adversarial stress.
 * test_codescan.do was split at its section boundaries (audit Q8); the seven
-* test_codescan* suites below together carry the 308 tests it used to run, plus
-* one settings-hygiene test each.
+* test_codescan* suites below carry what it used to run, plus one
+* settings-hygiene test each. The per-suite RESULT sentinels are the only
+* authority on how many tests that is -- a count written here drifts the moment
+* a suite gains a case, and did.
 local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
     test_codescan_functional test_codescan_edge_cases ///
     test_codescan_install_verify test_codescan_coverage ///
     test_countrows test_mata_opt ///
     test_codescan_regressions test_codescan_v208 test_codescan_v2_no_scoring ///
     test_codescan_v203_hardening test_codescan_v300_critical ///
-    test_codescan_v410 test_codescan_v415 ///
+    test_codescan_v410 test_codescan_v415 test_codescan_v421 ///
     test_codescan_perf_equiv ///
     validation_codescan validation_codescan_extended validation_countrows
 

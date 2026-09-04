@@ -153,16 +153,27 @@ display as text "  weights: min " %6.3f r(min) " max " %6.3f r(max) " sum " %8.1
 * ---- replications -----------------------------------------------------------
 tempname R TB
 matrix `R' = J(`NREP', 11, .)
+* Replication attrition, counted rather than absorbed: the 95% gates below
+* say how many survived, not which of the three fits lost them.
 local done = 0
+local _drop_unw = 0
+local _drop_pw = 0
+local _drop_cif = 0
 forvalues r = 1/`NREP' {
     _vpw_gen, n(`NOBS') p(`P') b11(`B11') b12(`B12') b21(`B21') b22(`B22') ///
         cmax(`CMAX') ahi(`A_HI') alo(`A_LO')
     capture quietly finegray z1 z2, compete(status) cause(1) nolog
-    if _rc | e(converged) != 1 continue
+    if _rc | e(converged) != 1 {
+        local ++_drop_unw
+        continue
+    }
     matrix `R'[`r', 1] = e(b)[1, 1]
     matrix `R'[`r', 2] = e(b)[1, 2]
     capture quietly finegray z1 z2 [pw = pw], compete(status) cause(1) nolog
-    if _rc | e(converged) != 1 continue
+    if _rc | e(converged) != 1 {
+        local ++_drop_pw
+        continue
+    }
     matrix `R'[`r', 3] = e(b)[1, 1]
     matrix `R'[`r', 4] = e(b)[1, 2]
     matrix `R'[`r', 5] = sqrt(e(V)[1, 1])
@@ -171,6 +182,7 @@ forvalues r = 1/`NREP' {
     matrix `R'[`r', 8] = (abs(e(b)[1, 2] - `B12') <= invnormal(0.975) * sqrt(e(V)[2, 2]))
     * the weighted analytic CIF and its influence-function interval
     capture quietly finegray_cif, at(z1=`CIF_Z1' z2=`CIF_Z2') attime(`CIF_T') ci nograph
+    if _rc local ++_drop_cif
     if _rc == 0 {
         matrix `TB' = r(table)
         matrix `R'[`r', 9]  = `TB'[1, 2]
@@ -184,7 +196,11 @@ clear
 quietly svmat double `R', names(c)
 quietly keep if c1 < . & c3 < .
 local nrep_ok = _N
+local _drop_tot = `_drop_unw' + `_drop_pw' + `_drop_cif'
 display as text _newline "Replications completed: `nrep_ok' of `NREP'"
+display as text "Replications dropped: `_drop_tot'" ///
+    " (unweighted fit `_drop_unw', weighted fit `_drop_pw', finegray_cif `_drop_cif')"
+assert `nrep_ok' + `_drop_unw' + `_drop_pw' == `NREP'
 
 local ++test_count
 _vpw_check `= `nrep_ok' >= 0.95 * `NREP'' "at least 95% of replications converged (`nrep_ok'/`NREP')"
@@ -302,7 +318,7 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 display as text _newline ///
-    "RESULT: validation_pweight_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    "RESULT: validation_pweight_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' repdrop=`_drop_tot'"
 if `fail_count' > 0 {
     display as error "SOME CHECKS FAILED"
     log close _vpw

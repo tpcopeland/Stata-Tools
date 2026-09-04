@@ -16,6 +16,12 @@ version 16.0
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 capture ado uninstall eplot
 quietly net install eplot, from("`pkg_dir'") replace
 
@@ -262,7 +268,7 @@ capture graph drop _v110_t8
 capture estimates drop es
 
 display _newline as result "=== v1.1.0 QA Summary: `pass_count' passed, `fail_count' failed ==="
-display "RESULT: test_layout tests=8 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_layout, tests(8) pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

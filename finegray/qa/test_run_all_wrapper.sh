@@ -32,6 +32,20 @@ printf 'stub\n' > "$scratch/repo/finegray/finegray.ado"
 cp "$qa_dir/gates_transfer_pin.txt" "$run_qa/gates_transfer_pin.txt"
 printf '* stub\n' > "$run_qa/gates_transfer_proof.do"
 
+# The real repo TRACKS the receipts and the input manifest, and run_all.sh
+# deletes the two receipts before Stata starts and rewrites all three itself.
+# They are outputs of the run, so the provenance comparison must skip them --
+# and until 2026-09-03 it did not, which made every isolated run's receipt read
+# "DIFFERS-from-source-repo (2 files, first: qa/run_all_status.txt)" no matter
+# what the inputs looked like.  The synthetic repo committed nothing under
+# those names, so tests 11b and 11c could not see it.  Commit them here, in the
+# first commit, so the copy carries them and the exclusion is exercised.
+printf 'verdict:     PASS\n' > "$run_qa/run_all_status.txt"
+printf 'verdict:     PASS\n' > "$run_qa/run_status_full.txt"
+printf 'stale  qa/run_all.sh\n' > "$run_qa/run_all_inputs.sha256"
+mkdir -p "$run_qa/gates_transfer"
+printf 'gated_commit: stale\n' > "$run_qa/gates_transfer/PROVENANCE.txt"
+
 git -C "$scratch/repo" init -q
 git -C "$scratch/repo" config user.email qa@example.com
 git -C "$scratch/repo" config user.name "QA"
@@ -346,6 +360,64 @@ else
     echo "FAIL: --source-repo did not restore provenance on a scratch copy" >&2
     ((fail += 1))
 fi
+
+# 11b. The copy-vs-source comparison must cover the QA inputs that RAN, and
+# must leave a re-checkable manifest.  Until 2026-09-02 the diff excluded qa/
+# wholesale, so the receipt read "matches-source-repo (qa/ excluded)" -- a
+# provenance claim that said nothing about the suites the verdict rests on.
+((tests += 1))
+if grep -Eq '^run_tree:.*\[matches-source-repo \(tracked files incl\. qa/; [0-9]+ files\) manifest-sha256 [0-9a-f]{64}\]$' \
+            "$copy_qa/run_all_status.txt" &&
+        [[ -s "$copy_qa/run_all_inputs.sha256" ]] &&
+        grep -q 'qa/run_all.sh$' "$copy_qa/run_all_inputs.sha256" &&
+        ! grep -q 'qa/run_all_status.txt$' "$copy_qa/run_all_inputs.sha256" &&
+        ! grep -q 'qa/run_status_full.txt$' "$copy_qa/run_all_inputs.sha256" &&
+        ! grep -q 'qa/run_all_inputs.sha256$' "$copy_qa/run_all_inputs.sha256" &&
+        [[ "$(sha256sum "$copy_qa/run_all_inputs.sha256" | cut -d' ' -f1)" == \
+           "$(sed -n 's/^run_tree:.*manifest-sha256 \([0-9a-f]*\)\]$/\1/p' "$copy_qa/run_all_status.txt")" ]]; then
+    ((pass += 1))
+else
+    echo "FAIL: provenance did not cover tracked qa/ inputs, counted its own outputs, or the manifest did not verify" >&2
+    ((fail += 1))
+fi
+
+# 11c. A modified QA input in the copy must be REPORTED, not excluded.  Against
+# the pre-fix wrapper this check fails: editing a qa/ file left the receipt
+# saying "matches-source-repo".
+((tests += 1))
+printf '* tampered\n' >> "$copy_qa/gates_transfer_proof.do"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
+    "$copy_qa/run_all.sh" full --source-repo "$scratch/repo" \
+    >"$scratch/copy-tamper.out" 2>"$scratch/copy-tamper.err"
+set -e
+if grep -Eq '^run_tree:.*\[DIFFERS-from-source-repo \([0-9]+ tracked, 0 missing, 1 modified, first: qa/gates_transfer_proof\.do\) manifest-sha256 [0-9a-f]{64}\]$' \
+        "$copy_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: a modified qa/ input was not reported by the provenance line" >&2
+    ((fail += 1))
+fi
+
+# 11d. A tracked input that is ABSENT from the copy is a different finding from
+# one that was edited, and the receipt has to say which.  The old counter merged
+# them into one "N files" number.
+((tests += 1))
+cp "$scratch/repo/finegray/qa/gates_transfer_proof.do" "$copy_qa/gates_transfer_proof.do"
+mv "$scratch/copy/finegray/finegray.ado" "$scratch/ado-parked.txt"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
+    "$copy_qa/run_all.sh" full --source-repo "$scratch/repo" \
+    >"$scratch/copy-missing.out" 2>"$scratch/copy-missing.err"
+set -e
+if grep -Eq '^run_tree:.*\[DIFFERS-from-source-repo \([0-9]+ tracked, 1 missing, 0 modified, first: finegray\.ado\) manifest-sha256 [0-9a-f]{64}\]$' \
+        "$copy_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: a tracked input missing from the copy was not reported as missing" >&2
+    ((fail += 1))
+fi
+mv "$scratch/ado-parked.txt" "$scratch/copy/finegray/finegray.ado"
 
 # -----------------------------------------------------------------------------
 # 12-13. The wrapper-test gate itself, with the recursion guard cleared.  A stub

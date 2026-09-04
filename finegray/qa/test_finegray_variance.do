@@ -11,6 +11,13 @@
 *   FG-H06  the sandwich treats the censoring weights as fixed; the magnitude
 *           of that omission is asserted here against the documented bound.
 *   FG-M09  norobust is a diagnostic, not an inference option.
+*   FG-M16  the finite-sample factor is a COEFFICIENT-variance convention.
+*           e(V) carries N/(N-1) (or g/(g-1)); the analytic cumulative-
+*           incidence variance is the asymptotic influence-function sandwich
+*           and carries nothing, so noadjust must move e(V) and leave every
+*           CIF standard error bit-identical.  e(vce_adjust) and
+*           r(vce_adjust) say which convention is in force, so the prose
+*           disclosure has a machine counterpart.
 clear all
 set varabbrev off
 version 16.0
@@ -274,6 +281,76 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: clustered postestimation (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 7. FG-M16: the finite-sample factor is a coefficient-variance convention
+local ++test_count
+capture noisily {
+    _mk_hypoxia_var
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert "`e(vce_adjust)'" == "finite_sample"
+    matrix M16_Vadj = e(V)
+    local M16_N = e(N)
+    quietly finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5) ci nograph
+    matrix M16_Tadj = r(table)
+    assert "`r(vce_adjust)'" == "none"
+    assert "`r(se_method)'" == "analytic"
+
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog noadjust
+    assert "`e(vce_adjust)'" == "none"
+    matrix M16_Vnoadj = e(V)
+    quietly finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5) ci nograph
+    matrix M16_Tnoadj = r(table)
+    assert "`r(vce_adjust)'" == "none"
+
+    * e(V) differs by EXACTLY N/(N-1)
+    matrix M16_Vexp = M16_Vnoadj * (`M16_N' / (`M16_N' - 1))
+    assert !missing(mreldif(M16_Vadj, M16_Vexp))
+    assert mreldif(M16_Vadj, M16_Vexp) < 1e-12
+    * ...and it is not a no-op: the two matrices really are different
+    assert mreldif(M16_Vadj, M16_Vnoadj) > 1e-6
+
+    * The CIF standard errors are untouched -- bit for bit, not to a tolerance
+    matrix M16_Sadj   = M16_Tadj[1..., 3]
+    matrix M16_Snoadj = M16_Tnoadj[1..., 3]
+    assert rowsof(M16_Sadj) == 3
+    assert M16_Sadj[1, 1] > 0
+    assert mreldif(M16_Sadj, M16_Snoadj) == 0
+    * the whole table, in fact: beta is unchanged, so nothing in it moves
+    assert mreldif(M16_Tadj, M16_Tnoadj) == 0
+
+    * Cluster arm: g/(g-1) on e(V), still nothing on the CIF
+    gen byte grp10_m16 = mod(_n, 10)
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
+        cluster(grp10_m16)
+    assert "`e(vce_adjust)'" == "finite_sample"
+    assert e(N_clust) == 10
+    matrix M16_Cadj = e(V)
+    quietly finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5) ci nograph
+    matrix M16_TCadj = r(table)
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog ///
+        cluster(grp10_m16) noadjust
+    assert "`e(vce_adjust)'" == "none"
+    matrix M16_Cnoadj = e(V)
+    quietly finegray_cif, at(ifp=20 tumsize=5 pelnode=0) attime(1 3 5) ci nograph
+    matrix M16_TCnoadj = r(table)
+    matrix M16_Cexp = M16_Cnoadj * (10 / 9)
+    assert !missing(mreldif(M16_Cadj, M16_Cexp))
+    assert mreldif(M16_Cadj, M16_Cexp) < 1e-12
+    assert mreldif(M16_TCadj, M16_TCnoadj) == 0
+
+    * norobust has no sandwich to adjust, and says so
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog norobust
+    assert "`e(vce_adjust)'" == "none"
+    assert "`e(vce_meat)'" == "not_applicable"
+}
+if _rc == 0 {
+    display as result "  PASS: FG-M16 noadjust moves e(V) only; CIF SEs and e(vce_adjust) pinned"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-M16 noadjust/CIF-SE convention (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! eplot Version 1.2.9  2026/08/30
+*! eplot Version 1.3.0  2026/09/02
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -508,6 +508,22 @@ program define _eplot_data, rclass
             display as error "gap() must be nonmissing and nonnegative"
             exit 198
         }
+        if `dp' < 0 {
+            display as error "dp() must be nonnegative"
+            exit 198
+        }
+        if missing(`rescale') | `rescale' == 0 {
+            display as error "rescale() must be nonmissing and nonzero"
+            exit 198
+        }
+        if missing(`null') {
+            display as error "null() must be a nonmissing number"
+            exit 198
+        }
+        if missing(`boxscale') | `boxscale' <= 0 {
+            display as error "boxscale() must be nonmissing and positive"
+            exit 198
+        }
 
     // Parse varlist
     tokenize `varlist'
@@ -701,7 +717,9 @@ program define _eplot_data, rclass
         }
     }
 
-    // Labels
+    // Labels.  `label_str' carries the SOURCE row identity until display
+    // labels are applied further below: keep()/drop(), order(), groups(), and
+    // headers() all key on it, matching the estimates-mode composition rule.
     if "`labels'" != "" {
         quietly gen str244 `label_str' = `labels'
     }
@@ -709,9 +727,41 @@ program define _eplot_data, rclass
         quietly gen str244 `label_str' = "Row " + string(`id')
     }
 
-    // Apply custom coefficient labels
-    if `"`coeflabels'"' != "" {
-        _eplot_apply_coeflabels `label_str', coeflabels(`coeflabels')
+    // Apply keep/drop against the source identities
+    if `"`keep'"' != "" {
+        _eplot_apply_keep `label_str', keep(`keep')
+    }
+    if `"`drop'"' != "" {
+        _eplot_apply_drop `label_str', drop(`drop')
+    }
+    if `"`keep'"' != "" | `"`drop'"' != "" {
+        quietly count
+        if r(N) == 0 {
+            display as error "no rows to plot after keep/drop"
+            restore
+            exit 2000
+        }
+        quietly count if inlist(`rowtype', 1, 3, 5) & !missing(`es')
+        if r(N) == 0 {
+            display as error "no effect rows to plot after keep/drop"
+            restore
+            exit 2000
+        }
+        local N = _N
+        quietly replace `id' = _n
+    }
+
+    // Weighted markers must map every plotted effect row to a usable box
+    // size; a missing or nonpositive weight silently omits that row's marker
+    // while the row remains in r(k), r(table), and its interval layer.
+    if "`weights'" != "" & "`nobox'" == "" {
+        quietly count if `rowtype' == 1 & !missing(`es') & ///
+            (missing(`wt') | `wt' <= 0)
+        if r(N) > 0 {
+            display as error "weights() must be nonmissing and positive for plotted effect rows"
+            restore
+            exit 198
+        }
     }
 
     // Sort by effect size if requested
@@ -786,6 +836,14 @@ program define _eplot_data, rclass
 
     // Update N to include any added header rows
     local N = _N
+
+    // ====== Apply display labels (after selection, ordering, and grouping) ======
+    // coeflabels() runs LAST so that keep()/drop(), order(), groups(), and
+    // headers() all key on the unmodified source identities, exactly as in
+    // estimates mode.
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels `label_str', coeflabels(`coeflabels')
+    }
 
     // Significance coloring flag (data mode)
     tempvar _dm_sig
@@ -971,8 +1029,10 @@ program define _eplot_data, rclass
     }
 
     // --- Diamonds for pooled effects (subgroup and overall) ---
+    // The diamond encodes the confidence interval in its width, so noci must
+    // route pooled rows to the interval-free marker branch below.
     local diamond_cmd ""
-    if "`nodiamonds'" == "" {
+    if "`nodiamonds'" == "" & "`noci'" == "" {
         quietly count if inlist(`rowtype', 3, 5) & !missing(`es')
         if r(N) > 0 {
             local diam_height = 0.3
@@ -1012,7 +1072,8 @@ program define _eplot_data, rclass
         }
     }
     else {
-        // nodiamonds: draw markers and CIs for pooled effects instead
+        // nodiamonds or noci: draw markers (and, unless noci, CIs) for pooled
+        // effects instead of diamonds
         quietly count if inlist(`rowtype', 3, 5) & !missing(`es')
         if r(N) > 0 {
             if "`noci'" == "" {
@@ -1144,7 +1205,7 @@ program define _eplot_data, rclass
     }
     else {
         local _autonote ""
-        if "`nodiamonds'" == "" & "`diamond_cmd'" != "" {
+        if "`nodiamonds'" == "" & "`noci'" == "" & "`diamond_cmd'" != "" {
             local _autonote "Diamonds represent pooled estimates."
             if "`weights'" != "" & "`nobox'" == "" {
                 local _autonote "`_autonote' Boxes proportional to study weight."
@@ -1398,9 +1459,15 @@ program define _eplot_estimates, rclass
         }
 
         // ====== Style presets (apply BEFORE user overrides) ======
+        // A preset-supplied values is tracked separately so that the
+        // multi-model note below reports only options the user asked for.
+        local _values_from_style 0
         if "`style'" != "" {
             _eplot_apply_style, style(`"`style'"')
-            if "`values'" == "" local values "`s(values)'"
+            if "`values'" == "" {
+                local values "`s(values)'"
+                if "`values'" != "" local _values_from_style 1
+            }
             if "`mcolor'" == "" local mcolor "`s(mcolor)'"
             if "`cicolor'" == "" local cicolor "`s(cicolor)'"
             if "`cicap'" == "" local cicap "`s(cicap)'"
@@ -1422,6 +1489,18 @@ program define _eplot_estimates, rclass
         }
         if missing(`gap') | `gap' < 0 {
             display as error "gap() must be nonmissing and nonnegative"
+            exit 198
+        }
+        if `dp' < 0 {
+            display as error "dp() must be nonnegative"
+            exit 198
+        }
+        if missing(`rescale') | `rescale' == 0 {
+            display as error "rescale() must be nonmissing and nonzero"
+            exit 198
+        }
+        if missing(`null') {
+            display as error "null() must be a nonmissing number"
             exit 198
         }
 
@@ -1494,10 +1573,14 @@ program define _eplot_estimates, rclass
     if "`vformat'" == "" local vformat "%5.`dp'f"
     if "`offset'" == "" local offset 0.15
 
-    // Default palette for multi-model
+    // Default palette for multi-model.  Beyond its cardinality the palette
+    // cycles: model m uses color mod(m-1, #colors) + 1.  A user-supplied
+    // palette is validated to have exactly one color per model above, so the
+    // cycle is a no-op there.
     if "`palette'" == "" {
         local palette "navy cranberry forest_green dkorange purple teal maroon olive_teal"
     }
+    local _n_palette_words : word count `palette'
 
     // Single-model color defaults
     if "`ciwidth'" == "" local ciwidth "medium"
@@ -1970,6 +2053,21 @@ program define _eplot_estimates, rclass
             display as text "(note: groups(), headers(), and gap() are ignored " ///
                 "in multi-model mode)"
         }
+
+        // The presentation options below are single-model only.  They used to
+        // be parsed and then silently discarded here; report them instead.
+        local _mm_ignored ""
+        if "`values'" != "" & !`_values_from_style' {
+            local _mm_ignored "`_mm_ignored' values"
+        }
+        if "`stars'" != "" local _mm_ignored "`_mm_ignored' stars"
+        if "`sigcolors'" != "" local _mm_ignored "`_mm_ignored' sigcolors"
+        if `"`sigcolor'"' != "" local _mm_ignored "`_mm_ignored' sigcolor()"
+        if `"`insigncolor'"' != "" local _mm_ignored "`_mm_ignored' insigncolor()"
+        if `"`_mm_ignored'"' != "" {
+            display as text "(note:`_mm_ignored' apply to single-model " ///
+                "estimates only and are ignored in multi-model mode)"
+        }
     }
 
     // ====== Apply coefficient labels (highest precedence) ======
@@ -2054,7 +2152,8 @@ program define _eplot_estimates, rclass
         // --- Multi-model graph ---
         local _plot_elem 0
         forvalues m = 1/`n_models' {
-            local mc : word `m' of `palette'
+            local _pal_idx = mod(`m' - 1, `_n_palette_words') + 1
+            local mc : word `_pal_idx' of `palette'
             if "`mc'" == "" local mc "navy"
 
             // CI lines
@@ -2570,6 +2669,19 @@ program define _eplot_matrix, rclass
     }
     if "`vertical'" != "" & `"`favors'"' != "" {
         display as error "favors() requires horizontal layout"
+        exit 198
+    }
+
+    if `dp' < 0 {
+        display as error "dp() must be nonnegative"
+        exit 198
+    }
+    if missing(`rescale') | `rescale' == 0 {
+        display as error "rescale() must be nonmissing and nonzero"
+        exit 198
+    }
+    if missing(`null') {
+        display as error "null() must be a nonmissing number"
         exit 198
     }
 
@@ -3161,11 +3273,24 @@ program define _eplot_effect_axis_labels, sclass
         }
         else {
             // _natscale is an undocumented Stata internal (used by graph) that
-            // returns "nice" axis ticks in r(min)/r(delta)/r(max). Stable across
-            // releases; kept here to match Stata's native axis-labelling.
-            _natscale `min' `max' 5
-            sreturn local axisopts ///
-                `"`r(min)'(`r(delta)')`r(max)', grid glcolor(gs12) glwidth(vthin)"'
+            // returns "nice" axis ticks in r(min)/r(delta)/r(max), matching
+            // Stata's native axis labelling.
+            capture _natscale `min' `max' 5
+            if _rc == 0 {
+                sreturn local axisopts ///
+                    `"`r(min)'(`r(delta)')`r(max)', grid glcolor(gs12) glwidth(vthin)"'
+            }
+            else {
+                // The internal is undocumented, so fall back to an even
+                // five-interval split if a future Stata major removes it.
+                local _span = `max' - `min'
+                if missing(`_span') | `_span' <= 0 {
+                    local _span = max(abs(`max'), 1)
+                }
+                local _delta = `_span' / 5
+                sreturn local axisopts ///
+                    `"`min'(`_delta')`max', grid glcolor(gs12) glwidth(vthin)"'
+            }
         }
     }
     local rc = _rc

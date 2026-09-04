@@ -57,8 +57,9 @@ local mata_surface ///
     _rm_build_pairs_overlap _rm_interval_nonempty _rm_overlap_count_group ///
     _rm_overlap_emit_group _rm_bsearch_left _rm_bsearch_right ///
     _rm_bsearch_first_gt _rm_bsearch_last_lt _rm_key_block_uobs ///
-    _rm_store_indexed _rm_vl_same _rm_vl_candidate _rm_vl_resolve ///
-    _rm_materialize _rm_fill_using_only _rm_generate_distance _rm_copy_output
+    _rm_store_indexed _rm_vl_same _rm_vl_candidate _rm_vl_taken ///
+    _rm_vl_resolve_dangling _rm_vl_resolve ///
+    _rm_materialize _rm_fill_using_only _rm_generate_distance
 local missing_fn ""
 foreach fn of local mata_surface {
     mata: st_local("has_fn", strofreal(findexternal("`fn'()") != NULL))

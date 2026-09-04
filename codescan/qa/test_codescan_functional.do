@@ -34,6 +34,7 @@ local pkg_dir "`qa_dir'/.."
 * Idempotent, so the lane re-entering it is harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -764,10 +765,13 @@ capture noisily {
     replace dx1 = 660 in 3
     replace dx1 = 110 in 4
     codescan_describe dx1, tostring
-    assert !missing(r(n_unique))
-    assert r(n_unique) > 0
-    assert !missing(r(n_entries))
-    assert r(n_entries) > 0
+    * The inventory is known: 110, 119, 660, 110, missing -> 3 unique codes and
+    * 4 nonempty entries in 1 variable. `> 0' passed on any nonzero count, so a
+    * tostring path that lost or duplicated a code was invisible here.
+    assert r(n_unique) == 3
+    assert r(n_entries) == 4
+    assert r(n_vars) == 1
+    assert "`r(varlist)'" == "dx1"
 }
 if _rc == 0 {
     display as result "  PASS: codescan_describe with tostring on numeric"
@@ -1053,6 +1057,7 @@ else {
 * ============================================================
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_functional" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_functional tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

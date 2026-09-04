@@ -328,32 +328,64 @@ else {
 }
 capture graph drop _all
 
-**## The default palette cycles without emitting an empty color
+**## The default palette cycles past its eighth color
+* "no empty mcolor()" cannot distinguish a real cycle from the pre-1.3.0
+* fallback, which mapped every model past the eighth to navy.  Assert the
+* exact color of each model's CI layer and marker layer through model 10.
 local ++test_count
 capture noisily {
     sysuse auto, clear
     quietly regress price mpg
-    forvalues j = 1/9 {
+    forvalues j = 1/10 {
         estimates store eplot_v129_p`j'
     }
     eplot eplot_v129_p1 eplot_v129_p2 eplot_v129_p3 ///
         eplot_v129_p4 eplot_v129_p5 eplot_v129_p6 ///
-        eplot_v129_p7 eplot_v129_p8 eplot_v129_p9, drop(_cons) ///
+        eplot_v129_p7 eplot_v129_p8 eplot_v129_p9 ///
+        eplot_v129_p10, drop(_cons) ///
         name(eplot_v129_t11, replace)
-    assert strpos(`"`r(cmd)'"', "mcolor()") == 0
-    estimates drop eplot_v129_p1 eplot_v129_p2 eplot_v129_p3 ///
-        eplot_v129_p4 eplot_v129_p5 eplot_v129_p6 ///
-        eplot_v129_p7 eplot_v129_p8 eplot_v129_p9
+    local pcmd `"`r(cmd)'"'
+    assert strpos(`"`pcmd'"', "mcolor()") == 0
+    assert strpos(`"`pcmd'"', "lcolor()") == 0
+
+    local expected "navy cranberry forest_green dkorange purple teal maroon olive_teal navy cranberry"
+    forvalues m = 1/10 {
+        local want : word `m' of `expected'
+        assert strpos(`"`pcmd'"', ///
+            "(rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`want')") > 0
+        assert strpos(`"`pcmd'"', ///
+            "(scatter _plot_pos es if model_id == `m' & _rowtype == 1, msymbol(O) mcolor(`want')") > 0
+    }
+    * Model 9 must not merely be navy by fallback: model 10 proves the cycle
+    * advanced rather than pinning every extra model to the first color.
+    assert strpos(`"`pcmd'"', "model_id == 10 & _rowtype == 1, msymbol(O) mcolor(navy)") == 0
+
+    * A user-supplied palette still requires exact cardinality.
+    capture eplot eplot_v129_p1 eplot_v129_p2, drop(_cons) palette(red) ///
+        name(eplot_v129_t11b, replace)
+    assert _rc == 198
+    capture eplot eplot_v129_p1 eplot_v129_p2, drop(_cons) ///
+        palette(red blue green) name(eplot_v129_t11b, replace)
+    assert _rc == 198
+    eplot eplot_v129_p1 eplot_v129_p2, drop(_cons) palette(red blue) ///
+        name(eplot_v129_t11b, replace)
+    assert strpos(`"`r(cmd)'"', "model_id == 1 & _rowtype == 1, msymbol(O) mcolor(red)") > 0
+    assert strpos(`"`r(cmd)'"', "model_id == 2 & _rowtype == 1, msymbol(O) mcolor(blue)") > 0
+
+    forvalues j = 1/10 {
+        estimates drop eplot_v129_p`j'
+    }
 }
 if _rc == 0 local ++pass_count
 else {
     local ++fail_count
     local failed_tests "`failed_tests' 11"
 }
-capture estimates drop eplot_v129_p1 eplot_v129_p2 eplot_v129_p3 ///
-    eplot_v129_p4 eplot_v129_p5 eplot_v129_p6 ///
-    eplot_v129_p7 eplot_v129_p8 eplot_v129_p9
+forvalues j = 1/10 {
+    capture estimates drop eplot_v129_p`j'
+}
 capture graph drop eplot_v129_t11
+capture graph drop eplot_v129_t11b
 
 **# Return and session-state contracts
 
@@ -489,7 +521,7 @@ capture graph drop eplot_v129_t15
 capture graph drop _all
 capture estimates drop _all
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_eplot_v129 tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_eplot_v129, tests(`test_count') pass(`pass_count') fail(`fail_count') skip(0)
 
 if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"

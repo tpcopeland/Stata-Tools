@@ -1023,6 +1023,7 @@ capture noisily {
     * it really is multiple-record and really is zero entry
     quietly bysort id: gen long _nrec = _N
     quietly summarize _nrec, meanonly
+    assert !missing(r(max))
     assert r(max) > 1
     quietly summarize _t0, meanonly
     assert r(min) == 0
@@ -1183,6 +1184,7 @@ capture noisily {
     quietly count if status == 0
     assert r(N) == 0
     quietly count if status == 1
+    assert !missing(r(N))
     assert r(N) > 50
 
     foreach cuts in "0.7" "0.4 1.0" {
@@ -1407,9 +1409,13 @@ capture noisily {
         assert !missing(`LO'[1, `c'], `AT'[1, `c'], `HI'[1, `c'])
     }
     * no baseline event lies in (0.7-eps, 0.7+eps), so all three must agree
+    assert !missing(`LO'[1, 2], `AT'[1, 2])
     assert reldif(`LO'[1, 2], `AT'[1, 2]) < 1e-10
+    assert !missing(`AT'[1, 2], `HI'[1, 2])
     assert reldif(`AT'[1, 2], `HI'[1, 2]) < 1e-10
+    assert !missing(`LO'[1, 3], `AT'[1, 3])
     assert reldif(`LO'[1, 3], `AT'[1, 3]) < 1e-10
+    assert !missing(`AT'[1, 3], `HI'[1, 3])
     assert reldif(`AT'[1, 3], `HI'[1, 3]) < 1e-10
 
     * the composed fit gets an analytic SE too, and it must differ by stratum

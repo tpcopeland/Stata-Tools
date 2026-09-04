@@ -48,6 +48,7 @@ local pkg_dir "`qa_dir'/.."
 
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 local _qa_level0 = c(level)
 local _qa_va0 "`c(varabbrev)'"
@@ -508,6 +509,7 @@ else {
 **# Summary
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_v410" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_v410 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

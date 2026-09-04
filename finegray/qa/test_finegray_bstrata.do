@@ -478,6 +478,126 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
+**# B09b: the pre-e(bstrata_noevent_x) fallback compares levels NUMERICALLY
+* -----------------------------------------------------------------------------
+* The no-event levels are matched against e(bstrata_noevent_x), which is %21x
+* and round-trips exactly.  An estimate saved by a build before that macro
+* existed carries only the readable e(bstrata_noevent), and the fallback
+* compared the LITERAL bstratum() token against it as a string: bstratum(3.0)
+* and bstratum(+3) name the stratum spelled "3" and matched nothing, so the
+* degenerate stratum was drawn as a flat zero at rc 0.  The comparison is now
+* on the values.
+*
+* Reaching the fallback needs an estimate posted WITHOUT the _x macro, and
+* `ereturn local' on an active e() outside an eclass program is r(152).  The
+* state is therefore built by an eclass helper that re-posts the live
+* estimates verbatim except for that one macro -- which is exactly what an
+* estimate saved by a build predating it presents.  Nothing is installed,
+* uninstalled or downgraded here: mutating the ado tree mid-suite would be
+* read by any concurrent run of any lane, and the shadowed build would outlive
+* a failure inside this block.  The assert on an EMPTY e(bstrata_noevent_x) is
+* what keeps the test from going vacuous if the strip stops biting.
+capture program drop _b09b_strip_x
+program define _b09b_strip_x, eclass
+    version 16.0
+    * A weight specification rides on `ereturn post' and cannot be restored by
+    * `ereturn local', so a weighted fit would come back silently unweighted.
+    * Refuse instead: this helper is not the place to discover that.
+    if `"`e(wtype)'"' != "" {
+        display as error "_b09b_strip_x cannot carry a weight specification"
+        exit 198
+    }
+    tempname b V
+    matrix `b' = e(b)
+    matrix `V' = e(V)
+    local emats : e(matrices)
+    foreach m of local emats {
+        if inlist("`m'", "b", "V") continue
+        tempname _m_`m'
+        matrix `_m_`m'' = e(`m')
+    }
+    local emacs : e(macros)
+    foreach m of local emacs {
+        local mv_`m' `"`e(`m')'"'
+    }
+    * %21x, not `local x = e(s)': a macro assignment rounds, and e(ll) or
+    * e(tolerance) would be re-posted as a different number.
+    local escals : e(scalars)
+    foreach s of local escals {
+        local sv_`s' : display %21x e(`s')
+        local sv_`s' = strtrim("`sv_`s''")
+    }
+    local _b9n = e(N)
+    tempvar touse
+    quietly generate byte `touse' = e(sample)
+
+    ereturn post `b' `V', obs(`_b9n') esample(`touse') ///
+        depname("`mv_depvar'") properties(`mv_properties')
+    ereturn repost, buildfvinfo ADDCONS
+    foreach m of local emats {
+        if inlist("`m'", "b", "V") continue
+        ereturn matrix `m' = `_m_`m''
+    }
+    foreach s of local escals {
+        ereturn scalar `s' = `sv_`s''
+    }
+    foreach m of local emacs {
+        if "`m'" == "bstrata_noevent_x" continue
+        * set by the post above, in the form the post requires
+        if inlist("`m'", "depvar", "properties") continue
+        * e(macros) lists the hidden ones too; putting marginsprop back as an
+        * ordinary macro would change what `ereturn list' shows
+        if "`m'" == "marginsprop" {
+            ereturn hidden local marginsprop `"`mv_marginsprop'"'
+            continue
+        }
+        ereturn local `m' `"`mv_`m''"'
+    }
+end
+
+local ++test_count
+capture noisily {
+    _fgbs_data
+    quietly replace status = 2 if ctr == 3 & status == 1
+    quietly finegray x1 x2, compete(status) cause(1) nolog bstrata(ctr)
+    assert "`e(bstrata_noevent)'" == "3"
+    * the strip has something to remove
+    assert "`e(bstrata_noevent_x)'" != ""
+
+    _b09b_strip_x
+    assert "`e(bstrata_noevent_x)'" == ""
+    * and the re-post left a fit finegray_cif still accepts: the readable
+    * macro, the command gate, the data signature and the baseline cache key
+    * all have to survive it, or the refusals below would be measuring the
+    * re-post rather than the fallback.  bstratum(1) at the end is the check
+    * that the whole path still runs to an answer.
+    assert "`e(cmd)'" == "finegray"
+    assert "`e(bstrata_noevent)'" == "3"
+
+    * every spelling of the degenerate level is refused
+    capture noisily finegray_cif, attime(1) bstratum(3) nograph
+    display as text "  B09b fallback bstratum(3)   rc = `=_rc'"
+    assert _rc == 459
+    capture finegray_cif, attime(1) bstratum(3.0) nograph
+    display as text "  B09b fallback bstratum(3.0) rc = `=_rc'"
+    assert _rc == 459
+    capture finegray_cif, attime(1) bstratum(+3) nograph
+    display as text "  B09b fallback bstratum(+3)  rc = `=_rc'"
+    assert _rc == 459
+
+    * and a stratum that DOES carry events still answers, so the numeric
+    * comparison did not simply refuse everything
+    capture noisily finegray_cif, attime(1) bstratum(1) nograph
+    display as text "  B09b fallback bstratum(1)   rc = `=_rc'"
+    assert _rc == 0
+    assert !missing(r(cause))
+}
+local _rc = _rc
+_fgbs_result `_rc' "B09b the pre-e(bstrata_noevent_x) fallback matches no-event strata by VALUE, so bstratum(3.0) and bstratum(+3) are refused too"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
 **# B10: predict, basecshazard reads the row's OWN stratum block
 * -----------------------------------------------------------------------------
 * This is the test that a pooled or first-block lookup fails.  Each subject's

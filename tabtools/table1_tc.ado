@@ -1,4 +1,4 @@
-*! table1_tc Version 2.0.3  2026/08/30 - Descriptive Statistics Table Generator
+*! table1_tc Version 2.1.0  2026/09/03 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Frontend for the consolidated desctab engine

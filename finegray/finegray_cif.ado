@@ -43,13 +43,30 @@ program define finegray_cif, rclass sortpreserve
 
     syntax [, AT(string) OVER(varname numeric) ATTime(string) ///
         TImepoints(string) CI Level(string) ///
-        BSTRATum(numlist max=1) ///
+        BSTRATum(string) ///
         SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
 
     * level() is parsed as a string (not cilevel) so an OMITTED level() is empty
     * and distinguishable from an explicit one -- cilevel would auto-fill it with
     * c(level), making the "level() requires ci" guard misfire on every plain
     * finegray_cif call.  Validated as a confidence level below when supplied.
+
+    * bstratum() is parsed as a string, not numlist, and the LITERAL token is
+    * kept -- exactly as at() keeps its values.  numlist normalises what it
+    * reads to about ten significant digits, so bstratum(.1000000000000001)
+    * arrived here as `.1': a noninteger baseline stratum was unaddressable,
+    * and the request silently resolved to a different stratum or to none.
+    if `"`bstratum'"' != "" {
+        capture confirm number `bstratum'
+        if _rc {
+            display as error "bstratum(): `bstratum' is not a number"
+            exit 198
+        }
+        if real(`"`bstratum'"') >= . {
+            display as error "bstratum() must be a finite number"
+            exit 198
+        }
+    }
 
     if `bootstrap' < 0 {
         display as error "bootstrap() must be a non-negative integer"
@@ -321,10 +338,38 @@ program define finegray_cif, rclass sortpreserve
             * A stratum with no cause event has an identically zero Breslow
             * baseline.  That is a degenerate curve, not an estimate of one, and a
             * CIF drawn from it is a flat line at exactly 0 that reads as a finding.
-            * The levels are named at fit time in e(bstrata_noevent).
-            local _bsne `"`e(bstrata_noevent)'"'
+            * The levels are named at fit time in e(bstrata_noevent_x),
+            * which serializes them in %21x.  The readable e(bstrata_noevent)
+            * rounds a noninteger stratum, so `list posof' against it misses
+            * the very level this block exists to refuse.
+            local _bsne `"`e(bstrata_noevent_x)'"'
+            local _usex = `"`_bsne'"' != ""
+            local _bsx : display %21x `bstratum'
+            local _bsx = strtrim("`_bsx'")
+            * A fit stored before e(bstrata_noevent_x) existed carries only the
+            * readable macro; compare in that vocabulary rather than matching
+            * nothing and letting the degenerate stratum through.
+            if !`_usex' local _bsne `"`e(bstrata_noevent)'"'
             if `"`_bsne'"' != "" {
-                local _bshit : list posof "`bstratum'" in _bsne
+                local _bshit = 0
+                if `_usex' {
+                    local _bshit : list posof "`_bsx'" in _bsne
+                }
+                else {
+                    * On the fallback both sides are NUMBERS written as text,
+                    * and bstratum() keeps the literal token the user typed:
+                    * `bstratum(2.0)' and `bstratum(+2)' name the stratum
+                    * e(bstrata_noevent) spells "2".  A string `list posof'
+                    * missed them and drew the degenerate stratum as a flat
+                    * zero at rc 0.  Compare on the values.
+                    local _nbsw : word count `_bsne'
+                    local _bstgt = real("`bstratum'")
+                    forvalues _bw = 1/`_nbsw' {
+                        local _bsw : word `_bw' of `_bsne'
+                        if !missing(real("`_bsw'"), `_bstgt') & ///
+                            real("`_bsw'") == `_bstgt' local _bshit = `_bw'
+                    }
+                }
                 if `_bshit' > 0 {
                     display as error "baseline stratum `bstratum' carried no cause `=e(cause)' event"
                     display as error "its baseline subdistribution hazard is identically zero, which is"
@@ -351,8 +396,16 @@ program define finegray_cif, rclass sortpreserve
     }
     * The stratum handed to Mata: a real value, or missing on an unstratified
     * fit, where every baseline call falls through to the pooled curve.
+    * The selected baseline stratum, carried as a %21x string (or "." for
+    * "no stratum selected").  %21x round-trips exactly through Stata's
+    * numeric parser, so the same local drives the `==' restrictions, the
+    * e(bstrata_noevent_x) membership test and -- through strtoreal() -- the
+    * Mata baseline lookups, with no rounding step anywhere between.
     local _bslev = "."
-    if "`bstratum'" != "" local _bslev "`bstratum'"
+    if "`bstratum'" != "" {
+        local _bslev : display %21x `bstratum'
+        local _bslev = strtrim("`_bslev'")
+    }
 
     * No e(basehaz) requirement: the baseline is rebuilt in Mata from e(sample)
     * and e(b) (exactly, not approximately -- it re-runs the fit's own
@@ -465,6 +518,16 @@ program define finegray_cif, rclass sortpreserve
         local _term : word `_cj' of `_nbterms'
         local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
         quietly gen double `_cv' = 1 if e(sample)
+        * A rebuilt column IS package-owned: carry the dataset's current
+        * ownership token onto it.  finegray refuses an existing _fg_* column
+        * that does not carry that token (a user's own variable under the same
+        * name), and `generate' does not copy characteristics -- so without
+        * this stamp the rebuilt column looked like a user variable to the
+        * bootstrap's own refits, and every replication was skipped with
+        * "variable `_cv' exists and was not created by finegray" at rc 0
+        * (finegray_cif then reported "0 of B replications succeeded").
+        local _fgowntok `"`: char _dta[_finegray_owner]'"'
+        if `"`_fgowntok'"' != "" char `_cv'[_finegray_owner] `"`_fgowntok'"'
         local _fgrebuilt "`_fgrebuilt' `_cv'"
         foreach _tp of local _tparts {
             if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
@@ -513,10 +576,57 @@ program define finegray_cif, rclass sortpreserve
                 exit 198
             }
             local _overmode "bstrata"
-            quietly levelsof `_bsvar' if e(sample), local(_ovall) clean
-            local _bsne `"`e(bstrata_noevent)'"'
-            local _ovlevs : list _ovall - _bsne
+            * matrow() carries the levels as MACHINE DOUBLES.  The `clean'
+            * macro is the display rendering and rounds a noninteger level at
+            * about the last bit, so it cannot be subtracted against, compared
+            * with, or fed back into a computation; it is kept for labels and
+            * row names only.  `_ovlevsx' is the %21x form, which round-trips
+            * exactly through Stata's numeric parser and drives everything
+            * downstream.
+            tempname _ovmat
+            quietly levelsof `_bsvar' if e(sample), local(_ovall) clean matrow(`_ovmat')
+            local _bsne `"`e(bstrata_noevent_x)'"'
+            * A fit stored before e(bstrata_noevent_x) existed carries only
+            * the readable macro; probe in that vocabulary rather than
+            * matching nothing and overlaying a flat zero curve.
+            local _usex = `"`_bsne'"' != ""
+            if !`_usex' local _bsne `"`e(bstrata_noevent)'"'
+            local _ovlevs ""
+            local _ovlevsx ""
+            local _ovskip ""
+            local _novall = rowsof(`_ovmat')
+            forvalues _r = 1/`_novall' {
+                local _hx : display %21x `_ovmat'[`_r', 1]
+                local _hx = strtrim("`_hx'")
+                local _wd : word `_r' of `_ovall'
+                local _hit = 0
+                if `_usex' {
+                    local _hit : list posof "`_hx'" in _bsne
+                }
+                else {
+                    * Same fallback, same rule as the bstratum() branch above:
+                    * on the readable macro both sides are numbers written as
+                    * text and two renderings of one level need not match
+                    * character for character, so compare on the values.
+                    local _nbsw : word count `_bsne'
+                    local _wdv = real("`_wd'")
+                    forvalues _bw = 1/`_nbsw' {
+                        local _bsw : word `_bw' of `_bsne'
+                        if !missing(real("`_bsw'"), `_wdv') & ///
+                            real("`_bsw'") == `_wdv' local _hit = `_bw'
+                    }
+                }
+                if `_hit' > 0 {
+                    local _ovskip "`_ovskip' `_wd'"
+                }
+                else {
+                    local _ovlevs "`_ovlevs' `_wd'"
+                    local _ovlevsx "`_ovlevsx' `_hx'"
+                }
+            }
             local _ovlevs : list retokenize _ovlevs
+            local _ovlevsx : list retokenize _ovlevsx
+            local _ovskip : list retokenize _ovskip
             if "`_ovlevs'" == "" {
                 display as error "no baseline stratum of `_bsvar' carried a cause `=e(cause)' event"
                 display as error "there is no cumulative incidence curve to draw"
@@ -526,7 +636,6 @@ program define finegray_cif, rclass sortpreserve
             * and is refused by name under bstratum(); the overlay omits it and
             * says so, rather than drawing a flat line at 0 that reads as a
             * finding.
-            local _ovskip : list _ovall - _ovlevs
             if "`_ovskip'" != "" {
                 display as text "note: baseline stratum/strata `_ovskip' of `_bsvar' carried no"
                 display as text "cause `=e(cause)' event and are omitted from the overlay"
@@ -661,8 +770,18 @@ program define finegray_cif, rclass sortpreserve
                 exit 198
             }
         }
-        quietly levelsof `over' if e(sample), local(_ovlevs) clean
+        * See the bstrata branch above: matrow() is the exact form, the
+        * `clean' macro is the display form.
+        tempname _ovmatc
+        quietly levelsof `over' if e(sample), local(_ovlevs) clean matrow(`_ovmatc')
         local _ncurve : word count `_ovlevs'
+        local _ovlevsx ""
+        forvalues _r = 1/`_ncurve' {
+            local _hx : display %21x `_ovmatc'[`_r', 1]
+            local _hx = strtrim("`_hx'")
+            local _ovlevsx "`_ovlevsx' `_hx'"
+        }
+        local _ovlevsx : list retokenize _ovlevsx
         if `_ncurve' > 20 {
             display as error "over(`over') would draw `_ncurve' curves"
             display as error "over() is for a grouping variable with at most 20 distinct values;"
@@ -693,11 +812,27 @@ program define finegray_cif, rclass sortpreserve
     * graph block runs on a preserved, cleared dataset).
     local _ovvar "`over'"
     if "`_overmode'" == "bstrata" local _ovvar "`_bsvar'"
+    tempname _LEVM
     if "`_overmode'" != "" {
         forvalues g = 1/`_ncurve' {
+            * `_lev`g'' is the DISPLAY spelling (labels, notes, row names);
+            * `_levx`g'' is the same value in %21x and is the one that reaches
+            * at(), the baseline-stratum selector, the `over' column of
+            * r(table) and every `==' comparison.
             local _lev`g' : word `g' of `_ovlevs'
+            local _levx`g' : word `g' of `_ovlevsx'
             local _lbl`g' : label (`_ovvar') `_lev`g''
         }
+        * The levels as machine doubles, returned so a caller can feed a level
+        * straight back into at()/bstratum() and land on the same curve.
+        * r(levels) is the display spelling and cannot do that for a
+        * noninteger level.
+        matrix `_LEVM' = J(`_ncurve', 1, .)
+        forvalues g = 1/`_ncurve' {
+            matrix `_LEVM'[`g', 1] = `_levx`g''
+        }
+        matrix colnames `_LEVM' = level
+        matrix rownames `_LEVM' = `_ovlevs'
     }
 
     * =====================================================================
@@ -727,8 +862,8 @@ program define finegray_cif, rclass sortpreserve
     forvalues g = 1/`_ncurve' {
         local _at_cur `"`at'"'
         local _bslev`g' "`_bslev'"
-        if "`_overmode'" == "cov"     local _at_cur `"`at' `over'=`_lev`g''"'
-        if "`_overmode'" == "bstrata" local _bslev`g' "`_lev`g''"
+        if "`_overmode'" == "cov"     local _at_cur `"`at' `over'=`_levx`g''"'
+        if "`_overmode'" == "bstrata" local _bslev`g' "`_levx`g''"
         tempname _zr
         local zrow`g' "`_zr'"
         matrix `_zr' = `zmeans'
@@ -974,22 +1109,22 @@ program define finegray_cif, rclass sortpreserve
             tempname BHG
 
             * Prefer the Mata cache (free) over rebuilding (one linear pass).  Both
-            * give the same curve; the cache refuses a seq from a different fit, so a
+            * give the same curve; the cache refuses a key from a different fit, so a
             * stale baseline cannot leak in.  finegray_cif always runs on the
             * estimation data (_finegray_check_data enforces it), so the rebuild is
             * always available as the fallback after `discard' / `mata clear'.
-            local _seq `"`e(bh_seq)'"'
+            local _key `"`e(bh_key)'"'
             local _have = 0
-            if "`_seq'" != "" {
-                mata: _finegray_bh_have(`_seq', "_have")
+            if `"`_key'"' != "" {
+                mata: _finegray_bh_have("`_key'", "_have")
             }
             if `_have' {
-                mata: _finegray_bh_grid_cached(`_seq', 400, "`BHG'", `_bslev`g'')
+                mata: _finegray_bh_grid_cached("`_key'", 400, "`BHG'", strtoreal("`_bslev`g''"))
             }
             else {
                 mata: _finegray_bh_grid("`covs'", "`e(compete)'", `=e(cause)', ///
                     `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`es'", ///
-                    "`_t0var'", 400, "`BHG'", "`_bsvar'", `_bslev`g'', ///
+                    "`_t0var'", 400, "`BHG'", "`_bsvar'", strtoreal("`_bslev`g''"), ///
                     "`_fg_tvcpos'", "`_fg_cuts'", "`_fg_wmata'", `_fg_wtype')
             }
             local nbh = `_fg_nbh'
@@ -1032,7 +1167,7 @@ program define finegray_cif, rclass sortpreserve
         if `_fg_istvc' {
             mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
                 `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", ///
-                "`es'", "`_E'", "`_O'", "`_t0var'", "`_bsvar'", `_bslev`g'', ///
+                "`es'", "`_E'", "`_O'", "`_t0var'", "`_bsvar'", strtoreal("`_bslev`g''"), ///
                 "`_fg_tvcpos'", "`_fg_cuts'", "`_fg_wmata'", `_fg_wtype')
         }
         else {
@@ -1040,7 +1175,7 @@ program define finegray_cif, rclass sortpreserve
             * the weight column and its type code follow them.
             mata: _finegray_cif_var_st("`covs'", "`e(compete)'", `=e(cause)', ///
                 `=e(censvalue)', "`_byg_mata'", "`_tg_mata'", "`e(clustvar)'", "`es'", "`_E'", ///
-                "`_O'", "`_t0var'", "`_bsvar'", `_bslev`g'', "", "", ///
+                "`_O'", "`_t0var'", "`_bsvar'", strtoreal("`_bslev`g''"), "", "", ///
                 "`_fg_wmata'", `_fg_wtype')
         }
     }
@@ -1099,13 +1234,12 @@ program define finegray_cif, rclass sortpreserve
         _estimates hold `_esth', restore
         local _held = 1
         * Each refit below calls finegray again and overwrites the single slot in
-        * the Mata baseline cache, bumping its seq past the one the held
-        * e(bh_seq) names.  _estimates hold protects e(), but the cache is a
+        * the Mata baseline cache, minting a key the held
+        * e(bh_key) does not name.  _estimates hold protects e(), but the cache is a
         * Mata global and is invisible to it.  Without this snapshot, a later
         * `finegray_predict, cif' on new data (estimation sample dropped) finds
-        * a seq mismatch, cannot rebuild, and errors r(459) -- measured
-        * 2026-07-22: after bootstrap(25) the cache seq was 27 while e(bh_seq)
-        * was 2.  Each replication reads its own sequence-keyed cache entry
+        * a key mismatch, cannot rebuild, and errors r(459).  Each
+        * replication reads its own key-matched cache entry
         * before the next refit overwrites it; restoring the held fit's cache
         * afterward cannot affect the bootstrap SE. Same defect and same fix as
         * finegray_predict.ado.
@@ -1155,8 +1289,8 @@ program define finegray_cif, rclass sortpreserve
                 * shorter e(b) whose columns no longer align with the stored
                 * profile; using it would silently mispair coefficients.
                 if `"`e(designvars)'"' != `"`covs'"' continue
-                local _bsne_r `"`e(bstrata_noevent)'"'
-                local _fg_repseq `"`e(bh_seq)'"'
+                local _bsne_r `"`e(bstrata_noevent_x)'"'
+                local _fg_repkey `"`e(bh_key)'"'
                 forvalues g = 1/`_ncurve' {
                     * A resample can lose every cause event in the requested
                     * baseline stratum, or the stratum itself.  That replication
@@ -1175,12 +1309,12 @@ program define finegray_cif, rclass sortpreserve
                     * estimate and its CIF must be accumulated the same way.
                     if `_fg_istvc' {
                         mata: _finegray_boot_cif_tvc("`zrow`g''", "`Gmat`g''", "`bcif'", ///
-                            strtoreal("`_fg_repseq'"), "`_fg_tvcpos'", "`_fg_cuts'", ///
-                            `_bslev`g'')
+                            "`_fg_repkey'", "`_fg_tvcpos'", "`_fg_cuts'", ///
+                            strtoreal("`_bslev`g''"))
                     }
                     else {
                         mata: _finegray_boot_cif("`zrow`g''", "`Gmat`g''", "`bcif'", ///
-                            strtoreal("`_fg_repseq'"), `_bslev`g'')
+                            "`_fg_repkey'", strtoreal("`_bslev`g''"))
                     }
                     forvalues r = 1/`ngrid`g'' {
                         matrix `BSUM`g''[`r',1] = `BSUM`g''[`r',1] + `bcif'[`r',1]
@@ -1195,7 +1329,7 @@ program define finegray_cif, rclass sortpreserve
         _estimates unhold `_esth'
         local _held = 0
         * Restore the fit's own baseline curve to the cache so a later predict on
-        * new data resolves against e(bh_seq) instead of the last resample's
+        * new data resolves against e(bh_key) instead of the last resample's
         * curve.  Before the `exit 498' below on purpose: a bootstrap that fell
         * short of _minboot must still leave the user's fit usable.
         mata: _finegray_bh_unstash()
@@ -1291,7 +1425,7 @@ program define finegray_cif, rclass sortpreserve
     else {
         forvalues g = 1/`_ncurve' {
             tempname _Rg
-            matrix `_Rg' = `R`g'', J(`ngrid`g'', 1, `_lev`g''), J(`ngrid`g'', 1, `g')
+            matrix `_Rg' = `R`g'', J(`ngrid`g'', 1, `_levx`g''), J(`ngrid`g'', 1, `g')
             if `g' == 1 {
                 matrix `RALL' = `_Rg'
                 matrix `ZR' = `zrow1'
@@ -1745,6 +1879,7 @@ program define finegray_cif, rclass sortpreserve
         if "`_overmode'" != "" {
             return local over "`_ovvar'"
             return local levels "`_ovlevs'"
+            return matrix levels_mat = `_LEVM'
             if "`_overmode'" == "bstrata" return local bstrata "`_bsvar'"
         }
         * Report the profile in the vocabulary the USER typed.  e(designvars)
@@ -1794,6 +1929,12 @@ program define finegray_cif, rclass sortpreserve
         else {
             return local se_method "analytic"
         }
+        * The fit's finite-sample factor (e(vce_adjust)) applies to the
+        * COEFFICIENT variance only.  Neither the analytic CIF influence
+        * sandwich nor the bootstrap SD carries it, so noadjust moves e(V) and
+        * leaves column 3 of r(table) alone.  Said here so the caller need not
+        * infer it from the fit's option list.
+        return local vce_adjust "none"
         if `_side_rc' local rc = `_side_rc'
     }
     if `rc' exit `rc'

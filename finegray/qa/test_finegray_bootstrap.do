@@ -274,11 +274,11 @@ else {
 **# 7. FG-H14: a bootstrap must not poison the Mata baseline cache
 *
 * The baseline cache is a SINGLE SLOT: one Mata matrix `_finegray_bh_cache'
-* plus one sequence scalar `_finegray_bh_seq'.  Every finegray fit overwrites
+* plus one key string `_finegray_bh_key'.  Every finegray fit overwrites
 * the slot and bumps the seq, and post-estimation resolves the baseline only
-* when e(bh_seq) still equals the cache's current seq.  A bootstrap refits B
+* when e(bh_key) still equals the cache's current key.  A bootstrap refits B
 * times, so afterwards the cache holds the LAST resample's curve while the
-* restored e(bh_seq) names the original fit.
+* restored e(bh_key) names the original fit.
 *
 * `_estimates hold' does NOT cover this: it protects e(), and the cache is a
 * Mata global invisible to it.  The failure is fail-closed rather than silent
@@ -287,7 +287,8 @@ else {
 * against new data, with the estimation sample gone and no way to rebuild.
 *
 * Measured 2026-07-22 on 1.2.0: after `finegray_cif, bootstrap(25)' the cache
-* seq was 27 while e(bh_seq) was 2.  finegray_predict carried the stash fix;
+* cache belonged to the last resample while e(bh_key) named the fit.
+* finegray_predict carried the stash fix;
 * finegray_cif ran the same refit loop without it.  Both directions are tested
 * below, because a test that only covered cif would let the predict fix -- the
 * older of the two, and until now untested -- regress unnoticed.
@@ -296,7 +297,7 @@ foreach _cmd in cif predict {
     capture noisily {
         _mk_hypoxia_boot
         quietly finegray ifp tumsize, compete(status) cause(1) nolog
-        local _seq_fit = e(bh_seq)
+        local _key_fit `"`e(bh_key)'"'
 
         if "`_cmd'" == "cif" ///
             quietly finegray_cif, attime(1 5) ci bootstrap(25) seed(7) nograph
@@ -304,10 +305,10 @@ foreach _cmd in cif predict {
             quietly finegray_predict _cb_`_cmd', cif ci bootstrap(25) seed(7)
 
         * Read the cache's live seq straight out of Mata.  Asserting on
-        * e(bh_seq) alone would pass vacuously: _estimates hold restores it
+        * e(bh_key) alone would pass vacuously: _estimates hold restores it
         * correctly even when the cache underneath has moved.
-        mata: st_local("_seq_cache", strofreal(_finegray_bh_seq))
-        assert `_seq_cache' == `_seq_fit'
+        mata: st_local("_key_cache", _finegray_bh_key)
+        assert `"`_key_cache'"' == `"`_key_fit'"'
 
         * Drop the estimation data so the rebuild fallback cannot rescue the
         * lookup.  Without this the test passes on BROKEN code -- finegray
@@ -354,11 +355,10 @@ capture noisily {
     tempname Z G C
     matrix `Z' = (`a_ifp', `a_tum')
     matrix `G' = (1 \ 5)
-    local _seq `"`e(bh_seq)'"'
-    capture mata: _finegray_boot_cif("`Z'", "`G'", "`C'", ///
-        strtoreal("`_seq'") + 1)
+    local _key `"`e(bh_key)'"'
+    capture mata: _finegray_boot_cif("`Z'", "`G'", "`C'", "`_key'-notthisfit")
     assert _rc == 459
-    mata: _finegray_boot_cif("`Z'", "`G'", "`C'", strtoreal("`_seq'"))
+    mata: _finegray_boot_cif("`Z'", "`G'", "`C'", "`_key'")
 
     quietly finegray_cif, attime(1 5) ///
         at(ifp=`a_ifp' tumsize=`a_tum') nograph
@@ -376,10 +376,10 @@ capture noisily {
     quietly generate double `bsum' = 0 if `es'
     quietly generate double `bss' = 0 if `es'
     capture mata: _finegray_boot_cif_obs("ifp tumsize", "`t5'", "`es'", ///
-        "`bsum'", "`bss'", strtoreal("`_seq'") + 1)
+        "`bsum'", "`bss'", "`_key'-notthisfit")
     assert _rc == 459
     mata: _finegray_boot_cif_obs("ifp tumsize", "`t5'", "`es'", ///
-        "`bsum'", "`bss'", strtoreal("`_seq'"))
+        "`bsum'", "`bss'", "`_key'")
     quietly finegray_predict double _p_cache, cif timevar(`t5')
     tempvar d1 d2
     quietly generate double `d1' = reldif(`bsum', _p_cache) if `es'

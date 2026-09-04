@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.0.3  2026/08/30
+*! _tabtools_collect_render Version 2.1.0  2026/09/03
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ program define _tabtools_collect_render, rclass
     local _json "`_collect_json'.stjson"
     capture noisily {
         syntax , TYPE(string) ROWDIM(string) RESULTS(string) ///
-            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents]
+            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents OMITMap]
 
         local type = lower(strtrim("`type'"))
         if !inlist("`type'", "meta", "stats", "main", "icc", "desctab", "raw") {
@@ -133,9 +133,11 @@ program define _tabtools_collect_render, rclass
 
         local _dropempty = ("`dropempty'" != "")
         local _factorparents = ("`factorparents'" != "")
+        local _omitmap = ("`omitmap'" != "")
+        local _tt_omit_n = 0
         mata: _tt_collect_render_mata(`"`_json'"', `"`type'"', `"`rowdim'"', ///
             `"`coldim'"', `"`sep'"', `_row_n', `_col_n', `_res_n', `_dropempty', ///
-            `_factorparents')
+            `_factorparents', `_omitmap')
 
         * desctab must filter totals and missing categories by raw collect
         * identity, never by rendered labels such as "Total" or "Missing".
@@ -235,6 +237,19 @@ program define _tabtools_collect_render, rclass
         return scalar n_cols = c(k)
         return local varlist "`_vars'"
         return local source "collect_stjson"
+        * omitmap: per (model column, colname level) constraint class recorded by
+        * collect itself -- "base", "omit", or "empty". Stata's collection strips
+        * the b./o. markers from the colname level it exposes, so a constrained
+        * factor level cannot be classified from the rendered table; this is the
+        * only place the distinction survives.
+        if `_omitmap' {
+            return scalar omit_n = `_tt_omit_n'
+            forvalues _ok = 1/`_tt_omit_n' {
+                return local omit_key_`_ok' `"`_tt_omit_key_`_ok''"'
+                return local omit_val_`_ok' `"`_tt_omit_val_`_ok''"'
+            }
+        }
+        else return scalar omit_n = 0
     }
     local rc = _rc
     capture erase "`_json'"
@@ -380,6 +395,10 @@ capture mata: mata drop _tt_json_skip_ws()
 capture mata: mata drop _tt_json_string_end()
 capture mata: mata drop _tt_json_unescape()
 capture mata: mata drop _tt_json_member_value()
+capture mata: mata drop _tt_json_member_pos()
+capture mata: mata drop _tt_json_value_at()
+capture mata: mata drop _tt_json_member_named()
+capture mata: mata drop _tt_collect_omit_locals()
 
 mata:
 mata set matastrict on
@@ -394,7 +413,8 @@ void _tt_collect_render_mata(
     real scalar col_n,
     real scalar res_n,
     real scalar dropempty,
-    real scalar factorparents)
+    real scalar factorparents,
+    real scalar omitmap)
 {
     string matrix items, out
     transmorphic scalar index
@@ -430,7 +450,81 @@ void _tt_collect_render_mata(
     }
 
     if (rows(out) == 0 | cols(out) == 0) _error(2000)
+    if (omitmap) _tt_collect_omit_locals(items, coldim, col_n)
     _tt_collect_post(out)
+}
+
+// Record the constraint class collect stamped on each coefficient cell.
+// collect exposes a factor level as "4.grp" whether the model treated it as the
+// base category or dropped it for collinearity, and both render as a zero (or a
+// one after eform) with an empty CI, so the rendered table cannot tell them
+// apart. The saved collection keeps the distinction on the _r_b cell as
+// "omit-type": base, omit, or empty. Levels are keyed by model column index and
+// raw colname level; a level whose class differs across equations of the same
+// model is reported as "mixed" so the caller falls back rather than guessing.
+void _tt_collect_omit_locals(
+    string matrix items,
+    string scalar coldim,
+    real scalar col_n)
+{
+    transmorphic scalar map
+    string colvector keys
+    string rowvector coldims
+    string scalar key, cdim, frag, clev, cname, otype, prior
+    real scalar i, j, n, mi
+
+    if (cols(items) < 3) {
+        st_local("_tt_omit_n", "0")
+        return
+    }
+
+    cdim = ""
+    if (coldim != "") {
+        coldims = _tt_collect_dim_tokens(coldim)
+        if (cols(coldims) == 1) cdim = coldims[1]
+    }
+
+    map = asarray_create("string", 1)
+    for (i = 1; i <= rows(items); i++) {
+        otype = items[i, 3]
+        if (otype == "") continue
+        key = items[i, 1]
+        if (strpos(key, _tt_collect_frag("result", "_r_b")) == 0) continue
+        frag = _tt_collect_key_fragment(key, "colname")
+        if (frag == "") continue
+        cname = substr(frag, 9, strlen(frag) - 9)
+        if (cname == "") continue
+        mi = 0
+        if (cdim != "") {
+            frag = _tt_collect_key_fragment(key, cdim)
+            if (frag != "") {
+                clev = substr(frag, strlen(cdim) + 2,
+                    strlen(frag) - strlen(cdim) - 2)
+                for (j = 1; j <= col_n; j++) {
+                    if (st_local("_tt_col_level_" + strofreal(j)) == clev) {
+                        mi = j
+                        break
+                    }
+                }
+                if (mi == 0) continue
+            }
+        }
+        key = strofreal(mi) + "|" + cname
+        if (asarray_contains(map, key)) {
+            prior = asarray(map, key)
+            if (prior != otype) otype = "mixed"
+            else otype = prior
+        }
+        asarray(map, key, otype)
+    }
+
+    keys = asarray_keys(map)
+    n = rows(keys)
+    st_local("_tt_omit_n", strofreal(n))
+    for (i = 1; i <= n; i++) {
+        st_local("_tt_omit_key_" + strofreal(i), keys[i])
+        st_local("_tt_omit_val_" + strofreal(i), asarray(map, keys[i]))
+    }
 }
 
 string matrix _tt_collect_render_raw(
@@ -864,17 +958,49 @@ string scalar _tt_collect_join_labels(string rowvector labels, real scalar label
     return(out)
 }
 
+// Parent row for a factor level: the term the level belongs to, so every
+// level of one term is grouped under a single header. An interaction level
+// such as 1.grp#0.sex contributes the variable names of all its components
+// (grp#sex); taking only the first, as this once did, made the "parent" carry
+// the second factor's level, so each row of the interaction printed its own
+// header row instead of sharing one.
 string scalar _tt_collect_factor_parent(string scalar level)
 {
-    real scalar p
-    string scalar prefix, parent
+    real scalar p, i, n, hasfactor
+    string scalar prefix, parent, part
+    string rowvector parts
 
-    p = strpos(level, ".")
-    if (p <= 1) return("")
-    prefix = substr(level, 1, p - 1)
-    if (!_tt_collect_factor_prefix(prefix)) return("")
-    parent = substr(level, p + 1, .)
-    if (parent == "") return("")
+    if (strpos(level, "#") == 0) {
+        p = strpos(level, ".")
+        if (p <= 1) return("")
+        prefix = substr(level, 1, p - 1)
+        if (!_tt_collect_factor_prefix(prefix)) return("")
+        parent = substr(level, p + 1, .)
+        if (parent == "") return("")
+        return(parent)
+    }
+
+    parts = tokens(subinstr(level, "#", " ", .))
+    n = cols(parts)
+    if (n == 0) return("")
+    parent = ""
+    hasfactor = 0
+    for (i = 1; i <= n; i++) {
+        part = parts[i]
+        p = strpos(part, ".")
+        if (p > 1 & _tt_collect_factor_prefix(substr(part, 1, p - 1))) {
+            part = substr(part, p + 1, .)
+            hasfactor = 1
+        }
+        else if (p == 2 & substr(part, 1, 1) == "c") {
+            part = substr(part, p + 1, .)
+        }
+        if (part == "") return("")
+        if (i == 1) parent = part
+        else parent = parent + "#" + part
+    }
+    if (!hasfactor) return("")
+    if (parent == level) return("")
     return(parent)
 }
 
@@ -1264,7 +1390,7 @@ string matrix _tt_collect_items(string scalar filepath)
     for (i = 1; i <= rows(lines); i++) txt = txt + lines[i] + char(10)
     body = _tt_json_object_body(txt, "Items")
 
-    out = J(0, 2, "")
+    out = J(0, 3, "")
     p = 1
     while (p <= strlen(body)) {
         p = _tt_json_skip_ws(body, p)
@@ -1283,7 +1409,7 @@ string matrix _tt_collect_items(string scalar filepath)
         q = _tt_json_matching(body, p)
         obj = substr(body, p, q - p + 1)
         val = _tt_json_member_value(obj)
-        out = out \ (key, val)
+        out = out \ (key, val, _tt_json_member_named(obj, "omit-type"))
         p = q + 1
     }
 
@@ -1327,15 +1453,14 @@ string matrix _tt_collect_filter_results(string matrix items, real scalar res_n)
     }
 
     if (n == rows(items)) return(items)
-    if (n == 0) return(J(0, 2, ""))
+    if (n == 0) return(J(0, cols(items), ""))
 
-    out = J(n, 2, "")
+    out = J(n, cols(items), "")
     k = 0
     for (i = 1; i <= rows(items); i++) {
         if (keep[i]) {
             k++
-            out[k, 1] = items[i, 1]
-            out[k, 2] = items[i, 2]
+            out[k, .] = items[i, .]
         }
     }
 
@@ -1467,15 +1592,69 @@ string scalar _tt_json_unescape(string scalar s)
     return(out)
 }
 
-string scalar _tt_json_member_value(string scalar obj)
+string scalar _tt_json_member_named(string scalar obj, string scalar name)
 {
-    real scalar p, q, e
-    string scalar ch, val
+    string scalar needle
+    real scalar p, e
 
-    p = strpos(obj, ":")
+    needle = char(34) + name + char(34)
+    p = strpos(obj, needle)
     if (p == 0) return("")
+    p = _tt_json_skip_ws(obj, p + strlen(needle))
+    if (p > strlen(obj)) return("")
+    if (substr(obj, p, 1) != ":") return("")
     p = _tt_json_skip_ws(obj, p + 1)
     if (p > strlen(obj)) return("")
+    if (substr(obj, p, 1) != char(34)) return("")
+    e = _tt_json_string_end(obj, p)
+    return(_tt_json_unescape(substr(obj, p + 1, e - p - 1)))
+}
+
+// Character position of the value belonging to member `name`, or 0 when the
+// object has no such member. Members are walked from the start of the object
+// rather than matched with strpos(), so a name appearing inside a string value
+// cannot be mistaken for a member of its own.
+real scalar _tt_json_member_pos(string scalar obj, string scalar name)
+{
+    real scalar p, e, n
+    string scalar ch, key
+
+    n = strlen(obj)
+    p = _tt_json_skip_ws(obj, 1)
+    if (substr(obj, p, 1) != "{") return(0)
+    p = _tt_json_skip_ws(obj, p + 1)
+    while (p <= n) {
+        ch = substr(obj, p, 1)
+        if (ch == "}") return(0)
+        if (ch == ",") {
+            p = _tt_json_skip_ws(obj, p + 1)
+            continue
+        }
+        if (ch != char(34)) return(0)
+        e = _tt_json_string_end(obj, p)
+        key = _tt_json_unescape(substr(obj, p + 1, e - p - 1))
+        p = _tt_json_skip_ws(obj, e + 1)
+        if (substr(obj, p, 1) != ":") return(0)
+        p = _tt_json_skip_ws(obj, p + 1)
+        if (key == name) return(p)
+        ch = substr(obj, p, 1)
+        if (ch == char(34)) p = _tt_json_string_end(obj, p) + 1
+        else if (ch == "{") p = _tt_json_matching(obj, p) + 1
+        else {
+            while (p <= n & strpos(",}", substr(obj, p, 1)) == 0) p++
+        }
+        p = _tt_json_skip_ws(obj, p)
+    }
+    return(0)
+}
+
+// Parse the JSON scalar that starts at position p.
+string scalar _tt_json_value_at(string scalar obj, real scalar p)
+{
+    real scalar q, e
+    string scalar ch, val
+
+    if (p < 1 | p > strlen(obj)) return("")
     ch = substr(obj, p, 1)
     if (ch == char(34)) {
         e = _tt_json_string_end(obj, p)
@@ -1490,6 +1669,27 @@ string scalar _tt_json_member_value(string scalar obj)
     val = strtrim(val)
     if (val == "null") val = ""
     return(val)
+}
+
+// A collect item carries its value in "d" (numeric) or "s" (string) and may
+// carry metadata members - "omit-type", "term-type" - in the same object.
+// Reading whichever member comes first is wrong whenever the metadata sorts
+// ahead of the value: a not-estimable margins cell is {"omit-type": "omit",
+// "s": "."}, which rendered the literal "omit" as the point estimate and
+// "(omit, omit)" as its confidence interval. Ask for the value members by
+// name; only an object carrying neither falls back to the first member.
+string scalar _tt_json_member_value(string scalar obj)
+{
+    real scalar p
+
+    p = _tt_json_member_pos(obj, "d")
+    if (p == 0) p = _tt_json_member_pos(obj, "s")
+    if (p == 0) {
+        p = strpos(obj, ":")
+        if (p == 0) return("")
+        p = _tt_json_skip_ws(obj, p + 1)
+    }
+    return(_tt_json_value_at(obj, p))
 }
 
 end

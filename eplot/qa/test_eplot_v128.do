@@ -614,7 +614,7 @@ capture graph drop _all
 
 capture graph drop _all
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_eplot_v128 tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_eplot_v128, tests(`test_count') pass(`pass_count') fail(`fail_count') skip(0)
 capture log close
 
 if `fail_count' > 0 {

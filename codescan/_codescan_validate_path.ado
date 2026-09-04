@@ -1,4 +1,4 @@
-*! _codescan_validate_path Version 4.2.0  2026/08/28
+*! _codescan_validate_path Version 4.2.1  2026/09/02
 *! Private file-path validation helper for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 

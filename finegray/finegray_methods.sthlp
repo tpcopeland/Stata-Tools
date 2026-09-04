@@ -118,11 +118,10 @@ delayed entry, the entry distribution H(t)). Under right censoring this is
 the same variance convention {helpb stcrreg}
 reports. {bf:Same convention is not the same digits:} the two commands
 break ties in the censoring Kaplan-Meier differently, so the standard
-errors agree to about four significant figures rather than exactly. On
-{cmd:webuse hypoxia} the coefficients match to {cmd:mreldif} 5e-11 while
-the standard errors differ by up to 2e-4 in relative terms, and the
-package's own cross-validation gates {cmd:stcrreg} standard-error parity
-as a tolerance rather than as equality. Under delayed entry the commands
+errors agree to about four significant figures rather than exactly: the
+coefficients agree to numerical precision, the standard errors only to the
+tie convention. A comparison against {cmd:stcrreg} should therefore be read
+as agreement to a tolerance, not as equality. Under delayed entry the commands
 use different weights, so neither estimates nor standard errors are
 numerically comparable. Coefficients are unaffected by the variance option
 -- only their standard errors change.
@@ -159,6 +158,17 @@ errors out otherwise, rather than reporting standard errors that the g-inverse
 invented for directions the variance matrix cannot see. {opt cluster()} is not
 allowed with {opt norobust} because the former requests a cluster-robust
 sandwich and the latter requests an inverse-information variance.
+
+{pstd}
+{bf:Scope of the Zhou et al. (2012) grounding.} That paper treats clustered
+{it:right-censored} data with a pooled marginal censoring estimate. Two
+supported combinations lie outside it: {opt cluster()} under delayed entry, and
+{opt cluster()} with {opt strata()}, which makes the censoring estimate
+group-stratified. In both, {cmd:finegray} applies the same within-cluster
+influence-function summation, but the extension is by construction rather than
+by published derivation; treat clustered delayed-entry and clustered stratified
+standard errors as an implementation of the natural extension, not as a result
+established in the cited literature.
 
 {pstd}
 {bf:Bootstrap coefficient inference.} The {opt bootstrap()} options of
@@ -219,23 +229,22 @@ weights actually used. Without delayed entry b/S(t-) is G(t-) itself, and the th
 representation converges to Fine and Gray's eta+psi as n grows -- converges,
 not coincides: the appendix's w_i is the exact influence of an empirical
 average where eq. (8) uses the martingale linearization, and the two agree only
-asymptotically (the package's QA asserts the convergence on continuous-time
-data). Right-censored fits keep eq. (7)-(8) unchanged. The term is available
+asymptotically. Right-censored fits keep eq. (7)-(8) unchanged. The term is available
 for the {bf:pooled} weight only: for the stratified weight (their eq. 7) ZZF's
 Appendix E (p. 1949) estimate the variance "treating the weight function
 known", which is the default sandwich, so {opt nuisance} with {opt strata()}
 or {opt truncstrata()} under delayed entry is refused ({cmd:r(198)}) rather
-than approximated. Gate Z-inference is the preregistered coverage study in
-{cmd:qa/validation_finegray_zzf_coverage.do}: it fits each candidate variance
-in every arm that candidate is defined for -- {cmd:nuisance_adjusted} in the
-pooled-weight arms only -- and gates each on empirical 95% Wald coverage
-falling in [0.925, 0.975], with mean-SE/SD ratios reported as diagnostics
-rather than as a second pass/fail rule. On the 2026-09-01 run (receipt in
-{cmd:qa/run_status_gates.txt}; 1,000 replications per arm, truncation 37% to
-69%) {cmd:fixed_weight_sandwich} covers in every arm, {cmd:nuisance_adjusted}
-covers in every pooled-weight arm, and {cmd:model_based} does not (coverage
-0.74 to 0.91). The shipped default is {cmd:fixed_weight_sandwich} and
-{opt nuisance} is an opt-in.
+than approximated. The three candidate variances differ in what they treat
+as known: {cmd:model_based} treats the pseudo-likelihood as a likelihood,
+{cmd:fixed_weight_sandwich} treats the estimated weights as fixed, and
+{cmd:nuisance_adjusted} additionally propagates the uncertainty in the
+estimated censoring (and, under delayed entry, entry) distribution. Only the
+latter two are consistent for the sandwich meat of a weighted estimating
+equation, and the model-based form is not generally valid for it, which is why
+the shipped default is {cmd:fixed_weight_sandwich} and {opt nuisance} is an
+opt-in defined for the pooled weight alone. The package's QA suite, documented
+in the package's {cmd:qa/README.md} in the source repository, includes a
+simulation study of the Wald coverage of each candidate.
 
 {pstd}
 {bf:Why it stops at the coefficients.} {helpb finegray_cif} and
@@ -756,18 +765,18 @@ re-evaluating {cmd:e(wexp)}, whose variables are in the estimation-data
 signature.
 
 {pstd}
-{bf:Identities the implementation is held to}
-({cmd:qa/test_finegray_weights.do}): {cmd:[pw=1]} and {cmd:[fw=1]} reproduce
-the unweighted fit bit for bit; an {cmd:fweight}ed fit equals the
-{cmd:expand}ed fit to summation order; with no censoring, a {cmd:pweight}ed
-fit equals the expanded data clustered on subject, which pins the meat form; a
-constant pweight c leaves {cmd:e(b)} and {cmd:e(V)} and gives ll_w = c (ll
-- N_fail log c). External: {cmd:qa/crossval_pweight.do} against
-{cmd:survival::finegray(weights=)} + weighted {cmd:coxph} (coefficients,
-robust and cluster-robust standard errors, weighted baseline), and
-{cmd:qa/validation_pweight_recovery.do} on the Wogu et al. sec. 5 DGP under
-outcome- and covariate-dependent sampling, where the unweighted fit is biased
-and the weighted fit recovers the truth with nominal coverage.
+{bf:Identities the implementation is held to.} {cmd:[pw=1]} and
+{cmd:[fw=1]} reproduce the unweighted fit bit for bit; an {cmd:fweight}ed fit
+equals the {cmd:expand}ed fit to summation order; with no censoring, a
+{cmd:pweight}ed fit equals the expanded data clustered on subject, which pins
+the meat form; a constant pweight c leaves {cmd:e(b)} and {cmd:e(V)} unchanged
+and gives ll_w = c (ll - N_fail log c). Externally the weighted fit is the same
+estimator as {cmd:survival::finegray(weights=)} followed by a weighted
+{cmd:coxph} -- coefficients, robust and cluster-robust standard errors, and the
+weighted baseline -- and under the outcome- and covariate-dependent sampling of
+Wogu et al. sec. 5 the unweighted fit is biased where the weighted fit recovers
+the truth. The package's QA suite, documented in the package's
+{cmd:qa/README.md} in the source repository, exercises these identities.
 
 {pstd}
 {bf:What is refused, and why.} {opt nuisance}: Wogu et al. write the psi
@@ -891,8 +900,8 @@ the linear predictor, the Schoenfeld residuals, the bootstrap refits, the
 baseline rebuild -- reads the non-base vector through one accessor
 ({cmd:_finegray_bnb} in Stata, {cmd:_finegray_beta()} in Mata) that drops the
 base columns by their stripe marker, so a factor fit and a fit on hand-built
-indicator columns give bit-identical post-estimation output
-({cmd:qa/test_finegray_margins.do}). Margins are on the linear-predictor
+indicator columns give bit-identical post-estimation output. Margins are on
+the linear-predictor
 (log-SHR) scale; {cmd:e(marginsok)} lists {cmd:xb} only, because the CIF
 depends on the baseline as well as on {cmd:e(b)} and a delta-method
 derivative through {cmd:e(b)} alone would understate its variance. Use
@@ -1115,9 +1124,11 @@ later session.
 after every fit, where it costs nothing, so that post-estimation can use it
 without ever building a Stata matrix -- which is also what lets
 {cmd:predict, cif} work on new data after the estimation sample has been
-dropped. {cmd:e(bh_seq)} says which fit that cached curve belongs to. It must
+dropped. {cmd:e(bh_key)} says which fit that cached curve belongs to. It must
 be presented by post-estimation and is refused if it does not match, so a curve
-from an earlier fit can never answer for the current one.
+from an earlier fit can never answer for the current one. The key is a per-fit
+token carrying a salt that {cmd:mata clear} cannot reset, so no two fits can
+present the same one.
 
 {pstd}
 {bf:Why the entry time is recorded twice.} On a multiple-record fit each

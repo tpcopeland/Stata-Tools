@@ -141,6 +141,7 @@ capture noisily {
     _finegray_bnb, b(`bnb') v(`vnb')
     drop _fg_*
     quietly finegray pel_1 ifp pel_1_ifp tumsize, compete(status) cause(1) nolog
+    assert !missing(e(ll), `ll_fv')
     assert reldif(e(ll), `ll_fv') < 1e-12
     assert mreldif(`bnb', e(b)) < 1e-10
     assert mreldif(`vnb', e(V)) < 1e-10
@@ -194,16 +195,20 @@ capture noisily {
     quietly summarize h1 if e(sample), meanonly
     local m1 = r(mean)
     restore
+    assert !missing(`M1'[1, 1], `m0')
     assert reldif(`M1'[1, 1], `m0') < 1e-6
+    assert !missing(`M1'[1, 2], `m1')
     assert reldif(`M1'[1, 2], `m1') < 1e-6
     * dydx(pelnode) is the discrete change m1 - m0, and by hand it is
     * b[1.pelnode] + b[1.pelnode#c.ifp] * mean(ifp)
     quietly margins, dydx(pelnode)
     tempname D
     matrix `D' = r(b)
+    assert !missing(`D'[1, 2], `m1' - `m0')
     assert reldif(`D'[1, 2], `m1' - `m0') < 1e-6
     quietly summarize ifp if e(sample), meanonly
     local dhand = e(b)[1, 2] + e(b)[1, 5] * r(mean)
+    assert !missing(`D'[1, 2], `dhand')
     assert reldif(`D'[1, 2], `dhand') < 1e-6
     * the continuous margin in the same fit is untouched by the widening
     quietly margins, dydx(ifp)
@@ -234,10 +239,14 @@ capture noisily {
     matrix `XVX' = `X' * e(V) * `X''
     local se_hand = sqrt(`XVX'[1, 1])
     quietly margins, at(pelnode=1 ifp=15) predict(xb)
+    assert !missing(r(b)[1, 1], `est'[1, 1])
     assert reldif(r(b)[1, 1], `est'[1, 1]) < 1e-6
+    assert !missing(sqrt(r(V)[1, 1]), `se_hand')
     assert reldif(sqrt(r(V)[1, 1]), `se_hand') < 1e-6
     quietly margins, at(pelnode=1 ifp=15)
+    assert !missing(r(b)[1, 1], `est'[1, 1])
     assert reldif(r(b)[1, 1], `est'[1, 1]) < 1e-6
+    assert !missing(sqrt(r(V)[1, 1]), `se_hand')
     assert reldif(sqrt(r(V)[1, 1]), `se_hand') < 1e-5
 }
 if _rc == 0 {
@@ -336,9 +345,12 @@ capture noisily {
     assert colsof(`M1') == 3
     * level 2 is the base: its margin is the mean of b[tumsize] * tumsize
     quietly summarize tumsize if e(sample), meanonly
+    assert !missing(`M1'[1, 2], e(b)[1, 4] * r(mean))
     assert reldif(`M1'[1, 2], e(b)[1, 4] * r(mean)) < 1e-6
     * level 1 differs from it by b[1.grp], level 3 by b[3.grp]
+    assert !missing(`M1'[1, 1] - `M1'[1, 2], e(b)[1, 1])
     assert reldif(`M1'[1, 1] - `M1'[1, 2], e(b)[1, 1]) < 1e-6
+    assert !missing(`M1'[1, 3] - `M1'[1, 2], e(b)[1, 3])
     assert reldif(`M1'[1, 3] - `M1'[1, 2], e(b)[1, 3]) < 1e-6
     fvset base 3 grp
     quietly margins grp
@@ -505,6 +517,7 @@ capture noisily {
     assert `T'[1, 3] > 0 & !missing(`T'[1, 3])
     quietly finegray_predict bs_cif, cif ci bootstrap(25) seed(7)
     quietly count if !missing(bs_cif_lci) & e(sample)
+    assert !missing(r(N))
     assert r(N) > 0
     * the point estimate did not move through the refits
     quietly finegray_cif, at(pelnode=1 ifp=10) attime(2 5) nograph
@@ -535,6 +548,7 @@ capture noisily {
     quietly testparm i.pelnode#c.ifp
     assert r(df) == 1
     quietly lincom 1.pelnode + 1.pelnode#c.ifp * 10
+    assert !missing(r(estimate), e(b)[1, 2] + 10 * e(b)[1, 5])
     assert reldif(r(estimate), e(b)[1, 2] + 10 * e(b)[1, 5]) < 1e-12
     quietly contrast pelnode
     assert !missing(r(chi2)[1, 1])
@@ -576,6 +590,7 @@ capture noisily {
     _finegray_bnb, b(`bnb')
     assert mreldif(`bnb', e(b)) == 0
     quietly margins, dydx(pelnode)
+    assert !missing(r(b)[1, 1], e(b)[1, 3])
     assert reldif(r(b)[1, 1], e(b)[1, 3]) < 1e-12
 }
 if _rc == 0 {

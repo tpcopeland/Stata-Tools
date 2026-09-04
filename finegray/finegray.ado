@@ -681,8 +681,17 @@ program define finegray, eclass sortpreserve
         tempvar _fg_vary
         foreach _cv of local _fg_checkvars {
             capture drop `_fg_vary'
+            * EXACT inequality, not a 1e-9 band.  These fields are documented
+            * as constant within subject, so any difference at all is a
+            * violation, and an absolute 1e-9 was scale-dependent: on data
+            * measured in units where a real change is 1e-10 the check passed
+            * silently, and the reduction then kept one record's value for a
+            * covariate that had moved.  Every row reaching this expression is
+            * a `touse' row, and `touse' has been marked out on every variable
+            * in `_fg_checkvars' above, so both operands are non-missing here
+            * and `. != .' cannot arise.
             quietly by `_fg_id': gen byte `_fg_vary' = ///
-                (`touse' & abs(`_cv' - `_cv'[1]) >= 1e-9)
+                (`touse' & `_cv' != `_cv'[1])
             quietly count if `_fg_vary'
             if r(N) > 0 {
                 display as error "finegray requires covariates constant within id()"
@@ -699,8 +708,11 @@ program define finegray, eclass sortpreserve
         * last.  Same test as the covariates above, its own words.
         if "`weight'" != "" {
             capture drop `_fg_vary'
+            * Exact, for the reason given at the covariate loop above;
+            * `marksample' has already dropped missing and zero weights from
+            * `touse', so both operands are non-missing.
             quietly by `_fg_id': gen byte `_fg_vary' = ///
-                (`touse' & abs(`_fg_w' - `_fg_w'[1]) >= 1e-9)
+                (`touse' & `_fg_w' != `_fg_w'[1])
             quietly count if `_fg_vary'
             if r(N) > 0 {
                 display as error "finegray requires the `weight' constant within id()"
@@ -722,9 +734,26 @@ program define finegray, eclass sortpreserve
         * earliest entry time used below, replacing three egen passes.
         tempvar _fg_seq _fg_badspan _fg_mint0
         quietly by `_fg_id': gen long `_fg_seq' = sum(`touse')
+        * RELATIVE tolerance, sized to floating-point representation error.
+        * Adjacency compares two times that are meant to be the SAME number,
+        * so the only difference to forgive is accumulated double-precision
+        * rounding: 1e-12 of the larger boundary, roughly four decimal digits
+        * of headroom above one ulp.  An absolute 1e-9 answered a different
+        * question at every time scale: on times of order 1e-10 it accepted a
+        * gap five times the whole follow-up.  A plain 1e-9 RELATIVE band has
+        * the opposite fault -- at a time origin of 1e9 it forgives a full
+        * unit, and a genuine 0.01 boundary error (pinned in
+        * qa/test_finegray_v110.do) would pass.  A few ulp is too tight to be
+        * a rule about DATA: two boundaries built by different arithmetic
+        * routes -- (d2 - o)/365.25 against d2/365.25 - o/365.25 -- differ by
+        * several ulp and describe the same instant, and refusing those would
+        * be a refusal about rounding rather than about follow-up.  1e-12
+        * relative is exact when both boundaries are 0 and means the same
+        * thing at every scale.
         quietly by `_fg_id': gen byte `_fg_badspan' = ///
             (`touse' & `_fg_seq' > 1 & ///
-            abs(_t0 - _t[_n - 1]) >= 1e-9)
+            abs(_t0 - _t[_n - 1]) > ///
+            1e-12 * max(abs(_t0), abs(_t[_n - 1])))
         quietly count if `_fg_badspan'
         if r(N) > 0 {
             display as error "finegray: subject records have gaps or overlaps"
@@ -788,13 +817,22 @@ program define finegray, eclass sortpreserve
         * it claims no name in the caller's dataset and this check has nothing
         * to adjudicate: an existing user variable called _fg_entry is not in
         * its way and must not be refused over a name finegray will not take.
+        * The recorded NAME is not ownership: a user who drops _fg_entry and
+        * regenerates their own variable under that name keeps it (the column
+        * carries no current ownership marker), and this fit is refused rather
+        * than deleting it.  Same adjudication as the deferred write below.
         if !`_fg_is_mi' {
             capture confirm variable _fg_entry
-            if !_rc & `"`_dta[_finegray_entryvar]'"' != "_fg_entry" {
-                display as error "variable _fg_entry already exists"
-                display as error "finegray uses this name to record subject entry times"
-                display as error "for multiple-record data; rename or drop it before running finegray"
-                exit 198
+            if !_rc {
+                local _own_e0 : char _fg_entry[_finegray_owner]
+                if `"`_dta[_finegray_entryvar]'"' != "_fg_entry" | ///
+                    `"`_own_e0'"' == "" | ///
+                    `"`_own_e0'"' != `"`_dta[_finegray_owner]'"' {
+                    display as error "variable _fg_entry exists and was not created by finegray; rename or drop it"
+                    display as error "finegray uses this name to record subject entry times"
+                    display as error "for multiple-record data"
+                    exit 198
+                }
             }
         }
         local _fg_entry_pending = 1
@@ -960,6 +998,8 @@ program define finegray, eclass sortpreserve
     * pweight estimator.  e(sum_w) carries the weight total either way.
     local _fg_Nrep = `N'
     local _fg_sumw = .
+    local _fg_wsig ""
+    local _fg_wsig_n = 0
     if "`weight'" != "" {
         quietly summarize `_fg_w' if `touse', meanonly
         local _fg_sumw = r(sum)
@@ -1010,81 +1050,50 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * MATERIALISE THE ENTRY-TIME COLUMN (multi-record fits only)
     * =========================================================================
-    * Deferred from the reduction step above: every check that can reject this
-    * fit has now run, so writing the package-owned column here cannot strand a
-    * prior fit's e() behind a dropped variable.
-    if `_fg_entry_pending' {
-        if `_fg_is_mi' {
-            * mi data: a tempvar, dropped when this command returns.  The fit
-            * itself is unaffected -- the engine consumes this column inside
-            * `preserve' either way -- and nothing is written to the caller's
-            * mi dataset.  Post-estimation is refused on this fit (e(postest)).
-            tempvar _fg_entry_tv
-            quietly gen double `_fg_entry_tv' = `_fg_mint0'
-            local _fg_entryvar "`_fg_entry_tv'"
-        }
-        else {
-            capture confirm variable _fg_entry
-            if !_rc {
-                display as text "(note: replacing existing variable _fg_entry)"
-                quietly drop _fg_entry
-            }
-            quietly gen double _fg_entry = `_fg_mint0'
-            label variable _fg_entry ///
-                "finegray: earliest subject entry time (multi-record reduction)"
-            local _fg_entryvar "_fg_entry"
-        }
+    * OWNERSHIP MARKER for the columns this run is about to write.
+    *
+    * The cleanup and adopt paths below used to recognise a package column by its
+    * NAME alone: any variable called _fg_grp_2 that a prior fit had recorded was
+    * dropped, whatever it now contained.  A user who dropped _fg_grp_2 and
+    * regenerated it as their own variable lost it silently on the next fit.  A
+    * per-run token written as a characteristic on each generated column makes
+    * ownership checkable: a column that does not carry the PRIOR run's token is
+    * not ours to drop, and the fit is refused r(198) instead.
+    *
+    * Characteristics survive sort, preserve/restore and save/use, and are NOT
+    * copied by `generate' -- which is what makes the marker discriminating.
+    * `clonevar' does copy them; a clone of a package column therefore inherits
+    * the marker and is treated as ours.  That is accepted: it is the same
+    * ambiguity `clonevar' creates for every other characteristic.
+    local _prev_owner `"`_dta[_finegray_owner]'"'
+    local _fg_owner_tok ""
+    if !`_fg_is_mi' {
+        capture confirm number $finegray_bh_ctr
+        if _rc global finegray_bh_ctr = 0
+        global finegray_bh_ctr = $finegray_bh_ctr + 1
+        local _fg_owner_tok = "fg" + string(clock("`c(current_date)' `c(current_time)'", ///
+            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr"
     }
 
-    * =========================================================================
-    * EXPAND FACTOR VARIABLES (fvrevar-based: supports i., ib#., ##, #, c.)
-    * =========================================================================
-    local _fv_created ""
     local _prev_estimated `"`_dta[_finegray_estimated]'"'
     local _prev_fv_created `"`_dta[_finegray_fvvars]'"'
     local _prev_entryvar `"`_dta[_finegray_entryvar]'"'
+
+    * =========================================================================
+    * FACTOR-VARIABLE NAME DERIVATION -- BEFORE ANY MUTATION
+    * =========================================================================
+    * The _fg_<term> names this run will write are derived HERE so that the
+    * ownership adjudication below can probe them, and so that the refusals the
+    * derivation itself raises -- an unsupported factor-variable operator and a
+    * 32-character truncation collision -- happen before the entry column is
+    * rewritten, before the _dta[_finegray_*] characteristics are blanked and
+    * before a prior run's columns are dropped.  Deriving them inside the
+    * creation loop further down meant those refusals fired mid-mutation: the
+    * fit was correctly refused, and the dataset was left with no ownership
+    * chain and no usable prior fit.  The creation loop consumes `_fv_namemap'
+    * (one token per semantic term, `.' for a skipped base level) rather than
+    * re-deriving anything.
     local _has_fv = 0
-
-    * Input validation above leaves a prior successful fit intact. Once this
-    * new fit begins mutating package-owned columns, invalidate the old state
-    * first so a failed re-fit cannot masquerade as the previous success.
-    *
-    * The mark is "0", not "": it has to be TELLABLE from a dataset that never
-    * carried the characteristic at all.  Post-estimation now recognises a
-    * finegray fit restored by `estimates use' over a dataset saved before the
-    * fit -- which has no characteristic -- and both states used to spell
-    * themselves the same way, so writing "" here would have let a re-fit that
-    * failed mid-mutation fall through to the prior fit's e() and answer from
-    * it.  "0" means INVALIDATED and is refused; absent means UNKNOWN and is
-    * adjudicated against e().  Guarded by test_finegray_v110.do.
-    *
-    * On mi data NONE of this happens.  A mi-mode fit mutates nothing permanent
-    * -- the entry column and every _fg_<term> design column are tempvars (see
-    * the mi block near the top and the two branches below) -- so there is no
-    * package-owned state for a failed re-fit to masquerade as, and the mark has
-    * nothing to invalidate.  Writing it anyway put seven _dta[_finegray_*]
-    * characteristics into the caller's mi dataset, which is exactly the
-    * contract this version's mi branch exists to keep ("nothing is written to
-    * the caller's mi dataset").  Worse, blanking _dta[_finegray_fvvars] while
-    * the cleanup below dropped the columns it named left a PRIOR ordinary fit's
-    * e() pointing at design columns that no longer existed and no
-    * characteristic recording that finegray had ever owned them.  The whole
-    * block, cleanup included, is therefore off-mi-data only: a prior fit's
-    * state stays internally consistent and the mi fit adds nothing to it.
-    * Post-estimation on the mi fit is refused on e(postest) before any
-    * characteristic is consulted, so the stale marks cannot be mistaken for
-    * this fit's.  Guarded by FGML-01..03 in qa/test_finegray_mi_lattice.do.
-    if !`_fg_is_mi' {
-        char _dta[_finegray_estimated] "0"
-        char _dta[_finegray_compete] ""
-        char _dta[_finegray_cause] ""
-        char _dta[_finegray_covars] ""
-        char _dta[_finegray_fvvars] ""
-        char _dta[_finegray_fvvarlist] ""
-        char _dta[_finegray_entryvar] ""
-    }
-
-    * Check if any FV operators present
     foreach _fv_tok of local varlist {
         if strpos("`_fv_tok'", ".") > 0 {
             local _has_fv = 1
@@ -1092,29 +1101,8 @@ program define finegray, eclass sortpreserve
         }
     }
 
-    * Clean up the entry-time variable from any prior finegray run when this
-    * run did not just (re)create it in the reduction step above.
-    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" ///
-        & "`_prev_entryvar'" != "`_fg_entryvar'" {
-        capture confirm variable `_prev_entryvar'
-        if !_rc quietly drop `_prev_entryvar'
-    }
-
-    * Clean up FV variables from any prior finegray run, unconditionally.
-    * This ensures stale _fg_* columns are dropped even when the new run
-    * does not use factor variables.
-    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
-        local _drop_prev ""
-        foreach _old_fg of local _prev_fv_created {
-            capture confirm variable `_old_fg'
-            if !_rc local _drop_prev "`_drop_prev' `_old_fg'"
-        }
-        if "`_drop_prev'" != "" {
-            display as text "(note: dropping prior finegray FV variables)"
-            quietly drop `_drop_prev'
-        }
-    }
-
+    local _fv_namemap ""
+    local _fv_newnames ""
     if `_has_fv' {
         * Get semantic expansion (includes base markers like 1b.race)
         fvexpand `varlist' if `touse'
@@ -1133,39 +1121,32 @@ program define finegray, eclass sortpreserve
             exit 198
         }
 
-        * Build final varlist and create the design columns.
-        *
-        * _fv_final holds the columns the engine will read; _fv_names holds the
-        * _fg_<term> NAMES those columns would take in the caller's data.  Off
-        * mi data the two lists are identical.  On mi data _fv_final holds
-        * tempvars (nothing is written to the caller's dataset) while _fv_names
-        * still carries the intended names, so the 32-character truncation
-        * collision test below adjudicates the same specification in both
-        * modes.  A collision cannot actually corrupt anything in mi mode --
-        * the tempvars are distinct whatever the terms are called -- but a fit
-        * that errors on complete-case data and succeeds under `mi estimate'
-        * would be a worse surprise than a refusal the user can act on.
-        local _fv_final ""
+        * _fv_names holds every name claimed by this specification (a
+        * passthrough original variable included), which is what the truncation
+        * collision test compares against.  _fv_newnames holds only the
+        * _fg_<term> columns this run would WRITE into the caller's data; on mi
+        * data those are tempvars, so nothing is claimed and the list stays
+        * empty while the collision test still adjudicates the specification.
         local _fv_names ""
-
         forvalues _i = 1/`_n_sem' {
             local _term : word `_i' of `_fv_semantic'
             local _var : word `_i' of `_fv_actual'
 
             * Skip base categories (marked with Nb. in fvexpand output)
             if regexm("`_term'", "[0-9]+b\.") {
+                local _fv_namemap "`_fv_namemap' ."
                 continue
             }
 
             * If fvrevar returned original variable (not tempvar), use directly
             if substr("`_var'", 1, 2) != "__" {
-                local _fv_final "`_fv_final' `_var'"
+                local _fv_namemap "`_fv_namemap' `_var'"
                 local _fv_names "`_fv_names' `_var'"
                 continue
             }
 
             * Generate _fg_ variable name from FV term
-            * Parse parts separated by # : N.var → var_N, c.var → var
+            * Parse parts separated by # : N.var -> var_N, c.var -> var
             local _fg_parts ""
             local _remaining "`_term'"
             while "`_remaining'" != "" {
@@ -1221,6 +1202,228 @@ program define finegray, eclass sortpreserve
             }
 
             local _fv_names "`_fv_names' `_fg_name'"
+            local _fv_namemap "`_fv_namemap' `_fg_name'"
+            if !`_fg_is_mi' local _fv_newnames "`_fv_newnames' `_fg_name'"
+        }
+    }
+
+    * =========================================================================
+    * OWNERSHIP ADJUDICATION -- REFUSE BEFORE ANY MUTATION
+    * =========================================================================
+    * Every package-owned column this run would drop or replace is adjudicated
+    * HERE, before the entry column is rewritten and before the
+    * _dta[_finegray_*] characteristics are blanked below.  The per-site checks
+    * further down are kept as defence in depth, but they used to be the ONLY
+    * checks -- and they fired after `_fg_entry' had been dropped and recreated
+    * and after _dta[_finegray_owner] had been blanked, so a refusal destroyed
+    * the ownership chain for every column it had not yet reached: the fit was
+    * correctly refused, and every later fit was then refused too, naming a
+    * column finegray itself had created, until the user dropped it by hand.
+    * Adjudicating first means a refusal leaves the dataset exactly as it was.
+    if !`_fg_is_mi' {
+        * The entry column this run will (re)create, which decides whether a
+        * prior run's entry column is a different name that needs cleaning up.
+        local _entrynext "`_fg_entryvar'"
+        if `_fg_entry_pending' local _entrynext "_fg_entry"
+
+        local _own_probe ""
+        if `_fg_entry_pending' local _own_probe "_fg_entry"
+        if `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" & ///
+            "`_prev_entryvar'" != "`_entrynext'" {
+            local _own_probe "`_own_probe' `_prev_entryvar'"
+        }
+        if `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
+            local _own_probe "`_own_probe' `_prev_fv_created'"
+        }
+        local _own_probe : list uniq _own_probe
+        foreach _op of local _own_probe {
+            capture confirm variable `_op'
+            if _rc continue
+            local _own_c : char `_op'[_finegray_owner]
+            if `"`_own_c'"' == "" | `"`_own_c'"' != `"`_prev_owner'"' | ///
+                `"`_prev_owner'"' == "" {
+                display as error "variable `_op' exists and was not created by finegray; rename or drop it"
+                if "`_op'" == "_fg_entry" | "`_op'" == "`_prev_entryvar'" {
+                    display as error "finegray uses this name to record subject entry times for multiple-record data"
+                }
+                else {
+                    display as error "finegray writes this name for a factor term of the fitted model"
+                }
+                exit 198
+            }
+        }
+
+        * The _fg_<term> names THIS run will write.  The creation loop below
+        * adjudicates them again as defence in depth, but that loop runs after
+        * the characteristics have been blanked and after the prior run's entry
+        * and design columns have been dropped, so its refusal used to leave the
+        * dataset mutated.  A name the prior run recorded AND still owns is ours
+        * to replace; anything else -- a user's own column under a name this
+        * specification newly claims included -- is refused here, untouched.
+        local _own_new : list uniq _fv_newnames
+        local _own_new : list _own_new - _own_probe
+        foreach _op of local _own_new {
+            capture confirm variable `_op'
+            if _rc continue
+            local _own_c : char `_op'[_finegray_owner]
+            local _own_m : list posof "`_op'" in _prev_fv_created
+            if `_own_m' == 0 | `"`_own_c'"' == "" | ///
+                `"`_own_c'"' != `"`_prev_owner'"' | `"`_prev_owner'"' == "" {
+                display as error "variable `_op' exists and was not created by finegray; rename or drop it"
+                display as error "finegray writes this name for a factor term of the fitted model"
+                exit 198
+            }
+        }
+    }
+
+    * Deferred from the reduction step above: every check that can reject this
+    * fit has now run, so writing the package-owned column here cannot strand a
+    * prior fit's e() behind a dropped variable.
+    if `_fg_entry_pending' {
+        if `_fg_is_mi' {
+            * mi data: a tempvar, dropped when this command returns.  The fit
+            * itself is unaffected -- the engine consumes this column inside
+            * `preserve' either way -- and nothing is written to the caller's
+            * mi dataset.  Post-estimation is refused on this fit (e(postest)).
+            tempvar _fg_entry_tv
+            quietly gen double `_fg_entry_tv' = `_fg_mint0'
+            local _fg_entryvar "`_fg_entry_tv'"
+        }
+        else {
+            capture confirm variable _fg_entry
+            if !_rc {
+                * Ours to replace only if it still carries the PRIOR run's token.
+                local _own_e : char _fg_entry[_finegray_owner]
+                if `"`_own_e'"' == "" | `"`_own_e'"' != `"`_prev_owner'"' | ///
+                    `"`_prev_owner'"' == "" {
+                    display as error "variable _fg_entry exists and was not created by finegray; rename or drop it"
+                    display as error "finegray uses this name to record subject entry times for multiple-record data"
+                    exit 198
+                }
+                display as text "(note: replacing existing variable _fg_entry)"
+                quietly drop _fg_entry
+            }
+            quietly gen double _fg_entry = `_fg_mint0'
+            char _fg_entry[_finegray_owner] "`_fg_owner_tok'"
+            label variable _fg_entry ///
+                "finegray: earliest subject entry time (multi-record reduction)"
+            local _fg_entryvar "_fg_entry"
+        }
+    }
+
+    * =========================================================================
+    * EXPAND FACTOR VARIABLES (fvrevar-based: supports i., ib#., ##, #, c.)
+    * =========================================================================
+    local _fv_created ""
+
+    * Input validation above leaves a prior successful fit intact. Once this
+    * new fit begins mutating package-owned columns, invalidate the old state
+    * first so a failed re-fit cannot masquerade as the previous success.
+    *
+    * The mark is "0", not "": it has to be TELLABLE from a dataset that never
+    * carried the characteristic at all.  Post-estimation now recognises a
+    * finegray fit restored by `estimates use' over a dataset saved before the
+    * fit -- which has no characteristic -- and both states used to spell
+    * themselves the same way, so writing "" here would have let a re-fit that
+    * failed mid-mutation fall through to the prior fit's e() and answer from
+    * it.  "0" means INVALIDATED and is refused; absent means UNKNOWN and is
+    * adjudicated against e().  Guarded by test_finegray_v110.do.
+    *
+    * On mi data NONE of this happens.  A mi-mode fit mutates nothing permanent
+    * -- the entry column and every _fg_<term> design column are tempvars (see
+    * the mi block near the top and the two branches below) -- so there is no
+    * package-owned state for a failed re-fit to masquerade as, and the mark has
+    * nothing to invalidate.  Writing it anyway put seven _dta[_finegray_*]
+    * characteristics into the caller's mi dataset, which is exactly the
+    * contract this version's mi branch exists to keep ("nothing is written to
+    * the caller's mi dataset").  Worse, blanking _dta[_finegray_fvvars] while
+    * the cleanup below dropped the columns it named left a PRIOR ordinary fit's
+    * e() pointing at design columns that no longer existed and no
+    * characteristic recording that finegray had ever owned them.  The whole
+    * block, cleanup included, is therefore off-mi-data only: a prior fit's
+    * state stays internally consistent and the mi fit adds nothing to it.
+    * Post-estimation on the mi fit is refused on e(postest) before any
+    * characteristic is consulted, so the stale marks cannot be mistaken for
+    * this fit's.  Guarded by FGML-01..03 in qa/test_finegray_mi_lattice.do.
+    if !`_fg_is_mi' {
+        char _dta[_finegray_estimated] "0"
+        char _dta[_finegray_compete] ""
+        char _dta[_finegray_cause] ""
+        char _dta[_finegray_covars] ""
+        char _dta[_finegray_fvvars] ""
+        char _dta[_finegray_fvvarlist] ""
+        char _dta[_finegray_entryvar] ""
+        char _dta[_finegray_owner] ""
+    }
+
+    * Clean up the entry-time variable from any prior finegray run when this
+    * run did not just (re)create it in the reduction step above.
+    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_entryvar'"' != "" ///
+        & "`_prev_entryvar'" != "`_fg_entryvar'" {
+        capture confirm variable `_prev_entryvar'
+        if !_rc {
+            * Name recorded is not name owned: the user may have dropped the
+            * column and regenerated their own under the same name.
+            local _own_p : char `_prev_entryvar'[_finegray_owner]
+            if `"`_own_p'"' == "" | `"`_own_p'"' != `"`_prev_owner'"' | ///
+                `"`_prev_owner'"' == "" {
+                display as error "variable `_prev_entryvar' exists and was not created by finegray; rename or drop it"
+                exit 198
+            }
+            quietly drop `_prev_entryvar'
+        }
+    }
+
+    * Clean up FV variables from any prior finegray run, unconditionally.
+    * This ensures stale _fg_* columns are dropped even when the new run
+    * does not use factor variables.
+    if !`_fg_is_mi' & `"`_prev_estimated'"' == "1" & `"`_prev_fv_created'"' != "" {
+        local _drop_prev ""
+        foreach _old_fg of local _prev_fv_created {
+            capture confirm variable `_old_fg'
+            if !_rc {
+                local _own_f : char `_old_fg'[_finegray_owner]
+                if `"`_own_f'"' == "" | `"`_own_f'"' != `"`_prev_owner'"' | ///
+                    `"`_prev_owner'"' == "" {
+                    display as error "variable `_old_fg' exists and was not created by finegray; rename or drop it"
+                    exit 198
+                }
+                local _drop_prev "`_drop_prev' `_old_fg'"
+            }
+        }
+        if "`_drop_prev'" != "" {
+            display as text "(note: dropping prior finegray FV variables)"
+            quietly drop `_drop_prev'
+        }
+    }
+
+    if `_has_fv' {
+        * Build final varlist and create the design columns.
+        *
+        * _fv_final holds the columns the engine will read.  The NAMES those
+        * columns take in the caller's data were derived before any mutation
+        * and reach this loop through `_fv_namemap' (one token per semantic
+        * term, `.' for a skipped base level), so every refusal the derivation
+        * can raise has already happened with the dataset untouched.  Off mi
+        * data a design column takes its derived name; on mi data it is a
+        * tempvar and claims no name in the caller's dataset, while the derived
+        * names still adjudicated the specification above -- a fit that errors
+        * on complete-case data must not succeed under `mi estimate'.
+        local _fv_final ""
+
+        forvalues _i = 1/`_n_sem' {
+            local _term : word `_i' of `_fv_semantic'
+            local _var : word `_i' of `_fv_actual'
+            local _fg_name : word `_i' of `_fv_namemap'
+
+            * Skip base categories (marked with Nb. in fvexpand output)
+            if "`_fg_name'" == "." continue
+
+            * If fvrevar returned original variable (not tempvar), use directly
+            if substr("`_var'", 1, 2) != "__" {
+                local _fv_final "`_fv_final' `_var'"
+                continue
+            }
 
             * mi data: the design column is a tempvar.  It claims no name in the
             * caller's dataset, so the existing-variable check has nothing to
@@ -1239,20 +1442,26 @@ program define finegray, eclass sortpreserve
             capture confirm variable `_fg_name'
             if !_rc {
                 local _prev_match : list posof "`_fg_name'" in _prev_fv_created
-                if `_prev_match' > 0 {
+                local _own_n : char `_fg_name'[_finegray_owner]
+                * Recorded by a prior fit AND still carrying that fit's token.
+                * The name alone is not ownership: a user who drops the column
+                * and regenerates their own under the same name keeps it.
+                if `_prev_match' > 0 & `"`_own_n'"' != "" & ///
+                    `"`_own_n'"' == `"`_prev_owner'"' & `"`_prev_owner'"' != "" {
                     * Prior finegray-created variable — safe to replace
                     display as text "(note: replacing existing variable `_fg_name')"
                     quietly drop `_fg_name'
                 }
                 else {
-                    display as error "variable `_fg_name' already exists"
-                    display as error "rename or drop it before running finegray with factor variables"
+                    display as error "variable `_fg_name' exists and was not created by finegray; rename or drop it"
+                    display as error "finegray writes this name for the factor term `_term'"
                     exit 198
                 }
             }
 
             * Create persistent copy
             quietly generate double `_fg_name' = `_var'
+            char `_fg_name'[_finegray_owner] "`_fg_owner_tok'"
             local _fv_created "`_fv_created' `_fg_name'"
 
             * Label: build from value labels (factors) and variable labels (continuous)
@@ -1543,6 +1752,21 @@ program define finegray, eclass sortpreserve
             display as error "_finegray_mata.ado not found; reinstall finegray"
             exit 111
         }
+    }
+
+    * The weight digest.  The TOTAL is not the weights: a weight expression built
+    * on an unsignable input can be changed so that e(sum_w) is invariant while
+    * every per-observation weight moves -- [pw = cond(odd == 0, k, 4 - k)] is
+    * exactly compensated in k -- and post-estimation then rebuilt a DIFFERENT
+    * column at rc 0.  This digest is value-sensitive and order-invariant, and
+    * _finegray_weight_var recomputes it on the rebuilt column and refuses a
+    * mismatch.  It sits HERE, after the engine load, because it is a Mata call:
+    * beside the e(sum_w) computation it would run before the engine exists.
+    * Keyed by the stset id() variable: without it the digest is invariant to
+    * EXCHANGING two subjects' weights, which leaves e(sum_w) and the multiset
+    * of weight values untouched and rebuilt a different column at rc 0.
+    if "`weight'" != "" {
+        mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_id'")
     }
 
     * =========================================================================
@@ -1898,7 +2122,11 @@ program define finegray, eclass sortpreserve
     ereturn hidden local marginsprop "addcons allcons"
 
     ereturn scalar N = `_fg_Nrep'
-    if "`weight'" != "" ereturn scalar sum_w = `_fg_sumw'
+    if "`weight'" != "" {
+        ereturn scalar sum_w = `_fg_sumw'
+        ereturn scalar wsig_n = `_fg_wsig_n'
+        ereturn local wsig "`_fg_wsig'"
+    }
     ereturn scalar N_fail = `N_fail'
     ereturn scalar N_compete = `N_compete'
     ereturn scalar N_cens = `N_cens'
@@ -2015,6 +2243,11 @@ program define finegray, eclass sortpreserve
     * back to this, so a restored fit that needs an entry column it cannot see
     * fails closed by name instead of silently reverting to per-record _t0.
     ereturn local entryvar "`_fg_entryvar'"
+    * The stset id() variable, posted so post-estimation can key the weight
+    * digest the same way this fit did.  The characteristic _dta[st_id] travels
+    * with the DATA; e() travels with the estimates, and `estimates use' over
+    * another dataset is a documented workflow.
+    ereturn local idvar "`_fg_id'"
     if `_has_fv' ereturn local fvvarlist "`_orig_varlist'"
     * The fit-time factor expansion, INCLUDING base terms (1b.grp).  This is the
     * semantic record of which level each coefficient belongs to.  Post-estimation
@@ -2034,6 +2267,12 @@ program define finegray, eclass sortpreserve
     * because `predict, cif' on NEW data is a documented workflow: the
     * estimation sample may be gone by the time the question is asked.
     if "`_fg_bs_noevent'" != "" ereturn local bstrata_noevent "`_fg_bs_noevent'"
+    * The same levels in %21x, which round-trips exactly through Stata's
+    * numeric parser.  e(bstrata_noevent) is the readable form and rounds a
+    * noninteger stratum value, so a consumer that string-compares it against
+    * a level obtained any other way misses at rc 0; every internal consumer
+    * compares this one.
+    if "`_fg_bs_noeventx'" != "" ereturn local bstrata_noevent_x "`_fg_bs_noeventx'"
     * Piecewise beta(t).
     *   e(tvc)            the variables the user named
     *   e(tsplit)         the interior boundaries, ascending
@@ -2172,6 +2411,19 @@ program define finegray, eclass sortpreserve
     if "`robust'" == "norobust"      ereturn local vce_meat "not_applicable"
     else if "`nuisance'" != ""       ereturn local vce_meat "nuisance_adjusted"
     else                             ereturn local vce_meat "fixed_weight"
+    * Whether the finite-sample factor was applied, and to WHAT.  It multiplies
+    * the COEFFICIENT variance e(V) only: N/(N-1), or g/(g-1) under cluster().
+    * The analytic cumulative-incidence variance finegray_cif and
+    * finegray_predict report is the asymptotic influence-function sandwich and
+    * carries no such factor, so noadjust moves e(V) and leaves every CIF
+    * standard error unchanged.  Stated in prose under noadjust in help
+    * finegray; this is its machine counterpart, in the same spirit as
+    * e(vce_meat) above.
+    *   finite_sample  e(V) carries N/(N-1) or g/(g-1)   (the default)
+    *   none           noadjust, or norobust (no sandwich to adjust)
+    if "`robust'" == "norobust"      ereturn local vce_adjust "none"
+    else if "`adjust'" == "noadjust" ereturn local vce_adjust "none"
+    else                             ereturn local vce_adjust "finite_sample"
     ereturn local title "Fine-Gray competing risks regression"
     * margins consumes xb as a single linear predictor.  e(marginsok) lists the
     * predict() statistics margins may ADD to that default; emptying it does NOT
@@ -2233,10 +2485,31 @@ program define finegray, eclass sortpreserve
 
     * The key to the Mata baseline cache (see _finegray_bh_store).  The curve
     * itself lives in Mata, where it costs nothing; this is only its receipt.  A
-    * consumer must present this seq to get the cache back, so a stale curve from
+    * consumer must present this key to get the cache back, so a stale curve from
     * a PREVIOUS fit can never be used to answer for this one -- that would be a
     * wrong CIF at rc 0, which is the failure class that matters.
+    *
+    * The key is a per-fit STRING token, not the old integer counter.  The
+    * counter lived in Mata, so `mata clear' reset it and the next fit was handed
+    * key 1 again; an `estimates restore' of an earlier fit that also held key 1
+    * then scored its betas on the new fit's baseline at rc 0.  The salt below is
+    * a Stata global counter -- which `mata clear' does not touch -- plus the wall
+    * clock, and _finegray_bh_setkey folds a digest of e(b) and the fit scalars
+    * into it, so a re-minted key is not reachable.  It runs AFTER `ereturn post'
+    * because the digest reads e().  e(bh_seq) is kept as the human-readable
+    * receipt; nothing gates on it any more.
     ereturn local bh_seq "`_fg_bh_seq'"
+    if `"`_fg_bh_seq'"' != "" {
+        * A GLOBAL, not a Mata scalar: `mata clear' is the event this key exists
+        * to survive.  (A global macro name may not begin with an underscore.)
+        capture confirm number $finegray_bh_ctr
+        if _rc global finegray_bh_ctr = 0
+        global finegray_bh_ctr = $finegray_bh_ctr + 1
+        local _fg_bh_salt = string(clock("`c(current_date)' `c(current_time)'", ///
+            "DMYhms"), "%21x") + "." + "$finegray_bh_ctr"
+        mata: _finegray_bh_setkey("`_fg_bh_salt'")
+        ereturn local bh_key "`_fg_bh_key'"
+    }
 
     * Store dataset chars for predict.
     *
@@ -2260,6 +2533,7 @@ program define finegray, eclass sortpreserve
         char _dta[_finegray_covars]    "`varlist'"
         char _dta[_finegray_fvvars]    "`_fv_created'"
         char _dta[_finegray_entryvar]  "`_fg_entryvar'"
+        char _dta[_finegray_owner]     "`_fg_owner_tok'"
         if `_has_fv' {
             char _dta[_finegray_fvvarlist] "`_orig_varlist'"
         }

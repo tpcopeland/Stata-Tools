@@ -24,7 +24,8 @@
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt markdown(filename)} {opt mdappend}
-{opt addr:ow(string asis)} {opt ref:cat(string)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
+{opt addr:ow(string asis)} {opt ref:cat(string)} {opt omitl:abel(string)}
+{opt emptyl:abel(string)} {opt pdp(#)} {opt highpdp(#)} {opt labelw:idth(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or
 {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and
@@ -89,6 +90,8 @@ collection must remain unchanged.{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom rows below the table body{p_end}
 {synopt:{opt ref:cat(string)}}label for reference rows (default {cmd:Reference}){p_end}
+{synopt:{opt omitl:abel(string)}}label for dropped terms (default {cmd:Omitted}){p_end}
+{synopt:{opt emptyl:abel(string)}}label for unidentified cells (default {cmd:Empty}){p_end}
 {synopt:{opt pdp(#)}}decimal places for p < 0.10{p_end}
 {synopt:{opt highpdp(#)}}decimal places for p >= 0.10{p_end}
 {synoptline}
@@ -192,13 +195,15 @@ to 10{p_end}
 
 {phang}
 {opt ref:cat(string)} label written into base-category (reference) rows. Default is {cmd:Reference}, matching
-{helpb regtab}. Unlike {cmd:regtab}, which identifies reference rows from the structural base-level key of
-the underlying model, {cmd:effecttab} reads {cmd:teffects}/{cmd:margins} output that carries no such key and
-therefore flags a reference row heuristically: a point estimate that displays as exactly {cmd:0} at the current
-{opt digits()} together with either an empty confidence interval or a confidence-interval cell that {cmd:collect}
-marks as {cmd:base}. A genuine effect that rounds to {cmd:0.00} with a missing CI would be labeled with this
-string; such cases are rare in {cmd:teffects}/{cmd:margins} output but can be avoided by increasing
-{opt digits()}{p_end}
+{helpb regtab}{p_end}
+
+{phang}
+{opt omitl:abel(string)} label written into rows whose term the model dropped -- for collinearity, or as a
+margin {cmd:margins} reports as not estimable. Default is {cmd:Omitted}{p_end}
+
+{phang}
+{opt emptyl:abel(string)} label written into rows whose factor cell identifies no observations. Default is
+{cmd:Empty}. The three labels must differ from each other{p_end}
 
 {phang}
 {opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "}{p_end}
@@ -231,6 +236,28 @@ Remarks){p_end}
 (e.g., {cmd:"237 242 249"}){p_end}
 
 {marker remarks}{title:Remarks}
+
+{pstd}{bf:Constrained rows}{p_end}
+
+{p 4 8 2}A base category, a term the model dropped for collinearity, and a
+factor cell identifying no observations all reach the table as a constrained
+coefficient with no interval and no p-value; {cmd:margins} reports the middle
+two as {it:not estimable}. {cmd:effecttab} tells them apart from the
+constraint class the collection records for each cell and writes
+{it:Reference}, {it:Omitted}, or {it:Empty} into the estimate column, spanning
+that model's CI and p-value cells. The class is read per model, and
+constrained cells contribute nothing to {cmd:r(table)} or to
+{opt eplotframe()}. Change the words with {opt refcat()},
+{opt omitlabel()}, and {opt emptylabel()}; the three must differ. Where the
+collection carries no class -- a matrix supplied through {opt from()}, or a
+workbook read back through {opt xlsx()} -- {cmd:effecttab} falls back to
+labelling a zero estimate with an empty interval {it:Reference}.{p_end}
+
+{p 4 8 2}Factor rows are rendered the way {helpb regtab} renders them: the
+variable's label heads the block and each level is indented beneath it under
+its value label. An interaction term heads one block for all its level
+combinations.{p_end}
+
 
 {pstd}{bf:Comparison with regtab}{p_end}
 

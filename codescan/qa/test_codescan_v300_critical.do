@@ -37,6 +37,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 * harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -1320,6 +1321,7 @@ display as text "  tests:  `test_count'"
 display as text "  passed: `pass_count'"
 display as text "  failed: `fail_count'"
 
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_v300_critical" `test_count' `pass_count' `fail_count'
 display as text "RESULT: test_codescan_v300_critical tests=`test_count' pass=`pass_count' fail=`fail_count'"
 

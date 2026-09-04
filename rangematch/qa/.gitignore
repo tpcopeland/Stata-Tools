@@ -1,3 +1,13 @@
-# QA build artifacts — never tracked or shipped
+# QA build artifacts — never tracked or shipped.
+# Scoped to the qa/ root so a curated fixture under qa/data/ stays trackable.
 *.log
 *.smcl
+/*.dta
+/*.xlsx
+/*.csv
+/*.gph
+/*.png
+/*.pdf
+__pycache__/
+*.pyc
+.Rhistory

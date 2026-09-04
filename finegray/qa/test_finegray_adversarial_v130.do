@@ -1428,6 +1428,7 @@ capture noisily {
     quietly bysort id: egen byte _nrec = count(rec)
     quietly count if _nrec > 1 & rec == 1 & _d == 1
     display as text "  fixture: `r(N)' subjects have a failure followed by a censored record"
+    assert !missing(r(N))
     assert r(N) > 0
     quietly bysort id: egen byte _nf = total(_d == 1)
     quietly count if _nf > 1
@@ -1456,6 +1457,7 @@ capture noisily {
     quietly bysort id (_t): replace status = status[_N]
     quietly count
     display as text "  stsplit control: `r(N)' records"
+    assert !missing(r(N))
     assert r(N) > 400
     capture noisily finegray x, compete(status) cause(1) nolog
     display as text "  stsplit multi-record fit rc = `=_rc'"
@@ -1467,6 +1469,121 @@ capture noisily {
 local _rc = _rc
 capture restore
 _fgadv_result `_rc' "C7 failure record not the subject's last (second failure, or follow-up past it) refused r(198); ordinary stsplit multi-record data still fits"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# C8 the constancy and contiguity rules hold at any time scale
+* -----------------------------------------------------------------------------
+* Through v1.3.0 both rules used an ABSOLUTE 1e-9 band: a covariate that moved
+* by 5e-10 within a subject was "constant", and a 5e-10 gap between adjacent
+* records was "contiguous" -- true regardless of whether follow-up spanned
+* years or 1e-10 of a unit.  Rescale time and a covariate by 1e-10 and both
+* refusals must still fire, and a genuinely contiguous dataset on the same
+* scale must still fit.
+local ++test_count
+capture noisily {
+    * a covariate that moves within subject, by 5e-10
+    clear
+    set seed 4242
+    quietly set obs 400
+    gen long id = ceil(_n / 2)
+    bysort id: gen byte epi = _n
+    gen double t0 = cond(epi == 1, 0, 1)
+    gen double t  = cond(epi == 1, 1, 2)
+    gen byte status = 0
+    bysort id (epi): replace status = cond(mod(id, 3) == 0, 1, ///
+        cond(mod(id, 3) == 1, 2, 0)) if _n == _N
+    gen byte fail = status > 0
+    gen double z = 0.5 + mod(id, 5) * 0.1
+    quietly replace z = z + 5e-10 if epi == 2
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    _fgadv_cap `"finegray z, compete(status) cause(1) nolog"' ///
+        "covariate z varies within subject"
+    assert r(rc) == 198
+    assert r(saw) == 1
+
+    * ...and the same 5e-10 move on covariate values of order 1e-10
+    quietly replace z = z * 1e-10
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    _fgadv_cap `"finegray z, compete(status) cause(1) nolog"' ///
+        "covariate z varies within subject"
+    assert r(rc) == 198
+    assert r(saw) == 1
+
+    * a 5e-10 gap on times of order 1e-10: the gap is FIVE TIMES the whole
+    * follow-up, and the absolute band called it contiguous
+    quietly replace z = 0.5 + mod(id, 5) * 0.1
+    quietly replace t0 = t0 * 1e-10
+    quietly replace t  = t * 1e-10
+    quietly replace t0 = t0 + 5e-10 if epi == 2
+    quietly replace t  = t  + 5e-10 if epi == 2
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    _fgadv_cap `"finegray z, compete(status) cause(1) nolog"' ///
+        "subject records have gaps or overlaps"
+    assert r(rc) == 198
+    assert r(saw) == 1
+
+    * ...and a genuinely contiguous dataset on the same 1e-10 scale still fits
+    quietly replace t0 = cond(epi == 1, 0, 1) * 1e-10
+    quietly replace t  = cond(epi == 1, 1, 2) * 1e-10
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    quietly finegray z, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    assert !missing(e(N))
+    assert e(N) > 0
+    assert !missing(e(N_fail))
+    assert e(N_fail) > 0
+
+    * ...and a DAY-SCALE boundary pair built by two DIFFERENT arithmetic
+    * routes must FIT.  Real data reach the same instant along different
+    * expressions -- (d2 - o)/365.25 on one record, d2/365.25 - o/365.25 on
+    * the next -- and the two doubles differ in their last bits.  A band of a
+    * few units in the last place is a rule about rounding, not about
+    * follow-up, so the band is 1e-12 RELATIVE: it forgives this and still
+    * refuses a gap that is small only in absolute terms.
+    sort id epi
+    * The later boundary is the one built the LONG way, so the pair is a gap of
+    * a few units in the last place rather than an overlap: `stset' drops an
+    * overlapping record before finegray ever sees it, which would make the
+    * arm measure stset rather than the adjacency rule.
+    quietly replace t0 = cond(epi == 1, 0, 1095836/365.25 - 85/365.25)
+    quietly replace t  = cond(epi == 1, (1095836 - 85)/365.25, ///
+        (2191672 - 85)/365.25)
+    * the two routes really are different doubles, so the assertion below is a
+    * measurement and not a tautology
+    assert t[1] != t0[2]
+    assert t0[2] > t[1]
+    assert reldif(t[1], t0[2]) < 1e-13
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    quietly finegray z, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    assert e(N) > 0
+    assert e(N_fail) > 0
+
+    * a boundary pair a few hundred units in the last place apart -- inside
+    * 1e-12 relative, outside the eight-ulp band the rule used to carry --
+    * still fits at day scale
+    quietly replace t0 = t0 * (1 + 2e-14) if epi == 2
+    sort id epi
+    assert reldif(t[1], t0[2]) > 1e-15
+    assert reldif(t[1], t0[2]) < 1e-12
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    quietly finegray z, compete(status) cause(1) nolog
+    assert e(converged) == 1
+
+    * a 1e-8 gap at the same scale is 3e-12 relative and is still refused
+    quietly replace t0 = cond(epi == 1, 0, 1095836/365.25 - 85/365.25)
+    quietly replace t0 = t0 + 1e-8 if epi == 2
+    quietly stset t, failure(fail==1) id(id) time0(t0)
+    _fgadv_cap `"finegray z, compete(status) cause(1) nolog"' ///
+        "subject records have gaps or overlaps"
+    assert r(rc) == 198
+    assert r(saw) == 1
+}
+local _rc = _rc
+capture restore
+_fgadv_result `_rc' "C8 constancy exact and contiguity 1e-12 relative: refusals fire at 1e-10 scale, two arithmetic routes fit at day scale"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

@@ -35,6 +35,12 @@ if "`pkg_dir'" == "" {
 }
 local qa_dir "`pkg_dir'/qa"
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 cap ado uninstall eplot   // remove any installed copy so the local package is tested
 adopath ++ "`pkg_dir'"
 
@@ -1132,7 +1138,7 @@ capture graph drop _v2_t47
 display as text "EPLOT OPTION FEATURE TEST SUMMARY"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
-display "RESULT: test_options tests=47 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_options, tests(47) pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

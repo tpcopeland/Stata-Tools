@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.2.9** | 2026-08-30
+**Version 1.3.0** | 2026-09-02
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -51,7 +51,7 @@ net install eplot, from("/path/to/Stata-Tools/eplot") replace
 | `eplot esvar lcivar ucivar [if] [in], ...` | Data | Point estimates and confidence limits are variables in the active dataset |
 | `eplot [namelist], ...` | Estimates | Plot active estimates with `eplot .` or compare stored models |
 | `eplot, matrix(matname) ...` | Matrix | Results are assembled in a Stata matrix |
-| `eplot, frame(framename) ...` | Frame | A graph-ready result table is stored in a Stata frame |
+| `eplot [if] [in], frame(framename) ...` | Frame | A graph-ready result table is stored in a Stata frame |
 
 Mode detection checks explicit `matrix()` first, then `frame()`. With no namelist or with `.` it uses active estimation results; a call with three leading numeric variables selects data mode, and estimate names select estimates mode. Use an explicit selector when a variable name and stored estimate name could be confused.
 
@@ -178,7 +178,7 @@ Availability tags are `D` = data, `E` = estimates, `M` = matrix, and `F` = frame
 | `frame(framename)` | F | Selects a graph-ready frame |
 | `estimate(varname)`, `ll(varname)`, `ul(varname)` | F | Override frame variables; defaults are `estimate`, `ll`, and `ul` |
 | `labels(varname)` | D, F | String row labels; data mode defaults to `Row 1`, `Row 2`, and so on; frame mode auto-detects `label` |
-| `weights(varname)` | D, F | Numeric marker/box weights; frame mode auto-detects `weight`, then `weights` |
+| `weights(varname)` | D, F | Numeric marker/box weights; frame mode auto-detects `weight`, then `weights`. Unless `nobox` is specified, every plotted type-1 row must carry a nonmissing, positive weight |
 | `type(varname)` | D, F | Row-role variable; omitted rows are regular effects |
 | `rowtype(varname)` | F | Frame synonym for `type()`; auto-detected when present |
 | `pvalue(varname)` | D, F | Numeric p-values in [0, 1] for `stars` and `r(pvalues)`; frame mode auto-detects `pvalue` |
@@ -190,11 +190,11 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
-| `keep(coeflist)` | D, E, M, F | Keep only listed names; `*` and `?` wildcards are supported |
-| `drop(coeflist)` | D, E, M, F | Drop listed names; `*` and `?` wildcards are supported |
+| `keep(coeflist)` | D, E, M, F | Keep only listed names; `*` and `?` wildcards are supported; data/frame modes match the source `labels()` values, including structural rows |
+| `drop(coeflist)` | D, E, M, F | Drop listed names; `*` and `?` wildcards are supported; selection leaving no plottable effect row is an error |
 | `rename(spec)` | E | Rename matched estimates for display before labels/groups are applied |
 | `noconstant` | D, E, M, F | Add `_cons` to the drop list |
-| `coeflabels(spec)` | D, E, M, F | Replace matched coefficient/effect labels using well-formed mappings |
+| `coeflabels(spec)` | D, E, M, F | Replace matched coefficient/effect labels using well-formed mappings; applied after `keep()`, `drop()`, `order()`, `groups()`, and `headers()`, all of which key on the original names |
 | `groups(spec)` | D, E single, F | Insert bold group headers; every named effect must match |
 | `headers(spec)` / `headings(spec)` | D, E single, F | Insert a header before a matched effect; `headings()` is an alias |
 | `gap(#)` | D, E single, F | Nonmissing, nonnegative extra group spacing; default is `0` |
@@ -204,20 +204,20 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
-| `rescale(#)` | D, E, M, F | Multiply estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
+| `rescale(#)` | D, E, M, F | Nonmissing, nonzero multiplier for estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
 | `xline(numlist[, line_options])` | D, E, M, F | Add reference lines; bare positions use a light dashed style |
 | `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation |
-| `null(#)` | D, E, M, F | Null line position; default is `0`, or `1` with `eform` |
+| `null(#)` | D, E, M, F | Nonmissing null line position; default is `0`, or `1` with `eform` |
 | `nonull` | D, E, M, F | Suppress the null line |
 | `level(#)` | E, M | Confidence level for constructed intervals; default is current `c(level)`, normally 95 |
-| `noci` | D, E, M, F | Suppress confidence-interval whiskers |
+| `noci` | D, E, M, F | Suppress all interval geometry: whiskers are omitted and data/frame pooled rows are drawn as markers rather than diamonds |
 | `cicap` | D, E, M, F | Use capped `rcap` intervals instead of `rspike` |
 
 ### Display, significance, and meta-analysis
 
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
-| `dp(#)` | D, E, M, F | Decimal places for `values`; default is `2` |
+| `dp(#)` | D, E, M, F | Nonnegative decimal places for `values`; default is `2` |
 | `effect(string)` | D, E, M, F | Effect-axis title; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
 | `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%5.2f`, or a format based on `dp()` |
@@ -238,7 +238,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last; may not be combined with `sort` |
 | `modellabels(strlist)` | E multi | Exactly one legend label per model |
 | `offset(#)` | E multi | Nonmissing, nonnegative vertical model spacing; default is `0.15` |
-| `palette(colorlist)` | E multi | Exactly one color per model; default palette starts `navy cranberry forest_green dkorange purple teal maroon olive_teal` |
+| `palette(colorlist)` | E multi | Exactly one color per model; the default palette `navy cranberry forest_green dkorange purple teal maroon olive_teal` cycles for a ninth model onward |
 | `legendopts(string)` | E multi | Additional legend options; default is `rows(1) pos(6) size(small)` |
 
 ### Markers and graph options
@@ -248,7 +248,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `mcolor(color)` | D, E, M, F | Marker color; default is `navy` in single-model plots, while multi-model estimates use `palette()` colors |
 | `msymbol(symbol)` | D, E, M, F | Marker symbol; default is `O` |
 | `msize(size)` | D, E, M, F | Marker size; default is `medium`, or `medsmall` for multi-model estimates |
-| `boxscale(#)` | D, F | Weighted-box scaling; default is `100` percent |
+| `boxscale(#)` | D, F | Nonmissing, positive weighted-box scaling; default is `100` percent |
 | `nobox` | D, F | Replace weight-proportional squares with standard markers |
 | `nodiamonds` | D, F | Replace pooled-effect diamonds with standard markers |
 | `cicolor(color)` | D, E, M, F | CI line color; default follows `mcolor()` in single-model plots, while multi-model estimates use `palette()` colors |
@@ -277,14 +277,15 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 
 - Data and frame modes take confidence limits from supplied variables; `level()` is only for intervals constructed in estimates and matrix modes.
 - Supplied lower confidence limits may not exceed upper limits; prediction limits must be complete ordered pairs; two-column matrix standard errors must be nonnegative; and all required matrix cells must be nonmissing.
-- Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
+- Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and single-model estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
 - Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
-- `values` and `favors()` require horizontal layout; `values` is available only for a single estimates model.
+- `values` and `favors()` require horizontal layout; `values`, `stars`, `sigcolors`, `sigcolor()`, and `insigncolor()` are single-model-only in estimates mode, and a multi-model call that supplies them reports which options it ignored.
 - `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; multi-model-only options (`modellabels()`, `offset()`, `palette()`, and `legendopts()`) require multiple estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
-- In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette.
-- Style presets supply defaults only; explicitly supplied options take precedence.
+- In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette. The default palette cycles for a ninth model onward, so model *m* uses color `mod(m-1, 8) + 1`.
+- Style presets supply defaults only; explicitly supplied options take precedence, and a preset's `values` component applies only where `values` itself does.
+- `keep()`, `drop()`, `order()`, `groups()`, and `headers()` key on the original coefficient or `labels()` values in every mode; `coeflabels()` is applied last, so relabeling and grouping compose.
 
 ## References
 
@@ -298,6 +299,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.3.0** (2026-09-02): Applied `keep()`, `drop()`, and `noconstant` in data and frame modes, where they had been parsed and discarded; made `coeflabels()` compose with `order()`, `groups()`, and `headers()` by keying selection, ordering, and grouping on source names in every mode; made `noci` suppress pooled-diamond geometry; made the default multi-model palette cycle instead of falling back to navy from model nine; reported rather than silently discarding single-model-only presentation options in multi-model estimates; validated `dp()`, `rescale()`, `null()`, `boxscale()`, and weighted-marker weights up front; and documented `matrix()`, frame-mode `if`/`in`, the palette cycle, and the mode scope of significance colors.
 - **1.2.9** (2026-08-30): Corrected t-based finite-df inference, duplicate-label multi-model returns, prediction-interval transformations and validation, matrix missing-value and `star` handling, exact heterogeneity text, long-label returns, mapping/cardinality validation, native `xline()` errors, and parser state restoration; expanded numerical and negative-path QA.
 - **1.2.8** (2026-08-11): Preserved multi-equation coefficient identities and empty estimation state, corrected multi-model `r(k)`, named-model `eform` labels, and negative rescaling, and added explicit validation for intervals, row types, p-values, conflicting options, covariance matrices, and `favors()` labels.
 - **1.2.7** (2026-08-09): Preserved analytical return values when optional graph saves fail, corrected estimates-mode p-value sizing, and expanded release QA with runnable documentation examples and machine-reconcilable negative-path checks.

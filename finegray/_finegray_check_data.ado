@@ -202,8 +202,15 @@ program define _finegray_check_data
                     continue
                 }
 
+                * EXACT.  `_want' repeats the same product the fit built the
+                * column from, on the same rows, so the two agree bit for bit
+                * when nothing has been modified; an absolute 1e-9 band let a
+                * small-scale tampering (or a design column rescaled by 1e-10)
+                * pass as unmodified.  The missing-pattern clause still carries
+                * the missing-vs-nonmissing case, which `!=' alone would report
+                * for one direction and not the other.
                 quietly count if e(sample) & ///
-                    (abs(`_col' - `_want') > 1e-9 | ///
+                    (`_col' != `_want' | ///
                      missing(`_col') != missing(`_want'))
                 local _ndiff = r(N)
                 drop `_want'

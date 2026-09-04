@@ -64,6 +64,50 @@ program define _finegray_weight_var, rclass
             exit 459
         }
 
+        * The total is not the weights.  A compensated change of an unsignable
+        * input -- [pw = cond(odd == 0, k, 4 - k)] after `scalar k = 2' -- leaves
+        * e(sum_w) exactly where it was and moves every per-observation weight,
+        * and the sum check above passes it at rc 0.  e(wsig) is a
+        * value-sensitive, order-invariant digest of the fit's own weight
+        * column, so it moves for that change and does NOT move for a plain
+        * re-sort of a variable weight.
+        * DEGRADATION, stated so nobody reads a silent pass as a check: when
+        * e(wsig) is absent -- estimates saved by a build before the digest
+        * existed, or an e() assembled by `mi estimate' -- the reconciliation
+        * above is by TOTAL only, and a compensated change of an unsignable
+        * weight input passes at rc 0.  Re-fit to get the per-observation check.
+        if `"`e(wsig)'"' != "" {
+            * Keyed by the fit's own id() variable (e(idvar)), so exchanging
+            * two subjects' weights is caught; without it the digest sees only
+            * the multiset of weight values.
+            local _wsigid `"`e(idvar)'"'
+            if `"`_wsigid'"' != "" {
+                * The digest the fit stored is KEYED by this variable.  Blanking
+                * the key when the variable is gone rebuilds a value-only digest
+                * and compares it against a subject-keyed one: a guaranteed
+                * mismatch, reported as "a scalar has changed since the fit",
+                * which is the wrong diagnosis and sends the user looking in the
+                * wrong place.  Refuse over the missing key by name instead.
+                capture confirm variable `_wsigid'
+                if _rc {
+                    display as error "the id variable `_wsigid' used by the fit is not in the data"
+                    display as error "postestimation weight reconciliation needs it: the fit's weight"
+                    display as error "digest is keyed by subject, so it cannot be rebuilt without it"
+                    display as error "restore the variable, or re-run {bf:finegray} before this post-estimation command"
+                    exit 459
+                }
+            }
+            mata: _finegray_wsig("`_chk'", "`_es'", "`_wsigid'")
+            if `"`_fg_wsig'"' != `"`e(wsig)'"' | `_fg_wsig_n' != e(wsig_n) {
+                display as error "the weights rebuilt from e(wexp) do not reproduce the fit's weights"
+                display as error "the per-observation weights differ from the fit's although their total matches"
+                display as error "something the weight expression reads -- a scalar, an e() or c() value,"
+                display as error "a subscript such as w[1] -- has changed since the fit in a way that leaves"
+                display as error "e(sum_w) unmoved; re-run {bf:finegray} before this post-estimation command"
+                exit 459
+            }
+        }
+
         quietly generate double `wname' `e(wexp)' if `touse'
         quietly count if `touse' & (missing(`wname') | `wname' <= 0)
         if r(N) > 0 {

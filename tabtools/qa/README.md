@@ -56,6 +56,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_deep_audit_output.do` | CI provenance, formatting boundaries, atomic exports, quotation, and output normalization. |
 | `test_desctab.do` | Direct descriptive-engine behavior, option semantics, returns, styles, sinks, and cleanup. |
 | `test_effecttab.do` | Supported result sources, matrix mode, frames, formatting, and console returns. |
+| `test_effecttab_omitted.do` | Constrained margins labelling: not-estimable and unidentified cells, factor row labels, `omitlabel()`/`emptylabel()`, and `r(table)` exclusion. |
 | `test_hrcomptab.do` | Rate/model scaffold composition, frame/workbook parity, eplot output, dependency-failure cleanup, and guards. |
 | `test_issue_review_1_11_0.do` | Regression pins for factor rendering, merging, precision, labels, legends, and whitespace. |
 | `test_option_coverage.do` | Real-invocation exercise of each public command’s option surface. |
@@ -66,6 +67,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_package_release.do` | Metadata, manifest/install, help rendering and width, demos, and golden artifact digests. |
 | `test_puttab.do` | Dataset/frame/matrix sources, styling, Markdown, and dimensions. |
 | `test_regtab.do` | Model families, statistics, selection, display modes, frames, and p-value policies. |
+| `test_regtab_omitted.do` | Base, collinear, and empty coefficient labelling per model, including `omitlabel()`/`emptylabel()`, `r(table)`, and interaction cells. |
 | `test_review_2026_08_13.do` | Disclosure-reconstruction attacks and correlation-star regression contracts. |
 | `test_smallcells.do` | Small-cell parsing, masking, irredundancy, compositions, sink parity, and leak attacks. |
 | `test_stacktab.do` | Workbook block assembly, stacking, column merging, Markdown, and frame guards. |
@@ -123,8 +125,8 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `desctab` | `test_desctab` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage |
 | `crosstab` | `test_crosstab` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `corrtab` | `test_corrtab` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial |
-| `regtab` | `test_regtab` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
-| `effecttab` | `test_effecttab` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial |
+| `regtab` | `test_regtab`, `test_regtab_omitted` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
+| `effecttab` | `test_effecttab`, `test_effecttab_omitted` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial |
 | `survtab` | `test_survtab` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `stratetab` | `test_stratetab` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial |

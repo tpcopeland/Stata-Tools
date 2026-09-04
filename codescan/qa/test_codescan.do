@@ -34,6 +34,7 @@ local pkg_dir "`qa_dir'/.."
 * Idempotent, so the lane re-entering it is harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -489,8 +490,32 @@ else {
 local ++test_count
 capture noisily {
     _make_test_data
+    * rc=0 plus "the indicator exists" is what codescan does WITHOUT noisily,
+    * so it asserted nothing about the option. Capture the console and assert
+    * the promised per-condition progress line itself.
+    tempfile _noisy_stem
+    local _noisy_log "`_noisy_stem'.log"
+    capture erase "`_noisy_log'"
+    capture log close _cs_noisy
+    log using "`_noisy_log'", replace text name(_cs_noisy)
     codescan dx1-dx3, define(dm2 "E11") noisily
+    log close _cs_noisy
     confirm variable dm2
+
+    * 4 E11 codes across dx1 dx2 dx3 in the standard fixture.
+    local _noisy_found = 0
+    tempname _noisy_fh
+    file open `_noisy_fh' using "`_noisy_log'", read text
+    file read `_noisy_fh' _noisy_line
+    while r(eof) == 0 {
+        if strpos(`"`macval(_noisy_line)'"', "dm2: 4 matches across 3 variables") > 0 {
+            local _noisy_found = 1
+        }
+        file read `_noisy_fh' _noisy_line
+    }
+    file close `_noisy_fh'
+    capture erase "`_noisy_log'"
+    assert `_noisy_found' == 1
 }
 if _rc == 0 {
     display as result "  PASS: Noisily option"
@@ -889,6 +914,7 @@ else {
 * ============================================================
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

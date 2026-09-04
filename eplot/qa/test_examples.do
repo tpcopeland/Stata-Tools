@@ -14,6 +14,12 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
 capture log close _all
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 capture ado uninstall eplot
 capture noisily net install eplot, from("`pkg_dir'") replace
 if _rc exit _rc
@@ -233,10 +239,12 @@ else local failed_tests "`failed_tests' 14"
 capture graph drop _all
 
 capture estimates drop _all
-clear all
+* `clear' rather than `clear all': `clear all' drops programs, including the
+* shared sentinel helper this suite is about to call.
+clear
 
 local fail_count = `test_count' - `pass_count'
-display "RESULT: test_examples tests=14 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_examples, tests(`test_count') pass(`pass_count') fail(`fail_count') skip(0)
 if `pass_count' != `test_count' {
     display as error "Failed example cases:`failed_tests'"
     exit 1

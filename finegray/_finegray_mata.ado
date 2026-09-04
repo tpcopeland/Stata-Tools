@@ -4322,7 +4322,7 @@ void _finegray_engine(
     real scalar decrement, accepted, n_clust, rank_V, npos, weight_pooled
     real scalar K_bs, kb
     real colvector bslev_e
-    string scalar bs_noev
+    string scalar bs_noev, bs_noevx
     string rowvector vars, coefnames
     real colvector cuts, ivl, fixpos, tvcpos
     real scalar nint, ptot
@@ -4420,13 +4420,25 @@ void _finegray_engine(
     if (K_bs > 1) {
         bslev_e = uniqrows(bsraw)
         bs_noev = ""
+        bs_noevx = ""
         for (kb = 1; kb <= K_bs; kb++) {
             if (sum(((event_type :== cause) :& (delta :== 1)) :&
                 (bsraw :== bslev_e[kb])) == 0) {
-                bs_noev = bs_noev + " " + strofreal(bslev_e[kb])
+                /* Two serializations of the SAME levels.  The %18.0g form
+                   is what the user reads in e(bstrata_noevent); it still
+                   ROUNDS a noninteger stratum value, so a consumer that
+                   string-compares it against a level obtained any other way
+                   silently misses.  (strofreal's default %10.0g rendered
+                   0.1 and 0.1 + 5 ulp identically, which named the WRONG
+                   stratum in the message.)  The %21x form round-trips
+                   exactly through Stata's numeric parser and is what every
+                   internal consumer compares. */
+                bs_noev = bs_noev + " " + strofreal(bslev_e[kb], "%18.0g")
+                bs_noevx = bs_noevx + " " + strofreal(bslev_e[kb], "%21x")
             }
         }
         st_local("_fg_bs_noevent", strtrim(bs_noev))
+        st_local("_fg_bs_noeventx", strtrim(bs_noevx))
     }
 
     /* Compute censoring distribution.  UNWEIGHTED under pweights (Wogu et
@@ -5791,17 +5803,17 @@ void _finegray_cif_predict(
    matrix at O(K^2) cost.  Step lookup is binary-search O(ng*log K), not the
    former nested O(ng*K) scan. Returns an ng x 1 matrix. */
 void _finegray_boot_cif(string scalar zmat, string scalar gmat, string scalar omat,
-    real scalar seq, | real scalar lev)
+    string scalar key, | real scalar lev)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real rowvector zr
     real colvector beta, gg, cif, H0
     real scalar p, k, xb
 
     if (args() < 5) lev = .
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
         rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
         exit(error(459))
@@ -5830,17 +5842,17 @@ void _finegray_boot_cif_obs(
     string scalar touse,
     string scalar sumv,
     string scalar ssv,
-    real scalar seq,
+    string scalar key,
     | string scalar bsvar)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real matrix Z
     real colvector beta, tt, xb, cif, sumc, ssc, tousev, sel, H0, bsvals
 
     if (args() < 7) bsvar = ""
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
         rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
         exit(error(459))
@@ -5968,20 +5980,20 @@ void _finegray_boot_cif_tvc(
     string scalar zmat,
     string scalar gmat,
     string scalar omat,
-    real scalar seq,
+    string scalar key,
     string scalar tvc_str,
     string scalar tsplit_str,
     | real scalar lev)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real matrix eta, pieces
     real colvector beta, gg, cuts, fixpos, tvcpos
     real scalar nint
 
     if (args() < 7) lev = .
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
         rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
         exit(error(459))
@@ -6009,13 +6021,13 @@ void _finegray_boot_cif_obs_tvc(
     string scalar touse,
     string scalar sumv,
     string scalar ssv,
-    real scalar seq,
+    string scalar key,
     string scalar tvc_str,
     string scalar tsplit_str,
     | string scalar bsvar)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real matrix Z, eta, pieces
     real colvector beta, tt, cif, sumc, ssc, tousev, sel, bsvals
     real colvector cuts, fixpos, tvcpos
@@ -6023,7 +6035,7 @@ void _finegray_boot_cif_obs_tvc(
 
     if (args() < 9) bsvar = ""
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq |
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
         rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: bootstrap baseline cache does not belong to the refit\n")
         exit(error(459))
@@ -6171,46 +6183,168 @@ real matrix _finegray_bh_rebuild(
    so there is nothing to rebuild the baseline FROM -- and the old code only
    worked because it read a Stata matrix out of e(), which survives `drop _all'.
 
-   The cache is keyed by a per-fit sequence number, posted as e(bh_seq).  A stale
+   The cache is keyed by a per-fit STRING token, posted as e(bh_key).  A stale
    cache is the silent-wrong-answer failure mode here (predicting from the
-   PREVIOUS fit's baseline at rc 0), so a consumer must present the seq it expects
+   PREVIOUS fit's baseline at rc 0), so a consumer must present the key it expects
    and gets nothing back unless it matches.  `mata clear' / `discard' wipe the
    cache, which is safe: the consumer then falls back to rebuilding, or errors.
+
+   The key used to be an integer counter.  That counter lived in Mata, so
+   `mata clear' reset it: the first fit afterwards was handed key 1 again, and an
+   `estimates restore' of an EARLIER fit that also held key 1 then scored its
+   betas on the new fit's baseline at rc 0.  A token that cannot be re-minted
+   closes that: it carries a per-invocation salt (a Stata global counter, which
+   `mata clear' does not touch, plus the wall clock) and a digest of the fit
+   itself, so no two fits can present the same key and a cleared cache simply
+   has no key at all.
    ------------------------------------------------------------------------ */
 void _finegray_bh_store(real matrix bh)
 {
     external real matrix    _finegray_bh_cache
     external real scalar    _finegray_bh_seq
+    external string scalar  _finegray_bh_key
 
     if (_finegray_bh_seq == J(1,1,.) | _finegray_bh_seq >= .) _finegray_bh_seq = 0
     _finegray_bh_cache = bh
     _finegray_bh_seq   = _finegray_bh_seq + 1
+    /* The key is minted only AFTER `ereturn post', by _finegray_bh_setkey,
+       because the digest reads e().  Between the store and the mint the cache
+       is unclaimed and no consumer can match it. */
+    _finegray_bh_key = ""
     st_local("_fg_bh_seq", strofreal(_finegray_bh_seq, "%18.0g"))
 }
 
+/* Mint the token for the curve just stored, and hand it back for e(bh_key).
+   Called from finegray.ado AFTER `ereturn post', so e(b) and the fit scalars are
+   readable here.  The digest is built in MATA, not in a Stata macro: a
+   serialized e(b) overruns the 244-character macro limit long before a
+   moderately sized model does. */
+/* ---------------------------------------------------------------------------
+   Value-sensitive digest of the fit's design-weight column.
+
+   e(sum_w) alone reconciles only the TOTAL.  A weight expression built on an
+   unsignable input -- a scalar, [pw = cond(odd == 0, kk, 4 - kk)] -- can be
+   changed in a way that leaves the total invariant and every per-observation
+   weight different, and post-estimation then rebuilt a different column at
+   rc 0.  This digest sees the values.
+
+   ORDER-INVARIANT on purpose: the accumulator is a sum, so a plain re-sort of a
+   variable weight still reconciles (the weights suite asserts exactly that).
+   The sum is taken modulo 2^40 so that every partial sum stays exactly
+   representable -- an ordinary floating sum of n hashes stops being
+   order-invariant once it passes 2^53.
+
+   SUBJECT-KEYED.  Each row contributes hash1(id | w), not hash1(w), so the
+   digest is invariant to a re-sort but SENSITIVE to which subject carries
+   which weight: exchanging the weights of two subjects leaves the multiset of
+   weight values (and e(sum_w)) untouched and would otherwise reconcile at
+   rc 0.  `idvar' is the stset id() variable, which finegray requires; it is
+   read as a string when the id is a string variable.  Called without it the
+   digest degrades to the value-only form.
+   --------------------------------------------------------------------------- */
+void _finegray_wsig(string scalar wvar, string scalar tousevar,
+    | string scalar idvar)
+{
+    real colvector tv, sel, w
+    real scalar i, n, a1, a2, m, haveid
+    string colvector ids
+    string scalar h
+
+    if (args() < 3) idvar = ""
+    m = 1099511627776             /* 2^40 */
+    tv = st_data(., tousevar)
+    sel = selectindex(tv :!= 0)
+    n = length(sel)
+    a1 = 0
+    a2 = 0
+    haveid = (idvar != "")
+    if (n > 0) {
+        w = st_data(sel, wvar)
+        if (haveid) {
+            if (st_isnumvar(idvar)) {
+                ids = strofreal(st_data(sel, idvar), "%21x")
+            }
+            else {
+                ids = st_sdata(sel, idvar)
+            }
+        }
+        for (i = 1; i <= n; i++) {
+            h = strofreal(w[i], "%21x")
+            if (haveid) h = ids[i] + "|" + h
+            a1 = mod(a1 + hash1(h), m)
+            a2 = mod(a2 + hash1(strreverse(h)), m)
+        }
+    }
+    st_local("_fg_wsig", strofreal(a1, "%21x") + "|" + strofreal(a2, "%21x"))
+    st_local("_fg_wsig_n", strofreal(n, "%18.0g"))
+}
+
+/* strofreal() of an e() scalar that may not have been posted at all.
+   st_numscalar() answers 0 x 0 for a name that does not exist, and strofreal()
+   of a void matrix is a conformability error, not a missing value. */
+string scalar _finegray_bh_escal(string scalar nm)
+{
+    real matrix v
+
+    v = st_numscalar(nm)
+    if (length(v) != 1) return(".")
+    return(strofreal(v, "%21x"))
+}
+
+void _finegray_bh_setkey(string scalar salt)
+{
+    external string scalar _finegray_bh_key
+    real matrix b
+    real scalar j
+    string scalar content, tok
+
+    content = salt
+    b = st_matrix("e(b)")
+    for (j = 1; j <= cols(b); j++) content = content + "|" + strofreal(b[1, j], "%21x")
+    content = content + "|" + _finegray_bh_escal("e(N)")
+    content = content + "|" + _finegray_bh_escal("e(sum_w)")
+    content = content + "|" + _finegray_bh_escal("e(ll)")
+    content = content + "|" + _finegray_bh_escal("e(N_fail)")
+    content = content + "|" + st_global("e(datasignature)")
+    content = content + "|" + st_global("e(compete)")
+    content = content + "|" + st_global("e(cause)")
+    content = content + "|" + st_global("e(bstrata)")
+    content = content + "|" + st_global("e(tvc)")
+
+    /* Two hashes over the string and its reverse: one hash1() is a 32-bit
+       value (measured maximum 4,294,961,279), and the pair keeps the token
+       short enough for a Stata macro.  The mod-2^40 fold and the partial sums
+       in _finegray_wsig stay below 2^41 either way, so that arithmetic is
+       unaffected by the width. */
+    tok = strofreal(hash1(content), "%21x") + "|" +
+          strofreal(hash1(strreverse(content)), "%21x") + "|" + salt
+    _finegray_bh_key = tok
+    st_local("_fg_bh_key", tok)
+}
+
 /* Does the cache hold the curve for THIS fit?  Sets the caller's local to 1/0. */
-void _finegray_bh_have(real scalar seq, string scalar lname)
+void _finegray_bh_have(string scalar key, string scalar lname)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real scalar ok
 
     ok = 0
-    if (_finegray_bh_seq < . & _finegray_bh_seq == seq) {
+    if (_finegray_bh_key != "" & _finegray_bh_key == key) {
         if (rows(_finegray_bh_cache) > 0) ok = 1
     }
     st_local(lname, strofreal(ok))
 }
 
 /* Snapshot / restore the single-slot baseline cache around a side computation.
-   The cache holds ONE fit's curve, keyed by _finegray_bh_seq.  finegray_predict's
+   The cache holds ONE fit's curve, keyed by _finegray_bh_key.  finegray_predict's
    bootstrap refits each call finegray again -- every refit overwrites the cache
-   with its own baseline and bumps the seq -- so after the bootstrap the global
-   cache belongs to the LAST resample while the restored e(bh_seq) still names the
-   ORIGINAL fit.  A subsequent `predict, cif' on NEW data then finds a seq
+   with its own baseline and mints its own key -- so after the bootstrap the global
+   cache belongs to the LAST resample while the restored e(bh_key) still names the
+   ORIGINAL fit.  A subsequent `predict, cif' on NEW data then finds a key
    mismatch, tries to rebuild from an estimation sample the user has since
    dropped, and errors r(459).  Each bootstrap replication consumes its own
-   sequence-keyed cache entry before the next refit overwrites it.  Stashing the
+   key-matched cache entry before the next refit overwrites it.  Stashing the
    held fit's entry before the loop and restoring it afterward therefore leaves
    that fit resolvable without changing any replication result.  Copying the
    external is O(K); it does NOT build a Stata matrix (which would reintroduce
@@ -6219,17 +6353,24 @@ void _finegray_bh_stash()
 {
     external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
     external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
+    external string scalar _finegray_bh_key, _finegray_bh_key_stash
 
     _finegray_bh_cache_stash = _finegray_bh_cache
     _finegray_bh_seq_stash   = _finegray_bh_seq
+    /* The key travels WITH the matrix.  Restoring the curve without its token
+       leaves the held fit's e(bh_key) naming a cache that answers to the last
+       resample's token, which is r(459) on the next predict-on-new-data. */
+    _finegray_bh_key_stash   = _finegray_bh_key
 }
 void _finegray_bh_unstash()
 {
     external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
     external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
+    external string scalar _finegray_bh_key, _finegray_bh_key_stash
 
     _finegray_bh_cache = _finegray_bh_cache_stash
     _finegray_bh_seq   = _finegray_bh_seq_stash
+    _finegray_bh_key   = _finegray_bh_key_stash
 }
 
 /* Lambda_0 AT each tsplit() boundary, posted as a 1 x (nint-1) Stata matrix.
@@ -6280,7 +6421,7 @@ void _finegray_bh_cutvals(
 /* Step lookup against the cached curve.  Refuses a mismatched seq rather than
    answering from another fit's baseline. */
 void _finegray_step_lookup_cached(
-    real scalar seq,
+    string scalar key,
     string scalar tvar,
     string scalar H0var,
     string scalar tousevar,
@@ -6289,14 +6430,15 @@ void _finegray_step_lookup_cached(
     string scalar cutmat)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real colvector touse_vec, sel, times, H0, bsvals
 
     if (args() < 5) bsvar = ""
     if (args() < 6) tsplit_str = ""
     if (args() < 7) cutmat = ""
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
+        rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: cached baseline does not belong to the active fit\n")
         exit(error(459))
     }
@@ -6312,18 +6454,19 @@ void _finegray_step_lookup_cached(
 }
 
 /* The thinned grid, taken from the cached curve (finegray_cif's curve mode). */
-void _finegray_bh_grid_cached(real scalar seq, real scalar maxpts,
+void _finegray_bh_grid_cached(string scalar key, real scalar maxpts,
     string scalar outmat, | real scalar lev)
 {
     external real matrix _finegray_bh_cache
-    external real scalar _finegray_bh_seq
+    external string scalar _finegray_bh_key
     real colvector idx
     real matrix bh
     real scalar nbh, step, r, last
 
     if (args() < 4) lev = .
 
-    if (_finegray_bh_seq >= . | _finegray_bh_seq != seq) {
+    if (_finegray_bh_key == "" | _finegray_bh_key != key |
+        rows(_finegray_bh_cache) == 0) {
         errprintf("finegray: cached baseline does not belong to the active fit\n")
         exit(error(459))
     }

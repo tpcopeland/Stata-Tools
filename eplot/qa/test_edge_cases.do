@@ -27,6 +27,12 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 adopath ++ "`pkg_dir'"
 
 * Reload to pick up latest changes
@@ -83,17 +89,45 @@ else {
 capture graph drop _v202_t1
 
 * Test 2: nodiamonds + noci — pooled effects get markers only
+* Both the nodiamonds default branch AND the plain noci branch are asserted
+* here: pairing noci with nodiamonds bypasses the default pooled-diamond
+* path, which is where interval geometry used to survive noci.
 local ++test_count
 capture noisily {
     clear
     input str20 study double(es lci uci) byte type
     "Study A"      -0.30  -0.60   0.00   1
+    "Subgroup"     -0.28  -0.44  -0.11   3
     "Overall"      -0.22  -0.36  -0.08   5
     end
 
     eplot es lci uci, labels(study) type(type) nodiamonds noci ///
         name(_v202_t2, replace)
-    assert r(N) == 2
+    assert r(N) == 3
+    local c2 `"`r(cmd)'"'
+    assert strpos(`"`c2'"', "rspike") == 0
+    assert strpos(`"`c2'"', "rcap") == 0
+    assert strpos(`"`c2'"', "pcspike") == 0
+
+    * noci WITHOUT nodiamonds: pooled rows must lose their diamonds too,
+    * because the diamond encodes lci/uci in its width.
+    eplot es lci uci, labels(study) type(type) noci ///
+        name(_v202_t2b, replace)
+    assert r(N) == 3
+    local c2b `"`r(cmd)'"'
+    assert strpos(`"`c2b'"', "rspike") == 0
+    assert strpos(`"`c2b'"', "rcap") == 0
+    assert strpos(`"`c2b'"', "pcspike") == 0
+    assert strpos(`"`c2b'"', "Diamonds represent") == 0
+    * Pooled rows still get a point marker.
+    assert strpos(`"`c2b'"', "inlist(") > 0 | strpos(`"`c2b'"', "scatter") > 0
+
+    * Control: without noci the default DOES draw pooled diamonds, so the
+    * assertions above are not vacuously true.
+    eplot es lci uci, labels(study) type(type) name(_v202_t2c, replace)
+    local c2c `"`r(cmd)'"'
+    assert strpos(`"`c2c'"', "pcspike") > 0
+    assert strpos(`"`c2c'"', "Diamonds represent") > 0
 }
 if _rc == 0 {
     display as result "  PASS: Test 2 - nodiamonds + noci"
@@ -105,6 +139,8 @@ else {
     local failed_tests "`failed_tests' 2"
 }
 capture graph drop _v202_t2
+capture graph drop _v202_t2b
+capture graph drop _v202_t2c
 
 * Test 3: nodiamonds + cicap — pooled effects get capped CIs
 local ++test_count
@@ -493,7 +529,7 @@ capture estimates drop _t18_m1 _t18_m2 _t18_m3
 display as text "EPLOT EDGE CASE REGRESSION TEST SUMMARY"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
-display "RESULT: test_edge_cases tests=18 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_edge_cases, tests(`test_count') pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

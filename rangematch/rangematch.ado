@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.4  2026/08/28
+*! rangematch Version 1.5.5  2026/09/02
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -190,7 +190,19 @@ program define _rangematch_build_output_names, sclass
         * collided. Length is deliberately NOT judged here: whether the
         * 32-character cap is breached depends on the variable being decorated,
         * which is a per-variable question answered below.
-        local _rm_affix_probe "`prefix'x`suffix'"
+        * `word count' sees an INTERNAL space, and `confirm name' silently
+        * ignores the leading and trailing whitespace an unquoted macro
+        * reference strips. prefix(" p") therefore passed both screens and
+        * built `px' -- the affix the user typed is not the affix that was
+        * applied. Compare against the trimmed form so edge whitespace is
+        * rejected on the same terms as internal whitespace.
+        local _rm_affix_probe `"`prefix'x`suffix'"'
+        local _rm_affix_trim = strtrim(`"`_rm_affix_probe'"')
+        if `"`_rm_affix_probe'"' != `"`_rm_affix_trim'"' {
+            display as error ///
+                "prefix() and suffix() may not contain spaces"
+            exit 198
+        }
         local _rm_affix_words : word count `_rm_affix_probe'
         if `_rm_affix_words' != 1 {
             display as error ///
@@ -883,10 +895,11 @@ program define rangematch, rclass
     local _rm_return_ready = 0
     local _rm_output_succeeded = 0
     local _rm_touse_owned = 0
+    local _rm_keep_out = 0
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.4"
+    local _rm_required_mata_version "1.5.5"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1769,6 +1782,46 @@ program define rangematch, rclass
         }
     }
 
+    * -------------------------------------------------------------------
+    * Scalar-offset overflow. `key'+`low' and `key'+`high' are ordinary
+    * double arithmetic: two FINITE inputs whose sum leaves the finite double
+    * range evaluate to missing, and a missing derived bound is precisely the
+    * open-ended token both backends normalize to mindouble()/maxdouble().
+    * The join then emits pairs the requested interval never contained, at
+    * rc=0, with r(N_missing_bounds)==0 because no bound VARIABLE was missing
+    * -- the diagnostic is defined as a bound-variable count and cannot see a
+    * derived bound. A bound that cannot be represented must abort rather than
+    * silently widen to an open interval. Rows whose key is already missing are
+    * excluded: those carry the never-match sentinel set just above.
+    * -------------------------------------------------------------------
+    if `uses_key_offsets' {
+        local _rm_ovf_low = 0
+        local _rm_ovf_high = 0
+        if `low_uses_key' {
+            quietly count if `touse' & `key' < . & `_rm_low' >= .
+            local _rm_ovf_low = r(N)
+        }
+        if `high_uses_key' {
+            quietly count if `touse' & `key' < . & `_rm_high' >= .
+            local _rm_ovf_high = r(N)
+        }
+        if `_rm_ovf_low' > 0 | `_rm_ovf_high' > 0 {
+            if `_rm_ovf_low' > 0 {
+                display as error ///
+                    "`_rm_ovf_low' master row(s): {bf:`key'} + (`low') is outside the double range"
+            }
+            if `_rm_ovf_high' > 0 {
+                display as error ///
+                    "`_rm_ovf_high' master row(s): {bf:`key'} + (`high') is outside the double range"
+            }
+            display as error ///
+                "the derived interval overflowed to missing, which would be read as open-ended"
+            display as error ///
+                "rescale {bf:`key'}, shrink the offset, or supply bound variables"
+            exit 459
+        }
+    }
+
     frame __rm_using {
         quietly gen long `_rm_uobs' = _n
     }
@@ -1973,9 +2026,23 @@ program define rangematch, rclass
 
     * Generate signed using-key minus master-key distance when requested.
     if "`distance'" != "" {
+        local _rm_dist_overflow = 0
         mata: _rm_generate_distance("__rm_out", "`_rm_caller_frame'", ///
             "__rm_using", "`_rm_mi'", "`_rm_ui'", "`key'", "`key'", ///
             "`distance'")
+        * A matched row whose signed distance overflows the double range
+        * stores as missing, which is exactly the value the help reserves for
+        * an UNMATCHED row. Shipping it would make "no match" and "matched, but
+        * the gap is unrepresentable" the same cell.
+        if `_rm_dist_overflow' > 0 {
+            display as error ///
+                "`_rm_dist_overflow' matched row(s) have a using-minus-master distance outside the double range"
+            display as error ///
+                "{bf:distance(`distance')} reserves missing for unmatched rows, so the gap cannot be reported"
+            display as error ///
+                "rescale {bf:`key'} or drop {bf:distance()}"
+            exit 459
+        }
     }
 
     * Generate match indicator
@@ -1985,8 +2052,13 @@ program define rangematch, rclass
             forvalues _rm_label_i = 0/999 {
                 if `_rm_label_i' == 0 local _rm_label_candidate "__rm_merge"
                 else local _rm_label_candidate "__rm_merge`_rm_label_i'"
-                capture label list `_rm_label_candidate'
-                if _rc {
+                * `label list' fails for a name that is ATTACHED to a
+                * variable but never defined, so it reports a dangling name as
+                * free; defining the merge map there would hand that variable
+                * the "master only"/"matched" meanings at rc=0.
+                mata: st_local("_rm_label_taken", ///
+                    strofreal(_rm_vl_taken(st_local("_rm_label_candidate"))))
+                if !`_rm_label_taken' {
                     local _rm_merge_label "`_rm_label_candidate'"
                     continue, break
                 }
@@ -2044,50 +2116,47 @@ program define rangematch, rclass
         frame change `_rm_caller_frame'
     }
     else {
-        restore, not
-        frame change __rm_out
-        capture frame drop `_rm_caller_frame'
-        if _rc {
-            frame change `_rm_caller_frame'
-
-            frame __rm_out: quietly describe, varlist short
-            local outvars `r(varlist)'
-            frame __rm_out: local outN = _N
-
-            clear
-            local _rm_touse_owned = 0
-            quietly set obs `outN'
-            if `"`_rm_data_label'"' != "" {
-                label data `"`_rm_data_label'"'
+        * The caller frame is replaced by the output frame. `restore, not' has
+        * to come first, because the preserve snapshot belongs to the frame
+        * about to be dropped -- and it cancels the only recovery this program
+        * holds. Everything from there to the committed swap therefore runs
+        * under `nobreak': a user Break landing inside that window would leave
+        * the caller with neither its data nor a snapshot to restore it from.
+        nobreak {
+            restore, not
+            frame change __rm_out
+            capture frame drop `_rm_caller_frame'
+            if _rc {
+                * The caller frame could not be dropped (something still holds
+                * it), so its contents must be replaced in place. Stage the
+                * finished output on disk FIRST: the destructive window is then
+                * a single `use', and a failure inside it leaves frame
+                * __rm_out holding the complete output instead of stranding the
+                * caller half-rebuilt. `save'/`use' also round-trips storage
+                * types, formats, labels, value-label definitions,
+                * characteristics, and the data label exactly, which a
+                * variable-by-variable reconstruction does not.
+                tempfile _rm_stage
+                frame __rm_out: quietly save `"`_rm_stage'"'
+                frame change `_rm_caller_frame'
+                local _rm_touse_owned = 0
+                capture noisily use `"`_rm_stage'"', clear
+                if _rc {
+                    local _rm_stage_rc = _rc
+                    local _rm_keep_out = 1
+                    display as error ///
+                        "could not replace the data in frame `_rm_caller_frame'"
+                    display as error ///
+                        "the completed output is intact in frame {bf:__rm_out}"
+                    display as error ///
+                        "copy what you need, then {bf:frame drop __rm_out}: a later run refuses to start while it exists"
+                    exit `_rm_stage_rc'
+                }
             }
-
-            * Create variables with correct types
-            foreach v of local outvars {
-                frame __rm_out {
-                    local vtype : type `v'
-                    local vfmt  : format `v'
-                    local vlbl  : variable label `v'
-                    local vvallbl : value label `v'
-                }
-                if substr("`vtype'", 1, 3) == "str" {
-                    quietly gen `vtype' `v' = ""
-                }
-                else {
-                    quietly gen `vtype' `v' = .
-                }
-                format `v' `vfmt'
-                if `"`vlbl'"' != "" {
-                    label variable `v' `"`vlbl'"'
-                }
-                * Value-label definitions were wiped by `clear' above;
-                * _rm_copy_output re-creates each definition and re-attaches it.
+            else {
+                frame rename __rm_out `_rm_caller_frame'
+                local _rm_touse_owned = 0
             }
-
-            mata: _rm_copy_output("__rm_out", tokens(st_local("outvars")))
-        }
-        else {
-            frame rename __rm_out `_rm_caller_frame'
-            local _rm_touse_owned = 0
         }
     }
 
@@ -2160,6 +2229,11 @@ program define rangematch, rclass
     local _rm_frame_change_rc = _rc
     if `_rm_frames_owned' {
         foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
+            * `_rm_keep_out' is set only when in-place replacement failed after
+            * the caller's snapshot was discarded. __rm_out is then the only
+            * surviving copy of the output; dropping it here would complete the
+            * data loss the failure path exists to prevent.
+            if "`_rm_frame'" == "__rm_out" & `_rm_keep_out' continue
             capture frame drop `_rm_frame'
             local _rm_cleanup_rc = _rc
         }

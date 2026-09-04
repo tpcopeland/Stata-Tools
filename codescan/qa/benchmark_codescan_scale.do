@@ -36,6 +36,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 * harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 discard
 
 * 20 ICD-10-ish prefixes spread across chapters
@@ -86,3 +87,6 @@ foreach n in 100000 1000000 {
 
 display as result "BENCHMARK COMPLETE"
 log close _all
+
+* Leave this session's adopath as the benchmark found it.
+_codescan_qa_restore "`_qa_owner'"

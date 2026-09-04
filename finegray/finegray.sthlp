@@ -93,7 +93,14 @@ records when its intervals are contiguous and the model covariates,
 {opt strata()}, {opt truncstrata()}, {opt bstrata()}, {opt cluster()}, and
 weight variables are constant
 within {cmd:id()} (e.g. delayed-entry or {helpb stsplit} data); such records are
-reduced automatically to one risk-set unit. Left-truncated data are supported.
+reduced automatically to one risk-set unit. Left-truncated data are
+supported. Constancy is judged exactly -- any difference at all in a field
+documented as constant within {cmd:id()} is refused with {cmd:r(198)} -- while
+contiguity is judged relatively: two adjacent records are contiguous when
+|{cmd:_t0} - previous {cmd:_t}| is at most 1e-12 times the larger of the two
+boundaries in absolute value (exactly 0 when both are 0), so the same rule
+applies whatever the time scale and boundaries built by two different
+arithmetic routes are not refused over rounding.
 {p_end}
 
 {pstd}
@@ -268,6 +275,15 @@ sandwich by {it:N}/({it:N}-1), or by {it:g}/({it:g}-1) when
 {opt cluster()} is specified, matching {helpb stcrreg}. {opt noadjust} is
 not allowed with {opt norobust}, which has no such adjustment.
 
+{pmore}
+The factor applies to the {bf:coefficient} variance {cmd:e(V)} only. The
+analytic cumulative-incidence variance reported by {helpb finegray_cif} and by
+{cmd:finegray_predict, cif ci} is the asymptotic influence-function sandwich
+and carries no finite-sample factor, so {opt noadjust} changes {cmd:e(V)} and
+the coefficient standard errors while leaving every cumulative-incidence
+standard error exactly as it was. {cmd:e(vce_adjust)} reports which convention
+is in force: {cmd:finite_sample} or {cmd:none}.
+
 {phang}
 {opt norobust} reports model-based standard errors from the observed
 information matrix instead of the default sandwich. These are
@@ -399,7 +415,9 @@ cause of interest. The derivations and design rationale are in
 {bf:Factor variables and interactions:} {cmd:finegray} supports the full Stata
 factor-variable syntax. Design columns are created with the prefix {cmd:_fg_}
 and persist for {helpb finegray_predict}. Re-running {cmd:finegray} drops only
-the columns its own prior run recorded. Coefficient names follow the user's
+the columns its own prior run created and still owns: each is stamped with a
+per-run marker, so a column you dropped and rebuilt yourself under the same
+name is preserved and the fit is {cmd:r(198)} instead. Coefficient names follow the user's
 specification ({cmd:2.grp}), so {helpb test}, {helpb lincom} and
 {helpb estimates table} address them directly; each factor's base level is
 posted with a zero coefficient for {helpb margins}. {cmd:ibn.} as a main effect
@@ -414,12 +432,14 @@ is {cmd:r(459)}; inside an interaction it is estimable. See
 
 {phang2}
 {bf:1. Factor-variable design columns} {cmd:_fg_}{it:term}, one per expanded
-term. A pre-existing {cmd:_fg_}{it:term} not created by finegray is
-{cmd:r(198)}.
+term. A pre-existing {cmd:_fg_}{it:term} not created by this package's previous
+run is never deleted: it is preserved and the fit is {cmd:r(198)}.
 
 {phang2}
 {bf:2. An entry-time column} {cmd:_fg_entry}, created only when multiple records
-per subject are reduced. Required by post-estimation.
+per subject are reduced. Required by post-estimation. Held to the same
+ownership rule: a {cmd:_fg_entry} finegray did not create is preserved and the
+fit is {cmd:r(198)}.
 
 {phang2}
 {bf:3. Dataset characteristics} recording the fit for post-estimation use.
@@ -479,7 +499,10 @@ the {opt bstrata()} variable for all strata at once.
 
 {pstd}
 A stratum with no cause event is noted and recorded in
-{cmd:e(bstrata_noevent)}; its CIF is refused. With one level,
+{cmd:e(bstrata_noevent)}, and in {cmd:e(bstrata_noevent_x)} as
+hexadecimal doubles ({cmd:%21x}) that Stata's numeric parser reads back
+exactly -- the readable form rounds a noninteger stratum value, so compare
+against the {cmd:%21x} form. Its CIF is refused. With one level,
 {opt bstrata()} is the unstratified estimator, bit for bit. See
 {help finegray_methods##bstrata:Baseline strata}.
 
@@ -599,7 +622,12 @@ the data and bootstrap the expanded fit. See
 {bf:A weight declared in {cmd:stset} is not inherited.} Fitting on weighted
 {cmd:stset} data with no command-line weight is {cmd:r(198)}. The weight
 expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
-reconciles the total against {cmd:e(sum_w)}.
+reconciles the rebuilt column against {cmd:e(sum_w)} and against
+{cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by the
+{cmd:stset} {opt id()} variable ({cmd:e(idvar)}), so a change that leaves the
+total untouched -- including an exchange of two subjects' weights -- is
+refused too. Estimates saved before this build carry no {cmd:e(wsig)} and
+reconcile by total only.
 
 
 {marker examples}{...}
@@ -817,6 +845,7 @@ Two-interval time-varying effect comparison
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of subjects (replicated under {cmd:fweight}s){p_end}
 {synopt:{cmd:e(sum_w)}}sum of weights (only with weights){p_end}
+{synopt:{cmd:e(wsig_n)}}rows behind {cmd:e(wsig)} (only with weights){p_end}
 {synopt:{cmd:e(N_fail)}}subjects with a cause-of-interest event{p_end}
 {synopt:{cmd:e(N_compete)}}subjects with a competing event{p_end}
 {synopt:{cmd:e(N_cens)}}censored subjects{p_end}
@@ -855,6 +884,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
 {synopt:{cmd:e(designvars)}}design columns, one per estimated coefficient{p_end}
 {synopt:{cmd:e(entryvar)}}entry-time column; only on multiple-record data{p_end}
+{synopt:{cmd:e(idvar)}}the {cmd:stset} {opt id()} variable{p_end}
 {synopt:{cmd:e(mi_data)}}{cmd:1} if fitted on {cmd:mi} data; empty otherwise{p_end}
 {synopt:{cmd:e(postest)}}{cmd:unavailable_mi} on such a fit; empty otherwise{p_end}
 {synopt:{cmd:e(fvvarlist)}}typed factor-variable specification; with factors{p_end}
@@ -863,6 +893,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(truncstrata)}}entry strata variables; only with {opt truncstrata()}{p_end}
 {synopt:{cmd:e(bstrata)}}baseline strata variable; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(bstrata_noevent)}}strata with no cause event; only with {opt bstrata()}{p_end}
+{synopt:{cmd:e(bstrata_noevent_x)}}the same strata in {cmd:%21x}; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(tvc)}}variables named in {opt tvc()}; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tsplit)}}interior interval boundaries; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tvc_covariates)}}design columns they resolved to; only with {opt tvc()}{p_end}
@@ -870,13 +901,16 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(tsplit_nfail)}}cause events per interval; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(lt_weight)}}weight computed; see {help finegray##lt:Left truncation}{p_end}
 {synopt:{cmd:e(lt_vce)}}variance computed under delayed entry{p_end}
-{synopt:{cmd:e(bh_seq)}}internal key to the cached baseline{p_end}
+{synopt:{cmd:e(bh_seq)}}serial number of the cached baseline curve{p_end}
+{synopt:{cmd:e(bh_key)}}internal key to the cached baseline{p_end}
 {synopt:{cmd:e(weight_warn_strata)}}joint-group codes flagged; only when one fired{p_end}
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
+{synopt:{cmd:e(wsig)}}weight-column digest; only with weights{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
+{synopt:{cmd:e(vce_adjust)}}finite-sample factor on {cmd:e(V)}: {cmd:finite_sample} or {cmd:none}{p_end}
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
 {synopt:{cmd:e(marginsok)}}{cmd:xb}; empty in the cases below{p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}

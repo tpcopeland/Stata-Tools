@@ -17,11 +17,17 @@ local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
 
 * Remove any installed copy and put the local eplot first on the adopath
-cap ado uninstall eplot
-adopath ++ "`pkg_dir'"
-
 set varabbrev off
 clear all
+
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.  This must follow `clear all',
+* which drops the shared helper programs.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
+adopath ++ "`pkg_dir'"
 
 local failures 0
 local eplot_tests 0
@@ -140,5 +146,5 @@ else {
     display as error "`failures' TESTS FAILED out of `total_run'"
 }
 
-display "RESULT: test_graph_options tests=3 pass=`passed' fail=`failures' skip=0"
+_eplot_qa_result test_graph_options, tests(3) pass(`passed') fail(`failures') skip(0)
 exit `failures'

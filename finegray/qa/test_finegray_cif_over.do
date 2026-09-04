@@ -23,6 +23,14 @@
 *   OV-09  a failed saving() still posts the full r() surface (side rc)
 *   OV-10  over(<design column>) on a FACTOR fit: the varied column is left
 *          off the shared `at:' line and moves across r(at) rows
+*   OV-11  high-precision over(): adjacent-double levels reach at() exactly,
+*          and r(levels_mat) round-trips where the printed r(levels) cannot
+*   OV-12  noninteger bstrata() with a no-event stratum: the right level is
+*          omitted from the overlay and no flat-zero curve is drawn
+*   OV-13  the same fit under bootstrap(): the replication-skip test still
+*          matches strata by value, not by printed spelling
+*
+* Helper programs: _ov_block, _ov_hypoxia, _ov_precdata, _ov_bsprecdata
 
 clear all
 set varabbrev off
@@ -57,6 +65,59 @@ program define _ov_hypoxia
     webuse hypoxia, clear
     gen byte status = failtype
     quietly stset dftime, failure(dfcens==1) id(stnum)
+end
+
+* Two levels of a model covariate that are ADJACENT doubles (about 5 ulp
+* apart) plus one full-mantissa level from runiform().  `levelsof, clean'
+* renders the first two to spellings that do not parse back to the values
+* they came from, so any consumer driven from that macro evaluates the wrong
+* profile at rc 0.
+capture program drop _ov_precdata
+program define _ov_precdata
+    version 16.0
+    clear
+    set seed 20260902
+    quietly set obs 900
+    gen long id = _n
+    tempname x3
+    scalar `x3' = 0.5 + 0.4 * runiform()
+    gen double x = 0.1
+    quietly replace x = 0.1 + 3 * epsdouble() * 0.1 if mod(_n, 3) == 1
+    quietly replace x = `x3'                        if mod(_n, 3) == 2
+    gen double t1 = -ln(runiform()) / (0.25 * exp(1.2 * x))
+    gen double t2 = -ln(runiform()) / 0.15
+    gen double tc = 12 * runiform()
+    gen double time = min(t1, t2, tc)
+    gen byte status = cond(time == t1, 1, cond(time == t2, 2, 0))
+    gen byte anyev = status > 0
+    quietly stset time, failure(anyev==1) id(id)
+end
+
+* A bstrata() variable whose three levels are 0.1, 0.1 + 5 ulp and 0.7, with
+* the ADJACENT-double level carrying no cause event.  strofreal's default
+* %10.0g renders that level and 0.1 identically, so a display-string
+* subtraction drops the wrong stratum from the overlay and draws a flat zero
+* for the degenerate one.
+capture program drop _ov_bsprecdata
+program define _ov_bsprecdata
+    version 16.0
+    clear
+    set seed 20260903
+    quietly set obs 1200
+    gen long id = _n
+    gen double g = 0.1
+    quietly replace g = 0.1 + 3 * epsdouble() * 0.1 if mod(_n, 3) == 1
+    quietly replace g = 0.7                         if mod(_n, 3) == 2
+    gen double x = rnormal()
+    gen double t1 = -ln(runiform()) / (0.25 * exp(0.6 * x))
+    gen double t2 = -ln(runiform()) / 0.15
+    gen double tc = 12 * runiform()
+    gen double time = min(t1, t2, tc)
+    gen byte status = cond(time == t1, 1, cond(time == t2, 2, 0))
+    * the adjacent-double stratum carries no cause event
+    quietly replace status = 2 if status == 1 & mod(_n, 3) == 1
+    gen byte anyev = status > 0
+    quietly stset time, failure(anyev==1) id(id)
 end
 
 **# OV-01: direct covariate, table mode
@@ -448,6 +509,156 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "  FAIL: OV-10 over(design column) on a factor fit (rc=`=_rc')"
+}
+
+**# OV-11: high-precision over() -- adjacent doubles reach at() exactly
+local ++test_count
+capture noisily {
+    _ov_precdata
+    tempname x1s
+    scalar `x1s' = 0.1 + 3 * epsdouble() * 0.1
+    quietly summarize x, meanonly
+    tempname x3s
+    scalar `x3s' = r(max)
+    quietly finegray x, compete(status) cause(1)
+    quietly finegray_cif, over(x) attime(1 3 6) ci nograph
+    matrix T11 = r(table)
+    matrix L11 = r(levels_mat)
+    * exactly three curves, in ascending order of the MACHINE values
+    assert rowsof(L11) == 3 & colsof(L11) == 1
+    assert L11[1,1] == 0.1
+    assert L11[2,1] == `x1s'
+    assert L11[3,1] == `x3s'
+    * the printed list cannot do this: level 2 rounds away
+    local pl : word 2 of `r(levels)'
+    assert `pl' != `x1s'
+    * the r(table) `over' column carries the machine value, not real() of the
+    * printed spelling
+    forvalues r = 4/6 {
+        assert T11[`r', 6] == `x1s'
+    }
+    * curve 2 equals the standalone call at the SAME double, bit for bit
+    local hx1 : display %21x `x1s'
+    local hx1 = strtrim("`hx1'")
+    quietly finegray_cif, at(x=`hx1') attime(1 3 6) ci nograph
+    matrix S11 = r(table)
+    _ov_block T11 4 3 S11
+    assert r(d) == 0 & r(rows_ok)
+    * curve 1 likewise, and the two curves are NOT the same numbers (the
+    * identity above is not vacuous because the profiles differ)
+    quietly finegray_cif, at(x=0.1) attime(1 3 6) ci nograph
+    matrix S11a = r(table)
+    _ov_block T11 1 3 S11a
+    assert r(d) == 0 & r(rows_ok)
+    local hx3 : display %21x `x3s'
+    local hx3 = strtrim("`hx3'")
+    quietly finegray_cif, at(x=`hx3') attime(1 3 6) ci nograph
+    matrix S11c = r(table)
+    _ov_block T11 7 3 S11c
+    assert r(d) == 0 & r(rows_ok)
+    assert mreldif(S11a, S11c) > 1e-6
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: OV-11 high-precision over() transports levels exactly"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: OV-11 high-precision over() transports levels exactly (rc=`=_rc')"
+}
+
+**# OV-12: noninteger bstrata() with an adjacent-double no-event stratum
+local ++test_count
+capture noisily {
+    _ov_bsprecdata
+    tempname g1s
+    scalar `g1s' = 0.1 + 3 * epsdouble() * 0.1
+    quietly finegray x, compete(status) cause(1) bstrata(g)
+    * the no-event stratum is named exactly, and readably enough to tell it
+    * apart from 0.1
+    local hg1 : display %21x `g1s'
+    local hg1 = strtrim("`hg1'")
+    assert "`e(bstrata_noevent_x)'" == "`hg1'"
+    assert "`e(bstrata_noevent)'" != ".1"
+    quietly finegray_cif, over(g) attime(1 3 6) ci nograph
+    matrix T12 = r(table)
+    matrix L12 = r(levels_mat)
+    * two curves, and they are the two strata that DID carry cause events
+    assert rowsof(L12) == 2
+    assert L12[1,1] == 0.1
+    assert L12[2,1] == 0.7
+    assert L12[1,1] != `g1s' & L12[2,1] != `g1s'
+    assert rowsof(T12) == 6
+    * no flat-zero curve: every reported CIF is strictly positive
+    forvalues r = 1/6 {
+        assert !missing(T12[`r', 2])
+        assert T12[`r', 2] > 0
+    }
+    * each block equals its standalone bstratum() call
+    quietly finegray_cif, bstratum(0.1) attime(1 3 6) ci nograph
+    matrix S12a = r(table)
+    _ov_block T12 1 3 S12a
+    assert r(d) == 0 & r(rows_ok)
+    quietly finegray_cif, bstratum(0.7) attime(1 3 6) ci nograph
+    matrix S12b = r(table)
+    _ov_block T12 4 3 S12b
+    assert r(d) == 0 & r(rows_ok)
+    * ...and the degenerate stratum is still refused by name
+    capture finegray_cif, bstratum(`hg1') attime(1) nograph
+    assert _rc == 459
+    * 0.1 is NOT refused, even though the old readable macro spelled the
+    * no-event stratum ".1" as well
+    capture finegray_cif, bstratum(0.1) attime(1) nograph
+    assert _rc == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: OV-12 noninteger bstrata no-event stratum omitted by value"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: OV-12 noninteger bstrata no-event stratum omitted by value (rc=`=_rc')"
+}
+
+**# OV-13: the same fit under bootstrap(), replication-skip logic included
+local ++test_count
+capture noisily {
+    _ov_bsprecdata
+    quietly finegray x, compete(status) cause(1) bstrata(g)
+    quietly finegray_cif, over(g) attime(1 3 6) ci bootstrap(25) seed(20260904) nograph
+    matrix T13 = r(table)
+    matrix L13 = r(levels_mat)
+    assert rowsof(L13) == 2
+    assert L13[1,1] == 0.1 & L13[2,1] == 0.7
+    assert "`r(se_method)'" == "bootstrap"
+    * the replication-skip test matched strata by value: most replications
+    * contributed, rather than every one being skipped or every one aborting
+    assert !missing(r(bootstrap_success))
+    assert r(bootstrap_success) >= 20
+    assert r(bootstrap_requested) == 25
+    forvalues r = 1/6 {
+        assert !missing(T13[`r', 3])
+        assert T13[`r', 3] > 0
+    }
+    * predict's own replication-skip path reads the same macro.  The
+    * degenerate stratum's rows are excluded: predict refuses them by design.
+    capture noisily finegray_predict cifse if g == 0.1 | g == 0.7, ///
+        cif timevar(time) ci bootstrap(25) seed(20260905)
+    assert _rc == 0
+    quietly count if !missing(cifse)
+    assert !missing(r(N))
+    assert r(N) > 0
+    * the degenerate stratum is still refused when its rows are included
+    capture finegray_predict cifbad, cif timevar(time)
+    assert _rc == 459
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: OV-13 bootstrap over(bstrata) with noninteger levels"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: OV-13 bootstrap over(bstrata) with noninteger levels (rc=`=_rc')"
 }
 
 **# Summary

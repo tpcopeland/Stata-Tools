@@ -23,7 +23,7 @@
 *      estimation sample, types a fresh covariate profile, and predicts.  There
 *      is then nothing to rebuild FROM, and the old code only survived because it
 *      read a Stata matrix out of e(), which outlives `drop _all'.
-*      The cache is keyed by e(bh_seq) and refuses a mismatch, so a curve from a
+*      The cache is keyed by e(bh_key) and refuses a mismatch, so a curve from a
 *      PREVIOUS fit can never answer for this one.
 *   3. Rebuild it in Mata from the estimation data.  Exact, not approximate: it
 *      re-runs the fit's own _finegray_basehazard.  Only possible while the
@@ -81,14 +81,14 @@ program define _finegray_resolve_baseline
         }
         else {
             * 2. the Mata cache, but only if it belongs to THIS fit
-            local _seq `"`e(bh_seq)'"'
+            local _key `"`e(bh_key)'"'
             local _have = 0
-            if "`_seq'" != "" {
-                mata: _finegray_bh_have(`_seq', "_have")
+            if `"`_key'"' != "" {
+                mata: _finegray_bh_have("`_key'", "_have")
             }
 
             if `_have' {
-                mata: _finegray_step_lookup_cached(`_seq', "`tvar'", "`h0'", ///
+                mata: _finegray_step_lookup_cached("`_key'", "`tvar'", "`h0'", ///
                     "`touse'", "`bsvar'", "`tsplit'", "`cutmat'")
             }
             else {
@@ -112,7 +112,7 @@ program define _finegray_resolve_baseline
 
                 * ONLY this branch reads the estimation data, so this is the only
                 * branch that has to verify them.  Path 1 reads a posted matrix
-                * and path 2 a Mata cache keyed to e(bh_seq); both are immune to
+                * and path 2 a Mata cache keyed to e(bh_key); both are immune to
                 * what the data now hold, and `predict, cif' on NEW data (the
                 * documented FG-B04 workflow) travels path 2 -- calling this any
                 * higher up would break it.

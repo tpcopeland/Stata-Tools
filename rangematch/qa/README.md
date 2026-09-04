@@ -12,12 +12,27 @@ generated at runtime with temporary files; generated logs are ignored.
 cd rangematch/qa
 stata-mp -b do run_all.do
 stata-mp -b do run_all.do quick
+stata-mp -b do test_rangematch_v155.do
 ```
 
 `full` is the default release gate and adds all validation and cross-validation
 suites to the functional tests. `quick` runs the functional and release-surface suites only.
 The runner uses an explicit suite list rather than auto-discovery and exits
-nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
+nonzero if any suite fails.
+
+Any single suite is runnable on its own, as the third line shows, **in batch**.
+Batch is the supported form because the bootstrap redirects `PLUS` and
+`PERSONAL` into a `c(tmpdir)` sandbox for the whole session and only
+`run_all.do` calls `_rm_qa_teardown` afterwards; when the batch process exits,
+the redirection dies with it. Running a suite directly inside an *interactive*
+session leaves those two trees pointed at the sandbox, which the OS later
+deletes — the user's own `rangematch` then stops resolving. Restore them by
+hand in that case:
+
+```stata
+quietly do "_rangematch_qa_common.do"
+_rm_qa_teardown
+```
 
 ## Conventions
 
@@ -27,10 +42,12 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 - `crossval_*.do` files compare exact row-level pair mappings against independent
   R implementations on public examples and study datasets.
 - **Every** suite emits exactly one terminal
-  `RESULT: <file-stem> tests=N pass=N fail=N` sentinel. `run_all.do` requires the
-  exact suite name, `N>0`, `pass+fail=N`, and `fail=0`; duplicate, malformed,
-  wrong-name, and nested suite sentinels are rejected. rc=0 alone cannot tell a
-  suite that finished from one whose log was truncated or died partway.
+  `RESULT: <file-stem> tests=N pass=N fail=N` sentinel, optionally followed by
+  ` skip=N` when the suite declares skipped cells. `run_all.do` requires the
+  exact suite name, `N>0`, `pass+fail+skip=N`, and `fail=0`; duplicate,
+  malformed, wrong-name, and nested suite sentinels are rejected. rc=0 alone
+  cannot tell a suite that finished from one whose log was truncated or died
+  partway.
 - `run_all.do` sandboxes `PLUS` and `PERSONAL` under `c(tmpdir)` via
   `_rangematch_qa_common.do`, installs once, and restores both trees on setup
   failure, suite failure, scanner failure, and normal completion. No suite may
@@ -144,6 +161,7 @@ nonzero if any suite fails. Every `.do` file is runnable directly from `qa/`.
 | `test_rangematch_v132.do` | v1.3.2 deterministic overlap ordering and lower-bound maxpairs messaging |
 | `test_rangematch_v133.do` | v1.3.3 maxpairs, session-state, naming, label, and return-gate regressions |
 | `test_rangematch_v154.do` | v1.5.4 default `(master observation, using observation)` output-order contract across sweep, binary, and overlap backends |
+| `test_rangematch_v155.do` | v1.5.5 rc=0 corruption regressions: scalar-offset arithmetic leaving the double range, dangling value-label collisions in both directions, unrepresentable `distance()`, whitespace-padded affixes, and the missing/stale Mata-helper handshake |
 | `test_rangematch_regress_options_output.do` | Option and output-contract regressions: `keepusing()` pre-validation, date/datetime format preservation, stats-gated density results, `tolerance()` boundaries, output order |
 | `test_rangematch_regress_performance.do` | Performance-path regressions |
 | `test_rangematch_regress_backend_selection.do` | Backend selection: automatic sweep for monotone joins, binary fallback for nonmonotone intervals |

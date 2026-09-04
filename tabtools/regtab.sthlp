@@ -43,6 +43,7 @@ for treatment effects and margins tables.
 {opt csv(string)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)}
 {opt eplotf:rame(name[, replace])} {opt keep(varlist)}
 {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
+{opt omitl:abel(string)} {opt emptyl:abel(string)}
 {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
 {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
 
@@ -102,6 +103,8 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt dimnon:sig}}gray out non-significant rows (see Remarks){p_end}
 {synopt:{opt factorl:abel}}render labels for factor-variable levels{p_end}
 {synopt:{opt ref:cat(string)}}label for reference-category rows{p_end}
+{synopt:{opt omitl:abel(string)}}label for coefficients the model dropped{p_end}
+{synopt:{opt emptyl:abel(string)}}label for cells identifying no observations{p_end}
 {synopt:{opt cutl:abels(string)}}relabel ordered-model cutpoints{p_end}
 {synopt:{opt comp:act}}combine estimate and CI per model{p_end}
 {synopt:{opt nop:value}}suppress p-value columns{p_end}
@@ -237,6 +240,16 @@ models{p_end}
 {opt ref:cat(string)} label for reference-category rows. Default {cmd:"Reference"}{p_end}
 
 {phang}
+{opt omitl:abel(string)} label for a coefficient the model dropped, which Stata
+reports as {cmd:(omitted)} -- most often a level or term dropped for
+collinearity. Default {cmd:"Omitted"}{p_end}
+
+{phang}
+{opt emptyl:abel(string)} label for a factor cell that identifies no
+observations in the estimation sample, which Stata reports as {cmd:(empty)}.
+Default {cmd:"Empty"}{p_end}
+
+{phang}
 {opt relab:el} relabel random effects using variable labels and parameter types (see Remarks){p_end}
 
 {phang}
@@ -341,12 +354,31 @@ multiple rows with a backslash, e.g.,
 45); labels longer than the cap wrap onto extra lines rather than being
 clipped by the adjacent estimate cell.{p_end}
 {p 4 8 2}- {opt dimnonsig}: dims rows whose every displayed fixed-effect CI
-includes the null (1 for ratio scales, 0 for coefficients); reference rows are
-always dimmed and category headers dim unless a level is significant.{p_end}
+includes the null (1 for ratio scales, 0 for coefficients); reference, omitted,
+and empty rows are always dimmed and category headers dim unless a level is
+significant.{p_end}
 
 {pstd}Notes on output shaping{p_end}
-{p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the
-adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
+{p 4 8 2}- Constrained rows: a base category, a term dropped for collinearity,
+and a factor cell identifying no observations all reach the table as a 0 (a 1
+after {cmd:eform}) with an empty CI and an empty p-value. {cmd:regtab} tells
+them apart from the constraint class the collection records for each
+coefficient and substitutes {it:Reference}, {it:Omitted}, or {it:Empty} in the
+estimate column, spanning that model's CI and p-value cells. The class is read
+per model, so a level one model dropped keeps its estimate in the models that
+retained it. Change the words with {opt refcat()}, {opt omitlabel()}, and
+{opt emptylabel()}; the three must differ. Where the collection carries no
+class -- a workbook read back through {opt xlsx()}, or a layout whose row keys
+do not resolve to coefficient names -- {cmd:regtab} falls back to labelling any
+constrained factor level {it:Reference}.{p_end}
+{p 4 8 2}- Equations with nothing estimated: in a multi-equation model such as
+{cmd:mlogit}, the base-outcome equation constrains every one of its
+coefficients. It carries no information and is dropped whole, so its levels
+cannot be misread as reference categories of the equations that were
+estimated.{p_end}
+{p 4 8 2}- Interaction rows: an interaction term heads a single parent row for
+all of its level combinations, named for the interacted variables
+({cmd:grp#sex}).{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()},
 {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar
 commands use the same {opt digits()} precision as the main coefficient

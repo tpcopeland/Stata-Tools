@@ -141,10 +141,23 @@ program define _finegray_display
 
     * Which variance is in e(V).  nuisance and norobust change the inference and
     * nothing else in the printed output said so.
+    *
+    * The `oim' test comes first, which is truthful only because
+    * `nuisance' + `norobust' is refused r(198) at fit time (finegray.ado,
+    * "nuisance is not allowed with norobust"): there is no fit whose
+    * e(vce) is oim and whose e(vce_meat) is nuisance_adjusted, so the order
+    * cannot hide a nuisance-adjusted variance behind the model-based label.
+    * If that refusal is ever relaxed, this branch order must be revisited.
     local _vmeat `"`e(vce_meat)'"'
     local _vtxt ""
     if `"`e(vce)'"' == "oim"                   local _vtxt "model-based (inverse information)"
-    else if `"`_vmeat'"' == "nuisance_adjusted" local _vtxt "nuisance-adjusted sandwich"
+    else if `"`_vmeat'"' == "nuisance_adjusted" {
+        * cluster() and nuisance are independent: the meat is nuisance-adjusted
+        * AND summed within cluster, so naming only one of them understated the
+        * inference actually in e(V).
+        if `"`e(vce)'"' == "cluster" local _vtxt "cluster-robust, nuisance-adjusted sandwich"
+        else                         local _vtxt "nuisance-adjusted sandwich"
+    }
     else if `"`e(vce)'"' == "cluster"           local _vtxt "cluster-robust sandwich"
     else if `"`e(vce)'"' == "robust"            local _vtxt "robust sandwich (fixed weights)"
     if `"`_vtxt'"' != "" {

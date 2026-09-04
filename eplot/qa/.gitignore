@@ -1,4 +1,9 @@
 # QA build artifacts — never track
 *.log
 *.smcl
+*.dta
+*.xlsx
+*.png
+*.gph
 output/
+.eplot_qa_sentinel_*.txt

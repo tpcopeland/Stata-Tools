@@ -23,6 +23,7 @@ local pkg_dir "`qa_dir'/.."
 * installs this working copy. Idempotent, so the lane re-entering it is harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 local _qa_level0 = c(level)
@@ -1455,6 +1456,7 @@ else {
 **# Summary
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "validation_codescan_extended" `test_count' `pass_count' `fail_count'
 display as result "RESULT: validation_codescan_extended tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"

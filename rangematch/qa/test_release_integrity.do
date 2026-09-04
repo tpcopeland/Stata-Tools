@@ -320,7 +320,7 @@ else {
 **# README option and stored-result surface
 local ++test_count
 local path "`pkg_dir'/README.md"
-foreach needle in "ties(all|first|last|random)" "seed(#)" ///
+foreach needle in "ties(all|first|last|random)" "seed(#|statecode)" ///
     "N_using_missing" "N_using_inverted" "r(overlap)" "r(seed)" ///
     "Pair-generation backend selected" {
     mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))

@@ -15,6 +15,12 @@ version 16.0
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 adopath ++ "`pkg_dir'"
 
 capture program drop eplot
@@ -197,7 +203,7 @@ capture frame drop _ep_frame_override
 capture frame drop _ep_frame_bad
 
 display _newline "Frame tests completed: `pass_count'/`test_count' passed"
-display "RESULT: test_eplot_frame tests=4 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_eplot_frame, tests(4) pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 9
