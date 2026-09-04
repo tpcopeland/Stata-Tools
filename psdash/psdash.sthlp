@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.9  30aug2026}{...}
+{* *! version 1.7.0  03sep2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -511,7 +511,11 @@ after {cmd:iivw_weight}. Allowed values are {cmd:treatment} (the default
 IPTW component, e.g. {cmd:_iivw_tw}), {cmd:final} (the final analysis weight,
 e.g. {cmd:_iivw_weight}), and {cmd:visit} (the visit-intensity component,
 e.g. {cmd:_iivw_iw}). The visit component is descriptive only; overlap and
-support diagnostics remain treatment-propensity diagnostics.
+support diagnostics remain treatment-propensity diagnostics. The component is
+resolved only from iivw metadata that {cmd:psdash}'s producer check has
+verified, and {opt iivwcomponent()} may not be combined with {opt wvar()}:
+two options that both name the weight variable is an error, not a precedence
+question.
 
 {phang}
 {opt graph} displays a weight distribution histogram.

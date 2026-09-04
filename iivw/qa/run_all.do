@@ -107,6 +107,7 @@ local quick_suites ///
     test_iivw_stale_state ///
     test_iivw_ownership ///
     test_iivw_sample_contract ///
+    test_iivw_nullcase ///
     test_iivw_phase2_contract ///
     test_iivw_inference_contract ///
     test_iivw_v341_regressions ///
@@ -139,6 +140,7 @@ local core_suites ///
     test_iivw_stale_state ///
     test_iivw_ownership ///
     test_iivw_sample_contract ///
+    test_iivw_nullcase ///
     test_iivw_phase2_contract ///
     test_iivw_inference_contract ///
     test_iivw_invariance ///

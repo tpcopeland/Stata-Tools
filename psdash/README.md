@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.6.9** | 2026-08-30
+**Version 1.7.0** | 2026-09-03
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -393,6 +393,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.7.0** (3 Sep 2026): Fail-closed resolve contract for `iivwcomponent()`. `psdash weights` now refuses a call that supplies both `wvar()` and `iivwcomponent()` instead of silently letting the component selection overwrite the explicit weight variable, and it no longer falls back to the raw `_dta[_iivw_*]` characteristics when `_psdash_detect` has not verified the iivw producer contract, so unsigned or stale metadata can no longer select the weight a diagnostic reports on. New internal helper `_psdash_require_meta`.
 - **v1.6.9** (30 Aug 2026): Review remediation. The dispatcher and detector restore `varabbrev` on every successful path, `support, compare` rejects calls without binary trimming, quoted overlap/support titles round-trip through Excel exports, export helpers clean up workbook resources, and stored-result tables render within Viewer width limits.
 - **v1.6.8** (11 Aug 2026): Compact overlap legend correction. Multi-group compact overlap box plots, including the PS Overlap panel in combined dashboards, now place treatment-group legend entries on one row by default.
 - **v1.6.7** (11 Aug 2026): Detailed multi-group graph correction. Standalone overlap and support graphs now place three GPS components in one filled row, use component-specific data ranges instead of extending every axis to an irrelevant positivity floor, align histogram bins within each component, and render clean titles without literal compound-quote markup.

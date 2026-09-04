@@ -623,6 +623,13 @@ matter and is refused outright: a row with no exposure has no place in a
 contrast between exposure levels, and this option does not admit it.
 
 {phang2}
+The option accepts {it:some} unweighted rows, never all of them. If no
+observation receives a weight -- for example when the visit model and the
+treatment model have disjoint complete-case sets -- {cmd:iivw_weight} exits
+with an error instead of committing an all-missing weight variable and its
+signed contract: zero complete cases is not a complete-case analysis.
+
+{phang2}
 When the option is used, the loss is reported and
 returned: {cmd:r(n_missing_weight)}, {cmd:r(n_ids_missing_weight)}, and -- when
 {opt treat()} is present -- {cmd:r(n_lost_treated)},

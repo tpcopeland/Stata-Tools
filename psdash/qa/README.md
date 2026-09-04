@@ -53,6 +53,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_detect_dispatch_adversarial.do` | Installed autoload, detection contexts, and dispatcher routing. |
 | `test_excel_fidelity.do` | Workbook schema, numeric cells, sheets, and presentation checks. |
 | `test_iivw_contract.do` | Genuine, stale, tampered, and explicit-override iivw contracts. |
+| `test_psdash_nullcase.do` | Degenerate-artifact (fail-open) contracts for `psdash weights`: `wvar()` combined with `iivwcomponent()` is refused instead of silently letting the component selection win, unsigned `_dta[_iivw_*]` characteristics cannot select the component, an explicit `wvar()` alone is still honoured, and the `_psdash_require_meta` helper contract. |
 | `test_msm_tte_contract.do` | MSM/TTE contract rejection and manual override behavior. |
 | `test_multigroup_balance_weights.do` | Multi-group balance and weight summaries. |
 | `test_multigroup_detect.do` | Multi-group input mapping and detection. |

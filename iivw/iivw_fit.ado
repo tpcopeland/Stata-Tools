@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.0.1  2026/08/30
+*! iivw_fit Version 4.1.0  2026/09/03
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -174,10 +174,12 @@ program define iivw_fit, eclass
         if "`panel_time'" != "" {
             confirm numeric variable `panel_time'
         }
-        if "`panel_id'" == "" {
+        * id()/time() unsupplied makes this an ambient request; both fall
+        * through to an explicit error 198 when the characteristics are empty too.
+        if "`panel_id'" == "" {  // stata-dev-ignore: ambient-fallback — id()/time() unsupplied is the ambient request; empty characteristics error 198 below
             local panel_id : char _dta[_iivw_id]
         }
-        if "`panel_time'" == "" {
+        if "`panel_time'" == "" {  // stata-dev-ignore: ambient-fallback — id()/time() unsupplied is the ambient request; empty characteristics error 198 below
             local panel_time : char _dta[_iivw_time]
         }
         if "`panel_id'" == "" {

@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.6.9  2026/08/30
+*! _psdash_ltmle_diagnostics Version 1.7.0  2026/09/03
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

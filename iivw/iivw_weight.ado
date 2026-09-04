@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.0.1  2026/08/30
+*! iivw_weight Version 4.1.0  2026/09/03
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2149,6 +2149,16 @@ program define iivw_weight, rclass sortpreserve
             display as text "  to declare that a complete-case analysis is what you intend."
             error 416
         }
+
+        * Commit contract (Critical Rule 15, audit IIVW-02). allowmissingweights
+        * declares that a COMPLETE-CASE analysis is intended. Zero complete cases
+        * is not a complete-case analysis: with disjoint nuisance-model
+        * complete-case sets the weight variable came out all missing, and
+        * iivw_weight still committed its signed _iivw_ contract and returned
+        * ordinary success, handing the next command a weighted analysis with no
+        * weighted observation.
+        _iivw_assert_cardinality `prefix'weight, ///
+            label("iivw_weight: allowmissingweights left no weighted observation")
 
         display as text ""
         display as text "note: `n_miss' of `N' observations have no weight (`n_miss_ids' subjects affected)"
