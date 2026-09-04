@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.7.0  2026/09/03
+*! _psdash_detect Version 1.7.1  2026/09/04
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -397,6 +397,18 @@ program define _psdash_detect, nclass
         exit 498
     }
 
+    * Persisted targetlearn contracts survive save/reload while e() does not.
+    * Refuse an ambiguous dataset rather than choosing one contract by order.
+    local _tmle_saved : char _dta[_tmle_estimated]
+    local _ltmle_saved : char _dta[_ltmle_estimated]
+    if `nargs' == 0 & "`psvars'" == "" & ///
+            "`_tmle_saved'" == "1" & "`_ltmle_saved'" == "1" & ///
+            !inlist("`e(cmd)'", "tmle", "ltmle", "ltmle_surv") {
+        display as error "multiple persisted targetlearn contracts are present"
+        display as error "  specify treatment and propensity-score variables explicitly"
+        exit 198
+    }
+
     * -----------------------------------------------------------------
     * Strategy 1b: Auto-detect from iivw dataset contract
     * -----------------------------------------------------------------
@@ -702,10 +714,15 @@ program define _psdash_detect, nclass
     * -----------------------------------------------------------------
     * Strategy 1c: Auto-detect from cross-sectional tmle contract state
     * -----------------------------------------------------------------
-    if "`e(cmd)'" == "tmle" {
+    local _tmle_active = ("`e(cmd)'" == "tmle")
+    if `_tmle_active' | (`nargs' == 0 & "`psvars'" == "" & ///
+            "`_tmle_saved'" == "1" & "`_ltmle_saved'" != "1") {
         * RB-07: verify the tmle estimation contract with tmle's own guard.
-        _psdash_verify_producer tmle : _tmle_get_context
-        local tmle_treatment "`e(treatment)'"
+        local _tmle_guard "_tmle_get_context, context(psdash)"
+        if !`_tmle_active' local _tmle_guard "_tmle_get_context, context(psdash) persisted"
+        _psdash_verify_producer tmle : `_tmle_guard'
+        local tmle_treatment ""
+        if `_tmle_active' local tmle_treatment "`e(treatment)'"
         if "`tmle_treatment'" == "" {
             local tmle_treatment : char _dta[_tmle_treatment]
         }
@@ -716,7 +733,8 @@ program define _psdash_detect, nclass
         confirm variable `tmle_treatment'
         confirm numeric variable `tmle_treatment'
 
-        local tmle_psvar "`e(ps_var)'"
+        local tmle_psvar ""
+        if `_tmle_active' local tmle_psvar "`e(ps_var)'"
         if "`tmle_psvar'" == "" {
             local tmle_psvar : char _dta[_tmle_ps_var]
         }
@@ -744,12 +762,13 @@ program define _psdash_detect, nclass
             c_local _psd_covariates "`covariates'"
         }
         else {
-            local tmle_covariates "`e(covariates)'"
+            local tmle_covariates ""
+            if `_tmle_active' local tmle_covariates "`e(covariates)'"
             if "`tmle_covariates'" == "" {
                 local tmle_covariates : char _dta[_tmle_covariates]
             }
             if "`tmle_covariates'" == "" {
-                local tmle_covariates "`e(tmodel)'"
+                if `_tmle_active' local tmle_covariates "`e(tmodel)'"
             }
             if "`tmle_covariates'" == "" {
                 local tmle_covariates : char _dta[_tmle_tmodel]
@@ -764,7 +783,7 @@ program define _psdash_detect, nclass
         * Ambient auto-detect strategy: e() and _dta[] are the same producer
         * contract, read only after the verifier signed off; empty fails closed below.
         if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
-            local tmle_estimand "`e(estimand)'"
+            if `_tmle_active' local tmle_estimand "`e(estimand)'"
             if "`tmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local tmle_estimand : char _dta[_tmle_estimand]
             }
@@ -772,11 +791,13 @@ program define _psdash_detect, nclass
         local tmle_estimand = strlower("`tmle_estimand'")
         if "`tmle_estimand'" == "" local tmle_estimand "ate"
 
-        local tmle_method "`e(method)'"
+        local tmle_method ""
+        if `_tmle_active' local tmle_method "`e(method)'"
         if "`tmle_method'" == "" {
             local tmle_method : char _dta[_tmle_method]
         }
-        local tmle_contract "`e(contract_version)'"
+        local tmle_contract ""
+        if `_tmle_active' local tmle_contract "`e(contract_version)'"
         if "`tmle_contract'" == "" {
             local tmle_contract : char _dta[_tmle_contract_version]
         }
@@ -820,7 +841,7 @@ program define _psdash_detect, nclass
         * Ambient auto-detect strategy: e() and _dta[] are the same producer
         * contract, read only after the verifier signed off; empty fails closed below.
         if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
-            local tmle_wvar "`e(weight_var)'"
+            if `_tmle_active' local tmle_wvar "`e(weight_var)'"
             if "`tmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local tmle_wvar : char _dta[_tmle_weight_var]
             }
@@ -888,9 +909,13 @@ program define _psdash_detect, nclass
     * -----------------------------------------------------------------
     * Strategy 1d: Auto-detect from longitudinal ltmle contract state
     * -----------------------------------------------------------------
-    if "`e(cmd)'" == "ltmle" {
+    local _ltmle_active = inlist("`e(cmd)'", "ltmle", "ltmle_surv")
+    if `_ltmle_active' | (`nargs' == 0 & "`psvars'" == "" & ///
+            "`_ltmle_saved'" == "1" & "`_tmle_saved'" != "1") {
         * RB-07: verify the ltmle estimation contract with ltmle's own guard.
-        _psdash_verify_producer ltmle : _ltmle_get_context
+        local _ltmle_guard "_ltmle_get_context"
+        if !`_ltmle_active' local _ltmle_guard "_ltmle_get_context, context(psdash) persisted"
+        _psdash_verify_producer ltmle : `_ltmle_guard'
         if "`allowlongitudinal'" == "" {
             display as error "last estimation command is longitudinal ltmle"
             display as error "  pooled psdash subcommands are not run automatically after ltmle"
@@ -899,7 +924,8 @@ program define _psdash_detect, nclass
             exit 198
         }
 
-        local ltmle_treatment "`e(treatment)'"
+        local ltmle_treatment ""
+        if `_ltmle_active' local ltmle_treatment "`e(treatment)'"
         if "`ltmle_treatment'" == "" {
             local ltmle_treatment : char _dta[_ltmle_treatment]
         }
@@ -910,7 +936,8 @@ program define _psdash_detect, nclass
         confirm variable `ltmle_treatment'
         confirm numeric variable `ltmle_treatment'
 
-        local ltmle_period "`e(period)'"
+        local ltmle_period ""
+        if `_ltmle_active' local ltmle_period "`e(period)'"
         if "`ltmle_period'" == "" {
             local ltmle_period : char _dta[_ltmle_period]
         }
@@ -921,7 +948,8 @@ program define _psdash_detect, nclass
         confirm variable `ltmle_period'
         confirm numeric variable `ltmle_period'
 
-        local ltmle_id "`e(id)'"
+        local ltmle_id ""
+        if `_ltmle_active' local ltmle_id "`e(id)'"
         if "`ltmle_id'" == "" {
             local ltmle_id : char _dta[_ltmle_id]
         }
@@ -929,7 +957,8 @@ program define _psdash_detect, nclass
             confirm variable `ltmle_id'
         }
 
-        local ltmle_psvar "`e(ps_var)'"
+        local ltmle_psvar ""
+        if `_ltmle_active' local ltmle_psvar "`e(ps_var)'"
         if "`ltmle_psvar'" == "" {
             local ltmle_psvar : char _dta[_ltmle_ps_var]
         }
@@ -942,7 +971,7 @@ program define _psdash_detect, nclass
         * Ambient auto-detect strategy: e() and _dta[] are the same producer
         * contract, read only after the verifier signed off; empty fails closed below.
         if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
-            local ltmle_wvar "`e(weight_var)'"
+            if `_ltmle_active' local ltmle_wvar "`e(weight_var)'"
             if "`ltmle_wvar'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local ltmle_wvar : char _dta[_ltmle_weight_var]
             }
@@ -964,8 +993,12 @@ program define _psdash_detect, nclass
             c_local _psd_covariates "`covariates'"
         }
         else {
-            local ltmle_covariates "`e(covariates)'"
-            local ltmle_baseline "`e(baseline)'"
+            local ltmle_covariates ""
+            local ltmle_baseline ""
+            if `_ltmle_active' {
+                local ltmle_covariates "`e(covariates)'"
+                local ltmle_baseline "`e(baseline)'"
+            }
             if "`ltmle_covariates'" == "" {
                 local ltmle_covariates : char _dta[_ltmle_tmodel]
             }
@@ -981,7 +1014,7 @@ program define _psdash_detect, nclass
         * Ambient auto-detect strategy: e() and _dta[] are the same producer
         * contract, read only after the verifier signed off; empty fails closed below.
         if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — ambient auto-detect strategy, no explicit source on this path; empty fails closed below
-            local ltmle_estimand "`e(estimand)'"
+            if `_ltmle_active' local ltmle_estimand "`e(estimand)'"
             if "`ltmle_estimand'" == "" {  // stata-dev-ignore: ambient-fallback — same ambient strategy as the guard above (e() and _dta[] are one verified producer contract)
                 local ltmle_estimand : char _dta[_ltmle_estimand]
             }
@@ -989,15 +1022,18 @@ program define _psdash_detect, nclass
         local ltmle_estimand = strlower("`ltmle_estimand'")
         if "`ltmle_estimand'" == "" local ltmle_estimand "ate"
 
-        local ltmle_regime "`e(regime)'"
+        local ltmle_regime ""
+        if `_ltmle_active' local ltmle_regime "`e(regime)'"
         if "`ltmle_regime'" == "" {
             local ltmle_regime : char _dta[_ltmle_regime]
         }
-        local ltmle_contract "`e(contract_version)'"
+        local ltmle_contract ""
+        if `_ltmle_active' local ltmle_contract "`e(contract_version)'"
         if "`ltmle_contract'" == "" {
             local ltmle_contract : char _dta[_ltmle_contract_version]
         }
-        local ltmle_method "`e(method)'"
+        local ltmle_method ""
+        if `_ltmle_active' local ltmle_method "`e(method)'"
         if "`ltmle_method'" == "" {
             local ltmle_method : char _dta[_ltmle_method]
         }

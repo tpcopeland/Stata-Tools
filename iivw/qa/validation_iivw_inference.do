@@ -679,6 +679,13 @@ program define _inf_engine, rclass
         return scalar gate_ok = 0
         exit 459
     }
+    if `N' != `sims' {
+        display as error "engine(`family'): `N' usable rows; `sims' required"
+        display as error "  a coverage gate may not discard failed outer replications"
+        display as error "  diagnose and rerun every failed replication before combining"
+        return scalar gate_ok = 0
+        exit 459
+    }
     quietly summarize sim
     local span = r(max) - r(min) + 1
     if `N' < `span' {
@@ -864,6 +871,8 @@ program define _inf_engine, rclass
     * separator: fixed over-covers (Wilson excludes 0.95 from above) OR SE ratio > 1
     local fixed_over = (`wf_lo' > 0.95)
     local se_sep     = (`se_ratio' - 2*`se_ratio_mcse' > 1)
+    local separator_gate = (`fixed_over' | `se_sep')
+    local combined_gate = (`refit_gate' & `separator_gate')
     display as text "  refit gate (Wilson contains 0.95 && >= floor) : " ///
         as result cond(`refit_gate', "PASS", "FAIL")
     display as text "  percentile gate                                  : " ///
@@ -875,14 +884,16 @@ program define _inf_engine, rclass
     display as text "  BCa gate                                         : " ///
         as result cond(`bca_gate', "PASS", "FAIL")
     display as text "  B02 separator (fixed over-covers OR SE ratio>1)      : " ///
-        as result cond(`fixed_over' | `se_sep', "shown", "not shown at this cell")
+        as result cond(`separator_gate', "shown", "NOT SHOWN -- GATE FAIL")
+    display as text "  combined acceptance (refit gate AND separator)      : " ///
+        as result cond(`combined_gate', "PASS", "FAIL")
 
-    return scalar gate_ok = `refit_gate'
+    return scalar gate_ok = `combined_gate'
     return scalar gate_pct = `pct_gate'
     return scalar gate_basic = `basic_gate'
     return scalar gate_bc = `bc_gate'
     return scalar gate_bca = `bca_gate'
-    return scalar sep_ok  = (`fixed_over' | `se_sep')
+    return scalar sep_ok  = `separator_gate'
     return scalar cov_refit = `cov_refit'
     return scalar cov_pct = `cov_pct'
     return scalar cov_basic = `cov_basic'
@@ -1049,7 +1060,8 @@ else if inlist("`MODE'", "combine_iiw", "combine_iptw", "combine_fiptiw") {
     * replications then look exactly like failed draws. Measured -- deleting
     * block 376-500 of 8 left min=1, max=1000 and produced a verdict over 875
     * replications reported as sims=1000. A missing block is a structural fault
-    * and must refuse; a failed draw is legitimate and is counted separately.
+    * and must refuse. A failed draw is also disqualifying: every planned outer
+    * replication must contribute before the gate can issue a verdict.
     tempname COV
     matrix `COV' = J(1, `SIMS', 0)
     local flen = strlen("`fam'") + 2

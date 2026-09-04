@@ -1,4 +1,4 @@
-*! psdash_support Version 1.7.0  2026/09/03
+*! psdash_support Version 1.7.1  2026/09/04
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -80,7 +80,7 @@ program define psdash_support, rclass
 
     * SYNTAX PARSING
     syntax [anything] [if] [in], ///
-        [COVariates(varlist numeric) ///
+        [COVariates(varlist numeric fv) ///
          CRUMP ///
          THReshold(real -1) ///
          QTRIM(real -1) ///
@@ -571,12 +571,30 @@ program define psdash_support, rclass
             local cmp_covs "`covariates'"
             if "`cmp_covs'" == "" local cmp_covs "`_psd_covariates'"
             if "`cmp_covs'" != "" {
-                capture _psdash_balance_binary `cmp_covs', treatment(`treatment') ///
+                * Construct the same exact FV design used by psdash balance.
+                * Mapping failures are public errors, not a reason to silently
+                * omit the promised comparison results.
+                _psdash_expand_fv `cmp_covs', touse(`touse')
+                local _cmp_keepidx "`r(keepidx)'"
+                local _cmp_nall = r(nall)
+                fvrevar `cmp_covs' if `touse'
+                local _cmp_allvars "`r(varlist)'"
+                local _cmp_nfv : word count `_cmp_allvars'
+                if `_cmp_nfv' != `_cmp_nall' {
+                    display as error "psdash: factor-variable comparison design could not be reconstructed exactly"
+                    exit 459
+                }
+                local _cmp_vars ""
+                foreach _p of local _cmp_keepidx {
+                    local _cmp_vars "`_cmp_vars' `: word `_p' of `_cmp_allvars''"
+                }
+                local _cmp_vars = strtrim("`_cmp_vars'")
+                _psdash_balance_binary `_cmp_vars', treatment(`treatment') ///
                     samplevar(`touse') threshold(0.1)
-                if _rc == 0 local cmp_smd_pre = r(max_smd_raw)
-                capture _psdash_balance_binary `cmp_covs', treatment(`treatment') ///
+                local cmp_smd_pre = r(max_smd_raw)
+                _psdash_balance_binary `_cmp_vars', treatment(`treatment') ///
                     samplevar(`_tt') threshold(0.1)
-                if _rc == 0 local cmp_smd_post = r(max_smd_raw)
+                local cmp_smd_post = r(max_smd_raw)
             }
 
             * Display comparison

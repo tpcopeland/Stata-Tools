@@ -40,6 +40,22 @@ quietly net install tabtools, from("`pkg_dir'") replace
 discard
 tabtools set clear
 
+capture program drop __tt_assert_same_data
+program define __tt_assert_same_data
+    version 17.0
+    syntax using/
+    unab memory_vars : _all
+    local memory_N = _N
+    preserve
+    quietly use `"`using'"', clear
+    unab using_vars : _all
+    local using_N = _N
+    restore
+    assert `using_N' == `memory_N'
+    assert `"`using_vars'"' == `"`memory_vars'"'
+    cf _all using `"`using'"'
+end
+
 
 **# Migrated: adversarial breakage sweep
 
@@ -145,7 +161,7 @@ capture noisily {
     assert c(varabbrev) == "on"
 
     table1_tc x if keepme, by(group) vars(x contn) wt(wt)
-    cf _all using "`table1_before'"
+    __tt_assert_same_data using "`table1_before'"
 
     capture table1_tc x [fweight=fw], by(group) vars(x contn) wt(wt)
     assert _rc == 198
@@ -365,20 +381,20 @@ capture noisily {
     capture stratetab, using(one two three) outcomes(2)
     assert _rc == 198
     assert c(varabbrev) == "on"
-    cf _all using "`strat_user_before'"
+    __tt_assert_same_data using "`strat_user_before'"
 
     capture stratetab, using("bad;name") outcomes(1)
     assert _rc == 198
     assert c(varabbrev) == "on"
-    cf _all using "`strat_user_before'"
+    __tt_assert_same_data using "`strat_user_before'"
 
     capture stratetab, using(one) outcomes(0)
     assert _rc == 198
-    cf _all using "`strat_user_before'"
+    __tt_assert_same_data using "`strat_user_before'"
 
     capture stratetab, using(one) outcomes(1) xlsx("bad.txt")
     assert _rc == 198
-    cf _all using "`strat_user_before'"
+    __tt_assert_same_data using "`strat_user_before'"
 
     tempfile badbase_token
     local badbase "`badbase_token'_tabtools_adv_bad"
@@ -393,7 +409,7 @@ capture noisily {
     capture stratetab, using("`badbase'") outcomes(1)
     assert _rc == 111
     assert c(varabbrev) == "on"
-    cf _all using "`strat_user_before'"
+    __tt_assert_same_data using "`strat_user_before'"
     capture erase "`badbase'.dta"
     set varabbrev off
 }
@@ -514,7 +530,7 @@ capture noisily {
     capture hrcomptab missing_rates, modelframes(missing_model) rows(1)
     assert _rc == 111
     assert c(varabbrev) == "on"
-    cf _all using "`hr_user_before'"
+    __tt_assert_same_data using "`hr_user_before'"
 
     capture frame drop adv_rate_bad
     frame create adv_rate_bad
@@ -527,17 +543,17 @@ capture noisily {
     capture hrcomptab adv_rate_bad, modelframes(missing_model) rows(1)
     assert _rc == 198
     assert c(varabbrev) == "on"
-    cf _all using "`hr_user_before'"
+    __tt_assert_same_data using "`hr_user_before'"
 
     capture hrcomptab adv_rate_bad, modelframes(missing_model)
     assert _rc == 198
     assert c(varabbrev) == "on"
-    cf _all using "`hr_user_before'"
+    __tt_assert_same_data using "`hr_user_before'"
 
     capture hrcomptab adv_rate_bad, modelframes(missing_model) rows(1) rownames(foo)
     assert _rc == 198
     assert c(varabbrev) == "on"
-    cf _all using "`hr_user_before'"
+    __tt_assert_same_data using "`hr_user_before'"
     set varabbrev off
 }
 if _rc == 0 {

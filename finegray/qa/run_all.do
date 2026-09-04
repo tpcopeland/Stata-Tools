@@ -7,6 +7,25 @@
 * factorization positivity ladder), so they are deliberately NOT in `full' -- a lane nobody
 * can afford to run is a lane nobody runs, and it would take the ordinary suites
 * down with it.  They are gates, run on demand, not regression tests.
+*
+* ORACLE CACHING -- THE R REFERENCES ARE NOT RECOMPUTED WITHOUT CAUSE.
+* Every crossval_*_r.R oracle is a pure function of its inputs: four simulate
+* under a fixed seed, the other seven make no RNG call at all.  Measured
+* 2026-09-04, crossval_finegray_zzf alone cost 2153 s -- 98.5% of all crossval
+* time in this lane -- recomputing a constant on every run.  Each R oracle now
+* caches its output under qa/.oracle_cache/ and recomputes ONLY when an input
+* changes: the script md5, the input-file CONTENT (the paths are tmpdir and
+* differ every run), the named parameters, and the R/package/platform versions.
+* A `HIT' line in a suite log means the oracle was restored, not recomputed;
+* `MISS' means an input genuinely changed.
+*
+* The cache is INSIDE the R scripts, never around Rscript, so the fail-closed
+* generation contracts in the crossval .do files are untouched: R still runs,
+* still erases its stale artifacts, still writes every output and still exits
+* with a real status the sentinels read.  No .do file changed for the cache.
+*
+* Force a full recompute of every oracle:   FG_ORACLE_NOCACHE=1 stata-mp -b do run_all.do full
+* Or delete qa/.oracle_cache/.  Details: qa/README.md, "Oracle caching".
 
 version 16.0
 set more off
@@ -47,8 +66,11 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_bstrata.do ///
     test_finegray_tvc.do ///
     test_finegray_tvc_bstrata.do ///
+    test_finegray_tvc_bstrata_perf.do ///
     test_finegray_fences.do ///
     test_finegray_weights.do ///
+    test_finegray_wsig_legacy.do ///
+    test_finegray_receipts.do ///
     test_finegray_mi_lattice.do ///
     test_finegray_release120.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
@@ -61,6 +83,8 @@ local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do /
     test_finegray_nuisance.do test_finegray_nuisance_lt.do ///
     test_finegray_determinism.do test_finegray_reporting.do ///
     test_finegray_contracts.do ///
+    test_finegray_nullcase.do ///
+    test_finegray_failclosed.do ///
     test_finegray_hostile.do ///
     test_finegray_estimates_use.do ///
     test_finegray_sthlp_render.do ///
@@ -70,6 +94,7 @@ local core_files `quick_files' ///
     validation_finegray_recovery_paths.do validation_cluster_recovery.do ///
     validation_finegray_cif_recovery.do ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
+    validation_finegray_lt_cluster_cif_se.do ///
     validation_bstrata_recovery.do ///
     validation_tvc_recovery.do ///
     validation_pweight_recovery.do ///
@@ -77,7 +102,7 @@ local core_files `quick_files' ///
 local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do ///
     crossval_bstrata.do crossval_public_studies.do ///
-    crossval_tvc.do crossval_pweight.do
+    crossval_tvc.do crossval_tvc_bstrata.do crossval_pweight.do
 
 * The ZZF Monte Carlo GATES.  Hours, not minutes -- see the header.  They live in
 * their own lane so that (a) they are wired in and runnable by name rather than
@@ -159,6 +184,7 @@ local n_skip = 0
 local failed_files ""
 
 display as text "finegray QA lane: `lane'"
+display as text "R oracle cache: ACTIVE (qa/.oracle_cache); set FG_ORACLE_NOCACHE=1 to force recompute"
 display as text "Curated QA files: `n_discovered'"
 
 foreach f of local all_files {

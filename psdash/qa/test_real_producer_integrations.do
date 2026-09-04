@@ -33,6 +33,15 @@ program define _rpi_record
     }
 end
 
+capture program drop _rpi_foreign_estimates
+program define _rpi_foreign_estimates, eclass
+    tempname foreign_b
+    matrix `foreign_b' = 0
+    ereturn post `foreign_b'
+    ereturn local cmd "foreign_estimator"
+    ereturn local contract_version "999"
+end
+
 local ++tests
 if fileexists("`repo_dir'/iivw/iivw.pkg") {
     capture noisily {
@@ -77,7 +86,7 @@ if fileexists("`repo_dir'/msm/msm.pkg") & fileexists("`repo_dir'/msm/msm_example
             outcome(outcome) covariates(biomarker comorbidity age sex)
         quietly msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
             treat_n_cov(age sex) nolog
-        quietly psdash combined
+        quietly psdash detect
         assert "`r(source)'" == "msm"
         assert "`: char _dta[_msm_contract_version]'" == "1.0"
     }
@@ -118,7 +127,7 @@ if fileexists("`repo_dir'/tte/tte.pkg") {
         quietly tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
             switch_n_cov(age sex) save_ps ///
             truncate(1 99) nolog
-        quietly psdash combined
+        quietly psdash detect
         assert "`r(source)'" == "tte"
         assert "`: char _dta[_tte_contract_version]'" == "1.0"
     }
@@ -130,9 +139,9 @@ else {
 }
 
 local ++tests
-if fileexists("`repo_dir'/tmle/tmle.pkg") {
+if fileexists("`repo_dir'/targetlearn/targetlearn.pkg") {
     capture noisily {
-        quietly net install tmle, from("`repo_dir'/tmle") replace
+        quietly net install targetlearn, from("`repo_dir'/targetlearn") replace
         clear
         set seed 2026072202
         set obs 300
@@ -144,7 +153,19 @@ if fileexists("`repo_dir'/tmle/tmle.pkg") {
         quietly tmle x1 x2, outcome(y) treatment(treat) nolog
         quietly psdash overlap, nograph
         assert "`r(source)'" == "tmle"
+        _rpi_foreign_estimates
+        quietly psdash overlap, nograph
+        assert "`r(source)'" == "tmle"
         assert "`: char _dta[_tmle_contract_version]'" == "1.0"
+        tempfile tmle_saved
+        save "`tmle_saved'", replace
+        ereturn clear
+        use "`tmle_saved'", clear
+        foreach helper in _tmle_get_context _tmle_check_estimated _tmle_lib {
+            capture program drop `helper'
+        }
+        quietly psdash overlap, nograph
+        assert "`r(source)'" == "tmle"
     }
     _rpi_record real_tmle_contract `=_rc'
 }
@@ -154,9 +175,9 @@ else {
 }
 
 local ++tests
-if fileexists("`repo_dir'/ltmle/ltmle.pkg") {
+if fileexists("`repo_dir'/targetlearn/targetlearn.pkg") {
     capture noisily {
-        quietly net install ltmle, from("`repo_dir'/ltmle") replace
+        quietly net install targetlearn, from("`repo_dir'/targetlearn") replace
         clear
         set seed 2026072203
         set obs 360
@@ -165,16 +186,37 @@ if fileexists("`repo_dir'/ltmle/ltmle.pkg") {
         generate double bl_x = rnormal() if period == 1
         bysort pid (period): replace bl_x = bl_x[1]
         generate double tv_x = rnormal() + 0.10*period + 0.15*bl_x
-        generate byte a_treat = runiform() < ///
-            invlogit(-0.35 + 0.30*bl_x + 0.20*tv_x + 0.05*period)
+        * Balanced assignment keeps this contract test focused on producer
+        * persistence/provenance rather than intentionally triggering a weight warning.
+        generate byte a_treat = runiform() < 0.5
         generate byte y_out = runiform() < ///
             invlogit(-1.2 + 0.35*bl_x + 0.25*tv_x + 0.70*a_treat)
         generate byte y_terminal = y_out if period == 3
         quietly ltmle, id(pid) period(period) outcome(y_terminal) ///
             treatment(a_treat) covariates(tv_x) baseline(bl_x) nolog
-        quietly psdash combined
+        quietly psdash detect
         assert "`r(source)'" == "ltmle"
-        assert "`e(contract_version)'" == "1.0"
+        * ltmle_surv is a valid active LTMLE contract too.  Its e(cmd) differs
+        * from ltmle, so this exercises psdash's producer gate rather than the
+        * ordinary ltmle path above.
+        quietly ltmle_surv, id(pid) period(period) event(y_out) ///
+            treatment(a_treat) covariates(tv_x) baseline(bl_x) nolog
+        assert "`e(cmd)'" == "ltmle_surv"
+        quietly psdash detect
+        assert "`r(source)'" == "ltmle"
+        _rpi_foreign_estimates
+        quietly psdash detect
+        assert "`r(source)'" == "ltmle"
+        assert "`: char _dta[_ltmle_contract_version]'" == "1.0"
+        tempfile ltmle_saved
+        save "`ltmle_saved'", replace
+        ereturn clear
+        use "`ltmle_saved'", clear
+        foreach helper in _ltmle_get_context _ltmle_check_estimated _ltmle_lib {
+            capture program drop `helper'
+        }
+        quietly psdash detect
+        assert "`r(source)'" == "ltmle"
     }
     _rpi_record real_ltmle_contract `=_rc'
 }
@@ -195,3 +237,4 @@ if $PSDASH_RPI_FAIL > 0 {
 _psdash_qa_cleanup
 macro drop PSDASH_RPI_PASS PSDASH_RPI_FAIL
 capture log close _all
+if `skip' > 0 exit 77

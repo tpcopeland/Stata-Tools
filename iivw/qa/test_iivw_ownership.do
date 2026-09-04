@@ -376,6 +376,157 @@ else {
     local failed_tests "`failed_tests' T9"
 }
 
+**# T10: exogtest may never overwrite censor() through a lag-name collision
+
+local ++test_count
+capture noisily {
+    _iivw_own_panel
+    quietly gen double _iivw_exog_y_lag1 = 22
+    _iivw_own stamp _iivw_exog_y_lag1, role(lag)
+    quietly clonevar keep_censor = _iivw_exog_y_lag1
+    quietly regress y L1
+    matrix B_before = e(b)
+    local cmd_before "`e(cmd)'"
+
+    * The default generated lag for y is _iivw_exog_y_lag1 -- exactly the
+    * variable supplied as censor(). Ownership permits replacement, but the
+    * scientific-input guard must take precedence and refuse before mutation.
+    capture noisily iivw_exogtest y, id(id) time(time) ///
+        censor(_iivw_exog_y_lag1) replace nolog
+    assert _rc == 198
+    assert _iivw_exog_y_lag1 == keep_censor
+    assert "`e(cmd)'" == "`cmd_before'"
+    matrix B_after = e(b)
+    assert mreldif(B_before, B_after) < 1e-12
+}
+local rc = _rc
+if `rc' == 0 {
+    display as result "  PASS: T10 - censor() cannot be overwritten by a generated lag"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T10 - censor() lag-name collision (error `rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T10"
+}
+
+**# T11: a LATE commit failure restores the entire metadata namespace
+
+local ++test_count
+local __sig_path ""
+capture noisily {
+    _iivw_own_panel
+    quietly iivw_weight, id(id) time(time) visit_cov(L1) lagvars(edss) ///
+        censor(fu_end) nolog
+    quietly clonevar keep_w = _iivw_weight
+    quietly clonevar keep_iw = _iivw_iw
+    char _dta[_iivw_test_sentinel] `"original "quoted" | state"'
+
+    * Snapshot every pre-call _iivw_* characteristic, not a selected subset.
+    local old_names ""
+    local old_allchars : char _dta[]
+    local n_old = 0
+    foreach ch of local old_allchars {
+        if substr("`ch'", 1, 6) == "_iivw_" {
+            local ++n_old
+            local old_name`n_old' "`ch'"
+            local old_value`n_old' : char _dta[`ch']
+            local old_names "`old_names' `ch'"
+        }
+    }
+    local old_names : list sort old_names
+
+    * Replace the final signature helper with a deterministic failure. This
+    * fires after the command has cleared and rewritten the contract.
+    findfile _iivw_weight_signature.ado
+    local __sig_path "`r(fn)'"
+    capture program drop _iivw_weight_signature
+    program define _iivw_weight_signature, rclass
+        version 16.0
+        error 498
+    end
+
+    capture noisily iivw_weight, id(id) time(time) visit_cov(L1) ///
+        treat(treat) treat_cov(L1 L2) wtype(fiptiw) censor(fu_end) ///
+        replace nolog
+    assert _rc == 498
+
+    * Output variables and every characteristic must be byte-for-byte the old
+    * IIW contract. In particular, no treatment-stage residue may survive.
+    assert _iivw_weight == keep_w
+    assert _iivw_iw == keep_iw
+    capture confirm variable _iivw_tw
+    assert _rc != 0
+    capture confirm variable _iivw_ps
+    assert _rc != 0
+
+    local new_names ""
+    local new_allchars : char _dta[]
+    foreach ch of local new_allchars {
+        if substr("`ch'", 1, 6) == "_iivw_" {
+            local new_names "`new_names' `ch'"
+        }
+    }
+    local new_names : list sort new_names
+    assert "`new_names'" == "`old_names'"
+    forvalues i = 1/`n_old' {
+        local ch "`old_name`i''"
+        local now : char _dta[`ch']
+        assert `"`now'"' == `"`old_value`i''"'
+    }
+}
+local rc = _rc
+* Restore the real helper even when an assertion above failed.
+capture program drop _iivw_weight_signature
+if `"`__sig_path'"' != "" {
+    capture run `"`__sig_path'"'
+    if `rc' == 0 & _rc != 0 local rc = _rc
+}
+if `rc' == 0 {
+    capture _iivw_check_weighted
+    if _rc local rc = _rc
+}
+if `rc' == 0 {
+    display as result "  PASS: T11 - late failure restores variables and all metadata"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T11 - late metadata rollback (error `rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T11"
+}
+
+**# T12: fit outputs cannot collide with stored entry/censor variables
+
+local ++test_count
+capture noisily {
+    _iivw_own_panel
+    quietly gen double fu_time_sq = fu_end
+    quietly iivw_weight, id(id) time(time) visit_cov(L1) ///
+        censor(fu_time_sq) generate(fu_) nolog
+    capture noisily iivw_fit y L1, timespec(quadratic) vce(fixed) replace nolog
+    assert _rc == 198
+    assert fu_time_sq == fu_end
+
+    _iivw_own_panel
+    quietly gen double ent_time_sq = 0
+    quietly iivw_weight, id(id) time(time) visit_cov(L1) entry(ent_time_sq) ///
+        censor(fu_end) generate(ent_) nolog
+    capture noisily iivw_fit y L1, timespec(quadratic) vce(fixed) replace nolog
+    assert _rc == 198
+    assert ent_time_sq == 0
+}
+local rc = _rc
+if `rc' == 0 {
+    display as result "  PASS: T12 - stored entry/censor variables are protected inputs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T12 - stored fit-contract inputs (error `rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T12"
+}
+
 **# Summary
 
 display as result "iivw ownership results: `pass_count'/`test_count' passed, `fail_count' failed"

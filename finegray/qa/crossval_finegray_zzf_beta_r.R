@@ -77,6 +77,40 @@ cat("definitions loaded from", ORACLE, "; BETA =", BETA, "\n")
 N    <- as.integer(Sys.getenv("ZZF_XV_N",    "3000"))
 REPS <- as.integer(Sys.getenv("ZZF_XV_REPS", "20"))
 
+# ---------------------------------------------------------------------------
+# ORACLE CACHE.  The loop below is a PURE FUNCTION of its inputs: gen_fg is
+# called with seed = 20260713L + r, a fixed base seed, so the same generator,
+# the same oracle definitions, the same N/REPS and the same R/survival build
+# give byte-identical CSVs on every run, forever.  Measured 2026-09-04: this
+# script costs 2153 s, 98.5% of all crossval time in the full lane, entirely
+# spent recomputing a constant.
+#
+# Glob mode: how many artifacts there are depends on REPS (5 arms x REPS
+# datasets, plus baseline curves for two arms), so the cache discovers them by
+# pattern rather than making this script predeclare a list that a change to
+# REPS would silently falsify.
+#
+# The cache lives HERE, inside R, and not around Rscript, because the .do
+# file's FG-02 contract exists precisely to stop the suite consuming a stale
+# oracle: R still runs, still erases the stale artifacts above, still writes
+# every output, and still exits with a status the sentinel reads.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin("finegray_zzf_beta",
+        out_dir = OUT, out_pattern = "^zzf_xv_.*[.]csv$",
+        key_files = ORACLE,
+        key_values = list(N = N, REPS = REPS),
+        packages = "survival")
+if (identical(.fgc$state, "hit")) {
+    beta <- utils::read.csv(file.path(OUT, "zzf_xv_oracle_beta.csv"),
+                            stringsAsFactors = FALSE)
+    cat("\n=== oracle betas (truth =", BETA, ") ===\n")
+    print(beta[, c("arm", "rep", "n", "nevent", "b1", "b2")],
+          row.names = FALSE, digits = 8)
+    cat("\nrestored", nrow(beta), "datasets + oracle + manifest in", OUT, "\n")
+    quit(save = "no", status = 0)
+}
+
 pool <- function(d) { d$wgroup <- 0L; d }
 
 # arm -> entry pattern and weight specification.
@@ -156,6 +190,8 @@ manifest <- data.frame(
                   "pooled", "strata(cgroup) truncstrata(tgroup)")
 )
 write.csv(manifest, file.path(OUT, "zzf_xv_manifest.csv"), row.names = FALSE)
+
+fg_oracle_cache_end(.fgc)
 
 cat("\n=== oracle betas (truth =", BETA, ") ===\n")
 print(beta[, c("arm", "rep", "n", "nevent", "b1", "b2")], row.names = FALSE, digits = 8)

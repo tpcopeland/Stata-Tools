@@ -253,7 +253,9 @@ capture noisily {
     * survival reports the uncorrected clustered sandwich. Stata multiplies its
     * covariance by M/(M-1), M=259 clusters; the R oracle applies that explicit
     * correction before this same-estimand comparison.
-    assert reldif(`r_se', `r_se_raw' * sqrt(259 / 258)) < 1e-12
+    local r_se_fsc = `r_se_raw' * sqrt(259 / 258)
+    assert !missing(`r_se', `r_se_fsc')
+    assert reldif(`r_se', `r_se_fsc') < 1e-12
     assert abs(`s_se' - `r_se') / `r_se' < 1e-4
     assert `s_N' == `r_N'
     assert `s_ids' == 259

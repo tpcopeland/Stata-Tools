@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.0  03sep2026}{...}
+{* *! version 2.1.1  04sep2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -35,8 +35,8 @@
 {pstd}
 {cmd:tabtools} is a suite of Stata commands for exporting tables to professionally
 formatted Excel and Markdown files. It covers descriptive statistics,
-regression results, treatment effects, survival analysis, diagnostic accuracy,
-incidence rates, and composite manuscript tables.
+regression results, treatment effects, survival analysis, incidence rates, and
+composite manuscript tables.
 
 {pstd}
 All commands apply consistent Excel and Markdown formatting: column widths,
@@ -164,7 +164,7 @@ sheets already written to a workbook, use {helpb stacktab}.
 Display available commands
 
 {p 8 17 2}
-{cmd:tabtools} [{cmd:,} {opt list} {opt detail} {opt c:ategory(string)}]
+{cmd:tabtools} [{cmd:,} {opt l:ist} {opt d:etail} {opt c:ategory(string)}]
 
 {pstd}
 Set a formatting default
@@ -212,6 +212,8 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:font} {it:name}}set the default font family{p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{cmd:headercolor} {it:color}}default header fill color{p_end}
+{synopt:{cmd:zebracolor} {it:color}}default zebra fill color{p_end}
 {synopt:{cmd:digits} {it:#}}numeric display digits; integer from 0 to 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
@@ -231,7 +233,8 @@ table bottom) with no vertical borders, following journal conventions.
 {dlgtab:Detailed option contracts}
 
 {phang}
-{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{cmd:borderstyle} {it:name} sets the persistent border style to {cmd:default},
+{cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 
 {phang}
 {opt c:ategory(string)} filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates},
@@ -242,13 +245,14 @@ table bottom) with no vertical borders, following journal conventions.
 {opt detail} show detailed information with descriptions{p_end}
 
 {phang}
-{opt font(string)} font family for persistent defaults{p_end}
+{cmd:font} {it:name} sets the persistent font family.{p_end}
 
 {phang}
-{opt fontsize(#)} font size in points for persistent defaults{p_end}
+{cmd:fontsize} {it:#} sets the persistent font size to an integer from 6 through 72.{p_end}
 
 {phang}
-{opt headerc:olor(string)} header fill: supported Stata color name or RGB triplet{p_end}
+{cmd:headercolor} {it:color} sets the persistent header fill to a supported
+Stata color name or RGB triplet.{p_end}
 
 {phang}
 {opt list} display commands as a simple list{p_end}
@@ -261,7 +265,8 @@ table bottom) with no vertical borders, following journal conventions.
 {cmd:tabtools_profile.do} in Stata's PERSONAL ado directory{p_end}
 
 {phang}
-{opt zebrac:olor(string)} zebra fill: supported Stata color name or RGB triplet{p_end}
+{cmd:zebracolor} {it:color} sets the persistent zebra fill to a supported
+Stata color name or RGB triplet.{p_end}
 
 {marker defaults}{...}
 {title:Persistent defaults}
@@ -370,6 +375,8 @@ only read when you run {cmd:tabtools use} or source it from your own
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(font)}}font name (when setting font){p_end}
 {synopt:{cmd:r(borderstyle)}}border style (when setting borderstyle){p_end}
+{synopt:{cmd:r(headercolor)}}header color (when setting headercolor){p_end}
+{synopt:{cmd:r(zebracolor)}}zebra color (when setting zebracolor){p_end}
 {synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear}){p_end}
 {synopt:{cmd:r(permanent)}}{cmd:"permanent"} (when saving a disk profile){p_end}
 {synopt:{cmd:r(profile)}}profile path written by {cmd:permanent}{p_end}
@@ -400,6 +407,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.1.0{p_end}
+{pstd}{bf:Version} 2.1.1{p_end}
 
 {hline}

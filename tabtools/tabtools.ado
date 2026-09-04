@@ -1,4 +1,4 @@
-*! tabtools Version 2.1.0  2026/09/03
+*! tabtools Version 2.1.1  2026/09/04
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -53,13 +53,9 @@ program define tabtools, rclass
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
-        font(string) fontsize(integer -1) HEADERColor(string) ///
-        ZEBRAColor(string) BORDERstyle(string) PERManent PROFile(string)]
+        PERManent PROFile(string)]
 
     local _has_display_opts = ("`list'" != "" | "`detail'" != "" | "`category'" != "")
-    local _has_format_opts = ///
-        (`"`font'"' != "" | `fontsize' != -1 | `"`headercolor'"' != "" | ///
-        `"`zebracolor'"' != "" | `"`borderstyle'"' != "")
     local _has_profile_opts = ("`permanent'" != "" | `"`profile'"' != "")
 
     capture findfile _tabtools_common.ado
@@ -109,11 +105,6 @@ program define tabtools, rclass
         if inlist("`setkey'", "font", "headercolor", "zebracolor") {
             local setval = subinstr(`"`setval'"', `"""', "", .)
             local setval = strtrim(`"`setval'"')
-        }
-
-        if `_has_format_opts' {
-            display as error "set one persistent default at a time"
-            exit 198
         }
 
         if "`setkey'" == "clear" {
@@ -252,11 +243,6 @@ program define tabtools, rclass
             display as error "list, detail, and category() are only allowed in display mode"
             exit 198
         }
-        if `_has_format_opts' {
-            display as error "format options are only allowed with tabtools set"
-            exit 198
-        }
-
         _tabtools_resolve_format
         local _eff_font `"`_font'"'
         local _eff_fontsize `"`_fontsize'"'
@@ -312,10 +298,6 @@ program define tabtools, rclass
             display as error "list, detail, and category() are only allowed in display mode"
             exit 198
         }
-        if `_has_format_opts' {
-            display as error "format options are only allowed with tabtools set"
-            exit 198
-        }
         if "`permanent'" != "" {
             display as error "permanent is only allowed with tabtools set"
             exit 198
@@ -356,10 +338,6 @@ program define tabtools, rclass
     * DEFAULT: Display commands (original behavior)
     * =========================================================================
     else {
-        if `_has_format_opts' {
-            display as error "format options are only allowed with tabtools set"
-            exit 198
-        }
         if `_has_profile_opts' {
             display as error "permanent and profile() are only allowed with tabtools set ..., permanent"
             exit 198

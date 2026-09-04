@@ -25,6 +25,35 @@
 *      this arm a build in which bstrata() were parsed and ignored would pass
 *      A and B on nothing but the fact that b is nearly common anyway.
 *   D  K = 1 recovers what the unstratified estimator recovers, bit for bit.
+*
+* ---------------------------------------------------------------------------
+* PRE-REGISTERED FAILURE RULE for arm E (added 2026-09-04)
+* ---------------------------------------------------------------------------
+* ATTRITION.  Arm E discards a replication whose eta-only fit fails, whose
+* eta+psi fit fails, or whose two fits disagree on beta; every calibration
+* number is then computed on the survivors.  That is selection: what gets
+* summarised is the Monte Carlo distribution CONDITIONAL on both fits having
+* behaved, which is not the distribution the coverage claim is about.  The rule
+* is
+*
+*   at least 90% of arm E's replications must be usable.
+*
+* 90% is looser than the 98% validation_tvc_recovery.do requires, and
+* deliberately so: arm E fits TWICE per replication and additionally discards
+* any replication where psi moved beta, so it has three independent ways to
+* lose one where that file has two.  The consequence is stated rather than
+* hidden: at 10% attrition the reported coverage could overstate the true one by
+* up to 0.10, which is larger than arm E's own Monte Carlo band, so at that
+* level the coverage numbers are NOT evidence and only the SE/SD ratios (which
+* are far less sensitive to which replications survived) remain readable.  That
+* is why the drops are counted BY CAUSE and printed.  If this gate fails, the
+* repair is to find out why the fits are failing -- not to lower it, and not to
+* widen a band.
+*
+* The Monte Carlo bands in arm E are already computed from the realized
+* replication count (RTOL = 3/sqrt(2*NREP), CTOL = 3*sqrt(0.95*0.05/NREP))
+* rather than chosen, which is the convention validation_tvc_recovery.do and
+* validation_pweight_recovery.do were brought into line with on 2026-09-04.
 
 clear all
 set varabbrev off

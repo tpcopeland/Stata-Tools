@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.7.0  2026/09/03
+*! psdash_balance Version 1.7.1  2026/09/04
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -103,7 +103,7 @@ program define psdash_balance, rclass
     }
 
     * MARK SAMPLE
-    tempvar touse ps_auto wt_auto
+    tempvar touse ps_auto wt_auto mg_ps_fallback
     * Accept twoway-style name(x, replace) / saving(f, replace) gracefully
     _psdash_strip_replace, option(name) value(`"`name'"')
     local name `"`r(value)'"'
@@ -177,43 +177,14 @@ program define psdash_balance, rclass
         local wvar_auto "`_psd_wvar_auto'"
     }
 
-    * RB-03: FACTOR-VARIABLE / INTERACTION EXPANSION
-    * Expand factor and interaction covariate terms into the actual fitted design
-    * columns (one indicator per non-base level, one product per interaction cell)
-    * using Stata's own fvexpand/fvrevar. Balance is then assessed on the design
-    * the assignment model used -- not on arbitrary integer category codes (which
-    * hide categorical imbalance) or on main effects with the interaction silently
-    * discarded. Applies uniformly to user-supplied covariates() and to terms
-    * auto-detected from a fitted logit/probit/mlogit/teffects model. `_cov_labels'
-    * carries the readable term names (2.cat, c.x#c.z, ...) used for display,
-    * matrix rownames, and r(varlist); `covariates' is replaced by the materialized
-    * design columns. Plain (non-factor) varlists pass through unchanged.
+    * Preserve the raw specification until treatment, PS, and weights have defined
+    * the final diagnostic sample. Expanding earlier can retain a factor level that
+    * exists only among observations later excluded for missing PS/weight.
+    local covariates_spec "`covariates'"
     local _cov_labels ""
     local _cov_basevars ""
-    if "`covariates'" != "" {
-        markout `touse' `treatment'
-        _psdash_expand_fv `covariates' , touse(`touse')
-        local _cov_labels `"`r(labels)'"'
-        local _cov_keepidx "`r(keepidx)'"
-        local _cov_nall = r(nall)
-        local _cov_basevars "`r(basevars)'"
-        * Materialize design columns in THIS scope so the tempvars survive to the
-        * balance engine and displays. fvrevar drops nothing and aligns 1:1 with
-        * fvexpand, so we pick the non-base columns by their recorded position.
-        fvrevar `covariates' if `touse'
-        local _allvars `r(varlist)'
-        local _nfv : word count `_allvars'
-        if `_nfv' != `_cov_nall' {
-            display as error ///
-                "psdash: factor-variable design for covariates(`covariates') could not be reconstructed exactly"
-            exit 459
-        }
-        local _cov_vars ""
-        foreach _p of local _cov_keepidx {
-            local _cov_vars "`_cov_vars' `: word `_p' of `_allvars''"
-        }
-        local covariates = strtrim("`_cov_vars'")
-    }
+    local n_wt_undefined = 0
+    local n_wt_dropped = 0
 
     * BRANCH: BINARY vs MULTI-GROUP
     if "`multigroup'" == "0" {
@@ -277,7 +248,13 @@ program define psdash_balance, rclass
         }
     }
 
-    if "`wvar'" != "" markout `touse' `wvar'
+    if "`wvar'" != "" {
+        if "`wvar_auto'" != "1" {
+            quietly count if `touse' & missing(`wvar')
+            local n_wt_dropped = r(N)
+        }
+        markout `touse' `wvar'
+    }
 
     * Covariates are required for balance assessment
     if "`covariates'" == "" {
@@ -285,6 +262,26 @@ program define psdash_balance, rclass
         display as error "  specify covariates or run after an estimation command"
         exit 198
     }
+
+    * RB-03/RB-19: materialize the exact fitted design on the final sample.
+    _psdash_expand_fv `covariates_spec', touse(`touse')
+    local _cov_labels `"`r(labels)'"'
+    local _cov_keepidx "`r(keepidx)'"
+    local _cov_nall = r(nall)
+    local _cov_basevars "`r(basevars)'"
+    fvrevar `covariates_spec' if `touse'
+    local _allvars "`r(varlist)'"
+    local _nfv : word count `_allvars'
+    if `_nfv' != `_cov_nall' {
+        display as error ///
+            "psdash: factor-variable design for covariates(`covariates_spec') could not be reconstructed exactly"
+        exit 459
+    }
+    local _cov_vars ""
+    foreach _p of local _cov_keepidx {
+        local _cov_vars "`_cov_vars' `: word `_p' of `_allvars''"
+    }
+    local covariates = strtrim("`_cov_vars'")
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -621,6 +618,11 @@ program define psdash_balance, rclass
     if `n_ps_near' > 0 {
         display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
     }
+    if `n_wt_dropped' > 0 {
+        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
+        local ++_pfn
+    }
     if `n_imbalanced' > 0 {
         local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
         local ++_pfn
@@ -921,7 +923,8 @@ program define psdash_balance, rclass
     else {
     * MULTI-GROUP PATH (K >= 2 non-binary treatment)
 
-    * Mark out missing treatment
+    * Mark out missing treatment and every generalized-PS component before
+    * checking whether a generated own-arm weight is undefined.
     markout `touse' `treatment'
 
     * Covariates are required for balance assessment
@@ -931,7 +934,65 @@ program define psdash_balance, rclass
         exit 198
     }
 
+    local _mg_det_psvars ""
+    foreach lev of local levels {
+        local _this_ps "`_psd_ps_`lev''"
+        if "`_this_ps'" != "" local _mg_det_psvars "`_mg_det_psvars' `_this_ps'"
+    }
+    local _mg_det_opt ""
+    if "`_mg_det_psvars'" != "" local _mg_det_opt "detpsvars(`_mg_det_psvars')"
+    local _mg_psvar_opt ""
+    if "`psvar'" != "" local _mg_psvar_opt "psvar(`psvar')"
+    _psdash_mgps_map, multigroup(`multigroup') k(`K') levels(`levels') ///
+        treatment(`treatment') samplevar(`touse') `_mg_psvar_opt' ///
+        `_mg_det_opt' fallbackps(`mg_ps_fallback') allowempty
+    local _mg_psvars "`r(mg_psvars_all)'"
+    if "`_mg_psvars'" != "" markout `touse' `_mg_psvars'
+
+    if "`wvar_auto'" == "1" {
+        local _ps_idx = 1
+        foreach lev of local levels {
+            local _own_ps : word `_ps_idx' of `_mg_psvars'
+            if "`_own_ps'" != "" {
+                quietly count if `touse' & `treatment' == `lev' & ///
+                    missing(`wvar') & `_own_ps' == 0
+                local n_wt_undefined = `n_wt_undefined' + r(N)
+            }
+            local _ps_idx = `_ps_idx' + 1
+        }
+        if `n_wt_undefined' > 0 {
+            display as error "`n_wt_undefined' observation(s) have an undefined propensity-based weight"
+            display as error "  an observed treatment arm has an exact-zero own-arm propensity score."
+            display as error "  Trim those observations or supply valid weights explicitly;"
+            display as error "  balance diagnostics cannot silently change the analysis sample."
+            exit 459
+        }
+    }
+    else if "`wvar'" != "" {
+        quietly count if `touse' & missing(`wvar')
+        local n_wt_dropped = r(N)
+    }
     if "`wvar'" != "" markout `touse' `wvar'
+
+    * RB-03/RB-19: materialize the exact fitted design on the final sample.
+    _psdash_expand_fv `covariates_spec', touse(`touse')
+    local _cov_labels `"`r(labels)'"'
+    local _cov_keepidx "`r(keepidx)'"
+    local _cov_nall = r(nall)
+    local _cov_basevars "`r(basevars)'"
+    fvrevar `covariates_spec' if `touse'
+    local _allvars "`r(varlist)'"
+    local _nfv : word count `_allvars'
+    if `_nfv' != `_cov_nall' {
+        display as error ///
+            "psdash: factor-variable design for covariates(`covariates_spec') could not be reconstructed exactly"
+        exit 459
+    }
+    local _cov_vars ""
+    foreach _p of local _cov_keepidx {
+        local _cov_vars "`_cov_vars' `: word `_p' of `_allvars''"
+    }
+    local covariates = strtrim("`_cov_vars'")
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -1243,6 +1304,11 @@ program define psdash_balance, rclass
         local _pf `"`_pf' | `n_imbalanced' of `nvars' covariate(s) exceed the SMD threshold"'
         local ++_pfn
     }
+    if `n_wt_dropped' > 0 {
+        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
+        local ++_pfn
+    }
     if `n_vr_imbalanced' > 0 {
         local _pf `"`_pf' | `n_vr_imbalanced' variance-ratio imbalance(s) (max VR = `=string(cond(`has_adj',`max_vr_adj',`max_vr_raw'),"%5.2f")')"'
         local ++_pfn
@@ -1422,6 +1488,8 @@ program define psdash_balance, rclass
             return scalar threshold = `threshold'
             return scalar n_ps_boundary = `n_ps_boundary'
             return scalar n_ps_near_boundary = `n_ps_near'
+            return scalar n_wt_undefined = `n_wt_undefined'
+            return scalar n_wt_dropped = `n_wt_dropped'
             if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
             * RB-12: per-covariate completeness of the balance table
             return scalar n_cov_incomplete = `n_cov_incomplete'
@@ -1474,6 +1542,8 @@ program define psdash_balance, rclass
             return scalar max_ks_raw = `max_ks_raw'
             if `has_adj' return scalar max_ks_adj = `max_ks_adj'
             return scalar threshold = `threshold'
+            return scalar n_wt_undefined = `n_wt_undefined'
+            return scalar n_wt_dropped = `n_wt_dropped'
             if "`vr_na_vars'" != "" return local vr_na_vars "`vr_na_vars'"
             * RB-12: per-covariate completeness of the balance table
             return scalar n_cov_incomplete = `n_cov_incomplete'

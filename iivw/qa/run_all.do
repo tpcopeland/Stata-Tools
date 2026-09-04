@@ -60,6 +60,7 @@ local repo_dir = substr("`pkg_dir'", 1, strlen("`pkg_dir'") - strlen("/iivw"))
 * Explicit release-only exclusion. This file is intentionally not appended to
 * any ordinary lane: its preregistered release mode is a multi-day simulation.
 local release_only_suites validation_iivw_inference
+global IIVW_QA_REFS_FRESH ""
 
 * Each sub-suite's bootstrap uses `c(pwd)' to find the package — run from qa
 cd "`qa_dir'"
@@ -145,7 +146,6 @@ local core_suites ///
     test_iivw_inference_contract ///
     test_iivw_invariance ///
     test_iivw_bs_frame_contract ///
-    validation_iivw_recovery ///
     validation_iivw ///
     validation_iivw_expanded ///
     validation_iivw_known_answers ///
@@ -203,6 +203,7 @@ local core_suites ///
     test_iivw_hostile
 
 local legacy_suites ///
+    validation_iivw_recovery ///
     validation_iivw_recovery_extended ///
     validation_iivw_recovery_extended2
 
@@ -257,8 +258,8 @@ if "`mode'" == "full" {
             sysdir set PERSONAL "`orig_personal'"
             exit 198
         }
-        capture erase "`qa_dir'/`rsrc'.ok"
     }
+    global IIVW_QA_REFS_FRESH "1"
 
     local suites `suites' crossval_iivw crossval_iivw_external ///
         crossval_iivw_dta crossval_iivw_pbcseq
@@ -323,6 +324,13 @@ foreach f of local suites {
     * Restore cwd after each suite (in case one cd's away)
     cd "`qa_dir'"
 }
+
+* Completion sentinels prove freshness only inside this invocation. Remove them
+* after the external suites so a later standalone crossval must regenerate.
+foreach rsrc in crossval_irreglong crossval_fiptiw {
+    capture erase "`qa_dir'/`rsrc'.ok"
+}
+global IIVW_QA_REFS_FRESH ""
 
 * -----------------------------------------------------------------------------
 * RESTORE THE USER'S SYSDIRS (success and failure alike)

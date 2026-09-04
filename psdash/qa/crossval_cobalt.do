@@ -72,6 +72,7 @@ shell Rscript -e "quit(status=ifelse(requireNamespace('cobalt', quietly=TRUE), 0
 capture confirm file "`r_dep_ok'"
 if _rc {
     display as text "SKIP (dependency): Rscript or R package cobalt unavailable"
+    display as text "RESULT: crossval_cobalt tests=0 pass=0 fail=0 skip=0 skipped=dependency_unavailable"
     _psdash_qa_cleanup
     macro drop PSDASH_COBALT_TESTS PSDASH_COBALT_PASS ///
         PSDASH_COBALT_FAIL PSDASH_COBALT_FAILED

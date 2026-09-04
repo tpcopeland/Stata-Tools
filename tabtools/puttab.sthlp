@@ -35,11 +35,11 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 [{opt sh:eet(string)}
 {opt fra:me(name)} {opt m:atrix(name)}
 {opt ti:tle(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt border:style(string)}
+{opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt zeb:ra} {opt headers:hade}
 {opt dig:its(#)} {opt varl:abels} {opt noh:eader}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt open}]{p_end}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
 (required when no {opt frame()} or {opt matrix()} is given), a named
@@ -132,7 +132,7 @@ between them.{p_end}
 {cmd:tabtools set digits}{p_end}
 
 {phang}
-{cmdab:headers:hade} apply background fill to the header row{p_end}
+{opt headers:hade} apply background fill to the header row{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
@@ -161,7 +161,7 @@ Excel and CSV exports{p_end}
 
 
 {phang}
-{cmdab:border:style(} {it:string} {cmd:)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
+{opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
 {cmd:academic}{p_end}
 
 {phang}
@@ -169,23 +169,23 @@ Excel and CSV exports{p_end}
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
-{cmdab:foot:note(} {it:string} {cmd:)} footnote below the table in smaller italic font{p_end}
+{opt foot:note(string)} footnote below the table in smaller italic font{p_end}
 
 {phang}
-{cmdab:fra:me(} {it:name} {cmd:)} use the named frame as the source instead of the current dataset{p_end}
+{opt fra:me(name)} use the named frame as the source instead of the current dataset{p_end}
 
 {phang}
-{cmdab:headerc:olor(} {it:string} {cmd:)} custom header color as a supported Stata color name or RGB
+{opt headerc:olor(string)} custom header color as a supported Stata color name or RGB
 triplet (e.g., {cmd:"200 220 240"}){p_end}
 
 {phang}
-{cmdab:m:atrix(} {it:name} {cmd:)} use the named Stata matrix as the source; row/column names become
+{opt m:atrix(name)} use the named Stata matrix as the source; row/column names become
 labels/headers{p_end}
 
 {phang}
 
 {phang}
-{cmdab:zebrac:olor(} {it:string} {cmd:)} custom zebra stripe color as a supported Stata color name
+{opt zebrac:olor(string)} custom zebra stripe color as a supported Stata color name
 or RGB triplet{p_end}
 
 {marker examples}{...}

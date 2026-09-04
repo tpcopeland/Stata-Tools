@@ -12,6 +12,22 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 
+capture program drop __tt_assert_same_data
+program define __tt_assert_same_data
+    version 17.0
+    syntax using/
+    unab memory_vars : _all
+    local memory_N = _N
+    preserve
+    quietly use `"`using'"', clear
+    unab using_vars : _all
+    local using_N = _N
+    restore
+    assert `using_N' == `memory_N'
+    assert `"`using_vars'"' == `"`memory_vars'"'
+    cf _all using `"`using'"'
+end
+
 local tests = 0
 local pass = 0
 local fail = 0
@@ -31,7 +47,7 @@ capture noisily {
     capture noisily crosstab outcome exposure, or
     local rc = _rc
     assert `rc' == 198
-    cf _all using "`before'"
+    __tt_assert_same_data using "`before'"
 }
 if _rc == 0 local ++pass
 else local ++fail

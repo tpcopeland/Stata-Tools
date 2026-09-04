@@ -218,8 +218,26 @@ capture noisily {
     cap drop _fg_*
     capture noisily finegray_predict d1, xb
     assert _rc == 0
+    * rebuilt, not merely un-refused: a design rebuilt from nothing scores a
+    * constant, and a constant linear predictor is the silent failure here
+    quietly summarize d1
+    * stata-dev-ignore: missing-passes-assert — fail-closed: summarize sets r(N) to 0 (not missing) on an all-missing column, so the `r(N) > 0' conjunct refuses the case that would let a missing r(sd) satisfy `r(sd) > 0'
+    assert r(N) > 0 & r(sd) > 0
     capture noisily finegray_phtest
     assert _rc == 0
+    * the diagnostic is an exploratory CORRELATION and reports no test
+    * statistic, so its content is r(phtest): one finite correlation per
+    * NON-BASE design column (3 here; e(b) carries 4 columns because the base
+    * level is in its stripe), each paired with the cause-event count.
+    * Measured on this fixture (seed 5150): 266 cause events.
+    local _peh3n = r(N_fail)
+    matrix _peh3 = r(phtest)
+    assert `_peh3n' == 266
+    assert rowsof(_peh3) == 3 & colsof(_peh3) == 2
+    forvalues _i = 1/3 {
+        assert !missing(_peh3[`_i', 1]) & abs(_peh3[`_i', 1]) <= 1
+        assert _peh3[`_i', 2] == `_peh3n'
+    }
 }
 if _rc == 0 {
     display as result "  PASS: FG-H03 dropped _fg_* columns are rebuilt, not rejected"

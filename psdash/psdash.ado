@@ -1,4 +1,4 @@
-*! psdash Version 1.7.0  2026/09/03
+*! psdash Version 1.7.1  2026/09/04
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -41,6 +41,11 @@ program define psdash, rclass
                 capture noisily psdash_`subcmd' `0'
                 local _psdash_side_rc = _rc
                 local _psdash_return_add = 1
+                if "`subcmd'" == "detect" & `_psdash_side_rc' == 0 {
+                    local _psdash_detect_covariates "`r(covariates)'"
+                    local _psdash_detect_n_covariates = r(n_covariates)
+                    local _psdash_detect_psvar_auto = r(psvar_auto)
+                }
             }
             else {
                 display as error "unknown psdash subcommand: `subcmd'"
@@ -54,6 +59,13 @@ program define psdash, rclass
     set varabbrev `_vao'
     if `rc' == 0 & `_psdash_return_add' {
         return add
+        * Repost detect-only fields explicitly so the dispatcher contract is
+        * visible to static documentation checks as well as at runtime.
+        if "`subcmd'" == "detect" {
+            return local covariates "`_psdash_detect_covariates'"
+            return scalar n_covariates = `_psdash_detect_n_covariates'
+            return scalar psvar_auto = `_psdash_detect_psvar_auto'
+        }
     }
     if `rc' == 0 & `_psdash_side_rc' {
         local rc = `_psdash_side_rc'

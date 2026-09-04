@@ -96,7 +96,8 @@ program define _cg_block
     version 16.0
     syntax , dir(string) from(integer) to(integer) ///
         reps(integer) sims(integer) seed(integer) ///
-        [STAMPED(integer 1) NSUB(integer 0) PSCALE(real 1)]
+        [STAMPED(integer 1) NSUB(integer 0) PSCALE(real 1) ///
+         DROPSIM(integer 0) NOSEParator]
     quietly {
         clear
         local n = `to' - `from' + 1
@@ -110,11 +111,12 @@ program define _cg_block
             gen double blk_seed = `seed'
             gen double blk_pscale = `pscale'
         }
-        * Values are placeholders. Coverage is set to a fixed 0.94 pattern so
-        * the arithmetic is deterministic and no arm depends on a random draw.
+        * Values are placeholders. Coverage is exactly 0.95 over a complete
+        * 1..1000 pool, so the refit acceptance is deterministic. The default
+        * fixed arm has a larger SE and therefore supplies the separator.
         gen double b_refit   = 0.5
         gen double se_refit  = 0.05
-        gen byte   cov_refit = mod(_n, 100) > 6
+        gen byte   cov_refit = mod(sim, 20) != 0
         gen double ci_wald_lo = 0.4
         gen double ci_wald_hi = 0.6
         gen double ci_pct_lo = 0.4
@@ -132,14 +134,16 @@ program define _cg_block
         gen double z0_refit = 0
         gen double accel_refit = 0
         gen double b_fix   = 0.5
-        gen double se_fix  = 0.0515
-        gen byte   cov_fix = mod(_n, 100) > 5
+        gen double se_fix  = cond("`noseparator'" == "", 0.0515, 0.05)
+        gen byte   cov_fix = cond("`noseparator'" == "", ///
+            mod(sim, 100) > 2, cov_refit)
         gen double b_fwb   = 0.5
         gen double se_fwb  = 0.052
         gen byte   cov_fwb = mod(_n, 100) > 5
         gen byte   cov_naive = mod(_n, 100) > 9
         gen int nrow = 1000
         gen int nsub = 250
+        if `dropsim' > 0 drop if sim == `dropsim'
         local tag = string(`from', "%05.0f") + "_" + string(`to', "%05.0f")
         save "`dir'/iiw_`tag'.dta", replace
     }
@@ -538,6 +542,75 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' G10"
     display "FAIL G10: a PSCALE=1.5 pool was accepted under the PSCALE=1 label"
+}
+
+* ===========================================================================
+* G11 - a block range may be present while one attempted replication failed.
+*       Tiling the filenames is not enough: a release verdict requires one
+*       usable row for every planned outer replication.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    quietly shell rm -rf "`root'/blocks"
+    quietly shell mkdir -p "`root'/blocks"
+    forvalues f = 1(50)1000 {
+        local t = `f' + 49
+        local dropopt ""
+        if `f' == 351 local dropopt "dropsim(375)"
+        _cg_block, dir("`root'/blocks") from(`f') to(`t') ///
+            reps(999) sims(1000) seed(20260715) `dropopt'
+    }
+    _cg_combine, pkgdir("`pkg_dir'") root("`root'") ///
+        combreps(999) combsims(1000) combseed(20260715)
+    local lg "`r(logfile)'"
+    _cg_grep, logfile("`lg'") pattern("usable rows; 1000 required")
+    assert r(found) == 1
+    _cg_grep, logfile("`lg'") pattern("RESULT: validation_iivw_inference iiw gate=")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS G11: a dropped outer replication prevents a gate verdict"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' G11"
+    display "FAIL G11: an incomplete outer-replication pool reached a verdict"
+}
+
+* ===========================================================================
+* G12 - the registered fixed/refit separator is part of acceptance. A refit
+*       coverage pass without the separator must produce gate=FAIL.
+* ===========================================================================
+local ++test_count
+capture noisily {
+    quietly shell rm -rf "`root'/blocks"
+    quietly shell mkdir -p "`root'/blocks"
+    forvalues f = 1(50)1000 {
+        local t = `f' + 49
+        _cg_block, dir("`root'/blocks") from(`f') to(`t') ///
+            reps(999) sims(1000) seed(20260715) noseparator
+    }
+    _cg_combine, pkgdir("`pkg_dir'") root("`root'") ///
+        combreps(999) combsims(1000) combseed(20260715)
+    local lg "`r(logfile)'"
+    _cg_grep, logfile("`lg'") pattern("B02 separator")
+    assert r(found) == 1
+    _cg_grep, logfile("`lg'") ///
+        pattern("RESULT: validation_iivw_inference iiw gate=FAIL")
+    assert r(found) == 1
+    _cg_grep, logfile("`lg'") ///
+        pattern("RESULT: validation_iivw_inference iiw gate=PASS")
+    assert r(found) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display "PASS G12: no separator means the combined gate fails"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' G12"
+    display "FAIL G12: refit coverage passed without the required separator"
 }
 
 quietly shell rm -rf "`root'"

@@ -130,6 +130,18 @@ model.
 adjusts for the measurement process.
 
 {phang}
+Each of the three must carry both {cmd:e(depvar)} and {cmd:e(cmd)}. The
+comparability check below decides "same estimand" by comparing those fields
+across the three roles, so estimates that carry neither would compare equal to
+one another on empty strings and pass the check without anything having been
+verified. {cmd:iivw_diagnose} names the missing field and exits with
+{cmd:error 198} instead. Every Stata estimation command sets both, and
+{helpb iivw_fit} preserves them through its own reposts; a hand-posted
+{cmd:ereturn post} does not, and must supply them (via {cmd:depname()} and
+{cmd:ereturn local cmd}) to be diagnosable. {opt force} does not waive this: it
+relaxes what the fields must agree on, not whether they exist.
+
+{phang}
 {opt exogeneity(string)} controls interpretation of the measurement-process
 adjustment; it is a user {it:assertion}, not a condition the command tests. {cmd:exogenous}
 states that you are willing to read the shares as a descriptive

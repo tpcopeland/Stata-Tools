@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.7.0  2026/09/03
+*! psdash_combined Version 1.7.1  2026/09/04
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -37,7 +37,7 @@ program define psdash_combined, rclass
 
     * SYNTAX PARSING
     syntax [anything] [if] [in], ///
-        [COVariates(varlist numeric) ///
+        [COVariates(varlist numeric fv) ///
          Wvar(varname) ///
          THReshold(real 0.1) ///
          OVERLAPmax(real 10) ///
@@ -112,9 +112,14 @@ program define psdash_combined, rclass
         exit
     }
 
+    * Only the weights panel needs a weight at dashboard scope. Balance can
+    * generate and validate its own weight after overlap/support have inspected
+    * the full PS sample.
+    local _getwvar_opt ""
+    if "`noweights'" == "" local _getwvar_opt "getwvar"
     _psdash_detect `anything' , covariates(`covariates') wvar(`wvar') ///
         samplevar(`touse') estimand(`estimand') ///
-        psout(`ps_auto') wout(`wt_auto') getwvar ///
+        psout(`ps_auto') wout(`wt_auto') `_getwvar_opt' ///
         allowlongitudinal `ref_opt' `psvars_opt'
 
     local treatment "`_psd_treatment'"
@@ -216,8 +221,28 @@ program define psdash_combined, rclass
     else {
         markout `touse' `treatment' `psvar'
     }
-    if "`covariates'" != "" markout `touse' `covariates'
-    if "`wvar'" != "" markout `touse' `wvar'
+    if "`covariates'" != "" {
+        fvrevar `covariates' if `touse'
+        local _combined_covvars "`r(varlist)'"
+        markout `touse' `_combined_covvars'
+    }
+
+    * A generated weight is not part of the overlap/support sample. When the
+    * weights panel was requested, however, undefined own-arm weights are a
+    * hard failure and must be found before any dashboard panel runs.
+    if "`wvar_auto'" == "1" & "`noweights'" == "" {
+        quietly count if `touse' & missing(`wvar')
+        local _n_wt_undefined = r(N)
+        if `_n_wt_undefined' > 0 {
+            display as error "`_n_wt_undefined' observation(s) have an undefined propensity-based weight"
+            display as error "  the requested dashboard cannot diagnose weights on a reduced sample"
+            exit 459
+        }
+    }
+    if "`wvar'" != "" & "`wvar_auto'" != "1" & ///
+            ("`noweights'" == "" | ("`nobalance'" == "" & "`covariates'" != "")) {
+        markout `touse' `wvar'
+    }
 
     quietly count if `touse'
     if r(N) == 0 {

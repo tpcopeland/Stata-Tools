@@ -50,6 +50,10 @@ program define _diag_post_result, eclass
     matrix colnames `vmat' = x
     ereturn post `bmat' `vmat', obs(24)
     ereturn local cmd "regress"
+    * e(depvar) is required from 4.1.1: iivw_diagnose decides "same estimand"
+    * by comparing e(depvar)/e(cmd) across the three roles, and a mock that
+    * posts neither made that gate compare "" with "" and pass vacuously.
+    ereturn local depvar "y"
     estimates store `estname'
 end
 

@@ -154,6 +154,7 @@ forvalues k = 1/3 {
     scalar ratA  = anseA/jseA
     display as text "  profile A, t=`hlabel`k'': analytic SE=" %8.5f anseA ///
         "  jackknife SE=" %8.5f jseA "  ratio=" %6.3f ratA
+    * stata-dev-ignore: rc-only-test — the captured statement IS the content oracle (an analytic-versus-jackknife SE ratio inside a measured envelope); the following if _rc is the pass/fail bookkeeping for that comparison, not a return-code-only test
     capture assert anseA > 0 & jseA > 0 & ratA >= `lo' & ratA <= `hi'
     if _rc == 0 {
         display as result "  PASS: CIF SE stays within jackknife sensitivity envelope (profile A, t=`hlabel`k'')"
@@ -175,6 +176,7 @@ forvalues k = 1/3 {
     scalar ratB  = anseB/jseB
     display as text "  profile B, t=`hlabel`k'': analytic SE=" %8.5f anseB ///
         "  jackknife SE=" %8.5f jseB "  ratio=" %6.3f ratB
+    * stata-dev-ignore: rc-only-test — the captured statement IS the content oracle (an analytic-versus-jackknife SE ratio inside a measured envelope); the following if _rc is the pass/fail bookkeeping for that comparison, not a return-code-only test
     capture assert anseB > 0 & jseB > 0 & ratB >= `lo' & ratB <= `hi'
     if _rc == 0 {
         display as result "  PASS: CIF SE stays within jackknife sensitivity envelope (profile B, t=`hlabel`k'')"
@@ -327,6 +329,7 @@ scalar ujse  = sqrt(ujvar)
 scalar uratio = uanse/ujse
 display as text "  uncensored, t=" %6.4f uhz ": analytic SE=" %8.5f uanse ///
     "  jackknife SE=" %8.5f ujse "  ratio=" %7.5f uratio
+* stata-dev-ignore: rc-only-test — the captured statement IS the content oracle (an analytic-versus-jackknife SE ratio inside a measured envelope); the following if _rc is the pass/fail bookkeeping for that comparison, not a return-code-only test
 capture assert uanse > 0 & ujse > 0 & uratio >= `ulo' & uratio <= `uhi'
 if _rc == 0 {
     display as result "  PASS: with G identically 1 the analytic and jackknife CIF SEs agree to [`ulo',`uhi']"
@@ -336,6 +339,363 @@ else {
     display as error "  FAIL: uncensored CIF SE ratio `=uratio' outside [`ulo',`uhi']"
     local ++fail_count
 }
+
+**# ---------------------------------------------------------------
+**# 10. EXACT INFLUENCE-FUNCTION ORACLE for the ordinary branch
+**#     (independently derived, independently coded, no package routine)
+**# ---------------------------------------------------------------
+* Everything above this section is a RESAMPLING envelope: a delete-one
+* jackknife, which re-estimates G in every refit while the analytic SE treats G
+* as fixed, so only the uncensored cell can carry a tight band.
+*
+* WHAT WOULD CLOSE THAT PROPERLY, AND WHY IT CANNOT BE SOURCED.  An external
+* analytic oracle for the CIF variance does not exist in the literature this
+* package is grounded in, and that was checked rather than assumed:
+*
+*   Fine & Gray (1999) sec. 5, p.501   the limiting process J1{t;z0} is "quite
+*                                      complicated" and is NOT obtained
+*                                      analytically; their bands come from a
+*                                      multiplier-bootstrap SIMULATION
+*   Geskus (2011) sec. 3.2, p.43-44    eq. (21) is the COEFFICIENT information
+*                                      matrix; no CIF variance appears
+*   Zhang, Zhang & Fine (2011) App. B  W-hat^(1)_{beta,i} is the COEFFICIENT
+*                                      influence function; no CIF term
+*   Zhou et al. (2012) p.377           "The variance is rather complicated, with
+*                                      bootstrapping providing practicable
+*                                      inferences for F_1(t, Z0)."
+*
+* and riskRegression/cmprsk expose no Fine-Gray CIF standard error, so there is
+* no software oracle either.  What CAN be done exactly, and is done here, is to
+* re-derive the estimand the package documents -- the fixed-weight CIF influence
+* function -- and recompute it from scratch.  This is an internal consistency
+* check with an external estimand, not an external oracle, and it is stated that
+* way rather than dressed up.
+*
+* THE DERIVATION IMPLEMENTED BELOW.  With the weights treated as known,
+*
+*   w_i(u) = 1                       if X_i >= u
+*          = G(u-)/G(X_i-)           if X_i < u and subject i had the competing
+*                                    event
+*          = 0                       otherwise
+*   S0(u)  = sum_i w_i(u) exp(Z_i'b),   S1(u) = sum_i w_i(u) exp(Z_i'b) Z_i
+*   zbar   = S1/S0,   dLambda10(u) = dN1(u)/S0(u)                  [Breslow]
+*   Omega  = sum_{u: dN1>0} dN1(u) { S2(u)/S0(u) - zbar zbar' }
+*   eta_i  = int (Z_i - zbar) dN1_i(u) - int w_i(u)(Z_i - zbar) e^{Z_i'b} dL(u)
+*   A_i(t) = int_0^t { dN1_i(u) - w_i(u) e^{Z_i'b} dL(u) } / S0(u)
+*   q(t)   = int_0^t zbar(u) dLambda10(u)
+*   H(t)   = Lambda10(t) exp(z0'b),  F(t) = 1 - exp{-H(t)}
+*   psi^H_i = e^{z0'b} [ A_i(t) + (Lambda10(t) z0 - q(t))' Omega^{-1} eta_i ]
+*   psi^F_i = exp{-H(t)} psi^H_i
+*   SE(F)   = sqrt( sum_i (psi^F_i)^2 )                 [no finite-sample factor]
+*
+* Nothing below calls _finegray_score_residuals, _finegray_km_censor or any
+* other package Mata function: the weights, the risk-set sums, the baseline, the
+* information, the score residuals and the influence functions are all rebuilt
+* here from _t, _d, status and the fitted e(b).
+*
+* THE LICENSING GATE.  The weight above uses G at its LEFT limit, which is
+* Geskus (2011) eq. (11), p.41.  Rather than assume that is what the package
+* does, section 10a rebuilds Lambda10 under BOTH conventions and requires the
+* left-limit one to reproduce e(basehaz) exactly while the right-continuous one
+* does not.  That measurement is what licenses the influence-function comparison
+* that follows: if the two implementations disagreed about the weight, agreeing
+* about the SE would mean nothing.
+*
+* MEASURED 2026-09-04 (Stata 17 MP):
+*   10a  mreldif(rebuilt Lambda10, e(basehaz)) over the whole 397-point curve:
+*        left limit G(u-)  1.23e-15      right-continuous G(u)  1.13e-03
+*   10b  censored, 2 profiles x 3 horizons, CIF and SE:   8.31e-17
+*   10c  fault injection (coefficient term dropped):      4.21e-03  (must be
+*        LARGER than the gate, and it is by 7 orders)
+*   10d  uncensored, 3 horizons, CIF and SE:              3.92e-16
+* Note that Stata's reldif(a, b) is |a-b|/(|b|+1), so on quantities of order
+* 0.02-0.5 these are effectively absolute differences; the 1e-10 gate still
+* sits 6-7 orders above the agreement and 7 orders below what 10c produces.
+*
+* SCOPE.  This closes the ORDINARY right-censored branch (and its uncensored
+* special case) for finegray_cif's analytic SE at a covariate profile.  The
+* delayed-entry, tvc(), bstrata() and cluster() branches are NOT covered here
+* and remain resampling envelopes, for a stated reason in each case: their
+* influence functions are documented package derivations with no published form
+* to re-derive from, and re-coding a derivation from the same help file would be
+* a transcription check rather than an independent one.  The clustered
+* delayed-entry branch is calibrated instead, in
+* validation_finegray_lt_cluster_cif_se.do.
+
+capture program drop _cse_ifse
+program define _cse_ifse, rclass
+    * Independent fixed-weight CIF influence-function SE.
+    *   gmode(1) right-continuous G(u); gmode(2) left-limit G(u-)
+    *   nobeta   drop the coefficient-uncertainty term (fault injection)
+    syntax , AT(numlist) TIMES(numlist) [GMODE(integer 2) NOBETA CURVE(name)]
+    local nb = ("`nobeta'" != "")
+    tempname z0 res
+    matrix `z0' = (`: subinstr local at " " ", ", all')
+    matrix `z0' = `z0''
+    * The baseline curve is returned as a MATRIX, never through a macro: a
+    * `local t = M[i,1]' round trip formats the time to display precision, and a
+    * baseline time that comes back a few ulps low selects the previous row of
+    * e(basehaz) and manufactures a whole increment of disagreement.
+    local cv = ""
+    if "`curve'" != "" local cv "`curve'"
+    mata: _cse_ifse_core("`z0'", "`times'", `gmode', `nb', "`res'", "`cv'")
+    return matrix table = `res'
+end
+
+mata:
+mata set matastrict off
+real scalar _cse_gat(real colvector grid, real colvector val, real scalar u)
+{
+    real scalar k
+    k = sum(grid :<= u)
+    if (k == 0) return(1)
+    return(val[k])
+}
+
+void _cse_ifse_core(string scalar z0name, string scalar timestr,
+                    real scalar gmode, real scalar nobeta, string scalar resname,
+                    string scalar curvename)
+{
+    real colvector tt, dd, ev, ce, ut, at, Gr, Gl, Gv, Gx, dL, sel, At, w, we, psiF
+    real matrix Z, zbar, Amat, Wall, Om, Ominv, eta, S2, out
+    real colvector b, z0, eb, times
+    real scalar n, m, J, i, j, k, a, s, Y, dC, run, u, Gu, S0, d1, L0, H, ez0, se
+    real rowvector S1, zb, q, cvec
+
+    tt = st_data(., "_t"); dd = st_data(., "_d"); ev = st_data(., "status")
+    Z  = st_data(., ("x1", "x2"))
+    b  = st_matrix("e(b)")'
+    z0 = st_matrix(z0name)
+    times = strtoreal(tokens(timestr))'
+    n = rows(tt); eb = exp(Z * b); ez0 = exp(z0' * b)
+
+    /* censoring Kaplan-Meier, both conventions */
+    at = uniqrows(tt); m = rows(at)
+    Gr = J(m, 1, 1); Gl = J(m, 1, 1); run = 1
+    for (a = 1; a <= m; a++) {
+        s  = at[a]
+        Y  = colsum(tt :>= s)
+        dC = colsum((tt :== s) :& (dd :== 0))
+        Gl[a] = run
+        if (Y > 0) run = run * (1 - dC/Y)
+        Gr[a] = run
+    }
+    Gv = (gmode == 1 ? Gr : Gl)
+    Gx = J(n, 1, 1)
+    for (i = 1; i <= n; i++) Gx[i] = _cse_gat(at, Gv, tt[i])
+
+    ce = select(tt, (dd :== 1) :& (ev :== 1))
+    ut = uniqrows(ce); J = rows(ut)
+    dL = J(J, 1, 0); zbar = J(J, cols(Z), 0)
+    Om = J(cols(Z), cols(Z), 0); Amat = J(n, J, 0); Wall = J(n, J, 0)
+    for (j = 1; j <= J; j++) {
+        u  = ut[j]
+        Gu = _cse_gat(at, Gv, u)
+        w  = (tt :>= u) :+ ((tt :< u) :& (ev :== 2)) :* (Gu :/ Gx)
+        Wall[., j] = w
+        we = w :* eb
+        S0 = colsum(we); S1 = colsum(we :* Z); S2 = quadcross(Z, we, Z)
+        zb = S1 / S0
+        d1 = colsum((tt :== u) :& (dd :== 1) :& (ev :== 1))
+        zbar[j, .] = zb
+        dL[j] = d1 / S0
+        Om = Om + d1 * (S2/S0 - zb' * zb)
+        Amat[., j] = (((tt :== u) :& (dd :== 1) :& (ev :== 1)) :- we * dL[j]) :/ S0
+    }
+    eta = J(n, cols(Z), 0)
+    for (j = 1; j <= J; j++) {
+        we  = Wall[., j] :* eb
+        eta = eta :+ ((tt :== ut[j]) :& (dd :== 1) :& (ev :== 1)) :* (Z :- zbar[j, .]) ///
+                  :- (we * dL[j]) :* (Z :- zbar[j, .])
+    }
+    Ominv = invsym(Om)
+
+    out = J(rows(times), 4, .)
+    for (k = 1; k <= rows(times); k++) {
+        sel = (ut :<= times[k])
+        L0  = colsum(select(dL, sel))
+        q   = colsum(select(zbar :* dL, sel))
+        At  = rowsum(select(Amat, sel'))
+        H   = L0 * ez0
+        cvec = (L0 :* z0' :- q)
+        if (nobeta) psiF = exp(-H) :* (ez0 :* At)
+        else        psiF = exp(-H) :* (ez0 :* (At :+ (eta * Ominv * cvec')))
+        se = sqrt(colsum(psiF:^2))
+        out[k, 1] = times[k]
+        out[k, 2] = 1 - exp(-H)
+        out[k, 3] = se
+        out[k, 4] = L0
+    }
+    st_matrix(resname, out)
+    st_matrixcolstripe(resname, (J(4, 1, ""), ("time" \ "cif" \ "se" \ "lambda0")))
+    if (curvename != "") st_matrix(curvename, (ut, runningsum(dL)))
+}
+mata set matastrict on
+end
+
+**# 10a. Which G convention does the package's weight use?  MEASURE it.
+clear
+set seed 4321
+set obs 900
+gen long id = _n
+gen double x1 = rnormal()
+gen double x2 = rbinomial(1, 0.4)
+gen double u  = runiform()
+gen double te = -ln(u) / exp(0.4*x1 - 0.3*x2)
+gen double tc = runiform()*4
+gen double t  = min(te, tc)
+gen byte d = te <= tc
+gen byte status = 0
+replace status = 1 if d==1 & runiform() > 0.4
+replace status = 2 if d==1 & status==0
+stset t, failure(d) id(id)
+quietly finegray x1 x2, compete(status) cause(1) nolog basehaz
+assert e(converged) == 1
+matrix IF_BH = e(basehaz)
+scalar if_bhlast = IF_BH[rowsof(IF_BH), colsof(IF_BH)]
+
+local ++test_count
+capture noisily {
+    * Compare the WHOLE baseline curve as a matrix.  e(basehaz) is (event time,
+    * cumulative subdistribution hazard) by cause-1 event time; the independent
+    * rebuild uses the same grid, so mreldif over both columns compares every
+    * increment at once and also pins that the two grids agree.
+    quietly _cse_ifse, at(0.5 1) times(1e9) gmode(2) curve(IF_CL)
+    quietly _cse_ifse, at(0.5 1) times(1e9) gmode(1) curve(IF_CR)
+    assert rowsof(IF_CL) == rowsof(IF_BH)
+    assert colsof(IF_CL) == colsof(IF_BH)
+    local dL = mreldif(IF_CL, IF_BH)
+    local dR = mreldif(IF_CR, IF_BH)
+    assert !missing(`dL', `dR')
+    display as text "  10a G convention over the whole baseline curve (" ///
+        as result rowsof(IF_BH) as text " event times): mreldif left-limit = " ///
+        as result %9.2e `dL' as text ", right-continuous = " as result %9.2e `dR'
+    * Left limit reproduces the shipped baseline; the right-continuous
+    * convention does not.  Both halves matter: the first licenses section 10b,
+    * the second proves the fixture can tell the two conventions apart.
+    assert `dL' < 1e-12
+    assert `dR' > 1e-4
+}
+if _rc == 0 {
+    display as result "  PASS: 10a the shipped weight uses G at its LEFT limit (Geskus eq. 11)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 10a G-convention identification (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 10b. Right-censored branch: independent IF versus the shipped analytic SE
+local ++test_count
+capture noisily {
+    local ifmax = 0
+    foreach prof in "0 0" "0.5 1" {
+        local p1 : word 1 of `prof'
+        local p2 : word 2 of `prof'
+        quietly finegray_cif, at(x1=`p1' x2=`p2') attime(0.4 0.9 1.6) ci nograph
+        assert `"`r(se_method)'"' == "analytic"
+        matrix IF_P = r(table)
+        quietly _cse_ifse, at(`p1' `p2') times(0.4 0.9 1.6) gmode(2)
+        matrix IF_M = r(table)
+        forvalues k = 1/3 {
+            assert !missing(IF_P[`k',2], IF_P[`k',3], IF_M[`k',2], IF_M[`k',3])
+            assert IF_P[`k',3] > 0 & IF_M[`k',3] > 0
+            local dc = reldif(IF_M[`k',2], IF_P[`k',2])
+            local ds = reldif(IF_M[`k',3], IF_P[`k',3])
+            if `dc' > `ifmax' local ifmax = `dc'
+            if `ds' > `ifmax' local ifmax = `ds'
+        }
+    }
+    display as text "  10b censored branch: max relative difference (CIF and SE, " ///
+        "2 profiles x 3 horizons) = " as result %9.2e `ifmax'
+    assert `ifmax' < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: 10b independent influence-function SE == shipped analytic SE (censored)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 10b censored influence-function comparison (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 10c. Fault injection: the comparison must be able to fail
+* Dropping the coefficient-uncertainty term leaves a well-formed, positive,
+* plausible standard error.  If 10b still passed on it, 10b would be measuring
+* the baseline term alone.
+local ++test_count
+capture noisily {
+    quietly finegray_cif, at(x1=0.5 x2=1) attime(0.4 0.9 1.6) ci nograph
+    matrix IF_P = r(table)
+    quietly _cse_ifse, at(0.5 1) times(0.4 0.9 1.6) gmode(2) nobeta
+    matrix IF_N = r(table)
+    local fmin = 1e300
+    forvalues k = 1/3 {
+        assert !missing(IF_N[`k',3])
+        assert IF_N[`k',3] > 0
+        local dsn = reldif(IF_N[`k',3], IF_P[`k',3])
+        if `dsn' < `fmin' local fmin = `dsn'
+    }
+    display as text "  10c fault injection (no coefficient term): min relative " ///
+        "SE difference = " as result %9.2e `fmin'
+    assert `fmin' > 1e-3
+}
+if _rc == 0 {
+    display as result "  PASS: 10c dropping the coefficient term is detected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 10c fault injection not detected (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 10d. Uncensored special case: G == 1, so the weight question disappears
+local ++test_count
+capture noisily {
+    clear
+    set seed 91011
+    set obs 800
+    gen long id = _n
+    gen double x1 = rnormal()
+    gen double x2 = rbinomial(1, 0.4)
+    gen double u  = runiform()
+    gen double t  = -ln(u) / exp(0.4*x1 - 0.3*x2)
+    gen byte d = 1
+    gen byte status = 1
+    replace status = 2 if runiform() < 0.4
+    stset t, failure(d) id(id)
+    quietly finegray x1 x2, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    quietly count if _d == 0
+    assert r(N) == 0
+    quietly finegray_cif, at(x1=0.5 x2=1) attime(0.4 0.9 1.6) ci nograph
+    assert `"`r(se_method)'"' == "analytic"
+    matrix IF_UP = r(table)
+    quietly _cse_ifse, at(0.5 1) times(0.4 0.9 1.6) gmode(2)
+    matrix IF_UM = r(table)
+    local umax = 0
+    forvalues k = 1/3 {
+        assert !missing(IF_UP[`k',2], IF_UP[`k',3], IF_UM[`k',2], IF_UM[`k',3])
+        assert IF_UP[`k',3] > 0
+        local dc = reldif(IF_UM[`k',2], IF_UP[`k',2])
+        local ds = reldif(IF_UM[`k',3], IF_UP[`k',3])
+        if `dc' > `umax' local umax = `dc'
+        if `ds' > `umax' local umax = `ds'
+    }
+    display as text "  10d uncensored branch: max relative difference = " ///
+        as result %9.2e `umax'
+    assert `umax' < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: 10d independent influence-function SE == shipped analytic SE (uncensored)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 10d uncensored influence-function comparison (rc=`=_rc')"
+    local ++fail_count
+}
+
+capture program drop _cse_ifse
 
 **# Summary
 display as text _newline "RESULT: validation_finegray_cif_se tests=`test_count' pass=`pass_count' fail=`fail_count'"

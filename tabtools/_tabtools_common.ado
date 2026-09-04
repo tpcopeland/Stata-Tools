@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.0  2026/09/03
+*! _tabtools_common Version 2.1.1  2026/09/04
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -494,7 +494,12 @@ program _tabtools_resolve_format, nclass
     if "$TABTOOLS_FONTSIZE" != "" local _fontsize $TABTOOLS_FONTSIZE
     if `"`font'"' != "" local _font `"`font'"'
     if `fontsize' != -1 local _fontsize `fontsize'
-    if `fontsize' != -1 & (`_fontsize' < 1 | `_fontsize' > 72) {
+    capture confirm integer number `_fontsize'
+    if _rc {
+        display as error "fontsize() must be between 1 and 72"
+        exit 198
+    }
+    if `_fontsize' < 1 | `_fontsize' > 72 {
         display as error "fontsize() must be between 1 and 72"
         exit 198
     }
@@ -836,18 +841,22 @@ program _tabtools_console_display, nclass
         display as result `"`title'"'
     }
 
+    local _display_vars ""
+    if "`labelvar'" != "" {
+        capture confirm variable `labelvar'
+        if _rc {
+            display as error "labelvar(): variable `labelvar' not found"
+            exit 111
+        }
+        local _display_vars "`labelvar'"
+    }
+
     local total_rows = _N
     if `total_rows' < `headerstart' {
         display as text ""
         quietly version
         set varabbrev `_orig_varabbrev'
         exit
-    }
-
-    local _display_vars ""
-    if "`labelvar'" != "" {
-        capture confirm variable `labelvar'
-        if !_rc local _display_vars "`labelvar'"
     }
 
     forvalues c = 1/`num_cols' {
@@ -1014,6 +1023,9 @@ program _tabtools_frame_put, nclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    tempname _fr_stage _fr_backup
+    local _fr_stage_created = 0
+    local _fr_backup_created = 0
     capture noisily {
     args frame_spec
 
@@ -1036,25 +1048,52 @@ program _tabtools_frame_put, nclass
     }
 
     capture confirm frame `_fr_name'
-    if !_rc {
+    local _fr_exists = (_rc == 0)
+    if `_fr_exists' {
         if "`_fr_opts'" == "replace" {
             if "`_fr_name'" == "`c(frame)'" {
                 display as error "frame(): cannot replace the current frame (`_fr_name')"
                 exit 198
             }
-            frame drop `_fr_name'
         }
         else {
             display as error "frame `_fr_name' already exists"
             exit 110
         }
     }
-    frame put *, into(`_fr_name')
 
+    * Materialize the replacement before touching an existing destination.
+    frame put *, into(`_fr_stage')
+    local _fr_stage_created = 1
+    if "$TABTOOLS_QA_FRAME_STAGE_FAIL" == "1" exit 459
+
+    if `_fr_exists' {
+        frame rename `_fr_name' `_fr_backup'
+        local _fr_backup_created = 1
+    }
+    frame rename `_fr_stage' `_fr_name'
+    local _fr_stage_created = 0
+    if `_fr_backup_created' {
+        frame drop `_fr_backup'
+        local _fr_backup_created = 0
+    }
+
+    quietly version
     c_local _frame_name "`_fr_name'"
     }
     local _rc_outer = _rc
-    quietly version
+    if `_fr_stage_created' capture frame drop `_fr_stage'
+    if `_fr_backup_created' {
+        capture confirm frame `_fr_name'
+        if _rc {
+            capture frame rename `_fr_backup' `_fr_name'
+            local _fr_restore_rc = _rc
+        }
+        else {
+            capture frame drop `_fr_backup'
+            local _fr_cleanup_rc = _rc
+        }
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc_outer' exit `_rc_outer'
 end

@@ -245,6 +245,19 @@ two decimal places -- the same rule {cmd:finegray} itself applies.
 {help finegray_methods##fv:Factor variables and margins}.
 
 
+{marker emptyresult}{...}
+{pstd}
+{bf:Empty results are refused, not committed:} a prediction that can be
+computed for no observation is an error rather than a column of missing
+values. {opt cif} exits {cmd:r(2000)} when no observation in the prediction
+sample can be scored -- for example when a covariate in the fit is missing on
+every one of those rows -- and {opt ci} exits {cmd:r(2000)} when the
+complementary log-log limits are undefined everywhere, which is what a
+cumulative incidence that is identically zero at the requested horizon (a time
+before the first cause event) produces. The refusal removes any variable the
+command had already created, so the data are left exactly as they were.
+
+
 {marker examples}{...}
 {title:Examples}
 

@@ -248,6 +248,7 @@ else {
 **# T4 (C1): invalid censoring specifications are rejected
 
 local ++test_count
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code, written as `if _rc != 198 { display ...; error 9 }' at each of the three probes so the failure message can name the code actually seen; the rule recognizes only the `assert _rc == 198' spelling. The block also proves censor() EXISTS and accepts a valid spec first, so the rejections cannot pass on a package that has no such option.
 capture noisily {
     * First prove the option EXISTS and accepts a valid specification. Without
     * this, every assertion below passes on a package that has no censor()
@@ -478,6 +479,7 @@ else {
 **# T8 (C5): a patient spanning two clinics is rejected, not silently resampled
 
 local ++test_count
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code, written as `if _rc != 459 { display ...; error 9 }' so the failure message can name the code actually seen; the rule recognizes only the `assert _rc == 459' spelling
 capture noisily {
     clear
     set seed 77

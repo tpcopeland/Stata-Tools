@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.7.0  2026/09/03
+*! psdash_weights Version 1.7.1  2026/09/04
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -135,7 +135,7 @@ program define psdash_weights, rclass
     }
 
     * MARK SAMPLE
-    tempvar touse ps_auto wt_auto
+    tempvar touse ps_auto wt_auto mg_ps_fallback
     * Accept twoway-style name(x, replace) / saving(f, replace) gracefully
     _psdash_strip_replace, option(name) value(`"`name'"')
     local name `"`r(value)'"'
@@ -309,7 +309,7 @@ program define psdash_weights, rclass
         }
         _psdash_mgps_map, multigroup(`multigroup') k(`K') levels(`levels') ///
             treatment(`treatment') samplevar(`touse') `_mg_psvar_opt' ///
-            `_mg_det_opt' allowempty
+            `_mg_det_opt' fallbackps(`mg_ps_fallback') allowempty
         local mg_psvars_all "`r(mg_psvars_all)'"
     }
 
@@ -319,9 +319,13 @@ program define psdash_weights, rclass
         exit 198
     }
 
-    * Restrict PS diagnostics to rows with nonmissing treatment and PS.
+    * Restrict PS diagnostics to rows with nonmissing treatment and every PS
+    * component used by the requested weight.
     markout `touse' `treatment'
-    if "`psvar'" != "" markout `touse' `psvar'
+    if "`multigroup'" != "0" & "`mg_psvars_all'" != "" {
+        markout `touse' `mg_psvars_all'
+    }
+    else if "`psvar'" != "" markout `touse' `psvar'
 
     * Positivity warnings (when PS is available, binary only)
     local n_ps_boundary = 0
@@ -353,6 +357,25 @@ program define psdash_weights, rclass
             display as error "  computed after dropping them would describe a different sample."
             display as error "  Trim the boundary observations ({cmd:psdash support, crump}) or supply"
             display as error "  a weight variable explicitly before requesting weight diagnostics."
+            exit 459
+        }
+    }
+    else if "`multigroup'" != "0" & "`wvar_auto'" == "1" {
+        local _ps_idx = 1
+        foreach _lev of local levels {
+            local _own_ps : word `_ps_idx' of `mg_psvars_all'
+            if "`_own_ps'" != "" {
+                quietly count if `touse' & `treatment' == `_lev' & ///
+                    missing(`wvar') & `_own_ps' == 0
+                local n_wt_undefined = `n_wt_undefined' + r(N)
+            }
+            local _ps_idx = `_ps_idx' + 1
+        }
+        if `n_wt_undefined' > 0 {
+            display as error "`n_wt_undefined' observation(s) have an undefined propensity-based weight"
+            display as error "  an observed treatment arm has an exact-zero own-arm propensity score."
+            display as error "  Trim those observations or supply valid weights explicitly;"
+            display as error "  weight diagnostics cannot silently change the analysis sample."
             exit 459
         }
     }
@@ -1215,6 +1238,11 @@ program define psdash_weights, rclass
         local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
         local ++_pfn
     }
+    if `n_wt_dropped' > 0 {
+        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
+        local ++_pfn
+    }
     * RB-09: max/mean weight ratio dominance threshold (multi-group).
     if `max_ratio' >= 20 & `max_ratio' < . {
         display as error "Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates)."
@@ -1444,6 +1472,7 @@ program define psdash_weights, rclass
             return scalar ess_pct_treated = `ess_pct_t'
             return scalar ess_pct_control = `ess_pct_c'
             return scalar n_extreme = `n_extreme'
+            return scalar n_very_extreme = `n_very_extreme'
             return scalar pct_extreme = `pct_extreme'
             return scalar max_ratio = `max_ratio'
             return scalar extreme_hi = `exthi'
@@ -1498,6 +1527,7 @@ program define psdash_weights, rclass
             return scalar ess = `ess'
             return scalar ess_pct = `ess_pct'
             return scalar n_extreme = `n_extreme'
+            return scalar n_very_extreme = `n_very_extreme'
             return scalar pct_extreme = `pct_extreme'
             return scalar max_ratio = `max_ratio'
             return scalar extreme_hi = `exthi'
@@ -1506,6 +1536,8 @@ program define psdash_weights, rclass
             return scalar p5 = `p5'
             return scalar p95 = `p95'
             return scalar p99 = `p99'
+            return scalar n_wt_undefined = `n_wt_undefined'
+            return scalar n_wt_dropped = `n_wt_dropped'
             return local treatment "`treatment'"
             return local estimand "`estimand'"
             return local source "`source'"

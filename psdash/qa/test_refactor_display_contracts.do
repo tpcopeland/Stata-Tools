@@ -32,6 +32,19 @@ program define _disp_result
     }
 end
 
+capture program drop _disp_check_png
+program define _disp_check_png
+    args artifact tools_dir
+    tempfile result
+    shell python3 "`tools_dir'/check_artifact.py" "`artifact'" --type png ///
+        --min-width 400 --min-height 300 --result-file "`result'"
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    assert "`line'" == "PASS"
+end
+
 **# README and demo transcript contracts
 
 local ++test_count
@@ -54,6 +67,7 @@ capture noisily {
         weight_distribution support_region dashboard dashboard_teffects ///
         mg_overlap_density mg_love_plot mg_dashboard {
         confirm file "`pkg_dir'/demo/`f'.png"
+        _disp_check_png "`pkg_dir'/demo/`f'.png" "`qa_dir'/tools"
     }
     confirm file "`pkg_dir'/demo/demo_psdash.do"
 }

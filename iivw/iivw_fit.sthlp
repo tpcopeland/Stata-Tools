@@ -55,7 +55,7 @@
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}cluster variable; default is stored id{p_end}
 {synopt:{opt vce(vcetype)}}{cmd:bootstrap}, {cmd:fixed}, or {cmd:stacked}{p_end}
-{synopt:{opt citype(string)}}interval: {cmd:wald}, {cmd:percentile}, {cmd:bca}, ...{p_end}
+{synopt:{opt cit:ype(string)}}interval: {cmd:wald}, {cmd:percentile}, {cmd:bca}, ...{p_end}
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
 {synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
 {synopt:{opt refit:weights}}{it:legacy}; prefer {opt vce()}{p_end}
@@ -310,7 +310,7 @@ recommendation. The FIPTIW row is not: it is the command declining to print a
 number it cannot
 support. Explicit interval methods remain available for prespecified
 sensitivity analysis and are stamped empirically uncleared. The coverage
-evidence behind that distinction lives in the package's QA directory, not here.
+status is recorded in {cmd:e(iivw_inference_status)}.
 
 {pmore}
 {cmd:vce(bootstrap, reps(#) [seed(#)])} is the default for IIW and IPTW fits and
@@ -318,12 +318,12 @@ the recommended method: a subject-level bootstrap that {bf:refits} every nuisanc
 model inside each draw, so the interval propagates weight-estimation uncertainty
 -- the practical estimator of the full sampling variability that Buzkova & Lumley
 (2007) and Coulombe, Moodie & Platt (2021) derive analytically. {cmd:reps()}
-omitted takes the release-frozen {bf:999}; fewer than 999 is allowed but stamped
+omitted takes {bf:999}; fewer than 999 is allowed but stamped
 {cmd:e(iivw_inference_status)}={cmd:uncleared-low-reps}. The printed interval is
 the normal/Wald interval from the bootstrap covariance. An explicit {cmd:reps()}
 must be at least 2; zero, one, and negative values are rejected rather than
 being mistaken for omission. The stored method is
-{cmd:e(iivw_ci_type)}={cmd:wald-normal} unless {opt citype()} selects another
+{cmd:e(iivw_ci_type)}={cmd:wald-normal} unless {opt cit:ype()} selects another
 transformation. {cmd:seed()}
 fixes the resampling stream; with no seed, the exact pre-draw RNG
 state is stored in {cmd:e(iivw_rngstate_start)} so the run is still replayable.
@@ -335,7 +335,7 @@ follow-up stacked-sandwich study at n=600 and n=1200 used only 200 outer
 replications and one identity-link DGP; its own record classifies it as a
 diagnostic screen, not a release gate. It therefore cannot establish a universal
 safe cutoff or a default for other links. An explicit {opt vce()} or
-{opt citype()} requests nominal inference and is stamped empirically uncleared.
+{opt cit:ype()} requests nominal inference and is stamped empirically uncleared.
 
 {pmore}
 {cmd:vce(stacked)} is the analytic
@@ -423,7 +423,7 @@ metadata from a preceding {cmd:iivw_weight} run. It is substantially slower than
 fixed-weight bootstrap because the weight models are refit in every replicate.
 
 {phang}
-{opt citype(string)} selects the interval transformation. {cmd:wald} uses
+{opt cit:ype(string)} selects the interval transformation. {cmd:wald} uses
 {it:b} +/- {it:z} times the bootstrap or sandwich standard error, while
 {cmd:percentile} uses the empirical full-refit bootstrap quantiles and
 {cmd:basic} reflects those quantiles around the observed estimate. {cmd:bca}
@@ -507,7 +507,7 @@ rather than falling back to the old behaviour. Re-run {cmd:iivw_weight}.
 
 {pmore}
 The compact effects table printed by {cmd:iivw_fit} reports the interval named
-by {opt citype()}. {cmd:wald} uses coefficient {+/-} {it:z} {cmd:*} SE, whereas
+by {opt cit:ype()}. {cmd:wald} uses coefficient {+/-} {it:z} {cmd:*} SE, whereas
 {cmd:percentile}, {cmd:basic}, and {cmd:bca} use the corresponding full-refit
 bootstrap endpoints. {cmd:citype(none)} prints coefficients only. The selected
 endpoints are stored in {cmd:e(iivw_ci)}; Stata's additional bootstrap results
@@ -870,160 +870,39 @@ the Options section).
 
 
 {marker inference}{...}
-{title:Inference status and coverage evidence}
+{title:Inference status}
 
 {pstd}
-{cmd:e(iivw_inference_status)} records whether this run has a studied interval
-contract. {cmd:e(iivw_interval_available)} separately records whether
-{cmd:iivw_fit} reported any interval.
-
-{pstd}
-The original study used 1000 simulated datasets per weight family and 999
-bootstrap draws each under a prespecified rule: the 95%
-Wilson interval for empirical coverage must contain 0.95, with no point coverage
-below 0.92. IIW and IPTW passed. The FIPTIW follow-up then compared Wald,
-percentile, basic, bias-corrected, and BCa intervals at the same {cmd:n=300}
-cell and the same fixed rule.
+{cmd:e(iivw_inference_status)} records the inference contract applied to this
+fit. {cmd:e(iivw_interval_available)} separately records whether an interval
+was reported.
 
 {synoptset 40 tabbed}{...}
 {synopthdr:status}
 {synoptline}
-{synopt:{cmd:cleared-at-studied-settings}}IIW/IPTW refit; rule met{p_end}
+{synopt:{cmd:uncleared-current-build}}IIW/IPTW default bootstrap{p_end}
 {synopt:{cmd:point-only-no-valid-interval}}bare FIPTIW; no interval{p_end}
-{synopt:{cmd:point-only-requested}}{cmd:citype(none)}; outside FIPTIW{p_end}
+{synopt:{cmd:point-only-requested}}explicit {cmd:citype(none)}{p_end}
 {synopt:{cmd:uncleared-stacked-analytic}}explicit {cmd:vce(stacked)} request{p_end}
 {synopt:{cmd:uncleared-low-reps}}fewer than 999 draws{p_end}
 {synopt:{cmd:uncleared-failed-reps}}draws failed, {opt allowfailedreps}{p_end}
-{synopt:{cmd:uncleared-fiptiw-*}}999-draw FIPTIW refit interval{p_end}
+{synopt:{cmd:uncleared-fiptiw-*}}FIPTIW interval requested{p_end}
 {synopt:{cmd:uncleared-fixedweights-bootstrap}}weights fixed across draws{p_end}
 {synopt:{cmd:uncleared-fixedweights-analytic}}analytic sandwich{p_end}
 {synopt:{cmd:not-applicable-unweighted}}no weights estimated{p_end}
 {synoptline}
 
 {pstd}
-The measured IIW/IPTW tier applies only to the 999-draw refit bootstrap, which
-is their weighted default. Measured coverage was 0.939 for IIW and 0.954 for
-IPTW. For FIPTIW, the oracle itself covers only 0.943 at n=300. A separate
-R=200 diagnostic screen measured stacked-sandwich coverage of 0.940 at n=600
-and 0.960 at n=1200 under one identity-link DGP, but it was not a release gate
-and does not certify a cutoff or other links. No interval is therefore reported
-by default at any sample size. The {cmd:uncleared-*} tiers do not inherit the cleared
-tiers' coverage results: either the run departed from the studied configuration,
-or it used a weights-known variance that omits the nuisance-estimation
-correction. Explicit {cmd:vce(stacked)} at any sample size is stamped
-{cmd:uncleared-stacked-analytic} because no release gate has certified it.
+The IIW/IPTW default remains a 999-draw subject-level bootstrap that refits all
+nuisance models, but the current build is stamped {cmd:uncleared-current-build}
+until its long-run coverage gate is reproduced against the current source
+manifest. Historical results do not transfer automatically across builds.
 
 {pstd}
-{bf:"At studied settings" is load-bearing.} The study covered one correctly
-specified scenario per cleared family at one sample size
-(n=300 for IIW/IPTW). It says nothing about a misspecified visit model or
-a different sample size. A
-{cmd:cleared-*} interval is evidence, not a guarantee.
-
-{marker fiptiwcoverage}{...}
-{pstd}
-{bf:What comparable R software does.} Other R packages do not provide a
-secret, generally valid IIVW/FIPTIW variance solution. Their choices are useful
-comparators, not proof of calibration:
-
-{phang2}
-{browse "https://search.r-project.org/CRAN/refmans/IrregLong/html/iiwgee.html":IrregLong iiwgee()}
-exposes the ordinary fitted {cmd:geeglm} object, so its reported outcome-model
-inference is effectively fixed-weight GEE inference.
-
-{phang2}
-{browse "https://stat.ethz.ch/CRAN/web/packages/CIMEHR/CIMEHR.pdf":CIMEHR's IIRR estimator}
-returns no analytic SE. Its optional bootstrap resamples subjects, refits
-every stage, and reports percentile intervals.
-
-{phang2}
-{browse "https://cran.r-universe.dev/smoothedIPW/smoothedIPW.pdf":smoothedIPW}
-likewise resamples individuals, reruns the IPW estimator, and reports
-percentile intervals.
-
-{phang2}
-{browse "https://stat.ethz.ch/R-manual/R-devel/library/boot/html/boot.ci.html":R boot::boot.ci()}
-offers normal, basic, studentized, percentile, and BCa intervals. That menu is
-generic machinery; it does not establish calibration for a particular IIVW
-estimator.
-
-{pstd}
-{bf:The FIPTIW shortfall.} The {cmd:n=300} experiment used 1000 simulated
-datasets and 999 full-refit bootstrap draws per dataset:
-
-{p2colset 5 24 26 2}{...}
-{p2col:{bf:Interval}}{bf:Coverage and 95% Wilson interval}{p_end}
-{p2col:{cmd:Wald}}coverage 0.914; 95% Wilson interval [0.895, 0.930]{p_end}
-{p2col:{cmd:Percentile}}coverage 0.924; 95% Wilson interval [0.906, 0.939]{p_end}
-{p2col:{cmd:Basic}}coverage 0.896; 95% Wilson interval [0.876, 0.913]{p_end}
-{p2col:{cmd:Bias-corrected}}coverage 0.914; 95% Wilson interval [0.895, 0.930]{p_end}
-{p2col:{cmd:BCa}}coverage 0.895; 95% Wilson interval [0.874, 0.913]{p_end}
-{p2colreset}{...}
-
-{pstd}
-The prespecified gate required point coverage of at least 0.92 and a 95% Wilson
-interval containing 0.95. None passed. Percentile was best, but its Wilson
-interval still excludes 0.95. Two things matter for how you read that:
-
-{phang2}
-1. {bf:The point estimator is not implicated.} Bias was +0.017 against a Monte
-Carlo standard error of 0.039 -- under half an MCSE, i.e. indistinguishable from
-zero. FIPTIW point estimates are not biased by this finding.
-
-{phang2}
-2. {bf:The interval is too narrow, by roughly 14%.} The mean estimated standard
-error was 1.062 where the empirical standard deviation of the estimates was
-1.239. A confidence interval built from an SE that is 14% too small covers about
-0.91 rather than 0.95, which is what was observed.
-
-{pstd}
-The refit bootstrap, fixed-weight bootstrap, and analytic sandwich also agree
-to within 0.5% on the SE and all fall short. Separate contract tests verify
-that the refit bootstrap resamples whole subjects, rebuilds the full
-weight-model frame, refits the nuisance models, and computes BCa acceleration
-over delete-one subjects. Together, that evidence shows that substituting a
-weights-known variance or another common bootstrap transformation does not
-repair the FIPTIW interval.
-
-{pstd}
-The prespecified positivity-stress run was conditional on finding a
-base-cell winner. Because no interval passed, that stress run was not
-launched. Studentized intervals were not pursued: they require a variance
-estimate inside every bootstrap replicate, while the less costly higher-order
-BCa candidate already failed decisively.
-
-{pstd}
-{bf:Sample-size diagnostic.} A prespecified follow-up repeated the same FIPTIW
-DGP and 999-draw refit procedure at larger sample sizes (200 outer datasets per
-cell). Coverage was 0.950 at {cmd:n=600} and 0.960 at {cmd:n=1200}; mean SE divided
-by empirical SD was 1.006 and 0.952, and the standardized-statistic SD was 1.021
-and 1.003. Together with 0.914, 0.857, and 1.156 at {cmd:n=300}, that pattern
-supports a finite-sample calibration problem in this DGP rather than a variance
-deficit that persists as sample size grows. The larger-n cells are diagnostics,
-not release gates: they have only 200 outer replications, cover one identity-link
-DGP, and do not establish {cmd:n=600} or any other universal safe cutoff.
-
-{pstd}
-A bare weighted FIPTIW fit therefore returns coefficients only at every sample
-size. It suppresses the underlying model table, launches no hidden
-bootstrap, stores missing endpoints in {cmd:e(iivw_ci)}, sets
-{cmd:e(iivw_interval_available)} to 0, and stamps
-{cmd:e(iivw_inference_status)}={cmd:point-only-no-valid-interval}. It also
-posts no {cmd:e(V)}, so {cmd:estimates replay}, {cmd:lincom}, and other
-inference-dependent postestimation cannot reconstruct a nominal interval; for
-this result {cmd:e(properties)} is {cmd:b}, and replay displays coefficients
-only. {cmd:e(iivw_underlying_vce)} records the covariance route used internally. An
-explicit {cmd:vce()} or non-{cmd:none} {cmd:citype()} request reports nominal inference and
-prints the empirical warning before estimation begins.
-
-{pstd}
-{bf:What to do about it.} Report the FIPTIW point estimate and state that the
-package has no empirically calibrated 95% interval for this setting. Do not
-repair the interval by multiplying its SE by an ad hoc factor. If an interval
-is decision-critical, use a method justified for the design and add
-design-appropriate sensitivity analyses. The shortfall shrank in the package's
-larger-n diagnostic cells, but do not translate that one-DGP result into a
-sample-size threshold.
+A bare weighted FIPTIW fit returns coefficients only and posts no {cmd:e(V)}. An
+explicit {cmd:vce()} or non-{cmd:none} {opt cit:ype()} request reports nominal
+inference and records the corresponding {cmd:uncleared-*} status. Do not infer
+calibration from the availability of an interval method.
 
 
 {marker troubleshooting}{...}
@@ -1388,7 +1267,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_bs_frame_N)}}resampling-frame rows ({opt refitweights} only){p_end}
 {synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome equation{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}1 if an interval was reported; 0 for point-only{p_end}
-{synopt:{cmd:e(iivw_ci_explicit)}}1 if {opt citype()} was specified{p_end}
+{synopt:{cmd:e(iivw_ci_explicit)}}1 if {opt cit:ype()} was specified{p_end}
 
 {synoptset 30 tabbed}{...}
 {p2col 5 30 34 2: Matrices}{p_end}

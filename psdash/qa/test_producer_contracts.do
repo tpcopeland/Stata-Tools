@@ -80,15 +80,22 @@ foreach source in iivw msm tte tmle ltmle {
         continue
     }
     local guard "`r(guard)'"
-    capture ado uninstall `source'
-    if fileexists("`repo_dir'/`source'/`source'.pkg") {
-        capture noisily net install `source', from("`repo_dir'/`source'") replace
+    local producer_pkg "`source'"
+    if inlist("`source'", "tmle", "ltmle") local producer_pkg "targetlearn"
+    capture ado uninstall `producer_pkg'
+    if fileexists("`repo_dir'/`producer_pkg'/`producer_pkg'.pkg") {
+        capture noisily net install `producer_pkg', from("`repo_dir'/`producer_pkg'") replace
         if _rc {
             _pc_result "install_`source'" `=_rc'
             continue
         }
     }
-    capture which `guard'
+    if inlist("`source'", "tmle", "ltmle") {
+        local producer_lib "_`source'_lib"
+        capture _tlearn_require_helper `producer_lib', file(`producer_lib'.ado)
+    }
+    if inlist("`source'", "tmle", "ltmle") capture program list `guard'
+    else capture which `guard'
     if _rc {
         global pc_test_count = $pc_test_count + 1
         global pc_skip_count = $pc_skip_count + 1
@@ -96,8 +103,14 @@ foreach source in iivw msm tte tmle ltmle {
     }
     else {
         capture noisily {
-            which `guard'
-            findfile `guard'.ado
+            if inlist("`source'", "tmle", "ltmle") {
+                program list `guard'
+                findfile `producer_lib'.ado
+            }
+            else {
+                which `guard'
+                findfile `guard'.ado
+            }
             assert "`r(fn)'" != ""
         }
         _pc_result "installed_guard_`source'" `=_rc'
@@ -114,4 +127,6 @@ if $pc_fail_count > 0 {
     macro drop pc_test_count pc_pass_count pc_fail_count pc_skip_count pc_failed_tests
     exit 9
 }
+local pc_skip = $pc_skip_count
 macro drop pc_test_count pc_pass_count pc_fail_count pc_skip_count pc_failed_tests
+if `pc_skip' > 0 exit 77

@@ -1,8 +1,9 @@
 #!/usr/bin/env Rscript
 # crossval_fiptiw.R - Generate FIPTIW reference weights for cross-validation
 #
-# Implements the Tompkins et al. (2025) DGP and computes IIW, IPTW, and
-# FIPTIW weights for comparison with the Stata iivw package.
+# Implements a local simplified transcription informed by Tompkins et al.
+# (2025), then computes IIW, IPTW, and FIPTIW references independently in R.
+# It is not code supplied by, or an implementation released by, the authors.
 #
 # Exports exactly these three files (this list is the contract):
 #   1. Observed-only simulated dataset with weights (fiptiw_simdata.csv)
@@ -18,7 +19,7 @@ library(survival)
 library(geepack)
 
 cat("=== FIPTIW Simulation Cross-Validation ===\n")
-cat("Based on Tompkins, Dubin & Wallace (2025)\n\n")
+cat("Local simplified transcription informed by Tompkins, Dubin & Wallace (2025)\n\n")
 
 cmd_args <- commandArgs(FALSE)
 file_arg <- grep("^--file=", cmd_args, value = TRUE)
@@ -31,7 +32,7 @@ outdir <- if (length(file_arg)) {
 expit <- function(x) 1 / (1 + exp(-x))
 
 # =============================================================================
-# 1. Data Generating Process (Tompkins et al. 2025 - simplified)
+# 1. Data Generating Process (local simplified transcription)
 # =============================================================================
 
 # Parameters from their base scenario
@@ -101,9 +102,6 @@ for (i in 1:n) {
     visit_times <- visit_times[visit_times <= C]
     if (length(visit_times) < 2) next
 
-    # Round to avoid floating point issues
-    visit_times <- round(visit_times, 4)
-
     # Generate outcomes at visit times
     Wt <- W * log(visit_times)
     cexp_Wt_D <- 0.5 * log(visit_times)
@@ -131,6 +129,9 @@ for (i in 1:n) {
 # Combine
 simdata_obs <- do.call(rbind, obs_data)
 simdata_obs <- simdata_obs[order(simdata_obs$id, simdata_obs$time), ]
+if (anyDuplicated(simdata_obs[c("id", "time")])) {
+    stop("generated reference has duplicate id-time keys")
+}
 
 # Create lagged time for counting process
 simdata_obs$time_lag <- ave(simdata_obs$time, simdata_obs$id,

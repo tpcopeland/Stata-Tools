@@ -95,10 +95,19 @@ capture noisily {
     _mk_fvg
     finegray ibn.grp#c.x, compete(ev) cause(1) nolog
     finegray_predict _xb, xb
+    quietly summarize _xb
+    * stata-dev-ignore: missing-passes-assert — fail-closed: summarize sets r(N) to 0 (not missing) on an all-missing column, so the `r(N) > 0' conjunct refuses the case that would let a missing r(sd) satisfy `r(sd) > 0'
+    assert r(N) > 0 & r(sd) > 0
     finegray_cif, attime(4)
+    matrix _fvg3a = r(table)
     * drop persistent design columns -> each consumer rebuilds from e(fvsemantic)
     capture drop _fg_*
     finegray_cif, attime(4)
+    matrix _fvg3b = r(table)
+    * "it still runs" is not the claim: the rebuilt design must reproduce the
+    * SAME curve.  A rebuild that mispairs a level returns a plausible, wrong
+    * CIF at rc 0, which is exactly what this block exists to catch.
+    assert mreldif(_fvg3a, _fvg3b) < 1e-12
     finegray_phtest
 }
 if _rc == 0 {
@@ -116,6 +125,11 @@ capture noisily {
     _mk_fvg
     foreach spec in "i.grp x" "ib2.grp x" "i.grp#c.x" "i.grp##c.x" {
         finegray `spec', compete(ev) cause(1) nolog
+        * a fit that returns with an empty sample or a missing coefficient is
+        * not "still fits"
+        * stata-dev-ignore: missing-passes-assert — fail-closed: the `assert !missing(el(e(b), 1, 1)) & !missing(e(ll))' on the very next line refuses a fit that posted missing content, which is the only way e(N) reaches this line missing
+        assert e(N) > 0 & colsof(e(b)) > 0
+        assert !missing(el(e(b), 1, 1)) & !missing(e(ll))
     }
 }
 if _rc == 0 {

@@ -76,6 +76,7 @@ end
 
 * T1: finegray installed
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which finegray
 }
@@ -90,6 +91,7 @@ else {
 
 * T2: _finegray_mata installed
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which _finegray_mata
 }
@@ -104,6 +106,7 @@ else {
 
 * T3: finegray_predict installed
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which finegray_predict
 }
@@ -121,6 +124,7 @@ else {
 * rc = 0, so the .pkg listing a file is not evidence that the file shipped --
 * only resolving it on the adopath is.
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which _finegray_fv_design
 }
@@ -534,7 +538,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     capture finegray ifp tumsize pelnode, cause(1)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: T22 error: missing compete()"
@@ -550,7 +554,7 @@ local ++test_count
 capture noisily {
     _setup_hypoxia
     capture finegray ifp tumsize pelnode, compete(status)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: T23 error: missing cause()"
@@ -1080,6 +1084,12 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict double cif_d, cif
     confirm double variable cif_d
+    * a double column of missings would satisfy `confirm double variable'
+    quietly count if !missing(cif_d)
+    assert r(N) == e(N)
+    quietly summarize cif_d
+    * stata-dev-ignore: missing-passes-assert — fail-closed: the `count if !missing(cif_d)' + `assert r(N) == e(N)' pair two lines above already refuses an all-missing column, so r(min)/r(max) here cannot be missing
+    assert r(min) >= 0 & r(max) <= 1 & r(max) > 0
     drop cif_d
 }
 if _rc == 0 {
@@ -1386,7 +1396,7 @@ capture noisily {
     gen int neg_var = pelnode - 2
     replace neg_var = -2 if stnum <= 10
     capture finegray i.neg_var ifp, compete(status) cause(1)
-    assert _rc != 0
+    assert _rc == 452
     drop neg_var
     cap drop _fg_*
 }
@@ -1816,6 +1826,10 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     finegray_predict sch_stub, schoenfeld
     confirm variable sch_stub
+    * residuals exist only at cause-event times, so the count is a property of
+    * the fixture (33 cause events) rather than of the sample size
+    quietly count if !missing(sch_stub)
+    assert r(N) == 33
     drop sch_stub*
 }
 if _rc == 0 {
@@ -1836,6 +1850,13 @@ capture noisily {
     confirm variable sch
     confirm variable sch_2
     confirm variable sch_3
+    foreach v in sch sch_2 sch_3 {
+        quietly count if !missing(`v')
+        assert r(N) == 33
+    }
+    * exactly three: a fourth stub would mean the covariate count was misread
+    capture confirm variable sch_4
+    assert _rc == 111
     drop sch sch_2 sch_3
 }
 if _rc == 0 {
@@ -1963,6 +1984,9 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     margins, at(ifp=(0 5 10)) predict(xb)
     confirm matrix r(table)
+    * one column per at() point, and the estimates are real numbers
+    assert colsof(r(table)) == 3
+    assert !missing(el(r(table), 1, 1)) & !missing(el(r(table), 1, 3))
 }
 if _rc == 0 {
     display as result "  PASS: T84 sthlp margins at() example"
@@ -1980,6 +2004,12 @@ capture noisily {
     finegray ifp tumsize pelnode, compete(status) cause(1) nolog
     margins, dydx(ifp) predict(xb)
     confirm matrix r(table)
+    * a single derivative, and it equals the fitted coefficient on ifp
+    assert colsof(r(table)) == 1
+    * reldif(., .) == 0, so a missing derivative and a missing coefficient would
+    * satisfy the comparison below.
+    assert !missing(el(r(table), 1, 1), _b[ifp])
+    assert reldif(el(r(table), 1, 1), _b[ifp]) < 1e-12
 }
 if _rc == 0 {
     display as result "  PASS: T85 sthlp margins dydx() example"
@@ -2237,6 +2267,19 @@ capture noisily {
     confirm variable _fg_pelnode_1
     * Interaction: _fg_pelnode_1Xifp
     confirm variable _fg_pelnode_1Xifp
+    * the NAME is not the contract: the column must hold the product it is
+    * named for, or every coefficient on it is attached to the wrong regressor
+    * reldif(., .) is 0 and a missing r(sd) compares greater than 0, so an
+    * all-missing interaction column satisfied BOTH checks below before this
+    * guard: count the finite cells first and require one per estimation row.
+    quietly count if !missing(_fg_pelnode_1Xifp, _fg_pelnode_1, ifp)
+    assert r(N) == e(N)
+    quietly count if reldif(_fg_pelnode_1Xifp, _fg_pelnode_1 * ifp) > 1e-12
+    assert r(N) == 0
+    quietly summarize _fg_pelnode_1Xifp
+    assert r(N) == e(N)
+    assert !missing(r(sd))
+    assert r(sd) > 0
     cap drop _fg_*
 }
 if _rc == 0 {
@@ -2386,12 +2429,50 @@ capture noisily {
     _setup_hypoxia
     collect clear
     collect: finegray ifp tumsize pelnode, compete(status) cause(1) nolog norobust
+    * e(b) NOW: the stcrreg fit below replaces it
+    matrix _T103b = e(b)
     stset dftime, failure(status==1) id(stnum)
     collect: stcrreg ifp tumsize pelnode, compete(status == 2) nohr
     regtab, xlsx("`output_dir'/finegray_regtab.xlsx") sheet("Model-based SE") ///
         coef("Coef.") models("finegray (norobust) \ stcrreg (nohr)") ///
         title("Model-based SEs: coefficients") stats(n ll)
     confirm file "`output_dir'/finegray_regtab.xlsx"
+
+    * `confirm file' passes on the workbook T102 already wrote to a different
+    * sheet of the same file, so the file existing is not evidence about this
+    * sheet.  Same read-back as T102: every finegray estimate regtab printed
+    * has to be this fit's own, to the two decimals it prints.  finegray
+    * reports on the SHR scale whatever caption coef() supplies, so the
+    * expected string is exp(e(b)) here too.  Searched across all columns
+    * rather than pinned to column C, so a change in regtab's layout is not
+    * read as a wrong number.  No assert runs between preserve and restore --
+    * a failure there would leak the preserved state and make the NEXT test die
+    * r(621) instead.
+    local _t103miss ""
+    local _t103col ""
+    preserve
+    quietly import excel using "`output_dir'/finegray_regtab.xlsx", ///
+        sheet("Model-based SE") clear allstring
+    local _t103cn : colnames _T103b
+    local _j = 0
+    foreach _cn of local _t103cn {
+        local ++_j
+        if regexm("`_cn'", "[0-9]+[bo]\.") continue
+        local _want = trim(string(exp(_T103b[1, `_j']), "%9.2f"))
+        local _t103col "`_t103col' `_want'"
+        local _t103found = 0
+        foreach _v of varlist _all {
+            quietly count if trim(`_v') == "`_want'"
+            if r(N) > 0 local _t103found = 1
+        }
+        if !`_t103found' local _t103miss "`_t103miss' `_want'"
+    }
+    restore
+    display as text "  T103 finegray estimates expected in the sheet:`_t103col'"
+    if `"`_t103miss'"' != "" {
+        display as error "  T103 value(s) not found in the workbook:`_t103miss'"
+    }
+    assert `"`_t103miss'"' == ""
 }
 if _rc == 0 {
     display as result "  PASS: T103 regtab model-based SEs"
@@ -2886,7 +2967,7 @@ capture noisily {
     assert _rc == 0
     finegray ifp tumsize, compete(status) cause(1) nolog
     capture confirm variable _fg_pelnode_1
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS: T122 non-FV rerun drops stale _fg_* variables"

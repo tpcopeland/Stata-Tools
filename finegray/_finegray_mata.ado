@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.0  2026/09/02
+*! _finegray_mata Version 1.3.0  2026/09/04
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -2864,6 +2864,19 @@ real matrix _finegray_basehazard(
     real colvector eta, expeta, wexpeta, is_cause, is_compete, ord, entry_ord
     real rowvector bwd_s0_raw
     real matrix result
+    external real scalar _finegray_bh_calls
+
+    /* Scan counter.  This routine is a FULL pass over the risk set, and under
+       bstrata() it returns every stratum's rows in one call, so calling it once
+       per stratum is K redundant scans.  The counter is what lets
+       qa/test_finegray_tvc_bstrata_perf.do assert that the tvc() x bstrata()
+       assembly makes one call per INTERVAL and none per stratum -- a scaling
+       claim no timing measurement can make deterministically.  One external
+       scalar increment against an O(n log n) scan is not measurable. */
+    if (_finegray_bh_calls == J(1, 1, .) | _finegray_bh_calls >= .) {
+        _finegray_bh_calls = 0
+    }
+    _finegray_bh_calls = _finegray_bh_calls + 1
 
     if (args() < 17) bsraw = J(rows(t), 1, 1)
     if (args() < 18) w = J(rows(t), 1, 1)
@@ -4151,8 +4164,9 @@ real matrix _finegray_basehazard_pw(
     | real colvector w)
 {
     real scalar j, carry, kb, nlev
-    real colvector etj, lev
+    real colvector etj, lev, carryv
     real matrix Dj, bhj, out, blk
+    pointer(real matrix) colvector acc
 
     if (args() < 22) w = J(rows(t), 1, 1)
 
@@ -4200,33 +4214,64 @@ real matrix _finegray_basehazard_pw(
        stratum VALUE in column 1 and then does an ordinary ascending-time
        search inside it).  Interval j's event times all exceed interval j-1's
        within a stratum, so each block stays strictly ascending. */
-    out = J(0, 3, .)
-    for (kb = 1; kb <= nlev; kb++) {
-        carry = 0
-        for (j = 1; j <= nint; j++) {
-            etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
-            Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
-            bhj = _finegray_basehazard(t, delta, cause, censval, etj, Dj, beta,
-                G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool,
-                bsraw, w)
-            if (rows(bhj) == 0) continue
-            if (cols(bhj) != 3) {
-                errprintf("finegray: internal error -- an unstratified ")
-                errprintf("baseline reached the stratified tvc() scan\n")
-                exit(error(498))
-            }
+    /* ONE scan per interval, not one per (stratum, interval) pair.  Each
+       _finegray_basehazard() call already returns EVERY stratum's rows -- the
+       stratum is column 1 -- so the stratum loop outside the interval loop ran
+       the same K x J full risk-set scans to keep J of them and throw K - 1
+       away each time.  The interval loop now runs once, each stratum's block is
+       selected out of that one result, and the per-stratum carry is kept in a
+       vector.  The assembly order is unchanged: blocks are accumulated per
+       stratum and concatenated stratum-major at the end, so the returned matrix
+       is bit-identical to the old K x J version. */
+    acc = J(nlev, 1, NULL)
+    for (kb = 1; kb <= nlev; kb++) acc[kb] = &(J(0, 3, .))
+    carryv = J(nlev, 1, 0)
+
+    for (j = 1; j <= nint; j++) {
+        etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
+        Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
+        bhj = _finegray_basehazard(t, delta, cause, censval, etj, Dj, beta,
+            G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt, Apool,
+            bsraw, w)
+        if (rows(bhj) == 0) continue
+        if (cols(bhj) != 3) {
+            errprintf("finegray: internal error -- an unstratified ")
+            errprintf("baseline reached the stratified tvc() scan\n")
+            exit(error(498))
+        }
+        for (kb = 1; kb <= nlev; kb++) {
             /* select(), not selectindex(): Mata's 1x1 orientation ambiguity
                makes selectindex() return a 1 x 0 ROW vector for a one-row
                match, which then subscripts the wrong way.  Same trap already
                recorded against _finegray_fv_design. */
             blk = select(bhj, bhj[., 1] :== lev[kb])
             if (rows(blk) == 0) continue
-            blk[., 3] = blk[., 3] :+ carry
-            carry = blk[rows(blk), 3]
-            out = out \ blk
+            blk[., 3] = blk[., 3] :+ carryv[kb]
+            carryv[kb] = blk[rows(blk), 3]
+            *acc[kb] = (*acc[kb]) \ blk
         }
     }
+
+    out = J(0, 3, .)
+    for (kb = 1; kb <= nlev; kb++) out = out \ (*acc[kb])
     return(out)
+}
+
+/* QA accessors for the scan counter set in _finegray_basehazard().  They exist
+   so the tvc() x bstrata() assembly's "one scan per interval, none per stratum"
+   claim is asserted rather than timed. */
+void _finegray_bh_calls_reset()
+{
+    external real scalar _finegray_bh_calls
+    _finegray_bh_calls = 0
+}
+void _finegray_bh_calls_get()
+{
+    external real scalar _finegray_bh_calls
+    if (_finegray_bh_calls == J(1, 1, .) | _finegray_bh_calls >= .) {
+        _finegray_bh_calls = 0
+    }
+    st_local("_fg_bh_calls", strofreal(_finegray_bh_calls, "%18.0g"))
 }
 
 /* Baseline mass accumulated inside each interval up to each horizon.

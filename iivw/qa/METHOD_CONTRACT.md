@@ -1,7 +1,7 @@
 # `iivw` — Method Contract
 
 **Status:** Phase 0 gate artifact. **Not a release approval.**
-**Written:** 2026-07-14 · **Updated:** 2026-07-23 · **Package version inspected:** 2.3.0
+**Written:** 2026-07-14 · **Updated:** 2026-09-04 · **Package version inspected:** 4.1.2
 **Governing plan:** the `iivw` finalization plan, held in the development repository.
 
 This file is the single place where every supported calculation is mapped to **the source that grounds
@@ -17,17 +17,12 @@ written from recall.
 
 ## 0. Reliability status in one line
 
-**`iivw` 2.3.0 computes externally checked point estimates. IIW and IPTW default to a refit bootstrap
-that propagates weight-estimation uncertainty and met the preregistered rule at their studied settings
-(coverage 0.939 and 0.954; `cleared-at-studied-settings`). Bare FIPTIW is point-only:** at `n=300`,
-Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and BCa 0.895 all missed the same
-fixed gate. The FIPTIW point estimator was unaffected (bias +0.017, Monte Carlo SE 0.039), but the
-package makes no generally valid 95% interval claim (`point-only-no-valid-interval`). A prespecified
-sample-size diagnostic returned Wald coverage 0.950 at `n=600` and 0.960 at `n=1200` (200 outer
-datasets per cell), supporting a finite-sample limitation in this DGP but not a universal cutoff.
-Records: `coverage_results/RESULT_2026-07-22.md`,
-`coverage_results/FIPTIW_INTERVALS_2026-07-23.md`, and
-`coverage_results/FIPTIW_NSCALE_2026-07-23.md`.
+**`iivw` 4.1.2 computes externally checked point estimates. IIW and IPTW default to a refit bootstrap
+that propagates weight-estimation uncertainty, but the current build is stamped
+`uncleared-current-build`: retained coverage receipts predate this source and are not bound to its
+manifest. Bare FIPTIW is point-only (`point-only-no-valid-interval`), and explicit intervals remain
+nominal and uncleared. Historical results remain available under `coverage_results/`; they describe
+the recorded builds only and do not certify this one.**
 
 ---
 
@@ -134,10 +129,10 @@ Legend — **Cleared**: source + code + independent oracle all agree, and the or
 | **What the code does** | **IIW/IPTW weighted GEE fits default to the 999-draw refit subject bootstrap**; bare FIPTIW fits are point-only because no tested interval passed. `vce(fixed)` is the explicit weights-known cluster-robust sandwich (`vce(cluster id)`), and `vce(bootstrap, … fixedweights)` is its resampling analogue. Explicit FIPTIW `vce()`/`citype()` requests remain available as nominal, empirically uncleared inference. Unweighted fits keep the cluster sandwich unless `citype(none)` is requested. |
 | **What B&L do** | **p.10–11.** The asymptotic variance `D⁻¹VD⁻¹` residualises the outcome score against the **visit-model score** before squaring: `V̂ = (1/n)Σ_i[Û_i − ĤÂ⁻¹∫(Z_i(t) − Z̄(t;γ̂))dM̂_i(t)]^⊗2`. In the authors' own words (p.11): **"We account for estimation of γ₀ by including the second term on right-hand side."** A plain fixed-weight sandwich is the **first term only** — it drops the `ĤÂ⁻¹(...)` correction entirely. |
 | **What Coulombe does** | **PDF p.86, verbatim:** the asymptotic variance is computed "with the components of variance due to the weights **incorporated into the sandwich estimator using theory on two-step estimators (Newey and McFadden [1994])**." |
-| **Status** | ⚠️ **IIVW-B02 coverage evidence is weight-specific.** IIW 0.939 and IPTW 0.954 met the preregistered rule. For FIPTIW at `n=300`, Wald 0.914, percentile 0.924, basic 0.896, bias-corrected 0.914, and corrected full-refit BCa 0.895 all failed. The IPTW arm supplies B02's separator: the fixed-weight SE runs 1.31x the empirical SD against the refit bootstrap's 1.02x. In the FIPTIW cell, the analytic, fixed-bootstrap, and refit SEs agree and all fall about 14% short of the empirical SD; selecting a weights-known alternative is not a repair. The P1 diagnostic returned Wald coverage 0.950 at `n=600` and 0.960 at `n=1200`, with standardized-statistic SD 1.021 and 1.003. Those `R=200` cells are diagnostics, not new gates or a sample-size cutoff. |
-| **Documentation** | ✅ The shipped help states that the fixed-weight sandwich omits the nuisance-estimation correction, gives all five measured FIPTIW interval results, and distinguishes the point estimator from interval calibration. A bare FIPTIW fit prints coefficients only and posts no `e(V)`; every explicit nominal interval path warns at the point of use. |
+| **Status** | ⚠️ **Current-build clearance suspended.** Historical receipts are weight-specific and remain useful provenance, but they are not bound to the 4.1.2 source manifest. The gate must be reproduced before any current route is called cleared. The gate now requires every planned outer replication and the prespecified fixed/refit separator. |
+| **Documentation** | ✅ The shipped help explains the variance routes, the point-only FIPTIW default, and the `uncleared-*` status contract without embedding the contributor runbook or historical result tables. |
 | **Consequence** | Fixed-weight R/Stata SE parity proves only that **both programs computed the same incomplete variance.** It is not evidence of valid inference. |
-| **Contract** | The **subject bootstrap that refits all nuisance models** remains the IIW/IPTW default inferential path. Fixed-weight survives only behind `vce(fixed)` or `fixedweights`. At 999 draws, IIW/IPTW are stamped `cleared-at-studied-settings`; bare FIPTIW is `point-only-no-valid-interval`; explicit refit FIPTIW intervals are `uncleared-fiptiw-*`, while fixed-weight requests retain their `uncleared-fixedweights-*` labels. Lower-replicate paths remain uncleared. |
+| **Contract** | The **subject bootstrap that refits all nuisance models** remains the IIW/IPTW default inferential path and is stamped `uncleared-current-build` at 999 draws pending reproduction. Bare FIPTIW is `point-only-no-valid-interval`; explicit refit FIPTIW intervals are `uncleared-fiptiw-*`; fixed-weight requests retain their `uncleared-fixedweights-*` labels. |
 
 ### 3.7 Balance target (`iivw_balance`)
 
@@ -326,7 +321,7 @@ have executable QA; they remain listed here because they are the cheapest correc
 | ID | Defect | Source that proves it | Plan blocker |
 |---|---|---|---|
 | **IIVW-B01** | Risk set truncated at last visit | B&L p.7 `ξ_i(t)=I(C_i>t)`; IrregLong `addcensoredrows()` | ✅ **FIXED in 2.0.0** |
-| **IIVW-B02** | Default variance treated estimated weights as known | B&L p.10–11; Coulombe PDF p.86 | **CLOSED with weight-specific behavior.** IIW/IPTW weighted GEE fits default to the 999-draw nuisance-refitting subject bootstrap and measured coverage 0.939/0.954. FIPTIW's base-cell Wald 0.914 failed; percentile 0.924, basic 0.896, bias-corrected 0.914, and corrected BCa 0.895 also failed the same fixed rule. Bare FIPTIW is therefore point-only, while explicit intervals are nominal and uncleared. The P1 diagnostic at `n=600`/`n=1200` supports a finite-sample limitation but no universal cutoff. RNG provenance, selected endpoints, replicate accounting, point-only output, warning text, helper frame state, and the VCE lock are regression-pinned in `test_iivw_interval_contract.do` and `test_iivw_inference_contract.do`. |
+| **IIVW-B02** | Default variance treated estimated weights as known | B&L p.10–11; Coulombe PDF p.86 | **Estimator route closed; current-build calibration open.** IIW/IPTW default to the nuisance-refitting subject bootstrap, while FIPTIW remains point-only by default. Historical coverage receipts are retained but not promoted across builds; 4.1.2 reports `uncleared-current-build` until a manifest-bound reproduction passes with complete outer-replication accounting and the separator. |
 | **IIVW-B03** | FIPTIW attributed to Tompkins, not Coulombe | Tompkins p.2, p.6 | ✅ fixed at backfill |
 | **IIVW-B04** | `stabcov()` not checked against the outcome design | B&L p.7, p.10; Cole & Hernán App. 1 | #4 — **FIXED 2.0.0** (Phase 2). `iivw_fit` maps `stabcov()` onto the expanded outcome design and errors before estimating if the numerator is not a function of it. `e(iivw_stabilization_validated)`, `e(iivw_stab_terms)`. Test: `test_iivw_phase2_contract` T8–T9; `validation_iivw_recovery_extended` S2a/S2b |
 | **IIVW-B05** | Treatment absent from the FIPTIW visit model | Coulombe eq. 3.12 | #5 — **FIXED 2.0.0** (Phase 2). `treat()` enters the visit-intensity denominator by construction, deduplicated, shown in the fitted spec, recorded on the contract and replayed. `experimentalnotreatvisit` is the labelled opt-out. Test: `test_iivw_phase2_contract` T1–T4; `test_iivw_literature_invariants` T2 |
@@ -397,7 +392,7 @@ The paragraph above is a record of one pass, not a live ledger, and reading it a
 | Item | State | Basis |
 |---|---|---|
 | SOL-01, 02, 03 | **Fixed** 2026-07-21 | the three rows in the table above; each proved against the pre-fix build |
-| SOL-04 | **Answered, not cleared** | run 2026-07-22 and reproduced 2026-08-05. `iiw` 0.939 PASS, `iptw` 0.954 PASS, **`fiptiw` 0.914 FAIL**. `coverage_results/RESULT_2026-08-05.md`. The FIPTIW point-only default is the response; the interval question is open |
+| SOL-04 | **Historical answer retained; current build not cleared** | runs from 2026-07-22 and 2026-08-05 remain recorded evidence for their manifests. Version 4.1.2 requires a new manifest-bound reproduction, reports `uncleared-current-build`, and keeps the FIPTIW point-only default |
 | SOL-05, 07, 08, 11, 12, 13 | **Fixed** 2026-07-21 second pass | `test_iivw_failclosed.do`, **18/18 in an isolated run on 2026-08-06** |
 | SOL-17 | **Disproven — do not action** | same suite, arm S17; deleting the branch would remove the only guard against an incoherent resampling scheme |
 | SOL-14 | **Fixed** 2026-07-21, **regressed and re-fixed** 2026-08-03 | `test_help_examples.do`. The original fix transcribed 3 of 6 help files; the clarity synthesis found two shipped examples failing at `r(111)`/`r(198)` and extended the suite to all six |

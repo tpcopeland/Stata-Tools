@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.1.0  2026/09/03
+*! _tabtools_collect_render Version 2.1.1  2026/09/04
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -16,6 +16,10 @@ program define _tabtools_collect_render, rclass
         local type = lower(strtrim("`type'"))
         if !inlist("`type'", "meta", "stats", "main", "icc", "desctab", "raw") {
             noisily display as error "type() must be meta, stats, main, icc, desctab, or raw"
+            exit 198
+        }
+        if inlist("`type'", "meta", "stats") & `"`coldim'"' != "" {
+            noisily display as error "coldim() is not supported with type(`type')"
             exit 198
         }
         if `"`sep'"' == "" local sep ", "
@@ -45,10 +49,10 @@ program define _tabtools_collect_render, rclass
             local _dim : word `_d' of `_rowdims'
             local _tt_row_dim_`_d' `"`_dim'"'
             if `_row_dim_n' == 1 {
-                _tt_collect_dim_locals `"`_dim'"' _tt_row, levels(`"`rowlevels'"')
+                _tt_collect_dim_locals `"`_dim'"', levels(`"`rowlevels'"')
             }
             else {
-                _tt_collect_dim_locals `"`_dim'"' _tt_row
+                _tt_collect_dim_locals `"`_dim'"'
             }
             local _dim_n = r(n)
             if `_dim_n' == 0 {
@@ -95,10 +99,10 @@ program define _tabtools_collect_render, rclass
                 local _dim : word `_d' of `_coldims'
                 local _tt_col_dim_`_d' `"`_dim'"'
                 if `_col_dim_n' == 1 {
-                    _tt_collect_dim_locals `"`_dim'"' _tt_col, levels(`"`collevels'"')
+                    _tt_collect_dim_locals `"`_dim'"', levels(`"`collevels'"')
                 }
                 else {
-                    _tt_collect_dim_locals `"`_dim'"' _tt_col
+                    _tt_collect_dim_locals `"`_dim'"'
                 }
                 local _dim_n = r(n)
                 if `_dim_n' == 0 {
@@ -120,7 +124,7 @@ program define _tabtools_collect_render, rclass
             }
         }
 
-        _tt_collect_result_locals, results(`"`results'"') prefix(_tt_res)
+        _tt_collect_result_locals, results(`"`results'"')
         local _res_n = r(n)
         if `_res_n' == 0 {
             noisily display as error "no result levels specified"
@@ -265,8 +269,7 @@ program define _tt_collect_dim_locals, rclass
     capture noisily {
     syntax anything(name=args) [, LEVELS(string)]
     gettoken dim args : args
-    gettoken prefix args : args
-    if `"`dim'"' == "" | `"`prefix'"' == "" | strtrim(`"`args'"') != "" {
+    if `"`dim'"' == "" | strtrim(`"`args'"') != "" {
         exit 198
     }
 
@@ -324,7 +327,7 @@ program define _tt_collect_result_locals, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-    syntax , RESULTS(string) PREFIX(name)
+    syntax , RESULTS(string)
 
     local k = 0
     capture quietly collect label list result

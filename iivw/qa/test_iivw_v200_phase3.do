@@ -77,6 +77,7 @@ local p1_ok = 1
 _p3_weighted
 foreach spec in "cvcut(.)" "cvcut(.a)" "balcut(.)" "balcut(.z)" ///
     "essratiocut(.)" "essratiocut(.a)" {
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 198' for each of the six missing thresholds, `if _rc != 0' for the finite positive control), accumulated into p1_ok so every probe reports instead of the first one aborting
     capture iivw_balance, `spec'
     if _rc != 198 {
         local p1_ok = 0
@@ -111,6 +112,7 @@ estimates store p2_adj
 
 local p2_ok = 1
 foreach v in "." ".a" {
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 198' for each missing true(), `if _rc != 0' for the finite positive control), accumulated into p2_ok so every probe reports instead of the first one aborting
     capture iivw_diagnose z, unweighted(p2_unw) weighted(p2_wtd) ///
         adjusted(p2_adj) force true(`v')
     if _rc != 198 {
@@ -280,6 +282,7 @@ tempfile p7f
 local p7x "`p7f'.xlsx"
 local p7_ok = 1
 
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 0' on all three sheet writes, the second of which must take the soft 602 warning path rather than error), accumulated into p7_ok so every probe reports instead of the first one aborting
 capture iivw_balance, xlsx("`p7x'") sheet("Balance")
 if _rc != 0 {
     local p7_ok = 0
@@ -379,6 +382,7 @@ local ++test_count
 local p9_ok = 1
 
 _p3_data
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 459' for the time-varying treat_cov, `if _rc != 0' for the three baseline forms), accumulated into p9_ok so every probe reports instead of the first one aborting
 capture iivw_weight, id(id) time(time) visit(z) censor(cens) ///
     wtype(fiptiw) treat(trt) treat_cov(tvz)
 if _rc != 459 {
@@ -431,6 +435,7 @@ local ++test_count
 local p10_ok = 1
 _p3_weighted
 
+* stata-dev-ignore: rc-only-test — the oracle IS a specific code per probe (`if _rc != 198' for the gated weighted mixed, `if _rc != 0' for the three that must stay ungated), accumulated into p10_ok so every probe reports instead of the first one aborting
 capture iivw_fit y z, vce(fixed) model(mixed)
 if _rc != 198 {
     local p10_ok = 0

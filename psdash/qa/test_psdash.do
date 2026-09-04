@@ -6,14 +6,14 @@ clear all
 do "`c(pwd)'/_psdash_bootstrap.do"
 
 foreach f in ///
-    "/tmp/psdash_t96_loveplot.png" ///
-    "/tmp/psdash_t97_balance.xlsx" ///
-    "/tmp/psdash_t113_overlap.png" ///
-    "/tmp/psdash_t114_balance.xlsx" ///
-    "/tmp/psdash_t115_loveplot.png" ///
-    "/tmp/psdash_t116_weights.png" ///
-    "/tmp/psdash_t118_support.png" ///
-    "/tmp/psdash_t119_combined.png" {
+    "`_qa_sysroot'/psdash_t96_loveplot.png" ///
+    "`_qa_sysroot'/psdash_t97_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_t113_overlap.png" ///
+    "`_qa_sysroot'/psdash_t114_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_t115_loveplot.png" ///
+    "`_qa_sysroot'/psdash_t116_weights.png" ///
+    "`_qa_sysroot'/psdash_t118_support.png" ///
+    "`_qa_sysroot'/psdash_t119_combined.png" {
     capture erase "`f'"
 }
 
@@ -24,6 +24,19 @@ capture program drop _run_test
 program define _run_test
     args test_num description
     display as text _n "--- Test `test_num': `description' ---"
+end
+
+capture program drop _psdash_check_png
+program define _psdash_check_png
+    args artifact checker
+    tempfile result
+    shell python3 "`checker'" "`artifact'" --type png ///
+        --min-width 400 --min-height 300 --result-file "`result'"
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    assert "`line'" == "PASS"
 end
 
 local n_pass = 0
@@ -1041,20 +1054,22 @@ _test_result `=_rc'
 
 _test_start 96 "balance loveplot saving() exports file"
 capture {
-    local t96_path "/tmp/psdash_t96_loveplot.png"
+    local t96_path "`_qa_sysroot'/psdash_t96_loveplot.png"
     capture erase "`t96_path'"
     psdash balance treated ps, covariates(age female bmi) loveplot ///
         saving("`t96_path'")
+    local t96_smd = r(max_smd_raw)
     confirm file "`t96_path'"
-    assert !missing(r(max_smd_raw))
-    assert r(max_smd_raw) > 0
+    _psdash_check_png "`t96_path'" "`qa_dir'/tools/check_artifact.py"
+    assert !missing(`t96_smd')
+    assert `t96_smd' > 0
     capture erase "`t96_path'"
 }
 _test_result `=_rc'
 
 _test_start 97 "balance xlsx() without wvar (no adj columns) produces file"
 capture {
-    local t97_path "/tmp/psdash_t97_balance.xlsx"
+    local t97_path "`_qa_sysroot'/psdash_t97_balance.xlsx"
     capture erase "`t97_path'"
     psdash balance treated ps, covariates(age female bmi) nowvar ///
         xlsx("`t97_path'")
@@ -1259,7 +1274,7 @@ _test_start 113 "overlap title/graphoptions/saving preserve overlap results"
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t113_png "/tmp/psdash_t113_overlap.png"
+    local t113_png "`_qa_sysroot'/psdash_t113_overlap.png"
     psdash overlap treated ps, nograph
     local lb113 = r(overlap_lower)
     local ub113 = r(overlap_upper)
@@ -1279,6 +1294,7 @@ capture noisily {
     assert abs(`ub113b' - `ub113') < 1e-12
     assert `nout113b' == `nout113'
     confirm file "`t113_png'"
+    _psdash_check_png "`t113_png'" "`qa_dir'/tools/check_artifact.py"
     capture graph describe t113_overlap
     assert _rc == 0
 }
@@ -1290,7 +1306,7 @@ _test_start 114 "balance sheet() export uses requested worksheet name"
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t114_xlsx "/tmp/psdash_t114_balance.xlsx"
+    local t114_xlsx "`_qa_sysroot'/psdash_t114_balance.xlsx"
 
     psdash balance treated ps, covariates(age female bmi) nowvar ///
         xlsx("`t114_xlsx'") sheet("QAOptions") title("QA Balance Export")
@@ -1309,7 +1325,7 @@ _test_start 115 "balance loveplot export options preserve balance results"
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t115_png "/tmp/psdash_t115_loveplot.png"
+    local t115_png "`_qa_sysroot'/psdash_t115_loveplot.png"
     tempname B115a B115b
 
     psdash balance treated ps, covariates(age female bmi) nowvar
@@ -1331,6 +1347,7 @@ capture noisily {
     assert colsof(`B115b') == colsof(`B115a')
     assert abs(`B115b'[1,3] - `B115a'[1,3]) < 1e-12
     confirm file "`t115_png'"
+    _psdash_check_png "`t115_png'" "`qa_dir'/tools/check_artifact.py"
     capture graph describe t115_love
     assert _rc == 0
 }
@@ -1342,7 +1359,7 @@ _test_start 116 "weights graph export options preserve ESS results"
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t116_png "/tmp/psdash_t116_weights.png"
+    local t116_png "`_qa_sysroot'/psdash_t116_weights.png"
 
     psdash weights treated ps, wvar(ipw)
     local ess116a = r(ess)
@@ -1357,6 +1374,7 @@ capture noisily {
     local ess116b = r(ess)
     assert abs(`ess116b' - `ess116a') < 1e-12
     confirm file "`t116_png'"
+    _psdash_check_png "`t116_png'" "`qa_dir'/tools/check_artifact.py"
     capture graph describe t116_weights
     assert _rc == 0
 }
@@ -1381,7 +1399,7 @@ _test_start 118 "support title/graphoptions/saving preserve support results"
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t118_png "/tmp/psdash_t118_support.png"
+    local t118_png "`_qa_sysroot'/psdash_t118_support.png"
 
     psdash support treated ps, nograph
     local nout118 = r(n_outside)
@@ -1399,6 +1417,7 @@ capture noisily {
     assert abs(r(lower_bound) - `lb118') < 1e-12
     assert abs(r(upper_bound) - `ub118') < 1e-12
     confirm file "`t118_png'"
+    _psdash_check_png "`t118_png'" "`qa_dir'/tools/check_artifact.py"
     capture graph describe t118_support
     assert _rc == 0
 }
@@ -1410,7 +1429,7 @@ _test_start 119 "combined threshold()/saving() propagate through balance-only pa
 preserve
 capture noisily {
     _psdash_make_test_data
-    local t119_png "/tmp/psdash_t119_combined.png"
+    local t119_png "`_qa_sysroot'/psdash_t119_combined.png"
 
     psdash combined treated ps, covariates(age female bmi) ///
         nooverlap noweights nosupport ///
@@ -1421,6 +1440,7 @@ capture noisily {
 
     assert abs(r(threshold) - 0.2) < 1e-12
     confirm file "`t119_png'"
+    _psdash_check_png "`t119_png'" "`qa_dir'/tools/check_artifact.py"
     capture graph describe psdash_combined
     assert _rc == 0
 }
@@ -1731,14 +1751,14 @@ capture drop in_crump
 graph close _all
 
 foreach f in ///
-    "/tmp/psdash_t96_loveplot.png" ///
-    "/tmp/psdash_t97_balance.xlsx" ///
-    "/tmp/psdash_t113_overlap.png" ///
-    "/tmp/psdash_t114_balance.xlsx" ///
-    "/tmp/psdash_t115_loveplot.png" ///
-    "/tmp/psdash_t116_weights.png" ///
-    "/tmp/psdash_t118_support.png" ///
-    "/tmp/psdash_t119_combined.png" {
+    "`_qa_sysroot'/psdash_t96_loveplot.png" ///
+    "`_qa_sysroot'/psdash_t97_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_t113_overlap.png" ///
+    "`_qa_sysroot'/psdash_t114_balance.xlsx" ///
+    "`_qa_sysroot'/psdash_t115_loveplot.png" ///
+    "`_qa_sysroot'/psdash_t116_weights.png" ///
+    "`_qa_sysroot'/psdash_t118_support.png" ///
+    "`_qa_sysroot'/psdash_t119_combined.png" {
     capture erase "`f'"
 }
 

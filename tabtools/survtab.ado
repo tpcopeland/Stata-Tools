@@ -1,4 +1,4 @@
-*! survtab Version 2.1.0  2026/09/03
+*! survtab Version 2.1.1  2026/09/04
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -767,11 +767,27 @@ capture noisily {
         local _rnames `"`_rnames' t`_time'"'
     }
     local _cnames ""
+    local _used_cnames ""
     forvalues g = 1/`n_groups' {
-        local _cnames `"`_cnames' `glabel_`g''"'
+        local _cname = strtoname(`"`glabel_`g''"')
+        local _cname = substr(`"`_cname'"', 1, 32)
+        if `"`_cname'"' == "" | strtrim(subinstr(`"`_cname'"', "_", "", .)) == "" {
+            local _cname "group`g'"
+        }
+        local _base_cname `"`_cname'"'
+        local _cname_i = 1
+        while strpos(" `_used_cnames' ", " `_cname' ") {
+            local ++_cname_i
+            local _suffix "_`_cname_i'"
+            local _stem_len = 32 - strlen("`_suffix'")
+            local _cname = substr(`"`_base_cname'"', 1, `_stem_len')
+            local _cname `"`_cname'`_suffix'"'
+        }
+        local _used_cnames `"`_used_cnames' `_cname'"'
+        local _cnames `"`_cnames' `_cname'"'
     }
     capture matrix rownames `_rtable' = `_rnames'
-    capture matrix colnames `_rtable' = `_cnames'
+    matrix colnames `_rtable' = `_cnames'
 
 **# Console Display
     noisily _tabtools_console_display `ncols' `"`title'"'

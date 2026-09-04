@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.1.0  2026/09/03
+*! iivw_fit Version 4.1.2  2026/09/04
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -950,7 +950,9 @@ program define iivw_fit, eclass
     local __iivw_protected ///
         "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var'"
     local __iivw_protected ///
-        "`__iivw_protected' `categorical' `interaction'"
+        "`__iivw_protected' `categorical' `interaction' `rep_visitcov' `rep_lagvars'"
+    local __iivw_protected ///
+        "`__iivw_protected' `rep_treat' `rep_treatcov' `rep_stabcov' `rep_entry' `rep_censor_var'"
     local __iivw_protected : list uniq __iivw_protected
 
     if "`timebasecat'" != "" & "`timespec'" != "categorical" {
@@ -2545,14 +2547,10 @@ program define iivw_fit, eclass
             local iivw_infstatus "uncleared-low-reps"
         }
         else if inlist("`weighttype'", "iivw", "iptw") {
-            * Coverage measured 2026-07-22, 1000 sims x 999 draws, preregistered
-            * rule in qa/TOLERANCE_FRAMEWORK.md sec 3 (Wilson must contain 0.95,
-            * floor 0.92). IIW 0.939 [0.922,0.952]; IPTW 0.954 [0.939,0.965].
-            * Record: qa/coverage_results/RESULT_2026-07-22.md.
-            * "studied settings" is load-bearing: ONE correct-specification cell
-            * per family at one sample size. It is not a claim about every n,
-            * every link, or a misspecified visit model.
-            local iivw_infstatus "cleared-at-studied-settings"
+            * Historical coverage receipts predate this source build and are
+            * not bound to its manifest. Keep the inferential route, but suspend
+            * the clearance stamp until the current build reproduces the gate.
+            local iivw_infstatus "uncleared-current-build"
         }
         else if "`weighttype'" == "fiptiw" {
             local iivw_infstatus "uncleared-fiptiw-`citype'"

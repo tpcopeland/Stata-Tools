@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.0  2026/09/03
+*! crosstab Version 2.1.1  2026/09/04
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -219,11 +219,13 @@ capture noisily {
     forvalues r = 1/`n_rows' {
         local _rlv : word `r' of `row_levels'
         if "`label'" != "" {
-            if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing"
+            if "`_rlv'" == "." local _rlbl "Missing"
+            else if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing (`_rlv')"
             else local _rlbl : label (`rowvar') `_rlv'
         }
         else {
-            if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing"
+            if "`_rlv'" == "." local _rlbl "Missing"
+            else if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing (`_rlv')"
             else local _rlbl "`_rlv'"
         }
         if "`_rlbl'" == "" local _rlbl "`_rlv'"
@@ -232,11 +234,13 @@ capture noisily {
     forvalues c = 1/`n_cols' {
         local _clv : word `c' of `col_levels'
         if "`label'" != "" {
-            if substr("`_clv'", 1, 1) == "." local _clbl "Missing"
+            if "`_clv'" == "." local _clbl "Missing"
+            else if substr("`_clv'", 1, 1) == "." local _clbl "Missing (`_clv')"
             else local _clbl : label (`colvar') `_clv'
         }
         else {
-            if substr("`_clv'", 1, 1) == "." local _clbl "Missing"
+            if "`_clv'" == "." local _clbl "Missing"
+            else if substr("`_clv'", 1, 1) == "." local _clbl "Missing (`_clv')"
             else local _clbl "`_clv'"
         }
         if "`_clbl'" == "" local _clbl "`_clv'"

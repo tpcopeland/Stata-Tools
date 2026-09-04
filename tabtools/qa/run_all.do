@@ -1,4 +1,4 @@
-* run_all.do - QA runner for tabtools (flat layout, v2.0.3)
+* run_all.do - QA runner for tabtools (flat layout)
 * Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
 *
 * Lanes:
@@ -68,6 +68,7 @@ local test_files "`test_files' test_deep_audit_core.do"
 local test_files "`test_files' test_deep_audit_output.do"
 local test_files "`test_files' test_effecttab.do"
 local test_files "`test_files' test_effecttab_omitted.do"
+local test_files "`test_files' test_audit_2026_09_02.do"
 local test_files "`test_files' test_hrcomptab.do"
 local test_files "`test_files' test_package_adversarial.do"
 local test_files "`test_files' test_package_hardening.do"

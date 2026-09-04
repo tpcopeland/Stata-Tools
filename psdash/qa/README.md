@@ -20,7 +20,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 
 | Sibling | Required by | Behavior if absent |
 |---|---|---|
-| `iivw`, `msm`, `tte`, `tmle`, `ltmle` | Producer-contract and real-integration suites | The unavailable producer case is recorded as a skip; the isolated release tree must include every available sibling. |
+| `iivw`, `msm`, `tte`, `targetlearn` | Producer-contract and real-integration suites; `targetlearn` supplies both `tmle` and `ltmle` | The unavailable producer case is recorded as a skip; the isolated release tree must include every available sibling. |
 | `_data`, `tabtools` | Documentation/install and shared release-surface checks | Missing siblings are a hard failure in the isolated release tree. |
 
 ## Conventions
@@ -89,6 +89,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_v141_features.do` | Option usability and documentation regressions. |
 | `test_v164_regressions.do` | Treatment-only dispatch, built-in estimation samples, Crump alpha zero, point support, and source corrections. |
 | `test_v169_regressions.do` | Varabbrev cleanup, option-combination errors, quoted Excel titles, internal program classes, and help rendering. |
+| `test_v171_audit_regressions.do` | Multi-group weight boundaries and ledgers, factor-variable endpoints, reduced-arm mlogit rejection, and stable detect labels. |
 
 ### Validation
 
@@ -121,6 +122,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `_psdash_python_reference.py` | Standard-library formula oracle. |
 | `_public_studies_reference_psdash.R` | Public-study data, propensity-model, balance, support, and weight oracle generator. |
 | `tools/check_xlsx.py` | Vendored workbook structure, numeric-cell, and presentation checker. |
+| `tools/check_artifact.py` | PNG/PDF signatures, dimensions, page-object, and termination checks. |
 
 ## Coverage map
 

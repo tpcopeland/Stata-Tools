@@ -62,8 +62,8 @@ one composite sheet with {cmd:stacktab}.
 {syntab:Additional outputs}
 {synopt:{opt fra:me(framespec)}}store the composed table in a Stata frame{p_end}
 {synopt:{opt csv(filename)}}export the composed table to CSV{p_end}
-{synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
-{synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
+{synopt:{opt mark:down(filename)}}export as GitHub-Flavored Markdown{p_end}
+{synopt:{opt mdapp:end}}append the Markdown table to an existing file{p_end}
 {synopt:{opt dis:play}}list the composed table in Results{p_end}
 {synopt:{opt app:end}}append rows below an existing output sheet{p_end}
 {synopt:{opt she:etreplace}}replace the output sheet if it exists{p_end}

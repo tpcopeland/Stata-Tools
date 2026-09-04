@@ -179,13 +179,14 @@ capture noisily {
     capture confirm frame _helper_reload
     assert _rc == 0
 }
+local helper_reload_rc = _rc
 capture frame drop _helper_reload
-if _rc == 0 {
+if `helper_reload_rc' == 0 {
     display as result "  PASS: helper bundle reloads when a later helper is missing"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: helper bundle reload after partial drop (error `=_rc')"
+    display as error "  FAIL: helper bundle reload after partial drop (error `helper_reload_rc')"
     local ++fail_count
 }
 

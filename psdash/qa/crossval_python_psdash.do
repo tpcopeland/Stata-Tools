@@ -46,6 +46,7 @@ shell python3 --version > /dev/null 2>&1 && touch "`py_ok'"
 capture confirm file "`py_ok'"
 if _rc {
     display as text "SKIP (dependency): python3 not available"
+    display as text "RESULT: crossval_python_psdash tests=0 pass=0 fail=0 skip=0 skipped=dependency_unavailable"
     capture ado uninstall psdash
     sysdir set PLUS "`_qa_plus_orig'"
     sysdir set PERSONAL "`_qa_personal_orig'"

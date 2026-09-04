@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.7.0  2026/09/03
+*! psdash_overlap Version 1.7.1  2026/09/04
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -71,7 +71,7 @@ program define psdash_overlap, rclass
 
     * SYNTAX PARSING
     syntax [anything] [if] [in], ///
-        [COVariates(varlist numeric) ///
+        [COVariates(varlist numeric fv) ///
          bins(integer 30) ///
          HISTogram ///
          BWIDth(string) ///

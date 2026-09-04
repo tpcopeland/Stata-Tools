@@ -36,6 +36,16 @@ program define _t
     }
 end
 
+capture program drop _v130_assert_pass
+program define _v130_assert_pass
+    args result
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    assert "`line'" == "PASS"
+end
+
 * ---- Fixture: binary PS scenario ----
 set seed 20260614
 set obs 1000
@@ -166,6 +176,27 @@ capture noisily {
     import excel using "`repx'", describe
     assert r(N_worksheet) == 3
     restore
+    tempfile xcheck
+    shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" ///
+        --sheet-count 3 --sheet-order Overlap Weights Support ///
+        --result-file "`xcheck'" --quiet
+    _v130_assert_pass "`xcheck'"
+    foreach sheet in Overlap Support {
+        tempfile kvcheck
+        shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" --sheet `sheet' ///
+            --exact-cols 2 --header-exact 2 "Metric" "Value" ///
+            --cell A3 "Treatment" --cell B3 "treat" ///
+            --cell A5 "Total N" --cell-approx B5 1000 0 ///
+            --result-file "`kvcheck'" --quiet
+        _v130_assert_pass "`kvcheck'"
+    }
+    tempfile wtcheck
+    shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" --sheet Weights ///
+        --exact-cols 2 --header-exact 2 "Metric" "Value" ///
+        --cell A3 "Treatment" --cell B3 "treat" ///
+        --cell A4 "Total N" --cell-approx B4 1000 0 ///
+        --result-file "`wtcheck'" --quiet
+    _v130_assert_pass "`wtcheck'"
 }
 _t "O1_xlsx_parity" `=_rc'
 
@@ -200,6 +231,26 @@ capture noisily {
     * Overlap, Balance, Weights, Support, Summary
     assert r(N_worksheet) == 5
     restore
+    tempfile repcheck
+    shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" ///
+        --sheet-count 5 --sheet-order Overlap Balance Weights Support Summary ///
+        --result-file "`repcheck'" --quiet
+    _v130_assert_pass "`repcheck'"
+    tempfile balcheck
+    shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" --sheet Balance ///
+        --exact-cols 11 --header-exact 2 "Covariate" "Mean (Treated)" ///
+        "Mean (Control)" "SMD (Raw)" "VR (Raw)" "KS (Raw)" ///
+        "Mean (T, Adj)" "Mean (C, Adj)" "SMD (Adj)" "VR (Adj)" ///
+        "KS (Adj)" --cell A3 x1 --cell-not-empty B3 D3 I3 ///
+        --result-file "`balcheck'" --quiet
+    _v130_assert_pass "`balcheck'"
+    tempfile sumcheck
+    shell python3 "`qa_dir'/tools/check_xlsx.py" "`repx'" --sheet Summary ///
+        --exact-cols 2 --header-exact 2 "Metric" "Value" ///
+        --cell A3 "Treatment" --cell B3 "treat" ///
+        --cell A7 "Verdict" --cell-regex B7 "^(PASS|FAIL)" ///
+        --result-file "`sumcheck'" --quiet
+    _v130_assert_pass "`sumcheck'"
 }
 _t "O2_report" `=_rc'
 

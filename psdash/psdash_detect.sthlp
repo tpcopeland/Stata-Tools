@@ -40,7 +40,8 @@ The complete return contract is listed under
 {title:Options}
 
 {phang}
-{opt cov:ariates(varlist)} supplies covariates instead of auto-detecting them.
+{opt cov:ariates(varlist)} supplies covariates instead of auto-detecting them and
+accepts factor-variable and interaction notation.
 
 {phang}
 {opt w:var(varname)} supplies an existing diagnostic weight variable.
@@ -61,6 +62,7 @@ The complete return contract is listed under
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash detect foreign ps, covariates(mpg weight length)}{p_end}
+{phang2}{cmd:. psdash detect ps, covariates(i.rep78 c.weight##c.length)}{p_end}
 
 {marker results}{...}
 {title:Stored results}

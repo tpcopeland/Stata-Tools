@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.1.0  03sep2026}
+{* *! version 4.1.2  04sep2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -221,31 +221,17 @@ estimates.{p_end}
 {phang2}(e) A weighted IIW/IPTW {help iivw_fit:iivw_fit} defaults to a 999-draw
 subject-level bootstrap that {bf:refits} the {cmd:iivw_weight} models inside
 every replicate, so the reported interval propagates weight-estimation
-uncertainty. A bare FIPTIW fit is point-only because no studied interval passed
-the prespecified coverage gate. {cmd:vce(fixed)} and
+uncertainty. Its current-build status is {cmd:uncleared-current-build} until the
+long-run gate is reproduced against the current source manifest. A bare FIPTIW
+fit is point-only. {cmd:vce(fixed)} and
 {cmd:vce(bootstrap, ... fixedweights)} hold the weights fixed and omit that
 term; the older {opt bootstrap(#)} and {opt refitweights} spellings still run, as
 deprecated shims that print a note pointing at the equivalent {opt vce()}.{p_end}
 
-{phang2}(f) Coverage was measured with 1000 datasets x 999 draws. The refit
-Wald interval met the preregistered rule for IIW (0.939) and IPTW (0.954),
-whereas for FIPTIW at {cmd:n=300}, Wald (0.914), percentile (0.924), basic
-(0.896), bias-corrected (0.914), and BCa (0.895) all missed the same fixed
-rule. The FIPTIW point estimator itself was fine: bias was +0.017 with a Monte
-Carlo SE of 0.039. The estimated SE was about 14% too small, however: 1.062
-against an empirical SD of 1.239. Explicit nominal inference remains available
-with a warning. Coverage was studied in one correctly specified identity-link
-scenario, not every sample size, link, or specification. See
-{help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
-
-{phang2}(g) Comparable R software does not supply a hidden, generally
-valid solution. {cmd:IrregLong} exposes ordinary fixed-weight GEE
-inference; {cmd:CIMEHR} and {cmd:smoothedIPW} use subject-level full-refit
-percentile
-bootstraps; and {cmd:boot::boot.ci()} supplies generic transformations without
-estimator-specific calibration. The FIPTIW comparison, direct software links,
-full Wilson table, and follow-up decisions are documented in
-{help iivw_fit##fiptiwcoverage:iivw_fit, FIPTIW coverage evidence}.{p_end}
+{phang2}(f) Historical coverage results do not automatically certify a later
+source build. Read {cmd:e(iivw_inference_status)} for the current fit; an
+{cmd:uncleared-*} status means the interval is nominal rather than empirically
+calibrated. See {help iivw_fit##inference:iivw_fit, Inference status}.{p_end}
 
 {pstd}
 {opt censor()} supplies the end of observation time and nothing more: it bounds
@@ -462,12 +448,20 @@ observation times. R package version 0.4.1. CRAN.
 {synopt:{cmd:r(version)}}package version{p_end}
 {synopt:{cmd:r(commands)}}list of available commands{p_end}
 
+{pstd}
+{cmd:r(version)} is read from the {cmd:*!} header of the installed
+{cmd:iivw.ado}, so it can never drift from the package version. An install
+whose header cannot be found, opened, or parsed is a broken install: {cmd:iivw}
+exits with {cmd:error 198} rather than reporting a version of
+"unknown", which a downstream compatibility check would read as a real
+answer.{p_end}
+
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.1.0, 2026-09-03{p_end}
+{pstd}Version 4.1.2, 2026-09-04{p_end}
 
 
 {title:Also see}

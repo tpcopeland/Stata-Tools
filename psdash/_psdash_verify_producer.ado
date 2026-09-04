@@ -1,4 +1,4 @@
-*! _psdash_verify_producer Version 1.7.0  2026/09/03
+*! _psdash_verify_producer Version 1.7.1  2026/09/04
 *! Call a producer package's own validity/signature guard before trusting its
 *! post-estimation contract; fail closed on stale, unsigned, or unverifiable state
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -36,13 +36,27 @@ program define _psdash_verify_producer, nclass
         capture `guardcmd'
         local _grc = _rc
 
+        * targetlearn bundles these guards in family libraries rather than as
+        * one autoloadable ado per helper. Load the signed producer library on
+        * demand, then retry the exact guard command.
+        if `_grc' == 199 & inlist("`source'", "tmle", "ltmle") {
+            local _producer_lib "_`source'_lib"
+            capture _tlearn_require_helper `_producer_lib', file(`_producer_lib'.ado)
+            if _rc == 0 {
+                capture `guardcmd'
+                local _grc = _rc
+            }
+        }
+
         if `_grc' == 199 {
             display as error "cannot verify the `source' analysis contract"
             display as error "  this dataset carries `source' contract metadata, but the `source'"
             display as error "  package is not installed, so its validity guard cannot confirm the"
             display as error "  metadata still describes the data in memory. psdash will not present"
             display as error "  diagnostics for an unverifiable upstream analysis."
-            display as error "  Install `source', or run psdash with an explicit treatment and"
+            local _install_source "`source'"
+            if inlist("`source'", "tmle", "ltmle") local _install_source "targetlearn"
+            display as error "  Install `_install_source', or run psdash with an explicit treatment and"
             display as error "  propensity score variable."
             exit 459
         }
@@ -58,7 +72,11 @@ program define _psdash_verify_producer, nclass
         local _min_version "`r(min_version)'"
         local _max_version "`r(max_version)'"
         local _found_version ""
-        if inlist("`source'", "tmle", "ltmle") {
+        if "`source'" == "tmle" & "`e(cmd)'" == "tmle" {
+            local _found_version "`e(contract_version)'"
+        }
+        else if "`source'" == "ltmle" & ///
+                inlist("`e(cmd)'", "ltmle", "ltmle_surv") {
             local _found_version "`e(contract_version)'"
         }
         if "`_found_version'" == "" {

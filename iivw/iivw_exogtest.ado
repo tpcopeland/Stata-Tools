@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 4.1.0  2026/09/03
+*! iivw_exogtest Version 4.1.2  2026/09/04
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -119,31 +119,48 @@ program define iivw_exogtest, rclass sortpreserve
     * commands describe different risk sets for one analysis.
     local __iivw_teps = 1e-6
 
+    * Build the analysis sample BEFORE validating follow-up. Values outside an
+    * if/in restriction are not inputs to this diagnostic and cannot invalidate
+    * it. As below, varlist itself is deliberately not marked out: the model
+    * uses its one-visit lag, not its current value.
+    marksample touse, novarlist
+    markout `touse' `id' `time' `adjust', strok
+    if "`by'" != "" {
+        markout `touse' `by', strok
+    }
+    if "`entry'" != "" {
+        markout `touse' `entry'
+    }
+    if "`censor'" != "" {
+        markout `touse' `censor'
+    }
+
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        error 2000
+    }
+
     if "`__iivw_cens_mode'" == "maxfu" {
-        quietly summarize `time', meanonly
+        quietly summarize `time' if `touse', meanonly
         local __iivw_maxfu_hi = `maxfu' + `__iivw_teps' * max(1, abs(`maxfu'))
         if r(max) > `__iivw_maxfu_hi' {
-            quietly count if `time' > `__iivw_maxfu_hi'
+            quietly count if `touse' & `time' > `__iivw_maxfu_hi'
             display as error "`=r(N)' visits occur after maxfu(`maxfu')"
             error 198
         }
     }
     if "`__iivw_cens_mode'" == "censor" {
-        quietly count if missing(`censor')
-        if r(N) > 0 {
-            display as error "censor() contains missing values"
-            error 198
-        }
         tempvar __iivw_cmin __iivw_cmax __iivw_lastvis
-        quietly bysort `id': egen double `__iivw_cmin' = min(`censor')
-        quietly bysort `id': egen double `__iivw_cmax' = max(`censor')
-        quietly count if `__iivw_cmin' != `__iivw_cmax'
+        quietly bysort `id': egen double `__iivw_cmin' = min(`censor') if `touse'
+        quietly bysort `id': egen double `__iivw_cmax' = max(`censor') if `touse'
+        quietly count if `touse' & `__iivw_cmin' != `__iivw_cmax'
         if r(N) > 0 {
             display as error "censor() must be constant within each id()"
             error 198
         }
-        quietly bysort `id': egen double `__iivw_lastvis' = max(`time')
-        quietly count if `censor' < ///
+        quietly bysort `id': egen double `__iivw_lastvis' = max(`time') if `touse'
+        quietly count if `touse' & `censor' < ///
             `__iivw_lastvis' - `__iivw_teps' * max(1, abs(`__iivw_lastvis'))
         if r(N) > 0 {
             display as error "censor() is earlier than the last observed visit for some subjects"
@@ -232,7 +249,7 @@ program define iivw_exogtest, rclass sortpreserve
         error 198
     }
 
-    * novarlist, and `varlist' is NOT marked out.
+    * `varlist' is NOT marked out.
     *
     * The model fits the LAGGED value of each tested variable, never its current
     * value. Marking out a missing current value therefore throws away an
@@ -245,24 +262,6 @@ program define iivw_exogtest, rclass sortpreserve
     *
     * Missingness in the generated lags is marked out below, once they exist,
     * which is the only place it can be judged correctly.
-    marksample touse, novarlist
-    * strok: id() and by() may legitimately be string variables; without
-    * strok, markout silently marks EVERY observation out for a string
-    * variable and the diagnostic dies with a misleading "no observations".
-    markout `touse' `id' `time' `adjust', strok
-    if "`by'" != "" {
-        markout `touse' `by', strok
-    }
-    if "`entry'" != "" {
-        markout `touse' `entry'
-    }
-
-    quietly count if `touse'
-    if r(N) == 0 {
-        display as error "no observations"
-        error 2000
-    }
-
     * Confirm unique subject-time rows in the analysis sample.
     tempvar __iivw_dup
     quietly duplicates tag `id' `time' if `touse', gen(`__iivw_dup')
@@ -338,7 +337,8 @@ program define iivw_exogtest, rclass sortpreserve
     }
     local __iivw_lag_tokens = strtrim("`__iivw_lag_tokens'")
 
-    local __iivw_protected "`varlist' `id' `time' `adjust' `by' `entry'"
+    local __iivw_protected ///
+        "`varlist' `id' `time' `adjust' `by' `entry' `censor'"
     local __iivw_protected : list uniq __iivw_protected
 
     _iivw_reserve_names, generated(`generated_lags') ///
@@ -435,12 +435,14 @@ program define iivw_exogtest, rclass sortpreserve
         quietly replace `__iivw_start' = `__iivw_stop'    if `__iivw_newrow'
         quietly replace `__iivw_stop'  = `__iivw_cens_t'  if `__iivw_newrow'
         quietly replace `__iivw_event' = 0                if `__iivw_newrow'
+        * stata-dev-ignore: unchecked-commit — inside preserve (391) / restore (1185): time is moved only on expand-created terminal rows and is discarded at restore; the usable-row count at 458 errors 2000 before any result is formed
         quietly replace `time'         = `__iivw_cens_t'  if `__iivw_newrow'
 
         local __iivw_lag_ix = 0
         foreach v of local varlist {
             local ++__iivw_lag_ix
             local lagname : word `__iivw_lag_ix' of `generated_lags'
+            * stata-dev-ignore: unchecked-commit — inside preserve (391) / restore (1185): the lag rebuild touches only expand-created terminal rows and is discarded at restore; the usable-row count at 458 errors 2000 before any result is formed
             quietly replace `lagname' = `v' if `__iivw_newrow'
         }
     }

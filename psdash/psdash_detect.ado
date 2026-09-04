@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.7.0  2026/09/03
+*! psdash_detect Version 1.7.1  2026/09/04
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,7 +40,7 @@ program define psdash_detect, rclass
     capture noisily {
 
     syntax [anything] [if] [in], ///
-        [COVariates(varlist numeric) ///
+        [COVariates(varlist numeric fv) ///
          Wvar(varname) ///
          ESTImand(string) ///
          REFerence(string) ///
@@ -135,7 +135,7 @@ program define psdash_detect, rclass
     return local treatment "`treatment'"
     return local psvar "`psvar_label'"
     return local covariates "`covariates'"
-    return local wvar "`wvar'"
+    return local wvar "`wvar_label'"
     return local estimand "`estimand'"
     return scalar n_covariates = `ncovs'
     return scalar psvar_auto = ("`psvar_auto'" == "1")

@@ -42,6 +42,16 @@ suppressMessages({
 }
 .fg_banner(c("riskRegression", "prodlim", "survival"))
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin('cif', outputs = args[4],
+                              key_files = c(args[1], args[2], args[3]),
+                              packages = c("riskRegression", "prodlim", "survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 d  <- read.csv(args[1])
 nd <- read.csv(args[2])
 tm <- read.csv(args[3])$time
@@ -57,4 +67,5 @@ for (i in seq_len(nrow(nd))) {
     out <- rbind(out, data.frame(profile = i, time = tm, cif = as.numeric(r)))
 }
 write.csv(out, args[4], row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 cat("OK: wrote", nrow(out), "rows\n")

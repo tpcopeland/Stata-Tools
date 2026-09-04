@@ -1,4 +1,4 @@
-*! iivw_balance Version 4.1.0  2026/09/03
+*! iivw_balance Version 4.1.2  2026/09/04
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -603,12 +603,14 @@ program define iivw_balance, rclass
             quietly replace `__iivw_event'   = 0              if `__iivw_newrow'
             quietly replace `__iivw_censrow' = 1              if `__iivw_newrow'
             quietly replace `__iivw_isfirst' = 0              if `__iivw_newrow'
+            * stata-dev-ignore: unchecked-commit — inside preserve (538) / restore (1001): panel_time is moved only on expand-created terminal rows of the refit copy and is discarded at restore; refit_ncens (599) gates the verdict at 1058
             quietly replace `panel_time'     = `__iivw_censt' if `__iivw_newrow'
 
             foreach v of local rep_lagvars {
                 local __iivw_lagname "`v'_lag1"
                 capture confirm numeric variable `__iivw_lagname'
                 if _rc == 0 {
+                    * stata-dev-ignore: unchecked-commit — inside preserve (538) / restore (1001): the lag rebuild touches only expand-created terminal rows in the refit copy and never reaches the user's data; refit_ncens (599) gates the verdict at 1058
                     quietly replace `__iivw_lagname' = `v' if `__iivw_newrow'
                 }
             }

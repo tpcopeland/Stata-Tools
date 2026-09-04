@@ -20,12 +20,12 @@ and restricted mean survival time.{p_end}
 
 {p 4 8 2}{cmd:survtab}, {opt times(numlist)} [{opt by(varname)} {opt rmst(#)}
 {opt med:ian} {opt risk:set} {opt timeu:nit(string)} {opt rev:erse} {opt diff:erence}
-{opt ev:ents} {opt level(#)} {opt dig:its(#)}
+{opt ev:ents} {opt l:evel(#)} {opt dig:its(#)}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
-{opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
+{opt foot:note(string)} {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headers:hade} {opt headerc:olor(string)} {opt bold:p(#)} {opt zebra}
 {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
-{opt csv(filename)} {opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt open}
+{opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
 {pstd}Data must be {helpb stset} before running {cmd:survtab}.{p_end}

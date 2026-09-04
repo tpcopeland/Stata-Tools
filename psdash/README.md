@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.0** | 2026-09-03
+**Version 1.7.1** | 2026-09-04
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -16,7 +16,7 @@ psdash combined foreign ps, covariates(mpg weight length)
 return list
 ```
 
-For cross-sectional data, combined requests overlap, balance, weight, and support panels by default and returns an overall PASS or FAIL verdict with the analysis-sample ledger. It uses one common complete-case sample when covariates are available and skips the balance panel when no covariates are detected; longitudinal producer contracts instead route to period-specific diagnostics.
+For cross-sectional data, combined requests overlap, balance, weight, and support panels by default and returns an overall PASS or FAIL verdict with the analysis-sample ledger. Its shared sample requires treatment, propensity scores, and requested covariates; automatically generated weight missingness cannot silently remove a positivity-boundary observation, and an undefined requested weight fails before panels run. It skips the balance panel when no covariates are detected; longitudinal producer contracts instead route to period-specific diagnostics.
 
 ## Requirements
 
@@ -82,7 +82,7 @@ teffects psmatch is rejected because it does not expose the propensity-score pre
 
 ### Producer-contract verification
 
-Producer-contract integrations call the producing command's validity guard before using detected state and check the stamped contract version against the supported compatibility matrix. Missing, stale, unsigned, malformed, future, or otherwise unsupported producer state fails closed with an explicit error. Built-in teffects, logit, probit, and mlogit contexts use their estimation results instead of a producer contract. Supplying treatment and a propensity score explicitly always uses manual mode and does not require a producer contract.
+Producer-contract integrations call the producing command's validity guard before using detected state and check the stamped contract version against the supported compatibility matrix. Genuine persisted TMLE and LTMLE dataset contracts can be rediscovered after save/reload without active estimation results; ambiguous simultaneous contracts fail rather than being guessed. Missing, stale, unsigned, malformed, future, or otherwise unsupported producer state fails closed with an explicit error. Built-in teffects, logit, probit, and mlogit contexts use their estimation results instead of a producer contract. Supplying treatment and a propensity score explicitly always uses manual mode and does not require a producer contract.
 
 Combined reports use clear status labels, while `r(verdict)` and `r(warnings)` provide the machine-readable result.
 
@@ -355,7 +355,7 @@ Diagnostic panel commands store their principal results in r() and print finding
 | weights | r(mean_wt), r(sd_wt), r(cv), r(ess), r(ess_pct), r(n_extreme), r(p1), r(p99), r(max_ratio), modification metadata, and r(iivwcomponent) when applicable. |
 | support | r(lower_bound), r(upper_bound), r(n_outside), r(pct_outside), r(trim_lower), r(trim_upper), r(n_trimmed), and r(N_remaining) when trimming is requested; r(crump_alpha) when crump is used; comparison results when requested; and multi-group r(gps_means). |
 | combined | r(verdict), r(n_warnings), r(warnings), and source/estimand metadata. Cross-sectional runs additionally return r(n_panels), r(N_requested), r(N_analysis), r(n_common_excluded), r(overlapmax), r(essmin), r(imbalmax), and r(report) when report() is used. |
-| detect | r(source), r(treatment), r(psvar), r(covariates), r(wvar), r(estimand), r(n_covariates), r(multigroup), r(longitudinal), r(K), r(levels), and r(reference) when applicable. |
+| detect | r(source), r(treatment), r(psvar), r(covariates), r(wvar), r(estimand), r(n_covariates), r(psvar_auto), r(multigroup), r(longitudinal), r(K), r(levels), and r(reference) when applicable. |
 
 Multi-group runs also return group counts, generalized-positivity diagnostics, and the K-by-K r(gps_means) matrix. Longitudinal combined runs return producer metadata, period and arm sample/ESS summaries, missingness and exclusion counts, and the period matrices r(overlap_by_period) and r(weights_by_period).
 
@@ -393,6 +393,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.7.1** (4 Sep 2026): Comprehensive audit remediation. Multi-group boundary and missing-weight paths now fail closed without erasing positivity findings; weights and balance expose complete exclusion ledgers, and weights returns both extreme-tail counts. All advertised covariate endpoints accept factor-variable notation, support comparison propagates exact design-mapping failures, reduced-arm `mlogit` samples fail consistently, and detect reports stable automatic-weight labels. Genuine saved TMLE/LTMLE contracts can be rediscovered after reload. QA now resolves both producers through `targetlearn`, separates runner aggregates from leaf assertion totals, derives shipped ado coverage from the manifest, and validates workbook, PDF, and PNG contents. Method prose and leaf examples were expanded and corrected.
 - **v1.7.0** (3 Sep 2026): Fail-closed resolve contract for `iivwcomponent()`. `psdash weights` now refuses a call that supplies both `wvar()` and `iivwcomponent()` instead of silently letting the component selection overwrite the explicit weight variable, and it no longer falls back to the raw `_dta[_iivw_*]` characteristics when `_psdash_detect` has not verified the iivw producer contract, so unsigned or stale metadata can no longer select the weight a diagnostic reports on. New internal helper `_psdash_require_meta`.
 - **v1.6.9** (30 Aug 2026): Review remediation. The dispatcher and detector restore `varabbrev` on every successful path, `support, compare` rejects calls without binary trimming, quoted overlap/support titles round-trip through Excel exports, export helpers clean up workbook resources, and stored-result tables render within Viewer width limits.
 - **v1.6.8** (11 Aug 2026): Compact overlap legend correction. Multi-group compact overlap box plots, including the PS Overlap panel in combined dashboards, now place treatment-group legend entries on one row by default.

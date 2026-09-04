@@ -242,9 +242,11 @@ estimated censoring (and, under delayed entry, entry) distribution. Only the
 latter two are consistent for the sandwich meat of a weighted estimating
 equation, and the model-based form is not generally valid for it, which is why
 the shipped default is {cmd:fixed_weight_sandwich} and {opt nuisance} is an
-opt-in defined for the pooled weight alone. The package's QA suite, documented
-in the package's {cmd:qa/README.md} in the source repository, includes a
-simulation study of the Wald coverage of each candidate.
+opt-in defined for the pooled weight alone. The package's QA suite, which is
+distributed with the source in the
+{browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
+not with the installed package, includes a simulation study of the Wald
+coverage of each candidate.
 
 {pstd}
 {bf:Why it stops at the coefficients.} {helpb finegray_cif} and
@@ -775,8 +777,9 @@ estimator as {cmd:survival::finegray(weights=)} followed by a weighted
 {cmd:coxph} -- coefficients, robust and cluster-robust standard errors, and the
 weighted baseline -- and under the outcome- and covariate-dependent sampling of
 Wogu et al. sec. 5 the unweighted fit is biased where the weighted fit recovers
-the truth. The package's QA suite, documented in the package's
-{cmd:qa/README.md} in the source repository, exercises these identities.
+the truth. The package's QA suite, which is distributed with the source in the
+{browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
+not with the installed package, exercises these identities.
 
 {pstd}
 {bf:What is refused, and why.} {opt nuisance}: Wogu et al. write the psi

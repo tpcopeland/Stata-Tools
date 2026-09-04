@@ -236,6 +236,13 @@ capture noisily {
     by id: assert missing(z_lag1) if _n == 1
     by id: assert z_lag1 == z[_n - 1] if _n > 1
     by id: assert _iivw_iw == 1 if _n == 1
+    * 8 subjects x 3 visits: exactly one un-laggable first row each, so the lag
+    * column must carry 8 missing and 16 present values. Counts the whole
+    * column at once, which the per-subject assertions above cannot do.
+    quietly count if missing(z_lag1)
+    assert r(N) == 8
+    quietly count if !missing(z_lag1)
+    assert r(N) == 16
     capture confirm variable z_lead1
     assert _rc != 0
 }
@@ -315,13 +322,17 @@ capture noisily {
     _ka_iivw_dataset_fit
     gen double user_w = 1
     iivw_weight, id(id) time(t) treat(treat) treat_cov(x) wtype(iptw) nolog
+    * The specific code (101, "varlist not allowed"), not merely "nonzero":
+    * these commands own their weighting, and a refusal arriving as some other
+    * failure would satisfy `assert _rc != 0' while the weight syntax was in
+    * fact being parsed.
     capture noisily iivw_fit y x [pw=user_w], vce(fixed) timespec(none) nolog
-    assert _rc != 0
+    assert _rc == 101
     capture noisily iivw_fit y x [iw=user_w], vce(fixed) timespec(none) nolog
-    assert _rc != 0
+    assert _rc == 101
     capture noisily iivw_weight [pw=user_w], id(id) time(t) ///
         treat(treat) treat_cov(x) wtype(iptw) nolog
-    assert _rc != 0
+    assert _rc == 101
 }
 if _rc == 0 {
     display as result "  PASS: KA11 - user weight syntax rejected"

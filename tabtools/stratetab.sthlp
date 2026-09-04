@@ -24,13 +24,13 @@
 {p 8 17 2}
 {cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)}
 [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)}
-{opt outlabels(string)} {opt outcomeids(string)} {opt explabels(string)} {opt digits(integer 1)}
+{opt outlabels(string)} {opt outcomeid:s(string)} {opt explabels(string)} {opt digits(integer 1)}
 {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}
 {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio}
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
-{opt border:style(string)} {opt the:me(string)} {opt headers:hade}
+{opt border:style(string)} {opt font(string)} {opt fontsize(#)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
-{opt markdown(filename)} {opt mdappend} {opt fra:me(name)} {opt level(#)}]
+{opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}]
 
 
 {marker description}{...}

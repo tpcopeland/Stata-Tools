@@ -20,7 +20,7 @@ This page preserves durable interpretation that does not belong in the runnable 
 
 ## Inference boundary
 
-IIW and IPTW use the studied refit-bootstrap route by default. Bare FIPTIW remains point-only because the retained stacked-sandwich study is explicitly diagnostic rather than a release coverage gate. Explicit `vce(stacked)` remains available and is stamped as empirically uncleared.
+IIW and IPTW use the nuisance-refitting bootstrap route by default, but the current build is stamped `uncleared-current-build` until its long-run gate is reproduced against the source manifest. Bare FIPTIW remains point-only because the retained stacked-sandwich study is explicitly diagnostic rather than a release coverage gate. Explicit `vce(stacked)` remains available and is stamped as empirically uncleared.
 
 The preregistered long-run designs and receipts live in `TOLERANCE_FRAMEWORK.md`, `COVERAGE_GATE_RUNBOOK.md`, and `coverage_results/`. Do not promote a diagnostic screen into a release claim without the corresponding gate.
 

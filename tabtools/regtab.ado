@@ -1,4 +1,4 @@
-*! regtab Version 2.1.0  2026/09/03
+*! regtab Version 2.1.1  2026/09/04
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -825,8 +825,9 @@ quietly{
                             if "`stat_col_`sname''" != "" {
                                 local val = `stat_col_`sname''[`r']
                                 local val = subinstr("`val'", ",", "", .)
-                                if "`val'" != "" & "`val'" != "." {
-                                    local stat_`lname'_`m' = real("`val'")
+                                local _num = real("`val'")
+                                if !missing(`_num') {
+                                    local stat_`lname'_`m' = `_num'
                                 }
                             }
                         }
@@ -851,8 +852,8 @@ quietly{
                             * backend e(aic)/e(bic) on an incompatible scale.
                             local stat_aic_`m' = .
                             local stat_bic_`m' = .
-                            if `stat_phi_`m'' != . & abs(`stat_phi_`m'' - 1) <= 1e-10 & ///
-                                `stat_deviance_`m'' != . & `stat_rank_`m'' != . {
+                            if !missing(`stat_phi_`m'') & abs(`stat_phi_`m'' - 1) <= 1e-10 & ///
+                                !missing(`stat_deviance_`m'') & !missing(`stat_rank_`m'') {
                                 local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
                             }
                             else if (`want_qic' | `want_aic') {
@@ -866,20 +867,20 @@ quietly{
                         * backend) stores e(aic) as AIC/N (per observation), ~N times
                         * too small. The formula matches estat ic for every ML/GLM
                         * estimator and keeps glm and mixed models on one scale.
-                        if !`_this_is_gee' & `stat_ll_`m'' != . & `stat_rank_`m'' != . {
+                        if !`_this_is_gee' & !missing(`stat_ll_`m'') & !missing(`stat_rank_`m'') {
                             local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `stat_rank_`m''
                         }
 
                         * BIC = -2*ll + k*ln(N), likewise recomputed from ll + rank + N.
                         * glm's e(bic) uses a deviance-based convention that is not
                         * comparable to the likelihood BIC mixed models report.
-                        if !`_this_is_gee' & `stat_ll_`m'' != . & ///
-                            `stat_rank_`m'' != . & `stat_N_`m'' != . {
+                        if !`_this_is_gee' & !missing(`stat_ll_`m'') & ///
+                            !missing(`stat_rank_`m'') & !missing(`stat_N_`m'') {
                             local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
                         }
 
                         * Prefer N_sub (subjects) over N (rows) for survival models
-                        if `stat_N_sub_`m'' != . {
+                        if !missing(`stat_N_sub_`m'') {
                             local stat_N_`m' = `stat_N_sub_`m''
                             local _any_N_sub = 1
                         }
@@ -895,18 +896,18 @@ quietly{
         if `n_stat_models' > 0 & `want_groups' == 1 {
             local _all_grp_miss = 1
             forvalues m = 1/`n_stat_models' {
-                if `stat_groups_`m'' != . local _all_grp_miss = 0
+                if !missing(`stat_groups_`m'') local _all_grp_miss = 0
             }
             if `_all_grp_miss' {
                 local _grp = .
                 capture local _grp = e(N_g)
-                if `_grp' == . {
+                if missing(`_grp') {
                     tempname ng_mat
                     capture matrix `ng_mat' = e(N_g)
                     if !_rc local _grp = `ng_mat'[1,1]
                 }
-                if `_grp' == . capture local _grp = e(N_clust)
-                if `_grp' != . {
+                if missing(`_grp') capture local _grp = e(N_clust)
+                if !missing(`_grp') {
                     local stat_groups_`n_stat_models' = `_grp'
                 }
             }
@@ -930,7 +931,7 @@ quietly{
             if _rc local stat_N_1 = .
             local _nsub = .
             capture local _nsub = e(N_sub)
-            if !_rc & `_nsub' != . {
+            if !_rc & !missing(`_nsub') {
                 local stat_N_1 = `_nsub'
                 local _any_N_sub = 1
             }
@@ -939,12 +940,12 @@ quietly{
 
             capture local stat_groups_1 = e(N_g)
             if _rc local stat_groups_1 = .
-            if `stat_groups_1' == . {
+            if missing(`stat_groups_1') {
                 tempname ng_mat
                 capture matrix `ng_mat' = e(N_g)
                 if !_rc local stat_groups_1 = `ng_mat'[1,1]
             }
-            if `stat_groups_1' == . {
+            if missing(`stat_groups_1') {
                 capture local stat_groups_1 = e(N_clust)
             }
 
@@ -959,24 +960,24 @@ quietly{
             * whenever available, overriding e(aic)/e(bic). glm stores e(aic) as
             * AIC/N (per observation) and a deviance-based e(bic); both are
             * incomparable to the likelihood values mixed reports. Matches estat ic.
-            if `stat_ll_1' != . {
+            if !missing(`stat_ll_1') {
                 capture local stat_k_1 = e(rank)
-                if `stat_k_1' == . {
+                if missing(`stat_k_1') {
                     capture local stat_k_1 = e(k)
                 }
-                if `stat_k_1' != . {
+                if !missing(`stat_k_1') {
                     local stat_aic_1 = -2 * `stat_ll_1' + 2 * `stat_k_1'
                 }
             }
 
-            if `stat_ll_1' != . & `stat_N_1' != . {
-                if `stat_k_1' == . {
+            if !missing(`stat_ll_1') & !missing(`stat_N_1') {
+                if missing(`stat_k_1') {
                     capture local stat_k_1 = e(rank)
-                    if `stat_k_1' == . {
+                    if missing(`stat_k_1') {
                         capture local stat_k_1 = e(k)
                     }
                 }
-                if `stat_k_1' != . {
+                if !missing(`stat_k_1') {
                     local stat_bic_1 = -2 * `stat_ll_1' + `stat_k_1' * ln(`stat_N_1')
                 }
             }
@@ -1001,12 +1002,12 @@ quietly{
                 local stat_aic_1 = .
                 local stat_bic_1 = .
             }
-            if `_active_is_gee' & `stat_phi_1' != . & ///
-                abs(`stat_phi_1' - 1) <= 1e-10 & `_deviance' != . {
-                if `stat_k_1' == . {
+            if `_active_is_gee' & !missing(`stat_phi_1') & ///
+                abs(`stat_phi_1' - 1) <= 1e-10 & !missing(`_deviance') {
+                if missing(`stat_k_1') {
                     capture local stat_k_1 = e(rank)
                 }
-                if `stat_k_1' != . {
+                if !missing(`stat_k_1') {
                     local stat_qic_1 = `_deviance' + 2 * `stat_k_1'
                 }
             }
@@ -1095,7 +1096,7 @@ quietly{
                     * Find first data row (column A has cmdset number)
                     local _icc_hdr = 0
                     forvalues _ir = 1/`=_N' {
-                        if real(A[`_ir']) != . {
+                        if !missing(real(A[`_ir'])) {
                             local _icc_hdr = `_ir' - 1
                             continue, break
                         }
@@ -1129,14 +1130,16 @@ quietly{
 
                         if "`icc_col_re'" != "" {
                             local val = subinstr(`icc_col_re'[`r'], ",", "", .)
-                            if "`val'" != "" & "`val'" != "." {
-                                local val_re = real("`val'")
+                            local _num = real("`val'")
+                            if !missing(`_num') {
+                                local val_re = `_num'
                             }
                         }
                         if "`icc_col_resid'" != "" {
                             local val = subinstr(`icc_col_resid'[`r'], ",", "", .)
-                            if "`val'" != "" & "`val'" != "." {
-                                local val_resid = real("`val'")
+                            local _num = real("`val'")
+                            if !missing(`_num') {
+                                local val_resid = `_num'
                             }
                         }
 
@@ -1151,7 +1154,7 @@ quietly{
                             if `m' <= `_meta_models' {
                                 local _icc_resid = `model_icc_resid_`m''
                             }
-                            if `_icc_resid' != . {
+                            if !missing(`_icc_resid') {
                                 local stat_icc_`m' = `val_re' / (`val_re' + `_icc_resid')
                             }
                         }
@@ -1170,7 +1173,7 @@ quietly{
                 forvalues _im = 1/`n_icc_models' {
                     local _this_icc `"`stat_icc_`_im''"'
                     if `"`_this_icc'"' != "" {
-                        if real(`"`_this_icc'"') != . local _all_icc_miss = 0
+                        if !missing(real(`"`_this_icc'"')) local _all_icc_miss = 0
                     }
                 }
                 if `_all_icc_miss' local n_icc_models = 0
@@ -1229,7 +1232,7 @@ quietly{
                     if `n_stat_models' <= `_meta_models' {
                         local _icc_resid = `model_icc_resid_`n_stat_models''
                     }
-                    if `_icc_resid' != . {
+                    if !missing(`_icc_resid') {
                         local stat_icc_`n_stat_models' = ///
                             `var_re' / (`var_re' + `_icc_resid')
                     }
@@ -2534,7 +2537,7 @@ if `add_stats' == 1 {
     if `want_n' == 1 {
         local has_val = 0
         forvalues m = 1/`use_models' {
-            if `stat_N_`m'' != . local has_val = 1
+            if !missing(`stat_N_`m'') local has_val = 1
         }
         if `has_val' {
             local curr_n = _N
@@ -2542,7 +2545,7 @@ if `add_stats' == 1 {
             local _n_label = cond(`_any_N_sub', "Subjects", "Observations")
             replace A = `"`_n_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_N_`m'' != . {
+                if !missing(`stat_N_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_N_`m'', "%12.0fc") in `=`curr_n'+1'
                 }
@@ -2555,14 +2558,14 @@ if `add_stats' == 1 {
     if `want_groups' == 1 {
         local has_val = 0
         forvalues m = 1/`use_models' {
-            if `stat_groups_`m'' != . local has_val = 1
+            if !missing(`stat_groups_`m'') local has_val = 1
         }
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
             replace A = "Groups" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_groups_`m'' != . {
+                if !missing(`stat_groups_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_groups_`m'', "%12.0fc") in `=`curr_n'+1'
                 }
@@ -2578,11 +2581,11 @@ if `add_stats' == 1 {
         local has_val = 0
         local _aic_label "AIC"
         forvalues m = 1/`use_models' {
-            if `stat_aic_`m'' != . local has_val = 1
+            if !missing(`stat_aic_`m'') local has_val = 1
         }
         if !`has_val' {
             forvalues m = 1/`use_models' {
-                if `stat_qic_`m'' != . local has_val = 1
+                if !missing(`stat_qic_`m'') local has_val = 1
             }
             if `has_val' local _aic_label "QICu"
         }
@@ -2592,13 +2595,13 @@ if `add_stats' == 1 {
             replace A = `"`_aic_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if "`_aic_label'" == "AIC" {
-                    if `stat_aic_`m'' != . {
+                    if !missing(`stat_aic_`m'') {
                         local col = (`m' - 1) * 3 + 1
                         replace c`col' = string(`stat_aic_`m'', "%12.2f") in `=`curr_n'+1'
                     }
                 }
                 else {
-                    if `stat_qic_`m'' != . {
+                    if !missing(`stat_qic_`m'') {
                         local col = (`m' - 1) * 3 + 1
                         replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
                     }
@@ -2613,14 +2616,14 @@ if `add_stats' == 1 {
     if `want_qic' == 1 & !`_qicu_rendered_by_aic' {
         local has_val = 0
         forvalues m = 1/`use_models' {
-            if `stat_qic_`m'' != . local has_val = 1
+            if !missing(`stat_qic_`m'') local has_val = 1
         }
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
             replace A = "QICu" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_qic_`m'' != . {
+                if !missing(`stat_qic_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
                 }
@@ -2633,14 +2636,14 @@ if `add_stats' == 1 {
     if `want_bic' == 1 {
         local has_val = 0
         forvalues m = 1/`use_models' {
-            if `stat_bic_`m'' != . local has_val = 1
+            if !missing(`stat_bic_`m'') local has_val = 1
         }
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
             replace A = "BIC" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_bic_`m'' != . {
+                if !missing(`stat_bic_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_bic_`m'', "%12.2f") in `=`curr_n'+1'
                 }
@@ -2653,14 +2656,14 @@ if `add_stats' == 1 {
     if `want_ll' == 1 {
         local has_val = 0
         forvalues m = 1/`use_models' {
-            if `stat_ll_`m'' != . local has_val = 1
+            if !missing(`stat_ll_`m'') local has_val = 1
         }
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
             replace A = "Log-likelihood" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_ll_`m'' != . {
+                if !missing(`stat_ll_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_ll_`m'', "%12.2f") in `=`curr_n'+1'
                 }
@@ -2674,14 +2677,14 @@ if `add_stats' == 1 {
         local has_icc = 0
         local use_icc_models = min(`n_icc_models', `n_models')
         forvalues m = 1/`use_icc_models' {
-            if `stat_icc_`m'' != . local has_icc = 1
+            if !missing(`stat_icc_`m'') local has_icc = 1
         }
         if `has_icc' {
             local curr_n = _N
             set obs `=`curr_n'+1'
             replace A = "ICC" in `=`curr_n'+1'
             forvalues m = 1/`use_icc_models' {
-                if `stat_icc_`m'' != . {
+                if !missing(`stat_icc_`m'') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`stat_icc_`m'', "%5.3f") in `=`curr_n'+1'
                 }
@@ -2695,7 +2698,7 @@ if `add_stats' == 1 {
         local has_r2 = 0
         forvalues m = 1/`use_models' {
             * Prefer r2, fallback to r2_p (pseudo), then r2_a (adjusted)
-            if `stat_r2_`m'' != . | `stat_r2_p_`m'' != . | `stat_r2_a_`m'' != . {
+            if !missing(`stat_r2_`m'') | !missing(`stat_r2_p_`m'') | !missing(`stat_r2_a_`m'') {
                 local has_r2 = 1
             }
         }
@@ -2705,8 +2708,8 @@ if `add_stats' == 1 {
             local _any_r2 = 0
             local _any_pseudo_r2 = 0
             forvalues m = 1/`use_models' {
-                if `stat_r2_`m'' != . local _any_r2 = 1
-                if `stat_r2_p_`m'' != . local _any_pseudo_r2 = 1
+                if !missing(`stat_r2_`m'') local _any_r2 = 1
+                if !missing(`stat_r2_p_`m'') local _any_pseudo_r2 = 1
             }
             if !`_any_r2' & `_any_pseudo_r2' local r2_label "Pseudo R²"
             else if `_any_r2' & `_any_pseudo_r2' local r2_label "R² / Pseudo R²"
@@ -2716,10 +2719,10 @@ if `add_stats' == 1 {
             replace A = `"`r2_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 local _r2val = .
-                if `stat_r2_`m'' != . local _r2val = `stat_r2_`m''
-                else if `stat_r2_p_`m'' != . local _r2val = `stat_r2_p_`m''
-                else if `stat_r2_a_`m'' != . local _r2val = `stat_r2_a_`m''
-                if `_r2val' != . {
+                if !missing(`stat_r2_`m'') local _r2val = `stat_r2_`m''
+                else if !missing(`stat_r2_p_`m'') local _r2val = `stat_r2_p_`m''
+                else if !missing(`stat_r2_a_`m'') local _r2val = `stat_r2_a_`m''
+                if !missing(`_r2val') {
                     local col = (`m' - 1) * 3 + 1
                     replace c`col' = string(`_r2val', "%5.3f") in `=`curr_n'+1'
                 }
@@ -2785,7 +2788,7 @@ gen id = _n
 count
 local count `=`r(N)'+1'
 set obs `count'
-replace id = 0 if id == .
+replace id = 0 if missing(id)
 sort id
 drop id
 gen title = ""
@@ -2948,17 +2951,17 @@ return scalar N_cols = `num_cols'
 * column index matches the model order in r(table).
 if `add_stats' == 1 {
     forvalues m = 1/`use_models' {
-        if `want_aic' & `stat_aic_`m'' != .          return scalar aic_`m'    = `stat_aic_`m''
-        if `want_bic' & `stat_bic_`m'' != .          return scalar bic_`m'    = `stat_bic_`m''
-        if (`want_qic' | `want_aic') & `stat_qic_`m'' != . return scalar qic_`m' = `stat_qic_`m''
-        if `want_ll'  & `stat_ll_`m''  != .          return scalar ll_`m'     = `stat_ll_`m''
-        if `want_n'   & `stat_N_`m''   != .          return scalar n_`m'      = `stat_N_`m''
-        if `want_groups' & `stat_groups_`m'' != .    return scalar groups_`m' = `stat_groups_`m''
+        if `want_aic' & !missing(`stat_aic_`m'')          return scalar aic_`m'    = `stat_aic_`m''
+        if `want_bic' & !missing(`stat_bic_`m'')          return scalar bic_`m'    = `stat_bic_`m''
+        if (`want_qic' | `want_aic') & !missing(`stat_qic_`m'') return scalar qic_`m' = `stat_qic_`m''
+        if `want_ll'  & !missing(`stat_ll_`m'')           return scalar ll_`m'     = `stat_ll_`m''
+        if `want_n'   & !missing(`stat_N_`m'')            return scalar n_`m'      = `stat_N_`m''
+        if `want_groups' & !missing(`stat_groups_`m'')    return scalar groups_`m' = `stat_groups_`m''
     }
     if `want_icc' {
         local _ret_icc_models = min(`n_icc_models', `n_models')
         forvalues m = 1/`_ret_icc_models' {
-            if `stat_icc_`m'' != .                   return scalar icc_`m'    = `stat_icc_`m''
+            if !missing(`stat_icc_`m'')              return scalar icc_`m'    = `stat_icc_`m''
         }
     }
 }

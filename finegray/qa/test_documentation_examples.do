@@ -800,7 +800,12 @@ capture noisily {
     stset dftime, failure(dfcens==1) id(stnum)
 
     finegray ifp tumsize pelnode, compete(status) cause(1)
+    assert e(cmd) == "finegray" & e(N) == 109 & colsof(e(b)) == 3
     finegray_cif, attime(1 5 8) ci
+    * one row per requested horizon, and the ci columns actually populated:
+    * the README block promises a table, not merely a command that returns
+    assert rowsof(r(table)) == 3 & colsof(r(table)) == 5
+    assert !missing(el(r(table), 1, 1)) & !missing(el(r(table), 3, 5))
     finegray_phtest
 }
 if _rc == 0 {
@@ -1194,8 +1199,16 @@ capture noisily {
 
     finegray ifp tumsize pelnode, compete(status) cause(1) basehaz
     confirm matrix e(basehaz)
+    * the posted curve has rows and rises: an empty or all-zero baseline would
+    * pass `confirm matrix' and every downstream CIF built on it would be 0
+    assert rowsof(e(basehaz)) > 0 & colsof(e(basehaz)) >= 2
     finegray_predict bch, basecshazard
     confirm variable bch
+    quietly count if !missing(bch)
+    assert r(N) == e(N)
+    quietly summarize bch
+    * stata-dev-ignore: missing-passes-assert — fail-closed: the `count if !missing(bch)' + `assert r(N) == e(N)' pair two lines above already refuses an all-missing column, so r(min)/r(max) here cannot be missing
+    assert r(min) >= 0 & r(max) > 0
 }
 if _rc == 0 {
     display as result "  PASS: basehaz + basecshazard"

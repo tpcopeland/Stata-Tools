@@ -1041,13 +1041,14 @@ capture noisily {
         display as result "  PASS [14.z5]: z=-1.645"
     }
 }
+local test14_rc = _rc
 
-if `test14_pass' == 1 {
+if `test14_rc' == 0 & `test14_pass' == 1 {
     display as result "  PASS: CV14 z-to-p conversion (5 values)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV14 z-to-p conversion"
+    display as error "  FAIL: CV14 z-to-p conversion (rc=`test14_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' CV14"
 }

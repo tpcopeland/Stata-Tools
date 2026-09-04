@@ -60,6 +60,16 @@ if (length(args) < 2) {
 input_file  <- args[1]
 output_file <- args[2]
 
+# Oracle cache (added 2026-09-04): this script is a pure function of its
+# inputs, so its output is cached and only recomputed when an input changes.
+# See _fg_oracle_cache.R for the key and the fail-closed rules.
+source(file.path(dirname(sub("^--file=", "", grep("^--file=",
+       commandArgs(FALSE), value = TRUE)[1])), "_fg_oracle_cache.R"))
+.fgc <- fg_oracle_cache_begin('finegray', outputs = output_file,
+                              key_files = input_file,
+                              packages = c("cmprsk", "fastcmprsk", "survival"))
+if (identical(.fgc$state, "hit")) quit(save = "no", status = 0)
+
 df <- read.csv(input_file, stringsAsFactors = FALSE)
 datasets <- unique(df$dataset)
 results <- data.frame(dataset = character(), quantity = character(),
@@ -285,5 +295,6 @@ if (anyDuplicated(results[c("dataset", "quantity", "variable")])) {
     stop("reference output contains duplicate dataset/quantity/variable keys")
 }
 write.csv(results, output_file, row.names = FALSE)
+fg_oracle_cache_end(.fgc)
 cat(sprintf("\ncrossval_finegray_r.R: wrote %d rows to %s\n",
             nrow(results), output_file))

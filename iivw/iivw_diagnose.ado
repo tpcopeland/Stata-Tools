@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.1.0  2026/09/03
+*! iivw_diagnose Version 4.1.2  2026/09/04
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -200,7 +200,6 @@ program define iivw_diagnose, rclass
             local clust_`role'   "`e(clustvar)'"
             local N_`role'       = e(N)
             local dfr_`role'     = e(df_r)
-
             local _esvar "`_es_unweighted'"
             if "`role'" == "weighted" {
                 local _esvar "`_es_weighted'"
@@ -215,6 +214,35 @@ program define iivw_diagnose, rclass
                 quietly count if `_esvar'
                 local _esn_`role' = r(N)
             }
+
+            * -------------------------------------------------------------
+            * Resolve contract (Critical Rule 14, IIVW-14a).
+            * -------------------------------------------------------------
+            * The H3 gate below decides "same estimand" by comparing these
+            * strings ACROSS roles. That comparison is only an oracle when the
+            * strings exist: three estimates that carry no e(depvar) compare
+            * equal to one another on "" == "", and every branch of H3 passes
+            * without a single fact having been checked.
+            *
+            * That is not hypothetical. Three hand-posted estimates with
+            * e(cmd) = "regress", an esample() marker and NO e(depvar) returned
+            * decomposable = 1, sample_identical = 1 and a printed sampling/
+            * artifact decomposition at rc 0 -- certifying as valid a
+            * subtraction between coefficients whose outcomes were never
+            * established to be the same one.
+            *
+            * unweighted()/weighted()/adjusted() name their source explicitly,
+            * so the source is resolved completely or the command refuses. Every
+            * Stata estimator sets both fields, and iivw_fit carries them
+            * through its own reposts (point-only posts depname(); the other
+            * routes repost the same metadata), so this only rejects an artifact
+            * that genuinely
+            * cannot answer the question the gate is about to ask of it.
+            *
+            * Placed after the e(sample) materialization above so that nothing
+            * runs between `estimates restore' and the marker read.
+            _iivw_require_meta explicit "stored estimates '`estname''" ///
+                "depvar=`depvar_`role''" "cmd=`cmd_`role''"
         }
 
         * =================================================================

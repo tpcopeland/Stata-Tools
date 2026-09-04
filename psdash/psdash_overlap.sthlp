@@ -47,7 +47,8 @@ positivity finding and descriptive observed-arm bounds are documented under
 {title:Options}
 
 {phang}
-{opt cov:ariates(varlist)} supplies covariates for automatic PS estimation.
+{opt cov:ariates(varlist)} supplies covariates for automatic PS estimation and
+accepts factor-variable and interaction notation.
 
 {phang}
 {opt bins(#)} sets histogram bins; default is {cmd:30}.
@@ -106,6 +107,7 @@ legend uses one row. It has no effect for binary treatments.
 {phang2}{cmd:. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. predict double ps, pr}{p_end}
 {phang2}{cmd:. psdash overlap foreign ps}{p_end}
+{phang2}{cmd:. psdash overlap ps, histogram nograph}{p_end}
 
 {marker results}{...}
 {title:Stored results}

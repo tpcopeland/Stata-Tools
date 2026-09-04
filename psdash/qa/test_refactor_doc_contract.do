@@ -110,15 +110,18 @@ _doc_result "D2b" `=_rc'
 local ++test_count
 display as text _n "--- D2c: ado headers use canonical author metadata ---"
 capture noisily {
-    local ado_files psdash.ado psdash_overlap.ado psdash_balance.ado ///
-        psdash_weights.ado psdash_support.ado psdash_combined.ado ///
-        _psdash_balance_binary.ado _psdash_balance_multigroup.ado ///
-        _psdash_detect.ado _psdash_graph_export.ado ///
-        _psdash_manual_detect.ado _psdash_mgps_map.ado ///
-        _psdash_pscheck.ado _psdash_strip_fv.ado ///
-        _psdash_support_stats.ado _psdash_validate_levels.ado ///
-        _psdash_validate_psvars.ado _psdash_weights_modify.ado ///
-        _psdash_weights_stats.ado
+    local ado_files ""
+    tempname pkgfh
+    file open `pkgfh' using "`pkg_dir'/psdash.pkg", read text
+    file read `pkgfh' line
+    while r(eof) == 0 {
+        tokenize `"`line'"'
+        if "`1'" == "f" & regexm("`2'", "[.]ado$") {
+            local ado_files "`ado_files' `2'"
+        }
+        file read `pkgfh' line
+    }
+    file close `pkgfh'
     foreach f of local ado_files {
         assert strpos(fileread("`pkg_dir'/`f'"), ///
             "*! Author: Timothy P Copeland, Karolinska Institutet") > 0

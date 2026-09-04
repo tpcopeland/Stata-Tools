@@ -282,14 +282,31 @@ capture noisily {
     capture quietly iivw_weight, id(id) time(t) censor(fu) visit_cov(z) ///
         baseline(entry) wtype(iivw) nolog
     local wt_rc = _rc
+    * Content, not just rc: a weighting that committed an all-missing column
+    * satisfies `wt_rc == 0' too. Counted HERE, because the panel is rebuilt
+    * below and the weight column does not survive that.
+    local wt_n = 0
+    if `wt_rc' == 0 {
+        quietly count if !missing(_iivw_weight)
+        local wt_n = r(N)
+    }
 
     _iivw_v343_panel
     capture iivw_exogtest z, id(id) time(t) censor(fu)
     local ex_rc = _rc
-    display as text "  T6: iivw_weight rc = `wt_rc', iivw_exogtest rc = `ex_rc'" ///
-        " on identical data"
+    * r() is read before anything else overwrites it.
+    local ex_minp = r(min_p)
+    local ex_nmodels = r(n_models)
+    display as text "  T6: iivw_weight rc = `wt_rc' (`wt_n' weighted rows), " ///
+        "iivw_exogtest rc = `ex_rc' (min_p = `ex_minp') on identical data"
     assert `wt_rc' == 0
     assert `ex_rc' == 0
+    * An exogeneity test that fitted no model and returned no p-value satisfies
+    * `ex_rc == 0' as happily as a real one.
+    assert `wt_n' > 0
+    assert !missing(`ex_minp')
+    assert `ex_minp' >= 0 & `ex_minp' <= 1
+    assert `ex_nmodels' > 0
 }
 if _rc == 0 {
     display as result "  PASS: T6 - iivw_exogtest accepts what iivw_weight accepts"
