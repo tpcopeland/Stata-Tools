@@ -12,6 +12,7 @@ local fail_count = 0
 local qa_dir "`c(pwd)'"
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * A user variable matching the helper naming pattern cannot be overwritten.
 local ++test_count
@@ -81,6 +82,7 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_hostile" `test_count' `pass_count' `fail_count'
 display "RESULT: test_codescan_hostile tests=`test_count' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {

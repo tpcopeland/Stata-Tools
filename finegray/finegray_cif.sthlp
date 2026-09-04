@@ -123,6 +123,15 @@ refused with {cmd:r(198)}: the overlay is for a grouping variable, and a continu
 covariate is drawn at chosen values with {opt at()}.
 
 {pmore}
+The bit-for-bit agreement holds at the machine value of the level, not at its
+printed spelling. Levels are carried into the per-curve {opt at()} in
+hexadecimal-double ({cmd:%21x}) form, which Stata's numeric parser reads back
+exactly; the levels {cmd:r(levels)} and the row names of {cmd:r(at)} report are
+the ordinary display renderings and round a noninteger level in the last bit or
+two. To reproduce one curve of an overlay by hand, take the level from
+{cmd:r(levels_mat)} (or type it in {cmd:%21x}), not from the printed list.
+
+{pmore}
 For the {opt bstrata()} variable, one curve is drawn per fitted baseline stratum,
 each the same computation as {cmd:finegray_cif, bstratum(#)}; a stratum that carried
 no cause event has no curve and is omitted with a note. {opt over()} then stands in
@@ -349,16 +358,24 @@ curve.
 {synopt:{cmd:r(over)}}overlay variable; with {cmd:over()}{p_end}
 {synopt:{cmd:r(levels)}}levels drawn, row order of {cmd:r(at)}; with {cmd:over()}{p_end}
 {synopt:{cmd:r(se_method)}}how column 3 of {cmd:r(table)} was computed{p_end}
+{synopt:{cmd:r(vce_adjust)}}always {cmd:none}; see {cmd:e(vce_adjust)}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}one row per evaluated time and curve{p_end}
 {synopt:{cmd:r(at)}}covariate profile(s), one row per curve{p_end}
+{synopt:{cmd:r(levels_mat)}}levels drawn, exact values; with {cmd:over()}{p_end}
 
 {pstd}
 The columns of {cmd:r(table)} are {cmd:time}, {cmd:cif}, {cmd:se},
 {cmd:lci}, and {cmd:uci}; with {opt over()} a sixth column, {cmd:over}, holds
 the level (or baseline stratum) each row belongs to, and the rows of
 {cmd:r(at)} are named by level.
+
+{pstd}
+{cmd:r(levels)} and the row names of {cmd:r(at)} are display spellings and are
+meant to be read; {cmd:r(levels_mat)} and the {cmd:over} column of
+{cmd:r(table)} carry the same levels as machine doubles and are the forms to
+compare or feed back into {opt at()}/{opt bstratum()}.
 
 {marker author}{...}
 {title:Author}

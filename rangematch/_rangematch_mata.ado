@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.4  2026/08/28
+*! _rangematch_mata Version 1.5.5  2026/09/02
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -26,19 +26,20 @@ capture mata: mata drop _rm_bsearch_last_lt()
 capture mata: mata drop _rm_key_block_uobs()
 capture mata: mata drop _rm_store_indexed()
 capture mata: mata drop _rm_vl_same()
+capture mata: mata drop _rm_vl_taken()
+capture mata: mata drop _rm_vl_resolve_dangling()
 capture mata: mata drop _rm_vl_candidate()
 capture mata: mata drop _rm_vl_resolve()
 capture mata: mata drop _rm_materialize()
 capture mata: mata drop _rm_fill_using_only()
 capture mata: mata drop _rm_generate_distance()
-capture mata: mata drop _rm_copy_output()
 
 mata: mata set matastrict on
 mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.5.4")
+    return("1.5.5")
 }
 
 // ============================================================================
@@ -1949,28 +1950,67 @@ string scalar _rm_vl_candidate(string scalar base, real scalar k)
     return(b + sfx)
 }
 
+// 1 if `nm' is unavailable as a label name in the CURRENT frame: either a
+// definition already exists under it, or some variable is already ATTACHED to
+// it. Stata permits an attachment to a name that was never defined, and
+// rangematch preserves such dangling attachments, so st_vlexists() alone
+// reports a dangling name as free. Defining it there silently hands the
+// dangling variable the incoming variable's meanings -- the value changes
+// meaning at rc=0, with nothing in the output to show it.
+real scalar _rm_vl_taken(string scalar nm)
+{
+    real scalar j, nv
+
+    if (st_vlexists(nm)) return(1)
+    nv = st_nvar()
+    for (j = 1; j <= nv; j++) {
+        if (st_varvaluelabel(j) == nm) return(1)
+    }
+    return(0)
+}
+
+// The name under which a DANGLING attachment (attached in the source, never
+// defined there) is carried into the current frame. Attaching the source name
+// verbatim would give the variable whatever definition the output frame
+// already holds under that name, so a name that is already defined here is
+// replaced by a free one. The attachment stays dangling either way.
+string scalar _rm_vl_resolve_dangling(string scalar vvl)
+{
+    string scalar cand
+    real scalar k
+
+    if (!st_vlexists(vvl)) return(vvl)
+
+    for (k = 1; k <= 999; k++) {
+        cand = _rm_vl_candidate(vvl, k)
+        if (!_rm_vl_taken(cand)) return(cand)
+    }
+    _error("unable to derive a collision-free value-label name from " + vvl)
+}
+
 // Return the label name to attach in the CURRENT frame for a variable whose
 // source definition is (vals, txt) under the name `vvl', creating or reusing a
-// renamed copy on conflict.
+// renamed copy on conflict. Availability is judged by _rm_vl_taken(), not by
+// st_vlexists(): a name carrying only a dangling attachment is taken.
 string scalar _rm_vl_resolve(string scalar vvl, real colvector vals,
     string colvector txt)
 {
     string scalar cand
     real scalar k
 
-    if (!st_vlexists(vvl)) {
+    if (!_rm_vl_taken(vvl)) {
         st_vlmodify(vvl, vals, txt)
         return(vvl)
     }
-    if (_rm_vl_same(vvl, vals, txt)) return(vvl)
+    if (st_vlexists(vvl) & _rm_vl_same(vvl, vals, txt)) return(vvl)
 
     for (k = 1; k <= 999; k++) {
         cand = _rm_vl_candidate(vvl, k)
-        if (!st_vlexists(cand)) {
+        if (!_rm_vl_taken(cand)) {
             st_vlmodify(cand, vals, txt)
             return(cand)
         }
-        if (_rm_vl_same(cand, vals, txt)) return(cand)
+        if (st_vlexists(cand) & _rm_vl_same(cand, vals, txt)) return(cand)
     }
     // Never pad or fall back to the wrong map: an unresolvable name must error
     // rather than silently attach a definition that means something else.
@@ -2063,10 +2103,12 @@ void _rm_materialize(
         if (vvl != "") {
             // Value-label definitions are frame-scoped; recreate the source
             // definition in the output frame, renaming it if the name is
-            // already taken by a different map. A name attached in the source
-            // but never defined there (havedef == 0) carries the dangling name
-            // through unchanged, as before.
+            // already taken by a different map or by a dangling attachment. A
+            // name attached in the source but never defined there
+            // (havedef == 0) stays dangling here too, under a free name when
+            // the output frame already defines the source name.
             if (havedef) vvl = _rm_vl_resolve(vvl, vlvals, vltxt)
+            else vvl = _rm_vl_resolve_dangling(vvl)
             st_varvaluelabel(out_vars[j], vvl)
         }
 
@@ -2201,6 +2243,11 @@ void _rm_generate_distance(
     string scalar oldframe
     real scalar nout
     real colvector mi, ui, matched, master_key_vals, using_key_vals
+    real colvector mk, uk, d
+
+    // Rows whose signed distance is unrepresentable. The caller aborts on a
+    // nonzero count; see the comment at the store below.
+    st_local("_rm_dist_overflow", "0")
 
     oldframe = st_framecurrent()
 
@@ -2229,56 +2276,19 @@ void _rm_generate_distance(
         st_framecurrent(using_frame)
         using_key_vals = st_data(., using_key)
         st_framecurrent(out_frame)
-        st_store(matched, out_var,
-            using_key_vals[ui[matched], 1] :- master_key_vals[mi[matched], 1])
+        mk = master_key_vals[mi[matched], 1]
+        uk = using_key_vals[ui[matched], 1]
+        d = uk :- mk
+        // Two finite keys far enough apart subtract to a value outside the
+        // finite double range, which Stata stores as MISSING. The help defines
+        // a missing distance() as the unmatched-row sentinel, so an overflow
+        // here is indistinguishable from "this row matched nothing" on a row
+        // that did match. Count them; the caller aborts rather than ship an
+        // ambiguous column.
+        st_local("_rm_dist_overflow",
+            strofreal(sum((d :>= .) :& (mk :< .) :& (uk :< .))))
+        st_store(matched, out_var, d)
     }
-    st_framecurrent(oldframe)
-}
-
-
-void _rm_copy_output(string scalar src_frame, string rowvector varnames)
-{
-    string scalar oldframe, vtype, vlbl, vvl
-    real scalar j, nv, vidx, havedef
-    real colvector numcol, vlvals
-    string colvector strcol, vltxt
-
-    oldframe = st_framecurrent()
-    nv = cols(varnames)
-
-    st_framecurrent(src_frame)
-
-    for (j = 1; j <= nv; j++) {
-        vtype = st_vartype(varnames[j])
-        vidx = st_varindex(varnames[j])
-        vlbl = st_varlabel(varnames[j])
-        vvl = st_varvaluelabel(varnames[j])
-        havedef = 0
-        if (vvl != "") {
-            havedef = st_vlexists(vvl)
-            if (havedef) st_vlload(vvl, vlvals, vltxt)
-        }
-
-        if (substr(vtype, 1, 3) == "str") {
-            strcol = st_sdata(., vidx)
-            st_framecurrent(oldframe)
-            st_sstore(., varnames[j], strcol)
-        }
-        else {
-            numcol = st_data(., vidx)
-            st_framecurrent(oldframe)
-            st_store(., varnames[j], numcol)
-        }
-        // The destination frame was just cleared, wiping its value-label
-        // definitions; restore labels from the output frame's copies.
-        if (vlbl != "") st_varlabel(varnames[j], vlbl)
-        if (vvl != "") {
-            if (havedef & !st_vlexists(vvl)) st_vlmodify(vvl, vlvals, vltxt)
-            st_varvaluelabel(varnames[j], vvl)
-        }
-        st_framecurrent(src_frame)
-    }
-
     st_framecurrent(oldframe)
 }
 

@@ -278,6 +278,7 @@ capture noisily {
     assert e(N_fail) == `Nfw' & e(N_compete) == `Ncw' & e(N_cens) == `Nzw'
     assert mreldif(e(b), `bw') < 1e-10
     assert mreldif(e(V), `Vw') < 1e-10
+    assert !missing(e(ll), `llw')
     assert reldif(e(ll), `llw') < 1e-10
     assert mreldif(e(basehaz), `bhw') < 1e-10
     * the fweighted censoring KM: same floor count as the replicated data
@@ -319,8 +320,11 @@ capture noisily {
     finegray x1 i.grp [pw = cw], compete(status) cause(1) nolog
     assert mreldif(e(b), `b0') < 1e-10
     assert mreldif(e(V), `V0') < 1e-10
+    assert !missing(e(ll), 2.75 * (`ll0' - `nf' * ln(2.75)))
     assert reldif(e(ll), 2.75 * (`ll0' - `nf' * ln(2.75))) < 1e-10
+    assert !missing(e(ll_0), 2.75 * (`ll00' - `nf' * ln(2.75)))
     assert reldif(e(ll_0), 2.75 * (`ll00' - `nf' * ln(2.75))) < 1e-10
+    assert !missing(e(sum_w), 2.75 * _N)
     assert reldif(e(sum_w), 2.75 * _N) < 1e-12
     assert e(N) == _N
 }
@@ -396,6 +400,7 @@ capture noisily {
     assert mreldif(e(b), `bp') < 1e-10
     assert mreldif(e(V), `Vp') < 1e-10
     assert mreldif(e(basehaz), `bhp') < 1e-10
+    assert !missing(e(ll), `llp')
     assert reldif(e(ll), `llp') < 1e-10
     finegray x1 i.grp, compete(status) cause(1) nolog cluster(cl)
     assert mreldif(e(V), `Vpc') < 1e-10
@@ -467,6 +472,7 @@ capture noisily {
     bysort id (_t): replace status = status[_N]
     quietly replace x1 = . if sp == 0 & mod(id, 7) == 0
     finegray x1 i.grp, compete(status) cause(1) nolog
+    assert !missing(e(N))
     assert e(N) > 0
     restore
     preserve
@@ -476,6 +482,7 @@ capture noisily {
     * leaves _d == 0 with a nonzero compete(), which finegray refuses first
     quietly bysort id (_t): replace x1 = . if _n == _N & mod(id, 7) == 0 & status == 0
     finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
+    assert !missing(e(N))
     assert e(N) > 0
     * ... and the scan still fires on a weight that really varies
     gen double vw2 = pw
@@ -544,9 +551,21 @@ capture noisily {
     finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
     mata: mata clear
     predict double h0c, basecshazard
+    assert !missing(h0c, h0a) if e(sample)
     assert reldif(h0c, h0a) < 1e-12
     predict double cifcc, cif ci
+    assert !missing(cifcc, cifa) if e(sample)
     assert reldif(cifcc, cifa) < 1e-12
+    * A limit that could not be computed is MISSING by contract (FG-H11), so
+    * requiring every in-sample row to carry one would be wrong -- but
+    * reldif(., .) is 0, so a row missing on BOTH sides would satisfy the
+    * comparison below without ever being compared.  Pin the missingness
+    * pattern instead, and require that something was actually compared.
+    assert missing(cifcc_lci) == missing(cifac_lci) if e(sample)
+    assert missing(cifcc_uci) == missing(cifac_uci) if e(sample)
+    quietly count if e(sample) & !missing(cifcc_lci, cifac_lci, cifcc_uci, cifac_uci)
+    assert !missing(r(N))
+    assert r(N) > 0
     assert reldif(cifcc_lci, cifac_lci) < 1e-10 & reldif(cifcc_uci, cifac_uci) < 1e-10
     finegray_cif, at(x1=0.3 grp=2) attime(0.5 1 2) ci nograph
     assert mreldif(r(table), `cifA') < 1e-10
@@ -584,12 +603,14 @@ capture noisily {
     finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
     predict double s2, schoenfeld
     quietly count if s2 != s0 & s2 < .
+    assert !missing(r(N))
     assert r(N) > 0
     * xb is the plain linear predictor, weights or not
     predict double xbw, xb
     tempname bnb
     _finegray_bnb, b(`bnb')
     gen double xbh = `bnb'[1,1] * x1 + `bnb'[1,2] * (grp == 2) + `bnb'[1,3] * (grp == 3)
+    assert !missing(xbw, xbh) if e(sample)
     assert reldif(xbw, xbh) < 1e-12
     * margins reads e(wtype)/e(wexp) itself and runs on the weighted fit
     margins, dydx(x1)
@@ -692,6 +713,7 @@ capture noisily {
     assert "`e(vce_meat)'" == "fixed_weight"
     assert "`e(lt_weight)'" == "right_censoring"
     quietly summarize pw if e(sample), meanonly
+    assert !missing(e(sum_w), r(sum))
     assert reldif(e(sum_w), r(sum)) < 1e-12
     assert e(N) == r(N)
     * the header names the weight
@@ -879,6 +901,184 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 * -----------------------------------------------------------------------------
+**# WT-18  a COMPENSATED change of an unsignable weight input is refused
+* -----------------------------------------------------------------------------
+* WT-14 pins the reconciliation of the rebuilt column's TOTAL against e(sum_w).
+* The total is not the weights: [pw = cond(odd == 0, k, 4 - k)] keeps e(sum_w)
+* exactly invariant in k on a balanced sample while every per-observation weight
+* moves, so the sum check passes it.  Measured on the pre-digest helper: after
+* `scalar k = 2' finegray_cif answered rc 0 with a CIF that had moved in the
+* third decimal, and predict cif/schoenfeld answered too.  e(wsig) is a
+* value-sensitive, order-invariant digest of the fit's own weight column; it
+* moves here and must NOT move on a plain re-sort of a variable weight.
+local ++test_count
+capture noisily {
+    _fgwt_data
+    gen byte odd = mod(_n, 2)
+    scalar _fgwt_k = 1
+    finegray x1 i.grp [pw = cond(odd == 0, _fgwt_k, 4 - _fgwt_k)], ///
+        compete(status) cause(1) nolog
+    * the digest is posted, and describes the fit's own column
+    assert `"`e(wsig)'"' != ""
+    assert e(wsig_n) == e(N)
+    local _w18sum = e(sum_w)
+    tempname T18
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    matrix `T18' = r(table)
+
+    * the compensated change: the TOTAL is untouched, every weight is not
+    scalar _fgwt_k = 2
+    tempvar w18
+    quietly generate double `w18' = cond(odd == 0, _fgwt_k, 4 - _fgwt_k) if e(sample)
+    quietly summarize `w18' if e(sample), meanonly
+    display as text "  WT-18 e(sum_w) = " %12.0g `_w18sum' ///
+        "  rebuilt total = " %12.0g r(sum)
+    assert !missing(r(sum), `_w18sum')
+    assert reldif(r(sum), `_w18sum') < 1e-10
+
+    capture finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    assert _rc == 459
+    capture predict double cif18, cif ci
+    assert _rc == 459
+    capture predict double sch18, schoenfeld
+    assert _rc == 459
+    * finegray_phtest refuses every weighted fit outright (r(198)), so it cannot
+    * reach the rebuild; assert it still refuses rather than answering
+    capture finegray_phtest
+    assert _rc == 198
+
+    * restoring the scalar restores the answer, bit for bit
+    scalar _fgwt_k = 1
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    assert mreldif(r(table), `T18') == 0
+
+    * order invariance: the digest is a sum, so a plain re-sort of a variable
+    * weight must still reconcile (this is WT-14's last block, re-run against
+    * the digest so it cannot regress into an order-sensitive check)
+    finegray x1 i.grp [pw = pw], compete(status) cause(1) nolog
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    matrix `T18' = r(table)
+    gen double shuf18 = runiform()
+    sort shuf18
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    assert mreldif(r(table), `T18') < 1e-12
+    predict double sch18b, schoenfeld
+    assert sch18b < . if e(sample) & status == 1
+
+    * SUBJECT-KEYED.  Exchanging the weights of two subjects leaves the
+    * MULTISET of weight values -- and therefore e(sum_w) and a digest built
+    * from the values alone -- exactly where they were, so a value-only digest
+    * reconciled it at rc 0 and post-estimation answered from a weight
+    * assignment the fit never saw.  The digest is keyed by the stset id()
+    * variable e(idvar), so the exchange moves it.  The swap is driven by
+    * scalars, not by editing a variable, so e(datasignature) cannot see it
+    * either.
+    _fgwt_data
+    scalar _fgwt_a = 1
+    scalar _fgwt_b = 2
+    finegray x1 i.grp [pw = cond(id == _fgwt_a, 3, cond(id == _fgwt_b, 1, 2))], ///
+        compete(status) cause(1) nolog
+    assert "`e(idvar)'" == "id"
+    assert `"`e(wsig)'"' != ""
+    local _w18sum2 = e(sum_w)
+    tempname T18S
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    matrix `T18S' = r(table)
+
+    * the exchange: subject 1 now carries 1 and subject 2 carries 3
+    scalar _fgwt_a = 2
+    scalar _fgwt_b = 1
+    tempvar w18s
+    quietly generate double `w18s' = ///
+        cond(id == _fgwt_a, 3, cond(id == _fgwt_b, 1, 2)) if e(sample)
+    quietly summarize `w18s' if e(sample), meanonly
+    display as text "  WT-18 swap: e(sum_w) = " %12.0g `_w18sum2' ///
+        "  rebuilt total = " %12.0g r(sum)
+    assert !missing(r(sum), `_w18sum2')
+    assert reldif(r(sum), `_w18sum2') < 1e-12
+    capture datasignature confirm
+    display as text "  WT-18 swap: datasignature rc = `=_rc' (unchanged data)"
+
+    capture finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    display as text "  WT-18 subject-swap finegray_cif rc = `=_rc' (value-only digest: 0)"
+    assert _rc == 459
+    capture predict double cif18s, cif ci
+    assert _rc == 459
+    capture predict double sch18s, schoenfeld
+    assert _rc == 459
+
+    * restoring the assignment restores the answer, bit for bit
+    scalar _fgwt_a = 1
+    scalar _fgwt_b = 2
+    quietly finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
+    assert mreldif(r(table), `T18S') == 0
+}
+local _rc = _rc
+capture restore
+capture scalar drop _fgwt_k
+capture scalar drop _fgwt_a
+capture scalar drop _fgwt_b
+_fgwt_result `_rc' "WT-18 a compensated change of an unsignable weight input (e(sum_w) invariant, every weight moved) is refused r(459); a re-sorted variable weight still reconciles"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
+**# WT-19  the fit's id() variable missing is diagnosed as ITSELF
+* -----------------------------------------------------------------------------
+* e(wsig) is keyed by e(idvar).  When that variable is no longer in the data the
+* key used to be blanked and a VALUE-ONLY digest rebuilt and compared against
+* the subject-keyed one the fit stored: a guaranteed mismatch, reported as
+* "something the weight expression reads -- a scalar ... -- has changed since
+* the fit".  The return code was right and the diagnosis was wrong, and it sent
+* the user looking at scalars that had not moved.  The missing key is now
+* refused by name.  Asserted on the message, not only on the code, because the
+* code was already correct before the fix.
+local ++test_count
+capture noisily {
+    _fgwt_data
+    finegray x1 [pw = pw], compete(status) cause(1) nolog
+    assert "`e(idvar)'" == "id"
+    assert `"`e(wsig)'"' != ""
+    rename id id_gone
+    tempfile cap19
+    quietly log using "`cap19'", replace text name(_fgwt19)
+    capture noisily finegray_cif, at(x1=0.3) attime(1) ci nograph
+    local _rc19 = _rc
+    quietly log close _fgwt19
+    display as text "  WT-19 finegray_cif with the id variable renamed rc = `_rc19'"
+    assert `_rc19' == 459
+    tempname fh19
+    local saw19 = 0
+    local sawold19 = 0
+    file open `fh19' using "`cap19'", read text
+    file read `fh19' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "the id variable id used by the fit is not in the data") > 0 ///
+            local saw19 = 1
+        if strpos(`"`line'"', "has changed since the fit") > 0 local sawold19 = 1
+        file read `fh19' line
+    }
+    file close `fh19'
+    display as text "  WT-19 message names the id variable: `saw19'" ///
+        " (the superseded scalar-changed diagnosis: `sawold19')"
+    assert `saw19' == 1
+    assert `sawold19' == 0
+    * predict takes the same route
+    capture predict double cif19, cif ci
+    assert _rc == 459
+    * restoring the variable restores the answer
+    rename id_gone id
+    capture noisily finegray_cif, at(x1=0.3) attime(1) ci nograph
+    display as text "  WT-19 after restoring the id variable rc = `=_rc'"
+    assert _rc == 0
+}
+local _rc = _rc
+capture restore
+_fgwt_result `_rc' "WT-19 a fit whose id() variable is no longer in the data is refused r(459) naming that variable, not as a changed scalar"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
+* -----------------------------------------------------------------------------
 **# WT-15  bootstrap() is refused after an fweight fit; the analytic CI stands in
 * -----------------------------------------------------------------------------
 * WATCHED FAIL 2026-09-01.  `bsample' resamples ROWS.  An fweighted fit stores
@@ -979,6 +1179,7 @@ capture noisily {
     _fgwt_same e(b) `bz' "zero-weight vs if _n>10 e(b)"
     _fgwt_same e(V) `Vz' "zero-weight vs if _n>10 e(V)"
     assert e(N) == `Nz'
+    assert !missing(e(sum_w), `swz')
     assert reldif(e(sum_w), `swz') < 1e-12
 
     preserve
@@ -1019,6 +1220,7 @@ capture noisily {
     _fgwt_same e(b) `bpi' "pw in 1/300 vs keep in 1/300 e(b)"
     _fgwt_same e(V) `Vpi' "pw in 1/300 vs keep in 1/300 e(V)"
     assert e(N) == `Npi'
+    assert !missing(e(sum_w), `swpi')
     assert reldif(e(sum_w), `swpi') < 1e-12
     restore
 }

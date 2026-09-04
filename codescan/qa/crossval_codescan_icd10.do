@@ -18,6 +18,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 local _qa_level0 = c(level)
 local _qa_va0 "`c(varabbrev)'"
@@ -245,6 +246,7 @@ if `fail_count' > 0 {
     display as error "FAILED: `failed_tests'"
 }
 display as text "RESULT: crossval_codescan_icd10 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "crossval_codescan_icd10" `test_count' `pass_count' `fail_count'
 
 capture log close _all

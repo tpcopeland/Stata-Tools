@@ -414,7 +414,7 @@ capture noisily {
         "nearest(before|after|both)" ///
         "missing(wildcard|drop|error)" ///
         "ties(all|first|last|random)" ///
-        "seed(#)" ///
+        "seed(#|statecode)" ///
         "assert(match|using)" {
         if !strpos(`"`point_raw'"', "`frag'") {
             display as error "point syntax lacks exact fragment `frag'"

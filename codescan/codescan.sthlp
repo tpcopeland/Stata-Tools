@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.2.0  28aug2026}{...}
+{* *! version 4.2.1  02sep2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -50,25 +50,25 @@
 {synopt:{opt refd:ate(varname)}}reference date for windowing{p_end}
 {synopt:{opt lookb:ack(#|numlist)}}days before {cmd:refdate}; {it:numlist} allowed{p_end}
 {synopt:{opt lookf:orward(#)}}days after {cmd:refdate}{p_end}
-{synopt:{opt incl:usive}}include {cmd:refdate} in single-direction windows{p_end}
+{synopt:{opt incl:usive}}include {cmd:refdate} in the window{p_end}
 
 {syntab:Result dataset}
 {synopt:{opt coll:apse}}reduce to one row per {cmd:id()}{p_end}
-{synopt:{opt mer:ge}}attach patient-level results to row-level data{p_end}
+{synopt:{opt mer:ge}}attach patient-level results to rows{p_end}
 {synopt:{opt earliest:date}}create {it:name}_first variables{p_end}
 {synopt:{opt latest:date}}create {it:name}_last variables{p_end}
-{synopt:{opt count:date}}create {it:name}_count variables (unique dates){p_end}
-{synopt:{opt countr:ows}}create {it:name}_nrows variables (row counts){p_end}
-{synopt:{opt alld:ates}}shorthand for all three date-summary options{p_end}
+{synopt:{opt count:date}}create {it:name}_count (unique dates){p_end}
+{synopt:{opt countr:ows}}create {it:name}_nrows (row counts){p_end}
+{synopt:{opt alld:ates}}all three date-summary options{p_end}
 {synopt:{opt pre:serve}}restore the original data afterward{p_end}
-{synopt:{opt frame(name)}}store the result dataset in a named frame{p_end}
+{synopt:{opt frame(name)}}store the result in a named frame{p_end}
 {synopt:{opt sav:ing(filename [, replace])}}save the final result dataset to disk{p_end}
 
 {syntab:Diagnostics and reporting}
 {synopt:{opt det:ail}}return per-variable match counts{p_end}
-{synopt:{opt alls:lots}}with {cmd:detail}, count every matching slot{p_end}
+{synopt:{opt alls:lots}}with {cmd:detail}, count every slot{p_end}
 {synopt:{opt cooc:currence}}return pairwise co-occurrence counts{p_end}
-{synopt:{opt unm:atched(name)}}row-level flag for rows that matched nothing{p_end}
+{synopt:{opt unm:atched(name)}}flag rows that matched nothing{p_end}
 {synopt:{opt match:ed_code(name)}}row-level first surviving code value{p_end}
 {synopt:{opt gr:aph}}draw a prevalence bar chart{p_end}
 {synopt:{opt exp:ort(filename [, replace])}}export the summary table{p_end}
@@ -79,8 +79,8 @@
 {synopt:{opt lev:el(#)}}prefix token length in {cmd:mode(prefix)}{p_end}
 {synopt:{opt noc:ase}}case-insensitive matching{p_end}
 {synopt:{opt nod:ots}}strip dots during matching{p_end}
-{synopt:{opt tostr:ing}}convert numeric code variables to string{p_end}
-{synopt:{opt countm:ode}}store counts rather than binary indicators{p_end}
+{synopt:{opt tostr:ing}}convert numeric codes to string{p_end}
+{synopt:{opt countm:ode}}store counts, not indicators{p_end}
 {synopt:{opt gen:erate(prefix)}}prefix all created variable names{p_end}
 {synopt:{opt rep:lace}}allow overwriting existing outputs{p_end}
 {synopt:{opt noi:sily}}display per-condition progress notes{p_end}
@@ -304,7 +304,10 @@ fit inside Stata's 32-character variable-name limit.
 {phang}
 {opt codefile(string)} reads definitions from a CSV or {cmd:.dta} dataset. The
 file must contain string variables {bf:name} and {bf:pattern}. Optional columns
-are {bf:label} and {bf:exclusion}. Column names are matched case-insensitively.
+are {bf:label} and {bf:exclusion}. Column names are matched case-insensitively,
+and exactly one column may supply each of the four fields: a file carrying two
+columns whose names differ only by case, such as {bf:pattern} and {bf:PATTERN},
+is rejected rather than resolved to one of them.
 
 {pmore}
 The {bf:name} column must contain valid, unique Stata names no longer than 26
@@ -358,7 +361,10 @@ rejected with {cmd:r(198)} rather than applied.
 with columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. The
 filename must end in {cmd:.csv}. This option is not allowed with
 {cmd:codefile()} because a file-based definition source already exists. An
-existing file is never overwritten unless the {cmd:replace} suboption is given.
+existing file is never overwritten unless the {cmd:replace} suboption is
+given. The filename is validated before any work, but the file is written only
+after the scan and every other requested output has succeeded, so a
+{cmd:codescan} call that stops with an error leaves no codefile behind.
 
 {dlgtab:Identifiers and windows}
 
@@ -700,6 +706,14 @@ code, so {cmd:"\bE11"} is accepted. To match any non-empty code, use
 {cmd:.} rather than {cmd:.*}.
 
 {pstd}
+Most such patterns are refused when the option is parsed, before any work. An
+assertion keyed to a character outside printable ASCII — {cmd:"(?=å)"} on
+Nordic codes — cannot be detected there, because the check would need the
+leading characters of the data itself. Those are refused during the scan
+instead, on the first code value that exposes them, and the call is rolled back
+in full. Either way the pattern never defines cohort membership.
+
+{pstd}
 {bf:File paths.} For safety, {cmd:codefile()}, {cmd:save()}, {cmd:export()},
 and {cmd:saving()} reject quotes, shell metacharacters, and control characters
 inside filenames. Use ordinary quoted paths with spaces or hyphens.
@@ -915,13 +929,13 @@ its own, which makes the table independent of {varlist} order.
 {synopt:{cmd:r(newvars)}}variables left in memory on exit{p_end}
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
 {synopt:{cmd:r(mode)}}matching mode, {cmd:regex} or {cmd:prefix}{p_end}
-{synopt:{cmd:r(nocase)}}{cmd:nocase} when case-insensitive matching was used{p_end}
+{synopt:{cmd:r(nocase)}}{cmd:nocase} if case-insensitive{p_end}
 {synopt:{cmd:r(generate)}}prefix supplied in {cmd:generate()}{p_end}
 {synopt:{cmd:r(define)}}full {cmd:define()} string when used{p_end}
 {synopt:{cmd:r(codefile)}}codefile path when used{p_end}
 {synopt:{cmd:r(id)}}identifier variable when specified{p_end}
 {synopt:{cmd:r(date)}}event-date variable when {cmd:date()} was specified{p_end}
-{synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
+{synopt:{cmd:r(refdate)}}reference-date variable, if windowed{p_end}
 {synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
 {synopt:{cmd:r(lookback)}}the lookback values, if more than one{p_end}
 

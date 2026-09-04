@@ -457,12 +457,23 @@ program define finegray_predict, rclass sortpreserve
         * Named at fit time in e(bstrata_noevent); refused here, where the
         * message can say which level and why.  xb and schoenfeld are exempt:
         * neither reads a baseline.
+        * Two spellings of the same levels: e(bstrata_noevent) is what the
+        * message says, e(bstrata_noevent_x) is %21x and is what the `=='
+        * runs against -- the readable form rounds a noninteger stratum and
+        * would match no row, letting the degenerate curve through at rc 0.
         local _bsne `"`e(bstrata_noevent)'"'
+        local _bsnex `"`e(bstrata_noevent_x)'"'
+        * A fit stored before e(bstrata_noevent_x) existed carries only the
+        * readable macro; fall back to it rather than matching nothing.
+        if `"`_bsnex'"' == "" local _bsnex `"`_bsne'"'
         if `"`_bsne'"' != "" & ("`cif'" != "" | "`basecshazard'" != "") {
             local _bshit ""
-            foreach _bsl of local _bsne {
+            local _nbsne : word count `_bsnex'
+            forvalues _b = 1/`_nbsne' {
+                local _bsl : word `_b' of `_bsnex'
+                local _bsldisp : word `_b' of `_bsne'
                 quietly count if `touse' & `_bsvar' == `_bsl'
-                if r(N) > 0 local _bshit "`_bshit' `_bsl'"
+                if r(N) > 0 local _bshit "`_bshit' `_bsldisp'"
             }
             if "`_bshit'" != "" {
                 display as error "baseline stratum(s)`_bshit' carried no cause `=e(cause)' event"
@@ -475,169 +486,181 @@ program define finegray_predict, rclass sortpreserve
         }
     }
 
-    * Build the covariate columns used for prediction.
-    * For FV models we reconstruct the design matrix on demand rather than
-    * depending on persistent _fg_* columns remaining in the dataset.
-    local _score_varlist "`e(designvars)'"
-    local _score_labels "`e(designvars)'"
-    if `"`e(fvvarlist)'"' != "" {
-        * Rebuild the design from the FIT-TIME expansion, e(fvsemantic), evaluating
-        * every factor term against the current data BY LEVEL VALUE.
-        *
-        * The previous implementation re-ran fvexpand/fvrevar on the current data
-        * and paired the resulting columns with e(b) POSITIONALLY.  That is only
-        * correct while the level support is unchanged: fit on i.grp over {1,2,3},
-        * shift the data to {2,3,4}, and fvexpand yields three terms again -- so
-        * the coefficient for level 2 was applied to level 3, and so on, at rc 0.
-        * Aligning by value cannot make that mistake.
-        local _fv_semantic `"`e(fvsemantic)'"'
-        if `"`_fv_semantic'"' == "" {
-            display as error "estimation results predate this version of finegray"
-            display as error "re-run {bf:finegray} before using finegray_predict"
-            exit 301
-        }
+    * basecshazard needs NO covariate design: it reports the baseline
+    * cumulative subhazard, which does not depend on z.  Building the design
+    * anyway made `predict, basecshazard' on new data that carries only the
+    * time variable die with "required covariate ... not found" (r(111)) --
+    * on a non-factor fit at the confirm-variable sweep below, on a factor
+    * fit inside the per-term rebuild.  Everything the baseline branch reads
+    * (_fg_cuts/_fg_tvcpos, `_t0var', `_bsvar' and the no-event refusal) is
+    * established above; the piecewise block below is already gated on
+    * xb/cif, and _score_varlist/_score_labels are read only by the xb, cif
+    * and schoenfeld branches.
+    if "`basecshazard'" == "" {
+        * Build the covariate columns used for prediction.
+        * For FV models we reconstruct the design matrix on demand rather than
+        * depending on persistent _fg_* columns remaining in the dataset.
+        local _score_varlist "`e(designvars)'"
+        local _score_labels "`e(designvars)'"
+        if `"`e(fvvarlist)'"' != "" {
+            * Rebuild the design from the FIT-TIME expansion, e(fvsemantic), evaluating
+            * every factor term against the current data BY LEVEL VALUE.
+            *
+            * The previous implementation re-ran fvexpand/fvrevar on the current data
+            * and paired the resulting columns with e(b) POSITIONALLY.  That is only
+            * correct while the level support is unchanged: fit on i.grp over {1,2,3},
+            * shift the data to {2,3,4}, and fvexpand yields three terms again -- so
+            * the coefficient for level 2 was applied to level 3, and so on, at rc 0.
+            * Aligning by value cannot make that mistake.
+            local _fv_semantic `"`e(fvsemantic)'"'
+            if `"`_fv_semantic'"' == "" {
+                display as error "estimation results predate this version of finegray"
+                display as error "re-run {bf:finegray} before using finegray_predict"
+                exit 301
+            }
 
-        * --- the fitted level support, per factor variable (base levels included) ---
-        * Also collect every underlying raw covariate (factor and continuous) so
-        * rows with a missing constituent are marked OUT of the scoreable sample
-        * below.  Without that, a missing factor value fails every `var==level'
-        * comparison, all its dummies collapse to zero, and the row silently
-        * scores as the fitted base category (FG-01) -- a fabricated, plausible
-        * prediction returned at rc 0 instead of an honest missing.
-        local _fv_facvars ""
-        local _fv_rawvars ""
-        foreach _term of local _fv_semantic {
-            local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
-            foreach _tp of local _tparts {
-                * Tolerate any factor operator on the level marker (b base, bn
-                * base-none, o omitted) so bn. levels are counted as supported.
-                if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
-                    local _flev = regexs(1)
-                    local _fvar = regexs(2)
-                    local _fpos : list posof "`_fvar'" in _fv_facvars
-                    if `_fpos' == 0 {
-                        local _fv_facvars "`_fv_facvars' `_fvar'"
+            * --- the fitted level support, per factor variable (base levels included) ---
+            * Also collect every underlying raw covariate (factor and continuous) so
+            * rows with a missing constituent are marked OUT of the scoreable sample
+            * below.  Without that, a missing factor value fails every `var==level'
+            * comparison, all its dummies collapse to zero, and the row silently
+            * scores as the fitted base category (FG-01) -- a fabricated, plausible
+            * prediction returned at rc 0 instead of an honest missing.
+            local _fv_facvars ""
+            local _fv_rawvars ""
+            foreach _term of local _fv_semantic {
+                local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
+                foreach _tp of local _tparts {
+                    * Tolerate any factor operator on the level marker (b base, bn
+                    * base-none, o omitted) so bn. levels are counted as supported.
+                    if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
+                        local _flev = regexs(1)
+                        local _fvar = regexs(2)
                         local _fpos : list posof "`_fvar'" in _fv_facvars
-                        local _fvlevels`_fpos' ""
+                        if `_fpos' == 0 {
+                            local _fv_facvars "`_fv_facvars' `_fvar'"
+                            local _fpos : list posof "`_fvar'" in _fv_facvars
+                            local _fvlevels`_fpos' ""
+                        }
+                        local _lseen : list posof "`_flev'" in _fvlevels`_fpos'
+                        if `_lseen' == 0 {
+                            local _fvlevels`_fpos' "`_fvlevels`_fpos'' `_flev'"
+                        }
+                        local _rseen : list posof "`_fvar'" in _fv_rawvars
+                        if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_fvar'"
                     }
-                    local _lseen : list posof "`_flev'" in _fvlevels`_fpos'
-                    if `_lseen' == 0 {
-                        local _fvlevels`_fpos' "`_fvlevels`_fpos'' `_flev'"
+                    else {
+                        * continuous part (c.x, or a bare interaction covariate)
+                        local _cvraw = subinstr("`_tp'", "c.", "", .)
+                        local _rseen : list posof "`_cvraw'" in _fv_rawvars
+                        if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_cvraw'"
                     }
-                    local _rseen : list posof "`_fvar'" in _fv_rawvars
-                    if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_fvar'"
-                }
-                else {
-                    * continuous part (c.x, or a bare interaction covariate)
-                    local _cvraw = subinstr("`_tp'", "c.", "", .)
-                    local _rseen : list posof "`_cvraw'" in _fv_rawvars
-                    if `_rseen' == 0 local _fv_rawvars "`_fv_rawvars' `_cvraw'"
                 }
             }
-        }
 
-        * FG-01: exclude any row missing a constituent covariate (system . and
-        * extended .a-.z) from the scoreable sample, so xb/CIF are left MISSING
-        * there rather than fabricated as the base category.  markout screens all
-        * missing kinds.  Applied before the unseen-level check so a missing value
-        * is never conflated with an unseen (nonmissing) level.
-        foreach _rv of local _fv_rawvars {
-            capture confirm numeric variable `_rv'
-            if !_rc markout `_fvbasis' `_rv'
-        }
+            * FG-01: exclude any row missing a constituent covariate (system . and
+            * extended .a-.z) from the scoreable sample, so xb/CIF are left MISSING
+            * there rather than fabricated as the base category.  markout screens all
+            * missing kinds.  Applied before the unseen-level check so a missing value
+            * is never conflated with an unseen (nonmissing) level.
+            foreach _rv of local _fv_rawvars {
+                capture confirm numeric variable `_rv'
+                if !_rc markout `_fvbasis' `_rv'
+            }
 
-        * A level the fit never saw has no coefficient.  Scoring it would silently
-        * collapse the observation onto the base category (all its dummies zero),
-        * which is a fabricated prediction, not an extrapolation.
-        foreach _fvar of local _fv_facvars {
-            local _fpos : list posof "`_fvar'" in _fv_facvars
-            capture confirm numeric variable `_fvar'
-            if _rc {
-                display as error "required factor variable `_fvar' not found"
+            * A level the fit never saw has no coefficient.  Scoring it would silently
+            * collapse the observation onto the base category (all its dummies zero),
+            * which is a fabricated prediction, not an extrapolation.
+            foreach _fvar of local _fv_facvars {
+                local _fpos : list posof "`_fvar'" in _fv_facvars
+                capture confirm numeric variable `_fvar'
+                if _rc {
+                    display as error "required factor variable `_fvar' not found"
+                    display as error "predict requires the variables used when finegray was estimated"
+                    exit 111
+                }
+                tempvar _lvbad
+                quietly gen byte `_lvbad' = 0 if `_fvbasis'
+                foreach _flev of local _fvlevels`_fpos' {
+                    quietly replace `_lvbad' = `_lvbad' + (`_fvar' == `_flev') if `_fvbasis'
+                }
+                quietly count if `_lvbad' == 0 & `_fvbasis' & !missing(`_fvar')
+                if r(N) > 0 {
+                    display as error "`_fvar' contains `r(N)' observation(s) at levels not present when finegray was estimated"
+                    display as error "the model has no coefficient for those levels; fitted levels are:`_fvlevels`_fpos''"
+                    exit 459
+                }
+                drop `_lvbad'
+            }
+
+            * --- build one column per non-base term, keyed to the level VALUE ---
+            local _rebuild_varlist ""
+            local _rebuild_labels ""
+            local _term_i = 0
+            foreach _term of local _fv_semantic {
+                local ++_term_i
+                * base terms (e.g. 1b.grp) carry no coefficient
+                if regexm("`_term'", "[0-9]+b\.") continue
+
+                * Label with the term spelled EXACTLY as e(fvsemantic) has it --
+                * `2.grp#c.z', not `2.grp#z'.  finegray_phtest's r(phtest) rownames
+                * and r(profile_vars) both carry the verbatim term, so stripping
+                * `c.' here made the same design column go by two different names
+                * across the three post-estimation commands.
+                local _label_term "`_term'"
+                local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
+
+                tempvar _fgcol
+                quietly gen double `_fgcol' = 1 if `_fvbasis'
+                foreach _tp of local _tparts {
+                    if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
+                        quietly replace `_fgcol' = `_fgcol' * ///
+                            (`=regexs(2)' == `=regexs(1)') if `_fvbasis'
+                    }
+                    else {
+                        local _cvar = subinstr("`_tp'", "c.", "", .)
+                        capture confirm numeric variable `_cvar'
+                        if _rc {
+                            display as error "required covariate `_cvar' not found"
+                            display as error "predict requires the variables used when finegray was estimated"
+                            exit 111
+                        }
+                        quietly replace `_fgcol' = `_fgcol' * `_cvar' if `_fvbasis'
+                    }
+                }
+                local _rebuild_varlist "`_rebuild_varlist' `_fgcol'"
+                local _rebuild_labels "`_rebuild_labels' `_label_term'"
+            }
+
+            local _score_varlist : list retokenize _rebuild_varlist
+            local _score_labels : list retokenize _rebuild_labels
+
+            local _n_score : word count `_score_varlist'
+            * Compare against the DESIGN width, not colsof(e(b)).  Under tvc() the
+            * coefficient vector is wider than the design -- one coefficient per
+            * interval for each time-varying column -- so equality with colsof(e(b))
+            * is the wrong contract there and would reject every factor-variable
+            * tvc() fit.
+            local _n_cov : word count `e(designvars)'
+            if `_n_score' != `_n_cov' {
+                display as error "reconstructed factor-variable design does not match stored coefficients"
+                exit 198
+            }
+        }
+        else {
+            local _cov_missing ""
+            foreach _cov of local _score_varlist {
+                capture confirm variable `_cov'
+                if _rc {
+                    local _cov_missing "`_cov'"
+                    continue, break
+                }
+            }
+            if "`_cov_missing'" != "" {
+                display as error "required covariate `_cov_missing' not found"
                 display as error "predict requires the variables used when finegray was estimated"
                 exit 111
             }
-            tempvar _lvbad
-            quietly gen byte `_lvbad' = 0 if `_fvbasis'
-            foreach _flev of local _fvlevels`_fpos' {
-                quietly replace `_lvbad' = `_lvbad' + (`_fvar' == `_flev') if `_fvbasis'
-            }
-            quietly count if `_lvbad' == 0 & `_fvbasis' & !missing(`_fvar')
-            if r(N) > 0 {
-                display as error "`_fvar' contains `r(N)' observation(s) at levels not present when finegray was estimated"
-                display as error "the model has no coefficient for those levels; fitted levels are:`_fvlevels`_fpos''"
-                exit 459
-            }
-            drop `_lvbad'
-        }
-
-        * --- build one column per non-base term, keyed to the level VALUE ---
-        local _rebuild_varlist ""
-        local _rebuild_labels ""
-        local _term_i = 0
-        foreach _term of local _fv_semantic {
-            local ++_term_i
-            * base terms (e.g. 1b.grp) carry no coefficient
-            if regexm("`_term'", "[0-9]+b\.") continue
-
-            * Label with the term spelled EXACTLY as e(fvsemantic) has it --
-            * `2.grp#c.z', not `2.grp#z'.  finegray_phtest's r(phtest) rownames
-            * and r(profile_vars) both carry the verbatim term, so stripping
-            * `c.' here made the same design column go by two different names
-            * across the three post-estimation commands.
-            local _label_term "`_term'"
-            local _tparts = subinstr(subinstr("`_term'", "##", "#", .), "#", " ", .)
-
-            tempvar _fgcol
-            quietly gen double `_fgcol' = 1 if `_fvbasis'
-            foreach _tp of local _tparts {
-                if regexm("`_tp'", "^([0-9]+)[a-z]*\.(.+)$") {
-                    quietly replace `_fgcol' = `_fgcol' * ///
-                        (`=regexs(2)' == `=regexs(1)') if `_fvbasis'
-                }
-                else {
-                    local _cvar = subinstr("`_tp'", "c.", "", .)
-                    capture confirm numeric variable `_cvar'
-                    if _rc {
-                        display as error "required covariate `_cvar' not found"
-                        display as error "predict requires the variables used when finegray was estimated"
-                        exit 111
-                    }
-                    quietly replace `_fgcol' = `_fgcol' * `_cvar' if `_fvbasis'
-                }
-            }
-            local _rebuild_varlist "`_rebuild_varlist' `_fgcol'"
-            local _rebuild_labels "`_rebuild_labels' `_label_term'"
-        }
-
-        local _score_varlist : list retokenize _rebuild_varlist
-        local _score_labels : list retokenize _rebuild_labels
-
-        local _n_score : word count `_score_varlist'
-        * Compare against the DESIGN width, not colsof(e(b)).  Under tvc() the
-        * coefficient vector is wider than the design -- one coefficient per
-        * interval for each time-varying column -- so equality with colsof(e(b))
-        * is the wrong contract there and would reject every factor-variable
-        * tvc() fit.
-        local _n_cov : word count `e(designvars)'
-        if `_n_score' != `_n_cov' {
-            display as error "reconstructed factor-variable design does not match stored coefficients"
-            exit 198
-        }
-    }
-    else {
-        local _cov_missing ""
-        foreach _cov of local _score_varlist {
-            capture confirm variable `_cov'
-            if _rc {
-                local _cov_missing "`_cov'"
-                continue, break
-            }
-        }
-        if "`_cov_missing'" != "" {
-            display as error "required covariate `_cov_missing' not found"
-            display as error "predict requires the variables used when finegray was estimated"
-            exit 111
         }
     }
 
@@ -1064,9 +1087,24 @@ program define finegray_predict, rclass sortpreserve
                 * CALLER's evaluation sample, once, before any resampling: a
                 * replication that cannot supply a baseline for one of these
                 * cannot contribute to those rows' SE, and is skipped below.
+                * Held in %21x: these levels are compared for equality
+                * against e(bstrata_noevent_x) and against the resample's own
+                * rows, and `levelsof, clean' renders a noninteger level to
+                * about the last bit, so a display spelling would match
+                * nothing and the skip logic would never fire.
                 local _bsneed ""
                 if `"`_bsvar'"' != "" {
-                    quietly levelsof `_bsvar' if `touse', local(_bsneed) clean
+                    tempname _bsnmat
+                    quietly levelsof `_bsvar' if `touse', local(_bsneed) clean ///
+                        matrow(`_bsnmat')
+                    local _nbsn = rowsof(`_bsnmat')
+                    local _bsneed ""
+                    forvalues _b = 1/`_nbsn' {
+                        local _hx : display %21x `_bsnmat'[`_b', 1]
+                        local _hx = strtrim("`_hx'")
+                        local _bsneed "`_bsneed' `_hx'"
+                    }
+                    local _bsneed : list retokenize _bsneed
                 }
 
                 tempname _bf
@@ -1085,11 +1123,11 @@ program define finegray_predict, rclass sortpreserve
                 _estimates hold `_esth', restore
                 local _held = 1
                 * Each refit below calls finegray again and overwrites the single
-                * slot in the Mata baseline cache, bumping its seq past the one the
-                * held e(bh_seq) names.  Without this, a later `predict, cif' on new
-                * data (estimation sample dropped) finds a seq mismatch and errors
-                * r(459).  Snapshot the cache now and restore it after the loop.
-                * Each replication reads its own sequence-keyed cache entry before
+                * slot in the Mata baseline cache, minting a key the held
+                * e(bh_key) does not name.  Without this, a later `predict, cif' on
+                * new data (estimation sample dropped) finds a key mismatch and
+                * errors r(459).  Snapshot the cache now and restore it after the
+                * loop.  Each replication reads its own key-matched entry before
                 * the next refit overwrites it, so the final restore cannot affect
                 * the bootstrap SE.
                 mata: _finegray_bh_stash()
@@ -1135,7 +1173,7 @@ program define finegray_predict, rclass sortpreserve
                         * replication is skipped and counted, rather than
                         * aborting the whole bootstrap at the baseline lookup.
                         if !`_reprc' & "`_bsneed'" != "" {
-                            local _bsne_r `"`e(bstrata_noevent)'"'
+                            local _bsne_r `"`e(bstrata_noevent_x)'"'
                             foreach _bsl_r of local _bsneed {
                                 local _bshit_r : list posof "`_bsl_r'" in _bsne_r
                                 if `_bshit_r' > 0 {
@@ -1149,7 +1187,7 @@ program define finegray_predict, rclass sortpreserve
                                 }
                             }
                         }
-                        if !`_reprc' local _fg_repseq `"`e(bh_seq)'"'
+                        if !`_reprc' local _fg_repkey `"`e(bh_key)'"'
                     }
                     if `_reprc' continue
                     * The refit replays e(refitcmd), which carries tvc() and
@@ -1160,13 +1198,13 @@ program define finegray_predict, rclass sortpreserve
                     if `_fg_istvc' {
                         quietly mata: _finegray_boot_cif_obs_tvc( ///
                             "`_score_varlist'", "`tvar'", "`touse'", ///
-                            "`_bsum'", "`_bss'", strtoreal("`_fg_repseq'"), ///
+                            "`_bsum'", "`_bss'", "`_fg_repkey'", ///
                             "`_fg_tvcpos'", "`_fg_cuts'", "`_bsvar'")
                     }
                     else {
                         quietly mata: _finegray_boot_cif_obs("`_score_varlist'", ///
                             "`tvar'", "`touse'", "`_bsum'", "`_bss'", ///
-                            strtoreal("`_fg_repseq'"), "`_bsvar'")
+                            "`_fg_repkey'", "`_bsvar'")
                     }
                     local ++_bok
                 }
@@ -1175,7 +1213,7 @@ program define finegray_predict, rclass sortpreserve
                 _estimates unhold `_esth'
                 local _held = 0
                 * Restore the fit's own baseline curve to the cache so a later
-                * predict on new data resolves against e(bh_seq) instead of the
+                * predict on new data resolves against e(bh_key) instead of the
                 * last resample's curve.
                 mata: _finegray_bh_unstash()
                 local _bh_stashed = 0

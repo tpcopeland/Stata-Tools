@@ -177,6 +177,7 @@ capture noisily {
     assert e(converged) == 1
     * A cluster whose two records both lie beyond the last cause-1 risk set is
     * trimmed by the estimator; require essentially the full generated sample.
+    assert !missing(e(N_clust))
     assert e(N_clust) >= 7995
     assert abs(`b_match' - `b_match_naive') < 1e-10
     assert `z_match' < 4

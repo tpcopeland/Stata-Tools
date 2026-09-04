@@ -115,14 +115,16 @@ variables are rejected — convert them first with {helpb compress} or
 {helpb recast}.
 
 {phang}
-{opt save(filename)} writes a draft CSV codefile based on the chapter summary. The
+{opt save(filename [, replace])} writes a draft CSV codefile based on the chapter summary. The
 file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. Each row is a
 first-character chapter such as {cmd:chapter_E}. If no codes remain, the file
 contains the four-column header and no data rows. Punctuation chapter characters
 are converted to valid, unique Stata names, which you can open in a spreadsheet
 and refine into real scan rules before using with {helpb codescan:codescan, codefile()}. The
 filename must end in {cmd:.csv}; quotes, shell metacharacters, and control
-characters inside the filename are rejected.
+characters inside the filename are rejected. An existing file is never
+overwritten: {cmd:save()} refuses the write unless {cmd:replace} is specified as
+a suboption, as in {cmd:save(draft.csv, replace)}.
 
 
 {marker remarks}{...}
@@ -256,12 +258,12 @@ and never appear as the code values {cmd:.} or {cmd:.a} in the table.
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(n_unique)}}unique nonempty, non-{cmd:.} codes found{p_end}
-{synopt:{cmd:r(n_entries)}}nonempty, non-{cmd:.} entries across scanned variables{p_end}
+{synopt:{cmd:r(n_entries)}}nonempty, non-{cmd:.} entries scanned{p_end}
 {synopt:{cmd:r(n_vars)}}number of variables scanned{p_end}
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
-{synopt:{cmd:r(top_code_#)}}exact code for each displayed top-code row, in row order{p_end}
+{synopt:{cmd:r(top_code_#)}}exact code for each top-code row{p_end}
 {synopt:{cmd:r(chapter_#)}}exact leading character for each chapter row{p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}

@@ -50,6 +50,12 @@
 * is negligible would let a broken psi term pass the first assertion; this is
 * what stops that from being invisible.
 *
+* Since 2026-09-02 the crr comparison is over the FULL covariance, not only its
+* diagonal: crr returns $var and the R script writes its upper triangle, so an
+* off-diagonal block that is wrong while every diagonal entry is right -- the
+* shape a mis-summed piecewise psi takes -- is no longer invisible.  Part C's
+* grouped-censoring arm compares SEs on the same construction.
+*
 * stcrreg SEs are still NOT compared: stcrreg adjusts by g/(g-1) and its
 * fixed-weight/nuisance contract differs again.  Coefficient agreement is the
 * claim tested there.
@@ -58,6 +64,20 @@ clear all
 set more off
 set varabbrev off
 version 16.0
+
+* THE ORACLE CSVs ARE READ AT FULL PRECISION (2026-09-02).  `import delimited'
+* types a numeric column FLOAT by default, and every crr number in this file
+* arrives through one.  float carries ~7 significant digits, so each oracle
+* value was silently rounded to a relative 6e-08 before any comparison saw it:
+* the measured agreements below were reporting the CSV round trip, not the two
+* implementations, and no gate in this file could ever have been tightened past
+* it.  crossval_finegray_zzf.do carries the same guard for the same reason.
+* SAVED AND RESTORED at the end of this file.  run_all.sh runs the whole lane
+* in ONE Stata process, so an unrestored `set type' leaks into every later
+* do-file and silently changes the default storage type of variables those
+* suites create.
+local _cvtv_type "`c(type)'"
+set type double
 
 local test_count = 0
 local pass_count = 0
@@ -122,6 +142,29 @@ local CRRTOL  = 1e-5
 * psi machinery reaches 3.1e-08 against crrs WITHOUT tvc(), so three orders of
 * extra slack had to be coming from the decomposition.  Set the gate from what
 * the estimator can actually reach, not from what the fixture tolerates.
+*
+* RE-MEASURED 2026-09-02, after the oracle CSVs started being read as double
+* (see `set type double' above).  Every number in the paragraphs above was
+* recorded through a FLOAT import and was therefore reporting the CSV round
+* trip rather than the two implementations.  On the same fixtures, read at full
+* precision:
+*
+*   stcrreg   1.8e-12 without ties, 3.9e-08 with them (unchanged: that arm
+*             never goes through a CSV)
+*   crr coef  8.4e-10 / 4.0e-10 / 2.0e-10, and 5.3e-09 for the Part C
+*             cengroup arm
+*   crr SE    2.2e-11 / 1.1e-11 / 6.6e-12 with psi, against 1.4e-04 / 1.6e-04 /
+*             3.7e-05 for the same fits without it
+*   crr V     4.1e-12 / 2.0e-12 / 1.2e-12 for the FULL covariance (mreldif),
+*             6.8e-09 / 4.8e-09 / 1.3e-09 elementwise |a-b|/|b|
+*   crr SE, grouped G   1.9e-10 with psi against 2.6e-05 without
+*
+* The gates are left where they are: each now sits four to five orders above
+* its own measurement and three to four orders BELOW the difference a missing
+* or wrong psi term produces, which is the separation that makes them
+* discriminating.  A separate, looser tolerance for the grouped-censoring arm
+* was considered and is not needed -- that arm measures 1.9e-10, well inside
+* CRRSETOL -- so CRRSETOL is neither relaxed nor split.
 local CRRSETOL = 1e-6
 
 capture program drop _cvtv_result
@@ -377,6 +420,7 @@ if `r_available' {
                 tvc(x1) tsplit(`cuts') nolog nuisance noadjust
             assert e(converged) == 1
             assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+            matrix _Vn = e(V)
             local _mv = 0
             assert !missing(_se[main:x2], `rv`nm'_se_x2')
             assert `rv`nm'_se_x2' > 0
@@ -403,6 +447,61 @@ if `r_available' {
                 as result %9.2e `_me' as text " without"
             assert `_mv' < `CRRSETOL'
             assert `_me' > `_mv'
+
+            * THE FULL MATRIX, NOT JUST ITS DIAGONAL (2026-09-02).  Everything
+            * above compares sqrt(diag(.)).  A variance whose off-diagonal block
+            * is wrong -- a psi term summed over the wrong interval pairs, an
+            * eta block assembled with one interval's zbar -- can leave every
+            * diagonal entry right, so the SE gate alone is blind to it.  crr
+            * returns the whole $var and the R script now writes its upper
+            * triangle, so the comparison is over p(p+1)/2 numbers instead of p.
+            *
+            * ORDER.  crr stacks cov1 first, then cov2 x tf, which is exactly
+            * finegray's stripe (main:x2, then tvc1:x1 ... tvcJ:x1) -- the same
+            * correspondence Part A relies on against stcrreg.  The diagonal
+            * check below pins that alignment rather than assuming it: if the
+            * two orders ever parted, sqrt of the assembled diagonal would stop
+            * matching the se rows compared above.
+            local _pv = `nint' + 1
+            matrix _Vcrr = J(`_pv', `_pv', 0)
+            forvalues a = 1/`_pv' {
+                forvalues c = `a'/`_pv' {
+                    assert !missing(`rv`nm'_vcov_v`a'_`c'')
+                    matrix _Vcrr[`a', `c'] = `rv`nm'_vcov_v`a'_`c''
+                    matrix _Vcrr[`c', `a'] = `rv`nm'_vcov_v`a'_`c''
+                }
+            }
+            assert !missing(sqrt(_Vcrr[1,1]), `rv`nm'_se_x2')
+            assert reldif(sqrt(_Vcrr[1,1]), `rv`nm'_se_x2') < 1e-12
+            forvalues j = 1/`nint' {
+                assert !missing(sqrt(_Vcrr[`=`j'+1', `=`j'+1']), `rv`nm'_se_tvc`j'')
+                assert reldif(sqrt(_Vcrr[`=`j'+1', `=`j'+1']), ///
+                    `rv`nm'_se_tvc`j'') < 1e-12
+            }
+            * TWO measures, because mreldif() alone is not scale-free.  Stata
+            * defines both reldif() and mreldif() as |a - b| / (|b| + 1), so
+            * once the elements are small the +1 turns them into essentially
+            * ABSOLUTE bounds -- and these variance entries are of order 1e-2,
+            * with off-diagonal entries two orders smaller again.  mreldif is
+            * reported because it is the matrix comparison the rest of this
+            * suite speaks in; beside it is a true elementwise |a-b|/|b| over
+            * the upper triangle, which is what would notice an off-diagonal
+            * block that is proportionally wrong but numerically tiny.
+            local _mvv = mreldif(_Vcrr, _Vn)
+            local _mvr = 0
+            forvalues a = 1/`_pv' {
+                forvalues c = `a'/`_pv' {
+                    assert _Vn[`a', `c'] != 0
+                    local _d = abs(_Vcrr[`a', `c'] - _Vn[`a', `c']) ///
+                        / abs(_Vn[`a', `c'])
+                    if `_d' > `_mvr' local _mvr = `_d'
+                }
+            }
+            display as text "    `nm': FULL V vs crr, mreldif = " ///
+                as result %9.2e `_mvv' as text ", max element |a-b|/|b| = " ///
+                as result %9.2e `_mvr'
+            assert `_mvv' < `CRRSETOL'
+            assert `_mvr' < `CRRSETOL'
         }
         local _rc = _rc
         _cvtv_result `_rc' "B/`nm' finegray tvc()/tsplit() == cmprsk::crr cov2/tf, b and eta+psi V (J=`nint')"
@@ -491,6 +590,40 @@ if `cg_available' {
             assert !missing(_b[tvc`j':x1], `cgv_coef_cg_tvc`j'')
             assert reldif(_b[tvc`j':x1], `cgv_coef_cg_tvc`j'') < `CRRTOL'
         }
+
+        * GROUPED-CENSORING STANDARD ERRORS (2026-09-02).  The R script has
+        * written se_cg rows since the cengroup arm was added, and nothing read
+        * them: Part C compared coefficients only, so a psi term that ignored
+        * the grouping -- or used the pooled G in the q/pi block while the eta
+        * block used the within-group one -- would have passed every assertion
+        * above.  Same construction as the B arm: `nuisance noadjust' computes
+        * crr's own object, and the fit WITHOUT nuisance is printed beside it so
+        * the fixture is shown to be able to see the psi term at all.
+        quietly finegray x1 x2, compete(status) cause(1) ///
+            tvc(x1) tsplit(0.4 1.2) strata(g) nolog nuisance noadjust
+        assert e(converged) == 1
+        assert `"`e(vce_meat)'"' == "nuisance_adjusted"
+        assert !missing(_se[main:x2], `cgv_se_cg_x2')
+        assert `cgv_se_cg_x2' > 0
+        local _mv = reldif(_se[main:x2], `cgv_se_cg_x2')
+        forvalues j = 1/3 {
+            assert !missing(_se[tvc`j':x1], `cgv_se_cg_tvc`j'')
+            assert `cgv_se_cg_tvc`j'' > 0
+            local _d = reldif(_se[tvc`j':x1], `cgv_se_cg_tvc`j'')
+            if `_d' > `_mv' local _mv = `_d'
+        }
+        quietly finegray x1 x2, compete(status) cause(1) ///
+            tvc(x1) tsplit(0.4 1.2) strata(g) nolog noadjust
+        local _me = reldif(_se[main:x2], `cgv_se_cg_x2')
+        forvalues j = 1/3 {
+            local _d = reldif(_se[tvc`j':x1], `cgv_se_cg_tvc`j'')
+            if `_d' > `_me' local _me = `_d'
+        }
+        display as text "    CG: max relative SE difference vs crr cengroup = " ///
+            as result %9.2e `_mv' as text " with psi, " ///
+            as result %9.2e `_me' as text " without"
+        assert `_mv' < `CRRSETOL'
+        assert `_me' > `_mv'
     }
     local _rc = _rc
     _cvtv_result `_rc' "C/CG finegray tvc()+strata() == crr cov2/tf + cengroup"
@@ -542,6 +675,7 @@ display as text _newline ///
 * `RESULT: <name> tests=.. pass=.. fail=.. skip=..' and nothing else.
 if `fail_count' > 0 {
     display as error "SOME CHECKS FAILED"
+    set type `_cvtv_type'
     log close _cvtv
     exit 1
 }
@@ -549,8 +683,10 @@ if `skip_count' > 0 {
     display as error ///
         "NOT RUN: `skip_count' check(s) SKIPPED -- the R oracle was unavailable"
     display as error "Install the missing R dependency and re-run; a skipped oracle is not evidence."
+    set type `_cvtv_type'
     log close _cvtv
     exit 1
 }
+set type `_cvtv_type'
 display as result "ALL CHECKS PASSED"
 log close _cvtv

@@ -34,6 +34,8 @@ capture log close _all
 log using "validation_bstrata_recovery.log", replace name(_bsrec)
 
 local test_count = 0
+* Replication attrition in arm E; reported in the RESULT line.
+local _drop_tot = 0
 local pass_count = 0
 local fail_count = 0
 
@@ -321,7 +323,16 @@ capture noisily {
 
     tempname pf
     tempfile calib
-    postfile `pf' int rep double(b1 b2 se1e se2e se1p se2p) using "`calib'", replace
+    postfile `pf' int rep double(b1 b2 b1p b2p se1e se2e se1p se2p) ///
+        using "`calib'", replace
+
+    * Replication attrition, counted rather than absorbed.  Each `continue'
+    * below silently discards a replication; a design or an estimator that
+    * dropped most of them would still satisfy the >= 90% gate only by
+    * accident, and nothing said how many had gone or why.
+    local _drop_efit = 0
+    local _drop_pfit = 0
+    local _drop_moved = 0
 
     forvalues r = 1/`REPS' {
         _gen_fgs_dgp, n(`NOBS') plist(0.55 0.70 0.40) seed(`= 900000 + `r'') ///
@@ -335,7 +346,10 @@ capture noisily {
         quietly stset time, failure(anyevent == 1) id(id)
         capture quietly finegray z1 z2, compete(status) cause(1) nolog ///
             bstrata(ctr) strata(ctr) noadjust
-        if _rc | e(converged) != 1 continue
+        if _rc | e(converged) != 1 {
+            local ++_drop_efit
+            continue
+        }
         local _b1 = _b[z1]
         local _b2 = _b[z2]
         local _s1e = _se[z1]
@@ -343,19 +357,42 @@ capture noisily {
 
         capture quietly finegray z1 z2, compete(status) cause(1) nolog ///
             bstrata(ctr) strata(ctr) nuisance noadjust
-        if _rc | e(converged) != 1 continue
+        if _rc | e(converged) != 1 {
+            local ++_drop_pfit
+            continue
+        }
         * psi must not have moved the point estimate; if it did, this whole
-        * arm is measuring two different estimators
-        if reldif(_b[z1], `_b1') > 1e-8 continue
-        post `pf' (`r') (`_b1') (`_b2') (`_s1e') (`_s2e') (_se[z1]) (_se[z2])
+        * arm is measuring two different estimators.  BOTH coefficients are
+        * checked: guarding z1 alone left a z2 that had moved to be posted
+        * beside the eta-only fit's b2, pairing one estimator's point estimate
+        * with the other's standard error.
+        if reldif(_b[z1], `_b1') > 1e-8 | reldif(_b[z2], `_b2') > 1e-8 {
+            local ++_drop_moved
+            continue
+        }
+        * The nuisance fit's own coefficients are posted alongside, so the
+        * "psi did not move beta" claim is auditable from the saved data
+        * rather than only from the guard that enforced it.
+        post `pf' (`r') (`_b1') (`_b2') (_b[z1]) (_b[z2]) ///
+            (`_s1e') (`_s2e') (_se[z1]) (_se[z2])
     }
     postclose `pf'
+    local _drop_tot = `_drop_efit' + `_drop_pfit' + `_drop_moved'
+    display as text "  E replications dropped: " as result `_drop_tot' ///
+        as text " of `REPS' (eta-only fit " as result `_drop_efit' ///
+        as text ", eta+psi fit " as result `_drop_pfit' ///
+        as text ", beta moved " as result `_drop_moved' as text ")"
 
     use "`calib'", clear
     quietly count
     local NREP = r(N)
     assert !missing(`NREP')
     assert `NREP' >= 0.9 * `REPS'
+    assert `NREP' + `_drop_tot' == `REPS'
+    * the posted nuisance-fit coefficients are the eta-only ones, to the
+    * tolerance the guard enforced
+    assert !missing(b1, b2, b1p, b2p)
+    assert reldif(b1, b1p) <= 1e-8 & reldif(b2, b2p) <= 1e-8
 
     * Monte-Carlo tolerances, computed from NREP rather than chosen.  The SD of
     * an SD estimate over m reps is about SD/sqrt(2m); three of those is the
@@ -428,7 +465,7 @@ else {
 
 **# Summary
 display as text _newline ///
-    "RESULT: validation_bstrata_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    "RESULT: validation_bstrata_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' repdrop=`_drop_tot'"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
     log close _bsrec

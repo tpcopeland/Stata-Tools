@@ -18,6 +18,12 @@
 * fixed.  The seeded ratio is therefore a reproducible sensitivity envelope
 * that catches gross scaling/path errors, not proof of equality to the same
 * asymptotic variance.
+*
+* Section 9 removes that caveat rather than living with it: on data with NO
+* censoring, G(t) is identically 1, a refit has nothing to re-estimate, and the
+* fixed-weight analytic SE and the delete-one jackknife estimate the same
+* quantity.  That is the only cell here that can carry a tight band, and it
+* does.
 clear all
 set varabbrev off
 version 16.0
@@ -33,6 +39,12 @@ quietly net install finegray, from("`pkg_dir'") replace
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
+
+* PIN THE RNG STREAM, not just the seed.  Both fixtures below are single-seed
+* and their acceptance bands are narrow (the uncensored section's is
+* [0.98, 1.02]); a future Stata whose default generator changed would move the
+* fixture silently and the band would read as a finding about the estimator.
+set rng mt64
 
 * Acceptable analytic/jackknife SE ratio.  Observed ~0.985 across times and
 * profiles (deterministic): the lower edge covers the censoring-known gap plus
@@ -217,6 +229,111 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: finegray_cif vs finegray_predict SE disagree (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# ---------------------------------------------------------------
+**# 9. THE ONE CELL WHERE THE JACKKNIFE IS AN EXACT ORACLE:
+**#    no censoring, no truncation.
+**# ---------------------------------------------------------------
+* Every envelope above is loose for one stated reason: each delete-one refit
+* re-estimates the censoring distribution G, while the analytic influence
+* function treats G as fixed, so the two are not estimating the same variance
+* and the ratio can only be bounded, not pinned.  Remove the censoring and that
+* gap closes by construction -- with every subject failing from cause 1 or 2,
+* G(t) is identically 1, there is nothing left for a refit to re-estimate, and
+* the fixed-weight analytic SE and the jackknife are estimating the SAME
+* quantity.  This is therefore the only cell in the file that can carry a tight
+* band, and it is the one that would catch a scaling error the loose envelopes
+* let through.
+*
+* MEASURED 2026-09-02 (seeded, deterministic): analytic 0.018712, jackknife
+* 0.018760, ratio 0.99748.  The band below is eight times that deviation and is
+* not comparable to the [`lo',`hi'] used above, which has to absorb the
+* censoring-known gap.
+*
+* n = 1000, not 2000: delete-one is n full refits, which measured 53 s here and
+* would have been about 10 minutes at n = 2000 for a file that otherwise runs
+* in seconds.  The identity being checked does not depend on n.
+local ulo = 0.98
+local uhi = 1.02
+
+clear
+set seed 20260902
+set obs 1000
+gen long id = _n
+gen double x1 = rnormal()
+gen double x2 = rbinomial(1, 0.5)
+gen double u  = runiform()
+gen double t  = -ln(u) / exp(0.5*x1 - 0.4*x2)
+* No censoring: everyone fails, from cause 1 or cause 2.
+gen byte status = cond(runiform() < 0.6, 1, 2)
+gen byte d = 1
+stset t, failure(d) id(id)
+quietly finegray x1 x2, compete(status) cause(1) nolog
+assert e(converged) == 1
+
+* The horizon is the median cause-1 failure time on the FULL sample, held fixed
+* across every refit: a horizon recomputed inside the loop would make each
+* delete-one replicate a different estimand and the jackknife meaningless.
+quietly summarize t if status == 1, detail
+scalar uhz = r(p50)
+quietly count if status == 0
+assert r(N) == 0
+finegray_cif, at(x1=0.5 x2=1) attime(`=uhz') ci
+matrix UA = r(table)
+scalar uanse = UA[1,3]
+
+preserve
+quietly keep if e(sample)
+quietly levelsof id, local(uids)
+tempfile ubase
+quietly save `ubase'
+scalar usum = 0
+scalar uqsum = 0
+scalar unjk = 0
+foreach i of local uids {
+    quietly {
+        use `ubase', clear
+        drop if id == `i'
+        stset t, failure(d) id(id)
+        capture finegray x1 x2, compete(status) cause(1) nolog
+        local jk_rc = _rc
+        if `jk_rc' == 0 & e(converged) != 1 local jk_rc = 430
+        if `jk_rc' == 0 {
+            scalar unjk = unjk + 1
+            finegray_cif, at(x1=0.5 x2=1) attime(`=uhz')
+            matrix UJ = r(table)
+            scalar usum  = usum + UJ[1,2]
+            scalar uqsum = uqsum + UJ[1,2]^2
+        }
+    }
+}
+restore
+
+local ++test_count
+if unjk == 1000 {
+    display as result "  PASS: all 1000 uncensored delete-one fits converged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: only " unjk " of 1000 uncensored delete-one fits converged"
+    local ++fail_count
+}
+
+local ++test_count
+scalar ujvar = (unjk-1)/unjk * (uqsum - usum^2/unjk)
+scalar ujse  = sqrt(ujvar)
+scalar uratio = uanse/ujse
+display as text "  uncensored, t=" %6.4f uhz ": analytic SE=" %8.5f uanse ///
+    "  jackknife SE=" %8.5f ujse "  ratio=" %7.5f uratio
+capture assert uanse > 0 & ujse > 0 & uratio >= `ulo' & uratio <= `uhi'
+if _rc == 0 {
+    display as result "  PASS: with G identically 1 the analytic and jackknife CIF SEs agree to [`ulo',`uhi']"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: uncensored CIF SE ratio `=uratio' outside [`ulo',`uhi']"
     local ++fail_count
 }
 

@@ -19,6 +19,12 @@
 * estimate at a fixed horizon/profile.  It probes gross scaling errors in the
 * analytic CIF SE under truncation; it does not supply the omitted G/H
 * influence terms.
+*
+* Oracle 4 (exact identity, sections 7-8): cluster() under delayed entry.  The
+* clustered variance is rebuilt from the same score residuals by an external
+* route -- within-cluster sums, the observed inverse information from a
+* companion norobust fit, and the g/(g-1) factor -- and must reproduce e(V);
+* cluster(id) must in turn reproduce the unclustered fixed-weight sandwich.
 clear all
 set varabbrev off
 version 16.0
@@ -328,6 +334,140 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: cross-classified score-residual identity (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# ---------------------------------------------------------------
+**# 7-8. CLUSTERED delayed entry: the sandwich rebuilt from outside,
+**#      and its one-subject-per-cluster reduction
+**# ---------------------------------------------------------------
+* Everything above is unclustered.  cluster() under delayed entry is a
+* supported combination that Zhou et al. (2012) does not cover -- that paper
+* treats clustered RIGHT-CENSORED data with a pooled marginal censoring
+* estimate -- so what is checked here is not the published derivation but the
+* thing the package actually claims: that the clustered variance IS the
+* within-cluster influence-function sandwich on the same delayed-entry score
+* residuals sections 1 and 4 already validate against the score identity.
+*
+* The reconstruction is external: it takes the score residuals, sums them
+* WITHIN cluster with its own loop rather than through the package's
+* aggregator, sandwiches them with the observed inverse information that a
+* companion `norobust' fit reports, and applies g/(g-1) -- the finite-sample
+* factor _finegray_mata.ado applies for vce_type == "cluster", which is
+* StataCorp's stcrreg contract.  Nothing about that route shares code with the
+* clustered branch it is checking except the residual routine itself.
+*
+* The DGP carries a shared frailty within cluster, so the clustered variance is
+* genuinely different from the unclustered one (measured: SEs 8-9% larger).
+* Without that, a build that silently ignored cluster() would reproduce the
+* target exactly and this check would pass on it.
+clear
+set seed 20260902
+set obs 2000
+gen long id = _n
+gen int cl = ceil(_n/40)
+gen double cre = rnormal()
+bysort cl (id): replace cre = cre[1]
+gen double x1 = rnormal()
+gen double x2 = rbinomial(1, .4)
+gen double u = runiform()
+gen double te = -ln(u)/exp(.5*x1 - .3*x2 + .6*cre)
+gen double tc = 0.3 + runiform()*3
+gen double t = min(te, tc)
+gen byte d = te <= tc
+gen byte status = 0
+replace status = 1 if d & runiform() > .4
+replace status = 2 if d & status == 0
+gen double t0v = runiform()*0.4*t
+stset t, failure(d) enter(t0v) id(id)
+
+quietly finegray x1 x2, compete(status) cause(1) nolog
+assert e(converged) == 1
+matrix Vdef = e(V)
+* norobust reports the observed inverse information with no finite-sample
+* factor of any kind (finegray.ado: `noadjust' is refused with it), which is
+* exactly the bread the sandwich needs.
+quietly finegray x1 x2, compete(status) cause(1) norobust nolog
+assert e(converged) == 1
+matrix Ainv = e(V)
+quietly finegray x1 x2, compete(status) cause(1) cluster(cl) nolog
+assert e(converged) == 1
+matrix Vcl = e(V)
+scalar ncl = e(N_clust)
+
+local ++test_count
+capture noisily {
+    assert scalar(ncl) == 50
+    preserve
+    quietly keep if e(sample)
+    sort _t
+    mata {
+        Z  = st_data(., ("x1", "x2"))
+        tt = st_data(., "_t")
+        dd = st_data(., "_d")
+        ev = st_data(., "status")
+        t0 = st_data(., "_t0")
+        cg = st_data(., "cl")
+        G  = _finegray_km_censor(tt, dd, 0, ev, J(rows(tt), 1, 1), t0)
+        b  = st_matrix("e(b)")'
+        sc = _finegray_score_residuals(tt, dd, 1, 0, ev, Z, b, G,
+                                       J(rows(tt), 1, 1), t0,
+                                       J(rows(tt), 1, 1))
+        gid = uniqrows(cg)
+        U = J(rows(gid), cols(sc), 0)
+        for (g = 1; g <= rows(gid); g++) {
+            U[g, .] = colsum(select(sc, cg :== gid[g]))
+        }
+        A  = st_matrix("Ainv")
+        nn = st_numscalar("ncl")
+        Vh = A * (U' * U) * A * (nn / (nn - 1))
+        Vt = st_matrix("Vcl")
+        st_numscalar("cl_ngrp", rows(gid))
+        st_numscalar("cl_mrd",  mreldif(Vh, Vt))
+        /* mreldif is |a-b|/(|b|+1), so on entries of order 1e-3 it is really
+           an absolute bound; report the scale-free maximum beside it. */
+        st_numscalar("cl_rel", max(abs(Vh - Vt) :/ abs(Vt)))
+    }
+    restore
+    display as text "  clustered LT sandwich: " scalar(cl_ngrp) " clusters, mreldif=" ///
+        %11.4e scalar(cl_mrd) "  max |a-b|/|b|=" %11.4e scalar(cl_rel)
+    assert scalar(cl_ngrp) == 50
+    assert scalar(cl_mrd) < 1e-10
+    assert scalar(cl_rel) < 1e-10
+    * The clustered answer must not BE the unclustered one, or the check above
+    * would hold on a build that ignored cluster().
+    display as text "  cluster/default SE ratio: " ///
+        %6.4f sqrt(Vcl[1,1]/Vdef[1,1]) " " %6.4f sqrt(Vcl[2,2]/Vdef[2,2])
+    assert sqrt(Vcl[1,1]/Vdef[1,1]) > 1.02
+    assert sqrt(Vcl[2,2]/Vdef[2,2]) > 1.02
+}
+if _rc == 0 {
+    display as result "  PASS: clustered delayed-entry V is the within-cluster IF sandwich"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: clustered delayed-entry sandwich reconstruction (rc=`=_rc')"
+    local ++fail_count
+}
+
+* One subject per cluster is the degenerate case: the within-cluster sums are
+* the subject residuals themselves and g/(g-1) is N/(N-1), so cluster(id) must
+* return the DEFAULT fixed-weight sandwich, not merely something close to it.
+local ++test_count
+capture noisily {
+    quietly finegray x1 x2, compete(status) cause(1) cluster(id) nolog
+    assert e(converged) == 1
+    assert e(N_clust) == e(N)
+    matrix Vid = e(V)
+    display as text "  cluster(id) vs default: mreldif=" %11.4e mreldif(Vid, Vdef)
+    assert mreldif(Vid, Vdef) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: cluster(id) reduces to the default fixed-weight sandwich"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: cluster(id) does not reduce to the default sandwich (rc=`=_rc')"
     local ++fail_count
 }
 

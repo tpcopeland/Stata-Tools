@@ -2442,13 +2442,14 @@ capture noisily {
     assert `"`_t104miss'"' == ""
     cap drop _fg_*
 }
+local _t104rc = _rc
 capture matrix drop _T102b _T104b
-if _rc == 0 {
+if `_t104rc' == 0 {
     display as result "  PASS: T104 regtab factor variables"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T104 regtab factor vars (rc=`=_rc')"
+    display as error "  FAIL: T104 regtab factor vars (rc=`_t104rc')"
     local ++fail_count
 }
 

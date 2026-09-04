@@ -48,6 +48,12 @@ else {
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 adopath ++ "`pkg_dir'"
 
 * Reload to pick up latest changes
@@ -184,8 +190,13 @@ _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         _make_forest_data
-        eplot es lci uci, labels(study) weights(weight)
+        * type() is required here: the fixture leaves the pooled "Overall" row
+        * unweighted, which is the documented forest-plot idiom only when that
+        * row is declared type 5. Without type() it is a regular effect whose
+        * weighted box would silently vanish, and eplot rejects that.
+        eplot es lci uci, labels(study) weights(weight) type(type)
         assert r(N) == 5
+        assert r(k) == 4
     }
     if _rc == 0 {
         local ++pass_count
@@ -814,7 +825,7 @@ if `run_only' > 0 & `executed_count' == 0 {
     local executed_count 1
     local skip_count = max(`test_count' - 1, 0)
 }
-display "RESULT: test_eplot tests=`=`executed_count'+`skip_count'' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+_eplot_qa_result test_eplot, tests(`=`executed_count'+`skip_count'') pass(`pass_count') fail(`fail_count') skip(`skip_count')
 if `machine' {
     display "[SUMMARY] `pass_count'/`executed_count' selected tests passed"
     if `fail_count' > 0 {

@@ -34,6 +34,7 @@ local pkg_dir "`qa_dir'/.."
 * Idempotent, so the lane re-entering it is harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -536,10 +537,12 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11") id(pid) date(visit_dt) refdate(index_dt) ///
         lookback(365) collapse latestdate countdate
     local nv = "`r(newvars)'"
-    assert strpos("`nv'", "dm2") > 0
-    assert strpos("`nv'", "dm2_last") > 0
-    assert strpos("`nv'", "dm2_count") > 0
-    assert strpos("`nv'", "dm2_first") == 0
+    * Exact ordered set, not substring probes: every name here contains "dm2",
+    * so the dm2 test passed on dm2_last alone, and a wrong token such as
+    * dm20_count would have satisfied the dm2_count test.
+    assert "`nv'" == "dm2 dm2_last dm2_count"
+    unab _nv_vars : _all
+    assert "`_nv_vars'" == "pid dm2 dm2_last dm2_count"
 }
 if _rc == 0 {
     display as result "  PASS: r(newvars) with latestdate+countdate"
@@ -869,11 +872,23 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3 if pid <= 3, define(dm2 "E11") id(pid) ///
         date(visit_dt) refdate(index_dt) lookback(365) collapse alldates
-    * Only patients 1-3 should appear
-    quietly count
-    assert r(N) <= 3
-    assert !missing(r(N))
-    assert r(N) > 0
+    * Exactly patients 1-3, with their hand-computed values. A bound of
+    * 0 < r(N) <= 3 was satisfied by one or two rows, so a window or `if' that
+    * dropped a patient it should have kept still passed.
+    * lookback(365) without `inclusive' is [index-365, index), so only the
+    * 15jun2019 and 01dec2019 visits qualify; of those only patient 1 carries an
+    * E11 code (E110 in dx1 on 15jun2019).
+    assert _N == 3
+    assert pid[1] == 1 & pid[2] == 2 & pid[3] == 3
+    assert dm2[1] == 1 & dm2[2] == 0 & dm2[3] == 0
+    assert dm2_first[1] == mdy(6, 15, 2019)
+    assert dm2_last[1] == mdy(6, 15, 2019)
+    assert dm2_count[1] == 1
+    assert missing(dm2_first[2]) & missing(dm2_last[2])
+    assert missing(dm2_first[3]) & missing(dm2_last[3])
+    assert dm2_count[2] == 0 & dm2_count[3] == 0
+    unab _cov_vars : _all
+    assert "`_cov_vars'" == "pid dm2 dm2_first dm2_last dm2_count"
 }
 if _rc == 0 {
     display as result "  PASS: Collapse with if + window + alldates"
@@ -1520,6 +1535,7 @@ else {
 * ============================================================
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_coverage" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_coverage tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

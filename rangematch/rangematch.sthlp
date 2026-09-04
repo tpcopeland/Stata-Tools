@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.4  28aug2026}{...}
+{* *! version 1.5.5  02sep2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -55,28 +55,28 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopthdr}
 {synoptline}
 {syntab:Variables}
-{synopt:{opt overlap(ulow uhigh)}}overlap mode: master overlaps [{it:ulow}, {it:uhigh}]{p_end}
-{synopt:{opt by(varlist)}}restrict matches to groups with identical values{p_end}
+{synopt:{opt overlap(ulow uhigh)}}master overlaps [{it:ulow}, {it:uhigh}]{p_end}
+{synopt:{opt by(varlist)}}match only within {it:varlist} groups{p_end}
 {synopt:{opt keepu:sing(varlist)}}variables to carry from using dataset{p_end}
 
 {syntab:Naming}
 {synopt:{opt p:refix(string)}}prefix for renamed using variables{p_end}
 {synopt:{opt s:uffix(string)}}suffix for renamed using variables{p_end}
-{synopt:{opt all}}rename all using variables, not just conflicts{p_end}
+{synopt:{opt all}}apply affixes to all using variables{p_end}
 
 {syntab:Matching}
 {synopt:{opt unmatch:ed(master|none|using|both)}}handling of unmatched rows{p_end}
 {synopt:{opt gen:erate(name)}}create match indicator variable{p_end}
-{synopt:{opt dist:ance(name)}}signed using-key minus master-key distance{p_end}
-{synopt:{opt masterid(name)}}create original master row-number variable{p_end}
-{synopt:{opt usingid(name)}}create original using row-number variable{p_end}
-{synopt:{opt maxp:airs(#)}}abort if output rows exceed {it:#}; 0 = no guard{p_end}
+{synopt:{opt dist:ance(name)}}signed using minus master key distance{p_end}
+{synopt:{opt masterid(name)}}original master row number variable{p_end}
+{synopt:{opt usingid(name)}}original using row number variable{p_end}
+{synopt:{opt maxp:airs(#)}}abort if output rows exceed {it:#}; 0 disables{p_end}
 {synopt:{opt closed(both|left|right|none)}}interval endpoint closure{p_end}
-{synopt:{opt tol:erance(#)}}boundary tolerance for floating-point keys{p_end}
-{synopt:{opt miss:ing(wildcard|drop|error)}}policy for rows with missing bounds or key{p_end}
-{synopt:{opt near:est(before|after|both)}}keep nearest match(es) within the interval{p_end}
+{synopt:{opt tol:erance(#)}}boundary tolerance for float keys{p_end}
+{synopt:{opt miss:ing(wildcard|drop|error)}}policy for missing bounds or key{p_end}
+{synopt:{opt near:est(before|after|both)}}keep only the nearest match(es){p_end}
 {synopt:{opt ties(all|first|last|random)}}tie handling for {opt nearest()}{p_end}
-{synopt:{opt seed(#)}}RNG seed for {opt ties(random)}, for reproducibility{p_end}
+{synopt:{opt seed(#|statecode)}}RNG seed for {opt ties(random)}{p_end}
 {synopt:{opt as:sert(match|using)}}abort when required matches are absent{p_end}
 
 {syntab:Output}
@@ -84,9 +84,9 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {synopt:{opt replace}}replace existing target frame{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save output to a dataset on disk{p_end}
 {synopt:{opt stats}}display match-density diagnostics{p_end}
-{synopt:{opt nosort}}leave output in backend materialization order{p_end}
-{synopt:{opt dryr:un}}report output counts without writing output{p_end}
-{synopt:{opt count}}report output counts without writing output{p_end}
+{synopt:{opt nosort}}leave output in match-emission order{p_end}
+{synopt:{opt dryr:un}}report counts; write no output{p_end}
+{synopt:{opt count}}synonym for {opt dryr:un}{p_end}
 {synopt:{opt verbose}}display additional diagnostic information{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -253,7 +253,10 @@ assigned a value label with these meanings.
 {phang}
 {opt dist:ance(name)} creates a double variable equal to using.{it:keyvar} minus
 master.{it:keyvar} for matched pairs. The value is missing for unmatched master
-or using rows. The master dataset must contain numeric {it:keyvar}.
+or using rows. The master dataset must contain numeric {it:keyvar}. Because
+missing is reserved for unmatched rows, a matched pair whose difference falls
+outside Stata's double range is an error rather than a missing value; rescale
+{it:keyvar} or omit {opt dist:ance()} in that case.
 
 {phang}
 {opt masterid(name)} creates a long variable containing the original master
@@ -380,9 +383,12 @@ enrollment date, ID assignment, or site. Prefer {opt ties(random)} (with
 record position.
 
 {phang}
-{opt seed(#)} sets the random-number seed used by {opt ties(random)}, so that
-the randomly selected tied row is reproducible across runs. It is allowed only
-with {opt ties(random)}. The caller's random-number state is restored after the
+{opt seed(#|statecode)} sets the random-number seed used by {opt ties(random)},
+so that the randomly selected tied row is reproducible across runs. The argument
+is passed through to {helpb set seed}, so it accepts either an integer seed or a
+full seed-state token as returned by {cmd:c(rngstate)}; the latter reproduces a
+draw from an exact point in an existing stream. It is allowed only with
+{opt ties(random)}. The caller's random-number state is restored after the
 command runs, so specifying {opt seed()} does not disturb subsequent random
 draws in the session. Without {opt seed()}, {opt ties(random)} draws from the
 current random-number stream and advances it as usual.
@@ -489,6 +495,15 @@ either side; see {opt miss:ing()} for the full symmetric policy.
 If the computed lower bound is greater than the computed upper bound, no match
 is possible for that master observation. It is retained when
 {opt unmatch:ed(master)} or {opt unmatch:ed(both)} is active.
+
+{pstd}
+A scalar offset added to a finite {it:keyvar} must itself be
+representable. When master.{it:keyvar} + {it:low} or master.{it:keyvar} + {it:high} falls
+outside Stata's double range the sum evaluates to missing, which is
+indistinguishable from the open-ended bound a literal {cmd:.} requests, so
+{cmd:rangematch} reports the affected row count and exits rather than widening
+the interval. Rescale {it:keyvar}, use a smaller offset, or supply bound
+variables.
 
 {pstd}
 {bf:Frames}
@@ -783,9 +798,9 @@ written -- test those two, not the counts, to decide whether output exists.
 {synopt:{cmd:r(N_pairs)}}total output rows, including unmatched rows{p_end}
 {synopt:{cmd:r(N_unmatched)}}unmatched output rows{p_end}
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
-{synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
-{synopt:{cmd:r(N_master_key_missing)}}master rows with a missing matching {it:keyvar}; 0 otherwise{p_end}
-{synopt:{cmd:r(N_using_missing)}}using rows with a missing point key or interval bound{p_end}
+{synopt:{cmd:r(N_missing_bounds)}}master rows with a missing {it:low} or {it:high}{p_end}
+{synopt:{cmd:r(N_master_key_missing)}}master rows with a missing {it:keyvar}{p_end}
+{synopt:{cmd:r(N_using_missing)}}using rows with a missing key or bound{p_end}
 {synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode){p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
@@ -811,7 +826,7 @@ written -- test those two, not the counts, to decide whether output exists.
 {synopt:{cmd:r(key)}}parsed key variable{p_end}
 {synopt:{cmd:r(low)}}parsed lower-bound variable or scalar{p_end}
 {synopt:{cmd:r(high)}}parsed upper-bound variable or scalar{p_end}
-{synopt:{cmd:r(overlap)}}using interval-bound variables, when {opt overlap()} is used{p_end}
+{synopt:{cmd:r(overlap)}}parsed {opt overlap()} bound variables{p_end}
 {synopt:{cmd:r(by)}}parsed {opt by()} variables{p_end}
 {synopt:{cmd:r(keepusing)}}parsed {opt keepu:sing()} variables{p_end}
 {synopt:{cmd:r(prefix)}}parsed {opt p:refix()} string{p_end}
@@ -844,7 +859,7 @@ written -- test those two, not the counts, to decide whether output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.4, 28aug2026{p_end}
+{pstd}Version 1.5.5, 02sep2026{p_end}
 
 
 {title:Also see}

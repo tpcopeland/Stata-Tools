@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.0** | 2026-08-28
+**Version 4.2.1** | 2026-09-02
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -368,6 +368,13 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.1 (2026-09-02)
+
+- Fix a regex assertion keyed to a non-ASCII character defining cohort membership without matching a code. The zero-width guard probes printable ASCII leading characters when the option is parsed, so `define(hit "(?=å)")` passed validation and then flagged every code beginning `å` at rc=0 while consuming nothing. Inclusion and exclusion matching now also reject a zero-length match on the code value that exposes it, and the call is rolled back. Patterns that consume a non-ASCII character, such as `define(hit "å")`, are unaffected.
+- Fix `codefile()` silently resolving a schema whose columns differ only by case. A file carrying both `name` and `Name`, or `pattern` and `PATTERN`, had one of them chosen by physical spelling and storage order and the other ignored, so the same file could define a different cohort. Each of `name`, `pattern`, `label`, and `exclusion` must now be supplied by exactly one column; an ambiguous schema is rejected and the conflicting columns are named. A single case variant, such as `NAME`, still resolves as before.
+- Fix `save()` leaving a definition codefile behind after a failed call. The CSV was written during option handling, so a scan that then failed — an empty analysis sample, a failing `graph()`, `export()`, or `saving()` — left a file and a success message that read as a completed operation. The filename is still validated up front; the write now commits only after every other output has succeeded.
+- Trim over-wide `{synopt}` descriptions in both help files so the tables no longer wrap in the Viewer, and state the `save(filename [, replace])` overwrite rule in the `codescan_describe` Options prose.
 
 ### 4.2.0 (2026-08-28)
 

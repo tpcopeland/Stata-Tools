@@ -160,14 +160,25 @@ tempname MC
 postfile `MC' double(b_x2 b_t1 b_t2 b_t3 se_x2 se_t1 se_t2 se_t3 conv) ///
     using "`_vtvc_mc'", replace
 
+* Replication attrition, counted rather than absorbed: the 98% gate below
+* says how many survived, but not how many were lost to a failed fit as
+* against a nonconverged one, and the two mean different things.
 local nfit = 0
+local _drop_rc = 0
+local _drop_nonconv = 0
 forvalues r = 1/`NREP' {
     _vtvc_gen, n(`NOBS') th(`TH') c1(`C1') c2(`C2') ///
         b2(`B2') g1(`G1') g2(`G2') g3(`G3')
     capture quietly finegray x1 x2, compete(status) cause(1) ///
         tvc(x1) tsplit(`C1' `C2') nolog
-    if _rc continue
-    if e(converged) != 1 continue
+    if _rc {
+        local ++_drop_rc
+        continue
+    }
+    if e(converged) != 1 {
+        local ++_drop_nonconv
+        continue
+    }
     local ++nfit
     post `MC' (_b[main:x2]) (_b[tvc1:x1]) (_b[tvc2:x1]) (_b[tvc3:x1]) ///
         (_se[main:x2]) (_se[tvc1:x1]) (_se[tvc2:x1]) (_se[tvc3:x1]) (1)
@@ -175,8 +186,13 @@ forvalues r = 1/`NREP' {
 postclose `MC'
 
 use "`_vtvc_mc'", clear
+local _drop_tot = `_drop_rc' + `_drop_nonconv'
 display as text _newline "replications fitted: " as result _N ///
     as text " of `NREP'"
+display as text "replications dropped: " as result `_drop_tot' ///
+    as text " (fit error " as result `_drop_rc' ///
+    as text ", nonconverged " as result `_drop_nonconv' as text ")"
+assert _N + `_drop_tot' == `NREP'
 
 local z = invnormal(0.975)
 local test_count = 0
@@ -288,7 +304,7 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 display as text _newline ///
-    "RESULT: validation_tvc_recovery tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    "RESULT: validation_tvc_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' repdrop=`_drop_tot'"
 if `fail_count' > 0 {
     display as error "SOME CHECKS FAILED"
     log close _vtvc

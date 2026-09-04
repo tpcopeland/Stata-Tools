@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.2.0  2026/08/28
+*! _codescan_codefile Version 4.2.1  2026/09/02
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -35,17 +35,35 @@ program define _codescan_parse_codefile, rclass
         }
     }
 
-    * R2: Case-tolerant column name matching
+    * R2: Case-tolerant column name matching.
+    *
+    * The mapping from physical columns to the four semantic fields must be
+    * unique. Stata allows case-distinct variable names, so a .dta codefile can
+    * carry both `name' and `Name' (or `PATTERN' and `Pattern'). Preferring an
+    * exact lowercase hit and never looking further -- or renaming the first
+    * casefold match and leaving the rest -- makes the resolution depend on
+    * physical spelling and storage order and silently selects one of two
+    * conflicting rule sets at rc=0: a different cohort from the same file.
+    * Ambiguity is not resolvable here, so collect every casefold match per
+    * field and refuse the schema when there is more than one.
     foreach _cfcol in name pattern label exclusion {
-        capture confirm variable `_cfcol'
-        if _rc {
-            * Try case-insensitive match
-            foreach _v of varlist * {
-                if lower("`_v'") == "`_cfcol'" & "`_v'" != "`_cfcol'" {
-                    rename `_v' `_cfcol'
-                    continue, break
-                }
+        local _cfmatch ""
+        local _cfnmatch = 0
+        foreach _v of varlist * {
+            if lower("`_v'") == "`_cfcol'" {
+                local ++_cfnmatch
+                local _cfmatch "`_cfmatch' `_v'"
             }
+        }
+        if `_cfnmatch' > 1 {
+            local _cfmatch = trim("`_cfmatch'")
+            display as error "codefile(): column {bf:`_cfcol'} is ambiguous: `_cfnmatch' columns match ignoring case (`_cfmatch')"
+            display as error "  rename or drop the duplicates so exactly one column supplies {bf:`_cfcol'}"
+            exit 198
+        }
+        if `_cfnmatch' == 1 {
+            local _cfhit = trim("`_cfmatch'")
+            if "`_cfhit'" != "`_cfcol'" rename `_cfhit' `_cfcol'
         }
     }
 

@@ -118,6 +118,22 @@ for (a in names(arms)) {
               file.path(OUT, sprintf("zzf_xv_%s_%02d.csv", a, r)),
               row.names = FALSE)
 
+    # THE BASELINE, FOR A SUBSET (added 2026-09-02).  zzf_fit already returns
+    # the whole Breslow curve (et, Lambda0) alongside beta, and nothing was
+    # ever written out, so the cross-validation compared the coefficient vector
+    # of a model whose baseline had no external check at all -- and every
+    # absolute prediction this package makes (CIF, predicted risk) is that
+    # baseline, not beta.  Written for arm B (pooled weight, independent
+    # delayed entry) and arm X (cross-classified censoring and entry groups),
+    # reps 1-3 only: this costs NO extra fit, just the curve the fit above
+    # already produced, and six datasets is enough to pin a curve of ~1000
+    # points that either agrees everywhere or not at all.
+    if (a %in% c("B", "X") && r <= 3L) {
+        write.csv(data.frame(time = zz$et, Lambda0 = zz$Lambda0),
+                  file.path(OUT, sprintf("zzf_xv_lam_%s_%02d.csv", a, r)),
+                  row.names = FALSE)
+    }
+
     rows[[length(rows) + 1L]] <- data.frame(
       arm = a, rep = r, n = nrow(d), trunc = spec$trunc, method = spec$method,
       b1 = unname(zz$beta["z1"]), b2 = unname(zz$beta["z2"]),

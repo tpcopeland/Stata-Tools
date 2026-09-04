@@ -23,6 +23,11 @@ program define _codescan_qa_bootstrap, rclass
     local _pkg_len = strlen("`pkg_dir'")
     local repo_dir = substr("`pkg_dir'", 1, `_pkg_len' - 9)
 
+    * Ownership. Exactly one caller creates the sandbox; the rest join it.
+    * The creator is the only one entitled to tear it down, because tearing it
+    * down under run_all.do would send the next suite back to the developer's
+    * real adopath -- and force a fresh sandbox and reinstall per suite.
+    local _qa_owner = 0
     if "$CODESCAN_QA_ISOLATED" == "" {
         tempfile _codescan_qa_base
         local plus_dir "`_codescan_qa_base'_plus"
@@ -31,7 +36,13 @@ program define _codescan_qa_bootstrap, rclass
         capture mkdir "`personal_dir'"
         global CODESCAN_QA_PLUS "`plus_dir'"
         global CODESCAN_QA_PERSONAL "`personal_dir'"
+        * The adopath this session had before the sandbox existed. Saved as
+        * globals, not locals, so _codescan_qa_restore can put them back from a
+        * different program frame.
+        global CODESCAN_QA_PLUS0 "`c(sysdir_plus)'"
+        global CODESCAN_QA_PERSONAL0 "`c(sysdir_personal)'"
         global CODESCAN_QA_ISOLATED "1"
+        local _qa_owner = 1
     }
 
     sysdir set PLUS "$CODESCAN_QA_PLUS"
@@ -44,6 +55,33 @@ program define _codescan_qa_bootstrap, rclass
     return local qa_dir "`qa_dir'"
     return local pkg_dir "`pkg_dir'"
     return local repo_dir "`repo_dir'"
+    return local owner "`_qa_owner'"
+end
+
+
+* Undo _codescan_qa_bootstrap for the caller that created the sandbox.
+*
+* Running a suite directly is a documented workflow, and the bootstrap it calls
+* repoints PLUS and PERSONAL at temporary directories for the rest of the Stata
+* session. A batch process exits moments later, but an interactive caller was
+* left resolving every later command against a scratch adopath -- the same class
+* of session-state leak the per-suite c(varabbrev)/c(level)/c(pwd) hygiene
+* checks already guard against. Each suite calls this immediately before it
+* publishes its handshake, passing the owner flag the bootstrap returned, so the
+* teardown happens exactly once and never mid-lane.
+capture program drop _codescan_qa_restore
+program define _codescan_qa_restore
+    version 16.0
+    args owner
+
+    if "`owner'" != "1" exit
+    if "$CODESCAN_QA_PLUS0" != "" sysdir set PLUS "$CODESCAN_QA_PLUS0"
+    if "$CODESCAN_QA_PERSONAL0" != "" sysdir set PERSONAL "$CODESCAN_QA_PERSONAL0"
+    capture macro drop CODESCAN_QA_PLUS
+    capture macro drop CODESCAN_QA_PERSONAL
+    capture macro drop CODESCAN_QA_PLUS0
+    capture macro drop CODESCAN_QA_PERSONAL0
+    capture macro drop CODESCAN_QA_ISOLATED
 end
 
 

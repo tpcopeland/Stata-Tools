@@ -15,6 +15,12 @@
 * and any bias belongs to the estimator, not to this package.  Twenty datasets
 * settle that; a million Monte-Carlo reps would not.
 *
+* WHAT IS COMPARED, PER DATASET.  Both coefficients; the maximised objective
+* e(ll) on the pooled-weight arms, where the oracle normalises the weights the
+* way this package does; and, for six datasets, the whole baseline curve.  A
+* beta-only cross-validation leaves the objective and the baseline -- which is
+* every absolute quantity the package reports -- externally unchecked.
+*
 * ARMS.  A/B/D use pooled weights; C implements ZZF equation (7) with the same
 * discrete group for censoring and entry; X uses genuinely distinct censoring
 * and entry groups.  C and X close the old blind spot where the suite never
@@ -234,16 +240,86 @@ local tol = 1e-5
 * value to exactly the code the loop runs.
 capture program drop _zzf_cmp
 program define _zzf_cmp, rclass
-    args sb1 ob1 sb2 ob2 tol
+    args sb1 ob1 sb2 ob2 tol sll oll
     local d1 = abs(`sb1' - `ob1') / max(abs(`ob1'), 1e-8)
     local d2 = abs(`sb2' - `ob2') / max(abs(`ob2'), 1e-8)
     local dmax = max(`d1', `d2')
     return scalar dmax = `dmax'
     return scalar ok   = (`dmax' < `tol')
+    * The MAXIMISED OBJECTIVE, on the same relative scale.  The oracle has
+    * emitted `ll' for every dataset since it was written and nothing read it,
+    * so the suite compared where the two optimizers landed but never what they
+    * landed on: two implementations can agree on beta to 1e-5 while maximising
+    * different functions, and the value at the maximum is what tells them
+    * apart.  Optional, because the live-tolerance probe below calls this
+    * program with five arguments on a perturbed coefficient pair.
+    * MEASURED 2026-09-02 over the full 60 pooled-weight datasets at n = 3000:
+    * worst 3.5e-13, on arm B rep 6 -- the same rep that carries the worst
+    * coefficient separation (4.4e-06).  The two move together, as they must:
+    * the objective is flat at the maximum, so its value agrees far more
+    * tightly than the arguments do.
+    if "`sll'" != "" & "`oll'" != "" {
+        return scalar dll = abs(`sll' - `oll') / max(abs(`oll'), 1e-8)
+    }
 end
 local npair   = 0
 local worst   = 0
 local worstid ""
+
+* THE LOG-LIKELIHOOD GATE.  Two different optimizers stop at slightly different
+* points, but the objective is FLAT there, so its VALUE agrees far more tightly
+* than the coefficients do: the coefficient gate is 1e-5 and the measured ll
+* agreement is ~1e-15.  1e-8 sits between, seven orders below anything a
+* different objective would show.
+*
+* IT APPLIES TO THE POOLED-WEIGHT ARMS ONLY (A, B, D), and that is a statement
+* about the ORACLE's normalisation rather than a gap in this package.  In
+* `zzf_fit' a subject's weight at its OWN event time is exactly 1 (measured:
+* range 1 to 1); in `zzf_fit_cross', which arms C and X use, the same weights
+* run from 1.28 to 6.68 on a seeded n = 600 fixture, so every event's
+* contribution to its pseudo-log-likelihood is inflated by a per-subject
+* factor.  The two sides are then not computing the same number: measured
+* -4157.88 against -12575.12 on arm C rep 1, a 6.7e-01 relative difference,
+* while the SAME fit's beta agrees to 1e-7 and (arm X) its baseline to 5e-07.
+* Comparing those two log-likelihoods would be comparing two normalisations,
+* not two implementations.  The stratified arms are covered instead by the
+* coefficient gate on all 40 of their datasets and by the baseline parity
+* below, which is run on arm X.
+local lltol   = 1e-8
+local nllpair = 0
+local worstll = 0
+local worstllid ""
+
+* BASELINE PARITY.  zzf_fit has always returned the Breslow curve alongside
+* beta and the oracle now writes it for arm B (pooled weight, independent
+* delayed entry) and arm X (cross-classified censoring and entry groups), reps
+* 1-3.  Without it this file cross-validated the coefficient vector of a model
+* whose baseline had no external check at all -- and the CIF, the predicted
+* risk, everything this package reports on an absolute scale, IS that baseline.
+* Six datasets, no additional R fit, and the curve carries ~1400 points each:
+* a baseline that is wrong is wrong across the whole curve, not at six points.
+*
+* The gate is looser than the ll gate because the baseline inherits the
+* coefficient disagreement -- Lambda0 is a function of betahat -- so it cannot
+* be tighter than the two optimizers' own separation, and it MOVES WITH IT.
+* MEASURED 2026-09-02 at n = 3000, reps 1-3 (the six compared), worst point on
+* each curve; the full-run worst was the same 1.8e-06, on arm B rep 2:
+*
+*   arm B  6.3e-08 / 1.8e-06 / 2.0e-07   (beta separation 2.1e-07 / 3.9e-06 /
+*   arm X  1.3e-08 / 7.9e-08 / 1.2e-07    5.7e-07, and 2.3e-08 / 1.4e-07 /
+*                                         4.7e-07)
+*
+* The worst baseline difference is the rep with the worst coefficient
+* difference, at about 0.45 times its size, which is the relationship this gate
+* has to respect: at the coefficient tolerance of 1e-5 the baseline can reach
+* ~5e-06, so 1e-6 is NOT a supportable bar here and 1e-5 is.  The event-time
+* grids themselves agree exactly (0.0e+00 on all six), and that is gated
+* separately at 1e-12 -- a dropped or shifted event time is not an optimizer
+* difference and gets no slack.
+local bhtol   = 1e-5
+local nbhpair = 0
+local worstbh = 0
+local worstbhid ""
 
 display as text _newline "arm rep       stata_b1          r_b1       stata_b2          r_b2      max_rel"
 
@@ -260,6 +336,7 @@ foreach arm of local expected_arms {
         local ob1 = b1[1]
         local ob2 = b2[1]
         local on  = n[1]
+        local oll = ll[1]
 
         local f "`datadir'/zzf_xv_`arm'_`=string(`r', "%02.0f")'.csv"
         capture confirm file "`f'"
@@ -308,7 +385,21 @@ foreach arm of local expected_arms {
         local weightopts ""
         if "`arm'" == "C" local weightopts "strata(z1) truncstrata(z1)"
         if "`arm'" == "X" local weightopts "strata(cgroup) truncstrata(tgroup)"
-        capture quietly finegray z1 z2, compete(status) cause(1) `weightopts'
+        * e(basehaz) is opt-in because building a K-row Stata matrix is O(K^2);
+        * ask for it only on the six datasets whose baseline is compared.
+        local dobh = 0
+        local bhopt ""
+        * Initialised every iteration: the guards below expand these macros
+        * before Stata evaluates the condition, so an undefined one is a syntax
+        * error rather than a false branch.
+        local _bh_rc = 0
+        local _bhrows = -1
+        local _lamrows = -2
+        if inlist("`arm'", "B", "X") & `r' <= 3 {
+            local dobh = 1
+            local bhopt "basehaz"
+        }
+        capture quietly finegray z1 z2, compete(status) cause(1) `weightopts' `bhopt'
         local fit_rc = _rc
         if `fit_rc' == 0 & e(converged) != 1 local fit_rc = 430
         if `fit_rc' {
@@ -320,10 +411,21 @@ foreach arm of local expected_arms {
 
         local sb1 = _b[z1]
         local sb2 = _b[z2]
+        local sll = e(ll)
 
-        _zzf_cmp `sb1' `ob1' `sb2' `ob2' `tol'
+        _zzf_cmp `sb1' `ob1' `sb2' `ob2' `tol' `sll' `oll'
         local dmax = r(dmax)
         local _cmp_ok = r(ok)
+        local dll = r(dll)
+        local _ll_ok = 1
+        if inlist("`arm'", "A", "B", "D") {
+            local ++nllpair
+            local _ll_ok = (`dll' < `lltol')
+            if `dll' > `worstll' {
+                local worstll   = `dll'
+                local worstllid "`arm' rep `r'"
+            }
+        }
 
         local ++npair
         if `dmax' > `worst' {
@@ -338,16 +440,70 @@ foreach arm of local expected_arms {
         local _lastob2 = `ob2'
 
         local ++test_count
-        if `_cmp_ok' {
+        if `_cmp_ok' & `_ll_ok' {
             local ++pass_count
         }
         else {
             local ++fail_count
-            display as error "  FAIL: arm `arm' rep `r' -- max rel diff `dmax' >= `tol'"
+            if !`_cmp_ok' {
+                display as error "  FAIL: arm `arm' rep `r' -- max rel diff `dmax' >= `tol'"
+            }
+            if !`_ll_ok' {
+                display as error "  FAIL: arm `arm' rep `r' -- e(ll) `sll' vs oracle `oll' (rel `dll' >= `lltol')"
+            }
         }
 
         display as text "  `arm' " %3.0f `r' "  " %13.8f `sb1' "  " %13.8f `ob1' ///
             "  " %13.8f `sb2' "  " %13.8f `ob2' "  " %11.2e `dmax'
+
+        * ---- baseline parity, arm B and arm X, reps 1-3 --------------------
+        * Compared row for row on the oracle's own event-time grid: the two
+        * curves must have the same number of points AND the same times before
+        * any cumulative hazard is compared, because two curves that agree
+        * pointwise after an alignment step would also agree if one of them had
+        * silently dropped an event time.
+        if `dobh' {
+            local ++test_count
+            matrix _BH = e(basehaz)
+            local _bhrows = rowsof(_BH)
+            local flam "`datadir'/zzf_xv_lam_`arm'_`=string(`r', "%02.0f")'.csv"
+            capture confirm file "`flam'"
+            local _bh_rc = _rc
+            if `_bh_rc' {
+                local ++fail_count
+                display as error "  FAIL: arm `arm' rep `r' -- missing oracle baseline `flam'"
+            }
+        }
+        if `dobh' & `_bh_rc' == 0 {
+            import delimited "`flam'", clear case(preserve)
+            quietly count
+            local _lamrows = r(N)
+            if `_bhrows' != `_lamrows' {
+                local ++fail_count
+                display as error "  FAIL: arm `arm' rep `r' -- e(basehaz) has `_bhrows' rows, oracle has `_lamrows'"
+            }
+        }
+        if `dobh' & `_bh_rc' == 0 & `_bhrows' == `_lamrows' {
+            mata: _bhm = st_matrix("_BH"); _lamm = st_data(., ("time", "Lambda0"))
+            mata: st_numscalar("_bh_dt", max(abs(_bhm[,1] :- _lamm[,1]) :/ rowmax((abs(_lamm[,1]), J(rows(_lamm), 1, 1e-8)))))
+            mata: st_numscalar("_bh_dl", max(abs(_bhm[,2] :- _lamm[,2]) :/ rowmax((abs(_lamm[,2]), J(rows(_lamm), 1, 1e-8)))))
+            local _dt = scalar(_bh_dt)
+            local _dl = scalar(_bh_dl)
+            local ++nbhpair
+            if `_dl' > `worstbh' {
+                local worstbh   = `_dl'
+                local worstbhid "`arm' rep `r'"
+            }
+            display as text "      basehaz `arm'/`r': `_bhrows' points, max rel time diff " ///
+                %11.2e `_dt' ", max rel Lambda0 diff " %11.2e `_dl'
+            if `_dt' < 1e-12 & `_dl' < `bhtol' {
+                local ++pass_count
+            }
+            else {
+                local ++fail_count
+                display as error "  FAIL: arm `arm' rep `r' -- baseline parity (time `_dt', Lambda0 `_dl')"
+            }
+        }
     }
 }
 
@@ -358,6 +514,36 @@ foreach arm of local expected_arms {
 display as text _newline "comparisons executed : `npair' (oracle rows: `n_oracle')"
 display as text "worst relative diff  : " %11.4e `worst' "   (`worstid')"
 display as text "tolerance            : " %11.2e `tol'
+display as text "log-likelihood pairs : `nllpair' (pooled-weight arms only)"
+display as text "worst ll rel diff    : " %11.4e `worstll' "   (`worstllid')"
+display as text "ll tolerance         : " %11.2e `lltol'
+display as text "baseline pairs       : `nbhpair'"
+display as text "worst Lambda0 diff   : " %11.4e `worstbh' "   (`worstbhid')"
+display as text "baseline tolerance   : " %11.2e `bhtol'
+
+* The same false-green guard the coefficient comparison gets: a run that
+* compared zero log-likelihoods, or zero baselines, would otherwise sail past
+* both of the checks above with nothing to show for it.
+local _explltot = 3 * `expected_reps'
+local ++test_count
+if `nllpair' == `_explltot' & `nllpair' > 0 {
+    local ++pass_count
+    display as result "  PASS: e(ll) was compared on every pooled-weight dataset (`nllpair')"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: compared `nllpair' log-likelihoods, expected `_explltot'"
+}
+
+local ++test_count
+if `nbhpair' == 6 {
+    local ++pass_count
+    display as result "  PASS: the baseline was compared on all 6 parity datasets"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: compared `nbhpair' baselines, expected 6"
+}
 
 local ++test_count
 if `npair' == `n_oracle' & `npair' > 0 {

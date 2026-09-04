@@ -1509,10 +1509,15 @@ local ++test_count
 capture noisily {
     _mk_hypoxia_112
     quietly finegray ifp tumsize, compete(status) cause(1) nolog
-    gen byte grp = mod(_n, 2)
-    gen byte _fg_grp_1 = 0
-    capture finegray i.grp ifp, compete(status) cause(1) nolog
-    assert _rc == 198
+    * This block used to drive the failure with a user-owned _fg_grp_1, which
+    * is now adjudicated BEFORE anything is written and leaves the prior fit
+    * exactly where it was (section 12b pins that).  The invalidation mark is
+    * about the OTHER half: a refusal that fires once the characteristics have
+    * been blanked and the design columns rewritten.  Collinearity is
+    * adjudicated there, after the mutation zone opens.
+    gen double ifp_copy = ifp
+    capture finegray ifp tumsize ifp_copy, compete(status) cause(1) nolog
+    assert _rc == 459
     * "0" -- INVALIDATED -- not "".  The distinction is load-bearing as of
     * this release: post-estimation now recognises a fit restored by `estimates use'
     * over a dataset that never carried the characteristic, and adjudicates it
@@ -1858,6 +1863,303 @@ else {
     local ++fail_count
 }
 
+
+**# ---------------------------------------------------------------
+**# 9. package columns are recognised by OWNERSHIP, not by name
+**# ---------------------------------------------------------------
+* The cleanup path dropped every name recorded in _dta[_finegray_fvvars] that
+* still existed, checking only the name.  A user who dropped _fg_grp_2 and
+* regenerated their own variable under that name lost it, silently, on the next
+* finegray -- measured at rc 0.  Each generated column now carries a per-run
+* ownership characteristic; a column that does not carry the prior run's token
+* is preserved and the fit is r(198).
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+    quietly ds _fg_*
+    local _own_cols `"`r(varlist)'"'
+    local _own_first : word 1 of `_own_cols'
+    assert "`_own_first'" != ""
+    display as text "  package columns: `_own_cols'  (probing `_own_first')"
+
+    * the user takes the name over
+    drop `_own_first'
+    gen double `_own_first' = 42
+
+    capture finegray ifp tumsize, compete(status) cause(1) nolog
+    display as text "  refit over a user-owned `_own_first' rc = `=_rc'"
+    assert _rc == 198
+    * and the variable is still theirs, untouched
+    confirm variable `_own_first'
+    quietly count if `_own_first' != 42
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: user-owned _fg_* column preserved and refused (198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: user-owned _fg_* column ownership (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# ---------------------------------------------------------------
+**# 10. the same rule for _fg_entry after a multi-record fit
+**# ---------------------------------------------------------------
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    stsplit iv2, at(2 4 6 8)
+    quietly finegray ifp tumsize, compete(status) cause(1) nolog
+    confirm variable _fg_entry
+
+    drop _fg_entry
+    gen double _fg_entry = 99
+    capture finegray ifp tumsize, compete(status) cause(1) nolog
+    display as text "  refit over a user-owned _fg_entry rc = `=_rc'"
+    assert _rc == 198
+    confirm variable _fg_entry
+    quietly count if _fg_entry != 99
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: user-owned _fg_entry preserved and refused (198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: user-owned _fg_entry ownership (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# ---------------------------------------------------------------
+**# 11. the ownership rule must not break finegray's OWN refits
+**# ---------------------------------------------------------------
+* Two consecutive factor fits adopt and replace their own columns; a bootstrap
+* and an over() run refit inside the same dataset and must still succeed.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+    quietly ds _fg_*
+    local _own_a `"`r(varlist)'"'
+    * a second factor fit in the same dataset: adopt and replace
+    quietly finegray tumsize i.pelnode, compete(status) cause(1) nolog
+    quietly ds _fg_*
+    local _own_b `"`r(varlist)'"'
+    display as text "  consecutive factor fits: `_own_a' then `_own_b'"
+    assert "`_own_b'" != ""
+    * a fit with no factor terms drops the prior run's own columns
+    quietly finegray ifp tumsize, compete(status) cause(1) nolog
+    capture ds _fg_grp*
+    * bootstrap refits inside the same dataset
+    quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+    quietly finegray_cif, attime(5) ci bootstrap(25) seed(31) nograph
+    assert !missing(r(table)[1,1])
+    * over() refits the same way
+    quietly finegray_cif, over(pelnode) attime(5) nograph
+    assert !missing(r(table)[1,1])
+}
+if _rc == 0 {
+    display as result "  PASS: refits, bootstrap and over() still adopt their own columns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ownership rule broke a finegray refit (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# ---------------------------------------------------------------
+**# 12. an ownership refusal must not strand the columns it did not reach
+**# ---------------------------------------------------------------
+* The refusal is correct; what followed it was not.  The per-site ownership
+* checks ran AFTER _dta[_finegray_owner] had been blanked and after _fg_entry
+* had been dropped and recreated, so refusing one taken-over column destroyed
+* the ownership record for every package column the fit had not yet reached.
+* Dropping the user's column and refitting was then refused again, naming
+* _fg_pelnode_1 -- a column finegray itself had created -- and stayed refused
+* until the user dropped it by hand.  Adjudication now happens in one pass
+* before any mutation, so a refusal leaves the dataset exactly as it was.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    stsplit iv12, at(2 4 6 8)
+    quietly finegray ifp i.pelnode, compete(status) cause(1) nolog
+    confirm variable _fg_entry
+    confirm variable _fg_pelnode_1
+    local _o12 `"`: char _dta[_finegray_owner]'"'
+    assert `"`_o12'"' != ""
+    local _fv12 `"`: char _dta[_finegray_fvvars]'"'
+    assert `"`_fv12'"' != ""
+
+    * the user takes over ONE package column
+    drop _fg_pelnode_1
+    gen double _fg_pelnode_1 = 42
+
+    capture finegray ifp i.pelnode, compete(status) cause(1) nolog
+    display as text "  fit over a user-owned _fg_pelnode_1 rc = `=_rc'"
+    assert _rc == 198
+    * the columns the refusal never reached are intact, and so is the record
+    * that finegray owns them
+    confirm variable _fg_entry
+    confirm variable _fg_pelnode_1
+    quietly count if _fg_pelnode_1 != 42
+    assert r(N) == 0
+    local _o12b `"`: char _dta[_finegray_owner]'"'
+    display as text "  owner char after the refusal: [`_o12b']"
+    assert `"`_o12b'"' == `"`_o12'"'
+    assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv12'"'
+    assert `"`: char _fg_entry[_finegray_owner]'"' == `"`_o12'"'
+
+    * the user drops their column; the next fit must succeed
+    drop _fg_pelnode_1
+    capture noisily finegray ifp i.pelnode, compete(status) cause(1) nolog
+    display as text "  fit after the user dropped their column rc = `=_rc'"
+    assert _rc == 0
+    assert e(converged) == 1
+    confirm variable _fg_pelnode_1
+    confirm variable _fg_entry
+
+    * the same sequence when the taken-over column is _fg_entry itself
+    _mk_hypoxia
+    stset dftime, failure(dfcens==1) id(stnum)
+    stsplit iv12b, at(2 4 6 8)
+    quietly finegray ifp i.pelnode, compete(status) cause(1) nolog
+    local _o12c `"`: char _dta[_finegray_owner]'"'
+    drop _fg_entry
+    gen double _fg_entry = 99
+    capture finegray ifp i.pelnode, compete(status) cause(1) nolog
+    assert _rc == 198
+    quietly count if _fg_entry != 99
+    assert r(N) == 0
+    confirm variable _fg_pelnode_1
+    assert `"`: char _dta[_finegray_owner]'"' == `"`_o12c'"'
+    assert `"`: char _fg_pelnode_1[_finegray_owner]'"' == `"`_o12c'"'
+    drop _fg_entry
+    capture noisily finegray ifp i.pelnode, compete(status) cause(1) nolog
+    display as text "  fit after the user dropped their _fg_entry rc = `=_rc'"
+    assert _rc == 0
+    assert e(converged) == 1
+    confirm variable _fg_entry
+}
+if _rc == 0 {
+    display as result "  PASS: an ownership refusal leaves the dataset recoverable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ownership refusal stranded package columns (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 12b. a refusal over a name only the NEW specification claims
+**# ---------------------------------------------------------------
+* The pre-mutation pass used to probe only _fg_entry and the columns the PRIOR
+* run recorded, so a user variable spelled like an _fg_<term> column that only
+* THIS run's varlist claims was reached by the per-site check inside the
+* creation loop -- after the characteristics were blanked, after the prior
+* entry column was dropped and after the prior run's design columns were
+* dropped.  The refusal was correct and the dataset was wrecked: the owner
+* characteristic was empty, _dta[_finegray_estimated] was "0", and
+* finegray_cif on the still-current e() was r(301).  The name derivation now
+* runs before any mutation and the names it produces are probed with the rest.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    quietly gen byte grpx = mod(stnum, 3) + 1
+    stset dftime, failure(dfcens==1) id(stnum)
+    stsplit iv12c, at(2 4 6 8)
+    quietly finegray ifp i.pelnode, compete(status) cause(1) nolog
+    local _o12d `"`: char _dta[_finegray_owner]'"'
+    local _fv12d `"`: char _dta[_finegray_fvvars]'"'
+    local _est12d `"`: char _dta[_finegray_estimated]'"'
+    local _b12d = _b[ifp]
+    quietly finegray_cif, at(ifp=20 pelnode=1) attime(5)
+    matrix _cm12d = r(table)
+
+    * a user column under a name only the NEXT specification would claim
+    quietly gen double _fg_grpx_2 = 42
+    capture finegray ifp i.pelnode i.grpx, compete(status) cause(1) nolog
+    display as text "  fit claiming a user-owned new name rc = `=_rc'"
+    assert _rc == 198
+
+    * nothing moved: characteristics, the prior run's columns, and the fit
+    assert `"`: char _dta[_finegray_owner]'"' == `"`_o12d'"'
+    assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv12d'"'
+    assert `"`: char _dta[_finegray_estimated]'"' == `"`_est12d'"'
+    confirm variable _fg_entry
+    confirm variable _fg_pelnode_1
+    quietly count if _fg_grpx_2 != 42
+    assert r(N) == 0
+    assert `"`: char _fg_pelnode_1[_finegray_owner]'"' == `"`_o12d'"'
+    capture noisily finegray_cif, at(ifp=20 pelnode=1) attime(5)
+    display as text "  finegray_cif on the surviving fit rc = `=_rc'"
+    assert _rc == 0
+    matrix _cm12dx = r(table)
+    assert mreldif(_cm12dx, _cm12d) < 1e-12
+
+    * the user drops their column; the wider fit must then succeed
+    drop _fg_grpx_2
+    capture noisily finegray ifp i.pelnode i.grpx, compete(status) cause(1) nolog
+    display as text "  fit after the user dropped their column rc = `=_rc'"
+    assert _rc == 0
+    assert e(converged) == 1
+    confirm variable _fg_grpx_2
+    confirm variable _fg_grpx_3
+}
+if _rc == 0 {
+    display as result "  PASS: a refusal over a newly claimed name mutates nothing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: refusal over a newly claimed name mutated the data (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 12c. the 32-character truncation refusal is also pre-mutation
+**# ---------------------------------------------------------------
+* Two kept levels of a 27-character factor variable produce _fg_ names that are
+* identical once truncated to 32 characters.  That refusal was raised inside
+* the creation loop as well, with the same consequence.
+local ++test_count
+capture noisily {
+    _mk_hypoxia
+    quietly gen byte abcdefghijklmnopqrstuvwxyz1 = mod(stnum, 3) + 1
+    stset dftime, failure(dfcens==1) id(stnum)
+    stsplit iv12d, at(2 4 6 8)
+    quietly finegray ifp i.pelnode, compete(status) cause(1) nolog
+    local _o12e `"`: char _dta[_finegray_owner]'"'
+    local _fv12e `"`: char _dta[_finegray_fvvars]'"'
+    local _est12e `"`: char _dta[_finegray_estimated]'"'
+    quietly finegray_cif, at(ifp=20 pelnode=1) attime(5)
+    matrix _cm12e = r(table)
+
+    capture finegray ifp i.abcdefghijklmnopqrstuvwxyz1, compete(status) cause(1) nolog
+    display as text "  fit with colliding truncated names rc = `=_rc'"
+    assert _rc == 198
+
+    assert `"`: char _dta[_finegray_owner]'"' == `"`_o12e'"'
+    assert `"`: char _dta[_finegray_fvvars]'"' == `"`_fv12e'"'
+    assert `"`: char _dta[_finegray_estimated]'"' == `"`_est12e'"'
+    confirm variable _fg_entry
+    confirm variable _fg_pelnode_1
+    capture noisily finegray_cif, at(ifp=20 pelnode=1) attime(5)
+    display as text "  finegray_cif after the truncation refusal rc = `=_rc'"
+    assert _rc == 0
+    matrix _cm12ex = r(table)
+    assert mreldif(_cm12ex, _cm12e) < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: the truncation refusal mutates nothing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: truncation refusal mutated the data (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Summary
 display as text _newline "RESULT: test_finegray_v110 tests=`test_count' pass=`pass_count' fail=`fail_count'"

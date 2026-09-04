@@ -108,7 +108,10 @@ a matrix with one row per event time -- is O(rows^2) to create and so is posted
 only when {cmd:finegray}'s {opt basehaz} option is given. {opt ci} and
 {opt bootstrap()} are not allowed with {opt basecshazard}: the baseline carries no
 covariate profile, and a silently ignored {opt ci} would hand back a bare point
-estimate that looks like a band.
+estimate that looks like a band. Because H0(t) does not depend on the
+covariates, the data in memory need carry only the time variable -- and, after
+a fit with {opt bstrata()}, the baseline strata variable. The model covariates
+are not required and are not read.
 
 {phang}
 {opt cif} computes the cumulative incidence function (CIF) at each

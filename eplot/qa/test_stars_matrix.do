@@ -44,6 +44,12 @@ else {
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 adopath ++ "`pkg_dir'"
 
 * Reload to pick up latest changes
@@ -930,7 +936,7 @@ else {
 display "TEST SUMMARY"
 display as text "Total:        `test_count'"
 display as result "Passed:       `pass_count'"
-display "RESULT: test_stars_matrix tests=35 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_stars_matrix, tests(35) pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed:       `fail_count'"
     display as error "Failed tests:`failed_tests'"

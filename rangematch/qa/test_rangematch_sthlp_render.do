@@ -9,8 +9,12 @@
 *
 * Two render defects are gated here:
 *   synopt_width       a {synopt} description wider than its Viewer column
-*                      (80 - N for {synoptset N tabbed}) wraps and
-*                      cascade-corrupts the GUI render from that row on.
+*                      wraps and cascade-corrupts the GUI render from that row
+*                      on. For {synoptset N tabbed} the description column runs
+*                      from N + 6 to column 77, so the budget is 71 - N -- NOT
+*                      80 - N. The nine-column difference is the whole gap this
+*                      suite once had: at 80 - N it reported zero bad rows on a
+*                      file the repository checker failed with seventeen.
 *   punct_line_break   a source newline immediately after sentence-ending
 *                      punctuation renders as a DOUBLE space, violating the
 *                      single-space house rule. Rewrapping prose to fix
@@ -20,6 +24,13 @@
 * Deliberately self-contained: a released package must run its own gates with
 * nothing but Stata, so the SMCL measurement is implemented here in Mata rather
 * than shelling out to an external linter that ships separately.
+*
+* T5 closes the other half of that trade. A parser written here can only ever
+* validate itself -- its planted controls (T3/T4) exercise the SAME code the
+* real check runs -- so T5 hands the file to Stata's own SMCL renderer
+* (translate, translator(smcl2txt)) and asserts every synopt description
+* survives on ONE rendered line. A width model that drifts from the renderer
+* again fails there even when the arithmetic above is self-consistent.
 
 clear all
 version 16.1
@@ -53,7 +64,11 @@ string scalar _qa_smcl_text(string scalar s0)
     while (prev != s) {
         prev = s
         // {opt met:hod()} -> method()   (the abbreviation colon is not printed)
-        s = ustrregexra(s, "\{(opth|opt|cmdab)[ :] *([^{}]*)\}", "$2")
+        // The inner colon has to be dropped explicitly: keeping it inflated
+        // every abbreviated option by one character and, worse, made the
+        // stripper's output differ from what Stata's renderer prints, so a
+        // comparison against the native render could never match (T5).
+        s = ustrregexra(s, "\{(opth|opt|cmdab)[ :] *([^{}:]*):?([^{}]*)\}", "$2$3")
         // {helpb a:b} -> b              (only the label is printed)
         s = ustrregexra(s, "\{(helpb|help|browse|stata|view) +[^{}:]*:([^{}]*)\}", "$2")
         s = ustrregexra(s, "\{(helpb|help|browse|stata|view) +([^{}]*)\}", "$2")
@@ -129,7 +144,9 @@ void _qa_render_check(string scalar path)
         // -- synopt_width --------------------------------------------------
         desc = _qa_synopt_desc(lines[i])
         if (desc != "") {
-            cap = 80 - synoptset
+            // The Viewer's description column runs from synoptset + 6 to
+            // column 77; measured with `artifact help' at synoptset 18/24/28.
+            cap = 77 - (synoptset + 6)
             w = strlen(strtrim(_qa_smcl_text(desc)))
             if (w > cap) {
                 printf("{err}[FAIL] %s:%f synopt description %f > %f cols\n",
@@ -167,6 +184,49 @@ void _qa_render_check(string scalar path)
     }
     st_local("nbad_width", strofreal(nbad_w))
     st_local("nbad_punct", strofreal(nbad_p))
+}
+
+// Every {synopt} description in `src' must survive intact on ONE line of
+// `rendered', the smcl2txt output of the same file. A description that exceeds
+// its column is broken across two lines by the renderer, so no single rendered
+// line contains it whole. This is measured against Stata's renderer, not
+// against the parser above, which is why it catches a wrong width model.
+void _qa_native_render_check(string scalar src, string scalar rendered)
+{
+    real scalar fh, i, j, n, nr, nbad, found
+    string scalar head, desc
+    string colvector lines, rlines
+
+    fh = fopen(rendered, "r")
+    rlines = J(0, 1, "")
+    while ((head = fget(fh)) != J(0, 0, "")) rlines = rlines \ head
+    fclose(fh)
+
+    fh = fopen(src, "r")
+    lines = J(0, 1, "")
+    while ((head = fget(fh)) != J(0, 0, "")) lines = lines \ head
+    fclose(fh)
+
+    n = rows(lines)
+    nr = rows(rlines)
+    nbad = 0
+    for (i = 1; i <= n; i++) {
+        desc = strtrim(_qa_smcl_text(_qa_synopt_desc(lines[i])))
+        if (desc == "") continue
+        found = 0
+        for (j = 1; j <= nr; j++) {
+            if (strpos(rlines[j], desc) > 0) {
+                found = 1
+                break
+            }
+        }
+        if (!found) {
+            printf("{err}[FAIL] %s:%f description wrapped in the native render: %s\n",
+                pathbasename(src), i, desc)
+            nbad++
+        }
+    }
+    st_local("nbad_native", strofreal(nbad))
 }
 end
 
@@ -260,6 +320,69 @@ if _rc {
 else {
     local ++pass_count
     display as text "[ok] T4 clean fragment does not trip the gate"
+}
+
+**# T5: Stata's own SMCL renderer keeps every synopt description on one line
+* The custom parser above validates itself; this validates the FILE against the
+* renderer that ships with Stata. translate/smcl2txt is the same engine the
+* Viewer uses and writes to a file, so no rendered text leaks into the lane log.
+local ++test_count
+capture noisily {
+    local _qa_linesize = c(linesize)
+    set linesize 80
+    tempfile smclsrc rendered
+    * smcl2txt dispatches on the .smcl extension, which a .sthlp does not have.
+    local smclsrc "`smclsrc'.smcl"
+    copy "`pkg_dir'/rangematch.sthlp" "`smclsrc'", replace
+    translate "`smclsrc'" "`rendered'", translator(smcl2txt) replace
+    mata: _qa_native_render_check("`pkg_dir'/rangematch.sthlp", "`rendered'")
+    set linesize `_qa_linesize'
+    assert `nbad_native' == 0
+}
+if _rc {
+    capture set linesize `_qa_linesize'
+    local ++fail_count
+    display as error "[FAIL] T5 native SMCL render keeps descriptions unwrapped"
+}
+else {
+    local ++pass_count
+    display as text "[ok] T5 native SMCL render keeps descriptions unwrapped"
+}
+
+**# T6: the native gate has teeth -- a planted over-wide row must wrap
+* T5 asserting zero is only evidence if a bad file gives a nonzero. Without
+* this, a `_qa_native_render_check' that silently found every description
+* (say, by comparing "" against every line) would read as green forever.
+local ++test_count
+capture noisily {
+    local _qa_linesize = c(linesize)
+    set linesize 80
+    tempfile badsrc badrendered
+    local badsrc "`badsrc'.smcl"
+    tempname fh3
+    file open `fh3' using "`badsrc'", write text replace
+    file write `fh3' "{smcl}" _n
+    file write `fh3' "{synoptset 22 tabbed}{...}" _n
+    file write `fh3' "{synopthdr}" _n
+    file write `fh3' "{synoptline}" _n
+    file write `fh3' "{synopt:{cmd:r(x)}}" ///
+        "this description is deliberately far too wide for a twenty-two column synoptset row{p_end}" _n
+    file write `fh3' "{synoptline}" _n
+    file write `fh3' "{p2colreset}{...}" _n
+    file close `fh3'
+    translate "`badsrc'" "`badrendered'", translator(smcl2txt) replace
+    quietly mata: _qa_native_render_check("`badsrc'", "`badrendered'")
+    set linesize `_qa_linesize'
+    assert `nbad_native' == 1
+}
+if _rc {
+    capture set linesize `_qa_linesize'
+    local ++fail_count
+    display as error "[FAIL] T6 native gate detects a planted wrapped description"
+}
+else {
+    local ++pass_count
+    display as text "[ok] T6 native gate detects a planted wrapped description"
 }
 
 **# Summary

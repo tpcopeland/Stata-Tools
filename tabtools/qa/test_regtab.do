@@ -2941,13 +2941,19 @@ else {
     local ++fail_count
 }
 
-**# Test C: Refcat detection with non-default precision
-* Use a logit with a 4-level factor variable. Reference category coefficient
-* is exactly 0 (linear) → 1 (exponentiated) with empty CI. Before the fix the
-* "Reference" label only matched literal "0" / "1" strings; if collect rendered
-* "1.000" because of a higher-precision format, the label fell off and a numeric
-* "1.000" leaked into the cell. After the fix, refcat detection works off the
-* numeric value so digits(4) still labels the row.
+**# Test C: Constrained-row detection with non-default precision
+* Use a logit with a factor variable whose levels are constrained. Every
+* constrained coefficient is exactly 0 (linear) or 1 (exponentiated) with an
+* empty CI. Before the fix the label only matched literal "0" / "1" strings; if
+* collect rendered "1.000" because of a higher-precision format, the label fell
+* off and a numeric "1.000" leaked into the cell. Detection now works off the
+* constraint class collect records, so digits(4) still labels the row.
+*
+* In this model rep78 levels 1 and 2 identify no observations and level 5 is
+* dropped for collinearity, so Stata's own table reports "(empty)", "(empty)",
+* and "(omitted)" and shows no base category at all. Through 2.0.3 regtab
+* called all three "Reference"; the assertion below pinned that, requiring at
+* least one Reference row in a model that has none.
 capture noisily {
     sysuse auto, clear
     collect clear
@@ -2957,24 +2963,37 @@ capture noisily {
     regtab, frame(_rt_v1015_C, replace) digits(4)
 
     local ref_count = 0
+    local word_count = 0
     frame _rt_v1015_C {
         forvalues i = 3/`=_N' {
             local _v = strtrim(c1[`i'])
             if "`_v'" == "Reference" local ++ref_count
+            if inlist("`_v'", "Empty", "Omitted") local ++word_count
         }
+        * levels 1 and 2 identify no observations; level 5 is collinear
+        quietly count if strtrim(A) == "1" & strtrim(c1) == "Empty"
+        assert r(N) == 1
+        quietly count if strtrim(A) == "2" & strtrim(c1) == "Empty"
+        assert r(N) == 1
+        quietly count if strtrim(A) == "5" & strtrim(c1) == "Omitted"
+        assert r(N) == 1
+        * no numeric leaked into a constrained cell at digits(4)
+        quietly count if _n >= 3 & inlist(strtrim(c1), "1.0000", "0.0000")
+        assert r(N) == 0
     }
     frame drop _rt_v1015_C
 
-    * 4-level rep78 → 1 reference row (the omitted base).
-    assert `ref_count' >= 1
+    * this model has no base category, so it has no reference row
+    assert `ref_count' == 0
+    assert `word_count' == 3
 }
 local rc_C = _rc
 if `rc_C' == 0 {
-    display as result "  PASS: Test C (refcat detection at digits(4): `ref_count' Reference row(s))"
+    display as result "  PASS: Test C (constrained-row detection at digits(4): `word_count' labelled rows)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Test C (rc=`rc_C'; ref_count=`ref_count')"
+    display as error "  FAIL: Test C (rc=`rc_C'; ref_count=`ref_count'; word_count=`word_count')"
     local ++fail_count
 }
 

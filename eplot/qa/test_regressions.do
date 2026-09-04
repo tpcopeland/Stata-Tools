@@ -13,6 +13,12 @@ set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
+* Sandbox PLUS/PERSONAL and install the package under test.  Every suite
+* does this before touching adopath or installing, so a standalone run
+* cannot write into the real ado tree either.
+do "`qa_dir'/_eplot_qa_common.do"
+quietly _eplot_qa_bootstrap "`pkg_dir'"
+
 capture ado uninstall eplot
 capture noisily net install eplot, from("`pkg_dir'") replace
 if _rc exit _rc
@@ -38,7 +44,10 @@ capture noisily {
     end
     return clear
     capture noisily eplot es lci uci, saving("`badfile'", replace)
-    assert _rc != 0
+    * Pin the exact code: any-nonzero lets an unrelated early
+    * failure (a parse error, a missing variable) satisfy the
+    * regression without ever reaching the saving() side effect.
+    assert _rc == 603
     assert r(N) == 2
     assert r(k) == 2
     assert rowsof(r(table)) == 2
@@ -58,7 +67,10 @@ capture noisily {
     matrix rownames M = X Y
     return clear
     capture noisily eplot, matrix(M) stars saving("`badfile'", replace)
-    assert _rc != 0
+    * Pin the exact code: any-nonzero lets an unrelated early
+    * failure (a parse error, a missing variable) satisfy the
+    * regression without ever reaching the saving() side effect.
+    assert _rc == 603
     assert r(N) == 2
     assert rowsof(r(table)) == 2
     assert rowsof(r(pvalues)) == 2
@@ -80,7 +92,10 @@ capture noisily {
     matrix before_b = e(b)
     return clear
     capture noisily eplot ., drop(_cons) saving("`badfile'", replace)
-    assert _rc != 0
+    * Pin the exact code: any-nonzero lets an unrelated early
+    * failure (a parse error, a missing variable) satisfy the
+    * regression without ever reaching the saving() side effect.
+    assert _rc == 603
     assert r(n_models) == 1
     assert rowsof(r(table)) == 2
     assert "`e(cmd)'" == "`before_cmd'"
@@ -107,7 +122,10 @@ capture noisily {
     local before_frame "`c(frame)'"
     return clear
     capture noisily eplot, frame(_ep_reg_frame) saving("`badfile'", replace)
-    assert _rc != 0
+    * Pin the exact code: any-nonzero lets an unrelated early
+    * failure (a parse error, a missing variable) satisfy the
+    * regression without ever reaching the saving() side effect.
+    assert _rc == 603
     assert r(N) == 2
     assert rowsof(r(table)) == 2
     assert "`c(frame)'" == "`before_frame'"
@@ -124,7 +142,7 @@ else {
 capture frame drop _ep_reg_frame
 capture graph drop _all
 
-display "RESULT: test_regressions tests=4 pass=`pass_count' fail=`fail_count' skip=0"
+_eplot_qa_result test_regressions, tests(`test_count') pass(`pass_count') fail(`fail_count') skip(0)
 if `fail_count' > 0 {
     display as error "Failed regression cases:`failed_tests'"
     exit 1

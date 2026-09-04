@@ -51,7 +51,12 @@
 * data the model-based information matrix is wrong for a reason that has nothing to
 * do with left truncation (it assumes independent subjects), so the cluster-robust
 * sandwich is the only admissible option and there is no contest to run.  The LT
-* cluster path is covered by validation_finegray_lt_se.do; e(lt_vce) must report
+* cluster path is covered by validation_finegray_lt_se.do sections 7-8, which
+* rebuild the clustered delayed-entry variance from the score residuals by an
+* external route -- within-cluster sums, the norobust inverse information, and
+* the g/(g-1) factor -- and pin its one-subject-per-cluster reduction to the
+* unclustered fixed-weight sandwich.  That is an identity check on the shipped
+* estimator, not a coverage verdict for it; e(lt_vce) must report
 * fixed_weight_sandwich whenever cluster() is specified, whatever wins below.
 *
 * ---------------------------------------------------------------------------

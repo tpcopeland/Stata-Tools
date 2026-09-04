@@ -22,6 +22,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 * harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -136,6 +137,12 @@ capture noisily {
     codescan_describe ncode, tostring
 
     cf _all using "`before'"
+    * `cf _all using' is one-directional: it compares the variables present in
+    * memory and cannot see one that was dropped from it, so a state-restoration
+    * claim needs the exact inventory alongside it (proven: saving x y, dropping
+    * y, then `cf _all using' returns rc=0).
+    unab _t4_vars : _all
+    assert "`_t4_vars'" == "id ncode label seq"
     local sort_after : sortedby
     assert "`sort_after'" == "`sortlist'"
     capture confirm numeric variable ncode
@@ -175,6 +182,13 @@ capture noisily {
     assert `_save_rc' == 198
     assert "`c(varabbrev)'" == "on"
     cf _all using "`before'"
+    * `cf _all using' is one-directional: it compares the variables present in
+    * memory and cannot see one that was dropped from it, so a state-restoration
+    * claim needs the exact inventory alongside it (proven: saving x y, dropping
+    * y, then `cf _all using' returns rc=0).
+    unab _t5_vars : _all
+    assert "`_t5_vars'" == "id dx1"
+    assert _N == 2
     capture confirm file "`badfile'"
     assert _rc != 0
 }
@@ -264,6 +278,13 @@ capture noisily {
     assert _empty_chapters[1, 2] == 0
     matrix drop _empty_top _empty_chapters
     cf _all using "`before'"
+    * `cf _all using' is one-directional: it compares the variables present in
+    * memory and cannot see one that was dropped from it, so a state-restoration
+    * claim needs the exact inventory alongside it (proven: saving x y, dropping
+    * y, then `cf _all using' returns rc=0).
+    unab _t6b_vars : _all
+    assert "`_t6b_vars'" == "id dx1 dx2"
+    assert _N == 2
 
     preserve
     capture noisily {
@@ -430,6 +451,7 @@ else {
 
 **# Summary
 
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_describe_adversarial" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_describe_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Functional Results: `pass_count'/`test_count' passed, `fail_count' failed"

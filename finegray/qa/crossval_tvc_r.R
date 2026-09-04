@@ -134,6 +134,19 @@ for (ds in unique(dat$dataset)) {
     for (j in seq_len(nint)) {
         add_row(ds, "se", paste0("tvc", j), unname(se[1 + j]))
     }
+    # THE FULL COVARIANCE (added 2026-09-02).  sqrt(diag(fit$var)) discards
+    # every off-diagonal element, so the SE rows above cannot see a variance
+    # whose CORRELATIONS are wrong -- which is exactly what a mis-assembled
+    # piecewise psi produces while leaving each diagonal entry right.  Emit the
+    # upper triangle of crr's own $var; the Stata side rebuilds the symmetric
+    # matrix in crr's coefficient order (cov1 first, then cov2 x tf), which is
+    # the order finegray's e(b) already uses (main:x2, tvc1:x1 ... tvcJ:x1).
+    V <- fit$var
+    for (ri in seq_len(nrow(V))) {
+        for (ci in ri:ncol(V)) {
+            add_row(ds, "vcov", sprintf("v%d_%d", ri, ci), V[ri, ci])
+        }
+    }
     add_row(ds, "loglik", "loglik", unname(fit$loglik))
     add_row(ds, "nint", "nint", nint)
 

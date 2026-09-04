@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.2.0  2026/08/28
+*! _codescan_engine Version 4.2.1  2026/09/02
 *! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
@@ -18,6 +18,20 @@ mata:
 real scalar _codescan_mata_ready()
 {
     return(1)
+}
+
+// Scan-time companion to the option-validation zero-width guard in
+// _codescan_definitions.ado. Reports the offending condition, pattern, and the
+// data value that exposed it, then exits 198 so codescan.ado's cleanup zone
+// rolls the call back. Kept as one function so the inclusion and exclusion arms
+// cannot drift apart.
+void _codescan_zero_width_error(string scalar cname, string scalar pat,
+                                string scalar ptype, string scalar val)
+{
+    errprintf("{err}" + ptype + " for %s: pattern matches without consuming any characters (zero-width): %s\n", cname, pat)
+    errprintf("{err}  the code %s is matched at a position, not consumed, so the rule identifies nothing\n", val)
+    errprintf("{err}  write the required leading characters literally, or . to match any non-empty code\n")
+    exit(198)
 }
 
 void _codescan_mata_scan()
@@ -214,7 +228,25 @@ void _codescan_mata_scan()
                         // for valid patterns (-1 only on an invalid pattern,
                         // which the validator rejects up front); compare ==1 so
                         // any stray -1 is a non-match.
-                        if (ustrregexm(val, anchored_pats[k]) == 1) matched = 1
+                        if (ustrregexm(val, anchored_pats[k]) == 1) {
+                            // Zero-length-match guard, live axis. The option
+                            // validator probes printable ASCII leading
+                            // characters only, so an assertion keyed to a
+                            // non-ASCII character -- "(?=\u00e5)" on Nordic
+                            // codes -- passes validation and then matches a
+                            // position rather than a code, defining cohort
+                            // membership while consuming nothing. The probe
+                            // alphabet cannot be completed at validation time
+                            // (it would have to be the data's own leading
+                            // characters), so the data itself is the only exact
+                            // oracle: reject here, on the value that exposed it.
+                            // ustrregexs(0) must be read immediately, before the
+                            // exclusion match below overwrites the capture state.
+                            if (ustrregexs(0) == "") {
+                                _codescan_zero_width_error(cond_names[k], patterns[k], "define()", val)
+                            }
+                            matched = 1
+                        }
                     }
                     if (matched) {
                         // ── Exclusion check ──
@@ -234,7 +266,15 @@ void _codescan_mata_scan()
                             else {
                                 // ==1 guard: a stray -1 must not exclude every
                                 // value.
-                                if (ustrregexm(val, anchored_excl[k]) == 1) excluded = 1
+                                if (ustrregexm(val, anchored_excl[k]) == 1) {
+                                    // Same zero-length guard as the inclusion
+                                    // arm: a non-consuming exclusion silently
+                                    // removes every matching code.
+                                    if (ustrregexs(0) == "") {
+                                        _codescan_zero_width_error(cond_names[k], excl_patterns[k], "exclusion", val)
+                                    }
+                                    excluded = 1
+                                }
                             }
                         }
                         if (!excluded) {

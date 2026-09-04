@@ -24,6 +24,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 
 **# T1: level() must truncate by Unicode character, not by byte
@@ -226,6 +227,7 @@ else {
 
 **# Summary
 
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_codescan_v415" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_codescan_v415 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Functional Results: `pass_count'/`test_count' passed, `fail_count' failed"

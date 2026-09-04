@@ -1,4 +1,4 @@
-*! effecttab Version 2.0.3  2026/08/30
+*! effecttab Version 2.1.0  2026/09/03
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -85,10 +85,23 @@ program define effecttab, rclass
 	        BORDERstyle(string) full FONT(string) FONTSIZE(integer -1) digits(integer -1) ///
 		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
-	        LABELWidth(integer 0) Level(real -1) REFcat(string)]
+	        LABELWidth(integer 0) Level(real -1) REFcat(string) ///
+	        OMITLabel(string) EMPTYLabel(string)]
 
 	* Label used for reference (base-category) rows; matches regtab's refcat()
 	if `"`refcat'"' == "" local refcat "Reference"
+	* A base category, a term dropped for collinearity, and a cell that
+	* identifies no observations all arrive from collect as a constrained
+	* coefficient with no interval; they are different facts and are labelled
+	* differently. Matches regtab's omitlabel()/emptylabel().
+	if `"`omitlabel'"' == "" local omitlabel "Omitted"
+	if `"`emptylabel'"' == "" local emptylabel "Empty"
+	if `"`refcat'"' == `"`omitlabel'"' | `"`refcat'"' == `"`emptylabel'"' ///
+		| `"`omitlabel'"' == `"`emptylabel'"' {
+		display as error ///
+			"refcat(), omitlabel(), and emptylabel() must differ from each other"
+		exit 198
+	}
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -703,13 +716,90 @@ quietly {
 		local last 1
 	}
 	else {
+		* Reverse map from the rendered row label back to the raw colname
+		* level, so the constraint map below can be matched by coefficient
+		* name rather than by whatever label collect substituted.
+		local _cnmap_n = 0
+		capture quietly collect label list colname
+		if _rc == 0 {
+			local _cnmap_n = real("`s(k)'")
+			if missing(`_cnmap_n') local _cnmap_n = 0
+			forvalues _ci = 1/`_cnmap_n' {
+				local _cnmap_level_`_ci' `"`s(level`_ci')'"'
+				local _cnmap_label_`_ci' `"`s(label`_ci')'"'
+			}
+		}
+
+		* collect renders a factor level as the bare term "1.grp". Capture the
+		* parent variable label and each level's value label now, while the
+		* estimation data is still in memory, and apply them to the rendered
+		* rows below - the same treatment regtab gives its factor rows. A level
+		* the caller already relabelled (clean/tlabels) keeps its own label.
+		* teffects rows are treatment contrasts and potential-outcome means,
+		* not levels of a covariate, so they keep their own labelling: heading
+		* a POmean row with the treatment variable's label would misdescribe it.
+		local _fvrow_label_n = 0
+		local _fvrow_parent_n = 0
+		local _fp_opt "factorparents"
+		if "`type'" == "teffects" local _fp_opt ""
+		capture quietly collect levelsof colname
+		if _rc == 0 & "`type'" != "teffects" {
+			local _fv_collevels `s(levels)'
+			foreach _fvterm of local _fv_collevels {
+				local _fv_relabelled = 0
+				forvalues _ci = 1/`_cnmap_n' {
+					if `"`_cnmap_level_`_ci''"' == `"`_fvterm'"' ///
+						local _fv_relabelled = 1
+				}
+				if `_fv_relabelled' continue
+				if regexm("`_fvterm'", "^([0-9]+)\.(.+)$") {
+					local _fvval = regexs(1)
+					local _fvvar = regexs(2)
+					if strpos("`_fvvar'", "#") > 0 continue
+					capture confirm variable `_fvvar'
+					if _rc == 0 {
+						local _fvrow_parent_seen = 0
+						forvalues _fvp = 1/`_fvrow_parent_n' {
+							if `"`_fvrow_parent_var_`_fvp''"' == `"`_fvvar'"' ///
+								local _fvrow_parent_seen = 1
+						}
+						if !`_fvrow_parent_seen' {
+							local _fvplbl : variable label `_fvvar'
+							if `"`_fvplbl'"' == "" local _fvplbl `"`_fvvar'"'
+							local ++_fvrow_parent_n
+							local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvvar'"'
+							local _fvrow_parent_lab_`_fvrow_parent_n' `"`_fvplbl'"'
+						}
+						local _fvlbl `"`_fvval'"'
+						capture local _fvlbl : label (`_fvvar') `_fvval'
+						if _rc | `"`_fvlbl'"' == "" local _fvlbl "`_fvval'"
+						local ++_fvrow_label_n
+						local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
+						local _fvrow_lab_`_fvrow_label_n' `"  `_fvlbl'"'
+					}
+				}
+			}
+		}
+
 		* Preserve user data before rendering the collect table into strings
 		preserve
 
 		capture _tabtools_collect_render, type(main) rowdim(colname) ///
 			rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
-			results(_r_b _r_ci _r_p) sep("`sep'")
+			results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap
 		local _collect_render_rc = _rc
+		* Read the constraint map before any other r-class command clears r().
+		local _omit_n = 0
+		if `_collect_render_rc' == 0 {
+			* an older installed helper returns no omit_n, which is missing
+			local _omit_n = r(omit_n)
+			if `"`_omit_n'"' == "" local _omit_n = 0
+			if missing(`_omit_n') local _omit_n = 0
+			forvalues _ok = 1/`_omit_n' {
+				local _omit_key_`_ok' `"`r(omit_key_`_ok')'"'
+				local _omit_val_`_ok' `"`r(omit_val_`_ok')'"'
+			}
+		}
 		if `_collect_render_rc' {
 			restore
 			* Fallback: use the prior workbook renderer for unsupported layouts.
@@ -863,6 +953,61 @@ quietly {
 	forvalues _mi = 1(3)`last' {
 		local _n_models = `_n_models' + 1
 	}
+
+	* Per-model constraint class, keyed by model column index and raw colname.
+	* collect reports a base level, a level dropped for collinearity, and a
+	* not-estimable margin as the same constrained cell, so the rendered table
+	* cannot tell them apart; the saved collection can. Index 0 means the
+	* collection carried no model dimension, so the class applies to every
+	* column. "mixed" (one colname classed differently across equations of one
+	* model) is left blank so the numeric heuristic below decides instead.
+	if `"`_omit_n'"' == "" local _omit_n = 0
+	if `_omit_n' > 0 {
+		capture confirm variable _raw_A
+		if _rc {
+			quietly gen strL _raw_A = ""
+			quietly replace _raw_A = strtrim(A) if _n > 2
+			forvalues _ci = 1/`_cnmap_n' {
+				quietly replace _raw_A = `"`_cnmap_level_`_ci''"' ///
+					if _n > 2 & strtrim(A) == `"`_cnmap_label_`_ci''"'
+			}
+		}
+		forvalues _m = 1/`_n_models' {
+			capture confirm variable _omit_type`_m'
+			if _rc quietly gen str8 _omit_type`_m' = ""
+		}
+		forvalues _ok = 1/`_omit_n' {
+			local _okey `"`_omit_key_`_ok''"'
+			local _oval `"`_omit_val_`_ok''"'
+			local _obar = strpos(`"`_okey'"', "|")
+			if `_obar' > 0 & inlist(`"`_oval'"', "base", "omit", "empty") {
+				local _omi = real(substr(`"`_okey'"', 1, `_obar' - 1))
+				local _ocn = substr(`"`_okey'"', `_obar' + 1, .)
+				if !missing(`_omi') & `_omi' == 0 {
+					forvalues _m = 1/`_n_models' {
+						quietly replace _omit_type`_m' = `"`_oval'"' ///
+							if _n > 2 & strtrim(_raw_A) == `"`_ocn'"'
+					}
+				}
+				else if !missing(`_omi') & `_omi' >= 1 & `_omi' <= `_n_models' {
+					quietly replace _omit_type`_omi' = `"`_oval'"' ///
+						if _n > 2 & strtrim(_raw_A) == `"`_ocn'"'
+				}
+			}
+		}
+	}
+
+	* Factor rows: parent variable label, then indented value labels.
+	if `"`_fvrow_parent_n'"' == "" local _fvrow_parent_n = 0
+	if `"`_fvrow_label_n'"' == "" local _fvrow_label_n = 0
+	forvalues _fvp = 1/`_fvrow_parent_n' {
+		quietly replace A = `"`_fvrow_parent_lab_`_fvp''"' ///
+			if strtrim(A) == `"`_fvrow_parent_var_`_fvp''"' & _n >= 3
+	}
+	forvalues _fvi = 1/`_fvrow_label_n' {
+		quietly replace A = `"`_fvrow_lab_`_fvi''"' ///
+			if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
+	}
 	forvalues _obs = 3/`=_N' {
 		local _row_has_data = 0
 		forvalues _ci = 1(3)`last' {
@@ -878,7 +1023,16 @@ quietly {
 					if `_has_ci_cell' local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
 					local _numval = real("`_cell'")
 					local _is_refcell = 0
-					if !`_from_matrix' & `_numval' == 0 & ///
+					local _oclass ""
+					capture confirm variable _omit_type`=(`_ci'+2)/3'
+					if _rc == 0 ///
+						local _oclass = _omit_type`=(`_ci'+2)/3'[`_obs']
+					if !`_from_matrix' & ///
+						inlist(`"`_oclass'"', "base", "omit", "empty") {
+						local _is_refcell = 1
+					}
+					else if !`_from_matrix' & `"`_oclass'"' == "" & ///
+						`_numval' == 0 & ///
 						(`"`_cicell'"' == "" | strpos(lower(`"`_cicell'"'), "base") > 0) {
 						local _is_refcell = 1
 					}
@@ -917,7 +1071,16 @@ quietly {
 						if `_has_ci_cell' local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
 						local _numval = real("`_cell'")
 						local _is_refcell = 0
-						if !`_from_matrix' & `_numval' == 0 & ///
+						local _oclass ""
+						capture confirm variable _omit_type`=(`_ci'+2)/3'
+						if _rc == 0 ///
+							local _oclass = _omit_type`=(`_ci'+2)/3'[`_obs']
+						if !`_from_matrix' & ///
+							inlist(`"`_oclass'"', "base", "omit", "empty") {
+							local _is_refcell = 1
+						}
+						else if !`_from_matrix' & `"`_oclass'"' == "" & ///
+							`_numval' == 0 & ///
 							(`"`_cicell'"' == "" | strpos(lower(`"`_cicell'"'), "base") > 0) {
 							local _is_refcell = 1
 						}
@@ -957,23 +1120,45 @@ quietly {
 			tostring c`i'z, replace force format(`coef_fmt')
 				* Matrix input has no structural base-level metadata, so a numeric zero
 				* can never be reinterpreted as a reference category.
-				if !`_from_matrix' {
+				local _omit_ok = 0
+				capture confirm variable _omit_type`_model_ix'
+				if _rc == 0 local _omit_ok = 1
+				if !`_from_matrix' & `_omit_ok' {
+					replace c`i' = `"`refcat'"' ///
+						if _omit_type`_model_ix' == "base" & _n >= 3
+					replace c`i' = `"`omitlabel'"' ///
+						if _omit_type`_model_ix' == "omit" & _n >= 3
+					replace c`i' = `"`emptylabel'"' ///
+						if _omit_type`_model_ix' == "empty" & _n >= 3
+					replace c`i' = `"`refcat'"' ///
+						if inlist(_omit_type`_model_ix', "", "mixed") ///
+						& real(c`i'z) == 0 ///
+						& (strtrim(c`=`i'+1') == "" | ///
+						strpos(lower(strtrim(c`=`i'+1')), "base") > 0) & _n >= 3
+				}
+				else if !`_from_matrix' {
 					replace c`i' = `"`refcat'"' if real(c`i'z) == 0 ///
 						& (strtrim(c`=`i'+1') == "" | ///
 						strpos(lower(strtrim(c`=`i'+1')), "base") > 0) & _n >= 3
 				}
-		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != `"`refcat'"'
-		* Clear CI and p-value for Reference rows
-			replace c`=`i'+1' = "" if c`i' == `"`refcat'"' & _n >= 3
+		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 ///
+			& !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+		* Clear CI and p-value for constrained rows
+			replace c`=`i'+1' = "" ///
+				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
 			capture confirm variable c`=`i'+2'
-			if _rc == 0 replace c`=`i'+2' = "" if c`i' == `"`refcat'"' & _n >= 3
-			replace _eplot_est`_model_ix' = . if c`i' == `"`refcat'"' & _n >= 3
+			if _rc == 0 replace c`=`i'+2' = "" ///
+				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
+			replace _eplot_est`_model_ix' = . ///
+				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
 			drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
 		capture confirm variable c`=`i'+2'
 		if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 	}
+	capture drop _raw_A
+	capture drop _omit_type*
 
 	* Normalize and reformat CI cells without changing numeric return values.
 	local _ci_sep_len = strlen(`"`sep'"')
@@ -1171,7 +1356,8 @@ quietly {
 	* Track Reference rows for merged cell formatting (after title row added)
 	local ref_rows ""
 	forvalues i = 1(3)`last' {
-		gen ref`i' = _n if c`i' == `"`refcat'"'
+		gen ref`i' = _n ///
+			if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 		levelsof ref`i', local(ref`i'_levels)
 		local ref_rows `"`ref_rows' `ref`i'_levels'"'
 		drop ref`i'

@@ -390,12 +390,14 @@ capture noisily {
     quietly count if e(sample) & missing(bchq)
     assert r(N) == 0
     quietly summarize bchq if e(sample)
+    assert !missing(r(min))
     assert r(min) >= 0
 
     quietly finegray_predict double cifq, cif
     quietly count if e(sample) & missing(cifq)
     assert r(N) == 0
     quietly summarize cifq if e(sample)
+    assert !missing(r(min))
     assert r(min) >= 0
     assert r(max) <= 1
     * a build that answered every stratum from one baseline would still produce
@@ -575,6 +577,7 @@ capture noisily {
         quietly finegray_cif, at(x1=0.5 x2=1) bstratum(`lev') attime(0.5) ///
             ci bootstrap(40) seed(`= 100 + `lev'') nograph
         assert `"`r(se_method)'"' == "bootstrap"
+        assert !missing(r(bootstrap_success))
         assert r(bootstrap_success) >= 25
         tempname BT
         matrix `BT' = r(table)

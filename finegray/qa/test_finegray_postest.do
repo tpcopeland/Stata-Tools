@@ -29,6 +29,13 @@
 *           silently dropping the terminal time -- the CIF's plateau.
 *   FG-M03  every cause event at one time -> constant time function -> missing
 *           rho -> missing chi2 and p, reported at rc 0 as a completed test.
+*   PE-BC1  basecshazard built the covariate design it never reads, so H0(t)
+*           on new data carrying only a time variable died with r(111)
+*           ("required covariate ... not found") instead of answering.
+*   PE-BC2  the same on a factor fit and on a bstrata() fit, where the new
+*           data carry the horizon and (for bstrata) the strata variable only.
+*   PE-BC3  the cold-cache refusal is unaffected: with the estimation data
+*           gone, no e(basehaz) and the Mata cache cleared, r(459) still fires.
 
 clear all
 set varabbrev off
@@ -390,7 +397,7 @@ else {
 
 * RB-6: the ORDINARY workflow that triggers RB-3 without anyone typing
 * `drop _fg_*' or `mata clear'.  A second finegray fit drops the first fit's
-* design columns by design and advances e(bh_seq), so after `estimates restore'
+* design columns by design and advances e(bh_key), so after `estimates restore'
 * the e() in force names columns that are gone AND the cache holds a different
 * fit -- both halves of the rebuild branch at once.
 local ++test_count
@@ -888,7 +895,7 @@ else {
 **# FG-B04b: a bootstrap predict must not poison the baseline cache for a LATER
 * new-data prediction.  finegray_predict's bootstrap refits each call finegray
 * again, overwriting the single-slot Mata baseline cache and bumping its seq past
-* the held e(bh_seq).  Before the stash/restore fix, a subsequent
+* the held e(bh_key).  Before the stash/restore fix, a subsequent
 * predict, cif on new data (estimation sample dropped) found a seq mismatch,
 * could not rebuild, and errored r(459) -- confirmed on the pre-fix code.  The point CIF is
 * baseline-only, so the post-bootstrap value must match the pre-bootstrap value
@@ -958,11 +965,11 @@ capture noisily {
     * fit A on a HALF sample, fit B on the full sample: different baselines
     quietly finegray x if id <= 1000, compete(ev) cause(1) nolog
     quietly finegray_predict double cifA, cif timevar(t5)
-    local seqA `"`e(bh_seq)'"'
+    local seqA `"`e(bh_key)'"'
 
     quietly finegray x, compete(ev) cause(1) nolog
     quietly finegray_predict double cifB, cif timevar(t5)
-    local seqB `"`e(bh_seq)'"'
+    local seqB `"`e(bh_key)'"'
 
     * the receipt must change, and so must the answer
     assert "`seqA'" != "`seqB'"
@@ -991,6 +998,79 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: FG-B05 cache staleness guard (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# FG-B05c: `mata clear' must not let a later fit re-mint an earlier fit's key
+* The cache key used to be an integer counter living in Mata, so `mata clear'
+* reset it: the first fit afterwards was handed key 1 again.  An `estimates
+* restore' of an EARLIER fit that also held key 1 then matched the cache and
+* scored its own betas on the NEW fit's baseline at rc 0 -- measured as a CIF
+* that moved in the sixth decimal with no error and no warning.  The key is now
+* a per-fit token whose salt survives `mata clear', so the restored fit can only
+* miss the cache and rebuild.
+local ++test_count
+capture noisily {
+    clear
+    set seed 55507
+    quietly set obs 2000
+    gen long id = _n
+    gen double x = rnormal()
+    gen double t = runiform()
+    gen byte ev = cond(runiform() < .5, 1, cond(runiform() < .5, 2, 0))
+    gen double t5 = 0.5
+    quietly stset t, failure(ev) id(id)
+
+    * Clear Mata FIRST so fit A takes the counter's first value: under the old
+    * integer key that is exactly the value fit B is handed after the second
+    * clear, which is what made the two collide.
+    mata: mata clear
+    * fit A: the fit whose answer must not move
+    quietly finegray x, compete(ev) cause(1) nolog
+    estimates store _fgA
+    local kA `"`e(bh_key)'"'
+    assert `"`kA'"' != ""
+    quietly finegray_predict double cifA, cif timevar(t5)
+    quietly summarize cifA, meanonly
+    local mA = r(mean)
+    quietly finegray_cif, attime(0.25 0.5) at(x=0) nograph
+    matrix _b05cA = r(table)
+
+    * wipe Mata, then fit B on a SUBSET: a different baseline entirely
+    mata: mata clear
+    quietly finegray x if id <= 700, compete(ev) cause(1) nolog
+    local kB `"`e(bh_key)'"'
+    assert `"`kB'"' != ""
+    * the counter reset used to hand fit B the key fit A already held
+    assert `"`kA'"' != `"`kB'"'
+
+    * restore A and predict: the cache now holds B's curve under B's key, so A
+    * must rebuild from its own estimation sample, not read B's
+    estimates restore _fgA
+    quietly finegray_predict double cifAr, cif timevar(t5)
+    quietly summarize cifAr, meanonly
+    local mAr = r(mean)
+    display as text "  fit A mean CIF=" %12.9f `mA' "  after mata clear + fit B=" %12.9f `mAr'
+    assert !missing(`mAr', `mA')
+    assert reldif(`mAr', `mA') < 1e-12
+
+    * the same sequence through finegray_cif's own grid path
+    quietly finegray_cif, attime(0.25 0.5) at(x=0) nograph
+    matrix _b05cAr = r(table)
+    assert mreldif(_b05cAr, _b05cA) < 1e-12
+
+    estimates drop _fgA
+    capture matrix drop _b05cA _b05cAr
+}
+local _b05crc = _rc
+capture estimates drop _fgA
+capture matrix drop _b05cA _b05cAr
+if `_b05crc' == 0 {
+    display as result "  PASS: FG-B05c mata clear cannot re-mint an earlier fit's cache key"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: FG-B05c stale cache after mata clear (rc=`_b05crc')"
     local ++fail_count
 }
 
@@ -1213,6 +1293,125 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: FG-C01 finegray_phtest left data modified on error (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# PE-BC1: basecshazard on new data that carries only the time variable
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray x, compete(ev) cause(1) nolog basehaz
+    * truth: the same fit's own answer, computed while the estimation data
+    * are still in memory
+    quietly gen double horizon = 5
+    quietly finegray_predict h0ref, basecshazard timevar(horizon)
+    quietly summarize h0ref, meanonly
+    assert !missing(r(mean)) & r(mean) > 0
+    assert r(min) == r(max)
+    scalar _pe_h0 = r(mean)
+    estimates store _pebc1
+    clear
+    quietly set obs 2
+    gen double horizon = 5
+    estimates restore _pebc1
+    capture noisily finegray_predict h0, basecshazard timevar(horizon)
+    display as text "  basecshazard on covariate-free new data rc = `=_rc' (v1.3.0: 111)"
+    assert _rc == 0
+    assert !missing(h0[1]) & !missing(h0[2])
+    assert h0[1] == h0[2]
+    assert !missing(_pe_h0)
+    assert reldif(h0[1], _pe_h0) < 1e-12
+    estimates drop _pebc1
+    scalar drop _pe_h0
+}
+if _rc == 0 {
+    display as result "  PASS: PE-BC1 basecshazard needs no covariate design"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: PE-BC1 basecshazard needs no covariate design (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# PE-BC2: the same on a factor fit and on a bstrata() fit
+local ++test_count
+capture noisily {
+    * factor fit: the per-term rebuild is where the r(111) came from
+    _mk_fv_pe
+    quietly finegray i.grp x, compete(ev) cause(1) nolog basehaz
+    quietly gen double horizon = 4
+    quietly finegray_predict h0fref, basecshazard timevar(horizon)
+    quietly summarize h0fref, meanonly
+    scalar _pe_hf = r(mean)
+    estimates store _pebc2a
+    clear
+    quietly set obs 3
+    gen double horizon = 4
+    estimates restore _pebc2a
+    capture noisily finegray_predict h0f, basecshazard timevar(horizon)
+    assert _rc == 0
+    assert !missing(h0f[1], _pe_hf)
+    assert reldif(h0f[1], _pe_hf) < 1e-12
+
+    * bstrata() fit: the strata variable IS still required, the covariates
+    * are not
+    _mk_fv_pe
+    quietly finegray x, compete(ev) cause(1) nolog basehaz bstrata(grp)
+    quietly gen double horizon = 4
+    quietly finegray_predict h0bref, basecshazard timevar(horizon)
+    quietly summarize h0bref if grp == 2, meanonly
+    assert !missing(r(mean))
+    scalar _pe_hb = r(mean)
+    estimates store _pebc2b
+    clear
+    quietly set obs 3
+    gen double horizon = 4
+    gen byte grp = 2
+    estimates restore _pebc2b
+    capture noisily finegray_predict h0b, basecshazard timevar(horizon)
+    assert _rc == 0
+    assert !missing(h0b[1], _pe_hb)
+    assert reldif(h0b[1], _pe_hb) < 1e-12
+    * ...and dropping the strata variable is still refused by name
+    drop h0b grp
+    capture finegray_predict h0b2, basecshazard timevar(horizon)
+    assert _rc == 111
+    estimates drop _pebc2a _pebc2b
+    scalar drop _pe_hf _pe_hb
+}
+if _rc == 0 {
+    display as result "  PASS: PE-BC2 basecshazard on factor and bstrata fits"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: PE-BC2 basecshazard on factor and bstrata fits (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# PE-BC3: the cold-cache refusal still fires
+local ++test_count
+capture noisily {
+    _mk_fv_pe
+    quietly finegray x, compete(ev) cause(1) nolog
+    tempfile _pest
+    quietly estimates save "`_pest'", replace
+    clear
+    quietly set obs 2
+    gen double horizon = 5
+    quietly estimates use "`_pest'"
+    mata: mata clear
+    capture noisily finegray_predict h0c, basecshazard timevar(horizon)
+    display as text "  cold-cache basecshazard rc = `=_rc' (expected 459)"
+    assert _rc == 459
+    capture confirm variable h0c
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: PE-BC3 cold-cache basecshazard refusal preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: PE-BC3 cold-cache basecshazard refusal preserved (rc=`=_rc')"
     local ++fail_count
 }
 

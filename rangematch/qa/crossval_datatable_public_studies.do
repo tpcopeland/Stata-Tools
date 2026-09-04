@@ -118,7 +118,9 @@ capture noisily {
     local got_pairs = r(N_matched_pairs)
     local got_matched_master = r(N_matched_master)
     local got_unmatched_master = r(N_unmatched_master)
-    assert r(N_using) > 250
+    * `>' alone passes on missing: Stata orders missing above every finite
+    * number, so a using load that returned nothing would satisfy it.
+    assert r(N_using) < . & r(N_using) > 250
     assert r(N_pairs) == r(N_matched_pairs)
     assert "`r(backend)'" == "overlap"
 

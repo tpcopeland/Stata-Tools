@@ -31,6 +31,7 @@ local pkg_dir "`qa_dir'/.."
 * harmless.
 quietly do "`qa_dir'/_codescan_qa_common.do"
 _codescan_qa_bootstrap
+local _qa_owner "`r(owner)'"
 
 * Session settings captured for the hygiene check at the end of this suite.
 * A suite that leaves c(level) or c(varabbrev) changed silently alters every
@@ -770,6 +771,7 @@ else {
 * Summary
 
 display ""
+_codescan_qa_restore "`_qa_owner'"
 _codescan_qa_publish "test_mata_opt" `test_count' `pass_count' `fail_count'
 display as result "RESULT: test_mata_opt tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

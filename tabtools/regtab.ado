@@ -1,4 +1,4 @@
-*! regtab Version 2.0.3  2026/08/30
+*! regtab Version 2.1.0  2026/09/03
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -77,7 +77,8 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
 	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
-	REFcat(string) CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
+	REFcat(string) OMITLabel(string) EMPTYLabel(string) ///
+	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1)]
 
 * Accept excel() as synonym for xlsx()
@@ -87,6 +88,18 @@ local _user_noint_spec = ("`nointercept'" != "")
 
 * Default reference category label
 if `"`refcat'"' == "" local refcat "Reference"
+* Labels for coefficients the model constrained but did not estimate. A base
+* category, a level dropped for collinearity, and a level that identifies no
+* observations all arrive as a zero (a one after eform) with an empty interval;
+* they are different facts and are labelled differently.
+if `"`omitlabel'"' == "" local omitlabel "Omitted"
+if `"`emptylabel'"' == "" local emptylabel "Empty"
+if `"`refcat'"' == `"`omitlabel'"' | `"`refcat'"' == `"`emptylabel'"' ///
+	| `"`omitlabel'"' == `"`emptylabel'"' {
+	display as error ///
+		"refcat(), omitlabel(), and emptylabel() must differ from each other"
+	exit 198
+}
 local _has_xlsx = "`xlsx'" != ""
 if `_has_xlsx' & "`sheet'" == "" local sheet "Regression"
 if !`_has_xlsx' & "`sheet'" == "" local sheet "Regression"
@@ -1502,13 +1515,30 @@ preserve
 local _collect_render_rc = 0
 if `_use_coleq_layout' {
     capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'")
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") omitmap
     local _collect_render_rc = _rc
 }
 else {
     capture _tabtools_collect_render, type(main) rowdim(colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap
     local _collect_render_rc = _rc
+}
+* Constraint class per model column and raw colname, straight from the saved
+* collection. The rendered table cannot recover it: collect reports a base
+* level and a dropped level as the same "4.grp" carrying the same zero and the
+* same empty interval, so without this map a collinear level is indistinguish-
+* able from the reference category. Read it out now, before any other r-class
+* command overwrites r().
+local _omit_n = 0
+if `_collect_render_rc' == 0 {
+    * an older installed helper returns no omit_n, which evaluates to missing
+    local _omit_n = r(omit_n)
+    if `"`_omit_n'"' == "" local _omit_n = 0
+    if missing(`_omit_n') local _omit_n = 0
+    forvalues _ok = 1/`_omit_n' {
+        local _omit_key_`_ok' `"`r(omit_key_`_ok')'"'
+        local _omit_val_`_ok' `"`r(omit_val_`_ok')'"'
+    }
 }
 if `_collect_render_rc' {
     * Keep the workbook import path as a defensive fallback if raw .stjson
@@ -1634,6 +1664,7 @@ if `_is_multilevel' {
     }
 }
 else if `_is_multieq' {
+    gen long _orig_row_order = _n
     gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
     gen str244 _parent_header = A if _is_header
     replace _parent_header = _parent_header[_n-1] if _parent_header == "" & _n > 2
@@ -1667,10 +1698,45 @@ else if `_is_multieq' {
     drop if _drop_omitted_eq
     drop _drop_omitted_eq
 
+    * The rule above removes the o.-marked rows of a base-outcome equation but
+    * not its factor levels, which collect reports without the marker. That
+    * left half an equation of constrained cells standing beside the estimated
+    * ones. An equation in which no coefficient was estimated at all carries no
+    * information, so drop it whole - but only while some other equation does
+    * have estimates, so a table is never emptied.
+    ds
+    local _eqvars `r(varlist)'
+    local _eqhelpers "A _raw_colname _orig_row_order _is_header _parent_header _A_trim _eq_label"
+    local _eqvars : list _eqvars - _eqhelpers
+    local _eq_ci_vars ""
+    local _eqpos = 0
+    foreach _eqv of local _eqvars {
+        local ++_eqpos
+        if mod(`_eqpos', 3) == 2 local _eq_ci_vars `"`_eq_ci_vars' `_eqv'"'
+    }
+    if `"`_eq_ci_vars'"' != "" {
+        gen byte _eq_row_data = 0
+        foreach _eqv of local _eq_ci_vars {
+            quietly replace _eq_row_data = 1 ///
+                if !_is_header & _n > 2 & strtrim(`_eqv') != ""
+        }
+        quietly count if _eq_row_data
+        if r(N) > 0 {
+            bysort _eq_label (_eq_row_data): gen byte _eq_any_data = _eq_row_data[_N]
+            sort _orig_row_order
+            quietly count if _n > 2 & !_is_header & _eq_any_data == 0
+            if r(N) > 0 {
+                drop if _n > 2 & !_is_header & _eq_any_data == 0
+            }
+            drop _eq_any_data
+        }
+        drop _eq_row_data
+    }
+
     replace A = _eq_label + ": " + _A_trim ///
         if !_is_header & _eq_label != "" & _A_trim != "" & _n > 2
     drop if _is_header
-    drop _is_header _parent_header _A_trim _eq_label
+    drop _is_header _parent_header _A_trim _eq_label _orig_row_order
 }
 
 if "`noint'" != "" {
@@ -1908,6 +1974,43 @@ else {
 	clonevar _raw_A = A
 }
 
+* A coefficient the model dropped for collinearity keeps its o. marker in the
+* colname level whenever the term is not a factor level, so the row rendered as
+* "o.flag" instead of the variable's label. Show the variable.
+quietly replace A = substr(strtrim(_raw_A), 3, .) ///
+	if _n > 2 & strpos(strtrim(_raw_A), "o.") == 1 & strtrim(A) == strtrim(_raw_A)
+forvalues _ci = 1/`_cnmap_n' {
+	quietly replace A = `"`_cnmap_label_`_ci''"' ///
+		if _n > 2 & strtrim(_raw_A) == `"o.`_cnmap_level_`_ci''"'
+}
+
+* Per-model constraint class, keyed by model column index and raw colname.
+* Index 0 means the collection carried no model dimension, so the class applies
+* to every column. "mixed" (one colname classed differently across equations of
+* one model) is left blank so the factor-key heuristic below decides instead.
+forvalues _m = 1/`n_models' {
+	quietly gen str8 _omit_type`_m' = ""
+}
+forvalues _ok = 1/`_omit_n' {
+	local _okey `"`_omit_key_`_ok''"'
+	local _oval `"`_omit_val_`_ok''"'
+	local _obar = strpos(`"`_okey'"', "|")
+	if `_obar' > 0 & inlist(`"`_oval'"', "base", "omit", "empty") {
+		local _omi = real(substr(`"`_okey'"', 1, `_obar' - 1))
+		local _ocn = substr(`"`_okey'"', `_obar' + 1, .)
+		if !missing(`_omi') & `_omi' == 0 {
+			forvalues _m = 1/`n_models' {
+				quietly replace _omit_type`_m' = `"`_oval'"' ///
+					if _n > 2 & strtrim(_raw_A) == `"`_ocn'"'
+			}
+		}
+		else if !missing(`_omi') & `_omi' >= 1 & `_omi' <= `n_models' {
+			quietly replace _omit_type`_omi' = `"`_oval'"' ///
+				if _n > 2 & strtrim(_raw_A) == `"`_ocn'"'
+		}
+	}
+}
+
 if "`models'" != "" {
     * Split models string by backslashes
 	local models : subinstr local models " \ " "\", all
@@ -2103,8 +2206,23 @@ destring c`i', gen(double c`i'z) force
 * at all for a level the model never contained. Requiring a non-empty estimate
 * therefore keeps a constrained level labelled and leaves an absent level
 * blank, instead of claiming every model uses the same reference category.
-replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
-	& c`=`i'+1' == "" & _n >= 3
+local _omit_ok = 0
+capture confirm variable _omit_type`_model_ix'
+if _rc == 0 local _omit_ok = 1
+if `_omit_ok' {
+	replace c`i' = `"`refcat'"' if _omit_type`_model_ix' == "base" ///
+		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+	replace c`i' = `"`omitlabel'"' if _omit_type`_model_ix' == "omit" ///
+		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+	replace c`i' = `"`emptylabel'"' if _omit_type`_model_ix' == "empty" ///
+		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+	replace c`i' = `"`refcat'"' if inlist(_omit_type`_model_ix', "", "mixed") ///
+		& _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+}
+else {
+	replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
+		& c`=`i'+1' == "" & _n >= 3
+}
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -2125,7 +2243,8 @@ replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
 * Other random effects: same decimal places as fixed effects
 replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
-replace c`i' = c`i'_fmt if c`i'_fmt != "" & c`i' != `"`refcat'"' & _n >= 3
+replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3 ///
+	& !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
 if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -2133,6 +2252,7 @@ capture confirm variable c`=`i'+2'
 if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
 drop _is_base_level
+capture drop _omit_type*
 * Reformat CI columns with appropriate precision
 local sep_len = strlen(`"`sep'"')
 local _model_ix = 0
@@ -2203,7 +2323,8 @@ forvalues i = 2(3)`=`last'+1' {
 if "`dimnonsig'" != "" {
     gen byte _is_refrow = 0
     forvalues _ri = 1(3)`last' {
-        replace _is_refrow = 1 if c`_ri' == `"`refcat'"' & _n >= 3
+        replace _is_refrow = 1 if _n >= 3 ///
+            & inlist(c`_ri', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
     }
     gen byte _is_cathead = (_ci_seen == 0 & !_is_refrow & _n >= 3)
     forvalues _ri = 1(3)`last' {
@@ -2244,11 +2365,14 @@ gen str20 c`i'_orig = c`i'
 	if _rc gen double _eplot_p`_model_ix' = .
 	replace _eplot_p`_model_ix' = c`i'z if _n >= 3 & c`i'z < .
 	capture confirm variable _eplot_est`_model_ix'
-	if !_rc replace _eplot_est`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
+	if !_rc replace _eplot_est`_model_ix' = . if _n >= 3 ///
+		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 	capture confirm variable _eplot_ll`_model_ix'
-	if !_rc replace _eplot_ll`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
+	if !_rc replace _eplot_ll`_model_ix' = . if _n >= 3 ///
+		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 	capture confirm variable _eplot_ul`_model_ix'
-	if !_rc replace _eplot_ul`_model_ix' = . if strtrim(c`=`i'-2') == `"`refcat'"' & _n >= 3
+	if !_rc replace _eplot_ul`_model_ix' = . if _n >= 3 ///
+		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 gen str20 c`i'_fmt = ""
 * Handle genuinely missing p-values (e.g., omitted variables, base categories)
 * If original string was "." or empty or converted to missing, leave blank
@@ -2348,7 +2472,8 @@ if `n_models' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if strtrim(c`_ci'[`_obs']) != `"`refcat'"' {
+                if !inlist(strtrim(c`_ci'[`_obs']), `"`refcat'"', ///
+                    `"`omitlabel'"', `"`emptylabel'"') {
                     local _row_has_data = 1
                 }
             }
@@ -2372,7 +2497,8 @@ if `_mat_nrows' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if strtrim(c`_ci'[`_obs']) != `"`refcat'"' {
+                if !inlist(strtrim(c`_ci'[`_obs']), `"`refcat'"', ///
+                    `"`omitlabel'"', `"`emptylabel'"') {
                     matrix `_rtable'[`_mr', `_mc'] = `_coefval'
                 }
             }
@@ -2867,7 +2993,8 @@ egen c`i'_max = max(c`i'_length)
 * should stay visually tight.
 local est_max = 0
 forvalues i = 1(`_cols_per_model')`last' {
-    sum c`i'_length if _n >= 3 & c`i' != `"`refcat'"', meanonly
+    sum c`i'_length if _n >= 3 ///
+        & !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"'), meanonly
     if r(N) > 0 & `r(max)' > `est_max' local est_max = `r(max)'
 }
 local ci_max = 0
@@ -2927,7 +3054,7 @@ drop A_length factor_length c*_max c*_length
 local _ref_model_ix = 0
 forvalues i = 1(`_cols_per_model')`last'{
 local _ref_model_ix = `_ref_model_ix' + 1
-gen ref`i' = _n if c`i' == `"`refcat'"'
+gen ref`i' = _n if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
 order ref`i', after(c`i')
 levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 }

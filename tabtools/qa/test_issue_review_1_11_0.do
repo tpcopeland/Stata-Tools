@@ -71,8 +71,13 @@ capture noisily {
     assert strtrim(F[`_row3']) != "" & strtrim(F[`_row3']) != "Reference"
     assert strpos(G[`_row3'], "(") > 0 & strpos(G[`_row3'], ",") > 0
     assert strtrim(H[`_row3']) != ""
-    * Model 2's own constrained level still carries the reference label.
-    assert strtrim(F[`_rowbase']) == "Reference"
+    * Model 2's own constrained level still carries a label rather than a bare
+    * zero, and names the constraint Stata reported: rep78 level 1 identifies no
+    * observations in this sample, so it is Empty, not the base category. Before
+    * 2.1.0 every constrained level was labelled "Reference" regardless.
+    assert strtrim(F[`_rowbase']) == "Empty"
+    assert strtrim(G[`_rowbase']) == ""
+    assert strtrim(H[`_rowbase']) == ""
 }
 if _rc == 0 {
     display as result "  PASS 1: regtab absent factor levels stay blank and estimable rows keep CI/p"

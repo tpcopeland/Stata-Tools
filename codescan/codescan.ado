@@ -1,4 +1,4 @@
-*! codescan Version 4.2.0  2026/08/28
+*! codescan Version 4.2.1  2026/09/02
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -829,6 +829,13 @@ program define codescan, rclass
     * =========================================================================
     * SAVE DEFINE TO CSV (W3)
     * =========================================================================
+    * Validated here, before any work, so a bad filename or an unauthorized
+    * overwrite costs the caller nothing. The file itself is NOT written here:
+    * a definition CSV left behind by a call that then failed (an empty
+    * analytical sample, a failing graph/export/saving) reads as a completed
+    * operation to any workflow that treats artifact presence as success. The
+    * write is deferred to the late side-effect zone with the other external
+    * outputs; see SAVE DEFINE TO CSV -- COMMIT below.
     if `"`save'"' != "" {
         _codescan_parse_filespec, spec(`"`save'"') context(save()) checkexists
         local _save_fn `"`r(filename)'"'
@@ -842,33 +849,6 @@ program define codescan, rclass
             display as error "save() cannot be combined with codefile(); codefile already provides a file"
             exit 198
         }
-        preserve
-        quietly {
-            clear
-            set obs `n_conditions'
-            gen str32 name = ""
-            gen str244 pattern = ""
-            gen str244 exclusion = ""
-            gen str80 label = ""
-            forvalues i = 1/`n_conditions' {
-                local _sv_nm "`def_name_`i''"
-                * Strip generate() prefix if present
-                if "`generate'" != "" {
-                    local _sv_nm = substr("`_sv_nm'", strlen("`generate'") + 1, .)
-                }
-                replace name = "`_sv_nm'" in `i'
-                replace pattern = `"`def_pattern_`i''"' in `i'
-                replace exclusion = `"`def_excl_`i''"' in `i'
-                forvalues j = 1/`n_labels' {
-                    if "`lab_name_`j''" == "`def_name_`i''" {
-                        replace label = `"`lab_label_`j''"' in `i'
-                    }
-                }
-            }
-            export delimited using `"`_save_fn'"', replace
-        }
-        restore
-        display as text `"(define() saved to `_save_fn')"'
     }
 
     * =========================================================================
@@ -2148,6 +2128,51 @@ program define codescan, rclass
             quietly save `"`_saving_fn'"'
         }
         display as text `"  (dataset saved to `_saving_fn')"'
+    }
+
+    * =========================================================================
+    * SAVE DEFINE TO CSV -- COMMIT (W3)
+    * =========================================================================
+    * The write half of the save() option, deferred from option validation so no
+    * definition CSV survives a call that failed. Placed after graph/export/
+    * saving so it commits only once every other fallible external output has
+    * succeeded. A tempfile round-trip rather than preserve/restore: the caller's
+    * own preserve may already be active here, and Stata allows one per program.
+    if `"`save'"' != "" {
+        tempfile _savedef_data
+        quietly save `_savedef_data'
+        capture noisily {
+            quietly {
+                clear
+                set obs `n_conditions'
+                gen str32 name = ""
+                gen str244 pattern = ""
+                gen str244 exclusion = ""
+                gen str80 label = ""
+                forvalues i = 1/`n_conditions' {
+                    local _sv_nm "`def_name_`i''"
+                    * Strip generate() prefix if present
+                    if "`generate'" != "" {
+                        local _sv_nm = substr("`_sv_nm'", strlen("`generate'") + 1, .)
+                    }
+                    replace name = "`_sv_nm'" in `i'
+                    replace pattern = `"`def_pattern_`i''"' in `i'
+                    replace exclusion = `"`def_excl_`i''"' in `i'
+                    forvalues j = 1/`n_labels' {
+                        if "`lab_name_`j''" == "`def_name_`i''" {
+                            replace label = `"`lab_label_`j''"' in `i'
+                        }
+                    }
+                }
+                export delimited using `"`_save_fn'"', replace
+            }
+        }
+        local _savedef_rc = _rc
+        capture quietly use `_savedef_data', clear
+        local _savedef_restore_rc = _rc
+        if `_savedef_restore_rc' & `_savedef_rc' == 0 exit `_savedef_restore_rc'
+        if `_savedef_rc' exit `_savedef_rc'
+        display as text `"(define() saved to `_save_fn')"'
     }
 
     * =========================================================================
