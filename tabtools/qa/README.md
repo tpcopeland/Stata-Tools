@@ -50,14 +50,14 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 |---|---|
 | `test_ci_level_provenance.do` | Confidence-level provenance and explicit fallback contracts across model-table commands. |
 | `test_comptab.do` | Vertical composition, source-frame handling, option guards, and error-state restoration. |
-| `test_corrtab.do` | Pearson/Spearman output, stars, shapes, and pairwise-N p-values. |
+| `test_corrtab.do` | Pearson/Spearman output, stars, shapes, pairwise-N p-values, and undefined diagonals for degenerate Spearman variables. |
 | `test_crosstab.do` | Association measures, weights, small-cell disclosure control, returns, and sink parity. |
 | `test_deep_audit_core.do` | Destructive and silent-corruption regressions in frames, metadata, scales, weights, and samples. |
 | `test_deep_audit_output.do` | CI provenance, formatting boundaries, atomic exports, quotation, and output normalization. |
 | `test_desctab.do` | Direct descriptive-engine behavior, option semantics, returns, styles, sinks, and cleanup. |
 | `test_effecttab.do` | Supported result sources, matrix mode, frames, formatting, and console returns. |
 | `test_effecttab_omitted.do` | Constrained margins labelling: not-estimable and unidentified cells, factor row labels, `omitlabel()`/`emptylabel()`, and `r(table)` exclusion. |
-| `test_audit_2026_09_02.do` | Extended missings, distinct missing categories, stable matrix identifiers, transactional frames, and strict private-helper contracts. |
+| `test_audit_2026_09_02.do` | Extended missings, distinct missing categories, fractional category labels across output sinks, stable matrix identifiers, transactional frames, and strict private-helper contracts. |
 | `test_hrcomptab.do` | Rate/model scaffold composition, frame/workbook parity, eplot output, dependency-failure cleanup, and guards. |
 | `test_issue_review_1_11_0.do` | Regression pins for factor rendering, merging, precision, labels, legends, and whitespace. |
 | `test_option_coverage.do` | Real-invocation exercise of each public command’s option surface. |
@@ -73,7 +73,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_smallcells.do` | Small-cell parsing, masking, irredundancy, compositions, sink parity, and leak attacks. |
 | `test_stacktab.do` | Workbook block assembly, stacking, column merging, Markdown, and frame guards. |
 | `test_stratetab.do` | Rate-file workflows, multi-outcome scaffolds, ordering, sheets, and cleanup. |
-| `test_survtab.do` | Kaplan-Meier, medians, RMST, events, risks, formatting, and collisions. |
+| `test_survtab.do` | Kaplan-Meier, medians, RMST, events, risks, frequency-weighted expanded-data equivalence, unsupported stset weights, formatting, and collisions. |
 | `test_synthesis_review.do` | Caller-visible errors, sink shapes, escaping, formatting, and stack previews. |
 | `test_table1_tc.do` | Front-end descriptive behavior, weights, formatting, SMDs, missingness, and historical regressions. |
 | `test_tabtools.do` | Controller listing, persistent defaults, profiles, reloads, and error guards. |

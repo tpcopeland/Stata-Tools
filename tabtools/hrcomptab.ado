@@ -1,4 +1,4 @@
-*! hrcomptab Version 2.1.1  2026/09/04
+*! hrcomptab Version 2.1.2  2026/09/05
 *! Compatibility wrapper for comptab rate-frame composition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

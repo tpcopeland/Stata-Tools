@@ -820,6 +820,116 @@ else {
 }
 
 
+**# F1: frequency-weighted stset data match expanded data
+* A frequency-weighted stset is replication-equivalent to expanded data.  The
+* RMST SE/CI and all displayed counts must therefore agree, not only the KM
+* point estimate.
+local ++test_count
+capture noisily {
+    clear
+    input double t byte d int w
+    1 1 10
+    2 1 1
+    3 0 10
+    4 0 1
+    end
+
+    stset t [fw=w], failure(d)
+    survtab, times(2) rmst(3) riskset events
+    local fw_rmst = r(rmst_1)
+    local fw_se = r(rmst_se_1)
+    local fw_lb = r(rmst_lb_1)
+    local fw_ub = r(rmst_ub_1)
+    local fw_events = r(events_1)
+    local fw_n = r(atrisk_1)
+    local fw_surv = r(table)[1, 1]
+
+    expand w
+    stset t, failure(d)
+    survtab, times(2) rmst(3) riskset events
+
+    assert abs(r(rmst_1) - `fw_rmst') < 1e-10
+    assert abs(r(rmst_se_1) - `fw_se') < 1e-10
+    assert abs(r(rmst_lb_1) - `fw_lb') < 1e-10
+    assert abs(r(rmst_ub_1) - `fw_ub') < 1e-10
+    assert r(events_1) == `fw_events'
+    assert r(atrisk_1) == `fw_n'
+    assert abs(r(table)[1, 1] - `fw_surv') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS F1: survtab fweights match expanded-data RMST and counts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL F1: survtab fweight/expanded-data equivalence (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## F1b. unsupported stset weight types fail before output
+local ++test_count
+capture noisily {
+    clear
+    input double t byte d int w
+    1 1 10
+    2 1 1
+    3 0 10
+    4 0 1
+    end
+
+    stset t [pw=w], failure(d)
+    capture frame drop _unsupported_weight
+    capture survtab, times(2) rmst(3) riskset events frame(_unsupported_weight)
+    assert _rc == 198
+    capture frame _unsupported_weight: describe
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS F1b: unsupported stset weights fail before output"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL F1b: unsupported stset-weight guard (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _unsupported_weight
+
+**## F1c. the weight-type guard matches the declared type, not the variable name
+* A substring test on the stset weight characteristic accepts
+* [pweight=fweight_count] because the variable name carries the token, and the
+* command then reports sampling weights as replication counts at rc 0.
+local ++test_count
+capture noisily {
+    clear
+    input double t byte d int fweight_count
+    1 1 10
+    2 1 1
+    3 0 10
+    4 0 1
+    end
+
+    stset t [iw=fweight_count], failure(d)
+    capture frame drop _named_weight
+    capture survtab, times(2) rmst(3) riskset events frame(_named_weight)
+    assert _rc == 198
+    assert missing(r(events_1))
+    capture frame _named_weight: describe
+    assert _rc != 0
+
+    stset t [pw=fweight_count], failure(d)
+    capture survtab, times(2) rmst(3) riskset events
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS F1c: weight-type guard reads the declared type"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL F1c: weight-type guard vs weight variable name (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _named_weight
+
+
 
 **# Migrated: highlight() bounds validation
 

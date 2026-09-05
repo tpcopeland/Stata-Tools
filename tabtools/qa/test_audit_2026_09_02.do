@@ -110,6 +110,105 @@ else {
     local ++fail_count
 }
 
+**# A2b. Fractional categories are not mistaken for missing values
+local ++test_count
+local output_dir "`qa_dir'/output"
+capture mkdir "`output_dir'"
+local decimal_csv "`output_dir'/audit_decimal.csv"
+local decimal_md "`output_dir'/audit_decimal.md"
+local decimal_xlsx "`output_dir'/audit_decimal.xlsx"
+capture erase "`decimal_csv'"
+capture erase "`decimal_md'"
+capture erase "`decimal_xlsx'"
+capture noisily {
+    clear
+    input double row double col
+    .25 .5
+    .25 1
+    1 .5
+    1 1
+    . .
+    .a .a
+    end
+
+    capture frame drop __tt_decimal
+    crosstab row col, missing frame(__tt_decimal, replace) ///
+        csv("`decimal_csv'") markdown("`decimal_md'") ///
+        xlsx("`decimal_xlsx'") sheet("Decimal")
+
+    frame __tt_decimal: count if c1 == ".25"
+    assert r(N) == 1
+    frame __tt_decimal: count if c1 == "Missing (.25)"
+    assert r(N) == 0
+    frame __tt_decimal: count if c2 == ".5"
+    assert r(N) == 1
+    frame __tt_decimal: count if c2 == "Missing (.5)"
+    assert r(N) == 0
+    frame __tt_decimal: count if c1 == "Missing"
+    assert r(N) == 1
+    frame __tt_decimal: count if c1 == "Missing (.a)"
+    assert r(N) == 1
+
+    preserve
+    import delimited "`decimal_csv'", clear varnames(nonames) stringcols(_all)
+    quietly count if v1 == ".25"
+    assert r(N) == 1
+    quietly count if v1 == "Missing (.25)"
+    assert r(N) == 0
+    quietly count if v2 == ".5"
+    assert r(N) == 1
+    quietly count if v2 == "Missing (.5)"
+    assert r(N) == 0
+    restore
+
+    preserve
+    import excel using "`decimal_xlsx'", sheet("Decimal") clear allstring
+    local saw_fraction 0
+    local saw_false_missing 0
+    foreach _v of varlist _all {
+        quietly count if `_v' == ".25" | `_v' == ".5"
+        if r(N) > 0 local saw_fraction 1
+        quietly count if `_v' == "Missing (.25)" | `_v' == "Missing (.5)"
+        if r(N) > 0 local saw_false_missing 1
+    }
+    assert `saw_fraction' == 1
+    assert `saw_false_missing' == 0
+    restore
+
+    tempname decimal_fh
+    local saw_md_fraction 0
+    local saw_md_false_missing 0
+    local decimal_line ""
+    file open `decimal_fh' using "`decimal_md'", read text
+    file read `decimal_fh' decimal_line
+    while r(eof) == 0 {
+        if strpos(`"`decimal_line'"', ".25") > 0 | strpos(`"`decimal_line'"', ".5") > 0 {
+            local saw_md_fraction 1
+        }
+        if strpos(`"`decimal_line'"', "Missing (.25)") > 0 | ///
+            strpos(`"`decimal_line'"', "Missing (.5)") > 0 {
+            local saw_md_false_missing 1
+        }
+        file read `decimal_fh' decimal_line
+    }
+    file close `decimal_fh'
+    assert `saw_md_fraction' == 1
+    assert `saw_md_false_missing' == 0
+}
+local a2b_rc = _rc
+capture frame drop __tt_decimal
+capture erase "`decimal_csv'"
+capture erase "`decimal_md'"
+capture erase "`decimal_xlsx'"
+if `a2b_rc' == 0 {
+    display as result "  PASS A2b: fractional categories retain numeric labels across sinks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL A2b: fractional category labels (rc=`a2b_rc')"
+    local ++fail_count
+}
+
 **# A3. stratetab matrix columns use collision-safe outcome identities
 local ++test_count
 tempfile rate_one rate_two

@@ -1,4 +1,4 @@
-*! corrtab Version 2.1.1  2026/09/04
+*! corrtab Version 2.1.2  2026/09/05
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -147,7 +147,9 @@ program define corrtab, rclass
             matrix `_corr' = J(`nvars', `nvars', .)
             matrix `_pmat' = J(`nvars', `nvars', .)
             forvalues i = 1/`nvars' {
-                if `_nmat'[`i', `i'] > 0 {
+                local _diag_var : word `i' of `varlist'
+                quietly summarize `_diag_var' if `_pwtouse' & !missing(`_diag_var'), meanonly
+                if r(N) > 1 & r(min) < r(max) {
                     matrix `_corr'[`i', `i'] = 1
                 }
                 forvalues j = `=`i' + 1'/`nvars' {
