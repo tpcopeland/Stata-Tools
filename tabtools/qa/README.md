@@ -73,7 +73,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_smallcells.do` | Small-cell parsing, masking, irredundancy, compositions, sink parity, and leak attacks. |
 | `test_stacktab.do` | Workbook block assembly, stacking, column merging, Markdown, and frame guards. |
 | `test_stratetab.do` | Rate-file workflows, multi-outcome scaffolds, ordering, sheets, and cleanup. |
-| `test_survtab.do` | Kaplan-Meier, medians, RMST, events, risks, frequency-weighted expanded-data equivalence, unsupported stset weights, formatting, and collisions. |
+| `test_survtab.do` | Kaplan-Meier, medians, RMST, events, risks, frequency-weighted expanded-data equivalence (RMST/CI, returned counts, complete rendered tables, and known event/risk counts), unsupported stset weights, formatting, and collisions. |
 | `test_synthesis_review.do` | Caller-visible errors, sink shapes, escaping, formatting, and stack previews. |
 | `test_table1_tc.do` | Front-end descriptive behavior, weights, formatting, SMDs, missingness, and historical regressions. |
 | `test_tabtools.do` | Controller listing, persistent defaults, profiles, reloads, and error guards. |

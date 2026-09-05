@@ -835,7 +835,9 @@ capture noisily {
     end
 
     stset t [fw=w], failure(d)
-    survtab, times(2) rmst(3) riskset events
+    tempname weighted_frame expanded_frame
+    tempfile weighted_table
+    survtab, times(2) rmst(3) riskset events frame(`weighted_frame')
     local fw_rmst = r(rmst_1)
     local fw_se = r(rmst_se_1)
     local fw_lb = r(rmst_lb_1)
@@ -843,10 +845,21 @@ capture noisily {
     local fw_events = r(events_1)
     local fw_n = r(atrisk_1)
     local fw_surv = r(table)[1, 1]
+    assert `fw_events' == 11
+    assert `fw_n' == 22
+    frame `weighted_frame' {
+        quietly count if c1 == "Events / N"
+        assert r(N) == 1
+        assert subinstr(c2, " ", "", .) == "11/22" if c1 == "Events / N"
+        quietly count if c1[_n-1] == "Number at risk"
+        assert r(N) == 1
+        assert real(c2) == 12 if c1[_n-1] == "Number at risk"
+        quietly save "`weighted_table'"
+    }
 
     expand w
     stset t, failure(d)
-    survtab, times(2) rmst(3) riskset events
+    survtab, times(2) rmst(3) riskset events frame(`expanded_frame')
 
     assert abs(r(rmst_1) - `fw_rmst') < 1e-10
     assert abs(r(rmst_se_1) - `fw_se') < 1e-10
@@ -855,13 +868,24 @@ capture noisily {
     assert r(events_1) == `fw_events'
     assert r(atrisk_1) == `fw_n'
     assert abs(r(table)[1, 1] - `fw_surv') < 1e-10
+    frame `weighted_frame': local weighted_N = _N
+    frame `weighted_frame': unab weighted_vars : _all
+    frame `expanded_frame' {
+        assert _N == `weighted_N'
+        unab expanded_vars : _all
+        assert "`expanded_vars'" == "`weighted_vars'"
+        cf _all using "`weighted_table'"
+    }
 }
-if _rc == 0 {
+local fw_rc = _rc
+capture frame drop `weighted_frame'
+capture frame drop `expanded_frame'
+if `fw_rc' == 0 {
     display as result "  PASS F1: survtab fweights match expanded-data RMST and counts"
     local ++pass_count
 }
 else {
-    display as error "  FAIL F1: survtab fweight/expanded-data equivalence (rc=`=_rc')"
+    display as error "  FAIL F1: survtab fweight/expanded-data equivalence (rc=`fw_rc')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! eplot Version 1.3.0  2026/09/02
+*! eplot Version 1.3.1  2026/09/06
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1458,15 +1458,19 @@ program define _eplot_estimates, rclass
             }
         }
 
+        // Track explicitly supplied single-model presentation options before
+        // a style preset can contribute its own defaults.
+        local _values_supplied = ("`values'" != "")
+        local _stars_supplied = ("`stars'" != "")
+        local _sigcolors_supplied = ("`sigcolors'" != "")
+        local _sigcolor_supplied = (`"`sigcolor'"' != "")
+        local _insigncolor_supplied = (`"`insigncolor'"' != "")
+
         // ====== Style presets (apply BEFORE user overrides) ======
-        // A preset-supplied values is tracked separately so that the
-        // multi-model note below reports only options the user asked for.
-        local _values_from_style 0
         if "`style'" != "" {
             _eplot_apply_style, style(`"`style'"')
             if "`values'" == "" {
                 local values "`s(values)'"
-                if "`values'" != "" local _values_from_style 1
             }
             if "`mcolor'" == "" local mcolor "`s(mcolor)'"
             if "`cicolor'" == "" local cicolor "`s(cicolor)'"
@@ -1512,6 +1516,19 @@ program define _eplot_estimates, rclass
         local estlist `"`anything'"'
     }
     local n_models : word count `estlist'
+
+    if `n_models' > 1 {
+        local _mm_invalid ""
+        if `_values_supplied' local _mm_invalid "`_mm_invalid' values"
+        if `_stars_supplied' local _mm_invalid "`_mm_invalid' stars"
+        if `_sigcolors_supplied' local _mm_invalid "`_mm_invalid' sigcolors"
+        if `_sigcolor_supplied' local _mm_invalid "`_mm_invalid' sigcolor()"
+        if `_insigncolor_supplied' local _mm_invalid "`_mm_invalid' insigncolor()"
+        if "`_mm_invalid'" != "" {
+            display as error "`_mm_invalid' may be used only with single-model estimates"
+            exit 198
+        }
+    }
 
     local _modellabels_supplied = (`"`modellabels'"' != "")
     local _palette_supplied = (`"`palette'"' != "")
@@ -2054,20 +2071,6 @@ program define _eplot_estimates, rclass
                 "in multi-model mode)"
         }
 
-        // The presentation options below are single-model only.  They used to
-        // be parsed and then silently discarded here; report them instead.
-        local _mm_ignored ""
-        if "`values'" != "" & !`_values_from_style' {
-            local _mm_ignored "`_mm_ignored' values"
-        }
-        if "`stars'" != "" local _mm_ignored "`_mm_ignored' stars"
-        if "`sigcolors'" != "" local _mm_ignored "`_mm_ignored' sigcolors"
-        if `"`sigcolor'"' != "" local _mm_ignored "`_mm_ignored' sigcolor()"
-        if `"`insigncolor'"' != "" local _mm_ignored "`_mm_ignored' insigncolor()"
-        if `"`_mm_ignored'"' != "" {
-            display as text "(note:`_mm_ignored' apply to single-model " ///
-                "estimates only and are ignored in multi-model mode)"
-        }
     }
 
     // ====== Apply coefficient labels (highest precedence) ======
@@ -3272,25 +3275,37 @@ program define _eplot_effect_axis_labels, sclass
             sreturn local axisopts `"`xlabel'"'
         }
         else {
-            // _natscale is an undocumented Stata internal (used by graph) that
-            // returns "nice" axis ticks in r(min)/r(delta)/r(max), matching
-            // Stata's native axis labelling.
-            capture _natscale `min' `max' 5
-            if _rc == 0 {
-                sreturn local axisopts ///
-                    `"`r(min)'(`r(delta)')`r(max)', grid glcolor(gs12) glwidth(vthin)"'
+            // Package-owned 1/2/5 scaling avoids reliance on Stata's
+            // undocumented _natscale command while retaining readable ticks.
+            local _span = `max' - `min'
+            if missing(`_span') | `_span' <= 0 {
+                local _span = max(abs(`max'), 1)
+            }
+            local _raw = `_span' / 5
+            local _power = floor(log10(`_raw'))
+            local _base = 10^`_power'
+            local _fraction = `_raw' / `_base'
+            if `_fraction' <= 1 {
+                local _nice = 1
+            }
+            else if `_fraction' <= 2 {
+                local _nice = 2
+            }
+            else if `_fraction' <= 5 {
+                local _nice = 5
             }
             else {
-                // The internal is undocumented, so fall back to an even
-                // five-interval split if a future Stata major removes it.
-                local _span = `max' - `min'
-                if missing(`_span') | `_span' <= 0 {
-                    local _span = max(abs(`max'), 1)
-                }
-                local _delta = `_span' / 5
-                sreturn local axisopts ///
-                    `"`min'(`_delta')`max', grid glcolor(gs12) glwidth(vthin)"'
+                local _nice = 10
             }
+            local _delta = `_nice' * `_base'
+            local _axis_min = floor(`min' / `_delta') * `_delta'
+            local _axis_max = ceil(`max' / `_delta') * `_delta'
+            if `_axis_min' == `_axis_max' local _axis_max = `_axis_min' + `_delta'
+            local _min_text = string(`_axis_min', "%18.0g")
+            local _delta_text = string(`_delta', "%18.0g")
+            local _max_text = string(`_axis_max', "%18.0g")
+            sreturn local axisopts ///
+                `"`_min_text'(`_delta_text')`_max_text', grid glcolor(gs12) glwidth(vthin)"'
         }
     }
     local rc = _rc

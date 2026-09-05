@@ -493,7 +493,7 @@ capture graph drop _sel_t8d
 
 display _n "{bf:MODE-SCOPED PRESENTATION OPTIONS}"
 
-**# 9. Multi-model estimates report the single-model-only options they ignore
+**# 9. Multi-model estimates reject single-model-only presentation options
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -506,92 +506,29 @@ capture noisily {
     eplot _sel_m1, drop(_cons) values name(_sel_t9a, replace)
     assert strpos(`"`r(cmd)'"', "mlabel(_val_text)") > 0
 
-    * Multi-model: the layer is absent and the palette colors win.  Capture
-    * the console so the note itself is asserted; without it this case would
-    * pass on the pre-1.3.0 build, which discarded the options in silence.
-    * A batch log wraps at c(linesize) with a "> " continuation, which would
-    * split the note mid-word; widen the line so each note is one record.
-    local _orig_ls = c(linesize)
-    set linesize 200
-    tempfile _mmlog
-    capture log close _sel_mm
-    log using "`_mmlog'", replace text name(_sel_mm)
-    eplot _sel_m1 _sel_m2, drop(_cons) values stars sigcolors ///
-        sigcolor(red) insigncolor(green) name(_sel_t9b, replace)
-    * Capture r(cmd) before `log close', which clears r().
+    * Multi-model calls must fail explicitly rather than discard a request.
+    foreach bad in "values" "stars" "sigcolors" ///
+        "sigcolor(red)" "insigncolor(green)" {
+        capture noisily eplot _sel_m1 _sel_m2, drop(_cons) `bad' ///
+            name(_sel_t9b, replace)
+        assert _rc == 198
+    }
+    capture noisily eplot _sel_m1 _sel_m2, drop(_cons) values stars ///
+        sigcolors sigcolor(red) insigncolor(green) name(_sel_t9b, replace)
+    assert _rc == 198
+
+    * A style preset may contain a single-model-only component internally.
+    * The preset remains usable, and its applicable multi-model parts survive.
+    eplot _sel_m1 _sel_m2, drop(_cons) style(forest) name(_sel_t9d, replace)
     local c `"`r(cmd)'"'
-    log close _sel_mm
     assert strpos(`"`c'"', "mlabel(_val_text)") == 0
-    assert strpos(`"`c'"', "red") == 0
-    assert strpos(`"`c'"', "green") == 0
     assert strpos(`"`c'"', "mcolor(navy)") > 0
     assert strpos(`"`c'"', "mcolor(cranberry)") > 0
-
-    * Read the captured console back and require the note to name every
-    * option that was dropped.
-    tempname _fh
-    local _noted 0
-    local _saw_values 0
-    local _saw_stars 0
-    local _saw_sigcolors 0
-    file open `_fh' using "`_mmlog'", read text
-    file read `_fh' _ln
-    while r(eof) == 0 {
-        if substr(`"`_ln'"', 1, 6) == "(note:" & ///
-           strpos(`"`_ln'"', "ignored in multi-model mode") > 0 {
-            local _noted 1
-            if strpos(`"`_ln'"', "values") > 0     local _saw_values 1
-            if strpos(`"`_ln'"', "stars") > 0      local _saw_stars 1
-            if strpos(`"`_ln'"', "sigcolors") > 0  local _saw_sigcolors 1
-        }
-        file read `_fh' _ln
-    }
-    file close `_fh'
-    assert `_noted' == 1
-    assert `_saw_values' == 1
-    assert `_saw_stars' == 1
-    assert `_saw_sigcolors' == 1
-
-    * Negative control: the single-model call must NOT emit that note.
-    tempfile _smlog
-    capture log close _sel_sm
-    log using "`_smlog'", replace text name(_sel_sm)
-    eplot _sel_m1, drop(_cons) values stars name(_sel_t9c, replace)
-    log close _sel_sm
-    local _noted 0
-    file open `_fh' using "`_smlog'", read text
-    file read `_fh' _ln
-    while r(eof) == 0 {
-        if substr(`"`_ln'"', 1, 6) == "(note:" & ///
-           strpos(`"`_ln'"', "ignored in multi-model mode") > 0 local _noted 1
-        file read `_fh' _ln
-    }
-    file close `_fh'
-    assert `_noted' == 0
-
-    * A style preset that supplies values must not produce the note, because
-    * the user never asked for values.
-    tempfile _stlog
-    capture log close _sel_st
-    log using "`_stlog'", replace text name(_sel_st)
-    eplot _sel_m1 _sel_m2, drop(_cons) style(forest) name(_sel_t9d, replace)
-    log close _sel_st
-    local _noted 0
-    file open `_fh' using "`_stlog'", read text
-    file read `_fh' _ln
-    while r(eof) == 0 {
-        if substr(`"`_ln'"', 1, 6) == "(note:" & ///
-           strpos(`"`_ln'"', "ignored in multi-model mode") > 0 local _noted 1
-        file read `_fh' _ln
-    }
-    file close `_fh'
-    assert `_noted' == 0
-    set linesize `_orig_ls'
 
     estimates drop _sel_m1 _sel_m2
 }
 if _rc == 0 {
-    display as result "  PASS: 9 multi-model presentation-option scope"
+    display as result "  PASS: 9 multi-model presentation options fail closed"
     local ++pass_count
 }
 else {
@@ -602,11 +539,7 @@ else {
 capture estimates drop _all
 capture graph drop _sel_t9a
 capture graph drop _sel_t9b
-capture graph drop _sel_t9c
 capture graph drop _sel_t9d
-capture log close _sel_mm
-capture log close _sel_sm
-capture log close _sel_st
 
 display _n "{bf:NUMERIC OPTION DOMAINS AND WEIGHT VALIDITY}"
 
@@ -743,6 +676,24 @@ else {
 set varabbrev off
 capture graph drop _all
 
+**# 13. Effect-axis ticks do not depend on undocumented Stata internals
+local ++test_count
+capture noisily {
+    quietly run "`pkg_dir'/eplot.ado"
+    _eplot_effect_axis_labels, min(-0.36) max(0.03)
+    local axisopts `"`s(axisopts)'"'
+    assert `"`axisopts'"' == ///
+        "-.4(.1).1, grid glcolor(gs12) glwidth(vthin)"
+}
+if _rc == 0 {
+    display as result "  PASS: 13 axis scale is package-owned"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 13 axis scale depends on _natscale (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13"
+}
 capture program drop _sel_fixture
 capture program drop _pooled_fixture
 

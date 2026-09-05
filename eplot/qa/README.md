@@ -45,7 +45,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 | `test_colors_routing.do` | Significance colors, mistyped-estimate routing, and in-session rerun safety |
 | `test_axis_coeflabels.do` | Category-axis suppression, coefficient labels, and group/model ordering |
 | `test_stars_matrix.do` | Stars, p-values, special row types, matrix styles, weighted markers, and sort alignment |
-| `test_selection_labels.do` | Exact `keep()`/`drop()`/`noconstant` row identity in every mode, `coeflabels()` composition with `order()`/`groups()`/`headers()`, `noci` interval-geometry suppression, mode-scoped presentation options, numeric option domains, and weighted-marker weight validity |
+| `test_selection_labels.do` | Exact `keep()`/`drop()`/`noconstant` row identity in every mode, `coeflabels()` composition with `order()`/`groups()`/`headers()`, `noci` interval-geometry suppression, mode-scoped presentation options, numeric option domains, weighted-marker weight validity, and package-owned axis scaling |
 | `test_regressions.do` | Analytical return preservation when graph saving fails in each input mode |
 | `test_eplot_v128.do` | Multi-equation identity, estimate state, interval validation, option conflicts, interaction messaging, and rendered help |
 | `test_eplot_v129.do` | Finite-df inference, immutable coefficient identity, prediction intervals, fail-closed parsing, long labels, exact annotations, and shipped-example regressions |
