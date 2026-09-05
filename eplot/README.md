@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.3.0** | 2026-09-02
+**Version 1.3.1** | 2026-09-06
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -279,7 +279,7 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 - Supplied lower confidence limits may not exceed upper limits; prediction limits must be complete ordered pairs; two-column matrix standard errors must be nonnegative; and all required matrix cells must be nonmissing.
 - Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and single-model estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
 - Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
-- `values` and `favors()` require horizontal layout; `values`, `stars`, `sigcolors`, `sigcolor()`, and `insigncolor()` are single-model-only in estimates mode, and a multi-model call that supplies them reports which options it ignored.
+- `values` and `favors()` require horizontal layout; `values`, `stars`, `sigcolors`, `sigcolor()`, and `insigncolor()` are single-model-only in estimates mode, and a multi-model call that explicitly supplies them exits with `r(198)`.
 - `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; multi-model-only options (`modellabels()`, `offset()`, `palette()`, and `legendopts()`) require multiple estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
@@ -299,6 +299,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.3.1** (2026-09-06): Made explicitly supplied single-model presentation options fail with `r(198)` in multi-model estimates instead of being ignored, replaced the undocumented `_natscale` dependency with package-owned 1/2/5 effect-axis tick scaling, and added focused regressions for both contracts.
 - **1.3.0** (2026-09-02): Applied `keep()`, `drop()`, and `noconstant` in data and frame modes, where they had been parsed and discarded; made `coeflabels()` compose with `order()`, `groups()`, and `headers()` by keying selection, ordering, and grouping on source names in every mode; made `noci` suppress pooled-diamond geometry; made the default multi-model palette cycle instead of falling back to navy from model nine; reported rather than silently discarding single-model-only presentation options in multi-model estimates; validated `dp()`, `rescale()`, `null()`, `boxscale()`, and weighted-marker weights up front; and documented `matrix()`, frame-mode `if`/`in`, the palette cycle, and the mode scope of significance colors.
 - **1.2.9** (2026-08-30): Corrected t-based finite-df inference, duplicate-label multi-model returns, prediction-interval transformations and validation, matrix missing-value and `star` handling, exact heterogeneity text, long-label returns, mapping/cardinality validation, native `xline()` errors, and parser state restoration; expanded numerical and negative-path QA.
 - **1.2.8** (2026-08-11): Preserved multi-equation coefficient identities and empty estimation state, corrected multi-model `r(k)`, named-model `eform` labels, and negative rescaling, and added explicit validation for intervals, row types, p-values, conflicting options, covariance matrices, and `favors()` labels.

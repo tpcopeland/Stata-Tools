@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  02sep2026}{...}
+{* *! version 1.3.1  06sep2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -513,6 +513,11 @@ specified. Default is {cmd:cranberry}.
 non-significant effects when {opt sigc:olors} is
 specified. Default is {cmd:gs10}.
 
+{pstd}
+In estimates mode, explicitly supplying {opt values}, {opt stars},
+{opt sigcolors}, {opt sigcolor()}, or {opt insigncolor()} with more than one
+model is an error. Multi-model plots use {opt palette()} for model colors.
+
 {phang}
 {opt style(name)}
 applies a style preset. Presets set sensible defaults for common journal
@@ -922,7 +927,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 02sep2026{p_end}
+{pstd}Version 1.3.1, 06sep2026{p_end}
 
 
 {marker alsosee}{...}
