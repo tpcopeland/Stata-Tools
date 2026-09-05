@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.2.1  2026/09/02
+*! codescan_describe Version 4.2.2  2026/09/06
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -23,6 +23,8 @@ STORED RESULTS:
     r(varlist)    - Variables scanned
     r(top_codes)  - Matrix: frequency, percent, cumulative percent per code
     r(chapters)   - Matrix: code count, entry count per first-character chapter
+    r(top_code_#) - Exact code value for each displayed r(top_codes) row
+    r(chapter_#)  - Exact leading character for each r(chapters) row
 */
 
 program define codescan_describe, rclass

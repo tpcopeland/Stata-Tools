@@ -193,13 +193,29 @@ program define _rm_diff_cell, rclass
     * complete variable inventory, storage type, display format, value-label
     * name, and variable label. Decoded ucat_text makes value-label definition
     * drift visible on the value axis too.
+    *
+    * `cf _all' expands `_all' against MEMORY, so a column present in the
+    * comparison file but absent here is never looked at and the compare
+    * passes at rc=0. Pin the inventory against each file directly and fold
+    * that rc into the one the driver already reports, so an inventory drift
+    * is recorded as a cell failure rather than aborting the sweep.
     use "`SW'", clear
     local sw_N = _N
+    unab sw_vars : _all
+    quietly describe using "`BIN'", varlist
+    capture assert "`sw_vars'" == "`r(varlist)'"
+    local inv_rc = _rc
     capture cf _all using "`BIN'"
-    return scalar cf_rc = _rc
+    local val_rc = _rc
+    return scalar cf_rc = cond(`inv_rc' != 0, `inv_rc', `val_rc')
     use "`SWDESC'", clear
+    unab swdesc_vars : _all
+    quietly describe using "`BINDESC'", varlist
+    capture assert "`swdesc_vars'" == "`r(varlist)'"
+    local meta_inv_rc = _rc
     capture cf _all using "`BINDESC'"
-    return scalar meta_cf_rc = _rc
+    local meta_val_rc = _rc
+    return scalar meta_cf_rc = cond(`meta_inv_rc' != 0, `meta_inv_rc', `meta_val_rc')
     use "`BIN'", clear
     return scalar n_sw  = `sw_N'
     return scalar n_bin = _N
@@ -281,12 +297,12 @@ foreach cl in both left right none {
                     local cellfail 1
                 }
                 if `cfrc' != 0 {
-                    di as error "PAIR-SET MISMATCH (cf rc=`cfrc') :: `tag'"
+                    di as error "PAIR-SET MISMATCH (varlist/cf rc=`cfrc') :: `tag'"
                     local ++nfail
                     local cellfail 1
                 }
                 if `metarc' != 0 {
-                    di as error "OUTPUT-METADATA MISMATCH (cf rc=`metarc') :: `tag'"
+                    di as error "OUTPUT-METADATA MISMATCH (varlist/cf rc=`metarc') :: `tag'"
                     local ++nfail
                     local cellfail 1
                 }

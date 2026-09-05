@@ -1164,10 +1164,10 @@ program define rangematch, rclass
     * seed() only governs the random tie-break; reject it otherwise so a
     * typo cannot silently do nothing. The option is declared SEED(string), not
     * SEED(integer), on purpose: the value is passed verbatim to `set seed'
-    * (rangematch.ado ~L1762), which accepts an integer OR a full seed-state
-    * token and validates it itself. The help documents the common case,
-    * seed(#); do not narrow the grammar to integer -- that would reject valid
-    * seed-state tokens that `set seed' accepts today.
+    * in the tie-break setup below, which accepts an integer OR a full
+    * seed-state token and validates it itself. The help documents the common
+    * case, seed(#); do not narrow the grammar to integer -- that would reject
+    * valid seed-state tokens that `set seed' accepts today.
     if `"`seed'"' != "" & "`ties'" != "random" {
         display as error "seed() is only allowed with ties(random)"
         exit 198
@@ -2259,7 +2259,11 @@ program define rangematch, rclass
     * deliberately BEFORE output is routed: a side-effect failure must not
     * strand the analytical payload. When saving() cannot write its file the
     * join itself already succeeded, so the counts are real and the caller can
-    * read them, fix the path, and re-export without recomputing the match.
+    * read them. What survives is the diagnostic payload only, not the output:
+    * the saving() route restores the caller's data before it writes, and the
+    * cleanup above drops __rm_out, so re-exporting means re-running the match.
+    * Measured on a failed save: rc=603, r(N_pairs) intact, r(saving) empty, no
+    * __rm_out frame, caller data unchanged.
     * test_rangematch_v133.do T8 is the gate on that contract.
     *
     * What must NOT survive is any claim that output exists: r(saving) and

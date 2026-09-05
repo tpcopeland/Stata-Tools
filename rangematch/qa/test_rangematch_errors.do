@@ -21,6 +21,22 @@ program define _rm_errors_using
     generate double x = 42
 end
 
+* Assert the data in memory are byte-identical to the pre-run snapshot.
+*
+* `cf _all using' alone is not that assertion. `_all' expands to MEMORY's
+* varlist, so a run that dropped a caller variable leaves fewer columns to
+* compare and `cf' passes at rc=0 -- measured: memory (a b) versus a snapshot
+* (a b marker) compares clean. The inventory therefore has to be pinned
+* against the file itself before the value comparison runs.
+capture program drop _rm_errors_same_data
+program define _rm_errors_same_data
+    gettoken snapshot 0 : 0
+    unab mem_vars : _all
+    quietly describe using "`snapshot'", varlist
+    assert "`mem_vars'" == "`r(varlist)'"
+    cf _all using "`snapshot'"
+end
+
 * T1: parser-level enum validation rejects an invalid closure without mutation.
 local ++test_count
 capture noisily {
@@ -141,7 +157,7 @@ capture noisily {
     capture frame rm_errors_bad_nearest: describe
     local frame_exists = (_rc == 0)
     capture frame drop rm_errors_bad_nearest
-    cf _all using "`before'"
+    _rm_errors_same_data "`before'"
 
     capture noisily rangematch key low high using "`using_data'", ///
         nearest(bad) saving("`bad_output'")
@@ -149,7 +165,7 @@ capture noisily {
     capture confirm file "`bad_output'"
     local file_exists = (_rc == 0)
     capture erase "`bad_output'"
-    cf _all using "`before'"
+    _rm_errors_same_data "`before'"
 
     assert `frame_rc' == 198
     assert `saving_rc' == 198
@@ -177,7 +193,7 @@ capture noisily {
     capture frame rm_errors_bad_closed: describe
     local frame_exists = (_rc == 0)
     capture frame drop rm_errors_bad_closed
-    cf _all using "`before'"
+    _rm_errors_same_data "`before'"
 
     capture noisily rangematch key low high using "`using_data'", ///
         closed(bad) saving("`bad_output'")
@@ -185,7 +201,7 @@ capture noisily {
     capture confirm file "`bad_output'"
     local file_exists = (_rc == 0)
     capture erase "`bad_output'"
-    cf _all using "`before'"
+    _rm_errors_same_data "`before'"
 
     assert `frame_rc' == 198
     assert `saving_rc' == 198
@@ -196,6 +212,7 @@ if _rc == 0 local ++pass_count
 else local ++fail_count
 
 capture program drop _rm_errors_using
+capture program drop _rm_errors_same_data
 
 if `fail_count' > 0 {
     display as error "RESULT: test_rangematch_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"

@@ -100,6 +100,7 @@ capture noisily {
 local setup_rc = _rc
 if `setup_rc' == 77 {
     display as text "SKIP (dependency): Python reference package unavailable"
+    display as text "RESULT: crossval_external_references tests=0 pass=0 fail=0 skip=0 skipped=dependency_unavailable"
     capture ado uninstall psdash
     sysdir set PLUS "`_qa_plus_orig'"
     sysdir set PERSONAL "`_qa_personal_orig'"

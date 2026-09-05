@@ -1,4 +1,4 @@
-*! _codescan_outputs Version 4.2.1  2026/09/02
+*! _codescan_outputs Version 4.2.2  2026/09/06
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -84,10 +84,23 @@ program define _codescan_plan_outputs, rclass
                 display as error "output name `_out_nm' conflicts with a varlist variable"
                 exit 198
             }
+            * M3: the folded-uniqueness discipline below stopped at the data
+            * boundary -- DM2 alongside a scanned dm2 makes two distinct Stata
+            * variables and passed, which is the same typo the duplicate check
+            * exists to catch (F10). An output can never legitimately differ
+            * from a variable it is computed FROM by case alone.
+            if strlower("`_out_nm'") == strlower("`v'") {
+                display as error "output name `_out_nm' differs from varlist variable `v' only by case; choose a distinct name"
+                exit 198
+            }
         }
         foreach v of local _protected {
             if "`v'" != "" & "`_out_nm'" == "`v'" {
                 display as error "output name `_out_nm' conflicts with id(), date(), or refdate() variable"
+                exit 198
+            }
+            if "`v'" != "" & strlower("`_out_nm'") == strlower("`v'") {
+                display as error "output name `_out_nm' differs from the id(), date(), or refdate() variable `v' only by case; choose a distinct name"
                 exit 198
             }
         }

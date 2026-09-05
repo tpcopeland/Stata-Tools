@@ -1029,6 +1029,26 @@ capture noisily {
     replace dx1 = "E119" in 5
     codescan_describe dx1, save("_codescan_describe_save.csv", replace)
     confirm file "_codescan_describe_save.csv"
+    * "the file exists" is not the contract -- the draft has to be a usable
+    * codefile. Read it back and check its schema and its content against the
+    * codes that went in. No preserve: a failing assertion here would leave one
+    * active and every later block would die at r(621).
+    import delimited using "_codescan_describe_save.csv", varnames(1) ///
+        stringcols(_all) clear
+    unab _dsv_cols : _all
+    assert "`_dsv_cols'" == "name pattern exclusion label"
+    * One draft rule per first-character chapter present in the data: E (E110,
+    * E119 both), I, J, K -- four rows, not five, and the pattern is the
+    * chapter character rather than the code.
+    assert _N == 4
+    sort pattern
+    assert pattern[1] == "E"
+    assert pattern[2] == "I"
+    assert pattern[3] == "J"
+    assert pattern[4] == "K"
+    forvalues _dsv_i = 1/4 {
+        assert name[`_dsv_i'] == "chapter_" + pattern[`_dsv_i']
+    }
 }
 if _rc == 0 {
     display as result "  PASS: codescan_describe save() generates CSV"
@@ -1189,6 +1209,17 @@ capture noisily {
     codescan dx1, define(dm2 "E11") id(pid) collapse ///
         saving("`_tf_replace'", replace) replace
     confirm file "`_tf_replace'"
+    * The overwrite has to leave the SECOND call's result on disk, collapsed
+    * and complete -- "a file is there" would pass over a stale first-call
+    * artifact or a half-written one. No preserve: a failing assertion here
+    * would leave one active and every later block would die at r(621).
+    use "`_tf_replace'", clear
+    unab _sv_cols : _all
+    assert "`_sv_cols'" == "pid dm2"
+    assert _N == 2
+    assert dm2 == 1
+    quietly count if missing(pid)
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: saving() replace suboption works"

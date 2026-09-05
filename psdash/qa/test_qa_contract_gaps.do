@@ -28,6 +28,33 @@ program define _qcg_record
     }
 end
 
+* PSDASH-09 regression: the CLI result parser (_devkit/stata_dev_cli/
+* commands/qa/_shared.py) anchors on digits immediately after tests=/pass=/
+* fail=.  RB12 once built its counts through %2.0f, emitting "fail= 0"; the
+* parser then dropped the whole suite from the manifest, and a standalone run
+* misread an ordinary display line as a failure.  tools/check_result_sentinels.py
+* refuses all four unreadable idioms at the source: a padded value, fields split
+* across display arguments, a display format left inside the string, and a count
+* built through one.  Stata cannot do the scan itself -- re-quoting raw .do
+* source trips over unbalanced quotes (r(132)) -- and `shell' never sets _rc, so
+* the checker reports through a result file.
+capture program drop _qcg_check_sentinels
+program define _qcg_check_sentinels
+    syntax anything(name=scan_dir), TOOLSdir(string) MINsentinels(integer) ///
+        [SELFtest]
+    local self_opt ""
+    if "`selftest'" != "" local self_opt "--selftest"
+    tempfile result
+    shell python3 "`toolsdir'/check_result_sentinels.py" `scan_dir' ///
+        --min-sentinels `minsentinels' `self_opt' --result-file "`result'"
+    tempname fh
+    file open `fh' using "`result'", read text
+    file read `fh' line
+    file close `fh'
+    if "`line'" != "PASS" display as error "`line'"
+    assert "`line'" == "PASS"
+end
+
 capture program drop _qcg_binary_data
 program define _qcg_binary_data
     clear
@@ -317,12 +344,24 @@ capture noisily {
 }
 _qcg_record `=_rc' "contract-suite RESULT sentinels are written before log close"
 
+**# Every suite sentinel is emitted in the parser-readable unpadded form
+
+local ++test_count
+capture noisily {
+    * --selftest re-proves, in the same invocation, that the checker still
+    * refuses the padded, split, in-string-format, and RB12 formatted-local
+    * idioms.  Without it a green scan could mean the checker had gone blind.
+    _qcg_check_sentinels "`qa_dir'", toolsdir("`qa_dir'/tools") ///
+        minsentinels(50) selftest
+}
+_qcg_record `=_rc' "suite RESULT sentinels are unpadded, single-string, and parser-readable"
+
 **# Summary
 
 local pass_count = $QCG_PASS_COUNT
 local fail_count = $QCG_FAIL_COUNT
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
-display "RESULT: test_qa_contract_gaps tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_qa_contract_gaps tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 
 _psdash_qa_cleanup
 capture log close _all

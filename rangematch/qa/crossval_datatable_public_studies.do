@@ -82,9 +82,15 @@ capture noisily {
 
     keep master_id using_id
     sort master_id using_id
+    * `cf' compares only the variables in memory: a column present in the
+    * oracle but absent here is never looked at and the comparison passes at
+    * rc=0. Pin the inventory in both directions around it.
+    unab got_vars : _all
     cf _all using "`chick_expected'"
 
     use "`chick_expected'", clear
+    unab exp_vars : _all
+    assert "`got_vars'" == "`exp_vars'"
     local expected_pairs = _N
     contract master_id
     local expected_matched_master = _N
@@ -126,9 +132,15 @@ capture noisily {
 
     keep master_id using_id
     sort master_id using_id
+    * `cf' compares only the variables in memory: a column present in the
+    * oracle but absent here is never looked at and the comparison passes at
+    * rc=0. Pin the inventory in both directions around it.
+    unab got_vars : _all
     cf _all using "`pbc_expected'"
 
     use "`pbc_expected'", clear
+    unab exp_vars : _all
+    assert "`got_vars'" == "`exp_vars'"
     local expected_pairs = _N
     contract master_id
     local expected_matched_master = _N

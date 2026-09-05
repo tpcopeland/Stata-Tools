@@ -107,8 +107,7 @@ capture noisily {
 }
 _t "S1d_multigroup_group_loss_rejected" `=_rc'
 
-display as text _n "RESULT: test_rb11_trim_guard tests=" ///
-    %1.0f ($N_PASS + $N_FAIL) " pass=" %1.0f $N_PASS " fail=" %1.0f $N_FAIL
+display as text _n "RESULT: test_rb11_trim_guard tests=`=$N_PASS + $N_FAIL' pass=$N_PASS fail=$N_FAIL skip=0"
 if "$FAILED" != "" display as error "  failed: $FAILED"
 
 capture _psdash_qa_cleanup
