@@ -1,4 +1,4 @@
-*! codescan Version 4.2.1  2026/09/02
+*! codescan Version 4.2.2  2026/09/06
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -94,6 +94,7 @@ program define codescan, rclass
     local _internal_preserve = 0
     local _outputs_created   = 0
     local _data_collapsed    = 0
+    local _merge_collapsing  = 0
     capture noisily {
 
     * =========================================================================
@@ -437,6 +438,19 @@ program define codescan, rclass
         capture confirm name `frame'
         if _rc {
             display as error "frame(): `frame' is not a valid frame name"
+            exit 198
+        }
+        * I1: the current frame can be neither dropped (r(119), "may not drop
+        * current frame") nor written into by frame put (r(110)). Both failures
+        * land at commit time, after the scan and every side effect have run,
+        * so the user pays for the whole analysis only to be told the
+        * destination was never reachable. Refuse it here instead.
+        * frame(default) is the usual form, but it is the CURRENT frame that is
+        * illegal, not the name default: dropping default from another frame is
+        * legal and stays legal.
+        if "`frame'" == "`c(frame)'" {
+            display as error "frame(): `frame' is the current frame"
+            display as error "  codescan cannot write its result into the frame it is reading; choose another name"
             exit 198
         }
         * Check if frame already exists
@@ -1431,6 +1445,12 @@ program define codescan, rclass
         * Collapse to patient level via tempfile, then merge back
         tempfile _merge_save
         quietly save `_merge_save'
+        * I2: from here until the `use' below, the caller's rows are gone from
+        * memory and survive only in `_merge_save'. The collapse path sets
+        * _data_collapsed for the same reason; this window needs its own flag
+        * because its rows ARE recoverable, so the cleanup zone should restore
+        * them rather than treat the collapsed table as the final product.
+        local _merge_collapsing = 1
         quietly collapse `merge_expr' if `touse', by(`id')
         forvalues i = 1/`n_conditions' {
             local name "`def_name_`i''"
@@ -1447,6 +1467,7 @@ program define codescan, rclass
         tempfile _merge_tf
         quietly save `_merge_tf'
         quietly use `_merge_save', clear
+        local _merge_collapsing = 0
 
         * Drop the row-level indicators we created, merge patient-level ones
         forvalues i = 1/`n_conditions' {
@@ -1983,8 +2004,9 @@ program define codescan, rclass
                 clear
                 set obs `n_conditions'
                 * I1: the bar labels are presentation, so they carry the human
-                * label when there is one. str80 because a label is prose, not
-                * a Stata name.
+                * label when there is one. The declared width is a floor, not
+                * a cap: `replace' widens a string variable to fit, so a label
+                * longer than 80 characters reaches the artifact whole.
                 gen str80 condition = ""
                 gen double prevalence = .
                 forvalues i = 1/`n_conditions' {
@@ -2091,30 +2113,34 @@ program define codescan, rclass
     }
 
     * =========================================================================
+    * INTERNAL SCAFFOLDING TEMPVARS (F1, I3)
+    * =========================================================================
+    * codescan's own tempvars must not reach any deliverable. A plain `save'
+    * would write touse and the merge/collapse scaffolding to disk (proven:
+    * merge+saving leaked __00000X columns), and `frame put *' copies them into
+    * the output frame. The frame copy is transient — Stata drops tempvars from
+    * every frame when the defining program ends — but that is undocumented
+    * behaviour to lean an output contract on, and it does nothing for `save',
+    * which commits to disk first. Both writers drop the list explicitly.
+    * This list must track every tempvar that can still be live at output time:
+    *   touse                         marksample (always)
+    *   _scan_string_*                numeric scan vars under tostring
+    *   _merge_input_order/_uniq_id   merge scaffolding
+    *   _cooc_tag                     merge patient-level co-occurrence tag
+    *   rowmatch_* mdate_* mtag_*     merge row-count/date summaries
+    *   mhasmatch_*
+    local _save_temps `touse' `_merge_input_order' `_uniq_id' `_cooc_tag'
+    forvalues i = 1/`_scan_index' {
+        local _save_temps `_save_temps' `_scan_string_`i''
+    }
+    forvalues i = 1/`n_conditions' {
+        local _save_temps `_save_temps' `rowmatch_`i'' `mdate_`i'' `mhasmatch_`i'' `mtag_`i''
+    }
+
+    * =========================================================================
     * SAVING() — save result dataset to file (before restore)
     * =========================================================================
     if `"`saving'"' != "" {
-        * F1: strip codescan's internal tempvars before writing the deliverable.
-        * A plain `save` would also write touse and the merge/collapse
-        * scaffolding to disk (proven: merge+saving leaked __00000X columns).
-        * The frame() and active-data paths escape this only because Stata
-        * auto-drops these tempvars from every frame at program exit — but
-        * `save` commits to disk first, so we must drop them here explicitly.
-        * This list must track every tempvar that can still be live at save
-        * time:
-        *   touse                         marksample (always)
-        *   _scan_string_*                numeric scan vars under tostring
-        *   _merge_input_order/_uniq_id   merge scaffolding
-        *   _cooc_tag                     merge patient-level co-occurrence tag
-        *   rowmatch_* mdate_* mtag_*     merge row-count/date summaries
-        *   mhasmatch_*
-        local _save_temps `touse' `_merge_input_order' `_uniq_id' `_cooc_tag'
-        forvalues i = 1/`_scan_index' {
-            local _save_temps `_save_temps' `_scan_string_`i''
-        }
-        forvalues i = 1/`n_conditions' {
-            local _save_temps `_save_temps' `rowmatch_`i'' `mdate_`i'' `mhasmatch_`i'' `mtag_`i''
-        }
         local _save_drop ""
         foreach _v of local _save_temps {
             capture confirm variable `_v'
@@ -2182,8 +2208,26 @@ program define codescan, rclass
         if "`frame'" != "" {
             if "`replace'" != "" {
                 capture confirm frame `frame'
-                if !_rc frame drop `frame'
+                if !_rc {
+                    capture frame drop `frame'
+                    local _frdrop_rc = _rc
+                    if `_frdrop_rc' {
+                        display as error "frame(): cannot replace frame `frame' (r(`_frdrop_rc'))"
+                        exit `_frdrop_rc'
+                    }
+                }
             }
+            * I3: `frame put *' copies every variable, tempvars included. Drop
+            * the scaffolding first so the output frame carries only the
+            * deliverable, rather than relying on Stata's end-of-program
+            * tempvar sweep to tidy the frame afterwards. Safe here: the
+            * caller's data is restored from the snapshot on the next line.
+            local _frame_drop ""
+            foreach _v of local _save_temps {
+                capture confirm variable `_v'
+                if !_rc local _frame_drop `_frame_drop' `_v'
+            }
+            if "`_frame_drop'" != "" quietly drop `_frame_drop'
             frame put *, into(`frame')
         }
         restore
@@ -2213,6 +2257,24 @@ program define codescan, rclass
         if `_did_preserve' | `_internal_preserve' {
             capture restore
             if _rc == 0 local _rolled_back = 1
+        }
+        * I2: the merge path replaces the caller's rows with the collapsed
+        * patient-level table between `save `_merge_save'' and the `use' that
+        * brings them back. An error inside that window with no snapshot active
+        * would reach the output drop below with collapsed data in memory,
+        * where dropping the planned outputs restores nothing and destroys the
+        * only surviving product. The row-level snapshot is still on disk, so
+        * roll back to it and let the normal drop run against the caller's own
+        * rows. If even that fails, nothing in memory is the caller's data, so
+        * route through the collapsed guard and drop nothing.
+        if !`_rolled_back' & `_merge_collapsing' {
+            capture quietly use `_merge_save', clear
+            if _rc {
+                local _data_collapsed = 1
+            }
+            else {
+                local _merge_collapsing = 0
+            }
         }
         * Drop the planned outputs ONLY when no snapshot rolled the data back.
         * After a successful restore the data IS the caller's pre-call data, and

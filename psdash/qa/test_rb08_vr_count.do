@@ -117,8 +117,7 @@ capture noisily {
 }
 _t "B3_multigroup_counts_covariates_not_contrasts" `=_rc'
 
-display as text _n "RESULT: test_rb08_vr_count tests=" ///
-    %1.0f ($N_PASS + $N_FAIL) " pass=" %1.0f $N_PASS " fail=" %1.0f $N_FAIL
+display as text _n "RESULT: test_rb08_vr_count tests=`=$N_PASS + $N_FAIL' pass=$N_PASS fail=$N_FAIL skip=0"
 if "$FAILED" != "" display as error "  failed: $FAILED"
 
 capture _psdash_qa_cleanup

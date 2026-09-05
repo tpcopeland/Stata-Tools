@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.2.1  2026/09/02
+*! _codescan_definitions Version 4.2.2  2026/09/06
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -123,9 +123,16 @@ program define _codescan_validate_def_regex
     local exclusion = subinstr(`"`macval(exclusion)'"', char(2), ")", .)
     local exclusion = subinstr(`"`macval(exclusion)'"', char(4), "(", .)
     local exclusion = subinstr(`"`macval(exclusion)'"', char(1), `"""', .)
-    mata: _codescan_validate_regex(`"`pattern'"', `"`name'"', "pattern")
+    * M2: read the arguments through st_local rather than interpolating them
+    * into the mata: line. The char(1) round-trip above restores literal double
+    * quotes, and a restored quote inside a `"..."'-delimited argument ends the
+    * argument early -- the caller got a Mata syntax error instead of this
+    * validator's message. st_local passes the local's contents verbatim, so a
+    * quote in a codefile pattern is validated like any other character. The
+    * scan engine already reads its parameters the same way.
+    mata: _codescan_validate_regex(st_local("pattern"), st_local("name"), "pattern")
     if `"`exclusion'"' != "" {
-        mata: _codescan_validate_regex(`"`exclusion'"', `"`name'"', "exclusion")
+        mata: _codescan_validate_regex(st_local("exclusion"), st_local("name"), "exclusion")
     }
 
     }

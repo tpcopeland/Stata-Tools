@@ -295,7 +295,7 @@ display "MULTI-GROUP / LONGITUDINAL VALIDATION SUMMARY"
 display "Tests run:    " $vml_n
 display "Passed:       " $vml_pass
 display "Failed:       " $vml_fail
-display "RESULT: validation_multigroup_longitudinal tests=" $vml_n " pass=" $vml_pass " fail=" $vml_fail
+display "RESULT: validation_multigroup_longitudinal tests=$vml_n pass=$vml_pass fail=$vml_fail skip=0"
 
 if $vml_fail > 0 {
     display as error "SOME TESTS FAILED"

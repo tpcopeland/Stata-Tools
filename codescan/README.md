@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.1** | 2026-09-02
+**Version 4.2.2** | 2026-09-06
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -337,6 +337,7 @@ Before publishing a successful result set, `codescan` clears prior `r()` content
 | `r(top_codes)` | Matrix with `frequency`, `percent`, and `cumul_pct` columns |
 | `r(chapters)` | Matrix with `codes` and `entries` columns grouped by first character |
 | `r(top_code_#)` | Exact code value for each displayed `r(top_codes)` row; needed when a code is too long for a Stata matrix row name |
+| `r(chapter_#)` | Exact leading character for each `r(chapters)` row, in row order; needed when the character cannot be a matrix row name and an alias is used |
 
 The displayed tables, returned matrices, and draft codefile are ordered by descending frequency with alphabetical tie-breaking, so repeated runs over the same data are deterministic. For a code longer than Stata's 32-character matrix row-name limit, `r(top_codes)` uses a bounded alias; use the matching `r(top_code_#)` macro to recover the exact code value.
 
@@ -368,6 +369,16 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.2 (2026-09-06)
+
+- Reject `frame()` naming the current frame at option validation. `frame(default) replace` in the default frame passed validation and then failed at commit time with `r(119)` ("may not drop current frame"), after the scan and every export had already run — the destination was never reachable, but the user paid for the whole analysis to find out. The name `default` is still accepted from any other frame, where dropping it is legal.
+- Stop the merge path from discarding recoverable rows on an error. Between the internal `save` and the collapse-to-patient-level that `merge` performs, the caller's rows live only in a tempfile; an error in that window with no snapshot active reached the cleanup zone with collapsed data in memory and dropped the outputs against it, restoring nothing. The rows are now restored from the tempfile first, and the drop is skipped if that restore also fails.
+- Drop `codescan`'s internal tempvars before `frame put`, so the output frame carries only the deliverable rather than relying on Stata's end-of-program tempvar sweep to tidy it afterwards. `saving()` already dropped them; the two writers now share one list.
+- Reject an output name that differs from a scanned variable, `id()`, `date()`, or `refdate()` only by case. Condition `DM2` over a scanned `dm2` created a second, near-identical variable at rc=0; the folded-uniqueness rule already applied among condition names and now reaches the data boundary too.
+- Fix a `codefile()` value containing a backquote, or a double quote immediately followed by an apostrophe, corrupting option parsing. Every field read from a codefile is round-tripped through Stata compound quotes, which that sequence terminates, so the call died at `r(199)` reporting `too few quotes` against an unrelated line and named neither the file, the row, nor the column. Such a value is now refused up front with the offending column and row; a double quote on its own round-trips correctly and is still accepted. The regex validator also now passes its arguments through `st_local` rather than interpolating them into the `mata:` call.
+- Document `r(chapter_#)` in the README `codescan_describe` stored-results table and in the `codescan_describe.ado` header; both were already in `codescan_describe.sthlp`.
+- Add `replace` to the `codescan.sthlp` examples that write `dm_rules.csv` and `codescan_results.xlsx`, so both rerun as written.
 
 ### 4.2.1 (2026-09-02)
 

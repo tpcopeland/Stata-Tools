@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.2.1  2026/09/02
+*! _codescan_codefile Version 4.2.2  2026/09/06
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -110,6 +110,43 @@ program define _codescan_parse_codefile, rclass
     local n_conditions = r(N)
     if `n_conditions' == 0 {
         display as error "codefile(): file is empty"
+        exit 198
+    }
+
+    * M2: a value carrying a Stata quoting metacharacter cannot survive the
+    * macro round-trip this parser and codescan.ado perform on every field. The
+    * two-character sequence " followed by ' closes a compound quote, and a
+    * backquote opens a macro reference, so the next expansion was corrupted
+    * rather than matched: the caller saw "too few quotes" attributed to an
+    * unrelated line and the call died at r(199) with no usable message. Run on
+    * the data, before any value is pulled into a local, so the check itself
+    * cannot be broken by the value it is checking. A lone double quote round-
+    * trips correctly and is still accepted.
+    local _cf_qcols name pattern
+    if `_cf_has_excl'  local _cf_qcols `_cf_qcols' exclusion
+    if `_cf_has_label' local _cf_qcols `_cf_qcols' label
+    tempvar _cf_qbad _cf_qrow
+    quietly gen long `_cf_qrow' = _n
+    local _cf_qerr = 0
+    foreach _qc of local _cf_qcols {
+        capture drop `_cf_qbad'
+        quietly gen byte `_cf_qbad' = ///
+            strpos(`_qc', char(34) + char(39)) > 0 | strpos(`_qc', char(96)) > 0
+        quietly count if `_cf_qbad' == 1
+        if r(N) > 0 {
+            local _cf_qn = r(N)
+            quietly summarize `_cf_qrow' if `_cf_qbad' == 1, meanonly
+            local _cf_qfirst = r(min)
+            if !`_cf_qerr' {
+                display as error "codefile(): unusable quoting character in the file"
+            }
+            local _cf_qerr = 1
+            display as error "  column {bf:`_qc'}: `_cf_qn' row(s), first at row `_cf_qfirst'"
+        }
+    }
+    if `_cf_qerr' {
+        display as error "  a backquote, or a double quote immediately followed by an apostrophe, cannot be carried through Stata's macro quoting"
+        display as error "  remove it; a double quote on its own is accepted"
         exit 198
     }
 

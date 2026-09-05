@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.2.1  02sep2026}{...}
+{* *! version 4.2.2  06sep2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -831,7 +831,7 @@ During development, iterate with {cmd:define()}. Once the rules look right,
 freeze them to a CSV with {cmd:save()}, then switch future runs to
 {cmd:codefile()}.
 
-{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv, replace)}{p_end}
 {phang2}{cmd:. codescan dx1 dx2, codefile(dm_rules.csv) replace}{p_end}
 
 {pstd}
@@ -871,7 +871,7 @@ the encounter-level data and a patient-level summary in the same session.
 transformed dataset that {cmd:codescan} leaves in memory after {cmd:collapse} or {cmd:merge}.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///}{p_end}
-{phang2}{cmd:    export(codescan_results.xlsx) saving(codescan_results.dta, replace) format(%9.2f)}{p_end}
+{phang2}{cmd:    export(codescan_results.xlsx, replace) saving(codescan_results.dta, replace) format(%9.2f)}{p_end}
 
 {pstd}
 {bf:Example 9: Merge results back to original rows}

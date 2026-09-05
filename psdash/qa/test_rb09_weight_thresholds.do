@@ -119,8 +119,7 @@ capture noisily {
 }
 _t "dropped_weights_surfaced_in_ledger" `=_rc'
 
-display as text _n "RESULT: test_rb09_weight_thresholds tests=" ///
-    %1.0f ($N_PASS + $N_FAIL) " pass=" %1.0f $N_PASS " fail=" %1.0f $N_FAIL
+display as text _n "RESULT: test_rb09_weight_thresholds tests=`=$N_PASS + $N_FAIL' pass=$N_PASS fail=$N_FAIL skip=0"
 if "$FAILED" != "" display as error "  failed: $FAILED"
 
 capture _psdash_qa_cleanup

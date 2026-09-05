@@ -1,5 +1,5 @@
 * test_psdash.do — Functional test suite for psdash package
-* Version 1.1.9  2026/04/27
+* Version 1.7.1  2026/09/06
 
 clear all
 
@@ -42,22 +42,6 @@ end
 local n_pass = 0
 local n_fail = 0
 local n_tests = 0
-
-capture program drop _assert_pass
-program define _assert_pass
-    syntax , test_num(integer) desc(string)
-
-    if _rc == 0 {
-        display as result "  PASS"
-        c_local n_pass = $n_pass_count + 1
-        global n_pass_count = $n_pass_count + 1
-    }
-    else {
-        display as error "  FAIL (rc = " _rc ")"
-        c_local n_fail = $n_fail_count + 1
-        global n_fail_count = $n_fail_count + 1
-    }
-end
 
 global n_pass_count = 0
 global n_fail_count = 0

@@ -116,6 +116,7 @@ Test counts below are the `RESULT: ... tests=N` totals each suite reports.
 | `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
 | `test_codescan_v415.do` | functional | 7 | v4.1.5: Unicode `level()` prefix truncation (`usubstr` vs `substr`), `export()` pattern/exclusion `str244` width, `codescan_describe` early `save()` extension validation, `graph` bar label `format()` passthrough, `error 2000` without duplicate message |
 | `test_codescan_v421.do` | functional | 18 | v4.2.1, 8 of 18 proven red on 4.2.0: a zero-width regex keyed to a non-ASCII character rejected on the live scan axis as an inclusion and as an exclusion (with consuming non-ASCII patterns and the ASCII option-time guard as controls), casefold-equivalent `codefile()` columns refused for required and optional fields (each paired with the same call succeeding once the duplicate is dropped), and `save()` writing no codefile after an empty sample or a failing `export()` while a successful call still writes and round-trips it. The zero-width guard is the first error codescan can raise during the scan rather than while parsing options, so two blocks cover the rollback from that new failure site: an in-place `replace` over a caller variable and a `collapse` that must not consume the data |
+| `test_codescan_v422.do` | functional | 13 | v4.2.2, 6 of 13 proven red on 4.2.1: `frame()` naming the current frame refused at option validation instead of failing at commit with `r(119)` (paired with `frame(default)` from another frame, which is legal and must stay legal); an output name differing from a scanned variable or from `id()` only by case refused (paired with a distinct name that still runs); a `codefile()` value carrying a backquote or `"` followed by `'` refused with the column and row named, where the corrupted expansion used to die at `r(199)` against an unrelated line (paired with a lone double quote, which round-trips and still scans); and the two shipped-doc fixes checked on the shipped files -- the `.sthlp` examples that write `dm_rules.csv` and `codescan_results.xlsx` carrying `replace`, and `r(chapter_#)` appearing as a row of the README stored-results table rather than only in a changelog bullet. Three further blocks are contract pins that pass on 4.2.1 too: the output frame carrying no internal tempvars, and a >80-character label and >244-character pattern/exclusion reaching `export()` and a replayable `save()` codefile whole (the audit's truncation finding, refuted -- `replace` widens a string variable to fit) |
 | `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
 | `test_codescan_oracle.do` | functional | 200 | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
 | `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
@@ -207,6 +208,8 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_codescan_v203_hardening` | ✓ | ✓ | ✓ |
 | `test_codescan_v410` | ✓ | ✓ | ✓ |
 | `test_codescan_v415` | ✓ | ✓ | ✓ |
+| `test_codescan_v421` | ✓ | ✓ | ✓ |
+| `test_codescan_v422` | ✓ | ✓ | ✓ |
 | `test_codescan_v300_critical` | ✓ | ✓ | ✓ |
 | `test_codescan_perf_equiv` | ✓ | ✓ | ✓ |
 | `validation_codescan` | ✓ | ✓ | ✓ |
@@ -227,6 +230,7 @@ contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
 | `test_codescan_describe_adversarial` |  | ✓ | ✓ |
 | `test_codescan_stress_adversarial` |  | ✓ | ✓ |
 | `test_codescan_hostile` |  | ✓ | ✓ |
+| `test_codescan_oracle` |  | ✓ | ✓ |
 | `test_codescan_install_docs` |  |  | ✓ |
 | `test_documentation_examples` |  |  | ✓ |
 | `test_release_integrity` |  |  | ✓ |

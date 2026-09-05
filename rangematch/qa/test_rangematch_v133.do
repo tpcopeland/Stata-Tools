@@ -171,7 +171,15 @@ assert r(N_matched_pairs) == 1
 assert "`r(saving)'" == ""
 assert _N == 1
 assert sentinel[1] == 42
-display as result "PASS: saving failure retains analytics and preserves caller data"
+* Counts survive, the output does not. The saving() route restores the caller's
+* data before it writes and cleanup drops __rm_out, so re-exporting means
+* re-running the match. Pin that second half too: without it the suite gates
+* only "analytics survive" and a future change that stranded the output frame
+* would pass here while leaving a frame that blocks the next run.
+capture frame __rm_out: describe
+local t8_out_exists = (_rc == 0)
+assert !`t8_out_exists'
+display as result "PASS: saving failure retains analytics, drops output, preserves caller data"
 
 display as result "ALL RANGEMATCH 1.3.3 REGRESSION TESTS PASSED"
 display "RESULT: test_rangematch_v133 tests=`test_count' pass=`test_count' fail=0"

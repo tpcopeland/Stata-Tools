@@ -61,7 +61,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_multigroup_psvars_regression.do` | Generalized-score orientation and `psvars()` regressions. |
 | `test_overlap_support_multigroup_adversarial.do` | Binary and multi-group overlap/support edge cases. |
 | `test_producer_contracts.do` | Compatibility-matrix rows, version gates, and installed producer guards. |
-| `test_qa_contract_gaps.do` | Return-surface gaps and QA sentinel integrity. |
+| `test_qa_contract_gaps.do` | Return-surface gaps and QA sentinel integrity, including the parser-readability scan over every suite sentinel. |
 | `test_rb01_verdict.do` | Unified machine-readable findings and zero-panel rejection. |
 | `test_rb02_gps_positivity.do` | Full-vector generalized-positivity findings. |
 | `test_rb03_factor_expansion.do` | Factor-variable expansion and detection. |
@@ -123,6 +123,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `_public_studies_reference_psdash.R` | Public-study data, propensity-model, balance, support, and weight oracle generator. |
 | `tools/check_xlsx.py` | Vendored workbook structure, numeric-cell, and presentation checker. |
 | `tools/check_artifact.py` | PNG/PDF signatures, dimensions, page-object, and termination checks. |
+| `tools/check_result_sentinels.py` | Refuses `RESULT:` sentinels the CLI parser cannot read: padded values, fields split across display arguments, an in-string display format, or a count built through one. `--selftest` re-proves all four refusals in the same run. |
 
 ## Coverage map
 
