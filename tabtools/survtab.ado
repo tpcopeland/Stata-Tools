@@ -1,4 +1,4 @@
-*! survtab Version 2.1.1  2026/09/04
+*! survtab Version 2.1.2  2026/09/05
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -102,6 +102,30 @@ capture noisily {
         noisily display as error "data not st set"
         noisily display as error "Hint: run {bf:stset timevar, failure(eventvar)} before calling survtab"
         exit 119
+    }
+    local _st_weight_spec : char _dta[st_w]
+    local _st_weight_var : char _dta[st_wv]
+    local _st_weighted 0
+    tempvar _st_weight
+    if `"`_st_weight_spec'"' != "" {
+        * Match the declared weight type itself. A substring test would accept
+        * [pweight=fweight_count] because the weight variable's name contains
+        * the token, and then treat sampling weights as replication counts.
+        local _st_weight_type = ""
+        local _st_weight_eq = strpos(`"`_st_weight_spec'"', "=")
+        if `_st_weight_eq' > 2 {
+            local _st_weight_type = lower(substr(`"`_st_weight_spec'"', 2, `_st_weight_eq' - 2))
+        }
+        if "`_st_weight_type'" != "fweight" {
+            noisily display as error "survtab supports only frequency weights in stset data"
+            noisily display as error "re-run stset without probability or importance weights before calling survtab"
+            exit 198
+        }
+        local _st_weighted 1
+        quietly generate double `_st_weight' = `_st_weight_var'
+    }
+    else {
+        quietly generate double `_st_weight' = 1
     }
     local st_id : char _dta[st_id]
     if "`st_id'" != "" {
@@ -249,12 +273,12 @@ capture noisily {
         if "`st_id'" != "" {
             tempvar _gn_tag
             qui egen byte `_gn_tag' = tag(`st_id') if `groupvar' == `_glv' & _st
-            qui count if `_gn_tag'
+            qui summarize `_st_weight' if `_gn_tag', meanonly
         }
         else {
-            qui count if `groupvar' == `_glv' & _st
+            qui summarize `_st_weight' if `groupvar' == `_glv' & _st, meanonly
         }
-        local gn_`g' = r(N)
+        local gn_`g' = r(sum)
     }
 
 **# Compute Events and At-Risk Counts
@@ -265,17 +289,17 @@ capture noisily {
                 tempvar _event_tag
                 qui egen byte `_event_tag' = tag(`st_id') ///
                     if `groupvar' == `_glv' & _st & _d == 1
-                qui count if `_event_tag'
+                qui summarize `_st_weight' if `_event_tag', meanonly
             }
             else {
                 if `has_by' {
-                    qui count if `groupvar' == `_glv' & _st & _d == 1
+                    qui summarize `_st_weight' if `groupvar' == `_glv' & _st & _d == 1, meanonly
                 }
                 else {
-                    qui count if _st & _d == 1
+                    qui summarize `_st_weight' if _st & _d == 1, meanonly
                 }
             }
-            local events_g`g' = r(N)
+            local events_g`g' = r(sum)
             local atrisk_g`g' = `gn_`g''
         }
     }
@@ -321,12 +345,12 @@ capture noisily {
                     tempvar _risk_tag
                     qui egen byte `_risk_tag' = tag(`st_id') ///
                         if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
-                    qui count if `_risk_tag'
+                    qui summarize `_st_weight' if `_risk_tag', meanonly
                 }
                 else {
-                    qui count if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
+                    qui summarize `_st_weight' if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st, meanonly
                 }
-                local nrisk_g`g'_t`t' = r(N)
+                local nrisk_g`g'_t`t' = r(sum)
             }
         }
         drop `_surv_fn' `_se_fn'
@@ -374,7 +398,7 @@ capture noisily {
             qui sts generate `_rmst_surv' = s
             qui gen byte `_event' = (_d == 1 & _t <= `rmst')
             qui egen byte `_event_tag' = tag(_t) if `_event'
-            qui bysort _t: egen double `_d_count' = total(_d) if `_event'
+            qui bysort _t: egen double `_d_count' = total(`_st_weight' * _d) if `_event'
             qui gen double `_surv_at_event' = `_rmst_surv' if `_event'
             qui bysort _t: egen double `_surv_event' = max(`_surv_at_event')
 
@@ -432,13 +456,13 @@ capture noisily {
                 }
                 if "`st_id'" != "" {
                     qui egen byte `_risk_tag' = tag(`st_id') if _t0 < `_this_t' & _t >= `_this_t'
-                    qui count if `_risk_tag'
+                    qui summarize `_st_weight' if `_risk_tag', meanonly
                     drop `_risk_tag'
                 }
                 else {
-                    qui count if _t0 < `_this_t' & _t >= `_this_t'
+                    qui summarize `_st_weight' if _t0 < `_this_t' & _t >= `_this_t', meanonly
                 }
-                local _n_j = r(N)
+                local _n_j = r(sum)
                 if `_d_j' > 0 & `_n_j' > `_d_j' {
                     local _rmst_var = `_rmst_var' + ///
                         (`_d_j' / (`_n_j' * (`_n_j' - `_d_j'))) * (`_tail'^2)
@@ -888,6 +912,9 @@ capture noisily {
 
     * Build methods paragraph
     local _methods "Survival was estimated using the Kaplan-Meier method."
+    if `_st_weighted' {
+        local _methods "`_methods' Frequency weights from stset were treated with replication semantics for counts and Greenwood RMST variance."
+    }
     if "`reverse'" != "" {
         local _methods "`_methods' Cumulative incidence is reported as 1 minus the Kaplan-Meier survival estimate, which is valid only in the absence of competing risks; with competing events a competing-risks estimator (Aalen-Johansen) should be used instead."
     }

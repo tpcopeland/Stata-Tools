@@ -1,4 +1,4 @@
-*! desctab Version 2.1.1  2026/09/04 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.2  2026/09/05 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options

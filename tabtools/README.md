@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.1** | 2026-09-04
+**Version 2.1.2** | 2026-09-05
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -250,7 +250,7 @@ crosstab rowvar colvar [if] [in] [fweight=exp], [xlsx(string) excel(string) colp
 corrtab varlist [if] [in], [xlsx(string) excel(string) spearman lower upper full star(numlist) pvalues digits(#) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade csv(string) markdown(string) mdappend frame(string) open]
 ```
 
-`corrtab` is Stata 17+, requires at least two numeric variables, defaults to Pearson correlations, the lower triangle, and session digits or `2`, and uses star cutoffs `0.001 0.01 0.05` when `star()` is requested. `lower`, `upper`, and `full` are mutually exclusive; `pvalues` cannot be combined with `star()`.
+`corrtab` is Stata 17+, requires at least two numeric variables, defaults to Pearson correlations, the lower triangle, and session digits or `2`, and uses star cutoffs `0.001 0.01 0.05` when `star()` is requested. `lower`, `upper`, and `full` are mutually exclusive; `pvalues` cannot be combined with `star()`. Undefined Spearman diagonals for constant or one-observation variables are left blank, matching Stata's `spearman` result.
 
 ### `regtab`
 
@@ -276,7 +276,7 @@ effecttab, [xlsx(string) excel(string) sheet(string) sep(string) type(string) ef
 survtab, times(numlist) [by(varname) rmst(#) median riskset timeunit(string) reverse difference events level(#) digits(#) xlsx(string) excel(string) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headershade headercolor(string) boldp(#) zebra zebracolor(string) highlight(#) pdp(#) highpdp(#) csv(string) markdown(string) mdappend frame(string) open addrow(string)]
 ```
 
-`survtab` is Stata 17+ and requires `stset` data. The default time unit is years, the sheet is `Survival`, the confidence level is `c(level)`, digits are the session setting or `1`, and `pdp()`/`highpdp()` default to `3`/`2`. `by()` adds group columns; `median`, `riskset`, `events`, and `rmst()` add corresponding quantities; `difference` reports group 1 minus group 2 RMST when exactly two groups are supplied. `reverse` reports `1 − KM` and is not a competing-risks estimator.
+`survtab` is Stata 17+ and requires `stset` data. Frequency weights declared by `stset` use replication semantics consistently for Kaplan-Meier estimates, event and risk-set counts, and Greenwood RMST variance. Probability and importance weights are rejected before output. The default time unit is years, the sheet is `Survival`, the confidence level is `c(level)`, digits are the session setting or `1`, and `pdp()`/`highpdp()` default to `3`/`2`. `by()` adds group columns; `median`, `riskset`, `events`, and `rmst()` add corresponding quantities; `difference` reports group 1 minus group 2 RMST when exactly two groups are supplied. `reverse` reports `1 − KM` and is not a competing-risks estimator.
 
 ### `stratetab`
 
@@ -465,6 +465,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.1.2** (2026-09-05): Made `survtab` frequency-weighted counts and Greenwood RMST variance replication-consistent with expanded data, and rejected unsupported probability/importance stset weights before output. Corrected `crosstab` labels for ordinary fractional categories and left undefined Spearman diagonals blank for constant or one-observation variables. Added regression coverage across returned matrices, frames, CSV, Markdown, and Excel output.
 - **2.1.1** (2026-09-04): Corrected extended-missing regression statistics, distinct missing-category labels, stable matrix identifiers for rate and survival results, and transactional frame replacement. Tightened private helper contracts and persistent-format validation, and repaired installed help and README contracts.
 - **2.1.0** (2026-09-03): Distinguished `Reference`, `Omitted`, and `Empty` constrained cells in `regtab` and `effecttab`, excluded non-estimable cells from machine-readable results, corrected factor and interaction labels, and supported the same contracts in multi-equation and multilevel layouts.
 - **2.0.3** (2026-08-30): Extended `comptab` rate-scaffold transaction cleanup through the forest-plot and staged-frame commit tail, preserving caller data and existing destination frames after dependency-induced errors.

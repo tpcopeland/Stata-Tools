@@ -56,7 +56,9 @@ header shading.{p_end}
 {pstd}Pairwise complete observations are used: each cell reports the
 correlation computed from all observations with non-missing values on both
 variables. The pairwise observation count matrix is stored in
-{cmd:r(N)}.{p_end}
+{cmd:r(N)}. For Spearman correlations, the diagonal is blank when a variable
+has fewer than two non-missing observations or has no variation, matching the
+undefined result from {helpb spearman}.{p_end}
 
 {marker options}{...}
 {title:Options}

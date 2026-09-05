@@ -28,7 +28,11 @@ and restricted mean survival time.{p_end}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt open}
 {opt addr:ow(string asis)}]{p_end}
 
-{pstd}Data must be {helpb stset} before running {cmd:survtab}.{p_end}
+{pstd}Data must be {helpb stset} before running {cmd:survtab}. Frequency weights
+declared in {cmd:stset} are honored with replication semantics for the
+Kaplan-Meier estimates, event and risk-set counts, and Greenwood RMST
+variance. Probability and importance weights in {cmd:stset} are not supported
+and are rejected before output is produced.{p_end}
 
 {marker description}{title:Description}
 

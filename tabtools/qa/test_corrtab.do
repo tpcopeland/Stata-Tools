@@ -289,6 +289,23 @@ capture noisily {
         assert strpos(c2[4], "(") == 0
         assert strpos(c2[4], "<0.001") == 0
     }
+
+    capture frame drop _corr_const_sp
+    corrtab x y, spearman full frame(_corr_const_sp, replace)
+    assert !missing(r(C)[1, 1])
+    assert missing(r(C)[2, 2])
+    assert missing(r(C)[2, 1])
+    quietly spearman x y, matrix
+    assert missing(r(Rho)[2, 2])
+    frame _corr_const_sp: assert strtrim(c3[4]) == ""
+
+    clear
+    input double x double y
+    1 2
+    end
+    corrtab x y, spearman full
+    assert missing(r(C)[1, 1])
+    assert missing(r(C)[2, 2])
 }
 if _rc == 0 {
     display as result "  PASS: corrtab leaves undefined correlations missing"
@@ -300,6 +317,7 @@ else {
 }
 capture frame drop _corr_const
 capture frame drop _corr_const_p
+capture frame drop _corr_const_sp
 
 **## sparse Spearman overlaps return missing cells instead of aborting
 local ++test_count
