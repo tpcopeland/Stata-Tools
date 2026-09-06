@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.1.2  2026/09/04
+*! iivw_fit Version 4.1.3  2026/09/06
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2095,59 +2095,6 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
-    * INTERVAL MATRICES
-    * =========================================================================
-    * e(iivw_ci) is the interval actually selected for display. The matrix keeps
-    * the exact equation/column stripes of e(b), so consumers can match terms by
-    * name rather than position. Percentile and basic use the SAME bootstrap
-    * draws as e(V); basic reflects the percentile endpoints around e(b).
-    tempname iivw_ci_selected iivw_ci_percentile iivw_ci_basic iivw_ci_bca
-    matrix `iivw_ci_selected' = e(b) \ e(b)
-    matrix rownames `iivw_ci_selected' = ll ul
-    local iivw_k = colsof(e(b))
-    local iivw_z = invnormal((100+`level')/200)
-
-    if `bootstrap' > 0 {
-        matrix `iivw_ci_percentile' = e(ci_percentile)
-        matrix `iivw_ci_basic' = e(b) \ e(b)
-        matrix rownames `iivw_ci_basic' = ll ul
-        forvalues j = 1/`iivw_k' {
-            matrix `iivw_ci_basic'[1,`j'] = ///
-                2*el(e(b),1,`j') - el(`iivw_ci_percentile',2,`j')
-            matrix `iivw_ci_basic'[2,`j'] = ///
-                2*el(e(b),1,`j') - el(`iivw_ci_percentile',1,`j')
-        }
-        if "`citype'" == "bca" {
-            matrix `iivw_ci_bca' = e(ci_bca)
-        }
-    }
-
-    forvalues j = 1/`iivw_k' {
-        if "`citype'" == "none" {
-            matrix `iivw_ci_selected'[1,`j'] = .
-            matrix `iivw_ci_selected'[2,`j'] = .
-        }
-        else if "`citype'" == "wald" {
-            local _ci_b = el(e(b),1,`j')
-            local _ci_se = sqrt(el(e(V),`j',`j'))
-            matrix `iivw_ci_selected'[1,`j'] = `_ci_b' - `iivw_z'*`_ci_se'
-            matrix `iivw_ci_selected'[2,`j'] = `_ci_b' + `iivw_z'*`_ci_se'
-        }
-        else if "`citype'" == "percentile" {
-            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_percentile',1,`j')
-            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_percentile',2,`j')
-        }
-        else if "`citype'" == "basic" {
-            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_basic',1,`j')
-            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_basic',2,`j')
-        }
-        else if "`citype'" == "bca" {
-            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_bca',1,`j')
-            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_bca',2,`j')
-        }
-    }
-
-    * =========================================================================
     * FEW-CLUSTER INFERENCE WARNING
     * =========================================================================
     * Cluster-robust (sandwich) SEs are anti-conservative when the number of
@@ -2254,6 +2201,66 @@ program define iivw_fit, eclass
         ereturn local vce "stacked"
         local iivw_underlying_vce "stacked"
 
+    }
+
+    * =========================================================================
+    * INTERVAL MATRICES -- built from the FINAL covariance, deliberately
+    * =========================================================================
+    * This block MUST stay after the vce(stacked) repost above. It used to run
+    * before it, so a stacked fit printed and stored Wald limits formed from the
+    * fixed-weight covariance next to stacked standard errors and p-values, and
+    * e(iivw_ci) kept those wrong endpoints while `ereturn display' replay used
+    * the posted one. Nothing between the fit and here reads the interval, so
+    * the only ordering constraint is that e(V) is final when the limits are
+    * formed. (audit C1)
+    * e(iivw_ci) is the interval actually selected for display. The matrix keeps
+    * the exact equation/column stripes of e(b), so consumers can match terms by
+    * name rather than position. Percentile and basic use the SAME bootstrap
+    * draws as e(V); basic reflects the percentile endpoints around e(b).
+    tempname iivw_ci_selected iivw_ci_percentile iivw_ci_basic iivw_ci_bca
+    matrix `iivw_ci_selected' = e(b) \ e(b)
+    matrix rownames `iivw_ci_selected' = ll ul
+    local iivw_k = colsof(e(b))
+    local iivw_z = invnormal((100+`level')/200)
+
+    if `bootstrap' > 0 {
+        matrix `iivw_ci_percentile' = e(ci_percentile)
+        matrix `iivw_ci_basic' = e(b) \ e(b)
+        matrix rownames `iivw_ci_basic' = ll ul
+        forvalues j = 1/`iivw_k' {
+            matrix `iivw_ci_basic'[1,`j'] = ///
+                2*el(e(b),1,`j') - el(`iivw_ci_percentile',2,`j')
+            matrix `iivw_ci_basic'[2,`j'] = ///
+                2*el(e(b),1,`j') - el(`iivw_ci_percentile',1,`j')
+        }
+        if "`citype'" == "bca" {
+            matrix `iivw_ci_bca' = e(ci_bca)
+        }
+    }
+
+    forvalues j = 1/`iivw_k' {
+        if "`citype'" == "none" {
+            matrix `iivw_ci_selected'[1,`j'] = .
+            matrix `iivw_ci_selected'[2,`j'] = .
+        }
+        else if "`citype'" == "wald" {
+            local _ci_b = el(e(b),1,`j')
+            local _ci_se = sqrt(el(e(V),`j',`j'))
+            matrix `iivw_ci_selected'[1,`j'] = `_ci_b' - `iivw_z'*`_ci_se'
+            matrix `iivw_ci_selected'[2,`j'] = `_ci_b' + `iivw_z'*`_ci_se'
+        }
+        else if "`citype'" == "percentile" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_percentile',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_percentile',2,`j')
+        }
+        else if "`citype'" == "basic" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_basic',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_basic',2,`j')
+        }
+        else if "`citype'" == "bca" {
+            matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_bca',1,`j')
+            matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_bca',2,`j')
+        }
     }
 
     * =========================================================================

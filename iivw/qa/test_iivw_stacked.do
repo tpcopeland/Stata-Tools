@@ -176,23 +176,71 @@ else {
 
 * The correction enters only through G = sum_j w_j (y-mu) x_j (dlog w/dtheta)'.
 * Set every dlog w/dtheta to 0 and G is the zero matrix, so the stacked variance
-* must equal the fixed one EXACTLY -- not approximately. This is the strongest
-* available statement that the correction is the only thing that differs, and it
-* would fail if any other quantity had been changed along the way.
-tempname Vstk0 Vfix0
+* must equal the fixed one EXACTLY -- not approximately. The paired real-
+* derivative run is what makes that meaningful: without it, a helper that had
+* dropped the correction entirely would also pass.
+*
+* This runs against the HELPER, not through iivw_fit. It used to edit
+* _iivw_ndN in a live weighted dataset and call the public fitter, expecting
+* acceptance -- which is precisely the saved-score edit the 4.1.3 weight
+* signature now refuses (audit I1). An algebra check on the covariance
+* assembler does not need the public integrity gate suspended, so it moved to
+* the surface where the algebra lives. The S15 fixture is reused because its
+* four ingredients are hand-checkable.
+tempname Vstk0 Vfix0 S4stkR S4fixR S4stk0 S4fix0
 quietly iivw_fit y a z1, timespec(linear) vce(fixed)
 matrix `Vfix0' = e(V)
-local nterm : word count `: char _dta[_iivw_score_terms]'
+
 preserve
-forvalues q = 1/`nterm' {
-    quietly replace _iivw_nd`q' = 0
+clear
+input byte id double(x wt err nd1 nd2 ns1 ns2)
+1  0    1     1      .2  -.3    .5  -.25
+1  1    2    -.5    -.1   .25   .5  -.25
+2  2    1.5   .75    .3   .1   -.4   .6
+2 -1     .5 -1.25    .4  -.2   -.4   .6
+3  3    1.25  .25   -.2   .35   .3   .2
+3   .5   .8  -.75    .15 -.05   .3   .2
+end
+gen double mu = 2 + .4*x
+gen double y = mu + err
+gen double _iivw_nd1 = nd1
+gen double _iivw_nd2 = nd2
+gen double _iivw_ns1 = ns1
+gen double _iivw_ns2 = ns2
+char _dta[_iivw_prefix] "_iivw_"
+
+local rc4 = 0
+capture noisily _iivw_stacked_vce x, depvar(y) mu(mu) wtvar(wt) ///
+    cluster(id) varfunc(constant) scoreterms("q1 q2") ainv("1.2 .1 .1 .8")
+local rc4 = _rc
+if `rc4' == 0 {
+    matrix `S4stkR' = r(V_stacked)
+    matrix `S4fixR' = r(V_fixed)
+    quietly replace _iivw_nd1 = 0
+    quietly replace _iivw_nd2 = 0
+    capture noisily _iivw_stacked_vce x, depvar(y) mu(mu) wtvar(wt) ///
+        cluster(id) varfunc(constant) scoreterms("q1 q2") ainv("1.2 .1 .1 .8")
+    local rc4 = _rc
+    if `rc4' == 0 {
+        matrix `S4stk0' = r(V_stacked)
+        matrix `S4fix0' = r(V_fixed)
+    }
 }
-quietly iivw_fit y a z1, timespec(linear) vce(stacked)
-matrix `Vstk0' = e(V)
 restore
-local d4 = mreldif(`Vstk0', `Vfix0')
-display as text "S4: mreldif(stacked with dlogw=0, fixed) = " %12.3e `d4'
-if `d4' < 1e-12 {
+
+local d4 = .
+local d4on = .
+local d4bread = .
+if `rc4' == 0 {
+    local d4 = mreldif(`S4stk0', `S4fix0')
+    local d4on = mreldif(`S4stkR', `S4fixR')
+    * The bread must not have moved: only G changed between the two calls.
+    local d4bread = mreldif(`S4fixR', `S4fix0')
+}
+display as text "S4: mreldif(stacked with dlogw=0, fixed) = " %12.3e `d4' ///
+    "  with real dlogw = " %12.3e `d4on' "  bread drift = " %12.3e `d4bread'
+if `rc4' == 0 & !missing(`d4', `d4on', `d4bread') & ///
+        `d4' < 1e-15 & `d4bread' < 1e-15 & `d4on' > 1e-4 {
     local ++pass_count
     display "PASS S4: a zero derivative collapses stacked onto fixed exactly"
 }

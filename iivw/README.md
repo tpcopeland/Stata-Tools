@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.1.2** | 2026-09-04
+**Version 4.1.3** | 2026-09-06
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -435,6 +435,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **4.1.3** (2026-09-06): Fixed two defects confirmed by the 2026-09-04 audit. `vce(stacked)` built its Wald confidence limits from the fixed-weight covariance before the two-step sandwich replaced `e(V)`, so the printed and stored interval did not match the reported standard errors and disagreed with an ordinary Wald replay; the interval is now formed from the posted covariance. The stored weighting signature did not bind the `scores` influence-function columns or the stacked nuisance metadata, so a finite edit to a saved score, derivative, or inverse-information value changed the reported standard error at `rc=0`; those inputs are now part of the contract signature and such an edit is refused. QA: new `test_iivw_v413_regressions` (7 cases, 6 of them red on 4.1.2), the zero-derivative algebra check moved to the helper surface, standalone suites sandboxed and their resolution asserted, sensitivity simulations record every requested replication and take Monte Carlo error from the usable count, and run artifacts moved to per-run tempfiles.
 - **4.1.2** (2026-09-04): Hardened input ownership, analysis-sample validation, transactional weight metadata rollback, and fail-closed inference gates. Expanded regression coverage for stored source-variable collisions, incomplete simulations, separator failures, FIPTIW recovery, and the assembled stacked covariance oracle; refreshed the user-facing inference contract and independent-reference workflow.
 - **4.1.1** (2026-09-04): Fail-closed resolve contract for explicitly named sources. `iivw_diagnose` now refuses stored estimates that carry no `e(depvar)` or `e(cmd)`: the comparability gate decides "same estimand" by comparing those fields across the three roles, and three estimates that carry neither compared equal on empty strings, so the gate passed vacuously and the command returned `decomposable = 1` with a printed decomposition it had never verified. `iivw` now refuses an install whose `iivw.ado` header cannot be read instead of reporting `r(version)` as "unknown" at rc 0. New internal helper `_iivw_require_meta`.
 - **4.1.0** (2026-09-03): Fail-closed commit contract for final weights. `iivw_weight` now refuses a run in which every observation is unweighted, instead of committing its signed `_iivw_` contract and returning success: `allowmissingweights` declares that a complete-case analysis is intended, and zero complete cases is not one. New internal helper `_iivw_assert_cardinality`.

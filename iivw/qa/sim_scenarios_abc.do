@@ -97,6 +97,34 @@ global SIM_TESTS = 0
 global SIM_PASS  = 0
 global SIM_FAIL  = 0
 
+* _sim_postrow -- record EVERY requested replication, usable or not.
+*
+* These suites used to `post' only after a captured command returned zero, so a
+* systematically failing configuration was silently replaced by the subset of
+* datasets that happened to be easy, and the reported MCSE was divided by the
+* number of replications REQUESTED rather than the number that produced an
+* estimate. A row is now written for every (replication, estimator) pair; ok
+* marks the usable ones, and a non-finite or non-positive-SE estimate is not
+* usable even when the command returned zero. (audit IIVW-17)
+capture program drop _sim_postrow
+program define _sim_postrow
+    version 16.0
+    args pf s est truth rc
+    if `rc' == 0 {
+        local b  = _b[treatment]
+        local se = _se[treatment]
+        if !missing(`b', `se') {
+            if `se' > 0 {
+                local cov = (`b' - 1.96*`se' <= `truth') & ///
+                            (`b' + 1.96*`se' >= `truth')
+                post `pf' (`s') ("`est'") (`b') (`se') (`cov') (1)
+                exit
+            }
+        }
+    }
+    post `pf' (`s') ("`est'") (.) (.) (.) (0)
+end
+
 capture program drop _sim_assert
 program define _sim_assert
     syntax anything(name=ok), MSG(string)
@@ -181,9 +209,16 @@ foreach scenario in A B C {
 
     display _n as result "Scenario `scenario'"
 
+    * A per-run tempfile, not sim_results_abc_<scenario>.dta in qa/. The fixed
+    * name meant an interrupted run left debris and two concurrent runs -- which
+    * is exactly how this host is meant to be used -- could overwrite, mix or
+    * erase each other's evidence. Stata erases the tempfile on exit, so there
+    * is no cleanup path left to forget. (audit IIVW-19)
+    tempfile resfile
+
     capture postclose results
     postfile results int(sim) str25(estimator) double(beta se coverage) ///
-        using "sim_results_abc_`scenario'.dta", replace
+        byte(ok) using "`resfile'", replace
 
     forvalues s = 1/`n_sims' {
         if mod(`s', 100) == 0 display "  Replication `s' / `n_sims'"
@@ -196,48 +231,35 @@ foreach scenario in A B C {
             *Unweighted GEE
             capture glm y_obs treatment months tx_time conf_ti, ///
                 family(gaussian) link(identity) vce(cluster id)
-            if _rc == 0 {
-                local b = _b[treatment]
-                local se_val = _se[treatment]
-                local cov = (`b' - 1.96*`se_val' <= `true_beta') & ///
-                    (`b' + 1.96*`se_val' >= `true_beta')
-                post results (`s') ("Unweighted") (`b') (`se_val') (`cov')
-            }
+            local rc_unw = _rc
+            _sim_postrow results `s' "Unweighted" `true_beta' `rc_unw'
 
             *IIW-weighted GEE
             capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
                 visit_cov(u_i conf_tv) wtype(iivw) ///
                 truncfinal(1 99) nolog replace
-            if _rc == 0 {
+            local rc_iiw = _rc
+            if `rc_iiw' == 0 {
                 capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
                     model(gee) timespec(linear) interaction(treatment) ///
                     nolog replace
-                if _rc == 0 {
-                    local b = _b[treatment]
-                    local se_val = _se[treatment]
-                    local cov = (`b' - 1.96*`se_val' <= `true_beta') & ///
-                        (`b' + 1.96*`se_val' >= `true_beta')
-                    post results (`s') ("IIW") (`b') (`se_val') (`cov')
-                }
+                local rc_iiw = _rc
             }
+            _sim_postrow results `s' "IIW" `true_beta' `rc_iiw'
 
             *FIPTIW-weighted GEE
             capture iivw_weight, endatlastvisit baseline(event) id(id) time(months) ///
                 visit_cov(u_i conf_tv) ///
                 treat(treatment) treat_cov(conf_ti u_i) ///
                 truncfinal(1 99) nolog replace
-            if _rc == 0 {
+            local rc_fip = _rc
+            if `rc_fip' == 0 {
                 capture iivw_fit y_obs treatment conf_ti, vce(fixed) ///
                     model(gee) timespec(linear) interaction(treatment) ///
                     nolog replace
-                if _rc == 0 {
-                    local b = _b[treatment]
-                    local se_val = _se[treatment]
-                    local cov = (`b' - 1.96*`se_val' <= `true_beta') & ///
-                        (`b' + 1.96*`se_val' >= `true_beta')
-                    post results (`s') ("FIPTIW") (`b') (`se_val') (`cov')
-                }
+                local rc_fip = _rc
             }
+            _sim_postrow results `s' "FIPTIW" `true_beta' `rc_fip'
 
             *FIPTIW + cumulative test count
             if `has_artifact' {
@@ -245,44 +267,56 @@ foreach scenario in A B C {
                     visit_cov(u_i conf_tv) ///
                     treat(treatment) treat_cov(conf_ti u_i) ///
                     truncfinal(1 99) nolog replace
-                if _rc == 0 {
-                    capture iivw_fit y_obs treatment test_number conf_ti, vce(fixed) ///
-                        model(gee) timespec(linear) interaction(treatment) ///
-                        nolog replace
-                    if _rc == 0 {
-                        local b = _b[treatment]
-                        local se_val = _se[treatment]
-                        local cov = (`b' - 1.96*`se_val' <= `true_beta') & ///
-                            (`b' + 1.96*`se_val' >= `true_beta')
-                        post results (`s') ("FIPTIW + test count") ///
-                            (`b') (`se_val') (`cov')
-                    }
+                local rc_ftc = _rc
+                if `rc_ftc' == 0 {
+                    capture iivw_fit y_obs treatment test_number conf_ti, ///
+                        vce(fixed) model(gee) timespec(linear) ///
+                        interaction(treatment) nolog replace
+                    local rc_ftc = _rc
                 }
+                _sim_postrow results `s' "FIPTIW + test count" `true_beta' `rc_ftc'
             }
         }
     }
     postclose results
 
-    use "sim_results_abc_`scenario'.dta", clear
+    use "`resfile'", clear
 
     **## Convergence
+    * Two separate statements: every requested replication produced a row (so
+    * nothing was dropped before it could be counted), and enough of those rows
+    * are usable. min_success is 80% of the requested replications -- a
+    * deliberately loose sensitivity threshold, not a release gate; the release
+    * gate is validation_iivw_inference.do, which requires all of them.
+    local est_list "Unweighted IIW FIPTIW"
     foreach est in "Unweighted" "IIW" "FIPTIW" {
         quietly count if estimator == "`est'"
+        local n_req = r(N)
+        local okrow = (`n_req' == `n_sims')
+        _sim_assert `okrow', msg("Scenario `scenario' `est': `n_req'/`n_sims' replications recorded")
+        quietly count if estimator == "`est'" & ok == 1
         local n_conv = r(N)
-        local ok = (`n_conv' >= `min_success')
-        _sim_assert `ok', msg("Scenario `scenario' `est': `n_conv'/`n_sims' reps converged (need `min_success')")
+        local okc = (`n_conv' >= `min_success')
+        _sim_assert `okc', msg("Scenario `scenario' `est': `n_conv'/`n_sims' reps usable (need `min_success')")
     }
     if `has_artifact' {
         quietly count if estimator == "FIPTIW + test count"
+        local n_req = r(N)
+        local okrow = (`n_req' == `n_sims')
+        _sim_assert `okrow', msg("Scenario `scenario' FIPTIW + test count: `n_req'/`n_sims' replications recorded")
+        quietly count if estimator == "FIPTIW + test count" & ok == 1
         local n_conv = r(N)
-        local ok = (`n_conv' >= `min_success')
-        _sim_assert `ok', msg("Scenario `scenario' FIPTIW + test count: `n_conv'/`n_sims' reps converged (need `min_success')")
+        local okc = (`n_conv' >= `min_success')
+        _sim_assert `okc', msg("Scenario `scenario' FIPTIW + test count: `n_conv'/`n_sims' reps usable (need `min_success')")
     }
 
+    * Summaries and MCSE come from the USABLE count, not the requested one.
+    * Dividing by sqrt(n_sims) when fewer replications produced an estimate
+    * understates the Monte Carlo error of every number in the table.
     collapse (mean) mean_beta=beta mean_se=se mean_coverage=coverage ///
-        (sd) sd_beta=beta, by(estimator)
+        (sd) sd_beta=beta (count) n_ok=beta if ok == 1, by(estimator)
     gen double bias = mean_beta - `true_beta'
-    gen double mc_se = sd_beta / sqrt(`n_sims')
+    gen double mc_se = sd_beta / sqrt(n_ok)
     format mean_beta bias mean_se sd_beta mc_se %8.4f
     format mean_coverage %6.3f
 
@@ -291,7 +325,7 @@ foreach scenario in A B C {
     if "`scenario'" == "B" display "  DGP: Protocol-driven visits, artifact = `artifact_mag' * log(n + 1)"
     if "`scenario'" == "C" display "  DGP: Informative visits + artifact"
 
-    list estimator mean_beta bias sd_beta mc_se mean_coverage, noobs clean
+    list estimator n_ok mean_beta bias sd_beta mc_se mean_coverage, noobs clean
 
     **## Correctness gates
     quietly summarize bias if estimator == "Unweighted", meanonly
@@ -346,11 +380,11 @@ foreach scenario in A B C {
         _sim_assert `ok', msg("Scenario `scenario': FIPTIW + test count recovers truth (|bias|=`s_fiptc' < `max_fiptiw_bias')")
     }
 
-    erase "sim_results_abc_`scenario'.dta"
 }
 
 capture program drop _sim_generate
 capture program drop _sim_assert
+capture program drop _sim_postrow
 
 **# Summary
 display _n as text "Scenarios run at reps=`n_sims', N=`n_subjects'"

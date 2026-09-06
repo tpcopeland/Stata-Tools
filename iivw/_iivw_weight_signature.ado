@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 4.1.2  2026/09/04
+*! _iivw_weight_signature Version 4.1.3  2026/09/06
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -27,9 +27,19 @@
 *   inputs   id, time, entry, censor, raw visit covariates, raw lag sources,
 *            generated lag columns, stabilization covariates, treatment,
 *            treatment-model covariates
-*   outputs  _iivw_iw, _iivw_ps, _iivw_tw, and the final weight
+*   outputs  _iivw_iw, _iivw_ps, _iivw_tw, the final weight, and -- when
+*            scores was requested -- every ndN/nsN influence-function column
 *   spec     the weight type, prefix, baseline mode, risk-set contract, tie
-*            method, truncation, estimand, and convergence state
+*            method, truncation, estimand, convergence state, the stacked
+*            nuisance parameter layout, and a fingerprint of the stored
+*            inverse information
+*
+* The ndN/nsN columns and the score metadata were unbound until 4.1.3, and a
+* 2026-09-04 probe showed what that cost: multiplying every _iivw_nsN column by
+* 100 left _iivw_check_weighted and iivw_fit both returning 0 while the stacked
+* treatment SE moved from 0.0896 to 4.098. The fixed-sandwich self-check inside
+* iivw_fit compares FIXED covariances, so corruption confined to the nuisance
+* correction is invisible to it. (audit I1)
 *
 * Binding the components separately (not just their product) is what makes a
 * corrupted _iivw_iw with a compensating _iivw_tw detectable.
@@ -75,6 +85,9 @@ program define _iivw_weight_signature, rclass sortpreserve
     local s_tcov     : char _dta[_iivw_treat_covars]
     local s_entry    : char _dta[_iivw_entry]
     local s_censvar  : char _dta[_iivw_censor_var]
+    local s_prefix   : char _dta[_iivw_prefix]
+    local s_scterms  : char _dta[_iivw_score_terms]
+    local s_scainv   : char _dta[_iivw_score_ainv]
 
     if "`s_id'" == "" | "`s_time'" == "" {
         display as error "_iivw_weight_signature: no weighting contract in the data"
@@ -86,9 +99,21 @@ program define _iivw_weight_signature, rclass sortpreserve
     * output the package OWNS. Order is fixed and deduplicated so the same
     * data always yields the same string.
     * ---------------------------------------------------------------------
+    * The stacked-inference columns. Their names are DERIVED from the contract
+    * (prefix plus the position in _iivw_score_terms), never from an argument,
+    * so a consumer cannot bind a different set than the producer signed. When
+    * scores was not requested the term list is empty and nothing is added.
+    local __iivw_nsc : word count `s_scterms'
+    local s_scorevars ""
+    forvalues __iivw_j = 1/`__iivw_nsc' {
+        local s_scorevars "`s_scorevars' `s_prefix'nd`__iivw_j' `s_prefix'ns`__iivw_j'"
+    }
+    local s_scorevars = strtrim("`s_scorevars'")
+
     local __iivw_bind ///
         `s_time' `s_entry' `s_censvar' `s_vcraw' `s_lagsrc' `s_lagnames' ///
-        `s_stabcov' `s_treat' `s_tcov' `s_iw' `s_ps' `s_tw' `s_wvar'
+        `s_stabcov' `s_treat' `s_tcov' `s_iw' `s_ps' `s_tw' `s_wvar' ///
+        `s_scorevars'
     local __iivw_bind : list uniq __iivw_bind
 
     * ---------------------------------------------------------------------
@@ -162,10 +187,24 @@ program define _iivw_weight_signature, rclass sortpreserve
             _iivw_treat_in_visit ///
             _iivw_truncvisit _iivw_trunctreat _iivw_truncfinal ///
             _iivw_tv_locut _iivw_tv_hicut _iivw_tt_locut _iivw_tt_hicut ///
-            _iivw_tt_unit {
+            _iivw_tt_unit _iivw_score_terms {
             local __iivw_cv : char _dta[`__iivw_ch']
             local __iivw_specparts "`__iivw_specparts'~`__iivw_cv'"
         }
+
+        * The serialized inverse information is bound by FINGERPRINT, not
+        * verbatim. A k-term model stores k^2 %21x cells; pasting that whole
+        * string into the signature would push char _dta[_iivw_wsig] toward
+        * Stata's characteristic length limit on a model that is not even large.
+        * hash1() is deterministic, so the fingerprint changes whenever any cell
+        * does, which is the only property this binding needs.
+        local __iivw_ainv_fp "none"
+        if `"`s_scainv'"' != "" {
+            mata: st_local("__iivw_ainv_fp", ///
+                strofreal(hash1(st_local("s_scainv")), "%21x"))
+        }
+        local __iivw_specparts "`__iivw_specparts'~ainv:`__iivw_ainv_fp'"
+
         local __iivw_parts "`__iivw_parts'|spec`__iivw_specparts'"
     }
 

@@ -23,10 +23,15 @@ if "`base'" != "qa" {
     display as error "test_iivw_weight_adversarial.do must be run from iivw/qa"
     exit 601
 }
-local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
-
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+* Sandbox first, then install. These suites used to call `ado uninstall' and
+* `net install' straight into the caller's PLUS/PERSONAL tree: run standalone
+* they could uninstall a user's real copy, and they depended on ambient
+* installed state. run_all.do's outer sandbox hid that in the canonical lane,
+* so the lane could not prove standalone safety. iivw_qa_bootstrap sandboxes
+* the sysdirs, installs the intended checkout, and asserts that it resolves.
+* (audit IIVW-13)
+iivw_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 local test_count = 0
 local pass_count = 0
