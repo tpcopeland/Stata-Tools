@@ -625,6 +625,14 @@ dropping observations or replacing variables), the metadata may become
 stale. In that case, re-run {cmd:iivw_weight}.
 
 {pstd}
+The stale-data check covers the influence-function columns that
+{cmd:iivw_weight, scores} writes and the stacked nuisance metadata stored
+beside them, not only the weights themselves. Editing a saved score or
+derivative column, or the stored inverse-information string, changes the
+{cmd:vce(stacked)} standard error, so those inputs are refused rather than
+used. Re-run {cmd:iivw_weight} to rebuild them.
+
+{pstd}
 For {opt unweighted} fits, prior weighting is optional. Specify {opt id()}
 and {opt time()} if no stored metadata are available. Running
 {cmd:iivw_fit, unweighted} after {cmd:iivw_weight} does not clear the stored
