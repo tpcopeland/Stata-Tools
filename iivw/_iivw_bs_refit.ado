@@ -1,4 +1,4 @@
-*! _iivw_bs_refit Version 4.1.2  2026/09/04
+*! _iivw_bs_refit Version 4.1.3  2026/09/06
 *! Bootstrap wrapper for iivw_fit, refitweights: recomputes IIW/IPTW/FIPTIW
 *! weights from scratch on each resampled panel before refitting the outcome
 *! model, so the bootstrap propagates weight-estimation uncertainty.

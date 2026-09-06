@@ -1,2 +1,23 @@
+# Runner state
 run_all_status.txt
 run_all_expected.txt
+
+# Runtime artifacts produced by the suites. qa/README.md states that generated
+# datasets, workbooks and graphs are ignored; before this file said so, only the
+# two runner status files above were listed, so an interrupted run left tracked-
+# looking debris in a directory that is supposed to hold only sources and
+# preregistered evidence. (audit IIVW-19)
+#
+# Suites now write their accumulators to tempfiles, so these patterns are the
+# backstop for exports, graphs and probe output rather than the primary defence.
+*.dta
+*.xlsx
+*.xls
+*.gph
+*.png
+*.pdf
+*.svg
+
+# Preregistered coverage evidence is NOT disposable: it is the receipt a release
+# claim is made against. Re-admit everything under coverage_results/.
+!coverage_results/**

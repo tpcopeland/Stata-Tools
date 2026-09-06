@@ -103,6 +103,7 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | `test_iivw_v341_regressions.do` | FIPTIW point-only default and explicit stacked route. |
 | `test_iivw_v343_regressions.do` | End-of-follow-up boundary tolerance, and agreement of the `iivw_weight`, `iivw_exogtest` and `iivw_balance` risk sets. |
 | `test_iivw_v401_regressions.do` | Baseline-event missing-weight refusal and demo return/state regressions. |
+| `test_iivw_v413_regressions.do` | Stacked Wald limits are formed from the posted covariance at two confidence levels and agree with the Wald replay; finite edits to a saved score column, derivative cell, or inverse-information metadata are refused, with an untouched-contract control. |
 | `test_iivw_weight_adversarial.do` | Weight construction hostile cases. |
 | `test_iivw_weight_validation_guards.do` | Weight-option validation and error codes. |
 

@@ -89,6 +89,38 @@ global SIM_TESTS = 0
 global SIM_PASS  = 0
 global SIM_FAIL  = 0
 
+* _sim_postrow_e -- record EVERY requested replication, usable or not.
+*
+* This suite used to `post' only after a captured command returned zero, so a
+* systematically failing configuration was silently replaced by the subset of
+* datasets that happened to be easy, and the reported MCSE was divided by the
+* number of replications REQUESTED rather than the number that produced an
+* estimate. A row is now written for every (replication, estimator, estimand)
+* triple; ok marks the usable ones, and a non-finite or non-positive-SE
+* estimate is not usable even when the command returned zero. (audit IIVW-17)
+capture program drop _sim_postrow_e
+program define _sim_postrow_e, rclass
+    version 16.0
+    args pf s est estimand coefname truth rc share
+    if "`share'" == "" local share .
+    return scalar b = .
+    if `rc' == 0 {
+        local b  = _b[`coefname']
+        local se = _se[`coefname']
+        if !missing(`b', `se') {
+            if `se' > 0 {
+                local cov = (`b' - 1.96*`se' <= `truth') & ///
+                            (`b' + 1.96*`se' >= `truth')
+                post `pf' (`s') ("`est'") ("`estimand'") ///
+                    (`b') (`se') (`cov') (`share') (1)
+                return scalar b = `b'
+                exit
+            }
+        }
+    }
+    post `pf' (`s') ("`est'") ("`estimand'") (.) (.) (.) (.) (0)
+end
+
 capture program drop _sim_assert
 program define _sim_assert
     syntax anything(name=ok), MSG(string)
@@ -166,9 +198,14 @@ end
 {
 display _n as result "Scenario E"
 
+* A per-run tempfile, not sim_results_e.dta in qa/. The fixed name meant an
+* interrupted run left debris and two concurrent runs could overwrite, mix or
+* erase each other's evidence. Stata erases the tempfile on exit. (audit IIVW-19)
+tempfile resfile
+
 capture postclose results
 postfile results int(sim) str25(estimator) str10(estimand) ///
-    double(beta se coverage artifact_share) using "sim_results_e.dta", replace
+    double(beta se coverage artifact_share) byte(ok) using "`resfile'", replace
 
 forvalues s = 1/`n_sims' {
     if mod(`s', 100) == 0 display "  Replication `s' / `n_sims'"
@@ -184,126 +221,105 @@ forvalues s = 1/`n_sims' {
         *Unweighted GEE
         capture glm y_obs treatment ftime tx_time conf_ti, ///
             family(gaussian) link(identity) vce(cluster id)
-        if _rc == 0 {
-            local b_unw_marg = _b[ftime]
-            local se_val = _se[ftime]
-            local cov = (`b_unw_marg' - 1.96*`se_val' <= `true_marginal') & ///
-                (`b_unw_marg' + 1.96*`se_val' >= `true_marginal')
-            post results (`s') ("Unweighted") ("marginal") ///
-                (`b_unw_marg') (`se_val') (`cov') (.)
-
-            local b = _b[tx_time]
-            local se_val = _se[tx_time]
-            local cov = (`b' - 1.96*`se_val' <= `true_contrast') & ///
-                (`b' + 1.96*`se_val' >= `true_contrast')
-            post results (`s') ("Unweighted") ("contrast") ///
-                (`b') (`se_val') (`cov') (.)
-        }
+        local rc_unw = _rc
+        _sim_postrow_e results `s' "Unweighted" "marginal" ftime `true_marginal' `rc_unw'
+        local b_unw_marg = r(b)
+        _sim_postrow_e results `s' "Unweighted" "contrast" tx_time `true_contrast' `rc_unw'
 
         *IIW-weighted GEE
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) wtype(iivw) ///
             truncfinal(1 99) nolog replace
-        if _rc == 0 {
+        local rc_iiw = _rc
+        if `rc_iiw' == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
                 model(gee) timespec(none) nolog replace
-            if _rc == 0 {
-                local b = _b[ftime]
-                local se_val = _se[ftime]
-                local cov = (`b' - 1.96*`se_val' <= `true_marginal') & ///
-                    (`b' + 1.96*`se_val' >= `true_marginal')
-                post results (`s') ("IIW") ("marginal") ///
-                    (`b') (`se_val') (`cov') (.)
-
-                local b = _b[tx_time]
-                local se_val = _se[tx_time]
-                local cov = (`b' - 1.96*`se_val' <= `true_contrast') & ///
-                    (`b' + 1.96*`se_val' >= `true_contrast')
-                post results (`s') ("IIW") ("contrast") ///
-                    (`b') (`se_val') (`cov') (.)
-            }
+            local rc_iiw = _rc
         }
+        _sim_postrow_e results `s' "IIW" "marginal" ftime `true_marginal' `rc_iiw'
+        _sim_postrow_e results `s' "IIW" "contrast" tx_time `true_contrast' `rc_iiw'
 
         *FIPTIW-weighted GEE
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncfinal(1 99) nolog replace
-        if _rc == 0 {
+        local rc_fip = _rc
+        if `rc_fip' == 0 {
             capture iivw_fit y_obs treatment ftime tx_time conf_ti, vce(fixed) ///
                 model(gee) timespec(none) nolog replace
-            if _rc == 0 {
-                local b_w_marg = _b[ftime]
-                local se_val = _se[ftime]
-                local cov = (`b_w_marg' - 1.96*`se_val' <= `true_marginal') & ///
-                    (`b_w_marg' + 1.96*`se_val' >= `true_marginal')
-                post results (`s') ("FIPTIW") ("marginal") ///
-                    (`b_w_marg') (`se_val') (`cov') (.)
-
-                local b = _b[tx_time]
-                local se_val = _se[tx_time]
-                local cov = (`b' - 1.96*`se_val' <= `true_contrast') & ///
-                    (`b' + 1.96*`se_val' >= `true_contrast')
-                post results (`s') ("FIPTIW") ("contrast") ///
-                    (`b') (`se_val') (`cov') (.)
-            }
+            local rc_fip = _rc
         }
+        _sim_postrow_e results `s' "FIPTIW" "marginal" ftime `true_marginal' `rc_fip'
+        local b_w_marg = r(b)
+        _sim_postrow_e results `s' "FIPTIW" "contrast" tx_time `true_contrast' `rc_fip'
 
         *FIPTIW + cumulative test count
         capture iivw_weight, endatlastvisit baseline(event) id(id) time(ftime) ///
             visit_cov(u_i conf_tv) ///
             treat(treatment) treat_cov(conf_ti u_i) ///
             truncfinal(1 99) nolog replace
-        if _rc == 0 {
+        local rc_ftc = _rc
+        if `rc_ftc' == 0 {
+            capture drop log_test_number
             gen double log_test_number = log(test_number + 1)
-            capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, vce(fixed) ///
-                model(gee) timespec(none) nolog replace
-            if _rc == 0 {
-                local b_adj_marg = _b[ftime]
-                local se_val = _se[ftime]
-                local cov = (`b_adj_marg' - 1.96*`se_val' <= `true_marginal') & ///
-                    (`b_adj_marg' + 1.96*`se_val' >= `true_marginal')
+            capture iivw_fit y_obs treatment ftime tx_time log_test_number conf_ti, ///
+                vce(fixed) model(gee) timespec(none) nolog replace
+            local rc_ftc = _rc
+        }
 
-                local share = .
-                if abs(`b_unw_marg' - `b_adj_marg') >= 1e-8 {
-                    local share = (`b_w_marg' - `b_adj_marg') / ///
-                        (`b_unw_marg' - `b_adj_marg')
-                }
-
-                post results (`s') ("FIPTIW + test count") ("marginal") ///
-                    (`b_adj_marg') (`se_val') (`cov') (`share')
-
-                local b = _b[tx_time]
-                local se_val = _se[tx_time]
-                local cov = (`b' - 1.96*`se_val' <= `true_contrast') & ///
-                    (`b' + 1.96*`se_val' >= `true_contrast')
-                post results (`s') ("FIPTIW + test count") ("contrast") ///
-                    (`b') (`se_val') (`cov') (.)
+        * The artifact share needs all three marginal slopes, so it is computed
+        * here and only when every one of them is usable. A share built from a
+        * replication whose unweighted or FIPTIW fit failed would silently be a
+        * different quantity from the one the gate below reads.
+        local b_adj_marg = .
+        if `rc_ftc' == 0 {
+            local b_adj_marg = _b[ftime]
+        }
+        local share = .
+        if !missing(`b_unw_marg', `b_w_marg', `b_adj_marg') {
+            if abs(`b_unw_marg' - `b_adj_marg') >= 1e-8 {
+                local share = (`b_w_marg' - `b_adj_marg') / ///
+                    (`b_unw_marg' - `b_adj_marg')
             }
         }
+        _sim_postrow_e results `s' "FIPTIW + test count" "marginal" ///
+            ftime `true_marginal' `rc_ftc' `share'
+        _sim_postrow_e results `s' "FIPTIW + test count" "contrast" ///
+            tx_time `true_contrast' `rc_ftc'
     }
 }
 postclose results
 
-use "sim_results_e.dta", clear
+use "`resfile'", clear
 
 **## Convergence
+* Two separate statements: every requested replication produced a row (so
+* nothing was dropped before it could be counted), and enough of those rows are
+* usable. min_success is a deliberately loose SENSITIVITY threshold, not a
+* release gate; the release gate is validation_iivw_inference.do, which
+* requires every replication. (audit IIVW-17)
 foreach est in "Unweighted" "IIW" "FIPTIW" "FIPTIW + test count" {
     foreach estimand in "marginal" "contrast" {
         quietly count if estimator == "`est'" & estimand == "`estimand'"
+        local n_req = r(N)
+        local okrow = (`n_req' == `n_sims')
+        _sim_assert `okrow', msg("Scenario E `est' `estimand': `n_req'/`n_sims' replications recorded")
+        quietly count if estimator == "`est'" & estimand == "`estimand'" & ok == 1
         local n_conv = r(N)
-        local ok = (`n_conv' >= `min_success')
-        _sim_assert `ok', msg("Scenario E `est' `estimand': `n_conv'/`n_sims' reps converged (need `min_success')")
+        local okc = (`n_conv' >= `min_success')
+        _sim_assert `okc', msg("Scenario E `est' `estimand': `n_conv'/`n_sims' reps usable (need `min_success')")
     }
 }
 
 preserve
+    * Summaries and MCSE come from the USABLE count, not the requested one.
     collapse (mean) mean_beta=beta mean_se=se mean_coverage=coverage ///
-        (sd) sd_beta=beta, by(estimator estimand)
+        (sd) sd_beta=beta (count) n_ok=beta if ok == 1, by(estimator estimand)
     gen double truth = cond(estimand == "marginal", ///
         `true_marginal', `true_contrast')
     gen double bias = mean_beta - truth
-    gen double mc_se = sd_beta / sqrt(`n_sims')
+    gen double mc_se = sd_beta / sqrt(n_ok)
     format mean_beta bias mean_se sd_beta mc_se %8.4f
     format mean_coverage %6.3f
 
@@ -312,7 +328,7 @@ preserve
     display "  Artifact saturates at test `artifact_cap'; headroom ceiling=`y_ceiling'"
     display "  Truth: marginal slope=`true_marginal', contrast slope=`true_contrast'"
 
-    list estimator estimand mean_beta bias sd_beta mc_se mean_coverage, noobs clean
+    list estimator estimand n_ok mean_beta bias sd_beta mc_se mean_coverage, noobs clean
 
     **## Stress gates (see header: E is a documented failure mode, not a recovery scenario)
     *The outcome-dependent artifact must actually bite the naive estimator,
@@ -400,10 +416,9 @@ _sim_assert `ok', msg("Scenario E: artifact share concentrates near its designed
 local ok = !missing(`mean_share') & `mean_share' > `min_share_mean'
 _sim_assert `ok', msg("Scenario E: artifact-share diagnostic flags a dominant artifact (mean=`s_share' > `min_share_mean')")
 
-erase "sim_results_e.dta"
-
 capture program drop _sim_generate_e
 capture program drop _sim_assert
+capture program drop _sim_postrow_e
 
 **# Summary
 display as result "RESULT: sim_scenario_e tests=${SIM_TESTS} pass=${SIM_PASS} fail=${SIM_FAIL}"

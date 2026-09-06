@@ -34,9 +34,16 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-local pkg_dir "`c(pwd)'/.."
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+* Sandbox first, then install. These suites used to call `ado uninstall' and
+* `net install' straight into the caller's PLUS/PERSONAL tree: run standalone
+* they could uninstall a user's real copy, and they depended on ambient
+* installed state. run_all.do's outer sandbox hid that in the canonical lane,
+* so the lane could not prove standalone safety. iivw_qa_bootstrap sandboxes
+* the sysdirs, installs the intended checkout, and asserts that it resolves.
+* (audit IIVW-13)
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 **# Helpers
 

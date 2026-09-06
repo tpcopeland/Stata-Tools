@@ -31,9 +31,16 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-local pkg_dir "`c(pwd)'/.."
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+* Sandbox first, then install. These suites used to call `ado uninstall' and
+* `net install' straight into the caller's PLUS/PERSONAL tree: run standalone
+* they could uninstall a user's real copy, and they depended on ambient
+* installed state. run_all.do's outer sandbox hid that in the canonical lane,
+* so the lane could not prove standalone safety. iivw_qa_bootstrap sandboxes
+* the sysdirs, installs the intended checkout, and asserts that it resolves.
+* (audit IIVW-13)
+do "`c(pwd)'/_iivw_qa_common.do"
+iivw_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 **# Helpers
 
@@ -197,12 +204,18 @@ capture noisily {
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(cens) ///
         wtype(iivw) allowmissingweights nolog
 
+    * Capture the first call's returns BEFORE any r-class command. This used to
+    * read r(N_total) after two `count's had already cleared r(), and was
+    * written as `assert r(N_total) == `n_total' | 1' -- always true, so the
+    * first call's return contract was never actually tested. (audit IIVW-21)
+    local r_ntotal_first = r(N_total)
+
     quietly count
     local n_total = r(N)
     quietly count if !missing(_iivw_weight)
     local n_wtd = r(N)
 
-    assert r(N_total) == `n_total' | 1
+    assert `r_ntotal_first' == `n_total'
     assert `n_wtd' < `n_total'
 
     quietly iivw_weight, id(id) time(time) visit_cov(z) censor(cens) ///

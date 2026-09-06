@@ -74,6 +74,19 @@ program define iivw_qa_sandbox, rclass
         display as error "iivw_qa_sandbox: could not create sysdir sandbox `sandbox'"
         exit 603
     }
+    * Remember the CALLER's sysdirs before the first substitution so they can be
+    * put back. This helper used to overwrite PLUS/PERSONAL and return without
+    * saving them: run_all.do restored its own outer settings, but an
+    * interactive standalone suite left the caller pointed at temporary
+    * directories that vanish when Stata exits -- a supposedly isolating helper
+    * mutating the session it was protecting. Only the FIRST entry records
+    * them, so a nested sandbox (a suite launched under run_all) cannot
+    * overwrite the real values with the outer sandbox's. (audit IIVW-18)
+    if "$IIVW_QA_ORIG_PLUS" == "" {
+        global IIVW_QA_ORIG_PLUS     "`c(sysdir_plus)'"
+        global IIVW_QA_ORIG_PERSONAL "`c(sysdir_personal)'"
+    }
+
     sysdir set PLUS     "`sandbox'/plus"
     sysdir set PERSONAL "`sandbox'/personal"
 
@@ -109,6 +122,22 @@ program define iivw_qa_bootstrap, rclass
     return local pkg_dir  "`pkgdir'"
     return local repo_dir "`repodir'"
     return local sandbox  "`sandbox'"
+end
+
+* iivw_qa_sandbox_restore -- put the caller's PLUS/PERSONAL back.
+*
+* iivw_qa_summary calls this on every path it takes, which covers a clean pass
+* and an ordinary test failure. A suite that dies on an uncaught r(nnn) before
+* reaching its summary still leaves the sandbox set; that is survivable because
+* re-running any suite records the real values only on a first entry and the
+* globals persist, but it is the one gap and it is stated rather than implied.
+capture program drop iivw_qa_sandbox_restore
+program define iivw_qa_sandbox_restore
+    version 16.0
+    if "$IIVW_QA_ORIG_PLUS" != "" {
+        capture sysdir set PLUS     "$IIVW_QA_ORIG_PLUS"
+        capture sysdir set PERSONAL "$IIVW_QA_ORIG_PERSONAL"
+    }
 end
 
 * -----------------------------------------------------------------------------
@@ -165,6 +194,7 @@ program define iivw_qa_summary
         display as error "`name': counter corruption -- pass+fail (`executed') exceeds tests (`tests')"
         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`skip'"
         capture log close _all
+        iivw_qa_sandbox_restore
         exit 198
     }
 
@@ -174,6 +204,7 @@ program define iivw_qa_summary
         display as error "  valid selectors are 0 (all) or 1-`tests'"
         display "RESULT: `name' tests=`tests' pass=0 fail=0 skip=`skip'"
         capture log close _all
+        iivw_qa_sandbox_restore
         exit 198
     }
 
@@ -182,6 +213,7 @@ program define iivw_qa_summary
         display as error "`name': selector `runonly' executed `executed' cases, expected 1"
         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`skip'"
         capture log close _all
+        iivw_qa_sandbox_restore
         exit 198
     }
 
@@ -191,6 +223,7 @@ program define iivw_qa_summary
         }
         display "RESULT: `name' tests=`tests' pass=`pass' fail=`fail' skip=`skip'"
         capture log close _all
+        iivw_qa_sandbox_restore
         exit 1
     }
 
@@ -199,6 +232,7 @@ program define iivw_qa_summary
     * The sentinel is emitted BEFORE this, so it lands in the suite's own log as
     * well as the batch log. `log close _all' does not touch Stata's -b log.
     capture log close _all
+    iivw_qa_sandbox_restore
 end
 
 * iivw_qa_sign_contract -- stamp a signature onto a HAND-BUILT weight contract.

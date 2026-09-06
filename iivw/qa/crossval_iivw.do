@@ -63,10 +63,9 @@ if "${IIVW_QA_REFS_FRESH}" != "1" {
     global IIVW_QA_REFS_FRESH "1"
 }
 
-iivw_qa_sandbox, pkgdir("`pkg_dir'")
-
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+* iivw_qa_bootstrap sandboxes, installs and then asserts that iivw_weight
+* actually resolves to the freshly installed copy. (audit IIVW-13)
+iivw_qa_bootstrap, pkgdir("`pkg_dir'")
 
 local test_count = 0
 local pass_count = 0

@@ -32,11 +32,16 @@ iivw_qa_selector "`run_only'"
 local run_only = `r(run_only)'
 
 * === Bootstrap ===
+* Sandbox first, then install. These suites used to call `ado uninstall' and
+* `net install' straight into the caller's PLUS/PERSONAL tree: run standalone
+* they could uninstall a user's real copy, and they depended on ambient
+* installed state. run_all.do's outer sandbox hid that in the canonical lane,
+* so the lane could not prove standalone safety. iivw_qa_bootstrap sandboxes
+* the sysdirs, installs the intended checkout, and asserts that it resolves.
+* (audit IIVW-13)
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."
-
-capture ado uninstall iivw
-quietly net install iivw, from("`pkg_dir'") replace
+iivw_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 local test_count = 0
 local pass_count = 0

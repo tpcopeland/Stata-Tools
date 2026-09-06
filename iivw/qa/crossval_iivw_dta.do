@@ -12,8 +12,12 @@ version 16.0
 do "`c(pwd)'/_iivw_qa_common.do"
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-iivw_qa_bootstrap, pkgdir("`pkg_dir'")
+* Let the common bootstrap resolve the package directory. It strips the
+* trailing "/qa" by LENGTH; subinstr(...,"/qa","",1) removes the FIRST such
+* component, so a checkout under any ancestor containing "/qa" resolved a
+* directory that does not exist. (audit IIVW-20)
+iivw_qa_bootstrap
+local pkg_dir "`r(pkg_dir)'"
 
 local test_count = 0
 local pass_count = 0
