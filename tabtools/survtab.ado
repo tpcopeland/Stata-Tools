@@ -1,4 +1,4 @@
-*! survtab Version 2.1.2  2026/09/05
+*! survtab Version 2.1.3  2026/09/07
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

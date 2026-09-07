@@ -392,7 +392,10 @@ computed from the collected p-values before the p-value columns are dropped.{p_e
 {opt font()}, {opt fontsize()}, or session defaults set with
 {helpb tabtools:set font} / {helpb tabtools:set fontsize}. Borders
 are drawn around the table and model blocks. Column widths and row heights are
-adjusted heuristically to fit labels and contents.{p_end}
+adjusted heuristically to fit labels and contents: each model's estimate,
+confidence-interval, and p-value columns are sized from that model's own cells,
+so a model with wide estimates does not widen the others, and a model header
+longer than its block wraps onto extra header lines.{p_end}
 {p 4 8 2}- The command writes Excel and Markdown output through the shared tabtools
 Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QICu,

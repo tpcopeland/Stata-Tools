@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.2  2026/09/05
+*! effecttab Version 2.1.3  2026/09/07
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1430,51 +1430,26 @@ quietly {
 	* CALCULATE COLUMN WIDTHS
 	* =========================================================================
 
-	forvalues i = 1(1)`n' {
-		gen c`i'_length = length(c`i')
+	* Widths come from the shared _tabtools_colwidth helper, PER MODEL, from
+	* that model's own rendered cells (rows 3+, so the row-3 statistic header
+	* such as "Pr(CV Event)" always fits). A single max shared across models
+	* sized every model's estimate/CI/p column to the widest model. The model
+	* label in row 2 is merged across its own block, so its wrap depth comes
+	* from that block's width, not from the whole table.
+	local headerheight = 1
+	forvalues _mw = 1/`_n_models' {
+		local _c_est = (`_mw' - 1) * 3 + 1
+		_tabtools_colwidth c`_c_est', minwidth(8) maxwidth(22) headerrow(2)
+		local _est_width_`_mw' = r(width)
+		local _m_hdr_len = r(hlen)
+		_tabtools_colwidth c`=`_c_est' + 1', minwidth(16) maxwidth(34)
+		local _ci_width_`_mw' = r(width)
+		_tabtools_colwidth c`=`_c_est' + 2', minwidth(8) maxwidth(12)
+		local _p_width_`_mw' = r(width)
+		local _m_block_width = `_est_width_`_mw'' + `_ci_width_`_mw'' + `_p_width_`_mw''
+		_tabtools_colwidth, hlength(`_m_hdr_len') blockwidth(`_m_block_width')
+		if r(hlines) > `headerheight' local headerheight = r(hlines)
 	}
-	* Compute max header length from row 2 only (model labels)
-	local max_header_length = 0
-	forvalues i = 1/`n' {
-	    local _h2len = strlen(c`i'[2])
-	    if `_h2len' > `max_header_length' local max_header_length = `_h2len'
-	}
-	* Compute minimum estimate column width from header labels (row 3)
-	* and estimate column data to ensure headers like "Pr(CV Event)" fit
-	local est_max = 0
-	forvalues i = 1(3)`last' {
-		sum c`i'_length if _n >= 3, meanonly
-		if `r(max)' > `est_max' local est_max = `r(max)'
-		* Also consider the column header in row 3
-		local _hdr_len = c`i'_length[3]
-		if !missing(`_hdr_len') & `_hdr_len' > `est_max' local est_max = `_hdr_len'
-	}
-	local ci_max = 0
-	local p_max = 0
-	forvalues i = 1(1)`n' {
-		replace c`i'_length = . if _n == 2
-		egen c`i'_max = max(c`i'_length)
-	}
-	forvalues i = 2(3)`n' {
-		sum c`i'_max, meanonly
-		if `r(max)' > `ci_max' local ci_max = `r(max)'
-	}
-	forvalues i = 3(3)`n' {
-		sum c`i'_max, meanonly
-		if `r(max)' > `p_max' local p_max = `r(max)'
-	}
-
-	local est_width = ceil(`est_max' * 0.85) + 2
-	if `est_width' < 8 local est_width = 8
-	if `est_width' > 22 local est_width = 22
-
-	local ci_width = ceil(`ci_max' * 0.85) + 2
-	if `ci_width' < 16 local ci_width = 16
-	if `ci_width' > 34 local ci_width = 34
-
-	local p_width = ceil(`p_max' * 0.85) + 2
-	if `p_width' < 8 local p_width = 8
-	if `p_width' > 12 local p_width = 12
 
 	gen A_length = length(A)
 	egen factor_length = max(A_length)
@@ -1487,7 +1462,7 @@ quietly {
 	}
 	if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
-	drop A_length factor_length c*_max c*_length
+	drop A_length factor_length
 
 	* CSV export (F2) — must happen before clear
 	if "`csv'" != "" {
@@ -1635,18 +1610,14 @@ quietly {
 			local _style_rule_rows `"`_style_rule_rows' | 12, 1, 1, 1, 1, 30, 0, 0, 0"'
 			local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 1, 1, 1, 0, 0, 0"'
 			local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 2, 2, `factor_length', 0, 0, 0"'
-			forvalues i = 3(3)`=`num_cols'-2' {
-				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `est_width', 0, 0, 0"'
+			* Excel column of c<k> is k + 2 (column 1 is the spacer, 2 the label)
+			forvalues _mc = 1/`_n_models' {
+				local _x_est = (`_mc' - 1) * 3 + 3
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `_x_est', `_x_est', `_est_width_`_mc'', 0, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `=`_x_est' + 1', `=`_x_est' + 1', `_ci_width_`_mc'', 0, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `=`_x_est' + 2', `=`_x_est' + 2', `_p_width_`_mc'', 0, 0, 0"'
 			}
-			forvalues i = 4(3)`=`num_cols'-1' {
-				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `ci_width', 0, 0, 0"'
-			}
-			forvalues i = 5(3)`num_cols' {
-				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `p_width', 0, 0, 0"'
-			}
-			local _total_model_width = `est_width' + `ci_width' + `p_width'
-			if `=`max_header_length'*.9' > `_total_model_width' {
-				local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
+			if `headerheight' > 1 {
 				local _style_rule_rows `"`_style_rule_rows' | 12, 2, 2, 1, 1, `=`headerheight'*15', 0, 0, 0"'
 			}
 			* Wrap + top-align the label column so labels exceeding the capped

@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.2** | 2026-09-05
+**Version 2.1.3** | 2026-09-07
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -465,6 +465,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.1.3** (2026-09-07): Sized exported Excel columns from each column's own content instead of one shared maximum, through a new `_tabtools_colwidth` helper used by `desctab`, `table1_tc`, `regtab`, `effecttab`, and `comptab`. The descriptive engines previously gave every group column the width of the widest cell in the table, so a single verbose group label - which sits in header row 2 and was counted as content - or one long statistic padded every other column out to match it, routinely against the 30-character ceiling. Each group column is now measured on its own cells; the group label wraps inside that width, with the header row grown to carry the extra lines, and contributes only a damped floor so a long label cannot force a wide, sparse column. The model-table engines did the same across models, sizing every model's estimate, confidence-interval, and p-value columns to the widest model; each model's columns are now measured on that model's own cells, and its merged header wraps against its own block width rather than the whole table. Cell lengths are Unicode display widths, so `±` and `≥` no longer count as two or three characters. Console output is unchanged, and the exported workbook now matches the column proportions the console already showed.
 - **2.1.2** (2026-09-05): Made `survtab` frequency-weighted counts and Greenwood RMST variance replication-consistent with expanded data, and rejected unsupported probability/importance stset weights before output. Corrected `crosstab` labels for ordinary fractional categories and left undefined Spearman diagonals blank for constant or one-observation variables. Added regression coverage across returned matrices, frames, CSV, Markdown, and Excel output.
 - **2.1.1** (2026-09-04): Corrected extended-missing regression statistics, distinct missing-category labels, stable matrix identifiers for rate and survival results, and transactional frame replacement. Tightened private helper contracts and persistent-format validation, and repaired installed help and README contracts.
 - **2.1.0** (2026-09-03): Distinguished `Reference`, `Omitted`, and `Empty` constrained cells in `regtab` and `effecttab`, excluded non-estimable cells from machine-readable results, corrected factor and interaction labels, and supported the same contracts in multi-equation and multilevel layouts.
