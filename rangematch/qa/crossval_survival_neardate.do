@@ -27,9 +27,15 @@ capture noisily {
     confirm file "`r_script'"
     shell Rscript "`r_script'" "`ref_dir'"
     confirm file "`ref_dir'/R_OK"
+    * `confirm file' alone passes on a truncated/empty write; require the
+    * sentinel's actual content and that every generated CSV has real rows.
+    assert strtrim(subinstr(subinstr(fileread("`ref_dir'/R_OK"), char(13), "", .), char(10), "", .)) == "ok"
     confirm file "`ref_dir'/neardate_master.csv"
+    assert strlen(fileread("`ref_dir'/neardate_master.csv")) > 0
     confirm file "`ref_dir'/neardate_using.csv"
+    assert strlen(fileread("`ref_dir'/neardate_using.csv")) > 0
     confirm file "`ref_dir'/neardate_expected.csv"
+    assert strlen(fileread("`ref_dir'/neardate_expected.csv")) > 0
 }
 if _rc == 0 {
     display as result "PASS: survival::neardate public oracle generated"

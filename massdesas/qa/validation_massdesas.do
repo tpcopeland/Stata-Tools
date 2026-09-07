@@ -134,6 +134,11 @@ display as text _n "Test `test_count': Variable types preserved"
 capture noisily {
     use "`dir_v1'/hundred.dta", clear
     confirm numeric variable ID VALUE
+    * `confirm numeric variable' is existence/type-only, not an assert;
+    * prove the columns are genuinely numeric (arithmetic on a string
+    * variable errors) with the correct preserved values.
+    assert ID[1] + 1 == 2
+    assert abs(VALUE[1] - 1.5) < 0.001
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -153,6 +158,10 @@ capture noisily {
     massdesas, directory("`dir_v4'") lower
     use "`dir_v4'/mixedcase.dta", clear
     confirm variable firstname lastname age_years
+    * Names alone could pass on a coincidence; verify the row content
+    * survived the rename under the new lowercase names.
+    assert firstname[1] == "Alice"
+    assert age_years[2] == 40
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -196,6 +205,12 @@ capture noisily {
     massdesas, directory("`dir_v6'")
     confirm file "`dir_v6'/keep.sas7bdat"
     confirm file "`dir_v6'/keep.dta"
+    * `confirm file' alone passes on a truncated source; verify the
+    * un-erased .sas7bdat still has bytes and the converted .dta has the
+    * right content, not just that both directory entries exist.
+    assert strlen(fileread("`dir_v6'/keep.sas7bdat")) > 0
+    use "`dir_v6'/keep.dta", clear
+    assert X[1] == 1
 }
 if _rc == 0 {
     display as result "  PASS"

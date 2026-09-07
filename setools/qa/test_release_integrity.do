@@ -85,9 +85,13 @@ local ++test_count
 capture noisily {
     foreach f of local shipped_files {
         confirm file "`pkg_dir'/`f'"
+        * `confirm file' alone passes on a zero-byte placeholder; require
+        * shipped content, not just an existing directory entry.
+        assert strlen(fileread("`pkg_dir'/`f'")) > 0
     }
     foreach f of local metadata_files {
         confirm file "`pkg_dir'/`f'"
+        assert strlen(fileread("`pkg_dir'/`f'")) > 0
     }
 }
 if _rc == 0 {

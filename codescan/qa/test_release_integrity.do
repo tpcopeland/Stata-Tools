@@ -144,6 +144,16 @@ capture noisily {
     confirm file "`pkg_dir'/codescan.pkg"
     confirm file "`pkg_dir'/stata.toc"
     confirm file "`pkg_dir'/README.md"
+    * Existence alone does not rule out a zero-byte file left by a failed
+    * write; confirm each one actually has content.
+    foreach _rf in codescan.ado codescan.sthlp codescan_describe.ado ///
+                   codescan_describe.sthlp codescan.pkg stata.toc README.md {
+        tempname _rfh
+        file open `_rfh' using "`pkg_dir'/`_rf'", read text
+        file read `_rfh' _rfline
+        file close `_rfh'
+        assert length(`"`_rfline'"') > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: release files present"

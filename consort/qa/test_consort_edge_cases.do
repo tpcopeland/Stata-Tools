@@ -58,6 +58,22 @@ program define _clear_consort_state
     global CONSORT_SCRIPT_PATH ""
 end
 
+* =============================================================================
+* HELPER: Byte size of a file, safe for binary output (png/pdf/svg) -- avoids
+* reading binary content through fileread(), which is documented for text.
+* =============================================================================
+capture program drop _qa_filesize
+program define _qa_filesize, rclass
+    args path
+    tempname fh
+    file open `fh' using "`path'", read binary
+    file seek `fh' eof
+    file seek `fh' query
+    local _bytes = r(loc)
+    file close `fh'
+    return scalar bytes = `_bytes'
+end
+
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
@@ -75,12 +91,21 @@ capture {
 
     sysuse auto, clear
     consort init, initial("All vehicles")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing repair")
+    assert r(n_excluded) == 5
+    assert r(n_remaining) == 69
     consort save, output("${FIGURES_DIR}/path with spaces/test_spaces.png") final("Final")
+    assert r(N_initial) == 74
+    assert r(N_final) == 69
+    assert r(N_excluded) == 5
 
-    * Verify file exists
+    * Verify file exists and was actually written to, not just touched
     capture confirm file "${FIGURES_DIR}/path with spaces/test_spaces.png"
     assert _rc == 0
+    _qa_filesize "${FIGURES_DIR}/path with spaces/test_spaces.png"
+    assert !missing(r(bytes))
+    assert r(bytes) > 0
 }
 if _rc == 0 {
     display as result "  PASSED: Path with spaces works"
@@ -197,11 +222,17 @@ capture {
     _clear_consort_state
     sysuse auto, clear
     consort init, initial("All cars")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing")
+    assert r(n_excluded) == 5
     consort save, output("${FIGURES_DIR}/consort/test_output.pdf") final("Final")
+    assert r(N_final) == 69
 
     capture confirm file "${FIGURES_DIR}/consort/test_output.pdf"
     assert _rc == 0
+    _qa_filesize "${FIGURES_DIR}/consort/test_output.pdf"
+    assert !missing(r(bytes))
+    assert r(bytes) > 0
 }
 if _rc == 0 {
     display as result "  PASSED: PDF output works"
@@ -224,11 +255,15 @@ capture {
     _clear_consort_state
     sysuse auto, clear
     consort init, initial("All cars")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing")
+    assert r(n_excluded) == 5
     consort save, output("${FIGURES_DIR}/consort/test_output.svg") final("Final")
+    assert r(N_final) == 69
 
     capture confirm file "${FIGURES_DIR}/consort/test_output.svg"
     assert _rc == 0
+    assert strpos(fileread("${FIGURES_DIR}/consort/test_output.svg"), "<svg") > 0
 }
 if _rc == 0 {
     display as result "  PASSED: SVG output works"

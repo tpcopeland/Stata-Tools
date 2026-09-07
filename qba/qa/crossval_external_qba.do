@@ -115,6 +115,7 @@ program define _qba_crossval_external_main
     **# Misclassification
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — each bare `_qba_ext_compare' call IS the content oracle: it resolves the oracle value via `_qba_ext_expect' then calls `_qba_ext_assert_close', which `exit 9's on a mismatch beyond tolerance, so this block's capture only relays that comparison; the helper names have no "assert" substring so the rule cannot see them
     capture noisily {
         * episensr::misclass() Fink and Lash 2003 exposure example.
         qba_misclass, a(215) b(1449) c(668) d(4296) ///
@@ -154,6 +155,7 @@ program define _qba_crossval_external_main
     }
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — each bare `_qba_ext_compare' call IS the content oracle: it resolves the oracle value via `_qba_ext_expect' then calls `_qba_ext_assert_close', which `exit 9's on a mismatch beyond tolerance, so this block's capture only relays that comparison; the helper names have no "assert" substring so the rule cannot see them
     capture noisily {
         * episensr::misclass() AMI death outcome example.
         qba_misclass, a(4558) b(3428) c(46305) d(46085) ///
@@ -195,6 +197,7 @@ program define _qba_crossval_external_main
     **# Selection Bias
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — each bare `_qba_ext_compare' call IS the content oracle: it resolves the oracle value via `_qba_ext_expect' then calls `_qba_ext_assert_close', which `exit 9's on a mismatch beyond tolerance, so this block's capture only relays that comparison; the helper names have no "assert" substring so the rule cannot see them
     capture noisily {
         * episensr::selection() Stang et al. 2006 uveal melanoma example.
         qba_selection, a(136) b(107) c(297) d(165) ///
@@ -237,6 +240,7 @@ program define _qba_crossval_external_main
     **# Unmeasured Confounding and E-values
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — each bare `_qba_ext_compare' call IS the content oracle: it resolves the oracle value via `_qba_ext_expect' then calls `_qba_ext_assert_close', which `exit 9's on a mismatch beyond tolerance, so this block's capture only relays that comparison; the helper names have no "assert" substring so the rule cannot see them
     capture noisily {
         * episensr::confounders() Tyndall et al. 1996 HIV/circumcision example.
         local obs_rr = (105 / (105 + 527)) / (85 / (85 + 93))
@@ -262,6 +266,7 @@ program define _qba_crossval_external_main
     }
 
     local ++test_count
+    * stata-dev-ignore: rc-only-test — each bare `_qba_ext_compare' call IS the content oracle: it resolves the oracle value via `_qba_ext_expect' then calls `_qba_ext_assert_close', which `exit 9's on a mismatch beyond tolerance, so this block's capture only relays that comparison; the helper names have no "assert" substring so the rule cannot see them
     capture noisily {
         * episensr::confounders_evalue() Victoria et al. 1987 RR example.
         qba_confound, estimate(3.9) measure(RR) evalue

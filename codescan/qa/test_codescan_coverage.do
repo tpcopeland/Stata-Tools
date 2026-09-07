@@ -143,6 +143,9 @@ capture noisily {
     confirm variable dm2_last
     capture confirm variable dm2_first
     assert _rc != 0
+    count if !missing(dm2_last)
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: latestdate only (no earliestdate)"
@@ -164,6 +167,9 @@ capture noisily {
     assert _rc != 0
     capture confirm variable dm2_last
     assert _rc != 0
+    count if dm2_count > 0 & !missing(dm2_count)
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: countdate only (no earliest/latest)"
@@ -926,6 +932,12 @@ capture noisily {
     confirm variable dm2_count
     capture confirm variable dm2_first
     assert _rc != 0
+    count if !missing(dm2_last)
+    assert !missing(r(N))
+    assert r(N) > 0
+    count if dm2_count > 0 & !missing(dm2_count)
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Collapse with latestdate+countdate only"

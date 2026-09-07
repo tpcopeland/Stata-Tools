@@ -47,6 +47,14 @@ end
 local ++test_count
 capture noisily {
     which consort
+    * `which' only proves the command resolves; parse the resolved file's
+    * own version header rather than just eyeballing the `which' banner.
+    findfile consort.ado
+    tempname _t1_vfh
+    file open `_t1_vfh' using `"`r(fn)'"', read text
+    file read `_t1_vfh' _t1_vline
+    file close `_t1_vfh'
+    assert regexm(`"`_t1_vline'"', "consort Version ([0-9]+\.[0-9]+\.[0-9]+)")
 }
 if _rc == 0 {
     display as result "  PASS `test_count': consort command found (version check visual)"
@@ -356,6 +364,9 @@ capture noisily {
     consort exclude if flag == 1, label("First 10")
     consort save, output("/tmp/test_v106_dollar_final.png") ///
         final(`"Cohort with $100+ cost"')
+    * Prove the compound-quoted label with an embedded $ survived intact
+    * rather than being macro-expanded away before it reached the diagram.
+    assert `"`r(final)'"' == `"Cohort with $100+ cost"'
 
     capture confirm file "/tmp/test_v106_dollar_final.png"
     assert _rc == 0

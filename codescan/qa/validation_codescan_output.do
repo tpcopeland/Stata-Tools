@@ -151,12 +151,12 @@ else {
 }
 
 * ============================================================
-* V3: Failed export restores post-scan data and keeps r()
+* V3: Failed export rolls the data back and keeps r()
 * ============================================================
 
 local ++test_count
 capture noisily {
-    tempfile expected badbase
+    tempfile expected precall badbase
     local bad_xlsx "`badbase'_missing_dir/out.xlsx"
 
     clear
@@ -180,6 +180,12 @@ capture noisily {
     "E110" "J45"
     "I10"  ""
     end
+    * The caller's PRE-call state. With neither preserve nor replace given there
+    * is no snapshot to roll back to, so codescan's documented cleanup drops the
+    * variables this run created and hands the caller back exactly this dataset
+    * ("Drop the planned outputs ONLY when no snapshot rolled the data back",
+    * codescan.ado). r() is posted before any fallible side effect and survives.
+    save "`precall'", replace
 
     capture codescan dx1 dx2, define(dm2 "E11" | htn "I10" | asthma "J45") ///
         export("`bad_xlsx'")
@@ -195,14 +201,29 @@ capture noisily {
     assert el(got_summary, 2, 1) == el(expected_summary, 2, 1)
     assert el(got_summary, 3, 1) == el(expected_summary, 3, 1)
 
-    cf _all using "`expected'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare. Proving it against the PRE-call snapshot is what
+    * makes the rollback contract testable: comparing against the post-scan
+    * dataset passed only because `cf _all' could not see dm2/htn/asthma
+    * missing from memory.
+    unab _v3_vars : _all
+    describe using "`precall'", varlist
+    assert "`_v3_vars'" == "`r(varlist)'"
+    cf _all using "`precall'"
+    * ...and the created variables really are gone, not merely uncompared.
+    foreach _v3_out in dm2 htn asthma {
+        capture confirm variable `_v3_out'
+        assert _rc != 0
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: V3 - unwritable export restores data and keeps r()"
+    display as result "  PASS: V3 - unwritable export rolls data back and keeps r()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V3 - failed export restore/return contract (error `=_rc')"
+    display as error "  FAIL: V3 - failed export rollback/return contract (error `=_rc')"
     local ++fail_count
 }
 

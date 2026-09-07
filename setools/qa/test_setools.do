@@ -58,6 +58,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     foreach cmd of local public_cmds {
         which `cmd'

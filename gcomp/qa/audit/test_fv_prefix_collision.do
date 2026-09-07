@@ -16,6 +16,10 @@ capture noisily gcomp y m x c z, outcome(y) mediation obe exposure(x) mediator(m
 local rc = _rc
 display "RESULT: fv_prefix_collision rc=`rc'"
 assert `rc' == 0
+* rc==0 alone would pass even if the c.z/c-variable-name collision silently
+* fit a degenerate or wrong model; confirm gcomp actually posted results.
+assert "`e(cmd)'" == "gcomp"
+assert e(bootstrap_failed) == 0
 
 display "RESULT: test_fv_prefix_collision tests=1 pass=1 fail=0 status=PASS"
 

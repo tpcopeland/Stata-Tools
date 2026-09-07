@@ -197,6 +197,12 @@ capture {
     use "$TVTOOLS_QA_RUN_DIR/_tvdn_merged.dta", clear
     confirm variable tv_drugA
     confirm variable tv_drugB
+    count if tv_drugA == 1
+    assert !missing(r(N))
+    assert r(N) > 0
+    count if tv_drugB == 1
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: distinct exposures chain into tvmerge without renames"

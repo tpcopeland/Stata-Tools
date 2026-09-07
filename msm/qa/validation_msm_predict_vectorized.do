@@ -131,6 +131,7 @@ capture noisily {
                     summarize `surv', meanonly
                     local expected = 1 - r(mean)
                     local col = cond(`treat_val' == 0, 2, 5)
+                    assert !missing(`expected', VECTORIZED[`row', `col'])
                     assert reldif(`expected', VECTORIZED[`row', `col']) < 1e-12
                 }
             }
@@ -173,9 +174,13 @@ capture noisily {
     matrix D = r(predictions)
     assert r(draw_method) == "degenerate"
     forvalues row = 1/2 {
+        assert !missing(D[`row', 2], D[`row', 3])
         assert reldif(D[`row', 2], D[`row', 3]) < 1e-6
+        assert !missing(D[`row', 2], D[`row', 4])
         assert reldif(D[`row', 2], D[`row', 4]) < 1e-6
+        assert !missing(D[`row', 5], D[`row', 6])
         assert reldif(D[`row', 5], D[`row', 6]) < 1e-6
+        assert !missing(D[`row', 5], D[`row', 7])
         assert reldif(D[`row', 5], D[`row', 7]) < 1e-6
     }
 }

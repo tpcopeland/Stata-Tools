@@ -16,6 +16,11 @@ capture noisily gcomp y m x regress, outcome(y) mediation oce exposure(x) mediat
 local rc = _rc
 display "RESULT: msm_command_collision rc=`rc'"
 assert `rc' == 0
+* rc==0 alone would pass even if the "regress" variable name silently
+* collided with the msm(regress ...) command keyword and fit the wrong
+* spec; confirm the exact msm() equation was parsed and posted.
+assert "`e(msm)'" == "regress y i.x regress"
+assert e(bootstrap_failed) == 0
 
 display "RESULT: test_msm_command_collision tests=1 pass=1 fail=0 status=PASS"
 

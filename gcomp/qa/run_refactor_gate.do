@@ -29,7 +29,7 @@ if _rc == 0 {
     file close `fh'
 }
 
-if !`found' {
+if `found' == 0 {
     display "RESULT: run_refactor_gate tests=1 pass=0 fail=1 status=FAIL"
     exit 1
 }

@@ -426,6 +426,9 @@ local ++test_count
 capture noisily {
     _tvcat_render, capfile("`cap_dir'/cat_ship.txt") catalog(`catalog')
     local rendered "`r(rows)'"
+    assert "`rendered'" != ""
+    local n_rendered : word count `rendered'
+    assert `n_rendered' > 0
     foreach c of local rendered {
         capture which `c'
         local which_rc = _rc

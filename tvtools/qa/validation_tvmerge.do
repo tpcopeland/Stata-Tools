@@ -260,9 +260,10 @@ capture {
     gen dur = stop - start + 1
     quietly sum dur
 
-    * Closed [21975, 22097] spans stop-start+1 = 123 days.
+    * Closed [21975, 22097] spans stop-start+1 = 123 days. Both sides use the
+    * same inclusive convention, so the overlap duration must match exactly.
     local expected_dur = 22097 - 21975 + 1
-    assert abs(r(sum) - `expected_dur') < 1
+    assert r(sum) == `expected_dur'
 }
 if _rc == 0 {
     display as result "  PASS: Merged duration equals intersection (123 days)"
@@ -481,11 +482,13 @@ capture {
         id(id) start(s1 s2 s3) stop(e1 e2 e3) ///
         exposure(x1 x2 x3)
 
-    * Closed [22067, 22189] spans stop-start+1 = 123 days.
+    * Closed [22067, 22189] spans stop-start+1 = 123 days. Both sides use the
+    * same inclusive convention, so the intersection duration must match
+    * exactly.
     gen dur = stop - start + 1
     quietly sum dur
     local expected = 22189 - 22067 + 1
-    assert abs(r(sum) - `expected') < 1
+    assert r(sum) == `expected'
 }
 if _rc == 0 {
     display as result "  PASS: Three-way merge duration correct (123 days)"

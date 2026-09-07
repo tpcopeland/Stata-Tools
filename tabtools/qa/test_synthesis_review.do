@@ -83,6 +83,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) vars(price contn \ mpg conts)
     assert _rc == 0
+    assert "`r(varlist)'" == "price mpg"
 }
 if _rc == 0 {
     display as result "  PASS `test_count': A1 table1_tc bare-call _rc == 0"
@@ -104,6 +105,13 @@ capture noisily {
     quietly collect: table (var) (result), statistic(mean price mpg)
     desctab
     assert _rc == 0
+    * MEASURED: bare desctab reports the whole in-memory varlist (all 12
+    * `sysuse auto' variables), not just the two the collect table was built
+    * from. Assert what it actually contracts to publish: a non-empty varlist
+    * that names the collected variables.
+    assert "`r(varlist)'" != ""
+    assert strpos(" `r(varlist)' ", " price ") > 0
+    assert strpos(" `r(varlist)' ", " mpg ") > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': A2 desctab bare-call _rc == 0"
@@ -234,6 +242,7 @@ local _sr_f "SR FOOTNOTE"
 
 * --- crosstab
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     local _csv "`outdir'/_sr_a5_crosstab.csv"
@@ -287,6 +296,7 @@ else {
 
 * --- survtab
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     webuse stan3, clear
     quietly stset t1, failure(died) id(id)
@@ -306,6 +316,7 @@ else {
 
 * --- table1_tc (title() needs a workbook sink alongside csv())
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     local _csv "`outdir'/_sr_a5_table1.csv"
@@ -325,6 +336,7 @@ else {
 
 * --- regtab (labelvar(A) caller: row labels live in the first exported column)
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     collect clear
@@ -345,6 +357,7 @@ else {
 
 * --- desctab
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     local _csv "`outdir'/_sr_a5_desctab.csv"
@@ -368,6 +381,7 @@ else {
 * --- puttab already wrote both into body cells; this guards that
 * --- the shared writer did not disturb them.
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     local _csv "`outdir'/_sr_a5_puttab.csv"
@@ -408,6 +422,7 @@ else {
 
 * --- a title carrying embedded double quotes and a comma must round-trip
 local ++test_count
+* stata-dev-ignore: rc-only-test — the bare `_sr_csv_contract' call IS the content oracle: it imports the CSV and asserts the title/footnote/row-label cells verbatim, `exit 9'ing on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     sysuse auto, clear
     local _csv "`outdir'/_sr_a5_quotes.csv"

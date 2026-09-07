@@ -598,9 +598,13 @@ capture noisily {
     local b = _b[treatment]
     local or = exp(`b')
     display "  Null effect: coef = " %7.4f `b' ", OR = " %7.4f `or'
-    * Coefficient should be near 0, OR near 1
-    assert abs(`b') < 0.50
-    assert abs(`or' - 1.0) < 0.50
+    * Coefficient should be near 0, OR near 1. The realized values on this
+    * seeded null design are coef = -0.0437 and OR = 0.9572, so 0.15 is ~3.5x
+    * the observed deviation -- tight enough to reject a spurious OR of 1.2+,
+    * loose enough not to flake. The former 0.50 accepted an OR anywhere in
+    * [0.5, 1.5], which is most of the range a real effect would occupy.
+    assert abs(`b') < 0.15
+    assert abs(`or' - 1.0) < 0.15
 }
 if _rc == 0 {
     display as result "  PASS V7.1: Null treatment effect → OR near 1"
@@ -659,9 +663,12 @@ capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) period_spec(ns(1)) nolog
     confirm variable _msm_per_ns1
+    quietly summarize _msm_per_ns1
+    assert !missing(r(sd))
+    assert r(sd) > 0
     * Should NOT have _msm_per_ns2
     capture confirm variable _msm_per_ns2
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS V8.1: ns(1) creates 1 basis variable"
@@ -680,8 +687,11 @@ capture noisily {
     msm_fit, outcome_cov(age sex) period_spec(ns(2)) nolog
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
+    quietly summarize _msm_per_ns2
+    assert !missing(r(sd))
+    assert r(sd) > 0
     capture confirm variable _msm_per_ns3
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS V8.2: ns(2) creates 2 basis variables"
@@ -701,8 +711,11 @@ capture noisily {
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
     confirm variable _msm_per_ns3
+    quietly summarize _msm_per_ns3
+    assert !missing(r(sd))
+    assert r(sd) > 0
     capture confirm variable _msm_per_ns4
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS V8.3: ns(3) creates 3 basis variables"

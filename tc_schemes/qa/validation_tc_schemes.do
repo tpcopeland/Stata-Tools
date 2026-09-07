@@ -318,13 +318,20 @@ display as text _n "Test `test_count': Every r(schemes) entry has a .scheme file
 capture noisily {
     tc_schemes
     local schemes "`r(schemes)'"
+    * r() must be read BEFORE the loop: `findfile' inside it overwrites r(),
+    * so a post-loop `r(n_schemes)' is the wrong command's return.
+    local n_schemes = r(n_schemes)
+    local n_checked = 0
     foreach s of local schemes {
         capture findfile scheme-`s'.scheme
         if _rc {
             display as error "  scheme-`s'.scheme not found"
             exit 601
         }
+        local ++n_checked
     }
+    assert `n_checked' == `n_schemes'
+    assert `n_checked' == 45
 }
 if _rc == 0 {
     display as result "  PASS (all 45 verified)"
@@ -371,6 +378,11 @@ capture noisily {
     foreach bg in white black gg {
         quietly graph twoway scatter price mpg, scheme(`bg'_tableau) name(_test_`bg', replace)
     }
+    quietly graph dir
+    local _tcs_gd " `r(list)' "
+    foreach bg in white black gg {
+        assert strpos("`_tcs_gd'", " _test_`bg' ") > 0
+    }
     graph drop _test_white _test_black _test_gg
 }
 if _rc == 0 {
@@ -391,6 +403,11 @@ capture noisily {
     sysuse auto, clear
     foreach s in tab1 cblind1 neon rainbow {
         quietly graph twoway scatter price mpg, scheme(`s') name(_test_`s', replace)
+    }
+    quietly graph dir
+    local _tcs_gd2 " `r(list)' "
+    foreach s in tab1 cblind1 neon rainbow {
+        assert strpos("`_tcs_gd2'", " _test_`s' ") > 0
     }
     graph drop _test_tab1 _test_cblind1 _test_neon _test_rainbow
 }

@@ -28,6 +28,19 @@ local failed_tests ""
 local tmp_dir "`qa_dir'/tmp_expanded"
 capture mkdir "`tmp_dir'"
 
+capture program drop _qa_assert_sheet_nonempty
+program define _qa_assert_sheet_nonempty
+    version 16.0
+    * msm_table is nclass (no r() to check), so verify the export actually
+    * put rows on the named sheet -- `confirm file' alone would pass on a
+    * workbook containing only an empty placeholder sheet.
+    syntax, XLSX(string) SHEET(string)
+    preserve
+    import excel using "`xlsx'", sheet("`sheet'") firstrow clear allstring
+    assert _N > 0
+    restore
+end
+
 * Reusable pipeline setup
 capture program drop _setup_pipeline
 program define _setup_pipeline
@@ -292,6 +305,9 @@ capture noisily {
         baseline_covariates(age sex)
     msm_weight, treat_d_cov(biomarker comorbidity age sex) nolog
     confirm variable _msm_weight
+    assert !missing(r(mean_weight))
+    quietly count if missing(_msm_weight)
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS C3: msm_weight nolog"
@@ -359,6 +375,11 @@ capture noisily {
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         censor_d_cov(biomarker age sex) censor_n_cov(age sex) nolog
     confirm variable _msm_cw_weight
+    quietly count if missing(_msm_cw_weight)
+    assert r(N) == 0
+    quietly summarize _msm_cw_weight
+    assert !missing(r(min))
+    assert r(min) > 0
 }
 if _rc == 0 {
     display as result "  PASS C6: msm_weight censor_n_cov + censor_d_cov"
@@ -601,6 +622,20 @@ capture noisily {
     confirm variable _msm_per_ns1
     confirm variable _msm_per_ns2
     confirm variable _msm_per_ns3
+    * `confirm variable' alone passes on a degenerate constant basis column;
+    * a real natural-spline basis must actually vary, and the fit that used
+    * it must have produced estimation results.
+    quietly summarize _msm_per_ns1
+    assert !missing(r(sd))
+    assert r(sd) > 0
+    quietly summarize _msm_per_ns2
+    assert !missing(r(sd))
+    assert r(sd) > 0
+    quietly summarize _msm_per_ns3
+    assert !missing(r(sd))
+    assert r(sd) > 0
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS D8: period_spec(ns(3))"
@@ -1749,6 +1784,12 @@ capture noisily {
     _setup_pipeline, nolog fit
     msm_report, format(csv) export("`tmp_dir'/report_eform.csv") replace eform
     confirm file "`tmp_dir'/report_eform.csv"
+    assert "`r(export)'" == "`tmp_dir'/report_eform.csv"
+    assert "`r(format)'" == "csv"
+    preserve
+    import delimited using "`tmp_dir'/report_eform.csv", clear varnames(1)
+    assert _N > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS J8: msm_report csv + eform"
@@ -1771,6 +1812,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_all.xlsx"
     msm_table, xlsx("`tmp_dir'/table_all.xlsx")
     confirm file "`tmp_dir'/table_all.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_all.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K1: msm_table all tables"
@@ -1789,6 +1831,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_coef.xlsx"
     msm_table, xlsx("`tmp_dir'/table_coef.xlsx") coefficients
     confirm file "`tmp_dir'/table_coef.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_coef.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K2: msm_table coefficients"
@@ -1807,6 +1850,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_eform.xlsx"
     msm_table, xlsx("`tmp_dir'/table_eform.xlsx") coefficients eform
     confirm file "`tmp_dir'/table_eform.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_eform.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K3: msm_table eform"
@@ -1825,6 +1869,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_dec.xlsx"
     msm_table, xlsx("`tmp_dir'/table_dec.xlsx") coefficients decimals(2)
     confirm file "`tmp_dir'/table_dec.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_dec.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K4: msm_table decimals(2)"
@@ -1844,6 +1889,7 @@ capture noisily {
     msm_table, xlsx("`tmp_dir'/table_title.xlsx") coefficients ///
         title("My Custom Title")
     confirm file "`tmp_dir'/table_title.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_title.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K5: msm_table title"
@@ -1862,6 +1908,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_sep.xlsx"
     msm_table, xlsx("`tmp_dir'/table_sep.xlsx") coefficients sep(" to ")
     confirm file "`tmp_dir'/table_sep.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_sep.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K6: msm_table sep option"
@@ -1882,6 +1929,7 @@ capture noisily {
     * Run again with replace
     msm_table, xlsx("`tmp_dir'/table_replace.xlsx") coefficients replace
     confirm file "`tmp_dir'/table_replace.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_replace.xlsx") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS K7: msm_table replace"
@@ -1955,6 +2003,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_wt.xlsx"
     msm_table, xlsx("`tmp_dir'/table_wt.xlsx") weights
     confirm file "`tmp_dir'/table_wt.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_wt.xlsx") sheet("Weights")
 }
 if _rc == 0 {
     display as result "  PASS K11: msm_table weights"
@@ -1973,6 +2022,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_bal.xlsx"
     msm_table, xlsx("`tmp_dir'/table_bal.xlsx") balance
     confirm file "`tmp_dir'/table_bal.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_bal.xlsx") sheet("Balance")
 }
 if _rc == 0 {
     display as result "  PASS K12: msm_table balance"
@@ -1991,6 +2041,7 @@ capture noisily {
     capture erase "`tmp_dir'/table_sens.xlsx"
     msm_table, xlsx("`tmp_dir'/table_sens.xlsx") sensitivity
     confirm file "`tmp_dir'/table_sens.xlsx"
+    _qa_assert_sheet_nonempty, xlsx("`tmp_dir'/table_sens.xlsx") sheet("Sensitivity")
 }
 if _rc == 0 {
     display as result "  PASS K13: msm_table sensitivity"
@@ -2319,6 +2370,7 @@ else {
 
 * --- L14: package installation test ---
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether each command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which msm
     which msm_prepare

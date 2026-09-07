@@ -219,6 +219,10 @@ capture noisily {
     global TVTOOLS_QA_DATA "`data_before'"
     global TVTOOLS_QA_PLUS "`plus_before'"
     global TVTOOLS_QA_PERSONAL "`personal_before'"
+    * The artifact must actually be gone, not merely that mkdir can recreate
+    * the directory -- a specific 601 (file not found) is the content proof.
+    capture confirm file "`cleanup_root'/plus/t/artifact.txt"
+    assert _rc == 601
     capture mkdir "`cleanup_root'"
     assert _rc == 0
     capture rmdir "`cleanup_root'"

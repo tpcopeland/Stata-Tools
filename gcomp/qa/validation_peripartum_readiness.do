@@ -547,9 +547,13 @@ capture noisily {
         control(0) sim(3000) samples(100) seed(20260425)
 
     confirm scalar e(cde)
+    assert !missing(e(cde))
     * CDE(M=0) should be larger than CDE(M=1) because without DMT,
     * relapse rate is higher overall, so the depression effect is measured
-    * against a higher baseline
+    * against a higher baseline. (Directional comparison left as a documented
+    * expectation, not asserted here: verifying the direction holds under
+    * this exact seeded simulation requires running it, which this pass
+    * cannot do.)
 }
 if _rc == 0 {
     display as result "  PASS: P4.2 CDE(M=0) valid (CDE=" %6.4f e(cde) ")"

@@ -84,6 +84,10 @@ capture noisily {
     help raincloud
     confirm file "`pkg_dir'/raincloud.ado"
     confirm file "`pkg_dir'/raincloud.sthlp"
+    * `confirm file' alone passes on an empty placeholder; require real
+    * program/help content, not just an existing directory entry.
+    assert strpos(fileread("`pkg_dir'/raincloud.ado"), "program define raincloud") > 0
+    assert strpos(fileread("`pkg_dir'/raincloud.sthlp"), "{smcl}") > 0
 }
 if _rc == 0 {
     display as result "  PASS: installed command and help resolve"

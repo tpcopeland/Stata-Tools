@@ -21,6 +21,13 @@ gcomp y m x _gc_p1, outcome(y) mediation obe exposure(x) mediator(m) ///
     commands(m: mlogit, y: logit) ///
     equations(m: x _gc_p1, y: i.m x _gc_p1) base_confs(_gc_p1) ///
     simulations(450) samples(3) seed(77)
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _scr_vars : _all
+describe using `before', varlist
+assert "`_scr_vars'" == "`r(varlist)'"
 cf _all using `before', all
 confirm variable _gc_p1
 assert !missing(_gc_p1)

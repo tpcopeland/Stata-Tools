@@ -10,6 +10,7 @@ local fail_count = 0
 local failed_tests ""
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/validation_monotreat_risk.do"
 if _rc == 0 {
     local ++pass_count
@@ -22,6 +23,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/validation_joint_mediator.do"
 if _rc == 0 {
     local ++pass_count
@@ -34,6 +36,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/validation_postconfs_crossworld.do"
 if _rc == 0 {
     local ++pass_count
@@ -46,6 +49,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/validation_boceam.do"
 if _rc == 0 {
     local ++pass_count
@@ -58,6 +62,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/validation_factor_msm.do"
 if _rc == 0 {
     local ++pass_count
@@ -70,6 +75,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_imputation_no_donor.do"
 if _rc == 0 {
     local ++pass_count
@@ -82,6 +88,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_extended_missing.do"
 if _rc == 0 {
     local ++pass_count
@@ -94,6 +101,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_multicontrol.do"
 if _rc == 0 {
     local ++pass_count
@@ -106,6 +114,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_saved_match.do"
 if _rc == 0 {
     local ++pass_count
@@ -118,6 +127,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_saving_schema.do"
 if _rc == 0 {
     local ++pass_count
@@ -130,6 +140,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_caller_state.do"
 if _rc == 0 {
     local ++pass_count
@@ -142,6 +153,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_alias_fv.do"
 if _rc == 0 {
     local ++pass_count
@@ -154,6 +166,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_scratch_collision.do"
 if _rc == 0 {
     local ++pass_count
@@ -166,6 +179,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_option_contract.do"
 if _rc == 0 {
     local ++pass_count
@@ -178,6 +192,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_structural_contract.do"
 if _rc == 0 {
     local ++pass_count
@@ -190,6 +205,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_rules_imputation.do"
 if _rc == 0 {
     local ++pass_count
@@ -202,6 +218,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_model_metadata.do"
 if _rc == 0 {
     local ++pass_count
@@ -214,6 +231,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_gcomptab_remediation.do"
 if _rc == 0 {
     local ++pass_count
@@ -226,6 +244,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_gcomptab_text_adversarial.do"
 if _rc == 0 {
     local ++pass_count
@@ -238,6 +257,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_gcomptab_option_style.do"
 if _rc == 0 {
     local ++pass_count
@@ -250,6 +270,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_gcomptab_msm_effect.do"
 if _rc == 0 {
     local ++pass_count
@@ -262,6 +283,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_late_error_state.do"
 if _rc == 0 {
     local ++pass_count
@@ -274,6 +296,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_msm_command_collision.do"
 if _rc == 0 {
     local ++pass_count
@@ -286,6 +309,7 @@ else {
 }
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: the sub-.do file contains its own `assert' statements that error out on mismatch, so this rc merely relays whether those internal assertions passed
 capture noisily do "`qa_dir'/audit/test_fv_prefix_collision.do"
 if _rc == 0 {
     local ++pass_count

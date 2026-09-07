@@ -156,6 +156,9 @@ capture noisily {
     local _t1_extra   : list _t1_have - _t1_want
     assert `"`_t1_missing'"' == ""
     assert `"`_t1_extra'"' == ""
+    unab _t1_vars : _all
+    describe using `_dataOK', varlist
+    assert "`_t1_vars'" == "`r(varlist)'"
     cf _all using `_dataOK'
 }
 if _rc == 0 {
@@ -696,11 +699,17 @@ local ++test_count
 capture noisily {
     foreach _hf in _codescan_codefile _codescan_definitions ///
                    _codescan_outputs {
+        if "`_hf'" == "_codescan_codefile" local _hprog _codescan_parse_codefile
+        if "`_hf'" == "_codescan_definitions" local _hprog _codescan_parse_define
+        if "`_hf'" == "_codescan_outputs" local _hprog _codescan_plan_outputs
         findfile `_hf'.ado
         local _hpath `"`r(fn)'"'
         run `"`_hpath'"'
         * Second run must not crash on "already defined" (the 1.1.2 fix).
         run `"`_hpath'"'
+        * The reload must leave a genuinely usable program behind, not merely
+        * avoid a crash on the way in.
+        quietly program list `_hprog'
     }
 }
 if _rc == 0 {
@@ -1321,11 +1330,17 @@ capture noisily {
     _cs_f7_data
     capture noisily codescan dx1, define(dm2 "E11") mode(prefix)
     assert _rc == 0
+    assert r(n_conditions) == 1
+    count if dm2 == 1
+    assert r(N) == 4
     * regex mode (needs _codescan_validate_regex) after another clear
     mata: mata clear
     _cs_f7_data
     capture noisily codescan dx1, define(dm2 "E1[12]") mode(regex)
     assert _rc == 0
+    assert r(n_conditions) == 1
+    count if dm2 == 1
+    assert r(N) == 4
 }
 if _rc == 0 {
     display as result "  PASS T33: codescan self-heals after mata clear"
@@ -1700,6 +1715,9 @@ capture noisily {
         local _t40_extra   : list _t40_have - _t40_want
         assert `"`_t40_missing'"' == ""
         assert `"`_t40_extra'"' == ""
+        unab _t40_vars : _all
+        describe using `_t40_ok', varlist
+        assert "`_t40_vars'" == "`r(varlist)'"
         * ...and the values must be the collapsed result, not zeros.
         cf _all using `_t40_ok'
     }

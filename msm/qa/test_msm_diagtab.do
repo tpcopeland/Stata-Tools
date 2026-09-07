@@ -24,6 +24,19 @@ local failed_tests ""
 local work_dir "`c(tmpdir)'/msm_diagtab_qa"
 capture mkdir "`work_dir'"
 
+capture program drop _qa_assert_sheet_nonempty
+program define _qa_assert_sheet_nonempty
+    version 16.0
+    * msm_diagtab is nclass (no r() to check), so verify the export actually
+    * put rows on the named sheet -- `confirm file' alone would pass on a
+    * workbook containing only an empty placeholder sheet.
+    syntax, XLSX(string) SHEET(string)
+    preserve
+    import excel using "`xlsx'", sheet("`sheet'") firstrow clear allstring
+    assert _N > 0
+    restore
+end
+
 capture program drop _read_check_status
 program define _read_check_status, rclass
     version 16.0
@@ -115,9 +128,12 @@ else {
 local wd_xlsx "`work_dir'/wd.xlsx"
 capture erase "`wd_xlsx'"
 local ++test_count
-capture noisily msm_diagtab, frame(wd) xlsx("`wd_xlsx'") sheet("WD") ///
-    title("Per-contrast diagnostics") borderstyle(medium) zebra
-if _rc == 0 capture confirm file "`wd_xlsx'"
+capture noisily {
+    msm_diagtab, frame(wd) xlsx("`wd_xlsx'") sheet("WD") ///
+        title("Per-contrast diagnostics") borderstyle(medium) zebra
+    confirm file "`wd_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`wd_xlsx'") sheet("WD")
+}
 if _rc == 0 {
     display as result "  PASS T2: msm_diagtab export runs and writes a file"
     local ++pass_count

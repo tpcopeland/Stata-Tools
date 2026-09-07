@@ -43,13 +43,9 @@ program define __tt_assert_same_data
     syntax using/
     unab memory_vars : _all
     local memory_N = _N
-    preserve
-    quietly use `"`using'"', clear
-    unab using_vars : _all
-    local using_N = _N
-    restore
-    assert `using_N' == `memory_N'
-    assert `"`using_vars'"' == `"`memory_vars'"'
+    describe using `"`using'"', varlist
+    assert r(N) == `memory_N'
+    assert "`r(varlist)'" == "`memory_vars'"
     cf _all using `"`using'"'
 end
 
@@ -811,6 +807,9 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) clear
     confirm variable pvalue
+    quietly count if !missing(real(pvalue))
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS T1: Default produces pvalue column"
@@ -827,7 +826,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) nopvalue clear
     capture confirm variable pvalue
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T2: nopvalue suppresses pvalue column"
@@ -844,7 +843,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) nop clear
     capture confirm variable pvalue
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T3: nop abbreviation works"
@@ -861,8 +860,11 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) nopvalue smd clear
     confirm variable smd_str
+    quietly count if strtrim(smd_str) != ""
+    assert !missing(r(N))
+    assert r(N) > 0
     capture confirm variable pvalue
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T4: nopvalue + smd shows SMD without pvalue"
@@ -879,7 +881,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) nopvalue test clear
     capture confirm variable test
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T5: nopvalue suppresses test column"
@@ -896,7 +898,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, by(foreign) nopvalue statistic clear
     capture confirm variable statistic
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T6: nopvalue suppresses statistic column"
@@ -912,6 +914,7 @@ else {
 capture noisily {
     sysuse auto, clear
     table1_tc mpg price weight, nopvalue
+    assert "`r(varlist)'" == "mpg price weight"
 }
 if _rc == 0 {
     display as result "  PASS T7: nopvalue without by() does not error"
@@ -963,6 +966,7 @@ capture noisily {
     local xlsxout "`xlsxout'.xlsx"
     table1_tc mpg price weight, by(foreign) nopvalue xlsx("`xlsxout'")
     confirm file "`xlsxout'"
+    assert "`r(varlist)'" == "mpg price weight"
 }
 if _rc == 0 {
     display as result "  PASS T10: Excel export works with nopvalue"
@@ -979,7 +983,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc rep78, by(foreign) nopvalue clear
     capture confirm variable pvalue
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T11: nopvalue works with categorical vars"
@@ -997,7 +1001,7 @@ capture noisily {
     gen byte highmpg = mpg > 20
     table1_tc, vars(highmpg bin) by(foreign) nopvalue clear
     capture confirm variable pvalue
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS T12: nopvalue works with binary vars"
@@ -1817,7 +1821,10 @@ sysuse auto, clear
 
 * --- F3.1: auto keyword in vars() ---
 local ++n_total
-capture noisily table1_tc, by(foreign) vars(price auto \ mpg auto \ rep78 auto \ headroom auto)
+capture noisily {
+    table1_tc, by(foreign) vars(price auto \ mpg auto \ rep78 auto \ headroom auto)
+    assert "`r(varlist)'" == "price mpg rep78 headroom"
+}
 if _rc == 0 {
     display as result "PASS: F3.1 — auto keyword in vars()"
     local ++pass_count
@@ -1877,7 +1884,10 @@ sysuse auto, clear
 
 * --- U1.1: plain varlist without vars() ---
 local ++n_total
-capture noisily table1_tc price mpg weight rep78, by(foreign)
+capture noisily {
+    table1_tc price mpg weight rep78, by(foreign)
+    assert "`r(varlist)'" == "price mpg weight rep78"
+}
 if _rc == 0 {
     display as result "PASS: U1.1 — plain varlist syntax"
     local ++pass_count
@@ -1916,8 +1926,11 @@ sysuse auto, clear
 
 * --- O2.1: SMD with Excel export (visual check) ---
 local ++n_total
-capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat) ///
-    smd excel("`output_dir'/test_o2_smd.xlsx") title("O2 SMD Formatting Test")
+capture noisily {
+    table1_tc, by(foreign) vars(price contn \ mpg contn \ weight contn \ rep78 cat) ///
+        smd excel("`output_dir'/test_o2_smd.xlsx") title("O2 SMD Formatting Test")
+    assert "`r(varlist)'" == "price mpg weight rep78"
+}
 if _rc == 0 {
     capture confirm file "`output_dir'/test_o2_smd.xlsx"
     if _rc == 0 {
@@ -1946,7 +1959,10 @@ sysuse auto, clear
 * --- I5.1: frame() option ---
 local ++n_total
 capture frame drop _test_frame
-capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) frame(_test_frame)
+capture noisily {
+    table1_tc, by(foreign) vars(price contn \ mpg contn) frame(_test_frame)
+    assert "`r(varlist)'" == "price mpg"
+}
 if _rc == 0 {
     capture frame _test_frame: describe
     if _rc == 0 {
@@ -2045,6 +2061,7 @@ capture noisily {
     sysuse auto, clear
     table1_tc price mpg weight, by(foreign) smd smdthreshold(0.2) ///
         excel("`output_dir'/test_o2_smdthresh.xlsx") title("SMD Threshold Test")
+    assert "`r(varlist)'" == "price mpg weight"
 }
 if _rc == 0 {
     display as result "  PASS: O2.1 — smdthreshold(0.2) accepted"
@@ -2165,6 +2182,7 @@ capture noisily {
     table1_tc price mpg weight headroom trunk length turn displacement gear_ratio, ///
         by(foreign) excel("`output_dir'/test_o3_height.xlsx") ///
         title("Row Height Auto-Calc Test")
+    assert "`r(varlist)'" == "price mpg weight headroom trunk length turn displacement gear_ratio"
 }
 if _rc == 0 {
     display as result "  PASS: O3.1 — header row height auto-calc (many vars)"
@@ -2185,6 +2203,7 @@ capture noisily {
     sysuse auto, clear
     * rep78 has 5 levels (1-5) — more than 2 groups
     table1_tc price mpg weight, by(rep78) smd
+    assert "`r(varlist)'" == "price mpg weight"
 }
 if _rc == 0 {
     display as result "  PASS: R3.1 - SMD with >2 groups runs"

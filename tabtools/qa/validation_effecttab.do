@@ -368,7 +368,7 @@ capture noisily {
             }
         }
         assert `found' == 1
-        assert abs(`frame_ate' - `ref_ate') < 1
+        assert abs(`frame_ate' - `ref_ate') < 0.006
     }
 }
 if _rc == 0 {
@@ -464,7 +464,7 @@ capture noisily {
     matrix _ke_E = r(table)
     * Single ATE row, single column
     local _v = _ke_E[1, 1]
-    assert abs(`_v' - `ref_ate') < 0.5
+    assert abs(`_v' - `ref_ate') < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: KE4.1 — effecttab ATE matches teffects ra _b"
@@ -486,7 +486,7 @@ capture noisily {
     effecttab
     matrix _ke_E2 = r(table)
     local _v = _ke_E2[1, 1]
-    assert abs(`_v' - `ref_ate') < 0.5
+    assert abs(`_v' - `ref_ate') < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: KE4.2 — effecttab IPW ATE matches teffects ipw"

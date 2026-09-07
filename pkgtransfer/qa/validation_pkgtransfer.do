@@ -335,8 +335,13 @@ capture {
     capture erase "val7.do"
     quietly cd "`orig_dir'"
 
-    * Verify data identical via cf
+    * Verify data identical via cf. `cf' only compares variables still in
+    * memory, so a variable pkgtransfer dropped would be invisible to it --
+    * confirm the varlist itself matches the snapshot's varlist first.
     assert _N == `N_before'
+    unab _vpt7_after : _all
+    describe using "`data_before'", varlist
+    assert "`_vpt7_after'" == "`r(varlist)'"
     cf _all using "`data_before'"
 }
 

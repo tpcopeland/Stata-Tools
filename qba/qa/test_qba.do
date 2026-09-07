@@ -1002,6 +1002,7 @@ capture noisily {
     qba_plot, tornado a(136) b(297) c(1432) d(6738) ///
         param1(se) range1(.7 1.0) param2(sp) range2(.8 1.0) steps(10) ///
         name(tornado2_test, replace)
+    assert "`r(plot_type)'" == "tornado"
     _qba_drop_graph_if_exists tornado2_test
 }
 if _rc == 0 {
@@ -1089,6 +1090,7 @@ capture noisily {
         param1(se) range1(.7 1.0) steps(5) ///
         base_se(.85) base_sp(.95) ///
         name(tornado_base_test, replace)
+    assert "`r(plot_type)'" == "tornado"
     _qba_drop_graph_if_exists tornado_base_test
 }
 if _rc == 0 {

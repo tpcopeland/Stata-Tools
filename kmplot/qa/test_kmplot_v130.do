@@ -241,10 +241,14 @@ foreach sch in s2color s1mono s1color sj {
         * (1) the check every earlier suite was blind to: the main plot's
         * time origin sits on the main y axis, with no gutter inside the
         * plotting region.
-        assert abs(`yaxis_x' - `mainzero_x') < 2
+        * Measured: exactly 0.00 deviation; SVG quantum is 0.01. See the
+        * fuller note at the first occurrence of this pair above.
+        assert abs(`yaxis_x' - `mainzero_x') < 0.05
 
         * (2) the two panels share a time origin
-        assert abs(`mainzero_x' - `zero_x') < 2
+        * Measured: 0.00-0.24 across sites (centred count label); SVG quantum
+        * is 0.01. See the fuller note at the first occurrence above.
+        assert abs(`mainzero_x' - `zero_x') < 0.45
 
         * (3) the row label clears the time-zero count, whose label is
         * centred on the axis and so reaches back into the label column
@@ -307,8 +311,16 @@ capture noisily {
     foreach _r in yaxis_x mainzero_x zero_x grp_x grp_fs title_x title_fs {
         local `_r' = r(`_r')
     }
-    assert abs(`yaxis_x' - `mainzero_x') < 2
-    assert abs(`mainzero_x' - `zero_x') < 2
+    * Measured tolerances. SVG coordinates are emitted to two decimals (0.01 =
+    * one quantum). The main y axis and the plot's time origin resolve to the
+    * SAME coordinate (measured deviation exactly 0.00 at every site), so 0.05
+    * is five quanta on an exact identity. The risk-table origin is centred
+    * under its count label and so carries a real sub-unit offset (measured
+    * 0.00-0.24 across the sites), so 0.45 is ~2x the largest observed offset
+    * and still rejects the gutter this test exists to catch. The former bound
+    * of 2 accepted two full units of drift.
+    assert abs(`yaxis_x' - `mainzero_x') < 0.05
+    assert abs(`mainzero_x' - `zero_x') < 0.45
     _km_emw "Currently using hormone replacement therapy"
     local grp_left = `grp_x' - `r(w)' * `grp_fs' * 1.10
     local title_right = `title_x' + 0.75 * `title_fs'
@@ -345,8 +357,12 @@ capture noisily {
             last_x last_fs {
             local `_r' = r(`_r')
         }
-        assert abs(`yaxis_x' - `mainzero_x') < 2
-        assert abs(`mainzero_x' - `zero_x') < 2
+        * Measured: exactly 0.00 deviation; SVG quantum is 0.01. See the
+        * fuller note at the first occurrence of this pair above.
+        assert abs(`yaxis_x' - `mainzero_x') < 0.05
+        * Measured: 0.00-0.24 across sites (centred count label); SVG quantum
+        * is 0.01. See the fuller note at the first occurrence above.
+        assert abs(`mainzero_x' - `zero_x') < 0.45
         _km_emw "6,000 (0)"
         local zero_left = `zero_x' - `r(w)' * `zero_fs' / 2
         assert `zero_left' > `grp_x' + 5
@@ -380,8 +396,16 @@ capture noisily {
         local `_r' = r(`_r')
     }
     assert `zero_n' == 2
-    assert abs(`yaxis_x' - `mainzero_x') < 2
-    assert abs(`mainzero_x' - `zero_x') < 2
+    * Measured tolerances. SVG coordinates are emitted to two decimals (0.01 =
+    * one quantum). The main y axis and the plot's time origin resolve to the
+    * SAME coordinate (measured deviation exactly 0.00 at every site), so 0.05
+    * is five quanta on an exact identity. The risk-table origin is centred
+    * under its count label and so carries a real sub-unit offset (measured
+    * 0.00-0.24 across the sites), so 0.45 is ~2x the largest observed offset
+    * and still rejects the gutter this test exists to catch. The former bound
+    * of 2 accepted two full units of drift.
+    assert abs(`yaxis_x' - `mainzero_x') < 0.05
+    assert abs(`mainzero_x' - `zero_x') < 0.45
     _km_emw "6,000"
     local zero_left = `zero_x' - `r(w)' * `zero_fs' / 2
     assert `zero_left' > `grp_x' + 5

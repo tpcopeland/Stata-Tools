@@ -204,6 +204,7 @@ else {
 
 foreach metric in postoch po1 po0 rdstoch0 rd10 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_stoch_`metric'') ///
         expected(`ref_stoch_`metric'') tolerance(`tol_stoch_`metric'') ///
         label("stochastic `metric' point estimate")
@@ -221,6 +222,7 @@ foreach metric in postoch po1 po0 rdstoch0 rd10 {
 foreach metric in postoch po1 po0 rdstoch0 rd10 {
     local se_tol = max(`tolseabs_stoch_`metric'', abs(`refse_stoch_`metric'') * `tolserel_stoch_`metric'')
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_stoch_se_`metric'') ///
         expected(`refse_stoch_`metric'') tolerance(`se_tol') ///
         label("stochastic `metric' bootstrap SE")
@@ -237,6 +239,7 @@ foreach metric in postoch po1 po0 rdstoch0 rd10 {
 
 foreach metric in postoch po1 po0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_stoch_vd_`metric'') ///
         expected(`a_stoch_se_`metric'') tolerance(1e-10) ///
         label("stochastic `metric' sqrt(diag(e(V))) vs e(se)")
@@ -322,6 +325,7 @@ else {
 
 foreach metric in pody po1 po0 rddy0 rd10 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_dyn_`metric'') ///
         expected(`ref_dyn_`metric'') tolerance(`tol_dyn_`metric'') ///
         label("dynamic `metric' point estimate")
@@ -339,6 +343,7 @@ foreach metric in pody po1 po0 rddy0 rd10 {
 foreach metric in pody po1 po0 rddy0 rd10 {
     local se_tol = max(`tolseabs_dyn_`metric'', abs(`refse_dyn_`metric'') * `tolserel_dyn_`metric'')
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_dyn_se_`metric'') ///
         expected(`refse_dyn_`metric'') tolerance(`se_tol') ///
         label("dynamic `metric' bootstrap SE")
@@ -355,6 +360,7 @@ foreach metric in pody po1 po0 rddy0 rd10 {
 
 foreach metric in pody po1 po0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_dyn_vd_`metric'') ///
         expected(`a_dyn_se_`metric'') tolerance(1e-10) ///
         label("dynamic `metric' sqrt(diag(e(V))) vs e(se)")
@@ -435,6 +441,7 @@ else {
 
 foreach metric in tce nde nie pm cde {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_imp_`metric'') ///
         expected(`ref_imp_`metric'') tolerance(`tol_imp_`metric'') ///
         label("imputation `metric' point estimate")
@@ -452,6 +459,7 @@ foreach metric in tce nde nie pm cde {
 foreach metric in tce nde nie pm cde {
     local se_tol = max(`tolseabs_imp_`metric'', abs(`refse_imp_`metric'') * `tolserel_imp_`metric'')
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_imp_se_`metric'') ///
         expected(`refse_imp_`metric'') tolerance(`se_tol') ///
         label("imputation `metric' bootstrap SE")
@@ -468,6 +476,7 @@ foreach metric in tce nde nie pm cde {
 
 foreach metric in tce nde nie pm cde {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_iix_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _iix_compare, actual(`a_imp_vd_`metric'') ///
         expected(`a_imp_se_`metric'') tolerance(1e-10) ///
         label("imputation `metric' sqrt(diag(e(V))) vs e(se)")

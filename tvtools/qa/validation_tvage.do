@@ -637,6 +637,10 @@ capture {
     confirm variable age_tv
     confirm variable age_start
     confirm variable age_stop
+    assert _N > 0
+    quietly count if missing(age_start) | missing(age_stop)
+    assert !missing(r(N))
+    assert r(N) == 0
     capture erase "$TVTOOLS_QA_RUN_DIR/_tvage_saveas_test.dta"
 }
 if _rc == 0 {

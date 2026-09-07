@@ -160,8 +160,12 @@ capture noisily {
     confirm variable sp
     confirm variable se1
     confirm variable sp1
+    * public columns must hold valid sensitivity/specificity draws, not just exist
+    quietly count if se <= 0 | se >= 1 | sp <= 0 | sp >= 1 ///
+        | se1 <= 0 | se1 >= 1 | sp1 <= 0 | sp1 >= 1
+    assert r(N) == 0
     capture confirm variable _se1
-    assert _rc != 0
+    assert _rc == 111
     restore
 }
 if _rc == 0 {
@@ -299,10 +303,10 @@ capture noisily {
     confirm file "`has_dist'"
     shell bash -c "grep -q '/full/path/to/qba' '`pkg_dir'/README.md' && touch '`has_local'' || true"
     capture confirm file "`has_local'"
-    assert _rc != 0
+    assert _rc == 601
     shell bash -c "grep -q 'pre-release' '`pkg_dir'/README.md' && touch '`has_prerelease'' || true"
     capture confirm file "`has_prerelease'"
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: P33.1 README install block is release-oriented"

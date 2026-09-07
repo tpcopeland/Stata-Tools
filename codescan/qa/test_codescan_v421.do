@@ -57,8 +57,14 @@ capture noisily {
     assert "`c(varabbrev)'" == "on"
     capture confirm variable hit
     assert _rc != 0
-    cf _all using "`before1'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t1_vars : _all
+    describe using "`before1'", varlist
+    assert "`_t1_vars'" == "`r(varlist)'"
+    cf _all using "`before1'"
     assert "`_t1_vars'" == "code"
     assert _N == 2
     set varabbrev `_qa_va0'
@@ -88,8 +94,14 @@ capture noisily {
     assert _rc == 198
     capture confirm variable hit
     assert _rc != 0
-    cf _all using "`before2'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t2_vars : _all
+    describe using "`before2'", varlist
+    assert "`_t2_vars'" == "`r(varlist)'"
+    cf _all using "`before2'"
     assert "`_t2_vars'" == "code"
     assert _N == 2
 }
@@ -219,8 +231,14 @@ capture noisily {
     assert _rc != 0
     capture confirm variable upper
     assert _rc != 0
-    cf _all using "`before6'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t6_vars : _all
+    describe using "`before6'", varlist
+    assert "`_t6_vars'" == "`r(varlist)'"
+    cf _all using "`before6'"
     assert "`_t6_vars'" == "dx"
     assert _N == 1
     set varabbrev `_qa_va0'
@@ -621,8 +639,14 @@ capture noisily {
 
     capture codescan code, define(hit "(?=å)") replace
     assert _rc == 198
-    cf _all using "`before16'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t16_vars : _all
+    describe using "`before16'", varlist
+    assert "`_t16_vars'" == "`r(varlist)'"
+    cf _all using "`before16'"
     assert "`_t16_vars'" == "code hit"
     assert _N == 3
     assert hit[1] == 42 & hit[2] == 42 & hit[3] == 42
@@ -660,8 +684,14 @@ capture noisily {
 
     capture codescan code, define(hit "(?=å)") id(pid) collapse
     assert _rc == 198
-    cf _all using "`before17'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t17_vars : _all
+    describe using "`before17'", varlist
+    assert "`_t17_vars'" == "`r(varlist)'"
+    cf _all using "`before17'"
     assert "`_t17_vars'" == "pid code"
     assert _N == 4
 }

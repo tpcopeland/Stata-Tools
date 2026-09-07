@@ -321,7 +321,7 @@ capture noisily {
     * Now break stset by loading new data
     sysuse auto, clear
     capture cstat_surv
-    assert _rc != 0
+    assert _rc == 119
 }
 if _rc == 0 {
     display as result "  PASS: Test `test_count' — Error: data not stset"
@@ -607,7 +607,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     capture cstat_surv, level(101)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Test `test_count' — Error: invalid level"
@@ -671,6 +671,7 @@ else {
 * TEST 28: Package installation smoke test
 * =============================================================================
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the freshly (re)installed command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture ado uninstall cstat_surv
     net install cstat_surv, from("`pkg_dir'") replace
@@ -1132,7 +1133,7 @@ capture noisily {
     stset studytime, failure(died)
     stcox age drug
     capture cstat_surv, badopt
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Test `test_count' — Error: invalid option"

@@ -105,6 +105,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out.txt")
     confirm file "`tmp_dir'/_out.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - single dataset"
@@ -120,6 +123,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort.dta") output("`tmp_dir'/_out2.txt")
     confirm file "`tmp_dir'/_out2.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out2.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - .dta extension"
@@ -152,6 +158,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_custom_name.txt")
     confirm file "`tmp_dir'/_custom_name.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_custom_name.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - custom output filename"
@@ -172,6 +181,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") exclude(id name) ///
         output("`tmp_dir'/_out_excl.txt")
     confirm file "`tmp_dir'/_out_excl.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_excl.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - exclude(id name)"
@@ -188,6 +200,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") datesafe ///
         output("`tmp_dir'/_out_ds.txt")
     confirm file "`tmp_dir'/_out_ds.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_ds.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - datesafe"
@@ -204,6 +219,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") exclude(id name) datesafe ///
         output("`tmp_dir'/_out_priv.txt")
     confirm file "`tmp_dir'/_out_priv.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_priv.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - combined privacy (exclude + datesafe)"
@@ -224,6 +242,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nostats ///
         output("`tmp_dir'/_out_ns.txt")
     confirm file "`tmp_dir'/_out_ns.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_ns.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nostats"
@@ -240,6 +261,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nofreq ///
         output("`tmp_dir'/_out_nf.txt")
     confirm file "`tmp_dir'/_out_nf.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_nf.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nofreq"
@@ -256,6 +280,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nolabels ///
         output("`tmp_dir'/_out_nl.txt")
     confirm file "`tmp_dir'/_out_nl.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_nl.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - nolabels"
@@ -272,6 +299,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") nostats nofreq nolabels ///
         output("`tmp_dir'/_out_allsup.txt")
     confirm file "`tmp_dir'/_out_allsup.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_allsup.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - all content suppression combined"
@@ -288,6 +318,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") maxcat(10) ///
         output("`tmp_dir'/_out_mc.txt")
     confirm file "`tmp_dir'/_out_mc.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_mc.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - maxcat(10)"
@@ -304,6 +337,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") maxfreq(5) ///
         output("`tmp_dir'/_out_mf.txt")
     confirm file "`tmp_dir'/_out_mf.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_mf.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - maxfreq(5)"
@@ -324,6 +360,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") autodetect ///
         output("`tmp_dir'/_out_ad.txt")
     confirm file "`tmp_dir'/_out_ad.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_ad.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - autodetect"
@@ -340,6 +379,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_panel") detect(panel) panelid(patient_id) ///
         output("`tmp_dir'/_out_panel.txt")
     confirm file "`tmp_dir'/_out_panel.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 4
+    assert strlen(fileread("`tmp_dir'/_out_panel.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(panel) + panelid"
@@ -356,6 +398,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(binary) ///
         output("`tmp_dir'/_out_bin.txt")
     confirm file "`tmp_dir'/_out_bin.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_bin.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(binary)"
@@ -372,6 +417,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(survival) ///
         output("`tmp_dir'/_out_surv.txt")
     confirm file "`tmp_dir'/_out_surv.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_surv.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(survival)"
@@ -388,6 +436,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") detect(common) ///
         output("`tmp_dir'/_out_com.txt")
     confirm file "`tmp_dir'/_out_com.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_com.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - detect(common)"
@@ -404,6 +455,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") survivalvars(entry_date exit_date) ///
         output("`tmp_dir'/_out_sv.txt")
     confirm file "`tmp_dir'/_out_sv.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_sv.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - survivalvars()"
@@ -424,6 +478,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") quality ///
         output("`tmp_dir'/_out_q.txt")
     confirm file "`tmp_dir'/_out_q.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_q.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - quality"
@@ -440,6 +497,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") quality2(strict) ///
         output("`tmp_dir'/_out_q2.txt")
     confirm file "`tmp_dir'/_out_q2.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_q2.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - quality2(strict)"
@@ -456,6 +516,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort_miss") missing(detail) ///
         output("`tmp_dir'/_out_md.txt")
     confirm file "`tmp_dir'/_out_md.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_md.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - missing(detail)"
@@ -472,6 +535,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort_miss") missing(pattern) ///
         output("`tmp_dir'/_out_mp.txt")
     confirm file "`tmp_dir'/_out_mp.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_mp.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - missing(pattern)"
@@ -488,6 +554,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") samples(5) ///
         output("`tmp_dir'/_out_samp.txt")
     confirm file "`tmp_dir'/_out_samp.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_samp.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - samples(5)"
@@ -524,8 +593,10 @@ local ++test_count
 capture noisily {
     datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_dir.txt")
     confirm file "`tmp_dir'/_out_dir.txt"
+    * Exactly 5 top-level .dta files exist in tmp_dir at this point: cohort,
+    * cohort_miss, panel, small, single (no subdirectory yet).
     assert !missing(r(nfiles))
-    assert r(nfiles) >= 1
+    assert r(nfiles) == 5
 }
 if _rc == 0 {
     display as result "  PASS: datamap - directory mode"
@@ -545,6 +616,12 @@ capture noisily {
 
     datamap, directory("`tmp_dir'") recursive output("`tmp_dir'/_out_rec.txt")
     confirm file "`tmp_dir'/_out_rec.txt"
+    * Directory mode never returns r(nvars)/r(nobs) (datamap.ado only sets
+    * those for single() mode) -- r(nfiles) is the mode-appropriate oracle.
+    * recursive must find the nested file too: 5 top-level + 1 in _subdir.
+    assert !missing(r(nfiles))
+    assert r(nfiles) == 6
+    assert strlen(fileread("`tmp_dir'/_out_rec.txt")) > 0
 
     capture erase "`tmp_dir'/_subdir/_sub.dta"
     capture rmdir "`tmp_dir'/_subdir"
@@ -567,7 +644,11 @@ capture noisily {
         output("`tmp_dir'/_out_sep.txt") separate
     * separate creates <basename>_map.txt files
     confirm file "`tmp_dir'/test_cohort_map.txt"
+    assert strlen(fileread("`tmp_dir'/test_cohort_map.txt")) > 0
     confirm file "`tmp_dir'/test_small_map.txt"
+    assert strlen(fileread("`tmp_dir'/test_small_map.txt")) > 0
+    assert !missing(r(nfiles))
+    assert r(nfiles) == 2
 }
 if _rc == 0 {
     display as result "  PASS: datamap - separate output files"
@@ -584,6 +665,9 @@ capture noisily {
     datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_app.txt")
     datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_app.txt") append
     confirm file "`tmp_dir'/_out_app.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_out_app.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - append mode"
@@ -606,6 +690,9 @@ capture noisily {
         exclude(id) datesafe quality missing(detail) ///
         samples(3) autodetect maxcat(15) maxfreq(20)
     confirm file "`tmp_dir'/_out_full.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 8
+    assert strlen(fileread("`tmp_dir'/_out_full.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - full comprehensive analysis"
@@ -625,6 +712,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_single") output("`tmp_dir'/_out_1obs.txt")
     confirm file "`tmp_dir'/_out_1obs.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 1
+    assert strlen(fileread("`tmp_dir'/_out_1obs.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - single observation dataset"
@@ -640,6 +730,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_5obs.txt")
     confirm file "`tmp_dir'/_out_5obs.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_out_5obs.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datamap - small dataset (5 obs)"
@@ -766,7 +859,7 @@ else {
 local ++test_count
 capture noisily {
     capture datamap, single("`tmp_dir'/nonexistent_file")
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: datamap - error on nonexistent file"
@@ -786,6 +879,9 @@ local ++test_count
 capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_out.md")
     confirm file "`tmp_dir'/_dd_out.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_out.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - single dataset"
@@ -822,6 +918,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_title.md") ///
         title("Custom Title")
     confirm file "`tmp_dir'/_dd_title.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_title.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - title()"
@@ -838,6 +937,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_sub.md") ///
         title("Test") subtitle("A subtitle")
     confirm file "`tmp_dir'/_dd_sub.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_sub.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - subtitle()"
@@ -854,6 +956,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_ver.md") ///
         version("1.0")
     confirm file "`tmp_dir'/_dd_ver.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_ver.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - version()"
@@ -870,6 +975,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_auth.md") ///
         author("Test Author")
     confirm file "`tmp_dir'/_dd_auth.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_auth.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - author()"
@@ -886,6 +994,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_date.md") ///
         date("2026-01-01")
     confirm file "`tmp_dir'/_dd_date.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_date.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - date()"
@@ -902,6 +1013,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_notes.md") ///
         notes("Test notes for the data dictionary.")
     confirm file "`tmp_dir'/_dd_notes.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_notes.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - notes()"
@@ -918,6 +1032,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_cl.md") ///
         changelog("v1.0: Initial release")
     confirm file "`tmp_dir'/_dd_cl.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_cl.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - changelog()"
@@ -936,6 +1053,9 @@ capture noisily {
         version("2.0") author("Test Author") date("2026-01-01") ///
         notes("Comprehensive dataset.") changelog("v2.0: Added outcomes")
     confirm file "`tmp_dir'/_dd_fullmeta.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_fullmeta.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - full metadata combination"
@@ -956,6 +1076,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_miss.md") ///
         missing
     confirm file "`tmp_dir'/_dd_miss.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_miss.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - missing"
@@ -972,6 +1095,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_stats.md") ///
         stats
     confirm file "`tmp_dir'/_dd_stats.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_stats.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - stats"
@@ -988,6 +1114,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_both.md") ///
         missing stats
     confirm file "`tmp_dir'/_dd_both.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_both.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - missing + stats combined"
@@ -1004,6 +1133,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mc.md") ///
         maxcat(10)
     confirm file "`tmp_dir'/_dd_mc.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_mc.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - maxcat(10)"
@@ -1020,6 +1152,9 @@ capture noisily {
     datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mf.md") ///
         maxfreq(5)
     confirm file "`tmp_dir'/_dd_mf.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_mf.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - maxfreq(5)"
@@ -1056,8 +1191,12 @@ local ++test_count
 capture noisily {
     datadict, directory("`tmp_dir'") output("`tmp_dir'/_dd_dir.md")
     confirm file "`tmp_dir'/_dd_dir.md"
+    * 5 top-level .dta files exist at this point: cohort(8v), cohort_miss(8v),
+    * panel(4v), small(2v), single(1v) -- no subdirectory yet.
     assert !missing(r(nfiles))
-    assert r(nfiles) >= 1
+    assert r(nfiles) == 5
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 23
 }
 if _rc == 0 {
     display as result "  PASS: datadict - directory mode"
@@ -1077,6 +1216,17 @@ capture noisily {
 
     datadict, directory("`tmp_dir'") recursive output("`tmp_dir'/_dd_rec.md")
     confirm file "`tmp_dir'/_dd_rec.md"
+    * recursive must find the nested file too: 6 .dta files total by this
+    * point (cohort=8, cohort_miss=8, panel=4, small=2, single=1, plus the
+    * nested _subdir2/_sub.dta copy of small=2 vars) -> nvars_total sums
+    * each file's own var count (datadict.ado accumulates per-file r(nvars)
+    * across the whole scan, unlike datamap.ado which only posts it for
+    * single() mode).
+    assert !missing(r(nfiles))
+    assert r(nfiles) == 6
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 25
+    assert strlen(fileread("`tmp_dir'/_dd_rec.md")) > 0
 
     capture erase "`tmp_dir'/_subdir2/_sub.dta"
     capture rmdir "`tmp_dir'/_subdir2"
@@ -1099,7 +1249,11 @@ capture noisily {
         output("`tmp_dir'/_dd_sep.md") separate
     * separate creates <basename>_dictionary.md in same directory as source dataset
     confirm file "`tmp_dir'/test_cohort_dictionary.md"
+    assert strlen(fileread("`tmp_dir'/test_cohort_dictionary.md")) > 0
     confirm file "`tmp_dir'/test_small_dictionary.md"
+    assert strlen(fileread("`tmp_dir'/test_small_dictionary.md")) > 0
+    assert !missing(r(nfiles))
+    assert r(nfiles) == 2
 }
 if _rc == 0 {
     display as result "  PASS: datadict - separate output files"
@@ -1149,6 +1303,11 @@ capture noisily {
     sysuse auto, clear
     datadict, output("`tmp_dir'/_dd_mem.md")
     confirm file "`tmp_dir'/_dd_mem.md"
+    * `sysuse auto' carries 12 variables, not the 8 of the synthetic
+    * test_cohort fixture used elsewhere in this file.
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 12
+    assert strlen(fileread("`tmp_dir'/_dd_mem.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - in-memory data (no input)"
@@ -1210,7 +1369,7 @@ else {
 local ++test_count
 capture noisily {
     capture datadict, single("`tmp_dir'/nonexistent_file")
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: datadict - error on nonexistent file"
@@ -1235,6 +1394,9 @@ capture noisily {
         notes("Full test.") changelog("v1.0: Init") ///
         missing stats maxcat(15) maxfreq(20)
     confirm file "`tmp_dir'/_dd_complete.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 8
+    assert strlen(fileread("`tmp_dir'/_dd_complete.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - full comprehensive"
@@ -1275,6 +1437,11 @@ else {
     display as error "  FAIL: datadict - v1.4 metadata export (error `=_rc')"
     local ++fail_count
 }
+* Clean up this test's own artifact AFTER the verdict is recorded: it is a .dta
+* written into tmp_dir and the later directory-mode scans count every top-level
+* .dta there. Placing a `capture' before the `if _rc' would reset _rc to 0 and
+* turn every failure of this test into a silent pass.
+capture erase "`tmp_dir'/_dd_subset_meta.dta"
 
 * Test: datadict manifest with separate outdir and custom suffix
 local ++test_count
@@ -1352,9 +1519,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rr.txt")
     assert !missing(r(nobs))
-    assert r(nobs) > 0
+    assert r(nobs) == 100
     assert !missing(r(nvars))
-    assert r(nvars) > 0
+    assert r(nvars) == 8
     assert "`r(input_source)'" == "single"
 }
 if _rc == 0 {
@@ -1372,8 +1539,12 @@ local ++test_count
 capture noisily {
     datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_rdir.txt")
     assert "`r(input_source)'" == "directory"
+    * Both earlier recursive-mode tests clean up their own subdirectory, and
+    * the datadict saving() test below erases its own _dd_subset_meta.dta, so
+    * exactly the same 5 top-level .dta fixtures remain: cohort, cohort_miss,
+    * panel, small, single.
     assert !missing(r(nfiles))
-    assert r(nfiles) >= 1
+    assert r(nfiles) == 5
 }
 if _rc == 0 {
     display as result "  PASS: datamap - r(input_source) = directory"

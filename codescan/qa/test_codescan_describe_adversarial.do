@@ -133,16 +133,18 @@ capture noisily {
     tempfile before
     save "`before'", replace
     local sortlist : sortedby
+    unab _t4_vars_before : _all
 
     codescan_describe ncode, tostring
 
-    cf _all using "`before'"
     * `cf _all using' is one-directional: it compares the variables present in
     * memory and cannot see one that was dropped from it, so a state-restoration
-    * claim needs the exact inventory alongside it (proven: saving x y, dropping
-    * y, then `cf _all using' returns rc=0).
-    unab _t4_vars : _all
-    assert "`_t4_vars'" == "id ncode label seq"
+    * claim needs the exact inventory alongside it, proven immediately before
+    * the compare (proven: saving x y, dropping y, then `cf _all using'
+    * returns rc=0).
+    unab _t4_vars_after : _all
+    assert "`_t4_vars_after'" == "`_t4_vars_before'"
+    cf _all using "`before'"
     local sort_after : sortedby
     assert "`sort_after'" == "`sortlist'"
     capture confirm numeric variable ncode
@@ -181,12 +183,14 @@ capture noisily {
     local _save_rc = _rc
     assert `_save_rc' == 198
     assert "`c(varabbrev)'" == "on"
-    cf _all using "`before'"
     * `cf _all using' is one-directional: it compares the variables present in
-    * memory and cannot see one that was dropped from it, so a state-restoration
-    * claim needs the exact inventory alongside it (proven: saving x y, dropping
-    * y, then `cf _all using' returns rc=0).
+    * memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t5_vars : _all
+    describe using "`before'", varlist
+    assert "`_t5_vars'" == "`r(varlist)'"
+    cf _all using "`before'"
     assert "`_t5_vars'" == "id dx1"
     assert _N == 2
     capture confirm file "`badfile'"
@@ -225,8 +229,14 @@ capture noisily {
     assert r(n_unique) == 0
     assert r(n_entries) == 0
     assert "`c(varabbrev)'" == "on"
-    cf _all using "`before'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab vars : _all
+    describe using "`before'", varlist
+    assert "`vars'" == "`r(varlist)'"
+    cf _all using "`before'"
     assert "`vars'" == "id dx1 dx2"
 }
 if _rc == 0 {
@@ -277,12 +287,14 @@ capture noisily {
     assert _empty_chapters[1, 1] == 0
     assert _empty_chapters[1, 2] == 0
     matrix drop _empty_top _empty_chapters
-    cf _all using "`before'"
     * `cf _all using' is one-directional: it compares the variables present in
-    * memory and cannot see one that was dropped from it, so a state-restoration
-    * claim needs the exact inventory alongside it (proven: saving x y, dropping
-    * y, then `cf _all using' returns rc=0).
+    * memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t6b_vars : _all
+    describe using "`before'", varlist
+    assert "`_t6b_vars'" == "`r(varlist)'"
+    cf _all using "`before'"
     assert "`_t6b_vars'" == "id dx1 dx2"
     assert _N == 2
 
@@ -410,6 +422,13 @@ capture noisily {
     matrix _desc_top = r(top_codes)
     assert rowsof(_desc_top) == 2
     matrix drop _desc_top
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _t9_vars_after : _all
+    describe using "`before'", varlist
+    assert "`_t9_vars_after'" == "`r(varlist)'"
     cf _all using "`before'"
     capture restore
     assert _rc != 0

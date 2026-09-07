@@ -136,7 +136,9 @@ capture noisily {
     _swimlane_make_wide
     swimlane, id(id) duration(duration) frame(swqatable) ///
         name(sw_export_frame, replace) nodraw
-    frame swqatable: assert _N == 4
+    frame swqatable {
+        assert _N == 4
+    }
     frame drop swqatable
 }
 if _rc == 0 {
@@ -193,6 +195,9 @@ capture noisily {
     assert "`r(schema_version)'" == "3"
     assert "`r(maxids_spec)'" == "60"
     assert r(points_per_lane) == 72
+    unab _exp3_vars_after : _all
+    describe using "`before'", varlist
+    assert "`_exp3_vars_after'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 {

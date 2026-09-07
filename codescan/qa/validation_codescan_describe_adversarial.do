@@ -389,6 +389,13 @@ capture noisily {
 
     codescan_describe dx1 dx2, save("`csv'", replace)
 
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _v8_vars : _all
+    describe using "`before'", varlist
+    assert "`_v8_vars'" == "`r(varlist)'"
     cf _all using "`before'"
     import delimited using "`csv'", clear stringcols(_all) varnames(1)
     assert _N == 3

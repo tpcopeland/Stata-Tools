@@ -2501,8 +2501,11 @@ capture {
     quietly sum dur
     local output_pt = r(sum)
 
-    * Person-time should be exactly preserved
-    assert abs(`output_pt' - `original_pt') < 1
+    * Person-time should be exactly preserved. Both sums are totals of
+    * integer [start,stop] inclusive day-counts, so the difference is always
+    * a whole number -- assert the exact identity rather than a "< 1" bound
+    * that was already only ever satisfiable at 0.
+    assert `output_pt' == `original_pt'
 }
 if _rc == 0 {
     display as result "  PASS: type(recurring) preserves total person-time exactly"

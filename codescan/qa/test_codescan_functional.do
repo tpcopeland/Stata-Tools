@@ -387,6 +387,7 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3, define(abcdefghijklmnopqrstuvwxyz "E11") replace
     confirm variable abcdefghijklmnopqrstuvwxyz
+    assert abcdefghijklmnopqrstuvwxyz[1] == 1
 }
 if _rc == 0 {
     display as result "  PASS: Condition name exactly 26 chars accepted"
@@ -575,6 +576,10 @@ capture noisily {
     confirm variable dm2_first
     confirm variable dm2_last
     confirm variable dm2_count
+    sort pid
+    assert dm2_count[1] == 2
+    assert !missing(dm2_first[1])
+    assert !missing(dm2_last[1])
 }
 if _rc == 0 {
     display as result "  PASS: Replace with collapse + date variables"
@@ -716,6 +721,10 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11") unmatched(nomatch) matched_code(mc) replace
     confirm variable nomatch
     confirm variable mc
+    assert nomatch == 0 if _n == 1
+    assert nomatch == 1 if _n == 17
+    assert mc[1] == "E110"
+    assert mc[17] == ""
 }
 if _rc == 0 {
     display as result "  PASS: Replace on unmatched and matched_code"

@@ -60,6 +60,7 @@ save `s4_data'
 
 **# S4: key display headers and labels remain stable
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured block IS the content oracle: each `_s4_log_check' call scans the captured log and asserts the needle is present (or, with `absent', that it is NOT), so the rc merely relays those comparisons
 capture noisily {
     capture erase "`snaplog'"
     use `s4_data', clear

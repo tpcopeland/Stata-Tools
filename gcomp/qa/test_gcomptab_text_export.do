@@ -247,14 +247,37 @@ capture noisily {
     gcomptab, models xlsx("`xlsx'") sheet("M1") eform stars ///
         starslevels(0.05 0.01) digits(2) termlabels("Intercept \ Exposure")
     assert _rc == 0
+    preserve
+    import excel using "`xlsx'", sheet("M1") clear
+    count if A == "Exposure"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
     * noeform + se + nointercept + keep
     gcomptab, models xlsx("`xlsx'") sheet("M2") noeform se nointercept keep(x)
     assert _rc == 0
+    preserve
+    import excel using "`xlsx'", sheet("M2") clear
+    assert _N > 0
+    count if A == "Intercept"
+    assert !missing(r(N))
+    assert r(N) == 0
+    restore
     * raw + drop + keepintercept + coef() + markdown companion
     gcomptab, models xlsx("`xlsx'") sheet("M3") raw keepintercept drop(c) ///
         coef("logOR") markdown("`md'")
     assert _rc == 0
     confirm file "`md'"
+    tempname _mdfh
+    file open `_mdfh' using "`md'", read text
+    local _mdbody ""
+    file read `_mdfh' _mdline
+    while r(eof) == 0 {
+        local _mdbody "`_mdbody' `_mdline'"
+        file read `_mdfh' _mdline
+    }
+    file close `_mdfh'
+    assert strpos(`"`_mdbody'"', "logOR") > 0
 }
 if _rc == 0 {
     display as result "  PASS: E models-mode option coverage"

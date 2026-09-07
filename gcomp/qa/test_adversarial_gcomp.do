@@ -166,6 +166,13 @@ capture noisily {
     _adv_fit_med, simulations(140) samples(4) seed(7101)
 
     assert "`c(varabbrev)'" == "off"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _a1_vars : _all
+    describe using `before_a1', varlist
+    assert "`_a1_vars'" == "`r(varlist)'"
     cf _all using `before_a1'
 
     assert "`e(cmd)'" == "gcomp"
@@ -266,6 +273,13 @@ capture noisily {
         base_confs(c) sim(80) samples(2) seed(8202)
     assert _rc == 111
     assert "`c(varabbrev)'" == "off"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _a3_vars : _all
+    describe using `before_a3', varlist
+    assert "`_a3_vars'" == "`r(varlist)'"
     cf _all using `before_a3'
     assert "`e(cmd)'" == "gcomp"
     tempname now_b
@@ -341,6 +355,13 @@ capture noisily {
     _adv_fit_tv, simulations(70) samples(3) seed(8401)
     assert e(N) == `unique_subjects'
     assert e(MC_sims) == 70
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _a5_vars : _all
+    describe using `before_a5', varlist
+    assert "`_a5_vars'" == "`r(varlist)'"
     cf _all using `before_a5'
 
     tempname b
@@ -370,6 +391,13 @@ capture noisily {
     capture _adv_fit_tv, simulations(40) samples(2) seed(8501)
     assert _rc != 0
     assert "`c(varabbrev)'" == "on"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _a6_vars : _all
+    describe using `before_a6', varlist
+    assert "`_a6_vars'" == "`r(varlist)'"
     cf _all using `before_a6'
 }
 if _rc == 0 {
@@ -423,6 +451,13 @@ capture noisily {
     save `before_a8'
 
     _adv_fit_tv_cont, simulations(80) samples(3) seed(8701)
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _a8_vars : _all
+    describe using `before_a8', varlist
+    assert "`_a8_vars'" == "`r(varlist)'"
     cf _all using `before_a8'
 
     assert "`e(cmd)'" == "gcomp"

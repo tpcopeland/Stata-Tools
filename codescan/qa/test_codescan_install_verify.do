@@ -47,6 +47,7 @@ local _qa_pwd0 "`c(pwd)'"
 
 **## which finds both commands after net install
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether both commands resolve on the adopath after net install IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture ado uninstall codescan
     quietly net install codescan, from("`pkg_dir'")

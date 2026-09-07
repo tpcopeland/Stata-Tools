@@ -52,6 +52,8 @@ capture noisily {
         crosstab.ado crosstab.sthlp ///
         corrtab.ado corrtab.sthlp tabtools_tips.ado tabtools_tips.sthlp {
         confirm file "`pkg_dir'/`f'"
+        * existence alone would pass on a truncated/empty stub file
+        assert strlen(fileread("`pkg_dir'/`f'")) > 0
     }
 }
 if _rc == 0 {
@@ -553,6 +555,7 @@ else {
 
 **# Fresh-install discoverability
 **## Public commands resolve after net install
+* stata-dev-ignore: rc-only-test — installation probe: whether each public command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     foreach cmd in tabtools table1_tc regtab effecttab stratetab hrcomptab ///
         comptab survtab crosstab corrtab {
@@ -570,6 +573,7 @@ else {
 }
 
 **## Bundled helper ado files are on adopath
+* stata-dev-ignore: rc-only-test — installation probe: whether each bundled helper .ado resolves on the adopath IS the whole content under test; `findfile' produces nothing else to assert
 capture noisily {
     foreach helper in _tabtools_common.ado _tabtools_xlsx_write.ado ///
         _tabtools_xlsx_read.ado _tabtools_collect_render.ado ///
@@ -597,7 +601,7 @@ capture noisily {
         _tabtools_table_spec.ado _tabtools_render_excel.ado ///
         _tabtools_export.ado _tabtools_collect_bridge.ado {
         capture confirm file "`pkg_dir'/`helper'"
-        assert _rc != 0
+        assert _rc == 601
     }
 }
 if _rc == 0 {
@@ -620,6 +624,7 @@ capture noisily {
         title("Table 1. Vehicle Characteristics by Origin") ///
         smd zebra
     confirm file "table1.xlsx"
+    assert "`r(varlist)'" == "price mpg weight rep78"
 }
 if _rc == 0 {
     display as result "  PASS: README table1_tc example runs unchanged"
@@ -642,6 +647,8 @@ capture noisily {
         title("Table 2. Predictors of High Price") ///
         noint boldp(0.05) zebra
     confirm file "regression.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: README regtab example runs unchanged"
@@ -665,6 +672,8 @@ capture noisily {
         title("Average Treatment Effect on Birthweight") ///
         clean
     confirm file "effects.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: README effecttab example runs unchanged"
@@ -694,6 +703,9 @@ capture noisily {
         title("Table 3. Association with Price (OR, 95% CI)") ///
         zebra
     confirm file "composite.xlsx"
+    assert r(N_frames) == 2
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: README comptab example runs unchanged"
@@ -715,9 +727,14 @@ capture noisily {
         xlsx(crosstab.xlsx) ///
         title("Price by Origin")
     confirm file "crosstab.xlsx"
+    assert !missing(r(N))
+    assert r(N) > 0
     corrtab price mpg weight length, xlsx(corrtab.xlsx) ///
         lower title("Correlation Matrix")
     confirm file "corrtab.xlsx"
+    matrix _rel_corr_N = r(N)
+    assert !missing(_rel_corr_N[1, 1])
+    assert _rel_corr_N[1, 1] > 0
 }
 if _rc == 0 {
     display as result "  PASS: README crosstab/corrtab example runs unchanged"
@@ -741,6 +758,8 @@ capture noisily {
         xlsx(survival.xlsx) sheet("KM") ///
         title("Survival by Treatment Group")
     confirm file "survival.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
     webuse diet, clear
     stset dox, failure(fail) origin(time dob) enter(time doe) ///
         scale(365.25) id(id)
@@ -750,6 +769,8 @@ capture noisily {
         outlabels("CHD Death") explabels("Energy Intake") ///
         title("Incidence Rates per 1,000 Person-Years")
     confirm file "rates.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: README survtab/stratetab example runs unchanged"
@@ -770,6 +791,8 @@ capture noisily {
     regtab, xlsx(regression.xlsx) sheet("Diabetes") ///
         title("Odds Ratios for Diabetes") coef(OR)
     confirm file "regression.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab.sthlp example runs unchanged"
@@ -1150,6 +1173,7 @@ else {
 
 **# Installed-User Contracts
 **## Fresh install resolves every public command and backend helper
+* stata-dev-ignore: rc-only-test — installation probe: whether each public command and backend helper resolves on the adopath IS the whole content under test; `which'/`findfile' produce nothing else to assert
 capture noisily {
     foreach cmd of local public_commands {
         which `cmd'

@@ -280,6 +280,9 @@ capture noisily {
     assert c(varabbrev) == "off"
     datasignature
     assert "`r(datasignature)'" == "`sig_before'"
+    unab _d5_vars_now : _all
+    describe using "`before_invalid'", varlist
+    assert "`_d5_vars_now'" == "`r(varlist)'"
     cf _all using "`before_invalid'"
 
     set varabbrev on

@@ -72,6 +72,7 @@ program define _rto_data
     label variable sex "Sex"
     generate byte flag = (grp == 4)
     label variable flag "Flag"
+    * stata-dev-ignore: unseeded-draw — this is a generator PROGRAM, not a script: every call site seeds first (`set seed 20260903' immediately before each `_rto_data' call), so every draw in this file replays
     generate double x = rnormal()
     label variable x "X score"
     generate double y = 0.5 * x + 0.3 * (grp == 2) + rnormal()
@@ -496,9 +497,9 @@ capture noisily {
         quietly count if strpos(strtrim(A), "1: ") == 1 & _n >= 4
         assert r(N) == 0
         quietly count if strpos(strtrim(A), "2: ") == 1 & _n >= 4
-        assert r(N) > 0
+        assert r(N) < . & r(N) > 0
         quietly count if strpos(strtrim(A), "3: ") == 1 & _n >= 4
-        assert r(N) > 0
+        assert r(N) < . & r(N) > 0
     }
     _rto_cell _rto14 "2: 4.grp" c1
     assert "`r(cell)'" == "Omitted"

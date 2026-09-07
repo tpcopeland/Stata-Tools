@@ -130,6 +130,7 @@ local actualcov_msm_a_msm_cons = `V'[`c_msm_a', `c_msm_cons']
 
 **# Point-estimate checks for non-EOFU outputs
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured block IS the content oracle: each `_gle_compare' call asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays those comparisons
 capture noisily {
     foreach metric in po_a1 po_a0 out_a1 out_a0 death_a1 death_a0 out_diff_a1_a0 death_diff_a1_a0 {
         _gle_compare, actual(`actual_`metric'') expected(`ref_`metric'') ///
@@ -148,6 +149,7 @@ else {
 
 **# MSM point-estimate checks
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured block IS the content oracle: each `_gle_compare' call asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays those comparisons
 capture noisily {
     foreach metric in msm_a msm_cons {
         _gle_compare, actual(`actual_`metric'') expected(`ref_`metric'') ///
@@ -166,6 +168,7 @@ else {
 
 **# Bootstrap SE checks where practical
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured block IS the content oracle: each `_gle_compare' call asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays those comparisons
 capture noisily {
     foreach metric in po_a1 po_a0 out_a1 out_a0 death_a1 death_a0 out_diff_a1_a0 death_diff_a1_a0 msm_a msm_cons {
         _gle_compare, actual(`actualse_`metric'') expected(`refse_`metric'') ///
@@ -212,6 +215,7 @@ else {
 
 **# Off-diagonal covariance checks
 local ++test_count
+* stata-dev-ignore: rc-only-test -- the captured block IS the content oracle: each `_gle_compare' call asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays those comparisons
 capture noisily {
     foreach pair in out_a1_out_a0 death_a1_death_a0 msm_a_msm_cons {
         _gle_compare, actual(`actualcov_`pair'') expected(`refcov_`pair'') ///

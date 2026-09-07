@@ -205,11 +205,15 @@ capture noisily {
     local total_days = mdy(12,31,2022) - mdy(1,1,2020) + 1
 
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_dt)
-    * Sum of all interval durations should approximately equal total study duration
+    * With no minage()/maxage() bound and default groupwidth(1), tvage.ado
+    * builds an exact non-overlapping partition of [entry, exit_dt] at
+    * anniversary boundaries (first row starts at entry_eff==entry, last row
+    * stops at exit_eff==exit_dt, intermediate rows run birthday to the day
+    * before the next birthday) -- for this dob (not Feb 29) the sum of
+    * interval durations must equal the study span exactly, no rounding.
     gen duration = age_stop - age_start + 1
     quietly sum duration
-    * Allow small tolerance for rounding near birthdays
-    assert abs(r(sum) - `total_days') <= 2
+    assert r(sum) == `total_days'
 }
 if _rc == 0 {
     display as result "  PASS: B.2 tvage total person-time ~= study duration"

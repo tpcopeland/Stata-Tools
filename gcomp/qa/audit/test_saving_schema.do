@@ -31,6 +31,13 @@ assert `"`e(saving)'"'==`"`unicode_path'"'
 assert "`e(saved_schema_version)'"=="1"
 local run_id "`e(run_id)'"
 local rngstate `"`e(rngstate)'"'
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _ss_vars1 : _all
+describe using `caller_before', varlist
+assert "`_ss_vars1'" == "`r(varlist)'"
 cf _all using `caller_before', all
 
 preserve
@@ -55,6 +62,13 @@ capture noisily gcomp Y L A id time, outcome(Y) idvar(id) tvar(time) varyingcova
     equations(L: time, A: L time, Y: A L time) ///
     sim(140) samples(3) seed(142) saving(`"`unicode_path'"')
 assert _rc!=0
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _ss_vars2 : _all
+describe using `caller_before', varlist
+assert "`_ss_vars2'" == "`r(varlist)'"
 cf _all using `caller_before', all
 
 * replace deliberately overwrites the same quoted/non-ASCII path.
@@ -74,6 +88,13 @@ capture noisily gcomp Y L A id time, outcome(Y) idvar(id) tvar(time) varyingcova
     equations(L: time, A: L time, Y: A L time) ///
     sim(140) samples(3) seed(144) saving("/tmp/no-such-gcomp-dir/out.dta") replace
 assert _rc!=0
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _ss_vars3 : _all
+describe using `caller_before', varlist
+assert "`_ss_vars3'" == "`r(varlist)'"
 cf _all using `caller_before', all
 
 * Reserved schema names are rejected only when they are part of the saved
@@ -88,6 +109,13 @@ foreach reserved in _id _int _source_id {
         equations(L: `reserved' time, A: L time, Y: A L time) ///
         sim(140) samples(3) seed(145) saving(`"`unicode_path'"') replace
     assert _rc==110
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _ss_vars4 : _all
+    describe using `caller_before', varlist
+    assert "`_ss_vars4'" == "`r(varlist)'"
     cf _all using `caller_before', all
 }
 
@@ -100,6 +128,13 @@ gcomp Y L A id time, outcome(Y) idvar(id) tvar(time) varyingcovariates(L) ///
     commands(L: regress, A: logit, Y: regress) ///
     equations(L: time, A: L time, Y: A L time) ///
     sim(140) samples(3) seed(146) saving(`"`unicode_path'"') replace
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _ss_vars5 : _all
+describe using `unrelated_before', varlist
+assert "`_ss_vars5'" == "`r(varlist)'"
 cf _all using `unrelated_before', all
 
 capture erase `"`unicode_path'"'

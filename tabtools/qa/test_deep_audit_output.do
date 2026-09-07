@@ -163,9 +163,10 @@ collect clear
 collect: regress price mpg
 capture frame drop deep_src95
 regtab, frame(deep_src95, replace) noint
-capture noisily comptab deep_src90 deep_src95, rows(1 \ 1)
-local mixed_level_rc = _rc
-capture noisily assert `mixed_level_rc' == 198
+capture noisily {
+    capture noisily comptab deep_src90 deep_src95, rows(1 \ 1)
+    assert _rc == 198
+}
 if _rc == 0 {
     display as result "  PASS M10d: composites reject mixed CI provenance"
     local ++pass_count
@@ -198,10 +199,12 @@ matrix rownames Z = ExactZero ZeroWithCI
 capture frame drop deep_zero
 effecttab, from(Z) frame(deep_zero, replace)
 capture noisily {
-    frame deep_zero: assert c1[4] == "0.00"
-    frame deep_zero: assert c3[4] == "0.50"
-    frame deep_zero: assert c1[5] == "0.00"
-    frame deep_zero: assert c2[5] == "(-0.10, 0.10)"
+    frame deep_zero {
+        assert c1[4] == "0.00"
+        assert c3[4] == "0.50"
+        assert c1[5] == "0.00"
+        assert c2[5] == "(-0.10, 0.10)"
+    }
 }
 if _rc == 0 {
     display as result "  PASS M12: numeric zero is never inferred to be a reference row"
@@ -466,7 +469,9 @@ frame deep_sparse_compose {
         local shell_count = `shell_count' + r(N)
     }
 }
-capture noisily assert `shell_count' == 0
+capture noisily {
+    assert `shell_count' == 0
+}
 if _rc == 0 {
     display as result "  PASS M20: structurally empty composite cells are blank"
     local ++pass_count

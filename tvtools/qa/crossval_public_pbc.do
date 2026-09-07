@@ -167,6 +167,7 @@ if `has_rscript' {
                 assert protime10 == protime10_r
                 assert death == death_r
             }
+            local _p1_rc = _rc
         }
         else capture noisily error `build_rc'
         if _rc == 0 {

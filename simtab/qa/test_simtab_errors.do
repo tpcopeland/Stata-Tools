@@ -25,14 +25,14 @@ capture noisily {
     1 .20 .05 0
     end
     tempfile before out
-    unab vars_before : _all
     save "`before'", replace
     local xlsx "`out'.xlsx"
     capture noisily simtab estimator, estimate(estimate) se(se) true(true) xlsx("`xlsx'") sheet("bad:name")
     local rc = _rc
     assert `rc' == 198
     unab vars_after : _all
-    assert "`vars_after'" == "`vars_before'"
+    describe using "`before'", varlist
+    assert "`vars_after'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 local ++pass
@@ -47,7 +47,6 @@ capture noisily {
     1 .20 .05 0
     end
     tempfile before out
-    unab vars_before : _all
     save "`before'", replace
     local xlsx "`out'.xlsx"
     capture noisily simtab estimator, estimate(estimate) se(se) true(true) ///
@@ -55,7 +54,8 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     unab vars_after : _all
-    assert "`vars_after'" == "`vars_before'"
+    describe using "`before'", varlist
+    assert "`vars_after'" == "`r(varlist)'"
     cf _all using "`before'"
     capture confirm file "`xlsx'"
     assert _rc == 601

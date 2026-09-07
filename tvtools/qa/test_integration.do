@@ -166,6 +166,12 @@ capture {
 
     tvweight treatment, covariates(age female) generate(iptw_nolog) nolog
     confirm variable iptw_nolog
+    quietly count if missing(iptw_nolog)
+    assert !missing(r(N))
+    assert r(N) == 0
+    quietly summarize iptw_nolog
+    assert !missing(r(min))
+    assert r(min) > 0
 }
 if _rc == 0 {
     display as result "  PASS: tvweight nolog option"
@@ -242,6 +248,9 @@ capture {
     * Person 1 has pattern: 0 to 1 to 0 to 2 to 0 to 1 (or similar)
     * Pattern should be a string
     confirm string variable switching_pattern
+    quietly count if missing(switching_pattern)
+    assert !missing(r(N))
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose switchingdetail creates pattern"
@@ -358,6 +367,9 @@ capture {
 
     confirm variable period_begin
     confirm variable period_end
+    quietly count if missing(period_begin) | missing(period_end)
+    assert !missing(r(N))
+    assert r(N) == 0
 
     * Default names should NOT exist
     capture confirm variable start

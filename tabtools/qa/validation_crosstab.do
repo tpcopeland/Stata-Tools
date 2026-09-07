@@ -285,7 +285,10 @@ capture noisily {
     crosstab event exposed, or
     assert !missing(r(p))
     assert r(p) > 0.20
-    assert abs(r(or) - 1.0) < 0.5
+    * exposed is exactly the first/second half of _n, event alternates every
+    * observation, so the 2x2 table is exactly balanced (50/50/50/50) and the
+    * true OR is exactly 1 -- not just "close": tolerance is floating-point only
+    assert abs(r(or) - 1.0) < 1e-8
 }
 if _rc == 0 {
     display as result "  PASS: KE2.7 — independent vars give large p and OR ≈ 1"

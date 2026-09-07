@@ -913,6 +913,10 @@ capture {
     _setup_pipeline, nolog
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
     msm_plot, type(balance) covariates(biomarker comorbidity age sex)
+    assert "`r(plot_type)'" == "balance"
+    assert !missing(r(n_risk))
+    matrix _g1_bal = r(balance)
+    assert rowsof(_g1_bal) > 0
     graph close _all
 }
 if _rc == 0 {
@@ -929,6 +933,7 @@ else {
 local ++test_count
 capture {
     msm_plot, type(survival) times(1 3 5 7 9) samples(20) seed(42)
+    assert "`r(plot_type)'" == "survival"
     graph close _all
 }
 if _rc == 0 {
@@ -945,6 +950,7 @@ else {
 local ++test_count
 capture {
     msm_plot, type(trajectory) n_sample(20)
+    assert "`r(plot_type)'" == "trajectory"
     graph close _all
 }
 if _rc == 0 {
@@ -1075,6 +1081,12 @@ capture {
     capture erase "`csv_file'"
     msm_report, export("`csv_file'") format(csv) decimals(2) eform replace
     confirm file "`csv_file'"
+    assert "`r(export)'" == "`csv_file'"
+    assert "`r(format)'" == "csv"
+    preserve
+    import delimited using "`csv_file'", clear varnames(1)
+    assert _N > 0
+    restore
     capture erase "`csv_file'"
 }
 if _rc == 0 {
@@ -1102,6 +1114,14 @@ capture {
         analysis("Pooled logistic") ///
         export("`csv_file'") format(csv) replace
     confirm file "`csv_file'"
+    * msm_protocol posts no r(export) (that is msm_report's); the file
+    * itself is confirmed above. Path asserted was: "`csv_file'"
+    assert "`r(format)'" == "csv"
+    assert "`r(population)'" == "Adults age 18+"
+    preserve
+    import delimited using "`csv_file'", clear varnames(1)
+    assert _N > 0
+    restore
     capture erase "`csv_file'"
 }
 if _rc == 0 {
@@ -1127,6 +1147,13 @@ capture {
         analysis("Pooled logistic") ///
         export("`xlsx_file'") format(excel) replace
     confirm file "`xlsx_file'"
+    * msm_protocol posts no r(export) (that is msm_report's); the file
+    * itself is confirmed above. Path asserted was: "`xlsx_file'"
+    assert "`r(format)'" == "excel"
+    preserve
+    import excel using "`xlsx_file'", sheet("Protocol") firstrow clear allstring
+    assert _N > 0
+    restore
     capture erase "`xlsx_file'"
 }
 if _rc == 0 {
@@ -1152,6 +1179,10 @@ capture {
         analysis("Cox MSM") ///
         export("`tex_file'") format(latex) replace
     confirm file "`tex_file'"
+    * msm_protocol posts no r(export) (that is msm_report's); the file
+    * itself is confirmed above. Path asserted was: "`tex_file'"
+    assert "`r(format)'" == "latex"
+    assert strpos(fileread("`tex_file'"), "HIV+ adults") > 0
     capture erase "`tex_file'"
 }
 if _rc == 0 {
@@ -1343,6 +1374,14 @@ capture {
     _msm_natural_spline period, df(2) prefix(_test_ns)
     confirm variable _test_ns1
     confirm variable _test_ns2
+    * `confirm variable' alone passes on a degenerate constant column; a
+    * real spline basis must actually vary with period.
+    quietly summarize _test_ns1
+    assert !missing(r(sd))
+    assert r(sd) > 0
+    quietly summarize _test_ns2
+    assert !missing(r(sd))
+    assert r(sd) > 0
     drop _test_ns1 _test_ns2
 }
 if _rc == 0 {
@@ -1362,24 +1401,19 @@ capture {
     capture drop _test_ns*
     _msm_natural_spline period, df(5) prefix(_test_ns)
     confirm variable _test_ns1
-    * df=5 should have 4 nonlinear bases + 1 linear = up to 5 vars
-    * Actually: df=5 means df=5 basis vars, n_knots=6
-    * n_internal=4, n_nonlinear=3, so basis1 + basis2 + basis3 + basis4
-    * But the code creates df-1 = 4 internal knots, n_nonlinear = n_internal-1 = 3
-    * So we get prefix1 (linear) + prefix2, prefix3, prefix4 (nonlinear) = 4 vars
-    * Wait, let me recheck: df=5, n_internal = df-1 = 4
-    * n_nonlinear = n_internal - 1 = 3
-    * So j goes 1..3, making prefix2, prefix3, prefix4
-    * Total: prefix1 + prefix2 + prefix3 + prefix4 = 4 vars
-    * That's only df-1 = 4 basis vars for df=5
-    * This is correct for restricted cubic splines: df basis functions
-    * Actually wait: the code has an issue. For n_internal >= 2,
-    * n_nonlinear = n_internal - 1 = df - 2
-    * So total basis = 1 (linear) + (df-2) = df - 1
-    * That means df(5) gives 4 basis vars, which is actually df-1
-    * This might be a bug or intentional (Harrell formulation)
-    * For now just verify it creates 4 vars
-    confirm variable _test_ns4
+    * MEASURED: df(5) produces exactly 5 basis variables, _test_ns1.._test_ns5.
+    * That is the standard "df basis functions" convention, not df-1. (An older
+    * comment here derived 4 by hand and speculated the command might be buggy;
+    * running it settles the question -- the count is df, and every basis varies.)
+    unab _ns_vars : _test_ns*
+    assert wordcount("`_ns_vars'") == 5
+    * `confirm variable' alone passes on a degenerate constant column, so each
+    * basis must actually vary with period.
+    foreach _nsv of local _ns_vars {
+        quietly summarize `_nsv'
+        assert !missing(r(sd))
+        assert r(sd) > 0
+    }
     capture drop _test_ns*
 }
 if _rc == 0 {
@@ -1479,8 +1513,12 @@ local ++test_count
 capture {
     capture matrix list _msm_pred_matrix
     assert _rc == 0
+    matrix _l2_pred = _msm_pred_matrix
+    assert rowsof(_l2_pred) > 0
     capture matrix list _msm_bal_matrix
     assert _rc == 0
+    matrix _l2_bal = _msm_bal_matrix
+    assert rowsof(_l2_bal) > 0
 }
 if _rc == 0 {
     display as result "  PASS L2: persisted matrices exist"
@@ -1563,12 +1601,19 @@ local ++test_count
 capture {
     _setup_pipeline, nolog
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+    matrix _m3_fit_b = _msm_fit_b
 
     * Overwrite e()
     quietly logit outcome treatment age sex if period == 0
 
     * msm_report should still work from saved matrices
     msm_report
+    * Prove msm_report used the SAVED fit, not the intervening logit: the
+    * persisted coefficient matrix must be untouched, and the active
+    * estimation results must still belong to the intervening logit call
+    * (msm_report must read from the msm matrices, not re-run/replace e()).
+    assert mreldif(_msm_fit_b, _m3_fit_b) < 1e-12
+    assert "`e(cmd)'" == "logit"
 }
 if _rc == 0 {
     display as result "  PASS M3: msm_report survives intervening estimation"
@@ -2336,7 +2381,7 @@ capture noisily {
         baseline_covariates(age sex)
     * Weight variable should have been dropped
     capture confirm variable _msm_weight
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS R5: re-prepare drops stale weight variables"

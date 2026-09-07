@@ -39,6 +39,20 @@ program define _clear_consort_state
     global CONSORT_SCRIPT_PATH ""
 end
 
+* Helper: byte size of a file, safe for binary output (png) -- avoids reading
+* binary content through fileread(), which is documented for text.
+capture program drop _qa_filesize
+program define _qa_filesize, rclass
+    args path
+    tempname fh
+    file open `fh' using "`path'", read binary
+    file seek `fh' eof
+    file seek `fh' query
+    local _bytes = r(loc)
+    file close `fh'
+    return scalar bytes = `_bytes'
+end
+
 * =============================================================================
 * SECTION 1: VARABBREV RESTORE
 * =============================================================================
@@ -201,9 +215,15 @@ capture noisily {
     _clear_consort_state
     sysuse auto, clear
     consort init, initial("All cars")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing")
+    assert r(n_excluded) == 5
     consort save, output("/tmp/test_v104_valid.png") final("Final")
+    assert r(N_final) == 69
     confirm file "/tmp/test_v104_valid.png"
+    _qa_filesize "/tmp/test_v104_valid.png"
+    assert !missing(r(bytes))
+    assert r(bytes) > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': valid path accepted"
@@ -406,6 +426,11 @@ capture noisily {
     capture ado uninstall consort
     quietly net install consort, from("`pkg_dir'/") replace
     which consort
+    findfile consort.ado
+    * `which' only proves SOME copy resolves; an installed copy shadowing a
+    * stale adopath entry would still pass. Confirm the copy adopath hands
+    * back is byte-identical to the source just installed from.
+    assert fileread(`"`r(fn)'"') == fileread("`pkg_dir'/consort.ado")
 }
 if _rc == 0 {
     display as result "  PASS `test_count': net install + which consort"
@@ -420,7 +445,15 @@ else {
 * Test 17: help file renders without error
 local ++test_count
 capture noisily {
+    tempfile _t17_rendered
+    quietly translate "`pkg_dir'/consort.sthlp" "`_t17_rendered'.txt", ///
+        translator(smcl2txt) replace
     help consort
+    * `translate' invokes the same SMCL renderer the Viewer uses, so a
+    * directive left unresolved by a source-line split -- invisible to a
+    * grep of the .sthlp source -- shows up here as literal markup text.
+    assert strlen(fileread("`_t17_rendered'.txt")) > 0
+    assert !regexm(fileread("`_t17_rendered'.txt"), "\{[a-zA-Z]+:")
 }
 if _rc == 0 {
     display as result "  PASS `test_count': help consort renders"

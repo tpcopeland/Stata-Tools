@@ -503,6 +503,12 @@ capture noisily {
         id(id) start(rx_start) stop(rx_stop) exposure(exp_type) ///
         reference(0) entry(study_entry) exit(study_exit) ///
         gaps overlaps verbose
+    * tvexpose output is gap-free and overlap-free by design (reference fills
+    * gaps, overlaps resolved) -- assert the design guarantee, not just rc==0.
+    assert !missing(r(n_uncovered_days))
+    assert r(n_uncovered_days) == 0
+    assert !missing(r(n_unresolved_overlaps))
+    assert r(n_unresolved_overlaps) == 0
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose gaps+overlaps verbose accepted without error"

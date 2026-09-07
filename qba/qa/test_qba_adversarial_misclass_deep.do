@@ -271,6 +271,9 @@ capture noisily {
         dist_se("constant .8") dist_sp("constant .9") ///
         dist_se1("constant .7") dist_sp1("constant .85")
     assert "`c(varabbrev)'" == "on"
+    unab _d6a_vars_now : _all
+    describe using "`before_state'", varlist
+    assert "`_d6a_vars_now'" == "`r(varlist)'"
     cf _all using "`before_state'"
 
     set varabbrev off
@@ -279,6 +282,9 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     assert "`c(varabbrev)'" == "off"
+    unab _d6b_vars_now : _all
+    describe using "`before_state'", varlist
+    assert "`_d6b_vars_now'" == "`r(varlist)'"
     cf _all using "`before_state'"
 
     set varabbrev on
@@ -287,6 +293,9 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     assert "`c(varabbrev)'" == "on"
+    unab _d6c_vars_now : _all
+    describe using "`before_state'", varlist
+    assert "`_d6c_vars_now'" == "`r(varlist)'"
     cf _all using "`before_state'"
 }
 if _rc == 0 {
@@ -315,12 +324,18 @@ capture noisily {
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
     capture confirm variable draw
-    assert _rc != 0
+    assert _rc == 111
+    unab _d7a_vars_now : _all
+    describe using "`before_helper'", varlist
+    assert "`_d7a_vars_now'" == "`r(varlist)'"
     cf _all using "`before_helper'"
 
     capture _qba_draw_scalar, dist("trapezoidal .1 .8 .2 .9")
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
+    unab _d7b_vars_now : _all
+    describe using "`before_helper'", varlist
+    assert "`_d7b_vars_now'" == "`r(varlist)'"
     cf _all using "`before_helper'"
 }
 if _rc == 0 {

@@ -567,8 +567,22 @@ capture noisily {
 if _rc == 0 {
     capture confirm file "`t12_out'"
     if !_rc {
-        display as result "P78-T12 PASS: python() path with spaces works"
-        local test_pass = `test_pass' + 1
+        * Verify the spaced python() path actually rendered, not just an empty file
+        tempfile grepout12
+        shell grep -c "logdoc-body" "`t12_out'" > "`grepout12'" 2>&1
+        tempname gfh12
+        file open `gfh12' using "`grepout12'", read text
+        file read `gfh12' _gline12
+        file close `gfh12'
+        local _nbody12 = real("`_gline12'")
+        if `_nbody12' > 0 {
+            display as result "P78-T12 PASS: python() path with spaces works"
+            local test_pass = `test_pass' + 1
+        }
+        else {
+            display as error "P78-T12 FAIL: output missing logdoc-body content"
+            local test_fail = `test_fail' + 1
+        }
     }
     else {
         display as error "P78-T12 FAIL: output file not created"

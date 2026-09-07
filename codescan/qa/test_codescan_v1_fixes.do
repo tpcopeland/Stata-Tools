@@ -291,6 +291,7 @@ else {
 
 * Test 52: Package installation smoke test
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether the file resolves on the adopath after (re)install IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture ado uninstall codescan
     net install codescan, from("`pkg_dir'") replace
@@ -1058,6 +1059,10 @@ capture noisily {
     confirm variable cx_dm2_first
     confirm variable cx_dm2_last
     confirm variable cx_dm2_count
+    sort pid
+    assert cx_dm2_count[1] == 2
+    assert !missing(cx_dm2_first[1])
+    assert !missing(cx_dm2_last[1])
 }
 if _rc == 0 {
     display as result "  PASS: F3 generate with collapse + alldates"
@@ -1284,6 +1289,20 @@ capture noisily {
         id(pid) collapse cooccurrence replace ///
         export("codescan_test_qa.xlsx")
     confirm file "codescan_test_qa.xlsx"
+    preserve
+    import excel using "codescan_test_qa.xlsx", firstrow clear
+    assert _N == 2
+    confirm variable condition
+    confirm variable matches
+    assert condition[1] == "dm2"
+    assert condition[2] == "htn"
+    import excel using "codescan_test_qa.xlsx", sheet("cooccurrence") ///
+        firstrow clear
+    assert _N == 2
+    confirm variable condition
+    confirm variable dm2
+    confirm variable htn
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: O2 export xlsx"
@@ -1301,6 +1320,14 @@ capture noisily {
     capture erase "codescan_test_qa.csv"
     codescan dx1-dx3, define(dm2 "E11") export("codescan_test_qa.csv") replace
     confirm file "codescan_test_qa.csv"
+    preserve
+    import delimited using "codescan_test_qa.csv", clear
+    assert _N == 1
+    confirm variable condition
+    confirm variable matches
+    assert condition[1] == "dm2"
+    assert matches[1] > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: O2 export csv"
@@ -1468,6 +1495,9 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace graph
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " Graph ") > 0
+    graph close _all
 }
 if _rc == 0 {
     display as result "  PASS: O1 graph without labmask"

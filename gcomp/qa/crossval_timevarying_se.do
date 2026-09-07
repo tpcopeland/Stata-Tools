@@ -129,6 +129,7 @@ local actual_binary_po12_cov = r(po12_cov)
 
 foreach metric in po_a1 po_a0 rd_a1_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_binary_`metric'') ///
         expected(`ref_binary_`metric'') tolerance(`tol_binary_`metric'') ///
         label("binary `metric' point estimate")
@@ -145,6 +146,7 @@ foreach metric in po_a1 po_a0 rd_a1_a0 {
 
 foreach metric in po_a1 po_a0 rd_a1_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_binary_se_`metric'') ///
         expected(`refse_binary_`metric'') tolerance(`tolse_binary_`metric'') ///
         label("binary `metric' bootstrap SE")
@@ -161,6 +163,7 @@ foreach metric in po_a1 po_a0 rd_a1_a0 {
 
 foreach metric in po_a1 po_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_binary_vdiag_`metric'') ///
         expected(`actual_binary_se_`metric'') tolerance(1e-10) ///
         label("binary `metric' sqrt(diag(e(V))) vs e(se)")
@@ -211,6 +214,7 @@ local actual_cont_po12cov = r(po12_cov)
 
 foreach metric in po_a1 po_a0 rd_a1_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_continuous_`metric'') ///
         expected(`ref_continuous_`metric'') tolerance(`tol_continuous_`metric'') ///
         label("continuous `metric' point estimate")
@@ -227,6 +231,7 @@ foreach metric in po_a1 po_a0 rd_a1_a0 {
 
 foreach metric in po_a1 po_a0 rd_a1_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_continuous_se_`metric'') ///
         expected(`refse_continuous_`metric'') tolerance(`tolse_continuous_`metric'') ///
         label("continuous `metric' bootstrap SE")
@@ -243,6 +248,7 @@ foreach metric in po_a1 po_a0 rd_a1_a0 {
 
 foreach metric in po_a1 po_a0 {
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvse_compare' asserts abs(actual - expected) <= tolerance and displays both values, so the rc merely relays that comparison
     capture noisily _tvse_compare, actual(`actual_continuous_vdiag_`metric'') ///
         expected(`actual_continuous_se_`metric'') tolerance(1e-10) ///
         label("continuous `metric' sqrt(diag(e(V))) vs e(se)")

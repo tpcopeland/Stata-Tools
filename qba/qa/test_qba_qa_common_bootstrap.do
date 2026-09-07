@@ -23,6 +23,9 @@ capture noisily {
     confirm file "`pkg_dir'/qba.pkg"
     confirm file "`qa_dir'/run_all.do"
     confirm file "`qa_dir'/_qba_qa_common.do"
+    * the two returned directories must be in the documented parent/child
+    * relationship, not merely two paths that both happen to resolve
+    assert "`qa_dir'" == "`pkg_dir'/qa"
 }
 if _rc == 0 {
     display as result "  PASS: B1 root detection"
@@ -41,6 +44,10 @@ capture noisily {
     which qba
     findfile _qba_distributions.ado
     confirm file "`r(fn)'"
+    * the bootstrapped install must actually be usable, not merely resolvable
+    qba_misclass, a(80) b(120) c(200) d(600) seca(.8) spca(.9)
+    assert !missing(r(corrected))
+    assert r(corrected) > 0
     capture ado uninstall qba
 }
 if _rc == 0 {

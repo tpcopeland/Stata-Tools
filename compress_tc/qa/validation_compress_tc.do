@@ -113,7 +113,9 @@ capture noisily {
     sysuse auto, clear
     compress_tc, quietly
     local expected = r(bytes_initial) - r(bytes_final)
-    assert abs(r(bytes_saved) - `expected') < 1
+    * bytes_saved is computed in the .ado as the same oldmem-newmem integer
+    * byte-count subtraction reproduced here, so the identity is exact.
+    assert r(bytes_saved) == `expected'
 }
 if _rc == 0 {
     display as result "RESULT: PASS V`test_count' — bytes_saved invariant"

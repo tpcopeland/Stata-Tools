@@ -373,6 +373,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     * spaghetti should execute without error
     capture {
         spaghetti sdmt, id(patid) time(months) mean(bold)
+        assert r(N) == 200
+        assert r(n_ids) == 20
     }
     if _rc == 0 {
         local ++pass_count
@@ -696,9 +698,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         * Mean marker exists
         assert _spag_is_mean == 1
     }
+    local _v15_rc = _rc
     restore
 
-    if _rc == 0 {
+    if `_v15_rc' == 0 {
         local ++pass_count
         if `machine' {
             display "RESULT: pass `test_count' `test_desc'"
@@ -711,10 +714,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' {
-            display "RESULT: fail `test_count' `test_desc' rc=`=_rc'"
+            display "RESULT: fail `test_count' `test_desc' rc=`_v15_rc'"
         }
         else {
-            display as error "  FAILED (rc=`=_rc')"
+            display as error "  FAILED (rc=`_v15_rc')"
         }
     }
 }
@@ -747,9 +750,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         summarize _spag_mean_y if months == 5, meanonly
         assert abs(r(mean) - `full_m5') < 1e-10
     }
+    local _v16_rc = _rc
     restore
 
-    if _rc == 0 {
+    if `_v16_rc' == 0 {
         local ++pass_count
         if `machine' {
             display "RESULT: pass `test_count' `test_desc'"
@@ -762,10 +766,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
         if `machine' {
-            display "RESULT: fail `test_count' `test_desc' rc=`=_rc'"
+            display "RESULT: fail `test_count' `test_desc' rc=`_v16_rc'"
         }
         else {
-            display as error "  FAILED (rc=`=_rc')"
+            display as error "  FAILED (rc=`_v16_rc')"
         }
     }
 }
@@ -826,6 +830,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             highlight(patid == 3)
+        assert r(N) == 200
+        assert r(n_ids) == 20
     }
     if _rc == 0 {
         local ++pass_count
@@ -860,6 +866,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         * bl_sdmt has 20 unique values -> 5 quintile groups
         spaghetti sdmt, id(patid) time(months) colorby(bl_sdmt)
+        assert r(N) == 200
+        assert r(n_ids) == 20
     }
     if _rc == 0 {
         local ++pass_count
@@ -896,6 +904,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             colorby(treatment, categorical)
+        assert r(N) == 200
+        assert r(n_ids) == 20
     }
     if _rc == 0 {
         local ++pass_count

@@ -83,12 +83,15 @@ local ++test_count
 capture noisily {
     use "`persistent_saved'", clear
     quietly count if _int == 1 & t > 0 & t < 10 & a == 1 & a_lag == 0
+    assert !missing(r(N))
     assert r(N) > 50
     quietly count if _int == 1 & t > 0 & t < 10 & a == 1 & a_lag == 1
+    assert !missing(r(N))
     assert r(N) > 500
     quietly count if _int == 1 & t < 10 & a == 0 & a_lag == 0
     * The 6.2 rule initiates most simulated subjects early; require a real
     * untreated tail without fitting the threshold to a large arbitrary count.
+    assert !missing(r(N))
     assert r(N) > 5
 }
 if _rc == 0 {
@@ -166,6 +169,7 @@ capture noisily {
     bysort _int _id (t): gen byte _stopped = ///
         (_int == 1 & _n > 1 & t < 10 & a == 0 & a[_n-1] == 1)
     quietly count if _stopped
+    assert !missing(r(N))
     assert r(N) > 50
 }
 if _rc == 0 {

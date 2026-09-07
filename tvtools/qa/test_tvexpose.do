@@ -3146,6 +3146,13 @@ capture {
     assert _rc != 0
     capture confirm variable __ovl
     assert _rc != 0
+    * The real output must actually be there and populated -- absence of
+    * __-vars alone does not prove the command produced anything. MEASURED:
+    * the default stub is tv_<exposure variable>, so this call yields tv_drug.
+    confirm variable tv_drug
+    quietly count if missing(tv_drug)
+    assert !missing(r(N))
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: No __ tempvar variables leaked into output"
@@ -3202,7 +3209,10 @@ capture {
     bysort id: egen double total_pt = total(pt)
     gen double expected_pt = study_exit - study_entry + 1
     bysort id: gen byte first = _n == 1
-    assert abs(total_pt - expected_pt) < 2 if first
+    * tvexpose.ado documents "complete person-time coverage from entry to
+    * exit" (no gaps/overlaps across reference + duration bins), so the
+    * per-person total must equal the study span exactly.
+    assert total_pt == expected_pt if first
 }
 if _rc == 0 {
     display as result "  PASS: Bytype duration with threshold crossing works correctly"

@@ -32,6 +32,12 @@ capture noisily {
         unmatched(none) frame(_rm_hostile_out)
     assert r(N_pairs) == 1
     assert r(N_missing_bounds) == 1
+    * `cf _all using` only compares variables still in memory, so a variable
+    * rangematch dropped from master would be invisible to it -- confirm the
+    * varlist itself matches the pre-call snapshot's varlist first.
+    unab _rmh_vars_now : _all
+    describe using `before', varlist
+    assert "`_rmh_vars_now'" == "`r(varlist)'"
     cf _all using `before'
     frame _rm_hostile_out: assert _N == 1
     frame _rm_hostile_out: assert payload[1] == 11

@@ -190,6 +190,8 @@ capture noisily {
     gen str10 dx = "E110"
 
     codescan dx, define(dm "E110") graph format(%9.3f) replace
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " Graph ") > 0
     graph close _all
 }
 if _rc == 0 {

@@ -80,6 +80,7 @@ local _cv_r_root "`_cv_r_token'_tabtools_crossval_r"
 local _cv_r_data "`_cv_r_root'/data"
 local _cv_r_log "`_cv_r_root'/R.log"
 local _cv_r_status "`_cv_r_root'/status.txt"
+* stata-dev-ignore: rc-only-test — this is a prerequisite gate, not a scored test: it only confirms the R oracle ran and produced its output file before the CONTENT comparison (the string-equality check against "PASS 4 fixtures" a few lines below, and every crossval metric comparison after that) can run at all; the content oracle lives there, not here
 capture shell rm -rf "`_cv_r_root'"
 capture mkdir "`_cv_r_root'"
 capture mkdir "`_cv_r_data'"

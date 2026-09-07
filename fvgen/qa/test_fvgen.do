@@ -90,12 +90,17 @@ capture noisily {
     fvgen i.grp##i.arm
     * grp==3 co-occurs only with arm==0, so grp3 x arm1 is empty
     capture confirm variable _grpXarm_3_1
-    assert _rc != 0
+    assert _rc == 111
     * grp2 x arm1 is populated and must exist
     confirm variable _grpXarm_2_1
+    * dummy must match its defining condition exactly, not just exist
+    quietly count if _grpXarm_2_1 == 1 & !(grp == 2 & arm == 1)
+    assert r(N) == 0
+    quietly count if grp == 2 & arm == 1 & !missing(grp, arm)
+    assert r(N) < . & r(N) > 0
     * base level grp==1 is dropped by default
     capture confirm variable _grp_1
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS: empty interaction cell skipped, base dropped"
@@ -139,8 +144,16 @@ capture noisily {
     fvgen i.arm##c.age, prefix(z_)
     confirm variable z_arm_1
     confirm variable z_armXage_1
+    * dummy and product must carry the right values under the prefixed names
+    quietly count if z_arm_1 != (arm == 1) & !missing(arm)
+    assert r(N) == 0
+    quietly count if !missing(arm, age)
+    assert r(N) < . & r(N) > 0
+    quietly gen double _z6_expect = arm * age if !missing(arm, age)
+    quietly count if !missing(_z6_expect) & z_armXage_1 != _z6_expect
+    assert r(N) == 0
     capture confirm variable _arm_1
-    assert _rc != 0
+    assert _rc == 111
 }
 if _rc == 0 {
     display as result "  PASS: prefix() option"
@@ -226,8 +239,13 @@ capture noisily {
     * Restricting to grp<3 removes level 3 from the materialized set
     fvgen i.grp if grp < 3
     capture confirm variable _grp_3
-    assert _rc != 0
+    assert _rc == 111
     confirm variable _grp_2
+    * dummy must be 1 exactly where the restricting condition holds
+    quietly count if _grp_2 != (grp == 2) & !missing(grp)
+    assert r(N) == 0
+    quietly count if grp == 2
+    assert r(N) < . & r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: if/in restricts materialized levels"

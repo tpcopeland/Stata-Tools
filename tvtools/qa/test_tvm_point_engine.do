@@ -103,6 +103,7 @@ else {
 
 local ++test_count
 use "`ENGINE'", clear
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvtools_qa_assert_cf_all_exact' proves the exact varlist matches in both directions THEN compares every value, `error 9'-ing on any mismatch, so the rc merely relays that comparison
 capture _tvtools_qa_assert_cf_all_exact using "`ORACLE'"
 if _rc == 0 local ++pass_count
 else {
@@ -154,6 +155,7 @@ else {
 
 local ++test_count
 use "`ENGINE_UM'", clear
+* stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: `_tvtools_qa_assert_cf_all_exact' proves the exact varlist matches in both directions THEN compares every value, `error 9'-ing on any mismatch, so the rc merely relays that comparison
 capture _tvtools_qa_assert_cf_all_exact using "`ORACLE_UM'"
 if _rc == 0 local ++pass_count
 else {

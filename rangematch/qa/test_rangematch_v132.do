@@ -178,6 +178,9 @@ capture {
         maxpairs(5) frame(v132d) replace
     log close `lf'
 }
+if _rc {
+    di as error "T4 replay-capture setup failed (rc=" _rc ") -- log may be incomplete"
+}
 tempname fh
 file open `fh' using "v132_maxpairs.log", read
 local found_atleast 0

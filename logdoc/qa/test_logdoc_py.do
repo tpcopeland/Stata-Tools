@@ -45,6 +45,7 @@ if _rc == 0 & `"`stata_python'"' != "" local has_stata_python 1
 **# Installed Surface And Default Check
 **## PY-T1: package manifest installs command, help, and renderer
 local ++test_total
+* stata-dev-ignore: rc-only-test — installation probe: whether the command, help, and renderer resolve on the adopath IS the whole content under test; `which'/`findfile' produce nothing else to assert
 capture noisily {
     which logdoc_py
     findfile logdoc_py.ado

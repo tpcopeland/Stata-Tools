@@ -740,8 +740,11 @@ capture noisily {
     use "`v24_curve'", clear
     keep if anchor == 0
     sort group time
-    by group: assert estimate <= estimate[_n - 1] + 1e-12 ///
+    by group: gen byte _v24_bad = ///
+        (estimate > estimate[_n - 1] + 1e-12) ///
         if _n > 1 & !missing(estimate, estimate[_n - 1])
+    quietly count if _v24_bad == 1
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: V24 KM monotonicity invariant"

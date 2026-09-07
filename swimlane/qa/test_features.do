@@ -300,10 +300,15 @@ capture noisily {
     swimlane, id(id) duration(duration) nograph frame(sw_reg, replace)
     frame sw_reg: quietly count
     local _n1 = r(N)
+    assert `_n1' > 0
     * second call with replace must succeed (was broken: rc 198)
     swimlane, id(id) duration(duration) nograph frame(sw_reg, replace)
     capture confirm frame sw_reg
     assert _rc == 0
+    * the replace must have re-populated the frame, not merely left the
+    * old one behind: same source data must produce the same row count
+    frame sw_reg: quietly count
+    assert r(N) == `_n1'
 }
 if _rc == 0 {
     display as result "  PASS: frame(name, replace) forwarding"

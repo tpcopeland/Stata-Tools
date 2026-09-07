@@ -70,6 +70,10 @@ capture noisily {
         base_confs(c) sim(500) samples(20) seed(42) diagnostics
     capture confirm matrix e(model_diagnostics)
     assert _rc == 0
+    tempname _diagm
+    matrix `_diagm' = e(model_diagnostics)
+    assert rowsof(`_diagm') > 0 & colsof(`_diagm') >= 2
+    assert `_diagm'[1, 2] == 0 | `_diagm'[1, 2] == 1
 }
 if _rc == 0 {
     display as result "  PASS: D1 diagnostics produces e(model_diagnostics)"
@@ -91,6 +95,10 @@ capture noisily {
         base_confs(c) sim(500) samples(20) seed(42)
     capture confirm matrix e(model_diagnostics)
     assert _rc == 0
+    tempname _diagm
+    matrix `_diagm' = e(model_diagnostics)
+    assert rowsof(`_diagm') > 0 & colsof(`_diagm') >= 2
+    assert `_diagm'[1, 2] == 0 | `_diagm'[1, 2] == 1
 }
 if _rc == 0 {
     display as result "  PASS: D2 e(model_diagnostics) exists without diagnostics flag"
@@ -371,6 +379,10 @@ capture noisily {
         base_confs(c) sim(500) samples(20) seed(42) diag
     capture confirm matrix e(model_diagnostics)
     assert _rc == 0
+    tempname _diagm
+    matrix `_diagm' = e(model_diagnostics)
+    assert rowsof(`_diagm') > 0 & colsof(`_diagm') >= 2
+    assert `_diagm'[1, 2] == 0 | `_diagm'[1, 2] == 1
 }
 if _rc == 0 {
     display as result "  PASS: D12 diag abbreviation accepted"

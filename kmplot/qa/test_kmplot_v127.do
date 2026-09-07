@@ -37,8 +37,8 @@ capture noisily {
     local xline_last = .
     local tick_first = .
     local tick_last = .
-    local risk_first = .
-    local risk_size = .
+    local rowlab_first_x = .
+    local rowlab_size = .
     local group_label_found = 0
     local group_label_size = .
     local ytitle_x = .
@@ -64,9 +64,9 @@ capture noisily {
         }
         if strpos(`"`line'"', ">20</text>") & ///
             regexm(`"`line'"', `" x="([0-9.]+)""') {
-            local risk_first = real(regexs(1))
+            local rowlab_first_x = real(regexs(1))
             if regexm(`"`line'"', "font-size:([0-9.]+)px") {
-                local risk_size = real(regexs(1))
+                local rowlab_size = real(regexs(1))
             }
         }
         if strpos(`"`line'"', ">Placebo</text>") {
@@ -87,15 +87,23 @@ capture noisily {
     assert !missing(`xline_last')
     assert !missing(`tick_first')
     assert !missing(`tick_last')
-    assert !missing(`risk_first')
-    assert !missing(`risk_size')
+    assert !missing(`rowlab_first_x')
+    assert !missing(`rowlab_size')
     assert `group_label_found' == 1
     assert !missing(`group_label_size')
     assert !missing(`ytitle_x')
-    assert abs(`xline_first' - `tick_first') < 1
-    assert abs(`xline_last' - `tick_last') < 1
-    assert abs(`tick_first' - `risk_first') < 1
-    assert `group_label_size' >= `risk_size'
+    * Tolerances are measured, not assumed. SVG coordinates here are emitted to
+    * two decimals, so 0.01 is one quantum. The axis line and its tick land on
+    * the SAME coordinate (measured deviation exactly 0.00 for both ends), so
+    * 0.05 is five quanta of slack on an exact identity. The row label is
+    * centred rather than left-aligned against the tick, giving a real sub-unit
+    * offset (measured 0.13), so 0.4 is ~3x the observed offset while still
+    * rejecting the whole-column misalignment this test exists to catch. The
+    * former bound of 1 accepted a full unit of drift in every case.
+    assert abs(`xline_first' - `tick_first') < 0.05
+    assert abs(`xline_last' - `tick_last') < 0.05
+    assert abs(`tick_first' - `rowlab_first_x') < 0.4
+    assert `group_label_size' >= `rowlab_size'
     assert `ytitle_x' > 0
     erase "`svg'"
 }

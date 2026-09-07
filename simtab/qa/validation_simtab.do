@@ -108,9 +108,13 @@ capture noisily {
     capture frame drop rms_pf
     simtab estid, estimate(est) se(se) true(truev) ///
         metrics(meanse relerr) plotframe(rms_pf, replace)
-    frame rms_pf: assert !missing(meanse[1], relerr[1])
-    frame rms_pf: assert reldif(meanse[1], sqrt(5)) < 1e-12
-    frame rms_pf: assert reldif(relerr[1], 100 * (sqrt(5) / sqrt(2) - 1)) < 1e-12
+    frame rms_pf {
+        assert !missing(meanse[1], relerr[1])
+        assert !missing(sqrt(5), meanse[1])
+        assert reldif(meanse[1], sqrt(5)) < 1e-12
+        assert !missing(relerr[1], 100 * (sqrt(5) / sqrt(2) - 1))
+        assert reldif(relerr[1], 100 * (sqrt(5) / sqrt(2) - 1)) < 1e-12
+    }
 }
 if _rc == 0 local ++pass
 else local ++fail
@@ -126,8 +130,10 @@ capture noisily {
     capture frame drop alpha_pf
     simtab estid, estimate(est) se(se) true(truev) pvalue(pvalue) alpha(.05) ///
         metrics(power) plotframe(alpha_pf, replace)
-    frame alpha_pf: assert !missing(power[1])
-    frame alpha_pf: assert reldif(power[1], .5) < 1e-12
+    frame alpha_pf {
+        assert !missing(power[1])
+        assert reldif(power[1], .5) < 1e-12
+    }
 }
 if _rc == 0 local ++pass
 else local ++fail

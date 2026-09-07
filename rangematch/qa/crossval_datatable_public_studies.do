@@ -27,9 +27,13 @@ capture noisily {
     confirm file "`r_script'"
     shell Rscript "`r_script'" "`ref_dir'"
     confirm file "`ref_dir'/R_OK"
+    * `confirm file' alone passes on a truncated/empty write; require the
+    * sentinel's actual content and that every generated CSV has real rows.
+    assert strtrim(subinstr(subinstr(fileread("`ref_dir'/R_OK"), char(13), "", .), char(10), "", .)) == "ok"
     foreach stem in chick_master chick_using chick_expected ///
             pbc_master pbc_using pbc_expected {
         confirm file "`ref_dir'/`stem'.csv"
+        assert strlen(fileread("`ref_dir'/`stem'.csv")) > 0
     }
 }
 if _rc == 0 {

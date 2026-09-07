@@ -43,6 +43,13 @@ foreach badrule in "A=no_such_function(L)" "A=not_here" "A=1 if" "A=A" "Z=1" "A=
         equations(L: time, A: L time, Y: A L time) ///
         sim(150) samples(3) seed(122)
     assert _rc!=0
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
+    unab _ri_vars : _all
+    describe using `state', varlist
+    assert "`_ri_vars'" == "`r(varlist)'"
     cf _all using `state', all
 }
 
