@@ -81,6 +81,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("package_dir", type=Path)
     parser.add_argument("--result-file", type=Path)
+    parser.add_argument("--require-root-readme", action="store_true",
+                        help="Require repository badges when checking a full release checkout")
     args = parser.parse_args()
     package_dir = args.package_dir.resolve()
     problems: list[str] = []
@@ -118,7 +120,7 @@ def main() -> int:
     flagship = (package_dir / "gcomp.sthlp").read_text(encoding="utf-8")
     readme = (package_dir / "README.md").read_text(encoding="utf-8")
     toc = (package_dir / "stata.toc").read_text(encoding="utf-8")
-    top_readme = (package_dir.parent / "README.md").read_text(encoding="utf-8")
+    top_readme_path = package_dir.parent / "README.md"
     if version and f"version {version}" not in flagship.lower():
         problems.append("flagship help version differs from gcomp.ado")
     if version and f"**Version {version}** | {iso_date}" not in readme:
@@ -128,9 +130,15 @@ def main() -> int:
     badge_date = iso_date.replace("-", "--")
     badge = f"version-{version}-blue"
     updated = f"updated-{badge_date}-brightgreen"
-    gcomp_rows = [line for line in top_readme.splitlines() if "[gcomp](" in line]
-    if len(gcomp_rows) != 1 or badge not in gcomp_rows[0] or updated not in gcomp_rows[0]:
-        problems.append("top-level gcomp badges differ from package version/date")
+    if top_readme_path.exists():
+        top_readme = top_readme_path.read_text(encoding="utf-8")
+        gcomp_rows = [line for line in top_readme.splitlines() if "[gcomp](" in line]
+        if len(gcomp_rows) != 1 or badge not in gcomp_rows[0] or updated not in gcomp_rows[0]:
+            problems.append("top-level gcomp badges differ from package version/date")
+    elif args.require_root_readme:
+        problems.append("repository-root README.md is required but missing")
+    else:
+        print("NOT APPLICABLE: repository badges (no repository-root README.md)")
 
     if AUTHOR not in pkg_text or AUTHOR not in toc or AUTHOR not in readme:
         problems.append("canonical author string is not synchronized")
