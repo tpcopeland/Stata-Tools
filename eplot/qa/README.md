@@ -49,6 +49,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 | `test_regressions.do` | Analytical return preservation when graph saving fails in each input mode |
 | `test_eplot_v128.do` | Multi-equation identity, estimate state, interval validation, option conflicts, interaction messaging, and rendered help |
 | `test_eplot_v129.do` | Finite-df inference, immutable coefficient identity, prediction intervals, fail-closed parsing, long labels, exact annotations, and shipped-example regressions |
+| `test_eplot_v140.do` | Logarithmic effect axis: multiplicative range padding, decade tick lattice and its linear fallback, non-positive value/`null()`/`xline()` refusals, the `xscale()`/`yscale()` passthrough guard, and `logscale` across all four modes and both orientations |
 | `test_examples.do` | Installed-user execution of shipped help examples across all input modes |
 
 ### Validation
@@ -69,7 +70,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 
 | Command | Functional | Validation | Also exercised in |
 |---------|------------|------------|-------------------|
-| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128`, `test_eplot_v129` |
+| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128`, `test_eplot_v129`, `test_eplot_v140` |
 
 ## Lane membership
 

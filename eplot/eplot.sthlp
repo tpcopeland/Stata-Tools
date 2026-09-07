@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  06sep2026}{...}
+{* *! version 1.4.0  07sep2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -78,6 +78,7 @@ Plot from a graph-ready frame:
 
 {syntab:Transform}
 {synopt:{opt eform}}exponentiate estimates (for OR, HR, RR){p_end}
+{synopt:{opt logs:cale}}logarithmic effect axis{p_end}
 {synopt:{opt res:cale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
@@ -405,6 +406,17 @@ estimates mode, the x-axis label is set automatically (e.g., "Odds Ratio" after
 {cmd:logit}, "Hazard Ratio" after {cmd:stcox}, "IRR" after {cmd:poisson}).
 
 {phang}
+{opt logscale} draws the effect axis on a logarithmic scale, which is the
+natural presentation for ratio effects such as odds, hazard, risk, and
+incidence-rate ratios. Axis padding is multiplicative rather than additive, so
+the padded limits stay strictly positive, and the ticks are placed on a decade
+lattice (for example {cmd:0.5 1 2 5 10 20}) instead of an evenly spaced linear
+one. Every plotted value must be strictly positive; {cmd:eplot} exits with
+{cmd:r(198)} otherwise. The null line defaults to {cmd:1} under {opt logscale}
+even without {opt eform}, and {opt null()} and {opt xline()} positions must be
+positive.
+
+{phang}
 {opt rescale(#)} multiplies all estimates and confidence limits by {it:#} before
 plotting. Useful for rescaling units (e.g., per 10-unit increase). With a
 negative multiplier, {cmd:eplot} swaps the transformed endpoints so the lower
@@ -688,7 +700,11 @@ pass plot-region, graph-region, and aspect-ratio settings to {cmd:twoway}.
 {phang}
 {it:twoway_options} are any other options accepted by {help twoway}. They are
 appended to the generated graph command; inspect {cmd:r(cmd)} when debugging
-passthrough behavior.
+passthrough behavior. {opt xscale()} and {opt yscale()} are the exception because
+{cmd:eplot} computes the effect-axis range itself and emits its own
+{opt xscale()}/{opt yscale()}; a passthrough copy is rejected with {cmd:r(198)}
+rather than silently overriding or being overridden. Use {opt logscale} for a
+logarithmic effect axis.
 
 
 {marker examples}{...}
@@ -767,6 +783,13 @@ passthrough behavior.
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 {phang2}{stata "logit foreign mpg weight length":. logit foreign mpg weight length}{p_end}
 {phang2}{cmd:. eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(plotplainblind)}{p_end}
+
+{pstd}
+{bf:Example 9b: Odds ratios on a logarithmic effect axis}
+
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "logit foreign mpg weight length":. logit foreign mpg weight length}{p_end}
+{phang2}{cmd:. eplot ., noconstant eform logscale values effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 {pstd}
 {bf:Example 10: Noconstant, auto-labels, and significance stars}
@@ -927,7 +950,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.1, 06sep2026{p_end}
+{pstd}Version 1.4.0, 07sep2026{p_end}
 
 
 {marker alsosee}{...}

@@ -1,4 +1,4 @@
-*! eplot Version 1.3.1  2026/09/06
+*! eplot Version 1.4.0  2026/09/07
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -19,6 +19,7 @@ Unified syntax for effect visualization:
     eplot, frame(framename) [options]
 
 Recent additions:
+  - logscale: logarithmic effect axis with multiplicative padding
   - Shared style/range/annotation helpers across plotting modes
   - Effect-axis xlabel() passthrough
   - gap() support for grouped layouts
@@ -419,6 +420,7 @@ program define _eplot_data, rclass
             GAP(real 0) ///
             /// Transform
             EFORM ///
+            LOGScale ///
             REScale(real 1) ///
             /// Reference lines
             XLine(string asis) ///
@@ -583,7 +585,15 @@ program define _eplot_data, rclass
         local headers `"`headings'"'
     }
     if `null' == -999 {
-        local null = cond("`eform'" != "", 1, 0)
+        // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
+        // no-effect reference belongs at 1 whether or not eform was requested.
+        local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
+    }
+    if `"`options'"' != "" _eplot_guard_scale, `options'
+    if "`logscale'" != "" & "`nonull'" == "" & `null' <= 0 {
+        display as error ///
+            "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
+        exit 198
     }
     if `"`effect'"' == "" {
         if "`eform'" != "" {
@@ -906,18 +916,20 @@ program define _eplot_data, rclass
 
     // Determine plot range and effect-axis ticks
     _eplot_calc_range `lci' `uci' if inlist(`rowtype', 1, 3, 5), ///
-        extralow(`pi_lci') extrahigh(`pi_uci')
+        extralow(`pi_lci') extrahigh(`pi_uci') `logscale'
     local xmin = `s(min)'
     local xmax = `s(max)'
     local xrange = `s(range)'
+    local lnrange = `s(lnrange)'
     local xmin_pad = `s(min_pad)'
     local xmax_pad = `s(max_pad)'
 
     if `"`xlabel'"' != "" {
-        _eplot_effect_axis_labels, min(`xmin') max(`xmax') xlabel(`xlabel')
+        _eplot_effect_axis_labels, min(`xmin') max(`xmax') ///
+            xlabel(`xlabel') `logscale'
     }
     else {
-        _eplot_effect_axis_labels, min(`xmin') max(`xmax')
+        _eplot_effect_axis_labels, min(`xmin') max(`xmax') `logscale'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
 
@@ -934,6 +946,7 @@ program define _eplot_data, rclass
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
         local val_xpos = `xmax' + 0.15 * `xrange'
+        if "`logscale'" != "" local val_xpos = `xmax' * exp(0.15 * `lnrange')
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
         _eplot_value_margin `val_text', header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -1116,7 +1129,7 @@ program define _eplot_data, rclass
     local _xline_opt ""
     if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull'
+        `horizontal' `nonull' `logscale'
     local refline_cmd `"`s(cmd)'"'
 
     // --- Y-axis labels (row labels) ---
@@ -1142,13 +1155,15 @@ program define _eplot_data, rclass
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
     local _xscale_max = `xmax_pad'
+    local _logopt ""
+    if "`logscale'" != "" local _logopt "log "
     if "`horizontal'" != "" {
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
-        local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `_xscale_max'))"'
+        local graphcmd `"`graphcmd' xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
@@ -1167,7 +1182,7 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("")"'
         local graphcmd `"`graphcmd' ytitle(`"`effect'"')"'
-        local graphcmd `"`graphcmd' yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' yscale(`_logopt'range(`xmin_pad' `xmax_pad'))"'
         local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
@@ -1263,7 +1278,7 @@ program define _eplot_data, rclass
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`xmin') max(`xmax') top(`_fav_top')
+            min(`xmin') max(`xmax') top(`_fav_top') `logscale'
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
@@ -1387,6 +1402,7 @@ program define _eplot_estimates, rclass
             GAP(real 0) ///
             /// Transform
             EFORM ///
+            LOGScale ///
             REScale(real 1) ///
             /// Reference lines
             XLine(string asis) ///
@@ -1585,7 +1601,15 @@ program define _eplot_estimates, rclass
         local level = c(level)
     }
     if `null' == -999 {
-        local null = cond("`eform'" != "", 1, 0)
+        // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
+        // no-effect reference belongs at 1 whether or not eform was requested.
+        local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
+    }
+    if `"`options'"' != "" _eplot_guard_scale, `options'
+    if "`logscale'" != "" & "`nonull'" == "" & `null' <= 0 {
+        display as error ///
+            "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
+        exit 198
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
     if "`offset'" == "" local offset 0.15
@@ -2108,19 +2132,22 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Determine axis range ======
-    _eplot_calc_range lci uci if _rowtype == 1
+    local _ls_opt ""
+    if "`logscale'" != "" local _ls_opt ", logscale"
+    _eplot_calc_range lci uci if _rowtype == 1 `_ls_opt'
     local data_xmin = `s(min)'
     local data_xmax = `s(max)'
     local data_range = `s(range)'
+    local lnrange = `s(lnrange)'
     local xmin_pad = `s(min_pad)'
     local xmax_pad = `s(max_pad)'
 
     if `"`xlabel'"' != "" {
         _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
-            xlabel(`xlabel')
+            xlabel(`xlabel') `logscale'
     }
     else {
-        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax')
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
 
@@ -2141,6 +2168,7 @@ program define _eplot_estimates, rclass
             if _rowtype == 1 & !missing(es)
 
         local val_xpos = `data_xmax' + 0.15 * `data_range'
+        if "`logscale'" != "" local val_xpos = `data_xmax' * exp(0.15 * `lnrange')
         gen double _val_x = `val_xpos' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -2297,12 +2325,14 @@ program define _eplot_estimates, rclass
     local ypad_hi = `pos_max' + 1
 
     local _xscale_max = `xmax_pad'
+    local _logopt ""
+    if "`logscale'" != "" local _logopt "log "
     if "`horizontal'" != "" {
         if "`values'" != "" & `n_models' == 1 {
             local _xscale_max = `val_xpos'
         }
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
-        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `_xscale_max'))"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" & `n_models' == 1 {
             local _val_hdr_y = 0.3
             local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
@@ -2319,14 +2349,14 @@ program define _eplot_estimates, rclass
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
-        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(`_logopt'range(`xmin_pad' `xmax_pad'))"'
         local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
     local _xline_opt ""
     if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull'
+        `horizontal' `nonull' `logscale'
     local refline_cmd `"`s(cmd)'"'
     if "`refline_cmd'" != "" {
         local graphcmd `"`graphcmd' `refline_cmd'"'
@@ -2404,7 +2434,7 @@ program define _eplot_estimates, rclass
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`data_xmin') max(`data_xmax') top(`_fav_top')
+            min(`data_xmin') max(`data_xmax') top(`_fav_top') `logscale'
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
@@ -2586,6 +2616,7 @@ program define _eplot_matrix, rclass
             [ ///
             LEVel(cilevel) ///
             EFORM ///
+            LOGScale ///
             REScale(real 1) ///
             /// Coefficient selection
             KEEP(string asis) ///
@@ -2704,7 +2735,15 @@ program define _eplot_matrix, rclass
     if "`level'" == "" local level = c(level)
     local crit = invnormal(1 - (1 - `level'/100)/2)
     if `null' == -999 {
-        local null = cond("`eform'" != "", 1, 0)
+        // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
+        // no-effect reference belongs at 1 whether or not eform was requested.
+        local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
+    }
+    if `"`options'"' != "" _eplot_guard_scale, `options'
+    if "`logscale'" != "" & "`nonull'" == "" & `null' <= 0 {
+        display as error ///
+            "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
+        exit 198
     }
     if `"`effect'"' == "" {
         if "`eform'" != "" {
@@ -2883,19 +2922,22 @@ program define _eplot_matrix, rclass
     }
 
     // Axis range
-    _eplot_calc_range lci uci
+    local _ls_opt ""
+    if "`logscale'" != "" local _ls_opt ", logscale"
+    _eplot_calc_range lci uci `_ls_opt'
     local data_xmin = `s(min)'
     local data_xmax = `s(max)'
     local data_range = `s(range)'
+    local lnrange = `s(lnrange)'
     local xmin_pad = `s(min_pad)'
     local xmax_pad = `s(max_pad)'
 
     if `"`xlabel'"' != "" {
         _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
-            xlabel(`xlabel')
+            xlabel(`xlabel') `logscale'
     }
     else {
-        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax')
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
 
@@ -2915,6 +2957,7 @@ program define _eplot_matrix, rclass
             `_star_suf'
 
         local val_xpos = `data_xmax' + 0.15 * `data_range'
+        if "`logscale'" != "" local val_xpos = `data_xmax' * exp(0.15 * `lnrange')
         gen double _val_x = `val_xpos'
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -2982,12 +3025,14 @@ program define _eplot_matrix, rclass
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
     local _xscale_max = `xmax_pad'
+    local _logopt ""
+    if "`logscale'" != "" local _logopt "log "
     if "`horizontal'" != "" {
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
-        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `_xscale_max'))"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
@@ -3004,14 +3049,14 @@ program define _eplot_matrix, rclass
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
-        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(`_logopt'range(`xmin_pad' `xmax_pad'))"'
         local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
     local _xline_opt ""
     if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull'
+        `horizontal' `nonull' `logscale'
     local graphcmd `"`graphcmd' `s(cmd)'"'
 
     // Legend off
@@ -3037,7 +3082,7 @@ program define _eplot_matrix, rclass
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`data_xmin') max(`data_xmax') top(`_fav_top')
+            min(`data_xmin') max(`data_xmax') top(`_fav_top') `logscale'
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
@@ -3219,6 +3264,7 @@ program define _eplot_calc_range, sclass
         syntax varlist(numeric min=2 max=2) [if] [in] [, ///
             EXTRALOW(varname numeric) ///
             EXTRAHIgh(varname numeric) ///
+            LOGScale ///
         ]
 
         tokenize `varlist'
@@ -3250,12 +3296,40 @@ program define _eplot_calc_range, sclass
             if `xrange' == 0 local xrange = 1
         }
 
+        // Linear padding is wrong for a logarithmic axis: on a ratio scale
+        // xmin - 0.05*range routinely lands at or below zero, and twoway then
+        // squeezes every marker against the axis edge at rc=0 rather than
+        // refusing the range.  Pad multiplicatively so both limits stay
+        // positive and the pad is 5% of the plotted range in log units.
+        local lnrange = .
+        if "`logscale'" != "" {
+            if `xmin' <= 0 | missing(`xmin') {
+                display as error ///
+                    "logscale requires strictly positive values; the smallest plotted value is `xmin'"
+                exit 198
+            }
+            local _lnmin = ln(`xmin')
+            local _lnmax = ln(`xmax')
+            local lnrange = `_lnmax' - `_lnmin'
+            if `lnrange' == 0 {
+                local lnrange = abs(`_lnmax') * 0.1
+                if `lnrange' == 0 local lnrange = ln(2)
+            }
+            local _min_pad = exp(`_lnmin' - 0.05 * `lnrange')
+            local _max_pad = exp(`_lnmax' + 0.05 * `lnrange')
+        }
+        else {
+            local _min_pad = `xmin' - 0.05 * `xrange'
+            local _max_pad = `xmax' + 0.05 * `xrange'
+        }
+
         sreturn clear
         sreturn local min "`xmin'"
         sreturn local max "`xmax'"
         sreturn local range "`xrange'"
-        sreturn local min_pad = string(`xmin' - 0.05 * `xrange', "%18.0g")
-        sreturn local max_pad = string(`xmax' + 0.05 * `xrange', "%18.0g")
+        sreturn local lnrange "`lnrange'"
+        sreturn local min_pad = string(`_min_pad', "%18.0g")
+        sreturn local max_pad = string(`_max_pad', "%18.0g")
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -3268,44 +3342,161 @@ program define _eplot_effect_axis_labels, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, MIN(real) MAX(real) [XLABel(string asis)]
+        syntax, MIN(real) MAX(real) [XLABel(string asis) LOGScale]
 
-        sreturn clear
+        local _ticks ""
+        local _grid ""
         if trim(`"`xlabel'"') != "" & `"`xlabel'"' != `""""' {
-            sreturn local axisopts `"`xlabel'"'
+            local _ticks `"`xlabel'"'
         }
         else {
-            // Package-owned 1/2/5 scaling avoids reliance on Stata's
-            // undocumented _natscale command while retaining readable ticks.
-            local _span = `max' - `min'
-            if missing(`_span') | `_span' <= 0 {
-                local _span = max(abs(`max'), 1)
+            // A linear tick lattice is unusable on a log axis: floor(min/delta)
+            // is 0 whenever the range starts below one delta, and an xlabel at
+            // 0 drags the log axis onto a value it cannot show.
+            if "`logscale'" != "" {
+                _eplot_log_ticks, min(`min') max(`max')
+                local _ticks `"`s(ticks)'"'
             }
-            local _raw = `_span' / 5
-            local _power = floor(log10(`_raw'))
-            local _base = 10^`_power'
-            local _fraction = `_raw' / `_base'
-            if `_fraction' <= 1 {
-                local _nice = 1
+            if `"`_ticks'"' == "" {
+                // Package-owned 1/2/5 scaling avoids reliance on Stata's
+                // undocumented _natscale command while retaining readable ticks.
+                local _span = `max' - `min'
+                if missing(`_span') | `_span' <= 0 {
+                    local _span = max(abs(`max'), 1)
+                }
+                local _raw = `_span' / 5
+                local _power = floor(log10(`_raw'))
+                local _base = 10^`_power'
+                local _fraction = `_raw' / `_base'
+                if `_fraction' <= 1 {
+                    local _nice = 1
+                }
+                else if `_fraction' <= 2 {
+                    local _nice = 2
+                }
+                else if `_fraction' <= 5 {
+                    local _nice = 5
+                }
+                else {
+                    local _nice = 10
+                }
+                local _delta = `_nice' * `_base'
+                local _axis_min = floor(`min' / `_delta') * `_delta'
+                local _axis_max = ceil(`max' / `_delta') * `_delta'
+                if `_axis_min' == `_axis_max' local _axis_max = `_axis_min' + `_delta'
+                // The linear fallback must still stay positive on a log axis.
+                if "`logscale'" != "" & `_axis_min' <= 0 local _axis_min = `min'
+                local _min_text = string(`_axis_min', "%18.0g")
+                local _delta_text = string(`_delta', "%18.0g")
+                local _max_text = string(`_axis_max', "%18.0g")
+                local _ticks `"`_min_text'(`_delta_text')`_max_text'"'
             }
-            else if `_fraction' <= 2 {
-                local _nice = 2
+            local _grid ", grid glcolor(gs12) glwidth(vthin)"
+        }
+        sreturn clear
+        sreturn local axisopts `"`_ticks'`_grid'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_log_ticks
+program define _eplot_log_ticks, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, MIN(real) MAX(real)
+
+        local _out ""
+        local _lo = `min'
+        local _hi = `max'
+        // Below a 3-fold spread a log axis is visually linear and a decade
+        // lattice would label a range far wider than the data; the caller
+        // falls back to linear ticks, which are still positive and valid.
+        if `_lo' > 0 & `_hi' > 0 & !missing(`_lo', `_hi') & `_hi' / `_lo' >= 3 {
+            // Decade lattices ordered by density.  The first whose tick count
+            // reads well on an effect axis wins.
+            forvalues _try = 1/3 {
+                if `_try' == 1 {
+                    local _mant "1 2 5"
+                    local _min_n 4
+                    local _max_n 9
+                }
+                else if `_try' == 2 {
+                    local _mant "1 1.5 2 3 5 7"
+                    local _min_n 4
+                    local _max_n 12
+                }
+                else {
+                    local _mant "1"
+                    local _min_n 2
+                    local _max_n 12
+                }
+
+                local _cands ""
+                local _p0 = floor(log10(`_lo')) - 1
+                local _p1 = ceil(log10(`_hi')) + 1
+                forvalues _p = `_p0'/`_p1' {
+                    foreach _m of local _mant {
+                        local _val = string(`_m' * 10^(`_p'), "%12.0g")
+                        local _cands `"`_cands' `_val'"'
+                    }
+                }
+                local _nc : word count `_cands'
+
+                // Widen to the enclosing lattice points so a labelled tick sits
+                // at or outside each end of the plotted data.
+                local _a 1
+                forvalues _i = 1/`_nc' {
+                    local _v : word `_i' of `_cands'
+                    if `_v' <= `_lo' * (1 + 1e-9) local _a = `_i'
+                }
+                local _b = `_nc'
+                forvalues _i = `_nc'(-1)`_a' {
+                    local _v : word `_i' of `_cands'
+                    if `_v' >= `_hi' * (1 - 1e-9) local _b = `_i'
+                }
+                local _n = `_b' - `_a' + 1
+
+                if `_n' >= `_min_n' & `_n' <= `_max_n' {
+                    local _out ""
+                    forvalues _i = `_a'/`_b' {
+                        local _v : word `_i' of `_cands'
+                        local _lab "`_v'"
+                        if substr("`_lab'", 1, 1) == "." local _lab "0`_lab'"
+                        local _out `"`_out' `_v' "`_lab'""'
+                    }
+                    continue, break
+                }
             }
-            else if `_fraction' <= 5 {
-                local _nice = 5
-            }
-            else {
-                local _nice = 10
-            }
-            local _delta = `_nice' * `_base'
-            local _axis_min = floor(`min' / `_delta') * `_delta'
-            local _axis_max = ceil(`max' / `_delta') * `_delta'
-            if `_axis_min' == `_axis_max' local _axis_max = `_axis_min' + `_delta'
-            local _min_text = string(`_axis_min', "%18.0g")
-            local _delta_text = string(`_delta', "%18.0g")
-            local _max_text = string(`_axis_max', "%18.0g")
-            sreturn local axisopts ///
-                `"`_min_text'(`_delta_text')`_max_text', grid glcolor(gs12) glwidth(vthin)"'
+        }
+
+        sreturn clear
+        sreturn local ticks `"`_out'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_guard_scale
+program define _eplot_guard_scale, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        // eplot owns the effect axis: it always emits its own xscale()/yscale().
+        // A passthrough copy is silently dropped or silently wins with a range
+        // eplot did not compute, so reject it rather than draw a wrong figure.
+        capture syntax [, XSCale(passthru) YSCale(passthru) *]
+        if _rc == 0 & (`"`xscale'"' != "" | `"`yscale'"' != "") {
+            display as error ///
+                "xscale() and yscale() may not be passed through to eplot"
+            display as error ///
+                "eplot builds the effect axis itself; use logscale for a logarithmic effect axis"
+            exit 198
         }
     }
     local rc = _rc
@@ -3320,7 +3511,7 @@ program define _eplot_build_reflines, sclass
     local _numlist_rc 0
     set varabbrev off
     capture noisily {
-        syntax, NULL(real) [XLine(string asis) HORizontal NONULL]
+        syntax, NULL(real) [XLine(string asis) HORizontal NONULL LOGScale]
 
         local cmd ""
         if "`nonull'" == "" {
@@ -3346,6 +3537,11 @@ program define _eplot_build_reflines, sclass
             if `_numlist_rc' == 0 {
                 local _xl_values "`r(numlist)'"
                 foreach val of local _xl_values {
+                    if "`logscale'" != "" & `val' <= 0 {
+                        display as error ///
+                            "xline(`val') cannot be drawn on a logarithmic axis"
+                        exit 198
+                    }
                     if "`horizontal'" != "" {
                         local cmd `"`cmd' xline(`val', `_xl_supp')"'
                     }
@@ -3373,7 +3569,7 @@ program define _eplot_build_favors, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real)
+        syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real) [LOGScale]
 
         gettoken _fav_left favors : favors, bind
         gettoken _fav_right favors : favors, bind
@@ -3387,8 +3583,15 @@ program define _eplot_build_favors, sclass
             exit 198
         }
 
-        local _fav_x_left = (`min' + `null') / 2
-        local _fav_x_right = (`null' + `max') / 2
+        // The visual midpoint of a log axis is the geometric mean.
+        if "`logscale'" != "" & `min' > 0 & `max' > 0 & `null' > 0 {
+            local _fav_x_left = exp((ln(`min') + ln(`null')) / 2)
+            local _fav_x_right = exp((ln(`null') + ln(`max')) / 2)
+        }
+        else {
+            local _fav_x_left = (`min' + `null') / 2
+            local _fav_x_right = (`null' + `max') / 2
+        }
 
         local cmd ///
             `"text(`top' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
