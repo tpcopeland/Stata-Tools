@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.3.1** | 2026-09-06
+**Version 1.4.0** | 2026-09-07
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -204,6 +204,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
+| `logscale` | D, E, M, F | Draw the effect axis on a logarithmic scale with multiplicative padding and decade ticks; all plotted values, `null()`, and `xline()` positions must be positive, and the null defaults to 1 |
 | `rescale(#)` | D, E, M, F | Nonmissing, nonzero multiplier for estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
 | `xline(numlist[, line_options])` | D, E, M, F | Add reference lines; bare positions use a light dashed style |
 | `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation |
@@ -282,6 +283,8 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 - `values` and `favors()` require horizontal layout; `values`, `stars`, `sigcolors`, `sigcolor()`, and `insigncolor()` are single-model-only in estimates mode, and a multi-model call that explicitly supplies them exits with `r(198)`.
 - `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; multi-model-only options (`modellabels()`, `offset()`, `palette()`, and `legendopts()`) require multiple estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
+- `logscale` requires strictly positive values; a non-positive plotted value, `null()`, or `xline()` position exits with `r(198)` rather than drawing a collapsed axis. Below a threefold spread the tick lattice falls back to linear positions, which remain valid on a log axis.
+- `xscale()` and `yscale()` may not be passed through to `twoway`: `eplot` computes the effect-axis range itself, so a passthrough copy exits with `r(198)`. Use `logscale` for a logarithmic effect axis.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
 - In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette. The default palette cycles for a ninth model onward, so model *m* uses color `mod(m-1, 8) + 1`.
 - Style presets supply defaults only; explicitly supplied options take precedence, and a preset's `values` component applies only where `values` itself does.
@@ -299,6 +302,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.0** (2026-09-07): Added `logscale` for a logarithmic effect axis. Range padding is multiplicative and ticks sit on a decade lattice, so the padded minimum of an `eform` range no longer falls to zero or below and collapses the plot; `null()` defaults to 1 under `logscale`, and non-positive values, `null()`, or `xline()` positions now exit with `r(198)`. Passing `xscale()` or `yscale()` through to `twoway` also exits with `r(198)` instead of silently competing with the axis `eplot` builds.
 - **1.3.1** (2026-09-06): Made explicitly supplied single-model presentation options fail with `r(198)` in multi-model estimates instead of being ignored, replaced the undocumented `_natscale` dependency with package-owned 1/2/5 effect-axis tick scaling, and added focused regressions for both contracts.
 - **1.3.0** (2026-09-02): Applied `keep()`, `drop()`, and `noconstant` in data and frame modes, where they had been parsed and discarded; made `coeflabels()` compose with `order()`, `groups()`, and `headers()` by keying selection, ordering, and grouping on source names in every mode; made `noci` suppress pooled-diamond geometry; made the default multi-model palette cycle instead of falling back to navy from model nine; reported rather than silently discarding single-model-only presentation options in multi-model estimates; validated `dp()`, `rescale()`, `null()`, `boxscale()`, and weighted-marker weights up front; and documented `matrix()`, frame-mode `if`/`in`, the palette cycle, and the mode scope of significance colors.
 - **1.2.9** (2026-08-30): Corrected t-based finite-df inference, duplicate-label multi-model returns, prediction-interval transformations and validation, matrix missing-value and `star` handling, exact heterogeneity text, long-label returns, mapping/cardinality validation, native `xline()` errors, and parser state restoration; expanded numerical and negative-path QA.
