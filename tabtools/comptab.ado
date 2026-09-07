@@ -1,4 +1,4 @@
-*! comptab Version 2.1.2  2026/09/05
+*! comptab Version 2.1.3  2026/09/07
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -2483,70 +2483,30 @@ program define _comptab_vertical, rclass
     * =====================================================================
     * COLUMN WIDTH CALCULATION
     * =====================================================================
-    forvalues i = 1/`n' {
-        gen c`i'_length = length(c`i')
-    }
-    * Compute max header length from row 2 only (model labels)
-    local max_header_length = 0
-    forvalues i = 1/`n' {
-        local _h2len = strlen(c`i'[2])
-        if `_h2len' > `max_header_length' local max_header_length = `_h2len'
-    }
-
-    forvalues i = 1/`n' {
-        replace c`i'_length = . if _n == 2
-        egen c`i'_max = max(c`i'_length)
-    }
-
-    * Compute direct widths from exported text length by column role
-    local est_max = 0
-    local ci_max = 0
-    local p_max = 0
-    if `_compact_output' {
-        forvalues i = 1(2)`n' {
-            qui sum c`i'_max, meanonly
-            if `r(max)' > `est_max' local est_max = `r(max)'
+    * Widths come from the shared _tabtools_colwidth helper, PER MODEL, from
+    * that model's own rendered cells (rows 3+). A single max shared across
+    * models sized every model's estimate/CI/p column to the widest model. The
+    * model label in row 2 is merged across its own block, so its wrap depth
+    * comes from that block's width, not from the whole table.
+    local _est_min = cond(`_compact_output', 16, 8)
+    local _est_max = cond(`_compact_output', 34, 22)
+    local _headerht = 0
+    forvalues _mw = 1/`n_models' {
+        local _c_est = (`_mw' - 1) * `n_cols_per_model' + 1
+        _tabtools_colwidth c`_c_est', minwidth(`_est_min') maxwidth(`_est_max') headerrow(2)
+        local _est_width_`_mw' = r(width)
+        local _m_hdr_len = r(hlen)
+        local _ci_width_`_mw' = 0
+        if !`_compact_output' {
+            _tabtools_colwidth c`=`_c_est' + 1', minwidth(16) maxwidth(34)
+            local _ci_width_`_mw' = r(width)
         }
-        forvalues i = 2(2)`n' {
-            qui sum c`i'_max, meanonly
-            if `r(max)' > `p_max' local p_max = `r(max)'
-        }
+        _tabtools_colwidth c`=`_c_est' + `n_cols_per_model' - 1', minwidth(8) maxwidth(12)
+        local _p_width_`_mw' = r(width)
+        local _m_block_width = `_est_width_`_mw'' + `_ci_width_`_mw'' + `_p_width_`_mw''
+        _tabtools_colwidth, hlength(`_m_hdr_len') blockwidth(`_m_block_width')
+        if r(hlines) > 1 & r(hlines) > `_headerht' local _headerht = r(hlines)
     }
-    else {
-        forvalues i = 1(3)`n' {
-            qui sum c`i'_max, meanonly
-            if `r(max)' > `est_max' local est_max = `r(max)'
-        }
-        forvalues i = 2(3)`n' {
-            qui sum c`i'_max, meanonly
-            if `r(max)' > `ci_max' local ci_max = `r(max)'
-        }
-        forvalues i = 3(3)`n' {
-            qui sum c`i'_max, meanonly
-            if `r(max)' > `p_max' local p_max = `r(max)'
-        }
-    }
-
-    local est_width = ceil(`est_max' * 0.85) + 2
-    if `_compact_output' {
-        if `est_width' < 16 local est_width = 16
-        if `est_width' > 34 local est_width = 34
-    }
-    else {
-        if `est_width' < 8 local est_width = 8
-        if `est_width' > 22 local est_width = 22
-    }
-
-    local ci_width = 0
-    if !`_compact_output' {
-        local ci_width = ceil(`ci_max' * 0.85) + 2
-        if `ci_width' < 16 local ci_width = 16
-        if `ci_width' > 34 local ci_width = 34
-    }
-
-    local p_width = ceil(`p_max' * 0.85) + 2
-    if `p_width' < 8 local p_width = 8
-    if `p_width' > 12 local p_width = 12
 
     gen A_length = length(A)
     egen factor_length = max(A_length)
@@ -2554,7 +2514,7 @@ program define _comptab_vertical, rclass
     local factor_length = ceil(r(max) * 0.95) + 2
     if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
-    drop A_length factor_length c*_max c*_length
+    drop A_length factor_length
 
     * =====================================================================
     * CSV EXPORT
@@ -2653,32 +2613,13 @@ program define _comptab_vertical, rclass
     * =====================================================================
     if `_has_xlsx' {
 
+    * Per-model widths in Excel column order (column 1 spacer, 2 label, then
+    * est[/CI]/p per model). _headerht was set alongside the widths above.
     local _xlsx_widths "1 `factor_length'"
-    if `_compact_output' {
-        forvalues i = 3(2)`=`num_cols'-1' {
-            local _xlsx_widths `"`_xlsx_widths' `est_width'"'
-            local _xlsx_widths `"`_xlsx_widths' `p_width'"'
-        }
-    }
-    else {
-        forvalues i = 3(3)`=`num_cols'-2' {
-            local _xlsx_widths `"`_xlsx_widths' `est_width'"'
-            local _xlsx_widths `"`_xlsx_widths' `ci_width'"'
-            local _xlsx_widths `"`_xlsx_widths' `p_width'"'
-        }
-    }
-
-    * Auto-adjust header row height for long model names.
-    local _headerht = 0
-    local _data_width = 0
-    if `_compact_output' {
-        local _data_width = `n_models' * (`est_width' + `p_width')
-    }
-    else {
-        local _data_width = `n_models' * (`est_width' + `ci_width' + `p_width')
-    }
-    if `_data_width' > 0 & `max_header_length' * 0.9 > `_data_width' {
-        local _headerht = ceil(`max_header_length' * 0.9 / `_data_width')
+    forvalues _mw = 1/`n_models' {
+        local _xlsx_widths `"`_xlsx_widths' `_est_width_`_mw''"'
+        if !`_compact_output' local _xlsx_widths `"`_xlsx_widths' `_ci_width_`_mw''"'
+        local _xlsx_widths `"`_xlsx_widths' `_p_width_`_mw''"'
     }
 
     * =====================================================================

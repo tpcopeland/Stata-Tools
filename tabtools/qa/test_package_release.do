@@ -168,7 +168,7 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=64 class_missing=0 wrapper_missing=0"
+        "PASS programs=65 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all 64 shipped programs declare a class and restore varabbrev"
@@ -581,7 +581,7 @@ capture noisily {
         _tabtools_xlsx_apply_styles.ado _tabtools_xlsx_build_styles.ado ///
         _tabtools_xlsx_compact_styles.ado ///
         _desctab_collect.ado _tabtools_visible_vars.ado ///
-        _tabtools_csv_write.ado {
+        _tabtools_csv_write.ado _tabtools_colwidth.ado {
         findfile `helper'
     }
 }

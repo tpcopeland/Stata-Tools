@@ -1,4 +1,4 @@
-*! regtab Version 2.1.2  2026/09/05
+*! regtab Version 2.1.3  2026/09/07
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2978,65 +2978,60 @@ if `_has_xlsx' {
     }
 }
 
-forvalues i = 1(1)`n'{
-gen c`i'_length = length(c`i')
-}
-* Compute max header length from row 2 only (model labels)
-local max_header_length = 0
-forvalues i = 1/`n' {
-    local _h2len = strlen(c`i'[2])
-    if `_h2len' > `max_header_length' local max_header_length = `_h2len'
-}
-forvalues i = 1(1)`n'{
-replace c`i'_length = . if _n == 2
-egen c`i'_max = max(c`i'_length)
-}
-* Compute estimate width from rendered numeric/stat rows, not the reference label.
-* "Reference" can safely overflow into adjacent blank cells, while numeric cells
-* should stay visually tight.
-local est_max = 0
-forvalues i = 1(`_cols_per_model')`last' {
-    sum c`i'_length if _n >= 3 ///
-        & !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"'), meanonly
-    if r(N) > 0 & `r(max)' > `est_max' local est_max = `r(max)'
-}
-local ci_max = 0
-local p_max = 0
-if "`compact'" == "" {
-    forvalues i = 2(`_cols_per_model')`n' {
-        capture confirm variable c`i'
-        if _rc continue
-        sum c`i'_max, meanonly
-        if `r(max)' > `ci_max' local ci_max = `r(max)'
+* Column widths come from the shared _tabtools_colwidth helper, PER MODEL,
+* from that model's own rendered cells (rows 3+). A single max shared across
+* models sized every model's estimate/CI/p column to the widest model, so one
+* model with large coefficients (or a long CI string) padded every other
+* model's columns out to match it. The console table already sizes each column
+* independently; this makes the xlsx agree.
+*
+* The estimate width ignores the reference/omitted/empty labels: they can
+* safely overflow into the adjacent blank cells, while numeric cells should
+* stay visually tight. Widths are calibrated to Stata's Excel writer, which
+* lands about 0.7 wider than the input width when read back from xlsx
+* metadata, hence scale(1) pad(-0.5).
+local _p_offset = `_cols_per_model' - 1
+local _est_min = cond("`compact'" != "", 10, 7)
+forvalues _mw = 1/`n_models' {
+    local _c_first = (`_mw' - 1) * `_cols_per_model' + 1
+
+    local _est_width_`_mw' = `_est_min'
+    local _m_hdr_len = 0
+    capture confirm variable c`_c_first'
+    if !_rc {
+        _tabtools_colwidth c`_c_first', scale(1) pad(-0.5) minwidth(`_est_min') ///
+            headerrow(2) exclude(`"`refcat'"' `"`omitlabel'"' `"`emptylabel'"')
+        local _est_width_`_mw' = r(width)
+        local _m_hdr_len = r(hlen)
     }
-}
-if `_show_pvalues' {
-    local _p_offset = `_cols_per_model' - 1
-    forvalues i = 1(`_cols_per_model')`last' {
-        local _p_col = `i' + `_p_offset'
-        capture confirm variable c`_p_col'
-        if _rc continue
-        sum c`_p_col'_max, meanonly
-        if `r(max)' > `p_max' local p_max = `r(max)'
+
+    local _ci_width_`_mw' = 0
+    if "`compact'" == "" {
+        local _ci_width_`_mw' = 10
+        local _c_ci = `_c_first' + 1
+        capture confirm variable c`_c_ci'
+        if !_rc {
+            _tabtools_colwidth c`_c_ci', scale(1) pad(-0.5) minwidth(10)
+            local _ci_width_`_mw' = r(width)
+        }
     }
-}
-else local p_max = 0
 
-* Calibrate widths to Stata's Excel writer, which lands about 0.7 wider than
-* the input width when read back from xlsx metadata.
-local est_width = max(`est_max' - 0.5, 7)
-if "`compact'" != "" {
-    if `est_width' < 10 local est_width = 10
-}
+    local _p_width_`_mw' = 0
+    if `_show_pvalues' {
+        local _p_width_`_mw' = 7
+        local _c_p = `_c_first' + `_p_offset'
+        capture confirm variable c`_c_p'
+        if !_rc {
+            _tabtools_colwidth c`_c_p', scale(1) pad(-0.5) minwidth(7)
+            local _p_width_`_mw' = r(width)
+        }
+    }
 
-local ci_width = 0
-if "`compact'" == "" {
-    local ci_width = max(`ci_max' - 0.5, 10)
-}
-
-local p_width = 0
-if `_show_pvalues' {
-    local p_width = max(`p_max' - 0.5, 7)
+    * Model label sits in row 2, merged across this model's own block, so the
+    * wrap depth is set by the block it lives in -- not by the widest block.
+    local _m_block_width = `_est_width_`_mw'' + `_ci_width_`_mw'' + `_p_width_`_mw''
+    _tabtools_colwidth, hlength(`_m_hdr_len') blockwidth(`_m_block_width')
+    local _hdr_lines_`_mw' = r(hlines)
 }
 
 gen A_length = length(A)
@@ -3049,7 +3044,7 @@ local factor_length = ceil(r(max) * 0.95) + 2
 * multiple lines (text-wrap rule below) instead of forcing a wide column.
 if `factor_length' > `_label_width_cap' local factor_length = `_label_width_cap'
 
-drop A_length factor_length c*_max c*_length
+drop A_length factor_length
 
 * Reference rows are tracked PER MODEL. A union across models would let one
 * model's reference row merge and blank the estimate/CI/p triplet of a
@@ -3218,24 +3213,22 @@ capture {
 
 	tempname _style_rules
 	local _style_rule_rows "12 1 1 1 1 30 0 0 0 | 13 1 1 1 1 1 0 0 0 | 13 1 1 2 2 `factor_length' 0 0 0"
-	local _total_model_width = `est_width'
-	if "`compact'" == "" local _total_model_width = `_total_model_width' + `ci_width'
-	if `_show_pvalues' local _total_model_width = `_total_model_width' + `p_width'
+	local headerheight = 1
 	forvalues _mc = 1/`n_models' {
 		local _c_first = (`_mc' - 1) * `_cols_per_model' + 1
 		local _x_first = `_c_first' + 2
-		local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_first' `_x_first' `est_width' 0 0 0"'
+		local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_first' `_x_first' `_est_width_`_mc'' 0 0 0"'
 		if "`compact'" == "" {
 			local _x_ci = `_x_first' + 1
-			local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_ci' `_x_ci' `ci_width' 0 0 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_ci' `_x_ci' `_ci_width_`_mc'' 0 0 0"'
 		}
 		if `_show_pvalues' {
 			local _x_p = `_x_first' + `_cols_per_model' - 1
-			local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_p' `_x_p' `p_width' 0 0 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_p' `_x_p' `_p_width_`_mc'' 0 0 0"'
 		}
+		if `_hdr_lines_`_mc'' > `headerheight' local headerheight = `_hdr_lines_`_mc''
 	}
-	if `=`max_header_length'*.9' > `_total_model_width' {
-		local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
+	if `headerheight' > 1 {
 		local _style_rule_rows `"`_style_rule_rows' | 12 2 2 1 1 `=`headerheight'*15' 0 0 0"'
 	}
 

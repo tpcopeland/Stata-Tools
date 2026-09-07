@@ -1,4 +1,4 @@
-*! desctab Version 2.1.2  2026/09/05 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.3  2026/09/07 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1645,8 +1645,7 @@ program define desctab, rclass
 			if `factorwidth' < 15 local factorwidth = 15  // Minimum width
 			if `factorwidth' > 60 local factorwidth = 60  // Maximum width
 
-			/* Calculate data column width */
-			local datawidth = 0
+			/* Calculate data column widths */
 			if `groupcount' == 1 {
 				local _data_cols "Total"
 			}
@@ -1663,20 +1662,36 @@ program define desctab, rclass
 					}
 				}
 			}
+			* One width per data column, computed from that column's own cells
+			* by the shared _tabtools_colwidth helper. A single max shared by
+			* every column let one verbose group label (row 2) or one long
+			* statistic push every other column out to the same width. Row 2
+			* carries the group label and is text-wrapped by the header block
+			* below, so it does not set the width; it contributes a damped floor
+			* that keeps a long label to roughly two wrapped lines, and its
+			* wrapped line count feeds the header row height.
+			local _dw_ix = 0
+			local _dw_hdr_lines = 1
 			foreach var of local _data_cols {
-				gen `var'_length = length(`var')
-				egen `var'_max = max(`var'_length)
-				sum `var'_max, d
-				if `r(max)' > `datawidth' local datawidth = `r(max)'
+				local ++_dw_ix
+				local _dw_this = 12
+				capture confirm variable `var'
+				if !_rc {
+					_tabtools_colwidth `var', firstrow(3) minwidth(12) maxwidth(30) ///
+						headerrow(2) headerfloor(22)
+					local _dw_this = r(width)
+					if r(hlines) > `_dw_hdr_lines' local _dw_hdr_lines = r(hlines)
+				}
+				local _dw_`_dw_ix' = `_dw_this'
 			}
-			local datawidth = `=ceil(`datawidth'*0.85)+2'  // Data column width with adjustment factor
 
-			/* Ensure reasonable min/max bounds */
-			if `datawidth' < 12 local datawidth = 12  // Minimum width
-			if `datawidth' > 30 local datawidth = 30  // Maximum width
-
-			/* Clean up temporary variables */
-			cap drop *_length *_max
+			* Clean up the factor-width helper variables. Two drop calls, not
+			* one: drop is all-or-nothing across its varlist, and no *_max
+			* variable exists any more, so a combined "drop *_length *_max"
+			* would fail as a whole and leave factor_length /
+			* max_factor_length / max_factor2_length in the exported workbook.
+			cap drop *_length
+			cap drop *_max
 
             /*****************************************************************
             * Build Excel column position references
@@ -1815,13 +1830,23 @@ program define desctab, rclass
 	                local _xlsx_style_rule_spec "12 1 1 1 1 30 0 0 0 0"
                 * Row 2 is the B2:B3 merge anchor that carries the descriptor.
                 local _hdr_len = strlen(`"`_descriptor_row_text'"')
+                local _hdr_lines = 1
                 if `_hdr_len' > `factorwidth' * 1.2 {
                     local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
+                }
+                * Group labels wrap inside their own column width rather than
+                * widening every data column, so row 2 must be tall enough for
+                * the deepest wrap (_tabtools_colwidth caps that at 5 lines).
+                * The descriptor's own line count is left exactly as it was.
+                if `_dw_hdr_lines' > `_hdr_lines' local _hdr_lines = `_dw_hdr_lines'
+                if `_hdr_lines' > 1 {
                     local _hdr_height = `_hdr_lines' * 15
 	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 12 2 2 1 1 `_hdr_height' 0 0 0 0"'
                 }
 	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 1 1 1 0 0 0 0 | 13 1 1 2 2 `factorwidth' 0 0 0 0"'
+	                local _dc_ix = 0
 	                foreach _dc of local _data_cols {
+	                    local ++_dc_ix
 	                    capture confirm variable `_dc'
 	                    if !_rc {
 	                        local _dc_pos = 0
@@ -1834,7 +1859,7 @@ program define desctab, rclass
 	                            local _dc_i = `_dc_i' + 1
 	                        }
 	                        if `_dc_pos' > 0 & `_dc_pos' <= `num_cols' {
-	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `_dc_pos' `_dc_pos' `datawidth' 0 0 0 0"'
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `_dc_pos' `_dc_pos' `_dw_`_dc_ix'' 0 0 0 0"'
 	                        }
 	                    }
 	                }

@@ -49,6 +49,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | File | Covers |
 |---|---|
 | `test_ci_level_provenance.do` | Confidence-level provenance and explicit fallback contracts across model-table commands. |
+| `test_column_widths.do` | `_tabtools_colwidth` unit contract (display width, `exclude()`, block wrap, varabbrev restore) and per-column xlsx width sizing for desctab/table1_tc, regtab, effecttab, and comptab, with the header-row wrap that replaces label-driven column widening. |
 | `test_comptab.do` | Vertical composition, source-frame handling, option guards, and error-state restoration. |
 | `test_corrtab.do` | Pearson/Spearman output, stars, shapes, pairwise-N p-values, and undefined diagonals for degenerate Spearman variables. |
 | `test_crosstab.do` | Association measures, weights, small-cell disclosure control, returns, and sink parity. |
