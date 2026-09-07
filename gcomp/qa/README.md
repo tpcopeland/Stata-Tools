@@ -104,3 +104,9 @@ The orchestrator deletes any same-named stale batch log before launch and moves 
 ## Visual gate
 
 `test_package_release.do` uses the vendored standard-library `tools/check_xlsx.py` for sheet identity/order, dimensions, content, numeric types, merges, fonts, borders, and content-fitting column widths. `run_visual.py` is developer/CI-only: its package-local LibreOffice/pdftoppm path runs blank/right-edge clipping heuristics and compares against the golden PNGs in `baseline/render/`.
+
+## Static checker regression tests
+
+Run `python3 -m unittest discover -s qa/tools -p test_check_release.py` from the package directory. `tools/test_check_release.py` checks isolated metadata validation, incorrect repository badges, and the strict missing-README path in temporary package copies.
+
+`tools/check_release.py` always evaluates package contracts. If the repository-root README is absent, it explicitly reports the repository badge check as not applicable. For a full release checkout, run `python3 qa/tools/check_release.py . --require-root-readme` so a missing root README fails the gate; an existing root README is always checked.

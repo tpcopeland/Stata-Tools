@@ -1,69 +1,40 @@
 /*******************************************************************************
-* test_consort_figures.do
+* make_consort_figures.do
 *
 * Purpose: Generate CONSORT diagrams with all option combinations for visual
-*          inspection. This tests figure export functionality thoroughly.
+*          inspection. Run from consort/demo/.
 *
 * Prerequisites:
 *   - consort.ado must be installed/accessible
 *   - Python 3 with matplotlib
 *
 * Output:
-*   - Multiple PNG files in _testing/figures/consort/ for visual inspection
+*   - Twelve PNG files in the current demo directory for visual inspection
 *
 * Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2025-12-16
 *******************************************************************************/
 
 clear all
+capture log close _all
 set more off
 version 16.0
 
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-        }
-        else {
-        }
-    }
-    }
-}
-else {
-}
-
 * Relocatable scratch root (TESTING_DIR was previously undefined, causing the
 * synthetic-data saves to fail with r(603)). Derive it from the temp dir.
 global TESTING_DIR "`c(tmpdir)'/consort_figures_`c(pid)'"
 capture mkdir "${TESTING_DIR}"
 capture mkdir "${TESTING_DIR}/data"
 
-global FIGURES_DIR "${TESTING_DIR}/figures/consort"
+global FIGURES_DIR "`c(pwd)'"
 
-* Create figures directory
-capture mkdir "${TESTING_DIR}/figures"
-capture mkdir "${FIGURES_DIR}"
 
-* Install package
-capture net uninstall consort
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
-quietly net install consort, from("`pkg_dir'")
+* Load the development copy without changing the installed package registry.
+local pkg_dir "`c(pwd)'/.."
+adopath ++ "`pkg_dir'"
 
 display as text _n "{hline 70}"
 display as text "CONSORT FIGURE GENERATION FOR VISUAL INSPECTION"
@@ -333,9 +304,13 @@ display as text "  11_special_chars.png       - Special characters"
 display as text "  12_custom_csv.png          - Custom CSV file"
 display as text "{hline 70}"
 
-* Clean up synthetic datasets (optional - keep for other tests)
-* capture erase "${TESTING_DIR}/data/synth_clinical.dta"
-* capture erase "${TESTING_DIR}/data/synth_population.dta"
-* capture erase "${TESTING_DIR}/data/synth_multistep.dta"
+* Clean up temporary synthetic datasets
+capture erase "${TESTING_DIR}/data/synth_clinical.dta"
+capture erase "${TESTING_DIR}/data/synth_population.dta"
+capture erase "${TESTING_DIR}/data/synth_multistep.dta"
 
 display as text _n "Figure generation completed: `c(current_date)' `c(current_time)'"
+
+capture rmdir "${TESTING_DIR}/data"
+capture rmdir "${TESTING_DIR}"
+capture log close _all
