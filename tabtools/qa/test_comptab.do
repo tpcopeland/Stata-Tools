@@ -274,7 +274,22 @@ quietly collect: regress price mpg weight
 capture noisily regtab, frame(_v103_fr1, replace)
 if _rc == 0 {
     capture noisily comptab _v103_fr1, ///
-        rows("1 2") border(thin)
+        rows("1 2") border(thin) frame(_v103_out, replace)
+    if _rc == 0 {
+        * border(thin) must not have silently broken the row selection itself
+        assert r(N_frames) == 1
+        assert !missing(r(N_rows))
+        assert r(N_rows) > 0
+        frame _v103_out {
+            assert _N == 5
+            * rows("1 2") must have selected exactly the first two model terms,
+            * with their coefficient cells intact.
+            assert A[4] == "Mileage (mpg)"
+            assert A[5] == "Weight (lbs.)"
+            assert c1[4] != ""
+            assert c1[5] != ""
+        }
+    }
 }
 if _rc == 0 {
     display as result "  PASS T6: comptab border abbreviation"

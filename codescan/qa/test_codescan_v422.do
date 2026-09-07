@@ -73,8 +73,14 @@ capture noisily {
     assert "`c(varabbrev)'" == "on"
     capture confirm variable dm2
     assert _rc != 0
-    cf _all using "`before1'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t1_vars : _all
+    describe using "`before1'", varlist
+    assert "`_t1_vars'" == "`r(varlist)'"
+    cf _all using "`before1'"
     assert "`_t1_vars'" == "pid dx1 dx2"
     assert _N == 6
     set varabbrev `_qa_va0'
@@ -319,8 +325,14 @@ capture noisily {
     assert _rc == 198
     capture confirm variable DX1
     assert _rc != 0
-    cf _all using "`before7'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t7_vars : _all
+    describe using "`before7'", varlist
+    assert "`_t7_vars'" == "`r(varlist)'"
+    cf _all using "`before7'"
     assert "`_t7_vars'" == "dx1 dx2"
     assert _N == 4
 }
@@ -407,8 +419,14 @@ capture noisily {
     assert _rc != 0
     capture confirm variable dm2
     assert _rc != 0
-    cf _all using "`before9'"
+    * `cf _all using' is one-directional: it compares the variables present
+    * in memory and cannot see one that was dropped from it, so the exact
+    * inventory is proven against the snapshot file's own varlist right
+    * before the compare.
     unab _t9_vars : _all
+    describe using "`before9'", varlist
+    assert "`_t9_vars'" == "`r(varlist)'"
+    cf _all using "`before9'"
     assert "`_t9_vars'" == "dx1"
     assert _N == 4
     capture erase "`qa_dir'/v422_cf_quote.csv"

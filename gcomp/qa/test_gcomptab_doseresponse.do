@@ -282,7 +282,7 @@ local ++test_count
 capture noisily {
     _mock_med
     capture gcomptab, doseresponse xlsx("`testdir'/dr_t7.xlsx") sheet("bad")
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: DR7 doseresponse on mediation e() errors cleanly"

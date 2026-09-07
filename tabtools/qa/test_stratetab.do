@@ -134,7 +134,7 @@ capture noisily {
     clear
     capture frame drop issue_rates
     stratetab, using("`rate1'") outcomes(1) frame(issue_rates, replace)
-    assert "`r(frame)'" == "issue_rates"
+    assert r(frame) == "issue_rates"
     frame issue_rates: assert _N >= 6
 }
 if _rc == 0 {
@@ -154,7 +154,7 @@ capture noisily {
     clear
     capture frame drop issue_rates2
  stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace)
-    assert "`r(frame)'" == "issue_rates2"
+    assert r(frame) == "issue_rates2"
     frame issue_rates2: assert _N >= 6
 }
 if _rc == 0 {
@@ -526,6 +526,9 @@ capture noisily {
     stratetab, using("`output_dir'/_strate_o1e1" "`output_dir'/_strate_o2e1" "`output_dir'/_strate_o3e1") ///
         xlsx("`output_dir'/_test_stratetab.xlsx") outcomes(3)
     confirm file "`output_dir'/_test_stratetab.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
+    assert r(N_outcomes) == 3
 }
 if _rc == 0 {
     display as result "  PASS: stratetab - basic single exposure"
@@ -741,6 +744,8 @@ capture noisily {
     stratetab, using("`output_dir'/_strate_test") xlsx("`output_dir'/test_f7_style.xlsx") ///
         outcomes(1) title("Style Test") font("Arial") fontsize(10) ///
         borderstyle(academic) headershade zebra
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: F7.1 — stratetab explicit formatting accepted"
@@ -1725,6 +1730,8 @@ capture noisily {
     stratetab, using("`output_dir'/_strate_tmp") outcomes(1) ///
         xlsx("`output_dir'/test_stratetab_rates.xlsx") sheet("Rates")
     confirm file "`output_dir'/test_stratetab_rates.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: stratetab basic test"
@@ -1851,10 +1858,14 @@ quietly {
     replace _Upper = _Rate * 1.35
     save "`output_dir'/_v103_strate2.dta", replace
 }
-capture noisily stratetab, using("`output_dir'/_v103_strate1" "`output_dir'/_v103_strate2") ///
-    outcomes(1) rateratio ratio(3) border(thin) ///
-    explabels("Group A" \ "Group B") ///
-    xlsx("`output_dir'/_v103_stratetab.xlsx")
+capture noisily {
+    stratetab, using("`output_dir'/_v103_strate1" "`output_dir'/_v103_strate2") ///
+        outcomes(1) rateratio ratio(3) border(thin) ///
+        explabels("Group A" \ "Group B") ///
+        xlsx("`output_dir'/_v103_stratetab.xlsx")
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
+}
 if _rc == 0 {
     display as result "  PASS T9: stratetab ratio short form"
     local ++pass_count

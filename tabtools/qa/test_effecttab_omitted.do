@@ -85,6 +85,7 @@ program define _eto_data
     label variable sex "Sex"
     generate byte flag = (grp == 4)
     label variable flag "Flag"
+    * stata-dev-ignore: unseeded-draw — this is a generator PROGRAM, not a script: every call site seeds first (`set seed 20260903' immediately before each `_eto_data' call), so every draw in this file replays
     generate double x = rnormal()
     label variable x "X score"
     generate double y = 0.5 * x + 0.3 * (grp == 2) + rnormal()

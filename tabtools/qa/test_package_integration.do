@@ -405,7 +405,16 @@ capture noisily table1_tc, by(foreign) vars(price contn \ mpg contn) ///
     font("Arial") fontsize(10) borderstyle(academic) headershade zebra
 if _rc == 0 {
     capture confirm file "`output_dir'/test_o1_arial.xlsx"
-    if _rc == 0 {
+    local o1_1_confirm_rc = _rc
+    if `o1_1_confirm_rc' == 0 {
+        capture noisily {
+            import excel using "`output_dir'/test_o1_arial.xlsx", ///
+                cellrange(A1:A1) clear allstring
+            assert A[1] == "Arial Formatting"
+        }
+        local o1_1_confirm_rc = _rc
+    }
+    if `o1_1_confirm_rc' == 0 {
         display as result "PASS: O1.1 — Arial formatting"
         local ++pass_count
     }
@@ -499,6 +508,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, xlsx("`output_dir'/test_o1_regtab_v150.xlsx") sheet("Test")
     * If we get here, the command ran (console output visible in log)
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: O1.1 — regtab runs with console output"
@@ -516,6 +527,8 @@ capture noisily {
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
     effecttab, xlsx("`output_dir'/test_o1_effecttab_v150.xlsx") sheet("Test")
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: O1.2 — effecttab runs with console output"
@@ -605,6 +618,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, xlsx("`output_dir'/test_o4_colors.xlsx") sheet("Colors") ///
         headercolor("200 200 255") zebracolor("240 240 255") zebra
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: O4.1 — custom header/zebra colors accepted"
@@ -622,6 +637,7 @@ capture noisily {
     table1_tc price mpg, by(foreign) ///
         excel("`output_dir'/test_o4_t1colors.xlsx") zebra headershade ///
         headercolor("255 200 200") zebracolor("255 240 240")
+    assert "`r(varlist)'" == "price mpg"
 }
 if _rc == 0 {
     display as result "  PASS: O4.2 — table1_tc custom colors accepted"
@@ -1231,7 +1247,9 @@ capture noisily {
     collect clear
     collect: regress price mpg weight i.foreign
     regtab, frame(_u2_1, replace)
-    frame _u2_1: assert _N > 0
+    frame _u2_1 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.1 — regtab frame(name, replace) works"
@@ -1256,7 +1274,9 @@ capture noisily {
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
     effecttab, frame(_u2_3, replace)
-    frame _u2_3: assert _N > 0
+    frame _u2_3 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.3 — effecttab frame(name, replace) works"
@@ -1301,7 +1321,9 @@ capture noisily {
     capture frame drop _u2_4
     survtab, times(10 20) by(drug) frame(_u2_4)
     survtab, times(10 20) by(drug) frame(_u2_4, replace)
-    frame _u2_4: assert _N > 0
+    frame _u2_4 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.4 — survtab frame(name, replace) works"
@@ -1320,7 +1342,9 @@ capture noisily {
     capture frame drop _u2_5
     crosstab foreign rep78, frame(_u2_5)
     crosstab foreign rep78, colpct frame(_u2_5, replace)
-    frame _u2_5: assert _N > 0
+    frame _u2_5 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.5 — crosstab frame(name, replace) works"
@@ -1339,7 +1363,9 @@ capture noisily {
     capture frame drop _u2_6
     corrtab price mpg weight, frame(_u2_6)
     corrtab price mpg weight, spearman frame(_u2_6, replace)
-    frame _u2_6: assert _N > 0
+    frame _u2_6 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.6 — corrtab frame(name, replace) works"
@@ -1358,7 +1384,9 @@ capture noisily {
     capture frame drop _u2_9
     table1_tc, vars(price conts \ mpg conts \ weight conts) frame(_u2_9)
     table1_tc, vars(price conts \ mpg conts) frame(_u2_9, replace)
-    frame _u2_9: assert _N > 0
+    frame _u2_9 {
+        assert _N > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS: U2.9 — table1_tc frame(name, replace) works"
@@ -1754,6 +1782,7 @@ capture noisily {
     corrtab price mpg weight, xlsx("`output_dir'/_cov_corrtab_footnote.xlsx") ///
         sheet("footnote") footnote("Pearson correlation coefficients")
     confirm file "`output_dir'/_cov_corrtab_footnote.xlsx"
+    assert "`r(methods)'" != ""
 }
 if _rc == 0 {
     display as result "  PASS: corrtab footnote()"
@@ -1781,6 +1810,9 @@ capture noisily {
         title("Regression Coefficients by Origin") ///
         footnote("Linear regression. CI = 95% confidence interval.")
     confirm file "`output_dir'/_cov_comptab_tf.xlsx"
+    assert r(N_frames) == 2
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
     capture frame drop _cov_ct_dom
     capture frame drop _cov_ct_for
 }
@@ -1803,6 +1835,7 @@ capture noisily {
     table1_tc, by(foreign) vars(price contn) ///
         excel("`output_dir'/_cov_excel_t1.xlsx") sheet("excel")
     confirm file "`output_dir'/_cov_excel_t1.xlsx"
+    assert "`r(varlist)'" == "price"
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc excel() synonym"
@@ -1820,6 +1853,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, excel("`output_dir'/_cov_excel_reg.xlsx") sheet("excel")
     confirm file "`output_dir'/_cov_excel_reg.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab excel() synonym"
@@ -1837,6 +1872,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, excel("`output_dir'/_cov_excel_eff.xlsx") sheet("excel")
     confirm file "`output_dir'/_cov_excel_eff.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab excel() synonym"
@@ -1852,6 +1889,9 @@ capture noisily {
     sysuse auto, clear
     corrtab price mpg weight, excel("`output_dir'/_cov_excel_corr.xlsx") sheet("excel")
     confirm file "`output_dir'/_cov_excel_corr.xlsx"
+    matrix _cov_corr_N = r(N)
+    assert !missing(_cov_corr_N[1, 1])
+    assert _cov_corr_N[1, 1] > 0
 }
 if _rc == 0 {
     display as result "  PASS: corrtab excel() synonym"
@@ -2009,6 +2049,9 @@ capture noisily {
     corrtab price mpg weight, xlsx("`output_dir'/_regfix_corrtab_custom.xlsx") ///
         headershade zebra star(0.05)
     confirm file "`output_dir'/_regfix_corrtab_custom.xlsx"
+    matrix _regfix_corr_N = r(N)
+    assert !missing(_regfix_corr_N[1, 1])
+    assert _regfix_corr_N[1, 1] > 0
 }
 if _rc == 0 {
     display as result "  PASS: corrtab accepts custom headercolor/zebracolor"

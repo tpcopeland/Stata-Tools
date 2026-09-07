@@ -224,6 +224,10 @@ capture noisily {
     use `testdata', clear
     capture datamvp bmi sbp ldl, graph(bar) gby(arm) stacked nodraw
     assert _rc == 0
+    assert "`r(gby)'" == "arm"
+    * r(gby_levels) is a `levelsof' LIST (a return local), not a count, so
+    * `missing()'/numeric comparison on it is a type mismatch, r(109).
+    assert wordcount(`"`r(gby_levels)'"') > 1
     local ++pass_count
     display as result "  PASS `test_count': gby(arm) + stacked runs without error"
 }
@@ -238,6 +242,10 @@ capture noisily {
     use `testdata', clear
     capture datamvp bmi sbp ldl, graph(bar) over(site) nodraw
     assert _rc == 0
+    assert "`r(over)'" == "site"
+    * r(over_levels) is a `levelsof' LIST (a return local), not a count, so
+    * `missing()'/numeric comparison on it is a type mismatch, r(109).
+    assert wordcount(`"`r(over_levels)'"') == 3
     local ++pass_count
     display as result "  PASS `test_count': over(site) 3-level string variable"
 }

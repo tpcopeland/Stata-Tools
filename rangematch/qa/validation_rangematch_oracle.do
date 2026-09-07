@@ -66,6 +66,12 @@ foreach closed in both left right none {
     save "`actual'", replace
 
     use "`expected'", clear
+    * `cf _all using` only compares variables still in memory, so a
+    * variable dropped on either side would be invisible to it -- confirm
+    * the varlist itself matches the actual-output varlist first.
+    unab _rmoc1_vars_now : _all
+    describe using "`actual'", varlist
+    assert "`_rmoc1_vars_now'" == "`r(varlist)'"
     cf _all using "`actual'"
 }
 display as result "PASS: closed() modes match brute-force oracle"
@@ -111,6 +117,12 @@ sort mid uid
 save "`random_actual'", replace
 
 use "`random_expected'", clear
+* `cf _all using` only compares variables still in memory, so a variable
+* dropped on either side would be invisible to it -- confirm the varlist
+* itself matches the actual-output varlist first.
+unab _rmoc2_vars_now : _all
+describe using "`random_actual'", varlist
+assert "`_rmoc2_vars_now'" == "`r(varlist)'"
 cf _all using "`random_actual'"
 display as result "PASS: randomized grouped range join matches oracle"
 
@@ -227,6 +239,12 @@ sort mid uid
 save "`offset_expected'", replace
 
 use "`offset_expected'", clear
+* `cf _all using` only compares variables still in memory, so a variable
+* dropped on either side would be invisible to it -- confirm the varlist
+* itself matches the actual-output varlist first.
+unab _rmoc3_vars_now : _all
+describe using "`offset_actual'", varlist
+assert "`_rmoc3_vars_now'" == "`r(varlist)'"
 cf _all using "`offset_actual'"
 display as result "PASS: scalar offset bounds match explicit oracle"
 

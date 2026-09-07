@@ -296,6 +296,12 @@ capture {
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) ///
         saveas("$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta") replace
     confirm file "$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta"
+    preserve
+    use "$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta", clear
+    assert _N > 0
+    confirm variable age_start
+    confirm variable age_stop
+    restore
     capture erase "$TVTOOLS_QA_RUN_DIR/_gap_tvage_out.dta"
 }
 if _rc == 0 {
@@ -778,7 +784,7 @@ capture {
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
-    assert _rc != 0
+    assert _rc == 498
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose error - reversed dates (exit < entry)"
@@ -816,7 +822,7 @@ capture {
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(drug) reference(0) ///
         entry(study_entry) exit(study_exit)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose error - empty exposure dataset"
@@ -961,6 +967,10 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) batch(0)
     assert _rc == 0
+    * The no-op must still merge normally, not silently drop the exposures.
+    confirm variable exp1
+    confirm variable exp2
+    assert _N > 0
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge batch(0) accepted as deprecated no-op"
@@ -1032,6 +1042,12 @@ capture {
     use "$TVTOOLS_QA_RUN_DIR/_dupexp.dta", clear
     confirm variable tv_exposure_1
     confirm variable tv_exposure_2
+    count if tv_exposure_1 == 1
+    assert !missing(r(N))
+    assert r(N) > 0
+    count if tv_exposure_2 == 1
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge auto-suffixes duplicate exposure names"
@@ -1375,6 +1391,9 @@ capture {
         reference(0) generate(tv_exp) keepdates replace
     confirm variable study_entry
     confirm variable study_exit
+    quietly count if study_entry != mdy(1,1,2020) | study_exit != mdy(12,31,2020)
+    assert !missing(r(N))
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: tvexpose keepdates preserves vars"
@@ -1453,6 +1472,9 @@ capture {
         startname(begin) stopname(finish)
     confirm variable begin
     confirm variable finish
+    quietly count if missing(begin) | missing(finish) | begin > finish
+    assert !missing(r(N))
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge startname()/stopname()"
@@ -1489,6 +1511,12 @@ capture {
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         saveas("$TVTOOLS_QA_RUN_DIR/_s18_merged") replace
     confirm file "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta"
+    preserve
+    use "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta", clear
+    assert _N > 0
+    confirm variable expA
+    confirm variable expB
+    restore
     capture erase "$TVTOOLS_QA_RUN_DIR/_s18_merged.dta"
 }
 if _rc == 0 {
@@ -1507,6 +1535,9 @@ capture {
         id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
         keep(valA)
     confirm variable valA_ds1
+    quietly count if missing(valA_ds1)
+    assert !missing(r(N))
+    assert r(N) < _N
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge keep() retains vars"
@@ -1594,6 +1625,9 @@ else {
 local ++test_count
 capture {
     tvtools, list
+    assert !missing(r(n_commands))
+    assert r(n_commands) > 0
+    assert "`r(commands)'" != ""
 }
 if _rc == 0 {
     display as result "  PASS: tvtools, list completes"
@@ -1608,6 +1642,9 @@ else {
 local ++test_count
 capture {
     tvtools, detail
+    assert !missing(r(n_commands))
+    assert r(n_commands) > 0
+    assert "`r(commands)'" != ""
 }
 if _rc == 0 {
     display as result "  PASS: tvtools, detail completes"
@@ -1861,7 +1898,8 @@ capture {
     capture noisily tvexpose using "$TVTOOLS_QA_RUN_DIR/_s18_exposure.dta", id(id) ///
         start(rx_start) stop(rx_stop) exposure(drug) ///
         entry(entry) exit(exit_)
-    assert _rc != 0
+    * MEASURED: tvexpose rejects this malformed cohort with rc 198, not 498.
+    assert _rc == 198
     capture erase "$TVTOOLS_QA_RUN_DIR/_s18_bad_cohort.dta"
 }
 if _rc == 0 {
@@ -1878,7 +1916,7 @@ local ++test_count
 capture {
     capture noisily tvmerge "$TVTOOLS_QA_RUN_DIR/_s18_merge1.dta" "NONEXISTENT_FILE.dta", ///
         id(id) start(startA startX) stop(stopA stopX) exposure(expA expX)
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge error with missing file"
@@ -2739,6 +2777,13 @@ capture noisily {
         entry(entry) exit(exit_dt) reference(0) evertreated bytype ///
         generate(ev)
     assert _rc == 0
+    * bytype derives one variable per exposure value: {stub}{value} -- the
+    * data has exposure values 1 and 2, so the short stub "ev" yields ev1/ev2.
+    confirm variable ev1
+    confirm variable ev2
+    quietly count if !inlist(ev1, 0, 1) | !inlist(ev2, 0, 1)
+    assert !missing(r(N))
+    assert r(N) == 0
     capture erase "$TVTOOLS_QA_RUN_DIR/_tvexp_bytype_exp2.dta"
 }
 if _rc == 0 {

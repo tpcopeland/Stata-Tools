@@ -183,6 +183,7 @@ end
 local ++test_count
 display as text _n "Test `test_count': Package installs and command is discoverable"
 
+* stata-dev-ignore: rc-only-test — installation probe: whether the command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which massdesas
 }
@@ -312,12 +313,12 @@ local ++test_count
 display as text _n "Test `test_count': Invalid option rejected"
 
 capture massdesas, badoption
-if _rc != 0 {
+if _rc == 198 {
     display as result "  PASS (rc=`=_rc')"
     local ++pass_count
 }
 else {
-    display as error "  FAIL (should have rejected invalid option)"
+    display as error "  FAIL (should have rejected invalid option with rc 198, got rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' `test_count'"
 }
@@ -499,6 +500,10 @@ if `sas_ok' {
         massdesas, directory("`dir_t17'") lower
         use "`dir_t17'/testdata.dta", clear
         confirm variable id age score
+        * Names alone could pass if the source were already lowercase;
+        * verify the row content survived the rename too.
+        assert _N == 5
+        assert age[1] == 25
     }
     if _rc == 0 {
         display as result "  PASS"
@@ -541,7 +546,7 @@ if `sas_ok' {
     capture noisily {
         massdesas, directory("`dir_t19'") erase
         capture confirm file "`dir_t19'/erasetest.sas7bdat"
-        assert _rc != 0
+        assert _rc == 601
         confirm file "`dir_t19'/erasetest.dta"
     }
     if _rc == 0 {

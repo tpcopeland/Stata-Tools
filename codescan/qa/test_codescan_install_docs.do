@@ -105,6 +105,7 @@ local _qa_pwd0 "`old_dir'"
 **# Installed package surface
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether each command and help file resolves on the adopath IS the whole content under test; `which'/`findfile'/`help' produce nothing else to assert
 capture noisily {
     which codescan
     which codescan_describe

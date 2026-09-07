@@ -186,6 +186,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_constant") output("`tmp_dir'/_v2_const.txt")
     confirm file "`tmp_dir'/_v2_const.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_v2_const.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - constant variable dataset"
@@ -201,6 +204,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_special") output("`tmp_dir'/_v2_special.txt")
     confirm file "`tmp_dir'/_v2_special.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_v2_special.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - special characters in strings"
@@ -216,6 +222,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_extreme") output("`tmp_dir'/_v2_extreme.txt")
     confirm file "`tmp_dir'/_v2_extreme.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 3
+    assert strlen(fileread("`tmp_dir'/_v2_extreme.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - extreme numeric values (1e12, 1e-12)"
@@ -260,6 +269,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_nolabels") output("`tmp_dir'/_v2_nolabels.txt")
     confirm file "`tmp_dir'/_v2_nolabels.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 3
+    assert strlen(fileread("`tmp_dir'/_v2_nolabels.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - no labels dataset"
@@ -275,6 +287,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_singlevar") output("`tmp_dir'/_v2_singlevar.txt")
     confirm file "`tmp_dir'/_v2_singlevar.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 1
+    assert strlen(fileread("`tmp_dir'/_v2_singlevar.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - single variable dataset"
@@ -290,6 +305,9 @@ local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/v2_dupes") output("`tmp_dir'/_v2_dupes.txt")
     confirm file "`tmp_dir'/_v2_dupes.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_v2_dupes.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Edge - duplicate observations"
@@ -421,6 +439,9 @@ capture noisily {
     datamap, single("`tmp_dir'/v2_constant") maxcat(1) ///
         output("`tmp_dir'/_v2_maxcat1.txt")
     confirm file "`tmp_dir'/_v2_maxcat1.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 2
+    assert strlen(fileread("`tmp_dir'/_v2_maxcat1.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Options - maxcat(1)"
@@ -438,6 +459,9 @@ capture noisily {
     datamap, single("`tmp_dir'/v2_singlevar") samples(100) ///
         output("`tmp_dir'/_v2_oversample.txt")
     confirm file "`tmp_dir'/_v2_oversample.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 1
+    assert strlen(fileread("`tmp_dir'/_v2_oversample.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Options - samples(100) with 15-obs dataset"
@@ -843,6 +867,9 @@ capture noisily {
     datamap, single("`tmp_dir'/v2_survival") detect(panel) ///
         output("`tmp_dir'/_v2_paneldet.txt")
     confirm file "`tmp_dir'/_v2_paneldet.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 5
+    assert strlen(fileread("`tmp_dir'/_v2_paneldet.txt")) > 0
 
     * patient_id should be detected but it's unique per obs (no panel),
     * so panel structure may not be reported — just verify no crash
@@ -932,6 +959,9 @@ capture noisily {
     datamap, single("`tmp_dir'/v2_survival") detect(panel binary survival) ///
         output("`tmp_dir'/_v2_multidet.txt")
     confirm file "`tmp_dir'/_v2_multidet.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 5
+    assert strlen(fileread("`tmp_dir'/_v2_multidet.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Content - detect(panel binary survival) combined"
@@ -982,6 +1012,9 @@ capture noisily {
     datamap, single("`tmp_dir'/v2_allmiss") missing(pattern) ///
         output("`tmp_dir'/_v2_misspat.txt")
     confirm file "`tmp_dir'/_v2_misspat.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 3
+    assert strlen(fileread("`tmp_dir'/_v2_misspat.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Content - missing(pattern) runs"
@@ -1294,6 +1327,9 @@ capture noisily {
     datadict, single("`tmp_dir'/v2_allmiss") missing stats ///
         output("`tmp_dir'/_v2_dd_miss.md")
     confirm file "`tmp_dir'/_v2_dd_miss.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 3
+    assert strlen(fileread("`tmp_dir'/_v2_dd_miss.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - missing+stats on all-missing dataset"
@@ -1311,6 +1347,9 @@ capture noisily {
         output("`tmp_dir'/_v2_dd_special.md") ///
         title("Title with <angle> & 'quotes'")
     confirm file "`tmp_dir'/_v2_dd_special.md"
+    assert !missing(r(nvars_total))
+    assert r(nvars_total) == 2
+    assert strlen(fileread("`tmp_dir'/_v2_dd_special.md")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: datadict - special chars in title"
@@ -1329,7 +1368,11 @@ capture noisily {
     * separate creates <basename>_dictionary.md in cwd
     * The basename is derived from the full path without .dta
     confirm file "`tmp_dir'/v2_constant_dictionary.md"
+    assert strlen(fileread("`tmp_dir'/v2_constant_dictionary.md")) > 0
     confirm file "`tmp_dir'/v2_singlevar_dictionary.md"
+    assert strlen(fileread("`tmp_dir'/v2_singlevar_dictionary.md")) > 0
+    assert !missing(r(nfiles))
+    assert r(nfiles) == 2
 }
 if _rc == 0 {
     display as result "  PASS: datadict - separate mode creates individual files"
@@ -1401,6 +1444,7 @@ else {
 
 * Test: which datamap and which datadict are discoverable
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether each command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which datamap
     which datadict
@@ -1425,6 +1469,9 @@ capture noisily {
         output("`tmp_dir'/_v2_allmiss_full.txt") ///
         quality missing(detail) samples(3) autodetect
     confirm file "`tmp_dir'/_v2_allmiss_full.txt"
+    assert !missing(r(nvars))
+    assert r(nvars) == 3
+    assert strlen(fileread("`tmp_dir'/_v2_allmiss_full.txt")) > 0
 }
 if _rc == 0 {
     display as result "  PASS: Comprehensive - all-missing with full options"

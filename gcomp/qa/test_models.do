@@ -103,6 +103,9 @@ capture noisily {
     quietly gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) base_confs(c) ///
         commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
         sim(50) samples(3) seed(1) showmodels modelstyle(native)
+    assert "`e(cmd)'" == "gcomp"
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: showmodels compact + native run clean"
@@ -196,6 +199,7 @@ capture noisily {
     * no savemodels; clobber active e() with a foreign estimator
     logit m x c
 }
+assert _rc == 0
 capture noisily gcomptab, models display
 local _grc = _rc
 if `_grc' == 198 {
@@ -321,6 +325,10 @@ capture noisily {
         sim(50) samples(3) seed(1)
     gcomptab, xlsx("`testdir'/_tm_models.xlsx") sheet("Mediation")
     confirm file "`testdir'/_tm_models.xlsx"
+    preserve
+    import excel using "`testdir'/_tm_models.xlsx", sheet("Mediation") clear
+    assert _N > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: existing mediation export unaffected"

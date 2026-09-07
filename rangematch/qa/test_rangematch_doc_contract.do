@@ -360,7 +360,7 @@ capture noisily {
         exit 459
     }
     * ...and the README must not advertise it anywhere in its syntax blocks.
-    if strpos(" `advertised' ", " sort ") {
+    if strpos(" `advertised' ", " sort ") > 0 {
         display as error "README syntax blocks still advertise the sort option"
         exit 459
     }
@@ -381,25 +381,25 @@ capture noisily {
     local expected_overlap "overlap by keepusing prefix suffix all unmatched generate masterid usingid maxpairs frame replace saving stats closed tolerance missing assert nosort dryrun count verbose"
 
     foreach tok of local expected_point {
-        if !strpos(" `point_advertised' ", " `tok' ") {
+        if strpos(" `point_advertised' ", " `tok' ") == 0 {
             display as error "point syntax omits option `tok'"
             exit 459
         }
     }
     foreach tok of local point_advertised {
-        if !strpos(" `expected_point' ", " `tok' ") {
+        if strpos(" `expected_point' ", " `tok' ") == 0 {
             display as error "point syntax advertises unexpected option `tok'"
             exit 459
         }
     }
     foreach tok of local expected_overlap {
-        if !strpos(" `overlap_advertised' ", " `tok' ") {
+        if strpos(" `overlap_advertised' ", " `tok' ") == 0 {
             display as error "overlap syntax omits option `tok'"
             exit 459
         }
     }
     foreach tok of local overlap_advertised {
-        if !strpos(" `expected_overlap' ", " `tok' ") {
+        if strpos(" `expected_overlap' ", " `tok' ") == 0 {
             display as error "overlap syntax advertises unexpected option `tok'"
             exit 459
         }
@@ -416,7 +416,7 @@ capture noisily {
         "ties(all|first|last|random)" ///
         "seed(#|statecode)" ///
         "assert(match|using)" {
-        if !strpos(`"`point_raw'"', "`frag'") {
+        if strpos(`"`point_raw'"', "`frag'") == 0 {
             display as error "point syntax lacks exact fragment `frag'"
             exit 459
         }
@@ -427,16 +427,16 @@ capture noisily {
         "closed(both|none)" ///
         "missing(wildcard|drop|error)" ///
         "assert(match|using)" {
-        if !strpos(`"`overlap_raw'"', "`frag'") {
+        if strpos(`"`overlap_raw'"', "`frag'") == 0 {
             display as error "overlap syntax lacks exact fragment `frag'"
             exit 459
         }
     }
-    if !strpos(`"`point_raw'"', "[in] [, by") {
+    if strpos(`"`point_raw'"', "[in] [, by") == 0 {
         display as error "point syntax no longer has exactly one option comma"
         exit 459
     }
-    if !strpos(`"`overlap_raw'"', "[in] , overlap(ulow uhigh)") {
+    if strpos(`"`overlap_raw'"', "[in] , overlap(ulow uhigh)") == 0 {
         display as error "overlap syntax no longer has exactly one option comma before overlap()"
         exit 459
     }
@@ -445,11 +445,11 @@ capture noisily {
     generate double lo = event_date - 40
     generate double hi = event_date + 40
     rangematch event_date lo hi using "`events'", nearest(both) ties(random) seed(12345)
-    if !strpos(" `advertised' ", " seed ") {
+    if strpos(" `advertised' ", " seed ") == 0 {
         display as error "README syntax blocks omit seed()"
         exit 459
     }
-    if !strpos(" `advertised' ", " ties ") {
+    if strpos(" `advertised' ", " ties ") == 0 {
         display as error "README syntax blocks omit ties()"
         exit 459
     }
@@ -662,8 +662,8 @@ capture noisily {
     mata: st_local("has_scoped_missing", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured {opt miss:ing(error)} leaves no")))
     mata: st_local("has_unscoped_claim", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured error leaves no")))
 
-    if !`has_none_posted' | !`has_counts_kept' | !`has_locators_empty' | ///
-            !`has_scoped_missing' | `has_unscoped_claim' {
+    if `has_none_posted' == 0 | `has_counts_kept' == 0 | `has_locators_empty' == 0 | ///
+            `has_scoped_missing' == 0 | `has_unscoped_claim' == 1 {
         display as error "rangematch.sthlp does not describe the failure-time r() contract"
         exit 459
     }

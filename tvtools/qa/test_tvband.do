@@ -80,6 +80,9 @@ capture {
     _mkcohort
     tvband, id(id) start(entry) stop(exitd) type(elapsed) origin(entry) ///
         width(1) unit(year) generate(fu)
+    confirm variable fu
+    assert !missing(r(n_observations))
+    assert r(n_observations) > 0
     gen byte dead = 0
     stset exitd, id(id) failure(dead) origin(time entry) enter(time entry)
 }
@@ -100,8 +103,12 @@ capture {
     tvband, id(id) start(entry) stop(exitd) type(calendar) width(1) generate(cal)
     gen double dur = exitd - entry + 1
     bysort id (entry): gen double cum = sum(dur)
-    by id: assert cum[_N] == mdy(7,1,2013) - mdy(7,1,2009) + 1
-    by id: assert _n==1 | entry == exitd[_n-1] + 1
+    bysort id (entry): gen byte _last = (_n == _N)
+    bysort id (entry): gen byte _abut_ok = (_n == 1) | (entry == exitd[_n-1] + 1)
+    * A bare `assert' (no `by:' prefix) so the content check is visible to
+    * static analysis, not hidden behind by-group dispatch.
+    assert cum == mdy(7,1,2013) - mdy(7,1,2009) + 1 if _last
+    assert _abut_ok == 1
 }
 if _rc==0 {
     display as result "  PASS: coverage + abutment invariant"

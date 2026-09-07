@@ -259,8 +259,8 @@ capture noisily {
         local dom_mean = real(word("`dom_cell'", 1))
         local for_mean = real(word("`for_cell'", 1))
 
-        assert abs(`dom_mean' - `ref_mean_dom') < 1
-        assert abs(`for_mean' - `ref_mean_for') < 1
+        assert abs(`dom_mean' - `ref_mean_dom') < 0.06
+        assert abs(`for_mean' - `ref_mean_for') < 0.06
     }
 }
 if _rc == 0 {
@@ -287,7 +287,8 @@ capture noisily {
         local dom_cell = foreign_0[3]
         * Parse median from "4890 (3299-5705)"
         local dom_med = real(word("`dom_cell'", 1))
-        assert abs(`dom_med' - `ref_med_dom') < 1
+        * stata-dev-ignore: vacuous-tolerance — vars(price conts %9.0f) above forces 0-decimal display rounding, whose own max rounding error is exactly 0.5; 0.51 is that bound plus a floating-point safety margin, the tightest defensible number for this format, not a guess
+        assert abs(`dom_med' - `ref_med_dom') < 0.51
     }
 }
 if _rc == 0 {
@@ -338,6 +339,7 @@ capture noisily {
         assert `pct_start' > 0
         assert `pct_end' > `pct_start'
         local dom_pct = real(substr("`dom_cell'", `pct_start' + 1, `pct_end' - `pct_start' - 1))
+        * stata-dev-ignore: vacuous-tolerance — no percformat() was given, so _desctab_collect.ado's own auto-select applies "%3.0f" (0 decimals) whenever the cell denominator is under 100 (ntot_dom here, well under 100 for auto.dta); that format's own display rounding can be off by at most 0.5, so 0.6 is the tight bound plus a small margin, not a wide one
         assert abs(`dom_pct' - `ref_pct') < 0.6
     }
 }
@@ -657,8 +659,8 @@ capture noisily {
         local for_inside = subinstr("`for_inside'", ")", "", .)
         local dom_sd = real(word("`dom_inside'", 2))
         local for_sd = real(word("`for_inside'", 2))
-        assert abs(`dom_sd' - `ref_sd_dom') < 1
-        assert abs(`for_sd' - `ref_sd_for') < 1
+        assert abs(`dom_sd' - `ref_sd_dom') < 0.06
+        assert abs(`for_sd' - `ref_sd_for') < 0.06
     }
 }
 if _rc == 0 {
@@ -689,8 +691,10 @@ capture noisily {
         local _idx_rp = strpos("`dom_cell'", ")")
         local lo = real(substr("`dom_cell'", `_idx_lp' + 1, `_idx_dash' - `_idx_lp' - 1))
         local hi = real(substr("`dom_cell'", `_idx_dash' + 1, `_idx_rp' - `_idx_dash' - 1))
-        assert abs(`lo' - `p25_dom') < 1
-        assert abs(`hi' - `p75_dom') < 1
+        * stata-dev-ignore: vacuous-tolerance — vars(price conts %9.0f) above forces 0-decimal display rounding, whose own max rounding error is exactly 0.5; 0.51 is that bound plus a floating-point safety margin, the tightest defensible number for this format, not a guess
+        assert abs(`lo' - `p25_dom') < 0.51
+        * stata-dev-ignore: vacuous-tolerance — same 0-decimal rounding bound as the p25 check immediately above, applied to the p75 side of the IQR
+        assert abs(`hi' - `p75_dom') < 0.51
     }
 }
 if _rc == 0 {

@@ -475,14 +475,15 @@ capture noisily {
     tabtools set borderstyle thin
     assert "$TABTOOLS_BORDER" == "thin"
 }
+local _tt469_rc = _rc
 tabtools set clear
-if _rc == 0 {
+if `_tt469_rc' == 0 {
     display as result "  PASS: tabtools direct setters store values"
     local ++pass_count
 }
 else {
     tabtools set clear
-    display as error "  FAIL: tabtools direct setters (error `=_rc')"
+    display as error "  FAIL: tabtools direct setters (error `=`_tt469_rc'')"
     local ++fail_count
 }
 
@@ -988,7 +989,12 @@ capture shell rm -rf "`plus_dir'" "`personal_dir'"
 * T10: drop tabtools by name only, then call tabtools detail again. Pre-1.0.3
 *      this errored with "_tabtools_detail already defined" on the second run.
 capture program drop tabtools
-capture noisily tabtools, detail cat(all)
+capture noisily {
+    tabtools, detail cat(all)
+    assert !missing(r(n_commands))
+    assert r(n_commands) > 0
+    assert "`r(commands)'" != ""
+}
 if _rc == 0 {
     display as result "  PASS T10: tabtools detail re-loads after manual drop"
     local ++pass_count

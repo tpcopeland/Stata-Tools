@@ -26,6 +26,9 @@ capture noisily {
     capture noisily qba_misclass, a(-1) b(2) c(3) d(4) seca(.9) spca(.9) secb(.9) spcb(.9)
     local rc = _rc
     assert `rc' == 198
+    unab _e1_vars_now : _all
+    describe using "`before'", varlist
+    assert "`_e1_vars_now'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 local ++pass
@@ -55,6 +58,9 @@ capture noisily {
     capture noisily qba_confound, estimate(2) evalue reps(-1)
     local rc = _rc
     assert `rc' == 198
+    unab _e2_vars_now : _all
+    describe using "`before'", varlist
+    assert "`_e2_vars_now'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 local ++pass
@@ -71,6 +77,9 @@ capture noisily {
     capture noisily qba_confound, estimate(2) evalue ci_bound(0)
     local rc = _rc
     assert `rc' == 198
+    unab _e3_vars_now : _all
+    describe using "`before'", varlist
+    assert "`_e3_vars_now'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 local ++pass

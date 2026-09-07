@@ -602,6 +602,10 @@ local ++test_count
 capture noisily {
     qba_plot, tornado a(100) b(200) c(50) d(300) ///
         param1(se) range1(.05 1) base_sp(.9) steps(20)
+    assert "`r(plot_type)'" == "tornado"
+    * some grid points have se+sp<=1 and must be gated out, not crash
+    assert !missing(r(n_missing))
+    assert r(n_missing) > 0
 }
 if _rc == 0 {
     display as result "  PASS: P15.1 tornado handles Se+Sp<=1 without crash"

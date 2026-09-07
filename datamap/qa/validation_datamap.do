@@ -957,7 +957,7 @@ else {
 local ++test_count
 capture noisily {
     capture datamap, single("`tmp_dir'/totally_nonexistent_file")
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: V8.3 - datamap missing-file error"

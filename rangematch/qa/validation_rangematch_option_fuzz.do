@@ -159,8 +159,18 @@ forvalues rep = 1/`NREP_POINT' {
     local bad = 0
     if `act_n' != `exp_n' | `got_pairs' != `exp_n' local bad = 1
     if !`bad' & `act_n' > 0 {
-        capture cf _all using "`expf'"
+        * `cf _all using` only compares variables still in memory, so a
+        * variable dropped on either side would be invisible to it --
+        * confirm the varlist itself matches the expected-output varlist
+        * first (kept soft, like the cf check below, so the sweep continues).
+        unab _rmf_vars_now : _all
+        quietly describe using "`expf'", varlist
+        capture assert "`_rmf_vars_now'" == "`r(varlist)'"
         if _rc local bad = 1
+        if !`bad' {
+            capture cf _all using "`expf'"
+            if _rc local bad = 1
+        }
     }
     if `bad' {
         local ++nbad
@@ -316,8 +326,18 @@ forvalues rep = 1/`NREP_NEAREST' {
     local bad = 0
     if `act_n' != `exp_n' | `got_pairs' != `exp_n' local bad = 1
     if !`bad' & `act_n' > 0 {
-        capture cf _all using "`expf'"
+        * `cf _all using` only compares variables still in memory, so a
+        * variable dropped on either side would be invisible to it --
+        * confirm the varlist itself matches the expected-output varlist
+        * first (kept soft, like the cf check below, so the sweep continues).
+        unab _rmf_vars_now : _all
+        quietly describe using "`expf'", varlist
+        capture assert "`_rmf_vars_now'" == "`r(varlist)'"
         if _rc local bad = 1
+        if !`bad' {
+            capture cf _all using "`expf'"
+            if _rc local bad = 1
+        }
     }
     if `bad' {
         local ++nbad
@@ -490,10 +510,21 @@ forvalues rep = 1/`NREP_OVERLAP' {
         local why "`why' pairs(`act_n'/`got_pairs' vs `exp_n')"
     }
     if !`bad' & `act_n' > 0 {
-        capture cf _all using "`expf'"
-        if _rc {
-            local bad 1
-            local why "`why' pairset"
+        * `cf _all using` only compares variables still in memory, so a
+        * variable dropped on either side would be invisible to it --
+        * confirm the varlist itself matches the expected-output varlist
+        * first (kept soft, like the cf check below, so the sweep continues).
+        unab _rmf_vars_now : _all
+        quietly describe using "`expf'", varlist
+        capture assert "`_rmf_vars_now'" == "`r(varlist)'"
+        if _rc local why "`why' varlist"
+        if _rc local bad 1
+        if !`bad' {
+            capture cf _all using "`expf'"
+            if _rc {
+                local bad 1
+                local why "`why' pairset"
+            }
         }
     }
     if `got_mm' != `exp_mm' {

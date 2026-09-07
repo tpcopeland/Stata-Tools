@@ -110,6 +110,12 @@ capture noisily {
     use "$TVTOOLS_QA_RUN_DIR/m_suffix.dta", clear
     confirm variable tv_exposure_1
     confirm variable tv_exposure_2
+    count if tv_exposure_1 == 1
+    assert !missing(r(N))
+    assert r(N) > 0
+    count if tv_exposure_2 == 1
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: tvmerge auto-suffixes duplicate tv_exposure (tv_exposure_1/_2)"

@@ -219,6 +219,8 @@ capture noisily {
     _make_countrows_data
     codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countrows
     confirm variable dm2_nrows
+    sort pid
+    assert dm2_nrows[1] == 3
 }
 if _rc == 0 {
     display as result "  PASS: countrows works without date()"

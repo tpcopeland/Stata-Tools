@@ -76,8 +76,8 @@ program define _gen_panel
 end
 
 * One recovery scenario: build truth, assert naive misses, assert IPTW recovers.
-capture program drop _run_recovery
-program define _run_recovery
+capture program drop _assert_recovery
+program define _assert_recovery
     syntax , EFFect(real) CONFa(real) CONFy(real) INTa(real) INTy(real) ///
              OBSseed(integer) TRUseed(integer) Nper(integer) Tper(integer) ///
              TOL(real) MINbias(real) LABel(string)
@@ -137,9 +137,11 @@ end
 * Scenario A: protective effect (OR 0.6), moderate confounding
 local ++test_count
 local effA = ln(0.6)
-capture noisily _run_recovery, effect(`effA') confa(0.8) confy(0.6) ///
-    inta(-0.2) inty(-1.0) obsseed(90211) truseed(5150) nper(40000) tper(4) ///
-    tol(0.05) minbias(0.20) label("A: protective OR=0.6, moderate confounding")
+capture noisily {
+    _assert_recovery, effect(`effA') confa(0.8) confy(0.6) ///
+        inta(-0.2) inty(-1.0) obsseed(90211) truseed(5150) nper(40000) tper(4) ///
+        tol(0.05) minbias(0.20) label("A: protective OR=0.6, moderate confounding")
+}
 if _rc == 0 {
     display as result "  PASS: recovery A (protective, moderate confounding)"
     local ++pass_count
@@ -152,9 +154,11 @@ else {
 * Scenario B: harmful effect (OR 1.7), stronger confounding
 local ++test_count
 local effB = ln(1.7)
-capture noisily _run_recovery, effect(`effB') confa(1.0) confy(0.7) ///
-    inta(-0.1) inty(-1.2) obsseed(71813) truseed(33102) nper(40000) tper(4) ///
-    tol(0.05) minbias(0.20) label("B: harmful OR=1.7, stronger confounding")
+capture noisily {
+    _assert_recovery, effect(`effB') confa(1.0) confy(0.7) ///
+        inta(-0.1) inty(-1.2) obsseed(71813) truseed(33102) nper(40000) tper(4) ///
+        tol(0.05) minbias(0.20) label("B: harmful OR=1.7, stronger confounding")
+}
 if _rc == 0 {
     display as result "  PASS: recovery B (harmful, stronger confounding)"
     local ++pass_count

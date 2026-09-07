@@ -641,6 +641,7 @@ else {
 **# 3. _tabtools_helpers_ready file-parsing discovers programs
 
 **## 3a. After fresh load, _tabtools_helpers_ready succeeds without arguments
+* stata-dev-ignore: rc-only-test — installation probe: `_tabtools_helpers_ready' is `nclass' (no returns) and its rc IS the whole content under test for this aggregate gate; the per-program granularity is covered separately by 3b immediately below, which checks each of the 13 helpers individually via `program list'
 capture noisily {
     * Drop all helpers to force a fresh-load scenario
     foreach _p in _tabtools_col_letter _tabtools_validate_path ///
@@ -2445,6 +2446,9 @@ capture noisily {
         xlsx("`output_dir'/_color_stratetab_named.xlsx") headershade ///
         headercolor(navy) zebra zebracolor(yellow)
     confirm file "`output_dir'/_color_stratetab_named.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
+    assert r(N_outcomes) == 1
 }
 if _rc == 0 {
     display as result "  PASS: stratetab accepts supported color names"
@@ -3194,19 +3198,25 @@ capture noisily {
     quietly collect: regress price mpg weight
     quietly collect: regress price mpg weight foreign
     regtab, stats(N ll aic bic r2) frame(_cj_reg)
-    frame _cj_reg: assert _N > 5
+    frame _cj_reg {
+        assert _N > 5
+    }
     frame drop _cj_reg
 
     sysuse auto, clear
     collect clear
     quietly collect: teffects ipw (price) (foreign mpg weight)
     effecttab, frame(_cj_eff)
-    frame _cj_eff: assert _N >= 4
+    frame _cj_eff {
+        assert _N >= 4
+    }
     frame drop _cj_eff
 
     sysuse auto, clear
     desctab price rep78, by(foreign) frame(_cj_desc)
-    frame _cj_desc: assert _N > 5
+    frame _cj_desc {
+        assert _N > 5
+    }
     frame drop _cj_desc
 }
 if _rc == 0 {
@@ -4863,6 +4873,18 @@ capture noisily {
     capture erase "`output_dir'/_stale_target.xlsx"
     quietly table1_tc, by(foreign) vars(price contn \ mpg contn) ///
         excel("`output_dir'/_stale_target.xlsx") sheet("After") test
+    confirm file "`output_dir'/_stale_target.xlsx"
+    * the export must have actually written the real table, not an empty
+    * or truncated workbook left over from the stale xl() handle
+    * MEASURED layout of this workbook: 5 rows, and column A is EMPTY -- the
+    * table body starts in column B (B4="Price", C4 the Mean+/-SD cell). So the
+    * oracle has to read B/C, not A.
+    import excel using "`output_dir'/_stale_target.xlsx", sheet("After") ///
+        clear allstring
+    assert _N == 5
+    assert B[4] == "Price"
+    assert B[5] == "Mileage (mpg)"
+    assert C[4] != ""
 }
 if _rc == 0 {
     display as result "  PASS: a stale Mata workbook object does not block the next export"

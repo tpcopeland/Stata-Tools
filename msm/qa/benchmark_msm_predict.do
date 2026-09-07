@@ -95,7 +95,9 @@ capture noisily {
     local scalar_seconds = r(t2)
     local speedup = `scalar_seconds' / `vector_seconds'
     forvalues row = 1/4 {
+        assert !missing(SCALAR[`row', 1], VECTORIZED[`row', 2])
         assert reldif(SCALAR[`row', 1], VECTORIZED[`row', 2]) < 1e-12
+        assert !missing(SCALAR[`row', 2], VECTORIZED[`row', 5])
         assert reldif(SCALAR[`row', 2], VECTORIZED[`row', 5]) < 1e-12
     }
     assert `vector_seconds' > 0

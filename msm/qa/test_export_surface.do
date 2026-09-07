@@ -51,6 +51,19 @@ program define _setup_export_surface
     msm_sensitivity, evalue
 end
 
+capture program drop _qa_assert_sheet_nonempty
+program define _qa_assert_sheet_nonempty
+    version 16.0
+    * msm_table is nclass (no r() to check), so verify the export actually
+    * put rows on the named sheet -- `confirm file' alone would pass on a
+    * workbook containing only an empty placeholder sheet.
+    syntax, XLSX(string) SHEET(string)
+    preserve
+    import excel using "`xlsx'", sheet("`sheet'") firstrow clear allstring
+    assert _N > 0
+    restore
+end
+
 capture program drop _read_check_status
 program define _read_check_status, rclass
     version 16.0
@@ -79,12 +92,16 @@ putexcel set "`report_xlsx'", sheet("Keep") replace
 putexcel A1 = "sentinel"
 putexcel clear
 local ++test_count
-capture noisily msm_report, export("`report_xlsx'") format(excel) eform ///
-    title("Export Surface Report") font("Times New Roman") fontsize(12) ///
-    borderstyle(academic) zebra ///
-    footnote("Report QA footnote for export surface") open replace
-if _rc == 0 {
-    capture confirm file "`report_xlsx'"
+capture noisily {
+    msm_report, export("`report_xlsx'") format(excel) eform ///
+        title("Export Surface Report") font("Times New Roman") fontsize(12) ///
+        borderstyle(academic) zebra ///
+        footnote("Report QA footnote for export surface") open replace
+    confirm file "`report_xlsx'"
+    * `confirm file' alone passes on an empty stub; the export must actually
+    * have written to the requested path in the requested format.
+    assert "`r(export)'" == "`report_xlsx'"
+    assert "`r(format)'" == "excel"
 }
 if _rc == 0 {
     display as result "  PASS X1: msm_report custom Excel export"
@@ -177,12 +194,13 @@ else {
 
 capture erase "`table_all_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_all_xlsx'") all replace open ///
-    title("Export Surface Table") font("Calibri") fontsize(11) ///
-    borderstyle(medium) nformat("0.000") zebra ///
-    footnote("Table QA footnote for export surface")
-if _rc == 0 {
-    capture confirm file "`table_all_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_all_xlsx'") all replace open ///
+        title("Export Surface Table") font("Calibri") fontsize(11) ///
+        borderstyle(medium) nformat("0.000") zebra ///
+        footnote("Table QA footnote for export surface")
+    confirm file "`table_all_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_all_xlsx'") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS X4: msm_table all-sheets export"
@@ -330,13 +348,14 @@ else {
 
 capture erase "`table_coef_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_coef_xlsx'") coefficients eform ///
-    decimals(2) sep(" to ") replace open ///
-    title("Coefficient Surface Table") font("Courier New") fontsize(10) ///
-    borderstyle(thin) nformat("0.00") zebra boldp(1) highlight(1) ///
-    footnote("Coefficient sheet QA footnote")
-if _rc == 0 {
-    capture confirm file "`table_coef_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_coef_xlsx'") coefficients eform ///
+        decimals(2) sep(" to ") replace open ///
+        title("Coefficient Surface Table") font("Courier New") fontsize(10) ///
+        borderstyle(thin) nformat("0.00") zebra boldp(1) highlight(1) ///
+        footnote("Coefficient sheet QA footnote")
+    confirm file "`table_coef_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_coef_xlsx'") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS X9: msm_table coefficient-surface export"
@@ -398,9 +417,10 @@ else {
 
 capture erase "`table_default_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_default_xlsx'") replace
-if _rc == 0 {
-    capture confirm file "`table_default_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_default_xlsx'") replace
+    confirm file "`table_default_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_default_xlsx'") sheet("Coefficients")
 }
 if _rc == 0 {
     display as result "  PASS X10c: msm_table default auto export"
@@ -430,9 +450,10 @@ else {
 
 capture erase "`table_pred_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_pred_xlsx'") predictions replace
-if _rc == 0 {
-    capture confirm file "`table_pred_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_pred_xlsx'") predictions replace
+    confirm file "`table_pred_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_pred_xlsx'") sheet("Predictions")
 }
 if _rc == 0 {
     display as result "  PASS X10e: msm_table predictions-only export"
@@ -462,9 +483,10 @@ else {
 
 capture erase "`table_bal_wt_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_bal_wt_xlsx'") balance weights replace
-if _rc == 0 {
-    capture confirm file "`table_bal_wt_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_bal_wt_xlsx'") balance weights replace
+    confirm file "`table_bal_wt_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_bal_wt_xlsx'") sheet("Balance")
 }
 if _rc == 0 {
     display as result "  PASS X10g: msm_table balance+weights export"
@@ -494,9 +516,10 @@ else {
 
 capture erase "`table_sens_xlsx'"
 local ++test_count
-capture noisily msm_table, xlsx("`table_sens_xlsx'") sensitivity replace
-if _rc == 0 {
-    capture confirm file "`table_sens_xlsx'"
+capture noisily {
+    msm_table, xlsx("`table_sens_xlsx'") sensitivity replace
+    confirm file "`table_sens_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`table_sens_xlsx'") sheet("Sensitivity")
 }
 if _rc == 0 {
     display as result "  PASS X10i: msm_table sensitivity-only export"

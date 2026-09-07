@@ -4097,10 +4097,14 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    * Should have exactly 2 days of exposed time
+    * Should have exactly 2 days of exposed time. exp_2day.dta's own
+    * convention is rx_stop - rx_start == duration (see its construction
+    * above: 22006/22008 labeled "2-day exposure", not +1), and tvexpose
+    * passes the matched exposure row's rx_start/rx_stop through unchanged
+    * for this single, fully-contained 2-day window, so the sum is exact.
     gen dur = (rx_stop - rx_start) if tv_exp == 1
     quietly sum dur
-    assert abs(r(sum) - 2) < 1
+    assert r(sum) == 2
 }
 if _rc == 0 {
     display as result "  PASS: 2-day exposure tracked correctly"
@@ -4896,11 +4900,14 @@ if `quiet' == 0 {
 }
 
 capture {
-    * Calculate expected total person-time
+    * Calculate expected total person-time. expected_pt is an EXCLUSIVE day
+    * count, while the tvexpose output below is measured inclusively, so the
+    * exact identity carries one extra day per person (see the assert).
     use "${DATA_DIR}/cohort_multi.dta", clear
     gen expected_pt = study_exit - study_entry
     quietly sum expected_pt
     local expected_total = r(sum)
+    local n_persons = _N
 
     use "${DATA_DIR}/cohort_multi.dta", clear
     tvexpose using "${DATA_DIR}/exposure_multi.dta", id(id) start(rx_start) stop(rx_stop) ///
@@ -4910,7 +4917,13 @@ capture {
     gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local actual_total = r(sum)
-    assert abs(`actual_total' - `expected_total') < 5
+    * tvexpose emits contiguous INCLUSIVE intervals that exactly tile
+    * [study_entry, study_exit], so per person the inclusive total is
+    * (study_exit - study_entry) + 1. Conservation is an exact identity, not a
+    * banded comparison.
+    noisily display as text "  person-time: actual = `actual_total'  expected = " ///
+        "`expected_total' + `n_persons'"
+    assert `actual_total' == `expected_total' + `n_persons'
 }
 if _rc == 0 {
     display as result "  PASS: Multi-person person-time conservation"

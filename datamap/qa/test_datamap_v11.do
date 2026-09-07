@@ -64,6 +64,7 @@ save "`v11_dta'", replace
 * ============================================================
 
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether each command/helper resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture {
     which datamap
     which datadict

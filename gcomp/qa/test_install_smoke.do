@@ -83,6 +83,7 @@ end
 * ============================================================
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether each command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     foreach cmd of local public_cmds {
         capture which `cmd'
@@ -173,6 +174,7 @@ else {
 * ============================================================
 
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation-state probe: whether the helper program is (not yet) resident in memory before the first gcomptab call IS the whole content under test; `program list' produces nothing else to assert
 capture noisily {
     capture program list _gcomp_validate_path
     assert _rc != 0
@@ -225,6 +227,10 @@ capture erase "`smoke_xlsx'"
 capture noisily {
     gcomptab, xlsx("`smoke_xlsx'") sheet("Smoke")
     confirm file "`smoke_xlsx'"
+    preserve
+    import excel using "`smoke_xlsx'", sheet("Smoke") clear
+    assert _N > 0
+    restore
     capture program list _gcomp_validate_path
     assert _rc == 0
 }

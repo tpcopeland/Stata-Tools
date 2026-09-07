@@ -976,14 +976,27 @@ else {
 
 * T2: corrtab `border`
 sysuse auto, clear
+capture frame drop _corrtab_t2
 capture noisily corrtab price mpg weight length, ///
-    border(thin)
+    border(thin) frame(_corrtab_t2, replace)
 if _rc == 0 {
+    * border(thin) must not have corrupted the underlying correlation cells
+    capture noisily frame _corrtab_t2 {
+        assert _N == 6
+        assert strpos(c2[3], "1.00") > 0
+        assert strpos(c3[4], "1.00") > 0
+        assert strpos(c4[5], "1.00") > 0
+        assert strpos(c5[6], "1.00") > 0
+    }
+}
+local _t2_rc = _rc
+capture frame drop _corrtab_t2
+if `_t2_rc' == 0 {
     display as result "  PASS T2: corrtab border abbreviation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL T2: corrtab abbreviations (rc=`=_rc')"
+    display as error "  FAIL T2: corrtab abbreviations (rc=`=`_t2_rc'')"
     local ++fail_count
     local failed_tests "`failed_tests' T2"
 }

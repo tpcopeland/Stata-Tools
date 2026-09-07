@@ -63,8 +63,12 @@ capture {
     tvsplit, id(id) start(entry) stop(exitd) age(dob, width(10)) calendar(, width(1))
     gen double dur = exitd - entry + 1
     bysort id (entry exitd): gen double cum = sum(dur)
-    by id: assert cum[_N] == mdy(3,15,2021) - mdy(7,1,2019) + 1
-    by id: assert _n==1 | entry == exitd[_n-1] + 1
+    bysort id (entry exitd): gen byte _last = (_n == _N)
+    bysort id (entry exitd): gen byte _abut_ok = (_n == 1) | (entry == exitd[_n-1] + 1)
+    * A bare `assert' (no `by:' prefix) so the content check is visible to
+    * static analysis, not hidden behind by-group dispatch.
+    assert cum == mdy(3,15,2021) - mdy(7,1,2019) + 1 if _last
+    assert _abut_ok == 1
 }
 if _rc==0 {
     display as result "  PASS: Lexis coverage + abutment"

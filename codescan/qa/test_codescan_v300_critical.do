@@ -165,6 +165,13 @@ program define _assert_intact
         display as error "  varlist drift: expected [`vars0'] got [`r(varlist)']"
         exit 9
     }
+    * Belt-and-braces machine-checkable form of the same drift guard above:
+    * `cf _all using' only compares variables present in memory, so a DROPPED
+    * variable is invisible to it unless the exact varlist is proven equal
+    * to the snapshot file's own varlist immediately beforehand.
+    unab _ai_vars : _all
+    describe using "`snapfile'", varlist
+    assert "`_ai_vars'" == "`r(varlist)'"
     cf _all using "`snapfile'"
 end
 
@@ -633,11 +640,24 @@ capture noisily {
     quietly import delimited using "`c5b'", clear varnames(1)
     capture confirm variable sentinel
     assert _rc != 0
+    * The overwrite must carry the real scan output, not an empty/blank file.
+    * export() writes a CONDITION-level summary -- one row per condition, not a
+    * copy of the analysis dataset -- so the oracle is that summary's content.
+    assert _N == 1
+    confirm variable condition
+    confirm variable matches
+    confirm variable prevalence
+    assert condition[1] == "dm2"
+    assert matches[1] == 1
+    assert prevalence[1] == 50
     restore
 }
 if _rc {
     local ++fail_count
     display as error "FAIL: C5b export(, replace) did not overwrite"
+    * A failed assertion above leaves the `preserve' outstanding, which would
+    * otherwise surface as a spurious r(621) in the NEXT test rather than here.
+    capture restore
 }
 else {
     local ++pass_count
@@ -686,6 +706,7 @@ capture noisily {
 if _rc {
     local ++fail_count
     display as error "FAIL: C5d save(, replace) did not overwrite"
+    capture restore
 }
 else {
     local ++pass_count

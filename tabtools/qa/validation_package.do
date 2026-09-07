@@ -588,6 +588,7 @@ capture noisily {
     capture frame drop _vc_bounds
     corrtab price mpg weight length, frame(_vc_bounds) digits(4)
 
+    local _vc92_bad = 0
     frame _vc_bounds {
         forvalues i = 3/`=_N - 1' {
             forvalues j = 2/5 {
@@ -598,9 +599,11 @@ capture noisily {
                         assert `val' >= -1.001 & `val' <= 1.001
                     }
                 }
+                if _rc local _vc92_bad = 1
             }
         }
     }
+    if `_vc92_bad' error 9
 }
 if _rc == 0 {
     display as result "  PASS: VC9.2 — corrtab all values in [-1, 1]"
@@ -708,7 +711,9 @@ capture noisily {
             }
         }
     }
-    assert abs(`src_val' - `ref_b_mpg') < 0.5
+    * regtab's default digits() is 2 (regtab.ado:110) for a plain linear-scale
+    * coefficient, so its %32.2f display rounding can be off by at most 0.005
+    assert abs(`src_val' - `ref_b_mpg') < 0.006
 
     capture frame drop _ke_comp2
  comptab _ke_src, rows(1 2) frame(_ke_comp2)

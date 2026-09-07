@@ -334,7 +334,13 @@ gen entry = mdy(1, 1, 2020)
 gen exit = mdy(12, 31, 2022)
 format dob entry exit %tdCCYY/NN/DD
 
-capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit)
+capture noisily {
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit)
+    assert r(n_persons) == 3
+    quietly count if missing(age_start) | missing(age_stop)
+    assert !missing(r(N))
+    assert r(N) == 0
+}
 if _rc == 0 {
     display as result "  PASS: Non-missing dates pass validation"
     local ++pass_count
@@ -377,8 +383,16 @@ gen entry = mdy(1, 1, 2020)
 gen exit = mdy(12, 31, 2022)
 format dob entry exit %tdCCYY/NN/DD
 
-capture noisily tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit) ///
-    minage(60) maxage(60)
+capture noisily {
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit) ///
+        minage(60) maxage(60)
+    * A single age band means exactly one row per person, all within the
+    * age-60 year (born 1960-01-01, so age 60 spans 2020-01-01/2020-12-31).
+    assert _N == 3
+    quietly count if year(age_start) != 2020 | year(age_stop) != 2020
+    assert !missing(r(N))
+    assert r(N) == 0
+}
 if _rc == 0 {
     display as result "  PASS: minage == maxage accepted (single age)"
     local ++pass_count
@@ -624,7 +638,10 @@ if _rc == 0 {
     file read `fh' line
     file close `fh'
 
-    if regexm("`line'", "Version ([0-9]+\.[0-9]+\.[0-9]+)") {
+    capture noisily {
+        assert regexm("`line'", "Version ([0-9]+\.[0-9]+\.[0-9]+)")
+    }
+    if _rc == 0 {
         display as result "  PASS: Version is `=regexs(1)'"
         local ++pass_count
     }
@@ -851,9 +868,19 @@ capture noisily {
     tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_date) ///
         saveas("test_tvage_output") replace
     * When saveas is used, original data should be restored
-    * The output was saved to the file
-    capture confirm file "test_tvage_output.dta"
-    assert _rc == 0
+    assert _N == 1
+    confirm variable dob
+    capture confirm variable age_start
+    assert _rc != 0
+    * The output was saved to the file, with the age intervals computed
+    confirm file "test_tvage_output.dta"
+    preserve
+    use "test_tvage_output.dta", clear
+    assert _N > 0
+    quietly count if missing(age_start) | missing(age_stop)
+    assert !missing(r(N))
+    assert r(N) == 0
+    restore
     erase "test_tvage_output.dta"
 }
 if _rc == 0 {

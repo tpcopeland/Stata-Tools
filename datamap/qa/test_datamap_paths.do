@@ -80,8 +80,14 @@ capture noisily {
     use "`input'", clear
     datacheck, saving("`check_meta'", replace) warn
     confirm file "`check_meta'"
+    * `confirm file' alone passes on an empty stub; the saved metadata must
+    * actually be a readable dataset with rows, not a truncated placeholder.
+    preserve
+    use "`check_meta'", clear
+    assert _N > 0
+    restore
     capture confirm file "`tmp_dir'/_path_check_paren.dta"
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: T`test_count' - datacheck preserves parenthesized saving path"

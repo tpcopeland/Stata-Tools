@@ -233,6 +233,12 @@ sort mid uid
 save "`mby_actual'", replace
 
 use "`mby_expected'", clear
+* `cf _all using` only compares variables still in memory, so a variable
+* dropped on either side would be invisible to it -- confirm the varlist
+* itself matches the actual-output varlist first.
+unab _mby_vars_now : _all
+describe using "`mby_actual'", varlist
+assert "`_mby_vars_now'" == "`r(varlist)'"
 cf _all using "`mby_actual'"
 display as result "PASS: multi-variable by() matches brute-force reference"
 

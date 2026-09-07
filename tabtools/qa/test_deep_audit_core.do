@@ -259,10 +259,11 @@ local ++test_count
 capture frame drop alias_source
 regtab, frame(alias_source, replace) noint
 capture frame drop alias_both
-capture noisily comptab alias_source, rows(1) ///
-    frame(alias_both, replace) eplotframe(alias_both, replace)
-local output_alias_rc = _rc
-capture noisily assert `output_alias_rc' == 198
+capture noisily {
+    capture noisily comptab alias_source, rows(1) ///
+        frame(alias_both, replace) eplotframe(alias_both, replace)
+    assert _rc == 198
+}
 if _rc == 0 {
     display as result "  PASS C02b: display=eplot alias rejected"
     local ++pass_count
@@ -383,9 +384,11 @@ local current_source_rc = _rc
 frame change default
 capture noisily {
     assert `current_source_rc' == 0
-    frame current_result: assert _N == `ref_N'
-    frame current_result: assert A[4] == `"`ref_A'"'
-    frame current_result: assert c1[4] == `"`ref_c1'"'
+    frame current_result {
+        assert _N == `ref_N'
+        assert A[4] == `"`ref_A'"'
+        assert c1[4] == `"`ref_c1'"'
+    }
 }
 if _rc == 0 {
     display as result "  PASS C03: current source equals unrelated-current control"
@@ -416,10 +419,12 @@ capture noisily comptab semantic_a semantic_b, rows(1 \ 1) ///
 local semantic_rc = _rc
 capture noisily {
     assert `semantic_rc' == 0
-    frame semantic_out: assert c1[4] == "-238.89"
-    frame semantic_out: assert c4[4] == "-108.43"
-    frame semantic_out: assert c1[5] == "-238.89"
-    frame semantic_out: assert c4[5] == "-108.43"
+    frame semantic_out {
+        assert c1[4] == "-238.89"
+        assert c4[4] == "-108.43"
+        assert c1[5] == "-238.89"
+        assert c4[5] == "-108.43"
+    }
 }
 if _rc == 0 {
     display as result "  PASS C04: reversed model order is aligned by identity"
@@ -558,7 +563,9 @@ input byte x
 2
 end
 _tabtools_detect_vartype x
-capture noisily assert "`result'" == "cat"
+capture noisily {
+    assert "`result'" == "cat"
+}
 if _rc == 0 {
     display as result "  PASS M02: non-0/1 dichotomies classify as categorical"
     local ++pass_count
@@ -588,8 +595,10 @@ capture noisily {
     assert `fw_expr_rc' == 0
     frame fw_control: local fw_c0 = g_0[3]
     frame fw_control: local fw_c1 = g_1[3]
-    frame fw_expression: assert g_0[3] == `"`fw_c0'"'
-    frame fw_expression: assert g_1[3] == `"`fw_c1'"'
+    frame fw_expression {
+        assert g_0[3] == `"`fw_c0'"'
+        assert g_1[3] == `"`fw_c1'"'
+    }
 }
 if _rc == 0 {
     display as result "  PASS M03: compound fweight expressions equal materialized weights"
@@ -621,8 +630,10 @@ capture frame drop wt_zero
 table1_tc x, by(g) vars(x contn) wt(w) format(%9.3f) ///
     frame(wt_zero, replace)
 capture noisily {
-    frame wt_zero: assert g_1[4] == `"`wt_base_1'"'
-    frame wt_zero: assert g_2[4] == `"`wt_base_2'"'
+    frame wt_zero {
+        assert g_1[4] == `"`wt_base_1'"'
+        assert g_2[4] == `"`wt_base_2'"'
+    }
 }
 if _rc == 0 {
     display as result "  PASS M04: zero wt() rows leave weighted statistics invariant"
@@ -642,8 +653,22 @@ capture noisily table1_tc mpg, by(__hp) vars(mpg contn) headerperc ///
 local hp_rc = _rc
 capture noisily {
     assert `hp_rc' == 0
-    frame hp_collision: confirm variable __hp_0
-    frame hp_collision: confirm variable __hp_1
+    frame hp_collision {
+        confirm variable __hp_0
+        confirm variable __hp_1
+        * the by()-derived columns must hold real summary content, not be
+        * corrupted/blanked by a name collision with headerperc's own scratch
+        assert _N == 3
+        assert strpos(__hp_0[1], "__hp = 0") > 0
+        assert strpos(__hp_1[1], "__hp = 1") > 0
+        * Row 2 is the "N (pct)" line and is the numeric content that a scratch
+        * name collision would corrupt; row 3 is the mean+/-SD cell, which is
+        * deliberately not a bare number.
+        assert real(word(strtrim(__hp_0[2]), 1)) == 52
+        assert real(word(strtrim(__hp_1[2]), 1)) == 22
+        assert strtrim(__hp_0[3]) != ""
+        assert strtrim(__hp_1[3]) != ""
+    }
 }
 if _rc == 0 {
     display as result "  PASS M05: headerperc scratch variables cannot collide"

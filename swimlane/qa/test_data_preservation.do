@@ -27,6 +27,9 @@ capture noisily {
         name(sw_preserve_success, replace) nodraw
     assert c(varabbrev) == "`orig_varabbrev'"
     assert c(more) == "`orig_more'"
+    unab _dp1_vars_after : _all
+    describe using "`before'", varlist
+    assert "`_dp1_vars_after'" == "`r(varlist)'"
     cf _all using "`before'"
 }
 if _rc == 0 {

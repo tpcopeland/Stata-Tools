@@ -173,12 +173,16 @@ capture noisily {
 
     capture frame drop cross_row
     crosstab outcome exposure, rowpct frame(cross_row, replace)
-    frame cross_row: assert c3[4] == "30 (75.0%)"
+    frame cross_row {
+        assert c3[4] == "30 (75.0%)"
+    }
     capture frame drop cross_row
 
     capture frame drop cross_total
     crosstab outcome exposure, totalpct frame(cross_total, replace)
-    frame cross_total: assert c3[4] == "30 (30.0%)"
+    frame cross_total {
+        assert c3[4] == "30 (30.0%)"
+    }
 }
 if _rc == 0 {
     display as result "  PASS: crosstab rowpct/totalpct text"
@@ -205,17 +209,23 @@ capture noisily {
 
     capture frame drop cross_col_abbrev
     crosstab outcome exposure, col frame(cross_col_abbrev, replace)
-    frame cross_col_abbrev: assert c3[4] == "30 (60.0%)"
+    frame cross_col_abbrev {
+        assert c3[4] == "30 (60.0%)"
+    }
     capture frame drop cross_col_abbrev
 
     capture frame drop cross_row_abbrev
     crosstab outcome exposure, row frame(cross_row_abbrev, replace)
-    frame cross_row_abbrev: assert c3[4] == "30 (75.0%)"
+    frame cross_row_abbrev {
+        assert c3[4] == "30 (75.0%)"
+    }
     capture frame drop cross_row_abbrev
 
     capture frame drop cross_total_abbrev
     crosstab outcome exposure, total frame(cross_total_abbrev, replace)
-    frame cross_total_abbrev: assert c3[4] == "30 (30.0%)"
+    frame cross_total_abbrev {
+        assert c3[4] == "30 (30.0%)"
+    }
 }
 if _rc == 0 {
     display as result "  PASS: crosstab col/row/total abbreviations"
@@ -497,7 +507,9 @@ else {
 	    capture frame drop _qt_frame
 	    crosstab highmpg foreign, title(`"Effect of "high" mpg"') ///
 	        frame(_qt_frame, replace)
-	    frame _qt_frame: assert title[1] == `"Effect of "high" mpg"'
+	    frame _qt_frame {
+	        assert title[1] == `"Effect of "high" mpg"'
+	    }
 	    capture frame drop _qt_frame
 	}
 	if _rc == 0 {
@@ -1224,8 +1236,13 @@ else {
 
 * T1: crosstab `border`, `tr`
 sysuse auto, clear
-capture noisily crosstab foreign rep78, ///
-    border(thin) tr
+capture noisily {
+    crosstab foreign rep78, border(thin) tr
+    * border(thin)/tr must not have suppressed the trend-test computation
+    assert !missing(r(p_trend))
+    assert r(p_trend) >= 0 & r(p_trend) <= 1
+    assert "`r(trend_method)'" == "Spearman rank correlation"
+}
 if _rc == 0 {
     display as result "  PASS T1: crosstab border/tr abbreviations"
     local ++pass_count

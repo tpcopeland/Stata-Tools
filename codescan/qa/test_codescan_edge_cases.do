@@ -159,6 +159,15 @@ capture noisily {
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") ///
         replace export("_cs_export_test.xlsx")
     confirm file "_cs_export_test.xlsx"
+    preserve
+    import excel using "_cs_export_test.xlsx", firstrow clear
+    assert _N == 2
+    confirm variable condition
+    confirm variable matches
+    assert condition[1] == "dm2"
+    assert condition[2] == "htn"
+    assert matches[1] > 0
+    restore
     capture erase "_cs_export_test.xlsx"
 }
 if _rc == 0 {
@@ -203,6 +212,8 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | htn "I1[0-35]") replace graph
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " Graph ") > 0
     graph close _all
 }
 if _rc == 0 {
@@ -219,6 +230,8 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11") replace graph
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " Graph ") > 0
     graph close _all
 }
 if _rc == 0 {

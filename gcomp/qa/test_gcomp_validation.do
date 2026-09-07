@@ -258,7 +258,7 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) impute(c) sim(500) samples(20) seed(42)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: V11 impute() without imp_cmd() caught as error"
@@ -278,7 +278,7 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) impute(c) imp_cmd(c: regress) sim(500) samples(20) seed(42)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: V12 impute() without imp_eq() caught as error"

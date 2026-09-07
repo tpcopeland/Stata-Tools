@@ -127,11 +127,14 @@ capture noisily {
     confirm variable _age_c
     fvgen, drop
     capture confirm variable _age_c
-    assert _rc != 0
+    assert _rc == 111
     capture confirm variable _armXage_0
-    assert _rc != 0
-    * underlying age survives
+    assert _rc == 111
+    * underlying age survives, values untouched (rows 6-10 are the
+    * deliberately injected missing values from _fvgen_make_data)
     confirm variable age
+    quietly count if missing(age)
+    assert r(N) == 5
 }
 if _rc == 0 {
     display as result "  PASS: drop clears absorbed centered copies"

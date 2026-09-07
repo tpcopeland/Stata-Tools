@@ -471,17 +471,23 @@ capture {
 
     * After tvevent with type(single):
     * - Original interval [21915, 21975] split at 21945
-    * - Pre-event [21915, 21945] = 30 days with event
-    * - Post-event [21945, 21975] = 30 days is REMOVED by type(single)
-    * The proportioned dose for pre-event = 30/60 * post_merge_dose ≈ 30.2
+    * - Pre-event [21915, 21945] is KEPT
+    * - Post-event [21945, 21975] is REMOVED by type(single)
 
     quietly sum dose
     local post_split_dose = r(sum)
 
-    * The split should proportion: (30 days pre-event) / (60 days original)
-    * Expected = post_merge_dose * 30/60 = post_merge_dose / 2
-    local expected = `post_merge_dose' / 2
-    assert abs(`post_split_dose' - `expected') < 2
+    * tvevent prorates a continuous()/total() quantity by the INCLUSIVE day
+    * count -- `new_dur = stopvar - startvar + 1' over `_orig_dur' (tvevent.ado,
+    * "Interval totals are the only algebra adjusted by a split"). The original
+    * interval [21915, 21975] is therefore 61 days and the retained pre-event
+    * portion [21915, 21945] is 31, so the exact ratio is 31/61 -- NOT the
+    * 30/60 an exclusive day count would suggest. Because the ratio is an exact
+    * floating-point quotient rather than a rounded quantity, the result must
+    * match to floating precision.
+    local expected = `post_merge_dose' * 31 / 61
+    assert !missing(`post_split_dose', `expected')
+    assert reldif(`post_split_dose', `expected') < 1e-6
 }
 if _rc == 0 {
     local ++pass_count
@@ -527,10 +533,13 @@ capture {
     end
     format %td study_entry study_exit
 
-    * Calculate expected total person-time
+    * Calculate expected total person-time. expected_pt is an EXCLUSIVE day
+    * count, while the tvexpose output below is measured inclusively, so the
+    * exact identity carries one extra day per person (see the assert).
     gen double expected_pt = study_exit - study_entry
     quietly sum expected_pt
     local expected_total = r(sum)
+    local n_persons = _N
 
     save "${DATA_DIR}/_val_pt_cohort.dta", replace
 
@@ -555,9 +564,15 @@ capture {
     quietly sum actual_pt
     local actual_total = r(sum)
 
-    * Should match expected within tolerance
-    * Allow 3 days per person (9 days total for 3 persons) for boundary handling
-    assert abs(`actual_total' - `expected_total') <= 10
+    * tvexpose emits contiguous INCLUSIVE intervals that exactly tile
+    * [study_entry, study_exit], so per person the inclusive total is
+    * (study_exit - study_entry) + 1. Conservation is therefore an exact
+    * identity against the exclusive expected_pt plus one day per person -- no
+    * tolerance is needed, and a band wide enough to absorb a dropped or
+    * duplicated interval would defeat the point of the test.
+    noisily display as text "  person-time: actual = `actual_total'  expected = " ///
+        "`expected_total' + `n_persons'"
+    assert `actual_total' == `expected_total' + `n_persons'
 }
 if _rc == 0 {
     local ++pass_count

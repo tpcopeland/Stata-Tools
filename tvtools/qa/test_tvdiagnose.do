@@ -394,6 +394,8 @@ capture noisily {
     tvdiagnose, id(id) start(start) stop(stop) swimlane
     capture graph describe tvd_swimlane
     assert _rc == 0
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " tvd_swimlane ") > 0
 }
 if _rc == 0 {
     display as result "  PASS: swimlane (no exposure) creates graph"

@@ -93,6 +93,7 @@ else local ++fail_count
 
 **# The help's installation guard is a legal conditional no-op when installed
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether the package resolves on the adopath (with or without the conditional net install) IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture which tc_schemes
     if _rc != 0 net install tc_schemes, from("...")

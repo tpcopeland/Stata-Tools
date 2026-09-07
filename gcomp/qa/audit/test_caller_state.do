@@ -37,6 +37,13 @@ save `before'
 gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
     commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
     base_confs(c) simulations(350) samples(3) seed(48)
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _cs_vars1 : _all
+describe using `before', varlist
+assert "`_cs_vars1'" == "`r(varlist)'"
 cf _all using `before', all
 assert b[1,1] == 11 & b[1,2] == 12
 assert V[2,1] == 23 & V[2,2] == 24
@@ -59,6 +66,13 @@ capture noisily gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) 
     commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
     base_confs(c) simulations(350) samples(3) seed(-1)
 assert _rc == 198
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _cs_vars2 : _all
+describe using `before', varlist
+assert "`_cs_vars2'" == "`r(varlist)'"
 cf _all using `before', all
 assert b[1,1] == 11 & V[2,2] == 24
 assert "$S_1" == "caller-one" & "$S_51" == "caller-fifty-one"

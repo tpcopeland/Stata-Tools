@@ -120,6 +120,7 @@ end
 
 * 1. Main command is discoverable after net install
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture which gcomp
     assert _rc == 0
@@ -142,6 +143,8 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(5) seed(1)
+    assert "`e(cmd)'" == "gcomp"
+    assert !missing(e(tce))
 }
 if _rc == 0 {
     display as result "  PASS: Basic OBE mediation runs"
@@ -225,6 +228,9 @@ capture noisily {
     confirm scalar e(se_nde)
     confirm scalar e(se_nie)
     confirm scalar e(se_pm)
+    assert !missing(e(tce)) & !missing(e(nde)) & !missing(e(nie)) & !missing(e(pm))
+    assert !missing(e(se_tce)) & !missing(e(se_nde)) & !missing(e(se_nie)) & !missing(e(se_pm))
+    assert e(se_tce) > 0 & e(se_nde) > 0 & e(se_nie) > 0 & e(se_pm) > 0
 }
 if _rc == 0 {
     display as result "  PASS: All e() convenience scalars present"
@@ -369,6 +375,10 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(300) samples(10) seed(1) minsim
+    assert "`e(cmd)'" == "gcomp"
+    assert !missing(e(tce_1), e(tce_2))
+    assert !missing(e(nde_1), e(nie_1), e(pm_1))
+    assert !missing(e(nde_2), e(nie_2), e(pm_2))
 }
 if _rc == 0 {
     display as result "  PASS: OCE without baseline() auto-detects baseline"
@@ -392,6 +402,17 @@ capture noisily {
     confirm matrix e(ci_percentile)
     confirm matrix e(ci_bc)
     confirm matrix e(ci_bca)
+    tempname _cin _cip _cibc _cibca
+    matrix `_cin' = e(ci_normal)
+    matrix `_cip' = e(ci_percentile)
+    matrix `_cibc' = e(ci_bc)
+    matrix `_cibca' = e(ci_bca)
+    * Each CI matrix is 2 rows (lower, upper) by one column per estimand.
+    assert rowsof(`_cin') == 2 & colsof(`_cin') > 0
+    assert rowsof(`_cip') == 2 & colsof(`_cip') > 0
+    assert rowsof(`_cibc') == 2 & colsof(`_cibc') > 0
+    assert rowsof(`_cibca') == 2 & colsof(`_cibca') > 0
+    assert `_cin'[1,1] < `_cin'[2,1]
 }
 if _rc == 0 {
     display as result "  PASS: all option produces 4 CI matrices"
@@ -412,6 +433,7 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(5) seed(1) minsim
     confirm scalar e(tce)
+    assert !missing(e(tce))
 }
 if _rc == 0 {
     display as result "  PASS: minsim option runs"
@@ -662,6 +684,14 @@ capture noisily {
         se_tce(0.03) se_nde(0.025) se_nie(0.015) se_pm(0.08) se_cde(0.025)
     gcomptab, xlsx("`testdir'/_test_gcomptab.xlsx") sheet("Basic")
     confirm file "`testdir'/_test_gcomptab.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab.xlsx", sheet("Basic") ///
+        clear allstring
+    assert _N >= 5
+    count if strpos(B, "(CDE)") > 0
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Basic gcomptab creates Excel file"
@@ -670,6 +700,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL: Basic gcomptab (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
+    * A failure between `preserve' and `restore' above leaves the snapshot
+    * outstanding, which would surface as r(621) in every LATER test rather
+    * than here.
+    capture restore
 }
 
 * 24. With title option
@@ -679,6 +716,13 @@ capture noisily {
     gcomptab, xlsx("`testdir'/_test_gcomptab_title.xlsx") sheet("Table 2") ///
         title("Table 2. Causal Mediation Analysis Results")
     confirm file "`testdir'/_test_gcomptab_title.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_title.xlsx", sheet("Table 2") clear allstring
+    assert _N >= 6
+    count if strtrim(A) == "Table 2. Causal Mediation Analysis Results"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: title() option"
@@ -687,6 +731,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: title() option (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 25-28. CI type options
@@ -716,6 +763,13 @@ capture noisily {
     gcomptab, xlsx("`testdir'/_test_gcomptab_effect.xlsx") sheet("RD") ///
         effect("Risk Diff")
     confirm file "`testdir'/_test_gcomptab_effect.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_effect.xlsx", sheet("RD") clear allstring
+    assert _N >= 5
+    count if strpos(B, "(CDE)") > 0
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: effect() option"
@@ -724,6 +778,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: effect() option (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 30. Custom labels
@@ -733,6 +790,13 @@ capture noisily {
     gcomptab, xlsx("`testdir'/_test_gcomptab_labels.xlsx") sheet("Custom") ///
         labels("Total \ Direct \ Indirect \ % Med \ CDE")
     confirm file "`testdir'/_test_gcomptab_labels.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_labels.xlsx", sheet("Custom") clear allstring
+    assert _N >= 5
+    count if strtrim(B) == "Total"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: labels() option"
@@ -741,6 +805,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: labels() option (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 31-33. Decimal precision options
@@ -751,6 +818,14 @@ foreach dec in 2 3 4 {
         gcomptab, xlsx("`testdir'/_test_gcomptab_dec`dec'.xlsx") ///
             sheet("Dec`dec'") decimal(`dec')
         confirm file "`testdir'/_test_gcomptab_dec`dec'.xlsx"
+        preserve
+        import excel using "`testdir'/_test_gcomptab_dec`dec'.xlsx", ///
+            sheet("Dec`dec'") clear
+        assert _N >= 5
+        count if strpos(B, "(CDE)") > 0
+        assert !missing(r(N))
+        assert r(N) == 1
+        restore
     }
     if _rc == 0 {
         display as result "  PASS: decimal(`dec') option"
@@ -759,6 +834,9 @@ foreach dec in 2 3 4 {
     else {
         display as error "  FAIL: decimal(`dec') option (error `=_rc')"
         local ++fail_count
+        * A failure inside the block above leaves the `preserve' outstanding,
+        * which would surface as r(621) in every LATER test rather than here.
+        capture restore
     }
 }
 
@@ -772,6 +850,13 @@ capture noisily {
         labels("TCE \ NDE \ NIE \ PM \ CDE") ///
         title("Table 3. Full Options Test")
     confirm file "`testdir'/_test_gcomptab_full.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_full.xlsx", sheet("Complete") clear allstring
+    assert _N >= 6
+    count if strtrim(B) == "CDE"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: All gcomptab options combined"
@@ -780,6 +865,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: All options combined (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 35. Multiple sheets in same file
@@ -792,6 +880,16 @@ capture noisily {
     gcomptab, xlsx("`testdir'/_test_gcomptab_multi.xlsx") sheet("Model 2") ///
         title("Model 2: Adjusted")
     confirm file "`testdir'/_test_gcomptab_multi.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_multi.xlsx", sheet("Model 1") clear allstring
+    count if strtrim(A) == "Model 1: Unadjusted"
+    assert !missing(r(N))
+    assert r(N) == 1
+    import excel using "`testdir'/_test_gcomptab_multi.xlsx", sheet("Model 2") clear allstring
+    count if strtrim(A) == "Model 2: Adjusted"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Multiple sheets in same file"
@@ -800,6 +898,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: Multiple sheets (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * ============================================================
@@ -861,6 +962,13 @@ capture noisily {
         se_tce(0.04) se_nde(0.03) se_nie(0.02) se_pm(0.10) se_cde(0.03)
     gcomptab, xlsx("`testdir'/_test_gcomptab_neg.xlsx") sheet("Negative")
     confirm file "`testdir'/_test_gcomptab_neg.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_neg.xlsx", sheet("Negative") clear allstring
+    assert _N >= 5
+    count if strpos(B, "(CDE)") > 0
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Negative effects handled"
@@ -869,6 +977,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: Negative effects (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 39. Very small effects
@@ -877,6 +988,13 @@ capture noisily {
     mock_gcomp, tce(0.001) nde(0.0008) nie(0.0002) pm(0.20) cde(0.0007)
     gcomptab, xlsx("`testdir'/_test_gcomptab_small.xlsx") sheet("Small") decimal(4)
     confirm file "`testdir'/_test_gcomptab_small.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_small.xlsx", sheet("Small") clear allstring
+    assert _N >= 5
+    count if strpos(B, "(CDE)") > 0
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Very small effects handled"
@@ -885,6 +1003,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: Very small effects (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 40. Large effects
@@ -894,6 +1015,13 @@ capture noisily {
         se_tce(0.08) se_nde(0.06) se_nie(0.05) se_pm(0.10) se_cde(0.06)
     gcomptab, xlsx("`testdir'/_test_gcomptab_large.xlsx") sheet("Large")
     confirm file "`testdir'/_test_gcomptab_large.xlsx"
+    preserve
+    import excel using "`testdir'/_test_gcomptab_large.xlsx", sheet("Large") clear allstring
+    assert _N >= 5
+    count if strpos(B, "(CDE)") > 0
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Large effects handled"
@@ -902,6 +1030,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: Large effects (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * ============================================================
@@ -917,7 +1048,7 @@ capture noisily {
     gen double _x = rnormal()
     quietly regress _y _x
     capture gcomptab, xlsx("`testdir'/_test_error.xlsx") sheet("Error")
-    assert _rc != 0
+    assert _rc == 119
 }
 if _rc == 0 {
     display as result "  PASS: Error when e(cmd) != gcomp"
@@ -933,7 +1064,7 @@ local ++test_count
 capture noisily {
     mock_gcomp, tce(0.15) nde(0.10) nie(0.05) pm(0.33) cde(0.08)
     capture gcomptab, xlsx("`testdir'/_test_error.xlsx") sheet("Error") ci(invalid)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Error for invalid CI type"
@@ -949,7 +1080,7 @@ local ++test_count
 capture noisily {
     mock_gcomp, tce(0.15) nde(0.10) nie(0.05) pm(0.33) cde(0.08)
     capture gcomptab, xlsx("`testdir'/_test_error.xlsx") sheet("Error") decimal(10)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Error for decimal out of range"
@@ -965,7 +1096,7 @@ local ++test_count
 capture noisily {
     mock_gcomp, tce(0.15) nde(0.10) nie(0.05) pm(0.33) cde(0.08)
     capture gcomptab, xlsx("`testdir'/_test_error.xls") sheet("Error")
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Error for non-.xlsx extension"
@@ -993,6 +1124,13 @@ capture noisily {
         sheet("Integration") ///
         title("Integration Test")
     confirm file "`testdir'/_test_integration.xlsx"
+    preserve
+    import excel using "`testdir'/_test_integration.xlsx", sheet("Integration") clear allstring
+    assert _N >= 6
+    count if strtrim(A) == "Integration Test"
+    assert !missing(r(N))
+    assert r(N) == 1
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: Full gcomp -> gcomptab pipeline"
@@ -1001,6 +1139,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: gcomp -> gcomptab pipeline (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 46. e() persists after gcomptab (rclass doesn't clear eclass)
@@ -1033,6 +1174,7 @@ capture noisily {
     foreach citype in normal percentile bc bca {
         gcomptab, xlsx("`testdir'/_test_integ_ci.xlsx") ///
             sheet("`citype'") ci(`citype')
+        assert "`r(ci)'" == "`citype'"
     }
     confirm file "`testdir'/_test_integ_ci.xlsx"
 }
@@ -2017,6 +2159,9 @@ if _rc == 0 {
 else {
     display as error "  FAIL: saving/replace (error `=_rc')"
     local ++fail_count
+    * A failure inside the block above leaves the `preserve' outstanding,
+    * which would surface as r(621) in every LATER test rather than here.
+    capture restore
 }
 
 * 77. Mediation with regress command (continuous outcome)
@@ -2036,6 +2181,7 @@ capture noisily {
         base_confs(c) sim(100) samples(3) seed(1)
     confirm scalar e(tce)
     confirm scalar e(nde)
+    assert !missing(e(tce)) & !missing(e(nde))
 }
 if _rc == 0 {
     display as result "  PASS: Mediation with regress (continuous outcome)"
@@ -2062,6 +2208,7 @@ capture noisily {
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(3) seed(1)
     confirm scalar e(tce)
+    assert !missing(e(tce))
 }
 if _rc == 0 {
     display as result "  PASS: Mediation with regress mediator"
@@ -2089,6 +2236,7 @@ capture noisily {
         equations(m1: x c, m2: x c, y: m1 m2 x c) ///
         base_confs(c) sim(100) samples(3) seed(1)
     confirm scalar e(tce)
+    assert !missing(e(tce))
 }
 if _rc == 0 {
     display as result "  PASS: Multiple mediators (m1 m2)"
@@ -2118,6 +2266,7 @@ capture noisily {
         base_confs(c) sim(100) samples(3) seed(1) ///
         impute(m) imp_cmd(m: logit) imp_eq(m: x c) imp_cycles(5)
     confirm scalar e(tce)
+    assert !missing(e(tce))
 }
 if _rc == 0 {
     display as result "  PASS: Imputation options (impute/imp_cmd/imp_eq/imp_cycles)"
@@ -2517,7 +2666,7 @@ capture noisily {
         commands(L: regress, Y: logit, A: logit) ///
         equations(L: A, Y: L A, A: L) ///
         intvars(A) interventions(A_: A_=1, A_: A_=0) eofu
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Error time-varying without tvar()"

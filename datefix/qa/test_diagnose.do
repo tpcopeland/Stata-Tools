@@ -297,6 +297,9 @@ capture noisily {
     capture noisily datefix good numeric bad, order(YMD) df(%tdDD/NN/CCYY)
     local call_rc = _rc
     assert `call_rc' == 198
+    unab _t10_vars_now : _all
+    describe using `rollback_before', varlist
+    assert "`_t10_vars_now'" == "`r(varlist)'"
     cf _all using `rollback_before', all
     confirm string variable good
     confirm numeric variable numeric
@@ -383,6 +386,9 @@ capture noisily {
     confirm numeric variable good
     restore
     confirm string variable good
+    unab _t12a_vars_now : _all
+    describe using `caller_before', varlist
+    assert "`_t12a_vars_now'" == "`r(varlist)'"
     cf _all using `caller_before', all
 
     preserve
@@ -390,8 +396,14 @@ capture noisily {
     local call_rc = _rc
     assert `call_rc' == 198
     confirm string variable good
+    unab _t12b_vars_now : _all
+    describe using `caller_before', varlist
+    assert "`_t12b_vars_now'" == "`r(varlist)'"
     cf _all using `caller_before', all
     restore
+    unab _t12c_vars_now : _all
+    describe using `caller_before', varlist
+    assert "`_t12c_vars_now'" == "`r(varlist)'"
     cf _all using `caller_before', all
 }
 if _rc == 0 {

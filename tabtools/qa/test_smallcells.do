@@ -439,11 +439,11 @@ capture noisily {
         xlsx("`output_dir'/missing_subdirectory/smallcells.xlsx")
     assert _rc != 0
     capture matrix list r(categorical)
-    assert _rc != 0
+    assert _rc == 111
     capture matrix list r(sample)
-    assert _rc != 0
+    assert _rc == 111
     capture matrix list r(continuous_n)
-    assert _rc != 0
+    assert _rc == 111
 }
 _sc_record "failed export strands no raw collector matrices" `=_rc' `pass_count' `fail_count'
 

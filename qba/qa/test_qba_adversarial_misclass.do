@@ -289,6 +289,9 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     assert c(varabbrev) == "on"
+    unab _t9_vars_now : _all
+    describe using "`before_invalid'", varlist
+    assert "`_t9_vars_now'" == "`r(varlist)'"
     cf _all using "`before_invalid'"
 }
 if _rc == 0 {
@@ -374,6 +377,9 @@ capture noisily {
     qba_misclass, a(80) b(120) c(300) d(500) seca(.85) spca(.95) ///
         reps(100) seed(909)
     assert c(varabbrev) == "off"
+    unab _t11a_vars_now : _all
+    describe using "`before_state'", varlist
+    assert "`_t11a_vars_now'" == "`r(varlist)'"
     cf _all using "`before_state'"
 
     set varabbrev on
@@ -382,6 +388,9 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     assert c(varabbrev) == "on"
+    unab _t11b_vars_now : _all
+    describe using "`before_state'", varlist
+    assert "`_t11b_vars_now'" == "`r(varlist)'"
     cf _all using "`before_state'"
 }
 if _rc == 0 {
@@ -410,6 +419,9 @@ capture noisily {
     local rc = _rc
     assert `rc' == 198
     assert c(varabbrev) == "off"
+    unab _t12_vars_now : _all
+    describe using "`before_scalar'", varlist
+    assert "`_t12_vars_now'" == "`r(varlist)'"
     cf _all using "`before_scalar'"
 }
 if _rc == 0 {

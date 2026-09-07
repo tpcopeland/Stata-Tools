@@ -107,6 +107,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -248,6 +250,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) mean(bold)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -281,6 +285,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -314,6 +320,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -347,6 +356,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) mean(bold smooth(lowess))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -381,6 +392,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             mean(bold smooth(linear))
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -449,6 +463,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             sample(30) seed(42)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
+        assert r(n_sampled) == 30
     }
     if _rc == 0 {
         local ++pass_count
@@ -553,6 +571,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) highlight(patid==1)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -587,6 +607,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             highlight(patid==1 | patid==5)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -620,6 +642,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) highlight(bl_sdmt < 45)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -654,6 +678,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             highlight(patid==1 | patid==26)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -687,6 +714,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) colorby(bl_sdmt)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -720,6 +749,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) colorby(center, categorical)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -753,6 +784,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) refline(5)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -787,6 +820,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             refline(5, label("Midpoint") style(dash))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -824,6 +859,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
         spaghetti sdmt, id(patid) time(months) ///
             export(`export_file', replace)
         confirm file "`export_file'"
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -859,6 +896,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             colors(red blue)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -893,6 +933,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             individual(color(gs10) opacity(20) lwidth(thin))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -928,6 +970,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
         spaghetti sdmt, id(patid) time(months) ///
             title("Test Title") subtitle("Test Subtitle") ///
             note("Test Note") scheme(s2color)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -962,6 +1006,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             ytitle("Custom Y") xtitle("Custom X")
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -996,6 +1042,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             sample(20) seed(42) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
+        assert r(n_sampled) == 20
     }
     if _rc == 0 {
         local ++pass_count
@@ -1030,6 +1080,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             highlight(patid<=5) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1272,6 +1324,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     quietly keep if months == 0
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment)
+        assert r(N) == 50
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -1448,6 +1503,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             highlight(patid==1 | patid==26) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count
@@ -1482,6 +1540,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             plotregion(margin(small))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1516,6 +1576,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             graphregion(color(white))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1549,7 +1611,16 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) name(test_graph)
+        * Read spaghetti's r() BEFORE `graph dir'/`graph drop': both replace
+        * r() wholesale, so asserting on r(N)/r(n_ids) after them reads the
+        * GRAPH command's results, not spaghetti's.
+        local _sp_n   = r(N)
+        local _sp_ids = r(n_ids)
+        quietly graph dir
+        assert strpos(" " + r(list) + " ", " test_graph ") > 0
         graph drop test_graph
+        assert `_sp_n' == 500
+        assert `_sp_ids' == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1587,6 +1658,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
         spaghetti sdmt, id(patid) time(months) ///
             saving(`save_file', replace)
         confirm file "`save_file'"
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1622,7 +1695,16 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) name(test_gr2, replace)
         spaghetti sdmt, id(patid) time(months) name(test_gr2, replace)
+        * Read spaghetti's r() BEFORE `graph dir'/`graph drop': both replace
+        * r() wholesale, so asserting on r(N)/r(n_ids) after them reads the
+        * GRAPH command's results, not spaghetti's.
+        local _sp_n   = r(N)
+        local _sp_ids = r(n_ids)
+        quietly graph dir
+        assert strpos(" " + r(list) + " ", " test_gr2 ") > 0
         graph drop test_gr2
+        assert `_sp_n' == 500
+        assert `_sp_ids' == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1657,6 +1739,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             highlight(patid==1 | patid==5 bgopacity(10))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1690,6 +1774,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) mean(ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1729,6 +1815,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
             individual(color(gs10) opacity(20) lwidth(vthin)) ///
             title("Full Pipeline Test") ///
             ytitle("Score") xtitle("Time")
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
+        assert r(n_sampled) == 30
     }
     if _rc == 0 {
         local ++pass_count
@@ -1763,6 +1853,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     * treatment has only 2 unique values
     capture {
         spaghetti sdmt, id(patid) time(months) colorby(treatment)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1797,6 +1889,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) ///
             ylabel(30(10)70) xlabel(0(2)10)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1903,6 +1997,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) colorby(bl_sdmt) mean(bold ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -1968,6 +2064,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     _make_panel_data 50 10 12345
     capture {
         spaghetti sdmt, id(patid) time(months) mean(smooth(lowess))
+        assert r(N) == 500
+        assert r(n_ids) == 50
     }
     if _rc == 0 {
         local ++pass_count
@@ -2000,6 +2098,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         spaghetti sdmt, id(patid) time(months) by(treatment) ///
             mean(smooth(lowess) ci)
+        assert r(N) == 500
+        assert r(n_ids) == 50
+        assert r(n_groups) == 2
     }
     if _rc == 0 {
         local ++pass_count

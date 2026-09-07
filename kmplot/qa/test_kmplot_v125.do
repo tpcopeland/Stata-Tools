@@ -61,12 +61,15 @@ capture noisily {
     capture graph drop _all
 
     kmplot, by(drug) name(_kmplot_main, replace)
+    assert "`r(graph_name)'" == "_kmplot_main"
     graph describe _kmplot_main
 
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) risktable timepoints(0 10 20) ///
         name(_kmplot_risktable, replace)
+    assert "`r(graph_name)'" == "_kmplot_risktable"
+    assert r(n_timepoints) == 3
     graph describe _kmplot_risktable
 }
 if _rc == 0 {
@@ -167,7 +170,9 @@ capture noisily {
     local exportsvg "`exportbase'.svg"
 
     kmplot, export("`exportsvg'", replace) name(v125_r6, replace)
+    assert "`r(export)'" == "`exportsvg'"
     confirm file "`exportsvg'"
+    _kmplot_assert_file_contains using "`exportsvg'", pattern("<svg")
 }
 if _rc == 0 {
     display as result "  PASS: R6 Dotted tempfile export path supported"

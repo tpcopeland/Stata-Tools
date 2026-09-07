@@ -83,6 +83,11 @@ capture noisily {
     datefix str_ymd, newvar(date_ymd)
     confirm string variable str_ymd
     confirm numeric variable date_ymd
+    * newvar() must hold the CONVERTED value, not just any numeric column
+    quietly gen double _t2_expect = date(str_ymd, "YMD")
+    assert !missing(_t2_expect)
+    quietly count if date_ymd != _t2_expect
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: newvar() preserves original, creates new"
@@ -102,8 +107,14 @@ capture noisily {
     set varabbrev off
     capture confirm variable str_ymd
     set varabbrev on
-    assert _rc != 0
+    assert _rc == 111
     confirm numeric variable date_ymd
+    * str_date1 is an untouched copy of the original str_ymd values, so it
+    * gives the ground truth even though str_ymd itself was dropped
+    quietly gen double _t3_expect = date(str_date1, "YMD")
+    assert !missing(_t3_expect)
+    quietly count if date_ymd != _t3_expect
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: drop option removes original"
@@ -197,9 +208,16 @@ else {
 local ++test_count
 capture noisily {
     use "`tmp'/_test_dates.dta", clear
+    * keep raw copies before in-place conversion so the converted values can
+    * be checked against an independently computed expectation
+    quietly gen double _t8_expect1 = date(str_date1, "YMD")
+    quietly gen double _t8_expect2 = date(str_date2, "DMY")
+    assert !missing(_t8_expect1) & !missing(_t8_expect2)
     datefix str_date1 str_date2
     confirm numeric variable str_date1
     confirm numeric variable str_date2
+    quietly count if str_date1 != _t8_expect1 | str_date2 != _t8_expect2
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: Multiple variables"
@@ -348,10 +366,14 @@ capture noisily {
     clear
     set obs 5
     gen double numdate = mdy(1,15,2020) + _n - 1
+    quietly gen double _t16_expect = numdate
     datefix numdate, newvar(nd_copy) drop
     capture confirm variable numdate
-    assert _rc != 0
+    assert _rc == 111
     confirm numeric variable nd_copy
+    * an already-numeric date must pass through newvar() unchanged
+    quietly count if nd_copy != _t16_expect
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: Numeric variable with newvar() + drop"
@@ -368,6 +390,11 @@ capture noisily {
     use "`tmp'/_test_dates.dta", clear
     datefix str_ymd, order(ymd) newvar(date_ymd)
     confirm numeric variable date_ymd
+    * lowercase order(ymd) must parse identically to order(YMD)
+    quietly gen double _t17_expect = date(str_ymd, "YMD")
+    assert !missing(_t17_expect)
+    quietly count if date_ymd != _t17_expect
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: Case-insensitive order(ymd)"
@@ -613,7 +640,7 @@ local ++test_count
 capture noisily {
     use "`tmp'/_test_dates.dta", clear
     capture datefix str_ymd, newvar(1badname) order(YMD)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Invalid variable name rejected at parse"
@@ -742,6 +769,7 @@ else {
 
 * Test 35: Package installs and datefix is discoverable
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the freshly (re)installed command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     capture ado uninstall datefix
     net install datefix, from("`pkg_dir'") replace

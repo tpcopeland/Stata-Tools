@@ -661,13 +661,14 @@ capture {
     regtab, xlsx("`output_dir'/_test_ms_A.xlsx") sheet("A")
     confirm file "`output_dir'/_test_ms_A.xlsx"
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test A - mepoisson no crash"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test A - mepoisson crash (rc=`=_rc')"
+    display as error "  FAIL: Test A - mepoisson crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -693,13 +694,14 @@ capture {
     regtab, xlsx("`output_dir'/_test_ms_A1.xlsx") sheet("A1") stats(groups)
     assert r(groups_1) == 20
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test A1 - regtab r(groups_1) == 20"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test A1 - regtab r(groups_1) wrong or crash (rc=`=_rc')"
+    display as error "  FAIL: Test A1 - regtab r(groups_1) wrong or crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -734,13 +736,14 @@ capture {
     restore
     assert `icc_present' == 0
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test B - mepoisson ICC row absent (guard works)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test B - mepoisson ICC row present or crash (rc=`=_rc')"
+    display as error "  FAIL: Test B - mepoisson ICC row present or crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -775,13 +778,14 @@ capture {
     restore
     assert `found_mhr' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test C - mestreg MHR label present"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test C - mestreg MHR label absent or crash (rc=`=_rc')"
+    display as error "  FAIL: Test C - mestreg MHR label absent or crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -843,13 +847,14 @@ capture {
     assert `act_mor' != .
     assert abs(`act_mor' - `exp_mor') < 0.01
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test D - melogit MOR value accuracy"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test D - melogit MOR mismatch or crash (rc=`=_rc')"
+    display as error "  FAIL: Test D - melogit MOR mismatch or crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -899,13 +904,14 @@ capture {
     assert `ci_lo' < `act_mor'
     assert `act_mor' < `ci_hi'
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test E - melogit MOR CI bounds sanity (lo < MOR < hi)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test E - melogit MOR CI bounds invalid (rc=`=_rc')"
+    display as error "  FAIL: Test E - melogit MOR CI bounds invalid (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -962,13 +968,14 @@ capture {
     assert `act_icc' != .
     assert abs(`act_icc' - `exp_icc') < 0.001
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test F - melogit ICC binary formula"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test F - melogit ICC mismatch or crash (rc=`=_rc')"
+    display as error "  FAIL: Test F - melogit ICC mismatch or crash (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1007,13 +1014,14 @@ capture {
     assert abs(`act_aic' - `exp_aic') < 0.01
     assert abs(`act_bic' - `exp_bic') < 0.01
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test G - AIC/BIC value accuracy (logit)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test G - AIC/BIC mismatch (rc=`=_rc')"
+    display as error "  FAIL: Test G - AIC/BIC mismatch (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1075,13 +1083,14 @@ capture {
     assert `act_icc' != .
     assert abs(`act_icc' - `exp_icc') < 0.001
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test H - two-level ICC accumulates both variances"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test H - two-level ICC mismatch (rc=`=_rc')"
+    display as error "  FAIL: Test H - two-level ICC mismatch (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1105,13 +1114,14 @@ capture {
     restore
     assert `icc_present' == 0
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test I - regress stats(icc): no crash, no ICC row"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test I - regress stats(icc): crash or ICC row present (rc=`=_rc')"
+    display as error "  FAIL: Test I - regress stats(icc): crash or ICC row present (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1133,13 +1143,14 @@ capture {
     assert _N >= 3
     restore
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test J - stcox shared frailty no crash"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test J - stcox crash or empty table (rc=`=_rc')"
+    display as error "  FAIL: Test J - stcox crash or empty table (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1172,13 +1183,14 @@ capture {
         assert abs(`act_or' - round(`exp_or', 0.01)) < 0.02
     }
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test K - logit fixed effects exponentiated; intercept dropped"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test K - logit OR transform or auto-noint failed (rc=`=_rc')"
+    display as error "  FAIL: Test K - logit OR transform or auto-noint failed (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_or
@@ -1203,13 +1215,14 @@ capture {
         assert r(N) == 1
     }
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test L - mixed collections keep model-specific headers"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test L - mixed collection headers/stats mislabeled (rc=`=_rc')"
+    display as error "  FAIL: Test L - mixed collection headers/stats mislabeled (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_mix
@@ -1255,13 +1268,14 @@ capture noisily {
     }
     assert abs(`_actual_mor' - round(`_expected_mor', 0.01)) < 0.02
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test L2 - MOR is invariant to mixed/nonmixed model ordering"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test L2 - trailing nonmixed model corrupted MOR (rc=`=_rc')"
+    display as error "  FAIL: Test L2 - trailing nonmixed model corrupted MOR (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_mor_order
@@ -1291,13 +1305,14 @@ capture noisily {
     capture confirm frame _rt_mixed_re
     assert _rc != 0
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test L3 - incompatible mixed-family RE transforms rejected"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test L3 - mixed-family RE corruption not blocked (rc=`=_rc')"
+    display as error "  FAIL: Test L3 - mixed-family RE corruption not blocked (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_mixed_re
@@ -1314,13 +1329,14 @@ capture {
  capture noisily regtab, highpdp(0)
     assert _rc == 198
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test M - invalid p-value precision rejected"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test M - invalid p-value precision accepted (rc=`=_rc')"
+    display as error "  FAIL: Test M - invalid p-value precision accepted (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1357,13 +1373,14 @@ capture {
         assert r(N) == 0
     }
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test N - keep() preserves distinct multi-level MOR rows"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test N - keep() broke MOR row tracking (rc=`=_rc')"
+    display as error "  FAIL: Test N - keep() broke MOR row tracking (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_mor_keep
@@ -1386,13 +1403,14 @@ capture {
         assert c4[3] == "AF"
     }
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test O - mixed streg headers use per-model metadata"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test O - mixed streg headers reused ambient metadata (rc=`=_rc')"
+    display as error "  FAIL: Test O - mixed streg headers reused ambient metadata (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_streg_mix
@@ -1414,13 +1432,14 @@ capture {
         assert c4[3] == "OR"
     }
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test P - mixed glm headers use per-model family metadata"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test P - mixed glm headers reused ambient metadata (rc=`=_rc')"
+    display as error "  FAIL: Test P - mixed glm headers reused ambient metadata (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_glm_mix
@@ -1443,13 +1462,14 @@ capture {
     assert colsof(r(table)) == 1
     assert abs(r(table)[1,1] - `exp_or') < 0.02
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test Q - r(table) stays numeric under rendered output"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test Q - rendered output corrupted r(table) (rc=`=_rc')"
+    display as error "  FAIL: Test Q - rendered output corrupted r(table) (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 capture frame drop _rt_rendered
@@ -1487,13 +1507,14 @@ capture {
     assert `found_intercept' == 1
     assert `found_residual' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 1 - Single-level mixed relabel"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 1 - Single-level mixed relabel (error `=_rc')"
+    display as error "  FAIL: Test 1 - Single-level mixed relabel (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1531,13 +1552,14 @@ capture {
     assert `found_school' == 1
     assert `found_residual' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 2 - Two-level mixed relabel (both levels)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 2 - Two-level mixed relabel (error `=_rc')"
+    display as error "  FAIL: Test 2 - Two-level mixed relabel (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1582,13 +1604,14 @@ capture {
     assert `found_cov' == 1
     assert `found_residual' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 3 - Two-level with random slope + covariance"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 3 - Two-level with random slope + covariance (error `=_rc')"
+    display as error "  FAIL: Test 3 - Two-level with random slope + covariance (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1624,13 +1647,14 @@ capture {
     assert `found_school' == 1
     assert `found_vare' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 4 - Two-level without relabel (bracket notation)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 4 - Two-level without relabel (error `=_rc')"
+    display as error "  FAIL: Test 4 - Two-level without relabel (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1660,13 +1684,14 @@ capture {
     }
     assert `found_mor' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 5 - melogit single-level MOR + relabel"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 5 - melogit single-level (error `=_rc')"
+    display as error "  FAIL: Test 5 - melogit single-level (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1696,13 +1721,14 @@ capture {
     }
     assert `found_var' == 0
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 6 - Two-level nore suppresses all RE"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 6 - Two-level nore (error `=_rc')"
+    display as error "  FAIL: Test 6 - Two-level nore (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1745,13 +1771,14 @@ capture {
     assert `found_school' == 1
     assert `found_residual' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 7 - Three-level nested mixed"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 7 - Three-level nested (error `=_rc')"
+    display as error "  FAIL: Test 7 - Three-level nested (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1788,13 +1815,14 @@ capture {
     assert `found_slope' == 1
     assert `found_cov' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 8 - Single-level random slope + covariance relabel"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 8 - Single-level random slope (error `=_rc')"
+    display as error "  FAIL: Test 8 - Single-level random slope (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1835,13 +1863,14 @@ capture {
     * Residual last
     assert `row_school' < `row_residual'
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 9 - Sort order: FE < district < school < residual"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 9 - Sort order (error `=_rc')"
+    display as error "  FAIL: Test 9 - Sort order (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1869,13 +1898,14 @@ capture {
     assert `found_mpg' == 1
     assert `found_weight' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 10 - Simple regression unaffected"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 10 - Simple regression (error `=_rc')"
+    display as error "  FAIL: Test 10 - Simple regression (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1900,13 +1930,14 @@ capture {
 
     confirm file "`output_dir'/_test_ml_stats.xlsx"
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 11 - Two-level mixed with stats"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 11 - Two-level mixed with stats (error `=_rc')"
+    display as error "  FAIL: Test 11 - Two-level mixed with stats (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1946,13 +1977,14 @@ capture {
     assert `found_c2' == 1
     assert `found_residual' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 12 - Label collision (identical labels, distinct varnames)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 12 - Label collision (error `=_rc')"
+    display as error "  FAIL: Test 12 - Label collision (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -1995,13 +2027,14 @@ capture {
     assert `found_int_var' == 1
     assert `found_cov' == 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 13 - Single-level linear covariance relabel is explicit"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 13 - Single-level linear covariance relabel (error `=_rc')"
+    display as error "  FAIL: Test 13 - Single-level linear covariance relabel (error `=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -2047,13 +2080,14 @@ capture {
     assert abs(`act_aic' - `exp_aic') < 0.01
     assert abs(`act_aic' - `perobs') > 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 1 - glm AIC is full-sample, not per-observation"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 1 - glm AIC wrong scale (rc=`=_rc')"
+    display as error "  FAIL: Test 1 - glm AIC wrong scale (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -2091,13 +2125,14 @@ capture {
     assert abs(`act_bic' - `exp_bic') < 0.01
     assert abs(`act_bic' - `glm_ebic') > 1
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 2 - glm BIC is likelihood-scale, not deviance-based e(bic)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 2 - glm BIC wrong convention (rc=`=_rc')"
+    display as error "  FAIL: Test 2 - glm BIC wrong convention (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -2161,13 +2196,14 @@ capture {
     assert `act_glm_aic' > 100
     assert `act_mix_aic' > 100
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 3 - glm+mixed share AIC scale, both match estat ic"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 3 - mixed GEE/mixed AIC off-scale (rc=`=_rc')"
+    display as error "  FAIL: Test 3 - mixed GEE/mixed AIC off-scale (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -2201,13 +2237,14 @@ capture {
     assert abs(`act_aic' - `exp_aic') < 0.01
     assert abs(`act_bic' - `exp_bic') < 0.01
 }
+local _rtc_rc = _rc
 local test_count = `test_count' + 1
-if _rc == 0 {
+if `_rtc_rc' == 0 {
     display as result "  PASS: Test 4 - logit AIC/BIC unchanged (no regression)"
     local pass_count = `pass_count' + 1
 }
 else {
-    display as error "  FAIL: Test 4 - logit AIC/BIC regressed (rc=`=_rc')"
+    display as error "  FAIL: Test 4 - logit AIC/BIC regressed (rc=`=`_rtc_rc'')"
     local fail_count = `fail_count' + 1
 }
 
@@ -3641,6 +3678,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_test_cdisc.xlsx") sheet("CDISC") ///
         coef("OR") noint cdisc
     confirm file "`output_dir'/_test_cdisc.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab - cdisc option"
@@ -3660,6 +3699,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_test_dig4.xlsx") sheet("Dig4") ///
         coef("OR") noint digits(4)
     confirm file "`output_dir'/_test_dig4.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab - digits(4) custom precision"
@@ -3679,6 +3720,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_test_dig0.xlsx") sheet("Dig0") ///
         coef("OR") noint digits(0)
     confirm file "`output_dir'/_test_dig0.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab - digits(0) integer formatting"
@@ -3697,7 +3740,7 @@ capture {
     regtab, xlsx("`output_dir'/_test_dig7.xlsx") sheet("Dig7") ///
         coef("OR") noint digits(7)
 }
-if _rc != 0 {
+if _rc == 198 {
     display as result "  PASS: regtab - digits(7) out of range gives error"
     local ++pass_count
 }
@@ -3887,7 +3930,20 @@ capture noisily {
     collect clear
     collect: regress price mpg weight
     local true_r2 = e(r2)
-    regtab, xlsx("`output_dir'/test_f6_r2.xlsx") sheet("R2") stats(n r2)
+    capture frame drop _f6_1_r2
+    regtab, xlsx("`output_dir'/test_f6_r2.xlsx") sheet("R2") stats(n r2) ///
+        frame(_f6_1_r2, replace)
+    * an R2 row must actually be rendered with a real value, not silently
+    * dropped even though the analysis produced one
+    local _f6_1_found = 0
+    frame _f6_1_r2 {
+        forvalues i = 1/`=_N' {
+            if strpos(strtrim(A[`i']), "R") > 0 & !missing(real(strtrim(c1[`i']))) {
+                local _f6_1_found = 1
+            }
+        }
+    }
+    assert `_f6_1_found' == 1
 }
 if _rc == 0 {
     display as result "  PASS: F6.1 — R² in stats(n r2) for OLS"
@@ -3904,7 +3960,19 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: logit foreign mpg weight
-    regtab, xlsx("`output_dir'/test_f6_pseudor2.xlsx") sheet("PseudoR2") stats(n r2)
+    capture frame drop _f6_2_r2
+    regtab, xlsx("`output_dir'/test_f6_pseudor2.xlsx") sheet("PseudoR2") ///
+        stats(n r2) frame(_f6_2_r2, replace)
+    * a Pseudo-R2 row must actually be rendered with a real value
+    local _f6_2_found = 0
+    frame _f6_2_r2 {
+        forvalues i = 1/`=_N' {
+            if strpos(strtrim(A[`i']), "R") > 0 & !missing(real(strtrim(c1[`i']))) {
+                local _f6_2_found = 1
+            }
+        }
+    }
+    assert `_f6_2_found' == 1
 }
 if _rc == 0 {
     display as result "  PASS: F6.2 — Pseudo-R² in stats(n r2) for logit"
@@ -3988,6 +4056,8 @@ capture noisily {
     collect: regress price mpg weight i.foreign
     regtab, xlsx("`output_dir'/test_o5_stars.xlsx") sheet("Stars") ///
         stars starslevels(0.10 0.05 0.01)
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: O5.1 — starslevels(0.10 0.05 0.01) accepted"
@@ -4458,6 +4528,8 @@ capture noisily {
     collect: regress price mpg weight length
     regtab, xlsx("`output_dir'/_cov_reg_zebra.xlsx") sheet("zebra") zebra
     confirm file "`output_dir'/_cov_reg_zebra.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab zebra"
@@ -4475,6 +4547,8 @@ capture noisily {
     collect: regress price mpg weight length
     regtab, xlsx("`output_dir'/_cov_reg_boldp.xlsx") sheet("boldp") boldp(0.05)
     confirm file "`output_dir'/_cov_reg_boldp.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab boldp()"
@@ -4492,6 +4566,8 @@ capture noisily {
     collect: regress price mpg weight length
     regtab, xlsx("`output_dir'/_cov_reg_highlight.xlsx") sheet("highlight") highlight(0.05)
     confirm file "`output_dir'/_cov_reg_highlight.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab highlight()"
@@ -4509,6 +4585,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, xlsx("`output_dir'/_cov_reg_border.xlsx") sheet("medium") borderstyle(medium)
     confirm file "`output_dir'/_cov_reg_border.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab borderstyle(medium)"
@@ -4525,6 +4603,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, xlsx("`output_dir'/_cov_reg_academic.xlsx") sheet("academic") borderstyle(academic)
     confirm file "`output_dir'/_cov_reg_academic.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab borderstyle(academic)"
@@ -4543,6 +4623,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_footnote.xlsx") sheet("footnote") ///
         footnote("Adjusted for confounders")
     confirm file "`output_dir'/_cov_reg_footnote.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab footnote()"
@@ -4561,6 +4643,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_colors.xlsx") sheet("colors") ///
         zebra headercolor("200 220 240") zebracolor("245 245 255")
     confirm file "`output_dir'/_cov_reg_colors.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab headercolor()/zebracolor()"
@@ -4579,6 +4663,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_csv.xlsx") sheet("csv") ///
         csv("`output_dir'/_cov_reg.csv")
     confirm file "`output_dir'/_cov_reg.csv"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab csv()"
@@ -4614,6 +4700,8 @@ capture noisily {
     collect: regress price mpg weight length displacement
     regtab, xlsx("`output_dir'/_cov_reg_keep.xlsx") sheet("keep") keep("mpg weight")
     confirm file "`output_dir'/_cov_reg_keep.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab keep()"
@@ -4631,6 +4719,8 @@ capture noisily {
     collect: regress price mpg weight length displacement
     regtab, xlsx("`output_dir'/_cov_reg_drop.xlsx") sheet("drop") drop("_cons displacement")
     confirm file "`output_dir'/_cov_reg_drop.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab drop()"
@@ -4648,6 +4738,8 @@ capture noisily {
     collect: regress price mpg weight
     regtab, xlsx("`output_dir'/_cov_reg_stars.xlsx") sheet("stars") stars
     confirm file "`output_dir'/_cov_reg_stars.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab stars"
@@ -4665,6 +4757,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_starslevels.xlsx") sheet("starslevels") ///
         stars starslevels(0.1 0.05 0.01)
     confirm file "`output_dir'/_cov_reg_starslevels.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab starslevels()"
@@ -4683,6 +4777,8 @@ capture noisily {
     regtab, xlsx("`output_dir'/_cov_reg_style.xlsx") sheet("style") ///
         font("Arial") fontsize(10) borderstyle(academic) headershade zebra
     confirm file "`output_dir'/_cov_reg_style.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab explicit formatting"
@@ -4703,6 +4799,8 @@ capture noisily {
         footnote("OLS regression") title("Combined Test") ///
         stars starslevels(0.1 0.05 0.01) font("Arial") fontsize(10) headershade
     confirm file "`output_dir'/_cov_reg_stress.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab combined formatting stress test"
@@ -4822,6 +4920,8 @@ capture noisily {
     capture erase "`output_dir'/test_dimonsig.xlsx"
     regtab, xlsx("`output_dir'/test_dimonsig.xlsx") sheet("Test") dimnonsig
     confirm file "`output_dir'/test_dimonsig.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab dimonsig"
@@ -4840,6 +4940,8 @@ capture noisily {
     capture erase "`output_dir'/test_factorlabel.xlsx"
     regtab, xlsx("`output_dir'/test_factorlabel.xlsx") sheet("Test") factorlabel
     confirm file "`output_dir'/test_factorlabel.xlsx"
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
 }
 if _rc == 0 {
     display as result "  PASS: regtab factorlabel"
@@ -4864,6 +4966,7 @@ capture noisily {
     collect clear
     collect: stcrreg x1, compete(cause == 2)
  regtab
+    assert "`r(coef_label)'" == "SHR"
 }
 if _rc == 0 {
     display as result "  PASS: regtab SHR auto-detect"
@@ -4886,6 +4989,7 @@ capture noisily {
     collect clear
     collect: streg x1, distribution(weibull) time
  regtab
+    assert "`r(coef_label)'" == "TR"
 }
 if _rc == 0 {
     display as result "  PASS: regtab TR auto-detect (streg time)"
@@ -4903,7 +5007,11 @@ else {
 sysuse auto, clear
 collect clear
 quietly collect: regress price mpg weight foreign
-capture noisily regtab, border(thin)
+capture noisily {
+    regtab, border(thin)
+    assert !missing(r(N_rows))
+    assert r(N_rows) > 0
+}
 if _rc == 0 {
     display as result "  PASS T5: regtab border abbreviation"
     local ++pass_count

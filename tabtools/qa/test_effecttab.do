@@ -1561,6 +1561,8 @@ capture noisily {
     collect clear
     collect: teffects ra (price mpg weight) (foreign), ate
     effecttab
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: 3.2.1 — effecttab without xlsx() runs (console display)"
@@ -1579,6 +1581,8 @@ capture noisily {
     collect: teffects ra (price mpg weight) (foreign), ate
  effecttab, xlsx("`output_dir'/test_v160_effecttab_display.xlsx") sheet("Test")
     confirm file "`output_dir'/test_v160_effecttab_display.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: 3.2.2 — effecttab display + xlsx() works"
@@ -1603,6 +1607,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_digits.xlsx") sheet("digits") digits(4)
     confirm file "`output_dir'/_cov_eff_digits.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab digits()"
@@ -1621,6 +1627,8 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_cov_eff_style.xlsx") sheet("style") ///
         font("Arial") fontsize(10) borderstyle(academic) headershade zebra
     confirm file "`output_dir'/_cov_eff_style.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab explicit formatting"
@@ -1638,6 +1646,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_zebra.xlsx") sheet("zebra") zebra
     confirm file "`output_dir'/_cov_eff_zebra.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab zebra"
@@ -1655,6 +1665,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_boldp.xlsx") sheet("boldp") boldp(0.05)
     confirm file "`output_dir'/_cov_eff_boldp.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab boldp()"
@@ -1672,6 +1684,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_highlight.xlsx") sheet("highlight") highlight(0.05)
     confirm file "`output_dir'/_cov_eff_highlight.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab highlight()"
@@ -1689,6 +1703,8 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_border.xlsx") sheet("academic") borderstyle(academic)
     confirm file "`output_dir'/_cov_eff_border.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab borderstyle(academic)"
@@ -1707,6 +1723,8 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_cov_eff_footnote.xlsx") sheet("footnote") ///
         footnote("IPW estimates using logit propensity score")
     confirm file "`output_dir'/_cov_eff_footnote.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab footnote()"
@@ -1725,6 +1743,8 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_cov_eff_colors.xlsx") sheet("colors") ///
         zebra headercolor("200 220 240") zebracolor("245 245 255")
     confirm file "`output_dir'/_cov_eff_colors.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab headercolor()/zebracolor()"
@@ -1743,6 +1763,11 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_cov_eff_csv.xlsx") sheet("csv") ///
         csv("`output_dir'/_cov_eff.csv")
     confirm file "`output_dir'/_cov_eff.csv"
+    tempname _cov_csv_fh
+    file open `_cov_csv_fh' using "`output_dir'/_cov_eff.csv", read text
+    file read `_cov_csv_fh' _cov_csv_line
+    file close `_cov_csv_fh'
+    assert strlen(`"`_cov_csv_line'"') > 0
 }
 if _rc == 0 {
     display as result "  PASS: effecttab csv()"
@@ -1759,7 +1784,9 @@ capture noisily {
     collect clear
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_frame.xlsx") sheet("frame") frame(_cov_eff_fr)
-    frame _cov_eff_fr: assert _N > 0
+    frame _cov_eff_fr {
+        assert _N > 0
+    }
     frame drop _cov_eff_fr
 }
 if _rc == 0 {
@@ -1778,6 +1805,7 @@ capture noisily {
     collect: teffects ipw (price) (foreign mpg weight, logit)
     effecttab, xlsx("`output_dir'/_cov_eff_full.xlsx") sheet("full") full
     confirm file "`output_dir'/_cov_eff_full.xlsx"
+    assert rowsof(r(table)) >= 1
 }
 if _rc == 0 {
     display as result "  PASS: effecttab full"
@@ -1798,6 +1826,8 @@ capture noisily {
         footnote("Treatment effect estimates") title("Effect Stress Test") ///
         font("Arial") fontsize(10) headershade digits(3)
     confirm file "`output_dir'/_cov_eff_stress.xlsx"
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
 }
 if _rc == 0 {
     display as result "  PASS: effecttab combined formatting stress test"
@@ -2015,6 +2045,7 @@ capture noisily {
     * crosstab should error since it requires a 2x2 for or/rr/rd,
     * but basic tabulation should work
  crosstab rowvar colvar
+    assert r(N) == 4
 }
 if _rc == 0 {
     display as result "  PASS [G2]: crosstab single-row table completes without crash"
@@ -2124,7 +2155,7 @@ capture noisily {
  effecttab, from(review_eff) frame(review_eff_frame, replace) effect("Effect")
     assert !missing(r(N_rows))
     assert r(N_rows) > 0
-    assert "`r(type)'" == "margins"
+    assert r(type) == "margins"
     assert strpos(lower(`"`r(methods)'"'), "supplied matrix") > 0
     assert "`r(frame)'" == "review_eff_frame"
 

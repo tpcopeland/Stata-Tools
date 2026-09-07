@@ -92,6 +92,13 @@ capture noisily {
     confirm variable _grp_1
     confirm variable _grp_2
     confirm variable _grp_3
+    * alllevels must materialize a real dummy for every level, ref included
+    quietly count if _grp_1 != (grp == 1) & !missing(grp)
+    assert r(N) == 0
+    quietly count if _grp_2 != (grp == 2) & !missing(grp)
+    assert r(N) == 0
+    quietly count if _grp_3 != (grp == 3) & !missing(grp)
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: ref() with alllevels"

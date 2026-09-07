@@ -40,6 +40,20 @@ program define _clear_consort_state
     global CONSORT_SCRIPT_PATH ""
 end
 
+* Helper: byte size of a file, safe for binary output (png) -- avoids reading
+* binary content through fileread(), which is documented for text.
+capture program drop _qa_filesize
+program define _qa_filesize, rclass
+    args path
+    tempname fh
+    file open `fh' using "`path'", read binary
+    file seek `fh' eof
+    file seek `fh' query
+    local _bytes = r(loc)
+    file close `fh'
+    return scalar bytes = `_bytes'
+end
+
 * =============================================================================
 * SECTION 1: SAVE RETURN VALUES
 * =============================================================================
@@ -213,9 +227,15 @@ capture noisily {
     _clear_consort_state
     sysuse auto, clear
     consort init, initial("All cars")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing")
+    assert r(n_excluded) == 5
     consort save, output("/tmp/test_exp_o1.png") shading dpi(200)
+    assert r(N_final) == 69
     confirm file "/tmp/test_exp_o1.png"
+    _qa_filesize "/tmp/test_exp_o1.png"
+    assert !missing(r(bytes))
+    assert r(bytes) > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': save with shading + dpi combined"
@@ -676,6 +696,11 @@ local ++test_count
 capture noisily {
     _clear_consort_state
     consort clear, quiet
+    * quiet bypasses the active-state guard in _consort_clear and always
+    * runs _consort_clear_state, so the globals must come back reset even
+    * from an already-inactive state, not merely leave the call unerrored.
+    assert "${CONSORT_ACTIVE}" == ""
+    assert "${CONSORT_FILE}" == ""
 }
 if _rc == 0 {
     display as result "  PASS `test_count': clear quiet when inactive — no error"
@@ -692,6 +717,11 @@ local ++test_count
 capture noisily {
     _clear_consort_state
     consort clear
+    * Inactive + no quiet takes the early `exit 0' branch in _consort_clear,
+    * which never reaches _consort_clear_state -- confirm that branch is a
+    * true no-op and does not partially mutate state before returning.
+    assert "${CONSORT_ACTIVE}" == ""
+    assert "${CONSORT_FILE}" == ""
 }
 if _rc == 0 {
     display as result "  PASS `test_count': clear (no quiet) when inactive — no error"
@@ -733,9 +763,15 @@ capture noisily {
     _clear_consort_state
     sysuse auto, clear
     consort init, initial("All cars")
+    assert r(N) == 74
     consort exclude if rep78 == ., label("Missing")
+    assert r(n_excluded) == 5
     consort save, output("test_exp_cwd.png") final("Final")
+    assert r(N_final) == 69
     confirm file "test_exp_cwd.png"
+    _qa_filesize "test_exp_cwd.png"
+    assert !missing(r(bytes))
+    assert r(bytes) > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': save to current directory works"

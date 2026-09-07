@@ -101,16 +101,22 @@ capture noisily {
     * first call forces a fresh autoload of fvgen.ado (and its inline helpers)
     fvgen i.arm##c.age
     confirm variable _armXage_1
+    quietly count if _armXage_1 != arm * age & !missing(arm, age)
+    assert r(N) == 0
     * second call in the same session must not hit "program already defined"
     * (this exercises the inline helpers' cap-program-drop reload guards);
     * fresh data each time so the test isolates reuse, not variable collision
     _fvgen_make_data
     fvgen i.grp
     confirm variable _grp_2
+    quietly count if _grp_2 != (grp == 2) & !missing(grp)
+    assert r(N) == 0
     * third call confirms the helpers remain usable across repeated invocations
     _fvgen_make_data
     fvgen i.arm##c.bmi
     confirm variable _armXbmi_1
+    quietly count if _armXbmi_1 != arm * bmi & !missing(arm, bmi)
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: autoload + second in-session call"
@@ -146,8 +152,11 @@ capture noisily {
     sysuse auto, clear
     label define rl 1 "Poor" 2 "Fair" 3 "Avg" 4 "Good" 5 "Best"
     label values rep78 rl
+    quietly count if !missing(foreign, rep78)
+    local n_complete = r(N)
     fvgen i.foreign##i.rep78
     regress price `r(allvars)'
+    assert e(N) == `n_complete'
 }
 if _rc == 0 {
     display as result "  PASS: documented Example 2 runs"

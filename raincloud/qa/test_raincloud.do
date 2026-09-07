@@ -817,14 +817,35 @@ capture noisily {
     * by() no longer has dedicated handling — it passes to twoway which errors
     raincloud mpg, by(foreign)
 }
-if _rc != 0 {
-    display as result "  PASS: by() errors at graph level (rc `=_rc')"
-    local ++pass_count
+local _t47_rc = _rc
+* raincloud.ado sets `_return_ready' and posts r(N)/r(n_groups)/r(stats)
+* BEFORE re-raising a graph-side error (`exit `rc'' at end of program), so the
+* analytical results must be present whether or not twoway accepted by().
+* MEASURED: by() is a GRAPH-level option handed straight to twoway and does not
+* create analytical groups -- over() does -- so r(n_groups) stays 1 here even
+* though by(foreign) names a two-level variable.
+capture assert !missing(r(N)) & r(N) > 0 & r(n_groups) == 1
+local _t47_returns_ok = (_rc == 0)
+if `_t47_rc' != 0 {
+    if `_t47_returns_ok' {
+        display as result "  PASS: by() errors at graph level but analytical results still post (rc `_t47_rc')"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: by() errors at graph level without posting analytical results (rc `_t47_rc')"
+        local ++fail_count
+    }
 }
 else {
-    * If twoway happens to accept by() in some Stata versions, still pass
-    display as result "  PASS: by() passthrough (no dedicated handling)"
-    local ++pass_count
+    if `_t47_returns_ok' {
+        * If twoway happens to accept by() in some Stata versions, still pass
+        display as result "  PASS: by() passthrough (no dedicated handling)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: by() passthrough produced no valid analytical results"
+        local ++fail_count
+    }
 }
 
 * Test 48: r(stats) has 8 columns with bandwidth populated
@@ -1137,6 +1158,11 @@ capture noisily {
     net install raincloud, from("`pkg_dir'") replace
     discard
     which raincloud
+    findfile raincloud.ado
+    * `which' only proves SOME copy resolves; an installed copy shadowing a
+    * stale adopath entry would still pass. Confirm the copy adopath actually
+    * hands back is byte-identical to the source just installed from.
+    assert fileread(`"`r(fn)'"') == fileread("`pkg_dir'/raincloud.ado")
 }
 if _rc == 0 {
     display as result "  PASS: package installs and which succeeds"
@@ -1187,7 +1213,15 @@ else {
 * Test 67: sthlp renders without error
 local ++test_count
 capture noisily {
+    tempfile _t67_rendered
+    quietly translate "`pkg_dir'/raincloud.sthlp" "`_t67_rendered'.txt", ///
+        translator(smcl2txt) replace
     help raincloud
+    * `translate' invokes the same SMCL renderer the Viewer uses, so a
+    * directive left unresolved by a source-line split -- invisible to a
+    * grep of the .sthlp source -- shows up here as literal markup text.
+    assert strlen(fileread("`_t67_rendered'.txt")) > 0
+    assert !regexm(fileread("`_t67_rendered'.txt"), "\{[a-zA-Z]+:")
 }
 if _rc == 0 {
     display as result "  PASS: sthlp renders"
@@ -1200,6 +1234,7 @@ else {
 
 * Test 68: installed command resolves
 local ++test_count
+* stata-dev-ignore: rc-only-test — installation probe: whether the command resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which raincloud
 }

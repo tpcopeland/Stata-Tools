@@ -34,9 +34,9 @@ capture noisily {
     which tabtools_tips
     findfile tabtools_tips.sthlp
     capture findfile tabtools_cheatsheet.sthlp
-    assert _rc != 0
+    assert _rc == 601
     capture findfile tabtools_cookbook.sthlp
-    assert _rc != 0
+    assert _rc == 601
 }
 if _rc == 0 {
     display as result "  PASS: tabtools_tips resolves; retired alias help files absent"
@@ -50,7 +50,22 @@ else {
 
 local ++test_count
 capture noisily {
+    tempfile _tt_idx_log
+    capture log close _tt_idx
+    quietly log using "`_tt_idx_log'", replace text name(_tt_idx)
     tabtools_tips
+    quietly log close _tt_idx
+
+    tempname _tt_idx_fh
+    local _tt_idx_found = 0
+    file open `_tt_idx_fh' using "`_tt_idx_log'", read text
+    file read `_tt_idx_fh' _tt_idx_line
+    while r(eof) == 0 {
+        if strpos(`"`_tt_idx_line'"', "tabtools tips") > 0 local _tt_idx_found = 1
+        file read `_tt_idx_fh' _tt_idx_line
+    }
+    file close `_tt_idx_fh'
+    assert `_tt_idx_found' == 1
 }
 if _rc == 0 {
     display as result "  PASS: tabtools_tips index display runs"
@@ -166,6 +181,7 @@ capture noisily {
     assert `_tips_rate_row' < .
     frame _tips_rate_recipe: local _tips_py_display = c3[`_tips_rate_row']
     local _tips_py_display : subinstr local _tips_py_display "," "", all
+    * stata-dev-ignore: vacuous-tolerance — stratetab.ado:588 renders person-years as round(Y,1) formatted "%11.0fc" (whole-number rounding), whose own max rounding error is exactly 0.5; that is the tightest bound this display format allows, not a wide one, and the brief forbids widening it further
     assert abs(real("`_tips_py_display'") - `_tips_py0') < 0.5
     frame _tips_rate_recipe: local _tips_ci_display = c4[`_tips_rate_row']
     * stratetab renders rate CIs with the suite-wide ", " separator.

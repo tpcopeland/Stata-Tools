@@ -27,6 +27,19 @@ log using "test_msm_table.log", replace text nomsg
 
 do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
+capture program drop _qa_assert_sheet_nonempty
+program define _qa_assert_sheet_nonempty
+    version 16.0
+    * msm_table is nclass (no r() to check), so verify the export actually
+    * put rows on the named sheet -- `confirm file' alone would pass on a
+    * workbook containing only an empty placeholder sheet.
+    syntax, XLSX(string) SHEET(string)
+    preserve
+    import excel using "`xlsx'", sheet("`sheet'") firstrow clear allstring
+    assert _N > 0
+    restore
+end
+
 local pass_count = 0
 local fail_count = 0
 local test_count = 0
@@ -77,7 +90,7 @@ if _rc == 0 {
         }
         restore
 
-        if `_all_sheets_ok' {
+        if `_all_sheets_ok' == 1 {
             display as result "  PASS: all tables exported"
             local ++pass_count
         }
@@ -103,7 +116,11 @@ else {
 local ++test_count
 
 capture erase "`coef_xlsx'"
-capture noisily msm_table, xlsx("`coef_xlsx'") coefficients eform replace
+capture noisily {
+    msm_table, xlsx("`coef_xlsx'") coefficients eform replace
+    confirm file "`coef_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`coef_xlsx'") sheet("Coefficients")
+}
 
 if _rc == 0 {
     display as result "  PASS: coefficients table exported"
@@ -119,7 +136,11 @@ else {
 local ++test_count
 
 capture erase "`pred_xlsx'"
-capture noisily msm_table, xlsx("`pred_xlsx'") predictions replace
+capture noisily {
+    msm_table, xlsx("`pred_xlsx'") predictions replace
+    confirm file "`pred_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`pred_xlsx'") sheet("Predictions")
+}
 
 if _rc == 0 {
     display as result "  PASS: predictions table exported"
@@ -135,7 +156,11 @@ else {
 local ++test_count
 
 capture erase "`bal_xlsx'"
-capture noisily msm_table, xlsx("`bal_xlsx'") balance weights replace
+capture noisily {
+    msm_table, xlsx("`bal_xlsx'") balance weights replace
+    confirm file "`bal_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`bal_xlsx'") sheet("Balance")
+}
 
 if _rc == 0 {
     display as result "  PASS: balance + weights exported"
@@ -151,7 +176,11 @@ else {
 local ++test_count
 
 capture erase "`sens_xlsx'"
-capture noisily msm_table, xlsx("`sens_xlsx'") sensitivity replace
+capture noisily {
+    msm_table, xlsx("`sens_xlsx'") sensitivity replace
+    confirm file "`sens_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`sens_xlsx'") sheet("Sensitivity")
+}
 
 if _rc == 0 {
     display as result "  PASS: sensitivity table exported"
@@ -216,13 +245,16 @@ else {
 * --- Table Test 6: Verify coefficients values via re-import ---
 local ++test_count
 
-preserve
-import excel "`coef_xlsx'", sheet("Coefficients") clear
-* Row 1 = title, Row 2 = headers, Row 3+ = data
-local _expected_or = exp(_msm_fit_b[1, 1])
-* Check that row 3 reflects the fitted treatment effect, not row indices
-capture assert A[3] != "" & abs(real(B[3]) - `_expected_or') < 0.01 & ///
-    strpos(C[3], "(") > 0 & D[3] != "3"
+capture noisily {
+    preserve
+    import excel "`coef_xlsx'", sheet("Coefficients") clear
+    * Row 1 = title, Row 2 = headers, Row 3+ = data
+    local _expected_or = exp(_msm_fit_b[1, 1])
+    * Check that row 3 reflects the fitted treatment effect, not row indices
+    assert A[3] != "" & abs(real(B[3]) - `_expected_or') < 0.01 & ///
+        strpos(C[3], "(") > 0 & D[3] != "3"
+    restore
+}
 if _rc == 0 {
     display as result "  PASS: coefficients data verified"
     local ++pass_count
@@ -231,17 +263,20 @@ else {
     display as error "  FAIL: coefficients re-import check (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' Table6"
+    capture restore
 }
-restore
 
 * --- Table Test 7: Verify predictions via re-import ---
 local ++test_count
 
-preserve
-import excel "`pred_xlsx'", sheet("Predictions") clear
-* Row 4 = first data row (title + group header + column header)
-* Should have period values
-capture assert A[4] != ""
+capture noisily {
+    preserve
+    import excel "`pred_xlsx'", sheet("Predictions") clear
+    * Row 4 = first data row (title + group header + column header)
+    * Should have period values
+    assert A[4] != ""
+    restore
+}
 if _rc == 0 {
     display as result "  PASS: predictions data verified"
     local ++pass_count
@@ -250,16 +285,19 @@ else {
     display as error "  FAIL: predictions re-import check (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' Table7"
+    capture restore
 }
-restore
 
 * --- Table Test 8: Verify balance via re-import ---
 local ++test_count
 
-preserve
-import excel "`bal_xlsx'", sheet("Balance") clear
-* Row 3+ = data, should have covariate names
-capture assert A[3] != "" & B[3] != ""
+capture noisily {
+    preserve
+    import excel "`bal_xlsx'", sheet("Balance") clear
+    * Row 3+ = data, should have covariate names
+    assert A[3] != "" & B[3] != ""
+    restore
+}
 if _rc == 0 {
     display as result "  PASS: balance data verified"
     local ++pass_count
@@ -268,8 +306,8 @@ else {
     display as error "  FAIL: balance re-import check (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' Table8"
+    capture restore
 }
-restore
 
 * --- Table Test 9: Error - no .xlsx extension ---
 local ++test_count
@@ -303,8 +341,12 @@ else {
 local ++test_count
 
 capture erase "`custom_xlsx'"
-capture noisily msm_table, xlsx("`custom_xlsx'") coefficients ///
-    eform decimals(2) title("Table 1: Treatment Effects") replace
+capture noisily {
+    msm_table, xlsx("`custom_xlsx'") coefficients ///
+        eform decimals(2) title("Table 1: Treatment Effects") replace
+    confirm file "`custom_xlsx'"
+    _qa_assert_sheet_nonempty, xlsx("`custom_xlsx'") sheet("Coefficients")
+}
 
 if _rc == 0 {
     display as result "  PASS: custom formatting options"

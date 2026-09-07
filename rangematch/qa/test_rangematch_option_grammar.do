@@ -61,8 +61,8 @@ capture noisily {
         capture rangematch key mlow mhigh using "`u'", `opt'
         if _rc != 198 {
             display as error "  `opt' gave rc=`_rc', expected 198"
-            error 9
         }
+        assert _rc == 198
     }
 }
 if _rc == 0 {
@@ -87,8 +87,8 @@ capture noisily {
         capture rangematch key mlow mhigh using "`u'", `opt'
         if _rc != 198 {
             display as error "  `opt' gave rc=`_rc', expected 198"
-            error 9
         }
+        assert _rc == 198
     }
 }
 if _rc == 0 {
@@ -136,29 +136,40 @@ capture noisily {
     tempfile u
     quietly save "`u'"
 
+    * Each variant below is accepted syntax over the SAME fixture (a single
+    * master row [0,10], two using keys 1 and 2, both in range), so every
+    * call must actually match both using rows -- not merely return rc=0.
     _rm_mk_master
     rangematch key mlow mhigh using "`u'"
+    assert r(N_pairs) == 2
 
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", missing(drop) closed(both) ///
         unmatched(master)
+    assert r(N_pairs) == 2
 
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", prefix() suffix() missing(drop)
+    assert r(N_pairs) == 2
 
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", generate(by_flag)
+    assert r(N_pairs) == 2
 
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", missing( drop )
+    assert r(N_pairs) == 2
 
     * quoted path containing literal option text with empty parens
     tempfile odd
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", saving("`odd'", replace)
+    assert r(N_pairs) == 2
+    confirm file "`r(saving)'"
 
     _rm_mk_master
     rangematch key mlow mhigh using "`u'", usingid(src)
+    assert r(N_pairs) == 2
 }
 if _rc == 0 {
     local ++pass_count

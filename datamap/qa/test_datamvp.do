@@ -49,6 +49,36 @@ quietly {
     save `testdata', replace
 }
 
+* Independent oracle for r(N_patterns): datamvp.ado (see grpseq/isf/ng around
+* "Identify unique patterns") flags exactly one row per distinct missingness
+* pattern, then zeroes that flag for any pattern whose group frequency is
+* below minfreq(), or whose per-row missing-count falls outside
+* [minmissing(), maxmissing()]; N_patterns is the count of rows still
+* flagged. This rebuilds that same computation independently so
+* minfreq()/minmissing()/maxmissing() can be checked against their
+* documented effect on the return, not just "ran without error".
+capture program drop _qa_dmvp_pattern_count
+program define _qa_dmvp_pattern_count, rclass
+    version 16.0
+    syntax varlist, [MINFreq(integer 1) MINMissing(integer -1) MAXMissing(integer -1)]
+    tempvar pat nmiss freq first
+    quietly {
+        gen strL `pat' = ""
+        gen int `nmiss' = 0
+        foreach v of local varlist {
+            replace `pat' = `pat' + cond(missing(`v'), ".", "+")
+            replace `nmiss' = `nmiss' + cond(missing(`v'), 1, 0)
+        }
+        bysort `pat': gen long `freq' = _N
+        bysort `pat': gen byte `first' = (_n == 1)
+        replace `first' = 0 if `freq' < `minfreq'
+        if `minmissing' >= 0 replace `first' = 0 if `nmiss' < `minmissing'
+        if `maxmissing' >= 0 replace `first' = 0 if `nmiss' > `maxmissing'
+        count if `first'
+    }
+    return scalar n_patterns = r(N)
+end
+
 
 * =========================================================================
 * BASIC FUNCTIONALITY (Tests 1-2)
@@ -60,7 +90,7 @@ capture noisily {
     datamvp age bmi income education smoking
     assert r(N) == 1000
     assert !missing(r(N_vars))
-    assert r(N_vars) > 0
+    assert r(N_vars) == 5
     assert !missing(r(N_patterns))
     assert r(N_patterns) > 0
     assert r(N_complete) + r(N_incomplete) == r(N)
@@ -78,7 +108,12 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp
+    * No varlist: datamvp defaults to analysing every variable in the dataset,
+    * so this is NOT the nvar==0 early-return branch -- measured r(N_vars) is
+    * 5, the full varlist of `testdata', not 0.
     assert r(N) == 1000
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': All variables (no varlist)"
@@ -98,6 +133,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, notable
+    * notable only suppresses the console table -- no r() effect to assert
+    * beyond the varlist actually parsing and the identity holding.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': notable option"
@@ -112,6 +154,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, skip
+    * skip only inserts a display blank every 5 vars in the console table --
+    * no r() effect to assert beyond the varlist parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': skip option"
@@ -126,6 +175,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, sort
+    * sort only reorders the console pattern table by missingness -- the
+    * underlying pattern set is unchanged, so no r() effect beyond parsing.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': sort option"
@@ -140,6 +196,15 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi female, nodrop
+    * nodrop's observable effect: `female' carries no missingness at all, so
+    * without nodrop it would be filtered out of the tracked varlist
+    * (datamvp.ado's default-drop rule keeps only vars with >0 missing) and
+    * N_vars would be 2. nodrop forces all 3 requested vars to be kept.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': nodrop option"
@@ -154,6 +219,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, wide
+    * wide only compacts the console display -- no r() effect beyond
+    * parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': wide option"
@@ -168,6 +240,14 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, nosummary
+    * nosummary only suppresses the console summary block -- the summary
+    * scalars are still returned, so check the varlist parsed and the
+    * identity holds.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': nosummary option"
@@ -187,6 +267,25 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, minfreq(5)
+    local _dmvp_np = r(N_patterns)
+    * Read EVERY r() result of the command under test before the oracle helper
+    * below runs: `_qa_dmvp_pattern_count' issues its own commands and so
+    * replaces r() wholesale -- asserting on r(N)/r(N_vars) after the call
+    * reads the HELPER's results, not datamvp's.
+    local _dmvp_n  = r(N)
+    local _dmvp_nv = r(N_vars)
+    local _dmvp_nc = r(N_complete)
+    local _dmvp_ni = r(N_incomplete)
+    assert !missing(`_dmvp_np')
+    assert !missing(`_dmvp_n', `_dmvp_nv', `_dmvp_nc', `_dmvp_ni')
+    assert `_dmvp_n' == 1000
+    assert `_dmvp_nv' == 5
+    assert `_dmvp_nc' + `_dmvp_ni' == `_dmvp_n'
+    * minfreq()'s observable effect on the RETURN (not just the console
+    * table): r(N_patterns) only counts patterns whose group frequency
+    * meets the threshold. Rebuild that count independently.
+    _qa_dmvp_pattern_count age bmi income education smoking, minfreq(5)
+    assert `_dmvp_np' == r(n_patterns)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': minfreq() option"
@@ -201,6 +300,24 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, minmissing(2)
+    local _dmvp_np = r(N_patterns)
+    * Read EVERY r() result of the command under test before the oracle helper
+    * below runs: `_qa_dmvp_pattern_count' issues its own commands and so
+    * replaces r() wholesale -- asserting on r(N)/r(N_vars) after the call
+    * reads the HELPER's results, not datamvp's.
+    local _dmvp_n  = r(N)
+    local _dmvp_nv = r(N_vars)
+    local _dmvp_nc = r(N_complete)
+    local _dmvp_ni = r(N_incomplete)
+    assert !missing(`_dmvp_np')
+    assert !missing(`_dmvp_n', `_dmvp_nv', `_dmvp_nc', `_dmvp_ni')
+    assert `_dmvp_n' == 1000
+    assert `_dmvp_nv' == 5
+    assert `_dmvp_nc' + `_dmvp_ni' == `_dmvp_n'
+    * minmissing()'s observable effect on the RETURN: r(N_patterns) only
+    * counts patterns whose per-row missing count meets the threshold.
+    _qa_dmvp_pattern_count age bmi income education smoking, minmissing(2)
+    assert `_dmvp_np' == r(n_patterns)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': minmissing() option"
@@ -215,6 +332,24 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, maxmissing(3)
+    local _dmvp_np = r(N_patterns)
+    * Read EVERY r() result of the command under test before the oracle helper
+    * below runs: `_qa_dmvp_pattern_count' issues its own commands and so
+    * replaces r() wholesale -- asserting on r(N)/r(N_vars) after the call
+    * reads the HELPER's results, not datamvp's.
+    local _dmvp_n  = r(N)
+    local _dmvp_nv = r(N_vars)
+    local _dmvp_nc = r(N_complete)
+    local _dmvp_ni = r(N_incomplete)
+    assert !missing(`_dmvp_np')
+    assert !missing(`_dmvp_n', `_dmvp_nv', `_dmvp_nc', `_dmvp_ni')
+    assert `_dmvp_n' == 1000
+    assert `_dmvp_nv' == 5
+    assert `_dmvp_nc' + `_dmvp_ni' == `_dmvp_n'
+    * maxmissing()'s observable effect on the RETURN: r(N_patterns) only
+    * counts patterns whose per-row missing count meets the threshold.
+    _qa_dmvp_pattern_count age bmi income education smoking, maxmissing(3)
+    assert `_dmvp_np' == r(n_patterns)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': maxmissing() option"
@@ -229,6 +364,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education, ascending
+    * ascending only reverses the console pattern sort order -- the pattern
+    * set and counts are unchanged, so no r() effect beyond parsing.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 4
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': ascending option"
@@ -248,6 +390,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, percent
+    * percent only adds a console percentage column -- no r() effect beyond
+    * parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': percent option"
@@ -262,6 +411,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, percent cumulative
+    * percent/cumulative only add console columns -- no r() effect beyond
+    * parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': cumulative option"
@@ -277,6 +433,9 @@ capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, correlate
     matrix list r(corr_miss)
+    matrix _corr_miss = r(corr_miss)
+    assert rowsof(_corr_miss) == 5
+    assert colsof(_corr_miss) == 5
 }
 if _rc == 0 {
     display as result "  PASS `test_count': correlate option"
@@ -334,6 +493,9 @@ capture noisily {
     capture frame drop mvp_pats
     datamvp age bmi income, save(mvp_pats)
     frame mvp_pats: describe, short
+    frame mvp_pats {
+        assert _N > 0
+    }
     frame drop mvp_pats
 }
 if _rc == 0 {
@@ -351,6 +513,10 @@ capture noisily {
     tempfile savefile
     datamvp age bmi income, save("`savefile'.dta")
     confirm file "`savefile'.dta"
+    preserve
+    use "`savefile'.dta", clear
+    assert _N > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS `test_count': save() to file"
@@ -370,6 +536,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, graph(bar) nodraw
+    * graph(bar)/nodraw only select and suppress rendering -- no r() effect
+    * beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(bar)"
@@ -384,6 +557,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) sort vertical barcolor(maroon) nodraw
+    * sort/vertical/barcolor()/nodraw only affect the (suppressed)
+    * rendering -- no r() effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(bar) vertical+sort+barcolor"
@@ -398,6 +578,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, graph(patterns) nodraw
+    * graph(patterns)/nodraw only select and suppress rendering -- no r()
+    * effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(patterns)"
@@ -412,6 +599,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(patterns) top(5) title("Top 5") nodraw
+    * top()/title()/nodraw only affect the (suppressed) rendering -- no
+    * r() effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(patterns) top() title()"
@@ -426,6 +620,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(matrix) nodraw
+    * graph(matrix)/nodraw only select and suppress rendering -- no r()
+    * effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(matrix)"
@@ -440,6 +641,14 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(matrix, sample(100) sort) misscolor(red) obscolor(green*0.2) nodraw
+    * sample()/sort/misscolor()/obscolor()/nodraw only affect the
+    * (suppressed) rendering -- no r() effect beyond parsing and the
+    * identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(matrix) suboptions+colors"
@@ -454,6 +663,14 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, graph(correlation) nodraw
+    * graph(correlation)/nodraw only select and suppress rendering -- the
+    * matrix itself is checked separately (Test: correlate option); here
+    * just confirm the varlist parsed and the identity holds.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 5
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(correlation)"
@@ -468,6 +685,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(correlation) textlabels colorramp(grayscale) nodraw
+    * textlabels/colorramp()/nodraw only affect the (suppressed) rendering
+    * -- no r() effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graph(correlation) textlabels+colorramp"
@@ -487,6 +711,12 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) gname(mvp_test) nodraw
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    * `graph describe' errors if gname() did not actually create the named
+    * graph in memory -- the real oracle for this option.
     graph describe mvp_test
     graph drop mvp_test
 }
@@ -505,6 +735,16 @@ capture noisily {
     tempfile gph
     datamvp age bmi income, graph(bar) gsaving("`gph'.gph", replace) nodraw
     confirm file "`gph'.gph"
+    * `confirm file' alone passes on a truncated/empty .gph -- check it has
+    * real bytes (binary format, so no fileread() text-content check here).
+    tempname _gph_fh
+    file open `_gph_fh' using "`gph'.gph", read binary
+    file seek `_gph_fh' eof
+    file seek `_gph_fh' query
+    local _gph_bytes = r(loc)
+    file close `_gph_fh'
+    assert !missing(`_gph_bytes')
+    assert `_gph_bytes' > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': gsaving() option"
@@ -519,6 +759,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) scheme(s1mono) title("Test") subtitle("Sub") nodraw
+    * scheme()/title()/subtitle() only affect graph rendering (suppressed
+    * here via nodraw) -- no r() effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': scheme() title() subtitle()"
@@ -568,6 +815,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) stacked nodraw
+    * stacked only affects the (suppressed) bar-chart rendering -- no r()
+    * effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': stacked option"
@@ -582,6 +836,15 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) over(female) groupgap(20) legendopts(rows(1) position(6)) nodraw
+    * over()'s observable effect: r(over)/r(over_levels). groupgap()/
+    * legendopts() only affect the (suppressed) rendering.
+    assert "`r(over)'" == "female"
+    * r(over_levels) is a `levelsof' LIST (a return local), not a count --
+    * `missing()' on it is a type mismatch, r(109). Assert the number of
+    * levels it names, which is the quantity the option actually governs.
+    assert wordcount(`"`r(over_levels)'"') == 2
+    assert !missing(r(N))
+    assert r(N) == 1000
 }
 if _rc == 0 {
     display as result "  PASS `test_count': over() + groupgap() + legendopts()"
@@ -596,6 +859,15 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education, graph(patterns) gby(female) top(5) nodraw
+    * gby()'s observable effect: r(gby)/r(gby_levels). top() only truncates
+    * the (suppressed) pattern chart's rendering.
+    assert "`r(gby)'" == "female"
+    * r(gby_levels) is a `levelsof' LIST (a return local), not a count --
+    * `missing()' on it is a type mismatch, r(109). Assert the number of
+    * levels it names, which is the quantity the option actually governs.
+    assert wordcount(`"`r(gby_levels)'"') == 2
+    assert !missing(r(N))
+    assert r(N) == 1000
 }
 if _rc == 0 {
     display as result "  PASS `test_count': gby() with graph(patterns)"
@@ -645,6 +917,9 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     bysort female: datamvp age bmi income
+    * r() reflects only the last by-group processed, not the full 1000 obs.
+    assert !missing(r(N))
+    assert r(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': by prefix"
@@ -699,6 +974,26 @@ capture noisily {
     use `testdata', clear
     datamvp age bmi income education smoking, ///
         sort skip wide percent cumulative minfreq(3) minmissing(1) maxmissing(4)
+    local _dmvp_np = r(N_patterns)
+    * Read EVERY r() result of the command under test before the oracle helper
+    * below runs: `_qa_dmvp_pattern_count' issues its own commands and so
+    * replaces r() wholesale -- asserting on r(N)/r(N_vars) after the call
+    * reads the HELPER's results, not datamvp's.
+    local _dmvp_n  = r(N)
+    local _dmvp_nv = r(N_vars)
+    local _dmvp_nc = r(N_complete)
+    local _dmvp_ni = r(N_incomplete)
+    assert !missing(`_dmvp_np')
+    assert !missing(`_dmvp_n', `_dmvp_nv', `_dmvp_nc', `_dmvp_ni')
+    assert `_dmvp_n' == 1000
+    assert `_dmvp_nv' == 5
+    assert `_dmvp_nc' + `_dmvp_ni' == `_dmvp_n'
+    * sort/skip/wide/percent/cumulative are console-only; minfreq()/
+    * minmissing()/maxmissing() DO have an observable effect on
+    * r(N_patterns) -- rebuild that count independently.
+    _qa_dmvp_pattern_count age bmi income education smoking, ///
+        minfreq(3) minmissing(1) maxmissing(4)
+    assert `_dmvp_np' == r(n_patterns)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': All display+filter options combined"
@@ -896,6 +1191,16 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age, correlate
+    * correlate with nvar<=1 hits datamvp.ado's documented skip branch
+    * ("correlate requires at least 2 variables...; skipped"), which never
+    * sets `_return_has_corr' -- confirm r(corr_miss) is genuinely absent,
+    * not just that the command didn't error.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 1
+    capture matrix list r(corr_miss)
+    assert _rc != 0
     * Should not error — just skip with message
 }
 if _rc == 0 {
@@ -928,6 +1233,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income education, graph(bar) stacked nodraw
+    * stacked/nodraw only affect the (suppressed) rendering -- no r()
+    * effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 4
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': stacked bar (v1.2.0 reimplementation)"
@@ -991,6 +1303,13 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(bar) graphoptions(ysize(5) xsize(8)) nodraw
+    * graphoptions()/nodraw only affect the (suppressed) rendering -- no
+    * r() effect beyond parsing and the identity.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': graphoptions() passthrough"
@@ -1101,6 +1420,18 @@ capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
     datamvp age bmi income, graph(patterns) gby(sex) top(5) nodraw
+    * String gby()'s observable effect: r(gby)/r(gby_levels), same as the
+    * numeric gby() test above. top()/nodraw only affect rendering.
+    assert "`r(gby)'" == "sex"
+    * r(gby_levels) is a `levelsof' LIST (a return local), not a count --
+    * `missing()' on it is a type mismatch, r(109). Assert the number of
+    * levels it names, which is the quantity the option actually governs.
+    assert wordcount(`"`r(gby_levels)'"') == 2
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': String gby() with graph(patterns) (v1.2.1)"
@@ -1118,6 +1449,13 @@ capture noisily {
     capture drop gen_*
     datamvp age bmi, gen(gen)
     confirm variable gen_age gen_bmi gen_pattern gen_nmiss
+    * `confirm variable' alone passes on all-missing generated columns;
+    * require the missingness-count column to actually hold valid counts.
+    quietly count if missing(gen_nmiss)
+    assert r(N) == 0
+    quietly summarize gen_nmiss
+    assert !missing(r(max))
+    assert r(max) <= 2
     drop gen_*
 }
 if _rc == 0 {
@@ -1135,6 +1473,16 @@ capture noisily {
     use `testdata', clear
     gen all_miss = .
     datamvp age bmi all_miss, graph(correlation) nodraw
+    * graph(correlation) internally runs correlate over the 3 vars (all
+    * have missingness, nvar>1) -- confirm the matrix actually posted at
+    * the right dimension despite the degenerate all-missing column.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    matrix _t65_corr = r(corr_miss)
+    assert rowsof(_t65_corr) == 3
+    assert colsof(_t65_corr) == 3
     drop all_miss
 }
 if _rc == 0 {
@@ -1211,6 +1559,18 @@ capture noisily {
     use `testdata', clear
     gen str6 sex = cond(female == 1, "Female", "Male")
     datamvp age bmi income, graph(bar) over(sex) groupgap(20) legendopts(rows(1)) nodraw
+    * String over()'s observable effect: r(over)/r(over_levels). groupgap()/
+    * legendopts()/nodraw only affect rendering.
+    assert "`r(over)'" == "sex"
+    * r(over_levels) is a `levelsof' LIST (a return local), not a count --
+    * `missing()' on it is a type mismatch, r(109). Assert the number of
+    * levels it names, which is the quantity the option actually governs.
+    assert wordcount(`"`r(over_levels)'"') == 2
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': String over()+groupgap+legendopts (v1.2.1)"
@@ -1243,6 +1603,14 @@ local ++test_count
 capture noisily {
     use `testdata', clear
     datamvp age bmi income, graph(correlation) colorramp(redblue) nodraw
+    * colorramp()/nodraw only affect the (suppressed) rendering; the
+    * correlation matrix itself is checked in the dedicated graph(correlation)
+    * and correlate tests above.
+    assert !missing(r(N))
+    assert r(N) == 1000
+    assert !missing(r(N_vars))
+    assert r(N_vars) == 3
+    assert r(N_complete) + r(N_incomplete) == r(N)
 }
 if _rc == 0 {
     display as result "  PASS `test_count': colorramp(redblue) (v1.2.1)"

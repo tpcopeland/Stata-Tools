@@ -197,6 +197,8 @@ capture noisily {
     assert _rc == 0
     capture confirm variable effect_label
     assert _rc == 0
+    assert title_col[1] == "user_data"
+    assert effect_label[1] == 1
 }
 if _rc == 0 {
     display as result "  PASS: I3 user vars named title_col/effect_label survive"
@@ -320,6 +322,18 @@ capture noisily {
     gcomptab, xlsx("`testdir'/_itest_i8.xlsx") sheet("BC")       ci(bc)
     gcomptab, xlsx("`testdir'/_itest_i8.xlsx") sheet("BCa")      ci(bca)
     confirm file "`testdir'/_itest_i8.xlsx"
+    preserve
+    import excel using "`testdir'/_itest_i8.xlsx", describe
+    local _n8sheets = r(N_worksheet)
+    local _n8names ""
+    forvalues s = 1/`_n8sheets' {
+        local _n8names "`_n8names' `r(worksheet_`s')'"
+    }
+    assert strpos("`_n8names'", "Normal") > 0
+    assert strpos("`_n8names'", "Percentile") > 0
+    assert strpos("`_n8names'", "BC") > 0
+    assert strpos("`_n8names'", "BCa") > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: I8 four CI sheets in one workbook"
@@ -342,7 +356,7 @@ capture noisily {
     regress price mpg
     * gcomptab expects e(cmd)=="gcomp"; must refuse cleanly
     capture gcomptab, xlsx("`testdir'/_itest_i9.xlsx") sheet("S9")
-    assert _rc != 0
+    assert _rc == 119
     * No workbook should be left behind
     capture confirm file "`testdir'/_itest_i9.xlsx"
     if _rc == 0 {

@@ -195,6 +195,9 @@ capture noisily {
     assert strpos(`"`_line_cmd'"', "pcspike lane start lane stop") > 0
     assert strpos(`"`_line_cmd'"', "rbar start stop lane") == 0
     use "`_bar_table'", clear
+    unab _dens2_vars_now : _all
+    describe using "`_line_table'", varlist
+    assert "`_dens2_vars_now'" == "`r(varlist)'"
     cf _all using "`_line_table'"
     frame drop sw_bar_mode
     frame drop sw_line_mode
@@ -365,6 +368,9 @@ capture noisily {
         laneheight(5pt) ysize(10) nograph
     assert _rc == 198
     assert "`c(varabbrev)'" == "on"
+    unab _dens3_vars_after : _all
+    describe using "`_before_error'", varlist
+    assert "`_dens3_vars_after'" == "`r(varlist)'"
     cf _all using "`_before_error'"
     capture noisily swimlane, id(id) duration(duration) lanetype(area) nograph
     assert _rc == 198

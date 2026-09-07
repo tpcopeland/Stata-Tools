@@ -578,7 +578,9 @@ display as text _n "Test `test_count': Graph renders with plotplainblind"
 
 capture noisily {
     sysuse auto, clear
-    quietly graph twoway scatter price mpg, scheme(plotplainblind)
+    quietly graph twoway scatter price mpg, scheme(plotplainblind) name(_tcs_g23, replace)
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " _tcs_g23 ") > 0
     graph drop _all
 }
 if _rc == 0 {
@@ -597,7 +599,9 @@ display as text _n "Test `test_count': Graph renders with white_tableau"
 
 capture noisily {
     sysuse auto, clear
-    quietly graph twoway scatter price mpg, scheme(white_tableau)
+    quietly graph twoway scatter price mpg, scheme(white_tableau) name(_tcs_g24, replace)
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " _tcs_g24 ") > 0
     graph drop _all
 }
 if _rc == 0 {
@@ -616,7 +620,9 @@ display as text _n "Test `test_count': Graph renders with black_viridis"
 
 capture noisily {
     sysuse auto, clear
-    quietly graph twoway scatter price mpg, scheme(black_viridis)
+    quietly graph twoway scatter price mpg, scheme(black_viridis) name(_tcs_g25, replace)
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " _tcs_g25 ") > 0
     graph drop _all
 }
 if _rc == 0 {
@@ -635,7 +641,9 @@ display as text _n "Test `test_count': Graph renders with gg_ptol"
 
 capture noisily {
     sysuse auto, clear
-    quietly graph twoway scatter price mpg, scheme(gg_ptol)
+    quietly graph twoway scatter price mpg, scheme(gg_ptol) name(_tcs_g26, replace)
+    quietly graph dir
+    assert strpos(" " + r(list) + " ", " _tcs_g26 ") > 0
     graph drop _all
 }
 if _rc == 0 {
@@ -656,6 +664,7 @@ else {
 local ++test_count
 display as text _n "Test `test_count': which tc_schemes succeeds"
 
+* stata-dev-ignore: rc-only-test -- installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which tc_schemes
 }
@@ -673,15 +682,35 @@ else {
 local ++test_count
 display as text _n "Test `test_count': help file renders without error"
 
+tempfile _tcs_help_log_token
+local _tcs_help_log "`_tcs_help_log_token'_tc_schemes_help.log"
+capture erase "`_tcs_help_log'"
 capture noisily {
+    * `help' renders into the Viewer, and in batch mode a `log' captures none
+    * of it (measured: the log comes back empty), so the viewer call is kept
+    * only for its return code. The rendered-content check is done by putting
+    * the .sthlp through `type , smcl', which is the same rendering path and
+    * DOES reach the log -- that is what proves the help renders text rather
+    * than compiling to a blank page.
     quietly help tc_schemes
+    findfile tc_schemes.sthlp
+    local _tcs_help_src "`r(fn)'"
+    log using `"`_tcs_help_log'"', replace text name(_tcs_t28_help)
+    type `"`_tcs_help_src'"', smcl
+    capture log close _tcs_t28_help
+    local _tcs_help_body = fileread(`"`_tcs_help_log'"')
+    assert strlen(`"`_tcs_help_body'"') > 0
+    assert strpos(`"`_tcs_help_body'"', "Consolidated Stata graph schemes") > 0
 }
-if _rc == 0 {
+local rc = _rc
+capture log close _tcs_t28_help
+capture erase "`_tcs_help_log'"
+if `rc' == 0 {
     display as result "  PASS"
     local ++pass_count
 }
 else {
-    display as error "  FAIL (error `=_rc')"
+    display as error "  FAIL (error `rc')"
     local ++fail_count
     local failed_tests "`failed_tests' `test_count'"
 }
@@ -730,7 +759,9 @@ display as text _n "Test `test_count': graphs render under the 6 new schemes"
 capture noisily {
     sysuse auto, clear
     foreach s in cleanplots modern modern_dark rdbu ki ki_black {
-        quietly graph twoway scatter price mpg, scheme(`s')
+        quietly graph twoway scatter price mpg, scheme(`s') name(_tcs_g30, replace)
+        quietly graph dir
+        assert strpos(" " + r(list) + " ", " _tcs_g30 ") > 0
         graph drop _all
     }
 }
@@ -778,7 +809,11 @@ capture noisily {
     capture program drop _tc_schemes_detail
     run "`adopath'"
     quietly tc_schemes, detail
+    assert r(n_schemes) == 45
+    local _tcs_first_schemes "`r(schemes)'"
     quietly tc_schemes, detail
+    assert r(n_schemes) == 45
+    assert "`r(schemes)'" == "`_tcs_first_schemes'"
 }
 if _rc == 0 {
     display as result "  PASS"

@@ -402,6 +402,7 @@ else {
 
 **# 8. Broad estimator-family matrix matches native factor-variable margins
 local ++test_count
+* stata-dev-ignore: rc-only-test — each bare `_fvgen_margins_compare' call IS the content oracle: the helper (defined above) asserts `reldif' < tol on every b/V element for native versus flattened+margins-cloned estimates and `exit's the failing rc on mismatch, so this block's capture only relays that comparison; the helper name has no "assert" substring so the rule cannot see it
 capture noisily {
     _fvgen_margins_compare, label("regress") ///
         native("regress yc i.g##c.x") ///

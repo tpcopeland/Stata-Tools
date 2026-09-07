@@ -16,6 +16,7 @@ local pkg_dir "`qa_dir'/.."
 
 do "`qa_dir'/_qa_bootstrap.do"
 
+* stata-dev-ignore: rc-only-test -- installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture which gcomptab
 assert _rc == 0
 

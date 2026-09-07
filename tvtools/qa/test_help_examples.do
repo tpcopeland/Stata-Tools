@@ -210,8 +210,12 @@ capture noisily {
     assert r(min) > 0
     * Unstabilized IPTW for a binary exposure has expectation 2 -- each arm
     * contributes 1 -- not 1. Assert the value the estimator is actually
-    * defined to produce.
-    assert abs(r(mean) - 2) < 0.5
+    * defined to produce. The realized mean on this seeded design is 1.999554,
+    * so 0.05 is ~100x the observed deviation while still rejecting any drift
+    * large enough to matter; the former 0.5 accepted a mean anywhere in
+    * [1.5, 2.5], i.e. every plausible wrong answer.
+    noisily display as text "  [H5] unstabilized IPTW mean = " %9.6f r(mean)
+    assert abs(r(mean) - 2) < 0.05
 }
 if _rc == 0 {
     display as result "  PASS [H5]: flagship tvweight example produces usable weights"

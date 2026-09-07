@@ -359,6 +359,9 @@ capture noisily {
     display "NDE = " e(nde) ", SE = " e(se_nde)
     display "NIE = " e(nie) ", SE = " e(se_nie)
     display "PM  = " e(pm)  ", SE = " e(se_pm)
+    assert !missing(e(tce), e(se_tce), e(nde), e(se_nde))
+    assert !missing(e(nie), e(se_nie), e(pm), e(se_pm))
+    assert e(se_tce) > 0 & e(se_nde) > 0 & e(se_nie) > 0 & e(se_pm) > 0
 }
 if _rc == 0 {
     display as result "  PASS: D8 sthlp Example 7 (result extraction)"

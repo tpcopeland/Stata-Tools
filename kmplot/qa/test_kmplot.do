@@ -107,6 +107,8 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) ci cistyle(line) name(t5, replace)
+    assert r(ci) == 1
+    assert "`r(cistyle)'" == "line"
 }
 if _rc == 0 {
     display as result "  PASS: T5 CI line style"
@@ -124,6 +126,8 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) ci failure name(t6, replace)
+    assert r(ci) == 1
+    assert r(failure) == 1
 }
 if _rc == 0 {
     display as result "  PASS: T6 CI with failure (inverted bounds)"
@@ -141,7 +145,9 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, ci citransform(log) name(t7a, replace)
+    assert "`r(citransform)'" == "log"
     kmplot, ci citransform(plain) name(t7b, replace)
+    assert "`r(citransform)'" == "plain"
 }
 if _rc == 0 {
     display as result "  PASS: T7 CI transforms (log, plain)"
@@ -158,7 +164,14 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, by(drug) ci ciopacity(40) name(t8, replace)
+    local svgfile `c(tmpdir)'/kmplot_t8.svg
+    capture erase "`svgfile'"
+    kmplot, by(drug) ci ciopacity(40) export("`svgfile'", replace) name(t8, replace)
+    assert r(ci) == 1
+    confirm file "`svgfile'"
+    * ciopacity(40) must actually reach the rendered CI band fill, not just parse
+    _kmplot_assert_file_contains using "`svgfile'", pattern("opacity:0.40")
+    erase "`svgfile'"
 }
 if _rc == 0 {
     display as result "  PASS: T8 CI opacity"
@@ -215,6 +228,11 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) risktable name(t11, replace)
+    assert !missing(r(n_timepoints))
+    assert r(n_timepoints) > 0
+    matrix R11 = r(risktable)
+    assert rowsof(R11) == r(n_groups) * r(n_timepoints)
+    assert colsof(R11) == 5
 }
 if _rc == 0 {
     display as result "  PASS: T11 Risk table"
@@ -232,6 +250,11 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) risktable timepoints(0 10 20 30) name(t12, replace)
+    assert r(n_timepoints) == 4
+    assert "`r(timepoints)'" == "0 10 20 30"
+    matrix R12 = r(risktable)
+    assert rowsof(R12) == r(n_groups) * 4
+    assert colsof(R12) == 5
 }
 if _rc == 0 {
     display as result "  PASS: T12 Risk table with timepoints"
@@ -248,7 +271,16 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, by(drug) censor name(t13, replace)
+    local curvefile13 `c(tmpdir)'/kmplot_t13.dta
+    capture erase "`curvefile13'"
+    kmplot, by(drug) censor saving("`curvefile13'", replace) name(t13, replace)
+    confirm file "`curvefile13'"
+    preserve
+    use "`curvefile13'", clear
+    quietly count if censor == 1
+    assert r(N) < . & r(N) > 0
+    restore
+    erase "`curvefile13'"
 }
 if _rc == 0 {
     display as result "  PASS: T13 Censor marks"
@@ -265,7 +297,27 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, by(drug) censor censorthin(3) name(t14, replace)
+    local curvefile14a `c(tmpdir)'/kmplot_t14a.dta
+    local curvefile14b `c(tmpdir)'/kmplot_t14b.dta
+    capture erase "`curvefile14a'"
+    capture erase "`curvefile14b'"
+    kmplot, by(drug) censor saving("`curvefile14a'", replace) name(t14a, replace)
+    kmplot, by(drug) censor censorthin(3) saving("`curvefile14b'", replace) name(t14, replace)
+    confirm file "`curvefile14a'"
+    confirm file "`curvefile14b'"
+    preserve
+    use "`curvefile14a'", clear
+    quietly count if censor == 1
+    local n_unthinned = r(N)
+    restore
+    preserve
+    use "`curvefile14b'", clear
+    quietly count if censor == 1
+    * censorthin(3) must actually reduce the displayed marker count
+    assert r(N) < `n_unthinned'
+    restore
+    erase "`curvefile14a'"
+    erase "`curvefile14b'"
 }
 if _rc == 0 {
     display as result "  PASS: T14 Censor thinning"
@@ -321,8 +373,11 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) pvalue pvaluepos(topleft) name(t17a, replace)
+    assert "`r(pvalue_pos)'" == "topleft"
     kmplot, by(drug) pvalue pvaluepos(bottomright) name(t17b, replace)
+    assert "`r(pvalue_pos)'" == "bottomright"
     kmplot, by(drug) pvalue pvaluepos(bottomleft) name(t17c, replace)
+    assert "`r(pvalue_pos)'" == "bottomleft"
 }
 if _rc == 0 {
     display as result "  PASS: T17 P-value position options"
@@ -340,6 +395,7 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) colors(red blue green) name(t18, replace)
+    assert "`r(colors)'" == "red blue green"
 }
 if _rc == 0 {
     display as result "  PASS: T18 Custom colors"
@@ -357,6 +413,7 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, by(drug) lpattern(solid dash dot) name(t19, replace)
+    assert "`r(lpattern)'" == "solid dash dot"
 }
 if _rc == 0 {
     display as result "  PASS: T19 Custom lpattern"
@@ -373,7 +430,15 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    kmplot, by(drug) legend(order(1 "A" 2 "B" 3 "C") rows(1)) name(t20, replace)
+    local svgfile20 `c(tmpdir)'/kmplot_t20.svg
+    capture erase "`svgfile20'"
+    kmplot, by(drug) legend(order(1 "A" 2 "B" 3 "C") rows(1)) ///
+        export("`svgfile20'", replace) name(t20, replace)
+    confirm file "`svgfile20'"
+    * the custom legend labels must actually render, not just parse
+    _kmplot_assert_file_contains using "`svgfile20'", pattern(">A</text>")
+    _kmplot_assert_file_contains using "`svgfile20'", pattern(">B</text>")
+    erase "`svgfile20'"
 }
 if _rc == 0 {
     display as result "  PASS: T20 Custom legend"
@@ -390,8 +455,17 @@ local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
+    local svgfile21 `c(tmpdir)'/kmplot_t21.svg
+    capture erase "`svgfile21'"
     kmplot, by(drug) title("My Title") subtitle("Sub") ///
-        xtitle("Time (months)") ytitle("Pr(survival)") name(t21, replace)
+        xtitle("Time (months)") ytitle("Pr(survival)") ///
+        export("`svgfile21'", replace) name(t21, replace)
+    assert "`r(xtitle)'" == "Time (months)"
+    assert "`r(ytitle)'" == "Pr(survival)"
+    confirm file "`svgfile21'"
+    _kmplot_assert_file_contains using "`svgfile21'", pattern("My Title")
+    _kmplot_assert_file_contains using "`svgfile21'", pattern("Sub")
+    erase "`svgfile21'"
 }
 if _rc == 0 {
     display as result "  PASS: T21 Title/subtitle/xtitle/ytitle"
@@ -412,6 +486,14 @@ capture noisily {
     capture erase "`tmpfile'"
     kmplot, by(drug) export(`tmpfile', replace) name(t22, replace)
     confirm file "`tmpfile'"
+    * a real rendered graph, not a truncated/empty stub
+    tempfile pngsize22
+    shell wc -c < "`tmpfile'" > "`pngsize22'"
+    tempname szfh22
+    file open `szfh22' using "`pngsize22'", read text
+    file read `szfh22' _pngsz22
+    file close `szfh22'
+    assert real(trim("`_pngsz22'")) > 1000
     erase "`tmpfile'"
 }
 if _rc == 0 {
@@ -591,6 +673,7 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     kmplot, name(mykmplot, replace)
+    assert "`r(graph_name)'" == "mykmplot"
     * Graph should exist with custom name
     graph describe mykmplot
 }
@@ -630,9 +713,9 @@ capture noisily {
     replace died = 0
     stset studytime, failure(died)
     kmplot, median medianannotate name(t33, replace)
-    * Median should not be returned (NR)
-    capture assert r(median_1) < .
-    assert _rc != 0
+    * Median should not be returned (NR): all-censored group never posts
+    * r(median_1), which reads as missing when referenced
+    assert missing(r(median_1))
 }
 if _rc == 0 {
     display as result "  PASS: T33 Median NR (all censored)"
@@ -1360,6 +1443,9 @@ capture noisily {
         export("/tmp/no_such_dir_kmplot/output.png", replace) ///
         name(t68, replace)
     assert _rc != 0
+    * the export failure must not have prevented the analysis itself
+    assert r(N) == 48
+    assert r(n_groups) == 3
 }
 if _rc == 0 {
     display as result "  PASS: T68 Export to bad directory fails gracefully"

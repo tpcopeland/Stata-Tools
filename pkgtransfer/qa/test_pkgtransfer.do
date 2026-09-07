@@ -313,6 +313,11 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly cd "`tmpdir'"
         pkgtransfer
         confirm file "pkgtransfer.do"
+        * `confirm file' alone passes on an empty stub; default mode writes
+        * one `net install'/`ssc install' line per plus-installed package
+        * (pkgtransfer.ado, "Creation of do file ... [Final Product for
+        * Default]"), so the file must actually contain an install command.
+        assert strpos(fileread("pkgtransfer.do"), "install") > 0
         capture erase "pkgtransfer.do"
         quietly cd "`orig_dir'"
     }
@@ -338,6 +343,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly cd "`tmpdir'"
         pkgtransfer, dofile(custom_install.do)
         confirm file "custom_install.do"
+        * `confirm file' alone passes on an empty stub; default mode writes
+        * one `net install'/`ssc install' line per plus-installed package,
+        * so the custom-named file must actually contain an install command.
+        assert strpos(fileread("custom_install.do"), "install") > 0
         capture erase "custom_install.do"
         quietly cd "`orig_dir'"
     }
@@ -662,6 +671,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
         pkgtransfer, os(Windows)
+        confirm file "pkgtransfer.do"
+        assert strpos(fileread("pkgtransfer.do"), "install") > 0
         capture erase "pkgtransfer.do"
         quietly cd "`orig_dir'"
     }
@@ -686,6 +697,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
         pkgtransfer, os(Unix)
+        confirm file "pkgtransfer.do"
+        assert strpos(fileread("pkgtransfer.do"), "install") > 0
         capture erase "pkgtransfer.do"
         quietly cd "`orig_dir'"
     }
@@ -710,6 +723,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
         pkgtransfer, os(MacOSX)
+        confirm file "pkgtransfer.do"
+        assert strpos(fileread("pkgtransfer.do"), "install") > 0
         capture erase "pkgtransfer.do"
         quietly cd "`orig_dir'"
     }

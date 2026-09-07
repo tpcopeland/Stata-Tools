@@ -179,9 +179,13 @@ if `run_only' == 0 | `run_only' == 4 {
         tvweight treatment, covariates(age sex) stabilized nolog
         confirm variable iptw
         assert iptw > 0
-        * Stabilized weights should have mean closer to 1
+        * Stabilized weights have mean 1 by construction. The realized mean on
+        * this seeded design is 0.999954, so 0.02 leaves ample headroom while
+        * still rejecting the un-stabilized (mean ~2) result the former 0.5
+        * tolerance came within a hair of accepting.
         sum iptw
-        assert abs(r(mean) - 1) < 0.5
+        noisily display as text "  stabilized weight mean = " %9.6f r(mean)
+        assert abs(r(mean) - 1) < 0.02
     }
     if _rc == 0 {
         display as result "  PASS: Stabilized weights works"
@@ -585,9 +589,13 @@ capture noisily {
     use `weight_data', clear
     tvweight treatment, covariates(age female) generate(sw) stabilized nolog
     assert "`r(stabilized)'" == "stabilized"
-    * Stabilized weights should have mean closer to 1
+    * Stabilized weights have mean 1 by construction. The realized mean on this
+    * seeded design is 1.000023, so 0.02 leaves ample headroom while still
+    * rejecting the un-stabilized (mean ~2) result the former 0.5 tolerance
+    * came within a hair of accepting.
     quietly sum sw
-    assert abs(r(mean) - 1) < 0.5
+    noisily display as text "  stabilized weight mean = " %9.6f r(mean)
+    assert abs(r(mean) - 1) < 0.02
 }
 if _rc == 0 {
     display as result "  PASS: Stabilized weights"
@@ -933,6 +941,9 @@ capture noisily {
     tvweight treatment, covariates(age female) generate(nl_w) nolog
     capture confirm variable nl_w
     assert _rc == 0
+    quietly count if missing(nl_w) | nl_w <= 0
+    assert !missing(r(N))
+    assert r(N) == 0
 }
 if _rc == 0 {
     display as result "  PASS: nolog option works"

@@ -156,6 +156,13 @@ gcomp Y L A C id time, outcome(Y) idvar(id) tvar(time) ///
     varyingcovariates(L) fixedcovariates(C) intvars(A) interventions(A=1, A=0) ///
     eofu pooled commands(L: regress, A: logit, Y: logit) ///
     equations(L: C time, A: L C time, Y: A L C time) sim(120) samples(3) seed(109)
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _sc_vars : _all
+describe using `unsorted_before', varlist
+assert "`_sc_vars'" == "`r(varlist)'"
 cf _all using `unsorted_before', all
 assert e(bootstrap_failed)==0
 

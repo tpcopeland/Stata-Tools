@@ -46,13 +46,9 @@ program define __tt_assert_same_data
     syntax using/
     unab memory_vars : _all
     local memory_N = _N
-    preserve
-    quietly use `"`using'"', clear
-    unab using_vars : _all
-    local using_N = _N
-    restore
-    assert `using_N' == `memory_N'
-    assert `"`using_vars'"' == `"`memory_vars'"'
+    describe using `"`using'"', varlist
+    assert r(N) == `memory_N'
+    assert "`r(varlist)'" == "`memory_vars'"
     cf _all using `"`using'"'
 end
 
@@ -1347,6 +1343,10 @@ collect: regress price mpg weight
 * regtab: quoted eplotframe
 capture noisily {
     regtab, eplotframe("ep_adv, replace")
+    confirm frame ep_adv
+    frame ep_adv {
+        assert _N > 0
+    }
     capture frame drop ep_adv
 }
 if _rc == 0 {
@@ -1366,6 +1366,10 @@ collect: teffects ra (price mpg weight) (treat)
 
 capture noisily {
     effecttab, eplotframe("ep_adv_eff, replace")
+    confirm frame ep_adv_eff
+    frame ep_adv_eff {
+        assert _N > 0
+    }
     capture frame drop ep_adv_eff
 }
 if _rc == 0 {
@@ -1384,6 +1388,10 @@ collect: regress price mpg weight
 
 capture noisily {
     regtab, frame("fr_adv, replace")
+    confirm frame fr_adv
+    frame fr_adv {
+        assert _N > 0
+    }
     capture frame drop fr_adv
 }
 if _rc == 0 {
@@ -1418,7 +1426,22 @@ else {
 capture noisily {
     sysuse auto, clear
     replace mpg = . if _n <= 5
-    table1_tc foreign, vars(mpg contn rep78 cat) percsign(%) missingsummary
+    capture frame drop _adv_ms
+    table1_tc foreign, vars(mpg contn rep78 cat) percsign(%) missingsummary ///
+        frame(_adv_ms, replace)
+    * the bare "%" percsign must have expanded to a literal percent sign
+    * somewhere in the table, not been consumed as an operator (the
+    * historical r(198) crash)
+    local _adv_ms_found = 0
+    frame _adv_ms {
+        ds, has(type string)
+        foreach _adv_ms_v of varlist `r(varlist)' {
+            quietly count if strpos(`_adv_ms_v', "%") > 0
+            if r(N) > 0 local _adv_ms_found = 1
+        }
+    }
+    assert `_adv_ms_found' == 1
+    capture frame drop _adv_ms
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc percsign(%) with missingsummary"
@@ -1431,7 +1454,18 @@ else {
 
 capture noisily {
     sysuse auto, clear
-    table1_tc foreign, vars(rep78 cat) percsign(%) headerperc
+    capture frame drop _adv_hp
+    table1_tc foreign, vars(rep78 cat) percsign(%) headerperc frame(_adv_hp, replace)
+    local _adv_hp_found = 0
+    frame _adv_hp {
+        ds, has(type string)
+        foreach _adv_hp_v of varlist `r(varlist)' {
+            quietly count if strpos(`_adv_hp_v', "%") > 0
+            if r(N) > 0 local _adv_hp_found = 1
+        }
+    }
+    assert `_adv_hp_found' == 1
+    capture frame drop _adv_hp
 }
 if _rc == 0 {
     display as result "  PASS: table1_tc percsign(%) with headerperc"

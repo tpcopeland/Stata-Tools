@@ -98,7 +98,11 @@ capture noisily {
     _setup_pipeline
     msm_weight, treat_n_cov(age sex) truncate(1 99) nolog
     msm_fit, outcome_cov(age sex) model(logistic)
+    assert !missing(e(N))
+    assert e(N) > 0
+    assert !missing(_b[age])
 }
+assert _rc == 0
 quietly summarize period
 local max_period = r(max)
 local beyond = `max_period' + 5
@@ -109,6 +113,12 @@ local ++test_count
 capture noisily {
     msm_predict, times(`beyond') extra
     assert _rc == 0
+    * Not just "no error": the request was actually beyond fitted support
+    * and the extrapolation path actually fired.
+    assert r(n_times) == 1
+    assert r(extrapolated) == 1
+    matrix _b1_P = r(predictions)
+    assert rowsof(_b1_P) == 1
 }
 if _rc == 0 {
     display as result "  PASS B1: msm_predict accepts documented 'extra' abbreviation"
@@ -124,12 +134,12 @@ else {
 *     (proves B1 exercised the extrapolation path, not a within-range no-op)
 local ++test_count
 capture noisily msm_predict, times(`beyond')
-if _rc != 0 {
+if _rc == 198 {
     display as result "  PASS B2: beyond-range predict refused without 'extra'"
     local ++pass_count
 }
 else {
-    display as error "  FAIL B2: beyond-range predict allowed without extrapolate"
+    display as error "  FAIL B2: beyond-range predict did not refuse with rc=198 (got rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' B2"
 }
@@ -139,8 +149,10 @@ local ++test_count
 capture noisily {
     msm_predict, times(`beyond') extrap
     assert _rc == 0
+    assert r(extrapolated) == 1
     msm_predict, times(`beyond') extrapolate
     assert _rc == 0
+    assert r(extrapolated) == 1
 }
 if _rc == 0 {
     display as result "  PASS B3: 'extrap' and 'extrapolate' parse consistently"

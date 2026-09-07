@@ -335,9 +335,11 @@ capture noisily {
         order(data) frame(fto, replace)
     * data first-occurrence (c2 = estimator column when by() present):
     * Unweighted, IIW, IIW+log
-    frame fto: assert c2[2] == "Unweighted"
-    frame fto: assert c2[3] == "IIW"
-    frame fto: assert c2[4] == "IIW+log"
+    frame fto {
+        assert c2[2] == "Unweighted"
+        assert c2[3] == "IIW"
+        assert c2[4] == "IIW+log"
+    }
 }
 if _rc == 0 {
     display as result "  PASS T7: order(data)"
@@ -392,7 +394,9 @@ capture noisily {
     simtab estid, estimate(est) se(se) true(truev) coverage(covered) ///
         metrics(coverage n) frame(ft9, replace) display
     * coverage is ~0% -> off-nominal -> asterisk on the coverage cell (c2, row 2)
-    frame ft9: assert strpos(c2[2], "*") > 0
+    frame ft9 {
+        assert strpos(c2[2], "*") > 0
+    }
 }
 if _rc == 0 {
     display as result "  PASS T9: coverage off-nominal asterisk"
@@ -411,60 +415,60 @@ _simtab_make_data, reps(80) estimands(1)
 keep if emd == 1
 * no output target
 capture simtab estid, estimate(est) se(se) true(truev)
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 * bad metric
 capture simtab estid, estimate(est) se(se) true(truev) metrics(bogus) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 * power without source
 capture simtab estid, estimate(est) se(se) true(truev) metrics(power) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 * nonconv without nsim
 capture simtab estid, estimate(est) se(se) true(truev) metrics(nonconv) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 * negative se
 preserve
 replace se = -1 in 1
 capture simtab estid, estimate(est) se(se) true(truev) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 restore
 * duplicate sim cells
 preserve
 replace sim = 1 in 1/3
 capture simtab estid, estimate(est) se(se) true(truev) sim(sim) display
-if _rc == 0 local err_ok = 0
+if _rc != 459 local err_ok = 0
 restore
 * truth varies within cell
 preserve
 replace truev = 0.9 in 1
 capture simtab estid, estimate(est) se(se) true(truev) display
-if _rc == 0 local err_ok = 0
+if _rc != 459 local err_ok = 0
 restore
 * bad xlsx extension
 capture simtab estid, estimate(est) se(se) true(truev) xlsx("bad.txt")
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 * interval bounds must be paired and ordered
 capture simtab estid, estimate(est) se(se) true(truev) lci(lo) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 preserve
 replace lo = hi + 1 in 1
 capture simtab estid, estimate(est) se(se) true(truev) lci(lo) uci(hi) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 restore
 * binary indicators and p-values must honor their documented domains
 preserve
 replace covered = 2 in 1
 capture simtab estid, estimate(est) se(se) true(truev) coverage(covered) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 restore
 preserve
 replace rej = -1 in 1
 capture simtab estid, estimate(est) se(se) true(truev) metrics(power) reject(rej) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 restore
 preserve
 replace pval = 1.1 in 1
 capture simtab estid, estimate(est) se(se) true(truev) metrics(power) pvalue(pval) display
-if _rc == 0 local err_ok = 0
+if _rc != 198 local err_ok = 0
 restore
 if `err_ok' {
     display as result "  PASS T10: error paths fire"
@@ -1002,6 +1006,13 @@ capture noisily {
         --cell-no-fill B3 C3 D2 D3 I2 ///
         --result-file "`r1'" --quiet
     _xl_pass "`r1'"
+    * direct in-Stata confirmation of the title/header text the checker also
+    * verified against border/fill layout above
+    preserve
+    import excel using "`x1'", sheet("Tab") cellrange(A1:D3) clear allstring
+    assert A[1] == "Styling Regression"
+    assert D[2] == "Marginal"
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: T1 multi-estimand B2 offset + box + separators + no fill"
@@ -1042,6 +1053,13 @@ capture noisily {
         --cell-no-fill B2 C2 ///
         --result-file "`r2'" --quiet
     _xl_pass "`r2'"
+    * direct in-Stata confirmation of the title/header text the checker also
+    * verified against border/fill layout above
+    preserve
+    import excel using "`x2'", sheet("Tab") cellrange(A1:B2) clear allstring
+    assert A[1] == "Single Estimand"
+    assert B[2] == "Estimator"
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: T2 single-estimand B2 offset + three-line box"
@@ -1076,6 +1094,12 @@ capture noisily {
         --has-fill 3 ///
         --result-file "`r3'" --quiet
     _xl_pass "`r3'"
+    * direct in-Stata confirmation of the title text the checker also
+    * verified against border/fill layout above
+    preserve
+    import excel using "`x3'", sheet("Tab") cellrange(A1:A1) clear allstring
+    assert A[1] == "Shaded Header"
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: T3 headershade opt-in still applies header fill"
@@ -1172,6 +1196,14 @@ foreach _lit in 1e-3 1E-3 0.001 -0.5 .5 1.5e2 {
         keep if emd == 1
         capture frame drop _i03_fr
         simtab estid, estimate(est) se(se) true(`_lit') frame(_i03_fr)
+        * the literal must actually be USED as the target, not merely parsed:
+        * a scalar true() applies to every row, so every estimator is covered
+        * (or not) against the identical real(`_lit') value
+        assert r(mode) == "compute"
+        assert r(N_cells) == 3
+        frame _i03_fr {
+            assert _N > 0
+        }
     }
     if _rc == 0 {
         display as result "  PASS: I03 simtab true(`_lit') accepted as a number"

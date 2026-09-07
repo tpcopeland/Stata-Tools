@@ -678,6 +678,9 @@ capture {
     local b_qsmk = _b[qsmk]
     local or_qsmk = exp(`b_qsmk')
     display "  qsmk log-OR: " %7.4f `b_qsmk' " (OR: " %7.4f `or_qsmk' ")"
+    assert !missing(`b_qsmk')
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS 3.6: MSM pipeline runs on NHEFS"
@@ -1262,6 +1265,9 @@ capture {
     local bias_iptw = abs(`b_iptw_only' - `true_logor')
     display "  IPTW-only log-OR: " %7.4f `b_iptw_only' " (bias: " %7.4f `bias_iptw' ")"
     * Store for comparison with IPCW
+    assert !missing(`b_iptw_only')
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS 6.1: IPTW-only pipeline runs"
@@ -1321,6 +1327,8 @@ capture {
     confirm variable _msm_cw_weight
     quietly summarize _msm_cw_weight
     display "  Censoring weight: mean=" %7.4f r(mean) " sd=" %7.4f r(sd)
+    assert !missing(r(mean))
+    assert r(mean) > 0
 }
 if _rc == 0 {
     display as result "  PASS 6.4: _msm_cw_weight exists"
@@ -1481,6 +1489,8 @@ else {
 local ++test_count
 capture {
     msm_report, eform
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS 7.4: msm_report display works"
@@ -1498,6 +1508,12 @@ capture {
     local csv_file "`qa_dir'/_test_report.csv"
     msm_report, export("`csv_file'") format(csv) eform replace
     confirm file "`csv_file'"
+    assert "`r(export)'" == "`csv_file'"
+    assert "`r(format)'" == "csv"
+    preserve
+    import delimited using "`csv_file'", clear varnames(1)
+    assert _N > 0
+    restore
     erase "`csv_file'"
 }
 if _rc == 0 {
@@ -1521,6 +1537,8 @@ capture {
         causal_contrast("Always vs. never treated") ///
         weight_spec("Stabilized IPTW, truncated at 1st/99th") ///
         analysis("Pooled logistic MSM with quadratic period")
+    assert "`r(population)'" == "HIV+ adults on ART"
+    assert "`r(causal_contrast)'" == "Always vs. never treated"
 }
 if _rc == 0 {
     display as result "  PASS 7.6: msm_protocol with all 7 fields"
@@ -1575,6 +1593,8 @@ else {
 local ++test_count
 capture {
     msm_plot, type(weights)
+    assert "`r(plot_type)'" == "weights"
+    assert !missing(r(n_risk))
     graph close _all
 }
 if _rc == 0 {
@@ -1591,6 +1611,7 @@ else {
 local ++test_count
 capture {
     msm_plot, type(positivity)
+    assert "`r(plot_type)'" == "positivity"
     graph close _all
 }
 if _rc == 0 {
@@ -3341,6 +3362,12 @@ capture noisily {
 
     * msm_report should run without error and not crash on missing weights
     msm_report
+    * Confirm this genuinely exercised the missing-weights branch, and that
+    * the still-valid fit results the report drew on remain intact.
+    capture confirm variable _msm_weight
+    assert _rc == 111
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS 12.6: msm_report handles missing weights after re-prepare"

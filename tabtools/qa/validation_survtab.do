@@ -57,7 +57,10 @@ capture noisily {
     capture frame drop _vc_surv
     survtab, times(10 20 30) median frame(_vc_surv)
 
-    assert abs(r(median_1) - `ref_median') < 0.5
+    * survtab's median_1 comes from its own internal `stci ..., level()' call on
+    * this same group (survtab.ado:363-365) -- the identical command this test
+    * just ran, so the two r(p50) values must be bit-identical, not merely close
+    assert abs(r(median_1) - `ref_median') < 1e-10
 }
 if _rc == 0 {
     display as result "  PASS: VC7.1 — survtab median matches stci"

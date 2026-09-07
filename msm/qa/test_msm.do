@@ -181,12 +181,19 @@ msm_prepare, id(id) period(period) treatment(treatment) ///
 msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
     treat_n_cov(age sex) nolog
 
+* Capture msm_weight's results before ANY of the T5.x blocks run: T5.2 and T5.3
+* issue `count'/`summarize' to check the weight columns, and those replace r()
+* wholesale, which would leave T5.4's r(ess) reading the summarize instead.
+local _t5_mean_weight = r(mean_weight)
+local _t5_ess         = r(ess)
+
 local ++test_count
 capture noisily {
-    assert abs(r(mean_weight) - 1) < 0.15
+    assert !missing(`_t5_mean_weight')
+    assert abs(`_t5_mean_weight' - 1) < 0.15
 }
 if _rc == 0 {
-    display as result "  PASS: mean weight near 1 (" r(mean_weight) ")"
+    display as result "  PASS: mean weight near 1 (`_t5_mean_weight')"
     local ++pass_count
 }
 else {
@@ -198,6 +205,13 @@ else {
 local ++test_count
 capture noisily {
     confirm variable _msm_weight
+    * `confirm variable' alone passes on an all-missing or all-zero column;
+    * require actual finite positive weight values.
+    quietly count if missing(_msm_weight)
+    assert r(N) == 0
+    quietly summarize _msm_weight
+    assert !missing(r(min))
+    assert r(min) > 0
 }
 if _rc == 0 {
     display as result "  PASS: _msm_weight exists"
@@ -212,6 +226,13 @@ else {
 local ++test_count
 capture noisily {
     confirm variable _msm_tw_weight
+    * `confirm variable' alone passes on an all-missing or all-zero column;
+    * require actual finite positive weight values.
+    quietly count if missing(_msm_tw_weight)
+    assert r(N) == 0
+    quietly summarize _msm_tw_weight
+    assert !missing(r(min))
+    assert r(min) > 0
 }
 if _rc == 0 {
     display as result "  PASS: _msm_tw_weight exists"
@@ -225,7 +246,8 @@ else {
 
 local ++test_count
 capture noisily {
-    assert r(ess) < _N
+    assert !missing(`_t5_ess')
+    assert `_t5_ess' < _N
 }
 if _rc == 0 {
     display as result "  PASS: ESS < N"
@@ -268,6 +290,13 @@ else {
 local ++test_count
 capture noisily {
     confirm variable _msm_cw_weight
+    * `confirm variable' alone passes on an all-missing or all-zero column;
+    * require actual finite positive weight values.
+    quietly count if missing(_msm_cw_weight)
+    assert r(N) == 0
+    quietly summarize _msm_cw_weight
+    assert !missing(r(min))
+    assert r(min) > 0
 }
 if _rc == 0 {
     display as result "  PASS: _msm_cw_weight exists"
@@ -448,6 +477,10 @@ local ++test_count
 capture noisily {
     capture msm_report, eform
     assert _rc == 0
+    * Not just "no error": the fitted model's estimation results must still
+    * be intact after a display-only report (no export()).
+    assert !missing(e(N))
+    assert e(N) > 0
 }
 if _rc == 0 {
     display as result "  PASS: report display runs"
@@ -465,6 +498,14 @@ local ++test_count
 capture noisily {
     capture msm_report, export("`report_csv'") format(csv) eform replace
     assert _rc == 0
+    assert "`r(export)'" == "`report_csv'"
+    assert "`r(format)'" == "csv"
+    confirm file "`report_csv'"
+    * `confirm file' alone passes on an empty stub; the CSV must have rows.
+    preserve
+    import delimited using "`report_csv'", clear varnames(1)
+    assert _N > 0
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: CSV export runs"
@@ -487,6 +528,9 @@ capture noisily {
         causal_contrast("Always vs never") weight_spec("Stabilized IPTW") ///
         analysis("Pooled logistic MSM")
     assert _rc == 0
+    assert "`r(population)'" == "Adults"
+    assert "`r(treatment)'" == "Drug A vs none"
+    assert "`r(causal_contrast)'" == "Always vs never"
 }
 if _rc == 0 {
     display as result "  PASS: protocol runs"
@@ -504,6 +548,8 @@ local ++test_count
 capture noisily {
     capture msm_sensitivity, evalue
     assert _rc == 0
+    assert !missing(r(evalue_point))
+    assert r(evalue_point) >= 1
 }
 if _rc == 0 {
     display as result "  PASS: evalue runs"
@@ -534,6 +580,9 @@ local ++test_count
 capture noisily {
     capture msm_sensitivity, confounding_strength(1.5 2.0)
     assert _rc == 0
+    assert r(rr_ud) == 1.5
+    assert r(rr_uy) == 2.0
+    assert !missing(r(bound))
 }
 if _rc == 0 {
     display as result "  PASS: confounding_strength runs"
@@ -551,6 +600,8 @@ local ++test_count
 capture noisily {
     capture msm_plot, type(weights)
     assert _rc == 0
+    assert "`r(plot_type)'" == "weights"
+    assert !missing(r(n_risk))
 }
 if _rc == 0 {
     display as result "  PASS: weights plot runs"
@@ -567,6 +618,7 @@ local ++test_count
 capture noisily {
     capture msm_plot, type(positivity)
     assert _rc == 0
+    assert "`r(plot_type)'" == "positivity"
 }
 if _rc == 0 {
     display as result "  PASS: positivity plot runs"
@@ -585,6 +637,8 @@ local ++test_count
 capture noisily {
     capture msm
     assert _rc == 0
+    assert "`r(version)'" != ""
+    assert r(n_commands) == 12
 }
 if _rc == 0 {
     display as result "  PASS: router runs"
@@ -623,6 +677,9 @@ local ++test_count
 capture noisily {
     capture msm_fit, model(linear) outcome_cov(age sex) period_spec(linear)
     assert _rc == 0
+    assert !missing(e(N))
+    assert e(N) > 0
+    assert !missing(_b[treatment])
 }
 if _rc == 0 {
     display as result "  PASS: linear model runs"

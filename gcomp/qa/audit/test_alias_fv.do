@@ -26,6 +26,13 @@ gcomp y m x x_ abcdefghijklmnopqrstuvwxyzABCDEF if keep, outcome(y) ///
 assert e(N_rows) == 600
 assert e(N_subjects) == 600
 assert e(sample) == keep
+* `cf _all using' is one-directional: it compares the variables present in
+* memory and cannot see one that was dropped from it, so the exact
+* inventory is proven against the snapshot file's own varlist right
+* before the compare.
+unab _afv_vars : _all
+describe using `before', varlist
+assert "`_afv_vars'" == "`r(varlist)'"
 cf _all using `before', all
 display "RESULT: gcomp_alias_fv_probe status=PASS"
 

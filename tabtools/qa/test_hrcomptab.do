@@ -24,13 +24,9 @@ program define __tt_assert_same_data
     syntax using/
     unab memory_vars : _all
     local memory_N = _N
-    preserve
-    quietly use `"`using'"', clear
-    unab using_vars : _all
-    local using_N = _N
-    restore
-    assert `using_N' == `memory_N'
-    assert `"`using_vars'"' == `"`memory_vars'"'
+    describe using `"`using'"', varlist
+    assert r(N) == `memory_N'
+    assert "`r(varlist)'" == "`memory_vars'"
     cf _all using `"`using'"'
 end
 

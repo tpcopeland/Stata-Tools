@@ -65,6 +65,7 @@ capture noisily {
     gen str20 s2 = "world"
     gen double x = runiform()
     compress_tc s1 s2
+    assert "`r(varlist)'" == "s1 s2"
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — multiple specific vars"
@@ -151,6 +152,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, detail
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — detail option"
@@ -166,6 +168,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, varsavings
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — varsavings option"
@@ -185,6 +188,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, detail varsavings
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — detail + varsavings"
@@ -200,6 +204,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, noreport varsavings
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — noreport + varsavings"
@@ -215,6 +220,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, nocompress detail
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — nocompress + detail"
@@ -266,7 +272,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     capture compress_tc, badoption
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — invalid option rejected"
@@ -322,7 +328,9 @@ capture noisily {
     sysuse auto, clear
     compress_tc, quietly
     local diff = r(bytes_initial) - r(bytes_final)
-    assert abs(r(bytes_saved) - `diff') < 1
+    * bytes_saved is computed in the .ado as the same oldmem-newmem integer
+    * byte-count subtraction reproduced here, so the identity is exact.
+    assert r(bytes_saved) == `diff'
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — bytes_saved invariant"
@@ -595,6 +603,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, noc
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — noc abbreviation"
@@ -610,6 +619,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, nos
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — nos abbreviation"
@@ -641,6 +651,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, det
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — det abbreviation"
@@ -656,6 +667,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, vars
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — vars abbreviation"
@@ -671,6 +683,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, nor
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — nor abbreviation"
@@ -687,6 +700,7 @@ else {
 
 * Test 38: which finds command
 local ++test_count
+* stata-dev-ignore: rc-only-test -- installation probe: whether the file resolves on the adopath IS the whole content under test; `which' produces nothing else to assert
 capture noisily {
     which compress_tc
 }
@@ -1506,11 +1520,19 @@ capture noisily {
     set obs 2000
     gen str100 s = "repeated " + string(mod(_n,5))
     compress_tc, low quietly
+    assert r(bytes_saved) != .
+    clear
+    set obs 2000
+    gen str100 s = "repeated " + string(mod(_n,5))
     compress_tc s, dry quietly
+    assert r(bytes_saved) != .
+    * dryrun protects the data, so the storage type must be unchanged
+    assert "`:type s'" == "str100"
     clear
     set obs 2000
     gen str100 s = "repeated " + string(mod(_n,5))
     compress_tc, min(10) quietly
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — low/dry/min abbreviations"
@@ -1634,6 +1656,7 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     compress_tc, d
+    assert r(bytes_saved) != .
 }
 if _rc == 0 {
     display as result "RESULT: PASS Test `test_count' — detail min abbreviation 'd'"

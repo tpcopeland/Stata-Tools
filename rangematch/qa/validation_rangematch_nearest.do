@@ -134,6 +134,12 @@ foreach seed in 11 4242 90210 {
             save "`ex_pairs'", replace
 
             use "`ex_pairs'", clear
+            * `cf _all using` only compares variables still in memory, so a
+            * variable dropped on either side would be invisible to it --
+            * confirm the varlist itself matches the rangematch output first.
+            unab _rmn_vars_now : _all
+            describe using "`rm_pairs'", varlist
+            assert "`_rmn_vars_now'" == "`r(varlist)'"
             cf _all using "`rm_pairs'"
         }
     }

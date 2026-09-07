@@ -446,6 +446,13 @@ capture noisily {
         assert "`r(varlist)'" == "`vars_orig'"
         quietly datasignature
         assert "`r(datasignature)'" == "`sig_orig'"
+        * `cf _all using' is one-directional: it compares the variables
+        * present in memory and cannot see one that was dropped from it, so
+        * the exact inventory is proven against the snapshot file's own
+        * varlist right before the compare.
+        unab _xv9_vars : _all
+        describe using `result_orig', varlist
+        assert "`_xv9_vars'" == "`r(varlist)'"
         cf _all using `result_orig'
     }
 }

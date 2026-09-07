@@ -97,6 +97,7 @@ foreach check in ///
     local col = colnumb(`static_b', "`metric'")
     local actual = `static_b'[1, `col']
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: this asserts abs(actual - published) <= tolerance against the published reference value, and the rc merely relays that comparison
     capture noisily assert abs(`actual' - `expected') <= `tolerance'
     if _rc == 0 {
         display as result "  PASS: P1 `metric' published=" %10.7f `expected' ///
@@ -158,6 +159,7 @@ foreach check in ///
     local col = colnumb(`dynamic_b', "`metric'")
     local actual = `dynamic_b'[1, `col']
     local ++test_count
+    * stata-dev-ignore: rc-only-test -- the captured statement IS the content oracle: this asserts abs(actual - published) <= tolerance against the published reference value, and the rc merely relays that comparison
     capture noisily assert abs(`actual' - `expected') <= `tolerance'
     if _rc == 0 {
         display as result "  PASS: P2 `metric' published=" %10.7f `expected' ///

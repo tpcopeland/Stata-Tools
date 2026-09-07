@@ -78,6 +78,12 @@ capture noisily {
     local n_oracle = _N
 
     assert `n_rm' == `n_oracle'
+    * `cf _all using` only compares variables still in memory, so a variable
+    * dropped on either side would be invisible to it -- confirm the varlist
+    * itself matches the saved oracle's varlist first.
+    unab _rmo1_vars_now : _all
+    describe using "`rm_pairs_o'", varlist
+    assert "`_rmo1_vars_now'" == "`r(varlist)'"
     cf _all using "`rm_pairs_o'"
 }
 if _rc == 0 {
@@ -325,12 +331,21 @@ capture noisily {
     use "`saved6'", clear
     keep id mlo mhi ulo uhi
     gsort id mlo mhi ulo uhi
+    * `cf _all using` only compares variables still in memory, so a variable
+    * dropped on either side would be invisible to it -- confirm the varlist
+    * itself matches the frame-routed output's varlist first.
+    unab _rmo6a_vars_now : _all
+    describe using "`fr6'", varlist
+    assert "`_rmo6a_vars_now'" == "`r(varlist)'"
     cf _all using "`fr6'"
 
     use "`m6'", clear
     rangematch mlo mhi using "`u6'", overlap(ulo uhi) by(id)
     keep id mlo mhi ulo uhi
     gsort id mlo mhi ulo uhi
+    unab _rmo6b_vars_now : _all
+    describe using "`fr6'", varlist
+    assert "`_rmo6b_vars_now'" == "`r(varlist)'"
     cf _all using "`fr6'"
 }
 if _rc == 0 {

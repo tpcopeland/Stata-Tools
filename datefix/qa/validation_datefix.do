@@ -274,7 +274,7 @@ capture {
     set obs 1
     gen datestr = "2020-01-01"
     capture datefix datestr, order(INVALID)
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: Invalid order() rejected"
@@ -319,6 +319,8 @@ capture {
     datefix datestr, order(YMD)
     capture confirm numeric variable datestr
     assert _rc == 0
+    * numeric AND the correct Stata date value, not merely some number
+    assert datestr == mdy(1, 1, 2020)
 }
 if _rc == 0 {
     display as result "  PASS: Output is numeric"

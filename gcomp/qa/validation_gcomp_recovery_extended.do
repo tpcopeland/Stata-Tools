@@ -482,6 +482,7 @@ capture noisily {
     gen byte m = rbinomial(1, invlogit(-0.3 + 1.0*x + 0.2*c0))
     gen byte y = rbinomial(1, invlogit(-0.5 + 0.9*x + 0.7*m + 0.3*c0))
 }
+chk "R12 data generation succeeded" `=(_rc==0)'
 capture gcomp y m x c0, outcome(y) mediation obe exposure(x) mediator(m) control(m=0) ///
     commands(m: logit, y: logit) equations(m: x c0, y: m x c0) base_confs(c0) sim(500) samples(2) seed(1012)
 chk "R12 control(m=0) rejected with rc=198" `=(_rc==198)'
