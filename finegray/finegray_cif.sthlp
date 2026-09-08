@@ -391,6 +391,9 @@ compare or feed back into {opt at()}/{opt bstratum()}.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
 
 {title:Also see}
 
