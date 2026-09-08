@@ -608,7 +608,7 @@ The command posts `r(N_fail)`, `r(time)`, `r(residual_scale)`, and matrix `r(pht
 - Li J, Scheike TH, and Zhang MJ (2015). Checking Fine and Gray subdistribution hazards model with cumulative sums of residuals. *Lifetime Data Analysis*, 21(2), 197–217. [doi:10.1007/s10985-014-9313-9](https://doi.org/10.1007/s10985-014-9313-9).
 - Zhou B, Latouche A, Rocha V, and Fine J (2011). Competing risks regression for stratified data. *Biometrics*, 67(2), 661–670. [doi:10.1111/j.1541-0420.2010.01493.x](https://doi.org/10.1111/j.1541-0420.2010.01493.x).
 - Zhou B, Fine J, Latouche A, and Labopin M (2012). Competing risks regression for clustered data. *Biostatistics*, 13(3), 371–383. [doi:10.1093/biostatistics/kxr032](https://doi.org/10.1093/biostatistics/kxr032).
-- Fekadu Wogu A, Zhao S, Bogan Nichols H, and Cai J (2021). Proportional subdistribution hazards model for competing risks in case-cohort studies. *American Journal of Applied Mathematics*, 9(5), 165–185. [doi:10.11648/j.ajam.20210905.12](https://doi.org/10.11648/j.ajam.20210905.12).
+- Wogu AF, Zhao S, Nichols HB, and Cai J (2021). Proportional subdistribution hazards model for competing risks in case-cohort studies. *American Journal of Applied Mathematics*, 9(5), 165–185. [doi:10.11648/j.ajam.20210905.12](https://doi.org/10.11648/j.ajam.20210905.12).
 
 ## QA
 

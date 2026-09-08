@@ -15,3 +15,13 @@ The pweight scope memo's Stata code was extracted verbatim and rerun:
 command: stata-mp -b do /tmp/fg-scope-reproduce.do
 CIF|cmax=1|true=.48380307|est=.4627447|se=.00564069
 PROBE|cmax=1|n=140265|b1=.51497559|se1=.01114347|b2=.52644592|se2=.01177575
+
+# addendum 2026-09-08: post-audit documentation-only corrections (independent Opus 5 review)
+scope: finegray.sthlp version line date 2026-09-04 -> 2026-09-08; finegray_cif.sthlp Author block gains the Report-bugs line; README.md Wogu author form aligned with the help files; no runtime code changes
+sha256 finegray.sthlp:     00cf4ff7f79be13077110f6389b37bc316bcf1c9f55e22d44146271b44ab2881
+sha256 finegray_cif.sthlp: 629de67c29b5d5aadb8b109bc9f0573be3005c9f3f2a4e4c0303b831d60f1cb7
+sha256 README.md:          7743ac9e670dd835391ffe6d9294a5a7930622cb08a40d30aa333a9fa706f2fc
+command: stata-mp -b do docrun.do   (isolated scratch copy of finegray/ with _data/ and tabtools/, set processors 1)
+script: do test_finegray_sthlp_render.do; do test_documentation_examples.do
+RESULT: test_finegray_sthlp_render tests=8 pass=8 fail=0
+RESULT: test_documentation_examples tests=78 pass=78 fail=0
