@@ -1,4 +1,4 @@
-*! finegray Version 1.3.1  2026/09/08
+*! finegray Version 1.3.2  2026/09/08
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -11,7 +11,8 @@ Description:
   Fits Fine-Gray subdistribution hazard model for competing risks.
   Uses native Mata forward-backward scan algorithm (Kawaguchi et al. 2021).
 
-  Data must be stset with id().
+  Data must be stset.  Without id() each record is one subject; id() is
+  needed only when a subject contributes more than one record.
 
 Required options:
   compete(varname)  - Event type variable (0=cens, 1=cause1, 2=cause2, ...)
@@ -599,10 +600,22 @@ program define finegray, eclass sortpreserve
     }
     local N = r(N)
 
-    if `"`_dta[st_id]'"' == "" {
-        display as error "finegray requires stset with id() variable"
-        display as error "Example: {cmd:stset time, failure(event) id(id)}"
-        exit 198
+    * No id() in stset: each record is its own subject.  That is what stset
+    * itself means by an id()-less declaration, and stsplit and (start,stop]
+    * data require id(), so this is the single-record case by construction
+    * (stcrreg accepts it the same way).  Key the subject-level machinery by
+    * row so the reduction below sees one record per subject and skips
+    * itself.  The key is a tempvar and cannot be posted as e(idvar): the
+    * weight digest is keyed by e(idvar) at fit time and at post-estimation
+    * reconciliation alike, so an id()-less fit uses its value-only form on
+    * both sides.  `_fg_idvar' is the name posted to e(); `_fg_id' the key
+    * the subject-level passes below actually sort and group on.
+    local _fg_idvar `"`_dta[st_id]'"'
+    local _fg_id `"`_fg_idvar'"'
+    if `"`_fg_id'"' == "" {
+        tempvar _fg_rowid
+        quietly generate long `_fg_rowid' = _n
+        local _fg_id `_fg_rowid'
     }
 
     * =========================================================================
@@ -629,7 +642,6 @@ program define finegray, eclass sortpreserve
     * (start,stop] episodes and fitted with tvc(x1) tsplit(0.7) returns e(b),
     * e(V) and e(ll) BIT-IDENTICAL to the single-record fit of the same data.
     * Pinned by test T26 in qa/test_finegray_tvc.do.
-    local _fg_id `"`_dta[st_id]'"'
     local _fg_nrecords = `N'
 
     tempvar _fg_nrec
@@ -1783,7 +1795,7 @@ program define finegray, eclass sortpreserve
     * EXCHANGING two subjects' weights, which leaves e(sum_w) and the multiset
     * of weight values untouched and rebuilt a different column at rc 0.
     if "`weight'" != "" {
-        mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_id'")
+        mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_idvar'")
     }
 
     * =========================================================================
@@ -2263,8 +2275,9 @@ program define finegray, eclass sortpreserve
     * The stset id() variable, posted so post-estimation can key the weight
     * digest the same way this fit did.  The characteristic _dta[st_id] travels
     * with the DATA; e() travels with the estimates, and `estimates use' over
-    * another dataset is a documented workflow.
-    ereturn local idvar "`_fg_id'"
+    * another dataset is a documented workflow.  Empty when stset carried no
+    * id(): the row key used in that case is a tempvar of this run.
+    ereturn local idvar "`_fg_idvar'"
     if `_has_fv' ereturn local fvvarlist "`_orig_varlist'"
     * The fit-time factor expansion, INCLUDING base terms (1b.grp).  This is the
     * semantic record of which level each coefficient belongs to.  Post-estimation

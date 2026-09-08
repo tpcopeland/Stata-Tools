@@ -628,21 +628,35 @@ else {
     local ++fail_count
 }
 
-* T27: Error — no stset id()
+* T27: stset without id() is accepted (1.3.2): each record is one subject,
+* and the fit is bit-identical to the same data declared with id().  Before
+* 1.3.2 this block pinned the refusal "finegray requires stset with id()".
+* The broader contract (post-estimation, weights, bootstrap, delayed entry)
+* is in test_finegray_noid.do.
 local ++test_count
 capture noisily {
     _finegray_use_hypoxia
     gen byte status = failtype
+    stset dftime, failure(dfcens==1) id(stnum)
+    quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    tempname b_id V_id
+    matrix `b_id' = e(b)
+    matrix `V_id' = e(V)
+    local ll_id = e(ll)
     stset dftime, failure(dfcens==1)
-    capture finegray ifp tumsize pelnode, compete(status) cause(1)
-    assert _rc == 198
+    finegray ifp tumsize pelnode, compete(status) cause(1) nolog
+    assert e(converged) == 1
+    assert "`e(idvar)'" == ""
+    assert e(ll) == `ll_id'
+    assert mreldif(e(b), `b_id') == 0
+    assert mreldif(e(V), `V_id') == 0
 }
 if _rc == 0 {
-    display as result "  PASS: T27 error: no stset id() (rc=198)"
+    display as result "  PASS: T27 stset without id() accepted, identical to the id() fit"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T27 error: no stset id (rc=`=_rc')"
+    display as error "  FAIL: T27 stset without id() (rc=`=_rc')"
     local ++fail_count
 }
 
