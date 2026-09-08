@@ -8,30 +8,11 @@
 * can afford to run is a lane nobody runs, and it would take the ordinary suites
 * down with it.  They are gates, run on demand, not regression tests.
 *
-* ORACLE CACHING -- THE R REFERENCES ARE NOT RECOMPUTED WITHOUT CAUSE.
-* Every crossval_*_r.R oracle is a pure function of its inputs: four simulate
-* under a fixed seed, the other seven make no RNG call at all.  Measured
-* 2026-09-04, crossval_finegray_zzf alone cost 2153 s -- 98.5% of all crossval
-* time in this lane -- recomputing a constant on every run.  Each R oracle now
-* caches its output in a PER-USER directory outside the package tree --
-* $FG_ORACLE_CACHE_DIR if set, else R's user cache for the suite
-* (~/.cache/R/finegray_qa on Linux) -- and recomputes ONLY when an input
-* changes: the script md5, the input-file CONTENT (the paths are tmpdir and
-* differ every run), the named parameters, and the R/package/platform versions.
-* The cache is outside the tree on purpose: the devkit runs every lane from a
-* throwaway scratch copy, and a cache kept beside the scripts was discarded
-* with the copy and never filled.  After ONE run of a lane on this machine,
-* its R oracles are never recomputed again until an input genuinely changes.
-* A `HIT' line in a suite log means the oracle was restored, not recomputed;
-* `MISS' means an input genuinely changed.
-*
-* The cache is INSIDE the R scripts, never around Rscript, so the fail-closed
-* generation contracts in the crossval .do files are untouched: R still runs,
-* still erases its stale artifacts, still writes every output and still exits
-* with a real status the sentinels read.  No .do file changed for the cache.
-*
-* Force a full recompute of every oracle:   FG_ORACLE_NOCACHE=1 stata-mp -b do run_all.do full
-* Or delete the cache directory.  Details: qa/README.md, "Oracle caching".
+* Frozen R references live in qa/oracles and are checked against generator
+* source, input content and parameters before replay. Routine lanes never
+* refit R models: a missing/changed/corrupt reference fails closed. Temporary
+* filenames and replay toolchain versions do not invalidate fixed numbers.
+* FG_ORACLE_REFRESH=1 explicitly regenerates references for maintainer review.
 
 version 16.0
 set more off
@@ -65,7 +46,7 @@ local skip_file "`qa_dir'/_skip.txt"
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local quick_files test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
+local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
     test_finegray_errors.do ///
     test_finegray_v120b.do test_finegray_v121.do test_finegray_v130.do ///
     test_finegray_mi.do ///
@@ -106,7 +87,7 @@ local core_files `quick_files' ///
     validation_tvc_recovery.do ///
     validation_pweight_recovery.do ///
     crossval_predict_stcrreg.do
-local python_files crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
+local python_files test_finegray_oracles.do crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
     crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do ///
     crossval_bstrata.do crossval_public_studies.do ///
     crossval_tvc.do crossval_tvc_bstrata.do crossval_pweight.do

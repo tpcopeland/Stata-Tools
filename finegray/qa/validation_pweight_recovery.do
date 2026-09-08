@@ -1,5 +1,5 @@
 *! validation_pweight_recovery Version 1.0.0  2026/08/28
-*! Known-truth recovery under informative sampling: unweighted biased, [pweight=] unbiased
+*! Finite-DGP recovery check under informative sampling; not a consistency proof
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 * WHY THIS EXISTS, AND WHAT IT ADDS TO THE CROSSVAL.
@@ -20,10 +20,12 @@
 *      (which only compares two fits of the same equation); it is visible here.
 *   2. Does the [pweight=] fit recover the truth, and does its sandwich
 *      interval cover at its nominal level?  The pweight meat sum_i (w_i s_i)^2
-*      is consistent for the total (model + sampling) variance under
-*      independent Bernoulli inclusion with known probabilities, which is the
-*      design below; Wogu et al. (2021) Table 1 report the same unbiasedness
-*      and ~95% coverage for their case-cohort estimator on this DGP.
+*      treats the estimated censoring weights as fixed. This finite-DGP
+*      check cannot establish general design validity: G is estimated without
+*      weights on the selected rows, unlike Wogu's full-cohort G. Standard
+*      outcome-dependent sampling can distort G and bias population targets;
+*      see finegray_methods, Design weights. The tolerances below measure
+*      performance only at this DGP, sample size, and sampling rate.
 *   3. Does the weighted ANALYTIC CIF interval cover?  The crossval checks the
 *      weighted CIF point against survfit and the coefficient sandwich against
 *      coxph, but nothing external returns a weighted CIF standard error, and

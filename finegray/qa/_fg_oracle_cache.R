@@ -1,58 +1,10 @@
-# ---------------------------------------------------------------------------
-# _fg_oracle_cache.R -- content-keyed cache for the crossval R oracles.
-#
-# WHY.  Every crossval_*_r.R in this suite is a PURE FUNCTION of its inputs.
-# Four of them simulate under a fixed seed (crossval_finegray_r.R 20260902,
-# crossval_finegray_zzf_r.R 20260713, crossval_nuisance_r.R 11/7/21,
-# crossval_finegray_zzf_beta_r.R 20260713 + rep); the other seven make no RNG
-# call at all and simply fit a model to a CSV the .do file exported.  Either
-# way the same inputs give byte-identical output on every run, forever.
-# Measured 2026-09-04 on the full lane: crossval_finegray_zzf costs 2153 s --
-# 98.5% of all crossval time -- and the other ten together cost ~56 s.  Every
-# second of that is spent recomputing a constant.
-#
-# WHY THE CACHE LIVES INSIDE THE R SCRIPTS AND NOT AROUND Rscript.
-# crossval_finegray_zzf.do's FG-02 contract exists because "an ignored data/
-# cache from a prior good run still present" plus "a broken or missing Rscript"
-# once let a suite consume a stale oracle and report a green 102/102.  A cache
-# that let a .do file SKIP R would rebuild that hole exactly.  This one cannot:
-# R still runs, still deletes whatever stale artifacts it deleted before, still
-# writes every output, and still exits with a real status the .do's sentinel
-# reads.  Only the expensive computation is skipped, and only on an exact key
-# match.  No .do file changes.
-#
-# THE KEY IS EVERY INPUT THAT CAN MOVE A NUMBER
-#   * the calling script's own md5, plus any oracle/definition file it sources;
-#   * the md5 of every INPUT data file -- these arrive on paths in c(tmpdir)
-#     that change every run, so the cache keys on their CONTENT, never on a
-#     path;
-#   * any scalar parameters the caller names (N, REPS, tolerances);
-#   * the R version, the platform, and the version of every package named --
-#     an oracle that silently moved from one package release to another is the
-#     exact drift a cross-validation exists to catch, and a cache keyed without
-#     it would HIDE that drift, which is worse than slow.
-# Any key mismatch, any missing cached blob, any md5 that disagrees with the
-# stored index, and the real computation runs.
-#
-# ESCAPE HATCH.  FG_ORACLE_NOCACHE=1 forces recomputation of every oracle.
-#
-# OUTPUT PATHS ARE NOT PART OF THE KEY.  The .do files hand these scripts an
-# output path under c(tmpdir) that differs on every run, so blobs are cached by
-# POSITION in the outputs vector and restored to whatever paths this run asked
-# for.  The recorded basenames are for humans reading the index only.
-#
-# WHERE THE CACHE LIVES: OUTSIDE THE PACKAGE TREE.  FG_ORACLE_CACHE_DIR if set,
-# else R's per-user cache directory for this suite -- tools::R_user_dir(
-# "finegray_qa", "cache"), ~/.cache/R/finegray_qa on Linux.  It was first put
-# at qa/.oracle_cache/ beside the scripts, and that location never filled: the
-# devkit runs every QA lane from a throwaway scratch COPY of the package, so a
-# cache written beside the scripts was discarded with the copy, and the next
-# run recomputed every oracle again.  Nothing in the key depends on where the
-# scripts sit -- it is script CONTENT, input CONTENT, parameters and versions
-# -- so one per-user cache serves the repository checkout, every scratch copy,
-# and every clone on this machine alike, and an oracle computed once is never
-# computed again until an input genuinely changes.
-# ---------------------------------------------------------------------------
+# _fg_oracle_cache.R -- frozen R references for finegray QA.
+# Routine runs only restore checked fixtures in qa/oracles; a missing,
+# changed or corrupt reference is an error, never permission to fit R models.
+# FG_ORACLE_REFRESH=1 explicitly regenerates references with the current R
+# toolchain. Review numerical changes and provenance before accepting them.
+# Input content and generator source determine identity; temporary filenames
+# and the replay machine's R/package versions do not move frozen numbers.
 
 .fg_script_path <- function() {
     a <- commandArgs(trailingOnly = FALSE)
@@ -75,10 +27,7 @@
 }
 
 .fg_cache_dir <- function() {
-    d <- Sys.getenv("FG_ORACLE_CACHE_DIR")
-    if (nzchar(d)) return(path.expand(d))
-    if (getRversion() >= "4.0.0") return(tools::R_user_dir("finegray_qa", "cache"))
-    file.path(path.expand("~"), ".cache", "R", "finegray_qa")
+    file.path(dirname(.fg_script_path()), "oracles")
 }
 
 .fg_cache_root <- function(name, key) {
@@ -94,33 +43,36 @@
     md5 <- tools::md5sum(files)
     if (any(is.na(md5))) return(NA_character_)          # an input we cannot hash
     parts <- c(
-        sprintf("file[%s]=%s", basename(files), unname(md5)),
+        sprintf("file[%d]=%s", seq_along(files), unname(md5)),
         if (length(key_values))
             sprintf("val[%s]=%s", names(key_values),
                     vapply(key_values, function(v) paste(format(v, digits = 17),
-                                                         collapse = ","), character(1))),
-        sprintf("R=%s", as.character(getRversion())),
-        sprintf("platform=%s", R.version$platform),
-        if (length(packages))
-            vapply(packages, function(p)
-                sprintf("pkg[%s]=%s", p,
-                        tryCatch(as.character(utils::packageVersion(p)),
-                                 error = function(e) "NOT-INSTALLED")), character(1))
+                                                         collapse = ","), character(1)))
     )
     paste(parts, collapse = "\n")
 }
 
 # TRUE only for a complete, uncorrupted, exactly-keyed cache. Every early
 # return leaves the outputs untouched, so a partial cache cannot produce a
-# partial oracle -- it produces a recomputation.
+# partial oracle -- the caller fails without fitting a model.
 .fg_cache_restore <- function(root, key, outputs, out_dir = NA_character_) {
     kf <- file.path(root, "key.txt"); ix <- file.path(root, "index.csv")
     if (!file.exists(kf) || !file.exists(ix)) return(FALSE)
     if (!identical(readLines(kf, warn = FALSE), strsplit(key, "\n")[[1]])) return(FALSE)
-    idx <- utils::read.csv(ix, stringsAsFactors = FALSE)
+    seal <- file.path(root, "index.md5")
+    if (!file.exists(seal) ||
+        !identical(readLines(seal, warn = FALSE), unname(tools::md5sum(ix))))
+        return(FALSE)
+    idx <- tryCatch(utils::read.csv(ix, stringsAsFactors = FALSE),
+                    error = function(e) NULL)
+    if (is.null(idx)) return(FALSE)
     if (is.na(out_dir) && nrow(idx) != length(outputs)) return(FALSE)
     if (!is.na(out_dir) && nrow(idx) == 0L) return(FALSE)
     if (!all(c("blob", "md5", "restored_as") %in% names(idx))) return(FALSE)
+    if (anyNA(idx) || anyDuplicated(idx$blob) || anyDuplicated(idx$restored_as) ||
+        any(!nzchar(idx$blob)) || any(!nzchar(idx$restored_as)) ||
+        any(grepl("[/\\\\]", c(idx$blob, idx$restored_as))) ||
+        any(c(idx$blob, idx$restored_as) %in% c(".", ".."))) return(FALSE)
     src <- file.path(root, idx$blob)
     if (!all(file.exists(src))) return(FALSE)
     if (!identical(unname(tools::md5sum(src)), idx$md5)) return(FALSE)
@@ -156,10 +108,14 @@
                    md5 = unname(tools::md5sum(file.path(tmp, blobs))),
                    restored_as = basename(outputs)),
         file.path(tmp, "index.csv"), row.names = FALSE)
+    writeLines(unname(tools::md5sum(file.path(tmp, "index.csv"))),
+               file.path(tmp, "index.md5"))
+    writeLines(capture.output(sessionInfo()), file.path(tmp, "PROVENANCE.txt"))
     writeLines(strsplit(key, "\n")[[1]], file.path(tmp, "key.txt"))
     unlink(root, recursive = TRUE)
     ok <- file.rename(tmp, root)
     if (!ok) unlink(tmp, recursive = TRUE)
+    if (!ok) stop("could not store frozen oracle")
     invisible(ok)
 }
 
@@ -168,28 +124,11 @@ fg_oracle_cache <- function(name, outputs, compute,
                             key_files = character(0),
                             key_values = list(),
                             packages = character(0)) {
-    key  <- .fg_cache_key(key_files, key_values, packages)
-    root <- .fg_cache_root(name, key)
-    on   <- !nzchar(Sys.getenv("FG_ORACLE_NOCACHE")) &&
-            !is.na(root) && !is.na(key)
-    if (on && .fg_cache_restore(root, key, outputs)) {
-        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored from %s, computation skipped\n",
-                    name, length(outputs), root))
-        return(invisible("hit"))
-    }
-    cat(sprintf("ORACLE CACHE %s [%s]: computing%s\n",
-                if (on) "MISS" else "DISABLED", name,
-                if (on) sprintf(" (will store in %s)", root) else ""))
+    h <- fg_oracle_cache_begin(name, outputs, key_files, key_values, packages)
+    if (identical(h$state, "hit")) return(invisible("hit"))
     compute()
-    if (!all(file.exists(outputs)))
-        stop("oracle computation did not produce: ",
-             paste(outputs[!file.exists(outputs)], collapse = ", "))
-    if (on) {
-        cat(sprintf("ORACLE CACHE %s [%s]\n",
-                    if (isTRUE(.fg_cache_store(root, key, outputs)))
-                        "STORED" else "NOT STORED (next run recomputes)", name))
-    }
-    invisible(if (on) "miss" else "disabled")
+    fg_oracle_cache_end(h)
+    invisible("refreshed")
 }
 
 # ---------------------------------------------------------------------------
@@ -217,21 +156,25 @@ fg_oracle_cache_begin <- function(name, outputs = NA_character_,
                                   out_pattern = NA_character_) {
     key  <- .fg_cache_key(key_files, key_values, packages)
     root <- .fg_cache_root(name, key)
-    on   <- !nzchar(Sys.getenv("FG_ORACLE_NOCACHE")) && !is.na(root) && !is.na(key)
+    if (is.na(root) || is.na(key)) stop("cannot identify frozen oracle inputs")
+    refresh <- identical(Sys.getenv("FG_ORACLE_REFRESH"), "1")
+    on <- TRUE
     h <- list(name = name, root = root, key = key, outputs = outputs, on = on,
               out_dir = out_dir, out_pattern = out_pattern)
-    if (on && .fg_cache_restore(root, key, outputs, out_dir)) {
-        cat(sprintf("ORACLE CACHE HIT [%s]: %d artifact(s) restored from %s, computation skipped\n",
+    if (!refresh && .fg_cache_restore(root, key, outputs, out_dir)) {
+        cat(sprintf("FROZEN ORACLE HIT [%s]: %d artifact(s) restored from %s, computation skipped\n",
                     name, if (is.na(out_dir)) length(outputs)
                           else length(list.files(out_dir, pattern = out_pattern)),
                     root))
         h$state <- "hit"
         return(h)
     }
-    cat(sprintf("ORACLE CACHE %s [%s]: computing%s\n",
-                if (on) "MISS" else "DISABLED", name,
-                if (on) sprintf(" (will store in %s)", root) else ""))
-    h$state <- if (on) "miss" else "disabled"
+    if (!refresh)
+        stop("FROZEN ORACLE missing, changed or corrupt: ", name,
+             "; no R model was fitted. Restore qa/oracles or explicitly regenerate",
+             " with FG_ORACLE_REFRESH=1 and review the reference changes.")
+    cat(sprintf("ORACLE REFRESH [%s]: explicit regeneration requested\n", name))
+    h$state <- "refresh"
     h
 }
 
@@ -241,11 +184,11 @@ fg_oracle_cache_end <- function(h) {
         h$outputs <- file.path(h$out_dir,
                                list.files(h$out_dir, pattern = h$out_pattern))
     if (!length(h$outputs) || !all(file.exists(h$outputs))) {
-        cat(sprintf("ORACLE CACHE NOT STORED [%s]: expected output missing\n", h$name))
-        return(invisible(FALSE))
+        stop("oracle refresh did not produce all outputs: ", h$name)
     }
     ok <- isTRUE(.fg_cache_store(h$root, h$key, h$outputs))
     cat(sprintf("ORACLE CACHE %s [%s]\n",
-                if (ok) "STORED" else "NOT STORED (next run recomputes)", h$name))
+                if (ok) "STORED" else "NOT STORED", h$name))
+    if (!ok) stop("could not store frozen oracle")
     invisible(ok)
 }

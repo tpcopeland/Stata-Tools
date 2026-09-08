@@ -115,16 +115,23 @@ rename _t time
 export delimited using "`datadir'/pp_hypoxia_input.csv", replace
 restore
 
+* Invalidate every output before replay; a failed R launch cannot reuse stale data.
+foreach f in r_xb.csv r_cif.csv r_schoenfeld.csv r_phtest.csv {
+    capture erase "`datadir'/`f'"
+    capture confirm file "`datadir'/`f'"
+    assert _rc != 0
+}
 * Run R on hypoxia
 local r_hyp_ok = 1
 capture noisily {
     shell Rscript "`qadir'/crossval_predict_phtest_r.R" ///
         "`datadir'/pp_hypoxia_input.csv" "`datadir'" "`fg_beta_hyp'"
 }
-capture confirm file "`datadir'/r_xb.csv"
-if _rc {
-    display as error "  R script failed or output not found"
-    local r_hyp_ok = 0
+local r_hyp_rc = _rc
+if `r_hyp_rc' local r_hyp_ok = 0
+foreach f in r_xb.csv r_cif.csv r_schoenfeld.csv r_phtest.csv {
+    capture confirm file "`datadir'/`f'"
+    if _rc local r_hyp_ok = 0
 }
 
 * ============================================================
@@ -357,20 +364,20 @@ restore
 
 * Run R
 local r_sim_ok = 1
+foreach f in r_xb.csv r_cif.csv r_schoenfeld.csv r_phtest.csv {
+    capture erase "`datadir'/`f'"
+    capture confirm file "`datadir'/`f'"
+    assert _rc != 0
+}
 capture noisily {
-    * Rename R outputs from hypoxia to avoid overwrite
-    capture shell mv "`datadir'/r_xb.csv" "`datadir'/r_xb_hyp.csv"
-    capture shell mv "`datadir'/r_cif.csv" "`datadir'/r_cif_hyp.csv"
-    capture shell mv "`datadir'/r_schoenfeld.csv" "`datadir'/r_schoenfeld_hyp.csv"
-    capture shell mv "`datadir'/r_phtest.csv" "`datadir'/r_phtest_hyp.csv"
-
     shell Rscript "`qadir'/crossval_predict_phtest_r.R" ///
         "`datadir'/pp_sim_input.csv" "`datadir'" "`fg_beta_sim'"
 }
-capture confirm file "`datadir'/r_xb.csv"
-if _rc {
-    display as error "  R sim script failed or output not found"
-    local r_sim_ok = 0
+local r_sim_rc = _rc
+if `r_sim_rc' local r_sim_ok = 0
+foreach f in r_xb.csv r_cif.csv r_schoenfeld.csv r_phtest.csv {
+    capture confirm file "`datadir'/`f'"
+    if _rc local r_sim_ok = 0
 }
 
 if `r_sim_ok' {

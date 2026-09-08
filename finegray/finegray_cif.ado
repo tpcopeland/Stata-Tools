@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.0  2026/09/04
+*! finegray_cif Version 1.3.1  2026/09/08
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -475,8 +475,9 @@ program define finegray_cif, rclass sortpreserve
     * characteristic, and reading _t0 instead would silently substitute
     * per-record entry times for the subject-level ones the fit used.
     local _t0var "_t0"
-    local _fg_entrysrc `"`_dta[_finegray_entryvar]'"'
-    if `"`_fg_entrysrc'"' == "" local _fg_entrysrc `"`e(entryvar)'"'
+    * Entry metadata belongs to the active estimates. An empty e(entryvar)
+    * means _t0; a later fit's dataset characteristic cannot override it.
+    local _fg_entrysrc `"`e(entryvar)'"'
     if `"`_fg_entrysrc'"' != "" {
         local _t0var `"`_fg_entrysrc'"'
         capture confirm numeric variable `_t0var'

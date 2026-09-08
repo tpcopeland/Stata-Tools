@@ -132,7 +132,9 @@ Reliable shell status, provenance/receipts, wrapper regression, and stale-oracle
 
 Independent preregistration of the recovery gate's signed controls. Deliberately **not** a lane member: it records the expected sign of the arm-D negative-control bias, derived from the R oracle, *before* the gated repetitions run, and its output is quoted verbatim in the `Z2-PREREG` header of `validation_finegray_zzf_recovery.do` (and pointed at from `validation_finegray_zzf_coverage.do`). Re-derive with `cd finegray/qa && Rscript validation_finegray_zzf_prereg_r.R`.
 
-## Oracle caching rationale
+## Oracle caching rationale (historical)
+
+Superseded on 2026-09-08 by the [frozen-reference contract](README.md#frozen-r-references). The cache below included temporary basenames in its key despite its stated content-only intent; identical inputs under different temporary names could miss. Routine QA now checks and restores tracked references, and only an explicit `FG_ORACLE_REFRESH=1` refits R models. The historical measurements below explain the motivation; they do not describe the current default.
 
 Every `crossval_*_r.R` in this suite is a **pure function of its inputs**. Four
 simulate under a fixed seed (`crossval_finegray_r.R` 20260902,

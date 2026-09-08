@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.0  2026/09/04
+*! _finegray_mata Version 1.3.1  2026/09/08
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -105,8 +105,9 @@ real colvector _finegray_km_censor_single(
     G = J(n, 1, 1)
     /* fweight replication: an observation carrying w copies counts w times
        in the at-risk and censored totals.  pweights never reach here -- the
-       censoring KM is UNWEIGHTED under pweights (Wogu et al. 2021 sec. 3,
-       p.167; survival::finegray fits Gsurv without user weights).  With
+       censoring KM is UNWEIGHTED under pweights, as in survival::finegray.
+       This is the analysis-sample G, not Wogu et al.'s full-cohort G;
+       population interpretation requires a valid sample censoring estimate. With
        w == 1 every sum below is the integer count it was. */
     if (args() < 7) w = J(n, 1, 1)
     /* Deterministic tie-break by row index.  Mata's order() resolves ties
@@ -2699,16 +2700,15 @@ real matrix _finegray_robust_var(
        per unit weight (see _finegray_score_residuals).
          pweight  sum_i (w_i s_i)(w_i s_i)'   -- the survey/IPW sandwich, as
                   coxph(weights=, robust=TRUE) forms it on the finegray()
-                  expansion, consistent for the total (model + design)
-                  variance under independent Bernoulli inclusion.  It is
+                  expansion, treating estimated censoring weights as fixed.
+                  It omits censoring-estimation uncertainty. It is
                   NOT Wogu et al. (2021) Thm 4.1, which estimates a
                   different decomposition for their SRS subcohort (p.169):
                   n^-1 sum_i rho_i (eta_i + psi_i)^2 -- rho ONCE, an HT
                   estimate of the full-cohort model variance -- plus
                   (1-alpha)/alpha n^-1 sum_i rho_i mu_i^2, the subcohort
-                  design part.  The two target the same variance under
-                  different designs; the recovery validation covers the
-                  Bernoulli design this form is derived for.
+                  design part. The recovery validation is a finite-DGP
+                  check, not proof of general design consistency.
          fweight  sum_i w_i s_i s_i'          -- w_i independent copies.
          cluster  within-cluster sums of w_i s_i, then outer products,
                   for either type.
@@ -4486,8 +4486,9 @@ void _finegray_engine(
         st_local("_fg_bs_noeventx", strtrim(bs_noevx))
     }
 
-    /* Compute censoring distribution.  UNWEIGHTED under pweights (Wogu et
-       al. 2021 sec. 3 p.167; survival::finegray's Gsurv); replicated under
+    /* Compute censoring distribution. UNWEIGHTED on the analysis sample
+       under pweights (survival::finegray's Gsurv), not Wogu's full cohort;
+       see the sampling restriction in the methods help. Replicated under
        fweights, where a subject carrying w copies IS w subjects. */
     if (wtype == 2) {
         G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 0, w)

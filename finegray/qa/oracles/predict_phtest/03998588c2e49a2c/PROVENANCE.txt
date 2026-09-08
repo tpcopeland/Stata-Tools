@@ -1,0 +1,10 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_predict_phtest_r.R]=b367743baf6c194432c29be4713d7207
+file[pp_hypoxia_input.csv]=41bd002cf4911d6d90884870635d02cb
+val[beta]=.0326664014821908,.2603095550120912,-.7791140271296506
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[cmprsk]=2.2.12
+pkg[survival]=3.8.6
+pkg[crrSC]=1.1.2

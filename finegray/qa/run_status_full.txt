@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-09-04T18:21:11Z
+date:        2026-09-08T07:48:04Z
 verdict:     PASS
-pkg_tree:    21a7315027b82f0d70a491051ac38ffcd73e4e1c (uncommitted-changes-present)
-head_commit: a29367e3cfe7fc004b9ee37e7421709e60745827
+pkg_tree:    258840912c09db7cf7eb657e794483d7adc75f0b (uncommitted-changes-present)
+head_commit: 70118bf8bbf2fdc14d6a92569a48cb96440411e2
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/2d4cadc6-435a-45e4-b991-12b446e45bff/scratchpad/full/finegray [matches-source-repo (tracked files incl. qa/; 115 files) manifest-sha256 b598ceef2ec63489e5eb0a983526dbbaeb76b0a65ef7bdfbd29cb233421f8750]
+run_tree:    /tmp/fg-final-20260908/finegray [matches-source-repo (tracked files incl. qa/; 328 files) manifest-sha256 82a978a45ccee355b127df473c6b7000c47c6d1fc98b58489f21c0e299dbb321]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
@@ -14,6 +14,7 @@ wrapper_test: PASS
 transfer_gate: PASS (4 arms identical vs cda50792)
 
 per-suite RESULT trail (as echoed by each suite):
+RESULT: test_finegray_entry_state tests=6 pass=6 fail=0
 RESULT: test_finegray tests=137 pass=137 fail=0
 RESULT: test_finegray_v110 tests=60 pass=60 fail=0
 RESULT: test_finegray_v120 tests=4 pass=4 fail=0
@@ -51,6 +52,8 @@ RESULT: test_finegray_determinism tests=10 pass=10 fail=0
 RESULT: test_finegray_reporting tests=8 pass=8 fail=0
 RESULT: test_finegray_contracts tests=13 pass=13 fail=0
 RESULT: test_finegray_nullcase tests=7 pass=7 fail=0
+RESULT: test_finegray_horizon_precision tests=12 pass=12 fail=0
+RESULT: test_finegray_cif_overflow tests=9 pass=9 fail=0
 RESULT: test_finegray_failclosed tests=12 pass=12 fail=0
 RESULT: test_finegray_hostile tests=2 pass=2 fail=0
 RESULT: test_finegray_estimates_use tests=10 pass=10 fail=0
@@ -70,6 +73,7 @@ RESULT: validation_pweight_recovery tests=13 pass=13 fail=0 repdrop=0
 RESULT: crossval_predict_stcrreg tests=15 pass=15 fail=0 skip=0
 RESULT: test_finegray_adversarial_v130 tests=20 pass=20 fail=0
 RESULT: test_finegray_adversarial_v120 tests=8 pass=8 fail=0
+RESULT: test_finegray_oracles tests=10 pass=10 fail=0
 RESULT: crossval_cif tests=2 pass=2 fail=0 skip=0
 RESULT: crossval_predict_phtest tests=14 pass=14 fail=0 skip=0
 RESULT: PASS (all 14 tests passed)
@@ -84,4 +88,4 @@ RESULT: crossval_public_studies tests=5 pass=5 fail=0 skip=0
 RESULT: crossval_tvc tests=7 pass=7 fail=0 skip=0
 RESULT: crossval_tvc_bstrata tests=6 pass=6 fail=0 skip=0
 RESULT: crossval_pweight tests=2 pass=2 fail=0 skip=0
-RESULT: run_all tests=67 pass=67 fail=0 skip=0
+RESULT: run_all tests=71 pass=71 fail=0 skip=0

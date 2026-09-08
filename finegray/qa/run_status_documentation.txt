@@ -1,0 +1,17 @@
+# finegray supplemental documentation receipt
+date: 2026-09-08T07:53:17.274708+00:00
+verdict: PASS
+scope: two source line-wrap corrections after the full lane; no runtime code changes
+full_lane_manifest: 82a978a45ccee355b127df473c6b7000c47c6d1fc98b58489f21c0e299dbb321
+changed_file: finegray_methods.sthlp
+sha256: 2b5fbc474d9877a8d33091bafdadac19f6ae3f189498ebd07203d0c7479e4265
+command: stata-mp -b do /tmp/fg-doc-final.do
+working_directory: /tmp/fg-final-20260908/finegray/qa
+script: do test_finegray_sthlp_render.do; do test_documentation_examples.do
+RESULT: test_finegray_sthlp_render tests=8 pass=8 fail=0
+RESULT: test_documentation_examples tests=78 pass=78 fail=0
+
+The pweight scope memo's Stata code was extracted verbatim and rerun:
+command: stata-mp -b do /tmp/fg-scope-reproduce.do
+CIF|cmax=1|true=.48380307|est=.4627447|se=.00564069
+PROBE|cmax=1|n=140265|b1=.51497559|se1=.01114347|b2=.52644592|se2=.01177575

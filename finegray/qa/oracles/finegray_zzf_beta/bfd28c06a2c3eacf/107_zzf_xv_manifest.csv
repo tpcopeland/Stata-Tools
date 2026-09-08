@@ -1,0 +1,6 @@
+"schema_version","arm","expected_reps","expected_n","method","fit_options"
+2,"A",20,3000,"pooled","pooled"
+2,"B",20,3000,"pooled","pooled"
+2,"C",20,3000,"same","strata(z1) truncstrata(z1)"
+2,"D",20,3000,"pooled","pooled"
+2,"X",20,3000,"cross","strata(cgroup) truncstrata(tgroup)"

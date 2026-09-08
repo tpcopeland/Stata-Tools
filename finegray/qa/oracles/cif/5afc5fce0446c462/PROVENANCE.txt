@@ -1,0 +1,11 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_cif_r.R]=50670500b8e8514e9c63edd6cc0d7d3b
+file[St1756325.000001_in.csv]=072947d92676380482feb2479ca0889a
+file[St1756325.000001_nd.csv]=35dc478ef5a996f9f57998baf24bddaf
+file[St1756325.000001_tm.csv]=a298431e271d84a5811928243528bcb2
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[riskRegression]=2026.3.11
+pkg[prodlim]=2026.3.11
+pkg[survival]=3.8.6

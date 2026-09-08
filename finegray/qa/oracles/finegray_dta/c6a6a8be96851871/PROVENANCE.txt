@@ -1,0 +1,8 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_finegray_dta_r.R]=e9780a349d03fb868652d9e14f5300a6
+val[input_data]=0e1b80ae797b26ceb2c2beb9ba7ee6b3
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[haven]=2.5.5
+pkg[cmprsk]=2.2.12

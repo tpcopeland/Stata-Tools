@@ -103,14 +103,9 @@ fi
 # present, run the shell-level negative test that a broken/missing Rscript makes
 # the suite fail CLOSED (no stale-artifact false green).
 #
-# Not to be confused with the R ORACLE CACHE in ~/.cache/R/finegray_qa (see
-# qa/README.md, "Oracle caching"), which is a different thing: it lets the R
-# scripts skip recomputing a constant, and is read only by R itself.  This gate
-# stays valid under it precisely because R never runs here -- the fake Rscript
-# exits nonzero without starting R, so no cache of either kind is consulted and
-# the erased index files are never regenerated.  It is a .sh (it manipulates PATH),
-# so it cannot live in run_all.do.  This gate must run BEFORE the receipt is
-# written so a failure cannot leave a falsely green committed artifact.
+# The frozen references in qa/oracles are checked and replayed inside R.
+# A broken Rscript must still fail even when stale runtime outputs exist.
+# Run this before writing the receipt so a failed gate cannot leave PASS.
 fg02_status="not-applicable"
 if [[ "$lane" == "python" || "$lane" == "full" ]]; then
     if [[ ! -f test_finegray_fg02_failclosed.sh ]]; then
