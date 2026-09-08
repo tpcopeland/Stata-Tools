@@ -1,0 +1,9 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_finegray_zzf_beta_r.R]=9e8527667b2716d0d4d1fe6516cde2bd
+file[crossval_finegray_zzf_r.R]=b9c3f73644ee72de6e8ee3716eadfae2
+val[N]=3000
+val[REPS]=20
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[survival]=3.8.6

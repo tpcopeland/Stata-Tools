@@ -1,4 +1,4 @@
-*! finegray Version 1.3.0  2026/09/04
+*! finegray Version 1.3.1  2026/09/08
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -32,8 +32,9 @@ Optional options:
 Weights:
   pweight  - design/sampling weights: every subject's risk-set contribution and
              event term is multiplied by w_i (Wogu, Zhao, Nichols & Cai 2021,
-             eq. 3); the censoring KM stays unweighted; sandwich meat
-             sum_i (w_i s_i)^2.  Right-censoring core only (see the fences).
+             eq. 3 score form only); analysis-sample censoring KM stays
+             unweighted; fixed-weight sandwich meat sum_i (w_i s_i)^2.
+             Not a general case-cohort estimator (see methods scope).
   fweight  - frequency weights: replication semantics, including in the
              censoring KM and in N.
 
@@ -128,9 +129,10 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * [pweight=] and [fweight=] are accepted for the RIGHT-CENSORING core --
     * the Fine-Gray score with a per-subject weight on every risk-set sum and
-    * every event term (Wogu, Zhao, Nichols & Cai 2021, eq. 3 p.167, whose
-    * case-cohort availability weight is exactly a per-subject pweight; oracle
-    * survival::finegray(weights=) + coxph(weights=, robust=TRUE)).  Every other
+    * every event term. Wogu, Zhao, Nichols & Cai 2021, eq. 3 p.167
+    * grounds the score form, not full case-cohort equivalence: our G is
+    * estimated on sampled rows. See methods scope. Computational oracle:
+    * survival::finegray(weights=) + coxph(weights=, robust=TRUE). Every other
     * cell is refused rather than composed:
     *   pweight x norobust  the inverse information is not a variance under
     *                       informative sampling; fweight x norobust is fine
@@ -2254,9 +2256,9 @@ program define finegray, eclass sortpreserve
     * single-record fit.  It is also written to _dta[_finegray_entryvar], but a
     * dataset characteristic travels with the DATA and e() travels with the
     * ESTIMATES: after `estimates use' over a dataset saved BEFORE the fit, only
-    * e() is left.  Post-estimation reads the characteristic first and falls
-    * back to this, so a restored fit that needs an entry column it cannot see
-    * fails closed by name instead of silently reverting to per-record _t0.
+    * e() is left. Post-estimation uses this fit's metadata exclusively;
+    * empty means _t0, even if a later fit left a different data characteristic.
+    * A path rebuilding risk sets must resolve the recorded column exactly.
     ereturn local entryvar "`_fg_entryvar'"
     * The stset id() variable, posted so post-estimation can key the weight
     * digest the same way this fit did.  The characteristic _dta[st_id] travels

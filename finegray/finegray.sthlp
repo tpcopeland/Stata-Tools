@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  04sep2026}{...}
+{* *! version 1.3.1  08sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -535,7 +535,7 @@ data via {cmd:stset}'s {cmd:enter()} option.
 {bf:Under delayed entry finegray deliberately disagrees with stcrreg.} It uses
 the Zhang-Zhang-Fine Weight-1 contract. Delayed-entry coefficients, standard
 errors, baselines and CIFs all change relative to {cmd:stcrreg} and to versions
-before 1.3.0. Results with no delayed entry are unchanged, bit for bit. See
+before 1.3.1. Results with no delayed entry are unchanged, bit for bit. See
 {help finegray_methods##lt:Left truncation}.
 
 {pstd}
@@ -598,9 +598,14 @@ is {cmd:r(401)}.
 {pstd}
 {bf:pweight.} Every subject's contribution to every risk-set sum, score,
 information and Breslow baseline is multiplied by its weight. The censoring
-survivor {it:G} stays {bf:unweighted}. The variance is the sandwich with meat
+survivor {it:G} stays {bf:unweighted} and is estimated from the analysis
+sample. Population interpretation requires sampling to preserve the required
+censoring distribution and independent censoring. This is not a general
+case-cohort or outcome-dependent sampling estimator; weighting the score does
+not repair a distorted censoring estimate. See
+{help finegray_methods##weights:Design weights}. The variance is the fixed-weight sandwich with meat
 sum_i (w_i s_i)^2, cluster-summed under {opt cluster()}; {opt norobust} is
-refused ({cmd:r(198)}).
+refused ({cmd:r(198)}). It omits uncertainty from estimating {it:G}.
 
 {pstd}
 {bf:fweight.} Replication semantics: a subject carrying {it:w} is {it:w}
@@ -967,7 +972,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2026-09-04{p_end}
+{pstd}Version 1.3.1, 2026-09-04{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

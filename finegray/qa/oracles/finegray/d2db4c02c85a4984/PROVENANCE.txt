@@ -1,0 +1,9 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_finegray_r.R]=2745fa4ddc6fd6bd7f2ef46ecd5f3dca
+file[finegray_r_strata.csv]=f5e7fdd7a7b109c0a7abfd49f76741ef
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[cmprsk]=2.2.12
+pkg[fastcmprsk]=1.26.1
+pkg[survival]=3.8.6

@@ -28,7 +28,7 @@
 *
 * ORACLE.  Datasets and betas come from crossval_finegray_zzf_beta_r.R, which
 * sources gen_fg/zzf_fit/zzf_weights from the frozen crossval_finegray_zzf_r.R.
-* The suite regenerates it on every run.  Stale ignored CSVs are not evidence.
+* Routine runs restore checked frozen references; stale runtime CSVs are not evidence.
 
 clear all
 set more off
@@ -65,7 +65,7 @@ capture ado uninstall finegray
 net install finegray, from("`pkgroot'") replace
 
 * ---------------------------------------------------------------------------
-* Regenerate and validate the oracle manifest.  The generator owns data/ and
+* Restore and validate the oracle manifest. The replay script owns data/ and
 * creates it, so this path works from a clean checkout.
 * ---------------------------------------------------------------------------
 * Pin the full oracle size here.  The R generator accepts smaller environment

@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.0  2026/09/04
+*! finegray_predict Version 1.3.1  2026/09/08
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -411,17 +411,22 @@ program define finegray_predict, rclass sortpreserve
     * characteristic, and reading _t0 instead would silently substitute
     * per-record entry times for the subject-level ones the fit used.
     local _t0var "_t0"
-    local _fg_entrysrc `"`_dta[_finegray_entryvar]'"'
-    if `"`_fg_entrysrc'"' == "" local _fg_entrysrc `"`e(entryvar)'"'
+    * Entry metadata belongs to the active estimates. An empty e(entryvar)
+    * means _t0; a later fit's dataset characteristic cannot override it.
+    local _fg_entrysrc `"`e(entryvar)'"'
     if ("`cif'" != "" | "`basecshazard'" != "" | "`schoenfeld'" != "") ///
         & `"`_fg_entrysrc'"' != "" {
         local _t0var `"`_fg_entrysrc'"'
-        capture confirm numeric variable `_t0var'
-        if _rc {
-            display as error "variable `_t0var' not found"
-            display as error "finegray recorded subject entry times in `_t0var' for its"
-            display as error "multiple-record reduction; re-run finegray before finegray_predict"
-            exit 111
+        * Point lookup from a saved/cached baseline reads no entry data.
+        * A rebuild verifies the estimation signature inside the resolver.
+        if "`ci'" != "" | "`schoenfeld'" != "" {
+            capture confirm numeric variable `_t0var'
+            if _rc {
+                display as error "variable `_t0var' not found"
+                display as error "finegray recorded subject entry times in `_t0var' for its"
+                display as error "multiple-record reduction; re-run finegray before finegray_predict"
+                exit 111
+            }
         }
     }
 
@@ -1001,7 +1006,7 @@ program define finegray_predict, rclass sortpreserve
                     quietly gen double `_pcv`_pj'' = . if `touse'
                 }
                 forvalues _pr = 1/`= rowsof(`_pcut')' {
-                    local _plv = `_pcut'[`_pr', 1]
+                    local _plv : display %21x `_pcut'[`_pr', 1]
                     forvalues _pj = 1/`= `_fg_nint' - 1' {
                         quietly replace `_pcv`_pj'' = `_pcut'[`_pr', `= `_pj' + 1'] ///
                             if `touse' & `_bsvar' == `_plv'

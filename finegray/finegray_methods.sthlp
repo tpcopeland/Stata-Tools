@@ -283,9 +283,9 @@ weight their own Appendix E ships the first part only, "treating the weight
 function known", which is the default sandwich. A stratified nuisance term
 would be a package invention, so the cell is refused rather than
 approximated{p_end}
-{p2col:{opt bstrata()} + delayed entry}no source. Both stratified
-subdistribution papers are right-censoring-only, and Kim et al. (2020) calls
-the left-truncated case an open research problem{p_end}
+{p2col:{opt bstrata()} + delayed entry}the stratified
+subdistribution papers used here cover right censoring; this package does not
+implement a stratified-baseline delayed-entry extension{p_end}
 {p2col:{opt tvc()} + delayed entry}no source for time-varying subdistribution
 coefficients under left truncation at all, and the delayed-entry branch is
 already this package's own extension{p_end}
@@ -414,12 +414,10 @@ centres have different baseline incidence is the motivating case.
 {bf:Scope: right censoring only.} {opt bstrata()} with delayed entry is refused
 with {cmd:r(198)}. Zhou et al. (2011) is a right-censoring paper -- entry times
 appear nowhere in it -- and neither does Zhang, Zhang and Fine (2011) treat
-baseline stratification. The most recent stratified subdistribution paper, Kim
-et al. (2020), raises left truncation only in its discussion and calls
-developing methods for left-truncated data of this kind "an important future
-research problem". A stratified left-truncated subdistribution baseline would
-therefore be a package invention with no derivation behind it, and
-{cmd:finegray} refuses rather than fit one.
+baseline stratification. This package does not implement or validate their
+combination. Kim et al. (2020, sec. 7) discuss further work for case-cohort
+left-truncated data when independent truncation may fail; that statement is
+not a general impossibility claim about stratified delayed-entry models.
 
 {pstd}
 {bf:Variance.} The reported standard errors are the package's usual
@@ -722,8 +720,25 @@ Breslow baseline, eq. (4), carries the weight in S^(0) only. Because
 dN_i is nonzero only for cause events, and every cause event has rho_i = 1
 in their design, eq. (3) is identical to the general per-subject-weighted
 score sum_i w_i integral (Z_i - Zbar_w) omega_i dN_i: one weight per
-subject, in every risk-set sum and on every event term. That is what
-{cmd:[pweight=]} fits.
+subject, in every risk-set sum and on every event term. {cmd:[pweight=]} uses this score form, but estimates
+{it:G} from the
+{it:analysis sample}, not from a separately available full cohort. It therefore
+does not implement the full Wogu case-cohort estimator.
+
+{pstd}
+{bf:Scope of pweights.} Population interpretation requires the unweighted
+analysis-sample Kaplan-Meier estimate to consistently estimate the censoring
+survivor needed by the population score. Sampling must preserve the relevant
+censoring distribution and independent censoring; weights on the score alone
+do not establish this condition. Standard outcome-dependent case-cohort
+sampling, retaining all cause events but only a fraction of other subjects,
+generally changes the censoring risk sets. This implementation does not
+correct that change and must not be used as a general case-cohort or
+outcome-dependent sampling estimator. With no censoring this particular
+restriction disappears. The supported computation is the weighted score with
+unweighted sample {it:G}, as in {cmd:survival::finegray} followed by weighted
+{cmd:coxph}; agreement with that implementation does not establish a
+population interpretation for an arbitrary sampling design.
 
 {pstd}
 {bf:Computation.} A per-subject constant composes with the Kawaguchi et
@@ -742,16 +757,18 @@ so one residual serves both weight types.
 s_i)', summed within cluster under {opt cluster()}, and the finite-sample
 factor is N/(N-1) on the number of subjects; that is the survey/IPW sandwich
 {cmd:coxph(weights=, robust=TRUE)} forms on the {cmd:survival::finegray}
-expansion, and it is consistent for the total (model plus sampling) variance
-under independent Bernoulli inclusion with known probabilities. It is not
+expansion. This is a {it:fixed-weight} sandwich: it does not propagate
+uncertainty from estimating the censoring distribution. It must not be
+interpreted as a full model-plus-sampling variance estimator with estimated
+censoring weights. It is not
 the variance Wogu et al. estimate: their Theorem 4.1 (p. 169) decomposes the
 variance for a simple-random-sample subcohort as n^-1 sum_i rho_i (eta_i +
 psi_i)^2 -- the weight entering {it:once}, a Horvitz-Thompson estimate of the
 full-cohort model variance -- plus a (1-alpha)/alpha n^-1 sum_i rho_i mu_i^2
-design term for the sampled non-cases. The two target the same quantity
-under different designs; the survey form above is the one derived for the
-independent-inclusion design that {cmd:[pweight=]} describes, and the one the
-package's recovery validation covers. Under {cmd:fweight}s the meat is sum_i
+design term for the sampled non-cases. Agreement with the weighted Cox
+implementation checks the fixed-weight convention; it does not establish
+full design-based variance validity or account for the missing psi term. Under
+{cmd:fweight}s the meat is sum_i
 w_i s_i s_i' (w_i independent copies), the censoring Kaplan-Meier is
 replicated too, and N is sum_i w_i: an {cmd:fweight}ed fit is the fit of
 the expanded data. The model-based inverse information is refused under
@@ -775,9 +792,10 @@ the meat form; a constant pweight c leaves {cmd:e(b)} and {cmd:e(V)} unchanged
 and gives ll_w = c (ll - N_fail log c). Externally the weighted fit is the same
 estimator as {cmd:survival::finegray(weights=)} followed by a weighted
 {cmd:coxph} -- coefficients, robust and cluster-robust standard errors, and the
-weighted baseline -- and under the outcome- and covariate-dependent sampling of
-Wogu et al. sec. 5 the unweighted fit is biased where the weighted fit recovers
-the truth. The package's QA suite, which is distributed with the source in the
+weighted baseline. A finite-simulation recovery check also exercises one
+outcome- and covariate-dependent sampling scenario; passing its tolerance
+bands does not establish consistency under that design or other designs. The package's QA suite, which is
+distributed with the source in the
 {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
 not with the installed package, exercises these identities.
 
@@ -793,16 +811,18 @@ formula becomes {cmd:istrat} and the censoring Kaplan-Meier is fitted as
 same call takes weights, so the cell can be opened once the arm is written; Wogu
 et al. p. 167 likewise allow a stratified {it:Ghat}. For
 {opt truncstrata()} no source weights the delayed-entry {it:H} side at all,
-{cmd:cmprsk::crr(cengroup=)} has no weights, and Kim et al. 2020 is not
-held. {opt bstrata()} and {opt tvc()}: mechanically linear in the same
+{cmd:cmprsk::crr(cengroup=)} has no weights, and the right-censored
+case-cohort method of Kim et al. (2020) does not supply that extension. The
+{opt bstrata()} and {opt tvc()} options are mechanically linear in the same
 per-subject terms, but each cell needs its own cross-validation arm before it
 opens. Delayed entry: the ZZF branch is already this package's extension,
 and no source derives a design-weighted version of it; and
 {helpb finegray_phtest}, because the correlation summary has no weighted
 form in the corpus. The {cmd:svy} prefix is out of scope; {cmd:pweight}s with {opt cluster()} on the primary
-sampling unit give design-consistent points and PSU-clustered standard
-errors, without strata, finite-population corrections or design degrees of
-freedom.
+sampling unit produce weighted estimates and PSU-clustered fixed-weight
+standard errors, subject to the censoring condition above and without
+censoring-weight estimation uncertainty, survey
+strata, finite-population corrections or design degrees of freedom.
 
 
 {marker boundary}{...}
@@ -1250,6 +1270,14 @@ Zhou B, Latouche A, Rocha V, Fine J. Competing risks regression for stratified
 data. {it:Biometrics} 2011; 67(2): 661-670.
 
 {pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01493.x":doi:10.1111/j.1541-0420.2010.01493.x}{p_end}
+
+
+{pstd}
+Kim S, Xu Y, Zhang M-J, Ahn K-W. Stratified proportional subdistribution
+hazards model with covariate-adjusted censoring weight for case-cohort
+studies. {it:Scandinavian Journal of Statistics} 2020;47:1222-1242.
+{p_end}
+{pstd}{browse "https://doi.org/10.1111/sjos.12461":doi:10.1111/sjos.12461}.
 
 
 {marker author}{...}

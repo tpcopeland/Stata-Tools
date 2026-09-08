@@ -1,0 +1,8 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_tvc_r.R]=ad95d0a039bb49f1a1cf62a415e434a1
+file[tvc_r_input.csv]=508bc0d43eefe9bae7d48149db8641b1
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[cmprsk]=2.2.12
+pkg[survival]=3.8.6

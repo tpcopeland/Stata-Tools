@@ -1,0 +1,7 @@
+Frozen 2026-09-08 from existing content-verified R reference cache.
+Generating inputs and toolchain:
+file[crossval_pweight_r.R]=b402d0911819ecadf9a4b2013e7abd54
+file[pw_r_input.csv]=d58aa0b24824b6db128653b3ad019904
+R=4.6.1
+platform=x86_64-pc-linux-gnu
+pkg[survival]=3.8.6
