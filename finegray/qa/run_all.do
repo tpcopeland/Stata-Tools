@@ -60,6 +60,7 @@ local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v1
     test_finegray_receipts.do ///
     test_finegray_mi_lattice.do ///
     test_finegray_release120.do ///
+    test_finegray_noid.do ///
     test_finegray_ties.do test_finegray_optimizer.do ///
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///

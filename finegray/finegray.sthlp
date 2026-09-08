@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  08sep2026}{...}
+{* *! version 1.3.2  08sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -88,8 +88,10 @@
 constant within {cmd:id()}.
 {p_end}
 {p 4 6 2}
-Data must be {cmd:stset} with {cmd:id()}. A subject may contribute multiple
-records when its intervals are contiguous and the model covariates,
+Data must be {cmd:stset}. Without {cmd:id()} each record is one subject, as
+{cmd:stset} itself and {helpb stcrreg} treat it, and {cmd:e(idvar)} is
+empty. With {cmd:id()} a subject may contribute multiple records when its
+intervals are contiguous and the model covariates,
 {opt strata()}, {opt truncstrata()}, {opt bstrata()}, {opt cluster()}, and
 weight variables are constant
 within {cmd:id()} (e.g. delayed-entry or {helpb stsplit} data); such records are
@@ -629,7 +631,8 @@ the data and bootstrap the expanded fit. See
 expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
 reconciles the rebuilt column against {cmd:e(sum_w)} and against
 {cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by the
-{cmd:stset} {opt id()} variable ({cmd:e(idvar)}), so a change that leaves the
+{cmd:stset} {opt id()} variable ({cmd:e(idvar)}) when one was declared and by
+value alone otherwise, so a change that leaves the
 total untouched -- including an exchange of two subjects' weights -- is
 refused too. Estimates saved before this build carry no {cmd:e(wsig)} and
 reconcile by total only; post-estimation prints a warning on every such call,
@@ -891,7 +894,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(compete_values)}}values of {cmd:e(compete)} pooled as competing events{p_end}
 {synopt:{cmd:e(designvars)}}design columns, one per estimated coefficient{p_end}
 {synopt:{cmd:e(entryvar)}}entry-time column; only on multiple-record data{p_end}
-{synopt:{cmd:e(idvar)}}the {cmd:stset} {opt id()} variable{p_end}
+{synopt:{cmd:e(idvar)}}the {cmd:stset} {opt id()} variable; empty if none{p_end}
 {synopt:{cmd:e(mi_data)}}{cmd:1} if fitted on {cmd:mi} data; empty otherwise{p_end}
 {synopt:{cmd:e(postest)}}{cmd:unavailable_mi} on such a fit; empty otherwise{p_end}
 {synopt:{cmd:e(fvvarlist)}}typed factor-variable specification; with factors{p_end}
@@ -972,7 +975,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.1, 2026-09-08{p_end}
+{pstd}Version 1.3.2, 2026-09-08{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

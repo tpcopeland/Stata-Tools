@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.1  2026/09/08
+*! _finegray_mata Version 1.3.2  2026/09/08
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -6420,9 +6420,9 @@ void _finegray_bh_store(real matrix bh)
    digest is invariant to a re-sort but SENSITIVE to which subject carries
    which weight: exchanging the weights of two subjects leaves the multiset of
    weight values (and e(sum_w)) untouched and would otherwise reconcile at
-   rc 0.  `idvar' is the stset id() variable, which finegray requires; it is
-   read as a string when the id is a string variable.  Called without it the
-   digest degrades to the value-only form.
+   rc 0.  `idvar' is the stset id() variable (e(idvar)); it is read as a
+   string when the id is a string variable.  Called without it -- a fit whose
+   stset carried no id() -- the digest degrades to the value-only form.
    --------------------------------------------------------------------------- */
 void _finegray_wsig(string scalar wvar, string scalar tousevar,
     | string scalar idvar)
