@@ -252,7 +252,17 @@ foreach cl in both left right none {
             * (litlo/lithi make low all-equal -> master trivially sorted ->
             * sweep stays ready). Compare only when binary actually engaged.
             if "`binb'" != "binary" {
-                local ++nskip
+                * A skip is valid only for the deliberately trivial `litlo'
+                * / no-by case, where every effective lower bound is equal and
+                * the shuffled master remains sweep-ready. Treat any other
+                * non-binary result as a routing failure; otherwise a backend
+                * regression could silently turn an entire grid into skips.
+                if "`binb'" != "sweep" | "`om'" != "litlo" | "`by'" != "" {
+                    di as error "UNEXPECTED BACKEND SKIP got=`binb' :: `tag'"
+                    local ++nfail
+                    local ++ncellfail
+                }
+                else local ++nskip
             }
             else {
                 local ++ncmp

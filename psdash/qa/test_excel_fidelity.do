@@ -46,6 +46,42 @@ program define _xf_data
     gen double wt = cond(treat, 1/ps, 1/(1-ps))
 end
 
+capture program drop _xf_multigroup_data
+program define _xf_multigroup_data
+    clear
+    set obs 90
+    gen byte arm = mod(_n - 1, 3)
+    gen double p0 = cond(arm == 0, .50, .25)
+    gen double p1 = cond(arm == 1, .50, .25)
+    gen double p2 = 1 - p0 - p1
+    gen double x1 = arm + _n/100
+    gen double x2 = mod(_n, 5)
+end
+
+capture program drop _xf_check_combined_titles
+program define _xf_check_combined_titles
+    syntax, BOOK(string) TOOLSDIR(string) OUTDIR(string) [MULTIGROUP]
+    foreach sheet in Overlap Balance Weights Support Summary {
+        if "`sheet'" == "Overlap" local expected "PS Overlap"
+        if "`sheet'" == "Balance" local expected "Covariate Balance"
+        if "`sheet'" == "Weights" local expected "Weight Diagnostics"
+        if "`sheet'" == "Weights" & "`multigroup'" != "" ///
+            local expected "Weight Diagnostics (Multi-Group)"
+        if "`sheet'" == "Support" local expected "Common Support"
+        if "`sheet'" == "Summary" ///
+            local expected "Propensity Score Diagnostics — Summary"
+        local result "`outdir'/combined_title_`sheet'.txt"
+        shell python3 "`toolsdir'/check_xlsx.py" "`book'" ///
+            --sheet `sheet' --cell A1 "`expected'" ///
+            --result-file "`result'" --quiet
+        tempname fh
+        file open `fh' using "`result'", read text
+        file read `fh' line
+        file close `fh'
+        assert "`line'" == "PASS"
+    }
+end
+
 **# Balance export preserves all SMD/VR/KS columns as numeric cells
 capture noisily {
     _xf_data
@@ -85,6 +121,29 @@ capture noisily {
     assert "`line'" == "PASS"
 }
 _xf_result "key_value_workbook_numeric_types" `=_rc'
+
+**# Combined binary reports retain the exact title on every sheet
+capture noisily {
+    _xf_data
+    local book "`outdir'/combined_binary.xlsx"
+    psdash combined treat ps, covariates(x1 x2) wvar(wt) report("`book'")
+    _xf_check_combined_titles, book("`book'") toolsdir("`tools_dir'") ///
+        outdir("`outdir'")
+    capture graph drop _all
+}
+_xf_result "combined_binary_sheet_titles" `=_rc'
+
+**# Combined multi-group reports retain titles, including the distinct weight title
+capture noisily {
+    _xf_multigroup_data
+    local book "`outdir'/combined_multigroup.xlsx"
+    psdash combined arm, psvars(p0 p1 p2) covariates(x1 x2) ///
+        report("`book'")
+    _xf_check_combined_titles, book("`book'") toolsdir("`tools_dir'") ///
+        outdir("`outdir'") multigroup
+    capture graph drop _all
+}
+_xf_result "combined_multigroup_sheet_titles" `=_rc'
 
 display as text _n "RESULT: test_excel_fidelity tests=$xf_test_count pass=$xf_pass_count fail=$xf_fail_count"
 

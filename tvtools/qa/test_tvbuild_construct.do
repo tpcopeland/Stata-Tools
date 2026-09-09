@@ -1178,6 +1178,121 @@ _tvb_check `ok' ///
     "M11 a column outside the planned schema is refused before any commit" ///
     "rc=`m11_rc' destination_absent=`m11_none'"
 
+* M12: an inherited value label cannot represent reference codes outside
+* Stata's label-value range. The build must refuse that metadata rather than
+* commit a numeric fallback while reporting success.
+local ++test_count
+capture frame drop tb_pm12
+use "tb_cohort.dta", clear
+quietly datasignature
+local m12_sig0 "`r(datasignature)'"
+capture tvbuild, sourceusing("tb_epi.dta") id(pid) entry(study_entry) ///
+    exit(study_exit) start(a_start) stop(a_stop) exposure(drug) ///
+    reference(3000000000) referencelabel("Unexposed") ///
+    generate(tv_drug) frameout(tb_pm12)
+local m12_rc = _rc
+quietly datasignature
+local m12_sig1 "`r(datasignature)'"
+capture confirm frame tb_pm12
+local m12_none = (_rc != 0)
+local ok = (`m12_rc' == 198 & `m12_none' & ///
+    "`m12_sig1'" == "`m12_sig0'" & "`c(frame)'" == "default")
+_tvb_check `ok' ///
+    "M12 an unrepresentable reference label is refused transactionally" ///
+    "rc=`m12_rc' destination_absent=`m12_none' frame=`c(frame)'"
+
+* M13: legal caller names may match the private staging names. Cross all four
+* source roles so a sequential rename would collide, and pin source immutability.
+local ++test_count
+clear
+input long _tvp_start double(study_entry study_exit)
+    1 100 200
+end
+capture frame drop tb_m13s
+frame create tb_m13s
+frame tb_m13s {
+    input long _tvp_start double(_tvp_p1 _tvp_id) byte _tvp_stop
+        1 120 150 1
+    end
+    quietly datasignature
+    local m13_sig0 "`r(datasignature)'"
+}
+capture tvbuild, sourceframe(tb_m13s) id(_tvp_start) ///
+    entry(study_entry) exit(study_exit) start(_tvp_p1) stop(_tvp_id) ///
+    exposure(_tvp_stop) reference(0) generate(tv_x) ///
+    startname(id) stopname(stop) frameout(tb_pm13) nomanifest
+local m13_rc = _rc
+local m13_ok = 0
+if `m13_rc' == 0 frame tb_pm13: local m13_ok = ///
+    (_N == 3 & _tvp_start[1] == 1 & id[2] == 120 & ///
+    stop[2] == 150 & tv_x[2] == 1)
+frame tb_m13s: quietly datasignature
+local m13_sig1 "`r(datasignature)'"
+local ok = (`m13_rc' == 0 & `m13_ok' & ///
+    "`m13_sig1'" == "`m13_sig0'" & "`c(frame)'" == "default")
+_tvb_check `ok' "M13 crossed private-looking episode names build exactly" ///
+    "rc=`m13_rc' values=`m13_ok' source_sig=`m13_sig1'/`m13_sig0'"
+
+* M14: _tvp_gid is also a legal identifier. The crosswalk derives its group
+* number from frlink's matched row rather than reserving that public name.
+local ++test_count
+clear
+input long _tvp_gid double(study_entry study_exit)
+    1 100 200
+end
+capture frame drop tb_m14s
+frame create tb_m14s
+frame tb_m14s {
+    input long _tvp_gid double(ep_start ep_stop) byte drug
+        1 120 150 1
+    end
+}
+capture tvbuild, sourceframe(tb_m14s) id(_tvp_gid) ///
+    entry(study_entry) exit(study_exit) start(ep_start) stop(ep_stop) ///
+    exposure(drug) reference(0) generate(tv_x) ///
+    frameout(tb_pm14) nomanifest
+local m14_rc = _rc
+local m14_ok = 0
+if `m14_rc' == 0 frame tb_pm14: local m14_ok = (_N == 3 & _tvp_gid[1] == 1)
+local ok = (`m14_rc' == 0 & `m14_ok')
+_tvb_check `ok' "M14 id(_tvp_gid) builds without a crosswalk-name collision" ///
+    "rc=`m14_rc' values=`m14_ok'"
+
+* M15: the grouped staging also covers ready intervals, including an id and
+* crossed structural/payload names that all resemble private columns.
+local ++test_count
+clear
+input long _tvp_p1 double(study_entry study_exit)
+    1 100 200
+end
+capture frame drop tb_m15s
+frame create tb_m15s
+frame tb_m15s {
+    input long _tvp_p1 double(_tvp_stop _tvp_start) byte _tvp_id
+        1 100 200 7
+    end
+    quietly datasignature
+    local m15_sig0 "`r(datasignature)'"
+}
+_tvb_spec_new tb_m15spec
+_tvb_spec_add, fr(tb_m15spec) name(ready) kind(intervals) ///
+    sframe(tb_m15s) sv(_tvp_stop) pv(_tvp_start) ///
+    iv(_tvp_id) ov(_tvp_id)
+capture tvbuild, specframe(tb_m15spec) id(_tvp_p1) ///
+    entry(study_entry) exit(study_exit) startname(_tvp_stop) ///
+    stopname(_tvp_start) frameout(tb_pm15) nomanifest
+local m15_rc = _rc
+local m15_ok = 0
+if `m15_rc' == 0 frame tb_pm15: local m15_ok = ///
+    (_N == 1 & _tvp_p1[1] == 1 & _tvp_stop[1] == 100 & ///
+    _tvp_start[1] == 200 & _tvp_id[1] == 7)
+frame tb_m15s: quietly datasignature
+local m15_sig1 "`r(datasignature)'"
+local ok = (`m15_rc' == 0 & `m15_ok' & ///
+    "`m15_sig1'" == "`m15_sig0'")
+_tvb_check `ok' "M15 crossed private-looking interval names build exactly" ///
+    "rc=`m15_rc' values=`m15_ok' source_sig=`m15_sig1'/`m15_sig0'"
+
 **# ---------------------------------------------------------------------
 **# S. Stage counts, source counts, and the real-run return surface
 **# ---------------------------------------------------------------------

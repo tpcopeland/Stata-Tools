@@ -1,4 +1,4 @@
-*! tvspec Version 1.17.1  2026/08/30
+*! tvspec Version 1.17.2  2026/09/09
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -153,6 +153,14 @@ end
 capture program drop tvspec_add
 program define tvspec_add, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _here "`c(frame)'"
+    local _backed = 0
+    tempname _backup
+    set varabbrev off
+
+    capture noisily {
+
     gettoken specframe 0 : 0, parse(" ,")
     local specframe = strtrim("`specframe'")
     if "`specframe'" == "" {
@@ -174,8 +182,6 @@ program define tvspec_add, rclass
     local referencelabel  `referencelabel'
     local label           `label'
     local description     `description'
-
-    local _here "`c(frame)'"
 
     **# The frame must already be a specification frame
     capture confirm frame `specframe'
@@ -315,6 +321,10 @@ program define tvspec_add, rclass
     }
 
     **# Append
+    * This is caller-owned data. Back it up immediately before the first write
+    * so any mid-write failure restores the exact frame that arrived.
+    frame copy `specframe' `_backup'
+    local _backed = 1
     frame change `specframe'
     local _row = `_nrows' + 1
     * Row order is semantic: it fixes generated-variable order, merge order,
@@ -359,6 +369,24 @@ program define tvspec_add, rclass
             "frame `specframe' may not have the specification schema tvspec create declares"
         exit 459
     }
+
+    }
+    local rc = _rc
+
+    capture frame change `_here'
+    local _crc = _rc
+    if `rc' & `_backed' {
+        capture quietly frame copy `_backup' `specframe', replace
+        local _rbrc = _rc
+        if `_rbrc' {
+            display as error ///
+                "tvspec: CRITICAL -- the failed add could not restore frame `specframe' (rc=`_rbrc')"
+        }
+    }
+    capture frame drop `_backup'
+    set varabbrev `_orig_varabbrev'
+    if !`rc' & `_crc' local rc = `_crc'
+    if `rc' exit `rc'
 
     return scalar n_sources = `_row'
     return local source_name "`name'"

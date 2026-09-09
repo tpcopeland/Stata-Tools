@@ -620,6 +620,42 @@ else {
     local ++fail_count
 }
 
+* Execute help Example 10 as printed, including preserve carrying the setup
+* rows into the two subsequent slot-attribution calls.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode preserve
+    matrix HS = r(summary)
+    assert _N == 5
+    assert r(N) == 3
+    assert HS[1,3] == 2
+    assert HS[1,4] == 1
+
+    replace dx2 = "E119" in 1
+    replace dx2 = "" in 2
+    codescan dx1 dx2, define(dm2 "E11") detail
+    matrix HD = r(varcounts)
+    assert HD[1,1] == 1
+    assert HD[1,2] == 0
+    assert r(detail_allslots) == 0
+
+    codescan dx1 dx2, define(dm2 "E11") detail allslots replace
+    matrix HA = r(varcounts)
+    assert HA[1,1] == 1
+    assert HA[1,2] == 1
+    assert r(detail_allslots) == 1
+    matrix drop HS HD HA
+}
+if _rc == 0 {
+    display as result "  PASS: help Example 10 exact sequential workflow"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: help Example 10 sequential workflow (error `=_rc')"
+    local ++fail_count
+}
+
 * README/help label() example: the demo block labels six conditions with the \
 * separator, and the docs promise those labels reach the console and the export.
 local ++test_count

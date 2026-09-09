@@ -1,4 +1,4 @@
-*! _psdash_export_kv Version 1.7.1  2026/09/04
+*! _psdash_export_kv Version 1.7.2  2026/09/09
 *! Write a two-column (Metric, Value) summary sheet to an Excel workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -26,8 +26,9 @@ program define _psdash_export_kv, nclass
 
         putexcel set "`xlsx'", sheet("`sheet'", replace) modify
         local _putexcel_open = 1
-        putexcel A1 = (`"`title'"'), bold
+        * Merging can clear the anchor cell on later workbook sheets.
         putexcel A1:B1, merge
+        putexcel A1 = (`"`title'"'), bold
         putexcel A2 = ("Metric") B2 = ("Value"), bold border(bottom)
         forvalues i = 1/`nk' {
             local k : word `i' of `keys'

@@ -10,6 +10,7 @@
 {viewerjumpto "Examples" "tvevent##examples"}{...}
 {viewerjumpto "Stored results" "tvevent##results"}{...}
 {viewerjumpto "Author" "tvevent##author"}{...}
+{viewerjumpto "References" "tvevent##references"}{...}
 {title:Title}
 
 {p2colset 5 18 20 2}{...}
@@ -194,7 +195,8 @@ Use standard Stata syntax: {it:value "Label" value "Label"}. {break}
 Example: {cmd:eventlabel(0 "Alive" 1 "Heart Failure" 2 "Death")} {break}
 If not specified, labels default to "Censored" (0) and the variable labels of
 the date variables from the master event dataset in memory. Labels never come
-from the interval data supplied in {cmd:using} or {opt frame()}.
+from the interval data supplied in {cmd:using} or {opt frame()}; quoted text in
+those source variable labels is preserved verbatim.
 
 {phang}
 {opt timegen(newvar)} creates a new variable containing the cumulative time
@@ -231,7 +233,10 @@ silently collapsed. With {bf:single}, records agreeing on {cmd:(id, date)} but
 disagreeing on the resolved competing-risk type are likewise rejected. Ties on
 the same date otherwise resolve deterministically in
 option order: {opt date()} first, then each {opt compete()} variable in the
-order given. {break}
+order given. For parallel rows sharing the same {cmd:(id, start, stop)}, an
+event date is counted once for {opt enum()} and the gap-time clock and the
+same sequence value is copied to every matching stratum row; the sequence
+therefore counts unique event dates, not duplicate stratum rows. {break}
 {break}{bf:Important:} For {cmd:type(recurring)}, event dates must be in {bf:wide format} with the
 variable name specified in {cmd:date()} serving as a stubname. For example, if you
 specify {cmd:date(hosp)}, the command expects variables {cmd:hosp1}, {cmd:hosp2}, {cmd:hosp3}, etc. in
@@ -247,16 +252,19 @@ stratifier for Prentice-Williams-Peterson (PWP) recurrent-event models. The
 default name is {cmd:_enum}.
 
 {phang}
-{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock that resets to 0 at
-the start of each new stratum, written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
-{cmd:_t0}/{cmd:_t}). This is the time scale for the PWP gap-time model. The three standard
+{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock with origin at
+the first observed start for stratum 1 and the day after the preceding event for
+later strata, written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
+{cmd:_t0}/{cmd:_t}). Time between observation windows remains part of elapsed
+gap time: re-entry after a gap does not reset the clock. This is the time scale
+for the PWP gap-time model. The three standard
 recurrent-event analyses are
 then: first generate {cmd:double analysis_t0 = start - 1}. {break}
 {bf:Andersen-Gill}: use
 {cmd:stset stop, time0(analysis_t0) failure(`generate') id(id) exit(time .)}
 so follow-up continues after each failure. {break}{bf:PWP total time}: use the
 same declaration and add {cmd:strata(`enum')} to the model. {break}
-{bf:PWP gap time}: generate {cmd:long id_stratum = group(id `enum')} and
+{bf:PWP gap time}: use {cmd:egen long id_stratum = group(id `enum')} and generate
 {cmd:double gap_t0 = _t0 - 1}, then declare
 {cmd:stset _t, time0(gap_t0) failure(`generate') id(id_stratum)} and add
 {cmd:strata(`enum')} plus person-clustered standard errors to the model.
@@ -450,6 +458,17 @@ When {cmd:validate} is specified, additional scalars are stored:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+
+{marker references}{...}
+{title:References}
+
+{pstd}Andersen PK, Gill RD. Cox's regression model for counting processes: a
+large sample study. {it:Annals of Statistics}. 1982;10(4):1100–1120
+doi 10.1214/aos/1176345976.{p_end}
+
+{pstd}Prentice RL, Williams BJ, Peterson AV. On the regression analysis of
+multivariate failure time data. {it:Biometrika}. 1981;68(2):373–379
+doi 10.1093/biomet/68.2.373.{p_end}
 
 {title:Also see}
 

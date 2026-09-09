@@ -165,12 +165,13 @@ listed in the same order as the datasets in the command line. The first
 {pmore}
 More names than datasets is allowed, so a source may contribute an extra
 exposure column beyond its positional one (this is how {opt continuous()} is
-applied to a non-positional exposure). Non-positional names are read from
-datasets 2 onward; an extra name that also exists in dataset 1 is ignored
-there, with a note. Every name in {opt exposure()} must, however, exist in at
-least one source dataset -- a name found nowhere is a typo and exits with
-{cmd:r(111)}, rather than silently producing output whose exposure set differs
-from the one requested.
+applied to a non-positional exposure). Non-positional names are read only from
+eligible sources, datasets 2 onward; an extra name that also exists in dataset
+1 is ignored there, with a note. An extra name found only in dataset 1 is not
+eligible and exits with {cmd:r(111)}. Every additional name in {opt exposure()}
+must be present in at least one eligible source -- a name found nowhere
+eligible is a typo and exits with {cmd:r(111)}, rather than silently producing
+output whose exposure set differs from the one requested.
 
 {pstd}
 Within each positional source, the variables assigned to {opt id()},
@@ -235,6 +236,12 @@ exposure name, {cmd:tvmerge} automatically suffixes the colliding output names
 by position (for example, {cmd:drug_1} and {cmd:drug_2}) and prints a note,
 instead of erroring. To skip the rename entirely, give each {cmd:tvexpose} run
 a distinct {opt generate()} name up front.
+
+{pmore}
+When {opt generate()} is given, it supplies one name per positional exposure
+dataset. Additional non-positional exposure columns keep their original names
+in the output and are reported under those names in {cmd:r(exposure_vars)} and
+the output metadata.
 
 {phang}
 {opt prefix(string)} adds a prefix to all exposure variable names in the output. For

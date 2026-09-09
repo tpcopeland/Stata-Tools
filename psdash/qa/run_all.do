@@ -17,7 +17,8 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     validation_multigroup_longitudinal.do validation_method_contracts.do ///
     validation_extended_known_answers.do validation_public_known_answers.do ///
     test_refactor_qa_bootstrap_contract.do test_refactor_install_autoload.do ///
-    test_refactor_doc_contract.do test_refactor_display_contracts.do ///
+    test_refactor_doc_contract.do test_documentation_examples.do ///
+    test_refactor_display_contracts.do ///
     test_refactor_option_abbrev_contract.do ///
     test_refactor_return_contracts.do test_refactor_graph_export_failures.do ///
     test_saving_format_contract.do ///
@@ -42,6 +43,7 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_rb12_kimi_audit.do ///
     test_remaining_audit_regressions.do test_v164_regressions.do ///
     test_v169_regressions.do test_v171_audit_regressions.do ///
+    test_release_detect.do test_release_numeric.do test_release_combined.do ///
     test_producer_contracts.do ///
     test_real_producer_integrations.do ///
     test_excel_fidelity.do test_return_surface_remaining.do

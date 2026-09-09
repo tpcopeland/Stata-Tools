@@ -1,4 +1,4 @@
-*! _tabtools_colwidth Version 2.1.3  2026/09/07
+*! _tabtools_colwidth Version 2.1.4  2026/09/09
 *! Size one exported table column from its own rendered cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

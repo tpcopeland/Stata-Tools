@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_read Version 2.1.3  2026/09/07
+*! _tabtools_xlsx_read Version 2.1.4  2026/09/09
 *! Read an Excel sheet into the current dataset through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -28,6 +28,38 @@ program define _tabtools_xlsx_read, rclass
             exit 198
         }
         confirm file `"`using'"'
+
+        * A blank probe boundary is not the end of a worksheet.  Resolve the
+        * used range first so sparse rows/columns cannot be silently omitted.
+        quietly import excel using `"`using'"', describe
+        local _range ""
+        local _found = 0
+        forvalues _s = 1/`=r(N_worksheet)' {
+            if lower(`"`r(worksheet_`_s')'"') == lower(`"`sheet'"') {
+                local _range `"`r(range_`_s')'"'
+                local _found = 1
+                continue, break
+            }
+        }
+        if !`_found' {
+            noisily display as error `"sheet `sheet' not found in `using'"'
+            exit 111
+        }
+        if `"`_range'"' == "" exit 2000
+        if !regexm(`"`_range'"', "([A-Z]+)([0-9]+)$") {
+            noisily display as error "could not determine the worksheet's cell range"
+            exit 459
+        }
+        local _endcol = regexs(1)
+        local _endrow = real(regexs(2))
+        local _endcolnum = 0
+        forvalues _j = 1/`=strlen("`_endcol'")' {
+            local _endcolnum = 26 * `_endcolnum' + ///
+                strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZ", substr("`_endcol'", `_j', 1))
+        }
+        if `_endrow' > `maxrows' | `_endcolnum' > `maxcols' exit 908
+        local proberows = max(`proberows', `_endrow')
+        local probecols = max(`probecols', `_endcolnum')
 
         mata: _tt_xlsx_read_mata(`"`using'"', `"`sheet'"', `maxrows', `maxcols', `proberows', `probecols')
 

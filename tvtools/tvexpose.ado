@@ -1,4 +1,4 @@
-*! tvexpose Version 1.17.1  2026/08/30
+*! tvexpose Version 1.17.2  2026/09/09
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -4499,8 +4499,7 @@ program define tvexpose, rclass
             capture label define `exp_vallabel' `reference' "`referencelabel'", modify
             if _rc != 0 {
                 * modify failed, try add
-                capture label define `exp_vallabel' `reference' "`referencelabel'", add
-                local _ref_label_add_rc = _rc
+                label define `exp_vallabel' `reference' "`referencelabel'", add
             }
         }
         else {

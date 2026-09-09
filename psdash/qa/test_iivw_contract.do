@@ -29,6 +29,7 @@ do "`c(pwd)'/_psdash_bootstrap.do"
 discard
 
 local test_count = 0
+local skip_count = 0
 global IIVW_PASS = 0
 global IIVW_FAIL = 0
 global IIVW_FAILED ""
@@ -186,13 +187,15 @@ if `iivw_ok' {
     _ct T7_explicit_override `=_rc'
 }
 else {
+    local test_count = `test_count' + 6
+    local skip_count = 6
     display as text "  (T2-T7 skipped: iivw producer not installable in this environment)"
 }
 
 display as text _n "=== iivw contract summary: $IIVW_PASS passed, $IIVW_FAIL failed ==="
 
 local iivw_fail = $IIVW_FAIL
-display "RESULT: test_iivw_contract tests=`test_count' pass=$IIVW_PASS fail=$IIVW_FAIL"
+display "RESULT: test_iivw_contract tests=`test_count' pass=$IIVW_PASS fail=$IIVW_FAIL skip=`skip_count'"
 if `iivw_fail' > 0 {
     display as error "Failed tests:$IIVW_FAILED"
 }
@@ -206,4 +209,7 @@ macro drop IIVW_PASS IIVW_FAIL IIVW_FAILED
 capture log close _all
 if `iivw_fail' > 0 {
     exit 9
+}
+if `skip_count' > 0 {
+    exit 77
 }

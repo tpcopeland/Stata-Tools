@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 2.1.3  2026/09/07
+*! _tabtools_smallcells Version 2.1.4  2026/09/09
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

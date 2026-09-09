@@ -658,12 +658,18 @@ capture noisily {
     local sthlp "`pkg_dir'/rangematch.sthlp"
     mata: st_local("has_none_posted", strofreal(_rmdoc_has_text(st_local("sthlp"), "posts nothing at all")))
     mata: st_local("has_counts_kept", strofreal(_rmdoc_has_text(st_local("sthlp"), "keeps the count results")))
-    mata: st_local("has_locators_empty", strofreal(_rmdoc_has_text(st_local("sthlp"), "{cmd:r(saving)} and {cmd:r(frame)} are left empty")))
+    mata: st_local("has_locators_empty", strofreal(_rmdoc_has_text(st_local("sthlp"), "{cmd:r(saving)} and {cmd:r(frame)} are empty")))
     mata: st_local("has_scoped_missing", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured {opt miss:ing(error)} leaves no")))
     mata: st_local("has_unscoped_claim", strofreal(_rmdoc_has_text(st_local("sthlp"), "a captured error leaves no")))
+    * A failed saving() write leaves analytical counts in r(), but it does not
+    * leave a reusable materialized result. The old sentence claimed that a
+    * caller could correct the path and re-export without recomputing; pin the
+    * absence of that unsafe promise so it cannot return in a later edit.
+    mata: st_local("has_stale_reexport", strofreal(_rmdoc_has_text(st_local("sthlp"), "re-export without recomputing the match")))
 
     if `has_none_posted' == 0 | `has_counts_kept' == 0 | `has_locators_empty' == 0 | ///
-            `has_scoped_missing' == 0 | `has_unscoped_claim' == 1 {
+            `has_scoped_missing' == 0 | `has_unscoped_claim' == 1 | ///
+            `has_stale_reexport' == 1 {
         display as error "rangematch.sthlp does not describe the failure-time r() contract"
         exit 459
     }
@@ -675,6 +681,50 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "FAIL: failure-time stored-result documentation"
+}
+
+**# T6d: missing(drop) accounting documents the overlapping exclusion sets
+* A missing key can be missing independently of the interval bounds, and a row
+* can be missing in both. The two side counts therefore cannot be added blindly
+* to recover the pre-drop total. Pin the documented union rule against a fixture
+* that contains all three cases (key-only, bound-only, and both).
+local ++test_count
+capture noisily {
+    local sthlp "`pkg_dir'/rangematch.sthlp"
+    mata: st_local("has_union_rule", strofreal(_rmdoc_has_text(st_local("sthlp"), "count the union of rows with missing bound")))
+    mata: st_local("has_overlap_warning", strofreal(_rmdoc_has_text(st_local("sthlp"), "two missing-row diagnostics can overlap")))
+    assert `has_union_rule' == 1 & `has_overlap_warning' == 1
+
+    tempfile union_using
+    clear
+    input double key
+    5
+    end
+    save "`union_using'"
+    clear
+    input double(key lo hi)
+    . 0 10
+    5 . 10
+    . . 10
+    5 0 10
+    end
+    local before = _N
+    quietly count if missing(key, lo, hi)
+    local excluded = r(N)
+    assert `excluded' == 3
+    rangematch key lo hi using "`union_using'", nearest(both) missing(drop) count
+    assert r(N_master) == 1 & r(N_pairs) == 1
+    assert r(N_missing_bounds) == 2 & r(N_master_key_missing) == 2
+    assert r(N_master) + `excluded' == `before'
+    assert _N == `before'
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: missing(drop) documentation states union accounting"
+}
+else {
+    local ++fail_count
+    display as error "FAIL: missing(drop) union accounting documentation"
 }
 
 **# T7 (RM-I14): the demo is repository-only; the benchmark is retrievable

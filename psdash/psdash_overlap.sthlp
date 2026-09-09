@@ -51,13 +51,15 @@ positivity finding and descriptive observed-arm bounds are documented under
 accepts factor-variable and interaction notation.
 
 {phang}
-{opt bins(#)} sets histogram bins; default is {cmd:30}.
+{opt bins(#)} sets histogram bins; default is {cmd:30} and the value must be
+positive.
 
 {phang}
 {opt hist:ogram} requests histograms instead of density plots.
 
 {phang}
-{opt bwid:th(#)} sets the kernel-density bandwidth.
+{opt bwid:th(#)} sets the kernel-density bandwidth. The value must be positive,
+when omitted, Stata chooses the bandwidth.
 
 {phang}
 {opt nog:raph} suppresses the graph.
@@ -78,7 +80,8 @@ accepts factor-variable and interaction notation.
 {opt name(string)} names the graph in memory.
 
 {phang}
-{opt xlsx(filename)} exports overlap statistics to Excel.
+{opt xlsx(filename)} exports overlap statistics to Excel. The default sheet
+name is {cmd:"Overlap"}.
 
 {phang}
 {opt sheet(string)} sets the Excel sheet name.
@@ -90,7 +93,9 @@ accepts factor-variable and interaction notation.
 {opt ref:erence(#)} selects the multi-group reference arm.
 
 {phang}
-{opt gpsfloor(#)} sets the multi-group practical-positivity floor.
+{opt gpsfloor(#)} sets the multi-group practical-positivity floor; default is
+{cmd:0.01}, and the value must be strictly between 0 and 1. It applies only to
+multi-group treatments.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.

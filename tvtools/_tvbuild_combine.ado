@@ -1,4 +1,4 @@
-*! _tvbuild_combine Version 1.17.1  2026/08/30
+*! _tvbuild_combine Version 1.17.2  2026/09/09
 *! Align tvbuild's normalised source frames into one accumulated interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

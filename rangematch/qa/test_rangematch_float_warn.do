@@ -32,15 +32,21 @@ program define _rm_did_warn, rclass
     local rc = _rc
     quietly log close _fw
     local warned 0
+    local advice 0
+    local stale_advice 0
     tempname fh
     file open `fh' using "`lg'.txt", read text
     file read `fh' line
     while r(eof) == 0 {
         if strpos(`"`line'"', "stored as float") local warned 1
+        if strpos(`"`line'"', "reload original values as double") local advice 1
+        if strpos(`"`line'"', "recast to double") local stale_advice 1
         file read `fh' line
     }
     file close `fh'
     return scalar warned = `warned'
+    return scalar advice = `advice'
+    return scalar stale_advice = `stale_advice'
     return scalar rc = `rc'
 end
 
@@ -88,8 +94,8 @@ save "`MF'"
 use "`M'", clear
 _rm_did_warn `"rangematch key_f lo hi using "`U1'", keepusing(uid)"'
 local ++TESTS
-if r(warned) != 1 | r(rc) != 0 {
-    di as error "S1 float %tc key: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
+if r(warned) != 1 | r(rc) != 0 | r(advice) != 1 | r(stale_advice) != 0 {
+    di as error "S1 float %tc key: warned=" r(warned) " rc=" r(rc) " advice=" r(advice) " stale_advice=" r(stale_advice) " (want 1,0,1,0)"
     local ++FAIL
 }
 
@@ -119,8 +125,8 @@ if r(warned) != 0 {
 use "`MF'", clear
 _rm_did_warn `"rangematch key_d lo hi using "`U1'", keepusing(uid)"'
 local ++TESTS
-if r(warned) != 1 | r(rc) != 0 {
-    di as error "S4 float %tc master bound: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
+if r(warned) != 1 | r(rc) != 0 | r(advice) != 1 | r(stale_advice) != 0 {
+    di as error "S4 float %tc master bound: warned=" r(warned) " rc=" r(rc) " advice=" r(advice) " stale_advice=" r(stale_advice) " (want 1,0,1,0)"
     local ++FAIL
 }
 
@@ -147,8 +153,8 @@ gen long   mid = 1
 drop keyd
 _rm_did_warn `"rangematch key lo hi using "`UND'", keepusing(uid) nearest(both) unmatched(none)"'
 local ++TESTS
-if r(warned) != 1 | r(rc) != 0 {
-    di as error "S5 nearest float master key: warned=" r(warned) " rc=" r(rc) " (want 1,0)"
+if r(warned) != 1 | r(rc) != 0 | r(advice) != 1 | r(stale_advice) != 0 {
+    di as error "S5 nearest float master key: warned=" r(warned) " rc=" r(rc) " advice=" r(advice) " stale_advice=" r(stale_advice) " (want 1,0,1,0)"
     local ++FAIL
 }
 

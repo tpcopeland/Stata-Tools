@@ -44,16 +44,22 @@ machine-readable positivity findings, is listed under
 {opt w:var(varname)} specifies existing diagnostic weights.
 
 {phang}
-{opt trim(#)} caps weights at the requested percentile.
+{opt trim(#)} caps weights at the requested percentile; allowed values are
+50 through 99.9. It cannot be combined with {opt truncate()} or
+{opt stabilize}.
 
 {phang}
-{opt trunc:ate(#)} truncates weights at the requested upper value.
+{opt trunc:ate(#)} truncates weights at the requested positive upper value. It
+cannot be combined with {opt trim()} or {opt stabilize}.
 
 {phang}
-{opt stab:ilize} requests stabilized weights.
+{opt stab:ilize} requests ATE-stabilized weights. With auto-generated ATT or
+ATC weights it is rejected; with supplied weights, the scale is not verified
+and a caution is printed.
 
 {phang}
-{opt gen:erate(newvar)} names the modified-weight variable.
+{opt gen:erate(newvar)} names the modified-weight variable. It is required with
+{opt trim()}, {opt truncate()}, or {opt stabilize}.
 
 {phang}
 {opt replace} permits replacing the requested generated variable.
@@ -97,13 +103,16 @@ sample sizes differ.
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
 
 {phang}
-{opt ext:reme(# #)} sets the two extreme-weight cutoffs.
+{opt ext:reme(# #)} sets the lower and upper extreme-weight cutoffs; default is
+{cmd:10 20}. Supply exactly two positive values in ascending order.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
 
 {phang}
-{opt iivwc:omponent(string)} selects the iivw weight component.
+{opt iivwc:omponent(string)} selects the iivw weight component: {cmd:treatment},
+{cmd:final}, or {cmd:visit}. It requires verified iivw metadata and cannot be
+combined with {opt wvar()}.
 
 {marker examples}{...}
 {title:Examples}
@@ -143,17 +152,17 @@ sample sizes differ.
 {synopt:{cmd:r(p5)}}fifth weight percentile{p_end}
 {synopt:{cmd:r(p95)}}95th weight percentile{p_end}
 {synopt:{cmd:r(p99)}}99th weight percentile{p_end}
-{synopt:{cmd:r(n_ps_boundary)}}PS values exactly 0 or 1{p_end}
-{synopt:{cmd:r(n_ps_near_boundary)}}PS values near 0 or 1{p_end}
+{synopt:{cmd:r(n_ps_boundary)}}PS values at 0 or 1, if available{p_end}
+{synopt:{cmd:r(n_ps_near_boundary)}}PS near boundaries, if available{p_end}
 {synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
 {synopt:{cmd:r(n_wt_dropped)}}observations dropped from weights{p_end}
-{synopt:{cmd:r(new_mean)}}modified-weight mean{p_end}
-{synopt:{cmd:r(new_sd)}}modified-weight standard deviation{p_end}
-{synopt:{cmd:r(new_min)}}modified-weight minimum{p_end}
-{synopt:{cmd:r(new_max)}}modified-weight maximum{p_end}
-{synopt:{cmd:r(new_cv)}}modified-weight CV{p_end}
-{synopt:{cmd:r(new_ess)}}modified-weight ESS{p_end}
-{synopt:{cmd:r(new_ess_pct)}}modified-weight ESS percentage{p_end}
+{synopt:{cmd:r(new_mean)}}modified-weight mean, when generated{p_end}
+{synopt:{cmd:r(new_sd)}}modified-weight SD, when generated{p_end}
+{synopt:{cmd:r(new_min)}}modified-weight minimum, when generated{p_end}
+{synopt:{cmd:r(new_max)}}modified-weight maximum, when generated{p_end}
+{synopt:{cmd:r(new_cv)}}modified-weight CV, when generated{p_end}
+{synopt:{cmd:r(new_ess)}}modified-weight ESS, when generated{p_end}
+{synopt:{cmd:r(new_ess_pct)}}modified ESS percentage, when generated{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups{p_end}
 {synopt:{cmd:r(N_group_{it:<level>})}}observations in each group{p_end}
 {synopt:{cmd:r(ess_group_{it:<level>})}}ESS in each treatment group{p_end}

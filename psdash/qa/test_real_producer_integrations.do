@@ -196,6 +196,47 @@ if fileexists("`repo_dir'/targetlearn/targetlearn.pkg") {
             treatment(a_treat) covariates(tv_x) baseline(bl_x) nolog
         quietly psdash detect
         assert "`r(source)'" == "ltmle"
+
+        * Longitudinal producer contracts may run combined diagnostics, but
+        * cannot honor cross-sectional graph/report or threshold controls.
+        quietly psdash combined
+        assert "`r(source)'" == "ltmle"
+        local forbidden_report "`c(tmpdir)'/psdash_ltmle_forbidden.xlsx"
+        local forbidden_graph "`c(tmpdir)'/psdash_ltmle_forbidden.pdf"
+        capture erase "`forbidden_report'"
+        capture erase "`forbidden_graph'"
+        capture noisily psdash combined, report("`forbidden_report'")
+        assert _rc == 198
+        capture noisily psdash combined, saving("`forbidden_graph'")
+        assert _rc == 198
+        capture noisily psdash combined, scheme(s2color)
+        assert _rc == 198
+        capture noisily psdash combined, nooverlap
+        assert _rc == 198
+        capture noisily psdash combined, nobalance
+        assert _rc == 198
+        capture noisily psdash combined, noweights
+        assert _rc == 198
+        capture noisily psdash combined, nosupport
+        assert _rc == 198
+        capture noisily psdash combined, threshold(.2)
+        assert _rc == 198
+        capture noisily psdash combined, overlapmax(20)
+        assert _rc == 198
+        capture noisily psdash combined, essmin(60)
+        assert _rc == 198
+        capture noisily psdash combined, imbalmax(1)
+        assert _rc == 198
+        capture noisily psdash combined, gpsfloor(.02)
+        assert _rc == 198
+        quietly psdash combined, dryrun
+        assert "`r(source)'" == "ltmle"
+        quietly psdash combined, title("LTMLE diagnostic contract")
+        assert "`r(source)'" == "ltmle"
+        capture graph drop _all
+        capture erase "`forbidden_report'"
+        capture erase "`forbidden_graph'"
+
         * ltmle_surv is a valid active LTMLE contract too.  Its e(cmd) differs
         * from ltmle, so this exercises psdash's producer gate rather than the
         * ordinary ltmle path above.

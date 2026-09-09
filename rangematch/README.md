@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.5** | 2026-09-02
+**Version 1.5.6** | 2026-09-09
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -90,7 +90,7 @@ list id eid event_date
 
 ### 2. Nearest matches with provenance and distance
 
-Scalar offsets define the search window around the master key. `nearest(both)` keeps the nearest in-range using key on either side, while the ID and distance options expose provenance and signed separation.
+Scalar offsets define the search window around the master key. `nearest(both)` searches both directions and keeps the minimum absolute distance overall, while the ID and distance options expose provenance and signed separation.
 
 ```stata
 use `master', clear
@@ -234,7 +234,7 @@ rangematch low high using filename_or_framename [if] [in]
 | `keyvar` | Numeric using key in point mode. It must also be numeric in master when scalar offset bounds, `nearest()`, or `distance()` is used. It is omitted in overlap mode. |
 | `low` | Numeric master lower-bound variable, numeric scalar offset from master `keyvar`, or literal `.` for an open lower bound. A scalar offset whose sum with `keyvar` leaves Stata's double range is an error, not an open bound. In overlap mode it is the master lower interval bound and cannot be a scalar offset. |
 | `high` | Numeric master upper-bound variable, numeric scalar offset from master `keyvar`, or literal `.` for an open upper bound. In overlap mode it is the master upper interval bound and cannot be a scalar offset. |
-| `using` | Existing frame name or dataset filename. Existing frame names take precedence; filenames without an extension are also tried with `.dta` appended. |
+| `using` | Existing frame name or dataset filename. Existing frame names take precedence; filenames without an extension resolve to the `.dta` file. |
 
 ## Key Options
 
@@ -248,7 +248,7 @@ rangematch low high using filename_or_framename [if] [in]
 | `all` | Off | Rename all carried using variables with the requested prefix and/or suffix, not only variables that conflict with master names. |
 | `unmatched(master\|none\|using\|both)` | `master` | Keep unmatched master rows, neither side, unmatched using rows, or both sides. |
 | `generate(name)` | None | Create a byte match indicator: 1 = master only, 2 = using only, and 3 = matched pair, with a value label. |
-| `distance(name)` | None | Create `using.keyvar - master.keyvar` for matched pairs. Missing marks an unmatched row, so a matched pair whose difference leaves Stata's double range is an error rather than a missing value. Requires a numeric master `keyvar` and is not allowed in overlap mode. |
+| `distance(name)` | None | Create `using.keyvar - master.keyvar` for matched pairs. Missing marks an unmatched row, so a matched pair with a missing master key or a difference outside Stata's double range is an error. Requires a numeric master `keyvar` and is not allowed in overlap mode. |
 | `masterid(name)` | None | Create the original master observation number; it is missing on using-only rows. |
 | `usingid(name)` | None | Create the original using observation number; it is missing on master-only rows and remains the pre-policy row number under `missing(drop)`. |
 | `maxpairs(#)` | `0` | Abort before materialization if output would exceed `#`; `0` imposes no limit. |
@@ -263,9 +263,9 @@ rangematch low high using filename_or_framename [if] [in]
 | `closed(both\|left\|right\|none)` | `both` | Choose inclusive `[low, high]`, `[low, high)`, `(low, high]`, or open `(low, high)` endpoint rules. Overlap mode accepts only `both` and `none`. |
 | `tolerance(#)` | `0` | Expand lower and upper boundary comparisons by a nonnegative finite value to absorb floating-point representation noise; it is not a statistical matching rule. |
 | `missing(wildcard\|drop\|error)` | `wildcard` | Treat missing variable bounds as open on that side, drop offending rows before matching, or abort. A literal positional `.` is an explicit open bound and is unaffected. |
-| `nearest(before\|after\|both)` | Off | Keep only the nearest in-range using key before, after, or on both sides of the numeric master key. It is point-mode only. |
+| `nearest(before\|after\|both)` | Off | Search before, after, or both directions from the numeric master key. `both` keeps the minimum absolute distance overall; both sides survive only with equal distances and `ties(all)`. It is point-mode only. |
 | `ties(all\|first\|last\|random)` | `all` | Resolve equally nearest using rows. `first` and `last` use original using row order; `random` samples one tied row. The option is allowed only with `nearest()`. |
-| `seed(#|statecode)` | Not set | Set the random tie-breaking seed when `ties(random)` is used. The argument is passed to `set seed`, so an integer seed or a full seed-state token both work. A supplied seed is restored after the call; without it, the current RNG stream advances. |
+| `seed(#\|statecode)` | Not set | Set the random tie-breaking seed when `ties(random)` is used. The argument is passed to `set seed`, so an integer seed or a full seed-state token both work. The caller's RNG state is restored after a supplied seed is used; without it, the current RNG stream advances. |
 | `assert(match\|using)` | Off | Abort if every considered master row must match, every using row must match, or both. Assertions are enforced under `dryrun` and `count` before counts are displayed or posted. |
 
 ## Stored Results
@@ -348,7 +348,7 @@ The command also returns parsing and routing macros. Macros marked as conditiona
 - Matching keys and interval bounds must be numeric. Scalar offsets and `nearest()` require a numeric master key; `distance()` also requires the master key even when the bounds are variables.
 - Under the default `missing(wildcard)`, a missing lower or upper variable bound removes only that side's restriction. A row missing both bounds is fully open; a missing point key never matches. Use `missing(drop)` or `missing(error)` when missing values should not create open-ended matches.
 - In overlap mode, inverted intervals and open-degenerate intervals are empty under the selected closure rule. Inverted using intervals are warned about and counted in `r(N_using_inverted)`; they never generate a match.
-- `float` matching variables with nonmissing values beyond the exact-integer range `2^24` produce a precision warning. Recast values such as `%tc` clocks to `double`, or use a small `tolerance()` when representation noise is the issue.
+- `float` matching variables with nonmissing values beyond the exact-integer range `2^24` produce a precision warning. Reload original values such as `%tc` clocks into `double`; recasting rounded floats cannot recover lost precision. Use a suitable `tolerance()` for known representation noise.
 - Large joins can produce many output rows. Use `by()`, `keepusing()`, and `maxpairs()` to limit work or stop before materialization; use `rangestat` instead when only range summaries are needed.
 - `ties(first)` and `ties(last)` select by original using row order, which can be undesirable when row order is related to enrollment, site, or another selection process. Use `ties(random)` with `seed()` when an order-independent tie choice is needed.
 - `frame()` cannot target the current frame, the using source frame, or a name beginning with `__rm_`; those private frame names are reserved for workspace management. `verbose` also requires three unused Stata timers.
@@ -360,6 +360,8 @@ The command also returns parsing and routing macros. Macros marked as conditiona
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.5.6** (2026-09-09): `distance()` rejects matched rows whose master key is missing or whose signed difference is outside Stata's double range. Clarified nearest-match selection, overlapping missing-row counts, failed-save recovery, and float-precision advice; expanded regression coverage.
 
 - **1.5.5** (2026-09-02): Closed three paths that returned wrong results at `rc=0`. A finite scalar offset added to a finite key can leave Stata's double range and store as missing; because a missing derived bound is the same token the backends read as "open-ended", `rangematch key 8e307 8e307 using ...` matched every using row against an interval that mathematically contains none of them, with `r(N_missing_bounds)` reporting 0 because no bound *variable* was missing. Such a bound now aborts. A value label that a variable is attached to but that was never defined is a legal Stata state; collision allocation asked only whether a *definition* existed, so it treated such a name as free and defined its own map there — a master variable dangling on `__rm_merge` decoded as "master only" after `generate()`, and a dangling master attachment silently acquired a carried using variable's meanings. Allocation is now aware of attachments as well as definitions, in both directions and on every output route. A matched pair whose signed `distance()` leaves the double range stored missing, the value the help reserves for an *unmatched* row; it now aborts instead. Also: `prefix()`/`suffix()` reject leading and trailing whitespace rather than silently applying the trimmed affix, `seed()` documents the seed-state token it has always accepted, and the default in-place output replacement runs its destructive window under `nobreak`, staging the finished output before touching the caller.
 - **1.5.4** (2026-08-28): Reduced large-join runtime without changing syntax or results: pair indices are ordered before payload materialization, contiguous point-match windows are emitted in vectorized blocks, and overlap emission vectorizes contiguous writes while avoiding repeated using-side tracking in scatter ranges.

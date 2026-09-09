@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.5  2026/09/02
+*! rangematch Version 1.5.6  2026/09/09
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -878,7 +878,7 @@ program define _rangematch_warn_float
         display as error ///
             "warning: `lab' {bf:`var'} is stored as float with values beyond 2^24;"
         display as error ///
-            "         boundary matches may be imprecise -- recast to double or use tolerance()"
+            "         boundary matches may be imprecise -- reload original values as double or use tolerance()"
     }
 end
 
@@ -899,7 +899,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.5"
+    local _rm_required_mata_version "1.5.6"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -2026,21 +2026,24 @@ program define rangematch, rclass
 
     * Generate signed using-key minus master-key distance when requested.
     if "`distance'" != "" {
+        * The backend flags every matched row whose requested signed distance
+        * cannot be reported: either an input key is missing or subtraction of
+        * two finite keys overflows the double range. Missing is reserved for an
+        * unmatched row, so either case must fail instead of producing an
+        * ambiguous distance() value at rc=0.
         local _rm_dist_overflow = 0
         mata: _rm_generate_distance("__rm_out", "`_rm_caller_frame'", ///
             "__rm_using", "`_rm_mi'", "`_rm_ui'", "`key'", "`key'", ///
             "`distance'")
-        * A matched row whose signed distance overflows the double range
-        * stores as missing, which is exactly the value the help reserves for
-        * an UNMATCHED row. Shipping it would make "no match" and "matched, but
-        * the gap is unrepresentable" the same cell.
         if `_rm_dist_overflow' > 0 {
             display as error ///
-                "`_rm_dist_overflow' matched row(s) have a using-minus-master distance outside the double range"
+                "`_rm_dist_overflow' matched row(s) have an unreportable using-minus-master distance"
             display as error ///
-                "{bf:distance(`distance')} reserves missing for unmatched rows, so the gap cannot be reported"
+                "an input key is missing, or the finite difference is outside the double range"
             display as error ///
-                "rescale {bf:`key'} or drop {bf:distance()}"
+                "{bf:distance(`distance')} reserves missing for unmatched rows"
+            display as error ///
+                "provide nonmissing keys, rescale {bf:`key'}, or omit {bf:distance()}"
             exit 459
         }
     }

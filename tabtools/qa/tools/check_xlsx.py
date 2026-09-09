@@ -1220,7 +1220,10 @@ def print_report(filepath: str, sheet_name: str, results: list[CheckResult],
     passed = sum(1 for r in results if r.passed)
     total = len(results)
     status = "PASS" if passed == total else "FAIL"
-    print(f"\nRESULT: {status} ({passed}/{total} passed)")
+    # `RESULT:` is reserved for the single suite sentinel that run_all's
+    # contract checker parses.  This helper's human status may be printed by
+    # a suite, so it must not masquerade as an additional sentinel.
+    print(f"\nXLSX CHECK: {status} ({passed}/{total} passed)")
 
 
 def write_result_file(path: str, results: list[CheckResult]) -> None:

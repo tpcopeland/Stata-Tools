@@ -1,4 +1,4 @@
-*! _tvbuild_load_source Version 1.17.1  2026/08/30
+*! _tvbuild_load_source Version 1.17.2  2026/09/09
 *! Copy one tvbuild source into a scratch frame under fixed internal names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -67,10 +67,21 @@ program define _tvbuild_load_source, rclass
     frame put `id' `startvar' `stopvar' `payload', into(`workframe')
     frame change `workframe'
 
-    quietly rename `startvar' _tvp_start
-    quietly rename `stopvar'  _tvp_stop
-    local _p = 0
+    * Stage every caller name first. Direct sequential renames can collide when
+    * a legal caller variable already has one of the fixed internal names.
+    tempvar _sid _sstart _sstop
+    quietly rename (`id' `startvar' `stopvar') ///
+        (`_sid' `_sstart' `_sstop')
+    local _safe_payload ""
     foreach v of local payload {
+        tempvar _sp
+        quietly rename `v' `_sp'
+        local _safe_payload "`_safe_payload' `_sp'"
+    }
+    quietly rename (`_sid' `_sstart' `_sstop') ///
+        (_tvp_id _tvp_start _tvp_stop)
+    local _p = 0
+    foreach v of local _safe_payload {
         local ++_p
         quietly rename `v' _tvp_p`_p'
     }
@@ -79,8 +90,8 @@ program define _tvbuild_load_source, rclass
     * fetch is explicit. Every frget here uses the `new = old' form -- the bare
     * varlist form silently skips any source name beginning with __ and still
     * returns rc=0, so the next line fails on a variable that never existed.
-    quietly frlink m:1 `id', frame(`xwalkframe')
-    quietly frget _tvp_gid = _tvp_gid, from(`xwalkframe')
+    quietly frlink m:1 _tvp_id, frame(`xwalkframe' `id')
+    quietly generate long _tvp_gid = `xwalkframe'
     quietly frget _tvp_entry = `entry', from(`xwalkframe')
     quietly frget _tvp_exit = `exit', from(`xwalkframe')
     quietly generate byte _tvp_matched = !missing(_tvp_gid)
@@ -91,7 +102,7 @@ program define _tvbuild_load_source, rclass
     * Distinct-person counts by tag rather than by levelsof: levelsof builds a
     * macro with one token per value, which a large cohort overruns.
     tempvar _tag
-    quietly egen byte `_tag' = tag(`id')
+    quietly egen byte `_tag' = tag(_tvp_id)
     quietly count if `_tag'
     local _n_srcpers = r(N)
     quietly count if `_tag' & _tvp_matched == 0

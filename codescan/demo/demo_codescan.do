@@ -75,6 +75,8 @@ if _rc == 0 {
 }
 else display as text "(note: tc_schemes not installed; using the current scheme `_orig_scheme')"
 
+capture noisily {
+
 **# Synthetic Administrative Data
 * 500 patients, 3 encounters each, wide-format ICD-10 diagnosis + procedure codes
 clear
@@ -178,9 +180,14 @@ codescan dx1 dx2 dx3 dx4, ///
     export("`pkg_dir'/codescan_results.xlsx", replace) ///
     format(%9.2f)
 
+}
+local _demo_rc = _rc
+
 **# Cleanup
-* Runs on every path: the tempfile is dropped by Stata, but the scheme is a
-* session setting that must be handed back the way it was found.
-if `_scheme_set' set scheme `_orig_scheme'
+* Cleanup runs after the captured block on success or error: the tempfile is
+* dropped by Stata, but the scheme is a session setting that must be handed
+* back the way it was found.
+if `_scheme_set' capture set scheme `_orig_scheme'
 capture graph close _all
 clear
+if `_demo_rc' exit `_demo_rc'

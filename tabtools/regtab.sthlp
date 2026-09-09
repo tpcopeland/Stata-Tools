@@ -332,11 +332,15 @@ or {cmd:family(bernoulli)} with the default or
 intercept row. Any other family/link combination is left on the coefficient
 scale with the {cmd:Coef.} header; supply {opt coef()} to label it
 yourself.{p_end}
-{p 4 8 2}- {opt relabel}: relabels random effects using variable labels and explicit
+{p 4 8 2}- {opt relab:el}: relabels random effects using variable labels and explicit
 parameter types. For single-level models {cmd:var(_cons)} becomes
 {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
 {it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each
-level separately.{p_end}
+level separately. With differing grouping structures and no {opt relab:el},
+the generic collection labels such as {cmd:var(_cons)} and {cmd:var(e)} are
+retained rather than assigning a group label from another model. If {opt relab:el}
+is requested with ambiguous random-effects metadata, {cmd:regtab} exits with
+error 459 unless {opt nore:effects} suppresses random-effects rows.{p_end}
 {p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing
 {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
 metadata. When {opt frame()} is also set, the display frame records the companion in
@@ -400,8 +404,10 @@ longer than its block wraps onto extra header lines.{p_end}
 Mata {cmd:xl()} backend and then applies formatting in the same workbook session.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QICu,
 log-likelihood, and groups are extracted per model from the {helpb collect} framework
-and placed in each model's column. If extraction fails, statistics fall back
-to the last model's {cmd:e()} values in the first column only. For GEE models
+and placed in each model's column. If collection-based statistics extraction
+fails, {cmd:regtab} exits with error 459 rather than substituting active
+{cmd:e()} values. Statistics that are not defined for a model family remain
+blank. For GEE models
 ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full
 maximum likelihood. When dispersion is fixed at 1, a requested {cmd:aic} therefore
 falls back to QICu ({cmd:deviance + 2p}); QICu can also be requested directly via
@@ -415,8 +421,9 @@ collected results when that variance decomposition is defined. Latent-response
 ICC uses the link-specific level-1 variance
 (logit: {cmd:pi^2/3}; probit: 1; complementary log-log: {cmd:pi^2/6}). For
 model families without a defined level-1 variance, ICC is left blank rather
-than guessed. If the primary collection path cannot recover supported ICC
-components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
+than guessed. If the collection yields no usable ICC components for supported
+models, {cmd:regtab} exits with error 459 rather than substituting active
+{cmd:e(b)} values.{p_end}
 
 {marker examples}{title:Examples}
 

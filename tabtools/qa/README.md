@@ -23,6 +23,8 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 |---|---|---|
 | `_data/` | release demo regeneration | hard failure |
 | `eplot/` | integration and release forest demos | hard failure |
+| `tc_schemes/` | release demo regeneration | hard failure |
+| `logdoc/` | release demo regeneration | hard failure |
 
 ## Conventions
 
@@ -58,6 +60,9 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_desctab.do` | Direct descriptive-engine behavior, option semantics, returns, styles, sinks, and cleanup. |
 | `test_effecttab.do` | Supported result sources, matrix mode, frames, formatting, and console returns. |
 | `test_effecttab_omitted.do` | Constrained margins labelling: not-estimable and unidentified cells, factor row labels, `omitlabel()`/`emptylabel()`, and `r(table)` exclusion. |
+| `test_final_review_docs.do` | Executable corrected `stratetab` help and tips recipes using real `strate` output, including workbook values and labels. |
+| `test_final_review_helpers.do` | Sparse Excel sheet dimensions, bounds errors, and caller-state preservation for `_tabtools_xlsx_read`. |
+| `test_final_review_models.do` | Fallback-reader errors, stale active-estimate statistics/metadata rejection for `regtab` and `effecttab`, and `stratetab` rate-ratio methods provenance. |
 | `test_audit_2026_09_02.do` | Extended missings, distinct missing categories, fractional category labels across output sinks, stable matrix identifiers, transactional frames, and strict private-helper contracts. |
 | `test_hrcomptab.do` | Rate/model scaffold composition, frame/workbook parity, eplot output, dependency-failure cleanup, and guards. |
 | `test_issue_review_1_11_0.do` | Regression pins for factor rendering, merging, precision, labels, legends, and whitespace. |

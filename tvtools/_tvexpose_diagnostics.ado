@@ -1,4 +1,4 @@
-*! _tvexpose_diagnostics Version 1.17.1  2026/08/30
+*! _tvexpose_diagnostics Version 1.17.2  2026/09/09
 *! Report-only tvexpose diagnostics: check, gaps, overlaps, summarize, validate
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: none (display and optional file output only)

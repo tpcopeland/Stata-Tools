@@ -51,7 +51,8 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_binary_balance_weights_adversarial.do` | Binary balance and weight edge cases. |
 | `test_combined_threshold_contract.do` | Combined threshold overrides and multi-group GPS verdict semantics. |
 | `test_detect_dispatch_adversarial.do` | Installed autoload, detection contexts, and dispatcher routing. |
-| `test_excel_fidelity.do` | Workbook schema, numeric cells, sheets, and presentation checks. |
+| `test_documentation_examples.do` | Exact README binary quickstart and multi-group recipe with convergence, sample, mapping, and diagnostic-result assertions. |
+| `test_excel_fidelity.do` | Workbook schema, numeric cells, presentation, and exact combined-report titles on all binary and multi-group sheets. |
 | `test_iivw_contract.do` | Genuine, stale, tampered, and explicit-override iivw contracts. |
 | `test_psdash_nullcase.do` | Degenerate-artifact (fail-open) contracts for `psdash weights`: `wvar()` combined with `iivwcomponent()` is refused instead of silently letting the component selection win, unsigned `_dta[_iivw_*]` characteristics cannot select the component, an explicit `wvar()` alone is still honoured, and the `_psdash_require_meta` helper contract. |
 | `test_msm_tte_contract.do` | MSM/TTE contract rejection and manual override behavior. |
@@ -80,6 +81,9 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_refactor_option_abbrev_contract.do` | Documented option abbreviations and parser behavior. |
 | `test_refactor_qa_bootstrap_contract.do` | Isolated install bootstrap and cleanup. |
 | `test_refactor_return_contracts.do` | Public scalar, macro, and matrix return contracts. |
+| `test_release_combined.do` | Combined-report failure payloads, period-name collision rejection, and longitudinal scale invariance. |
+| `test_release_detect.do` | Empty/incomplete score rejection and repeated detector-state clearing. |
+| `test_release_numeric.do` | Extreme-scale weight diagnostics and missing numeric-option rejection. |
 | `test_remaining_audit_regressions.do` | Residual audit findings not owned by a narrower suite. |
 | `test_return_surface_remaining.do` | Remaining conditional and failure-path return surfaces. |
 | `test_saving_format_contract.do` | Saving extensions, replace parsing, and graph formats. |

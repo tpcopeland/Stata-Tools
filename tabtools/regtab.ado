@@ -1,4 +1,4 @@
-*! regtab Version 2.1.3  2026/09/07
+*! regtab Version 2.1.4  2026/09/09
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -416,17 +416,20 @@ quietly{
     local _coef_label_return `"`coef'"'
     local _has_multieq_estimator = 0
     capture {
-        collect layout (cmdset) (result[cmd cmdline depvar])
+        collect layout (cmdset) (result[cmd cmdline depvar ivars revars redim])
     }
     if _rc == 0 {
         preserve
         capture {
             _tabtools_collect_render, type(meta) rowdim(cmdset) ///
-                results(cmd cmdline depvar) dropempty
+                results(cmd cmdline depvar ivars revars redim) dropempty
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
             local meta_col_depvar ""
+            local meta_col_ivars ""
+            local meta_col_revars ""
+            local meta_col_redim ""
             ds
             local meta_allvars `r(varlist)'
             foreach v of local meta_allvars {
@@ -434,6 +437,9 @@ quietly{
                 if "`hdr'" == "command" local meta_col_cmd "`v'"
                 if "`hdr'" == "command line as typed" local meta_col_cmdline "`v'"
                 if "`hdr'" == "dependent variable" local meta_col_depvar "`v'"
+                if "`hdr'" == "imputation variables" local meta_col_ivars "`v'"
+                if "`hdr'" == "random-effects covariates" local meta_col_revars "`v'"
+                if "`hdr'" == "random-effects dimensions" local meta_col_redim "`v'"
             }
 
             local _meta_models = _N - 1
@@ -445,6 +451,18 @@ quietly{
                     local model_depvar_`m' = lower(strtrim(`meta_col_depvar'[`r']))
                 }
                 else local model_depvar_`m' ""
+                if "`meta_col_ivars'" != "" {
+                    local model_ivars_`m' = strtrim(`meta_col_ivars'[`r'])
+                }
+                else local model_ivars_`m' ""
+                if "`meta_col_revars'" != "" {
+                    local model_revars_`m' = strtrim(`meta_col_revars'[`r'])
+                }
+                else local model_revars_`m' ""
+                if "`meta_col_redim'" != "" {
+                    local model_redim_`m' = strtrim(`meta_col_redim'[`r'])
+                }
+                else local model_redim_`m' ""
             }
         }
         if _rc local _meta_models = 0
@@ -488,7 +506,7 @@ quietly{
             local model_icc_undef_`m' 0
             * Latent response variance used when the model has no estimated
             * level-1 residual variance. Missing means that a residual variance
-            * must be recovered from the collected results/e(b), not guessed.
+            * must be recovered from the collected results, not guessed.
             local model_icc_resid_`m' = .
 
             if "`_cmdword'" == "xtgee" | "`model_cmd_`m''" == "xtgee" {
@@ -685,7 +703,6 @@ quietly{
     * These may get cleared during processing, so capture them now
 
     local add_stats = 0
-    tempname temp_b
     if "`stats'" != "" {
         local add_stats = 1
 
@@ -891,142 +908,32 @@ quietly{
             }
         }
 
-        * Backfill groups from e() when collection extraction found none
-        * (mixed stores N_g as matrix, not scalar — invisible to collect)
+        * A requested group count must come from the collection.  Active e()
+        * is separate state and may describe a later, unrelated fit.
         if `n_stat_models' > 0 & `want_groups' == 1 {
             local _all_grp_miss = 1
+            local _groups_supported = 0
             forvalues m = 1/`n_stat_models' {
                 if !missing(`stat_groups_`m'') local _all_grp_miss = 0
+                if `m' <= `_meta_models' {
+                    if "`model_re_family_`m''" != "none" local _groups_supported = 1
+                }
             }
-            if `_all_grp_miss' {
-                local _grp = .
-                capture local _grp = e(N_g)
-                if missing(`_grp') {
-                    tempname ng_mat
-                    capture matrix `ng_mat' = e(N_g)
-                    if !_rc local _grp = `ng_mat'[1,1]
-                }
-                if missing(`_grp') capture local _grp = e(N_clust)
-                if !missing(`_grp') {
-                    local stat_groups_`n_stat_models' = `_grp'
-                }
+            if `_all_grp_miss' & `_groups_supported' {
+                noisily display as error ///
+                    "Could not recover requested group counts from the active collection"
+                exit 459
             }
         }
 
-        * Fallback: if collection extraction failed, use e() for c1 only
-        if `n_stat_models' == 0 {
-            local stat_N_1 = .
-            local stat_aic_1 = .
-            local stat_bic_1 = .
-            local stat_qic_1 = .
-            local stat_ll_1 = .
-            local stat_groups_1 = .
-            local stat_k_1 = .
-            local stat_r2_1 = .
-            local stat_r2_p_1 = .
-            local stat_r2_a_1 = .
-            local stat_phi_1 = .
-
-            capture local stat_N_1 = e(N)
-            if _rc local stat_N_1 = .
-            local _nsub = .
-            capture local _nsub = e(N_sub)
-            if !_rc & !missing(`_nsub') {
-                local stat_N_1 = `_nsub'
-                local _any_N_sub = 1
-            }
-            capture local stat_ll_1 = e(ll)
-            if _rc local stat_ll_1 = .
-
-            capture local stat_groups_1 = e(N_g)
-            if _rc local stat_groups_1 = .
-            if missing(`stat_groups_1') {
-                tempname ng_mat
-                capture matrix `ng_mat' = e(N_g)
-                if !_rc local stat_groups_1 = `ng_mat'[1,1]
-            }
-            if missing(`stat_groups_1') {
-                capture local stat_groups_1 = e(N_clust)
-            }
-
-            capture local stat_r2_1 = e(r2)
-            capture local stat_r2_p_1 = e(r2_p)
-            capture local stat_r2_a_1 = e(r2_a)
-
-            capture local stat_aic_1 = e(aic)
-            capture local stat_bic_1 = e(bic)
-
-            * AIC = -2*ll + 2*k / BIC = -2*ll + k*ln(N): recompute from ll + rank
-            * whenever available, overriding e(aic)/e(bic). glm stores e(aic) as
-            * AIC/N (per observation) and a deviance-based e(bic); both are
-            * incomparable to the likelihood values mixed reports. Matches estat ic.
-            if !missing(`stat_ll_1') {
-                capture local stat_k_1 = e(rank)
-                if missing(`stat_k_1') {
-                    capture local stat_k_1 = e(k)
-                }
-                if !missing(`stat_k_1') {
-                    local stat_aic_1 = -2 * `stat_ll_1' + 2 * `stat_k_1'
-                }
-            }
-
-            if !missing(`stat_ll_1') & !missing(`stat_N_1') {
-                if missing(`stat_k_1') {
-                    capture local stat_k_1 = e(rank)
-                    if missing(`stat_k_1') {
-                        capture local stat_k_1 = e(k)
-                    }
-                }
-                if !missing(`stat_k_1') {
-                    local stat_bic_1 = -2 * `stat_ll_1' + `stat_k_1' * ln(`stat_N_1')
-                }
-            }
-
-            * QICu fallback is available only for an active xtgee model with
-            * dispersion fixed at one. Estimated/unknown dispersion requires
-            * a user-supplied common scale across candidate models, which this
-            * collection-only formatter cannot establish safely.
-            local _active_cmd ""
-            local _active_cmd2 ""
-            capture local _active_cmd = lower(e(cmd))
-            if _rc local _active_cmd ""
-            capture local _active_cmd2 = lower(e(cmd2))
-            if _rc local _active_cmd2 ""
-            local _active_is_gee = ///
-                inlist("`_active_cmd'", "xtgee") | inlist("`_active_cmd2'", "xtgee")
-            capture local stat_phi_1 = e(phi)
-            if _rc local stat_phi_1 = .
-            local _deviance = .
-            capture local _deviance = e(deviance)
-            if `_active_is_gee' {
-                local stat_aic_1 = .
-                local stat_bic_1 = .
-            }
-            if `_active_is_gee' & !missing(`stat_phi_1') & ///
-                abs(`stat_phi_1' - 1) <= 1e-10 & !missing(`_deviance') {
-                if missing(`stat_k_1') {
-                    capture local stat_k_1 = e(rank)
-                }
-                if !missing(`stat_k_1') {
-                    local stat_qic_1 = `_deviance' + 2 * `stat_k_1'
-                }
-            }
-            else if `_active_is_gee' & (`want_qic' | `want_aic') {
-                local _qicu_scale_unavailable "1"
-            }
-
-            * Flag as single-model fallback. For multi-model collections this
-            * places the active e() (typically the LAST fitted model) under
-            * model 1's column and leaves the other model columns blank, which
-            * is a known and documented limitation. Warn the user when the
-            * fallback triggers under a multi-model layout so misattribution
-            * is visible at runtime, not just buried in the help file.
-            local n_stat_models = 1
-            if `_meta_models' > 1 {
-                noisily display as text "Note: per-model stats extraction failed; falling back to active e() for model 1 only"
-                noisily display as text "      remaining model columns will be blank for stats() rows"
-            }
+        * Model statistics must come from the collection.  Active e() is a
+        * separate state surface and cannot identify an exact collected fit.
+        if `n_stat_models' == 0 & "`result_levels'" != "" {
+            noisily display as error ///
+                "Could not recover model statistics from the active collection"
+            exit 459
         }
+        if `n_stat_models' == 0 local n_stat_models = `_meta_models'
 
         if "`_qicu_scale_unavailable'" != "" {
             local _qicu_scale_unavailable : list uniq _qicu_scale_unavailable
@@ -1056,16 +963,20 @@ quietly{
             * positions while non-skipped positions flow through extraction.
             * Iterate over _meta_models (not n_stat_models): when stats(icc)
             * is the ONLY stats option, the per-model stats extraction path
-            * is skipped, n_stat_models falls back to 1, and a loop bounded by
-            * n_stat_models would miss positions 2+ in a multi-model collection.
+            * is skipped and the metadata model count supplies the slots.
             * model_icc_undef is set during cmdline parsing for count-data mixed
             * models (mepoisson, menbreg). Use it here rather than re-parsing
             * model_cmd_`m', which may report a deeper e(cmd) name like "meglm".
             local _icc_skip_list ""
+            local _icc_skip_n = 0
+            local _icc_supported = 0
             if `_meta_models' > 0 {
                 forvalues m = 1/`_meta_models' {
                     if `model_icc_undef_`m'' {
                         local _icc_skip_list `"`_icc_skip_list' `m'"'
+                    }
+                    else if "`model_re_family_`m''" != "none" {
+                        local ++_icc_supported
                     }
                 }
             }
@@ -1083,15 +994,30 @@ quietly{
                 }
             }
 
+            local _icc_collevels "var(_cons) var(e)"
+            capture quietly collect levelsof colname
+            if _rc == 0 {
+                local _icc_levels `"`s(levels)'"'
+                foreach _icl of local _icc_levels {
+                    if `"`_icl'"' == "var(_cons)" | ///
+                        regexm(`"`_icl'"', "^var\(_cons\[.*\]\)$") | ///
+                        inlist(`"`_icl'"', "var(e)", "var(Residual)") {
+                        local _icc_collevels `"`_icc_collevels' `_icl'"'
+                    }
+                }
+            }
+            local _icc_collevels : list uniq _icc_collevels
+
             capture {
-                collect layout (cmdset) (colname[var(_cons) var(e)]#result[_r_b])
+                collect layout (cmdset) ///
+                    (colname[`_icc_collevels']#result[_r_b])
             }
 
             if _rc == 0 {
                 preserve
                 capture {
                     _tabtools_collect_render, type(icc) rowdim(cmdset) ///
-                        coldim(colname) collevels("var(_cons) var(e)") results(_r_b)
+                        coldim(colname) collevels(`"`_icc_collevels'"') results(_r_b)
 
                     * Find first data row (column A has cmdset number)
                     local _icc_hdr = 0
@@ -1106,12 +1032,16 @@ quietly{
                     * Find columns for each variance component
                     ds
                     local icc_allvars `r(varlist)'
-                    local icc_col_re ""
-                    local icc_col_resid ""
+                    local icc_cols_re ""
+                    local icc_cols_resid ""
                     foreach v of local icc_allvars {
                         local hdr = `v'[1]
-                        if strpos("`hdr'", "var(_cons)") local icc_col_re "`v'"
-                        if strpos("`hdr'", "var(e)") local icc_col_resid "`v'"
+                        if "`hdr'" == "var(_cons)" | ///
+                            regexm("`hdr'", "^var\(_cons\[.*\]\)$") {
+                            local icc_cols_re "`icc_cols_re' `v'"
+                        }
+                        if inlist("`hdr'", "var(e)", "var(Residual)") ///
+                            local icc_cols_resid "`icc_cols_resid' `v'"
                     }
 
                     forvalues m = 1/`n_icc_models' {
@@ -1125,28 +1055,31 @@ quietly{
                         if `_icc_this_skip' continue
 
                         local r = `m' + `_icc_hdr'
-                        local val_re = ""
+                        local val_re = 0
+                        local val_re_found = 0
                         local val_resid = ""
 
-                        if "`icc_col_re'" != "" {
-                            local val = subinstr(`icc_col_re'[`r'], ",", "", .)
+                        foreach _re_col of local icc_cols_re {
+                            local val = subinstr(`_re_col'[`r'], ",", "", .)
                             local _num = real("`val'")
                             if !missing(`_num') {
-                                local val_re = `_num'
+                                local val_re = `val_re' + `_num'
+                                local val_re_found = 1
                             }
                         }
-                        if "`icc_col_resid'" != "" {
-                            local val = subinstr(`icc_col_resid'[`r'], ",", "", .)
+                        foreach _res_col of local icc_cols_resid {
+                            local val = subinstr(`_res_col'[`r'], ",", "", .)
                             local _num = real("`val'")
                             if !missing(`_num') {
                                 local val_resid = `_num'
+                                continue, break
                             }
                         }
 
-                        if "`val_re'" != "" & "`val_resid'" != "" {
+                        if `val_re_found' & "`val_resid'" != "" {
                             local stat_icc_`m' = `val_re' / (`val_re' + `val_resid')
                         }
-                        else if "`val_re'" != "" & "`val_resid'" == "" {
+                        else if `val_re_found' & "`val_resid'" == "" {
                             * Latent-response models have link-specific
                             * level-1 variances. Never default an unknown model
                             * to the logistic pi^2/3 denominator.
@@ -1164,10 +1097,8 @@ quietly{
                 restore
             }
 
-            * If the primary collect path found model rows but all ICC values are
-            * still missing (e.g., multi-level models where colname[var(_cons)]
-            * doesn't match the qualified labels like var(_cons[school])),
-            * reset to trigger the fallback path.
+            * If the collect path found model rows but all ICC values are still
+            * missing, reset so supported but unmappable components produce r(459).
             if `n_icc_models' > 0 {
                 local _all_icc_miss = 1
                 forvalues _im = 1/`n_icc_models' {
@@ -1179,65 +1110,13 @@ quietly{
                 if `_all_icc_miss' local n_icc_models = 0
             }
 
-            * Fallback: e(b) for last model only (backward compat)
-            * Handles two parameterizations:
-            *   mixed:   lns1_1_1:, lns2_1_1:, ... = log-SD (needs exp(2*x))
-            *   melogit: /var(_cons[group]): = variance directly (no conversion)
-            * Accumulates ALL random intercept levels so multi-level ICC sums
-            * all grouping-level variances. Skip when the last model is a count
-            * family (mepoisson/menbreg) since ICC is undefined for those rows.
-            local _icc_fallback_skip = 0
-            if `_meta_models' > 0 {
-                if `n_stat_models' <= `_meta_models' {
-                    if `model_icc_undef_`n_stat_models'' {
-                        local _icc_fallback_skip = 1
-                    }
-                }
-            }
-            if `n_icc_models' == 0 & !`_icc_fallback_skip' {
-                local var_re = 0
-                local var_re_found = 0
-                local var_resid = ""
-                capture matrix `temp_b' = e(b)
-                local _have_icc_b = (_rc == 0)
-                if `_have_icc_b' {
-                    local colnames : colfullnames `temp_b'
-                    local col = 1
-                    foreach colname of local colnames {
-                        * mixed parameterization: lns1_1_1, lns2_1_1, lns3_1_1, etc.
-                        if regexm("`colname'", "^lns[0-9]+_1_1:") {
-                            local log_sd = `temp_b'[1,`col']
-                            local var_re = `var_re' + exp(2 * `log_sd')
-                            local var_re_found = 1
-                        }
-                        * melogit/meprobit parameterization: /var(_cons[group]) = variance directly
-                        if regexm("`colname'", "^/var\(_cons") {
-                            local var_re = `var_re' + `temp_b'[1,`col']
-                            local var_re_found = 1
-                        }
-                        if strpos("`colname'", "lnsig_e:") {
-                            local log_sd = `temp_b'[1,`col']
-                            local var_resid = exp(2 * `log_sd')
-                        }
-                        local col = `col' + 1
-                    }
-                }
-                if `var_re_found' & "`var_resid'" != "" {
-                    local stat_icc_`n_stat_models' = `var_re' / (`var_re' + `var_resid')
-                }
-                else if `var_re_found' {
-                    * Use the model-specific latent response variance (logit,
-                    * probit, or cloglog); missing means unsupported, not pi^2/3.
-                    local _icc_resid = .
-                    if `n_stat_models' <= `_meta_models' {
-                        local _icc_resid = `model_icc_resid_`n_stat_models''
-                    }
-                    if !missing(`_icc_resid') {
-                        local stat_icc_`n_stat_models' = ///
-                            `var_re' / (`var_re' + `_icc_resid')
-                    }
-                }
-                local n_icc_models = `n_stat_models'
+            * ICC values must also remain collection-derived.  Count-data
+            * mixed models are intentionally blank; supported families error
+            * if their variance components cannot be mapped exactly.
+            if `n_icc_models' == 0 & `_icc_supported' > 0 {
+                noisily display as error ///
+                    "Could not recover requested ICC components from the active collection"
+                exit 459
             }
         }
     }
@@ -1254,23 +1133,11 @@ quietly{
     * Different mixed-effects families are rejected above unless RE rows are
     * suppressed, so the single non-none family applies to every RE row.
     local re_transform = "none"
-    local model_cmd2 = ""
     if "`_re_family_seen'" == "mor" {
         local re_transform = "mor"
     }
     else if "`_re_family_seen'" == "mhr" {
         local re_transform = "mhr"
-    }
-    else if "`_re_family_seen'" == "" {
-        * Fallback for collection layouts without usable command metadata.
-        capture local model_cmd2 = e(cmd2)
-        if _rc local model_cmd2 ""
-        if "`model_cmd2'" == "melogit" {
-            local re_transform = "mor"
-        }
-        else if inlist("`model_cmd2'", "mecloglog", "mestreg") {
-            local re_transform = "mhr"
-        }
     }
 
     * =========================================================================
@@ -1282,9 +1149,41 @@ quietly{
     local _n_re_levels = 0
     local _is_multilevel = 0
 
-    * Always capture grouping variable info (needed for relabel AND MOR/MHR)
+    * Random-effects labels must use metadata stored with the collection.  A
+    * later estimation command may have replaced every active e() field.
     local re_groupvars = ""
-    capture local re_groupvars = e(ivars)
+    local _re_redim = ""
+    local _re_meta_ambiguous = 0
+    if `_meta_models' > 0 {
+        forvalues m = 1/`_meta_models' {
+            if `"`model_ivars_`m''"' != "" & `"`model_ivars_`m''"' != "." {
+                if "`re_groupvars'" == "" {
+                    local re_groupvars `"`model_ivars_`m''"'
+                    local re_vars `"`model_revars_`m''"'
+                    local _re_redim `"`model_redim_`m''"'
+                }
+                else if `"`model_ivars_`m''"' != `"`re_groupvars'"' | ///
+                    `"`model_revars_`m''"' != `"`re_vars'"' | ///
+                    `"`model_redim_`m''"' != `"`_re_redim'"' {
+                    local _re_meta_ambiguous = 1
+                }
+            }
+        }
+    }
+    if `_re_meta_ambiguous' {
+        * A shared relabel cannot represent different grouping structures.
+        * Keep the original collection labels unless relabel was requested.
+        if "`relabel'" != "" & "`noreeffects'" == "" {
+            noisily display as error ///
+                "Random-effects metadata differ across collected models"
+            noisily display as error ///
+                "Use separate regtab calls, or omit relabel"
+            exit 459
+        }
+        local re_groupvars ""
+        local re_vars ""
+        local _re_redim ""
+    }
     * Check for empty string AND "." (missing value returned by OLS models)
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
         local _n_re_levels : word count `re_groupvars'
@@ -1298,7 +1197,8 @@ quietly{
             if "`_path_so_far'" == "" local _path_so_far "`_gvar'"
             else local _path_so_far "`_path_so_far'>`_gvar'"
             local re_grouppath_`_lev' `"`_path_so_far'"'
-            local _glbl : variable label `_gvar'
+            local _glbl ""
+            capture local _glbl : variable label `_gvar'
             if "`_glbl'" == "" local _glbl "`_gvar'"
             local re_grouplbl_`_lev' `"`_glbl'"'
         }
@@ -1327,8 +1227,6 @@ quietly{
         local re_groupvar : word 1 of `re_groupvars'
         local re_grouplbl `"`re_grouplbl_1'"'
 
-        * Get random effects variables
-        capture local re_vars = e(revars)
         if "`re_vars'" != "" {
             * Store labels for each random effect variable
             foreach revar of local re_vars {
@@ -1336,14 +1234,12 @@ quietly{
                     local lbl_`revar' "Intercept"
                 }
                 else {
-                    local lbl_`revar' : variable label `revar'
+                    capture local lbl_`revar' : variable label `revar'
                     if "`lbl_`revar''" == "" local lbl_`revar' "`revar'"
                 }
             }
 
-            * Parse per-level random effects using e(redim)
-            local _re_redim = ""
-            capture local _re_redim = e(redim)
+            * Parse per-level random effects using collected redim metadata.
             if "`_re_redim'" != "" {
                 local _re_pos = 1
                 forvalues _lev = 1/`_n_re_levels' {
@@ -1358,7 +1254,7 @@ quietly{
                 }
             }
             else {
-                * Fallback: assign all revars to level 1 when e(redim) unavailable
+                * Assign all revars to level 1 when collected redim is unavailable.
                 local re_vars_1 `"`re_vars'"'
                 forvalues _lev = 2/`_n_re_levels' {
                     local re_vars_`_lev' ""
@@ -1370,7 +1266,9 @@ quietly{
     * Capture factor variable value labels for factorlabel option
     if "`factorlabel'" != "" {
         local _fvlabel_cmds ""
-        capture local _fv_varlist : colnames e(b)
+        local _fv_varlist ""
+        capture quietly collect levelsof colname
+        if _rc == 0 local _fv_varlist `"`s(levels)'"'
         if "`_fv_varlist'" != "" {
             foreach _fvterm of local _fv_varlist {
                 if regexm("`_fvterm'", "^([0-9]+)\.(.+)$") {
@@ -1556,10 +1454,11 @@ if `_collect_render_rc' {
     preserve
     capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
     if _rc {
+        local _read_rc = _rc
         noisily display as error "Failed to import temporary Excel file"
         capture erase "`temp_xlsx'"
         restore
-        exit _rc
+        exit `_read_rc'
     }
 }
 * Note: DO NOT TRIM WHITE SPACE--NEED IT FOR LEADING INDENT FOR CATEGORICAL VARIABLE

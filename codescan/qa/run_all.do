@@ -2,21 +2,7 @@
 *! Usage: cd codescan/qa && stata-mp -b do run_all.do [quick|core|crossval|full]
 
 version 16.0
-local _runner_more0 "`c(more)'"
-local _runner_va0 "`c(varabbrev)'"
-set more off
-set varabbrev off
-
 args mode extra
-
-local qa_dir "`c(pwd)'"
-local _runner_plus0 "`c(sysdir_plus)'"
-local _runner_personal0 "`c(sysdir_personal)'"
-do "`qa_dir'/_codescan_qa_common.do"
-quietly _codescan_qa_bootstrap
-local pass = 0
-local fail = 0
-
 local mode = lower(trim("`mode'"))
 if "`mode'" == "" | "`mode'" == "default" local mode "full"
 
@@ -30,6 +16,21 @@ if !inlist("`mode'", "quick", "core", "crossval", "full") {
     display as error "Supported modes: quick, core, crossval, full"
     exit 198
 }
+
+* Validate arguments before changing any caller state.  A bad mode or extra
+* argument must leave settings, sysdirs, and QA ownership globals untouched.
+local _runner_more0 "`c(more)'"
+local _runner_va0 "`c(varabbrev)'"
+set more off
+set varabbrev off
+
+local qa_dir "`c(pwd)'"
+local _runner_plus0 "`c(sysdir_plus)'"
+local _runner_personal0 "`c(sysdir_personal)'"
+do "`qa_dir'/_codescan_qa_common.do"
+quietly _codescan_qa_bootstrap
+local pass = 0
+local fail = 0
 
 * Routine development lane: fast functional coverage plus the two headline
 * validation suites. No install/docs smoke, no adversarial stress.
@@ -135,6 +136,8 @@ capture macro drop CODESCAN_QA_RESULT_PASS
 capture macro drop CODESCAN_QA_RESULT_FAIL
 capture macro drop CODESCAN_QA_PLUS
 capture macro drop CODESCAN_QA_PERSONAL
+capture macro drop CODESCAN_QA_PLUS0
+capture macro drop CODESCAN_QA_PERSONAL0
 capture macro drop CODESCAN_QA_ISOLATED
 
 display _n as result "codescan QA summary (`mode'): `pass' passed, `fail' failed"
