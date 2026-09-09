@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.7.1  2026/09/04
+*! psdash_balance Version 1.7.2  2026/09/09
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -338,7 +338,7 @@ program define psdash_balance, rclass
     }
 
     * Validate threshold
-    if `threshold' <= 0 {
+    if missing(`threshold') | `threshold' <= 0 {
         display as error "threshold() must be positive"
         exit 198
     }
@@ -1010,7 +1010,7 @@ program define psdash_balance, rclass
     }
 
     * Validate threshold
-    if `threshold' <= 0 {
+    if missing(`threshold') | `threshold' <= 0 {
         display as error "threshold() must be positive"
         exit 198
     }

@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.1** | 2026-09-04
+**Version 1.7.2** | 2026-09-09
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -359,7 +359,7 @@ Diagnostic panel commands store their principal results in r() and print finding
 
 Multi-group runs also return group counts, generalized-positivity diagnostics, and the K-by-K r(gps_means) matrix. Longitudinal combined runs return producer metadata, period and arm sample/ESS summaries, missingness and exclusion counts, and the period matrices r(overlap_by_period) and r(weights_by_period).
 
-For cross-sectional combined runs, combined adds panel returns with return add; shared names inherited from panels reflect the last panel run, so run the individual command when a panel-specific return surface is needed. r(balance) has one row per covariate for binary treatments and pairwise blocks for multi-group treatments; r(smd) is the compact SMD matrix intended for downstream reporting.
+For cross-sectional combined runs, combined adds panel returns with return add; shared names inherited from panels reflect the last panel that ran, so run the individual command when a panel-specific return surface is needed. r(balance) has one row per covariate for binary treatments and pairwise blocks for multi-group treatments; r(smd) is the compact SMD matrix intended for downstream reporting.
 
 Example:
 
@@ -392,6 +392,8 @@ matrix list r(balance)
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **v1.7.2** (9 Sep 2026): Release-review fixes. Weight ESS, CV, and SD remain stable at extreme scales, including arm and period summaries. Detection clears stale metadata, rejects unusable samples, and preserves error codes. Missing balance and truncation cutoffs are rejected. Combined reports retain every sheet title, and workbook failures retain analytical results; longitudinal diagnostics reject ambiguous period row names and unavailable cross-sectional controls. Help contracts and QA failure reporting were tightened, with new regression coverage.
 
 - **v1.7.1** (4 Sep 2026): Comprehensive audit remediation. Multi-group boundary and missing-weight paths now fail closed without erasing positivity findings; weights and balance expose complete exclusion ledgers, and weights returns both extreme-tail counts. All advertised covariate endpoints accept factor-variable notation, support comparison propagates exact design-mapping failures, reduced-arm `mlogit` samples fail consistently, and detect reports stable automatic-weight labels. Genuine saved TMLE/LTMLE contracts can be rediscovered after reload. QA now resolves both producers through `targetlearn`, separates runner aggregates from leaf assertion totals, derives shipped ado coverage from the manifest, and validates workbook, PDF, and PNG contents. Method prose and leaf examples were expanded and corrected.
 - **v1.7.0** (3 Sep 2026): Fail-closed resolve contract for `iivwcomponent()`. `psdash weights` now refuses a call that supplies both `wvar()` and `iivwcomponent()` instead of silently letting the component selection overwrite the explicit weight variable, and it no longer falls back to the raw `_dta[_iivw_*]` characteristics when `_psdash_detect` has not verified the iivw producer contract, so unsigned or stale metadata can no longer select the weight a diagnostic reports on. New internal helper `_psdash_require_meta`.

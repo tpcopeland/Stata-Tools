@@ -151,11 +151,14 @@ passing it to {helpb codescan:codescan, codefile()}.
 
 {pstd}
 {bf:Programmatic use.} The same information printed to the Results window is
-also returned in matrices. {cmd:r(top_codes)} uses code values as row names and
-has columns {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}. {cmd:r(chapters)}
-uses first characters as row names and has columns {cmd:codes} and
-{cmd:entries}. This makes it possible to audit a new dataset automatically
-before deciding whether an existing code dictionary is still appropriate.
+also returned in matrices. {cmd:r(top_codes)} uses code values as row names
+when they are safe row names and bounded aliases otherwise; it has columns
+{cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}. {cmd:r(chapters)} uses
+first characters as row names when possible and aliases otherwise; it has
+columns {cmd:codes} and {cmd:entries}. The exact identity for every row is
+always available in the matching {cmd:r(top_code_#)} or {cmd:r(chapter_#)}
+macro. This makes it possible to audit a new dataset automatically before
+deciding whether an existing code dictionary is still appropriate.
 
 {pstd}
 {bf:Edge cases.} If {cmd:if} or {cmd:in} removes every observation, the

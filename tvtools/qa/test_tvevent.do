@@ -264,13 +264,11 @@ end
 
 * SECTION A: BOUNDARY PRECISION (Tests 1-5)
 
-* TEST 1: Event at start date → NOT flagged
-* Interval [Jan1, Jun30]. Event Jan1.
-* tvevent matches event_date == stop_var. Jan1 ≠ Jun30 → not flagged.
-* Split check: Jan1 > Jan1 is false → no split.
-* Assert: _failure = 0 on all rows.
+* TEST 1: Event at start date is flagged
+* Inclusive interval [Jan1, Jun30], event Jan1: retain [Jan1, Jan1]
+* with _failure = 1; type(single) censors the later interval.
 
-display "TEST 1: Event at start date - NOT flagged"
+display "TEST 1: Event at start date is flagged"
 local test1_pass = 1
 
 tempfile intervals1 events1

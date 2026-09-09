@@ -1,4 +1,4 @@
-*! _tvmerge_stack_ids Version 1.17.1  2026/08/30
+*! _tvmerge_stack_ids Version 1.17.2  2026/09/09
 *! Stack one ID column across source frames into a destination frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)
@@ -100,7 +100,7 @@ void _tvp_stack_ids(
         _error("stacked row count does not match the source total")
     }
 
-    st_numscalar("_tvm_stack_n", total)
+    st_local("_tvm_stack_n", strofreal(total, "%21.0f"))
     st_framecurrent(oldframe)
 }
 
@@ -112,6 +112,10 @@ end
 capture program drop _tvmerge_stack_ids
 program define _tvmerge_stack_ids, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _orig_frame "`c(frame)'"
+    set varabbrev off
+    capture noisily {
     syntax namelist(min=1), IDVar(name) INTO(name)
 
     * Storage class is read from the sources rather than assumed. Mixing a
@@ -166,6 +170,10 @@ program define _tvmerge_stack_ids, rclass
     mata: _tvp_stack_ids(tokens("`namelist'"), "`idvar'", "`into'", ///
         "`_vartype'", `_isstr')
 
-    return scalar n_rows = _tvm_stack_n
-    capture scalar drop _tvm_stack_n
+    return scalar n_rows = `_tvm_stack_n'
+    }
+    local rc = _rc
+    frame change `_orig_frame'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

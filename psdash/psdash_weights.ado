@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.7.1  2026/09/04
+*! psdash_weights Version 1.7.2  2026/09/09
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -450,7 +450,7 @@ program define psdash_weights, rclass
 
     * Validate truncate value
     if `truncate' != 0 {
-        if `truncate' <= 0 {
+        if missing(`truncate') | `truncate' <= 0 {
             display as error "truncate() must be positive"
             exit 198
         }
@@ -939,7 +939,7 @@ program define psdash_weights, rclass
 
     * Validate truncate value
     if `truncate' != 0 {
-        if `truncate' <= 0 {
+        if missing(`truncate') | `truncate' <= 0 {
             display as error "truncate() must be positive"
             exit 198
         }

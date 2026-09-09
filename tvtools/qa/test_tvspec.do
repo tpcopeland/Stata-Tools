@@ -439,6 +439,39 @@ capture noisily tvspec bogus sp_tool
 local rc = _rc
 _tvs_check `=(`rc' == 198)' "A11 an unknown subcommand is r(198)" "rc=`rc'"
 
+* A12: once the first write starts, a failure rolls the caller's frame back.
+* Corrupt the last-written column after a valid first row so the failure is
+* deliberately late, then compare data, schema, stamp, type, and row order.
+_tvs_reset
+quietly tvspec create sp_tool, replace
+quietly tvspec add sp_tool, name(first) frame(f) start(a) stop(b) ///
+    exposure(c) generate(d) reference(0)
+frame sp_tool: drop description
+frame sp_tool: generate double description = .
+frame sp_tool: quietly datasignature
+local a12_sig0 "`r(datasignature)'"
+frame sp_tool: quietly ds
+local a12_vars0 "`r(varlist)'"
+frame sp_tool: local a12_char0 : char _dta[tvbuild_spec_version]
+capture noisily tvspec add sp_tool, name(second) frame(g) start(e) stop(h) ///
+    exposure(i) generate(j) reference(0) description("late failure")
+local rc = _rc
+_tvs_rows sp_tool
+local a12_rows = r(n)
+frame sp_tool: quietly datasignature
+local a12_sig1 "`r(datasignature)'"
+frame sp_tool: quietly ds
+local a12_vars1 "`r(varlist)'"
+frame sp_tool: local a12_char1 : char _dta[tvbuild_spec_version]
+frame sp_tool: local a12_dtype : type description
+frame sp_tool: local a12_first = source_name[1]
+_tvs_check `=(`rc' == 109 & `a12_rows' == 1 & ///
+    "`a12_sig1'" == "`a12_sig0'" & "`a12_vars1'" == "`a12_vars0'" & ///
+    "`a12_char1'" == "`a12_char0'" & "`a12_dtype'" == "double" & ///
+    "`a12_first'" == "first" & "`c(frame)'" == "default")' ///
+    "A12 a mid-write failure rolls back the appended row" ///
+    "rc=`rc' rows=`a12_rows' sig=`a12_sig1'/`a12_sig0' frame=`c(frame)'"
+
 
 **# ===== O: row order =====
 

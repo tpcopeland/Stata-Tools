@@ -1,9 +1,8 @@
 * test_rangematch_v155.do
-* v1.5.5 regression suite: the three rc=0 corruption paths closed in this
-* release, plus the Mata-helper handshake failure contracts.
-*
-* Every test here is red on 1.5.4. What they have in common is that the wrong
-* answer arrived at rc=0 with no diagnostic:
+* v1.5.5 regression suite, with later distance-contract checks: the original
+* corruption paths, Mata-helper handshake, and missing matched-distance errors.
+* Regression cases reproduce failures on earlier code; positive controls
+* protect valid behavior. The original defects returned rc=0 without a diagnostic:
 *
 *   T1-T6   a FINITE scalar offset added to a FINITE key can leave the double
 *           range. Stata stores the result as missing, and a missing derived
@@ -22,11 +21,10 @@
 *   T14-T15 the helper handshake: a missing or stale _rangematch_mata.ado must
 *           abort with r(111) and leave the caller's data alone.
 *
-* Only the POSITIVE direction overflows. Stata reserves the doubles above
-* maxdouble() for its missing codes, so 8e307 + 8e307 is missing, while
-* -8e307 + -8e307 evaluates to -1.6e308 and is kept -- and that value is
-* mathematically correct, since no using key can sit below it. T6 pins that
-* asymmetry so a later "symmetric" guard does not start rejecting valid data.
+* Stata reserves the doubles above maxdouble() for its missing codes, so
+* 8e307 + 8e307 is missing, while -8e307 + -8e307 is representable. T6 protects
+* that asymmetry. T18 covers missing matched master keys; T19 keeps a valid
+* large negative distance and rejects arithmetic that truly overflows below it.
 
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
 _rm_qa_bootstrap
@@ -676,6 +674,150 @@ if _rc {
 else {
     local ++PASS
     display as result "PASS: T17 seed() accepts integer and seed-state forms"
+}
+
+**# T18: missing master key cannot produce a missing matched distance
+* A variable-bound interval can match a row whose master key is missing. With
+* distance(), that match has no reportable signed gap, and missing is reserved
+* for unmatched rows. The command must therefore fail closed after matching,
+* preserve the analytical counts, leave no output locator, and restore caller
+* data on all three output routes.
+local ++TESTS
+capture noisily {
+    tempfile U18 S18
+    clear
+    input int uid double key
+    1 7
+    2 12
+    end
+    save "`U18'"
+
+    * frame(): matching succeeds, but materialization must be refused.
+    clear
+    input int mid double(key lo hi)
+    1 . 0 15
+    end
+    capture rangematch key lo hi using "`U18'", distance(delta) ///
+        frame(rm155_missing_distance) replace
+    local frame_rc = _rc
+    local frame_np = r(N_pairs)
+    local frame_nmp = r(N_matched_pairs)
+    local frame_nu = r(N_unmatched)
+    local frame_locator "`r(frame)'"
+    capture frame rm155_missing_distance: describe
+    local frame_exists = (_rc == 0)
+    assert `frame_rc' == 459
+    assert `frame_np' == 2 & `frame_nmp' == 2 & `frame_nu' == 0
+    assert "`frame_locator'" == ""
+    assert !`frame_exists'
+    assert _N == 1 & missing(key) & lo == 0 & hi == 15
+
+    * saving(): the same counts survive for an extended missing key too, but no
+    * file or r(saving) locator does.
+    clear
+    input int mid double(key lo hi)
+    1 .a 0 15
+    end
+    capture rangematch key lo hi using "`U18'", distance(delta) ///
+        saving("`S18'")
+    local saving_rc = _rc
+    local saving_np = r(N_pairs)
+    local saving_nmp = r(N_matched_pairs)
+    local saving_nu = r(N_unmatched)
+    local saving_locator "`r(saving)'"
+    * `tempfile' already supplies a suffix. The command preserves that path,
+    * so checking only a synthetic `.dta' sibling would miss an accidental
+    * write and make this assertion falsely green.
+    capture confirm file "`S18'"
+    local saving_exists = (_rc == 0)
+    capture confirm file "`S18'.dta"
+    local saving_dta_exists = (_rc == 0)
+    assert `saving_rc' == 459
+    assert `saving_np' == 2 & `saving_nmp' == 2 & `saving_nu' == 0
+    assert "`saving_locator'" == ""
+    assert !`saving_exists' & !`saving_dta_exists'
+    assert _N == 1 & missing(key) & lo == 0 & hi == 15
+
+    * In-place output: caller data are restored and the distance column is not
+    * left behind when the matched distance cannot be represented, including an
+    * extended missing master key.
+    clear
+    input int mid double(key lo hi)
+    1 .a 0 15
+    end
+    capture rangematch key lo hi using "`U18'", distance(delta)
+    local inplace_rc = _rc
+    local inplace_np = r(N_pairs)
+    local inplace_nmp = r(N_matched_pairs)
+    local inplace_nu = r(N_unmatched)
+    capture confirm variable delta
+    local delta_exists = (_rc == 0)
+    assert `inplace_rc' == 459
+    assert `inplace_np' == 2 & `inplace_nmp' == 2 & `inplace_nu' == 0
+    assert !`delta_exists'
+    assert _N == 1 & missing(key) & lo == 0 & hi == 15
+}
+if _rc {
+    local ++FAIL
+    display as error "FAIL: T18 missing-key matched distance fails closed on every route"
+}
+else {
+    local ++PASS
+    display as result "PASS: T18 missing-key matched distance fails closed on every route"
+}
+
+**# T19: distance() guards negative overflow without rejecting finite gaps
+* A positive overflow regression alone misses the lower edge. Stata's valid
+* double range includes a finite negative gap of -1.4e308, while subtracting a
+* 7e307 master key from a valid -1.6e308 using key is unreportable. Keep both
+* directions here so the guard rejects only the true negative overflow.
+local ++TESTS
+capture noisily {
+    tempfile U19 U19b
+    clear
+    set obs 1
+    gen double key = -7e307
+    save "`U19'"
+
+    clear
+    set obs 1
+    gen double key = 7e307
+    capture rangematch key . . using "`U19'", distance(delta) unmatched(none)
+    local control_rc = _rc
+    tempname expected_negative
+    scalar `expected_negative' = -7e307 - 7e307
+    assert `control_rc' == 0
+    assert !missing(scalar(`expected_negative'))
+    assert _N == 1 & !missing(delta)
+    assert delta == scalar(`expected_negative')
+
+    * The using key itself is valid (-1.6e308), but its gap with 7e307 is
+    * outside the representable Stata double range.
+    clear
+    set obs 1
+    gen double key = -8e307 - 8e307
+    save "`U19b'"
+    clear
+    set obs 1
+    gen double key = 7e307
+    capture rangematch key . . using "`U19b'", distance(delta) unmatched(none)
+    local neg_rc = _rc
+    local neg_np = r(N_pairs)
+    local neg_nmp = r(N_matched_pairs)
+    capture confirm variable delta
+    local neg_delta_exists = (_rc == 0)
+    assert `neg_rc' == 459
+    assert `neg_np' == 1 & `neg_nmp' == 1
+    assert !`neg_delta_exists'
+    assert _N == 1 & key == 7e307
+}
+if _rc {
+    local ++FAIL
+    display as error "FAIL: T19 negative distance overflow is guarded without rejecting finite gaps"
+}
+else {
+    local ++PASS
+    display as result "PASS: T19 negative distance overflow is guarded without rejecting finite gaps"
 }
 
 display "RESULT: test_rangematch_v155 tests=`TESTS' pass=`PASS' fail=`FAIL'"

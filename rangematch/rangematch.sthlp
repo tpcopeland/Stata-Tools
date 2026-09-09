@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.5  02sep2026}{...}
+{* *! version 1.5.6  09sep2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -254,9 +254,11 @@ assigned a value label with these meanings.
 {opt dist:ance(name)} creates a double variable equal to using.{it:keyvar} minus
 master.{it:keyvar} for matched pairs. The value is missing for unmatched master
 or using rows. The master dataset must contain numeric {it:keyvar}. Because
-missing is reserved for unmatched rows, a matched pair whose difference falls
-outside Stata's double range is an error rather than a missing value; rescale
-{it:keyvar} or omit {opt dist:ance()} in that case.
+missing is reserved for unmatched rows, a matched pair with a missing master
+key or a difference outside Stata's double range is an error. Supply nonmissing
+master keys, rescale values that overflow, or omit {opt dist:ance()}. The
+{opt missing()} policy still governs matching inputs; requesting a distance
+does not change which rows match.
 
 {phang}
 {opt masterid(name)} creates a long variable containing the original master
@@ -290,8 +292,9 @@ matching variable (a master {it:low}/{it:high} bound, a using point {it:keyvar},
 or a using {it:ulow}/{it:uhigh} bound) is stored as {cmd:float} with values
 beyond float's exact-integer range (2{c 94}24). Such values -- most commonly
 {cmd:%tc} datetime clocks -- can fail boundary equality after the internal
-{cmd:double} cast. Recast the offending variable to {cmd:double}, or set a small
-{opt tol:erance()}, to make boundary matches reliable. {cmd:%td} dates and
+{cmd:double} cast. Reload the original values into a {cmd:double} variable; recasting an already
+rounded {cmd:float} cannot recover lost precision. A suitable {opt tol:erance()}
+can absorb known representation noise. {cmd:%td} dates and
 small-magnitude values are within float's exact range and are not flagged.
 
 {phang}
@@ -353,17 +356,20 @@ key/bound in {cmd:r(N_using_missing)}. {opt miss:ing(error)} aborts before
 matching, so these counts appear in the error message itself and a captured
 {opt miss:ing(error)} leaves no {cmd:rangematch} counts behind to read; see
 {it:Stored results} for which failures do and do not post. Under
-{opt miss:ing(drop)},
-{cmd:r(N_master)} and {cmd:r(N_using)} are the post-drop counts, and adding back
-the corresponding missing count recovers the post-{cmd:if}/{cmd:in}, pre-drop
-total for that side.
+{opt miss:ing(drop)}, {cmd:r(N_master)} and {cmd:r(N_using)} are the post-drop
+counts. Adding {cmd:r(N_using_missing)} to {cmd:r(N_using)} recovers the using
+pre-drop total. For the master, count the union of rows with missing bound
+variables or a missing matching key before the call: the two missing-row
+diagnostics can overlap and must not simply be added.
 
 {phang}
 {opt near:est(before|after|both)} keeps only nearest using observations within the
 interval. {opt near:est(before)} keeps the nearest using key at or before the master
 key, {opt near:est(after)} keeps the nearest using key at or after the master key,
-and {opt near:est(both)} keeps nearest matches on both sides. The master dataset must
-contain numeric {it:keyvar}.
+and {opt near:est(both)} searches both directions and keeps the minimum
+absolute distance overall. Matches on both sides are retained only when their
+distances tie and {opt ties(all)} is used. The master dataset must contain
+numeric {it:keyvar}.
 
 {phang}
 {opt ties(all|first|last|random)} controls tie handling with {opt nearest()} when two or
@@ -371,8 +377,8 @@ more using rows are equally near the key. {opt ties(all)} keeps every equally
 nearest row; {opt ties(first)} keeps the single tied row with the lowest original
 using observation number; {opt ties(last)} keeps the one with the
 highest; {opt ties(random)} keeps one tied row chosen uniformly at random. ("First"
-and "last" therefore refer to original using row order, not to key value or
-distance, which are equal among ties.) The default is {opt ties(all)}. {opt ties()} is
+and "last" therefore refer to original using row order. Tied rows have equal
+absolute distance, but their key values can differ under {opt nearest(both)}.) The default is {opt ties(all)}. {opt ties()} is
 only allowed with {opt nearest()}.
 
 {pmore}
@@ -784,12 +790,12 @@ After a {it:failed} run, what survives depends on how far the call got, and the
 rule is deliberate. A failure raised before or during matching -- an unparsable
 option, {opt miss:ing(error)}, a {opt maxp:airs()} overrun, a failed
 {opt as:sert()}, or an occupied {opt frame()} target -- posts nothing at all, so
-{cmd:r()} is empty. A failure raised {it:after} matching succeeded, which in
-practice means {opt sav:ing()} could not write its file, keeps the count
-results: the join really did produce them, and you can read the counts, correct
-the path, and re-export without recomputing the match. In that case
-{cmd:r(saving)} and {cmd:r(frame)} are left empty, because no output was
-written -- test those two, not the counts, to decide whether output exists.
+{cmd:r()} is empty. A failure raised {it:after} matching succeeded, such as an unreportable
+{opt distance()} or a failed {opt saving()}, keeps the count results because
+matching produced them. If output creation fails, {cmd:r(saving)} and
+{cmd:r(frame)} are empty. After a failed save, the caller's data are unchanged
+and the temporary joined rows are discarded; correct the cause and rerun the
+command to produce output. Counts alone do not establish that output exists.
 
 {synoptset 22 tabbed}{...}
 {p2col 5 22 26 2: Core scalars}{p_end}
@@ -859,7 +865,7 @@ written -- test those two, not the counts, to decide whether output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.5, 02sep2026{p_end}
+{pstd}Version 1.5.6, 09sep2026{p_end}
 
 
 {title:Also see}

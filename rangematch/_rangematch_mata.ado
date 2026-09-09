@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.5  2026/09/02
+*! _rangematch_mata Version 1.5.6  2026/09/09
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -39,7 +39,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.5.5")
+    return("1.5.6")
 }
 
 // ============================================================================
@@ -2279,14 +2279,13 @@ void _rm_generate_distance(
         mk = master_key_vals[mi[matched], 1]
         uk = using_key_vals[ui[matched], 1]
         d = uk :- mk
-        // Two finite keys far enough apart subtract to a value outside the
-        // finite double range, which Stata stores as MISSING. The help defines
-        // a missing distance() as the unmatched-row sentinel, so an overflow
-        // here is indistinguishable from "this row matched nothing" on a row
-        // that did match. Count them; the caller aborts rather than ship an
-        // ambiguous column.
-        st_local("_rm_dist_overflow",
-            strofreal(sum((d :>= .) :& (mk :< .) :& (uk :< .))))
+        // A finite subtraction can overflow, and a carried key can itself be
+        // missing when variable bounds selected the pair. The help defines a
+        // missing distance() as the unmatched-row sentinel, so either case is
+        // indistinguishable from "this row matched nothing" on a row that did
+        // match. Count every missing matched distance; the caller aborts rather
+        // than ship an ambiguous column.
+        st_local("_rm_dist_overflow", strofreal(sum(d :>= .)))
         st_store(matched, out_var, d)
     }
     st_framecurrent(oldframe)

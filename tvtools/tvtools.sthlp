@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.17.1  30aug2026}{...}
+{* *! version 1.17.2  09sep2026}{...}
 {vieweralsosee "tvbuild" "help tvbuild"}{...}
 {vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}

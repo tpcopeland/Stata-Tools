@@ -1,4 +1,4 @@
-*! _psdash_weights_modify Version 1.7.1  2026/09/04
+*! _psdash_weights_modify Version 1.7.2  2026/09/09
 *! Create trimmed, truncated, or stabilized weights
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -67,21 +67,26 @@ program define _psdash_weights_modify, rclass
             }
 
             summarize `generate' if `samplevar', detail
-            local new_mean = r(mean)
-            local new_sd = r(sd)
             local new_min = r(min)
             local new_max = r(max)
-            local new_cv = `new_sd' / `new_mean'
-
-            tempvar new_wt_sq
-            gen double `new_wt_sq' = `generate'^2 if `samplevar'
-            summarize `generate' if `samplevar'
+            local new_scale = `new_max'
+            if missing(`new_scale') | `new_scale' <= 0 {
+                noisily display as error "modified weights must have positive total weight"
+                exit 198
+            }
+            tempvar new_wt_scaled new_wt_scaled_sq
+            gen double `new_wt_scaled' = `generate' / `new_scale' if `samplevar'
+            summarize `new_wt_scaled' if `samplevar'
+            local new_mean = r(mean) * `new_scale'
+            local new_sd = r(sd) * `new_scale'
+            local new_cv = r(sd) / r(mean)
             local new_sum_wt = r(sum)
-            summarize `new_wt_sq' if `samplevar'
+            gen double `new_wt_scaled_sq' = `new_wt_scaled'^2 if `samplevar'
+            summarize `new_wt_scaled_sq' if `samplevar'
             local new_sum_wt_sq = r(sum)
             local new_ess = (`new_sum_wt'^2) / `new_sum_wt_sq'
             local new_ess_pct = 100 * `new_ess' / `n'
-            drop `new_wt_sq'
+            drop `new_wt_scaled' `new_wt_scaled_sq'
         }
 
         return scalar new_mean = `new_mean'

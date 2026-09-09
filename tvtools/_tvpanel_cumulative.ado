@@ -1,4 +1,4 @@
-*! _tvpanel_cumulative Version 1.17.1  2026/08/30
+*! _tvpanel_cumulative Version 1.17.2  2026/09/09
 *! Evaluate per-class cumulative exposure on a panel grid without W x E joins
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

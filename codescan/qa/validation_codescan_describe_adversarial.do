@@ -453,6 +453,65 @@ else {
     local ++fail_count
 }
 
+**# V10: literal dollar signs survive returned-local and save() boundaries
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 8
+    gen str16 dx1 = ""
+    replace dx1 = "A1" in 1
+    replace dx1 = "B1" in 2
+    replace dx1 = ":Q1" in 3
+    replace dx1 = " PAD" in 4
+    replace dx1 = char(36) + "X" in 5
+    replace dx1 = "_cs_code_1" in 6
+    replace dx1 = "C1" in 7/8
+
+    tempfile dollar_out
+    local dollar_csv "`dollar_out'.csv"
+    codescan_describe dx1, top(7) save("`dollar_csv'", replace)
+
+    * Read r() through Mata's return-macro accessor.  Expanding the returned
+    * text through a Stata local would interpret its dollar sign a second time.
+    mata: assert(st_global("r(top_code_3)") == char(36) + "X")
+    mata: assert(st_global("r(chapter_3)") == char(36))
+
+    import delimited using "`dollar_csv'", clear stringcols(_all) varnames(1)
+    count if name == "chapter___3" & pattern == char(36) & ///
+        exclusion == "" & label == ""
+    assert r(N) == 1
+
+    * Backquotes are the other macro-expansion delimiter that can corrupt a
+    * returned identity or abort display.  Populate the dollar global too so
+    * both values are hostile in the same call.
+    clear
+    set obs 4
+    gen str32 dx1 = ""
+    replace dx1 = char(96) + "ghost" + char(39) in 1
+    replace dx1 = char(36) + "CODESCAN_REVIEW_VALUE" in 2
+    replace dx1 = "Z9" in 3/4
+    global CODESCAN_REVIEW_VALUE EXPANDED
+    tempfile tick_out
+    local tick_csv "`tick_out'.csv"
+    codescan_describe dx1, top(3) save("`tick_csv'", replace)
+    mata: assert(st_global("r(top_code_3)") == char(96) + "ghost" + char(39))
+    mata: assert(st_global("r(chapter_3)") == char(96))
+    import delimited using "`tick_csv'", clear stringcols(_all) varnames(1)
+    mata: assert(st_sdata(3, "pattern") == char(96))
+    mata: assert(st_sdata(3, "name") == "chapter___3")
+}
+local _v10_rc = _rc
+capture macro drop CODESCAN_REVIEW_VALUE
+if `_v10_rc' == 0 {
+    display as result "  PASS: V10 - macro-delimiter code identities survive r() and save()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V10 - macro-delimiter code identity contract (error `_v10_rc')"
+    local ++fail_count
+}
+
 
 **# Settings hygiene
 

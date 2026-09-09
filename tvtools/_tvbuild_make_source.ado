@@ -1,4 +1,4 @@
-*! _tvbuild_make_source Version 1.17.1  2026/08/30
+*! _tvbuild_make_source Version 1.17.2  2026/09/09
 *! Turn one tvbuild specification row into one normalised interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -78,12 +78,12 @@ program define _tvbuild_make_source, rclass
         quietly replace _tvp_start = max(_tvp_start, _tvp_entry)
         quietly replace _tvp_stop  = min(_tvp_stop,  _tvp_exit)
 
-        keep `id' _tvp_start _tvp_stop _tvp_p1 _tvp_entry _tvp_exit
+        keep _tvp_id _tvp_start _tvp_stop _tvp_p1 _tvp_entry _tvp_exit
 
         * The constructor reads fixed names. Rename the identifier FIRST: a
         * caller whose id() happens to be named exp_start or study_entry would
         * otherwise collide with the name about to be created for a bound.
-        if "`id'" != "id" quietly rename `id' id
+        quietly rename _tvp_id id
         quietly rename _tvp_start exp_start
         quietly rename _tvp_stop  exp_stop
         quietly rename _tvp_p1    exp_value
@@ -116,7 +116,7 @@ program define _tvbuild_make_source, rclass
         local _exp_vallabel : value label exp_value
         if "`_exp_vallabel'" != "" {
             capture label define `_exp_vallabel' `_ref' `"`_rlab'"', modify
-            if _rc capture label define `_exp_vallabel' `_ref' `"`_rlab'"', add
+            if _rc label define `_exp_vallabel' `_ref' `"`_rlab'"', add
         }
         else {
             local _short = substr("`_outvar'", 1, 25)
@@ -141,35 +141,31 @@ program define _tvbuild_make_source, rclass
         * stay double and get dateformat() at finalisation.
         quietly compress exp_value
 
-        * Bounds and payload first, identifier last. The reverse order breaks
-        * for a caller whose id() is named exp_start: renaming id to that name
-        * while the column still exists is a collision, and the collision-free
-        * bound stub the caller chose is what makes this order safe.
+        * Rename the complete retained schema together. Caller names may match
+        * any old staging name, so every old name must be released atomically.
         keep id exp_start exp_stop exp_value
-        quietly rename exp_start `startname'
-        quietly rename exp_stop  `stopname'
-        quietly rename exp_value `_outvar'
-        if "`id'" != "id" quietly rename id `id'
+        quietly rename (id exp_start exp_stop exp_value) ///
+            (`id' `startname' `stopname' `_outvar')
     }
     else {
         **# Already-constructed intervals -> select and rename only
 
         quietly keep if _tvp_matched == 1
-        local _keep "`id' _tvp_start _tvp_stop"
+        local _keep "_tvp_id _tvp_start _tvp_stop"
         local _p = 0
         foreach v of local _iv {
             local ++_p
             local _keep "`_keep' _tvp_p`_p'"
         }
         keep `_keep'
-        quietly rename _tvp_start `startname'
-        quietly rename _tvp_stop  `stopname'
         local _p = 0
         foreach v of local _iv {
             local ++_p
-            local _o : word `_p' of `_ov'
-            quietly rename _tvp_p`_p' `_o'
+            local _old "`_old' _tvp_p`_p'"
         }
+        local _old "_tvp_id _tvp_start _tvp_stop `_old'"
+        local _new "`id' `startname' `stopname' `_ov'"
+        quietly rename (`_old') (`_new')
         local _n_out = _N
     }
 

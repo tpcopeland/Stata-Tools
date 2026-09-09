@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.2.2  2026/09/06
+*! _codescan_codefile Version 4.2.3  2026/09/09
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -131,7 +131,10 @@ program define _codescan_parse_codefile, rclass
     foreach _qc of local _cf_qcols {
         capture drop `_cf_qbad'
         quietly gen byte `_cf_qbad' = ///
-            strpos(`_qc', char(34) + char(39)) > 0 | strpos(`_qc', char(96)) > 0
+            strpos(`_qc', char(34) + char(39)) > 0 | ///
+            strpos(`_qc', char(96)) > 0 | ///
+            ustrregexm(`_qc', char(92) + char(36) + "[A-Za-z_]") | ///
+            strpos(`_qc', char(36) + char(123)) > 0
         quietly count if `_cf_qbad' == 1
         if r(N) > 0 {
             local _cf_qn = r(N)
@@ -145,7 +148,7 @@ program define _codescan_parse_codefile, rclass
         }
     }
     if `_cf_qerr' {
-        display as error "  a backquote, or a double quote immediately followed by an apostrophe, cannot be carried through Stata's macro quoting"
+        display as error "  backquotes, global-macro references, and a double quote immediately followed by an apostrophe cannot be carried through Stata's macro quoting"
         display as error "  remove it; a double quote on its own is accepted"
         exit 198
     }

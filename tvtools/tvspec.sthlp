@@ -162,18 +162,51 @@ To pass a path held in a local macro, let the macro expand as usual, so that
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Two sources, described in three lines{p_end}
+{pstd}Two sources, described in three lines. The setup creates the temporary
+files and cohort so the complete example runs after installation from any
+working directory.{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id study_entry study_exit}{p_end}
+{phang3}{cmd:1 21915 22280}{p_end}
+{phang3}{cmd:2 21915 22280}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. tempfile cohort antidep benzo}{p_end}
+{phang2}{cmd:. save `cohort'}{p_end}
+{phang2}{cmd:. preserve}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id rx_start rx_stop byte drug}{p_end}
+{phang3}{cmd:1 21930 21960 1}{p_end}
+{phang3}{cmd:2 22000 22030 1}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. save `antidep'}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long id rx_start rx_stop byte benzo_use}{p_end}
+{phang3}{cmd:1 21980 22010 1}{p_end}
+{phang3}{cmd:2 22040 22070 1}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. save `benzo'}{p_end}
+{phang2}{cmd:. restore}{p_end}
 {phang2}{cmd:. tvspec create study_spec, replace}{p_end}
-{phang2}{cmd:. tvspec add study_spec, name(antidep) using("antidep.dta") start(rx_start) stop(rx_stop) exposure(drug) reference(0) generate(tv_drug) referencelabel("Unexposed") label("Antidepressant class")}{p_end}
-{phang2}{cmd:. tvspec add study_spec, name(benzo) using("benzo.dta") start(rx_start) stop(rx_stop) exposure(benzo_use) reference(0) generate(tv_benzo) referencelabel("No benzo") label("Benzodiazepine use")}{p_end}
+{phang2}{cmd:. tvspec add study_spec, name(antidep) using("`antidep'") start(rx_start) stop(rx_stop) exposure(drug) reference(0) generate(tv_drug) referencelabel("Unexposed") label("Antidepressant class")}{p_end}
+{phang2}{cmd:. tvspec add study_spec, name(benzo) using("`benzo'") start(rx_start) stop(rx_stop) exposure(benzo_use) reference(0) generate(tv_benzo) referencelabel("No benzo") label("Benzodiazepine use")}{p_end}
 
 {pstd}Review it before building{p_end}
 {phang2}{cmd:. tvspec list study_spec}{p_end}
 
 {pstd}Build with it{p_end}
+{phang2}{cmd:. use `cohort', clear}{p_end}
 {phang2}{cmd:. tvbuild, specframe(study_spec) id(id) entry(study_entry) exit(study_exit) frameout(analysis)}{p_end}
 
-{pstd}A source that is already an interval table, carrying a rate quantity{p_end}
+{pstd}For an interval table carrying a rate quantity, create the source frame
+before adding it to the specification.{p_end}
+{phang2}{cmd:. capture frame drop lab_intervals}{p_end}
+{phang2}{cmd:. frame create lab_intervals}{p_end}
+{phang2}{cmd:. frame lab_intervals {c -(}}{p_end}
+{phang3}{cmd:input long id start stop double egfr}{p_end}
+{phang3}{cmd:1 21930 21960 75}{p_end}
+{phang3}{cmd:2 22000 22030 82}{p_end}
+{phang3}{cmd:end}{p_end}
+{phang2}{cmd:. {c )-}}{p_end}
 {phang2}{cmd:. tvspec add study_spec, name(labs) frame(lab_intervals) start(start) stop(stop) exposure(egfr) generate(tv_egfr) kind(intervals) rate(egfr)}{p_end}
 
 

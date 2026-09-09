@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.2.2  2026/09/06
+*! codescan_describe Version 4.2.3  2026/09/09
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -161,11 +161,11 @@ program define codescan_describe, rclass
 
     local _cum_pct = 0
     forvalues i = 1/`show' {
-        local code "`_desc_code_`i''"
         local freq = `_desc_freq_`i''
         local pct = `freq' / `total_entries' * 100
         local _cum_pct = `_cum_pct' + `pct'
-        display as text `"  `code'"' _col(20) as result %9.0fc `freq' ///
+        display as text "  " as result ///
+            ustrunescape("`_desc_code_hex_`i''") _col(20) as result %9.0fc `freq' ///
             _col(32) as result %9.1f `pct' as text "%" ///
             _col(44) as result %9.1f `_cum_pct' as text "%"
     }
@@ -178,7 +178,6 @@ program define codescan_describe, rclass
     local _tc_rnames ""
     local _tc_cum = 0
     forvalues i = 1/`show' {
-        local _tc_code "`_desc_code_`i''"
         local _tc_freq = `_desc_freq_`i''
         local _tc_pct = `_tc_freq' / `total_entries' * 100
         local _tc_cum = `_tc_cum' + `_tc_pct'
@@ -194,9 +193,9 @@ program define codescan_describe, rclass
         * Stata answers that by silently substituting its positional default
         * (r1, r2, ...) at rc=0, so " PAD" and ":Q1" came back as "PAD" and
         * "Q1". Testing only the length let every one of those through.
-        local _tc_rowname `"`_tc_code'"'
-        if !`_desc_code_safe_`i'' {
-            local _tc_rowname "_cs_code_`i'"
+        local _tc_rowname "_cs_code_`i'"
+        if `_desc_code_safe_`i'' {
+            local _tc_rowname `"`macval(_desc_code_`i')'"'
         }
         * A short code can itself equal an alias selected for an earlier long
         * code, so check every proposed row name, not only generated aliases.
@@ -205,7 +204,7 @@ program define codescan_describe, rclass
         while `_tc_alias_dup' {
             local _tc_alias_dup = 0
             forvalues _tc_prev = 1/`=`i'-1' {
-                if `"`_tc_rowname'"' == `"`_tc_rname_`_tc_prev''"' {
+                if `"`macval(_tc_rowname)'"' == `"`macval(_tc_rname_`_tc_prev')'"' {
                     local _tc_alias_dup = 1
                 }
             }
@@ -214,7 +213,7 @@ program define codescan_describe, rclass
                 local _tc_rowname "_cs_code_`i'_`_tc_alias_try'"
             }
         }
-        local _tc_rname_`i' `"`_tc_rowname'"'
+        local _tc_rname_`i' `"`macval(_tc_rowname)'"'
         local _tc_rnames `"`_tc_rnames' `"`_tc_rowname'"'"'
     }
     matrix rownames `top_codes' = `_tc_rnames'
@@ -226,10 +225,10 @@ program define codescan_describe, rclass
     display as text "  {hline 34}"
 
     forvalues i = 1/`n_chapters' {
-        local ch "`_desc_ch_`i''"
         local nc = `_desc_ch_codes_`i''
         local ne = `_desc_ch_entries_`i''
-        display as text `"  `ch'"' _col(12) as result %9.0fc `nc' ///
+        display as text "  " as result ///
+            ustrunescape("`_desc_ch_hex_`i''") _col(12) as result %9.0fc `nc' ///
             _col(24) as result %9.0fc `ne'
     }
 
@@ -244,12 +243,11 @@ program define codescan_describe, rclass
     matrix `chapters' = J(`n_chapters', 2, .)
     local _ch_rnames ""
     forvalues i = 1/`n_chapters' {
-        local _ch_ch "`_desc_ch_`i''"
         matrix `chapters'[`i', 1] = `_desc_ch_codes_`i''
         matrix `chapters'[`i', 2] = `_desc_ch_entries_`i''
-        local _ch_rowname `"`_ch_ch'"'
-        if !`_desc_ch_safe_`i'' {
-            local _ch_rowname "_cs_chapter_`i'"
+        local _ch_rowname "_cs_chapter_`i'"
+        if `_desc_ch_safe_`i'' {
+            local _ch_rowname `"`macval(_desc_ch_`i')'"'
         }
         * No collision loop here, unlike r(top_codes). A chapter is always ONE
         * character (usubstr(code, 1, 1)) and the chapters are distinct by
@@ -266,8 +264,17 @@ program define codescan_describe, rclass
     * with punctuation. strtoname() can map different punctuation to the same
     * name, so suffix collisions deterministically.
     forvalues i = 1/`n_chapters' {
-        local _ch `"`_desc_ch_`i''"'
-        local _rule_name = strtoname(`"chapter_`_ch'"')
+        * A backtick survives strtoname(), but is still a macro delimiter rather
+        * than a usable Stata name when the generated CSV is later parsed.
+        * Map that one lexer control character to an underscore before the
+        * collision suffix below; all other values retain strtoname()'s mapping.
+        if "`_desc_ch_hex_`i''" == "\u0060" {
+            local _rule_name "chapter__"
+        }
+        else {
+            local _rule_name = strtoname("chapter_" + ///
+                ustrunescape("`_desc_ch_hex_`i''"))
+        }
         local _rule_dup = 0
         forvalues j = 1/`=`i'-1' {
             if "`_rule_name'" == "`_desc_rule_name_`j''" local _rule_dup = 1
@@ -281,10 +288,11 @@ program define codescan_describe, rclass
         display as text _n "  Suggested patterns:"
         local _n_suggest = min(5, `n_chapters')
         forvalues i = 1/`_n_suggest' {
-            local ch "`_desc_ch_`i''"
             local nc = `_desc_ch_codes_`i''
             local ne = `_desc_ch_entries_`i''
-            display as text `"    define(`_desc_rule_name_`i'' "`ch'") — `nc' codes, `ne' entries"'
+            display as text "    define(`_desc_rule_name_`i'' " as result ///
+                char(34) + ustrunescape("`_desc_ch_hex_`i''") + char(34) ///
+                as text ") — `nc' codes, `ne' entries"
         }
     }
     }
@@ -306,7 +314,7 @@ program define codescan_describe, rclass
                 if `n_chapters' > 0 {
                     forvalues i = 1/`n_chapters' {
                         replace name = "`_desc_rule_name_`i''" in `i'
-                        replace pattern = `"`_desc_ch_`i''"' in `i'
+                        replace pattern = ustrunescape("`_desc_ch_hex_`i''") in `i'
                     }
                 }
                 keep name pattern exclusion label
@@ -338,7 +346,7 @@ program define codescan_describe, rclass
         return matrix chapters = `chapters', copy
         if `show' > 0 {
             forvalues i = 1/`show' {
-                return local top_code_`i' `"`_desc_code_`i''"'
+                return local top_code_`i' = ustrunescape("`_desc_code_hex_`i''")
             }
         }
         * The exact leading character for each r(chapters) row, in row order.
@@ -346,7 +354,7 @@ program define codescan_describe, rclass
         * this is the only place the chapter identity is always recoverable.
         if `n_chapters' > 0 {
             forvalues i = 1/`n_chapters' {
-                return local chapter_`i' `"`_desc_ch_`i''"'
+                return local chapter_`i' = ustrunescape("`_desc_ch_hex_`i''")
             }
         }
     }
@@ -477,6 +485,7 @@ void _codescan_describe_tabulate()
     for (i = 1; i <= show; i++) {
         si = sort_idx[i]
         st_local("_desc_code_" + strofreal(i), skeys[si])
+        st_local("_desc_code_hex_" + strofreal(i), ustrtohex(skeys[si]))
         st_local("_desc_freq_" + strofreal(i), strofreal(sfreqs[si]))
         st_local("_desc_code_safe_" + strofreal(i),
                  strofreal(_codescan_rowname_safe(skeys[si])))
@@ -519,6 +528,7 @@ void _codescan_describe_tabulate()
         ci = ch_sort[i]
         cv = asarray(ch_map, sch_keys[ci])
         st_local("_desc_ch_" + strofreal(i), sch_keys[ci])
+        st_local("_desc_ch_hex_" + strofreal(i), ustrtohex(sch_keys[ci]))
         st_local("_desc_ch_codes_" + strofreal(i), strofreal(cv[1]))
         st_local("_desc_ch_entries_" + strofreal(i), strofreal(cv[2]))
         st_local("_desc_ch_safe_" + strofreal(i),

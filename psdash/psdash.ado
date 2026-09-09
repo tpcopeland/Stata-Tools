@@ -1,4 +1,4 @@
-*! psdash Version 1.7.1  2026/09/04
+*! psdash Version 1.7.2  2026/09/09
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -61,7 +61,7 @@ program define psdash, rclass
         return add
         * Repost detect-only fields explicitly so the dispatcher contract is
         * visible to static documentation checks as well as at runtime.
-        if "`subcmd'" == "detect" {
+        if "`subcmd'" == "detect" & `_psdash_side_rc' == 0 {
             return local covariates "`_psdash_detect_covariates'"
             return scalar n_covariates = `_psdash_detect_n_covariates'
             return scalar psvar_auto = `_psdash_detect_psvar_auto'

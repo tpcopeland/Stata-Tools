@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.7.1  2026/09/04
+*! psdash_detect Version 1.7.2  2026/09/09
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -48,6 +48,8 @@ program define psdash_detect, rclass
 
     tempvar touse ps_auto wt_auto
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
+    quietly count if `touse'
+    if r(N) == 0 error 2000
 
     local ref_opt ""
     if "`reference'" != "" local ref_opt "reference(`reference')"
@@ -78,6 +80,42 @@ program define psdash_detect, rclass
     local levels "`_psd_levels'"
     local reference_grp "`_psd_reference'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
+
+    * A successful detection report must identify at least one observation on
+    * which the resolved treatment, propensity score(s), and weight (when one
+    * was resolved) are jointly usable. Keep the requested sample unchanged;
+    * this is a cardinality gate for the report, not an analytical restriction.
+    tempvar detect_usable
+    quietly gen byte `detect_usable' = `touse'
+    markout `detect_usable' `treatment'
+    local detect_psvars ""
+    if "`multigroup'" != "0" {
+        foreach lev of local levels {
+            local detect_ps "`_psd_ps_`lev''"
+            if "`detect_ps'" != "" {
+                local detect_psvars "`detect_psvars' `detect_ps'"
+            }
+        }
+    }
+    else if "`psvar'" != "" {
+        local detect_psvars "`psvar'"
+    }
+    local detect_psvars : list uniq detect_psvars
+    if "`detect_psvars'" != "" markout `detect_usable' `detect_psvars'
+    if "`det_wvar'" != "" markout `detect_usable' `det_wvar'
+    quietly count if `detect_usable'
+    if r(N) == 0 {
+        display as error "no observations have usable detected inputs"
+        exit 2000
+    }
+    quietly levelsof `treatment' if `detect_usable', local(detect_levels)
+    local detect_K : word count `detect_levels'
+    if `detect_K' != `K' {
+        display as error "one or more treatment levels have no observations with usable detected inputs"
+        display as error "  detected levels: `levels'"
+        display as error "  usable levels: `detect_levels'"
+        exit 2001
+    }
 
     * Use detected covariates/weights if not explicitly provided
     if "`covariates'" == "" & "`det_covariates'" != "" local covariates "`det_covariates'"

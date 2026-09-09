@@ -36,6 +36,23 @@ machine-readable findings identify the panel responsible. For longitudinal
 producer contracts it routes to period-specific diagnostics.
 
 {pstd}
+Once a longitudinal producer contract is detected, {cmd:combined} routes
+directly to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()},
+and {opt nooverlap}, {opt nobalance}, {opt noweights}, or {opt nosupport} are
+rejected with {cmd:r(198)}. A nondefault
+{opt threshold()}, {opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or
+{opt gpsfloor()} is also rejected with {cmd:r(198)}. The defaults are accepted
+but do not alter period diagnostics; {opt title()}, {opt dryrun}, and explicit
+input overrides remain available.
+
+{pstd}
+For longitudinal diagnostics, period values must produce distinct Stata matrix
+row names (for example, values such as {cmd:-1} and {cmd:.1} can both normalize to
+{cmd:p_1}); recode such periods to distinct integer indices before running the
+command. The longitudinal route reports its period-specific diagnostics and
+does not run the cross-sectional panel workflow or produce a report workbook.
+
+{pstd}
 The complete return contract, including {cmd:r(verdict)},
 {cmd:r(n_warnings)}, and {cmd:r(warnings)}, is listed under
 {help psdash##results:Stored results}.

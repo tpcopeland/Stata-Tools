@@ -536,6 +536,125 @@ else {
 }
 
 
+* The runner is callable from an interactive session, so rejecting malformed
+* arguments must happen before it changes settings, sysdirs, or ownership
+* globals.  Exercise both rejection branches with nondefault caller settings.
+local ++test_count
+capture noisily {
+    local _rp_plus "`c(sysdir_plus)'"
+    local _rp_personal "`c(sysdir_personal)'"
+    local _rp_gplus "$CODESCAN_QA_PLUS"
+    local _rp_gpersonal "$CODESCAN_QA_PERSONAL"
+    local _rp_gplus0 "$CODESCAN_QA_PLUS0"
+    local _rp_gpersonal0 "$CODESCAN_QA_PERSONAL0"
+    local _rp_gisolated "$CODESCAN_QA_ISOLATED"
+
+    capture macro drop CODESCAN_QA_PLUS
+    capture macro drop CODESCAN_QA_PERSONAL
+    capture macro drop CODESCAN_QA_PLUS0
+    capture macro drop CODESCAN_QA_PERSONAL0
+    capture macro drop CODESCAN_QA_ISOLATED
+    set more on
+    set varabbrev on
+    capture noisily do "`qa_dir'/run_all.do" bogus
+    local _rp_bad_rc = _rc
+    local _rp_bad_ok = (`_rp_bad_rc' == 198 & ///
+        "`c(more)'" == "on" & "`c(varabbrev)'" == "on" & ///
+        "`c(sysdir_plus)'" == "`_rp_plus'" & ///
+        "`c(sysdir_personal)'" == "`_rp_personal'" & ///
+        "$CODESCAN_QA_ISOLATED" == "")
+
+    * Clean the deliberately standalone call even on an old, failing runner,
+    * then probe the second-argument rejection independently.
+    sysdir set PLUS "`_rp_plus'"
+    sysdir set PERSONAL "`_rp_personal'"
+    capture macro drop CODESCAN_QA_PLUS
+    capture macro drop CODESCAN_QA_PERSONAL
+    capture macro drop CODESCAN_QA_PLUS0
+    capture macro drop CODESCAN_QA_PERSONAL0
+    capture macro drop CODESCAN_QA_ISOLATED
+    set more on
+    set varabbrev on
+    capture noisily do "`qa_dir'/run_all.do" quick extra
+    local _rp_extra_rc = _rc
+    local _rp_extra_ok = (`_rp_extra_rc' == 198 & ///
+        "`c(more)'" == "on" & "`c(varabbrev)'" == "on" & ///
+        "`c(sysdir_plus)'" == "`_rp_plus'" & ///
+        "`c(sysdir_personal)'" == "`_rp_personal'" & ///
+        "$CODESCAN_QA_ISOLATED" == "")
+
+    * Restore the containing lane before evaluating the captured outcomes.
+    sysdir set PLUS "`_rp_plus'"
+    sysdir set PERSONAL "`_rp_personal'"
+    global CODESCAN_QA_PLUS "`_rp_gplus'"
+    global CODESCAN_QA_PERSONAL "`_rp_gpersonal'"
+    global CODESCAN_QA_PLUS0 "`_rp_gplus0'"
+    global CODESCAN_QA_PERSONAL0 "`_rp_gpersonal0'"
+    global CODESCAN_QA_ISOLATED "`_rp_gisolated'"
+    set more off
+    set varabbrev off
+    assert `_rp_bad_ok' == 1
+    assert `_rp_extra_ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: runner rejects malformed arguments without state mutation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: runner malformed-argument state contract (error `=_rc')"
+    local ++fail_count
+}
+
+* A successful standalone lane must also remove every ownership global before
+* publishing its aggregate handshake.  Parse the shipped runner here; the
+* runtime form is exercised separately because nesting a runner would inject
+* duplicate RESULT rows into this parent runner's machine-readable log.
+local ++test_count
+capture noisily {
+    tempname _rn_fh
+    local _rn_line_no = 0
+    local _rn_plus_restore = 0
+    local _rn_personal_restore = 0
+    local _rn_plus0_drop = 0
+    local _rn_personal0_drop = 0
+    local _rn_result = 0
+    file open `_rn_fh' using "`qa_dir'/run_all.do", read text
+    file read `_rn_fh' _rn_line
+    while r(eof) == 0 {
+        local ++_rn_line_no
+        if strpos(`"`macval(_rn_line)'"', "sysdir set PLUS") {
+            local _rn_plus_restore = `_rn_line_no'
+        }
+        if strpos(`"`macval(_rn_line)'"', "sysdir set PERSONAL") {
+            local _rn_personal_restore = `_rn_line_no'
+        }
+        if strpos(`"`macval(_rn_line)'"', "macro drop CODESCAN_QA_PLUS0") {
+            local _rn_plus0_drop = `_rn_line_no'
+        }
+        if strpos(`"`macval(_rn_line)'"', "macro drop CODESCAN_QA_PERSONAL0") {
+            local _rn_personal0_drop = `_rn_line_no'
+        }
+        if strpos(`"`macval(_rn_line)'"', "RESULT: run_all_") {
+            local _rn_result = `_rn_line_no'
+        }
+        file read `_rn_fh' _rn_line
+    }
+    file close `_rn_fh'
+    assert `_rn_plus_restore' > 0 & `_rn_plus_restore' < `_rn_result'
+    assert `_rn_personal_restore' > 0 & `_rn_personal_restore' < `_rn_result'
+    assert `_rn_plus0_drop' > 0 & `_rn_plus0_drop' < `_rn_result'
+    assert `_rn_personal0_drop' > 0 & `_rn_personal0_drop' < `_rn_result'
+}
+if _rc == 0 {
+    display as result "  PASS: runner teardown precedes the aggregate RESULT handshake"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: runner teardown ordering contract (error `=_rc')"
+    local ++fail_count
+}
+
+
 **# Settings hygiene
 
 * This suite must not leak a session setting to whatever runs next.

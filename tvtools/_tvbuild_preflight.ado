@@ -1,4 +1,4 @@
-*! _tvbuild_preflight Version 1.17.1  2026/08/30
+*! _tvbuild_preflight Version 1.17.2  2026/09/09
 *! Read-only validation and plan counts shared by tvbuild's real and dry runs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -111,8 +111,6 @@ program define _tvbuild_preflight, rclass
     frame change `xwalkframe'
     _tvtools_check_dates, cmd(tvbuild) dates(`entry' `exit') ///
         startvar(`entry') stopvar(`exit')
-    quietly generate long _tvp_gid = _n
-    quietly compress _tvp_gid
     local n_persons = _N
     frame change `_caller_frame'
 

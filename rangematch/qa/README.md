@@ -114,7 +114,7 @@ _rm_qa_teardown
 | `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
-| `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; native `inrange()` missing-bound parity; reviewed help markup, filename, and unmatched contracts; the documented failure-time `r()` contract, including that the once-unscoped "a captured error leaves no counts" sentence stays scoped to `missing(error)`; cleanup-safe install/net-get distribution contract |
+| `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; native `inrange()` missing-bound parity; reviewed help markup, filename, and unmatched contracts; overlapping missing-row exclusion counts and the documented failure-time `r()` contract, including that the once-unscoped "a captured error leaves no counts" sentence stays scoped to `missing(error)`; missing-row diagnostic union/overlap wording; cleanup-safe install/net-get distribution contract |
 | `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs, logs, `more`, `varabbrev`, `linesize`, and RNG state are restored |
 | `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, and failed-bootstrap restoration |
 | `test_rangematch_bench_smoke.do` | RM-I19 gate: analytic expected counts for all six shipped scenarios, rc=0 wrong-count rejection, installed-comparator parity, optional-comparator skip, small known answer, and adopath/session restoration |
@@ -135,9 +135,9 @@ _rm_qa_teardown
 | `test_rangematch_routing_contract.do` | `frame()`, `saving()`, `dryrun`, and `count` routing contracts |
 | `test_rangematch_display_contract.do` | Display-only and count/dryrun display contracts |
 | `test_rangematch_backend_equivalence.do` | Binary/sweep/overlap backend equivalence checks |
-| `test_rangematch_backend_diff.do` | Differential sweep-versus-binary grid over all scalars, every backend-invariant macro, complete output values/metadata/labels, and `assert()` outcomes |
+| `test_rangematch_backend_diff.do` | Differential sweep-versus-binary grid over all scalars, every backend-invariant macro, complete output values/metadata/labels, and `assert()` outcomes; non-binary results are skipped only for the documented sweep-only grid cells |
 | `test_rangematch_edge_topup.do` | Zero-row, missing-bound, maxpairs-boundary, and restore edge cases |
-| `test_rangematch_float_warn.do` | Float precision warnings and false-positive guards |
+| `test_rangematch_float_warn.do` | Float precision warnings and false-positive guards, including the documented reload-as-double advice |
 | `test_rangematch_labels.do` | Variable, value-label, and dataset-label preservation |
 | `test_rangematch_missing_using.do` | Using-side missing-key/bound policies |
 | `test_rangematch_overlap_inverted.do` | Inverted using-interval warning and return contract |
@@ -161,7 +161,7 @@ _rm_qa_teardown
 | `test_rangematch_v132.do` | v1.3.2 deterministic overlap ordering and lower-bound maxpairs messaging |
 | `test_rangematch_v133.do` | v1.3.3 maxpairs, session-state, naming, label, and return-gate regressions |
 | `test_rangematch_v154.do` | v1.5.4 default `(master observation, using observation)` output-order contract across sweep, binary, and overlap backends |
-| `test_rangematch_v155.do` | v1.5.5 rc=0 corruption regressions: scalar-offset arithmetic leaving the double range, dangling value-label collisions in both directions, unrepresentable `distance()`, whitespace-padded affixes, and the missing/stale Mata-helper handshake |
+| `test_rangematch_v155.do` | v1.5.5 rc=0 corruption regressions: scalar-offset arithmetic leaving the double range, dangling value-label collisions in both directions, unrepresentable `distance()`, whitespace-padded affixes, and the missing/stale Mata-helper handshake; later distance regressions cover matched missing master keys and true negative overflow while accepting finite negative gaps |
 | `test_rangematch_regress_options_output.do` | Option and output-contract regressions: `keepusing()` pre-validation, date/datetime format preservation, stats-gated density results, `tolerance()` boundaries, output order |
 | `test_rangematch_regress_performance.do` | Performance-path regressions |
 | `test_rangematch_regress_backend_selection.do` | Backend selection: automatic sweep for monotone joins, binary fallback for nonmonotone intervals |

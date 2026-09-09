@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.2** | 2026-09-06
+**Version 4.2.3** | 2026-09-09
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -82,7 +82,7 @@ Regex patterns that can match without consuming a character are rejected because
 | Save the prevalence table | Add `export(results.xlsx, replace)` | CSV or Excel summary |
 | Save the transformed dataset | Add `saving(results.dta, replace)` | The final collapsed or merged result dataset |
 
-`frame(name)` implies `preserve`; add `replace` when the named frame already exists. `save()` writes reusable rule definitions, whereas `saving()` writes the transformed result dataset.
+`frame(name)` implies `preserve`; add `replace` when the named frame already exists. The named frame must differ from the current frame because `codescan` cannot write its result into the frame it is reading. `save()` writes reusable rule definitions, whereas `saving()` writes the transformed result dataset.
 
 ## Worked Examples
 
@@ -201,7 +201,7 @@ The workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx) contains
 codescan varlist [if] [in], define(string asis) | codefile(string) [options]
 ```
 
-Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion` and `label` columns (column names are case-insensitive). Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
+Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion` and `label` columns (column names are case-insensitive). Values in codefile fields must not contain global-macro references such as `$name` or `${name}`; a lone `$`, including the regex end-of-string anchor, is allowed. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
 
 ### `codescan_describe`
 
@@ -284,7 +284,7 @@ The command pools nonempty values across all selected variables, excluding the b
 | `tostring` | Convert numeric code variables temporarily before tabulating |
 | `save()` | Write the chapter summary as a draft CSV codefile |
 
-File options accept ordinary quoted paths with spaces or hyphens, reject unsafe shell/control characters, and never overwrite an existing file without the option-specific `replace` suboption.
+File options accept ordinary quoted paths with spaces or hyphens, reject unsafe shell/control characters, and never overwrite an existing file without the option-specific `replace` suboption. Within one call, `save()`, `export()`, and `saving()` must name different output paths.
 
 ## Stored Results
 
@@ -369,6 +369,12 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.3 (2026-09-09)
+
+- Reject conflicting output paths before scanning, so `export()`, `save()`, and `saving()` cannot overwrite one another's results.
+- Preserve literal code text in `codescan_describe` output and returned identities; reject codefile fields containing global-macro references before they can silently change rules or labels.
+- Clarify frame and file-output constraints, correct the runnable slot-counting example, and restore the demo's graph scheme after errors.
 
 ### 4.2.2 (2026-09-06)
 

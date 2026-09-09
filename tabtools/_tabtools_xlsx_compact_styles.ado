@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 2.1.3  2026/09/07
+*! _tabtools_xlsx_compact_styles Version 2.1.4  2026/09/09
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

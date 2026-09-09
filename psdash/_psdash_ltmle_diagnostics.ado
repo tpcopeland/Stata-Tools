@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.7.1  2026/09/04
+*! _psdash_ltmle_diagnostics Version 1.7.2  2026/09/09
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -110,8 +110,8 @@ program define _psdash_ltmle_diagnostics, rclass
         matrix colnames `wtperiod' = N mean sd p95 p99 max ess_pct ///
             ess_treated_pct ess_control_pct
 
-        tempvar wt_sq
-        quietly gen double `wt_sq' = `wvar'^2 if `samplevar'
+        tempvar period_sample
+        quietly gen byte `period_sample' = 0
 
         local rownames ""
         local max_pct_outside = 0
@@ -133,6 +133,11 @@ program define _psdash_ltmle_diagnostics, rclass
             * period 0 or skip values. strtoname() keeps the row name legal for
             * negative or non-integer period values.
             local _rowname = strtoname("p`p'")
+            if strpos(" `rownames' ", " `_rowname' ") {
+                display as error "period values produce duplicate matrix row names"
+                display as error "  recode period values to distinct integer indices before running diagnostics"
+                exit 198
+            }
             local rownames "`rownames' `_rowname'"
 
             quietly count if `samplevar' & `period' == `p'
@@ -199,48 +204,25 @@ program define _psdash_ltmle_diagnostics, rclass
             matrix `overlap'[`i', 11] = `overlap_upper'
             matrix `overlap'[`i', 12] = `pct_outside'
 
-            quietly summarize `wvar' if `samplevar' & `period' == `p', detail
-            local wt_mean = r(mean)
-            local wt_sd = r(sd)
+            * Use the same scaled weight moments as the overall summary;
+            * squaring the original weights can overflow or underflow.
+            quietly replace `period_sample' = `samplevar' & `period' == `p'
+            _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
+                samplevar(`period_sample') n(`p_N')
+            local wt_mean = r(mean_wt)
+            local wt_sd = r(sd_wt)
             local wt_p95 = r(p95)
             local wt_p99 = r(p99)
-            local wt_max = r(max)
-            local sum_wt = r(sum)
+            local wt_max = r(max_wt)
+            local ess_pct = r(ess_pct)
+            local ess_treated_pct = r(ess_pct_t)
+            local ess_control_pct = r(ess_pct_c)
             if missing(`max_weight_p99') | `wt_p99' > `max_weight_p99' {
                 local max_weight_p99 = `wt_p99'
             }
-
-            quietly summarize `wt_sq' if `samplevar' & `period' == `p', meanonly
-            local sum_wt_sq = r(sum)
-            local ess_pct = .
-            if `sum_wt_sq' > 0 & `p_N' > 0 {
-                local ess = (`sum_wt'^2) / `sum_wt_sq'
-                local ess_pct = 100 * `ess' / `p_N'
-                if `ess_pct' < `min_period_ess' local min_period_ess = `ess_pct'
-            }
-
-            local ess_treated_pct = .
-            local ess_control_pct = .
-            foreach a in 0 1 {
-                quietly summarize `wvar' if `samplevar' & `period' == `p' & ///
-                    `treatment' == `a', meanonly
-                local arm_sum_wt = r(sum)
-                local arm_N = r(N)
-                quietly summarize `wt_sq' if `samplevar' & `period' == `p' & ///
-                    `treatment' == `a', meanonly
-                local arm_sum_wt_sq = r(sum)
-                local arm_ess_pct = .
-                if `arm_sum_wt_sq' > 0 & `arm_N' > 0 {
-                    local arm_ess = (`arm_sum_wt'^2) / `arm_sum_wt_sq'
-                    local arm_ess_pct = 100 * `arm_ess' / `arm_N'
-                    if missing(`min_period_arm_ess') | ///
-                            `arm_ess_pct' < `min_period_arm_ess' {
-                        local min_period_arm_ess = `arm_ess_pct'
-                    }
-                }
-                if `a' == 1 local ess_treated_pct = `arm_ess_pct'
-                else local ess_control_pct = `arm_ess_pct'
-            }
+            if `ess_pct' < `min_period_ess' local min_period_ess = `ess_pct'
+            local min_period_arm_ess = min(`min_period_arm_ess', ///
+                `ess_treated_pct', `ess_control_pct')
 
             matrix `wtperiod'[`i', 1] = `p_N'
             matrix `wtperiod'[`i', 2] = `wt_mean'

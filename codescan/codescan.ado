@@ -1,4 +1,4 @@
-*! codescan Version 4.2.2  2026/09/06
+*! codescan Version 4.2.3  2026/09/09
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -862,6 +862,30 @@ program define codescan, rclass
         if "`codefile'" != "" {
             display as error "save() cannot be combined with codefile(); codefile already provides a file"
             exit 198
+        }
+    }
+
+    * Distinct output options must not resolve to the same file. Each target is
+    * preflighted before any exists, so allowing an alias here would let the
+    * later writer silently replace the earlier writer's different payload.
+    local _output_options ""
+    foreach _outopt in export saving save {
+        if `"`_`_outopt'_fn'"' != "" {
+            mata: st_local("_output_abs", ///
+                pathresolve(pwd(), st_local("_`_outopt'_fn")))
+            local _output_key `"`_output_abs'"'
+            if "`c(os)'" == "Windows" {
+                local _output_key = strlower(`"`_output_key'"')
+            }
+            foreach _prior of local _output_options {
+                if `"`_output_key'"' == `"`_output_key_`_prior''"' {
+                    display as error "`_prior'() and `_outopt'() resolve to the same output file"
+                    display as error `"  choose distinct targets: `_output_abs'"'
+                    exit 198
+                }
+            }
+            local _output_key_`_outopt' `"`_output_key'"'
+            local _output_options "`_output_options' `_outopt'"
         }
     }
 

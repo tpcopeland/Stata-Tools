@@ -54,16 +54,22 @@ component's observed range, and three-component graphs occupy one filled row.
 accepts factor-variable and interaction notation.
 
 {phang}
-{opt crump} requests Crump's binary-treatment trimming rule.
+{opt crump} requests Crump's binary-treatment trimming rule. It cannot be
+combined with {opt threshold()} and is available for binary treatment only.
 
 {phang}
-{opt thr:eshold(#)} sets a fixed PS or GPS trimming threshold.
+{opt thr:eshold(#)} sets a fixed PS or GPS trimming threshold; for binary
+treatment it must be strictly between 0 and 0.5. It cannot be combined with
+{opt crump}.
 
 {phang}
-{opt qtrim(#)} sets quantile-based common-support bounds.
+{opt qtrim(#)} sets within-group quantile-based common-support bounds. It is
+binary-only, has no effect unless specified, and must be strictly between 0
+and 50.
 
 {phang}
-{opt gpsfloor(#)} sets the multi-group practical-positivity floor.
+{opt gpsfloor(#)} sets the multi-group practical-positivity floor; default is
+{cmd:0.01}, and the value must be strictly between 0 and 1.
 
 {phang}
 {opt gen:erate(newvar)} marks observations retained by the selected rule.
@@ -72,7 +78,8 @@ accepts factor-variable and interaction notation.
 {opt replace} permits replacing the requested generated variable.
 
 {phang}
-{opt comp:are} compares diagnostics before and after trimming.
+{opt comp:are} compares diagnostics before and after trimming. It requires
+{opt crump} or {opt threshold()} and is available for binary treatment only.
 
 {phang}
 {opt nog:raph} suppresses the graph.
@@ -131,17 +138,17 @@ has no effect for binary treatments.
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(lower_bound)}}lower common-support bound{p_end}
 {synopt:{cmd:r(upper_bound)}}upper common-support bound{p_end}
-{synopt:{cmd:r(qtrim)}}quantile percentage used{p_end}
+{synopt:{cmd:r(qtrim)}}quantile percentage, when specified{p_end}
 {synopt:{cmd:r(n_outside)}}observations outside support{p_end}
 {synopt:{cmd:r(pct_outside)}}percent outside support{p_end}
 {synopt:{cmd:r(n_outside_treated)}}treated outside support{p_end}
 {synopt:{cmd:r(n_outside_control)}}controls outside support{p_end}
 {synopt:{cmd:r(trim_lower)}}lower trimming bound or GPS floor{p_end}
-{synopt:{cmd:r(trim_upper)}}upper binary trimming bound{p_end}
+{synopt:{cmd:r(trim_upper)}}upper bound, binary trimming{p_end}
 {synopt:{cmd:r(n_trimmed)}}observations trimmed{p_end}
 {synopt:{cmd:r(pct_trimmed)}}percent trimmed{p_end}
 {synopt:{cmd:r(N_remaining)}}observations retained{p_end}
-{synopt:{cmd:r(crump_alpha)}}Crump optimal alpha{p_end}
+{synopt:{cmd:r(crump_alpha)}}Crump alpha, when crump{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}PS values exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}PS values near 0 or 1{p_end}
 {synopt:{cmd:r(n_post)}}post-trimming observations{p_end}

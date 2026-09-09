@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.3  2026/09/07
+*! effecttab Version 2.1.4  2026/09/09
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -812,10 +812,11 @@ quietly {
 			preserve
 			capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
 			if _rc {
+				local _read_rc = _rc
 				noisily display as error "Failed to import temporary Excel file"
 				capture erase "`temp_xlsx'"
 				restore
-				exit _rc
+				exit `_read_rc'
 			}
 		}
 	}

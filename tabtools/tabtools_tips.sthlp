@@ -105,8 +105,9 @@ in-memory table (dataset/frame/matrix), {bf:comptab} to combine rows from
 {hline}
 {title:stratetab}
 
-{phang2}{cmd:stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2)}
-{cmd:outlabels("Relapse \ EDSS 4") explabels("SSRI \ SNRI")}{p_end}
+{phang2}{cmd:stratetab, using(rate_ssri_relapse rate_ssri_edss4 ///}{p_end}
+{phang3}{cmd:rate_snri_relapse rate_snri_edss4) xlsx(rates.xlsx) outcomes(2) ///}{p_end}
+{phang3}{cmd:outlabels("Relapse \ EDSS 4") explabels("SSRI \ SNRI")}{p_end}
 {phang2}{cmd:stratetab, ... rateratio ratiodigits(2)} {it:// add incidence rate ratios}{p_end}
 {phang2}{cmd:stratetab, ... footnote("Rates per 1,000 PY") zebra}{p_end}
 

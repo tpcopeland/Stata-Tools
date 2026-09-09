@@ -42,6 +42,8 @@
 *        rather than silently replaced by r1/r2, and r(chapter_#) carries the
 *        exact leading character (4.1.4, review)
 *   T42: the mirror of T41 — usable code and chapter row names are left alone
+*   T43: export()/save()/saving() targets must resolve to distinct files (4.2.3)
+*   T44: unsafe codefile dollar macros fail closed without rejecting $ anchors
 
 clear all
 set seed 12345
@@ -1893,6 +1895,122 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T42: usable row names were aliased (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# T43: output files must resolve to distinct canonical paths (4.2.3)
+
+local ++test_count
+capture noisily {
+    local _t43_same "_codescan_t43_same.csv"
+    local _t43_export "`qa_dir'/t43 summary, output.csv"
+    local _t43_save "`qa_dir'/t43 rules, output.csv"
+    capture erase "`_t43_same'"
+    capture erase `"`_t43_export'"'
+    capture erase `"`_t43_save'"'
+
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11") ///
+        export("`_t43_same'") save("`_t43_same'")
+    assert _rc == 198
+    capture confirm file "`_t43_same'"
+    assert _rc != 0
+
+    * The spelling differs, but both names resolve to the same file.
+    _make_v101_data
+    capture codescan dx1, define(dm2 "E11") ///
+        export("`_t43_same'") save("./`_t43_same'")
+    assert _rc == 198
+    capture confirm file "`_t43_same'"
+    assert _rc != 0
+
+    * Distinct quoted paths, including spaces and commas, remain valid.
+    _make_v101_data
+    codescan dx1, define(dm2 "E11") ///
+        export(`"`_t43_export'"', replace) ///
+        save(`"`_t43_save'"', replace)
+    confirm file `"`_t43_export'"'
+    confirm file `"`_t43_save'"'
+    import delimited using `"`_t43_export'"', clear varnames(1)
+    assert _N == 1
+    confirm variable condition
+    assert condition[1] == "dm2"
+    assert matches[1] == 2
+    capture confirm variable name
+    assert _rc != 0
+    import delimited using `"`_t43_save'"', clear stringcols(_all) varnames(1)
+    assert _N == 1
+    confirm variable name
+    confirm variable pattern
+    assert name[1] == "dm2"
+    assert pattern[1] == "E11"
+
+    capture erase "`_t43_same'"
+    capture erase `"`_t43_export'"'
+    capture erase `"`_t43_save'"'
+}
+if _rc == 0 {
+    display as result "  PASS T43: output targets are canonicalized before writes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T43: canonical output-target contract (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+**# T44: codefile dollar sequences fail closed without rejecting end anchors (4.2.3)
+
+local ++test_count
+capture noisily {
+    tempfile _t44_bad _t44_anchor
+    local _t44_global "CODESCAN_QA_T44_VALUE"
+
+    clear
+    set obs 1
+    gen str32 name = "cost"
+    gen str244 pattern = char(36) + "`_t44_global'"
+    gen str80 label = "Cost " + char(36) + "`_t44_global'"
+    save `"`_t44_bad'.dta"', replace
+
+    clear
+    input str8 dx1
+    "EXPANDED"
+    "Z00"
+    end
+    global `_t44_global' EXPANDED
+    capture codescan dx1, codefile(`"`_t44_bad'.dta"')
+    local _t44_badrc = _rc
+    assert `_t44_badrc' == 198
+    capture confirm variable cost
+    assert _rc != 0
+
+    * A lone terminal dollar is regex syntax, not a macro reference.
+    clear
+    set obs 1
+    gen str32 name = "exact_e11"
+    gen str244 pattern = "E11" + char(36)
+    gen str80 label = "Exact E11"
+    save `"`_t44_anchor'.dta"', replace
+    clear
+    input str8 dx1
+    "E11"
+    "E110"
+    "E119"
+    end
+    codescan dx1, codefile(`"`_t44_anchor'.dta"')
+    assert exact_e11[1] == 1
+    assert exact_e11[2] == 0
+    assert exact_e11[3] == 0
+}
+local _t44_block_rc = _rc
+capture macro drop CODESCAN_QA_T44_VALUE
+if `_t44_block_rc' == 0 {
+    display as result "  PASS T44: unsafe dollar macros refused; regex end anchor retained"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T44: codefile dollar handling (rc=`_t44_block_rc')"
     local ++fail_count
 }
 

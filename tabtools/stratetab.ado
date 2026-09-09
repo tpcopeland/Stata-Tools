@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.3  2026/09/07
+*! stratetab Version 2.1.4  2026/09/09
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -789,7 +789,7 @@ forvalues _meta_o = 1/`outcomes' {
 }
 local _outcome_ids_return = substr(strtrim(`"`_outcome_ids_return'"'), 3, .)
 return local outcome_ids `"`_outcome_ids_return'"'
-return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level'% level; rate-ratio intervals use the same level."
+return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level'% level; rate-ratio intervals use an independent-rate log-normal approximation at the same level."
 
 	* Export to Excel
 	if `_has_xlsx' {

@@ -12,7 +12,7 @@ stata-mp -b do test_tvmerge.do       # one suite standalone
 stata-mp -b do run_all.do release    # full lane plus release contracts
 ```
 
-`python` is a legacy alias for `external`. Gate on the terminal `RESULT:` line and `run_all_status.txt`, because Stata batch-mode shell status is not the suite verdict.
+`python` is a legacy alias for `external`. For a direct `stata-mp` run, gate on the terminal `RESULT:` line; when the run is launched through the development CLI, also inspect its `run_all_status.txt` receipt. Stata batch-mode shell status is not the suite verdict.
 
 ## Isolation
 
@@ -93,6 +93,7 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `test_tvtools.do` | Dispatcher routing and package overview behavior. |
 | `test_tvtools_catalog.do` | Dispatcher catalog completeness and classifications. |
 | `test_tvtools_v1141.do` | Weighting and dispatcher regressions from the 1.14 line. |
+| `test_tvtools_v1172.do` | Release regressions for caller state, extra exposure maps, empty-output schemas, event clocks, quoted labels, and reference-label failure handling. |
 | `test_tvweight.do` | `tvweight` functional surface. |
 | `test_tvweight_cumprod.do` | Cumulative-weight product engine. |
 | `test_tvweight_v1150.do` | Numerator-model and longitudinal-weight regressions. |
@@ -182,8 +183,8 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `tvbuild` | dryrun, construct, commit, manifest, regressions | `validation_tvbuild_conservation` | frozen primitive pipelines | integration, state, fixtures |
 | `tvspec` | `test_tvspec` | hand-built plan equivalence | — | `tvbuild` suites |
 | `tvexpose` | command, diagnostics, fast path | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases |
-| `tvmerge` | command, frame-native, `idname()` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases |
-| `tvevent` | command and segments | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
+| `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases |
+| `tvevent` | command, segments, `test_tvtools_v1172.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
 | `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration and verbose paths |
 | `tvweight` | command, cumulative product, regressions | balance and recovery suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
 | `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming and missing-value suites |

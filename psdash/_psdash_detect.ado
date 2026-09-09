@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.7.1  2026/09/04
+*! _psdash_detect Version 1.7.2  2026/09/09
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -36,6 +36,20 @@ program define _psdash_detect, nclass
     set varabbrev off
     local _psdash_early_success = 0
     capture noisily {
+
+    * c_local is this helper's entire output contract. Clear every fixed-name
+    * field before parsing so a repeated call from the same caller cannot
+    * inherit optional metadata from an earlier detection mode.
+    foreach _psdash_out in _psd_treatment _psd_psvar _psd_psvar_auto ///
+            _psd_covariates _psd_wvar _psd_wvar_auto _psd_source ///
+            _psd_estimand _psd_method _psd_contract_version ///
+            _psd_iivw_component _psd_iivw_treatment_wvar ///
+            _psd_iivw_final_wvar _psd_iivw_visit_wvar ///
+            _psd_longitudinal _psd_id _psd_period _psd_regime ///
+            _psd_multigroup _psd_K _psd_levels _psd_reference ///
+            _psd_n_estimation _psd_n_excluded _psd_ps_0 _psd_ps_1 {
+        c_local `_psdash_out' ""
+    }
 
     * Parse using anything to avoid varlist greedy parsing issues
     syntax [anything] , ///

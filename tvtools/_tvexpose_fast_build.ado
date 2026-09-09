@@ -1,4 +1,4 @@
-*! _tvexpose_fast_build Version 1.17.1  2026/08/30
+*! _tvexpose_fast_build Version 1.17.2  2026/09/09
 *! Build the complete categorical person-time tiling in one in-memory pass
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

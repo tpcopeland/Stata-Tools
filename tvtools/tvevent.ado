@@ -1,4 +1,4 @@
-*! tvevent Version 1.17.1  2026/08/30
+*! tvevent Version 1.17.2  2026/09/09
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -935,20 +935,20 @@ program define tvevent, rclass
         if "`type'" == "recurring" {
             local first_evar : word 1 of `eventvars'
             local orig_date_label : variable label `first_evar'
-            local lab_1 "`orig_date_label'"
-            if "`lab_1'" == "" local lab_1 "Event: `date'"
+            local lab_1 `"`orig_date_label'"'
+            if `"`lab_1'"' == "" local lab_1 "Event: `date'"
             local num_compete = 0
         }
         else {
             local orig_date_label : variable label `date'
-            local lab_1 "`orig_date_label'"
-            if "`lab_1'" == "" local lab_1 "Event: `date'"
+            local lab_1 `"`orig_date_label'"'
+            if `"`lab_1'"' == "" local lab_1 "Event: `date'"
             local num_compete : word count `compete'
             if `num_compete' > 0 {
                 local i = 1
                 foreach v of local compete {
                     local c_lab_`i' : variable label `v'
-                    if "`c_lab_`i''" == "" local c_lab_`i' "Competing: `v'"
+                    if `"`c_lab_`i''"' == "" local c_lab_`i' "Competing: `v'"
                     local i = `i' + 1
                 }
             }
@@ -1487,14 +1487,14 @@ program define tvevent, rclass
         * intervals are a prior tvevent output); label define has no replace-
         * from-scratch form and errors r(110) on an existing name.
         label define `_ev_lbl_name' 0 "Censored"
-        label define `_ev_lbl_name' 1 "`lab_1'", add
+        label define `_ev_lbl_name' 1 `"`lab_1'"', add
         
         if "`compete'" != "" {
             local i = 1
             local label_idx = 2
             foreach v of local compete {
-                local this_lab "`c_lab_`i''"
-                label define `_ev_lbl_name' `label_idx' "`this_lab'", add
+                local this_lab `"`c_lab_`i''"'
+                label define `_ev_lbl_name' `label_idx' `"`this_lab'"', add
                 local i = `i' + 1
                 local label_idx = `label_idx' + 1
             }
@@ -1599,8 +1599,8 @@ program define tvevent, rclass
 
         * Recurrent-event formatting (PWP/AG): event-sequence stratum + gap-time
         * clock. The stratum enumerates the gaps a person passes through (1 until
-        * the first event, 2 thereafter, ...); the gap-time clock resets to 0 at
-        * the start of each new stratum. Andersen-Gill uses the calendar
+        * the first event, 2 thereafter, ...); the gap-time origin is the day
+        * after the previous event, even across observation gaps. Andersen-Gill uses the calendar
         * (start, stop] with the event flag; PWP-CP adds the stratum to the
         * total-time clock (timegen); PWP-GT uses the stratum with gap time.
         if `do_recur_fmt' {
@@ -1616,21 +1616,33 @@ program define tvevent, rclass
             }
             tempvar _evflag _cumev
             quietly {
-                gen byte `_evflag' = (`generate' > 0) & !missing(`generate')
+                * Parallel payload rows share one event on a given date.
+                * Count that date once and assign the same pre-event stratum
+                * to every row ending there, regardless of tied row order.
+                bysort `id' `stopvar': gen byte `_evflag' = ///
+                    (_n == 1) & (`generate' > 0) & !missing(`generate')
                 by `id': gen long `_cumev' = sum(`_evflag')
-                by `id': gen long `enum' = 1 + cond(_n==1, 0, `_cumev'[_n-1])
+                by `id' `stopvar': gen long `enum' = ///
+                    1 + `_cumev'[_N] - `_evflag'[1]
                 drop `_evflag' `_cumev'
                 if `do_gaptime' {
-                    tempvar _newstr _origin
-                    by `id': gen byte `_newstr' = (_n==1) | (`enum' != `enum'[_n-1])
-                    by `id': gen double `_origin' = `startvar' if `_newstr'
-                    by `id': replace `_origin' = `_origin'[_n-1] if !`_newstr'
+                    tempvar _origin _event_end
+                    * PWP elapsed gap time includes time between observation
+                    * windows. A later re-entry must not reset the clock.
+                    bysort `id' `enum' (`startvar' `stopvar'): ///
+                        egen double `_event_end' = max(cond( ///
+                            `generate' > 0 & !missing(`generate'), `stopvar' + 1, .))
+                    by `id': gen double `_origin' = cond(`enum' == 1, ///
+                        `startvar'[1], `_event_end'[_n-1]) ///
+                        if _n == 1 | `enum' != `enum'[_n-1]
+                    by `id' `enum': replace `_origin' = `_origin'[1]
                     gen double `gapstart' = `startvar' - `_origin'
                     gen double `gapstop' = `stopvar' - `_origin'
-                    drop `_newstr' `_origin'
+                    drop `_origin' `_event_end'
                     label var `gapstart' "Gap-time start (PWP-GT)"
                     label var `gapstop' "Gap-time stop (PWP-GT)"
                 }
+                sort `id' `startvar' `stopvar'
             }
             label var `enum' "Event sequence / PWP stratum"
             noisily di as txt "Recurrent formatting: stratum `enum'" ///

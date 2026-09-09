@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.7.1  2026/09/04
+*! psdash_combined Version 1.7.2  2026/09/09
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -180,6 +180,15 @@ program define psdash_combined, rclass
     }
 
     if "`longitudinal'" == "1" {
+        if "`nooverlap'`nobalance'`noweights'`nosupport'" != "" | ///
+                `"`report'"' != "" | `"`saving'"' != "" | ///
+                `"`scheme'"' != "" | `threshold' != 0.1 | ///
+                `overlapmax' != 10 | `essmin' != 50 | ///
+                `imbalmax' != 0 | `gpsfloor' != 0.01 {
+            display as error "cross-sectional panel and output options are unavailable for longitudinal diagnostics"
+            display as error "  omit panel suppression, report(), saving(), scheme(), and custom thresholds"
+            exit 198
+        }
         if "`title'" == "" local title "Longitudinal Propensity Score Diagnostics"
         local id_opt ""
         if "`idvar'" != "" local id_opt `"id("`idvar'")"'
@@ -334,11 +343,16 @@ program define psdash_combined, rclass
     * OVERLAP PANEL
     if "`nooverlap'" == "" {
         display as text _n "{bf:=== OVERLAP DIAGNOSTICS ===}"
-        psdash_overlap `treatment' `psvar' if `touse', ///
-            name(psdash_c_overlap) `scheme_opt' ///
-            title("PS Overlap") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' ///
-            `rep_overlap' `compact_subcmd_opt'
+        local _panel_cmd `"psdash_overlap `treatment' `psvar' if `touse', name(psdash_c_overlap) `scheme_opt' title("PS Overlap") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
+        capture noisily `_panel_cmd' `rep_overlap'
+        local _panel_rc = _rc
+        if `_panel_rc' {
+            if `"`rep_overlap'"' == "" exit `_panel_rc'
+            * Recompute without the workbook to distinguish export failure from
+            * an analytical error and retain this panel's complete payload.
+            `_panel_cmd'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+        }
         local graph_list "`graph_list' psdash_c_overlap"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -375,12 +389,16 @@ program define psdash_combined, rclass
         display as text _n "{bf:=== BALANCE DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        psdash_balance `treatment' `psvar' if `touse', ///
-            covariates(`covariates') `wvar_opt' ///
-            threshold(`threshold') loveplot ///
-            name(psdash_c_balance) `scheme_opt' ///
-            title("Covariate Balance") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_balance'
+        local _panel_cmd `"psdash_balance `treatment' `psvar' if `touse', covariates(`covariates') `wvar_opt' threshold(`threshold') loveplot name(psdash_c_balance) `scheme_opt' title("Covariate Balance") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt'"'
+        capture noisily `_panel_cmd' `rep_balance'
+        local _panel_rc = _rc
+        if `_panel_rc' {
+            if `"`rep_balance'"' == "" exit `_panel_rc'
+            * Recompute without the workbook to distinguish export failure from
+            * an analytical error and retain this panel's complete payload.
+            `_panel_cmd'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+        }
         local graph_list "`graph_list' psdash_c_balance"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -421,11 +439,16 @@ program define psdash_combined, rclass
         display as text _n "{bf:=== WEIGHT DIAGNOSTICS ===}"
         local wvar_opt ""
         if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
-        psdash_weights `treatment' `psvar' if `touse', ///
-            `wvar_opt' graph ///
-            name(psdash_c_weights) `scheme_opt' estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `rep_weights' ///
-            `compact_subcmd_opt'
+        local _panel_cmd `"psdash_weights `treatment' `psvar' if `touse', `wvar_opt' graph name(psdash_c_weights) `scheme_opt' estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `compact_subcmd_opt'"'
+        capture noisily `_panel_cmd' `rep_weights'
+        local _panel_rc = _rc
+        if `_panel_rc' {
+            if `"`rep_weights'"' == "" exit `_panel_rc'
+            * Recompute without the workbook to distinguish export failure from
+            * an analytical error and retain this panel's complete payload.
+            `_panel_cmd'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+        }
         local graph_list "`graph_list' psdash_c_weights"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -459,11 +482,16 @@ program define psdash_combined, rclass
     * SUPPORT PANEL
     if "`nosupport'" == "" {
         display as text _n "{bf:=== COMMON SUPPORT ASSESSMENT ===}"
-        psdash_support `treatment' `psvar' if `touse', ///
-            name(psdash_c_support) `scheme_opt' ///
-            title("Common Support") estimand(`estimand') ///
-            `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' ///
-            `rep_support' `compact_subcmd_opt'
+        local _panel_cmd `"psdash_support `treatment' `psvar' if `touse', name(psdash_c_support) `scheme_opt' title("Common Support") estimand(`estimand') `ref_subcmd_opt' `psvars_subcmd_opt' `gpsfloor_subcmd_opt' `compact_subcmd_opt'"'
+        capture noisily `_panel_cmd' `rep_support'
+        local _panel_rc = _rc
+        if `_panel_rc' {
+            if `"`rep_support'"' == "" exit `_panel_rc'
+            * Recompute without the workbook to distinguish export failure from
+            * an analytical error and retain this panel's complete payload.
+            `_panel_cmd'
+            if `_psdash_side_rc' == 0 local _psdash_side_rc = `_panel_rc'
+        }
         local graph_list "`graph_list' psdash_c_support"
         local _pw = r(n_warnings)
         local _pwt `"`r(warnings)'"'
@@ -498,7 +526,7 @@ program define psdash_combined, rclass
     * COMBINE GRAPHS
     local ngraphs : word count `graph_list'
 
-    if `ngraphs' > 0 {
+    if `ngraphs' > 0 & `_psdash_side_rc' == 0 {
         capture noisily {
             * Determine layout
             if `ngraphs' <= 2 {

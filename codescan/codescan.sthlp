@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.2.2  06sep2026}{...}
+{* *! version 4.2.3  09sep2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -316,6 +316,11 @@ column supplies one or more exclusions separated by {cmd:|}. The {bf:label} colu
 used for variable labels and displayed/exported condition labels.
 
 {pmore}
+Values in codefile fields must not contain global-macro references such as
+{cmd:$name} or {cmd:${c -(}name{c )-}}, because they cannot survive Stata's macro quoting
+safely. A lone {cmd:$}, including the regex end-of-string anchor, is allowed.
+
+{pmore}
 Use a codefile when definitions should be version-controlled, reused across
 projects, or shared with collaborators.
 
@@ -449,7 +454,8 @@ the created variables are not left in the active dataset. On that path,
 {opt frame(name)} stores the final result dataset in a named frame and implies
 {cmd:preserve}. With {cmd:collapse}, the frame receives the collapsed
 patient-level dataset. With {cmd:merge}, the frame receives the merged row-level result. If the
-frame already exists, add {cmd:replace}.
+frame already exists, add {cmd:replace}. The named frame must differ from the
+current frame; {cmd:codescan} cannot write its result into the frame it is reading.
 
 {phang}
 {opt saving(filename [, replace])} saves the final result dataset to disk after
@@ -716,7 +722,9 @@ in full. Either way the pattern never defines cohort membership.
 {pstd}
 {bf:File paths.} For safety, {cmd:codefile()}, {cmd:save()}, {cmd:export()},
 and {cmd:saving()} reject quotes, shell metacharacters, and control characters
-inside filenames. Use ordinary quoted paths with spaces or hyphens.
+inside filenames. Use ordinary quoted paths with spaces or hyphens. Within one call,
+{cmd:save()}, {cmd:export()}, and {cmd:saving()} must name
+different output paths.
 
 {pstd}
 {bf:Reusable workflows.} Many projects start with
@@ -887,23 +895,34 @@ the encounter detail and the condition flags in one dataset.
 {bf:Example 10: Tell hits apart from cases, and see which slot they came from}
 
 {pstd}
-A patient coded {cmd:E110} in {cmd:dx1} and {cmd:E119} in {cmd:dx2} on the same
-encounter is {it:one} case carrying {it:two} hits. Both are reported by
-{cmd:countmode}: the displayed {cmd:Hits} column and {cmd:r(summary)}'s {cmd:total_hits} count
-slots, while {cmd:Units>0} and {cmd:positive_units} count patients, which is what
-prevalence uses.
+In the setup data, patient 1 carries {cmd:E110} in {cmd:dx1} and {cmd:E119} in
+{cmd:dx2} across two encounters. That is {it:one} case carrying {it:two} hits. Both
+are reported by {cmd:countmode}: the displayed {cmd:Hits} column and
+{cmd:r(summary)}'s {cmd:total_hits} count slots, while {cmd:Units>0} and
+{cmd:positive_units} count patients, which is what prevalence uses.
 
-{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") id(pid) collapse countmode preserve}{p_end}
 {phang2}{cmd:. matrix list r(summary)}{p_end}
 
 {pstd}
-{cmd:detail} attributes that patient's row to {cmd:dx1} alone, because binary
-matching stops at the first slot that matches; scanning {cmd:dx2 dx1} would
-credit {cmd:dx2} instead. Add {cmd:allslots} when you want each slot counted on
-its own, which makes the table independent of {varlist} order.
+The {cmd:preserve} option leaves the setup rows available for the following
+slot-attribution illustration.
+
+{pstd}
+To see the slot-attribution rule on one row, change the first encounter so both
+slots carry {cmd:E11} and remove the second encounter's duplicate:
+
+{phang2}{cmd:. replace dx2 = "E119" in 1}{p_end}
+{phang2}{cmd:. replace dx2 = "" in 2}{p_end}
+
+{pstd}
+Now {cmd:detail} attributes the matching row to {cmd:dx1} alone, because binary
+matching stops at the first slot that matches; scanning {cmd:dx2 dx1} instead
+credits {cmd:dx2}. Add {cmd:allslots} when you want each slot counted on its own,
+which makes the table independent of {varlist} order.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") detail}{p_end}
-{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") detail allslots}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11") detail allslots replace}{p_end}
 
 
 {marker results}{...}

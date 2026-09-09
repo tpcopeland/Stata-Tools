@@ -149,6 +149,11 @@ column per outcome. The interval is computed
 by the log-normal method at the resolved level, the same level used for the
 rate intervals and returned in {cmd:r(ci_level)}.{p_end}
 
+{pstd}
+The log-normal interval assumes independent, nonoverlapping rate
+estimates. Use {opt rateratio} only when the compared exposure-group rates
+meet that assumption.{p_end}
+
 {phang2}{opt ratio:digits(#)} decimal places for rate ratios (default 2).{p_end}
 
 {phang2}{opt foot:note(string)} adds a footnote row below the table in smaller italic font.{p_end}
@@ -208,9 +213,10 @@ current working directory. For a runnable public-data workflow, see
 Combine strate output for cardiovascular events and self-harm by SSRI/SNRI
 exposure:
 
-{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri_cv rate_ssri_selfharm rate_snri_cv rate_snri_selfharm) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) ///}{p_end}
+{phang3}{cmd:explabels(SSRI \ SNRI) ///}{p_end}
 {phang3}{cmd:title("Incidence Rates per 1,000 Person-Years")}{p_end}
 
 {pstd}
@@ -232,16 +238,17 @@ Full table comparing time-varying and cumulative dose exposures:
 {pstd}
 Display rates per 100 person-years with person-years in 1000s:
 
-{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri_cv rate_ssri_selfharm rate_snri_cv rate_snri_selfharm) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
-{phang3}{cmd:ratescale(100) unitlabel(100) pyscale(1000)}{p_end}
+{phang3}{cmd:ratescale(100) unitlabel(100) pyscale(1000) ///}{p_end}
+{phang3}{cmd:explabels(SSRI \ SNRI)}{p_end}
 
 {pstd}
 {bf:Example 4: Two decimal places for rates}
 
-{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri_cv rate_ssri_selfharm rate_snri_cv rate_snri_selfharm) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
-{phang3}{cmd:outlabels(CV Event \ Self-Harm) digits(2)}{p_end}
+{phang3}{cmd:outlabels(CV Event \ Self-Harm) explabels(SSRI \ SNRI) digits(2)}{p_end}
 
 
 {marker remarks}{...}

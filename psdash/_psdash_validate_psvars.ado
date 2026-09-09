@@ -1,4 +1,4 @@
-*! _psdash_validate_psvars Version 1.7.1  2026/09/04
+*! _psdash_validate_psvars Version 1.7.2  2026/09/09
 *! Validate multi-group propensity-score variable lists
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -56,6 +56,12 @@ program define _psdash_validate_psvars, rclass
                 if `_sv_cond' & missing(`_ps_v')
             quietly replace `_psv_sum' = `_psv_sum' + `_ps_v' ///
                 if `_sv_cond' & !missing(`_ps_v')
+        }
+
+        quietly count if `_sv_cond' & `_psv_complete'
+        if r(N) == 0 {
+            display as error "no observations have a complete propensity-score vector"
+            exit 2000
         }
 
         if `_bad_range' > 0 {

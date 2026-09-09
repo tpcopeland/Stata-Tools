@@ -1,4 +1,4 @@
-*! tvmerge Version 1.17.1  2026/08/30
+*! tvmerge Version 1.17.2  2026/09/09
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -472,6 +472,12 @@ program define tvmerge, rclass
     local final_name_candidates ""
     if "`generate'" != "" {
         local final_name_candidates "`generate'"
+        if `numexp_raw' > `numds' {
+            forvalues j = `=`numds' + 1'/`numexp_raw' {
+                local extra_name : word `j' of `exposures_raw'
+                local final_name_candidates "`final_name_candidates' `extra_name'"
+            }
+        }
     }
     else if "`prefix'" != "" {
         foreach exp_name of local exposures_raw {
@@ -652,7 +658,7 @@ program define tvmerge, rclass
         local exp_j: word `j' of `exposures_raw'
         
         * Determine final name for this exposure
-        if "`generate'" != "" {
+        if "`generate'" != "" & `j' <= `numds' {
             local exp_name: word `j' of `generate'
         }
         else if "`prefix'" != "" {
@@ -833,13 +839,9 @@ program define tvmerge, rclass
         local _tvm_drc = _rc    // best-effort release; cleanup retries
         local _tvm_src_live : list _tvm_src_live - _srcf1
 
-        * Record which exposure() names exist in dataset 1, scanned BEFORE any
-        * rename so the raw names are still in place (auto-suffixing and
-        * generate() both rewrite them further down).
-        foreach _possible_exp in `exposures_raw' {
-            capture confirm variable `_possible_exp'
-            if _rc == 0 local _exp_seen : list _exp_seen | _possible_exp
-        }
+        * Only the positional exposure is consumed from the first source.
+        * Counting ignored extra columns as resolved hides missing outputs.
+        local _exp_seen : word 1 of `exposures_raw'
 
         * CRITICAL FIX: Ensure all new variables use double type
         capture confirm variable `id'
@@ -1716,16 +1718,16 @@ program define tvmerge, rclass
                 drop start_k stop_k _orig_start_merged _orig_stop_merged __tvm_mobs __tvm_uobs
             }
             else {
-                * No overlapping intervals: build empty dataset with proper structure
+                * No overlapping intervals: preserve the normal output schema,
+                * including using-side exposure storage, labels, and keep()
+                * payload. Generating missing exposures as doubles here loses
+                * string categories and silently drops carried variables.
                 use `__tvm_merged', clear
-                keep if 1 == 0  // Keep structure but no observations
+                keep if 1 == 0
                 capture drop __tvm_mobs
-                foreach _fallback_exp in `exp_k_list' {
-                    capture confirm variable `_fallback_exp'
-                    if _rc != 0 {
-                        generate double `_fallback_exp' = .
-                    }
-                }
+                append using `__tvm_dsk'
+                keep if 1 == 0
+                capture drop start_k stop_k __tvm_uobs
             }
 
             * Save updated merged data
@@ -1748,7 +1750,7 @@ program define tvmerge, rclass
         local _exp_want : list uniq exposures_raw
         local _exp_missing : list _exp_want - _exp_seen
         if "`_exp_missing'" != "" {
-            noisily di as error "exposure() variable(s) not found in any dataset:`_exp_missing'"
+            noisily di as error "exposure() variable(s) not found in an eligible source:`_exp_missing'"
             noisily di as error "Every exposure() name must exist in at least one of the `numds' source datasets."
             exit 111
         }
@@ -1770,9 +1772,11 @@ program define tvmerge, rclass
         local final_exps ""
         foreach exp_name in `rate_exps' `total_exps' `cumulative_exps' `categorical_exps' {
             capture confirm variable `exp_name'
-            if _rc == 0 {
-                local final_exps "`final_exps' `exp_name'"
+            if _rc {
+                noisily display as error "Requested exposure output `exp_name' was not constructed"
+                exit 111
             }
+            local final_exps "`final_exps' `exp_name'"
         }
         
         * Drop only full-row duplicates. Requested keep() payload is part of the

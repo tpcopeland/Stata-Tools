@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.1  04sep2026}{...}
+{* *! version 1.7.2  09sep2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -216,7 +216,7 @@ indicator column per non-base level, {cmd:c.}{it:x}{cmd:##c.}{it:z} becomes the
 two main effects plus the interaction product, and {cmd:ib}{it:#}{cmd:.}{it:var}
 honours the requested base level. Balance is then assessed on those design
 columns (labelled {cmd:2.}{it:var}, {cmd:c.}{it:x}{cmd:#c.}{it:z}, ...) rather
-than on the underlying integer category codes, so categorical and joint-
+than on the underlying integer category codes, so categorical and joint
 distribution imbalance is not hidden. The same expansion is applied to terms
 auto-detected from a fitted {cmd:logit}/{cmd:probit}/{cmd:mlogit}/{cmd:teffects}
 model. A specification that cannot be mapped to design columns is rejected with
@@ -691,6 +691,16 @@ finding in both panels, so it contributes twice to {cmd:r(n_warnings)}; the pane
 labels in {cmd:r(warnings)} identify the source. Applies to multi-group treatments
 only.
 
+{pstd}
+When a longitudinal producer contract is detected, {cmd:psdash combined} routes
+to period diagnostics. {opt report()}, {opt saving()}, {opt scheme()}, and any
+{opt nooverlap}, {opt nobalance}, {opt noweights}, or {opt nosupport} option are
+rejected with {cmd:r(198)}. Nondefault values of {opt threshold()},
+{opt overlapmax()}, {opt essmin()}, {opt imbalmax()}, or {opt gpsfloor()} are
+also rejected with {cmd:r(198)}. Defaults are accepted but do not alter period
+diagnostics; {opt title()}, {opt dryrun}, and explicit input overrides remain
+available.
+
 {phang}
 {opt dryrun} reports the auto-detection result (treatment, PS, covariates,
 weights, estimand, source, longitudinal flag) and exits without running any
@@ -720,7 +730,9 @@ multi-panel graph inside each dashboard cell. The standalone {cmd:overlap} and
 {opt estimand()}, {opt psvars()}, {opt reference()}) and runs only the auto-detection layer,
 printing what it resolved and returning it in {cmd:r()}. It runs no diagnostics and
 creates no graphs, so it is a safe way to inspect the 9-mode detector before
-committing to a full run. See {help psdash##detection:Detection sources} below.
+committing to a full run. An empty requested sample or a sample with no usable
+resolved inputs exits with {cmd:r(2000)}. See {help psdash##detection:Detection sources}
+below.
 
 
 {marker remarks}{...}
@@ -1171,7 +1183,7 @@ are available).
 documented, stable return surface. Because the panels run in sequence and share
 some result names (for example {cmd:r(N)}, {cmd:r(pct_outside)}, {cmd:r(treatment)}),
 any inherited per-panel result that is not listed below reflects the
-{it:last-run} panel (support) rather than a specific one; to read a specific
+{it:last-run} panel rather than a specific one; to read a specific
 panel's diagnostics reliably, run that subcommand on its own. In addition:
 
 {synoptset 30 tabbed}{...}

@@ -142,7 +142,7 @@ def main() -> int:
         Path(args.result_file).write_text(result + "\n", encoding="utf-8")
     for issue in issues:
         print(issue)
-    print(f"RESULT: {result} ({len(paths)} files, {len(issues)} issues)")
+    print(f"STHLP WIDTH CHECK: {result} ({len(paths)} files, {len(issues)} issues)")
     return 0 if not issues else 1
 
 

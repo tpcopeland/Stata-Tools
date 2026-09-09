@@ -36,6 +36,10 @@ running diagnostic calculations. It is the inspection form of
 The complete return contract is listed under
 {help psdash##results:Stored results}.
 
+{pstd}
+If the requested sample is empty, or no observation has usable resolved inputs,
+the command exits with {cmd:r(2000)} instead of returning a partial detection.
+
 {marker options}{...}
 {title:Options}
 
@@ -47,7 +51,8 @@ accepts factor-variable and interaction notation.
 {opt w:var(varname)} supplies an existing diagnostic weight variable.
 
 {phang}
-{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
+{opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}; when
+omitted, the detector uses the supported estimation or producer context.
 
 {phang}
 {opt ref:erence(#)} selects the multi-group reference arm.
@@ -73,7 +78,7 @@ accepts factor-variable and interaction notation.
 {synopt:{cmd:r(psvar_auto)}}automatic-PS indicator{p_end}
 {synopt:{cmd:r(multigroup)}}multi-group treatment indicator{p_end}
 {synopt:{cmd:r(longitudinal)}}longitudinal-contract indicator{p_end}
-{synopt:{cmd:r(K)}}number of treatment groups{p_end}
+{synopt:{cmd:r(K)}}group count, multigroup{p_end}
 
 {p2col 5 32 34 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}input-detection source{p_end}
@@ -82,8 +87,8 @@ accepts factor-variable and interaction notation.
 {synopt:{cmd:r(covariates)}}covariates resolved{p_end}
 {synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(levels)}}treatment-group levels{p_end}
-{synopt:{cmd:r(reference)}}reference treatment group{p_end}
+{synopt:{cmd:r(levels)}}treatment-group levels, multigroup{p_end}
+{synopt:{cmd:r(reference)}}reference group, multigroup{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(id)}}longitudinal identifier{p_end}
 {synopt:{cmd:r(period)}}longitudinal period variable{p_end}

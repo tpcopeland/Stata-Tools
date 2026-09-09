@@ -44,13 +44,17 @@ The complete stored-result contract, including {cmd:r(balance)} and
 factor-variable and interaction notation.
 
 {phang}
-{opt w:var(varname)} specifies existing adjustment weights.
+{opt w:var(varname)} specifies existing adjustment weights. It is mutually
+exclusive with {opt matched}; when omitted, weights can be generated from an
+available propensity score unless {opt nowvar} or {opt noweights} is specified.
 
 {phang}
-{opt match:ed} requests matched-sample standardization.
+{opt match:ed} requests matched-sample standardization. It cannot be combined
+with {opt wvar()}.
 
 {phang}
-{opt thr:eshold(#)} sets the absolute-SMD cutoff; default is {cmd:0.1}.
+{opt thr:eshold(#)} sets the absolute-SMD cutoff; default is {cmd:0.1} and
+the value must be positive.
 
 {phang}
 {opt now:var} suppresses automatic weight construction.
@@ -95,16 +99,21 @@ factor-variable and interaction notation.
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
 
 {phang}
-{opt smdm:atrix(name)} names a matrix that receives SMD results.
+{opt smdm:atrix(name)} names a matrix that receives SMD results. The matrix is
+also returned in {cmd:r(smd)}.
 
 {phang}
-{opt strat:egies(string)} selects displayed balance strategies.
+{opt strat:egies(string)} selects a space-separated subset of {cmd:raw},
+{cmd:ate}, {cmd:att}, and {cmd:atc} for the Love plot. It requires a
+propensity score and a binary treatment.
 
 {phang}
-{opt dist:ribution(varlist)} selects covariates for distribution plots.
+{opt dist:ribution(varlist)} selects assessed covariates for distribution plots and
+is available for binary treatment only.
 
 {phang}
-{opt vrb:ounds(# #)} sets lower and upper variance-ratio cutoffs.
+{opt vrb:ounds(# #)} sets the lower and upper variance-ratio cutoffs; default is
+{cmd:0.5 2.0}. Supply exactly two positive values in ascending order.
 
 {phang}
 {opt psv:ars(varlist)} supplies generalized propensity-score components.
@@ -127,20 +136,20 @@ factor-variable and interaction notation.
 {synopt:{cmd:r(N_treated)}}treated observations{p_end}
 {synopt:{cmd:r(N_control)}}control observations{p_end}
 {synopt:{cmd:r(max_smd_raw)}}maximum raw absolute SMD{p_end}
-{synopt:{cmd:r(max_smd_adj)}}maximum adjusted absolute SMD{p_end}
+{synopt:{cmd:r(max_smd_adj)}}maximum adjusted |SMD|, weighted{p_end}
 {synopt:{cmd:r(max_vr_raw)}}most deviant raw variance ratio{p_end}
-{synopt:{cmd:r(max_vr_adj)}}most deviant adjusted variance ratio{p_end}
+{synopt:{cmd:r(max_vr_adj)}}most deviant adjusted VR, weighted{p_end}
 {synopt:{cmd:r(n_imbalanced)}}covariates above the SMD cutoff{p_end}
 {synopt:{cmd:r(n_vr_imbalanced)}}variance-ratio findings{p_end}
 {synopt:{cmd:r(n_vr_imbalanced_raw)}}raw variance-ratio findings{p_end}
-{synopt:{cmd:r(n_vr_imbalanced_adj)}}adjusted variance-ratio findings{p_end}
+{synopt:{cmd:r(n_vr_imbalanced_adj)}}adjusted VR findings, weighted{p_end}
 {synopt:{cmd:r(n_binary_vr)}}binary covariates excluded from VR{p_end}
 {synopt:{cmd:r(max_ks_raw)}}maximum raw KS distance{p_end}
-{synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS distance{p_end}
+{synopt:{cmd:r(max_ks_adj)}}maximum adjusted KS, weighted{p_end}
 {synopt:{cmd:r(threshold)}}absolute-SMD cutoff used{p_end}
 {synopt:{cmd:r(n_ps_boundary)}}PS values exactly 0 or 1{p_end}
 {synopt:{cmd:r(n_ps_near_boundary)}}PS values near 0 or 1{p_end}
-{synopt:{cmd:r(n_wt_undefined)}}undefined generated weights{p_end}
+{synopt:{cmd:r(n_wt_undefined)}}undefined generated-weight count{p_end}
 {synopt:{cmd:r(n_wt_dropped)}}missing supplied weights dropped{p_end}
 {synopt:{cmd:r(n_cov_incomplete)}}covariates with incomplete data{p_end}
 {synopt:{cmd:r(n_cov_min)}}smallest covariate-specific sample{p_end}

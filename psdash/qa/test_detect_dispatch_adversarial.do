@@ -373,23 +373,32 @@ _dd_result "T17" `=_rc'
 local ++test_count
 display as text _n "--- T18: README/sthlp mlogit syntax is installed-user runnable ---"
 capture noisily {
-    sysuse auto, clear
-    gen byte arm = cond(weight < 2500, 0, cond(weight < 3500, 1, 2))
-    capture quietly mlogit arm mpg length turn, iterate(30)
+    clear
+    set obs 300
+    set seed 20260506
+    gen double age = rnormal(60, 10)
+    gen byte female = runiform() > .5
+    gen double bmi = rnormal(27, 4)
+    gen double eta1 = -0.2 + 0.03*(age-60) + 0.25*female - 0.04*(bmi-27)
+    gen double eta2 = 0.1 - 0.02*(age-60) + 0.02*(bmi-27)
+    gen double den = 1 + exp(eta1) + exp(eta2)
+    gen double p0 = 1/den
+    gen double p1 = exp(eta1)/den
+    gen double u = runiform()
+    gen byte arm = cond(u < p0, 0, cond(u < p0 + p1, 1, 2))
+    capture quietly mlogit arm age female bmi
     local doc_mlogit_rc = _rc
-    display as text "  documented sysuse auto mlogit rc=`doc_mlogit_rc'"
-    if `doc_mlogit_rc' {
-        display as error "  DOC RISK: documented sysuse auto mlogit example did not converge"
-    }
-
-    _dd_multigroup_data, n(450) seed(5001)
-    quietly mlogit arm x1 x2
+    display as text "  documented generated-data mlogit rc=`doc_mlogit_rc'"
+    assert `doc_mlogit_rc' == 0
+    assert e(converged) == 1
     predict double ps0 ps1 ps2, pr
     psdash overlap arm, psvars(ps0 ps1 ps2) nograph
-    psdash balance arm, psvars(ps0 ps1 ps2) covariates(x1 x2)
+    psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi)
     gen double w = cond(arm == 0, 1/ps0, cond(arm == 1, 1/ps1, 1/ps2))
     psdash weights arm, psvars(ps0 ps1 ps2) wvar(w) detail
     psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
+    psdash balance arm, psvars(ps0 ps1 ps2) ///
+        covariates(age female bmi) reference(1)
     assert r(K) == 3
 }
 _dd_result "T18" `=_rc'

@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.3** | 2026-09-07
+**Version 2.1.4** | 2026-09-09
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -324,14 +324,14 @@ stacktab using outbook.xlsx, blocks(blockspec) sheet(sheetname) [layout(string) 
 ### `tabtools`
 
 ```stata
-tabtools [, list detail category(string) font(string) fontsize(#) headercolor(string) zebracolor(string) borderstyle(string) permanent profile(string)]
+tabtools [, list detail category(string)]
 tabtools set key value [, permanent profile(string)]
 tabtools set clear [, permanent profile(string)]
 tabtools get
 tabtools use [using filename] [, profile(string)]
 ```
 
-`tabtools` is Stata 17+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `composite`, `export`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `headercolor`, `zebracolor`, `digits`, and `boldp`; `fontsize()` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
+`tabtools` is Stata 17+. `list` displays the command catalog, `detail` adds descriptions, and `category()` filters `descriptive`, `models`, `rates`, `survival`, `composite`, `export`, `general`, or `all`. `set` keys are `font`, `fontsize`, `borderstyle`, `headercolor`, `zebracolor`, `digits`, and `boldp`; `tabtools set fontsize` accepts 6–72 points, digits accept 0–6, and border styles are `default`, `thin`, `medium`, and `academic`. `permanent` writes a runnable profile in the Stata PERSONAL directory, and `profile()` selects an alternate profile path; `use` loads a profile for the session.
 
 ### `tabtools_tips`
 
@@ -346,9 +346,9 @@ tabtools_tips [, open]
 ### Output targets
 
 - `xlsx(filename)` writes an Excel workbook; `excel(filename)` is a compatibility synonym where listed in command syntax.
-- `sheet(name)` selects the Excel sheet. Defaults are `Table 1`, `Descriptive`, `Crosstab`, `Correlation`, `Regression`, `Effects`, `Survival`, `Results`, `Composite`, `Table`, and `Simulation` for the corresponding commands.
+- `sheet(name)` selects the Excel sheet. Defaults are `Table 1` for `table1_tc`/`desctab`, `Crosstab` for `crosstab`, `Correlation` for `corrtab`, `Regression` for `regtab`, `Effects` for `effecttab`, `Survival` for `survtab`, `Results` for `stratetab`, `Composite` for `comptab`/`hrcomptab`, and `Table` for `puttab`. `stacktab` requires an explicit sheet name.
 - `csv(filename)` writes the visible table data for commands that support CSV output. Titles and footnotes are not additional CSV columns.
-- `markdown(filename)` writes GitHub-Flavored Markdown. Use `mdappend` only with an existing Markdown target.
+- `markdown(filename)` writes GitHub-Flavored Markdown. `mdappend` appends when the target exists and creates it otherwise.
 - `frame(name[, replace])` stores the rendered table; `eplotframe(name[, replace])` stores graph-ready model/effect results.
 - `open` requires an Excel target and asks Stata to open the written workbook.
 
@@ -456,7 +456,6 @@ Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(
 
 ## References
 
-- `siman` is available from the [UCL/siman repository](https://github.com/UCL/siman).
 - Optional forest plots use the [eplot package](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) when installed.
 
 ## QA
@@ -464,6 +463,8 @@ Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.1.4** (2026-09-09): Prevented silent truncation when reading sparse Excel worksheets and preserved fallback import errors in `regtab` and `effecttab`. Removed `regtab` substitutions from unrelated active estimation results when collected statistics or random-effects information cannot be recovered. Clarified the independence assumption for rate-ratio intervals, corrected multi-exposure rate-table examples and README command/default descriptions, and added focused regressions. Documented QA scratch dependencies and separated workbook/help-check output from suite verdicts.
 
 - **2.1.3** (2026-09-07): Sized exported Excel columns from each column's own content instead of one shared maximum, through a new `_tabtools_colwidth` helper used by `desctab`, `table1_tc`, `regtab`, `effecttab`, and `comptab`. The descriptive engines previously gave every group column the width of the widest cell in the table, so a single verbose group label - which sits in header row 2 and was counted as content - or one long statistic padded every other column out to match it, routinely against the 30-character ceiling. Each group column is now measured on its own cells; the group label wraps inside that width, with the header row grown to carry the extra lines, and contributes only a damped floor so a long label cannot force a wide, sparse column. The model-table engines did the same across models, sizing every model's estimate, confidence-interval, and p-value columns to the widest model; each model's columns are now measured on that model's own cells, and its merged header wraps against its own block width rather than the whole table. Cell lengths are Unicode display widths, so `±` and `≥` no longer count as two or three characters. Console output is unchanged, and the exported workbook now matches the column proportions the console already showed.
 - **2.1.2** (2026-09-05): Made `survtab` frequency-weighted counts and Greenwood RMST variance replication-consistent with expanded data, and rejected unsupported probability/importance stset weights before output. Corrected `crosstab` labels for ordinary fractional categories and left undefined Spearman diagonals blank for constant or one-observation variables. Added regression coverage across returned matrices, frames, CSV, Markdown, and Excel output.
