@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.2  2026/09/08
+*! _finegray_mata Version 1.3.3  2026/09/11
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -391,14 +391,20 @@ real colvector _finegray_G_minus(
 
    Stabilized Zhang-Zhang-Fine Weight 1 is  w_i(t) = A(t-) / A(X_i-)  with
 
-       A(t) = b(t) / S(t-)                  ZZF (2011) eq. (5)   [canonical]
-            = H(t-) * G(t-)                 Geskus (2011) eq. (11)
+       A(t) = H(t-) * G(t-)                 Geskus (2011) eq. (11)
+            = b(t) / (kappa S(t-))          ZZF (2011) eq. (5), up to kappa
 
-   The product-limit identity holds without requiring L and C to be independent.
-   Under independence, H and G additionally admit separate marginal-probability
-   interpretations (H as P(L < t)); otherwise they remain the two product-limit
-   factors of A. Gate Z-ties established that the two computational forms agree
-   to machine precision on every tie-collision class.
+   The product is PROPORTIONAL to ZZF's canonical b/S, not equal to it: the
+   constant kappa = n^-1 sum 1/H(X_i-) (Geskus eq. 8) is the inverse observation
+   probability of the sample.  It cancels from the one-stratum ratio above, so
+   this file carries the raw product there; it does NOT cancel between a
+   pooled numerator and a stratum denominator, so the stratified branch
+   restores it (_finegray_lt_normalizer).  The proportionality holds without
+   requiring L and C to be independent.  Under independence, H and G
+   additionally admit separate marginal-probability interpretations (H as
+   P(L < t)); otherwise they remain the two product-limit factors of A.  Gate
+   Z-ties established that the two computational forms agree to machine
+   precision on every tie-collision class once the constant is accounted for.
 
    The product form is not merely convenient -- it is what makes the no-LT
    path BIT-IDENTICAL.  With no delayed entry every l_j = 0, so for any t > 0
@@ -640,18 +646,105 @@ real matrix _finegray_A_at_times(
     real colvector tg_id,
     real colvector jc,
     real colvector ju,
-    real colvector target_t)
+    real colvector target_t,
+    | real matrix Ht_out)
 {
     real scalar j, nj
     real matrix Gt, Ht, out
 
     Gt = _finegray_G_at_times(t, G, byg_id, target_t)
     Ht = _finegray_H_at_times(t, t0, tg_id, target_t)
+    if (args() >= 9) Ht_out = Ht
 
     nj = rows(jc)
     out = J(rows(target_t), nj, 1)
     for (j = 1; j <= nj; j++) out[., j] = Gt[., jc[j]] :* Ht[., ju[j]]
     return(out)
+}
+
+/* ------------------------------------------------------------------------
+   STRATIFIED DELAYED ENTRY: the per-stratum normalizer kappa_j.
+
+   ZZF (2011) eq. (6), published p.1938 (eq. (7) in the PMC author
+   manuscript), is
+
+       w_ri(t) = r_ri(t) * S_r(X_ri- ^ t-) * b(t) / [ b_r(X_ri ^ t) * S(t-) ]
+               = r_ri(t) * B_pool(t) / B_r(X_ri ^ t),   B_g(s) = b_g(s)/S_g(s-)
+
+   with b_g(s) = n_g^-1 * #{i in g : L_i < s <= X_i} and S_g the left-truncated
+   all-cause Kaplan-Meier WITHIN stratum g.  The product-limit object the scan
+   carries, A_g(s) = G_g(s-) H_g(s-), is proportional to B_g but NOT equal to
+   it:
+
+       B_g(s) = kappa_g * A_g(s),     kappa_g = n_g^-1 * sum_{i in g} 1/H_g(X_i-)
+
+   The identity S_g G_g H_g (s-) = c_g * r_g(s-) holds exactly under the
+   events-then-censorings-then-entries tie ordering (each factor's jump is the
+   ratio of consecutive risk counts, so the product telescopes), and Geskus
+   (2011) eq. (7)-(8) identify the constant as 1/N_g with N_g = sum 1/H_g(X_i-),
+   the inverse-probability estimate of the untruncated stratum size.  kappa_g
+   therefore estimates 1/P(L < X | g): the observation probability of stratum
+   g, which is exactly what the b_g/S_g form carries and the raw product does
+   not.  Verified to 2e-15 on tied and untied fixtures before this was written.
+
+   The constant cancels from A_g(t)/A_g(X_i) -- the ONE-stratum weight ratio --
+   which is why the pooled delayed-entry path and every right-censoring path
+   are untouched.  It does NOT cancel between a pooled numerator and a
+   stratum-specific denominator: B_pool(t)/B_g(X_i) = (kappa_pool/kappa_g) *
+   A_pool(t)/A_g(X_i).  Through 1.3.2 the pooled branch used the raw A ratio
+   and so weighted each stratum by kappa_g/kappa_pool relative to the published
+   estimator; the tied fixture in qa/test_finegray_zzf.do moves its
+   coefficient from 0.1732 to 0.1506 when the constants are restored.
+
+   FACTORIZED GROUPINGS.  When strata() and truncstrata() differ, joint cell
+   j = (c, u) carries A_j = G_c(t-) H_u(t-).  The same cohort-size argument
+   gives the cell's normalizer from its OWN members and the entry product
+   limit of its truncation group:
+
+       kappa_j = n_j^-1 * sum_{i in j} 1/H_u(j)(X_i-)
+
+   This is the IPW estimate of N_j/n_j = 1/P(L < X | j) under the design the
+   options assert (entry depends on u only, censoring on c only, L independent
+   of (T, C) within the cell).  With matching groupings it reduces to kappa_g
+   above, so the two cases share one code path.  This normalization is a
+   package derivation, not a published formula; finegray_methods.sthlp says so.
+
+   SUPPORT.  If H_u(X_i-) == 0 for some member of the cell -- the truncation
+   group's risk set was empty just before an entry time at or after X_i, so the
+   entry product limit is not identifiable there -- the normalizer is
+   undefined.  The cell's B column is then set to ZERO rather than missing:
+   Mata orders missing above every number, so a missing cell would pass the
+   `> 0' positivity test and poison the fit as r(430) nonconvergence.  A zero
+   column is refused with the existing r(459) positivity message exactly when
+   the cell is consulted, and ignored when it never enters the likelihood. */
+real colvector _finegray_lt_normalizer(
+    real colvector gidx,
+    real colvector ju,
+    real matrix Ht)
+{
+    real scalar j, nj, i, n, h
+    real colvector kappa, cnt
+
+    nj = rows(ju)
+    n = rows(gidx)
+    kappa = J(nj, 1, 0)
+    cnt = J(nj, 1, 0)
+    for (i = 1; i <= n; i++) {
+        j = gidx[i]
+        if (kappa[j] >= .) continue
+        h = Ht[i, ju[j]]
+        if (h <= 0 | h >= .) {
+            kappa[j] = .
+            continue
+        }
+        kappa[j] = kappa[j] + 1 / h
+        cnt[j] = cnt[j] + 1
+    }
+    for (j = 1; j <= nj; j++) {
+        if (kappa[j] >= .) kappa[j] = 0
+        else if (cnt[j] > 0) kappa[j] = kappa[j] / cnt[j]
+    }
+    return(kappa)
 }
 
 /* ZZF (2011) equation (7) uses a POOLED time-side stabilizer and a
@@ -675,9 +768,14 @@ real scalar _finegray_use_pooled_stabilizer(
         sum(tg_id :!= tg_id[1]) > 0)
 }
 
-/* Pooled A(t-) = G_pool(t-) H_pool(t-), evaluated on target_t.  Bellach et
-   al. (2020) establish the continuous-time equivalence to ZZF's b(t)/S(t-);
-   the package's tie convention is separately regression-tested. */
+/* Pooled B(t-) = kappa_pool * G_pool(t-) H_pool(t-) = b(t)/S(t-), evaluated
+   on target_t: ZZF's pooled stabilizer on the scale eq. (6) states it.  The
+   product-limit identity behind kappa is documented at
+   _finegray_lt_normalizer; Bellach et al. (2020) establish the
+   continuous-time equivalence of the two forms, and the package's tie
+   convention is separately regression-tested.  target_t must be the
+   observation times themselves: kappa_pool is read off H_pool(X_i-), so the
+   H column has to be evaluated at every X_i. */
 real colvector _finegray_A_pool_at_times(
     real colvector t,
     real colvector delta,
@@ -686,7 +784,7 @@ real colvector _finegray_A_pool_at_times(
     real colvector t0,
     real colvector target_t)
 {
-    real colvector one, Gp
+    real colvector one, Gp, kappa
     real matrix Gpt, Hpt
 
     one = J(rows(t), 1, 1)
@@ -700,7 +798,8 @@ real colvector _finegray_A_pool_at_times(
     Gp = _finegray_km_censor(t, delta, censval, event_type, one, t0, 1)
     Gpt = _finegray_G_at_times(t, Gp, one, target_t)
     Hpt = _finegray_H_at_times(t, t0, one, target_t)
-    return(Gpt[., 1] :* Hpt[., 1])
+    kappa = _finegray_lt_normalizer(one, J(1, 1, 1), Hpt)
+    return(kappa[1] :* Gpt[., 1] :* Hpt[., 1])
 }
 
 /* Build the beta-INDEPENDENT weight design once.
@@ -714,11 +813,19 @@ real colvector _finegray_A_pool_at_times(
    diagnostic calculations.  Standalone callers retain their self-contained
    fallback and build the same bundle on entry.
 
-     use_pooled  whether ZZF equation 7's pooled stabilizer is active
+     use_pooled  whether ZZF equation 6's pooled stabilizer is active
      gidx       subject -> observed joint weight-stratum index
      Gminus     A_g(X_i-) for each subject
      A          A_g(t_i-) for every observation time and joint stratum
-     Apool      pooled A(t_i-) (ones when the pooled branch is inactive) */
+     Apool      pooled A(t_i-) (ones when the pooled branch is inactive)
+
+   ON THE POOLED BRANCH A, Gminus AND Apool ARE NORMALIZED: column g of A and
+   the matching Gminus entries carry B_g = kappa_g * G_g H_g, and Apool
+   carries B_pool = kappa_pool * G_pool H_pool, so that every consumer's
+   Apool/Aden ratio is ZZF eq. (6) on the published scale.  The names are
+   kept because the one-stratum branch, where kappa cancels, still holds the
+   raw product; see _finegray_lt_normalizer for the derivation and the
+   zero-column support rule. */
 void _finegray_prepare_weight_design(
     real colvector t,
     real colvector delta,
@@ -734,18 +841,22 @@ void _finegray_prepare_weight_design(
     real matrix A,
     real colvector Apool)
 {
-    real colvector jc, ju
+    real colvector jc, ju, kappa
+    real matrix Ht
+    real scalar j
 
     _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
-    A = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t)
-    Gminus = _finegray_G_minus(gidx, A)
+    A = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t, Ht)
     use_pooled = (sum(t0 :> 0) > 0 & rows(jc) > 1)
     if (use_pooled) {
+        kappa = _finegray_lt_normalizer(gidx, ju, Ht)
+        for (j = 1; j <= rows(jc); j++) A[., j] = kappa[j] :* A[., j]
         Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
     }
     else {
         Apool = J(rows(t), 1, 1)
     }
+    Gminus = _finegray_G_minus(gidx, A)
 }
 
 /* Combined-weight diagnostics, computed ONCE after convergence.
@@ -3879,14 +3990,18 @@ real matrix _finegray_psi_residuals_pw(
    which _finegray_psi_residuals computes for right censoring only.
 
    WHY THE PACKAGE'S OWN WEIGHTS MAY BE USED.  ZZF's appendix is written in
-   the b/S representation; the engine holds the Geskus product A = G(t-)H(t-).
-   Bellach et al. (2020) prove the two equal for continuous times, and Gate
-   Z-ties (qa/crossval_finegray_zzf_r.R) established that with the package's
-   event < censoring < entry tie ordering the product reproduces b/S(t-) on
-   every collision class -- which is why e(lt_weight) is zzf1_geskus.  So
-   Gt (A(t-) at each row's time) and Gminus (A(X_i-)) below ARE b/S, and the
-   all-cause risk-set count Y(u) = #{t0_j < u <= t_j} IS n * b(u) in the same
-   convention.
+   the b/S representation; the engine holds the Geskus product A = G(t-)H(t-),
+   which equals b/S(t-) only up to the sample constant kappa = n^-1 sum
+   1/H(X_i-) (see the DELAYED ENTRY block above and _finegray_lt_normalizer).
+   Gt (A(t-) at each row's time) and Gminus (A(X_i-)) below are therefore
+   b/S(t-) divided by kappa, NOT b/S itself.  That is harmless here because
+   every A in the three terms enters as a ratio A(s-)/A(X_j-): B0/B1 carry
+   1/A(X_j-), C0/C1 carry A(s-), and Q, v_i and w_i are built only from
+   products of one of each, so kappa cancels identically and the terms are
+   the appendix's on the pooled weight.  (This function is reached on the
+   ONE-stratum branch only; the stratified branch's nuisance term is refused.)
+   The all-cause risk-set count Y(u) = #{t0_j < u <= t_j} IS n * b(u) in the
+   package's (t0, t] convention.
 
    THE THREE TERMS IN COMPUTABLE FORM.  Every dM^{L,1}_j(s) integrated over
    s > X_j is compensator-only (the jump is at X_j), and Y^{L,1}_j(s) = 1

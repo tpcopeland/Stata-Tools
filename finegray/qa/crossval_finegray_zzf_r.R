@@ -186,9 +186,27 @@ zzf_weights <- function(d, cause = 1L, stabilizer = c("pooled", "perstratum")) {
   list(W = W, et = et, den = den)
 }
 
-# Canonical pooled-stabilizer weights with separately estimated censoring and
-# entry components.  cgroup and tgroup may be the same (published eq. 7) or
-# different (the package's cross-classified nuisance-factor extension).
+# Pooled-stabilizer weights with separately estimated censoring and entry
+# components, for the package's cross-classified extension (cgroup != tgroup).
+#
+# NORMALIZATION (corrected 2026-09-11).  A raw product G_c(t-) H_u(t-) is only
+# PROPORTIONAL to the b_j(t)/S_j(t-) that ZZF eq. (6) puts in the denominator:
+# on common support B_j = kappa_j * G_c H_u with
+#
+#     kappa_j = n_j^-1 * sum_{i in j} 1 / H_u(X_i-)          (Geskus 2011 eq. 8)
+#
+# the inverse-probability estimate of 1/P(L < X | j).  The constant cancels in
+# a one-stratum A(t)/A(X_i) ratio but NOT between a pooled numerator and a
+# stratum denominator, so the raw product weighted each cell by kappa_j
+# relative to the published estimator.  Through 1.3.2 this function and the
+# package shared that omission, which is why their agreement proved nothing.
+#
+# This function is now used ONLY for genuinely distinct groupings, where no
+# published formula exists and the normalizer is the package's documented
+# derivation.  Matching groupings go through zzf_weights(stabilizer="pooled"),
+# whose direct b_g/S_g construction is independent of both the product-limit
+# helpers and the normalizer.  The two agree to machine precision when
+# cgroup == tgroup; crossval_finegray_zzf.do asserts that identity.
 zzf_weights_cross <- function(d, cgroup, tgroup, cause = 1L) {
   n <- nrow(d)
   et <- sort(unique(d$X[d$status == cause]))
@@ -205,13 +223,19 @@ zzf_weights_cross <- function(d, cgroup, tgroup, cause = 1L) {
   }), as.character(tg))
   Apool <- make_A(d$L, d$X, d$status)
   num <- matrix(rep(Apool(et), each = n), n, K)
+  # per-cell normalizer from the cell's own members and its entry group's H
+  cell <- paste(cgroup, tgroup)
+  hx <- vapply(seq_len(n), function(i) Hf[[as.character(tgroup[i])]](d$X[i]), numeric(1))
+  if (any(hx <= 0)) stop("zzf_weights_cross: H_u(X_i-) == 0; normalizer undefined")
+  kappa <- tapply(1 / hx, cell, mean)
   aden_t <- matrix(NA_real_, n, K)
   aden_x <- numeric(n)
   for (i in seq_len(n)) {
     gf <- Gf[[as.character(cgroup[i])]]
     hf <- Hf[[as.character(tgroup[i])]]
-    aden_t[i, ] <- gf(et) * hf(et)
-    aden_x[i] <- gf(d$X[i]) * hf(d$X[i])
+    kk <- kappa[[cell[i]]]
+    aden_t[i, ] <- kk * gf(et) * hf(et)
+    aden_x[i] <- kk * gf(d$X[i]) * hf(d$X[i])
   }
   atrisk <- outer(d$X, et, ">=") & outer(d$L, et, "<")
   comp <- outer(d$X, et, "<") & (d$status != 0L & d$status != cause)
@@ -442,7 +466,12 @@ for (fi in seq_along(fixtures)) {
   }
   write.csv(d, file.path(OUT, paste0("zzf_fix_", fx$nm, ".csv")), row.names = FALSE)
 
-  zz <- if (fx$nm %in% c("truncstrata_only", "same_grouping", "cross_grouping")) {
+  zz <- if (fx$nm == "same_grouping") {
+    # Published eq. (6): direct b_g/S_g on the matching grouping, independent
+    # of the product-limit route the package and zzf_weights_cross share.
+    d$wgroup <- d$z1
+    zzf_fit(d, c("z1", "z2"), stabilizer = "pooled")
+  } else if (fx$nm %in% c("truncstrata_only", "cross_grouping")) {
     zzf_fit_cross(d, c("z1", "z2"), d$cgroup, d$tgroup)
   } else if (fx$nm == "censstrata_only") {
     # The released no-left-truncation path remains the ordinary per-censoring-

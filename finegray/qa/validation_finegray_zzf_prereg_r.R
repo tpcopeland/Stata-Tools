@@ -66,8 +66,11 @@ arms <- list(
   A_none_pooled      = function(s) zzf_fit(pool(gen_fg(N, "none",        seed = s)), c("z1","z2")),
   B_indep_pooled     = function(s) zzf_fit(pool(gen_fg(N, "independent", seed = s)), c("z1","z2")),
   C_bygroup_strat    = function(s) {
+    # Direct b_g/S_g (ZZF eq. 6); the zzf_fit_cross() route this arm used
+    # through 1.3.2 lacked the per-stratum normalizer (corrected 2026-09-11).
     d <- gen_fg(N, "bygroup", seed = s)
-    zzf_fit_cross(d, c("z1", "z2"), d$z1, d$z1)
+    d$wgroup <- d$z1
+    zzf_fit(d, c("z1", "z2"), stabilizer = "pooled")
   },
   D_bygroup_pooled   = function(s) zzf_fit(pool(gen_fg(N, "bygroup",     seed = s)), c("z1","z2"))
 )

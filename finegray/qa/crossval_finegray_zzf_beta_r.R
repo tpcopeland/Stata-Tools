@@ -132,9 +132,14 @@ for (a in names(arms)) {
       d <- pool(d)
       zz <- zzf_fit(d, c("z1", "z2"), stabilizer = "pooled")
     } else if (spec$method == "same") {
+      # Published eq. (6) on matching groups: the direct b_g/S_g oracle, not
+      # the product-limit route.  Through 1.3.2 this arm called
+      # zzf_fit_cross(), whose unnormalized G_g H_g denominators reproduced
+      # the package's own omission of the per-stratum normalizer.
       d$cgroup <- d$z1
       d$tgroup <- d$z1
-      zz <- zzf_fit_cross(d, c("z1", "z2"), d$cgroup, d$tgroup)
+      d$wgroup <- d$z1
+      zz <- zzf_fit(d, c("z1", "z2"), stabilizer = "pooled")
     } else {
       zz <- zzf_fit_cross(d, c("z1", "z2"), d$cgroup, d$tgroup)
     }

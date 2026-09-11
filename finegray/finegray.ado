@@ -1,4 +1,4 @@
-*! finegray Version 1.3.2  2026/09/08
+*! finegray Version 1.3.3  2026/09/11
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2329,10 +2329,10 @@ program define finegray, eclass sortpreserve
     * Combined-weight contract.  lt_weight names the weight actually computed:
     *   right_censoring : no delayed entry; A == G; identical to prior releases
     *   zzf1_geskus       : one weight stratum; Geskus product-limit form
-    *   zzf1_stratified   : ZZF eq. 7 pooled-stabilizer form; strata() and
+    *   zzf1_stratified   : ZZF eq. 6 pooled-stabilizer form; strata() and
     *                       truncstrata() name the SAME grouping -- the paper's
     *                       stratified nonparametric construction
-    *   zzf1_factorized   : ZZF eq. 7 machinery, but strata() and truncstrata()
+    *   zzf1_factorized   : ZZF eq. 6 machinery, but strata() and truncstrata()
     *                       name DIFFERENT groupings (including one side left
     *                       unspecified): G is estimated within strata(), H
     *                       within truncstrata(), and the components multiply.
@@ -2356,6 +2356,12 @@ program define finegray, eclass sortpreserve
                 local _fg_factorized = 1
             if `_fg_factorized' ereturn local lt_weight "zzf1_factorized"
             else                ereturn local lt_weight "zzf1_stratified"
+            * The stratum normalizer kappa_g (1.3.3; _finegray_lt_normalizer).
+            * Post-estimation refuses a stratified delayed-entry fit without
+            * this stamp: an `estimates use' of a 1.3.0-1.3.2 fit would
+            * otherwise pair its coefficients with a baseline rebuilt on the
+            * corrected weights at rc 0.
+            ereturn local lt_norm "stratum"
         }
         else ereturn local lt_weight "zzf1_geskus"
     }
