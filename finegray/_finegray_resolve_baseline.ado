@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.3.2  2026/09/08
+*! _finegray_resolve_baseline Version 1.3.3  2026/09/11
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)

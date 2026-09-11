@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.2  2026/09/08
+*! finegray_cif Version 1.3.3  2026/09/11
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -259,6 +259,18 @@ program define finegray_cif, rclass sortpreserve
         display as error "refit on a single dataset -- {bf:mi extract 0, clear} for the"
         display as error "complete-case data, or {bf:mi extract #, clear} for one imputation --"
         display as error "and run {bf:finegray} there; see {help finegray##mi:help finegray}"
+        exit 301
+    }
+    * A stratified delayed-entry fit from 1.3.0-1.3.2 lacks the per-stratum
+    * weight normalizer (ZZF 2011 eq. 6; finegray 1.3.3), and the fit stamps
+    * e(lt_norm) only once it carries it.  Rebuilding a baseline, residuals or
+    * a variance with the corrected weights under those coefficients pairs two
+    * different estimators at rc 0.  Refuse by name.
+    if inlist(`"`e(lt_weight)'"', "zzf1_stratified", "zzf1_factorized") ///
+        & `"`e(lt_norm)'"' == "" {
+        display as error "estimation results predate finegray 1.3.3"
+        display as error "this stratified delayed-entry fit lacks the stratum weight"
+        display as error "normalizer that 1.3.3 added; re-run {bf:finegray} before using finegray_cif"
         exit 301
     }
     * A nonconverged fit posts e(b), and e(b) is all this command reads. Without

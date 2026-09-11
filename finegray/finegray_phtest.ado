@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.2  2026/09/08
+*! finegray_phtest Version 1.3.3  2026/09/11
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -79,6 +79,18 @@ program define finegray_phtest, rclass
         display as error "finegray_phtest requires a converged fit; refit finegray"
         display as error "with a larger iterate() or a different specification"
         exit 430
+    }
+    * A stratified delayed-entry fit from 1.3.0-1.3.2 lacks the per-stratum
+    * weight normalizer (ZZF 2011 eq. 6; finegray 1.3.3), and the fit stamps
+    * e(lt_norm) only once it carries it.  Rebuilding a baseline, residuals or
+    * a variance with the corrected weights under those coefficients pairs two
+    * different estimators at rc 0.  Refuse by name.
+    if inlist(`"`e(lt_weight)'"', "zzf1_stratified", "zzf1_factorized") ///
+        & `"`e(lt_norm)'"' == "" {
+        display as error "estimation results predate finegray 1.3.3"
+        display as error "this stratified delayed-entry fit lacks the stratum weight"
+        display as error "normalizer that 1.3.3 added; re-run {bf:finegray} before using finegray_phtest"
+        exit 301
     }
     * A tvc() fit does not assume proportional subdistribution hazards for the
     * covariates it names, so there is nothing here to test for them -- and the

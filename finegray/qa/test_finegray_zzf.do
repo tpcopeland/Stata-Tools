@@ -417,10 +417,12 @@ else {
     display as error "  FAIL: Z17 _finegray_weight_groups.ado not resolvable"
 }
 
-* Z20: e(min_weight_prob) is the smallest CONSULTED A.  A is a product of two
-* survival-type probabilities, so it must lie in (0, 1] -- a value above 1 would
-* mean H is not a probability, and a value of 0 would mean the scan divided by
-* zero and reported success anyway.
+* Z20: e(min_weight_prob) is the smallest CONSULTED denominator.  On the
+* stratified delayed-entry branch that is the normalized B_g = b_g/S_g (finegray
+* 1.3.3), which is bounded BELOW by 1/n_g -- the subject itself is at risk at its
+* own exit, and S_g <= 1 -- and is not bounded above by 1.  A value of 0 would
+* mean the scan divided by zero and reported success anyway; a value below 1/N
+* would mean the normalizer was dropped again.
 *
 * (This assertion exists partly because the QA return-coverage checker reads
 * literal e(name) references: Z9 reaches min_weight_prob through a loop variable,
@@ -429,13 +431,13 @@ else {
 local ++test_count
 quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1)
 local _mp = e(min_weight_prob)
-if `_mp' > 0 & `_mp' <= 1 {
+if `_mp' > 0 & `_mp' >= 1 / e(N) & `_mp' < . {
     local ++pass_count
-    display as result "  PASS: Z20 e(min_weight_prob) = `=string(`_mp', "%9.3e")' is in (0, 1]"
+    display as result "  PASS: Z20 e(min_weight_prob) = `=string(`_mp', "%9.3e")' is in [1/N, +inf)"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z20 e(min_weight_prob) = `_mp' is not a probability"
+    display as error "  FAIL: Z20 e(min_weight_prob) = `_mp' is outside [1/N, +inf) (N=`e(N)')"
 }
 
 * ===========================================================================
@@ -720,7 +722,19 @@ capture drop cs
 * inflated every risk set and left H at 0.35.  H is per truncation stratum.)
 display as text _newline "9. low-A and extreme-weight warnings"
 
-* Z25: a defined-but-enormous weight WARNS and still fits (it must not error).
+* Z25: a decayed entry product limit is NOT an enormous weight once the
+* stratum normalizer is in place (finegray 1.3.3).  The chain below drives
+* H_2(0.05-) to about 1e-12, and through 1.3.2 the retained target subject
+* was divided by that raw product and carried a ~1e12 weight, which this test
+* then required the warning scalars to report.  ZZF eq. (6) divides by
+* b_2(X_i)/S_2(X_i-) instead: the target and the spanner are the two subjects
+* at risk in stratum 2 at 0.05 and no event precedes it, so the denominator is
+* exactly 2/n_2 and the weight is n_2/2 * B_pool(t) -- bounded, and bounded
+* the same way for every retained subject (denominator >= 1/n_g).  The fit must
+* run, must not be refused as a positivity failure, and must report no warning
+* because there is nothing to warn about; the warning scalars remain live on
+* the right-censoring path, where A = G can genuinely decay (Z23 covers the
+* hard zero).
 local ++test_count
 preserve
 clear
@@ -775,24 +789,24 @@ local _mw    = e(max_lt_weight)
 local _npw   = e(N_prob_warn)
 local _nww   = e(N_weight_warn)
 local _ws    = "`e(weight_warn_strata)'"
+local _N_w   = e(N)
 restore
 
 if `_rc_w' == 459 {
     local ++fail_count
-    display as error "  FAIL: Z25 a defined-but-enormous weight was REFUSED as a positivity failure"
-    display as error "        the hard guard is eating the warning; the two thresholds have collided again"
+    display as error "  FAIL: Z25 a bounded normalized weight was REFUSED as a positivity failure"
 }
 else if `_rc_w' != 0 {
     local ++fail_count
-    display as error "  FAIL: Z25 fit failed (rc=`_rc_w'); expected a warning, not an error"
+    display as error "  FAIL: Z25 fit failed (rc=`_rc_w'); expected a clean fit"
 }
-else if `_npw' > 0 & `_nww' > 0 & "`_ws'" != "" & `_mp' > 0 & `_mp' < 1e-10 {
+else if `_npw' == 0 & `_nww' == 0 & "`_ws'" == "" & `_mp' >= 1 / `_N_w' & `_mw' < `_N_w' {
     local ++pass_count
-    display as result "  PASS: Z25 warnings fire (minA=`=string(`_mp', "%9.2e")', maxwt=`=string(`_mw', "%9.2e")', strata `_ws') and the fit still runs"
+    display as result "  PASS: Z25 decayed H is normalized away (minB=`=string(`_mp', "%9.2e")', maxwt=`=string(`_mw', "%9.2e")', N=`_N_w'); no warning"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z25 warnings did not fire: nprobwarn=`_npw' nwtwarn=`_nww' minA=`_mp' strata='`_ws''"
+    display as error "  FAIL: Z25 nprobwarn=`_npw' nwtwarn=`_nww' minB=`_mp' maxwt=`_mw' N=`_N_w' strata='`_ws'' (pre-fix: minA~1e-12, maxwt~1e12)"
 }
 
 * ---------------------------------------------------------------------------
@@ -1079,6 +1093,396 @@ if _rc == 0 {
 else {
     local ++fail_count
     display as error "  FAIL: Z28 prepared-weight equivalence (rc=`=_rc')"
+}
+
+* ===========================================================================
+* 5. STRATIFIED NORMALIZATION (corrected 2026-09-11, finegray 1.3.3)
+* ===========================================================================
+* ZZF (2011) eq. (6), published p.1938, puts b_g(X_i)/S_g(X_i-) in the
+* subject-side denominator.  The product-limit object the scan carries,
+* G_g H_g, is only PROPORTIONAL to it -- B_g = kappa_g * G_g H_g with
+* kappa_g = n_g^-1 sum 1/H_g(X_i-) -- and through 1.3.2 the pooled-stabilizer
+* branch divided by the raw product, weighting each stratum by kappa_g relative
+* to the published estimator.  The 48-subject fixture below has
+* kappa = 4/3 in stratum 0 and 1 in stratum 1, so the omission is visible in
+* the third decimal of the coefficient.  Expected values come from the
+* 2026-09-11 audit's independent dense Python/R (survival::coxph on the
+* published weights) calculation; the old code produced 0.173211869245873 on
+* this fixture, watched before the fix, and Z29's tolerance rejects it.
+display as text _newline "5. stratified delayed-entry normalization"
+
+program define _zzf_norm_fix
+    syntax , [UNTIED]
+    clear
+    quietly {
+        * (`input' cannot read inline rows from inside a program)
+        matrix _fx = (0.10, 0.25, 2, 0 \ 0.20, 0.50, 1, 0 \ 0.30, 0.60, 1, 0 \ ///
+                      0.00, 0.35, 2, 1 \ 0.00, 0.55, 1, 1 \ 0.00, 0.65, 1, 1)
+        svmat double _fx
+        rename (_fx1 _fx2 _fx3 _fx4) (t0 t status z)
+        recast byte status z
+        expand 8
+        sort z t0 t
+        by z t0 t: gen byte r = _n - 1
+        if "`untied'" != "" {
+            replace t  = t  + r * 1e-4
+            replace t0 = t0 + r * 1e-5 if t0 > 0
+        }
+        gen long id = _n
+        gen byte anyev = status != 0
+        stset t, failure(anyev == 1) id(id) enter(time t0)
+    }
+end
+
+* Z29: tied fixture reproduces the published stratified coefficient.
+local ++test_count
+_zzf_norm_fix
+capture quietly finegray z, compete(status) cause(1) strata(z) truncstrata(z) noshr
+local _z29_rc = _rc
+local _z29_b = _b[z]
+if `_z29_rc' == 0 & reldif(`_z29_b', 0.150557568374249) < 1e-9 {
+    local ++pass_count
+    display as result "  PASS: Z29 tied fixture b = " %18.15f `_z29_b' " (published 0.150557568374249)"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z29 tied fixture rc=`_z29_rc' b=" %18.15f `_z29_b' " expected 0.150557568374249 (pre-fix 0.173211869245873)"
+}
+
+* Z30: untied fixture (ties broken by 1e-4 / 1e-5 jitter) likewise.
+local ++test_count
+_zzf_norm_fix, untied
+capture quietly finegray z, compete(status) cause(1) strata(z) truncstrata(z) noshr
+local _z30_rc = _rc
+local _z30_b = _b[z]
+if `_z30_rc' == 0 & reldif(`_z30_b', 0.211489926932413) < 1e-9 {
+    local ++pass_count
+    display as result "  PASS: Z30 untied fixture b = " %18.15f `_z30_b' " (published 0.211489926932413)"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z30 untied fixture rc=`_z30_rc' b=" %18.15f `_z30_b' " expected 0.211489926932413 (pre-fix 0.209440793592442)"
+}
+
+* Z31: the complete risk-set and event weights the engine prepares equal ZZF
+* eq. (6) built DIRECTLY from observed risk counts and the within-stratum
+* left-truncated all-cause Kaplan-Meier -- no product-limit helper, no
+* normalizer -- and the coefficient solves the dense weighted score equation
+* on those direct weights.  Both fixtures.
+* The direct oracle, defined once (a function cannot be defined inside a
+* `mata {' block).
+mata:
+mata set matastrict on
+real matrix _zzf_direct_B(real colvector L, real colvector X,
+    real colvector anyev, real colvector g, real colvector levels,
+    real colvector s)
+{
+    /* B_g(s) = b_g(s)/S_g(s-): (L, X] at-risk convention, events
+       before censorings and entries at a tie, S_g the all-cause KM
+       within g over events strictly below s. */
+    real scalar j, k, u, nrisk, d, surv, m
+    real colvector sel, ev
+    real matrix out
+
+    out = J(rows(s), rows(levels), .)
+    for (j = 1; j <= rows(levels); j++) {
+        sel = selectindex(g :== levels[j])
+        ev = uniqrows(select(X[sel], anyev[sel] :== 1))
+        for (k = 1; k <= rows(s); k++) {
+            surv = 1
+            for (m = 1; m <= rows(ev); m++) {
+                u = ev[m]
+                if (u >= s[k]) break
+                nrisk = sum((L[sel] :< u) :& (X[sel] :>= u))
+                d = sum((X[sel] :== u) :& (anyev[sel] :== 1))
+                surv = surv * (1 - d / nrisk)
+            }
+            out[k, j] = mean((L[sel] :< s[k]) :& (X[sel] :>= s[k])) / surv
+        }
+    }
+    return(out)
+}
+end
+
+local ++test_count
+capture noisily {
+    foreach arm in tied untied {
+        if "`arm'" == "tied" _zzf_norm_fix
+        else                 _zzf_norm_fix, untied
+        quietly finegray z, compete(status) cause(1) strata(z) truncstrata(z) noshr
+        tempvar _zes
+        quietly generate byte `_zes' = e(sample)
+        mata {
+            es = selectindex(st_data(., st_local("_zes")) :!= 0)
+            tt = st_data(es, "_t")
+            dd = st_data(es, "_d")
+            et = st_data(es, "status")
+            ZZ = st_data(es, "z")
+            gg = st_data(es, "z")
+            ee = st_data(es, "_t0")
+            n = rows(tt)
+            anyev = (et :!= 0)
+            lev = uniqrows(gg)
+            gi = J(n, 1, .)
+            for (i = 1; i <= n; i++) gi[i] = selectindex(lev :== gg[i])
+            evt = uniqrows(select(tt, et :== 1))
+            K = rows(evt)
+            /* direct weights, n x K */
+            Bp_t = _zzf_direct_B(ee, tt, anyev, J(n, 1, 1), 1, evt)
+            Bg_t = _zzf_direct_B(ee, tt, anyev, gg, lev, evt)
+            Bg_x = _zzf_direct_B(ee, tt, anyev, gg, lev, tt)
+            Wd = J(n, K, 0)
+            for (i = 1; i <= n; i++) {
+                for (k = 1; k <= K; k++) {
+                    if (ee[i] < evt[k] & tt[i] >= evt[k]) {
+                        Wd[i, k] = Bp_t[k, 1] / Bg_t[k, gi[i]]
+                    }
+                    else if (tt[i] < evt[k] & et[i] == 2) {
+                        Wd[i, k] = Bp_t[k, 1] / Bg_x[i, gi[i]]
+                    }
+                }
+            }
+            /* engine weights from the prepared design */
+            GG = _finegray_km_censor(tt, dd, 0, et, gg, ee)
+            pooled = .
+            pgi = pgm = AP = J(0, 1, .)
+            AA = J(0, 0, .)
+            _finegray_prepare_weight_design(tt, dd, 0, et, GG, gg, ee, gg,
+                pooled, pgi, pgm, AA, AP)
+            if (pooled != 1) exit(error(9))
+            We = J(n, K, 0)
+            for (k = 1; k <= K; k++) {
+                row = selectindex((tt :== evt[k]) :& (et :== 1))[1]
+                for (i = 1; i <= n; i++) {
+                    if (ee[i] < evt[k] & tt[i] >= evt[k]) {
+                        We[i, k] = AP[row] / AA[row, pgi[i]]
+                    }
+                    else if (tt[i] < evt[k] & et[i] == 2) {
+                        We[i, k] = AP[row] / pgm[i]
+                    }
+                }
+            }
+            wdiff = max(abs(We - Wd))
+            /* dense Newton on the DIRECT weights */
+            b = 0
+            for (it = 1; it <= 50; it++) {
+                U = 0; I = 0
+                for (k = 1; k <= K; k++) {
+                    ex = exp(ZZ :* b)
+                    S0 = sum(Wd[., k] :* ex)
+                    S1 = sum(Wd[., k] :* ex :* ZZ)
+                    S2 = sum(Wd[., k] :* ex :* ZZ :* ZZ)
+                    rows_k = selectindex((tt :== evt[k]) :& (et :== 1))
+                    for (m = 1; m <= rows(rows_k); m++) {
+                        i = rows_k[m]
+                        U = U + Wd[i, k] * (ZZ[i] - S1 / S0)
+                        I = I + Wd[i, k] * (S2 / S0 - (S1 / S0)^2)
+                    }
+                }
+                step = U / I
+                b = b + step
+                if (abs(step) < 1e-13) break
+            }
+            bdiff = abs(b - st_matrix("e(b)")[1, 1])
+            st_numscalar("_z31_wdiff", wdiff)
+            st_numscalar("_z31_bdiff", bdiff)
+            st_numscalar("_z31_K", K)
+        }
+        display as text "  `arm': K=" scalar(_z31_K) " max |w_engine - w_direct| = " ///
+            %10.3e scalar(_z31_wdiff) "  |b_engine - b_direct| = " %10.3e scalar(_z31_bdiff)
+        assert !missing(scalar(_z31_wdiff), scalar(_z31_bdiff))
+        assert scalar(_z31_wdiff) < 1e-12
+        assert scalar(_z31_bdiff) < 1e-9
+    }
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z31 engine risk/event weights and coefficient equal the direct eq. (6) oracle"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z31 direct eq. (6) oracle disagreement (rc=`=_rc')"
+}
+
+* Z32: factorized groupings (strata() != truncstrata()).  The prepared cell
+* column must equal kappa_j * G_c H_u with kappa_j = n_j^-1 sum 1/H_u(X_i-)
+* computed here from a direct reverse-time entry product limit; and every
+* pooled-branch design must leave the ONE-stratum design untouched (kappa
+* cancels there, so the released pooled delayed-entry path is bit-identical).
+local ++test_count
+capture noisily {
+    _zzf_fix, n(1500) seed(20260911)
+    quietly stset t, failure(anyev == 1) id(id) enter(time t0)
+    quietly finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1)
+    tempvar _zes
+    quietly generate byte `_zes' = e(sample)
+    mata {
+        es = selectindex(st_data(., st_local("_zes")) :!= 0)
+        tt = st_data(es, "_t")
+        dd = st_data(es, "_d")
+        et = st_data(es, "status")
+        bg = st_data(es, "g4")
+        ee = st_data(es, "_t0")
+        tg = st_data(es, "z1")
+        n = rows(tt)
+        GG = _finegray_km_censor(tt, dd, 0, et, bg, ee)
+        pooled = .
+        gi = gm = AP = J(0, 1, .)
+        AA = J(0, 0, .)
+        _finegray_prepare_weight_design(tt, dd, 0, et, GG, bg, ee, tg,
+            pooled, gi, gm, AA, AP)
+        if (pooled != 1) exit(error(9))
+        /* direct H_u(X_i-): reverse-time product over entry times >= X_i,
+           risk r(l) = #{L <= l} - #{X <= l}, within truncation group */
+        Hx = J(n, 1, 1)
+        ulev = uniqrows(tg)
+        for (u = 1; u <= rows(ulev); u++) {
+            sel = selectindex(tg :== ulev[u])
+            lt = uniqrows(select(ee[sel], ee[sel] :> 0))
+            for (m = 1; m <= rows(sel); m++) {
+                i = sel[m]
+                acc = 1
+                for (j = 1; j <= rows(lt); j++) {
+                    if (lt[j] < tt[i]) continue
+                    r = sum(ee[sel] :<= lt[j]) - sum(tt[sel] :<= lt[j])
+                    w = sum(ee[sel] :== lt[j])
+                    if (r > 0 & w > 0) acc = acc * (1 - w / r)
+                }
+                Hx[i] = acc
+            }
+        }
+        if (min(Hx) <= 0) exit(error(9))
+        /* raw product per cell from the engine's own G/H evaluators, then
+           the independent kappa on top; the cell index is the engine's gi */
+        nj = cols(AA)
+        kap = J(nj, 1, 0)
+        cnt = J(nj, 1, 0)
+        for (i = 1; i <= n; i++) {
+            kap[gi[i]] = kap[gi[i]] + 1 / Hx[i]
+            cnt[gi[i]] = cnt[gi[i]] + 1
+        }
+        kap = kap :/ cnt
+        jc = ju = J(0, 1, .); gi2 = J(0, 1, .)
+        _finegray_joint_setup(bg, tg, gi2, jc, ju)
+        Araw = _finegray_A_at_times(tt, GG, bg, ee, tg, jc, ju, tt)
+        worst = 0
+        for (j = 1; j <= nj; j++) {
+            worst = max((worst, mreldif(AA[., j], kap[j] :* Araw[., j])))
+        }
+        worst = max((worst, mreldif(gm, _finegray_G_minus(gi, AA))))
+        /* pooled: kappa_pool * raw pooled product == b(t)/S(t-) directly */
+        one = J(n, 1, 1)
+        Bp = _zzf_direct_B(ee, tt, (et :!= 0), one, 1, tt)
+        worst = max((worst, mreldif(AP, Bp)))
+        /* one-stratum design is the raw product, untouched */
+        pooled1 = .
+        gi1 = gm1 = AP1 = J(0, 1, .)
+        AA1 = J(0, 0, .)
+        GG1 = _finegray_km_censor(tt, dd, 0, et, one, ee)
+        _finegray_prepare_weight_design(tt, dd, 0, et, GG1, one, ee, one,
+            pooled1, gi1, gm1, AA1, AP1)
+        if (pooled1 != 0) exit(error(9))
+        Araw1 = _finegray_A_at_times(tt, GG1, one, ee, one, 1, 1, tt)
+        if (AA1 != Araw1) exit(error(9))
+        if (AP1 != one) exit(error(9))
+        st_numscalar("_z32_worst", worst)
+        st_numscalar("_z32_kmin", min(kap))
+        st_numscalar("_z32_kmax", max(kap))
+    }
+    display as text "  cell normalizers in [" %8.5f scalar(_z32_kmin) ", " ///
+        %8.5f scalar(_z32_kmax) "], worst relative difference = " ///
+        %10.3e scalar(_z32_worst)
+    assert !missing(scalar(_z32_kmax), scalar(_z32_worst))
+    assert scalar(_z32_kmax) > 1.01
+    assert scalar(_z32_worst) < 1e-12
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z32 factorized cells carry kappa_j G_c H_u; one-stratum design untouched"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z32 factorized normalization (rc=`=_rc')"
+}
+
+* Z33: an undefined normalizer is refused, not padded.  Entry group 0's first
+* subjects all leave (censored) before anyone else in that group enters, so
+* H_0(X_i-) == 0 for them and kappa_(c,0) has no value in either censoring
+* cell.  The censoring groups cut ACROSS the entry groups, so each G_c still
+* sees entry-group-1 subjects at risk and never collapses: through 1.3.2 every
+* consulted G_c H_0 cell was positive and this fit ran at rc 0 on cells whose
+* normalizer does not exist.  (With matching groupings the old positivity
+* check already refused every such configuration, because the same empty
+* risk set that zeroes H_g also zeroes G_g or a consulted retained cell.)
+local ++test_count
+clear
+quietly {
+    input double(t0 t) byte(status u)
+    0.00 0.20 0 0
+    0.30 0.90 1 0
+    0.35 1.10 2 0
+    0.40 1.30 1 0
+    0.00 0.50 1 1
+    0.00 0.80 2 1
+    0.00 1.20 1 1
+    0.00 0.25 0 1
+    end
+    expand 12
+    gen long id = _n
+    gen byte c = mod(id, 2)
+    gen byte anyev = status != 0
+    stset t, failure(anyev == 1) id(id) enter(time t0)
+}
+capture quietly finegray c, compete(status) cause(1) strata(c) truncstrata(u) noshr
+if _rc == 459 {
+    local ++pass_count
+    display as result "  PASS: Z33 unnormalizable entry group refused with r(459)"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z33 expected r(459) for an undefined normalizer, got rc=`=_rc' (pre-fix: rc 0)"
+}
+
+* Z34: a stratified delayed-entry fit posts e(lt_norm) = "stratum", and every
+* post-estimation command refuses such a fit WITHOUT the stamp -- which is
+* what an `estimates use' of a 1.3.0-1.3.2 fit looks like (verified against a
+* saved 1.3.2 fit on 2026-09-11; here the stamp is cleared by hand so the test
+* needs no old binary).  A one-stratum fit carries no stamp and is not gated.
+program define _z34_unstamp, eclass
+    ereturn local lt_norm ""
+end
+local ++test_count
+capture noisily {
+    _zzf_fix, n(1500) seed(20260911)
+    quietly stset t, failure(anyev == 1) id(id) enter(time t0)
+    quietly finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)
+    assert "`e(lt_weight)'" == "zzf1_stratified"
+    assert "`e(lt_norm)'" == "stratum"
+    _z34_unstamp
+    assert "`e(lt_norm)'" == ""
+    capture finegray_predict _z34cif, cif
+    assert _rc == 301
+    capture finegray_cif, at(z1=1 z2=0)
+    assert _rc == 301
+    capture finegray_phtest
+    assert _rc == 301
+    quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1) strata(g4)
+    assert "`e(lt_weight)'" == "zzf1_factorized"
+    assert "`e(lt_norm)'" == "stratum"
+    quietly finegray z1 z2, compete(status) cause(1)
+    assert "`e(lt_weight)'" == "zzf1_geskus"
+    assert "`e(lt_norm)'" == ""
+    capture drop _z34cif
+    quietly finegray_predict _z34cif, cif
+    assert _rc == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z34 e(lt_norm) stamped on stratified fits; unstamped stratified fits refused post-estimation"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z34 e(lt_norm) contract (rc=`=_rc')"
 }
 
 * ===========================================================================

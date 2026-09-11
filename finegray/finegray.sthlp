@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.2  08sep2026}{...}
+{* *! version 1.3.3  11sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -544,7 +544,12 @@ before 1.3.1. Results with no delayed entry are unchanged, bit for bit. See
 {cmd:e(lt_weight)} reports the weight computed: {cmd:right_censoring},
 {cmd:zzf1_geskus}, {cmd:zzf1_stratified} or {cmd:zzf1_factorized}. Name the
 covariate that drives entry in {opt truncstrata()}, and the one that drives
-censoring in {opt strata()}.
+censoring in {opt strata()}. Stratified and factorized fits also post
+{cmd:e(lt_norm)} = {cmd:stratum}, the receipt for the per-stratum weight
+normalizer added in 1.3.3; the post-estimation commands refuse a stratified
+delayed-entry fit that lacks it. On those fits {cmd:e(min_weight_prob)} is the
+smallest normalized denominator b_g/S_g the scan consulted, which is at least
+1/n_g and may exceed 1; without delayed entry it is a censoring probability.
 
 {pstd}
 {bf:Support boundary.} Under delayed entry, at most {bf:100} joint weight strata are
@@ -878,7 +883,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(iterate)}}maximum iterations{p_end}
 {synopt:{cmd:e(tolerance)}}convergence tolerance{p_end}
 {synopt:{cmd:e(N_weight_strata)}}observed joint (censoring x entry) weight strata{p_end}
-{synopt:{cmd:e(min_weight_prob)}}smallest weight probability A the scan consulted{p_end}
+{synopt:{cmd:e(min_weight_prob)}}smallest consulted weight denominator{p_end}
 {synopt:{cmd:e(max_lt_weight)}}largest retained subject-by-cause-time weight{p_end}
 {synopt:{cmd:e(N_prob_warn)}}consulted weight probabilities with A < 1e-10{p_end}
 {synopt:{cmd:e(N_weight_warn)}}retained subject-by-cause-time weights above 1e6{p_end}
@@ -910,6 +915,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(tvc_pos)}}their positions in {cmd:e(designvars)}; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tsplit_nfail)}}cause events per interval; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(lt_weight)}}weight computed; see {help finegray##lt:Left truncation}{p_end}
+{synopt:{cmd:e(lt_norm)}}{cmd:stratum} on stratified delayed-entry fits{p_end}
 {synopt:{cmd:e(lt_vce)}}variance computed under delayed entry{p_end}
 {synopt:{cmd:e(bh_seq)}}serial number of the cached baseline curve{p_end}
 {synopt:{cmd:e(bh_key)}}internal key to the cached baseline{p_end}
@@ -975,7 +981,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.2, 2026-09-08{p_end}
+{pstd}Version 1.3.3, 2026-09-11{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

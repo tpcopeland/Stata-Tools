@@ -230,7 +230,7 @@ representation converges to Fine and Gray's eta+psi as n grows -- converges,
 not coincides: the appendix's w_i is the exact influence of an empirical
 average where eq. (8) uses the martingale linearization, and the two agree only
 asymptotically. Right-censored fits keep eq. (7)-(8) unchanged. The term is available
-for the {bf:pooled} weight only: for the stratified weight (their eq. 7) ZZF's
+for the {bf:pooled} weight only: for the stratified weight (their eq. 6) ZZF's
 Appendix E (p. 1949) estimate the variance "treating the weight function
 known", which is the default sandwich, so {opt nuisance} with {opt strata()}
 or {opt truncstrata()} under delayed entry is refused ({cmd:r(198)}) rather
@@ -630,11 +630,35 @@ tie convention, which is why delayed-entry estimates move relative to
 {cmd:zzf1_geskus} for this case.
 
 {pstd}
-{bf:Multiple weight strata: the equation-7 form.} The time-side stabilizer is
+{bf:Multiple weight strata: the stratified form.} The time-side stabilizer is
 pooled, while each subject-side denominator is stratum-specific. When
-{opt strata()} and {opt truncstrata()} specify the same grouping, this is Zhang,
-Zhang and Fine's (2011, eq. 7) stratified nonparametric construction, reported
-as {cmd:zzf1_stratified}.
+{opt strata()} and {opt truncstrata()} specify the same grouping, this is
+Zhang, Zhang and Fine's (2011, eq. 6, p. 1938; eq. 7 in the PMC author
+manuscript) stratified nonparametric construction, reported as
+{cmd:zzf1_stratified}: a subject in stratum {it:g} carries B(t)/B_g(X_i and
+t), with B_g(s) = b_g(s)/S_g(s-), b_g the within-stratum fraction observed at
+risk and S_g the within-stratum left-truncated all-cause Kaplan-Meier
+estimate.
+
+{pstd}
+{bf:The stratum normalizer (corrected in 1.3.3).} The product-limit object the
+engine computes, G_g(t-)H_g(t-), is proportional to B_g but not equal to
+it. B_g = kappa_g G_g H_g with kappa_g = n_g^-1 sum over i in g of 1/H_g(X_i-), the
+inverse-probability estimate of 1/P(L < X | g) (Geskus 2011, eq. 8), which
+differs across strata whenever the entry mechanism does. kappa_g cancels from
+the one-stratum ratio A(t)/A(X_i), so the pooled delayed-entry path never
+needed it; it does {it:not} cancel between a pooled numerator and a
+stratum-specific denominator. Versions 1.3.0 through 1.3.2 divided by the raw
+product on this path and therefore weighted each stratum by kappa_g relative
+to the published estimator; coefficients, baseline, predictions and
+diagnostics from those releases with delayed entry {it:and} more than one
+observed weight stratum should be refitted. Right-censored fits and pooled
+delayed-entry fits are unaffected, bit for bit. Two consequences of the
+corrected form: normalized B_g values may exceed 1 and are not probabilities,
+and every consulted denominator is at least 1/n_g (the subject is at risk at
+its own exit), so a retained weight on this path is bounded by n_g times the
+pooled stabilizer and the extreme-weight warnings below are, in practice, a
+right-censoring-path diagnostic.
 
 {pstd}
 {bf:The factorized extension, and what it assumes.} When {opt strata()} and
@@ -643,8 +667,16 @@ within {opt strata()}, estimates H within {opt truncstrata()}, and multiplies
 the components in each observed combination. That cross-classification is a
 package extension, not a construction attributed to Zhang et al., and
 {cmd:e(lt_weight)} reports {cmd:zzf1_factorized} so that a consumer can tell
-the extension apart from the ZZF construction it is not. The same contract is
-used by estimation and by every post-estimation calculation.
+the extension apart from the ZZF construction it is not. Each observed joint
+cell {it:j} = ({it:c}, {it:u}) is normalized by its own members through the
+entry product limit of its truncation group, kappa_j = n_j^-1 sum over i in j
+of 1/H_u(X_i-), the same cohort-size estimate as above applied to the cell; with
+matching groupings it reduces to kappa_g exactly. This normalizer is a
+package derivation. If H_u(X_i-) is zero for a member of a consulted cell --
+the truncation group's risk set was empty just before a later entry time --
+the normalizer is undefined and the fit is refused with {cmd:r(459)} rather
+than computed on an unnormalizable cell. The same contract is used by
+estimation and by every post-estimation calculation.
 
 {pstd}
 The published same-group product-limit result does not require entry and

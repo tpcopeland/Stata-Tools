@@ -1,4 +1,0 @@
-file[1]=9e8527667b2716d0d4d1fe6516cde2bd
-file[2]=b9c3f73644ee72de6e8ee3716eadfae2
-val[N]=3000
-val[REPS]=20
