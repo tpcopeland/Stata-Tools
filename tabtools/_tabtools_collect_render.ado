@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.1.4  2026/09/09
+*! _tabtools_collect_render Version 2.1.5  2026/09/11
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -282,9 +282,33 @@ program define _tt_collect_dim_locals, rclass
     }
     local _ordered_levels ""
     local _total_levels ""
+    local _all_numeric = 1
     foreach _lev of local levels {
         if "`_lev'" == ".m" local _total_levels "`_total_levels' `_lev'"
-        else local _ordered_levels "`_ordered_levels' `_lev'"
+        else {
+            local _ordered_levels "`_ordered_levels' `_lev'"
+            if missing(real("`_lev'")) local _all_numeric = 0
+        }
+    }
+    * collect levelsof returns levels in string order ("1 10 11 2 ..."), so a
+    * numeric dimension such as cmdset with 10+ levels would misalign the
+    * rendered columns against models() labels and addrow() values. Re-sort
+    * purely numeric levels numerically.
+    if `_all_numeric' & `"`_ordered_levels'"' != "" {
+        local _n_num : word count `_ordered_levels'
+        tempname _lev_mat
+        matrix `_lev_mat' = J(`_n_num', 1, .)
+        forvalues _i = 1/`_n_num' {
+            local _lev : word `_i' of `_ordered_levels'
+            matrix `_lev_mat'[`_i', 1] = real("`_lev'")
+        }
+        mata: st_matrix("`_lev_mat'", sort(st_matrix("`_lev_mat'"), 1))
+        local _sorted_levels ""
+        forvalues _i = 1/`_n_num' {
+            local _val = `_lev_mat'[`_i', 1]
+            local _sorted_levels "`_sorted_levels' `_val'"
+        }
+        local _ordered_levels "`_sorted_levels'"
     }
     local levels = strtrim("`_ordered_levels' `_total_levels'")
 

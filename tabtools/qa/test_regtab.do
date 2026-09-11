@@ -5315,6 +5315,48 @@ else {
     local ++fail_count
 }
 
+**# v2.1.5: 10+ models keep collection order (cmdset is numeric, not string)
+**# collect levelsof cmdset returns "1 10 11 12 2 3 ..." and the renderer used
+**# that order verbatim, so a 12-model regtab placed model 10's estimates under
+**# the models() label and addrow() value of model 2. Seen 2026-09-11 on a
+**# production table with three outcomes x four nested specifications.
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    local _v215_labs ""
+    forvalues _i = 1/12 {
+        quietly gen double _v215_y`_i' = price + `_i' * 1000
+        quietly collect: regress _v215_y`_i' mpg
+        local _v215_labs "`_v215_labs' \ M`_i'"
+    }
+    local _v215_labs = substr("`_v215_labs'", 4, .)
+    regtab, frame(_v215_a) models("`_v215_labs'") keepintercept digits(1) ///
+        addrow("Tag" "a1" "a2" "a3" "a4" "a5" "a6" "a7" "a8" "a9" "a10" "a11" "a12")
+    frame _v215_a {
+        * intercept row: model k estimate = 12253.1 + (k - 1) * 1000 in c1, c4, c7, ...
+        quietly count if strpos(A, "Intercept") > 0
+        assert r(N) == 1
+        forvalues _k = 1/12 {
+            local _v215_col c`=3*`_k' - 2'
+            quietly levelsof `_v215_col' if strpos(A, "Intercept") > 0, local(_v215_cell) clean
+            local _v215_est = real(subinstr("`_v215_cell'", ",", "", .))
+            assert !missing(`_v215_est')
+            assert abs(`_v215_est' - (12253.1 + (`_k' - 1) * 1000)) < 1
+            quietly levelsof `_v215_col' if strtrim(A) == "Tag", local(_v215_tag) clean
+            assert "`_v215_tag'" == "a`_k'"
+        }
+    }
+    capture frame drop _v215_a
+}
+if _rc == 0 {
+    display as result "  PASS: regtab 12-model collection keeps numeric cmdset order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab 12-model collection order (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Summary
 local test_count = `pass_count' + `fail_count'
 display ""
