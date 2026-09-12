@@ -194,7 +194,9 @@ void _msm_mat_save_payload(string scalar matname, string scalar key,
     for (i = 1; i <= rows(M); i++) {
         for (j = 1; j <= cols(M); j++) {
             k++
-            parts[k] = strofreal(M[i, j], "%21x")
+            // A missing cell is written as "." so the loader can tell it from
+            // a corrupt token; %21x of a missing value is not parseable.
+            parts[k] = (M[i, j] >= . ? "." : strofreal(M[i, j], "%21x"))
         }
     }
     s = invtokens(parts', " ")
