@@ -58,22 +58,35 @@ ghat_minus <- function(X, eps, at) {
 
 #
 # CENSORING GROUPS (`cg`, = finegray's byg_id / cmprsk's cengroup).  Ghat is
-# estimated WITHIN each group, so per crr.f lines 353-395 the whole psi
-# machinery is per-group:
+# estimated WITHIN each group, so the censoring martingale, Y_g and the
+# retained-competing sums are per group:
 #
-#   q_g(t) = sum_{s>=t, s an event time FROM GROUP g} d_s^g
+#   q_g(t) = sum_{s>=t, s ANY cause-1 event time} d_s
 #              [S1_2^g(s,t) - xbar(s) S0_2^g(s,t)] / S0(s)
-#     BOTH sums are group-restricted.  crr.f:379 accumulates into
-#     `qu(k, icg(j1))` -- the group of the EVENT subject j1 -- so a cause-1
-#     event in group A contributes only to q_A, using only group-A competing
-#     subjects.  S0(s) and xbar(s) stay GLOBAL (`xb(j1,0)`, `xb(j1,k)`).
-#     Restricting only the inner sums is wrong and shows up as ~1e-3 relative
-#     error the moment there is more than one censoring group.
+#     Only the INNER sums (the retained competing subjects, whose weights
+#     carry Ghat_g) are group-restricted.  The outer sum runs over every
+#     cause-1 event: a group-g subject retained after a competing event sits
+#     in the shared risk set of every later cause-1 event, whichever group
+#     that event's subject belongs to, so Ghat_g's influence reaches them all.
+#     S0(s) and xbar(s) stay GLOBAL.
 #   Y_g(u) = #{j : g(j)=g, X_j >= u}
 #   psi_i  = 1{eps_i=0} q_{g(i)}(X_i)/Y_{g(i)}(X_i)
 #            - sum_{u <= X_i} dNc_g(u) q_g(u)/Y_g(u)^2
 #
-fg_sandwich_hand <- function(X, eps, Z, beta, cg = NULL) {
+# HISTORY (2026-09-12, finegray 1.3.3).  Until 1.3.3 this oracle -- and the
+# package -- restricted the OUTER sum to cause-1 events from group g as well,
+# reproducing cmprsk::crr's crrvv (crr.f:379 accumulates `qu(k, icg(j1))`,
+# the group of the EVENT subject j1, from `ss3(k, icg(j1))` only, discarding
+# the other groups' slices it has just computed).  A censoring group holding
+# competing events but no cause-1 events then contributed an identically
+# zero psi, while perturbing its censoring KM visibly moved the fitted score.
+# The oracle agreed with crr at 1e-8 on every multi-group fixture and was
+# structurally blind to the omission.  It is therefore no longer pinned to
+# crr on multi-group fixtures; there it is pinned to a NUMERICAL DERIVATIVE
+# of the score (fg_numeric_q below), with the within-group form kept only to
+# show that the difference from crr is exactly the cross-group terms.
+#
+fg_sandwich_hand <- function(X, eps, Z, beta, cg = NULL, crr_form = FALSE) {
   Z <- as.matrix(Z); n <- length(X); p <- ncol(Z)
   if (is.null(cg)) cg <- rep(1L, n)
   o <- order(X); X <- X[o]; eps <- eps[o]; Z <- Z[o, , drop = FALSE]
@@ -138,12 +151,19 @@ fg_sandwich_hand <- function(X, eps, Z, beta, cg = NULL) {
   for (g in ug) {
     ing <- cg == g
     Yg[, g] <- sapply(ut, function(t0) sum(X >= t0 & ing))
-    ftg  <- sort(unique(X[eps == 1 & ing]))        # event times FROM group g
-    dkg  <- as.vector(table(factor(X[eps == 1 & ing], levels = ftg)))
-    kidx <- match(ftg, ft)                         # -> position on the global grid
+    if (crr_form) {
+      # crr's within-group form, kept ONLY for the crr-difference check
+      ftg  <- sort(unique(X[eps == 1 & ing]))
+      dkg  <- as.vector(table(factor(X[eps == 1 & ing], levels = ftg)))
+      kidx <- match(ftg, ft)
+    } else {
+      ftg  <- ft                                   # EVERY cause-1 event time
+      dkg  <- dk
+      kidx <- seq_len(m)
+    }
     for (a in seq_len(nu)) {
-      pre <- which(X < ut[a] & eps == 2 & ing)     # group-restricted
-      sel <- which(ftg >= ut[a])                   # group-restricted
+      pre <- which(X < ut[a] & eps == 2 & ing)     # group-restricted: carries Ghat_g
+      sel <- which(ftg >= ut[a])
       if (!length(pre) || !length(sel)) next
       acc <- numeric(p)
       for (jj in sel) {
@@ -171,6 +191,57 @@ fg_sandwich_hand <- function(X, eps, Z, beta, cg = NULL) {
        score = colSums(eta),
        var_eta     = Oi %*% crossprod(eta)       %*% Oi,
        var_eta_psi = Oi %*% crossprod(eta + psi) %*% Oi)
+}
+
+# ---------------------------------------------------------------------------
+# NUMERICAL DERIVATIVE OF THE SCORE (added 2026-09-12).  q_g(u) is, by
+# definition, dU / d lambda_g(u): the response of the score to a unit
+# censoring-hazard increment of group g at u, which scales Ghat_g(t) by
+# exp(-lambda) for every t >= u.  So q_g(u) can be obtained with no psi
+# machinery at all: rebuild the weights from a scaled Ghat_g, re-evaluate the
+# score at the fitted beta, and take a central difference.  It shares the
+# estimating equation with the oracle (that IS what the psi term is about)
+# and nothing else.  Applied with the same I(X_j < u <= t_k) tie convention
+# as eq. (7)-(8) and crr: G at subject times X_j >= u and at event times
+# t_k >= u are scaled.  On distinct times that is the unique derivative.
+# Returns the max relative difference between the oracle's q and the
+# numerical one over every (censoring time, group) cell that carries dNc.
+fg_numeric_q_check <- function(h, beta, eps_fd = 1e-5) {
+  X <- h$X; eps <- h$eps; Z <- h$Z; cg <- h$cg; ut <- h$times
+  n <- length(X); p <- ncol(Z); ug <- sort(unique(cg))
+  ev  <- exp(as.vector(Z %*% beta))
+  ft  <- sort(unique(X[eps == 1])); m <- length(ft)
+  G0  <- h$G
+  Gev0 <- matrix(1, m, length(ug))
+  for (g in ug) {
+    s <- which(cg == g)
+    Gev0[, g] <- ghat_minus(X[s], eps[s], ft)
+  }
+  score <- function(G, Gev) {
+    rmat <- matrix(0, n, m)
+    for (k in seq_len(m))
+      rmat[, k] <- ifelse(X >= ft[k], 1, ifelse(eps == 2, Gev[k, cg] / G, 0))
+    W    <- rmat * ev
+    S0   <- colSums(W)
+    xbar <- (t(W) %*% Z) / S0
+    ki   <- match(X[eps == 1], ft)
+    colSums(Z[eps == 1, , drop = FALSE] - xbar[ki, , drop = FALSE])
+  }
+  worst <- 0; qmax <- max(abs(h$q))
+  for (g in ug) {
+    ing <- cg == g
+    for (a in seq_along(ut)) {
+      u <- ut[a]
+      if (!any(ing & eps == 0 & X == u)) next     # only cells carrying dNc_g
+      Gp <- G0; Gm <- G0; Gvp <- Gev0; Gvm <- Gev0
+      sj <- ing & X >= u; sk <- ft >= u
+      Gp[sj] <- Gp[sj] * exp(-eps_fd); Gm[sj] <- Gm[sj] * exp(eps_fd)
+      Gvp[sk, g] <- Gvp[sk, g] * exp(-eps_fd); Gvm[sk, g] <- Gvm[sk, g] * exp(eps_fd)
+      qn <- (score(Gp, Gvp) - score(Gm, Gvm)) / (2 * eps_fd)
+      worst <- max(worst, max(abs(qn - h$q[a, , g])) / qmax)
+    }
+  }
+  worst
 }
 
 # ---------------------------------------------------------------------
@@ -240,11 +311,32 @@ for (nm in names(FIX)) {
          else crr(f$X, f$eps, Zm, failcode = 1, cencode = 0)
   h <- fg_sandwich_hand(f$X, f$eps, Zm, fit$coef, cg = cg)
 
-  # FAIL CLOSED.  If the from-the-formulae oracle no longer reproduces crr,
-  # emit nothing -- a drifted oracle must not quietly become the reference.
+  # FAIL CLOSED.  If the from-the-formulae oracle no longer reproduces its
+  # reference, emit nothing -- a drifted oracle must not quietly become the
+  # reference.  ONE censoring group: the reference is crr (R. J. Gray's own
+  # crrvv) at 1e-8.  SEVERAL: crr omits the cross-group terms (see the
+  # HISTORY note above), so the reference is the numerical derivative of the
+  # score; the within-group form must still reproduce crr at 1e-8 (that pins
+  # the ties, the KM conventions and the martingale integral), and the full
+  # oracle must differ from crr by MORE than the parity tolerance the Stata
+  # side applies, or a reversion to crr's form could pass.
   rel <- max(abs(h$var_eta_psi - fit$var)) / max(abs(fit$var))
-  if (!is.finite(rel) || rel > TOL)
-    stop(sprintf("oracle disagrees with cmprsk::crr on %s: rel = %.3e", nm, rel))
+  ngrp <- length(unique(cg))
+  if (ngrp == 1) {
+    if (!is.finite(rel) || rel > TOL)
+      stop(sprintf("oracle disagrees with cmprsk::crr on %s: rel = %.3e", nm, rel))
+    qrel <- NA
+  } else {
+    hw <- fg_sandwich_hand(f$X, f$eps, Zm, fit$coef, cg = cg, crr_form = TRUE)
+    relw <- max(abs(hw$var_eta_psi - fit$var)) / max(abs(fit$var))
+    if (!is.finite(relw) || relw > TOL)
+      stop(sprintf("within-group form disagrees with cmprsk::crr on %s: rel = %.3e", nm, relw))
+    if (!is.finite(rel) || rel < 1e-5)
+      stop(sprintf("full oracle does not differ from crr on %s (rel = %.3e): cannot discriminate the cross-group terms", nm, rel))
+    qrel <- fg_numeric_q_check(h, fit$coef)
+    if (!is.finite(qrel) || qrel > 1e-6)
+      stop(sprintf("oracle q disagrees with the numerical score derivative on %s: rel = %.3e", nm, qrel))
+  }
   # and the two columns must be distinguishable, or the reference cannot
   # discriminate an implementation that ignores psi
   gap <- max(abs(diag(as.matrix(h$var_eta_psi)) / diag(as.matrix(h$var_eta)) - 1))
@@ -285,10 +377,12 @@ for (nm in names(FIX)) {
           fixture = nm, term_i = Zc[a], term_j = Zc[b],
           cov_eta     = as.matrix(h$var_eta)[a, b],
           cov_eta_psi = as.matrix(h$var_eta_psi)[a, b],
-          cov_crr     = fit$var[a, b])
-  cat(sprintf("%-4s n=%-4d p=%d ties=%d groups=%d  rel_vs_crr=%.2e  psi_gap=%.2e\n",
+          cov_crr     = fit$var[a, b],
+          n_cengroup  = ngrp)
+  cat(sprintf("%-4s n=%-4d p=%d ties=%d groups=%d  rel_vs_crr=%.2e  psi_gap=%.2e  q_vs_numeric=%s\n",
               nm, nrow(f), length(Zc), max(table(f$X[f$eps == 1])),
-              length(unique(cg)), rel, gap))
+              length(unique(cg)), rel, gap,
+              if (is.na(qrel)) "n/a" else sprintf("%.2e", qrel)))
 }
 ref <- do.call(rbind, ref)
 write.csv(ref, file.path(OUT, "reference_answers.csv"), row.names = FALSE)

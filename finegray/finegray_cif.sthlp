@@ -65,7 +65,8 @@ grid. With {opt attime()} it reports the CIF at specific horizons
 instead. {opt over(varname)} draws one curve per level of a model variable or
 baseline stratum; see {help finegray_cif##over:Overlaid curves}. The covariate profile is always
 reported in an {cmd:at:} line and graph note. The curve extends to the end of
-follow-up, and times outside the support are flagged. See
+follow-up when its grid reaches the last cause-event time (the CIF is flat past
+it), and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
@@ -165,7 +166,11 @@ with {opt attime()}: both name the times the CIF is evaluated at, and
 {opt attime()} additionally selects table output over a plotted curve, so the
 combination is refused rather than resolved silently. Unlike the default grid,
 the requested grid is not thinned. Times are used exactly as typed, as for
-{opt attime()}.
+{opt attime()}. The plotted curve ends at the last requested time unless that
+time is at or beyond the curve's last cause-event time, in which case the flat
+tail is drawn out to the end of follow-up as for the default grid; a grid that
+stops earlier is not extended, because the CIF still rises past it. A
+requested time beyond the last cause-event time is flagged with a note.
 
 {marker tvc}{...}
 {phang}

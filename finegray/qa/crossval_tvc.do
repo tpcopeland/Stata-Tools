@@ -163,9 +163,22 @@ local CRRTOL  = 1e-5
 * its own measurement and three to four orders BELOW the difference a missing
 * or wrong psi term produces, which is the separation that makes them
 * discriminating.  A separate, looser tolerance for the grouped-censoring arm
-* was considered and is not needed -- that arm measures 1.9e-10, well inside
-* CRRSETOL -- so CRRSETOL is neither relaxed nor split.
+* was considered and was not needed while that arm measured 1.9e-10 -- see
+* the 1.3.3 note below for why it is split now.
 local CRRSETOL = 1e-6
+* GROUPED-CENSORING SE BOUND (1.3.3).  The 1.9e-10 above was agreement with
+* crr's cengroup variance, which omits the cross-group censoring-influence
+* terms (crrvv accumulates q only from the event subject's own group), and
+* finegray reproduced that omission until 1.3.3.  Corrected, the C/CG arm
+* measures 4.9e-5 relative against crr -- the size of the omitted term on
+* this fixture -- so crr is a bound there, not a pin.  Note what this bound
+* can and cannot see: the eta-only fit sits only 2.6e-5 from crr on the same
+* arm, so CRRCGTOL does NOT discriminate a missing psi under tvc()+strata().
+* That discrimination lives in validation_nuisance_strata_numeric.do arm N5,
+* which differentiates the fitted score directly (gate 1e-6, measured
+* 4e-11); here the arm keeps b pinned to crr at CRRTOL and asserts only that
+* the SE is within the documented gap and that psi moves it at all.
+local CRRCGTOL = 2e-4
 
 capture program drop _cvtv_result
 program define _cvtv_result, rclass
@@ -622,11 +635,19 @@ if `cg_available' {
         display as text "    CG: max relative SE difference vs crr cengroup = " ///
             as result %9.2e `_mv' as text " with psi, " ///
             as result %9.2e `_me' as text " without"
-        assert `_mv' < `CRRSETOL'
-        assert `_me' > `_mv'
+        * 1.3.3: crr is a BOUND here, not a pin -- see CRRCGTOL above for
+        * what this arm can and cannot see.  The exact tvc()+strata() psi
+        * reference is validation_nuisance_strata_numeric.do arm N5.
+        assert `_mv' < `CRRCGTOL'
+        quietly finegray x1 x2, compete(status) cause(1) ///
+            tvc(x1) tsplit(0.4 1.2) strata(g) nolog nuisance noadjust
+        local _se_psi = _se[main:x2]
+        quietly finegray x1 x2, compete(status) cause(1) ///
+            tvc(x1) tsplit(0.4 1.2) strata(g) nolog noadjust
+        assert reldif(_se[main:x2], `_se_psi') > `CRRSETOL'
     }
     local _rc = _rc
-    _cvtv_result `_rc' "C/CG finegray tvc()+strata() == crr cov2/tf + cengroup"
+    _cvtv_result `_rc' "C/CG finegray tvc()+strata() == crr cov2/tf + cengroup (b at CRRTOL, SE within CRRCGTOL)"
     local pass_count = `pass_count' + r(pass)
     local fail_count = `fail_count' + r(fail)
 
