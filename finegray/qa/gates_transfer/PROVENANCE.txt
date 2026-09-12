@@ -1,3 +1,3 @@
 gated_commit: cda50792
 source_repo: /home/tpcopeland/Stata-Tools
-current_tree: /tmp/fg-final-20260908/finegray
+current_tree: /tmp/claude-1000/-home-tpcopeland-Stata-Dev/a8b3a7b8-f7b7-4348-9c2c-eb6846556460/scratchpad/full/finegray
