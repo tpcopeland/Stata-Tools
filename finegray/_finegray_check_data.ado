@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.3.3  2026/09/11
+*! _finegray_check_data Version 1.3.4  2026/09/13
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal

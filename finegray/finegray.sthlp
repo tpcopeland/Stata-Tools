@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.3  12sep2026}{...}
+{* *! version 1.3.4  13sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -549,7 +549,12 @@ censoring in {opt strata()}. Stratified and factorized fits also post
 normalizer added in 1.3.3; the post-estimation commands refuse a stratified
 delayed-entry fit that lacks it. On those fits {cmd:e(min_weight_prob)} is the
 smallest normalized denominator b_g/S_g the scan consulted, which is at least
-1/n_g and may exceed 1; without delayed entry it is a censoring probability.
+1/n_g and may exceed 1; without delayed entry it is a censoring
+probability. {cmd:e(N_lt_prehole)} counts subjects observed before their
+entry stratum's risk set was last empty; they are left out of that stratum's
+normalizer and the fit is refused with {cmd:r(459)} only if a weight
+consults one. See {help finegray_methods##lt:Left truncation} in
+{helpb finegray_methods}.
 
 {pstd}
 {bf:Support boundary.} Under delayed entry, at most {bf:100} joint weight strata are
@@ -887,6 +892,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(max_lt_weight)}}largest retained subject-by-cause-time weight{p_end}
 {synopt:{cmd:e(N_prob_warn)}}consulted weight probabilities with A < 1e-10{p_end}
 {synopt:{cmd:e(N_weight_warn)}}retained subject-by-cause-time weights above 1e6{p_end}
+{synopt:{cmd:e(N_lt_prehole)}}subjects observed before an entry-stratum gap{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
@@ -981,7 +987,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.3, 2026-09-12{p_end}
+{pstd}Version 1.3.4, 2026-09-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

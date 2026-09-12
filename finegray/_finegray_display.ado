@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.3  2026/09/11
+*! _finegray_display Version 1.3.4  2026/09/13
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -229,6 +229,20 @@ program define _finegray_display
             "`_ntr' `_obsword'"
         display as text "(the inverse-probability weights there rest on almost no"
         display as text "censoring information)"
+        display as text ""
+    }
+
+    * Subjects observed before their entry stratum's risk set was last empty
+    * (1.3.4).  Missing on an e() from an older build, so the `< .' guard is
+    * load-bearing: an unposted count must not print as a note.
+    local _npre = e(N_lt_prehole)
+    if `_npre' > 0 & `_npre' < . {
+        local _subjword "subjects"
+        if `_npre' == 1 local _subjword "subject"
+        display as text "note: `_npre' `_subjword' observed before the entry stratum's risk set " ///
+            "was last empty"
+        display as text "(the entry product-limit is zero there, so they are left out of that"
+        display as text "stratum's delayed-entry normalizer; see e(N_lt_prehole))"
         display as text ""
     }
 
