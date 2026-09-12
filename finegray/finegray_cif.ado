@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.3  2026/09/11
+*! finegray_cif Version 1.3.3  2026/09/12
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1662,11 +1662,19 @@ program define finegray_cif, rclass sortpreserve
     * HERE, before the preserve below clears the data: the graph draws the
     * CIF's flat tail out to this time (see the terminal-row block), as sts
     * graph and stcurve do.
+    * The last CAUSE-EVENT time is read beside it: the flat tail is only a
+    * fact of the estimator beyond the curve's final cause event, so the
+    * terminal-row block below may extend a grid only when that grid reaches
+    * it (1.3.3; a timepoints() grid ending earlier used to be extended too,
+    * drawing a plateau at the last requested value straight through every
+    * later jump).
     forvalues g = 1/`_ncurve' {
         local _bsrestrict2 ""
         if "`_bslev`g''" != "." local _bsrestrict2 "& `_bsvar' == `_bslev`g''"
         quietly summarize _t if `es' `_bsrestrict2', meanonly
         local _maxfu`g' = r(max)
+        quietly summarize _t if `es' & `e(compete)' == `=e(cause)' `_bsrestrict2', meanonly
+        local _lastev`g' = r(max)
     }
     * The over() variable's value label, carried into the saving() dataset so
     * its `over' column reads as the source variable does.  Read now: the
@@ -1751,8 +1759,18 @@ program define finegray_cif, rclass sortpreserve
                     * means -- sts graph and stcurve both extend it.  Display-only,
                     * like the origin: removed before saving(), so r(table) and the
                     * exported numeric estimates are unchanged.
+                    *
+                    * ONLY when the grid reaches the curve's last cause-event time.
+                    * A timepoints() grid may stop earlier; the CIF is NOT flat
+                    * past such a grid, and carrying its last value out to the
+                    * end of follow-up would draw a terminal plateau that the fit
+                    * never produced (understating the CIF by every later jump).
+                    * Such a curve ends at its last requested time instead.  A
+                    * curve with no cause events at all (_lastev missing) is flat
+                    * everywhere, so it is still extended.
                     if `_maxfu`g'' < . & `_graph_tmax' < . & ///
-                       `_maxfu`g'' > `_graph_tmax' + 1e-12 {
+                       `_maxfu`g'' > `_graph_tmax' + 1e-12 & ///
+                       (`_lastev`g'' >= . | `_graph_tmax' >= `_lastev`g'' - 1e-12) {
                         local _graph_newobs = _N + 1
                         quietly set obs `_graph_newobs'
                         quietly replace `_graph_origin' = 1 in `_graph_newobs'

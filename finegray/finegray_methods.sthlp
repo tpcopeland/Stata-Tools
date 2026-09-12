@@ -195,7 +195,8 @@ rather than sum_i eta_i^2. The {it:eta} term is the score contribution treating
 the censoring survivor G as known; {it:psi} is the additional contribution from
 having {bf:estimated} G by Kaplan-Meier. With {opt nuisance},
 {cmd:finegray}'s variance targets the same right-censoring nuisance-adjusted
-sandwich as {cmd:cmprsk::crr}.
+sandwich as {cmd:cmprsk::crr} (with one censoring stratum; see
+{it:Under strata()} below for the multi-stratum difference).
 
 {pstd}
 The correction is not always conservative: {it:eta} and {it:psi} are
@@ -210,6 +211,25 @@ et al.'s (2011, sec. 4.1) Sigma_rk, that is, eq. (7)-(8) computed within
 stratum, which is what {cmd:crrSC::crrs} computes under {cmd:ctype=1}. Under
 {opt tvc()}, psi is a linear functional of a score that decomposes exactly over
 intervals, so it decomposes with it.
+
+{pstd}
+{bf:Under} {opt strata()}. G is estimated within each censoring stratum, so
+the censoring martingale, the at-risk count and the retained-competing sums in
+eq. (8) are per stratum. The cause-event integral is not: a subject retained
+after a competing event carries its own stratum's G_g into the risk set of
+{bf:every} later cause event, whichever stratum that event's subject belongs
+to, so q_g(u) sums over all of them. {cmd:cmprsk::crr(cengroup=)} restricts
+that sum to cause events from stratum g as well (its {cmd:crrvv} routine
+accumulates q only from the event subject's own group), which drops the
+cross-stratum terms; a stratum holding competing events but no cause events
+then contributes nothing to psi although perturbing its G moves the
+score. {cmd:finegray} reproduced that restriction until 1.3.3 and no longer
+does, so with two or more censoring strata its {opt nuisance} variance
+differs from {cmd:crr}'s by exactly those terms (of the order of 1e-3
+relative on the package's fixtures). With one stratum, or with
+{opt strata()} equal to {opt bstrata()}, nothing changes. The term is checked
+against a numerical derivative of the fitted score in
+{cmd:qa/validation_nuisance_strata_numeric.do}.
 
 {pstd}
 {bf:Under delayed entry.} Fine and Gray's psi is the influence of the

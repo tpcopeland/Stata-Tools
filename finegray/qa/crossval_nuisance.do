@@ -2,11 +2,18 @@
 * Parity of the `nuisance' sandwich against Fine & Gray (1999) eq. (7)-(8).
 *
 * ORACLE.  crossval_nuisance_r.R implements eq. (7)-(8) directly from the
-* formulae -- it calls no estimation library -- and validates itself against
-* cmprsk::crr at generation time, aborting if they disagree.  crr's Fortran
-* variance routine `crrvv' is by R. J. Gray, the paper's second author, so
-* this is parity against the estimator's own authors rather than against a
-* third-party re-derivation.
+* formulae -- it calls no estimation library -- and validates itself at
+* generation time, aborting if the check fails.  With ONE censoring group the
+* check is cmprsk::crr at 1e-8: crr's Fortran variance routine `crrvv' is by
+* R. J. Gray, the paper's second author, so this is parity against the
+* estimator's own authors rather than against a third-party re-derivation.
+* With SEVERAL censoring groups (fixture f5; 1.3.3) the check is a numerical
+* derivative of the fitted score instead: crrvv drops the cross-group
+* censoring-influence terms (a group's retained competing subjects sit in
+* every later cause event's risk set, not only its own group's), and the
+* package reproduced that omission until 1.3.3 -- an oracle pinned to crr
+* there was structurally blind to it.  The Stata-only exact oracle for the
+* same term is validation_nuisance_strata_numeric.do (core lane).
 *
 * WHY THIS IS A CROSSVAL AND NOT A test_.  It needs R.  qa/data/ is gitignored
 * (regenerable oracle output, never committed), so the fixtures are rebuilt
@@ -110,9 +117,18 @@ capture noisily {
         }
     }
     assert _N == 11
-    * the oracle's self-check, re-asserted on the Stata side
-    quietly count if abs(var_eta_psi - var_crr) / abs(var_crr) > 1e-8
+    * the oracle's self-check, re-asserted on the Stata side.  ONE censoring
+    * group: pinned to crr at 1e-8.  SEVERAL (1.3.3): crr's crrvv drops the
+    * cross-group censoring-influence terms (see crossval_nuisance_r.R,
+    * HISTORY), so the oracle is pinned to the numerical score derivative
+    * instead and must DIFFER from crr -- a reference that agreed with crr
+    * on f5 would be the pre-1.3.3 form.
+    quietly count if abs(var_eta_psi - var_crr) / abs(var_crr) > 1e-8 & n_cengroup == 1
     assert r(N) == 0
+    quietly count if abs(var_eta_psi - var_crr) / abs(var_crr) < 1e-5 & n_cengroup > 1
+    assert r(N) == 0
+    quietly count if n_cengroup > 1
+    assert !missing(r(N)) & r(N) >= 2
     * eta-only and eta+psi must be distinguishable, or parity proves nothing
     quietly count if abs(var_eta_psi - var_eta) / abs(var_eta) < 1e-4
     assert r(N) == 0
@@ -127,7 +143,7 @@ capture noisily {
     * X1..X5 would pass against a reference that cannot fail.
     import delimited using "`datadir'/reference_cov.csv", clear ///
         varnames(1) case(preserve)
-    foreach v in fixture term_i term_j cov_eta cov_eta_psi cov_crr {
+    foreach v in fixture term_i term_j cov_eta cov_eta_psi cov_crr n_cengroup {
         capture confirm variable `v'
         if _rc {
             display as error "reference_cov.csv missing column `v'"
@@ -136,7 +152,9 @@ capture noisily {
     }
     * f4 and f5 contribute 1 pair each, pbc (p=5) contributes 10
     assert _N == 12
-    quietly count if abs(cov_eta_psi - cov_crr) / abs(cov_crr) > 1e-8
+    quietly count if abs(cov_eta_psi - cov_crr) / abs(cov_crr) > 1e-8 & n_cengroup == 1
+    assert r(N) == 0
+    quietly count if abs(cov_eta_psi - cov_crr) / abs(cov_crr) < 1e-5 & n_cengroup > 1
     assert r(N) == 0
     quietly count if abs(cov_eta_psi - cov_eta) / abs(cov_eta) < 1e-4
     assert r(N) == 0

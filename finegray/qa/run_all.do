@@ -49,6 +49,7 @@ local skip_file "`qa_dir'/_skip.txt"
 local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
     test_finegray_errors.do ///
     test_finegray_v120b.do test_finegray_v121.do test_finegray_v130.do ///
+    test_finegray_v133.do ///
     test_finegray_mi.do ///
     test_finegray_bstrata.do ///
     test_finegray_tvc.do ///
@@ -85,6 +86,7 @@ local core_files `quick_files' ///
     validation_finegray_cif_se.do validation_finegray_lt_se.do ///
     validation_finegray_lt_cluster_cif_se.do ///
     validation_bstrata_recovery.do ///
+    validation_nuisance_strata_numeric.do ///
     validation_tvc_recovery.do ///
     validation_pweight_recovery.do ///
     crossval_predict_stcrreg.do

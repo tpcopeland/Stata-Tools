@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.3  2026/09/11
+*! _finegray_mata Version 1.3.3  2026/09/12
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -2402,7 +2402,7 @@ real matrix _finegray_psi_residuals(
     real colvector censtrue)
 {
     real scalar n, p, ng, i, j, k, g, idx, it, nt, S0_t, cur_time
-    real scalar cS0, dNc_g, K, kk, gk, ngk
+    real scalar cS0, dNc_g, K, kk, gk, ngk, Dk
     real colvector row_id, ord, gidx, levels, eta, expeta
     real colvector is_cause, is_compete, is_cens, Gminus, Yg
     real colvector bslev, bscode, risk_S0
@@ -2581,7 +2581,26 @@ real matrix _finegray_psi_residuals(
 
     /* ---- pass B: reverse cumulative C0, C1 over (group g, stratum k) event
        times.  The DENOMINATOR is the stratum's S0_k and the numerator carries
-       the group's Ghat_g -- that pairing is the whole of the change. */
+       the group's Ghat_g -- that pairing is the whole of the change.
+
+       THE CAUSE-EVENT COUNT IS THE STRATUM'S, NOT THE GROUP'S (1.3.3).  Ghat_g
+       enters the score only through the weights of group g's RETAINED
+       competing-event subjects, and those subjects sit in the risk set of
+       EVERY later cause event in their baseline stratum -- whichever
+       censoring group that event's subject belongs to.  q_g(u) therefore sums
+       over all of stratum k's cause events at s >= u, with Ghat_g(s) as the
+       numerator of the retained weight.  Until 1.3.3 this loop used
+       Dg[it, gk], the count of cause events FROM group g, which drops every
+       cross-group (retained in g, event in g' != g) term: a censoring group
+       with competing events but no cause events then contributed an
+       identically zero psi, though perturbing its censoring KM moves the
+       fitted score (numerical-derivative probe, 2026-09-12).  cmprsk::crr's
+       crrvv makes the same omission (crr.f: qu(k, icg(j1)) accumulates only
+       ss3(k, icg(j1))), which is why the earlier crr-parity oracle could not
+       see it; the fix is gated by validation_nuisance_strata_numeric.do,
+       which differentiates the fitted score directly.  With one censoring
+       group Dk == Dg, so the pooled numbers are untouched; with strata() ==
+       bstrata() every cross-group bwd term is empty, so q is unchanged too. */
     C0 = J(nt, ngk, 0)
     C1 = J(nt, ngk * p, 0)
     for (it = nt; it >= 1; it--) {
@@ -2589,12 +2608,14 @@ real matrix _finegray_psi_residuals(
             C0[it, .] = C0[it + 1, .]
             C1[it, .] = C1[it + 1, .]
         }
-        for (g = 1; g <= ng; g++) {
-            for (kk = 1; kk <= K; kk++) {
+        for (kk = 1; kk <= K; kk++) {
+            Dk = 0
+            for (g = 1; g <= ng; g++) Dk = Dk + Dg[it, (g - 1) * K + kk]
+            if (Dk == 0) continue
+            if (S0arr[it, kk] <= 0) continue
+            for (g = 1; g <= ng; g++) {
                 gk = (g - 1) * K + kk
-                if (Dg[it, gk] == 0) continue
-                if (S0arr[it, kk] <= 0) continue
-                cS0 = Dg[it, gk] * Gg[it, g] / S0arr[it, kk]
+                cS0 = Dk * Gg[it, g] / S0arr[it, kk]
                 C0[it, gk] = C0[it, gk] + cS0
                 C1[it, ((gk - 1) * p + 1)..(gk * p)] =
                     C1[it, ((gk - 1) * p + 1)..(gk * p)] +
