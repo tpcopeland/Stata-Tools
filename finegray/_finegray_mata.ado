@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.3  2026/09/12
+*! _finegray_mata Version 1.3.4  2026/09/13
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -709,41 +709,87 @@ real matrix _finegray_A_at_times(
    above, so the two cases share one code path.  This normalization is a
    package derivation, not a published formula; finegray_methods.sthlp says so.
 
-   SUPPORT.  If H_u(X_i-) == 0 for some member of the cell -- the truncation
-   group's risk set was empty just before an entry time at or after X_i, so the
-   entry product limit is not identifiable there -- the normalizer is
-   undefined.  The cell's B column is then set to ZERO rather than missing:
-   Mata orders missing above every number, so a missing cell would pass the
-   `> 0' positivity test and poison the fit as r(430) nonconvergence.  A zero
-   column is refused with the existing r(459) positivity message exactly when
-   the cell is consulted, and ignored when it never enters the likelihood. */
+   SUPPORT: THE IDENTIFIABLE REGION (1.3.4).  H_u(X_i-) == 0 happens when the
+   truncation group's risk set was EMPTY at some entry time at or after X_i --
+   an inner empty risk set, or "hole": every earlier entrant of the group had
+   already exited when the next one arrived, so the reverse-time factor at
+   that entry is (1 - w/r) with r == w, and the entry product limit is zero
+   at every time before it.  The subjects with H_u(X_i-) == 0 are exactly the
+   ones observed before the group's last hole.
+
+   He & Yang (1998, Ann Statist 26:1011-1027), the source Geskus cites for the
+   constant, state what that means.  Their Theorem 2.2 makes the constant
+   alpha_n = G_n(x) Fbar_n(x-) / R_n(x) independent of x ONLY on {x : R_n(x) >
+   0}, and the proof opens with the degenerate case: alpha_n = 0 iff b_{F_n} <
+   a_{G_n}, which is what a hole produces -- the exit NPMLE puts all its mass
+   below the hole, the entry NPMLE none, and the implied cohort size 1/alpha_n
+   is infinite.  The observed data are consistent with arbitrarily many
+   truncated pairs inside the hole: the truncation probability is NOT
+   identified across it.  Only the CONDITIONAL estimand on the identifiable
+   region -- Woodroofe's (1985) F0 = P(X <= x | X >= a_G), He & Yang's alpha_0
+   (p.1012, Lemma 2.1) -- exists, and their own sec. 3 modified estimator
+   (eq. 3.5-3.7, Gu & Lai 1990 trimming, "necessary to avoid singularities at
+   the boundaries") is that conditioning made operational.
+
+   So the normalizer is estimated on the identifiable region: the IPW sum runs
+   over the members with H_u(X_i-) > 0 and is divided by the FULL observed cell
+   size n_j.  The divisor is n_j, not the count of identifiable members,
+   because that is what ZZF's canonical form does.  Write the post-hole
+   sub-sample with a star; it has no hole, so the telescoping identity holds on
+   it verbatim, B*_g = kappa*_g A*_g with kappa*_g = n*_g^-1 sum_{H>0} 1/H_g.
+   ZZF's own b_g(s)/S_g(s-) on the FULL sample counts the pre-hole subjects in
+   n_g but not in the risk count after the hole, and S_g is untouched when the
+   lone subject was censored, so B_g(s) = (n*_g/n_g) B*_g(s) = [n_g^-1 sum_{H>0}
+   1/H_g(X_i-)] A*_g(s).  With this divisor the product form reproduces the
+   published b/S form on every dataset where the published form is finite.
+   Where it is not -- the lone pre-hole subject had an EVENT, so ZZF's S_g
+   drops to zero and B_g is infinite -- the pre-hole subject's own denominator
+   A_j(X_i-) = kappa_j G(X_i-) H_u(X_i-) is zero, and so is the cell's column
+   at every time inside the hole; _finegray_positivity_check refuses the fit
+   the moment a weight consults either (a retained competing exit before the
+   hole closes, or a cause event inside it).  A pre-hole subject whose
+   denominator is never consulted -- censored, or with the cause event only
+   after the hole -- is exactly as harmless as it is in the b/S form.
+
+   Through 1.3.3 a single H_u(X_i-) == 0 member zeroed the WHOLE cell's
+   normalizer, so the entire stratum was refused even when nothing consulted
+   the subject: validation_finegray_zzf_coverage arm ts_mod_n2000, replication
+   245 (seed 20260959), where the first stratum-0 entrant is censored before
+   the second arrives, failed with r(459) on a dataset the published estimator
+   handles.  The excluded count per cell is returned through nexcl so the
+   engine can post e(N_lt_prehole) and print the note.  A cell with NO
+   identifiable member keeps kappa_j = 0: its column is then zero, which the
+   consulted-cell check refuses if it is ever divided by, and -- missing being
+   ordered above every number in Mata -- must not be missing, or it would pass
+   the `> 0' test and surface later as r(430) nonconvergence. */
 real colvector _finegray_lt_normalizer(
     real colvector gidx,
     real colvector ju,
-    real matrix Ht)
+    real matrix Ht,
+    | real colvector nexcl)
 {
     real scalar j, nj, i, n, h
-    real colvector kappa, cnt
+    real colvector kappa, cnt, excl
 
     nj = rows(ju)
     n = rows(gidx)
     kappa = J(nj, 1, 0)
     cnt = J(nj, 1, 0)
+    excl = J(nj, 1, 0)
     for (i = 1; i <= n; i++) {
         j = gidx[i]
-        if (kappa[j] >= .) continue
+        cnt[j] = cnt[j] + 1
         h = Ht[i, ju[j]]
         if (h <= 0 | h >= .) {
-            kappa[j] = .
+            excl[j] = excl[j] + 1
             continue
         }
         kappa[j] = kappa[j] + 1 / h
-        cnt[j] = cnt[j] + 1
     }
     for (j = 1; j <= nj; j++) {
-        if (kappa[j] >= .) kappa[j] = 0
-        else if (cnt[j] > 0) kappa[j] = kappa[j] / cnt[j]
+        if (cnt[j] > 0) kappa[j] = kappa[j] / cnt[j]
     }
+    if (args() >= 4) nexcl = excl
     return(kappa)
 }
 
@@ -825,7 +871,13 @@ real colvector _finegray_A_pool_at_times(
    Apool/Aden ratio is ZZF eq. (6) on the published scale.  The names are
    kept because the one-stratum branch, where kappa cancels, still holds the
    raw product; see _finegray_lt_normalizer for the derivation and the
-   zero-column support rule. */
+   identifiable-region rule.
+
+   nprehole (optional, 1.3.4) receives the per-joint-cell count of subjects
+   excluded from that cell's normalizer because H_u(X_i-) == 0 -- observed
+   before the cell's truncation group last had an empty risk set.  Zeros when
+   the pooled branch is inactive.  The engine posts its total as
+   e(N_lt_prehole); every other caller leaves it alone. */
 void _finegray_prepare_weight_design(
     real colvector t,
     real colvector delta,
@@ -839,17 +891,19 @@ void _finegray_prepare_weight_design(
     real colvector gidx,
     real colvector Gminus,
     real matrix A,
-    real colvector Apool)
+    real colvector Apool,
+    | real colvector nprehole)
 {
-    real colvector jc, ju, kappa
+    real colvector jc, ju, kappa, nexcl
     real matrix Ht
     real scalar j
 
     _finegray_joint_setup(byg_id, tg_id, gidx, jc, ju)
     A = _finegray_A_at_times(t, G, byg_id, t0, tg_id, jc, ju, t, Ht)
     use_pooled = (sum(t0 :> 0) > 0 & rows(jc) > 1)
+    nexcl = J(rows(jc), 1, 0)
     if (use_pooled) {
-        kappa = _finegray_lt_normalizer(gidx, ju, Ht)
+        kappa = _finegray_lt_normalizer(gidx, ju, Ht, nexcl)
         for (j = 1; j <= rows(jc); j++) A[., j] = kappa[j] :* A[., j]
         Apool = _finegray_A_pool_at_times(t, delta, censval, event_type, t0, t)
     }
@@ -857,6 +911,7 @@ void _finegray_prepare_weight_design(
         Apool = J(rows(t), 1, 1)
     }
     Gminus = _finegray_G_minus(gidx, A)
+    if (args() >= 14) nprehole = nexcl
 }
 
 /* Combined-weight diagnostics, computed ONCE after convergence.
@@ -1018,6 +1073,7 @@ real scalar _finegray_positivity_check(
             else              badstr = badstr + " " + strofreal(i)
         }
         st_local("_fg_posstrata", badstr)
+        _finegray_positivity_prehole(gidx, Gminus, flagged)
         return(npos)
     }
 
@@ -1054,8 +1110,31 @@ real scalar _finegray_positivity_check(
         else              badstr = badstr + " " + strofreal(i)
     }
     st_local("_fg_posstrata", badstr)
+    _finegray_positivity_prehole(gidx, Gminus, flagged)
 
     return(npos)
+}
+
+/* The cause behind a zero denominator, for the r(459) message.  A_j(X_i-) =
+   kappa_j G_c(X_i-) H_u(X_i-) is zero only through H_u(X_i-) == 0 (G is
+   floored at 1e-10, never zero, and kappa_j is zero only when every member's
+   H is): subject i was observed before its truncation group's risk set was
+   last empty.  Count those subjects in the flagged cells so the message can
+   say how many, and name the mechanism, instead of reporting a count of
+   consulted cells that reads like a data-shape problem. */
+void _finegray_positivity_prehole(
+    real colvector gidx,
+    real colvector Gminus,
+    real colvector flagged)
+{
+    real scalar i, npre
+
+    npre = 0
+    for (i = 1; i <= rows(gidx); i++) {
+        if (!flagged[gidx[i]]) continue
+        if (Gminus[i] <= 0 | Gminus[i] >= .) npre++
+    }
+    st_local("_fg_posprehole", strofreal(npre, "%18.0g"))
 }
 
 void _finegray_weight_diag_zzf(
@@ -4495,7 +4574,7 @@ void _finegray_engine(
     real scalar nadj
     real matrix Z, V, bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
-    real colvector weight_gidx, weight_Gminus, weight_Apool
+    real colvector weight_gidx, weight_Gminus, weight_Apool, weight_nprehole
     real colvector bsraw
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
@@ -4639,7 +4718,7 @@ void _finegray_engine(
        before optimization and then again inside each optimizer call. */
     _finegray_prepare_weight_design(t, delta, censval, event_type, G, byg_id,
         t0, tg_id, weight_pooled, weight_gidx, weight_Gminus, weight_A,
-        weight_Apool)
+        weight_Apool, weight_nprehole)
 
     /* bstrata() is refused with delayed entry in the parser (Zhou et al. 2011
        does not cover left truncation, so a stratified ZZF baseline would be an
@@ -4682,11 +4761,15 @@ void _finegray_engine(
     if (npos > 0) {
         errprintf("finegray: positivity violation in the delayed-entry weights\n")
         errprintf("  %g consulted joint-stratum denominator cell(s) are zero\n", npos)
-        errprintf("  a configured ZZF Weight-1 risk contribution is therefore undefined\n")
-        errprintf("  this can occur at an event time or at a retained competing exit\n")
-        errprintf("  before enough subjects in that stratum have entered\n")
+        errprintf("  %s subject(s) in the affected strata were observed before their\n",
+            st_local("_fg_posprehole"))
+        errprintf("  entry stratum's risk set was last empty: the entry product-limit\n")
+        errprintf("  H(X_i-) is zero there, the truncation probability is not identified\n")
+        errprintf("  across that gap, and the fit consults a weight inside it (a cause\n")
+        errprintf("  event or a retained competing exit before the gap closes)\n")
         errprintf("  affected weight strata: %s\n", st_local("_fg_posstrata"))
-        errprintf("  use coarser strata()/truncstrata(), or a later time origin\n")
+        errprintf("  use a later time origin, drop the subjects observed before the gap,\n")
+        errprintf("  or coarsen strata()/truncstrata()\n")
         exit(error(459))
     }
 
@@ -4930,6 +5013,13 @@ void _finegray_engine(
     _finegray_weight_diag(t, delta, cause, censval, event_type,
         G, byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
         weight_A, weight_Apool)
+
+    /* Subjects excluded from their weight cell's normalizer because they were
+       observed before the cell's truncation group last had an empty risk set
+       (see _finegray_lt_normalizer).  Posted unconditionally, like the
+       diagnostics above: a missing e(N_lt_prehole) must mean "the engine did
+       not run", never "none". */
+    st_matrix("_finegray_nprehole", sum(weight_nprehole))
 
     /* Post results to Stata matrices */
     st_matrix("_finegray_b", beta')

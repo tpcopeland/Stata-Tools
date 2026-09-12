@@ -692,11 +692,37 @@ cell {it:j} = ({it:c}, {it:u}) is normalized by its own members through the
 entry product limit of its truncation group, kappa_j = n_j^-1 sum over i in j
 of 1/H_u(X_i-), the same cohort-size estimate as above applied to the cell; with
 matching groupings it reduces to kappa_g exactly. This normalizer is a
-package derivation. If H_u(X_i-) is zero for a member of a consulted cell --
-the truncation group's risk set was empty just before a later entry time --
-the normalizer is undefined and the fit is refused with {cmd:r(459)} rather
-than computed on an unnormalizable cell. The same contract is used by
-estimation and by every post-estimation calculation.
+package derivation. The same contract is used by estimation and by every
+post-estimation calculation.
+
+{pstd}
+{bf:Gaps in a stratum's observation window (1.3.4).} H_u(X_i-) is zero
+when the truncation group's risk set was empty at some entry time at or
+after X_i -- every earlier entrant had already exited when the next one
+arrived, so the reverse-time product limit carries a zero factor there. The
+subjects with H_u(X_i-) = 0 are exactly those observed before the group's
+last such gap. He and Yang (1998, Theorem 2.2) show that the constant
+behind kappa is well defined only where the risk set is non-empty, and
+that across a gap it degenerates: the observed data are consistent with any
+number of truncated subjects inside the gap, so the truncation probability
+is not identified there and only the conditional estimand on the
+identifiable region exists (Woodroofe 1985; He and Yang 1998,
+Lemma 2.1). {cmd:finegray} therefore estimates each cell's normalizer on
+that region: the sum runs over the members with H_u(X_i-) > 0 and is divided by the
+full observed cell size n_j, which is what Zhang, Zhang and Fine's b_g/S_g
+form computes on such data whenever it is finite (b_g counts every
+observed member in n_g and the pre-gap members in no risk set after the
+gap; S_g is untouched when the lone pre-gap subject was censored). The
+excluded subjects stay in {cmd:e(sample)}, their count is posted as
+{cmd:e(N_lt_prehole)} and printed as a note, and their own denominators are
+zero: the fit is refused with {cmd:r(459)} only if a weight consults one --
+a cause event inside the gap, or a competing event before the gap closes
+whose subject would be retained -- which are the configurations in which
+the published form is undefined as well (S_g reaches zero). The message
+names the count and the affected strata; a later time origin, dropping the
+subjects observed before the gap, or a coarser stratification are the
+remedies. Version 1.3.3 refused every fit in which any member of any
+weight cell had H_u(X_i-) = 0, consulted or not.
 
 {pstd}
 The published same-group product-limit result does not require entry and
@@ -1276,6 +1302,12 @@ model under both left truncation and right censoring. {it:Biometrics}
 2011; 67(1): 39-49.
 
 {pstd}{browse "https://doi.org/10.1111/j.1541-0420.2010.01420.x":doi:10.1111/j.1541-0420.2010.01420.x}{p_end}
+
+{pstd}
+He S, Yang GL. Estimation of the truncation probability in the random
+truncation model. {it:Annals of Statistics} 1998; 26(3): 1011-1027.
+
+{pstd}{browse "https://doi.org/10.1214/aos/1024691086":doi:10.1214/aos/1024691086}{p_end}
 
 {pstd}
 Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing

@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.3  2026/09/11
+*! finegray_phtest Version 1.3.4  2026/09/13
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

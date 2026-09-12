@@ -121,9 +121,19 @@
 * section measures variance and positivity costs without treating a
 * misspecified coarser fit as a valid fallback:
 *
-*   * VARIANCE: with the dependence coarse (few W-levels), JOINT is unbiased but
-*     more variable than MARGINAL -- it estimates a separate denominator per
-*     cell instead of pooling.  Reported as mean analytic SE and empirical SD.
+*   * VARIANCE: with the dependence coarse (few W-levels), JOINT is unbiased
+*     (Part 1); the question is whether each fit's analytic SE tracks its
+*     Monte Carlo SD.  Reported as mean analytic SE and empirical SD for both
+*     arms, with the JOINT/MARGINAL ratio shown as a diagnostic.  Until
+*     2026-09-12 this check ASSERTED JOINT > MARGINAL ("a per-cell denominator
+*     is more variable than a pooled one").  The 1.3.3 stratified-variance and
+*     stratified-weight corrections moved the JOINT analytic SE from 1.11x to
+*     1.00x MARGINAL on the same 60 seeds while the JOINT empirical SD moved
+*     from 1.06x to 0.98x -- both estimators calibrated before and after, the
+*     corrected one simply less variable -- so the direction was a property
+*     of the old estimator's inefficiency, not of the design, and a gate that
+*     asserts it fails the corrected code.  Calibration is the claim the gate
+*     can stand behind.
 *   * POSITIVITY: as W is refined, each cell's entry distribution H_W is
 *     estimated from fewer subjects, so a consulted A_W(X_i-) hits exactly zero
 *     -- the Z23 hard failure r(459).  The MARGINAL product weight, pooling
@@ -435,10 +445,13 @@ display as text _newline "{hline 82}"
 display as text "PART 2 -- support and variance cost of matching-group conditioning"
 display as text "{hline 82}"
 
-* --- 2a. VARIANCE.  Coarse dependence (K=2): JOINT is unbiased (Part 1) but
-* estimates a per-cell denominator instead of pooling, so it is more variable.
-* Mean analytic SE is the stable metric (per-fit, not a moment over few reps);
-* empirical SD is shown beside it.
+* --- 2a. VARIANCE.  Coarse dependence (K=2): JOINT is unbiased (Part 1).
+* The gate is CALIBRATION: for each arm, mean analytic SE / empirical SD of
+* b1 must sit inside 1 +/- 3 * MCSE, where the relative MCSE of a sample SD
+* over m replications is 1/sqrt(2(m-1)) (0.092 at m = 60), and every one of
+* the VREPS pairs must have converged.  The JOINT/MARGINAL ratios are printed
+* as diagnostics, not gated (see the header for why the former `> 1'
+* direction assertion was retired).
 tempname vf
 tempfile vres
 postfile `vf' double(bm sm bj sj) using "`vres'", replace
@@ -489,18 +502,27 @@ restore
 
 local seratio = `mse_j' / `mse_m'
 local sdratio = `sd_j'  / `sd_m'
+local cal_m   = `mse_m' / `sd_m'
+local cal_j   = `mse_j' / `sd_j'
+local rmcse   = 1 / sqrt(2 * (`nv' - 1))
+local cal_lo  = 1 - 3 * `rmcse'
+local cal_hi  = 1 + 3 * `rmcse'
 display as text "  variance (K=2, `nv' paired fits):"
 display as text "    mean analytic SE(x1):  MARGINAL " %7.5f `mse_m' ///
     "   JOINT " %7.5f `mse_j' "   ratio " %5.2f `seratio'
 display as text "    empirical SD(b1):      MARGINAL " %7.5f `sd_m' ///
     "   JOINT " %7.5f `sd_j' "   ratio " %5.2f `sdratio'
+display as text "    calibration SE/SD:     MARGINAL " %7.3f `cal_m' ///
+    "   JOINT " %7.3f `cal_j' "   band [" %5.3f `cal_lo' ", " %5.3f `cal_hi' "]"
 
 local ++test_count
-local var_ok = (`seratio' > 1.0 & `nv' == `VREPS')
+local var_ok = (`cal_m' >= `cal_lo' & `cal_m' <= `cal_hi' & ///
+    `cal_j' >= `cal_lo' & `cal_j' <= `cal_hi' & `nv' == `VREPS')
 if `var_ok' ///
-    display as result "  => JOINT is more variable than MARGINAL and all `VREPS' pairs converged: PASS"
+    display as result "  => both analytic SEs are calibrated and all `VREPS' pairs converged: PASS"
 else {
-    display as error "  => expected JOINT SE ratio > 1 with all `VREPS' paired fits: FAIL"
+    display as error "  => expected SE/SD inside [" %5.3f `cal_lo' ", " %5.3f `cal_hi' ///
+        "] for both arms with all `VREPS' paired fits: FAIL"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! _finegray_fv_design Version 1.3.3  2026/09/11
+*! _finegray_fv_design Version 1.3.4  2026/09/13
 *! Resolve the fitted factor-variable design from the FIT-TIME expansion
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

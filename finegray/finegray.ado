@@ -1,4 +1,4 @@
-*! finegray Version 1.3.3  2026/09/11
+*! finegray Version 1.3.4  2026/09/13
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2419,6 +2419,12 @@ program define finegray, eclass sortpreserve
     ereturn scalar N_prob_warn     = _finegray_nprobwarn[1,1]
     ereturn scalar N_weight_warn   = _finegray_nwtwarn[1,1]
     ereturn local weight_warn_strata "`_fg_warnstrata'"
+    * Subjects observed before their entry stratum's risk set was last empty
+    * (1.3.4; _finegray_lt_normalizer).  Their H(X_i-) is zero, so they are
+    * left out of their weight cell's normalizer kappa_j and the fit is refused
+    * only if a weight consults them.  Zero on every fit with no such gap,
+    * including right-censored fits; the same fail-loud contract as above.
+    ereturn scalar N_lt_prehole    = _finegray_nprehole[1,1]
     * Observations whose censoring survivor G(t) was floored at 1e-10 during the
     * fit's own KM sweep.  `_fg_ntrunc' is set directly in this scope by
     * _finegray_km_censor via st_local (see its header for why it reports rather
@@ -2598,7 +2604,7 @@ program define finegray, eclass sortpreserve
         _finegray_rank _finegray_nclust _finegray_basehaz ///
         _finegray_kbstrata ///
         _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
-        _finegray_nprobwarn _finegray_nwtwarn {
+        _finegray_nprobwarn _finegray_nwtwarn _finegray_nprehole {
         capture matrix drop `m'
     }
 
