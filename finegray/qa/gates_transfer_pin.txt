@@ -13,14 +13,21 @@
 # pin to silence a red transfer gate destroys the only evidence that the gates
 # still describe the shipped estimator.
 
-gated_commit: cda50792
+gated_commit: c7ca4445
 gated_note:   the tree the three ZZF gates were LAST ACTUALLY RUN on --
-              run_status_gates.txt, lane=gates, 2026-09-01T21:15:38Z, verdict
-              PASS, 3/3 (recovery 8/8, coverage 1/1, factorization 10/10),
-              head_commit cda507928ab08e0414276aa292f1976b28df0adc.
-              Moved here from a519a93 on 2026-09-02.  The documented condition
-              for moving the pin -- the gates were re-run on the new commit --
-              is met by that receipt, and the transfer proof of 2026-09-02
-              shows the four delayed-entry arms byte-identical across a519a93,
-              cda50792 and HEAD (789e2635), so the move records the newer run
-              without discarding any evidence.
+              run_status_gates.txt, lane=gates, 2026-09-12T23:12:50Z, 3/3
+              (recovery 8/8, coverage 1/1, factorization 10/10), .ado files
+              byte-identical to c7ca44454e4755f4542629b22003cd2003864691
+              (finegray 1.3.4; the receipt's pkg_tree 23a1ac2e reads
+              "uncommitted-changes-present" because qa/test_finegray_zzf.do
+              was mid-edit -- it and three doc files were the only
+              differences, none of them fitted by a gate).  That run's
+              transfer_gate line is FAIL against the PREVIOUS pin cda50792,
+              which is the expected shape: 1.3.3's stratified-weight
+              normalizer (0700c65b) moved the zzf_fact arm on purpose, and
+              1.3.4 (c7ca4445) is the first tree carrying it on which the
+              gates passed -- the 2026-09-12 18:18 UTC run on fe0d983c
+              (1.3.3) failed coverage (rep 245 refused, r(459)) and
+              factorization 2a; both are recorded in
+              Stata-Dev/_take_action/finegray_gates_2026-09-12/.
+              Moved here from cda50792 on 2026-09-13.

@@ -1405,42 +1405,59 @@ else {
     display as error "  FAIL: Z32 factorized normalization (rc=`=_rc')"
 }
 
-* Z33: an undefined normalizer is refused, not padded.  Entry group 0's first
-* subjects all leave (censored) before anyone else in that group enters, so
-* H_0(X_i-) == 0 for them and kappa_(c,0) has no value in either censoring
-* cell.  The censoring groups cut ACROSS the entry groups, so each G_c still
-* sees entry-group-1 subjects at risk and never collapses: through 1.3.2 every
-* consulted G_c H_0 cell was positive and this fit ran at rc 0 on cells whose
-* normalizer does not exist.  (With matching groupings the old positivity
-* check already refused every such configuration, because the same empty
-* risk set that zeroes H_g also zeroes G_g or a consulted retained cell.)
+* Z33: a normalizer is estimated on the identifiable region, and a weight
+* that would consult a subject outside it is refused, not padded.  Entry
+* group 0's first subjects all leave (censored) before anyone else in that
+* group enters, so H_0(X_i-) == 0 for them.  The censoring groups cut ACROSS
+* the entry groups, so each G_c still sees entry-group-1 subjects at risk and
+* never collapses: through 1.3.2 every consulted G_c H_0 cell was positive
+* and this fit ran at rc 0 with a normalizer that silently included the
+* pre-gap subjects; 1.3.3 zeroed the whole (c,0) cell for them and refused
+* the fit even though nothing ever divides by their denominator.  1.3.4 (He
+* & Yang 1998, Thm 2.2; the identifiable-region rule in _finegray_mata.ado)
+* fits, leaves the 12 pre-gap subjects out of kappa_(c,0), counts them in
+* e(N_lt_prehole) -- and still refuses with r(459) the moment one of them is
+* consulted, here by giving the first row a competing event so its zero
+* denominator is divided by at every later cause time.
 local ++test_count
-clear
-quietly {
-    input double(t0 t) byte(status u)
-    0.00 0.20 0 0
-    0.30 0.90 1 0
-    0.35 1.10 2 0
-    0.40 1.30 1 0
-    0.00 0.50 1 1
-    0.00 0.80 2 1
-    0.00 1.20 1 1
-    0.00 0.25 0 1
-    end
-    expand 12
-    gen long id = _n
-    gen byte c = mod(id, 2)
-    gen byte anyev = status != 0
-    stset t, failure(anyev == 1) id(id) enter(time t0)
-}
+* (built from a matrix: `input ... end' cannot live inside a program, its
+* `end' closes the program definition)
+capture program drop _z33_data
+program define _z33_data
+    clear
+    quietly {
+        matrix _z33 = (0.00, 0.20, 0, 0 \ 0.30, 0.90, 1, 0 \ 0.35, 1.10, 2, 0 \ ///
+                       0.40, 1.30, 1, 0 \ 0.00, 0.50, 1, 1 \ 0.00, 0.80, 2, 1 \ ///
+                       0.00, 1.20, 1, 1 \ 0.00, 0.25, 0, 1)
+        svmat double _z33
+        rename (_z331 _z332 _z333 _z334) (t0 t status u)
+        recast byte status u
+        matrix drop _z33
+        expand 12
+        gen long id = _n
+        gen byte c = mod(id, 2)
+        gen byte anyev = status != 0
+        stset t, failure(anyev == 1) id(id) enter(time t0)
+    }
+end
+_z33_data
 capture quietly finegray c, compete(status) cause(1) strata(c) truncstrata(u) noshr
-if _rc == 459 {
+local z33_rc = _rc
+local z33_pre = e(N_lt_prehole)
+local z33_conv = e(converged)
+_z33_data
+quietly replace status = 2 if t0 == 0 & u == 0
+quietly replace anyev = 1 if t0 == 0 & u == 0
+quietly stset t, failure(anyev == 1) id(id) enter(time t0)
+capture quietly finegray c, compete(status) cause(1) strata(c) truncstrata(u) noshr
+local z33_rc2 = _rc
+if `z33_rc' == 0 & `z33_conv' == 1 & `z33_pre' == 12 & `z33_rc2' == 459 {
     local ++pass_count
-    display as result "  PASS: Z33 unnormalizable entry group refused with r(459)"
+    display as result "  PASS: Z33 pre-gap subjects excluded from the normalizer (e(N_lt_prehole)=12); consulting one is r(459)"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z33 expected r(459) for an undefined normalizer, got rc=`=_rc' (pre-fix: rc 0)"
+    display as error "  FAIL: Z33 expected rc 0 with e(N_lt_prehole)=12 then r(459) when consulted; got rc=`z33_rc' prehole=`z33_pre' rc2=`z33_rc2'"
 }
 
 * Z34: a stratified delayed-entry fit posts e(lt_norm) = "stratum", and every
