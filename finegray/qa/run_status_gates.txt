@@ -1,17 +1,17 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        gates
-date:        2026-09-12T23:12:50Z
-verdict:     FAIL
-pkg_tree:    23a1ac2ed0d7477d513f8add8cbf2b23c3185ed3 (uncommitted-changes-present)
-head_commit: c7ca44454e4755f4542629b22003cd2003864691
+date:        2026-09-14T10:53:54Z
+verdict:     PASS
+pkg_tree:    10a4dc6cc780943636c1b3d63fd07b32e58cd89a (uncommitted-changes-present)
+head_commit: ffbd2e7b39e40090626091a5d835a3b392e4a79d
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/03eaedc6-e872-4a9c-a935-ce4ebfd245fc/scratchpad/gates2/finegray [DIFFERS-from-source-repo (333 tracked, 0 missing, 4 modified, first: README.md) manifest-sha256 3ad72696065a20e7aea8830e7fb7855c14f60a779c7fc5d4e67159e5329f2093]
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/213a0bf7-29a4-483d-a132-afda49177765/scratchpad/lane_gates/finegray [DIFFERS-from-source-repo (342 tracked, 0 missing, 1 modified, first: finegray_methods.sthlp) manifest-sha256 1dc962cc5f8c842fcc53b61cef2e28757fe58d52f1284cf6aecdaf10c7d1b3e5]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   not-applicable
 wrapper_test: not-applicable
-transfer_gate: FAIL (delayed-entry numbers differ from cda50792)
+transfer_gate: PASS (4 arms identical vs c7ca4445)
 
 per-suite RESULT trail (as echoed by each suite):
 RESULT: validation_finegray_zzf_recovery tests=8 pass=8 fail=0 smoke=0

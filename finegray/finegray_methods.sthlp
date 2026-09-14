@@ -254,8 +254,8 @@ observation gap (below) the pooled-weight estimator on the identifiable
 region is the published estimator itself, the pre-gap subject contributes
 exactly zero to both the score and the appendix terms, and the
 nuisance-adjusted variance equals the one computed on the identifiable
-sample (pinned in the QA suite), so {opt nuisance} is accepted there.
-Without delayed entry b/S(t-) is G(t-) itself, and the three-term
+sample (pinned in the QA suite), so {opt nuisance} is accepted
+there. Without delayed entry b/S(t-) is G(t-) itself, and the three-term
 representation converges to Fine and Gray's eta+psi as n grows -- converges,
 not coincides: the appendix's w_i is the exact influence of an empirical
 average where eq. (8) uses the martingale linearization, and the two agree only

@@ -31,3 +31,12 @@ gated_note:   the tree the three ZZF gates were LAST ACTUALLY RUN on --
               factorization 2a; both are recorded under "Gates lane
               history" in qa/AUDIT_NOTES.md.
               Moved here from cda50792 on 2026-09-13.
+              2026-09-14: the gates were re-run on the 1.3.5 tree (delayed-
+              entry censoring KM on Geskus's tie ordering and on the
+              identifiable region; ffbd2e7b plus one help-file rewrap) and
+              passed 3/3 -- run_status_gates.txt, 2026-09-14T10:53:54Z:
+              recovery 8/8, coverage 1/1 with 1000/1000 fits on every
+              candidate, factorization 10/10 -- and its four transfer arms
+              are byte-identical to this pin (continuous DGPs: no tie, no
+              gap), so the pin is left at c7ca4445 and the transfer gate
+              stays meaningful for the next change.
