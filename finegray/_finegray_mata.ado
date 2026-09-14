@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.5  2026/09/13
+*! _finegray_mata Version 1.3.6  2026/09/14
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)

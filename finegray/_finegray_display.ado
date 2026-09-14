@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.5  2026/09/13
+*! _finegray_display Version 1.3.6  2026/09/14
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)

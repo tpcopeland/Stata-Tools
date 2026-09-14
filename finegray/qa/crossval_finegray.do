@@ -217,8 +217,10 @@ else {
 * {* SECTION 2: SE cross-validation against stcrreg}{...}
 
 * C6: Robust SEs vs stcrreg (3-cov cause 1)
-* Note: Both use the sandwich estimator but different computational approaches
-* (IPCW forward-backward scan vs data expansion).
+* Note: the default finegray sandwich is FIXED-WEIGHT (meat sum eta_i^2);
+* stcrreg's scores are eta_i + psi_i ([ST] stcrreg, Methods and formulas),
+* which finegray computes under `nuisance'.  So this is a proximity check on
+* two DIFFERENT estimators, not an identity; the identity is C10b below.
 * TOLERANCE 0.01.  The "Max observed diff ~13%" note this comment used to carry
 * was wrong and had been for at least a release: MEASURED 2026-09-02 the three
 * relative differences are 1.824e-04, 1.635e-04 and 8.099e-04 (echoed below).
@@ -350,6 +352,78 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: C10 robust SEs (rc=`=_rc')"
+    local ++fail_count
+}
+
+* C10b: nuisance = stcrreg's estimator, as a FULL-COVARIANCE identity on
+* untied data.  C6/C7/C10 accept the fixed-weight SE within a tolerance of
+* stcrreg's, and for a release the methods help read that tolerance as a tie
+* convention -- it is not.  stcrreg's scores are eta_i + psi_i, the
+* nuisance-adjusted Fine-Gray (1999, eq. 7-8) sandwich; finegray's default
+* omits psi.  A seeded continuous fixture with every observed time distinct
+* (asserted by isid, so no tie convention can enter) with noadjust on both:
+* `nuisance' reproduces stcrreg's e(V) to numerical precision, the default
+* does NOT, and the finite-sample factor applied on both sides leaves the
+* identity intact.  MEASURED 2026-09-14: nuisance mreldif 5.740e-12 (noadjust)
+* and with the default adjustment; fixed-weight mreldif 1.338e-05.
+local ++test_count
+capture noisily {
+    clear
+    set seed 14092027
+    quietly set obs 300
+    generate long id = _n
+    generate double x = rnormal()
+    generate double y = rnormal()
+    generate double t1 = -ln(runiform()) / exp(.5*x - .4*y)
+    generate double t2 = -ln(runiform()) / exp(-.2*x)
+    generate double tc = -2 * ln(runiform())
+    generate double t = min(t1, t2, tc)
+    generate byte status = cond(t == t1, 1, cond(t == t2, 2, 0))
+    isid t
+    quietly count if status == 1
+    assert !missing(r(N)) & r(N) > 50
+    quietly count if status == 2
+    assert !missing(r(N)) & r(N) > 30
+    quietly count if status == 0
+    assert !missing(r(N)) & r(N) > 30
+
+    quietly stset t, failure(status == 1 2) id(id)
+    _finegray_xv x y, compete(status) cause(1) noadjust nolog
+    matrix V_fixed = e(V)
+    _finegray_xv x y, compete(status) cause(1) nuisance noadjust nolog
+    matrix b_nuis = e(b)
+    matrix V_nuis = e(V)
+    _finegray_xv x y, compete(status) cause(1) nuisance nolog
+    matrix V_nuis_adj = e(V)
+
+    quietly stset t, failure(status == 1) id(id)
+    quietly stcrreg x y, compete(status == 2) noadjust nolog
+    matrix b_ref = e(b)
+    matrix V_ref = e(V)
+    quietly stcrreg x y, compete(status == 2) nolog
+    matrix V_ref_adj = e(V)
+
+    local d_b = mreldif(b_nuis, b_ref)
+    local d_nuis = mreldif(V_nuis, V_ref)
+    local d_nuis_adj = mreldif(V_nuis_adj, V_ref_adj)
+    local d_fixed = mreldif(V_fixed, V_ref)
+    display as text "  b nuisance vs stcrreg:            mreldif=" %10.3e `d_b'
+    display as text "  V nuisance vs stcrreg (noadjust): mreldif=" %10.3e `d_nuis'
+    display as text "  V nuisance vs stcrreg (adjusted): mreldif=" %10.3e `d_nuis_adj'
+    display as text "  V fixed-weight vs stcrreg:        mreldif=" %10.3e `d_fixed'
+    assert `d_b' < 1e-8
+    assert `d_nuis' < 1e-9
+    assert `d_nuis_adj' < 1e-9
+    * the default is a different estimator: the gap is the psi term, and it
+    * must be there, or the identity above says nothing about nuisance
+    assert `d_fixed' > 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS: C10b nuisance e(V) == stcrreg e(V) on untied data; default differs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: C10b nuisance/stcrreg covariance identity (rc=`=_rc')"
     local ++fail_count
 }
 

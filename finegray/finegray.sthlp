@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  13sep2026}{...}
+{* *! version 1.3.6  14sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -239,7 +239,13 @@ coefficients -- separate per interval, not main effect plus offsets.
 
 {pmore}
 {bf:Intervals are half-open at the left:} ({it:cut_j-1}, {it:cut_j}], so an
-event at a boundary belongs to the earlier interval.
+event at a boundary belongs to the earlier interval. Boundaries are used as
+typed, to full double precision, and {cmd:e(tsplit)} stores the typed
+values: under {cmd:tsplit(.1000000000000001)} an event at exactly
+{cmd:.1000000000000001} is in the first interval, not the second. A range
+token ({cmd:1(1)5}) is expanded as usual, and a plain number beside it keeps
+its digits. Boundaries must be positive and strictly increasing
+({cmd:r(198)}, {cmd:r(124)}).
 
 {pmore}
 {bf:Reading the output.} The coefficient table gains equations: {cmd:main}
@@ -989,7 +995,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.5, 2026-09-13{p_end}
+{pstd}Version 1.3.6, 2026-09-14{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

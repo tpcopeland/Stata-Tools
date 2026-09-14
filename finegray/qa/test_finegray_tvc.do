@@ -274,6 +274,69 @@ _fgtv_result `_rc' "T04 an event on a boundary falls in the earlier interval"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
+**# T04b a boundary is used AS TYPED, to full double precision (2026-09-14)
+* tsplit() was declared `numlist ascending', and syntax wrote back numlist's
+* serialization -- text rounded to nine significant digits.  A cause event at
+* exactly .1000000000000001 with tsplit(.1000000000000001) belongs to the FIRST
+* interval by the (lower, upper] contract T04 pins, but the fit saw the cut as
+* .1, counted it in the second, and converged at rc 0 with different
+* coefficients; e(tsplit) and e(refitcmd) carried .1 too.  Three hundred cause
+* events at three times, one hundred exactly on the cut, with the covariate
+* distribution changed at the middle time so the two partitions are different
+* models, not the same numbers in a different column.
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 400
+    generate long id = _n
+    generate double t = cond(_n <= 100, .05, ///
+        cond(_n <= 200, .1000000000000001, cond(_n <= 300, .2, 1)))
+    generate byte status = cond(_n <= 300, 1, 2)
+    generate double x = mod(_n, 2)
+    quietly replace x = (_n <= 170) if _n > 100 & _n <= 200
+    quietly count if t == .1000000000000001 & status == 1
+    assert r(N) == 100
+    quietly count if t == .1 & status == 1
+    assert r(N) == 0
+    quietly stset t, failure(status == 1 2) id(id)
+
+    quietly finegray x, compete(status) cause(1) tvc(x) tsplit(.1000000000000001) nolog
+    matrix _tp = e(b)
+    * the literal, not the nine-digit rounding, in e() and the refit line
+    assert `"`e(tsplit)'"' == ".1000000000000001"
+    assert `"`e(tsplit_nfail)'"' == "200 100"
+    assert strpos(`"`e(refitcmd)'"', "tsplit(.1000000000000001)") > 0
+    local _refit `"`e(refitcmd)'"'
+    quietly `_refit'
+    assert mreldif(_tp, e(b)) == 0
+
+    * no event lies in (.1000000000000001, .15], so tsplit(.15) is the same
+    * partition: identical coefficients, and NOT the rounded cut's
+    quietly finegray x, compete(status) cause(1) tvc(x) tsplit(.15) nolog
+    assert mreldif(_tp, e(b)) < 1e-12
+    quietly finegray x, compete(status) cause(1) tvc(x) tsplit(.1) nolog
+    assert `"`e(tsplit_nfail)'"' == "100 200"
+    assert mreldif(_tp, e(b)) > 1e-3
+
+    * range syntax still expands, and a non-numeric token still refuses
+    quietly finegray x, compete(status) cause(1) tvc(x) tsplit(.08(.08).16) nolog
+    assert `"`e(tsplit)'"' == ".08 .16"
+    assert `"`e(tsplit_nfail)'"' == "100 100 100"
+    * a plain number BESIDE a range token keeps its digits: the first fix
+    * kept tokens all-or-nothing, so this list came through as ".07 .1" and
+    * moved the 100 events on the cut into the last interval
+    quietly finegray x, compete(status) cause(1) tvc(x) ///
+        tsplit(.07(.01).07 .1000000000000001) nolog
+    assert `"`e(tsplit)'"' == ".07 .1000000000000001"
+    assert `"`e(tsplit_nfail)'"' == "100 100 100"
+    capture finegray x, compete(status) cause(1) tvc(x) tsplit(abc) nolog
+    assert _rc == 121
+}
+local _rc = _rc
+_fgtv_result `_rc' "T04b tsplit() boundaries are used as typed, to full precision"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
 **# T05 the coefficient stripe is the documented one and supports test
 local ++test_count
 capture noisily {
@@ -305,7 +368,9 @@ capture noisily {
     assert e(n_intervals) == 3
     assert e(k_tvc) == 1
     assert "`e(tvc)'" == "x1"
-    assert "`e(tsplit)'" == ".4 1"
+    * As typed, not numlist's serialization (".4 1"): the boundary is stored
+    * to the precision the user gave it (T04b).
+    assert "`e(tsplit)'" == "0.4 1.0"
     assert "`e(tvc_covariates)'" == "x1"
     assert "`e(tvc_pos)'" == "1"
     assert "`e(designvars)'" == "x1 x2"
@@ -342,7 +407,7 @@ capture noisily {
     * refit converges, its covariates still match, the replication is accepted,
     * and the band then describes a DIFFERENT estimator than the point estimate.
     assert strpos(`"`_rcmd'"', "tvc(x1)") > 0
-    assert strpos(`"`_rcmd'"', "tsplit(.4 1)") > 0
+    assert strpos(`"`_rcmd'"', "tsplit(0.4 1.0)") > 0
     quietly `_rcmd'
     matrix _rb2 = e(b)
     mata: st_numscalar("_rdiff", max(abs(st_matrix("_rb") - st_matrix("_rb2"))))
