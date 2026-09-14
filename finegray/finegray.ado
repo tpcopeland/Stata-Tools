@@ -1,4 +1,4 @@
-*! finegray Version 1.3.4  2026/09/13
+*! finegray Version 1.3.5  2026/09/13
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -2224,7 +2224,22 @@ program define finegray, eclass sortpreserve
     * unweighted fit, so the line below reduces to what it always was.
     local _fg_wspec ""
     if "`weight'" != "" local _fg_wspec `" [`weight'`exp']"'
-    local _refitcmd `"finegray `_orig_varlist'`_fg_wspec', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
+    * The recipe carries the FIT-TIME expansion of a factor specification
+    * (e(fvsemantic): `1b.grp 2.grp ifp'), not the user's spelling.  A dynamic
+    * base -- ib(freq)., ib(first)., ib(last)., or a bare i. under a later
+    * `fvset base' -- is re-resolved by whoever replays the line, and a
+    * bootstrap resample can change the most frequent level: the refit then
+    * posts a different e(designvars), every consumer rejects the replicate,
+    * and the bootstrap fails r(498) after discarding usable resamples (10 of
+    * 25 accepted on a 55/54 split; 1.3.5).  Explicit level terms freeze the
+    * base to the level VALUE the point estimate used, and fvexpand returns
+    * them unchanged, so the replay's e(fvsemantic), e(designvars) and
+    * coefficient stripe are the fit's own (verified bit for bit for ib(freq),
+    * ib(last), i.a#c.x, i.a##c.x and c.x#ibn.a).  e(fvvarlist) and
+    * e(cmdline) keep what the user typed.
+    local _refit_varlist "`_orig_varlist'"
+    if `_has_fv' local _refit_varlist "`_fv_semantic'"
+    local _refitcmd `"finegray `_refit_varlist'`_fg_wspec', compete(`compete') cause(`cause') censvalue(`censvalue') iterate(`iterate') tolerance(`tolerance') nolog"'
     if "`strata'" != ""          local _refitcmd `"`_refitcmd' strata(`strata')"'
     if "`truncstrata'" != ""     local _refitcmd `"`_refitcmd' truncstrata(`truncstrata')"'
     if "`bstrata'" != ""         local _refitcmd `"`_refitcmd' bstrata(`bstrata')"'

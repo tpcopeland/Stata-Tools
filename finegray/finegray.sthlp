@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.4  13sep2026}{...}
+{* *! version 1.3.5  13sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -343,6 +343,7 @@ coefficients; {cmd:r(se_method)} for CIF intervals.
 errors, not coefficient ones. For coefficient-level inference that accounts for
 estimating G(t), bootstrap the whole fit:
 
+{pmore2}{cmd:. capture program drop myfit}{p_end}
 {pmore2}{cmd:. program define myfit, eclass}{p_end}
 {pmore2}{cmd:.     quietly stset t, failure(ev) id(id)}{p_end}
 {pmore2}{cmd:.     quietly finegray x1 x2, compete(ev) cause(1)}{p_end}
@@ -835,6 +836,7 @@ estimand from the time-updated coefficient {helpb stcrreg} reports.
 {phang2}{cmd:. webuse hypoxia, clear}{p_end}
 {phang2}{cmd:. gen byte status = failtype}{p_end}
 {phang2}{cmd:. stset dftime, failure(dfcens==1) id(stnum)}{p_end}
+{phang2}{cmd:. capture program drop fgboot}{p_end}
 {phang2}{cmd:. program define fgboot, eclass}{p_end}
 {phang2}{cmd:.     version 16.0}{p_end}
 {phang2}{cmd:.     capture drop _st _d _t _t0}{p_end}
@@ -987,7 +989,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.4, 2026-09-13{p_end}
+{pstd}Version 1.3.5, 2026-09-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

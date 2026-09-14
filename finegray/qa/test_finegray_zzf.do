@@ -697,6 +697,36 @@ else {
 }
 capture drop cs
 
+* Z24b: the recipe survives RESAMPLING.  Unchanged-data parity (Z24) cannot see
+* a dynamic factor base: `ib(freq).cs' is re-resolved by whoever replays the
+* line, and a bootstrap resample can change the most frequent level, so the
+* refit posts a different design and every replicate is rejected (10 of 25
+* accepted, then r(498), through 1.3.4).  The recipe now carries the fit-time
+* expansion (`0b.cs 1.cs' or `0.cs 1b.cs'), so a resample that keeps both
+* levels refits the point estimate's design.
+local ++test_count
+quietly stset t, failure(anyev == 1) id(id) enter(time t0)
+capture drop cs
+quietly gen byte cs = mod(id, 2)
+* make the two levels nearly balanced so resamples flip the modal level
+quietly replace cs = 1 in 1/`=floor(_N / 2)'
+quietly replace cs = 0 in `=floor(_N / 2) + 1'/`=_N'
+capture noisily {
+    quietly finegray ib(freq).cs z1 z2, compete(status) cause(1) truncstrata(z1)
+    assert strpos(`"`e(refitcmd)'"', "ib(") == 0
+    quietly finegray_cif, attime(1 2) ci bootstrap(25) seed(20260913) nograph
+    assert r(bootstrap_success) == 25
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z24b e(refitcmd) freezes ib(freq) and the CIF bootstrap accepts 25/25 resamples"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z24b e(refitcmd) under a dynamic base does not survive resampling (rc=`=_rc')"
+}
+capture drop cs
+
 * ===========================================================================
 * 9. THE SOFT WARNINGS ACTUALLY FIRE (Gate Z3-functional: low-A / extreme weight)
 * ===========================================================================

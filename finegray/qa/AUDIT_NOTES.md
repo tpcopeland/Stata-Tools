@@ -84,6 +84,8 @@ Zhou et al. (2012) positive-stable shared-frailty DGP with exact marginal truth 
 
 Deterministic analytic CIF inference and delete-one sensitivity envelopes, plus one exactness cell on uncensored data where G is identically 1 and the analytic and jackknife SEs estimate the same quantity, so the band is tight rather than an envelope.
 
+Measured 2026-09-04: section 10 exact-oracle agreement 1.1e-15 to 2.3e-15 relative.
+
 ### `validation_finegray_lt_se.do`
 
 Delayed-entry score identities and coefficient/CIF delete-one sensitivity envelopes, plus the clustered delayed-entry variance rebuilt outside the package from the score residuals (within-cluster sums, the `norobust` inverse information, and the g/(g-1) factor) and its one-subject-per-cluster reduction to the unclustered sandwich.
@@ -131,6 +133,26 @@ Reliable shell status, provenance/receipts, wrapper regression, and stale-oracle
 ### `validation_finegray_zzf_prereg_r.R`
 
 Independent preregistration of the recovery gate's signed controls. Deliberately **not** a lane member: it records the expected sign of the arm-D negative-control bias, derived from the R oracle, *before* the gated repetitions run, and its output is quoted verbatim in the `Z2-PREREG` header of `validation_finegray_zzf_recovery.do` (and pointed at from `validation_finegray_zzf_coverage.do`). Re-derive with `cd finegray/qa && Rscript validation_finegray_zzf_prereg_r.R`.
+
+### `validation_finegray_lt_cluster_cif_se.do`
+
+Measured 2026-09-04: analytic clustered SE / Monte Carlo SD = 1.032/1.005/1.002 with coverage 0.951/0.956/0.954, against 0.801/0.772/0.776 and ~0.83 coverage for the unclustered SE on the same fits.
+
+### `crossval_tvc_bstrata.do`
+
+Measured 2026-09-04: coefficients 1.6e-10 to 4.2e-10, SEs 6.8e-12 to 1.1e-11, `mreldif(e(V))` 7.5e-13 to 1.9e-12; gated at 1e-7/1e-9, three orders below the smallest wrong-answer separation (dropping the composition gives 1e-3-class differences).
+
+### `test_finegray_v135.do` and `crossval_finegray_zzf_ties.do`
+
+Written 2026-09-13 against the independent clarity audit of 1.3.4 (findings F1-F5 and F8 of that audit). Measured on the 1.3.4 tree (c146af64) before the fix: tied pooled delayed-entry fixture -0.0603024685 against -0.0615096667 from the dense published weight and R (`survival` 3.8.6, -0.0615096667128215); stratified -0.0603943588 against -0.0612014113; the gap fixture under `strata(g) truncstrata(g)` did not converge with a maximum weight of 1.0e10; the v134 gap fixture on the pooled path converged at rc 0 with b(z2) = -0.0844 against -0.1010 from the identifiable sample and `e(N_G_trunc)` = 300. After the fix every fixture agrees with the dense published weight to at most 1.2e-13, and `crossval_finegray_zzf_ties` agrees with the canonical R construction to at most 2.1e-11 on coefficients (coxph's convergence floor), 8e-16 on the log pseudo-likelihood, and 1e-15 on the largest retained weight, on four fixtures with every collision class present. `survival::finegray` produces NaN weights across an observation gap (1918 and 1890 expanded rows on the two gap fixtures) which `coxph` drops silently, so it is reported but not compared there; on the gap-free fixtures it agrees with the engine to 2e-11.
+
+## Gates lane history
+
+The three ZZF Monte Carlo gates (`validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`) are run on demand; `qa/gates_transfer_pin.txt` names the tree they were last run on and `run_all.sh` diffs four delayed-entry arms of every later tree against it (`gates_transfer_proof.do`).
+
+- 2026-09-12 18:18 UTC, tree fe0d983c (1.3.3): FAIL. Coverage arm `ts_mod_n2000` replication 245 (seed 20260959) refused with r(459) -- the first stratum-0 entrant censored before the second arrived zeroed the whole cell's normalizer -- and factorization check 2a failed because it asserted JOINT > MARGINAL analytic SE, a direction that was a property of the 1.3.2 estimator's inefficiency, not of the design. Both led to 1.3.4.
+- 2026-09-12 23:12 UTC, tree byte-identical in `.ado` to c7ca4445 (1.3.4): PASS 3/3 -- recovery 8/8, coverage 1/1 (1000/1000 fits, sandwich coverage .946/.940), factorization 10/10 (SE/SD calibration 1.007/1.025). The receipt's `transfer_gate` line reads FAIL against the previous pin cda50792 because 1.3.3's normalizer moved the `zzf_fact` arm on purpose; the pin was advanced to c7ca4445 on 2026-09-13.
+- 2026-09-13, 1.3.5 tree (delayed-entry censoring KM on Geskus's tie ordering and on the identifiable region): the four transfer arms are bit-identical to c7ca4445 -- the arms' continuous DGPs have neither event/censoring ties nor an observation gap -- so the transfer gate passes against the existing pin. The gates lane was re-run on the 1.3.5 tree; see `run_status_gates.txt`.
 
 ## Oracle caching rationale (historical)
 

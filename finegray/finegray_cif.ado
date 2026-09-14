@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.4  2026/09/13
+*! finegray_cif Version 1.3.5  2026/09/13
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1319,6 +1319,14 @@ program define finegray_cif, rclass sortpreserve
         * Refits must see each subject's true entry time, not the kept
         * record's own interval start (multi-record reduction)
         if "`_t0var'" != "_t0" quietly replace _t0 = `_t0var'
+        * Design columns rebuilt above for the analytic path stay OUT of the
+        * refit dataset: each refit writes and owns its own _fg_* columns.  On
+        * data saved before the fit (estimates use over the pre-fit dataset)
+        * there is no ownership token to stamp on a rebuilt column, so every
+        * refit saw a user variable under a package-owned name and rejected
+        * the replicate -- 0 of 25 successful, r(498) (1.3.5).  They come back
+        * with `restore' and are dropped in the cleanup zone as before.
+        if "`_fgrebuilt'" != "" quietly drop `_fgrebuilt'
         tempfile _bdata
         quietly save `"`_bdata'"'
 

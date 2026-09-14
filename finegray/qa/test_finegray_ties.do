@@ -73,6 +73,69 @@ local fail_count = 0
 * to go RED against v1.1.4 at this tolerance.
 local tol_parity = 1e-7
 
+* Dense b(t)/S(t-) fit for section 7: ZZF (2011) eq. (4) built directly from
+* the data in memory (t0, t, etype, x), no package routine called.  Weight at
+* cause time t_k: 1 for a subject at risk ((t0, t] convention), b(t_k)/S(t_k-)
+* over b(X_i)/S(X_i-) for a competing subject with X_i < t_k, 0 otherwise;
+* Breslow ties; Newton on the one-parameter score.
+capture mata: mata drop _fgtie_bs_fit()
+mata:
+real scalar _fgtie_bs_fit()
+{
+    real colvector t0, t, e, x, et, alltimes, S0, sc, xe
+    real scalar n, K, k, i, j, u, r, d, S, Au, b, g, H, it, s0, s1, s2, xbar
+    real matrix W
+
+    t0 = st_data(., "t0"); t = st_data(., "t"); e = st_data(., "etype"); x = st_data(., "x")
+    n = rows(t)
+    et = uniqrows(select(t, e :== 1))
+    alltimes = uniqrows(select(t, e :!= 0))
+    K = rows(et)
+    W = J(n, K, 0)
+    for (k = 1; k <= K; k++) {
+        u = et[k]
+        /* A(u) = b(u)/S(u-): fraction observed at risk over the left-truncated all-cause KM */
+        S = 1
+        for (i = 1; i <= rows(alltimes); i++) {
+            if (alltimes[i] >= u) break
+            r = sum((t0 :< alltimes[i]) :& (t :>= alltimes[i]))
+            d = sum((t :== alltimes[i]) :& (e :!= 0))
+            if (r > 0) S = S * (1 - d / r)
+        }
+        Au = mean((t0 :< u) :& (t :>= u)) / S
+        for (i = 1; i <= n; i++) {
+            if (t0[i] < u & t[i] >= u) W[i, k] = 1
+            else if (e[i] == 2 & t[i] < u) {
+                S = 1
+                for (j = 1; j <= rows(alltimes); j++) {
+                    if (alltimes[j] >= t[i]) break
+                    r = sum((t0 :< alltimes[j]) :& (t :>= alltimes[j]))
+                    d = sum((t :== alltimes[j]) :& (e :!= 0))
+                    if (r > 0) S = S * (1 - d / r)
+                }
+                W[i, k] = Au / (mean((t0 :< t[i]) :& (t :>= t[i])) / S)
+            }
+        }
+    }
+    b = 0
+    for (it = 1; it <= 50; it++) {
+        g = 0; H = 0
+        for (k = 1; k <= K; k++) {
+            S0 = W[., k] :* exp(x :* b)
+            s0 = sum(S0); s1 = sum(S0 :* x); s2 = sum(S0 :* x :* x)
+            xbar = s1 / s0
+            sc = select(W[., k], (t :== et[k]) :& (e :== 1))
+            xe = select(x, (t :== et[k]) :& (e :== 1))
+            g = g + sum(sc :* (xe :- xbar))
+            H = H + sum(sc) * (s2 / s0 - xbar^2)
+        }
+        b = b + g / H
+        if (abs(g / H) < 1e-13) break
+    }
+    return(b)
+}
+end
+
 **# 1. The flagship fixture is BLIND to censoring ties -- assert why
 * This test asserts a property of webuse hypoxia, not of finegray. It exists so
 * that the reason the old suite could be green while FG-C02 was live is
@@ -312,6 +375,60 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: tie-free hypoxia regression (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 7. Two tie conventions, side by side (1.3.5)
+* The censoring product-limit follows TWO documented conventions and this
+* test pins both on one fixture.  Without delayed entry the jump at a tied
+* time keeps the subjects failing there in the censoring risk set -- the
+* "flip failures and censorings, take the KM" convention stcrreg uses (FG-C02
+* above).  With delayed entry the target is ZZF's b(t)/S(t-), which the
+* engine reaches as G(t-)H(t-), and that product equals b/S at ties ONLY
+* under Geskus's ordering (events, then censorings, then entries): the
+* failures leave the censoring risk set first.  Through 1.3.4 the delayed-
+* entry path used the first convention, and the audit found it 1.2e-3 off
+* the published coefficient on tied data (test_finegray_v135 T1/T2,
+* crossval_finegray_zzf_ties).
+*
+* The fixture: FG-C02's tied data with every entry at 0 -- so the delayed-
+* entry path is selected by a single subject whose entry is moved to a time
+* before any exit, which changes no risk set.  The two conventions then
+* differ ONLY in the tie ordering, and the difference is the defect's size.
+local ++test_count
+capture noisily {
+    _finegray_qa_tied_data
+    quietly stset t, failure(etype) id(id)
+    quietly finegray x, compete(etype) cause(1) norobust nolog
+    local b_rc = _b[x]
+    * the same data with one entry at 0.5: every exit is at 1 or later, so the
+    * risk sets are unchanged and only the tie ordering can move the estimate
+    gen double t0 = 0
+    quietly replace t0 = 0.5 in 1
+    quietly stset t, failure(etype) id(id) enter(time t0)
+    quietly finegray x, compete(etype) cause(1) norobust nolog
+    local b_lt = _b[x]
+    assert "`e(lt_weight)'" == "zzf1_geskus"
+    display as text "  right-censored (stcrreg ordering): " %20.12f `b_rc'
+    display as text "  delayed entry  (Geskus ordering):  " %20.12f `b_lt'
+    display as text "  difference:                        " %10.2e abs(`b_rc' - `b_lt')
+    * they must DIFFER (the orderings are not the same on tied data) ...
+    assert abs(`b_rc' - `b_lt') > 1e-5
+    * ... and the delayed-entry one must be the published b/S answer, checked
+    * by hand here with the whole weight built from the all-cause KM.  A dense
+    * check on 300 subjects is cheap and involves no product limit at all.
+    mata: st_local("b_bs", strofreal(_fgtie_bs_fit(), "%21.15g"))
+    display as text "  b/S(t-) dense fit:                 " %20.12f `b_bs'
+    assert !missing(`b_lt', `b_bs', `b_rc')
+    assert reldif(`b_lt', `b_bs') < 1e-8
+    assert reldif(`b_rc', `b_bs') > 1e-5
+}
+if _rc == 0 {
+    display as result "  PASS: the two tie conventions are pinned side by side; delayed entry matches b/S(t-)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tie conventions (rc=`=_rc')"
     local ++fail_count
 }
 

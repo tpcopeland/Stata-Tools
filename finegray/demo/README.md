@@ -17,7 +17,7 @@ It loads the local package and demonstrates the complete public workflow:
 - Default `xb`, CIF, fixed-horizon CIF confidence intervals, cluster-bootstrap intervals, compatible-new-data scoring, and Schoenfeld residuals
 - Rank, log-time, and identity-time proportional subdistribution hazards diagnostics
 - CIF profiles, fixed horizons, custom time grids, analytic and bootstrap intervals, graph options, and verified `saving()` output
-- Grouped CIF curves on `hiv_si`: one fixed-horizon table per covariate profile, and the `saving()` + append pattern that overlays curves `finegray_cif` draws one at a time
+- Grouped CIF curves on `hiv_si`: one `over(ccr5)` call for the fixed-horizon table and the overlaid curves, with the stacked `r(table)` (sixth column `over`) and `saving()` dataset checked against the single-profile calls they are built from
 - Multiple-record (`stsplit`) data, string subject identifiers, CIF bootstrap intervals, and coefficient bootstrap inference through a wrapper program that re-runs `stset` on the resampled identifiers
 - Delayed entry on a cohort whose entry depends on a model covariate: `truncstrata()` against a pooled entry distribution, matching and cross-classified censoring/entry strata, the posted weight label, and the weight diagnostics
 - The internal time-varying covariate refusal on `pneumonia` (`r(198)`), and the subject-constant baseline-exposure fit that is accepted instead
@@ -27,7 +27,7 @@ It loads the local package and demonstrates the complete public workflow:
 
 Numeric claims in the demo are gated rather than narrated. Agreement with `stcrreg` on `hypoxia` (coefficients, robust standard errors, log pseudo-likelihood) and on `hiv_si`, the `tvc()`/`texp()` parameterization mapping, and the split-record reduction against the single-record fit are each recomputed and asserted, so a regression fails the run instead of printing a wrong number.
 
-The generated documentation artifacts are `finegray_cif.png` and `finegray_bstrata_cif.png`. The second overlays one CIF curve per baseline stratum; `finegray_cif` draws a single stratum per call, so the demo writes each curve with `saving()` and merges them on a common time grid. The temporary CIF and per-stratum datasets are checked for row count, bounds, and interval ordering, then removed.
+The generated documentation artifacts are `finegray_cif.png` and `finegray_bstrata_cif.png`. The second overlays one CIF curve per baseline stratum in a single `finegray_cif, over(pelnode)` call after a `bstrata(pelnode)` fit; each overlaid curve is that stratum's own `bstratum(#)` curve, and the stacked `r(table)` is checked for its column layout. The temporary CIF datasets written with `saving()` are checked for row count, bounds, and interval ordering, then removed.
 
 ## Performance benchmarks
 
