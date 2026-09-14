@@ -1,4 +1,4 @@
-*! finegray Version 1.3.5  2026/09/13
+*! finegray Version 1.3.6  2026/09/14
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -90,7 +90,7 @@ program define finegray, eclass sortpreserve
         [CENSvalue(integer 0) noSHR Level(cilevel) ///
          STRata(varlist numeric) TRUNCstrata(varlist numeric) ///
          BSTRata(varname numeric) ///
-         TVC(varlist numeric) TSPLIT(numlist ascending) ///
+         TVC(varlist numeric) TSPLIT(string) ///
          CLuster(varname numeric) noROBust ///
          noADJust noLOG BASEHaz NUISance ///
          ITERate(integer 200) TOLerance(real 1e-8)]
@@ -289,12 +289,57 @@ program define finegray, eclass sortpreserve
     local _fg_ntv = 0
     local _fg_nint = 1
     if "`tvc'" != "" {
-        * `numlist ascending' already refuses a repeated or out-of-order
-        * boundary at the syntax statement (r(124); pinned by T14 in
-        * qa/test_finegray_tvc.do).  What it does NOT enforce is positivity:
-        * tsplit(0) parses, and a boundary at or below zero would define an
-        * empty leading interval (0, 0] carrying its own unidentified
-        * coefficient.
+        * tsplit() is declared as a string and validated here, USED AS TYPED.
+        * Declared as `numlist ascending', syntax wrote back numlist's
+        * serialization, which is text rounded to nine significant digits:
+        * tsplit(.1000000000000001) reached the interval count, the engine,
+        * e(tsplit) and e(refitcmd) as .1, so the cause events AT the
+        * requested boundary -- which the (lower, upper] contract puts in the
+        * earlier interval -- were fitted in the later one, at rc 0 and with
+        * different coefficients.  numlist still validates the list and its
+        * order (a repeated or out-of-order boundary is r(124), by value;
+        * pinned by T14 in qa/test_finegray_tvc.do), but a plain-number
+        * token is kept as typed, as finegray_cif does for attime() and
+        * timepoints().  Token by token, not all-or-nothing: a one-token
+        * range (1(1)5, 1/5) is expanded on its own, so a plain number next
+        * to it keeps its digits too.  The multi-token forms `1 2 to 5' and
+        * `1 2 : 5' read their step from the tokens before them, so a list
+        * containing `to' or `:' is taken from numlist whole; those values
+        * come from arithmetic and carry no typed precision to lose.
+        capture numlist `"`tsplit'"', ascending
+        if _rc {
+            display as error "tsplit(): {bf:`tsplit'} is not a usable list of interval boundaries"
+            display as error "supply one or more positive numbers in increasing order, " ///
+                "e.g. {bf:tsplit(5 10)}"
+            exit _rc
+        }
+        local _fg_expanded `"`r(numlist)'"'
+        local _fg_raw : list retokenize tsplit
+        local _fg_multi : list posof "to" in _fg_raw
+        if `_fg_multi' == 0 local _fg_multi : list posof ":" in _fg_raw
+        local _fg_kept ""
+        if `_fg_multi' == 0 {
+            foreach _fg_c of local _fg_raw {
+                capture confirm number `_fg_c'
+                if _rc == 0 local _fg_kept "`_fg_kept' `_fg_c'"
+                else {
+                    * The whole list passed numlist above, so a token that
+                    * fails on its own reads its neighbours; hand the whole
+                    * list to numlist's expansion instead.
+                    capture numlist "`_fg_c'"
+                    if _rc {
+                        local _fg_multi = 1
+                        continue, break
+                    }
+                    local _fg_kept "`_fg_kept' `r(numlist)'"
+                }
+            }
+        }
+        if `_fg_multi' == 0 local tsplit : list retokenize _fg_kept
+        else                 local tsplit `"`_fg_expanded'"'
+        * What numlist does NOT enforce is positivity: tsplit(0) parses, and
+        * a boundary at or below zero would define an empty leading interval
+        * (0, 0] carrying its own unidentified coefficient.
         local _fg_ncut : word count `tsplit'
         local _fg_nint = `_fg_ncut' + 1
         foreach _fg_c of local tsplit {

@@ -114,18 +114,26 @@ matter: those are skipped and counted rather than treated as fatal.
 {it:fixed-weight} sandwich: it treats the estimated
 inverse-probability-of-censoring weights as fixed and does not propagate
 the uncertainty in the estimated censoring distribution G(t) (nor, under
-delayed entry, the entry distribution H(t)). Under right censoring this is
-the same variance convention {helpb stcrreg}
-reports. {bf:Same convention is not the same digits:} the two commands
-break ties in the censoring Kaplan-Meier differently, so the standard
-errors agree to about four significant figures rather than exactly: the
-coefficients agree to numerical precision, the standard errors only to the
-tie convention. A comparison against {cmd:stcrreg} should therefore be read
-as agreement to a tolerance, not as equality. Under delayed entry the commands
-use different weights, and the censoring Kaplan-Meier follows Geskus's tie
-ordering there (see {help finegray_methods##lt:Left truncation}), so neither
-estimates nor standard errors are numerically comparable. Coefficients are
-unaffected by the variance option -- only their standard errors change.
+delayed entry, the entry distribution H(t)). Its meat is sum_i eta_i^2, the
+Fine and Gray (1999) score contributions with G taken as
+known. {bf:This is not the variance {helpb stcrreg} reports.} {cmd:stcrreg}'s
+scores are eta_i + psi_i ([ST] {bf:stcrreg}, {it:Methods and formulas}), where
+psi_i is the contribution from having estimated the censoring weights; that
+is the estimator {cmd:finegray} computes under {opt nuisance}, not by
+default. Under right censoring, {cmd:finegray, nuisance} reproduces {cmd:stcrreg}'s
+full covariance matrix to numerical precision (mreldif of order 1e-12 on
+untied data in the package's QA suite) with {opt noadjust} on both, or with
+the finite-sample factor on both. The default fixed-weight covariance
+differs from {cmd:stcrreg}'s by exactly the psi terms; on the package's
+fixtures the standard errors then agree to three or four significant figures,
+and a comparison of the default against {cmd:stcrreg} should be read as
+agreement to a tolerance, not as equality. Tied censoring times add a second,
+smaller source of difference: the two commands break ties in the censoring
+Kaplan-Meier differently. Under delayed entry the commands use different
+weights, and the censoring Kaplan-Meier follows Geskus's tie ordering there
+(see {help finegray_methods##lt:Left truncation}), so neither estimates nor
+standard errors are numerically comparable. Coefficients are unaffected by
+the variance option -- only their standard errors change.
 
 {pstd}
 {bf:Why model-based standard errors are not the default, and are not}
@@ -151,7 +159,9 @@ inference on left-truncated data.
 proportional subdistribution hazards model of Zhou, Fine, Latouche and Labopin
 (2012), whose sandwich sums the influence functions {it:within} cluster before
 squaring them (their sec. 2.3, p. 376); with one subject per cluster it reduces
-exactly to Fine and Gray (1999). The clustered variance matrix is a sum of
+exactly to the unclustered sandwich of the same kind -- the fixed-weight
+eta-only sandwich by default, the Fine and Gray (1999, eq. 7-8) eta+psi
+sandwich under {opt nuisance}. The clustered variance matrix is a sum of
 {it:g} cluster-score
 outer products whose totals sum to zero at the solution, so its rank is at most
 {it:g}-1. {cmd:finegray} therefore requires more clusters than coefficients and
@@ -197,7 +207,9 @@ the censoring survivor G as known; {it:psi} is the additional contribution from
 having {bf:estimated} G by Kaplan-Meier. With {opt nuisance},
 {cmd:finegray}'s variance targets the same right-censoring nuisance-adjusted
 sandwich as {cmd:cmprsk::crr} (with one censoring stratum; see
-{it:Under strata()} below for the multi-stratum difference).
+{it:Under strata()} below for the multi-stratum difference) and as
+{helpb stcrreg}, whose default scores are eta_i + psi_i; see
+{help finegray_methods##variance:Variance} for the measured agreement.
 
 {pstd}
 The correction is not always conservative: {it:eta} and {it:psi} are
@@ -1204,8 +1216,10 @@ across cause-event times.
 {title:Comparison with stcrreg}
 
 {pstd}
-Without delayed entry, {cmd:finegray} uses the ordinary Fine-Gray risk set and
-variance conventions, and {helpb finegray_predict} maps its baseline CIF,
+Without delayed entry, {cmd:finegray} uses the ordinary Fine-Gray risk set,
+and {cmd:finegray, nuisance} uses {cmd:stcrreg}'s variance estimator (the
+default fixed-weight sandwich does not; see
+{help finegray_methods##variance:Variance}). {helpb finegray_predict} maps its baseline CIF,
 linear predictor, cumulative subhazard and Schoenfeld residuals to the
 corresponding {helpb stcrreg} quantities. {opt xb} is numerically identical to
 {cmd:stcrreg}'s {cmd:predict, xb}; the baseline CIF with all covariates set to

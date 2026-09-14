@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.5  2026/09/13
+*! finegray_cif Version 1.3.6  2026/09/14
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
