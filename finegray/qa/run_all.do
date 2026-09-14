@@ -49,7 +49,7 @@ local skip_file "`qa_dir'/_skip.txt"
 local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v110.do test_finegray_v120.do ///
     test_finegray_errors.do ///
     test_finegray_v120b.do test_finegray_v121.do test_finegray_v130.do ///
-    test_finegray_v133.do test_finegray_v134.do ///
+    test_finegray_v133.do test_finegray_v134.do test_finegray_v135.do ///
     test_finegray_mi.do ///
     test_finegray_bstrata.do ///
     test_finegray_tvc.do ///
@@ -91,7 +91,7 @@ local core_files `quick_files' ///
     validation_pweight_recovery.do ///
     crossval_predict_stcrreg.do
 local python_files test_finegray_oracles.do crossval_cif.do crossval_predict_phtest.do crossval_finegray.do ///
-    crossval_finegray_dta.do crossval_finegray_zzf.do crossval_nuisance.do ///
+    crossval_finegray_dta.do crossval_finegray_zzf.do crossval_finegray_zzf_ties.do crossval_nuisance.do ///
     crossval_bstrata.do crossval_public_studies.do ///
     crossval_tvc.do crossval_tvc_bstrata.do crossval_pweight.do
 
@@ -175,11 +175,19 @@ local n_skip = 0
 local failed_files ""
 
 display as text "finegray QA lane: `lane'"
-* The R side resolves the same default (tools::R_user_dir), so the banner
-* names the directory a HIT/MISS line in the suite logs will report.
-local _fg_oracle_dir : environment FG_ORACLE_CACHE_DIR
-if "`_fg_oracle_dir'" == "" local _fg_oracle_dir "~/.cache/R/finegray_qa (R's user cache dir)"
-display as text "R oracle cache: ACTIVE at `_fg_oracle_dir'; set FG_ORACLE_NOCACHE=1 to force recompute"
+* The R references are FROZEN and tracked (qa/oracles, checksum-verified by
+* _fg_oracle_cache.R): a routine run restores them and errors on a missing or
+* damaged entry rather than refitting.  FG_ORACLE_REFRESH=1 is the only way to
+* regenerate one, and the change is to be reviewed numerically.  (The former
+* banner named a retired per-user cache and FG_ORACLE_NOCACHE=1, neither of
+* which the current contract reads.)
+local _fg_refresh : environment FG_ORACLE_REFRESH
+if "`_fg_refresh'" == "1" {
+    display as error "R references: FG_ORACLE_REFRESH=1 -- every R oracle reached by this lane will be REGENERATED and re-frozen"
+}
+else {
+    display as text "R references: frozen in qa/oracles (checksum-verified); FG_ORACLE_REFRESH=1 regenerates"
+}
 display as text "Curated QA files: `n_discovered'"
 
 foreach f of local all_files {

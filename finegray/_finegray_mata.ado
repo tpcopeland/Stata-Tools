@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.4  2026/09/13
+*! _finegray_mata Version 1.3.5  2026/09/13
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -82,12 +82,99 @@ real colvector _finegray_beta()
     return(b[1, keep]')
 }
 
+/* Last observation gap ("hole") of a left-truncated sample: the largest entry
+   time u > 0 at which every subject that entered before u had already exited
+   by u, so the risk set was empty just before the entries at u.  0 when the
+   sample has no gap (in particular whenever no t0 exceeds 0).
+
+   With (t0, t] intervals and the events-then-censorings-then-entries
+   ordering, the at-risk count just before the entries at u is
+       r(u) - w(u) = #{ l_i <= u } - #{ x_i <= u } - #{ l_i == u }
+                   = #{ l_i <  u } - #{ x_i <= u },
+   so a gap is an entry time with #{ l_i < u } == #{ x_i <= u } -- the same
+   r(u) == w(u) that puts a zero factor into _finegray_H_at_times' reverse
+   product limit.  Subjects with x_i <= last gap are exactly those the entry
+   product limit H(x_i-) is zero for.  O(n log n): two sorts and one merge. */
+real scalar _finegray_last_hole(
+    real colvector t,
+    real colvector t0)
+{
+    real colvector ls, ts_, lt
+    real scalar nl, j, u, pl, pt, hole
+
+    lt = uniqrows(select(t0, t0 :> 0))
+    nl = rows(lt)
+    if (nl == 0) return(0)
+    ls = sort(t0, 1)
+    ts_ = sort(t, 1)
+    hole = 0
+    pl = 1
+    pt = 1
+    for (j = 1; j <= nl; j++) {
+        u = lt[j]
+        /* entries with l_i < u */
+        while (pl <= rows(ls)) {
+            if (ls[pl] < u) pl++
+            else break
+        }
+        /* exits with x_i <= u */
+        while (pt <= rows(ts_)) {
+            if (ts_[pt] <= u) pt++
+            else break
+        }
+        if ((pl - 1) == (pt - 1)) hole = u
+    }
+    return(hole)
+}
+
 /* Single-stratum KM of censoring distribution (with left truncation).
    Returns the POST-JUMP survivor at each observation time, i.e. the ordinary
    right-continuous KM step values.  Consumers that need the IPCW weight take
    the left limit G(t-) via _finegray_G_at_times/_finegray_G_minus; keeping the
    raw step values here is what lets that lookup be exact at, between, and
-   beyond observation times. */
+   beyond observation times.
+
+   TIE ORDERING (events_first, 1.3.5).  Without delayed entry the censoring
+   jump at t divides by the count at risk at t INCLUDING the subjects failing
+   at t: the "flip failures and censorings and take the ordinary KM"
+   convention stcrreg uses, and the one every released right-censored result
+   is pinned to (test_finegray_ties FG-C02, 1e-7 against stcrreg).  Under
+   delayed entry the weight is Zhang-Zhang-Fine's b(t)/S(t-), which the
+   engine reaches through Geskus's product G(t-)H(t-).  That identity holds
+   at tied times ONLY under Geskus's ordering t_(i) < c_(j) < l_(j) -- events,
+   then censorings, then entries (2011, p.40) -- and he states the
+   consequence for this jump: "individuals with an event at c_(j) are not
+   considered to be at risk in the calculation of r(c_(j))" (p.41).  Through
+   1.3.4 the delayed-entry path kept those failures in the censoring risk
+   set, so after an event/censoring collision the product G(t-)H(t-) no
+   longer telescoped to b/S(t-): on a 401-subject fixture with five such
+   collisions the converged coefficient was -0.06030 against -0.06151 from
+   the published weight (survival::finegray + coxph agree with the latter to
+   1e-13).  Taking the left limit later cannot undo a wrong jump.  With
+   events_first the jump divides by r(t) - d(t), and the identity
+   S*G*H(u+) / S*G*H(u-) = r(u+)/r(u) holds at every tie.  The caller sets
+   the flag from the WHOLE sample (any t0 > 0), not per stratum: the ZZF
+   target applies to every stratum of a delayed-entry fit.
+
+   OBSERVATION GAPS (1.3.5).  A lone early entrant censored before the next
+   entrant arrives is the only subject at risk at its own censoring, so the
+   product-limit jump there is 1 - 1/1 = 0 and G is zero at every later
+   time -- floored to 1e-10, which put numerator and denominator of every
+   later weight on the floor and silently erased the censoring weighting at
+   rc 0 with e(converged) = 1 (a 300-subject fixture moved b(z2) from -0.101
+   to -0.084 on the pooled path, and b(z1) from -0.229 to +0.002 under
+   strata()==truncstrata()).  He & Yang (1998, Thm 2.2) make the product
+   limits well defined only on the identifiable region -- after the sample's
+   last empty risk set -- so this KM is now estimated on that region: the
+   subjects observed before the last gap of THIS sample get weight 0 here
+   and enter neither the at-risk nor the censoring counts.  Their own G is
+   never consulted: their entry product limit H(x_i-) is zero, so their
+   weight denominator is zero and _finegray_positivity_check refuses the fit
+   if anything divides by it.  The gap is the gap of the sample this KM is
+   estimated on (a censoring stratum, or the pooled sample), not of the
+   truncation group: under truncstrata() alone G is pooled, and an early
+   censoring while other strata's subjects are at risk is legitimate
+   information about the pooled G. */
 real colvector _finegray_km_censor_single(
     real colvector t,
     real colvector delta,
@@ -95,10 +182,12 @@ real colvector _finegray_km_censor_single(
     real colvector event_type,
     real colvector t0,
     | real scalar n_trunc_out,
-    real colvector w)
+    real colvector w,
+    real scalar events_first)
 {
-    real colvector row_id
-    real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, cur_time, ep
+    real colvector row_id, wk
+    real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, n_fail_at_t
+    real scalar cur_time, ep, hole, n_risk_cens
     real colvector G, ord, entry_ord
 
     n = rows(t)
@@ -110,6 +199,13 @@ real colvector _finegray_km_censor_single(
        population interpretation requires a valid sample censoring estimate. With
        w == 1 every sum below is the integer count it was. */
     if (args() < 7) w = J(n, 1, 1)
+    if (args() < 8) events_first = 0
+    /* Identifiable region: zero KM weight before the sample's last gap.  wk
+       is a private copy; the caller's w (and the returned G's rows) keep
+       their meaning. */
+    hole = _finegray_last_hole(t, t0)
+    if (hole > 0) wk = w :* (t :> hole)
+    else wk = w
     /* Deterministic tie-break by row index.  Mata's order() resolves ties
        using Stata's sort seed, which ADVANCES on every sort, so a tied key
        (every t0 == 0 when there is no delayed entry) yields a different
@@ -140,30 +236,38 @@ real colvector _finegray_km_censor_single(
             if (t0[entry_ord[ep]] >= cur_time) break
             /* Only count if subject is still alive (t >= cur_time) */
             if (t[entry_ord[ep]] >= cur_time) {
-                n_risk_at_t = n_risk_at_t + w[entry_ord[ep]]
+                n_risk_at_t = n_risk_at_t + wk[entry_ord[ep]]
             }
             ep++
         }
 
-        /* Count censoring events in this time group */
+        /* Count censoring events -- and, for the events-first ordering, the
+           failures -- in this time group */
         n_cens_at_t = 0
+        n_fail_at_t = 0
         j = i
         while (j <= n) {
             if (t[ord[j]] != cur_time) break
             if (event_type[ord[j]] == censval & delta[ord[j]] == 0) {
-                n_cens_at_t = n_cens_at_t + w[ord[j]]
+                n_cens_at_t = n_cens_at_t + wk[ord[j]]
+            }
+            else if (delta[ord[j]] == 1) {
+                n_fail_at_t = n_fail_at_t + wk[ord[j]]
             }
             j++
         }
 
-        if (n_cens_at_t > 0 & n_risk_at_t > 0) {
-            surv = surv * (1 - n_cens_at_t / n_risk_at_t)
+        /* Events precede censorings at a tied time under delayed entry, so
+           the failures at cur_time have left the censoring risk set. */
+        n_risk_cens = (events_first ? n_risk_at_t - n_fail_at_t : n_risk_at_t)
+        if (n_cens_at_t > 0 & n_risk_cens > 0) {
+            surv = surv * (1 - n_cens_at_t / n_risk_cens)
         }
 
         /* Assign G to all obs at this time, then remove them from risk set */
         while (i < j) {
             G[ord[i]] = surv
-            n_risk_at_t = n_risk_at_t - w[ord[i]]
+            n_risk_at_t = n_risk_at_t - wk[ord[i]]
             i++
         }
     }
@@ -196,7 +300,7 @@ real colvector _finegray_km_censor(
     | real scalar quiet,
     real colvector w)
 {
-    real scalar n, g, nlev, n_trunc, n_trunc_tot
+    real scalar n, g, nlev, n_trunc, n_trunc_tot, events_first
     real colvector G, levels, sel
 
     /* quiet suppresses the G-truncation note.  The fit REPORTS it once (the
@@ -210,19 +314,26 @@ real colvector _finegray_km_censor(
     n = rows(t)
     G = J(n, 1, 1)
 
+    /* Geskus's events-then-censorings ordering whenever the fit has delayed
+       entry ANYWHERE: decided on the whole sample so that every censoring
+       stratum of one fit follows one convention.  Right-censored fits keep
+       the stcrreg convention bit for bit; see _finegray_km_censor_single. */
+    events_first = (sum(t0 :> 0) > 0)
+
     levels = uniqrows(byg_id)
     nlev = rows(levels)
     if (nlev > 1) {
         for (g = 1; g <= nlev; g++) {
             sel = selectindex(byg_id :== levels[g])
             G[sel] = _finegray_km_censor_single(t[sel], delta[sel],
-                censval, event_type[sel], t0[sel], n_trunc, w[sel])
+                censval, event_type[sel], t0[sel], n_trunc, w[sel],
+                events_first)
             n_trunc_tot = n_trunc_tot + n_trunc
         }
     }
     else {
         G = _finegray_km_censor_single(t, delta, censval, event_type, t0,
-            n_trunc, w)
+            n_trunc, w, events_first)
         n_trunc_tot = n_trunc
     }
 
@@ -402,9 +513,13 @@ real colvector _finegray_G_minus(
    restores it (_finegray_lt_normalizer).  The proportionality holds without
    requiring L and C to be independent.  Under independence, H and G
    additionally admit separate marginal-probability interpretations (H as
-   P(L < t)); otherwise they remain the two product-limit factors of A.  Gate
-   Z-ties established that the two computational forms agree to machine
-   precision on every tie-collision class once the constant is accounted for.
+   P(L < t)); otherwise they remain the two product-limit factors of A.  The
+   two computational forms agree to machine precision on every tie-collision
+   class once the constant is accounted for -- on the STATA engine, checked
+   in qa/test_finegray_v135.do and qa/crossval_finegray_zzf_ties.do.  (The
+   R-only Gate Z-ties in crossval_finegray_zzf_r.R showed the same for
+   survival::finegray; through 1.3.4 that was mistaken for a statement about
+   this engine, whose censoring KM used the other tie ordering.)
 
    The product form is not merely convenient -- it is what makes the no-LT
    path BIT-IDENTICAL.  With no delayed entry every l_j = 0, so for any t > 0
@@ -429,9 +544,14 @@ real colvector _finegray_G_minus(
    in their own risk set.  This differs from the (t0, t] convention used for
    the at-risk set and for G, where an entry at exactly t is NOT yet at risk --
    which is the "events, then censorings, then entries" ordering (Geskus p.40).
-   The two conventions are both correct and they are not the same; this is
-   verified against the direct b/S oracle in qa/crossval_finegray_zzf.do rather
-   than argued.
+   The same ordering governs G's own jump under delayed entry: failures at a
+   censoring time leave the censoring risk set first (_finegray_km_censor_single,
+   events_first).  With all three factors on that ordering the product
+   telescopes exactly at ties, S*G*H(u+) / S*G*H(u-) = r(u+)/r(u), which is
+   what makes A = G(t-)H(t-) proportional to b(t)/S(t-) on tied data.  This
+   is verified against the direct b/S form on tied fixtures in
+   qa/test_finegray_v135.do and qa/crossval_finegray_zzf_ties.do, live on
+   the Stata engine, rather than argued.
    ------------------------------------------------------------------------ */
 
 /* Left limit H_g(target-) of the entry distribution, one column per level of
@@ -741,15 +861,26 @@ real matrix _finegray_A_at_times(
    n_g but not in the risk count after the hole, and S_g is untouched when the
    lone subject was censored, so B_g(s) = (n*_g/n_g) B*_g(s) = [n_g^-1 sum_{H>0}
    1/H_g(X_i-)] A*_g(s).  With this divisor the product form reproduces the
-   published b/S form on every dataset where the published form is finite.
-   Where it is not -- the lone pre-hole subject had an EVENT, so ZZF's S_g
-   drops to zero and B_g is infinite -- the pre-hole subject's own denominator
-   A_j(X_i-) = kappa_j G(X_i-) H_u(X_i-) is zero, and so is the cell's column
-   at every time inside the hole; _finegray_positivity_check refuses the fit
-   the moment a weight consults either (a retained competing exit before the
-   hole closes, or a cause event inside it).  A pre-hole subject whose
-   denominator is never consulted -- censored, or with the cause event only
-   after the hole -- is exactly as harmless as it is in the b/S form.
+   published b/S form on every dataset where the published form is finite --
+   PROVIDED A*_g really is the post-hole product.  Through 1.3.4 it was not:
+   G_g was the full-sample censoring KM, whose jump at the lone pre-hole
+   subject's censoring is (1 - 1/1) = 0, so G_g and the whole column were on
+   the 1e-10 floor after the hole and the "identity" above was asserted on a
+   quantity the code never computed (b(z1) = +0.002 against -0.229 at rc 0,
+   e(converged) = 1; the clarity audit's scenario 1 fixture did not even
+   converge).  Since 1.3.5 _finegray_km_censor_single estimates G on the
+   identifiable region of its own sample (weight 0 before that sample's last
+   gap), which IS A*_g, and the audit fixture reproduces the dense published
+   b/S coefficient to 3e-14 (test_finegray_v135 T4).
+   Where the published form is not finite -- the lone pre-hole subject had an
+   EVENT, so ZZF's S_g drops to zero and B_g is infinite -- the pre-hole
+   subject's own denominator A_j(X_i-) = kappa_j G(X_i-) H_u(X_i-) is zero
+   through H_u, and so is the cell's column at every time inside the hole;
+   _finegray_positivity_check refuses the fit the moment a weight consults
+   either (a retained competing exit before the hole closes, or a cause event
+   inside it).  A pre-hole subject whose denominator is never consulted --
+   censored, or with the cause event only after the hole -- contributes only
+   its count to n_g, exactly as it does in the b/S form.
 
    Through 1.3.3 a single H_u(X_i-) == 0 member zeroed the WHOLE cell's
    normalizer, so the entire stratum was refused even when nothing consulted
@@ -909,6 +1040,13 @@ void _finegray_prepare_weight_design(
     }
     else {
         Apool = J(rows(t), 1, 1)
+        /* One weight cell: kappa cancels from every ratio and is not applied,
+           but the pre-gap COUNT is still a fact about the fit (1.3.5).
+           Through 1.3.4 it was reported only on the stratified branch, so a
+           pooled delayed-entry fit with an observation gap posted
+           e(N_lt_prehole) = 0 and printed no note while its censoring KM
+           sat on the 1e-10 floor.  The normalizer value is discarded. */
+        if (sum(t0 :> 0) > 0) (void) _finegray_lt_normalizer(gidx, ju, Ht, nexcl)
     }
     Gminus = _finegray_G_minus(gidx, A)
     if (args() >= 14) nprehole = nexcl
@@ -1117,9 +1255,10 @@ real scalar _finegray_positivity_check(
 
 /* The cause behind a zero denominator, for the r(459) message.  A_j(X_i-) =
    kappa_j G_c(X_i-) H_u(X_i-) is zero only through H_u(X_i-) == 0 (G is
-   floored at 1e-10, never zero, and kappa_j is zero only when every member's
-   H is): subject i was observed before its truncation group's risk set was
-   last empty.  Count those subjects in the flagged cells so the message can
+   floored at 1e-10, never zero -- and since 1.3.5 no longer collapses across
+   a gap at all -- and kappa_j is zero only when every member's H is):
+   subject i was observed before its truncation group's risk set was last
+   empty.  Count those subjects in the flagged cells so the message can
    say how many, and name the mechanism, instead of reporting a count of
    consulted cells that reads like a data-shape problem. */
 void _finegray_positivity_prehole(
@@ -2391,20 +2530,26 @@ real matrix _finegray_score_residuals(
 
    with g = i's censoring stratum, Y_g(u) = #{j in g : X_j >= u}, and
 
-       q_g(t) = sum_{s >= t, s an event time FROM GROUP g} d_s^g
+       q_g(t) = sum_{s >= t, s ANY cause-1 event time} d_s
                   [ S1_2^g(s,t) - zbar(s) S0_2^g(s,t) ] / S0(s)
        S0_2^g(s,t) = sum_{X_j < t, eps_j = 2, g(j) = g}
                         exp(eta_j) Ghat_g(s-)/Ghat_g(X_j-)
 
-   THREE THINGS THAT ARE EASY TO GET WRONG, each verified against
-   cmprsk's Fortran crrvv (written by R.J. Gray, FG's second author) and
-   proven by fixtures in qa/:
+   THREE THINGS THAT ARE EASY TO GET WRONG, the second and third verified
+   against cmprsk's Fortran crrvv (written by R.J. Gray, FG's second author)
+   and all three proven by fixtures in qa/:
 
-   1. BOTH sums in q are group-restricted.  crr.f:379 accumulates into
-      qu(., icg(j1)) -- the group of the EVENT subject -- so a cause-1 event
-      in group A contributes only to q_A.  S0(s) and zbar(s) stay GLOBAL.
-      Restricting only the inner competing-event sum passes every
-      single-stratum fixture and fails at ~1e-3 with strata().
+   1. ONLY the inner competing-event sum is group-restricted (1.3.3).  Ghat_g
+      enters the score through the weights of group g's RETAINED subjects,
+      and those sit in the risk set of EVERY later cause event, whichever
+      censoring group that event's subject belongs to; the outer sum runs
+      over all cause events, and S0(s) and zbar(s) stay GLOBAL.  crr.f:379
+      accumulates into qu(., icg(j1)) -- the group of the EVENT subject --
+      which drops the cross-group terms; this function reproduced that until
+      1.3.3 (see pass B below) and now differs from crr by exactly those
+      terms, gated by a numerical derivative of the fitted score
+      (qa/validation_nuisance_strata_numeric.do).  With one censoring group
+      the two agree.
    2. TIE MULTIPLICITY.  A time carrying d tied cause-1 events contributes
       d times (Breslow); crr.f loops over event SUBJECTS, not distinct event
       times.  Dropping it is invisible without tied events and >100% wrong
@@ -3676,8 +3821,11 @@ void _finegray_schoenfeld_compute(
 
    SCOPE.  Refused in the parser and again in the engine: delayed entry (the
    ZZF branch is the package's own extension and no source covers beta(t)
-   there), bstrata(), and nuisance.  So K == 1 and use_pooled == 0 everywhere
-   below.
+   there), so use_pooled == 0 everywhere below.  bstrata() and nuisance were
+   refused with tvc() when this was written and no longer are (1.3.0):
+   bstrata() rides through the scan as the stratum axis K of every
+   accumulator, and nuisance decomposes exactly over intervals
+   (_finegray_psi_residuals_pw), so K > 1 is a live case here.
    ======================================================================== */
 
 /* Interval index of each analysis time.  Interval j is (cuts[j-1], cuts[j]],
@@ -4150,6 +4298,17 @@ real matrix _finegray_psi_residuals_pw(
    known, and the package keeps that cell on fixed_weight_sandwich.  No
    bstrata() and no tvc(), both already refused under delayed entry.
    ------------------------------------------------------------------------ */
+/* ACROSS AN OBSERVATION GAP (1.3.5) this term needs no special case.  The
+   caller's A (= Gt, Gminus) is estimated on the identifiable region; every
+   quantity below is a ratio of A values or a product of an A-scaled and a
+   1/A-scaled sum, so the scale of A never enters; and a pre-gap subject is at
+   risk at no cause event, has A(u) = 0 throughout its own window (H = 0
+   there), and contributes exactly zero to its own row and to every prefix
+   sum.  The result is Appendix B applied to the post-gap sample, and on one
+   weight cell that sample's estimator is the published one.  Pinned:
+   test_finegray_v135 T7 asserts e(V) with the gap subject == e(V) without
+   it, bit for bit.  A refusal was tried first (2026-09-13) and withdrawn on
+   that identity. */
 real matrix _finegray_psi_residuals_lt(
     real colvector t,
     real colvector delta,
@@ -6237,15 +6396,14 @@ void _finegray_boot_cif_obs(
    piecewise scan) plus its value AT each boundary, which _finegray_tvc_bhpieces
    turns into the per-interval masses.
 
-   NO ANALYTIC STANDARD ERROR IS RETURNED.  The influence function in
-   _finegray_cif_core is derived for a single exp(z'beta) multiplying every
-   Breslow increment; under beta(t) each increment carries its own interval's
-   linear predictor and its own S0, so both the prefix-sum scaffolding and the
-   beta-derivative term change shape.  That derivation is not in this release,
-   and returning the proportional-hazards influence function for a piecewise fit
-   would be a wrong standard error at rc 0.  Column 2 is therefore missing, and
-   finegray_cif / finegray_predict refuse an analytic CI on a tvc() fit and
-   offer the bootstrap, which resamples the whole fit and needs no derivation.
+   The routines below are the POINT-ESTIMATE and bootstrap pieces.  The
+   analytic standard error for this curve lives in _finegray_cif_core_pw
+   (re-derived 2026-08-26; its header carries the derivation and the J = 1
+   collapse check).  Through v1.3.0 development builds it was refused, because
+   the influence function in _finegray_cif_core assumes a single exp(z'beta)
+   multiplying every Breslow increment; that history is why the bootstrap arm
+   here exists independently of the analytic one, and the two are checked
+   against each other in qa/test_finegray_tvc.do.
    ------------------------------------------------------------------------ */
 
 /* eta_j(z) for every evaluation profile: an ne x nint matrix of linear

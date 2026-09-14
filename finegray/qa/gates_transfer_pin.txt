@@ -28,6 +28,6 @@ gated_note:   the tree the three ZZF gates were LAST ACTUALLY RUN on --
               1.3.4 (c7ca4445) is the first tree carrying it on which the
               gates passed -- the 2026-09-12 18:18 UTC run on fe0d983c
               (1.3.3) failed coverage (rep 245 refused, r(459)) and
-              factorization 2a; both are recorded in
-              Stata-Dev/_take_action/finegray_gates_2026-09-12/.
+              factorization 2a; both are recorded under "Gates lane
+              history" in qa/AUDIT_NOTES.md.
               Moved here from cda50792 on 2026-09-13.

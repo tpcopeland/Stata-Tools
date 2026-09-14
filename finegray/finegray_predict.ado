@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.4  2026/09/13
+*! finegray_predict Version 1.3.5  2026/09/13
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -780,6 +780,14 @@ program define finegray_predict, rclass sortpreserve
                 }
             }
             local _created_vars "`varlist'"
+            * The empty-result contract (help finegray_predict##emptyresult)
+            * promised refusal for EVERY prediction computable on no
+            * observation, but the xb branches did not enforce it: with every
+            * scoring covariate missing, xb returned rc 0 and an all-missing
+            * column (1.3.5).  Registered in `_created_vars' first, so the
+            * refusal drops the column and leaves the data as they were.
+            _finegray_assert_cardinality `varlist', touse(`touse') ///
+                label("xb prediction")
             label variable `varlist' "Linear prediction (xb)"
         }
         else {
@@ -821,6 +829,8 @@ program define finegray_predict, rclass sortpreserve
                 quietly replace `varlist' = `varlist' + `_fg_xbtv`_pj'' ///
                     if `touse' & `_pjv' == `_pj'
             }
+            _finegray_assert_cardinality `varlist', touse(`touse') ///
+                label("xb prediction")
             label variable `varlist' "Linear prediction (xb) `_xblbl'"
         }
     }

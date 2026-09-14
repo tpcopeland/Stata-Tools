@@ -95,9 +95,28 @@ capture noisily {
     assert e(N_lt_prehole) == 1
     assert e(N) == 300
     assert e(sample) in 1
+    * 1.3.5: this fit was GREEN on a corrupted result through 1.3.4.  Subject 1
+    * is the only subject under observation when it is censored, so the pooled
+    * censoring KM jumped to zero there and every later G sat on the 1e-10
+    * floor (e(N_G_trunc) = 300, b(z2) = -0.0896 against -0.1057 from the
+    * same data without the subject).  The KM is now estimated on the
+    * identifiable region, so nothing is floored and the fit is within the
+    * n*_g/n_g normalizer factors of the fit on the identifiable sample.
+    assert e(N_G_trunc) == 0
+    local _b1_full = _b[z1]
+    local _b2_full = _b[z2]
+    _fg134_gapdata
+    quietly drop in 1
+    quietly stset t, failure(anyev) id(id) enter(time t0)
+    quietly finegray z1 z2, compete(status) cause(1) truncstrata(z1) nolog
+    assert e(N_lt_prehole) == 0
+    display as text "  full = " %12.9f `_b1_full' " " %12.9f `_b2_full' ///
+        "   without the pre-gap subject = " %12.9f _b[z1] " " %12.9f _b[z2]
+    assert abs(`_b1_full' - _b[z1]) < 1e-3
+    assert abs(`_b2_full' - _b[z2]) < 1e-3
 }
 local _rc = _rc
-_fg134_result `_rc' "H1 lone censored pre-gap subject: fit at rc 0 with e(N_lt_prehole) = 1"
+_fg134_result `_rc' "H1 lone censored pre-gap subject: fit at rc 0 with e(N_lt_prehole) = 1, G not floored, near the identifiable-sample fit"
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 

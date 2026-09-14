@@ -122,9 +122,10 @@ errors agree to about four significant figures rather than exactly: the
 coefficients agree to numerical precision, the standard errors only to the
 tie convention. A comparison against {cmd:stcrreg} should therefore be read
 as agreement to a tolerance, not as equality. Under delayed entry the commands
-use different weights, so neither estimates nor standard errors are
-numerically comparable. Coefficients are unaffected by the variance option
--- only their standard errors change.
+use different weights, and the censoring Kaplan-Meier follows Geskus's tie
+ordering there (see {help finegray_methods##lt:Left truncation}), so neither
+estimates nor standard errors are numerically comparable. Coefficients are
+unaffected by the variance option -- only their standard errors change.
 
 {pstd}
 {bf:Why model-based standard errors are not the default, and are not}
@@ -228,8 +229,8 @@ does, so with two or more censoring strata its {opt nuisance} variance
 differs from {cmd:crr}'s by exactly those terms (of the order of 1e-3
 relative on the package's fixtures). With one stratum, or with
 {opt strata()} equal to {opt bstrata()}, nothing changes. The term is checked
-against a numerical derivative of the fitted score in
-{cmd:qa/validation_nuisance_strata_numeric.do}.
+against a numerical derivative of the fitted score in the package's QA suite
+(see {cmd:qa/README.md} in the repository).
 
 {pstd}
 {bf:Under delayed entry.} Fine and Gray's psi is the influence of the
@@ -241,11 +242,20 @@ three terms, W_i = l_i + v_i + w_i: l_i is the fixed-weight score residual
 ("the main term"), v_i the influence of the estimated S through the all-cause
 martingale, and w_i the influence of the estimated b through the exact
 indicator form of an empirical average. {opt nuisance} on a delayed-entry fit
-adds v_i + w_i, computed against the package's own fitted weights: Gate
-Z-ties established that the product form G(t-)H(t-) the engine holds
-reproduces b/S(t-) on every collision class under the events, then
-censorings, then entries tie ordering, so the appendix's terms apply to the
-weights actually used. Without delayed entry b/S(t-) is G(t-) itself, and the three-term
+adds v_i + w_i, computed against the package's own fitted weights: the
+product form G(t-)H(t-) the engine holds reproduces b/S(t-) on every
+collision class under the events, then censorings, then entries tie
+ordering that the delayed-entry censoring Kaplan-Meier follows (checked on
+the Stata engine against the direct b/S construction on tied data in the
+package's QA suite; before 1.3.5 only the R reference implementation had
+been checked, and the engine's ordering differed), so
+the appendix's terms apply to the weights actually used. Across an
+observation gap (below) the pooled-weight estimator on the identifiable
+region is the published estimator itself, the pre-gap subject contributes
+exactly zero to both the score and the appendix terms, and the
+nuisance-adjusted variance equals the one computed on the identifiable
+sample (pinned in the QA suite), so {opt nuisance} is accepted there.
+Without delayed entry b/S(t-) is G(t-) itself, and the three-term
 representation converges to Fine and Gray's eta+psi as n grows -- converges,
 not coincides: the appendix's w_i is the exact influence of an empirical
 average where eq. (8) uses the martingale linearization, and the two agree only
@@ -456,10 +466,13 @@ variance the paper's. {cmd:bstrata(}{it:v}{cmd:) strata(}{it:v}{cmd:)} is
 cross-validated against {cmd:crrs} directly. {cmd:bstrata(}{it:v}{cmd:)}
 {it:without} {opt strata()} is a stratified baseline with a {bf:pooled} G,
 which {cmd:crrs} has no counterpart for: its {cmd:ctype=2} is the
-highly-stratified variance of sec. 4.2, a different derivation. That cell is
-this package's own composition of Zhou's additivity over strata with Fine and
-Gray's eq. (8), and it is validated by simulation rather than against an
-external implementation.
+highly-stratified variance of sec. 4.2, a different derivation. The
+coefficients and the default fixed-weight sandwich of that cell are
+cross-validated against {cmd:survival::finegray} followed by
+{cmd:coxph(strata())} with a robust variance; its {opt nuisance} term is this
+package's own composition of Zhou's additivity over strata with Fine and
+Gray's eq. (8), and that composition is validated by simulation rather than
+against an external implementation.
 
 {phang2}
 Zhou et al. (2011) sec. 4.2 records that the closed-form stratified variance
@@ -644,10 +657,18 @@ is a reverse-time product-limit estimator of entry, a subject retained after a
 competing event at X_i carries A(t-)/A(X_i-) instead of the censoring-only
 ratio G(t-)/G(X_i-). Geskus (2011) states that this weight is equivalent to
 Zhang-Zhang-Fine Weight 1, and Bellach et al. (2020) prove the equivalence for
-continuous failure times. The package supplies and tests its own finite-sample
-tie convention, which is why delayed-entry estimates move relative to
-{cmd:stcrreg} and to earlier releases. {cmd:e(lt_weight)} reports
-{cmd:zzf1_geskus} for this case.
+continuous failure times. On tied data the two forms agree only under one tie
+ordering, Geskus's (2011, p. 40) events, then censorings, then entries: a
+subject failing at {it:t} has left the risk set before the censoring jump at
+{it:t} is taken, and only then does the product G(t-)H(t-) telescope to
+b(t)/S(t-). The delayed-entry censoring Kaplan-Meier follows that ordering
+(since 1.3.5; 1.3.0-1.3.4 kept the tied failures in the censoring risk set,
+which moved the coefficient by about 1e-3 on data with event/censoring
+collisions). Without delayed entry the censoring Kaplan-Meier keeps the
+{cmd:stcrreg} convention, under which the failures stay in the censoring risk
+set, so right-censored results do not move. This is why delayed-entry
+estimates differ from {cmd:stcrreg} on tied data even before the weight
+does; {cmd:e(lt_weight)} reports {cmd:zzf1_geskus} for this case.
 
 {pstd}
 {bf:Multiple weight strata: the stratified form.} The time-side stabilizer is
@@ -678,7 +699,10 @@ corrected form: normalized B_g values may exceed 1 and are not probabilities,
 and every consulted denominator is at least 1/n_g (the subject is at risk at
 its own exit), so a retained weight on this path is bounded by n_g times the
 pooled stabilizer and the extreme-weight warnings below are, in practice, a
-right-censoring-path diagnostic.
+right-censoring-path diagnostic. (The bound holds because the product limits
+are estimated on the identifiable region, below; through 1.3.4 an
+observation gap in a censoring stratum put G on its 1e-10 floor and the
+weights reached 1e10.)
 
 {pstd}
 {bf:The factorized extension, and what it assumes.} When {opt strata()} and
@@ -696,33 +720,50 @@ package derivation. The same contract is used by estimation and by every
 post-estimation calculation.
 
 {pstd}
-{bf:Gaps in a stratum's observation window (1.3.4).} H_u(X_i-) is zero
-when the truncation group's risk set was empty at some entry time at or
-after X_i -- every earlier entrant had already exited when the next one
-arrived, so the reverse-time product limit carries a zero factor there. The
-subjects with H_u(X_i-) = 0 are exactly those observed before the group's
-last such gap. He and Yang (1998, Theorem 2.2) show that the constant
-behind kappa is well defined only where the risk set is non-empty, and
-that across a gap it degenerates: the observed data are consistent with any
-number of truncated subjects inside the gap, so the truncation probability
-is not identified there and only the conditional estimand on the
-identifiable region exists (Woodroofe 1985; He and Yang 1998,
-Lemma 2.1). {cmd:finegray} therefore estimates each cell's normalizer on
-that region: the sum runs over the members with H_u(X_i-) > 0 and is divided by the
-full observed cell size n_j, which is what Zhang, Zhang and Fine's b_g/S_g
-form computes on such data whenever it is finite (b_g counts every
-observed member in n_g and the pre-gap members in no risk set after the
-gap; S_g is untouched when the lone pre-gap subject was censored). The
-excluded subjects stay in {cmd:e(sample)}, their count is posted as
-{cmd:e(N_lt_prehole)} and printed as a note, and their own denominators are
-zero: the fit is refused with {cmd:r(459)} only if a weight consults one --
-a cause event inside the gap, or a competing event before the gap closes
-whose subject would be retained -- which are the configurations in which
-the published form is undefined as well (S_g reaches zero). The message
-names the count and the affected strata; a later time origin, dropping the
-subjects observed before the gap, or a coarser stratification are the
-remedies. Version 1.3.3 refused every fit in which any member of any
-weight cell had H_u(X_i-) = 0, consulted or not.
+{bf:Gaps in a sample's observation window (1.3.4, corrected in 1.3.5).} A
+sample has a gap at an entry time when every earlier entrant had already
+exited when the next one arrived, so its risk set was empty just before
+those entries. The reverse-time entry product limit H carries a zero factor
+there, so H_u(X_i-) = 0 for exactly the subjects observed before the
+truncation group's last gap. He and Yang (1998, Theorem 2.2) show that the
+constant behind kappa is well defined only where the risk set is non-empty,
+and that across a gap it degenerates: the observed data are consistent with
+any number of truncated subjects inside the gap, so the truncation
+probability is not identified there and only the conditional estimand on the
+identifiable region exists (Woodroofe 1985; He and Yang 1998, Lemma
+2.1). {cmd:finegray} therefore estimates {it:every} product limit on the
+identifiable region of the sample it is computed from: the censoring
+Kaplan-Meier of a censoring stratum (or of the pooled sample) gives zero
+weight to the subjects observed before {it:that} sample's last gap, the entry
+product limit is zero for them by construction, and each cell's normalizer
+sums over the members with H_u(X_i-) > 0 and divides by the full observed
+cell size n_j. Write the post-gap sub-sample with a star. It has no gap, so
+the telescoping identity holds on it verbatim, B*_g = kappa*_g G*_g H*_g,
+and Zhang, Zhang and Fine's b_g/S_g on the full sample counts the pre-gap
+members in n_g but in no risk set after the gap, with S_g untouched when
+the lone pre-gap subject was censored: B_g = (n*_g/n_g) B*_g, which is the
+full-n_j divisor above. So the product form reproduces the published form
+wherever the published form is finite (verified on the Stata engine to
+1e-13 in the package's QA suite). The region is the sample's own,
+not the joint cell's: under {opt truncstrata()} alone G is pooled, and an
+early censoring while subjects of other entry strata are at risk is
+legitimate information about the pooled G. Versions 1.3.0-1.3.4 estimated
+the censoring Kaplan-Meier on the full sample, so a lone early entrant
+censored before the next arrival drove it to zero and every later weight
+onto its 1e-10 floor, erasing the censoring weighting at {cmd:rc 0} with
+{cmd:e(converged)} = 1; delayed-entry fits from those releases whose data
+contain such a gap (the fit-time note, or {cmd:e(N_G_trunc)} equal to the
+sample size) should be refitted. The excluded subjects stay in
+{cmd:e(sample)}, their count is posted as {cmd:e(N_lt_prehole)} and printed
+as a note (on the pooled path too since 1.3.5), and their own denominators
+are zero: the fit is refused with {cmd:r(459)} only if a weight consults
+one -- a cause event inside the gap, or a competing event before the gap
+closes whose subject would be retained -- which are the configurations in
+which the published form is undefined as well (S_g reaches zero). The
+message names the count and the affected strata; a later time origin,
+dropping the subjects observed before the gap, or a coarser stratification
+are the remedies. Version 1.3.3 refused every fit in which any member of
+any weight cell had H_u(X_i-) = 0, consulted or not.
 
 {pstd}
 The published same-group product-limit result does not require entry and

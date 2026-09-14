@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.4  2026/09/13
+*! _finegray_display Version 1.3.5  2026/09/13
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -167,8 +167,13 @@ program define _finegray_display
     * Design weights.  A weighted and an unweighted fit print the same table
     * otherwise, and e(N) under fweights is the REPLICATED count, so the
     * reader has to be told which they are looking at.
+    * Compound quotes: e(wexp) is the user's expression verbatim and may
+    * carry a string literal -- [pw = cond(grp == "A", 2, 1)] -- which inside
+    * ordinary quotes ended the string early and failed the display with
+    * r(198) "invalid name" AFTER the fit had converged and posted, so a valid
+    * fit (and every e(refitcmd) replay of it) reported as a failure (1.3.5).
     if `"`e(wtype)'"' != "" {
-        display as text "Weights:" _col(24) as result "`e(wtype)' `e(wexp)'"
+        display as text "Weights:" _col(24) as result `"`e(wtype)' `e(wexp)'"'
     }
 
     display as text ""
@@ -241,8 +246,9 @@ program define _finegray_display
         if `_npre' == 1 local _subjword "subject"
         display as text "note: `_npre' `_subjword' observed before the entry stratum's risk set " ///
             "was last empty"
-        display as text "(the entry product-limit is zero there, so they are left out of that"
-        display as text "stratum's delayed-entry normalizer; see e(N_lt_prehole))"
+        display as text "(the entry product-limit is zero there: they count in the sample size but"
+        display as text "enter no weight estimate, and the fit is refused if a weight consults"
+        display as text "one; see e(N_lt_prehole))"
         display as text ""
     }
 

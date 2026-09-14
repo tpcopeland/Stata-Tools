@@ -21,6 +21,13 @@
 
 version 16.0
 clear all
+* Session settings the demo changes are restored in the cleanup block at the
+* end, so an interactive caller's more/varabbrev/linesize/scheme are left as
+* they were found.
+local _demo_more = c(more)
+local _demo_varabbrev = c(varabbrev)
+local _demo_linesize = c(linesize)
+local _demo_scheme = c(scheme)
 set more off
 set varabbrev off
 set linesize 120
@@ -537,4 +544,8 @@ capture log close _all
 * ado path exactly as we found it.
 capture adopath - "`repo_dir'/finegray"
 capture adopath - "`repo_dir'/tc_schemes"
+capture set scheme `_demo_scheme'
+set more `_demo_more'
+set varabbrev `_demo_varabbrev'
+set linesize `_demo_linesize'
 clear
