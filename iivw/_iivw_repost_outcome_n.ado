@@ -1,4 +1,4 @@
-*! _iivw_repost_outcome_n Version 4.1.3  2026/09/06
+*! _iivw_repost_outcome_n Version 4.2.0  2026/09/15
 *! Restores the user-facing estimation sample after a refit bootstrap, whose
 *! e(sample) is deliberately the visit panel rather than the outcome sample.
 *! Author: Timothy P Copeland, Karolinska Institutet

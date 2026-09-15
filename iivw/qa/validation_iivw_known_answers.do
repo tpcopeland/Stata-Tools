@@ -100,7 +100,7 @@ local ++test_count
 capture noisily {
     iivw
     assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
-    assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
+    assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
     assert r(n_commands) == 5
 }
 if _rc == 0 {

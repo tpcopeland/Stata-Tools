@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.1.3  2026/09/06
+*! iivw_fit Version 4.2.0  2026/09/15
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -26,6 +26,8 @@ Options:
   bootstrap(#)        - Legacy bootstrap spelling
   citype(string)      - none, wald, percentile, basic, or bca
   level(#)            - Confidence level (default: 95)
+  saving(spec)        - Write the bootstrap replicate draws to a .dta file
+  rngstream(#)        - RNG substream (1-32768) the replicates are drawn from
   nolog               - Suppress iteration log
   geeopts(string)     - Additional options passed to glm
   mixedopts(string)   - Additional options passed to mixed
@@ -55,6 +57,14 @@ program define iivw_fit, eclass
     local __iivw_bk_names ""
     local __iivw_bk_temps ""
     local __iivw_nonconv = 0
+
+    * rngstream() switches the session generator to mt64s and jumps to a named
+    * substream. Both are session settings changed inside the captured block, so
+    * the flag that puts them back is initialized here, before it, where the
+    * cleanup zone can always reach it.
+    local __iivw_rng_restore = 0
+    local __iivw_rng_prior ""
+    local __iivw_rngstream_prior ""
 
     * Snapshot the prior fit contract as part of the same transaction.  Delaying
     * the commit protects it from model/variance failures; this snapshot also
@@ -93,6 +103,7 @@ program define iivw_fit, eclass
          CIType(string) ///
          Level(cilevel) noLOG ///
          REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
+         SAVing(string asis) RNGSTREAM(integer -999999) ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
 
     * =========================================================================
@@ -493,6 +504,47 @@ program define iivw_fit, eclass
         display as error "citype(`citype') requires bootstrap draws"
         display as error "  specify vce(bootstrap, reps(#) [seed(#)])"
         error 198
+    }
+
+    * =========================================================================
+    * SHARDED-BOOTSTRAP OPTIONS: saving() and rngstream()
+    * =========================================================================
+    * Both options exist to let one 999-draw bootstrap be split across K
+    * concurrent Stata processes and pooled afterwards by iivw_bspool. Neither
+    * changes the estimator. saving() makes the replicate draws addressable --
+    * the command previously discarded them -- and rngstream() puts each shard
+    * on an independent RNG substream of one shared seed, which is the mechanism
+    * Stata provides for exactly this. Handing K shards K unrelated seed()
+    * values gives streams that are very probably disjoint, which is not the
+    * same as a guarantee.
+    *
+    * Both are meaningless without draws, and silently ignoring an option the
+    * user typed is how a sharded run ends up pooling a file that was never
+    * written. Refuse instead.
+    local _rngstream_sentinel = -999999
+    local _rngstream_explicit = (`rngstream' != `_rngstream_sentinel')
+
+    if `"`saving'"' != "" & `bootstrap' == 0 {
+        display as error "saving() requires bootstrap draws"
+        display as error "  there are no replicates to save without"
+        display as error "  vce(bootstrap, reps(#))"
+        error 198
+    }
+    if `_rngstream_explicit' & `bootstrap' == 0 {
+        display as error "rngstream() requires bootstrap draws"
+        display as error "  it selects the RNG substream the replicates are drawn"
+        display as error "  from; specify vce(bootstrap, reps(#))"
+        error 198
+    }
+    * Range-check here, not at the draws. set rngstream's own r(198) would fire
+    * after the weight and outcome models had already been fit, throwing away
+    * every second of that work over a typo in an integer.
+    if `_rngstream_explicit' {
+        if `rngstream' < 1 | `rngstream' > 32768 {
+            display as error "rngstream() must be between 1 and 32768"
+            display as error "  got: `rngstream'"
+            error 198
+        }
     }
     local bca_opt ""
     local bca_refit_opt ""
@@ -1825,9 +1877,57 @@ program define iivw_fit, eclass
     * Set it immediately before the draws so no intervening RNG use consumes the
     * stream first. This deliberately advances the global seed, as any seeded
     * bootstrap does.
+    *
+    * Order is generator, then STREAM, then seed, and that order is load-bearing.
+    * Measured on stata-mp 17 and asserted in qa/test_iivw_v420_shard.do:
+    *
+    *   `set seed' resets the position of the substream currently selected, and
+    *   ONLY that one. Seeding first and jumping to stream k afterwards
+    *   therefore lands wherever stream k was left, so a second fit with the
+    *   same seed() and rngstream() in one process drew DIFFERENT replicates
+    *   from the first. Selecting the stream first and seeding while standing on
+    *   it reproduces from any prior session state.
+    *
+    * The two orderings agree when stream k has never been touched, which is
+    * every fresh shard process -- which is exactly why this had to be measured
+    * with the stream pre-advanced rather than assumed from a clean probe.
+    *
+    * The GENERATOR is put back in the cleanup zone; the stream POSITIONS are
+    * not, and that combination is deliberate. Measured on stata-mp 17:
+    *
+    *   - `set rngstream #' is a position-preserving jump. Re-selecting a stream
+    *     resumes where it left off rather than restarting it, so restoring the
+    *     caller's generator cannot make a later fit reuse these draws.
+    *   - Under `rng default' the stream index is inert: a seeded draw there is
+    *     identical whatever c(rngstream) happens to be.
+    *   - So restoring c(rng) alone returns the caller's sequence exactly, while
+    *     every stream this fit consumed stays advanced.
+    *
+    * Without that restore, one rngstream(5) fit silently moved every later
+    * seeded command in the session onto stream 5 -- a leaked session setting of
+    * the same class as an unrestored varabbrev, and one the package's own test
+    * panels tripped over first. The stream the draws came from is recorded in
+    * e(iivw_rngstream); e(iivw_rng) and e(iivw_rngstate_start) capture the
+    * generator and the exact pre-draw state, so the run stays replayable.
+    if `bootstrap' > 0 & `_rngstream_explicit' {
+        local __iivw_rng_prior "`c(rng)'"
+        local __iivw_rngstream_prior = c(rngstream)
+        local __iivw_rng_restore = 1
+        set rng mt64s
+    }
+    if `bootstrap' > 0 & `_rngstream_explicit' {
+        set rngstream `rngstream'
+    }
     if `bootstrap' > 0 & "`vce_seed'" != "" {
         set seed `vce_seed'
     }
+
+    * saving() is forwarded verbatim to Stata's bootstrap prefix. The suboption
+    * grammar (double, every(#), replace) is bootstrap's, not this package's, so
+    * an invalid suboption surfaces as bootstrap's own error rather than a
+    * parallel reimplementation that would drift from it.
+    local _bs_saving ""
+    if `"`saving'"' != "" local _bs_saving `"saving(`saving')"'
 
     * Capture the exact pre-draw RNG state so a run made WITHOUT an explicit
     * seed() is still replayable: c(rng) is the generator, c(rngstate) is the
@@ -1866,7 +1966,7 @@ program define iivw_fit, eclass
         if `bootstrap' > 0 & "`refitweights'" != "" {
             tempvar bsid
             `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots: ///
+                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
                 _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
                 outcometouse(`oc_touse') ///
@@ -1889,7 +1989,7 @@ program define iivw_fit, eclass
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
-                level(`level') nodots: ///
+                level(`level') nodots `_bs_saving': ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(gee) ///
                 family(`family') link(`link') `log_opt' ///
@@ -1975,7 +2075,7 @@ program define iivw_fit, eclass
         if `bootstrap' > 0 & "`refitweights'" != "" {
             tempvar bsid
             `_bs_prefix' bootstrap, reps(`bootstrap') `bca_refit_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots: ///
+                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
                 _iivw_bs_refit `depvar' `all_covars' if `bs_frame', ///
                 newid(`bsid') panelid(`panel_id') timevar(`panel_time') ///
                 outcometouse(`oc_touse') ///
@@ -2009,7 +2109,7 @@ program define iivw_fit, eclass
             * form group(bsid, panel_id), the resampled subject.
             tempvar bsid
             `_bs_prefix' bootstrap, reps(`bootstrap') `bca_opt' cluster(`cluster') ///
-                idcluster(`bsid') level(`level') nodots: ///
+                idcluster(`bsid') level(`level') nodots `_bs_saving': ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(mixed) ///
                 panelid(`panel_id') bsid(`bsid') `log_opt' ///
@@ -2528,6 +2628,14 @@ program define iivw_fit, eclass
     ereturn local iivw_rngstate_start "`iivw_rngstate_start'"
     ereturn local iivw_vce_seed_explicit = cond(`bootstrap' > 0, "`iivw_seed_explicit'", "")
 
+    * Shard provenance. Empty whenever the option was not used, so "this fit was
+    * one shard of a larger run" is a positive statement in e() rather than
+    * something a reader has to infer from the reps count. iivw_bspool reads
+    * both when it records which streams contributed to a pooled result.
+    ereturn local iivw_rngstream = ///
+        cond(`bootstrap' > 0 & `_rngstream_explicit', "`rngstream'", "")
+    ereturn local iivw_bs_saving `"`saving'"'
+
     * Inference status: whether an interval was reported and which evidence tier
     * it belongs to. Point-only must be named before the variance branches.
     * "Cleared" stays qualified by the exact studied settings.
@@ -2670,6 +2778,17 @@ program define iivw_fit, eclass
     * interval-producing fits; point-only ereturn post deliberately removed it.
     ereturn local cmd "iivw_fit"
 
+    * Make the saved replicate file self-describing. Stata's bootstrap prefix
+    * writes the draws, the observed estimates and the column stripes, but
+    * nothing that says which iivw fit produced them -- and two files with
+    * matching column names can come from different weights, a different weight
+    * type or a different outcome specification. This runs last, so it stamps
+    * the committed result, including the final inference status, rather than
+    * an intermediate one. See _iivw_bs_stamp.ado and iivw_bspool.
+    if `"`saving'"' != "" & `bootstrap' > 0 {
+        _iivw_bs_stamp, file(`"`saving'"')
+    }
+
     }
     local rc = _rc
     * Roll the name transaction back: drop every variable this call created,
@@ -2709,101 +2828,26 @@ program define iivw_fit, eclass
                 "  (The command's own failure, reported above, is the return code.)"
         }
     }
+    * Put the caller's generator back on every path, success or failure. A fit
+    * that errored after switching to mt64s must not leave the session there.
+    * Each arm is captured so a restore failure cannot mask the fit's own return
+    * code, and _rc is read immediately after the block: a restore that silently
+    * failed would leave the session on mt64s and on this fit's substream, which
+    * is the exact leak the restore exists to prevent.
+    if `__iivw_rng_restore' {
+        if "`__iivw_rng_prior'" == "mt64s" {
+            capture set rngstream `__iivw_rngstream_prior'
+        }
+        else {
+            capture set rng `__iivw_rng_prior'
+        }
+        if _rc {
+            display as error ""
+            display as error "iivw_fit: could not restore the caller's RNG generator"
+            display as error "  the session is left on `c(rng)' stream `c(rngstream)'"
+            display as error "  set rng `__iivw_rng_prior' to put it back by hand"
+        }
+    }
     set varabbrev `__iivw_old_varabbrev'
-    if `rc' exit `rc'
-end
-
-capture program drop _iivw_fit_replay
-program define _iivw_fit_replay, nclass
-    version 16.0
-    local __iivw_replay_old_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-
-    syntax [, Level(cilevel)]
-
-    local citype "`e(iivw_ci_type)'"
-    local interval_available = e(iivw_interval_available)
-
-    * Coefficient-only results have no e(V), and ereturn display respects
-    * e(properties)="b". Wald results can likewise use Stata's generic display.
-    if !`interval_available' | "`citype'" == "wald-normal" {
-        ereturn display `0'
-    }
-    else {
-        * Asymmetric endpoints were computed at estimation time. The stored
-        * replicate distribution is not available to reconstruct another level,
-        * so never accept a replay option that would relabel frozen limits.
-        if "`level'" != "" & `level' != e(level) {
-            display as error ///
-                "level() cannot be changed when replaying a stored `citype' interval"
-            display as error "  refit the model with level(`level')"
-            error 198
-        }
-        local level = e(level)
-
-        tempname B V C
-        matrix `B' = e(b)
-        matrix `V' = e(V)
-        matrix `C' = e(iivw_ci)
-        local names : colnames `B'
-        local k = colsof(`B')
-        local __iivw_smcl_lb = char(123)
-        local __iivw_smcl_rb = char(125)
-
-        display as text ""
-        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
-        display as text "iivw_fit replay -- `citype' interval"
-        display as text ""
-        display as text _col(4) ///
-            "`__iivw_smcl_lb'ralign 18:Variable`__iivw_smcl_rb'" ///
-            _col(24) "`__iivw_smcl_lb'ralign 10:Coef.`__iivw_smcl_rb'" ///
-            _col(36) "`__iivw_smcl_lb'ralign 9:SE`__iivw_smcl_rb'" ///
-            _col(47) "`__iivw_smcl_lb'ralign 16:`level'% CI`__iivw_smcl_rb'" ///
-            _col(65) "`__iivw_smcl_lb'ralign 6:P(z)`__iivw_smcl_rb'"
-        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
-
-        forvalues j = 1/`k' {
-            local term : word `j' of `names'
-            local vlab "`term'"
-            if "`term'" == "_cons" local vlab "Intercept"
-            if strlen(`"`vlab'"') > 18 {
-                local vlab = substr(`"`vlab'"', 1, 16) + ".."
-            }
-
-            local b = el(`B', 1, `j')
-            local se = sqrt(el(`V', `j', `j'))
-            local lo = el(`C', 1, `j')
-            local hi = el(`C', 2, `j')
-            if `b' < . & `se' > 0 & `se' < . & `lo' < . & `hi' < . {
-                local p = 2 * normal(-abs(`b'/`se'))
-                if `p' < 0.001 {
-                    local p_fmt "<0.001"
-                }
-                else {
-                    local p_fmt : display %6.3f `p'
-                    local p_fmt = strtrim("`p_fmt'")
-                }
-                display as text _col(4) ///
-                    "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
-                    as result _col(24) %10.4f `b' ///
-                    _col(36) %9.4f `se' ///
-                    _col(47) %7.4f `lo' as text "," ///
-                    as result %7.4f `hi' ///
-                    as text _col(65) ///
-                    "`__iivw_smcl_lb'ralign 6:`p_fmt'`__iivw_smcl_rb'"
-            }
-            else {
-                display as text _col(4) ///
-                    "`__iivw_smcl_lb'ralign 18:`vlab'`__iivw_smcl_rb'" ///
-                    _col(24) "`__iivw_smcl_lb'ralign 41:(omitted)`__iivw_smcl_rb'"
-            }
-        }
-        display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
-    }
-
-    }
-    local rc = _rc
-    set varabbrev `__iivw_replay_old_varabbrev'
     if `rc' exit `rc'
 end

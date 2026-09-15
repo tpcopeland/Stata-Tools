@@ -1,4 +1,4 @@
-*! _iivw_stacked_vce Version 4.1.3  2026/09/06
+*! _iivw_stacked_vce Version 4.2.0  2026/09/15
 *! Two-step (stacked) influence-function sandwich for a weighted GEE fit whose
 *! weights were estimated by iivw_weight.
 *! Author: Timothy P Copeland, Karolinska Institutet

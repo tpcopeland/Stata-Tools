@@ -515,6 +515,60 @@ else {
     display "FAIL H12: iivw_diagnose.sthlp example (error `=_rc')"
 }
 
+**# H14 - iivw_bspool.sthlp Examples section runs verbatim
+
+* The shard commands write .dta files relative to the working directory, which
+* is exactly what a user copy-pasting them does. Run them from a scratch
+* directory of our own so the suite leaves no debris in qa/, and put the
+* working directory back on every path -- including the failure path, or every
+* later case in this suite runs from somewhere else.
+local ++test_count
+local __hp_cwd "`c(pwd)'"
+tempfile __hp_stub
+local __hp_work "`__hp_stub'_bspool"
+capture mkdir "`__hp_work'"
+capture noisily {
+    quietly cd "`__hp_work'"
+    _help_data
+    iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) ///
+        lagvars(edss relapse) censor(fu_end) nolog
+
+    iivw_fit edss treated edss_bl, timespec(linear) citype(percentile) ///
+        vce(bootstrap, reps(20) seed(20260915)) rngstream(1) ///
+        saving(shard1, replace) nolog
+    estimates save bsanchor, replace
+    iivw_fit edss treated edss_bl, timespec(linear) citype(percentile) ///
+        vce(bootstrap, reps(20) seed(20260915)) rngstream(2) ///
+        saving(shard2, replace) nolog
+    iivw_fit edss treated edss_bl, timespec(linear) citype(percentile) ///
+        vce(bootstrap, reps(20) seed(20260915)) rngstream(3) ///
+        saving(shard3, replace) nolog
+
+    estimates use bsanchor
+    iivw_bspool using "shard1.dta shard2.dta shard3.dta", reps(60)
+    assert e(iivw_bs_reps_requested) == 60
+    assert e(iivw_bs_shards) == 3
+    assert "`e(iivw_bs_streams)'" == "1 2 3"
+
+    iivw_bspool using "shard1.dta shard2.dta shard3.dta", citype(basic) level(90)
+    assert "`e(iivw_ci_type)'" == "basic"
+    assert e(level) == 90
+
+    iivw_bspool using "shard1.dta shard2.dta shard3.dta", saving(pooled, replace)
+    confirm file "pooled.dta"
+}
+local __hp_rc = _rc
+quietly cd "`__hp_cwd'"
+if `__hp_rc' == 0 {
+    local ++pass_count
+    display "PASS H14: iivw_bspool.sthlp example runs verbatim"
+}
+else {
+    local ++fail_count
+    local failed_tests "`failed_tests' H14"
+    display "FAIL H14: iivw_bspool.sthlp example (error `__hp_rc')"
+}
+
 **# H13 - every help file with an Examples section is transcribed above
 
 * H10-H12 close today's gap; this stops the NEXT one. A new .sthlp, or a new
@@ -525,7 +579,7 @@ local ++test_count
 capture noisily {
     local covered "iivw.sthlp iivw_weight.sthlp iivw_fit.sthlp"
     local covered "`covered' iivw_balance.sthlp iivw_exogtest.sthlp"
-    local covered "`covered' iivw_diagnose.sthlp"
+    local covered "`covered' iivw_diagnose.sthlp iivw_bspool.sthlp"
     local helpfiles : dir "`pkg_dir'" files "*.sthlp"
     local uncovered ""
     foreach f of local helpfiles {
