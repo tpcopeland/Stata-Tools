@@ -1,4 +1,4 @@
-*! puttab Version 2.1.4  2026/09/09
+*! puttab Version 2.1.6  2026/09/15
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

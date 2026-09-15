@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.4  2026/09/09
+*! effecttab Version 2.1.6  2026/09/15
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -341,7 +341,7 @@ quietly {
 	local _collect_models 0
 	local _collect_kind ""
 	local _collect_kind_mixed 0
-	local _teffects_tvar ""
+	local _teffects_tvars ""
 	if !`_from_matrix' {
 		capture {
 			collect layout (cmdset) (result[cmd cmdline])
@@ -367,7 +367,7 @@ quietly {
 					forvalues _m = 1/`_collect_models' {
 						local _r = `_m' + 1
 						local collect_cmd_`_m' = lower(strtrim(`_meta_col_cmd'[`_r']))
-						local collect_cmdline_`_m' = lower(strtrim(`_meta_col_cmdline'[`_r']))
+						local collect_cmdline_`_m' = strtrim(`_meta_col_cmdline'[`_r'])
 					}
 				}
 			}
@@ -398,12 +398,16 @@ quietly {
 			if "`_collect_kind'" == "" local _collect_kind "`_kind'"
 			else if "`_collect_kind'" != "`_kind'" local _collect_kind_mixed = 1
 
-			if "`_kind'" == "teffects" & "`_teffects_tvar'" == "" {
-				if regexm(`"`_cmdline'"', "^teffects[ ]+[a-z0-9_]+[ ]+\([^)]*\)[ ]+\(([^)]*)\)") {
-					local _tblock = strtrim(regexs(1))
-					gettoken _teffects_tvar _tblock_rest : _tblock
-				}
-			}
+            if "`_kind'" == "teffects" {
+                * Keep identifier case: only command classification is lowercase.
+                if !regexm(`"`_cmdline'"', "^[^ ]+[ ]+[^ ]+[ ]+\([^)]*\)[ ]+\(([^)]*)\)") {
+                    noisily display as error "Could not identify the collected treatment variable"
+                    exit 198
+                }
+                local _tblock = strtrim(regexs(1))
+                gettoken _model_tvar _tblock_rest : _tblock, parse(" ,")
+                local _teffects_tvars : list _teffects_tvars | _model_tvar
+            }
 		}
 
 		if `_collect_kind_mixed' {
@@ -447,74 +451,93 @@ quietly {
 		}
 	}
 
-	local _ate_keep ""
-	if !`_from_matrix' {
+    if !`_from_matrix' {
+    if `"`tlabels'"' != "" local clean "clean"
 
-	* =========================================================================
-	* CAPTURE TREATMENT LABELS (before import clears data)
-	* =========================================================================
+    * Resolve rows from actual collection identities, for every model. Data
+    * levels do not identify the fitted control and may no longer be present.
+    local _trow_n = 0
+    local _colname_filter ""
+    local _te_eqlevels ""
+    if "`type'" == "teffects" {
+        if "`full'" == "" {
+            quietly collect levelsof coleq
+            local _equations `s(levels)'
+            foreach _eq of local _equations {
+                if inlist(lower("`_eq'"), "ate", "atet", "pomean", "pomeans") ///
+                    local _te_eqlevels "`_te_eqlevels' `_eq'"
+            }
+            if "`_te_eqlevels'" == "" {
+                noisily display as error "No treatment-effect equations found in the collection"
+                exit 2000
+            }
+        }
+        quietly collect levelsof colname
+        local _trow_levels `s(levels)'
+        foreach _key of local _trow_levels {
+            local _tv ""
+            local _base ""
+            if regexm("`_key'", "^r([0-9]+)vs([0-9]+)[.](.+)$") {
+                local _lev = regexs(1)
+                local _base = regexs(2)
+                local _tv = regexs(3)
+            }
+            else if regexm("`_key'", "^([0-9]+)[.](.+)$") {
+                local _lev = regexs(1)
+                local _tv = regexs(2)
+            }
+            local _is_tvar : list _tv in _teffects_tvars
+            if "`_tv'" == "" | !`_is_tvar' continue
+            local _colname_filter "`_colname_filter' `_key'"
+            local ++_trow_n
+            local _trow_key_`_trow_n' "`_key'"
 
-	* tlabels() implies clean
-	if `"`tlabels'"' != "" local clean "clean"
-
-	local has_vlabels = 0
-	local tlevels ""
-	local tvar ""
-	local tvarlabel ""
-
-	* Always capture treatment variable info for teffects (needed for row filtering)
-	* The clean option controls label relabeling; filtering is always applied
-	if "`type'" == "teffects" {
-		local tvar `"`_teffects_tvar'"'
-		if "`tvar'" == "" local tvar "`e(tvar)'"
-
-		if "`clean'" != "" & `"`tlabels'"' != "" {
-			* Parse user-provided tlabels: 0 "SSRI" 1 "SNRI"
-			local tl_rest `"`tlabels'"'
-			while `"`tl_rest'"' != "" {
-				gettoken tl_val tl_rest : tl_rest
-				gettoken tl_lab tl_rest : tl_rest
-				if "`tl_val'" != "" & `"`tl_lab'"' != "" {
-					local tlab_`tl_val' `"`tl_lab'"'
-					local has_vlabels = 1
-				}
-			}
-		}
-		else if "`clean'" != "" & "`tvar'" != "" {
-			* Auto-detect from value labels on treatment variable
-			capture confirm variable `tvar'
-			if _rc == 0 {
-				local vallabname : value label `tvar'
-				if "`vallabname'" != "" {
-					levelsof `tvar', local(tlevels)
-					foreach lev of local tlevels {
-						local lab : label `vallabname' `lev'
-						* Only use if label differs from numeric value
-						if "`lab'" != "`lev'" {
-							local tlab_`lev' `"`lab'"'
-							local has_vlabels = 1
-						}
-					}
-				}
-			}
-		}
-
-		* Capture treatment levels and variable label while data is in memory
-		if "`tvar'" != "" {
-			if "`tlevels'" == "" {
-				capture confirm variable `tvar'
-				if _rc == 0 {
-					levelsof `tvar', local(tlevels)
-				}
-			}
-			capture local tvarlabel : variable label `tvar'
-			if _rc local tvarlabel ""
-			if "`tvarlabel'" == "" local tvarlabel "`tvar'"
-			* Capitalize and clean variable label for display
-			local tvarlabel = upper(substr("`tvarlabel'", 1, 1)) + substr("`tvarlabel'", 2, .)
-			local tvarlabel = subinstr("`tvarlabel'", "_", " ", .)
-		}
-	}
+            * Capture labels before rendering replaces the dataset. Numeric
+            * labels remain usable when the caller has cleared the data.
+            local _vlab ""
+            local _tvlabel "`_tv'"
+            capture confirm variable `_tv'
+            if !_rc {
+                local _vlab : value label `_tv'
+                local _tvlabel : variable label `_tv'
+                if `"`_tvlabel'"' == "" local _tvlabel "`_tv'"
+            }
+            local _tvlabel = upper(substr(`"`_tvlabel'"', 1, 1)) + substr(`"`_tvlabel'"', 2, .)
+            local _tvlabel = subinstr(`"`_tvlabel'"', "_", " ", .)
+            local _lab_lev "`_lev'"
+            local _lab_base "`_base'"
+            foreach _part in lev base {
+                if "`_`_part''" == "" continue
+                if `"`tlabels'"' != "" {
+                    local _rest `"`tlabels'"'
+                    while `"`_rest'"' != "" {
+                        gettoken _val _rest : _rest
+                        gettoken _lab _rest : _rest
+                        if "`_val'" == "`_`_part''" & `"`_lab'"' != "" ///
+                            local _lab_`_part' `"`_lab'"'
+                    }
+                }
+                else if "`_vlab'" != "" {
+                    local _lab_`_part' : label `_vlab' `_`_part''
+                }
+            }
+            if "`_base'" != "" {
+                local _label `"`_tvlabel' (`_lev' vs `_base')"'
+                if `"`_lab_lev'"' != "`_lev'" | `"`_lab_base'"' != "`_base'" ///
+                    local _label `"`_lab_lev' vs `_lab_base'"'
+            }
+            else {
+                local _label `"`_tvlabel' = `_lev' (PO Mean)"'
+                if `"`_lab_lev'"' != "`_lev'" local _label `"`_lab_lev' (PO Mean)"'
+            }
+            local _trow_label_`_trow_n' `"`_label'"'
+        }
+        if `_trow_n' == 0 {
+            noisily display as error "No treatment contrasts or potential-outcome means found in the collection"
+            exit 2000
+        }
+        if "`full'" != "" local _colname_filter ""
+    }
 
 	* =========================================================================
 	* CONFIGURE COLLECT LAYOUT
@@ -538,24 +561,6 @@ quietly {
 	* Set layout based on type
 	* Both teffects and margins use colname for row dimension
 	* Multiple models (cmdset) go on columns
-
-	* Build colname filter for teffects: only ATE/POmean rows (not PS model)
-	* This suppresses nuisance parameters (propensity score model coefficients)
-	* that appear in IPW/AIPW/IPWRA results. Use full option to show everything.
-	local _colname_filter ""
-	if "`type'" == "teffects" & "`full'" == "" & "`tvar'" != "" & "`tlevels'" != "" {
-		local base : word 1 of `tlevels'
-		* Add ATE comparison rows: r{lev}vs{base}.{tvar}
-		foreach lev of local tlevels {
-			if "`lev'" != "`base'" {
-				local _colname_filter `"`_colname_filter' r`lev'vs`base'.`tvar'"'
-			}
-		}
-		* Add POmean rows: {lev}.{tvar}
-		foreach lev of local tlevels {
-			local _colname_filter `"`_colname_filter' `lev'.`tvar'"'
-		}
-	}
 
 	* Note: collect levelsof cmdset returns r(levels) as empty even when cmdset
 	* has levels (Stata quirk). So we try multi-model layout first regardless.
@@ -609,56 +614,13 @@ quietly {
 	* APPLY TREATMENT LABELS TO COLLECT TABLE
 	* =========================================================================
 
-	local _ate_keep ""
-	if "`clean'" != "" & "`type'" == "teffects" & "`tlevels'" != "" {
-		local base : word 1 of `tlevels'
-
-		* Relabel ATE/ATET comparison rows (rXvsBase.varname)
-		foreach lev of local tlevels {
-			if "`lev'" != "`base'" {
-				if `has_vlabels' {
-					local lab_lev `"`tlab_`lev''"'
-					local lab_base `"`tlab_`base''"'
-					if `"`lab_lev'"' != "" & `"`lab_base'"' != "" {
-						capture collect label levels colname ///
-							r`lev'vs`base'.`tvar' ///
-							`"`lab_lev' vs `lab_base'"', modify
-						local _ate_keep `"`_ate_keep' `"`lab_lev' vs `lab_base'"'"'
-					}
-				}
-				else {
-					* No value labels: use variable label + numbers
-					capture collect label levels colname ///
-						r`lev'vs`base'.`tvar' ///
-						"`tvarlabel' (`lev' vs `base')", modify
-					local _ate_keep `"`_ate_keep' "`tvarlabel' (`lev' vs `base')""'
-				}
-				local _ate_keep `"`_ate_keep' "r`lev'vs`base'.`tvar'""'
-			}
-		}
-
-		* Relabel POmean rows (level.varname)
-		foreach lev of local tlevels {
-			if `has_vlabels' {
-				local lab_lev `"`tlab_`lev''"'
-				if `"`lab_lev'"' != "" {
-					capture collect label levels colname ///
-						`lev'.`tvar' ///
-						`"`lab_lev' (PO Mean)"', modify
-					local _ate_keep `"`_ate_keep' `"`lab_lev' (PO Mean)"'"'
-				}
-			}
-			else {
-				* No value labels: use variable label + number
-				capture collect label levels colname ///
-					`lev'.`tvar' ///
-					"`tvarlabel' = `lev' (PO Mean)", modify
-				local _ate_keep `"`_ate_keep' "`tvarlabel' = `lev' (PO Mean)""'
-			}
-			local _ate_keep `"`_ate_keep' "`lev'.`tvar'""'
-		}
-	}
-	}
+    if "`clean'" != "" & "`type'" == "teffects" {
+        forvalues _ti = 1/`_trow_n' {
+            collect label levels colname `_trow_key_`_ti'' ///
+                `"`_trow_label_`_ti''"', modify
+        }
+    }
+    }
 
 	* =========================================================================
 	* EXPORT AND IMPORT FOR PROCESSING
@@ -716,9 +678,8 @@ quietly {
 		local last 1
 	}
 	else {
-		* Reverse map from the rendered row label back to the raw colname
-		* level, so the constraint map below can be matched by coefficient
-		* name rather than by whatever label collect substituted.
+        * Track existing labels so factor formatting respects caller labels.
+        * Coefficient identity is supplied separately by the renderer.
 		local _cnmap_n = 0
 		capture quietly collect label list colname
 		if _rc == 0 {
@@ -786,7 +747,7 @@ quietly {
 
 		capture _tabtools_collect_render, type(main) rowdim(colname) ///
 			rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
-			results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap
+			results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap rowkeys eqlevels("`_te_eqlevels'")
 		local _collect_render_rc = _rc
 		* Read the constraint map before any other r-class command clears r().
 		local _omit_n = 0
@@ -800,25 +761,12 @@ quietly {
 				local _omit_val_`_ok' `"`r(omit_val_`_ok')'"'
 			}
 		}
-		if `_collect_render_rc' {
-			restore
-			* Fallback: use the prior workbook renderer for unsupported layouts.
-			capture collect export "`temp_xlsx'", sheet("temp", replace)
-			if _rc {
-				noisily display as error "Failed to export collect table to temporary Excel file"
-				noisily display as error "Check that collect table is properly structured"
-				exit _rc
-			}
-			preserve
-			capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
-			if _rc {
-				local _read_rc = _rc
-				noisily display as error "Failed to import temporary Excel file"
-				capture erase "`temp_xlsx'"
-				restore
-				exit `_read_rc'
-			}
-		}
+        if `_collect_render_rc' {
+            restore
+            noisily display as error "Could not render the collection with exact row identities"
+            exit `_collect_render_rc'
+        }
+
 	}
 
 	* Guard against empty collect tables (R3)
@@ -836,6 +784,9 @@ quietly {
 	* Get all variables - first variable is row labels, rest are data columns
 	ds
 	local allvars `r(varlist)'
+    local _raw_helper "_raw_colname"
+    local allvars : list allvars - _raw_helper
+    if !`_from_matrix' rename _raw_colname _raw_A
 
 	* Check that we have data to process
 	local nvars : word count `allvars'
@@ -878,53 +829,6 @@ quietly {
 			}
 		}
 
-	* =========================================================================
-	* CLEAN UP EFFECT LABELS (post-import fallback)
-	* =========================================================================
-
-	* Note: When clean/tlabels was used AND treatment levels were captured,
-	* labels were already applied to the collect table before export via
-	* collect label levels colname. This section is a fallback for edge cases
-	* where the pre-export relabeling couldn't run (e.g., data was cleared
-	* before effecttab, or treatment variable not found).
-
-	if "`clean'" != "" & "`type'" == "teffects" & "`tlevels'" == "" {
-		* Fallback: basic regex clean on post-import strings
-		replace A = regexr(A, "^r([0-9]+)vs([0-9]+)\.(.+)$", "\3 (\1 vs \2)")
-		replace A = regexr(A, "^POmean: ([0-9]+)\.(.+)$", "\2 = \1 (PO Mean)")
-
-		* Capitalize first letter
-		replace A = upper(substr(A, 1, 1)) + substr(A, 2, .) if !missing(A)
-
-		* Clean underscores to spaces
-		replace A = subinstr(A, "_", " ", .)
-	}
-
-	* Filter to ATE/POmean rows only (default for teffects; bypass with full)
-	* Note: When _colname_filter was used, the collect layout already filtered rows.
-	* Post-import filter only needed when clean relabeled rows (_ate_keep populated).
-	if "`type'" == "teffects" & "`full'" == "" & "`_colname_filter'" == "" {
-		if `"`_ate_keep'"' != "" {
-			* Use labels built during relabeling phase
-			gen byte _keep = (_n <= 2)
-			foreach _lab of local _ate_keep {
-				replace _keep = 1 if A == `"`_lab'"'
-			}
-			drop if !_keep
-			drop _keep
-		}
-		else if "`tvar'" != "" {
-			* Fallback: use regex patterns on raw colname levels
-			gen byte _keep = (_n <= 2)
-			replace _keep = 1 if regexm(A, "^r[0-9]+vs[0-9]+\.")
-			replace _keep = 1 if regexm(A, "^[0-9]+\.")
-			replace _keep = 1 if regexm(A, " vs ")
-			replace _keep = 1 if regexm(A, "\(PO Mean\)")
-			drop if !_keep
-			drop _keep
-		}
-	}
-
 	* Apply model labels if provided
 	if "`models'" != "" {
 		* Split models string by backslashes
@@ -964,15 +868,6 @@ quietly {
 	* model) is left blank so the numeric heuristic below decides instead.
 	if `"`_omit_n'"' == "" local _omit_n = 0
 	if `_omit_n' > 0 {
-		capture confirm variable _raw_A
-		if _rc {
-			quietly gen strL _raw_A = ""
-			quietly replace _raw_A = strtrim(A) if _n > 2
-			forvalues _ci = 1/`_cnmap_n' {
-				quietly replace _raw_A = `"`_cnmap_level_`_ci''"' ///
-					if _n > 2 & strtrim(A) == `"`_cnmap_label_`_ci''"'
-			}
-		}
 		forvalues _m = 1/`_n_models' {
 			capture confirm variable _omit_type`_m'
 			if _rc quietly gen str8 _omit_type`_m' = ""

@@ -76,6 +76,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_regtab.do` | Model families, statistics, selection, display modes, frames, and p-value policies. |
 | `test_regtab_omitted.do` | Base, collinear, and empty coefficient labelling per model, including `omitlabel()`/`emptylabel()`, `r(table)`, and interaction cells. |
 | `test_review_2026_08_13.do` | Disclosure-reconstruction attacks and correlation-star regression contracts. |
+| `test_review_2026_09_15.do` | Treatment controls, raw coefficient identities, case and name collisions, cleared-data labels, and shipped-header agreement. |
 | `test_smallcells.do` | Small-cell parsing, masking, irredundancy, compositions, sink parity, and leak attacks. |
 | `test_stacktab.do` | Workbook block assembly, stacking, column merging, Markdown, and frame guards. |
 | `test_stratetab.do` | Rate-file workflows, multi-outcome scaffolds, ordering, sheets, and cleanup. |

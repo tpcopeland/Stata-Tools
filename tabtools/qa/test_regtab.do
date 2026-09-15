@@ -1362,7 +1362,7 @@ capture {
     collect clear
     collect: melogit y x || district: || school:
 
- regtab, frame(_rt_mor_keep, replace) relabel keep(District School)
+ regtab, frame(_rt_mor_keep, replace) relabel keep(District School) labelmatch
 
     frame _rt_mor_keep {
         count if A == "Median Odds Ratio (District)"
@@ -5130,7 +5130,7 @@ capture noisily {
     label variable weight "Curb mass"
     collect clear
     collect: regress price mpg weight
-    regtab, frame(_keeplbl) keep("Fuel")
+    regtab, frame(_keeplbl) keep("Fuel") labelmatch
     frame _keeplbl {
         quietly count if strpos(A, "Fuel economy") > 0
         assert r(N) == 1

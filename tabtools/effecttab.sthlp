@@ -249,9 +249,10 @@ that model's CI and p-value cells. The class is read per model, and
 constrained cells contribute nothing to {cmd:r(table)} or to
 {opt eplotframe()}. Change the words with {opt refcat()},
 {opt omitlabel()}, and {opt emptylabel()}; the three must differ. Where the
-collection carries no class -- a matrix supplied through {opt from()}, or a
-workbook read back through {opt xlsx()} -- {cmd:effecttab} falls back to
-labelling a zero estimate with an empty interval {it:Reference}.{p_end}
+collection carries no class, {cmd:effecttab} labels a collected zero estimate
+with an empty interval {it:Reference}. A numeric zero supplied through
+{opt from()} remains an effect estimate. Collections whose raw row identities
+cannot be read are rejected before output.{p_end}
 
 {p 4 8 2}Factor rows are rendered the way {helpb regtab} renders them: the
 variable's label heads the block and each level is indented beneath it under
@@ -289,6 +290,13 @@ are currently unsupported and are rejected by {cmd:effecttab}.{p_end}
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. collect: margins treatment}{p_end}
 {phang2}{cmd:. effecttab, xlsx(results.xlsx) sheet("Predictions") type(margins) effect("Pr(Y)")}{p_end}
+
+{pstd}Treatment rows come from the collected contrasts and potential-outcome
+means, including nondefault {cmd:control()} levels. Models with different
+treatment-variable names retain separate rows; cells are blank only for models
+that did not estimate that row. Treatment-variable names are case-sensitive. Clearing
+the estimation data preserves row selection; {opt clean} then uses numeric
+levels unless {opt tlabels()} supplies labels.{p_end}
 
 {pstd}{bf:The clean option and treatment labels}{p_end}
 
