@@ -1,4 +1,4 @@
-*! iivw Version 4.1.3  2026/09/06
+*! iivw Version 4.2.0  2026/09/15
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -66,6 +66,7 @@ program define iivw, rclass
     display as result "  iivw_fit        " as text "- Fit weighted or unweighted outcome model"
     display as result "  iivw_exogtest   " as text "- Test whether lagged outcomes predict visit timing"
     display as result "  iivw_diagnose   " as text "- Decompose marginal-slope movement across models"
+    display as result "  iivw_bspool     " as text "- Pool sharded iivw_fit bootstrap replicates"
     display as text ""
     display as text "`__iivw_smcl_lb'bf:Weight types`__iivw_smcl_rb'"
     display as text "  IIW     - Inverse intensity weighting (visit process correction)"
@@ -101,7 +102,7 @@ program define iivw, rclass
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     return local version "`version'"
-    return local commands "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
+    return local commands "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
     return scalar n_commands = 5
 
     }

@@ -284,7 +284,7 @@ capture noisily {
         pattern("could not restore active estimation results")
 
     * Author/affiliation checks apply to every help file...
-    foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
+    foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool {
         _qa_iivw_assert_contains, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{pstd}Timothy P Copeland, Karolinska Institutet{p_end}")
         _qa_iivw_assert_absent, file("`pkg_dir'/`help'.sthlp") ///
@@ -298,7 +298,7 @@ capture noisily {
         pattern("{* *! version `version'  `sthlp_date'}")
     _qa_iivw_assert_contains, file("`pkg_dir'/iivw.sthlp") ///
         pattern("Version `version', `ado_iso'")
-    foreach help in iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
+    foreach help in iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool {
         _qa_iivw_assert_absent, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version")
     }
@@ -325,8 +325,10 @@ capture noisily {
         pattern("program define _iivw_check_passthru, nclass")
     _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_export_table.ado") ///
         pattern("program define _iivw_open_workbook, nclass")
-    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_fit_replay.ado") ///
         pattern("program define _iivw_fit_replay, nclass")
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_bspool.ado") ///
+        pattern("program define _iivw_bspool_agree")
     _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_require_converged.ado") ///
         pattern("program define _iivw_require_converged, nclass")
     _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_require_draw_converged.ado") ///
@@ -351,8 +353,12 @@ capture noisily {
         pattern("local __iivw_passthru_old_varabbrev = c(varabbrev)")
     _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_export_table.ado") ///
         pattern("local __iivw_open_old_varabbrev = c(varabbrev)")
-    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_fit.ado") ///
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_fit_replay.ado") ///
         pattern("local __iivw_replay_old_varabbrev = c(varabbrev)")
+    _qa_iivw_assert_contains, file("`pkg_dir'/iivw_bspool.ado") ///
+        pattern("local _orig_varabbrev = c(varabbrev)")
+    _qa_iivw_assert_contains, file("`pkg_dir'/_iivw_bs_stamp.ado") ///
+        pattern("local _orig_varabbrev = c(varabbrev)")
 }
 if _rc == 0 {
     display as result "  PASS: every input-parsing helper owns a varabbrev wrapper"

@@ -1,4 +1,4 @@
-*! _iivw_require_draw_converged Version 4.1.3  2026/09/06
+*! _iivw_require_draw_converged Version 4.2.0  2026/09/15
 *! Reject a nonconverged outcome fit inside a bootstrap replicate. Shared by
 *! _iivw_bs_estimate (fixed-weight draws) and _iivw_bs_refit (refit draws).
 *! Author: Timothy P Copeland, Karolinska Institutet

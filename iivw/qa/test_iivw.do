@@ -88,7 +88,7 @@ if `run_only' == 0 | `run_only' == 1 {
         iivw
         assert r(n_commands) == 5
         assert "`r(commands)'" == ///
-            "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
+            "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
         * Dispatcher derives its version from the .ado header; assert it is a
         * well-formed semantic version rather than pinning a literal that goes
         * stale on every bump (currency is enforced by the CLI version check).

@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.1.3  2026/09/06
+*! iivw_weight Version 4.2.0  2026/09/15
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

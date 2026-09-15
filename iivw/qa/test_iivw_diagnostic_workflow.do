@@ -81,7 +81,7 @@ capture noisily {
     which iivw_diagnose
     iivw
     assert r(n_commands) == 5
-    assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
+    assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
 }
 if _rc == 0 {
     display as result "  PASS: T1 - local install exposes public commands"

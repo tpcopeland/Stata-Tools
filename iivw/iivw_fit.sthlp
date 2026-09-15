@@ -1,6 +1,7 @@
 {smcl}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
+{vieweralsosee "iivw_bspool" "help iivw_bspool"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
 {vieweralsosee "[ME] mixed" "help mixed"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
@@ -57,6 +58,8 @@
 {synopt:{opt vce(vcetype)}}{cmd:bootstrap}, {cmd:fixed}, or {cmd:stacked}{p_end}
 {synopt:{opt cit:ype(string)}}interval: {cmd:wald}, {cmd:percentile}, {cmd:bca}, ...{p_end}
 {synopt:{opt allowfailedr:eps}}accept an incomplete bootstrap{p_end}
+{synopt:{opt sav:ing(spec)}}save the bootstrap replicate draws{p_end}
+{synopt:{opt rngstream(#)}}RNG substream for the draws; 1-32768{p_end}
 {synopt:{opt boot:strap(#)}}{it:legacy}; prefer {opt vce()}{p_end}
 {synopt:{opt refit:weights}}{it:legacy}; prefer {opt vce()}{p_end}
 
@@ -504,6 +507,67 @@ Weights written by a version of {cmd:iivw} older than 2.0.0 cannot be
 replayed: the raw visit covariates were not stored apart from the generated lag
 columns, so the replay cannot reconstruct them. {opt refitweights} refuses such a contract
 rather than falling back to the old behaviour. Re-run {cmd:iivw_weight}.
+
+{phang}
+{opt saving(spec)} writes the bootstrap replicate draws to a Stata dataset. {it:spec}
+is Stata's own {helpb prefix_saving_option:saving()} grammar for the
+{helpb bootstrap} prefix -- a filename optionally followed by {cmd:double},
+{cmd:every(#)} and {cmd:replace} -- and is forwarded to it unchanged, so an
+invalid suboption surfaces as {cmd:bootstrap}'s error rather than a second
+implementation that could drift from it.
+
+{pmore}
+The command discarded these draws before 4.2.0. Saving them is what makes a
+999-draw bootstrap splittable across concurrent processes: see
+{helpb iivw_bspool}. {cmd:iivw_fit} additionally stamps the file with the
+identity of the fit that produced it -- the weight contract, the weight type,
+the specification, the build -- so the pooler can refuse a set of shards that
+did not fit the same model to the same data.
+
+{pmore}
+{opt saving()} requires bootstrap draws. Specifying it with {cmd:vce(fixed)} or
+{cmd:vce(stacked)} is an error, not a silently ignored option: a sharded run
+whose shard file was never written would otherwise fail much later and much
+less clearly.
+
+{pmore}
+{cmd:every(#)} is forwarded like any other suboption. A write cadence lets a
+killed run leave partial draws on disk, which is useful for a multi-hour fit
+and is also a way to pool an unintended number of draws; {helpb iivw_bspool}
+refuses a file shorter than its own stamp says it should be.
+
+{phang}
+{opt rngstream(#)} draws the replicates from RNG substream {it:#}, between
+{bf:1} and {bf:32768}. It switches the generator to {cmd:mt64s} and selects the
+substream before seeding.
+
+{pmore}
+This exists so K shards of one bootstrap can share a single {cmd:seed()} and
+differ only in their substream. Giving K shards K unrelated seeds produces
+streams that are very probably disjoint, which is not the same as a
+guarantee; {cmd:set rngstream} is the mechanism Stata provides for
+independent substreams, and it lets the whole run be described by one seed
+plus a stream index.
+
+{pmore}
+The generator, the substream, and then the seed are set in that order, and the
+order matters. {cmd:set seed} resets the position of the substream currently
+selected and only that one, so seeding first and jumping to the substream
+afterwards would land wherever that substream was left by an earlier fit in the
+same process. Selecting the substream first reproduces from any prior session
+state.
+
+{pmore}
+The caller's generator is restored when the fit finishes, on the error path as
+well as the success path, so one {opt rngstream()} fit does not silently move
+the rest of the session onto that substream. The substream positions themselves
+are left advanced, exactly as {cmd:seed()} leaves the seed advanced: a
+randomized command is expected to consume the stream it drew from. The
+substream used is recorded in {cmd:e(iivw_rngstream)}.
+
+{pmore}
+{opt rngstream()} requires bootstrap draws, and is checked before the models are
+fit rather than at the draws, so a typo costs nothing.
 
 {pmore}
 The compact effects table printed by {cmd:iivw_fit} reports the interval named
@@ -1246,6 +1310,8 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_vce_seed_explicit)}}1 if a seed was set via {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(iivw_rng)}}RNG type used, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_rngstate_start)}}starting RNG state, when bootstrapped{p_end}
+{synopt:{cmd:e(iivw_rngstream)}}RNG substream, when {opt rngstream()} was given{p_end}
+{synopt:{cmd:e(iivw_bs_saving)}}the {opt saving()} spec, when given{p_end}
 {synopt:{cmd:e(iivw_wsig)}}signature for stored weight contract{p_end}
 {synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}

@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.1.3** | 2026-09-06
+**Version 4.2.0** | 2026-09-15
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -63,6 +63,7 @@ net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 | `iivw_fit` | Fit weighted or unweighted GEE-style and mixed-effects outcome models |
 | `iivw_exogtest` | Test whether lagged outcomes or disease activity predict subsequent visit timing |
 | `iivw_diagnose` | Decompose movement in a stored marginal or reference-slope estimate across three models |
+| `iivw_bspool` | Pool bootstrap replicate files from concurrent `iivw_fit` shards into one result |
 
 ## How It Works
 
@@ -356,6 +357,28 @@ For a bare weighted FIPTIW GEE fit, the default is point-only at every sample si
 
 `citype(wald)` uses a normal/Wald transformation, `citype(percentile)` uses empirical bootstrap quantiles, `citype(basic)` reflects those quantiles around the observed estimate, and `citype(bca)` adds bias correction and delete-one-subject acceleration. The asymmetric choices require bootstrap draws.
 
+### Sharded bootstraps
+
+A 999-draw refit bootstrap refits the visit-intensity model and the outcome model on every draw, and that work is the same on every draw and depends on no other draw. Profiling on a 1200-subject, 7100-row panel put 99.9% of the run in per-draw work, against a fixed overhead of about one draw, so the run is serial only because Stata's `bootstrap` prefix is.
+
+`iivw_fit`'s `saving()` writes the replicate draws to a dataset, which the command discarded before 4.2.0, and `rngstream(#)` draws them from an independent RNG substream of one shared `seed()`. Together they let K concurrent Stata processes produce the same 999 draws, which `iivw_bspool` pools into a single estimation result.
+
+Pooling is delegated to Stata's own `bstat`, so the pooled variance and percentile limits are computed by the same code path the `bootstrap` prefix uses: splitting one run's replicate file into K pieces and pooling them back reproduces that run to the last bit. Nine shards of 111 drawn from independent substreams agree with a single 999-draw run within Monte Carlo tolerance, with a worst observed relative standard-error difference of 0.053 against a 3-MCSE band of 0.095.
+
+`iivw_fit` stamps each replicate file with the identity of the fit that produced it, and `iivw_bspool` refuses to pool shards that disagree on the weight contract, the weight type, the specification, the coefficient set, the observed estimates or the build. It also refuses two shards drawn from the same RNG state, a truncated shard file, and any pooled result with failed replicates unless `allowfailedreps` is given. The `uncleared-low-reps` stamp is recomputed from the pooled total, so nine honestly-stamped 111-draw shards pool to a 999-draw result that no longer carries it; every other stamp is inherited, because pooling improves the replicate count and nothing else. BCa intervals are not poolable, because their acceleration term comes from a per-shard jackknife rather than from the draws.
+
+Measured on a 1200-subject, 7100-row panel, 360 refit draws:
+
+| Run | Wall clock |
+|---|---|
+| One serial process, 360 draws | 92.2 s |
+| Four concurrent shards of 90 | 26.7 s |
+| Pooling step | 0.06 s |
+
+That is a 3.4x reduction on four shards, about 86% of linear. The pooled standard error on the treatment coefficient was 0.04797 against 0.04754 for the serial run, a 0.9% difference against a 3-MCSE band of 16% at 360 draws.
+
+A worked K-process driver is in [demo/shard_driver.do](demo/shard_driver.do).
+
 ### Excel reporting
 
 `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose` write direct styled `.xlsx` sheets when `xlsx(filename)` is supplied. `sheet()` defaults are `Balance`, `Exogeneity`, and `Diagnostics`, respectively. `replace` overwrites only the named sheet, `open` opens the workbook, and `title()`/`footnote()` add optional rows.
@@ -435,6 +458,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **4.2.0** (2026-09-15): Sharded bootstrap execution. `iivw_fit` gains `saving()`, which writes the bootstrap replicate draws the command previously discarded, and `rngstream(#)`, which draws them from an independent RNG substream so K shards can share one `seed()`. New command `iivw_bspool` pools the shard files into a single estimation result, delegating the variance and percentile arithmetic to Stata's `bstat` so a split-and-rejoined run reproduces the unsharded one exactly. Pooling refuses shards that disagree on the weight contract, weight type, specification, coefficient set, observed estimates or build; refuses two shards drawn from the same RNG state, a truncated shard file, and BCa shards; and recomputes the replicate accounting and the `uncleared-low-reps` stamp from the pooled total while inheriting every other stamp. `iivw_fit` now restores the caller's RNG generator after a `rngstream()` fit, on the error path as well as the success path. `_iivw_fit_replay` moved out of `iivw_fit.ado` into its own file so Stata's autoloader can resolve it for `iivw_bspool`. Two defects found while wiring that display path are fixed: a stored percentile, basic or BCa interval fit at any level other than the session default refused its own bare replay, citing an option the user had not typed, because the replay parsed `level()` as a `cilevel` option and `syntax` fills those with `c(level)` whenever they are omitted; and the same trap in the new pooler made an omitted `level()` take the session default instead of the shards' own. QA: new `test_iivw_v420_shard` (23 cases), including bit-identical re-pooling, substream independence and replay, every refusal, pooled failure accounting, the status arithmetic, agreement between nine shards of 111 and one run of 999 inside a 3-MCSE band, and two cases that are red on 4.1.3 for the replay-level defects above.
 - **4.1.3** (2026-09-06): Fixed two defects confirmed by the 2026-09-04 audit. `vce(stacked)` built its Wald confidence limits from the fixed-weight covariance before the two-step sandwich replaced `e(V)`, so the printed and stored interval did not match the reported standard errors and disagreed with an ordinary Wald replay; the interval is now formed from the posted covariance. The stored weighting signature did not bind the `scores` influence-function columns or the stacked nuisance metadata, so a finite edit to a saved score, derivative, or inverse-information value changed the reported standard error at `rc=0`; those inputs are now part of the contract signature and such an edit is refused. QA: new `test_iivw_v413_regressions` (7 cases, 6 of them red on 4.1.2), the zero-derivative algebra check moved to the helper surface, standalone suites sandboxed and their resolution asserted, sensitivity simulations record every requested replication and take Monte Carlo error from the usable count, and run artifacts moved to per-run tempfiles.
 - **4.1.2** (2026-09-04): Hardened input ownership, analysis-sample validation, transactional weight metadata rollback, and fail-closed inference gates. Expanded regression coverage for stored source-variable collisions, incomplete simulations, separator failures, FIPTIW recovery, and the assembled stacked covariance oracle; refreshed the user-facing inference contract and independent-reference workflow.
 - **4.1.1** (2026-09-04): Fail-closed resolve contract for explicitly named sources. `iivw_diagnose` now refuses stored estimates that carry no `e(depvar)` or `e(cmd)`: the comparability gate decides "same estimand" by comparing those fields across the three roles, and three estimates that carry neither compared equal on empty strings, so the gate passed vacuously and the command returned `decomposable = 1` with a printed decomposition it had never verified. `iivw` now refuses an install whose `iivw.ado` header cannot be read instead of reporting `r(version)` as "unknown" at rc 0. New internal helper `_iivw_require_meta`.

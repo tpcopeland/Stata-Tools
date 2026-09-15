@@ -1,10 +1,11 @@
 {smcl}
-{* *! version 4.1.3  06sep2026}
+{* *! version 4.2.0  15sep2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
 {vieweralsosee "iivw_diagnose" "help iivw_diagnose"}{...}
+{vieweralsosee "iivw_bspool" "help iivw_bspool"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {viewerjumpto "Syntax" "iivw##syntax"}{...}
@@ -58,6 +59,7 @@ The package provides five main commands:
 {phang2}{helpb iivw_fit} fits unweighted or weighted outcome models via GEE or mixed effects{p_end}
 {phang2}{helpb iivw_exogtest} tests whether prior outcomes predict visit timing{p_end}
 {phang2}{helpb iivw_diagnose} decomposes marginal/reference-slope movement across models{p_end}
+{phang2}{helpb iivw_bspool} pools bootstrap replicates from concurrent {cmd:iivw_fit} shards{p_end}
 
 {pstd}
 {bf:Plain-language summary.} In many clinical datasets, the unit recorded in the
@@ -129,6 +131,7 @@ outside what these weights identify.{p_end}
 {synopt:{helpb iivw_fit}}fit the outcome model (GEE or mixed){p_end}
 {synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
 {synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope changes{p_end}
+{synopt:{helpb iivw_bspool}}pool sharded bootstrap replicates{p_end}
 
 
 {marker choosing}{...}
@@ -461,7 +464,7 @@ answer.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.1.3, 2026-09-06{p_end}
+{pstd}Version 4.2.0, 2026-09-15{p_end}
 
 
 {title:Also see}
