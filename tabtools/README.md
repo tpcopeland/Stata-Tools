@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.4** | 2026-09-09
+**Version 2.1.6** | 2026-09-15
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -255,10 +255,12 @@ corrtab varlist [if] [in], [xlsx(string) excel(string) spearman lower upper full
 ### `regtab`
 
 ```stata
-regtab, [xlsx(string) excel(string) sheet(string) sep(string) models(string) coef(string) nointercept keepintercept noreffects stats(string) relabel(string) digits(#) footnote(string) open zebra headershade highlight(#) boldp(#) cdisc font(string) fontsize(#) borderstyle(string) stars starslevels(numlist) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) keep(string) drop(string) dimnonsig factorlabel refcat(string) omitlabel(string) emptylabel(string) cutlabels(string) addrow(string) compact nopvalue pdp(#) highpdp(#) labelwidth(#) level(#)]
+regtab, [xlsx(string) excel(string) sheet(string) sep(string) models(string) coef(string) nointercept keepintercept noreffects stats(string) relabel(string) digits(#) footnote(string) open zebra headershade highlight(#) boldp(#) cdisc font(string) fontsize(#) borderstyle(string) stars starslevels(numlist) headercolor(string) zebracolor(string) csv(string) markdown(string) mdappend frame(string) eplotframe(name[, replace]) keep(string) drop(string) labelmatch dimnonsig factorlabel refcat(string) omitlabel(string) emptylabel(string) cutlabels(string) addrow(string) compact nopvalue pdp(#) highpdp(#) labelwidth(#) level(#)]
 ```
 
 `regtab` is Stata 17+ and renders the active `collect` result. The sheet defaults to `Regression`, digits to the session setting or `2`, `sep()` to `, `, `pdp(3)`, `highpdp(2)`, `refcat()` to `Reference`, `omitlabel()` to `Omitted`, `emptylabel()` to `Empty`, `labelwidth()` to `45`, and `starslevels()` to `0.05 0.01 0.001`. Ratio-scale models receive their conventional coefficient labels and suppress intercepts automatically where appropriate; `keep()` and `drop()` are mutually exclusive. `stats()` accepts `n`, `aic`, `bic`, `qic`, `icc`, `ll`, `groups`, and `r2`.
+
+`keep()` and `drop()` match exact, case-sensitive raw variable or factor-component names: `age` cannot select `stage` or `Age`, and `2.arm` cannot select `20.arm`. Use `labelmatch` explicitly for case-insensitive display-label substring matching, for example `keep(Fuel) labelmatch`.
 
 The command does not fit models and can alter the active collection's layout and styles. Explicit `level()` must agree with collection metadata. When a Stata version omits that metadata and `level()` is not supplied, `regtab` warns and uses the current `c(level)` for interval labels; supply `level()` if the models were fit at a different level. `nopvalue` hides p-value columns but does not remove p-values used by stars or highlighting.
 
@@ -463,6 +465,8 @@ Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.1.6** (2026-09-15): Fixed treatment-row selection for nondefault controls, multiple treatment-variable names, mixed-case identifiers, and collections retained after clearing data. Preserved raw coefficient identities when labels repeat. `keep()`/`drop()` now select exact names and factor components; `labelmatch` enables display-label substring selection. Synchronized every shipped ado header and distribution badge.
 
 - **2.1.4** (2026-09-09): Prevented silent truncation when reading sparse Excel worksheets and preserved fallback import errors in `regtab` and `effecttab`. Removed `regtab` substitutions from unrelated active estimation results when collected statistics or random-effects information cannot be recovered. Clarified the independence assumption for rate-ratio intervals, corrected multi-exposure rate-table examples and README command/default descriptions, and added focused regressions. Documented QA scratch dependencies and separated workbook/help-check output from suite verdicts.
 

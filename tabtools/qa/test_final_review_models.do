@@ -23,7 +23,8 @@ which regtab
 
 * Keep the real collect renderer under a test-only name, then shadow its public
 * entry point so only the main render fails. Metadata renders still use the real
-* implementation, which drives regtab/effecttab into their workbook fallback.
+* implementation. Main-table failures must retain their original return code;
+* rendered workbook labels cannot recover raw coefficient identities.
 tempfile _renamed_renderer
 local _renamed_renderer_ado "`_renamed_renderer'.ado"
 filefilter "`pkg_dir'/_tabtools_collect_render.ado" "`_renamed_renderer_ado'", ///
@@ -41,16 +42,16 @@ program define _tabtools_collect_render, rclass
     return add
 end
 
-* The fallback workbook is valid; this mock isolates its reader's error path.
+* A different reader error proves the unsafe workbook fallback is not called.
 capture program drop _tabtools_xlsx_read
 program define _tabtools_xlsx_read, rclass
     version 17.0
     error 601
 end
 
-**# Fallback workbook-reader failures retain their return codes
+**# Raw-identity renderer failures retain their return codes
 
-**## regtab fallback reader
+**## regtab raw-identity renderer
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -61,21 +62,21 @@ capture noisily {
     set varabbrev on
     capture noisily regtab
     local got_rc = _rc
-    assert `got_rc' == 601
+    assert `got_rc' == 459
     assert _N == `n_before'
     assert price[1] == `price_before'
     assert "`c(varabbrev)'" == "on"
 }
 if _rc == 0 {
-    display as result "  PASS: regtab fallback reader returns r(601) and restores state"
+    display as result "  PASS: regtab raw-identity renderer returns r(459) and restores state"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: regtab fallback reader return/state contract (rc=`=_rc')"
+    display as error "  FAIL: regtab raw-identity renderer return/state contract (rc=`=_rc')"
     local ++fail_count
 }
 
-**## effecttab fallback reader
+**## effecttab raw-identity renderer
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -88,18 +89,18 @@ capture noisily {
     set varabbrev on
     capture noisily effecttab, type(margins)
     local got_rc = _rc
-    assert `got_rc' == 601
+    assert `got_rc' == 459
     assert _N == `n_before'
     assert price[1] == `price_before'
     assert "`e(cmd)'" == "`cmd_before'"
     assert "`c(varabbrev)'" == "on"
 }
 if _rc == 0 {
-    display as result "  PASS: effecttab fallback reader returns r(601) and restores state"
+    display as result "  PASS: effecttab raw-identity renderer returns r(459) and restores state"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: effecttab fallback reader return/state contract (rc=`=_rc')"
+    display as error "  FAIL: effecttab raw-identity renderer return/state contract (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.1.5  2026/09/11
+*! _tabtools_collect_render Version 2.1.6  2026/09/15
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,8 +11,12 @@ program define _tabtools_collect_render, rclass
     local _json "`_collect_json'.stjson"
     capture noisily {
         syntax , TYPE(string) ROWDIM(string) RESULTS(string) ///
-            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents OMITMap]
+            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents OMITMap ROWKeys EQLevels(string)]
 
+        if "`rowkeys'" != "" & "`type'" != "main" {
+            noisily display as error "rowkeys requires type(main)"
+            exit 198
+        }
         local type = lower(strtrim("`type'"))
         if !inlist("`type'", "meta", "stats", "main", "icc", "desctab", "raw") {
             noisily display as error "type() must be meta, stats, main, icc, desctab, or raw"
@@ -444,12 +448,28 @@ void _tt_collect_render_mata(
     real scalar omitmap)
 {
     string matrix items, out
+    string colvector rawkeys
+    string rowvector equations
+    real colvector eqkeep
+    real scalar ei, ej
     transmorphic scalar index
 
     items = _tt_collect_items(filepath)
     if (rows(items) == 0) _error(2000)
     items = _tt_collect_filter_results(items, res_n)
     if (rows(items) == 0) _error(2000)
+    equations = tokens(st_local("eqlevels"))
+    if (cols(equations)) {
+        eqkeep = J(rows(items), 1, 0)
+        for (ei = 1; ei <= rows(items); ei++) {
+            for (ej = 1; ej <= cols(equations); ej++) {
+                if (_tt_collect_key_fragment(items[ei, 1], "coleq") ==
+                    _tt_collect_frag("coleq", equations[ej])) eqkeep[ei] = 1
+            }
+        }
+        items = select(items, eqkeep)
+        if (rows(items) == 0) _error(2000)
+    }
     index = _tt_collect_index(items, rowdim, coldim)
 
     if (type == "meta" | type == "stats") {
@@ -462,7 +482,7 @@ void _tt_collect_render_mata(
     }
     else if (type == "main") {
         out = _tt_collect_render_main(index, items, rowdim, coldim, sep, row_n,
-            col_n, res_n, factorparents)
+            col_n, res_n, factorparents, rawkeys)
     }
     else if (type == "desctab") {
         out = _tt_collect_render_desctab(index, items, rowdim, coldim, sep,
@@ -479,6 +499,11 @@ void _tt_collect_render_mata(
     if (rows(out) == 0 | cols(out) == 0) _error(2000)
     if (omitmap) _tt_collect_omit_locals(items, coldim, col_n)
     _tt_collect_post(out)
+    if (type == "main" & st_local("rowkeys") != "") {
+        if (rows(rawkeys) != rows(out)) _error(459)
+        (void) st_addvar("strL", "_raw_colname")
+        st_sstore(., "_raw_colname", rawkeys)
+    }
 }
 
 // Record the constraint class collect stamped on each coefficient cell.
@@ -702,7 +727,8 @@ string matrix _tt_collect_render_main(
     real scalar row_n,
     real scalar col_n,
     real scalar res_n,
-    real scalar factorparents)
+    real scalar factorparents,
+    string colvector rawkeys)
 {
     string matrix out
     string rowvector vals
@@ -712,11 +738,12 @@ string matrix _tt_collect_render_main(
     row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
     if (row_dim_n > 1) {
         return(_tt_collect_render_main_multirow(index, items, coldim, sep,
-            row_n, col_n, res_n))
+            row_n, col_n, res_n, rawkeys))
     }
 
     if (coldim == "") col_n = 1
     out = J(row_n * 2 + 2, 1 + col_n * res_n, "")
+    rawkeys = J(rows(out), 1, "")
 
     c = 1
     for (j = 1; j <= col_n; j++) {
@@ -768,16 +795,19 @@ string matrix _tt_collect_render_main(
             if (parent != "" & parent != last_parent) {
                 rowout++
                 out[rowout, 1] = parent
+                rawkeys[rowout] = parent
             }
             if (parent == "") last_parent = ""
             else last_parent = parent
             rowout++
             out[rowout, 1] = rowlab
+            rawkeys[rowout] = rowlev
             for (c = 2; c <= cols(out); c++) out[rowout, c] = vals[c - 1]
         }
     }
 
     if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
+    rawkeys = rawkeys[|1 \ rowout|]
     return(out)
 }
 
@@ -788,7 +818,8 @@ string matrix _tt_collect_render_main_multirow(
     string scalar sep,
     real scalar row_n,
     real scalar col_n,
-    real scalar res_n)
+    real scalar res_n,
+    string colvector rawkeys)
 {
     string matrix out
     string rowvector rowdims, rowlevels, rowlabels, vals
@@ -801,6 +832,7 @@ string matrix _tt_collect_render_main_multirow(
 
     rowdims = _tt_collect_row_dims(row_dim_n)
     out = J(row_n * row_dim_n + 2, 1 + col_n * res_n, "")
+    rawkeys = J(rows(out), 1, "")
 
     c = 1
     for (j = 1; j <= col_n; j++) {
@@ -859,11 +891,13 @@ string matrix _tt_collect_render_main_multirow(
             }
             rowout++
             out[rowout, 1] = rowlabels[row_dim_n]
+            rawkeys[rowout] = rowlevels[row_dim_n]
             for (c = 2; c <= cols(out); c++) out[rowout, c] = vals[c - 1]
         }
     }
 
     if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
+    rawkeys = rawkeys[|1 \ rowout|]
     return(out)
 }
 

@@ -168,10 +168,10 @@ capture noisily {
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=65 class_missing=0 wrapper_missing=0"
+        "PASS programs=66 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
-    display as result "  PASS: all 64 shipped programs declare a class and restore varabbrev"
+    display as result "  PASS: all shipped programs declare a class and restore varabbrev"
     local ++pass_count
 }
 else {
@@ -1267,6 +1267,36 @@ capture noisily {
     * First line: *! tabtools Version X.Y.Z  YYYY/MM/DD
     local ado_version = strtrim(word(`"`line'"', 4))
     file close `fh_ado'
+
+    * The manifest is the installed surface; inspect every shipped ado header.
+    tempname manifest shipped
+    local ado_date ""
+    file open `fh_ado' using "`pkg_dir'/tabtools.ado", read text
+    file read `fh_ado' line
+    local ado_date = word(`"`line'"', 5)
+    file close `fh_ado'
+    file open `manifest' using "`pkg_dir'/tabtools.pkg", read text
+    file read `manifest' line
+    local shipped_count = 0
+    local header_mismatches = 0
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "^f ([^ ]+[.]ado)$") {
+            local source = regexs(1)
+            file open `shipped' using "`pkg_dir'/`source'", read text
+            file read `shipped' header
+            file close `shipped'
+            local ++shipped_count
+            if word(`"`header'"', 4) != "`ado_version'" | ///
+                word(`"`header'"', 5) != "`ado_date'" {
+                display as error "Shipped header mismatch: `source'"
+                local ++header_mismatches
+            }
+        }
+        file read `manifest' line
+    }
+    file close `manifest'
+    assert `shipped_count' > 0
+    assert `header_mismatches' == 0
 
     local sthlp_files : dir "`pkg_dir'" files "*.sthlp"
     foreach sf of local sthlp_files {

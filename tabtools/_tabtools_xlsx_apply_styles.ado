@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 2.1.4  2026/09/09
+*! _tabtools_xlsx_apply_styles Version 2.1.6  2026/09/15
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

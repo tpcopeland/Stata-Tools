@@ -42,7 +42,7 @@ for treatment effects and margins tables.
 {opt font(string)} {opt fontsize(#)} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)}
 {opt eplotf:rame(name[, replace])} {opt keep(varlist)}
-{opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
+{opt drop(varlist)} {opt labelm:atch} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
 {opt omitl:abel(string)} {opt emptyl:abel(string)}
 {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
 {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}]{p_end}
@@ -55,10 +55,9 @@ and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 {pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with,
 for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), confidence interval
 ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use {opt nopvalue} to suppress the p-value column in
-the rendered output. It applies labels and number formats, exports to a
-temporary workbook, re-imports to allow row edits (e.g., dropping intercept or
-random-effects rows), optionally merges model headers, writes to your target
-workbook/sheet, and styles borders, alignment, fonts, and column widths. Title
+the rendered output. It preserves raw coefficient names while applying labels,
+number formats, and row selection, optionally merges model headers, writes to
+your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title
 text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {marker options}{title:Options}
@@ -98,8 +97,9 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
 {synopt:{opt fra:me(name)}}store output in a named frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
-{synopt:{opt keep(varlist)}}show only rows matching these variable names{p_end}
-{synopt:{opt drop(varlist)}}drop rows matching these variable names{p_end}
+{synopt:{opt keep(varlist)}}keep exact variable or factor names{p_end}
+{synopt:{opt drop(varlist)}}drop exact variable or factor names{p_end}
+{synopt:{opt labelm:atch}}match label substrings with keep()/drop(){p_end}
 {synopt:{opt dimnon:sig}}gray out non-significant rows (see Remarks){p_end}
 {synopt:{opt factorl:abel}}render labels for factor-variable levels{p_end}
 {synopt:{opt ref:cat(string)}}label for reference-category rows{p_end}
@@ -162,7 +162,8 @@ the last row, both in the first column and the table body between them.{p_end}
 {opt dimnon:sig} gray out non-significant rows (see Remarks){p_end}
 
 {phang}
-{opt drop(varlist)} drop rows matching these variable names; not with {opt keep()}{p_end}
+{opt drop(varlist)} drops rows by exact, case-sensitive variable or factor-component
+name; not with {opt keep()}. See {opt keep()} for matching rules.{p_end}
 
 {phang}
 {opt eplotf:rame(name[, replace])} store a graph-ready companion frame for {helpb eplot} (see
@@ -188,7 +189,18 @@ frame{p_end}
 {opt highpdp(#)} max decimal places for large p-values (p >= 0.10); default 2{p_end}
 
 {phang}
-{opt keep(varlist)} show only rows matching these variable names; not with {opt drop()}{p_end}
+{opt keep(varlist)} shows only rows matching exact, case-sensitive raw
+names; not with {opt drop()}. Labels do not affect name matching. For example,
+{cmd:keep(age)} selects {cmd:age}, its factor levels, and interactions containing
+it, but never {cmd:stage} or {cmd:Age}. {cmd:keep(2.arm)} selects that level and
+interactions containing it, but not {cmd:20.arm}. Factor operators such as
+{cmd:i.arm} and {cmd:c.age} are accepted; an interaction specification such as
+{cmd:1.arm#c.age} selects that interaction exactly.{p_end}
+
+{phang}
+{opt labelm:atch} makes {opt keep()} or {opt drop()} match case-insensitive
+substrings of displayed row labels instead of raw names. For example,
+{cmd:keep(Fuel) labelmatch} selects a row labelled {it:Fuel efficiency}. Requires {opt keep()} or {opt drop()}.{p_end}
 
 {phang}
 {opt keepi:ntercept} force display of the intercept row even for exponentiated models{p_end}
@@ -371,9 +383,8 @@ estimate column, spanning that model's CI and p-value cells. The class is read
 per model, so a level one model dropped keeps its estimate in the models that
 retained it. Change the words with {opt refcat()}, {opt omitlabel()}, and
 {opt emptylabel()}; the three must differ. Where the collection carries no
-class -- a workbook read back through {opt xlsx()}, or a layout whose row keys
-do not resolve to coefficient names -- {cmd:regtab} falls back to labelling any
-constrained factor level {it:Reference}.{p_end}
+class, {cmd:regtab} labels a constrained factor level {it:Reference}. A
+collection whose raw row identities cannot be read is rejected before output.{p_end}
 {p 4 8 2}- Equations with nothing estimated: in a multi-equation model such as
 {cmd:mlogit}, the base-outcome equation constrains every one of its
 coefficients. It carries no information and is dropped whole, so its levels

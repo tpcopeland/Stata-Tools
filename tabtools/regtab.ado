@@ -1,4 +1,4 @@
-*! regtab Version 2.1.4  2026/09/09
+*! regtab Version 2.1.6  2026/09/15
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -76,7 +76,7 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
-	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) DIMNONsig FACTORLabel ///
+	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) LABELMatch DIMNONsig FACTORLabel ///
 	REFcat(string) OMITLabel(string) EMPTYLabel(string) ///
 	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1)]
@@ -395,6 +395,10 @@ quietly{
     tempfile temp_export
     local temp_xlsx "`temp_export'.xlsx"
 
+    if "`labelmatch'" != "" & "`keep'`drop'" == "" {
+        noisily display as error "labelmatch requires keep() or drop()"
+        exit 198
+    }
     * Validate keep/drop mutual exclusivity
     if "`keep'" != "" & "`drop'" != "" {
         noisily display as error "keep() and drop() cannot be used together"
@@ -1395,10 +1399,8 @@ else {
     collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 }
 
-* Capture the colname level<->label map while collect is still active.
-* collect renders the variable LABEL into column A, so keep()/drop() by raw
-* variable name cannot match A directly. This map lets us reconstruct the raw
-* coefficient name per row (see _raw_colname construction after rendering).
+* Capture labels for omitted-term display. Raw coefficient identities come
+* directly from the renderer and never from this display-label map.
 local _cnmap_n = 0
 capture quietly collect label list colname
 if _rc == 0 {
@@ -1416,12 +1418,12 @@ preserve
 local _collect_render_rc = 0
 if `_use_coleq_layout' {
     capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") omitmap
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") omitmap rowkeys
     local _collect_render_rc = _rc
 }
 else {
     capture _tabtools_collect_render, type(main) rowdim(colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap rowkeys
     local _collect_render_rc = _rc
 }
 * Constraint class per model column and raw colname, straight from the saved
@@ -1442,24 +1444,9 @@ if `_collect_render_rc' == 0 {
     }
 }
 if `_collect_render_rc' {
-    * Keep the workbook import path as a defensive fallback if raw .stjson
-    * parsing cannot represent a collect layout emitted by this Stata build.
     restore
-    capture collect export "`temp_xlsx'", sheet(temp,replace) modify
-    if _rc {
-        noisily display as error "Failed to export collect table to temporary Excel file"
-        noisily display as error "Check that collect table is properly structured"
-        exit _rc
-    }
-    preserve
-    capture _tabtools_xlsx_read using "`temp_xlsx'", sheet(temp)
-    if _rc {
-        local _read_rc = _rc
-        noisily display as error "Failed to import temporary Excel file"
-        capture erase "`temp_xlsx'"
-        restore
-        exit `_read_rc'
-    }
+    noisily display as error "Could not render the collection with exact row identities"
+    exit `_collect_render_rc'
 }
 * Note: DO NOT TRIM WHITE SPACE--NEED IT FOR LEADING INDENT FOR CATEGORICAL VARIABLE
 
@@ -1471,21 +1458,9 @@ if _N < 3 {
 	exit 2000
 }
 
-* Build the raw coefficient-name column BEFORE any A relabeling/flattening, so
-* keep()/drop() can match by variable name. Column A holds the rendered label
-* (collect substitutes variable labels); default _raw_colname to A (correct for
-* unlabeled coefficients, where A already is the raw name) and reverse-map the
-* labeled levels back to their raw colname using the map captured above. This
-* rides along through all subsequent row drops/sorts as a real variable.
-capture confirm variable _raw_colname
-if _rc {
-	quietly gen strL _raw_colname = ""
-	quietly replace _raw_colname = strtrim(A) if _n > 2
-	forvalues _ci = 1/`_cnmap_n' {
-		quietly replace _raw_colname = `"`_cnmap_level_`_ci''"' ///
-			if _n > 2 & strtrim(A) == `"`_cnmap_label_`_ci''"'
-	}
-}
+* The renderer carries each raw key alongside its display row. Repeated
+* display labels must never participate in coefficient identity recovery.
+confirm variable _raw_colname
 
 * Flatten coleq#colname hierarchical layout for multi-level models
 * In coleq#colname layout, the exported structure is:
@@ -1865,16 +1840,8 @@ local n2 `=`n'-3'
 local n `=`n'-1'
 * Model count (used by stats() and ICC placement)
 local n_models = `n' / 3
-* _raw_colname carries the true coefficient name (built before A was relabeled);
-* use it so keep()/drop() match by variable name. Fall back to A for the xlsx
-* import path, which bypasses the collect renderer and has no _raw_colname.
-capture confirm variable _raw_colname
-if _rc == 0 {
-	rename _raw_colname _raw_A
-}
-else {
-	clonevar _raw_A = A
-}
+* Preserve the raw key through all later display edits and row selections.
+rename _raw_colname _raw_A
 
 * A coefficient the model dropped for collinearity keeps its o. marker in the
 * colname level whenever the term is not a factor level, so the row rendered as
@@ -2005,69 +1972,40 @@ if `"`cutlabels'"' != "" {
     }
 }
 
-* Filter rows by keep/drop list
-* A holds the rendered label; _raw_A holds the raw coefficient/variable name.
-* Match tokens against either, by exact value or substring (covers factor
-* prefixes like 2.arm and label substrings).
-* Each token is matched as typed and with leading/embedded factor operators
-* (i. c. o.) stripped, so natural fvvarlist notation -- keep(i.foreign),
-* keep(1.foreign#c.mpg) -- matches the rendered coefficient name (foreign,
-* 1.foreign#mpg). A keep()/drop() that empties the body is almost always a
-* mis-typed token; refuse it loudly rather than writing a headers-only table.
-if "`keep'" != "" {
+* Match raw names and factor components exactly and case-sensitively.
+* labelmatch explicitly requests the historical display-label substring mode.
+foreach _selection in keep drop {
+    if "``_selection''" == "" continue
     quietly count if _n > 2
     local _nbody_pre = r(N)
-    gen byte _keep = 0
-    replace _keep = 1 if _n <= 2
-    foreach _kvar in `keep' {
-        local _kt = strlower("`_kvar'")
-        local _kn : subinstr local _kt "i." "", all
-        local _kn : subinstr local _kn "c." "", all
-        local _kn : subinstr local _kn "o." "", all
-        foreach _kk in `"`_kt'"' `"`_kn'"' {
-            if "`_kk'" == "" continue
-            replace _keep = 1 if strtrim(strlower(A)) == "`_kk'"
-            replace _keep = 1 if strpos(strlower(A), "`_kk'") > 0
-            replace _keep = 1 if strtrim(strlower(_raw_A)) == "`_kk'"
-            replace _keep = 1 if strpos(strlower(_raw_A), "`_kk'") > 0
+    tempvar _matched
+    if "`labelmatch'" != "" {
+        quietly generate byte `_matched' = 0
+        foreach _term in ``_selection'' {
+            quietly replace `_matched' = 1 if _n > 2 & ///
+                strpos(strlower(A), strlower(`"`_term'"')) > 0
         }
     }
-    quietly count if _keep & _n > 2
-    if `_nbody_pre' > 0 & r(N) == 0 {
-        drop _keep
-        noisily display as error ///
-            "keep() matched no coefficient rows; matching is by variable name or label substring -- check the keep() spec"
-        exit 198
+    else {
+        _tabtools_match_rows _raw_A, generate(`_matched') terms(`"``_selection''"')
+        quietly replace `_matched' = 0 if _n <= 2
     }
-    drop if !_keep
-    drop _keep
-}
-if "`drop'" != "" {
-    quietly count if _n > 2
-    local _nbody_pre = r(N)
-    gen byte _dropflag = 0
-    foreach _dvar in `drop' {
-        local _dt = strlower("`_dvar'")
-        local _dn : subinstr local _dt "i." "", all
-        local _dn : subinstr local _dn "c." "", all
-        local _dn : subinstr local _dn "o." "", all
-        foreach _dk in `"`_dt'"' `"`_dn'"' {
-            if "`_dk'" == "" continue
-            replace _dropflag = 1 if strtrim(strlower(A)) == "`_dk'" & _n > 2
-            replace _dropflag = 1 if strpos(strlower(A), "`_dk'") > 0 & _n > 2
-            replace _dropflag = 1 if strtrim(strlower(_raw_A)) == "`_dk'" & _n > 2
-            replace _dropflag = 1 if strpos(strlower(_raw_A), "`_dk'") > 0 & _n > 2
+    quietly count if `_matched' & _n > 2
+    if "`_selection'" == "keep" {
+        if `_nbody_pre' > 0 & r(N) == 0 {
+            noisily display as error "keep() matched no coefficient rows; check exact names or use labelmatch for display labels"
+            exit 198
         }
+        drop if !`_matched' & _n > 2
     }
-    quietly count if _dropflag
-    if `_nbody_pre' > 0 & r(N) >= `_nbody_pre' {
-        drop _dropflag
-        noisily display as error ///
-            "drop() would remove every coefficient row, leaving an empty table; check the drop() spec"
-        exit 198
+    else {
+        if `_nbody_pre' > 0 & r(N) >= `_nbody_pre' {
+            noisily display as error "drop() would remove every coefficient row, leaving an empty table; check the drop() spec"
+            exit 198
+        }
+        drop if `_matched' & _n > 2
     }
-    drop if _dropflag
-    drop _dropflag
+    drop `_matched'
 }
 
 local first_re_row ""
