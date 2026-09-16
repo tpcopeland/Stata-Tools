@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.6** | 2026-09-15
+**Version 2.1.7** | 2026-09-16
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -465,6 +465,8 @@ Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.1.7** (2026-09-16): `puttab ... varlabels` no longer writes the header twice when its source is a `desctab`/`table1_tc` table returned through `clear` or `frame()`. Those tables are header-shaped -- observation 1 repeats each column's variable label -- and `puttab` now recognizes that observation by content and consumes it as the header row. The observation is kept under `noheader` or without `varlabels`, and an already-deduplicated table is unaffected. Documented the header-shaped `clear`/`frame()` contract in the `desctab` and `table1_tc` help files and added regressions for both sinks.
 
 - **2.1.6** (2026-09-15): Fixed treatment-row selection for nondefault controls, multiple treatment-variable names, mixed-case identifiers, and collections retained after clearing data. Preserved raw coefficient identities when labels repeat. `keep()`/`drop()` now select exact names and factor components; `labelmatch` enables display-label substring selection. Synchronized every shipped ado header and distribution badge.
 

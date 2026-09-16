@@ -1,4 +1,4 @@
-*! stacktab Version 2.1.6  2026/09/15
+*! stacktab Version 2.1.7  2026/09/16
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

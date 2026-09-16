@@ -154,7 +154,12 @@ Excel and CSV exports{p_end}
 {opt ti:tle(string)} title written to cell A1, left-justified and merged across the table{p_end}
 
 {phang}
-{opt varl:abels} use variable labels (not names) for the header row of a dataset or frame source{p_end}
+{opt varl:abels} use variable labels (not names) for the header row of a dataset or frame source.
+When the source is a tabtools table -- the table {helpb desctab} or {helpb table1_tc} returns
+through {cmd:clear} or {cmd:frame()} -- its first observation repeats those same variable labels
+as an embedded header. {cmd:puttab} recognizes that observation by content and consumes it as the
+header row rather than writing the text twice. The observation is kept when {opt noheader} is
+specified, or when {opt varlabels} is not, because nothing else then carries the group labels.{p_end}
 
 {phang}
 {opt zeb:ra} alternating row shading over data rows{p_end}

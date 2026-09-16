@@ -394,6 +394,160 @@ else {
     local ++fail_count
 }
 
+**# tabtools header observation
+**## desctab/table1_tc clear and frame() tables do not duplicate their header
+* Regression: desctab returns a header-shaped table (observation 1 repeats each
+* column's variable label). puttab ... varlabels draws its header from those
+* same labels, so before 2.1.7 the group labels were written twice -- once as
+* the header, once as the first data row.
+local ++test_count
+local fh1 "`output_dir'/test_puttab_hdr_clear.xlsx"
+local fh2 "`output_dir'/test_puttab_hdr_frame.xlsx"
+local fh3 "`output_dir'/test_puttab_hdr_keep.xlsx"
+local mh1 "`output_dir'/test_puttab_hdr_clear.md"
+capture erase "`fh1'"
+capture erase "`fh2'"
+capture erase "`fh3'"
+capture erase "`mh1'"
+capture noisily {
+    * clear sink: header consumed, not repeated
+    sysuse auto, clear
+    label variable mpg "Mileage (mpg)"
+    desctab mpg, by(foreign) clear
+    assert _N == 3
+    * the producer contract this test rests on
+    assert foreign_0[1] == "`: variable label foreign_0'"
+    puttab _all using "`fh1'", sheet("S") varlabels markdown("`mh1'")
+    assert r(n_datarows) == 2
+    import excel using "`fh1'", sheet("S") clear allstring
+    quietly count if C == "Domestic"
+    assert r(N) == 1
+    quietly count if D == "Foreign"
+    assert r(N) == 1
+    * the markdown mirror is built from the same assembled table
+    tempname hdr_fh
+    local hdr_hits = 0
+    file open `hdr_fh' using "`mh1'", read text
+    file read `hdr_fh' hdr_line
+    while r(eof) == 0 {
+        if strpos(`"`macval(hdr_line)'"', "Domestic") > 0 local ++hdr_hits
+        file read `hdr_fh' hdr_line
+    }
+    file close `hdr_fh'
+    assert `hdr_hits' == 1
+
+    * frame sink: same table, same consumption
+    sysuse auto, clear
+    capture frame drop _puttab_hdr
+    desctab mpg, by(foreign) frame(_puttab_hdr, replace)
+    puttab using "`fh2'", frame(_puttab_hdr) sheet("S") varlabels
+    assert r(n_datarows) == 2
+    import excel using "`fh2'", sheet("S") clear allstring
+    quietly count if C == "Domestic"
+    assert r(N) == 1
+    frame drop _puttab_hdr
+
+    * a caller who already removed the header row keeps both data rows
+    sysuse auto, clear
+    label variable mpg "Mileage (mpg)"
+    desctab mpg, by(foreign) clear
+    drop in 1
+    puttab _all using "`fh3'", sheet("S") varlabels
+    assert r(n_datarows) == 2
+
+    * without varlabels the header comes from names, so row 1 still carries the
+    * group labels and must survive; noheader keeps it for the same reason
+    sysuse auto, clear
+    desctab mpg, by(foreign) clear
+    puttab _all using "`fh3'", sheet("B") varlabels
+    assert r(n_datarows) == 2
+    puttab _all using "`fh3'", sheet("C")
+    assert r(n_datarows) == 3
+    puttab _all using "`fh3'", sheet("D") noheader
+    assert r(n_datarows) == 3
+
+    * ordinary data is never mistaken for a header row
+    sysuse auto, clear
+    keep make mpg price
+    keep in 1/5
+    puttab make mpg price using "`fh3'", sheet("E") varlabels
+    assert r(n_datarows) == 5
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools header observation consumed once"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools header observation consumed once (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## header-row detection cannot eat a genuine data row
+* The detector is content-based, so these are the boundaries that keep it from
+* silently dropping data: a populated numeric cell, an all-blank first row, a
+* one-observation table, and an unlabelled column all disqualify observation 1.
+local ++test_count
+local fg "`output_dir'/test_puttab_hdr_guards.xlsx"
+capture erase "`fg'"
+capture noisily {
+    * a populated numeric cell in observation 1 means it is data
+    clear
+    set obs 3
+    generate str12 grp = cond(_n == 1, "Group", "A")
+    label variable grp "Group"
+    generate n = _n
+    label variable n "Count"
+    puttab grp n using "`fg'", sheet("A") varlabels
+    assert r(n_datarows) == 3
+
+    * with that numeric cell missing, observation 1 is the header
+    quietly replace n = . in 1
+    puttab grp n using "`fg'", sheet("B") varlabels
+    assert r(n_datarows) == 2
+
+    * an all-blank first observation repeats no label
+    clear
+    set obs 3
+    generate str12 grp = cond(_n == 1, "", "A")
+    label variable grp "Group"
+    puttab grp using "`fg'", sheet("C") varlabels
+    assert r(n_datarows) == 3
+
+    * a one-observation table is data; consuming it would export nothing
+    clear
+    set obs 1
+    generate str12 grp = "Group"
+    label variable grp "Group"
+    puttab grp using "`fg'", sheet("D") varlabels
+    assert r(n_datarows) == 1
+
+    * an unlabelled column falls back to its name, so its text is not a repeat
+    clear
+    set obs 3
+    generate str12 grp = cond(_n == 1, "Group", "A")
+    generate str12 other = cond(_n == 1, "Other", "B")
+    label variable grp "Group"
+    puttab grp other using "`fg'", sheet("E") varlabels
+    assert r(n_datarows) == 3
+
+    * in/if counts data rows once the header has been consumed
+    sysuse auto, clear
+    label variable mpg "Mileage (mpg)"
+    desctab mpg weight, by(foreign) clear
+    puttab _all in 1 using "`fg'", sheet("F") varlabels
+    assert r(n_datarows) == 1
+    import excel using "`fg'", sheet("F") clear allstring
+    assert strpos(B[3], "Median") == 1
+}
+if _rc == 0 {
+    display as result "  PASS: header-row detection boundaries"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: header-row detection boundaries (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Dispatcher registration
 **## tabtools lists puttab under the export category
 local ++test_count
