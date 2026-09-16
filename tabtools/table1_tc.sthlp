@@ -147,7 +147,11 @@ point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 {opt catrowperc} report row % for categorical vars{p_end}
 
 {phang}
-{opt clear} replace dataset in memory with the table{p_end}
+{opt clear} replace dataset in memory with the table. The table is header-shaped:
+observation 1 repeats each column's variable label, so a bare {cmd:list} reads as a table,
+and the descriptor and sample-size row follows it. Observation 1 is a header, not data.
+{helpb puttab} consumes it automatically with {cmd:varlabels}; drop it yourself if you
+consume the table any other way.{p_end}
 
 {phang}
 {opt csv("filename")} also export as CSV file. The CSV mirrors the workbook
@@ -167,7 +171,8 @@ row, both in the first column and the table body between them.{p_end}
 {opt f:ormat(%fmt)} default display format for continuous variables; default is %2.0f{p_end}
 
 {phang}
-{opt fra:me(name[, replace])} store output in a named Stata frame{p_end}
+{opt fra:me(name[, replace])} store output in a named Stata frame. The frame holds the same
+header-shaped table as {opt clear}: observation 1 repeats each column's variable label.{p_end}
 
 {phang}
 {opt gsdleft("string")} symbol before GSD; default is " (×/"{p_end}

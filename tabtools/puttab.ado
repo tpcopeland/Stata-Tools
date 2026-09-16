@@ -1,4 +1,4 @@
-*! puttab Version 2.1.6  2026/09/15
+*! puttab Version 2.1.7  2026/09/16
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -204,6 +204,32 @@ program define puttab, rclass
                 tempfile _srcdata
                 quietly frame `_framename': save `"`_srcdata'"', replace
                 use `"`_srcdata'"', clear
+            }
+            * A tabtools table producer (desctab/table1_tc ..., clear or
+            * frame()) returns its table header-shaped: observation 1 repeats
+            * each column's variable label.  When we are about to draw the
+            * header from those same labels, that observation IS the header,
+            * not data -- consume it here instead of emitting the text twice.
+            * Detection is by content (see _puttab_is_headerrow), so a caller
+            * who already dropped the row is unaffected.  Runs before the
+            * row subset so if/in still counts data rows, and is scoped to the
+            * columns that will actually be exported.
+            if `_headerrows' & `_uselbl' {
+                local _hdrvars ""
+                local _hdr_dup 0
+                if `"`vlist'"' != "" {
+                    capture unab _hdrvars : `vlist'
+                    if _rc local _hdrvars ""
+                }
+                else {
+                    quietly ds
+                    local _hdrvars `r(varlist)'
+                }
+                if `"`_hdrvars'"' != "" {
+                    mata: st_local("_hdr_dup", ///
+                        strofreal(_puttab_is_headerrow("`_hdrvars'")))
+                    if `_hdr_dup' == 1 quietly drop in 1
+                }
             }
             * Row subset (if/in) before column subset, so the if/in condition may
             * reference columns that the varlist drops.
@@ -503,6 +529,7 @@ capture mata: mata drop _puttab_matrix_table()
 capture mata: mata drop _puttab_fmt_num()
 capture mata: mata drop _puttab_stripe_names()
 capture mata: mata drop _puttab_emit_table()
+capture mata: mata drop _puttab_is_headerrow()
 
 mata:
 mata set matastrict on
@@ -596,6 +623,47 @@ void _puttab_emit_table(string matrix out)
     for (j = 1; j <= K; j++) {
         st_sstore(., "c" + strofreal(j, "%9.0f"), out[, j])
     }
+}
+
+// Is observation 1 a header row that merely repeats the variable labels?
+//
+// tabtools table producers (desctab/table1_tc with clear or frame()) hand back
+// a header-shaped dataset: observation 1 carries each column's variable label
+// so a bare -list- reads as a table.  A consumer that draws its own header
+// from those same labels would print the text twice.  The test is on content
+// only -- no marker, no characteristic -- so it stays correct for a caller who
+// has already removed the row, and it cannot fire on a table that never had
+// one.
+//
+// Observation 1 qualifies only when ALL of these hold:
+//   - there are at least 2 observations (a lone row is data, never a header);
+//   - every numeric column is exactly missing in observation 1;
+//   - every string cell in observation 1 is blank, or equals its own column's
+//     (non-empty) variable label after trimming;
+//   - at least one string cell actually repeats its label.
+real scalar _puttab_is_headerrow(string scalar varlist)
+{
+    string rowvector vars
+    real scalar j, K, matched
+    string scalar cell, lbl
+
+    vars = tokens(varlist)
+    K = cols(vars)
+    if (K < 1 | st_nobs() < 2) return(0)
+
+    matched = 0
+    for (j = 1; j <= K; j++) {
+        if (!st_isstrvar(vars[j])) {
+            if (st_data(1, vars[j]) != .) return(0)
+            continue
+        }
+        cell = strtrim(st_sdata(1, vars[j]))
+        if (cell == "") continue
+        lbl = strtrim(st_varlabel(vars[j]))
+        if (lbl == "" | cell != lbl) return(0)
+        matched++
+    }
+    return(matched > 0)
 }
 
 // Build the table from the current dataset's variables.

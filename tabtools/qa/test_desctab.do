@@ -290,6 +290,47 @@ else {
     local ++fail
 }
 
+**# T8b clear and frame() return a header-shaped table
+* The header observation is part of the documented clear/frame() contract:
+* observation 1 repeats each column's variable label so a bare -list- reads as
+* a table, and consumers that build their own header from those labels (puttab
+* ... varlabels) must consume it rather than print it again.
+local ++total
+capture noisily {
+    sysuse auto, clear
+    label variable mpg "Mileage (mpg)"
+    capture frame drop _dt_hdr
+    desctab mpg weight, by(foreign) clear
+    * label row, descriptor/N row, one row per variable
+    assert _N == 4
+    foreach v of varlist foreign_0 foreign_1 pvalue {
+        assert `v'[1] == "`: variable label `v''"
+    }
+    * the factor column's header cell is deliberately blank, not "Factor"
+    assert strtrim(factor[1]) == ""
+    * observation 2 is the descriptor and sample-size row, not a label repeat
+    assert strpos(foreign_0[2], "N=") == 1
+    assert factor[3] == "Mileage (mpg)"
+
+    * frame() hands back the same shape
+    sysuse auto, clear
+    label variable mpg "Mileage (mpg)"
+    desctab mpg weight, by(foreign) frame(_dt_hdr, replace)
+    frame _dt_hdr {
+        assert _N == 4
+        assert foreign_0[1] == "`: variable label foreign_0'"
+        assert strpos(foreign_0[2], "N=") == 1
+    }
+    frame drop _dt_hdr
+}
+if _rc == 0 {
+    local ++pass
+}
+else {
+    display as error "  FAIL: clear/frame header-shaped contract (rc=`=_rc')"
+    local ++fail
+}
+
 **# T9 direct Excel style options alter workbook semantics
 local ++total
 capture noisily {
