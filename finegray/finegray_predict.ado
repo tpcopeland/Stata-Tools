@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.6  2026/09/14
+*! finegray_predict Version 1.3.7  2026/09/20
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -996,7 +996,7 @@ program define finegray_predict, rclass sortpreserve
             * limits; a missing H0 or xb stays missing.  The finite branch is
             * the shipped arithmetic, unchanged.  Same contract as
             * _finegray_cif_stable in _finegray_mata.ado.
-            quietly gen `typlist' `varlist' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, which covers this branch and the piecewise one (both write `varlist')
+            quietly gen `typlist' `varlist' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, which covers this branch and the piecewise one (both write `varlist')
                 cond(!missing(`H0_val' * exp(`xb_val')), ///
                     1 - exp(-`H0_val' * exp(`xb_val')), ///
                     cond(missing(`H0_val') | missing(`xb_val'), ., ///
@@ -1371,9 +1371,9 @@ program define finegray_predict, rclass sortpreserve
             quietly gen double `segp' = `se_cif' / ///
                 ((1 - `varlist') * (-ln(1 - `varlist'))) ///
                 if `touse' & `varlist' > 0 & `varlist' < 1
-            quietly gen double `lci' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
+            quietly gen double `lci' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
                 1 - exp(-exp(`gpt' - `z' * `segp')) if `touse'
-            quietly gen double `uci' = /// stata-dev-ignore: unchecked-commit — guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
+            quietly gen double `uci' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
                 1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
             local _created_vars "`_created_vars' `lci' `uci'"
             * A limit that could not be computed stays MISSING.  Through v1.1.0

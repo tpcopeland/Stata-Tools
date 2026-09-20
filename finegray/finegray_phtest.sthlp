@@ -1,4 +1,5 @@
 {smcl}
+{* *! version 1.3.7  20sep2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}

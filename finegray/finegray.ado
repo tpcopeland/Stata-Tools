@@ -1,4 +1,4 @@
-*! finegray Version 1.3.6  2026/09/14
+*! finegray Version 1.3.7  2026/09/20
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -1522,7 +1522,7 @@ program define finegray, eclass sortpreserve
                 * and regenerates their own under the same name keeps it.
                 if `_prev_match' > 0 & `"`_own_n'"' != "" & ///
                     `"`_own_n'"' == `"`_prev_owner'"' & `"`_prev_owner'"' != "" {
-                    * Prior finegray-created variable — safe to replace
+                    * Prior finegray-created variable -- safe to replace
                     display as text "(note: replacing existing variable `_fg_name')"
                     quietly drop `_fg_name'
                 }

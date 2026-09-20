@@ -1,4 +1,4 @@
-*! _finegray_check_level Version 1.3.6  2026/09/14
+*! _finegray_check_level Version 1.3.7  2026/09/20
 *! Validate an explicitly supplied level() against Stata's own cilevel rule
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)

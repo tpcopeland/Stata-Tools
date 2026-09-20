@@ -1,6 +1,6 @@
 # finegray — Fast Fine-Gray competing-risks regression
 
-**Version 1.3.6** | 2026-09-14
+**Version 1.3.7** | 2026-09-20
 
 `finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, a stratified baseline subdistribution hazard, piecewise-constant time-varying effects, sampling (`pweight`) and frequency weights, and optional bootstrap confidence intervals for cumulative-incidence quantities.
 
@@ -64,6 +64,8 @@ Methods, formulas, grounding and the refusal rationales live in a separate help 
 
 With a proportional subdistribution-hazards model, the exponentiated coefficient is a subdistribution hazard ratio (SHR), and the fitted baseline subdistribution hazard is combined with the linear predictor to obtain a cumulative-incidence function (CIF). The default display is exponentiated coefficients; use `noshr` for log-SHR coefficients.
 
+The SHR is a ratio of subdistribution hazards, not a relative risk: `exp(b)` is not the ratio of cumulative incidences at any horizon, although an SHR above 1 does mean a higher CIF at every horizon. Its risk set keeps subjects after a competing event, so a covariate can raise the cause-specific hazard of the cause of interest and still carry an SHR below 1 when it raises the competing hazard more. Like any hazard ratio it is non-collapsible. Report the CIF from `finegray_cif` for absolute effects and consider a cause-specific `stcox` model alongside (Latouche et al. 2013; Austin, Lee and Fine 2016; Austin and Fine 2017). Tied cause-event times use the Breslow approximation, as `stcrreg` does; there is no `ties()` option.
+
 The usual workflow is to declare survival-time data, fit one model, use `finegray_predict` for row-level quantities, use `finegray_cif` for a covariate profile or a curve, and use `finegray_phtest` to explore time-varying effects. `xb` can score compatible new data. Point `cif` and `basecshazard` predictions can also use compatible data while the active fit's cached event-time structure or a posted `e(basehaz)` is available; those quantities need `_t` or `timevar()`. `finegray_cif`, `finegray_phtest`, and the `ci`, `schoenfeld`, and `bootstrap()` paths of `finegray_predict` require the original, unchanged `stset` data.
 
 For delayed entry, declare `enter(time ...)` in `stset` and fit with the package's Weight 1 risk-set construction. Use `strata()` for censoring groups and `truncstrata()` for entry groups; when both are specified, observed combinations form joint weighting groups. Inspect `e(lt_weight)`, `e(lt_vce)`, and the weight diagnostics before interpreting the result.
@@ -124,6 +126,8 @@ One table, and one machine-readable counterpart per row: `e(vce_meat)` for the c
 | `[fweight=]` | replication semantics: meat Σ w_i s_i s_i', N = Σ w; `norobust` allowed | `fixed_weight` |
 
 `stcrreg`'s variance is the `nuisance` row, not the default: its scores are eta+psi ([ST] stcrreg, Methods and formulas), and `finegray, nuisance` reproduces its `e(V)` to numerical precision on untied right-censored data (`qa/crossval_finegray.do`, C10b). The default fixed-weight `e(V)` differs from `stcrreg`'s by the psi terms; on the package's fixtures that is agreement to three or four significant figures.
+
+That agreement is not a property of the fixtures alone. In a simulation run on 2026-09-20 to separate the two (censoring rates differing tenfold between covariate groups, a stratified G, 48 percent competing events, n = 300 and 1000, 500 replications), the default and `nuisance` standard errors differed by at most 0.5 percent and their 95 percent coverage was identical to three decimals; the same held under delayed entry with heavy ties and under ten small `bstrata()` strata. The fixed-weight variance omits the psi term, so it is an approximation to Fine and Gray's variance, and the omission has not been measurable in any design examined.
 
 **CIF intervals** — `finegray_cif`, `finegray_predict`:
 
@@ -599,9 +603,16 @@ The command posts `r(N_fail)`, `r(time)`, `r(residual_scale)`, and matrix `r(pht
 - Delayed entry uses the package's Weight 1 construction. It checks censoring/truncation positivity and observed grouping support; weights can exceed 1. `strata()` defines censoring groups and `truncstrata()` defines entry groups; observed combinations form joint weight strata, with at most 100 cells and at least 20 estimation-sample subjects per cell. Continuous covariate-dependent entry is not supported.
 - Postestimation requires a converged fit. `finegray_cif`, `finegray_phtest`, and the `ci`, `schoenfeld`, and `bootstrap()` paths of `finegray_predict` require the original, unchanged `stset` data. Point `xb` predictions work on compatible new data; point `cif` and `basecshazard` predictions can also do so while the active fit has its cached or posted baseline. Package-created factor-design columns may be dropped and rebuilt on demand, but retain `_fg_entry` for postestimation after a multiple-record fit; modifying a present `_fg_*` design column in place is rejected.
 - `finegray_phtest` is a residual-correlation diagnostic rather than a formal omnibus test. Interpret it alongside the scientific model and the observed event-time support.
+- Tied cause-event times are handled by the Breslow approximation, matching `stcrreg` and `cmprsk::crr`; there is no `ties()` option. On day- or year-scale times this attenuates coefficients relative to Efron by a few percent; a finer time scale is the remedy.
+- Restricting follow-up. The `stset` options `exit()`, `origin()`, and `scale()` are honoured through the `_t`, `_t0`, and `_d` they produce. `exit(time #)` administratively censors subjects whose event falls after the limit, so their `_d` becomes 0 while `compete()` still holds the event code, and `finegray` stops with `compete() and stset failure indicator do not match`. Recode the competing-event variable to 0 wherever `_d == 0` before fitting. The same message appears when `stset` was declared on the cause of interest alone, as `stcrreg` requires: `finegray` expects `stset` on any event, with `compete()` naming the type.
+- With many thin `bstrata()` strata (tens of subjects and a handful of cause events each) the sandwich variance runs a few percent below the Monte Carlo standard deviation; prefer larger strata or bootstrap the coefficients as in worked example 11.
+- Point `cif` and `basecshazard` predictions from `finegray_predict` score whatever data are in memory while the fit's cached baseline is available, without checking that they are the estimation data; `finegray_cif` refuses changed data with `r(459)`. Re-run `finegray` if the data have changed and the estimation sample is what you mean.
 
 ## References
 
+- Austin PC and Fine JP (2017). Practical recommendations for reporting Fine-Gray model analyses for competing risk data. *Statistics in Medicine*, 36(27), 4391–4400. [doi:10.1002/sim.7501](https://doi.org/10.1002/sim.7501).
+- Austin PC, Lee DS, and Fine JP (2016). Introduction to the analysis of survival data in the presence of competing risks. *Circulation*, 133(6), 601–609. [doi:10.1161/CIRCULATIONAHA.115.017719](https://doi.org/10.1161/CIRCULATIONAHA.115.017719).
+- Latouche A, Allignol A, Beyersmann J, Labopin M, and Fine JP (2013). A competing risks analysis should report results on all cause-specific hazards and cumulative incidence functions. *Journal of Clinical Epidemiology*, 66(6), 648–653. [doi:10.1016/j.jclinepi.2012.09.017](https://doi.org/10.1016/j.jclinepi.2012.09.017).
 - Fine JP and Gray RJ (1999). A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association*, 94(446), 496–509. [doi:10.1080/01621459.1999.10474144](https://doi.org/10.1080/01621459.1999.10474144).
 - Zhang X, Zhang M-J, and Fine J (2011). A proportional hazards regression model for the subdistribution with right-censored and left-truncated competing risks data. *Statistics in Medicine*, 30(16), 1933–1951. [doi:10.1002/sim.4264](https://doi.org/10.1002/sim.4264).
 - Geskus RB (2011). Cause-specific cumulative incidence estimation and the Fine and Gray model under both left truncation and right censoring. *Biometrics*, 67(1), 39–49. [doi:10.1111/j.1541-0420.2010.01420.x](https://doi.org/10.1111/j.1541-0420.2010.01420.x).
@@ -618,6 +629,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.3.7** (2026-09-20): Documentation release for the SSC revision; no estimation code changed. Interpretive guidance for the SHR; Breslow tie handling stated; the fixed-weight variance described as a known-weight approximation to Fine and Gray eq. 7–8 with the simulation evidence; delayed-entry at-risk and tie-ordering conventions disclosed; censoring-survivor floor documented; weighted Schoenfeld residual defined; follow-up restriction with `stset, exit()` explained; small-`bstrata()` caveat; version stamps on all help files; `finegray.pkg` title.
 - **1.3.6** (2026-09-14): `tsplit()` boundaries kept at full precision (were rounded to 9 significant digits); methods help no longer equates the default variance with `stcrreg`'s (that is `nuisance`).
 - **1.3.5** (2026-09-13): Delayed-entry weights fixed for event/censoring ties and observation gaps; `e(refitcmd)` stores the fit-time factor expansion; bootstrap and string-literal weight fixes.
 - **1.3.4** (2026-09-13): Stratified delayed-entry normalizer estimated on the identifiable region; `e(N_lt_prehole)` added.

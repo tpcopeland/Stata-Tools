@@ -1,5 +1,5 @@
 v 3
-d 'FINEGRAY': Fast Fine-Gray regression with delayed-entry weighting in Stata
+d 'FINEGRAY': module for fast Fine-Gray competing-risks regression with delayed-entry weighting
 d
 d finegray fits the Fine and Gray (1999) subdistribution hazard
 d model for competing risks data. It estimates subdistribution
@@ -24,7 +24,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260914
+d Distribution-Date: 20260920
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se
