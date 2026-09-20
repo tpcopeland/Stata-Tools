@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.6  14sep2026}{...}
+{* *! version 1.3.7  20sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -220,7 +220,11 @@ means what {cmd:stcox}'s {cmd:strata()} means.
 {pmore}
 {it:varname} must be numeric and constant within {cmd:id()}; missing values
 are excluded. It composes with {opt nuisance} and with {opt tvc()}. It is
-{bf:not} allowed with delayed entry ({cmd:r(198)}). See
+{bf:not} allowed with delayed entry ({cmd:r(198)}). With many thin strata
+(tens of subjects and a handful of cause events each) the sandwich runs a few
+percent below the Monte Carlo standard deviation in the package's simulations;
+prefer larger strata there, or bootstrap the coefficients as in
+{help finegray##vcebootstrap:Bootstrap coefficient inference}. See
 {help finegray_methods##bstrata:Baseline strata} for the scope, the variance,
 and the two asymptotic regimes.
 
@@ -417,8 +421,12 @@ The Fine-Gray model directly models the subdistribution hazard. Subjects who
 experience a competing event remain in the risk set with time-dependent weights
 derived from the censoring distribution. A subdistribution hazard ratio (SHR)
 greater than 1 indicates the covariate increases the cumulative incidence of the
-cause of interest. The derivations and design rationale are in
-{helpb finegray_methods}.
+cause of interest. The SHR is a ratio of hazards, not a relative risk, and like
+any hazard ratio it is non-collapsible; report the CIF ({helpb finegray_cif})
+for absolute effects and consider the cause-specific hazards ({helpb stcox})
+alongside. Tied cause-event times use the Breslow approximation, as
+{cmd:stcrreg} does; there is no {cmd:ties()} option. The derivations, the
+interpretive cautions and the design rationale are in {helpb finegray_methods}.
 
 {pstd}
 {bf:Factor variables and interactions:} {cmd:finegray} supports the full Stata
@@ -995,7 +1003,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.6, 2026-09-14{p_end}
+{pstd}Version 1.3.7, 2026-09-20{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

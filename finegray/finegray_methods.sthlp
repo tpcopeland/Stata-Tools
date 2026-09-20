@@ -1,5 +1,5 @@
 {smcl}
-{* *! finegray methods and formulas}{...}
+{* *! version 1.3.7  20sep2026  finegray methods and formulas}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -63,10 +63,20 @@ competing event remain in the risk set indefinitely with time-dependent weights
 derived from the Kaplan-Meier estimate of the censoring distribution.
 
 {pstd}
-A subdistribution hazard ratio (SHR) greater than 1 indicates that the
-covariate increases the cumulative incidence of the cause of interest. Unlike
-cause-specific hazard ratios, SHRs have a direct interpretation in terms of the
-cumulative incidence function.
+{bf:Interpreting the SHR.} A subdistribution hazard ratio (SHR) above 1 means
+the covariate raises the cumulative incidence of the cause of interest at every
+horizon, and below 1 that it lowers it; the direction transfers to the CIF, the
+magnitude does not. The SHR is a ratio of hazards, not a ratio of cumulative
+incidences or a relative risk: exp(b) is not CIF(t | Z+1)/CIF(t | Z) at any
+{it:t}. Its risk set retains subjects after a competing event, so it is not a
+rate among subjects still able to fail, and a covariate that raises the
+cause-specific hazard of the cause of interest can still carry an SHR below 1
+when it raises the competing hazard more. Like every hazard ratio it is
+non-collapsible: adding a covariate that is not a confounder changes it. Report
+the CIF itself ({helpb finegray_cif}) for absolute differences, and consider
+fitting the cause-specific hazards with {helpb stcox} alongside, since the two
+answer different questions (Latouche et al. 2013; Austin, Lee and Fine 2016;
+Austin and Fine 2017).
 
 {pstd}
 {bf:Computation.} The estimator uses a native forward-backward scan
@@ -76,6 +86,27 @@ without ties; tie handling, delayed entry, baseline stratification and the
 variance extensions are package extensions rather than theirs. See
 {help finegray_methods##citation:Citation scope} for what each source does
 and does not ground.
+
+{pstd}
+{bf:Ties.} Tied cause-event times are handled by the Breslow approximation:
+every event at a time is scored against the risk-set sum taken before any of
+them leaves, as {cmd:stcrreg} and R's {cmd:cmprsk::crr} do. There is no
+{cmd:ties()} option and no Efron form. With no competing events {cmd:finegray}
+reproduces {cmd:stcox, breslow} to machine precision and differs from
+{cmd:stcox, efron} by several percent on integer-scale times, so on heavily
+tied analysis time (days, years) Breslow attenuates the coefficients relative
+to Efron. A finer time scale is the remedy.
+
+{pstd}
+{bf:The censoring-survivor floor.} The censoring Kaplan-Meier G is clamped at
+1e-10 before any weight is formed, and the fit-time note counts the
+observations where the clamp acted. The weight is a ratio, so a clamped
+denominator alone gives a very large weight, while a clamped numerator and
+denominator give a weight of exactly 1. Without delayed entry the denominator
+G(X_i-) is positive by construction and the clamp reaches only the terminal
+censoring, which no weight consults; under {opt strata()} with strongly
+covariate-dependent censoring it reaches a percent or two of subjects, with no
+measurable effect on bias or coverage in the package's simulations.
 
 {pstd}
 {bf:Identification.} Because the subdistribution pseudo-likelihood is evaluated
@@ -242,7 +273,7 @@ differs from {cmd:crr}'s by exactly those terms (of the order of 1e-3
 relative on the package's fixtures). With one stratum, or with
 {opt strata()} equal to {opt bstrata()}, nothing changes. The term is checked
 against a numerical derivative of the fitted score in the package's QA suite
-(see {cmd:qa/README.md} in the repository).
+(see the {browse "https://github.com/tpcopeland/Stata-Tools/tree/main/finegray/qa":qa directory} of the source repository).
 
 {pstd}
 {bf:Under delayed entry.} Fine and Gray's psi is the influence of the
@@ -280,11 +311,20 @@ than approximated. The three candidate variances differ in what they treat
 as known: {cmd:model_based} treats the pseudo-likelihood as a likelihood,
 {cmd:fixed_weight_sandwich} treats the estimated weights as fixed, and
 {cmd:nuisance_adjusted} additionally propagates the uncertainty in the
-estimated censoring (and, under delayed entry, entry) distribution. Only the
-latter two are consistent for the sandwich meat of a weighted estimating
-equation, and the model-based form is not generally valid for it, which is why
-the shipped default is {cmd:fixed_weight_sandwich} and {opt nuisance} is an
-opt-in defined for the pooled weight alone. The package's QA suite, which is
+estimated censoring (and, under delayed entry, entry) distribution. The
+model-based form is not generally valid for a weighted estimating equation. Of
+the two sandwich forms, only {cmd:nuisance_adjusted} estimates the full Fine
+and Gray (1999) eq. (7)-(8) meat, E{(eta+psi)^2}; {cmd:fixed_weight_sandwich}
+estimates E(eta^2), which is the same quantity only when the weights are
+known, so it is an approximation whose error is the psi contribution. It is
+the shipped default because it is defined on every cell the package fits,
+including the stratified delayed-entry weight whose published variance is
+itself fixed-weight, and because the two agree to three or four significant
+figures on every fixture and on simulation designs built to separate them
+(covariate-dependent censoring with a stratified G, delayed entry with heavy
+ties, many small baseline strata: standard errors within 0.5 percent and
+identical coverage at 500 replications). {opt nuisance} is an opt-in defined
+for the pooled weight alone. The package's QA suite, which is
 distributed with the source in the
 {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
 not with the installed package, includes a simulation study of the Wald
@@ -681,6 +721,20 @@ collisions). Without delayed entry the censoring Kaplan-Meier keeps the
 set, so right-censored results do not move. This is why delayed-entry
 estimates differ from {cmd:stcrreg} on tied data even before the weight
 does; {cmd:e(lt_weight)} reports {cmd:zzf1_geskus} for this case.
+
+{pstd}
+{bf:Two conventions the papers leave open.} First, the at-risk indicator
+follows Stata's {cmd:stset} interval (t0, t]: a subject entering at exactly
+{it:t} is not at risk at {it:t}. Zhang, Zhang and Fine (2011, sec. 2) write the
+indicator with closed inequalities, L_i <= t <= X_i. The two coincide unless an
+entry time equals an observed event time; on a fixture where two fifths of the
+entries did, as happens with rounded registry dates, the coefficients differed
+by about 1e-2 relative. Second, the tie ordering above is chosen once for the
+whole fit: a single subject with a positive entry time switches the censoring
+Kaplan-Meier from the {cmd:stcrreg} convention to Geskus's for every stratum
+and every other subject. A right-censored fit and the same data with one
+delayed entrant are therefore not on a continuum at tied times;
+{cmd:e(lt_weight)} is the tell.
 
 {pstd}
 {bf:Multiple weight strata: the stratified form.} The time-side stabilizer is
@@ -1317,7 +1371,9 @@ small-stratum variance caveat -- but not left truncation, which appears nowhere
 in that paper, and not the highly-stratified closed-form variance, which this
 package does not implement. Kawaguchi et al. (2021) ground only the
 right-censoring, no-ties scan decomposition, not this package's tie,
-left-truncation, or variance extensions.
+left-truncation, or variance extensions. Latouche et al. (2013), Austin, Lee
+and Fine (2016) and Austin and Fine (2017) ground the interpretive guidance
+only; no computation rests on them.
 
 {pstd}
 For the proportionality diagnostic, Fine and Gray (1999) support
@@ -1331,6 +1387,19 @@ and neither is implemented in this package.
 
 {marker references}{...}
 {title:References}
+
+{pstd}
+Austin PC, Fine JP. Practical recommendations for reporting Fine-Gray model
+analyses for competing risk data. {it:Statistics in Medicine} 2017;
+36(27): 4391-4400.
+
+{pstd}{browse "https://doi.org/10.1002/sim.7501":doi:10.1002/sim.7501}{p_end}
+
+{pstd}
+Austin PC, Lee DS, Fine JP. Introduction to the analysis of survival data in
+the presence of competing risks. {it:Circulation} 2016; 133(6): 601-609.
+
+{pstd}{browse "https://doi.org/10.1161/CIRCULATIONAHA.115.017719":doi:10.1161/CIRCULATIONAHA.115.017719}{p_end}
 
 {pstd}
 Bellach A, Kosorok MR, Gilbert PB, Fine JP. General regression model for the
@@ -1370,6 +1439,14 @@ risks data. {it:Journal of Computational and Graphical Statistics}
 2021; 30(3): 685-693.
 
 {pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
+
+{pstd}
+Latouche A, Allignol A, Beyersmann J, Labopin M, Fine JP. A competing risks
+analysis should report results on all cause-specific hazards and cumulative
+incidence functions. {it:Journal of Clinical Epidemiology} 2013;
+66(6): 648-653.
+
+{pstd}{browse "https://doi.org/10.1016/j.jclinepi.2012.09.017":doi:10.1016/j.jclinepi.2012.09.017}{p_end}
 
 {pstd}
 Li J, Scheike TH, Zhang MJ. Checking Fine and Gray subdistribution hazards model

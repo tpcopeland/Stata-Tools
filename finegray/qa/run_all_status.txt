@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-09-14T09:41:16Z
+date:        2026-09-20T20:51:45Z
 verdict:     PASS
-pkg_tree:    10a4dc6cc780943636c1b3d63fd07b32e58cd89a (uncommitted-changes-present)
-head_commit: ffbd2e7b39e40090626091a5d835a3b392e4a79d
+pkg_tree:    d93f687ab1717be844f193059c723f56dcd9f727 (uncommitted-changes-present)
+head_commit: 050b2d90ecadcdfce808da835fe090a77dc7406f
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/213a0bf7-29a4-483d-a132-afda49177765/scratchpad/lane_full4/finegray [matches-source-repo (tracked files incl. qa/; 342 files) manifest-sha256 c3500c891dea8fc4a9d96e1b864a2884c738c567e150c802245ceb1712a7b3fa]
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Plans-and-Proposals/4968c07a-cf40-4a9b-ba59-8973b1d1a72c/scratchpad/ssc_check/gate2/finegray [matches-source-repo (tracked files incl. qa/; 342 files) manifest-sha256 a95b0e3704762dbc5f651a6a7c20ee515b59929e550f713c80a66e8b12f31073]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
@@ -27,7 +27,7 @@ RESULT: test_finegray_v134 tests=6 pass=6 fail=0
 RESULT: test_finegray_v135 tests=13 pass=13 fail=0
 RESULT: test_finegray_mi tests=18 pass=18 fail=0
 RESULT: test_finegray_bstrata tests=20 pass=20 fail=0
-RESULT: test_finegray_tvc tests=33 pass=33 fail=0
+RESULT: test_finegray_tvc tests=34 pass=34 fail=0
 RESULT: test_finegray_tvc_bstrata tests=10 pass=10 fail=0
 RESULT: test_finegray_tvc_bstrata_perf tests=3 pass=3 fail=0
 RESULT: test_finegray_fences tests=10 pass=10 fail=0
@@ -82,8 +82,8 @@ RESULT: test_finegray_oracles tests=10 pass=10 fail=0
 RESULT: crossval_cif tests=2 pass=2 fail=0 skip=0
 RESULT: crossval_predict_phtest tests=14 pass=14 fail=0 skip=0
 RESULT: PASS (all 14 tests passed)
-RESULT: crossval_finegray tests=50 pass=50 fail=0 skip=0
-RESULT: PASS (all 50 tests passed)
+RESULT: crossval_finegray tests=51 pass=51 fail=0 skip=0
+RESULT: PASS (all 51 tests passed)
 RESULT: crossval_finegray_dta tests=1 pass=1 fail=0
 RESULT: crossval_finegray_zzf tests=110 pass=110 fail=0
 RESULT: crossval_finegray_zzf_ties tests=30 pass=30 fail=0

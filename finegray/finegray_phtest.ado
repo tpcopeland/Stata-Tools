@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.6  2026/09/14
+*! finegray_phtest Version 1.3.7  2026/09/20
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -374,7 +374,7 @@ program define finegray_phtest, rclass
     matrix `test_mat' = J(`p', 2, .)
 
     * Load Schoenfeld matrix into a temporary dataset once (svmat),
-    * then loop correlations over columns — avoids O(p) preserve/clear cycles.
+    * then loop correlations over columns -- avoids O(p) preserve/clear cycles.
     tempvar _tfunc
     preserve
     local _preserved = 1

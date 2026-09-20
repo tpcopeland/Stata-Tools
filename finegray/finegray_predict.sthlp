@@ -1,4 +1,5 @@
 {smcl}
+{* *! version 1.3.7  20sep2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -174,7 +175,13 @@ rejected with {cmd:r(198)}; residuals are computed at the original event
 times. The residuals match {helpb stcrreg}'s {cmd:predict, schoenfeld}
 exactly at untied event times; at a tied event time the per-event split
 follows {cmd:finegray}'s own convention but preserves the per-time
-total; see {help finegray_methods##stcrreg:Comparison with stcrreg}.
+total; see {help finegray_methods##stcrreg:Comparison with stcrreg}. After
+a {cmd:[pweight=]} fit the residual is the per-unit-weight contribution
+Z_i - zbar_w(t_i), with zbar_w the design-weighted risk-set mean, so the
+weighted sum over cause events is zero while the plain sum is not;
+{helpb finegray_phtest} refuses that fit because no design-weighted form of its
+correlation summary is held, and a correlation formed from these residuals by
+hand should carry the same weights.
 
 {phang}
 {opth timevar(varname)} specifies a variable to use as the time axis instead
