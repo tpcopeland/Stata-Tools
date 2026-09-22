@@ -1,119 +1,104 @@
 # Stata-Tools
 
----
+![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91) ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-Production distribution repository for Stata packages (31 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Stata packages for epidemiology and registry research: building cohorts from coded records, time-varying exposures, causal inference, survival and competing risks, and publication-ready tables and figures.
 
-## Installation
+A typical pipeline: `codescan` / `comorbidity` → `tvtools` → `msm` · `finegray` · `gcomp` → `psdash` → `tabtools` · `eplot` · `kmplot` → `logdoc`
+
+## Install
 
 ```stata
-* Install a single package
-capture ado uninstall <package>
-net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/<package>") replace
-
-* Example
 capture ado uninstall tvtools
 net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools") replace
-
-* After installation, view help
-help <command>
+help tvtools
 ```
 
-To update an already-installed package:
+Swap `tvtools` for any package below. Run the same lines again to update, or `ado update, update` to update everything installed this way. Keep the `ado uninstall` line: if an older copy came from SSC or elsewhere, `net install` registers a second copy beside it instead of replacing it.
 
-```stata
-capture ado uninstall <package>
-net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/<package>") replace
-```
+Each package folder has a README with worked examples; `help <package>` has the full reference.
 
 ## Packages
 
-### Data Management
+### Data preparation
 
-| Package | Version | Updated | Description |
+| Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [asof](https://github.com/tpcopeland/Stata-Tools/tree/main/asof) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Attach one eligible measurement record per identifier-anchor key with explicit direction, selection, tie, and window rules |
-| [codescan](https://github.com/tpcopeland/Stata-Tools/tree/main/codescan) | ![version](https://img.shields.io/badge/version-4.2.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) | Scan wide-format diagnosis, procedure, and medication code fields with indicator, count, and summary outputs |
-| [compress_tc](https://github.com/tpcopeland/Stata-Tools/tree/main/compress_tc) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Two-stage compression for string-heavy Stata data via strL and compress |
-| [datamap](https://github.com/tpcopeland/Stata-Tools/tree/main/datamap) | ![version](https://img.shields.io/badge/version-1.6.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Privacy-safe dataset maps, Markdown dictionaries, console QC/expectation gates (datacheck), and missing-value pattern analysis (datamvp) |
-| [datefix](https://github.com/tpcopeland/Stata-Tools/tree/main/datefix) | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Convert imported date strings to Stata daily dates |
-| [fvgen](https://github.com/tpcopeland/Stata-Tools/tree/main/fvgen) | ![version](https://img.shields.io/badge/version-1.2.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Flatten factor-variable interactions into labeled main and product variables for clean regression export |
-| [massdesas](https://github.com/tpcopeland/Stata-Tools/tree/main/massdesas) | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Batch convert SAS datasets to Stata (Stata 14+; requires import sas, filelist, and fs) |
-| [pkgtransfer](https://github.com/tpcopeland/Stata-Tools/tree/main/pkgtransfer) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--16-brightgreen) | Transfer installed package sets between systems via online reinstall or offline ZIP |
-| [rangematch](https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch) | ![version](https://img.shields.io/badge/version-1.5.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) | Range join between master and using datasets (file or frame) via a Mata binary-search backend (Stata 16.1+) |
+| [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.2.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) |
+| [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.6.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) |
+| [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--16-brightgreen) |
+| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) |
 
-### Analysis
+### Cohorts, registries, and time-varying data
 
-| Package | Version | Updated | Description |
+| Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [comorbidity](https://github.com/tpcopeland/Stata-Tools/tree/main/comorbidity) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Charlson, Elixhauser, or custom comorbidity scores from wide-format ICD-10 fields, with hierarchy rules and component indicators (requires codescan) |
-| [cstat_surv](https://github.com/tpcopeland/Stata-Tools/tree/main/cstat_surv) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Post-stcox Harrell's C-statistic with infinitesimal-jackknife SEs and confidence intervals |
-| [finegray](https://github.com/tpcopeland/Stata-Tools/tree/main/finegray) | ![version](https://img.shields.io/badge/version-1.3.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--20-brightgreen) | Fast Fine-Gray competing risks regression with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic |
-| [gcomp](https://github.com/tpcopeland/Stata-Tools/tree/main/gcomp) | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--28-brightgreen) | Parametric g-computation for mediation and time-varying confounding (includes gcomptab) |
-| [iivw](https://github.com/tpcopeland/Stata-Tools/tree/main/iivw) | ![version](https://img.shields.io/badge/version-4.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--15-brightgreen) | Inverse intensity/visit weighting for irregular longitudinal data (Stata 17+ for mixed models) |
-| [msm](https://github.com/tpcopeland/Stata-Tools/tree/main/msm) | ![version](https://img.shields.io/badge/version-1.4.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Marginal structural models for longitudinal causal analysis with IPTW, diagnostics, prediction, plots, and reports |
-| [psdash](https://github.com/tpcopeland/Stata-Tools/tree/main/psdash) | ![version](https://img.shields.io/badge/version-1.7.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) | Propensity score diagnostics dashboard: overlap, balance, weight distribution, and common support |
-| [qba](https://github.com/tpcopeland/Stata-Tools/tree/main/qba) | ![version](https://img.shields.io/badge/version-1.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding, with multi-bias chains and visualization (simple and probabilistic) |
+| [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [pygrid](pygrid) | Person-period denominator grids with zero-filled event attachment (`pygrid`, `pyattach`) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.17.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) |
 
-### Time-Varying Data & Registries
+### Causal inference and survival
 
-| Package | Version | Updated | Description |
+| Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [pygrid](https://github.com/tpcopeland/Stata-Tools/tree/main/pygrid) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Person-period denominator grids with zero-filled event attachment |
-| [setools](https://github.com/tpcopeland/Stata-Tools/tree/main/setools) | ![version](https://img.shields.io/badge/version-1.5.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Swedish registry tools for Charlson scoring, migrations, and MS progression endpoints |
-| [tvtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) | ![version](https://img.shields.io/badge/version-1.17.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) | Time-varying exposure workflow for survival analysis, diagnostics, IPTW/IPCW weights, and age-band intervals |
+| [cstat_surv](cstat_surv) | Harrell's C after `stcox`, with a leave-one-out jackknife SE and CI | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards test | ![version](https://img.shields.io/badge/version-1.3.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--20-brightgreen) |
+| [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--28-brightgreen) |
+| [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--15-brightgreen) |
+| [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--09-brightgreen) |
+| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) |
 
-### Reporting & Visualization
+### Tables and reporting
 
-| Package | Version | Updated | Description |
+| Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [consort](https://github.com/tpcopeland/Stata-Tools/tree/main/consort) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | CONSORT-style exclusion flowcharts with bundled Python/matplotlib rendering |
-| [diagtab](https://github.com/tpcopeland/Stata-Tools/tree/main/diagtab) | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Diagnostic accuracy, confidence intervals, ROC AUC, and cutoff analysis with publication-ready exports (Stata 17+) |
-| [eplot](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--07-brightgreen) | Unified effect plotting from variables, stored estimates, matrices, or graph-ready frames |
-| [logdoc](https://github.com/tpcopeland/Stata-Tools/tree/main/logdoc) | ![version](https://img.shields.io/badge/version-1.1.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents (requires Python 3.6+) |
-| [kmplot](https://github.com/tpcopeland/Stata-Tools/tree/main/kmplot) | ![version](https://img.shields.io/badge/version-1.3.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--21-brightgreen) | Publication-ready Kaplan-Meier and cumulative failure curves with CI, risk tables, landmarks, saved data, median lines, and censor marks |
-| [raincloud](https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud) | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) | Raincloud plots combining density, raw points, and box summaries |
-| [simtab](https://github.com/tpcopeland/Stata-Tools/tree/main/simtab) | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) | Monte Carlo simulation performance metrics, MCSEs, ingest adapters, and publication-ready exports (Stata 17+) |
-| [spaghetti](https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Long-format longitudinal trajectory plots with optional group mean and CI overlays |
-| [swimlane](https://github.com/tpcopeland/Stata-Tools/tree/main/swimlane) | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--29-brightgreen) | Swimmer and state swimlane plots for clinical and longitudinal data, with canonical-table export |
-| [tabtools](https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools) | ![version](https://img.shields.io/badge/version-2.1.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--16-brightgreen) | Excel-ready manuscript tables with optional eplot forest-plot companions for regression, treatment-effect, composite, and survival workflows (Stata 17+) |
-| [tc_schemes](https://github.com/tpcopeland/Stata-Tools/tree/main/tc_schemes) | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) | Manage 45 bundled graph schemes (blindschemes, schemepack, cleanplots, modern, originals) from one command |
+| [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.1.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.1.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--16-brightgreen) |
 
-## Example Data
+### Graphics
 
-The `_data/` directory contains 19 **fully synthetic** `.dta` datasets used as shared example data across packages. No real patient data is included. The datasets simulate a pharmacoepidemiology cohort study comparing SSRI and SNRI antidepressant initiators in a Swedish registry setting.
+| Package | What it does | Version | Updated |
+| --- | --- | --- | --- |
+| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--07-brightgreen) |
+| [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.3.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--21-brightgreen) |
+| [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) |
+| [spaghetti](spaghetti) | Individual trajectories over time, with optional group means and CIs | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [swimlane](swimlane) | Swimmer and state swimlane plots for patient timelines | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--06--29-brightgreen) |
+| [tc_schemes](tc_schemes) | 45 graph schemes (blindschemes, schemepack, cleanplots, modern, and originals) behind one command | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+
+## Requirements beyond Stata 16
+
+| Package | Needs |
+| --- | --- |
+| diagtab, simtab, tabtools | Stata 17+ |
+| iivw | Stata 17+ for mixed-effects outcome models only |
+| rangematch | Stata 16.1+ |
+| massdesas | Stata 14+, plus `ssc install filelist` and `ssc install fs` |
+| comorbidity | `codescan` from this repo |
+| tabtools | `eplot` from this repo, for forest plots (optional) |
+| consort | Python 3.7+ with matplotlib, to draw the diagram |
+| logdoc | Python 3.6+ (standard library only); Stata 17+ for Word; `xhtml2pdf` or `wkhtmltopdf` for PDF |
+
+## Example data
+
+[`_data/`](_data) holds 19 fully synthetic datasets (no real patients) simulating a Swedish-registry cohort of SSRI and SNRI antidepressant starters. Load any of them straight from GitHub to try a command on realistic data:
 
 ```stata
-* Load example data directly from the repo
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
 ```
 
-| File | Description |
-| --- | --- |
-| `cohort.dta` | Main cohort spine: one row per patient with entry/exit dates and treatment |
-| `prescriptions.dta` | Long-format prescription records |
-| `diagnoses.dta` | Long-format diagnosis history (ICD codes, dates) |
-| `procedures.dta` | Long-format procedure records |
-| `outcomes.dta` | Outcome events: dates and types |
-| `lisa.dta` | Socioeconomic register data (education, income, employment) |
-| `migrations.dta` | Long-format migration/residence history |
-| `migrations_wide.dta` | Wide-format version of migration data |
-| `calendar.dta` | Calendar-time covariates and period indicators |
-| `cci.dta` | Charlson Comorbidity Index scores |
-| `comorbidities.dta` | Wide-format comorbidity flags at cohort entry |
-| `relapses.dta` | Relapse/recurrence event records |
-| `relapses_only.dta` | Relapse records filtered to index events only |
-| `treatment.dta` | Treatment assignment and exposure periods |
-| `tv_antidep.dta` | Time-varying antidepressant exposure in episode format |
-| `tv_antidep_episodes.dta` | Antidepressant episodes with switch/augmentation flags |
-| `tv_benzo_episodes.dta` | Benzodiazepine co-prescription episodes |
-| `tv_events.dta` | Time-varying event records for outcome analysis |
-| `tv_merged.dta` | Pre-merged time-varying dataset for tvtools examples |
+## Contact
 
-## Author
+Found a bug or have a request? [Open an issue](https://github.com/tpcopeland/Stata-Tools/issues).
 
-Timothy P Copeland, Karolinska Institutet
-
-## License
-
-MIT
+Timothy P Copeland, Karolinska Institutet · [MIT License](LICENSE)
