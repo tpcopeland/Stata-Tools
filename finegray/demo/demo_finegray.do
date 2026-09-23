@@ -3,7 +3,9 @@
     Produces:
       1. Cumulative-incidence curve with confidence band -> .png
       2. Stratified-baseline CIF comparison, bstrata()          -> .png
-      3. CIF estimates -> temporary .dta, verified and removed
+      3. Results workbook built with tabtools (Table 1, SHR models,
+         CIF tables, PH diagnostic)                              -> .xlsx
+      4. CIF estimates -> temporary .dta, verified and removed
 
     Three example datasets are used: hypoxia for the main workflow, hiv_si
     ([ST] stcrreg example 4) for grouped CIF curves, and pneumonia ([ST]
@@ -64,15 +66,19 @@ capture log close _all
 * copy behind; a demo must not mutate installed ado state.  `adopath ++' is
 * session-local and is removed again on exit below.
 adopath ++ "`repo_dir'/finegray"
-* tc_schemes is a graph-cosmetic dependency shipped as a sibling Stata-Tools
-* package.  Put it on the path softly and fall back to s2color -- the numeric
-* demo is unaffected.
-adopath ++ "`repo_dir'/tc_schemes"
-capture set scheme plotplainblind
-if _rc {
-    set scheme s2color
-    display as text "note: tc_schemes not found; using s2color for graphs"
-}
+* Graphs use Stata's built-in sj scheme with a white outer region and an
+* unboxed legend, the style of the package's Stata Journal figures.
+set scheme sj
+local gstyle graphregion(color(white)) legend(region(lcolor(none)))
+* tabtools is a sibling Stata-Tools package whose table1_tc, regtab and
+* puttab write the formatted results workbook.  They need Stata 17, so the
+* workbook section is skipped with a note where tabtools or Stata 17 is absent.
+adopath ++ "`repo_dir'/tabtools"
+local have_tabtools = 0
+capture findfile puttab.ado
+if _rc == 0 & c(stata_version) >= 17 local have_tabtools = 1
+local xlsx "`pkg_dir'/finegray_results.xlsx"
+capture erase "`xlsx'"
 
 **# Estimation features
 webuse hypoxia, clear
@@ -509,16 +515,130 @@ noisily finegray_cif, attime(1 5) ci nograph
 capture unab fg_kept : _fg_*
 noisily display as text "off mi, design columns written: " as result "`fg_kept'"
 
-**# Graph output
+**# Publication tables with tabtools
+* hypoxia's pelnode is 1 for NEGATIVE or equivocal pelvic nodes (its variable
+* label says so), so 0 is the node-positive group.  Value labels carry that
+* into the table rows and the graph legend.  failtype 1 is a pelvic (local)
+* relapse and 2 a distant one.
 webuse hypoxia, clear
 gen byte status = failtype
+label define pelnode_lbl 0 "Positive pelvic nodes" ///
+    1 "Negative or equivocal pelvic nodes"
+label values pelnode pelnode_lbl
+label variable pelnode "Pelvic node status"
+label define status_lbl 0 "Censored" 1 "Local relapse" 2 "Distant relapse"
+label values status status_lbl
+label variable status "First event"
+gen int site = ceil(_n / 10)
+label variable site "Synthetic study site"
+
+if `have_tabtools' {
+    * # Table 1: patient characteristics by pelvic node status (table1_tc)
+    noisily table1_tc, vars(ifp contn \ tumsize contn \ status cat) ///
+        by(pelnode) total(before) xlsx("`xlsx'") sheet("Table 1") ///
+        title("Table 1. Patient characteristics by pelvic node status")
+
+    * # Table 2: four specifications side by side (collect: + regtab)
+    * regtab recognizes finegray, exponentiates to SHRs, and lays each model
+    * out as SHR, 95% CI and p-value columns.
+    stset dftime, failure(dfcens==1) id(stnum)
+    collect clear
+    quietly collect: finegray ifp tumsize i.pelnode, compete(status) ///
+        cause(1) nolog
+    quietly collect: finegray ifp tumsize i.pelnode, compete(status) ///
+        cause(1) strata(pelnode) cluster(site) nolog
+    quietly collect: finegray ifp tumsize i.pelnode, compete(status) ///
+        cause(1) nuisance nolog
+    quietly collect: finegray ifp tumsize, compete(status) cause(1) ///
+        bstrata(pelnode) nolog
+    noisily regtab, xlsx("`xlsx'") sheet("SHR models") ///
+        models("Main model \ Censoring strata, clustered \ Nuisance-adjusted variance \ Stratified baseline") ///
+        title("Table 2. Fine-Gray subdistribution hazard ratios for local relapse") ///
+        stats(n ll)
+    collect clear
+
+    * # CIF at yearly horizons for the main model (finegray_cif + puttab)
+    quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
+    tempfile cif_grid
+    quietly finegray_cif, timepoints(1 2 3 4 5 6 7 8) ci nograph ///
+        saving("`cif_grid'", replace)
+    preserve
+    use "`cif_grid'", clear
+    noisily puttab time cif lci uci using "`xlsx'", sheet("CIF time grid") ///
+        varlabels digits(3) zebra ///
+        title("Cumulative incidence of local relapse at the covariate means")
+    restore
+
+    * # Residual-time correlations for the same fit (puttab from a frame)
+    * r(phtest) rows are coefficient names (1.pelnode); a small frame carries
+    * the variable and value labels instead, which matrix row names cannot.
+    quietly finegray_phtest, time(log)
+    matrix ph_log = r(phtest)
+    local ph_terms : rownames ph_log
+    capture frame drop ph_tab
+    frame create ph_tab str80 term double(correlation events)
+    local i = 0
+    foreach t of local ph_terms {
+        local ++i
+        _ms_parse_parts `t'
+        if "`r(type)'" == "factor" {
+            local lab `"`: variable label `r(name)'': `: label (`r(name)') `r(level)''"'
+        }
+        else local lab : variable label `r(name)'
+        frame post ph_tab (`"`lab'"') ///
+            (ph_log[`i', colnumb(ph_log, "correlation")]) ///
+            (ph_log[`i', colnumb(ph_log, "events")])
+    }
+    frame ph_tab {
+        label variable term "Covariate"
+        label variable correlation "Correlation with log time"
+        label variable events "Cause events"
+    }
+    noisily puttab using "`xlsx'", sheet("PH diagnostic") frame(ph_tab) ///
+        varlabels digits(3) ///
+        title("Schoenfeld residual correlations with log time") ///
+        footnote("Exploratory diagnostic, not a formal test of proportionality.")
+    frame drop ph_tab
+
+    * # CIF by CCR5 genotype at 2, 5 and 10 years (hiv_si, over() + puttab)
+    preserve
+    webuse hiv_si, clear
+    gen byte any_event = status > 0
+    stset time, failure(any_event==1) id(patnr)
+    quietly finegray ccr5, compete(status) cause(2) nolog
+    tempfile cif_ccr5
+    quietly finegray_cif, over(ccr5) attime(2 5 10) ci nograph ///
+        saving("`cif_ccr5'", replace)
+    use "`cif_ccr5'", clear
+    noisily puttab over time cif lci uci using "`xlsx'", ///
+        sheet("CIF by ccr5") varlabels digits(3) zebra ///
+        title("Cumulative incidence of the SI phenotype by CCR5 genotype")
+    restore
+
+    * # Every sheet must open and hold rows; a missing or empty one fails
+    foreach sh in "Table 1" "SHR models" "CIF time grid" "PH diagnostic" ///
+        "CIF by ccr5" {
+        preserve
+        quietly import excel using "`xlsx'", sheet("`sh'") clear
+        assert _N > 0
+        noisily display as text "sheet " as result `"`sh'"' ///
+            as text ": " as result _N as text " rows"
+        restore
+    }
+    noisily display as text "results workbook: " as result "`xlsx'"
+}
+else {
+    noisily display as text "note: tabtools (Stata 17+) not found; " ///
+        "the results workbook is skipped"
+}
+
+**# Graph output
 stset dftime, failure(dfcens==1) id(stnum)
 quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
-finegray_cif, ci ///
+finegray_cif, ci `gstyle' ///
     ytitle("Cumulative incidence of cause 1") ///
     xtitle("Analysis time (years)") ///
-    title("Fine-Gray cumulative incidence with 95% band") ///
-    legend(pos(6))
+    title("Fine-Gray cumulative incidence with 95% band")
 graph export "`pkg_dir'/finegray_cif.png", replace width(1400)
 capture graph close _all
 
@@ -526,12 +646,14 @@ capture graph close _all
 * One curve per level of bstrata(), drawn in one call by over() on the
 * bstrata() variable; each curve is its own stratum's bstratum(#) call.
 quietly finegray ifp tumsize, compete(status) cause(1) bstrata(pelnode) nolog
-finegray_cif, over(pelnode) timepoints(0(0.05)8.45) ci ///
+finegray_cif, over(pelnode) timepoints(0(0.05)8.45) ci `gstyle' ///
     ytitle("Cumulative incidence of cause 1") ///
     xtitle("Analysis time (years)") ///
     title("Stratified baseline subdistribution hazard") ///
     subtitle("bstrata(pelnode): a free baseline per stratum, shared SHRs") ///
-    legend(pos(6) rows(1)) ///
+    plot1opts(lpattern(solid)) plot2opts(lpattern(dash)) ///
+    ci1opts(color(gs6%25)) ci2opts(color(gs11%45)) ///
+    legend(rows(2)) ///
     ylabel(0(0.2)0.8) yscale(range(0 0.8))
 matrix _bs_table = r(table)
 assert colsof(_bs_table) == 6
@@ -543,7 +665,7 @@ capture log close _all
 * Remove the session-local adopath entries added at the top, leaving the user's
 * ado path exactly as we found it.
 capture adopath - "`repo_dir'/finegray"
-capture adopath - "`repo_dir'/tc_schemes"
+capture adopath - "`repo_dir'/tabtools"
 capture set scheme `_demo_scheme'
 set more `_demo_more'
 set varabbrev `_demo_varabbrev'

@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.3.7  20sep2026  finegray methods and formulas}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -66,7 +65,8 @@ derived from the Kaplan-Meier estimate of the censoring distribution.
 {bf:Interpreting the SHR.} A subdistribution hazard ratio (SHR) above 1 means
 the covariate raises the cumulative incidence of the cause of interest at every
 horizon, and below 1 that it lowers it; the direction transfers to the CIF, the
-magnitude does not. The SHR is a ratio of hazards, not a ratio of cumulative
+magnitude does not, except approximately while the cumulative incidence is
+small. The SHR is a ratio of hazards, not a ratio of cumulative
 incidences or a relative risk: exp(b) is not CIF(t | Z+1)/CIF(t | Z) at any
 {it:t}. Its risk set retains subjects after a competing event, so it is not a
 rate among subjects still able to fail, and a covariate that raises the
@@ -93,20 +93,30 @@ every event at a time is scored against the risk-set sum taken before any of
 them leaves, as {cmd:stcrreg} and R's {cmd:cmprsk::crr} do. There is no
 {cmd:ties()} option and no Efron form. With no competing events {cmd:finegray}
 reproduces {cmd:stcox, breslow} to machine precision and differs from
-{cmd:stcox, efron} by several percent on integer-scale times, so on heavily
-tied analysis time (days, years) Breslow attenuates the coefficients relative
-to Efron. A finer time scale is the remedy.
+{cmd:stcox, efron} wherever event times are tied; on heavily tied analysis
+time (days, years) the two can differ materially. With many
+ties Breslow is the less accurate approximation ([ST] stcox), and in Cox
+regression it tends to bias coefficients toward zero, more so as ties become
+heavier (Hertz-Picciotto and Rockhill 1997). A finer time scale is the
+remedy.
 
 {pstd}
 {bf:The censoring-survivor floor.} The censoring Kaplan-Meier G is clamped at
-1e-10 before any weight is formed, and the fit-time note counts the
-observations where the clamp acted. The weight is a ratio, so a clamped
-denominator alone gives a very large weight, while a clamped numerator and
-denominator give a weight of exactly 1. Without delayed entry the denominator
-G(X_i-) is positive by construction and the clamp reaches only the terminal
-censoring, which no weight consults; under {opt strata()} with strongly
-covariate-dependent censoring it reaches a percent or two of subjects, with no
-measurable effect on bias or coverage in the package's simulations.
+1e-10 before any weight is formed. Every weight reads G as a left limit G(u-)
+at a later time u, so the clamp matters only where a weight reads a clamped
+value, and {cmd:e(N_G_trunc)} and the fit-time note count exactly the
+observations whose weight does so at some cause-event time, in its numerator
+or its denominator (under delayed entry with several weight strata, also an
+at-risk subject's own-stratum denominator and the pooled stabilizer). The
+clamp also acts at the last time of any censoring Kaplan-Meier whose final
+risk set is emptied by censoring (the last censored subject of
+{cmd:webuse hypoxia}, or every subject still under observation at an
+{cmd:exit(time)} cutoff); no weight reads those values, and they are not
+counted. Without delayed entry the denominator G(X_i-) is positive by
+construction, so a counted observation has a clamped numerator: under
+{opt strata()}, a competing-event subject whose censoring stratum's follow-up
+ended in censoring before a later cause event in another stratum. Its weight
+there is 1e-10/G(X_i-), in effect the zero the unclamped estimate gives.
 
 {pstd}
 {bf:Identification.} Because the subdistribution pseudo-likelihood is evaluated
@@ -271,7 +281,14 @@ score. {cmd:finegray} reproduced that restriction until 1.3.3 and no longer
 does, so with two or more censoring strata its {opt nuisance} variance
 differs from {cmd:crr}'s by exactly those terms (of the order of 1e-3
 relative on the package's fixtures). With one stratum, or with
-{opt strata()} equal to {opt bstrata()}, nothing changes. The term is checked
+{opt strata()} equal to {opt bstrata()}, nothing changes. The coefficients can
+differ from {cmd:crr}'s too. Past the last observed time in a censoring
+stratum, {cmd:crr} sets that stratum's G to 0, which drops its
+competing-event subjects from later risk sets, while {cmd:finegray} carries
+the last value forward. The two agree when every stratum ends with a
+censoring. When one ends with an event they need not, and in the package's
+simulation the difference reached about a fifth of the coefficient's Monte
+Carlo standard deviation. The psi term is checked
 against a numerical derivative of the fitted score in the package's QA suite
 (see the {browse "https://github.com/tpcopeland/Stata-Tools/tree/main/finegray/qa":qa directory} of the source repository).
 
@@ -319,16 +336,21 @@ estimates E(eta^2), which is the same quantity only when the weights are
 known, so it is an approximation whose error is the psi contribution. It is
 the shipped default because it is defined on every cell the package fits,
 including the stratified delayed-entry weight whose published variance is
-itself fixed-weight, and because the two agree to three or four significant
-figures on every fixture and on simulation designs built to separate them
-(covariate-dependent censoring with a stratified G, delayed entry with heavy
-ties, many small baseline strata: standard errors within 0.5 percent and
-identical coverage at 500 replications). {opt nuisance} is an opt-in defined
-for the pooled weight alone. The package's QA suite, which is
-distributed with the source in the
-{browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
-not with the installed package, includes a simulation study of the Wald
-coverage of each candidate.
+itself fixed-weight, and because the gap between the two is small in
+simulation designs built to widen it: covariate-dependent censoring with a
+stratified G, delayed entry with heavy ties, and ten small baseline strata,
+500 replications each. There the mean standard errors of the two differed by
+less than 0.6 percent and their Wald coverage by at most 0.002. That is an
+average. On a single dataset the two standard errors from the same fit
+differed by up to 3.1 percent (mean 0.2 percent), and on simulated
+right-censored data without strata the default's standard errors were within
+0.11 percent of {cmd:stcrreg}'s while individual covariance elements differed
+by up to 8.9 percent. {opt nuisance} is an opt-in defined for the pooled
+weight alone. The package's QA suite, which is distributed with the source in
+the {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository}
+and not with the installed package, holds that study
+({cmd:validation_variance_default_mc.do}) and a simulation study of the Wald
+coverage of each candidate under delayed entry.
 
 {pstd}
 {bf:Why it stops at the coefficients.} {helpb finegray_cif} and
@@ -655,7 +677,8 @@ bootstrap CIF interval. Two things are not, and the reasons differ:
 own interval, so every other interval's block is zero by construction and the
 table is not a proportional-hazards diagnostic{p_end}
 {p2col:{cmd:finegray_phtest}}this is the point rather than a gap: {opt tvc()}
-is the modelled {it:answer} to a {cmd:finegray_phtest} rejection. Run the
+is the modelled {it:answer} to a pattern in {cmd:finegray_phtest}
+suggesting non-proportionality. Run the
 diagnostic on the proportional fit, then fit this one, and use
 {cmd:test [tvc1]x = [tvc2]x} here{p_end}
 {p2colreset}{...}
@@ -771,8 +794,9 @@ observation gap in a censoring stratum put G on its 1e-10 floor and the
 weights reached 1e10.)
 
 {pstd}
-{bf:The factorized extension, and what it assumes.} When {opt strata()} and
-{opt truncstrata()} name {it:different} groupings, {cmd:finegray} estimates G
+{bf:The factorized extension (experimental), and what it assumes.} When
+{opt strata()} and {opt truncstrata()} name {it:different} groupings (under
+delayed entry, naming a grouping in only one of the two options counts), {cmd:finegray} estimates G
 within {opt strata()}, estimates H within {opt truncstrata()}, and multiplies
 the components in each observed combination. That cross-classification is a
 package extension, not a construction attributed to Zhang et al., and
@@ -783,7 +807,12 @@ entry product limit of its truncation group, kappa_j = n_j^-1 sum over i in j
 of 1/H_u(X_i-), the same cohort-size estimate as above applied to the cell; with
 matching groupings it reduces to kappa_g exactly. This normalizer is a
 package derivation. The same contract is used by estimation and by every
-post-estimation calculation.
+post-estimation calculation. The extension has no published derivation;
+the package's checks confirm that it is computed as specified and that it
+recovered known coefficients in simulation, not that it is valid in
+general. It is therefore {bf:experimental}: prefer the published stratified
+weight for primary analyses and use the extension, if at all, as a
+sensitivity analysis.
 
 {pstd}
 {bf:Gaps in a sample's observation window (1.3.4, corrected in 1.3.5).} A
@@ -847,12 +876,13 @@ only on {opt truncstrata()}.
 {pstd}
 {bf:Which weights are valid for your data.} Pooled weights (no {opt strata()}
 or {opt truncstrata()}) assume that the entry and censoring mechanisms do not
-vary with model covariates in ways that require conditioning. When entry
-depends on an observed discrete group, name it in {opt truncstrata()}; when
-censoring does, name it in {opt strata()}. If one observed factor drives
-{it:both} mechanisms -- a site or an enrolment wave, for example -- name it in
-{bf:both} options, which puts the fit on the published stratified construction
-rather than on the extension. Continuous covariate-dependent entry is
+vary with model covariates in ways that require conditioning. When entry,
+censoring, or both depend on an observed discrete group -- a site or an
+enrolment wave, for example -- name it in {bf:both} {opt strata()} and
+{opt truncstrata()}. That puts the fit on the published stratified
+construction, which remains valid when only one of the two mechanisms
+depends on the group; naming it in one option alone gives the experimental
+extension. Continuous covariate-dependent entry is
 {bf:not supported}, and the command cannot infer or reject that dependence from
 the realized data: do not use pooled weights in that setting unless a
 scientifically defensible discrete stratification removes the dependence. If
@@ -1373,7 +1403,13 @@ package does not implement. Kawaguchi et al. (2021) ground only the
 right-censoring, no-ties scan decomposition, not this package's tie,
 left-truncation, or variance extensions. Latouche et al. (2013), Austin, Lee
 and Fine (2016) and Austin and Fine (2017) ground the interpretive guidance
-only; no computation rests on them.
+only: that the SHR's direction, not its magnitude, carries over to the CIF,
+that its risk set retains subjects after a competing event, and that the CIF
+and the cause-specific hazards should be reported alongside it. The
+non-collapsibility remark is general hazard-ratio background, not from
+them. Hertz-Picciotto and Rockhill (1997) ground only the direction of the
+Breslow bias in Cox regression; they do not study the Fine-Gray model. No
+computation rests on any of these.
 
 {pstd}
 For the proportionality diagnostic, Fine and Gray (1999) support
@@ -1432,6 +1468,13 @@ He S, Yang GL. Estimation of the truncation probability in the random
 truncation model. {it:Annals of Statistics} 1998; 26(3): 1011-1027.
 
 {pstd}{browse "https://doi.org/10.1214/aos/1024691086":doi:10.1214/aos/1024691086}{p_end}
+
+{pstd}
+Hertz-Picciotto I, Rockhill B. Validity and efficiency of approximation methods
+for tied survival times in Cox regression. {it:Biometrics}
+1997; 53(3): 1151-1156.
+
+{pstd}{browse "https://doi.org/10.2307/2533573":doi:10.2307/2533573}{p_end}
 
 {pstd}
 Kawaguchi ES, Shen JI, Suchard MA, Li G. Scalable algorithms for large competing

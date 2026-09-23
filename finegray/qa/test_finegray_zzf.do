@@ -889,42 +889,31 @@ else {
 }
 
 * ---------------------------------------------------------------------------
-* Z27: the G-truncation note is reported ONCE per fit.
+* Z27: the G-floor note counts only floored values that a weight CONSULTS.
 *
-* It used to be emitted once per censoring stratum (by _finegray_km_censor's
-* per-stratum sweep) AND again from the pooled delayed-entry stabilizer on
-* every Newton iteration and step halving, so this exact command opened with
-* 15 copies of the same message.  The count below is the whole point of the
-* test: a stratified delayed-entry fit exercises both duplicate sources at
-* once, and against the pre-fix engine this assertion reads 15, not 1.
+* History.  The note used to be emitted once per censoring stratum AND again
+* from the pooled delayed-entry stabilizer on every Newton iteration, so this
+* fixture opened with 15 copies of it; 1.2.0 moved it into the header, once.
+* Through 1.3.7 its count (e(N_G_trunc)) was every row whose censoring KM
+* reached the 1e-10 floor: 57 here, 13 / 13 / 17 / 14 over the four censoring
+* strata.  Those 57 rows are the censorings at the administrative cap t = 6,
+* the last time of every stratum.  A weight reads G only as the left limit
+* G(u-) at a later u, and nothing in a stratum is observed after its last
+* time, so no weight reads them.  The note said the weights "rest on almost no
+* censoring information" on a fit whose weights never touch the floor (the
+* 2026-09-23 clarity audit, I3).  The count is now per observation whose
+* weight consults a floored value, and it is 0 here.  The once-per-fit and
+* aggregation-over-strata invariants moved to Z27b, which has consulted
+* floors in two strata.
 *
-* In 1.2.0 the engine stopped PRINTING the note (it was the first line of
-* output, above the command's own title) and now hands the count back for
-* _finegray_display to report inside the header.  The invariant is unchanged
-* and the wording moved, so the needle below moved with it -- and e(N_G_trunc)
-* is asserted too, which pins the aggregate independently of any wording.
-*
-* The needle is built BEFORE the nested log opens.  A do-file echoes its own
+* The needle is built BEFORE any nested log opens.  A do-file echoes its own
 * source into any open log, so spelling the searched-for text inside the
-* logged region would make the test count its own comments and pass for the
-* wrong reason.
+* logged region would make the test count its own comments.
 * ---------------------------------------------------------------------------
 local ++test_count
 local _needle "1e-10 floor for"
 
-_zzf_fix, n(4000) seed(20260713)
-quietly stset t, id(id) failure(status == 1 2) enter(time t0)
-
-* ereturn clear so the e(N) check below cannot be satisfied by the PREVIOUS
-* test's fit if this one dies before the scan.
-ereturn clear
-
-tempfile _z27log
-log using "`_z27log'", replace text name(_z27)
-finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
-log close _z27
-
-* Read the log as DATA.  Its own contents include quotes and vertical bars, so
+* Read a log as DATA.  Its own contents include quotes and vertical bars, so
 * a macro-based or import-delimited parse would die on the coefficient table.
 * This is a FUNCTION, not an interactive Mata block: at the Mata prompt a bare
 * "real scalar x, y" parses as the start of a function definition and dies
@@ -953,29 +942,241 @@ void _z27_scan(string scalar fn, string scalar needle)
 }
 end
 
+_zzf_fix, n(4000) seed(20260713)
+quietly stset t, id(id) failure(status == 1 2) enter(time t0)
+
+* The floored rows exist and are terminal: every stratum ends at the cap, and
+* the 57 censorings there are exactly the 57 rows the old count reported.
+quietly count if _t == 6 & _d == 0
+local _z27_term = r(N)
+local _z27_endok = 1
+forvalues _g = 1/4 {
+    quietly summarize _t if g4 == `_g', meanonly
+    if r(max) != 6 local _z27_endok = 0
+    quietly count if g4 == `_g' & _t == 6 & _d == 1
+    if r(N) != 0 local _z27_endok = 0
+}
+
+* ereturn clear so the e(N) check below cannot be satisfied by the PREVIOUS
+* test's fit if this one dies before the scan.
+ereturn clear
+
+tempfile _z27log
+log using "`_z27log'", replace text name(_z27)
+finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
+log close _z27
 mata: _z27_scan(st_local("_z27log"), st_local("_needle"))
 
-* e(N) proves the fit itself ran, so a note count of 1 cannot be satisfied by a
-* command that errored out before reaching the scan.
-*
-* The 57 is the second half of the assertion and is not decoration: before the
-* fix this fixture's four censoring strata reported 13 / 13 / 17 / 14, summing
-* to 57.  Checking the NUMBER catches an aggregation that silently degraded to
-* first-stratum-wins (13) or last-stratum-wins (14) -- both of which would
-* still print exactly one line and pass a count-only test.
 local _z27_N = e(N)
 local _z27_conv = e(converged)
 local _z27_egt = e(N_G_trunc)
 
-if `_n_note' == 1 & `_n_obs_note' == 57 & `_z27_N' == 4000 & `_z27_conv' == 1 ///
-    & `_z27_egt' == 57 {
+if `_n_note' == 0 & `_z27_egt' == 0 & `_z27_term' == 57 & `_z27_endok' ///
+    & `_z27_N' == 4000 & `_z27_conv' == 1 {
     local ++pass_count
-    display as result "  PASS: Z27 G-truncation note printed once per fit, aggregated over strata (13+13+17+14=57)"
+    display as result "  PASS: Z27 57 terminal floored rows, none consulted: e(N_G_trunc)=0, no note"
 }
 else {
     local ++fail_count
-    display as error "  FAIL: Z27 expected 1 note reporting 57 obs on a converged 4000-obs fit; got `_n_note' note(s), n=`_n_obs_note', e(N_G_trunc)=`_z27_egt', e(N)=`_z27_N', converged=`_z27_conv'"
+    display as error "  FAIL: Z27 expected no note and e(N_G_trunc)=0 with 57 terminal censorings; got `_n_note' note(s), e(N_G_trunc)=`_z27_egt', terminal=`_z27_term', ends at cap=`_z27_endok', e(N)=`_z27_N', converged=`_z27_conv'"
 }
+
+* ---------------------------------------------------------------------------
+* Z27b: a CONSULTED floor is still reported -- once, with the right count,
+* aggregated over strata.
+*
+* Right-censored fit, strata(g4).  Censoring strata 1 and 2 are closed by
+* administrative censoring at 1.5 and 2.5, so their censoring KM reaches zero
+* there.  Cause events in strata 3 and 4 continue to t = 6, and the weight of
+* every competing-event subject of stratum 1 (2) with X_i < 1.5 (2.5) at a
+* later cause time t_k is G_g(t_k-) / G_g(X_i-) with the numerator on the
+* floor.  The oracle is read off the DATA, not the engine: those competing
+* subjects, counted per stratum and summed.  Strata 3 and 4 end at the cap
+* with only censorings there, so their floor is terminal and must not count.
+* Checking the number, not just one printed line, catches an aggregation
+* that degraded to first-stratum-wins or last-stratum-wins.
+* ---------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    _zzf_fix, n(2000) seed(20260923) notrunc
+    quietly replace status = 0 if g4 == 1 & t > 1.5
+    quietly replace t = 1.5 if g4 == 1 & t > 1.5
+    quietly replace status = 0 if g4 == 2 & t > 2.5
+    quietly replace t = 2.5 if g4 == 2 & t > 2.5
+    quietly stset t, id(id) failure(status == 1 2)
+    * the closures really empty the risk set, and cause events outlive them
+    quietly count if g4 == 1 & t == 1.5 & status != 0
+    assert r(N) == 0
+    quietly count if g4 == 2 & t == 2.5 & status != 0
+    assert r(N) == 0
+    quietly summarize t if status == 1, meanonly
+    assert !missing(r(max))
+    assert r(max) > 2.5
+    forvalues _g = 3/4 {
+        quietly summarize _t if g4 == `_g', meanonly
+        assert r(max) == 6
+        quietly count if g4 == `_g' & _t == 6 & _d == 1
+        assert r(N) == 0
+    }
+    quietly count if status == 2 & g4 == 1 & t < 1.5
+    local _o1 = r(N)
+    quietly count if status == 2 & g4 == 2 & t < 2.5
+    local _o2 = r(N)
+    assert `_o1' > 0 & `_o2' > 0
+
+    tempfile _z27blog
+    log using "`_z27blog'", replace text name(_z27b)
+    finegray z1 z2, compete(status) cause(1) strata(g4) nolog
+    log close _z27b
+    mata: _z27_scan(st_local("_z27blog"), st_local("_needle"))
+    display as text "  oracle = `_o1' + `_o2'   e(N_G_trunc) = " e(N_G_trunc) "   note says `_n_obs_note'"
+    assert e(converged) == 1
+    assert `_n_note' == 1
+    assert `_n_obs_note' == `_o1' + `_o2'
+    assert e(N_G_trunc) == `_o1' + `_o2'
+
+    * tvc() runs the same weights through the piecewise scans
+    quietly finegray z1 z2, compete(status) cause(1) strata(g4) tvc(z1) tsplit(1) nolog
+    assert e(N_G_trunc) == `_o1' + `_o2'
+
+    * bstrata(g4): a competing subject is retained only by cause events of its
+    * OWN baseline stratum, and strata 1 and 2 have none after their closure,
+    * so no weight consults the floor
+    quietly finegray z1 z2, compete(status) cause(1) strata(g4) bstrata(g4) nolog
+    assert e(N_G_trunc) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z27b consulted floor reported once, count = data oracle summed over strata (tvc() same, bstrata() 0)"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z27b consulted G floor count or note (rc=`=_rc')"
+}
+capture log close _z27b
+
+* ---------------------------------------------------------------------------
+* Z27c: the canonical examples print no floor note.
+*
+* webuse hypoxia ends with one censored subject alone at the last time, and
+* stset, exit(time 3) censors the 55 subjects still under observation at 3.
+* Both are floored rows that no weight reads.  Through 1.3.7 they printed the
+* note with 1 and 55 observations.
+* ---------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    quietly webuse hypoxia, clear
+    quietly stset dftime, failure(failtype == 1 2) id(stnum)
+    quietly summarize _t, meanonly
+    quietly count if _t == r(max) & _d == 0
+    assert r(N) == 1
+    tempfile _z27clog
+    log using "`_z27clog'", replace text name(_z27c)
+    finegray ifp tumsize pelnode, compete(failtype) cause(1) nolog
+    log close _z27c
+    mata: _z27_scan(st_local("_z27clog"), st_local("_needle"))
+    assert `_n_note' == 0
+    assert e(N_G_trunc) == 0
+
+    quietly stset dftime, failure(failtype == 1 2) id(stnum) exit(time 3)
+    quietly generate byte _z27_ft2 = failtype * _d
+    quietly count if _t == 3 & _d == 0
+    assert r(N) == 55
+    log using "`_z27clog'", replace text name(_z27c)
+    finegray ifp tumsize pelnode, compete(_z27_ft2) cause(1) nolog
+    log close _z27c
+    mata: _z27_scan(st_local("_z27clog"), st_local("_needle"))
+    assert `_n_note' == 0
+    assert e(N_G_trunc) == 0
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z27c hypoxia and exit(time 3): terminal floors, e(N_G_trunc)=0, no note"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z27c floor note on hypoxia / exit(time 3) (rc=`=_rc')"
+}
+capture log close _z27c
+
+* ---------------------------------------------------------------------------
+* Z27d: the reporting change moved no estimate.
+*
+* The references are e(b), e(V) and e(ll) from the 1.3.7 engine (HEAD
+* 14173541), frozen as %21x literals on 2026-09-23 before the consulted-floor
+* count was added.  The count reads the floored mask and never feeds the
+* scans, so the agreement is exact: mreldif() == 0, not a tolerance.  An
+* intended change to the estimator will fail this and must re-freeze it.
+* Fixtures: hypoxia; hypoxia after exit(time 3); the Z27 stratified
+* delayed-entry fit (strata(g4) truncstrata(z1)); the pooled delayed-entry
+* fit on the same data; and the Z27b-style right-censored strata(g4) fit
+* whose floor IS consulted (stratum 1 closed at 1.5).
+* ---------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    tempname _rb _rV
+    * hypoxia
+    quietly webuse hypoxia, clear
+    quietly stset dftime, failure(failtype == 1 2) id(stnum)
+    quietly finegray ifp tumsize pelnode, compete(failtype) cause(1) nolog
+    matrix `_rb' = (+1.0b9a68c16892aX-005, +1.0a8e968673f66X-002, -1.8ee808a4c0dfaX-001)
+    matrix `_rV' = (+1.3a9fb8225526fX-00c, -1.593377141152eX-00b, -1.39f1bdbdc2fb5X-009 \ -1.593377141152eX-00b, +1.3a8150ba22359X-007, +1.a71b5440dba72X-006 \ -1.39f1bdbdc2fb5X-009, +1.a71b5440dba72X-006, +1.7af89da78626cX-003)
+    assert mreldif(e(b), `_rb') == 0
+    assert mreldif(e(V), `_rV') == 0
+    assert e(ll) == -1.150fc51632d3cX+007
+    * hypoxia, exit(time 3)
+    quietly stset dftime, failure(failtype == 1 2) id(stnum) exit(time 3)
+    quietly generate byte _z27_ft2 = failtype * _d
+    quietly finegray ifp tumsize pelnode, compete(_z27_ft2) cause(1) nolog
+    matrix `_rb' = (+1.d867944995a4fX-006, +1.18cf3b39258d2X-002, -1.851ce0bbee5b2X-001)
+    matrix `_rV' = (+1.4b0bcefb73f02X-00c, -1.53eb71da95fb6X-00b, -1.2588201ad457dX-009 \ -1.53eb71da95fb6X-00b, +1.433e6e02dea70X-007, +1.ad30d0cd6c006X-006 \ -1.2588201ad457dX-009, +1.ad30d0cd6c006X-006, +1.7c03204e11756X-003)
+    assert mreldif(e(b), `_rb') == 0
+    assert mreldif(e(V), `_rV') == 0
+    assert e(ll) == -1.0fc6fdae24677X+007
+    * Z27 fixture: stratified delayed entry, factorized weights
+    _zzf_fix, n(4000) seed(20260713)
+    quietly stset t, id(id) failure(status == 1 2) enter(time t0)
+    quietly finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
+    matrix `_rb' = (+1.e5a7fa59e820bX-002, -1.f06728f196c52X-002)
+    matrix `_rV' = (+1.bce833292baabX-009, -1.56f48cfddf322X-00e \ -1.56f48cfddf322X-00e, +1.9b5d85dffbcefX-00b)
+    assert mreldif(e(b), `_rb') == 0
+    assert mreldif(e(V), `_rV') == 0
+    assert e(ll) == -1.d91bc5d37c36eX+00d
+    * same data, pooled delayed-entry weight
+    quietly finegray z1 z2, compete(status) cause(1) nolog
+    matrix `_rb' = (+1.7856cafc40ef5X-002, -1.f6a0449328939X-002)
+    matrix `_rV' = (+1.afa1f90f19927X-009, -1.b714cada3d4c7X-00e \ -1.b714cada3d4c7X-00e, +1.9de34f4d9a066X-00b)
+    assert mreldif(e(b), `_rb') == 0
+    assert mreldif(e(V), `_rV') == 0
+    assert e(ll) == -1.d2834efcd3ed2X+00d
+    * right-censored strata(g4), stratum 1 closed at 1.5: floor consulted
+    _zzf_fix, n(2000) seed(20260923) notrunc
+    quietly replace status = 0 if g4 == 1 & t > 1.5
+    quietly replace t = 1.5 if g4 == 1 & t > 1.5
+    quietly stset t, id(id) failure(status == 1 2)
+    quietly finegray z1 z2, compete(status) cause(1) strata(g4) nolog
+    assert !missing(e(N_G_trunc))
+    assert e(N_G_trunc) > 0
+    matrix `_rb' = (+1.2b1d0b75a9cc5X-001, -1.e336eb45dfed8X-002)
+    matrix `_rV' = (+1.0e7af5e3963f3X-008, -1.d87f37fce9bcdX-00e \ -1.d87f37fce9bcdX-00e, +1.162dcd81aca0dX-00a)
+    assert mreldif(e(b), `_rb') == 0
+    assert mreldif(e(V), `_rV') == 0
+    assert e(ll) == -1.b2d4447869a62X+00c
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "  PASS: Z27d e(b), e(V), e(ll) bit-identical to the 1.3.7 engine on 5 fixtures"
+}
+else {
+    local ++fail_count
+    display as error "  FAIL: Z27d estimates moved against the frozen 1.3.7 references (rc=`=_rc')"
+}
+
+* Z28 reads the active fit and data of Z27 (a pooled delayed-entry design).
+* Z27b-d replaced both, so put them back.
+_zzf_fix, n(4000) seed(20260713)
+quietly stset t, id(id) failure(status == 1 2) enter(time t0)
+quietly finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
 
 * ---------------------------------------------------------------------------
 * Z28: the optimizer's prepared weight design is numerically identical to the

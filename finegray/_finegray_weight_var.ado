@@ -1,4 +1,4 @@
-*! _finegray_weight_var Version 1.3.7  2026/09/20
+*! _finegray_weight_var Version 1.3.7  2026/09/23
 *! Rebuild the fit's design-weight column from e(wexp) for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal)

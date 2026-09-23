@@ -21,6 +21,9 @@
 *
 * REP-8   `finegray, coeflegend' replays the table with the _b[] names.
 *   FAILS on the pre-fix build, where the option was refused r(198).
+*
+* REP-9   e(vcetype) is "Robust" for the sandwich, so the table header reads
+*   "Robust std. err.".  FAILS on 1.3.7, which never posted it.
 clear all
 set varabbrev off
 version 16.0
@@ -329,6 +332,111 @@ else {
     display as error "  FAIL: REP-8 coeflegend replay (rc=`=_rc')"
     local ++fail_count
 }
+
+**# 9. e(vcetype) labels the sandwich "Robust", as after stcrreg
+* Through 1.3.7 finegray set e(vce) but never e(vcetype), so a robust or
+* cluster sandwich printed under a plain "Std. err." column and
+* esttab/estout/etable, which read e(vcetype), could not label it (the
+* 2026-09-23 clarity audit, I4).  stcrreg posts "Robust" for the same
+* estimator.  norobust leaves it unset, as Stata does for OIM.  The prefixes
+* and mi estimate post their own label and must not double it.
+capture program drop _rep9_hdr
+program define _rep9_hdr, rclass
+    * Run a command and report the coefficient-table header: whether a
+    * header cell reads exactly "Robust" (the line above "std. err."), and the
+    * whole captured output for other needles.
+    version 16.0
+    syntax , CMD(string asis)
+    tempfile cap
+    tempname fh
+    capture log close _rep9
+    quietly log using "`cap'", replace text name(_rep9)
+    capture noisily `cmd'
+    local rc = _rc
+    capture log close _rep9
+    local robust = 0
+    local blob ""
+    file open `fh' using "`cap'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "^ *\| +Robust *$") local robust = 1
+        local blob `"`blob' `line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar rc = `rc'
+    return scalar robust = `robust'
+    return local blob `"`blob'"'
+end
+capture program drop _rep9_boot
+program define _rep9_boot, eclass
+    quietly stset t, failure(ev == 1 2) id(_rep9_nid)
+    finegray x1 x2, compete(ev) cause(1) nolog
+end
+
+local ++test_count
+capture noisily {
+    _mk_fgrep
+    * default: robust sandwich
+    _rep9_hdr, cmd(finegray x1 x2, compete(ev) cause(1) nolog)
+    assert r(rc) == 0
+    assert "`e(vce)'" == "robust" & "`e(vcetype)'" == "Robust"
+    assert r(robust) == 1
+    assert strpos(`"`r(blob)'"', "std. err.") > 0
+    estimates store _rep9_rob
+    * cluster()
+    _rep9_hdr, cmd(finegray x1 x2, compete(ev) cause(1) nolog cluster(grp))
+    assert "`e(vce)'" == "cluster" & "`e(vcetype)'" == "Robust"
+    assert r(robust) == 1
+    * norobust: unset, plain "Std. err."
+    _rep9_hdr, cmd(finegray x1 x2, compete(ev) cause(1) nolog norobust)
+    assert "`e(vce)'" == "oim" & "`e(vcetype)'" == ""
+    assert r(robust) == 0
+    assert strpos(`"`r(blob)'"', "Std. err.") > 0
+    * replay and estimates restore carry it
+    estimates restore _rep9_rob
+    assert "`e(vcetype)'" == "Robust"
+    _rep9_hdr, cmd(finegray)
+    assert r(rc) == 0 & r(robust) == 1
+    estimates drop _rep9_rob
+    * bootstrap: prefix label only, no "Robust" cell under it
+    _rep9_hdr, cmd(bootstrap _b, reps(5) seed(20260923) nodots cluster(id) idcluster(_rep9_nid): _rep9_boot)
+    assert r(rc) == 0
+    assert "`e(vcetype)'" == "Bootstrap"
+    assert r(robust) == 0
+    assert strpos(`"`r(blob)'"', "Bootstrap") > 0
+    _mk_fgrep
+    * jackknife: the same
+    _rep9_hdr, cmd(jackknife _b, nodots: finegray x1 x2, compete(ev) cause(1) nolog)
+    assert r(rc) == 0
+    assert "`e(vcetype)'" == "Jackknife"
+    assert r(robust) == 0
+    assert strpos(`"`r(blob)'"', "Jackknife") > 0
+    * mi estimate: reports the per-imputation label once, in its header
+    _mk_fgrep
+    set seed 20260923
+    quietly replace x1 = . if runiform() < 0.1
+    quietly stset, clear
+    quietly mi set mlong
+    quietly mi register imputed x1
+    quietly mi impute regress x1 x2, add(2) rseed(20260923)
+    quietly mi stset t, failure(ev == 1 2) id(id)
+    _rep9_hdr, cmd(mi estimate, cmdok: finegray x1 x2, compete(ev) cause(1) nolog)
+    assert r(rc) == 0
+    assert "`e(cmd)'" == "mi estimate"
+    assert regexm(`"`r(blob)'"', "Within VCE type: +Robust")
+    assert r(robust) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: REP-9 e(vcetype)=Robust labels the sandwich; unset under norobust; prefixes/mi keep their own label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: REP-9 e(vcetype) / coefficient-table header (rc=`=_rc')"
+    local ++fail_count
+}
+capture log close _rep9
+clear
 
 **# Summary
 display as text _newline ///

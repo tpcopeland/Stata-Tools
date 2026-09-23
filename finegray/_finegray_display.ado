@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.7  2026/09/20
+*! _finegray_display Version 1.3.7  2026/09/23
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -222,7 +222,10 @@ program define _finegray_display
     * The censoring-survivor floor.  Reported HERE, not from inside the Mata KM
     * sweep, where it was the first line of output -- unexplained jargon above
     * even the command's own title.  Singular and plural are both spelled out:
-    * "1 observations" was the printf's own wording.
+    * "1 observations" was the printf's own wording.  e(N_G_trunc) counts the
+    * observations whose weight READS a floored G (after 1.3.7; it used to
+    * count every floored row, most of them terminal rows no weight reads, and
+    * this note fired on webuse hypoxia).
     local _ntr = e(N_G_trunc)
     if `_ntr' > 0 & `_ntr' < . {
         local _obsword "observations"
@@ -232,8 +235,8 @@ program define _finegray_display
         * between "for" and the number would make that guard unfalsifiable.
         display as text "note: censoring survivor G(t) hit its 1e-10 floor for " ///
             "`_ntr' `_obsword'"
-        display as text "(the inverse-probability weights there rest on almost no"
-        display as text "censoring information)"
+        display as text "(their inverse-probability weights read G on the floor, so they rest"
+        display as text "on almost no censoring information; see e(N_G_trunc))"
         display as text ""
     }
 
@@ -297,9 +300,11 @@ program define _finegray_display
     if "`_lt'" == "zzf1_factorized" {
         display as text ""
         display as text "note: the censoring weight G and entry weight H use different groupings,"
-        display as text "so finegray uses the factorized A=G*H extension -- a package extension,"
-        display as text "requiring the censoring mechanism to be homogeneous across omitted entry"
-        display as text "groups and vice versa. See Left truncation in {help finegray}."
+        display as text "so finegray uses the factorized A=G*H extension, which is experimental:"
+        display as text "it has no published derivation and requires the censoring mechanism to"
+        display as text "be homogeneous across omitted entry groups and vice versa. Naming the"
+        display as text "same grouping in strata() and truncstrata() gives the published"
+        display as text "stratified weight. See Left truncation in {help finegray}."
         display as text "e(lt_weight)=zzf1_factorized."
     }
 

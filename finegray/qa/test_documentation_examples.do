@@ -326,7 +326,7 @@ capture noisily {
     gen long id = _n
     gen byte any_event = status > 0
     stset time, failure(any_event == 1) id(id) enter(time entry_time)
-    finegray z1 z2, compete(status) cause(1) truncstrata(z1)
+    finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)
     display "`e(lt_weight)'"
     display e(min_weight_prob), e(max_lt_weight)
 }
@@ -1066,7 +1066,7 @@ capture noisily {
     gen byte any_event = status > 0
     stset time, failure(any_event == 1) id(id) enter(time entry_time)
 
-    finegray z1 z2, compete(status) cause(1) truncstrata(z1)
+    finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)
     display "weight method = " "`e(lt_weight)'"
     display "smallest weight probability = " e(min_weight_prob)
     display "largest entry weight = " e(max_lt_weight)
@@ -1092,7 +1092,7 @@ local fail_count = `fail_count' + r(fail)
 local ++test_count
 capture noisily {
     _docblock "RDM-08c README 8. strata() and truncstrata() compose"
-    finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)
+    finegray z1 z2, compete(status) cause(1) truncstrata(z1)
     finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1)
     finegray_cif, attime(1 3 5) ci nograph
 }

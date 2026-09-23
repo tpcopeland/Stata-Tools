@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  20sep2026}{...}
+{* *! version 1.3.7  23sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -192,6 +192,16 @@ distribution by the specified variables. It is the entry-side counterpart of
 specified independently and cross-classified into joint weight strata.
 
 {pmore}
+Naming the same grouping in {opt strata()} and {opt truncstrata()} gives the
+published stratified weight of Zhang, Zhang and Fine (2011),
+{cmd:e(lt_weight)} = {cmd:zzf1_stratified}. Under delayed entry, naming
+different groupings, or naming a grouping in only one of the two options,
+gives the factorized extension, {cmd:zzf1_factorized}. That weight has no
+published derivation and is {bf:experimental}. When entry or censoring
+depends on a discrete factor, name it in both options. See
+{help finegray_methods##lt:Left truncation}.
+
+{pmore}
 {opt truncstrata()} requires delayed entry ({cmd:r(198)} otherwise). Each variable must be
 constant within subject, and missing values are excluded. Joint weight cells
 are subject to a hard support boundary; see {help finegray_methods##boundary:Weight support boundaries}.
@@ -221,9 +231,10 @@ means what {cmd:stcox}'s {cmd:strata()} means.
 {it:varname} must be numeric and constant within {cmd:id()}; missing values
 are excluded. It composes with {opt nuisance} and with {opt tvc()}. It is
 {bf:not} allowed with delayed entry ({cmd:r(198)}). With many thin strata
-(tens of subjects and a handful of cause events each) the sandwich runs a few
-percent below the Monte Carlo standard deviation in the package's simulations;
-prefer larger strata there, or bootstrap the coefficients as in
+(tens of subjects and a handful of cause events each) the sandwich standard
+error runs 5 to 7 percent below the Monte Carlo standard deviation in the
+package's simulation (ten strata of 30 to 50 subjects; coverage 0.936 to
+0.938); prefer larger strata there, or bootstrap the coefficients as in
 {help finegray##vcebootstrap:Bootstrap coefficient inference}. See
 {help finegray_methods##bstrata:Baseline strata} for the scope, the variance,
 and the two asymptotic regimes.
@@ -557,9 +568,12 @@ before 1.3.1. Results with no delayed entry are unchanged, bit for bit. See
 
 {pstd}
 {cmd:e(lt_weight)} reports the weight computed: {cmd:right_censoring},
-{cmd:zzf1_geskus}, {cmd:zzf1_stratified} or {cmd:zzf1_factorized}. Name the
-covariate that drives entry in {opt truncstrata()}, and the one that drives
-censoring in {opt strata()}. Stratified and factorized fits also post
+{cmd:zzf1_geskus}, {cmd:zzf1_stratified} or {cmd:zzf1_factorized}. When
+entry or censoring depends on a discrete factor, name it in both
+{opt truncstrata()} and {opt strata()}; that gives the published stratified
+weight. A grouping named in only one option, or different groupings in the
+two, gives the experimental factorized weight. Stratified and factorized
+fits also post
 {cmd:e(lt_norm)} = {cmd:stratum}, the receipt for the per-stratum weight
 normalizer added in 1.3.3; the post-estimation commands refuse a stratified
 delayed-entry fit that lacks it. On those fits {cmd:e(min_weight_prob)} is the
@@ -773,12 +787,12 @@ stays unweighted, and the sandwich is the pweight one)
 {phang2}{cmd:. contrast pelnode}{p_end}
 
 {pstd}
-{bf:Delayed entry with entry strata.} Name in {opt truncstrata()} the
-covariates entry depends on, and in {opt strata()} those censoring
-depends on; read {cmd:e(lt_weight)} and the weight diagnostics before
-interpreting. Entry below depends on {cmd:z1} and censoring does not, so
-the specification these data call for is {cmd:truncstrata(z1)} with no
-{opt strata()}. The block is self-contained and runs as printed.
+{bf:Delayed entry with entry strata.} Entry below depends on {cmd:z1}, and
+naming it in both {opt strata()} and {opt truncstrata()} gives the
+published stratified weight, which remains valid when censoring does not
+depend on {cmd:z1}. Read {cmd:e(lt_weight)} and
+the weight diagnostics before interpreting. The block is self-contained and
+runs as printed.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. set seed 20260713}{p_end}
@@ -800,7 +814,7 @@ the specification these data call for is {cmd:truncstrata(z1)} with no
 {phang2}{cmd:. gen long id = _n}{p_end}
 {phang2}{cmd:. gen byte any_event = status > 0}{p_end}
 {phang2}{cmd:. stset time, failure(any_event == 1) id(id) enter(time entry_time)}{p_end}
-{phang2}{cmd:. finegray z1 z2, compete(status) cause(1) truncstrata(z1)}{p_end}
+{phang2}{cmd:. finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1)}{p_end}
 {phang2}{cmd:. display "`e(lt_weight)'"}{p_end}
 {phang2}{cmd:. display e(min_weight_prob), e(max_lt_weight)}{p_end}
 
@@ -894,7 +908,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(N_clust)}}number of clusters (only with {opt cluster()}){p_end}
 {synopt:{cmd:e(converged)}}1 if converged, 0 otherwise{p_end}
 {synopt:{cmd:e(N_delayed)}}subjects entering after time 0 (delayed entry){p_end}
-{synopt:{cmd:e(N_G_trunc)}}observations with censoring {it:G(t)} floored at 1e-10{p_end}
+{synopt:{cmd:e(N_G_trunc)}}observations whose weight reads a floored {it:G(t)}{p_end}
 {synopt:{cmd:e(k_bstrata)}}baseline strata fitted; {cmd:1} without {opt bstrata()}{p_end}
 {synopt:{cmd:e(n_intervals)}}time intervals fitted; {cmd:1} without {opt tvc()}{p_end}
 {synopt:{cmd:e(k_tvc)}}design columns with an interval-specific slope{p_end}
@@ -947,6 +961,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
 {synopt:{cmd:e(wsig)}}weight-column digest; only with weights{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
+{synopt:{cmd:e(vcetype)}}{cmd:Robust}; not set under {opt norobust}{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
 {synopt:{cmd:e(vce_adjust)}}finite-sample factor on {cmd:e(V)}: {cmd:finite_sample} or {cmd:none}{p_end}
 {synopt:{cmd:e(title)}}Fine-Gray competing risks regression{p_end}
@@ -1003,7 +1018,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.7, 2026-09-20{p_end}
+{pstd}Version 1.3.7, 2026-09-23{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

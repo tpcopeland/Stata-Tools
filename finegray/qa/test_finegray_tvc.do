@@ -337,6 +337,74 @@ _fgtv_result `_rc' "T04b tsplit() boundaries are used as typed, to full precisio
 local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
+**# T04c `to' and `:' ranges beside high-precision plain tokens (2026-09-23)
+* The T04b fix took any list containing `to' or `:' from numlist WHOLE, so a
+* plain token in such a list lost its digits again at rc 0:
+* tsplit(.1000000000000001 1 2 3) kept the literal, tsplit(.1000000000000001
+* 1 to 3) fitted .1 1 1.9 2.8 and moved the events on the cut to the second
+* interval (an independent review of the 1.3.6 parser rewrite).  `#1 #2 to #3'
+* takes its step from #2 - #1, so that list IS .1, 1, 1.9, 2.8 by numlist's
+* definition -- but the .1 was typed as .1000000000000001, and a number a range
+* reads cannot be carried to its members as typed.  Plain tokens no range reads
+* now keep their text in every form; a range that reads a number numlist would
+* round is refused rather than fitted on the rounded value.
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 700
+    generate long id = _n
+    * 100 cause events at each of .05, .1000000000000001, .2, .3, .4, .5
+    generate double t = cond(_n <= 100, .05, cond(_n <= 200, .1000000000000001, ///
+        cond(_n <= 300, .2, cond(_n <= 400, .3, cond(_n <= 500, .4, ///
+        cond(_n <= 600, .5, 1))))))
+    generate byte status = cond(_n <= 600, 1, 2)
+    generate double x = mod(_n, 2)
+    quietly replace x = (_n <= 170) if _n > 100 & _n <= 200
+    quietly count if t == .4 & status == 1
+    assert r(N) == 100
+    quietly stset t, failure(status == 1 2) id(id)
+
+    * the plain reference: every boundary typed out
+    quietly finegray x, compete(status) cause(1) tvc(x) ///
+        tsplit(.1000000000000001 .2 .3 .4) nolog
+    matrix _tp4c = e(b)
+    assert `"`e(tsplit)'"' == ".1000000000000001 .2 .3 .4"
+    assert `"`e(tsplit_nfail)'"' == "200 100 100 100 100"
+
+    * `to' and `:' after a plain high-precision token: same partition, same
+    * literal in e(tsplit) and e(refitcmd), same coefficients
+    foreach _sep in "to" ":" {
+        quietly finegray x, compete(status) cause(1) tvc(x) ///
+            tsplit(.1000000000000001 .2 .3 `_sep' .4) nolog
+        assert e(n_intervals) == 5
+        assert `"`e(tsplit)'"' == ".1000000000000001 .2 .3 .4"
+        assert `"`e(tsplit_nfail)'"' == "200 100 100 100 100"
+        assert strpos(`"`e(refitcmd)'"', "tsplit(.1000000000000001 .2 .3 .4)") > 0
+        assert mreldif(_tp4c, e(b)) == 0
+        local _refit `"`e(refitcmd)'"'
+        quietly `_refit'
+        assert mreldif(_tp4c, e(b)) == 0
+    }
+    * a plain token AFTER a range keeps its digits too
+    quietly finegray x, compete(status) cause(1) tvc(x) ///
+        tsplit(.05 .2 to .35 .4000000000000001) nolog
+    assert `"`e(tsplit)'"' == ".05 .2 .35 .4000000000000001"
+    assert `"`e(tsplit_nfail)'"' == "100 200 100 100 100"
+    assert strpos(`"`e(refitcmd)'"', "tsplit(.05 .2 .35 .4000000000000001)") > 0
+
+    * a range that READS a number numlist rounds is refused, never fitted on
+    * the rounded value: #1 of `to' / `:', and the start of a one-token range
+    foreach _bad in ".1000000000000001 .2 to .4" ".1000000000000001 .2 : .4" ///
+        ".1000000000000001(.1).4" ".05 .1000000000000001 to .3" {
+        capture finegray x, compete(status) cause(1) tvc(x) tsplit(`_bad') nolog
+        assert _rc == 198
+    }
+}
+local _rc = _rc
+_fgtv_result `_rc' "T04c to/: ranges keep adjacent plain tokens as typed; a range reading a rounded number refuses"
+local pass_count = `pass_count' + r(pass)
+local fail_count = `fail_count' + r(fail)
+
 **# T05 the coefficient stripe is the documented one and supports test
 local ++test_count
 capture noisily {

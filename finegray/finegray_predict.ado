@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.7  2026/09/20
+*! finegray_predict Version 1.3.7  2026/09/23
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -217,15 +217,16 @@ program define finegray_predict, rclass sortpreserve
     * set.  A table of residuals that is zero by construction for (J-1)/J of its
     * entries is not a diagnostic, and finegray_phtest, which consumes exactly
     * these residuals, would test proportionality of a model that no longer
-    * assumes it.  tvc() IS the modelled answer to a phtest rejection: run the
-    * diagnostic on the proportional fit, then fit this one.
+    * assumes it.  tvc() IS the modelled answer to a pattern in finegray_phtest
+    * suggesting non-proportionality: run the diagnostic on the proportional
+    * fit, then fit this one.
     if "`schoenfeld'" != "" & `_fg_istvc' {
         display as error "schoenfeld is not available after a fit with tvc()"
         display as error "under a piecewise beta(t) each residual is defined inside its own"
         display as error "interval, so every other interval's block is zero by construction"
         display as error "and the table is not a proportional-hazards diagnostic"
-        display as error "run {bf:finegray_phtest} on the proportional fit instead; a rejection"
-        display as error "there is what {bf:tvc()} answers"
+        display as error "run {bf:finegray_phtest} on the proportional fit instead; a pattern"
+        display as error "suggesting non-proportionality there is what {bf:tvc()} answers"
         exit 198
     }
 
