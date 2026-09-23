@@ -283,6 +283,48 @@ _fge_record `block_rc' "wording canary: refusal first lines are unchanged"
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
+**# tvc() refusals do not call a finegray_phtest result a "rejection"
+* finegray_phtest reports residual-time correlations; it computes no test
+* statistic and makes no decision, so there is nothing to reject.  Through
+* 1.3.7 both refusals told the user to act on "a rejection there" (the
+* 2026-09-23 clarity audit, M3).  The whole captured refusal is read, not only
+* its first line, and the needles are assembled so that this file's own
+* source, echoed into the suite log, never contains them.
+local ++test_count
+capture noisily {
+    _fge_make
+    quietly finegray x, compete(event) cause(1) tvc(x) tsplit(6) nolog
+    local _m3bad = "reje" + "ction"
+    local _m3good = "suggesting non-" + "proportionality there is what tvc() answers"
+    foreach _m3cmd in "finegray_phtest" "finegray_predict double schm3, schoenfeld" {
+        tempfile _m3cap
+        capture log close _fgem3
+        quietly log using "`_m3cap'", replace text name(_fgem3)
+        capture noisily `_m3cmd'
+        local _m3rc = _rc
+        capture log close _fgem3
+        assert `_m3rc' == 198
+        * join the refusal's lines: the good phrase straddles a line break
+        tempname _m3fh
+        local _m3all ""
+        file open `_m3fh' using "`_m3cap'", read text
+        file read `_m3fh' _m3line
+        while r(eof) == 0 {
+            local _m3all `"`_m3all' `_m3line'"'
+            file read `_m3fh' _m3line
+        }
+        file close `_m3fh'
+        local _m3all = stritrim(`"`_m3all'"')
+        display as text `"  `_m3cmd': `_m3all'"'
+        assert strpos(`"`_m3all'"', "`_m3bad'") == 0
+        assert strpos(`"`_m3all'"', "`_m3good'") > 0
+    }
+}
+local block_rc = _rc
+_fge_record `block_rc' "tvc() refusals describe a pattern, not a phtest rejection"
+if `block_rc' == 0 local ++pass_count
+else local ++fail_count
+
 display "RESULT: test_finegray_errors tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _test_finegray_errors
 if `fail_count' > 0 exit 1

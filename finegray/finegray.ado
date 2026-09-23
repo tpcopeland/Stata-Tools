@@ -1,4 +1,4 @@
-*! finegray Version 1.3.7  2026/09/20
+*! finegray Version 1.3.7  2026/09/23
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -300,12 +300,23 @@ program define finegray, eclass sortpreserve
         * order (a repeated or out-of-order boundary is r(124), by value;
         * pinned by T14 in qa/test_finegray_tvc.do), but a plain-number
         * token is kept as typed, as finegray_cif does for attime() and
-        * timepoints().  Token by token, not all-or-nothing: a one-token
-        * range (1(1)5, 1/5) is expanded on its own, so a plain number next
-        * to it keeps its digits too.  The multi-token forms `1 2 to 5' and
-        * `1 2 : 5' read their step from the tokens before them, so a list
-        * containing `to' or `:' is taken from numlist whole; those values
-        * come from arithmetic and carry no typed precision to lose.
+        * timepoints().
+        *
+        * Token by token.  A plain number that no range reads is kept as
+        * typed and put at its own position in numlist's expansion, which is
+        * read off the expansion of the list up to that token (numlist expands
+        * left to right, so each prefix's expansion is a prefix of the whole).
+        * A number that a RANGE reads -- any number inside a one-token range
+        * (1(1)5, 1[1]5, 1/5), and around `to' or `:' the token after it, the
+        * token before it and the list element before that, which is where
+        * `#1 #2 to #3' takes its step #2 - #1 -- reaches the members only
+        * through numlist's arithmetic and rounded serialization.  Through
+        * 1.3.7 such a list was taken from numlist whole, so tsplit(
+        * .1000000000000001 1 to 3) fitted .1 1 1.9 2.8 at rc 0 (the 1.3.6
+        * precision defect back again), and .1000000000000001(1)3 fitted
+        * .1 1.1 2.1.  Such a number must survive numlist unchanged or the
+        * list is refused: the members cannot be mapped to what was typed, and
+        * guessing is how the boundary moved in the first place.
         capture numlist `"`tsplit'"', ascending
         if _rc {
             display as error "tsplit(): {bf:`tsplit'} is not a usable list of interval boundaries"
@@ -315,28 +326,69 @@ program define finegray, eclass sortpreserve
         }
         local _fg_expanded `"`r(numlist)'"'
         local _fg_raw : list retokenize tsplit
-        local _fg_multi : list posof "to" in _fg_raw
-        if `_fg_multi' == 0 local _fg_multi : list posof ":" in _fg_raw
-        local _fg_kept ""
-        if `_fg_multi' == 0 {
-            foreach _fg_c of local _fg_raw {
-                capture confirm number `_fg_c'
-                if _rc == 0 local _fg_kept "`_fg_kept' `_fg_c'"
-                else {
-                    * The whole list passed numlist above, so a token that
-                    * fails on its own reads its neighbours; hand the whole
-                    * list to numlist's expansion instead.
-                    capture numlist "`_fg_c'"
-                    if _rc {
-                        local _fg_multi = 1
-                        continue, break
-                    }
-                    local _fg_kept "`_fg_kept' `r(numlist)'"
+        local _fg_ntok : word count `_fg_raw'
+        * The numbers a range reads, as typed.
+        local _fg_rng ""
+        forvalues _fg_j = 1/`_fg_ntok' {
+            local _fg_c : word `_fg_j' of `_fg_raw'
+            if inlist(`"`_fg_c'"', "to", ":") {
+                local _fg_rng `"`_fg_rng' `: word `=`_fg_j' - 1' of `_fg_raw'' `: word `=`_fg_j' + 1' of `_fg_raw''"'
+                * the element before #2: a plain token, or the last member of
+                * a range token (whose own numbers are checked below)
+                if `_fg_j' > 2 {
+                    local _fg_p : word `=`_fg_j' - 2' of `_fg_raw'
+                    if !inlist(`"`_fg_p'"', "to", ":") local _fg_rng `"`_fg_rng' `_fg_p'"'
                 }
+                continue
+            }
+            capture confirm number `_fg_c'
+            if _rc {
+                local _fg_parts = ustrregexra(`"`_fg_c'"', "[\(\)\[\]/]", " ")
+                local _fg_rng `"`_fg_rng' `_fg_parts'"'
             }
         }
-        if `_fg_multi' == 0 local tsplit : list retokenize _fg_kept
-        else                 local tsplit `"`_fg_expanded'"'
+        foreach _fg_c of local _fg_rng {
+            capture confirm number `_fg_c'
+            if _rc continue
+            quietly numlist "`_fg_c'"
+            local _fg_s `"`r(numlist)'"'
+            if real("`_fg_s'") != real("`_fg_c'") {
+                display as error "tsplit(): a range in {bf:`tsplit'} reads {bf:`_fg_c'}, which numlist rounds to {bf:`_fg_s'}"
+                display as error "so the boundaries it generates would not be the ones typed;"
+                display as error "list the boundaries of that range one by one instead"
+                exit 198
+            }
+        }
+        * Plain numbers no range reads keep their typed text.
+        local _fg_kept `"`_fg_expanded'"'
+        local _fg_pre ""
+        forvalues _fg_j = 1/`_fg_ntok' {
+            local _fg_c : word `_fg_j' of `_fg_raw'
+            local _fg_pre `"`_fg_pre' `_fg_c'"'
+            if inlist(`"`_fg_c'"', "to", ":") continue
+            local _fg_nx : word `=`_fg_j' + 1' of `_fg_raw'
+            if inlist(`"`_fg_nx'"', "to", ":") continue
+            local _fg_pv ""
+            if `_fg_j' > 1 local _fg_pv : word `=`_fg_j' - 1' of `_fg_raw'
+            if inlist(`"`_fg_pv'"', "to", ":") continue
+            capture confirm number `_fg_c'
+            if _rc continue
+            if `_fg_j' + 2 <= `_fg_ntok' {
+                local _fg_nx2 : word `=`_fg_j' + 2' of `_fg_raw'
+                if inlist(`"`_fg_nx2'"', "to", ":") continue
+            }
+            quietly numlist `"`_fg_pre'"'
+            local _fg_pos : word count `r(numlist)'
+            local _fg_new ""
+            local _fg_k = 0
+            foreach _fg_e of local _fg_kept {
+                local ++_fg_k
+                if `_fg_k' == `_fg_pos' local _fg_new `"`_fg_new' `_fg_c'"'
+                else                    local _fg_new `"`_fg_new' `_fg_e'"'
+            }
+            local _fg_kept `"`_fg_new'"'
+        }
+        local tsplit : list retokenize _fg_kept
         * What numlist does NOT enforce is positivity: tsplit(0) parses, and
         * a boundary at or below zero would define an empty leading interval
         * (0, 0] carrying its own unidentified coefficient.
@@ -2485,22 +2537,30 @@ program define finegray, eclass sortpreserve
     * only if a weight consults them.  Zero on every fit with no such gap,
     * including right-censored fits; the same fail-loud contract as above.
     ereturn scalar N_lt_prehole    = _finegray_nprehole[1,1]
-    * Observations whose censoring survivor G(t) was floored at 1e-10 during the
-    * fit's own KM sweep.  `_fg_ntrunc' is set directly in this scope by
-    * _finegray_km_censor via st_local (see its header for why it reports rather
-    * than prints).  Missing would be indistinguishable from "none", so treat an
-    * unset local as a broken contract rather than as a reassuring zero.
+    * Observations whose inverse-probability weight consults a censoring
+    * survivor G(t) that the fit's own KM sweep floored at 1e-10.  Floored rows
+    * that no weight reads (the terminal rows of a KM whose last risk set is
+    * emptied by censoring) are not counted; through 1.3.7 they were, and the
+    * note fired on webuse hypoxia.  `_fg_ntrunc' is set directly in this scope
+    * by the engine from _finegray_gfloor_consulted via st_local.  Missing would
+    * be indistinguishable from "none", so treat an unset local as a broken
+    * contract rather than as a reassuring zero.
     if "`_fg_ntrunc'" == "" {
         display as error "internal error: the G(t) truncation count was not returned"
         exit 498
     }
     ereturn scalar N_G_trunc = `_fg_ntrunc'
-    * VCE type: cluster > robust (default) > oim (norobust)
+    * VCE type: cluster > robust (default) > oim (norobust).  e(vcetype) is
+    * the column label -ereturn display- and esttab/estout/etable read, so the
+    * sandwich prints under "Robust std. err." as it does after stcrreg; it is
+    * left unset under norobust, as Stata's own estimators leave it for OIM.
     if "`cluster'" != "" {
         ereturn local vce "cluster"
+        ereturn local vcetype "Robust"
     }
     else if "`robust'" != "norobust" {
         ereturn local vce "robust"
+        ereturn local vcetype "Robust"
     }
     else {
         ereturn local vce "oim"

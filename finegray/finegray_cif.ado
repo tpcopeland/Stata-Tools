@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.7  2026/09/20
+*! finegray_cif Version 1.3.7  2026/09/23
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -7,7 +7,8 @@
 Basic syntax:
   finegray_cif [, at(var=# ...) over(varname) attime(numlist)
                   timepoints(numlist) ci level(#) saving(filename)
-                  nograph twoway_options]
+                  nograph plotopts() plot#opts() ciopts() ci#opts()
+                  twoway_options]
 
 Description:
   Predicted cumulative incidence function (CIF) after finegray, for a chosen
@@ -23,6 +24,9 @@ Description:
   ci                 adds influence-function confidence limits (cloglog scale).
   saving(filename)   writes the numeric estimates (time cif se lci uci) to a
                      dataset (the outfile analogue).
+  plotopts()/ciopts() style every CIF line / CI band; plot#opts()/ci#opts()
+                     curve # only (the marginsplot convention).  The default
+                     graph has no note() and leading-zero y-axis labels.
 
 See help finegray_cif for complete documentation.
 */
@@ -44,7 +48,54 @@ program define finegray_cif, rclass sortpreserve
     syntax [, AT(string) OVER(varname numeric) ATTime(string) ///
         TImepoints(string) CI Level(string) ///
         BSTRATum(string) ///
-        SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH *]
+        SAVing(string) BOOTstrap(integer 0) SEED(string) noGRAPH ///
+        PLOTOPts(string asis) CIOPts(string asis) *]
+
+    * Plot-level pass-through, the marginsplot convention: plotopts() reaches
+    * every CIF line and ciopts() every CI band; plot#opts() and ci#opts()
+    * reach curve # only.  The numbered forms cannot be declared up front (the
+    * number of curves is not known yet), so they arrive in `options' and are
+    * pulled out here, one # at a time, with the same PLOT#opts / CI#opts
+    * abbreviations marginsplot uses.  The range check waits until the curve
+    * count is known.  Anything plot#/ci#-shaped still left afterwards -- a
+    * repeat, a zero or leading-zero #, a repeated plotopts() -- is refused
+    * rather than handed to twoway, which would fail only AFTER the analysis
+    * ran and report it as a graph failure.
+    local _pnums ""
+    local _cnums ""
+    local _rest `"`options'"'
+    while `"`_rest'"' != "" {
+        gettoken _tok _rest : _rest, bind
+        if ustrregexm(`"`_tok'"', "^(plot|ci)([1-9][0-9]*)(o|op|opt|opts)?\(") {
+            local _k = ustrregexs(2)
+            if ustrregexs(1) == "plot" local _pnums : list _pnums | _k
+            else local _cnums : list _cnums | _k
+        }
+    }
+    foreach _k of local _pnums {
+        local 0 `", `options'"'
+        syntax [, PLOT`_k'opts(string asis) *]
+    }
+    foreach _k of local _cnums {
+        local 0 `", `options'"'
+        syntax [, CI`_k'opts(string asis) *]
+    }
+    local _rest `"`options'"'
+    while `"`_rest'"' != "" {
+        gettoken _tok _rest : _rest, bind
+        if ustrregexm(`"`_tok'"', "^((plot|ci)[0-9]+(o|op|opt|opts)?|plotopt?s?|ciopt?s?)\(") {
+            local _tok = ustrregexs(1)
+            display as error "option {bf:`_tok'()} is misspecified or repeated"
+            display as error "plotopts() and ciopts() may be given once, and plot#opts() and"
+            display as error "ci#opts() once per curve, with # = 1 for the first curve"
+            exit 198
+        }
+    }
+    if (`"`ciopts'"' != "" | "`_cnums'" != "") & "`ci'" == "" {
+        display as error "ciopts() and ci#opts() require the ci option"
+        display as error "without ci no confidence band is drawn for them to style"
+        exit 198
+    }
 
     * level() is parsed as a string (not cilevel) so an OMITTED level() is empty
     * and distinguishable from an explicit one -- cilevel would auto-fill it with
@@ -1127,10 +1178,23 @@ program define finegray_cif, rclass sortpreserve
     * Stata matrix it does create is small enough for the quadratic to vanish.
     * attime() and timepoints() are mutually exclusive (refused at parse time),
     * so this order expresses a preference over nothing.
+    * plot#opts()/ci#opts() range: # counts curves, so it is checkable only now.
+    * An out-of-range # used to be (in marginsplot, still is) dropped silently.
+    foreach _kind in plot ci {
+        local _knums = cond("`_kind'" == "plot", "`_pnums'", "`_cnums'")
+        foreach _k of local _knums {
+            if `_k' > `_ncurve' {
+                display as error "option {bf:`_kind'`_k'opts()} names curve `_k'," ///
+                    " but this call draws `_ncurve' curve" cond(`_ncurve' == 1, "", "s")
+                display as error "# in plot#opts() and ci#opts() must be between 1 and `_ncurve'"
+                exit 198
+            }
+        }
+    }
     if "`attime'" != "" {
         local mode "table"
         * attime() draws no graph, so any leftover twoway options cannot apply.
-        if `"`options'"' != "" {
+        if `"`options'`plotopts'`ciopts'"' != "" | "`_pnums'`_cnums'" != "" {
             display as text "note: graph (twoway) options are ignored with attime()"
         }
     }
@@ -1800,70 +1864,74 @@ program define finegray_cif, rclass sortpreserve
                     if missing(`_graph_uci') & inlist(cif, 0, 1)
                 quietly sort `_graph_g' time
 
+                * Every plot carries its built-in style first and the user's
+                * plotopts()/ciopts() and plot#opts()/ci#opts() after it, so
+                * the user's choice wins (the last of a repeated plot option
+                * is the one used).  Band and line g share pstyle p<g> in
+                * over() mode, so a band is its own curve's colour at 30%
+                * opacity; pstyles cycle after the scheme's 15.  All bands
+                * are drawn first, so every line sits on top of every band.
+                *
+                * No note() by default: a figure is the user's to caption.
+                * The profile is printed in the results table and returned
+                * in r(at); `note(...)' in the twoway options adds one.
+                local _plots ""
+                local _nband = cond("`ci'" != "", `_ncurve', 0)
+                if "`ci'" != "" {
+                    forvalues g = 1/`_ncurve' {
+                        local _ps = mod(`g' - 1, 15) + 1
+                        local _pif ""
+                        local _pst ""
+                        if "`_overmode'" != "" {
+                            local _pif "if `_graph_g' == `g'"
+                            local _pst "pstyle(p`_ps')"
+                        }
+                        local _plots `"`_plots' (rarea `_graph_lci' `_graph_uci' time `_pif', `_pst' color(%30) lwidth(none) connect(stairstep) `ciopts' `ci`g'opts')"'
+                    }
+                }
+                local _legord ""
+                forvalues g = 1/`_ncurve' {
+                    local _ps = mod(`g' - 1, 15) + 1
+                    local _pif ""
+                    local _pst ""
+                    if "`_overmode'" != "" {
+                        local _pif "if `_graph_g' == `g'"
+                        local _pst "pstyle(p`_ps')"
+                    }
+                    local _plots `"`_plots' (line cif time `_pif', `_pst' lwidth(medthick) connect(stairstep) `plotopts' `plot`g'opts')"'
+                    if "`_overmode'" != "" {
+                        local _legord `"`_legord' `=`_nband' + `g'' `"`_ovvar' = `_lbl`g''"'"'
+                    }
+                }
                 * Default legend is a single row; because repeated legend()
                 * options merge, anything in `options' (e.g. legend(off),
                 * legend(rows(2)), legend(pos(6))) overrides these defaults.
-                *
-                * The default note() states the covariate profile, for the same
-                * reason the table now prints an `at:' line: a saved .png of a
-                * CIF curve otherwise carries no record of which profile it is.
-                * `options' is expanded last, so a user's own note() wins.
+                * In over() mode the bands are named once, by a line of text
+                * inside the legend box (the legend's own note(), so
+                * legend(note("")) removes it): a key for band 1 would carry
+                * curve 1's colour and misname the others, and a key-less
+                * text entry widened a one-row legend beside the plot.
                 if "`_overmode'" == "" {
-                    if "`ci'" != "" {
-                        twoway ///
-                            (rarea `_graph_lci' `_graph_uci' time, ///
-                                color(%30) lwidth(none) connect(stairstep)) ///
-                            (line cif time, lwidth(medthick) connect(stairstep)), ///
-                            ytitle("Cumulative incidence") ///
-                            xtitle("Analysis time") ///
-                            legend(order(2 "CIF" 1 "`level'% CI") rows(1)) ///
-                            note(`"`_atsrc': `_atline'"') ///
-                            xscale(range(0 .)) plotregion(margin(zero)) `options'
-                    }
-                    else {
-                        twoway ///
-                            (line cif time, lwidth(medthick) connect(stairstep)), ///
-                            ytitle("Cumulative incidence") ///
-                            xtitle("Analysis time") legend(rows(1)) ///
-                            note(`"`_atsrc': `_atline'"') ///
-                            xscale(range(0 .)) plotregion(margin(zero)) `options'
-                    }
+                    if "`ci'" != "" local _gleg `"legend(order(2 "CIF" 1 "`level'% CI") rows(1))"'
+                    else local _gleg "legend(rows(1))"
                 }
                 else {
-                    * One band per curve first (so every line is drawn on top
-                    * of every band), then one line per curve.  Band and line
-                    * g share pstyle p<g>, so a band is its own curve's colour
-                    * at 30% opacity; pstyles cycle after the scheme's 15.
-                    * The legend names the lines; the bands are named once in
-                    * the note.
-                    local _plots ""
-                    local _legord ""
-                    forvalues g = 1/`_ncurve' {
-                        local _ps = mod(`g' - 1, 15) + 1
-                        if "`ci'" != "" {
-                            local _plots `"`_plots' (rarea `_graph_lci' `_graph_uci' time if `_graph_g' == `g', pstyle(p`_ps') color(%30) lwidth(none) connect(stairstep))"'
-                        }
+                    local _gleg `"legend(order(`_legord') rows(1))"'
+                    if "`ci'" != "" {
+                        local _gleg `"legend(order(`_legord') rows(1) note("Shaded: `level'% CI"))"'
                     }
-                    local _nband = cond("`ci'" != "", `_ncurve', 0)
-                    forvalues g = 1/`_ncurve' {
-                        local _ps = mod(`g' - 1, 15) + 1
-                        local _plots `"`_plots' (line cif time if `_graph_g' == `g', pstyle(p`_ps') lwidth(medthick) connect(stairstep))"'
-                        local _legord `"`_legord' `=`_nband' + `g'' `"`_ovvar' = `_lbl`g''"'"'
-                    }
-                    * Two note lines: the shared profile, then the overlay
-                    * and the band -- one line ran past the plot width.
-                    local _gnote2 `"`_overline'"'
-                    if "`ci'" != "" local _gnote2 `"`_overline'; shaded: `level'% CI"'
-                    if `"`_atline'"' != "" local _gnote1 `"`_atsrc': `_atline'"'
-                    else local _gnote1 `"`_gnote2'"'
-                    if `"`_atline'"' == "" local _gnote2 ""
-                    twoway `_plots', ///
-                        ytitle("Cumulative incidence") ///
-                        xtitle("Analysis time") ///
-                        legend(order(`_legord') rows(1)) ///
-                        note(`"`_gnote1'"' `"`_gnote2'"') ///
-                        xscale(range(0 .)) plotregion(margin(zero)) `options'
                 }
+                local _gopts `"ytitle("Cumulative incidence") xtitle("Analysis time") `_gleg' xscale(range(0 .)) plotregion(margin(zero))"'
+                * Leading-zero y labels (0.1, not .1).  The decimals follow
+                * the tick step, which only twoway knows once the user's own
+                * ylabel()/yscale() are merged in, so _finegray_cif_yfmt
+                * builds the graph once undrawn and reads the ticks back.  It
+                * returns nothing when the user's ylabel() set a format(),
+                * which then stands; a user ylabel() without format() still
+                * gets the leading zero, because repeated ylabel() merge.
+                local _yfmt ""
+                _finegray_cif_yfmt _yfmt : `_plots', `_gopts' `options'
+                twoway `_plots', `_gopts' `_yfmt' `options'
             }
             local _graph_rc = _rc
             * Cleanup is required even after a graph-side failure so saving()
@@ -2040,4 +2108,82 @@ program define finegray_cif, rclass sortpreserve
         if `_side_rc' local rc = `_side_rc'
     }
     if `rc' exit `rc'
+end
+
+* _finegray_cif_yfmt: the default leading-zero ylabel(, format()) for a CIF
+* graph, decimals chosen from the tick step.
+*   _finegray_cif_yfmt <macname> : <twoway plots>, <twoway options>
+* Builds the graph once, undrawn and under a temporary name, with a sentinel
+* label format ahead of the caller's options, and reads the y ticks back from
+* the graph object -- so the step is the one twoway itself chose after merging
+* any user ylabel()/yscale()/scheme().  saving(), name(), nodraw and play()
+* are stripped from that probe build (it must not write a file, replace a
+* named graph, or replay edits).  Sets <macname> in the caller to
+*   ylabel(, format(%<d+2>.<d>f))   d = decimals the ticks need, at least 1
+* or to empty when the user's own ylabel() set a format() (the sentinel was
+* overridden) or the ticks need more than 6 decimals (a fixed format would
+* round the user's tick values).  0.1 steps give %3.1f; 0.05 and 0.02 give
+* %4.2f.  A probe build that fails sets <macname> empty; the real build then
+* reports the error.
+capture program drop _finegray_cif_yfmt
+program define _finegray_cif_yfmt
+    version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+    local _made = 0
+    local _fmt ""
+    tempname _gprobe
+    capture noisily {
+        gettoken _cmac 0 : 0
+        gettoken _colon 0 : 0
+        if `"`_colon'"' != ":" error 198
+        _parse comma _plots 0 : 0
+        syntax [, SAVing(string asis) NAME(string) noDRAW PLAY(string asis) *]
+        local _sentinel "%20.0g"
+        * Quietly and captured: a probe that fails (a bad user option) leaves
+        * the format empty, and the real build that follows reports the error
+        * once, in the user's terms; quietly also keeps notes such as a
+        * missing scheme from printing twice.
+        capture quietly twoway `_plots', ylabel(, format(`_sentinel')) ///
+            `options' nodraw name(`_gprobe')
+        local _made = _rc == 0
+        if `_made' & ///
+            `"`.`_gprobe'.yaxis1.major.label_format'"' == "`_sentinel'" {
+            local _rule `"`.`_gprobe'.yaxis1.major.use_rule.istrue'"'
+            local _vals ""
+            if "`_rule'" == "1" {
+                * A rule's ticks are min + k*delta: those two set the decimals.
+                local _vals `.`_gprobe'.yaxis1.major.min' `.`_gprobe'.yaxis1.major.delta'
+            }
+            else if "`_rule'" == "0" {
+                * Explicit values; a tick with its own text label is not
+                * formatted, so it does not vote.
+                local _nt `.`_gprobe'.yaxis1.major.ticks.arrnels'
+                forvalues _j = 1/0`_nt' {
+                    if `"`.`_gprobe'.yaxis1.major.ticks[`_j'][2]'"' == "" {
+                        local _vals `_vals' `.`_gprobe'.yaxis1.major.ticks[`_j'][1]'
+                    }
+                }
+            }
+            local _ok = `"`_vals'"' != ""
+            local _dec = 1
+            foreach _v of local _vals {
+                local _dv = .
+                forvalues _d = 0/6 {
+                    if missing(`_dv') & ///
+                        abs(`_v' * 10^`_d' - round(`_v' * 10^`_d')) < 1e-6 {
+                        local _dv = `_d'
+                    }
+                }
+                if missing(`_dv') local _ok = 0
+                else local _dec = max(`_dec', `_dv')
+            }
+            if `_ok' local _fmt "ylabel(, format(%`=`_dec' + 2'.`_dec'f))"
+        }
+    }
+    local rc = _rc
+    capture graph drop `_gprobe'
+    set varabbrev `_vao'
+    if `rc' exit `rc'
+    c_local `_cmac' `"`_fmt'"'
 end

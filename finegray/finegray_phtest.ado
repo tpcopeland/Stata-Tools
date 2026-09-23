@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.7  2026/09/20
+*! finegray_phtest Version 1.3.7  2026/09/23
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -98,14 +98,17 @@ program define finegray_phtest, rclass
     * every other interval's block structurally zero (see the same refusal in
     * finegray_predict, schoenfeld).  finegray_phtest is the diagnostic that
     * MOTIVATES a tvc() fit: run it on the proportional fit, and answer a
-    * rejection with tvc().  Running it on the answer is the wrong direction.
+    * pattern suggesting non-proportionality with tvc().  Running it on the
+    * answer is the wrong direction.  It reports residual-time correlations,
+    * not a test with a decision, so the message does not speak of a
+    * "rejection" (the 2026-09-23 clarity audit, M3).
     if `"`e(tvc)'"' != "" {
         display as error "finegray_phtest is not available after a fit with tvc()"
         display as error "tvc() already relaxes proportionality for `e(tvc)', so the"
-        display as error "assumption this command tests is not one that fit makes"
-        display as error "run {bf:finegray_phtest} on the proportional fit; a rejection there"
-        display as error "is what {bf:tvc()} answers, and {bf:test [tvc1]x = [tvc2]x} after"
-        display as error "the tvc() fit is the corresponding Wald test"
+        display as error "assumption this diagnostic examines is not one that fit makes"
+        display as error "run {bf:finegray_phtest} on the proportional fit; a pattern suggesting"
+        display as error "non-proportionality there is what {bf:tvc()} answers, and"
+        display as error "{bf:test [tvc1]x = [tvc2]x} after the tvc() fit is the corresponding Wald test"
         exit 198
     }
     * A weighted fit's Schoenfeld residuals are well defined (Z_i minus the

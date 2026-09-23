@@ -146,6 +146,36 @@ Measured 2026-09-04: coefficients 1.6e-10 to 4.2e-10, SEs 6.8e-12 to 1.1e-11, `m
 
 Written 2026-09-13 against the independent clarity audit of 1.3.4 (findings F1-F5 and F8 of that audit). Measured on the 1.3.4 tree (c146af64) before the fix: tied pooled delayed-entry fixture -0.0603024685 against -0.0615096667 from the dense published weight and R (`survival` 3.8.6, -0.0615096667128215); stratified -0.0603943588 against -0.0612014113; the gap fixture under `strata(g) truncstrata(g)` did not converge with a maximum weight of 1.0e10; the v134 gap fixture on the pooled path converged at rc 0 with b(z2) = -0.0844 against -0.1010 from the identifiable sample and `e(N_G_trunc)` = 300. After the fix every fixture agrees with the dense published weight to at most 1.2e-13, and `crossval_finegray_zzf_ties` agrees with the canonical R construction to at most 2.1e-11 on coefficients (coxph's convergence floor), 8e-16 on the log pseudo-likelihood, and 1e-15 on the largest retained weight, on four fixtures with every collision class present. `survival::finegray` produces NaN weights across an observation gap (1918 and 1890 expanded rows on the two gap fixtures) which `coxph` drops silently, so it is reported but not compared there; on the gap-free fixtures it agrees with the engine to 2e-11.
 
+### `validation_variance_default_mc.do`
+
+Ported on 2026-09-23 from the independent Monte Carlo that the 1.3.7 documentation cited (2026-09-20, scenarios A, B, D and E; its design-weight scenario C and G-floor job are not ported, except that scenario A now reports the floor count). Same generators, same seeds, same fits. The first run on the 1.3.7 tree reproduced every cited number to the printed digit: for example scenario A n = 300 b1 bias 0.0077, empirical SD 0.2025, mean SE 0.2058 (default) and 0.2048 (`nuisance`), coverage 0.952 in both; scenario E maximum relative `e(V)` difference from `stcrreg` 0.0418 (tied, mean 0.0084) and 0.0887 (untied, mean 0.0129) for the default against 7.1e-07 and 2.3e-06 for `nuisance`; delayed-entry `survival::finegray` agreement 6.5e-10. Runtime 192 s at `set processors 1`.
+
+The same run showed that two statements in the 1.3.7 docs were stronger than the evidence. (1) "At most 0.5 percent": the default-vs-`nuisance` mean-SE gap is 0.51 percent (A n = 300 b1) and 0.52 percent (A n = 1000 b1). The earlier study rounded the mean SEs to four digits before dividing. The pre-registered 0.005 pin failed on exactly those two cells, the docs were changed to "under 0.6 percent", and the pin now follows that text. (2) "Identical coverage": B n = 700 b1 is 0.942 against 0.940. The per-fit comparison, which the earlier study did not report on the SE diagonal, shows why an average is the wrong thing to quote for one analysis. The default and `nuisance` SEs from the same fit differ by up to 3.1 percent (A n = 300; mean 0.37 percent), 2.6 percent (A n = 1000), 1.5 percent (B n = 700), 0.40 percent (B n = 2000) and 0.34 percent (D). Against `stcrreg` on scenario E the SE diagonal is within 0.11 percent, so the 8.9 percent maximum is a covariance (off-diagonal) element.
+
+`cmprsk::crr(cengroup=)` agrees with `finegray, strata()` to 2.0e-5 on the 57 of 100 replications where every censoring group's last observation is a censoring. On the other 43, 40 differ by more than 1e-4, by up to 0.037 (mean 0.012; Monte Carlo SD 0.20). `crr` sets a group's censoring survivor to 0 past that group's last time, while `finegray` carries the last value forward. The suite gates the first set and reports the second.
+
+## Pre-SSC independent check, 2026-09-20 (1.3.7)
+
+A read-only check of 1.3.6/1.3.7 by several independent reviewers before the SSC revision. It found no wrong number. Its documentation gaps were closed in 1.3.7, and its variance simulation is now `validation_variance_default_mc.do` (above). The numerical results that are not already pinned by a suite here:
+
+| Check | Result |
+|---|---|
+| Coefficients vs `stcrreg`, `hypoxia` and tied simulated data | agree to 4.6e-11 and 2.2e-13 |
+| `nuisance` `e(V)` vs `stcrreg` `e(V)` | 3.0e-15 and 3.3e-12 on `hypoxia` |
+| Default SE vs `stcrreg` SE on `hypoxia` | 3e-6 to 2.4e-4 relative |
+| ZZF Weight 1 vs a Geskus expanded-data refit with `stcox` | 7.7e-16 pooled, 1.2e-15 tied, 1.8e-16 stratified |
+| No competing events vs `stcox, breslow` / `stcox, efron` | 9.3e-16 / 0.067 on integer times |
+| CIF at t = 1, 5, 8 vs `stcrreg` `predict, basecif` and `stcurve, cif` | exact and 1e-8 |
+| Speed vs `stcrreg` at N = 2,000 | 126.7x measured, against 136.0x claimed |
+
+The decisions it left open, none of them a numerical defect:
+
+- **Default variance.** Keeping the fixed-weight default rather than switching to `nuisance` was left to the author, who kept it. Switching would change every previously reported SE.
+- **Message hints**, each a small code change with tests pinning the current text. The "gaps or overlaps" refusal could name resampling under `bootstrap:` with `id()`. "compete() and stset failure indicator do not match" could name `exit()` and stset-on-cause. `finegray_predict, cif` could note a changed data signature. `cause()`/`compete()` refusals could list the values present. Zero competing events could warn, as `stcrreg` does. CIF horizons past follow-up could be flagged.
+- **Contract gaps.** `e(vcetype)` is unset. `noheader` is not implemented. Plain `predict` returns xb without saying so. `e(N)` counts subjects where `stcrreg` counts records, and this is not documented.
+- **Code housekeeping.** The `do_scale` Schoenfeld rescaling blocks are unreachable. Risk-set sums have no log-sum-exp centring, so extreme linear predictors fail as nonconvergence. The benchmark times the default variance against `stcrreg`'s nuisance-adjusted one.
+- **Conventions.** The `*!` header form is `Version 1.3.7  2026/09/20` rather than the common SSC `version 1.3.7 20sep2026`.
+
 ## Gates lane history
 
 The three ZZF Monte Carlo gates (`validation_finegray_zzf_recovery.do`, `validation_finegray_zzf_coverage.do`, `validation_finegray_zzf_factorization.do`) are run on demand; `qa/gates_transfer_pin.txt` names the tree they were last run on and `run_all.sh` diffs four delayed-entry arms of every later tree against it (`gates_transfer_proof.do`).

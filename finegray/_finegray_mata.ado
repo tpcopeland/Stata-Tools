@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.7  2026/09/20
+*! _finegray_mata Version 1.3.7  2026/09/23
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -183,7 +183,8 @@ real colvector _finegray_km_censor_single(
     real colvector t0,
     | real scalar n_trunc_out,
     real colvector w,
-    real scalar events_first)
+    real scalar events_first,
+    real colvector floored)
 {
     real colvector row_id, wk
     real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, n_fail_at_t
@@ -273,18 +274,30 @@ real colvector _finegray_km_censor_single(
     }
 
     real scalar n_trunc
+    real colvector fl
     n_trunc = 0
+    fl = J(n, 1, 0)
     for (i = 1; i <= n; i++) {
         if (G[i] < 1e-10) {
             G[i] = 1e-10
+            fl[i] = 1
             n_trunc++
         }
     }
     /* This function never prints.  A stratified sweep calls it once per
        stratum, so a note emitted here would fire once PER STRATUM; the
        decision to print, and the aggregation across strata, belong to
-       _finegray_km_censor.  Report the count back by reference instead. */
+       the engine.  Report the count back by reference instead.
+
+       n_trunc counts EVERY floored row, and most of them are harmless: the
+       rows at the terminal time of a KM whose last risk set is emptied by
+       censoring (every subject still at risk at an administrative end of
+       follow-up) are floored, but no weight reads them -- G is consulted
+       only as the left limit G(u-) at a later time u.  floored (optional)
+       hands back the per-row mask so the engine can count only the floored
+       values some weight actually consults (_finegray_gfloor_consulted). */
     if (args() >= 6) n_trunc_out = n_trunc
+    if (args() >= 9) floored = fl
 
     return(G)
 }
@@ -298,21 +311,22 @@ real colvector _finegray_km_censor(
     real colvector byg_id,
     real colvector t0,
     | real scalar quiet,
-    real colvector w)
+    real colvector w,
+    real colvector floored)
 {
     real scalar n, g, nlev, n_trunc, n_trunc_tot, events_first
-    real colvector G, levels, sel
+    real colvector G, levels, sel, fl, flg
 
-    /* quiet suppresses the G-truncation note.  The fit REPORTS it once (the
-       data characteristic is the user's to act on); post-estimation commands
-       recompute G for the influence function and must NOT reprint it, or a
-       fit-time warning appears attributed to predict/cif.  Omitted => 0. */
+    /* quiet once suppressed the G-truncation count (see the end of this
+       function); it no longer changes anything.  floored (optional) receives
+       the per-row mask of floored step values. */
     if (args() < 7) quiet = 0
     if (args() < 8) w = J(rows(t), 1, 1)
     n_trunc_tot = 0
 
     n = rows(t)
     G = J(n, 1, 1)
+    fl = J(n, 1, 0)
 
     /* Geskus's events-then-censorings ordering whenever the fit has delayed
        entry ANYWHERE: decided on the whole sample so that every censoring
@@ -327,15 +341,17 @@ real colvector _finegray_km_censor(
             sel = selectindex(byg_id :== levels[g])
             G[sel] = _finegray_km_censor_single(t[sel], delta[sel],
                 censval, event_type[sel], t0[sel], n_trunc, w[sel],
-                events_first)
+                events_first, flg)
+            fl[sel] = flg
             n_trunc_tot = n_trunc_tot + n_trunc
         }
     }
     else {
         G = _finegray_km_censor_single(t, delta, censval, event_type, t0,
-            n_trunc, w, events_first)
+            n_trunc, w, events_first, fl)
         n_trunc_tot = n_trunc
     }
+    if (args() >= 9) floored = fl
 
     /* One count per sweep, over every stratum.  Truncation is a property of
        the censoring KM as a whole; the per-stratum breakdown is not something
@@ -348,10 +364,16 @@ real colvector _finegray_km_censor(
        a first-time user saw -- above even the command's own title.  The count
        now rides out in a local, the fit posts it as e(N_G_trunc), and
        _finegray_display prints it inside the header where the reader already
-       has the context to read it (and with the right singular/plural). */
-    if (!quiet) {
-        st_local("_fg_ntrunc", strofreal(n_trunc_tot, "%18.0g"))
-    }
+       has the context to read it (and with the right singular/plural).
+
+       After 1.3.7 this function no longer reports a count at all, and quiet is
+       kept only as the positional slot every caller passes.  Through 1.3.7
+       the local it set was the RAW number of floored rows, which includes
+       every terminal row of a KM whose last risk set is emptied by censoring
+       -- rows no weight reads -- so the note fired on the canonical webuse
+       hypoxia example (1 row) and on any administrative end of follow-up (55
+       rows after stset, exit(time 3)).  The engine takes the floored mask
+       instead and posts the CONSULTED count (_finegray_gfloor_consulted). */
 
     return(G)
 }
@@ -1625,6 +1647,167 @@ void _finegray_weight_diag(
        assignment is rejected with r(198)), and any name that IS accepted could
        collide with one the user already set. */
     st_local("_fg_warnstrata", warnstr)
+}
+
+/* Number of observations whose inverse-probability weight CONSULTS a
+   censoring survivor that _finegray_km_censor_single floored at 1e-10 -- the
+   count the fit posts as e(N_G_trunc) (changed after 1.3.7).
+
+   Through 1.3.7 the fit posted every floored row instead.  G is floored where
+   the censoring KM reaches zero, which happens whenever a KM's last risk set
+   is emptied by censoring: the censored rows at an administrative end of
+   follow-up, or the single last censored subject of webuse hypoxia.  Those
+   rows are never read, because every weight reads G only as the LEFT LIMIT
+   G(u-) at some later u (_finegray_G_at_times), and within that KM's sample
+   nothing is observed after its last time.  The note then told users that
+   weights "rest on almost no censoring information" on data where no weight
+   touches the floor.
+
+   Which G evaluations a weight consults, read off the scans themselves:
+
+   one weight cell, or several without delayed entry (_finegray_loglik and
+   the score, residual, psi and baseline scans that share its layout):
+     - an at-risk subject carries weight 1; no G is read;
+     - a competing-event subject i in weight group g, retained by a cause
+       event at t_k > X_i IN ITS OWN bstrata() STRATUM, carries
+       A_g(t_k-) / A_g(X_i-): the numerator is Gt[idx, g] multiplied by the
+       group's backward sum raw_bwd[g], which is nonzero only once such an
+       i has exited, and the denominator is Gminus[i].
+   several weight cells under delayed entry (ZZF eq. 7,
+   _finegray_loglik_zzf_strat and its score/residual/baseline twins):
+     - an at-risk subject i at a cause time t_k in (t0_i, X_i] carries
+       Apool(t_k-) / A_g(t_k-): its own group's denominator Aden[idx, g]
+       (read only for groups with riskn[g] > 0) and the pooled stabilizer;
+     - a retained competing-event subject carries Apool(t_k-) / A_g(X_i-).
+   Apool is built from the POOLED censoring KM, whose floor is checked here
+   too (fpool).  The H factor never floors; its zeros are the positivity
+   check's business, and kappa never enters a floor.
+
+   Consulted G values are therefore evaluated exactly as the weights evaluate
+   them: the floor MASK is pushed through the same _finegray_G_at_times
+   lookup that builds A, so an entry here is "the G this weight reads was a
+   floored one", with no separate reasoning about where a KM ends.  The count
+   is per OBSERVATION (an observation whose weight consults a floored value at
+   one or more cause times counts once), weighted by w under fweights so that
+   a fit on [fw = w] reports what the same fit on the expanded data reports.
+   It never enters the estimates. */
+real scalar _finegray_gfloor_consulted(
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    real colvector floored,
+    real colvector byg_id,
+    real colvector t0,
+    real colvector tg_id,
+    real scalar use_pooled,
+    real colvector bsraw,
+    real colvector w)
+{
+    real scalar n, i, r, kk, K, nc, m, a, b, cnt, hit, nk
+    real colvector is_cause, is_compete, jidx, jc, ju, cidx, bslev, bscode
+    real colvector ct, crow, fpool, sel, rows_k, one, Pp
+    real matrix FL, FLp, P
+
+    n = rows(t)
+    if (n == 0) return(0)
+    if (sum(floored) == 0 & !use_pooled) return(0)
+
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    is_compete = (event_type :!= cause) :& (event_type :!= censval) :&
+        (delta :== 1)
+
+    /* FL[i, c] = 1 when G_c(t_i-), as the weight lookup reads it, is a floored
+       value.  The lookup starts every stratum at 1 before its first time, so
+       it is fed the complement (1 = not floored) and flipped back. */
+    FL = 1 :- _finegray_G_at_times(t, 1 :- floored, byg_id, t)
+    nc = cols(FL)
+    _finegray_joint_setup(byg_id, tg_id, jidx, jc, ju)
+    cidx = jc[jidx]
+
+    if (use_pooled) {
+        one = J(n, 1, 1)
+        (void) _finegray_km_censor(t, delta, censval, event_type, one, t0, 1,
+            one, fpool)
+        FLp = 1 :- _finegray_G_at_times(t, 1 :- fpool, one, t)
+    }
+    else FLp = J(n, 1, 0)
+
+    _finegray_bs_setup(bsraw, bslev, bscode, K)
+    if (K < 1) {
+        K = 1
+        bscode = J(n, 1, 1)
+    }
+
+    cnt = 0
+    for (kk = 1; kk <= K; kk++) {
+        /* Distinct cause-event times of this baseline stratum, ascending, with
+           one representative row each (every row at a time reads the same G),
+           and prefix counts of floored reads over them: P[m + 1, c] is the
+           number of the first m cause times at which group c's G is floored,
+           Pp the same for the pooled stabilizer. */
+        sel = selectindex(is_cause :& (bscode :== kk))
+        if (length(sel) == 0) continue
+        sel = sel[order((t[sel], sel), (1, 2))]
+        ct = t[sel[1]]
+        crow = sel[1]
+        for (m = 2; m <= length(sel); m++) {
+            if (t[sel[m]] == ct[rows(ct)]) continue
+            ct = ct \ t[sel[m]]
+            crow = crow \ sel[m]
+        }
+        nk = rows(ct)
+        P = J(nk + 1, nc, 0)
+        Pp = J(nk + 1, 1, 0)
+        for (m = 1; m <= nk; m++) {
+            P[m + 1, .] = P[m, .] + FL[crow[m], .]
+            Pp[m + 1] = Pp[m] + FLp[crow[m]]
+        }
+
+        rows_k = selectindex(bscode :== kk)
+        for (r = 1; r <= length(rows_k); r++) {
+            i = rows_k[r]
+            /* a = #{cause times <= X_i}, b = #{cause times <= t0_i} */
+            a = _finegray_n_le(ct, t[i])
+            hit = 0
+            if (is_compete[i] & a < nk) {
+                /* retained: the denominator G(X_i-) and every later numerator */
+                if (FL[i, cidx[i]]) hit = 1
+                if (use_pooled) {
+                    if (Pp[nk + 1] - Pp[a + 1] > 0) hit = 1
+                }
+                else {
+                    if (P[nk + 1, cidx[i]] - P[a + 1, cidx[i]] > 0) hit = 1
+                }
+            }
+            if (use_pooled & !hit) {
+                /* at risk over (t0_i, X_i]: own-group denominator, stabilizer */
+                b = _finegray_n_le(ct, t0[i])
+                if (a > b) {
+                    if (P[a + 1, cidx[i]] - P[b + 1, cidx[i]] > 0) hit = 1
+                    if (Pp[a + 1] - Pp[b + 1] > 0) hit = 1
+                }
+            }
+            if (hit) cnt = cnt + w[i]
+        }
+    }
+    return(cnt)
+}
+
+/* Number of entries of the ascending vector v that are <= x. */
+real scalar _finegray_n_le(real colvector v, real scalar x)
+{
+    real scalar lo, hi, mid
+
+    lo = 1
+    hi = rows(v)
+    while (lo <= hi) {
+        mid = floor((lo + hi) / 2)
+        if (v[mid] <= x) lo = mid + 1
+        else hi = mid - 1
+    }
+    return(lo - 1)
 }
 
 /* Canonical stratified ZZF equation (7): pooled A(t) stabilizer,
@@ -4729,7 +4912,7 @@ void _finegray_engine(
     | string scalar w_str,
     real scalar wtype)
 {
-    real colvector t, delta, event_type, G, byg_id, t0, tg_id, w
+    real colvector t, delta, event_type, G, byg_id, t0, tg_id, w, gfloored
     real scalar nadj
     real matrix Z, V, bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
@@ -4865,10 +5048,14 @@ void _finegray_engine(
        see the sampling restriction in the methods help. Replicated under
        fweights, where a subject carrying w copies IS w subjects. */
     if (wtype == 2) {
-        G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 0, w)
+        G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 0,
+            w, gfloored)
     }
     else {
-        G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0)
+        /* J(n, 1, 1) is the omitted-w default, spelled out so the floored
+           mask can be requested: G is bit-identical to the 6-argument call. */
+        G = _finegray_km_censor(t, delta, censval, event_type, byg_id, t0, 0,
+            J(n, 1, 1), gfloored)
     }
 
     /* The weight design is a function of the data, never of beta.  Prepare one
@@ -5179,6 +5366,13 @@ void _finegray_engine(
        diagnostics above: a missing e(N_lt_prehole) must mean "the engine did
        not run", never "none". */
     st_matrix("_finegray_nprehole", sum(weight_nprehole))
+
+    /* e(N_G_trunc): observations whose weight consults a floored censoring
+       survivor, NOT every floored row (changed after 1.3.7; see
+       _finegray_gfloor_consulted).  Replicated under fweights, like e(N). */
+    st_local("_fg_ntrunc", strofreal(_finegray_gfloor_consulted(t, delta,
+        cause, censval, event_type, gfloored, byg_id, t0, tg_id,
+        weight_pooled, bsraw, (wtype == 2 ? w : J(n, 1, 1))), "%18.0g"))
 
     /* Post results to Stata matrices */
     st_matrix("_finegray_b", beta')

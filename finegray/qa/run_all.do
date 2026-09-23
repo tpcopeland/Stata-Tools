@@ -66,6 +66,7 @@ local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v1
     test_finegray_variance.do test_finegray_bootstrap.do ///
     test_finegray_postest.do test_finegray_zzf.do ///
     test_finegray_cif_over.do test_finegray_margins.do ///
+    test_finegray_cif_graph.do ///
     test_finegray_fvgrammar.do test_finegray_at_profile.do ///
     test_finegray_fg03_diagnostic.do ///
     test_finegray_fg06_vce.do test_finegray_fg07_options.do ///
@@ -125,7 +126,7 @@ local gates_files validation_finegray_zzf_recovery.do ///
 local adversarial_files test_finegray_adversarial_v130.do ///
     test_finegray_adversarial_v120.do
 
-local full_files `core_files' `adversarial_files' `python_files'
+local full_files `core_files' `adversarial_files' `python_files' validation_variance_default_mc.do
 
 local all_files ``lane'_files'
 

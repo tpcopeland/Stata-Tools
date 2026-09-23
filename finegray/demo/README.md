@@ -7,7 +7,7 @@ stata-mp -b do finegray/demo/demo_finegray.do
 stata-mp -b do demo_finegray.do
 ```
 
-The demo prefers the `tc_schemes` graph scheme (`plotplainblind`), a sibling Stata-Tools package. If `tc_schemes/` is not present in the checkout it falls back to `s2color`; only the graph cosmetics differ and the numeric demo is unaffected.
+Graphs use Stata's built-in `sj` scheme with a white outer region and an unboxed legend, the style of the package's Stata Journal figures. The results workbook is built with `table1_tc`, `regtab` and `puttab` from the sibling Stata-Tools package `tabtools`, which needs Stata 17; without `tabtools` or on Stata 16 the workbook is skipped with a note and the rest of the demo still runs.
 
 The demo uses three of Stata's example datasets: `hypoxia` for the main workflow, `hiv_si` (the Amsterdam Cohort data of [ST] `stcrreg` example 4) for grouped cumulative-incidence curves, and `pneumonia` ([ST] `stcrreg` example 5) for the internal time-varying covariate refusal.
 
@@ -27,7 +27,7 @@ It loads the local package and demonstrates the complete public workflow:
 
 Numeric claims in the demo are gated rather than narrated. Agreement with `stcrreg` on `hypoxia` (coefficients, robust standard errors, log pseudo-likelihood) and on `hiv_si`, the `tvc()`/`texp()` parameterization mapping, and the split-record reduction against the single-record fit are each recomputed and asserted, so a regression fails the run instead of printing a wrong number.
 
-The generated documentation artifacts are `finegray_cif.png` and `finegray_bstrata_cif.png`. The second overlays one CIF curve per baseline stratum in a single `finegray_cif, over(pelnode)` call after a `bstrata(pelnode)` fit; each overlaid curve is that stratum's own `bstratum(#)` curve, and the stacked `r(table)` is checked for its column layout. The temporary CIF datasets written with `saving()` are checked for row count, bounds, and interval ordering, then removed.
+The generated documentation artifacts are `finegray_cif.png`, `finegray_bstrata_cif.png` and `finegray_results.xlsx`. The second figure overlays one CIF curve per baseline stratum in a single `finegray_cif, over(pelnode)` call after a `bstrata(pelnode)` fit, with `pelnode` value-labelled (in `hypoxia` it is 1 for negative or equivocal pelvic nodes, so 0 is node-positive) and the curves told apart through `plot#opts()` and `ci#opts()`; each overlaid curve is that stratum's own `bstratum(#)` curve, and the stacked `r(table)` is checked for its column layout. The workbook is written entirely with `tabtools` commands and holds five formatted sheets: `Table 1` (patient characteristics by pelvic node status, `table1_tc`), `SHR models` (four specifications side by side via `collect:` and `regtab`: SHR, 95% CI and p-value, observations and log pseudolikelihood), `CIF time grid` (yearly CIF with 95% limits, `puttab` from the `saving()` dataset), `PH diagnostic` (the `time(log)` residual-time correlations with labelled covariates, `puttab` from a frame), and `CIF by ccr5` (CIF at 2, 5 and 10 years per genotype on `hiv_si`, `puttab`). The demo reopens every sheet and fails if one is missing or empty. The temporary CIF datasets written with `saving()` are checked for row count, bounds, and interval ordering, then removed.
 
 ## Performance benchmarks
 

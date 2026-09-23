@@ -1,5 +1,4 @@
 {smcl}
-{* *! version 1.3.7  20sep2026}{...}
 {vieweralsosee "finegray" "help finegray"}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
@@ -43,6 +42,10 @@ cumulative incidence after {help finegray}
 {synopt :{opt l:evel(#)}}set confidence level; default is {cmd:c(level)}{p_end}
 {synopt :{opt sav:ing(filename[, replace])}}save the numeric estimates{p_end}
 {synopt :{opt nograph}}suppress the graph{p_end}
+{synopt :{opt plotop:ts(line_options)}}style every CIF line{p_end}
+{synopt :{opt plot#opts(line_options)}}style the line of curve {it:#}{p_end}
+{synopt :{opt ciop:ts(area_options)}}style every confidence band; requires {opt ci}{p_end}
+{synopt :{opt ci#opts(area_options)}}style the band of curve {it:#}; requires {opt ci}{p_end}
 {synopt :{it:twoway_options}}any options documented in {help twoway_options}{p_end}
 {synoptline}
 {p 4 6 2}{cmd:finegray_cif} is for use after {helpb finegray}; see
@@ -65,7 +68,8 @@ most 401 points when the baseline is dense; use {opt timepoints()} for an exact
 grid. With {opt attime()} it reports the CIF at specific horizons
 instead. {opt over(varname)} draws one curve per level of a model variable or
 baseline stratum; see {help finegray_cif##over:Overlaid curves}. The covariate profile is always
-reported in an {cmd:at:} line and graph note. The curve extends to the end of
+reported in an {cmd:at:} line above the results and in {cmd:r(at)}; the graph
+carries no note unless you add one with {cmd:note()}. The curve extends to the end of
 follow-up when its grid reaches the last cause-event time (the CIF is flat past
 it), and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
@@ -260,15 +264,60 @@ supplied).
 {phang}
 {opt nograph} suppresses the graph (useful with {opt saving()}).
 
+{marker plotopts}{...}
+{phang}
+{opt plotopts(line_options)} applies {it:line_options} (see
+{helpb line_options}), such as {cmd:lpattern()}, {cmd:lcolor()}, or
+{cmd:lwidth()}, to every CIF line. The built-in {cmd:lwidth(medthick)} comes
+first, so these options override it. For example, {cmd:plotopts(lpattern(solid))}
+makes the curve solid under a scheme, such as {cmd:sj}, whose line style is
+dashed.
+
+{phang}
+{opt plot#opts(line_options)} applies {it:line_options} to the line of curve
+{it:#} only, after anything in {opt plotopts()}. Curves are numbered 1, 2,
+and so on, in the order of the levels in {cmd:r(levels)}; without {opt over()}
+there is one curve, so only {cmd:plot1opts()} is valid. A {it:#} larger than the number of
+curves is refused with {cmd:r(198)}, as is repeating any of these options.
+
+{phang}
+{opt ciopts(area_options)} applies {it:area_options} (see
+{helpb area_options}), such as {cmd:color()}, {cmd:fcolor()}, or
+{cmd:lcolor()}, to every confidence band. The built-in
+{cmd:color(%30) lwidth(none)} comes first, so these options override it; for
+example, {cmd:ciopts(color(navy%20))} draws a navy band at 20% opacity. Requires
+{opt ci}.
+
+{phang}
+{opt ci#opts(area_options)} applies {it:area_options} to the band of curve
+{it:#} only, after anything in {opt ciopts()}. The numbering and the range rule
+are those of {opt plot#opts()}. Requires {opt ci}.
+
 {phang}
 {it:twoway_options} are any of the options documented in {help twoway_options},
-for example {cmd:title()}, {cmd:xtitle()}, or {cmd:scheme()}. These pass through
-to the CIF plot and override the defaults. In {opt attime()} mode no graph is
-drawn, so these options are ignored with a note. The legend defaults to a
-single
-row; because repeated {cmd:legend()} options merge, you can adjust or suppress
-it from here, for example {cmd:legend(off)}, {cmd:legend(pos(6))}, or
-{cmd:legend(rows(2))}.
+for example {cmd:title()}, {cmd:xtitle()}, {cmd:note()}, or
+{cmd:scheme()}. These pass through to the CIF plot and override the defaults. In
+{opt attime()} mode no graph is drawn, so these options, and the plot options
+above, are ignored with a note.
+
+{pmore}
+The default graph has no note; add one with, for example,
+{cmd:note("at: ccr5=0")}. The legend defaults to a single row; because repeated
+{cmd:legend()} options merge, you can adjust or suppress it from here, for
+example {cmd:legend(off)}, {cmd:legend(pos(6))}, or {cmd:legend(rows(2))}. With
+{opt over()} and {opt ci}, the legend names the curves and states the band
+level in one line of text inside the legend box ({cmd:Shaded: 95% CI}), which
+{cmd:legend(note(""))} removes.
+
+{pmore}
+The y-axis labels have a leading zero (0.1, not .1). The number of decimals
+follows the tick step: {cmd:%3.1f} for steps of 0.1 or 0.2, {cmd:%4.2f} for
+steps of 0.05, 0.02, or 0.25, and in general as many decimals as the ticks
+need, at least one. The step is the one {cmd:twoway} chooses, including under
+your own {cmd:ylabel()} or {cmd:yscale()}, so {cmd:ylabel(0(.05).3)} gets
+{cmd:%4.2f} labels. A {cmd:format()} in your own {cmd:ylabel()}, for example
+{cmd:ylabel(, format(%5.3f))}, replaces the default. Ticks that would need more
+than six decimals keep Stata's default format.
 
 
 {marker remarks}{...}
@@ -330,6 +379,13 @@ a legend. Here on {cmd:webuse hiv_si}, the data of {bf:[ST] stcrreg} example 4.
 {phang2}{cmd:. finegray ccr5, compete(status) cause(2)}{p_end}
 {phang2}{cmd:. finegray_cif, over(ccr5) attime(2 5 10) ci}{p_end}
 {phang2}{cmd:. finegray_cif, over(ccr5) ci}{p_end}
+
+{pstd}
+Solid lines in one color for every curve, the second curve dashed with a
+lighter band, and the profile recorded in a note{p_end}
+{phang2}{cmd:. finegray_cif, over(ccr5) ci plotopts(lpattern(solid) lcolor(navy)) ciopts(color(navy%20))}{p_end}
+{phang2}{cmd:. finegray_cif, over(ccr5) ci plot2opts(lpattern(dash)) ci2opts(color(%15))}{p_end}
+{phang2}{cmd:. finegray_cif, at(ccr5=0) ci scheme(sj) plotopts(lpattern(solid)) note("at: ccr5=0")}{p_end}
 
 {pstd}
 The same on a factor variable with an interaction, holding the other covariate
