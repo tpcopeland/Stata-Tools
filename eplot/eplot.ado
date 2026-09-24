@@ -1,4 +1,4 @@
-*! eplot Version 1.4.0  2026/09/07
+*! eplot Version 1.4.1  2026/09/24
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -435,6 +435,7 @@ program define _eplot_data, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VGap(real 0.15) ///
             STARs ///
             PValue(varname numeric) ///
             SIGColors ///
@@ -945,8 +946,9 @@ program define _eplot_data, rclass
             + ", " + string(`uci', "`vformat'") + ")" + `_dm_star' ///
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
-        local val_xpos = `xmax' + 0.15 * `xrange'
-        if "`logscale'" != "" local val_xpos = `xmax' * exp(0.15 * `lnrange')
+        _eplot_value_anchor, min(`xmin') max(`xmax') null(`null') gap(`vgap') ///
+            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+        local val_xpos = `s(xpos)'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
         _eplot_value_margin `val_text', header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -1418,6 +1420,7 @@ program define _eplot_estimates, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VGap(real 0.15) ///
             STARs ///
             SIGColors ///
             SIGColor(string) ///
@@ -1536,6 +1539,7 @@ program define _eplot_estimates, rclass
     if `n_models' > 1 {
         local _mm_invalid ""
         if `_values_supplied' local _mm_invalid "`_mm_invalid' values"
+        if `vgap' != 0.15 local _mm_invalid "`_mm_invalid' vgap()"
         if `_stars_supplied' local _mm_invalid "`_mm_invalid' stars"
         if `_sigcolors_supplied' local _mm_invalid "`_mm_invalid' sigcolors"
         if `_sigcolor_supplied' local _mm_invalid "`_mm_invalid' sigcolor()"
@@ -2167,8 +2171,9 @@ program define _eplot_estimates, rclass
             `_star_suf' ///
             if _rowtype == 1 & !missing(es)
 
-        local val_xpos = `data_xmax' + 0.15 * `data_range'
-        if "`logscale'" != "" local val_xpos = `data_xmax' * exp(0.15 * `lnrange')
+        _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
+            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+        local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -2635,6 +2640,7 @@ program define _eplot_matrix, rclass
             EFFect(string) ///
             VALues ///
             VFormat(string) ///
+            VGap(real 0.15) ///
             SORT ///
             ORDer(string asis) ///
             SIGColors ///
@@ -2956,8 +2962,9 @@ program define _eplot_matrix, rclass
             + ", " + string(uci, "`vformat'") + ")" ///
             `_star_suf'
 
-        local val_xpos = `data_xmax' + 0.15 * `data_range'
-        if "`logscale'" != "" local val_xpos = `data_xmax' * exp(0.15 * `lnrange')
+        _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
+            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+        local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos'
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
@@ -3627,6 +3634,62 @@ program define _eplot_value_margin, sclass
 
         sreturn clear
         sreturn local right_margin "`right_margin'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_value_anchor
+program define _eplot_value_anchor, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, MIN(real) MAX(real) NULL(real) GAP(real) [AXISopts(string asis) NONULL LOGScale]
+
+        if missing(`gap') | `gap' < 0 {
+            display as error "vgap() must be nonmissing and nonnegative"
+            exit 198
+        }
+        // The values column starts right of everything drawn across the
+        // effect axis: the widest interval, the null line when it is drawn,
+        // and the last labelled tick. Anchoring on the interval alone put the
+        // column on the null line whenever every interval sat left of it.
+        local _right = `max'
+        if "`nonull'" == "" & `null' > `_right' local _right = `null'
+        gettoken _tickspec : axisopts, parse(",")
+        local _tickspec = subinstr(`"`_tickspec'"', `"""', " ", .)
+        local _tickmax .
+        capture numlist `"`_tickspec'"'
+        if _rc == 0 {
+            foreach _t of numlist `r(numlist)' {
+                if missing(`_tickmax') | `_t' > `_tickmax' local _tickmax = `_t'
+            }
+        }
+        else {
+            foreach _t of local _tickspec {
+                capture confirm number `_t'
+                if _rc == 0 {
+                    if missing(`_tickmax') | `_t' > `_tickmax' local _tickmax = `_t'
+                }
+            }
+        }
+        if !missing(`_tickmax') & `_tickmax' > `_right' local _right = `_tickmax'
+
+        if "`logscale'" != "" {
+            local _span = ln(`_right' / `min')
+            if missing(`_span') | `_span' <= 0 local _span = ln(2)
+            local _xpos = `_right' * exp(`gap' * `_span')
+        }
+        else {
+            local _span = `_right' - `min'
+            if missing(`_span') | `_span' <= 0 local _span = max(abs(`_right'), 1)
+            local _xpos = `_right' + `gap' * `_span'
+        }
+
+        sreturn clear
+        sreturn local xpos = string(`_xpos', "%18.0g")
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
