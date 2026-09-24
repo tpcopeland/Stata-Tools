@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  07sep2026}{...}
+{* *! version 1.4.1  24sep2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -97,6 +97,7 @@ Plot from a graph-ready frame:
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
 {synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
+{synopt:{opt vg:ap(#)}}gap before the values column, as a fraction of the axis span; default is 0.15{p_end}
 {synopt:{opt star:s}}add significance stars to values{p_end}
 {synopt:{opt sigc:olors}}color markers by CI significance{p_end}
 {synopt:{opt sigc:olor(color)}}significant-effect color{p_end}
@@ -495,6 +496,13 @@ showing the point estimate and confidence interval (e.g., "0.85 (0.72,
 {cmd:%5.2f} (or {cmd:%5.}{it:dp}{cmd:f} when {opt dp()} is specified). Example: {cmd:vformat(%6.3f)}. {cmd:eplot}
 automatically widens the values column margin when formatted text is longer
 than the default layout.
+
+{phang}
+{opt vgap(#)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the gap between the
+effect axis and the {opt values} column as a fraction of the axis span (of its
+log span under {opt logscale}); default is 0.15. The column starts to the right of
+the widest interval, the null line when it is drawn and the last labelled tick,
+so no reference line or tick label runs through it.
 
 {phang}
 {opt stars} {bf:[D,F]} {bf:[E single-model]} {bf:[M 2-col]}
@@ -950,7 +958,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.0, 07sep2026{p_end}
+{pstd}Version 1.4.1, 24sep2026{p_end}
 
 
 {marker alsosee}{...}

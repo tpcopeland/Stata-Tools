@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.4.0** | 2026-09-07
+**Version 1.4.1** | 2026-09-24
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -302,6 +302,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.1** (2026-09-24): The `values` column now starts to the right of the null line and the last labelled tick as well as the widest interval; when every interval lay left of the null it had been drawn on the null line. Added `vgap()` to set the gap before the column.
 - **1.4.0** (2026-09-07): Added `logscale` for a logarithmic effect axis. Range padding is multiplicative and ticks sit on a decade lattice, so the padded minimum of an `eform` range no longer falls to zero or below and collapses the plot; `null()` defaults to 1 under `logscale`, and non-positive values, `null()`, or `xline()` positions now exit with `r(198)`. Passing `xscale()` or `yscale()` through to `twoway` also exits with `r(198)` instead of silently competing with the axis `eplot` builds.
 - **1.3.1** (2026-09-06): Made explicitly supplied single-model presentation options fail with `r(198)` in multi-model estimates instead of being ignored, replaced the undocumented `_natscale` dependency with package-owned 1/2/5 effect-axis tick scaling, and added focused regressions for both contracts.
 - **1.3.0** (2026-09-02): Applied `keep()`, `drop()`, and `noconstant` in data and frame modes, where they had been parsed and discarded; made `coeflabels()` compose with `order()`, `groups()`, and `headers()` by keying selection, ordering, and grouping on source names in every mode; made `noci` suppress pooled-diamond geometry; made the default multi-model palette cycle instead of falling back to navy from model nine; reported rather than silently discarding single-model-only presentation options in multi-model estimates; validated `dp()`, `rescale()`, `null()`, `boxscale()`, and weighted-marker weights up front; and documented `matrix()`, frame-mode `if`/`in`, the palette cycle, and the mode scope of significance colors.
