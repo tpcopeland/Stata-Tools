@@ -1,4 +1,4 @@
-*! regtab Version 2.1.9  2026/09/25
+*! regtab Version 2.1.10  2026/09/25
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -254,49 +254,30 @@ if `"`markdown'"' != "" {
 	}
 }
 
-* Auto-detect coefficient label from model type
+* Auto-detect coefficient label from the ambient estimates. This is only the
+* fallback for a collection without per-model metadata; the per-model rule in
+* _regtab_scale below overrides it whenever metadata exists. Without metadata
+* regtab cannot exponentiate the collected values, so the label must name the
+* scale Stata displayed: a ratio family shown as coefficients is "Coef.".
 if "`coef'" == "" {
-	local _ecmd2 `"`e(cmd2)'"'
 	local _ecmd `"`e(cmd)'"'
-	if "`_ecmd2'" != "" local _ecmd "`_ecmd2'"
-	if inlist("`_ecmd'", "logit", "logistic", "melogit", "meoprobit", "ologit") {
-		local coef "OR"
-	}
-	else if inlist("`_ecmd'", "stcox", "mestreg", "mecloglog") {
-		local coef "HR"
-	}
-	else if inlist("`_ecmd'", "poisson", "mepoisson", "nbreg", "menbreg", "glm") {
-		local coef "IRR"
-	}
-	else if "`_ecmd'" == "mlogit" {
-		local coef "RRR"
-	}
-	else if inlist("`_ecmd'", "finegray", "stcrreg") {
-		local coef "SHR"
-	}
-	else if inlist("`_ecmd'", "streg") {
-		if "`e(frm2)'" == "time" local coef "TR"
-		else local coef "AF"
-	}
-	else if inlist("`_ecmd'", "regress", "mixed", "xtreg") {
-		local coef "Coef."
-	}
-	* Refine glm auto-detection based on family
-	if "`coef'" == "IRR" & "`_ecmd'" == "glm" {
-		local _efam = lower("`e(varfunct)'")
-		local _elink = lower("`e(linkt)'")
-		if (strpos("`_efam'", "bernoulli") | strpos("`_efam'", "binomial")) & ///
-			strpos("`_elink'", "logit") local coef "OR"
-		else if strpos("`_efam'", "poisson") & ///
-			strpos("`_elink'", "log") local coef "IRR"
-		else local coef "Coef."
+	local _ecmdline = lower(`"`e(cmdline)'"')
+	* Without e(cmdline) the display options are unknown, so no rule is
+	* applied and the header stays unlabelled rather than guessed.
+	local _ecmdword ""
+	gettoken _ecmdword : _ecmdline
+	_regtab_optstr _eoptstr `"`_ecmdline'"'
+	_regtab_scale `"`_ecmdword'"' `"`_ecmd'"' `"`_eoptstr'"'
+	if `_rs_known' {
+		if `_rs_eform' local coef "Coef."
+		else local coef `"`_rs_coef'"'
 	}
 }
 
 * Auto-detect nointercept for exponentiated models (U4)
 * OR/HR/IRR/RRR models rarely report intercept; suppress unless user forces it
 if "`nointercept'" == "" & "`keepintercept'" == "" {
-	if inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR", "AF") {
+	if inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR", "AF", "RR", "exp(b)") {
 		local nointercept "nointercept"
 	}
 }
@@ -488,20 +469,20 @@ quietly{
             gettoken _cmdword _cmdrest : _cmdline_lc
             if "`_cmdword'" == "" local _cmdword `"`model_cmd_`m''"'
 
-            local _has_irr = regexm(`"`_cmdline_lc'"', "(^|[, ])irr([ ,]|$)")
-            local _has_or = regexm(`"`_cmdline_lc'"', "(^|[, ])or([ ,]|$)")
-            local _has_rrr = regexm(`"`_cmdline_lc'"', "(^|[, ])rrr([ ,]|$)")
-            local _has_eform = regexm(`"`_cmdline_lc'"', "(^|[, ])eform([ ,]|$)")
-            local _optstr ""
-            local _comma_pos = strpos(`"`_cmdline_lc'"', ",")
-            if `_comma_pos' > 0 {
-                local _optstr = lower(strtrim(substr(`"`_cmdline_lc'"', `_comma_pos' + 1, .)))
-            }
+            * Option text only: a covariate named "or", or a comma inside an
+            * if() expression, must never be read as a display option.
+            _regtab_optstr _optstr `"`_cmdline_lc'"'
 
-            local model_coef_`m' "Coef."
-            local model_null_`m' 0
-            local model_eform_`m' 0
-            local model_auto_noint_`m' 0
+            * Display scale: the estimate header, whether regtab must
+            * exponentiate the collected values to reach that scale, the null
+            * value for dimnonsig, and default intercept suppression. Shared
+            * with the ambient-e() fallback so both paths agree.
+            _regtab_scale `"`_cmdword'"' `"`model_cmd_`m''"' `"`_optstr'"'
+            local model_coef_`m' `"`_rs_coef'"'
+            local model_null_`m' = `_rs_null'
+            local model_eform_`m' = `_rs_eform'
+            local model_auto_noint_`m' = `_rs_noint'
+            local model_level_`m' = `_rs_level'
             local model_re_family_`m' "none"
             local model_is_gee_`m' 0
             * model_icc_undef = 1 means ICC is undefined for this model family
@@ -518,66 +499,18 @@ quietly{
                 local _any_gee 1
             }
 
-            if inlist("`_cmdword'", "logit", "ologit") {
-                local model_coef_`m' "OR"
-                local model_null_`m' 1
-                local model_eform_`m' = !`_has_or'
-                local model_auto_noint_`m' 1
-            }
-            else if "`_cmdword'" == "logistic" {
-                local model_coef_`m' "OR"
-                local model_null_`m' 1
-                local model_auto_noint_`m' 1
-            }
-            else if "`_cmdword'" == "melogit" {
-                local model_coef_`m' "OR"
-                local model_null_`m' 1
-                local model_eform_`m' = !`_has_or'
-                local model_auto_noint_`m' 1
+            if "`_cmdword'" == "melogit" {
                 local model_re_family_`m' "mor"
                 local model_icc_resid_`m' = c(pi)^2/3
             }
-            else if inlist("`_cmdword'", "poisson", "nbreg", "mepoisson", "menbreg") {
-                local model_coef_`m' "IRR"
-                local model_null_`m' 1
-                local model_eform_`m' = !`_has_irr'
-                local model_auto_noint_`m' 1
-                if inlist("`_cmdword'", "mepoisson", "menbreg") {
-                    local model_re_family_`m' "variance"
-                    local model_icc_undef_`m' 1
-                }
+            else if inlist("`_cmdword'", "mepoisson", "menbreg") {
+                local model_re_family_`m' "variance"
+                local model_icc_undef_`m' 1
             }
-            else if "`_cmdword'" == "mlogit" {
-                local model_coef_`m' "RRR"
-                local model_null_`m' 1
-                local model_eform_`m' = !`_has_rrr'
-                local model_auto_noint_`m' 1
+            else if inlist("`_cmdword'", "mlogit", "zip", "zinb", "churdle") {
                 local _has_multieq_estimator = 1
-            }
-            else if inlist("`_cmdword'", "zip", "zinb", "churdle") {
-                local model_auto_noint_`m' 1
-                local _has_multieq_estimator = 1
-            }
-            else if inlist("`_cmdword'", "finegray", "stcrreg") {
-                local model_coef_`m' "SHR"
-                local model_null_`m' 1
-                local model_auto_noint_`m' 1
-            }
-            else if inlist("`_cmdword'", "stcox") | "`model_cmd_`m''" == "cox" {
-                local model_coef_`m' "HR"
-                local model_null_`m' 1
-                local model_auto_noint_`m' 1
-            }
-            else if inlist("`_cmdword'", "streg") {
-                if regexm(`"`_optstr'"', "(^| )time( |$)") local model_coef_`m' "TR"
-                else local model_coef_`m' "AF"
-                local model_null_`m' 1
-                local model_auto_noint_`m' 1
             }
             else if inlist("`_cmdword'", "mestreg", "mecloglog") {
-                local model_coef_`m' "HR"
-                local model_null_`m' 1
-                local model_auto_noint_`m' 1
                 local model_re_family_`m' "mhr"
                 if "`_cmdword'" == "mecloglog" {
                     local model_icc_resid_`m' = c(pi)^2/6
@@ -630,33 +563,6 @@ quietly{
                     }
                 }
             }
-            else if "`_cmdword'" == "glm" {
-                local _glm_family ""
-                local _glm_link ""
-                if regexm(`"`_optstr'"', "family\(([a-z0-9_]+)") {
-                    local _glm_family = lower(regexs(1))
-                }
-                if regexm(`"`_optstr'"', "link\(([a-z0-9_]+)") {
-                    local _glm_link = lower(regexs(1))
-                }
-                if inlist("`_glm_family'", "bernoulli", "binomial") & ///
-                    inlist("`_glm_link'", "", "logit") {
-                    local model_coef_`m' "OR"
-                    local model_null_`m' 1
-                    local model_eform_`m' = !`_has_eform'
-                    local model_auto_noint_`m' 1
-                }
-                else if "`_glm_family'" == "poisson" & ///
-                    inlist("`_glm_link'", "", "log") {
-                    local model_coef_`m' "IRR"
-                    local model_null_`m' 1
-                    local model_eform_`m' = !`_has_eform'
-                    local model_auto_noint_`m' 1
-                }
-                else {
-                    local model_coef_`m' "Coef."
-                }
-            }
 
             if `m' == 1 {
                 local _shared_coef `"`model_coef_`m''"'
@@ -670,6 +576,23 @@ quietly{
             if "`model_re_family_`m''" != "none" {
                 if "`_re_family_seen'" == "" local _re_family_seen "`model_re_family_`m''"
                 else if "`model_re_family_`m''" != "`_re_family_seen'" local _re_family_mixed 1
+            }
+        }
+
+        * One CI header level labels every model. Models fit at different
+        * confidence levels would put a false "#% CI" over some columns (collect
+        * itself relabels them all with the first model's level), so refuse.
+        * A model without level() was fit at the session's set level.
+        local _lvl_first = .
+        forvalues m = 1/`_meta_models' {
+            local _lvl_m = `model_level_`m''
+            if `_lvl_m' == -1 local _lvl_m = c(level)
+            if `m' == 1 local _lvl_first = `_lvl_m'
+            else if abs(`_lvl_m' - `_lvl_first') > 1e-8 {
+                noisily display as error "collected models use different confidence levels: " ///
+                    "`_lvl_first'% (model 1) and `_lvl_m'% (model `m')"
+                noisily display as error "refit the models with a common level(), or tabulate them in separate regtab calls"
+                exit 198
             }
         }
 
@@ -2132,7 +2055,7 @@ local _model_ix = 0
 forvalues i = 2(3)`=`last'+1' {
     local _model_ix = `_model_ix' + 1
     local _needs_eform = 0
-    local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR"), 1, 0)
+    local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "RRR", "SHR", "TR", "AF", "RR", "exp(b)"), 1, 0)
     if `_model_ix' <= `_meta_models' {
         local _needs_eform = `model_eform_`_model_ix''
         local _null = `model_null_`_model_ix''
@@ -2776,8 +2699,23 @@ else if "`coef'" == "OR" {
     local _methods_model "logistic regression"
 }
 else if "`coef'" == "HR" {
+    * HR headers come from stcox and from the hazard metric of streg,
+    * mestreg, and mecloglog; only the first is a Cox model.
     local _methods_coef "Hazard ratios"
     local _methods_model "Cox proportional hazards regression"
+    if `_meta_models' > 0 {
+        gettoken _methods_word : model_cmdline_1
+        if inlist("`_methods_word'", "streg", "mestreg") {
+            local _methods_model "parametric proportional hazards survival regression"
+        }
+        else if "`_methods_word'" == "mecloglog" {
+            local _methods_model "mixed-effects complementary log-log regression"
+        }
+    }
+}
+else if "`coef'" == "TR" {
+    local _methods_coef "Time ratios"
+    local _methods_model "accelerated failure-time survival regression"
 }
 else if "`coef'" == "IRR" {
     local _methods_coef "Incidence rate ratios"
@@ -3302,3 +3240,306 @@ if `"`_displayframe_build'"' != "" {
     if `_rc' exit `_rc'
 end
 *
+
+* =============================================================================
+* _regtab_optstr: display-option text of a collected command line
+* =============================================================================
+* Returns, in the caller's local <target>, the text after the option comma of
+* every ||-separated equation. A comma or || inside parentheses or a quoted
+* string is not a separator, so a comma in an if() expression cannot start the
+* option list, and nothing before the option comma (a covariate literally
+* named "or", say) is ever read as an option.
+capture program drop _regtab_optstr
+program define _regtab_optstr, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _ro_target 0 : 0
+		gettoken _ro_str 0 : 0
+		local _ro_len = strlen(`"`_ro_str'"')
+		local _ro_depth 0
+		local _ro_inq 0
+		local _ro_inopt 0
+		local _ro_start 0
+		local _ro_out ""
+		local _ro_i 1
+		while `_ro_i' <= `_ro_len' {
+			local _ro_step 1
+			* Character class by position, so a quote character never has to
+			* be held in a macro: 1 quote, 2 (, 3 ), 4 comma, 0 anything else.
+			local _ro_k = strpos(char(34) + "(),", ///
+				substr(`"`_ro_str'"', `_ro_i', 1))
+			if `_ro_inq' {
+				if `_ro_k' == 1 local _ro_inq 0
+			}
+			else if `_ro_k' == 1 local _ro_inq 1
+			else if `_ro_k' == 2 local ++_ro_depth
+			else if `_ro_k' == 3 & `_ro_depth' > 0 local --_ro_depth
+			else if `_ro_depth' == 0 & substr(`"`_ro_str'"', `_ro_i', 2) == "||" {
+				if `_ro_inopt' {
+					local _ro_out = `"`_ro_out' "' + ///
+						substr(`"`_ro_str'"', `_ro_start', `_ro_i' - `_ro_start')
+				}
+				local _ro_inopt 0
+				local _ro_step 2
+			}
+			else if `_ro_depth' == 0 & !`_ro_inopt' & `_ro_k' == 4 {
+				local _ro_inopt 1
+				local _ro_start = `_ro_i' + 1
+			}
+			local _ro_i = `_ro_i' + `_ro_step'
+		}
+		if `_ro_inopt' {
+			local _ro_out = `"`_ro_out' "' + substr(`"`_ro_str'"', `_ro_start', .)
+		}
+		local _ro_out = strtrim(`"`_ro_out'"')
+		c_local `_ro_target' `"`_ro_out'"'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_cmdopts: parse option text with the estimator's own abbreviations
+* =============================================================================
+* Usage: _regtab_cmdopts "<syntax option spec>" `"<option text>"'
+* Runs -syntax- on the option text so abbreviations resolve exactly as the
+* estimator resolves them (glm's EForm accepts ef/efo/efor/eform; Family() and
+* Link() accept f()/l()). Every declared option is returned in the caller as
+* local _ro_<name>, where <name> is the local -syntax- creates (noHR -> hr),
+* empty when the option is absent or the text cannot be parsed.
+capture program drop _regtab_cmdopts
+program define _regtab_cmdopts, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _ro_spec 0 : 0
+		gettoken _ro_text 0 : 0
+		local _ro_names ""
+		foreach _ro_w of local _ro_spec {
+			local _ro_nm = lower(regexr(`"`_ro_w'"', "\(.*$", ""))
+			if substr(`"`_ro_w'"', 1, 2) == "no" & ///
+				regexm(substr(`"`_ro_w'"', 3, 1), "[A-Z]") {
+				local _ro_nm = substr(`"`_ro_nm'"', 3, .)
+			}
+			local _ro_names `_ro_names' `_ro_nm'
+		}
+		local 0 `", `_ro_text'"'
+		capture syntax [, `_ro_spec' *]
+		local _ro_ok = (_rc == 0)
+		foreach _ro_nm of local _ro_names {
+			if !`_ro_ok' local `_ro_nm' ""
+			c_local _ro_`_ro_nm' `"``_ro_nm''"'
+		}
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_scale: display scale of one collected model
+* =============================================================================
+* Usage: _regtab_scale "<command word>" "<e(cmd)>" `"<option text>"'
+* Returns in the caller:
+*   _rs_coef   estimate header (OR, HR, IRR, RRR, SHR, TR, RR, exp(b), Coef.)
+*   _rs_eform  1 when the collected values are coefficients that regtab must
+*              exponentiate to reach _rs_coef
+*   _rs_null   null value on the displayed scale (1 for ratios, 0 otherwise)
+*   _rs_noint  1 when the intercept row is suppressed by default
+*   _rs_known  1 when the command has a dedicated rule
+*   _rs_level  confidence level requested with level(), or -1 when absent
+* Ratio families are always shown on the ratio scale: a fit displayed on the
+* coefficient scale (logit without or, stcox with nohr, logistic with coef,
+* streg in the time metric without tr) is exponentiated, and a fit Stata
+* already exponentiated (or, hr, tr, irr, eform) is left alone. The header
+* therefore always names the scale of the numbers printed under it.
+capture program drop _regtab_scale
+program define _regtab_scale, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _rs_word 0 : 0
+		gettoken _rs_ecmd 0 : 0
+		gettoken _rs_opt 0 : 0
+		local _rs_word = lower(`"`_rs_word'"')
+		local _rs_ecmd = lower(`"`_rs_ecmd'"')
+
+		local _c "Coef."
+		local _e 0
+		local _n 0
+		local _i 0
+		local _k 1
+
+		if inlist("`_rs_word'", "logit", "ologit", "melogit") {
+			_regtab_cmdopts "OR" `"`_rs_opt'"'
+			local _c "OR"
+			local _e = ("`_ro_or'" == "")
+			local _n 1
+			local _i 1
+		}
+		else if "`_rs_word'" == "logistic" {
+			_regtab_cmdopts "COEF" `"`_rs_opt'"'
+			local _c "OR"
+			local _e = ("`_ro_coef'" != "")
+			local _n 1
+			local _i 1
+		}
+		else if inlist("`_rs_word'", "poisson", "nbreg", "mepoisson", "menbreg") {
+			* poisson and nbreg accept ir; the mixed-effects forms need irr.
+			local _spec "IRr"
+			if inlist("`_rs_word'", "mepoisson", "menbreg") local _spec "IRR"
+			_regtab_cmdopts "`_spec'" `"`_rs_opt'"'
+			local _c "IRR"
+			local _e = ("`_ro_irr'" == "")
+			local _n 1
+			local _i 1
+		}
+		else if "`_rs_word'" == "mlogit" {
+			_regtab_cmdopts "RRr" `"`_rs_opt'"'
+			local _c "RRR"
+			local _e = ("`_ro_rrr'" == "")
+			local _n 1
+			local _i 1
+		}
+		else if inlist("`_rs_word'", "zip", "zinb", "churdle") {
+			local _i 1
+		}
+		else if inlist("`_rs_word'", "finegray", "stcrreg") {
+			_regtab_cmdopts "noSHR" `"`_rs_opt'"'
+			local _c "SHR"
+			local _e = ("`_ro_shr'" != "")
+			local _n 1
+			local _i 1
+		}
+		else if "`_rs_word'" == "stcox" | "`_rs_ecmd'" == "cox" {
+			_regtab_cmdopts "noHR" `"`_rs_opt'"'
+			local _c "HR"
+			local _e = ("`_ro_hr'" != "")
+			local _n 1
+			local _i 1
+		}
+		else if inlist("`_rs_word'", "streg", "mestreg") {
+			* Metric rules from streg.ado/mestreg.ado: exponential and Weibull
+			* fit in the log-hazard metric unless time (or, for streg, tr) is
+			* given; Gompertz is log-hazard only; lognormal, loglogistic and
+			* (generalized) gamma are log-time only. The hazard metric displays
+			* hazard ratios unless nohr; the time metric displays coefficients
+			* unless tr.
+			_regtab_cmdopts "TIme TRatio noHR Distribution(string)" `"`_rs_opt'"'
+			local _aft_opt = ("`_ro_time'`_ro_tratio'" != "")
+			if "`_rs_word'" == "mestreg" local _aft_opt = ("`_ro_time'" != "")
+			local _ph_capable 0
+			local _ph_only 0
+			if "`_rs_word'" == "streg" {
+				if regexm("`_rs_ecmd'", "^(ereg|weibull)") local _ph_capable 1
+				if regexm("`_rs_ecmd'", "^gompertz") local _ph_only 1
+			}
+			else {
+				gettoken _dist : _ro_distribution, parse(" ,")
+				local _dist = lower(`"`_dist'"')
+				local _dl = strlen(`"`_dist'"')
+				if `_dl' > 0 {
+					if `"`_dist'"' == substr("exponential", 1, `_dl') | ///
+						`"`_dist'"' == substr("weibull", 1, `_dl') local _ph_capable 1
+				}
+			}
+			local _hazard = `_ph_only' | (`_ph_capable' & !`_aft_opt')
+			if `_hazard' {
+				local _c "HR"
+				local _e = ("`_ro_hr'" != "")
+			}
+			else {
+				local _c "TR"
+				local _e = ("`_ro_tratio'" == "")
+			}
+			local _n 1
+			local _i 1
+		}
+		else if "`_rs_word'" == "mecloglog" {
+			_regtab_cmdopts "EFORM" `"`_rs_opt'"'
+			local _c "HR"
+			local _e = ("`_ro_eform'" == "")
+			local _n 1
+			local _i 1
+		}
+		else if "`_rs_word'" == "glm" {
+			* Family/link abbreviations follow glm.ado's MapFam and MapLink.
+			_regtab_cmdopts "EForm Family(string) Link(string)" `"`_rs_opt'"'
+			gettoken _fam : _ro_family
+			gettoken _lnk : _ro_link
+			local _fam = lower(`"`_fam'"')
+			local _lnk = lower(`"`_lnk'"')
+			local _fl = strlen(`"`_fam'"')
+			local _ll = strlen(`"`_lnk'"')
+			local _famc "other"
+			if `_fl' == 0 local _famc "gaussian"
+			else if `"`_fam'"' == substr("gaussian", 1, max(`_fl', 3)) | ///
+				`"`_fam'"' == substr("normal", 1, `_fl') local _famc "gaussian"
+			else if `"`_fam'"' == substr("binomial", 1, `_fl') | ///
+				`"`_fam'"' == substr("bernoulli", 1, `_fl') local _famc "binomial"
+			else if `"`_fam'"' == substr("poisson", 1, `_fl') local _famc "poisson"
+			else if `"`_fam'"' == substr("nbinomial", 1, max(2, `_fl')) local _famc "nbinomial"
+			local _lnkc "other"
+			if `_ll' == 0 {
+				if "`_famc'" == "binomial" local _lnkc "logit"
+				else if inlist("`_famc'", "poisson", "nbinomial") local _lnkc "log"
+				else if "`_famc'" == "gaussian" local _lnkc "identity"
+			}
+			else if `"`_lnk'"' == substr("identity", 1, `_ll') local _lnkc "identity"
+			else if `"`_lnk'"' == substr("reciprocal", 1, `_ll') local _lnkc "other"
+			else if `"`_lnk'"' == "log" local _lnkc "log"
+			else if `"`_lnk'"' == substr("logit", 1, `_ll') local _lnkc "logit"
+			local _eopt = ("`_ro_eform'" != "")
+			if "`_famc'" == "binomial" & "`_lnkc'" == "logit" {
+				local _c "OR"
+				local _e = !`_eopt'
+				local _n 1
+				local _i 1
+			}
+			else if "`_famc'" == "poisson" & "`_lnkc'" == "log" {
+				local _c "IRR"
+				local _e = !`_eopt'
+				local _n 1
+				local _i 1
+			}
+			else if `_eopt' {
+				* eform on any other family/link: glm already reports exp(b);
+				* name it the way glm's own table does.
+				local _c "exp(b)"
+				if "`_famc'" == "binomial" & "`_lnkc'" == "log" local _c "RR"
+				if "`_famc'" == "nbinomial" & "`_lnkc'" == "log" local _c "IRR"
+				local _n 1
+				local _i 1
+			}
+		}
+		else if !inlist("`_rs_word'", "regress", "mixed", "xtreg") {
+			local _k 0
+		}
+
+		* level(): glm and the multilevel families also take link(), so their
+		* level() needs two letters; every other supported estimator takes l().
+		local _lspec "Level(string)"
+		if inlist("`_rs_word'", "glm", "meglm", "mestreg") local _lspec "LEvel(string)"
+		_regtab_cmdopts "`_lspec'" `"`_rs_opt'"'
+		local _lv = -1
+		if `"`_ro_level'"' != "" {
+			local _lv = real(`"`_ro_level'"')
+			if missing(`_lv') local _lv = -1
+		}
+
+		c_local _rs_coef `"`_c'"'
+		c_local _rs_eform `_e'
+		c_local _rs_null `_n'
+		c_local _rs_noint `_i'
+		c_local _rs_known `_k'
+		c_local _rs_level `_lv'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end

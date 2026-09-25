@@ -109,14 +109,26 @@ This is designed for the common manuscript workflow:
 {bf:3.} run {cmd:hrcomptab} once to create the final Table 2-style sheet{p_end}
 
 {pstd}
-The command assumes the first indented category row within each {cmd:stratetab}
-section is the reference category. Those rows receive {cmd:reflabel()} in every
-effect column, and the selected {cmd:regtab} rows are mapped only to the
-remaining non-reference rows.
+Selected {cmd:regtab} rows are consumed section by section in scaffold order: a
+{cmd:stratetab} section with {it:k} categories takes the next {it:k}-1 selected
+rows, so the total number of selected model rows must equal the number of
+categories minus one per section. Within a section, each selected row is placed
+on the category whose label matches the model row's label (ignoring case and
+surrounding spaces), never by position, so the selection order does not
+matter. The one category left without an estimate is the reference and receives
+{cmd:reflabel()} in every effect column. For factor-variable rows, that category
+must be the model's own base level, so a model fitted with {cmd:ib2.}{it:var}
+shows its reference on the second category.
 
 {pstd}
-The total number of selected model rows must therefore equal the number of
-non-reference rows in the {cmd:stratetab} scaffold.
+Anything that cannot be placed exactly is an error, not a guess: selecting a
+factor heading row or the model's reference (or omitted) row, a factor-level
+label that matches no category of its section, two rows for one category, or a
+model whose base level differs from the category left unfilled. The single
+positional case is a plain, non-factor row, such as a 0/1 indicator, whose label
+matches no category of a two-category section: it fills the second category, so
+the indicator must be coded 1 for that category. Give factor variables the same
+value labels used for {cmd:strate} so their levels can be matched.
 
 {pstd}
 {cmd:hrcomptab} expects the rate frame to come from {cmd:stratetab} without
@@ -155,7 +167,8 @@ structure becomes the final table structure.
 {phang}
 {opt modelframes(framelist)} specifies the {cmd:regtab} source frames, in the
 same logical order as the sections in {it:rateframe}. The selected rows are
-stacked in frame order and injected into the non-reference rows of the scaffold.
+stacked in frame order, consumed section by section, and placed within each
+section by label; see {it:Description}.
 
 {phang}
 {opt rows(string)} specifies the rows to pull from each model frame. Use one
@@ -167,7 +180,8 @@ and column-header row).
 Important: if a factor-variable block produces a heading row and a reference
 row, those rows count in the numbering. For example, a frame with rows
 {cmd:1 = "Dose category"}, {cmd:2 = "None"}, {cmd:3 = "Low"}, {cmd:4 = "High"}
-would use {cmd:rows(... \ 3/4)} to select the two non-reference dose rows.
+would use {cmd:rows(... \ 3/4)} to select the two non-reference dose
+rows. Selecting the heading row 1 or the reference row 2 is an error.
 
 {phang}
 {opt rown:ames(string)} is an alternative to {opt rows()} that
@@ -261,7 +275,9 @@ a session default was set with {cmd:tabtools set fontsize}.{p_end}
 {opt title(string)} table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}
 
 {phang}
-{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}{p_end}
+{opt xlsx(filename)} Excel workbook; filename must end in {cmd:.xlsx}, in any
+case. When the named {opt sheet()} already exists under a different case, it is
+replaced and {cmd:r(sheet)} returns the workbook's spelling{p_end}
 
 {phang}
 {opt zebra} alternating row shading{p_end}

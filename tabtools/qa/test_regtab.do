@@ -1385,22 +1385,35 @@ else {
 }
 capture frame drop _rt_mor_keep
 
-**# Test O: mixed streg collection keeps per-model TR/AF headers
+**# Test O: mixed streg collection keeps per-model TR/HR headers
+* The time-metric fit without tr is collected as coefficients and shown as
+* exp(b) time ratios; the PH-metric fit is collected as hazard ratios and is
+* labelled HR (it was mislabelled AF before 2026-09-25). Values are checked
+* against exp(_b) from the fits themselves.
 
 capture frame drop _rt_streg_mix
 capture {
     webuse cancer, clear
     stset studytime, failure(died)
+    quietly streg age, dist(weibull) time
+    local _o_tr = exp(_b[age])
+    quietly streg age, dist(weibull)
+    local _o_hr = exp(_b[age])
     collect clear
     collect: streg age, dist(weibull) time
     collect: streg age, dist(weibull)
 
- regtab, frame(_rt_streg_mix, replace)
+ regtab, frame(_rt_streg_mix, replace) digits(4)
     assert "`r(coef_label)'" == "mixed"
+    tempname _o_T
+    matrix `_o_T' = r(table)
+    assert !missing(`_o_T'[1, 1], `_o_T'[1, 2], `_o_tr', `_o_hr')
+    assert reldif(`_o_T'[1, 1], `_o_tr') < 1e-5
+    assert reldif(`_o_T'[1, 2], `_o_hr') < 1e-5
 
     frame _rt_streg_mix {
         assert c1[3] == "TR"
-        assert c4[3] == "AF"
+        assert c4[3] == "HR"
     }
 }
 local _rtc_rc = _rc
@@ -5356,6 +5369,437 @@ else {
     display as error "  FAIL: regtab 12-model collection order (rc=`=_rc')"
     local ++fail_count
 }
+
+**# 2026-09-25 review: display scale follows each model's own options
+* regtab decides the estimate header, whether to exponentiate, and the
+* dimnonsig null value from each model's command line. The oracle for every
+* case is the estimator itself: exp(_b[x]) read from e(b) right after the fit,
+* compared with the numeric body regtab returns in r(table), plus the header
+* cell. Before the fix, `ef' (abbreviated eform) was exponentiated twice, a
+* covariate named `or' was read as the or option, and nohr/coef/time/lognormal
+* fits printed coefficients under a ratio header.
+
+capture program drop _rv25_check
+program define _rv25_check
+    * _rv25_check <frame> <header> <row> <expected> [<col>]
+    args frm hdr row expected col
+    if "`col'" == "" local col 1
+    tempname T
+    matrix `T' = r(table)
+    local got = `T'[`row', `col']
+    if missing(`got') | missing(`expected') | reldif(`got', `expected') > 1e-5 {
+        display as error "  r(table)[`row',`col'] = `got', expected `expected'"
+        exit 9
+    }
+    local hcol = 3 * (`col' - 1) + 1
+    frame `frm': local h = c`hcol'[3]
+    if `"`h'"' != `"`hdr'"' {
+        display as error `"  header c`hcol'[3] = "`h'", expected "`hdr'""'
+        exit 9
+    }
+end
+
+* --- R25-C1a: glm eform abbreviations are recognised, never doubled ---
+capture noisily {
+    sysuse auto, clear
+    foreach spec in "family(binomial) link(logit) ef" "f(b) l(l) ef" ///
+        "fam(bern) link(logi) efo" "fam(bin) link(logit) eform" ///
+        "fam(bin 1)" "f(b)" {
+        quietly glm foreign mpg, `spec'
+        local truth = exp(_b[mpg])
+        collect clear
+        quietly collect: glm foreign mpg, `spec'
+        quietly regtab, frame(_rv25, replace)
+        display as text "  glm, `spec': OR " %9.6f r(table)[1,1] " truth " %9.6f `truth'
+        _rv25_check _rv25 "OR" 1 `truth'
+        assert rowsof(r(table)) == 1
+        frame _rv25: count if strtrim(A) == "Intercept"
+        assert r(N) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C1a glm eform/family/link abbreviations give one OR scale"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C1a glm eform/family/link abbreviations (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C1b: glm poisson abbreviations and non-canonical eform labels ---
+capture noisily {
+    sysuse auto, clear
+    foreach spec in "f(p) efor" "f(poi) l(log)" "fam(poisson) link(log) eform" {
+        quietly glm rep78 mpg, `spec'
+        local truth = exp(_b[mpg])
+        collect clear
+        quietly collect: glm rep78 mpg, `spec'
+        quietly regtab, frame(_rv25, replace)
+        _rv25_check _rv25 "IRR" 1 `truth'
+    }
+    * eform on a family/link regtab does not re-scale: keep glm's exp(b)
+    quietly glm foreign mpg, fam(bin) link(probit) eform
+    local truth = exp(_b[mpg])
+    collect clear
+    quietly collect: glm foreign mpg, fam(bin) link(probit) eform
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "exp(b)" 1 `truth'
+    * without eform the same fit stays on the coefficient scale
+    quietly glm foreign mpg, fam(bin) link(probit)
+    local truth = _b[mpg]
+    collect clear
+    quietly collect: glm foreign mpg, fam(bin) link(probit)
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "Coef." 1 `truth'
+    * binomial log link with eform is a risk ratio
+    gen byte hi = price > 6000
+    quietly glm hi weight, fam(bin) link(log) eform
+    local truth = exp(_b[weight])
+    collect clear
+    quietly collect: glm hi weight, fam(bin) link(log) eform
+    quietly regtab, frame(_rv25, replace) digits(4)
+    _rv25_check _rv25 "RR" 1 `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C1b glm poisson/probit/log-binomial scales"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C1b glm poisson/probit/log-binomial scales (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2a: options are read after the option comma only ---
+capture noisily {
+    sysuse auto, clear
+    set seed 925
+    gen double or = rnormal()
+    quietly logit foreign or mpg
+    local t_or = exp(_b[or])
+    local t_mpg = exp(_b[mpg])
+    collect clear
+    quietly collect: logit foreign or mpg
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "OR" 1 `t_or'
+    _rv25_check _rv25 "OR" 2 `t_mpg'
+    * a comma inside if-expression parentheses and inside a string
+    quietly logit foreign mpg if inlist(rep78, 3, 4), or
+    local truth = exp(_b[mpg])
+    collect clear
+    quietly collect: logit foreign mpg if inlist(rep78, 3, 4), or
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "OR" 1 `truth'
+    quietly logit foreign mpg if make != "a, or"
+    local truth = exp(_b[mpg])
+    collect clear
+    quietly collect: logit foreign mpg if make != "a, or"
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "OR" 1 `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2a covariate named or / commas before the option comma"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2a covariate named or / commas before the option comma (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2b: user-requested coefficient display is exponentiated ---
+capture noisily {
+    sysuse auto, clear
+    quietly logistic foreign mpg, coef
+    local truth = exp(_b[mpg])
+    collect clear
+    quietly collect: logistic foreign mpg, coef
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "OR" 1 `truth'
+    quietly poisson rep78 mpg, ir
+    local truth = exp(_b[mpg])
+    collect clear
+    quietly collect: poisson rep78 mpg, ir
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "IRR" 1 `truth'
+    webuse drugtr, clear
+    foreach spec in "nohr" "" {
+        quietly stcox drug age, `spec'
+        local truth = exp(_b[drug])
+        collect clear
+        quietly collect: stcox drug age, `spec'
+        quietly regtab, frame(_rv25, replace)
+        _rv25_check _rv25 "HR" 1 `truth'
+    }
+    webuse hypoxia, clear
+    quietly stset dftime, failure(failtype == 1)
+    quietly stcrreg ifp tumsize, compete(failtype == 2) noshr
+    local truth = exp(_b[ifp])
+    collect clear
+    quietly collect: stcrreg ifp tumsize, compete(failtype == 2) noshr
+    quietly regtab, frame(_rv25, replace) digits(4)
+    _rv25_check _rv25 "SHR" 1 `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2b logistic coef / poisson ir / stcox nohr / stcrreg noshr"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2b coefficient-display options (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2c: streg metric and ratio rules from streg.ado ---
+capture noisily {
+    webuse drugtr, clear
+    local cases `""weibull time|TR" "weibull tr|TR" "weibull ti|TR" "weibull|HR" "weibull nohr|HR" "exponential|HR" "exp time|TR" "gompertz|HR" "gompertz nohr|HR" "lognormal|TR" "lognormal tr|TR" "loglogistic|TR" "ggamma|TR""'
+    foreach c of local cases {
+        gettoken spec hdr : c, parse("|")
+        local hdr = substr("`hdr'", 2, .)
+        gettoken dist rest : spec
+        quietly streg drug age, dist(`dist') `rest'
+        local truth = exp(_b[drug])
+        collect clear
+        quietly collect: streg drug age, dist(`dist') `rest'
+        quietly regtab, frame(_rv25, replace) digits(4)
+        display as text "  streg dist(`dist') `rest': `hdr' " %9.6f r(table)[1,1] " truth " %9.6f `truth'
+        _rv25_check _rv25 "`hdr'" 1 `truth'
+        * methods text names the model actually fitted, never Cox
+        assert strpos(`"`r(methods)'"', "Cox") == 0
+        if "`hdr'" == "HR" assert strpos(`"`r(methods)'"', "parametric proportional hazards") > 0
+        if "`hdr'" == "TR" assert strpos(`"`r(methods)'"', "Time ratios") > 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2c streg PH/AFT metric, tr/time/nohr display rules"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2c streg PH/AFT metric and display rules (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2d: mestreg and mecloglog follow the same rules ---
+capture noisily {
+    webuse catheter, clear
+    local cases `""weib|HR" "weib nohr|HR" "weib time|TR" "weib time tr|TR" "logn|TR""'
+    foreach c of local cases {
+        gettoken spec hdr : c, parse("|")
+        local hdr = substr("`hdr'", 2, .)
+        gettoken dist rest : spec
+        quietly mestreg age female || patient:, dist(`dist') `rest'
+        local truth = exp(_b[_t:female])
+        collect clear
+        quietly collect: mestreg age female || patient:, dist(`dist') `rest'
+        quietly regtab, frame(_rv25, replace) digits(4) noreeffects
+        display as text "  mestreg dist(`dist') `rest': `hdr' " %9.6f r(table)[2,1] " truth " %9.6f `truth'
+        _rv25_check _rv25 "`hdr'" 2 `truth'
+    }
+    foreach spec in "" "eform" {
+        quietly mecloglog infect age female || patient:, `spec'
+        local truth = exp(_b[infect:female])
+        collect clear
+        quietly collect: mecloglog infect age female || patient:, `spec'
+        quietly regtab, frame(_rv25, replace) digits(4) noreeffects
+        _rv25_check _rv25 "HR" 2 `truth'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2d mestreg/mecloglog scale rules"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2d mestreg/mecloglog scale rules (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2e: a collection without e(frm2) derives the streg metric ---
+capture noisily {
+    webuse drugtr, clear
+    foreach c in "weibull time|TR" "weibull|HR" "lognormal|TR" {
+        gettoken spec hdr : c, parse("|")
+        local hdr = substr("`hdr'", 2, .)
+        gettoken dist rest : spec
+        quietly streg drug age, dist(`dist') `rest'
+        local truth = exp(_b[drug])
+        collect clear
+        quietly collect _r_b _r_ci _r_p e(cmd) e(cmdline): streg drug age, dist(`dist') `rest'
+        quietly regtab, frame(_rv25, replace) digits(4)
+        _rv25_check _rv25 "`hdr'" 1 `truth'
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2e minimal collection derives the streg metric"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2e minimal collection streg metric (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2f: mixed streg headers and dimnonsig null on the shown scale ---
+capture noisily {
+    webuse drugtr, clear
+    quietly streg drug age, dist(weibull) time
+    local t1 = exp(_b[drug])
+    quietly streg drug age, dist(weibull)
+    local t2 = exp(_b[drug])
+    collect clear
+    quietly collect: streg drug age, dist(weibull) time
+    quietly collect: streg drug age, dist(weibull)
+    quietly regtab, frame(_rv25, replace) digits(4)
+    assert "`r(coef_label)'" == "mixed"
+    _rv25_check _rv25 "TR" 1 `t1'
+    _rv25_check _rv25 "HR" 1 `t2' 2
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2f mixed streg metrics keep their own headers and values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2f mixed streg metrics (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2h: ambient-e() fallback labels the scale Stata displayed ---
+* With the command metadata parked, regtab has no per-model rule and cannot
+* exponentiate; its header must then name what the collection holds. Before
+* the fix the fallback printed TR over time-metric coefficients, AF over PH
+* hazard ratios, and OR over logit log-odds.
+capture noisily {
+    webuse drugtr, clear
+    foreach c in "time|Coef.|0" "tr|TR|1" "|HR|1" {
+        gettoken o c : c, parse("|")
+        if "`o'" == "|" {
+            local o ""
+            local c "|`c'"
+        }
+        gettoken bar c : c, parse("|")
+        gettoken hdr c : c, parse("|")
+        local isexp = substr("`c'", 2, .)
+        quietly streg drug age, dist(weibull) `o'
+        local truth = cond(`isexp', exp(_b[drug]), _b[drug])
+        collect clear
+        quietly collect: streg drug age, dist(weibull) `o'
+        quietly collect remap result[cmd cmdline depvar] = parked
+        quietly regtab, frame(_rv25, replace) digits(4)
+        display as text "  fallback streg `o': `hdr' " %9.6f r(table)[1,1] " truth " %9.6f `truth'
+        _rv25_check _rv25 "`hdr'" 1 `truth'
+    }
+    sysuse auto, clear
+    quietly logit foreign mpg
+    local truth = _b[mpg]
+    collect clear
+    quietly collect: logit foreign mpg
+    quietly collect remap result[cmd cmdline depvar] = parked
+    quietly regtab, frame(_rv25, replace)
+    _rv25_check _rv25 "Coef." 1 `truth'
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2h ambient fallback labels the collected scale"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2h ambient fallback labels the collected scale (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-C2g: dimnonsig judges significance on the displayed scale ---
+* The xlsx font colour of a dimmed row is 160/160/160. A nohr Cox fit is shown
+* as HRs, so its null is 1: noise covariate z (HR CI spans 1) must be dimmed
+* and drug (HR CI far below 1) must not. Before the fix the raw log-HR CI of z
+* excluded 1 and escaped dimming.
+capture noisily {
+    local dim_py "`c(tmpdir)'/rv25_dim.py"
+    capture erase "`dim_py'"
+    tempname fh
+    file open `fh' using "`dim_py'", write text replace
+    file write `fh' "import sys, openpyxl" _n
+    file write `fh' "wb = openpyxl.load_workbook(sys.argv[1]); ws = wb.active" _n
+    file write `fh' "out = []" _n
+    file write `fh' "for lab in sys.argv[3:]:" _n
+    file write `fh' "    row = [r for r in range(1, ws.max_row + 1) if str(ws.cell(r, 2).value or '').strip() == lab]" _n
+    file write `fh' "    rgb = ws.cell(row[0], 3).font.color.rgb if row and ws.cell(row[0], 3).font.color is not None else ''" _n
+    file write `fh' "    out.append(str(rgb).upper().endswith('A0A0A0'))" _n
+    file write `fh' "open(sys.argv[2], 'w').write(' '.join('1' if o else '0' for o in out))" _n
+    file close `fh'
+    local dim_out "`c(tmpdir)'/rv25_dim.txt"
+
+    * z: log-HR -0.06, CI (-0.49, 0.36), p = 0.76 at this seed
+    webuse drugtr, clear
+    set seed 20260925
+    gen double z = rnormal()
+    label variable z "Noise"
+    label variable drug "Drug"
+    collect clear
+    quietly collect: stcox drug z, nohr
+    local x "`c(tmpdir)'/rv25_dim_hr.xlsx"
+    capture erase "`x'"
+    capture erase "`dim_out'"
+    quietly regtab, xlsx("`x'") sheet("T") dimnonsig
+    shell python3 "`dim_py'" "`x'" "`dim_out'" "Noise" "Drug"
+    file open `fh' using "`dim_out'", read text
+    file read `fh' line
+    file close `fh'
+    display as text "  HR scale dimmed (Noise Drug): `line'"
+    assert "`line'" == "1 0"
+
+    * coefficient scale: null is 0, so a CI spanning 0 is dimmed
+    * headroom: probit coefficient 0.009, CI (-0.52, 0.54), p = 0.97
+    sysuse auto, clear
+    label variable headroom "Noise"
+    label variable weight "Weight"
+    collect clear
+    quietly collect: glm foreign weight headroom, fam(bin) link(probit)
+    local x "`c(tmpdir)'/rv25_dim_coef.xlsx"
+    capture erase "`x'"
+    capture erase "`dim_out'"
+    quietly regtab, xlsx("`x'") sheet("T") dimnonsig
+    shell python3 "`dim_py'" "`x'" "`dim_out'" "Noise" "Weight"
+    file open `fh' using "`dim_out'", read text
+    file read `fh' line
+    file close `fh'
+    display as text "  Coef. scale dimmed (Noise Weight): `line'"
+    assert "`line'" == "1 0"
+}
+if _rc == 0 {
+    display as result "  PASS: R25-C2g dimnonsig null follows the displayed scale"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-C2g dimnonsig null follows the displayed scale (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- R25-m6: models fit at different confidence levels are refused ---
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    quietly collect: regress price mpg, level(90)
+    quietly collect: regress price weight
+    capture regtab, frame(_rv25, replace)
+    assert _rc == 198
+    * the same level spelled differently is accepted
+    collect clear
+    quietly collect: regress price mpg, l(90)
+    quietly collect: regress price weight, level(90)
+    quietly regtab, frame(_rv25, replace)
+    assert r(ci_level) == 90
+    frame _rv25: assert c2[3] == "90% CI" & c5[3] == "90% CI"
+    * glm's l() is link(), not level(): no false mismatch
+    collect clear
+    quietly collect: glm foreign mpg, f(b) l(logit)
+    quietly collect: logit foreign weight
+    quietly regtab, frame(_rv25, replace)
+    assert r(ci_level) == c(level)
+}
+if _rc == 0 {
+    display as result "  PASS: R25-m6 mixed confidence levels refused; equal levels accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: R25-m6 mixed confidence levels (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _rv25
 
 **# Summary
 local test_count = `pass_count' + `fail_count'

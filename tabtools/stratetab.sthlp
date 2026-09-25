@@ -22,7 +22,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)}
+{cmd:stratetab}{cmd:,} {opt using(filelist)} {opt outcomes(integer)}
 [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)}
 {opt outlabels(string)} {opt outcomeid:s(string)} {opt explabels(string)} {opt digits(integer 1)}
 {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}
@@ -42,7 +42,7 @@ outcomes as column groups and exposure variables as rows. The completed table
 is displayed in the Results window and can also be exported to Excel, saved as
 CSV, or stored in a Stata frame. Each outcome spans three columns: Events,
 Person-Years, and Rate with its confidence interval at the resolved level
-(95% by default, shown in the header as, for example, "Rate (95% CI)").
+(95% by default, shown in the header as, for example, "Per 1,000 PY (95% CI)").
 
 {pstd}
 The command reads multiple .dta files produced by {helpb strate}, organized by
@@ -65,9 +65,11 @@ empty workspace, on exit.
 {dlgtab:Required}
 
 {phang}
-{opt using(namelist)} specifies the list of strate output files to combine. File
-names should be space-separated without the .dta extension. Files must be
-ordered: all outcomes for exposure 1, all outcomes for exposure 2, etc.
+{opt using(filelist)} specifies the list of strate output files to combine. File
+names should be space-separated without the .dta extension; enclose a name that
+contains spaces in double quotes. Files must be ordered: all outcomes for
+exposure 1, all outcomes for exposure 2, etc. A file saved by {cmd:strate}
+without a grouping variable contributes a single row labeled {cmd:Overall}.
 
 {phang}
 {opt outcomes(integer)} specifies the number of distinct outcomes. The total number
@@ -129,8 +131,19 @@ is 1 (no scaling).
 
 {phang}
 {opt ratescale(real 1000)} multiplies rate and confidence interval values by the
-specified factor. Default is 1000, displaying rates per 1000 person-years. Use
-when strate was run with {cmd:per(1)}.
+specified factor. Default is 1000, displaying rates per 1000 person-years.
+
+{pmore}
+{opt ratescale()} and {opt pyscale()} assume the files were saved by
+{cmd:strate} with its default {cmd:per(1)}. {cmd:strate, per(}{it:k}{cmd:)}
+divides the saved {cmd:_Y} by {it:k} and multiplies {cmd:_Rate}, {cmd:_Lower},
+and {cmd:_Upper} by {it:k}, and the saved file records nothing that identifies
+{it:k}, so {cmd:stratetab} cannot detect it; with the defaults, a
+{cmd:per(1000)} file shows rates 1,000 times too high and person-years in
+thousands. For such files, pass {cmd:ratescale(}1000/{it:k}{cmd:)} and
+{cmd:pyscale(}1/{it:k}{cmd:)}: a {cmd:per(1000)} file needs
+{cmd:ratescale(1) pyscale(0.001)} to show rates per 1,000 person-years and
+person-years in years.
 
 {phang}
 {opt level(#)} verifies confidence-level provenance in the saved
@@ -194,7 +207,8 @@ Markdown. It may be used with or without {opt xlsx()}.{p_end}
 {opt markdown()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify
-{cmd:frame(name, replace)} to replace an existing frame.{p_end}
+{cmd:frame(name, replace)} to replace an existing frame. The frame is created
+or replaced only after every requested export has succeeded.{p_end}
 
 
 {marker examples}{...}
@@ -311,6 +325,7 @@ number of exposure groups (total files / outcomes).
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
+{synopt:{cmd:r(csv)}}CSV filename (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 {synopt:{cmd:r(outcome_ids)}}machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}

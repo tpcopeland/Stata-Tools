@@ -1,4 +1,4 @@
-*! comptab Version 2.1.9  2026/09/25
+*! comptab Version 2.1.10  2026/09/25
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -202,16 +202,18 @@ program define _comptab_rates, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    local _userdata_saved 0
+    local _restore_needed 0
+    local _display_build_name ""
+    local _eplot_build_name ""
     tempname _xlsx_book
-
-    tempfile _userdata_outer
-    local _userdata_path `"`_userdata_outer'"'
 
     capture noisily {
 
-        quietly save "`_userdata_path'", emptyok
-        local _userdata_saved 1
+        * preserve (not save/use): a tempfile round-trip left c(filename)
+        * pointing at the deleted tempfile and c(changed) at 0, so unsaved
+        * edits could be discarded later without Stata's usual prompt.
+        preserve
+        local _restore_needed 1
 
         capture putexcel close
 
@@ -302,7 +304,7 @@ program define _comptab_rates, rclass
         }
 
         if `_has_xlsx' {
-            if !strmatch("`xlsx'", "*.xlsx") {
+            if !strmatch(lower(`"`xlsx'"'), "*.xlsx") {
                 display as error "xlsx() must have .xlsx extension"
                 exit 198
             }
@@ -380,6 +382,9 @@ program define _comptab_rates, rclass
         local ref_rows ""
         local nonref_rows ""
         local _seen_ref = 0
+        * Category rows per section, in scaffold order; the model rows chosen
+        * for a section are later placed on these rows by label.
+        local _n_sec_scan = 0
 
         forvalues _r = 4/`_rate_rows' {
             frame `rateframe' {
@@ -393,10 +398,18 @@ program define _comptab_rates, rclass
             if !strmatch(`"`_rate_lab'"', "   *") & `"`_rate_c2'"' == "" {
                 local section_rows `"`section_rows' `_r'"'
                 local _seen_ref = 0
+                local ++_n_sec_scan
+                local _sec_row_`_n_sec_scan' = `_r'
+                local _sec_cats_`_n_sec_scan' ""
                 continue
             }
 
             if strmatch(`"`_rate_lab'"', "   *") {
+                if `_n_sec_scan' == 0 {
+                    display as error "Rate frame '`rateframe'' has a category row before any section header"
+                    exit 198
+                }
+                local _sec_cats_`_n_sec_scan' `"`_sec_cats_`_n_sec_scan'' `_r'"'
                 if !`_seen_ref' {
                     local ref_rows `"`ref_rows' `_r'"'
                     local _seen_ref = 1
@@ -867,7 +880,7 @@ program define _comptab_rates, rclass
                             local _pat_lower = lower(`"`_pat'"')
                             if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
                                 if strpos(" `expanded`_f'' ", " `_row' ") {
-                                    display as error `"rownames(): pattern "`_pat'" duplicates row `_row' in frame '`_fname''"'
+                                    display as error `"rownames(): pattern "`_pat'" duplicates row `_row' in frame '`_source_original_`_f'''"'
                                     display as error "rownames() patterns must select each model-frame row at most once"
                                     exit 198
                                 }
@@ -877,7 +890,7 @@ program define _comptab_rates, rclass
                         }
                     }
                     if !`_matched' {
-                        display as error `"rownames(): pattern "`_pat'" not found in frame '`_fname''"'
+                        display as error `"rownames(): pattern "`_pat'" not found in frame '`_source_original_`_f'''"'
                         display as error "rownames() matches rendered model-frame labels in column A"
                         exit 198
                     }
@@ -950,6 +963,160 @@ program define _comptab_rates, rclass
             exit 198
         }
 
+        * Place every selected model row on the scaffold row with the same
+        * category label. The selections are consumed section by section in
+        * scaffold order (a section with k categories takes k-1 rows), but
+        * within a section they are matched by label, never by position:
+        * positional filling silently put one category's HR on another's row
+        * whenever the selection order, the model's reference category, or a
+        * stray heading/reference row differed from the scaffold. The one
+        * category left unfilled is the reference; for factor-variable rows it
+        * must be the model's own base level. The only positional case is a
+        * plain (non-factor) row, such as a 0/1 indicator, whose label matches
+        * no category of a two-category section: it fills the second category.
+        local _pos = 0
+        local ref_rows ""
+        local nonref_rows ""
+        forvalues _s = 1/`_n_sec_scan' {
+            local _cats `"`_sec_cats_`_s''"'
+            local _k : word count `_cats'
+            if `_k' == 0 continue
+            frame `rateframe': local _sec_label = strtrim(c1[`_sec_row_`_s''])
+            foreach _cr of local _cats {
+                local _rowmap_`_cr' = 0
+            }
+            local _sec_levels ""
+            forvalues _j = 1/`=`_k' - 1' {
+                local ++_pos
+                local _mfn `"`_map_frame`_pos''"'
+                local _mff = `_map_f`_pos''
+                local _mr = `_map_row`_pos''
+                local _mdr = `_mr' - 3
+                local _msrc `"`_source_original_`_mff''"'
+                frame `_mfn': local _mlab_raw = A[`_mr']
+                local _mlab = strtrim(`"`_mlab_raw'"')
+                local _is_level = (substr(`"`_mlab_raw'"', 1, 2) == "  ")
+
+                local _all_blank = 1
+                foreach _cv of local _model_cvars {
+                    frame `_mfn': local _mcell = strtrim(`_cv'[`_mr'])
+                    if `"`_mcell'"' != "" local _all_blank = 0
+                }
+                if `_all_blank' {
+                    display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' is a heading row with no estimate"'
+                    display as error "Hint: select only effect rows; rows are counted after the 3 regtab header rows"
+                    exit 198
+                }
+                local _is_ref = 0
+                forvalues _o = 1/`outcomes' {
+                    local _blk = `_model_map_`_mff'_`_o''
+                    local _es = 1 + (`_blk' - 1) * `_cols_per_model'
+                    * regtab flags reference/omitted/empty rows in the numeric
+                    * ref<estcol> variable; without it, use the default text.
+                    capture frame `_mfn': confirm numeric variable ref`_es'
+                    if _rc == 0 {
+                        frame `_mfn': local _refv = ref`_es'[`_mr']
+                        if !missing(`_refv') local _is_ref = 1
+                    }
+                    else {
+                        frame `_mfn': local _reft = lower(strtrim(c`_es'[`_mr']))
+                        if `"`_reft'"' == "reference" local _is_ref = 1
+                    }
+                }
+                if `_is_ref' {
+                    display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' is the model's reference (or an omitted) category"'
+                    display as error "Hint: select only the non-reference rows; the reference row is filled with reflabel()"
+                    exit 198
+                }
+
+                local _target = 0
+                foreach _cr of local _cats {
+                    frame `rateframe': local _clab = strtrim(c1[`_cr'])
+                    if lower(`"`_clab'"') == lower(`"`_mlab'"') local _target = `_cr'
+                }
+                if `_target' == 0 {
+                    if !`_is_level' & `_k' == 2 {
+                        local _target : word 2 of `_cats'
+                    }
+                    else {
+                        display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' matches no category of rate section "`_sec_label'""'
+                        display as error "Hint: hrcomptab places model rows by label; give the model's factor variable the value labels used for strate"
+                        exit 198
+                    }
+                }
+                if `_rowmap_`_target'' != 0 {
+                    frame `rateframe': local _clab = strtrim(c1[`_target'])
+                    display as error `"two selected model rows map to rate category "`_clab'" in section "`_sec_label'""'
+                    exit 198
+                }
+                local _rowmap_`_target' = `_pos'
+                if `_is_level' local _sec_levels `"`_sec_levels' `_pos'"'
+            }
+
+            local _ref_row = 0
+            foreach _cr of local _cats {
+                if `_rowmap_`_cr'' == 0 local _ref_row = `_cr'
+                else local nonref_rows `"`nonref_rows' `_cr'"'
+            }
+            local ref_rows `"`ref_rows' `_ref_row'"'
+            frame `rateframe': local _ref_lab = strtrim(c1[`_ref_row'])
+
+            * The unfilled category is labelled as the reference, so it must be
+            * the base level of every factor block that supplied an estimate.
+            foreach _i of local _sec_levels {
+                local _mfn `"`_map_frame`_i''"'
+                local _mff = `_map_f`_i''
+                local _mr = `_map_row`_i''
+                local _msrc `"`_source_original_`_mff''"'
+                frame `_mfn': local _mfN = _N
+                local _b0 = `_mr'
+                local _bstop = 0
+                while `_b0' > 4 & !`_bstop' {
+                    frame `_mfn': local _bprev = A[`=`_b0' - 1']
+                    if substr(`"`_bprev'"', 1, 2) == "  " local --_b0
+                    else local _bstop = 1
+                }
+                local _b1 = `_mr'
+                local _bstop = 0
+                while `_b1' < `_mfN' & !`_bstop' {
+                    frame `_mfn': local _bnext = A[`=`_b1' + 1']
+                    if substr(`"`_bnext'"', 1, 2) == "  " local ++_b1
+                    else local _bstop = 1
+                }
+                local _base_found = 0
+                forvalues _br = `_b0'/`_b1' {
+                    frame `_mfn': local _blab = strtrim(A[`_br'])
+                    if lower(`"`_blab'"') == lower(`"`_ref_lab'"') {
+                        local _all_ref = 1
+                        forvalues _o = 1/`outcomes' {
+                            local _blk = `_model_map_`_mff'_`_o''
+                            local _es = 1 + (`_blk' - 1) * `_cols_per_model'
+                            local _br_ref = 0
+                            capture frame `_mfn': confirm numeric variable ref`_es'
+                            if _rc == 0 {
+                                frame `_mfn': local _refv = ref`_es'[`_br']
+                                if !missing(`_refv') local _br_ref = 1
+                            }
+                            else {
+                                frame `_mfn': local _reft = lower(strtrim(c`_es'[`_br']))
+                                if `"`_reft'"' == "reference" local _br_ref = 1
+                            }
+                            if !`_br_ref' local _all_ref = 0
+                        }
+                        if `_all_ref' local _base_found = 1
+                    }
+                }
+                if !`_base_found' {
+                    display as error `"rate category "`_ref_lab'" in section "`_sec_label'" would be shown as the reference,"'
+                    display as error `"but it is not the reference category of the model in frame '`_msrc''"'
+                    display as error "Hint: select every non-reference level of the model, or refit it with the intended base level (ib#.)"
+                    exit 198
+                }
+            }
+        }
+        local ref_rows : list clean ref_rows
+        local nonref_rows : list clean nonref_rows
+
 	        local _eplot_build_name ""
 	        if `"`_eplotframe_name'"' != "" {
 	            tempname _eplot_build
@@ -1012,7 +1179,9 @@ program define _comptab_rates, rclass
                     continue
                 }
 
-	                local ++_next_model_ep
+	                local _next_model_ep = 0
+	                if `"`_rowmap_`_r''"' != "" local _next_model_ep = `_rowmap_`_r''
+	                if `_next_model_ep' == 0 continue
 	                local _mfname_ep `"`_map_frame`_next_model_ep''"'
 	                local _mfindex_ep = `_map_f`_next_model_ep''
 	                local _mfsource_ep `"`_map_source`_next_model_ep''"'
@@ -1159,7 +1328,9 @@ program define _comptab_rates, rclass
                 continue
             }
 
-	            local ++_next_model
+	            local _next_model = 0
+	            if `"`_rowmap_`_r''"' != "" local _next_model = `_rowmap_`_r''
+	            if `_next_model' == 0 continue
 	            local _mfname `"`_map_frame`_next_model''"'
 	            local _mfindex = `_map_f`_next_model''
 	            local _mrow = `_map_row`_next_model''
@@ -1198,7 +1369,6 @@ program define _comptab_rates, rclass
                 }
 
                 local _eff_p = strtrim(`"`_eff_p'"')
-                if lower(`"`_eff_text'"') == "reference" local _eff_text `"`reflabel'"'
 
                 quietly replace c`_out_s4' = `"`_eff_text'"' in `_r'
                 quietly replace c`=`_out_s4'+1' = `"`_eff_p'"' in `_r'
@@ -1341,6 +1511,9 @@ program define _comptab_rates, rclass
                 display as error "Hint: ensure the xlsx file is not open in another application"
                 exit `_export_rc'
             }
+            * Excel sheet names are case-insensitive; keep the workbook's own
+            * spelling when an existing sheet was replaced.
+            local sheet `"`r(sheet)'"'
             capture confirm file "`xlsx'"
             if _rc {
                 display as error "Excel export completed but file was not created"
@@ -1505,14 +1678,15 @@ program define _comptab_rates, rclass
             capture frame drop `_eplot_build_name'
             local _eplot_build_name ""
         }
-        quietly use "`_userdata_path'", clear
+        restore
+        local _restore_needed 0
     } // end capture noisily
     local _rc = _rc
     if `_rc' {
         if `"`_display_build_name'"' != "" capture frame drop `_display_build_name'
         if `"`_eplot_build_name'"' != "" capture frame drop `_eplot_build_name'
-        if `_userdata_saved' capture quietly use "`_userdata_path'", clear
     }
+    if `_restore_needed' capture restore
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 

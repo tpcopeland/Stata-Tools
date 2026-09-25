@@ -1283,13 +1283,16 @@ capture noisily {
         frame(ef_rates, replace)
 
     sysuse auto, clear
+    gen byte grp = mod(_n, 3)
+    label define exportfail_exp 0 "Low" 1 "Medium" 2 "High", replace
+    label values grp exportfail_exp
     stset price, failure(foreign)
     collect clear
-    collect: stcox mpg weight
+    collect: stcox i.grp
     regtab, frame(ef_model, replace) coef(HR)
 
     return clear
-    capture noisily hrcomptab ef_rates, modelframes(ef_model) rows(1 2) ///
+    capture noisily hrcomptab ef_rates, modelframes(ef_model) rows(3/4) ///
         xlsx("`bad_root'/hrcomptab.xlsx")
     local rc = _rc
     assert `rc' != 0

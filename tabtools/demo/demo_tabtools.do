@@ -1451,6 +1451,8 @@ clear
 set obs 500
 gen int id = _n
 gen byte dosecat = floor(runiform() * 4)
+label define _hrc_dosecat 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
+label values dosecat _hrc_dosecat
 gen double age = rnormal(57, 8)
 gen byte female = runiform() < 0.78
 gen byte education = ceil(runiform() * 3)

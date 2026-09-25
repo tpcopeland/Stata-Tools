@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.1.9  2026/09/25
+*! _desctab_collect Version 2.1.10  2026/09/25
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,7 +36,7 @@ program define _desctab_collect, rclass
               MISsing PERCENT percent_n slashN CATROWPERC VARLABPLUS ///
               Format(string) PERCFormat(string) NFormat(string) ///
               iqrmiddle(string) sdleft(string) sdright(string) ///
-              gsdleft(string) gsdright(string) ///
+              gsdleft(string) gsdright(string) GSDFormat(string) ///
               percsign(string) NOSPACElowpercent extraspace ///
               SMALLCells(string) MISSINGSummary ]
 
@@ -556,7 +556,12 @@ program define _desctab_collect, rclass
                     if `_den' > 0 & `_den' < . local smd`i' = (`_p1' - `_p2') / `_den'
                 }
                 else if inlist("`typ'", "cat", "cate") {
-                    quietly levelsof `v' if `touse' & `by' < . & `v' < ., local(_smd_lvls)
+                    * Levels observed in the two compared groups only: a level
+                    * seen only in a third group has zero share in both, so it
+                    * would make the pooled covariance singular and blank an
+                    * SMD whose correct value is defined.
+                    quietly levelsof `v' if `touse' & inlist(`by', `level1', `level2') ///
+                        & `v' < ., local(_smd_lvls)
                     local _smd_k : word count `_smd_lvls'
                     local _tot1 .
                     local _tot2 .
@@ -918,7 +923,15 @@ program define _desctab_collect, rclass
                 if "`format'" == "" local fmt1 "`datafmt_`i''"
                 else local fmt1 "`format'"
             }
-            if "`fmt2'" == "" local fmt2 "`fmt1'"
+            if "`fmt2'" == "" {
+                * A GSD with no format of its own follows an explicit fmt1;
+                * with neither, the caller's GSD default (desctab passes %4.2f
+                * when format() was not given) replaces the mean's format.
+                if "`typ'" == "contln" & `"`fmt1_`i''"' == "" & `"`gsdformat'"' != "" {
+                    local fmt2 `"`gsdformat'"'
+                }
+                else local fmt2 "`fmt1'"
+            }
 
             if inlist("`typ'", "contn", "contln", "conts") {
                 local ++row
@@ -932,7 +945,7 @@ program define _desctab_collect, rclass
                     local _factor `"`varlab', `_statdesc'"'
                 }
                 else {
-                    local _factor `"`varlab', median (Q1, Q3)"'
+                    local _factor `"`varlab', median (Q1`iqrmiddle'Q3)"'
                 }
                 if "`varlabplus'" == "" local _factor `"`varlab'"'
                 quietly replace factor = `"`_factor'"' in `row'

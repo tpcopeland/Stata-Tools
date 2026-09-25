@@ -195,7 +195,8 @@ compatibility with {cmd:hrcomptab}.
 {phang}
 {opt eff:ect(string)}, {opt refl:abel(string)}, and
 {opt outcomem:ap(string)} have the same rate-mode contracts documented in
-{helpb hrcomptab}.
+{helpb hrcomptab}. In rate mode, {opt rows()} and {opt rownames()} selections
+are placed on the scaffold by category label, as described there.
 
 {phang}
 {opt compact} merges the estimate and CI into a single column per model,
@@ -378,9 +379,11 @@ workflow, see {help tabtools_tips:tabtools_tips}.{p_end}
 {pstd}
 After creating {cmd:rates} with {cmd:stratetab, frame(rates)} and compatible
 model frames {cmd:m1} and {cmd:m2} with {cmd:regtab, frame()}, compose the
-Table 2 layout directly:
+Table 2 layout directly. Here {cmd:m1} holds a binary exposure indicator
+(row 1) and {cmd:m2} a three-level factor whose non-reference levels are rows
+3 and 4:
 
-{phang2}{cmd:. comptab m1 m2, rateframe(rates) rows(1 2 \ 1 2) ///}{p_end}
+{phang2}{cmd:. comptab m1 m2, rateframe(rates) rows(1 \ 3/4) ///}{p_end}
 {phang2}{cmd:    effect("aHR") reflabel("1.00 (Ref)") ///}{p_end}
 {phang2}{cmd:    xlsx("table2.xlsx") sheet("Table 2")}{p_end}
 

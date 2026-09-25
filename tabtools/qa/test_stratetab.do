@@ -1726,12 +1726,29 @@ capture noisily {
     stset time, failure(event)
     capture erase "`output_dir'/_strate_tmp.dta"
     strate exposure, per(1000) output("`output_dir'/_strate_tmp", replace)
+    * strate's own numbers are the oracle. per(1000) saves _Y in thousands of
+    * person-years and _Rate per 1,000, so the documented conversion is
+    * ratescale(1) pyscale(0.001); the defaults assume per(1).
+    preserve
+    use "`output_dir'/_strate_tmp.dta", clear
+    local want_ev = strtrim(string(_D[1], "%20.0fc"))
+    local want_py = strtrim(string(round(_Y[1] * 1000, 1), "%20.0fc"))
+    local want_rate = strtrim(string(round(_Rate[1], .1), "%9.1f"))
+    local want_lo = strtrim(string(round(_Lower[1], .1), "%9.1f"))
+    restore
     capture erase "`output_dir'/test_stratetab_rates.xlsx"
+    capture frame drop _st711
     stratetab, using("`output_dir'/_strate_tmp") outcomes(1) ///
+        ratescale(1) pyscale(0.001) frame(_st711, replace) ///
         xlsx("`output_dir'/test_stratetab_rates.xlsx") sheet("Rates")
     confirm file "`output_dir'/test_stratetab_rates.xlsx"
-    assert !missing(r(N_rows))
-    assert r(N_rows) > 0
+    assert r(N_rows) == 6
+    frame _st711 {
+        assert c2[5] == "`want_ev'"
+        assert c3[5] == "`want_py'"
+        assert strpos(c4[5], "`want_rate' (`want_lo', ") == 1
+    }
+    capture frame drop _st711
 }
 if _rc == 0 {
     display as result "  PASS: stratetab basic test"

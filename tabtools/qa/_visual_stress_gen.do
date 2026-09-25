@@ -110,7 +110,7 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    desctab price mpg rep78, by(foreign) title("Descriptive statistics") digits(1) ///
+    desctab price mpg rep78, by(foreign) title("Descriptive statistics") format(%9.1f) ///
         xlsx("`out'/desctab.xlsx") sheet("Descriptive") ///
         csv("`out'/desctab.csv") markdown("`out'/desctab.md") ///
         headershade zebra
@@ -229,13 +229,17 @@ capture noisily {
     confirm file "`out'/stratetab.md"
     file write `mh' "stratetab`tab'happy`tab'`out'/stratetab.xlsx`tab'Rates`tab'`out'/stratetab.csv`tab'`out'/stratetab.md" _n
 
-    stratetab, using("`rate1'") outcomes(1) frame(vs_rates, replace)
+    stratetab, using("`rate1'") outcomes(1) outcomeids(_t) frame(vs_rates, replace)
     sysuse auto, clear
+    gen byte grp = mod(_n, 3)
+    label define sexp 0 "Low" 1 "Medium" 2 "High", replace
+    label values grp sexp
+    stset price, failure(foreign)
     collect clear
-    collect: logistic foreign mpg weight
+    collect: stcox i.grp
     capture frame drop vs_mod
-    regtab, frame(vs_mod, replace) noint coef(OR)
-    hrcomptab vs_rates, modelframes(vs_mod) rows(1 2) effect("aHR") ///
+    regtab, frame(vs_mod, replace) noint coef(HR)
+    hrcomptab vs_rates, modelframes(vs_mod) rows(3/4) effect("aHR") ///
         title("Table 2. Rates and model estimates") ///
         xlsx("`out'/hrcomptab.xlsx") sheet("Table 2") ///
         csv("`out'/hrcomptab.csv") markdown("`out'/hrcomptab.md") ///

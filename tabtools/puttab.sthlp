@@ -33,7 +33,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 
 {p 4 8 2}{cmd:puttab} [{varlist}] [{it:if}] [{it:in}] [{cmd:using} {it:filename}{cmd:.xlsx}]{cmd:,}
 [{opt sh:eet(string)}
-{opt fra:me(name)} {opt m:atrix(name)}
+{opt fra:me(name)} {opt m:atrix(matname)}
 {opt ti:tle(string)} {opt foot:note(string)}
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
@@ -46,7 +46,9 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt frame()}, or a {opt matrix()}. A {it:varlist} may also subset a
 {opt frame()}; it is not allowed with {opt matrix()}. {it:if} and {it:in}
 restrict rows for the current-data or {opt frame()} source and are not allowed
-with {opt matrix()}.{p_end}
+with {opt matrix()}. With {opt frame()}, {it:if} and {it:in} are evaluated in
+that frame, so they may name its variables and observation numbers whatever
+the current frame holds.{p_end}
 
 {pstd}Specify either {cmd:using} {it:filename}{cmd:.xlsx} for Excel output or
 {opt markdown(filename)} for Markdown-only output. {opt open} requires an
@@ -71,10 +73,15 @@ shown as {it:eqname:name}. For a dataset or {opt frame()} source, the variable
 names form the header row (or the variable labels, with {opt varlabels}), and
 numeric columns are formatted to {opt digits()} decimals. Integer-valued numeric
 columns are written without decimals, and value labels are honored when
-present.{p_end}
+present. A column with a date or time display format ({cmd:%td}, {cmd:%tc},
+{cmd:%tm}, and the other {cmd:%t} formats) is written through that format, for
+example {cmd:01jan2020}, because {opt digits()} cannot describe a date; other
+display formats are not used. A value that rounds to zero is written without a
+minus sign.{p_end}
 
 {pstd}When an Excel workbook is written, the named {opt sheet()} is created if it does not
-exist and replaced if it does, so repeated calls to the same workbook build up
+exist and replaced if it does (sheet names match regardless of case, and the
+workbook's existing spelling is kept), so repeated calls to the same workbook build up
 a multi-sheet file that {helpb stacktab} can then assemble. The current data, frames,
 and matrices in memory are left unchanged.{p_end}
 
@@ -86,7 +93,7 @@ and matrices in memory are left unchanged.{p_end}
 {synoptset 26 tabbed}{...}
 {synoptline}
 {synopt:{opt fra:me(name)}}use a named frame as the source{p_end}
-{synopt:{opt m:atrix(name)}}use a named matrix as the source{p_end}
+{synopt:{opt m:atrix(matname)}}use a matrix, {cmd:r()}, or {cmd:e()} matrix{p_end}
 {synopt:{opt varl:abels}}use variable labels in the header row{p_end}
 {synopt:{opt noh:eader}}omit the header row entirely{p_end}
 {synopt:{opt dig:its(#)}}decimal places for numeric columns{p_end}
@@ -155,12 +162,16 @@ Excel and CSV exports. Leading spaces of string cells in the first column are wr
 {opt ti:tle(string)} title written to cell A1, left-justified and merged across the table{p_end}
 
 {phang}
-{opt varl:abels} use variable labels (not names) for the header row of a dataset or frame source.
-When the source is a tabtools table -- the table {helpb desctab} or {helpb table1_tc} returns
-through {cmd:clear} or {cmd:frame()} -- its first observation repeats those same variable labels
-as an embedded header. {cmd:puttab} recognizes that observation by content and consumes it as the
-header row rather than writing the text twice. The observation is kept when {opt noheader} is
-specified, or when {opt varlabels} is not, because nothing else then carries the group labels.{p_end}
+{opt varl:abels} use variable labels (not names) for the header row of a dataset or frame
+source. When the source is a tabtools table, such as the table {helpb desctab} or
+{helpb table1_tc} returns through {cmd:clear} or {cmd:frame()}, its first observation repeats
+those same variable labels as an embedded header. {cmd:puttab} recognizes that observation
+by content and consumes it as the header row rather than writing the text twice: every
+exported column must be a string variable, and every cell of the first observation must
+equal its column's variable label, except that the first column may be blank. Any other
+first observation, including one with a numeric column, is data. The observation is kept
+when {opt noheader} is specified, or when {opt varlabels} is not, because nothing else then
+carries the group labels.{p_end}
 
 {phang}
 {opt zeb:ra} alternating row shading over data rows{p_end}
@@ -185,10 +196,10 @@ point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 triplet (e.g., {cmd:"200 220 240"}){p_end}
 
 {phang}
-{opt m:atrix(name)} use the named Stata matrix as the source; row/column names become
-labels/headers{p_end}
-
-{phang}
+{opt m:atrix(matname)} use a Stata matrix as the source; row/column names become
+labels/headers. {it:matname} is a matrix name, {cmd:r(}{it:name}{cmd:)}, or
+{cmd:e(}{it:name}{cmd:)}, for example {cmd:matrix(r(table))} or
+{cmd:matrix(e(b))}, and a returned matrix must exist when {cmd:puttab} is called{p_end}
 
 {phang}
 {opt zebrac:olor(string)} custom zebra stripe color as a supported Stata color name
@@ -239,7 +250,7 @@ or RGB triplet{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(source)}}source type: {cmd:data}, {cmd:frame}, or {cmd:matrix}{p_end}
-{synopt:{cmd:r(sheet)}}sheet name, when an Excel workbook was written{p_end}
+{synopt:{cmd:r(sheet)}}sheet name as spelled in the workbook{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(file)}}Excel filename, when an Excel workbook was written{p_end}
 {synopt:{cmd:r(csv)}}CSV filename (if written){p_end}
