@@ -385,7 +385,14 @@ estimate column, spanning that model's CI and p-value cells. The class is read
 per model, so a level one model dropped keeps its estimate in the models that
 retained it. Change the words with {opt refcat()}, {opt omitlabel()}, and
 {opt emptylabel()}; the three must differ. Where the collection carries no
-class, {cmd:regtab} labels a constrained factor level {it:Reference}. A
+class, {cmd:regtab} labels a constrained factor level {it:Reference}. Stata 17's
+{cmd:collect} records every constrained cell of some fits as empty --
+{cmd:nbreg}, {cmd:zinb}, {cmd:intreg}, and {cmd:streg} with an ancillary
+parameter -- although the model reports the level as {cmd:(base)}; a model whose
+only recorded class is empty is treated as carrying no class. Such a collection
+cannot separate a base cell from a genuinely empty or collinear one, so in an
+interaction under these estimators every constrained cell reads
+{it:Reference}. A
 collection whose raw row identities cannot be read is rejected before output.{p_end}
 {p 4 8 2}- Equations with nothing estimated: in a multi-equation model such as
 {cmd:mlogit}, the base-outcome equation constrains every one of its

@@ -5,7 +5,9 @@
 * same empty interval, so before 2.1.0 every constrained level was labelled
 * "Reference" and merged as one. Tests 1-9 fail on 2.0.3; test 10 pins the
 * unchanged output of a model that drops nothing. Tests 11-15 cover the
-* multi-equation and multilevel row keys and the factor parent rows.
+* multi-equation and multilevel row keys and the factor parent rows. Tests
+* 16-19 fail on 2.1.8: estimators whose collection stamps every constrained
+* cell "empty" (nbreg, zinb, intreg, streg weibull), and the missing-CI fallback.
 
 clear all
 set more off
@@ -545,6 +547,178 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: interaction parent row (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Tests 16-20: estimators whose collection stamps every constrained cell "empty"
+* Stata 17's collect records the base level of nbreg, zinb, intreg, and streg
+* with an ancillary parameter as omit-type "empty", although e(b) marks it b.
+* and the estimator's own table says (base). Through 2.1.8 regtab printed
+* "Empty" for the reference category of every such model. Tests 16-19 fail on
+* 2.1.8; test 20 pins genuine empty/omitted classes that must survive the gate.
+
+**# Test 16: nbreg base level is the Reference, not Empty
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    quietly collect: nbreg price i.rep78 mpg
+
+    capture frame drop _rto16
+    quietly regtab, frame(_rto16, replace)
+
+    _rto_cell _rto16 "1" c1
+    assert "`r(cell)'" == "Reference"
+    _rto_count _rto16 "Empty" c1
+    assert r(n) == 0
+    _rto_count _rto16 "Reference" c1
+    assert r(n) == 1
+    * the estimated levels keep their IRRs
+    _rto_cell _rto16 "2" c1
+    assert "`r(cell)'" == "1.16"
+}
+if _rc == 0 {
+    display as result "  PASS: nbreg base level labelled Reference"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: nbreg base level label (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Test 17: intreg, zinb, and streg weibull base levels are the Reference
+capture noisily {
+    sysuse auto, clear
+    generate byte died = price > 6000
+    generate t = _n
+    quietly stset t, failure(died)
+    local k 0
+    foreach m in "intreg price price i.rep78" ///
+        "zinb price i.rep78, inflate(mpg)" ///
+        "streg i.rep78 mpg, dist(weibull)" {
+        local ++k
+        collect clear
+        quietly collect: `m'
+        capture frame drop _rto17
+        quietly regtab, frame(_rto17, replace)
+        * zinb prints equation-qualified row labels
+        local lab "1"
+        if `k' == 2 local lab "Price: 1.rep78"
+        _rto_cell _rto17 "`lab'" c1
+        if "`r(cell)'" != "Reference" {
+            display as error "`m': base cell is `r(cell)'"
+            exit 9
+        }
+        _rto_count _rto17 "Empty" c1
+        assert r(n) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: intreg/zinb/streg base levels labelled Reference"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: intreg/zinb/streg base level label (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Test 18: the empty-only gate is per model within one collection
+* regress classes its cells correctly, so its genuinely empty interaction
+* cells stay Empty while the nbreg model beside it gets its Reference.
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    quietly collect: regress price i.foreign#i.rep78
+    quietly collect: nbreg price i.rep78 mpg
+
+    capture frame drop _rto18
+    quietly regtab, frame(_rto18, replace)
+
+    _rto_cell _rto18 "0.foreign#1.rep78" c1
+    assert "`r(cell)'" == "Reference"
+    _rto_cell _rto18 "1.foreign#1.rep78" c1
+    assert "`r(cell)'" == "Empty"
+    _rto_cell _rto18 "1.foreign#2.rep78" c1
+    assert "`r(cell)'" == "Empty"
+    * the nbreg main-effect level: first body row labelled "1"
+    _rto_cell _rto18 "1" c4
+    assert "`r(cell)'" == "Reference"
+    _rto_count _rto18 "Empty" c4
+    assert r(n) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: empty-only gate applies per model"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: per-model empty-only gate (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Test 19: an estimated level with a missing CI bound is not the Reference
+* The near-separated weibull fit estimates rep78 levels 2-5 with a (0, .)
+* interval and a p-value near 1. An empty CI alone used to make the fallback
+* call each of them "Reference".
+capture noisily {
+    sysuse auto, clear
+    generate byte died = price > 6000
+    generate t = _n
+    quietly stset t, failure(died)
+    collect clear
+    quietly collect: streg i.rep78 mpg, dist(weibull)
+
+    capture frame drop _rto19
+    quietly regtab, frame(_rto19, replace)
+
+    _rto_count _rto19 "Reference" c1
+    assert r(n) == 1
+    forvalues lv = 2/5 {
+        _rto_cell _rto19 "`lv'" c1
+        local v = real(subinstr("`r(cell)'", ",", "", .))
+        assert !missing(`v') & `v' > 1000
+        _rto_cell _rto19 "`lv'" c3
+        assert "`r(cell)'" == ">0.99"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: missing-CI estimate keeps its value"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: missing-CI estimate labelled Reference (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# Test 20: genuine empty and omitted classes survive the empty-only gate
+* A base level with no observations always forces another level out, so a
+* correctly classed model carries an omit beside its empty and keeps both.
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    quietly collect: regress price ib3.rep78 if rep78 != 3
+    capture frame drop _rto20
+    quietly regtab, frame(_rto20, replace)
+    _rto_cell _rto20 "3" c1
+    assert "`r(cell)'" == "Empty"
+    _rto_cell _rto20 "5" c1
+    assert "`r(cell)'" == "Omitted"
+
+    * logit drops the perfectly predicted base level 1 and collinear level 5
+    generate byte hi = price > 6000
+    collect clear
+    quietly collect: logit hi i.rep78 mpg
+    capture frame drop _rto20
+    quietly regtab, frame(_rto20, replace)
+    _rto_cell _rto20 "1" c1
+    assert "`r(cell)'" == "Empty"
+    _rto_cell _rto20 "5" c1
+    assert "`r(cell)'" == "Omitted"
+}
+if _rc == 0 {
+    display as result "  PASS: genuine empty/omitted classes kept"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: genuine empty/omitted classes (rc=`=_rc')"
     local ++fail_count
 }
 

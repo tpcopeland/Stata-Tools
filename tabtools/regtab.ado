@@ -1,4 +1,4 @@
-*! regtab Version 2.1.8  2026/09/25
+*! regtab Version 2.1.9  2026/09/25
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1860,12 +1860,41 @@ forvalues _ci = 1/`_cnmap_n' {
 forvalues _m = 1/`n_models' {
 	quietly gen str8 _omit_type`_m' = ""
 }
+* Some estimators reach the collection with every constrained cell stamped
+* "empty": nbreg, zinb, intreg, and streg's ancillary-parameter distributions
+* in Stata 17. The base level of i.rep78 after nbreg is 1b. in e(b) and
+* "(base)" in nbreg's own table, yet collect records it as empty, and collinear
+* drops arrive the same way. A factor model whose classes are genuine carries a
+* base or an omitted cell; a model whose only class is "empty" is one collect
+* could not classify, so its "empty" is treated as no class at all and the
+* factor-key fallback below labels the level.
+forvalues _m = 0/`n_models' {
+	local _ocls_`_m' ""
+}
+forvalues _ok = 1/`_omit_n' {
+	local _okey `"`_omit_key_`_ok''"'
+	local _obar = strpos(`"`_okey'"', "|")
+	if `_obar' > 0 {
+		local _omi = real(substr(`"`_okey'"', 1, `_obar' - 1))
+		if !missing(`_omi') & `_omi' >= 0 & `_omi' <= `n_models' {
+			local _ocls_`_omi' `"`_ocls_`_omi'' `_omit_val_`_ok''"'
+		}
+	}
+}
+forvalues _m = 0/`n_models' {
+	local _ocls_`_m' : list uniq _ocls_`_m'
+	local _ounclassed_`_m' = (`"`_ocls_`_m''"' == "empty")
+}
 forvalues _ok = 1/`_omit_n' {
 	local _okey `"`_omit_key_`_ok''"'
 	local _oval `"`_omit_val_`_ok''"'
 	local _obar = strpos(`"`_okey'"', "|")
 	if `_obar' > 0 & inlist(`"`_oval'"', "base", "omit", "empty") {
 		local _omi = real(substr(`"`_okey'"', 1, `_obar' - 1))
+		if `"`_oval'"' == "empty" & !missing(`_omi') & `_omi' >= 0 ///
+			& `_omi' <= `n_models' {
+			if `_ounclassed_`_omi'' continue
+		}
 		local _ocn = substr(`"`_okey'"', `_obar' + 1, .)
 		if !missing(`_omi') & `_omi' == 0 {
 			forvalues _m = 1/`n_models' {
@@ -2056,12 +2085,16 @@ if `_omit_ok' {
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
 	replace c`i' = `"`emptylabel'"' if _omit_type`_model_ix' == "empty" ///
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+	* Without a class, a constrained level is known only by its cells: an
+	* empty CI AND an empty p-value. An estimated level whose interval bound
+	* is missing (a near-separated fit prints "(0, .)") still has a p-value.
 	replace c`i' = `"`refcat'"' if inlist(_omit_type`_model_ix', "", "mixed") ///
-		& _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+		& _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" ///
+		& strtrim(c`=`i'+2') == "" & _n >= 3
 }
 else {
 	replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
-		& c`=`i'+1' == "" & _n >= 3
+		& c`=`i'+1' == "" & strtrim(c`=`i'+2') == "" & _n >= 3
 }
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
