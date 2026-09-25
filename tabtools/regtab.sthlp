@@ -123,7 +123,11 @@ transformed on the same scale. In multi-level models, each transformed
 random-intercept row keeps its own grouping label, so the output reads, for
 example, "Median Odds Ratio (District)" and "Median Odds Ratio
 (School)". MOR/MHR values and other random effects (slopes, covariances,
-residual) follow the requested {opt digits()} precision. Use {opt nore} to suppress all
+residual) follow the requested {opt digits()} precision. When a transformed
+bound cannot be represented (the MOR of a near-zero variance whose upper
+bound is ~1e+29 overflows double precision), the CI cell is left blank; the
+same applies to an exponentiated fixed-effect interval, so a cell never shows
+the untransformed collect text. Use {opt nore} to suppress all
 random-effects rows if desired.{p_end}
 
 
@@ -344,7 +348,10 @@ as coefficients ({cmd:logit} without {cmd:or}, {cmd:logistic} with
 exponentiated is left as it is, so the header always names the numbers under
 it. Display options are read only from the option list after the command's
 comma, with the estimator's own abbreviations ({cmd:ir}, {cmd:rr}, {cmd:ti},
-{cmd:tr}), so a covariate named {cmd:or} is never mistaken for the option.{p_end}
+{cmd:tr}), so a covariate named {cmd:or} is never mistaken for the option.
+A {cmd:svy:} prefix is set aside: {cmd:svy: logit} is classified like
+{cmd:logit} (OR, intercept suppressed), and the {cmd:svy} options before the
+colon, such as {cmd:subpop()}, are never read as display options.{p_end}
 {p 4 8 2}- {cmd:streg} and {cmd:mestreg} follow Stata's metric rules
 (exponential and Weibull fit in the log-hazard metric, HR, unless {cmd:time} or
 {cmd:tr} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
@@ -368,7 +375,10 @@ are refused with an error.{p_end}
 parameter types. For single-level models {cmd:var(_cons)} becomes
 {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
 {it:Covariance: GroupLabel (X label, Intercept)}; multi-level models label each
-level separately. With differing grouping structures and no {opt relab:el},
+level separately. The {cmd:me}{it:*} estimators are labelled the same way:
+{cmd:var(x[clinic])} becomes {it:Variance: Clinic label (X label)} and
+{cmd:cov(x[clinic],_cons[clinic])} becomes
+{it:Covariance: Clinic label (X label, Intercept)}. With differing grouping structures and no {opt relab:el},
 the generic collection labels such as {cmd:var(_cons)} and {cmd:var(e)} are
 retained rather than assigning a group label from another model. If {opt relab:el}
 is requested with ambiguous random-effects metadata, {cmd:regtab} exits with
@@ -591,7 +601,11 @@ rows.{p_end}
 
 {pstd}{cmd:r(table)} excludes the title and any appended stats/addrows. Row names are
 derived from each variable's display label with periods, spaces, commas, and
-colons replaced by underscores or stripped, then truncated to 32 characters.{p_end}
+colons replaced by underscores or stripped, then truncated to 32 characters.
+A name that Stata's matrix row-name rules reject or rewrite (a bracketed
+random-effects key such as {cmd:var(x[clinic])}, or {cmd:cov(x_cons)}, which
+Stata reads back as {cmd:var(x_cons)}) instead has every character other than
+letters, digits, and underscores replaced by an underscore.{p_end}
 
 {pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)},
 {cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)},

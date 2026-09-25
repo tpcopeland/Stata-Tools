@@ -1,4 +1,4 @@
-*! comptab Version 2.1.10  2026/09/25
+*! comptab Version 2.1.11  2026/09/26
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

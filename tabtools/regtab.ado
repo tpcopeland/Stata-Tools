@@ -1,4 +1,4 @@
-*! regtab Version 2.1.10  2026/09/25
+*! regtab Version 2.1.11  2026/09/26
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -264,9 +264,10 @@ if "`coef'" == "" {
 	local _ecmdline = lower(`"`e(cmdline)'"')
 	* Without e(cmdline) the display options are unknown, so no rule is
 	* applied and the header stays unlabelled rather than guessed.
+	_regtab_optstr _eoptstr `"`_ecmdline'"'
+	local _ecmdline `"`_eoptstr_line'"'
 	local _ecmdword ""
 	gettoken _ecmdword : _ecmdline
-	_regtab_optstr _eoptstr `"`_ecmdline'"'
 	_regtab_scale `"`_ecmdword'"' `"`_ecmd'"' `"`_eoptstr'"'
 	if `_rs_known' {
 		if `_rs_eform' local coef "Coef."
@@ -419,7 +420,10 @@ quietly{
             local meta_allvars `r(varlist)'
             foreach v of local meta_allvars {
                 local hdr = strlower(strtrim(`v'[1]))
-                if "`hdr'" == "command" local meta_col_cmd "`v'"
+                * collect labels e(cmd) "Estimation command" once a svy:
+                * fit is in the collection; missing it dropped the whole
+                * metadata path (and every model's scale) silently.
+                if inlist("`hdr'", "command", "estimation command") local meta_col_cmd "`v'"
                 if "`hdr'" == "command line as typed" local meta_col_cmdline "`v'"
                 if "`hdr'" == "dependent variable" local meta_col_depvar "`v'"
                 if "`hdr'" == "imputation variables" local meta_col_ivars "`v'"
@@ -465,13 +469,15 @@ quietly{
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
             local _cmdline_lc `"`model_cmdline_`m''"'
+            * Option text only: a covariate named "or", or a comma inside an
+            * if() expression, must never be read as a display option. A svy:
+            * prefix is set aside, so the estimation command after it is the
+            * one classified (_optstr_line) and svy's options are not read.
+            _regtab_optstr _optstr `"`_cmdline_lc'"'
+            local _cmdline_lc `"`_optstr_line'"'
             local _cmdword ""
             gettoken _cmdword _cmdrest : _cmdline_lc
             if "`_cmdword'" == "" local _cmdword `"`model_cmd_`m''"'
-
-            * Option text only: a covariate named "or", or a comma inside an
-            * if() expression, must never be read as a display option.
-            _regtab_optstr _optstr `"`_cmdline_lc'"'
 
             * Display scale: the estimate header, whether regtab must
             * exponentiate the collected values to reach that scale, the null
@@ -1190,6 +1196,38 @@ quietly{
         }
     }
 
+    * Labels of every variable named inside a collected random-effects key
+    * (var(x[g]), cov(x[g],_cons[g]), sd(x)). The me* estimators record no
+    * e(revars) in the collection, and relabel runs on the rendered string
+    * data, where the model's variables no longer exist; read them now.
+    local _rel_n = 0
+    if "`relabel'" != "" {
+        capture quietly collect levelsof colname
+        if _rc == 0 {
+            local _rel_levels `"`s(levels)'"'
+            foreach _rk of local _rel_levels {
+                if !ustrregexm(`"`_rk'"', "^(var|sd|cov)\(") continue
+                local _rk_in = ustrregexra(`"`_rk'"', "^(var|sd|cov)\(|\)$|\[[^\]]*\]", "")
+                local _rk_in = subinstr(`"`_rk_in'"', ",", " ", .)
+                foreach _rn of local _rk_in {
+                    if inlist("`_rn'", "_cons", "e") continue
+                    if strtoname("`_rn'") != "`_rn'" continue
+                    local _rel_seen = 0
+                    forvalues _rli = 1/`_rel_n' {
+                        if "`_rel_nm_`_rli''" == "`_rn'" local _rel_seen = 1
+                    }
+                    if `_rel_seen' continue
+                    capture confirm variable `_rn', exact
+                    if _rc continue
+                    local ++_rel_n
+                    local _rel_nm_`_rel_n' "`_rn'"
+                    local _rel_lb_`_rel_n' : variable label `_rn'
+                    if `"`_rel_lb_`_rel_n''"' == "" local _rel_lb_`_rel_n' "`_rn'"
+                }
+            }
+        }
+    }
+
     * Capture factor variable value labels for factorlabel option
     if "`factorlabel'" != "" {
         local _fvlabel_cmds ""
@@ -1404,7 +1442,10 @@ if `_is_multilevel' {
         * Normalize nested paths to the terminal grouping variable so the
         * downstream relabel/MOR logic can match them reliably.
         replace A = strtrim(A) if _n > 2
-        gen byte _q_is_header = _n > 2 & (strtrim(B) == "" | B == ".")
+        * Header rows are the renderer's coleq rows, the only rows without a
+        * raw colname key. An empty model-1 cell is not a header: it is a row
+        * that only a later model estimates.
+        gen byte _q_is_header = _n > 2 & strtrim(_raw_colname) == ""
         drop if _q_is_header
         drop _q_is_header
         forvalues _lev = 1/`_n_re_levels' {
@@ -1417,8 +1458,9 @@ if `_is_multilevel' {
         }
     }
     else {
-        * Identify header rows: rows > 2 where B (data column) is empty
-        gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
+        * Identify header rows by their empty raw key (see above); an empty
+        * model-1 cell marks a row only a later model estimates.
+        gen byte _is_header = strtrim(_raw_colname) == "" & _n > 2
 
         * Propagate coleq header label down to each data row
         gen str244 _parent_header = A if _is_header
@@ -1462,10 +1504,66 @@ if `_is_multilevel' {
         drop if _is_header
         drop _is_header _parent_header _data_is_re _A_trim
     }
+
+    * The coleq#colname renderer builds no factor parent rows, so a factor
+    * lost its header row (Sex above Male/Female) as soon as a model had two
+    * grouping levels. Insert the parent the colname layout would have
+    * rendered: keyed on the raw colname, once per consecutive run of levels.
+    quietly generate str244 _fp_par = ""
+    forvalues _fpr = 3/`=_N' {
+        local _fp_key = strtrim(_raw_colname[`_fpr'])
+        if strpos(`"`_fp_key'"', ".") == 0 continue
+        * Mirrors the renderer's _tt_collect_factor_parent: "2.sex" -> "sex",
+        * "1.grp#c.x" -> "grp#x"; no factor component, or a level that is
+        * its own parent, gives no parent row.
+        local _fp_this ""
+        local _fp_hasfv 0
+        local _fp_bad 0
+        local _fp_parts = subinstr(`"`_fp_key'"', "#", " ", .)
+        local _fp_i 0
+        foreach _fp_p of local _fp_parts {
+            local ++_fp_i
+            local _fp_dot = strpos(`"`_fp_p'"', ".")
+            if `_fp_dot' > 1 & ///
+                regexm(substr(`"`_fp_p'"', 1, `_fp_dot' - 1), "^[0-9bon]*[0-9][0-9bon]*$") {
+                local _fp_p = substr(`"`_fp_p'"', `_fp_dot' + 1, .)
+                local _fp_hasfv 1
+            }
+            else if `_fp_dot' == 2 & substr(`"`_fp_p'"', 1, 1) == "c" {
+                local _fp_p = substr(`"`_fp_p'"', 3, .)
+            }
+            if `"`_fp_p'"' == "" local _fp_bad 1
+            if `_fp_i' == 1 local _fp_this `"`_fp_p'"'
+            else local _fp_this `"`_fp_this'#`_fp_p'"'
+        }
+        if `_fp_bad' | !`_fp_hasfv' | `"`_fp_this'"' == `"`_fp_key'"' continue
+        quietly replace _fp_par = `"`_fp_this'"' in `_fpr'
+    }
+    quietly count if _n > 2 & _fp_par != ""
+    if r(N) > 0 {
+        quietly generate long _fp_ord = _n
+        quietly generate byte _fp_new = _n > 2 & _fp_par != "" & _fp_par != _fp_par[_n - 1]
+        quietly expand 2 if _fp_new, generate(_fp_dup)
+        quietly ds A _raw_colname _fp_par _fp_ord _fp_new _fp_dup, not
+        foreach _fpv in `r(varlist)' {
+            capture confirm string variable `_fpv'
+            if _rc == 0 quietly replace `_fpv' = "" if _fp_dup
+            else quietly replace `_fpv' = . if _fp_dup
+        }
+        quietly replace A = _fp_par if _fp_dup
+        quietly replace _raw_colname = _fp_par if _fp_dup
+        gsort _fp_ord -_fp_dup
+        drop _fp_ord _fp_new _fp_dup
+    }
+    drop _fp_par
 }
 else if `_is_multieq' {
     gen long _orig_row_order = _n
-    gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
+    * Equation header rows carry no raw colname key. Keying on an empty
+    * model-1 cell deleted every row model 1 lacks: a covariate only a later
+    * model has, and whole equations (zinb's ancillary rows beside zip, a
+    * second outcome's equation) absent from model 1.
+    gen byte _is_header = strtrim(_raw_colname) == "" & _n > 2
     gen str244 _parent_header = A if _is_header
     replace _parent_header = _parent_header[_n-1] if _parent_header == "" & _n > 2
     replace _parent_header = strtrim(_parent_header) if _n > 2
@@ -1620,17 +1718,35 @@ if "`relabel'" != "" {
                 levelsof _temp_row if strpos(A, "cov(") > 0 & strpos(A, "[`_gvar']") > 0, local(cov_rows)
                 foreach row of local cov_rows {
                     local cov_str = A[`row']
-                    * Extract: cov(var1,var2[groupvar]) -> inner = var1,var2
-                    local cov_inner = subinstr("`cov_str'", "cov(", "", 1)
-                    local cov_inner = subinstr("`cov_inner'", "[`_gvar'])", "", 1)
+                    * Extract the two components of cov(v1,v2[g]) (mixed),
+                    * cov(v1[g],v2[g]) (me*), or the comma-less
+                    * cov(v1[g]v2[g]): every [g] ends a component.
+                    local cov_inner = substr(`"`cov_str'"', 5, .)
+                    if substr(`"`cov_inner'"', -1, 1) == ")" {
+                        local cov_inner = substr(`"`cov_inner'"', 1, strlen(`"`cov_inner'"') - 1)
+                    }
+                    local cov_inner = subinstr(`"`cov_inner'"', "[`_gvar'],", ",", .)
+                    local cov_inner = subinstr(`"`cov_inner'"', "[`_gvar']", ",", .)
+                    while substr(`"`cov_inner'"', -1, 1) == "," {
+                        local cov_inner = substr(`"`cov_inner'"', 1, strlen(`"`cov_inner'"') - 1)
+                    }
                     gettoken cov_v1 cov_v2 : cov_inner, parse(",")
                     local cov_v2 = subinstr("`cov_v2'", ",", "", 1)
                     local cov_v1 = strtrim("`cov_v1'")
                     local cov_v2 = strtrim("`cov_v2'")
-                    local cov_lbl1 `"`lbl_`cov_v1''"'
-                    if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
-                    local cov_lbl2 `"`lbl_`cov_v2''"'
-                    if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
+                    * Only a key that splits into exactly two plain names is
+                    * relabelled; anything else keeps its collect key.
+                    if "`cov_v1'" == "" | "`cov_v2'" == "" | ///
+                        strpos("`cov_v2'", ",") | strpos("`cov_v1'`cov_v2'", "[") continue
+                    forvalues _cvk = 1/2 {
+                        local cov_lbl`_cvk' "`cov_v`_cvk''"
+                        if "`cov_v`_cvk''" == "_cons" local cov_lbl`_cvk' "Intercept"
+                        forvalues _rli = 1/`_rel_n' {
+                            if "`_rel_nm_`_rli''" == "`cov_v`_cvk''" {
+                                local cov_lbl`_cvk' `"`_rel_lb_`_rli''"'
+                            }
+                        }
+                    }
                     replace A = "Covariance: `_glbl' (`cov_lbl1', `cov_lbl2')" in `row'
                 }
                 drop _temp_row
@@ -1644,6 +1760,31 @@ if "`relabel'" != "" {
                     replace A = `"`_glbl' SD (`slope_lbl')"' if A == "sd(`revar'[`_gvar'])"
                 }
             }
+
+            * Slope variances/SDs the metadata does not name. The me*
+            * estimators record no e(revars) in the collection, so their
+            * var(x[g]) rows stayed raw while mixed's were relabelled. Take the
+            * slope name from the key itself.
+            capture drop _temp_row
+            gen long _temp_row = _n
+            quietly levelsof _temp_row if _n > 2 & ///
+                ustrregexm(A, "^(var|sd)\([^\[\]\(\),]+\[`_gvar'\]\)$"), local(_sl_rows)
+            foreach row of local _sl_rows {
+                local _sl_key = A[`row']
+                if !ustrregexm(`"`_sl_key'"', "^(var|sd)\(([^\[\]\(\),]+)\[") continue
+                local _sl_kind = ustrregexs(1)
+                local _sl_var = ustrregexs(2)
+                if "`_sl_var'" == "_cons" continue
+                local _sl_lbl "`_sl_var'"
+                forvalues _rli = 1/`_rel_n' {
+                    if "`_rel_nm_`_rli''" == "`_sl_var'" local _sl_lbl `"`_rel_lb_`_rli''"'
+                }
+                if "`_sl_kind'" == "var" {
+                    replace A = `"Variance: `_glbl' (`_sl_lbl')"' in `row'
+                }
+                else replace A = `"`_glbl' SD (`_sl_lbl')"' in `row'
+            }
+            drop _temp_row
         }
 
         * --- Single-level patterns (no brackets) for single-level mixed ---
@@ -2019,6 +2160,7 @@ else {
 	replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
 		& c`=`i'+1' == "" & strtrim(c`=`i'+2') == "" & _n >= 3
 }
+gen byte _b_had = !missing(c`i'z)
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -2027,6 +2169,11 @@ if "`re_transform'" != "none" {
     replace c`i'z = exp(sqrt(2 * c`i'z) * invnormal(0.75)) ///
         if _is_re_intercept == 1 & !missing(c`i'z) & c`i'z >= 0
 }
+* A transform that overflows double precision leaves no representable value;
+* the cell is blank rather than collect's untransformed text.
+replace c`i' = "" if _b_had & missing(c`i'z) & _n >= 3 ///
+	& !inlist(strtrim(c`i'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+drop _b_had
 	gen double _coefnum`i' = c`i'z if _n >= 3
 	capture confirm variable _eplot_est`_model_ix'
 	if _rc gen double _eplot_est`_model_ix' = .
@@ -2108,6 +2255,17 @@ forvalues i = 2(3)`=`last'+1' {
     replace _ci_fmt = "(" + string(_ci_lo, "`ci_fmt'") + `"`sep'"' + string(_ci_hi, "`ci_fmt'") + ")" ///
         if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     replace c`i' = _ci_fmt if _ci_fmt != ""
+    * A row regtab transforms (eform fixed effect, MOR/MHR intercept) whose
+    * interval could not be formatted - a bound that overflowed exp(), or one
+    * collect left missing - is blank. Its collect text is on the
+    * untransformed scale (log odds under an OR header, a variance under a
+    * MOR row), and a near-zero variance printed it at full precision, e.g.
+    * "(1.83e-35, 2.22e+29)".
+    gen byte _ci_xf = 0
+    if `_needs_eform' replace _ci_xf = 1 if !_is_re & !_is_ancillary
+    if "`re_transform'" != "none" replace _ci_xf = 1 if _is_re_intercept == 1
+    replace c`i' = "" if _ci_xf & _ci_fmt == "" & _n >= 3
+    drop _ci_xf
     * Save non-significance flag for dimnonsig formatting
     if "`dimnonsig'" != "" {
         replace _ci_seen = 1 if !_is_re & !_is_ancillary & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
@@ -2283,6 +2441,8 @@ if `n_models' > 0 {
 tempname _rtable
 if `_mat_nrows' > 0 {
     matrix `_rtable' = J(`_mat_nrows', `n_models', .)
+    tempname _rn_probe
+    matrix `_rn_probe' = J(1, 1, .)
     local _rnames ""
     local _mr = 0
     foreach _obs of local _keep_obs {
@@ -2306,6 +2466,21 @@ if `_mat_nrows' > 0 {
         local _rname = subinstr("`_rname'", ":", "", .)
         local _rname = substr("`_rname'", 1, 32)
         if "`_rname'" == "" local _rname "row`_mr'"
+        * Each name must survive matrix rownames unchanged. A bracketed key
+        * such as var(x[clinic]) was rejected, which sent the whole matrix to
+        * r1, r2, ...; a comma-stripped cov(x_cons) was accepted but read back
+        * as var(x_cons), naming a covariance as a variance. A name that does
+        * not round-trip has every character outside [A-Za-z0-9_] replaced.
+        capture matrix rownames `_rn_probe' = `_rname'
+        local _rn_back ""
+        if _rc == 0 local _rn_back : rownames `_rn_probe'
+        if `"`_rn_back'"' != `"`_rname'"' {
+            local _rname = substr(ustrregexra(`"`_rname'"', "[^A-Za-z0-9_]", "_"), 1, 32)
+            capture matrix rownames `_rn_probe' = `_rname'
+            local _rn_back ""
+            if _rc == 0 local _rn_back : rownames `_rn_probe'
+            if `"`_rn_back'"' != `"`_rname'"' local _rname "row`_mr'"
+        }
         local _rnames `"`_rnames' `_rname'"'
     }
     capture matrix rownames `_rtable' = `_rnames'
@@ -3249,6 +3424,11 @@ end
 * string is not a separator, so a comma in an if() expression cannot start the
 * option list, and nothing before the option comma (a covariate literally
 * named "or", say) is ever read as an option.
+* A svy prefix ("svy [vcetype][, svy options]: cmd ...", as e(cmdline) records
+* it) is set aside first: <target>_line receives the command line after the
+* first colon outside parentheses and quotes, so the caller classifies the
+* estimation command and svy's own options are never read as display options.
+* Any other command line is returned unchanged in <target>_line.
 capture program drop _regtab_optstr
 program define _regtab_optstr, nclass
 	version 17.0
@@ -3257,6 +3437,29 @@ program define _regtab_optstr, nclass
 	capture noisily {
 		gettoken _ro_target 0 : 0
 		gettoken _ro_str 0 : 0
+		if regexm(strtrim(`"`_ro_str'"'), "^svy([ ,:]|$)") {
+			local _ro_len = strlen(`"`_ro_str'"')
+			local _ro_depth 0
+			local _ro_inq 0
+			local _ro_i 1
+			while `_ro_i' <= `_ro_len' {
+				* 1 quote, 2 (, 3 ), 4 colon, 0 anything else
+				local _ro_k = strpos(char(34) + "():", ///
+					substr(`"`_ro_str'"', `_ro_i', 1))
+				if `_ro_inq' {
+					if `_ro_k' == 1 local _ro_inq 0
+				}
+				else if `_ro_k' == 1 local _ro_inq 1
+				else if `_ro_k' == 2 local ++_ro_depth
+				else if `_ro_k' == 3 & `_ro_depth' > 0 local --_ro_depth
+				else if `_ro_k' == 4 & `_ro_depth' == 0 {
+					local _ro_str = strtrim(substr(`"`_ro_str'"', `_ro_i' + 1, .))
+					continue, break
+				}
+				local ++_ro_i
+			}
+		}
+		c_local `_ro_target'_line `"`_ro_str'"'
 		local _ro_len = strlen(`"`_ro_str'"')
 		local _ro_depth 0
 		local _ro_inq 0
@@ -3543,3 +3746,4 @@ program define _regtab_scale, nclass
 	set varabbrev `_orig_varabbrev'
 	if `_rc' exit `_rc'
 end
+

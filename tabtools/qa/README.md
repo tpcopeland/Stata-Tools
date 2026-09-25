@@ -60,6 +60,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_desctab.do` | Direct descriptive-engine behavior, option semantics, returns, styles, sinks, and cleanup. |
 | `test_effecttab.do` | Supported result sources, matrix mode, frames, formatting, and console returns. |
 | `test_effecttab_omitted.do` | Constrained margins labelling: not-estimable and unidentified cells, factor row labels, `omitlabel()`/`emptylabel()`, and `r(table)` exclusion. |
+| `test_effecttab_layout.do` | Excel body layout read back with openpyxl: Reference/Omitted merges confined to the model block that holds them (other models' CI and p cells intact), and top alignment across every body column. |
 | `test_final_review_docs.do` | Executable corrected `stratetab` help and tips recipes using real `strate` output, including workbook values and labels. |
 | `test_final_review_helpers.do` | Sparse Excel sheet dimensions, bounds errors, and caller-state preservation for `_tabtools_xlsx_read`. |
 | `test_final_review_models.do` | Fallback-reader errors, stale active-estimate statistics/metadata rejection for `regtab` and `effecttab`, and `stratetab` rate-ratio methods provenance. |
@@ -75,6 +76,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_puttab.do` | Dataset/frame/matrix sources, styling, Markdown, and dimensions. |
 | `test_regtab.do` | Model families, statistics, selection, display modes, frames, and p-value policies. |
 | `test_regtab_omitted.do` | Base, collinear, and empty coefficient labelling per model, including `omitlabel()`/`emptylabel()`, `r(table)`, interaction cells, estimators whose collection records every constrained cell as empty (`nbreg`, `zinb`, `intreg`, `streg` weibull), and estimated levels with a missing CI bound. |
+| `test_regtab_multieq_mixed.do` | Mixed and multi-equation layouts: factor header rows in multilevel models, rows and equations only a later model estimates (`mlogit`, `zip`/`zinb`, `ologit` + `mlogit`), blank overflowed transformed CIs, me* `relabel` of slope variances and covariances, `r(table)` row names, `mecloglog`/`mestreg`/`streg, time` scale, and `svy:` classification. |
 | `test_review_2026_08_13.do` | Disclosure-reconstruction attacks and correlation-star regression contracts. |
 | `test_review_2026_09_15.do` | Treatment controls, raw coefficient identities, case and name collisions, cleared-data labels, and shipped-header agreement. |
 | `test_review_2026_09_25_rates_puttab.do` | Label-matched `hrcomptab` HR placement against `stcox`, caller data/`c(filename)` preservation, `frame()`-scoped `if`/`in`, `%t` dates and negative zero in `puttab`, staged `stratetab` frames, and `strate` per(k) scaling. |
@@ -134,8 +136,8 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `desctab` | `test_desctab` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage |
 | `crosstab` | `test_crosstab` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `corrtab` | `test_corrtab` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial |
-| `regtab` | `test_regtab`, `test_regtab_omitted` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
-| `effecttab` | `test_effecttab`, `test_effecttab_omitted` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial |
+| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
+| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial |
 | `survtab` | `test_survtab` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `stratetab` | `test_stratetab` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial |
