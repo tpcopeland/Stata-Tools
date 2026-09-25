@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.8** | 2026-09-25
+**Version 2.1.9** | 2026-09-25
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -466,6 +466,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.1.9** (2026-09-25): `regtab` labels the base level of a factor *Reference* after `nbreg`, `zinb`, `intreg`, and `streg` with an ancillary parameter (e.g. `dist(weibull)`), where it printed *Empty*. Stata 17's `collect` stamps every constrained cell of these fits "empty" even though `e(b)` marks the level `b.` and the estimator's own table reports `(base)`. A model whose only recorded class is "empty" is now treated as unclassified, so its constrained factor levels take the `refcat()` label; models with genuine empty cells (which always also carry a base or omitted cell) keep `emptylabel()`, per model within one collection. The collection cannot separate a base cell from a genuinely empty or collinear one under these estimators, so their interaction terms read *Reference* on every constrained cell. The unclassified fallback also now requires an empty p-value as well as an empty CI, so an estimated level whose interval bound is missing (a near-separated fit printing `(0, .)`) shows its estimate instead of *Reference*. Added `regtab` regressions.
 - **2.1.8** (2026-09-25): Markdown export now keeps row-label indentation. `table1_tc`/`desctab` (three spaces) and `regtab` (two spaces) indent categorical and factor-level rows with leading spaces, which the Markdown writer trimmed and GFM would trim anyway, so level rows sat flush with their variable rows. The shared writer now writes each leading space of a first-column string cell as `&nbsp;`, after escaping so the entity never combines with an escaped `\|`; this applies to every command's `markdown()` sink. Value cells, headers, titles, and footnotes are unchanged, so display-format padding and `spacelowpercent`'s `( 3%)` gain no entities. Added writer, `table1_tc`, and `regtab` regressions.
 
 - **2.1.7** (2026-09-16): `puttab ... varlabels` no longer writes the header twice when its source is a `desctab`/`table1_tc` table returned through `clear` or `frame()`. Those tables are header-shaped -- observation 1 repeats each column's variable label -- and `puttab` now recognizes that observation by content and consumes it as the header row. The observation is kept under `noheader` or without `varlabels`, and an already-deduplicated table is unaffected. Documented the header-shaped `clear`/`frame()` contract in the `desctab` and `table1_tc` help files and added regressions for both sinks.

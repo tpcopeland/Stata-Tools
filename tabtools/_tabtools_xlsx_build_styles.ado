@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_build_styles Version 2.1.8  2026/09/25
+*! _tabtools_xlsx_build_styles Version 2.1.9  2026/09/25
 *! Build compact Excel style rule matrices from row specifications
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
