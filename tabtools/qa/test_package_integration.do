@@ -3537,6 +3537,8 @@ capture noisily {
     set obs 80
     set seed 60606
     gen byte treated = mod(_n, 2)
+    label define _ef_exp 0 "None" 1 "Current", replace
+    label values treated _ef_exp
     gen double follow = exp(-0.5 * treated + rnormal())
     gen byte failed = 1
     stset follow, failure(failed)

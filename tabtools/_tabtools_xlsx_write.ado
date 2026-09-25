@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.1.9  2026/09/25
+*! _tabtools_xlsx_write Version 2.1.10  2026/09/25
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,12 +30,15 @@ program define _tabtools_xlsx_write, rclass
             exit 2000
         }
 
+        local _tt_sheet_used `"`sheet'"'
         mata: `book' = _tt_xlsx_write_mata(`"`using'"', `"`sheet'"', `"`_vars'"')
 
         return scalar n_rows = _N
         return scalar n_cols = `: word count `_vars''
         return local book "`book'"
-        return local sheet `"`sheet'"'
+        * Excel matches an existing sheet case-insensitively; report the
+        * spelling actually written so callers can style and echo it.
+        return local sheet `"`_tt_sheet_used'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc
@@ -91,6 +94,7 @@ class xl scalar _tt_xlsx_write_mata(
         }
         b.set_sheet(sheet)
     }
+    st_local("_tt_sheet_used", sheet)
 
     b.set_mode("open")
     table = _tt_cur_strmat(varlist)

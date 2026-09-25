@@ -1,4 +1,4 @@
-*! desctab Version 2.1.9  2026/09/25 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.10  2026/09/25 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -347,10 +347,16 @@ program define desctab, rclass
 
     /* Set default formats if not specified */
     if `"`nformat'"' == "" local nformat "%12.0fc"        // Default format for counts
+    * GSD precision: the geometric SD is a multiplicative factor near 1, so the
+    * package-default %2.0f would print every GSD as "×/1". Without a user
+    * format (format(), or a per-variable fmt1/fmt2) the GSD gets two decimals.
+    local _gsd_default ""
+    if `"`format'"' == "" local _gsd_default "%4.2f"
     if `"`format'"' == "" local format "%2.0f"            // Default format for continuous vars
     if `"`percformat'"' == "" local percformat "%5.0f"    // Default format for percentages
     local percsign = subinstr(strtrim(`"`percsign'"'), char(34), "", .)  // strip quotes from asis
     if `"`iqrmiddle'"' == "" local iqrmiddle `"", ""'     // Default separator for IQR
+    local iqrmiddle_clean = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
     if `"`sdleft'"' == "" local sdleft `""±""'            // Default symbol before SD
     if `"`sdright'"' == "" local sdright `""""'           // Default symbol after SD (none)
     local meanSD : display "mean"`sdleft'"SD"`sdright'    // Create mean±SD format string
@@ -391,7 +397,7 @@ program define desctab, rclass
     local _bylab ""
     if "`by'" != "" {
         local _bylab : variable label `by'
-        if "`_bylab'" == "" local _bylab "`by'"
+        if `"`_bylab'"' == "" local _bylab "`by'"
     }
 
     /* Mark observations to include in analysis before sample-dependent validation */
@@ -496,7 +502,7 @@ program define desctab, rclass
     if `has_smd' & `groupcount' > 2 {
         local _l1lab : label (`groupnum') `level1'
         local _l2lab : label (`groupnum') `level2'
-        display as text "{bf:Note:} SMD computed for first two groups only (`_l1lab' vs `_l2lab')"
+        display as text `"{bf:Note:} SMD computed for first two groups only (`_l1lab' vs `_l2lab')"'
     }
 
     /* Create placeholder group variable if not specified */
@@ -531,6 +537,7 @@ program define desctab, rclass
     if "`extraspace'" != "" local _fast_common_opts `"`_fast_common_opts' extraspace"'
     if `"`format'"' != "" local _fast_common_opts `"`_fast_common_opts' format(`"`format'"')"'
     if `"`percformat'"' != "" local _fast_common_opts `"`_fast_common_opts' percformat(`"`percformat'"')"'
+    if "`_gsd_default'" != "" local _fast_common_opts `"`_fast_common_opts' gsdformat(`_gsd_default')"'
     if `"`nformat'"' != "" local _fast_common_opts `"`_fast_common_opts' nformat(`"`nformat'"')"'
     if `"`iqrmiddle'"' != "" local _fast_common_opts `"`_fast_common_opts' iqrmiddle(`iqrmiddle')"'
     if `"`sdleft'"' != "" local _fast_common_opts `"`_fast_common_opts' sdleft(`sdleft')"'
@@ -694,9 +701,9 @@ program define desctab, rclass
         else {
             // Use value label if available
             local lab: label `vallab' `level'
-            lab var `groupnum'`level' "`lab'"
+            lab var `groupnum'`level' `"`lab'"'
             if `has_wtcompare' {
-                capture lab var _cr_`level' "Crude `lab'"
+                capture lab var _cr_`level' `"Crude `lab'"'
             }
         }
     }
@@ -715,8 +722,9 @@ program define desctab, rclass
     if "`missingsummary'" != "" {
         local _nobs_before = _N
         forvalues _obs = 1/`_nobs_before' {
-            local _fval = factor[`_obs']
-            if "`_fval'" == " " | "`_fval'" == "" | "`_fval'" == "N" | "`_fval'" == "Effective sample size" continue
+            * Compare the cell itself: a label holding a double quote must
+            * never pass through a macro inside simple quotes.
+            if inlist(factor[`_obs'], " ", "", "N", "Effective sample size") continue
             * Check if any group has missing values for this variable
             local _any_miss 0
             foreach _lv of local levels {
@@ -728,6 +736,9 @@ program define desctab, rclass
                 qui set obs `_new'
                 qui replace factor = "   Missing" in `_new'
                 qui replace factor_sep = factor_sep[`_obs'] in `_new'
+                * A sub-row of its variable, like a category level: r(table)
+                * carries one row per variable, never these.
+                qui replace cat_not_top_row = 1 in `_new'
                 capture confirm variable sort1
                 if !_rc replace sort1 = sort1[`_obs'] in `_new'
                 capture confirm variable sort2
@@ -841,7 +852,10 @@ program define desctab, rclass
         // Add variable label as header for each column
         if "`var'" != "level" {
             capture confirm string variable `var'
-            if !_rc qui replace `var'="`: var lab `var''" in `newN'
+            if !_rc {
+                local _hdr_lab : variable label `var'
+                qui replace `var' = `"`_hdr_lab'"' in `newN'
+            }
         }
     }
     qui replace sort1=0 in `newN'  // Set sort order to ensure header is first
@@ -917,11 +931,11 @@ program define desctab, rclass
 
             * Rename weighted group column and set label
             capture rename `by'_`sfx' Wt_`sfx'
-            capture lab var Wt_`sfx' "Weighted `_wtc_lab'"
+            capture lab var Wt_`sfx' `"Weighted `_wtc_lab'"'
 
             * Rename crude group column (already renamed _T by standard rename)
             capture rename _cr_`sfx' Cr_`sfx'
-            capture lab var Cr_`sfx' "Crude `_wtc_lab'"
+            capture lab var Cr_`sfx' `"Crude `_wtc_lab'"'
 
             * Drop crude helper columns (not needed for display)
             capture drop _cr_columna_`sfx'
@@ -943,9 +957,15 @@ program define desctab, rclass
         * Update header row values to match new labels
         foreach sfx of local _wtc_suffixes {
             capture confirm string variable Cr_`sfx'
-            if !_rc qui replace Cr_`sfx' = "`: var lab Cr_`sfx''" if _n == 1
+            if !_rc {
+                local _hdr_lab : variable label Cr_`sfx'
+                qui replace Cr_`sfx' = `"`_hdr_lab'"' if _n == 1
+            }
             capture confirm string variable Wt_`sfx'
-            if !_rc qui replace Wt_`sfx' = "`: var lab Wt_`sfx''" if _n == 1
+            if !_rc {
+                local _hdr_lab : variable label Wt_`sfx'
+                qui replace Wt_`sfx' = `"`_hdr_lab'"' if _n == 1
+            }
         }
     }
 
@@ -1054,6 +1074,12 @@ program define desctab, rclass
 
     /* Format N and missing counts */
     format `nformat' N_* m_*  // Apply count format to N and m columns
+    * One r(table) row per analysed variable: the variable's own row, never
+    * the header, N, ESS, category-level, or missing-summary sub-rows. Marked
+    * here, while the row kinds are still known, and read back below.
+    tempvar _rt_isvar
+    qui gen byte `_rt_isvar' = cat_not_top_row != 1 & ///
+        !inlist(factor_sep, "", "N", "ESS")
     cap drop cat_not_top_row  // Remove helper variable
     qui replace factor = "" if factor == "N"  // Clean up factor labels
     qui replace factor = " " if factor == "Factor "  // Clean up header
@@ -1221,85 +1247,59 @@ program define desctab, rclass
         }
 
         /* Add binary description if different from categorical */
+        local _hd_n = `part_count'
+        if `part_count' > 0 local _hd_1 `"`header_parts'"'
         if `_resolved_has_bin' & (!`_resolved_has_cat' | "`catrowperc'" != "") {
-            if `part_count' > 0 local header_parts = "`header_parts' or "
-
+            local ++_hd_n
             if "`percent'" == "percent" {
-                local header_parts = "`header_parts'Column %"
+                local _hd_`_hd_n' "Column %"
             }
             else if "`percent_n'" == "percent_n" {
-                local header_parts = "`header_parts'Column % (No.)"
+                local _hd_`_hd_n' "Column % (No.)"
             }
             else {
-                local header_parts = "`header_parts'No. (Column %)"
+                local _hd_`_hd_n' "No. (Column %)"
             }
-            local part_count = `part_count' + 1
         }
-
-        /* Build continuous measure descriptions */
-        local cont_parts = ""
-        local cont_count = 0
-
-        /* Clean up the iqrmiddle value for display */
-        local iqrmiddle_clean = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
 
         /* Describe the mean/SD cell using the ACTIVE sdleft()/sdright()
            notation. The header used to be hardcoded "Mean (SD)" while the
            default notation renders 58.3+/-13.4, so the column caption
            contradicted every cell beneath it. Defaults give "Mean+/-SD";
-           sdleft(" (") sdright(")") gives "Mean (SD)". */
+           sdleft(" (") sdright(")") gives "Mean (SD)". The geometric-mean and
+           median captions likewise follow gsdleft()/gsdright() and
+           iqrmiddle(). */
         local sdleft_clean = substr(`"`sdleft'"', 2, length(`"`sdleft'"') - 2)
         local sdright_clean = substr(`"`sdright'"', 2, length(`"`sdright'"') - 2)
+        local gsdleft_clean = substr(`"`gsdleft'"', 2, length(`"`gsdleft'"') - 2)
+        local gsdright_clean = substr(`"`gsdright'"', 2, length(`"`gsdright'"') - 2)
         local meansd_label `"Mean`sdleft_clean'SD`sdright_clean'"'
 
         if `_resolved_has_contn' {
-            local cont_parts `"`meansd_label'"'
-            local cont_count = 1
+            local ++_hd_n
+            local _hd_`_hd_n' `"`meansd_label'"'
         }
-
         if `_resolved_has_contln' {
-            if `cont_count' > 0 {
-                if `cont_count' == 1 {
-                    local cont_parts = "`cont_parts' or "
-                }
-                else {
-                    local cont_parts = "`cont_parts', "
-                }
-            }
-            local cont_parts = "`cont_parts'Geometric mean (×/GSD)"
-            local cont_count = `cont_count' + 1
+            local ++_hd_n
+            local _hd_`_hd_n' `"Geometric mean`gsdleft_clean'GSD`gsdright_clean'"'
         }
-
         if `_resolved_has_conts' {
-            if `cont_count' > 0 {
-                if `cont_count' == 1 {
-                    local cont_parts = "`cont_parts' or "
-                }
-                else {
-                    /* Add Oxford comma for 3+ items */
-                    local cont_parts = "`cont_parts', "
-                    if `cont_count' > 1 {
-                        local cont_parts = "`cont_parts'and "
-                    }
-                }
-            }
-            local cont_parts = "`cont_parts'Median (Q1`iqrmiddle_clean'Q3)"
-            local cont_count = `cont_count' + 1
+            local ++_hd_n
+            local _hd_`_hd_n' `"Median (Q1`iqrmiddle_clean'Q3)"'
         }
 
-        /* Combine categorical and continuous parts with proper grammar */
-        if `cont_count' > 0 {
-            if `part_count' > 0 {
-                if `part_count' + `cont_count' > 2 {
-                    local header_parts = "`header_parts', and `cont_parts'"  // Use comma and 'and' for 3+ parts
-                }
-                else {
-                    local header_parts = "`header_parts' or `cont_parts'"  // Use 'or' for 2 parts
-                }
+        /* Each row shows exactly one of these summaries, so the parts are
+           alternatives joined one way: "A", "A or B", "A, B, or C". */
+        local header_parts ""
+        forvalues _hd_i = 1/`_hd_n' {
+            if `_hd_i' == 1 local header_parts `"`_hd_1'"'
+            else if `_hd_i' == `_hd_n' & `_hd_n' == 2 {
+                local header_parts `"`header_parts' or `_hd_`_hd_i''"'
             }
-            else {
-                local header_parts = "`cont_parts'"  // Just use continuous parts
+            else if `_hd_i' == `_hd_n' {
+                local header_parts `"`header_parts', or `_hd_`_hd_i''"'
             }
+            else local header_parts `"`header_parts', `_hd_`_hd_i''"'
         }
 
         /* Apply header description */
@@ -1324,27 +1324,28 @@ program define desctab, rclass
         local ycontln `_resolved_has_contln'  // Log-normal continuous
         local yconts `_resolved_has_conts'  // Skewed continuous
 
-        /* Build description for continuous variables */
-        if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
-            local ycont "`meanSD', `gmeanSD', and median (Q1, Q3)"
+        /* Build description for continuous variables: each continuous row
+           shows one of these, joined like the header ("A, B, or C"), and
+           the median uses the active iqrmiddle() separator. */
+        local _dc_n 0
+        if "`ycontn'" == "1" {
+            local ++_dc_n
+            local _dc_`_dc_n' `"`meanSD'"'
         }
-        else if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
-            local ycont `"`meanSD' or `gmeanSD'"'
+        if "`ycontln'" == "1" {
+            local ++_dc_n
+            local _dc_`_dc_n' `"`gmeanSD'"'
         }
-        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
-            local ycont "`meanSD' or median (Q1, Q3)"
+        if "`yconts'" == "1" {
+            local ++_dc_n
+            local _dc_`_dc_n' `"median (Q1`iqrmiddle_clean'Q3)"'
         }
-        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
-            local ycont "`gmeanSD' or median (Q1, Q3)"
-        }
-        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" != "1" {
-            local ycont `"`meanSD'"'
-        }
-        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
-            local ycont `"`gmeanSD'"'
-        }
-        else if "`ycontn'" != "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
-            local ycont "median (Q1, Q3)"
+        local ycont ""
+        forvalues _dc_i = 1/`_dc_n' {
+            if `_dc_i' == 1 local ycont `"`_dc_1'"'
+            else if `_dc_i' == `_dc_n' & `_dc_n' == 2 local ycont `"`ycont' or `_dc_`_dc_i''"'
+            else if `_dc_i' == `_dc_n' local ycont `"`ycont', or `_dc_`_dc_i''"'
+            else local ycont `"`ycont', `_dc_`_dc_i''"'
         }
 
         /* Build complete description with both continuous and categorical */
@@ -1409,15 +1410,15 @@ program define desctab, rclass
                 local _test_list "`_test_list'Fisher's exact test"
             }
 
-            local _methods "Baseline characteristics were compared between groups defined by `_bylab'."
+            local _methods `"Baseline characteristics were compared between groups defined by `_bylab'."'
             local _methods `"`_methods' `Dapa'"'
             if "`_test_list'" != "" {
-                local _methods "`_methods' P-values were calculated using `_test_list'."
+                local _methods `"`_methods' P-values were calculated using `_test_list'."'
             }
-            local _methods "`_methods' A two-sided p-value < 0.05 was considered statistically significant."
-            local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+            local _methods `"`_methods' A two-sided p-value < 0.05 was considered statistically significant."'
+            local _methods `"`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
 
-            return local methods "`_methods'"
+            return local methods `"`_methods'"'
         }
     }
 
@@ -1468,61 +1469,79 @@ program define desctab, rclass
     capture confirm variable `smd_raw'
     local _has_smdraw = !_rc
     if `_has_praw' | `_has_smdraw' {
-        * Count data rows (skip descriptor/header rows and category sub-rows)
-        qui count if factor != " " & factor != "" & factor != "N" & ///
-            factor != "Effective sample size" & factor != `"`_descriptor_row_text'"'
+        qui count if `_rt_isvar' == 1
         local _rt_nrows = r(N)
-        if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
+        if `_rt_nrows' > 0 {
             local _rt_ncols = `_has_praw' + `_has_smdraw'
             matrix `_rtable' = J(`_rt_nrows', `_rt_ncols', .)
+            tempname _rt_probe
+            matrix `_rt_probe' = J(1, 1, 0)
             local _rt_r = 0
             forvalues _obs = 1/`=_N' {
-                local _fval = factor[`_obs']
-                if "`_fval'" != " " & "`_fval'" != "" & "`_fval'" != "N" & ///
-                    "`_fval'" != "Effective sample size" & "`_fval'" != `"`_descriptor_row_text'"' {
-                    local _rt_r = `_rt_r' + 1
-                    local _rt_c = 0
-                    if `_has_praw' {
-                        local _rt_c = `_rt_c' + 1
-                        local _pval = `p_raw'[`_obs']
-                        if `_pval' < . | `_pval' == .d ///
-                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
-                    }
-                    if `_has_smdraw' {
-                        local _rt_c = `_rt_c' + 1
-                        local _sval = `smd_raw'[`_obs']
-                        if `_sval' < . | `_sval' == .d ///
-                            matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
-                    }
-                    * Clean variable name for row label
-                    local _rname = subinstr("`_fval'", ".", "_", .)
-                    local _rname = subinstr("`_rname'", " ", "_", .)
-                    local _rname = subinstr("`_rname'", ",", "", .)
-                    local _rname = substr("`_rname'", 1, 32)
-                    if "`_rname'" == "" local _rname "row`_rt_r'"
-                    local _rt_rnames `"`_rt_rnames' `_rname'"'
+                if `_rt_isvar'[`_obs'] != 1 continue
+                local _rt_r = `_rt_r' + 1
+                local _rt_c = 0
+                if `_has_praw' {
+                    local _rt_c = `_rt_c' + 1
+                    local _pval = `p_raw'[`_obs']
+                    if `_pval' < . | `_pval' == .d ///
+                        matrix `_rtable'[`_rt_r', `_rt_c'] = `_pval'
                 }
+                if `_has_smdraw' {
+                    local _rt_c = `_rt_c' + 1
+                    local _sval = `smd_raw'[`_obs']
+                    if `_sval' < . | `_sval' == .d ///
+                        matrix `_rtable'[`_rt_r', `_rt_c'] = `_sval'
+                }
+                * Row name from the label, built from the cell itself so a
+                * quote never enters a macro: . and space become _, commas go,
+                * and quotes, backticks, $ and \ (macro-active) become _.
+                local _rname = usubstr(ustrregexra(subinstr(subinstr(subinstr( ///
+                    strtrim(factor[`_obs']), ".", "_", .), " ", "_", .), ",", "", .), ///
+                    "[" + char(34) + char(39) + char(96) + char(36) + char(92) + char(92) + ":]", "_"), 1, 32)
+                * Keep it only if matrix rownames stores it verbatim; else use
+                * strtoname(), else a positional name.
+                local _rt_ok 0
+                if `"`_rname'"' != "" {
+                    capture matrix rownames `_rt_probe' = `_rname'
+                    if !_rc {
+                        local _rt_back : rownames `_rt_probe'
+                        if `"`_rt_back'"' == `"`_rname'"' local _rt_ok 1
+                    }
+                }
+                if !`_rt_ok' {
+                    local _rname = strtoname(`"`_rname'"')
+                    capture matrix rownames `_rt_probe' = `_rname'
+                    if !_rc {
+                        local _rt_back : rownames `_rt_probe'
+                        if `"`_rt_back'"' == `"`_rname'"' local _rt_ok 1
+                    }
+                }
+                if !`_rt_ok' local _rname "row`_rt_r'"
+                * Dedupe: a repeated label gets _2, _3, ... within 32 chars.
+                local _rt_base `"`_rname'"'
+                local _rt_k 1
+                while `: list posof `"`_rname'"' in _rt_rnames' > 0 {
+                    local ++_rt_k
+                    local _rname = usubstr(`"`_rt_base'"', 1, 32 - ustrlen("_`_rt_k'")) + "_`_rt_k'"
+                }
+                local _rt_rnames `"`_rt_rnames' `_rname'"'
             }
             local _rt_cnames ""
             if `_has_praw' local _rt_cnames "p_value"
             if `_has_smdraw' local _rt_cnames "`_rt_cnames' smd"
-            capture matrix rownames `_rtable' = `_rt_rnames'
-            capture matrix colnames `_rtable' = `_rt_cnames'
+            matrix rownames `_rtable' = `_rt_rnames'
+            matrix colnames `_rtable' = `_rt_cnames'
         }
     }
+    capture drop `_rt_isvar'
 
 **# Export to Excel if Requested
     local _processed_varlist = strtrim("`_processed_varlist'")
     return local varlist "`_processed_varlist'"
-    if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
+    if `_rt_nrows' > 0 {
         return matrix table = `_rtable'
     }
-
-    * The finalized sink-neutral table now passes through one Stata 17
-    * collection and the shared JSON renderer. The round trip is deliberately
-    * lossless: row order, variable types, formats, and labels are restored
-    * before disclosure characteristics or any output sink is populated.
-    _desctab_collect_roundtrip
 
     if "`smallcells'" != "" {
         capture drop _scmask_* _scmiss_* _sc_derived
@@ -2170,71 +2189,4 @@ program define desctab, rclass
     * that cannot fail. Guarded by test_synthesis_review.do A1 (bare call).
     capture version 17.0
     local _success_rc = _rc
-end
-
-capture program drop _desctab_collect_roundtrip
-program define _desctab_collect_roundtrip, nclass
-    version 17.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    tempname _collection
-    local _old_collection ""
-    local _collection_created 0
-    local _preserved 0
-
-    capture noisily {
-        capture quietly collect dir
-        if !_rc local _old_collection `"`s(current)'"'
-
-        unab _source_vars : _all
-        local _nvars : word count `_source_vars'
-        local _nobs = _N
-        if `_nvars' == 0 | `_nobs' == 0 error 2000
-
-        local _row_levels ""
-        forvalues _i = 1/`_nobs' {
-            local _row_levels "`_row_levels' r`_i'"
-        }
-        local _col_levels ""
-        forvalues _j = 1/`_nvars' {
-            local _col_levels "`_col_levels' c`_j'"
-        }
-
-        * The collect renderer is an internal serialization check.  Keep the
-        * public table dataset byte-for-byte intact: collect string results do
-        * not preserve leading indentation, which is part of table1_tc's frame
-        * and workbook contract.
-        preserve
-        local _preserved 1
-        quietly collect create `_collection'
-        local _collection_created 1
-        forvalues _i = 1/`_nobs' {
-            forvalues _j = 1/`_nvars' {
-                local _v : word `_j' of `_source_vars'
-                quietly collect get cell = `_v'[`_i'], ///
-                    tags(_ttrow[r`_i'] _ttcol[c`_j'])
-            }
-        }
-        quietly collect layout (_ttrow) (_ttcol#result[cell])
-        quietly collect style cell result[cell], nformat(%21.16g)
-
-        _tabtools_collect_render, type(raw) rowdim(_ttrow) ///
-            rowlevels("`_row_levels'") coldim(_ttcol) ///
-            collevels("`_col_levels'") results(cell)
-        assert _N == `_nobs'
-        unab _rendered_vars : _all
-        local _rendered_nvars : word count `_rendered_vars'
-        assert `_rendered_nvars' == `_nvars'
-        restore
-        local _preserved 0
-    }
-    local rc = _rc
-    if `_preserved' capture restore
-    if `"`_old_collection'"' != "" {
-        capture collect set `_old_collection'
-        local _collection_set_rc = _rc
-    }
-    if `_collection_created' capture collect drop `_collection'
-    set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
 end

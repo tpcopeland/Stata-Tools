@@ -1,4 +1,4 @@
-*! puttab Version 2.1.9  2026/09/25
+*! puttab Version 2.1.10  2026/09/25
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,7 +44,83 @@ program define puttab, rclass
     local _ret_markdown ""
     local _ret_markdown_rows .
     local _ret_markdown_cols .
+    local _sink ""
     capture noisily {
+
+        * Parse first, before anything that can post r(): matrix(r(table))
+        * must be copied while r(table) still exists. When frame() names the
+        * source, parse inside that frame so if/in address the source rows;
+        * parsing in the current frame range-checked "in" against, and
+        * resolved "if" variables in, the wrong dataset.
+        local _pt_cmdline `"`0'"'
+        local _pt_srcframe ""
+        _parse comma _pt_lhs _pt_rhs : 0
+        local 0 `"`_pt_rhs'"'
+        capture syntax [, FRAme(string) *]
+        if _rc == 0 {
+            local _pt_srcframe = strtrim(subinstr(`"`frame'"', char(34), "", .))
+        }
+        local frame ""
+        local options ""
+        local 0 `"`_pt_cmdline'"'
+        if `"`_pt_srcframe'"' != "" {
+            confirm name `_pt_srcframe'
+            capture confirm frame `_pt_srcframe'
+            if _rc {
+                noisily display as error "frame `_pt_srcframe' not found"
+                exit 111
+            }
+            * The two syntax statements are identical; only the frame differs.
+            frame `_pt_srcframe': syntax [anything(name=vlist)] [if] [in] [using/] , ///
+                [ FRAme(string) Matrix(string) ///
+                  SHeet(string) ///
+                  TItle(string) FOOTnote(string) ///
+                  FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+                  HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
+                  DIGits(integer -1) VARLabels NOHeader ///
+                  CSV(string) MARKdown(string) MDAPPend open ]
+        }
+        else {
+            syntax [anything(name=vlist)] [if] [in] [using/] , ///
+                [ FRAme(string) Matrix(string) ///
+                  SHeet(string) ///
+                  TItle(string) FOOTnote(string) ///
+                  FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
+                  HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
+                  DIGits(integer -1) VARLabels NOHeader ///
+                  CSV(string) MARKdown(string) MDAPPend open ]
+        }
+
+        * matrix(): a matrix name, r(name), or e(name); copy it now.
+        local _matrix_label ""
+        if `"`matrix'"' != "" {
+            local matrix = strtrim(`"`matrix'"')
+            if !regexm(`"`matrix'"', "^([A-Za-z_][A-Za-z0-9_]*|[re][(][A-Za-z_][A-Za-z0-9_]*[)])$") {
+                noisily display as error "matrix() must name a matrix, r(name), or e(name)"
+                exit 198
+            }
+            local _matrix_label `"`matrix'"'
+            * "matrix M = r(nosuch)" succeeds with a 1x1 missing, so an
+            * r()/e() source must be listed among the posted matrices.
+            local _mat_ok = 1
+            if regexm(`"`matrix'"', "^([re])[(]([A-Za-z_][A-Za-z0-9_]*)[)]$") {
+                local _mat_class = regexs(1)
+                local _mat_inner = regexs(2)
+                local _mat_posted : `_mat_class'(matrices)
+                local _mat_ok : list _mat_inner in _mat_posted
+            }
+            else {
+                capture confirm matrix `matrix'
+                if _rc local _mat_ok = 0
+            }
+            tempname _srcmat
+            if `_mat_ok' capture matrix `_srcmat' = `matrix'
+            if !`_mat_ok' | _rc {
+                noisily display as error "matrix `matrix' not found"
+                exit 111
+            }
+            local matrix `"`_srcmat'"'
+        }
 
         capture putexcel close
 
@@ -66,15 +142,6 @@ program define puttab, rclass
             }
         }
         _tabtools_require_helpers
-
-        syntax [anything(name=vlist)] [if] [in] [using/] , ///
-            [ FRAme(string) Matrix(name) ///
-              SHeet(string) ///
-              TItle(string) FOOTnote(string) ///
-              FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
-              HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-              DIGits(integer -1) VARLabels NOHeader ///
-              CSV(string) MARKdown(string) MDAPPend open ]
 
         * ----- output file validation -----
         local _has_using = `"`using'"' != ""
@@ -161,7 +228,7 @@ program define puttab, rclass
             }
             confirm matrix `matrix'
             if rowsof(`matrix') < 1 | colsof(`matrix') < 1 {
-                noisily display as error "matrix(`matrix') is empty"
+                noisily display as error "matrix(`_matrix_label') is empty"
                 exit 198
             }
             local _src "matrix"
@@ -295,6 +362,7 @@ program define puttab, rclass
 
         * ----- optional CSV mirror of the assembled table -----
         if `"`csv'"' != "" {
+            local _sink "csv"
             _tabtools_csv_write using `"`csv'"'
             capture confirm file `"`csv'"'
             if _rc {
@@ -309,6 +377,7 @@ program define puttab, rclass
             if "`mdappend'" != "" local _mdappend_opt "append"
             local _md_novarnames ""
             if "`noheader'" != "" local _md_novarnames "novarnames"
+            local _sink "markdown"
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
                 dataend(`_last_data_row') ///
@@ -453,8 +522,12 @@ program define puttab, rclass
             }
 
             * ===== write the sheet and apply the styling =====
+            local _sink "xlsx"
             _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(`_xlsx_book')
             local _book_open = 1
+            * Excel matches an existing sheet case-insensitively; style, report,
+            * and return the spelling actually in the workbook.
+            local sheet `"`r(sheet)'"'
 
             _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`sheet'"') ///
                 rules(`_rules') font("`_font'") ///
@@ -511,7 +584,15 @@ program define puttab, rclass
     }
     if `rc' {
         if `rc' == 603 | `rc' == 608 | `rc' == 610 {
-            noisily display as error "Hint: ensure the xlsx file is not open in another application"
+            if "`_sink'" == "xlsx" {
+                noisily display as error "Hint: ensure the xlsx file is not open in another application"
+            }
+            else if "`_sink'" == "markdown" {
+                noisily display as error "Hint: check that the Markdown file's directory exists and the file is writable"
+            }
+            else if "`_sink'" == "csv" {
+                noisily display as error "Hint: check that the CSV file's directory exists and the file is not open in another application"
+            }
         }
         exit `rc'
     }
@@ -534,15 +615,19 @@ capture mata: mata drop _puttab_is_headerrow()
 mata:
 mata set matastrict on
 
-// Format a numeric column to strings, honouring value labels first, then
-// integer-vs-fractional display at the requested number of digits.
+// Format a numeric column to strings, honouring value labels first, then a
+// date/time display format (%t...), then integer-vs-fractional display at the
+// requested number of digits. digits() cannot describe a date, so a %t column
+// is always written through its own format; every other numeric column uses
+// digits(). A value that rounds to zero is written without a minus sign.
 string colvector _puttab_fmt_num(
     real colvector v,
     real scalar digits,
-    string scalar vlabel)
+    string scalar vlabel,
+    string scalar vfmt)
 {
     string colvector out, mapped
-    real scalar i, n, allint
+    real scalar i, n, allint, isdate
     string scalar ifmt, ffmt
 
     n = rows(v)
@@ -553,6 +638,15 @@ string colvector _puttab_fmt_num(
         if (st_vlexists(vlabel)) {
             mapped = st_vlmap(vlabel, v)
         }
+    }
+
+    isdate = regexm(vfmt, "^%-?t")
+    if (isdate) {
+        for (i = 1; i <= n; i++) {
+            if (mapped[i] != "") out[i] = mapped[i]
+            else if (v[i] < .) out[i] = strtrim(strofreal(v[i], vfmt))
+        }
+        return(out)
     }
 
     allint = 1
@@ -571,6 +665,7 @@ string colvector _puttab_fmt_num(
         }
         else if (v[i] < .) {
             out[i] = strtrim(strofreal(v[i], allint ? ifmt : ffmt))
+            if (regexm(out[i], "^-0([.]0+)?$")) out[i] = substr(out[i], 2, .)
         }
     }
     return(out)
@@ -637,10 +732,15 @@ void _puttab_emit_table(string matrix out)
 //
 // Observation 1 qualifies only when ALL of these hold:
 //   - there are at least 2 observations (a lone row is data, never a header);
-//   - every numeric column is exactly missing in observation 1;
-//   - every string cell in observation 1 is blank, or equals its own column's
-//     (non-empty) variable label after trimming;
-//   - at least one string cell actually repeats its label.
+//   - every exported column is a string variable: a rendered tabtools table
+//     is all-string, so any numeric column means raw data;
+//   - every cell in observation 1 equals its own column's (non-empty) variable
+//     label after trimming, except that the FIRST column -- the producers'
+//     row-label stub -- may be blank;
+//   - at least one cell actually repeats its label.
+// The earlier rule also accepted missing numeric cells and blanks anywhere,
+// so a genuine first data row (a "Group" label with a missing count) was
+// silently consumed as a header.
 real scalar _puttab_is_headerrow(string scalar varlist)
 {
     string rowvector vars
@@ -653,12 +753,12 @@ real scalar _puttab_is_headerrow(string scalar varlist)
 
     matched = 0
     for (j = 1; j <= K; j++) {
-        if (!st_isstrvar(vars[j])) {
-            if (st_data(1, vars[j]) != .) return(0)
-            continue
-        }
+        if (!st_isstrvar(vars[j])) return(0)
         cell = strtrim(st_sdata(1, vars[j]))
-        if (cell == "") continue
+        if (cell == "") {
+            if (j == 1) continue
+            return(0)
+        }
         lbl = strtrim(st_varlabel(vars[j]))
         if (lbl == "" | cell != lbl) return(0)
         matched++
@@ -706,7 +806,8 @@ void _puttab_data_table(
         }
         else {
             ncol = st_data(., vars[j])
-            scol = _puttab_fmt_num(ncol, digits, st_varvaluelabel(vars[j]))
+            scol = _puttab_fmt_num(ncol, digits, st_varvaluelabel(vars[j]),
+                st_varformat(vars[j]))
         }
         out[(datatop..total), j] = scol
     }
@@ -751,7 +852,7 @@ void _puttab_matrix_table(
     // Format column by column so decimals are consistent within each column.
     for (j = 1; j <= C; j++) {
         out[(datatop..(datatop + R - 1)), j + 1] =
-            _puttab_fmt_num(M[., j], digits, "")
+            _puttab_fmt_num(M[., j], digits, "", "")
     }
 
     _puttab_emit_table(out)

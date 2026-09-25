@@ -335,17 +335,35 @@ explicit names. {opt models()} values are split on the backslash character.{p_en
 {p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are
 auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR,
 {cmd:mlogit} {it:->} RRR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg}
-{it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg} {it:->} TR/AF,
-{cmd:regress}/{cmd:mixed} {it:->} Coef. Coefficient-scale fits are exponentiated
-for display when the auto header implies a ratio scale.{p_end}
+{it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg}/{cmd:mestreg} {it:->} HR in
+the log-hazard metric and TR in the log-time metric, {cmd:regress}/{cmd:mixed}
+{it:->} Coef. A ratio family is always shown on its ratio scale: a fit displayed
+as coefficients ({cmd:logit} without {cmd:or}, {cmd:logistic} with
+{cmd:coef}, {cmd:stcox} or {cmd:streg} with {cmd:nohr}, {cmd:stcrreg} with
+{cmd:noshr}, or a log-time {cmd:streg} without {cmd:tr}) is exponentiated, and a fit Stata already
+exponentiated is left as it is, so the header always names the numbers under
+it. Display options are read only from the option list after the command's
+comma, with the estimator's own abbreviations ({cmd:ir}, {cmd:rr}, {cmd:ti},
+{cmd:tr}), so a covariate named {cmd:or} is never mistaken for the option.{p_end}
+{p 4 8 2}- {cmd:streg} and {cmd:mestreg} follow Stata's metric rules
+(exponential and Weibull fit in the log-hazard metric, HR, unless {cmd:time} or
+{cmd:tr} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
+generalized gamma are log-time only), and the log-time metric is shown as TR,
+the exponentiated log-time coefficients.{p_end}
 {p 4 8 2}- {cmd:glm} (including the GEE backend) is resolved from its
-{opt family()} and {opt link()} rather than the command name: {cmd:family(binomial)}
-or {cmd:family(bernoulli)} with the default or
+{opt family()} and {opt link()} rather than the command name, with glm's own
+abbreviations ({cmd:f(b)}, {cmd:fam(bin)}, {cmd:l(logit)}, {cmd:ef}), so
+{cmd:family(binomial)} or {cmd:family(bernoulli)} with the default or
 {cmd:link(logit)} {it:->} OR, and {cmd:family(poisson)} with the default or
-{cmd:link(log)} {it:->} IRR. Both are exponentiated for display and drop the
-intercept row. Any other family/link combination is left on the coefficient
-scale with the {cmd:Coef.} header; supply {opt coef()} to label it
-yourself.{p_end}
+{cmd:link(log)} {it:->} IRR. Both are shown exponentiated and drop the
+intercept row. Another family/link fitted with {cmd:eform} keeps glm's
+exponentiated values under RR (binomial, log link), IRR (negative binomial,
+log link), or exp(b); without {cmd:eform} it stays on the coefficient scale
+with the {cmd:Coef.} header. Supply {opt coef()} to label it yourself.{p_end}
+{p 4 8 2}- All collected models must share one confidence level, because one
+"#% CI" header labels every model. Models fitted with different {opt level()}
+values (a model without {opt level()} counts as the current {cmd:set level})
+are refused with an error.{p_end}
 {p 4 8 2}- {opt relab:el}: relabels random effects using variable labels and explicit
 parameter types. For single-level models {cmd:var(_cons)} becomes
 {it:Variance: GroupLabel (Intercept)} and {cmd:cov(x,_cons)} becomes
@@ -532,9 +550,10 @@ effects. Models with random slopes and covariance terms (e.g.,
 When {opt coef()} is omitted, {cmd:regtab} auto-detects the label from the model
 type: {cmd:logit}/{cmd:logistic} {it:->} OR, {cmd:stcox} {it:->} HR,
 {cmd:poisson}/{cmd:nbreg} {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:mlogit} {it:->} RRR,
-{cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef., {cmd:streg} (time) {it:->} TR, {cmd:streg} (log-time)
-{it:->} AF, {cmd:regress}/{cmd:mixed} {it:->} Coef. The {opt boldp()} option bolds p-value cells below the
-threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
+{cmd:zip}/{cmd:zinb}/{cmd:churdle} {it:->} Coef., {cmd:streg} (log-hazard metric) {it:->} HR,
+{cmd:streg} (log-time metric) {it:->} TR, {cmd:regress}/{cmd:mixed} {it:->} Coef. The {opt boldp()}
+option bolds p-value cells below the threshold, and {opt highlight()} applies yellow fill to entire
+rows.{p_end}
 
 {marker stored}{title:Stored results}
 

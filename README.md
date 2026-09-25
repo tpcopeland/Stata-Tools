@@ -63,7 +63,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.1.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.1.9-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--25-brightgreen) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.1.10-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--25-brightgreen) |
 
 ### Graphics
 

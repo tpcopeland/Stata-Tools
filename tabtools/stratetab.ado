@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.9  2026/09/25
+*! stratetab Version 2.1.10  2026/09/25
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -36,17 +36,17 @@ program define stratetab, rclass
 	set varabbrev off
 	local _xlsx_ok 0
 	local _fatal_rc 0
-	local _userdata_saved 0
-	tempname _xlsx_book
-
-tempfile _userdata_outer
-local _userdata_path `"`_userdata_outer'"'
+	local _restore_needed 0
+	local _frame_stage_created 0
+	tempname _xlsx_book _frame_stage
 
 capture noisily {
 
-* Keep the snapshot inside the wrapper so an I/O failure cannot leak settings.
-qui save "`_userdata_path'", emptyok
-local _userdata_saved 1
+* preserve (not save/use): a tempfile round-trip left c(filename) pointing at
+* the deleted tempfile and c(changed) at 0, so unsaved edits could later be
+* discarded without Stata's "no; data in memory would be lost" guard.
+preserve
+local _restore_needed 1
 
 capture putexcel close
 
@@ -135,6 +135,13 @@ if `outcomes' < 1 {
 if `level' != -1 & (`level' <= 0 | `level' >= 100) {
 	di as err "level() must be between 0 and 100"
 	exit 198
+}
+
+* Resolve frame() now; the destination is written only after every export.
+local _frame_name ""
+if `"`frame'"' != "" {
+	_tabtools_frame_preflight `"`frame'"' "frame()"
+	local _frame_name `"`r(name)'"'
 }
 
 	* Resolve formatting
@@ -298,12 +305,12 @@ forvalues e = 1/`n_exposures' {
 		local filenum = `filenum' + 1
 		local file : word `filenum' of `using'
 		
-		preserve
+		* The caller's data is preserved above, so each source file can be
+		* loaded over it; every failure path exits to that single restore.
 		cap use "`file'.dta", clear
 		if _rc {
 			noi di as err "File not found: `file'.dta"
 			noi di as err "Hint: using() expects strate output file names without .dta extension"
-			restore
 			exit 601
 		}
 		
@@ -311,7 +318,6 @@ forvalues e = 1/`n_exposures' {
 		if _rc {
 			noi di as err "`file'.dta missing required columns"
 			noi di as err "Hint: file must contain _Rate, _Lower, _Upper, _D, and _Y from strate output"
-			restore
 			exit 111
 		}
 
@@ -330,7 +336,6 @@ forvalues e = 1/`n_exposures' {
 		if !missing(`_file_level') & !missing(`_upper_level') & ///
 			abs(`_file_level' - `_upper_level') > 1e-8 {
 			noi di as err "`file'.dta has conflicting confidence levels in _Lower and _Upper labels"
-			restore
 			exit 459
 		}
 		if missing(`_file_level') local _file_level = `_upper_level'
@@ -341,18 +346,17 @@ forvalues e = 1/`n_exposures' {
 			local _ci_provenance_seen = 1
 			if `level' != -1 & abs(`level' - `_file_level') > 1e-8 {
 				noi di as err "level(`level') conflicts with `file'.dta's `_file_level'% intervals"
-				restore
 				exit 198
 			}
 			if missing(`_ci_level') local _ci_level = `_file_level'
 			else if abs(`_ci_level' - `_file_level') > 1e-8 {
 				noi di as err "strate source files contain mixed confidence levels"
-				restore
 				exit 459
 			}
 		}
 		
-		* Find the categorical variable
+		* Find the categorical variable. strate without a grouping variable
+		* saves only _D _Y _Rate _Lower _Upper; that file is one overall row.
 		unab allvars : *
 		local catvar ""
 		foreach v of local allvars {
@@ -368,6 +372,10 @@ forvalues e = 1/`n_exposures' {
 		* collided with the old fixed names and died with r(110).
 		tempvar catvar_str _Rate_scaled _Lower_scaled _Upper_scaled
 		* Convert categorical to string if needed
+		if "`catvar'" == "" {
+			gen `catvar_str' = "Overall"
+		}
+		else {
 		cap confirm string var `catvar'
 		if _rc {
 			* Check if variable has a value label before decoding
@@ -376,18 +384,20 @@ forvalues e = 1/`n_exposures' {
 				decode `catvar', gen(`catvar_str')
 			}
 			else {
-				* No value label - convert to string directly
-				gen `catvar_str' = string(`catvar')
+				* No value label - convert to string directly. %21.0g keeps
+				* integer codes of any size exact (default string() turns
+				* 10000000 into "1.00e+07").
+				gen `catvar_str' = string(`catvar', "%21.0g")
 			}
 			}
 			else {
 				gen `catvar_str' = `catvar'
 			}
+		}
 			replace `catvar_str' = strtrim(`catvar_str')
 			qui count if `catvar_str' == ""
 			if r(N) > 0 {
 				noi di as err "Blank category labels are not allowed in `file'.dta"
-				restore
 				exit 198
 			}
 			tempvar _dup_cat _obs_id
@@ -398,7 +408,6 @@ forvalues e = 1/`n_exposures' {
 			if r(N) > 0 {
 				noi di as err "Duplicate category labels found in `file'.dta"
 				noi di as err "Each strate file must have unique category labels"
-				restore
 				exit 198
 			}
 			
@@ -423,7 +432,6 @@ forvalues e = 1/`n_exposures' {
 				if _N != `ncat_e`e'' {
 					noi di as err "Category count mismatch for exposure `e': outcome 1 has `ncat_e`e'' categories but outcome `o' has `=_N'"
 					noi di as err "All outcome files for the same exposure must have identical categories"
-					restore
 					exit 198
 				}
 				forvalues i = 1/`ncat_e`e'' {
@@ -440,7 +448,6 @@ forvalues e = 1/`n_exposures' {
 					if `_match_count' != 1 {
 						noi di as err "Category label mismatch for exposure `e', outcome `o' in `file'.dta"
 						noi di as err `"Expected category "`_target_cat'" from outcome 1"'
-						restore
 						exit 198
 					}
 					local D_o`o'_e`e'_`i' = _D[`_match_row']
@@ -451,7 +458,6 @@ forvalues e = 1/`n_exposures' {
 				}
 			}
 			
-			restore
 	}
 }
 
@@ -575,22 +581,22 @@ forvalues e = 1/`n_exposures' {
 		forvalues o = 1/`outcomes' {
 			* Events
 			if `eventdigits' == 0 {
-				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%11.0fc")
+				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.0fc")
 			}
 			else {
-				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%11.`eventdigits'fc")
+				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.`eventdigits'fc")
 			}
-			quietly replace c`col' = `"`ev_fmt'"' in `new'
+			quietly replace c`col' = strtrim(`"`ev_fmt'"') in `new'
 			local col = `col' + 1
 
 			* Person-years
 			if `pydigits' == 0 {
-				local py_fmt = string(round(`Y_o`o'_e`e'_`i'',1), "%11.0fc")
+				local py_fmt = string(round(`Y_o`o'_e`e'_`i'',1), "%24.0fc")
 			}
 			else {
-				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%11.`pydigits'fc")
+				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%24.`pydigits'fc")
 			}
-			quietly replace c`col' = `"`py_fmt'"' in `new'
+			quietly replace c`col' = strtrim(`"`py_fmt'"') in `new'
 			local col = `col' + 1
 
 			* Rate (95% CI)
@@ -641,6 +647,7 @@ if "`csv'" != "" {
 	_tabtools_validate_path "`csv'" "csv()"
 	order title c*
 	_tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+	local _ret_csv `"`csv'"'
 }
 
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
@@ -656,8 +663,6 @@ if `"`markdown'"' != "" {
 	if _rc {
 		local _md_rc = _rc
 		noi di as err "Failed to export Markdown to `markdown'"
-		qui use "`_userdata_path'", clear
-		set varabbrev `_orig_varabbrev'
 		exit `_md_rc'
 	}
 	local _ret_markdown `"`markdown'"'
@@ -668,16 +673,17 @@ if `"`markdown'"' != "" {
 * Console display
 noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 
-* Frame output
-if `"`frame'"' != "" {
-	_tabtools_frame_put `"`frame'"'
-	local frame `"`_frame_name'"'
-	frame `frame': char _dta[tabtools_source] "stratetab"
-	frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
-	frame `frame': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
-	frame `frame': char _dta[tabtools_n_outcomes] "`outcomes'"
+* Frame output is staged here and committed only after every export has
+* succeeded, so a failed xlsx write neither creates nor replaces frame().
+if `"`_frame_name'"' != "" {
+	frame put *, into(`_frame_stage')
+	local _frame_stage_created 1
+	frame `_frame_stage': char _dta[tabtools_source] "stratetab"
+	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level'"
+	frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
+	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
 	forvalues _meta_o = 1/`outcomes' {
-		frame `frame': char _dta[tabtools_outcome_id_`_meta_o'] `"`outcome_id_`_meta_o''"'
+		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`outcome_id_`_meta_o''"'
 	}
 }
 
@@ -773,7 +779,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 	if "`rateratio'" != "" & `n_exposures' >= 2 {
 		return matrix ratios = `_rratios'
 	}
-if "`frame'" != "" return local frame "`frame'"
+if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
 if `"`_ret_markdown'"' != "" {
 	return local markdown `"`_ret_markdown'"'
 	return scalar markdown_rows = `_ret_markdown_rows'
@@ -799,12 +805,13 @@ return local methods "Incidence rates and confidence intervals were formatted at
 			local saved_rc = _rc
 			noi di as err "Failed to export to `xlsx'"
 			noi di as err "Hint: ensure the xlsx file is not open in another application"
-		qui use "`_userdata_path'", clear
-		set varabbrev `_orig_varabbrev'
 		local _fatal_rc = `saved_rc'
 		exit `saved_rc'
 	}
 	else {
+			* Excel sheet names are case-insensitive; keep the workbook's own
+			* spelling when an existing sheet was replaced.
+			local sht `"`r(sheet)'"'
 			* Apply formatting (Mata xl()) in the open workbook returned by
 			* _tabtools_xlsx_write; avoid a save/reload pass.
 			local _total_cols = `ncols' + 1
@@ -933,8 +940,6 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				capture mata: mata drop `_xlsx_book'
 				noi di as err "Excel formatting failed with error `saved_rc'"
 				noi di as err "Hint: ensure the xlsx file is not open in another application"
-				qui use "`_userdata_path'", clear
-				set varabbrev `_orig_varabbrev'
 				local _fatal_rc = `saved_rc'
 				exit `saved_rc'
 			}
@@ -943,14 +948,12 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				capture confirm file "`xlsx'"
 				if _rc {
 				    noisily display as error "Export command succeeded but file not found"
-				    qui use "`_userdata_path'", clear
-				    set varabbrev `_orig_varabbrev'
 				    local _fatal_rc = 601
-				    error 601
+				    exit 601
 				}
 				else {
 					local _xlsx_ok 1
-					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sht'"'
 				}
 			}
 			}
@@ -958,8 +961,16 @@ return local methods "Incidence rates and confidence intervals were formatted at
 
 	} // end quietly block
 
-* Restore user data
-qui use "`_userdata_path'", clear
+* Every export succeeded: commit the staged frame, then restore user data.
+if `_frame_stage_created' {
+	capture confirm frame `_frame_name'
+	if !_rc frame drop `_frame_name'
+	frame rename `_frame_stage' `_frame_name'
+	local _frame_stage_created 0
+	return local frame "`_frame_name'"
+}
+restore
+local _restore_needed 0
 
 if `_xlsx_ok' {
 	return local xlsx "`xlsx'"
@@ -972,9 +983,10 @@ if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 } // end capture noisily
 local _rc = _rc
 if `_rc' == 0 & `_fatal_rc' != 0 local _rc = `_fatal_rc'
-if `_rc' {
-    if `_userdata_saved' capture qui use "`_userdata_path'", clear
-}
+if `_frame_stage_created' capture frame drop `_frame_stage'
+if `_restore_needed' capture restore
 set varabbrev `_orig_varabbrev'
-if `_rc' error `_rc'
+* exit, not error: the failing step already printed its own message, and
+* error would append Stata's generic text for the code ("invalid syntax").
+if `_rc' exit `_rc'
 end

@@ -1883,6 +1883,10 @@ capture noisily {
     set obs 45
     set seed 20260419
     gen byte dose = mod(_n, 4)
+    * hrcomptab places model rows by category label: the model's factor uses
+    * the rate files' value labels.
+    label define _wx_exp4 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
+    label values dose _wx_exp4
     gen double follow = exp(-0.2 * (dose == 1) - 0.4 * (dose == 2) ///
         - 0.6 * (dose == 3) + rnormal())
     gen byte failed = 1
@@ -1893,7 +1897,7 @@ capture noisily {
 
     capture erase "`output_dir'/_wx_hrcomptab.xlsx"
     hrcomptab _wx_hr_rates, modelframes(_wx_hr_bin _wx_hr_dose) ///
-        rownames("treated" \ "1 2 3") ///
+        rownames("treated" \ "Low Medium High") ///
         xlsx("`output_dir'/_wx_hrcomptab.xlsx") sheet("HRComp") ///
         title("HR Composite") effect("aHR")
 
@@ -3901,12 +3905,25 @@ if !`has_checker' {
         webuse drugtr, clear
         stset studytime, failure(died)
         strate drug, per(1000) output("`output_dir'/_rate1", replace)
+        * strate's saved numbers are the oracle; a per(1000) file needs
+        * ratescale(1) pyscale(0.001) because the defaults assume per(1).
+        preserve
+        use "`output_dir'/_rate1.dta", clear
+        local want_rate = strtrim(string(round(_Rate[1], .1), "%9.1f"))
+        local want_py = strtrim(string(round(_Y[1] * 1000, 1), "%20.0fc"))
+        local want_ev = strtrim(string(_D[1], "%20.0fc"))
+        restore
         capture erase "`output_dir'/_xl_native_stratetab.xlsx"
-        stratetab, using("`output_dir'/_rate1") ///
+        stratetab, using("`output_dir'/_rate1") ratescale(1) pyscale(0.001) ///
             xlsx("`output_dir'/_xl_native_stratetab.xlsx") sheet("Rate") title("Rates") outcomes(1)
         preserve
         import excel "`output_dir'/_xl_native_stratetab.xlsx", sheet("Rate") cellrange(A1:A1) clear
         assert A[1] == "Rates"
+        * first category row: Excel row 5, events/PY/rate in C/D/E
+        import excel "`output_dir'/_xl_native_stratetab.xlsx", sheet("Rate") cellrange(C5:E5) clear allstring
+        assert C[1] == "`want_ev'"
+        assert D[1] == "`want_py'"
+        assert strpos(E[1], "`want_rate' (") == 1
         restore
         capture erase "`output_dir'/_rate1.dta"
     }

@@ -137,6 +137,10 @@ clear
 set obs 300
 set seed 20260418
 gen byte dose = mod(_n, 3)
+* hrcomptab places model rows by category label, so the model's factor carries
+* the same value labels as the strate files behind the rate scaffold.
+label define _hrc_dosel 0 "None" 1 "Low" 2 "High", replace
+label values dose _hrc_dosel
 gen double t1 = 1 + 12 * runiform() * exp(-0.20 * (dose == 1) - 0.35 * (dose == 2))
 gen byte d1 = mod(_n, 4) != 0
 gen double t2 = 1 + 10 * runiform() * exp(-0.10 * (dose == 1) - 0.25 * (dose == 2))
@@ -347,7 +351,7 @@ local ++test_count
 capture noisily {
     capture frame drop hrc_final2
 	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-	        rownames("treated" \ "1 2") outcomemap("Outcome 1" \ "Outcome 2") ///
+	        rownames("treated" \ "Low High") outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_final2, replace)
     assert r(N_modelrows) == 3
     frame hrc_final2 {
@@ -374,7 +378,7 @@ local ++test_count
 capture noisily {
     capture frame drop hrc_final2b
 	    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-	        rown("treated" \ "1 2") outcomemap("Outcome 1" \ "Outcome 2") ///
+	        rown("treated" \ "Low High") outcomemap("Outcome 1" \ "Outcome 2") ///
         frame(hrc_final2b, replace)
     assert r(N_modelrows) == 3
     capture frame drop hrc_final2b
@@ -840,23 +844,42 @@ capture noisily {
     local _strate_path "`output_dir'/_test_strate_5a"
     capture erase "`_strate_path'.dta"
     strate agecat, per(1000) output("`_strate_path'", replace)
+    * Oracles: strate's own saved numbers and stcox exp(_b[]). per(1000)
+    * files need ratescale(1) pyscale(0.001) (the defaults assume per(1)).
+    preserve
+    use "`_strate_path'.dta", clear
+    local want_rate2 = strtrim(string(round(_Rate[2], .1), "%9.1f"))
+    local want_py2 = strtrim(string(round(_Y[2] * 1000, 1), "%20.0fc"))
+    restore
 
     capture frame drop _str_test
-    stratetab, using("`_strate_path'") outcomes(1) ///
+    stratetab, using("`_strate_path'") outcomes(1) ratescale(1) pyscale(0.001) ///
         outlabels("Event") explabels("Age") frame(_str_test)
 
+    quietly stcox i.agecat, nolog
+    local want_hr2 = strtrim(string(exp(_b[2.agecat]), "%9.2f"))
+    local want_hr3 = strtrim(string(exp(_b[3.agecat]), "%9.2f"))
     collect clear
     collect: stcox i.agecat, nolog
     capture frame drop _reg_test
  regtab, models("Event") frame(_reg_test) coef(HR)
 
-    * hrcomptab with rownames — "55" should match "55-64" in regtab
+    * rownames() patterns are case-insensitive substrings: "55-" matches only
+    * "55-64" and "65+" only "65+"; the reference "<55" is not selected.
     capture frame drop _hrc_test
     hrcomptab _str_test, modelframes(_reg_test) ///
-	 rownames(55) outcomemap(Event) frame(_hrc_test)
+	 rownames(55- 65+) outcomemap(Event) frame(_hrc_test)
 
     frame _hrc_test {
-        assert _N > 3
+        assert _N == 7
+        assert strtrim(c1[5]) == "<55"
+        assert c5[5] == "Reference"
+        assert strtrim(c1[6]) == "55-64"
+        assert c3[6] == "`want_py2'"
+        assert strpos(c4[6], "`want_rate2' (") == 1
+        assert strpos(c5[6], "`want_hr2' (") == 1
+        assert strtrim(c1[7]) == "65+"
+        assert strpos(c5[7], "`want_hr3' (") == 1
     }
     capture frame drop _hrc_test
     capture frame drop _str_test
@@ -883,10 +906,15 @@ capture noisily {
     local _strate_path2 "`output_dir'/_test_strate_5b"
     capture erase "`_strate_path2'.dta"
     strate agecat, per(1000) output("`_strate_path2'", replace)
+    preserve
+    use "`_strate_path2'.dta", clear
+    local want_rate1 = strtrim(string(round(_Rate[1], .1), "%9.1f"))
+    restore
 
     capture frame drop _str_test2
-    stratetab, using("`_strate_path2'") outcomes(1) ///
+    stratetab, using("`_strate_path2'") outcomes(1) ratescale(1) pyscale(0.001) ///
         outlabels("Event") explabels("Age") frame(_str_test2)
+    frame _str_test2: assert strpos(c4[5], "`want_rate1' (") == 1
 
     collect clear
     collect: stcox i.agecat, nolog

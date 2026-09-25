@@ -2375,7 +2375,9 @@ else {
     local ++fail_count
 }
 
-* --- 7.4: table1_tc r(table) omitted above 200 rows ---
+* --- 7.4: table1_tc r(table) is returned above 200 rows ---
+* The former 200-row cap silently dropped r(table); Stata 17+ has no matsize
+* limit on it. The last variable's p-value is checked against tabulate.
 capture noisily {
     clear
     set obs 20
@@ -2383,19 +2385,24 @@ capture noisily {
     local _vars ""
     forvalues j = 1/201 {
         gen x`j' = mod(_n + `j', 2)
+        replace x`j' = 1 - x`j' in 1/`=1 + mod(`j', 7)'
         if `j' > 1 local _vars "`_vars' \ "
         local _vars "`_vars'x`j' bin"
     }
     table1_tc, by(g) vars(`_vars')
-    capture confirm matrix r(table)
-    assert _rc != 0
+    tempname T201
+    matrix `T201' = r(table)
+    assert rowsof(`T201') == 201
+    quietly tab x201 g, chi2
+    assert !missing(`T201'[201, 1], r(p))
+    assert reldif(`T201'[201, 1], r(p)) < 1e-8
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc r(table) omitted above 200 rows"
+    display as result "  PASS: table1_tc r(table) returned above 200 rows"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc r(table) omitted above 200 rows (rc=`=_rc')"
+    display as error "  FAIL: table1_tc r(table) above 200 rows (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -3214,6 +3221,255 @@ else {
     local ++fail_count
 }
 
+
+**# 2026-09-25 review: labels with quotes, GSD precision, SMD levels, r(table)
+
+* --- T25-I4a: double quotes and apostrophes in labels reach every sink ---
+* A double quote in a variable label crashed after the table printed
+* (r(199)), and one in a by() value label crashed with r(198). Every sink must
+* now carry the exact label text.
+capture noisily {
+    sysuse auto, clear
+    label variable weight `"Weight 5" test"'
+    label variable price "Driver's price"
+    label variable rep78 `"Repair "grade""'
+    label define fl 0 `"Dom "x""' 1 "For'n", replace
+    label values foreign fl
+    label variable foreign `"Origin "o""'
+    gen byte hi = mpg > 20
+    label variable hi `"High "mpg""'
+    tempfile qbase
+    local qx "`qbase'.xlsx"
+    local qc "`qbase'.csv"
+    local qm "`qbase'.md"
+    table1_tc, by(foreign) vars(weight contn \ price conts \ rep78 cat \ hi bin) ///
+        smd missingsummary frame(_t125q, replace) xlsx("`qx'") sheet("Q") ///
+        csv("`qc'") markdown("`qm'")
+    assert rowsof(r(table)) == 4
+    assert strpos(`"`r(methods)'"', `"Origin "o""') > 0
+    frame _t125q {
+        foreach lab in `"Weight 5" test"' "Driver's price" `"Repair "grade""' `"High "mpg""' {
+            quietly count if factor == `"`lab'"'
+            assert r(N) == 1
+        }
+        assert foreign_0[1] == `"Dom "x""'
+        assert foreign_1[1] == "For'n"
+    }
+    preserve
+    import excel using "`qx'", sheet("Q") allstring clear
+    foreach lab in `"Weight 5" test"' "Driver's price" `"Repair "grade""' `"High "mpg""' {
+        quietly count if strtrim(B) == `"`lab'"'
+        assert r(N) == 1
+    }
+    quietly count if strtrim(C) == `"Dom "x""'
+    assert r(N) == 1
+    import delimited using "`qc'", varnames(nonames) stringcols(_all) bindquote(strict) clear
+    foreach lab in `"Weight 5" test"' "Driver's price" `"Repair "grade""' `"High "mpg""' {
+        quietly count if strtrim(v1) == `"`lab'"'
+        assert r(N) == 1
+    }
+    restore
+    tempname mfh
+    local md_hits 0
+    file open `mfh' using "`qm'", read text
+    file read `mfh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', `"Weight 5" test"') local ++md_hits
+        if strpos(`"`macval(line)'"', `"Repair "grade""') local ++md_hits
+        if strpos(`"`macval(line)'"', `"Dom "x""') local ++md_hits
+        file read `mfh' line
+    }
+    file close `mfh'
+    assert `md_hits' >= 3
+    capture erase "`qx'"
+    capture erase "`qc'"
+    capture erase "`qm'"
+}
+if _rc == 0 {
+    display as result "  PASS: T25-I4a quoted labels in console, frame, xlsx, csv, markdown"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-I4a quoted labels across sinks (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _t125q
+
+* --- T25-I4b: quoted by() labels under wtcompare and a 3-group SMD note ---
+capture noisily {
+    sysuse auto, clear
+    label define fl 0 `"Dom "x""' 1 "For'n", replace
+    label values foreign fl
+    gen double w = 1 + mod(_n, 3)
+    table1_tc, by(foreign) vars(weight contn \ rep78 cat) wt(w) wtcompare ///
+        smd frame(_t125w, replace)
+    frame _t125w {
+        confirm variable Cr_0 Wt_0
+        assert Cr_0[1] == `"Crude Dom "x""'
+        assert Wt_0[1] == `"Weighted Dom "x""'
+    }
+    sysuse auto, clear
+    gen byte g3 = mod(_n, 3)
+    label define g3l 0 `"A "a""' 1 "B's" 2 "C", replace
+    label values g3 g3l
+    table1_tc, by(g3) vars(weight contn) smd
+}
+if _rc == 0 {
+    display as result "  PASS: T25-I4b quoted group labels under wtcompare and SMD note"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-I4b quoted group labels under wtcompare (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _t125w
+
+* --- T25-I5: the GSD gets its own default precision ---
+* Oracle: geometric mean exp(mean(ln x)) and GSD exp(sd(ln x)) per group.
+capture noisily {
+    sysuse auto, clear
+    gen double lp = ln(price)
+    quietly summarize lp if foreign == 0
+    local gm0 = exp(r(mean))
+    local gsd0 = exp(r(sd))
+    display as text "  domestic GM " %9.3f `gm0' " GSD " %9.4f `gsd0'
+    table1_tc, by(foreign) vars(price contln) frame(_t125g, replace)
+    frame _t125g: local cell = foreign_0[3]
+    local want = string(`gm0', "%2.0f") + " (×/" + string(`gsd0', "%4.2f") + ")"
+    display as text `"  default cell "`cell'", expected "`want'""'
+    assert `"`cell'"' == `"`want'"'
+    * explicit fmt2 is authoritative
+    table1_tc, by(foreign) vars(price contln %9.1f %9.3f) frame(_t125g, replace)
+    frame _t125g: local cell = foreign_0[3]
+    assert `"`cell'"' == string(`gm0', "%9.1f") + " (×/" + string(`gsd0', "%9.3f") + ")"
+    * an explicit fmt1 or format() also governs the GSD when fmt2 is absent
+    table1_tc, by(foreign) vars(price contln %9.1f) frame(_t125g, replace)
+    frame _t125g: local cell = foreign_0[3]
+    assert `"`cell'"' == string(`gm0', "%9.1f") + " (×/" + string(`gsd0', "%9.1f") + ")"
+    table1_tc, by(foreign) vars(price contln) format(%9.3f) frame(_t125g, replace)
+    frame _t125g: local cell = foreign_0[3]
+    assert `"`cell'"' == string(`gm0', "%9.3f") + " (×/" + string(`gsd0', "%9.3f") + ")"
+    * contn SD keeps following format()/fmt1 as before
+    quietly summarize weight if foreign == 0
+    local m0 = r(mean)
+    local s0 = r(sd)
+    table1_tc, by(foreign) vars(weight contn) frame(_t125g, replace)
+    frame _t125g: local cell = foreign_0[3]
+    assert `"`cell'"' == string(`m0', "%2.0f") + "±" + string(`s0', "%2.0f")
+}
+if _rc == 0 {
+    display as result "  PASS: T25-I5 GSD default precision; explicit formats authoritative"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-I5 GSD default precision (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _t125g
+
+* --- T25-m1: categorical SMD uses the levels of the two compared groups ---
+* Groups 1 and 2 have identical level shares (c = 1, 2 alternating); level 3
+* occurs only in group 3. The oracle SMD for group 1 vs group 2 is 0.
+capture noisily {
+    clear
+    set obs 300
+    gen byte g = mod(_n, 3)
+    gen byte c = 1 + mod(_n, 2)
+    replace c = 3 if g == 2 & _n <= 60
+    table1_tc, by(g) vars(c cat) smd frame(_t125s, replace)
+    tempname S
+    matrix `S' = r(table)
+    local smd = el(`S', 1, colnumb(`S', "smd"))
+    display as text "  3-group categorical SMD (g0 vs g1) = `smd'"
+    assert !missing(`smd')
+    assert abs(`smd') < 1e-12
+    frame _t125s: assert strtrim(smd_str[3]) == "0.000"
+}
+if _rc == 0 {
+    display as result "  PASS: T25-m1 categorical SMD restricted to the compared groups"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-m1 categorical SMD with a third-group-only level (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _t125s
+
+* --- T25-m2: r(table) has one row per variable, with safe unique names ---
+capture noisily {
+    sysuse auto, clear
+    label variable price "Cost"
+    label variable weight "Cost"
+    label variable mpg `"Mileage: "city""'
+    table1_tc, by(foreign) vars(price contn \ weight contn \ rep78 cat \ mpg contn) ///
+        missingsummary smd
+    tempname R
+    matrix `R' = r(table)
+    local rn : rownames `R'
+    display as text "  rownames: `rn'"
+    assert rowsof(`R') == 4
+    local r1 : word 1 of `rn'
+    local r2 : word 2 of `rn'
+    assert "`r1'" != "`r2'"
+    assert "`r1'" == "Cost"
+    * every row carries a p-value: no level or missing-summary sub-rows
+    forvalues i = 1/4 {
+        assert !missing(`R'[`i', 1])
+    }
+    quietly ttest weight, by(foreign)
+    assert !missing(`R'[2, 1], r(p))
+    assert reldif(`R'[2, 1], r(p)) < 1e-8
+    quietly tab rep78 foreign, chi2
+    assert !missing(`R'[3, 1], r(p))
+    assert reldif(`R'[3, 1], r(p)) < 1e-8
+    quietly ttest mpg, by(foreign)
+    assert !missing(`R'[4, 1], r(p))
+    assert reldif(`R'[4, 1], r(p)) < 1e-8
+}
+if _rc == 0 {
+    display as result "  PASS: T25-m2 r(table) one row per variable, unique safe rownames"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-m2 r(table) row identity (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- T25-m4/m5: one join rule, and the active iqrmiddle() separator ---
+capture noisily {
+    sysuse auto, clear
+    table1_tc, by(foreign) vars(rep78 cat \ weight contn \ price contln \ mpg conts) ///
+        frame(_t125h, replace)
+    frame _t125h: local h = factor[2]
+    display as text `"  header: `h'"'
+    assert `"`h'"' == "No. (Column %), Mean±SD, Geometric mean (×/GSD), or Median (Q1, Q3)"
+    assert strpos(`"`r(Dapa)'"', "mean±SD, geometric mean (×/GSD), or median (Q1, Q3)") > 0
+    table1_tc, by(foreign) vars(rep78 cat \ weight contn) frame(_t125h, replace)
+    frame _t125h: local h = factor[2]
+    assert `"`h'"' == "No. (Column %) or Mean±SD"
+    table1_tc, by(foreign) vars(weight contn \ mpg conts) iqrmiddle("-") ///
+        varlabplus frame(_t125h, replace)
+    display as text `"  Dapa: `r(Dapa)'"'
+    assert strpos(`"`r(Dapa)'"', "median (Q1-Q3)") > 0
+    assert strpos(`"`r(Dapa)'"', "median (Q1, Q3)") == 0
+    frame _t125h {
+        local h = factor[2]
+        assert `"`h'"' == "Mean±SD or Median (Q1-Q3)"
+        quietly count if strpos(factor, "median (Q1-Q3)") > 0
+        assert r(N) == 1
+        quietly count if strpos(factor, "median (Q1, Q3)") > 0
+        assert r(N) == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: T25-m4/m5 descriptor join and iqrmiddle() text"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T25-m4/m5 descriptor join and iqrmiddle() text (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _t125h
 
 **# Summary
 local test_count = `pass_count' + `fail_count'

@@ -147,11 +147,12 @@ point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 {opt catrowperc} report row % for categorical vars{p_end}
 
 {phang}
-{opt clear} replace dataset in memory with the table. The table is header-shaped:
-observation 1 repeats each column's variable label, so a bare {cmd:list} reads as a table,
-and the descriptor and sample-size row follows it. Observation 1 is a header, not data.
-{helpb puttab} consumes it automatically with {cmd:varlabels}; drop it yourself if you
-consume the table any other way.{p_end}
+{opt clear} replace dataset in memory with the table. The table is
+header-shaped: observation 1 repeats each column's variable label, so a bare
+{cmd:list} reads as a table, and the descriptor and sample-size row follows
+it. Observation 1 is a header, not data. {helpb puttab} consumes it
+automatically with {cmd:varlabels}; drop it yourself if you consume the table
+any other way.{p_end}
 
 {phang}
 {opt csv("filename")} also export as CSV file. The CSV mirrors the workbook
@@ -168,7 +169,11 @@ row, both in the first column and the table body between them.{p_end}
 {opt foot:note(string)} add footnote row below table{p_end}
 
 {phang}
-{opt f:ormat(%fmt)} default display format for continuous variables; default is %2.0f{p_end}
+{opt f:ormat(%fmt)} default display format for continuous variables; default is %2.0f. The
+geometric SD of a {cmd:contln} row uses {it:%fmt2} when given, otherwise an
+explicit {it:%fmt1} or {opt format()}; with none of these it is shown with two
+decimals ({cmd:%4.2f}), because a multiplicative GSD near 1 would otherwise
+print as "×/1".{p_end}
 
 {phang}
 {opt fra:me(name[, replace])} store output in a named Stata frame. The frame holds the same
@@ -427,8 +432,13 @@ variables and weight.{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 
 {p2col 5 32 36 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}p-values and absolute SMDs{p_end}
+{synopt:{cmd:r(table)}}p-values and absolute SMDs by variable{p_end}
 {synopt:{cmd:r(suppression)}}display-cell suppression codes{p_end}
+
+{pstd}{cmd:r(table)} has one row per analysed variable; category levels and
+missing-summary rows are not included. Rows are named from the variable
+labels, made unique with {cmd:_2}, {cmd:_3}, and so on, and replaced by a valid
+matrix name when a label cannot be one.{p_end}
 
 
 {marker technical}{...}

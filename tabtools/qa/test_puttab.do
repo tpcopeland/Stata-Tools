@@ -154,8 +154,21 @@ capture noisily {
     sysuse auto, clear
     capture frame drop fall
     frame put make mpg foreign, into(fall)
+    * The current frame lacks foreign and has fewer rows than "in" asks for:
+    * if/in must be evaluated in the frame() source, not the current frame.
+    clear
+    quietly set obs 2
+    generate byte other = 1
     puttab if foreign==0 using "`f5'", sheet("D") frame(fall) noheader
     assert r(n_datarows) == 52
+    puttab in 60/74 using "`f5'", sheet("E") frame(fall) noheader
+    assert r(n_datarows) == 15
+    assert _N == 2
+    capture confirm variable foreign
+    assert _rc != 0
+    frame fall: local want_make = make[60]
+    import excel using "`f5'", sheet("E") cellrange(B2:B2) clear allstring
+    assert B[1] == `"`want_make'"'
 }
 if _rc == 0 {
     display as result "  PASS: if on frame source"
@@ -500,10 +513,11 @@ capture noisily {
     puttab grp n using "`fg'", sheet("A") varlabels
     assert r(n_datarows) == 3
 
-    * with that numeric cell missing, observation 1 is the header
+    * a missing numeric cell does not make observation 1 a header: a rendered
+    * tabtools table is all-string, so a numeric column means raw data
     quietly replace n = . in 1
     puttab grp n using "`fg'", sheet("B") varlabels
-    assert r(n_datarows) == 2
+    assert r(n_datarows) == 3
 
     * an all-blank first observation repeats no label
     clear
