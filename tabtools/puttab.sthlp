@@ -136,7 +136,8 @@ between them.{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
-Excel and CSV exports{p_end}
+Excel and CSV exports. Leading spaces of string cells in the first column are written as
+{cmd:&nbsp;} so indented row labels keep their indentation; other cells are trimmed{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}

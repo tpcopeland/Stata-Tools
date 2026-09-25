@@ -201,7 +201,8 @@ such as {cmd:"200 220 240"}{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
-Excel, CSV, and frame exports{p_end}
+Excel, CSV, and frame exports. Categorical level rows keep their indentation: each leading
+space of a row label is written as {cmd:&nbsp;}, which survives Markdown cell trimming{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
