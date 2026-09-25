@@ -223,7 +223,9 @@ resolved level labels intervals in headers and methods text, is returned in
 computed quantity.{p_end}
 
 {phang}
-{opt markdown(filename)} export the table as GitHub-Flavored Markdown{p_end}
+{opt markdown(filename)} export the table as GitHub-Flavored Markdown. Factor-level rows keep
+their indentation: each leading space of a row label is written as {cmd:&nbsp;}, which
+survives Markdown cell trimming{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}

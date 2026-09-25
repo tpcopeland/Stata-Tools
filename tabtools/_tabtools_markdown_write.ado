@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 2.1.7  2026/09/16
+*! _tabtools_markdown_write Version 2.1.8  2026/09/25
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -120,9 +120,14 @@ program define _tabtools_markdown_write, rclass
                 local _row_has_text = 0
                 forvalues _j = 1/`_k' {
                     local _v : word `_j' of `_vars'
-                    mata: st_local("_cell`_j'", _tt_md_cell("`_v'", `_i'))
+                    * Column 1 is the row-label (stub) column. Its leading
+                    * spaces are the hierarchy -- level rows under a variable
+                    * or factor label -- and GFM trims cell whitespace, so
+                    * they are written as &nbsp; entities. Value columns are
+                    * trimmed as before: their leading blanks are display-
+                    * format padding, not indentation.
+                    mata: st_local("_cell`_j'", _tt_md_body_cell("`_v'", `_i', `_j' == 1))
                     if `"`_cell`_j''"' != "" local _row_has_text = 1
-                    mata: st_local("_cell`_j'", _tt_md_escape(st_local("_cell`_j'")))
                 }
                 if `_row_has_text' {
                     file write `_fh' "|"
@@ -156,6 +161,7 @@ end
 version 17.0
 capture mata: mata drop _tt_md_escape()
 capture mata: mata drop _tt_md_cell()
+capture mata: mata drop _tt_md_body_cell()
 
 mata:
 mata set matastrict on
@@ -185,6 +191,28 @@ string scalar _tt_md_cell(string scalar v, real scalar i)
     x = st_data(i, j)
     if (x >= .) return("")
     return(strtrim(strofreal(x, st_varformat(j))))
+}
+
+// Escaped body cell. With indent != 0, each leading space of a string cell
+// becomes one &nbsp; so row-label indentation survives GFM cell trimming.
+// The entity is prepended after escaping, so it can never combine with the
+// escaped content (e.g. a leading "|" is written as &nbsp;\|). Trailing
+// blanks are trimmed; interior spaces are unchanged; an all-blank cell is
+// empty. Numeric cells keep the trimmed display-format rendering.
+string scalar _tt_md_body_cell(string scalar v, real scalar i, real scalar indent)
+{
+    real scalar j, n
+    string scalar raw, core
+
+    j = st_varindex(v)
+    if (!indent | !st_isstrvar(j)) return(_tt_md_escape(_tt_md_cell(v, i)))
+    raw = st_sdata(i, j)
+    // Count before escaping: Mata passes arguments by reference and
+    // _tt_md_escape() trims its argument in place.
+    n = strlen(raw) - strlen(strltrim(raw))
+    core = _tt_md_escape(raw)
+    if (core == "") return("")
+    return(n * "&nbsp;" + core)
 }
 
 end

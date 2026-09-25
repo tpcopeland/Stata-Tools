@@ -3564,6 +3564,165 @@ else {
     local ++fail_count
 }
 
+**# Markdown row-label indentation (2.1.8)
+* table1_tc/desctab indent categorical levels with three leading spaces and
+* regtab with two. GFM trims cell whitespace and the writer used to strtrim()
+* every cell, so level rows sat flush with their variable-label rows. Leading
+* spaces of the row-label column are now written as one &nbsp; each; value
+* columns stay trimmed so display-format padding and the interior space of
+* spacelowpercent's "( 4)" produce no entity noise.
+capture program drop _md_assert_stub
+program define _md_assert_stub
+    * Assert a body row whose first cell is exactly `indent' &nbsp; + label.
+    syntax using/ , INDent(integer) [LABel(string)]
+    local want = "| " + `indent' * "&nbsp;" + `"`label'"' + " |"
+    local wantlen = strlen(`"`want'"')
+    tempname fh
+    file open `fh' using `"`using'"', read text
+    local found = 0
+    file read `fh' line
+    while r(eof) == 0 {
+        if substr(`"`line'"', 1, `wantlen') == `"`want'"' local found = 1
+        file read `fh' line
+    }
+    file close `fh'
+    if !`found' display as error `"no row starting with: `want'"'
+    assert `found' == 1
+end
+
+capture program drop _md_assert_nbsp_stub_only
+program define _md_assert_nbsp_stub_only
+    * &nbsp; may appear only as the leading run of the first cell.
+    syntax using/
+    tempname fh
+    file open `fh' using `"`using'"', read text
+    local bad = 0
+    file read `fh' line
+    while r(eof) == 0 {
+        local rest = regexr(`"`line'"', "^\| (&nbsp;)*", "")
+        if strpos(`"`rest'"', "&nbsp;") > 0 {
+            display as error `"stray &nbsp; outside the row label: `line'"'
+            local bad = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `bad' == 0
+end
+
+local md_indent_writer "`output_dir'/markdown_indent_writer.md"
+local md_indent_t1 "`output_dir'/markdown_indent_table1.md"
+local md_indent_reg "`output_dir'/markdown_indent_regtab.md"
+
+* Writer contract: stub column only, escape-safe, trailing blanks trimmed
+capture erase "`md_indent_writer'"
+capture noisily {
+    clear
+    set obs 7
+    gen str24 A = ""
+    gen str12 c1 = ""
+    gen double c2 = .
+    format c2 %9.2f
+    replace A = "Variable" in 1
+    replace c1 = "Value" in 1
+    replace A = "Race" in 2
+    replace A = "   White" in 3
+    replace c1 = " 12 ( 4)" in 3
+    replace c2 = 1.5 in 3
+    replace A = "  |pipe  " in 4
+    replace c1 = "x" in 4
+    replace A = "  *star_x" in 5
+    replace A = "     " in 6
+    replace c1 = "blank stub" in 6
+    replace A = " Two  words " in 7
+    _tabtools_markdown_write using "`md_indent_writer'", labelvar(A) ///
+        headerstart(1) datastart(2)
+    assert r(n_rows) == 6
+    _md_assert_stub using "`md_indent_writer'", label("Race") indent(0)
+    _md_assert_stub using "`md_indent_writer'", label("White") indent(3)
+    * leading "|" is escaped after the entity run, never merged into it
+    _md_assert_stub using "`md_indent_writer'", label("\|pipe") indent(2)
+    _md_assert_stub using "`md_indent_writer'", label("\*star\_x") indent(2)
+    * an all-blank stub stays empty rather than becoming a run of entities
+    _md_assert_stub using "`md_indent_writer'", label("") indent(0)
+    * interior spaces untouched, trailing blank trimmed
+    _md_assert_stub using "`md_indent_writer'", label("Two  words") indent(1)
+    * value cells: string padding and numeric %9.2f padding stay trimmed
+    _md_assert_contains using "`md_indent_writer'", text("| &nbsp;&nbsp;&nbsp;White | 12 ( 4) | 1.50 |")
+    _md_assert_nbsp_stub_only using "`md_indent_writer'"
+    * the header row is never indented
+    _md_assert_stub using "`md_indent_writer'", label("Variable") indent(0)
+}
+if _rc == 0 {
+    display as result "  PASS: Markdown writer converts row-label indentation to &nbsp;"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Markdown writer row-label indentation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* table1_tc: level rows carry three &nbsp;, variable rows none
+capture erase "`md_indent_t1'"
+capture noisily {
+    sysuse auto, clear
+    label define _md_rep 1 "Poor" 2 "Fair" 3 "Average" 4 "Good" 5 "Excellent"
+    label values rep78 _md_rep
+    label variable rep78 "Repair record"
+    label variable mpg "Mileage"
+    table1_tc, by(foreign) vars(mpg contn \ rep78 cat) spacelowpercent ///
+        markdown("`md_indent_t1'")
+    _md_assert_stub using "`md_indent_t1'", label("Mileage") indent(0)
+    _md_assert_stub using "`md_indent_t1'", label("Repair record") indent(0)
+    foreach _lvl in Poor Fair Average Good Excellent {
+        _md_assert_stub using "`md_indent_t1'", label("`_lvl'") indent(3)
+    }
+    * spacelowpercent's interior space survives with no entity noise
+    _md_assert_contains using "`md_indent_t1'", text("( 4)")
+    _md_assert_nbsp_stub_only using "`md_indent_t1'"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc Markdown keeps level-row indentation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc Markdown level-row indentation (rc=`=_rc')"
+    local ++fail_count
+}
+
+* regtab: factor levels carry two &nbsp;, factor and continuous rows none
+capture erase "`md_indent_reg'"
+capture noisily {
+    sysuse auto, clear
+    label define _md_rep 1 "Poor" 2 "Fair" 3 "Average" 4 "Good" 5 "Excellent", replace
+    label values rep78 _md_rep
+    label variable rep78 "Repair record"
+    label variable mpg "Mileage"
+    collect clear
+    quietly collect: regress price mpg ib3.rep78
+    regtab, markdown("`md_indent_reg'")
+    _md_assert_stub using "`md_indent_reg'", label("Mileage") indent(0)
+    _md_assert_stub using "`md_indent_reg'", label("Repair record") indent(0)
+    _md_assert_stub using "`md_indent_reg'", label("Average") indent(2)
+    _md_assert_contains using "`md_indent_reg'", text("| &nbsp;&nbsp;Average | Reference |")
+    foreach _lvl in Poor Fair Good Excellent {
+        _md_assert_stub using "`md_indent_reg'", label("`_lvl'") indent(2)
+    }
+    _md_assert_nbsp_stub_only using "`md_indent_reg'"
+    collect clear
+}
+if _rc == 0 {
+    display as result "  PASS: regtab Markdown keeps factor-level indentation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab Markdown factor-level indentation (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`md_indent_writer'"
+capture erase "`md_indent_t1'"
+capture erase "`md_indent_reg'"
+
 capture erase "`md_writer'"
 capture erase "`md_table1'"
 capture erase "`md_cross'"
