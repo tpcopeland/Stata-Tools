@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.10  2026/09/25
+*! effecttab Version 2.1.11  2026/09/26
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1249,16 +1249,16 @@ quietly {
 	order title
 	replace title = `"`title'"' if _n == 1
 
-	* Track Reference rows for merged cell formatting (after title row added)
-	local ref_rows ""
+	* Track Reference/Omitted/Empty rows for merged cell formatting (after the
+	* title row is added) PER MODEL, keyed by the model's first c-column. A
+	* union across models merged and blanked the estimate/CI/p triplet of any
+	* model with a real result on a row another model treats as its reference.
 	forvalues i = 1(3)`last' {
 		gen ref`i' = _n ///
 			if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
-		levelsof ref`i', local(ref`i'_levels)
-		local ref_rows `"`ref_rows' `ref`i'_levels'"'
+		levelsof ref`i', local(ref_rows_`i')
 		drop ref`i'
 	}
-	local ref_rows: list uniq ref_rows
 
 	local num_rows = _N
 	local num_cols = c(k)
@@ -1516,11 +1516,14 @@ quietly {
 			if `headerheight' > 1 {
 				local _style_rule_rows `"`_style_rule_rows' | 12, 2, 2, 1, 1, `=`headerheight'*15', 0, 0, 0"'
 			}
-			* Wrap + top-align the label column so labels exceeding the capped
-			* width flow onto extra lines instead of being clipped.
+			* Wrap the label column -- and only the label column -- so labels
+			* exceeding the capped width flow onto extra lines instead of being
+			* clipped. Top-align the whole body row, not just the label: with the
+			* rule on column B alone, estimate/CI/p cells kept Excel's bottom
+			* alignment and sat on the last line of a wrapped label.
 			if `num_rows' >= 4 {
 				local _style_rule_rows `"`_style_rule_rows' | 4, 4, `num_rows', 2, 2, 0, 1, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 6, 4, `num_rows', 2, 2, 0, 3, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 6, 4, `num_rows', 2, `num_cols', 0, 3, 0, 0"'
 			}
 
 			local _style_rule_rows `"`_style_rule_rows' | 1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0"'
@@ -1537,15 +1540,17 @@ quietly {
 			local _style_rule_rows `"`_style_rule_rows' | 5, 3, 3, 2, `num_cols', 0, 2, 0, 0"'
 			local _style_rule_rows `"`_style_rule_rows' | 6, 3, 3, 2, `num_cols', 0, 2, 0, 0"'
 
-			foreach row of local ref_rows {
-				local col_num = 3
-				while `col_num' <= `n' {
-					local _col_end = `col_num' + 2
+			* Merge the estimate/CI/p triplet only in the model block that holds
+			* the Reference/Omitted/Empty label on that row. Excel column of c<k>
+			* is k + 2.
+			forvalues i = 1(3)`last' {
+				local col_num = `i' + 2
+				local _col_end = `col_num' + 2
+				foreach row of local ref_rows_`i' {
 					local _style_rule_rows `"`_style_rule_rows' | 14, `row', `row', `col_num', `_col_end', 0, 0, 0, 0"'
 					local _style_rule_rows `"`_style_rule_rows' | 5, `row', `row', `col_num', `col_num', 0, 2, 0, 0"'
 					local _style_rule_rows `"`_style_rule_rows' | 6, `row', `row', `col_num', `col_num', 0, 2, 0, 0"'
 					local _style_rule_rows `"`_style_rule_rows' | 3, `row', `row', `col_num', `col_num', 0, 1, 0, 0"'
-					local col_num = `col_num' + 3
 				}
 			}
 
