@@ -83,6 +83,13 @@ program define corrtab, rclass
             }
         }
         _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+        * C2 (codex audit 2026-09-26): validate frame() before anything is
+        * written. It was checked only when the frame was stored, after the CSV
+        * and Markdown files, so an occupied or invalid frame returned an error
+        * after an existing report had already been overwritten.
+        if `"`frame'"' != "" {
+            _tabtools_frame_preflight `"`frame'"' "frame()"
+        }
 
         if `digits' == -1 {
             if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
@@ -203,8 +210,12 @@ program define corrtab, rclass
         local _max_label_len 0
         forvalues _vi = 1/`nvars' {
             local _vn : word `_vi' of `varlist'
-            local _vlbl_`_vi' : variable label `_vn'
-            if `"`_vlbl_`_vi''"' == "" local _vlbl_`_vi' "`_vn'"
+            * C1 (codex audit 2026-09-26): a label is data. It is read and
+            * tested in Mata and written to the table with st_sstore(), never
+            * re-expanded as macro syntax, so a $word or a backtick in a label
+            * is exported as typed instead of expanding or failing r(132).
+            mata: st_local("_vlbl_`_vi'", st_varlabel("`_vn'"))
+            mata: st_local("_vlbl_`_vi'", (st_local("_vlbl_`_vi'") == "" ? "`_vn'" : st_local("_vlbl_`_vi'")))
             local _vl_len : strlen local _vlbl_`_vi'
             if `_vl_len' > `_max_label_len' local _max_label_len = `_vl_len'
         }
@@ -251,14 +262,14 @@ program define corrtab, rclass
         quietly replace c1 = "" in `row'
         forvalues v = 1/`nvars' {
             local _col = `v' + 1
-            quietly replace c`_col' = `"`_vlbl_`v''"' in `row'
+            mata: st_sstore(`row', "c`_col'", st_local("_vlbl_`v'"))
         }
 
         local _diag_str = strtrim(string(1, "%21.`digits'f"))
         forvalues i = 1/`nvars' {
             local row = `row' + 1
             quietly set obs `row'
-            quietly replace c1 = `"`_vlbl_`i''"' in `row'
+            mata: st_sstore(`row', "c1", st_local("_vlbl_`i'"))
 
             forvalues j = 1/`nvars' {
                 local _col = `j' + 1
@@ -332,7 +343,9 @@ program define corrtab, rclass
                 if `_fn_endp' {
                     local _md_footnote `"`macval(_fn_trim)' `_star_note'"'
                 }
-                else local _md_footnote `"`macval(_fn_trim)'; `_star_note'"'
+                else {
+                    local _md_footnote `"`macval(_fn_trim)'; `_star_note'"'
+                }
             }
         }
 

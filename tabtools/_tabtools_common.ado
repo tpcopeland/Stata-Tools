@@ -656,39 +656,17 @@ program _tabtools_collect_ci_level, rclass
     capture noisily {
     tempfile _collect_level
     local _json "`_collect_level'.stjson"
-    tempname _fh
-    local _fh_open = 0
     local _level = .
 
     capture noisily {
         quietly collect save "`_json'", replace
-        file open `_fh' using "`_json'", read text
-        local _fh_open = 1
-        file read `_fh' _line
-        while r(eof) == 0 & missing(`_level') {
-            local _needle `""ci-level""'
-            local _pos = strpos(`"`_line'"', `"`_needle'"')
-            if `_pos' > 0 {
-                local _colon = strpos(substr(`"`_line'"', `_pos', .), ":")
-                if `_colon' > 0 {
-                    local _tail = substr(`"`_line'"', `_pos' + `_colon', .)
-                    local _tail : subinstr local _tail "," "", all
-                    local _tail : subinstr local _tail "}" "", all
-                    local _cand = real(strtrim(`"`_tail'"'))
-                    * Accept only a usable level; a malformed or out-of-range
-                    * match must not be mistaken for provenance.
-                    if !missing(`_cand') & `_cand' > 0 & `_cand' < 100 {
-                        local _level = `_cand'
-                    }
-                }
-            }
-            file read `_fh' _line
-        }
-        file close `_fh'
-        local _fh_open = 0
+        * C1 (codex audit 2026-09-26): the saved collection holds every
+        * label as typed, so it is scanned in Mata. Reading each line into a
+        * local and expanding it stopped with r(132) on a label containing a
+        * backtick, and expanded a $word inside one.
+        mata: st_local("_level", strofreal(_tt_collect_ci_level_json(st_local("_json"))))
     }
     local rc = _rc
-    if `_fh_open' capture file close `_fh'
     capture erase "`_json'"
     if `rc' exit `rc'
     return scalar found = !missing(`_level')
@@ -1103,8 +1081,33 @@ end
 
 version 17.0
 capture mata: mata drop _tt_strip_outer_quotes()
+capture mata: mata drop _tt_collect_ci_level_json()
 mata:
 mata set matastrict on
+
+// First usable "ci-level" value (0 < level < 100) in a collect save .stjson
+// file, or missing. Mirrors the line scan it replaced: the text after the
+// colon that follows the key, with commas and closing braces removed.
+real scalar _tt_collect_ci_level_json(string scalar path)
+{
+    string colvector lines
+    string scalar needle, tail
+    real scalar i, pos, colon, cand
+
+    needle = char(34) + "ci-level" + char(34)
+    lines = cat(path)
+    for (i = 1; i <= rows(lines); i++) {
+        pos = strpos(lines[i], needle)
+        if (pos == 0) continue
+        colon = strpos(substr(lines[i], pos, .), ":")
+        if (colon == 0) continue
+        tail = substr(lines[i], pos + colon, .)
+        tail = subinstr(subinstr(tail, ",", ""), "}", "")
+        cand = strtoreal(strtrim(tail))
+        if (cand < . & cand > 0 & cand < 100) return(cand)
+    }
+    return(.)
+}
 
 string scalar _tt_strip_outer_quotes(string scalar x)
 {

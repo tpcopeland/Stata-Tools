@@ -134,57 +134,22 @@ program define stacktab, rclass
         * ================================================================
         * PARSE BLOCKSPEC: split on \ and parse each block
         * ================================================================
+        * C8/C9 (codex audit 2026-09-26): one quote- and parenthesis-aware
+        * tokenizer, in Mata, reads the whole specification. A block is a
+        * sequence of top-level name(value) suboptions; only the documented
+        * names are accepted, each at most once, and any other text is an
+        * error. The old parser searched for the first substring such as
+        * "rows(" anywhere in the block (so text inside label() became a row
+        * selection, and an unknown rowz() was silently ignored), and its
+        * separator scan moved single characters through macros, so a quoted
+        * label stopped it with r(132). Nothing here is expanded as macro
+        * syntax.
         local n_blocks = 0
-        local remaining `"`blocks'"'
-
-        while `"`remaining'"' != "" {
-            * Extract one block (delimited by \ outside parentheses)
-            local piece ""
-            local depth = 0
-            local n_chars = strlen(`"`remaining'"')
-            local found_sep = 0
-            local scan_k = 0
-
-            while `scan_k' < `n_chars' & !`found_sep' {
-                local ++scan_k
-                local ch = substr(`"`remaining'"', `scan_k', 1)
-                if "`ch'" == "(" local depth = `depth' + 1
-                if "`ch'" == ")" local depth = `depth' - 1
-                if "`ch'" == "\" & `depth' == 0 {
-                    local found_sep = 1
-                    local piece = strtrim(substr(`"`remaining'"', 1, `scan_k' - 1))
-                    local remaining = strtrim(substr(`"`remaining'"', `scan_k' + 1, .))
-                }
-            }
-            if !`found_sep' {
-                local piece = strtrim(`"`remaining'"')
-                local remaining ""
-            }
-            if `"`piece'"' == "" continue
-
-            local ++n_blocks
-            local b = `n_blocks'
-
-            * Parse block sub-options
-            local bsheet_`b'  ""
-            local brows_`b'   ""
-            local bcols_`b'   ""
-            local blabel_`b'  ""
-            local bskip_`b'   ""
-            local bpostfix_`b' ""
-
-            _stacktab_get_subopt sheet, text(`"`piece'"')
-            local bsheet_`b' `"`r(value)'"'
-            _stacktab_get_subopt rows, text(`"`piece'"')
-            local brows_`b' `"`r(value)'"'
-            _stacktab_get_subopt cols, text(`"`piece'"')
-            local bcols_`b' `"`r(value)'"'
-            _stacktab_get_subopt label, text(`"`piece'"')
-            local blabel_`b' `"`r(value)'"'
-            _stacktab_get_subopt skip, text(`"`piece'"')
-            local bskip_`b' `"`r(value)'"'
-            _stacktab_get_subopt postfix, text(`"`piece'"')
-            local bpostfix_`b' `"`r(value)'"'
+        local _stb_err ""
+        mata: _stacktab_blocks(st_local("blocks"))
+        if `"`macval(_stb_err)'"' != "" {
+            display as error `"`macval(_stb_err)'"'
+            exit 198
         }
 
         if `n_blocks' == 0 {
@@ -206,11 +171,11 @@ program define stacktab, rclass
         local hstack_next_col = 1
 
         forvalues b = 1/`n_blocks' {
-            local bsh  `"`bsheet_`b''"'
-            local brow `"`brows_`b''"'
-            local bcol `"`bcols_`b''"'
+            local bsh : copy local bsheet_`b'
+            local brow : copy local brows_`b'
+            local bcol : copy local bcols_`b'
 
-            if `"`bsh'"' == "" {
+            if `"`macval(bsh)'"' == "" {
                 display as error "stacktab: block `b' missing sheet()"
                 exit 198
             }
@@ -249,7 +214,7 @@ program define stacktab, rclass
                 if `"`brow'"' != "" & `"`bcol'"' == "" {
                     quietly import excel `"`using'"', describe
                     forvalues _ws = 1/`r(N_worksheet)' {
-                        if lower(`"`r(worksheet_`_ws')'"') == lower(`"`bsh'"') {
+                        if lower(`"`r(worksheet_`_ws')'"') == lower(`"`macval(bsh)'"') {
                             if regexm(`"`r(range_`_ws')'"', "^[A-Za-z]+([0-9]+)") {
                                 local _first_row = real(regexs(1))
                             }
@@ -258,14 +223,14 @@ program define stacktab, rclass
                 }
                 if `"`cellrange'"' != "" {
                     import excel `"`using'"', ///
-                        sheet(`"`bsh'"') cellrange(`"`cellrange'"') clear allstring
+                        sheet(`"`macval(bsh)'"') cellrange(`"`cellrange'"') clear allstring
                 }
                 else {
-                    import excel `"`using'"', sheet(`"`bsh'"') clear allstring
+                    import excel `"`using'"', sheet(`"`macval(bsh)'"') clear allstring
                 }
             }
             if _rc {
-                display as error `"stacktab: could not import block `b' from sheet "`bsh'""'
+                display as error `"stacktab: could not import block `b' from sheet "`macval(bsh)'""'
                 exit _rc
             }
 
@@ -276,20 +241,25 @@ program define stacktab, rclass
             if `"`bcol'"' != "" & `"`brow'"' == "" {
                 capture unab _col_keep : `col_s'-`col_e'
                 if _rc {
-                    display as error `"stacktab: cols(`bcol') not found in sheet "`bsh'""'
+                    display as error `"stacktab: cols(`bcol') not found in sheet "`macval(bsh)'""'
                     exit 111
                 }
                 keep `_col_keep'
             }
 
             * Skip specified row (within imported block, 1-indexed)
-            if `"`bskip_`b''"' != "" {
+            if `"`macval(bskip_`b')'"' != "" {
+                capture confirm integer number `bskip_`b''
+                if _rc | real(`"`macval(bskip_`b')'"') < 1 {
+                    display as error "stacktab: block `b': skip() must be a positive integer"
+                    exit 198
+                }
                 quietly drop if _n == `bskip_`b''
             }
 
             quietly count
             if r(N) == 0 {
-                display as error "stacktab: block `b' (sheet `bsh') imported 0 rows"
+                display as error "stacktab: block `b' (sheet `macval(bsh)') imported 0 rows"
                 exit 198
             }
 
@@ -298,13 +268,13 @@ program define stacktab, rclass
             local first_var : word 1 of `block_vars'
 
             * Apply label to first column value of first row
-            if `"`blabel_`b''"' != "" {
-                quietly replace `first_var' = `"`blabel_`b''"' in 1
+            if `"`macval(blabel_`b')'"' != "" {
+                quietly replace `first_var' = `"`macval(blabel_`b')'"' in 1
             }
 
             * Apply postfix to first column of all rows
-            if `"`bpostfix_`b''"' != "" {
-                quietly replace `first_var' = `first_var' + `" `bpostfix_`b''"'
+            if `"`macval(bpostfix_`b')'"' != "" {
+                quietly replace `first_var' = `first_var' + `" `macval(bpostfix_`b')'"'
             }
 
             quietly count
@@ -621,6 +591,12 @@ program define stacktab, rclass
                 display as error `"frame "`frame_name'" already exists; specify frame(`frame_name', replace)"'
                 exit 110
             }
+            * C2 (codex audit 2026-09-26): the shared preflight also refuses
+            * to replace the current frame here, before anything is staged; the
+            * refusal used to surface only at commit, as r(119) after a rollback.
+            local _st_pf_spec `"`frame_name'"'
+            if "`frame_replace'" != "" local _st_pf_spec `"`frame_name', replace"'
+            _tabtools_frame_preflight `"`_st_pf_spec'"' "frame()"
         }
 
         * The style()/borders() grammars are consumed at the very END of this
@@ -1110,54 +1086,6 @@ program define _stacktab_parse_frame, rclass
 
         return local name `"`fname'"'
         return local replace "`replace'"
-    }
-    local rc = _rc
-    set varabbrev `_vao'
-    if `rc' exit `rc'
-end
-
-
-* ============================================================================
-* HELPER: Apply style() spec via mata-xl
-* ============================================================================
-capture program drop _stacktab_get_subopt
-program define _stacktab_get_subopt, rclass
-    version 17.0
-    local _vao = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-        syntax name(name=opt) , TEXT(string asis)
-        local haystack `"`text'"'
-        local needle = lower(`"`opt'"') + "("
-        local pos = strpos(lower(`"`haystack'"'), "`needle'")
-        if `pos' == 0 {
-            return local value ""
-        }
-        else {
-            local start = `pos' + strlen("`needle'")
-            local depth = 1
-            local inquote = 0
-            local end = 0
-            local q = char(34)
-            forvalues i = `start'/`=strlen(`"`haystack'"')' {
-                local ch = substr(`"`haystack'"', `i', 1)
-                if `"`ch'"' == `"`q'"' local inquote = !`inquote'
-                if !`inquote' {
-                    if "`ch'" == "(" local depth = `depth' + 1
-                    if "`ch'" == ")" local depth = `depth' - 1
-                    if `depth' == 0 & `end' == 0 local end = `i'
-                }
-            }
-            if `end' == 0 {
-                display as error "stacktab: malformed `opt'() in blocks()"
-                exit 198
-            }
-            local value = strtrim(substr(`"`haystack'"', `start', `end' - `start'))
-            if substr(`"`value'"', 1, 1) == `"`q'"' & substr(`"`value'"', -1, 1) == `"`q'"' {
-                local value = substr(`"`value'"', 2, strlen(`"`value'"') - 2)
-            }
-            return local value `"`value'"'
-        }
     }
     local rc = _rc
     set varabbrev `_vao'
@@ -1705,6 +1633,179 @@ void _stacktab_xlsx_put_text_mata(
     if (italic) b.set_font_italic((row, row), (merge_start_col, merge_end_col), "on")
     if (rowheight > 0) b.set_row_height(row, row, rowheight)
     b.close_book()
+}
+
+end
+
+* ============================================================================
+* MATA: blocks() tokenizer (C8/C9, codex audit 2026-09-26)
+* ============================================================================
+version 17.0
+capture mata: mata drop _stacktab_blocks()
+capture mata: mata drop _stacktab_blk_unquote()
+capture mata: mata drop _stacktab_blk_close()
+
+mata:
+mata set matastrict on
+
+// Remove one outer layer of compound or plain double quotes.
+string scalar _stacktab_blk_unquote(string scalar v)
+{
+    real scalar n
+
+    n = strlen(v)
+    if (n >= 4 & substr(v, 1, 2) == char(96) + char(34) &
+        substr(v, n - 1, 2) == char(34) + char(39)) return(substr(v, 3, n - 4))
+    if (n >= 2 & substr(v, 1, 1) == char(34) & substr(v, n, 1) == char(34)) {
+        return(substr(v, 2, n - 2))
+    }
+    return(v)
+}
+
+// Position of the parenthesis closing the one opened just before position
+// start, skipping parentheses inside plain or compound double quotes; 0 when
+// it is never closed.
+real scalar _stacktab_blk_close(string scalar s, real scalar start)
+{
+    real scalar i, n, depth, inq, cq
+    string scalar c, c2
+
+    n = strlen(s)
+    depth = 1
+    inq = 0
+    cq = 0
+    for (i = start; i <= n; i++) {
+        c = substr(s, i, 1)
+        c2 = substr(s, i, 2)
+        if (!inq & c2 == char(96) + char(34)) {
+            cq++
+            i++
+            continue
+        }
+        if (cq & c2 == char(34) + char(39)) {
+            cq--
+            i++
+            continue
+        }
+        if (!cq & c == char(34)) {
+            inq = !inq
+            continue
+        }
+        if (inq | cq) continue
+        if (c == "(") depth++
+        else if (c == ")") {
+            depth--
+            if (depth == 0) return(i)
+        }
+    }
+    return(0)
+}
+
+// Split blocks() on top-level backslashes and parse each block into the
+// caller's locals n_blocks, bsheet_#, brows_#, bcols_#, blabel_#, bskip_#,
+// bpostfix_#. On a malformed specification, _stb_err holds the message.
+void _stacktab_blocks(string scalar spec)
+{
+    string rowvector names
+    string colvector pieces
+    string scalar c, c2, piece, name, value, lname
+    real scalar i, n, depth, inq, cq, from, b, k, pos, close, j
+    real rowvector seen
+
+    names = ("sheet", "rows", "cols", "label", "skip", "postfix")
+
+    // top-level split on backslash, outside parentheses and quotes
+    pieces = J(0, 1, "")
+    n = strlen(spec)
+    depth = 0
+    inq = 0
+    cq = 0
+    from = 1
+    for (i = 1; i <= n; i++) {
+        c = substr(spec, i, 1)
+        c2 = substr(spec, i, 2)
+        if (!inq & c2 == char(96) + char(34)) {
+            cq++
+            i++
+            continue
+        }
+        if (cq & c2 == char(34) + char(39)) {
+            cq--
+            i++
+            continue
+        }
+        if (!cq & c == char(34)) {
+            inq = !inq
+            continue
+        }
+        if (inq | cq) continue
+        if (c == "(") depth++
+        else if (c == ")") depth--
+        else if (c == char(92) & depth == 0) {
+            pieces = pieces \ substr(spec, from, i - from)
+            from = i + 1
+        }
+    }
+    pieces = pieces \ substr(spec, from, .)
+
+    b = 0
+    for (k = 1; k <= rows(pieces); k++) {
+        piece = strtrim(pieces[k])
+        if (piece == "") continue
+        b++
+        seen = J(1, cols(names), 0)
+        for (j = 1; j <= cols(names); j++) {
+            st_local("b" + names[j] + "_" + strofreal(b), "")
+        }
+        pos = 1
+        while (pos <= strlen(piece)) {
+            c = substr(piece, pos, 1)
+            if (c == " " | c == char(9)) {
+                pos++
+                continue
+            }
+            name = ""
+            while (pos <= strlen(piece) &
+                   regexm(substr(piece, pos, 1), "[A-Za-z]")) {
+                name = name + substr(piece, pos, 1)
+                pos++
+            }
+            if (name == "" | substr(piece, pos, 1) != "(") {
+                st_local("_stb_err", "stacktab: block " + strofreal(b) +
+                    ": expected a suboption such as sheet(...) at: " +
+                    substr(piece, pos - strlen(name), .))
+                return
+            }
+            close = _stacktab_blk_close(piece, pos + 1)
+            if (close == 0) {
+                st_local("_stb_err", "stacktab: block " + strofreal(b) +
+                    ": malformed " + name + "() in blocks()")
+                return
+            }
+            lname = strlower(name)
+            j = 0
+            for (i = 1; i <= cols(names); i++) {
+                if (names[i] == lname) j = i
+            }
+            if (j == 0) {
+                st_local("_stb_err", "stacktab: block " + strofreal(b) +
+                    ": unknown block suboption " + name +
+                    "(); allowed are sheet(), rows(), cols(), label(), skip(), postfix()")
+                return
+            }
+            if (seen[j]) {
+                st_local("_stb_err", "stacktab: block " + strofreal(b) +
+                    ": block suboption " + lname + "() specified more than once")
+                return
+            }
+            seen[j] = 1
+            value = strtrim(substr(piece, pos + 1, close - pos - 1))
+            value = _stacktab_blk_unquote(value)
+            st_local("b" + lname + "_" + strofreal(b), value)
+            pos = close + 1
+        }
+    }
+    st_local("n_blocks", strofreal(b))
 }
 
 end

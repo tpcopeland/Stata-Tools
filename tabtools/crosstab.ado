@@ -116,7 +116,9 @@ capture noisily {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
-            else local footnote `"`macval(footnote)' `_sc_note'"'
+            else {
+                local footnote `"`macval(footnote)' `_sc_note'"'
+            }
         }
     }
 
@@ -147,6 +149,13 @@ capture noisily {
         }
     }
     _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    * C2 (codex audit 2026-09-26): validate frame() before anything is
+    * written. It was checked only when the frame was stored, after the CSV
+    * and Markdown files, so an occupied or invalid frame returned an error
+    * after an existing report had already been overwritten.
+    if `"`frame'"' != "" {
+        _tabtools_frame_preflight `"`frame'"' "frame()"
+    }
 
     if "`cochran'" != "" & "`trend'" != "" {
         noisily display as error "cochran and trend are mutually exclusive; choose one trend test"
@@ -233,8 +242,8 @@ capture noisily {
             else if `_rlv_is_missing' local _rlbl "Missing (`_rlv')"
             else local _rlbl "`_rlv'"
         }
-        if "`_rlbl'" == "" local _rlbl "`_rlv'"
-        local rlabel_`r' `"`_rlbl'"'
+        if `"`macval(_rlbl)'"' == "" local _rlbl "`_rlv'"
+        local rlabel_`r' : copy local _rlbl
     }
     forvalues c = 1/`n_cols' {
         local _clv : word `c' of `col_levels'
@@ -249,15 +258,17 @@ capture noisily {
             else if `_clv_is_missing' local _clbl "Missing (`_clv')"
             else local _clbl "`_clv'"
         }
-        if "`_clbl'" == "" local _clbl "`_clv'"
-        local clabel_`c' `"`_clbl'"'
+        if `"`macval(_clbl)'"' == "" local _clbl "`_clv'"
+        local clabel_`c' : copy local _clbl
     }
 
-    * Variable labels
+    * Variable labels. C1 (codex audit 2026-09-26): labels are data; every
+    * later use is macval()-protected, so a $word or a backtick in a variable
+    * or value label is exported as typed.
     local _rowlabel : variable label `rowvar'
-    if "`_rowlabel'" == "" local _rowlabel "`rowvar'"
+    if `"`macval(_rowlabel)'"' == "" local _rowlabel "`rowvar'"
     local _collabel : variable label `colvar'
-    if "`_collabel'" == "" local _collabel "`colvar'"
+    if `"`macval(_collabel)'"' == "" local _collabel "`colvar'"
 
     * Tabulate with matcell
     tempname _freq _rowsum _colsum
@@ -473,10 +484,10 @@ capture noisily {
     * Row 2: Column headers
     local row = `row' + 1
     qui set obs `row'
-    qui replace c1 = `"`_rowlabel'"' in `row'
+    qui replace c1 = `"`macval(_rowlabel)'"' in `row'
     forvalues c = 1/`n_cols' {
         local _col = `c' + 1
-        qui replace c`_col' = `"`clabel_`c''"' in `row'
+        qui replace c`_col' = `"`macval(clabel_`c')'"' in `row'
     }
     qui replace c`out_ncols' = "Total" in `row'
 
@@ -484,7 +495,7 @@ capture noisily {
     forvalues r = 1/`n_rows' {
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = `"`rlabel_`r''"' in `row'
+        qui replace c1 = `"`macval(rlabel_`r')'"' in `row'
         local _row_total = `_rowsum'[`r', 1]
         forvalues c = 1/`n_cols' {
             local _col = `c' + 1
@@ -691,19 +702,29 @@ capture noisily {
     }
 
     * Methods paragraph
-    local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
-    local _methods "`_methods' Statistical significance was assessed using `_test_name'."
+    local _methods `"Cross-tabulation was performed for `macval(_rowlabel)' by `macval(_collabel)'."'
+    local _methods `"`macval(_methods)' Statistical significance was assessed using `_test_name'."'
     if `_sc_suppress_derived' {
-        local _methods "`_methods' Count-dependent tests and association measures were suppressed under smallcells(`smallcells')."
+        local _methods `"`macval(_methods)' Count-dependent tests and association measures were suppressed under smallcells(`smallcells')."'
     }
     else {
-        if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
-        if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
-        if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
-        if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
-        else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
+        if !missing(`_or') {
+            local _methods `"`macval(_methods)' The odds ratio comparing column `macval(clabel_2)' versus `macval(clabel_1)' for row `macval(rlabel_2)' versus `macval(rlabel_1)' is reported with a `_level_txt'% confidence interval."'
+        }
+        if !missing(`_rr') {
+            local _methods `"`macval(_methods)' The risk ratio comparing column `macval(clabel_2)' versus `macval(clabel_1)' for row `macval(rlabel_2)' versus `macval(rlabel_1)' is reported with a `_level_txt'% confidence interval."'
+        }
+        if !missing(`_rd') {
+            local _methods `"`macval(_methods)' The risk difference comparing column `macval(clabel_2)' versus `macval(clabel_1)' for row `macval(rlabel_2)' versus `macval(rlabel_1)' is reported with a `_level_txt'% confidence interval."'
+        }
+        if !missing(`_p_trend') & "`cochran'" != "" {
+            local _methods `"`macval(_methods)' A Cochran-Armitage test for trend in the proportion of `macval(rlabel_2)' across ordered column levels is also reported."'
+        }
+        else if !missing(`_p_trend') {
+            local _methods `"`macval(_methods)' A Spearman rank-correlation test for trend across ordered column levels is also reported."'
+        }
     }
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+    local _methods `"`macval(_methods)' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
 
     * Post the safe analytical payload before optional workbook side effects.
     * These returns intentionally survive a later nonzero export rc; copy the
@@ -746,7 +767,7 @@ capture noisily {
     }
     return scalar N = `_sc_safe_N'
     return scalar ci_level = `level'
-    return local methods "`_methods'"
+    return local methods `"`macval(_methods)'"'
     if "`frame'" != "" return local frame "`frame'"
     if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'
@@ -776,9 +797,9 @@ capture noisily {
         }
 
         * Pre-compute column B width
-        local _rlbl_maxlen = strlen("`_rowlabel'")
+        local _rlbl_maxlen : strlen local _rowlabel
         forvalues _ri = 1/`n_rows' {
-            local _rlen = strlen("`rlabel_`_ri''")
+            local _rlen : strlen local rlabel_`_ri'
             if `_rlen' > `_rlbl_maxlen' local _rlbl_maxlen = `_rlen'
         }
         local _b_width = max(12, ceil(`_rlbl_maxlen' * 0.85) + 2)
@@ -935,7 +956,7 @@ capture noisily {
     }
     return scalar N = `_sc_safe_N'
     return scalar ci_level = `level'
-    return local methods "`_methods'"
+    return local methods `"`macval(_methods)'"'
     if "`frame'" != "" return local frame "`frame'"
     if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'

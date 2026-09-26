@@ -544,11 +544,14 @@ capture noisily {
     puttab grp other using "`fg'", sheet("E") varlabels
     assert r(n_datarows) == 3
 
-    * in/if counts data rows once the header has been consumed
+    * in/if counts the source's own observations (C4, codex audit
+    * 2026-09-26, changed this pin: it used to count data rows after the
+    * embedded header had been consumed, so -in 1- exported observation 2).
+    * Observation 1 is the header, so the first data row is -in 2-.
     sysuse auto, clear
     label variable mpg "Mileage (mpg)"
     desctab mpg weight, by(foreign) clear
-    puttab _all in 1 using "`fg'", sheet("F") varlabels
+    puttab _all in 2 using "`fg'", sheet("F") varlabels
     assert r(n_datarows) == 1
     import excel using "`fg'", sheet("F") clear allstring
     assert strpos(B[3], "Median") == 1

@@ -248,6 +248,32 @@ quietly {
 	}
 	if `_from_matrix' {
 		local _ci_level_num = cond(`level' == -1, 95, `level')
+		* C7 (codex audit 2026-09-26): a from() row must describe a possible
+		* result before anything is shown or written. A nonmissing p-value
+		* lies in [0, 1] and a nonmissing interval has lower <= upper; missing
+		* values stay allowed. The estimate is not required to lie inside its
+		* interval, which is not true of every method.
+		capture confirm matrix `from'
+		if !_rc & colsof(`from') >= 4 {
+			forvalues _vr = 1/`=rowsof(`from')' {
+				mata: st_local("_vrn", st_matrixrowstripe(st_local("from"))[`_vr', 2])
+				if !missing(`from'[`_vr', 4]) & ///
+					(`from'[`_vr', 4] < 0 | `from'[`_vr', 4] > 1) {
+					local _vbad = strtrim(string(`from'[`_vr', 4], "%12.0g"))
+					noisily display as error ///
+						`"from() row `_vr' (`macval(_vrn)'): p-value `_vbad' is outside [0, 1]"'
+					exit 198
+				}
+				if !missing(`from'[`_vr', 2]) & !missing(`from'[`_vr', 3]) & ///
+					`from'[`_vr', 2] > `from'[`_vr', 3] {
+					local _vlo = strtrim(string(`from'[`_vr', 2], "%12.0g"))
+					local _vhi = strtrim(string(`from'[`_vr', 3], "%12.0g"))
+					noisily display as error ///
+						`"from() row `_vr' (`macval(_vrn)'): lower limit `_vlo' exceeds upper limit `_vhi'"'
+					exit 198
+				}
+			}
+		}
 	}
 	else {
 		* Shared with regtab: see _tabtools_resolve_ci_level in _tabtools_common.
@@ -505,11 +531,12 @@ quietly {
             capture confirm variable `_tv'
             if !_rc {
                 local _vlab : value label `_tv'
+                * C1 (codex audit 2026-09-26): labels are data; they are
+                * copied, tested and joined with macval()/Mata only.
                 local _tvlabel : variable label `_tv'
-                if `"`_tvlabel'"' == "" local _tvlabel "`_tv'"
+                if `"`macval(_tvlabel)'"' == "" local _tvlabel "`_tv'"
             }
-            local _tvlabel = upper(substr(`"`_tvlabel'"', 1, 1)) + substr(`"`_tvlabel'"', 2, .)
-            local _tvlabel = subinstr(`"`_tvlabel'"', "_", " ", .)
+            mata: st_local("_tvlabel", subinstr(strupper(substr(st_local("_tvlabel"), 1, 1)) + substr(st_local("_tvlabel"), 2, .), "_", " "))
             local _lab_lev "`_lev'"
             local _lab_base "`_base'"
             foreach _part in lev base {
@@ -519,24 +546,29 @@ quietly {
                     while `"`_rest'"' != "" {
                         gettoken _val _rest : _rest
                         gettoken _lab _rest : _rest
-                        if "`_val'" == "`_`_part''" & `"`_lab'"' != "" ///
-                            local _lab_`_part' `"`_lab'"'
+                        if "`_val'" == "`_`_part''" & `"`macval(_lab)'"' != "" ///
+                            local _lab_`_part' : copy local _lab
                     }
                 }
                 else if "`_vlab'" != "" {
                     local _lab_`_part' : label `_vlab' `_`_part''
                 }
             }
+            mata: st_local("_lev_rel", strofreal(st_local("_lab_lev") != st_local("_lev")))
+            mata: st_local("_base_rel", strofreal(st_local("_lab_base") != st_local("_base")))
             if "`_base'" != "" {
-                local _label `"`_tvlabel' (`_lev' vs `_base')"'
-                if `"`_lab_lev'"' != "`_lev'" | `"`_lab_base'"' != "`_base'" ///
-                    local _label `"`_lab_lev' vs `_lab_base'"'
+                local _label `"`macval(_tvlabel)' (`_lev' vs `_base')"'
+                if `_lev_rel' | `_base_rel' {
+                    local _label `"`macval(_lab_lev)' vs `macval(_lab_base)'"'
+                }
             }
             else {
-                local _label `"`_tvlabel' = `_lev' (PO Mean)"'
-                if `"`_lab_lev'"' != "`_lev'" local _label `"`_lab_lev' (PO Mean)"'
+                local _label `"`macval(_tvlabel)' = `_lev' (PO Mean)"'
+                if `_lev_rel' {
+                    local _label `"`macval(_lab_lev)' (PO Mean)"'
+                }
             }
-            local _trow_label_`_trow_n' `"`_label'"'
+            local _trow_label_`_trow_n' : copy local _label
         }
         if `_trow_n' == 0 {
             noisily display as error "No treatment contrasts or potential-outcome means found in the collection"
@@ -620,12 +652,11 @@ quietly {
 	* APPLY TREATMENT LABELS TO COLLECT TABLE
 	* =========================================================================
 
-    if "`clean'" != "" & "`type'" == "teffects" {
-        forvalues _ti = 1/`_trow_n' {
-            collect label levels colname `_trow_key_`_ti'' ///
-                `"`_trow_label_`_ti''"', modify
-        }
-    }
+    * C1 (codex audit 2026-09-26): the clean treatment labels are applied to
+    * the rendered rows by raw colname key after rendering (see below), not
+    * through -collect label levels-, which re-parses its arguments as macro
+    * syntax (a backtick in a value label stopped it with r(198)) and also
+    * relabelled the caller's own collection.
     }
 
 	* =========================================================================
@@ -696,7 +727,7 @@ quietly {
 			if missing(`_cnmap_n') local _cnmap_n = 0
 			forvalues _ci = 1/`_cnmap_n' {
 				local _cnmap_level_`_ci' `"`s(level`_ci')'"'
-				local _cnmap_label_`_ci' `"`s(label`_ci')'"'
+				mata: st_local("_cnmap_label_`_ci'", st_global("s(label`_ci')"))
 			}
 		}
 
@@ -735,17 +766,17 @@ quietly {
 						}
 						if !`_fvrow_parent_seen' {
 							local _fvplbl : variable label `_fvvar'
-							if `"`_fvplbl'"' == "" local _fvplbl `"`_fvvar'"'
+							if `"`macval(_fvplbl)'"' == "" local _fvplbl `"`_fvvar'"'
 							local ++_fvrow_parent_n
 							local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvvar'"'
-							local _fvrow_parent_lab_`_fvrow_parent_n' `"`_fvplbl'"'
+							local _fvrow_parent_lab_`_fvrow_parent_n' : copy local _fvplbl
 						}
 						local _fvlbl `"`_fvval'"'
 						capture local _fvlbl : label (`_fvvar') `_fvval'
-						if _rc | `"`_fvlbl'"' == "" local _fvlbl "`_fvval'"
+						if _rc | `"`macval(_fvlbl)'"' == "" local _fvlbl "`_fvval'"
 						local ++_fvrow_label_n
 						local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
-						local _fvrow_lab_`_fvrow_label_n' `"  `_fvlbl'"'
+						local _fvrow_lab_`_fvrow_label_n' `"  `macval(_fvlbl)'"'
 					}
 				}
 			}
@@ -813,6 +844,13 @@ quietly {
 	* Rename the first variable to A if it's not already named A
 	if "`firstvar'" != "A" {
 		rename `firstvar' A
+	}
+
+	if "`clean'" != "" & "`type'" == "teffects" & !`_from_matrix' {
+		forvalues _ti = 1/`_trow_n' {
+			quietly replace A = `"`macval(_trow_label_`_ti')'"' ///
+				if _n > 2 & strtrim(_raw_A) == "`_trow_key_`_ti''"
+		}
 	}
 
 	* Rename remaining variables to c1, c2, c3, etc.
@@ -906,11 +944,11 @@ quietly {
 	if `"`_fvrow_parent_n'"' == "" local _fvrow_parent_n = 0
 	if `"`_fvrow_label_n'"' == "" local _fvrow_label_n = 0
 	forvalues _fvp = 1/`_fvrow_parent_n' {
-		quietly replace A = `"`_fvrow_parent_lab_`_fvp''"' ///
+		quietly replace A = `"`macval(_fvrow_parent_lab_`_fvp')'"' ///
 			if strtrim(A) == `"`_fvrow_parent_var_`_fvp''"' & _n >= 3
 	}
 	forvalues _fvi = 1/`_fvrow_label_n' {
-		quietly replace A = `"`_fvrow_lab_`_fvi''"' ///
+		quietly replace A = `"`macval(_fvrow_lab_`_fvi')'"' ///
 			if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
 	}
 	forvalues _obs = 3/`=_N' {
@@ -975,6 +1013,13 @@ quietly {
 						local _cicell ""
 						if `_has_ci_cell' local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
 						local _numval = real("`_cell'")
+						* C6 (codex audit 2026-09-26): a from() estimate is the
+						* input number, never the digits()-rounded display text.
+						* _eplot_est1 holds the matrix value for this observation.
+						* The cell is assigned from the variable, not through a
+						* macro, so it keeps full double precision.
+						if `_from_matrix' local _numval = .
+						if `_from_matrix' matrix `_rtable'[`_mr', `_mc'] = _eplot_est1[`_obs']
 						local _is_refcell = 0
 						local _oclass ""
 						capture confirm variable _omit_type`=(`_ci'+2)/3'
@@ -999,10 +1044,18 @@ quietly {
 					if !_rc {
 						local _cell = strtrim(c`_pcol'[`_obs'])
 						local _numval = real("`_cell'")
+						if `_from_matrix' {
+							local _numval = .
+							matrix `_rtable'[`_mr', `_mc'] = _eplot_p1[`_obs']
+						}
 						if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
 				}
 			}
-			local _rname = A[`_obs']
+			* C1 (codex audit 2026-09-26): the row name is built in Mata from the
+			* label as typed, with the macro characters (backtick, apostrophe,
+			* dollar, double quote) replaced, so it can never expand below.
+			mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr( ///
+			    st_sdata(`_obs', "A"), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 			local _rname = subinstr("`_rname'", ".", "_", .)
 			local _rname = subinstr("`_rname'", " ", "_", .)
 			local _rname = subinstr("`_rname'", ",", "", .)
@@ -1025,12 +1078,16 @@ quietly {
 	* Format numeric columns
 		forvalues i = 1(3)`last' {
 			destring c`i', gen(c`i'z) force
-			replace c`i'z = round(c`i'z, `coef_round')
+			* C6 (codex audit 2026-09-26): the plotted estimate is taken before
+			* the display rounding below; it was the digits()-rounded value, so
+			* eplotframe() estimates changed with a formatting option while ll,
+			* ul and pvalue did not.
 			local _model_ix = (`i' + 2) / 3
 			capture confirm variable _eplot_est`_model_ix'
 			if _rc gen double _eplot_est`_model_ix' = .
 			replace _eplot_est`_model_ix' = c`i'z ///
 				if _n >= 3 & c`i'z < . & missing(_eplot_est`_model_ix')
+			replace c`i'z = round(c`i'z, `coef_round')
 			tostring c`i'z, replace force format(`coef_fmt')
 				* Matrix input has no structural base-level metadata, so a numeric zero
 				* can never be reinterpreted as a reference category.
@@ -1172,7 +1229,7 @@ quietly {
 				long source_row str32 source_frame
 			forvalues _ep_obs = 3/`=_N' {
 				local _ep_source_row = `_ep_obs' - 2
-				local _ep_label = A[`_ep_obs']
+				mata: st_local("_ep_label", st_sdata(`_ep_obs', "A"))
 				forvalues _ep_m = 1/`_n_models' {
 					local _ep_est = .
 					local _ep_ll = .
@@ -1183,15 +1240,21 @@ quietly {
 					capture local _ep_ul = _eplot_ul`_ep_m'[`_ep_obs']
 					capture local _ep_p = _eplot_p`_ep_m'[`_ep_obs']
 					local _ep_model_col = (`_ep_m' - 1) * 3 + 1
-					local _ep_model_label = c`_ep_model_col'[1]
-					if `"`_ep_model_label'"' == "" local _ep_model_label "Model `_ep_m'"
+					mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
+					if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"
 					local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 					local _ep_rowtype "effect"
 					if lower(`"`_ep_cell'"') == lower(`"`refcat'"') local _ep_rowtype "reference"
 					if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
-						frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-							(`_ep_p') (`_ep_m') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ("") ///
+						* C1 (codex audit 2026-09-26): the row and model labels are stored
+						* in Mata after the post, so they are never expanded as macros.
+						frame post `_eplotframe_name' ("") (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+							(`_ep_p') (`_ep_m') ("") (`"`_ep_rowtype'"') ("") ///
 							(`_ep_source_row') ("")
+						frame `_eplotframe_name' {
+						    mata: st_sstore(st_nobs(), "label", st_local("_ep_label"))
+						    mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
+						}
 					}
 			}
 				}
@@ -1203,11 +1266,11 @@ quietly {
 					local _meta_id `"`collect_cmdline_`_meta_m''"'
 					if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
 					local _meta_label_col = (`_meta_m' - 1) * 3 + 1
-					local _meta_label = c`_meta_label_col'[1]
+					mata: st_local("_meta_label", st_sdata(1, "c`_meta_label_col'"))
 					frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
 					frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] ""
 					frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
-					frame `_eplotframe_name': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
+					frame `_eplotframe_name': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 			}
 		}
 		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
@@ -1419,16 +1482,18 @@ quietly {
 		if _N >= 3 & `_md_nmodels' >= 1 {
 			forvalues _mdc = 1/`_md_nmodels' {
 				local _md_first = (`_mdc' - 1) * 3 + 1
-				local _md_name = strtrim(c`_md_first'[2])
-				if `"`_md_name'"' != "" {
+				* C1: the model name is used as a data expression, never through a
+				* macro holding its text.
+				local _md_name "strtrim(c`_md_first'[2])"
+				if strtrim(c`_md_first'[2]) != "" {
 					forvalues _md_off = 0/2 {
 						local _md_col = `_md_first' + `_md_off'
 						capture confirm variable c`_md_col'
 						if !_rc {
 							quietly replace c`_md_col' = ///
-								`"`_md_name': "' + strtrim(c`_md_col') ///
+								`_md_name' + ": " + strtrim(c`_md_col') ///
 								in 3 if strtrim(c`_md_col') != ""
-							quietly replace c`_md_col' = `"`_md_name'"' ///
+							quietly replace c`_md_col' = `_md_name' ///
 								in 3 if strtrim(c`_md_col') == ""
 						}
 					}
@@ -1463,11 +1528,11 @@ quietly {
 				local _meta_id `"`collect_cmdline_`_meta_m''"'
 				if `_from_matrix' local _meta_id "matrix:`from':`_meta_m'"
 				local _meta_label_col = (`_meta_m' - 1) * 3 + 1
-				local _meta_label = c`_meta_label_col'[2]
+				mata: st_local("_meta_label", st_sdata(2, "c`_meta_label_col'"))
 				frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_id'"'
 				frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] ""
 				frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`effect'"'
-				frame `frame': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
+				frame `frame': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 		}
 			if `"`_eplotframe_name'"' != "" {
 				frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"

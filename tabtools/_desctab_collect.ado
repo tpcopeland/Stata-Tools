@@ -213,9 +213,12 @@ program define _desctab_collect, rclass
                 local fmt1_`nvars' `"`varformat'"'
                 local fmt2_`nvars' `"`varformat2'"'
                 local datafmt_`nvars' : format `varname'
+                * C1 (codex audit 2026-09-26): labels are data. Every copy
+                * and test below uses macval() or -copy local-, so a $word or
+                * a backtick in a variable or value label is never expanded.
                 local varlab : variable label `varname'
-                if `"`varlab'"' == "" local varlab "`varname'"
-                local varlab_`nvars' `"`varlab'"'
+                if `"`macval(varlab)'"' == "" local varlab "`varname'"
+                local varlab_`nvars' : copy local varlab
 
                 local workvar `"`varname'"'
                 if inlist("`vartype'", "cat", "cate") {
@@ -280,9 +283,9 @@ program define _desctab_collect, rclass
                         }
                         else {
                             local _llab : label (`workvar') `_cl'
-                            if `"`_llab'"' == "" local _llab "`_cl'"
+                            if `"`macval(_llab)'"' == "" local _llab "`_cl'"
                         }
-                        local level_label_`nvars'_`_lo' `"`_llab'"'
+                        local level_label_`nvars'_`_lo' : copy local _llab
                     }
                 }
                 else if inlist("`vartype'", "bin", "bine") {
@@ -916,7 +919,7 @@ program define _desctab_collect, rclass
 
         forvalues i = 1/`nvars' {
             local typ `"`type_`i''"'
-            local varlab `"`varlab_`i''"'
+            local varlab : copy local varlab_`i'
             local fmt1 `"`fmt1_`i''"'
             local fmt2 `"`fmt2_`i''"'
             if "`fmt1'" == "" {
@@ -938,18 +941,18 @@ program define _desctab_collect, rclass
                 quietly set obs `row'
                 if "`typ'" == "contn" {
                     local _statdesc "mean`sdleft'SD`sdright'"
-                    local _factor `"`varlab', `_statdesc'"'
+                    local _factor `"`macval(varlab)', `_statdesc'"'
                 }
                 else if "`typ'" == "contln" {
                     local _statdesc "geometric mean`gsdleft'GSD`gsdright'"
-                    local _factor `"`varlab', `_statdesc'"'
+                    local _factor `"`macval(varlab)', `_statdesc'"'
                 }
                 else {
-                    local _factor `"`varlab', median (Q1`iqrmiddle'Q3)"'
+                    local _factor `"`macval(varlab)', median (Q1`iqrmiddle'Q3)"'
                 }
-                if "`varlabplus'" == "" local _factor `"`varlab'"'
-                quietly replace factor = `"`_factor'"' in `row'
-                quietly replace factor_sep = `"`_factor'"' in `row'
+                if "`varlabplus'" == "" local _factor : copy local varlab
+                quietly replace factor = `"`macval(_factor)'"' in `row'
+                quietly replace factor_sep = `"`macval(_factor)'"' in `row'
                 quietly replace sort1 = `sortorder' in `row'
                 if `_smallcells_active' {
                     quietly replace _sc_derived = `sc_derived'[`i', 1] in `row'
@@ -1004,10 +1007,10 @@ program define _desctab_collect, rclass
             else if inlist("`typ'", "bin", "bine") {
                 local ++row
                 quietly set obs `row'
-                local _factor `"`varlab', `percfootnote'"'
-                if "`varlabplus'" == "" local _factor `"`varlab'"'
-                quietly replace factor = `"`_factor'"' in `row'
-                quietly replace factor_sep = `"`_factor'"' in `row'
+                local _factor `"`macval(varlab)', `percfootnote'"'
+                if "`varlabplus'" == "" local _factor : copy local varlab
+                quietly replace factor = `"`macval(_factor)'"' in `row'
+                quietly replace factor_sep = `"`macval(_factor)'"' in `row'
                 quietly replace sort1 = `sortorder' in `row'
                 if `_smallcells_active' {
                     quietly replace _sc_derived = `sc_derived'[`i', 1] in `row'
@@ -1126,10 +1129,10 @@ program define _desctab_collect, rclass
             else if inlist("`typ'", "cat", "cate") {
                 local top = `row' + 1
                 quietly set obs `top'
-                local _factor `"`varlab', `percfootnote2'"'
-                if "`varlabplus'" == "" local _factor `"`varlab'"'
-                quietly replace factor = `"`_factor'"' in `top'
-                quietly replace factor_sep = `"`varlab'"' in `top'
+                local _factor `"`macval(varlab)', `percfootnote2'"'
+                if "`varlabplus'" == "" local _factor : copy local varlab
+                quietly replace factor = `"`macval(_factor)'"' in `top'
+                quietly replace factor_sep = `"`macval(varlab)'"' in `top'
                 quietly replace sort1 = `sortorder' in `top'
                 quietly replace sort2 = 1 in `top'
                 if `_smallcells_active' {
@@ -1158,9 +1161,9 @@ program define _desctab_collect, rclass
                     local ++row
                     if `row' < `top' local row = `top'
                     quietly set obs `row'
-                    local _llab `"`level_label_`i'_`_lo''"'
-                    quietly replace factor = `"   `_llab'"' in `row'
-                    quietly replace factor_sep = `"`varlab'"' in `row'
+                    local _llab : copy local level_label_`i'_`_lo'
+                    quietly replace factor = `"   `macval(_llab)'"' in `row'
+                    quietly replace factor_sep = `"`macval(varlab)'"' in `row'
                     quietly replace sort1 = `sortorder' in `row'
                     quietly replace sort2 = `_lo' + 1 in `row'
                     quietly replace cat_not_top_row = 1 in `row'

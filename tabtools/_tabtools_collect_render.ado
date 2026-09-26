@@ -64,14 +64,17 @@ program define _tabtools_collect_render, rclass
                 exit 459
             }
             local _tt_row_dim_`_d'_n = `_dim_n'
-            if `_d' == 1 local _tt_rowdim_label `"`r(dimlabel)'"'
-            else local _tt_rowdim_label `"`_tt_rowdim_label'#`r(dimlabel)'"'
+            * C1 (codex audit 2026-09-26): labels are copied from r() in
+            * Mata, never re-expanded, so a $word or a backtick in a
+            * collected label reaches the table as typed.
+            if `_d' == 1 mata: st_local("_tt_rowdim_label", st_global("r(dimlabel)"))
+            else mata: st_local("_tt_rowdim_label", st_local("_tt_rowdim_label") + "#" + st_global("r(dimlabel)"))
             forvalues _i = 1/`_dim_n' {
                 local _tt_row_dim_`_d'_level_`_i' `"`r(level_`_i')'"'
-                local _tt_row_dim_`_d'_label_`_i' `"`r(label_`_i')'"'
+                mata: st_local("_tt_row_dim_`_d'_label_`_i'", st_global("r(label_`_i')"))
                 if `_row_dim_n' == 1 {
                     local _tt_row_level_`_i' `"`r(level_`_i')'"'
-                    local _tt_row_label_`_i' `"`r(label_`_i')'"'
+                    mata: st_local("_tt_row_label_`_i'", st_global("r(label_`_i')"))
                 }
             }
             local _row_n = `_row_n' * `_dim_n'
@@ -114,14 +117,14 @@ program define _tabtools_collect_render, rclass
                     exit 459
                 }
                 local _tt_col_dim_`_d'_n = `_dim_n'
-                if `_d' == 1 local _tt_coldim_label `"`r(dimlabel)'"'
-                else local _tt_coldim_label `"`_tt_coldim_label'#`r(dimlabel)'"'
+                if `_d' == 1 mata: st_local("_tt_coldim_label", st_global("r(dimlabel)"))
+                else mata: st_local("_tt_coldim_label", st_local("_tt_coldim_label") + "#" + st_global("r(dimlabel)"))
                 forvalues _i = 1/`_dim_n' {
                     local _tt_col_dim_`_d'_level_`_i' `"`r(level_`_i')'"'
-                    local _tt_col_dim_`_d'_label_`_i' `"`r(label_`_i')'"'
+                    mata: st_local("_tt_col_dim_`_d'_label_`_i'", st_global("r(label_`_i')"))
                     if `_col_dim_n' == 1 {
                         local _tt_col_level_`_i' `"`r(level_`_i')'"'
-                        local _tt_col_label_`_i' `"`r(label_`_i')'"'
+                        mata: st_local("_tt_col_label_`_i'", st_global("r(label_`_i')"))
                     }
                 }
                 local _col_n = `_col_n' * `_dim_n'
@@ -136,7 +139,7 @@ program define _tabtools_collect_render, rclass
         }
         forvalues _i = 1/`_res_n' {
             local _tt_res_level_`_i' `"`r(level_`_i')'"'
-            local _tt_res_label_`_i' `"`r(label_`_i')'"'
+            mata: st_local("_tt_res_label_`_i'", st_global("r(label_`_i')"))
         }
 
         local _dropempty = ("`dropempty'" != "")
@@ -159,7 +162,7 @@ program define _tabtools_collect_render, rclass
             local _raw_next = 1
             if _N > `_header_n' {
                 forvalues _obs = `=`_header_n'+1'/`=_N' {
-                    local _display `"`=A[`_obs']'"'
+                    mata: st_local("_display", st_sdata(`_obs', "A"))
                     local _matched = 0
                     if `_raw_next' <= `_row_n' {
                         forvalues _ri = `_raw_next'/`_row_n' {
@@ -169,7 +172,7 @@ program define _tabtools_collect_render, rclass
                                 local _pi = mod(`_q', `_dn') + 1
                                 local _q = floor(`_q' / `_dn')
                                 local _ri_lev_`_d' `"`_tt_row_dim_`_d'_level_`_pi''"'
-                                local _ri_lab_`_d' `"`_tt_row_dim_`_d'_label_`_pi''"'
+                                local _ri_lab_`_d' : copy local _tt_row_dim_`_d'_label_`_pi'
                             }
                             local _raw_key ""
                             local _raw_label ""
@@ -178,14 +181,14 @@ program define _tabtools_collect_render, rclass
                             forvalues _d = 1/`_row_dim_n' {
                                 local _dim `"`_tt_row_dim_`_d''"'
                                 local _lev `"`_ri_lev_`_d''"'
-                                local _lab `"`_ri_lab_`_d''"'
+                                local _lab : copy local _ri_lab_`_d'
                                 if `_d' == 1 {
                                     local _raw_key `"`_dim'[`_lev']"'
-                                    local _raw_label `"`_lab'"'
+                                    local _raw_label : copy local _lab
                                 }
                                 else {
                                     local _raw_key `"`_raw_key'#`_dim'[`_lev']"'
-                                    local _raw_label `"`_raw_label' > `_lab'"'
+                                    local _raw_label `"`macval(_raw_label)' > `macval(_lab)'"'
                                 }
                                 if `"`_lev'"' == ".m" local _raw_total = 1
                             }
@@ -193,7 +196,8 @@ program define _tabtools_collect_render, rclass
                                 local _lev `"`_ri_lev_`_d''"'
                                 if `"`_lev'"' != ".m" & regexm(`"`_lev'"', "^[.][a-z]?$") local _raw_missing = 1
                             }
-                            if !`_matched' & `"`_display'"' == `"`_raw_label'"' {
+                            mata: st_local("_same", strofreal(st_local("_display") == st_local("_raw_label")))
+                            if !`_matched' & `_same' {
                                 quietly replace _tt_row_key = `"`_raw_key'"' in `_obs'
                                 quietly replace _tt_row_total = `_raw_total' in `_obs'
                                 quietly replace _tt_row_missing = `_raw_missing' in `_obs'
@@ -316,15 +320,18 @@ program define _tt_collect_dim_locals, rclass
     }
     local levels = strtrim("`_ordered_levels' `_total_levels'")
 
+    * C1 (codex audit 2026-09-26): collect label list hands back each
+    * label as typed; it is copied and compared in Mata and returned with
+    * macval(), so a $word or a backtick in a label is never expanded.
     local dimlabel `"`dim'"'
     local k = 0
     capture quietly collect label list `dim'
     if _rc == 0 {
-        if `"`s(label)'"' != "" local dimlabel `"`s(label)'"'
+        mata: st_local("dimlabel", (st_global("s(label)") != "" ? st_global("s(label)") : st_local("dimlabel")))
         local k = real("`s(k)'")
         forvalues i = 1/`k' {
             local _map_level_`i' `"`s(level`i')'"'
-            local _map_label_`i' `"`s(label`i')'"'
+            mata: st_local("_map_label_`i'", st_global("s(label`i')"))
         }
     }
 
@@ -333,16 +340,16 @@ program define _tt_collect_dim_locals, rclass
         local lev : word `i' of `levels'
         local lab ""
         forvalues j = 1/`k' {
-            if `"`_map_level_`j''"' == `"`lev'"' local lab `"`_map_label_`j''"'
+            if `"`_map_level_`j''"' == `"`lev'"' local lab : copy local _map_label_`j'
         }
-        if `"`lab'"' == "" local lab `"`lev'"'
+        if `"`macval(lab)'"' == "" local lab `"`lev'"'
         return local level_`i' `"`lev'"'
-        return local label_`i' `"`lab'"'
+        return local label_`i' `"`macval(lab)'"'
     }
 
     return scalar n = `n'
     return local levels `"`levels'"'
-    return local dimlabel `"`dimlabel'"'
+    return local dimlabel `"`macval(dimlabel)'"'
     }
     local _rc_outer = _rc
     set varabbrev `_orig_varabbrev'
@@ -363,7 +370,7 @@ program define _tt_collect_result_locals, rclass
         local k = real("`s(k)'")
         forvalues i = 1/`k' {
             local _map_level_`i' `"`s(level`i')'"'
-            local _map_label_`i' `"`s(label`i')'"'
+            mata: st_local("_map_label_`i'", st_global("s(label`i')"))
         }
     }
 
@@ -372,11 +379,11 @@ program define _tt_collect_result_locals, rclass
         local lev : word `i' of `results'
         local lab ""
         forvalues j = 1/`k' {
-            if `"`_map_level_`j''"' == `"`lev'"' local lab `"`_map_label_`j''"'
+            if `"`_map_level_`j''"' == `"`lev'"' local lab : copy local _map_label_`j'
         }
-        if `"`lab'"' == "" local lab `"`lev'"'
+        if `"`macval(lab)'"' == "" local lab `"`lev'"'
         return local level_`i' `"`lev'"'
-        return local label_`i' `"`lab'"'
+        return local label_`i' `"`macval(lab)'"'
     }
 
     return scalar n = `n'

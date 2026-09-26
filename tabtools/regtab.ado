@@ -1362,9 +1362,12 @@ quietly{
             else local _path_so_far "`_path_so_far'>`_gvar'"
             local re_grouppath_`_lev' `"`_path_so_far'"'
             local _glbl ""
+            * C1 (codex audit 2026-09-26): labels are data. Every copy,
+            * test and write of a label below is macval()/Mata protected, so a
+            * $word or a backtick in a label is never expanded.
             capture local _glbl : variable label `_gvar'
-            if "`_glbl'" == "" local _glbl "`_gvar'"
-            local re_grouplbl_`_lev' `"`_glbl'"'
+            if `"`macval(_glbl)'"' == "" local _glbl "`_gvar'"
+            local re_grouplbl_`_lev' : copy local _glbl
         }
 
         * Detect duplicate labels: if two levels share a label, fall back to
@@ -1374,7 +1377,8 @@ quietly{
             forvalues _lev = 1/`_n_re_levels' {
                 local _lbl_is_dup_`_lev' = 0
                 forvalues _other = 1/`_n_re_levels' {
-                    if `_other' != `_lev' & "`re_grouplbl_`_other''" == "`re_grouplbl_`_lev''" {
+                    mata: st_local("_same", strofreal(st_local("re_grouplbl_`_other'") == st_local("re_grouplbl_`_lev'")))
+                    if `_other' != `_lev' & `_same' {
                         local _lbl_is_dup_`_lev' = 1
                     }
                 }
@@ -1382,14 +1386,14 @@ quietly{
             * Second pass: apply fallback for flagged levels
             forvalues _lev = 1/`_n_re_levels' {
                 if `_lbl_is_dup_`_lev'' {
-                    local re_grouplbl_`_lev' `"`re_groupvar_`_lev''"'
+                    local re_grouplbl_`_lev' : copy local re_groupvar_`_lev'
                 }
             }
         }
 
         * Backward compat: single-level vars from first grouping variable
         local re_groupvar : word 1 of `re_groupvars'
-        local re_grouplbl `"`re_grouplbl_1'"'
+        local re_grouplbl : copy local re_grouplbl_1
 
         if "`re_vars'" != "" {
             * Store labels for each random effect variable
@@ -1399,7 +1403,7 @@ quietly{
                 }
                 else {
                     capture local lbl_`revar' : variable label `revar'
-                    if "`lbl_`revar''" == "" local lbl_`revar' "`revar'"
+                    if `"`macval(lbl_`revar')'"' == "" local lbl_`revar' "`revar'"
                 }
             }
 
@@ -1453,7 +1457,7 @@ quietly{
                     local ++_rel_n
                     local _rel_nm_`_rel_n' "`_rn'"
                     local _rel_lb_`_rel_n' : variable label `_rn'
-                    if `"`_rel_lb_`_rel_n''"' == "" local _rel_lb_`_rel_n' "`_rn'"
+                    if `"`macval(_rel_lb_`_rel_n')'"' == "" local _rel_lb_`_rel_n' "`_rn'"
                 }
             }
         }
@@ -1462,6 +1466,7 @@ quietly{
     * Capture factor variable value labels for factorlabel option
     if "`factorlabel'" != "" {
         local _fvlabel_cmds ""
+        local _fvlc_n = 0
         local _fv_varlist ""
         capture quietly collect levelsof colname
         if _rc == 0 local _fv_varlist `"`s(levels)'"'
@@ -1475,8 +1480,14 @@ quietly{
                     local _fvlbl ""
                     capture local _fvlbl : label (`_fvvar') `_fvval'
                     if !_rc {
-                        if "`_fvlbl'" != "" & "`_fvlbl'" != "`_fvval'" {
-                            local _fvlabel_cmds `"`_fvlabel_cmds' `_fvval'.`_fvvar'=`_fvlbl'"'
+                        mata: st_local("_same", strofreal(st_local("_fvlbl") == st_local("_fvval")))
+                        if `"`macval(_fvlbl)'"' != "" & !`_same' {
+                            * Indexed, not packed into one list: a label is
+                            * never split on its spaces or expanded.
+                            local ++_fvlc_n
+                            local _fvlc_pat_`_fvlc_n' "`_fvval'.`_fvvar'"
+                            local _fvlc_lab_`_fvlc_n' : copy local _fvlbl
+                            local _fvlabel_cmds "set"
                         }
                     }
                 }
@@ -1510,17 +1521,17 @@ quietly{
                     }
                     if !`_fvrow_parent_seen' {
                         local _fvplbl : variable label `_fvvar'
-                        if `"`_fvplbl'"' == "" local _fvplbl `"`_fvvar'"'
+                        if `"`macval(_fvplbl)'"' == "" local _fvplbl `"`_fvvar'"'
                         local ++_fvrow_parent_n
                         local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvvar'"'
-                        local _fvrow_parent_lab_`_fvrow_parent_n' `"`_fvplbl'"'
+                        local _fvrow_parent_lab_`_fvrow_parent_n' : copy local _fvplbl
                     }
                     local _fvlbl `"`_fvval'"'
                     capture local _fvlbl : label (`_fvvar') `_fvval'
-                    if `"`_fvlbl'"' == "" local _fvlbl "`_fvval'"
+                    if `"`macval(_fvlbl)'"' == "" local _fvlbl "`_fvval'"
                     local ++_fvrow_label_n
                     local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
-                    local _fvrow_lab_`_fvrow_label_n' `"  `_fvlbl'"'
+                    local _fvrow_lab_`_fvrow_label_n' `"  `macval(_fvlbl)'"'
                 }
             }
         }
@@ -1561,11 +1572,11 @@ quietly{
                     foreach _dlev of local _dep_levels_for_eq {
                         local _dlbl ""
                         capture local _dlbl : label `_dep_vallab' `_dlev'
-                        if `"`_dlbl'"' != "" {
+                        if `"`macval(_dlbl)'"' != "" {
                             local ++_coleq_label_n
                             local _coleq_key_`_coleq_label_n' `"`_dlev'"'
-                            local _coleq_key2_`_coleq_label_n' `"`=strtoname(`"`_dlbl'"')'"'
-                            local _coleq_lab_`_coleq_label_n' `"`_dlbl'"'
+                            mata: st_local("_coleq_key2_`_coleq_label_n'", strtoname(st_local("_dlbl")))
+                            local _coleq_lab_`_coleq_label_n' : copy local _dlbl
                         }
                     }
                 }
@@ -1600,7 +1611,7 @@ if _rc == 0 {
     if missing(`_cnmap_n') local _cnmap_n = 0
     forvalues _ci = 1/`_cnmap_n' {
         local _cnmap_level_`_ci' `"`s(level`_ci')'"'
-        local _cnmap_label_`_ci' `"`s(label`_ci')'"'
+        mata: st_local("_cnmap_label_`_ci'", st_global("s(label`_ci')"))
     }
 }
 
@@ -1987,13 +1998,13 @@ else if `_is_multieq' {
     gen str244 _eq_label = _parent_header if _n > 2
     if `_coleq_label_n' > 0 {
         forvalues _eqi = 1/`_coleq_label_n' {
-            replace _eq_label = `"`_coleq_lab_`_eqi''"' ///
+            replace _eq_label = `"`macval(_coleq_lab_`_eqi')'"' ///
                 if _eq_label == `"`_coleq_key_`_eqi''"' ///
-                | _eq_label == `"`_coleq_key2_`_eqi''"'
+                | _eq_label == `"`macval(_coleq_key2_`_eqi')'"'
         }
     }
-    if `"`_dep_label'"' != "" {
-        replace _eq_label = `"`_dep_label'"' if _eq_label == `"`_depvar'"'
+    if `"`macval(_dep_label)'"' != "" {
+        replace _eq_label = `"`macval(_dep_label)'"' if _eq_label == `"`_depvar'"'
     }
     replace _eq_label = "Inflation equation" if strlower(_eq_label) == "inflate"
     replace _eq_label = "Selection equation" ///
@@ -2058,7 +2069,7 @@ else if `_is_multieq' {
         quietly replace _fp_par = `"`_fp_parent'"' in `_fpr'
         forvalues _fvi = 1/`_fvrow_label_n' {
             if `"`_fvrow_pat_`_fvi''"' == `"`_fp_key'"' {
-                quietly replace _A_trim = `"`_fvrow_lab_`_fvi''"' in `_fpr'
+                quietly replace _A_trim = `"`macval(_fvrow_lab_`_fvi')'"' in `_fpr'
             }
         }
     }
@@ -2077,7 +2088,7 @@ else if `_is_multieq' {
         quietly replace _raw_colname = _fp_par if _fp_dup
         quietly replace _A_trim = _fp_par if _fp_dup
         forvalues _fvp = 1/`_fvrow_parent_n' {
-            quietly replace _A_trim = `"`_fvrow_parent_lab_`_fvp''"' ///
+            quietly replace _A_trim = `"`macval(_fvrow_parent_lab_`_fvp')'"' ///
                 if _fp_dup & _fp_par == `"`_fvrow_parent_var_`_fvp''"'
         }
         gsort _fp_ord -_fp_dup
@@ -2142,18 +2153,18 @@ if "`re_transform'" != "none" & "`nore'" == "" {
         forvalues _lev = 1/`_n_re_levels' {
             local _gvar `"`re_groupvar_`_lev''"'
             local _gpath `"`re_grouppath_`_lev''"'
-            local _glbl `"`re_grouplbl_`_lev''"'
-            replace _re_group_label = `"`_glbl'"' if A == "var(_cons[`_gvar'])"
+            local _glbl : copy local re_grouplbl_`_lev'
+            replace _re_group_label = `"`macval(_glbl)'"' if A == "var(_cons[`_gvar'])"
             if "`_gpath'" != "`_gvar'" {
-                replace _re_group_label = `"`_glbl'"' if A == "var(_cons[`_gpath'])"
+                replace _re_group_label = `"`macval(_glbl)'"' if A == "var(_cons[`_gpath'])"
             }
-            replace _re_group_label = `"`_glbl'"' ///
+            replace _re_group_label = `"`macval(_glbl)'"' ///
                 if _is_re_intercept == 1 & _re_group_label == "" ///
                 & (strpos(A, "[`_gvar']") > 0 | strpos(A, ">`_gvar']") > 0)
         }
     }
-    if "`re_grouplbl'" != "" {
-        replace _re_group_label = `"`re_grouplbl'"' if _re_group_label == "" & A == "var(_cons)"
+    if `"`macval(re_grouplbl)'"' != "" {
+        replace _re_group_label = `"`macval(re_grouplbl)'"' if _re_group_label == "" & A == "var(_cons)"
     }
 }
 
@@ -2165,16 +2176,16 @@ if "`relabel'" != "" {
         * Handles multi-level mixed (flattened) and melogit/mepoisson (native)
         forvalues _lev = 1/`_n_re_levels' {
             local _gvar `"`re_groupvar_`_lev''"'
-            local _glbl `"`re_grouplbl_`_lev''"'
+            local _glbl : copy local re_grouplbl_`_lev'
 
             * Random intercept: var(_cons[groupvar]) -> "Variance: GroupLabel (Intercept)"
-            replace A = "Variance: `_glbl' (Intercept)" if A == "var(_cons[`_gvar'])"
+            replace A = `"Variance: `macval(_glbl)' (Intercept)"' if A == "var(_cons[`_gvar'])"
 
             * Random slopes: var(varname[groupvar]) -> "Variance: GroupLabel (VarLabel)"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
-                    local slope_lbl `"`lbl_`revar''"'
-                    replace A = "Variance: `_glbl' (`slope_lbl')" if A == "var(`revar'[`_gvar'])"
+                    local slope_lbl : copy local lbl_`revar'
+                    replace A = `"Variance: `macval(_glbl)' (`macval(slope_lbl)')"' if A == "var(`revar'[`_gvar'])"
                 }
             }
 
@@ -2210,21 +2221,21 @@ if "`relabel'" != "" {
                         if "`cov_v`_cvk''" == "_cons" local cov_lbl`_cvk' "Intercept"
                         forvalues _rli = 1/`_rel_n' {
                             if "`_rel_nm_`_rli''" == "`cov_v`_cvk''" {
-                                local cov_lbl`_cvk' `"`_rel_lb_`_rli''"'
+                                local cov_lbl`_cvk' : copy local _rel_lb_`_rli'
                             }
                         }
                     }
-                    replace A = "Covariance: `_glbl' (`cov_lbl1', `cov_lbl2')" in `row'
+                    replace A = `"Covariance: `macval(_glbl)' (`macval(cov_lbl1)', `macval(cov_lbl2)')"' in `row'
                 }
                 drop _temp_row
             }
 
             * Standard deviations with brackets
-            replace A = `"`_glbl' SD (Intercept)"' if A == "sd(_cons[`_gvar'])"
+            replace A = `"`macval(_glbl)' SD (Intercept)"' if A == "sd(_cons[`_gvar'])"
             foreach revar of local re_vars {
                 if "`revar'" != "_cons" {
-                    local slope_lbl `"`lbl_`revar''"'
-                    replace A = `"`_glbl' SD (`slope_lbl')"' if A == "sd(`revar'[`_gvar'])"
+                    local slope_lbl : copy local lbl_`revar'
+                    replace A = `"`macval(_glbl)' SD (`macval(slope_lbl)')"' if A == "sd(`revar'[`_gvar'])"
                 }
             }
 
@@ -2244,23 +2255,25 @@ if "`relabel'" != "" {
                 if "`_sl_var'" == "_cons" continue
                 local _sl_lbl "`_sl_var'"
                 forvalues _rli = 1/`_rel_n' {
-                    if "`_rel_nm_`_rli''" == "`_sl_var'" local _sl_lbl `"`_rel_lb_`_rli''"'
+                    if "`_rel_nm_`_rli''" == "`_sl_var'" local _sl_lbl : copy local _rel_lb_`_rli'
                 }
                 if "`_sl_kind'" == "var" {
-                    replace A = `"Variance: `_glbl' (`_sl_lbl')"' in `row'
+                    replace A = `"Variance: `macval(_glbl)' (`macval(_sl_lbl)')"' in `row'
                 }
-                else replace A = `"`_glbl' SD (`_sl_lbl')"' in `row'
+                else {
+                    replace A = `"`macval(_glbl)' SD (`macval(_sl_lbl)')"' in `row'
+                }
             }
             drop _temp_row
         }
 
         * --- Single-level patterns (no brackets) for single-level mixed ---
-        replace A = "Variance: `re_grouplbl' (Intercept)" if A == "var(_cons)"
+        replace A = `"Variance: `macval(re_grouplbl)' (Intercept)"' if A == "var(_cons)"
 
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
-                local slope_lbl `"`lbl_`revar''"'
-                replace A = "Variance: `re_grouplbl' (`slope_lbl')" if A == "var(`revar')"
+                local slope_lbl : copy local lbl_`revar'
+                replace A = `"Variance: `macval(re_grouplbl)' (`macval(slope_lbl)')"' if A == "var(`revar')"
             }
         }
 
@@ -2277,11 +2290,11 @@ if "`relabel'" != "" {
                 local cov_v2 = subinstr("`cov_v2'", ",", "", 1)
                 local cov_v1 = strtrim("`cov_v1'")
                 local cov_v2 = strtrim("`cov_v2'")
-                local cov_lbl1 `"`lbl_`cov_v1''"'
-                if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
-                local cov_lbl2 `"`lbl_`cov_v2''"'
-                if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
-                replace A = "Covariance: `re_grouplbl' (`cov_lbl1', `cov_lbl2')" in `row'
+                local cov_lbl1 : copy local lbl_`cov_v1'
+                if `"`macval(cov_lbl1)'"' == "" local cov_lbl1 "`cov_v1'"
+                local cov_lbl2 : copy local lbl_`cov_v2'
+                if `"`macval(cov_lbl2)'"' == "" local cov_lbl2 "`cov_v2'"
+                replace A = `"Covariance: `macval(re_grouplbl)' (`macval(cov_lbl1)', `macval(cov_lbl2)')"' in `row'
             }
             drop _temp_row
         }
@@ -2290,19 +2303,19 @@ if "`relabel'" != "" {
         replace A = "Residual Variance" if A == "var(e)"
 
         * Standard deviations without brackets (single-level)
-        replace A = `"`re_grouplbl' SD (Intercept)"' if A == "sd(_cons)"
+        replace A = `"`macval(re_grouplbl)' SD (Intercept)"' if A == "sd(_cons)"
         foreach revar of local re_vars {
             if "`revar'" != "_cons" {
-                local slope_lbl `"`lbl_`revar''"'
-                replace A = `"`re_grouplbl' SD (`slope_lbl')"' if A == "sd(`revar')"
+                local slope_lbl : copy local lbl_`revar'
+                replace A = `"`macval(re_grouplbl)' SD (`macval(slope_lbl)')"' if A == "sd(`revar')"
             }
         }
         replace A = "Residual SD" if A == "sd(e)"
 
         * Log-scale parameters (raw coefficient names: lns1_1_1, lns2_1_1, ...)
         forvalues _lev = 1/`_n_re_levels' {
-            local _glbl `"`re_grouplbl_`_lev''"'
-            replace A = subinstr(A, "lns`_lev'_1_1", "`_glbl' Log SD (Intercept)", .)
+            local _glbl : copy local re_grouplbl_`_lev'
+            replace A = subinstr(A, "lns`_lev'_1_1", `"`macval(_glbl)' Log SD (Intercept)"', .)
         }
         replace A = subinstr(A, "lnsig_e", "Residual Log SD", .)
     }
@@ -2380,7 +2393,7 @@ rename _raw_colname _raw_A
 quietly replace A = substr(strtrim(_raw_A), 3, .) ///
 	if _n > 2 & strpos(strtrim(_raw_A), "o.") == 1 & strtrim(A) == strtrim(_raw_A)
 forvalues _ci = 1/`_cnmap_n' {
-	quietly replace A = `"`_cnmap_label_`_ci''"' ///
+	quietly replace A = `"`macval(_cnmap_label_`_ci')'"' ///
 		if _n > 2 & strtrim(_raw_A) == `"o.`_cnmap_level_`_ci''"'
 }
 
@@ -2485,23 +2498,21 @@ if !`_user_coef_spec' & "`cdisc'" == "" & `_meta_models' > 0 {
 * Parent rows keep the variable label flush-left; child levels are indented.
 if `_fvrow_parent_n' > 0 {
     forvalues _fvp = 1/`_fvrow_parent_n' {
-        replace A = `"`_fvrow_parent_lab_`_fvp''"' ///
+        replace A = `"`macval(_fvrow_parent_lab_`_fvp')'"' ///
             if strtrim(A) == `"`_fvrow_parent_var_`_fvp''"' & _n >= 3
     }
 }
 if `_fvrow_label_n' > 0 {
     forvalues _fvi = 1/`_fvrow_label_n' {
-        replace A = `"`_fvrow_lab_`_fvi''"' ///
+        replace A = `"`macval(_fvrow_lab_`_fvi')'"' ///
             if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
     }
 }
 
 * Apply factor variable value labels if requested
 if "`factorlabel'" != "" & "`_fvlabel_cmds'" != "" {
-    foreach _fvcmd of local _fvlabel_cmds {
-        local _fvpat = substr("`_fvcmd'", 1, strpos("`_fvcmd'", "=") - 1)
-        local _fvlbl = substr("`_fvcmd'", strpos("`_fvcmd'", "=") + 1, .)
-        replace A = "  `_fvlbl'" if strtrim(A) == "`_fvpat'" & _n >= 3
+    forvalues _fvc = 1/`_fvlc_n' {
+        replace A = `"  `macval(_fvlc_lab_`_fvc')'"' if strtrim(A) == "`_fvlc_pat_`_fvc''" & _n >= 3
     }
 }
 
@@ -2771,8 +2782,9 @@ if "`dimnonsig'" != "" {
             local _child = `_obs' + 1
             while `_child' <= _N {
                 if _is_cathead[`_child'] == 1 continue, break
-                local _child_A = A[`_child']
-                if substr("`_child_A'", 1, 1) != " " continue, break
+                * C1: tested on the data, never through a macro holding the
+                * label text.
+                if substr(A[`_child'], 1, 1) != " " continue, break
                 if _is_refrow[`_child'] == 1 local _has_ref = 1
                 if _nonsig[`_child'] == 0 local _any_sig = 1
                 local _child = `_child' + 1
@@ -2851,7 +2863,7 @@ if "`stars'" != "" {
 	        long source_row str32 source_frame
 	    forvalues _ep_obs = 3/`=_N' {
 	        local _ep_source_row = `_ep_obs' - 2
-	        local _ep_label = A[`_ep_obs']
+	        mata: st_local("_ep_label", st_sdata(`_ep_obs', "A"))
 	        forvalues _ep_m = 1/`n_models' {
 	            local _ep_est = .
 	            local _ep_ll = .
@@ -2862,15 +2874,21 @@ if "`stars'" != "" {
 	            capture local _ep_ul = _eplot_ul`_ep_m'[`_ep_obs']
 	            capture local _ep_p = _eplot_p`_ep_m'[`_ep_obs']
 	            local _ep_model_col = (`_ep_m' - 1) * 3 + 1
-	            local _ep_model_label = c`_ep_model_col'[1]
-	            if `"`_ep_model_label'"' == "" local _ep_model_label "Model `_ep_m'"
+	            mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
+	            if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"
 	            local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 	            local _ep_rowtype "effect"
 	            if lower(`"`_ep_cell'"') == lower(`"`refcat'"') local _ep_rowtype "reference"
 	            if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
-	                frame post `_eplotframe_name' (`"`_ep_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-	                    (`_ep_p') (`_ep_m') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ("") ///
+	                * C1 (codex audit 2026-09-26): the row and model labels are stored
+	                * in Mata after the post, so they are never expanded as macros.
+	                frame post `_eplotframe_name' ("") (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+	                    (`_ep_p') (`_ep_m') ("") (`"`_ep_rowtype'"') ("") ///
 	                    (`_ep_source_row') ("")
+	                frame `_eplotframe_name' {
+	                    mata: st_sstore(st_nobs(), "label", st_local("_ep_label"))
+	                    mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
+	                }
 	            }
 	        }
 	    }
@@ -2884,11 +2902,11 @@ if "`stars'" != "" {
 	        local _meta_scale `"`model_coef_`_meta_m''"'
 	        if `"`_meta_scale'"' == "" local _meta_scale `"`coef'"'
 	        local _meta_label_col = (`_meta_m' - 1) * 3 + 1
-	        local _meta_label = c`_meta_label_col'[1]
+	        mata: st_local("_meta_label", st_sdata(1, "c`_meta_label_col'"))
 	        frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_cmdline'"'
 	        frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] `"`_meta_depvar'"'
 	        frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`_meta_scale'"'
-	        frame `_eplotframe_name': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
+	        frame `_eplotframe_name': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 	    }
 	}
 	capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
@@ -2937,7 +2955,11 @@ if `_mat_nrows' > 0 {
                 }
             }
         }
-        local _rname = A[`_obs']
+        * C1 (codex audit 2026-09-26): the row name is built in Mata from the
+        * label as typed, with the macro characters (backtick, apostrophe,
+        * dollar, double quote) replaced, so it can never expand below.
+        mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr( ///
+            st_sdata(`_obs', "A"), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
         local _rname = subinstr("`_rname'", ".", "_", .)
         local _rname = subinstr("`_rname'", " ", "_", .)
         local _rname = subinstr("`_rname'", ",", "", .)
@@ -3695,16 +3717,18 @@ if `"`markdown'"' != "" {
 	if _N >= 3 {
 		forvalues _mdc = 1/`n_models' {
 			local _md_first = (`_mdc' - 1) * `_cols_per_model' + 1
-			local _md_name = strtrim(c`_md_first'[2])
-			if `"`_md_name'"' != "" {
+			* C1: the model name is used as a data expression, never through a
+			* macro holding its text.
+			local _md_name "strtrim(c`_md_first'[2])"
+			if strtrim(c`_md_first'[2]) != "" {
 				forvalues _md_off = 0/`=`_cols_per_model' - 1' {
 					local _md_col = `_md_first' + `_md_off'
 					capture confirm variable c`_md_col'
 					if !_rc {
 						quietly replace c`_md_col' = ///
-							`"`_md_name': "' + strtrim(c`_md_col') ///
+							`_md_name' + ": " + strtrim(c`_md_col') ///
 							in 3 if strtrim(c`_md_col') != ""
-						quietly replace c`_md_col' = `"`_md_name'"' ///
+						quietly replace c`_md_col' = `_md_name' ///
 							in 3 if strtrim(c`_md_col') == ""
 					}
 				}
@@ -3744,11 +3768,11 @@ if `"`markdown'"' != "" {
 			local _meta_scale `"`model_coef_`_meta_m''"'
 			if `"`_meta_scale'"' == "" local _meta_scale `"`coef'"'
 			local _meta_label_col = (`_meta_m' - 1) * `_cols_per_model' + 1
-			local _meta_label = c`_meta_label_col'[2]
+			mata: st_local("_meta_label", st_sdata(2, "c`_meta_label_col'"))
 			frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_cmdline'"'
 			frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_meta_depvar'"'
 			frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`_meta_scale'"'
-			frame `frame': char _dta[tabtools_model_label_`_meta_m'] `"`_meta_label'"'
+			frame `frame': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 		}
 			if `"`_eplotframe_name'"' != "" {
 			    frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
@@ -3786,7 +3810,9 @@ if "`stars'" != "" {
 		if `_fn_endp' {
 			local _fn_text `"`macval(_fn_trim)' `_stars_note'"'
 		}
-		else local _fn_text `"`macval(_fn_trim)'; `_stars_note'"'
+		else {
+			local _fn_text `"`macval(_fn_trim)'; `_stars_note'"'
+		}
 	}
 	else local _fn_text `"`_stars_note'"'
 }

@@ -157,6 +157,15 @@ example {cmd:label(Binary HRT)}. Use doubled parentheses for literal
 parentheses, for example {cmd:postfix((vs none))}.
 
 {p 4 4 2}
+A value may instead be enclosed in double quotes, which are removed, for example
+{cmd:label("Binary HRT")} or {cmd:sheet("Table S3")}; quoted text may contain
+parentheses and backslashes, which are then taken literally. Suboptions are
+recognized only at the top level of a block, so text inside another suboption,
+such as {cmd:label(rows(3/3))}, is never read as a row selection. Each suboption
+may appear at most once per block, and any other text, including an unknown
+suboption such as {cmd:rowz()}, is an error (r(198)).
+
+{p 4 4 2}
 {opt rows()} and {opt cols()} may be used together or separately. Both count
 in sheet coordinates: {cmd:rows(2/3)} means Excel rows 2 and 3 and
 {cmd:cols(B-D)} Excel columns B to D, whether or not the other option is

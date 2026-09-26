@@ -79,7 +79,7 @@ program define puttab, rclass
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-                  DIGits(integer -1) VARLabels NOHeader ///
+                  DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
                   CSV(string) MARKdown(string) MDAPPend open ]
         }
         else {
@@ -89,7 +89,7 @@ program define puttab, rclass
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-                  DIGits(integer -1) VARLabels NOHeader ///
+                  DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
                   CSV(string) MARKdown(string) MDAPPend open ]
         }
 
@@ -278,18 +278,32 @@ program define puttab, rclass
                 * "(1978 automobile data)", ahead of puttab's own lines.
                 quietly use `"`_srcdata'"', clear
             }
+            * Row subset (if/in) is marked on the caller's observations as
+            * they are numbered in the source, before anything is dropped, so
+            * -in 1- means observation 1 of the data the user sees. The mark
+            * precedes the column subset, so the if/in condition may reference
+            * columns that the varlist drops. C4 (codex audit 2026-09-26): the
+            * embedded-header row used to be dropped first, which shifted every
+            * observation number -- -in 1- exported observation 2.
+            if `_hasifin' {
+                marksample _touse, novarlist
+            }
             * A tabtools table producer (desctab/table1_tc ..., clear or
             * frame()) returns its table header-shaped: observation 1 repeats
             * each column's variable label.  When we are about to draw the
             * header from those same labels, that observation IS the header,
             * not data -- consume it here instead of emitting the text twice.
             * Detection is by content (see _puttab_is_headerrow), so a caller
-            * who already dropped the row is unaffected.  Runs before the
-            * row subset so if/in still counts data rows, and is scoped to the
-            * columns that will actually be exported.
-            if `_headerrows' & `_uselbl' {
+            * who already dropped the row is unaffected.  It considers
+            * observation 1 only when that observation is inside the if/in
+            * selection, and is scoped to the columns that will actually be
+            * exported. noembedheader turns the detection off: observation 1
+            * is then data even when it matches the labels.
+            if `_headerrows' & `_uselbl' & "`noembedheader'" == "" {
                 local _hdrvars ""
                 local _hdr_dup 0
+                local _hdr_in_sel 1
+                if `_hasifin' local _hdr_in_sel = (`_touse'[1] == 1)
                 if `"`vlist'"' != "" {
                     capture unab _hdrvars : `vlist'
                     if _rc local _hdrvars ""
@@ -297,17 +311,15 @@ program define puttab, rclass
                 else {
                     quietly ds
                     local _hdrvars `r(varlist)'
+                    if `_hasifin' local _hdrvars : list _hdrvars - _touse
                 }
-                if `"`_hdrvars'"' != "" {
+                if `"`_hdrvars'"' != "" & `_hdr_in_sel' {
                     mata: st_local("_hdr_dup", ///
                         strofreal(_puttab_is_headerrow("`_hdrvars'")))
                     if `_hdr_dup' == 1 quietly drop in 1
                 }
             }
-            * Row subset (if/in) before column subset, so the if/in condition may
-            * reference columns that the varlist drops.
             if `_hasifin' {
-                marksample _touse, novarlist
                 quietly keep if `_touse'
                 quietly drop `_touse'
             }
@@ -392,9 +404,12 @@ program define puttab, rclass
             * Markdown header read "c1".
             else local _md_novarnames "strictheaders"
             local _sink "markdown"
+            * keepblank: every exported observation is data, so one that is
+            * missing in every column stays a Markdown body row, as it does in
+            * the workbook and the CSV (C3, codex audit 2026-09-26).
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
-                dataend(`_last_data_row') ///
+                dataend(`_last_data_row') keepblank ///
                 title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') `_md_novarnames'
             if _rc {
                 local _md_rc = _rc

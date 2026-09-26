@@ -176,6 +176,13 @@ capture noisily {
         }
     }
     _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+    * C2 (codex audit 2026-09-26): validate frame() before anything is
+    * written. It was checked only when the frame was stored, after the CSV
+    * and Markdown files, so an occupied or invalid frame returned an error
+    * after an existing report had already been overwritten.
+    if `"`frame'"' != "" {
+        _tabtools_frame_preflight `"`frame'"' "frame()"
+    }
 
     local _ci_alpha = (100 - `level') / 200
     * The level as shown: at most 15 significant digits, so 99.9 never prints
@@ -224,7 +231,15 @@ capture noisily {
     if `has_by' {
         capture confirm numeric variable `by'
         if !_rc {
-            qui clonevar `groupvar' = `by'
+            * C1 (codex audit 2026-09-26): not clonevar, which re-expands
+            * the variable label as macro syntax (r(132) on a backtick).
+            local _cv_type : type `by'
+            qui generate `_cv_type' `groupvar' = `by'
+            local _cv_fmt : format `by'
+            format `groupvar' `_cv_fmt'
+            local _cv_vl : value label `by'
+            if "`_cv_vl'" != "" label values `groupvar' `_cv_vl'
+            mata: st_varlabel("`groupvar'", st_varlabel("`by'"))
         }
         else {
             local _by_is_string 1
@@ -264,16 +279,18 @@ capture noisily {
     forvalues g = 1/`n_groups' {
         local _glv : word `g' of `group_levels'
         if `has_by' {
+            * C1 (codex audit 2026-09-26): the value label is data; every
+            * later use is macval()-protected so it is never expanded.
             local _glabel : label (`groupvar') `_glv'
-            if `_by_is_string' local _gvalue `"`_glabel'"'
+            if `_by_is_string' local _gvalue : copy local _glabel
             else local _gvalue `"`_glv'"'
         }
         else {
             local _glabel "Overall"
             local _gvalue "1"
         }
-        local glabel_`g' `"`_glabel'"'
-        local glevel_`g' `"`_gvalue'"'
+        local glabel_`g' : copy local _glabel
+        local glevel_`g' : copy local _gvalue
         if "`st_id'" != "" {
             tempvar _gn_tag
             qui egen byte `_gn_tag' = tag(`st_id') if `groupvar' == `_glv' & _st
@@ -328,9 +345,11 @@ capture noisily {
         }
         if "`_g_beyond'" != "" {
             local _g_support_s = strtrim(string(`_g_support', "%12.0g"))
-            local _g_entry `"`glabel_`g'':`_g_beyond' (last follow-up `_g_support_s')"'
-            if `"`_beyond'"' == "" local _beyond `"`_g_entry'"'
-            else local _beyond `"`_beyond'; `_g_entry'"'
+            local _g_entry `"`macval(glabel_`g')':`_g_beyond' (last follow-up `_g_support_s')"'
+            if `"`macval(_beyond)'"' == "" local _beyond : copy local _g_entry
+            else {
+                local _beyond `"`macval(_beyond)'; `macval(_g_entry)'"'
+            }
         }
     }
     forvalues g = 1/`n_groups' {
@@ -406,11 +425,31 @@ capture noisily {
     local logrank_chi2 .
     local logrank_df .
     local _logrank_row = 0
+    local _logrank_nofail = 0
     if `has_by' {
-        qui sts test `groupvar' if _st
-        local logrank_chi2 = r(chi2)
-        local logrank_df = r(df)
-        local logrank_p = chi2tail(`logrank_df', `logrank_chi2')
+        * C5 (codex audit 2026-09-26): with no failures in the analysis sample
+        * there is nothing to compare, and sts test stops with r(2000). Detect
+        * that condition directly; the descriptive table is still produced,
+        * the test is omitted with a note, and r(logrank_p) is missing. Any
+        * other sts test failure still stops the command.
+        quietly count if _st & _d != 0 & !missing(_d)
+        if r(N) == 0 {
+            local _logrank_nofail = 1
+            noisily display as text ///
+                "Note: no failures in the analysis sample; the log-rank test is not possible and is omitted"
+        }
+        else {
+            * C1: the test runs on an unlabelled copy of the group variable.
+            * sts test prints the value labels through code that expands them
+            * as macro syntax, so a backtick in a label stopped it with r(132).
+            tempvar _lr_group
+            local _lr_type : type `groupvar'
+            quietly generate `_lr_type' `_lr_group' = `groupvar'
+            qui sts test `_lr_group' if _st
+            local logrank_chi2 = r(chi2)
+            local logrank_df = r(df)
+            local logrank_p = chi2tail(`logrank_df', `logrank_chi2')
+        }
     }
 
 **# Compute RMST
@@ -549,7 +588,7 @@ capture noisily {
     qui replace c1 = "" in `row'
     forvalues g = 1/`n_groups' {
         local col = 1 + `g'
-        qui replace c`col' = `"`glabel_`g'' (N=`gn_`g'')"' in `row'
+        qui replace c`col' = `"`macval(glabel_`g')' (N=`gn_`g'')"' in `row'
     }
     local _diff_col = 0
     local _p_col = 0
@@ -558,7 +597,7 @@ capture noisily {
         * Name the direction in the header. The contrast is group 1 minus group
         * 2 -- the first and second by() columns as displayed -- and a bare
         * "Difference" left a sign-sensitive published number ambiguous.
-        qui replace c`_diff_col' = `"Difference (`glabel_1' - `glabel_2')"' in `row'
+        qui replace c`_diff_col' = `"Difference (`macval(glabel_1)' - `macval(glabel_2)')"' in `row'
     }
     if `has_by' {
         local _p_col = `ncols'
@@ -756,6 +795,12 @@ capture noisily {
             qui replace c`_p_col' = `"`_lr_p_str'"' in 3
         }
     }
+    else if `has_by' & `_logrank_nofail' {
+        local row = `row' + 1
+        qui set obs `row'
+        local _logrank_row = `row'
+        qui replace c1 = "Log-rank test not possible: no failures in the analysis sample" in `row'
+    }
 
     * =========================================================================
     * ADD CUSTOM ROWS (addrow option)
@@ -820,8 +865,12 @@ capture noisily {
     local _cnames ""
     local _used_cnames ""
     forvalues g = 1/`n_groups' {
-        local _cname = strtoname(`"`glabel_`g''"')
-        local _cname = substr(`"`_cname'"', 1, 32)
+        * C1: built in Mata from the literal label. strtoname() keeps a
+        * backtick, so the name is also cleared of macro characters
+        * (backtick, apostrophe, dollar, double quote) before it is used.
+        mata: st_local("_cname", substr(subinstr(subinstr(subinstr(subinstr( ///
+            strtoname(st_local("glabel_`g'")), char(96), "_"), char(39), "_"), ///
+            char(36), "_"), char(34), "_"), 1, 32))
         if `"`_cname'"' == "" | strtrim(subinstr(`"`_cname'"', "_", "", .)) == "" {
             local _cname "group`g'"
         }
@@ -849,10 +898,10 @@ capture noisily {
         noisily display as text "      competing-risks estimator instead (Aalen-Johansen: stcompet, stcrreg,"
         noisily display as text "      or the finegray package)."
     }
-    if `"`_beyond'"' != "" {
+    if `"`macval(_beyond)'"' != "" {
         noisily display as text "Note: times beyond the last observed follow-up of a group repeat the final"
         noisily display as text "      Kaplan-Meier estimate and are not supported by the data:"
-        noisily display as text `"      `_beyond'"'
+        noisily display as text `"      `macval(_beyond)'"'
     }
 
 **# CSV Export
@@ -920,7 +969,7 @@ capture noisily {
         return scalar n_groups = `n_groups'
         forvalues g = 1/`n_groups' {
             return local group_`g'_value `"`glevel_`g''"'
-            return local group_`g'_label `"`glabel_`g''"'
+            return local group_`g'_label `"`macval(glabel_`g')'"'
         }
     }
     if `has_rmst' {
@@ -941,31 +990,36 @@ capture noisily {
         }
     }
     if "`frame'" != "" return local frame "`frame'"
-    if `"`_beyond'"' != "" return local beyond_support `"`_beyond'"'
+    if `"`macval(_beyond)'"' != "" {
+        return local beyond_support `"`macval(_beyond)'"'
+    }
 
     * Build methods paragraph
-    local _methods "Survival was estimated using the Kaplan-Meier method."
+    local _methods `"Survival was estimated using the Kaplan-Meier method."'
     if `_st_weighted' {
-        local _methods "`_methods' Frequency weights from stset were treated with replication semantics for counts and Greenwood RMST variance."
+        local _methods `"`macval(_methods)' Frequency weights from stset were treated with replication semantics for counts and Greenwood RMST variance."'
     }
     if "`reverse'" != "" {
-        local _methods "`_methods' Cumulative incidence is reported as 1 minus the Kaplan-Meier survival estimate, which is valid only in the absence of competing risks; with competing events a competing-risks estimator (Aalen-Johansen) should be used instead."
+        local _methods `"`macval(_methods)' Cumulative incidence is reported as 1 minus the Kaplan-Meier survival estimate, which is valid only in the absence of competing risks; with competing events a competing-risks estimator (Aalen-Johansen) should be used instead."'
     }
-    if `has_by' {
-        local _methods "`_methods' Groups were compared using the log-rank test."
+    if `has_by' & !`_logrank_nofail' {
+        local _methods `"`macval(_methods)' Groups were compared using the log-rank test."'
+    }
+    else if `has_by' {
+        local _methods `"`macval(_methods)' There were no failures in the analysis sample, so the groups were not compared with the log-rank test."'
     }
     if "`median'" != "" {
-        local _methods "`_methods' Median survival time with `_level_txt'% confidence intervals is reported."
+        local _methods `"`macval(_methods)' Median survival time with `_level_txt'% confidence intervals is reported."'
     }
     if `has_rmst' {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `_level_txt'% confidence intervals based on the Greenwood variance formula."
+        local _methods `"`macval(_methods)' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `_level_txt'% confidence intervals based on the Greenwood variance formula."'
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
-            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `by'), with a `_level_txt'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
+            local _methods `"`macval(_methods)' The between-group RMST difference is reported as `macval(glabel_1)' minus `macval(glabel_2)' (the first minus the second by() group in ascending order of `by'), with a `_level_txt'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
         }
     }
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-    return local methods "`_methods'"
+    local _methods `"`macval(_methods)' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
+    return local methods `"`macval(_methods)'"'
 
 **# Excel Export
     local num_cols = `ncols' + 1
