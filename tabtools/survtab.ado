@@ -175,6 +175,7 @@ capture noisily {
             exit 198
         }
     }
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     local _ci_alpha = (100 - `level') / 200
     local _ci_z = invnormal(1 - `_ci_alpha')
@@ -306,6 +307,29 @@ capture noisily {
 
 **# Compute KM Estimates at Specified Timepoints
     * Use sts generate for reliable KM function extraction
+    *
+    * A requested time after a group's last observed time (_t) reports the
+    * final Kaplan-Meier value carried forward. That flat extension is kept
+    * (estimates are unchanged), but it is not supported by the data, so the
+    * affected group/time pairs are collected here, shown as a note after the
+    * table, and returned in r(beyond_support).
+    local _beyond ""
+    forvalues g = 1/`n_groups' {
+        local _glv : word `g' of `group_levels'
+        quietly summarize _t if `groupvar' == `_glv' & _st, meanonly
+        local _g_support = r(max)
+        local _g_beyond ""
+        forvalues t = 1/`n_times' {
+            local _time : word `t' of `times'
+            if `_time' > `_g_support' local _g_beyond "`_g_beyond' `_time'"
+        }
+        if "`_g_beyond'" != "" {
+            local _g_support_s = strtrim(string(`_g_support', "%12.0g"))
+            local _g_entry `"`glabel_`g'':`_g_beyond' (last follow-up `_g_support_s')"'
+            if `"`_beyond'"' == "" local _beyond `"`_g_entry'"'
+            else local _beyond `"`_beyond'; `_g_entry'"'
+        }
+    }
     forvalues g = 1/`n_groups' {
         local _glv : word `g' of `group_levels'
         tempvar _surv_fn _se_fn
@@ -822,6 +846,11 @@ capture noisily {
         noisily display as text "      competing-risks estimator instead (Aalen-Johansen: stcompet, stcrreg,"
         noisily display as text "      or the finegray package)."
     }
+    if `"`_beyond'"' != "" {
+        noisily display as text "Note: times beyond the last observed follow-up of a group repeat the final"
+        noisily display as text "      Kaplan-Meier estimate and are not supported by the data:"
+        noisily display as text `"      `_beyond'"'
+    }
 
 **# CSV Export
     if "`csv'" != "" {
@@ -909,6 +938,7 @@ capture noisily {
         }
     }
     if "`frame'" != "" return local frame "`frame'"
+    if `"`_beyond'"' != "" return local beyond_support `"`_beyond'"'
 
     * Build methods paragraph
     local _methods "Survival was estimated using the Kaplan-Meier method."

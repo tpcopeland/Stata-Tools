@@ -326,6 +326,7 @@ program define _comptab_rates, rclass
                 exit 198
             }
         }
+        _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
         _tabtools_validate_sheet "`sheet'" "sheet()"
 
         * Resolve formatting
@@ -2410,6 +2411,8 @@ program define _comptab_vertical, rclass
         }
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
+    if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     quietly {
 

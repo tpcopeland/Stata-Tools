@@ -68,7 +68,8 @@ optional header shading and zebra striping, automatic column widths, borders,
 and an italic footnote.{p_end}
 
 {pstd}For a {opt matrix()} source, the matrix row names become the first
-(label) column and the column names become the header row; equation names are
+(label) column and the column names become the header row, whose label-column
+cell is blank in the workbook, CSV, and Markdown alike; equation names are
 shown as {it:eqname:name}. For a dataset or {opt frame()} source, the variable
 names form the header row (or the variable labels, with {opt varlabels}), and
 numeric columns are formatted to {opt digits()} decimals. Integer-valued numeric

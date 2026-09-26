@@ -218,6 +218,8 @@ program define desctab, rclass
             exit 198
         }
     }
+    _tabtools_check_sinks, xlsx(`"`excel'"') csv(`"`csv'"') ///
+        markdown(`"`markdown'"') xlsxname("excel()")
 
     /* Validate pdp and highpdp options */
     if `pdp' < 1 | `pdp' > 10 {

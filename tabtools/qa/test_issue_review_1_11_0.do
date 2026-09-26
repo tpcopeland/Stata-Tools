@@ -398,7 +398,8 @@ capture noisily {
     while r(eof) == 0 {
         if strpos(`"`macval(_line)'"', "*") > 0 & strpos(`"`macval(_line)'"', "|") > 0 ///
             local _has_star = 1
-        if strpos(`"`macval(_line)'"', "p<") > 0 local _has_legend = 1
+        * The Markdown writer escapes < (as \<) so "p<0.05" is literal text.
+        if strpos(`"`macval(_line)'"', "p\<") > 0 local _has_legend = 1
         file read `cfh' _line
     }
     file close `cfh'

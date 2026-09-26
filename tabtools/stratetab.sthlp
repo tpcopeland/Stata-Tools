@@ -127,11 +127,12 @@ with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
 {opt pyscale(real 1)} divides person-years values by the specified factor. Default
-is 1 (no scaling).
+is 1 (no scaling). The factor must be positive and nonmissing.
 
 {phang}
 {opt ratescale(real 1000)} multiplies rate and confidence interval values by the
-specified factor. Default is 1000, displaying rates per 1000 person-years.
+specified factor. Default is 1000, displaying rates per 1000 person-years. The
+factor must be positive and nonmissing.
 
 {pmore}
 {opt ratescale()} and {opt pyscale()} assume the files were saved by

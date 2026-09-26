@@ -35,6 +35,8 @@ capture noisily {
     local ate = `b'[1, colnumb(`b', "ATE:r0vs1.tr")]
     assert !missing(`ate')
     tempfile csv
+    * csv() requires a .csv extension
+    local csv "`csv'.csv"
     quietly effecttab, clean digits(6) frame(f1, replace) csv("`csv'")
     matrix `t' = r(table)
     assert rowsof(`t') == 2
@@ -66,6 +68,8 @@ capture noisily {
     quietly collect: teffects ipw (y) (tr2 x)
     matrix `b2' = e(b)
     tempfile csv
+    * csv() requires a .csv extension
+    local csv "`csv'.csv"
     quietly effecttab, digits(6) frame(f2, replace) csv("`csv'")
     matrix `t' = r(table)
     assert colsof(`t') == 4
@@ -113,6 +117,8 @@ capture noisily {
         local wanted = _b[`selected']
         tempname t
         tempfile csv
+        * csv() requires a .csv extension
+        local csv "`csv'.csv"
         quietly regtab, keep(`selected') nointercept digits(6) frame(f3, replace) csv("`csv'")
         matrix `t' = r(table)
         assert rowsof(`t') == 1
@@ -173,6 +179,8 @@ capture noisily {
     matrix `b' = e(b)
     clear
     tempfile csv
+    * csv() requires a .csv extension
+    local csv "`csv'.csv"
     quietly effecttab, clean digits(6) frame(f5, replace) csv("`csv'")
     matrix `t' = r(table)
     assert rowsof(`t') == 2

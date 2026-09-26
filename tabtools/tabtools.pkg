@@ -40,6 +40,7 @@ f _tabtools_markdown_write.ado
 f _tabtools_visible_vars.ado
 f _tabtools_colwidth.ado
 f _tabtools_csv_write.ado
+f _tabtools_check_sinks.ado
 f _tabtools_xlsx_read.ado
 f _tabtools_collect_render.ado
 f _tabtools_match_rows.ado

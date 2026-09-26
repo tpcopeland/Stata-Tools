@@ -148,9 +148,12 @@ frame.{p_end}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 
 {phang}
-{opt csv(filename)} export a CSV file. The CSV mirrors the workbook with
+{opt csv(filename)} export a CSV file. {it:filename} must end in
+{cmd:.csv}. The CSV mirrors the workbook with
 {opt title()} written as the first row and {opt footnote()} as the last row,
-both in the first column and the table body between them.{p_end}
+both in the first column and the table body between them. {opt xlsx()},
+{opt csv()}, and {opt markdown()} must name different files; a collision is
+refused before anything is written.{p_end}
 
 {phang}
 {opt dig:its(#)} decimal places for survival estimates and CIs (default 1, range 0-6){p_end}
@@ -212,7 +215,17 @@ session default was set with {cmd:tabtools set font}.{p_end}
 a session default was set with {cmd:tabtools set fontsize}.{p_end}
 
 {phang}
-{opt times(numlist)} analysis timepoints for Kaplan-Meier estimates{p_end}
+{opt times(numlist)} analysis timepoints for Kaplan-Meier estimates. A
+time after a group's last observed follow-up time ({cmd:_t}) reports the final
+Kaplan-Meier estimate carried forward, the usual flat extension of the
+product-limit curve. The data do not support that value, so {cmd:survtab}
+prints a note after the table naming each such group and time, with the
+group's last follow-up, and returns the same text in
+{cmd:r(beyond_support)} as "{it:label}: {it:times} (last follow-up {it:#})",
+groups separated by "; " (set only when some time is beyond support). A
+time equal to the last follow-up is within
+support. Estimates are not changed. {opt rmst()}, by contrast, is refused
+beyond any group's support.{p_end}
 
 {phang}
 {opt timeu:nit(string)} time unit label: {cmd:years} (default), {cmd:months}, {cmd:days},
@@ -300,6 +313,7 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
+{synopt:{cmd:r(beyond_support)}}times past each group's follow-up{p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 
 {pstd}The dynamic {cmd:r(group_)} family is instantiated as

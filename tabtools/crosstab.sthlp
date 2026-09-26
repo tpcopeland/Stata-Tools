@@ -118,7 +118,8 @@ and 1{p_end}
 {opt col:pct} column percentages (default); may not be combined with {opt rowpct} or {opt totalpct}{p_end}
 
 {phang}
-{opt csv(filename)} also export the output dataset as CSV. The CSV mirrors the
+{opt csv(filename)} also export the output dataset as CSV. {it:filename} must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. The CSV mirrors the
 workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 

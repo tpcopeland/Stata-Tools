@@ -16,10 +16,12 @@ SYNTAX:
 	title:	Gives spreasheet a table name in cell A1
 	noint:	Drops intercept row
 	        Also drops cutpoint and ancillary-only rows such as cut1, lnalpha,
-	        alpha, and /sigma; use keepintercept to show them.
+	        alpha, ln_p, p, and 1/p, identified by their equation in the
+	        collection (never by label); use keepintercept to show them.
 	nore:	Drops random effects rows
 	sep:    character separating 95% CI, default is ", "
-	stats:	Model statistics to add at bottom (space-separated): n aic bic qic icc ll groups
+	stats:	Model statistics to add at bottom (space-separated): n events groups
+	        mi_m aic qic bic ll icc r2 r2_a rmse F fmi
 	        - n: Number of observations
 	        - aic: Akaike Information Criterion
 	        - bic: Bayesian Information Criterion
@@ -37,7 +39,8 @@ SYNTAX:
 
 	Automatic MOR/MHR: For melogit models, random intercept variance is
 	        automatically converted to Median Odds Ratio (MOR). For mestreg
-	        and mecloglog, it becomes Median Hazard Ratio (MHR). CI bounds
+	        (log-hazard metric) and mecloglog, it becomes Median Hazard Ratio
+	        (MHR); mestreg in the time metric keeps the variance. CI bounds
 	        are transformed on the same scale. Use nore to suppress.
 
 */
@@ -372,6 +375,7 @@ quietly{
         noisily display as error "open requires xlsx() or excel()"
         exit 198
     }
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     * Create temporary file for intermediate processing
     tempfile temp_export
@@ -401,14 +405,29 @@ quietly{
     local _all_auto_noint = 1
     local _coef_label_return `"`coef'"'
     local _has_multieq_estimator = 0
-    capture {
-        collect layout (cmdset) (result[cmd cmdline depvar ivars revars redim])
+    * mi estimate records the prefix and its options only in e(cmdline_mi)
+    * and the fitted command in e(cmd_mi); e(vce) decides the AIC/BIC count.
+    * These are read under their own names (collect's labels for them vary).
+    local _meta_own "cmdline_mi cmd_mi vce"
+    foreach _mo of local _meta_own {
+        local _orig_mlbl_`_mo' ""
+        capture local _orig_mlbl_`_mo' : collect label levels result `_mo'
+        capture collect label levels result `_mo' "`_mo'", modify
     }
-    if _rc == 0 {
+    capture {
+        collect layout (cmdset) (result[cmd cmdline depvar ivars revars redim `_meta_own'])
+    }
+    local _meta_layout_rc = _rc
+    foreach _mo of local _meta_own {
+        if `"`_orig_mlbl_`_mo''"' != "" {
+            capture collect label levels result `_mo' `"`_orig_mlbl_`_mo''"', modify
+        }
+    }
+    if `_meta_layout_rc' == 0 {
         preserve
         capture {
             _tabtools_collect_render, type(meta) rowdim(cmdset) ///
-                results(cmd cmdline depvar ivars revars redim) dropempty
+                results(cmd cmdline depvar ivars revars redim `_meta_own') dropempty
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
@@ -416,6 +435,9 @@ quietly{
             local meta_col_ivars ""
             local meta_col_revars ""
             local meta_col_redim ""
+            local meta_col_cmdline_mi ""
+            local meta_col_cmd_mi ""
+            local meta_col_vce ""
             ds
             local meta_allvars `r(varlist)'
             foreach v of local meta_allvars {
@@ -429,6 +451,9 @@ quietly{
                 if "`hdr'" == "imputation variables" local meta_col_ivars "`v'"
                 if "`hdr'" == "random-effects covariates" local meta_col_revars "`v'"
                 if "`hdr'" == "random-effects dimensions" local meta_col_redim "`v'"
+                if `"`=strtrim(`v'[1])'"' == "cmdline_mi" local meta_col_cmdline_mi "`v'"
+                if `"`=strtrim(`v'[1])'"' == "cmd_mi" local meta_col_cmd_mi "`v'"
+                if `"`=strtrim(`v'[1])'"' == "vce" local meta_col_vce "`v'"
             }
 
             local _meta_models = _N - 1
@@ -452,6 +477,12 @@ quietly{
                     local model_redim_`m' = strtrim(`meta_col_redim'[`r'])
                 }
                 else local model_redim_`m' ""
+                foreach _mo of local _meta_own {
+                    local model_`_mo'_`m' ""
+                    if "`meta_col_`_mo''" != "" {
+                        local model_`_mo'_`m' = lower(strtrim(`meta_col_`_mo''[`r']))
+                    }
+                }
             }
         }
         if _rc local _meta_models = 0
@@ -469,26 +500,43 @@ quietly{
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
             local _cmdline_lc `"`model_cmdline_`m''"'
+            * mi estimate stores the fitted command's line in e(cmdline) and
+            * the prefix, with its options, only in e(cmdline_mi).
+            if `"`model_cmdline_mi_`m''"' != "" local _cmdline_lc `"`model_cmdline_mi_`m''"'
+            local _ecmd_m `"`model_cmd_`m''"'
+            if `"`model_cmd_mi_`m''"' != "" local _ecmd_m `"`model_cmd_mi_`m''"'
             * Option text only: a covariate named "or", or a comma inside an
-            * if() expression, must never be read as a display option. A svy:
-            * prefix is set aside, so the estimation command after it is the
-            * one classified (_optstr_line) and svy's options are not read.
+            * if() expression, must never be read as a display option.
+            * Estimation prefixes (svy, bootstrap, jackknife, mi estimate) are
+            * set aside, so the estimation command after them is the one
+            * classified (_optstr_line); a prefix's own display options come
+            * back separately (_optstr_prefopt) and follow the prefix's rule.
             _regtab_optstr _optstr `"`_cmdline_lc'"'
             local _cmdline_lc `"`_optstr_line'"'
+            local model_prefix_`m' `"`_optstr_prefix'"'
             local _cmdword ""
             gettoken _cmdword _cmdrest : _cmdline_lc
-            if "`_cmdword'" == "" local _cmdword `"`model_cmd_`m''"'
+            if "`_cmdword'" == "" local _cmdword `"`_ecmd_m'"'
+            local model_cmdword_`m' `"`_cmdword'"'
+            local model_optstr_`m' `"`_optstr'"'
+            local _pmode ""
+            if strpos(" `_optstr_prefix' ", " mi ") local _pmode "mi"
+            else if strpos(" `_optstr_prefix' ", " bootstrap ") | ///
+                strpos(" `_optstr_prefix' ", " jackknife ") local _pmode "or"
+            _regtab_prefopts `"`_optstr_prefopt'"'
 
             * Display scale: the estimate header, whether regtab must
             * exponentiate the collected values to reach that scale, the null
             * value for dimnonsig, and default intercept suppression. Shared
             * with the ambient-e() fallback so both paths agree.
-            _regtab_scale `"`_cmdword'"' `"`model_cmd_`m''"' `"`_optstr'"'
+            _regtab_scale `"`_cmdword'"' `"`_ecmd_m'"' `"`_optstr'"' ///
+                "`_pmode'" "`_rp_eform'"
             local model_coef_`m' `"`_rs_coef'"'
             local model_null_`m' = `_rs_null'
             local model_eform_`m' = `_rs_eform'
             local model_auto_noint_`m' = `_rs_noint'
             local model_level_`m' = `_rs_level'
+            if `_rp_level' != -1 local model_level_`m' = `_rp_level'
             local model_re_family_`m' "none"
             local model_is_gee_`m' 0
             * model_icc_undef = 1 means ICC is undefined for this model family
@@ -522,6 +570,12 @@ quietly{
                     local model_icc_resid_`m' = c(pi)^2/6
                 }
                 else local model_icc_undef_`m' 1
+                * In the time metric the random intercept acts on log time,
+                * not log hazard: a median *hazard* ratio would misname it.
+                * It stays a variance, as for mixed and meglm.
+                if "`_cmdword'" == "mestreg" & "`model_coef_`m''" == "TR" {
+                    local model_re_family_`m' "variance"
+                }
             }
             else if "`_cmdword'" == "mixed" {
                 local model_re_family_`m' "variance"
@@ -630,6 +684,93 @@ quietly{
     local noint `nointercept'
 
     * =========================================================================
+    * STRUCTURAL COEFFICIENT MAP
+    * =========================================================================
+    * Every coefficient's role (intercept, cutpoint, ancillary parameter,
+    * regression coefficient, random effect) comes from its equation and name
+    * in the collection, never from its display label: a covariate named or
+    * labelled p, alpha, constant, or cut1 is an ordinary coefficient. Ancillary
+    * parameters live in the "/" equation (lnalpha, ln_p, lnsigma, cut#, ...)
+    * and the "_diparm#" equations Stata derives from them (alpha, p, sigma,
+    * ...). Per model this records the ancillary, cutpoint, and ordinary names
+    * for the colname layout, the number of estimated parameters (coefficients
+    * with a standard error, outside the derived _diparm equations) for
+    * AIC/BIC/QICu, and the predictor variables for the methods sentence.
+    local _sm_n = 0
+    local _sm_collide ""
+    local _sm_has_coleq = 0
+    capture quietly collect levelsof coleq
+    if _rc == 0 & `"`s(levels)'"' != "" local _sm_has_coleq = 1
+    preserve
+    capture noisily {
+        if `_sm_has_coleq' {
+            _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
+                coldim(cmdset) results(_r_b _r_se) rowkeys
+            _regtab_eqkeys
+        }
+        else {
+            _tabtools_collect_render, type(main) rowdim(colname) ///
+                coldim(cmdset) results(_r_b _r_se) rowkeys
+            quietly generate strL _eq_key = ""
+        }
+        quietly ds A _raw_colname _eq_key, not
+        local _sm_vars `r(varlist)'
+        local _sm_n : word count `_sm_vars'
+        local _sm_n = floor(`_sm_n' / 2)
+        forvalues _m = 1/`_sm_n' {
+            foreach _sl in anc cut reg pred {
+                local _sm_`_sl'_`_m' ""
+            }
+            local _sm_k_`_m' = 0
+        }
+        forvalues _r = 3/`=_N' {
+            local _key = strtrim(_raw_colname[`_r'])
+            if `"`_key'"' == "" continue
+            local _eq = _eq_key[`_r']
+            _regtab_role `"`_eq'"' `"`_key'"'
+            forvalues _m = 1/`_sm_n' {
+                local _vb : word `=2*`_m'-1' of `_sm_vars'
+                local _vs : word `=2*`_m'' of `_sm_vars'
+                local _cb = strtrim(`_vb'[`_r'])
+                local _cs = subinstr(strtrim(`_vs'[`_r']), ",", "", .)
+                if `"`_cb'`_cs'"' == "" continue
+                if inlist("`_role'", "anc", "cut") {
+                    local _sm_`_role'_`_m' `"`_sm_`_role'_`_m'' `_key'"'
+                }
+                else if "`_role'" == "reg" {
+                    local _sm_reg_`_m' `"`_sm_reg_`_m'' `_key'"'
+                    * predictor variables: factor and interaction notation
+                    * reduced to the variable names it is built from
+                    local _kparts = subinstr(`"`_key'"', "#", " ", .)
+                    foreach _kp of local _kparts {
+                        local _kv = ustrregexra(`"`_kp'"', "^.*\.", "")
+                        if `"`_kv'"' != "" local _sm_pred_`_m' `"`_sm_pred_`_m'' `_kv'"'
+                    }
+                }
+                if !missing(real(`"`_cs'"')) & !regexm(`"`_eq'"', "^_diparm") {
+                    local ++_sm_k_`_m'
+                }
+            }
+        }
+        forvalues _m = 1/`_sm_n' {
+            foreach _sl in anc cut reg pred {
+                local _sm_`_sl'_`_m' : list uniq _sm_`_sl'_`_m'
+            }
+            local _sm_ac `"`_sm_anc_`_m'' `_sm_cut_`_m''"'
+            local _sm_both : list _sm_reg_`_m' & _sm_ac
+            foreach _k of local _sm_both {
+                local _sm_collide `"`_sm_collide' model `_m' (`_k')"'
+            }
+        }
+    }
+    local _sm_rc = _rc
+    restore
+    if `_sm_rc' {
+        noisily display as error "Could not map the collected coefficients to their equations"
+        exit `_sm_rc'
+    }
+
+    * =========================================================================
     * STORE MODEL STATISTICS BEFORE COLLECT EXPORT
     * =========================================================================
     * Store e() statistics for each model in the collection
@@ -648,6 +789,12 @@ quietly{
         local want_ll = 0
         local want_groups = 0
         local want_r2 = 0
+        local want_events = 0
+        local want_r2_a = 0
+        local want_rmse = 0
+        local want_F = 0
+        local want_mi_m = 0
+        local want_fmi = 0
 
         local stats_lower = " " + strlower("`stats'") + " "
         if strpos("`stats_lower'", " n ") local want_n = 1
@@ -658,6 +805,12 @@ quietly{
         if strpos("`stats_lower'", " ll ") local want_ll = 1
         if strpos("`stats_lower'", " groups ") local want_groups = 1
         if strpos("`stats_lower'", " r2 ") | strpos("`stats_lower'", " r-squared ") local want_r2 = 1
+        if strpos("`stats_lower'", " events ") local want_events = 1
+        if strpos("`stats_lower'", " r2_a ") local want_r2_a = 1
+        if strpos("`stats_lower'", " rmse ") local want_rmse = 1
+        if strpos("`stats_lower'", " f ") local want_F = 1
+        if strpos("`stats_lower'", " mi_m ") local want_mi_m = 1
+        if strpos("`stats_lower'", " fmi ") local want_fmi = 1
 
         * Aliases: treat n_sub / subjects as a request for the N row; regtab
         * already prefers N_sub (subjects) over N (rows) for survival models.
@@ -665,13 +818,13 @@ quietly{
             local want_n = 1
 
         * Warn (do not silently drop) on unrecognized stats() tokens.
-        local _stat_known " n n_sub subjects aic bic qic icc ll groups r2 r-squared "
+        local _stat_known " n n_sub subjects aic bic qic icc ll groups r2 r-squared events r2_a rmse f mi_m fmi "
         foreach _stok of local stats {
             local _stok_l = strlower("`_stok'")
             if !strpos("`_stat_known'", " `_stok_l' ") {
                 noisily display as error ///
                     "warning: stats() token '`_stok'' not recognized and ignored;" ///
-                    " valid: n (n_sub/subjects) aic bic qic icc ll groups r2"
+                    " valid: n (n_sub/subjects) events groups mi_m aic bic qic ll icc r2 r2_a rmse F fmi"
             }
         }
 
@@ -703,6 +856,12 @@ quietly{
         }
         if `want_groups' local result_levels "`result_levels' N_g"
         if `want_r2' local result_levels "`result_levels' r2 r2_p r2_a"
+        if `want_events' local result_levels "`result_levels' N_fail"
+        if `want_r2_a' local result_levels "`result_levels' r2_a"
+        if `want_rmse' local result_levels "`result_levels' rmse"
+        if `want_F' local result_levels "`result_levels' F"
+        if `want_mi_m' local result_levels "`result_levels' M_mi"
+        if `want_fmi' local result_levels "`result_levels' fmi_max_mi"
         local result_levels : list uniq result_levels
 
         if "`result_levels'" != "" {
@@ -743,6 +902,9 @@ quietly{
                     local stat_col_r2 ""
                     local stat_col_r2_p ""
                     local stat_col_r2_a ""
+                    foreach _sx in N_fail rmse F M_mi fmi_max_mi {
+                        local stat_col_`_sx' ""
+                    }
 
                     ds
                     local stat_allvars `r(varlist)'
@@ -760,6 +922,9 @@ quietly{
                         if "`hdr'" == "r2" local stat_col_r2 "`v'"
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
                         if "`hdr'" == "r2_a" local stat_col_r2_a "`v'"
+                        foreach _sx in N_fail rmse F M_mi fmi_max_mi {
+                            if "`hdr'" == "`_sx'" local stat_col_`_sx' "`v'"
+                        }
                     }
 
                     local n_stat_models = _N - 1
@@ -768,8 +933,12 @@ quietly{
                         local r = `m' + 1
 
                         * Extract each result level
-                        foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a {
+                        foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a ///
+                            N_fail rmse F M_mi fmi_max_mi {
                             if "`sname'" == "N_g" local lname "groups"
+                            else if "`sname'" == "N_fail" local lname "events"
+                            else if "`sname'" == "M_mi" local lname "mi_m"
+                            else if "`sname'" == "fmi_max_mi" local lname "fmi"
                             else local lname "`sname'"
                             local stat_`lname'_`m' = .
                             if "`stat_col_`sname''" != "" {
@@ -792,6 +961,24 @@ quietly{
                         * model by its own e(phi) would silently invalidate the
                         * comparison. The fixed-phi boundary is therefore
                         * deliberate and conservative.
+                        * k, the parameter count of AIC, BIC, and QICu: the
+                        * number of estimated parameters, whatever the vce.
+                        * Under a model-based vce that is e(rank) (as estat ic
+                        * uses; it also nets out linear constraints). Under a
+                        * robust-type vce e(rank) is the rank of the sandwich
+                        * variance, capped at G-1 with G clusters, while the
+                        * model still estimated every coefficient; k is then
+                        * the count of collected coefficients carrying a
+                        * standard error outside the derived _diparm equations.
+                        * Pan (2001) defines QICu's penalty as 2p with p the
+                        * number of model parameters, so QICu follows suit.
+                        local _k_param = `stat_rank_`m''
+                        local _vce_m ""
+                        if `m' <= `_meta_models' local _vce_m "`model_vce_`m''"
+                        if inlist("`_vce_m'", "robust", "cluster", "bootstrap", ///
+                            "jackknife", "linearized", "brr", "sdr") & `m' <= `_sm_n' {
+                            if `_sm_k_`m'' > 0 local _k_param = `_sm_k_`m''
+                        }
                         local stat_qic_`m' = .
                         local _this_is_gee = 0
                         if `m' <= `_meta_models' {
@@ -803,8 +990,8 @@ quietly{
                             local stat_aic_`m' = .
                             local stat_bic_`m' = .
                             if !missing(`stat_phi_`m'') & abs(`stat_phi_`m'' - 1) <= 1e-10 & ///
-                                !missing(`stat_deviance_`m'') & !missing(`stat_rank_`m'') {
-                                local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
+                                !missing(`stat_deviance_`m'') & !missing(`_k_param') {
+                                local stat_qic_`m' = `stat_deviance_`m'' + 2 * `_k_param'
                             }
                             else if (`want_qic' | `want_aic') {
                                 local _qicu_scale_unavailable ///
@@ -812,21 +999,21 @@ quietly{
                             }
                         }
 
-                        * AIC = -2*ll + 2*k. Always recompute from ll + rank when
+                        * AIC = -2*ll + 2*k. Always recompute from ll + k when
                         * both are present rather than trusting e(aic): glm (the GEE
                         * backend) stores e(aic) as AIC/N (per observation), ~N times
                         * too small. The formula matches estat ic for every ML/GLM
                         * estimator and keeps glm and mixed models on one scale.
-                        if !`_this_is_gee' & !missing(`stat_ll_`m'') & !missing(`stat_rank_`m'') {
-                            local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `stat_rank_`m''
+                        if !`_this_is_gee' & !missing(`stat_ll_`m'') & !missing(`_k_param') {
+                            local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `_k_param'
                         }
 
-                        * BIC = -2*ll + k*ln(N), likewise recomputed from ll + rank + N.
+                        * BIC = -2*ll + k*ln(N), likewise recomputed from ll + k + N.
                         * glm's e(bic) uses a deviance-based convention that is not
                         * comparable to the likelihood BIC mixed models report.
                         if !`_this_is_gee' & !missing(`stat_ll_`m'') & ///
-                            !missing(`stat_rank_`m'') & !missing(`stat_N_`m'') {
-                            local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
+                            !missing(`_k_param') & !missing(`stat_N_`m'') {
+                            local stat_bic_`m' = -2 * `stat_ll_`m'' + `_k_param' * ln(`stat_N_`m'')
                         }
 
                         * Prefer N_sub (subjects) over N (rows) for survival models
@@ -1423,6 +1610,75 @@ if _N < 3 {
 * display labels must never participate in coefficient identity recovery.
 confirm variable _raw_colname
 
+* Structural row roles, one variable per model column: cons, cut, anc (an
+* ancillary parameter shown under nointercept), ancd (one nointercept drops),
+* scale, re, or "" (an ordinary coefficient, or no cell). In the coleq layouts
+* each row carries its own equation, so the role is exact per row. In the
+* colname layout a row is one coefficient name across models, so each model's
+* role comes from the structural map built before rendering; a name that is
+* both an ordinary and an ancillary coefficient of the same model cannot be
+* shown in one row and is refused. Under nointercept the multi-equation layout
+* drops every ancillary row (its "Ancillary:" block); otherwise only lnalpha,
+* alpha, ln_p, p, and 1/p are dropped, and sigma-type parameters (lnsigma,
+* lngamma, ...) stay visible.
+if `_sm_n' * 3 + 2 != c(k) {
+    restore
+    noisily display as error "Could not align the collected models with their coefficient map"
+    exit 459
+}
+local _role_vars ""
+forvalues _m = 1/`_sm_n' {
+    quietly generate str5 _role_m`_m' = ""
+    local _role_vars "`_role_vars' _role_m`_m'"
+}
+local _anc_drop_names "lnalpha alpha ln_p p 1/p"
+if `_use_coleq_layout' {
+    capture noisily _regtab_eqkeys
+    if _rc {
+        local _eqk_rc = _rc
+        restore
+        exit `_eqk_rc'
+    }
+    forvalues _r = 3/`=_N' {
+        local _key = strtrim(_raw_colname[`_r'])
+        if `"`_key'"' == "" continue
+        local _eq = _eq_key[`_r']
+        _regtab_role `"`_eq'"' `"`_key'"'
+        if "`_role'" == "reg" continue
+        if "`_role'" == "anc" {
+            local _in_drop : list _key in _anc_drop_names
+            if `_is_multieq' | `_in_drop' local _role "ancd"
+        }
+        foreach _rv of local _role_vars {
+            quietly replace `_rv' = "`_role'" in `_r'
+        }
+    }
+    drop _eq_key
+}
+else {
+    if `"`_sm_collide'"' != "" {
+        restore
+        noisily display as error ///
+            "A coefficient name is both a covariate and an ancillary parameter of the same model:`_sm_collide'"
+        noisily display as error ///
+            "One row cannot show both; rename the covariate and refit"
+        exit 459
+    }
+    forvalues _m = 1/`_sm_n' {
+        foreach _k of local _sm_anc_`_m' {
+            local _in_drop : list _k in _anc_drop_names
+            local _rr = cond(`_in_drop', "ancd", "anc")
+            quietly replace _role_m`_m' = "`_rr'" if _n > 2 & strtrim(_raw_colname) == `"`_k'"'
+        }
+        foreach _k of local _sm_cut_`_m' {
+            quietly replace _role_m`_m' = "cut" if _n > 2 & strtrim(_raw_colname) == `"`_k'"'
+        }
+        quietly replace _role_m`_m' = "cons" if _n > 2 & strtrim(_raw_colname) == "_cons"
+        quietly replace _role_m`_m' = "re" if _n > 2 & ///
+            ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(")
+    }
+}
+
 * Flatten coleq#colname hierarchical layout for multi-level models
 * In coleq#colname layout, the exported structure is:
 *   Header rows: coleq values (equation labels: "y", "District", "School", "Residual")
@@ -1512,32 +1768,9 @@ if `_is_multilevel' {
     quietly generate str244 _fp_par = ""
     forvalues _fpr = 3/`=_N' {
         local _fp_key = strtrim(_raw_colname[`_fpr'])
-        if strpos(`"`_fp_key'"', ".") == 0 continue
-        * Mirrors the renderer's _tt_collect_factor_parent: "2.sex" -> "sex",
-        * "1.grp#c.x" -> "grp#x"; no factor component, or a level that is
-        * its own parent, gives no parent row.
-        local _fp_this ""
-        local _fp_hasfv 0
-        local _fp_bad 0
-        local _fp_parts = subinstr(`"`_fp_key'"', "#", " ", .)
-        local _fp_i 0
-        foreach _fp_p of local _fp_parts {
-            local ++_fp_i
-            local _fp_dot = strpos(`"`_fp_p'"', ".")
-            if `_fp_dot' > 1 & ///
-                regexm(substr(`"`_fp_p'"', 1, `_fp_dot' - 1), "^[0-9bon]*[0-9][0-9bon]*$") {
-                local _fp_p = substr(`"`_fp_p'"', `_fp_dot' + 1, .)
-                local _fp_hasfv 1
-            }
-            else if `_fp_dot' == 2 & substr(`"`_fp_p'"', 1, 1) == "c" {
-                local _fp_p = substr(`"`_fp_p'"', 3, .)
-            }
-            if `"`_fp_p'"' == "" local _fp_bad 1
-            if `_fp_i' == 1 local _fp_this `"`_fp_p'"'
-            else local _fp_this `"`_fp_this'#`_fp_p'"'
-        }
-        if `_fp_bad' | !`_fp_hasfv' | `"`_fp_this'"' == `"`_fp_key'"' continue
-        quietly replace _fp_par = `"`_fp_this'"' in `_fpr'
+        _regtab_fvparent `"`_fp_key'"'
+        if `"`_fp_parent'"' == "" continue
+        quietly replace _fp_par = `"`_fp_parent'"' in `_fpr'
     }
     quietly count if _n > 2 & _fp_par != ""
     if r(N) > 0 {
@@ -1604,7 +1837,7 @@ else if `_is_multieq' {
     * have estimates, so a table is never emptied.
     ds
     local _eqvars `r(varlist)'
-    local _eqhelpers "A _raw_colname _orig_row_order _is_header _parent_header _A_trim _eq_label"
+    local _eqhelpers "A _raw_colname _orig_row_order _is_header _parent_header _A_trim _eq_label `_role_vars'"
     local _eqvars : list _eqvars - _eqhelpers
     local _eq_ci_vars ""
     local _eqpos = 0
@@ -1631,25 +1864,77 @@ else if `_is_multieq' {
         drop _eq_row_data
     }
 
+    * Factor covariates: the single-equation layout's parent row ("Sex")
+    * above indented level rows ("  Male", "  Female"), once per consecutive
+    * run of levels inside each equation block, keyed on the raw colname.
+    quietly generate str244 _fp_par = ""
+    forvalues _fpr = 3/`=_N' {
+        if _is_header[`_fpr'] continue
+        local _fp_key = strtrim(_raw_colname[`_fpr'])
+        _regtab_fvparent `"`_fp_key'"'
+        if `"`_fp_parent'"' == "" continue
+        quietly replace _fp_par = `"`_fp_parent'"' in `_fpr'
+        forvalues _fvi = 1/`_fvrow_label_n' {
+            if `"`_fvrow_pat_`_fvi''"' == `"`_fp_key'"' {
+                quietly replace _A_trim = `"`_fvrow_lab_`_fvi''"' in `_fpr'
+            }
+        }
+    }
+    quietly count if _n > 2 & _fp_par != ""
+    if r(N) > 0 {
+        quietly generate long _fp_ord = _n
+        quietly generate byte _fp_new = _n > 2 & _fp_par != "" & _fp_par != _fp_par[_n - 1]
+        quietly expand 2 if _fp_new, generate(_fp_dup)
+        quietly ds A _raw_colname _fp_par _fp_ord _fp_new _fp_dup ///
+            _is_header _parent_header _eq_label _orig_row_order, not
+        foreach _fpv in `r(varlist)' {
+            capture confirm string variable `_fpv'
+            if _rc == 0 quietly replace `_fpv' = "" if _fp_dup
+            else quietly replace `_fpv' = . if _fp_dup
+        }
+        quietly replace _raw_colname = _fp_par if _fp_dup
+        quietly replace _A_trim = _fp_par if _fp_dup
+        forvalues _fvp = 1/`_fvrow_parent_n' {
+            quietly replace _A_trim = `"`_fvrow_parent_lab_`_fvp''"' ///
+                if _fp_dup & _fp_par == `"`_fvrow_parent_var_`_fvp''"'
+        }
+        gsort _fp_ord -_fp_dup
+        drop _fp_ord _fp_new _fp_dup
+    }
+    drop _fp_par
+
     replace A = _eq_label + ": " + _A_trim ///
-        if !_is_header & _eq_label != "" & _A_trim != "" & _n > 2
+        if !_is_header & _eq_label != "" & strtrim(_A_trim) != "" & _n > 2
     drop if _is_header
     drop _is_header _parent_header _A_trim _eq_label _orig_row_order
 }
 
+* nointercept drops intercept, cutpoint, and dropped-ancillary cells by their
+* structural role. A row goes only when every model with a cell in it has such
+* a role; a model's cell is blanked when another model's cell in the same row is
+* an ordinary coefficient that must stay.
 if "`noint'" != "" {
-    gen str244 _noint_row = strlower(strtrim(A)) if _n > 2
-    drop if _n > 2 & ( ///
-        regexm(_noint_row, "^(intercept|_cons|constant)$") ///
-        | regexm(_noint_row, ": +(intercept|_cons|constant)$") ///
-        | regexm(_noint_row, "^/?cut[0-9]+$") ///
-        | regexm(_noint_row, ": +/?cut[0-9]+$") ///
-        | regexm(_noint_row, "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)") ///
-        | regexm(_noint_row, ": +(/|alpha|lnalpha|ln_p|p|1/p)$") ///
-        | regexm(_noint_row, "^ancillary:") ///
-        | regexm(_noint_row, "^scale:") ///
-    )
-    capture drop _noint_row
+    quietly ds A _raw_colname `_role_vars', not
+    local _ni_vars `r(varlist)'
+    quietly generate byte _ni_keep = 0
+    quietly generate byte _ni_drop = 0
+    quietly generate byte _ni_has = 0
+    forvalues _m = 1/`_sm_n' {
+        local _v1 : word `=3*`_m'-2' of `_ni_vars'
+        local _v2 : word `=3*`_m'-1' of `_ni_vars'
+        local _v3 : word `=3*`_m'' of `_ni_vars'
+        quietly replace _ni_has = strtrim(`_v1') != "" | strtrim(`_v2') != "" | strtrim(`_v3') != ""
+        quietly replace _ni_drop = 1 if _n > 2 & _ni_has ///
+            & inlist(_role_m`_m', "cons", "cut", "ancd", "scale")
+        quietly replace _ni_keep = 1 if _n > 2 & _ni_has ///
+            & !inlist(_role_m`_m', "cons", "cut", "ancd", "scale")
+        foreach _v in `_v1' `_v2' `_v3' {
+            quietly replace `_v' = "" if _n > 2 ///
+                & inlist(_role_m`_m', "cons", "cut", "ancd", "scale")
+        }
+    }
+    drop if _n > 2 & _ni_drop & !_ni_keep
+    drop _ni_keep _ni_drop _ni_has
 }
 
 if "`nore'" != "" {
@@ -1882,7 +2167,7 @@ else if "`re_transform'" == "mhr" & "`nore'" == "" {
 * Get all variables - first variable is row labels, rest are data columns
 ds
 local allvars `r(varlist)'
-local _helper_vars "_is_re _is_re_intercept _re_group_label _raw_colname"
+local _helper_vars "_is_re _is_re_intercept _re_group_label _raw_colname `_role_vars'"
 local allvars : list allvars - _helper_vars
 
 * Get the first variable name (row labels column)
@@ -2059,10 +2344,17 @@ if `"`cutlabels'"' != "" {
             local _cut_label_`_cut_n' `"`_cut_piece'"'
         }
     }
+    * Only rows some model holds as a cutpoint (structural role), so a
+    * covariate named cut1 keeps its own label.
+    quietly generate byte _cut_row = 0
+    foreach _rv of local _role_vars {
+        quietly replace _cut_row = 1 if `_rv' == "cut"
+    }
     forvalues _cut_i = 1/`_cut_n' {
         replace A = `"`_cut_label_`_cut_i''"' ///
-            if _n >= 3 & regexm(strlower(strtrim(A)), "^/?cut`_cut_i'$")
+            if _n >= 3 & _cut_row & strtrim(_raw_A) == "cut`_cut_i'"
     }
+    drop _cut_row
 }
 
 * Match raw names and factor components exactly and case-sensitively.
@@ -2108,12 +2400,10 @@ if r(N) > 0 local first_re_row = r(min)
 drop _re_rowid
 
 local last = `n' - 2
+* Ancillary parameters and cutpoints keep their own scale under any header.
+* Set per model inside the loops below from the structural role (R1), so the
+* same row can hold one model's ancillary parameter and another's covariate.
 gen byte _is_ancillary = 0
-replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)")
-replace _is_ancillary = 1 if _n > 2 & ///
-    regexm(strlower(strtrim(A)), ": +(/|alpha|lnalpha|ln_p|p|1/p)$")
-replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(_raw_A)), "^/?cut[0-9]+$")
-replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^/?cut[0-9]+$")
 if "`dimnonsig'" != "" {
     capture drop _nonsig _ci_seen
     gen byte _nonsig = (_n >= 3)
@@ -2127,6 +2417,9 @@ forvalues i = 1(3)`last'{
 local _model_ix = `_model_ix' + 1
 local _needs_eform = 0
 if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
+quietly replace _is_ancillary = 0
+capture confirm variable _role_m`_model_ix'
+if _rc == 0 quietly replace _is_ancillary = inlist(_role_m`_model_ix', "anc", "ancd", "cut") if _n > 2
 * Strip thousands separators (collect's %#.#fc nformat emits "1,234.56") so
 * destring can parse coefficients >= 1000 instead of returning missing.
 replace c`i' = subinstr(c`i', ",", "", .) if _n >= 3
@@ -2209,6 +2502,9 @@ forvalues i = 2(3)`=`last'+1' {
     }
     capture confirm variable c`i'
     if _rc continue
+    quietly replace _is_ancillary = 0
+    capture confirm variable _role_m`_model_ix'
+    if _rc == 0 quietly replace _is_ancillary = inlist(_role_m`_model_ix', "anc", "ancd", "cut") if _n > 2
     gen _ci_raw = strtrim(c`i') if _n >= 3
     replace _ci_raw = subinstr(subinstr(_ci_raw, "(", "", 1), ")", "", 1)
     * Strip thousands separators (collect's %#.#fc nformat emits "(1,234.56,
@@ -2481,12 +2777,27 @@ if `_mat_nrows' > 0 {
             if _rc == 0 local _rn_back : rownames `_rn_probe'
             if `"`_rn_back'"' != `"`_rname'"' local _rname "row`_mr'"
         }
+        * Names must also be unique: two labels that sanitise or truncate to
+        * the same name ("Same label" twice, "Age (years)" and "Age [years]",
+        * a shared 32-character prefix) made r(table) rows indistinguishable.
+        * A repeat takes the first free suffix _2, _3, ... in row order,
+        * shortening the base so the name stays within 32 characters.
+        local _rn_base `"`_rname'"'
+        local _rn_sfx = 1
+        local _rn_taken : list _rname in _rnames
+        while `_rn_taken' {
+            local ++_rn_sfx
+            local _rn_tail "_`_rn_sfx'"
+            local _rname = substr(`"`_rn_base'"', 1, 32 - strlen("`_rn_tail'")) + "`_rn_tail'"
+            local _rn_taken : list _rname in _rnames
+        }
         local _rnames `"`_rnames' `_rname'"'
     }
     capture matrix rownames `_rtable' = `_rnames'
 }
 capture drop _coefnum*
 drop _is_re _is_re_intercept _is_ancillary
+capture drop _role_m*
 capture drop _re_group_label
 capture drop _raw_A
 capture drop _ci_seen
@@ -2500,6 +2811,30 @@ local stats_rows = ""
 if `add_stats' == 1 {
     local stats_start_row = _N + 1
     local use_models = min(`n_stat_models', `n_models')
+
+    * F statistic only for linear-model F tests (regress/anova type); a
+    * svy: logit also stores e(F), which is not that statistic.
+    forvalues m = 1/`use_models' {
+        if `want_F' {
+            local _fcmd ""
+            if `m' <= `_meta_models' local _fcmd "`model_cmdword_`m''"
+            if !inlist("`_fcmd'", "regress", "anova", "areg", "xtreg", "ivregress", "cnsreg") {
+                local stat_F_`m' = .
+            }
+        }
+    }
+    local _nr_lab_events "Events"
+    local _nr_fmt_events "%12.0fc"
+    local _nr_lab_mi_m "Imputations"
+    local _nr_fmt_mi_m "%12.0fc"
+    local _nr_lab_r2_a "Adjusted R²"
+    local _nr_fmt_r2_a "%5.3f"
+    local _nr_lab_rmse "Root MSE"
+    local _nr_fmt_rmse "%9.3f"
+    local _nr_lab_F "F statistic"
+    local _nr_fmt_F "%9.2f"
+    local _nr_lab_fmi "Largest FMI"
+    local _nr_fmt_fmi "%6.4f"
 
     * Add N row
     if `want_n' == 1 {
@@ -2522,6 +2857,26 @@ if `add_stats' == 1 {
         }
     }
 
+
+    foreach _nt in events {
+        if `want_`_nt'' != 1 continue
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') local has_val = 1
+        }
+        if !`has_val' continue
+        local curr_n = _N
+        set obs `=`curr_n'+1'
+        replace A = `"`_nr_lab_`_nt''"' in `=`curr_n'+1'
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') {
+                local col = (`m' - 1) * 3 + 1
+                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+            }
+        }
+        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    }
+
     * Add Groups row
     if `want_groups' == 1 {
         local has_val = 0
@@ -2540,6 +2895,25 @@ if `add_stats' == 1 {
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
         }
+    }
+
+    foreach _nt in mi_m {
+        if `want_`_nt'' != 1 continue
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') local has_val = 1
+        }
+        if !`has_val' continue
+        local curr_n = _N
+        set obs `=`curr_n'+1'
+        replace A = `"`_nr_lab_`_nt''"' in `=`curr_n'+1'
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') {
+                local col = (`m' - 1) * 3 + 1
+                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+            }
+        }
+        local stats_rows = "`stats_rows' `=`curr_n'+1'"
     }
 
     * Add AIC row (falls back to QICu for fixed-scale GEE models where AIC is
@@ -2697,6 +3071,25 @@ if `add_stats' == 1 {
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
         }
+    }
+
+    foreach _nt in r2_a rmse F fmi {
+        if `want_`_nt'' != 1 continue
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') local has_val = 1
+        }
+        if !`has_val' continue
+        local curr_n = _N
+        set obs `=`curr_n'+1'
+        replace A = `"`_nr_lab_`_nt''"' in `=`curr_n'+1'
+        forvalues m = 1/`use_models' {
+            if !missing(`stat_`_nt'_`m'') {
+                local col = (`m' - 1) * 3 + 1
+                replace c`col' = string(`stat_`_nt'_`m'', "`_nr_fmt_`_nt''") in `=`curr_n'+1'
+            }
+        }
+        local stats_rows = "`stats_rows' `=`curr_n'+1'"
     }
 
     local stats_rows = strtrim("`stats_rows'")
@@ -2910,6 +3303,55 @@ else {
 }
 if `n_models' > 1 local _methods_multi " across `n_models' models"
 else local _methods_multi ""
+* With per-model metadata the sentence names what each model is: the estimate
+* scale the model reports (not a coef()/cdisc relabel of the header), the
+* model built from its command, family, link, metric, and prefixes, and
+* "univariable" or "multivariable" from the number of predictor variables in
+* the collected coefficients (a factor variable counts once). The header-based
+* sentence above remains the fallback for a collection without metadata.
+if !`_model_headers_mixed' & `_meta_models' > 0 {
+    local _mc `"`model_coef_1'"'
+    if "`_mc'" == "OR" local _methods_coef "Odds ratios"
+    else if "`_mc'" == "HR" local _methods_coef "Hazard ratios"
+    else if "`_mc'" == "TR" local _methods_coef "Time ratios"
+    else if "`_mc'" == "IRR" local _methods_coef "Incidence rate ratios"
+    else if "`_mc'" == "RRR" local _methods_coef "Relative risk ratios"
+    else if "`_mc'" == "SHR" local _methods_coef "Subhazard ratios"
+    else if "`_mc'" == "RR" local _methods_coef "Risk ratios"
+    else if "`_mc'" == "exp(b)" local _methods_coef "Exponentiated coefficients"
+    else if "`_mc'" == "Coef." local _methods_coef "Coefficients"
+    local _mnouns ""
+    local _mn_n = 0
+    local _madjs ""
+    forvalues m = 1/`_meta_models' {
+        _regtab_modelnoun "`model_cmdword_`m''" `"`model_optstr_`m''"' ///
+            "`model_coef_`m''" "`model_prefix_`m''"
+        local _seen = 0
+        forvalues _j = 1/`_mn_n' {
+            if `"`_mnoun_`_j''"' == `"`_mnoun'"' local _seen = 1
+        }
+        if !`_seen' {
+            local ++_mn_n
+            local _mnoun_`_mn_n' `"`_mnoun'"'
+        }
+        local _npred = 0
+        if `m' <= `_sm_n' local _npred : word count `_sm_pred_`m''
+        if `_npred' == 1 local _madjs "`_madjs' univariable"
+        else if `_npred' > 1 local _madjs "`_madjs' multivariable"
+    }
+    local _madjs : list uniq _madjs
+    local _madj ""
+    local _na : word count `_madjs'
+    if `_na' == 1 local _madj "`_madjs' "
+    else if `_na' == 2 local _madj "univariable and multivariable "
+    local _methods_model `"`_mnoun_1'"'
+    forvalues _j = 2/`_mn_n' {
+        if `_j' < `_mn_n' local _methods_model `"`_methods_model', `_mnoun_`_j''"'
+        else if `_mn_n' == 2 local _methods_model `"`_methods_model' and `_mnoun_`_j''"'
+        else local _methods_model `"`_methods_model', and `_mnoun_`_j''"'
+    }
+    local _methods "`_methods_coef' with `_ci_level'% confidence intervals from `_madj'`_methods_model'`_methods_multi'."
+}
 if "`_methods'" == "" local _methods "`_methods_coef' with `_ci_level'% confidence intervals from multivariable `_methods_model'`_methods_multi'."
 if "`stars'" != "" local _methods "`_methods' Statistical significance denoted as * p<`_sl1', ** p<`_sl2', *** p<`_sl3'."
 local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
@@ -2940,6 +3382,9 @@ if `add_stats' == 1 {
         if `want_ll'  & !missing(`stat_ll_`m'')           return scalar ll_`m'     = `stat_ll_`m''
         if `want_n'   & !missing(`stat_N_`m'')            return scalar n_`m'      = `stat_N_`m''
         if `want_groups' & !missing(`stat_groups_`m'')    return scalar groups_`m' = `stat_groups_`m''
+        foreach _nt in events mi_m r2_a rmse F fmi {
+            if `want_`_nt'' & !missing(`stat_`_nt'_`m'') return scalar `_nt'_`m' = `stat_`_nt'_`m''
+        }
     }
     if `want_icc' {
         local _ret_icc_models = min(`n_icc_models', `n_models')
@@ -3417,6 +3862,281 @@ end
 *
 
 * =============================================================================
+* _regtab_modelnoun: the model named in the methods sentence
+* =============================================================================
+* Usage: _regtab_modelnoun "<command word>" `"<option text>"' "<scale>" "<prefixes>"
+* Returns _mnoun in the caller, built from the estimation command, glm/xtgee
+* family and link, the survival metric (the scale header: HR or TR), and the
+* estimation prefixes; never from a coef() or cdisc relabel.
+capture program drop _regtab_modelnoun
+program define _regtab_modelnoun, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _w 0 : 0
+		gettoken _o 0 : 0
+		gettoken _sc 0 : 0
+		gettoken _pf 0 : 0
+		local _w = lower(`"`_w'"')
+		local _n ""
+		local _me ""
+		if inlist("`_w'", "melogit", "meprobit", "mecloglog", "mepoisson", "menbreg", ///
+			"meologit", "meoprobit", "mestreg", "meglm") | ///
+			inlist("`_w'", "meintreg", "metobit", "meqrlogit", "meqrpoisson") {
+			local _me "mixed-effects "
+			local _w = substr("`_w'", 3, .)
+		}
+		if inlist("`_w'", "glm", "xtgee") {
+			_regtab_cmdopts "Family(string) Link(string)" `"`_o'"'
+			gettoken _fam : _ro_family
+			gettoken _lnk : _ro_link
+			local _fam = lower(`"`_fam'"')
+			local _lnk = lower(`"`_lnk'"')
+			local _fl = strlen(`"`_fam'"')
+			local _ll = strlen(`"`_lnk'"')
+			local _f "other"
+			if `_fl' == 0 local _f "gaussian"
+			else if `"`_fam'"' == substr("gaussian", 1, max(`_fl', 3)) | ///
+				`"`_fam'"' == substr("normal", 1, `_fl') local _f "gaussian"
+			else if `"`_fam'"' == substr("igaussian", 1, max(`_fl', 2)) local _f "igaussian"
+			else if `"`_fam'"' == substr("binomial", 1, `_fl') | ///
+				`"`_fam'"' == substr("bernoulli", 1, `_fl') local _f "binomial"
+			else if `"`_fam'"' == substr("poisson", 1, `_fl') local _f "poisson"
+			else if `"`_fam'"' == substr("nbinomial", 1, max(2, `_fl')) local _f "nbinomial"
+			else if `"`_fam'"' == substr("gamma", 1, max(3, `_fl')) local _f "gamma"
+			local _l "other"
+			if `_ll' == 0 {
+				if "`_f'" == "binomial" local _l "logit"
+				else if inlist("`_f'", "poisson", "nbinomial") local _l "log"
+				else if "`_f'" == "gaussian" local _l "identity"
+				else if "`_f'" == "gamma" local _l "reciprocal"
+			}
+			else if `"`_lnk'"' == substr("identity", 1, `_ll') local _l "identity"
+			else if `"`_lnk'"' == "log" local _l "log"
+			else if `"`_lnk'"' == substr("logit", 1, `_ll') local _l "logit"
+			else if `"`_lnk'"' == substr("probit", 1, `_ll') local _l "probit"
+			else if `"`_lnk'"' == substr("cloglog", 1, `_ll') local _l "cloglog"
+			else if `"`_lnk'"' == substr("reciprocal", 1, `_ll') local _l "reciprocal"
+			if "`_f'" == "binomial" & "`_l'" == "logit" local _n "logistic regression"
+			else if "`_f'" == "binomial" & "`_l'" == "probit" local _n "probit regression"
+			else if "`_f'" == "binomial" & "`_l'" == "cloglog" local _n "complementary log-log regression"
+			else if "`_f'" == "binomial" & "`_l'" == "log" local _n "log-binomial regression"
+			else if "`_f'" == "poisson" & "`_l'" == "log" local _n "Poisson regression"
+			else if "`_f'" == "nbinomial" & "`_l'" == "log" local _n "negative binomial regression"
+			else if "`_f'" == "gaussian" & "`_l'" == "identity" local _n "linear regression"
+			else if "`_f'" == "gamma" & "`_l'" == "log" local _n "gamma regression with a log link"
+			else {
+				local _fn = cond("`_f'" == "other", `"`_fam'"', "`_f'")
+				local _lnn = cond("`_l'" == "other", `"`_lnk'"', "`_l'")
+				local _n "generalized linear model (`_fn' family, `_lnn' link)"
+			}
+			if "`_w'" == "xtgee" local _n "generalized estimating equation (GEE) `_n'"
+		}
+		else if inlist("`_w'", "logit", "logistic", "qrlogit") local _n "logistic regression"
+		else if "`_w'" == "probit" local _n "probit regression"
+		else if "`_w'" == "cloglog" local _n "complementary log-log regression"
+		else if inlist("`_w'", "poisson", "qrpoisson") local _n "Poisson regression"
+		else if "`_w'" == "nbreg" local _n "negative binomial regression"
+		else if "`_w'" == "gnbreg" local _n "generalized negative binomial regression"
+		else if "`_w'" == "zip" local _n "zero-inflated Poisson regression"
+		else if "`_w'" == "zinb" local _n "zero-inflated negative binomial regression"
+		else if "`_w'" == "regress" local _n "linear regression"
+		else if "`_w'" == "ologit" local _n "ordered logistic regression"
+		else if "`_w'" == "oprobit" local _n "ordered probit regression"
+		else if "`_w'" == "mlogit" local _n "multinomial logistic regression"
+		else if "`_w'" == "mprobit" local _n "multinomial probit regression"
+		else if "`_w'" == "stcox" local _n "Cox proportional hazards regression"
+		else if "`_w'" == "streg" {
+			if "`_sc'" == "HR" local _n "parametric proportional hazards survival regression"
+			else local _n "accelerated failure-time survival regression"
+		}
+		else if inlist("`_w'", "stcrreg", "finegray") local _n "Fine-Gray competing-risks regression"
+		else if "`_w'" == "mixed" local _n "linear mixed-effects regression"
+		else if "`_w'" == "tobit" local _n "tobit regression"
+		else if "`_w'" == "intreg" local _n "interval regression"
+		else if "`_w'" == "xtreg" local _n "linear panel-data regression"
+		else if "`_w'" == "xtlogit" local _n "panel-data logistic regression"
+		else if "`_w'" == "xtpoisson" local _n "panel-data Poisson regression"
+		else if "`_w'" == "churdle" local _n "Cragg hurdle regression"
+		else local _n "regression"
+		local _n "`_me'`_n'"
+		if strpos(" `_pf' ", " svy ") local _n "survey-weighted `_n'"
+		if strpos(" `_pf' ", " mi ") local _n "`_n' with multiple imputation"
+		if strpos(" `_pf' ", " bootstrap ") local _n "`_n' with bootstrap standard errors"
+		if strpos(" `_pf' ", " jackknife ") local _n "`_n' with jackknife standard errors"
+		c_local _mnoun `"`_n'"'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_fvparent: factor parent of a raw colname key
+* =============================================================================
+* Mirrors the renderer's _tt_collect_factor_parent: "2.sex" -> "sex",
+* "1.grp#c.x" -> "grp#x". No factor component, or a level that is its own
+* parent, returns an empty _fp_parent in the caller.
+capture program drop _regtab_fvparent
+program define _regtab_fvparent, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _fp_key 0 : 0
+		local _fp_this ""
+		if strpos(`"`_fp_key'"', ".") > 0 {
+			local _fp_hasfv 0
+			local _fp_bad 0
+			local _fp_parts = subinstr(`"`_fp_key'"', "#", " ", .)
+			local _fp_i 0
+			foreach _fp_p of local _fp_parts {
+				local ++_fp_i
+				local _fp_dot = strpos(`"`_fp_p'"', ".")
+				if `_fp_dot' > 1 & ///
+					regexm(substr(`"`_fp_p'"', 1, `_fp_dot' - 1), "^[0-9bon]*[0-9][0-9bon]*$") {
+					local _fp_p = substr(`"`_fp_p'"', `_fp_dot' + 1, .)
+					local _fp_hasfv 1
+				}
+				else if `_fp_dot' == 2 & substr(`"`_fp_p'"', 1, 1) == "c" {
+					local _fp_p = substr(`"`_fp_p'"', 3, .)
+				}
+				if `"`_fp_p'"' == "" local _fp_bad 1
+				if `_fp_i' == 1 local _fp_this `"`_fp_p'"'
+				else local _fp_this `"`_fp_this'#`_fp_p'"'
+			}
+			if `_fp_bad' | !`_fp_hasfv' | `"`_fp_this'"' == `"`_fp_key'"' local _fp_this ""
+		}
+		c_local _fp_parent `"`_fp_this'"'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_eqkeys: equation key of every row of a coleq#colname rendering
+* =============================================================================
+* The renderer marks an equation's header row with an empty raw key and prints
+* its label; headers appear in the order of the coleq levels, one per level
+* with data. Walking that order maps each header back to its level (so a
+* dependent variable labelled "/" is never read as the ancillary equation),
+* and every row below it inherits the level in _eq_key.
+capture program drop _regtab_eqkeys
+program define _regtab_eqkeys, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		* Same level order and labels as the renderer's dimension helper:
+		* collect's level order, purely numeric levels sorted numerically,
+		* the .m total level last, and a level's label defaulting to itself.
+		quietly collect levelsof coleq
+		local _levels `"`s(levels)'"'
+		local _ord ""
+		local _tot ""
+		local _allnum = 1
+		foreach _lev of local _levels {
+			if "`_lev'" == ".m" local _tot "`_tot' `_lev'"
+			else {
+				local _ord "`_ord' `_lev'"
+				if missing(real("`_lev'")) local _allnum = 0
+			}
+		}
+		if `_allnum' & "`_ord'" != "" {
+			local _nn : word count `_ord'
+			tempname _lm
+			matrix `_lm' = J(`_nn', 1, .)
+			forvalues _i = 1/`_nn' {
+				local _lev : word `_i' of `_ord'
+				matrix `_lm'[`_i', 1] = real("`_lev'")
+			}
+			mata: st_matrix("`_lm'", sort(st_matrix("`_lm'"), 1))
+			local _ord ""
+			forvalues _i = 1/`_nn' {
+				local _ord "`_ord' `=`_lm'[`_i', 1]'"
+			}
+		}
+		local _levels = strtrim("`_ord' `_tot'")
+		local _lk = 0
+		capture quietly collect label list coleq
+		if _rc == 0 {
+			local _lk = real("`s(k)'")
+			if missing(`_lk') local _lk = 0
+			forvalues _i = 1/`_lk' {
+				local _mlev_`_i' `"`s(level`_i')'"'
+				local _mlab_`_i' `"`s(label`_i')'"'
+			}
+		}
+		local _en : word count `_levels'
+		forvalues _e = 1/`_en' {
+			local _elev_`_e' : word `_e' of `_levels'
+			local _elab_`_e' `"`_elev_`_e''"'
+			forvalues _i = 1/`_lk' {
+				if `"`_mlev_`_i''"' == `"`_elev_`_e''"' local _elab_`_e' `"`_mlab_`_i''"'
+			}
+			local _elab_`_e' = strtrim(`"`_elab_`_e''"')
+		}
+		quietly generate strL _eq_key = ""
+		local _ep = 0
+		local _cur ""
+		forvalues _r = 3/`=_N' {
+			if strtrim(_raw_colname[`_r']) == "" {
+				local _hl = strtrim(A[`_r'])
+				local _found = 0
+				forvalues _e = `=`_ep'+1'/`_en' {
+					if `"`_elab_`_e''"' == `"`_hl'"' {
+						local _ep = `_e'
+						local _cur `"`_elev_`_e''"'
+						local _found = 1
+						continue, break
+					}
+				}
+				if !`_found' {
+					display as error `"equation header "`_hl'" does not match a collected equation"'
+					exit 459
+				}
+			}
+			quietly replace _eq_key = `"`_cur'"' in `_r'
+		}
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_role: structural role of one collected coefficient
+* =============================================================================
+* Usage: _regtab_role "<coleq level>" "<colname level>"
+* Returns _role in the caller: cons (_cons in any equation), re (a random-
+* effects parameter), cut (cut# in the ancillary equation), anc (any other
+* parameter of the "/" or _diparm# equations), scale (a coefficient of an
+* lnsigma scale equation), or reg (an ordinary coefficient).
+capture program drop _regtab_role
+program define _regtab_role, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _rr_eq 0 : 0
+		gettoken _rr_key 0 : 0
+		local _rr_anceq = (`"`_rr_eq'"' == "/" | regexm(`"`_rr_eq'"', "^_diparm"))
+		if `"`_rr_key'"' == "_cons" local _rr "cons"
+		else if ustrregexm(`"`_rr_key'"', "^(var|cov|sd|corr)\(") local _rr "re"
+		else if `_rr_anceq' & regexm(`"`_rr_key'"', "^cut[0-9]+$") local _rr "cut"
+		else if `_rr_anceq' local _rr "anc"
+		else if lower(`"`_rr_eq'"') == "lnsigma" local _rr "scale"
+		else local _rr "reg"
+		c_local _role "`_rr'"
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
 * _regtab_optstr: display-option text of a collected command line
 * =============================================================================
 * Returns, in the caller's local <target>, the text after the option comma of
@@ -3424,11 +4144,17 @@ end
 * string is not a separator, so a comma in an if() expression cannot start the
 * option list, and nothing before the option comma (a covariate literally
 * named "or", say) is ever read as an option.
-* A svy prefix ("svy [vcetype][, svy options]: cmd ...", as e(cmdline) records
-* it) is set aside first: <target>_line receives the command line after the
-* first colon outside parentheses and quotes, so the caller classifies the
-* estimation command and svy's own options are never read as display options.
-* Any other command line is returned unchanged in <target>_line.
+* Estimation prefixes ("svy [vcetype][, opts]:", "bootstrap|bs|bstrap
+* [, opts]:", "jackknife|jknife [, opts]:", "mi estimate [, opts]:", nested
+* in any order, as e(cmdline) and e(cmdline_mi) record them) are set aside
+* first: <target>_line receives the command line after the last prefix colon
+* (a colon outside parentheses and quotes), so the caller classifies the
+* estimation command and a prefix's options are never read as the command's
+* display options. <target>_prefix lists the prefixes found (svy, bootstrap,
+* jackknife, mi), and <target>_prefopt holds the option text of the
+* bootstrap, jackknife, and mi estimate prefixes (svy's options are not
+* display options and are not returned). Any other command line is returned
+* unchanged in <target>_line with empty prefix locals.
 capture program drop _regtab_optstr
 program define _regtab_optstr, nclass
 	version 17.0
@@ -3437,14 +4163,27 @@ program define _regtab_optstr, nclass
 	capture noisily {
 		gettoken _ro_target 0 : 0
 		gettoken _ro_str 0 : 0
-		if regexm(strtrim(`"`_ro_str'"'), "^svy([ ,:]|$)") {
+		local _ro_prefix ""
+		local _ro_prefopt ""
+		local _ro_more 1
+		while `_ro_more' {
+			local _ro_more 0
+			local _ro_str = strtrim(`"`_ro_str'"')
+			local _ro_lc = lower(`"`_ro_str'"')
+			local _ro_pname ""
+			if regexm(`"`_ro_lc'"', "^svy([ ,:]|$)") local _ro_pname "svy"
+			else if regexm(`"`_ro_lc'"', "^(bootstrap|bstrap|bs)([ ,:]|$)") local _ro_pname "bootstrap"
+			else if regexm(`"`_ro_lc'"', "^(jackknife|jknife)([ ,:]|$)") local _ro_pname "jackknife"
+			else if regexm(`"`_ro_lc'"', "^mi +est(i|im|ima|imat|imate)?([ ,:]|$)") local _ro_pname "mi"
+			if "`_ro_pname'" == "" continue, break
 			local _ro_len = strlen(`"`_ro_str'"')
 			local _ro_depth 0
 			local _ro_inq 0
+			local _ro_comma 0
 			local _ro_i 1
 			while `_ro_i' <= `_ro_len' {
-				* 1 quote, 2 (, 3 ), 4 colon, 0 anything else
-				local _ro_k = strpos(char(34) + "():", ///
+				* 1 quote, 2 (, 3 ), 4 colon, 5 comma, 0 anything else
+				local _ro_k = strpos(char(34) + "():,", ///
 					substr(`"`_ro_str'"', `_ro_i', 1))
 				if `_ro_inq' {
 					if `_ro_k' == 1 local _ro_inq 0
@@ -3452,13 +4191,24 @@ program define _regtab_optstr, nclass
 				else if `_ro_k' == 1 local _ro_inq 1
 				else if `_ro_k' == 2 local ++_ro_depth
 				else if `_ro_k' == 3 & `_ro_depth' > 0 local --_ro_depth
+				else if `_ro_k' == 5 & `_ro_depth' == 0 & !`_ro_comma' {
+					local _ro_comma = `_ro_i'
+				}
 				else if `_ro_k' == 4 & `_ro_depth' == 0 {
+					if "`_ro_pname'" != "svy" & `_ro_comma' > 0 {
+						local _ro_prefopt = `"`_ro_prefopt' "' + ///
+							substr(`"`_ro_str'"', `_ro_comma' + 1, `_ro_i' - `_ro_comma' - 1)
+					}
+					local _ro_prefix `"`_ro_prefix' `_ro_pname'"'
 					local _ro_str = strtrim(substr(`"`_ro_str'"', `_ro_i' + 1, .))
+					local _ro_more 1
 					continue, break
 				}
 				local ++_ro_i
 			}
 		}
+		c_local `_ro_target'_prefix = strtrim(`"`_ro_prefix'"')
+		c_local `_ro_target'_prefopt = strtrim(`"`_ro_prefopt'"')
 		c_local `_ro_target'_line `"`_ro_str'"'
 		local _ro_len = strlen(`"`_ro_str'"')
 		local _ro_depth 0
@@ -3544,6 +4294,40 @@ program define _regtab_cmdopts, nclass
 end
 
 * =============================================================================
+* _regtab_prefopts: display options given to an estimation prefix
+* =============================================================================
+* Usage: _regtab_prefopts `"<prefix option text>"'
+* Returns in the caller _rp_eform (1 when the text carries an eform option:
+* or, hr, shr, irr, rrr, tr, eform, or eform(string)) and _rp_level (the
+* level() value, or -1). Text that -syntax- cannot parse returns 0 and -1.
+capture program drop _regtab_prefopts
+program define _regtab_prefopts, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		gettoken _rp_text 0 : 0
+		local _rp_e 0
+		local _rp_l = -1
+		local 0 `", `_rp_text'"'
+		capture syntax [, OR HR SHR IRR RRR TR EFORM Level(string) *]
+		if _rc == 0 {
+			if "`or'`hr'`shr'`irr'`rrr'`tr'`eform'" != "" local _rp_e 1
+			if regexm(lower(`" `options'"'), "[ ]eform[(]") local _rp_e 1
+			if `"`level'"' != "" {
+				local _rp_l = real(`"`level'"')
+				if missing(`_rp_l') local _rp_l = -1
+			}
+		}
+		c_local _rp_eform `_rp_e'
+		c_local _rp_level `_rp_l'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
 * _regtab_scale: display scale of one collected model
 * =============================================================================
 * Usage: _regtab_scale "<command word>" "<e(cmd)>" `"<option text>"'
@@ -3560,6 +4344,12 @@ end
 * streg in the time metric without tr) is exponentiated, and a fit Stata
 * already exponentiated (or, hr, tr, irr, eform) is left alone. The header
 * therefore always names the scale of the numbers printed under it.
+* Optional 4th and 5th arguments describe an estimation prefix: mode "mi"
+* (mi estimate reports the coefficient metric whatever the command's own
+* display options, unless mi estimate itself was given an eform option;
+* [MI] mi estimate) or mode "or" (bootstrap/jackknife, whose eform option
+* exponentiates as the command's own would), and whether the prefix carried
+* an eform option (0/1).
 capture program drop _regtab_scale
 program define _regtab_scale, nclass
 	version 17.0
@@ -3569,6 +4359,9 @@ program define _regtab_scale, nclass
 		gettoken _rs_word 0 : 0
 		gettoken _rs_ecmd 0 : 0
 		gettoken _rs_opt 0 : 0
+		gettoken _rs_pmode 0 : 0
+		gettoken _rs_peform 0 : 0
+		if "`_rs_peform'" == "" local _rs_peform 0
 		local _rs_word = lower(`"`_rs_word'"')
 		local _rs_ecmd = lower(`"`_rs_ecmd'"')
 
@@ -3698,6 +4491,8 @@ program define _regtab_scale, nclass
 			else if `"`_lnk'"' == "log" local _lnkc "log"
 			else if `"`_lnk'"' == substr("logit", 1, `_ll') local _lnkc "logit"
 			local _eopt = ("`_ro_eform'" != "")
+			if "`_rs_pmode'" == "mi" local _eopt = `_rs_peform'
+			else if "`_rs_pmode'" == "or" local _eopt = `_eopt' | `_rs_peform'
 			if "`_famc'" == "binomial" & "`_lnkc'" == "logit" {
 				local _c "OR"
 				local _e = !`_eopt'
@@ -3733,6 +4528,13 @@ program define _regtab_scale, nclass
 		if `"`_ro_level'"' != "" {
 			local _lv = real(`"`_ro_level'"')
 			if missing(`_lv') local _lv = -1
+		}
+
+		* A prefix decides what the collection holds for a ratio family. glm
+		* already folded the prefix into _eopt above.
+		if "`_rs_word'" != "glm" & `_n' == 1 {
+			if "`_rs_pmode'" == "mi" local _e = !`_rs_peform'
+			else if "`_rs_pmode'" == "or" & `_rs_peform' local _e 0
 		}
 
 		c_local _rs_coef `"`_c'"'
