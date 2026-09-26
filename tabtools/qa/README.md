@@ -77,6 +77,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_regtab.do` | Model families, statistics, selection, display modes, frames, and p-value policies. |
 | `test_regtab_omitted.do` | Base, collinear, and empty coefficient labelling per model, including `omitlabel()`/`emptylabel()`, `r(table)`, interaction cells, estimators whose collection records every constrained cell as empty (`nbreg`, `zinb`, `intreg`, `streg` weibull), and estimated levels with a missing CI bound. |
 | `test_regtab_multieq_mixed.do` | Mixed and multi-equation layouts: factor header rows in multilevel models, rows and equations only a later model estimates (`mlogit`, `zip`/`zinb`, `ologit` + `mlogit`), blank overflowed transformed CIs, me* `relabel` of slope variances and covariances, `r(table)` row names, `mecloglog`/`mestreg`/`streg, time` scale, and `svy:` classification. |
+| `test_regtab_backlog_2026_09_26.do` | Structural intercept/cutpoint/ancillary rows (covariates named or labelled `p`, `alpha`, `cut1`, ...; lognormal/loglogistic ancillary scale; per-model roles), AIC/BIC/QICu parameter count after few-cluster `vce(cluster)` against `estat ic`, `mestreg, time` random intercept, `bootstrap:`/`jackknife:`/`mi estimate:` classification with t-based mi intervals, per-equation factor headers, `stats(events r2_a rmse F mi_m fmi)`, the model-built methods sentence, and unique `r(table)` row names. |
 | `test_review_2026_08_13.do` | Disclosure-reconstruction attacks and correlation-star regression contracts. |
 | `test_review_2026_09_15.do` | Treatment controls, raw coefficient identities, case and name collisions, cleared-data labels, and shipped-header agreement. |
 | `test_review_2026_09_25_rates_puttab.do` | Label-matched `hrcomptab` HR placement against `stcox`, caller data/`c(filename)` preservation, `frame()`-scoped `if`/`in`, `%t` dates and negative zero in `puttab`, staged `stratetab` frames, and `strate` per(k) scaling. |
@@ -122,6 +123,10 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 |---|---|
 | `run_all.do` | Curated lane manifest, sandbox installer, skip policy, and terminal status writer. |
 | `benchmark_tabtools_speed.do` | Timing guardrail included only in `release`/`benchmark`. |
+| `test_table1_overflow.do` | `table1_tc` weighted cells when sums, products or squares exceed the double range: mean/SD, quantiles, `wtn`/`percent_n` effective counts, ESS, and the honest missing values that must stay missing. |
+| `test_audit_2026_09_26_fixes.do` | `stratetab` missing/non-positive scale rejection, `effecttab` methods text without ambient `e()`, unique `effecttab` `r(table)` row names (including `from()` names with spaces), and the vendored `check_xlsx.py` header-only guard. |
+| `test_output_sinks_markdown.do` | Output layer: colliding `xlsx()`/`csv()`/`markdown()` destinations refused with the seeded workbook byte-identical in every multi-sink command, the `.csv` contract, path normalisation, macro-safe Markdown text, replace-by-default and `mdappend`, rendered Markdown fidelity through `tools/check_md_render.py` (markdown-it-py), and `survtab` times beyond follow-up. |
+| `test_puttab_stacktab_2026_09_27.do` | `puttab` blank `matrix()` label header in Markdown, quiet `frame()` load, no single-cell footnote merge; `stacktab` `borders(bottom(row #))`, `rows()` in sheet coordinates with and without `cols()`, case-insensitive `style(COLWIDTH())`, and CSV title/note rows. Workbook layout is read back with `tools/xlsx_facts.py` (openpyxl). |
 | `_visual_stress_gen.do` | Manual disposable workbook generator; not a gate. |
 | `tools/` | Package-local Excel, Markdown, SMCL-width, demo, style, crossval, and option-coverage validators. |
 | `data/`, `baseline/`, root QA fixtures | Tracked oracle inputs and semantic artifact summaries governed by `fixtures_manifest.md`. |
@@ -136,7 +141,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `desctab` | `test_desctab` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage |
 | `crosstab` | `test_crosstab` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `corrtab` | `test_corrtab` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial |
-| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
+| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release |
 | `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial |
 | `survtab` | `test_survtab` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit |
 | `stratetab` | `test_stratetab` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit |

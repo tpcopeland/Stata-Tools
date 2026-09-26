@@ -219,7 +219,8 @@ is {cmd:Reference}.
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 
 {phang}
-{opt csv(filename)} export the composite table to a CSV file. The CSV mirrors
+{opt csv(filename)} export the composite table to a CSV file. {it:filename} must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. The CSV mirrors
 the workbook with {opt title()} written as the first row and {opt footnote()}
 as the last row, both in the first column and the table body between them.{p_end}
 

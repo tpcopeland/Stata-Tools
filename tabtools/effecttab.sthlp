@@ -115,7 +115,8 @@ values. Use backslash to separate multiple rows{p_end}
 {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file. The CSV mirrors the
+{opt csv(filename)} also export the table as a CSV file. {it:filename} must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. The CSV mirrors the
 workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
@@ -406,6 +407,17 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric effect estimates and p-values{p_end}
+
+{pstd}Row names of {cmd:r(table)} are the displayed row labels with periods and
+spaces replaced by underscores, commas removed, and truncated to 32 characters.
+When two rows would get the same name, the later one takes a suffix
+{cmd:_2}, {cmd:_3}, ... (still within 32 characters), so a lookup such as
+{cmd:rownumb(r(table), "}{it:name}{cmd:")} finds exactly one row.{p_end}
+
+{pstd}The {cmd:r(methods)} description names the {cmd:teffects} estimator only
+when it can be read from the collected command line; otherwise it says
+{it:teffects} without naming one, and never uses the estimates active in
+{cmd:e()}.{p_end}
 
 {marker seealso}{title:Also see}
 

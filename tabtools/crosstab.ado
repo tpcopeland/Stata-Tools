@@ -143,6 +143,7 @@ capture noisily {
             exit 198
         }
     }
+    _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     if "`cochran'" != "" & "`trend'" != "" {
         noisily display as error "cochran and trend are mutually exclusive; choose one trend test"

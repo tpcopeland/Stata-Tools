@@ -25,7 +25,7 @@
 | C-reactive protein (mg/L) | -0.01 | 1.00 |  |
 | Prior hospitalizations | 0.00 | 0.01 | 1.00 |
 
-*\* p<0.05, \*\* p<0.01, \*\*\* p<0.001*
+*\* p\<0.05, \*\* p\<0.01, \*\*\* p\<0.001*
 
 ### Table 4. First Six Analysis Records
 

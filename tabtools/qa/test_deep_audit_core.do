@@ -157,17 +157,19 @@ else {
 }
 
 local ++test_count
+* The late failure used to be stacktab refusing an existing markdown() file
+* (r(602)). markdown() now replaces an existing file like every other sink,
+* so the late failure is a Markdown target whose directory does not exist:
+* the workbook and CSV commit first, the Markdown copy fails, and every
+* committed sink must be rolled back.
 local late_csv "`output_dir'/late-failure.csv"
-local late_md "`output_dir'/late-failure.md"
+local late_md "`output_dir'/no_such_dir_m15b/late-failure.md"
 capture erase "`late_csv'"
 capture erase "`late_md'"
-tempname late_csv_fh late_md_fh
+tempname late_csv_fh
 file open `late_csv_fh' using "`late_csv'", write text replace
 file write `late_csv_fh' "sentinel-csv" _n
 file close `late_csv_fh'
-file open `late_md_fh' using "`late_md'", write text replace
-file write `late_md_fh' "sentinel-md" _n
-file close `late_md_fh'
 capture frame drop late_failure_sink
 frame create late_failure_sink
 frame late_failure_sink: set obs 1
@@ -180,9 +182,8 @@ local late_failure_rc = _rc
 file open `late_csv_fh' using "`late_csv'", read text
 file read `late_csv_fh' late_csv_first
 file close `late_csv_fh'
-file open `late_md_fh' using "`late_md'", read text
-file read `late_md_fh' late_md_first
-file close `late_md_fh'
+capture confirm file "`late_md'"
+local late_md_rc = _rc
 quietly import excel using "`collision'", describe
 local late_sheet_exists = 0
 forvalues late_s = 1/`r(N_worksheet)' {
@@ -190,15 +191,15 @@ forvalues late_s = 1/`r(N_worksheet)' {
         local late_sheet_exists = 1
 }
 capture noisily {
-    assert `late_failure_rc' == 602
+    assert `late_failure_rc' != 0
     assert `"`late_csv_first'"' == "sentinel-csv"
-    assert `"`late_md_first'"' == "sentinel-md"
+    assert `late_md_rc' == 601
     assert !`late_sheet_exists'
     frame late_failure_sink: confirm variable sentinel
     frame late_failure_sink: assert sentinel[1] == "frame-unchanged"
 }
 if _rc == 0 {
-    display as result "  PASS M15b: late Markdown collision is rejected before frame, CSV, or workbook mutation"
+    display as result "  PASS M15b: a late Markdown commit failure rolls back the workbook, CSV, and frame"
     local ++pass_count
 }
 else {

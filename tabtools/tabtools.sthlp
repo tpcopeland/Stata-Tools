@@ -55,6 +55,19 @@ step. For a numeric payload use {cmd:frame()}, the returned matrices such as
 {cmd:r(table)}, or {cmd:eplotframe()}.
 
 {pstd}
+File outputs follow one contract in every command. {opt csv()} must name a
+{cmd:.csv} file, and the workbook ({opt xlsx()}, {opt excel()}, or
+{cmd:using}), {opt csv()}, and {opt markdown()} must name different files:
+paths are compared after resolving them against the working directory and
+ignoring case, and a collision is refused before anything is written. An
+existing {opt markdown()} file is replaced; {opt mdappend} appends to it
+instead. Markdown text is written literally: it is never macro-expanded, and
+{cmd:\ | * _} backtick {cmd:< > & [ ]} are backslash-escaped so that data
+render as the text they contain rather than as emphasis, HTML, entities,
+links, or code. Line breaks become {cmd:<br>} and first-column indentation
+becomes {cmd:&nbsp;}.
+
+{pstd}
 {helpb table1_tc}, {helpb desctab}, and {helpb crosstab} accept
 {opt smallcells(#)} for strict disclosure control. They replace protected
 positive counts with {cmd:<#}, use {cmd:≥#} for complementary suppression, and

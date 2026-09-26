@@ -157,9 +157,13 @@ example {cmd:label(Binary HRT)}. Use doubled parentheses for literal
 parentheses, for example {cmd:postfix((vs none))}.
 
 {p 4 4 2}
-{opt rows()} and {opt cols()} may be used together or separately. With
+{opt rows()} and {opt cols()} may be used together or separately. Both count
+in sheet coordinates: {cmd:rows(2/3)} means Excel rows 2 and 3 and
+{cmd:cols(B-D)} Excel columns B to D, whether or not the other option is
+given, and whether or not the sheet's content starts in row 1. With
 {opt cols()} alone, {cmd:stacktab} imports the full source sheet and keeps
-only the selected Excel columns.
+only the selected Excel columns; with {opt rows()} alone, it keeps only the
+selected Excel rows.
 
 {p 4 4 2}
 In vertically stacked Excel output, the first row of each imported block is
@@ -201,19 +205,25 @@ sheet from row 1.
 {p 4 4 2}
 {opt style()} accepts any combination of: {it:titlerowheight(#)}, {it:noterowheight(#)}, and
 {it:colwidth(letter # \ ...)}. Column letters in {opt colwidth()} are relative to the
-composed table, so {cmd:colwidth(A 24)} changes Excel column {cmd:B}. The border
-specification currently supports {cmd:outer(all)}, {cmd:top(row 1)}, and {cmd:bottom(last)}.
+composed table, so {cmd:colwidth(A 24)} changes Excel column {cmd:B}. Option
+names inside {opt style()} and {opt borders()} are not case-sensitive. The border
+specification supports {cmd:outer(all)}, {cmd:top(row 1)}, {cmd:bottom(last)},
+and {cmd:bottom(row} {it:#}{cmd:)}, which draws a thin rule under row {it:#} of
+the composed table (row 1 is its first row; repeat the token for several
+rows). A {it:#} outside the table is an error, and nothing is written.
 
 {title:Frame and CSV output}
 
 {p 4 4 2}
-{opt frame()} stores the composed table. Title and note cells are Excel-only
-formatting elements and are not added to the frame
-or CSV. Specify {cmd:frame("myframe, replace")} to replace an existing frame. {opt csv()}
-writes the same composed table to a delimited file and requires a {cmd:.csv}
-extension. All requested destinations are staged and committed together, so a
+{opt frame()} stores the composed table without the title and note, which are
+Excel formatting elements there. Specify {cmd:frame("myframe, replace")} to
+replace an existing frame. {opt csv()} writes the same composed table to a
+delimited file, with {opt title()} as its first row and {opt note()} as its
+last row (both in the first column), and requires a {cmd:.csv} extension. All requested destinations are staged and committed together, so a
 failed export leaves existing frames and files unchanged. An existing
-{opt markdown()} file requires {opt mdappend}.
+{opt markdown()} file is replaced; specify {opt mdappend} to append to it
+instead. The workbook, {opt csv()} and {opt markdown()} must name different
+files.
 
 {marker examples}{...}
 {title:Examples}

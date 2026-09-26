@@ -155,7 +155,8 @@ automatically with {cmd:varlabels}; drop it yourself if you consume the table
 any other way.{p_end}
 
 {phang}
-{opt csv("filename")} also export as CSV file. The CSV mirrors the workbook
+{opt csv("filename")} also export as CSV file. {it:filename} must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. The CSV mirrors the workbook
 with {opt title()} written as the first row and {opt footnote()} as the last
 row, both in the first column and the table body between them.{p_end}
 

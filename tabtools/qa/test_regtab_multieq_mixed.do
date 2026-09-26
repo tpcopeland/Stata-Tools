@@ -1,7 +1,6 @@
 * test_regtab_multieq_mixed.do - regtab mixed-model and multi-equation output
 * Regression suite for the output problems the R-tabtools port found in 2.1.9
-* (Stata-Dev _take_action 2026-09-25-regtab-mixed-model-quirks), re-probed on
-* 2.1.10 before any fix:
+* (mixed-model and multi-equation quirks), re-probed on 2.1.10 before any fix:
 *   item 1  factor header row lost with several grouping levels (mixed)
 *   item 2  raw collect text in a CI cell when a transformed bound overflows
 *           (three-level melogit MOR; eform fixed effects)
@@ -122,7 +121,7 @@ program define _rtm_mixed_data
     generate int location = mod(_n - 1, 40) + 1
     label variable zone "Zone"
     label variable location "Location"
-    * stata-dev-ignore: unseeded-draw - generator program; every call site seeds first
+    * stata-dev-ignore: unseeded-draw — generator program; every call site seeds first
     generate byte sex = 1 + (runiform() < 0.5)
     label define RTM_SX 1 "Male" 2 "Female", replace
     label values sex RTM_SX

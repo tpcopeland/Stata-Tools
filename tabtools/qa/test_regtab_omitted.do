@@ -503,11 +503,11 @@ capture noisily {
         quietly count if strpos(strtrim(A), "3: ") == 1 & _n >= 4
         assert r(N) < . & r(N) > 0
     }
-    _rto_cell _rto14 "2: 4.grp" c1
+    _rto_cell _rto14 "2:   Four" c1
     assert "`r(cell)'" == "Omitted"
-    _rto_cell _rto14 "3: 4.grp" c1
+    _rto_cell _rto14 "3:   Four" c1
     assert "`r(cell)'" == "Omitted"
-    _rto_cell _rto14 "2: 1.grp" c1
+    _rto_cell _rto14 "2:   One" c1
     assert "`r(cell)'" == "Reference"
 }
 if _rc == 0 {
@@ -600,9 +600,10 @@ capture noisily {
         quietly collect: `m'
         capture frame drop _rto17
         quietly regtab, frame(_rto17, replace)
-        * zinb prints equation-qualified row labels
+        * zinb prints equation-qualified row labels; since 2.1.12 a factor
+        * level in that layout is an indented level label under its header
         local lab "1"
-        if `k' == 2 local lab "Price: 1.rep78"
+        if `k' == 2 local lab "Price:   1"
         _rto_cell _rto17 "`lab'" c1
         if "`r(cell)'" != "Reference" {
             display as error "`m': base cell is `r(cell)'"

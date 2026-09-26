@@ -313,6 +313,7 @@ quietly {
 			exit 198
 		}
 	}
+	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
 	* Build format strings from digits
 	local coef_fmt "%21.`digits'f"
@@ -655,7 +656,9 @@ quietly {
 		local _rnames : rownames `from'
 			forvalues _fr = 1/`_nrows' {
 				local _obs = `_fr' + 2
-			local _rn : word `_fr' of `_rnames'
+			* Read the row's own stripe: a row name may contain spaces, which
+			* word-splitting the rownames list would spread across rows.
+			mata: st_local("_rn", st_matrixrowstripe(st_local("from"))[`_fr', 2])
 			local _rn = subinstr("`_rn'", "_", " ", .)
 			qui replace A = `"`_rn'"' in `_obs'
 				local _est = `from'[`_fr', 1]
@@ -999,6 +1002,15 @@ quietly {
 			local _rname = subinstr("`_rname'", ",", "", .)
 			local _rname = substr("`_rname'", 1, 32)
 			if "`_rname'" == "" local _rname "row`_mr'"
+			* Sanitizing and truncation can map two rows to one name, and a
+			* name lookup would then silently return the first row. Keep the
+			* names unique: a repeat takes _2, _3, ... within 32 characters.
+			local _rbase "`_rname'"
+			local _rsfx = 1
+			while `: list _rname in _rnames' {
+				local ++_rsfx
+				local _rname = substr("`_rbase'", 1, 32 - strlen("_`_rsfx'")) + "_`_rsfx'"
+			}
 			local _rnames `"`_rnames' `_rname'"'
 		}
 		capture matrix rownames `_rtable' = `_rnames'
@@ -1274,14 +1286,14 @@ quietly {
 	}
 	else if "`type'" == "teffects" {
 		if `_n_models' == 1 {
+			* The estimator comes from the collection's own command line only.
+			* When that is absent or unparseable the description stays
+			* generic: the active e() may belong to an unrelated later fit.
 			local _te_subcmd ""
 			if `"`collect_cmdline_1'"' != "" {
-				if regexm(`"`collect_cmdline_1'"', "^teffects[ ]+([a-z0-9_]+)") {
-					local _te_subcmd = lower(regexs(1))
+				if regexm(lower(`"`collect_cmdline_1'"'), "^teffects[ ]+([a-z0-9_]+)") {
+					local _te_subcmd = regexs(1)
 				}
-			}
-			if "`_te_subcmd'" == "" {
-				local _te_subcmd = lower("`e(subcmd)'")
 			}
 			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
 			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"

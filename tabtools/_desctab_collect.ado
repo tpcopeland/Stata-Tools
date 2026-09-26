@@ -1325,6 +1325,8 @@ end
 
 capture mata: mata drop _t1tcfc_group_index()
 capture mata: mata drop _t1tcfc_level_index()
+capture mata: mata drop _t1tcfc_wscale()
+capture mata: mata drop _t1tcfc_ess()
 capture mata: mata drop _t1tcfc_wquantile()
 capture mata: mata drop _t1tcfc_cat_smd()
 capture mata: mata drop _t1tcfc_collect_mata()
@@ -1350,6 +1352,40 @@ real scalar _t1tcfc_level_index(real scalar value, real colvector levels)
     return(.)
 }
 
+// Power of two c with max(w)/c <= 2 (2^1023 is already a missing value in
+// Stata, so the exponent stops at 1022). Weighted means, variances, quantiles,
+// shares and the ESS are invariant to the scale of the weights, and dividing
+// by a power of two is exact (short of underflow for a weight below about
+// 1e-308 of the largest), so w/c reproduces the ratios while keeping weighted
+// sums, products and squares inside the double range.
+// Callers use it only as a fallback after an unscaled sum overflows.
+real scalar _t1tcfc_wscale(real colvector w)
+{
+    real scalar m, k
+
+    if (rows(w) == 0) return(1)
+    m = max(w)
+    if (m >= . | m <= 0) return(1)
+    k = ceil(ln(m) / ln(2))
+    if (k > 1022) k = 1022
+    if (k < -1021) k = -1021
+    return(2^k)
+}
+
+// Kish effective sample size (sum w)^2 / sum w^2 from rescaled weights.
+real scalar _t1tcfc_ess(real colvector w)
+{
+    real colvector ws
+    real scalar s1, s2
+
+    if (rows(w) == 0) return(.)
+    ws = w / _t1tcfc_wscale(w)
+    s1 = sum(ws)
+    s2 = sum(ws :* ws)
+    if (s2 <= 0 | s2 >= . | s1 >= .) return(.)
+    return(s1 * (s1 / s2))
+}
+
 real scalar _t1tcfc_wquantile(real colvector x, real colvector w, real scalar p)
 {
     real colvector keep, ord, xs, ws
@@ -1364,7 +1400,13 @@ real scalar _t1tcfc_wquantile(real colvector x, real colvector w, real scalar p)
     xs = x[ord]
     ws = w[ord]
     total = sum(ws)
-    if (total <= 0) return(.)
+    // An overflowing total would make the target missing and stop the walk
+    // at the second record; rescale the weights instead.
+    if (total >= .) {
+        ws = ws / _t1tcfc_wscale(ws)
+        total = sum(ws)
+    }
+    if (total <= 0 | total >= .) return(.)
     target = p * total
     tol = 1e-10 * max((1, total))
     running = 0
@@ -1432,8 +1474,9 @@ void _t1tcfc_collect_mata(
     real matrix cell_disp, cell_w, group_disp, group_w
     real colvector levels, rawlevels, rowden
     real scalar n, nv, ng, ngout, i, j, g, gi, li, L, is_cont, is_cat
-    real scalar dispw, mean, var, ss, denom
-    real scalar swg, sxg, sx2g, nobsg, brow
+    real scalar dispw, mean, var, ss, denom, ess
+    real scalar swg, sxg, sx2g, nobsg, brow, pass
+    real colvector wprod, wprod2, wsrc
 
     st_view(touse, ., touse_name)
     st_view(group, ., group_name)
@@ -1475,14 +1518,14 @@ void _t1tcfc_collect_mata(
         sample[g, 2] = group_levels[g]
         sample[g, 3] = 0
         sample[g, 4] = 0
-        sample[g, 5] = .
+        sample[g, 5] = (has_wt ? 0 : .)
     }
     if (include_total) {
         sample[ngout, 1] = ngout
         sample[ngout, 2] = total_code
         sample[ngout, 3] = 0
         sample[ngout, 4] = 0
-        sample[ngout, 5] = .
+        sample[ngout, 5] = (has_wt ? 0 : .)
     }
 
     for (i = 1; i <= n; i++) {
@@ -1492,20 +1535,31 @@ void _t1tcfc_collect_mata(
         sample[gi, 3] = sample[gi, 3] + dispw
         if (has_wt) {
             sample[gi, 4] = sample[gi, 4] + wt[i]
-            sample[gi, 5] = (sample[gi, 5] >= . ? 0 : sample[gi, 5]) + wt[i] * wt[i]
+            // An overflowed sum of squares stays missing; it must not restart
+            sample[gi, 5] = sample[gi, 5] + wt[i] * wt[i]
         }
         if (include_total) {
             sample[ngout, 3] = sample[ngout, 3] + dispw
             if (has_wt) {
                 sample[ngout, 4] = sample[ngout, 4] + wt[i]
-                sample[ngout, 5] = (sample[ngout, 5] >= . ? 0 : sample[ngout, 5]) + wt[i] * wt[i]
+                sample[ngout, 5] = sample[ngout, 5] + wt[i] * wt[i]
             }
         }
     }
     if (has_wt) {
         for (g = 1; g <= ngout; g++) {
-            if (sample[g, 5] > 0 & sample[g, 5] < .) sample[g, 5] = sample[g, 4]^2 / sample[g, 5]
-            else sample[g, 5] = .
+            ess = .
+            if (sample[g, 5] > 0 & sample[g, 5] < . & sample[g, 4] < .) {
+                ess = sample[g, 4]^2 / sample[g, 5]
+                // (sum w)^2 alone can overflow while the ratio is finite
+                if (ess >= .) ess = sample[g, 4] * (sample[g, 4] / sample[g, 5])
+            }
+            // A weighted sum overflowed: recompute from rescaled weights
+            if (ess >= .) {
+                if (g <= ng) ess = _t1tcfc_ess(select(wt, gid :== g))
+                else ess = _t1tcfc_ess(select(wt, gid :< .))
+            }
+            sample[g, 5] = ess
         }
     }
 
@@ -1547,15 +1601,31 @@ void _t1tcfc_collect_mata(
             dvals = select(disp_source, mask)
             cont_n[j, g] = sum(dvals)
             swg = sum(wvals)
+            wprod = wvals :* yvals
+            wprod2 = wvals :* (yvals:^2)
+            // Mata's sum() skips missing elements, so an overflowing product
+            // would silently drop out of the sum. Probability weights are
+            // scale-free: rescale them when a sum or product overflows, and
+            // let a sum that still contains a missing product be missing.
+            if (has_wt & (swg >= . | hasmissing(wprod) | hasmissing(wprod2))) {
+                wvals = wvals / _t1tcfc_wscale(wvals)
+                swg = sum(wvals)
+                wprod = wvals :* yvals
+                wprod2 = wvals :* (yvals:^2)
+            }
             if (swg <= 0) continue
-            sxg = sum(wvals :* yvals)
-            sx2g = sum(wvals :* (yvals:^2))
+            sxg = (hasmissing(wprod) ? . : sum(wprod))
+            sx2g = (hasmissing(wprod2) ? . : sum(wprod2))
             mean = sxg / swg
             ss = sx2g - sxg * sxg / swg
             if (ss < 0 & ss > -1e-8) ss = 0
             var = .
             if (has_wt) {
-                if (nobsg > 1) var = (nobsg / (swg * (nobsg - 1))) * ss
+                if (nobsg > 1) {
+                    var = (nobsg / (swg * (nobsg - 1))) * ss
+                    // swg * (n - 1) alone can overflow while the ratio is finite
+                    if (var >= . & ss < . & swg < .) var = (nobsg / (nobsg - 1)) / swg * ss
+                }
             }
             else {
                 if (swg > 1) var = ss / (swg - 1)
@@ -1594,11 +1664,6 @@ void _t1tcfc_collect_mata(
         xcol = X[, j]
         L = rows(levels)
         if (L == 0) continue
-        cell_disp = J(L, ngout, 0)
-        cell_w = J(L, ngout, 0)
-        group_disp = J(1, ngout, 0)
-        group_w = J(1, ngout, 0)
-
         if (types[j] == "bin" | types[j] == "bine") {
             base_mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
         }
@@ -1609,31 +1674,45 @@ void _t1tcfc_collect_mata(
             base_mask = (gid :< .) :& (xcol :< .) :& (stat_source :> 0)
         }
 
-        for (g = 1; g <= ngout; g++) {
-            mask = base_mask
-            if (g <= ng) mask = mask :& (gid :== g)
-            if (sum(mask) > 0) {
-                group_disp[1, g] = sum(select(disp_source, mask))
-                group_w[1, g] = sum(select(stat_source, mask))
-            }
-        }
-        for (li = 1; li <= L; li++) {
-            if (levels[li] >= .) level_mask = base_mask :& (xcol :>= .)
-            else level_mask = base_mask :& (xcol :== levels[li])
-            if (sum(level_mask) == 0) continue
+        // Pass 2 runs only when a weighted total overflowed on pass 1: the
+        // shares and effective counts are ratios, so the weights are
+        // rescaled rather than printing a raw count with no percentage.
+        wsrc = stat_source
+        for (pass = 1; pass <= 2; pass++) {
+            cell_disp = J(L, ngout, 0)
+            cell_w = J(L, ngout, 0)
+            group_disp = J(1, ngout, 0)
+            group_w = J(1, ngout, 0)
+
             for (g = 1; g <= ngout; g++) {
-                mask = level_mask
+                mask = base_mask
                 if (g <= ng) mask = mask :& (gid :== g)
                 if (sum(mask) > 0) {
-                    cell_disp[li, g] = sum(select(disp_source, mask))
-                    cell_w[li, g] = sum(select(stat_source, mask))
+                    group_disp[1, g] = sum(select(disp_source, mask))
+                    group_w[1, g] = sum(select(wsrc, mask))
                 }
             }
-        }
+            for (li = 1; li <= L; li++) {
+                if (levels[li] >= .) level_mask = base_mask :& (xcol :>= .)
+                else level_mask = base_mask :& (xcol :== levels[li])
+                if (sum(level_mask) == 0) continue
+                for (g = 1; g <= ngout; g++) {
+                    mask = level_mask
+                    if (g <= ng) mask = mask :& (gid :== g)
+                    if (sum(mask) > 0) {
+                        cell_disp[li, g] = sum(select(disp_source, mask))
+                        cell_w[li, g] = sum(select(wsrc, mask))
+                    }
+                }
+            }
 
-        rowden = J(L, 1, 0)
-        for (li = 1; li <= L; li++) {
-            for (g = 1; g <= ng; g++) rowden[li] = rowden[li] + cell_w[li, g]
+            rowden = J(L, 1, 0)
+            for (li = 1; li <= L; li++) {
+                for (g = 1; g <= ng; g++) rowden[li] = rowden[li] + cell_w[li, g]
+            }
+            if (!has_wt | pass == 2) break
+            if (!(hasmissing(group_w) | hasmissing(cell_w) | hasmissing(rowden))) break
+            wsrc = stat_source / _t1tcfc_wscale(select(stat_source, base_mask))
         }
         block = J(L * ngout, 9, .)
         brow = 0

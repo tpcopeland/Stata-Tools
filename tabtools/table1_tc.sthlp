@@ -544,6 +544,15 @@ synthetic quantity up as a real frequency. The percentage -- together with the
 effective count is {it:(weighted %) x N}, a normalized pseudo-count on the
 real-observation scale, not the sum of weights.{p_end}
 
+{pstd}{bf:Very large weights.} Weighted means, SDs, quantiles, percentages,
+effective counts and the ESS do not depend on the scale of the weights. When a
+weighted sum, product, or square would exceed Stata's double range (about
+8.99e+307), {cmd:table1_tc} divides the weights by a power of two, which is
+exact, and reports the same statistics. A statistic that still cannot be
+formed is reported as missing, never computed from a partial sum: a mean of
+values whose sum itself overflows leaves the cell blank, and an SD of values
+whose squares overflow is shown as {cmd:.}.{p_end}
+
 {pstd}With {opt wtcompare} the crude columns always show {it:n (%)} (real counts), while
 the weighted columns follow the same rule: percent-only by default, {opt wtn} or
 {opt percent_n} to add the weighted effective count.{p_end}

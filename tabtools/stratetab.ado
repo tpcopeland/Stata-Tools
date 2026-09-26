@@ -109,6 +109,7 @@ if `"`markdown'"' != "" {
 		exit 198
 	}
 }
+_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 if "`sheet'" != "" {
 	_tabtools_validate_sheet "`sheet'" "sheet()"
 }
@@ -118,13 +119,14 @@ if `digits' < 0 | `digits' > 10 | `eventdigits' < 0 | `eventdigits' > 10 | `pydi
 	exit 198
 }
 
-if `pyscale' <= 0 {
-	di as err "pyscale must be positive"
+* Missing values (., .a-.z) pass a "<= 0" test, so check them explicitly
+if missing(`pyscale') | `pyscale' <= 0 {
+	di as err "pyscale must be a positive, nonmissing number"
 	exit 198
 }
 
-if `ratescale' <= 0 {
-	di as err "ratescale must be positive"
+if missing(`ratescale') | `ratescale' <= 0 {
+	di as err "ratescale must be a positive, nonmissing number"
 	exit 198
 }
 

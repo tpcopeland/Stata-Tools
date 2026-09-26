@@ -117,8 +117,13 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the random
 intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula MOR =
-exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and {cmd:mecloglog}, the
-conversion produces a {bf:Median Hazard Ratio (MHR)}. The collected CI bounds are
+exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mecloglog}, and for
+{cmd:mestreg} in the log-hazard metric, the conversion produces a
+{bf:Median Hazard Ratio (MHR)}. An {cmd:mestreg} fit in the time metric
+({cmd:time}; TR header) keeps its random-intercept row as the variance it is,
+labelled {cmd:var(_cons[}{it:group}{cmd:])} (or "Variance: {it:Group} (Intercept)"
+under {opt relabel}): its random effect acts on log time, so a median hazard
+ratio would misname it. The collected CI bounds are
 transformed on the same scale. In multi-level models, each transformed
 random-intercept row keeps its own grouping label, so the output reads, for
 example, "Median Odds Ratio (District)" and "Median Odds Ratio
@@ -240,7 +245,21 @@ if omitted{p_end}
 
 {phang}
 {opt noint:ercept} drop intercept, cutpoint, and ancillary rows; auto-enabled for all-ratio-scale
-models{p_end}
+models. Rows are identified by the coefficient's equation and name in the
+collection, never by its display label: {cmd:_cons} in any equation, {cmd:cut}{it:#} in
+the ancillary ({cmd:/}) equation, and the ancillary parameters {cmd:lnalpha},
+{cmd:alpha}, {cmd:ln_p}, {cmd:p}, and {cmd:1/p} of the {cmd:/} and derived
+{cmd:_diparm} equations. Other ancillary parameters, such as a lognormal's
+{cmd:lnsigma}/{cmd:sigma} or a loglogistic's {cmd:lngamma}/{cmd:gamma}, stay
+visible. In the multi-equation layout the whole ancillary block and any
+{cmd:lnsigma} scale equation are dropped. A covariate named or labelled
+{cmd:p}, {cmd:alpha}, {cmd:constant}, {cmd:cut1}, {cmd:Intercept}, or
+{cmd:/x} is an ordinary coefficient: it is kept and exponentiated with the
+others. When one row holds one model's ancillary parameter and another model's
+covariate of the same name, only the ancillary cell is blanked. A model whose
+covariate shares its name with one of its own ancillary parameters (a
+covariate named {cmd:alpha} in {cmd:nbreg}) cannot be shown in the one-row-per-name
+layout and is refused with r(459); rename the covariate.{p_end}
 
 {phang}
 {opt nop:value} suppress p-value columns; stars and highlighting still use p-values internally{p_end}
@@ -283,10 +302,33 @@ in the estimation sample, which Stata reports as {cmd:(empty)}; default {cmd:"Em
 0.001){p_end}
 
 {phang}
-{opt stats(string)} model-fit statistics row: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:qic}, {cmd:icc},
-{cmd:ll}, {cmd:groups}, {cmd:r2}. The {cmd:qic} API name displays Pan's
+{opt stats(string)} model-fit statistics rows: {cmd:n}, {cmd:events},
+{cmd:groups}, {cmd:mi_m}, {cmd:aic}, {cmd:qic}, {cmd:bic}, {cmd:ll}, {cmd:icc},
+{cmd:r2}, {cmd:r2_a}, {cmd:rmse}, {cmd:F}, {cmd:fmi}. The {cmd:qic} API name displays Pan's
 fixed-penalty approximation as {cmd:QICu} for {cmd:xtgee} fits whose
-dispersion is fixed at 1 (see Remarks).{p_end}
+dispersion is fixed at 1 (see Remarks). Rows always appear in that order,
+whatever the order of the tokens: counts first (Observations or Subjects,
+Events, Groups, Imputations), then likelihood criteria (AIC, QICu, BIC,
+Log-likelihood), then ICC, R², and the linear-model rows (Adjusted
+R², Root MSE, F statistic), with Largest FMI last. A row whose statistic no
+collected model reports is omitted, and a model that does not report it has a
+blank cell:{p_end}
+{p2colset 9 24 26 2}{...}
+{p2col:{cmd:events}}"Events", {cmd:e(N_fail)} (%12.0fc); survival models
+({cmd:stcox}, {cmd:streg}, {cmd:stcrreg}) only{p_end}
+{p2col:{cmd:r2_a}}"Adjusted R²", {cmd:e(r2_a)} (%5.3f); the {cmd:r2} token
+still falls back to it when a model has neither {cmd:e(r2)} nor {cmd:e(r2_p)}{p_end}
+{p2col:{cmd:rmse}}"Root MSE", {cmd:e(rmse)} (%9.3f), the N-k divisor Stata
+reports; blank for models without it{p_end}
+{p2col:{cmd:F}}"F statistic", {cmd:e(F)} (%9.2f) for linear-model F tests
+({cmd:regress}, {cmd:anova}, {cmd:areg}, {cmd:xtreg}, {cmd:ivregress},
+{cmd:cnsreg}); blank for every other model, including a {cmd:svy: logit} that
+stores a design-based {cmd:e(F)}{p_end}
+{p2col:{cmd:mi_m}}"Imputations", {cmd:e(M_mi)} (%12.0fc) after {cmd:mi estimate}{p_end}
+{p2col:{cmd:fmi}}"Largest FMI", {cmd:e(fmi_max_mi)} (%6.4f), the largest
+fraction of missing information across coefficients, as {cmd:mi estimate}
+reports it{p_end}
+{p2colreset}{...}
 
 {phang}
 {opt title(string)} title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
@@ -333,7 +375,26 @@ read like {it:Partial response: Age z-score} or
 names across equations. For labeled multinomial outcomes, value labels are used
 when available. {cmd:mlogit} is displayed as relative risk ratios (RRR) by
 default; zero-inflated and hurdle models remain on their native coefficient
-scale unless {opt coef()} and collection styling are supplied by the user.{p_end}
+scale unless {opt coef()} and collection styling are supplied by the user.
+A factor covariate keeps its header row inside each equation block, as in the
+single-equation layout: {it:4: Sex} above the indented level rows
+{it:4:   Male} (Reference) and {it:4:   Female}.{p_end}
+{p 4 8 2}- {cmd:r(methods)} describes each model from its collected metadata,
+not from the estimate header: the estimates the model reports (Odds ratios,
+Hazard ratios, Coefficients, ...; a {opt coef()} or {opt cdisc} relabel does
+not change it), the model named from the command, the {cmd:glm}/{cmd:xtgee}
+family and link, and the survival metric (probit regression, negative binomial
+regression, complementary log-log regression, gamma regression with a log link,
+zero-inflated Poisson regression, ordered logistic regression, linear
+mixed-effects regression, mixed-effects logistic regression, generalized
+estimating equation (GEE) logistic regression, Fine-Gray competing-risks
+regression, ...), and "univariable" (one predictor variable) or
+"multivariable", counting a factor variable once. Prefixes are named:
+survey-weighted ..., ... with multiple imputation, ... with bootstrap (or
+jackknife) standard errors. Several models list each distinct model once
+("univariable and multivariable logistic regression across 2 models").
+Collections mixing estimate scales keep the generic sentence "Collected
+regression estimates with #% confidence intervals across # models.".{p_end}
 {p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies
 explicit names. {opt models()} values are split on the backslash character.{p_end}
 {p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are
@@ -349,9 +410,24 @@ exponentiated is left as it is, so the header always names the numbers under
 it. Display options are read only from the option list after the command's
 comma, with the estimator's own abbreviations ({cmd:ir}, {cmd:rr}, {cmd:ti},
 {cmd:tr}), so a covariate named {cmd:or} is never mistaken for the option.
-A {cmd:svy:} prefix is set aside: {cmd:svy: logit} is classified like
-{cmd:logit} (OR, intercept suppressed), and the {cmd:svy} options before the
-colon, such as {cmd:subpop()}, are never read as display options.{p_end}
+Estimation prefixes are set aside, alone or nested: {cmd:svy:},
+{cmd:bootstrap:} ({cmd:bs:}, {cmd:bstrap:}), {cmd:jackknife:} ({cmd:jknife:}),
+and {cmd:mi estimate:}. {cmd:svy: logit}, {cmd:bootstrap: logit}, and
+{cmd:jackknife: poisson} are classified like {cmd:logit} and {cmd:poisson}
+(OR or IRR, intercept suppressed), and a prefix's own options, such as
+{cmd:subpop()} or {cmd:reps()}, are never read as the command's display
+options. An eform option given to {cmd:bootstrap} or {cmd:jackknife}
+({cmd:bootstrap, eform: logit}) counts like the command's own {cmd:or}.
+{cmd:mi estimate} reports the coefficient metric whatever the fitted command's
+display options, unless {cmd:mi estimate} itself is given an eform option
+({cmd:or}, {cmd:hr}, {cmd:irr}, ...; see {helpb mi estimate}), so
+{cmd:regtab} reads that rule from {cmd:e(cmdline_mi)}: {cmd:mi estimate: logit}
+and {cmd:mi estimate, or: logit} both show odds ratios, never exponentiated
+twice. Intervals are the ones {cmd:mi estimate} computed, on a t reference
+distribution with each coefficient's own degrees of freedom
+({cmd:e(df_mi)}); {cmd:mi estimate} reports no log likelihood, so the
+{cmd:ll}, {cmd:aic}, and {cmd:bic} rows stay blank. A {cmd:level()} given to
+{cmd:mi estimate} or {cmd:bootstrap} counts as the model's level.{p_end}
 {p 4 8 2}- {cmd:streg} and {cmd:mestreg} follow Stata's metric rules
 (exponential and Weibull fit in the log-hazard metric, HR, unless {cmd:time} or
 {cmd:tr} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
@@ -582,6 +658,12 @@ rows.{p_end}
 {synopt:{cmd:r(ll_}{it:#}{cmd:)}}log-likelihood for model {it:#} (when {cmd:stats(ll)}){p_end}
 {synopt:{cmd:r(n_}{it:#}{cmd:)}}sample size for model {it:#} (when {cmd:stats(n)}){p_end}
 {synopt:{cmd:r(groups_}{it:#}{cmd:)}}number of groups for model {it:#} (when {cmd:stats(groups)}){p_end}
+{synopt:{cmd:r(events_}{it:#}{cmd:)}}failures for model {it:#} (when {cmd:stats(events)}){p_end}
+{synopt:{cmd:r(mi_m_}{it:#}{cmd:)}}imputations for model {it:#} (when {cmd:stats(mi_m)}){p_end}
+{synopt:{cmd:r(r2_a_}{it:#}{cmd:)}}adjusted R² for model {it:#} (when {cmd:stats(r2_a)}){p_end}
+{synopt:{cmd:r(rmse_}{it:#}{cmd:)}}root MSE for model {it:#} (when {cmd:stats(rmse)}){p_end}
+{synopt:{cmd:r(F_}{it:#}{cmd:)}}linear-model F for model {it:#} (when {cmd:stats(F)}){p_end}
+{synopt:{cmd:r(fmi_}{it:#}{cmd:)}}largest FMI for model {it:#} (when {cmd:stats(fmi)}){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 
@@ -605,7 +687,12 @@ colons replaced by underscores or stripped, then truncated to 32 characters.
 A name that Stata's matrix row-name rules reject or rewrite (a bracketed
 random-effects key such as {cmd:var(x[clinic])}, or {cmd:cov(x_cons)}, which
 Stata reads back as {cmd:var(x_cons)}) instead has every character other than
-letters, digits, and underscores replaced by an underscore.{p_end}
+letters, digits, and underscores replaced by an underscore. Names are then
+made unique in row order: when a name repeats an earlier one (two variables
+labelled alike, labels differing only in punctuation, or labels sharing their
+first 32 characters), it takes the first free suffix {cmd:_2}, {cmd:_3}, ...,
+with the base shortened so the name stays within 32 characters. Row {it:j} of
+{cmd:r(table)} is always row {it:j} of the displayed body.{p_end}
 
 {pstd}The per-model statistic scalars ({cmd:r(aic_}{it:#}{cmd:)},
 {cmd:r(bic_}{it:#}{cmd:)}, {cmd:r(qic_}{it:#}{cmd:)}, {cmd:r(icc_}{it:#}{cmd:)},
@@ -617,16 +704,31 @@ family) are posted.{p_end}
 
 {pstd}
 {cmd:AIC} and {cmd:BIC} are recomputed from the log-likelihood, parameter count,
-and N as {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, matching
-{helpb estat ic}, rather than read from {cmd:e(aic)}/{cmd:e(bic)}, which
-{cmd:glm}/GEE backends store on an incomparable per-observation or
-deviance scale.{p_end}
+and N as {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, rather than
+read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an
+incomparable per-observation or deviance scale. {cmd:k} is the number of
+estimated parameters, whatever the variance estimator. Under a model-based
+{cmd:vce()} that is {cmd:e(rank)}, which also nets out linear constraints, and
+the values match {helpb estat ic}. Under a robust-type {cmd:vce()}
+({cmd:cluster}, {cmd:robust}, {cmd:bootstrap}, {cmd:jackknife}, {cmd:linearized})
+{cmd:e(rank)} is the rank of the sandwich variance, which is capped at G-1 with
+G clusters; there {cmd:k} counts the collected coefficients that carry a
+standard error, outside the derived {cmd:_diparm} parameters (base and omitted
+levels have none). {bf:Divergence from estat ic:} after a fit with fewer
+clusters than coefficients, {helpb estat ic} uses the capped {cmd:e(rank)}
+(for example df = 1 for a {cmd:logit} with four coefficients and
+{cmd:vce(cluster)} on two clusters), while {cmd:regtab} counts four, so its
+AIC and BIC equal those of the same model fitted with the model-based
+variance. The likelihood itself does not depend on {cmd:vce()}. Linear
+constraints are not netted out under a robust-type {cmd:vce()}.{p_end}
 
 {pstd}
 {cmd:QICu} is {it:not} a likelihood criterion and does not come from
 {helpb estat ic}. GEE fits a quasi-likelihood, so no log-likelihood is
 available. For an {cmd:xtgee} fit with {cmd:e(phi)=1}, {cmd:regtab} reports
-{cmd:deviance + 2*k}, where {cmd:k} is the rank of the coefficient vector. This
+{cmd:deviance + 2*k}, where {cmd:k} is the number of regression parameters,
+counted as for AIC above (Pan's penalty is 2p, p the number of parameters, so
+a robust {cmd:vce()} over few panels does not shrink it). This
 is a deviance-scale representation of QICu; it can differ from another
 implementation's absolute QICu by a data-only additive constant, while
 within-data model differences agree. Values are on a different scale from AIC

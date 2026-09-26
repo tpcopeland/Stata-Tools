@@ -24,9 +24,9 @@ tempfile outtoken
 local out "`outtoken'_tabtools_optcov"
 capture mkdir "`out'"
 
-* markdown()/csv() (non-append) deliberately refuse to overwrite an existing
-* file (clobber-guard; mdappend is the documented way to add). Erase prior-run
-* targets up front so the suite is idempotent -- mirrors demo_tabtools.do.
+* markdown() and csv() replace an existing file (mdappend appends). Erase
+* prior-run targets up front anyway so every run starts from the same state
+* -- mirrors demo_tabtools.do.
 foreach f in effecttab regtab table1 survtab puttab desctab ///
              comptab hrcomptab stratetab stacktab {
     capture erase "`out'/`f'.md"

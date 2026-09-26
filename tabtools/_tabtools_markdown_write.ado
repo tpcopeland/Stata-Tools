@@ -7,7 +7,6 @@ program define _tabtools_markdown_write, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    local _fh_open = 0
     capture noisily {
         syntax using/ , [APPEND LABELVar(name) HEADERStart(integer 2) ///
             DATAStart(integer 3) DATAEnd(integer -1) TITLE(string) FOOTnote(string) ///
@@ -68,92 +67,43 @@ program define _tabtools_markdown_write, rclass
         * table1_tc, row 1 holds the group labels, so a by(foreign) table with
         * no title() was headed "### Domestic". Header-shaped data must never
         * become a heading.
-        local _title `"`title'"'
-
-        forvalues _j = 1/`_k' {
-            local _v : word `_j' of `_vars'
-            local _h`_j' ""
-            if "`novarnames'" == "" & inrange(`headerstart', 1, _N) {
-                mata: st_local("_h`_j'", _tt_md_cell("`_v'", `headerstart'))
-            }
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" {
-                local _vl : variable label `_v'
-                if `"`_vl'"' != "" local _h`_j' `"`_vl'"'
-            }
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" local _h`_j' "`_v'"
-            if `"`_h`_j''"' == "" & "`strictheaders'" == "" & "`novarnames'" == "" local _h`_j' "Column `_j'"
-            mata: st_local("_h`_j'", _tt_md_escape(st_local("_h`_j'")))
-        }
-
-        local _mode "write"
+        *
+        * Every piece of text -- title, headers, body cells, footnote -- is
+        * read, escaped and written inside Mata. The writer used to move each
+        * cell into a local macro and expand it again in an if-condition and
+        * in -file write-, so data was parsed as macro syntax: a cell quoted
+        * as a local-macro reference vanished, an unbalanced backtick stopped
+        * with r(132) after a partial file, and a dollar-prefixed word was
+        * replaced by a global. st_local(), st_sdata() and fput() never
+        * expand anything. The table is built in full before the file is
+        * opened, so an error cannot leave a partial file behind.
+        *
+        * The default replaces an existing file, as README and every help
+        * file describe; mdappend (append) adds to it. The new text is staged
+        * in a tempfile and copied over the target only once complete.
+        local _append = ("`append'" != "")
         local _append_existing = 0
-        if "`append'" != "" {
+        if `_append' {
             capture confirm file `"`using'"'
             if !_rc local _append_existing = 1
-            local _mode "write append"
         }
-        tempname _fh
-        file open `_fh' using `"`using'"', `_mode' text
-        local _fh_open = 1
-
-        if `_append_existing' file write `_fh' _n
-        if `"`_title'"' != "" {
-            mata: st_local("_title", _tt_md_escape(st_local("_title")))
-            file write `_fh' `"### `_title'"' _n _n
+        tempfile _stage
+        mata: _tt_md_write(st_local("_stage"), st_local("_vars"), ///
+            `headerstart', `datastart', `dataend', ///
+            "`novarnames'" != "", "`strictheaders'" != "", `_append_existing')
+        local _n_body = `_tt_md_nbody'
+        if `_append' {
+            mata: _tt_md_append(st_local("_stage"), st_local("using"))
         }
-
-        file write `_fh' "|"
-        forvalues _j = 1/`_k' {
-            file write `_fh' `" `_h`_j'' |"'
+        else {
+            quietly copy `"`_stage'"' `"`using'"', replace
         }
-        file write `_fh' _n "|"
-        forvalues _j = 1/`_k' {
-            file write `_fh' " --- |"
-        }
-        file write `_fh' _n
-
-        local _n_body = 0
-        local _N = _N
-        local _body_end = cond(`dataend' < 0, `_N', min(`dataend', `_N'))
-        if `_body_end' >= `datastart' {
-            forvalues _i = `datastart'/`_body_end' {
-                local _row_has_text = 0
-                forvalues _j = 1/`_k' {
-                    local _v : word `_j' of `_vars'
-                    * Column 1 is the row-label (stub) column. Its leading
-                    * spaces are the hierarchy -- level rows under a variable
-                    * or factor label -- and GFM trims cell whitespace, so
-                    * they are written as &nbsp; entities. Value columns are
-                    * trimmed as before: their leading blanks are display-
-                    * format padding, not indentation.
-                    mata: st_local("_cell`_j'", _tt_md_body_cell("`_v'", `_i', `_j' == 1))
-                    if `"`_cell`_j''"' != "" local _row_has_text = 1
-                }
-                if `_row_has_text' {
-                    file write `_fh' "|"
-                    forvalues _j = 1/`_k' {
-                        file write `_fh' `" `_cell`_j'' |"'
-                    }
-                    file write `_fh' _n
-                    local ++_n_body
-                }
-            }
-        }
-
-        if `"`footnote'"' != "" {
-            mata: st_local("footnote", _tt_md_escape(st_local("footnote")))
-            file write `_fh' _n `"*`footnote'*"' _n
-        }
-
-        file close `_fh'
-        local _fh_open = 0
 
         return scalar n_rows = `_n_body'
         return scalar n_cols = `_k'
         return local markdown `"`using'"'
     }
     local rc = _rc
-    if `_fh_open' capture file close `_fh'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -162,6 +112,8 @@ version 17.0
 capture mata: mata drop _tt_md_escape()
 capture mata: mata drop _tt_md_cell()
 capture mata: mata drop _tt_md_body_cell()
+capture mata: mata drop _tt_md_write()
+capture mata: mata drop _tt_md_append()
 
 mata:
 mata set matastrict on
@@ -173,6 +125,21 @@ string scalar _tt_md_escape(string scalar x)
     x = subinstr(x, "|", "\|")
     x = subinstr(x, "*", "\*")
     x = subinstr(x, "_", "\_")
+    // Literal text, not markup: raw HTML and comments (< >), entities (&),
+    // link, image and reference syntax ([ ]) and code spans (backtick) were
+    // rendered as markup, so "<b>Drug</b> &copy; [arm](url)" displayed as
+    // bold text, a copyright sign and a hyperlink. A backslash before ASCII
+    // punctuation is a literal in CommonMark/GFM. This runs before <br> is
+    // inserted below, and _tt_md_body_cell() prepends &nbsp; indentation
+    // after escaping, so helper-generated markup stays live. The backtick is
+    // spelled char(96): lines of an .ado file are macro-expanded, Mata
+    // blocks included.
+    x = subinstr(x, char(96), "\" + char(96))
+    x = subinstr(x, "<", "\<")
+    x = subinstr(x, ">", "\>")
+    x = subinstr(x, "&", "\&")
+    x = subinstr(x, "[", "\[")
+    x = subinstr(x, "]", "\]")
     x = subinstr(x, char(13) + char(10), "<br>")
     x = subinstr(x, char(13), "<br>")
     x = subinstr(x, char(10), "<br>")
@@ -213,6 +180,86 @@ string scalar _tt_md_body_cell(string scalar v, real scalar i, real scalar inden
     core = _tt_md_escape(raw)
     if (core == "") return("")
     return(n * "&nbsp;" + core)
+}
+
+
+// Build the whole Markdown table and write it to the fresh file stage.
+// Text is read from the data and from the title/footnote locals with
+// st_sdata()/st_local() and written with fput(), so nothing is ever macro-
+// expanded. Posts the number of body rows written to local _tt_md_nbody.
+void _tt_md_write(string scalar stage, string scalar varlist,
+    real scalar hs, real scalar ds, real scalar de,
+    real scalar novarnames, real scalar strict, real scalar lead_blank)
+{
+    string rowvector vars
+    string colvector out
+    string scalar h, line, cell, title, foot
+    real scalar j, i, k, nobs, body_end, has_text, nbody, fh
+
+    vars = tokens(varlist)
+    k = cols(vars)
+    nobs = st_nobs()
+    out = J(0, 1, "")
+    if (lead_blank) out = out \ ""
+
+    title = st_local("title")
+    if (title != "") out = out \ ("### " + _tt_md_escape(title)) \ ""
+
+    line = "|"
+    for (j = 1; j <= k; j++) {
+        h = ""
+        if (!novarnames & hs >= 1 & hs <= nobs) h = _tt_md_cell(vars[j], hs)
+        if (h == "" & !strict & !novarnames) {
+            h = st_varlabel(vars[j])
+            if (h == "") h = vars[j]
+            if (h == "") h = "Column " + strofreal(j)
+        }
+        line = line + " " + _tt_md_escape(h) + " |"
+    }
+    out = out \ line
+    line = "|"
+    for (j = 1; j <= k; j++) line = line + " --- |"
+    out = out \ line
+
+    nbody = 0
+    body_end = (de < 0 ? nobs : min((de, nobs)))
+    for (i = ds; i <= body_end; i++) {
+        line = "|"
+        has_text = 0
+        for (j = 1; j <= k; j++) {
+            // Column 1 is the row-label (stub) column: its leading spaces are
+            // the hierarchy and are written as &nbsp; entities, because GFM
+            // trims cell whitespace. Value columns are trimmed.
+            cell = _tt_md_body_cell(vars[j], i, j == 1)
+            if (cell != "") has_text = 1
+            line = line + " " + cell + " |"
+        }
+        if (has_text) {
+            out = out \ line
+            nbody++
+        }
+    }
+
+    foot = st_local("footnote")
+    if (foot != "") out = out \ "" \ ("*" + _tt_md_escape(foot) + "*")
+
+    fh = fopen(stage, "w")
+    for (i = 1; i <= rows(out); i++) fput(fh, out[i])
+    fclose(fh)
+    st_local("_tt_md_nbody", strofreal(nbody))
+}
+
+// Append the staged table to target (created when absent). The stage is
+// complete before target is opened.
+void _tt_md_append(string scalar stage, string scalar target)
+{
+    string colvector lines
+    real scalar fh, i
+
+    lines = cat(stage)
+    fh = fopen(target, "a")
+    for (i = 1; i <= rows(lines); i++) fput(fh, lines[i])
+    fclose(fh)
 }
 
 end

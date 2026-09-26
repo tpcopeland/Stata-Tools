@@ -187,6 +187,8 @@ program define puttab, rclass
                 exit 198
             }
         }
+        _tabtools_check_sinks, xlsx(`"`using'"') csv(`"`csv'"') ///
+            markdown(`"`markdown'"') xlsxname("using")
 
         * ----- digits -----
         if `digits' == -1 {
@@ -270,7 +272,9 @@ program define puttab, rclass
             if "`_src'" == "frame" {
                 tempfile _srcdata
                 quietly frame `_framename': save `"`_srcdata'"', replace
-                use `"`_srcdata'"', clear
+                * quietly: -use- echoes the frame's dataset label, e.g.
+                * "(1978 automobile data)", ahead of puttab's own lines.
+                quietly use `"`_srcdata'"', clear
             }
             * A tabtools table producer (desctab/table1_tc ..., clear or
             * frame()) returns its table header-shaped: observation 1 repeats
@@ -377,6 +381,12 @@ program define puttab, rclass
             if "`mdappend'" != "" local _mdappend_opt "append"
             local _md_novarnames ""
             if "`noheader'" != "" local _md_novarnames "novarnames"
+            * The header row puttab built is the intended header, blanks
+            * included: a matrix() table leaves the row-label column's header
+            * empty in the workbook and CSV. Without strictheaders the writer
+            * filled a blank header cell from the variable name, so the
+            * Markdown header read "c1".
+            else local _md_novarnames "strictheaders"
             local _sink "markdown"
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
@@ -512,10 +522,16 @@ program define puttab, rclass
             }
 
             * ===== footnote row (column B onward, smaller italic) =====
+            * The merge (rule 14) spans columns B.._xK. A one-column table
+            * has _xK = 2, where it merged B#:B# with itself: a single-cell
+            * range that merges nothing and that some consumers flag.
             if `_x_foot_row' > 0 {
                 local _fn_size = max(`_fontsize' - 2, 6)
+                if `_xK' > 2 {
+                    matrix `_rules' = `_rules' \ ///
+                        (14, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 0, 0, 0)
+                }
                 matrix `_rules' = `_rules' \ ///
-                    (14, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 0, 0, 0) \ ///
                     (1, `_x_foot_row', `_x_foot_row', 2, `_xK', `_fn_size', 1, 0, 0) \ ///
                     (3, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0) \ ///
                     (5, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0)

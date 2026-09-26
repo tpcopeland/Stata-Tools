@@ -119,6 +119,8 @@ program define stacktab, rclass
                 exit 198
             }
         }
+        _tabtools_check_sinks, xlsx(`"`using'"') csv(`"`csv'"') ///
+            markdown(`"`markdown'"') xlsxname("using")
 
         * ================================================================
         * PARSE BLOCKSPEC: split on \ and parse each block
@@ -225,7 +227,26 @@ program define stacktab, rclass
             }
 
             * Import block from source workbook
+            *
+            * rows() counts sheet rows. With cols() it becomes a cellrange in
+            * sheet coordinates; alone, the whole used range is imported and
+            * filtered by observation number. That range starts at the first
+            * used row, so on a sheet whose content begins below row 1 (a
+            * tabtools table starts at B2) rows(2/3) alone used to select
+            * sheet rows 3-4. The used range's first row is read here and the
+            * filter below is shifted by it.
+            local _first_row = 1
             capture {
+                if `"`brow'"' != "" & `"`bcol'"' == "" {
+                    quietly import excel `"`using'"', describe
+                    forvalues _ws = 1/`r(N_worksheet)' {
+                        if lower(`"`r(worksheet_`_ws')'"') == lower(`"`bsh'"') {
+                            if regexm(`"`r(range_`_ws')'"', "^[A-Za-z]+([0-9]+)") {
+                                local _first_row = real(regexs(1))
+                            }
+                        }
+                    }
+                }
                 if `"`cellrange'"' != "" {
                     import excel `"`using'"', ///
                         sheet(`"`bsh'"') cellrange(`"`cellrange'"') clear allstring
@@ -241,7 +262,7 @@ program define stacktab, rclass
 
             * Apply row range filter if rows given but no cellrange
             if `"`brow'"' != "" & `"`bcol'"' == "" {
-                quietly keep if inrange(_n, `row_lo', `row_hi')
+                quietly keep if inrange(_n + `_first_row' - 1, `row_lo', `row_hi')
             }
             if `"`bcol'"' != "" & `"`brow'"' == "" {
                 capture unab _col_keep : `col_s'-`col_e'
@@ -573,10 +594,10 @@ program define stacktab, rclass
             if `"`title'"' != "" local export_start_row = `existing_rows' + 2
         }
 
-        * Preflight every optional sink before replacing any of them. In
-        * particular, the Markdown writer deliberately refuses an existing
-        * file unless mdappend is requested; discovering that after frame()
-        * and csv() had committed caused a partial transaction.
+        * Preflight every optional sink before replacing any of them, so a
+        * refusal cannot surface after frame() or csv() has committed. An
+        * existing markdown() file is replaced like every other sink (the
+        * package-wide contract); mdappend appends to it.
         local frame_name ""
         local frame_replace ""
         local frame_exists = 0
@@ -590,13 +611,6 @@ program define stacktab, rclass
             if `frame_exists' & "`frame_replace'" == "" {
                 display as error `"frame "`frame_name'" already exists; specify frame(`frame_name', replace)"'
                 exit 110
-            }
-        }
-        if `"`markdown'"' != "" & "`mdappend'" == "" {
-            capture confirm file `"`markdown'"'
-            if !_rc {
-                display as error `"file `markdown' already exists; specify mdappend or choose a new markdown() file"'
-                exit 602
             }
         }
 
@@ -1415,6 +1429,23 @@ program define _stacktab_apply_style, nclass
     local style : subinstr local style `"""' "", all
     local borders : subinstr local borders `"""' "", all
 
+    * bottom(row #) draws a rule under row # of the composed table. It used
+    * to be drawn only when # was the last row, where bottom(last) already
+    * puts one, so any other row was accepted and silently ignored. A row
+    * outside the table is refused here, before the workbook is opened (the
+    * workbook is a staged copy, so nothing has been committed).
+    local _bottom_rows ""
+    local _bscan = lower(`"`borders'"')
+    while regexm(`"`_bscan'"', "bottom\(row ([0-9]+)\)") {
+        local _br = real(regexs(1))
+        if `_br' < 1 | `_br' > `rows' {
+            noisily display as error "borders(): bottom(row `_br') is outside the table (rows 1 to `rows')"
+            exit 198
+        }
+        local _bottom_rows "`_bottom_rows' `_br'"
+        local _bscan = regexr(`"`_bscan'"', "bottom\(row [0-9]+\)", "")
+    }
+
     * Parse titlerowheight, noterowheight, colwidth from style_str
     local trh = 30
     local nrh = 45
@@ -1479,7 +1510,9 @@ program define _stacktab_apply_style, nclass
         }
     }
 
-    local cw_pos = strpos(`"`style'"', "colwidth(")
+    * lower(): the validator matches colwidth( case-insensitively, so
+    * style(COLWIDTH(A 30)) was accepted and then silently not applied.
+    local cw_pos = strpos(lower(`"`style'"'), "colwidth(")
     if `cw_pos' > 0 {
         local cw_tail = substr(`"`style'"', `cw_pos' + 9, .)
         local cw_end = strpos(`"`cw_tail'"', ")")
@@ -1525,9 +1558,13 @@ program define _stacktab_apply_style, nclass
         mata: `_style_book'.set_top_border((`startrow', `startrow'), ///
             (`startcol', `endcol'), "thin")
     }
-    if strpos(lower(`"`borders'"'), "bottom(last)") | ///
-        strpos(lower(`"`borders'"'), "bottom(row `rows')") {
+    if strpos(lower(`"`borders'"'), "bottom(last)") {
         mata: `_style_book'.set_bottom_border((`endrow', `endrow'), ///
+            (`startcol', `endcol'), "thin")
+    }
+    foreach _br of local _bottom_rows {
+        local _brow = `startrow' + `_br' - 1
+        mata: `_style_book'.set_bottom_border((`_brow', `_brow'), ///
             (`startcol', `endcol'), "thin")
     }
 

@@ -349,8 +349,9 @@ tabtools_tips [, open]
 
 - `xlsx(filename)` writes an Excel workbook; `excel(filename)` is a compatibility synonym where listed in command syntax.
 - `sheet(name)` selects the Excel sheet. Defaults are `Table 1` for `table1_tc`/`desctab`, `Crosstab` for `crosstab`, `Correlation` for `corrtab`, `Regression` for `regtab`, `Effects` for `effecttab`, `Survival` for `survtab`, `Results` for `stratetab`, `Composite` for `comptab`/`hrcomptab`, and `Table` for `puttab`. `stacktab` requires an explicit sheet name.
-- `csv(filename)` writes the visible table data for commands that support CSV output. Titles and footnotes are not additional CSV columns.
-- `markdown(filename)` writes GitHub-Flavored Markdown. `mdappend` appends when the target exists and creates it otherwise. Leading spaces in the row-label (first) column are written as `&nbsp;` entities, so indented categorical and factor-level rows keep their hierarchy after GFM trims cell whitespace; value cells are trimmed.
+- `csv(filename)` writes the visible table data for commands that support CSV output, and must name a `.csv` file. Titles and footnotes are not additional CSV columns.
+- The workbook, `csv()`, and `markdown()` must name different files; paths are compared after resolving them against the working directory and ignoring case, and a collision is refused before anything is written.
+- `markdown(filename)` writes GitHub-Flavored Markdown and replaces an existing file. `mdappend` appends when the target exists and creates it otherwise. Cell, header, title, and footnote text is written literally: it is never macro-expanded, and `\ | * _`, backtick, `< > & [ ]` are backslash-escaped so data never render as emphasis, HTML, entities, links, or code. Leading spaces in the row-label (first) column are written as `&nbsp;` entities, so indented categorical and factor-level rows keep their hierarchy after GFM trims cell whitespace; value cells are trimmed.
 - `frame(name[, replace])` stores the rendered table; `eplotframe(name[, replace])` stores graph-ready model/effect results.
 - `open` requires an Excel target and asks Stata to open the written workbook.
 

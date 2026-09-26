@@ -82,6 +82,7 @@ program define corrtab, rclass
                 exit 198
             }
         }
+        _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
         if `digits' == -1 {
             if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
