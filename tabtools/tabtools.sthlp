@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.11  26sep2026}{...}
+{* *! version 2.1.12  26sep2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -62,10 +62,22 @@ paths are compared after resolving them against the working directory and
 ignoring case, and a collision is refused before anything is written. An
 existing {opt markdown()} file is replaced; {opt mdappend} appends to it
 instead. Markdown text is written literally: it is never macro-expanded, and
-{cmd:\ | * _} backtick {cmd:< > & [ ]} are backslash-escaped so that data
+{cmd:\ | * _} backtick {cmd:< > & [ ] ~} are backslash-escaped so that data
 render as the text they contain rather than as emphasis, HTML, entities,
-links, or code. Line breaks become {cmd:<br>} and first-column indentation
+links, strikethrough, or code. Line breaks become {cmd:<br>} and first-column indentation
 becomes {cmd:&nbsp;}.
+
+{pstd}
+{opt title()}, {opt footnote()}, and {cmd:stacktab}'s {opt note()} text reaches
+the console, workbook, CSV, and Markdown output as typed: a quoted local-macro
+reference, a {cmd:$}{it:name}, or a lone backtick inside it is kept as text and
+never expanded by the command. Stata itself expands macros on the command line
+before the command runs, so to pass such text, build it in a local macro and
+give it as {cmd:title(`"`macval(}{it:mac}{cmd:)'"')}. One limit comes from Stata's
+parser, not from these commands: text that ends in a backtick cannot be given
+inside compound quotes (the backtick joins the closing quote), and the call
+stops with r(198) "unmatched quote" before anything is written; end the text
+with another character.
 
 {pstd}
 {helpb table1_tc}, {helpb desctab}, and {helpb crosstab} accept
@@ -420,6 +432,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.1.11{p_end}
+{pstd}{bf:Version} 2.1.12{p_end}
 
 {hline}

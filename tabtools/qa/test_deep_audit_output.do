@@ -90,7 +90,7 @@ capture noisily {
     assert `effect_level' == 90
     assert "`effect_char'" == "90"
     assert strpos("`effect_methods'", "90%") > 0
-    frame deep_effect90: assert c2[3] == "(90% CI)"
+    frame deep_effect90: assert c2[3] == "90% CI"
 }
 if _rc == 0 {
     display as result "  PASS M10b: stored collect/matrix levels survive later set level changes"

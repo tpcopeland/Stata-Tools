@@ -1,4 +1,4 @@
-*! desctab Version 2.1.11  2026/09/26 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.12  2026/09/26 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -92,7 +92,7 @@ program define desctab, rclass
 
 **# Input Validation and Option Setup
 
-    local _markdown_title `"`title'"'
+    local _markdown_title `"`macval(title)'"'
 
     /* Accept xlsx() as synonym for excel() */
     if "`excel'" == "" & "`xlsx'" != "" local excel "`xlsx'"
@@ -131,9 +131,9 @@ program define desctab, rclass
 
     if "`smallcells'" != "" {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
-        if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
-            if `"`footnote'"' == "" local footnote `"`_sc_note'"'
-            else local footnote `"`footnote' `_sc_note'"'
+        if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
+            if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
+            else local footnote `"`macval(footnote)' `_sc_note'"'
         }
     }
 
@@ -164,7 +164,7 @@ program define desctab, rclass
     local has_excel = "`excel'" != ""  // Boolean flag for Excel option
     local has_markdown = `"`markdown'"' != ""
     local has_sheet = "`sheet'" != ""  // Boolean flag for sheet option
-    local has_title = "`title'" != ""  // Boolean flag for title option
+    local has_title = `"`macval(title)'"' != ""  // Boolean flag for title option
     local has_open = "`open'" != ""    // Boolean flag for open option
 
     if "`total'" != "" & !inlist("`total'", "before", "after") {
@@ -1582,7 +1582,7 @@ program define desctab, rclass
             /* Add title row */
             gen title = ""  // Title column
             order title  // Make title the first column
-            replace title = `"`title'"' if _n == 1  // Set title text
+            replace title = `"`macval(title)'"' if _n == 1  // Set title text
 
             /* Add p-value header */
             capture confirm string variable pvalue
@@ -2015,10 +2015,10 @@ program define desctab, rclass
                 }
 
                 * Footnote
-                if `"`footnote'"' != "" {
+                if `"`macval(footnote)'"' != "" {
                     local _fn_row = `num_rows' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
-                    mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+                    mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
 	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' `_font_code' 0 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0 0"'
                 }
 
@@ -2079,7 +2079,7 @@ program define desctab, rclass
 
     * CSV export (F2)
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
         display as text "CSV exported to `csv'"
     }
 
@@ -2125,7 +2125,7 @@ program define desctab, rclass
         capture replace pvalue = "p-value" if _n == 2 & strtrim(pvalue) == ""
         capture replace smd_str = "SMD" if _n == 2 & strtrim(smd_str) == ""
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) title(`"`_markdown_title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' labelvar(A) title(`"`macval(_markdown_title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             display as error "Failed to export Markdown to `markdown'"

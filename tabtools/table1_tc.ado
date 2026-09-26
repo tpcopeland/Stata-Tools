@@ -1,4 +1,4 @@
-*! table1_tc Version 2.1.11  2026/09/26 - Descriptive Statistics Table Generator
+*! table1_tc Version 2.1.12  2026/09/26 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Frontend for the consolidated desctab engine
@@ -8,7 +8,9 @@ program define table1_tc, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        desctab `0'
+        * macval(): the command line is forwarded as typed, so title() or
+        * footnote() text holding a macro reference is not expanded again.
+        desctab `macval(0)'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

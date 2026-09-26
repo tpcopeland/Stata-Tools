@@ -1,4 +1,4 @@
-*! hrcomptab Version 2.1.11  2026/09/26
+*! hrcomptab Version 2.1.12  2026/09/26
 *! Compatibility wrapper for comptab rate-frame composition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,9 @@ program define hrcomptab, rclass
 
     capture noisily {
         syntax anything(name=rateframe), *
-        capture noisily comptab, rateframe(`rateframe') `options'
+        * macval(): options are forwarded as typed (title() and footnote()
+        * text is never expanded a second time).
+        capture noisily comptab, rateframe(`rateframe') `macval(options)'
         local _sub_rc = _rc
         * return add runs on the error path too, and must: comptab posts its
         * analytical results before a failed export sets the return code, and

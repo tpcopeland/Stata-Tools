@@ -10,7 +10,9 @@
 *       "Median Hazard Ratio"
 *   R4  bootstrap: and jackknife: prefixes are classified like plain fits
 *   R5  mi estimate: collections (mi's own eform options, t-based intervals,
-*       stats tokens mi_m and fmi)
+*       stats tokens mi_m and fmi); R5b (MI03, mi estimate: logit with
+*       vce(robust)) is a guard, not a regression test: it passed on the
+*       unfixed tree
 *   R6  mlogit/ologit factor covariates keep a header row per equation
 *   R7  stats() tokens events, r2_a, rmse, F
 *   R8  methods sentence built from the model, not the estimate header
@@ -330,17 +332,36 @@ else {
 }
 
 * R1h: one model whose covariate shares its name with its own ancillary
-* parameter cannot be shown in one colname row: refuse rather than drop it
+* parameter shows both, never drops or refuses either (the full cases are
+* F8 in test_followups_2026_09_27.do)
 capture noisily {
     sysuse auto, clear
     generate alpha = mpg
     collect clear
     quietly collect: nbreg rep78 alpha weight
-    capture regtab
-    assert _rc == 459
+    matrix bn = e(b)
+    local ba = bn[1, colnumb(bn, "rep78:alpha")]
+    local lna = bn[1, colnumb(bn, "/:lnalpha")]
+    capture frame drop _rb1
+    quietly regtab, frame(_rb1, replace)
+    _rbl_is _rb1 "alpha" c1 `=exp(`ba')'
+    capture frame drop _rb1
+    quietly regtab, frame(_rb1, replace) keepintercept
+    _rbl_nrow _rb1 "alpha"
+    assert r(n) == 2
+    _rbl_is _rb1 "lnalpha" c1 `lna'
+    frame _rb1 {
+        _rbl_fmt `=exp(`ba')'
+        assert strtrim(c1[4]) == "`r(s)'"
+        quietly generate long _r = _n
+        quietly summarize _r if strtrim(A) == "alpha" & _n >= 4
+        local ra = r(max)
+        _rbl_fmt `=exp(`lna')'
+        assert strtrim(c1[`ra']) == "`r(s)'"
+    }
 }
 if _rc == 0 {
-    display as result "  PASS: R1h same-model covariate/ancillary name collision refused"
+    display as result "  PASS: R1h same-model covariate/ancillary name collision shows both rows"
     local ++pass_count
 }
 else {
@@ -984,13 +1005,14 @@ capture noisily {
     quietly collect: logit foreign i.rep78
     quietly regtab
     _rbl_methods `"`r(methods)'"' "Odds ratios `_ci' univariable logistic regression."
-    * GEE (regtab shows xtgee on the coefficient scale, so "Coefficients")
+    * GEE: binomial/logit is shown as odds ratios, as glm is (F1 in
+    * test_followups_2026_09_27.do)
     quietly xtset rep78 obs
     collect clear
     quietly collect: xtgee foreign mpg weight, family(binomial) link(logit)
     quietly regtab
     _rbl_methods `"`r(methods)'"' ///
-        "Coefficients `_ci' multivariable generalized estimating equation (GEE) logistic regression."
+        "Odds ratios `_ci' multivariable generalized estimating equation (GEE) logistic regression."
     * mixed effects
     webuse pig, clear
     collect clear

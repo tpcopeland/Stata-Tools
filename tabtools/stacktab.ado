@@ -1,4 +1,4 @@
-*! stacktab Version 2.1.11  2026/09/26
+*! stacktab Version 2.1.12  2026/09/26
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -81,22 +81,31 @@ program define stacktab, rclass
             display as error "append and sheetreplace may not be combined"
             exit 198
         }
-        if `"`note'"' != "" & `"`footnote'"' != "" {
+        if `"`macval(note)'"' != "" & `"`macval(footnote)'"' != "" {
             display as error "note() and footnote() may not be combined"
             exit 198
         }
-        if `"`note'"' == "" & `"`footnote'"' != "" {
-            local note `"`footnote'"'
+        if `"`macval(note)'"' == "" & `"`macval(footnote)'"' != "" {
+            local note `"`macval(footnote)'"'
         }
         if `spacing' < 0 {
             display as error "spacing() must be nonnegative"
             exit 198
         }
-        local q = char(34)
+        * These options are parsed asis: peel one outer layer of compound
+        * (`"..."') or plain quotes. copy local and macval() keep the text
+        * literal, so a title or note holding a local-macro reference or a
+        * $word is never expanded.
         foreach opt in title note csv markdown {
-            if substr(`"``opt''"', 1, 1) == `"`q'"' & ///
-                substr(`"``opt''"', -1, 1) == `"`q'"' {
-                local `opt' = substr(`"``opt''"', 2, strlen(`"``opt''"') - 2)
+            local _sq_v : copy local `opt'
+            local _sq_n = strlen(`"`macval(_sq_v)'"')
+            if `_sq_n' >= 4 & substr(`"`macval(_sq_v)'"', 1, 2) == char(96) + char(34) & ///
+                substr(`"`macval(_sq_v)'"', -2, 2) == char(34) + char(39) {
+                local `opt' = substr(`"`macval(_sq_v)'"', 3, `_sq_n' - 4)
+            }
+            else if `_sq_n' >= 2 & substr(`"`macval(_sq_v)'"', 1, 1) == char(34) & ///
+                substr(`"`macval(_sq_v)'"', -1, 1) == char(34) {
+                local `opt' = substr(`"`macval(_sq_v)'"', 2, `_sq_n' - 2)
             }
         }
         if `"`csv'"' != "" & !strmatch(lower(`"`csv'"'), "*.csv") {
@@ -555,13 +564,13 @@ program define stacktab, rclass
             }
             else {
                 capture noisily _tabtools_console_display `final_ncols' ///
-                    `"`title'"', headerstart(1)
+                    `"`macval(title)'"', headerstart(1)
                 local _disp_rc = _rc
                 capture rename (`_disp_to') (`final_vars')
                 if `_disp_rc' exit `_disp_rc'
             }
-            if `"`note'"' != "" {
-                noisily display as text `"`note'"'
+            if `"`macval(note)'"' != "" {
+                noisily display as text `"`macval(note)'"'
             }
         }
 
@@ -591,7 +600,7 @@ program define stacktab, rclass
         if "`append'" != "" & `_sheet_bounds_rc' == 0 & `existing_rows' > 0 {
             local export_title_row = `existing_rows' + 1
             local export_start_row = `existing_rows' + 1
-            if `"`title'"' != "" local export_start_row = `existing_rows' + 2
+            if `"`macval(title)'"' != "" local export_start_row = `existing_rows' + 2
         }
 
         * Preflight every optional sink before replacing any of them, so a
@@ -649,7 +658,7 @@ program define stacktab, rclass
             tempfile _stage_csv_token
             local _stage_csv `"`_stage_csv_token'.csv"'
             quietly _tabtools_csv_write using `"`_stage_csv'"', reservedrow ///
-                title(`"`title'"') footnote(`"`note'"')
+                title(`"`macval(title)'"') footnote(`"`macval(note)'"')
         }
 
         local _ret_markdown ""
@@ -676,7 +685,7 @@ program define stacktab, rclass
             }
             capture noisily _tabtools_markdown_write using `"`_stage_markdown'"', ///
                 `_mdappend_opt' headerstart(1) datastart(2) ///
-                title(`"`title'"') footnote(`"`note'"') strictheaders
+                title(`"`macval(title)'"') footnote(`"`macval(note)'"') strictheaders
             if _rc {
                 local _md_rc = _rc
                 display as error "Failed to export Markdown to `markdown'"
@@ -697,7 +706,7 @@ program define stacktab, rclass
         local rows_written = r(N)
         local rows_out = `export_start_row' + `rows_written' - 1
         local note_row = .
-        if `"`note'"' != "" local note_row = `rows_out' + 1
+        if `"`macval(note)'"' != "" local note_row = `rows_out' + 1
 
         * ================================================================
         * APPLY TABTOOLS-STYLE EXCEL FORMATTING
@@ -717,15 +726,15 @@ program define stacktab, rclass
                 `_sectionrowsopt'
 
         local last_sheet_col = `export_start_col' + `final_ncols' - 1
-        if `"`title'"' != "" & `export_title_row' > 0 {
+        if `"`macval(title)'"' != "" & `export_title_row' > 0 {
             mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
-                `export_title_row', 1, 1, `last_sheet_col', `"`title'"', ///
+                `export_title_row', 1, 1, `last_sheet_col', st_local("title"), ///
                 12, `title_height', 1, 0)
         }
-        if `"`note'"' != "" {
+        if `"`macval(note)'"' != "" {
             mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
                 `note_row', `export_start_col', `export_start_col', ///
-                `last_sheet_col', `"`note'"', 8, `note_height', 0, 1)
+                `last_sheet_col', st_local("note"), 8, `note_height', 0, 1)
         }
 
         * Every write into this workbook is done by now.  xl() appends a
@@ -871,7 +880,7 @@ program define stacktab, rclass
         local _ret_append_start = `export_start_row'
         local _ret_table_start "B`export_start_row'"
         local _ret_title_cell ""
-        if `"`title'"' != "" & `export_title_row' > 0 local _ret_title_cell "A`export_title_row'"
+        if `"`macval(title)'"' != "" & `export_title_row' > 0 local _ret_title_cell "A`export_title_row'"
         local _ret_note_row = `note_row'
         local _ret_sheet `"`sheet'"'
         local _ret_book `"`using'"'

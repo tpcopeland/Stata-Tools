@@ -160,8 +160,8 @@ local ++test_count
 * The late failure used to be stacktab refusing an existing markdown() file
 * (r(602)). markdown() now replaces an existing file like every other sink,
 * so the late failure is a Markdown target whose directory does not exist:
-* the workbook and CSV commit first, the Markdown copy fails, and every
-* committed sink must be rolled back.
+* the workbook and CSV commit first, the Markdown copy fails with r(603)
+* (file could not be opened), and every committed sink must be rolled back.
 local late_csv "`output_dir'/late-failure.csv"
 local late_md "`output_dir'/no_such_dir_m15b/late-failure.md"
 capture erase "`late_csv'"
@@ -191,7 +191,7 @@ forvalues late_s = 1/`r(N_worksheet)' {
         local late_sheet_exists = 1
 }
 capture noisily {
-    assert `late_failure_rc' != 0
+    assert `late_failure_rc' == 603
     assert `"`late_csv_first'"' == "sentinel-csv"
     assert `late_md_rc' == 601
     assert !`late_sheet_exists'

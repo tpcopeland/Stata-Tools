@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 2.1.11  2026/09/26
+*! _tabtools_csv_write Version 2.1.12  2026/09/26
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -77,13 +77,15 @@ program define _tabtools_csv_write, nclass
         local _tt_first : word 1 of `_vars'
         capture confirm string variable `_tt_first'
         if !_rc & _N > 0 {
-            if `"`title'"' != "" {
+            * macval(): the text is data, never macro syntax, so a quoted
+            * local-macro reference or a $word in it is written as typed.
+            if `"`macval(title)'"' != "" {
                 quietly insobs 1, before(1)
-                quietly replace `_tt_first' = `"`title'"' in 1
+                quietly replace `_tt_first' = `"`macval(title)'"' in 1
             }
-            if `"`footnote'"' != "" {
+            if `"`macval(footnote)'"' != "" {
                 quietly insobs 1
-                quietly replace `_tt_first' = `"`footnote'"' in `=_N'
+                quietly replace `_tt_first' = `"`macval(footnote)'"' in `=_N'
             }
         }
 

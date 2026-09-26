@@ -160,7 +160,8 @@ Remarks){p_end}
 {opt comp:act} merge estimate and CI into one column per model{p_end}
 
 {phang}
-{opt csv(filename)} also export the table as a CSV file. The CSV mirrors the
+{opt csv(filename)} also export the table as a CSV file. {it:filename} must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. The CSV mirrors the
 workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
@@ -257,9 +258,12 @@ visible. In the multi-equation layout the whole ancillary block and any
 {cmd:/x} is an ordinary coefficient: it is kept and exponentiated with the
 others. When one row holds one model's ancillary parameter and another model's
 covariate of the same name, only the ancillary cell is blanked. A model whose
-covariate shares its name with one of its own ancillary parameters (a
-covariate named {cmd:alpha} in {cmd:nbreg}) cannot be shown in the one-row-per-name
-layout and is refused with r(459); rename the covariate.{p_end}
+covariate shares its name with one of its own ancillary parameters or cutpoints
+(a covariate named {cmd:alpha} in {cmd:nbreg}, {cmd:ln_p} in a Weibull {cmd:streg},
+{cmd:lnsigma} in a lognormal one, {cmd:cut1} in {cmd:ologit}) shows both rows,
+told apart by their equations: the covariate among the covariates, on the
+model's scale, and the parameter, labelled with its own name and on its own
+scale, among the ancillary rows. The collection itself is not changed.{p_end}
 
 {phang}
 {opt nop:value} suppress p-value columns; stars and highlighting still use p-values internally{p_end}
@@ -359,9 +363,12 @@ relevant results are in the active {helpb collect}. {cmd:regtab} does not run mo
 {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as
 {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
 {p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it
-intentionally updates collect labels, styles, and layout before export. If you
-need the original collection layout unchanged for later commands, save or
-rebuild that collection before running {cmd:regtab}.{p_end}
+intentionally updates the labels of {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p},
+the cell styles, and the layout before export. The labels of every other
+result it reads (the command, command line, and {cmd:vce} metadata, and the
+{opt stats()} results) are restored exactly as found. If you need the
+original collection layout unchanged for later commands, save or rebuild that
+collection before running {cmd:regtab}.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example
 alternative: {cmd:sep("; ")}.{p_end}
 {p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display
@@ -388,8 +395,11 @@ regression, complementary log-log regression, gamma regression with a log link,
 zero-inflated Poisson regression, ordered logistic regression, linear
 mixed-effects regression, mixed-effects logistic regression, generalized
 estimating equation (GEE) logistic regression, Fine-Gray competing-risks
-regression, ...), and "univariable" (one predictor variable) or
-"multivariable", counting a factor variable once. Prefixes are named:
+regression, heteroskedastic probit regression, quantile regression,
+instrumental-variables regression, ...), and "univariable" (one predictor
+variable) or "multivariable", counting a factor variable once and counting
+the covariates of a variance equation (such as {cmd:hetprobit}'s
+{cmd:het()}). Prefixes are named:
 survey-weighted ..., ... with multiple imputation, ... with bootstrap (or
 jackknife) standard errors. Several models list each distinct model once
 ("univariable and multivariable logistic regression across 2 models").
@@ -433,7 +443,7 @@ distribution with each coefficient's own degrees of freedom
 {cmd:tr} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
 generalized gamma are log-time only), and the log-time metric is shown as TR,
 the exponentiated log-time coefficients.{p_end}
-{p 4 8 2}- {cmd:glm} (including the GEE backend) is resolved from its
+{p 4 8 2}- {cmd:glm} and {cmd:xtgee} are resolved from their
 {opt family()} and {opt link()} rather than the command name, with glm's own
 abbreviations ({cmd:f(b)}, {cmd:fam(bin)}, {cmd:l(logit)}, {cmd:ef}), so
 {cmd:family(binomial)} or {cmd:family(bernoulli)} with the default or
@@ -442,7 +452,9 @@ abbreviations ({cmd:f(b)}, {cmd:fam(bin)}, {cmd:l(logit)}, {cmd:ef}), so
 intercept row. Another family/link fitted with {cmd:eform} keeps glm's
 exponentiated values under RR (binomial, log link), IRR (negative binomial,
 log link), or exp(b); without {cmd:eform} it stays on the coefficient scale
-with the {cmd:Coef.} header. Supply {opt coef()} to label it yourself.{p_end}
+with the {cmd:Coef.} header. {cmd:xtgee} takes the same options and defaults, so a
+GEE fit gets the header, scale, and intercept rule that {cmd:glm} gets for the
+same family and link. Supply {opt coef()} to label it yourself.{p_end}
 {p 4 8 2}- All collected models must share one confidence level, because one
 "#% CI" header labels every model. Models fitted with different {opt level()}
 values (a model without {opt level()} counts as the current {cmd:set level})
@@ -707,20 +719,29 @@ family) are posted.{p_end}
 and N as {cmd:AIC = -2*ll + 2*k} and {cmd:BIC = -2*ll + k*ln(N)}, rather than
 read from {cmd:e(aic)}/{cmd:e(bic)}, which {cmd:glm}/GEE backends store on an
 incomparable per-observation or deviance scale. {cmd:k} is the number of
-estimated parameters, whatever the variance estimator. Under a model-based
-{cmd:vce()} that is {cmd:e(rank)}, which also nets out linear constraints, and
-the values match {helpb estat ic}. Under a robust-type {cmd:vce()}
-({cmd:cluster}, {cmd:robust}, {cmd:bootstrap}, {cmd:jackknife}, {cmd:linearized})
-{cmd:e(rank)} is the rank of the sandwich variance, which is capped at G-1 with
-G clusters; there {cmd:k} counts the collected coefficients that carry a
-standard error, outside the derived {cmd:_diparm} parameters (base and omitted
-levels have none). {bf:Divergence from estat ic:} after a fit with fewer
-clusters than coefficients, {helpb estat ic} uses the capped {cmd:e(rank)}
-(for example df = 1 for a {cmd:logit} with four coefficients and
-{cmd:vce(cluster)} on two clusters), while {cmd:regtab} counts four, so its
-AIC and BIC equal those of the same model fitted with the model-based
-variance. The likelihood itself does not depend on {cmd:vce()}. Linear
-constraints are not netted out under a robust-type {cmd:vce()}.{p_end}
+estimated free parameters, whatever the variance estimator. That is
+{cmd:e(rank)}, under a robust-type {cmd:vce()} too: it leaves out base levels,
+omitted levels and the base outcome equation of {cmd:mlogit}, nets out linear
+constraints, and gives the values {helpb estat ic} reports. The one exception
+is a robust-type {cmd:vce()} ({cmd:cluster}, {cmd:robust}, {cmd:bootstrap},
+{cmd:jackknife}, {cmd:linearized}) over too few clusters, GEE panels, or
+replications. The sandwich variance then has rank at most G-1 (G clusters or
+panels) or R-1 (R replications); when that cap is below the number of
+collected coefficients with a nonzero standard error (outside the derived
+{cmd:_diparm} parameters; collect stores the standard error of a base or
+omitted level, or of a coefficient fixed by a constraint, as 0), {cmd:k} is
+that number. {bf:Divergence from estat ic:} in that capped case
+{helpb estat ic} uses the capped {cmd:e(rank)} (for example df = 1 for a
+{cmd:logit} with four coefficients and {cmd:vce(cluster)} on two clusters),
+while {cmd:regtab} counts four, so its AIC and BIC equal those of the same
+model fitted with the model-based variance. The likelihood itself does not
+depend on {cmd:vce()}. The collection does not hold {cmd:e(Cns)}, so in the
+capped case a constraint fixing a coefficient at a value is netted out (its
+standard error is 0) but an equality constraint between coefficients is not:
+{cmd:constraints()} with {cmd:mpg = weight} and {cmd:vce(cluster)} on two
+clusters counts four, where the model-based fit has three. A robust variance
+that is rank deficient for another reason while the cap is not below that
+number keeps {cmd:e(rank)}, as {helpb estat ic} does.{p_end}
 
 {pstd}
 {cmd:QICu} is {it:not} a likelihood criterion and does not come from

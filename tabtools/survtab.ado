@@ -1,4 +1,4 @@
-*! survtab Version 2.1.11  2026/09/26
+*! survtab Version 2.1.12  2026/09/26
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -178,6 +178,9 @@ capture noisily {
     _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     local _ci_alpha = (100 - `level') / 200
+    * The level as shown: at most 15 significant digits, so 99.9 never prints
+    * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
+    local _level_txt = strtrim(string(`level', "%21.15g"))
     local _ci_z = invnormal(1 - `_ci_alpha')
 
     * Validate boldp
@@ -538,7 +541,7 @@ capture noisily {
     * Row 1: Title
     local row = `row' + 1
     qui set obs `row'
-    qui replace title = `"`title'"' in `row'
+    qui replace title = `"`macval(title)'"' in `row'
 
     * Row 2: Column headers
     local row = `row' + 1
@@ -587,7 +590,7 @@ capture noisily {
         * CI row for median
         local row = `row' + 1
         qui set obs `row'
-        qui replace c1 = "  (`level'% CI)" in `row'
+        qui replace c1 = "  (`_level_txt'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`med_lo_g`g'') & !missing(`med_hi_g`g'') {
@@ -668,7 +671,7 @@ capture noisily {
         local row = `row' + 1
         qui set obs `row'
         local _rmst_str = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (`level'% CI)" in `row'
+        qui replace c1 = "RMST (`_rmst_str'-`tu_short'), `tu_short' (`_level_txt'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
             if !missing(`rmst_g`g'') {
@@ -838,7 +841,7 @@ capture noisily {
     matrix colnames `_rtable' = `_cnames'
 
 **# Console Display
-    noisily _tabtools_console_display `ncols' `"`title'"'
+    noisily _tabtools_console_display `ncols' `"`macval(title)'"'
     if "`reverse'" != "" {
         noisily display as text "Note: reverse reports 1 - Kaplan-Meier, which equals the cumulative"
         noisily display as text "      incidence only with a single event type (no competing risks). With"
@@ -854,7 +857,7 @@ capture noisily {
 
 **# CSV Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
         capture confirm file "`csv'"
         if _rc {
             noisily display as error "CSV export command succeeded but file not found"
@@ -870,7 +873,7 @@ capture noisily {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"
@@ -887,7 +890,7 @@ capture noisily {
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
-        frame `frame': char _dta[tabtools_ci_level] "`level'"
+        frame `frame': char _dta[tabtools_ci_level] "`_level_txt'"
         frame `frame': char _dta[tabtools_source] "survtab"
     }
 
@@ -952,13 +955,13 @@ capture noisily {
         local _methods "`_methods' Groups were compared using the log-rank test."
     }
     if "`median'" != "" {
-        local _methods "`_methods' Median survival time with `level'% confidence intervals is reported."
+        local _methods "`_methods' Median survival time with `_level_txt'% confidence intervals is reported."
     }
     if `has_rmst' {
         local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `level'% confidence intervals based on the Greenwood variance formula."
+        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with `_level_txt'% confidence intervals based on the Greenwood variance formula."
         if "`difference'" != "" & `has_by' & `n_groups' == 2 {
-            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `by'), with a `level'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
+            local _methods `"`_methods' The between-group RMST difference is reported as `glabel_1' minus `glabel_2' (the first minus the second by() group in ascending order of `by'), with a `_level_txt'% confidence interval and two-sided Wald p-value based on the independent-group variance."'
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
@@ -1043,10 +1046,10 @@ capture noisily {
                     (5, `_logrank_row', `_logrank_row', 2, 2, 0, 1, 0, 0) \ ///
                     (6, `_logrank_row', `_logrank_row', 2, 2, 0, 2, 0, 0)
             }
-            if `"`footnote'"' != "" {
+            if `"`macval(footnote)'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
                 matrix `_style_rules' = `_style_rules' \ ///
                     (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                     (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///

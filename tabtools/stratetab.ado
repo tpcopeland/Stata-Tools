@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.11  2026/09/26
+*! stratetab Version 2.1.12  2026/09/26
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -481,6 +481,9 @@ if `_ci_unknown_seen' & `level' == -1 {
 }
 if `level' != -1 & missing(`_ci_level') local _ci_level = `level'
 if missing(`_ci_level') local _ci_level = 95
+* The level as shown: at most 15 significant digits, so 99.9 never prints
+* as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
+local _ci_level_txt = strtrim(string(`_ci_level', "%21.15g"))
 local _ci_alpha = (100 - `_ci_level') / 200
 local _ci_z = invnormal(1 - `_ci_alpha')
 
@@ -536,7 +539,7 @@ quietly gen str244 title = ""
 
 * Row 1: Title (in title column, will be merged across all)
 quietly set obs 1
-quietly replace title = `"`title'"' in 1
+quietly replace title = `"`macval(title)'"' in 1
 
 * Row 2: Outcome headers (merged across columns)
 local new = _N + 1
@@ -558,10 +561,10 @@ forvalues o = 1/`outcomes' {
 	local col = `col' + 1
 	quietly replace c`col' = "Person-Years (PY)" in `new'
 	local col = `col' + 1
-	quietly replace c`col' = "Per `unitlabel' PY (`_ci_level'% CI)" in `new'
+	quietly replace c`col' = "Per `unitlabel' PY (`_ci_level_txt'% CI)" in `new'
 	local col = `col' + 1
 	if "`rateratio'" != "" {
-		quietly replace c`col' = "IRR (`_ci_level'% CI)" in `new'
+		quietly replace c`col' = "IRR (`_ci_level_txt'% CI)" in `new'
 		local col = `col' + 1
 	}
 }
@@ -648,7 +651,7 @@ drop `exp_row'
 if "`csv'" != "" {
 	_tabtools_validate_path "`csv'" "csv()"
 	order title c*
-	_tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+	_tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
 	local _ret_csv `"`csv'"'
 }
 
@@ -661,7 +664,7 @@ if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
 	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-		`_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
+		`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
 	if _rc {
 		local _md_rc = _rc
 		noi di as err "Failed to export Markdown to `markdown'"
@@ -673,7 +676,7 @@ if `"`markdown'"' != "" {
 	noi di as text "Markdown exported to `markdown'"
 }
 * Console display
-noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
+noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
 
 * Frame output is staged here and committed only after every export has
 * succeeded, so a failed xlsx write neither creates nor replaces frame().
@@ -681,7 +684,7 @@ if `"`_frame_name'"' != "" {
 	frame put *, into(`_frame_stage')
 	local _frame_stage_created 1
 	frame `_frame_stage': char _dta[tabtools_source] "stratetab"
-	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level'"
+	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level_txt'"
 	frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
 	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
 	forvalues _meta_o = 1/`outcomes' {
@@ -797,7 +800,7 @@ forvalues _meta_o = 1/`outcomes' {
 }
 local _outcome_ids_return = substr(strtrim(`"`_outcome_ids_return'"'), 3, .)
 return local outcome_ids `"`_outcome_ids_return'"'
-return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level'% level; rate-ratio intervals use an independent-rate log-normal approximation at the same level."
+return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level_txt'% level; rate-ratio intervals use an independent-rate log-normal approximation at the same level."
 
 	* Export to Excel
 	if `_has_xlsx' {
@@ -912,10 +915,10 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				matrix `_style_rules' = `_style_rules' \ ///
 					(9, `lastrow', `lastrow', 2, `_total_cols', 0, `_hborder_code', 0, 0)
 
-				if `"`footnote'"' != "" {
+				if `"`macval(footnote)'"' != "" {
 					local _fn_row = `lastrow' + 1
 					local _fn_fontsize = max(`_fontsize' - 2, 6)
-					mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+					mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
 					matrix `_style_rules' = `_style_rules' \ ///
 						(14, `_fn_row', `_fn_row', 2, `_total_cols', 0, 0, 0, 0) \ ///
 						(5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///

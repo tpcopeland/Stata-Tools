@@ -109,6 +109,8 @@ local test_files "`test_files' test_table1_overflow.do"
 local test_files "`test_files' test_audit_2026_09_26_fixes.do"
 local test_files "`test_files' test_puttab_stacktab_2026_09_27.do"
 local test_files "`test_files' test_regtab_backlog_2026_09_26.do"
+local test_files "`test_files' test_followups_2026_09_27.do"
+local test_files "`test_files' test_review_2026_09_26_fixes.do"
 
 local validation_files ""
 local validation_files "`validation_files' validation_corrtab.do"
