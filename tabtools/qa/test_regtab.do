@@ -5054,7 +5054,10 @@ capture noisily {
         file read `fh' line
     }
     file close `fh'
-    assert strpos(`"`_alltext'"', "intentionally updates collect labels") > 0
+    * 2.1.12 narrowed the documented side effect: only _r_b/_r_ci/_r_p labels,
+    * styles and layout change; every other result label is restored.
+    assert strpos(`"`_alltext'"', "intentionally updates the labels of {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p}") > 0
+    assert strpos(`"`_alltext'"', "are restored exactly as found") > 0
     assert strpos(`"`_alltext'"', "save or rebuild that collection") > 0
 }
 if _rc == 0 {

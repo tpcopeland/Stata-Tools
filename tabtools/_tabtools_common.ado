@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.11  2026/09/26
+*! _tabtools_common Version 2.1.12  2026/09/26
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -833,12 +833,15 @@ program _tabtools_console_display, nclass
     syntax anything(name=args) [, LABELvar(string) DATAstart(integer 3) HEADERstart(integer 2)]
 
     gettoken num_cols title : args
-    * Resolve compound-quoted title passed via `"`macro'"'
-    local title `title'
+    * Peel the compound quotes of a title passed as `"`macro'"'. gettoken
+    * and macval() never expand the text: a local-macro reference or a
+    * $word in a title is shown as typed.
+    gettoken _tt_t1 _tt_t2 : title
+    if `"`macval(_tt_t2)'"' == "" local title : copy local _tt_t1
 
-    if `"`title'"' != "" {
+    if `"`macval(title)'"' != "" {
         display as text ""
-        display as result `"`title'"'
+        display as result `"`macval(title)'"'
     }
 
     local _display_vars ""

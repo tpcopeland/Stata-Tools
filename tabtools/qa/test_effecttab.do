@@ -676,7 +676,7 @@ capture noisily {
         local found = 0
         forvalues _r = 1/`=_N' {
             local _p = strtrim(c3[`_r'])
-            if "`_p'" != "" & "`_p'" != "p" {
+            if "`_p'" != "" & "`_p'" != "p-value" {
                 assert "`_p'" == "<0.001"
                 local found = 1
                 continue, break

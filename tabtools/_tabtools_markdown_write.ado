@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 2.1.11  2026/09/26
+*! _tabtools_markdown_write Version 2.1.12  2026/09/26
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -126,9 +126,10 @@ string scalar _tt_md_escape(string scalar x)
     x = subinstr(x, "*", "\*")
     x = subinstr(x, "_", "\_")
     // Literal text, not markup: raw HTML and comments (< >), entities (&),
-    // link, image and reference syntax ([ ]) and code spans (backtick) were
-    // rendered as markup, so "<b>Drug</b> &copy; [arm](url)" displayed as
-    // bold text, a copyright sign and a hyperlink. A backslash before ASCII
+    // link, image and reference syntax ([ ]), GFM strikethrough (~) and code
+    // spans (backtick) were rendered as markup, so "<b>Drug</b> &copy;
+    // [arm](url)" displayed as bold text, a copyright sign and a hyperlink,
+    // and "~~x~~" as struck-through text. A backslash before ASCII
     // punctuation is a literal in CommonMark/GFM. This runs before <br> is
     // inserted below, and _tt_md_body_cell() prepends &nbsp; indentation
     // after escaping, so helper-generated markup stays live. The backtick is
@@ -140,6 +141,7 @@ string scalar _tt_md_escape(string scalar x)
     x = subinstr(x, "&", "\&")
     x = subinstr(x, "[", "\[")
     x = subinstr(x, "]", "\]")
+    x = subinstr(x, "~", "\~")
     x = subinstr(x, char(13) + char(10), "<br>")
     x = subinstr(x, char(13), "<br>")
     x = subinstr(x, char(10), "<br>")

@@ -1,4 +1,4 @@
-*! regtab Version 2.1.11  2026/09/26
+*! regtab Version 2.1.12  2026/09/26
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -360,7 +360,11 @@ quietly{
 	* When the collection carries no level provenance and level() was not given,
 	* this warns and falls back to the current c(level).
 	noisily _tabtools_resolve_ci_level `level'
-	local _ci_level = r(level)
+	* _ci_level is the level as shown (header, methods, frame characteristics):
+	* at most 15 significant digits, so 99.9 never prints as the double's
+	* 17-digit 99.90000000000001. r(ci_level) returns the number itself.
+	local _ci_level_num = r(level)
+	local _ci_level = strtrim(string(`_ci_level_num', "%21.15g"))
 	local _ci_found = r(found)
 
     * Validation: Check xlsx if specified
@@ -375,6 +379,7 @@ quietly{
         noisily display as error "open requires xlsx() or excel()"
         exit 198
     }
+    if `"`csv'"' != "" _tabtools_validate_path "`csv'" "csv()"
     _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     * Create temporary file for intermediate processing
@@ -407,27 +412,24 @@ quietly{
     local _has_multieq_estimator = 0
     * mi estimate records the prefix and its options only in e(cmdline_mi)
     * and the fitted command in e(cmd_mi); e(vce) decides the AIC/BIC count.
-    * These are read under their own names (collect's labels for them vary).
+    * Every metadata result is read under its own level name: the labels
+    * collect attaches vary (none at all after bs: or bstrap:, "Estimation
+    * command" once a svy: fit is present), and the user may have set their
+    * own. _regtab_rlabels relabels the present levels with their names and
+    * hands back their labels, restored exactly once the table is rendered.
     local _meta_own "cmdline_mi cmd_mi vce"
-    foreach _mo of local _meta_own {
-        local _orig_mlbl_`_mo' ""
-        capture local _orig_mlbl_`_mo' : collect label levels result `_mo'
-        capture collect label levels result `_mo' "`_mo'", modify
-    }
+    _regtab_rlabels cmd cmdline depvar ivars revars redim `_meta_own'
+    local _meta_levels "`_rl_present'"
     capture {
-        collect layout (cmdset) (result[cmd cmdline depvar ivars revars redim `_meta_own'])
+        collect layout (cmdset) (result[`_meta_levels'])
     }
     local _meta_layout_rc = _rc
-    foreach _mo of local _meta_own {
-        if `"`_orig_mlbl_`_mo''"' != "" {
-            capture collect label levels result `_mo' `"`_orig_mlbl_`_mo''"', modify
-        }
-    }
+    if "`_meta_levels'" == "" local _meta_layout_rc = 111
     if `_meta_layout_rc' == 0 {
         preserve
         capture {
             _tabtools_collect_render, type(meta) rowdim(cmdset) ///
-                results(cmd cmdline depvar ivars revars redim `_meta_own') dropempty
+                results(`_meta_levels') dropempty
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
@@ -441,19 +443,10 @@ quietly{
             ds
             local meta_allvars `r(varlist)'
             foreach v of local meta_allvars {
-                local hdr = strlower(strtrim(`v'[1]))
-                * collect labels e(cmd) "Estimation command" once a svy:
-                * fit is in the collection; missing it dropped the whole
-                * metadata path (and every model's scale) silently.
-                if inlist("`hdr'", "command", "estimation command") local meta_col_cmd "`v'"
-                if "`hdr'" == "command line as typed" local meta_col_cmdline "`v'"
-                if "`hdr'" == "dependent variable" local meta_col_depvar "`v'"
-                if "`hdr'" == "imputation variables" local meta_col_ivars "`v'"
-                if "`hdr'" == "random-effects covariates" local meta_col_revars "`v'"
-                if "`hdr'" == "random-effects dimensions" local meta_col_redim "`v'"
-                if `"`=strtrim(`v'[1])'"' == "cmdline_mi" local meta_col_cmdline_mi "`v'"
-                if `"`=strtrim(`v'[1])'"' == "cmd_mi" local meta_col_cmd_mi "`v'"
-                if `"`=strtrim(`v'[1])'"' == "vce" local meta_col_vce "`v'"
+                local hdr = strtrim(`v'[1])
+                foreach _mo of local _meta_levels {
+                    if `"`hdr'"' == "`_mo'" local meta_col_`_mo' "`v'"
+                }
             }
 
             local _meta_models = _N - 1
@@ -487,6 +480,10 @@ quietly{
         }
         if _rc local _meta_models = 0
         restore
+    }
+    forvalues _rli = 1/`_rl_n' {
+        local _rlv : word `_rli' of `_rl_present'
+        quietly collect label levels result `_rlv' `"`macval(_rl_lbl_`_rli')'"', modify
     }
 
     if !`_user_noint_spec' {
@@ -693,11 +690,15 @@ quietly{
     * parameters live in the "/" equation (lnalpha, ln_p, lnsigma, cut#, ...)
     * and the "_diparm#" equations Stata derives from them (alpha, p, sigma,
     * ...). Per model this records the ancillary, cutpoint, and ordinary names
-    * for the colname layout, the number of estimated parameters (coefficients
-    * with a standard error, outside the derived _diparm equations) for
-    * AIC/BIC/QICu, and the predictor variables for the methods sentence.
+    * for the colname layout, the number of coefficients with a nonzero
+    * standard error outside the derived _diparm equations (the estimated
+    * parameters AIC/BIC/QICu fall back on when e(rank) is capped), and the
+    * predictor variables for the methods sentence.
     local _sm_n = 0
     local _sm_collide ""
+    local _sm_ckeys ""
+    local _sm_seq ""
+    local _sm_ancpairs ""
     local _sm_has_coleq = 0
     capture quietly collect levelsof coleq
     if _rc == 0 & `"`s(levels)'"' != "" local _sm_has_coleq = 1
@@ -728,6 +729,12 @@ quietly{
             if `"`_key'"' == "" continue
             local _eq = _eq_key[`_r']
             _regtab_role `"`_eq'"' `"`_key'"'
+            * Row order of the equation-aware rendering, and every ancillary
+            * or cutpoint item with its equation (neither contains a space).
+            local _sm_seq `"`_sm_seq' `_eq' `_key'"'
+            if inlist("`_role'", "anc", "cut") {
+                local _sm_ancpairs `"`_sm_ancpairs' `_eq' `_key'"'
+            }
             forvalues _m = 1/`_sm_n' {
                 local _vb : word `=2*`_m'-1' of `_sm_vars'
                 local _vs : word `=2*`_m'' of `_sm_vars'
@@ -737,18 +744,25 @@ quietly{
                 if inlist("`_role'", "anc", "cut") {
                     local _sm_`_role'_`_m' `"`_sm_`_role'_`_m'' `_key'"'
                 }
-                else if "`_role'" == "reg" {
-                    local _sm_reg_`_m' `"`_sm_reg_`_m'' `_key'"'
+                if "`_role'" == "reg" local _sm_reg_`_m' `"`_sm_reg_`_m'' `_key'"'
+                if inlist("`_role'", "reg", "scale") {
                     * predictor variables: factor and interaction notation
-                    * reduced to the variable names it is built from
+                    * reduced to the variable names it is built from. The
+                    * covariates of a variance (lnsigma) equation, as in
+                    * hetprobit's het(), are covariates of the model too.
                     local _kparts = subinstr(`"`_key'"', "#", " ", .)
                     foreach _kp of local _kparts {
                         local _kv = ustrregexra(`"`_kp'"', "^.*\.", "")
                         if `"`_kv'"' != "" local _sm_pred_`_m' `"`_sm_pred_`_m'' `_kv'"'
                     }
                 }
-                if !missing(real(`"`_cs'"')) & !regexm(`"`_eq'"', "^_diparm") {
-                    local ++_sm_k_`_m'
+                * collect stores a base level's, an omitted level's, a
+                * fixed-by-constraint coefficient's and mlogit's base-outcome
+                * equation's standard error as 0, not missing: none of them
+                * is an estimated parameter.
+                local _cs_num = real(`"`_cs'"')
+                if !missing(`_cs_num') & !regexm(`"`_eq'"', "^_diparm") {
+                    if `_cs_num' > 0 local ++_sm_k_`_m'
                 }
             }
         }
@@ -760,8 +774,10 @@ quietly{
             local _sm_both : list _sm_reg_`_m' & _sm_ac
             foreach _k of local _sm_both {
                 local _sm_collide `"`_sm_collide' model `_m' (`_k')"'
+                local _sm_ckeys `"`_sm_ckeys' `_k'"'
             }
         }
+        local _sm_ckeys : list uniq _sm_ckeys
     }
     local _sm_rc = _rc
     restore
@@ -848,7 +864,9 @@ quietly{
         if `want_aic' local result_levels "`result_levels' aic"
         if `want_bic' local result_levels "`result_levels' bic"
         if `want_aic' | `want_bic' | `want_qic' {
-            local result_levels "`result_levels' rank"
+            * e(rank) and the counts that can cap it under a robust-type vce
+            local result_levels "`result_levels' rank N_clust N_reps"
+            if `_any_gee' local result_levels "`result_levels' N_g"
         }
         if `want_qic' | `want_aic' {
             local result_levels "`result_levels' deviance"
@@ -865,24 +883,29 @@ quietly{
         local result_levels : list uniq result_levels
 
         if "`result_levels'" != "" {
-            * Save original labels, set short labels for export headers
-            foreach rlevel of local result_levels {
-                capture local _orig_lbl_`rlevel' : collect label levels result `rlevel'
-                capture collect label levels result `rlevel' "`rlevel'", modify
+            * Export headers are the level names: relabel the present levels
+            * with their names and restore their labels exactly afterwards.
+            * Absent levels stay out of the layout, which would add them to
+            * the user's collection.
+            _regtab_rlabels `result_levels'
+            local result_levels "`_rl_present'"
+            if "`result_levels'" == "" {
+                * none of the requested statistics is in the collection:
+                * every model's statistics are blank
+                local n_stat_models = `_meta_models'
+                forvalues m = 1/`n_stat_models' {
+                    foreach lname in N N_sub ll aic bic qic rank deviance phi groups r2 ///
+                        r2_p r2_a events rmse F mi_m fmi N_clust N_reps {
+                        local stat_`lname'_`m' = .
+                    }
+                }
             }
-
+        }
+        if "`result_levels'" != "" {
             capture {
                 collect layout (cmdset) (result[`result_levels'])
             }
             local _stats_rc = _rc
-
-            * Restore original labels
-            foreach rlevel of local result_levels {
-                if `"`_orig_lbl_`rlevel''"' != "" {
-                    capture collect label levels result `rlevel' `"`_orig_lbl_`rlevel''"', modify
-                }
-            }
-
             if `_stats_rc' == 0 {
                 preserve
                 capture {
@@ -902,7 +925,7 @@ quietly{
                     local stat_col_r2 ""
                     local stat_col_r2_p ""
                     local stat_col_r2_a ""
-                    foreach _sx in N_fail rmse F M_mi fmi_max_mi {
+                    foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
                         local stat_col_`_sx' ""
                     }
 
@@ -922,7 +945,7 @@ quietly{
                         if "`hdr'" == "r2" local stat_col_r2 "`v'"
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
                         if "`hdr'" == "r2_a" local stat_col_r2_a "`v'"
-                        foreach _sx in N_fail rmse F M_mi fmi_max_mi {
+                        foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
                             if "`hdr'" == "`_sx'" local stat_col_`_sx' "`v'"
                         }
                     }
@@ -934,7 +957,7 @@ quietly{
 
                         * Extract each result level
                         foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a ///
-                            N_fail rmse F M_mi fmi_max_mi {
+                            N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
                             if "`sname'" == "N_g" local lname "groups"
                             else if "`sname'" == "N_fail" local lname "events"
                             else if "`sname'" == "M_mi" local lname "mi_m"
@@ -962,27 +985,42 @@ quietly{
                         * comparison. The fixed-phi boundary is therefore
                         * deliberate and conservative.
                         * k, the parameter count of AIC, BIC, and QICu: the
-                        * number of estimated parameters, whatever the vce.
-                        * Under a model-based vce that is e(rank) (as estat ic
-                        * uses; it also nets out linear constraints). Under a
-                        * robust-type vce e(rank) is the rank of the sandwich
-                        * variance, capped at G-1 with G clusters, while the
-                        * model still estimated every coefficient; k is then
-                        * the count of collected coefficients carrying a
-                        * standard error outside the derived _diparm equations.
+                        * number of estimated free parameters, whatever the
+                        * vce. That is e(rank), as estat ic uses: it leaves out
+                        * base, omitted and constrained coefficients and nets
+                        * out linear constraints, under a robust-type vce too.
+                        * The one exception is a robust-type vce over too few
+                        * clusters, GEE panels or replications: the sandwich
+                        * variance has rank at most G-1 (R-1), so when that cap
+                        * is below the count of collected coefficients with a
+                        * nonzero standard error, e(rank) cannot reach the
+                        * number the model estimated, and k is that count. The
+                        * collection holds no e(Cns), so equality constraints
+                        * are not netted out in that capped case (a constraint
+                        * fixing a coefficient is: its SE is 0).
                         * Pan (2001) defines QICu's penalty as 2p with p the
                         * number of model parameters, so QICu follows suit.
                         local _k_param = `stat_rank_`m''
                         local _vce_m ""
                         if `m' <= `_meta_models' local _vce_m "`model_vce_`m''"
-                        if inlist("`_vce_m'", "robust", "cluster", "bootstrap", ///
-                            "jackknife", "linearized", "brr", "sdr") & `m' <= `_sm_n' {
-                            if `_sm_k_`m'' > 0 local _k_param = `_sm_k_`m''
-                        }
                         local stat_qic_`m' = .
                         local _this_is_gee = 0
                         if `m' <= `_meta_models' {
                             local _this_is_gee = `model_is_gee_`m''
+                        }
+                        if inlist("`_vce_m'", "robust", "cluster", "bootstrap", ///
+                            "jackknife", "linearized", "brr", "sdr") & `m' <= `_sm_n' & ///
+                            !missing(`_k_param') {
+                            local _k_cap = .
+                            if !missing(`stat_N_clust_`m'') local _k_cap = `stat_N_clust_`m'' - 1
+                            if !missing(`stat_N_reps_`m'') local _k_cap = min(`_k_cap', `stat_N_reps_`m'' - 1)
+                            if `_this_is_gee' & !missing(`stat_groups_`m'') {
+                                local _k_cap = min(`_k_cap', `stat_groups_`m'' - 1)
+                            }
+                            if !missing(`_k_cap') & `_k_cap' < `_sm_k_`m'' & ///
+                                `_k_param' < `_sm_k_`m'' {
+                                local _k_param = `_sm_k_`m''
+                            }
                         }
                         if `_this_is_gee' {
                             * xtgee is quasi-likelihood based: never retain a
@@ -1025,6 +1063,11 @@ quietly{
                 }
                 if _rc local n_stat_models = 0
                 restore
+            }
+            * the table is rendered: back to the collection's own labels
+            forvalues _rli = 1/`_rl_n' {
+                local _rlv : word `_rli' of `_rl_present'
+                quietly collect label levels result `_rlv' `"`macval(_rl_lbl_`_rli')'"', modify
             }
         }
 
@@ -1560,19 +1603,103 @@ if _rc == 0 {
     }
 }
 
+* A covariate named like one of its own model's ancillary parameters (alpha
+* in nbreg, ln_p in a Weibull streg, lnsigma in a lognormal one, cut1 in
+* ologit) shares its colname level with that parameter, so the one-row-per-
+* name layout cannot hold both: collect gives the row neither value. The
+* equation tells them apart (deaths:alpha is the covariate, _diparm1:alpha
+* the derived parameter). For the render only, every ancillary or cutpoint
+* item with such a name moves to a private colname level __anc_<name>,
+* selected by its equation tag and labelled <name>. This happens on a
+* temporary copy of the collection, so the user's collection never changes.
+* Each such row is then placed beside the ancillary row it follows (or else
+* precedes) in the equation-aware order, which keeps the usual covariates-
+* ancillary-intercept order, and it keeps its ancillary role.
+local _smr_n = 0
+if !`_use_coleq_layout' & `"`_sm_ckeys'"' != "" {
+    local _pn : word count `_sm_ancpairs'
+    forvalues _pi = 1(2)`_pn' {
+        local _pe : word `_pi' of `_sm_ancpairs'
+        local _pk : word `=`_pi' + 1' of `_sm_ancpairs'
+        local _pin : list _pk in _sm_ckeys
+        if !`_pin' continue
+        local ++_smr_n
+        local _smr_eq_`_smr_n' `"`_pe'"'
+        local _smr_key_`_smr_n' `"`_pk'"'
+    }
+    local _seqn : word count `_sm_seq'
+    forvalues _i = 1/`_smr_n' {
+        local _smr_mode_`_i' "cons"
+        local _smr_anchor_`_i' ""
+        forvalues _si = 1(2)`_seqn' {
+            local _se : word `_si' of `_sm_seq'
+            local _sk : word `=`_si' + 1' of `_sm_seq'
+            if `"`_se'"' != `"`_smr_eq_`_i''"' | `"`_sk'"' != `"`_smr_key_`_i''"' continue
+            foreach _dir in prev next {
+                if "`_smr_mode_`_i''" != "cons" continue
+                local _ai = cond("`_dir'" == "prev", `_si' - 2, `_si' + 2)
+                if `_ai' < 1 | `_ai' > `_seqn' continue
+                local _ae : word `_ai' of `_sm_seq'
+                local _ak : word `=`_ai' + 1' of `_sm_seq'
+                if !(`"`_ae'"' == "/" | regexm(`"`_ae'"', "^_diparm")) continue
+                forvalues _j = 1/`_smr_n' {
+                    if `"`_smr_eq_`_j''"' == `"`_ae'"' & `"`_smr_key_`_j''"' == `"`_ak'"' {
+                        local _ak `"__anc_`_ak'"'
+                    }
+                }
+                local _smr_mode_`_i' = cond("`_dir'" == "prev", "after", "before")
+                local _smr_anchor_`_i' `"`_ak'"'
+            }
+        }
+    }
+}
+
 * Preserve user data before rendering the collect table into a string dataset
 preserve
 
 local _collect_render_rc = 0
+local _smr_done = 0
 if `_use_coleq_layout' {
     capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
         coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") omitmap rowkeys
     local _collect_render_rc = _rc
 }
 else {
-    capture _tabtools_collect_render, type(main) rowdim(colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap rowkeys
-    local _collect_render_rc = _rc
+    local _smr_orig ""
+    if `_smr_n' > 0 {
+        capture quietly collect dims
+        local _collect_render_rc = _rc
+        local _smr_orig `"`s(collection)'"'
+        if `"`_smr_orig'"' == "" local _collect_render_rc = 459
+        * a collection name may not start with "__", so no bare tempname
+        tempname _smr_tn
+        local _smr_coll = "tt_regtab_anc" + substr("`_smr_tn'", 3, .)
+        if `_collect_render_rc' == 0 {
+            capture quietly collect copy `_smr_orig' `_smr_coll'
+            local _collect_render_rc = _rc
+        }
+        if `_collect_render_rc' == 0 {
+            local _smr_done = 1
+            capture quietly collect set `_smr_coll'
+            local _collect_render_rc = _rc
+        }
+    }
+    forvalues _i = 1/`_smr_n' {
+        if `_collect_render_rc' continue
+        capture quietly collect remap colname[`_smr_key_`_i''] = ///
+            colname[__anc_`_smr_key_`_i''], fortags(coleq[`_smr_eq_`_i''])
+        local _collect_render_rc = _rc
+        if _rc == 0 {
+            capture quietly collect label levels colname __anc_`_smr_key_`_i'' ///
+                `"`_smr_key_`_i''"', modify
+            local _collect_render_rc = _rc
+        }
+    }
+    if `_collect_render_rc' == 0 {
+        capture _tabtools_collect_render, type(main) rowdim(colname) ///
+            coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap rowkeys
+        local _collect_render_rc = _rc
+    }
 }
 * Constraint class per model column and raw colname, straight from the saved
 * collection. The rendered table cannot recover it: collect reports a base
@@ -1590,6 +1717,11 @@ if `_collect_render_rc' == 0 {
         local _omit_key_`_ok' `"`r(omit_key_`_ok')'"'
         local _omit_val_`_ok' `"`r(omit_val_`_ok')'"'
     }
+}
+* Back to the user's collection, after r() is read; drop the remapped copy.
+if `_smr_done' {
+    capture quietly collect set `_smr_orig'
+    capture quietly collect drop `_smr_coll'
 }
 if `_collect_render_rc' {
     restore
@@ -1656,26 +1788,58 @@ if `_use_coleq_layout' {
     drop _eq_key
 }
 else {
-    if `"`_sm_collide'"' != "" {
-        restore
-        noisily display as error ///
-            "A coefficient name is both a covariate and an ancillary parameter of the same model:`_sm_collide'"
-        noisily display as error ///
-            "One row cannot show both; rename the covariate and refit"
-        exit 459
-    }
+    * An ancillary or cutpoint name that is also one of the same model's
+    * covariates was rendered under its private level (see above).
     forvalues _m = 1/`_sm_n' {
         foreach _k of local _sm_anc_`_m' {
             local _in_drop : list _k in _anc_drop_names
             local _rr = cond(`_in_drop', "ancd", "anc")
-            quietly replace _role_m`_m' = "`_rr'" if _n > 2 & strtrim(_raw_colname) == `"`_k'"'
+            local _kr `"`_k'"'
+            local _kc : list _k in _sm_ckeys
+            if `_kc' & `_smr_n' > 0 local _kr `"__anc_`_k'"'
+            quietly replace _role_m`_m' = "`_rr'" if _n > 2 & strtrim(_raw_colname) == `"`_kr'"'
         }
         foreach _k of local _sm_cut_`_m' {
-            quietly replace _role_m`_m' = "cut" if _n > 2 & strtrim(_raw_colname) == `"`_k'"'
+            local _kr `"`_k'"'
+            local _kc : list _k in _sm_ckeys
+            if `_kc' & `_smr_n' > 0 local _kr `"__anc_`_k'"'
+            quietly replace _role_m`_m' = "cut" if _n > 2 & strtrim(_raw_colname) == `"`_kr'"'
         }
         quietly replace _role_m`_m' = "cons" if _n > 2 & strtrim(_raw_colname) == "_cons"
         quietly replace _role_m`_m' = "re" if _n > 2 & ///
             ustrregexm(strtrim(_raw_colname), "^(var|cov|sd|corr)\(")
+    }
+    * Collect lists a new colname level first; move each private ancillary
+    * row beside its anchor (after the ancillary row it follows, before the
+    * one it precedes, or else just above the intercept).
+    forvalues _i = 1/`_smr_n' {
+        quietly generate double _smr_ord = _n
+        quietly generate byte _smr_hit = _n > 2 & strtrim(_raw_colname) == `"__anc_`_smr_key_`_i''"'
+        quietly summarize _smr_ord if _smr_hit, meanonly
+        local _smr_r0 = r(min)
+        local _smr_ra = .
+        if "`_smr_mode_`_i''" != "cons" {
+            quietly summarize _smr_ord if _n > 2 & !_smr_hit & ///
+                strtrim(_raw_colname) == `"`_smr_anchor_`_i''"', meanonly
+            local _smr_ra = r(min)
+        }
+        if missing(`_smr_ra') {
+            local _smr_mode_`_i' "cons"
+            quietly summarize _smr_ord if _n > 2 & strtrim(_raw_colname) == "_cons", meanonly
+            local _smr_ra = r(min)
+        }
+        if !missing(`_smr_r0') & !missing(`_smr_ra') {
+            local _smr_off = cond("`_smr_mode_`_i''" == "after", 0.5, -0.5)
+            quietly replace _smr_ord = `_smr_ra' + `_smr_off' if _smr_hit
+            sort _smr_ord
+        }
+        drop _smr_ord _smr_hit
+    }
+    * The rows now carry their roles and order; give each its own name back
+    * so cutlabels(), keep(), and drop() address it by the name Stata uses.
+    forvalues _i = 1/`_smr_n' {
+        quietly replace _raw_colname = `"`_smr_key_`_i''"' ///
+            if _n > 2 & strtrim(_raw_colname) == `"__anc_`_smr_key_`_i''"'
     }
 }
 
@@ -2767,13 +2931,13 @@ if `_mat_nrows' > 0 {
         * r1, r2, ...; a comma-stripped cov(x_cons) was accepted but read back
         * as var(x_cons), naming a covariance as a variance. A name that does
         * not round-trip has every character outside [A-Za-z0-9_] replaced.
-        capture matrix rownames `_rn_probe' = `_rname'
         local _rn_back ""
+        capture matrix rownames `_rn_probe' = `_rname'
         if _rc == 0 local _rn_back : rownames `_rn_probe'
         if `"`_rn_back'"' != `"`_rname'"' {
             local _rname = substr(ustrregexra(`"`_rname'"', "[^A-Za-z0-9_]", "_"), 1, 32)
-            capture matrix rownames `_rn_probe' = `_rname'
             local _rn_back ""
+            capture matrix rownames `_rn_probe' = `_rname'
             if _rc == 0 local _rn_back : rownames `_rn_probe'
             if `"`_rn_back'"' != `"`_rname'"' local _rname "row`_mr'"
         }
@@ -3154,7 +3318,7 @@ sort id
 drop id
 gen title = ""
 order title
-replace title = `"`title'"' if _n == 1
+replace title = `"`macval(title)'"' if _n == 1
 
 * Save p-value strings before optional layout changes remove p columns.
 if `has_boldp' | `has_highlight' {
@@ -3363,7 +3527,7 @@ if `_mat_nrows' > 0 {
 return scalar N_rows = `num_rows'
 return scalar N_cols = `num_cols'
 	return scalar N_models = `n_models'
-	return scalar ci_level = `_ci_level'
+	return scalar ci_level = `_ci_level_num'
 	return local coef_label "`_coef_label_return'"
 	return local stars "`stars'"
 	return local methods "`_methods'"
@@ -3488,11 +3652,11 @@ levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 * CSV export (F2) — must happen before clear
 if "`csv'" != "" {
     _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
-        title(`"`title'"') footnote(`"`footnote'"')
+        title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
 }
 
 * Console display
-noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
+noisily _tabtools_console_display `n' `"`macval(title)'"', labelvar(A)
 
 * Markdown export
 local _ret_markdown ""
@@ -3530,7 +3694,7 @@ if `"`markdown'"' != "" {
 		}
 	}
 	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-		`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') ///
+		`_mdappend_opt' labelvar(A) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
 		headerstart(3) datastart(4) strictheaders
 	if _rc {
 		local _md_rc = _rc
@@ -3587,19 +3751,24 @@ clear
 
 if `_has_xlsx' {
 
-* Prepare footnote text before Mata block
-local _fn_text `"`footnote'"'
+* Prepare footnote text before Mata block. The text is copied, trimmed and
+* tested without macro expansion (copy local, macval(), st_local()), so a
+* footnote holding a local-macro reference or a $word reaches the workbook as
+* typed.
+local _fn_text : copy local footnote
 if "`stars'" != "" {
 	local _stars_note "* p<`_sl1', ** p<`_sl2', *** p<`_sl3'"
 	* Punctuation-aware join: a user footnote that already ends in terminal
 	* punctuation must not gain a ";" after it (".;" was shipped in the regtab
 	* and other table demo workbooks).
-	if `"`_fn_text'"' != "" {
-		local _fn_trim = strtrim(`"`_fn_text'"')
-		local _fn_last = substr(`"`_fn_trim'"', -1, 1)
-		if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
-			local _fn_text `"`_fn_trim' `_stars_note'"'
-		else local _fn_text `"`_fn_trim'; `_stars_note'"'
+	if `"`macval(_fn_text)'"' != "" {
+		mata: st_local("_fn_trim", strtrim(st_local("_fn_text")))
+		mata: st_local("_fn_endp", strofreal(strlen(st_local("_fn_trim")) > 0 & ///
+			strpos(".;:!?", substr(st_local("_fn_trim"), -1, 1)) > 0))
+		if `_fn_endp' {
+			local _fn_text `"`macval(_fn_trim)' `_stars_note'"'
+		}
+		else local _fn_text `"`macval(_fn_trim)'; `_stars_note'"'
 	}
 	else local _fn_text `"`_stars_note'"'
 }
@@ -3774,10 +3943,10 @@ capture {
 			}
 		}
 	}
-	if `"`_fn_text'"' != "" {
+	if `"`macval(_fn_text)'"' != "" {
 		local _fn_row = `num_rows' + 1
 		local _fn_fontsize = max(`_fontsize' - 2, 6)
-		mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`_fn_text'"')
+		mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("_fn_text"))
 		local _style_rule_rows `"`_style_rule_rows' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
 	}
 
@@ -3935,6 +4104,9 @@ program define _regtab_modelnoun, nclass
 		}
 		else if inlist("`_w'", "logit", "logistic", "qrlogit") local _n "logistic regression"
 		else if "`_w'" == "probit" local _n "probit regression"
+		else if "`_w'" == "hetprobit" local _n "heteroskedastic probit regression"
+		else if inlist("`_w'", "qreg", "bsqreg", "sqreg") local _n "quantile regression"
+		else if "`_w'" == "ivregress" local _n "instrumental-variables regression"
 		else if "`_w'" == "cloglog" local _n "complementary log-log regression"
 		else if inlist("`_w'", "poisson", "qrpoisson") local _n "Poisson regression"
 		else if "`_w'" == "nbreg" local _n "negative binomial regression"
@@ -4100,6 +4272,56 @@ program define _regtab_eqkeys, nclass
 			}
 			quietly replace _eq_key = `"`_cur'"' in `_r'
 		}
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_rlabels: hand result levels to a layout under their own names
+* =============================================================================
+* Usage: _regtab_rlabels <level> [<level> ...]
+* Keeps the listed result levels present in the current collection (a layout
+* naming an absent level adds that level to the user's collection), records
+* each one's current label, and relabels it with its level name, so a layout
+* of them exports the level names as column headers. Returns in the caller:
+* _rl_present (the present levels, in collection order), _rl_n, and _rl_lbl_#
+* (the label of the #th present level, "" when it had none). The caller
+* restores each with collect label levels result <level> `"<label>"', modify;
+* an empty label removes the one set here, as collect label documents. The
+* labels are read from collect label list's s() results through Mata, so no
+* label text is macro-expanded.
+capture program drop _regtab_rlabels
+program define _regtab_rlabels, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	c_local _rl_present ""
+	c_local _rl_n 0
+	capture noisily {
+		local _want `0'
+		local _k ""
+		capture quietly collect label list result, all
+		if _rc == 0 mata: st_local("_k", st_global("s(k)"))
+		if "`_k'" == "" local _k 0
+		local _n 0
+		local _present ""
+		forvalues _i = 1/`_k' {
+			mata: st_local("_lv", st_global("s(level`_i')"))
+			local _hit : list _lv in _want
+			if !`_hit' continue
+			local ++_n
+			local _present `_present' `_lv'
+			mata: st_local("_lb`_n'", st_global("s(label`_i')"))
+		}
+		forvalues _j = 1/`_n' {
+			local _lv : word `_j' of `_present'
+			quietly collect label levels result `_lv' "`_lv'", modify
+			c_local _rl_lbl_`_j' `"`macval(_lb`_j')'"'
+		}
+		c_local _rl_present "`_present'"
+		c_local _rl_n `_n'
 	}
 	local _rc = _rc
 	set varabbrev `_orig_varabbrev'
@@ -4463,8 +4685,11 @@ program define _regtab_scale, nclass
 			local _n 1
 			local _i 1
 		}
-		else if "`_rs_word'" == "glm" {
-			* Family/link abbreviations follow glm.ado's MapFam and MapLink.
+		else if inlist("`_rs_word'", "glm", "xtgee") {
+			* Family/link abbreviations follow glm.ado's MapFam and MapLink;
+			* xtgee takes the same Family(), Link() and EForm options and the
+			* same defaults (binomial -> logit, poisson -> log), so a GEE fit
+			* is shown on the scale glm gives the same family and link.
 			_regtab_cmdopts "EForm Family(string) Link(string)" `"`_rs_opt'"'
 			gettoken _fam : _ro_family
 			gettoken _lnk : _ro_link
@@ -4522,7 +4747,7 @@ program define _regtab_scale, nclass
 		* level(): glm and the multilevel families also take link(), so their
 		* level() needs two letters; every other supported estimator takes l().
 		local _lspec "Level(string)"
-		if inlist("`_rs_word'", "glm", "meglm", "mestreg") local _lspec "LEvel(string)"
+		if inlist("`_rs_word'", "glm", "xtgee", "meglm", "mestreg") local _lspec "LEvel(string)"
 		_regtab_cmdopts "`_lspec'" `"`_rs_opt'"'
 		local _lv = -1
 		if `"`_ro_level'"' != "" {
@@ -4531,8 +4756,8 @@ program define _regtab_scale, nclass
 		}
 
 		* A prefix decides what the collection holds for a ratio family. glm
-		* already folded the prefix into _eopt above.
-		if "`_rs_word'" != "glm" & `_n' == 1 {
+		* and xtgee already folded the prefix into _eopt above.
+		if !inlist("`_rs_word'", "glm", "xtgee") & `_n' == 1 {
 			if "`_rs_pmode'" == "mi" local _e = !`_rs_peform'
 			else if "`_rs_pmode'" == "or" & `_rs_peform' local _e 0
 		}

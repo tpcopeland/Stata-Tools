@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.11  2026/09/26
+*! crosstab Version 2.1.12  2026/09/26
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,6 +62,9 @@ capture noisily {
         SMALLCells(string) open]
 
     gettoken rowvar colvar : varlist
+    * The level as shown: at most 15 significant digits, so 99.9 never prints
+    * as the double's 17-digit 99.90000000000001; r(ci_level) stays numeric.
+    local _level_txt = strtrim(string(`level', "%21.15g"))
 
     capture confirm numeric variable `rowvar'
     if _rc {
@@ -111,9 +114,9 @@ capture noisily {
     local _sc_note ""
     if `_sc_active' {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
-        if strpos(`"`footnote'"', `"`_sc_note'"') == 0 {
-            if `"`footnote'"' == "" local footnote `"`_sc_note'"'
-            else local footnote `"`footnote' `_sc_note'"'
+        if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
+            if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
+            else local footnote `"`macval(footnote)' `_sc_note'"'
         }
     }
 
@@ -465,7 +468,7 @@ capture noisily {
     * Row 1: Title
     local row 1
     qui set obs `row'
-    qui replace title = `"`title'"' in `row'
+    qui replace title = `"`macval(title)'"' in `row'
 
     * Row 2: Column headers
     local row = `row' + 1
@@ -588,7 +591,7 @@ capture noisily {
             qui replace c1 = "OR = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
+        else qui replace c1 = "OR = " + strtrim(string(`_or', "%21.`digits'f")) + " (`_level_txt'% CI: " + strtrim(string(`_or_lo', "%21.`digits'f")) + ", " + strtrim(string(`_or_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rr') {
         local row = `row' + 1
@@ -597,7 +600,7 @@ capture noisily {
             qui replace c1 = "RR = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`level'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
+        else qui replace c1 = "RR = " + strtrim(string(`_rr', "%21.`digits'f")) + " (`_level_txt'% CI: " + strtrim(string(`_rr_lo', "%21.`digits'f")) + ", " + strtrim(string(`_rr_hi', "%21.`digits'f")) + ")" in `row'
     }
     if !missing(`_rd') {
         local row = `row' + 1
@@ -606,7 +609,7 @@ capture noisily {
             qui replace c1 = "RD = Suppressed" in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`level'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
+        else qui replace c1 = "RD = " + strtrim(string(`_rd', "%21.`=`digits'+2'f")) + " (`_level_txt'% CI: " + strtrim(string(`_rd_lo', "%21.`=`digits'+2'f")) + ", " + strtrim(string(`_rd_hi', "%21.`=`digits'+2'f")) + ")" in `row'
     }
     if !missing(`_p_trend') {
         local row = `row' + 1
@@ -644,12 +647,12 @@ capture noisily {
     order title c*
 
 **# Console Display
-    noisily _tabtools_console_display `out_ncols' `"`title'"'
+    noisily _tabtools_console_display `out_ncols' `"`macval(title)'"'
     if `_sc_active' noisily display as text "`_sc_note'"
 
 **# CSV Export
     if "`csv'" != "" {
-        _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
         noisily display as text "CSV exported to `csv'"
     }
 
@@ -661,7 +664,7 @@ capture noisily {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"
@@ -678,7 +681,7 @@ capture noisily {
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame `"`_frame_name'"'
-        frame `frame': char _dta[tabtools_ci_level] "`level'"
+        frame `frame': char _dta[tabtools_ci_level] "`_level_txt'"
         frame `frame': char _dta[tabtools_source] "crosstab"
         if `_sc_active' {
             frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
@@ -694,9 +697,9 @@ capture noisily {
         local _methods "`_methods' Count-dependent tests and association measures were suppressed under smallcells(`smallcells')."
     }
     else {
-        if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
-        if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
-        if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `level'% confidence interval."
+        if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
+        if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
+        if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a `_level_txt'% confidence interval."
         if !missing(`_p_trend') & "`cochran'" != "" local _methods "`_methods' A Cochran-Armitage test for trend in the proportion of `rlabel_2' across ordered column levels is also reported."
         else if !missing(`_p_trend') local _methods "`_methods' A Spearman rank-correlation test for trend across ordered column levels is also reported."
     }
@@ -846,10 +849,10 @@ capture noisily {
                         (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
                 }
             }
-            if `"`footnote'"' != "" {
+            if `"`macval(footnote)'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
                 matrix `_style_rules' = `_style_rules' \ ///
                     (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                     (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///

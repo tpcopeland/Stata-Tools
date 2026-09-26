@@ -196,7 +196,8 @@ when header shading is active via {opt headershade}.{p_end}
 color name or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is
 active.{p_end}
 
-{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or
+{phang2}{opt csv(string)} exports the table data as CSV. The filename must end in {cmd:.csv} and differ from the
+Excel and Markdown targets. It may be used with or
 without {opt xlsx()}. The CSV mirrors the workbook with {opt title()} written
 as the first row and {opt footnote()} as the last row, both in the first
 column and the table body between them.{p_end}

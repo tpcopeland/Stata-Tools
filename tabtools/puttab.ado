@@ -1,4 +1,4 @@
-*! puttab Version 2.1.11  2026/09/26
+*! puttab Version 2.1.12  2026/09/26
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -52,17 +52,19 @@ program define puttab, rclass
         * source, parse inside that frame so if/in address the source rows;
         * parsing in the current frame range-checked "in" against, and
         * resolved "if" variables in, the wrong dataset.
-        local _pt_cmdline `"`0'"'
+        * copy local and macval(): the command line is re-parsed as typed,
+        * so title() or footnote() text is never macro-expanded here.
+        local _pt_cmdline : copy local 0
         local _pt_srcframe ""
         _parse comma _pt_lhs _pt_rhs : 0
-        local 0 `"`_pt_rhs'"'
+        local 0 `"`macval(_pt_rhs)'"'
         capture syntax [, FRAme(string) *]
         if _rc == 0 {
             local _pt_srcframe = strtrim(subinstr(`"`frame'"', char(34), "", .))
         }
         local frame ""
         local options ""
-        local 0 `"`_pt_cmdline'"'
+        local 0 : copy local _pt_cmdline
         if `"`_pt_srcframe'"' != "" {
             confirm name `_pt_srcframe'
             capture confirm frame `_pt_srcframe'
@@ -260,7 +262,7 @@ program define puttab, rclass
         preserve
         local _restore_needed = 1
 
-        local _titlerows = (`"`title'"' != "")
+        local _titlerows = (`"`macval(title)'"' != "")
         local _headerrows = ("`noheader'" == "")
         local _uselbl = ("`varlabels'" != "")
 
@@ -336,7 +338,9 @@ program define puttab, rclass
         }
 
         * Title text into the (blank) first row, first column
-        if `_titlerows' quietly replace c1 = `"`title'"' in 1
+        if `_titlerows' {
+            quietly replace c1 = `"`macval(title)'"' in 1
+        }
 
         local _header_row = cond(`_headerrows', `_titlerows' + 1, 0)
         local _data_start = `_titlerows' + `_headerrows' + 1
@@ -349,10 +353,10 @@ program define puttab, rclass
 
         * Footnote as a trailing row
         local _foot_row = 0
-        if `"`footnote'"' != "" {
+        if `"`macval(footnote)'"' != "" {
             local _foot_row = _N + 1
             quietly set obs `_foot_row'
-            quietly replace c1 = `"`footnote'"' in `_foot_row'
+            quietly replace c1 = `"`macval(footnote)'"' in `_foot_row'
         }
         local _total_rows = _N
 
@@ -391,7 +395,7 @@ program define puttab, rclass
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
                 dataend(`_last_data_row') ///
-                title(`"`title'"') footnote(`"`footnote'"') `_md_novarnames'
+                title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') `_md_novarnames'
             if _rc {
                 local _md_rc = _rc
                 noisily display as error "Failed to export Markdown to `markdown'"

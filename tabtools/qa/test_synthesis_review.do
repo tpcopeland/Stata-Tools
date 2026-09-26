@@ -187,7 +187,7 @@ capture noisily {
     * intended; what was broken is that the legend's own asterisks were not
     * escaped, so the line rendered as bold fragments plus a dangling asterisk.
     * Pre-fix this line read "** p<.05, ** p<.01, *** p<.001*".
-    * Since 2.1.11 < is escaped too, so "<.05" cannot open an HTML tag.
+    * Since 2.1.12 < is escaped too, so "<.05" cannot open an HTML tag.
     quietly count if v1 == "*\* p\<.05, \*\* p\<.01, \*\*\* p\<.001*"
     assert r(N) == 1
 }

@@ -1,4 +1,4 @@
-*! comptab Version 2.1.11  2026/09/26
+*! comptab Version 2.1.12  2026/09/26
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -106,28 +106,72 @@ program define comptab, rclass
             LABELWidth(integer 0) *]
 
         local _common_opts ""
-        if `"`rows'"' != "" local _common_opts `"`_common_opts' rows(`macval(rows)')"'
-        if `"`rownames'"' != "" local _common_opts `"`_common_opts' rownames(`macval(rownames)')"'
-        if `"`xlsx'"' != "" local _common_opts `"`_common_opts' xlsx(`"`xlsx'"')"'
-        if `"`excel'"' != "" local _common_opts `"`_common_opts' excel(`"`excel'"')"'
-        if `"`sheet'"' != "" local _common_opts `"`_common_opts' sheet(`"`sheet'"')"'
-        if `"`title'"' != "" local _common_opts `"`_common_opts' title(`"`title'"')"'
-        if `"`footnote'"' != "" local _common_opts `"`_common_opts' footnote(`"`footnote'"')"'
-        if `"`font'"' != "" local _common_opts `"`_common_opts' font(`"`font'"')"'
-        if `fontsize' != -1 local _common_opts `"`_common_opts' fontsize(`fontsize')"'
-        if `"`borderstyle'"' != "" local _common_opts `"`_common_opts' borderstyle(`"`borderstyle'"')"'
-        if "`open'" != "" local _common_opts "`_common_opts' open"
-        if "`zebra'" != "" local _common_opts "`_common_opts' zebra"
-        if "`headershade'" != "" local _common_opts "`_common_opts' headershade"
-        if `"`headercolor'"' != "" local _common_opts `"`_common_opts' headercolor(`"`headercolor'"')"'
-        if `"`zebracolor'"' != "" local _common_opts `"`_common_opts' zebracolor(`"`zebracolor'"')"'
-        if `"`csv'"' != "" local _common_opts `"`_common_opts' csv(`"`csv'"')"'
-        if `"`markdown'"' != "" local _common_opts `"`_common_opts' markdown(`"`markdown'"')"'
-        if "`mdappend'" != "" local _common_opts "`_common_opts' mdappend"
-        if `"`frame'"' != "" local _common_opts `"`_common_opts' frame(`macval(frame)')"'
-        if `"`eplotframe'"' != "" local _common_opts `"`_common_opts' eplotframe(`macval(eplotframe)')"'
-        if "`forest'" != "" local _common_opts "`_common_opts' forest"
-        if `"`eplotoptions'"' != "" local _common_opts `"`_common_opts' eplotoptions(`macval(eplotoptions)')"'
+        if `"`rows'"' != "" {
+            local _common_opts `"`macval(_common_opts)' rows(`macval(rows)')"'
+        }
+        if `"`rownames'"' != "" {
+            local _common_opts `"`macval(_common_opts)' rownames(`macval(rownames)')"'
+        }
+        if `"`xlsx'"' != "" {
+            local _common_opts `"`macval(_common_opts)' xlsx(`"`xlsx'"')"'
+        }
+        if `"`excel'"' != "" {
+            local _common_opts `"`macval(_common_opts)' excel(`"`excel'"')"'
+        }
+        if `"`sheet'"' != "" {
+            local _common_opts `"`macval(_common_opts)' sheet(`"`sheet'"')"'
+        }
+        if `"`macval(title)'"' != "" {
+            local _common_opts `"`macval(_common_opts)' title(`"`macval(title)'"')"'
+        }
+        if `"`macval(footnote)'"' != "" {
+            local _common_opts `"`macval(_common_opts)' footnote(`"`macval(footnote)'"')"'
+        }
+        if `"`font'"' != "" {
+            local _common_opts `"`macval(_common_opts)' font(`"`font'"')"'
+        }
+        if `fontsize' != -1 {
+            local _common_opts `"`macval(_common_opts)' fontsize(`fontsize')"'
+        }
+        if `"`borderstyle'"' != "" {
+            local _common_opts `"`macval(_common_opts)' borderstyle(`"`borderstyle'"')"'
+        }
+        if "`open'" != "" {
+            local _common_opts `"`macval(_common_opts)' open"'
+        }
+        if "`zebra'" != "" {
+            local _common_opts `"`macval(_common_opts)' zebra"'
+        }
+        if "`headershade'" != "" {
+            local _common_opts `"`macval(_common_opts)' headershade"'
+        }
+        if `"`headercolor'"' != "" {
+            local _common_opts `"`macval(_common_opts)' headercolor(`"`headercolor'"')"'
+        }
+        if `"`zebracolor'"' != "" {
+            local _common_opts `"`macval(_common_opts)' zebracolor(`"`zebracolor'"')"'
+        }
+        if `"`csv'"' != "" {
+            local _common_opts `"`macval(_common_opts)' csv(`"`csv'"')"'
+        }
+        if `"`markdown'"' != "" {
+            local _common_opts `"`macval(_common_opts)' markdown(`"`markdown'"')"'
+        }
+        if "`mdappend'" != "" {
+            local _common_opts `"`macval(_common_opts)' mdappend"'
+        }
+        if `"`frame'"' != "" {
+            local _common_opts `"`macval(_common_opts)' frame(`macval(frame)')"'
+        }
+        if `"`eplotframe'"' != "" {
+            local _common_opts `"`macval(_common_opts)' eplotframe(`macval(eplotframe)')"'
+        }
+        if "`forest'" != "" {
+            local _common_opts `"`macval(_common_opts)' forest"'
+        }
+        if `"`eplotoptions'"' != "" {
+            local _common_opts `"`macval(_common_opts)' eplotoptions(`macval(eplotoptions)')"'
+        }
 
         local _rate_mode = (`"`rateframe'"' != "" | `"`modelframes'"' != "")
         if `_rate_mode' {
@@ -167,7 +211,7 @@ program define comptab, rclass
             capture noisily _comptab_rates `rateframe', ///
                 modelframes(`modelframes') effect(`"`effect'"') ///
                 reflabel(`"`reflabel'"') outcomemap(`macval(outcomemap)') ///
-                `_common_opts' `options'
+                `macval(_common_opts)' `macval(options)'
             local _sub_rc = _rc
             return add
             if `_sub_rc' exit `_sub_rc'
@@ -177,15 +221,29 @@ program define comptab, rclass
                 noisily display as error "effect(), reflabel(), and outcomemap() require rateframe()"
                 exit 198
             }
-            local _vertical_opts "`_common_opts'"
-            if "`compact'" != "" local _vertical_opts "`_vertical_opts' compact"
-            if `"`separator'"' != "" local _vertical_opts "`_vertical_opts' separator(`separator')"
-            if `"`section'"' != "" local _vertical_opts `"`_vertical_opts' section(`macval(section)')"'
-            if `"`relabel'"' != "" local _vertical_opts `"`_vertical_opts' relabel(`macval(relabel)')"'
-            if `highlight' != -1 local _vertical_opts "`_vertical_opts' highlight(`highlight')"
-            if `boldp' != -1 local _vertical_opts "`_vertical_opts' boldp(`boldp')"
-            if `labelwidth' != 0 local _vertical_opts "`_vertical_opts' labelwidth(`labelwidth')"
-            capture noisily _comptab_vertical `framelist', `_vertical_opts' `options'
+            local _vertical_opts `"`macval(_common_opts)'"'
+            if "`compact'" != "" {
+                local _vertical_opts `"`macval(_vertical_opts)' compact"'
+            }
+            if `"`separator'"' != "" {
+                local _vertical_opts `"`macval(_vertical_opts)' separator(`separator')"'
+            }
+            if `"`section'"' != "" {
+                local _vertical_opts `"`macval(_vertical_opts)' section(`macval(section)')"'
+            }
+            if `"`relabel'"' != "" {
+                local _vertical_opts `"`macval(_vertical_opts)' relabel(`macval(relabel)')"'
+            }
+            if `highlight' != -1 {
+                local _vertical_opts `"`macval(_vertical_opts)' highlight(`highlight')"'
+            }
+            if `boldp' != -1 {
+                local _vertical_opts `"`macval(_vertical_opts)' boldp(`boldp')"'
+            }
+            if `labelwidth' != 0 {
+                local _vertical_opts `"`macval(_vertical_opts)' labelwidth(`labelwidth')"'
+            }
+            capture noisily _comptab_vertical `framelist', `macval(_vertical_opts)' `macval(options)'
             local _sub_rc = _rc
             return add
             if `_sub_rc' exit `_sub_rc'
@@ -709,8 +767,9 @@ program define _comptab_rates, rclass
 	            display as error "rate frame has unknown confidence-level provenance"
 	            exit 459
 	        }
-	        local _ci_level_label : display %9.0g `_ci_level'
-	        local _ci_level_label = strtrim("`_ci_level_label'")
+	        * The level as shown: at most 15 significant digits, so 99.9 never
+	        * prints as the double's 17-digit 99.90000000000001.
+	        local _ci_level_label = strtrim(string(`_ci_level', "%21.15g"))
 	        forvalues _o = 1/`outcomes' {
 	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
 	            local _rate_header_col = 2 + (`_o' - 1) * 3
@@ -1230,7 +1289,7 @@ program define _comptab_rates, rclass
                 }
             }
 	            frame `_eplot_build_name': char _dta[tabtools_source] "hrcomptab"
-	            frame `_eplot_build_name': char _dta[tabtools_ci_level] "`_ci_level'"
+	            frame `_eplot_build_name': char _dta[tabtools_ci_level] "`_ci_level_label'"
 	            frame `_eplot_build_name': char _dta[tabtools_n_models] "`outcomes'"
 	            frame `_eplot_build_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
 	            forvalues _o = 1/`outcomes' {
@@ -1242,8 +1301,8 @@ program define _comptab_rates, rclass
 
         * Build output table
         local ncols = 1 + 5 * `outcomes'
-        local _out_title `"`title'"'
-        if `"`_out_title'"' == "" local _out_title `"`_rate_title'"'
+        local _out_title `"`macval(title)'"'
+        if `"`macval(_out_title)'"' == "" local _out_title : copy local _rate_title
 
         clear
         quietly set obs `_rate_rows'
@@ -1251,7 +1310,7 @@ program define _comptab_rates, rclass
         forvalues _c = 1/`ncols' {
             quietly gen str244 c`_c' = ""
         }
-        quietly replace title = `"`_out_title'"' in 1
+        quietly replace title = `"`macval(_out_title)'"' in 1
 
         * Header rows
         frame `rateframe' {
@@ -1380,16 +1439,16 @@ program define _comptab_rates, rclass
         local exp_rows `"`section_rows'"'
 
         * Console display
-        noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
-        if `"`footnote'"' != "" {
-            noisily display as text `"`footnote'"'
+        noisily _tabtools_console_display `ncols' `"`macval(_out_title)'"', datastart(4) headerstart(2)
+        if `"`macval(footnote)'"' != "" {
+            noisily display as text `"`macval(footnote)'"'
             noisily display as text ""
         }
 
         * CSV export
         if "`csv'" != "" {
             order title c*
-            _tabtools_csv_write using "`csv'", reservedrow title(`"`_out_title'"') footnote(`"`footnote'"')
+            _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(_out_title)'"') footnote(`"`macval(footnote)'"')
             capture confirm file "`csv'"
             if _rc {
                 display as error "CSV export completed but file was not created"
@@ -1404,7 +1463,7 @@ program define _comptab_rates, rclass
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-                `_mdappend_opt' title(`"`_out_title'"') footnote(`"`footnote'"') strictheaders
+                `_mdappend_opt' title(`"`macval(_out_title)'"') footnote(`"`macval(footnote)'"') strictheaders
             if _rc {
                 local _md_rc = _rc
                 display as error "Failed to export Markdown to `markdown'"
@@ -1424,7 +1483,7 @@ program define _comptab_rates, rclass
 	            local _display_build_name `"`_display_build'"'
 	            frame put *, into(`_display_build_name')
 	            frame `_display_build_name': char _dta[tabtools_source] "hrcomptab"
-	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level'"
+	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level_label'"
 	            frame `_display_build_name': char _dta[tabtools_n_outcomes] "`outcomes'"
 	            frame `_display_build_name': char _dta[tabtools_statistic_ids] "events person_years rate_ci estimate_ci pvalue"
 	            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
@@ -1578,10 +1637,10 @@ program define _comptab_rates, rclass
                 }
                 local _style_rule_spec `"`_style_rule_spec' | 9 `lastrow' `lastrow' 2 `_total_cols' 0 `_hborder_code' 0 0"'
 
-                if `"`footnote'"' != "" {
+                if `"`macval(footnote)'"' != "" {
                     local _fn_row = `lastrow' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
-                    mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+                    mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
                     local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `_total_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
                 }
 
@@ -2643,7 +2702,7 @@ program define _comptab_vertical, rclass
     drop id
     gen str244 title = ""
     order title
-    qui replace title = `"`title'"' in 1
+    qui replace title = `"`macval(title)'"' in 1
 
     * =====================================================================
     * DETECT REFERENCE ROWS (after title insertion — row numbers = Excel rows)
@@ -2698,13 +2757,13 @@ program define _comptab_vertical, rclass
     * =====================================================================
     if "`csv'" != "" {
         _tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
-            title(`"`title'"') footnote(`"`footnote'"')
+            title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
     }
 
     * =====================================================================
     * CONSOLE DISPLAY
     * =====================================================================
-    noisily _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
+    noisily _tabtools_console_display `n' `"`macval(title)'"', labelvar(A) datastart(4)
 
     * =====================================================================
     * MARKDOWN EXPORT
@@ -2716,7 +2775,7 @@ program define _comptab_vertical, rclass
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-            `_mdappend_opt' labelvar(A) datastart(3) title(`"`title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' labelvar(A) datastart(3) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"
@@ -2916,10 +2975,10 @@ program define _comptab_vertical, rclass
                 }
             }
         }
-        if `"`footnote'"' != "" {
+        if `"`macval(footnote)'"' != "" {
             local _fn_row = `num_rows' + 1
             local _fn_fontsize = max(`_fontsize' - 2, 6)
-            mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+            mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
             local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
         }
 

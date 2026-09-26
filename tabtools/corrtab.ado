@@ -1,4 +1,4 @@
-*! corrtab Version 2.1.11  2026/09/26
+*! corrtab Version 2.1.12  2026/09/26
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -244,7 +244,7 @@ program define corrtab, rclass
 
         local row 1
         quietly set obs 1
-        quietly replace title = `"`title'"' in 1
+        quietly replace title = `"`macval(title)'"' in 1
 
         local row = `row' + 1
         quietly set obs `row'
@@ -306,9 +306,11 @@ program define corrtab, rclass
             }
         }
 
-        noisily _tabtools_console_display `out_ncols' `"`title'"'
+        noisily _tabtools_console_display `out_ncols' `"`macval(title)'"'
         if `"`_star_note'"' != "" noisily display as text `"`_star_note'"'
-        if `"`footnote'"' != "" noisily display as text `"`footnote'"'
+        if `"`macval(footnote)'"' != "" {
+            noisily display as text `"`macval(footnote)'"'
+        }
         noisily display as text ""
 
         * The star legend is GENERATED, not user-supplied, and the console, the
@@ -316,22 +318,26 @@ program define corrtab, rclass
         * footnote once, punctuation-aware, and hand the same combined note to
         * both flat sinks, so a CSV cannot carry "0.54**" with nothing
         * explaining the mark.
-        local _md_footnote `"`footnote'"'
+        local _md_footnote `"`macval(footnote)'"'
         if `"`_star_note'"' != "" {
-            if `"`_md_footnote'"' == "" {
+            if `"`macval(_md_footnote)'"' == "" {
                 local _md_footnote `"`_star_note'"'
             }
             else {
-                local _fn_trim = strtrim(`"`_md_footnote'"')
-                local _fn_last = substr(`"`_fn_trim'"', -1, 1)
-                if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
-                    local _md_footnote `"`_fn_trim' `_star_note'"'
-                else local _md_footnote `"`_fn_trim'; `_star_note'"'
+                * trimmed and tested in Mata: the footnote text is never
+                * macro-expanded
+                mata: st_local("_fn_trim", strtrim(st_local("_md_footnote")))
+                mata: st_local("_fn_endp", strofreal(strlen(st_local("_fn_trim")) > 0 & ///
+                    strpos(".;:!?", substr(st_local("_fn_trim"), -1, 1)) > 0))
+                if `_fn_endp' {
+                    local _md_footnote `"`macval(_fn_trim)' `_star_note'"'
+                }
+                else local _md_footnote `"`macval(_fn_trim)'; `_star_note'"'
             }
         }
 
         if "`csv'" != "" {
-            _tabtools_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`_md_footnote'"')
+            _tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(_md_footnote)'"')
             capture confirm file "`csv'"
             if _rc {
                 noisily display as error "CSV export completed but file was not created"
@@ -349,7 +355,7 @@ program define corrtab, rclass
             * `_md_footnote' is the star legend combined with the user footnote;
             * it is built above the CSV branch so both flat sinks carry it.
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-                `_mdappend_opt' title(`"`title'"') footnote(`"`_md_footnote'"') strictheaders
+                `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(_md_footnote)'"') strictheaders
             if _rc {
                 local _md_rc = _rc
                 noisily display as error "Failed to export Markdown to `markdown'"
@@ -462,9 +468,9 @@ program define corrtab, rclass
                         (1, `_foot_row', `_foot_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
                         (3, `_foot_row', `_foot_row', 2, 2, 0, 1, 0, 0)
                 }
-                if `"`footnote'"' != "" {
+                if `"`macval(footnote)'"' != "" {
                     local _foot_row = `_foot_row' + 1
-                    mata: `_xlsx_book'.put_string(`_foot_row', 2, `"`footnote'"')
+                    mata: `_xlsx_book'.put_string(`_foot_row', 2, st_local("footnote"))
                     matrix `_style_rules' = `_style_rules' \ ///
                         (14, `_foot_row', `_foot_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                         (5, `_foot_row', `_foot_row', 2, 2, 0, 1, 0, 0) \ ///

@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.11  2026/09/26
+*! effecttab Version 2.1.12  2026/09/26
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -247,16 +247,20 @@ quietly {
 		exit 198
 	}
 	if `_from_matrix' {
-		local _ci_level = cond(`level' == -1, 95, `level')
+		local _ci_level_num = cond(`level' == -1, 95, `level')
 	}
 	else {
 		* Shared with regtab: see _tabtools_resolve_ci_level in _tabtools_common.
 		* When the collection carries no level provenance and level() was not
 		* given, this warns and falls back to the current c(level).
 		noisily _tabtools_resolve_ci_level `level'
-		local _ci_level = r(level)
+		local _ci_level_num = r(level)
 		local _ci_found = r(found)
 	}
+	* _ci_level is the level as shown (header, methods, frame characteristics):
+	* at most 15 significant digits, so 99.9 never prints as the double's
+	* 17-digit 99.90000000000001. r(ci_level) returns the number itself.
+	local _ci_level = strtrim(string(`_ci_level_num', "%21.15g"))
 
 	* Check xlsx if specified
 	if `_has_xlsx' {
@@ -313,6 +317,7 @@ quietly {
 			exit 198
 		}
 	}
+	if `"`csv'"' != "" _tabtools_validate_path "`csv'" "csv()"
 	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
 	* Build format strings from digits
@@ -650,8 +655,9 @@ quietly {
 		* Row 2: headers
 		qui replace A = "" in 2
 		qui replace c1 = `"`effect'"' in 2
-		qui replace c2 = "(`_ci_level'% CI)" in 2
-		qui replace c3 = "p" in 2
+		* The collect path's and regtab's header text
+		qui replace c2 = "`_ci_level'% CI" in 2
+		qui replace c3 = "p-value" in 2
 		* Data rows
 		local _rnames : rownames `from'
 			forvalues _fr = 1/`_nrows' {
@@ -1259,7 +1265,7 @@ quietly {
 	drop id
 	gen title = ""
 	order title
-	replace title = `"`title'"' if _n == 1
+	replace title = `"`macval(title)'"' if _n == 1
 
 	* Track Reference/Omitted/Empty rows for merged cell formatting (after the
 	* title row is added) PER MODEL, keyed by the model's first c-column. A
@@ -1316,7 +1322,7 @@ quietly {
 	}
 	return scalar N_rows = `num_rows'
 	return scalar N_cols = `num_cols'
-		return scalar ci_level = `_ci_level'
+		return scalar ci_level = `_ci_level_num'
 		return local effect_label "`effect'"
 		return local type "`type'"
 		return local methods "`_methods'"
@@ -1375,7 +1381,7 @@ quietly {
 	* CSV export (F2) — must happen before clear
 	if "`csv'" != "" {
 		_tabtools_csv_write using "`csv'", labelvar(A) reservedrow ///
-			title(`"`title'"') footnote(`"`footnote'"')
+			title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
 	}
 
 	* Console display. Row 2 is the model-name row and is entirely empty when
@@ -1392,7 +1398,7 @@ quietly {
 		}
 		if !`_hdr2_filled' local _console_hdr = 3
 	}
-	noisily _tabtools_console_display `n' `"`title'"', labelvar(A) headerstart(`_console_hdr')
+	noisily _tabtools_console_display `n' `"`macval(title)'"', labelvar(A) headerstart(`_console_hdr')
 
 	* Markdown export
 	local _ret_markdown ""
@@ -1430,7 +1436,7 @@ quietly {
 			}
 		}
 		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-			`_mdappend_opt' labelvar(A) title(`"`title'"') footnote(`"`footnote'"') ///
+			`_mdappend_opt' labelvar(A) title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
 			headerstart(3) datastart(4) strictheaders
 		if _rc {
 			local _md_rc = _rc
@@ -1613,10 +1619,10 @@ quietly {
 					}
 				}
 			}
-			if `"`footnote'"' != "" {
+			if `"`macval(footnote)'"' != "" {
 				local _fn_row = `num_rows' + 1
 				local _fn_fontsize = max(`_fontsize' - 2, 6)
-				mata: `_xlsx_book'.put_string(`_fn_row', 2, `"`footnote'"')
+				mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
 				local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
 				local _style_rule_rows `"`_style_rule_rows' | 5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
 				local _style_rule_rows `"`_style_rule_rows' | 6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0"'
