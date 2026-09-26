@@ -422,7 +422,10 @@ forvalues e = 1/`n_exposures' {
 			if `o' == 1 {
 				local ncat_e`e' = _N
 				forvalues i = 1/`=_N' {
-					local cat_e`e'_`i' = `catvar_str'[`i']
+					* C1 (codex audit 2026-09-26): category labels are data;
+					* they are read, compared and written in Mata or with
+					* macval(), never re-expanded as macro syntax.
+					mata: st_local("cat_e`e'_`i'", st_sdata(`i', "`catvar_str'"))
 					local D_o`o'_e`e'_`i' = _D[`i']
 					local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
 					local Rate_o`o'_e`e'_`i' = `_Rate_scaled'[`i']
@@ -437,12 +440,12 @@ forvalues e = 1/`n_exposures' {
 					exit 198
 				}
 				forvalues i = 1/`ncat_e`e'' {
-					local _target_cat `"`cat_e`e'_`i''"'
+					local _target_cat : copy local cat_e`e'_`i'
 					local _match_row = 0
 					local _match_count = 0
 					forvalues _j = 1/`=_N' {
-						local _current_cat = `catvar_str'[`_j']
-						if `"`_current_cat'"' == `"`_target_cat'"' {
+						mata: st_local("_same", strofreal(st_sdata(`_j', "`catvar_str'") == st_local("_target_cat")))
+						if `_same' {
 							local _match_row = `_j'
 							local _match_count = `_match_count' + 1
 						}
@@ -492,11 +495,12 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 	forvalues e = 2/`n_exposures' {
 		forvalues o = 1/`outcomes' {
 			forvalues i = 1/`ncat_e`e'' {
-				local _target_cat `"`cat_e`e'_`i''"'
+				local _target_cat : copy local cat_e`e'_`i'
 				local _ref_i = 0
 				local _ref_count = 0
 				forvalues _j = 1/`ncat_e1' {
-					if `"`cat_e1_`_j''"' == `"`_target_cat'"' {
+					mata: st_local("_same", strofreal(st_local("cat_e1_`_j'") == st_local("_target_cat")))
+					if `_same' {
 						local _ref_i = `_j'
 						local _ref_count = `_ref_count' + 1
 					}
@@ -580,7 +584,7 @@ forvalues e = 1/`n_exposures' {
 	forvalues i = 1/`ncat_e`e'' {
 		local new = _N + 1
 		quietly set obs `new'
-			quietly replace c1 = `"   `cat_e`e'_`i''"' in `new'
+			quietly replace c1 = `"   `macval(cat_e`e'_`i')'"' in `new'
 		
 		local col = 2
 		forvalues o = 1/`outcomes' {
@@ -710,7 +714,7 @@ forvalues e = 1/`n_exposures' {
 				forvalues o = 1/`outcomes' {
 				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
-				local _rname = strtoname(`"`cat_e`e'_`i''"')
+				mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 				local _rname = substr(`"`_rname'"', 1, 32)
 				if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 					if `n_exposures' > 1 {
@@ -752,7 +756,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				forvalues o = 1/`outcomes' {
 					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
-					local _rname = strtoname(`"`cat_e`e'_`i''"')
+					mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 					local _rname = substr(`"`_rname'"', 1, 32)
 					if `"`_rname'"' == "" | strtrim(subinstr(`"`_rname'"', "_", "", .)) == "" local _rname "row`_rr'"
 						if `n_exposures' > 2 {

@@ -319,7 +319,11 @@ collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()},
 {cmd:auto} uses margins-style defaults and does not relabel the active collection.{p_end}
 {p 4 8 2}- {opt from()}: read results from a named matrix instead of {cmd:collect}; the matrix must
 hold estimate, lower CI, upper CI, and p-value columns in that order. This
-path leaves any active {cmd:collect} labels and layout unchanged.{p_end}
+path leaves any active {cmd:collect} labels and layout unchanged. Before anything
+is shown or written, every row is checked: a nonmissing p-value must lie in
+[0, 1] and a nonmissing lower limit must not exceed the upper limit; otherwise
+{cmd:effecttab} exits with error 198 naming the row. Missing values are allowed,
+and the estimate is not required to lie inside its interval.{p_end}
 {p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing
 {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
 metadata. When {opt frame()} is also set, the display frame records the companion in
@@ -408,8 +412,13 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric effect estimates and p-values{p_end}
 
+{pstd}The values in {cmd:r(table)} and in the {opt eplotframe()} frame are the
+input numbers (the {opt from()} matrix or the collected results), never the
+displayed text, so they are the same whatever {opt digits()} is.{p_end}
+
 {pstd}Row names of {cmd:r(table)} are the displayed row labels with periods and
-spaces replaced by underscores, commas removed, and truncated to 32 characters.
+spaces replaced by underscores, backticks, apostrophes, dollar signs and double
+quotes replaced by underscores, commas removed, and truncated to 32 characters.
 When two rows would get the same name, the later one takes a suffix
 {cmd:_2}, {cmd:_3}, ... (still within 32 characters), so a lookup such as
 {cmd:rownumb(r(table), "}{it:name}{cmd:")} finds exactly one row.{p_end}

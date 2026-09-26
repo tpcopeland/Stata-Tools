@@ -43,6 +43,11 @@ timepoints and, optionally, median survival with a confidence interval, the numb
 at each timepoint, restricted mean survival time (RMST), and between-group
 comparisons via the log-rank test.{p_end}
 
+{pstd}With {opt by()}, when the analysis sample contains no failures there is nothing
+for the log-rank test to compare: {cmd:survtab} still produces the grouped table,
+omits the test, adds a note row saying why, and stores {cmd:r(logrank_p)} and
+{cmd:r(logrank_chi2)} as missing. Any other failure of the test is an error.{p_end}
+
 {pstd}A typical use case is constructing a Table 2 for a manuscript: two or
 more treatment arms, survival at clinically meaningful timepoints, and a
 log-rank p-value. Adding {opt median}, {opt riskset}, and {opt difference}
@@ -302,6 +307,9 @@ or the {cmd:finegray} package — rather than {opt reverse}.{p_end}
 {synopt:{cmd:r(rmst_ub_{it:#})}}upper CI bound of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
+
+{pstd}{cmd:r(logrank_p)} and {cmd:r(logrank_chi2)} are missing when the analysis
+sample contains no failures, because the log-rank test is then not possible.{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(by_var)}}name of the {opt by()} variable (when {opt by()}){p_end}

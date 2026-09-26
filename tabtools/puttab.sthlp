@@ -38,7 +38,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt zeb:ra} {opt headers:hade}
-{opt dig:its(#)} {opt varl:abels} {opt noh:eader}
+{opt dig:its(#)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -97,6 +97,7 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt m:atrix(matname)}}use a matrix, {cmd:r()}, or {cmd:e()} matrix{p_end}
 {synopt:{opt varl:abels}}use variable labels in the header row{p_end}
 {synopt:{opt noh:eader}}omit the header row entirely{p_end}
+{synopt:{opt noemb:edheader}}export a label-shaped first row as data{p_end}
 {synopt:{opt dig:its(#)}}decimal places for numeric columns{p_end}
 {synoptline}
 
@@ -172,7 +173,16 @@ exported column must be a string variable, and every cell of the first observati
 equal its column's variable label, except that the first column may be blank. Any other
 first observation, including one with a numeric column, is data. The observation is kept
 when {opt noheader} is specified, or when {opt varlabels} is not, because nothing else then
-carries the group labels.{p_end}
+carries the group labels. {it:if} and {it:in} refer to the source's own observation
+numbers, before any embedded header is consumed, and the first observation is examined
+only when it is inside the {it:if}/{it:in} selection; {cmd:in 1} therefore never exports
+observation 2.{p_end}
+
+{phang}
+{opt noemb:edheader} turn off the embedded-header recognition described under
+{opt varlabels}: the first observation is exported as a data row even when every cell
+equals its column's variable label, and the header row is still built from the variable
+labels. Use it for raw data whose first observation happens to match the labels.{p_end}
 
 {phang}
 {opt zeb:ra} alternating row shading over data rows{p_end}

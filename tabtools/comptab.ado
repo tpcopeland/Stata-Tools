@@ -445,16 +445,20 @@ program define _comptab_rates, rclass
         * for a section are later placed on these rows by label.
         local _n_sec_scan = 0
 
+        * C1 (codex audit 2026-09-26): rate-frame category labels are
+        * user value labels; they are read and tested in Mata here and below,
+        * and written with macval(), never expanded as macro syntax.
         forvalues _r = 4/`_rate_rows' {
             frame `rateframe' {
-                local _rate_lab = c1[`_r']
+                mata: st_local("_rate_lab", st_sdata(`_r', "c1"))
                 local _rate_c2 = c2[`_r']
             }
 
-            local _rate_lab_trim = strtrim(`"`_rate_lab'"')
-            if `"`_rate_lab_trim'"' == "" continue
+            mata: st_local("_rl_blank", strofreal(strtrim(st_local("_rate_lab")) == ""))
+            if `_rl_blank' continue
+            mata: st_local("_rl_cat", strofreal(strmatch(st_local("_rate_lab"), "   *")))
 
-            if !strmatch(`"`_rate_lab'"', "   *") & `"`_rate_c2'"' == "" {
+            if !`_rl_cat' & `"`_rate_c2'"' == "" {
                 local section_rows `"`section_rows' `_r'"'
                 local _seen_ref = 0
                 local ++_n_sec_scan
@@ -463,7 +467,7 @@ program define _comptab_rates, rclass
                 continue
             }
 
-            if strmatch(`"`_rate_lab'"', "   *") {
+            if `_rl_cat' {
                 if `_n_sec_scan' == 0 {
                     display as error "Rate frame '`rateframe'' has a category row before any section header"
                     exit 198
@@ -773,7 +777,7 @@ program define _comptab_rates, rclass
 	        forvalues _o = 1/`outcomes' {
 	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
 	            local _rate_header_col = 2 + (`_o' - 1) * 3
-	            frame `rateframe': local _rate_display_label_`_o' = c`_rate_header_col'[2]
+	            frame `rateframe': mata: st_local("_rate_display_label_`_o'", st_sdata(2, "c`_rate_header_col'"))
 	            local _rate_outcome_id_`_o' = lower(strtrim(`"`_rate_outcome_id_`_o''"'))
 	            if `"`_rate_outcome_id_`_o''"' == "" {
 	                display as error "rate frame contains a blank outcome identity"
@@ -935,10 +939,9 @@ program define _comptab_rates, rclass
                     frame `_fname' {
                         forvalues _row = 1/`_max_dr' {
                             local _frame_row = `_row' + 3
-                            local _cell_text = A[`_frame_row']
-                            local _cell_lower = lower(`"`_cell_text'"')
-                            local _pat_lower = lower(`"`_pat'"')
-                            if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
+                            * C1: the row label is matched in Mata, never expanded.
+                            mata: st_local("_pat_hit", strofreal(strmatch(strlower(st_sdata(`_frame_row', "A")), "*" + strlower(st_local("_pat")) + "*")))
+                            if `_pat_hit' {
                                 if strpos(" `expanded`_f'' ", " `_row' ") {
                                     display as error `"rownames(): pattern "`_pat'" duplicates row `_row' in frame '`_source_original_`_f'''"'
                                     display as error "rownames() patterns must select each model-frame row at most once"
@@ -1041,7 +1044,7 @@ program define _comptab_rates, rclass
             local _cats `"`_sec_cats_`_s''"'
             local _k : word count `_cats'
             if `_k' == 0 continue
-            frame `rateframe': local _sec_label = strtrim(c1[`_sec_row_`_s''])
+            frame `rateframe': mata: st_local("_sec_label", strtrim(st_sdata(`_sec_row_`_s'', "c1")))
             foreach _cr of local _cats {
                 local _rowmap_`_cr' = 0
             }
@@ -1053,9 +1056,9 @@ program define _comptab_rates, rclass
                 local _mr = `_map_row`_pos''
                 local _mdr = `_mr' - 3
                 local _msrc `"`_source_original_`_mff''"'
-                frame `_mfn': local _mlab_raw = A[`_mr']
-                local _mlab = strtrim(`"`_mlab_raw'"')
-                local _is_level = (substr(`"`_mlab_raw'"', 1, 2) == "  ")
+                frame `_mfn': mata: st_local("_mlab_raw", st_sdata(`_mr', "A"))
+                mata: st_local("_mlab", strtrim(st_local("_mlab_raw")))
+                mata: st_local("_is_level", strofreal(substr(st_local("_mlab_raw"), 1, 2) == "  "))
 
                 local _all_blank = 1
                 foreach _cv of local _model_cvars {
@@ -1063,7 +1066,7 @@ program define _comptab_rates, rclass
                     if `"`_mcell'"' != "" local _all_blank = 0
                 }
                 if `_all_blank' {
-                    display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' is a heading row with no estimate"'
+                    display as error `"model row `_mdr' ("`macval(_mlab)'") of frame '`_msrc'' is a heading row with no estimate"'
                     display as error "Hint: select only effect rows; rows are counted after the 3 regtab header rows"
                     exit 198
                 }
@@ -1084,29 +1087,29 @@ program define _comptab_rates, rclass
                     }
                 }
                 if `_is_ref' {
-                    display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' is the model's reference (or an omitted) category"'
+                    display as error `"model row `_mdr' ("`macval(_mlab)'") of frame '`_msrc'' is the model's reference (or an omitted) category"'
                     display as error "Hint: select only the non-reference rows; the reference row is filled with reflabel()"
                     exit 198
                 }
 
                 local _target = 0
                 foreach _cr of local _cats {
-                    frame `rateframe': local _clab = strtrim(c1[`_cr'])
-                    if lower(`"`_clab'"') == lower(`"`_mlab'"') local _target = `_cr'
+                    frame `rateframe': mata: st_local("_same", strofreal(strlower(strtrim(st_sdata(`_cr', "c1"))) == strlower(st_local("_mlab"))))
+                    if `_same' local _target = `_cr'
                 }
                 if `_target' == 0 {
                     if !`_is_level' & `_k' == 2 {
                         local _target : word 2 of `_cats'
                     }
                     else {
-                        display as error `"model row `_mdr' ("`_mlab'") of frame '`_msrc'' matches no category of rate section "`_sec_label'""'
+                        display as error `"model row `_mdr' ("`macval(_mlab)'") of frame '`_msrc'' matches no category of rate section "`macval(_sec_label)'""'
                         display as error "Hint: hrcomptab places model rows by label; give the model's factor variable the value labels used for strate"
                         exit 198
                     }
                 }
                 if `_rowmap_`_target'' != 0 {
-                    frame `rateframe': local _clab = strtrim(c1[`_target'])
-                    display as error `"two selected model rows map to rate category "`_clab'" in section "`_sec_label'""'
+                    frame `rateframe': mata: st_local("_clab", strtrim(st_sdata(`_target', "c1")))
+                    display as error `"two selected model rows map to rate category "`macval(_clab)'" in section "`macval(_sec_label)'""'
                     exit 198
                 }
                 local _rowmap_`_target' = `_pos'
@@ -1119,7 +1122,7 @@ program define _comptab_rates, rclass
                 else local nonref_rows `"`nonref_rows' `_cr'"'
             }
             local ref_rows `"`ref_rows' `_ref_row'"'
-            frame `rateframe': local _ref_lab = strtrim(c1[`_ref_row'])
+            frame `rateframe': mata: st_local("_ref_lab", strtrim(st_sdata(`_ref_row', "c1")))
 
             * The unfilled category is labelled as the reference, so it must be
             * the base level of every factor block that supplied an estimate.
@@ -1132,21 +1135,21 @@ program define _comptab_rates, rclass
                 local _b0 = `_mr'
                 local _bstop = 0
                 while `_b0' > 4 & !`_bstop' {
-                    frame `_mfn': local _bprev = A[`=`_b0' - 1']
-                    if substr(`"`_bprev'"', 1, 2) == "  " local --_b0
+                    frame `_mfn': local _bprev_lvl = (substr(A[`=`_b0' - 1'], 1, 2) == "  ")
+                    if `_bprev_lvl' local --_b0
                     else local _bstop = 1
                 }
                 local _b1 = `_mr'
                 local _bstop = 0
                 while `_b1' < `_mfN' & !`_bstop' {
-                    frame `_mfn': local _bnext = A[`=`_b1' + 1']
-                    if substr(`"`_bnext'"', 1, 2) == "  " local ++_b1
+                    frame `_mfn': local _bnext_lvl = (substr(A[`=`_b1' + 1'], 1, 2) == "  ")
+                    if `_bnext_lvl' local ++_b1
                     else local _bstop = 1
                 }
                 local _base_found = 0
                 forvalues _br = `_b0'/`_b1' {
-                    frame `_mfn': local _blab = strtrim(A[`_br'])
-                    if lower(`"`_blab'"') == lower(`"`_ref_lab'"') {
+                    frame `_mfn': mata: st_local("_same", strofreal(strlower(strtrim(st_sdata(`_br', "A"))) == strlower(st_local("_ref_lab"))))
+                    if `_same' {
                         local _all_ref = 1
                         forvalues _o = 1/`outcomes' {
                             local _blk = `_model_map_`_mff'_`_o''
@@ -1167,7 +1170,7 @@ program define _comptab_rates, rclass
                     }
                 }
                 if !`_base_found' {
-                    display as error `"rate category "`_ref_lab'" in section "`_sec_label'" would be shown as the reference,"'
+                    display as error `"rate category "`macval(_ref_lab)'" in section "`macval(_sec_label)'" would be shown as the reference,"'
                     display as error `"but it is not the reference category of the model in frame '`_msrc''"'
                     display as error "Hint: select every non-reference level of the model, or refit it with the intended base level (ib#.)"
                     exit 198
@@ -1213,29 +1216,39 @@ program define _comptab_rates, rclass
             local _current_section ""
             local _pending_fold_label ""
             forvalues _r = 4/`_rate_rows' {
+                * C1: labels are copied in Mata and stored after each post,
+                * never expanded as macro syntax.
                 frame `rateframe' {
-                    local _rate_lab_ep = c1[`_r']
+                    mata: st_local("_rate_lab_ep", st_sdata(`_r', "c1"))
                 }
                 if strpos("`_section_rows_sp'", " `_r' ") {
-                    local _current_section = strtrim(`"`_rate_lab_ep'"')
+                    mata: st_local("_current_section", strtrim(st_local("_rate_lab_ep")))
                     if strpos("`_fold_sections'", " `_r' ") {
-                        local _pending_fold_label `"`_current_section'"'
+                        local _pending_fold_label : copy local _current_section
                     }
                     else {
                         local _pending_fold_label ""
-	                        frame post `_eplot_build_name' (`"`_current_section'"') (.) (.) (.) (.) ///
-	                            (.) ("") ("section") (`"`_current_section'"') (.) (`"`_rateframe_original'"')
+	                        frame post `_eplot_build_name' ("") (.) (.) (.) (.) ///
+	                            (.) ("") ("section") ("") (.) (`"`_rateframe_original'"')
+	                        frame `_eplot_build_name' {
+	                            mata: st_sstore(st_nobs(), "label", st_local("_current_section"))
+	                            mata: st_sstore(st_nobs(), "section", st_local("_current_section"))
+	                        }
                     }
                     continue
                 }
                 if strpos("`_ref_rows_sp'", " `_r' ") {
-                    local _ref_post_label `"`_rate_lab_ep'"'
-                    if `"`_pending_fold_label'"' != "" {
-                        local _ref_post_label `"`_pending_fold_label'"'
+                    local _ref_post_label : copy local _rate_lab_ep
+                    if `"`macval(_pending_fold_label)'"' != "" {
+                        local _ref_post_label : copy local _pending_fold_label
                         local _pending_fold_label ""
                     }
-	                    frame post `_eplot_build_name' (`"`_ref_post_label'"') (.) (.) (.) (.) ///
-	                        (.) ("") ("reference") (`"`_current_section'"') (.) (`"`_rateframe_original'"')
+	                    frame post `_eplot_build_name' ("") (.) (.) (.) (.) ///
+	                        (.) ("") ("reference") ("") (.) (`"`_rateframe_original'"')
+	                    frame `_eplot_build_name' {
+	                        mata: st_sstore(st_nobs(), "label", st_local("_ref_post_label"))
+	                        mata: st_sstore(st_nobs(), "section", st_local("_current_section"))
+	                    }
                     continue
                 }
 
@@ -1261,22 +1274,27 @@ program define _comptab_rates, rclass
 	                                forvalues _ep_i = 1/`_ep_N' {
 	                                    if source_row[`_ep_i'] == `_src_row_ep' & model[`_ep_i'] == `_source_model_ep' {
 	                                        local ++_found_ep
-	                                    local _ep_label = label[`_ep_i']
+	                                    mata: st_local("_ep_label", st_sdata(`_ep_i', "label"))
 	                                    local _ep_est = estimate[`_ep_i']
                                     local _ep_ll = ll[`_ep_i']
                                     local _ep_ul = ul[`_ep_i']
                                     local _ep_p = pvalue[`_ep_i']
 	                                    local _ep_model = `_o'
-	                                    local _ep_model_label `"`_rate_display_label_`_o''"'
+	                                    local _ep_model_label : copy local _rate_display_label_`_o'
                                     local _ep_rowtype = rowtype[`_ep_i']
-                                    local _ep_post_label `"`_ep_label'"'
-                                    if `"`_pending_fold_label'"' != "" {
-                                        local _ep_post_label `"`_pending_fold_label'"'
+                                    local _ep_post_label : copy local _ep_label
+                                    if `"`macval(_pending_fold_label)'"' != "" {
+                                        local _ep_post_label : copy local _pending_fold_label
                                         local _pending_fold_label ""
                                     }
-	                                    frame post `_eplot_build_name' (`"`_ep_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-	                                        (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
-	                                        (`"`_current_section'"') (`_src_row_ep') (`"`_mfsource_ep'"')
+	                                    frame post `_eplot_build_name' ("") (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+	                                        (`_ep_p') (`_ep_model') ("") (`"`_ep_rowtype'"') ///
+	                                        ("") (`_src_row_ep') (`"`_mfsource_ep'"')
+	                                    frame `_eplot_build_name' {
+	                                        mata: st_sstore(st_nobs(), "label", st_local("_ep_post_label"))
+	                                        mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
+	                                        mata: st_sstore(st_nobs(), "section", st_local("_current_section"))
+	                                    }
 	                                    }
 	                                }
 	                            }
@@ -1314,9 +1332,9 @@ program define _comptab_rates, rclass
 
         * Header rows
         frame `rateframe' {
-            local _exp_header = c1[2]
+            mata: st_local("_exp_header", st_sdata(2, "c1"))
         }
-        quietly replace c1 = `"`_exp_header'"' in 2
+        quietly replace c1 = `"`macval(_exp_header)'"' in 2
         quietly replace c1 = "" in 3
 
         forvalues _o = 1/`outcomes' {
@@ -1329,13 +1347,13 @@ program define _comptab_rates, rclass
             local _out_s4 = `_out_s' + 3
 
             frame `rateframe' {
-                local _outcome_header = c`_rate_s'[2]
+                mata: st_local("_outcome_header", st_sdata(2, "c`_rate_s'"))
                 local _hdr_events = c`_rate_s'[3]
                 local _hdr_py = c`_rate_s2'[3]
                 local _hdr_rate = c`_rate_s3'[3]
             }
 
-            quietly replace c`_out_s' = `"`_outcome_header'"' in 2
+            quietly replace c`_out_s' = `"`macval(_outcome_header)'"' in 2
             quietly replace c`_out_s' = `"`_hdr_events'"' in 3
             quietly replace c`_out_s2' = `"`_hdr_py'"' in 3
             quietly replace c`_out_s3' = `"`_hdr_rate'"' in 3
@@ -1350,9 +1368,9 @@ program define _comptab_rates, rclass
 
         forvalues _r = 4/`_rate_rows' {
             frame `rateframe' {
-                local _rate_lab = c1[`_r']
+                mata: st_local("_rate_lab", st_sdata(`_r', "c1"))
             }
-            quietly replace c1 = `"`_rate_lab'"' in `_r'
+            quietly replace c1 = `"`macval(_rate_lab)'"' in `_r'
 
             forvalues _o = 1/`outcomes' {
                 local _rate_s = 2 + (`_o' - 1) * 3
@@ -2097,10 +2115,9 @@ program define _comptab_vertical, rclass
                 frame `_fname' {
                     forvalues _row = 1/`_max_dr' {
                         local _frame_row = `_row' + 3
-                        local _cell_text = A[`_frame_row']
-                        local _cell_lower = lower(`"`_cell_text'"')
-                        local _pat_lower = lower(`"`_pat'"')
-                        if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
+                        * C1: the row label is matched in Mata, never expanded.
+                        mata: st_local("_pat_hit", strofreal(strmatch(strlower(st_sdata(`_frame_row', "A")), "*" + strlower(st_local("_pat")) + "*")))
+                        if `_pat_hit' {
                             local expanded`f' `"`expanded`f'' `_row'"'
                             local _matched = 1
                         }
@@ -2408,7 +2425,13 @@ program define _comptab_vertical, rclass
 
         forvalues _c = 1/`ncols' {
             tempvar _source_copy_`f'_`_c'
-            frame `_fname': clonevar `_source_copy_`f'_`_c'' = c`_c'
+            * C1 (codex audit 2026-09-26): not clonevar, which re-expands
+            * the column's variable label as macro syntax.
+            frame `_fname' {
+                local _cv_type : type c`_c'
+                quietly generate `_cv_type' `_source_copy_`f'_`_c'' = c`_c'
+                mata: st_varlabel("`_source_copy_`f'_`_c''", st_varlabel("c`_c'"))
+            }
         }
         forvalues _target_m = 1/`n_models' {
             local _source_m = `_model_map_`_target_m''

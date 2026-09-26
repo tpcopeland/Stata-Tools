@@ -604,7 +604,9 @@ capture noisily {
     local _b7log "`outdir'/_sr_b7_console.log"
     capture erase "`_b7log'"
     log using "`_b7log'", replace text name(_srb7)
-    stacktab using "`_src'", blocks(_sr_b7 sheet(Src)) sheet("B7") ///
+    * C8 (codex audit 2026-09-26): blocks() now rejects text that is not a
+    * suboption; the stray "_sr_b7" this call carried used to be ignored.
+    stacktab using "`_src'", blocks(sheet(Src)) sheet("B7") ///
         display title("B7 Stack Title") note("B7 Stack Note") sheetreplace
     log close _srb7
 
@@ -648,7 +650,9 @@ capture noisily {
     regtab, xlsx("`_src'") sheet("Src") frame(_sr_b7c)
     local _csv "`outdir'/_sr_b7c.csv"
     capture erase "`_csv'"
-    stacktab using "`_src'", blocks(_sr_b7c sheet(Src)) sheet("B7C") ///
+    * C8 (codex audit 2026-09-26): blocks() now rejects text that is not a
+    * suboption; the stray "_sr_b7c" this call carried used to be ignored.
+    stacktab using "`_src'", blocks(sheet(Src)) sheet("B7C") ///
         title("`_sr_t'") note("`_sr_f'") csv("`_csv'") sheetreplace
     quietly import delimited using "`_csv'", clear varnames(nonames) ///
         stringcols(_all) bindquote(strict) encoding(utf8)

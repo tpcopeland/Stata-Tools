@@ -83,6 +83,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_regtab_multieq_mixed.do` | Mixed and multi-equation layouts: factor header rows in multilevel models, rows and equations only a later model estimates (`mlogit`, `zip`/`zinb`, `ologit` + `mlogit`), blank overflowed transformed CIs, me* `relabel` of slope variances and covariances, `r(table)` row names, `mecloglog`/`mestreg`/`streg, time` scale, and `svy:` classification. |
 | `test_regtab_backlog_2026_09_26.do` | Structural intercept/cutpoint/ancillary rows (covariates named or labelled `p`, `alpha`, `cut1`, ...; lognormal/loglogistic ancillary scale; per-model roles), AIC/BIC/QICu parameter count after few-cluster `vce(cluster)` against `estat ic`, `mestreg, time` random intercept, `bootstrap:`/`jackknife:`/`mi estimate:` classification with t-based mi intervals, per-equation factor headers, `stats(events r2_a rmse F mi_m fmi)`, the model-built methods sentence, and unique `r(table)` row names. |
 | `test_review_2026_09_26_fixes.do` | Fixes from the independent review of 2.1.12: AIC/BIC/QICu count free parameters under robust-type `vce()` (base levels, `mlogit`'s base equation and linear constraints excluded, against `estat ic`; the few-cluster, few-replication and few-panel cap, with and without constraints), `bs`/`bstrap`/`bootstrap`/`jknife`/`jackknife` fits on the OR scale, the collection's result labels and levels left unchanged by `regtab`, `hetprobit`/`qreg`/`ivregress` methods nouns, and `~` rendering literally under GFM strikethrough (via `tools/check_md_render.py`). |
+| `test_codex_audit_2026_09_26.do` | The nine Codex-audit findings of 2026-09-26: variable, value and collected labels holding a `$global`, backticks and quotes reach frames, xlsx, CSV and Markdown as typed in every table command; `frame()`/`eplotframe()` refused before any file is written (checksummed sentinels); `puttab` all-missing observations kept as Markdown rows; `puttab` `if`/`in` on source observations and `noembedheader`; `survtab` `by()` with no failures; `effecttab` numeric returns independent of `digits()` and `from()` range checks; `stacktab` top-level, quote-aware block parsing. Read back with `tools/xlsx_facts.py`, `tools/md_facts.py` and a field-level CSV parser. |
 | `test_review_2026_08_13.do` | Disclosure-reconstruction attacks and correlation-star regression contracts. |
 | `test_review_2026_09_15.do` | Treatment controls, raw coefficient identities, case and name collisions, cleared-data labels, and shipped-header agreement. |
 | `test_review_2026_09_25_rates_puttab.do` | Label-matched `hrcomptab` HR placement against `stcox`, caller data/`c(filename)` preservation, `frame()`-scoped `if`/`in`, `%t` dates and negative zero in `puttab`, staged `stratetab` frames, and `strate` per(k) scaling. |
@@ -139,18 +140,18 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `table1_tc` | `test_table1_tc`, `test_smallcells`, `test_tabtools_v1163`, `test_table1_overflow` | `validation_table1_tc`, `validation_smallcells` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, follow-ups |
-| `desctab` | `test_desctab` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage, output sinks, follow-ups |
-| `crosstab` | `test_crosstab` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups |
-| `corrtab` | `test_corrtab` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial, output sinks, follow-ups |
-| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks |
-| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks |
-| `survtab` | `test_survtab`, `test_output_sinks_markdown` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit, follow-ups |
-| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups |
-| `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial, output sinks, follow-ups |
-| `comptab` | `test_comptab` | `validation_package` | — | integration, adversarial, output sinks, follow-ups |
-| `puttab` | `test_puttab`, `test_puttab_stacktab_2026_09_27` | — | — | helpers, release, output sinks, follow-ups, 2.1.12 review fixes (Markdown `~`) |
-| `stacktab` | `test_stacktab`, `test_puttab_stacktab_2026_09_27` | — | — | release, output sinks, follow-ups |
+| `table1_tc` | `test_table1_tc`, `test_smallcells`, `test_tabtools_v1163`, `test_table1_overflow` | `validation_table1_tc`, `validation_smallcells` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, follow-ups, codex audit |
+| `desctab` | `test_desctab` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage, output sinks, follow-ups, codex audit |
+| `crosstab` | `test_crosstab` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `corrtab` | `test_corrtab` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial, output sinks, follow-ups, codex audit |
+| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, codex audit |
+| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks, codex audit |
+| `survtab` | `test_survtab`, `test_output_sinks_markdown` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit, follow-ups, codex audit |
+| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial, output sinks, follow-ups, codex audit |
+| `comptab` | `test_comptab` | `validation_package` | — | integration, adversarial, output sinks, follow-ups, codex audit |
+| `puttab` | `test_puttab`, `test_puttab_stacktab_2026_09_27` | — | — | helpers, release, output sinks, follow-ups, 2.1.12 review fixes (Markdown `~`), codex audit |
+| `stacktab` | `test_stacktab`, `test_puttab_stacktab_2026_09_27` | — | — | release, output sinks, follow-ups, codex audit |
 | `tabtools` | `test_tabtools`, `test_tabtools_oracle` | `validation_package` | — | integration, release |
 | `tabtools_tips` | `test_tabtools_tips` | — | — | release |
 

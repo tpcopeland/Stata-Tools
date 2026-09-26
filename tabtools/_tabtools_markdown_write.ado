@@ -10,7 +10,7 @@ program define _tabtools_markdown_write, rclass
     capture noisily {
         syntax using/ , [APPEND LABELVar(name) HEADERStart(integer 2) ///
             DATAStart(integer 3) DATAEnd(integer -1) TITLE(string) FOOTnote(string) ///
-            NOVARNAMES STRICTHeaders]
+            NOVARNAMES STRICTHeaders KEEPBlank]
 
         capture _tabtools_helpers_ready
         if _rc {
@@ -87,10 +87,17 @@ program define _tabtools_markdown_write, rclass
             capture confirm file `"`using'"'
             if !_rc local _append_existing = 1
         }
+        * A body row blank in every exported column is dropped by default:
+        * the table producers (regtab, desctab, ...) use such rows as
+        * structural spacers. keepblank is for a caller whose rows are all
+        * data (puttab), so an all-missing observation stays a body row and
+        * Markdown carries as many rows as the workbook and the CSV. C3
+        * (codex audit 2026-09-26).
         tempfile _stage
         mata: _tt_md_write(st_local("_stage"), st_local("_vars"), ///
             `headerstart', `datastart', `dataend', ///
-            "`novarnames'" != "", "`strictheaders'" != "", `_append_existing')
+            "`novarnames'" != "", "`strictheaders'" != "", `_append_existing', ///
+            "`keepblank'" != "")
         local _n_body = `_tt_md_nbody'
         if `_append' {
             mata: _tt_md_append(st_local("_stage"), st_local("using"))
@@ -191,7 +198,8 @@ string scalar _tt_md_body_cell(string scalar v, real scalar i, real scalar inden
 // expanded. Posts the number of body rows written to local _tt_md_nbody.
 void _tt_md_write(string scalar stage, string scalar varlist,
     real scalar hs, real scalar ds, real scalar de,
-    real scalar novarnames, real scalar strict, real scalar lead_blank)
+    real scalar novarnames, real scalar strict, real scalar lead_blank,
+    real scalar keepblank)
 {
     string rowvector vars
     string colvector out
@@ -236,7 +244,7 @@ void _tt_md_write(string scalar stage, string scalar varlist,
             if (cell != "") has_text = 1
             line = line + " " + cell + " |"
         }
-        if (has_text) {
+        if (has_text | keepblank) {
             out = out \ line
             nbody++
         }

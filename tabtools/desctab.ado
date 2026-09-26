@@ -8,7 +8,7 @@ program define desctab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    tempname _xlsx_book _p_raw_mata _smd_raw_mata
+    tempname _xlsx_book _p_raw_mata _smd_raw_mata _vl_vals _vl_text
 
     capture noisily {
 
@@ -133,7 +133,9 @@ program define desctab, rclass
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
-            else local footnote `"`macval(footnote)' `_sc_note'"'
+            else {
+                local footnote `"`macval(footnote)' `_sc_note'"'
+            }
         }
     }
 
@@ -220,6 +222,13 @@ program define desctab, rclass
     }
     _tabtools_check_sinks, xlsx(`"`excel'"') csv(`"`csv'"') ///
         markdown(`"`markdown'"') xlsxname("excel()")
+    * C2 (codex audit 2026-09-26): validate frame() before anything is
+    * written. It was checked only when the frame was stored, after the CSV
+    * and Markdown files, so an occupied or invalid frame returned an error
+    * after an existing report had already been overwritten.
+    if `"`frame'"' != "" {
+        _tabtools_frame_preflight `"`frame'"' "frame()"
+    }
 
     /* Validate pdp and highpdp options */
     if `pdp' < 1 | `pdp' > 10 {
@@ -399,7 +408,7 @@ program define desctab, rclass
     local _bylab ""
     if "`by'" != "" {
         local _bylab : variable label `by'
-        if `"`_bylab'"' == "" local _bylab "`by'"
+        if `"`macval(_bylab)'"' == "" local _bylab "`by'"
     }
 
     /* Mark observations to include in analysis before sample-dependent validation */
@@ -439,7 +448,18 @@ program define desctab, rclass
     else {
         // Convert string by() variable to numeric if needed
         capture confirm numeric variable `by'
-        if !_rc qui clonevar `groupnum'=`by'  // If by() is already numeric
+        * C1 (codex audit 2026-09-26): not clonevar, which re-expands the
+        * variable label as macro syntax and fails r(132) on a backtick.
+        * The copy keeps type, format, value label and (via Mata) the label.
+        if !_rc {
+            local _cv_type : type `by'
+            qui generate `_cv_type' `groupnum' = `by'
+            local _cv_fmt : format `by'
+            format `groupnum' `_cv_fmt'
+            local _cv_vl : value label `by'
+            if "`_cv_vl'" != "" label values `groupnum' `_cv_vl'
+            mata: st_varlabel("`groupnum'", st_varlabel("`by'"))
+        }
         else qui encode `by', gen(`groupnum')  // If by() is string, encode to numeric
         // Validate non-integer / non-negative values BEFORE recast long, force,
         // because that recast silently truncates non-integer values.
@@ -504,7 +524,7 @@ program define desctab, rclass
     if `has_smd' & `groupcount' > 2 {
         local _l1lab : label (`groupnum') `level1'
         local _l2lab : label (`groupnum') `level2'
-        display as text `"{bf:Note:} SMD computed for first two groups only (`_l1lab' vs `_l2lab')"'
+        display as text `"{bf:Note:} SMD computed for first two groups only (`macval(_l1lab)' vs `macval(_l2lab)')"'
     }
 
     /* Create placeholder group variable if not specified */
@@ -656,9 +676,13 @@ program define desctab, rclass
 
     /* Get value labels for group if available */
     local vallab: value label `groupnum'
+    * C1 (codex audit 2026-09-26): the value label is carried across the
+    * frame copy in Mata. -label save- followed by -do- re-parsed every label
+    * as do-file source, so a $word expanded and a backtick broke the text.
     if "`vallab'"!="" {
-        tempfile labels
-        qui label save `vallab' using "`labels'"  // Save value labels to temporary file
+        mata: `_vl_vals' = .
+        mata: `_vl_text' = ""
+        mata: st_vlload("`vallab'", `_vl_vals', `_vl_text')
     }
 
     /* Get levels of group variable for subsequent labelling */
@@ -677,7 +701,9 @@ program define desctab, rclass
     if !`has_smd' capture drop smd_val
 
     /* Restore value labels if available */
-    if "`vallab'" != "" quietly do "`labels'"
+    if "`vallab'" != "" {
+        mata: st_vlmodify("`vallab'", `_vl_vals', `_vl_text')
+    }
 
     /* Set up total column label */
     if "`total'" != "" {
@@ -702,10 +728,15 @@ program define desctab, rclass
         }
         else {
             // Use value label if available
+            * C1 (codex audit 2026-09-26): the value label is data;
+            * macval() keeps a $word or a backtick in it from expanding.
             local lab: label `vallab' `level'
-            lab var `groupnum'`level' `"`lab'"'
+            * Set in Mata: the -lab- abbreviation is an ado wrapper that
+            * runs -label `0'- and so expands the text a second time.
+            mata: st_varlabel("`groupnum'`level'", st_local("lab"))
             if `has_wtcompare' {
-                capture lab var _cr_`level' `"Crude `lab'"'
+                capture confirm variable _cr_`level'
+                if !_rc mata: st_varlabel("_cr_`level'", "Crude " + st_local("lab"))
             }
         }
     }
@@ -856,7 +887,7 @@ program define desctab, rclass
             capture confirm string variable `var'
             if !_rc {
                 local _hdr_lab : variable label `var'
-                qui replace `var' = `"`_hdr_lab'"' in `newN'
+                qui replace `var' = `"`macval(_hdr_lab)'"' in `newN'
             }
         }
     }
@@ -933,11 +964,13 @@ program define desctab, rclass
 
             * Rename weighted group column and set label
             capture rename `by'_`sfx' Wt_`sfx'
-            capture lab var Wt_`sfx' `"Weighted `_wtc_lab'"'
+            capture confirm variable Wt_`sfx'
+            if !_rc mata: st_varlabel("Wt_`sfx'", "Weighted " + st_local("_wtc_lab"))
 
             * Rename crude group column (already renamed _T by standard rename)
             capture rename _cr_`sfx' Cr_`sfx'
-            capture lab var Cr_`sfx' `"Crude `_wtc_lab'"'
+            capture confirm variable Cr_`sfx'
+            if !_rc mata: st_varlabel("Cr_`sfx'", "Crude " + st_local("_wtc_lab"))
 
             * Drop crude helper columns (not needed for display)
             capture drop _cr_columna_`sfx'
@@ -961,12 +994,12 @@ program define desctab, rclass
             capture confirm string variable Cr_`sfx'
             if !_rc {
                 local _hdr_lab : variable label Cr_`sfx'
-                qui replace Cr_`sfx' = `"`_hdr_lab'"' if _n == 1
+                qui replace Cr_`sfx' = `"`macval(_hdr_lab)'"' if _n == 1
             }
             capture confirm string variable Wt_`sfx'
             if !_rc {
                 local _hdr_lab : variable label Wt_`sfx'
-                qui replace Wt_`sfx' = `"`_hdr_lab'"' if _n == 1
+                qui replace Wt_`sfx' = `"`macval(_hdr_lab)'"' if _n == 1
             }
         }
     }
@@ -1412,15 +1445,15 @@ program define desctab, rclass
                 local _test_list "`_test_list'Fisher's exact test"
             }
 
-            local _methods `"Baseline characteristics were compared between groups defined by `_bylab'."'
-            local _methods `"`_methods' `Dapa'"'
+            local _methods `"Baseline characteristics were compared between groups defined by `macval(_bylab)'."'
+            local _methods `"`macval(_methods)' `Dapa'"'
             if "`_test_list'" != "" {
-                local _methods `"`_methods' P-values were calculated using `_test_list'."'
+                local _methods `"`macval(_methods)' P-values were calculated using `_test_list'."'
             }
-            local _methods `"`_methods' A two-sided p-value < 0.05 was considered statistically significant."'
-            local _methods `"`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
+            local _methods `"`macval(_methods)' A two-sided p-value < 0.05 was considered statistically significant."'
+            local _methods `"`macval(_methods)' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."'
 
-            return local methods `"`_methods'"'
+            return local methods `"`macval(_methods)'"'
         }
     }
 
@@ -2110,15 +2143,14 @@ program define desctab, rclass
             foreach _mdv of local _tabtools_visible_vars {
                 capture confirm string variable `_mdv'
                 if !_rc {
-                    local _mdh1 = strtrim(`_mdv'[1])
-                    local _mdh2 = strtrim(`_mdv'[2])
-                    if `"`_mdh1'"' == `"`_mdh2'"' local _mdh2 ""
-                    if `"`_mdh1'"' != "" & `"`_mdh2'"' != "" {
-                        quietly replace `_mdv' = `"`_mdh1' (`_mdh2')"' in 2
-                    }
-                    else if `"`_mdh1'"' != "" {
-                        quietly replace `_mdv' = `"`_mdh1'"' in 2
-                    }
+                    * C1 (codex audit 2026-09-26): evaluated as a data
+                    * expression; the header text (a group value label) never
+                    * passes through a macro, so it is not expanded.
+                    local _e1 "strtrim(`_mdv'[1])"
+                    local _e2 "strtrim(`_mdv'[2])"
+                    quietly replace `_mdv' = cond(`_e1' != "" & `_e2' != "" & ///
+                        `_e1' != `_e2', `_e1' + " (" + `_e2' + ")", ///
+                        cond(`_e1' != "", `_e1', `_mdv')) in 2
                 }
             }
         }
@@ -2178,6 +2210,8 @@ program define desctab, rclass
     * failure mid-Excel-write cannot leak its temporary Mata vectors.
     capture mata: mata drop `_p_raw_mata'
     capture mata: mata drop `_smd_raw_mata'
+    capture mata: mata drop `_vl_vals'
+    capture mata: mata drop `_vl_text'
     capture frame change `_caller_frame'
     capture frame drop `_result_frame'
     capture frame drop `_wtc_crude_table'
