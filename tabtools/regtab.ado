@@ -1,4 +1,4 @@
-*! regtab Version 2.1.12  2026/09/26
+*! regtab Version 2.1.13  2026/09/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -695,7 +695,6 @@ quietly{
     * parameters AIC/BIC/QICu fall back on when e(rank) is capped), and the
     * predictor variables for the methods sentence.
     local _sm_n = 0
-    local _sm_collide ""
     local _sm_ckeys ""
     local _sm_seq ""
     local _sm_ancpairs ""
@@ -766,17 +765,19 @@ quietly{
                 }
             }
         }
+        * A name that is an ordinary coefficient in any model and an
+        * ancillary or cutpoint item in any model, the same one or another,
+        * cannot share one colname row.
+        local _sm_reg_all ""
+        local _sm_ac_all ""
         forvalues _m = 1/`_sm_n' {
             foreach _sl in anc cut reg pred {
                 local _sm_`_sl'_`_m' : list uniq _sm_`_sl'_`_m'
             }
-            local _sm_ac `"`_sm_anc_`_m'' `_sm_cut_`_m''"'
-            local _sm_both : list _sm_reg_`_m' & _sm_ac
-            foreach _k of local _sm_both {
-                local _sm_collide `"`_sm_collide' model `_m' (`_k')"'
-                local _sm_ckeys `"`_sm_ckeys' `_k'"'
-            }
+            local _sm_reg_all `"`_sm_reg_all' `_sm_reg_`_m''"'
+            local _sm_ac_all `"`_sm_ac_all' `_sm_anc_`_m'' `_sm_cut_`_m''"'
         }
+        local _sm_ckeys : list _sm_reg_all & _sm_ac_all
         local _sm_ckeys : list uniq _sm_ckeys
     }
     local _sm_rc = _rc
@@ -1603,10 +1604,12 @@ if _rc == 0 {
     }
 }
 
-* A covariate named like one of its own model's ancillary parameters (alpha
-* in nbreg, ln_p in a Weibull streg, lnsigma in a lognormal one, cut1 in
-* ologit) shares its colname level with that parameter, so the one-row-per-
-* name layout cannot hold both: collect gives the row neither value. The
+* A covariate named like an ancillary parameter of its own or another
+* model in the collection (alpha in nbreg, ln_p in a Weibull streg, lnsigma
+* in a lognormal one, cut1 in ologit) shares its colname level with that
+* parameter, so the one-row-per-name layout cannot hold both: within one
+* model collect gives the row neither value, across models the row pairs
+* one model's covariate with another's ancillary parameter. The
 * equation tells them apart (deaths:alpha is the covariate, _diparm1:alpha
 * the derived parameter). For the render only, every ancillary or cutpoint
 * item with such a name moves to a private colname level __anc_<name>,
@@ -1635,20 +1638,35 @@ if !`_use_coleq_layout' & `"`_sm_ckeys'"' != "" {
             local _se : word `_si' of `_sm_seq'
             local _sk : word `=`_si' + 1' of `_sm_seq'
             if `"`_se'"' != `"`_smr_eq_`_i''"' | `"`_sk'"' != `"`_smr_key_`_i''"' continue
+            * A private row is placed after its preceding ancillary row, which
+            * is placed first when it is private too, or else before the next
+            * ancillary row that stays put: a private next row is not placed
+            * yet, so it is stepped over.
             foreach _dir in prev next {
                 if "`_smr_mode_`_i''" != "cons" continue
                 local _ai = cond("`_dir'" == "prev", `_si' - 2, `_si' + 2)
-                if `_ai' < 1 | `_ai' > `_seqn' continue
-                local _ae : word `_ai' of `_sm_seq'
-                local _ak : word `=`_ai' + 1' of `_sm_seq'
-                if !(`"`_ae'"' == "/" | regexm(`"`_ae'"', "^_diparm")) continue
-                forvalues _j = 1/`_smr_n' {
-                    if `"`_smr_eq_`_j''"' == `"`_ae'"' & `"`_smr_key_`_j''"' == `"`_ak'"' {
-                        local _ak `"__anc_`_ak'"'
+                local _awalk = 1
+                while `_awalk' {
+                    local _awalk = 0
+                    if `_ai' < 1 | `_ai' > `_seqn' continue
+                    local _ae : word `_ai' of `_sm_seq'
+                    local _ak : word `=`_ai' + 1' of `_sm_seq'
+                    if !(`"`_ae'"' == "/" | regexm(`"`_ae'"', "^_diparm")) continue
+                    local _apriv = 0
+                    forvalues _j = 1/`_smr_n' {
+                        if `"`_smr_eq_`_j''"' == `"`_ae'"' & `"`_smr_key_`_j''"' == `"`_ak'"' {
+                            local _apriv = 1
+                        }
                     }
+                    if `_apriv' & "`_dir'" == "next" {
+                        local _ai = `_ai' + 2
+                        local _awalk = 1
+                        continue
+                    }
+                    if `_apriv' local _ak `"__anc_`_ak'"'
+                    local _smr_mode_`_i' = cond("`_dir'" == "prev", "after", "before")
+                    local _smr_anchor_`_i' `"`_ak'"'
                 }
-                local _smr_mode_`_i' = cond("`_dir'" == "prev", "after", "before")
-                local _smr_anchor_`_i' `"`_ak'"'
             }
         }
     }
@@ -1748,8 +1766,8 @@ confirm variable _raw_colname
 * each row carries its own equation, so the role is exact per row. In the
 * colname layout a row is one coefficient name across models, so each model's
 * role comes from the structural map built before rendering; a name that is
-* both an ordinary and an ancillary coefficient of the same model cannot be
-* shown in one row and is refused. Under nointercept the multi-equation layout
+* both an ordinary and an ancillary coefficient, in one model or across
+* models, was rendered as two rows (see above). Under nointercept the multi-equation layout
 * drops every ancillary row (its "Ancillary:" block); otherwise only lnalpha,
 * alpha, ln_p, p, and 1/p are dropped, and sigma-type parameters (lnsigma,
 * lngamma, ...) stay visible.
@@ -1788,8 +1806,8 @@ if `_use_coleq_layout' {
     drop _eq_key
 }
 else {
-    * An ancillary or cutpoint name that is also one of the same model's
-    * covariates was rendered under its private level (see above).
+    * An ancillary or cutpoint name that is also a covariate of any model
+    * was rendered under its private level (see above).
     forvalues _m = 1/`_sm_n' {
         foreach _k of local _sm_anc_`_m' {
             local _in_drop : list _k in _anc_drop_names

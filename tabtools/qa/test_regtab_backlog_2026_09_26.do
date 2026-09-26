@@ -301,8 +301,10 @@ else {
     local ++fail_count
 }
 
-* R1g: one row carrying an ancillary parameter in one model and a covariate of
-* the same name in another is classified per model
+* R1g: an ancillary parameter in one model and a covariate of the same name
+* in another are classified per model. Without keepintercept the ancillary
+* is dropped and the covariate row stays; with it, 2.1.13 shows two rows
+* (2.1.12 merged them into one, R-tabtools quirks Addendum 9 item 15).
 capture noisily {
     sysuse auto, clear
     generate alpha = mpg
@@ -319,8 +321,20 @@ capture noisily {
     _rbl_is _rb1 "alpha" c4 `=exp(`ba')'
     capture frame drop _rb1
     quietly regtab, frame(_rb1, replace) keepintercept
-    _rbl_is _rb1 "alpha" c1 `=exp(`lna')'
-    _rbl_is _rb1 "alpha" c4 `=exp(`ba')'
+    _rbl_nrow _rb1 "alpha"
+    assert r(n) == 2
+    _rbl_fmt `=exp(`lna')'
+    local want_a "`r(s)'"
+    _rbl_fmt `=exp(`ba')'
+    local want_c "`r(s)'"
+    frame _rb1 {
+        quietly count if strtrim(A) == "alpha" & strtrim(c1) == "`want_a'" ///
+            & strtrim(c4) == "" & _n >= 4
+        assert r(N) == 1
+        quietly count if strtrim(A) == "alpha" & strtrim(c1) == "" ///
+            & strtrim(c4) == "`want_c'" & _n >= 4
+        assert r(N) == 1
+    }
 }
 if _rc == 0 {
     display as result "  PASS: R1g ancillary vs covariate row classified per model"
