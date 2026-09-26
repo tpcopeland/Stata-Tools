@@ -256,14 +256,14 @@ visible. In the multi-equation layout the whole ancillary block and any
 {cmd:lnsigma} scale equation are dropped. A covariate named or labelled
 {cmd:p}, {cmd:alpha}, {cmd:constant}, {cmd:cut1}, {cmd:Intercept}, or
 {cmd:/x} is an ordinary coefficient: it is kept and exponentiated with the
-others. When one row holds one model's ancillary parameter and another model's
-covariate of the same name, only the ancillary cell is blanked. A model whose
-covariate shares its name with one of its own ancillary parameters or cutpoints
-(a covariate named {cmd:alpha} in {cmd:nbreg}, {cmd:ln_p} in a Weibull {cmd:streg},
-{cmd:lnsigma} in a lognormal one, {cmd:cut1} in {cmd:ologit}) shows both rows,
-told apart by their equations: the covariate among the covariates, on the
-model's scale, and the parameter, labelled with its own name and on its own
-scale, among the ancillary rows. The collection itself is not changed.{p_end}
+others. A covariate that shares its name with an ancillary parameter or
+cutpoint of its own model or of another model in the collection (a covariate
+named {cmd:alpha} beside {cmd:nbreg}'s {cmd:alpha}, {cmd:ln_p} beside a Weibull
+{cmd:streg}, {cmd:lnsigma} beside a lognormal one, {cmd:cut1} beside
+{cmd:ologit}) is shown as two rows, told apart by their equations: the
+covariate among the covariates, on its model's scale, blank in the other
+models, and the parameter, labelled with its own name and on its own scale,
+among the ancillary rows. The collection itself is not changed.{p_end}
 
 {phang}
 {opt nop:value} suppress p-value columns; stars and highlighting still use p-values internally{p_end}
