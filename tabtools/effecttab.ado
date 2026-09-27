@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.14  2026/09/27
+*! effecttab Version 2.1.15  2026/09/27
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -371,10 +371,35 @@ quietly {
 
 	* Inspect the active collection itself instead of ambient e()
 	local _collect_models 0
+	local _et_eqrows 0
 	local _collect_kind ""
 	local _collect_kind_mixed 0
 	local _teffects_tvars ""
 	if !`_from_matrix' {
+		* F11 (codex audit 2026-09-27): the metadata columns are found by
+		* their result level, not by the label collect happens to print. A
+		* caller's collect label levels result cmd "..." made a valid
+		* collection unreadable. The present labels are set to the level
+		* names for the render and restored exactly afterwards.
+		local _et_rl_n 0
+		local _et_rl_present ""
+		capture quietly collect label list result, all
+		if _rc == 0 {
+			local _et_k ""
+			mata: st_local("_et_k", st_global("s(k)"))
+			if "`_et_k'" == "" local _et_k 0
+			forvalues _i = 1/`_et_k' {
+				mata: st_local("_et_lv", st_global("s(level`_i')"))
+				if !inlist("`_et_lv'", "cmd", "cmdline") continue
+				local ++_et_rl_n
+				local _et_rl_present `_et_rl_present' `_et_lv'
+				mata: st_local("_et_rl_lbl_`_et_rl_n'", st_global("s(label`_i')"))
+			}
+			forvalues _j = 1/`_et_rl_n' {
+				local _et_lv : word `_j' of `_et_rl_present'
+				quietly collect label levels result `_et_lv' "`_et_lv'", modify
+			}
+		}
 		capture {
 			collect layout (cmdset) (result[cmd cmdline])
 		}
@@ -389,9 +414,9 @@ quietly {
 				ds
 				local _meta_allvars `r(varlist)'
 				foreach _v of local _meta_allvars {
-					local _hdr = lower(strtrim(`_v'[1]))
-					if "`_hdr'" == "command" local _meta_col_cmd "`_v'"
-					if "`_hdr'" == "command line as typed" local _meta_col_cmdline "`_v'"
+					local _hdr = strtrim(`_v'[1])
+					if "`_hdr'" == "cmd" local _meta_col_cmd "`_v'"
+					if "`_hdr'" == "cmdline" local _meta_col_cmdline "`_v'"
 				}
 
 				if "`_meta_col_cmd'" != "" {
@@ -405,6 +430,10 @@ quietly {
 			}
 			if _rc local _collect_models = 0
 			restore
+		}
+		forvalues _j = 1/`_et_rl_n' {
+			local _et_lv : word `_j' of `_et_rl_present'
+			quietly collect label levels result `_et_lv' `"`macval(_et_rl_lbl_`_j')'"', modify
 		}
 
 		if `_collect_models' == 0 {
@@ -575,6 +604,14 @@ quietly {
             exit 2000
         }
         if "`full'" != "" local _colname_filter ""
+    }
+    * F03 (codex audit 2026-09-27): full shows every equation, and teffects
+    * equations share coefficient names (x and _cons in OME0 and in OME1).
+    * Rows are then keyed by equation and name; a colname-only layout let one
+    * equation's values overwrite the other's in every sink.
+    if "`full'" != "" {
+        capture quietly collect levelsof coleq
+        if _rc == 0 & `: word count `s(levels)'' > 1 local _et_eqrows 1
     }
 
 	* =========================================================================
@@ -785,9 +822,17 @@ quietly {
 		* Preserve user data before rendering the collect table into strings
 		preserve
 
-		capture _tabtools_collect_render, type(main) rowdim(colname) ///
-			rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
-			results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap rowkeys eqlevels("`_te_eqlevels'")
+		if `_et_eqrows' {
+			capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
+				coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") ///
+				omitmap rowkeys parentkeys uniquekeys
+		}
+		else {
+			capture _tabtools_collect_render, type(main) rowdim(colname) ///
+				rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
+				results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap rowkeys ///
+				eqlevels("`_te_eqlevels'") uniquekeys
+		}
 		local _collect_render_rc = _rc
 		* Read the constraint map before any other r-class command clears r().
 		local _omit_n = 0
@@ -824,9 +869,13 @@ quietly {
 	* Get all variables - first variable is row labels, rest are data columns
 	ds
 	local allvars `r(varlist)'
-    local _raw_helper "_raw_colname"
+    local _raw_helper "_raw_colname _raw_parent"
     local allvars : list allvars - _raw_helper
     if !`_from_matrix' rename _raw_colname _raw_A
+    * the equation of each row (empty outside the equation-keyed layout)
+    capture confirm variable _raw_parent
+    if _rc == 0 rename _raw_parent _eplot_sec
+    else quietly generate strL _eplot_sec = ""
 
 	* Check that we have data to process
 	local nvars : word count `allvars'
@@ -1061,6 +1110,13 @@ quietly {
 			local _rname = subinstr("`_rname'", ",", "", .)
 			local _rname = substr("`_rname'", 1, 32)
 			if "`_rname'" == "" local _rname "row`_mr'"
+			* F03: an equation-keyed row is named eq:name, as in e(b)
+			if `_et_eqrows' {
+				mata: st_local("_reqn", subinstr(subinstr(subinstr(subinstr(subinstr(subinstr( ///
+				    st_sdata(`_obs', "_eplot_sec"), char(96), "_"), char(39), "_"), char(36), "_"), ///
+				    char(34), "_"), " ", "_"), ":", "_"))
+				if `"`_reqn'"' != "" local _rname = substr("`_reqn'", 1, 32) + ":" + "`_rname'"
+			}
 			* Sanitizing and truncation can map two rows to one name, and a
 			* name lookup would then silently return the first row. Keep the
 			* names unique: a repeat takes _2, _3, ... within 32 characters.
@@ -1251,9 +1307,11 @@ quietly {
 						frame post `_eplotframe_name' ("") (`_ep_est') (`_ep_ll') (`_ep_ul') ///
 							(`_ep_p') (`_ep_m') ("") (`"`_ep_rowtype'"') ("") ///
 							(`_ep_source_row') ("")
+						mata: st_local("_ep_section", st_sdata(`_ep_obs', "_eplot_sec"))
 						frame `_eplotframe_name' {
 						    mata: st_sstore(st_nobs(), "label", st_local("_ep_label"))
 						    mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
+						    mata: st_sstore(st_nobs(), "section", st_local("_ep_section"))
 						}
 					}
 			}
@@ -1273,7 +1331,7 @@ quietly {
 					frame `_eplotframe_name': mata: st_global("_dta[tabtools_model_label_`_meta_m']", st_local("_meta_label"))
 			}
 		}
-		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p*
+		capture drop _eplot_est* _eplot_ll* _eplot_ul* _eplot_p* _eplot_sec
 
 	* =========================================================================
 	* ADD CUSTOM ROWS (addrow option)

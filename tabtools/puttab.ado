@@ -1,4 +1,4 @@
-*! puttab Version 2.1.14  2026/09/27
+*! puttab Version 2.1.15  2026/09/27
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -163,8 +163,10 @@ program define puttab, rclass
             }
             _tabtools_validate_path `"`using'"' "using"
         }
-        if "`sheet'" == "" local sheet "Table"
-        if `_has_using' _tabtools_validate_sheet "`sheet'" "sheet()"
+        * F10 (codex audit 2026-09-27): compound quotes, so a sheet name that
+        * contains a double quote (valid in Excel) is not re-parsed.
+        if `"`sheet'"' == "" local sheet "Table"
+        if `_has_using' _tabtools_validate_sheet `"`sheet'"' "sheet()"
 
         local csv = strtrim(`"`csv'"')
         if `"`csv'"' != "" {

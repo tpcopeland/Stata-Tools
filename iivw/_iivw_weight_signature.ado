@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 4.2.0  2026/09/15
+*! _iivw_weight_signature Version 4.3.0  2026/09/28
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -63,7 +63,49 @@ program define _iivw_weight_signature, rclass sortpreserve
     set varabbrev off
     capture noisily {
 
-    syntax [, noSPEC]
+    syntax [, noSPEC ANALysis(string) KEY(string) TIMEvar(string) ///
+        TOUSE(string)]
+
+    * ---------------------------------------------------------------------
+    * ANALYSIS MODE: fingerprint an outcome analysis, not a weight contract.
+    * ---------------------------------------------------------------------
+    * iivw_bspool needs to know that two shard files came from the same outcome
+    * DATA, not merely the same coefficient names and observed estimates: an
+    * intercept of exactly 1 from y = 1 +/- 1 and from y = 1 +/- 10 agree on
+    * every field 4.2.0 compared, while their bootstrap variances differ
+    * ~100-fold (audit F04). The same sort-invariant construction as the weight
+    * signature is applied to the named columns over the rows marked by
+    * touse(), keyed by key() and timevar(). A column that is absent or
+    * non-numeric is recorded as GONE, never skipped. Called by _iivw_bs_stamp
+    * at fit time and by iivw_bspool to re-verify the live data.
+    if `"`analysis'"' != "" {
+        if "`key'" == "" | "`touse'" == "" {
+            display as error "_iivw_weight_signature: analysis() needs key() and touse()"
+            error 198
+        }
+        tempvar k
+        quietly egen long `k' = group(`key') if `touse'
+        local __iivw_t "`timevar'"
+        capture confirm numeric variable `__iivw_t'
+        if _rc | "`__iivw_t'" == "" local __iivw_t "`k'"
+        quietly sort `k' `__iivw_t', stable
+        quietly count if `touse'
+        local __iivw_parts "an|`r(N)'"
+        foreach __iivw_v of local analysis {
+            capture confirm numeric variable `__iivw_v', exact
+            if _rc {
+                local __iivw_parts "`__iivw_parts'|`__iivw_v':GONE"
+                continue
+            }
+            mata: _iivw_weight_signature_vars( ///
+                "`__iivw_v'", "`k'", "`__iivw_t'", "`touse'")
+            local __iivw_parts "`__iivw_parts'`__iivw_mata_parts'"
+        }
+        return local signature "`__iivw_parts'"
+    }
+    * The weight-contract mode below is the else-branch of the analysis mode
+    * (an exit here would skip the varabbrev restore).
+    else {
 
     * ---------------------------------------------------------------------
     * Read the contract. The signature is computed from the stored
@@ -212,6 +254,7 @@ program define _iivw_weight_signature, rclass sortpreserve
     return local bound "`__iivw_bind'"
 
     }
+    }
     local rc = _rc
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
@@ -222,7 +265,8 @@ mata:
 void _iivw_weight_signature_vars(
     string scalar bind,
     string scalar kname,
-    string scalar tname)
+    string scalar tname,
+    | string scalar touse)
 {
     string rowvector vars
     string scalar parts
@@ -230,15 +274,25 @@ void _iivw_weight_signature_vars(
     real scalar j
     real scalar s1, s2, sk, st, nmiss
 
+    // touse is optional: the weight contract binds every row; the analysis
+    // fingerprint binds only the outcome model's estimation sample.
+    if (args() < 4) touse = ""
     vars = tokens(bind)
     parts = ""
-    st_view(k, ., kname)
-    st_view(t, ., tname)
+    if (touse == "") {
+        st_view(k, ., kname)
+        st_view(t, ., tname)
+    }
+    else {
+        st_view(k, ., kname, touse)
+        st_view(t, ., tname, touse)
+    }
     kk = editmissing(k, 0)
     tt = editmissing(t, 0)
 
     for (j = 1; j <= cols(vars); j++) {
-        st_view(v, ., vars[j])
+        if (touse == "") st_view(v, ., vars[j])
+        else             st_view(v, ., vars[j], touse)
 
         // quadcross() performs the four numeric reductions without
         // materializing v^2, v*k, or v*time in Stata. Replacing missings by

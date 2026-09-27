@@ -214,7 +214,9 @@ space of a row label is written as {cmd:&nbsp;}, which survives Markdown cell tr
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
-{opt mis:sing} treat missing values as another category for categorical variables{p_end}
+{opt mis:sing} treat missing values as another category for categorical variables. All
+missing codes ({cmd:.} and {cmd:.a}-{cmd:.z}) form the one Missing category shown, and the
+chi-square or Fisher test uses that same coding{p_end}
 
 {phang}
 {opt missings:ummary} add missing data summary row per variable{p_end}

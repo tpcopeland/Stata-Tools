@@ -1,4 +1,4 @@
-*! _finegray_weight_var Version 1.3.7  2026/09/23
+*! _finegray_weight_var Version 1.3.7  2026/09/28
 *! Rebuild the fit's design-weight column from e(wexp) for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal)
@@ -124,6 +124,35 @@ program define _finegray_weight_var, rclass
                     display as error "restore the variable, or re-run {bf:finegray} before this post-estimation command"
                     exit 459
                 }
+            }
+            * Without id() the fit keyed each row by its content in the
+            * signature variables and posted that list as e(wsigkeyvars)
+            * (audit F03): a value-only digest cannot see an exchange of two
+            * scalars that leaves the multiset of weights unchanged.  Those
+            * variables are e(datasignature)'s; if one of them has changed the
+            * rebuilt key differs and the digest refuses r(459) -- fail-closed.
+            if `"`_wsigid'"' == "" & `"`e(wsigkeyvars)'"' != "" {
+                local _wsigid `"`e(wsigkeyvars)'"'
+                foreach _wk of local _wsigid {
+                    capture confirm variable `_wk', exact
+                    if _rc {
+                        display as error "variable `_wk' used by the fit is not in the data"
+                        display as error "postestimation weight reconciliation needs it: without {bf:stset, id()}"
+                        display as error "the fit's weight digest is keyed by each observation's data"
+                        display as error "restore the variable, or re-run {bf:finegray} before this post-estimation command"
+                        exit 459
+                    }
+                }
+            }
+            else if `"`_wsigid'"' == "" {
+                * An id()-less weighted fit saved by a build before the
+                * 2026-09-28 revision: its digest is value-only.  Correct results reach here, so warn
+                * rather than refuse, as for the absent-digest case above.
+                display as error "warning: this fit's weight digest e(wsig) predates observation keying"
+                display as error "without {bf:stset, id()} it sees the weight VALUES but not which observation"
+                display as error "carries each one: an exchange of weights between observations that leaves"
+                display as error "their multiset unchanged (two scalars swapped in the weight expression) is"
+                display as error "NOT detected; re-run {bf:finegray} on the current data for the full check"
             }
             mata: _finegray_wsig("`_chk'", "`_es'", "`_wsigid'")
             if `"`_fg_wsig'"' != `"`e(wsig)'"' | `_fg_wsig_n' != e(wsig_n) {

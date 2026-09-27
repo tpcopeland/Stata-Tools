@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.14  2026/09/27
+*! _tabtools_common Version 2.1.15  2026/09/27
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -460,7 +460,7 @@ program _tabtools_validate_sheet, nclass
         exit 198
     }
     if ustrlen(`"`sheet'"') > 31 {
-        display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
+        display as error `"`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"'
         exit 198
     }
     if regexm(`"`sheet'"', "[][/\\?*:]" ) {

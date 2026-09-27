@@ -351,6 +351,14 @@ after the fact, so a fit whose weights lack them is refused rather than
 approximated.
 
 {pmore}
+The sandwich sums over every subject that informed the weights, not only over
+the outcome sample. A subject whose outcomes are all missing, or whose rows
+fall outside the fit's {it:if}/{it:in}, contributes no outcome score but still
+contributes its nuisance-model score, and that correction term is included;
+the finite-cluster factor m/(m-1) counts the same union. {cmd:e(N)} and
+{cmd:e(sample)} still describe the outcome fit.
+
+{pmore}
 When requested explicitly, {cmd:vce(stacked)} is stamped
 {cmd:e(iivw_inference_status)}={cmd:uncleared-stacked-analytic}, which is
 deliberately distinct from {cmd:uncleared-fixedweights-analytic}: the two name
@@ -1291,6 +1299,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_cmd)}}{cmd:iivw_fit}{p_end}
+{synopt:{cmd:e(predict)}}{cmd:_iivw_fit_p}, which checks the generated design columns and then calls {cmd:e(iivw_predict)}; interval-producing fits only{p_end}
+{synopt:{cmd:e(iivw_predict)}}the underlying model's predict program{p_end}
+{synopt:{cmd:e(iivw_design_token)}}identifier stamped on this fit's generated design columns{p_end}
+{synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
@@ -1303,7 +1315,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_terms)}}nuisance terms propagated by {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
-{synopt:{cmd:e(iivw_stacked_nclust)}}clusters in stacked sandwich; {cmd:vce(stacked)} only{p_end}
+{synopt:{cmd:e(iivw_stacked_nclust)}}clusters in stacked sandwich: outcome-sample clusters plus subjects that entered only the weight models; {cmd:vce(stacked)} only{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}inference-evidence tier; see {help iivw_fit##inference:Inference status}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}{cmd:none}, {cmd:wald-normal}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}
@@ -1312,6 +1324,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_rngstate_start)}}starting RNG state, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_rngstream)}}RNG substream, when {opt rngstream()} was given{p_end}
 {synopt:{cmd:e(iivw_bs_saving)}}the {opt saving()} spec, when given{p_end}
+{synopt:{cmd:e(iivw_bs_asig)}}outcome-analysis identity stamped into the {opt saving()} file; {cmd:iivw_bspool} requires every shard to match it{p_end}
+{synopt:{cmd:e(iivw_bs_dsig)}}sort-invariant fingerprint of the estimation-sample columns, rechecked against live data when pooling{p_end}
+{synopt:{cmd:e(iivw_bs_dsig_vars)}}columns covered by {cmd:e(iivw_bs_dsig)}{p_end}
+{synopt:{cmd:e(iivw_bs_lineage)}}draw-lineage identifier of this shard; a saved pool carries the union of its inputs{p_end}
 {synopt:{cmd:e(iivw_wsig)}}signature for stored weight contract{p_end}
 {synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
@@ -1389,7 +1405,13 @@ checks can tell which model was most recently fit:
 {pstd}
 After an interval-producing fit, standard postestimation commands for
 {cmd:glm} or {cmd:mixed}, including {cmd:predict}, {cmd:lincom}, {cmd:test},
-and {cmd:margins}, are available as usual. A point-only FIPTIW fit retains
+and {cmd:margins}, are available as usual. {cmd:predict} first checks that the
+design columns {cmd:iivw_fit} generated for this fit (categorical-time
+dummies, time powers, splines, categorical dummies, interactions) are still
+the ones it built; after {cmd:estimates restore} of an earlier fit whose
+columns a later fit rebuilt with {opt replace}, it exits with error 459
+rather than predicting from columns whose meaning changed. Refit the model to
+predict from it again. A point-only FIPTIW fit retains
 coefficients in {cmd:e(b)} but deliberately posts no {cmd:e(V)}; standard
 prediction and inference-dependent postestimation are therefore unavailable
 unless an interval method was explicitly requested.

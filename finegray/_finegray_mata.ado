@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.7  2026/09/23
+*! _finegray_mata Version 1.3.7  2026/09/28
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -48,8 +48,16 @@ program define _finegray_mata_loaded
     if `rc' exit `rc'
 end
 
+* matastrict is a SESSION setting, and this file is `run' as a do-file, not
+* autoloaded as an ado-file, so Stata does not scope the switch below to the
+* load: it used to leave the caller's session strict (audit F08, 2026-09-27).
+* Package code still compiles strict; the caller's setting is put back after
+* the Mata block.  A compile failure aborts this file before that line runs,
+* so each loader call site also restores the setting on failure.
+local _fg_matastrict0 = c(matastrict)
+mata: mata set matastrict on
+
 mata:
-mata set matastrict on
 
 /* The real load sentinel: a Mata function, so that `mata clear' -- which wipes
    Mata but not Stata programs -- makes the probe fail and the caller reload. */
@@ -3895,7 +3903,8 @@ void _finegray_schoenfeld_compute(
     string scalar t0var,
     | string scalar bs_str,
     string scalar w_str,
-    real scalar wtype)
+    real scalar wtype,
+    string scalar outmat)
 {
     real colvector t, delta, event_type, G, byg_id, beta, t0, tg_id, bsraw, w
     real matrix Z, sch
@@ -3905,6 +3914,10 @@ void _finegray_schoenfeld_compute(
     if (args() < 9) bs_str = ""
     if (args() < 10) w_str = ""
     if (args() < 11) wtype = 0
+    /* The caller's tempname.  A fixed output name overwrote -- and the
+       caller's cleanup then dropped -- a user matrix called
+       _finegray_schoenfeld (audit F07 pattern). */
+    if (args() < 12) outmat = "_finegray_schoenfeld"
 
     vars = tokens(varlist_str)
     p = length(vars)
@@ -3951,7 +3964,7 @@ void _finegray_schoenfeld_compute(
     sch = _finegray_schoenfeld(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, do_scale, t0, tg_id, bsraw, w)
 
-    st_matrix("_finegray_schoenfeld", sch)
+    st_matrix(outmat, sch)
 }
 
 /* Abort on a rank-deficient information matrix, naming the offending terms.
@@ -5042,6 +5055,14 @@ void _finegray_engine(
         st_local("_fg_bs_noevent", strtrim(bs_noev))
         st_local("_fg_bs_noeventx", strtrim(bs_noevx))
     }
+    /* A single-level bstrata() fit posts the compact unstratified K x 2
+       baseline (numerically identical), which drops the level's identity.
+       Keep it beside the curve so prediction can refuse a row in a level the
+       fit never saw -- the rule the multi-level lookup already enforces. */
+    else if (bs_str != "" & n > 0) {
+        st_local("_fg_bs_single", strofreal(bsraw[1], "%18.0g"))
+        st_local("_fg_bs_singlex", strofreal(bsraw[1], "%21x"))
+    }
 
     /* Compute censoring distribution. UNWEIGHTED on the analysis sample
        under pweights (survival::finegray's Gsurv), not Wogu's full cohort;
@@ -5430,6 +5451,40 @@ void _finegray_engine(
    public entry points (_st for a Stata matrix of points, _predict for one point
    per observation) both delegate here so the influence-function logic lives in
    one place. */
+/* Common scale for exp(eta) inside the CIF influence functions (audit F09,
+   2026-09-27).
+
+   The influence terms divide by S0(T_m)^2.  S0 is a sum of exp(Z beta), so
+   S0^2 leaves double range once log S0 passes ~354 -- far earlier than
+   exp(eta) itself (709) -- and a covariate on a shifted origin reaches that
+   with an ordinary coefficient: x + 1000 with beta = .35.  S0^2 then became
+   +inf, 1/S0^2 became 0, the at-risk term vanished, and the CIF SE came back
+   4% low (170% high under cluster()) at rc 0, while e(b), e(V) and the point
+   CIF stayed right.
+
+   Every quantity these routines combine is homogeneous in a common factor
+   kappa on exp(eta): S0, S1 and the backward sums scale by kappa, the Breslow
+   increments, L0, own and b(t*) by 1/kappa, the 1/S0^2 prefix sums by
+   1/kappa^2, and the profile's exp(z* beta) by kappa.  The influence
+   function psi and the CIF are therefore EXACTLY invariant to replacing
+   exp(eta) by exp(eta - s) and exp(z* beta) by exp(z* beta - s).  The shift
+   s is the midpoint of the fit's linear-predictor range, which minimises the
+   largest |eta - s|.  It is 0 -- the shipped arithmetic, bit for bit -- when
+   every eta lies in [-100, 100], where log S0 <= 100 + log(n) cannot reach
+   the 1/S0^2 overflow or underflow for any realistic n.  A data SPREAD of
+   eta beyond ~700 is not an origin effect and is not repaired here. */
+real scalar _finegray_eta_shift(real colvector eta)
+{
+    real scalar mx, mn
+
+    if (rows(eta) == 0) return(0)
+    mx = max(eta)
+    mn = min(eta)
+    if (mx >= . | mn >= .) return(0)
+    if (mx <= 100 & mn >= -100) return(0)
+    return((mx + mn) / 2)
+}
+
 /* Influence-function CIF for the stratified ZZF equation-7 form.  This is the
    denominator-scale analogue of _finegray_cif_core(): each event contributes
    dL = 1/(A_event*C), an at-risk subject in group g contributes
@@ -5463,7 +5518,7 @@ real matrix _finegray_cif_core_zzf(
     real rowvector risk0, bwd0, coreS1, zbar, zstar, bvec
     real scalar n, p, ng, M, ev, i, j, k, idx, ep, g, cur_time, coreS0
     real scalar ii, mp, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
-    real scalar lp, lam
+    real scalar lp, lam, sh
     real scalar use_pooled
 
     n = rows(Z)
@@ -5484,7 +5539,9 @@ real matrix _finegray_cif_core_zzf(
     PSIb = scores * info_inv
 
     eta = Z * beta
-    expeta = exp(eta)
+    /* Common exp(eta) scale; see _finegray_eta_shift.  0 on ordinary data. */
+    sh = _finegray_eta_shift(eta)
+    expeta = exp(eta :- sh)
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
     row_id = (1::n)
@@ -5633,7 +5690,7 @@ real matrix _finegray_cif_core_zzf(
             out[e, 1] = .; out[e, 2] = .
             continue
         }
-        rstar = exp(lp)
+        rstar = exp(lp - sh)
         lam = L0 * rstar
         if (lam >= .) {
             /* Overflow at a FINITE profile: same contract as
@@ -5893,7 +5950,7 @@ real matrix _finegray_cif_core(
     real rowvector risk_S1, bwd_s0_raw, zstar, bvec, S1_t, Bmstar
     real scalar n, p, i, j, k, idx, ep, cur_time, risk_S0, S0_t
     real scalar M, ev, ne, e, tstar, mstar, m, L0, rstar, cif, factor, V
-    real scalar lp, lam
+    real scalar lp, lam, sh
     real scalar mp, ii, g, ng, use_pooled, nk, kk, K, nev, ee
 
     if (args() < 14) bsraw = J(rows(t), 1, 1)
@@ -5935,7 +5992,9 @@ real matrix _finegray_cif_core(
     PSIb = scores * info_inv
 
     eta = Z * beta
-    expeta = exp(eta)
+    /* Common exp(eta) scale; see _finegray_eta_shift.  0 on ordinary data. */
+    sh = _finegray_eta_shift(eta)
+    expeta = exp(eta :- sh)
     is_cause = (event_type :== cause) :& (delta :== 1)
     is_compete = (event_type :!= cause) :& (event_type :!= censval) :& (delta :== 1)
     /* Deterministic tie-break by row index.  Mata's order() resolves ties
@@ -6010,7 +6069,7 @@ real matrix _finegray_cif_core(
                 out[e, 1] = .; out[e, 2] = .
                 continue
             }
-            rstar = exp(lp)
+            rstar = exp(lp - sh)
             lam = L0 * rstar
             if (lam >= .) {
                 /* exp(lp), or L0 exp(lp), exceeds maxdouble at a FINITE
@@ -6147,7 +6206,7 @@ real matrix _finegray_cif_core_pw(
     real rowvector zstar, zj, Bmstar
     real scalar n, p, pt, ne, ng, use_pooled, K, kk, nev, ee, e, i, j, g
     real scalar M_j, mstar, m, V, mj, ej, tstar, expo, c0, c1, nc, cs, ok
-    real scalar lpj
+    real scalar lpj, shj
 
     /* Chunk width for the per-evaluation-point influence columns.  The
        accumulators below are rebuilt once per chunk per interval (O(n log n)),
@@ -6234,7 +6293,10 @@ real matrix _finegray_cif_core_pw(
                 etj = _finegray_tvc_mask(event_type, cause, censval, ivl, j)
                 Dj = _finegray_tvc_design(Z, fixpos, tvcpos, nint, j)
                 is_cause_j = (etj :== cause) :& (delta :== 1)
-                expeta_j = exp(Dj * beta)
+                /* Per-interval common exp(eta) scale; see
+                   _finegray_eta_shift.  0 on ordinary data. */
+                shj = _finegray_eta_shift(Dj * beta)
+                expeta_j = exp(Dj * beta :- shj)
 
                 M_j = 0
                 ok = _finegray_cif_accum(t, t0, Dj, expeta_j, is_cause_j,
@@ -6260,7 +6322,7 @@ real matrix _finegray_cif_core_pw(
                         LAM[ee] = .
                         continue
                     }
-                    ej = exp(lpj)
+                    ej = exp(lpj - shj)
                     if (ej >= . | mj * ej >= .) {
                         /* Overflow at a FINITE profile: same contract as
                            _finegray_cif_core.  mj > 0 whenever mstar > 0, so
@@ -6999,15 +7061,34 @@ void _finegray_bh_store(real matrix bh)
    which weight: exchanging the weights of two subjects leaves the multiset of
    weight values (and e(sum_w)) untouched and would otherwise reconcile at
    rc 0.  `idvar' is the stset id() variable (e(idvar)); it is read as a
-   string when the id is a string variable.  Called without it -- a fit whose
-   stset carried no id() -- the digest degrades to the value-only form.
+   string when the id is a string variable.
+
+   ROW-CONTENT-KEYED WITHOUT id() (2026-09-27, audit F03).  A fit whose stset
+   carried no id() has no subject key, and the value-only form it used to fall
+   back to could not see WHICH row carries which weight: exchanging two
+   scalars in [pw = cond(g, scalar(a), scalar(b))] left the data, e(sum_w) and
+   the multiset of weights unchanged and post-estimation used the reassigned
+   column at rc 0.  Such a fit now passes SEVERAL variables -- the
+   e(datasignature) variables (_t _t0 _d, compete(), covariates, strata,
+   cluster, the weight expression's own variables), posted as e(wsigkeyvars)
+   -- and each row is keyed by its content in all of them.  That key is
+   sort-invariant, and it binds every weight to the row it belongs to.  Two
+   rows identical in every one of those variables are indistinguishable to
+   the fit, so exchanging their weights cannot change any estimate or
+   prediction; every other exchange moves the digest.  With several key
+   variables a string value is length-prefixed so that concatenations cannot
+   alias.  A single key variable (the id() route) is keyed exactly as before,
+   so digests stored by earlier builds still reconcile.  Called with no key
+   -- estimates saved by an earlier id()-less build -- the digest is the
+   legacy value-only form, and _finegray_weight_var says so.
    --------------------------------------------------------------------------- */
 void _finegray_wsig(string scalar wvar, string scalar tousevar,
     | string scalar idvar)
 {
     real colvector tv, sel, w
-    real scalar i, n, a1, a2, m, haveid
-    string colvector ids
+    real scalar i, n, a1, a2, m, haveid, k
+    string colvector ids, sk
+    string rowvector kv
     string scalar h
 
     if (args() < 3) idvar = ""
@@ -7021,11 +7102,27 @@ void _finegray_wsig(string scalar wvar, string scalar tousevar,
     if (n > 0) {
         w = st_data(sel, wvar)
         if (haveid) {
-            if (st_isnumvar(idvar)) {
-                ids = strofreal(st_data(sel, idvar), "%21x")
+            kv = tokens(idvar)
+            if (cols(kv) == 1) {
+                if (st_isnumvar(idvar)) {
+                    ids = strofreal(st_data(sel, idvar), "%21x")
+                }
+                else {
+                    ids = st_sdata(sel, idvar)
+                }
             }
             else {
-                ids = st_sdata(sel, idvar)
+                ids = J(n, 1, "")
+                for (k = 1; k <= cols(kv); k++) {
+                    if (st_isnumvar(kv[k])) {
+                        sk = strofreal(st_data(sel, kv[k]), "%21x")
+                    }
+                    else {
+                        sk = st_sdata(sel, kv[k])
+                        sk = strofreal(strlen(sk)) :+ ":" :+ sk
+                    }
+                    ids = ids :+ "~" :+ sk
+                }
             }
         }
         for (i = 1; i <= n; i++) {
@@ -7498,3 +7595,5 @@ void _finegray_assign_schoenfeld_vars(
 
 
 end
+
+mata: mata set matastrict `_fg_matastrict0'

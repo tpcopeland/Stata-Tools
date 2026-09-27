@@ -1,4 +1,4 @@
-*! regtab Version 2.1.14  2026/09/27
+*! regtab Version 2.1.15  2026/09/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -453,9 +453,13 @@ quietly{
             forvalues m = 1/`_meta_models' {
                 local r = `m' + 1
                 local model_cmd_`m' = lower(strtrim(`meta_col_cmd'[`r']))
-                local model_cmdline_`m' = lower(strtrim(`meta_col_cmdline'[`r']))
+                * F06 (codex audit 2026-09-27): the command line and the
+                * outcome are persisted as machine identities, and Stata
+                * names are case sensitive (y and Y are different outcomes).
+                * They are kept as typed; classification lowercases a copy.
+                local model_cmdline_`m' = strtrim(`meta_col_cmdline'[`r'])
                 if "`meta_col_depvar'" != "" {
-                    local model_depvar_`m' = lower(strtrim(`meta_col_depvar'[`r']))
+                    local model_depvar_`m' = strtrim(`meta_col_depvar'[`r'])
                 }
                 else local model_depvar_`m' ""
                 if "`meta_col_ivars'" != "" {
@@ -496,7 +500,7 @@ quietly{
         local _shared_coef ""
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
-            local _cmdline_lc `"`model_cmdline_`m''"'
+            local _cmdline_lc = lower(`"`model_cmdline_`m''"')
             * mi estimate stores the fitted command's line in e(cmdline) and
             * the prefix, with its options, only in e(cmdline_mi).
             if `"`model_cmdline_mi_`m''"' != "" local _cmdline_lc `"`model_cmdline_mi_`m''"'
@@ -3477,6 +3481,7 @@ else if "`coef'" == "HR" {
     local _methods_model "Cox proportional hazards regression"
     if `_meta_models' > 0 {
         gettoken _methods_word : model_cmdline_1
+        local _methods_word = lower(`"`_methods_word'"')
         if inlist("`_methods_word'", "streg", "mestreg") {
             local _methods_model "parametric proportional hazards survival regression"
         }

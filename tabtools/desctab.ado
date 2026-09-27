@@ -1,4 +1,4 @@
-*! desctab Version 2.1.14  2026/09/27 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.15  2026/09/27 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -471,8 +471,12 @@ program define desctab, rclass
                 exit 498
             }
         }
-        // Ensure long storage so total sentinel value is exact
-        qui recast long `groupnum', force
+        // Double storage holds every validated integer code exactly, and the
+        // total sentinel c(maxlong) too. F04 (codex audit 2026-09-27): a
+        // forced recast to long turned a valid code such as 3e9 into missing,
+        // and the whole group silently left the table and the total.
+        local _gn_type : type `groupnum'
+        if "`_gn_type'" != "double" qui recast double `groupnum'
     }
 
     /* Validate the grouping variable */

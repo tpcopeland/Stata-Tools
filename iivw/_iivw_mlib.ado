@@ -1,4 +1,4 @@
-*! _iivw_mlib Version 4.2.0  2026/09/15
+*! _iivw_mlib Version 4.3.0  2026/09/28
 *! iivw's Mata source. Contains NO Stata program: this file is -run-, never
 *! autoloaded.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -9,7 +9,7 @@
 * define the program being called, and nothing else in the file runs -- so a
 * -mata:- block in an ado file is never compiled by an autoload, whether it sits
 * above or below the program. Measured, not assumed: -run- on this file compiles
-* _iivw_stacked_core() and calling an autoloaded program in the same file leaves
+* _iivw_stacked_union() and calling an autoloaded program in the same file leaves
 * -mata: mata describe- empty.
 *
 * So the Mata has to be -run- explicitly, and the file must therefore contain no
@@ -35,29 +35,44 @@ mata:
 //   G    = sum_j w_j (y_j - mu_j) x_j (dlog w_j/dtheta)'     (cross-derivative)
 //   psi_i = U_i + G A^-1 s_i                                 (corrected score)
 //   V    = D^-1 (sum_i psi_i psi_i') D^-1 * m/(m-1)
-void _iivw_stacked_core(string scalar xvars,
+//
+// Two row sets. The outcome sample (tousevar) carries D, U and G. The nuisance
+// population (nusevar) -- every subject whose rows fed the weight models, a
+// superset of the outcome sample -- carries s_i. A subject outside the outcome
+// sample has U_i = 0 but generally s_i != 0, and its G A^-1 s_i term is part
+// of the two-step influence function (B&L PDF p.10-11; Coulombe App. A.3,
+// printed p.153-155). m counts that union; the fixed sandwich keeps the
+// outcome-sample count so it still reproduces glm's own vce(cluster).
+//
+// Renamed from _iivw_stacked_core() when the second row set was added, so a
+// session still holding the old compiled signature recompiles instead of
+// calling it with the wrong arguments.
+void _iivw_stacked_union(string scalar xvars,
                         string scalar breadvar,
                         string scalar resvar,
                         string scalar ndvars,
                         string scalar nsvars,
                         string scalar cidxvar,
                         string scalar tousevar,
+                        string scalar nusevar,
                         string scalar ainvname,
                         real scalar M,
+                        real scalar Mout,
                         string scalar vsname,
                         string scalar vfname,
                         string scalar gname)
 {
     real matrix X, ND, NS, D, Dinv, G, Ainv, Ufix, Ustk, Vs, Vf, S
-    real colvector BW, R, C
-    real scalar j, N, p, q, cf, dev, worst
+    real colvector BW, R, C, CN
+    real scalar j, N, p, q, cf, cfout, dev, worst
 
     st_view(X = .,  ., tokens(xvars),   tousevar)
     st_view(BW = ., ., breadvar,        tousevar)
     st_view(R = .,  ., resvar,          tousevar)
     st_view(ND = ., ., tokens(ndvars),  tousevar)
-    st_view(NS = ., ., tokens(nsvars),  tousevar)
     st_view(C = .,  ., cidxvar,         tousevar)
+    st_view(NS = ., ., tokens(nsvars),  nusevar)
+    st_view(CN = ., ., cidxvar,         nusevar)
 
     N = rows(X)
     p = cols(X)
@@ -86,13 +101,19 @@ void _iivw_stacked_core(string scalar xvars,
     worst = 0
     for (j = 1; j <= N; j++) {
         Ufix[C[j], .] = Ufix[C[j], .] + X[j, .] :* R[j]
-        if (S[C[j], 1] == .) {
-            S[C[j], .] = NS[j, .]
+    }
+    for (j = 1; j <= rows(NS); j++) {
+        if (S[CN[j], 1] == .) {
+            S[CN[j], .] = NS[j, .]
         }
         else {
-            dev = mreldif(S[C[j], .], NS[j, .])
+            dev = mreldif(S[CN[j], .], NS[j, .])
             if (dev > worst) worst = dev
         }
+    }
+    if (hasmissing(S)) {
+        errprintf("stacked variance: a cluster has no nuisance score row\n")
+        exit(459)
     }
     if (worst > 1e-10) {
         errprintf("stacked variance: the nuisance score columns are not")
@@ -116,9 +137,10 @@ void _iivw_stacked_core(string scalar xvars,
     // CR1 rung to 2.2e-15 (coverage_results/CR_LADDER_2026-08-06.md). Using a
     // different adjustment here would make the stacked and fixed standard
     // errors differ by a factor that has nothing to do with the correction.
-    cf = M / (M - 1)
+    cf    = M / (M - 1)
+    cfout = Mout / (Mout - 1)
 
-    Vf = Dinv * quadcross(Ufix, Ufix) * Dinv * cf
+    Vf = Dinv * quadcross(Ufix, Ufix) * Dinv * cfout
     Vs = Dinv * quadcross(Ustk, Ustk) * Dinv * cf
 
     st_matrix(vsname, makesymmetric(Vs))

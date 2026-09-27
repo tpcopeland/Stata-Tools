@@ -1,4 +1,4 @@
-*! comptab Version 2.1.14  2026/09/27
+*! comptab Version 2.1.15  2026/09/27
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -787,7 +787,8 @@ program define _comptab_rates, rclass
 	            frame `rateframe': local _rate_outcome_id_`_o' : char _dta[tabtools_outcome_id_`_o']
 	            local _rate_header_col = 2 + (`_o' - 1) * 3
 	            frame `rateframe': mata: st_local("_rate_display_label_`_o'", st_sdata(2, "c`_rate_header_col'"))
-	            local _rate_outcome_id_`_o' = lower(strtrim(`"`_rate_outcome_id_`_o''"'))
+	            * F06 (codex audit 2026-09-27): identities are case sensitive.
+	            local _rate_outcome_id_`_o' = strtrim(`"`_rate_outcome_id_`_o''"')
 	            if `"`_rate_outcome_id_`_o''"' == "" {
 	                display as error "rate frame contains a blank outcome identity"
 	                exit 459
@@ -816,7 +817,7 @@ program define _comptab_rates, rclass
 	                local _j = (`_i' - 1) * 2 + 1
 	                if `"``_j''"' == "" continue, break
 	                local ++_map_n
-	                local _map_key_`_map_n' = lower(strtrim(`"``_j''"'))
+	                local _map_key_`_map_n' = strtrim(`"``_j''"')
 	            }
 	            if `_map_n' != `outcomes' {
 	                display as error "outcomemap() requires `outcomes' identities separated by \"
@@ -858,9 +859,12 @@ program define _comptab_rates, rclass
 	                frame `_fname': local _oid_`_m' : char _dta[tabtools_outcome_id_`_m']
 	                frame `_fname': local _mlabel_`_m' : char _dta[tabtools_model_label_`_m']
 	                frame `_fname': local _scale_`_m' : char _dta[tabtools_effect_scale_`_m']
-	                local _mid_`_m' = lower(strtrim(`"`_mid_`_m''"'))
-	                local _oid_`_m' = lower(strtrim(`"`_oid_`_m''"'))
-	                local _mlabel_`_m' = lower(strtrim(`"`_mlabel_`_m''"'))
+	                * F06 (codex audit 2026-09-27): model and outcome IDs are
+	                * machine identities and stay case sensitive; only the
+	                * human model label is matched without regard to case.
+	                local _mid_`_m' = strtrim(`"`_mid_`_m''"')
+	                local _oid_`_m' = strtrim(`"`_oid_`_m''"')
+	                local _mlabel_`_m' = strtrim(`"`_mlabel_`_m''"')
 	                local _scale_norm = lower(strtrim(`"`_scale_`_m''"'))
 	                foreach _punct in " " "-" "_" "." "/" {
 	                    local _scale_norm : subinstr local _scale_norm `"`_punct'"' "", all
@@ -881,7 +885,7 @@ program define _comptab_rates, rclass
 	                    if `_explicit_outcome_map' {
 	                        if `"`_key'"' == `"`_mid_`_m''"' | ///
 	                            `"`_key'"' == `"`_oid_`_m''"' | ///
-	                            `"`_key'"' == `"`_mlabel_`_m''"' local _matches = 1
+	                            lower(`"`_key'"') == lower(`"`_mlabel_`_m''"') local _matches = 1
 	                    }
 	                    else if `"`_key'"' == `"`_oid_`_m''"' local _matches = 1
 	                    if `_matches' {
@@ -2330,8 +2334,10 @@ program define _comptab_vertical, rclass
 	        frame `fname1': local _outcome_id_ref_`_m' : char _dta[tabtools_outcome_id_`_m']
 	        frame `fname1': local _model_label_ref_`_m' : char _dta[tabtools_model_label_`_m']
 	        frame `fname1': local _effect_scale_ref_`_m' : char _dta[tabtools_effect_scale_`_m']
-	        local _model_id_ref_`_m' = lower(strtrim(`"`_model_id_ref_`_m''"'))
-	        local _outcome_id_ref_`_m' = lower(strtrim(`"`_outcome_id_ref_`_m''"'))
+	        * F06 (codex audit 2026-09-27): y and Y are different outcomes;
+	        * the machine identities are compared exactly as persisted.
+	        local _model_id_ref_`_m' = strtrim(`"`_model_id_ref_`_m''"')
+	        local _outcome_id_ref_`_m' = strtrim(`"`_outcome_id_ref_`_m''"')
 	        local _model_label_ref_`_m' = lower(strtrim(`"`_model_label_ref_`_m''"'))
 	        if `"`_model_id_ref_`_m''"' == "" {
 	            noisily display as error "source frame has a blank machine-readable model identity"
@@ -2383,8 +2389,8 @@ program define _comptab_vertical, rclass
 	            frame `_fname': local _outcome_id_src_`_m' : char _dta[tabtools_outcome_id_`_m']
 	            frame `_fname': local _model_label_src_`_m' : char _dta[tabtools_model_label_`_m']
 	            frame `_fname': local _effect_scale_src_`_m' : char _dta[tabtools_effect_scale_`_m']
-	            local _model_id_src_`_m' = lower(strtrim(`"`_model_id_src_`_m''"'))
-	            local _outcome_id_src_`_m' = lower(strtrim(`"`_outcome_id_src_`_m''"'))
+	            local _model_id_src_`_m' = strtrim(`"`_model_id_src_`_m''"')
+	            local _outcome_id_src_`_m' = strtrim(`"`_outcome_id_src_`_m''"')
 	            local _model_label_src_`_m' = lower(strtrim(`"`_model_label_src_`_m''"'))
 	            if `"`_model_id_src_`_m''"' == "" {
 	                noisily display as error "source frame has a blank machine-readable model identity"

@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.14  2026/09/27
+*! stratetab Version 2.1.15  2026/09/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*

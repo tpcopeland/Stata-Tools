@@ -1,4 +1,4 @@
-*! stacktab Version 2.1.14  2026/09/27
+*! stacktab Version 2.1.15  2026/09/27
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -393,51 +393,31 @@ program define stacktab, rclass
         * ================================================================
         * APPLY COLUMNMERGE
         * ================================================================
-        if `"`columnmerge'"' != "" {
-            * Parse: "C+D as 'header' \ F+G as 'header2'"
-            * (using column position names _xcol1, etc. is hard; use user-supplied letter names)
-            local cm_remain `"`columnmerge'"'
-            while `"`cm_remain'"' != "" {
-                local cm_piece ""
-                local cm_n = strlen(`"`cm_remain'"')
-                local cm_sep = 0
-                local cm_k = 0
-                while `cm_k' < `cm_n' & !`cm_sep' {
-                    local ++cm_k
-                    if substr(`"`cm_remain'"', `cm_k', 1) == "\" {
-                        local cm_sep = 1
-                        local cm_piece = strtrim(substr(`"`cm_remain'"', 1, `cm_k' - 1))
-                        local cm_remain = strtrim(substr(`"`cm_remain'"', `cm_k' + 1, .))
-                    }
-                }
-                if !`cm_sep' {
-                    local cm_piece = strtrim(`"`cm_remain'"')
-                    local cm_remain ""
-                }
-                if `"`cm_piece'"' == "" continue
-
-                * Parse: "colA+colB as 'header'"
-                * e.g. "_xcol3+_xcol4 as 'aHR (95% CI)'"
-                local as_pos = strpos(`"`cm_piece'"', " as ")
-                if `as_pos' == 0 {
-                    display as error `"stacktab: malformed columnmerge() piece "`cm_piece'""'
+        if `"`macval(columnmerge)'"' != "" {
+            * Parse: B+C as "header" [\ D+E as "header2" ...]
+            * F09 (codex audit 2026-09-27): the rules are split and read in
+            * Mata, like blocks(). A backslash inside a quoted header is text,
+            * not a rule separator, and the header reaches the cell through
+            * st_local()/st_sstore(), so `name', $name and quotes in it are
+            * never expanded as macro syntax.
+            local _cm_n 0
+            local _stb_err ""
+            mata: _stacktab_cm_parse(st_local("columnmerge"))
+            if `"`macval(_stb_err)'"' != "" {
+                display as error `"`macval(_stb_err)'"'
+                if strpos(`"`macval(_stb_err)'"', "malformed") {
                     display as error `"Expected syntax like B+C as "Header""'
-                    exit 198
                 }
-                local pair_str = strtrim(substr(`"`cm_piece'"', 1, `as_pos' - 1))
-                local hdr = strtrim(substr(`"`cm_piece'"', `as_pos' + 4, .))
-                _tabtools_strip_outer_quotes, text(`"`hdr'"')
-                local hdr `"`r(text)'"'
-                if `"`hdr'"' == "" {
-                    display as error "stacktab: columnmerge() header may not be empty"
-                    exit 198
-                }
-
-                local col_a : word 1 of `: subinstr local pair_str "+" " "'
-                local col_b : word 2 of `: subinstr local pair_str "+" " "'
-                local col_extra : word 3 of `: subinstr local pair_str "+" " "'
+                exit 198
+            }
+            forvalues _cmk = 1/`_cm_n' {
+                local pair_str : copy local _cm_pair_`_cmk'
+                local pair_sp : subinstr local pair_str "+" " ", all
+                local col_a : word 1 of `pair_sp'
+                local col_b : word 2 of `pair_sp'
+                local col_extra : word 3 of `pair_sp'
                 if `"`col_a'"' == "" | `"`col_b'"' == "" | `"`col_extra'"' != "" {
-                    display as error `"stacktab: columnmerge() requires exactly two columns in "`pair_str'""'
+                    display as error `"stacktab: columnmerge() requires exactly two columns in "`macval(pair_str)'""'
                     exit 198
                 }
                 _stacktab_resolve_col `"`col_a'"'
@@ -460,10 +440,19 @@ program define stacktab, rclass
                 * ("aHR 95% CI") next to the requested one ("aHR (95% CI)").
                 * section_rows holds the first row of each stacked block; it is
                 * empty under hstack, where only row 1 is a header row.
+                mata: st_local("_cm_hlen", strofreal(strlen(st_local("_cm_hdr_`_cmk'"))))
+                local _cm_vt : type `col_a'
+                if "`_cm_vt'" != "strL" {
+                    local _cm_vw = real(substr("`_cm_vt'", 4, .))
+                    if `_cm_hlen' > `_cm_vw' {
+                        if `_cm_hlen' <= 2045 quietly recast str`_cm_hlen' `col_a'
+                        else quietly recast strL `col_a'
+                    }
+                }
                 local _cm_hdr_rows "1"
                 if `"`section_rows'"' != "" local _cm_hdr_rows `"`section_rows'"'
                 foreach _cm_hr of local _cm_hdr_rows {
-                    quietly replace `col_a' = `"`hdr'"' in `_cm_hr'
+                    mata: st_sstore(`_cm_hr', "`col_a'", st_local("_cm_hdr_`_cmk'"))
                 }
                 drop `col_b'
             }
@@ -1237,6 +1226,33 @@ program define _stacktab_validate_style, nclass
     local style : subinstr local style `"""' "", all
     local borders : subinstr local borders `"""' "", all
 
+    * ----- the whole grammar: known groups, each at most once -----
+    * F13 (codex audit 2026-09-27): the keys below were found with strpos
+    * and any other text was ignored, so a typo such as colwidh(A 80), a
+    * second colwidth() group, or trailing text was accepted and silently
+    * not applied. Each recognised key(...) group is consumed once; a
+    * repeat, a prefixed key, or anything left over is an error.
+    local _st_rest = lower(`"`style'"')
+    foreach key in titlerowheight noterowheight colwidth {
+        local _st_cnt = 0
+        while ustrregexm(`"`_st_rest'"', "(^|[\s,])`key'\([^()]*\)") {
+            local ++_st_cnt
+            local _st_rest = ustrregexrf(`"`_st_rest'"', "(^|[\s,])`key'\([^()]*\)", " ")
+        }
+        if `_st_cnt' > 1 {
+            display as error "style(): `key'() may be specified only once"
+            if "`key'" == "colwidth" display as error "list several columns inside one group: colwidth(A 20 \ B 80)"
+            exit 198
+        }
+    }
+    local _st_rest : subinstr local _st_rest "," " ", all
+    local _st_rest = strtrim(`"`_st_rest'"')
+    if `"`_st_rest'"' != "" {
+        display as error `"style(): unrecognised text: `_st_rest'"'
+        display as error "recognised: titlerowheight(#), noterowheight(#), colwidth(COL WIDTH [\ COL WIDTH ...])"
+        exit 198
+    }
+
     * ----- numeric row-height keys -----
     foreach key in titlerowheight noterowheight {
         local klen = strlen("`key'") + 1
@@ -1642,6 +1658,7 @@ end
 * ============================================================================
 version 17.0
 capture mata: mata drop _stacktab_blocks()
+capture mata: mata drop _stacktab_cm_parse()
 capture mata: mata drop _stacktab_blk_unquote()
 capture mata: mata drop _stacktab_blk_close()
 
@@ -1808,4 +1825,79 @@ void _stacktab_blocks(string scalar spec)
     st_local("n_blocks", strofreal(b))
 }
 
+end
+
+
+* F09 (codex audit 2026-09-27): columnmerge() rules. Splits on backslashes
+* outside double and compound quotes, then reads "PAIR as HEADER" with one
+* balanced outer quote layer removed from HEADER. Posts _cm_n, _cm_pair_#,
+* _cm_hdr_# (text as typed), or _stb_err.
+mata:
+void _stacktab_cm_parse(string scalar spec)
+{
+    string colvector pieces
+    string scalar c, c2, piece, hdr
+    real scalar i, n, inq, cq, from, k, m, as_pos
+
+    pieces = J(0, 1, "")
+    n = strlen(spec)
+    inq = 0
+    cq = 0
+    from = 1
+    for (i = 1; i <= n; i++) {
+        c = substr(spec, i, 1)
+        c2 = substr(spec, i, 2)
+        if (!inq & c2 == char(96) + char(34)) {
+            cq++
+            i++
+            continue
+        }
+        if (cq & c2 == char(34) + char(39)) {
+            cq--
+            i++
+            continue
+        }
+        if (!cq & c == char(34)) {
+            inq = !inq
+            continue
+        }
+        if (inq | cq) continue
+        if (c == char(92)) {
+            pieces = pieces \ substr(spec, from, i - from)
+            from = i + 1
+        }
+    }
+    pieces = pieces \ substr(spec, from, .)
+
+    m = 0
+    for (k = 1; k <= rows(pieces); k++) {
+        piece = strtrim(pieces[k])
+        if (piece == "") continue
+        // " as " before the header's opening quote
+        as_pos = strpos(piece, " as ")
+        if (as_pos == 0 | (strpos(piece, char(34)) > 0 &
+            strpos(piece, char(34)) < as_pos)) {
+            st_local("_stb_err", "stacktab: malformed columnmerge() piece " +
+                char(34) + piece + char(34))
+            return
+        }
+        hdr = strtrim(substr(piece, as_pos + 4, .))
+        if (strlen(hdr) >= 4 & substr(hdr, 1, 2) == char(96) + char(34) &
+            substr(hdr, -2, 2) == char(34) + char(39)) {
+            hdr = substr(hdr, 3, strlen(hdr) - 4)
+        }
+        else if (strlen(hdr) >= 2 & substr(hdr, 1, 1) == char(34) &
+            substr(hdr, -1, 1) == char(34)) {
+            hdr = substr(hdr, 2, strlen(hdr) - 2)
+        }
+        if (hdr == "") {
+            st_local("_stb_err", "stacktab: columnmerge() header may not be empty")
+            return
+        }
+        m++
+        st_local("_cm_pair_" + strofreal(m), strtrim(substr(piece, 1, as_pos - 1)))
+        st_local("_cm_hdr_" + strofreal(m), hdr)
+    }
+    st_local("_cm_n", strofreal(m))
+}
 end

@@ -1,4 +1,4 @@
-*! survtab Version 2.1.14  2026/09/27
+*! survtab Version 2.1.15  2026/09/27
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -432,7 +432,10 @@ capture noisily {
         * that condition directly; the descriptive table is still produced,
         * the test is omitted with a note, and r(logrank_p) is missing. Any
         * other sts test failure still stops the command.
-        quietly count if _st & _d != 0 & !missing(_d)
+        * F08 (codex audit 2026-09-27): count failures in the sample the
+        * test uses. sts test drops rows with a missing group, so a failure
+        * there must not bypass the no-failure path.
+        quietly count if _st & _d != 0 & !missing(_d) & !missing(`groupvar')
         if r(N) == 0 {
             local _logrank_nofail = 1
             noisily display as text ///
@@ -481,59 +484,35 @@ capture noisily {
             tempname _evtmat
             qui mkmat _t `_surv_event' `_d_count' if `_event_tag', matrix(`_evtmat')
 
+            * F01 (codex audit 2026-09-27): each event time is compared as a
+            * scalar taken from the matrix, never through a macro. A local
+            * holds the time's decimal expansion, which can round above the
+            * stored double and drop the failing subject from its own risk
+            * set: the variance was inflated, or its only term skipped (SE 0).
             local _n_evt = rowsof(`_evtmat')
-            local _rmst_area = min(`_evtmat'[1,1], `rmst')
+            tempname _evt_t _nrisk
+            matrix `_nrisk' = J(`_n_evt', 1, .)
             forvalues k = 1/`_n_evt' {
-                local _this_t = `_evtmat'[`k',1]
-                if `k' < `_n_evt' {
-                    local _next_row = `k' + 1
-                    local _next_t = `_evtmat'[`_next_row',1]
-                    if `_next_t' > `rmst' local _next_t = `rmst'
-                }
-                else {
-                    local _next_t = `rmst'
-                }
-                local _dt = `_next_t' - `_this_t'
-                if `_dt' > 0 {
-                    local _rmst_area = `_rmst_area' + (`_evtmat'[`k',2] * `_dt')
-                }
-            }
-            local rmst_g`g' = `_rmst_area'
-
-            local _rmst_var = 0
-            forvalues k = 1/`_n_evt' {
-                local _this_t = `_evtmat'[`k',1]
-                local _d_j = `_evtmat'[`k',3]
-                local _tail = 0
-                forvalues m = `k'/`_n_evt' {
-                    local _seg_t = `_evtmat'[`m',1]
-                    if `m' < `_n_evt' {
-                        local _seg_next_row = `m' + 1
-                        local _seg_next_t = `_evtmat'[`_seg_next_row',1]
-                        if `_seg_next_t' > `rmst' local _seg_next_t = `rmst'
-                    }
-                    else {
-                        local _seg_next_t = `rmst'
-                    }
-                    local _seg_dt = `_seg_next_t' - `_seg_t'
-                    if `_seg_dt' > 0 {
-                        local _tail = `_tail' + (`_evtmat'[`m',2] * `_seg_dt')
-                    }
-                }
+                scalar `_evt_t' = `_evtmat'[`k',1]
                 if "`st_id'" != "" {
-                    qui egen byte `_risk_tag' = tag(`st_id') if _t0 < `_this_t' & _t >= `_this_t'
+                    qui egen byte `_risk_tag' = tag(`st_id') ///
+                        if _t0 < scalar(`_evt_t') & _t >= scalar(`_evt_t')
                     qui summarize `_st_weight' if `_risk_tag', meanonly
+                    * drop clears r(): read the count first. It was read after
+                    * the drop, so every stset id() RMST had a missing SE.
+                    matrix `_nrisk'[`k',1] = r(sum)
                     drop `_risk_tag'
                 }
                 else {
-                    qui summarize `_st_weight' if _t0 < `_this_t' & _t >= `_this_t', meanonly
-                }
-                local _n_j = r(sum)
-                if `_d_j' > 0 & `_n_j' > `_d_j' {
-                    local _rmst_var = `_rmst_var' + ///
-                        (`_d_j' / (`_n_j' * (`_n_j' - `_d_j'))) * (`_tail'^2)
+                    qui summarize `_st_weight' ///
+                        if _t0 < scalar(`_evt_t') & _t >= scalar(`_evt_t'), meanonly
+                    matrix `_nrisk'[`k',1] = r(sum)
                 }
             }
+            * Area under the KM step function and its Greenwood-type
+            * variance (stci, rmean), from the matrices in full precision.
+            mata: _survtab_rmst_mata("`_evtmat'", "`_nrisk'", `rmst')
+            local rmst_g`g' `_rmst_area'
             local rmst_se_g`g' = sqrt(`_rmst_var')
             local rmst_lb_g`g' = `rmst_g`g'' - `_ci_z' * `rmst_se_g`g''
             local rmst_ub_g`g' = `rmst_g`g'' + `_ci_z' * `rmst_se_g`g''
@@ -1164,4 +1143,38 @@ capture noisily {
     local _rc = _rc
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+end
+
+* F01 (codex audit 2026-09-27): RMST and its variance from the event matrix
+* E = (time, S(t), events) and the at-risk counts N, as stci, rmean does:
+* var = sum_j d_j / (n_j (n_j - d_j)) * A_j^2, A_j the area beyond t_j.
+* Results go back as %21.17g locals _rmst_area and _rmst_var.
+capture mata: mata drop _survtab_rmst_mata()
+mata:
+void _survtab_rmst_mata(string scalar ename, string scalar nname,
+    real scalar tau)
+{
+    real matrix E
+    real colvector N, dt
+    real scalar k, n, area, v, tail
+
+    E = st_matrix(ename)
+    N = st_matrix(nname)
+    n = rows(E)
+    dt = J(n, 1, 0)
+    for (k = 1; k <= n; k++) {
+        dt[k] = (k < n ? min((E[k + 1, 1], tau)) : tau) - E[k, 1]
+        if (dt[k] < 0) dt[k] = 0
+    }
+    area = min((E[1, 1], tau)) + sum(E[., 2] :* dt)
+    v = 0
+    for (k = 1; k <= n; k++) {
+        tail = sum(E[|k, 2 \ n, 2|] :* dt[|k \ n|])
+        if (E[k, 3] > 0 & N[k] > E[k, 3]) {
+            v = v + E[k, 3] / (N[k] * (N[k] - E[k, 3])) * tail^2
+        }
+    }
+    st_local("_rmst_area", strofreal(area, "%21.17g"))
+    st_local("_rmst_var", strofreal(v, "%21.17g"))
+}
 end

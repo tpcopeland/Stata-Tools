@@ -193,8 +193,10 @@ Example:
 {p 4 4 2}
 {opt columnmerge()} concatenates pairs of columns separated by {it:+} with a header
 label. Columns can be Excel letters, such as {cmd:B+C}, or internal names, such as
-{cmd:_xcol2+_xcol3}. Merge rules are separated by {it:\}. Malformed merge rules exit with
-an error instead of silently passing through.
+{cmd:_xcol2+_xcol3}. Merge rules are separated by {it:\}; a {it:\} inside the quoted
+header is part of the header. The header is written exactly as typed, including
+backticks, dollar signs, and quotes. Malformed merge rules exit with an error instead of
+silently passing through.
 
 {p 8 8 2}Example:{p_end}
 {p 12 16 2}
@@ -213,7 +215,9 @@ sheet from row 1.
 
 {p 4 4 2}
 {opt style()} accepts any combination of: {it:titlerowheight(#)}, {it:noterowheight(#)}, and
-{it:colwidth(letter # \ ...)}. Column letters in {opt colwidth()} are relative to the
+{it:colwidth(letter # \ ...)}, each at most once; list several columns inside one
+{it:colwidth()}. Any other text, or a repeated group, is an error, and nothing is
+written. Column letters in {opt colwidth()} are relative to the
 composed table, so {cmd:colwidth(A 24)} changes Excel column {cmd:B}. Option
 names inside {opt style()} and {opt borders()} are not case-sensitive. The border
 specification supports {cmd:outer(all)}, {cmd:top(row 1)}, {cmd:bottom(last)},

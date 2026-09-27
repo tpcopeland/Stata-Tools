@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.1.14  2026/09/27
+*! _desctab_collect Version 2.1.15  2026/09/27
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -39,6 +39,13 @@ program define _desctab_collect, rclass
               gsdleft(string) gsdright(string) GSDFormat(string) ///
               percsign(string) NOSPACElowpercent extraspace ///
               SMALLCells(string) MISSINGSummary ]
+
+        * F07 (codex audit 2026-09-27): the continuous-variable tests fit
+        * anova/regress on a temporary group variable. Hold the caller's
+        * estimation results (e(sample) included) for the life of this
+        * program; restore brings them back on success and on error.
+        tempname _est_hold
+        _estimates hold `_est_hold', restore nullok
 
         if "`smallcells'" != "" {
             capture confirm integer number `smallcells'
@@ -452,10 +459,22 @@ program define _desctab_collect, rclass
                 else if inlist("`typ'", "cat", "cate") & `nglevels' > 1 & `nvlevels' > 1 {
                     local _cat_test_if "`touse' & `by' < ."
                     local _cat_missing_opt ""
-                    if `include_missing' local _cat_missing_opt "m"
+                    local _cat_tv `"`v'"'
+                    if `include_missing' {
+                        local _cat_missing_opt "m"
+                        * F02 (codex audit 2026-09-27): the table shows every
+                        * missing code (. and .a-.z) as one Missing row, so the
+                        * test must see one missing category too; tab, missing
+                        * would keep .a and .b apart.
+                        tempvar _cat_mtv
+                        local _cat_vtype : type `v'
+                        quietly generate `_cat_vtype' `_cat_mtv' = cond(missing(`v'), ., `v') ///
+                            if `_cat_test_if'
+                        local _cat_tv `"`_cat_mtv'"'
+                    }
                     else local _cat_test_if "`_cat_test_if' & `v' < ."
                     if "`typ'" == "cat" {
-                        capture quietly tab `v' `by' [`weight'`exp'] if `_cat_test_if', chi2 `_cat_missing_opt'
+                        capture quietly tab `_cat_tv' `by' [`weight'`exp'] if `_cat_test_if', chi2 `_cat_missing_opt'
                         if _rc == 0 {
                             local p`i' = r(p)
                             local chi2 : display %6.2f r(chi2)
@@ -466,7 +485,7 @@ program define _desctab_collect, rclass
                         }
                     }
                     else {
-                        capture quietly tab `v' `by' [`weight'`exp'] if `_cat_test_if', exact `_cat_missing_opt'
+                        capture quietly tab `_cat_tv' `by' [`weight'`exp'] if `_cat_test_if', exact `_cat_missing_opt'
                         if _rc == 0 {
                             local p`i' = r(p_exact)
                             local _used_fisher 1
@@ -1488,7 +1507,7 @@ void _t1tcfc_collect_mata(
     real scalar n, nv, ng, ngout, i, j, g, gi, li, L, is_cont, is_cat
     real scalar dispw, mean, var, ss, denom, ess
     real scalar swg, sxg, sx2g, nobsg, brow, pass
-    real colvector wprod, wprod2, wsrc
+    real colvector wprod, wprod2, wsrc, wdev, wdev2
 
     st_view(touse, ., touse_name)
     st_view(group, ., group_name)
@@ -1629,7 +1648,19 @@ void _t1tcfc_collect_mata(
             sxg = (hasmissing(wprod) ? . : sum(wprod))
             sx2g = (hasmissing(wprod2) ? . : sum(wprod2))
             mean = sxg / swg
-            ss = sx2g - sxg * sxg / swg
+            // F05 (codex audit 2026-09-27): the sum of squares is taken about
+            // the mean (corrected two-pass), not as sx2 - sx^2/sw, whose two
+            // nearly equal raw moments cancelled a finite SD to zero or
+            // missing once the values sat far from zero. The raw-moment sum
+            // sx2g still decides overflow exactly as before.
+            ss = .
+            if (mean < . & sx2g < .) {
+                wdev = wvals :* (yvals :- mean)
+                wdev2 = wdev :* (yvals :- mean)
+                if (!hasmissing(wdev2)) {
+                    ss = sum(wdev2) - sum(wdev)^2 / swg
+                }
+            }
             if (ss < 0 & ss > -1e-8) ss = 0
             var = .
             if (has_wt) {

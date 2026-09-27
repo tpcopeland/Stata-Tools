@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.7  2026/09/23
+*! finegray_cif Version 1.3.7  2026/09/28
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1136,7 +1136,15 @@ program define finegray_cif, rclass sortpreserve
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {
-            run "`r(fn)'"
+            * A failed load aborts _finegray_mata.ado before it restores the
+            * caller's matastrict; restore it here on that path (audit F08).
+            local _fg_ms0 = c(matastrict)
+            capture noisily run "`r(fn)'"
+            if _rc {
+                local _fg_lrc = _rc
+                mata: mata set matastrict `_fg_ms0'
+                exit `_fg_lrc'
+            }
         }
         else {
             display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -1245,8 +1253,13 @@ program define finegray_cif, rclass sortpreserve
             local grid`g' ""
             if `nbh' > 0 {
                 local _ngb = rowsof(`BHG')
+                * %21x, not `=...': the decimal rendering of a double does
+                * not always round-trip, and a time rounded DOWN is evaluated
+                * before its own jump (.12345678901234564 came back three
+                * ulps early and the curve read CIF 0 through a real event).
                 forvalues r = 1/`_ngb' {
-                    local grid`g' "`grid`g'' `=`BHG'[`r',1]'"
+                    local _gtx : display %21x `BHG'[`r',1]
+                    local grid`g' "`grid`g'' `_gtx'"
                 }
             }
         }
@@ -1743,10 +1756,12 @@ program define finegray_cif, rclass sortpreserve
     forvalues g = 1/`_ncurve' {
         local _bsrestrict2 ""
         if "`_bslev`g''" != "." local _bsrestrict2 "& `_bsvar' == `_bslev`g''"
+        * Held in %21x so the terminal-row block compares exact doubles: a
+        * decimal macro can land on either side of a grid time.
         quietly summarize _t if `es' `_bsrestrict2', meanonly
-        local _maxfu`g' = r(max)
+        local _maxfu`g' : display %21x r(max)
         quietly summarize _t if `es' & `e(compete)' == `=e(cause)' `_bsrestrict2', meanonly
-        local _lastev`g' = r(max)
+        local _lastev`g' : display %21x r(max)
     }
     * The over() variable's value label, carried into the saving() dataset so
     * its `over' column reads as the source variable does.  Read now: the
@@ -1806,14 +1821,18 @@ program define finegray_cif, rclass sortpreserve
                     * of the data, so a later `cif[_N-1]' would read the
                     * origin, not the last estimate.
                     quietly summarize time if `_graph_g' == `g' & !`_graph_origin', meanonly
-                    local _graph_tmax = r(max)
-                    local _graph_tmin = r(min)
+                    * Every value is carried in %21x: an equality lookup
+                    * against a DECIMAL max-time macro selected no row when
+                    * the time did not round-trip, and the plateau was drawn
+                    * missing (1.3.7).
+                    local _graph_tmax : display %21x r(max)
+                    local _graph_tmin : display %21x r(min)
                     quietly summarize cif if `_graph_g' == `g' & time == `_graph_tmax', meanonly
-                    local _graph_lastcif = r(mean)
+                    local _graph_lastcif : display %21x r(mean)
                     quietly summarize `_graph_lci' if `_graph_g' == `g' & time == `_graph_tmax', meanonly
-                    local _graph_lastlci = r(mean)
+                    local _graph_lastlci : display %21x r(mean)
                     quietly summarize `_graph_uci' if `_graph_g' == `g' & time == `_graph_tmax', meanonly
-                    local _graph_lastuci = r(mean)
+                    local _graph_lastuci : display %21x r(mean)
                     if `_graph_tmin' > 0 {
                         local _graph_newobs = _N + 1
                         quietly set obs `_graph_newobs'
@@ -1839,10 +1858,14 @@ program define finegray_cif, rclass sortpreserve
                     * never produced (understating the CIF by every later jump).
                     * Such a curve ends at its last requested time instead.  A
                     * curve with no cause events at all (_lastev missing) is flat
-                    * everywhere, so it is still extended.
+                    * everywhere, so it is still extended.  The comparison
+                    * is EXACT: the curve is a step function, and a grid
+                    * ending one ulp before the final jump has not reached it
+                    * (a 1e-12 tolerance extended the pre-jump value through
+                    * a genuine jump at 1 + 5e-13, 1.3.7).
                     if `_maxfu`g'' < . & `_graph_tmax' < . & ///
-                       `_maxfu`g'' > `_graph_tmax' + 1e-12 & ///
-                       (`_lastev`g'' >= . | `_graph_tmax' >= `_lastev`g'' - 1e-12) {
+                       `_maxfu`g'' > `_graph_tmax' & ///
+                       (`_lastev`g'' >= . | `_graph_tmax' >= `_lastev`g'') {
                         local _graph_newobs = _N + 1
                         quietly set obs `_graph_newobs'
                         quietly replace `_graph_origin' = 1 in `_graph_newobs'

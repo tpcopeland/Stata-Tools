@@ -13,15 +13,24 @@
 * residual routine, so a defect inside that routine is invisible to it.
 *
 * An external identity would close both, and it is not available.  Every source
-* in the corpus was read for one and none supplies it:
+* in the corpus was read for one, and none supplies it for the clustered
+* delayed-entry CIF (corrected 2026-09-27 against the original PDFs):
 *
-*   Fine & Gray (1999) sec. 5, p.501    The CIF prediction limit J1{t;z0} is
-*                                       "quite complicated" and is NOT obtained
-*                                       analytically; their confidence bands are
-*                                       produced by SIMULATION (multiplier
-*                                       bootstrap with iid standard normals).
-*                                       There is no closed-form CIF influence
-*                                       function in the founding paper.
+*   Fine & Gray (1999) sec. 5, p.501    The paper DOES display the CIF limit
+*                                       J1{t;z0} as a sum of subject martingale
+*                                       contributions (baseline, regression-
+*                                       estimation and censoring-estimation
+*                                       terms), then its plug-in multiplier
+*                                       version with iid standard normals.  What
+*                                       it calls "difficult to obtain
+*                                       analytically" is the process's
+*                                       DISTRIBUTIONAL properties beyond
+*                                       pointwise normality, which is why bands
+*                                       are simulated.  An influence
+*                                       representation exists; it is for
+*                                       independent right-censored subjects,
+*                                       with neither clustering nor delayed
+*                                       entry.
 *   Zhou, Fine, Latouche & Labopin      p.377, verbatim: "The variance is rather
 *   (2012), the paper that grounds      complicated, with bootstrapping providing
 *   cluster()                           practicable inferences for F_1(t, Z0)."
@@ -32,17 +41,23 @@
 *   Geskus (2011) sec. 3.2, p.43-44     The "no sandwich needed" argument and
 *                                       eq. (21) are about the COEFFICIENT
 *                                       information matrix.  No CIF variance.
-*   Zhang, Zhang & Fine (2011) App. B   W-hat^(1)_{beta,i} = l_i + v_i + w_i is
-*                                       the COEFFICIENT influence function under
-*                                       delayed entry.  No CIF term.
+*   Zhang, Zhang & Fine (2011) App. B-D App. B gives the COEFFICIENT influence
+*                                       function under delayed entry,
+*                                       W-hat^(1)_{beta,i} = l_i + v_i + w_i;
+*                                       App. C and D give the baseline and CIF
+*                                       processes, W^(k)_{F1,i}(t;z), for
+*                                       independent subjects.  No clustered
+*                                       form.
 *   Zhou et al. (2011) sec. 4-5         Stratified baseline; the CIF is declared
 *                                       infeasible in the highly-stratified
 *                                       regime and no CIF variance is given for
 *                                       the regular one.
 *
-* So there is no sourced influence-function form for the CIF under clustering,
-* and a fortiori none under clustering PLUS left truncation.  A 1e-8 identity
-* gate is therefore not writable, and this file does the only other thing that
+* So the corpus supplies CIF influence representations for independent
+* subjects (Fine & Gray; ZZF under delayed entry) but no sourced form for the
+* CIF under clustering, and none for clustering PLUS left truncation, the
+* package's combined extension.  A 1e-8 identity gate is therefore not
+* writable, and this file does the only other thing that
 * is evidence: it CALIBRATES the reported standard error against the sampling
 * distribution it claims to describe, on a DGP whose marginal truth is exact.
 *

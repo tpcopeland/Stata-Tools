@@ -32,7 +32,9 @@
 
 {p 4 4 2}
 The file list is one quoted, space-separated string. File paths must not
-contain spaces.
+contain spaces. A name with no suffix means {it:name}{cmd:.dta}; a name with
+a suffix is used exactly as typed, as {helpb bootstrap}'s {cmd:saving()} and
+{helpb use} resolve it.
 
 
 {synoptset 30 tabbed}{...}
@@ -68,6 +70,9 @@ the package discarded them instead of making them addressable.
 {cmd:e()}. Those results are the {it:anchor}: they supply the coefficient
 vector and every {cmd:e()} field the draws do not determine. The files supply
 the draws. {bf:The anchor's own replicate file must be in the using list.}
+This is checked by identity, not by coefficient equality (every shard of one
+analysis has the same observed coefficients): the anchor's lineage must be
+among the files'.
 
 {pstd}
 The pooled variance, percentile limits and replicate counts are computed by
@@ -89,8 +94,8 @@ shards themselves reported. {cmd:bca} is not poolable; see
 {help iivw_bspool##limits:Limitations}.
 
 {phang}
-{opt level(#)} sets the confidence level. The default is the shards' own
-level. Unlike {cmd:iivw_fit} replay, a different level is accepted here,
+{opt level(#)} sets the confidence level, a number between 10 and 99.99 as
+for {cmd:iivw_fit}. The default is the shards' own level. Unlike {cmd:iivw_fit} replay, a different level is accepted here,
 because the pooled endpoints are recomputed from the draws rather than read
 back from a stored matrix.
 
@@ -107,7 +112,10 @@ re-pooling later. {it:spec} is a filename optionally followed by
 
 {pmore}
 The saved file is stamped with the {it:pooled} totals rather than inheriting
-the first shard's, so it describes itself and can be re-pooled on its own. An
+the first shard's, so it describes itself and can be re-pooled on its own. It
+also carries the {it:lineage} of every shard it contains, so it can be pooled
+with other shards or saved pools only when none of its draws are among
+theirs. An
 existing target with no {cmd:replace} is caught before any shard is read, so
 the mistake costs nothing rather than a nine-shard run's work; a write that
 fails after pooling succeeded leaves the pooled results in {cmd:e()} untouched.
@@ -163,7 +171,10 @@ one:
 
 {pstd}
 The data need not be in memory. If it is, its weight contract must be the one
-the anchor was fit on.
+the anchor was fit on, recomputed from the live columns rather than read from
+the stored signature; and when the anchor's estimation sample is marked in
+memory ({cmd:e(sample)}), the outcome-analysis fingerprint of those rows must
+match the one stamped at fit time.
 
 {dlgtab:What pooling is and is not}
 
@@ -186,6 +197,7 @@ therefore errors, never warns, when shards disagree on:
 
 {p2colset 8 44 46 2}{...}
 {p2col:{cmd:e(iivw_wsig)}}the weight contract{p_end}
+{p2col:analysis identity}the outcome analysis: a fingerprint of the estimation-sample outcome, covariate, weight, id, time and cluster columns plus the outcome-model options; also compared against the anchor{p_end}
 {p2col:{cmd:e(iivw_model)}}gee or mixed{p_end}
 {p2col:{cmd:e(iivw_weighttype)}}iivw, iptw, or fiptiw{p_end}
 {p2col:{cmd:e(iivw_refitweights)}}whether the draws refit the weights{p_end}
@@ -212,12 +224,24 @@ the exact pre-draw state each shard recorded, so it cannot be fooled by
 coincidence.
 
 {phang2}
+{bf:the same draws twice through a saved pool.} A pooled file saved with
+{cmd:saving()} records the shards it contains. Pooling it with one of those
+shards, or with another pool that shares one, would count those draws twice
+(two 20-draw shards pooled as AB, then AB with B, is 40 distinct draws, not
+60), and is refused.
+
+{phang2}
+{bf:an anchor that is not among the files.} The results in {cmd:e()} must be
+one of the shards being pooled, or a saved pool of them.
+
+{phang2}
 {bf:the same file listed twice.}
 
 {phang2}
 {bf:a file that is not an iivw shard.} Replicate files written by a bare
 {helpb bootstrap} prefix, or by {cmd:iivw_fit} before 4.2.0, carry no identity
-and cannot be checked.
+and cannot be checked. Shard files, and anchors, written before the analysis
+identity and lineage stamps were added are refused likewise; refit them.
 
 {phang2}
 {bf:a truncated shard.} A file holding fewer rows than its own stamp says it
@@ -361,8 +385,19 @@ replaced or added.
 {synopt:{cmd:e(iivw_ci)}}selected interval from the pooled draws{p_end}
 {synopt:{cmd:e(iivw_ci_percentile)}}pooled percentile limits{p_end}
 {synopt:{cmd:e(iivw_ci_basic)}}pooled basic limits{p_end}
+{synopt:{cmd:e(b_bs)}}native {helpb bootstrap} replicate means, from the pooled draws{p_end}
+{synopt:{cmd:e(reps)}}native {helpb bootstrap} nonmissing replicates, from the pooled draws{p_end}
+{synopt:{cmd:e(bias)}}native {helpb bootstrap} bias, from the pooled draws{p_end}
+{synopt:{cmd:e(se)}}native {helpb bootstrap} standard errors, from the pooled draws{p_end}
+{synopt:{cmd:e(z0)}}native {helpb bootstrap} bias-correction, from the pooled draws{p_end}
+{synopt:{cmd:e(ci_normal)}}native {helpb bootstrap} normal interval, from the pooled draws{p_end}
+{synopt:{cmd:e(ci_percentile)}}native {helpb bootstrap} percentile interval, from the pooled draws{p_end}
+{synopt:{cmd:e(ci_bc)}}native {helpb bootstrap} bias-corrected interval, from the pooled draws{p_end}
+{synopt:}so {help bootstrap_postestimation:estat bootstrap} describes the pool{p_end}
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
+{synopt:{cmd:e(N_reps)}}pooled completed draws (native){p_end}
+{synopt:{cmd:e(N_misreps)}}pooled failed draws (native){p_end}
 {synopt:{cmd:e(iivw_bs_reps_requested)}}pooled requested draws{p_end}
 {synopt:{cmd:e(iivw_bs_reps_completed)}}pooled completed draws{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}pooled failed draws{p_end}
@@ -371,6 +406,9 @@ replaced or added.
 {synopt:{cmd:e(iivw_ci_type)}}the pooled interval type{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}recomputed; see above{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if failures were accepted{p_end}
+{synopt:{cmd:e(iivw_bs_saving)}}the {cmd:saving()} file if one was written, else empty{p_end}
+{synopt:{cmd:e(iivw_bs_lineage)}}the component shards the pooled draws came from{p_end}
+{synopt:{cmd:e(rngstate)}}cleared: the pool drew from several RNG states{p_end}
 {p2colreset}{...}
 
 {pstd}{cmd:iivw_bspool} adds to {cmd:e()}:{p_end}

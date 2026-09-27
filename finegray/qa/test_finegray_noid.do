@@ -12,7 +12,8 @@
 * Every block fits the SAME data twice -- once stset with id(), once without
 * -- and asserts the two fits are bit-identical, so the row key can only pass
 * by being an id.  Post-estimation, delayed entry, cluster(), pweights (whose
-* weight digest is keyed by e(idvar) and degrades to value-only without it)
+* weight digest is keyed by e(idvar), and without it by each row's values of
+* the signature variables, e(wsigkeyvars))
 * and the bootstrap refit (which stamps its own st_id on the resample) are
 * each exercised on the id()-less fit.
 
@@ -205,7 +206,7 @@ if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
 * -----------------------------------------------------------------------------
-**# NI-04  pweight without id(): identical fit, value-only digest still guards
+**# NI-04  pweight without id(): identical fit, row-keyed digest still guards
 * -----------------------------------------------------------------------------
 local ++test_count
 capture noisily {
@@ -228,7 +229,7 @@ capture noisily {
     assert e(ll) == `ll_id'
     assert mreldif(e(b), `b_id') == 0
     assert mreldif(e(V), `V_id') == 0
-    * a digest is still posted (value-only) and post-estimation reconciles
+    * a digest is still posted (keyed by row content) and post-estimation reconciles
     * against it without the legacy "no weight digest" warning
     assert "`e(wsig)'" != ""
     assert e(wsig_n) == e(N)
@@ -244,8 +245,9 @@ capture noisily {
     capture finegray_cif, at(x1=0.3 grp=2) attime(1) ci nograph
     assert _rc == 459
     quietly replace pw = pw / 2 in 1
-    * a value-preserving exchange of two subjects' weights escapes a value-only
-    * digest by construction; the datasignature over pw catches it instead
+    * a value-preserving exchange of two subjects' weights: the datasignature
+    * over pw catches it (a scalar exchange is covered by
+    * test_finegray_codexaudit_2026_09_27_b.do)
     local w1 = pw[1]
     local w2 = pw[2]
     quietly replace pw = `w2' in 1
