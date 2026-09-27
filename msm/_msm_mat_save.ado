@@ -1,4 +1,4 @@
-*! _msm_mat_save Version 1.4.8  2026/08/30
+*! _msm_mat_save Version 1.4.9  2026/09/26
 *! Serialize a matrix into dataset characteristics (dataset-resident artifact)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

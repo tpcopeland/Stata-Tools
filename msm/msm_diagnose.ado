@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.8  2026/08/30
+*! msm_diagnose Version 1.4.9  2026/09/26
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -165,17 +165,10 @@ program define msm_diagnose, rclass
     display as text "  Max:      " as result %9.4f `w_max'
 
     * Effective sample size (risk set only, audit A11)
-    quietly {
-        summarize _msm_weight if _msm_decision_risk
-        local sum_w = r(sum)
-        local n_total = r(N)
-        tempvar _w2
-        gen double `_w2' = _msm_weight^2 if _msm_decision_risk
-        summarize `_w2'
-        local sum_w2 = r(sum)
-        drop `_w2'
-    }
-    local ess = (`sum_w'^2) / `sum_w2'
+    * (rescaled weights, so extreme weight scales keep a finite ESS)
+    _msm_ess _msm_weight if _msm_decision_risk
+    local ess = r(ess)
+    local n_total = r(N)
     local ess_pct = 100 * `ess' / `n_total'
 
     display as text ""
@@ -193,16 +186,8 @@ program define msm_diagnose, rclass
         local tw_sd = r(sd)
         local tw_n = r(N)
 
-        quietly {
-            summarize _msm_weight if _msm_decision_risk & `treatment' == `t'
-            local tw_sum = r(sum)
-            tempvar _tw2
-            gen double `_tw2' = _msm_weight^2 if _msm_decision_risk & `treatment' == `t'
-            summarize `_tw2'
-            local tw_sum2 = r(sum)
-            drop `_tw2'
-        }
-        local tw_ess = (`tw_sum'^2) / `tw_sum2'
+        _msm_ess _msm_weight if _msm_decision_risk & `treatment' == `t'
+        local tw_ess = r(ess)
 
         display as text "    `t_label' (n=" as result `tw_n' as text "): mean=" ///
             as result %6.4f `tw_mean' as text ", SD=" as result %6.4f `tw_sd' ///
@@ -252,12 +237,11 @@ program define msm_diagnose, rclass
         * baseline decision. Balance is therefore assessed within period and
         * prior-treatment stratum; a pooled person-period SMD can cancel
         * opposite imbalances and is retained only as a secondary summary.
-        tempvar _hist _tb_use _diag_w2 _p_obs
+        tempvar _hist _tb_use _p_obs
         quietly summarize `period', meanonly
         local _min_period = r(min)
         quietly bysort `id' (`period'): gen double `_hist' = `treatment'[_n-1]
         quietly replace `_hist' = -1 if `period' == `_min_period'
-        quietly gen double `_diag_w2' = _msm_weight^2
 
         * Estimated probability of the OBSERVED treatment decision (audit A25).
         * The support columns ps_min/ps_max report the range of P(A=1); that is
@@ -284,11 +268,8 @@ program define msm_diagnose, rclass
                 local _nt = r(N)
                 quietly count if `_tb_use' & `treatment' == 0
                 local _nu = r(N)
-                quietly summarize _msm_weight if `_tb_use', meanonly
-                local _sw = r(sum)
-                quietly summarize `_diag_w2' if `_tb_use', meanonly
-                local _sw2 = r(sum)
-                local _row_ess = cond(`_sw2' > 0, `_sw'^2 / `_sw2', .)
+                _msm_ess _msm_weight if `_tb_use'
+                local _row_ess = r(ess)
                 local _cov_idx = 0
                 foreach _x of local balance_covariates {
                     local ++_cov_idx
@@ -338,13 +319,8 @@ program define msm_diagnose, rclass
                      _msm_treat_den_raw > `_common_hi')
                 local _nout = r(N)
             }
-            quietly summarize _msm_weight if _msm_decision_risk & ///
-                `period' == `_p', meanonly
-            local _sw = r(sum)
-            quietly summarize `_diag_w2' if _msm_decision_risk & ///
-                `period' == `_p', meanonly
-            local _sw2 = r(sum)
-            local _pess = cond(`_sw2' > 0, `_sw'^2 / `_sw2', .)
+            _msm_ess _msm_weight if _msm_decision_risk & `period' == `_p'
+            local _pess = r(ess)
             * Smallest estimated probability of the observed treatment decision
             * in this period -- the quantity the positivity floor is defined on.
             *
@@ -444,7 +420,7 @@ program define msm_diagnose, rclass
             capture confirm variable _msm_cw_weight
             if _rc == 0 {
                 tempname _cbal _crow
-                tempvar _cuncens _cprior _cdiag_w _cw2
+                tempvar _cuncens _cprior _cdiag_w
                 quietly gen double `_cuncens' = ///
                     (1 - _msm_cens_num_p) / (1 - _msm_cens_den_p) ///
                     if _msm_decision_risk
@@ -455,8 +431,6 @@ program define msm_diagnose, rclass
                 quietly replace `_cdiag_w' = `_cprior' * ///
                     (_msm_cens_num_p / _msm_cens_den_p) ///
                     if _msm_decision_risk & `censor' == 1
-                quietly gen double `_cw2' = `_cdiag_w'^2 ///
-                    if _msm_decision_risk
                 foreach _p of local _diag_periods {
                     quietly gen byte `_tb_use' = _msm_decision_risk & ///
                         `period' == `_p' & !missing(`censor')
@@ -464,11 +438,8 @@ program define msm_diagnose, rclass
                     local _nc = r(N)
                     quietly count if `_tb_use' & `censor' == 0
                     local _nuc = r(N)
-                    quietly summarize `_cdiag_w' if `_tb_use', meanonly
-                    local _csw = r(sum)
-                    quietly summarize `_cw2' if `_tb_use', meanonly
-                    local _csw2 = r(sum)
-                    local _cess = cond(`_csw2' > 0, `_csw'^2 / `_csw2', .)
+                    _msm_ess `_cdiag_w' if `_tb_use'
+                    local _cess = r(ess)
                     local _ccov_idx = 0
                     foreach _x of local balance_covariates {
                         local ++_ccov_idx

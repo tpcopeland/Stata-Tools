@@ -1,4 +1,4 @@
-*! _msm_validate_path Version 1.4.8  2026/08/30
+*! _msm_validate_path Version 1.4.9  2026/09/26
 *! Reject file paths that are unsafe to interpolate into a shell command
 *! Author: Timothy P Copeland, Karolinska Institutet
 

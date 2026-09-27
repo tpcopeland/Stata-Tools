@@ -1,4 +1,4 @@
-*! msm_weight Version 1.4.8  2026/08/30
+*! msm_weight Version 1.4.9  2026/09/26
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -634,17 +634,10 @@ program define msm_weight, rclass
         local w_p50  = r(p50)
         local w_p99  = r(p99)
 
-        * Effective sample size: (sum w)^2 / (sum w^2)
-        quietly {
-            summarize _msm_weight if _msm_decision_risk
-            local sum_w = r(sum)
-            tempvar _w2
-            gen double `_w2' = _msm_weight^2 if _msm_decision_risk
-            summarize `_w2'
-            local sum_w2 = r(sum)
-            drop `_w2'
-        }
-        local ess = (`sum_w'^2) / `sum_w2'
+        * Effective sample size: (sum w)^2 / (sum w^2), on rescaled weights
+        * so extreme weight scales cannot underflow or overflow the squares
+        _msm_ess _msm_weight if _msm_decision_risk
+        local ess = r(ess)
 
         label variable _msm_weight "MSM cumulative IP weight"
         label variable _msm_tw_weight "MSM treatment weight (cumulative)"

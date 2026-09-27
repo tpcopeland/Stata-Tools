@@ -1,4 +1,4 @@
-*! _msm_smd Version 1.4.8  2026/08/30
+*! _msm_smd Version 1.4.9  2026/09/26
 *! Compute standardized mean difference between treatment groups
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -69,6 +69,22 @@ program define _msm_smd
         local _binary = (r(N) == 0)
 
         if "`weight'" != "" {
+            * The SMD does not depend on the scale of the weights, but sum(w^2)
+            * and sum(w)^2 do: weights near 1e-200 underflow them to 0 and
+            * weights near 1e200 overflow them, leaving the SMD missing. Use
+            * the weights divided by a power of two near their maximum. The
+            * division is exact; the SMD moves only by rounding in its last
+            * digits, since the sums below pass through macros.
+            tempvar _wscaled
+            quietly summarize `weight' if `_use', meanonly
+            local _wk = 0
+            if r(N) > 0 {
+                local _wk = ceil(ln(r(max)) / ln(2))
+                local _wk = min(max(`_wk', -1021), 1022)
+            }
+            quietly gen double `_wscaled' = `weight' / 2^`_wk' if `_use'
+            local weight "`_wscaled'"
+
             tempvar _wx _w2 _dev2
             quietly gen double `_wx' = `weight' * `x' if `_use'
             quietly gen double `_w2' = `weight'^2 if `_use'
