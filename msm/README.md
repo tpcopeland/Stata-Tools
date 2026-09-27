@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.9** | 2026-09-26
+**Version 1.4.10** | 2026-09-27
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -497,6 +497,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.10** (2026-09-27): `msm_weight, truncate()` counts and caps weights at the exact percentile cutoffs, and `msm_diagnose` counts extreme weights above the exact P99. The cutoffs used to pass through a macro, which could move them by one unit in the last place, so a weight equal to the cutoff was counted as truncated and rewritten slightly off it (off by one in `r(n_truncated)` on ordinary data). `msm_diagnose` no longer prints its imbalanced count when run quietly.
 - **1.4.9** (2026-09-26): The effective sample size reported by `msm_weight`, `msm_diagnose` (overall, by treatment group, and in `r(support)`, `r(treatment_balance)` and `r(censor_balance)`) and `msm_report`, and the weighted SMD of a continuous covariate, no longer become missing when the weights are extremely small or large (near 1e-200 or 1e200, where their squares underflow or overflow); both are computed on weights divided by a power of two. Ordinary weights give the same values to within the last digit or two.
 - **1.4.8** (2026-08-30): Guarded auto-open paths against shell metacharacters, made accumulated diagnostics fail before state changes on incompatible frames, restored caller abbreviation settings on helper early returns, and corrected Viewer-width help tables.
 - **1.4.7** (2026-08-28): Vectorized counterfactual prediction and Monte Carlo simulation in Mata while preserving seeded results, reducing realistic `msm_predict` runtimes by more than tenfold.

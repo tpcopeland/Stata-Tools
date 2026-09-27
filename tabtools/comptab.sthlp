@@ -59,7 +59,7 @@
 {synopt:{opt rows(string)}}row selections, one per source frame{p_end}
 {synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
 {synopt:{opt ratef:rame(name)}}use a {cmd:stratetab} frame as a rate scaffold{p_end}
-{synopt:{opt modelf:ames(framelist)}}model frames for rate-scaffold mode{p_end}
+{synopt:{opt modelf:rames(framelist)}}model frames for rate-scaffold mode{p_end}
 {synopt:{opt outcomem:ap(string)}}map rate outcomes to model identities{p_end}
 
 {syntab:Output}
@@ -188,7 +188,7 @@ allowed. Without {opt rateframe()}, the rate-only options {opt effect()},
 {opt reflabel()}, and {opt outcomemap()} are not allowed.
 
 {phang}
-{opt modelf:ames(framelist)} supplies the model frames when no framelist
+{opt modelf:rames(framelist)} supplies the model frames when no framelist
 precedes the comma. It is also accepted with one positional rate frame for
 compatibility with {cmd:hrcomptab}.
 

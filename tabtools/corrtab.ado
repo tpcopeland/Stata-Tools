@@ -1,4 +1,4 @@
-*! corrtab Version 2.1.13  2026/09/27
+*! corrtab Version 2.1.14  2026/09/27
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

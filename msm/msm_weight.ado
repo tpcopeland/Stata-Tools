@@ -1,4 +1,4 @@
-*! msm_weight Version 1.4.9  2026/09/26
+*! msm_weight Version 1.4.10  2026/09/27
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -584,11 +584,16 @@ program define msm_weight, rclass
             * on rows that DO enter the estimator. Restricting to
             * _msm_decision_risk makes the cutoffs -- and therefore the fitted
             * estimate -- invariant to appended post-risk records.
+            * The cutoffs are held in scalars: a local macro keeps a decimal
+            * text that need not read back as the same double, so a weight
+            * equal to the cutoff was counted as beyond it and rewritten one
+            * unit in the last place away.
+            tempname lo_val hi_val
             quietly {
                 _pctile _msm_weight if _msm_decision_risk & !missing(_msm_weight), ///
                     percentiles(`trunc_lo' `trunc_hi')
-                local lo_val = r(r1)
-                local hi_val = r(r2)
+                scalar `lo_val' = r(r1)
+                scalar `hi_val' = r(r2)
 
                 count if _msm_decision_risk & _msm_weight < `lo_val' & !missing(_msm_weight)
                 local n_lo = r(N)

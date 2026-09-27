@@ -203,7 +203,9 @@ as the first row and {opt footnote()} as the last row, both in the first
 column and the table body between them.{p_end}
 
 {phang2}{opt markdown(filename)} exports the rendered table as GitHub-Flavored
-Markdown. It may be used with or without {opt xlsx()}.{p_end}
+Markdown. It may be used with or without {opt xlsx()}. Markdown tables have
+one header row, so the outcome and statistic headers are joined as
+{it:outcome}{cmd::} {it:statistic} (for example, {cmd:CV Events: Events}).{p_end}
 
 {phang2}{opt mdappend} appends the Markdown table to an existing file; requires
 {opt markdown()}.{p_end}

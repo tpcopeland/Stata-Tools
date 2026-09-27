@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.9  2026/09/26
+*! msm_diagnose Version 1.4.10  2026/09/27
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -151,6 +151,10 @@ program define msm_diagnose, rclass
     local w_p75  = r(p75)
     local w_p95  = r(p95)
     local w_p99  = r(p99)
+    * The extreme-weight count compares at full precision (a macro's decimal
+    * text need not read back as the same double).
+    tempname w_p99_s
+    scalar `w_p99_s' = r(p99)
 
     display as text "  Mean:     " as result %9.4f `w_mean'
     display as text "  SD:       " as result %9.4f `w_sd'
@@ -195,7 +199,7 @@ program define msm_diagnose, rclass
     }
 
     * Extreme weights (risk set only, audit A11)
-    quietly count if _msm_decision_risk & _msm_weight > `w_p99' & !missing(_msm_weight)
+    quietly count if _msm_decision_risk & _msm_weight > `w_p99_s' & !missing(_msm_weight)
     local n_extreme = r(N)
     if `n_extreme' > 0 {
         display as text ""
@@ -539,10 +543,10 @@ program define msm_diagnose, rclass
         display as text "Threshold: |SMD| < " as result `threshold'
         display as text "Balanced:   " as result `n_balanced' as text "/" as result `n_covs'
         if `n_imbalanced' > 0 {
-            display as text "Imbalanced: " as error `n_imbalanced' as text " covariates marked with *"
+            display as text "Imbalanced: " as result `n_imbalanced' as text " covariates marked with *"
         }
         if `n_unavailable' > 0 {
-            display as text "Unavailable: " as error `n_unavailable' as text " covariates (SMD could not be computed), marked (n/a)"
+            display as text "Unavailable: " as result `n_unavailable' as text " covariates (SMD could not be computed), marked (n/a)"
         }
         * Add names and persist for msm_table. The serialized matrix travels
         * with the dataset and is bound to the current weighting artifact.

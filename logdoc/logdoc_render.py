@@ -576,8 +576,11 @@ def classify_raw_line(line):
     clean = re.sub(r'\{[^}]*\}', '', stripped).strip()
     if re.match(r'\.\s+[a-zA-Z*/_]', clean):
         return "command"
+    # A plain "> " line (no {com}) is a command continuation only right after
+    # a command echo; after output it is the rest of an output line the log
+    # wrapped at the linesize. parse_blocks decides from the context.
     if re.match(r'>\s+[a-zA-Z*/_]', clean):
-        return "continuation"
+        return "plain_continuation"
     if clean == ".":
         return "command_blank"
     # Table boundary markers
@@ -592,6 +595,14 @@ def classify_raw_line(line):
 
 
 _SMCL_CONTINUATION_RE = re.compile(r'\{\.\.\.\}\s*$')
+
+
+def _is_wrap_continuation(line):
+    """A plain "> " line: the rest of a line a text log wrapped."""
+    if re.search(r'\{com\}', line):
+        return False
+    clean = re.sub(r'\{[^}]*\}', '', line)
+    return clean.startswith("> ")
 
 
 def normalize_smcl_continuations(raw_lines):
@@ -644,7 +655,8 @@ def parse_blocks(raw_lines):
             if re.match(r'\.\s*log\s+(close|using|open)', cmd_clean):
                 # Skip log open/close commands and their metadata
                 i += 1
-                while i < n and _is_log_metadata(raw_lines[i]):
+                while i < n and (_is_log_metadata(raw_lines[i]) or
+                                 _is_wrap_continuation(raw_lines[i])):
                     i += 1
                 if i < n and raw_lines[i].strip() == "":
                     i += 1
@@ -656,7 +668,8 @@ def parse_blocks(raw_lines):
             i += 1
             while i < n:
                 ntype = classify_raw_line(raw_lines[i])
-                if ntype == "continuation":
+                if ntype in ("continuation", "plain_continuation") or \
+                        _is_wrap_continuation(raw_lines[i]):
                     block.raw_lines.append(raw_lines[i])
                     i += 1
                 else:
@@ -702,7 +715,7 @@ def parse_blocks(raw_lines):
         i += 1
         while i < n:
             ntype = classify_raw_line(raw_lines[i])
-            if ntype in ("output", "blank"):
+            if ntype in ("output", "blank", "plain_continuation"):
                 block.raw_lines.append(raw_lines[i])
                 i += 1
             else:
@@ -726,6 +739,9 @@ def _skip_log_metadata(lines, start):
     while i < len(lines):
         if _is_log_metadata(lines[i]):
             i += 1
+            # a long log path wraps onto "> " lines
+            while i < len(lines) and _is_wrap_continuation(lines[i]):
+                i += 1
             continue
         stripped = lines[i].strip()
         clean = re.sub(r'\{[^}]*\}', '', stripped).strip()
@@ -1108,11 +1124,19 @@ def _pad_separator_lines(lines):
 
 
 def expand_block(block, mode="text"):
-    """Expand all raw_lines in a block, set block.lines."""
-    block.lines = [
-        expand_smcl_line(raw_line, mode).rstrip()
-        for raw_line in block.raw_lines
-    ]
+    """Expand all raw_lines in a block, set block.lines.
+
+    Trailing blanks are dropped, except on an output line the log wrapped:
+    there they are part of the line, and the "> " continuation that follows
+    lines up with it only if they are kept.
+    """
+    raws = block.raw_lines
+    block.lines = []
+    for k, raw_line in enumerate(raws):
+        line = expand_smcl_line(raw_line, mode)
+        wrapped = (block.kind == "output" and k + 1 < len(raws)
+                   and _is_wrap_continuation(raws[k + 1]))
+        block.lines.append(line.rstrip("\r\n") if wrapped else line.rstrip())
     # Pad separator lines to match the widest data line
     block.lines = _pad_separator_lines(block.lines)
 
