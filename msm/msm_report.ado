@@ -1,4 +1,4 @@
-*! msm_report Version 1.4.8  2026/08/30
+*! msm_report Version 1.4.9  2026/09/26
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -138,16 +138,9 @@ program define msm_report, rclass
         local w_max = r(max)
         local w_p50 = r(p50)
 
-        quietly {
-            summarize _msm_weight
-            local sum_w = r(sum)
-            tempvar _w2
-            gen double `_w2' = _msm_weight^2
-            summarize `_w2'
-            local sum_w2 = r(sum)
-            drop `_w2'
-        }
-        local ess = (`sum_w'^2) / `sum_w2'
+        * (rescaled weights, so extreme weight scales keep a finite ESS)
+        _msm_ess _msm_weight
+        local ess = r(ess)
     }
 
     * Model info

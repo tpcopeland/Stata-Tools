@@ -267,6 +267,9 @@ end
 *   5. Numeric, > 7 unique values -> Shapiro-Wilk normality test:
 *      - p >= 0.05 -> contn (normally distributed)
 *      - p < 0.05  -> conts (skewed)
+*      (over 5,000 values: |skewness| > 1 or |kurtosis - 3| > 2 -> conts).
+*      Both tests use the values divided by a power of two, so the type does
+*      not depend on the scale of the variable.
 *
 * Usage: _tabtools_detect_vartype myvar [if] [in]
 *        local type "`result'"
@@ -353,10 +356,23 @@ program _tabtools_detect_vartype, nclass
         exit
     }
 
+    * Skewness, kurtosis and the Shapiro-Wilk W do not depend on the scale of
+    * the values, but summarize and swilk take powers of the raw values, which
+    * overflow near 1e100 (or underflow near 1e-100) and come back missing:
+    * a missing skewness read as > 1 (conts), and swilk used no observations,
+    * whose missing p read as >= 0.05 (contn). Both tests therefore see a copy
+    * divided by a power of two near the largest magnitude. The division is
+    * exact, so ordinary data give the same moments and p-value.
+    quietly summarize `varname' if `touse', meanonly
+    local _scale_k = ceil(ln(max(abs(r(min)), abs(r(max)))) / ln(2))
+    local _scale_k = min(max(`_scale_k', -1021), 1022)
+    tempvar _scaled
+    quietly gen double `_scaled' = `varname' / 2^`_scale_k' if `touse'
+
     * For large N (>5000), use skewness/kurtosis heuristic instead of Shapiro-Wilk
     * Shapiro-Wilk rejects normality for essentially all large samples
     if `_nobs' > 5000 {
-        quietly summarize `varname' if `touse', detail
+        quietly summarize `_scaled' if `touse', detail
         local _skew = abs(r(skewness))
         local _kurt = r(kurtosis)
         if `_skew' > 1 | abs(`_kurt' - 3) > 2 {
@@ -386,10 +402,10 @@ program _tabtools_detect_vartype, nclass
         local _rng_restore_needed = 0
         quietly gen `_sw_tie' = _n
         quietly sort `_sw_use' `_sw_tie'
-        capture quietly swilk `varname' in 1/2000
+        capture quietly swilk `_scaled' in 1/2000
     }
     else {
-        capture quietly swilk `varname' if `touse'
+        capture quietly swilk `_scaled' if `touse'
     }
     local _sw_rc = _rc
     local _sw_p = .

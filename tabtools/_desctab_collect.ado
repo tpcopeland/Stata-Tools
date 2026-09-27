@@ -1410,6 +1410,15 @@ real scalar _t1tcfc_wquantile(real colvector x, real colvector w, real scalar p)
         total = sum(ws)
     }
     if (total <= 0 | total >= .) return(.)
+    // A total below 1 is rescaled the same way: the tolerance's absolute
+    // floor of 1e-10 exceeds every step of the walk when the weights are
+    // tiny (all 1e-12), so the first record matched every target and each
+    // quartile became the mean of the two smallest values. Dividing by a
+    // power of two is exact; totals of 1 and more walk as before.
+    if (total < 1) {
+        ws = ws / _t1tcfc_wscale(ws)
+        total = sum(ws)
+    }
     target = p * total
     tol = 1e-10 * max((1, total))
     running = 0
