@@ -408,12 +408,12 @@ regression estimates with #% confidence intervals across # models.".{p_end}
 {p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies
 explicit names. {opt models()} values are split on the backslash character.{p_end}
 {p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are
-auto-detected per collected model: {cmd:logit}/{cmd:logistic} {it:->} OR,
+auto-detected per collected model: {cmd:logit}/{cmd:logistic}/{cmd:clogit} {it:->} OR,
 {cmd:mlogit} {it:->} RRR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg}
 {it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg}/{cmd:mestreg} {it:->} HR in
 the log-hazard metric and TR in the log-time metric, {cmd:regress}/{cmd:mixed}
 {it:->} Coef. A ratio family is always shown on its ratio scale: a fit displayed
-as coefficients ({cmd:logit} without {cmd:or}, {cmd:logistic} with
+as coefficients ({cmd:logit} or {cmd:clogit} without {cmd:or}, {cmd:logistic} with
 {cmd:coef}, {cmd:stcox} or {cmd:streg} with {cmd:nohr}, {cmd:stcrreg} with
 {cmd:noshr}, or a log-time {cmd:streg} without {cmd:tr}) is exponentiated, and a fit Stata already
 exponentiated is left as it is, so the header always names the numbers under

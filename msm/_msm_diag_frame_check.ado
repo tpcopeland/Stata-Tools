@@ -1,4 +1,4 @@
-*! _msm_diag_frame_check Version 1.4.9  2026/09/26
+*! _msm_diag_frame_check Version 1.4.10  2026/09/27
 *! Validate the fixed frame schema used by msm_diagnose, accumulate()
 *! Author: Timothy P Copeland, Karolinska Institutet
 

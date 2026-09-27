@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.13  2026/09/27
+*! stratetab Version 2.1.14  2026/09/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -204,6 +204,13 @@ else {
 * Machine-readable outcome identities default to the outcome labels, but can
 * be supplied separately when presentation text is not a stable identifier.
 if `"`outcomeids'"' != "" {
+	* outcomeids() is string asis: when the whole list is one quoted string,
+	* "a \ b", drop that layer so it is split like the unquoted a \ b. Items
+	* quoted one by one ("a" \ "b") are left for tokenize.
+	gettoken _oid_first _oid_rest : outcomeids, qed(_oid_quoted)
+	if `_oid_quoted' & strtrim(`"`_oid_rest'"') == "" {
+		local outcomeids `"`_oid_first'"'
+	}
 	local outcomeids : subinstr local outcomeids " \ " "\", all
 	local outcomeids : subinstr local outcomeids "\  " "\", all
 	local outcomeids : subinstr local outcomeids "  \" "\", all
@@ -327,13 +334,16 @@ forvalues e = 1/`n_exposures' {
 		* Read and compare it before copying any interval values.
 		local _lower_vlabel : variable label _Lower
 		local _upper_vlabel : variable label _Upper
+		* strate writes the level with strsubdp(), so under set dp comma a
+		* 97.5% interval is labelled "97,5%"; a period-only pattern would read
+		* it as 5%.
 		local _file_level = .
-		if regexm(lower(`"`_lower_vlabel'"'), "([0-9]+([.][0-9]+)?)%") {
-			local _file_level = real(regexs(1))
+		if regexm(lower(`"`_lower_vlabel'"'), "([0-9]+([.,][0-9]+)?)%") {
+			local _file_level = real(subinstr(regexs(1), ",", ".", .))
 		}
 		local _upper_level = .
-		if regexm(lower(`"`_upper_vlabel'"'), "([0-9]+([.][0-9]+)?)%") {
-			local _upper_level = real(regexs(1))
+		if regexm(lower(`"`_upper_vlabel'"'), "([0-9]+([.,][0-9]+)?)%") {
+			local _upper_level = real(subinstr(regexs(1), ",", ".", .))
 		}
 		if !missing(`_file_level') & !missing(`_upper_level') & ///
 			abs(`_file_level' - `_upper_level') > 1e-8 {
@@ -404,10 +414,16 @@ forvalues e = 1/`n_exposures' {
 			}
 			tempvar _dup_cat _obs_id
 			gen long `_obs_id' = _n
-			qui bysort `catvar_str': gen byte `_dup_cat' = (_N > 1)
-			sort `_obs_id'
-			qui count if `_dup_cat'
-			if r(N) > 0 {
+			* bysort creates no variable on an empty file (an exposure with no
+			* rows), so test for duplicates only when there are rows to test.
+			local _n_dup 0
+			if _N > 0 {
+				qui bysort `catvar_str': gen byte `_dup_cat' = (_N > 1)
+				sort `_obs_id'
+				qui count if `_dup_cat'
+				local _n_dup = r(N)
+			}
+			if `_n_dup' > 0 {
 				noi di as err "Duplicate category labels found in `file'.dta"
 				noi di as err "Each strate file must have unique category labels"
 				exit 198
@@ -573,12 +589,20 @@ forvalues o = 1/`outcomes' {
 	}
 }
 
+* Rounding units, held as macro text so they read back as the exact decimal
+* (0.01, not 10^(-2), which is one ulp above it), as regtab rounds.
+local _unit = 10^(-`digits')
+local _runit = 10^(-`ratiodigits')
+local exp_rows ""
+
 * Data rows by exposure group
 forvalues e = 1/`n_exposures' {
-	* Exposure header row
+	* Exposure header row (recorded here for the rule above each block, so
+	* the rule does not depend on the label text)
 	local new = _N + 1
 	quietly set obs `new'
 	quietly replace c1 = `"`explab`e''"' in `new'
+	local exp_rows `"`exp_rows' `new'"'
 	
 	* Category rows (indented)
 	forvalues i = 1/`ncat_e`e'' {
@@ -613,9 +637,17 @@ forvalues e = 1/`n_exposures' {
 			* A bare "-" also reads as a minus sign once a bound is negative,
 			* and hrcomptab places these rate CIs beside comma-separated model
 			* CIs in one table.
-			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
-				" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
-				", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ")"
+			* A rate without bounds (strate gives none for zero events) shows
+			* the en dash the IRR column uses for a missing estimate.
+			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f"))
+			if missing(`Lower_o`o'_e`e'_`i'') | missing(`Upper_o`o'_e`e'_`i'') {
+				local rt_fmt `"`rt_fmt' (–)"'
+			}
+			else {
+				local rt_fmt = `"`rt_fmt'"' + ///
+					" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f")) + ///
+					", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f")) + ")"
+			}
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
@@ -628,9 +660,9 @@ forvalues e = 1/`n_exposures' {
 					quietly replace c`col' = "–" in `new'
 				}
 				else {
-					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
-						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ///
-						", " + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', 10^(-`ratiodigits')), "%11.`ratiodigits'f")) + ")"
+					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
+						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
+						", " + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ")"
 					quietly replace c`col' = `"`irr_fmt'"' in `new'
 				}
 				local col = `col' + 1
@@ -639,17 +671,7 @@ forvalues e = 1/`n_exposures' {
 	}
 }
 
-* Identify exposure header rows (for borders)
 local lastrow = _N
-tempvar exp_row
-gen `exp_row' = (c2 == "" & c1 != "" & c1 != "Exposure" & _n > 3)
-local exp_rows ""
-forvalues r = 4/`lastrow' {
-	if `exp_row'[`r'] == 1 {
-		local exp_rows `"`exp_rows' `r'"'
-	}
-}
-drop `exp_row'
 
 * CSV export (if requested)
 if "`csv'" != "" {
@@ -667,16 +689,35 @@ local _ret_markdown_cols .
 if `"`markdown'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
-	capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-		`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
-	if _rc {
+	* Markdown has one header row: flatten the outcome and statistic rows to
+	* "outcome: statistic" (as regtab writes "model: statistic") in a copy,
+	* so the statistic row is not written as the first body row.
+	tempname _md_frame
+	frame put *, into(`_md_frame')
+	local _md_rc 0
+	frame `_md_frame' {
+		local col = 2
+		forvalues o = 1/`outcomes' {
+			forvalues _s = 1/`_cols_per_outcome' {
+				quietly replace c`col' = `"`macval(outlab`o')'"' + ": " + c`col' in 3
+				local ++col
+			}
+		}
+		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+			`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
+			headerstart(3) datastart(4) strictheaders
 		local _md_rc = _rc
+		if !`_md_rc' {
+			local _ret_markdown_rows = r(n_rows)
+			local _ret_markdown_cols = r(n_cols)
+		}
+	}
+	frame drop `_md_frame'
+	if `_md_rc' {
 		noi di as err "Failed to export Markdown to `markdown'"
 		exit `_md_rc'
 	}
 	local _ret_markdown `"`markdown'"'
-	local _ret_markdown_rows = r(n_rows)
-	local _ret_markdown_cols = r(n_cols)
 	noi di as text "Markdown exported to `markdown'"
 }
 * Console display
@@ -689,7 +730,15 @@ if `"`_frame_name'"' != "" {
 	local _frame_stage_created 1
 	frame `_frame_stage': char _dta[tabtools_source] "stratetab"
 	frame `_frame_stage': char _dta[tabtools_ci_level] "`_ci_level_txt'"
-	frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
+	* A rateratio table has a fourth column per outcome; say so, so comptab
+	* can refuse it by name rather than by a width that can coincide with a
+	* plain table of more outcomes.
+	if "`rateratio'" != "" {
+		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci irr_ci"
+	}
+	else {
+		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
+	}
 	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
 	forvalues _meta_o = 1/`outcomes' {
 		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`outcome_id_`_meta_o''"'
@@ -786,7 +835,8 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 		return matrix rates = `_rrates'
 	}
 	if "`rateratio'" != "" & `n_exposures' >= 2 {
-		return matrix ratios = `_rratios'
+		* No matrix exists when every comparison exposure is empty.
+		if `_ratio_cats' > 0 return matrix ratios = `_rratios'
 	}
 if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
 if `"`_ret_markdown'"' != "" {

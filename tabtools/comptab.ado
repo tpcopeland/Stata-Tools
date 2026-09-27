@@ -1,4 +1,4 @@
-*! comptab Version 2.1.13  2026/09/27
+*! comptab Version 2.1.14  2026/09/27
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -414,6 +414,15 @@ program define _comptab_rates, rclass
             else {
                 local _rate_title ""
             }
+        }
+
+        * A rateratio table is refused by its provenance first: its width can
+        * coincide with a plain table of more outcomes (3 x 4 = 4 x 3 columns).
+        frame `rateframe': local _rate_stat_ids : char _dta[tabtools_statistic_ids]
+        if strpos(" `_rate_stat_ids' ", " irr_ci ") {
+            display as error "Rate frame '`rateframe'' must come from stratetab without rateratio"
+            display as error "comptab computes model ratios itself; rerun stratetab without rateratio"
+            exit 198
         }
 
         if `_rate_cols' < 4 {
@@ -2534,12 +2543,20 @@ program define _comptab_vertical, rclass
                 if _rc local _src_ep_ok = 0
             }
 
+            * The plotted rows follow the table: each selected row once, in
+            * frame order, whatever order or repetition rows() was typed in.
+            local _ep_rows`f' : list uniq expanded`f'
+            if `"`_ep_rows`f''"' != "" {
+                numlist `"`_ep_rows`f''"', sort
+                local _ep_rows`f' `"`r(numlist)'"'
+            }
+
             * Count the plotted rows this section contributes. A section header
             * that owns exactly one row is redundant in a forest plot, so fold
             * the section label into that single row and skip the header.
             local _n_eff_f = 0
             if `_src_ep_ok' {
-                foreach r of local expanded`f' {
+                foreach r of local _ep_rows`f' {
                     frame `_src_ep' {
                         forvalues _ep_i = 1/`=_N' {
                             if source_row[`_ep_i'] == `r' local ++_n_eff_f
@@ -2554,7 +2571,7 @@ program define _comptab_vertical, rclass
             }
 
             if `_src_ep_ok' {
-                foreach r of local expanded`f' {
+                foreach r of local _ep_rows`f' {
                     frame `_src_ep' {
                         local _ep_N = _N
                         forvalues _ep_i = 1/`_ep_N' {
@@ -2730,14 +2747,15 @@ program define _comptab_vertical, rclass
     * =====================================================================
     * DETECT REFERENCE ROWS (after title insertion — row numbers = Excel rows)
     * =====================================================================
-    local ref_rows ""
+    * Per model: models of one source frame can have different base levels
+    * (i.rep78 beside ib3.rep78), so a union across models would merge and
+    * hide the estimate, interval and p-value of a model whose row is a real
+    * estimate. ref_rows_<i> holds the rows of the model starting at c<i>.
     forvalues i = 1(`n_cols_per_model')`n' {
         gen _ref`i' = _n if c`i' == "Reference" & _n >= 4
-        levelsof _ref`i', local(_ref`i'_lvls)
-        local ref_rows `"`ref_rows' `_ref`i'_lvls'"'
+        quietly levelsof _ref`i', local(ref_rows_`i')
         drop _ref`i'
     }
-    local ref_rows : list uniq ref_rows
 
     * =====================================================================
     * COLUMN WIDTH CALCULATION
@@ -2865,6 +2883,9 @@ program define _comptab_vertical, rclass
             restore
             exit `_export_rc'
         }
+        * Excel sheet names are case-insensitive; keep the workbook's own
+        * spelling when an existing sheet was replaced, as rate mode does.
+        local sheet `"`r(sheet)'"'
     }
 
     * =====================================================================
@@ -2937,12 +2958,12 @@ program define _comptab_vertical, rclass
         }
         local _style_rule_spec `"`_style_rule_spec' | 2 3 3 2 `num_cols' 0 1 0 0 | 5 3 3 2 `num_cols' 0 2 0 0 | 6 3 3 2 `num_cols' 0 2 0 0"'
 
-        foreach row of local ref_rows {
-            local col_num = 3
-            while `col_num' <= `num_cols' {
-                local _col_end = `col_num' + `n_cols_per_model' - 1
+        forvalues i = 1(`n_cols_per_model')`n' {
+            * c<i> is Excel column i + 2 (title and label columns first)
+            local col_num = `i' + 2
+            local _col_end = `col_num' + `n_cols_per_model' - 1
+            foreach row of local ref_rows_`i' {
                 local _style_rule_spec `"`_style_rule_spec' | 14 `row' `row' `col_num' `_col_end' 0 0 0 0 | 5 `row' `row' `col_num' `col_num' 0 2 0 0 | 6 `row' `row' `col_num' `col_num' 0 2 0 0 | 3 `row' `row' `col_num' `col_num' 0 1 0 0"'
-                local col_num = `col_num' + `n_cols_per_model'
             }
         }
 

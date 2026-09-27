@@ -1,4 +1,4 @@
-*! msm_plot Version 1.4.9  2026/09/26
+*! msm_plot Version 1.4.10  2026/09/27
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

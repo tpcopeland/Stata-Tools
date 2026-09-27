@@ -1,4 +1,4 @@
-*! regtab Version 2.1.13  2026/09/27
+*! regtab Version 2.1.14  2026/09/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -4147,6 +4147,7 @@ program define _regtab_modelnoun, nclass
 			if "`_w'" == "xtgee" local _n "generalized estimating equation (GEE) `_n'"
 		}
 		else if inlist("`_w'", "logit", "logistic", "qrlogit") local _n "logistic regression"
+		else if "`_w'" == "clogit" local _n "conditional logistic regression"
 		else if "`_w'" == "probit" local _n "probit regression"
 		else if "`_w'" == "hetprobit" local _n "heteroskedastic probit regression"
 		else if inlist("`_w'", "qreg", "bsqreg", "sqreg") local _n "quantile regression"
@@ -4637,7 +4638,7 @@ program define _regtab_scale, nclass
 		local _i 0
 		local _k 1
 
-		if inlist("`_rs_word'", "logit", "ologit", "melogit") {
+		if inlist("`_rs_word'", "logit", "ologit", "melogit", "clogit") {
 			_regtab_cmdopts "OR" `"`_rs_opt'"'
 			local _c "OR"
 			local _e = ("`_ro_or'" == "")

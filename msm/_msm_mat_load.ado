@@ -1,4 +1,4 @@
-*! _msm_mat_load Version 1.4.9  2026/09/26
+*! _msm_mat_load Version 1.4.10  2026/09/27
 *! Rebuild a matrix from dataset characteristics written by _msm_mat_save
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

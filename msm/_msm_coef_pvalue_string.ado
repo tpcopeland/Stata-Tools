@@ -1,4 +1,4 @@
-*! _msm_coef_pvalue_string Version 1.4.9  2026/09/26
+*! _msm_coef_pvalue_string Version 1.4.10  2026/09/27
 *! P-value display string for MSM coefficient tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 

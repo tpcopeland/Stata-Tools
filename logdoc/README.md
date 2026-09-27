@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.1.7** | 2026-08-30
+**Version 1.1.8** | 2026-09-27
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -394,6 +394,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.8** (2026-09-27): Output lines that a text log wrapped at the linesize stay whole in Markdown and the other formats: the `> ` continuation stays in the output block whatever it starts with (a continuation starting with a letter used to be moved to a separate command block), the first part keeps its trailing blanks so the continuation lines up, and a log header whose path wraps is skipped whole.
 - **1.1.7** (2026-08-30): Allowlist `.logdocrc` keys; handle dotted output paths and quoted commas correctly; fail batches with no successful output; restore `varabbrev` on helper exits; and tighten Viewer-width and PDF regression coverage.
 - **1.1.6** (2026-08-24): Propagate conversion and subcommand errors through the public dispatcher without losing any returned diagnostics.
 - **1.1.5** (2026-08-11): Prevent source/output collisions and partial PDF writes; propagate child Stata failures; preserve valid HTML structure, blank table cells, repeated graph exports, custom footers, and YAML metadata; harden download controls and pip arguments; validate direct-renderer inputs; and add `stataexe()` to the dialog.

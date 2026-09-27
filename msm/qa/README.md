@@ -54,6 +54,7 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `test_msm_continuous_exposure.do` | Continuous and time-varying exposure contracts |
 | `test_msm_weight_failures.do` | Weight-model failure policies and diagnostics |
 | `test_msm_weight_adversarial.do` | Weight ownership, replacement, mutation, and timing edges |
+| `test_msm_truncation_cutoffs.do` | `truncate()` counts and caps at the exact P1/P99 cutoffs, and `msm_diagnose` `r(n_extreme)` compares at the exact P99 (cutoffs held in scalars, not macros) |
 | `test_msm_weight_scale.do` | ESS and weighted SMD unchanged when weights are scaled to 1e-300 or 1e300; `msm_weight`, `msm_diagnose` and `msm_report` ESS against a Mata oracle |
 | `test_msm_prepare_validate_adversarial.do` | Mapping, binary outcome, panel, and validation adversaries |
 | `test_msm_hostile.do` | Long names, missingness, ordering, and hostile inputs |
@@ -119,10 +120,10 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `msm` | `test_msm_status.do`, `test_msm_state_guards.do` | `validation_msm.do` | `crossval_msm.do` |
 | `msm_prepare` | `test_msm_prepare_validate_adversarial.do` | `validation_msm_joint_weights.do` | `crossval_msm_nhefs.do`, `crossval_msm_haart.do` |
 | `msm_validate` | `test_msm_prepare_validate_adversarial.do` | `validation_msm.do` | — |
-| `msm_weight` | `test_msm_weight_adversarial.do`, `test_msm_weight_scale.do`, `test_msm_period_basis.do` | `validation_msm_known_answers.do`, `validation_msm_joint_weights.do`, recovery suites | All cross-validation suites |
+| `msm_weight` | `test_msm_weight_adversarial.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do`, `test_msm_period_basis.do` | `validation_msm_known_answers.do`, `validation_msm_joint_weights.do`, recovery suites | All cross-validation suites |
 | `msm_fit` | `test_msm_fit_prediction_regressions.do`, `test_msm_cox_state.do` | Fit, recovery, and prediction validation suites | `crossval_msm.do`, `crossval_external_models.do`, `crossval_msm_haart.do` |
 | `msm_predict` | `test_msm_fit_prediction_regressions.do` | `validation_msm_history_recovery.do`, `validation_msm_predict_vectorized.do` | `crossval_external_models.do` |
-| `msm_diagnose` | `test_msm_diagnostic_contracts.do`, `test_msm_weight_scale.do` | `validation_msm.do` | — |
+| `msm_diagnose` | `test_msm_diagnostic_contracts.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do` | `validation_msm.do` | — |
 | `msm_diagtab` | `test_msm_diagtab.do` | — | — |
 | `msm_plot` | `test_msm_documentation_examples.do`, `test_msm_output_adversarial.do` | `validation_msm.do` | — |
 | `msm_table` | `test_msm_table.do`, `test_export_surface.do` | — | — |
