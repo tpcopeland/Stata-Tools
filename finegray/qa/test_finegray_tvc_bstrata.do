@@ -48,9 +48,14 @@
 *              50, and an error at 200, with the coefficients still moving
 *              (0.269 -> 0.213 between the two).
 *
-* So there IS no working external reference for this pair, and this suite says
-* so rather than quoting a number from a fit that did not converge.  What it
-* uses instead is three independent oracles:
+* So crrSC::crrs gives no working reference for this pair, and this suite does
+* not quote a number from a fit that did not converge.  That finding is about
+* crrSC only.  An external comparison DOES work by another route:
+* crossval_tvc_bstrata.do expands the Fine-Gray risk set with
+* survival::finegray, splits it at the cuts with survSplit(), and fits a
+* strata(bs) coxph -- coefficients and full covariance for tvc() x bstrata()
+* with and without cluster() (python/full lanes).  This suite stays R-free and
+* uses three internal oracles:
 *
 *   1  stcox, strata() breslow on a hand-split episode dataset with NO competing
 *      events.  With no competing events the subdistribution risk set IS the

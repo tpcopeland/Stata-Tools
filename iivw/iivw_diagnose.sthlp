@@ -112,7 +112,15 @@ Confidence intervals use each estimate's {bf:own} distribution: {cmd:t} on
 {cmd:e(df_r)} when the estimator reports finite residual degrees of freedom
 (as {cmd:regress} does), and {cmd:z} otherwise. Each role is treated
 separately, so a mixed set of {cmd:z}- and {cmd:t}-based inputs is handled
-correctly. {cmd:r(ci_dist_*)} records which was used for each role.
+correctly. A stored {cmd:iivw_fit} percentile, basic, or BCa interval is used
+as stored; see {opt level()}. {cmd:r(ci_dist_*)} records which was used for
+each role.
+
+{pstd}
+The named coefficient must be {it:estimated} in all three models. An omitted
+(collinear) term or a factor base level carries a placeholder coefficient of 0
+with a standard error of 0; it is refused with error 459 rather than reported
+as known exactly.
 
 
 {marker options}{...}
@@ -171,7 +179,12 @@ artifact shares.
 
 {phang}
 {opt level(#)} sets the confidence level for the individual coefficient
-intervals displayed from each stored model. {it:#} must be between 10 and
+intervals displayed from each stored model. A stored {cmd:iivw_fit} with a
+percentile, basic, or BCa interval contributes its own stored endpoints
+({cmd:e(iivw_ci)}), not a Wald interval rebuilt from its standard error, and
+{cmd:r(ci_dist_}{it:role}{cmd:)} names that interval type; because those
+endpoints cannot be recomputed at another level, {it:#} must then equal the
+fit's {cmd:e(level)}, or the command exits with error 198. {it:#} must be between 10 and
 99.99; the default is the current {helpb level:set level} value, usually 95.
 
 {phang}
@@ -419,7 +432,9 @@ noncollapsibility as well as any real artifact.
 {cmd:sampling_gap},
 {cmd:artifact_gap}, {cmd:total_gap}, {cmd:sampling_share},
 {cmd:artifact_share}, {cmd:range_min}, and {cmd:range_max}. Shares are
-missing for contrast estimands or when the total gap is too small.
+missing for contrast estimands, when the total gap is too small, under
+{cmd:exogeneity(endogenous)}, and under {opt force} with incomparable
+estimates; the exported workbook leaves the same share cells empty.
 
 {pstd}
 When {opt true()} is specified, {cmd:r(bias)} has a {cmd:value} column and rows

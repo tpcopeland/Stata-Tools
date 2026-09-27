@@ -1,4 +1,4 @@
-*! finegray_phtest Version 1.3.7  2026/09/23
+*! finegray_phtest Version 1.3.7  2026/09/28
 *! Proportional subdistribution hazards diagnostic after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -196,7 +196,15 @@ program define finegray_phtest, rclass
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {
-            run "`r(fn)'"
+            * A failed load aborts _finegray_mata.ado before it restores the
+            * caller's matastrict; restore it here on that path (audit F08).
+            local _fg_ms0 = c(matastrict)
+            capture noisily run "`r(fn)'"
+            if _rc {
+                local _fg_lrc = _rc
+                mata: mata set matastrict `_fg_ms0'
+                exit `_fg_lrc'
+            }
         }
         else {
             display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -330,17 +338,16 @@ program define finegray_phtest, rclass
         }
     }
 
+    * Schoenfeld matrix (n_fail x (p+1)), written straight into a tempname
+    * so a caller's matrix of any name is never touched.
+    tempname sch_mat
     mata: _finegray_schoenfeld_compute( ///
         "`covariates'", "`events'", `cause', `censvalue', ///
-        "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bs_ph'")
+        "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bs_ph'", ///
+        "", 0, "`sch_mat'")
 
     restore
     local _preserved = 0
-
-    * Retrieve the Schoenfeld matrix (n_fail x (p+1))
-    tempname sch_mat
-    matrix `sch_mat' = _finegray_schoenfeld
-    capture matrix drop _finegray_schoenfeld
 
     local n_fail = rowsof(`sch_mat')
 

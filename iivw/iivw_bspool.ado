@@ -1,4 +1,4 @@
-*! iivw_bspool Version 4.2.0  2026/09/15
+*! iivw_bspool Version 4.3.0  2026/09/28
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)
@@ -50,10 +50,13 @@ program define iivw_bspool, eclass
     syntax using/ [, CIType(string) Level(string) REPS(integer -1) ///
         SAVing(string asis) ALLOWFAILEDReps noTABle]
 
+    * The same domain iivw_fit's level(cilevel) accepts, 10 to 99.99. The
+    * integer-only rule refused to pool a level(95.5) fit at its own level
+    * (audit F14).
     if "`level'" != "" {
-        capture confirm integer number `level'
-        if _rc | `level' < 10 | `level' > 99 {
-            display as error "iivw_bspool: level() must be an integer between 10 and 99"
+        capture confirm number `level'
+        if _rc | `level' < 10 | `level' > 99.99 {
+            display as error "iivw_bspool: level() must be a number between 10 and 99.99"
             display as error "  got: `level'"
             error 198
         }
@@ -112,6 +115,63 @@ program define iivw_bspool, eclass
             display as error "  estimates use alone"
             error 459
         }
+        * An equal cached signature proves only that nobody re-ran iivw_weight.
+        * Editing a weight input leaves the characteristic untouched, so the
+        * signature is RECOMPUTED from the live columns (audit F04).
+        if "`_wsig_now'" != "" {
+            capture _iivw_check_weighted
+            if _rc {
+                display as error "iivw_bspool: the weighted data in memory has changed since the anchor was fit"
+                display as error "  the recomputed weight signature no longer matches the stored one"
+                display as error "  reload the analysis data, or clear it and pool from"
+                display as error "  estimates use alone"
+                error 459
+            }
+        }
+    }
+
+    * ---- the anchor's outcome-analysis identity and lineage --------------
+    * Stamped by _iivw_bs_stamp when the anchor itself was fit with saving().
+    * An anchor without them either never wrote a shard file -- and the
+    * anchor's own file must be in the using list -- or predates the stamp.
+    local anchor_asig    "`e(iivw_bs_asig)'"
+    local anchor_lineage "`e(iivw_bs_lineage)'"
+    if "`anchor_asig'" == "" | "`anchor_lineage'" == "" {
+        display as error "iivw_bspool: the anchor carries no shard identity"
+        display as error "  e(iivw_bs_asig)/e(iivw_bs_lineage) are set by iivw_fit's saving();"
+        display as error "  the anchor must be one of the shards being pooled (or a saved"
+        display as error "  pool of them), fit by this build of iivw"
+        error 459
+    }
+
+    * The live outcome data, when the anchor's estimation sample is marked in
+    * memory. A dataset with no e(sample) rows (estimates use, a different
+    * dataset) is the data-free route and is not checked here; the shards'
+    * stamped identities are compared either way.
+    if c(N) > 0 & "`e(iivw_bs_dsig)'" != "" {
+        tempvar _les
+        quietly gen byte `_les' = e(sample)
+        quietly count if `_les'
+        if r(N) > 0 {
+            quietly _iivw_weight_signature, analysis(`e(iivw_bs_dsig_vars)') ///
+                key(`e(iivw_id)') timevar(`e(iivw_time)') touse(`_les')
+            local _lsig `"`r(signature)'"'
+            * Same fingerprint as _iivw_bs_stamp_hash (kept inline: that is a
+            * bundled program an installed copy may not have loaded yet).
+            mata: st_local("_lh", ///
+                strofreal(hash1(st_local("_lsig")), "%12.0f") + "." + ///
+                strofreal(hash1(strreverse(st_local("_lsig"))), "%12.0f") + "." + ///
+                strofreal(strlen(st_local("_lsig"))))
+            if "`_lh'" != "`e(iivw_bs_dsig)'" {
+                display as error "iivw_bspool: the outcome data in memory is not the data the anchor was fit on"
+                display as error "  the estimation-sample fingerprint of `e(iivw_bs_dsig_vars)'"
+                display as error "  no longer matches the one stamped at fit time"
+                display as error "  reload the analysis data, or clear it and pool from"
+                display as error "  estimates use alone"
+                error 459
+            }
+        }
+        capture drop `_les'
     }
 
     * =====================================================================
@@ -123,22 +183,18 @@ program define iivw_bspool, eclass
         error 198
     }
 
-    * Resolve each spelling to one path. bootstrap's saving() appends .dta when
-    * the spec carries no suffix, so both spellings have to resolve or a driver
-    * that wrote reps_3 and pooled "reps_3" would silently find nothing.
+    * Resolve each name exactly as bootstrap's saving() and -use- do: .dta is
+    * appended only when the name carries no suffix. Probing `raw.dta' first
+    * pooled x.dta.dta when x.dta was typed and both existed (audit F06).
     local resolved ""
     forvalues i = 1/`nshards' {
         local raw : word `i' of `using'
-        local path ""
-        capture confirm file `"`raw'.dta"'
-        if !_rc local path `"`raw'.dta"'
-        else {
-            capture confirm file `"`raw'"'
-            if !_rc local path `"`raw'"'
-        }
-        if `"`path'"' == "" {
-            display as error "iivw_bspool: no replicate file at `raw'"
-            display as error "  (tried `raw'.dta and `raw')"
+        mata: st_local("_sfx", pathsuffix(st_local("raw")))
+        if `"`_sfx'"' == "" local path `"`raw'.dta"'
+        else                local path `"`raw'"'
+        capture confirm file `"`path'"'
+        if _rc {
+            display as error "iivw_bspool: no replicate file at `path'"
             display as error "  file paths in the using list must not contain spaces"
             error 601
         }
@@ -169,8 +225,11 @@ program define iivw_bspool, eclass
             display as error "iivw_bspool: empty filename in saving()"
             error 198
         }
+        * Same exact rule as the inputs and as _iivw_bs_stamp, so the file
+        * written is the file restamped.
+        mata: st_local("_sfx", pathsuffix(st_local("_svname")))
         local _svtarget `"`_svname'"'
-        if strpos(`"`_svname'"', ".dta") == 0 local _svtarget `"`_svname'.dta"'
+        if `"`_sfx'"' == "" local _svtarget `"`_svname'.dta"'
         if "`_svrepl'" == "" {
             capture confirm new file `"`_svtarget'"'
             if _rc {
@@ -237,6 +296,14 @@ program define iivw_bspool, eclass
             local s_status`i'   : char _dta[_iivw_shard_status]
             local s_stream`i'   : char _dta[_iivw_shard_rngstream]
             local s_seed`i'     : char _dta[_iivw_shard_seed]
+            local s_asig`i'     : char _dta[_iivw_shard_asig]
+            local s_lin`i'      : char _dta[_iivw_shard_lineage]
+            if "`s_asig`i''" == "" | "`s_lin`i''" == "" {
+                display as error "iivw_bspool: `path`i'' carries no analysis identity or lineage"
+                display as error "  it was written by an iivw build that did not stamp which outcome"
+                display as error "  analysis and which component draws it holds; refit the shard"
+                error 459
+            }
             local s_rngstate`i' : char _dta[seed]
             local s_N`i'        : char _dta[N]
             local s_rows`i' = _N
@@ -266,6 +333,10 @@ program define iivw_bspool, eclass
     forvalues i = 1/`nshards' {
         _iivw_bspool_agree, name("weight contract e(iivw_wsig)") ///
             file(`"`path`i''"') got("`s_wsig`i''")     want("`anchor_wsig'")
+        * Outcome data, estimation sample and model specification. Equal
+        * coefficient names, N and observed estimates do not imply it (F04).
+        _iivw_bspool_agree, name("outcome-analysis identity") ///
+            file(`"`path`i''"') got("`s_asig`i''")     want("`anchor_asig'")
         _iivw_bspool_agree, name("command") ///
             file(`"`path`i''"') got("`s_cmd`i''")      want("iivw_fit")
         _iivw_bspool_agree, name("model") ///
@@ -332,6 +403,41 @@ program define iivw_bspool, eclass
             display as text "  citype(wald), which pool exactly."
             error 198
         }
+    }
+
+    * ---- component lineage (audit F05) -----------------------------------
+    * Each file names the component draw sets it holds: one for a shard, the
+    * union of its inputs for a saved pool. A component appearing twice means
+    * the same draws would be counted twice -- AB+B holds 40 distinct draws,
+    * not 60 -- which no row-count reconciliation can detect.
+    local all_lineage ""
+    forvalues i = 1/`nshards' {
+        local all_lineage "`all_lineage' `s_lin`i''"
+    }
+    local _lin_dups : list dups all_lineage
+    if "`_lin_dups'" != "" {
+        display as error "iivw_bspool: the using list holds the same draws more than once"
+        forvalues i = 1/`nshards' {
+            local _hit : list s_lin`i' & _lin_dups
+            if "`_hit'" != "" display as error "  `path`i''"
+        }
+        display as error ""
+        display as text "  A saved pool already contains the draws of every shard it was"
+        display as text "  pooled from. Pool it with shards it does not contain, or pool"
+        display as text "  the original shards directly."
+        error 459
+    }
+    local all_lineage : list sort all_lineage
+    * The anchor must BE one of these components (or a pool of them). Equal
+    * observed coefficients cannot show that: every shard of one analysis has
+    * the same b by construction.
+    local _anchor_out : list anchor_lineage - all_lineage
+    if "`_anchor_out'" != "" {
+        display as error "iivw_bspool: the anchor's own replicate file is not in the using list"
+        display as error "  the results in e() were fit as a shard whose draws none of the"
+        display as error "  given files contain; add that shard's file, or restore the"
+        display as error "  estimates of a shard that is in the list"
+        error 459
     }
 
     * ---- two shards drawn from the same RNG state ------------------------
@@ -444,7 +550,7 @@ program define iivw_bspool, eclass
     * to.
     if "`level'" == "" {
         local level = `anchor_level'
-        capture confirm integer number `s_level1'
+        capture confirm number `s_level1'
         if !_rc local level = `s_level1'
     }
 
@@ -467,6 +573,20 @@ program define iivw_bspool, eclass
     local pooled_req = `pooled_done' + `pooled_fail'
     local bstat_names : colnames e(b)
     local bstat_eqs   : coleq   e(b)
+
+    * The native bootstrap fields bstat computed from the POOLED draws. The
+    * anchor still carries its own shard's copies, and estat bootstrap reads
+    * those: after a 40-draw pool it reported the anchor's 20-draw count and
+    * percentile interval (audit F08). Keep bstat's to repost below.
+    local _native ""
+    foreach _m in b_bs reps bias z0 se ci_normal ci_percentile ci_bc {
+        capture confirm matrix e(`_m')
+        if !_rc {
+            tempname nat_`_m'
+            matrix `nat_`_m'' = e(`_m')
+            local _native "`_native' `_m'"
+        }
+    }
 
     estimates restore `anchorest'
 
@@ -637,6 +757,25 @@ program define iivw_bspool, eclass
     * the anchor holds them at full precision.
     ereturn repost V = `Vpool'
 
+    * Native bootstrap surface, synchronized with the pooled draws. A native
+    * field the anchor has but bstat did not recompute (BCa is refused above)
+    * cannot describe the pool, so none is left standing unsynchronized.
+    * Literal names, not a loop over _native: the stored-results contract
+    * checker reads them from source.
+    if `: list posof "b_bs" in _native'          ereturn matrix b_bs          = `nat_b_bs'
+    if `: list posof "reps" in _native'          ereturn matrix reps          = `nat_reps'
+    if `: list posof "bias" in _native'          ereturn matrix bias          = `nat_bias'
+    if `: list posof "z0" in _native'            ereturn matrix z0            = `nat_z0'
+    if `: list posof "se" in _native'            ereturn matrix se            = `nat_se'
+    if `: list posof "ci_normal" in _native'     ereturn matrix ci_normal     = `nat_ci_normal'
+    if `: list posof "ci_percentile" in _native' ereturn matrix ci_percentile = `nat_ci_percentile'
+    if `: list posof "ci_bc" in _native'         ereturn matrix ci_bc         = `nat_ci_bc'
+    ereturn scalar N_reps    = `pooled_done'
+    ereturn scalar N_misreps = `pooled_fail'
+    * The anchor's RNG state is one shard's; the pool drew from several.
+    * e(iivw_bs_lineage) and e(iivw_bs_streams) name them all.
+    ereturn local rngstate ""
+
     local ci_label "`citype'"
     if "`citype'" == "wald" local ci_label "wald-normal"
     ereturn local iivw_ci_type "`ci_label'"
@@ -666,6 +805,10 @@ program define iivw_bspool, eclass
     ereturn local iivw_bs_seeds     "`seeds'"
     ereturn local iivw_bs_shard_files `"`using'"'
     ereturn local iivw_bs_anchor_breldif "`_brel'"
+    ereturn local iivw_bs_lineage "`all_lineage'"
+    * No single replicate file holds the pooled draws unless saving() writes
+    * one; the anchor's own shard path would misdescribe the result (F08).
+    ereturn local iivw_bs_saving ""
 
     * The pooled result now exists in e(). Everything below is a side effect --
     * writing a file, printing a table -- and a failure in one of those must not
@@ -691,6 +834,7 @@ program define iivw_bspool, eclass
         * describe itself, which is what saving() is for. This runs after the
         * repost, so e() is the pooled result and the stamp reads pooled values.
         _iivw_bs_stamp, file(`"`_svtarget'"')
+        ereturn local iivw_bs_saving `"`_svtarget'"'
     }
 
     * =====================================================================

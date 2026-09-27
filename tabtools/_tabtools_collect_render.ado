@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.1.14  2026/09/27
+*! _tabtools_collect_render Version 2.1.15  2026/09/27
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,10 +11,14 @@ program define _tabtools_collect_render, rclass
     local _json "`_collect_json'.stjson"
     capture noisily {
         syntax , TYPE(string) ROWDIM(string) RESULTS(string) ///
-            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents OMITMap ROWKeys EQLevels(string)]
+            [ROWLevels(string) COLDIM(string) COLLevels(string) SEP(string) DROPEmpty FACTORParents OMITMap ROWKeys PARENTKeys UNIQUEKeys EQLevels(string)]
 
         if "`rowkeys'" != "" & "`type'" != "main" {
             noisily display as error "rowkeys requires type(main)"
+            exit 198
+        }
+        if "`parentkeys'" != "" & "`rowkeys'" == "" {
+            noisily display as error "parentkeys requires rowkeys"
             exit 198
         }
         local type = lower(strtrim("`type'"))
@@ -397,6 +401,7 @@ end
 version 17.0
 capture mata: mata drop _tt_collect_render_mata()
 capture mata: mata drop _tt_collect_items()
+capture mata: mata drop _tt_collect_scan()
 capture mata: mata drop _tt_collect_filter_results()
 capture mata: mata drop _tt_collect_index()
 capture mata: mata drop _tt_collect_render_meta()
@@ -455,13 +460,13 @@ void _tt_collect_render_mata(
     real scalar omitmap)
 {
     string matrix items, out
-    string colvector rawkeys
+    string colvector rawkeys, rawparents
     string rowvector equations
     real colvector eqkeep
     real scalar ei, ej
     transmorphic scalar index
 
-    items = _tt_collect_items(filepath)
+    items = _tt_collect_items(filepath, res_n)
     if (rows(items) == 0) _error(2000)
     items = _tt_collect_filter_results(items, res_n)
     if (rows(items) == 0) _error(2000)
@@ -477,7 +482,11 @@ void _tt_collect_render_mata(
         items = select(items, eqkeep)
         if (rows(items) == 0) _error(2000)
     }
-    index = _tt_collect_index(items, rowdim, coldim)
+    // uniquekeys: refuse a layout key that holds two different values
+    // instead of keeping the last one. Opt-in: type(icc) sums duplicate
+    // random-intercept variances itself, and regtab's colname layout lets an
+    // ancillary equation's _cons fall under the model's intercept.
+    index = _tt_collect_index(items, rowdim, coldim, st_local("uniquekeys") != "")
 
     if (type == "meta" | type == "stats") {
         out = _tt_collect_render_meta(index, items, rowdim, coldim, sep, row_n,
@@ -489,7 +498,7 @@ void _tt_collect_render_mata(
     }
     else if (type == "main") {
         out = _tt_collect_render_main(index, items, rowdim, coldim, sep, row_n,
-            col_n, res_n, factorparents, rawkeys)
+            col_n, res_n, factorparents, rawkeys, rawparents)
     }
     else if (type == "desctab") {
         out = _tt_collect_render_desctab(index, items, rowdim, coldim, sep,
@@ -510,6 +519,13 @@ void _tt_collect_render_mata(
         if (rows(rawkeys) != rows(out)) _error(459)
         (void) st_addvar("strL", "_raw_colname")
         st_sstore(., "_raw_colname", rawkeys)
+        // parentkeys: the raw level(s) of the outer row dimension(s), tab
+        // separated, on every row of a compound rowdim(); empty otherwise.
+        if (st_local("parentkeys") != "") {
+            if (rows(rawparents) != rows(out)) _error(459)
+            (void) st_addvar("strL", "_raw_parent")
+            st_sstore(., "_raw_parent", rawparents)
+        }
     }
 }
 
@@ -735,7 +751,8 @@ string matrix _tt_collect_render_main(
     real scalar col_n,
     real scalar res_n,
     real scalar factorparents,
-    string colvector rawkeys)
+    string colvector rawkeys,
+    string colvector rawparents)
 {
     string matrix out
     string rowvector vals
@@ -745,7 +762,7 @@ string matrix _tt_collect_render_main(
     row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
     if (row_dim_n > 1) {
         return(_tt_collect_render_main_multirow(index, items, coldim, sep,
-            row_n, col_n, res_n, rawkeys))
+            row_n, col_n, res_n, rawkeys, rawparents))
     }
 
     if (coldim == "") col_n = 1
@@ -815,6 +832,7 @@ string matrix _tt_collect_render_main(
 
     if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
     rawkeys = rawkeys[|1 \ rowout|]
+    rawparents = J(rows(rawkeys), 1, "")
     return(out)
 }
 
@@ -826,7 +844,8 @@ string matrix _tt_collect_render_main_multirow(
     real scalar row_n,
     real scalar col_n,
     real scalar res_n,
-    string colvector rawkeys)
+    string colvector rawkeys,
+    string colvector rawparents)
 {
     string matrix out
     string rowvector rowdims, rowlevels, rowlabels, vals
@@ -840,6 +859,7 @@ string matrix _tt_collect_render_main_multirow(
     rowdims = _tt_collect_row_dims(row_dim_n)
     out = J(row_n * row_dim_n + 2, 1 + col_n * res_n, "")
     rawkeys = J(rows(out), 1, "")
+    rawparents = J(rows(out), 1, "")
 
     c = 1
     for (j = 1; j <= col_n; j++) {
@@ -894,17 +914,20 @@ string matrix _tt_collect_render_main_multirow(
             if (parent_key != last_parent) {
                 rowout++
                 out[rowout, 1] = _tt_collect_parent_label(rowlabels, row_dim_n)
+                rawparents[rowout] = parent_key
                 last_parent = parent_key
             }
             rowout++
             out[rowout, 1] = rowlabels[row_dim_n]
             rawkeys[rowout] = rowlevels[row_dim_n]
+            rawparents[rowout] = parent_key
             for (c = 2; c <= cols(out); c++) out[rowout, c] = vals[c - 1]
         }
     }
 
     if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
     rawkeys = rawkeys[|1 \ rowout|]
+    rawparents = rawparents[|1 \ rowout|]
     return(out)
 }
 
@@ -1446,23 +1469,117 @@ string scalar _tt_collect_strtype(real scalar maxlen)
     return("strL")
 }
 
-string matrix _tt_collect_items(string scalar filepath)
+// F12 (codex audit 2026-09-27): the saved collection is read once and only the
+// requested result families are materialized. The file used to be joined line
+// by line (quadratic in its size), every item was unpacked, and the item
+// matrix grew one row at a time; a GEE fit's working-correlation matrix (tens
+// of thousands of result[R] items) made a four-row table take minutes.
+// collect save writes Items with one key per line, indented four spaces, and
+// each item object closed by a four-space "}" line. When the file has that
+// shape, the key lines holding a wanted result fragment are found with
+// vectorized strpos() and only their objects are scanned; otherwise, or when
+// force_scan is set, the whole Items body is scanned character by character.
+// Both paths keep exactly the items _tt_collect_filter_results keeps.
+string matrix _tt_collect_items(string scalar filepath, | real scalar res_n,
+    real scalar force_scan)
 {
-    string colvector lines
-    string scalar txt, body, key, val, obj
-    string matrix out
-    real scalar i, p, q, e
+    string colvector lines, region, pieces
+    string rowvector wanted
+    string scalar rlev, body
+    real colvector iskey, hit, isclose, nextclose, idx
+    real scalar k, st, en, i, n, c, fast
+
+    if (args() < 2) res_n = 0
+    if (args() < 3) force_scan = 0
+
+    wanted = J(1, 0, "")
+    for (k = 1; k <= res_n; k++) {
+        rlev = st_local("_tt_res_level_" + strofreal(k))
+        if (rlev == "") continue
+        if (rlev == "_r_ci") {
+            wanted = wanted, _tt_collect_frag("result", "_r_lb")
+            wanted = wanted, _tt_collect_frag("result", "_r_ub")
+        }
+        else {
+            wanted = wanted, _tt_collect_frag("result", rlev)
+        }
+    }
 
     lines = cat(filepath)
-    txt = ""
-    for (i = 1; i <= rows(lines); i++) txt = txt + lines[i] + char(10)
-    body = _tt_json_object_body(txt, "Items")
+    n = rows(lines)
+    fast = 0
+    st = 0
+    en = 0
+    if (!force_scan & n > 2) {
+        idx = selectindex(lines :== "  " + char(34) + "Items" + char(34) + ": {")
+        if (rows(idx) == 1) {
+            st = idx[1]
+            idx = selectindex((lines :== "  }") :| (lines :== "  },"))
+            idx = select(idx, idx :> st)
+            if (rows(idx) > 0) {
+                en = idx[1]
+                fast = 1
+            }
+        }
+    }
+    if (fast & en - st < 2) return(J(0, 3, ""))
+    if (fast) {
+        region = lines[|st + 1 \ en - 1|]
+        iskey = (substr(region, 1, 5) :== "    " + char(34))
+        isclose = (region :== "    }") :| (region :== "    },")
+        // every line of the region is a key line, an object member (six or
+        // more spaces), or a four-space closing line; anything else means an
+        // unexpected layout, so fall back to the full scan
+        if (sum(iskey) + sum(isclose) + sum(substr(region, 1, 6) :== "      ")
+            != rows(region)) fast = 0
+    }
+    if (fast) {
+        if (cols(wanted)) {
+            hit = J(rows(region), 1, 0)
+            for (k = 1; k <= cols(wanted); k++) {
+                hit = hit :| (strpos(region, wanted[k]) :> 0)
+            }
+            iskey = iskey :& hit
+        }
+        idx = selectindex(iskey)
+        if (rows(idx) == 0) return(J(0, 3, ""))
+        nextclose = J(rows(region), 1, .)
+        c = .
+        for (i = rows(region); i >= 1; i--) {
+            if (isclose[i]) c = i
+            nextclose[i] = c
+        }
+        pieces = J(rows(idx), 1, "")
+        for (k = 1; k <= rows(idx); k++) {
+            i = idx[k]
+            // a key line that closes its own object ("key": {...})
+            if (substr(strrtrim(region[i]), -1, 1) == "}" |
+                substr(strrtrim(region[i]), -2, 2) == "},") {
+                pieces[k] = region[i]
+                continue
+            }
+            if (nextclose[i] >= .) _error(198)
+            pieces[k] = invtokens(region[|i \ nextclose[i]|]', char(10))
+        }
+        return(_tt_collect_scan(invtokens(pieces', char(10)), wanted))
+    }
+    body = _tt_json_object_body(invtokens(lines', char(10)), "Items")
+    return(_tt_collect_scan(body, wanted))
+}
 
-    out = J(0, 3, "")
+string matrix _tt_collect_scan(string scalar body, string rowvector wanted)
+{
+    string scalar key, val, obj
+    string matrix out
+    real scalar p, q, e, len, n, want, rlk
+
+    out = J(1024, 3, "")
+    n = 0
     p = 1
-    while (p <= strlen(body)) {
+    len = strlen(body)
+    while (p <= len) {
         p = _tt_json_skip_ws(body, p)
-        if (p > strlen(body)) break
+        if (p > len) break
         if (substr(body, p, 1) == ",") {
             p++
             continue
@@ -1475,13 +1592,22 @@ string matrix _tt_collect_items(string scalar filepath)
         p = _tt_json_skip_ws(body, p + 1)
         if (substr(body, p, 1) != "{") _error(198)
         q = _tt_json_matching(body, p)
-        obj = substr(body, p, q - p + 1)
-        val = _tt_json_member_value(obj)
-        out = out \ (key, val, _tt_json_member_named(obj, "omit-type"))
+        want = (cols(wanted) == 0)
+        for (rlk = 1; rlk <= cols(wanted) & !want; rlk++) {
+            if (strpos(key, wanted[rlk]) > 0) want = 1
+        }
+        if (want) {
+            obj = substr(body, p, q - p + 1)
+            val = _tt_json_member_value(obj)
+            n++
+            if (n > rows(out)) out = out \ J(rows(out), 3, "")
+            out[n, .] = (key, val, _tt_json_member_named(obj, "omit-type"))
+        }
         p = q + 1
     }
 
-    return(out)
+    if (n == 0) return(J(0, 3, ""))
+    return(out[|1, 1 \ n, 3|])
 }
 
 string matrix _tt_collect_filter_results(string matrix items, real scalar res_n)
@@ -1538,13 +1664,15 @@ string matrix _tt_collect_filter_results(string matrix items, real scalar res_n)
 transmorphic scalar _tt_collect_index(
     string matrix items,
     string scalar rowdim,
-    string scalar coldim)
+    string scalar coldim,
+    | real scalar strict)
 {
     transmorphic scalar index
     string rowvector dims
     string scalar key, frag
     real scalar i, j, ok
 
+    if (args() < 4) strict = 0
     index = asarray_create("string", 1)
     dims = _tt_collect_dim_tokens(rowdim)
     if (coldim != "") dims = dims, _tt_collect_dim_tokens(coldim)
@@ -1562,7 +1690,20 @@ transmorphic scalar _tt_collect_index(
             if (key == "") key = frag
             else key = key + "#" + frag
         }
-        if (ok) asarray(index, key, items[i, 2])
+        // F03 (codex audit 2026-09-27): an item projected onto a key that
+        // already holds a different value means the layout dropped a
+        // dimension that tells them apart (two equations' x, say). The
+        // later value used to overwrite the earlier one silently.
+        if (ok) {
+            if (strict & asarray_contains(index, key)) {
+                if (asarray(index, key) != items[i, 2]) {
+                    errprintf("collection holds more than one value for %s;\n", key)
+                    errprintf("the requested layout omits a dimension that distinguishes them\n")
+                    _error(459)
+                }
+            }
+            else asarray(index, key, items[i, 2])
+        }
     }
 
     return(index)

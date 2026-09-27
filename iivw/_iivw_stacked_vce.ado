@@ -1,4 +1,4 @@
-*! _iivw_stacked_vce Version 4.2.0  2026/09/15
+*! _iivw_stacked_vce Version 4.3.0  2026/09/28
 *! Two-step (stacked) influence-function sandwich for a weighted GEE fit whose
 *! weights were estimated by iivw_weight.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -70,7 +70,7 @@ program define _iivw_stacked_vce, rclass
     syntax varlist(numeric) [if], DEPvar(varname numeric) ///
         MU(varname numeric) ///
         WTVar(varname numeric) CLuster(varname) ///
-        VARfunc(string) SCoreterms(string) AINV(string)
+        VARfunc(string) SCoreterms(string) AINV(string) [NUISall]
 
     marksample touse
     markout `touse' `depvar' `mu' `wtvar' `cluster'
@@ -114,6 +114,31 @@ program define _iivw_stacked_vce, rclass
     if `N' == 0 {
         display as error "stacked variance: no usable observations"
         error 2000
+    }
+
+    * ---------------------------------------------------------------------
+    * The nuisance population. The weights applied to the outcome rows were
+    * estimated from every subject the visit and treatment models saw, not
+    * only from subjects that also have a usable outcome. A subject outside
+    * the outcome sample has U_i = 0 but a real score s_i, so its G A^-1 s_i
+    * term belongs in the covariance (audit F02). nuisall adds every row that
+    * carries a complete, nonzero nuisance score -- ignoring the caller's
+    * if/in, which describes the OUTCOME fit -- to the cluster population.
+    * A subject neither model saw has an all-zero score (iivw_weight fills
+    * it so) and contributes nothing, so it is not counted as a cluster.
+    * ---------------------------------------------------------------------
+    tempvar nuse
+    quietly gen byte `nuse' = `touse'
+    if "`nuisall'" != "" {
+        local _nzero ""
+        local _nmiss ""
+        foreach v of local nslist {
+            local _nzero "`_nzero' | `v' != 0"
+            local _nmiss "`_nmiss' & !missing(`v')"
+        }
+        local _nzero = substr("`_nzero'", 4, .)
+        quietly replace `nuse' = 1 if !missing(`cluster') ///
+            `_nmiss' & (`_nzero')
     }
 
     * ---------------------------------------------------------------------
@@ -167,11 +192,14 @@ program define _iivw_stacked_vce, rclass
     * reorder the caller's data, and iivw_fit's display and e(sample) both sit
     * on the row order it handed us. The Mata accumulator indexes by cluster
     * number and therefore needs no sort at all.
-    tempvar cidx
-    quietly egen long `cidx' = group(`cluster') if `touse'
+    tempvar cidx cotag
+    quietly egen long `cidx' = group(`cluster') if `nuse'
     quietly summarize `cidx', meanonly
     local M = r(max)
-    if `M' < 2 {
+    quietly egen byte `cotag' = tag(`cidx') if `touse'
+    quietly count if `cotag' == 1
+    local Mout = r(N)
+    if `Mout' < 2 {
         display as error "stacked variance: fewer than 2 clusters"
         error 2000
     }
@@ -184,7 +212,7 @@ program define _iivw_stacked_vce, rclass
     * returning NULL. Without it the failure is a bare "not found" thrown from
     * the middle of a variance calculation.
     capture mata: st_local("__iivw_mata_ok", ///
-        strofreal(findexternal("_iivw_stacked_core()") != NULL))
+        strofreal(findexternal("_iivw_stacked_union()") != NULL))
     if "`__iivw_mata_ok'" != "1" {
         capture findfile _iivw_mlib.ado
         if _rc {
@@ -195,7 +223,7 @@ program define _iivw_stacked_vce, rclass
         run "`__iivw_mlib_fn'"
         local __iivw_mata_ok "0"
         capture mata: st_local("__iivw_mata_ok", ///
-            strofreal(findexternal("_iivw_stacked_core()") != NULL))
+            strofreal(findexternal("_iivw_stacked_union()") != NULL))
         local __iivw_probe_rc = _rc
         if `__iivw_probe_rc' | "`__iivw_mata_ok'" != "1" {
             display as error "could not compile iivw's Mata functions"
@@ -204,9 +232,9 @@ program define _iivw_stacked_vce, rclass
         }
     }
 
-    mata: _iivw_stacked_core("`varlist' `one'", "`bread'", "`res'", ///
-        "`ndlist'", "`nslist'", "`cidx'", "`touse'", ///
-        "`Ainv'", `M', "`Vs'", "`Vf'", "`G'")
+    mata: _iivw_stacked_union("`varlist' `one'", "`bread'", "`res'", ///
+        "`ndlist'", "`nslist'", "`cidx'", "`touse'", "`nuse'", ///
+        "`Ainv'", `M', `Mout', "`Vs'", "`Vf'", "`G'")
 
     * Name the returned matrices for the design the caller fitted, so a reader
     * of e(V) sees coefficient names and not c1..cp.
@@ -217,6 +245,7 @@ program define _iivw_stacked_vce, rclass
     matrix colnames `Vf' = `cn'
 
     return scalar n_clust = `M'
+    return scalar n_clust_outcome = `Mout'
     return scalar N = `N'
     return local score_terms "`scoreterms'"
     return matrix G = `G'

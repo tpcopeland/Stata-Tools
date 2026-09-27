@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  23sep2026}{...}
+{* *! version 1.3.7  28sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -670,10 +670,11 @@ the data and bootstrap the expanded fit. See
 expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
 reconciles the rebuilt column against {cmd:e(sum_w)} and against
 {cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by the
-{cmd:stset} {opt id()} variable ({cmd:e(idvar)}) when one was declared and by
-value alone otherwise, so a change that leaves the
-total untouched -- including an exchange of two subjects' weights -- is
-refused too. Estimates saved before this build carry no {cmd:e(wsig)} and
+{cmd:stset} {opt id()} variable ({cmd:e(idvar)}) when one was declared and
+otherwise by each observation's values of the {cmd:e(datasignature)} variables
+(listed in {cmd:e(wsigkeyvars)}), so a change that leaves the
+total untouched -- including an exchange of two subjects' weights, or of two
+scalars the weight expression reads -- is refused too; a plain re-sort is not. Estimates saved before this build carry no {cmd:e(wsig)} and
 reconcile by total only; post-estimation prints a warning on every such call,
 because a change that leaves {cmd:e(sum_w)} unmoved is then undetected and the
 result may be computed from a weight column the fit never saw.
@@ -945,6 +946,8 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(bstrata)}}baseline strata variable; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(bstrata_noevent)}}strata with no cause event; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(bstrata_noevent_x)}}the same strata in {cmd:%21x}; only with {opt bstrata()}{p_end}
+{synopt:{cmd:e(bstrata_level)}}the sole fitted stratum; only when {opt bstrata()} has one level{p_end}
+{synopt:{cmd:e(bstrata_level_x)}}the same level in {cmd:%21x}; only when {opt bstrata()} has one level{p_end}
 {synopt:{cmd:e(tvc)}}variables named in {opt tvc()}; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tsplit)}}interior interval boundaries; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tvc_covariates)}}design columns they resolved to; only with {opt tvc()}{p_end}
@@ -960,6 +963,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
 {synopt:{cmd:e(wsig)}}weight-column digest; only with weights{p_end}
+{synopt:{cmd:e(wsigkeyvars)}}{cmd:e(wsig)} key; weights without {opt id()}{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(vcetype)}}{cmd:Robust}; not set under {opt norobust}{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
@@ -1018,7 +1022,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.7, 2026-09-23{p_end}
+{pstd}Version 1.3.7, 2026-09-28{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

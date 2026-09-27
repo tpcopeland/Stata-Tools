@@ -142,6 +142,16 @@ capture noisily {
             * to know that from a shared state string.
             local _st : char _dta[seed]
             char _dta[seed] "`_st'-piece`i'"
+            * Likewise the lineage stamp: all three pieces inherit the one
+            * run's component name, which the overlap guard (audit F05)
+            * correctly reads as the same draws three times. Piece 1 keeps the
+            * original name, so the anchor (the unsplit run) is still a member.
+            * This fixture tests append arithmetic, not genuine lineage; that
+            * is test_iivw_codexaudit_2026_09_27_b.do C5/C7.
+            if `i' > 1 {
+                local _ln : char _dta[_iivw_shard_lineage]
+                char _dta[_iivw_shard_lineage] "`_ln'-piece`i'"
+            }
             quietly save "`work'/t1_p`i'.dta", replace
         }
     }

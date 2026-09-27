@@ -143,7 +143,11 @@ replace an existing frame{p_end}
 
 {phang}
 {opt full} show all rows including those normally filtered (e.g., display all teffects rows, not
-just ATE/POmean){p_end}
+just ATE/POmean). When the collection has more than one equation, each equation gets a header
+row and its coefficients follow it, so same-named coefficients of different equations (such as
+{cmd:x} in {cmd:OME0} and {cmd:OME1}) are kept apart; {cmd:r(table)} rows are then named
+{it:equation}{cmd::}{it:name}, and the {opt eplotframe()} variable {cmd:section} holds the
+equation{p_end}
 
 {phang}
 {opt headerc:olor(string)} custom header background color as a supported Stata color name or RGB

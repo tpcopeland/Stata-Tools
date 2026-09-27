@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.2.0  2026/09/15
+*! iivw_diagnose Version 4.3.0  2026/09/28
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -144,6 +144,58 @@ program define iivw_diagnose, rclass
                 error 111
             }
             local se_`role' = scalar(`_setmp')
+
+            * Readable is not estimable. Stata exposes an omitted (collinear)
+            * or base-level term as _b = 0 with _se = 0, so the two reads above
+            * succeed and the term was reported as known exactly: b=0, SE=0,
+            * CI=[0,0], decomposable=1 (audit F12). Refuse it by its omit flag.
+            * SE = 0 alone is not the test: a noise-free fit estimates its
+            * coefficients exactly, with a true zero SE. Only for a spelling
+            * colnumb() cannot place does the placeholder pair b = 0 and
+            * SE = 0 stand in for the flag.
+            local _omitted = 0
+            local _bcol = colnumb(e(b), "`coefficient'")
+            if `_bcol' < . {
+                capture _ms_omit_info e(b)
+                if _rc == 0 {
+                    tempname _omit
+                    matrix `_omit' = r(omit)
+                    if `_omit'[1, `_bcol'] == 1 local _omitted = 1
+                }
+            }
+            else if `b_`role'' == 0 & `se_`role'' == 0 local _omitted = 1
+            if `_omitted' {
+                display as error ///
+                    "coefficient `coefficient' is not estimated in stored estimates '`estname''"
+                display as error ///
+                    "  it is omitted (collinear) or a base level: its b and SE are"
+                display as error ///
+                    "  placeholders, not an estimate with zero uncertainty"
+                error 459
+            }
+
+            * The interval the fit SELECTED. An iivw_fit percentile, basic or
+            * BCa interval is not b +/- crit*SE, and rebuilding a Wald interval
+            * from its SE silently swapped the procedure at an unchanged level
+            * (audit F10). Keep the stored endpoints and their level; H4 uses
+            * them and refuses a level they cannot be relabelled to.
+            local citype_`role' ""
+            if "`e(iivw_cmd)'" == "iivw_fit" & ///
+                inlist("`e(iivw_ci_type)'", "percentile", "basic", "bca") {
+                tempname _cim
+                capture matrix `_cim' = e(iivw_ci)
+                local _cicol = .
+                if _rc == 0 local _cicol = colnumb(`_cim', "`coefficient'")
+                if `_cicol' >= . {
+                    display as error ///
+                        "stored `e(iivw_ci_type)' interval for `coefficient' not found in '`estname''"
+                    error 111
+                }
+                local citype_`role' "`e(iivw_ci_type)'"
+                local cill_`role' = `_cim'[1, `_cicol']
+                local ciul_`role' = `_cim'[2, `_cicol']
+                local cilev_`role' = e(level)
+            }
 
             * Metadata for the comparability gate (H3) and the interval
             * distribution (H4). Captured while the estimates are restored --
@@ -468,6 +520,26 @@ program define iivw_diagnose, rclass
         local ll_adjusted   = `b_adjusted'   - `crit_adjusted'   * `se_adjusted'
         local ul_adjusted   = `b_adjusted'   + `crit_adjusted'   * `se_adjusted'
 
+        * A stored asymmetric interval replaces the Wald rebuild, at its own
+        * level only. Its endpoints are quantiles of draws that are not kept
+        * with the estimates, so another level cannot be formed from them;
+        * relabelling them would be the same silent substitution in reverse.
+        foreach role in unweighted weighted adjusted {
+            if "`citype_`role''" == "" continue
+            if reldif(`level', `cilev_`role'') > 1e-8 | missing(`cilev_`role'') {
+                display as error ///
+                    "stored estimates '``role''' carry a `citype_`role'' interval at level `cilev_`role''"
+                display as error ///
+                    "  it cannot be rebuilt at level(`level') from the stored endpoints;"
+                display as error ///
+                    "  specify level(`cilev_`role'') or refit at the level you want"
+                error 198
+            }
+            local ll_`role' = `cill_`role''
+            local ul_`role' = `ciul_`role''
+            local dist_`role' "`citype_`role''"
+        }
+
         matrix `_estimates' = ///
             (`b_unweighted', `se_unweighted', `ll_unweighted', `ul_unweighted' \ ///
              `b_weighted',   `se_weighted',   `ll_weighted',   `ul_weighted' \ ///
@@ -503,6 +575,25 @@ program define iivw_diagnose, rclass
             local share_note "contrast"
         }
 
+        * One eligibility decision for every output surface (audit F11). The
+        * console used to suppress shares for endogenous adjustment while r()
+        * and the workbook still carried them, and force printed and returned
+        * shares the help promises to withhold for incomparable estimates.
+        * Withheld shares are MISSING everywhere; the gaps stay, because they
+        * are the descriptive movement force and endogeneity still report.
+        local shares_withheld ""
+        if `_forced_incomparable' {
+            local shares_withheld "incomparable"
+        }
+        else if "`exogeneity'" == "endogenous" & "`estimand'" == "marginal" {
+            local shares_withheld "endogenous"
+        }
+        if "`shares_withheld'" != "" {
+            local sampling_share = .
+            local artifact_share = .
+            local shares_available = 0
+        }
+
         local conclusion "descriptive"
         if "`estimand'" == "contrast" {
             local conclusion "movement_only"
@@ -523,6 +614,10 @@ program define iivw_diagnose, rclass
             * attribution. The label stays descriptive so no output claims more
             * than the data support.
             local conclusion "shares_descriptive"
+        }
+        * force with incomparable estimates: no share-based conclusion applies.
+        if "`shares_withheld'" == "incomparable" & "`estimand'" == "marginal" {
+            local conclusion "descriptive"
         }
 
         display as text ""
@@ -568,6 +663,11 @@ program define iivw_diagnose, rclass
             display as text ""
             display as text "Treatment contrasts may be structurally insensitive to weighting even"
             display as text "when the marginal/reference slope is sampling-biased."
+        }
+        else if "`shares_withheld'" == "incomparable" {
+            display as text ""
+            display as text "Sampling/artifact shares are withheld because the three estimates"
+            display as text "are not comparable (force); the gaps above are descriptive only."
         }
         else if `shares_available' & "`exogeneity'" != "endogenous" {
             display as text "Sampling share:     " as result %9.1f (100 * `sampling_share') as text "%"

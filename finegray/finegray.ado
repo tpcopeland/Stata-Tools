@@ -1,4 +1,4 @@
-*! finegray Version 1.3.7  2026/09/23
+*! finegray Version 1.3.7  2026/09/28
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -79,6 +79,29 @@ program define finegray, eclass sortpreserve
     set varabbrev off
 
     local _cmdline `"finegray `0'"'
+
+    * The engine returns through FIXED matrix names, and the cleanup below drops
+    * them on every exit.  A caller matrix of the same name was destroyed even
+    * by a syntax error, and on a successful fit a name the engine did not
+    * write this time (_finegray_nclust without cluster()) was read back into
+    * e() (audit F07, 2026-09-27).  Park each pre-existing one under a tempname
+    * and clear the name, so the fit sees only what the engine wrote; the
+    * cleanup zone puts them back, contents and stripes, on success and error.
+    local _fg_engmats _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
+        _finegray_chi2 _finegray_df_m _finegray_conv ///
+        _finegray_rank _finegray_nclust _finegray_basehaz ///
+        _finegray_kbstrata ///
+        _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
+        _finegray_nprobwarn _finegray_nwtwarn _finegray_nprehole
+    local _fg_parked ""
+    foreach _fg_m of local _fg_engmats {
+        capture confirm matrix `_fg_m'
+        if !_rc {
+            tempname _fg_pk
+            matrix rename `_fg_m' `_fg_pk'
+            local _fg_parked `"`_fg_parked' `_fg_m' `_fg_pk'"'
+        }
+    }
 
     capture noisily {
 
@@ -1872,7 +1895,15 @@ program define finegray, eclass sortpreserve
     if _rc {
         capture findfile _finegray_mata.ado
         if _rc == 0 {
-            run "`r(fn)'"
+            * A failed load aborts _finegray_mata.ado before it restores the
+            * caller's matastrict; restore it here on that path (audit F08).
+            local _fg_ms0 = c(matastrict)
+            capture noisily run "`r(fn)'"
+            if _rc {
+                local _fg_lrc = _rc
+                mata: mata set matastrict `_fg_ms0'
+                exit `_fg_lrc'
+            }
         }
         else {
             display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -1891,8 +1922,18 @@ program define finegray, eclass sortpreserve
     * Keyed by the stset id() variable: without it the digest is invariant to
     * EXCHANGING two subjects' weights, which leaves e(sum_w) and the multiset
     * of weight values untouched and rebuilt a different column at rc 0.
+    * WITHOUT id() there is no subject key, and a value-only digest cannot see
+    * which row carries which weight: exchanging the scalars in
+    * [pw = cond(g, scalar(a), scalar(b))] kept data, e(sum_w) and the multiset
+    * of weights and was accepted at rc 0 (audit F03, 2026-09-27).  Key each row
+    * by its content in the signature variables instead -- sort-invariant, and
+    * rows identical in all of them are interchangeable to the fit.  The list is
+    * posted as e(wsigkeyvars) so post-estimation rebuilds the same key.
+    local _fg_wsigkey ""
     if "`weight'" != "" {
-        mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_idvar'")
+        if `"`_fg_idvar'"' != "" local _fg_wsigkey `"`_fg_idvar'"'
+        else local _fg_wsigkey "`_fg_sigvars'"
+        mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_wsigkey'")
     }
 
     * =========================================================================
@@ -2252,6 +2293,7 @@ program define finegray, eclass sortpreserve
         ereturn scalar sum_w = `_fg_sumw'
         ereturn scalar wsig_n = `_fg_wsig_n'
         ereturn local wsig "`_fg_wsig'"
+        if `"`_fg_idvar'"' == "" ereturn local wsigkeyvars "`_fg_wsigkey'"
     }
     ereturn scalar N_fail = `N_fail'
     ereturn scalar N_compete = `N_compete'
@@ -2415,6 +2457,14 @@ program define finegray, eclass sortpreserve
     * a level obtained any other way misses at rc 0; every internal consumer
     * compares this one.
     if "`_fg_bs_noeventx'" != "" ereturn local bstrata_noevent_x "`_fg_bs_noeventx'"
+    * The sole level of a single-level bstrata() fit.  Its baseline is posted
+    * in the compact unstratified shape, so without this a row in a level the
+    * fit never saw was answered from the fitted level's curve at rc 0.
+    * Readable and %21x forms, as for e(bstrata_noevent).
+    if "`bstrata'" != "" & "`_fg_bs_singlex'" != "" {
+        ereturn local bstrata_level "`_fg_bs_single'"
+        ereturn local bstrata_level_x "`_fg_bs_singlex'"
+    }
     * Piecewise beta(t).
     *   e(tvc)            the variables the user named
     *   e(tsplit)         the interior boundaries, ascending
@@ -2718,14 +2768,15 @@ program define finegray, eclass sortpreserve
 
     local rc = _rc
 
-    * Clean up temporary matrices (runs on both success and error paths)
-    foreach m in _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
-        _finegray_chi2 _finegray_df_m _finegray_conv ///
-        _finegray_rank _finegray_nclust _finegray_basehaz ///
-        _finegray_kbstrata ///
-        _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
-        _finegray_nprobwarn _finegray_nwtwarn _finegray_nprehole {
+    * Clean up temporary matrices (runs on both success and error paths),
+    * then return any caller matrix parked above to its own name.
+    foreach m of local _fg_engmats {
         capture matrix drop `m'
+    }
+    while `"`_fg_parked'"' != "" {
+        gettoken _fg_m _fg_parked : _fg_parked
+        gettoken _fg_pk _fg_parked : _fg_parked
+        capture matrix rename `_fg_pk' `_fg_m'
     }
 
     * Drop FV indicators on error (they persist on success for predict)

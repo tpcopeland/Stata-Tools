@@ -95,23 +95,24 @@ program define _qa_iivw_assert_absent
     }
 end
 
-* Flag any help-file line on which SMCL braces do not balance -- i.e. a
-* directive left open across a newline, which the Viewer renders literally.
-* Sets `smcl_bad' to the number of offending lines.
+* Source-level lint: flag any help-file line on which SMCL braces do not
+* balance -- a directive left open across a newline. This reads SOURCE; it is
+* not a rendering check (that is _qa_iivw_render_help below). The file list is
+* the package's .sthlp inventory, not a hand-kept list: the hand-kept one
+* omitted iivw_bspool.sthlp (audit F15). Sets `smcl_bad'.
 capture mata: mata drop _iivw_smcl_scan()
 mata:
 void _iivw_smcl_scan(string scalar pkg_dir)
 {
-    string vector files
+    string colvector files
     string scalar  path, line, s
     real scalar    f, fh, ln, nopen, nclose, bad
 
-    files = ("iivw", "iivw_weight", "iivw_balance", "iivw_fit",
-             "iivw_exogtest", "iivw_diagnose")
+    files = sort(dir(pkg_dir, "files", "*.sthlp"), 1)
     bad = 0
 
-    for (f = 1; f <= cols(files); f++) {
-        path = pkg_dir + "/" + files[f] + ".sthlp"
+    for (f = 1; f <= rows(files); f++) {
+        path = pkg_dir + "/" + files[f]
         fh = fopen(path, "r")
         ln = 0
         while ((line = fget(fh)) != J(0, 0, "")) {
@@ -123,7 +124,7 @@ void _iivw_smcl_scan(string scalar pkg_dir)
             nopen  = strlen(s) - strlen(subinstr(s, "{", ""))
             nclose = strlen(s) - strlen(subinstr(s, "}", ""))
             if (nopen != nclose) {
-                printf("{err}  %s.sthlp:%f: unbalanced SMCL braces\n",
+                printf("{err}  %s:%f: unbalanced SMCL braces\n",
                        files[f], ln)
                 printf("{err}    %s\n", line)
                 bad++
@@ -132,7 +133,68 @@ void _iivw_smcl_scan(string scalar pkg_dir)
         fclose(fh)
     }
     st_local("smcl_bad", strofreal(bad))
+    st_local("smcl_nfiles", strofreal(rows(files)))
 }
+end
+
+* Rendering oracle: the text Stata's own SMCL interpreter produces for a help
+* file (`type ..., smcl', captured by a named text log between sentinels),
+* scanned for directives that survived into the visible output. Where a
+* directive straddles a newline or a paragraph opens unterminated, the
+* interpreter prints the markup literally -- `translate' tolerates both, so it
+* is not a sound oracle. Mirrors the devkit's `artifact help' renderer.
+* Returns the literal-markup line count and the rendered body line count; an
+* empty body is a render that did not happen and must fail, not pass.
+capture mata: mata drop _iivw_render_scan()
+mata:
+void _iivw_render_scan(string scalar logfile)
+{
+    string scalar line, pat
+    real scalar fh, inbody, nbody, nlit
+
+    pat = "[{](pstd|phang[0-9]?|pmore|pin|p_end|psee|synopt|synoptline|p2col|col |cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|syntab:|break|p [0-9])"
+    fh = fopen(logfile, "r")
+    inbody = 0
+    nbody = 0
+    nlit = 0
+    while ((line = fget(fh)) != J(0, 0, "")) {
+        if (strtrim(line) == "<<<IIVW-RENDER-BEGIN>>>") {
+            inbody = 1
+            continue
+        }
+        if (strtrim(line) == "<<<IIVW-RENDER-END>>>") inbody = 0
+        if (!inbody) continue
+        if (strtrim(line) != "") nbody++
+        if (ustrregexm(line, pat)) {
+            // escape the braces so the offending line displays verbatim
+            printf("{err}    literal markup: %s\n",
+                subinstr(subinstr(subinstr(line, "{", char(1)), "}", "{c )-}"),
+                    char(1), "{c -(}"))
+            nlit++
+        }
+    }
+    fclose(fh)
+    st_local("render_body", strofreal(nbody))
+    st_local("render_literal", strofreal(nlit))
+}
+end
+
+capture program drop _qa_iivw_render_help
+program define _qa_iivw_render_help, rclass
+    version 16.0
+    syntax , FILE(string)
+    tempfile rlog
+    capture log close _iivwrender
+    quietly log using "`rlog'", text replace name(_iivwrender)
+    display "<<<IIVW-RENDER-BEGIN>>>"
+    capture noisily type "`file'", smcl
+    local trc = _rc
+    display "<<<IIVW-RENDER-END>>>"
+    quietly log close _iivwrender
+    mata: _iivw_render_scan(st_local("rlog"))
+    if `trc' local render_body = 0
+    return scalar body = `render_body'
+    return scalar literal = `render_literal'
 end
 
 capture program drop _qa_iivw_doc_data
@@ -412,7 +474,7 @@ else {
 }
 
 * -----------------------------------------------------------------------------
-* SMCL render integrity: no directive may span a newline
+* SMCL source lint: no directive may span a newline
 *
 * An SMCL directive must open and close on ONE line.  Wrap a paragraph so that
 * "{it:Mean-1" ends a line and "normalization}" begins the next, and Stata's
@@ -424,7 +486,8 @@ else {
 *
 * Detection: strip the two literal-brace escapes ({c -(} and {c )-}), then
 * require the braces on each line to balance.  Verified to flag both halves of
-* the shipped defect and to leave all six current help files clean.
+* the shipped defect. This is a SOURCE check over the .sthlp inventory; the
+* rendering check is the next case.
 * -----------------------------------------------------------------------------
 * Done in Mata, not with `file read' + macros: a help-file line legitimately
 * contains double quotes and unbalanced braces, and expanding one into a Stata
@@ -433,10 +496,68 @@ else {
 local ++test_count
 capture noisily {
     mata: _iivw_smcl_scan("`pkg_dir'")
+    assert `smcl_nfiles' >= 7
     assert `smcl_bad' == 0
 }
 if _rc == 0 {
-    display as result "  PASS: all help files render without literal SMCL markup"
+    display as result "  PASS: every help file's source lines balance their SMCL braces"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: SMCL source brace balance (error `=_rc')"
+    local ++fail_count
+}
+
+* -----------------------------------------------------------------------------
+* SMCL render integrity: what the interpreter actually prints (audit F15)
+*
+* The brace count above reads source. This renders every .sthlp in the package
+* inventory through Stata's SMCL interpreter and requires the visible text to
+* contain no surviving directive. Two negative controls run first -- a
+* directive split across lines and an unterminated paragraph, both of which
+* Stata prints literally -- so a renderer that silently stopped working (no
+* body, or a scanner that matches nothing) fails here instead of passing.
+local ++test_count
+capture noisily {
+    tempfile ctl_good ctl_split ctl_open
+    tempname cf
+    file open `cf' using "`ctl_good'", write replace text
+    file write `cf' "{smcl}" _n "{title:Control}" _n "{pstd}" _n ///
+        "Text with {bf:bold} and {cmd:code}." _n "{p_end}" _n
+    file close `cf'
+    file open `cf' using "`ctl_split'", write replace text
+    file write `cf' "{smcl}" _n "{title:Control}" _n "{pstd}" _n ///
+        "Text with {bf:bold" _n "across lines} here." _n "{p_end}" _n
+    file close `cf'
+    file open `cf' using "`ctl_open'", write replace text
+    file write `cf' "{smcl}" _n "{title:Control}" _n "{p 4 4 2" _n ///
+        "Unterminated." _n "{p_end}" _n
+    file close `cf'
+    display as text "    negative controls (the two literal-markup reports below are expected):"
+    _qa_iivw_render_help, file("`ctl_good'")
+    assert r(body) > 0 & r(literal) == 0
+    _qa_iivw_render_help, file("`ctl_split'")
+    assert r(body) > 0 & r(literal) > 0
+    _qa_iivw_render_help, file("`ctl_open'")
+    assert r(body) > 0 & r(literal) > 0
+
+    local sthlp : dir "`pkg_dir'" files "*.sthlp"
+    local nh : word count `sthlp'
+    local has_bspool : list posof "iivw_bspool.sthlp" in sthlp
+    assert `nh' >= 7 & `has_bspool' > 0
+    local render_bad ""
+    foreach h of local sthlp {
+        _qa_iivw_render_help, file("`pkg_dir'/`h'")
+        display as text "    `h': rendered " r(body) " lines, " r(literal) " literal"
+        if r(body) == 0 | r(literal) > 0 local render_bad "`render_bad' `h'"
+    }
+    if "`render_bad'" != "" {
+        display as error "  literal SMCL in rendered help:`render_bad'"
+        exit 9
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: all `nh' help files render without literal SMCL markup"
     local ++pass_count
 }
 else {

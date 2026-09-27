@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.2.0  2026/09/15
+*! iivw_fit Version 4.3.0  2026/09/28
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -637,6 +637,32 @@ program define iivw_fit, eclass
         markout `touse' `interaction'
     }
 
+    * glm drops a row whose offset() or exposure() is missing. The marker has
+    * to know that BEFORE anything is built from it: the point-only repost, the
+    * refit-bootstrap outcome frame and the reported e(N)/e(sample) all come
+    * from `touse', so a row glm silently removed was reported as used (audit
+    * F09: 80 rows fitted, 100 reported). Parsed with glm's own abbreviations;
+    * the parse is a no-op when geeopts() holds neither option, and a malformed
+    * geeopts() is left for glm itself to reject.
+    if "`model'" == "gee" & `"`geeopts'"' != "" {
+        local __iivw_save0 `"`0'"'
+        local __iivw_saveif `"`if'"'
+        local __iivw_savein `"`in'"'
+        local 0 `", `geeopts'"'
+        capture syntax [, OFFset(varname numeric) EXPosure(varname numeric) *]
+        if _rc == 0 {
+            if "`offset'"   != "" markout `touse' `offset'
+            if "`exposure'" != "" markout `touse' `exposure'
+        }
+        * A nested syntax resets `if'/`in' (see the vce() parse note above).
+        local 0 `"`__iivw_save0'"'
+        local if `"`__iivw_saveif'"'
+        local in `"`__iivw_savein'"'
+        local offset ""
+        local exposure ""
+        local options ""
+    }
+
     * ---------------------------------------------------------------------
     * Outcome ELIGIBILITY, recorded before weight availability.
     *
@@ -936,15 +962,27 @@ program define iivw_fit, eclass
     * two clusters would be silently split into two "subjects" by one draw and
     * duplicated by another -- an incoherent resampling scheme reported as if it
     * were a valid one. Refuse it.
+    *
+    * The count is taken over the rows the bootstrap actually resamples -- the
+    * outcome sample, or the whole visit panel under refitweights -- and only
+    * over those rows. It used to broadcast `[_N]' from the whole subject
+    * group, so when a subject's last-sorted row was outside the sample the
+    * broadcast value was missing, missing > 1 held, and every such subject
+    * was reported as crossing clusters (audit F13: 40 subjects nested in 10
+    * clinics refused with r(459) under `if t<3').
     if `bootstrap' > 0 & "`cluster'" != "`panel_id'" {
-        tempvar _iivw_ncl
-        quietly bysort `panel_id' (`cluster'): gen long `_iivw_ncl' = ///
-            sum(`cluster' != `cluster'[_n-1]) if `touse'
-        quietly bysort `panel_id' (`cluster'): replace `_iivw_ncl' = ///
-            `_iivw_ncl'[_N] if `touse'
-        quietly count if `_iivw_ncl' > 1 & `touse'
+        tempvar _iivw_ncl _iivw_nrel _iivw_ntag
+        quietly gen byte `_iivw_nrel' = `touse'
+        if "`bs_frame'" != "" {
+            quietly replace `_iivw_nrel' = 1 if `bs_frame' & ///
+                !missing(`panel_id') & !missing(`cluster')
+        }
+        quietly bysort `_iivw_nrel' `panel_id' `cluster': ///
+            gen byte `_iivw_ntag' = (_n == 1) & `_iivw_nrel'
+        quietly bysort `panel_id': egen long `_iivw_ncl' = total(`_iivw_ntag')
+        quietly count if `_iivw_ncl' > 1 & `_iivw_nrel'
         if r(N) > 0 {
-            quietly levelsof `panel_id' if `_iivw_ncl' > 1 & `touse', local(_bad_ids)
+            quietly levelsof `panel_id' if `_iivw_ncl' > 1 & `_iivw_nrel', local(_bad_ids)
             local _n_bad : word count `_bad_ids'
             display as error "panel unit is not nested within cluster()"
             display as error "  `_n_bad' `panel_id' value(s) appear in more than one `cluster'"
@@ -952,7 +990,7 @@ program define iivw_fit, eclass
             display as error "  subject inside the draw, which requires one cluster per subject"
             error 459
         }
-        drop `_iivw_ncl'
+        drop `_iivw_ncl' `_iivw_nrel' `_iivw_ntag'
     }
 
     * collect is only wired into the non-bootstrap model(gee) path; refuse it
@@ -1770,6 +1808,22 @@ program define iivw_fit, eclass
         _iivw_own stamp `__iivw_stamp_vars', role(design) prefix(`prefix')
     }
 
+    * Bind the generated columns to THIS fit (audit F03). The ownership token
+    * above says the package made a column; it cannot say which fit made it,
+    * and a later fit with `replace' can rebuild the same name with a different
+    * meaning. The fit token goes on every generated column and into e(), and
+    * _iivw_fit_p refuses to predict for a restored estimate whose columns now
+    * carry another fit's token. Clock plus a session counter: no RNG draw, so
+    * the user's random-number state is untouched.
+    if "$IIVW_FIT_SERIAL" == "" global IIVW_FIT_SERIAL 0
+    global IIVW_FIT_SERIAL = $IIVW_FIT_SERIAL + 1
+    local __iivw_fit_token : display %15.0f ///
+        clock("`c(current_date)' `c(current_time)'", "DMYhms")
+    local __iivw_fit_token = strtrim("`__iivw_fit_token'") + "_$IIVW_FIT_SERIAL"
+    foreach __iivw_v of local __iivw_stamp_vars {
+        char `__iivw_v'[_iivw_fit_token] "`__iivw_fit_token'"
+    }
+
     * =========================================================================
     * STABILIZATION VALIDITY
     * =========================================================================
@@ -2244,7 +2298,7 @@ program define iivw_fit, eclass
             depvar(`depvar') mu(`__iivw_mu') ///
             wtvar(`weight_var') cluster(`cluster') ///
             varfunc(`stacked_varfunc') ///
-            scoreterms(`stacked_terms') ainv(`stacked_ainv')
+            scoreterms(`stacked_terms') ainv(`stacked_ainv') nuisall
 
         tempname __iivw_Vstk __iivw_Vfix __iivw_Vglm
         matrix `__iivw_Vstk' = r(V_stacked)
@@ -2778,6 +2832,16 @@ program define iivw_fit, eclass
     * interval-producing fits; point-only ereturn post deliberately removed it.
     ereturn local cmd "iivw_fit"
 
+    * predict goes through _iivw_fit_p, which checks that the generated design
+    * columns still belong to this fit before calling the underlying model's
+    * own predict (audit F03). Point-only fits post no e(predict) and stay so.
+    if "`e(predict)'" != "" & "`e(predict)'" != "_iivw_fit_p" {
+        ereturn local iivw_predict "`e(predict)'"
+        ereturn local predict "_iivw_fit_p"
+    }
+    ereturn local iivw_design_token "`__iivw_fit_token'"
+    ereturn local iivw_design_vars "`__iivw_stamp_vars'"
+
     * Make the saved replicate file self-describing. Stata's bootstrap prefix
     * writes the draws, the observed estimates and the column stripes, but
     * nothing that says which iivw fit produced them -- and two files with
@@ -2786,7 +2850,9 @@ program define iivw_fit, eclass
     * the committed result, including the final inference status, rather than
     * an intermediate one. See _iivw_bs_stamp.ado and iivw_bspool.
     if `"`saving'"' != "" & `bootstrap' > 0 {
-        _iivw_bs_stamp, file(`"`saving'"')
+        * spec(): the estimator-affecting outcome options, so two shards that
+        * agree on b and N but not on the analysis cannot pool (audit F04).
+        _iivw_bs_stamp, file(`"`saving'"') spec(`"m=`model'|f=`family'|l=`link'|ts=`timespec'|ix=`interaction'|cat=`categorical'|bc=`basecat'|tbc=`timebasecat'|cl=`cluster'|unw=`unweighted'|id=`id'|t=`time'|rf=`refitweights'|anc=`allownonconverged'|xm=`experimentalmixed'|geo=`geeopts'|mxo=`mixedopts'"')
     }
 
     }

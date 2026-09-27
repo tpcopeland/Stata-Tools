@@ -155,7 +155,8 @@ re-evaluated from {cmd:e(wexp)} and reconciled against {cmd:e(sum_w)}. See
 {bf:After a fit with} {helpb finegray##bstrata:bstrata()}: {opt cif} and
 {opt basecshazard} answer each row from its own stratum's baseline, so the
 {cmd:bstrata()} variable must be in the data. A missing value gives a missing
-prediction; a stratum with no cause event is {cmd:r(459)}. {opt xb} is
+prediction; a stratum with no cause event, or one the fit never saw (also
+after a single-level fit), is {cmd:r(459)}. {opt xb} is
 unaffected. See {help finegray##bstrata:Baseline strata}.
 
 {phang}

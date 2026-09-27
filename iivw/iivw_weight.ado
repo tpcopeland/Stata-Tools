@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.2.0  2026/09/15
+*! iivw_weight Version 4.3.0  2026/09/28
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1173,6 +1173,10 @@ program define iivw_weight, rclass sortpreserve
         display as text "  Visit model: stcox `visit_covars'"
 
         tempfile __iivw_iwfile
+        * Subject scores from the terminal censoring rows (see the drop of
+        * those rows below). A tempname frame is dropped when the program ends.
+        tempname __iivw_nsframe
+        local __iivw_nsframe_ok = 0
         local __iivw_visit_converged = 1
         local __iivw_stab_converged = 1
         local __iivw_iw_rc = 0
@@ -1396,9 +1400,12 @@ program define iivw_weight, rclass sortpreserve
                         "`__iivw_gscore_keep' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
                 }
                 local __iivw_scglist ""
+                local __iivw_gscore_ns ""
                 forvalues __iivw_j = 1/`__iivw_ng' {
                     local __iivw_scglist ///
                         "`__iivw_scglist' `__iivw_scg`__iivw_j''"
+                    local __iivw_gscore_ns ///
+                        "`__iivw_gscore_ns' `prefix'ns`__iivw_j'"
                 }
                 predict double `__iivw_scglist', scores
 
@@ -1447,6 +1454,24 @@ program define iivw_weight, rclass sortpreserve
             * The censoring rows have done their work: they held the subject in
             * the risk set while the models were fitted. They are not visits, so
             * they carry no weight and must not travel back to the user's data.
+            *
+            * Their SCORE must travel back, though. Under baseline(entry) a
+            * subject seen only at entry has no modeled event row: the entry row
+            * was dropped before the fit, so its terminal censoring row is the
+            * only row carrying the subject's Cox score. Dropping it left nothing
+            * to merge, and the missing-score fill after the restore then wrote
+            * 0 over a genuine nonzero influence contribution (audit F01). Keep a
+            * one-row-per-subject copy of the score from those rows; it is
+            * merged back by subject after the restore.
+            quietly count if `_censrow'
+            if `__iivw_scores' & "`wtype'" != "iptw" & r(N) > 0 {
+                frame put `id' `__iivw_gscore_ns' if `_censrow', ///
+                    into(`__iivw_nsframe')
+                frame `__iivw_nsframe' {
+                    quietly bysort `id': keep if _n == 1
+                }
+                local __iivw_nsframe_ok = 1
+            }
             drop if `_censrow'
 
             * Under baseline(event) the first visit is a MODELED monitoring
@@ -1629,8 +1654,18 @@ program define iivw_weight, rclass sortpreserve
         *   master-only. Filling it by subject rather than with 0 is the
         *   difference between the subject's real influence contribution and a
         *   silently dropped one.
+        *
+        *   A subject with NO merged row (seen only at entry, so its only
+        *   modeled row was the terminal censoring interval) takes its score
+        *   from the censoring-row table saved before those rows were dropped.
+        *   Only a subject the Cox model never saw is left at 0.
         if `__iivw_scores' & "`wtype'" != "iptw" {
             quietly {
+                if `__iivw_nsframe_ok' {
+                    tempvar __iivw_nslink
+                    frlink m:1 `id', frame(`__iivw_nsframe') ///
+                        generate(`__iivw_nslink')
+                }
                 forvalues __iivw_j = 1/`__iivw_ng' {
                     tempvar __iivw_nsfill
                     egen double `__iivw_nsfill' = ///
@@ -1638,11 +1673,20 @@ program define iivw_weight, rclass sortpreserve
                     replace `prefix'ns`__iivw_j' = `__iivw_nsfill' ///
                         if missing(`prefix'ns`__iivw_j')
                     drop `__iivw_nsfill'
+                    if `__iivw_nsframe_ok' {
+                        tempvar __iivw_nscens
+                        frget `__iivw_nscens' = ///
+                            `prefix'ns`__iivw_j', from(`__iivw_nslink')
+                        replace `prefix'ns`__iivw_j' = `__iivw_nscens' ///
+                            if missing(`prefix'ns`__iivw_j')
+                        drop `__iivw_nscens'
+                    }
                     replace `prefix'ns`__iivw_j' = 0 ///
                         if missing(`prefix'ns`__iivw_j')
                     replace `prefix'nd`__iivw_j' = 0 ///
                         if missing(`prefix'nd`__iivw_j')
                 }
+                if `__iivw_nsframe_ok' drop `__iivw_nslink'
             }
             local __iivw_created_vars ///
                 "`__iivw_created_vars' `__iivw_gscore_keep'"

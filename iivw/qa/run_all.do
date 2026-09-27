@@ -116,6 +116,7 @@ local quick_suites ///
     test_iivw_v401_regressions ///
     test_iivw_v413_regressions ///
     test_iivw_v420_shard ///
+    test_iivw_codexaudit_2026_09_27_a ///
     test_iivw_balance ///
     test_iivw_performance ///
     test_iivw_weight_validation_guards ///
@@ -196,6 +197,8 @@ local core_suites ///
     test_iivw_v401_regressions ///
     test_iivw_v413_regressions ///
     test_iivw_v420_shard ///
+    test_iivw_codexaudit_2026_09_27_a ///
+    test_iivw_codexaudit_2026_09_27_b ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///

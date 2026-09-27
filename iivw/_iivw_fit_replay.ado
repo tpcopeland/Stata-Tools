@@ -1,4 +1,4 @@
-*! _iivw_fit_replay Version 4.2.0  2026/09/15
+*! _iivw_fit_replay Version 4.3.0  2026/09/28
 *! Replay a stored iivw_fit result, including asymmetric bootstrap intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (displays only; touches neither r() nor e())
@@ -40,10 +40,13 @@ program define _iivw_fit_replay, nclass
     * regression coverage is test_iivw_v420_shard.do case T21.
     syntax [, Level(string) TItle(string)]
 
+    * The domain iivw_fit's own level(cilevel) accepts, 10 to 99.99. The old
+    * integer-only rule made a level(95.5) fit refuse an explicit replay at its
+    * own level (audit F14). Relabeling frozen endpoints is still refused below.
     if "`level'" != "" {
-        capture confirm integer number `level'
-        if _rc | `level' < 10 | `level' > 99 {
-            display as error "level() must be an integer between 10 and 99"
+        capture confirm number `level'
+        if _rc | `level' < 10 | `level' > 99.99 {
+            display as error "level() must be a number between 10 and 99.99"
             display as error "  got: `level'"
             error 198
         }

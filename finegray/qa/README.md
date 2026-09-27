@@ -77,7 +77,7 @@ One sentence per file. The full prose that used to sit in these cells is preserv
 | `test_finegray_adversarial_v120.do` | Cross-feature and boundary probes for the v1.2.0 surface: a hand-built delayed-entry partial likelihood, zero-length episodes, an empty early risk set, degenerate `truncstrata()`, `nuisance` with two clusters, genuinely failing bootstrap replications, and the scoped missing-`compete()` refusal. |
 | `test_finegray_errors.do` | Public error contracts: early option conflicts in the fit, mid-path CIF grid conflicts and the fitted state they must preserve, the PH-diagnostic option contract, and ignored-option probes in prediction. |
 | `test_finegray_release120.do` | VCE contradictions, clustered bootstrap identities, raw residuals, and cluster-label invariance. |
-| `test_finegray_noid.do` | `stset` without `id()`: the fit, post-estimation, delayed entry, `cluster()`, `pweight` (value-only digest still refuses a changed weight) and bootstrap refits are bit-identical to the same data declared with `id()`; `e(idvar)` is empty and no residue is left; the multiple-record contract under `id()` is unchanged. |
+| `test_finegray_noid.do` | `stset` without `id()`: the fit, post-estimation, delayed entry, `cluster()`, `pweight` (the observation-keyed digest still refuses a changed weight) and bootstrap refits are bit-identical to the same data declared with `id()`; `e(idvar)` is empty and no residue is left; the multiple-record contract under `id()` is unchanged. |
 | `test_finegray_ties.do` | Censor/event tie conventions and delayed-entry risk-set boundaries. |
 | `test_finegray_optimizer.do` | Rank, convergence, tolerance, accepted-likelihood, and Newton-decrement safeguards. |
 | `test_finegray_variance.do` | Robust, clustered, model-based, adjusted, and rank-aware variance contracts, including the finite-sample factor as a coefficient-variance convention that leaves every analytic CIF standard error untouched. |
@@ -100,6 +100,7 @@ One sentence per file. The full prose that used to sit in these cells is preserv
 | `test_finegray_nullcase.do` | Fail-open contracts (Critical Rules 14/15): degenerate artifacts that travel the whole command and produce nothing must exit nonzero and leave no half-written variable behind. Each refusal is paired with a positive control. |
 | `test_finegray_horizon_precision.do` | Explicit `attime()`/`timepoints()` horizons are used as typed: known answers at, one ulp before, and one ulp after a tied cause event; two horizons that round to the same nine digits stay two rows; duplicates collapse by value; literals beside ranges keep their precision; the default grid and `predict` agree at the event. |
 | `test_finegray_cif_overflow.do` | `exp(xb)` overflow at a finite `at()` profile: `finegray_cif` posts CIF 1 with SE 0 and no limits (never a missing CIF with a zero SE), identical to the finite row one step short of the overflow; bootstrap SD finite; `finegray_predict, cif` gives 1 after the first event and 0 before it; the piecewise `tvc()` paths agree; a nonfinite profile is refused. |
+| `test_finegray_codexaudit_2026_09_27_b.do` | Codex audit 2026-09-27 F03/F07/F08/F09 regressions: an id()-less weighted fit refuses a scalar exchange that keeps the weight multiset (pweight and fweight) while re-sorts and saved/restored estimates still reconcile; caller matrices named like the engine outputs survive failed and successful fits with contents and stripes; `matastrict` survives cold, warm and failed engine loads from on and off; additive covariate origins x+c (c up to 1300, and -1000) leave b, V, ll, the CIF and its CI unchanged on plain, delayed-entry, cluster, `tvc()` and pweight fits, and unrepresentable offsets fail with no e() posted. |
 | `test_finegray_failclosed.do` | Missing-injection regressions for the QA guard constructs themselves (FG-08A): every guard in `FAILCLOSED_GUARD_MAP.md` gets a fixture where the guarded quantity is missing, the unguarded form passes on it, and the guard exits nonzero. |
 | `test_finegray_hostile.do` | No-event and foreign-postestimation refusal with input preservation. |
 | `test_finegray_entry_state.do` | Restored-estimate entry metadata, new-data prediction after multiple-record fits, and exact fractional baseline-stratum keys under time-varying effects. |
@@ -183,23 +184,22 @@ To deliberately regenerate references after changing a fixture or generator, run
 
 ## Lane membership
 
-`quick` is contained in `core`, and `core` plus the adversarial and external-oracle suites forms `full`; `full` is the default release gate. The explicit per-suite lists in `run_all.do` are authoritative.
+`quick` is contained in `core`, and `core` plus the adversarial suites, the external-oracle suites and the default-variance Monte Carlo forms `full`; `full` is the default release gate. The explicit per-suite lists in `run_all.do` are authoritative.
 
 | Lane | Suites |
 |---|---|
 | `quick` | All curated functional/regression `test_*` suites except the two adversarial suites; includes the fence matrix, the `mi` lattice probe, the `tvc()` x `bstrata()` suite and the design-weight suite. |
 | `core` | `quick`, deterministic/known-truth validation, and native `stcrreg` prediction parity. |
 | `python` | Frozen-reference integrity and the R-backed `crossval_*` suites; the name is retained for compatibility. |
-| `full` | `core`, the two `test_finegray_adversarial_*` suites, plus `python`; default `run_all.do` and release-wrapper gate. |
+| `full` | `core`, the two `test_finegray_adversarial_*` suites, `python`, and `validation_variance_default_mc.do`; default `run_all.do` and release-wrapper gate. |
 | `gates` | The three multi-hour ZZF recovery, coverage, and factorization validations, run on demand. |
-| Standalone | `validation_variance_default_mc.do`: in no lane yet. It needs `Rscript` with `cmprsk` and `survival`, like `python`. Run it by name after any change to the variance, the censoring weights or `strata()`/`bstrata()`, and before quoting its numbers. |
 | Shell gates | Wrapper regression on non-`gates` lanes; stale-oracle gate on `python`/`full`; delayed-entry transfer proof on `full`/`gates`. |
 | Benchmark | `benchmark_finegray_zzf.do` and `benchmark_finegray_crossval.do`, run manually and never interpreted as a correctness verdict. |
 
 ## Known gaps
 
 - **`stata-mp -b do run_all.do <lane>` does not run the three shell gates.** The fail-closed (`fg02`), wrapper-regression and delayed-entry transfer gates live in `run_all.sh`, not in `run_all.do`, so the Stata runner — and the devkit CLI, which drives `run_all.do` — reports a green lane with none of them executed. The same is true of `run_all_status.txt` when it was last written by a `run_all.sh` run: the Stata runner does not write it. **A release receipt must come from `./run_all.sh full --source-repo <git checkout>`**, run from a scratch copy, and nothing else counts as one. Without `--source-repo` the transfer gate has no git tree to extract the pinned commit from; that reports `NOT-RUN` and fails the `full` and `gates` lanes rather than passing them silently.
-- `validation_variance_default_mc.do` is in no lane, so no receipt covers it. Adding it to `full` is proposed (about 3 minutes, and `full` already requires R); until `run_all.do` lists it, rerun it by hand.
+- `validation_variance_default_mc.do` runs only in `full` (about 3 minutes; it needs `Rscript` with `cmprsk` and `survival`), not in `quick` or `core`. After a change to the variance, the censoring weights or `strata()`/`bstrata()`, run `full` or run the file by name before quoting its numbers.
 - `full` intentionally excludes the multi-hour `gates` lane and scaling benchmark; their separate receipts and transfer pin do not substitute for rerunning them after an estimator-core change.
 
 `PWEIGHT_SCOPE.md` records a reproducible high-censoring counterexample and the precise population-interpretation boundary for pweights. Passing the recovery configuration or frozen R parity does not establish validity under general outcome-dependent sampling.

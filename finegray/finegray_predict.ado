@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.7  2026/09/23
+*! finegray_predict Version 1.3.7  2026/09/28
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -469,6 +469,21 @@ program define finegray_predict, rclass sortpreserve
             display as error "no observations with non-missing `_bsvar'"
             exit 2000
         }
+        * A single-level fit posts its baseline in the compact unstratified
+        * shape, which the Mata lookup cannot check a row against; the level
+        * itself travels in e(bstrata_level_x).  Refuse an unseen level here,
+        * as the multi-level lookup does, instead of answering it from the
+        * one fitted curve.  A fit stored by an earlier build carries no level and
+        * keeps its old behaviour.
+        if `"`e(bstrata_level_x)'"' != "" & ("`cif'" != "" | "`basecshazard'" != "") {
+            quietly count if `touse' & `_bsvar' != `e(bstrata_level_x)'
+            if r(N) > 0 {
+                display as error "finegray: `r(N)' observation(s) lie in bstrata() level(s) the fit never saw"
+                display as error "the fit has the single baseline stratum `_bsvar' = `e(bstrata_level)';"
+                display as error "each stratum carries its own baseline, so there is nothing to predict from"
+                exit 459
+            }
+        }
         * A stratum that carried no cause event has an identically zero Breslow
         * baseline -- a degenerate curve, not an estimate of one -- so a CIF or
         * basecshazard there would be an exact 0 that reads as a real finding.
@@ -866,7 +881,15 @@ program define finegray_predict, rclass sortpreserve
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {
-                run "`r(fn)'"
+                * A failed load aborts _finegray_mata.ado before it restores the
+                * caller's matastrict; restore it here on that path (audit F08).
+                local _fg_ms0 = c(matastrict)
+                capture noisily run "`r(fn)'"
+                if _rc {
+                    local _fg_lrc = _rc
+                    mata: mata set matastrict `_fg_ms0'
+                    exit `_fg_lrc'
+                }
             }
             else {
                 display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -966,7 +989,15 @@ program define finegray_predict, rclass sortpreserve
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {
-                run "`r(fn)'"
+                * A failed load aborts _finegray_mata.ado before it restores the
+                * caller's matastrict; restore it here on that path (audit F08).
+                local _fg_ms0 = c(matastrict)
+                capture noisily run "`r(fn)'"
+                if _rc {
+                    local _fg_lrc = _rc
+                    mata: mata set matastrict `_fg_ms0'
+                    exit `_fg_lrc'
+                }
             }
             else {
                 display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -1022,7 +1053,20 @@ program define finegray_predict, rclass sortpreserve
             * cannot vary by observation and a scalar boundary applied to every
             * stratum is exactly the pooled-baseline answer this composition
             * exists to avoid.
-            local _p_bs = ("`_bsvar'" != "" & rowsof(`_pcut') > 1)
+            * The layout is read from the COLUMN count, which is the schema:
+            * J-1 boundaries alone, or a stratum column plus J-1 boundaries.
+            * The row count is not: a fit with several strata but cause
+            * events in only one posts a ONE-row stratified matrix, and
+            * `rowsof() > 1' read its stratum value as Lambda_0(cut_1)
+            * (1.3.7).  A genuinely single-level fit keeps the compact
+            * unstratified K x 2 baseline and so the J-1 shape.
+            local _p_ncol = colsof(`_pcut')
+            if `_p_ncol' != `_fg_nint' - 1 & `_p_ncol' != `_fg_nint' {
+                display as error "internal error: tsplit() boundary matrix has `_p_ncol' columns"
+                display as error "for `_fg_nint' intervals"
+                exit 498
+            }
+            local _p_bs = ("`_bsvar'" != "" & `_p_ncol' == `_fg_nint')
             if `_p_bs' {
                 forvalues _pj = 1/`= `_fg_nint' - 1' {
                     tempvar _pcv`_pj'
@@ -1445,7 +1489,15 @@ program define finegray_predict, rclass sortpreserve
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc == 0 {
-                run "`r(fn)'"
+                * A failed load aborts _finegray_mata.ado before it restores the
+                * caller's matastrict; restore it here on that path (audit F08).
+                local _fg_ms0 = c(matastrict)
+                capture noisily run "`r(fn)'"
+                if _rc {
+                    local _fg_lrc = _rc
+                    mata: mata set matastrict `_fg_ms0'
+                    exit `_fg_lrc'
+                }
             }
             else {
                 display as error "_finegray_mata.ado not found; reinstall finegray"
@@ -1496,16 +1548,15 @@ program define finegray_predict, rclass sortpreserve
             local _fg_wtype = r(wtype)
         }
 
+        * Written straight into a tempname: a fixed output name clobbered
+        * and then dropped a caller's _finegray_schoenfeld matrix.
+        tempname sch_mat
         mata: _finegray_schoenfeld_compute( ///
             "`_score_varlist'", "`events_var'", `cause_val', `censvalue_val', ///
             "`_byg_mata'", "`_tg_mata'", 0, "`_t0var'", "`_bsvar'", ///
-            "`_fg_wmata'", `_fg_wtype')
+            "`_fg_wmata'", `_fg_wtype', "`sch_mat'")
 
         restore
-
-        tempname sch_mat
-        matrix `sch_mat' = _finegray_schoenfeld
-        capture matrix drop _finegray_schoenfeld
 
         local n_fail = rowsof(`sch_mat')
 

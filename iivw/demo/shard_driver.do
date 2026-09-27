@@ -39,7 +39,8 @@ version 16.0
 * CONFIGURATION
 * ==========================================================================
 
-* Where the shards run and write their files. Must be writable and empty-ish.
+* Where the shards run and write their files. Must be writable. Every output a
+* previous run left here is deleted before the shards launch (see FRESH RUN).
 local root "`c(pwd)'/shardrun"
 
 * Total draws, and how many processes to split them across. NSHARD must divide
@@ -88,12 +89,45 @@ if _rc {
 capture mkdir "`root'"
 
 * ==========================================================================
+* FRESH RUN
+* ==========================================================================
+* A rerun in the same root used to find the PREVIOUS run's replicate files and
+* anchor, check only that they existed, and pool them at rc 0 -- after every
+* current worker had died before fitting. So: delete every output this driver
+* reads before anything launches, and have each worker write a completion
+* marker carrying this invocation's token as its last act. Only a marker with
+* the current token counts as a finished shard.
+local run_token = subinstr("`c(current_date)'_`c(current_time)'", " ", "", .)
+local run_token = subinstr("`run_token'", ":", "", .) + "_" + ///
+    string(runiformint(1, 1e9), "%10.0f")
+
+capture erase "`root'/anchor.ster"
+capture erase "`root'/pooled.dta"
+capture erase "`root'/launch.sh"
+forvalues s = 1/`nshard' {
+    local sdir "`root'/shard`s'"
+    capture mkdir "`sdir'"
+    foreach f in reps.dta done.txt shard.log shard.do {
+        capture erase "`sdir'/`f'"
+        capture confirm file "`sdir'/`f'"
+        if !_rc {
+            display as error "could not remove the stale `sdir'/`f'"
+            exit 608
+        }
+    }
+}
+capture confirm file "`root'/anchor.ster"
+if !_rc {
+    display as error "could not remove the stale `root'/anchor.ster"
+    exit 608
+}
+
+* ==========================================================================
 * WRITE ONE DO-FILE PER SHARD
 * ==========================================================================
 
 forvalues s = 1/`nshard' {
     local sdir "`root'/shard`s'"
-    capture mkdir "`sdir'"
 
     * processors 1, per the note at the top. profile.do is read by every Stata
     * started in this directory, so it cannot be forgotten on a rerun.
@@ -123,6 +157,12 @@ forvalues s = 1/`nshard' {
     if `s' == 1 {
         file write `df' "estimates save " _char(34) "`root'/anchor" _char(34) ", replace" _n
     }
+    * The completion marker, last: a worker that stopped anywhere above never
+    * writes it, and the token ties it to this invocation.
+    file write `df' "tempname dn" _n
+    file write `df' "file open \`dn' using " _char(34) "`sdir'/done.txt" _char(34) ", write replace text" _n
+    file write `df' "file write \`dn' " _char(34) "`run_token'" _char(34) " _n" _n
+    file write `df' "file close \`dn'" _n
     file write `df' "display " _char(34) "SHARD_`s'_OK" _char(34) _n
     file close `df'
 }
@@ -130,37 +170,56 @@ forvalues s = 1/`nshard' {
 * ==========================================================================
 * LAUNCH
 * ==========================================================================
-* Backgrounded from one shell so the driver does not serialise them itself.
-* Each cd is inside its own subshell, so the shards do not fight over the
-* driver's working directory.
+* Backgrounded from one POSIX sh script so the driver does not serialise them
+* itself. Each cd is inside its own subshell, so the shards do not fight over
+* the driver's working directory. The script is run with sh explicitly:
+* -shell- hands its line to the user's login shell, and a non-POSIX one (fish)
+* could not parse the inline ( ... ) & form this used to pass it.
 
 display as text "Launching `nshard' shards..."
-local cmd ""
+tempname lf
+file open `lf' using "`root'/launch.sh", write replace text
 forvalues s = 1/`nshard' {
     local sdir "`root'/shard`s'"
-    local cmd "`cmd' ( cd '`sdir'' && `stata_bin' -b do shard.do ) &"
+    file write `lf' "( cd " _char(34) "`sdir'" _char(34) " && `stata_bin' -b do shard.do ) &" _n
 }
-local cmd "`cmd' wait"
-shell `cmd'
+file write `lf' "wait" _n
+file close `lf'
+shell sh "`root'/launch.sh"
 
 * ==========================================================================
-* VERIFY EVERY SHARD FINISHED
+* VERIFY EVERY SHARD FINISHED -- IN THIS RUN
 * ==========================================================================
-* A shard that died leaves no file, or a short one. Pooling K-1 files would
-* produce an interval from a draw count nobody chose, so check before pooling
-* and let iivw_bspool's reps() assertion catch anything this misses.
+* Neither the shell's return code nor a file's existence says a worker
+* succeeded: Stata batch mode exits 0 after an error. A shard counts only if it
+* wrote this run's token as its last act. Pooling K-1 files would produce an
+* interval from a draw count nobody chose, so check before pooling, and let
+* iivw_bspool's reps() assertion and identity checks catch anything this misses.
 
 local poollist ""
-local missing ""
+local failed ""
 forvalues s = 1/`nshard' {
-    local f "`root'/shard`s'/reps.dta"
-    capture confirm file "`f'"
-    if _rc local missing "`missing' `s'"
-    else   local poollist "`poollist' `f'"
+    local sdir "`root'/shard`s'"
+    local tok ""
+    capture confirm file "`sdir'/done.txt"
+    if !_rc {
+        tempname rf
+        file open `rf' using "`sdir'/done.txt", read text
+        file read `rf' tok
+        file close `rf'
+    }
+    capture confirm file "`sdir'/reps.dta"
+    if _rc | `"`tok'"' != "`run_token'" local failed "`failed' `s'"
+    else local poollist "`poollist' `sdir'/reps.dta"
 }
-if "`missing'" != "" {
-    display as error "shards that wrote no replicate file:`missing'"
+if "`failed'" != "" {
+    display as error "shards that did not finish in this run:`failed'"
     display as error "  read `root'/shard<n>/shard.log for the reason"
+    exit 459
+}
+capture confirm file "`root'/anchor.ster"
+if _rc {
+    display as error "shard 1 finished but wrote no anchor.ster"
     exit 601
 }
 
