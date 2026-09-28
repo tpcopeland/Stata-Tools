@@ -199,6 +199,7 @@ local core_suites ///
     test_iivw_v420_shard ///
     test_iivw_codexaudit_2026_09_27_a ///
     test_iivw_codexaudit_2026_09_27_b ///
+    test_iivw_route_grid ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///
