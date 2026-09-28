@@ -271,6 +271,14 @@ def check_col_not_empty(ws: Worksheet, col_letter: str) -> CheckResult:
     """Check that a column has no empty cells in the data range (row 2+)."""
     col_idx = column_index_from_string(col_letter)
     max_row = get_used_rows(ws)
+    if max_row < 2:
+        # No data range at all (empty or header-only sheet): "no empty cells"
+        # over rows 2-1 is a vacuous pass on exactly the export that failed.
+        return CheckResult(
+            name=f"Column {col_letter} not empty (rows 2-{max_row})",
+            passed=False,
+            message=f"no data rows (used rows: {max_row})",
+        )
     empty_rows = []
     for r in range(2, max_row + 1):
         val = ws.cell(row=r, column=col_idx).value

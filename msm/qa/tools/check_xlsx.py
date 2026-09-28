@@ -271,6 +271,14 @@ def check_col_not_empty(ws: Worksheet, col_letter: str) -> CheckResult:
     """Check that a column has no empty cells in the data range (row 2+)."""
     col_idx = column_index_from_string(col_letter)
     max_row = get_used_rows(ws)
+    if max_row < 2:
+        # No data range at all (empty or header-only sheet): "no empty cells"
+        # over rows 2-1 is a vacuous pass on exactly the export that failed.
+        return CheckResult(
+            name=f"Column {col_letter} not empty (rows 2-{max_row})",
+            passed=False,
+            message=f"no data rows (used rows: {max_row})",
+        )
     empty_rows = []
     for r in range(2, max_row + 1):
         val = ws.cell(row=r, column=col_idx).value
@@ -1220,7 +1228,10 @@ def print_report(filepath: str, sheet_name: str, results: list[CheckResult],
     passed = sum(1 for r in results if r.passed)
     total = len(results)
     status = "PASS" if passed == total else "FAIL"
-    print(f"\nRESULT: {status} ({passed}/{total} passed)")
+    # `RESULT:` is reserved for the single suite sentinel that run_all's
+    # contract checker parses.  This helper's human status may be printed by
+    # a suite, so it must not masquerade as an additional sentinel.
+    print(f"\nXLSX CHECK: {status} ({passed}/{total} passed)")
 
 
 def write_result_file(path: str, results: list[CheckResult]) -> None:
