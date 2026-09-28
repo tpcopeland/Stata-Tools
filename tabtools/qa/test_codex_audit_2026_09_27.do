@@ -112,9 +112,11 @@ capture noisily {
     local nat_m = r(rmean)
     local nat_se = r(se)
     survtab, times(1) rmst(1)
+    assert !missing(r(rmst_1), r(rmst_se_1), `nat_m', `nat_se')
     assert reldif(r(rmst_1), `nat_m') < 1e-10
     assert reldif(r(rmst_se_1), `nat_se') < 1e-8
     assert r(rmst_se_1) > 0.3
+    assert !missing(r(rmst_1), r(rmst_lb_1), r(rmst_ub_1))
     assert r(rmst_lb_1) < r(rmst_1) & r(rmst_ub_1) > r(rmst_1)
     assert abs(r(rmst_lb_1) - (`nat_m' - invnormal(.975) * `nat_se')) < 1e-8
     assert abs(r(rmst_ub_1) - (`nat_m' + invnormal(.975) * `nat_se')) < 1e-8
@@ -139,6 +141,7 @@ capture noisily {
     quietly stci, rmean
     local nat_se = r(se)
     survtab, times(1) rmst(1)
+    assert !missing(r(rmst_se_1), `nat_se')
     assert reldif(r(rmst_se_1), `nat_se') < 1e-8
 }
 if _rc == 0 {
@@ -167,6 +170,7 @@ capture noisily {
     local nat_m = r(rmean)
     local nat_se = r(se)
     survtab, times(1) rmst(1)
+    assert !missing(r(rmst_1), r(rmst_se_1), `nat_m', `nat_se')
     assert reldif(r(rmst_1), `nat_m') < 1e-10
     assert reldif(r(rmst_se_1), `nat_se') < 1e-8
 }
@@ -202,10 +206,12 @@ foreach fe in cat cate {
         }
         desctab, by(g) vars(x `fe') missing test
         matrix T = r(table)
+        assert !missing(T[1,1], `nat_p')
         assert reldif(T[1,1], `nat_p') < 1e-8
         assert T[1,1] > .99
         table1_tc, by(g) vars(x `fe') missing test
         matrix T = r(table)
+        assert !missing(T[1,1], `nat_p')
         assert reldif(T[1,1], `nat_p') < 1e-8
     }
     if _rc == 0 {
@@ -249,6 +255,7 @@ capture noisily {
     * OME0 and OME1 both carry an x row with their own value
     local ome0x = B[1, colnumb(B, "OME0:x")]
     local ome1x = B[1, colnumb(B, "OME1:x")]
+    assert !missing(R[rownumb(R, "OME0:x"), 1], R[rownumb(R, "OME1:x"), 1], `ome0x', `ome1x')
     assert reldif(R[rownumb(R, "OME0:x"), 1], `ome0x') < 1e-7
     assert reldif(R[rownumb(R, "OME1:x"), 1], `ome1x') < 1e-7
     * plot frame: one row per fitted element, equation in section
@@ -289,6 +296,7 @@ capture noisily {
     effecttab
     matrix R = r(table)
     assert rowsof(R) == 2
+    assert !missing(R[1,1], R[2,1], B[1,1], B[1,2])
     assert reldif(R[1,1], B[1,1]) < 1e-7
     assert reldif(R[2,1], B[1,2]) < 1e-7
 }
@@ -355,6 +363,7 @@ capture noisily {
         local nm : word `j' of `bnames'
         if "`nm'" == "_cons" continue
         if "`eq'" == "ATE" | "`eq'" == "POmean" continue
+        assert !missing(R[rownumb(R, "`eq':`nm'"), 1], B[1,`j'])
         assert reldif(R[rownumb(R, "`eq':`nm'"), 1], B[1,`j']) < 1e-7
     }
     frame _ca27_ep2: assert _N == `kb'
@@ -484,6 +493,7 @@ foreach cmd in desctab table1_tc {
         quietly regress y x if _n > 2
         matrix b0 = e(b)
         matrix V0 = e(V)
+        assert !matmissing(b0) & !matmissing(V0)
         local dv0 "`e(depvar)'"
         predict double p0
         gen byte s0 = e(sample)
@@ -494,6 +504,7 @@ foreach cmd in desctab table1_tc {
         gen byte s1 = e(sample)
         assert s1 == s0
         predict double p1
+        assert !missing(p1, p0)
         assert reldif(p1, p0) < 1e-12
     }
     if _rc == 0 {
@@ -534,6 +545,7 @@ capture noisily {
     gen double y = 3 + 2*x + mod(_n,3)
     quietly regress y x
     matrix b0 = e(b)
+    assert !matmissing(b0)
     capture desctab, by(g) vars(x contn \ x nosuchtype) test
     assert _rc != 0
     assert "`e(cmd)'" == "regress"
@@ -733,6 +745,7 @@ capture noisily {
     quietly collect: margins t
     effecttab
     matrix R0 = r(table)
+    assert !matmissing(R0)
     collect label levels result cmd "My command" ///
         cmdline "My command line", modify
     effecttab, frame(_ca27_rl, replace)
@@ -791,6 +804,7 @@ capture noisily {
     assert `secs' < 15
     matrix R = r(table)
     * odds ratios of the first model's first coefficient
+    assert !missing(R[1,1], exp(b1[1,1]))
     assert reldif(R[1,1], exp(b1[1,1])) < 1e-7
 }
 if _rc == 0 {

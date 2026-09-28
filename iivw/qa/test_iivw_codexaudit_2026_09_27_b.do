@@ -101,6 +101,7 @@ capture noisily {
     quietly iivw_fit y, unweighted id(id) timespec(none) ///
         vce(bootstrap, reps(20) fixedweights seed(22)) saving("`work'/c1_b", replace)
     local bB = _b[_cons]
+    assert !missing(`bA', `bB')
     assert reldif(`bA', `bB') < 1e-12
     capture iivw_bspool using "`work'/c1_a.dta `work'/c1_b.dta", notable
     local rc1 = _rc
@@ -260,6 +261,7 @@ capture noisily {
     clear
     estimates use "`work'/c6_anchor"
     quietly iivw_bspool using "`work'/cp_a.dta `work'/cp_b.dta", notable
+    assert !matmissing(`V6')
     assert mreldif(e(V), `V6') < 1e-15
     * A harmless re-sort of the live data does not trip the live check.
     _cxb_pair "`work'"
@@ -403,9 +405,11 @@ capture noisily {
     assert e(N_reps) == 40
     assert e(N_misreps) == 0
     assert e(N_reps) == e(iivw_bs_reps_completed)
+    assert !matmissing(e(iivw_ci_percentile))
     assert mreldif(e(ci_percentile), e(iivw_ci_percentile)) < 1e-12
     tempname se9
     matrix `se9' = e(se)
+    assert !missing(el(`se9',1,1), sqrt(el(e(V),1,1)))
     assert reldif(el(`se9',1,1), sqrt(el(e(V),1,1))) < 1e-12
     assert rowsof(e(reps)) == 1 & el(e(reps),1,1) == 40
     assert `"`e(iivw_bs_saving)'"' == `"`work'/c9_ab.dta"'

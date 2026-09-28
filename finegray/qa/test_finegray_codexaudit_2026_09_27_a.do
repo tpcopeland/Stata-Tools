@@ -493,7 +493,7 @@ capture noisily {
     assert "`: colnames _finegray_schoenfeld'" == "a b c"
     quietly finegray_predict double sc, schoenfeld
     quietly count if !missing(sc)
-    assert r(N) > 0
+    assert r(N) > 0 & r(N) < .
     confirm matrix _finegray_schoenfeld
     assert _finegray_schoenfeld[1,2] == 22
     assert colsof(_finegray_schoenfeld) == 3 & rowsof(_finegray_schoenfeld) == 1

@@ -214,6 +214,7 @@ capture noisily {
     local M = r(M)
     tempname Vo
     matrix `Vo' = r(V)
+    assert !matmissing(`Vo')
     local rd = mreldif(`V', `Vo')
     display "A2: reported clusters=`nclust' oracle union=`M' reldif=`rd'"
     assert `M' == 150
@@ -243,6 +244,7 @@ capture noisily {
     _ca_stacked_oracle a z1 t, sample(smp) mu(mu) depvar(y)
     assert r(M) == 150
     assert e(iivw_stacked_nclust) == 150
+    assert !matmissing(`V')
     assert mreldif(`V', r(V)) < 1e-10
     display as result "A3 PASS: complete-outcome stacked covariance is the oracle"
 }
@@ -320,10 +322,12 @@ capture noisily {
     estimates store ca_own
     estimates restore ca_own
     predict double p2, mu
+    assert !missing(p1, p2)
     assert reldif(p1, p2) < 1e-12
     gen double pbyhand = `b'[1,colnumb(`b',"_cons")] + ///
         `b'[1,colnumb(`b',"_iivw_tcat_1")]*(t == 2) + ///
         `b'[1,colnumb(`b',"_iivw_tcat_2")]*(t == 3)
+    assert !missing(p1x, pbyhand)
     assert reldif(p1x, pbyhand) < 1e-10
     display as result "A5 PASS: own-design prediction survives sort and restore"
 }
@@ -364,6 +368,7 @@ capture noisily {
     assert e(N) == 80 & r(N) == 80
     quietly count if e(sample) & missing(off)
     assert r(N) == 0
+    assert !matmissing(`bfix')
     assert mreldif(e(b), `bfix') < 1e-12
     quietly iivw_weight, id(id) time(t) wtype(iptw) treat(a) treat_cov(x) nolog
     quietly iivw_fit y x, timespec(none) vce(bootstrap, reps(10) seed(25)) ///
@@ -457,6 +462,7 @@ capture noisily {
     tempname E
     matrix `E' = r(estimates)
     display "A8: fit [`ll', `ul'] diag [" `E'[2,3] ", " `E'[2,4] "] dist=`r(ci_dist_weighted)'"
+    assert !missing(`E'[2,3], `E'[2,4], `E'[1,3], `ll', `ul')
     assert reldif(`E'[2,3], `ll') < 1e-12
     assert reldif(`E'[2,4], `ul') < 1e-12
     assert reldif(`E'[1,3], `ll') < 1e-12
