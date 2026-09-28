@@ -119,6 +119,7 @@ capture noisily {
     capture finegray_predict double cc, cif timevar(t)
     local rc_pp = _rc
     if `rc_pp' == 0 {
+        assert !missing(cc, cc0)
         assert reldif(cc, cc0) < 1e-12
         drop cc
     }
@@ -179,6 +180,7 @@ capture noisily {
     quietly finegray_cif, at(x=0 z=0) attime(1 2) ci nograph
     tempname tab0
     matrix `tab0' = r(table)
+    assert !matmissing(`tab0')
     sort u
     quietly finegray_cif, at(x=0 z=0) attime(1 2) ci nograph
     assert mreldif(r(table), `tab0') < 1e-12
@@ -193,6 +195,7 @@ capture noisily {
     local c1 = r(table)[1,2]
     sort u
     quietly finegray_cif, at(x=0 z=0) attime(1) ci nograph
+    assert !missing(r(table)[1,2], `c1')
     assert reldif(r(table)[1,2], `c1') < 1e-12
     quietly replace pw = pw * 2 in 5
     capture finegray_cif, at(x=0 z=0) attime(1) ci nograph
@@ -228,6 +231,7 @@ capture noisily {
     quietly finegray_cif, at(x=0 z=0) attime(1) ci nograph
     tempname tab0
     matrix `tab0' = r(table)
+    assert !matmissing(`tab0')
     tempfile ster
     quietly estimates save "`ster'"
     estimates store fgcab_w
@@ -295,6 +299,7 @@ capture noisily {
     tempname b0 V0
     matrix `b0' = e(b)
     matrix `V0' = e(V)
+    assert !matmissing(`b0') & !matmissing(`V0')
     local nc0 = e(N_clust)
     local ll0 = e(ll)
     local kbs0 = e(k_bstrata)
@@ -428,6 +433,7 @@ capture noisily {
         local ll0 = e(ll)
         quietly finegray_cif, at(x=0.25 z=-0.5) attime(0.5 1 2) ci nograph
         matrix `tab0' = r(table)
+        assert !matmissing(`b0') & !matmissing(`V0') & !matmissing(`tab0')
         quietly finegray_predict double pc in 1/20, cif ci timevar(t)
         rename (pc pc_lci pc_uci) (pc0 pc0_lci pc0_uci)
         foreach c in 10 100 1000 1300 -1000 {
@@ -470,6 +476,7 @@ capture noisily {
     quietly finegray x z, compete(status) cause(1) nolog
     tempname b0
     matrix `b0' = e(b)
+    assert !matmissing(`b0')
     foreach c in 2000 10000 {
         generate double xs = x + `c'
         ereturn clear
