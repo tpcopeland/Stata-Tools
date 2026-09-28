@@ -1,4 +1,4 @@
-*! _iivw_fit_p Version 4.3.0  2026/09/28
+*! _iivw_fit_p Version 4.3.1  2026/09/28
 *! predict for iivw_fit: refuses generated design columns that no longer
 *! belong to the fit in e(), then hands off to the underlying model's predict.
 *! Author: Timothy P Copeland, Karolinska Institutet

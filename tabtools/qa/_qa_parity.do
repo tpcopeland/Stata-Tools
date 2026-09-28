@@ -1,4 +1,4 @@
-*! qa-lib _qa_parity 1.0.0 sha256:77f5af8c04598be16fd9ab24bd1f04d7f921ea92fd7945bb3124838c0d381650
+*! qa-lib _qa_parity 1.0.1 sha256:51f2bdae5dbbf16f90487dca9cc5d092afcf66d2168388320ea529f8404d143e
 * _qa_parity.do -- one quantity, every sink
 *
 * Load from a suite with: do "`qa_dir'/_qa_parity.do"
@@ -27,7 +27,18 @@
 *                Markdown table (row 1 = header row; separator lines skipped).
 *   xlsx() a workbook cell read with import excel in a temporary frame
 *                (no Python needed); a cell outside the used range is empty.
+*                The sheet name is matched exactly (case-sensitive).
 *   serset() a value of graph serset # (serset use in a temporary frame).
+*
+* Address grammar of csv(), md() and xlsx()
+*   Exactly three tokens, split with gettoken: <file> <row> <col> and
+*   <file> <sheet> <cell>. A token holding blanks is quoted, with "..." or
+*   compound quotes, e.g. xlsx(`"`out'"' "Table 1" C4); an unquoted token is
+*   one word, so xlsx(`out' Sheet1 C4) still works. <cell> is an A1 address
+*   (1-3 letters, then a row number). Missing, empty or extra tokens, or a
+*   malformed cell, are rc 198. The tokens are data: the helper never
+*   re-expands $ or ` in a file or sheet name (the caller's own line still
+*   expands them unless it passes `macval()').
 *
 * Comparison
 *   Numeric sinks (result, frame, workbook number, serset) must be
@@ -52,8 +63,8 @@ capture program drop qa_surface_parity
 program define qa_surface_parity
     version 16.0
     syntax , EXPect(string) [NAME(string) TOL(real 1e-10) TEXTScale(real 1) ///
-        RESult(string) LOG(string) LOGRegex(string) FRAME(string) CSV(string) ///
-        MD(string) XLSX(string) SERset(string)]
+        RESult(string) LOG(string) LOGRegex(string) FRAME(string) ///
+        CSV(string asis) MD(string asis) XLSX(string asis) SERset(string)]
     local withheld = (`"`expect'"' == "withheld")
     tempname ev rv rhold fr
     if `withheld' scalar `ev' = .
@@ -69,14 +80,29 @@ program define qa_surface_parity
         display as error "qa_surface_parity: log() and logregex() go together"
         exit 198
     }
-    if `"`result'`log'`frame'`csv'`md'`xlsx'`serset'"' == "" {
+    if `"`result'`log'`frame'`macval(csv)'`macval(md)'`macval(xlsx)'`serset'"' == "" {
         display as error "qa_surface_parity: name at least one sink"
         exit 198
     }
     if `"`name'"' == "" local name = cond(`withheld', "withheld value", `"`expect'"')
 
-    * Validate every sink address before r() is held.
-    foreach s in csv md xlsx serset frame {
+    * Validate every sink address before r() is held. csv(), md() and
+    * xlsx() keep their quotes (asis) and are split with gettoken; their
+    * tokens are read through macval() and st_local(), never re-expanded.
+    foreach s in csv md xlsx {
+        if `"`macval(`s')'"' == "" continue
+        gettoken `s'_1 rest : `s'
+        gettoken `s'_2 rest : rest
+        gettoken `s'_3 rest : rest
+        mata: _qa_par_tokens("`s'")
+        if `bad' {
+            display as error "qa_surface_parity: `s'() takes three arguments;" ///
+                " quote a file or sheet name that holds blanks"
+            exit 198
+        }
+        confirm file `"`macval(`s'_1)'"'
+    }
+    foreach s in serset frame {
         if `"``s''"' == "" continue
         local n : word count ``s''
         if `n' != 3 {
@@ -86,13 +112,9 @@ program define qa_surface_parity
     }
     if `"`log'"' != "" confirm file `"`log'"'
     foreach s in csv md {
-        if `"``s''"' == "" continue
-        gettoken `s'_file rest : `s'
-        gettoken `s'_row rest : rest
-        gettoken `s'_col rest : rest
-        confirm file `"``s'_file'"'
-        confirm integer number ``s'_row'
-        confirm integer number ``s'_col'
+        if `"`macval(`s')'"' == "" continue
+        confirm integer number `macval(`s'_2)'
+        confirm integer number `macval(`s'_3)'
     }
     if `"`frame'"' != "" {
         gettoken fr_name rest : frame
@@ -101,11 +123,13 @@ program define qa_surface_parity
         confirm integer number `fr_obs'
         frame `fr_name': confirm variable `fr_var', exact
     }
-    if `"`xlsx'"' != "" {
-        gettoken x_file rest : xlsx
-        gettoken x_sheet rest : rest
-        gettoken x_cell rest : rest
-        confirm file `"`x_file'"'
+    if `"`macval(xlsx)'"' != "" {
+        mata: st_local("bad", strofreal(!ustrregexm(st_local("xlsx_3"), "^[A-Za-z]{1,3}[1-9][0-9]*$")))
+        if `bad' {
+            display as error `"qa_surface_parity: xlsx() cell `macval(xlsx_3)' is not an A1 address"'
+            exit 198
+        }
+        mata: st_local("x_label", "xlsx " + _qa_par_sheet(st_local("xlsx_2")) + "!" + st_local("xlsx_3"))
     }
     if `"`serset'"' != "" {
         gettoken ss_id rest : serset
@@ -121,25 +145,25 @@ program define qa_surface_parity
     if `"`log'"' != "" mata: _qa_par_log(st_local("log"), st_local("logregex"))
     foreach s in csv md {
         if `"``s''"' == "" continue
-        mata: _qa_par_table(st_local("`s'_file"), ``s'_row', ``s'_col', "`s'")
+        mata: _qa_par_table(st_local("`s'_1"), ``s'_2', ``s'_3', "`s'")
     }
     if `"`frame'"' != "" {
         frame `fr_name': mata: _qa_par_cell("frame `fr_name' `fr_var'[`fr_obs']", "`fr_var'", `fr_obs')
     }
     local rc 0
-    if `"`xlsx'"' != "" {
+    if `"`macval(xlsx)'"' != "" {
         frame create `fr'
-        capture frame `fr': import excel using `"`x_file'"', sheet(`"`x_sheet'"') ///
-            cellrange(`x_cell':`x_cell') clear
+        capture frame `fr': import excel using `"`macval(xlsx_1)'"', ///
+            sheet(`"`macval(xlsx_2)'"') cellrange(`xlsx_3':`xlsx_3') clear
         local rc = _rc
         if `rc' == 198 {
-            mata: _qa_par_add(`"xlsx `x_sheet'!`x_cell'"', "empty", ., "")
+            mata: _qa_par_add(st_local("x_label"), "empty", ., "")
             local rc 0
         }
         else if `rc' == 601 {
-            display as error `"qa_surface_parity: worksheet `x_sheet' not found in `x_file'"'
+            display as error `"qa_surface_parity: worksheet `macval(xlsx_2)' not found in `macval(xlsx_1)'"'
         }
-        else if !`rc' frame `fr': mata: _qa_par_first(`"xlsx `x_sheet'!`x_cell'"')
+        else if !`rc' frame `fr': mata: _qa_par_first(st_local("x_label"))
         capture frame drop `fr'
     }
     if `"`serset'"' != "" & !`rc' {
@@ -180,6 +204,8 @@ capture mata: mata drop _qa_par_first()
 capture mata: mata drop _qa_par_num()
 capture mata: mata drop _qa_par_fmt()
 capture mata: mata drop _qa_par_judge()
+capture mata: mata drop _qa_par_tokens()
+capture mata: mata drop _qa_par_sheet()
 
 mata:
 // Sinks collected for one call: label, kind (num text empty absent), value, text.
@@ -202,6 +228,22 @@ void _qa_par_add(string scalar label, string scalar kind, real scalar v,
     *p = *p \ (label, kind, text)
     p = findexternal("__qa_parityv")
     *p = *p \ v
+}
+
+// bad = 1 unless <s>_1..<s>_3 are non-blank and nothing follows them.
+void _qa_par_tokens(string scalar s)
+{
+    string rowvector t
+
+    t = (st_local(s + "_1"), st_local(s + "_2"), st_local(s + "_3"))
+    st_local("bad", strofreal(anyof(strtrim(t), "") | strtrim(st_local("rest")) != ""))
+}
+
+// A sheet name as it appears in a sink label: bare when plain, else quoted.
+string scalar _qa_par_sheet(string scalar sheet)
+{
+    if (ustrregexm(sheet, "^[A-Za-z0-9_.]+$")) return(sheet)
+    return("'" + subinstr(sheet, "'", "''") + "'")
 }
 
 void _qa_par_log(string scalar path, string scalar re)
