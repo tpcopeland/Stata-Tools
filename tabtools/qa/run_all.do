@@ -116,6 +116,8 @@ local test_files "`test_files' test_codex_audit_2026_09_26.do"
 local test_files "`test_files' test_codex_parity_2026_09_26.do"
 local test_files "`test_files' test_open_items_2026_09_27.do"
 local test_files "`test_files' test_codex_audit_2026_09_27.do"
+local test_files "`test_files' test_tabtools_state_sweep.do"
+local test_files "`test_files' test_tabtools_surfaces.do"
 
 local validation_files ""
 local validation_files "`validation_files' validation_corrtab.do"

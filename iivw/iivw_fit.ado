@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.3.0  2026/09/28
+*! iivw_fit Version 4.3.1  2026/09/28
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -260,13 +260,18 @@ program define iivw_fit, eclass
     * vce(fixed) and the fixedweights bootstrap both treat the estimated weights
     * as KNOWN. Naming one of them explicitly IS the acknowledgment that the SE
     * omits nuisance-estimation uncertainty; the disclosure note still prints.
-    * Preserve the outer if/in across the vce() suboption parse. That parse runs
-    * a nested -syntax- on a rebuilt `0', which RESETS the `if'/`in' macros the
-    * later -marksample- depends on. Without this save/restore, any iivw_fit that
-    * combines an if/in restriction with vce() silently marks the WHOLE sample
-    * and fits it at rc=0 -- a wrong sample reported as success. (Latent until the
-    * Phase 3B call-site migration first combined if/in with vce(fixed); pinned by
-    * test_iivw Test 85/Test 91.)
+    * Preserve the outer varlist and if/in across the vce() suboption parse.
+    * That parse runs a nested -syntax- on a rebuilt `0', which RESETS every
+    * macro a syntax element sets -- `varlist', `if' and `in' included -- and
+    * the later -marksample- reads all three. Without this save/restore, any
+    * iivw_fit that combines an if/in restriction with vce() silently marks the
+    * WHOLE sample and fits it at rc=0 (pinned by test_iivw Test 85/Test 91).
+    * Restoring if/in but not varlist left marksample blind to missing outcome
+    * and covariate values: the refit bootstrap then reposted e(sample)/e(N)
+    * over rows glm never used, and a categorical time level seen only on
+    * missing-outcome rows became an omitted design column (route grid N3,
+    * test_iivw_route_grid_fixes R1-R4).
+    local _iivw_varlist `"`varlist'"'
     local _iivw_if `"`if'"'
     local _iivw_in `"`in'"'
     local vce_seed ""
@@ -603,8 +608,10 @@ program define iivw_fit, eclass
     * MARK SAMPLE
     * =========================================================================
 
-    * Restore the outer if/in (see the save above): the vce() parse may have
-    * cleared them, and marksample must see the user's real restriction.
+    * Restore the outer varlist and if/in (see the save above): the vce()
+    * parse may have cleared them, and marksample must see the user's real
+    * variables and restriction.
+    local varlist `"`_iivw_varlist'"'
     local if `"`_iivw_if'"'
     local in `"`_iivw_in'"'
     marksample touse
@@ -646,6 +653,7 @@ program define iivw_fit, eclass
     * geeopts() is left for glm itself to reject.
     if "`model'" == "gee" & `"`geeopts'"' != "" {
         local __iivw_save0 `"`0'"'
+        local __iivw_savevl `"`varlist'"'
         local __iivw_saveif `"`if'"'
         local __iivw_savein `"`in'"'
         local 0 `", `geeopts'"'
@@ -654,8 +662,10 @@ program define iivw_fit, eclass
             if "`offset'"   != "" markout `touse' `offset'
             if "`exposure'" != "" markout `touse' `exposure'
         }
-        * A nested syntax resets `if'/`in' (see the vce() parse note above).
+        * A nested syntax resets `varlist'/`if'/`in' (see the vce() parse note
+        * above). Nothing below reads them today; restored so nothing can.
         local 0 `"`__iivw_save0'"'
+        local varlist `"`__iivw_savevl'"'
         local if `"`__iivw_saveif'"'
         local in `"`__iivw_savein'"'
         local offset ""
@@ -720,6 +730,23 @@ program define iivw_fit, eclass
     * Validate model type
     if !inlist("`model'", "gee", "mixed") {
         display as error "model() must be gee or mixed"
+        error 198
+    }
+
+    * Each pass-through reaches exactly one fitter, so the other one's options
+    * were accepted and then dropped at rc 0: model(mixed) never saw
+    * geeopts(offset(x)) and fitted without the offset. mixed has no offset(),
+    * and no glm option means anything to it, so refuse rather than ignore.
+    if "`model'" == "mixed" & `"`geeopts'"' != "" {
+        display as error "geeopts() is not allowed with model(mixed)"
+        display as error "  geeopts() is passed to glm, which model(mixed) does not call;"
+        display as error "  pass mixed options through mixedopts(). mixed has no offset()."
+        error 198
+    }
+    if "`model'" == "gee" & `"`mixedopts'"' != "" {
+        display as error "mixedopts() requires model(mixed)"
+        display as error "  mixedopts() is passed to mixed, which model(gee) does not call;"
+        display as error "  pass glm options through geeopts()"
         error 198
     }
 
@@ -2037,7 +2064,7 @@ program define iivw_fit, eclass
                 family(`family') link(`link') ///
                 geeopts(`geeopts') `log_opt'
 
-            _iivw_repost_outcome_n `touse', frame(`bs_frame') cluster(`cluster')
+            _iivw_repost_outcome_n `touse', frame(`bs_frame')
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""
@@ -2145,7 +2172,7 @@ program define iivw_fit, eclass
                 `rep_ntv_flag' ///
                 mixedopts(`mixedopts') `log_opt'
 
-            _iivw_repost_outcome_n `touse', frame(`bs_frame') cluster(`cluster')
+            _iivw_repost_outcome_n `touse', frame(`bs_frame')
         }
         else if `bootstrap' > 0 {
             local bs_weightopt ""
@@ -2296,7 +2323,7 @@ program define iivw_fit, eclass
 
         _iivw_stacked_vce `all_covars' if e(sample), ///
             depvar(`depvar') mu(`__iivw_mu') ///
-            wtvar(`weight_var') cluster(`cluster') ///
+            wtvar(`weight_var') cluster(`cluster') subject(`panel_id') ///
             varfunc(`stacked_varfunc') ///
             scoreterms(`stacked_terms') ainv(`stacked_ainv') nuisall
 
@@ -2614,6 +2641,13 @@ program define iivw_fit, eclass
             obs(`__iivw_N_pointonly') depname(`depvar')
         ereturn local cmd "iivw_fit"
         ereturn local properties "b"
+        * The underlying model's e() is gone, so its predict program cannot
+        * run; the linear predictor from e(b) is what remains. Name it, so
+        * predict goes through _iivw_fit_p's design-column check below.
+        * Without this, Stata's default fell back to _predict directly and a
+        * point-only fit predicted from columns a later fit had rebuilt, at
+        * rc 0 (route grid N4). _predict refuses stdp without e(V).
+        ereturn local predict "_predict"
     }
 
     * Store eclass metadata
@@ -2758,6 +2792,16 @@ program define iivw_fit, eclass
     ereturn local iivw_timespec "`timespec'"
     ereturn local iivw_weight_var "`weight_var'"
     ereturn local iivw_cluster "`cluster'"
+    * Clusters in the outcome equation, read from the one marker e(N) also
+    * describes. Posted on every route: the help documents it without a route
+    * qualifier and tells readers to reconcile e(N)/e(N_clust) with it. After a
+    * refit bootstrap e(N_clust) counts the resampled panel instead, which is
+    * why this is a separate scalar (see _iivw_repost_outcome_n).
+    tempvar __iivw_ocltag
+    quietly egen byte `__iivw_ocltag' = tag(`cluster') if e(sample)
+    quietly count if `__iivw_ocltag' == 1
+    ereturn scalar iivw_outcome_nclust = r(N)
+    drop `__iivw_ocltag'
     ereturn local iivw_id "`panel_id'"
     ereturn local iivw_time "`panel_time'"
     ereturn local iivw_time_vars "`time_vars'"
@@ -2829,12 +2873,13 @@ program define iivw_fit, eclass
     * committed. Leaving e(cmd) as glm/mixed makes estimates replay silently
     * replace percentile/basic endpoints with the underlying Wald interval.
     * e(predict) remains the underlying model's prediction program for
-    * interval-producing fits; point-only ereturn post deliberately removed it.
+    * interval-producing fits and _predict for point-only ones.
     ereturn local cmd "iivw_fit"
 
     * predict goes through _iivw_fit_p, which checks that the generated design
     * columns still belong to this fit before calling the underlying model's
-    * own predict (audit F03). Point-only fits post no e(predict) and stay so.
+    * own predict (audit F03). On a point-only fit the underlying predict is
+    * _predict (set at the point-only post above), so the check covers it too.
     if "`e(predict)'" != "" & "`e(predict)'" != "_iivw_fit_p" {
         ereturn local iivw_predict "`e(predict)'"
         ereturn local predict "_iivw_fit_p"

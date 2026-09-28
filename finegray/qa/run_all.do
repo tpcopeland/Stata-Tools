@@ -81,8 +81,12 @@ local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v1
     test_finegray_hostile.do ///
     test_finegray_estimates_use.do ///
     test_finegray_sthlp_render.do ///
+    test_finegray_state_surfaces.do ///
     test_documentation_examples.do
+* The route x condition grid (98 cells, ~25 s) is the default developer lane's
+* contract test (DOTHIS 2026-09-28 Part 2): core, not quick.
 local core_files `quick_files' ///
+    test_finegray_route_grid.do ///
     validation_finegray.do validation_finegray_recovery.do ///
     validation_finegray_recovery_paths.do validation_cluster_recovery.do ///
     validation_finegray_cif_recovery.do ///

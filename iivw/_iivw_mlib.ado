@@ -1,4 +1,4 @@
-*! _iivw_mlib Version 4.3.0  2026/09/28
+*! _iivw_mlib Version 4.3.1  2026/09/28
 *! iivw's Mata source. Contains NO Stata program: this file is -run-, never
 *! autoloaded.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -9,7 +9,7 @@
 * define the program being called, and nothing else in the file runs -- so a
 * -mata:- block in an ado file is never compiled by an autoload, whether it sits
 * above or below the program. Measured, not assumed: -run- on this file compiles
-* _iivw_stacked_union() and calling an autoloaded program in the same file leaves
+* _iivw_stacked_nest() and calling an autoloaded program in the same file leaves
 * -mata: mata describe- empty.
 *
 * So the Mata has to be -run- explicitly, and the file must therefore contain no
@@ -44,15 +44,24 @@ mata:
 // printed p.153-155). m counts that union; the fixed sandwich keeps the
 // outcome-sample count so it still reproduces glm's own vce(cluster).
 //
-// Renamed from _iivw_stacked_core() when the second row set was added, so a
-// session still holding the old compiled signature recompiles instead of
-// calling it with the wrong arguments.
-void _iivw_stacked_union(string scalar xvars,
+// Clusters may hold several subjects (cluster() above the subject). The
+// nuisance score is a per-SUBJECT quantity, so a cluster's contribution is the
+// sum of its subjects' scores, each counted once. With the subject equal to
+// the cluster this is the subject-level formula exactly. A subject whose rows
+// sit in two clusters is not nested and is refused: the clusters would not be
+// independent units.
+//
+// Renamed from _iivw_stacked_core() when the second row set was added, and
+// from _iivw_stacked_union() when the subject index was, so a session still
+// holding an old compiled signature recompiles instead of calling it with the
+// wrong arguments.
+void _iivw_stacked_nest(string scalar xvars,
                         string scalar breadvar,
                         string scalar resvar,
                         string scalar ndvars,
                         string scalar nsvars,
                         string scalar cidxvar,
+                        string scalar sidxvar,
                         string scalar tousevar,
                         string scalar nusevar,
                         string scalar ainvname,
@@ -62,9 +71,9 @@ void _iivw_stacked_union(string scalar xvars,
                         string scalar vfname,
                         string scalar gname)
 {
-    real matrix X, ND, NS, D, Dinv, G, Ainv, Ufix, Ustk, Vs, Vf, S
-    real colvector BW, R, C, CN
-    real scalar j, N, p, q, cf, cfout, dev, worst
+    real matrix X, ND, NS, D, Dinv, G, Ainv, Ufix, Ustk, Vs, Vf, S, SS
+    real colvector BW, R, C, CN, SN, SC
+    real scalar j, k, N, p, q, cf, cfout, dev, worst, nsplit
 
     st_view(X = .,  ., tokens(xvars),   tousevar)
     st_view(BW = ., ., breadvar,        tousevar)
@@ -73,6 +82,7 @@ void _iivw_stacked_union(string scalar xvars,
     st_view(C = .,  ., cidxvar,         tousevar)
     st_view(NS = ., ., tokens(nsvars),  nusevar)
     st_view(CN = ., ., cidxvar,         nusevar)
+    st_view(SN = ., ., sidxvar,         nusevar)
 
     N = rows(X)
     p = cols(X)
@@ -97,30 +107,47 @@ void _iivw_stacked_union(string scalar xvars,
     // assumption here a user could break by editing a column, and breaking it
     // silently produces a plausible wrong variance.
     Ufix = J(M, p, 0)
-    S    = J(M, q, .)
+    SS   = J(max(SN), q, .)
+    SC   = J(max(SN), 1, .)
     worst = 0
+    nsplit = 0
     for (j = 1; j <= N; j++) {
         Ufix[C[j], .] = Ufix[C[j], .] + X[j, .] :* R[j]
     }
+    // One representative score per subject, and the one cluster it sits in.
     for (j = 1; j <= rows(NS); j++) {
-        if (S[CN[j], 1] == .) {
-            S[CN[j], .] = NS[j, .]
+        k = SN[j]
+        if (SC[k] == .) {
+            SS[k, .] = NS[j, .]
+            SC[k]    = CN[j]
         }
         else {
-            dev = mreldif(S[CN[j], .], NS[j, .])
+            if (SC[k] != CN[j]) nsplit++
+            dev = mreldif(SS[k, .], NS[j, .])
             if (dev > worst) worst = dev
         }
     }
-    if (hasmissing(S)) {
-        errprintf("stacked variance: a cluster has no nuisance score row\n")
+    if (nsplit > 0) {
+        errprintf("stacked variance: subjects are not nested within clusters\n")
+        errprintf("  a subject's rows fall in more than one cluster() value;\n")
+        errprintf("  vce(stacked) needs every subject inside one cluster\n")
+        exit(459)
+    }
+    if (hasmissing(SS) | hasmissing(SC)) {
+        errprintf("stacked variance: a subject has no nuisance score row\n")
         exit(459)
     }
     if (worst > 1e-10) {
         errprintf("stacked variance: the nuisance score columns are not")
-        errprintf(" constant within cluster\n")
-        errprintf("  worst within-cluster relative difference %g\n", worst)
+        errprintf(" constant within subject\n")
+        errprintf("  worst within-subject relative difference %g\n", worst)
         errprintf("  re-run iivw_weight, scores\n")
         exit(459)
+    }
+    // A cluster's nuisance contribution is the sum over its subjects.
+    S = J(M, q, 0)
+    for (k = 1; k <= rows(SS); k++) {
+        S[SC[k], .] = S[SC[k], .] + SS[k, .]
     }
 
     Ustk = Ufix + S * (Ainv * G')

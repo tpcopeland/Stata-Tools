@@ -1,4 +1,4 @@
-*! _iivw_require_converged Version 4.3.0  2026/09/28
+*! _iivw_require_converged Version 4.3.1  2026/09/28
 *! Treat a nonconverged model as an estimation failure, not a warning. A model
 *! that did not converge has no trustworthy coefficients, so its output must not
 *! be predicted from, committed to the data, returned, or stamped as a

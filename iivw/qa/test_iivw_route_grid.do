@@ -83,46 +83,25 @@ local c_bspool     " =    =    =    =    =    =    =    198  =     =    =    459
 local c_mixed      " =    =    =    =    =    198  =    =    =     =    =    459  =  "
 local c_unweighted " =    =    =    =    =    =    =    =    =     =    =    =    =  "
 * Refusals: refit/pct/bspool x clust = refitweights needs cluster() = id
-* (iivw_fit.sthlp, vce(bootstrap)); mixed x offset = mixed has no offset(),
-* passed through mixedopts(); edited = stale-weight guard (459), except the
-* unweighted route, which uses no weight contract.
+* (iivw_fit.sthlp, vce(bootstrap)); mixed x offset = every route gets the same
+* geeopts(offset(off)), and geeopts() is refused under model(mixed) (mixed has
+* no offset(); iivw_fit.sthlp, geeopts()); edited = stale-weight guard (459),
+* except the unweighted route, which uses no weight contract.
 
-* OPEN LEDGER: route|cond|step[=fitrc]|finding. Each is declared EQUAL above
-* because the help documents the contract; each fails on 4.3.0.
-*   I1 (Muse 2026-09-28): e(iivw_outcome_nclust) is listed under Scalars with
-*      no route qualifier but posted only by the refit repost helper.
-*   N1 (this grid, 2026-09-28): vce(stacked) with a string panel id exits
-*      r(2000) "no usable observations"; _iivw_stacked_vce marks out the
-*      cluster variable without strok, while vce(fixed) and both bootstraps
-*      accept the same string id.
-*   N2 (this grid, 2026-09-28): vce(stacked) with cluster() above the subject
-*      exits r(459) blaming stale scores ("re-run iivw_weight, scores"); the
-*      help documents cluster() for nested designs and lists no stacked
-*      restriction. Closes by implementing it or documenting a refusal (then
-*      redeclare the cell refused(#) here).
-*   N3 (this grid, 2026-09-28): the refit bootstrap (and so citype(percentile)
-*      on it, and pools of it) posts e(sample)/e(N) that include rows whose
-*      outcome or outcome covariate is missing (e(N)=635 for a 422-row fit),
-*      at rc 0. The vce() suboption parse runs a nested -syntax-, which
-*      clears the varlist macro; if/in are restored afterwards but varlist is not, so
-*      marksample marks only if/in and _iivw_repost_outcome_n reposts that.
-*   N4 (this grid, 2026-09-28): e(iivw_predict) is documented without a route
-*      qualifier but is not posted on the point-only route.
-local open_ledger ///
-    fixed|estore|ocl|I1 ///
-    stacked|estore|ocl|I1 ///
-    bsfixed|estore|ocl|I1 ///
-    pointonly|estore|ocl|I1+N4 ///
-    mixed|estore|ocl|I1 ///
-    unweighted|estore|ocl|I1 ///
-    stacked|strid|fit=2000|N1 ///
-    stacked|clust|fit=459|N2 ///
-    refit|wholemiss|sample|N3 refit|partmiss|sample|N3 refit|covmiss|sample|N3 ///
-    pct|wholemiss|sample|N3 pct|partmiss|sample|N3 pct|covmiss|sample|N3 ///
-    bspool|wholemiss|sample|N3 bspool|partmiss|sample|N3 bspool|covmiss|sample|N3
-* Results the per-cell surface check holds out while I1/N4 are open; asserted
-* in the estore column instead. Remove each name when its finding closes.
-global G_OPENRES "iivw_outcome_nclust iivw_predict"
+* OPEN LEDGER: route|cond|step[=fitrc]|finding. A cell listed here is declared
+* by the help but broken by a known package bug, and must FAIL at exactly the
+* recorded step. Empty on 4.3.1: every finding this grid raised on 4.3.0 is
+* fixed and pinned by test_iivw_route_grid_fixes.do --
+*   I1  e(iivw_outcome_nclust) posted on every route           (R5)
+*   N1  vce(stacked) accepts a string panel id                  (R6)
+*   N2  vce(stacked) with cluster() above the subject           (R7, R8)
+*   N3  refit/percentile/pooled e(sample)/e(N) exclude rows
+*       with a missing outcome or covariate                     (R1-R4)
+*   N4  e(iivw_predict) posted on the point-only route          (R9)
+local open_ledger ""
+* Results the per-cell surface check holds out while a finding is open;
+* asserted in the estore column instead. Empty: none is open.
+global G_OPENRES ""
 
 qa_grid_init, routes(`routes') conditions(`conds')
 foreach r of local routes {
@@ -138,6 +117,8 @@ foreach r of local routes {
         local want : word `k' of `row'
         if "`want'" == "=" qa_grid_expect `r' `c', equal
         else qa_grid_expect `r' `c', refused(`want')
+        * The cell reads this to run a declared refusal quietly (below).
+        global G_EXP_`r'_`c' "`want'"
     }
 }
 
@@ -189,7 +170,6 @@ program define _g_data
     }
     if "`cond'" == "offset" {
         global G_XO "geeopts(offset(off))"
-        if "`route'" == "mixed" global G_XO "mixedopts(offset(off))"
         quietly replace ORACLE = ORACLE & !missing(off)
     }
     if "`cond'" == "clust" {
@@ -507,7 +487,13 @@ program define _g_cell
 
     _g_step fit
     ereturn clear
-    capture noisily _g_fit `route' `cond'
+    * A cell whose contract IS a refusal runs quietly: its error text is the
+    * asserted outcome, and printed it reads as a lane failure to the log
+    * review. The rc is still checked against the declared one by
+    * qa_grid_refused, and printed on the GRIDCELL line. EQUAL cells stay
+    * noisy so an unexpected failure shows its message.
+    if "${G_EXP_`route'_`cond'}" == "=" capture noisily _g_fit `route' `cond'
+    else capture _g_fit `route' `cond'
     local rc = _rc
     global G_FITRC `rc'
     if `rc' {
@@ -701,6 +687,6 @@ capture scalar drop G_No G_nclo G_nclf G_Nf G_Mo G_nreps G_z G_Ainv
 capture matrix drop G_bo G_Vo G_CIo
 capture estimates drop G_pkg G_A G_sh1
 capture mata: mata drop _g_stk()
-macro drop G_WORK G_ID G_CL G_IF G_XO G_LEV G_STEP G_FITRC G_OPENRES
+macro drop G_WORK G_ID G_CL G_IF G_XO G_LEV G_STEP G_FITRC G_OPENRES G_EXP_*
 iivw_qa_summary, name(test_iivw_route_grid) tests(`test_count') ///
     pass(`pass_count') fail(`fail_count') failedtests(`bad')

@@ -1,4 +1,4 @@
-*! _iivw_repost_outcome_n Version 4.3.0  2026/09/28
+*! _iivw_repost_outcome_n Version 4.3.1  2026/09/28
 *! Restores the user-facing estimation sample after a refit bootstrap, whose
 *! e(sample) is deliberately the visit panel rather than the outcome sample.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -28,8 +28,10 @@
 *
 * e(N_clust) is deliberately NOT rewritten -- it truthfully reports what
 * bootstrap resampled. Because that makes e(N) and e(N_clust) describe two
-* different samples, this program also posts the frame row count and the
-* outcome sample's own cluster count so the two can be reconciled. See the
+* different samples, this program also posts the frame row count so the two
+* can be reconciled. The outcome sample's own cluster count,
+* e(iivw_outcome_nclust), is posted by iivw_fit on every route from the final
+* e(sample), so it is decided once rather than here and again there. See the
 * note at the posting site.
 
 program define _iivw_repost_outcome_n, eclass
@@ -44,7 +46,7 @@ program define _iivw_repost_outcome_n, eclass
     * its leading comma -- which syntax then reads as a varlist and rejects
     * with r(101), from inside the eclass helper, after bootstrap has already
     * finished. Caught 2026-07-21 by the B6 assertion below.
-    syntax varname [, FRAME(varname) CLuster(varname)]
+    syntax varname [, FRAME(varname)]
     local touse "`varlist'"
 
     quietly count if `touse'
@@ -67,27 +69,19 @@ program define _iivw_repost_outcome_n, eclass
     *
     * The repair is to make the distinction visible rather than to fake
     * agreement. e(N_clust) is LEFT ALONE, because it truthfully reports the
-    * resampling unit count; the outcome sample's own cluster count is posted
-    * beside it, and the frame's row count is kept so the two samples can always
-    * be reconciled after the fact.
+    * resampling unit count; iivw_fit posts the outcome sample's own cluster
+    * count beside it (from the e(sample) set here), and the frame's row count
+    * is kept so the two samples can always be reconciled after the fact.
     * -------------------------------------------------------------------------
     local _frame_n = .
     if "`frame'" != "" {
         quietly count if `frame'
         local _frame_n = r(N)
     }
-    local _out_nclust = .
-    if "`cluster'" != "" {
-        tempvar _ocl
-        quietly egen long `_ocl' = group(`cluster') if `touse'
-        quietly summarize `_ocl', meanonly
-        local _out_nclust = cond(r(N) == 0, 0, r(max))
-    }
 
     ereturn repost, esample(`touse')
     ereturn scalar N = `_n_outcome'
     if `_frame_n'    < . ereturn scalar iivw_bs_frame_N     = `_frame_n'
-    if `_out_nclust' < . ereturn scalar iivw_outcome_nclust = `_out_nclust'
 
     }
     local rc = _rc

@@ -280,7 +280,8 @@ note.
 errors. Default is the panel ID variable stored by {cmd:iivw_weight}. You
 rarely need to change this, but it is available for designs where the
 clustering level differs from the panel ID (e.g., clustering at the clinic
-level when patients are nested within clinics).
+level when patients are nested within clinics). With {cmd:vce(stacked)}, every
+subject must lie within one cluster (error 459 otherwise).
 
 {phang2}
 {bf:Few clusters.} Cluster-robust standard errors are anti-conservative when
@@ -355,8 +356,18 @@ The sandwich sums over every subject that informed the weights, not only over
 the outcome sample. A subject whose outcomes are all missing, or whose rows
 fall outside the fit's {it:if}/{it:in}, contributes no outcome score but still
 contributes its nuisance-model score, and that correction term is included;
-the finite-cluster factor m/(m-1) counts the same union. {cmd:e(N)} and
-{cmd:e(sample)} still describe the outcome fit.
+the finite-cluster factor m/(m-1) counts the same union, which
+{cmd:e(iivw_stacked_nclust)} reports. {cmd:e(N)} and {cmd:e(sample)} still
+describe the outcome fit.
+
+{pmore}
+{opt cluster()} may name a unit above the subject, such as a clinic, provided
+every subject lies within one cluster. The independent unit is then the
+cluster: each cluster's corrected score is its outcome score plus the
+nuisance-score correction summed over the subjects it holds, and m counts
+clusters. A subject whose rows fall in more than one {opt cluster()} value is
+not nested, so the clusters are not independent units, and the fit exits with
+error 459. The subject id and the cluster variable may be string or numeric.
 
 {pmore}
 When requested explicitly, {cmd:vce(stacked)} is stamped
@@ -635,10 +646,15 @@ that would set the variance estimator ({cmd:vce()}, {cmd:robust},
 additionally rejected whenever a bootstrap variance is requested, because
 {cmd:glm, irls} does not set {cmd:e(converged)} and each replicate's outcome fit
 is gated on it -- a draw whose convergence cannot be verified must not enter the
-variance. {cmd:irls} remains available with {cmd:vce(fixed)}.
+variance. {cmd:irls} remains available with {cmd:vce(fixed)}. {opt geeopts()}
+is refused with {cmd:model(mixed)}, which never calls {cmd:glm}; in particular
+{cmd:mixed} has no {opt offset()}, so an offset cannot be applied to a
+{cmd:model(mixed)} fit.
 
 {phang}
-{opt mixed:opts(string)} passes additional options directly to {cmd:mixed}.
+{opt mixed:opts(string)} passes additional options directly to {cmd:mixed}. It
+requires {cmd:model(mixed)}; with {cmd:model(gee)} it is refused rather than
+ignored. {cmd:mixed} rejects {opt offset()} itself.
 
 
 {marker remarks}{...}
@@ -1299,8 +1315,8 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_cmd)}}{cmd:iivw_fit}{p_end}
-{synopt:{cmd:e(predict)}}{cmd:_iivw_fit_p}, which checks the generated design columns and then calls {cmd:e(iivw_predict)}; interval-producing fits only{p_end}
-{synopt:{cmd:e(iivw_predict)}}the underlying model's predict program{p_end}
+{synopt:{cmd:e(predict)}}{cmd:_iivw_fit_p} (checks design columns){p_end}
+{synopt:{cmd:e(iivw_predict)}}underlying predict; {cmd:_predict} if point-only{p_end}
 {synopt:{cmd:e(iivw_design_token)}}identifier stamped on this fit's generated design columns{p_end}
 {synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
@@ -1315,7 +1331,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_terms)}}nuisance terms propagated by {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
-{synopt:{cmd:e(iivw_stacked_nclust)}}clusters in stacked sandwich: outcome-sample clusters plus subjects that entered only the weight models; {cmd:vce(stacked)} only{p_end}
+{synopt:{cmd:e(iivw_stacked_nclust)}}stacked-sandwich clusters (design union){p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if an incomplete bootstrap was accepted{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}inference-evidence tier; see {help iivw_fit##inference:Inference status}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}{cmd:none}, {cmd:wald-normal}, {cmd:percentile}, {cmd:basic}, or {cmd:bca}{p_end}
@@ -1355,7 +1371,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_bs_reps_completed)}}bootstrap replicates that returned an estimate{p_end}
 {synopt:{cmd:e(iivw_bs_reps_failed)}}bootstrap replicates that failed{p_end}
 {synopt:{cmd:e(iivw_bs_frame_N)}}resampling-frame rows ({opt refitweights} only){p_end}
-{synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome equation{p_end}
+{synopt:{cmd:e(iivw_outcome_nclust)}}clusters in the outcome sample{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}1 if an interval was reported; 0 for point-only{p_end}
 {synopt:{cmd:e(iivw_ci_explicit)}}1 if {opt cit:ype()} was specified{p_end}
 
@@ -1411,10 +1427,13 @@ dummies, time powers, splines, categorical dummies, interactions) are still
 the ones it built; after {cmd:estimates restore} of an earlier fit whose
 columns a later fit rebuilt with {opt replace}, it exits with error 459
 rather than predicting from columns whose meaning changed. Refit the model to
-predict from it again. A point-only FIPTIW fit retains
-coefficients in {cmd:e(b)} but deliberately posts no {cmd:e(V)}; standard
-prediction and inference-dependent postestimation are therefore unavailable
-unless an interval method was explicitly requested.
+predict from it again. A point-only fit ({cmd:citype(none)}, or a bare
+FIPTIW fit) retains coefficients in {cmd:e(b)} but deliberately posts no
+{cmd:e(V)}, and the underlying model's other results are not kept. Its
+{cmd:predict} offers the linear prediction ({cmd:xb}) only, through the same
+design-column check; {cmd:stdp}, model-specific statistics such as {cmd:mu},
+and inference-dependent postestimation are unavailable unless an interval
+method was explicitly requested.
 
 {pstd}
 For percentile, basic, or BCa fits, {cmd:estimates replay} uses the stored
@@ -1448,6 +1467,10 @@ Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with
 irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 {it:Society: Series B (Statistical Methodology)}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
+
+{phang}
+Saul BC, Hudgens MG. 2020. The calculus of M-estimation in R with geex.
+{it:Journal of Statistical Software} 92(2).
 
 {phang}
 Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of
