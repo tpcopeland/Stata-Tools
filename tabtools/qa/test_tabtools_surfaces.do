@@ -230,15 +230,14 @@ capture noisily {
     scalar ttsf_want = r(p)
     tempfile lg
     log using `"`lg'"', text replace name(_ttsfl)
-    * sheet() named explicitly: qa_surface_parity's xlsx() address splits on
-    * blanks, so the default "Table 1" cannot be named there
+    * default sheet "Table 1": the spaced name is addressed quoted below
     desctab, by(group) vars(x cat) missing test frame(ttsf_f, replace) ///
-        csv("$TTSF_DIR/d.csv") xlsx("$TTSF_DIR/d.xlsx") sheet(T1)
+        csv("$TTSF_DIR/d.csv") xlsx("$TTSF_DIR/d.xlsx")
     matrix ttsf_T = r(table)
     log close _ttsfl
     qa_surface_parity, expect(scalar(ttsf_want)) name(desctab p on displayed coding) ///
         result(el(ttsf_T,1,1)) frame(ttsf_f pvalue 3) csv("$TTSF_DIR/d.csv" 3 5) ///
-        xlsx("$TTSF_DIR/d.xlsx" T1 F4) ///
+        xlsx("$TTSF_DIR/d.xlsx" "Table 1" F4) ///
         log(`"`lg'"') logregex("Chi-square +([0-9.]+)")
 }
 _ttsf_result `=_rc' "SP-desctab F02: p on the displayed Missing coding in r(), frame, CSV, workbook, console"
@@ -262,7 +261,7 @@ capture noisily {
     local sh "`r(sheet)'"
     qa_surface_parity, expect(scalar(ttsf_want)) name(ATE) ///
         result(el(ttsf_T,1,1)) frame(ttsf_f c1 4) csv("$TTSF_DIR/e.csv" 2 2) ///
-        xlsx("$TTSF_DIR/e.xlsx" `sh' C4)
+        xlsx("$TTSF_DIR/e.xlsx" `"`sh'"' C4)
 }
 _ttsf_result `=_rc' "SP-effecttab ATE in r(table), frame, CSV, workbook = e(b)"
 local pass_count = `pass_count' + r(pass)
@@ -281,7 +280,7 @@ capture noisily {
     local sh "`r(sheet)'"
     log close _ttsfl
     qa_surface_parity, expect(scalar(ttsf_want)) name(coef of mpg) ///
-        frame(ttsf_f c1 4) csv("$TTSF_DIR/r.csv" 3 2) xlsx("$TTSF_DIR/r.xlsx" `sh' C4) ///
+        frame(ttsf_f c1 4) csv("$TTSF_DIR/r.csv" 3 2) xlsx("$TTSF_DIR/r.xlsx" `"`sh'"' C4) ///
         log(`"`lg'"') logregex("Mileage \(mpg\) +(-[0-9.]+)")
 }
 _ttsf_result `=_rc' "SP-regtab coefficient in frame, CSV, workbook, console = regress"
@@ -296,7 +295,7 @@ capture noisily {
         frame(ttsf_f, replace) csv("$TTSF_DIR/s.csv") xlsx("$TTSF_DIR/s.xlsx")
     local sh "`r(sheet)'"
     qa_surface_parity, expect(11/1000*1000) name(rate None outcome 1) ///
-        frame(ttsf_f c4 5) csv("$TTSF_DIR/s.csv" 4 4) xlsx("$TTSF_DIR/s.xlsx" `sh' E5)
+        frame(ttsf_f c4 5) csv("$TTSF_DIR/s.csv" 4 4) xlsx("$TTSF_DIR/s.xlsx" `"`sh'"' E5)
 }
 _ttsf_result `=_rc' "SP-stratetab rate in frame, CSV, workbook = design"
 local pass_count = `pass_count' + r(pass)
@@ -343,7 +342,7 @@ capture noisily {
     survtab, times(5 10) by(foreign) frame(ttsf_f, replace) xlsx("$TTSF_DIR/v.xlsx")
     local sh "`r(sheet)'"
     qa_surface_parity, expect(scalar(ttsf_want)) name(S(5) Domestic) textscale(0.01) ///
-        frame(ttsf_f c2 4) xlsx("$TTSF_DIR/v.xlsx" `sh' C4)
+        frame(ttsf_f c2 4) xlsx("$TTSF_DIR/v.xlsx" `"`sh'"' C4)
 }
 _ttsf_result `=_rc' "SP-survtab S(5) in frame and workbook = sts"
 local pass_count = `pass_count' + r(pass)
