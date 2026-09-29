@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.5  30aug2026}{...}
+{* *! version 1.2.6  29sep2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -83,7 +83,10 @@ variables: an indicator variable for each categorical level (the base level is
 dropped by default) and a product variable for each interaction term. Value
 labels become variable labels, so a level coded {cmd:2} with value label
 {cmd:"Female"} produces a variable labeled {cmd:Female}, and the interaction of
-{cmd:Female} with {cmd:age} produces a variable labeled {cmd:Female × Age}.
+{cmd:Female} with {cmd:age} produces a variable labeled {cmd:Female × Age}. A
+level with no value label, or with no entry in its attached value label, is
+labeled {it:var}{cmd:=}{it:level} (for example {cmd:rep78=2}). String variables
+are rejected; {helpb encode} them first.
 
 {pstd}
 The motivation is friendlier export. Estimating with native factor-variable
@@ -162,7 +165,9 @@ named variable must appear as a factor in the specification,
 and each level must be observed in the {cmd:if}/{cmd:in} sample. This is equivalent to
 writing {cmd:ibN.} operators in the varlist ({cmd:ib2.sex##ib3.race}); the option is a
 convenience for setting bases without rewriting the specification, and it does
-not alter any {help fvset:fvset} settings on your data.
+not alter any {help fvset:fvset} settings on your data. Level-restricted factors
+({cmd:i(}{it:numlist}{cmd:).}{it:var}) are not supported with {opt ref()} or
+{opt simple()}; use {cmd:ib}{it:#}{cmd:.} or {cmd:if}/{cmd:in} instead.
 
 {phang}
 {opt simple(varname)} reports the effect of each continuous term that interacts
@@ -202,7 +207,9 @@ an error. Before changing the data, {cmd:fvgen} checks the complete output-name
 plan. Distinct terms that would map to one name, and an output name that would
 overwrite a source variable, are errors even with {opt replace}. With
 {cmd:fvgen, margins store(name)}, {opt replace} first drops an existing stored
-estimate named {it:name}, then stores the refreshed margins-ready clone.
+estimate named {it:name}, then stores the refreshed margins-ready clone; without
+{opt replace}, an existing stored estimate named {it:name} is an error (r(110))
+and is left untouched.
 
 {phang}
 {opt xsymbol(string)} sets the symbol placed between the two sides of an
@@ -230,8 +237,15 @@ stored signature of every data variable present when {cmd:fvgen} ran, plus its
 generated variables, before refitting. If any signed variable was changed,
 dropped, or recast, the bridge exits with error 498 and asks you to rerun
 {cmd:fvgen} and the flattened estimator. A variable added after {cmd:fvgen} does
-not invalidate the bridge. If the native replay errors or reports nonconvergence,
-the bridge returns that failure and restores the original active estimate.
+not invalidate the bridge. After the refit, the bridge also verifies that the
+native model is the same model as the flattened one: the same estimation sample,
+{cmd:e(N)}, rank, number of free coefficients, and (where posted) log
+likelihood. A mismatch, which arises when {cmd:fvgen} ran on a different
+{cmd:if}/{cmd:in} sample than the estimator (levels outside the {cmd:fvgen}
+sample were lumped with the base in the flattened fit) or with {opt alllevels}
+and {cmd:noconstant}, exits with error 498. If the native replay errors, reports
+nonconvergence, or fails this check, the bridge returns that failure and
+restores the original active estimate.
 
 {phang}
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
@@ -409,7 +423,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.5, 2026-08-30{p_end}
+{pstd}Version 1.2.6, 2026-09-29{p_end}
 
 
 {title:Also see}

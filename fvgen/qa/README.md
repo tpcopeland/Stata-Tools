@@ -44,7 +44,7 @@ Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fv
 | `test_errors.do` | Exact error codes for unsupported specifications and options plus `varabbrev` restoration on success and failure. |
 | `test_provenance.do` | Variable and dataset provenance, teardown returns, idempotence, pass-through survival, and strict drop syntax. |
 | `test_margins.do` | Active and stored margins clones, estimator-family and VCE parity, survey replay, store replacement, and unsupported paths. |
-| `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, and nonconvergence rejection. |
+| `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, nonconvergence rejection, native-refit model-equivalence guards (if-sample and `alllevels` + `noconstant` mismatches), `store()` clobber protection, partial value-label fallback, and string / `i(numlist)` rejection. |
 | `test_fvgen_hostile.do` | Adversarial namespace collision and empty-data state preservation. |
 | `test_fvgen_oracle.do` | Seeded row-level factor-indicator and product oracles plus generated-name shadow preservation. |
 | `test_package_release.do` | Isolated install resolution, repeated autoload, every visible help workflow, and help-render integrity with a positive control. |
