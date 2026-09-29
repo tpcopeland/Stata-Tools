@@ -334,10 +334,10 @@ local build_periods = r(N_periods)
 
 ```stata
 noisily display "committed periods: " as result r(N_periods)
+"   signature: " as result "`r(datasignature)'"
 ```
 
 ```
->     "   signature: " as result "`r(datasignature)'"
 committed periods: 764   signature: 764:10(40091):2831415381:3111537191
 ```
 

@@ -315,7 +315,7 @@ log using "`pkg_dir'/console_datamap_json.log", replace text name(json) nomsg
 noisily datamap, single("`pkg_dir'/_demo_cohort.dta") ///
     output("`pkg_dir'/datamap_metadata.json") ///
     format(json) exclude(patient_id subject_id patient_name) ///
-    datesafe mincell(5) quality missing(detail) uniqcap(100)
+    datesafe mincell(5) uniqcap(100)
 
 noisily _demo_type_head using "`pkg_dir'/datamap_metadata.json", lines(70)
 noisily display as text "Censored unique-count flags:"

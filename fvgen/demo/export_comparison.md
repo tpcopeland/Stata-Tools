@@ -53,16 +53,16 @@ Each pair below spans the same model space. Full-rank designs reproduce the same
 
 | Term | Coef. | 95% CI | p |
 |---|---:|:---:|---:|
-| Foreign | -1778 | (-5440, 1883) | 0.335 |
+| Foreign | 2088 | (-2615, 6791) | 0.378 |
 | Fair | 1403 | (-3353, 6159) | 0.557 |
 | Avg | 2043 | (-2366, 6451) | 0.358 |
 | Good | 1317 | (-3386, 6020) | 0.578 |
 | Best | -360 | (-6376, 5656) | 0.905 |
-| Foreign × Avg | _(base)_ |  |  |
-| Foreign × Good | 2158 | (-2473, 6789) | 0.355 |
-| Foreign × Best | 3867 | (-2093, 9826) | 0.199 |
-| Intercept | 4564 | (311, 8818) | 0.036 |
+| Foreign × Avg | -3867 | (-9826, 2093) | 0.199 |
+| Foreign × Good | -1708 | (-7200, 3783) | 0.536 |
+| Foreign × Best | _(base)_ |  |  |
+| Intercept | 4565 | (311, 8818) | 0.036 |
 
-This example has empty interaction cells, so the two equivalent fits use different omitted-column bases. Native R-squared: 0.0427960; flattened R-squared: 0.0427960; maximum absolute fitted-value difference: 3.73e-11.
+This example has empty interaction cells, so the two equivalent fits use different omitted-column bases. Native R-squared: 0.0427960; flattened R-squared: 0.0427960; maximum absolute fitted-value difference: 7.28e-12.
 
 _fvgen composes with the tabtools `regtab`/`table1_tc` export family and `esttab`/`collect`: the clean labels and the `fvgen_term`/`fvgen_role` provenance characteristics carry straight through to the rendered table._

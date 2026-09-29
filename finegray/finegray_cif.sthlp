@@ -146,8 +146,8 @@ for {opt bstratum()}, and the two may not be combined.
 {pmore}
 With {opt attime()} one table is printed per curve; otherwise the curves are
 overlaid on one graph, each confidence band (with {opt ci}) shaded in its own
-curve's color, with a legend entry per level (the value label where one is
-defined). A value label is drawn and printed exactly as written: {cmd:$},
+curve's color, with a legend entry per level: the level's value label alone
+where one is defined, otherwise {it:varname} {cmd:=} {it:level}. A value label is drawn and printed exactly as written: {cmd:$},
 backquotes, braces and double quotes in it are text, not macro or SMCL
 syntax. {cmd:r(table)} gains a sixth column, {cmd:over}, holding each row's level, {cmd:r(at)}
 has one row per curve, and the {opt saving()} dataset gains an {cmd:over} variable

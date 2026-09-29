@@ -57,7 +57,7 @@ scalars:
     y)                 =  0
       r(n_ps_boundary) =  0
           r(threshold) =  .1
-         r(max_ks_adj) =  .0937448140980408
+         r(max_ks_adj) =  .093744814098041
          r(max_ks_raw) =  .2105117384237494
         r(n_binary_vr) =  1
   r(n_vr_imbalanced_a
@@ -67,7 +67,7 @@ scalars:
     r(n_vr_imbalanced) =  0
        r(n_imbalanced) =  0
          r(max_vr_adj) =  1.071577802203555
-        r(max_smd_adj) =  .0470329896570498
+        r(max_smd_adj) =  .047032989657052
          r(max_vr_raw) =  1.04099727858756
         r(max_smd_raw) =  .4715906455790541
           r(N_control) =  249

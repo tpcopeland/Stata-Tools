@@ -16,7 +16,7 @@ noisily tvtools
 
 ```
 tvtools - Time-Varying Exposure Analysis Suite
-Version 1.15.0
+Version 1.17.3
 --------------------------------------------------------------------
 Data Preparation
   tvbuild    - Build a committed interval frame end to end
@@ -188,10 +188,10 @@ tvevent result
 
 ```stata
 noisily display "event indicator: " as result "`r(generate)'"
+"   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 ```
 
 ```
->     "   intervals: " as result "`r(startvar)'/`r(stopvar)'"
 event indicator: outcome   intervals: start/stop
 ```
 

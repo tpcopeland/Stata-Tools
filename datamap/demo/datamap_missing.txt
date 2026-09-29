@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_missing.dta
@@ -27,6 +27,17 @@ Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 4
   Observations with complete data: 38 (47.5%)
+  Missing-value patterns (+ observed, . missing):
+    Pattern variables, in order: x1 x2 x3 x4
+    Distinct patterns: 8
+    ++++: 38 (47.5%)
+    +.++: 14 (17.5%)
+    .+.+: 8 (10%)
+    ++.+: 7 (8.8%)
+    .+..: 7 (8.8%)
+    ....: suppressed (<5)
+    ...+: suppressed (<5)
+    +..+: suppressed (<5)
 
 ========================================
 VARIABLE SUMMARY
@@ -120,10 +131,10 @@ Unique Values: 60
 
 DISTRIBUTION:
   Valid N: 60
-  Mean: -.1
+  Mean: -.0968
   SD: 1.13
-  Median: -.03
-  IQR: -.66-.36
+  Median: -.0348
+  IQR: -.659-.361
   Range: -3.15 to 3.33
 
 VARIABLE: x2
@@ -138,10 +149,10 @@ Unique Values: 60
 
 DISTRIBUTION:
   Valid N: 60
-  Mean: .05
+  Mean: .0482
   SD: 1.19
-  Median: .13
-  IQR: -.79-.86
+  Median: .134
+  IQR: -.79-.858
   Range: -2.79 to 2.81
 
 VARIABLE: x3
@@ -156,10 +167,10 @@ Unique Values: 52
 
 DISTRIBUTION:
   Valid N: 52
-  Mean: .01
+  Mean: .0104
   SD: 1.02
-  Median: .02
-  IQR: -.71-.82
+  Median: .0215
+  IQR: -.712-.816
   Range: -2.16 to 2.37
 
 VARIABLE: x4
@@ -174,10 +185,10 @@ Unique Values: 70
 
 DISTRIBUTION:
   Valid N: 70
-  Mean: -.01
+  Mean: -.0106
   SD: 1.03
-  Median: 0
-  IQR: -.68-.43
+  Median: .00346
+  IQR: -.679-.433
   Range: -2 to 4.66
 
 ========================================

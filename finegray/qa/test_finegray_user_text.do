@@ -15,6 +15,8 @@
 * {bf:x} were eaten, and an unbalanced backtick stopped the graph with r(132).
 * The drawn text is read from an SVG export (the renderer's own output), and
 * the stored text from the graph object and from a saved .gph re-displayed.
+* A labelled level's legend key is its value label alone; only an unlabelled
+* level is keyed "grp = #" (UT-10).
 *
 * Every expected string is built in Mata from char() codes and compared
 * byte for byte; console text is read back from a text log in Mata, so the
@@ -336,7 +338,7 @@ capture noisily {
     finegray_cif, over(grp) ci name(fgut6)
     quietly graph export `"`sv'.svg"', name(fgut6) replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ (_fgut_hostile()[1::2] \ "C plain")))
+        (_fgut_hostile()[1::2] \ "C plain")))
     assert scalar(fgut_n) == 1
     graph drop _all
 }
@@ -359,14 +361,14 @@ capture noisily {
     finegray_cif, over(grp) ci name(fgut7)
     quietly graph export `"`sv'.svg"', name(fgut7) replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ _fgut_hostile()))
+        _fgut_hostile()))
     assert scalar(fgut_n) == 1
     * the graph object holds the inert SMCL form, one entry per curve
     assert `.fgut7.legend.plotregion1.label.arrnels' == 3
     forvalues k = 1/3 {
         local _ot `"`.fgut7.legend.plotregion1.label[`k'].text[1]'"'
         mata: st_numscalar("fgut_n", st_local("_ot") == ///
-            "grp = " + _fgut_enc(_fgut_hostile()[`k']))
+            _fgut_enc(_fgut_hostile()[`k']))
         assert scalar(fgut_n) == 1
     }
     * the bstrata() over() route draws the same labels
@@ -374,7 +376,7 @@ capture noisily {
     finegray_cif, over(grp) name(fgut7b)
     quietly graph export `"`sv'.svg"', name(fgut7b) replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ _fgut_hostile()))
+        _fgut_hostile()))
     assert scalar(fgut_n) == 1
     graph drop _all
 }
@@ -398,19 +400,19 @@ capture noisily {
     graph display fgut8
     quietly graph export `"`sv'.svg"', replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ _fgut_hostile()))
+        _fgut_hostile()))
     assert scalar(fgut_n) == 1
     quietly graph save fgut8 `"`gph'.gph"', replace
     graph drop _all
     graph use `"`gph'.gph"', name(fgut8u)
     quietly graph export `"`sv'.svg"', name(fgut8u) replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ _fgut_hostile()))
+        _fgut_hostile()))
     assert scalar(fgut_n) == 1
     graph combine fgut8u, name(fgut8c)
     quietly graph export `"`sv'.svg"', name(fgut8c) replace as(svg)
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
-        "grp = " :+ _fgut_hostile()))
+        _fgut_hostile()))
     assert scalar(fgut_n) == 1
     graph drop _all
 }
@@ -454,7 +456,7 @@ else {
     local ++fail_count
 }
 
-**# UT-10 no-change guard: ordinary and unlabelled levels are drawn exactly as before
+**# UT-10 legend keys: labelled levels drawn as the label alone, unlabelled as "grp = #"
 local ++test_count
 capture noisily {
     _fgut_data3
@@ -467,18 +469,31 @@ capture noisily {
     finegray_cif, over(grp) ci name(fgut10)
     quietly graph export `"`sv'.svg"', name(fgut10) replace as(svg)
     mata: st_vlload("fgut_p", _fgut_v = ., _fgut_t = .); ///
-        st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", "grp = " :+ _fgut_t))
+        st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", _fgut_t))
     assert scalar(fgut_n) == 1
     * the stored legend text is the label itself: nothing was encoded
     forvalues k = 1/3 {
         local _ot `"`.fgut10.legend.plotregion1.label[`k'].text[1]'"'
-        mata: st_numscalar("fgut_n", st_local("_ot") == "grp = " + _fgut_t[`k'])
+        mata: st_numscalar("fgut_n", st_local("_ot") == _fgut_t[`k'])
         assert scalar(fgut_n) == 1
     }
     * fixed text finegray_cif writes itself is unchanged
     mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
         ("Cumulative incidence" \ "Analysis time" \ "Shaded: 95% CI")))
     assert scalar(fgut_n) == 1
+    * a labelled level carries no "var = " prefix anywhere in the drawn text
+    mata: st_numscalar("fgut_n", sum(strpos(_fgut_svgtext(st_local("sv") + ".svg"), "grp = ") :> 0))
+    assert scalar(fgut_n) == 0
+    * a partly labelled variable: the unlabelled level keeps its prefix
+    label define fgut_q 1 "Placebo" 2 "Active"
+    label values grp fgut_q
+    quietly finegray x grp, compete(status) cause(1) nolog
+    finegray_cif, over(grp) name(fgut10m)
+    quietly graph export `"`sv'.svg"', name(fgut10m) replace as(svg)
+    mata: st_numscalar("fgut_n", _fgut_svg_has_all(st_local("sv") + ".svg", ///
+        ("Placebo" \ "Active" \ "grp = 3")))
+    assert scalar(fgut_n) == 1
+    label drop fgut_q
     * an unlabelled over() variable still shows its levels
     label values grp
     quietly finegray x grp, compete(status) cause(1) nolog
@@ -491,11 +506,11 @@ capture noisily {
     mata: mata drop _fgut_v _fgut_t
 }
 if _rc == 0 {
-    display as result "  PASS: UT-10 ordinary and unlabelled levels drawn unchanged"
+    display as result "  PASS: UT-10 labelled keys drawn as the label alone, unlabelled as "grp = #""
     local ++pass_count
 }
 else {
-    display as error "  FAIL: UT-10 ordinary labels (rc=`=_rc')"
+    display as error "  FAIL: UT-10 legend keys (rc=`=_rc')"
     local ++fail_count
     capture mata: mata drop _fgut_v _fgut_t
 }

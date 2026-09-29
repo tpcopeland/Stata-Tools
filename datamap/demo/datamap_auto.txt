@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_auto.dta
@@ -386,7 +386,7 @@ Unique Values: 36
 DISTRIBUTION:
   Valid N: 74
   Mean: 3.01
-  SD: .46
+  SD: .456
   Median: 2.96
   IQR: 2.73-3.37
   Range: 2.19 to 3.89

@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -375,7 +375,7 @@ Unique Values: 168
 DISTRIBUTION:
   Valid N: 1058
   Mean: 1.03
-  SD: .35
+  SD: .354
   Median: 1.04
   IQR: .79-1.26
   Range: -.07 to 2.27
@@ -414,8 +414,8 @@ Unique Values: 123
 
 DISTRIBUTION:
   Valid N: 1200
-  Mean: .29
-  SD: .28
+  Mean: .288
+  SD: .277
   Median: .2
   IQR: .09-.4
   Range: 0 to 1.98
