@@ -173,7 +173,9 @@ combining them into one document.
 
 {phang}
 {opt outd:ir(path)} writes all separate dictionaries to {it:path}. The
-directory must already exist.
+directory must already exist. If two inputs derive the same destination
+(for example, identical basenames in different directories), the command
+errors before writing any dictionary.
 
 {phang}
 {opt suf:fix(string)} sets the suffix appended before {cmd:.md} in

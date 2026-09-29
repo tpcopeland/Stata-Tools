@@ -192,11 +192,11 @@ person's value. The continuous profile shows p1 and p99 in their place, the
 date profile shows p1 and p99 at month precision, and an {opt inrange()}
 violation reports p1 and p99 instead of the offending extremes. Every
 percentile, mean, or {opt stat()} value is shown only when at least the mask
-threshold of nonmissing observations lie at or below it and at or above it;
-otherwise it prints as {bf:[suppressed]}. With all-distinct values and the
+threshold of nonmissing observations lie at or below it and at or above it; otherwise
+it prints as {bf:[suppressed]}. With all-distinct values and the
 default threshold of 5, p1 and p99 therefore need about 500 observations. An
-sd is shown when the threshold count of nonmissing observations exists.
-{opt saving()} and {opt makespec()} still write observed minima and maxima to
+sd is shown when the threshold count of nonmissing observations exists. {opt saving()}
+and {opt makespec()} still write observed minima and maxima to
 their files.
 
 {phang}
@@ -268,8 +268,8 @@ values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}. The syntax matches {opt 
 {phang}
 {opt rule(spec)} asserts row-level rules. Each {cmd:\}-separated entry is
 {it:label}{cmd::} {it:expression}, for example
-{cmd:rule("timeline": dob < dx_date & dx_date <= entry \ "entry_exit": entry < exit)}.
-The label may be quoted and appears in the violation message and in the
+{cmd:rule("timeline": dob < dx_date & dx_date <= entry \ "entry_exit": entry < exit)}. The label
+may be quoted and appears in the violation message and in the
 {cmd:variable} column of {opt violations()}; the expression is stored in the
 {cmd:expected} column. A rule holds for a row where the expression is true
 under Stata's {cmd:if} semantics, so a comparison against a missing value
@@ -287,8 +287,7 @@ inclusive band. Each {cmd:\}-separated entry is {it:statistic var lo hi}, where
 {it:statistic} is {cmd:mean}, {cmd:sd}, {cmd:median}, or one of {cmd:p1},
 {cmd:p5}, {cmd:p10}, {cmd:p25}, {cmd:p50}, {cmd:p75}, {cmd:p90}, {cmd:p95},
 {cmd:p99}, computed as by {help summarize:summarize, detail}. Use {cmd:mean} of a
-0/1 variable for a proportion:
-{cmd:stat(mean outcome 0.03 0.20 \ median income 1500 4000)}. Commas are read
+0/1 variable for a proportion: {cmd:stat(mean outcome 0.03 0.20 \ median income 1500 4000)}. Commas are read
 as spaces, so a band stored as {it:lo, hi} can be reused. Bounds may be date
 literals, as in {opt inrange()}. A variable with no nonmissing values in scope
 is a violation.

@@ -1,4 +1,4 @@
-*! psdash Version 1.7.3  2026/09/29
+*! psdash Version 1.7.4  2026/09/30
 *! Propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

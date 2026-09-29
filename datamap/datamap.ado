@@ -1,4 +1,4 @@
-*! datamap Version 1.7.0  2026/09/29
+*! datamap Version 1.7.1  2026/09/29
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -99,6 +99,13 @@ NOTES
 
 program define datamap, rclass
 	version 16.0
+    local _legacy_globals : all globals
+    foreach g in S_1 S_FN S_FNDATE {
+        local _had_`g' : list g in _legacy_globals
+        mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
+        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+    }
+
 		local _varabbrev = c(varabbrev)
 		set varabbrev off
 		local _restore_needed = 0
@@ -508,7 +515,7 @@ program define datamap, rclass
 						classifications(`"`_mclass'"') sourcecommand("datamap") ///
 						source(`"`_msource'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
 						dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
-						datasignature(`"`_mdsig'"')
+						datasignature(`"`_mdsig'"') `datesafe'
 				}
 				else {
 					tempname _mfl
@@ -543,7 +550,7 @@ program define datamap, rclass
 								classifications(`"`_mclass'"') sourcecommand("datamap") ///
 								source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
 								dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
-								datasignature(`"`_mdsig'"')
+								datasignature(`"`_mdsig'"') `datesafe'
 						}
 						file read `_mfl' _mfile
 					}
@@ -621,6 +628,10 @@ program define datamap, rclass
 			local _restore_rc = _rc
 			if !`rc' & `_restore_rc' local rc = `_restore_rc'
 		}
+    foreach g in S_1 S_FN S_FNDATE {
+        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        else macro drop `g'
+    }
 		set varabbrev `_varabbrev'
 		if `rc' exit `rc'
 	end
@@ -727,7 +738,7 @@ program define _datamap_ProcessCombined, rclass
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'"
+				`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'"
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -893,7 +904,7 @@ program define _datamap_ProcessSeparate, rclass
 					"`exclude'" "`continuous'" "`categorical'" "`date'" "`datesafe'" 1 1 ///
 					`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
 				"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-					`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'"
+					`missing_detail' `missing_pattern' "`dateformat'" `uniqcap' "`displayname'" "`memory'"
 			local n_categorical = `n_categorical' + r(n_categorical)
 			local n_continuous = `n_continuous' + r(n_continuous)
 			local n_date = `n_date' + r(n_date)
@@ -964,201 +975,210 @@ capture program drop _datamap_ProcessDataset
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessDataset, rclass
-		version 16.0
-			args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
-			     exclude continuous categorical force_date datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
-				     panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap displayname
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args fh filepath format nostats nofreq nolabels maxfreq maxcat mincell noguidance compact ///
+            exclude continuous categorical force_date datesafe idx total detect_panel detect_binary detect_survival detect_survey detect_common ///
+            panelid survivalvars quality_level samples missing_detail missing_pattern dateformat uniqcap displayname memory
 
-	// Get dataset metadata from describe
-	capture quietly describe using "`filepath'", short
-	if _rc != 0 {
-		noisily di as error "    ERROR: Could not describe file `filepath' (rc=`=_rc')"
-		exit _rc
-	}
-	local obs = r(N)
-	local nvars = r(k)
-	local sortorder "`r(sortlist)'"
+        // Get dataset metadata from describe
+        capture quietly describe using "`filepath'", short
+        if _rc != 0 {
+            noisily di as error "    ERROR: Could not describe file `filepath' (rc=`=_rc')"
+            exit _rc
+        }
+        local obs = r(N)
+        local nvars = r(k)
+        local sortorder "`r(sortlist)'"
 
-	// Load dataset to get label and datasignature
-	quietly {
-		capture use "`filepath'", clear
-		if _rc != 0 {
-			noisily di as error "    ERROR: Could not load `filepath' (rc=`=_rc')"
-			exit _rc
-		}
-	}
-	local label : data label
+        // Load dataset to get label and datasignature
+        quietly {
+            if "`memory'" == "" capture use "`filepath'", clear
+            if _rc != 0 {
+                noisily di as error "    ERROR: Could not load `filepath' (rc=`=_rc')"
+                exit _rc
+            }
+        }
+        local label : data label
 
-	// Get datasignature
-	local dsig ""
-	quietly capture datasignature
-	if _rc == 0 {
-		local dsig "`r(datasignature)'"
-	}
+        // Get datasignature
+        local dsig ""
+        quietly capture datasignature
+        if _rc == 0 {
+            local dsig "`r(datasignature)'"
+        }
 
-	// Get file system info - extract basename from filepath
-	// Normalize slashes first to handle mixed path separators (Windows/Unix)
-	local normalized_path = subinstr("`filepath'", "\", "/", .)
-	local basename = "`normalized_path'"
+        // Get file system info - extract basename from filepath
+        // Normalize slashes first to handle mixed path separators (Windows/Unix)
+        local normalized_path = subinstr("`filepath'", "\", "/", .)
+        local basename = "`normalized_path'"
 
-	// Extract filename from normalized path
-	if strpos("`normalized_path'", "/") > 0 {
-		local basename = reverse("`normalized_path'")
-		local slashpos = strpos("`basename'", "/")
-		if `slashpos' > 0 {
-			local basename = reverse(substr("`basename'", 1, `slashpos'-1))
-		}
-		else {
-			local basename = "`normalized_path'"
-		}
-	}
-	if `"`displayname'"' != "" local basename `"`displayname'"'
+        // Extract filename from normalized path
+        if strpos("`normalized_path'", "/") > 0 {
+            local basename = reverse("`normalized_path'")
+            local slashpos = strpos("`basename'", "/")
+            if `slashpos' > 0 {
+                local basename = reverse(substr("`basename'", 1, `slashpos'-1))
+            }
+            else {
+                local basename = "`normalized_path'"
+            }
+        }
+        if `"`displayname'"' != "" local basename `"`displayname'"'
 
-	// Write dataset header for text output.
-	if "`format'" != "json" {
-		if `idx' > 1 file write `fh' _n _n
+        // Write dataset header for text output.
+        if "`format'" != "json" {
+            if `idx' > 1 file write `fh' _n _n
 
-		// LLM-optimized header with structured sections
-		_datamap_write_rule_header `fh' "DATASET: `basename'"
+            // LLM-optimized header with structured sections
+            _datamap_write_rule_header `fh' "DATASET: `basename'"
 
-		file write `fh' "METADATA" _n
-		file write `fh' "--------" _n
-		file write `fh' "Observations: `obs'" _n
-		file write `fh' "Variables: `nvars'" _n
-		if `"`macval(label)'"' != "" & `"`macval(label)'"' != "." {
-			file write `fh' `"Label: `macval(label)'"' _n
-		}
-		if "`dsig'" != "" {
-			file write `fh' "Data Signature: `dsig'" _n
-		}
+            file write `fh' "METADATA" _n
+            file write `fh' "--------" _n
+            file write `fh' "Observations: `obs'" _n
+            file write `fh' "Variables: `nvars'" _n
+            if `"`macval(label)'"' != "" & `"`macval(label)'"' != "." {
+                file write `fh' `"Label: `macval(label)'"' _n
+            }
+            if "`dsig'" != "" {
+                file write `fh' "Data Signature: `dsig'" _n
+            }
 
-		// Add sort order if set
-		if "`sortorder'" != "" {
-			file write `fh' "Sort Order: `sortorder'" _n
-		}
-		file write `fh' _n
-	}
+            // Add sort order if set
+            if "`sortorder'" != "" {
+                file write `fh' "Sort Order: `sortorder'" _n
+            }
+            file write `fh' _n
+        }
 
-	// Shared classification pass for all output formats and stored results.
-	//
-	// Unique counts above `uniqcap' are censored and render as ">cap", which
-	// lets high-cardinality variables skip the sort entirely (see
-	// _datamap_nuniq.ado).  uniqcap(0) restores exact counts at any
-	// cardinality, at the old cost.
-	//
-	// When capping, the cap must clear every threshold a unique count is
-	// later compared against -- maxcat (classification) and maxfreq
-	// (frequency tables) -- or a censored count could flip a variable's class
-	// or hide its frequency table.
-	if `uniqcap' == 0 local nuniq_cap = 0
-	else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
-	tempfile classifications
-			_datamap_classify using "`filepath'", saving("`classifications'") loaded ///
-				maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
-				continuous("`continuous'") categorical("`categorical'") ///
-				date("`force_date'") cap(`nuniq_cap') ///
-			detect_binary(`detect_binary') quality_level("`quality_level'")
-	local n_categorical = r(n_categorical)
-	local n_continuous = r(n_continuous)
-	local n_date = r(n_date)
-	local n_string = r(n_string)
-	local n_excluded = r(n_excluded)
-	local n_suggested_exclude = r(n_suggested_exclude)
-	local categorical_vars "`r(categorical_vars)'"
-	local continuous_vars "`r(continuous_vars)'"
-	local date_vars "`r(date_vars)'"
-	local string_vars "`r(string_vars)'"
-	local excluded_vars "`r(excluded_vars)'"
-	local suggested_exclude "`r(suggested_exclude)'"
+        // Shared classification pass for all output formats and stored results.
+        //
+        // Unique counts above `uniqcap' are censored and render as ">cap", which
+        // lets high-cardinality variables skip the sort entirely (see
+        // _datamap_nuniq.ado).  uniqcap(0) restores exact counts at any
+        // cardinality, at the old cost.
+        //
+        // When capping, the cap must clear every threshold a unique count is
+        // later compared against -- maxcat (classification) and maxfreq
+        // (frequency tables) -- or a censored count could flip a variable's class
+        // or hide its frequency table.
+        if `uniqcap' == 0 local nuniq_cap = 0
+        else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
+        tempfile classifications
+                _datamap_classify using "`filepath'", saving("`classifications'") loaded ///
+                    maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
+                    continuous("`continuous'") categorical("`categorical'") ///
+                    date("`force_date'") cap(`nuniq_cap') ///
+                detect_binary(`detect_binary') quality_level("`quality_level'")
+        local n_categorical = r(n_categorical)
+        local n_continuous = r(n_continuous)
+        local n_date = r(n_date)
+        local n_string = r(n_string)
+        local n_excluded = r(n_excluded)
+        local n_suggested_exclude = r(n_suggested_exclude)
+        local categorical_vars "`r(categorical_vars)'"
+        local continuous_vars "`r(continuous_vars)'"
+        local date_vars "`r(date_vars)'"
+        local string_vars "`r(string_vars)'"
+        local excluded_vars "`r(excluded_vars)'"
+        local suggested_exclude "`r(suggested_exclude)'"
 
-	if `n_suggested_exclude' > 0 {
-		noisily display as text "warning: likely identifier variable(s) not in exclude():`suggested_exclude'"
-	}
+        if `n_suggested_exclude' > 0 {
+            noisily display as text "warning: likely identifier variable(s) not in exclude():`suggested_exclude'"
+        }
 
-	if "`format'" == "json" {
-		_datamap_ProcessDatasetJson `fh' "`filepath'" "`classifications'" ///
-			"`basename'" `obs' `nvars' `"`macval(label)'"' "`dsig'" "`sortorder'" ///
-			`idx' `total' "`nostats'" "`nofreq'" "`nolabels'" `maxfreq' ///
-			`mincell' "`datesafe'" "`dateformat'" ///
-			`detect_panel' `detect_binary' `detect_survival' `detect_survey' ///
-			`detect_common' "`panelid'" "`survivalvars'" "`quality_level'" ///
-			`samples' `missing_detail' `missing_pattern'
-		return scalar n_categorical = `n_categorical'
-		return scalar n_continuous = `n_continuous'
-		return scalar n_date = `n_date'
-		return scalar n_string = `n_string'
-		return scalar n_excluded = `n_excluded'
-		return scalar n_suggested_exclude = `n_suggested_exclude'
-		return local categorical_vars "`categorical_vars'"
-		return local continuous_vars "`continuous_vars'"
-		return local date_vars "`date_vars'"
-		return local string_vars "`string_vars'"
-		return local excluded_vars "`excluded_vars'"
-		return local suggested_exclude "`suggested_exclude'"
-		exit
-	}
+        if "`format'" == "json" {
+            _datamap_ProcessDatasetJson `fh' "`filepath'" "`classifications'" ///
+                "`basename'" `obs' `nvars' `"`macval(label)'"' "`dsig'" "`sortorder'" ///
+                `idx' `total' "`nostats'" "`nofreq'" "`nolabels'" `maxfreq' ///
+                `mincell' "`datesafe'" "`dateformat'" ///
+                `detect_panel' `detect_binary' `detect_survival' `detect_survey' ///
+                `detect_common' "`panelid'" "`survivalvars'" "`quality_level'" ///
+                `samples' `missing_detail' `missing_pattern'
+            return scalar n_categorical = `n_categorical'
+            return scalar n_continuous = `n_continuous'
+            return scalar n_date = `n_date'
+            return scalar n_string = `n_string'
+            return scalar n_excluded = `n_excluded'
+            return scalar n_suggested_exclude = `n_suggested_exclude'
+            return local categorical_vars "`categorical_vars'"
+            return local continuous_vars "`continuous_vars'"
+            return local date_vars "`date_vars'"
+            return local string_vars "`string_vars'"
+            return local excluded_vars "`excluded_vars'"
+            return local suggested_exclude "`suggested_exclude'"
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	// One-glance privacy posture for text output.
-	file write `fh' "DISCLOSURE RISK SUMMARY" _n
-	file write `fh' "-----------------------" _n
-	file write `fh' "Excluded variables: `n_excluded'" _n
-	file write `fh' "Small-cell threshold: `mincell'"
-	if `mincell' == 0 file write `fh' " (disabled)"
-	file write `fh' _n
-	if "`datesafe'" != "" file write `fh' "Date-safe mode: on" _n
-	else file write `fh' "Date-safe mode: off" _n
-	if `n_suggested_exclude' > 0 {
-		file write `fh' "Likely identifiers not excluded:`suggested_exclude'" _n
-	}
-	else {
-		file write `fh' "Likely identifiers not excluded: 0" _n
-	}
-	file write `fh' _n
+        // One-glance privacy posture for text output.
+        file write `fh' "DISCLOSURE RISK SUMMARY" _n
+        file write `fh' "-----------------------" _n
+        file write `fh' "Excluded variables: `n_excluded'" _n
+        file write `fh' "Small-cell threshold: `mincell'"
+        if `mincell' == 0 file write `fh' " (disabled)"
+        file write `fh' _n
+        if "`datesafe'" != "" file write `fh' "Date-safe mode: on" _n
+        else file write `fh' "Date-safe mode: off" _n
+        if `n_suggested_exclude' > 0 {
+            file write `fh' "Likely identifiers not excluded:`suggested_exclude'" _n
+        }
+        else {
+            file write `fh' "Likely identifiers not excluded: 0" _n
+        }
+        file write `fh' _n
 
-	// Generate natural language summary
-	// Excluded variables are passed on so that no summary or detector derives
-	// a value, range, rate, or cardinality from them (exclude() contract).
-	_datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' `"`macval(label)'"' ///
-		`detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'" ///
-		"`excluded_vars'"
+        // Generate natural language summary
+        // Excluded variables are passed on so that no summary or detector derives
+        // a value, range, rate, or cardinality from them (exclude() contract).
+        _datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' `"`macval(label)'"' ///
+            `detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'" ///
+            "`excluded_vars'"
 
-	// Run detection features if requested
-	if `detect_panel' | "`panelid'" != "" {
-		_datamap_DetectPanel `fh' "`filepath'" "`panelid'" "`format'" "`excluded_vars'"
-	}
-	if `detect_survival' | "`survivalvars'" != "" {
-		_datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'" "`excluded_vars'"
-	}
-	if `detect_survey' {
-		_datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'"
-	}
-	if `detect_common' {
-		_datamap_DetectCommon `fh' "`filepath'" "`format'"
-	}
-	if `missing_detail' | `missing_pattern' {
-		_datamap_SummarizeMissing `fh' "`filepath'" "`format'" `missing_pattern' `obs' `mincell'
-	}
+        // Run detection features if requested
+        if `detect_panel' | "`panelid'" != "" {
+            _datamap_DetectPanel `fh' "`filepath'" "`panelid'" "`format'" "`excluded_vars'"
+        }
+        if `detect_survival' | "`survivalvars'" != "" {
+            _datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'" "`excluded_vars'"
+        }
+        if `detect_survey' {
+            _datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'"
+        }
+        if `detect_common' {
+            _datamap_DetectCommon `fh' "`filepath'" "`format'"
+        }
+        if `missing_detail' | `missing_pattern' {
+            _datamap_SummarizeMissing `fh' "`filepath'" "`format'" `missing_pattern' `obs' `mincell'
+        }
 
-	// Process all variables in the dataset
-	_datamap_ProcessVariables `fh' "`filepath'" "`classifications'" "`format'" "`nostats'" "`nofreq'" ///
-		"`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
-		"`exclude'" "`datesafe'" `obs' ///
-		`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
-		"`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
-		`missing_detail' `missing_pattern' "`dateformat'"
+        // Process all variables in the dataset
+        _datamap_ProcessVariables `fh' "`filepath'" "`classifications'" "`format'" "`nostats'" "`nofreq'" ///
+            "`nolabels'" `maxfreq' `maxcat' `mincell' "`noguidance'" "`compact'" ///
+            "`exclude'" "`datesafe'" `obs' ///
+            `detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
+            "`panelid'" "`survivalvars'" "`quality_level'" `samples' ///
+            `missing_detail' `missing_pattern' "`dateformat'"
 
-	return scalar n_categorical = `n_categorical'
-	return scalar n_continuous = `n_continuous'
-	return scalar n_date = `n_date'
-	return scalar n_string = `n_string'
-	return scalar n_excluded = `n_excluded'
-	return scalar n_suggested_exclude = `n_suggested_exclude'
-	return local categorical_vars "`categorical_vars'"
-	return local continuous_vars "`continuous_vars'"
-	return local date_vars "`date_vars'"
-	return local string_vars "`string_vars'"
-	return local excluded_vars "`excluded_vars'"
-	return local suggested_exclude "`suggested_exclude'"
+        return scalar n_categorical = `n_categorical'
+        return scalar n_continuous = `n_continuous'
+        return scalar n_date = `n_date'
+        return scalar n_string = `n_string'
+        return scalar n_excluded = `n_excluded'
+        return scalar n_suggested_exclude = `n_suggested_exclude'
+        return local categorical_vars "`categorical_vars'"
+        return local continuous_vars "`continuous_vars'"
+        return local date_vars "`date_vars'"
+        return local string_vars "`string_vars'"
+        return local excluded_vars "`excluded_vars'"
+        return local suggested_exclude "`suggested_exclude'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+
 end
 
 // =============================================================================

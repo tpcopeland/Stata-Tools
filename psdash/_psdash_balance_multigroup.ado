@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.7.3  2026/09/29
+*! _psdash_balance_multigroup Version 1.7.4  2026/09/30
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -76,8 +76,11 @@ program define _psdash_balance_multigroup, rclass
         local n_cov_min = `_n_panel'
 
         if `has_adj' {
-            tempvar _wt_sq_all
-            quietly gen double `_wt_sq_all' = `wvar'^2
+            tempvar _wt_sq_all _wt_norm
+            local _wt_source "`wvar'"
+            quietly gen double `_wt_norm' = .
+            quietly gen double `_wt_sq_all' = .
+            local wvar "`_wt_norm'"
         }
 
         local i = 1
@@ -96,6 +99,19 @@ program define _psdash_balance_multigroup, rclass
             * The two support points are data values: test membership against
             * exact scalars, not their decimal macro text, or a two-valued
             * double (e.g. a centred indicator) is misread as continuous.
+            * Normalize on this covariate's available cases within each arm.
+            * Means, unbiased variances and ECDFs share the same scaled weights.
+            if `has_adj' {
+                tempvar _wt_max
+                quietly egen double `_wt_max' = max(cond(!missing(`var'), ///
+                    `_wt_source', .)), by(`treatment')
+                quietly replace `_wt_norm' = `_wt_source' / `_wt_max' ///
+                    if !missing(`var')
+                quietly replace `_wt_norm' = . if missing(`var')
+                quietly replace `_wt_sq_all' = `_wt_norm'^2
+                drop `_wt_max'
+            }
+
             quietly summarize `var'
             local _vmin = r(min)
             local _vmax = r(max)
@@ -189,8 +205,15 @@ program define _psdash_balance_multigroup, rclass
                     local smd_raw = 0
                 }
 
-                if `var_a' > 0 & `var_ref' > 0 {
+                if `_n_a_var' > 1 & `_n_ref_var' > 1 & ///
+                        !missing(`var_a', `var_ref') & `var_ref' > 0 {
                     local vr_raw = `var_a' / `var_ref'
+                }
+                else if `_n_a_var' > 1 & `_n_ref_var' > 1 & ///
+                        !missing(`var_a', `var_ref') & ///
+                        `var_a' > 0 & `var_ref' == 0 {
+                    * .a denotes an infinite ratio; both-zero remains undefined.
+                    local vr_raw = .a
                 }
                 else {
                     local vr_raw = .
@@ -258,8 +281,13 @@ program define _psdash_balance_multigroup, rclass
                         local smd_adj = 0
                     }
 
-                    if `var_a_adj' > 0 & `var_ref_adj' > 0 {
+                    if !missing(`var_a_adj', `var_ref_adj') & `var_ref_adj' > 0 {
                         local vr_adj = `var_a_adj' / `var_ref_adj'
+                    }
+                    else if !missing(`var_a_adj', `var_ref_adj') & ///
+                            `var_a_adj' > 0 & `var_ref_adj' == 0 {
+                        * .a denotes an infinite ratio; both-zero remains undefined.
+                        local vr_adj = .a
                     }
                     else {
                         local vr_adj = .
@@ -343,9 +371,10 @@ program define _psdash_balance_multigroup, rclass
                     if `abs_smd' > `max_smd_raw' local max_smd_raw = `abs_smd'
                 }
 
-                if !`_isbin_`i'' & !missing(`balance_mat'[`i', `col_vr_raw']) {
+                if !`_isbin_`i'' & (!missing(`balance_mat'[`i', `col_vr_raw']) | `balance_mat'[`i', `col_vr_raw'] == .a) {
                     local vr_i = `balance_mat'[`i', `col_vr_raw']
-                    local dev_raw = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
+                    local dev_raw = cond(`vr_i' == 0 | `vr_i' == .a, .a, ///
+                        max(abs(`vr_i' - 1), abs(1/`vr_i' - 1)))
                     if `dev_raw' > `max_vr_raw_dev' {
                         local max_vr_raw = `vr_i'
                         local max_vr_raw_dev = `dev_raw'
@@ -379,9 +408,10 @@ program define _psdash_balance_multigroup, rclass
                     }
                     * RB-08: read the ADJUSTED VR contrast (weighted verdict scale).
                     local col_vr_adj = `ncols_raw' + (`cnum' - 1) * 5 + 4
-                    if !`_isbin_`i'' & !missing(`balance_mat'[`i', `col_vr_adj']) {
+                    if !`_isbin_`i'' & (!missing(`balance_mat'[`i', `col_vr_adj']) | `balance_mat'[`i', `col_vr_adj'] == .a) {
                         local vr_a_i = `balance_mat'[`i', `col_vr_adj']
-                        local dev_adj = max(abs(`vr_a_i' - 1), abs(1/`vr_a_i' - 1))
+                        local dev_adj = cond(`vr_a_i' == 0 | `vr_a_i' == .a, .a, ///
+                        max(abs(`vr_a_i' - 1), abs(1/`vr_a_i' - 1)))
                         if `dev_adj' > `max_vr_adj_dev' {
                             local max_vr_adj = `vr_a_i'
                             local max_vr_adj_dev = `dev_adj'

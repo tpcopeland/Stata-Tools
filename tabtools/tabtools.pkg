@@ -47,6 +47,7 @@ f _tabtools_match_rows.ado
 f _tabtools_xlsx_apply_styles.ado
 f _tabtools_xlsx_build_styles.ado
 f _tabtools_xlsx_compact_styles.ado
+f _tabtools_xlsx_deferred_styles.ado
 f _desctab_collect.ado
 f _tabtools_smallcells.ado
 f _tabtools_smallcells_render.ado

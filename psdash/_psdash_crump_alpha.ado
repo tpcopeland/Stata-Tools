@@ -1,5 +1,5 @@
-*! _psdash_crump_alpha Version 1.7.3  2026/09/29
-*! Efficient Crump optimal-trimming grid search
+*! _psdash_crump_alpha Version 1.7.4  2026/09/30
+*! Empirical Crump first-crossing trimming search; Corollary 1 (2009), p. 193
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Internal helper
@@ -73,8 +73,8 @@ void _psdash_crump_consider(
     if (first > 1) total = total - cumulative[first - 1]
     rhs = 2 * total / (last - first + 1)
     lhs = 1 / (alpha * (1 - alpha))
-    diff = abs(lhs - rhs)
-    if (missing(best_diff) || diff < best_diff) {
+    diff = lhs - rhs
+    if (diff <= 0) {
         best_diff = diff
         best_alpha = alpha
     }
@@ -87,7 +87,7 @@ void _psdash_crump_search(
     string scalar objective_name)
 {
     real colvector p, inverse_variance, cumulative
-    real scalar i, alpha, best_alpha, best_diff, lo, hi, has_boundary
+    real scalar i, alpha, best_alpha, best_diff, has_boundary
 
     p = st_data(., psvar, touse)
     has_boundary = any((p :== 0) :| (p :== 1))
@@ -113,22 +113,19 @@ void _psdash_crump_search(
         cumulative[i] = cumulative[i - 1] + inverse_variance[i]
     }
 
-    best_alpha = 0
+    /* Ascending 0.001 grid on [0.001, 0.5]. Select the first empirical
+       inequality crossing, not the smallest absolute equation residual. */
+    best_alpha = .
     best_diff = .
-    for (i = 1; i <= 49; i++) {
-        alpha = i / 100
+    for (i = 1; i <= 500; i++) {
+        alpha = i / 1000
         _psdash_crump_consider(
             p, cumulative, alpha, best_alpha, best_diff)
+        if (!missing(best_alpha)) break
     }
-
-    if (best_alpha > 0) {
-        lo = max((1, round(100 * (best_alpha - .01))))
-        hi = min((49, round(100 * (best_alpha + .01))))
-        for (i = lo * 10; i <= hi * 10; i++) {
-            alpha = i / 1000
-            _psdash_crump_consider(
-                p, cumulative, alpha, best_alpha, best_diff)
-        }
+    if (missing(best_alpha)) {
+        errprintf("Crump search found no retained-sample inequality crossing on the 0.001 grid\n")
+        _error(498)
     }
 
     st_numscalar(alpha_name, best_alpha)

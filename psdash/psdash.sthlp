@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.3  29sep2026}{...}
+{* *! version 1.7.4  30sep2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -449,6 +449,14 @@ alone can miss. The variance ratio is reported but not flagged for two-level
 covariates, where it adds nothing beyond the SMD. KS statistics are
 informational: larger values indicate greater distributional separation, but
 there is no universal verdict threshold.
+A zero numerator variance with positive denominator variance gives VR = 0.
+A positive numerator variance with zero denominator variance is infinite,
+represented by Stata extended missing {cmd:.a} in the matrix and maximum VR
+returns; both cases count as variance imbalance. Variances of zero in both
+arms remain undefined ({cmd:.}) and are excluded from the VR verdict.
+Insufficient covariate observations likewise leave the ratio undefined.
+The table's {bf:SMD status} column judges only SMD; the panel verdict also
+uses variance-ratio findings.
 
 {pstd}
 {bf:SMD denominator.} {cmd:psdash} standardizes both the raw and the adjusted SMD
@@ -578,13 +586,14 @@ the paper's homoscedastic approximation, the selected symmetric region
 minimizes an asymptotic variance criterion for the average treatment effect in
 the retained subpopulation; it does not preserve the original-population ATE. When every assessed score is strictly
 inside (0,1), the Corollary 1 full-sample inequality is checked first and can
-return alpha = 0. When at least one interior score remains, a coarse grid search
-over alpha in [0.01, 0.49] (0.01 steps) is refined to 0.001 resolution around
-the coarse minimum, so the reported alpha is not pinned to a 1% step. Exact
-boundary scores cannot qualify for the alpha-zero solution and are excluded by
-any positive trimming threshold. If no interior score remains, the positive
-fallback is subject to the retained-sample guard and fails closed. Restricted
-to binary treatment; for multi-group treatments, use {opt threshold()} instead.
+return alpha = 0. Otherwise, an ascending grid from 0.001 through 0.500
+in steps of 0.001 selects the first alpha satisfying
+1/[alpha(1-alpha)] <= 2 times the retained-sample mean of 1/[PS(1-PS)].
+The retained region includes its endpoints. Exact boundary scores cannot
+qualify for alpha zero and are excluded by positive thresholds. A grid with
+no nonempty retained-sample crossing fails with error 498; the final retained
+sample must also contain both treatment arms. Restricted to binary treatment;
+for multi-group treatments, use {opt threshold()} instead.
 
 {phang}
 {opt threshold(#)} specifies a manual trimming threshold. For binary treatment,

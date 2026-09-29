@@ -27,11 +27,11 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.2.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
-| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.7.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
+| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.7.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) |
 | [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
-| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--16-brightgreen) |
+| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 
 ### Cohorts, registries, and time-varying data
@@ -52,18 +52,18 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--28-brightgreen) |
 | [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.3.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.10-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--27-brightgreen) |
-| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
+| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) |
 
 ### Tables and reporting
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
+| [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.1.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--27-brightgreen) |
 | [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.1.17-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.1.18-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 
 ### Graphics
 

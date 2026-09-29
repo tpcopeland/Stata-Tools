@@ -1,4 +1,4 @@
-*! survtab Version 2.1.17  2026/09/29
+*! survtab Version 2.1.18  2026/09/29
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1107,7 +1107,7 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+            _tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'") ///
                 color3("255 255 204")

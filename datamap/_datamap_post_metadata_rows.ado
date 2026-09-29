@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.7.0  2026/09/29
+*! _datamap_post_metadata_rows Version 1.7.1  2026/09/29
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -6,10 +6,12 @@ program define _datamap_post_metadata_rows, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    local _frame_open = 0
+    tempname _cfr
     capture noisily {
         syntax, POSTName(name) CLASSifications(string) SOURCECommand(string) ///
             SOURCE(string) DSName(string) NVARS(integer) ///
-            [OUtput(string) DSLabel(string) VARLIST(string) DATASIGnature(string)]
+            [OUtput(string) DSLabel(string) VARLIST(string) DATASIGnature(string) DATESAFE]
 
         local source = substr(`"`macval(source)'"', 1, 2045)
         local output = substr(`"`macval(output)'"', 1, 2045)
@@ -17,8 +19,8 @@ program define _datamap_post_metadata_rows, nclass
 
         // Frame, not -preserve-: preserve costs a full in-memory copy of the
         // dataset (see _datamap_nuniq.ado), and this only reads a small lookup.
-        tempname _cfr
         frame create `_cfr'
+        local _frame_open = 1
         frame `_cfr' {
         quietly use `"`classifications'"', clear
         quietly count
@@ -38,6 +40,7 @@ program define _datamap_post_metadata_rows, nclass
         }
         }
         frame drop `_cfr'
+        local _frame_open = 0
 
         if `"`varlist'"' == "" local varlist "`classvars'"
         local obs = c(N)
@@ -86,7 +89,8 @@ program define _datamap_post_metadata_rows, nclass
 
             capture confirm numeric variable `vname'
             local is_numeric = (_rc == 0)
-            if `is_numeric' & "`varclass'" != "excluded" {
+            if `is_numeric' & "`varclass'" != "excluded" & ///
+                !("`datesafe'" != "" & "`varclass'" == "date") {
                 quietly summarize `vname', detail
                 if r(N) > 0 {
                     local mean = r(mean)
@@ -134,6 +138,7 @@ program define _datamap_post_metadata_rows, nclass
         }
     }
     local rc = _rc
+    if `_frame_open' capture frame drop `_cfr'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

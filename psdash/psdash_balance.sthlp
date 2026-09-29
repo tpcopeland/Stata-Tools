@@ -33,6 +33,12 @@ Bernoulli definition, and weighted continuous variances use a scale-invariant
 unbiased weighted estimator. See {help psdash##remarks:Remarks} for the method.
 
 {pstd}
+The {bf:SMD status} column judges SMD alone. The panel verdict also counts
+variance imbalance. A one-arm zero variance gives VR = 0 or an infinite
+ratio ({cmd:.a} in returned matrices and maximum VR scalars); both are
+flagged. Both-arm zero variances remain undefined and unflagged for VR.
+
+{pstd}
 The complete stored-result contract, including {cmd:r(balance)} and
 {cmd:r(smd)}, is listed under {help psdash##results:Stored results}.
 

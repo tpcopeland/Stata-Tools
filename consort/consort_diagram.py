@@ -37,6 +37,9 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 from matplotlib.font_manager import FontProperties
 import argparse
 import csv
+import os
+from pathlib import Path
+import tempfile
 import sys
 import textwrap
 from dataclasses import dataclass
@@ -351,6 +354,11 @@ Example CSV:
         help="Generate a demo diagram"
     )
 
+    parser.add_argument("--status", help=argparse.SUPPRESS)
+    parser.add_argument("--final-file", help=argparse.SUPPRESS)
+    parser.add_argument("--force-final", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--csv-path", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--xlsx-path", default="", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     # Demo mode
@@ -372,10 +380,46 @@ Example CSV:
 
     # Load and generate diagram
     try:
+        # Check identities before touching the backing file or any destination.
+        paths = [Path(x).expanduser().resolve() for x in
+                 (args.input, args.output, args.csv_path, args.xlsx_path) if x]
+        collision = len(set(paths)) != len(paths)
+        for i, left in enumerate(paths):
+            for right in paths[i + 1:]:
+                if left.exists() and right.exists() and os.path.samefile(left, right):
+                    collision = True
+        if collision:
+            if args.status:
+                Path(args.status).write_text("198\n")
+            raise ValueError("backing, image, CSV and XLSX paths must be distinct")
+        if args.final_file:
+            with open(args.input, newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            if len(rows) < 2:
+                raise ValueError("no exclusion records")
+            for row in rows[1:]:
+                row["remaining"] = (row.get("remaining") or "").strip()
+            if args.force_final or not rows[-1]["remaining"]:
+                rows[-1]["remaining"] = Path(args.final_file).read_text().strip() or "Final Cohort"
+            # Atomic replacement keeps a malformed CSV/write failure intact.
+            target = Path(args.input).resolve()
+            handle, scratch = tempfile.mkstemp(dir=target.parent)
+            try:
+                with os.fdopen(handle, "w", newline="") as stream:
+                    writer = csv.DictWriter(stream, fieldnames=["label", "n", "remaining"])
+                    writer.writeheader()
+                    writer.writerows(rows)
+                os.replace(scratch, target)
+            finally:
+                if os.path.exists(scratch):
+                    os.unlink(scratch)
+        Path(args.output).unlink(missing_ok=True)
         diagram = from_csv(args.input)
         if args.shading:
             diagram.set_shading(True)
         diagram.save(args.output, dpi=args.dpi)
+        if args.status:
+            Path(args.status).write_text("0\n")
     except FileNotFoundError:
         print(f"Error: Input file not found: {args.input}", file=sys.stderr)
         sys.exit(1)

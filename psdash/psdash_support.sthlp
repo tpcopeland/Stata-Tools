@@ -30,8 +30,9 @@ See {help psdash##subcommands:Subcommand syntax} for the full signature and
 {cmd:psdash support} reports common-support bounds and can mark observations
 retained by a trimming rule. Binary treatments support Crump's
 variance-oriented rule; multi-valued treatments use a full-vector generalized
-propensity-score floor. The optimized Crump search preserves the documented
-0.01 coarse and 0.001 refinement grids. It can return alpha = 0 only when every
+propensity-score floor. The Crump search selects the first empirical inequality crossing on an
+ascending 0.001 grid from 0.001 through 0.500, including retained endpoints.
+No nonempty crossing on the grid produces error 498. It can return alpha = 0 only when every
 assessed score is strictly inside (0,1) and the full-sample inequality holds; exact
 boundary scores instead require positive-threshold handling. A sample with no
 interior score fails the retained-sample guard.

@@ -97,7 +97,7 @@ capture net uninstall consort
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 
 global DATA_DIR "`qa_dir'/output"
 capture mkdir "${DATA_DIR}"
@@ -1183,7 +1183,9 @@ else {
     }
     display as text "{hline 70}"
 
-    if `fail_count' > 0 {
+
+display "RESULT: test_consort tests=`= `pass_count' + `fail_count' + `skip_count'' pass=`pass_count' fail=`fail_count' skip=`skip_count'"
+if `fail_count' > 0 {
         display as error "Some tests FAILED. Review output above."
         exit 1
     }
@@ -1199,3 +1201,5 @@ display as text "{hline 70}"
 global RUN_TEST_QUIET
 global RUN_TEST_MACHINE
 global RUN_TEST_NUMBER
+
+if `fail_count' > 0 exit 1

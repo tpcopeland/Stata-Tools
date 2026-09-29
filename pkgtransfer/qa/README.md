@@ -41,6 +41,12 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 | `test_pkgtransfer_errors.do` | Exact public parser rejection for download, OS, dofile, and zipfile contracts. |
 | `test_pkgtransfer_hostile.do` | Shell-metacharacter filenames and nonexistent-package refusal. |
 | `validation_pkgtransfer.do` | Known-answer script content, filtering, filenames, return values, and mode contracts. |
+| `test_pkgtransfer_v111.do` | Cross-package plugin/ordinary/metadata collisions, gtools-substring OS selection, output paths, GitHub bootstrap, session fingerprints, lifecycle replay, console/return parity, 54 hostile-string cells, and help rendering with a positive control. |
+| `test_pkgtransfer_isolation.do` | Real caller installation and exact tracker/code preservation across the error and hostile suites. |
+| `_qa_state.do` | Vendored session fingerprint helper. |
+| `_qa_hostile.do` | Vendored hostile-string corpus. |
+| `_qa_lifecycle.do` | Vendored lifecycle replay helper. |
+| `_qa_parity.do` | Vendored surface-parity helper. |
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
 
 ## Lane membership
@@ -56,3 +62,9 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 ## Known gaps
 
 - Network behavior is tested with local `file://`-style sources; availability and behavior of arbitrary third-party package repositories are outside the package's deterministic QA boundary.
+
+## Coverage map
+
+| Command | Regression witnesses |
+|---|---|
+| `pkgtransfer` | `test_pkgtransfer_v111.do` covers both bundle routes and published package/output returns; `test_pkgtransfer_isolation.do` measures caller installation survival. Existing functional and validation suites cover the rest of the option and return surface. |

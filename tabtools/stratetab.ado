@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.17  2026/09/29
+*! stratetab Version 2.1.18  2026/09/29
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -982,7 +982,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 						(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
 				}
 
-				_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sht)'"') ///
+				_tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sht)'"') ///
 					rules(`_style_rules') font("`_font'") ///
 					color1("`_headercolor'") color2("`_zebracolor'")
 				mata: `_xlsx_book'.close_book()

@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.7.3  2026/09/29
+*! _psdash_balance_binary Version 1.7.4  2026/09/30
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -53,8 +53,11 @@ program define _psdash_balance_binary, rclass
         local n_cov_min = `n_treated' + `n_control'
 
         if `has_adj' {
-            tempvar _wt_sq_all
-            quietly gen double `_wt_sq_all' = `wvar'^2
+            tempvar _wt_sq_all _wt_norm
+            local _wt_source "`wvar'"
+            quietly gen double `_wt_norm' = .
+            quietly gen double `_wt_sq_all' = .
+            local wvar "`_wt_norm'"
         }
 
         local i = 1
@@ -75,6 +78,19 @@ program define _psdash_balance_binary, rclass
             * The two support points are data values: test membership against
             * exact scalars, not their decimal macro text, or a two-valued
             * double (e.g. a centred indicator) is misread as continuous.
+            * Normalize on this covariate's available cases within each arm.
+            * Means, unbiased variances and ECDFs share the same scaled weights.
+            if `has_adj' {
+                tempvar _wt_max
+                quietly egen double `_wt_max' = max(cond(!missing(`var'), ///
+                    `_wt_source', .)), by(`treatment')
+                quietly replace `_wt_norm' = `_wt_source' / `_wt_max' ///
+                    if !missing(`var')
+                quietly replace `_wt_norm' = . if missing(`var')
+                quietly replace `_wt_sq_all' = `_wt_norm'^2
+                drop `_wt_max'
+            }
+
             quietly summarize `var'
             local _vmin = r(min)
             local _vmax = r(max)
@@ -120,8 +136,15 @@ program define _psdash_balance_binary, rclass
                 local smd_raw = 0
             }
 
-            if `var_t' > 0 & `var_c' > 0 {
+            if `_n_t_var' > 1 & `_n_c_var' > 1 & ///
+                    !missing(`var_t', `var_c') & `var_c' > 0 {
                 local vr_raw = `var_t' / `var_c'
+            }
+            else if `_n_t_var' > 1 & `_n_c_var' > 1 & ///
+                    !missing(`var_t', `var_c') & ///
+                    `var_t' > 0 & `var_c' == 0 {
+                * .a denotes an infinite ratio; both-zero remains undefined.
+                local vr_raw = .a
             }
             else {
                 local vr_raw = .
@@ -223,8 +246,13 @@ program define _psdash_balance_binary, rclass
                     local smd_adj = 0
                 }
 
-                if `var_t_adj' > 0 & `var_c_adj' > 0 {
+                if !missing(`var_t_adj', `var_c_adj') & `var_c_adj' > 0 {
                     local vr_adj = `var_t_adj' / `var_c_adj'
+                }
+                else if !missing(`var_t_adj', `var_c_adj') & ///
+                        `var_t_adj' > 0 & `var_c_adj' == 0 {
+                    * .a denotes an infinite ratio; both-zero remains undefined.
+                    local vr_adj = .a
                 }
                 else {
                     local vr_adj = .
@@ -285,9 +313,10 @@ program define _psdash_balance_binary, rclass
                 local n_binary_vr = `n_binary_vr' + 1
                 local vr_na_vars "`vr_na_vars' `: word `i' of `rownames''"
             }
-            else if !missing(`balance_mat'[`i', 4]) {
+            else if (!missing(`balance_mat'[`i', 4]) | `balance_mat'[`i', 4] == .a) {
                 local vr_i = `balance_mat'[`i', 4]
-                local dev_from_1 = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
+                local dev_from_1 = cond(`vr_i' == 0 | `vr_i' == .a, .a, ///
+                        max(abs(`vr_i' - 1), abs(1/`vr_i' - 1)))
                 if `dev_from_1' > `max_vr_raw_dev' {
                     local max_vr_raw = `vr_i'
                     local max_vr_raw_dev = `dev_from_1'
@@ -317,9 +346,10 @@ program define _psdash_balance_binary, rclass
                     if `ks_a_i' > `max_ks_adj' local max_ks_adj = `ks_a_i'
                 }
 
-                if !`_isbin_`i'' & !missing(`balance_mat'[`i', 9]) {
+                if !`_isbin_`i'' & (!missing(`balance_mat'[`i', 9]) | `balance_mat'[`i', 9] == .a) {
                     local vr_adj_i = `balance_mat'[`i', 9]
-                    local dev_adj = max(abs(`vr_adj_i' - 1), abs(1/`vr_adj_i' - 1))
+                    local dev_adj = cond(`vr_adj_i' == 0 | `vr_adj_i' == .a, .a, ///
+                        max(abs(`vr_adj_i' - 1), abs(1/`vr_adj_i' - 1)))
                     if `dev_adj' > `max_vr_adj_dev' {
                         local max_vr_adj = `vr_adj_i'
                         local max_vr_adj_dev = `dev_adj'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  29sep2026}{...}
+{* *! version 1.7.1  29sep2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -293,7 +293,9 @@ variable name explicitly.
 {opt dates:afe} prevents exact dates from appearing in the output. Date
 variables are documented with the number of time units spanned instead of the
 earliest and latest values. Use this when dates of birth or other potentially
-identifying dates are present.
+identifying dates are present. This also applies to {opt saving()}: date
+rows have missing mean, standard deviation, quantiles, minimum, and maximum
+in the saved metadata.
 
 {phang}
 {opt datef:ormat(string)} sets the Stata date format used to display all dates. The
@@ -614,7 +616,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.7.0 {hline 2} 29sep2026{p_end}
+{pstd}Version 1.7.1 {hline 2} 29sep2026{p_end}
 
 
 {title:Also see}
