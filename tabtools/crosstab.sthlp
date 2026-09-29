@@ -247,7 +247,9 @@ binary (the outcome), and the ordered {it:colvar} supplies the column
 scores. Column scores are the numeric {it:colvar} values, so recoding {it:colvar} (for
 example, to dose levels) changes the assumed spacing. The two options are
 mutually exclusive; both store their p-value in {cmd:r(p_trend)} and label the trend
-row accordingly. {it:fweight}s are honored by both.{p_end}
+row accordingly. {it:fweight}s are honored by both. Neither may be combined
+with {opt missing}, because a missing category has no place in the column
+order; the combination exits with an error.{p_end}
 
 {marker examples}{title:Examples}
 

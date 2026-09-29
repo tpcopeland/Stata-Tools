@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.1.15  2026/09/27
+*! _tabtools_xlsx_write Version 2.1.16  2026/09/29
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,15 +30,15 @@ program define _tabtools_xlsx_write, rclass
             exit 2000
         }
 
-        local _tt_sheet_used `"`sheet'"'
-        mata: `book' = _tt_xlsx_write_mata(`"`using'"', `"`sheet'"', `"`_vars'"')
+        local _tt_sheet_used `"`macval(sheet)'"'
+        mata: `book' = _tt_xlsx_write_mata(`"`using'"', `"`macval(sheet)'"', `"`_vars'"')
 
         return scalar n_rows = _N
         return scalar n_cols = `: word count `_vars''
         return local book "`book'"
         * Excel matches an existing sheet case-insensitively; report the
         * spelling actually written so callers can style and echo it.
-        return local sheet `"`_tt_sheet_used'"'
+        return local sheet `"`macval(_tt_sheet_used)'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc
@@ -57,6 +57,9 @@ version 17.0
 capture mata: mata drop _tt_xlsx_write_mata()
 capture mata: mata drop _tt_cur_strmat()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -138,3 +141,4 @@ string matrix _tt_cur_strmat(string scalar varlist)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 2.1.15  2026/09/27
+*! _tabtools_xlsx_apply_styles Version 2.1.16  2026/09/29
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,14 +33,14 @@ program define _tabtools_xlsx_apply_styles, rclass
         if `"`font'"' == "" local font "Arial"
         if `"`altfont'"' == "" local altfont "Times New Roman"
 
-        mata: _tt_xlsx_apply_styles(`book', `"`sheet'"', st_matrix("`rules'"), ///
+        mata: _tt_xlsx_apply_styles(`book', `"`macval(sheet)'"', st_matrix("`rules'"), ///
             `"`font'"', `"`altfont'"', `"`color1'"', `"`color2'"', `"`color3'"', ///
             `"`color4'"')
 
         return scalar n_rules = `_n_rules'
         return scalar n_cols = `_n_cols'
         return local rules "`rules'"
-        return local sheet `"`sheet'"'
+        return local sheet `"`macval(sheet)'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -62,6 +62,9 @@ capture mata: mata drop _tt_xlsx_style_validate_positive()
 capture mata: mata drop _tt_xlsx_style_validate_rgb()
 capture mata: mata drop _tt_xlsx_style_error()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -336,3 +339,4 @@ void _tt_xlsx_style_error(real scalar row, string scalar message)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

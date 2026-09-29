@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.15  2026/09/27
+*! stratetab Version 2.1.16  2026/09/29
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -110,8 +110,8 @@ if `"`markdown'"' != "" {
 	}
 }
 _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
-if "`sheet'" != "" {
-	_tabtools_validate_sheet "`sheet'" "sheet()"
+if `"`macval(sheet)'"' != "" {
+	_tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 }
 
 if `digits' < 0 | `digits' > 10 | `eventdigits' < 0 | `eventdigits' > 10 | `pydigits' < 0 | `pydigits' > 10 {
@@ -681,8 +681,8 @@ if "`csv'" != "" {
 	local _ret_csv `"`csv'"'
 }
 
-local sht = cond("`sheet'" != "", "`sheet'", "Results")
-_tabtools_validate_sheet "`sht'" "sheet()"
+local sht = cond(`"`macval(sheet)'"' != "", `"`macval(sheet)'"', "Results")
+_tabtools_validate_sheet `"`macval(sht)'"' "sheet()"
 local _ret_markdown ""
 local _ret_markdown_rows .
 local _ret_markdown_cols .
@@ -859,7 +859,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 	* Export to Excel
 	if `_has_xlsx' {
 		order title c*
-		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sht'") book(`_xlsx_book')
+		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sht)'"') book(`_xlsx_book')
 		if _rc {
 			local saved_rc = _rc
 			noi di as err "Failed to export to `xlsx'"
@@ -870,7 +870,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 	else {
 			* Excel sheet names are case-insensitive; keep the workbook's own
 			* spelling when an existing sheet was replaced.
-			local sht `"`r(sheet)'"'
+			mata: st_local("sht", st_global("r(sheet)"))
 			* Apply formatting (Mata xl()) in the open workbook returned by
 			* _tabtools_xlsx_write; avoid a save/reload pass.
 			local _total_cols = `ncols' + 1
@@ -982,7 +982,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 						(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
 				}
 
-				_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sht'") ///
+				_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sht)'"') ///
 					rules(`_style_rules') font("`_font'") ///
 					color1("`_headercolor'") color2("`_zebracolor'")
 				mata: `_xlsx_book'.close_book()
@@ -1012,7 +1012,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				}
 				else {
 					local _xlsx_ok 1
-					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sht'"'
+					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sht)'"'
 				}
 			}
 			}
@@ -1033,7 +1033,7 @@ local _restore_needed 0
 
 if `_xlsx_ok' {
 	return local xlsx "`xlsx'"
-	return local sheet "`sht'"
+	return local sheet `"`macval(sht)'"'
 }
 
 * Open file if requested (W3)

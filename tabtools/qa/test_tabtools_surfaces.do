@@ -20,9 +20,9 @@
 *   lifecycle regtab after fit A -> fit B -> restore A (qa_lifecycle)
 *   twin      qa_counterfeit_twin kind(case): regtab frames of y and Y are
 *             not composed as one model by comptab (F06)
-* Open ledger: Muse 2026-09-27 I1 (crosstab, trend missing: the trend test
-* drops the displayed Missing column) is recorded, not fixed; its block must
-* fail as recorded.
+* Closed ledgers (2.1.16): Muse 2026-09-27 I1 (crosstab, trend missing is
+* now refused) and puttab sheet() macro re-expansion. Both blocks now require
+* the fixed behaviour.
 *
 * Run from tabtools/qa:  stata-mp -b do test_tabtools_surfaces.do
 
@@ -577,12 +577,12 @@ program define _ttsf_sh
     quietly import excel using "`x'", sheet(`"`macval(sh)'"') allstring clear
     restore
 end
-* OPEN LEDGER (new finding, 2026-09-28, tabtools 2.1.15 on main): puttab
-* sheet() still re-expands the name as macro text. The TICKPAIR name
-* (a $global and a `lit' pair) is written as a different sheet at rc 0, and
-* an unbalanced backtick exits r(132) (QA_HS_TICK, QA_HS_DOLLAR). The F10 fix
-* covered the double quote only. The recorded failure set must match exactly.
-local sh_open "QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR"
+* CLOSED LEDGER (found 2026-09-28 on 2.1.15, fixed in 2.1.16): puttab sheet()
+* re-expanded the name as macro text. The TICKPAIR name (a $global and a
+* `lit' pair) was written as a different sheet at rc 0, and an unbalanced
+* backtick exited r(132) (QA_HS_TICK, QA_HS_DOLLAR). The set is now empty, and
+* test_review_2026_09_29.do R7 covers every command's sheet().
+local sh_open ""
 local ++test_count
 capture noisily {
     capture noisily qa_hostile_strings, check(_ttsf_sh) result(TTSF_RES)
@@ -604,13 +604,14 @@ _ttsf_result `=_rc' "HS-puttab-sheet F10: sheet() names written exactly or refus
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' HS-puttab-sheet"
 
-**# Open ledger
+**# Closed ledger
 
-**## OPEN Muse I1: crosstab, trend missing tests fewer rows than it displays
+**## CLOSED Muse I1: crosstab, trend missing tests fewer rows than it displays
 * Contract (either): the trend test's N equals the displayed table N, or
-* trend with missing is refused like cochran. Recorded on 2.1.15: rc 0, the
-* displayed N is 6 and the p for trend equals the complete-case p (N 5).
-local i1_open "rc0 completecase"
+* trend with missing is refused like cochran. On 2.1.15: rc 0, the displayed
+* N was 6 and the p for trend equalled the complete-case p (N 5). Fixed in
+* 2.1.16: the combination is refused with r(198).
+local i1_open ""
 local ++test_count
 capture noisily {
     clear
@@ -632,10 +633,10 @@ capture noisily {
     }
     if `rc' == 198 local sig "refused"
     display as text "Muse I1 outcome: [`sig'] recorded open: [`i1_open']"
-    if "`i1_open'" == "" assert "`sig'" != "rc0 completecase" & "`sig'" != "rc0 other"
+    if "`i1_open'" == "" assert "`sig'" == "refused"
     else assert "`sig'" == "`i1_open'"
 }
-_ttsf_result `=_rc' "OPEN Muse I1 crosstab trend + missing: outcome as recorded"
+_ttsf_result `=_rc' "CLOSED Muse I1 crosstab trend + missing: refused"
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' OPEN-I1"
 

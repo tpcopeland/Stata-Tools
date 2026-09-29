@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 2.1.15  2026/09/27
+*! _tabtools_smallcells Version 2.1.16  2026/09/29
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -133,6 +133,9 @@ capture mata: mata drop _ttsc_failures()
 capture mata: mata drop _ttsc_valid_binary()
 capture mata: mata drop _ttsc_run()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -586,3 +589,4 @@ real scalar _ttsc_run(
     return(1)
 }
 end
+mata: mata set matastrict `_tt_ms0'

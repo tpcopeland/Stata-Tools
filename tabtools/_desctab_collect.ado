@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.1.15  2026/09/27
+*! _desctab_collect Version 2.1.16  2026/09/29
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -585,6 +585,14 @@ program define _desctab_collect, rclass
                     quietly levelsof `v' if `touse' & inlist(`by', `level1', `level2') ///
                         & `v' < ., local(_smd_lvls)
                     local _smd_k : word count `_smd_lvls'
+                    * Level j is selected by its index in the same ascending
+                    * order, never by the levelsof text: a fractional float
+                    * level (0.1 prints as .1000000014901161) equals no
+                    * stored value, so its share was counted as 0 and the SMD
+                    * was blank at rc 0.
+                    tempvar _smd_ix
+                    quietly egen long `_smd_ix' = group(`v') ///
+                        if `touse' & inlist(`by', `level1', `level2') & `v' < .
                     local _tot1 .
                     local _tot2 .
                     if `has_wt' {
@@ -612,25 +620,24 @@ program define _desctab_collect, rclass
                         matrix `_p1mat' = J(1, `_smd_dims', .)
                         matrix `_p2mat' = J(1, `_smd_dims', .)
                         forvalues _cj = 1/`_smd_dims' {
-                            local _clv : word `_cj' of `_smd_lvls'
                             local _num1 0
                             local _num2 0
                             if `has_wt' {
-                                quietly summarize `wt' if `touse' & `by' == `level1' & `v' == `_clv'
+                                quietly summarize `wt' if `touse' & `by' == `level1' & `_smd_ix' == `_cj'
                                 local _num1 = r(sum)
-                                quietly summarize `wt' if `touse' & `by' == `level2' & `v' == `_clv'
+                                quietly summarize `wt' if `touse' & `by' == `level2' & `_smd_ix' == `_cj'
                                 local _num2 = r(sum)
                             }
                             else if `has_fw' {
-                                quietly summarize `fwvar' if `touse' & `by' == `level1' & `v' == `_clv', meanonly
+                                quietly summarize `fwvar' if `touse' & `by' == `level1' & `_smd_ix' == `_cj', meanonly
                                 local _num1 = r(sum)
-                                quietly summarize `fwvar' if `touse' & `by' == `level2' & `v' == `_clv', meanonly
+                                quietly summarize `fwvar' if `touse' & `by' == `level2' & `_smd_ix' == `_cj', meanonly
                                 local _num2 = r(sum)
                             }
                             else {
-                                quietly count if `touse' & `by' == `level1' & `v' == `_clv'
+                                quietly count if `touse' & `by' == `level1' & `_smd_ix' == `_cj'
                                 local _num1 = r(N)
-                                quietly count if `touse' & `by' == `level2' & `v' == `_clv'
+                                quietly count if `touse' & `by' == `level2' & `_smd_ix' == `_cj'
                                 local _num2 = r(N)
                             }
                             matrix `_p1mat'[1, `_cj'] = `_num1' / `_tot1'

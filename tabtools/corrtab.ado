@@ -1,4 +1,4 @@
-*! corrtab Version 2.1.15  2026/09/27
+*! corrtab Version 2.1.16  2026/09/29
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -47,8 +47,8 @@ program define corrtab, rclass
             exit 198
         }
 
-        if "`sheet'" == "" local sheet "Correlation"
-        _tabtools_validate_sheet "`sheet'" "sheet()"
+        if `"`macval(sheet)'"' == "" local sheet "Correlation"
+        _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
         if `_has_xlsx' {
             if !strmatch(lower("`xlsx'"), "*.xlsx") {
                 noisily display as error "xlsx() must have .xlsx extension"
@@ -414,7 +414,7 @@ program define corrtab, rclass
             local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
 
             order title c*
-            capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+            capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             if _rc {
                 local _export_rc = _rc
                 noisily display as error "Failed to export to `xlsx'"
@@ -493,7 +493,7 @@ program define corrtab, rclass
                         (3, `_foot_row', `_foot_row', 2, 2, 0, 1, 0, 0)
                 }
 
-                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                     rules(`_style_rules') font("`_font'") ///
                     color1("`_headercolor'") color2("`_zebracolor'")
                 mata: `_xlsx_book'.close_book()
@@ -521,14 +521,14 @@ program define corrtab, rclass
             }
             local _xlsx_ok 1
             noisily display as text "Exported to " as result `"`xlsx'"' ///
-                as text ", sheet " as result `"`sheet'"'
+                as text ", sheet " as result `"`macval(sheet)'"'
         }
 
         restore
 
         if `_xlsx_ok' {
             return local xlsx "`xlsx'"
-            return local sheet "`sheet'"
+            return local sheet `"`macval(sheet)'"'
         }
         if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
     }
@@ -540,6 +540,9 @@ end
 version 17.0
 capture mata: mata drop _corrtab_pairwise_n()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -566,3 +569,4 @@ real matrix _corrtab_pairwise_n(string rowvector vars, string scalar tousevar)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

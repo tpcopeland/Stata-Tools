@@ -1,4 +1,4 @@
-*! puttab Version 2.1.15  2026/09/27
+*! puttab Version 2.1.16  2026/09/29
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -165,8 +165,8 @@ program define puttab, rclass
         }
         * F10 (codex audit 2026-09-27): compound quotes, so a sheet name that
         * contains a double quote (valid in Excel) is not re-parsed.
-        if `"`sheet'"' == "" local sheet "Table"
-        if `_has_using' _tabtools_validate_sheet `"`sheet'"' "sheet()"
+        if `"`macval(sheet)'"' == "" local sheet "Table"
+        if `_has_using' _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         local csv = strtrim(`"`csv'"')
         if `"`csv'"' != "" {
@@ -560,13 +560,13 @@ program define puttab, rclass
 
             * ===== write the sheet and apply the styling =====
             local _sink "xlsx"
-            _tabtools_xlsx_write using `"`using'"', sheet(`"`sheet'"') book(`_xlsx_book')
+            _tabtools_xlsx_write using `"`using'"', sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             local _book_open = 1
             * Excel matches an existing sheet case-insensitively; style, report,
             * and return the spelling actually in the workbook.
-            local sheet `"`r(sheet)'"'
+            mata: st_local("sheet", st_global("r(sheet)"))
 
-            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`sheet'"') ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                 rules(`_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
 
@@ -585,7 +585,7 @@ program define puttab, rclass
                 noisily display as error "export command succeeded but file `using' was not found"
                 exit 601
             }
-            local _ret_sheet `"`sheet'"'
+            local _ret_sheet `"`macval(sheet)'"'
             local _ret_file  `"`using'"'
         }
 
@@ -593,7 +593,7 @@ program define puttab, rclass
             noisily display as text "puttab: wrote " as result "`_ndatarows'" ///
                 as text " data rows x " as result "`K'" as text " cols (" ///
                 as result "`_src'" as text " source) to sheet " ///
-                as result `"`sheet'"' as text " in " as result `"`using'"'
+                as result `"`macval(sheet)'"' as text " in " as result `"`using'"'
         }
     }
     local rc = _rc
@@ -609,7 +609,7 @@ program define puttab, rclass
         return scalar n_datarows = `_ret_data'
         return local  source    "`_ret_source'"
         if `"`_ret_file'"' != "" {
-            return local  sheet     `"`_ret_sheet'"'
+            return local  sheet     `"`macval(_ret_sheet)'"'
             return local  file      `"`_ret_file'"'
         }
         if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
@@ -649,6 +649,9 @@ capture mata: mata drop _puttab_stripe_names()
 capture mata: mata drop _puttab_emit_table()
 capture mata: mata drop _puttab_is_headerrow()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -896,3 +899,4 @@ void _puttab_matrix_table(
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

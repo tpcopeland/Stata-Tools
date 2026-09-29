@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.15  2026/09/27
+*! crosstab Version 2.1.16  2026/09/29
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -123,8 +123,8 @@ capture noisily {
     }
 
     * Defaults
-    if "`sheet'" == "" local sheet "Crosstab"
-    _tabtools_validate_sheet "`sheet'" "sheet()"
+    if `"`macval(sheet)'"' == "" local sheet "Crosstab"
+    _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
     if `_has_xlsx' {
         if !strmatch(lower("`xlsx'"), "*.xlsx") {
             noisily display as error "xlsx() must have .xlsx extension"
@@ -163,6 +163,13 @@ capture noisily {
     }
     if "`cochran'" != "" & "`missing'" != "" {
         noisily display as error "cochran cannot be combined with missing (a missing category is not ordered)"
+        exit 198
+    }
+    * The Spearman trend test has the same problem: spearman drops the
+    * missing categories that the table displays, so the p for trend came
+    * from fewer rows than the table's N, with no note. Refuse it too.
+    if "`trend'" != "" & "`missing'" != "" {
+        noisily display as error "trend cannot be combined with missing (a missing category is not ordered)"
         exit 198
     }
 
@@ -220,12 +227,6 @@ capture noisily {
         noisily display as error "or, rr, and rd require a 2x2 table"
         restore
         exit 198
-    }
-    if `_assoc_requested' {
-        local _assoc_row0 : word 1 of `row_levels'
-        local _assoc_row1 : word 2 of `row_levels'
-        local _assoc_col0 : word 1 of `col_levels'
-        local _assoc_col1 : word 2 of `col_levels'
     }
 
     * Row and column labels
@@ -353,12 +354,15 @@ capture noisily {
             tempvar _assoc_row01 _assoc_col01
             * Code the second observed row/column levels as 1 so OR/RR/RD
             * keep the documented orientation: row level 2 by column level 2.
-            qui gen byte `_assoc_row01' = .
-            qui replace `_assoc_row01' = 0 if `rowvar' == `_assoc_row0'
-            qui replace `_assoc_row01' = 1 if `rowvar' == `_assoc_row1'
-            qui gen byte `_assoc_col01' = .
-            qui replace `_assoc_col01' = 0 if `colvar' == `_assoc_col0'
-            qui replace `_assoc_col01' = 1 if `colvar' == `_assoc_col1'
+            * The codes come from the values themselves (egen group, the same
+            * ascending order as levelsof), never from matching the levelsof
+            * text: a float level such as 0.1 prints as .1000000014901161,
+            * which equals no stored value, so the coding came out missing
+            * and a defined odds ratio was refused as undefined.
+            qui egen byte `_assoc_row01' = group(`rowvar'), `_missing_opt'
+            qui replace `_assoc_row01' = `_assoc_row01' - 1
+            qui egen byte `_assoc_col01' = group(`colvar'), `_missing_opt'
+            qui replace `_assoc_col01' = `_assoc_col01' - 1
         }
         if "`or'" != "" {
             qui cc `_assoc_row01' `_assoc_col01' [`weight'`exp'], level(`level')
@@ -436,10 +440,12 @@ capture noisily {
 	            qui drop if missing(`_cawexp') | (`_cawexp') <= 0
 	            qui expand `_cawexp'
 	        }
-	        qui levelsof `rowvar', local(_ca_rlevs)
-	        local _ca_evlev : word 2 of `_ca_rlevs'
-	        tempvar _ca_ev _ca_evs _ca_dev2
-	        qui gen byte `_ca_ev' = (`rowvar' == `_ca_evlev') ///
+	        * The event is the second row level, coded from the values (egen
+	        * group) rather than by matching levelsof text, which misses a
+	        * fractional float level.
+	        tempvar _ca_ev _ca_evs _ca_dev2 _ca_rgrp
+	        qui egen byte `_ca_rgrp' = group(`rowvar')
+	        qui gen byte `_ca_ev' = (`_ca_rgrp' == 2) ///
 	            if !missing(`rowvar') & !missing(`colvar')
 	        qui count if !missing(`_ca_ev')
 	        local _ca_N = r(N)
@@ -456,7 +462,10 @@ capture noisily {
 	        local _ca_varT = `_ca_pbar' * (1 - `_ca_pbar') * r(sum)
 	        if `_ca_varT' > 0 & !missing(`_ca_varT') {
 	            local _ca_z = `_ca_T' / sqrt(`_ca_varT')
-	            local _ca_chi2 = `_ca_z'^2
+	            * Parenthesised: the macro expands to the signed text, and
+	            * Stata binds ^ tighter than unary minus, so -0.6^2 is -0.36.
+	            * A decreasing trend gave a negative chi2 and p for trend 1.
+	            local _ca_chi2 = (`_ca_z')^2
 	            local _p_trend = chi2tail(1, `_ca_chi2')
 	        }
 	        if missing(`_p_trend') {
@@ -787,7 +796,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -883,7 +892,7 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
             mata: `_xlsx_book'.close_book()
@@ -910,7 +919,7 @@ capture noisily {
             exit 601
         }
         local _xlsx_ok 1
-        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
     }
 
     restore
@@ -965,7 +974,7 @@ capture noisily {
     }
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
     if `_sc_active' {
         return scalar smallcells = `smallcells'

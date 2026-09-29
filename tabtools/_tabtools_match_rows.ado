@@ -1,4 +1,4 @@
-*! _tabtools_match_rows Version 2.1.15  2026/09/27
+*! _tabtools_match_rows Version 2.1.16  2026/09/29
 *! Match raw coefficient identities and factor components
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -22,6 +22,9 @@ end
 capture mata: mata drop _tabtools_match_rows_mata()
 capture mata: mata drop _tabtools_match_normalize()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -86,3 +89,4 @@ void _tabtools_match_rows_mata(string scalar rawvar,
     }
 }
 end
+mata: mata set matastrict `_tt_ms0'

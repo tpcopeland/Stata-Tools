@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_build_styles Version 2.1.15  2026/09/27
+*! _tabtools_xlsx_build_styles Version 2.1.16  2026/09/29
 *! Build compact Excel style rule matrices from row specifications
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,6 +32,9 @@ capture mata: mata drop _tt_xlsx_build_styles_rows()
 capture mata: mata drop _tt_xlsx_build_styles_values()
 capture mata: mata drop _tt_xlsx_build_styles_error()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -145,3 +148,4 @@ void _tt_xlsx_build_styles_error(string scalar message)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

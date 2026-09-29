@@ -1,4 +1,4 @@
-*! _tabtools_check_sinks Version 2.1.15  2026/09/27
+*! _tabtools_check_sinks Version 2.1.16  2026/09/29
 *! Refuse output options that name the same file, before anything is written
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -64,6 +64,9 @@ end
 version 17.0
 capture mata: mata drop _tt_sink_key()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -103,3 +106,4 @@ string scalar _tt_sink_key(string scalar path, string scalar home)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

@@ -1,4 +1,4 @@
-*! comptab Version 2.1.15  2026/09/27
+*! comptab Version 2.1.16  2026/09/29
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -118,8 +118,8 @@ program define comptab, rclass
         if `"`excel'"' != "" {
             local _common_opts `"`macval(_common_opts)' excel(`"`excel'"')"'
         }
-        if `"`sheet'"' != "" {
-            local _common_opts `"`macval(_common_opts)' sheet(`"`sheet'"')"'
+        if `"`macval(sheet)'"' != "" {
+            local _common_opts `"`macval(_common_opts)' sheet(`"`macval(sheet)'"')"'
         }
         if `"`macval(title)'"' != "" {
             local _common_opts `"`macval(_common_opts)' title(`"`macval(title)'"')"'
@@ -319,7 +319,7 @@ program define _comptab_rates, rclass
         * Resolve core options
         if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
         local _has_xlsx = (`"`xlsx'"' != "")
-        if "`sheet'" == "" local sheet "Composite"
+        if `"`macval(sheet)'"' == "" local sheet "Composite"
         if "`effect'" == "" local effect "aHR"
         if "`reflabel'" == "" local reflabel "Reference"
 
@@ -385,7 +385,7 @@ program define _comptab_rates, rclass
             }
         }
         _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
-        _tabtools_validate_sheet "`sheet'" "sheet()"
+        _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         * Resolve formatting
         _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
@@ -1595,7 +1595,7 @@ program define _comptab_rates, rclass
             }
 
             order title c*
-            capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+            capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             if _rc {
                 local _export_rc = _rc
                 display as error "Failed to export to `xlsx'"
@@ -1604,7 +1604,7 @@ program define _comptab_rates, rclass
             }
             * Excel sheet names are case-insensitive; keep the workbook's own
             * spelling when an existing sheet was replaced.
-            local sheet `"`r(sheet)'"'
+            mata: st_local("sheet", st_global("r(sheet)"))
             capture confirm file "`xlsx'"
             if _rc {
                 display as error "Excel export completed but file was not created"
@@ -1677,7 +1677,7 @@ program define _comptab_rates, rclass
 
                 _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
                     rules(`_style_rule_spec') cols(9)
-                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                     rules(`_style_rules') font("`_font'") ///
                     color1("`_headercolor'") color2("`_zebracolor'")
                 mata: `_xlsx_book'.close_book()
@@ -1703,12 +1703,12 @@ program define _comptab_rates, rclass
                 exit 601
             }
             local _xlsx_ok 1
-            display as text "Exported " as result "`lastrow'" as text " rows × " as result "`ncols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+            display as text "Exported " as result "`lastrow'" as text " rows × " as result "`ncols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
         }
 
         if `_xlsx_ok' {
             return local xlsx "`xlsx'"
-            return local sheet "`sheet'"
+            return local sheet `"`macval(sheet)'"'
         }
         if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 
@@ -1801,7 +1801,7 @@ program define _comptab_rates, rclass
     }
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
 end
 
@@ -1865,7 +1865,7 @@ program define _comptab_vertical, rclass
     * Accept excel() as synonym for xlsx()
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""
-    if "`sheet'" == "" local sheet "Composite"
+    if `"`macval(sheet)'"' == "" local sheet "Composite"
     if "`open'" != "" & !`_has_xlsx' {
         noisily display as error "open requires xlsx() or excel()"
         exit 198
@@ -1875,7 +1875,7 @@ program define _comptab_vertical, rclass
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
 
     * Validate sheet name for Excel constraints
-    _tabtools_validate_sheet "`sheet'" "sheet()"
+    _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
     * =====================================================================
     * RESOLVE FORMATTING OPTIONS
@@ -2881,17 +2881,17 @@ program define _comptab_vertical, rclass
     if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_name'"
 
     if `_has_xlsx' {
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
-            noisily display as error `"Failed to export to `xlsx', sheet `sheet'"'
+            noisily display as error `"Failed to export to `xlsx', sheet `macval(sheet)'"'
             noisily display as error "Check file permissions and that file is not open in Excel"
             restore
             exit `_export_rc'
         }
         * Excel sheet names are case-insensitive; keep the workbook's own
         * spelling when an existing sheet was replaced, as rate mode does.
-        local sheet `"`r(sheet)'"'
+        mata: st_local("sheet", st_global("r(sheet)"))
     }
 
     * =====================================================================
@@ -3034,7 +3034,7 @@ program define _comptab_vertical, rclass
 
         _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
             rules(`_style_rule_spec') cols(9)
-        _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+        _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
             rules(`_style_rules') font("`_font'") ///
             color1("`_headercolor'") color2("`_zebracolor'") ///
             color3("255 255 204")
@@ -3066,7 +3066,7 @@ program define _comptab_vertical, rclass
         capture confirm file "`xlsx'"
         if _rc == 0 {
             local _xlsx_ok 1
-            noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+            noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
         }
         else {
             noisily display as error "Export command succeeded but file not found"
@@ -3076,7 +3076,7 @@ program define _comptab_vertical, rclass
 
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
 
     local _methods "Composite table assembled from `n_frames' source frame(s) with `n_models' model column(s)."
@@ -3148,7 +3148,7 @@ program define _comptab_vertical, rclass
 	    if `"`_eplotframe_target'"' != "" & !`_eplotframe_temporary' return local eplotframe "`_eplotframe_target'"
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
     return local methods "`_methods'"
 

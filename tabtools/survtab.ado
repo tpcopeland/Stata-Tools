@@ -1,4 +1,4 @@
-*! survtab Version 2.1.15  2026/09/27
+*! survtab Version 2.1.16  2026/09/29
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -146,8 +146,8 @@ capture noisily {
     else if "`tu_abbrev'" == "we" local tu_short "wk"
 
     * Sheet default
-    if "`sheet'" == "" local sheet "Survival"
-    _tabtools_validate_sheet "`sheet'" "sheet()"
+    if `"`macval(sheet)'"' == "" local sheet "Survival"
+    _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
     * Path validation
     if "`open'" != "" & !`_has_xlsx' {
@@ -255,6 +255,19 @@ capture noisily {
             noisily display as error "difference requires exactly 2 groups in by()"
             exit 198
         }
+        * Every group selection below compares `groupvar' with a level.
+        * The levelsof text of a fractional float level (0.1 prints as
+        * .1000000014901161) equals no stored value, so those selections
+        * matched nothing: survival was reported as 1 or the command
+        * stopped. Select on an integer index (egen group, the same
+        * ascending order as levelsof) and keep the source variable and
+        * its levelsof text for labels and r(group_#_value).
+        local _by_levels `"`group_levels'"'
+        tempvar _gsrc
+        rename `groupvar' `_gsrc'
+        qui egen long `groupvar' = group(`_gsrc') if _st
+        numlist "1/`n_groups'"
+        local group_levels "`r(numlist)'"
     }
     else {
         qui gen byte `groupvar' = 1
@@ -269,6 +282,7 @@ capture noisily {
             quietly summarize _t if `groupvar' == `_glv' & _st, meanonly
             local _support = r(max)
             if missing(`_support') | `rmst' > `_support' {
+                if `has_by' local _glv : word `g' of `_by_levels'
                 noisily display as error "rmst(`rmst') exceeds observed follow-up support (`_support') in group `_glv'"
                 exit 198
             }
@@ -281,9 +295,10 @@ capture noisily {
         if `has_by' {
             * C1 (codex audit 2026-09-26): the value label is data; every
             * later use is macval()-protected so it is never expanded.
-            local _glabel : label (`groupvar') `_glv'
+            local _glv_src : word `g' of `_by_levels'
+            local _glabel : label (`_gsrc') `_glv_src'
             if `_by_is_string' local _gvalue : copy local _glabel
-            else local _gvalue `"`_glv'"'
+            else local _gvalue `"`_glv_src'"'
         }
         else {
             local _glabel "Overall"
@@ -1005,7 +1020,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+        capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -1092,7 +1107,7 @@ capture noisily {
                     (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
-            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'") ///
                 color3("255 255 204")
@@ -1119,14 +1134,14 @@ capture noisily {
             exit 601
         }
         local _xlsx_ok 1
-        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
     }
 
     restore
 
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
     return scalar ci_level = `level'
     if "`csv'" != "" {

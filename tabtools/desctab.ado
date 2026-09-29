@@ -1,4 +1,4 @@
-*! desctab Version 2.1.15  2026/09/27 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.16  2026/09/29 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -165,7 +165,7 @@ program define desctab, rclass
     /* Check if Excel options are properly specified */
     local has_excel = "`excel'" != ""  // Boolean flag for Excel option
     local has_markdown = `"`markdown'"' != ""
-    local has_sheet = "`sheet'" != ""  // Boolean flag for sheet option
+    local has_sheet = `"`macval(sheet)'"' != ""  // Boolean flag for sheet option
     local has_title = `"`macval(title)'"' != ""  // Boolean flag for title option
     local has_open = "`open'" != ""    // Boolean flag for open option
 
@@ -181,7 +181,7 @@ program define desctab, rclass
     }
 
     // Validate sheet name for Excel constraints
-    if `has_sheet' _tabtools_validate_sheet "`sheet'" "sheet()"
+    if `has_sheet' _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
     // sheet() only makes sense with excel(); title() also applies to Markdown.
     if !`has_excel' & `has_sheet' {
@@ -1663,7 +1663,7 @@ program define desctab, rclass
 	            capture drop _columnb_*
 	            capture drop m_*
 	            capture drop _uwn*
-		            capture noisily _tabtools_xlsx_write using "`excel'", sheet("`sheet'") book(`_xlsx_book')
+		            capture noisily _tabtools_xlsx_write using "`excel'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
 		            local _xlsx_write_rc = _rc
 		            if `_had_p_raw' {
 		                gen double `p_raw' = .
@@ -2061,7 +2061,7 @@ program define desctab, rclass
 
 	                _tabtools_xlsx_build_styles, matrix(`_xlsx_style_rules') ///
 	                    rules(`_xlsx_style_rule_spec') cols(10)
-	                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+	                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
 	                    rules(`_xlsx_style_rules') font("`_font'") ///
 	                    color1("`_headercolor'") color2("`_zebracolor'") ///
 	                    color3("255 255 204") color4("255 235 205")
@@ -2195,7 +2195,7 @@ program define desctab, rclass
 
     if `_xlsx_ok' {
         return local xlsx "`excel'"
-        return local sheet "`sheet'"
+        return local sheet `"`macval(sheet)'"'
     }
     if `"`_ret_markdown'"' != "" {
         return local markdown `"`_ret_markdown'"'

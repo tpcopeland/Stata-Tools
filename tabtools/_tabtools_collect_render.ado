@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.1.15  2026/09/27
+*! _tabtools_collect_render Version 2.1.16  2026/09/29
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -443,6 +443,9 @@ capture mata: mata drop _tt_json_value_at()
 capture mata: mata drop _tt_json_member_named()
 capture mata: mata drop _tt_collect_omit_locals()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -1902,3 +1905,4 @@ string scalar _tt_json_member_value(string scalar obj)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'
