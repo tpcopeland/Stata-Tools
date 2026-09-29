@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.6  2026/09/09
+*! rangematch Version 1.5.7  2026/09/29
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -291,6 +291,7 @@ program define _rangematch_load_using, sclass
     set varabbrev off
     capture noisily {
         args using key by keepusing dryrun_mode caller_frame
+        local _rm_keep_postload = 0
 
         local using_source "file"
         local using_frame ""
@@ -371,6 +372,12 @@ program define _rangematch_load_using, sclass
                         `"keepusing() does not match any variable in using frame {bf:`using_frame'}: `keepusing'"'
                     exit 111
                 }
+                * Canonical expansion, taken from the SOURCE frame. It used
+                * to be re-derived after loading, inside __rm_using, whose
+                * columns are ordered key, by(), keepusing() -- not the
+                * source order -- so a range spanning the key in the source
+                * (a-c over `a key c') silently lost the key at rc=0.
+                local keepusing `"`_rm_kutmp'"'
             }
             else {
                 * `describe varlist using' parses plain names and wildcards but
@@ -378,7 +385,8 @@ program define _rangematch_load_using, sclass
                 * that actually reads the file -- parses all three. Pre-checking
                 * with describe therefore rejected documented varlist notation
                 * outright (rc=111). Only pre-check the forms describe
-                * understands; for a range or _all, let the load validate.
+                * understands; a range or _all is validated by the shell
+                * expansion below.
                 * A hyphen is unambiguous here: Stata variable names cannot
                 * contain one, so it can only introduce a range.
                 local _rm_keep_needs_load = 0
@@ -413,7 +421,49 @@ program define _rangematch_load_using, sclass
                     }
                     exit `_rm_keep_rc'
                 }
+                * Canonical expansion against the FILE's own variable order,
+                * in a zero-observation shell holding only the file's names.
+                * Expanding the raw pattern inside `use' instead failed
+                * r(103) for keepusing(_all)/(*) whenever by() was also
+                * loaded, and re-deriving it after the load reads a frame
+                * whose column order is not the source order. The shell
+                * frame is dropped before the real load below creates it.
+                *
+                * Plain names need no expansion (the describe screen above
+                * already confirmed each one). A file wider than c(maxvar)
+                * cannot be shelled, but `use' reads a pattern in file order,
+                * so for that file alone the pattern is expanded after the
+                * load, as before (the loaded frame is then in file order).
+                local _rm_keep_pattern = `_rm_keep_needs_load' ///
+                    | strpos(`"`keepusing'"', "*") | strpos(`"`keepusing'"', "?") ///
+                    | strpos(`"`keepusing'"', "~")
+                if `_rm_keep_pattern' {
+                    quietly describe using `"`using'"', varlist
+                    local _rm_file_vars `r(varlist)'
+                    local _rm_file_nvars : word count `_rm_file_vars'
+                    if `_rm_file_nvars' <= c(maxvar) {
+                        capture frame drop __rm_using
+                        local _rm_drop_rc = _rc
+                        frame create __rm_using
+                        frame __rm_using {
+                            mata: (void) st_addvar("byte", tokens(st_local("_rm_file_vars")))
+                            capture unab _rm_kutmp : `keepusing'
+                            local _rm_ku_rc = _rc
+                        }
+                        frame drop __rm_using
+                        if `_rm_ku_rc' {
+                            display as error ///
+                                `"keepusing() does not match any variable in using dataset: `keepusing'"'
+                            exit 111
+                        }
+                        local keepusing `"`_rm_kutmp'"'
+                    }
+                    else {
+                        local _rm_keep_postload = 1
+                    }
+                }
             }
+            local keepusing : list uniq keepusing
         }
 
         local all_using_vars ""
@@ -433,10 +483,9 @@ program define _rangematch_load_using, sclass
             local using_load_vars `"`using_load_vars' `by'"'
         }
         if `"`keepusing'"' != "" {
-            * Loaded in dry runs too. `use'/`frame put' expand a varlist
-            * pattern natively, and the loaded frame is what the canonical
-            * expansion below is derived from; a dry run that skipped these
-            * columns could not resolve x* into real output names.
+            * Loaded in dry runs too, so a dry run resolves the same output
+            * names as the real run. keepusing() is already the canonical
+            * expanded varlist (above), never a raw pattern.
             local using_load_vars `"`using_load_vars' `keepusing'"'
         }
         local using_load_vars : list uniq using_load_vars
@@ -521,21 +570,14 @@ program define _rangematch_load_using, sclass
             }
         }
 
-        * -------------------------------------------------------------------
-        * Canonicalize keepusing() into a real expanded varlist.
-        *
-        * keepusing() is documented as a varlist, but the raw tokens were
-        * reused verbatim for output naming, so keepusing(x*) built the
-        * invalid output name x*_U and failed rc=198 -- the documented Stata
-        * notation did not work at all. `use'/`frame put' already expanded the
-        * pattern while loading, so re-expanding inside __rm_using returns
-        * exactly the loaded columns, in source order.
-        *
-        * Runs before the private original-row id is generated, so no pattern
-        * can capture it. by() variables are removed downstream (exactly once)
-        * by _rangematch_build_output_names.
-        * -------------------------------------------------------------------
-        if `"`keepusing'"' != "" {
+        * keepusing() was canonicalized into a real expanded varlist, in the
+        * source's own variable order, before loading (RM-I03: the raw tokens
+        * once reached output naming verbatim and keepusing(x*) built the
+        * invalid name x*_U). The one exception is a pattern on a file wider
+        * than c(maxvar), expanded here: `use' loaded it in file order. by()
+        * variables are removed downstream (exactly once) by
+        * _rangematch_build_output_names.
+        if `_rm_keep_postload' {
             frame __rm_using: unab keepusing : `keepusing'
             local keepusing : list uniq keepusing
         }
@@ -899,7 +941,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.6"
+    local _rm_required_mata_version "1.5.7"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -940,6 +982,11 @@ program define rangematch, rclass
           CLOSED(string) NEARest(string) TIES(string) SEED(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
+
+    * A repeated by() variable names the same partition as one mention. Left
+    * as typed, the group catalog renamed the first copy and then failed
+    * r(111) "variable not found" on the second.
+    local by : list uniq by
 
     * -------------------------------------------------------------------
     * Reject explicitly empty arguments for options whose grammar requires
@@ -1635,7 +1682,9 @@ program define rangematch, rclass
     }
     if `overlap_mode' {
         _rangematch_warn_float "using bound" "__rm_using" `ulo' ""
-        _rangematch_warn_float "using bound" "__rm_using" `uhi' ""
+        if "`uhi'" != "`ulo'" {
+            _rangematch_warn_float "using bound" "__rm_using" `uhi' ""
+        }
     }
     else {
         * The master key is a matching input both when it offsets a bound
@@ -1858,6 +1907,29 @@ program define rangematch, rclass
     frame __rm_uwork {
         if "`_rm_ugid'" != "__rm_gid" rename `_rm_ugid' __rm_gid
         if "`_rm_uobs'" != "__rm_obs" rename `_rm_uobs' __rm_obs
+        * overlap(u u) names one variable as both bounds (degenerate point
+        * intervals). `frame put' keeps a single copy of a repeated name, so
+        * the backend's fixed gid/ulow/uhigh/obs layout arrived one column
+        * short and Mata died r(3300). Rebuild the missing upper-bound column
+        * under a free private name and restore the layout.
+        if `overlap_mode' & "`ulo'" == "`uhi'" {
+            local _rm_uhi_copy ""
+            forvalues _rm_try = 0/`=c(maxvar)' {
+                if `_rm_try' == 0 local _rm_candidate "__rm_uhi"
+                else local _rm_candidate "__rm_uhi`_rm_try'"
+                capture confirm new variable `_rm_candidate'
+                if !_rc {
+                    local _rm_uhi_copy "`_rm_candidate'"
+                    continue, break
+                }
+            }
+            if "`_rm_uhi_copy'" == "" {
+                display as error "could not allocate a collision-free using work variable"
+                exit 110
+            }
+            quietly gen double `_rm_uhi_copy' = `ulo'
+            order __rm_gid `ulo' `_rm_uhi_copy' __rm_obs
+        }
     }
 
     * -------------------------------------------------------------------
