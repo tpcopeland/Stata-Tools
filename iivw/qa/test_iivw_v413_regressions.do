@@ -218,9 +218,9 @@ capture noisily {
         quietly replace _iivw_ns`s' = 100*_iivw_ns`s'
     }
     capture noisily _iivw_check_weighted
-    assert _rc != 0
+    assert _rc == 459
     capture noisily iivw_fit y a z1, timespec(linear) vce(stacked) replace
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "  PASS: T4 - a rescaled score column is refused"
@@ -244,9 +244,9 @@ capture noisily {
     quietly replace _iivw_nd1 = _iivw_nd1 + 0.5 in 1
 
     capture noisily _iivw_check_weighted
-    assert _rc != 0
+    assert _rc == 459
     capture noisily iivw_fit y a z1, timespec(linear) vce(stacked)
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "  PASS: T5 - an edited derivative cell is refused"
@@ -274,9 +274,9 @@ capture noisily {
     char _dta[_iivw_score_ainv] "`newfirst'`rest'"
 
     capture noisily _iivw_check_weighted
-    assert _rc != 0
+    assert _rc == 459
     capture noisily iivw_fit y a z1, timespec(linear) vce(stacked)
-    assert _rc != 0
+    assert _rc == 459
 }
 if _rc == 0 {
     display as result "  PASS: T6 - edited inverse-information metadata is refused"

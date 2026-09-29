@@ -1,11 +1,11 @@
-*! _iivw_bs_stamp Version 4.3.1  2026/09/28
+*! _iivw_bs_stamp Version 4.3.2  2026/09/29
 *! Stamp iivw shard identity onto a bootstrap replicate file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (adds e(iivw_bs_lineage/asig/dsig/dsig_vars) only)
 
 /*
 Basic syntax:
-  _iivw_bs_stamp , file(spec)
+  _iivw_bs_stamp , file(spec) [spec(string) resolved]
 
 Description:
   Called by iivw_fit immediately after a bootstrap fit that used saving().
@@ -50,7 +50,7 @@ program define _iivw_bs_stamp, eclass
     tempname shardfr
     capture noisily {
 
-    syntax , File(string) [SPEC(string asis)]
+    syntax , File(string) [SPEC(string asis) RESOLVED]
 
     * -------------------------------------------------------------------
     * Resolve the filename out of the saving() spec
@@ -64,10 +64,20 @@ program define _iivw_bs_stamp, eclass
     * caller's outer quotes, and gettoken then reads the whole quoted spec as
     * one token -- so saving(reps, replace) resolved to a filename literally
     * called "reps, replace" and the stamp errored with file not found.
-    local _spec `"`file'"'
-    gettoken _fname _rest : _spec, parse(",")
-    local _fname `_fname'
-    if `"`_fname'"' == "" {
+    * macval(): the name is user text; expanding it again would write one
+    * file and stamp another (or execute an unbalanced backtick).
+    * resolved: file() is already one literal file name (iivw_bspool resolves
+    * its own saving() first), so it is not split at a comma and may hold
+    * any character the file system allows, quotes included.
+    if "`resolved'" != "" {
+        local _fname `"`macval(file)'"'
+    }
+    else {
+        local _spec `"`macval(file)'"'
+        gettoken _fname _rest : _spec, parse(",")
+        local _fname `macval(_fname)'
+    }
+    if `"`macval(_fname)'"' == "" {
         display as error "_iivw_bs_stamp: empty filename in saving() spec"
         error 198
     }
@@ -79,11 +89,15 @@ program define _iivw_bs_stamp, eclass
     * at the one resolved path is a bootstrap that did not write what it was
     * told to, which must not pass silently.
     mata: st_local("_sfx", pathsuffix(st_local("_fname")))
-    if `"`_sfx'"' == "" local _target `"`_fname'.dta"'
-    else                local _target `"`_fname'"'
-    capture confirm file `"`_target'"'
+    if `"`_sfx'"' == "" {
+        local _target `"`macval(_fname)'.dta"'
+    }
+    else {
+        local _target `"`macval(_fname)'"'
+    }
+    capture confirm file `"`macval(_target)'"'
     if _rc {
-        display as error "_iivw_bs_stamp: no replicate file at `_fname'"
+        display as error "_iivw_bs_stamp: no replicate file at `macval(_fname)'"
         display as error "  the bootstrap prefix was given saving() but wrote no file"
         error 601
     }
@@ -187,7 +201,7 @@ program define _iivw_bs_stamp, eclass
     frame create `shardfr'
     local _frame_open = 1
     frame `shardfr' {
-        use `"`_target'"', clear
+        use `"`macval(_target)'"', clear
 
         * Lineage of a single shard: the exact RNG state its bootstrap
         * consumed, which bootstrap itself records. Same state means same
@@ -196,7 +210,7 @@ program define _iivw_bs_stamp, eclass
         if !`_pooled' {
             local _rngst : char _dta[seed]
             if `"`_rngst'"' == "" {
-                display as error "_iivw_bs_stamp: `_target' records no RNG state"
+                display as error "_iivw_bs_stamp: `macval(_target)' records no RNG state"
                 error 459
             }
             _iivw_bs_stamp_hash, text(`"`_rngst'"')
@@ -233,7 +247,7 @@ program define _iivw_bs_stamp, eclass
             char _dta[_iivw_shard_seed]        "`e(iivw_vce_seed)'"
         }
 
-        quietly save `"`_target'"', replace
+        quietly save `"`macval(_target)'"', replace
     }
 
     * The anchor side of the same identity. Nothing else in e() is touched.

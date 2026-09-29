@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.1  2026/09/28
+*! iivw_diagnose Version 4.3.2  2026/09/29
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -63,11 +63,11 @@ program define iivw_diagnose, rclass
         * ignored, and rc 0 returned, so a mistyped export request was
         * indistinguishable from a successful one. Reject before any work.
         local _exportonly ""
-        if `"`sheet'"'       != "" local _exportonly "`_exportonly' sheet()"
+        if `"`macval(sheet)'"'       != "" local _exportonly "`_exportonly' sheet()"
         if "`open'"          != "" local _exportonly "`_exportonly' open"
         if "`replace'"       != "" local _exportonly "`_exportonly' replace"
-        if `"`title'"'       != "" local _exportonly "`_exportonly' title()"
-        if `"`footnote'"'    != "" local _exportonly "`_exportonly' footnote()"
+        if `"`macval(title)'"'       != "" local _exportonly "`_exportonly' title()"
+        if `"`macval(footnote)'"'    != "" local _exportonly "`_exportonly' footnote()"
         if "`decimals'"      != "" local _exportonly "`_exportonly' decimals()"
         if `"`borderstyle'"' != "" local _exportonly "`_exportonly' borderstyle()"
         if "`headershade'"   != "" local _exportonly "`_exportonly' headershade"
@@ -76,7 +76,7 @@ program define iivw_diagnose, rclass
         if `"`headercolor'"' != "" local _exportonly "`_exportonly' headercolor()"
         if `"`zebracolor'"'  != "" local _exportonly "`_exportonly' zebracolor()"
         if "`zebra'"         != "" local _exportonly "`_exportonly' zebra"
-        if `"`xlsx'"' == "" & `"`_exportonly'"' != "" {
+        if `"`macval(xlsx)'"' == "" & `"`_exportonly'"' != "" {
             display as error "option(s)`_exportonly' require xlsx()"
             display as text "  they affect only the exported workbook; with no xlsx() to write,"
             display as text "  they would be silently ignored"
@@ -184,8 +184,9 @@ program define iivw_diagnose, rclass
                 inlist("`e(iivw_ci_type)'", "percentile", "basic", "bca") {
                 tempname _cim
                 capture matrix `_cim' = e(iivw_ci)
+                local _cim_rc = _rc
                 local _cicol = .
-                if _rc == 0 local _cicol = colnumb(`_cim', "`coefficient'")
+                if `_cim_rc' == 0 local _cicol = colnumb(`_cim', "`coefficient'")
                 if `_cicol' >= . {
                     display as error ///
                         "stored `e(iivw_ci_type)' interval for `coefficient' not found in '`estname''"
@@ -754,7 +755,7 @@ program define iivw_diagnose, rclass
         * xlsx() is the sole trigger: the guard above already rejected any
         * export-only option that arrived without it.
         local _export_requested = 0
-        if `"`xlsx'"' != "" local _export_requested = 1
+        if `"`macval(xlsx)'"' != "" local _export_requested = 1
         if `_export_requested' {
             frame create `_diagnose_export' ///
                 strL A ///
@@ -764,43 +765,55 @@ program define iivw_diagnose, rclass
                 strL c3
             local _diagnose_export_created = 1
 
-            local _sheet `"`sheet'"'
-            if `"`_sheet'"' == "" & ///
-                `"`xlsx'"' != "" local _sheet "Diagnostics"
+            local _sheet `"`macval(sheet)'"'
+            if `"`macval(_sheet)'"' == "" & ///
+                `"`macval(xlsx)'"' != "" local _sheet "Diagnostics"
 
-            local _clean_xlsx `"`xlsx'"'
-            local _clean_title `"`title'"'
-            local _clean_footnote `"`footnote'"'
+            local _clean_xlsx `"`macval(xlsx)'"'
+            local _clean_title `"`macval(title)'"'
+            local _clean_footnote `"`macval(footnote)'"'
             local _dq = char(34)
             local _num_fmt "%9.`_decimals_final'f"
-            local _clean_sheet `"`_sheet'"'
+            local _clean_sheet `"`macval(_sheet)'"'
             foreach _text in xlsx sheet title footnote {
-                local _text_n = strlen(`"`_clean_`_text''"')
+                local _text_n = strlen(`"`macval(_clean_`_text')'"')
                 if `_text_n' >= 4 & ///
-                    substr(`"`_clean_`_text''"', 1, 1) == char(96) & ///
-                    substr(`"`_clean_`_text''"', 2, 1) == char(34) & ///
-                    substr(`"`_clean_`_text''"', `_text_n' - 1, 1) == char(34) & ///
-                    substr(`"`_clean_`_text''"', `_text_n', 1) == char(39) {
+                    substr(`"`macval(_clean_`_text')'"', 1, 1) == char(96) & ///
+                    substr(`"`macval(_clean_`_text')'"', 2, 1) == char(34) & ///
+                    substr(`"`macval(_clean_`_text')'"', `_text_n' - 1, 1) == char(34) & ///
+                    substr(`"`macval(_clean_`_text')'"', `_text_n', 1) == char(39) {
                     local _clean_`_text' = ///
-                        substr(`"`_clean_`_text''"', 3, `_text_n' - 4)
+                        substr(`"`macval(_clean_`_text')'"', 3, `_text_n' - 4)
                 }
                 else if `_text_n' >= 2 & ///
-                    substr(`"`_clean_`_text''"', 1, 1) == char(34) & ///
-                    substr(`"`_clean_`_text''"', `_text_n', 1) == char(34) {
+                    substr(`"`macval(_clean_`_text')'"', 1, 1) == char(34) & ///
+                    substr(`"`macval(_clean_`_text')'"', `_text_n', 1) == char(34) {
                     local _clean_`_text' = ///
-                        substr(`"`_clean_`_text''"', 2, `_text_n' - 2)
+                        substr(`"`macval(_clean_`_text')'"', 2, `_text_n' - 2)
                 }
             }
-            if `"`_clean_title'"' == "" {
+            if `"`macval(_clean_title)'"' == "" {
                 local _clean_title "IIVW diagnostic decomposition"
             }
-            if `"`_clean_footnote'"' == "" {
+            if `"`macval(_clean_footnote)'"' == "" {
                 local _clean_footnote ///
                     "Estimate rows report b, SE, and confidence limits; diagnostic and bias rows report a single value below the Diagnostic values divider."
             }
 
             frame post `_diagnose_export' ///
-                (`"`_clean_title'"') ("") ("") ("") ("")
+                ("") ("") ("") ("") ("")
+            * frame post is an ado that re-expands what it is given, so user
+            * text posted through it lost a $name or `name' pair and an
+            * unbalanced backtick exited r(132). Post a blank cell, then store
+            * the text from the local itself.
+            local __iivw_cf = c(frame)
+            frame change `_diagnose_export'
+            capture noisily {
+                mata: st_sstore(st_nobs(), "A", st_local("_clean_title"))
+            }
+            local __iivw_ss_rc = _rc
+            frame change `__iivw_cf'
+            if `__iivw_ss_rc' error `__iivw_ss_rc'
             frame post `_diagnose_export' ///
                 ("") ("") ("Model estimates") ("") ("")
             frame post `_diagnose_export' ///
@@ -959,7 +972,15 @@ program define iivw_diagnose, rclass
             }
 
             frame post `_diagnose_export' ///
-                ("") (`"`_clean_footnote'"') ("") ("") ("")
+                ("") ("") ("") ("") ("")
+            local __iivw_cf = c(frame)
+            frame change `_diagnose_export'
+            capture noisily {
+                mata: st_sstore(st_nobs(), "B", st_local("_clean_footnote"))
+            }
+            local __iivw_ss_rc = _rc
+            frame change `__iivw_cf'
+            if `__iivw_ss_rc' error `__iivw_ss_rc'
 
             * The sentinel covers sheet() and xlsx() too, not only title()/
             * footnote(): the writer decodes it for all four options, and an
@@ -967,35 +988,61 @@ program define iivw_diagnose, rclass
             * quote parity so a later ")" terminates the option early. See the
             * note at iivw_balance's dispatch site for the measured failure.
             local _quote_sentinel = uchar(57344)
-            local _dispatch_title = subinstr(`"`_clean_title'"', ///
+            local _dispatch_title = subinstr(`"`macval(_clean_title)'"', ///
                 char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_footnote = subinstr(`"`_clean_footnote'"', ///
+            local _dispatch_footnote = subinstr(`"`macval(_clean_footnote)'"', ///
                 char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_sheet = subinstr(`"`_clean_sheet'"', ///
+            local _dispatch_sheet = subinstr(`"`macval(_clean_sheet)'"', ///
                 char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_xlsx = subinstr(`"`_clean_xlsx'"', ///
+            local _dispatch_xlsx = subinstr(`"`macval(_clean_xlsx)'"', ///
                 char(34), `"`_quote_sentinel'"', .)
 
             local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools) valuespanfrom(`_valuespanfrom')"'
-            if `"`_dispatch_xlsx'"' != "" local _export_opts `"`_export_opts' xlsx("`_dispatch_xlsx'")"'
-            if `"`_dispatch_sheet'"' != "" local _export_opts `"`_export_opts' sheet("`_dispatch_sheet'")"'
-            if `"`_dispatch_title'"' != "" local _export_opts `"`_export_opts' title("`_dispatch_title'")"'
-            if `"`_dispatch_footnote'"' != "" local _export_opts `"`_export_opts' footnote("`_dispatch_footnote'")"'
-            if "`replace'" != "" local _export_opts `"`_export_opts' replace"'
-            if "`open'" != "" local _export_opts `"`_export_opts' open"'
-            if `"`borderstyle'"' != "" local _export_opts `"`_export_opts' borderstyle(`borderstyle')"'
-            if "`headershade'" != "" local _export_opts `"`_export_opts' headershade"'
-            if `"`font'"' != "" local _export_opts `"`_export_opts' font(`"`font'"')"'
-            if `fontsize' != -1 local _export_opts `"`_export_opts' fontsize(`fontsize')"'
-            if `"`headercolor'"' != "" local _export_opts `"`_export_opts' headercolor("`headercolor'")"'
-            if `"`zebracolor'"' != "" local _export_opts `"`_export_opts' zebracolor("`zebracolor'")"'
-            if "`zebra'" != "" local _export_opts `"`_export_opts' zebra"'
+            if `"`macval(_dispatch_xlsx)'"' != "" {
+                local _export_opts `"`macval(_export_opts)' xlsx("`macval(_dispatch_xlsx)'")"'
+            }
+            if `"`macval(_dispatch_sheet)'"' != "" {
+                local _export_opts `"`macval(_export_opts)' sheet("`macval(_dispatch_sheet)'")"'
+            }
+            if `"`macval(_dispatch_title)'"' != "" {
+                local _export_opts `"`macval(_export_opts)' title("`macval(_dispatch_title)'")"'
+            }
+            if `"`macval(_dispatch_footnote)'"' != "" {
+                local _export_opts `"`macval(_export_opts)' footnote("`macval(_dispatch_footnote)'")"'
+            }
+            if "`replace'" != "" {
+                local _export_opts `"`macval(_export_opts)' replace"'
+            }
+            if "`open'" != "" {
+                local _export_opts `"`macval(_export_opts)' open"'
+            }
+            if `"`borderstyle'"' != "" {
+                local _export_opts `"`macval(_export_opts)' borderstyle(`borderstyle')"'
+            }
+            if "`headershade'" != "" {
+                local _export_opts `"`macval(_export_opts)' headershade"'
+            }
+            if `"`font'"' != "" {
+                local _export_opts `"`macval(_export_opts)' font(`"`font'"')"'
+            }
+            if `fontsize' != -1 {
+                local _export_opts `"`macval(_export_opts)' fontsize(`fontsize')"'
+            }
+            if `"`headercolor'"' != "" {
+                local _export_opts `"`macval(_export_opts)' headercolor("`headercolor'")"'
+            }
+            if `"`zebracolor'"' != "" {
+                local _export_opts `"`macval(_export_opts)' zebracolor("`zebracolor'")"'
+            }
+            if "`zebra'" != "" {
+                local _export_opts `"`macval(_export_opts)' zebra"'
+            }
 
-            capture noisily _iivw_export_table, `_export_opts'
+            capture noisily _iivw_export_table, `macval(_export_opts)'
             local _export_rc = _rc
             if `_export_rc' == 0 {
-                local _export_xlsx `"`r(xlsx)'"'
-                local _export_sheet `"`r(sheet)'"'
+                mata: st_local("_export_xlsx", st_global("r(xlsx)"))
+                mata: st_local("_export_sheet", st_global("r(sheet)"))
                 local _export_decimals = r(decimals)
             }
             else if `_export_rc' == 602 {
@@ -1073,9 +1120,9 @@ program define iivw_diagnose, rclass
     return local weighted "`weighted'"
     return local unweighted "`unweighted'"
     return local coefficient "`coefficient'"
-    if `"`_export_xlsx'"' != "" {
-        return local xlsx `"`_export_xlsx'"'
-        return local sheet `"`_export_sheet'"'
+    if `"`macval(_export_xlsx)'"' != "" {
+        return local xlsx `"`macval(_export_xlsx)'"'
+        return local sheet `"`macval(_export_sheet)'"'
     }
     if `_export_decimals' < . {
         return scalar decimals = `_export_decimals'

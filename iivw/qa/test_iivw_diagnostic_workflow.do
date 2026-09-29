@@ -80,7 +80,7 @@ capture noisily {
     which iivw_exogtest
     which iivw_diagnose
     iivw
-    assert r(n_commands) == 5
+    assert r(n_commands) == 6 & r(n_commands) == wordcount("`r(commands)'")
     assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
 }
 if _rc == 0 {

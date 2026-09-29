@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 4.3.1  2026/09/28
+*! _iivw_export_table Version 4.3.2  2026/09/29
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,27 +27,27 @@ program define _iivw_export_table, rclass
     local __iivw_dq = char(34)
     local __iivw_quote_sentinel = uchar(57344)
     foreach __iivw_opt in xlsx sheet title footnote {
-        local __iivw_tmp `"``__iivw_opt''"'
-        local __iivw_tmp = strtrim(`"`__iivw_tmp'"')
+        local __iivw_tmp `"`macval(`__iivw_opt')'"'
+        local __iivw_tmp = strtrim(`"`macval(__iivw_tmp)'"')
         * syntax, string asis retains a user's enclosing quotes. Remove only
         * that outer pair: deleting every quote corrupts titles such as
         * Cohort "A" summary.
-        local __iivw_tmp_n = strlen(`"`__iivw_tmp'"')
+        local __iivw_tmp_n = strlen(`"`macval(__iivw_tmp)'"')
         if `__iivw_tmp_n' >= 4 & ///
-            substr(`"`__iivw_tmp'"', 1, 1) == char(96) & ///
-            substr(`"`__iivw_tmp'"', 2, 1) == char(34) & ///
-            substr(`"`__iivw_tmp'"', `__iivw_tmp_n' - 1, 1) == char(34) & ///
-            substr(`"`__iivw_tmp'"', `__iivw_tmp_n', 1) == char(39) {
-            local __iivw_tmp = substr(`"`__iivw_tmp'"', 3, `__iivw_tmp_n' - 4)
+            substr(`"`macval(__iivw_tmp)'"', 1, 1) == char(96) & ///
+            substr(`"`macval(__iivw_tmp)'"', 2, 1) == char(34) & ///
+            substr(`"`macval(__iivw_tmp)'"', `__iivw_tmp_n' - 1, 1) == char(34) & ///
+            substr(`"`macval(__iivw_tmp)'"', `__iivw_tmp_n', 1) == char(39) {
+            local __iivw_tmp = substr(`"`macval(__iivw_tmp)'"', 3, `__iivw_tmp_n' - 4)
         }
         else if `__iivw_tmp_n' >= 2 & ///
-            substr(`"`__iivw_tmp'"', 1, 1) == char(34) & ///
-            substr(`"`__iivw_tmp'"', `__iivw_tmp_n', 1) == char(34) {
-            local __iivw_tmp = substr(`"`__iivw_tmp'"', 2, `__iivw_tmp_n' - 2)
+            substr(`"`macval(__iivw_tmp)'"', 1, 1) == char(34) & ///
+            substr(`"`macval(__iivw_tmp)'"', `__iivw_tmp_n', 1) == char(34) {
+            local __iivw_tmp = substr(`"`macval(__iivw_tmp)'"', 2, `__iivw_tmp_n' - 2)
         }
-        local __iivw_tmp = subinstr(`"`__iivw_tmp'"', ///
+        local __iivw_tmp = subinstr(`"`macval(__iivw_tmp)'"', ///
             `"`__iivw_quote_sentinel'"', char(34), .)
-        local `__iivw_opt' `"`__iivw_tmp'"'
+        local `__iivw_opt' `"`macval(__iivw_tmp)'"'
     }
     local layout = lower(strtrim(`"`layout'"'))
     if `"`layout'"' == "" local layout "standard"
@@ -152,8 +152,8 @@ program define _iivw_export_table, rclass
         error 498
     }
 
-    local __iivw_xlsx `"`xlsx'"'
-    if `"`__iivw_xlsx'"' == "" {
+    local __iivw_xlsx `"`macval(xlsx)'"'
+    if `"`macval(__iivw_xlsx)'"' == "" {
         display as error "xlsx() is required for reporting export"
         error 198
     }
@@ -162,7 +162,7 @@ program define _iivw_export_table, rclass
     * inside double quotes, so reject metacharacters and quote characters
     * before any workbook or shell operation.
     foreach __iivw_badcode in 59 38 124 62 60 36 96 34 39 {
-        if strpos(`"`__iivw_xlsx'"', char(`__iivw_badcode')) > 0 {
+        if strpos(`"`macval(__iivw_xlsx)'"', char(`__iivw_badcode')) > 0 {
             display as error "xlsx() contains an unsafe path character"
             error 198
         }
@@ -174,44 +174,46 @@ program define _iivw_export_table, rclass
     }
     local __iivw_return_decimals = `decimals'
 
-    local __iivw_xlsx_len = strlen(`"`__iivw_xlsx'"')
+    local __iivw_xlsx_len = strlen(`"`macval(__iivw_xlsx)'"')
     if `__iivw_xlsx_len' < 6 | ///
-        lower(substr(`"`__iivw_xlsx'"', `__iivw_xlsx_len' - 4, 5)) != ".xlsx" {
+        lower(substr(`"`macval(__iivw_xlsx)'"', `__iivw_xlsx_len' - 4, 5)) != ".xlsx" {
         display as error "xlsx() must name a .xlsx file"
         error 198
     }
 
-    if `"`sheet'"' == "" local sheet "Sheet1"
-    if strlen(`"`sheet'"') > 31 {
+    if `"`macval(sheet)'"' == "" local sheet "Sheet1"
+    if strlen(`"`macval(sheet)'"') > 31 {
         display as error "sheet() must be 31 characters or fewer"
         error 198
     }
     local __iivw_bslash = char(92)
     foreach bad in "[" "]" ":" "*" "?" "/" "`__iivw_bslash'" {
-        if strpos(`"`sheet'"', `"`bad'"') > 0 {
+        if strpos(`"`macval(sheet)'"', `"`bad'"') > 0 {
             display as error "sheet() contains an invalid Excel worksheet character"
             error 198
         }
     }
 
-    if `"`title'"' == "" local title `"`sheet'"'
+    if `"`macval(title)'"' == "" {
+        local title `"`macval(sheet)'"'
+    }
 
     local __iivw_xlsx_exists = 0
     local __iivw_sheet_exists = 0
-    capture confirm file `"`__iivw_xlsx'"'
+    capture confirm file `"`macval(__iivw_xlsx)'"'
     local __iivw_xlsx_exists = (_rc == 0)
     if `__iivw_xlsx_exists' {
         mata: st_local("__iivw_sheet_exists", ///
-            strofreal(_iivw_xlsx_sheet_exists(`"`__iivw_xlsx'"', `"`sheet'"')))
+            strofreal(_iivw_xlsx_sheet_exists(`"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"')))
         if `__iivw_sheet_exists' & "`replace'" == "" {
-            display as error "sheet `sheet' already exists in `__iivw_xlsx'; use replace to overwrite it"
+            display as error "sheet `macval(sheet)' already exists in `macval(__iivw_xlsx)'; use replace to overwrite it"
             error 602
         }
     }
 
     if "`layout'" == "tabtools" {
         local __iivw_note_row = 0
-        if `"`footnote'"' != "" {
+        if `"`macval(footnote)'"' != "" {
             local __iivw_note_row = `__iivw_return_rows'
         }
 
@@ -226,7 +228,7 @@ program define _iivw_export_table, rclass
                     continue
                 }
                 frame `tableframe': local __iivw_scell = `__iivw_v'[`__iivw_i']
-                local __iivw_slen = strlen(`"`__iivw_scell'"') + 2
+                local __iivw_slen = strlen(`"`macval(__iivw_scell)'"') + 2
                 if `__iivw_slen' > `__iivw_width' {
                     local __iivw_width = `__iivw_slen'
                 }
@@ -244,7 +246,7 @@ program define _iivw_export_table, rclass
         }
 
         frame `tableframe': mata: _iivw_xlsx_write_tabtools( ///
-            `"`__iivw_xlsx'"', `"`sheet'"', `"`__iivw_vars'"', ///
+            `"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"', `"`__iivw_vars'"', ///
             `__iivw_return_rows', `__iivw_return_cols', ///
             `__iivw_note_row', `"`__iivw_widths'"', ///
             `"`__iivw_font'"', `__iivw_fontsize', `__iivw_bcode', ///
@@ -252,25 +254,25 @@ program define _iivw_export_table, rclass
             `"`__iivw_headercolor'"', `"`__iivw_zebracolor'"', ///
             `valuespanfrom')
 
-        local __iivw_return_xlsx `"`__iivw_xlsx'"'
-        local __iivw_return_sheet `"`sheet'"'
+        local __iivw_return_xlsx `"`macval(__iivw_xlsx)'"'
+        local __iivw_return_sheet `"`macval(sheet)'"'
 
         if "`open'" != "" {
-            _iivw_open_workbook `"`__iivw_xlsx'"'
+            _iivw_open_workbook `"`macval(__iivw_xlsx)'"'
         }
     }
     else {
     if `__iivw_xlsx_exists' {
-        quietly putexcel set `"`__iivw_xlsx'"', modify sheet(`"`sheet'"', replace)
+        quietly putexcel set `"`macval(__iivw_xlsx)'"', modify sheet(`"`macval(sheet)'"', replace)
     }
     else {
-        quietly putexcel set `"`__iivw_xlsx'"', replace sheet(`"`sheet'"')
+        quietly putexcel set `"`macval(__iivw_xlsx)'"', replace sheet(`"`macval(sheet)'"')
     }
     local __iivw_putexcel_open = 1
 
     local __iivw_header_row = 3
     local __iivw_first_data = `__iivw_header_row' + 1
-    quietly putexcel A1 = (`"`title'"')
+    quietly putexcel A1 = (`"`macval(title)'"')
 
     local __iivw_decimal_format "0"
     if `decimals' > 0 {
@@ -293,7 +295,7 @@ program define _iivw_export_table, rclass
         if _rc == 0 {
             forvalues __iivw_i = 1/`__iivw_return_rows' {
                 frame `tableframe': local __iivw_scell = `__iivw_v'[`__iivw_i']
-                local __iivw_slen = strlen(`"`__iivw_scell'"') + 2
+                local __iivw_slen = strlen(`"`macval(__iivw_scell)'"') + 2
                 if `__iivw_slen' > `__iivw_width' {
                     local __iivw_width = `__iivw_slen'
                 }
@@ -342,23 +344,23 @@ program define _iivw_export_table, rclass
     }
 
     local __iivw_note_row = 0
-    if `"`footnote'"' != "" {
+    if `"`macval(footnote)'"' != "" {
         local __iivw_note_row = `__iivw_first_data' + `__iivw_return_rows' + 1
-        quietly putexcel A`__iivw_note_row' = (`"`footnote'"')
+        quietly putexcel A`__iivw_note_row' = (`"`macval(footnote)'"')
     }
 
     quietly putexcel clear
     local __iivw_putexcel_open = 0
 
-    mata: _iivw_xlsx_style(`"`__iivw_xlsx'"', `"`sheet'"', ///
+    mata: _iivw_xlsx_style(`"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"', ///
         `__iivw_return_rows', `__iivw_return_cols', `__iivw_header_row', ///
-        `__iivw_note_row', `"`__iivw_widths'"', `"`title'"', `"`footnote'"')
+        `__iivw_note_row', `"`__iivw_widths'"', `"`macval(title)'"', `"`macval(footnote)'"')
 
-    local __iivw_return_xlsx `"`__iivw_xlsx'"'
-    local __iivw_return_sheet `"`sheet'"'
+    local __iivw_return_xlsx `"`macval(__iivw_xlsx)'"'
+    local __iivw_return_sheet `"`macval(sheet)'"'
 
     if "`open'" != "" {
-        _iivw_open_workbook `"`__iivw_xlsx'"'
+        _iivw_open_workbook `"`macval(__iivw_xlsx)'"'
     }
     }
 
@@ -374,8 +376,8 @@ program define _iivw_export_table, rclass
     return scalar decimals = `__iivw_return_decimals'
     return scalar N_cols = `__iivw_return_cols'
     return scalar N_rows = `__iivw_return_rows'
-    return local xlsx `"`__iivw_return_xlsx'"'
-    return local sheet `"`__iivw_return_sheet'"'
+    return local xlsx `"`macval(__iivw_return_xlsx)'"'
+    return local sheet `"`macval(__iivw_return_sheet)'"'
 end
 
 * Best-effort workbook launcher for open. Both export branches call this rather

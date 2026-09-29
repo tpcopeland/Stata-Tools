@@ -188,15 +188,15 @@ _ivl_result `=_rc' "FP-iivw leaves caller state intact (success + r(101))"
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' FP-iivw"
 
-**## FP-iivw_weight (OPEN: leaves the data stset on dangling temporaries)
-* OPEN LEDGER (new finding 2026-09-28, present at 166dfd10 and on 4.3.1):
-* iivw_weight leaves the caller's data marked stset (_dta[_dta] = st plus
-* st_* characteristics) naming temporary variables it has dropped, so a
-* later stdescribe or st command fails r(111). The contract compare
-* (r() and the documented _iivw_* columns and contract) must fail with
-* exactly that signature; a second compare that also exempts
-* characteristics and globals must pass, so nothing else may change.
-local iw_open "stset-dangling"
+**## FP-iivw_weight
+* OPEN LEDGER, emptied in 4.3.2 (found 2026-09-28, present at 166dfd10 and
+* on 4.3.1): iivw_weight left the caller's data marked stset (_dta[_dta] = st
+* plus st_* characteristics) naming temporary variables it had dropped, so a
+* later stdescribe or st command failed r(111). With the ledger empty the
+* contract compare (r() and the documented _iivw_* columns and contract)
+* must pass and the data must not be stset (red on 4.3.1); a second compare
+* that also exempts characteristics and globals must pass too.
+local iw_open ""
 local ++test_count
 capture noisily {
     _ivl_panel
@@ -205,7 +205,10 @@ capture noisily {
     mata: _ivl_g0 = _ivl_globals()
     iivw_weight, id(id) time(t) visit_cov(z1) maxfu(7) nolog
     confirm variable _iivw_weight
-    capture noisily qa_state_compare, tag(iw_ok) allow(r data) keep
+    * global: stset inside the visit fit leaves Stata's saved-result
+    * globals S_#, exempt by name here as in every other block; _ivl_gcheck
+    * below holds every other global to no change.
+    capture noisily qa_state_compare, tag(iw_ok) allow(r data global) keep
     local crc = _rc
     qa_state_compare, tag(iw_ok) allow(r data char global)
     _ivl_gcheck
@@ -222,7 +225,7 @@ capture noisily {
     assert _rc == 111
     qa_state_compare, tag(iw_bad)
 }
-_ivl_result `=_rc' "FP-iivw_weight caller state: open stset side effect as recorded, nothing else (success + r(111))"
+_ivl_result `=_rc' "FP-iivw_weight caller state: no stset side effect, nothing else changed (success + r(111))"
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' FP-iivw_weight"
 

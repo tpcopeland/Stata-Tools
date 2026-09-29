@@ -355,8 +355,8 @@ approximated.
 The sandwich sums over every subject that informed the weights, not only over
 the outcome sample. A subject whose outcomes are all missing, or whose rows
 fall outside the fit's {it:if}/{it:in}, contributes no outcome score but still
-contributes its nuisance-model score, and that correction term is included;
-the finite-cluster factor m/(m-1) counts the same union, which
+contributes its nuisance-model score, and that correction term is
+included; the finite-cluster factor m/(m-1) counts the same union, which
 {cmd:e(iivw_stacked_nclust)} reports. {cmd:e(N)} and {cmd:e(sample)} still
 describe the outcome fit.
 
@@ -541,7 +541,12 @@ The command discarded these draws before 4.2.0. Saving them is what makes a
 {helpb iivw_bspool}. {cmd:iivw_fit} additionally stamps the file with the
 identity of the fit that produced it -- the weight contract, the weight type,
 the specification, the build -- so the pooler can refuse a set of shards that
-did not fit the same model to the same data.
+did not fit the same model to the same data. The same identity is posted in
+{cmd:e(iivw_bs_asig)}, which every shard must match; {cmd:e(iivw_bs_dsig)} is a
+sort-invariant fingerprint of the estimation-sample columns that pooling
+rechecks against the live data; and {cmd:e(iivw_bs_lineage)} names the draws,
+so a saved pool, which carries the union of its inputs' lineages, is never
+pooled again with one of its own parts.
 
 {pmore}
 {opt saving()} requires bootstrap draws. Specifying it with {cmd:vce(fixed)} or
@@ -1317,7 +1322,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_cmd)}}{cmd:iivw_fit}{p_end}
 {synopt:{cmd:e(predict)}}{cmd:_iivw_fit_p} (checks design columns){p_end}
 {synopt:{cmd:e(iivw_predict)}}underlying predict; {cmd:_predict} if point-only{p_end}
-{synopt:{cmd:e(iivw_design_token)}}identifier stamped on this fit's generated design columns{p_end}
+{synopt:{cmd:e(iivw_design_token)}}ID stamped on this fit's design columns{p_end}
 {synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
@@ -1340,10 +1345,10 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_rngstate_start)}}starting RNG state, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_rngstream)}}RNG substream, when {opt rngstream()} was given{p_end}
 {synopt:{cmd:e(iivw_bs_saving)}}the {opt saving()} spec, when given{p_end}
-{synopt:{cmd:e(iivw_bs_asig)}}outcome-analysis identity stamped into the {opt saving()} file; {cmd:iivw_bspool} requires every shard to match it{p_end}
-{synopt:{cmd:e(iivw_bs_dsig)}}sort-invariant fingerprint of the estimation-sample columns, rechecked against live data when pooling{p_end}
+{synopt:{cmd:e(iivw_bs_asig)}}outcome-analysis identity of the shard{p_end}
+{synopt:{cmd:e(iivw_bs_dsig)}}fingerprint of the estimation-sample data{p_end}
 {synopt:{cmd:e(iivw_bs_dsig_vars)}}columns covered by {cmd:e(iivw_bs_dsig)}{p_end}
-{synopt:{cmd:e(iivw_bs_lineage)}}draw-lineage identifier of this shard; a saved pool carries the union of its inputs{p_end}
+{synopt:{cmd:e(iivw_bs_lineage)}}draw-lineage identifier of the shard{p_end}
 {synopt:{cmd:e(iivw_wsig)}}signature for stored weight contract{p_end}
 {synopt:{cmd:e(iivw_treat_in_visit)}}1 if {opt treat()} is in the visit-intensity model{p_end}
 {synopt:{cmd:e(iivw_stab_terms)}}the validated {opt stabcov()} terms, if stabilized{p_end}
@@ -1469,8 +1474,7 @@ irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
-Saul BC, Hudgens MG. 2020. The calculus of M-estimation in R with geex.
-{it:Journal of Statistical Software} 92(2).
+Saul BC, Hudgens MG. 2020. The calculus of M-estimation in R with geex. {it:Journal of Statistical Software} 92(2).
 
 {phang}
 Tompkins G, Dubin JA, Wallace M. 2025. On flexible inverse probability of

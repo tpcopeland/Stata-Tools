@@ -774,7 +774,7 @@ capture noisily {
     _qa_iivw_doc_data
 
     iivw
-    assert r(n_commands) == 5
+    assert r(n_commands) == 6 & r(n_commands) == wordcount("`r(commands)'")
     assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
 
     iivw_weight, endatlastvisit baseline(event) id(id) time(days) visit_cov(edss relapse) nolog

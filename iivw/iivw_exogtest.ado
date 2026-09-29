@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 4.3.1  2026/09/28
+*! iivw_exogtest Version 4.3.2  2026/09/29
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -189,10 +189,10 @@ program define iivw_exogtest, rclass sortpreserve
     * `decimals' unconditionally non-empty, so a user-supplied-decimals test
     * placed after it would be true on every call.
     local __iivw_exportonly ""
-    if `"`sheet'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
+    if `"`macval(sheet)'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
     if "`open'"          != "" local __iivw_exportonly "`__iivw_exportonly' open"
-    if `"`title'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
-    if `"`footnote'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
+    if `"`macval(title)'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
+    if `"`macval(footnote)'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
@@ -201,7 +201,7 @@ program define iivw_exogtest, rclass sortpreserve
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
     if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
-    if `"`xlsx'"' == "" & `"`__iivw_exportonly'"' != "" {
+    if `"`macval(xlsx)'"' == "" & `"`__iivw_exportonly'"' != "" {
         display as error "option(s)`__iivw_exportonly' require xlsx()"
         display as text "  they affect only the exported workbook; with no xlsx() to write,"
         display as text "  they would be silently ignored"
@@ -366,20 +366,21 @@ program define iivw_exogtest, rclass sortpreserve
         local ++lag_index
         local lagname : word `lag_index' of `generated_lags'
         quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
-        local vlab : variable label `v'
-        if `"`vlab'"' == "" local vlab "`v'"
+        * Read without expansion: a label such as "Score in $USD" is data.
+        mata: st_local("vlab", st_varlabel("`v'"))
+        if `"`macval(vlab)'"' == "" local vlab "`v'"
         * The label is carried verbatim -- quotes and pipes are legal label text.
         * It reaches Excel through a compound-quoted -frame post-, and it reaches
         * the caller through the indexed r(term_label_#) returns below, neither
         * of which needs a delimiter. The old code stripped every double quote
         * and then joined the labels with an unescaped "|", so a label like
         * `Cohort "A" | high risk' could not round-trip through either.
-        local __iivw_term_label_`lag_index' `"`vlab' (lag 1)"'
-        local __iivw_lag_label `"`__iivw_term_label_`lag_index''"'
-        if strlen(`"`__iivw_lag_label'"') > 80 {
-            local __iivw_lag_label = substr(`"`__iivw_lag_label'"', 1, 77) + "..."
+        local __iivw_term_label_`lag_index' `"`macval(vlab)' (lag 1)"'
+        local __iivw_lag_label `"`macval(__iivw_term_label_`lag_index')'"'
+        if strlen(`"`macval(__iivw_lag_label)'"') > 80 {
+            local __iivw_lag_label = substr(`"`macval(__iivw_lag_label)'"', 1, 77) + "..."
         }
-        label variable `lagname' `"`__iivw_lag_label'"'
+        label variable `lagname' `"`macval(__iivw_lag_label)'"'
         local __iivw_created_vars "`__iivw_created_vars' `lagname'"
     }
     local __iivw_n_terms = `lag_index'
@@ -593,14 +594,14 @@ program define iivw_exogtest, rclass sortpreserve
         local ++group_index
         if "`by'" != "" {
             local glabel : label `group_vallab' `g'
-            if `"`glabel'"' == "" local glabel "`g'"
-            local heading `"By group: `by' = `glabel'"'
+            if `"`macval(glabel)'"' == "" local glabel "`g'"
+            local heading `"By group: `by' = `macval(glabel)'"'
         }
         else {
             local glabel "overall"
             local heading "Overall model"
         }
-        local __iivw_glab_`group_index' `"`glabel'"'
+        local __iivw_glab_`group_index' `"`macval(glabel)'"'
 
         quietly count if `__iivw_usable' & `__iivw_group' == `g'
         local gN = r(N)
@@ -625,15 +626,15 @@ program define iivw_exogtest, rclass sortpreserve
 
         if "`skip_reason'" != "" {
             local ++n_skipped
-            local __iivw_skiplab_`n_skipped' `"`glabel'"'
+            local __iivw_skiplab_`n_skipped' `"`macval(glabel)'"'
             display as text ""
-            display as text `"`heading'"'
+            display as text `"`macval(heading)'"'
             display as text "note: skipped (`skip_reason')"
             continue
         }
 
         display as text ""
-        display as text `"`heading'"'
+        display as text `"`macval(heading)'"'
 
         local fit_prefix "noisily"
         if "`log'" == "nolog" local fit_prefix "quietly"
@@ -644,7 +645,7 @@ program define iivw_exogtest, rclass sortpreserve
         local fit_rc = _rc
         if `fit_rc' != 0 {
             local ++n_skipped
-            local __iivw_skiplab_`n_skipped' `"`glabel'"'
+            local __iivw_skiplab_`n_skipped' `"`macval(glabel)'"'
             display as text "note: skipped (Cox model failed with rc=`fit_rc')"
             continue
         }
@@ -657,10 +658,10 @@ program define iivw_exogtest, rclass sortpreserve
         * recorded unknown rather than aborting the whole diagnostic, because
         * other groups may still be estimable.
         if e(converged) != 1 {
-            _iivw_require_converged, model("exogeneity Cox (`glabel')") ///
+            _iivw_require_converged, model("exogeneity Cox (`macval(glabel)')") ///
                 allownonconverged
             local ++n_unknown
-            local __iivw_unklab_`n_unknown' `"`glabel'"'
+            local __iivw_unklab_`n_unknown' `"`macval(glabel)'"'
             * n_models counts models FITTED, so this one counts -- it was fitted,
             * it just cannot be read. It is deliberately NOT appended to
             * __iivw_fitted_groups: that list drives the Holm family, and its
@@ -705,7 +706,7 @@ program define iivw_exogtest, rclass sortpreserve
         if `joint_p' >= . {
             local group_status "unknown"
             local ++n_unknown
-            local __iivw_unklab_`n_unknown' `"`glabel'"'
+            local __iivw_unklab_`n_unknown' `"`macval(glabel)'"'
         }
         else if `joint_p' < `alpha' {
             local group_status "association"
@@ -768,7 +769,7 @@ program define iivw_exogtest, rclass sortpreserve
             * is sanitized. The exported and returned labels above keep the
             * user's text verbatim -- this strips nothing they can round-trip.
             local __iivw_display_term = ///
-                subinstr(`"`__iivw_term_label_`term_index''"', char(34), "'", .)
+                subinstr(`"`macval(__iivw_term_label_`term_index')'"', char(34), "'", .)
 
             local p_fmt "."
             if `p' < . {
@@ -780,7 +781,7 @@ program define iivw_exogtest, rclass sortpreserve
                     local p_fmt = strtrim("`p_fmt'")
                 }
             }
-            display as text _col(4) "`__iivw_smcl_lb'ralign 22:`__iivw_display_term'`__iivw_smcl_rb'" ///
+            display as text _col(4) "`__iivw_smcl_lb'ralign 22:`macval(__iivw_display_term)'`__iivw_smcl_rb'" ///
                 as result _col(30) %9.3f `hr' ///
                 _col(41) %9.3f `lb' ///
                 _col(52) %9.3f `ub' ///
@@ -949,7 +950,7 @@ program define iivw_exogtest, rclass sortpreserve
     * xlsx() is the sole trigger: the guard near the top has already rejected
     * any export-only option that arrived without it.
     local __iivw_exog_export_req = 0
-    if `"`xlsx'"' != "" local __iivw_exog_export_req = 1
+    if `"`macval(xlsx)'"' != "" local __iivw_exog_export_req = 1
     if `__iivw_exog_export_req' {
         local __iivw_n_fitted : word count `__iivw_fitted_groups'
         local __iivw_n_data_cols = 3 * `__iivw_n_fitted'
@@ -968,37 +969,37 @@ program define iivw_exogtest, rclass sortpreserve
         }
 
         local __iivw_dq = char(34)
-        local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_sheet `"`sheet'"'
-        local __iivw_clean_title `"`title'"'
-        local __iivw_clean_foot `"`footnote'"'
+        local __iivw_clean_xlsx `"`macval(xlsx)'"'
+        local __iivw_clean_sheet `"`macval(sheet)'"'
+        local __iivw_clean_title `"`macval(title)'"'
+        local __iivw_clean_foot `"`macval(footnote)'"'
         foreach __iivw_clean in xlsx sheet title foot {
-            local __iivw_clean_tmp `"`__iivw_clean_`__iivw_clean''"'
-            local __iivw_clean_n = strlen(`"`__iivw_clean_tmp'"')
+            local __iivw_clean_tmp `"`macval(__iivw_clean_`__iivw_clean')'"'
+            local __iivw_clean_n = strlen(`"`macval(__iivw_clean_tmp)'"')
             if `__iivw_clean_n' >= 4 & ///
-                substr(`"`__iivw_clean_tmp'"', 1, 1) == char(96) & ///
-                substr(`"`__iivw_clean_tmp'"', 2, 1) == char(34) & ///
-                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n' - 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n', 1) == char(39) {
+                substr(`"`macval(__iivw_clean_tmp)'"', 1, 1) == char(96) & ///
+                substr(`"`macval(__iivw_clean_tmp)'"', 2, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_tmp)'"', `__iivw_clean_n' - 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_tmp)'"', `__iivw_clean_n', 1) == char(39) {
                 local __iivw_clean_tmp = ///
-                    substr(`"`__iivw_clean_tmp'"', 3, `__iivw_clean_n' - 4)
+                    substr(`"`macval(__iivw_clean_tmp)'"', 3, `__iivw_clean_n' - 4)
             }
             else if `__iivw_clean_n' >= 2 & ///
-                substr(`"`__iivw_clean_tmp'"', 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_tmp'"', `__iivw_clean_n', 1) == char(34) {
+                substr(`"`macval(__iivw_clean_tmp)'"', 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_tmp)'"', `__iivw_clean_n', 1) == char(34) {
                 local __iivw_clean_tmp = ///
-                    substr(`"`__iivw_clean_tmp'"', 2, `__iivw_clean_n' - 2)
+                    substr(`"`macval(__iivw_clean_tmp)'"', 2, `__iivw_clean_n' - 2)
             }
-            local __iivw_clean_`__iivw_clean' `"`__iivw_clean_tmp'"'
+            local __iivw_clean_`__iivw_clean' `"`macval(__iivw_clean_tmp)'"'
         }
-        if `"`__iivw_clean_sheet'"' == "" {
+        if `"`macval(__iivw_clean_sheet)'"' == "" {
             local __iivw_clean_sheet "Exogeneity"
         }
-        if `"`__iivw_clean_title'"' == "" {
+        if `"`macval(__iivw_clean_title)'"' == "" {
             local __iivw_clean_title ///
                 "Exogeneity diagnostic: lagged predictors of next-visit timing (Andersen-Gill Cox, hazard ratios)"
         }
-        if `"`__iivw_clean_foot'"' == "" {
+        if `"`macval(__iivw_clean_foot)'"' == "" {
             local __iivw_mp : display %5.3f `min_p'
             local __iivw_jmp : display %5.3f `joint_min_p'
             local __iivw_mp = strtrim("`__iivw_mp'")
@@ -1008,19 +1009,45 @@ program define iivw_exogtest, rclass sortpreserve
         }
 
         frame post `__iivw_exog_frame' ///
-            (`"`__iivw_clean_title'"') ("") `__iivw_blank_cells'
+            ("") ("") `__iivw_blank_cells'
+        * frame post is an ado that re-expands what it is given, so user
+        * text posted through it lost a $name or `name' pair and an
+        * unbalanced backtick exited r(132). Post a blank cell, then store
+        * the text from the local itself.
+        local __iivw_cf = c(frame)
+        frame change `__iivw_exog_frame'
+        capture noisily {
+            mata: st_sstore(st_nobs(), "A", st_local("__iivw_clean_title"))
+        }
+        local __iivw_ss_rc = _rc
+        frame change `__iivw_cf'
+        if `__iivw_ss_rc' error `__iivw_ss_rc'
 
+        * Group labels are user text (value labels): post blanks, then store
+        * each label from its local, as for the title above.
         local __iivw_group_cells ""
         foreach __g of local __iivw_fitted_groups {
-            local __iivw_export_glab `"`__iivw_glab_`__g''"'
-            if "`by'" == "" & `"`__iivw_export_glab'"' == "overall" {
-                local __iivw_export_glab "Overall"
-            }
-            local __iivw_group_cells ///
-                `"`__iivw_group_cells' (`"`__iivw_export_glab'"') ("") ("")"'
+            local __iivw_group_cells `"`__iivw_group_cells' ("") ("") ("")"'
         }
         frame post `__iivw_exog_frame' ///
             ("") ("") `__iivw_group_cells'
+        local __iivw_cf = c(frame)
+        frame change `__iivw_exog_frame'
+        capture noisily {
+            local __iivw_gcol = 1
+            foreach __g of local __iivw_fitted_groups {
+                local __iivw_export_glab `"`macval(__iivw_glab_`__g')'"'
+                if "`by'" == "" & `"`macval(__iivw_export_glab)'"' == "overall" {
+                    local __iivw_export_glab "Overall"
+                }
+                mata: st_sstore(st_nobs(), "c`__iivw_gcol'", ///
+                    st_local("__iivw_export_glab"))
+                local __iivw_gcol = `__iivw_gcol' + 3
+            }
+        }
+        local __iivw_ss_rc = _rc
+        frame change `__iivw_cf'
+        if `__iivw_ss_rc' error `__iivw_ss_rc'
 
         local __iivw_header_cells ""
         forvalues __m = 1/`__iivw_n_fitted' {
@@ -1075,7 +1102,16 @@ program define iivw_exogtest, rclass sortpreserve
                     `"`__iivw_row_cells' ("`__hr_fmt'") ("`__ci_fmt'") ("`__p_fmt'")"'
             }
             frame post `__iivw_exog_frame' ///
-                ("") (`"`__iivw_term_label_`__ti''"') `__iivw_row_cells'
+                ("") ("") `__iivw_row_cells'
+            local __iivw_cf = c(frame)
+            frame change `__iivw_exog_frame'
+            capture noisily {
+                mata: st_sstore(st_nobs(), "B", ///
+                    st_local("__iivw_term_label_`__ti'"))
+            }
+            local __iivw_ss_rc = _rc
+            frame change `__iivw_cf'
+            if `__iivw_ss_rc' error `__iivw_ss_rc'
         }
 
         local __iivw_joint_cells ""
@@ -1097,9 +1133,17 @@ program define iivw_exogtest, rclass sortpreserve
         frame post `__iivw_exog_frame' ///
             ("") ("Joint test (all lagged predictors)") `__iivw_joint_cells'
 
-        if `"`__iivw_clean_foot'"' != "" {
+        if `"`macval(__iivw_clean_foot)'"' != "" {
             frame post `__iivw_exog_frame' ///
-                ("") (`"`__iivw_clean_foot'"') `__iivw_blank_cells'
+                ("") ("") `__iivw_blank_cells'
+            local __iivw_cf = c(frame)
+            frame change `__iivw_exog_frame'
+            capture noisily {
+                mata: st_sstore(st_nobs(), "B", st_local("__iivw_clean_foot"))
+            }
+            local __iivw_ss_rc = _rc
+            frame change `__iivw_cf'
+            if `__iivw_ss_rc' error `__iivw_ss_rc'
         }
 
         * The sentinel covers sheet() and xlsx() too, not only title()/
@@ -1108,48 +1152,52 @@ program define iivw_exogtest, rclass sortpreserve
         * quote parity so a later ")" terminates the option early. See the
         * note at iivw_balance's dispatch site for the measured failure.
         local __iivw_quote_sentinel = uchar(57344)
-        local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
+        local __iivw_dispatch_title = subinstr(`"`macval(__iivw_clean_title)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_foot = subinstr(`"`__iivw_clean_foot'"', ///
+        local __iivw_dispatch_foot = subinstr(`"`macval(__iivw_clean_foot)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_sheet = subinstr(`"`__iivw_clean_sheet'"', ///
+        local __iivw_dispatch_sheet = subinstr(`"`macval(__iivw_clean_sheet)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_xlsx = subinstr(`"`__iivw_clean_xlsx'"', ///
+        local __iivw_dispatch_xlsx = subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
         local __iivw_exog_opts ///
-            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`__iivw_dispatch_sheet'") title("`__iivw_dispatch_title'") footnote("`__iivw_dispatch_foot'") layout(tabtools)"'
-        if `"`__iivw_dispatch_xlsx'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' xlsx("`__iivw_dispatch_xlsx'")"'
+            `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`macval(__iivw_dispatch_sheet)'") title("`macval(__iivw_dispatch_title)'") footnote("`macval(__iivw_dispatch_foot)'") layout(tabtools)"'
+        if `"`macval(__iivw_dispatch_xlsx)'"' != "" {
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' xlsx("`macval(__iivw_dispatch_xlsx)'")"'
         }
         if "`open'" != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' open"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' open"'
         }
         if "`replace'" != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' replace"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' replace"'
         }
         if `"`borderstyle'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' borderstyle(`borderstyle')"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' borderstyle(`borderstyle')"'
         }
         if "`headershade'" != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' headershade"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' headershade"'
         }
-        if `"`font'"' != "" local __iivw_exog_opts `"`__iivw_exog_opts' font(`"`font'"')"'
-        if `fontsize' != -1 local __iivw_exog_opts `"`__iivw_exog_opts' fontsize(`fontsize')"'
+        if `"`font'"' != "" {
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' font(`"`font'"')"'
+        }
+        if `fontsize' != -1 {
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' fontsize(`fontsize')"'
+        }
         if `"`headercolor'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' headercolor("`headercolor'")"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' headercolor("`headercolor'")"'
         }
         if `"`zebracolor'"' != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' zebracolor("`zebracolor'")"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' zebracolor("`zebracolor'")"'
         }
         if "`zebra'" != "" {
-            local __iivw_exog_opts `"`__iivw_exog_opts' zebra"'
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' zebra"'
         }
 
-        capture noisily _iivw_export_table, `__iivw_exog_opts'
+        capture noisily _iivw_export_table, `macval(__iivw_exog_opts)'
         local __iivw_exog_export_rc = _rc
         if `__iivw_exog_export_rc' == 0 {
-            local __iivw_exog_xlsx_done `"`r(xlsx)'"'
-            local __iivw_exog_sheet_done `"`r(sheet)'"'
+            mata: st_local("__iivw_exog_xlsx_done", st_global("r(xlsx)"))
+            mata: st_local("__iivw_exog_sheet_done", st_global("r(sheet)"))
             local __iivw_exog_dec_done = r(decimals)
         }
         else if `__iivw_exog_export_rc' == 602 {
@@ -1263,23 +1311,23 @@ program define iivw_exogtest, rclass sortpreserve
         return scalar n_groups = `__iivw_n_group_labels'
         return scalar n_terms = `__iivw_n_terms'
         forvalues __iivw_gi = 1/`__iivw_n_group_labels' {
-            return local group_label_`__iivw_gi' `"`__iivw_glab_`__iivw_gi''"'
+            return local group_label_`__iivw_gi' `"`macval(__iivw_glab_`__iivw_gi')'"'
         }
         forvalues __iivw_si = 1/`n_skipped' {
-            return local skipped_label_`__iivw_si' `"`__iivw_skiplab_`__iivw_si''"'
+            return local skipped_label_`__iivw_si' `"`macval(__iivw_skiplab_`__iivw_si')'"'
         }
         forvalues __iivw_ui = 1/`n_unknown' {
-            return local unknown_label_`__iivw_ui' `"`__iivw_unklab_`__iivw_ui''"'
+            return local unknown_label_`__iivw_ui' `"`macval(__iivw_unklab_`__iivw_ui')'"'
         }
         forvalues __iivw_ti = 1/`__iivw_n_terms' {
-            return local term_label_`__iivw_ti' `"`__iivw_term_label_`__iivw_ti''"'
+            return local term_label_`__iivw_ti' `"`macval(__iivw_term_label_`__iivw_ti')'"'
         }
         return local result_row_labels "`row_labels'"
         return local result_columns "group_index term_index b se z p hr lb ub N n_ids"
         return local conclusion "`conclusion'"
         if `"`__iivw_exog_xlsx_done'"' != "" {
-            return local xlsx `"`__iivw_exog_xlsx_done'"'
-            return local sheet `"`__iivw_exog_sheet_done'"'
+            return local xlsx `"`macval(__iivw_exog_xlsx_done)'"'
+            return local sheet `"`macval(__iivw_exog_sheet_done)'"'
         }
         if `__iivw_exog_dec_done' < . {
             return scalar decimals = `__iivw_exog_dec_done'

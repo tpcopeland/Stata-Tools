@@ -203,6 +203,7 @@ local core_suites ///
     test_iivw_route_grid_fixes ///
     test_iivw_state_lifecycle ///
     test_iivw_surfaces ///
+    test_iivw_v432_regressions ///
     test_iivw_interval_contract ///
     test_iivw_failclosed ///
     test_iivw_coverage_gate ///

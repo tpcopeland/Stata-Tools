@@ -1,4 +1,4 @@
-*! iivw_balance Version 4.3.1  2026/09/28
+*! iivw_balance Version 4.3.2  2026/09/29
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -125,11 +125,11 @@ program define iivw_balance, rclass
     * and do so before any analytical work so nothing is computed to be thrown
     * away.
     local __iivw_exportonly ""
-    if `"`sheet'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
+    if `"`macval(sheet)'"'       != "" local __iivw_exportonly "`__iivw_exportonly' sheet()"
     if "`open'"          != "" local __iivw_exportonly "`__iivw_exportonly' open"
     if "`replace'"       != "" local __iivw_exportonly "`__iivw_exportonly' replace"
-    if `"`title'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
-    if `"`footnote'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
+    if `"`macval(title)'"'       != "" local __iivw_exportonly "`__iivw_exportonly' title()"
+    if `"`macval(footnote)'"'    != "" local __iivw_exportonly "`__iivw_exportonly' footnote()"
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
@@ -138,7 +138,7 @@ program define iivw_balance, rclass
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
     if "`zebra'"         != "" local __iivw_exportonly "`__iivw_exportonly' zebra"
-    if `"`xlsx'"' == "" & `"`__iivw_exportonly'"' != "" {
+    if `"`macval(xlsx)'"' == "" & `"`__iivw_exportonly'"' != "" {
         display as error "option(s)`__iivw_exportonly' require xlsx()"
         display as text "  they affect only the exported workbook; with no xlsx() to write,"
         display as text "  they would be silently ignored"
@@ -1311,7 +1311,7 @@ program define iivw_balance, rclass
     * export-only option that arrived without it, so sheet()/open cannot reach
     * here alone.
     local __iivw_export_requested = 0
-    if `"`xlsx'"' != "" local __iivw_export_requested = 1
+    if `"`macval(xlsx)'"' != "" local __iivw_export_requested = 1
     if `__iivw_export_requested' {
         frame create `__iivw_export_table' ///
             strL A ///
@@ -1329,36 +1329,48 @@ program define iivw_balance, rclass
         local __iivw_num_fmt "%9.`__iivw_decimals'f"
         local __iivw_int_fmt "%9.0f"
 
-        local __iivw_clean_title `"`title'"'
-        local __iivw_clean_footnote `"`footnote'"'
+        local __iivw_clean_title `"`macval(title)'"'
+        local __iivw_clean_footnote `"`macval(footnote)'"'
         foreach __iivw_text in title footnote {
-            local __iivw_text_n = strlen(`"`__iivw_clean_`__iivw_text''"')
+            local __iivw_text_n = strlen(`"`macval(__iivw_clean_`__iivw_text')'"')
             if `__iivw_text_n' >= 4 & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(96) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 2, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n' - 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(39) {
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 1, 1) == char(96) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 2, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n' - 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n', 1) == char(39) {
                 local __iivw_clean_`__iivw_text' = ///
-                    substr(`"`__iivw_clean_`__iivw_text''"', 3, `__iivw_text_n' - 4)
+                    substr(`"`macval(__iivw_clean_`__iivw_text')'"', 3, `__iivw_text_n' - 4)
             }
             else if `__iivw_text_n' >= 2 & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(34) {
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n', 1) == char(34) {
                 local __iivw_clean_`__iivw_text' = ///
-                    substr(`"`__iivw_clean_`__iivw_text''"', 2, `__iivw_text_n' - 2)
+                    substr(`"`macval(__iivw_clean_`__iivw_text')'"', 2, `__iivw_text_n' - 2)
             }
         }
-        if `"`__iivw_clean_title'"' == "" {
+        if `"`macval(__iivw_clean_title)'"' == "" {
             local __iivw_clean_title "IIVW balance diagnostic"
         }
-        if `"`__iivw_clean_footnote'"' == "" {
+        if `"`macval(__iivw_clean_footnote)'"' == "" {
             local __iivw_clean_footnote ///
                 "Modeled identifies visit-intensity model covariates. Shift is the weighted-minus-unweighted mean in unweighted SD units: it measures how far the weights moved the composition of the observed visits, and is descriptive only. The balance verdict comes from Target SMD -- the IIW-weighted mean over observed visits against the person-time mean implied by the replayed visit model -- compared with balcut(). The visit model is replayed on all stored rows; if/in restricts this report only. Target status: `target_status'."
         }
 
         frame post `__iivw_export_table' ///
-            (`"`__iivw_clean_title'"') ("") ("") ("") ("") ///
+            ("") ("") ("") ("") ("") ///
             ("") ("") ("") ("") ("")
+        * frame post is an ado that re-expands what it is given, so user
+        * text posted through it lost a $name or `name' pair and an
+        * unbalanced backtick exited r(132). Post a blank cell, then store
+        * the text from the local itself.
+        local __iivw_cf = c(frame)
+        frame change `__iivw_export_table'
+        capture noisily {
+            mata: st_sstore(st_nobs(), "A", st_local("__iivw_clean_title"))
+        }
+        local __iivw_ss_rc = _rc
+        frame change `__iivw_cf'
+        if `__iivw_ss_rc' error `__iivw_ss_rc'
         frame post `__iivw_export_table' ///
             ("") ("") ("Means") ("") ("") ///
             ("Composition shift") ("") ("") ("Counts") ("")
@@ -1369,13 +1381,15 @@ program define iivw_balance, rclass
 
         forvalues i = 1/`n_covars' {
             local __iivw_v : word `i' of `balance_covars'
-            local __iivw_label : variable label `__iivw_v'
-            if `"`__iivw_label'"' == "" {
+            * Read and carried without expansion: a label such as
+            * "Cost in $USD" is data. frame post re-expands its arguments,
+            * so the label cell is stored from the local after the post.
+            mata: st_local("__iivw_label", st_varlabel("`__iivw_v'"))
+            if `"`macval(__iivw_label)'"' == "" {
                 local __iivw_label "`__iivw_v'"
             }
-            * Carried verbatim. -frame post- below is compound-quoted, so a
-            * double quote in a variable label survives into the workbook; the
-            * old subinstr silently deleted it from the exported cell.
+            * Carried verbatim, so a double quote in a variable label survives
+            * into the workbook; the old subinstr silently deleted it.
 
             local __iivw_unw ""
             local __iivw_wgt ""
@@ -1423,7 +1437,7 @@ program define iivw_balance, rclass
 
             frame post `__iivw_export_table' ///
                 ("") ///
-                (`"`__iivw_label'"') ///
+                ("") ///
                 (`"`__iivw_unw'"') ///
                 (`"`__iivw_wgt'"') ///
                 (`"`__iivw_sd'"') ///
@@ -1432,33 +1446,49 @@ program define iivw_balance, rclass
                 (`"`__iivw_modeled'"') ///
                 (`"`__iivw_n'"') ///
                 (`"`__iivw_missing'"')
+            local __iivw_cf = c(frame)
+            frame change `__iivw_export_table'
+            capture noisily {
+                mata: st_sstore(st_nobs(), "B", st_local("__iivw_label"))
+            }
+            local __iivw_ss_rc = _rc
+            frame change `__iivw_cf'
+            if `__iivw_ss_rc' error `__iivw_ss_rc'
         }
 
         frame post `__iivw_export_table' ///
-            ("") (`"`__iivw_clean_footnote'"') ("") ("") ("") ///
+            ("") ("") ("") ("") ("") ///
             ("") ("") ("") ("") ("")
+        local __iivw_cf = c(frame)
+        frame change `__iivw_export_table'
+        capture noisily {
+            mata: st_sstore(st_nobs(), "B", st_local("__iivw_clean_footnote"))
+        }
+        local __iivw_ss_rc = _rc
+        frame change `__iivw_cf'
+        if `__iivw_ss_rc' error `__iivw_ss_rc'
 
-        local __iivw_sheet `"`sheet'"'
-        if `"`__iivw_sheet'"' == "" & ///
-            `"`xlsx'"' != "" local __iivw_sheet "Balance"
+        local __iivw_sheet `"`macval(sheet)'"'
+        if `"`macval(__iivw_sheet)'"' == "" & ///
+            `"`macval(xlsx)'"' != "" local __iivw_sheet "Balance"
 
-        local __iivw_clean_xlsx `"`xlsx'"'
-        local __iivw_clean_sheet `"`__iivw_sheet'"'
+        local __iivw_clean_xlsx `"`macval(xlsx)'"'
+        local __iivw_clean_sheet `"`macval(__iivw_sheet)'"'
         foreach __iivw_text in xlsx sheet {
-            local __iivw_text_n = strlen(`"`__iivw_clean_`__iivw_text''"')
+            local __iivw_text_n = strlen(`"`macval(__iivw_clean_`__iivw_text')'"')
             if `__iivw_text_n' >= 4 & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(96) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 2, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n' - 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(39) {
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 1, 1) == char(96) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 2, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n' - 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n', 1) == char(39) {
                 local __iivw_clean_`__iivw_text' = ///
-                    substr(`"`__iivw_clean_`__iivw_text''"', 3, `__iivw_text_n' - 4)
+                    substr(`"`macval(__iivw_clean_`__iivw_text')'"', 3, `__iivw_text_n' - 4)
             }
             else if `__iivw_text_n' >= 2 & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', 1, 1) == char(34) & ///
-                substr(`"`__iivw_clean_`__iivw_text''"', `__iivw_text_n', 1) == char(34) {
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', 1, 1) == char(34) & ///
+                substr(`"`macval(__iivw_clean_`__iivw_text')'"', `__iivw_text_n', 1) == char(34) {
                 local __iivw_clean_`__iivw_text' = ///
-                    substr(`"`__iivw_clean_`__iivw_text''"', 2, `__iivw_text_n' - 2)
+                    substr(`"`macval(__iivw_clean_`__iivw_text')'"', 2, `__iivw_text_n' - 2)
             }
         }
 
@@ -1474,35 +1504,61 @@ program define iivw_balance, rclass
         * characters as unsafe); it makes the rejection arrive as the writer's
         * own named error instead of a parse mangle.
         local __iivw_quote_sentinel = uchar(57344)
-        local __iivw_dispatch_title = subinstr(`"`__iivw_clean_title'"', ///
+        local __iivw_dispatch_title = subinstr(`"`macval(__iivw_clean_title)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_footnote = subinstr(`"`__iivw_clean_footnote'"', ///
+        local __iivw_dispatch_footnote = subinstr(`"`macval(__iivw_clean_footnote)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_sheet = subinstr(`"`__iivw_clean_sheet'"', ///
+        local __iivw_dispatch_sheet = subinstr(`"`macval(__iivw_clean_sheet)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_xlsx = subinstr(`"`__iivw_clean_xlsx'"', ///
+        local __iivw_dispatch_xlsx = subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
             char(34), `"`__iivw_quote_sentinel'"', .)
 
         local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
-        if `"`__iivw_dispatch_xlsx'"' != "" local __iivw_export_opts `"`__iivw_export_opts' xlsx("`__iivw_dispatch_xlsx'")"'
-        if `"`__iivw_dispatch_sheet'"' != "" local __iivw_export_opts `"`__iivw_export_opts' sheet("`__iivw_dispatch_sheet'")"'
-        if `"`__iivw_dispatch_title'"' != "" local __iivw_export_opts `"`__iivw_export_opts' title("`__iivw_dispatch_title'")"'
-        if `"`__iivw_dispatch_footnote'"' != "" local __iivw_export_opts `"`__iivw_export_opts' footnote("`__iivw_dispatch_footnote'")"'
-        if "`replace'" != "" local __iivw_export_opts `"`__iivw_export_opts' replace"'
-        if "`open'" != "" local __iivw_export_opts `"`__iivw_export_opts' open"'
-        if `"`borderstyle'"' != "" local __iivw_export_opts `"`__iivw_export_opts' borderstyle(`borderstyle')"'
-        if "`headershade'" != "" local __iivw_export_opts `"`__iivw_export_opts' headershade"'
-        if `"`font'"' != "" local __iivw_export_opts `"`__iivw_export_opts' font(`"`font'"')"'
-        if `fontsize' != -1 local __iivw_export_opts `"`__iivw_export_opts' fontsize(`fontsize')"'
-        if `"`headercolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' headercolor("`headercolor'")"'
-        if `"`zebracolor'"' != "" local __iivw_export_opts `"`__iivw_export_opts' zebracolor("`zebracolor'")"'
-        if "`zebra'" != "" local __iivw_export_opts `"`__iivw_export_opts' zebra"'
+        if `"`macval(__iivw_dispatch_xlsx)'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' xlsx("`macval(__iivw_dispatch_xlsx)'")"'
+        }
+        if `"`macval(__iivw_dispatch_sheet)'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' sheet("`macval(__iivw_dispatch_sheet)'")"'
+        }
+        if `"`macval(__iivw_dispatch_title)'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' title("`macval(__iivw_dispatch_title)'")"'
+        }
+        if `"`macval(__iivw_dispatch_footnote)'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' footnote("`macval(__iivw_dispatch_footnote)'")"'
+        }
+        if "`replace'" != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' replace"'
+        }
+        if "`open'" != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' open"'
+        }
+        if `"`borderstyle'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' borderstyle(`borderstyle')"'
+        }
+        if "`headershade'" != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' headershade"'
+        }
+        if `"`font'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' font(`"`font'"')"'
+        }
+        if `fontsize' != -1 {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' fontsize(`fontsize')"'
+        }
+        if `"`headercolor'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' headercolor("`headercolor'")"'
+        }
+        if `"`zebracolor'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' zebracolor("`zebracolor'")"'
+        }
+        if "`zebra'" != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' zebra"'
+        }
 
-        capture noisily _iivw_export_table, `__iivw_export_opts'
+        capture noisily _iivw_export_table, `macval(__iivw_export_opts)'
         local __iivw_export_rc = _rc
         if `__iivw_export_rc' == 0 {
-            local __iivw_export_xlsx `"`r(xlsx)'"'
-            local __iivw_export_sheet `"`r(sheet)'"'
+            mata: st_local("__iivw_export_xlsx", st_global("r(xlsx)"))
+            mata: st_local("__iivw_export_sheet", st_global("r(sheet)"))
             local __iivw_export_decimals = r(decimals)
         }
         else if `__iivw_export_rc' == 602 {
@@ -1591,9 +1647,9 @@ program define iivw_balance, rclass
     return local balance_flag "`balance_flag'"
     return local component "`component'"
     return local result_columns "unweighted_mean weighted_mean sd shift abs_shift N n_missing modeled"
-    if `"`__iivw_export_xlsx'"' != "" {
-        return local xlsx `"`__iivw_export_xlsx'"'
-        return local sheet `"`__iivw_export_sheet'"'
+    if `"`macval(__iivw_export_xlsx)'"' != "" {
+        return local xlsx `"`macval(__iivw_export_xlsx)'"'
+        return local sheet `"`macval(__iivw_export_sheet)'"'
     }
     if `__iivw_export_decimals' < . {
         return scalar decimals = `__iivw_export_decimals'

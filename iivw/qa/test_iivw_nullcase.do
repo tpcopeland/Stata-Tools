@@ -366,7 +366,7 @@ capture noisily {
     assert `n7_rc' == 0
     assert "`r(version)'" == "`nc_expected'"
     assert "`r(version)'" != "unknown"
-    assert r(n_commands) == 5
+    assert r(n_commands) == 6 & r(n_commands) == wordcount("`r(commands)'")
 }
 local rc = _rc
 if `rc' == 0 {
