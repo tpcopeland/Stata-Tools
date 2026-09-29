@@ -1,4 +1,4 @@
-*! codescan Version 4.2.3  2026/09/09
+*! codescan Version 4.2.4  2026/09/29
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -367,13 +367,35 @@ program define codescan, rclass
     * ~86.4 million times too narrow — an opaque r(2000) "no observations", or
     * worse a silent near-empty cohort when a row happens to coincide with
     * refdate to the millisecond. Reject datetimes up front with a clear fix.
+    *
+    * The same holds for every other non-daily %t unit — %tw/%tm/%tq/%th/%ty
+    * count weeks..years and %tb counts business days — and the guard must
+    * read the unit after an optional "-" (left-alignment): "%-tc" and "%-tm"
+    * used to slip past a test on the first three characters, so lookback(365)
+    * on a %tm date silently spanned 365 MONTHS at rc=0.
     foreach _dv in date refdate {
         local _dvn "``_dv''"
         if "`_dvn'" != "" {
             local _dfmt : format `_dvn'
-            if substr("`_dfmt'", 1, 3) == "%tc" | substr("`_dfmt'", 1, 3) == "%tC" {
+            local _dunit = substr(subinstr("`_dfmt'", "%-", "%", 1), 1, 3)
+            if "`_dunit'" == "%tc" | "`_dunit'" == "%tC" {
                 display as error "`_dv'() variable `_dvn' is a datetime (`_dfmt'); codescan expects a daily date"
                 display as error "  time windows are measured in days — convert with dofc(): {stata gen day = dofc(`_dvn')}"
+                exit 198
+            }
+            local _dname ""
+            if "`_dunit'" == "%tw" local _dname "weekly"
+            if "`_dunit'" == "%tm" local _dname "monthly"
+            if "`_dunit'" == "%tq" local _dname "quarterly"
+            if "`_dunit'" == "%th" local _dname "half-yearly"
+            if "`_dunit'" == "%ty" local _dname "yearly"
+            if "`_dunit'" == "%tb" local _dname "business-calendar"
+            * Only windows do day arithmetic; earliest/latest/unique-date
+            * summaries stay correct at the variable's own unit, so those
+            * paths keep accepting it.
+            if "`_dname'" != "" & (`has_lookback' | `has_lookfwd') {
+                display as error "`_dv'() variable `_dvn' is a `_dname' date (`_dfmt'); lookback()/lookforward() windows are measured in days"
+                display as error "  convert it to a %td daily date first"
                 exit 198
             }
         }
@@ -920,14 +942,13 @@ program define codescan, rclass
         if _rc {
             noisily display as text "(note: converting `var' from numeric to string)"
             tempvar _scan_string_`_scan_index'
-            quietly tostring `var', generate(`_scan_string_`_scan_index'') force
-            * Stata's extended missings .a-.z stringify to the literal strings
-            * ".a".."z", not to "." — so the downstream ""/"." filter misses
-            * them, nodots turns them into bare letters, and nocase then lets
-            * them match an ordinary pattern: a missing registry code becomes a
-            * false diagnosis at rc=0. Blank every numeric missing here, before
-            * any nodots or case transformation can see it.
-            quietly replace `_scan_string_`_scan_index'' = "" if missing(`var')
+            * Exact text, not `tostring, force': its %12.0g default wrote
+            * 1234567890123 as "1.23457e+12" and float 401.9 as "401.8999939",
+            * so the code silently failed its pattern at rc=0. The helper
+            * writes the shortest text that reads back as the stored value and
+            * blanks every missing (. and .a-.z, which would otherwise
+            * stringify to ".a".."z" and match under nodots/nocase).
+            _codescan_tostring `var', generate(`_scan_string_`_scan_index'')
             local scan_varlist "`scan_varlist' `_scan_string_`_scan_index''"
         }
         else {
@@ -1305,7 +1326,12 @@ program define codescan, rclass
     }
 
     * Preserve the caller's row ordering across merge's internal bysort/collapse.
+    * The caller's sort marker is state too: restoring only the row ORDER left
+    * `: sortedby' empty after every merge, so a following `by pid:' failed
+    * r(5) on data that was still in pid order. Record it here and re-declare
+    * it (up to the first variable this call replaced) once the order is back.
     if "`merge'" != "" {
+        local _merge_sortedby : sortedby
         tempvar _merge_input_order
         quietly gen long `_merge_input_order' = _n
     }
@@ -1760,7 +1786,18 @@ program define codescan, rclass
     matrix colnames `summary' = count prevalence total_hits positive_units
     matrix rownames `summary' = `rnames'
     if "`merge'" != "" {
-        quietly sort `_merge_input_order'
+        * Keys ahead of the input-order tiebreak reproduce exactly the input
+        * order (it was already sorted by them) and re-declare the marker;
+        * dropping the tempvar at exit truncates sortedby back to the keys.
+        * A key this call replaced no longer orders the data, so the marker
+        * stops there, as Stata's own drop would have done.
+        local _msb_keys ""
+        foreach _msb of local _merge_sortedby {
+            local _msb_out : list _msb in _outputs
+            if `_msb_out' continue, break
+            local _msb_keys "`_msb_keys' `_msb'"
+        }
+        quietly sort `_msb_keys' `_merge_input_order'
     }
 
     if "`collapse'" != "" {
@@ -2102,6 +2139,18 @@ program define codescan, rclass
             format prevalence `_prev_fmt'
             }
             if "`_exp_ext'" == ".csv" {
+                * A CSV cell is text, so format() can reach it only as the
+                * written digits. It was silently ignored here (33.33333333333333
+                * under format(%9.2f)). An explicit format() is honoured;
+                * without one the CSV keeps full precision rather than
+                * rounding every export to the %9.1f display default.
+                if "`format'" != "" {
+                    tempvar _prev_txt
+                    gen str244 `_prev_txt' = strtrim(string(prevalence, "`_prev_fmt'"))
+                    drop prevalence
+                    rename `_prev_txt' prevalence
+                    order prevalence, after(positive_units)
+                }
                 quietly export delimited using `"`_export_fn'"', replace
             }
             else {

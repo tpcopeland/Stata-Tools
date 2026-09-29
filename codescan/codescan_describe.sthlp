@@ -109,8 +109,13 @@ data are never modified.
 {phang}
 {opt tostring} converts numeric variables in {varlist} to string before
 tabulating. Use this when code variables were inadvertently imported as
-numeric rather than text. The original numeric variables are restored
-afterward. Variables must be fixed-width strings ({cmd:str#}); {cmd:strL}
+numeric rather than text. Each value is written as the shortest decimal text
+that reads back as the stored number: integers in full, never in scientific
+notation ({cmd:1234567890123}, not {cmd:1.23457e+12}), and a {cmd:float}
+holding 250.01 as {cmd:250.01}, not {cmd:250.0099945}. Missing values,
+including {cmd:.a}-{cmd:.z}, count as empty. This is the same conversion
+{helpb codescan} applies, so both commands see the same codes. The original
+numeric variables are restored afterward. Variables must be fixed-width strings ({cmd:str#}); {cmd:strL}
 variables are rejected — convert them first with {helpb compress} or
 {helpb recast}.
 

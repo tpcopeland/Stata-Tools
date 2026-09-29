@@ -22,7 +22,7 @@ d Works with ICD, KVA, CPT, ATC, OPCS, or any string code system.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260909
+d Distribution-Date: 20260929
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -42,6 +42,7 @@ f _codescan_definitions.ado
 f _codescan_outputs.ado
 f _codescan_parse_filespec.ado
 f _codescan_validate_path.ado
+f _codescan_tostring.ado
 f codescan.sthlp
 f codescan_describe.ado
 f codescan_describe.sthlp

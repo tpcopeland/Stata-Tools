@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.2.3  2026/09/09
+*! _codescan_codefile Version 4.2.4  2026/09/29
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
