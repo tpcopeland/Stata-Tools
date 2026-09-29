@@ -507,12 +507,14 @@ local ok = (`mrows' == 4 & `mok')
 _v160_record `ok' "saving() still writes the metadata file (4 rows, unique_capped present)"
 local pass_count = `pass_count' + `ok'
 
-* detectors + json + samples must not disturb it either
-quietly datamap, format(json) output("`np'3.json") detect(panel binary) panelid(id) quality samples(3)
+* detectors + samples (text-only sections) and json must not disturb it either
+* (since 1.6.9 format(json) refuses the text-only sections with r(198))
+quietly datamap, output("`np'3.txt") detect(panel binary) panelid(id) quality samples(3)
+quietly datamap, format(json) output("`np'3.json")
 quietly datasignature
 local ++test_count
 local ok = ("`ds0'" == "`r(datasignature)'")
-_v160_record `ok' "json + detect + quality + samples leave data bit-identical"
+_v160_record `ok' "text detect + quality + samples and json leave data bit-identical"
 local pass_count = `pass_count' + `ok'
 
 * single() STILL preserves: it -use-s a file, so restoring is a correctness

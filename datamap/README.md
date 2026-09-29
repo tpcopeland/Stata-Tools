@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.8** | 2026-08-30
+**Version 1.6.9** | 2026-09-29
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -331,6 +331,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.6.9 (2026-09-29)
+
+Stopped `exclude()` variables from leaking through the dataset description's date range and the panel, survival, and survey detectors; made `survivalvars()` select the survival variables it names; reported event rates only for 0/1 indicators and ignored missing IDs in panel detection; classified left-justified date formats (`%-td`, `%-tc`) as dates in all four commands; escaped control characters in JSON; kept caller matrices named `vals`/`freqs` intact; printed small continuous statistics and float category levels without rounding to zero or IEEE noise; counted `strL` variables exactly under `uniqcap(0)` and `panelid()`; applied `maxcat()`/`uniqcap()` to `saving()` metadata; counted `datadict` string levels containing quotes or backticks exactly; compared float variables at float precision in `datacheck` value and range gates and reported date spans in their own time units; kept `datamvp, sort` ties in input order with a private matrix-graph label; drew `datamvp` `gby()`/`over()` bar and pattern graphs correctly for non-integer (float) group levels, which had produced empty bars or r(198); kept excluded variables out of `datacheck`'s `r(missing_vars)`, `r(flagged_vars)`, and `patterns` table; made `format(json)` refuse `detect()`, `autodetect`, `panelid()`, `survivalvars()`, `samples()`, `quality`, and `missing()` (r(198)) instead of silently dropping them; implemented `missing(pattern)`'s joint missing-value pattern table (previously identical to `missing(detail)`); and wrote frequency tables for string variables forced into the categorical class in text and JSON output.
 
 ### 1.6.8 (2026-08-30)
 

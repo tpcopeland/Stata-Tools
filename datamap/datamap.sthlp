@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.8  30aug2026}{...}
+{* *! version 1.6.9  29sep2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -179,6 +179,13 @@ and {bf:json}. JSON output includes dataset metadata, privacy settings, class
 counts, per-variable metadata, continuous summaries, and suppressed frequency
 arrays. For Markdown output, use {help datadict} instead.
 
+{pmore}
+The detector, sample-row, quality, and missing-data sections are written only
+in text output. {cmd:format(json)} therefore refuses {opt detect()},
+{opt autodetect}, {opt panelid()}, {opt survivalvars()}, {opt samples()},
+{opt quality}, {opt quality2()}, and {opt missing()} with error 198 rather
+than silently omitting them.
+
 {phang}
 {opt sep:arate} writes a separate output file for each dataset instead of
 combining them into one file. Output files are named
@@ -302,7 +309,10 @@ format must begin with {cmd:%t} or {cmd:%d}.
 force the named variables into the given class after the privacy exclusion list
 is applied. A variable may appear in only one override list. Overrides are
 useful when a numeric code should be summarized as continuous despite low
-cardinality, or when a string code should be treated as categorical.
+cardinality, or when a string code should be treated as categorical. A string
+variable forced into the categorical class gets a frequency table of its
+non-empty values, each shown in double quotes, subject to {opt maxfreq()} and
+{opt mincell()}.
 
 {dlgtab:Detection}
 
@@ -328,12 +338,22 @@ five keywords in {opt detect()}).
 {phang}
 {opt panel:id(varname)} tells the panel detector which variable identifies
 units. If omitted, the detector searches for variables whose names match common
-ID patterns ({it:*id}, {it:patient*}, {it:subject*}, etc.).
+ID patterns ({it:*id}, {it:patient*}, {it:subject*}, etc.). Observations with a
+missing identifier are not counted toward any unit and are reported separately.
 
 {phang}
 {opt survival:vars(varlist)} tells the survival detector which variables to
-consider. If omitted, the detector searches for common time-to-event naming
-patterns ({it:time*}, {it:event*}, {it:death*}, etc.).
+consider. If omitted, the detector searches all variables for common
+time-to-event naming patterns ({it:time*}, {it:event*}, {it:death*}, etc.). A
+listed variable that matches neither pattern is treated as an event indicator
+when it takes at most two distinct values and as a time variable otherwise. An
+event rate is reported only for an indicator coded 0/1.
+
+{pmore}
+The detectors never summarize a variable listed in {opt exclude()}: excluded
+identifiers, time variables, weights, strata, and clusters are named but their
+ranges, rates, and counts are withheld, and excluded dates do not contribute
+to the date range in the dataset description.
 
 {dlgtab:Data quality}
 
@@ -352,7 +372,11 @@ above 120).
 
 {phang2}{bf:detail} {hline 2} report the number of variables with >50% and >10% missing, plus the
 number of complete-case observations.{p_end}
-{phang2}{bf:pattern} {hline 2} everything in {bf:detail}, plus the same pattern analysis.{p_end}
+{phang2}{bf:pattern} {hline 2} everything in {bf:detail}, plus the joint missing-value
+patterns across the variables that have any missing value: the variables in
+dataset order, the number of distinct patterns, and the ten most frequent
+patterns ({bf:+} observed, {bf:.} missing) with their counts. Pattern counts below
+{opt mincell()} are suppressed.{p_end}
 
 {dlgtab:Sample data}
 
@@ -590,7 +614,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.6.8 {hline 2} 30aug2026{p_end}
+{pstd}Version 1.6.9 {hline 2} 29sep2026{p_end}
 
 
 {title:Also see}

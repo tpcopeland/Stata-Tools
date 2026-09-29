@@ -1,4 +1,4 @@
-*! datacheck Version 1.6.8  2026/08/30
+*! datacheck Version 1.6.9  2026/09/29
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -593,6 +593,12 @@ program define datacheck, rclass
             local fc "`FC`pj''"
             local flg ""
             local i : list posof "`v'" in pvars
+            // exclude() withholds a variable from the profile: it is never
+            // flagged or listed in r(missing_vars), matching MISSINGNESS.
+            if "`fc'" == "excluded" {
+                local flag`pj' ""
+                continue
+            }
             if `m_mn`i'' > 0 & `m_mn`i'' < . {
                 local missing_vars "`missing_vars' `v'"
             }
@@ -619,10 +625,12 @@ program define datacheck, rclass
                     local constant_vars "`constant_vars' `v'"
                 }
                 else if r(N) > 0 & `outliers' > 0 {
-                    local iqr = r(p75) - r(p25)
-                    local lof = r(p25) - `outliers' * `iqr'
-                    local hif = r(p75) + `outliers' * `iqr'
-                    quietly count if (`v' < `lof' | `v' > `hif') & !missing(`v')
+                    // Fences stay in scalars: a decimal-macro round trip can
+                    // move a value sitting on a fence to the other side.
+                    tempname _lof _hif
+                    scalar `_lof' = r(p25) - `outliers' * (r(p75) - r(p25))
+                    scalar `_hif' = r(p75) + `outliers' * (r(p75) - r(p25))
+                    quietly count if (`v' < `_lof' | `v' > `_hif') & !missing(`v')
                     local cnout`pj' = r(N)
                     if r(N) > 0 {
                         local flg "outliers"
@@ -813,13 +821,31 @@ program define datacheck, rclass
                 local dmin : display `vfmt' r(min)
                 local dmax : display `vfmt' r(max)
                 local span = r(max) - r(min)
+                // The span is in the variable's own time unit, which is days
+                // only for %td; a %tm span of 19 is 19 months.
+                local _vf = subinstr("`vfmt'", "%-", "%", 1)
+                local span_unit "days"
+                if strpos("`_vf'", "%tc") | strpos("`_vf'", "%tC") local span_unit "milliseconds"
+                else if strpos("`_vf'", "%tw") local span_unit "weeks"
+                else if strpos("`_vf'", "%tm") local span_unit "months"
+                else if strpos("`_vf'", "%tq") local span_unit "quarters"
+                else if strpos("`_vf'", "%th") local span_unit "half-years"
+                else if strpos("`_vf'", "%ty") local span_unit "years"
+                else if strpos("`_vf'", "%tb") local span_unit "business days"
+                else if !(strpos("`_vf'", "%td") | strpos("`_vf'", "%d")) local span_unit "units"
                 display as text "  " as result "`v'" as text ":  min=" ///
                     as result "`dmin'" as text "  max=" as result "`dmax'" ///
-                    as text "  span=" as result `span' as text " days  missing=" ///
+                    as text "  span=" as result `span' as text " `span_unit'  missing=" ///
                     as result `m_mn`i''
                 forvalues k = 1/`n_inr' {
                     if "`inr_var`k''" == "`v'" {
-                        quietly count if (`v' < `inr_lo`k'' | `v' > `inr_hi`k'') & !missing(`v')
+                        local _dlo "`inr_lo`k''"
+                        local _dhi "`inr_hi`k''"
+                        if "`: type `v''" == "float" {
+                            local _dlo "cond(missing(float(`_dlo')), `_dlo', float(`_dlo'))"
+                            local _dhi "cond(missing(float(`_dhi')), `_dhi', float(`_dhi'))"
+                        }
+                        quietly count if (`v' < `_dlo' | `v' > `_dhi') & !missing(`v')
                         display as text "    " as result r(N) ///
                             as text " obs outside declared window"
                     }
@@ -889,8 +915,15 @@ program define datacheck, rclass
             else {
                 display ""
                 display as text "MISSING-VALUE PATTERNS (datamvp)"
-                capture noisily datamvp `profilevars'
-                if _rc {
+                // Excluded variables stay out of the pattern table, as they
+                // stay out of MISSINGNESS.
+                local _mvpvars : list profilevars - f_excluded
+                // An empty varlist would make datamvp profile every variable.
+                if "`_mvpvars'" == "" {
+                    display as text "  (no non-excluded variables to pattern)"
+                }
+                else capture noisily datamvp `_mvpvars'
+                if "`_mvpvars'" != "" & _rc {
                     display as text "  " as error ///
                         "patterns: datamvp could not render a table for these variables"
                 }
@@ -1153,6 +1186,13 @@ program define datacheck, rclass
                     local iv "`inr_var`k''"
                     local lo "`inr_lo`k''"
                     local hi "`inr_hi`k''"
+                    // Float variables compare against the float-rounded bound;
+                    // a bound beyond float range stays as given (float() of it
+                    // is missing, which would flag every row).
+                    if "`: type `iv''" == "float" {
+                        local lo "cond(missing(float(`lo')), `lo', float(`lo'))"
+                        local hi "cond(missing(float(`hi')), `hi', float(`hi'))"
+                    }
                     quietly count if `IF' & (`iv' < `lo' | `iv' > `hi') & !missing(`iv')
                     if r(N) > 0 {
                         local noutr = r(N)
@@ -1179,8 +1219,11 @@ program define datacheck, rclass
                     quietly gen byte `ok' = 0 if `IF' & !missing(`av')
                     capture confirm numeric variable `av'
                     if !_rc {
+                        // A float variable never equals the double literal
+                        // 0.1; compare at the variable's own precision.
+                        local _fcast = cond("`: type `av''" == "float", "float", "")
                         foreach val of local vals {
-                            quietly replace `ok' = 1 if `IF' & `av' == `val' & !missing(`av')
+                            quietly replace `ok' = 1 if `IF' & `av' == `_fcast'(`val') & !missing(`av')
                         }
                     }
                     else {
@@ -1213,8 +1256,9 @@ program define datacheck, rclass
                     quietly gen byte `bad' = 0 if `IF' & !missing(`fv')
                     capture confirm numeric variable `fv'
                     if !_rc {
+                        local _fcast = cond("`: type `fv''" == "float", "float", "")
                         foreach val of local vals {
-                            quietly replace `bad' = 1 if `IF' & `fv' == `val' & !missing(`fv')
+                            quietly replace `bad' = 1 if `IF' & `fv' == `_fcast'(`val') & !missing(`fv')
                         }
                     }
                     else {
@@ -1247,8 +1291,9 @@ program define datacheck, rclass
                     quietly gen byte `bad' = 0 if `IF' & !missing(`nv')
                     capture confirm numeric variable `nv'
                     if !_rc {
+                        local _fcast = cond("`: type `nv''" == "float", "float", "")
                         foreach val of local vals {
-                            quietly replace `bad' = 1 if `IF' & `nv' == `val' & !missing(`nv')
+                            quietly replace `bad' = 1 if `IF' & `nv' == `_fcast'(`val') & !missing(`nv')
                         }
                     }
                     else {
@@ -1925,7 +1970,7 @@ program define _datacheck_bound, rclass
         else {
             local clean = subinstr(`"`raw'"', char(34), "", .)
             local vfmt : format `v'
-            local vfmt = lower("`vfmt'")
+            local vfmt = lower(subinstr("`vfmt'", "%-", "%", 1))
             if strpos("`vfmt'", "%tm") {
                 scalar `val' = monthly(`"`clean'"', "YM")
             }
@@ -2012,10 +2057,19 @@ program define _datacheck_freq, nclass
             local lv = `v'[`r']
             local ct = __f[`r']
             local pc = 100 * `ct' / `tot'
-            local disp "`lv'"
+            // macval(): a string level holding a backtick or $ is data, not
+            // macro syntax; re-expanding it corrupted the display line.
+            local disp `"`macval(lv)'"'
+            // A float level widened to double prints IEEE noise
+            // (.1000000014901161); show it at float precision.
+            if "`: type `v''" == "float" & !missing(`v'[`r']) {
+                local disp = strtrim(string(`v'[`r'], "%9.0g"))
+            }
             if "`lblname'" != "" {
                 local lab : label `lblname' `lv'
-                if "`lab'" != "" & "`lab'" != "`lv'" local disp "`lv' `lab'"
+                if `"`macval(lab)'"' != "" & `"`macval(lab)'"' != "`lv'" {
+                    local disp `"`macval(disp)' `macval(lab)'"'
+                }
             }
             local rflag ""
             if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
@@ -2025,7 +2079,7 @@ program define _datacheck_freq, nclass
                     as error "`rflag'"
             }
             else {
-                display as text "    " as result %-28s `"`disp'"' ///
+                display as text "    " as result %-28s `"`macval(disp)'"' ///
                     as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
                     as text "%)" as error "`rflag'"
             }

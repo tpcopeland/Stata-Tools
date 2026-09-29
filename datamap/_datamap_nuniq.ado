@@ -1,4 +1,4 @@
-*! _datamap_nuniq Version 1.6.8  2026/08/30
+*! _datamap_nuniq Version 1.6.9  2026/09/29
 *! Distinct-value count for one variable, without sorting the dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -109,8 +109,13 @@ real rowvector _datamap_nuniq_str(string scalar vname, real scalar countempty,
 	// cannot make cheaper once the distinct set is large.  Read through a
 	// string view so the initial full-length st_sdata copy is never made.
 	if (cap <= 0) {
-		st_sview(V, ., vname)
-		d = uniqrows(V)
+		// st_sview() refuses strL (r(3300)), which made uniqcap(0) print "."
+		// and panelid(<strL>) abort; a strL column must be copied.
+		if (st_vartype(vname) == "strL") d = uniqrows(st_sdata(., vname))
+		else {
+			st_sview(V, ., vname)
+			d = uniqrows(V)
+		}
 		if (!countempty) d = select(d, d :!= "")
 		return((rows(d), 0))
 	}

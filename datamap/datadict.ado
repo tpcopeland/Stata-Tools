@@ -1,4 +1,4 @@
-*! datadict Version 1.6.8  2026/08/30
+*! datadict Version 1.6.9  2026/09/29
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -362,6 +362,7 @@ capture mata: mata drop _datadict_unquote()
 capture mata: mata drop _datadict_parse_name_line()
 capture mata: mata drop _datadict_transport_encode()
 capture mata: mata drop _datadict_transport_decode()
+capture mata: mata drop _datadict_str_levels()
 mata:
 string scalar _datadict_md_escape(string scalar text)
 {
@@ -386,6 +387,44 @@ string scalar _datadict_transport_encode(string scalar text)
 	text = subinstr(text, char(10), prefix + "N")
 	text = subinstr(text, char(13), prefix + "R")
 	return(text)
+}
+
+// Frequency cell for a string categorical, built entirely in Mata.  The
+// macro route (levelsof, then count if v == "`lev'") stripped embedded double
+// quotes from the comparison value -- so a level like say "hi" was counted as
+// 0 (0.0%) -- and aborted with r(132) on a level containing a backtick.  Here
+// levels are compared byte for byte and escaped before they reach a macro.
+void _datadict_str_levels(string scalar vname, real scalar maxlevels,
+	real scalar mincell)
+{
+	string colvector x, u
+	real scalar i, n, nvalid, c
+	string scalar out
+
+	x = st_sdata(., vname)
+	x = select(x, x :!= "")
+	nvalid = rows(x)
+	if (nvalid == 0) {
+		st_local("valstring", "All missing")
+		return
+	}
+	u = uniqrows(x)
+	n = rows(u)
+	out = "Unique=" + strofreal(n)
+	if (n <= maxlevels) {
+		for (i = 1; i <= n; i++) {
+			c = sum(x :== u[i])
+			out = out + "<br>" + _datadict_md_escape(u[i])
+			if (mincell > 0 & c < mincell) {
+				out = out + " (suppressed <" + strofreal(mincell) + ")"
+			}
+			else {
+				out = out + " (" + strofreal(c) + "; " +
+					strtrim(sprintf("%9.1f", 100 * c / nvalid)) + "%)"
+			}
+		}
+	}
+	st_local("valstring", out)
 }
 
 string scalar _datadict_transport_decode(string scalar text)
@@ -878,6 +917,7 @@ program define _datadict_DateDisplayFormat, rclass
 	set varabbrev off
 	capture noisily {
 		syntax, VFMT(string) DATEFormat(string)
+		local vfmt = subinstr("`vfmt'", "%-", "%", 1)
 
 		local datefmt "`vfmt'"
 		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
@@ -1111,6 +1151,13 @@ program define _datadict_GetUnlabeledStats, rclass
 	args vname maxlevels totalobs mincell
 	if "`mincell'" == "" local mincell = 0
 
+	capture confirm string variable `vname'
+	if _rc == 0 {
+		mata: _datadict_str_levels("`vname'", `maxlevels', `mincell')
+		return local valstring `"`macval(valstring)'"'
+		exit
+	}
+
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
 	if _rc != 0 | `"`levels'"' == "" {
 		return local valstring "All missing"
@@ -1319,11 +1366,13 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	_datadict_GetVariableChars `vname'
 	local charsstr `"`r(chars)'"'
 
+	// Left-justified date formats (%-td, %-tc, ...) are date formats too.
+	local vfmt_n = subinstr("`vfmt'", "%-", "%", 1)
 	local typestr "Numeric"
 	if substr("`vtype'", 1, 3) == "str" {
 		local typestr "String"
 	}
-	else if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
+	else if strpos("`vfmt_n'", "%t") > 0 | strpos("`vfmt_n'", "%d") > 0 {
 		local typestr "Date"
 	}
 
@@ -1351,7 +1400,7 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		local valuesstr `"`r(valstring)'"'
 	}
 	else if "`typestr'" == "Date" {
-		if strpos("`vfmt'", "%tc") > 0 local valuesstr "Datetime"
+		if strpos("`vfmt_n'", "%tc") > 0 | strpos("`vfmt_n'", "%tC") > 0 local valuesstr "Datetime"
 		else local valuesstr "Date"
 	}
 	else if substr("`vtype'", 1, 3) == "str" {

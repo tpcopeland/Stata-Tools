@@ -44,6 +44,7 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_v154.do` | Privacy defaults, threshold validation, and graph-option regressions. |
 | `test_datamap_v160.do` | Capped unique counts, frame-based writers, and the shared counter. |
 | `test_datamap_v168.do` | Hostile text payloads, graph-label round-trips, helper state restoration, help widths, and QA-index synchronization. |
+| `test_datamap_v169.do` | Left-justified date formats, exclude() privacy in the description and detectors, JSON control-character escaping, caller matrices, small-scale and float-level display, exact strL counts, saving() caps, hostile string levels, float-precision gates, datamvp tie order and float-level gby()/over() graphs, datacheck exclude() consistency, JSON refusal of text-only sections, missing(pattern), and string categorical frequencies. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
 | `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts. |
