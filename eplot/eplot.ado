@@ -1,4 +1,4 @@
-*! eplot Version 1.4.1  2026/09/24
+*! eplot Version 1.4.2  2026/09/29
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -71,25 +71,32 @@ program define eplot, rclass
 
     // A helper may post the analytical payload before returning a graph/save
     // error.  Capture it after the block so the public wrapper does not strand
-    // results merely because an optional graph side effect failed.
+    // results merely because an optional graph side effect failed.  Test for
+    // each result by name: r(N) of an absent result evaluates to missing and
+    // matrix X = r(name) of an absent matrix succeeds, so capture alone
+    // would forward phantom results on error paths.
     if `_dispatched' {
-        capture local _r_cmd `"`r(cmd)'"'
-        if _rc == 0 {
-            capture local _r_N = r(N)
-            if _rc == 0 {
-                local _has_results 1
-                if "`mode'" == "estimates" {
-                    capture local _r_nmodels = r(n_models)
-                    if _rc local _has_results 0
-                }
-                capture local _r_k = r(k)
-                if _rc local _has_results 0
+        local _rsc : r(scalars)
+        local _rmc : r(macros)
+        local _rmt : r(matrices)
+        local _need_sc "N k"
+        if "`mode'" == "estimates" local _need_sc "N k n_models"
+        local _miss_sc : list _need_sc - _rsc
+        if "`_miss_sc'" == "" & `: list posof "cmd" in _rmc' {
+            local _has_results 1
+            local _r_cmd `"`r(cmd)'"'
+            local _r_N = r(N)
+            local _r_k = r(k)
+            if "`mode'" == "estimates" local _r_nmodels = r(n_models)
+            if `: list posof "table" in _rmt' {
                 tempname _r_table
-                capture matrix `_r_table' = r(table)
-                local _has_table = (_rc == 0)
+                matrix `_r_table' = r(table)
+                local _has_table 1
+            }
+            if `: list posof "pvalues" in _rmt' {
                 tempname _r_pvalues
-                capture matrix `_r_pvalues' = r(pvalues)
-                local _has_pvalues = (_rc == 0)
+                matrix `_r_pvalues' = r(pvalues)
+                local _has_pvalues 1
             }
         }
     }
@@ -340,20 +347,27 @@ program define _eplot_frame, rclass
         capture noisily _eplot_data `estimate' `ll' `ul' `if' `in', `_data_opts'
         local _data_rc = _rc
 
-        capture local _r_N = r(N)
-        if _rc == 0 {
-            capture local _r_k = r(k)
-            if _rc == 0 {
-                capture local _r_cmd `"`r(cmd)'"'
-                if _rc == 0 {
-                    local _has_results 1
-                    tempname _r_table
-                    capture matrix `_r_table' = r(table)
-                    local _has_table = (_rc == 0)
-                    tempname _r_pvalues
-                    capture matrix `_r_pvalues' = r(pvalues)
-                    local _has_pvalues = (_rc == 0)
-                }
+        // Forward only results the data-mode helper actually posted (see the
+        // public wrapper: absent r() scalars and matrices do not error).
+        local _rsc : r(scalars)
+        local _rmc : r(macros)
+        local _rmt : r(matrices)
+        local _need_sc "N k"
+        local _miss_sc : list _need_sc - _rsc
+        if "`_miss_sc'" == "" & `: list posof "cmd" in _rmc' {
+            local _has_results 1
+            local _r_N = r(N)
+            local _r_k = r(k)
+            local _r_cmd `"`r(cmd)'"'
+            if `: list posof "table" in _rmt' {
+                tempname _r_table
+                matrix `_r_table' = r(table)
+                local _has_table 1
+            }
+            if `: list posof "pvalues" in _rmt' {
+                tempname _r_pvalues
+                matrix `_r_pvalues' = r(pvalues)
+                local _has_pvalues 1
             }
         }
     }
@@ -425,7 +439,7 @@ program define _eplot_data, rclass
             /// Reference lines
             XLine(string asis) ///
             XLABel(string asis) ///
-            NULL(real -999) ///
+            NULL(string) ///
             NONULL ///
             /// Confidence intervals
             NOCI ///
@@ -484,6 +498,18 @@ program define _eplot_data, rclass
             local drop `"`drop' _cons"'
         }
 
+        // Each color option must name exactly one valid color: twoway draws
+        // the default color at rc=0 for a list or an unknown name.
+        foreach _copt in mcolor cicolor sigcolor insigncolor {
+            if `"``_copt''"' != "" {
+                _eplot_check_color, option(`_copt') spec(``_copt'')
+            }
+        }
+        if "`sigcolors'" == "" & (`"`sigcolor'"' != "" | `"`insigncolor'"' != "") {
+            display as error "sigcolor() and insigncolor() require sigcolors"
+            exit 198
+        }
+
         // ====== Style presets (apply BEFORE user overrides) ======
         if "`style'" != "" {
             _eplot_apply_style, style(`"`style'"')
@@ -519,9 +545,12 @@ program define _eplot_data, rclass
             display as error "rescale() must be nonmissing and nonzero"
             exit 198
         }
-        if missing(`null') {
-            display as error "null() must be a nonmissing number"
-            exit 198
+        if `"`null'"' != "" {
+            capture confirm number `null'
+            if _rc {
+                display as error "null() must be a nonmissing number"
+                exit 198
+            }
         }
         if missing(`boxscale') | `boxscale' <= 0 {
             display as error "boxscale() must be nonmissing and positive"
@@ -585,7 +614,7 @@ program define _eplot_data, rclass
     if `"`headings'"' != "" & `"`headers'"' == "" {
         local headers `"`headings'"'
     }
-    if `null' == -999 {
+    if `"`null'"' == "" {
         // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
         // no-effect reference belongs at 1 whether or not eform was requested.
         local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
@@ -957,6 +986,13 @@ program define _eplot_data, rclass
     }
 
     // --- Build graph command ---
+    // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
+    // string), and twoway reads mcolor(0 128 0) as a list and draws black.
+    // Re-quote any multi-word color before it enters the graph command.
+    foreach _c in mcolor cicolor sigcolor insigncolor {
+        local _nw : word count ``_c''
+        if `_nw' > 1 local `_c' `""``_c''""'
+    }
     local graphcmd "twoway"
 
     // --- Prediction interval spikes (wider, dashed, behind CIs) ---
@@ -997,18 +1033,29 @@ program define _eplot_data, rclass
     }
 
     // --- Markers for regular effects ---
+    tempvar wanchor
+    quietly gen byte `wanchor' = 0
+    local _wanchor_layers 0
     quietly count if `rowtype' == 1 & !missing(`es')
     if r(N) > 0 {
         if "`sigcolors'" != "" {
             if "`nobox'" == "" & "`weights'" != "" {
                 local bscale = `boxscale' / 100
+                // twoway scales weighted markers by each layer's own weight
+                // range, so splitting the boxes into significant and
+                // non-significant layers would draw equal weights at unequal
+                // sizes.  Two anchor rows carrying the overall minimum and
+                // maximum weight, with missing coordinates (never drawn and
+                // outside the axis range), join both layers so they share
+                // one scale.  They are added just before the graph runs.
+                local _wanchor_layers 1
                 if "`horizontal'" != "" {
-                    local graphcmd `"`graphcmd' (scatter `pos' `es' if `rowtype' == 1 & `_dm_sig' == 1 [aw=`wt'], msymbol(square) mcolor(`sigcolor') msize(*`bscale'))"'
-                    local graphcmd `"`graphcmd' (scatter `pos' `es' if `rowtype' == 1 & `_dm_sig' == 0 [aw=`wt'], msymbol(square) mcolor(`insigncolor') msize(*`bscale'))"'
+                    local graphcmd `"`graphcmd' (scatter `pos' `es' if (`rowtype' == 1 & `_dm_sig' == 1) | `wanchor' == 1 [aw=`wt'], msymbol(square) mcolor(`sigcolor') msize(*`bscale'))"'
+                    local graphcmd `"`graphcmd' (scatter `pos' `es' if (`rowtype' == 1 & `_dm_sig' == 0) | `wanchor' == 1 [aw=`wt'], msymbol(square) mcolor(`insigncolor') msize(*`bscale'))"'
                 }
                 else {
-                    local graphcmd `"`graphcmd' (scatter `es' `pos' if `rowtype' == 1 & `_dm_sig' == 1 [aw=`wt'], msymbol(square) mcolor(`sigcolor') msize(*`bscale'))"'
-                    local graphcmd `"`graphcmd' (scatter `es' `pos' if `rowtype' == 1 & `_dm_sig' == 0 [aw=`wt'], msymbol(square) mcolor(`insigncolor') msize(*`bscale'))"'
+                    local graphcmd `"`graphcmd' (scatter `es' `pos' if (`rowtype' == 1 & `_dm_sig' == 1) | `wanchor' == 1 [aw=`wt'], msymbol(square) mcolor(`sigcolor') msize(*`bscale'))"'
+                    local graphcmd `"`graphcmd' (scatter `es' `pos' if (`rowtype' == 1 & `_dm_sig' == 0) | `wanchor' == 1 [aw=`wt'], msymbol(square) mcolor(`insigncolor') msize(*`bscale'))"'
                 }
             }
             else {
@@ -1284,10 +1331,28 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
+    // Shared weight-scale anchors for split weighted-box layers (see above).
+    // Rows with missing coordinates stay in each layer's serset, where they
+    // set the weight range, but are neither drawn nor used for the axes.
+    local _n_before_anchor = _N
+    if `_wanchor_layers' {
+        quietly summarize `wt' if `rowtype' == 1 & !missing(`es'), meanonly
+        tempname _wmin _wmax
+        scalar `_wmin' = r(min)
+        scalar `_wmax' = r(max)
+        quietly set obs `=`_n_before_anchor' + 2'
+        quietly replace `wanchor' = 1 in `=`_n_before_anchor' + 1'/l
+        quietly replace `wt' = `_wmin' in `=`_n_before_anchor' + 1'
+        quietly replace `wt' = `_wmax' in `=`_n_before_anchor' + 2'
+    }
+
     // Execute graph.  Keep the analytical payload available when an optional
     // graph/save side effect fails; the public wrapper propagates both.
     capture noisily `graphcmd'
     local _side_rc = _rc
+    if `_wanchor_layers' {
+        quietly drop if `wanchor' == 1
+    }
 
     // Return results
     // Build r(table) matrix from plotted data
@@ -1409,7 +1474,7 @@ program define _eplot_estimates, rclass
             /// Reference lines
             XLine(string asis) ///
             XLABel(string asis) ///
-            NULL(real -999) ///
+            NULL(string) ///
             NONULL ///
             /// Confidence intervals
             LEVel(cilevel) ///
@@ -1437,13 +1502,13 @@ program define _eplot_estimates, rclass
             /// Multi-model
             MODELLabels(string asis) ///
             OFFset(string) ///
-            PALette(string) ///
+            PALette(string asis) ///
             LEGendopts(string asis) ///
             /// Marker options
-            MColor(string) ///
+            MColor(string asis) ///
             MSymbol(string) ///
             MSize(string) ///
-            CIColor(string) ///
+            CIColor(string asis) ///
             CIWidth(string) ///
             /// Graph options
             TItle(string asis) ///
@@ -1484,6 +1549,17 @@ program define _eplot_estimates, rclass
         local _sigcolors_supplied = ("`sigcolors'" != "")
         local _sigcolor_supplied = (`"`sigcolor'"' != "")
         local _insigncolor_supplied = (`"`insigncolor'"' != "")
+        // Color options are parsed asis so a multi-model list may quote RGB
+        // triplets ("255 0 0" "0 0 255").  A single color is unquoted here,
+        // exactly as a plain string option would have been.
+        local _mcolor_user `"`mcolor'"'
+        local _cicolor_user `"`cicolor'"'
+        foreach _copt in mcolor cicolor palette {
+            local _nw : word count ``_copt''
+            if `_nw' == 1 local `_copt' : word 1 of ``_copt''
+        }
+        local _mcolor_supplied = (`"`mcolor'"' != "")
+        local _cicolor_supplied = (`"`cicolor'"' != "")
 
         // ====== Style presets (apply BEFORE user overrides) ======
         if "`style'" != "" {
@@ -1491,8 +1567,8 @@ program define _eplot_estimates, rclass
             if "`values'" == "" {
                 local values "`s(values)'"
             }
-            if "`mcolor'" == "" local mcolor "`s(mcolor)'"
-            if "`cicolor'" == "" local cicolor "`s(cicolor)'"
+            if `"`mcolor'"' == "" local mcolor "`s(mcolor)'"
+            if `"`cicolor'"' == "" local cicolor "`s(cicolor)'"
             if "`cicap'" == "" local cicap "`s(cicap)'"
             if "`msymbol'" == "" local msymbol "`s(msymbol)'"
             if "`msize'" == "" local msize "`s(msize)'"
@@ -1522,9 +1598,12 @@ program define _eplot_estimates, rclass
             display as error "rescale() must be nonmissing and nonzero"
             exit 198
         }
-        if missing(`null') {
-            display as error "null() must be a nonmissing number"
-            exit 198
+        if `"`null'"' != "" {
+            capture confirm number `null'
+            if _rc {
+                display as error "null() must be a nonmissing number"
+                exit 198
+            }
         }
 
     // ====== Parse estimate list ======
@@ -1587,6 +1666,49 @@ program define _eplot_estimates, rclass
             exit 198
         }
     }
+    // Multi-model mcolor()/cicolor(): one color applies to every model (as
+    // msymbol() and msize() do); a list gives one color per model (as
+    // palette() does).  palette() and mcolor() would both set the per-model
+    // marker colors, and the loser would be silently discarded, so the
+    // combination is refused.  Colors from a style() preset are defaults and
+    // yield to the palette; only explicitly supplied colors are used here.
+    if `n_models' == 1 {
+        foreach _copt in mcolor cicolor sigcolor insigncolor {
+            if `"``_copt''"' != "" {
+                _eplot_check_color, option(`_copt') spec(``_copt'')
+            }
+        }
+        if "`sigcolors'" == "" & (`"`sigcolor'"' != "" | `"`insigncolor'"' != "") {
+            display as error "sigcolor() and insigncolor() require sigcolors"
+            exit 198
+        }
+    }
+    else {
+        // Every element of a per-model color list must itself be one color.
+        foreach _copt in mcolor cicolor palette {
+            if "`_copt'" == "palette" & !`_palette_supplied' continue
+            if "`_copt'" != "palette" & !`_`_copt'_supplied' continue
+            local _clist `"`_`_copt'_user'"'
+            if "`_copt'" == "palette" local _clist `"`palette'"'
+            foreach _c of local _clist {
+                _eplot_check_color, option(`_copt') spec(`_c')
+            }
+        }
+    }
+    if `n_models' > 1 {
+        if `_palette_supplied' & `_mcolor_supplied' {
+            display as error "palette() and mcolor() may not be combined with multiple models; each sets the per-model marker colors"
+            exit 198
+        }
+        foreach _copt in mcolor cicolor {
+            if !`_`_copt'_supplied' continue
+            local _n_c : word count `_`_copt'_user'
+            if `_n_c' != 1 & `_n_c' != `n_models' {
+                display as error "`_copt'() with multiple models requires one color or exactly one color per model (`n_models'); quote RGB triplets"
+                exit 198
+            }
+        }
+    }
     if `_offset_supplied' {
         if `offset' < 0 {
             display as error "offset() must be nonnegative"
@@ -1604,7 +1726,7 @@ program define _eplot_estimates, rclass
     if "`level'" == "" {
         local level = c(level)
     }
-    if `null' == -999 {
+    if `"`null'"' == "" {
         // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
         // no-effect reference belongs at 1 whether or not eform was requested.
         local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
@@ -1622,7 +1744,7 @@ program define _eplot_estimates, rclass
     // cycles: model m uses color mod(m-1, #colors) + 1.  A user-supplied
     // palette is validated to have exactly one color per model above, so the
     // cycle is a no-op there.
-    if "`palette'" == "" {
+    if `"`palette'"' == "" {
         local palette "navy cranberry forest_green dkorange purple teal maroon olive_teal"
     }
     local _n_palette_words : word count `palette'
@@ -1640,7 +1762,10 @@ program define _eplot_estimates, rclass
     }
 
     // Normal critical value for estimators that do not post residual df.
-    local zcrit = invnormal(1 - (1 - `level'/100)/2)
+    // Critical values, estimates, and limits travel in scalars and matrix
+    // cells, never through decimal locals, so r(table) reproduces e(b).
+    tempname zcrit _se_i _df_i _crit_i
+    scalar `zcrit' = invnormal(1 - (1 - `level'/100)/2)
 
     // ====== Identify "." model (current estimates) ======
     local dot_idx 0
@@ -1672,21 +1797,25 @@ program define _eplot_estimates, rclass
 
     // Extract "." matrices before any estimates restore
     if `dot_idx' > 0 {
-        tempname b_dot V_dot
-        capture matrix `b_dot' = e(b)
+        tempname b_dot V_dot dfv_dot
+        // matrix X = e(b) succeeds with a 0 x 0 matrix when e(b) is
+        // absent, so existence must be confirmed explicitly.
+        capture confirm matrix e(b)
         if _rc {
             display as error "active estimation results do not contain e(b)"
+            if "`e(mi)'" == "mi" {
+                display as error "specify {bf:mi estimate, post} to post the combined estimates"
+            }
             exit 498
         }
-        capture matrix `V_dot' = e(V)
+        capture confirm matrix e(V)
         if _rc {
             display as error "active estimation results do not contain e(V)"
             exit 498
         }
-        local df_dot = .
-        capture local df_dot = e(df_r)
-        if _rc local df_dot = .
-        if !missing(`df_dot') & `df_dot' <= 0 local df_dot = .
+        matrix `b_dot' = e(b)
+        matrix `V_dot' = e(V)
+        _eplot_coef_df, b(`b_dot') df(`dfv_dot')
     }
 
     // Auto-detect the effect label from the requested model, not from an
@@ -1697,24 +1826,32 @@ program define _eplot_estimates, rclass
         }
         else {
             local _ecmd ""
+            local _efrm2 ""
             if `n_models' == 1 {
                 local est_name : word 1 of `estlist'
-                if `dot_idx' == 1 {
-                    local _ecmd "`e(cmd)'"
-                }
-                else {
+                if `dot_idx' != 1 {
                     capture estimates restore `est_name'
                     if _rc {
                         display as error `"estimation results '`est_name'' not found"'
                         exit 111
                     }
-                    local _ecmd "`e(cmd)'"
+                }
+                local _ecmd "`e(cmd)'"
+                local _efrm2 "`e(frm2)'"
+                // stcox posts e(cmd)=cox, streg posts the distribution name,
+                // and the me* commands post meglm or gsem; the user-facing
+                // command is in e(cmd2).
+                if inlist("`_ecmd'", "cox", "meglm", "gsem") | "`e(cmd2)'" == "streg" {
+                    if "`e(cmd2)'" != "" local _ecmd "`e(cmd2)'"
                 }
             }
             if inlist("`_ecmd'", "logit", "logistic", "melogit", "xtlogit", "clogit") {
                 local effect "Odds Ratio (`level'% CI)"
             }
-            else if inlist("`_ecmd'", "stcox", "mestreg") {
+            else if "`_ecmd'" == "stcox" | ///
+                (inlist("`_ecmd'", "streg", "mestreg") & "`_efrm2'" == "hazard") {
+                // Parametric survival models are hazard ratios only in the
+                // proportional-hazards metric; the AFT metric is a time ratio.
                 local effect "Hazard Ratio (`level'% CI)"
             }
             else if inlist("`_ecmd'", "poisson", "nbreg", "mepoisson", "menbreg", "xtpoisson") {
@@ -1821,7 +1958,7 @@ program define _eplot_estimates, rclass
 
     tempname posthn
     tempfile postfn
-    postfile `posthn' str244 coef_name double(es se lci uci df) byte model_id ///
+    quietly postfile `posthn' str244 coef_name double(es se lci uci df) byte model_id ///
         using `postfn', replace
     local _post_open 1
 
@@ -1833,11 +1970,6 @@ program define _eplot_estimates, rclass
             local k = colsof(`b_dot')
             _eplot_matrix_coefnames, matrix(`b_dot')
             local names `"`s(names)'"'
-            local model_df = `df_dot'
-            local model_crit = `zcrit'
-            if !missing(`model_df') {
-                local model_crit = invttail(`model_df', (1 - `level'/100) / 2)
-            }
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
@@ -1846,15 +1978,20 @@ program define _eplot_estimates, rclass
                     display as error "e(V) contains an invalid variance for coefficient `nm'"
                     exit 498
                 }
-                local this_se = sqrt(`this_var')
-                if `this_se' < 1e-15 continue
+                // Omitted and base-level terms carry exactly zero variance.
+                // A small but positive variance is a real estimate (e.g. a
+                // coefficient on a variable measured in large units).
+                if `this_var' == 0 continue
+                scalar `_se_i' = sqrt(`V_dot'[`i', `i'])
+                scalar `_df_i' = `dfv_dot'[1, `i']
+                scalar `_crit_i' = `zcrit'
+                if !missing(`_df_i') {
+                    scalar `_crit_i' = invttail(`_df_i', (1 - `level'/100) / 2)
+                }
 
-                local this_b = `b_dot'[1, `i']
-                local this_lci = `this_b' - `model_crit' * `this_se'
-                local this_uci = `this_b' + `model_crit' * `this_se'
-
-                post `posthn' ("`nm'") (`this_b') (`this_se') ///
-                    (`this_lci') (`this_uci') (`model_df') (`m')
+                post `posthn' ("`nm'") (`b_dot'[1, `i']) (`_se_i') ///
+                    (`b_dot'[1, `i'] - `_crit_i' * `_se_i') ///
+                    (`b_dot'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m')
             }
         }
         else {
@@ -1865,25 +2002,23 @@ program define _eplot_estimates, rclass
                 exit 111
             }
 
-            tempname bm Vm
-            capture matrix `bm' = e(b)
+            tempname bm Vm dfvm
+            capture confirm matrix e(b)
             if _rc {
                 display as error `"estimation results '`est_name'' do not contain e(b)"'
+                if "`e(mi)'" == "mi" {
+                    display as error "specify {bf:mi estimate, post} before storing the combined estimates"
+                }
                 exit 498
             }
-            capture matrix `Vm' = e(V)
+            capture confirm matrix e(V)
             if _rc {
                 display as error `"estimation results '`est_name'' do not contain e(V)"'
                 exit 498
             }
-            local model_df = .
-            capture local model_df = e(df_r)
-            if _rc local model_df = .
-            if !missing(`model_df') & `model_df' <= 0 local model_df = .
-            local model_crit = `zcrit'
-            if !missing(`model_df') {
-                local model_crit = invttail(`model_df', (1 - `level'/100) / 2)
-            }
+            matrix `bm' = e(b)
+            matrix `Vm' = e(V)
+            _eplot_coef_df, b(`bm') df(`dfvm')
 
             local k = colsof(`bm')
             _eplot_matrix_coefnames, matrix(`bm')
@@ -1896,15 +2031,18 @@ program define _eplot_estimates, rclass
                     display as error `"e(V) for '`est_name'' contains an invalid variance for coefficient `nm'"'
                     exit 498
                 }
-                local this_se = sqrt(`this_var')
-                if `this_se' < 1e-15 continue
+                // Omitted and base-level terms carry exactly zero variance.
+                if `this_var' == 0 continue
+                scalar `_se_i' = sqrt(`Vm'[`i', `i'])
+                scalar `_df_i' = `dfvm'[1, `i']
+                scalar `_crit_i' = `zcrit'
+                if !missing(`_df_i') {
+                    scalar `_crit_i' = invttail(`_df_i', (1 - `level'/100) / 2)
+                }
 
-                local this_b = `bm'[1, `i']
-                local this_lci = `this_b' - `model_crit' * `this_se'
-                local this_uci = `this_b' + `model_crit' * `this_se'
-
-                post `posthn' ("`nm'") (`this_b') (`this_se') ///
-                    (`this_lci') (`this_uci') (`model_df') (`m')
+                post `posthn' ("`nm'") (`bm'[1, `i']) (`_se_i') ///
+                    (`bm'[1, `i'] - `_crit_i' * `_se_i') ///
+                    (`bm'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m')
             }
         }
     }
@@ -2046,7 +2184,7 @@ program define _eplot_estimates, rclass
     tempfile fulldata posmap
     quietly save `fulldata'
 
-    keep if _coef_tag
+    quietly keep if _coef_tag
     sort _disp_order
     gen long _base_pos = _n
     keep coef_name _base_pos
@@ -2182,6 +2320,13 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Build graph command ======
+    // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
+    // string), and twoway reads mcolor(0 128 0) as a list and draws black.
+    // Re-quote any multi-word color before it enters the graph command.
+    foreach _c in mcolor cicolor sigcolor insigncolor {
+        local _nw : word count ``_c''
+        if `_nw' > 1 local `_c' `""``_c''""'
+    }
     local graphcmd "twoway"
 
     if `n_models' > 1 {
@@ -2191,24 +2336,39 @@ program define _eplot_estimates, rclass
             local _pal_idx = mod(`m' - 1, `_n_palette_words') + 1
             local mc : word `_pal_idx' of `palette'
             if "`mc'" == "" local mc "navy"
+            if `_mcolor_supplied' {
+                local _n_c : word count `_mcolor_user'
+                local mc : word `=cond(`_n_c' == 1, 1, `m')' of `_mcolor_user'
+            }
+            // CI color defaults to the model's marker color, as cicolor()
+            // defaults to mcolor() in single-model plots.
+            local cc `"`mc'"'
+            if `_cicolor_supplied' {
+                local _n_c : word count `_cicolor_user'
+                local cc : word `=cond(`_n_c' == 1, 1, `m')' of `_cicolor_user'
+            }
+            foreach _c in mc cc {
+                local _nw : word count ``_c''
+                if `_nw' > 1 local `_c' `""``_c''""'
+            }
 
             // CI lines
             if "`noci'" == "" {
                 local ++_plot_elem
                 if "`horizontal'" != "" {
                     if "`cicap'" != "" {
-                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`mc') lwidth(`ciwidth'))"'
+                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`cc') lwidth(`ciwidth'))"'
                     }
                     else {
-                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`mc') lwidth(`ciwidth'))"'
+                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`cc') lwidth(`ciwidth'))"'
                     }
                 }
                 else {
                     if "`cicap'" != "" {
-                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`mc') lwidth(`ciwidth'))"'
+                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`cc') lwidth(`ciwidth'))"'
                     }
                     else {
-                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`mc') lwidth(`ciwidth'))"'
+                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`cc') lwidth(`ciwidth'))"'
                     }
                 }
             }
@@ -2226,8 +2386,10 @@ program define _eplot_estimates, rclass
     }
     else {
         // --- Single-model graph ---
-        local mc = cond("`mcolor'" != "", "`mcolor'", "navy")
-        local cc = cond("`cicolor'" != "", "`cicolor'", "`mc'")
+        local mc `"`mcolor'"'
+        if `"`mc'"' == "" local mc "navy"
+        local cc `"`cicolor'"'
+        if `"`cc'"' == "" local cc `"`mc'"'
 
         if "`sigcolors'" != "" {
             // Split into significant and non-significant plot elements
@@ -2630,7 +2792,7 @@ program define _eplot_matrix, rclass
             /// Reference lines
             XLine(string asis) ///
             XLABel(string asis) ///
-            NULL(real -999) ///
+            NULL(string) ///
             NONULL ///
             NOCI ///
             CICap ///
@@ -2688,6 +2850,18 @@ program define _eplot_matrix, rclass
             }
         }
 
+        // Each color option must name exactly one valid color: twoway draws
+        // the default color at rc=0 for a list or an unknown name.
+        foreach _copt in mcolor cicolor sigcolor insigncolor {
+            if `"``_copt''"' != "" {
+                _eplot_check_color, option(`_copt') spec(``_copt'')
+            }
+        }
+        if "`sigcolors'" == "" & (`"`sigcolor'"' != "" | `"`insigncolor'"' != "") {
+            display as error "sigcolor() and insigncolor() require sigcolors"
+            exit 198
+        }
+
         // ====== Style presets (apply BEFORE user overrides) ======
         if "`style'" != "" {
             _eplot_apply_style, style(`"`style'"')
@@ -2720,9 +2894,12 @@ program define _eplot_matrix, rclass
         display as error "rescale() must be nonmissing and nonzero"
         exit 198
     }
-    if missing(`null') {
-        display as error "null() must be a nonmissing number"
-        exit 198
+    if `"`null'"' != "" {
+        capture confirm number `null'
+        if _rc {
+            display as error "null() must be a nonmissing number"
+            exit 198
+        }
     }
 
     // Validate matrix dimensions
@@ -2739,8 +2916,9 @@ program define _eplot_matrix, rclass
         local horizontal "horizontal"
     }
     if "`level'" == "" local level = c(level)
-    local crit = invnormal(1 - (1 - `level'/100)/2)
-    if `null' == -999 {
+    tempname crit
+    scalar `crit' = invnormal(1 - (1 - `level'/100)/2)
+    if `"`null'"' == "" {
         // A logarithmic effect axis is a ratio axis: 0 is not on it, so the
         // no-effect reference belongs at 1 whether or not eform was requested.
         local null = cond("`eform'" != "" | "`logscale'" != "", 1, 0)
@@ -2766,9 +2944,6 @@ program define _eplot_matrix, rclass
     if "`msymbol'" == "" local msymbol "O"
     if "`msize'" == "" local msize "medium"
 
-    // Get row names
-    local rownames : rownames `matrix'
-
     // Build dataset
     preserve
     clear
@@ -2780,9 +2955,29 @@ program define _eplot_matrix, rclass
     quietly gen double lci = .
     quietly gen double uci = .
 
+    tempvar coef_eq stripe_row stripe_dup
+    quietly gen str244 `coef_eq' = ""
+
+    // Row labels come straight from the matrix stripe, one row at a time.
+    // Splitting the rownames list into words would shift every label after a
+    // name that contains a space onto the wrong effect.
+    mata: st_sstore(., ("`coef_eq'", "coef_name"), st_matrixrowstripe("`matrix'"))
+
+    // As in estimates mode, repeated row names keep their equation prefix so
+    // distinct effects (e.g. the same covariate in two equations) remain
+    // distinguishable and selectable as eq:name.
+    quietly {
+        gen long `stripe_row' = _n
+        bysort coef_name: gen byte `stripe_dup' = (_N > 1)
+        sort `stripe_row'
+        count if `stripe_dup'
+    }
+    if r(N) > 0 {
+        quietly replace coef_name = `coef_eq' + ":" + coef_name if `coef_eq' != ""
+    }
+    drop `stripe_row' `stripe_dup' `coef_eq'
+
     forvalues i = 1/`nrows' {
-        local nm : word `i' of `rownames'
-        quietly replace coef_name = "`nm'" in `i'
         quietly replace es = `matrix'[`i', 1] in `i'
 
         if `ncols' == 3 {
@@ -2973,6 +3168,13 @@ program define _eplot_matrix, rclass
     }
 
     // Build graph
+    // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
+    // string), and twoway reads mcolor(0 128 0) as a list and draws black.
+    // Re-quote any multi-word color before it enters the graph command.
+    foreach _c in mcolor cicolor sigcolor insigncolor {
+        local _nw : word count ``_c''
+        if `_nw' > 1 local `_c' `""``_c''""'
+    }
     local graphcmd "twoway"
 
     // CI lines
@@ -3196,6 +3398,111 @@ program define _eplot_matrix_coefnames, sclass
 
         sreturn clear
         sreturn local names `"`names'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Validate that SPEC is exactly one Stata colorstyle ([G-4] colorstyle): a
+// named style (a color-<name>.style file on the adopath, or none, bg,
+// background, fg, foreground), "# # #" RGB, "# # # #" CMYK, or "hsv # # #",
+// each optionally followed by *# intensity and/or %# opacity; a bare *# or
+// %# is also valid.  twoway does not refuse anything else: a list or an
+// unknown name only prints "named style ... not found" and draws the default
+// color at rc=0, so eplot refuses it here with r(198).
+capture program drop _eplot_check_color
+program define _eplot_check_color, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , OPTion(name) [SPEC(string asis)]
+
+        local v = strtrim(`"`spec'"')
+        local _len = length(`"`v'"')
+        if `_len' >= 2 & substr(`"`v'"', 1, 1) == `"""' & ///
+            substr(`"`v'"', `_len', 1) == `"""' {
+            local v = strtrim(substr(`"`v'"', 2, `_len' - 2))
+        }
+        local _ok 0
+        if strpos(`"`v'"', `"""') == 0 {
+            if regexm(`"`v'"', "^(.*)%[0-9]*\.?[0-9]+$") local v = strtrim(regexs(1))
+            if regexm(`"`v'"', "^(.*)\*[0-9]*\.?[0-9]+$") local v = strtrim(regexs(1))
+            local _n : word count `v'
+            if `_n' == 0 {
+                local _ok 1
+            }
+            else if `_n' == 1 {
+                if inlist(`"`v'"', "none", "bg", "background", "fg", "foreground") {
+                    local _ok 1
+                }
+                else if regexm(`"`v'"', "^[A-Za-z_][A-Za-z0-9_]*$") {
+                    capture findfile color-`v'.style
+                    if _rc == 0 local _ok 1
+                }
+            }
+            else if inlist(`_n', 3, 4) {
+                local _first : word 1 of `v'
+                local _from = cond(`_n' == 4 & `"`_first'"' == "hsv", 2, 1)
+                local _ok 1
+                forvalues _w = `_from'/`_n' {
+                    local _t : word `_w' of `v'
+                    capture confirm number `_t'
+                    if _rc local _ok 0
+                }
+            }
+        }
+        if !`_ok' {
+            display as error `"`option'() must be one valid color, not {bf:`macval(spec)'}"'
+            display as error "use a color name (e.g. navy, navy*.5, navy%50) or a quoted RGB triplet such as " `"""' "0 128 0" `"""'
+            exit 198
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Degrees of freedom for each coefficient of the ACTIVE estimation results,
+// stored in the 1 x k matrix named by df() (missing = normal reference).
+// Stata's own r(table) uses parameter-specific df when the estimator posts
+// them: e(df_mi) after mi estimate, post ([MI] mi estimate: "significance
+// levels and confidence intervals ... are based on degrees of freedom that
+// is specific to each coefficient") and e(df) after mixed, dfmethod().  A
+// vector is used only when its column stripe is identical to e(b)'s;
+// otherwise the model-wide e(df_r) applies to every coefficient.
+capture program drop _eplot_coef_df
+program define _eplot_coef_df, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, B(name) DF(name)
+
+        local k = colsof(`b')
+        local _bnames : colfullnames `b'
+        local _found 0
+        foreach _cand in df_mi df {
+            capture confirm matrix e(`_cand')
+            if _rc continue
+            tempname _cm
+            matrix `_cm' = e(`_cand')
+            // Identity, not shape: the stripe must equal e(b)'s exactly.
+            local _cnames : colfullnames `_cm'
+            if `"`_cnames'"' != `"`_bnames'"' continue
+            matrix `df' = `_cm'[1, 1...]
+            local _found 1
+            continue, break
+        }
+        if !`_found' {
+            matrix `df' = J(1, `k', e(df_r))
+        }
+        forvalues i = 1/`k' {
+            if !missing(`df'[1, `i']) & `df'[1, `i'] <= 0 {
+                matrix `df'[1, `i'] = .
+            }
+        }
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

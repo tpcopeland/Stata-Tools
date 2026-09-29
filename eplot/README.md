@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.4.1** | 2026-09-24
+**Version 1.4.2** | 2026-09-29
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -277,6 +277,7 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 ## Assumptions and Limits
 
 - Data and frame modes take confidence limits from supplied variables; `level()` is only for intervals constructed in estimates and matrix modes.
+- Estimates-mode intervals and p-values use the t distribution with `e(df_r)`, or with parameter-specific degrees of freedom when the estimator posts them (`e(df_mi)` after `mi estimate, post`; `e(df)` after `mixed, dfmethod()`), and the normal distribution otherwise. Omitted and base-level terms (exactly zero variance) are not plotted.
 - Supplied lower confidence limits may not exceed upper limits; prediction limits must be complete ordered pairs; two-column matrix standard errors must be nonnegative; and all required matrix cells must be nonmissing.
 - Data/frame effect titles therefore default to 95% CI wording; estimates/matrix titles use the current `c(level)`, and single-model estimates-mode `eform` can auto-label odds ratios, hazard ratios, or IRRs from the estimation command.
 - Matrix mode requires exactly two columns (`b`, `se`) or three columns (`b`, `ll`, `ul`); two-column input is the only matrix form that supports `stars`.
@@ -286,7 +287,7 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 - `logscale` requires strictly positive values; a non-positive plotted value, `null()`, or `xline()` position exits with `r(198)` rather than drawing a collapsed axis. Below a threefold spread the tick lattice falls back to linear positions, which remain valid on a log axis.
 - `xscale()` and `yscale()` may not be passed through to `twoway`: `eplot` computes the effect-axis range itself, so a passthrough copy exits with `r(198)`. Use `logscale` for a logarithmic effect axis.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
-- In multi-model estimates, `palette()` controls per-model colors; `sigcolors`, `mcolor()`, and `cicolor()` do not override that palette. The default palette cycles for a ninth model onward, so model *m* uses color `mod(m-1, 8) + 1`.
+- In multi-model estimates, `palette()` sets per-model colors by default. `mcolor()` and `cicolor()` each take one color for every model or exactly one color per model (quote RGB triplets in a list); `mcolor()` may not be combined with `palette()`, and `sigcolors` is single-model-only. A `style()` preset's colors yield to the palette. The default palette cycles for a ninth model onward, so model *m* uses color `mod(m-1, 8) + 1`.
 - Style presets supply defaults only; explicitly supplied options take precedence, and a preset's `values` component applies only where `values` itself does.
 - `keep()`, `drop()`, `order()`, `groups()`, and `headers()` key on the original coefficient or `labels()` values in every mode; `coeflabels()` is applied last, so relabeling and grouping compose.
 
@@ -302,6 +303,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.2** (2026-09-29): Matrix-mode row names that contain spaces had shifted every later label onto the wrong effect; row labels now come from the matrix stripe, and repeated row names keep their equation prefix as in estimates mode. Estimates mode now uses parameter-specific degrees of freedom (`e(df_mi)` after `mi estimate, post`; `e(df)` after `mixed, dfmethod()`), matching Stata's own intervals and p-values, and no longer drops a coefficient whose standard error is tiny but nonzero. With `weights()` and `sigcolors`, equal weights now draw equal boxes. `r(pvalues)` and `r(table)` are no longer posted as 1 × 1 missing matrices when unavailable, and failed calls no longer leave missing `r(N)`/`r(k)`. In multi-model plots `mcolor()` and `cicolor()`, previously ignored, now apply (one color for all models or one per model; `mcolor()` with `palette()` exits with `r(198)`), and RGB colors such as `mcolor("0 128 0")` are drawn as specified instead of black in every mode. A color option that holds more than one color where one is expected, or an unknown color name, now exits with `r(198)` instead of silently drawing the default color, and `sigcolor()`/`insigncolor()` without `sigcolors` exit with `r(198)` instead of being ignored. The `eform` axis title recognizes `stcox`, `melogit`, `mepoisson`, `menbreg`, and proportional-hazards `streg`/`mestreg`; `null(-999)` is honored; results from `mi estimate` without `post` get a clear error.
 - **1.4.1** (2026-09-24): The `values` column now starts to the right of the null line and the last labelled tick as well as the widest interval; when every interval lay left of the null it had been drawn on the null line. Added `vgap()` to set the gap before the column.
 - **1.4.0** (2026-09-07): Added `logscale` for a logarithmic effect axis. Range padding is multiplicative and ticks sit on a decade lattice, so the padded minimum of an `eform` range no longer falls to zero or below and collapses the plot; `null()` defaults to 1 under `logscale`, and non-positive values, `null()`, or `xline()` positions now exit with `r(198)`. Passing `xscale()` or `yscale()` through to `twoway` also exits with `r(198)` instead of silently competing with the axis `eplot` builds.
 - **1.3.1** (2026-09-06): Made explicitly supplied single-model presentation options fail with `r(198)` in multi-model estimates instead of being ignored, replaced the undocumented `_natscale` dependency with package-owned 1/2/5 effect-axis tick scaling, and added focused regressions for both contracts.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  24sep2026}{...}
+{* *! version 1.4.2  29sep2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -97,7 +97,7 @@ Plot from a graph-ready frame:
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
 {synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
-{synopt:{opt vg:ap(#)}}gap before the values column, as a fraction of the axis span; default is 0.15{p_end}
+{synopt:{opt vg:ap(#)}}values-column gap; default 0.15{p_end}
 {synopt:{opt star:s}}add significance stars to values{p_end}
 {synopt:{opt sigc:olors}}color markers by CI significance{p_end}
 {synopt:{opt sigc:olor(color)}}significant-effect color{p_end}
@@ -192,8 +192,14 @@ initially empty {cmd:e()} state.
 {pmore}
 Intervals and p-values follow each model's estimation distribution: {cmd:eplot}
 uses the t distribution when {cmd:e(df_r)} is available and positive, and the
-normal distribution otherwise. In multi-model plots this choice is made
-separately for each stored result.
+normal distribution otherwise. When the estimator posts parameter-specific
+degrees of freedom whose column stripe matches {cmd:e(b)} ({cmd:e(df_mi)} after
+{cmd:mi estimate, post}; {cmd:e(df)} after {cmd:mixed, dfmethod()}), each
+coefficient uses its own degrees of freedom, as in Stata's own coefficient
+table. In multi-model plots this choice is made separately for each stored
+result. Omitted and base-level terms, which carry exactly zero variance, are
+not plotted. Results from {cmd:mi estimate} must be posted with its {cmd:post}
+option, because {cmd:e(b)} and {cmd:e(V)} are otherwise absent.
 
 {phang2}
 {bf:3. Matrix mode} — you specify {opt matrix(matname)}. {cmd:eplot} reads a
@@ -256,7 +262,10 @@ is read as (b, se) and {cmd:eplot} constructs symmetric normal-approximation
 limits at {opt level()}; standard errors must be nonmissing and nonnegative. A
 3-column matrix is read as (b, lci, uci) and the supplied limits are used as
 given, so lower limits may not exceed upper limits. Row names become the row
-labels; unnamed rows are labeled {cmd:r1}, {cmd:r2}, and so on. Rows containing
+labels, including names that contain spaces; unnamed rows are labeled
+{cmd:r1}, {cmd:r2}, and so on. When a row name repeats, every row keeps its
+equation prefix ({it:eq}{cmd::}{it:name}), as in estimates mode, so the rows
+remain distinguishable and selectable by {opt keep()} and {opt drop()}. Rows containing
 missing values are rejected rather than silently dropped. Only a 2-column
 matrix carries standard errors, so {opt stars} and {cmd:r(pvalues)} require
 that form.
@@ -283,7 +292,9 @@ squares whose area is proportional to the weight. Every plotted regular-effect
 row (type 1 with a nonmissing estimate) must then carry a nonmissing, strictly
 positive weight, because a missing, zero, or negative weight would drop that
 row's marker while leaving the row in {cmd:r(table)} and in its interval
-layer. Structural, subgroup, and overall rows need no weight. Add {opt nobox}
+layer. Structural, subgroup, and overall rows need no weight. With
+{opt sigcolors}, significant and non-significant boxes share one size scale,
+so equal weights draw equal boxes. Add {opt nobox}
 to plot weighted data without weight-proportional squares.
 
 {phang}
@@ -404,7 +415,10 @@ plotting. Use this after models estimated on the log scale — for example,
 {cmd:logit} (odds ratios), {cmd:stcox} (hazard ratios), or {cmd:poisson} (incidence-rate
 ratios). The null line is automatically set to 1 instead of 0. In single-model
 estimates mode, the x-axis label is set automatically (e.g., "Odds Ratio" after
-{cmd:logit}, "Hazard Ratio" after {cmd:stcox}, "IRR" after {cmd:poisson}).
+{cmd:logit} or {cmd:melogit}, "Hazard Ratio" after {cmd:stcox}, "IRR" after
+{cmd:poisson}). {cmd:streg} and {cmd:mestreg} are labeled "Hazard Ratio" only
+in the proportional-hazards metric; accelerated failure-time fits keep the
+generic label.
 
 {phang}
 {opt logscale} draws the effect axis on a logarithmic scale, which is the
@@ -480,7 +494,8 @@ specified.
 {phang}
 {opt effect(string)} sets the x-axis title (or y-axis title in vertical
 layout). Default is "Estimate (95% CI)", or "Effect (95% CI)" when {opt eform} is
-specified. Override with a custom label such as
+specified; estimates mode uses "Coefficient ({it:#}% CI)" at the {opt level()}
+in effect, and matrix mode reports that level in place of 95. Override with a custom label such as
 {cmd:effect("Odds Ratio (95% CI)")}. In data and frame modes the default label
 always reads "95% CI" because the confidence limits are supplied directly and
 {cmd:eplot} cannot know their level; set {opt effect()} explicitly if your intervals are
@@ -526,7 +541,9 @@ ratios without {opt eform}, set {cmd:null(1)} to use the correct reference.
 {phang}
 {opt sigc:olor(color)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]}
 color for statistically significant effects when {opt sigcolors} is
-specified. Default is {cmd:cranberry}.
+specified. Default is {cmd:cranberry}. {opt sigcolor()} and
+{opt insigncolor()} require {opt sigcolors}; without it they exit with
+{cmd:r(198)} rather than being ignored.
 
 {phang}
 {opt insignc:olor(color)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} color for
@@ -544,7 +561,8 @@ applies a style preset. Presets set sensible defaults for common journal
 and plot styles; any option you specify explicitly overrides the preset. A
 preset's {opt values} component applies only where {opt values} itself does,
 so multi-model estimates plots take only the preset's marker and interval
-settings.
+settings; a preset's colors are defaults that yield to the per-model
+{opt palette()} there.
 
 {p2colset 9 22 24 2}{...}
 {p2col:Preset}What it sets{p_end}
@@ -635,7 +653,8 @@ nonmissing and nonnegative, and the option requires multiple models.
 {opt palette(colorlist)} {bf:[E]} specifies the color palette for multi-model
 plots. Default is
 {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}. Provide
-exactly one Stata color name per model. This option requires multiple
+exactly one Stata color per model, quoting RGB triplets such as
+{cmd:"0 128 0"}. This option requires multiple
 models. The default palette cycles beyond its eight colors: model {it:m} uses
 color
 {cmd:mod(}{it:m}{cmd:-1, 8) + 1}, so a ninth model is navy again and a tenth is
@@ -651,8 +670,20 @@ passes additional options to the graph legend. Default is
 
 {phang}
 {opt mcolor(color)}
-sets the marker color. Default is {cmd:navy}. In multi-model estimates mode,
-per-model colors come from {opt palette()} instead.
+sets the marker color. Default is {cmd:navy}. A color given as an RGB
+triplet is drawn as specified, for example {cmd:mcolor("0 128 0")}. Every
+color option ({opt mcolor()}, {opt cicolor()}, {opt sigcolor()},
+{opt insigncolor()}, and each {opt palette()} entry) must name exactly one
+valid color: a color name, optionally with intensity and opacity
+({cmd:navy*.5}, {cmd:navy%50}), or a quoted RGB, CMYK, or HSV value (see
+{help colorstyle}). A list of colors where one is expected, or an unknown
+name, exits with {cmd:r(198)}; {cmd:twoway} would otherwise draw the default
+color. In
+multi-model estimates mode, {opt mcolor()} takes either one color, applied to
+every model, or exactly one color per model; quote each RGB triplet in a list,
+for example {cmd:mcolor("255 0 0" "0 0 255")}. Without {opt mcolor()} the
+per-model colors come from {opt palette()}; the two options may not be
+combined, because both set the per-model marker colors.
 
 {phang}
 {opt msymbol(symbol)}
@@ -681,7 +712,10 @@ diamonds.
 
 {phang}
 {opt cico:lor(color)}
-sets the CI line color. Default matches {opt mcolor()}.
+sets the CI line color. Default matches the marker color. In multi-model
+estimates mode it takes either one color, applied to every model, or exactly
+one color per model, and it may be combined with {opt palette()} (for
+example, colored markers with gray intervals).
 
 {phang}
 {opt ciwidth(lwstyle)}
@@ -958,7 +992,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.1, 24sep2026{p_end}
+{pstd}Version 1.4.2, 29sep2026{p_end}
 
 
 {marker alsosee}{...}
