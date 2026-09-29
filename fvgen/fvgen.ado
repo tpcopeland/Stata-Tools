@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.5  2026/08/30
+*! fvgen Version 1.2.6  2026/09/29
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -93,6 +93,17 @@ program define fvgen, rclass
             if "`replace'" != "" & "`store'" == "" {
                 display as error "replace with margins is only allowed when store(name) is specified"
                 exit 198
+            }
+            * estimates store overwrites silently, so an existing stored
+            * result must be protected here unless replace was given.
+            if "`store'" != "" & "`replace'" == "" {
+                quietly estimates dir
+                local _stored_names `"`r(names)'"'
+                if `: list store in _stored_names' {
+                    display as error ///
+                        "fvgen, margins: stored estimates '`store'' already exist; specify replace to overwrite them"
+                    exit 110
+                }
             }
 
             capture _estimates hold `_fvgen_est_hold', restore copy nullok
@@ -190,6 +201,29 @@ program define fvgen, rclass
                 local _wt "`weight'"
                 if "`_wt'" == "pweight" local _wt "aweight"
                 local wmean "[`_wt'`exp']"
+            }
+
+            **# Reject string variables before marksample hides them
+            * marksample marks every row out for a string variable, which would
+            * otherwise surface as a misleading "no observations" error.
+            quietly fvrevar `varlist', list
+            local _basevars `r(varlist)'
+            foreach _bv of local _basevars {
+                capture confirm string variable `_bv'
+                if !_rc {
+                    display as error ///
+                        "fvgen: '`_bv'' is a string variable; encode it to a numeric variable first"
+                    exit 109
+                }
+            }
+
+            **# ref()/simple() rewrite single-token factor operators only
+            * A level-restricted factor i(numlist).VAR spans several tokens;
+            * refuse it rather than misreport the variable as unused.
+            if `"`ref'`simple'"' != "" & regexm("`varlist'", "(^| |#)i\(") {
+                display as error ///
+                    "fvgen: ref() and simple() do not support level-restricted factors i(numlist).varname; use ib#.varname or restrict the sample with if/in"
+                exit 198
             }
 
             **# Mark sample
@@ -775,11 +809,14 @@ program define _fvgen_partlabel, rclass
     set varabbrev off
     capture noisily {
         args var level xsymbol
+        * A level absent from an attached value label falls back to var=level
+        * like an unlabeled factor, instead of a bare, context-free number.
         local vl : value label `var'
+        local lab ""
         if "`vl'" != "" {
-            local lab : label `vl' `level'
+            local lab : label `vl' `level', strict
         }
-        else {
+        if `"`lab'"' == "" {
             local lab "`var'=`level'"
         }
         return local label `"`lab'"'
@@ -890,6 +927,22 @@ program define _fvgen_margins_repost, eclass
         local after  = substr(`"`cmd_pad'"', `pos' + strlen(`"`varseq'"'), .)
         local native_cmdline `"`before' `spec' `after'"'
 
+        * Fingerprint the flattened fit.  The flattened columns always lie in
+        * the native design's span on a common sample, so an identical sample
+        * plus identical rank (and log likelihood where posted) means the
+        * native refit is the same model.  A mismatch arises when fvgen ran on
+        * a different if/in sample than the estimator (levels outside that
+        * sample are lumped with the base), or with alllevels + noconstant.
+        tempvar flat_sample
+        quietly generate byte `flat_sample' = e(sample)
+        quietly count if `flat_sample'
+        local flat_has_sample = (r(N) > 0)
+        local flat_N    = e(N)
+        local flat_rank = e(rank)
+        local flat_ll   = e(ll)
+        quietly _ms_omit_info e(b)
+        local flat_free = colsof(e(b)) - r(k_omit)
+
         capture quietly `native_cmdline'
         if _rc {
             local native_rc = _rc
@@ -906,6 +959,34 @@ program define _fvgen_margins_repost, eclass
                 display as error `"`native_cmdline'"'
                 exit 430
             }
+        }
+
+        local _mismatch ""
+        if `flat_has_sample' {
+            quietly count if `flat_sample' != e(sample)
+            if r(N) > 0 local _mismatch "`_mismatch' estimation-sample"
+        }
+        if !missing(`flat_N') & !missing(e(N)) {
+            if `flat_N' != e(N) local _mismatch "`_mismatch' N"
+        }
+        if !missing(`flat_rank') & !missing(e(rank)) {
+            if `flat_rank' != e(rank) local _mismatch "`_mismatch' rank"
+        }
+        quietly _ms_omit_info e(b)
+        if `flat_free' != colsof(e(b)) - r(k_omit) {
+            local _mismatch "`_mismatch' free-coefficients"
+        }
+        if !missing(`flat_ll') & !missing(e(ll)) {
+            if reldif(`flat_ll', e(ll)) > 1e-6 local _mismatch "`_mismatch' log-likelihood"
+        }
+        local _mismatch : list uniq _mismatch
+        if "`_mismatch'" != "" {
+            display as error ///
+                "fvgen, margins: the native refit is not the same model as the active flattened estimates (differs in:`_mismatch')"
+            display as error ///
+                "this happens when fvgen ran on a different if/in sample than the estimator, or with alllevels and noconstant; rerun fvgen on the estimation sample, or fit the model natively"
+            display as error `"`native_cmdline'"'
+            exit 498
         }
 
         ereturn local fvgen_margins "1"
