@@ -390,7 +390,7 @@ _cv_result "E15: Three sequential loveplot calls each have correct row names" `=
 * =========================================================================
 display _n "--- CV Dataset F: KS hline combinations (regression bug 4) ---"
 
-* CV16: balance with ks + nowvar (no-adj, ks → hline 72)
+* CV16: balance with ks + nowvar (no-adj, ks → hline 59)
 capture noisily {
     gen double ipw_e = cond(treated==1, 1/ps, 1/(1-ps))
     psdash balance treated ps, covariates(x1 x2) nowvar ks
@@ -400,7 +400,7 @@ capture noisily {
 }
 _cv_result "F16: balance ks+nowvar runs without error" `=_rc'
 
-* CV17: balance with ks + wvar (adj, ks → hline 96)
+* CV17: balance with ks + wvar (adj, ks → hline 76)
 capture noisily {
     gen double ipw_f = cond(treated==1, 1/ps, 1/(1-ps))
     psdash balance treated ps, covariates(x1 x2) wvar(ipw_f) ks

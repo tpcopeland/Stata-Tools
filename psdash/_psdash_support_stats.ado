@@ -1,4 +1,4 @@
-*! _psdash_support_stats Version 1.7.2  2026/09/09
+*! _psdash_support_stats Version 1.7.3  2026/09/29
 *! Common support bounds and outside-count statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -15,20 +15,26 @@ program define _psdash_support_stats, rclass
 
         return clear
 
+        * Bounds are data values (group minima/maxima or quantiles). They are
+        * kept in scalars, never in decimal locals: a double does not survive
+        * the round trip through a macro's decimal text for roughly a third of
+        * values, so the observation that DEFINES a bound could be counted
+        * outside the support it defines, at rc 0.
+        tempname lb ub min_t min_c max_t max_c q_lo q_hi
         if "`multigroup'" == "" | "`multigroup'" == "0" {
             quietly {
                 summarize `psvar' if `treatment' == 1 & `samplevar'
                 local n_treated = r(N)
                 local mean_ps_t = r(mean)
-                local min_ps_t = r(min)
-                local max_ps_t = r(max)
+                scalar `min_t' = r(min)
+                scalar `max_t' = r(max)
                 local sd_ps_t = r(sd)
 
                 summarize `psvar' if `treatment' == 0 & `samplevar'
                 local n_control = r(N)
                 local mean_ps_c = r(mean)
-                local min_ps_c = r(min)
-                local max_ps_c = r(max)
+                scalar `min_c' = r(min)
+                scalar `max_c' = r(max)
                 local sd_ps_c = r(sd)
 
                 if `qtrim' >= 0 {
@@ -36,28 +42,26 @@ program define _psdash_support_stats, rclass
                     * tails that drag the raw min/max overlap region.
                     local _qhi = 100 - `qtrim'
                     _pctile `psvar' if `treatment' == 1 & `samplevar', p(`qtrim' `_qhi')
-                    local _qt_lo = r(r1)
-                    local _qt_hi = r(r2)
+                    scalar `q_lo' = r(r1)
+                    scalar `q_hi' = r(r2)
                     _pctile `psvar' if `treatment' == 0 & `samplevar', p(`qtrim' `_qhi')
-                    local _qc_lo = r(r1)
-                    local _qc_hi = r(r2)
-                    local lower_bound = max(`_qt_lo', `_qc_lo')
-                    local upper_bound = min(`_qt_hi', `_qc_hi')
+                    scalar `lb' = max(`q_lo', r(r1))
+                    scalar `ub' = min(`q_hi', r(r2))
                 }
                 else {
-                    local lower_bound = max(`min_ps_t', `min_ps_c')
-                    local upper_bound = min(`max_ps_t', `max_ps_c')
+                    scalar `lb' = max(`min_t', `min_c')
+                    scalar `ub' = min(`max_t', `max_c')
                 }
 
-                count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') & `samplevar'
+                count if (`psvar' < `lb' | `psvar' > `ub') & `samplevar'
                 local n_outside = r(N)
                 local pct_outside = 100 * `n_outside' / `n'
 
-                count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') ///
+                count if (`psvar' < `lb' | `psvar' > `ub') ///
                     & `treatment' == 1 & `samplevar'
                 local n_outside_t = r(N)
 
-                count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') ///
+                count if (`psvar' < `lb' | `psvar' > `ub') ///
                     & `treatment' == 0 & `samplevar'
                 local n_outside_c = r(N)
             }
@@ -65,17 +69,17 @@ program define _psdash_support_stats, rclass
             return scalar n_treated = `n_treated'
             return scalar n_control = `n_control'
             return scalar mean_ps_t = `mean_ps_t'
-            return scalar min_ps_t = `min_ps_t'
-            return scalar max_ps_t = `max_ps_t'
+            return scalar min_ps_t = `min_t'
+            return scalar max_ps_t = `max_t'
             return scalar sd_ps_t = `sd_ps_t'
             return scalar mean_ps_c = `mean_ps_c'
-            return scalar min_ps_c = `min_ps_c'
-            return scalar max_ps_c = `max_ps_c'
+            return scalar min_ps_c = `min_c'
+            return scalar max_ps_c = `max_c'
             return scalar sd_ps_c = `sd_ps_c'
-            return scalar lower_bound = `lower_bound'
-            return scalar upper_bound = `upper_bound'
-            return scalar overlap_lower = `lower_bound'
-            return scalar overlap_upper = `upper_bound'
+            return scalar lower_bound = `lb'
+            return scalar upper_bound = `ub'
+            return scalar overlap_lower = `lb'
+            return scalar overlap_upper = `ub'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             return scalar n_outside_t = `n_outside_t'
@@ -124,25 +128,27 @@ program define _psdash_support_stats, rclass
                     summarize `lev_ps' if `treatment' == `lev' & `samplevar'
                     local n_group_`lev' = r(N)
                     local mean_ps_`lev' = r(mean)
-                    local min_ps_`lev' = r(min)
-                    local max_ps_`lev' = r(max)
+                    tempname min_ps_`lev' max_ps_`lev'
+                    scalar `min_ps_`lev'' = r(min)
+                    scalar `max_ps_`lev'' = r(max)
                     local sd_ps_`lev' = r(sd)
                     local idx = `idx' + 1
                 }
 
-                local lower_bound = 0
-                local upper_bound = 1
+                * Scalars, not decimal locals: see the binary branch.
+                scalar `lb' = 0
+                scalar `ub' = 1
                 foreach lev of local levels {
-                    if `min_ps_`lev'' > `lower_bound' local lower_bound = `min_ps_`lev''
-                    if `max_ps_`lev'' < `upper_bound' local upper_bound = `max_ps_`lev''
+                    if `min_ps_`lev'' > `lb' scalar `lb' = `min_ps_`lev''
+                    if `max_ps_`lev'' < `ub' scalar `ub' = `max_ps_`lev''
                 }
 
-                count if (`obsps' < `lower_bound' | `obsps' > `upper_bound') & `samplevar'
+                count if (`obsps' < `lb' | `obsps' > `ub') & `samplevar'
                 local n_outside = r(N)
                 local pct_outside = 100 * `n_outside' / `n'
 
                 foreach lev of local levels {
-                    count if (`obsps' < `lower_bound' | `obsps' > `upper_bound') ///
+                    count if (`obsps' < `lb' | `obsps' > `ub') ///
                         & `treatment' == `lev' & `samplevar'
                     local n_outside_`lev' = r(N)
                 }
@@ -191,10 +197,10 @@ program define _psdash_support_stats, rclass
                 return scalar n_outside_`lev' = `n_outside_`lev''
                 return scalar min_gps_`lev' = `min_gps_`lev''
             }
-            return scalar lower_bound = `lower_bound'
-            return scalar upper_bound = `upper_bound'
-            return scalar overlap_lower = `lower_bound'
-            return scalar overlap_upper = `upper_bound'
+            return scalar lower_bound = `lb'
+            return scalar upper_bound = `ub'
+            return scalar overlap_lower = `lb'
+            return scalar overlap_upper = `ub'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             * Full-vector GPS positivity (RB-02)

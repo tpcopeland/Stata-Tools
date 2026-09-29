@@ -72,7 +72,9 @@ the value must be positive.
 {opt sheet(string)} sets the Excel sheet name.
 
 {phang}
-{opt love:plot} requests a Love plot.
+{opt love:plot} requests a Love plot of raw and, when weights are applied,
+adjusted SMDs. Multi-group contrasts are named with the treatment's value
+labels, shown verbatim, or with numeric codes for unlabelled levels.
 
 {phang}
 {opt sav:ing(filename)} saves the requested graph.
@@ -93,7 +95,8 @@ the value must be positive.
 {opt name(string)} names the graph in memory.
 
 {phang}
-{opt ks} requests Kolmogorov-Smirnov distances.
+{opt ks} displays Kolmogorov-Smirnov distances: raw and, when weights are
+applied, adjusted (weighted empirical CDF) columns.
 
 {phang}
 {opt esti:mand(string)} specifies {cmd:ate}, {cmd:att}, or {cmd:atc}.
@@ -105,7 +108,9 @@ also returned in {cmd:r(smd)}.
 {phang}
 {opt strat:egies(string)} selects a space-separated subset of {cmd:raw},
 {cmd:ate}, {cmd:att}, and {cmd:atc} for the Love plot. It requires a
-propensity score and a binary treatment.
+propensity score and a binary treatment. A strategy whose weight is undefined
+for an exact 0 or 1 propensity score exits with error 459 after the balance
+table and its stored results are posted.
 
 {phang}
 {opt dist:ribution(varlist)} selects assessed covariates for distribution plots and

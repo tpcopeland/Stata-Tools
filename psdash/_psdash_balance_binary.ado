@@ -1,4 +1,4 @@
-*! _psdash_balance_binary Version 1.7.2  2026/09/09
+*! _psdash_balance_binary Version 1.7.3  2026/09/29
 *! Binary covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,7 +36,7 @@ program define _psdash_balance_binary, rclass
             exit 2001
         }
 
-        tempname balance_mat
+        tempname balance_mat _svmin _svmax
         matrix `balance_mat' = J(`nvars', 10, .)
         matrix colnames `balance_mat' = "Mean_T" "Mean_C" "SMD_Raw" "VR_Raw" "KS_Raw" "Mean_T_Adj" "Mean_C_Adj" "SMD_Adj" "VR_Adj" "KS_Adj"
         local rownames ""
@@ -72,11 +72,16 @@ program define _psdash_balance_binary, rclass
             * Flag binary/indicator covariates: VR carries no information beyond
             * the SMD for a two-level covariate, so it is excluded from the VR
             * verdict and footnoted in the caller.
+            * The two support points are data values: test membership against
+            * exact scalars, not their decimal macro text, or a two-valued
+            * double (e.g. a centred indicator) is misread as continuous.
             quietly summarize `var'
             local _vmin = r(min)
             local _vmax = r(max)
-            quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
-            local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
+            scalar `_svmin' = r(min)
+            scalar `_svmax' = r(max)
+            quietly count if `var' != `_svmin' & `var' != `_svmax' & !missing(`var')
+            local _isbin_`i' = (r(N) == 0 & `_svmin' != `_svmax')
             local _vrange = `_vmax' - `_vmin'
 
             quietly summarize `var' if `treatment' == 1
@@ -201,7 +206,8 @@ program define _psdash_balance_binary, rclass
 
                 * RB-12: `sd_pooled' is the UNWEIGHTED pooled SD, deliberately
                 * reused for the adjusted column so raw and adjusted share a
-                * scale (the cobalt (R) default). This is NOT Austin & Stuart
+                * scale (cobalt computes its denominator the same way; its pooled
+                * default applies to the ATE only). This is NOT Austin & Stuart
                 * (2015): their section 4.1.1 replaces EACH sample estimate with
                 * its weighted equivalent, so their weighted SMD divides by a
                 * weighted variance. The help used to cite them for this choice,

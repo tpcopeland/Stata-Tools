@@ -1,4 +1,4 @@
-*! psdash_support Version 1.7.2  2026/09/09
+*! psdash_support Version 1.7.3  2026/09/29
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -288,6 +288,11 @@ program define psdash_support, rclass
     local max_ps_c = r(max_ps_c)
     local lower_bound = r(lower_bound)
     local upper_bound = r(upper_bound)
+    * The bounds are data values: keep exact copies for every comparison with
+    * the data (the decimal locals above serve display only).
+    tempname cs_lower cs_upper
+    scalar `cs_lower' = r(lower_bound)
+    scalar `cs_upper' = r(upper_bound)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
     local n_outside_t = r(n_outside_t)
@@ -390,7 +395,7 @@ program define psdash_support, rclass
         }
         else {
             quietly gen byte `generate' = ///
-                (`psvar' >= `lower_bound' & `psvar' <= `upper_bound') if `touse'
+                (`psvar' >= `cs_lower' & `psvar' <= `cs_upper') if `touse'
             label variable `generate' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
         }
     }
@@ -769,8 +774,9 @@ program define psdash_support, rclass
 
     * Get group labels
     foreach lev of local levels {
-        local lbl_`lev' : label (`treatment') `lev'
-        if "`lbl_`lev''" == "" local lbl_`lev' "Group `lev'"
+        * Value label, verbatim and inert (code when unlabelled)
+        _psdash_label_text, variable(`treatment') level(`lev')
+        local lbl_`lev' `"`r(text)'"'
     }
 
     * COMMON SUPPORT ANALYSIS
@@ -790,6 +796,9 @@ program define psdash_support, rclass
     }
     local lower_bound = r(lower_bound)
     local upper_bound = r(upper_bound)
+    tempname cs_lower cs_upper
+    scalar `cs_lower' = r(lower_bound)
+    scalar `cs_upper' = r(upper_bound)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
     * Full-vector GPS positivity (RB-02)
@@ -1082,8 +1091,8 @@ program define psdash_support, rclass
             return scalar N = `N'
             return scalar N_treated = `n_treated'
             return scalar N_control = `n_control'
-            return scalar lower_bound = `lower_bound'
-            return scalar upper_bound = `upper_bound'
+            return scalar lower_bound = `cs_lower'
+            return scalar upper_bound = `cs_upper'
             if `qtrim' != -1 return scalar qtrim = `qtrim'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
@@ -1127,8 +1136,8 @@ program define psdash_support, rclass
                 return scalar n_outside_group_`lev' = `n_outside_`lev''
                 return scalar min_gps_group_`lev' = `min_gps_`lev''
             }
-            return scalar lower_bound = `lower_bound'
-            return scalar upper_bound = `upper_bound'
+            return scalar lower_bound = `cs_lower'
+            return scalar upper_bound = `cs_upper'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             * Full-vector GPS positivity (RB-02)

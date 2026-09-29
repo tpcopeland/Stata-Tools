@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.7.2  2026/09/09
+*! psdash_balance Version 1.7.3  2026/09/29
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -118,7 +118,9 @@ program define psdash_balance, rclass
     * the treatment-only case ourselves before falling through to detect.
     local _manual_mg = 0
     local _n_pos_args : word count `anything'
-    if `_n_pos_args' == 1 & ("`wvar'" != "" | "`nowvar'" != "") {
+    * matched, like nowvar, needs no propensity score: a treatment-only call
+    * names its whole design and must not fall through to auto-detection.
+    if `_n_pos_args' == 1 & ("`wvar'" != "" | "`nowvar'" != "" | "`matched'" != "") {
         local ref_manual_opt ""
         if "`reference'" != "" local ref_manual_opt "reference(`reference')"
         local estimand_manual_opt ""
@@ -454,33 +456,36 @@ program define psdash_balance, rclass
     local vr_fmt "%6.2f"
     local ks_fmt "%6.3f"
     local show_ks = ("`ks'" != "")
+    * The unadjusted SMD column is as wide as its label ("SMD (Matched)").
+    local smd_w = max(9, strlen("`smd_label'") + 1)
+    local smd_pad = `smd_w' - 9
     if `has_adj' {
         if `show_ks' {
-            display as text "{hline 96}"
+            display as text "{hline 84}"
             display as text %20s "Covariate" " {c |}" ///
-                %9s "SMD Raw" %8s "VR Raw" %8s "KS" ///
-                %9s "SMD Adj" %8s "VR Adj" %12s "Status"
-            display as text "{hline 96}"
+                %9s "SMD Raw" %8s "VR Raw" %8s "KS Raw" ///
+                %9s "SMD Adj" %8s "VR Adj" %8s "KS Adj" %12s "Status"
+            display as text "{hline 84}"
         }
         else {
-            display as text "{hline 87}"
+            display as text "{hline 68}"
             display as text %20s "Covariate" " {c |}" ///
                 %9s "SMD Raw" %8s "VR Raw" %9s "SMD Adj" %8s "VR Adj" %12s "Status"
-            display as text "{hline 87}"
+            display as text "{hline 68}"
         }
     }
     else {
         if `show_ks' {
-            display as text "{hline 72}"
+            display as text "{hline `=59+`smd_pad''}"
             display as text %20s "Covariate" " {c |}" ///
-                %9s "`smd_label'" %8s "VR" %8s "KS" %12s "Status"
-            display as text "{hline 72}"
+                %`smd_w's "`smd_label'" %8s "VR" %8s "KS" %12s "Status"
+            display as text "{hline `=59+`smd_pad''}"
         }
         else {
-            display as text "{hline 63}"
+            display as text "{hline `=51+`smd_pad''}"
             display as text %20s "Covariate" " {c |}" ///
-                %9s "`smd_label'" %8s "VR" %12s "Status"
-            display as text "{hline 63}"
+                %`smd_w's "`smd_label'" %8s "VR" %12s "Status"
+            display as text "{hline `=51+`smd_pad''}"
         }
     }
 
@@ -516,45 +521,33 @@ program define psdash_balance, rclass
 
         local varname = abbrev("`: word `i' of `_cov_labels''", 20)
 
+        * Each cell is formatted, then right-aligned in its header's column
+        * with a guaranteed leading blank: the bare value formats (%6.3f) are
+        * narrower than the headers and fused adjacent negative values into
+        * one token (e.g. "1.04-0.032").
+        local c_smd_raw = strtrim(string(`smd_raw', "`format'"))
+        local c_vr_raw = strtrim(string(`vr_raw_i', "`vr_fmt'"))
+        local c_ks_raw = strtrim(string(`ks_raw_i', "`ks_fmt'"))
+        local _w = cond(`has_adj', 9, `smd_w')
+        local row_line `"as text %20s "`varname'" " {c |}" as result %`_w's " `c_smd_raw'" %8s " `c_vr_raw'""'
+        if `show_ks' local row_line `"`row_line' %8s " `c_ks_raw'""'
         if `has_adj' {
+            local c_smd_adj = strtrim(string(`smd_adj', "`format'"))
+            local c_vr_adj = strtrim(string(`vr_adj_i', "`vr_fmt'"))
+            local row_line `"`row_line' %9s " `c_smd_adj'" %8s " `c_vr_adj'""'
+            * The adjusted KS is reported alongside its raw column, so the
+            * table carries every value the summary's adjusted maximum reads.
             if `show_ks' {
-                display as text %20s "`varname'" " {c |}" ///
-                    as result `format' `smd_raw' ///
-                    as result `vr_fmt' `vr_raw_i' ///
-                    as result `ks_fmt' `ks_raw_i' ///
-                    as result `format' `smd_adj' ///
-                    as result `vr_fmt' `vr_adj_i' ///
-                    `status_color' %12s "`status'"
-            }
-            else {
-                display as text %20s "`varname'" " {c |}" ///
-                    as result `format' `smd_raw' ///
-                    as result `vr_fmt' `vr_raw_i' ///
-                    as result `format' `smd_adj' ///
-                    as result `vr_fmt' `vr_adj_i' ///
-                    `status_color' %12s "`status'"
+                local c_ks_adj = strtrim(string(`balance_mat'[`i', 10], "`ks_fmt'"))
+                local row_line `"`row_line' %8s " `c_ks_adj'""'
             }
         }
-        else {
-            if `show_ks' {
-                display as text %20s "`varname'" " {c |}" ///
-                    as result `format' `smd_raw' ///
-                    as result `vr_fmt' `vr_raw_i' ///
-                    as result `ks_fmt' `ks_raw_i' ///
-                    `status_color' %12s "`status'"
-            }
-            else {
-                display as text %20s "`varname'" " {c |}" ///
-                    as result `format' `smd_raw' ///
-                    as result `vr_fmt' `vr_raw_i' ///
-                    `status_color' %12s "`status'"
-            }
-        }
+        display `row_line' `status_color' %12s "`status'"
 
         local i = `i' + 1
     }
 
-    local _hline_w = cond(`has_adj', cond(`show_ks', 96, 87), cond(`show_ks', 72, 63))
+    local _hline_w = cond(`has_adj', cond(`show_ks', 84, 68), cond(`show_ks', 59, 51) + `smd_pad')
     display as text "{hline `_hline_w'}"
 
     * Summary
@@ -768,6 +761,16 @@ program define psdash_balance, rclass
                             replace `wt_s' = (1-`psvar')/`psvar' if `treatment'==1 & `psvar'>0 & `touse'
                             replace `wt_s' = 1 if `treatment'==0 & `touse'
                         }
+                    }
+                    * An exact 0/1 PS makes this strategy's weight undefined.
+                    * Refuse, as the primary auto-weight path does, rather
+                    * than plot an SMD for a silently smaller sample.
+                    quietly count if `touse' & missing(`wt_s')
+                    if r(N) > 0 {
+                        display as error "strategies(`s'): `r(N)' observation(s) have an undefined `=strupper("`s'")' weight"
+                        display as error "  because the propensity score is at an exact 0 or 1 boundary."
+                        display as error "  Trim the boundary observations or omit `s' from strategies()."
+                        exit 459
                     }
                     _psdash_balance_binary `varlist', treatment(`treatment') ///
                         samplevar(`touse') threshold(`threshold') wvar(`wt_s')
@@ -1113,12 +1116,9 @@ program define psdash_balance, rclass
     display as text "Treatment:     " as result "`treatment'" as text " (`K' groups, ref = `mg_reference')"
     display as text "Estimand:      " as result strupper("`estimand'")
     foreach lev of local levels {
-        * Try to get a value label for this level
-        local lbl_`lev' "`lev'"
-        local vallbl : value label `treatment'
-        if "`vallbl'" != "" {
-            local lbl_`lev' : label `vallbl' `lev'
-        }
+        * Value label, verbatim and inert (code when unlabelled)
+        _psdash_label_text, variable(`treatment') level(`lev')
+        local lbl_`lev' `"`r(text)'"'
         display as text "N (Group `lbl_`lev''):" _col(16) as result %10.0fc `n_group_`lev''
     }
     if "`wvar'" != "" {
@@ -1138,7 +1138,7 @@ program define psdash_balance, rclass
     * Build display header dynamically
     * For each contrast: SMD avR, VR avR (and optionally KS)
     * Plus Status column
-    local hdr_width = 20 + 1  // covariate + separator
+    local hdr_width = 20 + 2  // covariate + " |" separator
     foreach clev of local contrasts {
         local hdr_width = `hdr_width' + 9 + 8  // SMD + VR per contrast
         if `show_ks' local hdr_width = `hdr_width' + 8
@@ -1146,6 +1146,7 @@ program define psdash_balance, rclass
     if `has_adj' {
         foreach clev of local contrasts {
             local hdr_width = `hdr_width' + 9 + 8
+            if `show_ks' local hdr_width = `hdr_width' + 8
         }
     }
     local hdr_width = `hdr_width' + 12  // Status
@@ -1169,6 +1170,7 @@ program define psdash_balance, rclass
     if `has_adj' {
         foreach clev of local contrasts {
             local hdr_line `"`hdr_line' %9s "Adj `clev'v`mg_reference'" %8s "VR""'
+            if `show_ks' local hdr_line `"`hdr_line' %8s "KS""'
         }
     }
     local hdr_line `"`hdr_line' %12s "Status""'
@@ -1195,9 +1197,14 @@ program define psdash_balance, rclass
             local vr_raw_v = `balance_mat'[`i', `col_vr_raw']
             local ks_raw_v = `balance_mat'[`i', `col_ks_raw']
 
-            local row_line `"`row_line' as result `format' `smd_raw_v' as result `vr_fmt' `vr_raw_v'"'
+            * Right-align each formatted cell in its header's column with a
+            * guaranteed leading blank (see the binary table).
+            local c_smd = strtrim(string(`smd_raw_v', "`format'"))
+            local c_vr = strtrim(string(`vr_raw_v', "`vr_fmt'"))
+            local row_line `"`row_line' as result %9s " `c_smd'" %8s " `c_vr'""'
             if `show_ks' {
-                local row_line `"`row_line' as result `ks_fmt' `ks_raw_v'"'
+                local c_ks = strtrim(string(`ks_raw_v', "`ks_fmt'"))
+                local row_line `"`row_line' %8s " `c_ks'""'
             }
 
             if `has_adj' {
@@ -1229,7 +1236,13 @@ program define psdash_balance, rclass
                 local adj_vr_col = `ncols_raw' + (`cnum' - 1) * 5 + 4
                 local smd_adj_v = `balance_mat'[`i', `adj_smd_col']
                 local vr_adj_v = `balance_mat'[`i', `adj_vr_col']
-                local row_line `"`row_line' as result `format' `smd_adj_v' as result `vr_fmt' `vr_adj_v'"'
+                local c_smd = strtrim(string(`smd_adj_v', "`format'"))
+                local c_vr = strtrim(string(`vr_adj_v', "`vr_fmt'"))
+                local row_line `"`row_line' as result %9s " `c_smd'" %8s " `c_vr'""'
+                if `show_ks' {
+                    local c_ks = strtrim(string(`balance_mat'[`i', `ncols_raw' + (`cnum' - 1) * 5 + 5], "`ks_fmt'"))
+                    local row_line `"`row_line' %8s " `c_ks'""'
+                }
             }
         }
 
@@ -1333,6 +1346,14 @@ program define psdash_balance, rclass
     if "`loveplot'" != "" {
         capture noisily {
             quietly {
+                * Contrast names use the treatment's value labels when present
+                * (codes otherwise), read before preserve/clear removes the
+                * variable. _psdash_label_text returns inert, verbatim text.
+                foreach lev in `contrasts' `mg_reference' {
+                    _psdash_label_text, variable(`treatment') level(`lev')
+                    local _gl_`lev' `"`r(text)'"'
+                }
+
                 preserve
 
                 clear
@@ -1340,11 +1361,14 @@ program define psdash_balance, rclass
                 gen str80 covariate = ""
                 gen order = _n
 
-                * Create one SMD variable per contrast
+                * One raw SMD variable per contrast, plus an adjusted one when
+                * weights are applied: the Love plot shows raw and adjusted
+                * balance, as the binary plot does.
                 local cnum = 0
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
                     gen double smd_`cnum' = .
+                    if `has_adj' gen double smda_`cnum' = .
                 }
 
                 local i = 1
@@ -1354,20 +1378,22 @@ program define psdash_balance, rclass
                     foreach clev of local contrasts {
                         local cnum = `cnum' + 1
                         local col_smd = (`cnum' - 1) * 5 + 3
+                        replace smd_`cnum' = `balance_mat'[`i', `col_smd'] in `i'
                         if `has_adj' {
                             local col_smd = `ncols_raw' + (`cnum' - 1) * 5 + 3
+                            replace smda_`cnum' = `balance_mat'[`i', `col_smd'] in `i'
                         }
-                        replace smd_`cnum' = `balance_mat'[`i', `col_smd'] in `i'
                     }
                     local i = `i' + 1
                 }
 
-                * Sort by max absolute SMD across contrasts
+                * Sort by max absolute SMD across contrasts (raw and adjusted)
                 gen double abs_smd_max = 0
                 local cnum = 0
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
                     replace abs_smd_max = max(abs_smd_max, abs(smd_`cnum'))
+                    if `has_adj' replace abs_smd_max = max(abs_smd_max, abs(smda_`cnum'))
                 }
                 gsort +abs_smd_max
                 replace order = _n
@@ -1389,28 +1415,51 @@ program define psdash_balance, rclass
                 local cnum = 0
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
-                    summarize smd_`cnum'
-                    local xm = max(abs(r(min)), abs(r(max))) * 1.1
-                    if `xm' > `xmax' local xmax = `xm'
+                    foreach _sv in smd smda {
+                        if "`_sv'" == "smda" & !`has_adj' continue
+                        summarize `_sv'_`cnum'
+                        local xm = max(abs(r(min)), abs(r(max))) * 1.1
+                        if `xm' > `xmax' local xmax = `xm'
+                    }
                 }
                 local xmax = max(`xmax', 0.5)
                 local xmax = ceil(`xmax' * 4) / 4
                 local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
 
-                * Build plot command with one series per contrast
+                * Build plot command: per contrast, a hollow raw series and,
+                * when weighted, a solid adjusted series in the same colour.
                 local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
                 local symbol_list "circle diamond triangle square plus X smcircle smsquare"
+                local hollow_list "Oh Dh Th Sh plus X smcircle_hollow smsquare_hollow"
                 local plot_cmd ""
                 local legend_order ""
                 local cnum = 0
+                local snum = 0
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
                     local col : word `cnum' of `color_list'
                     local sym : word `cnum' of `symbol_list'
-                    local lbl "`clev' vs `mg_reference'"
-                    local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`sym') mcolor(`col'))"'
-                    local legend_order `"`legend_order' `cnum' "`lbl'""'
+                    local hsym : word `cnum' of `hollow_list'
+                    local lbl `"`macval(_gl_`clev')' vs `macval(_gl_`mg_reference')'"'
+                    if `has_adj' {
+                        * One legend key per contrast (its adjusted series);
+                        * the note explains hollow = raw, which keeps the
+                        * legend narrow enough for a dashboard panel.
+                        local ++snum
+                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`hsym') mcolor(`col'))"'
+                        local ++snum
+                        local plot_cmd `"`plot_cmd' (scatter order smda_`cnum', msymbol(`sym') mcolor(`col'))"'
+                        local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
+                    }
+                    else {
+                        local ++snum
+                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`sym') mcolor(`col'))"'
+                        local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
+                    }
                 }
+                local legend_layout "rows(1)"
+                local raw_adj_note ""
+                if `has_adj' local raw_adj_note `"note("Hollow markers: unadjusted; solid markers: adjusted", size(small))"'
 
                 local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
                 local plotopts "`plotopts' xline(0, lcolor(gs8) lpattern(solid))"
@@ -1418,10 +1467,12 @@ program define psdash_balance, rclass
                 local plotopts "`plotopts' xlabel(-`xmax'(`xstep')`xmax')"
                 local plotopts "`plotopts' ytitle("") xtitle("Standardized Mean Difference")"
                 local plotopts `"`plotopts' title(`"`title'"')"'
-                local plotopts `"`plotopts' legend(order(`legend_order') rows(1) position(6))"'
 
                 noisily twoway `plot_cmd', ///
-                    `plotopts' `graphoptions' name(`name', replace)
+                    `plotopts' ///
+                    legend(order(`macval(legend_order)') `legend_layout' position(6)) ///
+                    `raw_adj_note' ///
+                    `graphoptions' name(`name', replace)
 
                 if "`saving'" != "" {
                     _psdash_graph_export, saving("`saving'")

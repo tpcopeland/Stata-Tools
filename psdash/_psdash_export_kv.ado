@@ -1,4 +1,4 @@
-*! _psdash_export_kv Version 1.7.2  2026/09/09
+*! _psdash_export_kv Version 1.7.3  2026/09/29
 *! Write a two-column (Metric, Value) summary sheet to an Excel workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

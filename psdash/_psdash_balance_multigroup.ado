@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.7.2  2026/09/09
+*! _psdash_balance_multigroup Version 1.7.3  2026/09/29
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -51,7 +51,7 @@ program define _psdash_balance_multigroup, rclass
             }
         }
 
-        tempname balance_mat
+        tempname balance_mat _svmin _svmax
         matrix `balance_mat' = J(`nvars', `ncols', .)
 
         local colnames ""
@@ -93,11 +93,16 @@ program define _psdash_balance_multigroup, rclass
             }
 
             * Flag binary/indicator covariates (VR uninformative; see binary helper)
+            * The two support points are data values: test membership against
+            * exact scalars, not their decimal macro text, or a two-valued
+            * double (e.g. a centred indicator) is misread as continuous.
             quietly summarize `var'
             local _vmin = r(min)
             local _vmax = r(max)
-            quietly count if `var' != `_vmin' & `var' != `_vmax' & !missing(`var')
-            local _isbin_`i' = (r(N) == 0 & `_vmin' != `_vmax')
+            scalar `_svmin' = r(min)
+            scalar `_svmax' = r(max)
+            quietly count if `var' != `_svmin' & `var' != `_svmax' & !missing(`var')
+            local _isbin_`i' = (r(N) == 0 & `_svmin' != `_svmax')
             local _vrange = `_vmax' - `_vmin'
 
             quietly summarize `var' if `treatment' == `reference'

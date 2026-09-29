@@ -94,6 +94,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_v164_regressions.do` | Treatment-only dispatch, built-in estimation samples, Crump alpha zero, point support, and source corrections. |
 | `test_v169_regressions.do` | Varabbrev cleanup, option-combination errors, quoted Excel titles, internal program classes, and help rendering. |
 | `test_v171_audit_regressions.do` | Multi-group weight boundaries and ledgers, factor-variable endpoints, reduced-arm mlogit rejection, and stable detect labels. |
+| `test_v173_audit_regressions.do` | Exact common-support bounds (overlap, support, qtrim, `generate()`, multi-group, longitudinal) against a scalar oracle, two-valued double covariates classified binary, treatment-only `matched` balance, `strategies()` boundary refusal, weighted KS against an independent ECDF, value-labelled raw/adjusted multi-group Love plots, verbatim hostile value labels, whole-count histogram axes, and separated, aligned balance-table cells. |
 
 ### Validation
 

@@ -60,31 +60,37 @@ _psdash_pka_record tied_auc_half_credit `=_rc'
 **# Quantile common support
 **## Tied order statistics resolve to exact p25/p75 bounds
 
+* Dyadic scores keep the averaged order statistics exact in binary. With
+* decimal scores such as .10/.20/.15, the stored-double mean of .10 and .20 is
+* 0.15000000000000002, strictly above the stored .15, so an exact comparison
+* correctly places a stored .15 below that bound; the earlier fixture only
+* matched its decimal hand answer because bounds were rounded through macro
+* text (the v1.7.3 defect).
 capture noisily {
     clear
     input byte treated double ps
-        1 0.10
-        1 0.10
-        1 0.20
-        1 0.20
-        1 0.80
-        1 0.80
-        1 0.90
-        1 0.90
-        0 0.05
-        0 0.15
-        0 0.15
-        0 0.25
-        0 0.75
-        0 0.85
-        0 0.85
-        0 0.95
+        1 0.125
+        1 0.125
+        1 0.25
+        1 0.25
+        1 0.75
+        1 0.75
+        1 0.875
+        1 0.875
+        0 0.0625
+        0 0.1875
+        0 0.1875
+        0 0.3125
+        0 0.6875
+        0 0.8125
+        0 0.8125
+        0 0.9375
     end
 
     psdash support treated ps, qtrim(25) nograph
     assert r(qtrim) == 25
-    assert abs(r(lower_bound) - 0.15) < 1e-12
-    assert abs(r(upper_bound) - 0.85) < 1e-12
+    assert r(lower_bound) == 0.1875
+    assert r(upper_bound) == 0.8125
     assert r(n_outside_treated) == 4
     assert r(n_outside_control) == 2
     assert r(n_outside) == 6
