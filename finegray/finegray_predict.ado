@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.7  2026/09/28
+*! finegray_predict Version 1.3.7  2026/09/29
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -633,7 +633,8 @@ program define finegray_predict, rclass sortpreserve
             foreach _term of local _fv_semantic {
                 local ++_term_i
                 * base terms (e.g. 1b.grp) carry no coefficient
-                if regexm("`_term'", "[0-9]+b\.") continue
+                if regexm("`_term'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_term'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
 
                 * Label with the term spelled EXACTLY as e(fvsemantic) has it --
                 * `2.grp#c.z', not `2.grp#z'.  finegray_phtest's r(phtest) rownames
@@ -769,7 +770,40 @@ program define finegray_predict, rclass sortpreserve
             tempname b
             _finegray_bnb, b(`b')
             local _n_scorecols : word count `_score_varlist'
-            if colsof(`b') == `_n_scorecols' {
+            * Is e(b) still the FITTED stripe?  Decided on the names, not
+            * the count: margins re-stripes e(b) onto its own indicator
+            * columns (c.x#c.__00000J ...) while it computes dydx() and at()
+            * margins, and on an interaction-only fit (ibn.a#c.x, i.a#c.x) the
+            * re-striped vector has exactly as many columns as the design, so
+            * a count test took it for the fitted one.  xb then scored the
+            * fit's own design at the data's values and ignored at(): margins,
+            * dydx(x) at(a=(1 2 3)) returned one number for every level at
+            * rc 0 through 1.3.7.
+            * Both sides are read as POSTED: e(b)'s own stripe (the copy
+            * _finegray_bnb returns is renormalised by Stata -- 2.a becomes
+            * 2bn.a once 1b.a is gone) against the fit-time terms.
+            local _fg_ecn : colnames e(b)
+            local _fg_ecn : list retokenize _fg_ecn
+            local _fg_bcn ""
+            foreach _fg_t of local _fg_ecn {
+                if regexm("`_fg_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_fg_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+                local _fg_bcn "`_fg_bcn' `_fg_t'"
+            }
+            local _fg_bcn : list retokenize _fg_bcn
+            local _fg_fitn ""
+            if `"`e(fvsemantic)'"' != "" {
+                foreach _fg_t in `e(fvsemantic)' {
+                    if regexm("`_fg_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                        regexm("`_fg_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+                    local _fg_fitn "`_fg_fitn' `_fg_t'"
+                }
+                local _fg_fitn : list retokenize _fg_fitn
+            }
+            local _fg_dvn "`e(designvars)'"
+            local _fg_dvn : list retokenize _fg_dvn
+            local _fg_fitted = ("`_fg_bcn'" == "`_fg_fitn'" | "`_fg_ecn'" == "`_fg_dvn'")
+            if `_fg_fitted' & colsof(`b') == `_n_scorecols' {
                 matrix colnames `b' = `_score_varlist'
                 matrix score `typlist' `varlist' = `b' if `touse'
             }
@@ -958,7 +992,40 @@ program define finegray_predict, rclass sortpreserve
             * -- cannot be honoured here the way xb honours it; refuse rather
             * than let `matrix colnames' mislabel by repetition.
             local _n_scorecols : word count `_score_varlist'
-            if colsof(`b') != `_n_scorecols' {
+            * Is e(b) still the FITTED stripe?  Decided on the names, not
+            * the count: margins re-stripes e(b) onto its own indicator
+            * columns (c.x#c.__00000J ...) while it computes dydx() and at()
+            * margins, and on an interaction-only fit (ibn.a#c.x, i.a#c.x) the
+            * re-striped vector has exactly as many columns as the design, so
+            * a count test took it for the fitted one.  xb then scored the
+            * fit's own design at the data's values and ignored at(): margins,
+            * dydx(x) at(a=(1 2 3)) returned one number for every level at
+            * rc 0 through 1.3.7.
+            * Both sides are read as POSTED: e(b)'s own stripe (the copy
+            * _finegray_bnb returns is renormalised by Stata -- 2.a becomes
+            * 2bn.a once 1b.a is gone) against the fit-time terms.
+            local _fg_ecn : colnames e(b)
+            local _fg_ecn : list retokenize _fg_ecn
+            local _fg_bcn ""
+            foreach _fg_t of local _fg_ecn {
+                if regexm("`_fg_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_fg_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+                local _fg_bcn "`_fg_bcn' `_fg_t'"
+            }
+            local _fg_bcn : list retokenize _fg_bcn
+            local _fg_fitn ""
+            if `"`e(fvsemantic)'"' != "" {
+                foreach _fg_t in `e(fvsemantic)' {
+                    if regexm("`_fg_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                        regexm("`_fg_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
+                    local _fg_fitn "`_fg_fitn' `_fg_t'"
+                }
+                local _fg_fitn : list retokenize _fg_fitn
+            }
+            local _fg_dvn "`e(designvars)'"
+            local _fg_dvn : list retokenize _fg_dvn
+            local _fg_fitted = ("`_fg_bcn'" == "`_fg_fitn'" | "`_fg_ecn'" == "`_fg_dvn'")
+            if !`_fg_fitted' | colsof(`b') != `_n_scorecols' {
                 display as error "e(b) does not carry the fitted coefficient stripe"
                 display as error "(`=colsof(`b')' non-base coefficients, `_n_scorecols' design columns);"
                 display as error "re-run {bf:finegray} before using finegray_predict, cif"

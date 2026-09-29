@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  28sep2026}{...}
+{* *! version 1.3.7  29sep2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -447,8 +447,10 @@ the columns its own prior run created and still owns: each is stamped with a
 per-run marker, so a column you dropped and rebuilt yourself under the same
 name is preserved and the fit is {cmd:r(198)} instead. Coefficient names follow the user's
 specification ({cmd:2.grp}), so {helpb test}, {helpb lincom} and
-{helpb estimates table} address them directly; each factor's base level is
-posted with a zero coefficient for {helpb margins}. {cmd:ibn.} as a main effect
+{helpb estimates table} address them directly; each omitted base term is
+posted with a zero coefficient for {helpb margins}. A base level that enters
+a real column is estimated, as in {helpb stcrreg}: {cmd:i.grp#c.x} fits a
+slope for every level, {cmd:1b.grp#c.x} included. {cmd:ibn.} as a main effect
 is {cmd:r(459)}; inside an interaction it is estimable. See
 {help finegray_methods##fv:Factor variables and margins}.
 
@@ -946,8 +948,8 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(bstrata)}}baseline strata variable; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(bstrata_noevent)}}strata with no cause event; only with {opt bstrata()}{p_end}
 {synopt:{cmd:e(bstrata_noevent_x)}}the same strata in {cmd:%21x}; only with {opt bstrata()}{p_end}
-{synopt:{cmd:e(bstrata_level)}}the sole fitted stratum; only when {opt bstrata()} has one level{p_end}
-{synopt:{cmd:e(bstrata_level_x)}}the same level in {cmd:%21x}; only when {opt bstrata()} has one level{p_end}
+{synopt:{cmd:e(bstrata_level)}}sole fitted stratum; {opt bstrata()} with one level{p_end}
+{synopt:{cmd:e(bstrata_level_x)}}the same in {cmd:%21x}; {opt bstrata()} with one level{p_end}
 {synopt:{cmd:e(tvc)}}variables named in {opt tvc()}; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tsplit)}}interior interval boundaries; only with {opt tvc()}{p_end}
 {synopt:{cmd:e(tvc_covariates)}}design columns they resolved to; only with {opt tvc()}{p_end}
@@ -977,8 +979,8 @@ Two-interval time-varying effect comparison
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:e(b)}}coefficient vector (log-SHR); base levels as zeros{p_end}
-{synopt:{cmd:e(V)}}variance-covariance matrix; zero at base levels{p_end}
+{synopt:{cmd:e(b)}}coefficient vector (log-SHR); zero at omitted terms{p_end}
+{synopt:{cmd:e(V)}}variance-covariance matrix; zero at omitted terms{p_end}
 {synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -988,7 +990,7 @@ Under {cmd:fweight}s {cmd:e(N)}, {cmd:e(N_fail)}, {cmd:e(N_compete)} and {cmd:e(
 totals; {cmd:pweight}s leave every count at the number of subjects and carry the
 weight total in {cmd:e(sum_w)}. {cmd:e(marginsok)} is empty under {opt tvc()} and on certain
 purely continuous interaction fits. On a factor fit {cmd:e(b)} is wider than
-{cmd:e(designvars)} by one zero column per base level; under {opt tvc()} it is wider by
+{cmd:e(designvars)} by one zero column per omitted base term; under {opt tvc()} it is wider by
 one column per named covariate per extra interval.
 
 
@@ -1022,7 +1024,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.7, 2026-09-28{p_end}
+{pstd}Version 1.3.7, 2026-09-29{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

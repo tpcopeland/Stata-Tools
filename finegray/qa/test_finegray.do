@@ -1506,7 +1506,7 @@ capture noisily {
     * all shipped programs must resolve
     foreach p in finegray finegray_cif finegray_predict finegray_phtest ///
                  _finegray_mata _finegray_check_data _finegray_weight_groups ///
-                 _finegray_resolve_baseline {
+                 _finegray_resolve_baseline _finegray_graph_text {
         capture which `p'
         assert _rc == 0
     }
@@ -1528,7 +1528,7 @@ capture noisily {
     * every shipped .ado header must carry that same version
     foreach f in finegray finegray_cif finegray_predict finegray_phtest ///
                  _finegray_mata _finegray_check_data _finegray_weight_groups ///
-                 _finegray_resolve_baseline {
+                 _finegray_resolve_baseline _finegray_graph_text {
         tempname fh2
         file open `fh2' using "`pkgroot'/`f'.ado", read text
         file read `fh2' l2
@@ -2171,14 +2171,28 @@ else {
     local ++fail_count
 }
 
-* T93: i.var#c.var — interaction only (no main effects)
+* T93: i.var#c.var — interaction only (no main effects): one slope per level.
+* 0b.pelnode#c.ifp is a real column (the level-0 slope), estimated by stcox and
+* stcrreg; through 1.3.7 finegray fixed it at 0 and asserted e(df_m) == 2 here.
 local ++test_count
 capture noisily {
     _setup_hypoxia
     finegray i.pelnode#c.ifp tumsize, compete(status) cause(1) nolog
     assert e(converged) == 1
-    assert e(df_m) == 2
+    assert e(df_m) == 3
+    assert _b[0b.pelnode#c.ifp] != 0 & !missing(_se[0b.pelnode#c.ifp])
+    tempname bfg
+    matrix `bfg' = e(b)
+    local llfg = e(ll)
     cap drop _fg_*
+    preserve
+    quietly stset dftime, failure(status == 1) id(stnum)
+    quietly stcrreg i.pelnode#c.ifp tumsize, compete(status == 2) nolog noshow
+    matrix colnames `bfg' = `: colnames e(b)'
+    assert mreldif(`bfg', e(b)) < 1e-5
+    assert !missing(`llfg') & !missing(e(ll))
+    assert reldif(`llfg', e(ll)) < 1e-7
+    restore
 }
 if _rc == 0 {
     display as result "  PASS: T93 i.var#c.var interaction-only"

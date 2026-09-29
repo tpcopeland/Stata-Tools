@@ -500,14 +500,13 @@ program define _fgs_hs
     capture erase `"`macval(f)'"'
     mata: st_global("FGS_HS_RES", st_local("s"))
 end
-* OPEN LEDGER (new finding, 2026-09-28, finegray 1.3.7 on main): saving()
-* re-expands the filename as macro text before its character check. A name
-* holding an unbalanced backtick exits r(199) instead of the documented
-* r(198) (corpus QA_HS_TICK, QA_HS_DOLLAR); a literal $NAME is expanded and
-* a DIFFERENT file is written at rc 0 (HS-2). The recorded failure set must
-* match exactly; a fix changes it and fails this block until the ledger is
-* emptied.
-local hs_open "QA_HS_TICK QA_HS_DOLLAR"
+* LEDGER (found 2026-09-28, fixed 2026-09-29): saving() re-expanded the
+* filename as macro text before its character check, so a name holding an
+* unbalanced backtick exited r(199) instead of the documented r(198) (corpus
+* QA_HS_TICK, QA_HS_DOLLAR) and a literal $NAME wrote a DIFFERENT file at
+* rc 0 (HS-2).  The name is now read and checked in Mata.  The ledger is
+* empty: every corpus string must be refused (documented) or written exactly.
+local hs_open ""
 local ++test_count
 capture noisily {
     _fgs_data
@@ -528,15 +527,14 @@ capture noisily {
     assert "`hsbad'" == "`hs_open'"
     assert `hsrc' == cond("`hs_open'" == "", 0, 9)
 }
-_fgs_result `=_rc' "HS-1 finegray_cif saving(): corpus refused (documented) or written literally; open set as recorded"
+_fgs_result `=_rc' "HS-1 finegray_cif saving(): corpus refused (documented) or written literally"
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' HS-1"
 
-**## HS-2 (OPEN) a literal $NAME in saving() must not be expanded
-* Recorded behaviour on this build: rc 0, the literal file is absent and the
-* expanded name was written. Contract: r(198) (documented rejection of "$")
-* or the literal file.
-local hs2_open "rc0 expanded"
+**## HS-2 a literal $NAME in saving() must not be expanded
+* Through 1.3.7: rc 0, the literal file absent and the expanded name written.
+* Contract: r(198) (documented rejection of "$") or the literal file.
+local hs2_open ""
 local ++test_count
 capture noisily {
     _fgs_data
@@ -561,7 +559,7 @@ capture noisily {
     if "`hs2_open'" == "" assert inlist("`sig'", "refused", "literal")
     else assert "`sig'" == "`hs2_open'"
 }
-_fgs_result `=_rc' "HS-2 finegray_cif saving() with a literal dollar-name: outcome as recorded (open)"
+_fgs_result `=_rc' "HS-2 finegray_cif saving() with a literal dollar-name: refused or literal"
 local pass_count = `pass_count' + r(pass)
 if !r(pass) local failed "`failed' HS-2"
 
