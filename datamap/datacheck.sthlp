@@ -143,7 +143,9 @@ variable is treated as categorical rather than continuous. The default is 25.
 {phang}
 {opt exc:lude(varlist)} skips the named variables entirely. As with {help datamap},
 excluded variables are listed by name but their distributions, cardinality, and
-value-label coding are never shown.
+value-label coding are never shown. They are never flagged and never appear in
+{cmd:r(flagged_vars)}, {cmd:r(missing_vars)}, the MISSINGNESS section, or the
+{opt patterns} table.
 
 {phang}
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)} force the named
@@ -429,7 +431,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(flagged_vars)}}flagged variables{p_end}
 {synopt:{cmd:r(constant_vars)}}constant variables{p_end}
 {synopt:{cmd:r(highcard_vars)}}high-cardinality variables{p_end}
-{synopt:{cmd:r(missing_vars)}}variables with missing values{p_end}
+{synopt:{cmd:r(missing_vars)}}non-excluded variables with missing values{p_end}
 {synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}
 {synopt:{cmd:r(rare_vars)}}variables with rare-level flags{p_end}
 {synopt:{cmd:r(group_missing_vars)}}vars missing in a {opt by()} or {opt over()} group{p_end}

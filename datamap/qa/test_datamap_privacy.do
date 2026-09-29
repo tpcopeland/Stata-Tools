@@ -127,8 +127,9 @@ else {
 * ============================================================
 local ++test_count
 capture {
+    * (detect() is text-only; since 1.6.9 format(json) refuses it with r(198))
     datamap, single("`pdta'") output("`pjson'") format(json) ///
-        exclude(hiv_status patient_id mrn) detect(binary)
+        exclude(hiv_status patient_id mrn)
     * Excluded vars carry null cardinality and null max length in JSON.
     _priv_file_contains using "`pjson'", needle(`""unique_values": null"')
     assert r(found) == 1

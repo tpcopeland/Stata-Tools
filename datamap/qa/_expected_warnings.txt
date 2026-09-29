@@ -1,0 +1,3 @@
+# datamap's documented privacy hint (datamap.ado, r(suggested_exclude)): suites
+# that profile fixtures with an id column and no exclude() emit it by design.
+^[ \t]*warning: likely identifier variable\(s\) not in exclude\(\):.*$

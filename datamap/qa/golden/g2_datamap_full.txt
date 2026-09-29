@@ -32,6 +32,14 @@ Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 1
   Observations with complete data: 79 (79%)
+  Missing-value patterns (+ observed, . missing):
+    Pattern variables, in order: age bmi region
+    Distinct patterns: 5
+    +++: 79 (79%)
+    ++.: 6 (6%)
+    ..+: 6 (6%)
+    +.+: 5 (5%)
+    .++: suppressed (<5)
 
 ========================================
 VARIABLE SUMMARY

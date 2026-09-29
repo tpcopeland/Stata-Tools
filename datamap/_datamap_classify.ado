@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.6.8  2026/08/30
+*! _datamap_classify Version 1.6.9  2026/09/29
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -165,7 +165,10 @@ program define _datamap_classify, rclass
             else if strpos("`vtype'", "str") == 1 {
                 local class "string"
             }
-            else if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
+            // A left-justified display format (%-td, %-tc, ...) is still a
+            // date format; strip the justification flag before testing.
+            else if strpos(subinstr("`vfmt'", "%-", "%", 1), "%t") > 0 | ///
+                strpos(subinstr("`vfmt'", "%-", "%", 1), "%d") > 0 {
                 local class "date"
             }
             else if "`valab'" != "" {

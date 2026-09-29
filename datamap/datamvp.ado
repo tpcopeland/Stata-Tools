@@ -1,4 +1,4 @@
-*! datamvp Version 1.6.8  2026/08/30
+*! datamvp Version 1.6.9  2026/09/29
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -322,6 +322,12 @@ program define datamvp, rclass byable(recall) sortpreserve
         if _rc == 0 local gby_isstr = 1
         qui levelsof `gby' if `touse', local(gby_levels)
         local gby_nlev : word count `gby_levels'
+        // Level k of `gby_levels' is group k: compare on this index, never on
+        // the level text.  A float level such as 0.1 travels through levelsof
+        // as .1000000014901161, which no float value equals, so every bar
+        // came out missing.  group() and levelsof share the same sort order.
+        tempvar gby_grp
+        qui egen long `gby_grp' = group(`gby') if `touse'
         if `gby_nlev' < 2 {
             di as err "gby() variable must have at least 2 levels"
             exit 198
@@ -353,6 +359,9 @@ program define datamvp, rclass byable(recall) sortpreserve
         if _rc == 0 local over_isstr = 1
         qui levelsof `over' if `touse', local(over_levels)
         local over_nlev : word count `over_levels'
+        // See gby(): compare on the group index, not the level text.
+        tempvar over_grp
+        qui egen long `over_grp' = group(`over') if `touse'
         if `over_nlev' < 2 {
             di as err "over() variable must have at least 2 levels"
             exit 198
@@ -413,7 +422,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             matrix `sortmat'[`i', 1] = `m'
             matrix `sortmat'[`i', 2] = `i'
         }
-        mata: st_matrix(st_local("sortmat"), sort(st_matrix(st_local("sortmat")), -1))
+        // Break ties on input position: Mata sort() is not stable, so equal
+        // missing counts came out in arbitrary order (and the order drives
+        // the pattern strings and the monotone test).
+        mata: st_matrix(st_local("sortmat"), sort(st_matrix(st_local("sortmat")), (-1, 2)))
         local newvarlist ""
         local newpctlist ""
         forv i = 1/`nv' {
@@ -984,19 +996,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                     save `gby_tempdata', replace
 
                     local row = 1
-                    foreach lev of local gby_levels {
+                    forvalues _gk = 1/`gby_nlev' {
                         forv i = 1/`nvar' {
                             restore, preserve
-                            if `gby_isstr' {
-                                qui count if `gby' == `"`lev'"' & `touse'
-                                local nlev = r(N)
-                                qui count if missing(``i'') & `gby' == `"`lev'"' & `touse'
-                            }
-                            else {
-                                qui count if `gby' == `lev' & `touse'
-                                local nlev = r(N)
-                                qui count if missing(``i'') & `gby' == `lev' & `touse'
-                            }
+                            qui count if `gby_grp' == `_gk' & `touse'
+                            local nlev = r(N)
+                            qui count if missing(``i'') & `gby_grp' == `_gk' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
                             * Load tempfile, update, save back
@@ -1059,19 +1064,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                     save `over_tempdata', replace
 
                     local row = 1
-                    foreach lev of local over_levels {
+                    forvalues _ok = 1/`over_nlev' {
                         forv i = 1/`nvar' {
                             restore, preserve
-                            if `over_isstr' {
-                                qui count if `over' == `"`lev'"' & `touse'
-                                local nlev = r(N)
-                                qui count if missing(``i'') & `over' == `"`lev'"' & `touse'
-                            }
-                            else {
-                                qui count if `over' == `lev' & `touse'
-                                local nlev = r(N)
-                                qui count if missing(``i'') & `over' == `lev' & `touse'
-                            }
+                            qui count if `over_grp' == `_ok' & `touse'
+                            local nlev = r(N)
+                            qui count if missing(``i'') & `over_grp' == `_ok' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
                             * Load tempfile, update, save back
@@ -1197,7 +1195,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 * Create pattern data by group
                 qui {
                     * Keep needed variables
-                    keep `varlist' `gby'
+                    keep `varlist' `gby' `gby_grp'
 
                     * Create pattern string
                     local nskip = cond("`skip'" != "", int((`nvar'-1)/5), 0)
@@ -1225,12 +1223,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     local _gbi = 0
                     foreach lev of local gby_levels {
                         local ++_gbi
-                        if `gby_isstr' {
-                            replace _gbyid = `_gbi' if `gby' == `"`macval(lev)'"'
-                        }
-                        else {
-                            replace _gbyid = `_gbi' if `gby' == `lev'
-                        }
+                        replace _gbyid = `_gbi' if `gby_grp' == `_gbi'
                         mata: st_vlmodify(st_local("pattern_gby_label"), ///
                             `_gbi', st_local("_gby_gt_`_gbi'"))
                     }
@@ -1347,6 +1340,8 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             tempvar obsid missflag varid
+            // tempname: a fixed name collided with a user label _varlab (r(180))
+            tempname varaxis_label
             qui {
                 keep if `touse'
 
@@ -1375,9 +1370,9 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                 * Create value labels for variable axis
                 forv i = 1/`nvar' {
-                    label define _varlab `i' "``i''", add
+                    label define `varaxis_label' `i' "``i''", add
                 }
-                label values `varid' _varlab
+                label values `varid' `varaxis_label'
             }
 
             * Set default title if not specified

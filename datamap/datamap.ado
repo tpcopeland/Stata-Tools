@@ -1,4 +1,4 @@
-*! datamap Version 1.6.8  2026/08/30
+*! datamap Version 1.6.9  2026/09/29
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -228,6 +228,24 @@ program define datamap, rclass
 			noisily di as error "append is not supported with format(json)"
 			exit 198
 		}
+		// The detector, sample, quality, and missing-data sections exist only
+		// in text output.  JSON used to accept these options and silently
+		// drop them; refuse instead.
+		if "`format'" == "json" {
+			local _json_bad ""
+			if `"`detect'"' != "" local _json_bad "`_json_bad' detect()"
+			if "`autodetect'" != "" local _json_bad "`_json_bad' autodetect"
+			if `"`panelid'"' != "" local _json_bad "`_json_bad' panelid()"
+			if `"`survivalvars'"' != "" local _json_bad "`_json_bad' survivalvars()"
+			if `samples' > 0 local _json_bad "`_json_bad' samples()"
+			if "`quality'" != "" | "`quality2'" != "" local _json_bad "`_json_bad' quality"
+			if `"`missing'"' != "" local _json_bad "`_json_bad' missing()"
+			if "`_json_bad'" != "" {
+				noisily di as error "format(json) does not support`_json_bad'"
+				noisily di as error "these sections are written only in text output; use format(text)"
+				exit 198
+			}
+		}
 
 		// Set default output filename
 			if "`output'" == "" {
@@ -445,6 +463,11 @@ program define datamap, rclass
 					str2045 datasignature byte unique_capped ///
 					using `"`metadata_tmp'"', replace
 				local _metadata_post_open = 1
+				// Same cap as the report (_datamap_ProcessDataset): the classifier
+				// default (1000) refused maxcat() > 1000 with r(198) and censored
+				// unique counts that uniqcap() or uniqcap(0) had asked to be exact.
+				if `uniqcap' == 0 local _mcap = 0
+				else local _mcap = max(`uniqcap', `maxcat', `maxfreq')
 				if `"`single'"' != "" {
 					local _mfile `"`single'"'
 					// In memory mode `single' is a tempfile copy of the data
@@ -480,7 +503,7 @@ program define datamap, rclass
 						maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
 						continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 						date(`"`date'"') detect_binary(`detect_binary') ///
-						quality_level(`"`quality_level'"')
+						quality_level(`"`quality_level'"') capacity(`_mcap')
 					_datamap_post_metadata_rows, postname(`metadata_post') ///
 						classifications(`"`_mclass'"') sourcecommand("datamap") ///
 						source(`"`_msource'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
@@ -515,7 +538,7 @@ program define datamap, rclass
 								maxcat(`maxcat') obs(`=_N') exclude(`"`exclude'"') ///
 								continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 								date(`"`date'"') detect_binary(`detect_binary') ///
-								quality_level(`"`quality_level'"')
+								quality_level(`"`quality_level'"') capacity(`_mcap')
 							_datamap_post_metadata_rows, postname(`metadata_post') ///
 								classifications(`"`_mclass'"') sourcecommand("datamap") ///
 								source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
@@ -1093,24 +1116,27 @@ program define _datamap_ProcessDataset, rclass
 	file write `fh' _n
 
 	// Generate natural language summary
+	// Excluded variables are passed on so that no summary or detector derives
+	// a value, range, rate, or cardinality from them (exclude() contract).
 	_datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' `"`macval(label)'"' ///
-		`detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'"
+		`detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'" ///
+		"`excluded_vars'"
 
 	// Run detection features if requested
 	if `detect_panel' | "`panelid'" != "" {
-		_datamap_DetectPanel `fh' "`filepath'" "`panelid'" "`format'"
+		_datamap_DetectPanel `fh' "`filepath'" "`panelid'" "`format'" "`excluded_vars'"
 	}
 	if `detect_survival' | "`survivalvars'" != "" {
-		_datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'"
+		_datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'" "`excluded_vars'"
 	}
 	if `detect_survey' {
-		_datamap_DetectSurvey `fh' "`filepath'" "`format'"
+		_datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'"
 	}
 	if `detect_common' {
 		_datamap_DetectCommon `fh' "`filepath'" "`format'"
 	}
 	if `missing_detail' | `missing_pattern' {
-		_datamap_SummarizeMissing `fh' "`filepath'" "`format'" `missing_pattern' `obs'
+		_datamap_SummarizeMissing `fh' "`filepath'" "`format'" `missing_pattern' `obs' `mincell'
 	}
 
 	// Process all variables in the dataset
@@ -1310,6 +1336,7 @@ program define _datamap_DateFamily, rclass
 	set varabbrev off
 	capture noisily {
 		syntax, VFMT(string)
+		local vfmt = subinstr("`vfmt'", "%-", "%", 1)
 
 		local is_date = (strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0)
 		local family ""
@@ -1357,6 +1384,7 @@ program define _datamap_DateDisplayFormat, rclass
 	set varabbrev off
 	capture noisily {
 		syntax, VFMT(string) DATEFormat(string)
+		local vfmt = subinstr("`vfmt'", "%-", "%", 1)
 
 		local dispfmt "`vfmt'"
 		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
@@ -1382,6 +1410,7 @@ program define _datamap_DateSpanUnit, rclass
 	set varabbrev off
 	capture noisily {
 		syntax, VFMT(string)
+		local vfmt = subinstr("`vfmt'", "%-", "%", 1)
 
 		local span_unit "days"
 		if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
@@ -1422,6 +1451,7 @@ program define _datamap_json_escape, rclass
 	local escaped = subinstr(`"`macval(escaped)'"', char(34), char(92) + char(34), .)
 	local escaped = subinstr(`"`macval(escaped)'"', char(10), char(92) + "n", .)
 	local escaped = subinstr(`"`macval(escaped)'"', char(13), char(92) + "r", .)
+	local escaped = subinstr(`"`macval(escaped)'"', char(9), char(92) + "t", .)
 	return local escaped `"`macval(escaped)'"'
 end
 
@@ -1457,12 +1487,43 @@ mata:
 void _datamap_jsonesc(string scalar src, string scalar dst)
 {
 	string scalar s
+	real scalar c
 	s = st_local(src)
 	s = subinstr(s, char(92), char(92) + char(92))
 	s = subinstr(s, char(34), char(92) + char(34))
 	s = subinstr(s, char(10), char(92) + "n")
 	s = subinstr(s, char(13), char(92) + "r")
+	s = subinstr(s, char(9), char(92) + "t")
+	// RFC 8259 forbids every raw control character (U+0000-U+001F) inside
+	// a JSON string; a tab or other control byte in a label made the whole
+	// document unparseable.
+	for (c = 1; c < 32; c++) {
+		s = subinstr(s, char(c), char(92) + sprintf("u%04.0f", c))
+	}
 	st_local(dst, s)
+}
+end
+
+// Frequency cells for a string variable forced into the categorical class.
+// -tabulate, matrow()- rejects string variables, so the categorical section
+// used to print "(frequency table unavailable)".  Levels (excluding "") are
+// sorted bytewise and returned in the caller's locals _sf_n, _sf_v<k> (the
+// raw level) and _sf_c<k> (its count); st_local() never macro-expands them.
+capture mata: mata drop _datamap_strfreq()
+mata:
+void _datamap_strfreq(string scalar vname)
+{
+	string colvector x, u
+	real scalar k
+
+	x = st_sdata(., vname)
+	x = select(x, x :!= "")
+	u = uniqrows(x)
+	st_local("_sf_n", strofreal(rows(u)))
+	for (k = 1; k <= rows(u); k++) {
+		st_local("_sf_v" + strofreal(k), u[k])
+		st_local("_sf_c" + strofreal(k), strofreal(sum(x :== u[k]), "%18.0f"))
+	}
 }
 end
 
@@ -1689,17 +1750,57 @@ program define _datamap_ProcessDatasetJson, nclass
 
 		file write `fh' `"          "frequencies": ["' _n
 		local wrote_freq = 0
-		if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' {
-			capture quietly tab `vname', matrow(vals) matcell(freqs)
+		if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' & ///
+			substr("`vtype'", 1, 3) == "str" {
+			// String categorical (forced via categorical()): see _datamap_strfreq.
+			mata: _datamap_strfreq("`vname'")
+			forvalues j = 1/`_sf_n' {
+				local sval : copy local _sf_v`j'
+				mata: _datamap_jsonesc("sval", "sval_json")
+				local freq = `_sf_c`j''
+				if `j' > 1 file write `fh' "," _n
+				file write `fh' "            {" _n
+				file write `fh' `"              "value": "`macval(sval_json)'","' _n
+				file write `fh' `"              "label": "","' _n
+				if `mincell' > 0 & `freq' < `mincell' {
+					file write `fh' `"              "count": null,"' _n
+					file write `fh' `"              "pct": null,"' _n
+					file write `fh' `"              "suppressed": true,"' _n
+					file write `fh' `"              "threshold": `mincell'"' _n
+				}
+				else {
+					local pct = 0
+					if `obs' > 0 local pct = round(100 * `freq' / `obs', 0.1)
+					_datamap_json_number `pct'
+					local pct_json "`r(number)'"
+					file write `fh' `"              "count": `freq',"' _n
+					file write `fh' `"              "pct": `pct_json',"' _n
+					file write `fh' `"              "suppressed": false,"' _n
+					file write `fh' `"              "threshold": `mincell'"' _n
+				}
+				file write `fh' "            }"
+				local wrote_freq = 1
+			}
+			if `wrote_freq' file write `fh' _n
+		}
+		else if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' {
+			// tempnames: fixed names clobbered caller matrices vals/freqs
+			tempname _dm_vals _dm_freqs
+			capture quietly tab `vname', matrow(`_dm_vals') matcell(`_dm_freqs')
 			if _rc == 0 {
 				local nvals = r(r)
 				forvalues j = 1/`nvals' {
-					local val = vals[`j',1]
-					local freq = freqs[`j',1]
+					local val = `_dm_vals'[`j',1]
+					local freq = `_dm_freqs'[`j',1]
+					// A float level widened to double prints IEEE noise
+					// (.1000000014901161); display it at float precision.
+					local valdisp "`val'"
+					if "`: type `vname''" == "float" local valdisp = strtrim(string(`_dm_vals'[`j',1], "%9.0g"))
 					if `j' > 1 file write `fh' "," _n
 					capture local vallabtext : label (`vname') `val'
 					if _rc != 0 local vallabtext ""
-					_datamap_json_escape "`val'"
+					if `"`macval(vallabtext)'"' == "`val'" local vallabtext "`valdisp'"
+					_datamap_json_escape "`valdisp'"
 					local val_json "`r(escaped)'"
 					mata: _datamap_jsonesc("vallabtext", "vallab_json")
 					file write `fh' "            {" _n
@@ -1797,12 +1898,40 @@ program define _datamap_ProcessCategorical, nclass
 		// Frequency table
 		if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
 			file write `fh' "  Frequencies:" _n
-			capture quietly tab `vname', matrow(vals) matcell(freqs)
-			if _rc == 0 {
+			// tempnames: fixed names clobbered caller matrices vals/freqs
+			tempname _dm_vals _dm_freqs
+			local _isstr = (substr("`vtype'", 1, 3) == "str")
+			if `_isstr' {
+				mata: _datamap_strfreq("`vname'")
+				forvalues j = 1/`_sf_n' {
+					local sval : copy local _sf_v`j'
+					// keep one cell per line
+					mata: st_local("sval", subinstr(subinstr(st_local("sval"), char(10), " "), char(13), " "))
+					local freq = `_sf_c`j''
+					local pct "."
+					if `obs' > 0 local pct = strtrim(string(round(100*`freq'/`obs', 0.1), "%5.1f"))
+					if `mincell' > 0 & `freq' < `mincell' {
+						file write `fh' `"    "`macval(sval)'": suppressed (<`mincell')"' _n
+					}
+					else {
+						file write `fh' `"    "`macval(sval)'": `freq' (`pct'%)"' _n
+					}
+				}
+			}
+			local _tabrc = 0
+			if !`_isstr' {
+				capture quietly tab `vname', matrow(`_dm_vals') matcell(`_dm_freqs')
+				local _tabrc = _rc
+			}
+			if !`_isstr' & `_tabrc' == 0 {
 				local nvals = r(r)
 				forvalues j = 1/`nvals' {
-					local val = vals[`j',1]
-					local freq = freqs[`j',1]
+					local val = `_dm_vals'[`j',1]
+					local freq = `_dm_freqs'[`j',1]
+					// A float level widened to double prints IEEE noise
+					// (.1000000014901161); display it at float precision.
+					local valdisp "`val'"
+					if "`: type `vname''" == "float" local valdisp = strtrim(string(`_dm_vals'[`j',1], "%9.0g"))
 					if `obs' > 0 {
 						local pct : di %5.1f round(100*`freq'/`obs', 0.1)
 						local pct = strtrim("`pct'")
@@ -1811,15 +1940,16 @@ program define _datamap_ProcessCategorical, nclass
 						local pct "."
 					}
 					local vltext : label (`vname') `val'
+					if `"`macval(vltext)'"' == "`val'" local vltext "`valdisp'"
 					if `mincell' > 0 & `freq' < `mincell' {
-						file write `fh' `"    `val' = `macval(vltext)': suppressed (<`mincell')"' _n
+						file write `fh' `"    `valdisp' = `macval(vltext)': suppressed (<`mincell')"' _n
 					}
 					else {
-						file write `fh' `"    `val' = `macval(vltext)': `freq' (`pct'%)"' _n
+						file write `fh' `"    `valdisp' = `macval(vltext)': `freq' (`pct'%)"' _n
 					}
 				}
 			}
-			else {
+			else if !`_isstr' {
 				file write `fh' "    (frequency table unavailable)" _n
 			}
 			file write `fh' _n
@@ -1912,13 +2042,16 @@ program define _datamap_ProcessContinuous, nclass
 
 			// Check if all values are missing
 			if `n' > 0 {
-				local mean = strtrim(string(round(r(mean), 0.01), "%14.0g"))
-				local sd = strtrim(string(round(r(sd), 0.01), "%14.0g"))
-				local min = strtrim(string(round(r(min), 0.01), "%14.0g"))
-				local p25 = strtrim(string(round(r(p25), 0.01), "%14.0g"))
-				local p50 = strtrim(string(round(r(p50), 0.01), "%14.0g"))
-				local p75 = strtrim(string(round(r(p75), 0.01), "%14.0g"))
-				local max = strtrim(string(round(r(max), 0.01), "%14.0g"))
+				// Rounding to 0.01 printed "Mean: 0  SD: 0  Range: 0 to 0" for a
+				// variable measured in thousandths; below 1 in magnitude, show
+				// three significant digits instead.
+				local mean = strtrim(cond(abs(r(mean)) < 1 & r(mean) != 0, string(r(mean), "%9.3g"), string(round(r(mean), 0.01), "%14.0g")))
+				local sd = strtrim(cond(abs(r(sd)) < 1 & r(sd) != 0, string(r(sd), "%9.3g"), string(round(r(sd), 0.01), "%14.0g")))
+				local min = strtrim(cond(abs(r(min)) < 1 & r(min) != 0, string(r(min), "%9.3g"), string(round(r(min), 0.01), "%14.0g")))
+				local p25 = strtrim(cond(abs(r(p25)) < 1 & r(p25) != 0, string(r(p25), "%9.3g"), string(round(r(p25), 0.01), "%14.0g")))
+				local p50 = strtrim(cond(abs(r(p50)) < 1 & r(p50) != 0, string(r(p50), "%9.3g"), string(round(r(p50), 0.01), "%14.0g")))
+				local p75 = strtrim(cond(abs(r(p75)) < 1 & r(p75) != 0, string(r(p75), "%9.3g"), string(round(r(p75), 0.01), "%14.0g")))
+				local max = strtrim(cond(abs(r(max)) < 1 & r(max) != 0, string(r(max), "%9.3g"), string(round(r(max), 0.01), "%14.0g")))
 
 				file write `fh' "DISTRIBUTION:" _n
 				file write `fh' "  Valid N: `n'" _n
@@ -2359,13 +2492,19 @@ program define _datamap_ProcessBinary, nclass
 		file write `fh' "  Missing: `nmiss' obs (`pctmiss'%)" _n
 
 		// Show frequency distribution
-		quietly tab `vname', matrow(vals) matcell(freqs)
+		// tempnames: fixed names clobbered caller matrices vals/freqs
+		tempname _dm_vals _dm_freqs
+		quietly tab `vname', matrow(`_dm_vals') matcell(`_dm_freqs')
 		local nvals = r(r)
 
 		file write `fh' "  Frequency:" _n
 		forvalues j = 1/`nvals' {
-			local val = vals[`j',1]
-			local freq = freqs[`j',1]
+			local val = `_dm_vals'[`j',1]
+			local freq = `_dm_freqs'[`j',1]
+			// A float level widened to double prints IEEE noise
+			// (.1000000014901161); display it at float precision.
+			local valdisp "`val'"
+			if "`: type `vname''" == "float" local valdisp = strtrim(string(`_dm_vals'[`j',1], "%9.0g"))
 			if `obs' > 0 {
 				local pct : di %5.1f round(100*`freq'/`obs', 0.1)
 				local pct = strtrim("`pct'")
@@ -2375,19 +2514,21 @@ program define _datamap_ProcessBinary, nclass
 			}
 			local vallabtext ""
 			capture local vallabtext : label (`vname') `val'
+			local _labrc = _rc
+			if `"`macval(vallabtext)'"' == "`val'" local vallabtext "`valdisp'"
 			if `mincell' > 0 & `freq' < `mincell' {
-				if _rc == 0 & `"`macval(vallabtext)'"' != "" {
-					file write `fh' `"    `val' (`macval(vallabtext)'): suppressed (<`mincell')"' _n
+				if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
+					file write `fh' `"    `valdisp' (`macval(vallabtext)'): suppressed (<`mincell')"' _n
 				}
 				else {
-					file write `fh' "    `val': suppressed (<`mincell')" _n
+					file write `fh' "    `valdisp': suppressed (<`mincell')" _n
 				}
 			}
-			else if _rc == 0 & `"`macval(vallabtext)'"' != "" {
-				file write `fh' `"    `val' (`macval(vallabtext)'): `freq' (`pct'%)"' _n
+			else if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
+				file write `fh' `"    `valdisp' (`macval(vallabtext)'): `freq' (`pct'%)"' _n
 			}
 			else {
-				file write `fh' "    `val': `freq' (`pct'%)" _n
+				file write `fh' "    `valdisp': `freq' (`pct'%)" _n
 			}
 		}
 		file write `fh' _n
@@ -2571,7 +2712,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_DetectPanel, nclass
 	version 16.0
-	args fh filepath panelid format
+	args fh filepath panelid format excluded
 
 	// If panelid specified, use it; otherwise try to detect
 	if "`panelid'" != "" {
@@ -2583,12 +2724,13 @@ program define _datamap_DetectPanel, nclass
 		local id_var "`panelid'"
 	}
 	else {
-		// Try to detect ID variable
+		// Try to detect ID variable (never an excluded one)
 		quietly describe, varlist
 		local allvars `r(varlist)'
 		local id_var ""
 
 		foreach vn of local allvars {
+			if `: list vn in excluded' continue
 			local vn_lower = lower("`vn'")
 			if regexm("`vn_lower'", "id$|_id$|^id_|patient|subject|person") {
 				local id_var "`vn'"
@@ -2599,6 +2741,13 @@ program define _datamap_DetectPanel, nclass
 		if "`id_var'" == "" exit
 	}
 
+	// exclude() withholds every statistic of the variable, and the number of
+	// units is the cardinality of the identifier.
+	if `: list id_var in excluded' {
+		file write `fh' "Panel structure: ID variable `id_var' is excluded; unit counts withheld" _n _n
+		exit
+	}
+
 	// Check for repeated observations.  -tabulate- errors r(134) above
 	// ~12k units, and -codebook, compact- stores no r(ndistinct), so both
 	// prior approaches failed for high-cardinality IDs.
@@ -2606,13 +2755,22 @@ program define _datamap_DetectPanel, nclass
 	local n_units = r(n)
 	if `n_units' == 0 exit
 	local n_obs = _N
+	// Only observations that carry an identifier belong to a unit.  Comparing
+	// units with _N reported a panel whenever some IDs were missing, even if
+	// every non-missing ID occurred once.
+	quietly count if !missing(`id_var')
+	local n_idobs = r(N)
+	local n_noid = `n_obs' - `n_idobs'
 
-	if `n_units' < `n_obs' {
-		local avg_obs = strtrim(string(round(`n_obs' / `n_units', 0.1), "%14.0g"))
+	if `n_units' < `n_idobs' {
+		local avg_obs = strtrim(string(round(`n_idobs' / `n_units', 0.1), "%14.0g"))
 		file write `fh' "Panel Structure Detected" _n
 		file write `fh' "  ID Variable: `id_var'" _n
 		file write `fh' "  Unique Units: `n_units'" _n
 		file write `fh' "  Total Observations: `n_obs'" _n
+		if `n_noid' > 0 {
+			file write `fh' "  Observations with missing ID: `n_noid'" _n
+		}
 		file write `fh' "  Average Obs per Unit: `avg_obs'" _n _n
 	}
 end
@@ -2623,26 +2781,48 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_DetectSurvival, nclass
 	version 16.0
-	args fh filepath survivalvars format
+	args fh filepath survivalvars format excluded
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
+
+	// survivalvars() names the candidates; otherwise search every variable.
+	// Before 1.6.9 the option was accepted and then ignored.
+	local candidates "`allvars'"
+	local user_named = 0
+	if `"`survivalvars'"' != "" {
+		local candidates ""
+		foreach sv of local survivalvars {
+			capture unab _svx : `sv'
+			if _rc continue
+			local candidates : list candidates | _svx
+		}
+		local user_named = 1
+	}
 
 	local time_vars ""
 	local event_vars ""
 
 	// Search for time and event variables
-	foreach vn of local allvars {
+	foreach vn of local candidates {
 		local vn_lower = lower("`vn'")
+		local is_time = regexm("`vn_lower'", "time|duration|followup|follow_up|survtime|_t$|^t_")
+		local is_event = regexm("`vn_lower'", "event|failure|death|died|status|censor|_d$|^d_")
 
-		// Time variables
-		if regexm("`vn_lower'", "time|duration|followup|follow_up|survtime|_t$|^t_") {
-			local time_vars "`time_vars' `vn'"
+		// A user-named variable that matches neither name pattern is an
+		// event indicator when it takes at most two values, else a time.
+		if `user_named' & !`is_time' & !`is_event' {
+			capture confirm numeric variable `vn'
+			if _rc == 0 & !`: list vn in excluded' {
+				_datamap_ndistinct `vn'
+				if r(n) <= 2 local is_event = 1
+				else local is_time = 1
+			}
+			else local is_time = 1
 		}
-		// Event/failure variables
-		if regexm("`vn_lower'", "event|failure|death|died|status|censor|_d$|^d_") {
-			local event_vars "`event_vars' `vn'"
-		}
+
+		if `is_time' local time_vars "`time_vars' `vn'"
+		if `is_event' local event_vars "`event_vars' `vn'"
 	}
 
 	// Exit if nothing found
@@ -2655,30 +2835,42 @@ program define _datamap_DetectSurvival, nclass
 
 	if "`time_vars'" != "" {
 		file write `fh' "  Likely time variables:`time_vars'" _n
-		// Show range for first time variable (numeric only)
-		local first_time : word 1 of `time_vars'
-		capture confirm numeric variable `first_time'
-		if _rc == 0 {
+		// Show range for the first numeric, non-excluded time variable
+		local first_time ""
+		foreach tv of local time_vars {
+			if `: list tv in excluded' continue
+			capture confirm numeric variable `tv'
+			if _rc continue
+			local first_time "`tv'"
+			continue, break
+		}
+		if "`first_time'" != "" {
 			quietly summarize `first_time'
-			local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
-			local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
-			file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
+			if r(N) > 0 {
+				local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
+				local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
+				file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
+			}
 		}
 	}
 
 	if "`event_vars'" != "" {
 		file write `fh' "  Likely event indicators:`event_vars'" _n
-		// Show event rate for first event variable (numeric binary only;
-		// unguarded tab errors r(134) on high-cardinality name matches)
-		local first_event : word 1 of `event_vars'
-		capture confirm numeric variable `first_event'
-		if _rc == 0 {
-			_datamap_ndistinct `first_event'
-			if r(n) == 2 {
-				quietly summarize `first_event'
-				local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
-				file write `fh' "    `first_event' rate: `event_rate'%" _n
-			}
+		// Show the event rate for the first numeric, non-excluded 0/1
+		// indicator.  The mean is a rate only under 0/1 coding: a 1/2-coded
+		// status variable read as "rate: 133.3%".  (Unguarded -tab- errors
+		// r(134) on high-cardinality name matches, hence the distinct count.)
+		foreach ev of local event_vars {
+			if `: list ev in excluded' continue
+			capture confirm numeric variable `ev'
+			if _rc continue
+			_datamap_ndistinct `ev'
+			if r(n) != 2 continue
+			quietly summarize `ev'
+			if r(min) != 0 | r(max) != 1 continue
+			local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
+			file write `fh' "    `ev' rate: `event_rate'%" _n
+			continue, break
 		}
 	}
 
@@ -2691,7 +2883,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_DetectSurvey, nclass
 	version 16.0
-	args fh filepath format
+	args fh filepath format excluded
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -2723,11 +2915,15 @@ program define _datamap_DetectSurvey, nclass
 		exit
 	}
 
-	// Write output
+	// Write output.  Excluded variables are named but never summarised.
 	file write `fh' "Survey Design Elements Detected" _n
 
 	// Process weight variables (numeric only)
 	foreach wvar of local weight_vars {
+		if `: list wvar in excluded' {
+			file write `fh' "  Sampling weight: `wvar' (excluded; statistics withheld)" _n
+			continue
+		}
 		capture confirm numeric variable `wvar'
 		if _rc continue
 		quietly summarize `wvar'
@@ -2739,6 +2935,10 @@ program define _datamap_DetectSurvey, nclass
 
 	// Process strata variables (-tabulate- errors r(134) above ~12k levels)
 	foreach svar of local strata_vars {
+		if `: list svar in excluded' {
+			file write `fh' "  Stratification: `svar' (excluded; count withheld)" _n
+			continue
+		}
 		_datamap_ndistinct `svar'
 		local n_strata = r(n)
 		file write `fh' "  Stratification: `svar' (`n_strata' strata)" _n
@@ -2746,6 +2946,10 @@ program define _datamap_DetectSurvey, nclass
 
 	// Process cluster variables
 	foreach cvar of local cluster_vars {
+		if `: list cvar in excluded' {
+			file write `fh' "  Clustering: `cvar' (excluded; count withheld)" _n
+			continue
+		}
 		_datamap_ndistinct `cvar'
 		local n_clusters = r(n)
 		file write `fh' "  Clustering: `cvar' (`n_clusters' primary sampling units)" _n
@@ -2830,10 +3034,12 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_SummarizeMissing, nclass
 	version 16.0
-	args fh filepath format pattern_check obs
+	args fh filepath format pattern_check obs mincell
+	if "`mincell'" == "" local mincell = 0
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
+	local anymiss_vars ""
 
 	// Count variables by missing percentage
 	local vars_gt50 ""
@@ -2863,6 +3069,7 @@ program define _datamap_SummarizeMissing, nclass
 
 		// Mark rows with any missing
 		quietly replace `complete' = 0 if missing(`vn')
+		if `nmiss' > 0 local anymiss_vars "`anymiss_vars' `vn'"
 	}
 
 	// Count complete cases
@@ -2885,6 +3092,59 @@ program define _datamap_SummarizeMissing, nclass
 	}
 	file write `fh' "  Variables with >10% missing: `n_gt10'" _n
 	file write `fh' "  Observations with complete data: `n_complete' (`pct_complete'%)" _n
+
+	// missing(pattern): the joint missingness patterns across the variables
+	// that have any missing value.  Before 1.6.9 the pattern keyword was
+	// parsed and then ignored, so it printed exactly what detail printed.
+	// A pattern is a cross-variable combination, so cells below mincell()
+	// are suppressed like any frequency cell.
+	if `pattern_check' {
+		local npv : word count `anymiss_vars'
+		file write `fh' "  Missing-value patterns (+ observed, . missing):" _n
+		if `npv' == 0 {
+			file write `fh' "    (no missing values)" _n
+		}
+		else if `npv' > 2045 {
+			file write `fh' "    (`npv' variables with missing values; too many to list patterns)" _n
+		}
+		else {
+			file write `fh' "    Pattern variables, in order:`anymiss_vars'" _n
+			tempvar pat
+			quietly gen str`npv' `pat' = ""
+			foreach vn of local anymiss_vars {
+				quietly replace `pat' = `pat' + cond(missing(`vn'), ".", "+")
+			}
+			// Tabulate in a frame: sorting here would reorder the caller's data.
+			tempname pfr
+			frame put `pat', into(`pfr')
+			frame `pfr' {
+				rename `pat' pattern
+				quietly contract pattern, freq(n)
+				gsort -n pattern
+				local npat = _N
+				local nshow = min(`npat', 10)
+				forvalues k = 1/`nshow' {
+					local pat`k' = pattern[`k']
+					local n`k' = n[`k']
+				}
+			}
+			frame drop `pfr'
+			file write `fh' "    Distinct patterns: `npat'" _n
+			forvalues k = 1/`nshow' {
+				if `mincell' > 0 & `n`k'' < `mincell' {
+					file write `fh' "    `pat`k'': suppressed (<`mincell')" _n
+				}
+				else {
+					local ppct = 0
+					if `obs' > 0 local ppct = strtrim(string(round(100 * `n`k'' / `obs', 0.1), "%14.0g"))
+					file write `fh' "    `pat`k'': `n`k'' (`ppct'%)" _n
+				}
+			}
+			if `npat' > 10 {
+				file write `fh' "    ... `=`npat' - 10' more pattern(s) not shown" _n
+			}
+		}
+	}
 	file write `fh' _n
 end
 
@@ -2897,7 +3157,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_GenerateDatasetSummary, nclass
 	version 16.0
-	args fh filepath obs nvars label detect_panel detect_survival panelid dateformat datesafe
+	args fh filepath obs nvars label detect_panel detect_survival panelid dateformat datesafe excluded
 
 	file write `fh' "DESCRIPTION" _n
 	file write `fh' "-----------" _n
@@ -2912,10 +3172,16 @@ program define _datamap_GenerateDatasetSummary, nclass
 	if `detect_panel' & "`panelid'" != "" {
 		capture confirm variable `panelid'
 		if _rc == 0 {
-			// -tabulate- errors r(134) above ~12k units
-			_datamap_ndistinct `panelid'
-			local n_units = r(n)
-			local summary "`summary'longitudinal data with `n_units' units observed over time. "
+			if `: list panelid in excluded' {
+				// The unit count is the cardinality of an excluded variable.
+				local summary "`summary'longitudinal data (panel identifier excluded; unit count withheld). "
+			}
+			else {
+				// -tabulate- errors r(134) above ~12k units
+				_datamap_ndistinct `panelid'
+				local n_units = r(n)
+				local summary "`summary'longitudinal data with `n_units' units observed over time. "
+			}
 			local is_cross_sectional 0
 		}
 	}
@@ -2939,6 +3205,8 @@ program define _datamap_GenerateDatasetSummary, nclass
 	local date_family ""
 
 	foreach vn of local allvars {
+		// An excluded date (e.g. date of birth) must not set the range.
+		if `: list vn in excluded' continue
 		local vfmt: format `vn'
 		_datamap_DateFamily, vfmt("`vfmt'")
 		if r(is_date) {
