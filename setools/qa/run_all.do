@@ -25,6 +25,7 @@ local quick ///
     test_audit_regressions ///
     test_setools_v154_regressions ///
     test_setools_v155_regressions ///
+    test_setools_v158_regressions ///
     test_setools_oracle ///
     test_cci_engine_smoke ///
     test_cci_dates_parity ///

@@ -1,4 +1,4 @@
-*! setools Version 1.5.7  2026/08/30
+*! setools Version 1.5.8  2026/09/29
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -183,8 +183,8 @@ program define _setools_detail, nclass
         display as text "{bf:MS Disability Progression}"
         display as result "  sustainedss" as text "  Compute the first sustained EDSS threshold date."
         display as text "               Finds the first date EDSS reaches a user-"
-        display as text "               specified threshold and is not reversed within"
-        display as text "               the confirmation window."
+        display as text "               specified threshold with no later observed"
+        display as text "               EDSS below the reversal floor."
         display as text ""
         display as result "  cdp" as text "          Confirmed Disability Progression from baseline."
         display as text "               Standard CDP definition: 1.0 point increase"

@@ -1,4 +1,4 @@
-*! pira Version 1.5.7  2026/08/30
+*! pira Version 1.5.8  2026/09/29
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,9 +11,10 @@ OUTSIDE of a window around relapses, indicating progression not attributable
 to acute relapse activity.
 
 1. Runs CDP algorithm to identify the first confirmed progression per person
-2. Checks whether that first CDP falls within the relapse window
-3. First CDPs outside the relapse window are classified as PIRA
-4. First CDPs within the relapse window are classified as RAW
+2. Checks whether any relapse onset falls from windowbefore() days before
+   to windowafter() days after that first CDP onset
+3. First CDPs with no relapse in that window are classified as PIRA
+4. First CDPs with a relapse in that window are classified as RAW
 
 Basic syntax:
   pira idvar edssvar datevar, dxdate(varname) relapses(filename) [options]
@@ -25,8 +26,8 @@ Required:
 Options:
   relapseidvar(varname) - ID variable in relapse file (default: same as idvar)
   relapsedatevar(varname) - Relapse date variable (default: relapse_date)
-  windowbefore(#)       - Days before relapse to exclude (default: 90)
-  windowafter(#)        - Days after relapse to exclude (default: 30)
+  windowbefore(#)       - Days before the CDP onset a relapse makes it RAW (default: 90)
+  windowafter(#)        - Days after the CDP onset a relapse makes it RAW (default: 30)
   generate(name)        - Name for PIRA date variable (default: pira_date)
   rawgenerate(name)     - Name for RAW date variable (default: raw_date)
   confirmdays(#)        - Days for CDP confirmation (default: 180)
@@ -120,7 +121,10 @@ program define pira, rclass
     capture confirm string variable `idvar'
     if !_rc local id_is_str = 1
 
-    // Check relapse file exists
+    // Check relapse file exists. Like -use-, a filename without an extension
+    // names a .dta file.
+    mata: st_local("_pira_rel_sfx", pathsuffix(st_local("relapses")))
+    if `"`_pira_rel_sfx'"' == "" local relapses `"`relapses'.dta"'
     capture confirm file "`relapses'"
     if _rc {
         di as error "relapse file not found: `relapses'"
@@ -473,10 +477,15 @@ program define pira, rclass
         // Merge with relapse data to check proximity
         qui merge 1:m `idvar' using `relapse_data', nogen keep(1 3)
 
-        // Check if CDP date falls within relapse window
-        // Window: [relapse_date - windowbefore, relapse_date + windowafter]
-        qui gen byte _pira_in_relapse_window = inrange(_pira_cdp_dt, _relapse_dt - `windowbefore', ///
-            _relapse_dt + `windowafter') if !missing(_relapse_dt)
+        // A relapse makes the first CDP relapse-associated (RAW) when its
+        // onset falls from windowbefore() days BEFORE to windowafter() days
+        // AFTER the CDP onset: relapse in [cdp - before, cdp + after]
+        // (Kappos 2020; Portaccio 2024/2025 "no relapses <=90 days before
+        // and <=30 days after the event"). The window is anchored on the
+        // progression onset, not on the relapse.
+        qui gen byte _pira_in_relapse_window = inrange(_relapse_dt, ///
+            _pira_cdp_dt - `windowbefore', _pira_cdp_dt + `windowafter') ///
+            if !missing(_relapse_dt)
 
         // Collapse: any relapse within window makes it RAW
         qui egen byte _pira_any_relapse_window = ///

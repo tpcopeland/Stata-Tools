@@ -39,8 +39,8 @@
 {synopt:{opt relapsed:atevar(varname)}}relapse-file date variable{p_end}
 
 {syntab:Relapse window}
-{synopt:{opt windowb:efore(#)}}pre-relapse window; default 90 days{p_end}
-{synopt:{opt windowa:fter(#)}}post-relapse window; default 30 days{p_end}
+{synopt:{opt windowb:efore(#)}}relapse days before CDP onset; default 90{p_end}
+{synopt:{opt windowa:fter(#)}}relapse days after CDP onset; default 30{p_end}
 
 {syntab:CDP parameters}
 {synopt:{opt gen:erate(name)}}PIRA date variable name{p_end}
@@ -94,10 +94,11 @@ the same first-event algorithm as {helpb cdp}. The default uses the two-tier
 threshold and sustained-throughout confirmation; {opt threetier} and
 {opt confirmtype(visit)} select the documented alternatives.{p_end}
 
-{phang2}2. {bf:Classify that first CDP} by checking whether it falls within a
-window around any relapse. The window extends from {opt windowbefore()} days
-before a relapse to {opt windowafter()} days after. A first CDP outside every
-window is classified as PIRA; one inside any window is classified as RAW.{p_end}
+{phang2}2. {bf:Classify that first CDP} by checking whether any relapse onset
+falls in a window around the CDP onset date. The window extends from
+{opt windowbefore()} days before the CDP onset to {opt windowafter()} days
+after it. A first CDP with no relapse in its window is classified as PIRA; one
+with a relapse in its window is classified as RAW.{p_end}
 
 {pstd}
 The mutually exclusive first-event class is returned in separate PIRA and RAW
@@ -142,20 +143,27 @@ missing/blank IDs are silently dropped.
 {dlgtab:Relapse window}
 
 {phang}
-{opt windowbefore(#)} specifies how many days before a relapse onset a CDP event is
-considered relapse-associated. Default is {cmd:90}.
+{opt windowbefore(#)} specifies how many days {it:before} the CDP onset a relapse
+onset makes the progression relapse-associated. Default is {cmd:90}.
 
 {phang}
-{opt windowafter(#)} specifies how many days after a relapse onset a CDP event is
-considered relapse-associated. Default is {cmd:30}.
+{opt windowafter(#)} specifies how many days {it:after} the CDP onset a relapse
+onset makes the progression relapse-associated. Default is {cmd:30}.
 
 {pstd}
-The combined window [{opt windowbefore()} days before, {opt windowafter()} days after]
-forms the exclusion zone around each relapse. CDP events that fall outside {it:all}
-relapse windows are classified as PIRA. Common configurations:
+Both limits are inclusive and are measured from the CDP onset date (the first
+EDSS assessment meeting the progression threshold), not from the relapse. A
+first CDP is RAW when any relapse onset falls in
+[CDP onset {c -} {opt windowbefore()}, CDP onset + {opt windowafter()}], and PIRA
+otherwise. The default {cmd:windowbefore(90) windowafter(30)} is the
+"no relapse within 90 days before and 30 days after the event" rule
+(Kappos et al. 2020; Portaccio et al. 2024, 2025).
 
-{phang2}Lublin 2014: {cmd:windowbefore(0) windowafter(30)}{p_end}
-{phang2}EXPAND trial (default): {cmd:windowbefore(90) windowafter(30)}{p_end}
+{pstd}
+Versions of setools before 1.5.8 anchored the window on the relapse instead,
+so their defaults counted a relapse up to 30 days {it:before} the CDP onset or
+up to 90 days {it:after} it, mirroring the published rule. Rerun earlier
+{cmd:pira} results to obtain the published classification.
 
 {dlgtab:CDP parameters}
 
@@ -256,10 +264,12 @@ you need to save a separate relapse-only file first. See Example 1 below.
 {bf:Choosing a relapse window}
 
 {pstd}
-The default window ({cmd:windowbefore(90) windowafter(30)}) is used in several
-recent pooled analyses (e.g., Kappos et al. 2020). A narrower
-post-relapse-only window ({cmd:windowbefore(0) windowafter(30)}) follows Lublin
-2014 definitions. For a sensitivity analysis, reload or restore the original
+The default window ({cmd:windowbefore(90) windowafter(30)}) treats a progression
+as relapse-associated when a relapse began up to 90 days before or up to 30 days
+after its onset. A narrower window such as {cmd:windowbefore(30) windowafter(0)}
+counts only relapses shortly before the onset. {cmd:pira} checks relapses
+around the CDP onset only; definitions that also require the confirmation
+assessment to be relapse-free are not applied. For a sensitivity analysis, reload or restore the original
 EDSS data before each {cmd:pira} call, then change the window parameters. A
 default run creates output variables and may drop nonprogressors, so rerunning
 directly on its returned data is not equivalent.
@@ -307,11 +317,11 @@ tabulate.{p_end}
 {phang2}{cmd:. tab prog_type}{p_end}
 
 {pstd}
-{bf:Example 4: Lublin 2014 window (30 days after relapse only)}
+{bf:Example 4: Narrower window (relapses in the 30 days before onset only)}
 
 {phang2}{stata `"use "relapses_example.dta", clear"':. use "relapses_example.dta", clear}{p_end}
-{phang2}{stata `"pira id edss edss_date, dxdate(dx_date) relapses("relapses_only.dta") windowbefore(0) windowafter(30)"':. pira id edss edss_date, dxdate(dx_date) relapses("relapses_only.dta") ///}{p_end}
-{phang3}{cmd:windowbefore(0) windowafter(30)}{p_end}
+{phang2}{stata `"pira id edss edss_date, dxdate(dx_date) relapses("relapses_only.dta") windowbefore(30) windowafter(0)"':. pira id edss edss_date, dxdate(dx_date) relapses("relapses_only.dta") ///}{p_end}
+{phang3}{cmd:windowbefore(30) windowafter(0)}{p_end}
 
 {pstd}
 {bf:Example 5: Re-baseline after relapse and keep all patients}
@@ -337,8 +347,8 @@ becomes the new baseline for subsequent progression detection.{p_end}
 {synopt:{cmd:r(N_cdp_preexit)}}first CDP count before exit censoring{p_end}
 {synopt:{cmd:r(N_pira)}}first CDPs outside relapse windows{p_end}
 {synopt:{cmd:r(N_raw)}}first CDPs inside a relapse window{p_end}
-{synopt:{cmd:r(windowbefore)}}days before relapse in the exclusion window{p_end}
-{synopt:{cmd:r(windowafter)}}days after relapse in the exclusion window{p_end}
+{synopt:{cmd:r(windowbefore)}}relapse days before CDP onset in the window{p_end}
+{synopt:{cmd:r(windowafter)}}relapse days after CDP onset in the window{p_end}
 {synopt:{cmd:r(confirmdays)}}CDP confirmation period in days{p_end}
 {synopt:{cmd:r(baselinewindow)}}baseline window in days{p_end}
 {synopt:{cmd:r(converged)}}always {cmd:1} (non-convergence is an error){p_end}
@@ -367,6 +377,15 @@ clinical trials. {it:JAMA Neurology}. 2020;77(9):1132{c -}1140.
 {phang}
 Lublin FD, et al. Defining the clinical course of multiple sclerosis: the 2013
 revisions. {it:Neurology}. 2014;83(3):278{c -}286.
+
+{phang}
+Portaccio E, et al. Progression independent of relapse activity in relapsing
+multiple sclerosis: impact and relationship with secondary
+progression. {it:Journal of Neurology}. 2024;271(8):5074{c -}5082.
+
+{phang}
+Portaccio E, et al. Toward a unified definition of progression independent of
+relapse activity in multiple sclerosis. {it:Neurology}. 2025;105(8):e213977.
 
 {phang}
 University of California San Francisco MS-EPIC Team, et al. Silent progression

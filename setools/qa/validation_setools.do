@@ -781,8 +781,8 @@ run_val "V4.1: CDP outside relapse window = PIRA" `t'
 * V4.2: CDP event inside relapse window -> RAW
 * CDP event at day 21350
 * Relapse at day 21330 (20 days before CDP)
-* Window: [21330-90, 21330+30] = [21240, 21360]
-* CDP at 21350 is INSIDE [21240, 21360] -> RAW
+* Window around the CDP onset: [21350-90, 21350+30] = [21260, 21380]
+* Relapse at 21330 is INSIDE [21260, 21380] -> RAW
 clear
 input long id double relapse_date
 1 21330
@@ -797,12 +797,10 @@ run_val "V4.2: CDP inside relapse window = RAW" `t'
 
 * V4.3: Custom window changes classification
 * Same relapse at 21330, CDP at 21350
-* With windowbefore(10): window = [21320, 21360], CDP 21350 still inside -> RAW
-* With windowbefore(5): window = [21325, 21360], CDP 21350 still inside -> RAW
-* But the default windowbefore=90 catches it
+* The default windowbefore=90 catches it (see V4.2); a 10-day window does not
 use "`data_dir'/_val_pira_data.dta", clear
 pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_val_pira_rel2.dta") keepall generate(pira_v43) rawgenerate(raw_v43) windowbefore(10) windowafter(10)
-* windowbefore(10): [21320, 21340], CDP at 21350 is OUTSIDE -> PIRA
+* windowbefore(10) windowafter(10): [21340, 21360]; relapse 21330 is OUTSIDE -> PIRA
 local t = (r(N_pira) == 1)
 run_val "V4.3: narrow window: 21350 outside [21320,21340] -> PIRA" `t'
 
@@ -817,7 +815,7 @@ save "`data_dir'/_val_pira_rel3.dta", replace
 
 use "`data_dir'/_val_pira_data.dta", clear
 pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_val_pira_rel3.dta") keepall generate(pira_v44) rawgenerate(raw_v44)
-* Relapse at 21340: window [21250, 21370], CDP at 21350 inside -> RAW
+* Relapse at 21340 lies in the onset window [21260, 21380] -> RAW
 local t = (r(N_raw) == 1)
 run_val "V4.4: any relapse in window -> RAW" `t'
 

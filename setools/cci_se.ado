@@ -1,4 +1,4 @@
-*! cci_se Version 1.5.7  2026/08/30
+*! cci_se Version 1.5.8  2026/09/29
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -134,6 +134,18 @@ program define cci_se, rclass
             display as error "indexdate() must contain whole-number Stata daily dates"
             exit 109
         }
+        * The score is patient-level, so the window must be too. Conflicting
+        * index dates within one id() would window each row by its own date
+        * and silently mix two different lookback periods into one score.
+        tempvar _cci_ix_min _cci_ix_max
+        quietly egen double `_cci_ix_min' = min(cond(`touse', `indexdate', .)), by(`id')
+        quietly egen double `_cci_ix_max' = max(cond(`touse', `indexdate', .)), by(`id')
+        quietly count if `touse' & !missing(`_cci_ix_min') & `_cci_ix_min' != `_cci_ix_max'
+        if r(N) > 0 {
+            display as error "indexdate() must have at most one distinct nonmissing value per id()"
+            exit 459
+        }
+        quietly drop `_cci_ix_min' `_cci_ix_max'
     }
     if "`lookback'" != "" {
         local _cci_lookback_words : word count `lookback'

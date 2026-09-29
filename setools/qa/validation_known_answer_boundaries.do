@@ -178,7 +178,9 @@ run_val "K3.3: sustainedss uses the conservative minimum on same-day duplicates"
 
 **# K4. PIRA RELAPSE WINDOW AND REBASELINE BOUNDARIES
 
-* K4.1: relapse-window boundaries are inclusive on both lower and upper edges
+* K4.1: relapse-window boundaries are inclusive on both lower and upper edges.
+*   CDP onset 21350; default window [onset - 90, onset + 30] = [21260, 21380]
+*   (published rule: no relapse within 90 days before / 30 days after onset).
 clear
 input long id double edss long edss_dt long dx_date
 1 2.0 21000 20800
@@ -193,8 +195,8 @@ tempfile k41_rel
 preserve
 clear
 input long id long relapse_date
-1 21440
-2 21320
+1 21380
+2 21260
 end
 format relapse_date %td
 save `k41_rel', replace
@@ -215,7 +217,7 @@ local t = (`cmd_raw' == 2 & `cmd_pira' == 0 & `raw_n' == 6 & `pira_n' == 0 & ///
     `raw1' == 21350 & `raw2' == 21350)
 run_val "K4.1: pira treats both relapse-window boundaries as inclusive" `t'
 
-* K4.2: dates just outside the relapse-window boundaries classify as PIRA
+* K4.2: relapses one day outside [21260, 21380] (21259, 21381) classify as PIRA
 clear
 input long id double edss long edss_dt long dx_date
 1 2.0 21000 20800
@@ -230,8 +232,8 @@ tempfile k42_rel
 preserve
 clear
 input long id long relapse_date
-1 21441
-2 21319
+1 21381
+2 21259
 end
 format relapse_date %td
 save `k42_rel', replace

@@ -64,6 +64,7 @@ Stata 16 or later is required throughout. No R package is used.
 | `test_setools_v140_features.do` | Exit censoring, migration flow, flag mode, and CCI diagnostics. |
 | `test_setools_v154_regressions.do` | Person-level date consistency, helper isolation, and PIRA parser/namespace regressions. |
 | `test_setools_v155_regressions.do` | Migration censoring-date loss and zero-row abort, wide/long agreement, and the `r(converged)` contract. |
+| `test_setools_v158_regressions.do` | PIRA relapse window anchored on the CDP onset (published 90-before/30-after rule), extensionless `relapses()` paths, and `cci_se` conflicting `indexdate()` rejection. |
 | `test_network_smoke.do` | Optional download and checksum of the pinned upstream CCI source. |
 
 ### Validation
@@ -106,7 +107,7 @@ Stata 16 or later is required throughout. No R package is used.
 | `tools/build_edss_fixture.do` | Deterministic EDSS fixture generator, run by hand. |
 | `tools/build_cci_authoritative_fixture.py` | Pinned-source CCI vector builder, run by hand. |
 | `tools/compare_cci_fixture.py` | Independent Python CCI comparator used by cross-validation. |
-| `tools/compare_edss.py` | Independent EDSS-progression oracle and comparator, written from `cdp.sthlp`, `sustainedss.sthlp`, and `pira.sthlp`. |
+| `tools/compare_edss.py` | Independent EDSS-progression oracle and comparator, written from `cdp.sthlp` and `sustainedss.sthlp`; its PIRA window follows the published relapse-window rule (Kappos 2020; Portaccio 2024, 2025). |
 | `tools/compare_migrations.py` | Independent migration oracle and comparator, written from `migrations.sthlp`. |
 | `data/cci_authoritative_prefixes.csv` | Pinned authoritative CCI cases and expected components. |
 | `data/edss_long.dta` | Synthetic repeated-visit EDSS fixture. |
@@ -129,7 +130,7 @@ Stata 16 or later is required throughout. No R package is used.
 
 | Lane | Suites |
 |---|---|
-| `quick` | Release/install surfaces, documentation examples, help rendering, high-risk audit regressions, CCI smoke/date checks, CDP adversarial checks, MS known answers, and the EDSS fixture. |
+| `quick` | Release/install surfaces, documentation examples, help rendering, high-risk audit and versioned regressions, CCI smoke/date checks, CDP adversarial checks, MS known answers, and the EDSS fixture. |
 | `core` | `quick` plus every remaining deterministic Stata functional, regression, validation, and internal-crosscheck suite. |
 | `full` | `core` plus the three independent-oracle cross-validation suites (CCI, EDSS progression, migrations). |
 | `python` | The three independent-oracle cross-validation suites only. |

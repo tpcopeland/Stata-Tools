@@ -165,8 +165,9 @@ variables.{p_end}
 score to those occurring on or before the row's index date (cohort entry). This
 avoids scoring comorbidities recorded after follow-up begins (immortal-time /
 post-index contamination). It must be a Stata daily date with a {cmd:%td} display
-format and whole-number values; it should be constant within {opt id()}. Rows with
-a missing index date cannot be windowed and are dropped with a note.
+format and whole-number values, and it must be constant within {opt id()}:
+conflicting nonmissing index dates for one patient are an error (r(459)). Rows
+with a missing index date cannot be windowed and are dropped with a note.
 
 {phang}
 {opt lookback(#)} additionally sets a lower bound, keeping only diagnoses in

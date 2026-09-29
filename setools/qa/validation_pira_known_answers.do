@@ -66,10 +66,10 @@ tempfile rel_wc
 preserve
 clear
 input str2 id long relapse_date
-"A" 290
-"B" 291
+"A" 230
+"B" 231
 "B" .
-"H" 170
+"H" 110
 "" 200
 end
 format relapse_date %td
@@ -108,11 +108,11 @@ wc_check "stored results match hand-counted PIRA/RAW totals" `ok'
 
 quietly summarize raw_wc if id == "A", meanonly
 local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
-wc_check "relapse lower boundary is RAW" `ok'
+wc_check "relapse 30 days after CDP onset (upper boundary) is RAW" `ok'
 
 quietly summarize pira_wc if id == "B", meanonly
 local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
-wc_check "just before relapse lower boundary is PIRA" `ok'
+wc_check "relapse 31 days after CDP onset (just outside) is PIRA" `ok'
 
 quietly summarize pira_wc if id == "C", meanonly
 local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
@@ -136,7 +136,7 @@ wc_check "same-day baseline duplicates use the lowest EDSS baseline" `ok'
 
 quietly summarize raw_wc if id == "H", meanonly
 local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
-wc_check "relapse upper boundary is RAW" `ok'
+wc_check "relapse 90 days before CDP onset (lower boundary) is RAW" `ok'
 
 quietly summarize pira_wc if id == "P", meanonly
 local ok = (r(N) == 4 & r(min) == 200 & r(max) == 200)

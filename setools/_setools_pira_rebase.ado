@@ -1,4 +1,4 @@
-*! _setools_pira_rebase Version 1.5.7  2026/08/30
+*! _setools_pira_rebase Version 1.5.8  2026/09/29
 *! setools internal: forward relapse-driven PIRA rebaselining
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

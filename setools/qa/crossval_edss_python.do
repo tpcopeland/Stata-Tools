@@ -166,7 +166,8 @@ foreach spec in "4 182 none 4 1" "4 182 window 4 1" "4 182 unlimited 4 0" ///
 
 * pira: baselinewindow, confirmdays, threetier, confirmtype, before, after
 foreach spec in "730 180 0 sustained 90 30" "730 180 0 visit 90 30" ///
-                "730 90 1 sustained 30 30" "365 180 0 sustained 0 0" {
+                "730 90 1 sustained 30 30" "365 180 0 sustained 0 0" ///
+                "730 180 0 sustained 0 45" "730 180 0 visit 60 0" {
     tokenize `spec'
     local ttopt = cond("`3'" == "1", "threetier", "")
     local case "pira|`1'|`2'|`3'|`4'|`5'|`6'"
