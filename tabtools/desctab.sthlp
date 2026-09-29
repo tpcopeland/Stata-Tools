@@ -467,9 +467,10 @@ denominator its percentage releases. These counts are not printed, but one below
 the threshold is protected as a primary cell, as it would be if
 {opt missingsummary} or {opt slashN} printed it: printed cells are marked
 {cmd:≥#} where needed, percentages are withheld, and the p-value is
-suppressed. The group and total sample sizes are shared by every variable, so
-they are never withheld as complementary cells; when a count cannot be protected without them, {cmd:desctab}
-stops with an error.{p_end}
+suppressed. In a table of two or more variables the group and total sample
+sizes are shared by every variable, so they are never withheld as complementary
+cells; when a count cannot be protected without them, {cmd:desctab} stops with an
+error.{p_end}
 
 {pstd}
 {bf:Percentages are withheld for a protected variable.} A published percentage

@@ -677,6 +677,11 @@ program define _desctab_collect, rclass
             matrix `sc_missmask' = J(`nvars', `ngout', 0)
             matrix `sc_denmask' = J(`nvars', `ngout', 0)
             matrix `sc_derived' = J(`nvars', 1, 0)
+            * Every variable prints the same group and total N, so with more
+            * than one variable a block cannot withhold them: another block's
+            * levels add back up to them. A one-variable table is the only
+            * block that releases them and keeps the full search.
+            local _sc_fixed = cond(`nvars' > 1, "fixedmargins", "")
 
             forvalues i = 1/`nvars' {
                 local _sctyp `"`type_`i''"'
@@ -704,12 +709,18 @@ program define _desctab_collect, rclass
                     matrix `_scCE' = J(1, `groupcount', 1)
                     matrix `_scCS' = J(1, `groupcount', 1)
 
-                    _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
+                    capture noisily _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
                         sensitive(`_scS') rowexact(`_scRE') ///
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
                         grandsensitive(`include_total') smallcells(`smallcells') ///
-                        fixedmargins
+                        `_sc_fixed'
+                    if _rc == 498 & `nvars' > 1 {
+                        display as error `"variable `var_`i'': a count below `smallcells' can only be protected by withholding a group or total N, which the other variables in the table release"'
+                        display as error "Hint: combine sparse levels or leave the variable out of this table"
+                        exit 498
+                    }
+                    else if _rc exit _rc
                     matrix `_scM' = r(mask)
                     matrix `_scRM' = r(rowmask)
                     matrix `_scCM' = r(colmask)
@@ -814,12 +825,18 @@ program define _desctab_collect, rclass
                     matrix `_scCE' = J(1, `groupcount', 1)
                     matrix `_scCS' = J(1, `groupcount', 1)
 
-                    _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
+                    capture noisily _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
                         sensitive(`_scS') rowexact(`_scRE') ///
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
                         grandsensitive(`include_total') smallcells(`smallcells') ///
-                        fixedmargins
+                        `_sc_fixed'
+                    if _rc == 498 & `nvars' > 1 {
+                        display as error `"variable `var_`i'': a count below `smallcells' can only be protected by withholding a group or total N, which the other variables in the table release"'
+                        display as error "Hint: combine sparse levels or leave the variable out of this table"
+                        exit 498
+                    }
+                    else if _rc exit _rc
                     matrix `_scM' = r(mask)
                     matrix `_scRM' = r(rowmask)
                     matrix `_scCM' = r(colmask)
