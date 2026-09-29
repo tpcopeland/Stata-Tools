@@ -86,7 +86,7 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
-        assert r(n_commands) == 5
+        assert r(n_commands) == 6 & r(n_commands) == wordcount("`r(commands)'")
         assert "`r(commands)'" == ///
             "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
         * Dispatcher derives its version from the .ado header; assert it is a

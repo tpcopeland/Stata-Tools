@@ -1,4 +1,4 @@
-*! iivw Version 4.3.1  2026/09/28
+*! iivw Version 4.3.2  2026/09/29
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -99,11 +99,15 @@ program define iivw, rclass
     display as text "       " as result "`__iivw_smcl_lb'help iivw_fit`__iivw_smcl_rb'" as text "  for outcome model"
     display as text "       " as result "`__iivw_smcl_lb'help iivw_exogtest`__iivw_smcl_rb'" as text "  for timing exogeneity diagnostics"
     display as text "       " as result "`__iivw_smcl_lb'help iivw_diagnose`__iivw_smcl_rb'" as text "  for diagnostic decomposition"
+    display as text "       " as result "`__iivw_smcl_lb'help iivw_bspool`__iivw_smcl_rb'" as text "  for pooling bootstrap shards"
     display as text "`__iivw_smcl_lb'hline 70`__iivw_smcl_rb'"
 
     return local version "`version'"
-    return local commands "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
-    return scalar n_commands = 5
+    * One list feeds both results, so the count cannot drift from it (it was
+    * a literal 5 after iivw_bspool made the list six long).
+    local __iivw_commands "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
+    return local commands "`__iivw_commands'"
+    return scalar n_commands = `: word count `__iivw_commands''
 
     }
     local rc = _rc

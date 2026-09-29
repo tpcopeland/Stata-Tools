@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.3.1  2026/09/28
+*! iivw_weight Version 4.3.2  2026/09/29
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1579,6 +1579,16 @@ program define iivw_weight, rclass sortpreserve
             else {
                 keep `_obsno' `prefix'iw
             }
+            * This copy carries the stset characteristics of the internal
+            * counting-process fit (st_bd, st_enter, ... naming tempvars that
+            * are gone after restore). merge adds a using characteristic the
+            * master lacks, so the user's data came back marked stset on
+            * dangling temporaries, and a user's own stset gained a foreign
+            * enter()/exit(). The file holds rows to merge, not metadata.
+            local __iivw_iwchars : char _dta[]
+            foreach __iivw_ch of local __iivw_iwchars {
+                char _dta[`__iivw_ch'] ""
+            }
             save `__iivw_iwfile', replace
         }
         local __iivw_iw_rc = _rc
@@ -1717,17 +1727,22 @@ program define iivw_weight, rclass sortpreserve
                 if `tv_hi' < 100 local __iivw_pcts "`__iivw_pcts' `tv_hi'"
                 _pctile `prefix'iw if !missing(`prefix'iw), ///
                     percentiles(`__iivw_pcts')
+                * Cutpoints travel as exact %21x text, never a decimal local:
+                * `local x = r(r1)' keeps about 16 digits, so a weight equal to
+                * the percentile could land on the wrong side of its own rounded
+                * value and be counted (and moved) as trimmed. The same exact
+                * text is what the contract characteristics store for replay.
                 local __iivw_tv_locut = .
                 local __iivw_tv_hicut = .
                 if `tv_lo' > 0 & `tv_hi' < 100 {
-                    local __iivw_tv_locut = r(r1)
-                    local __iivw_tv_hicut = r(r2)
+                    local __iivw_tv_locut : display %21x r(r1)
+                    local __iivw_tv_hicut : display %21x r(r2)
                 }
                 else if `tv_lo' > 0 {
-                    local __iivw_tv_locut = r(r1)
+                    local __iivw_tv_locut : display %21x r(r1)
                 }
                 else {
-                    local __iivw_tv_hicut = r(r1)
+                    local __iivw_tv_hicut : display %21x r(r1)
                 }
                 local __iivw_tv_nlo = 0
                 local __iivw_tv_nhi = 0
@@ -2059,14 +2074,14 @@ program define iivw_weight, rclass sortpreserve
                 local __iivw_tt_locut = .
                 local __iivw_tt_hicut = .
                 if `tt_lo' > 0 & `tt_hi' < 100 {
-                    local __iivw_tt_locut = r(r1)
-                    local __iivw_tt_hicut = r(r2)
+                    local __iivw_tt_locut : display %21x r(r1)
+                    local __iivw_tt_hicut : display %21x r(r2)
                 }
                 else if `tt_lo' > 0 {
-                    local __iivw_tt_locut = r(r1)
+                    local __iivw_tt_locut : display %21x r(r1)
                 }
                 else {
-                    local __iivw_tt_hicut = r(r1)
+                    local __iivw_tt_hicut : display %21x r(r1)
                 }
                 * Rows moved (the analysis unit) and subjects moved (the unit the
                 * cutpoint is now taken at) are both counted: a row count alone
@@ -2264,14 +2279,14 @@ program define iivw_weight, rclass sortpreserve
             local lo_val = .
             local hi_val = .
             if `tf_lo' > 0 & `tf_hi' < 100 {
-                local lo_val = r(r1)
-                local hi_val = r(r2)
+                local lo_val : display %21x r(r1)
+                local hi_val : display %21x r(r2)
             }
             else if `tf_lo' > 0 {
-                local lo_val = r(r1)
+                local lo_val : display %21x r(r1)
             }
             else {
-                local hi_val = r(r1)
+                local hi_val : display %21x r(r1)
             }
 
             local n_lo = 0

@@ -101,7 +101,7 @@ capture noisily {
     iivw
     assert regexm("`r(version)'", "^[0-9]+\.[0-9]+\.[0-9]+$")
     assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose iivw_bspool"
-    assert r(n_commands) == 5
+    assert r(n_commands) == 6 & r(n_commands) == wordcount("`r(commands)'")
 }
 if _rc == 0 {
     display as result "  PASS: KA1 - iivw overview returns exact contract"

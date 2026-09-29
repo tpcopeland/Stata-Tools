@@ -1,4 +1,4 @@
-*! iivw_bspool Version 4.3.1  2026/09/28
+*! iivw_bspool Version 4.3.2  2026/09/29
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)
@@ -217,23 +217,28 @@ program define iivw_bspool, eclass
     * of work thrown away over a missing word.
     local _svtarget ""
     local _svrepl ""
-    if `"`saving'"' != "" {
+    if `"`macval(saving)'"' != "" {
+        * The file name is user text: every read below goes through macval()
+        * so a $name or `name' in it is written literally, not expanded, and
+        * an unbalanced backtick is not executed as a command.
         gettoken _svname _svrest : saving, parse(",")
-        local _svname `_svname'
-        if strpos(`"`_svrest'"', "replace") local _svrepl "replace"
-        if `"`_svname'"' == "" {
+        local _svname `macval(_svname)'
+        if strpos(`"`macval(_svrest)'"', "replace") local _svrepl "replace"
+        if `"`macval(_svname)'"' == "" {
             display as error "iivw_bspool: empty filename in saving()"
             error 198
         }
         * Same exact rule as the inputs and as _iivw_bs_stamp, so the file
         * written is the file restamped.
         mata: st_local("_sfx", pathsuffix(st_local("_svname")))
-        local _svtarget `"`_svname'"'
-        if `"`_sfx'"' == "" local _svtarget `"`_svname'.dta"'
+        local _svtarget `"`macval(_svname)'"'
+        if `"`_sfx'"' == "" {
+            local _svtarget `"`macval(_svname)'.dta"'
+        }
         if "`_svrepl'" == "" {
-            capture confirm new file `"`_svtarget'"'
+            capture confirm new file `"`macval(_svtarget)'"'
             if _rc {
-                display as error "iivw_bspool: `_svtarget' already exists"
+                display as error "iivw_bspool: `macval(_svtarget)' already exists"
                 display as error "  add replace to saving() to overwrite it"
                 error 602
             }
@@ -820,10 +825,10 @@ program define iivw_bspool, eclass
     * =====================================================================
     * OPTIONAL: KEEP THE APPENDED REPLICATE FILE
     * =====================================================================
-    if `"`_svtarget'"' != "" {
-        capture copy `"`pooledfile'"' `"`_svtarget'"', `_svrepl'
+    if `"`macval(_svtarget)'"' != "" {
+        capture copy `"`pooledfile'"' `"`macval(_svtarget)'"', `_svrepl'
         if _rc {
-            display as error "iivw_bspool: could not write `_svtarget'"
+            display as error "iivw_bspool: could not write `macval(_svtarget)'"
             display as error "  the pooled results are in e() and are unaffected"
             error 603
         }
@@ -833,8 +838,10 @@ program define iivw_bspool, eclass
         * refused to re-pool it. Stamping the pooled totals makes the artifact
         * describe itself, which is what saving() is for. This runs after the
         * repost, so e() is the pooled result and the stamp reads pooled values.
-        _iivw_bs_stamp, file(`"`_svtarget'"')
-        ereturn local iivw_bs_saving `"`_svtarget'"'
+        * resolved: the stamp would otherwise split its spec at the first
+        * comma, and a name such as "left, right.dta" is one file.
+        _iivw_bs_stamp, file(`"`macval(_svtarget)'"') resolved
+        ereturn local iivw_bs_saving `"`macval(_svtarget)'"'
     }
 
     * =====================================================================

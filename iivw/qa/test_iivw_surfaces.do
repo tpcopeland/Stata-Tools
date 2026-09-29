@@ -112,13 +112,13 @@ end
 
 **# Surface parity
 
-**## SP-iivw the command count (OPEN: r(n_commands))
-* OPEN LEDGER (new finding 2026-09-28, iivw 4.3.1 working tree and 4.2.0):
-* r(n_commands) is hard-coded 5 while r(commands) and the console list six
-* commands (iivw_bspool); iivw.sthlp documents it as the number of available
-* commands. The oracle is the package's public help files other than
-* iivw.sthlp. The r(n_commands) sink must disagree exactly as recorded.
-local nc_open "5"
+**## SP-iivw the command count
+* OPEN LEDGER, emptied in 4.3.2: r(n_commands) was hard-coded 5 while
+* r(commands) and the console list six commands (iivw_bspool); iivw.sthlp
+* documents it as the number of available commands. The oracle is the
+* package's public help files other than iivw.sthlp. With the ledger empty,
+* r(n_commands) must equal that count (red on 4.3.1).
+local nc_open ""
 local ++test_count
 capture noisily {
     local helps : dir "`pkg_dir'" files "iivw_*.sthlp"
@@ -437,14 +437,15 @@ program define _ivs_title
     mata: st_global("IVS_RES", st_nobs() ? st_sdata(1, 1) : "")
     restore
 end
-* OPEN LEDGER (new finding 2026-09-28, iivw 4.3.1 working tree): title() is
-* re-expanded as macro text on its way to the workbook. The TICKPAIR string
-* (a $global and a `lit' pair) reaches A1 altered, and an unbalanced
-* backtick exits r(132). The recorded failure set per command must match
-* exactly, so a fix fails the block until the ledger is emptied.
-local open_iivw_balance "QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR"
-local open_iivw_exogtest "QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR"
-local open_iivw_diagnose "QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR"
+* OPEN LEDGER, emptied in 4.3.2: title() was re-expanded as macro text on
+* its way to the workbook (frame post and inline if-local re-expand their
+* arguments). The TICKPAIR string (a $global and a `lit' pair) reached A1
+* altered, and an unbalanced backtick exited r(132). The recorded failure set
+* per command must match exactly; empty means every corpus string reaches A1
+* byte for byte (red on 4.3.1).
+local open_iivw_balance ""
+local open_iivw_exogtest ""
+local open_iivw_diagnose ""
 local hsnames QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR QA_HS_APOS QA_HS_DQ ///
     QA_HS_BSLASH QA_HS_COMMA QA_HS_LEAD QA_HS_UNICODE
 foreach cmd in iivw_balance iivw_exogtest iivw_diagnose {
@@ -524,13 +525,13 @@ program define _ivs_save
     capture erase `"`macval(fd)'"'
     mata: st_global("IVS_RES", st_local("s"))
 end
-* OPEN LEDGER (new finding 2026-09-28, iivw 4.3.1 working tree):
-* iivw_bspool saving() writes the pooled file under a macro-expanded name
-* (TICKPAIR), executes an unbalanced backtick string as a command (r(199),
-* TICK and DOLLAR), and answers a comma with r(601) rather than the
-* grammar's r(198) (COMMA).
+* OPEN LEDGER, emptied in 4.3.2: iivw_bspool saving() wrote the pooled file
+* under a macro-expanded name (TICKPAIR), executed an unbalanced backtick
+* string as a command (r(199), TICK and DOLLAR), and on a quoted name holding
+* a comma wrote the file but failed to stamp it (r(601), COMMA). All four are
+* now written literally (red on 4.3.1).
 local open_iivw_fit ""
-local open_iivw_bspool "QA_HS_TICKPAIR QA_HS_TICK QA_HS_DOLLAR QA_HS_COMMA"
+local open_iivw_bspool ""
 foreach cmd in iivw_fit iivw_bspool {
     local ++test_count
     capture noisily {

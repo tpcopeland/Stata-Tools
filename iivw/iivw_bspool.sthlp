@@ -69,10 +69,10 @@ the package discarded them instead of making them addressable.
 {cmd:iivw_bspool} operates on the {cmd:iivw_fit} results currently in
 {cmd:e()}. Those results are the {it:anchor}: they supply the coefficient
 vector and every {cmd:e()} field the draws do not determine. The files supply
-the draws. {bf:The anchor's own replicate file must be in the using list.}
-This is checked by identity, not by coefficient equality (every shard of one
-analysis has the same observed coefficients): the anchor's lineage must be
-among the files'.
+the draws. {bf:The anchor's own replicate file must be in the using list.} This
+is checked by identity, not by coefficient equality (every shard of one analysis
+has the same observed coefficients): the anchor's lineage must be among the
+files'.
 
 {pstd}
 The pooled variance, percentile limits and replicate counts are computed by
@@ -378,22 +378,23 @@ single shard and can be re-pooled on its own.
 result survives; see {helpb iivw_fit##results:iivw_fit}. The following are
 replaced or added.
 
-{pstd}{cmd:iivw_bspool} replaces in {cmd:e()}:{p_end}
+{pstd}{cmd:iivw_bspool} replaces in {cmd:e()} the results below. Those marked
+native are {helpb bootstrap}'s own results, recomputed from the pooled draws,
+so {help bootstrap_postestimation:estat bootstrap} describes the pool.{p_end}
 {synoptset 30 tabbed}{...}
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:e(V)}}pooled covariance{p_end}
 {synopt:{cmd:e(iivw_ci)}}selected interval from the pooled draws{p_end}
 {synopt:{cmd:e(iivw_ci_percentile)}}pooled percentile limits{p_end}
 {synopt:{cmd:e(iivw_ci_basic)}}pooled basic limits{p_end}
-{synopt:{cmd:e(b_bs)}}native {helpb bootstrap} replicate means, from the pooled draws{p_end}
-{synopt:{cmd:e(reps)}}native {helpb bootstrap} nonmissing replicates, from the pooled draws{p_end}
-{synopt:{cmd:e(bias)}}native {helpb bootstrap} bias, from the pooled draws{p_end}
-{synopt:{cmd:e(se)}}native {helpb bootstrap} standard errors, from the pooled draws{p_end}
-{synopt:{cmd:e(z0)}}native {helpb bootstrap} bias-correction, from the pooled draws{p_end}
-{synopt:{cmd:e(ci_normal)}}native {helpb bootstrap} normal interval, from the pooled draws{p_end}
-{synopt:{cmd:e(ci_percentile)}}native {helpb bootstrap} percentile interval, from the pooled draws{p_end}
-{synopt:{cmd:e(ci_bc)}}native {helpb bootstrap} bias-corrected interval, from the pooled draws{p_end}
-{synopt:}so {help bootstrap_postestimation:estat bootstrap} describes the pool{p_end}
+{synopt:{cmd:e(b_bs)}}native replicate means{p_end}
+{synopt:{cmd:e(reps)}}native nonmissing replicates{p_end}
+{synopt:{cmd:e(bias)}}native bias{p_end}
+{synopt:{cmd:e(se)}}native standard errors{p_end}
+{synopt:{cmd:e(z0)}}native bias-correction{p_end}
+{synopt:{cmd:e(ci_normal)}}native normal interval{p_end}
+{synopt:{cmd:e(ci_percentile)}}native percentile interval{p_end}
+{synopt:{cmd:e(ci_bc)}}native bias-corrected interval{p_end}
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:e(level)}}confidence level{p_end}
 {synopt:{cmd:e(N_reps)}}pooled completed draws (native){p_end}
@@ -406,9 +407,9 @@ replaced or added.
 {synopt:{cmd:e(iivw_ci_type)}}the pooled interval type{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}recomputed; see above{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if failures were accepted{p_end}
-{synopt:{cmd:e(iivw_bs_saving)}}the {cmd:saving()} file if one was written, else empty{p_end}
-{synopt:{cmd:e(iivw_bs_lineage)}}the component shards the pooled draws came from{p_end}
-{synopt:{cmd:e(rngstate)}}cleared: the pool drew from several RNG states{p_end}
+{synopt:{cmd:e(iivw_bs_saving)}}the {cmd:saving()} file, if written{p_end}
+{synopt:{cmd:e(iivw_bs_lineage)}}component shards of the pooled draws{p_end}
+{synopt:{cmd:e(rngstate)}}cleared: several RNG states were used{p_end}
 {p2colreset}{...}
 
 {pstd}{cmd:iivw_bspool} adds to {cmd:e()}:{p_end}
@@ -418,10 +419,10 @@ replaced or added.
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_bs_pooled)}}{cmd:1}{p_end}
 {synopt:{cmd:e(iivw_pooled_by)}}{cmd:iivw_bspool}{p_end}
-{synopt:{cmd:e(iivw_bs_streams)}}contributing {cmd:rngstream()} values{p_end}
+{synopt:{cmd:e(iivw_bs_streams)}}contributing {cmd:rngstream()}s{p_end}
 {synopt:{cmd:e(iivw_bs_seeds)}}contributing {cmd:seed()} values{p_end}
 {synopt:{cmd:e(iivw_bs_shard_files)}}the using list{p_end}
-{synopt:{cmd:e(iivw_bs_anchor_breldif)}}anchor-to-shard coefficient agreement{p_end}
+{synopt:{cmd:e(iivw_bs_anchor_breldif)}}anchor-to-shard b agreement{p_end}
 {p2colreset}{...}
 
 {pstd}
