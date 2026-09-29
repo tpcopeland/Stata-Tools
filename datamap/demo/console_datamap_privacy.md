@@ -29,7 +29,7 @@ Disclosure-risk summary excerpt:
 
 ```
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -127,10 +127,10 @@ Capped unique-count excerpt:
 
 ```stata
 . noisily display as result
+>     "In-memory integrity check: datamap left the datasignature unchanged"
 ```
 
 ```
->     "In-memory integrity check: datamap left the datasignature unchanged"
 In-memory integrity check: datamap left the datasignature unchanged
 
 ```
@@ -167,7 +167,7 @@ Privacy-safe map excerpt:
 
 ```
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -190,14 +190,9 @@ Likely identifiers not excluded: 0
 DESCRIPTION
 -----------
 This dataset contains cross-sectional data. It includes 1200 observations and 17 variables. The data includes date varia
-```
-
-```stata
-> bles (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data,
+> bles (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, 
 > outcomes.
-```
 
-```
 Survival Analysis Variables Detected
   Likely time variables: follow_up_time
     follow_up_time range: 0 to 2
@@ -285,11 +280,11 @@ Date-safe sample rows:
 ```
 
 ```
-| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .11 | 0
+| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .11 | 0 
 > | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .39
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .39 
 > | 0 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .04 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .04 | 
 > 1 | 1 | 9 | 1 |
 
 ```

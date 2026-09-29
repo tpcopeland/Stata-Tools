@@ -932,6 +932,11 @@ program define finegray_cif, rclass sortpreserve
             local _lev`g' : word `g' of `_ovlevs'
             local _levx`g' : word `g' of `_ovlevsx'
             local _lbl`g' : label (`_ovvar') `_lev`g''
+            * Whether the level has a value label of its own (strict returns
+            * "" otherwise); the graph legend drops the "var = " prefix then.
+            local _slbl : label (`_ovvar') `_lev`g'', strict
+            local _slen : length local _slbl
+            local _haslbl`g' = `_slen' > 0
             * The same label for display sinks (console and graph): SMCL and
             * the graph commands' own re-expansion would otherwise act on it, so
             * $name, a backquote, {bf:...} or a double quote in a value label was
@@ -1948,8 +1953,12 @@ program define finegray_cif, rclass sortpreserve
                         local _pst "pstyle(p`_ps')"
                     }
                     local _plots `"`_plots' (line cif time `_pif', `_pst' lwidth(medthick) connect(stairstep) `plotopts' `plot`g'opts')"'
+                    * A labelled level is keyed by its value label alone; an
+                    * unlabelled one keeps "var = level", since a bare number
+                    * would not say which variable the curves vary.
                     if "`_overmode'" != "" {
-                        local _legord `"`macval(_legord)' `=`_nband' + `g'' `"`_ovvar' = `macval(_glbl`g')'"'"'
+                        if `_haslbl`g'' local _legord `"`macval(_legord)' `=`_nband' + `g'' `"`macval(_glbl`g')'"'"'
+                        else local _legord `"`macval(_legord)' `=`_nband' + `g'' `"`_ovvar' = `macval(_glbl`g')'"'"'
                     }
                 }
                 * Default legend is a single row; because repeated legend()

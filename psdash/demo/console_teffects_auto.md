@@ -10,7 +10,7 @@ title: "console_teffects_auto"
 
 ```
 Iteration 0:   EE criterion =  7.348e-24
-Iteration 1:   EE criterion =  6.560e-31
+Iteration 1:   EE criterion =  3.610e-31
 
 Treatment-effects estimation                    Number of obs     =        800
 Estimator      : inverse-probability weights

@@ -8,7 +8,7 @@ title: "console_datamap_json"
 . noisily datamap, single("`pkg_dir'/_demo_cohort.dta")
 >     output("`pkg_dir'/datamap_metadata.json")
 >     format(json) exclude(patient_id subject_id patient_name)
->     datesafe mincell(5) quality missing(detail) uniqcap(100)
+>     datesafe mincell(5) uniqcap(100)
 ```
 
 ```
@@ -23,8 +23,8 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.6.7",
-  "generated": "19 Aug 2026 23:26:25",
+  "datamap_version": "1.7.0",
+  "generated": "29 Sep 2026 13:44:38",
   "format": "json",
   "datasets": [
     {

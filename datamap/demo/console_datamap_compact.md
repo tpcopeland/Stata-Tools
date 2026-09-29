@@ -26,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -49,14 +49,9 @@ Likely identifiers not excluded: 0
 DESCRIPTION
 -----------
 This dataset contains cross-sectional data. It includes 1200 observations and 17 variables. The data includes date varia
-```
-
-```stata
-> bles (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data,
+> bles (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, 
 > outcomes.
-```
 
-```
 ========================================
 VARIABLE SUMMARY
 ========================================

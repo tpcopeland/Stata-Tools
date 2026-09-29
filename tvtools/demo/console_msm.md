@@ -90,9 +90,9 @@ Covariate balance (standardized mean differences)
 
 ```stata
 noisily display "combined-weight ESS: " as result %6.1f r(ess_combined)
+"   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
 ```
 
 ```
->     "   positivity near-violations: " as result %4.1f r(pct_nonoverlap) "%"
 combined-weight ESS: 1970.1   positivity near-violations:  0.0%
 ```

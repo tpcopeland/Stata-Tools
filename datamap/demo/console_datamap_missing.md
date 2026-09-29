@@ -26,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 19 Aug 2026 23:26:25
+Generated: 29 Sep 2026 13:44:38
 
 ========================================
 DATASET: _demo_missing.dta
@@ -55,6 +55,17 @@ Missing Data Summary
   Variables with >50% missing: 0
   Variables with >10% missing: 4
   Observations with complete data: 38 (47.5%)
+  Missing-value patterns (+ observed, . missing):
+    Pattern variables, in order: x1 x2 x3 x4
+    Distinct patterns: 8
+    ++++: 38 (47.5%)
+    +.++: 14 (17.5%)
+    .+.+: 8 (10%)
+    ++.+: 7 (8.8%)
+    .+..: 7 (8.8%)
+    ....: suppressed (<5)
+    ...+: suppressed (<5)
+    +..+: suppressed (<5)
 
 ========================================
 VARIABLE SUMMARY
@@ -95,17 +106,6 @@ QUICK REFERENCE
   x3
     Type: double
     Format: %10.0g
-    Label: Biomarker C
-    Missing: 28 (35.0%)
-    Classification: continuous
-
-  x4
-    Type: double
-    Format: %10.0g
-    Label: Biomarker D
-    Missing: 10 (12.5%)
-    Classification: continuous
-
 ... [output truncated]
 
 ```

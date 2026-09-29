@@ -71,10 +71,10 @@ tvevent result
 
 ```stata
 noisily display "stratum var: " as result "`r(enum)'"
+"   gap-time clock: " as result "`r(gapstart)'/`r(gapstop)'"
 ```
 
 ```
->     "   gap-time clock: " as result "`r(gapstart)'/`r(gapstop)'"
 stratum var: stratum   gap-time clock: t0/t
 ```
 
