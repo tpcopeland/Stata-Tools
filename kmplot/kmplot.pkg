@@ -9,7 +9,7 @@ d and colorblind-safe styling.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260821
+d Distribution-Date: 20260930
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -23,3 +23,4 @@ d
 f kmplot.ado
 f kmplot.sthlp
 f _kmplot_risktable.ado
+f _kmplot_times.ado

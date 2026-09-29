@@ -1358,8 +1358,6 @@ def _resolve_graph_path(filepath, base_dir):
     filepath = filepath.replace('\\', '/')
     if os.path.isabs(filepath):
         return filepath if os.path.isfile(filepath) else None
-    if os.path.isfile(filepath):
-        return os.path.abspath(filepath)
     candidate = os.path.join(base_dir, filepath)
     if os.path.isfile(candidate):
         return os.path.abspath(candidate)
@@ -2305,14 +2303,8 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
             # Graph reference — resolve path relative to the output .md file
             for gfile, gidx in graph_files:
                 if gidx == idx:
-                    # Try CWD-relative first, then base_dir-relative
-                    if os.path.isfile(gfile):
-                        abs_gfile = os.path.abspath(gfile)
-                    elif os.path.isfile(os.path.join(base_dir, gfile)):
-                        abs_gfile = os.path.abspath(
-                            os.path.join(base_dir, gfile))
-                    else:
-                        abs_gfile = gfile
+                    abs_gfile = (_resolve_graph_path(gfile, base_dir)
+                                 or os.path.join(base_dir, gfile))
                     rel_path = os.path.relpath(
                         abs_gfile, os.path.abspath(output_dir))
                     display_name = os.path.basename(gfile)
@@ -2663,6 +2655,11 @@ def validate_accent(accent):
 
 def _same_path(path_a, path_b):
     """Return whether two paths resolve to the same filesystem location."""
+    try:
+        if os.path.samefile(path_a, path_b):
+            return True
+    except OSError:
+        pass  # A new destination has no filesystem identity yet.
     normalized_a = os.path.normcase(os.path.realpath(os.path.abspath(path_a)))
     normalized_b = os.path.normcase(os.path.realpath(os.path.abspath(path_b)))
     return normalized_a == normalized_b
@@ -3162,6 +3159,10 @@ def main():
                         help="Email-safe HTML with inline CSS")
     parser.add_argument("--annotate", default=None,
                         help="Annotation file path")
+    parser.add_argument("--graph-base", default=None,
+                        help="Execution directory for run/session graph paths")
+    parser.add_argument("--check-output-only", action="store_true",
+                        help="Check source/output identity without writing")
     parser.add_argument("--html-to-pdf", default=None,
                         help="Convert an HTML file to PDF via xhtml2pdf (standalone mode)")
 
@@ -3255,6 +3256,9 @@ def main():
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    if args.check_output_only:
+        return
+
     # R2: Read input with encoding cascade: UTF-8 -> Latin-1 -> replace.
     raw_text = read_text_file(args.input)
 
@@ -3262,7 +3266,7 @@ def main():
     title = args.title or os.path.splitext(os.path.basename(args.input))[0]
 
     # Base directory for resolving graph paths
-    base_dir = os.path.dirname(os.path.abspath(args.input))
+    base_dir = args.graph_base or os.path.dirname(os.path.abspath(args.input))
 
     # Parse into lines and blocks
     raw_lines = raw_text.split("\n")
@@ -3277,7 +3281,7 @@ def main():
     # F6: Apply keep/drop filtering
     blocks = filter_blocks(blocks, keep=args.keep, drop=args.drop)
 
-    if not blocks:
+    if not blocks and not args.combine_file:
         print("Warning: No content blocks found in input", file=sys.stderr)
         print_metadata(0, 0)
         sys.exit(1)
@@ -3593,3 +3597,4 @@ def _swap_ext(path, new_ext):
 
 if __name__ == "__main__":
     main()
+    print("LOGDOC_OK")

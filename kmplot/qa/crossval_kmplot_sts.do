@@ -27,6 +27,12 @@ forvalues rep = 1/200 {
         local ref_t = r(max)
         quietly summarize `s' if grp==`g'-1 & _t==`ref_t', meanonly
         local ref_s = r(mean)
+        * Source-paper support rule, independently determined from follow-up.
+        quietly summarize _t if grp==`g'-1, meanonly
+        if `tt'>r(max) & `ref_s'>0 {
+            assert missing(L[`j',3])
+            continue
+        }
         assert L[`j',3]<.
         assert `ref_s'<.
         assert abs(L[`j',3]-`ref_s')<1e-12

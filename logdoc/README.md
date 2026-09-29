@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.1.8** | 2026-09-27
+**Version 1.1.9** | 2026-09-30
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -237,9 +237,9 @@ logdoc replay [, theme() format() open]
 
 - `logdoc start` accepts the conversion display and metadata options but not `run` or `stataexe()`; `logdoc stop` takes no options.
 - `logdoc diff` always writes HTML and accepts `replace`, `theme()`, `python()`, `css()`, `accent()`, and `quiet`.
-- `logdoc batch` defaults to HTML and writes each matching input basename to the chosen output directory with the selected output extension(s).
+- `logdoc batch` defaults to HTML and writes each matching input basename to the chosen output directory with the selected output extension(s). Inputs sharing an output basename are rejected before conversion.
 - `logdoc combine` supports `html`, `md`, `qmd`, `tex`, and `both`; it rejects `docx` and `pdf`.
-- `logdoc replay` requires a previous conversion in the current Stata session and reuses all remembered options except for its documented overrides.
+- `logdoc replay` requires a previous conversion in the current Stata session and reuses all remembered options except for its documented overrides. The latest successful session transcript is retained in temporary storage until a successful conversion of another input replaces it.
 
 ### `logdoc_py` syntax and actions
 
@@ -376,7 +376,7 @@ On a successful call, `logdoc_py` returns:
 ## Assumptions and Limits
 
 - SMCL is the preferred input because plain `.log` files do not retain Stata's input, result, and error color tags.
-- Graphs are embedded when a `graph export` command is detected and the referenced image can be resolved; use a path relative to the log or an absolute path for reliability. `nograph` disables this scan.
+- Graphs are embedded when a `graph export` command is detected and the referenced image can be resolved; relative paths resolve from the log directory, or the execution directory for `run` and live capture. Absolute paths remain absolute. `nograph` disables this scan.
 - HTML embeds graph images, while Markdown, Quarto Markdown, and LaTeX use image references that must remain resolvable when the output is moved.
 - `format(qmd)` produces rendered Markdown with Quarto front matter; it does not create executable Quarto code cells.
 - `format(docx)` is unavailable before Stata 17. `format(pdf)` needs `xhtml2pdf` or `wkhtmltopdf`; check it with `logdoc_py, check pdf`.
@@ -393,6 +393,8 @@ On a successful call, `logdoc_py` returns:
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.1.9** (2026-09-30): Reject hard-linked source/output collisions and ambiguous batch basenames; require every renderer output to succeed; resolve graphs from the source or capture execution directory; filter combined sources without order dependence; retain session transcripts for replay and preserve configured Python; return the actual primary combine path and final Word/PDF size.
 
 - **1.1.8** (2026-09-27): Output lines that a text log wrapped at the linesize stay whole in Markdown and the other formats: the `> ` continuation stays in the output block whatever it starts with (a continuation starting with a letter used to be moved to a separate command block), the first part keeps its trailing blanks so the continuation lines up, and a log header whose path wraps is skipped whole.
 - **1.1.7** (2026-08-30): Allowlist `.logdocrc` keys; handle dotted output paths and quoted commas correctly; fail batches with no successful output; restore `varabbrev` on helper exits; and tighten Viewer-width and PDF regression coverage.

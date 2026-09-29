@@ -1,4 +1,4 @@
-*! kmplot Version 1.3.0  2026/08/21
+*! kmplot Version 1.3.1  2026/09/30
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -28,14 +28,18 @@ program define kmplot, rclass
         set varabbrev off
         local _kmplot_preserved = 0
         local _kmplot_side_rc = 0
+        forvalues _s = 1/6 {
+            local _S_exists`_s' : all globals "S_`_s'"
+            local _S_saved`_s' : copy global S_`_s'
+        }
         tempname _kmplot_main_graph _kmplot_risk_graph
         capture noisily {
 
     syntax [if] [in] , [BY(varname) FAILure ///
         CI Level(string) CIStyle(string) CIOpacity(string) CITRansform(string) ///
         MEDian MEDIANAnnotate ///
-        RISKtable RISKEVents RISKCOMpact RISKMono RISKHeight(string) TIMEpoints(numlist sort) ///
-        LANDmark(numlist sort) ///
+        RISKtable RISKEVents RISKCOMpact RISKMono RISKHeight(string) TIMEpoints(string) ///
+        LANDmark(string) ///
         CENsor CENSORThin(string) ///
         PVALue PVALUEPOs(string) PVALUEFormat(string) PVALUEText(string asis) PVALUEAT(string asis) ///
         COLors(string asis) LWidth(string) LPattern(string asis) ///
@@ -45,6 +49,20 @@ program define kmplot, rclass
         LEGend(string asis) NOTE(string asis) ///
         SCHeme(string) NAME(string asis) ASPectratio(string) ///
         EXPort(string asis) SAVing(string asis) RISKSAVing(string asis) *]
+
+    * Validate numlist grammar, retaining double precision through dispatch.
+    foreach _times in timepoints landmark {
+        if "``_times''" != "" {
+            _kmplot_times, values("``_times''")
+            local `_times' "`r(times)'"
+        }
+    }
+    local st_wt : char _dta[st_wt]
+    local is_pweight = ("`st_wt'" == "pweight")
+    if `is_pweight' & ("`ci'" != "" | "`pvalue'" != "") {
+        noisily display as error "ci and pvalue are not supported with stset probability weights"
+        exit 198
+    }
 
     local _level_specified = ("`level'" != "")
     local _ciopacity_specified = ("`ciopacity'" != "")
@@ -169,7 +187,7 @@ program define kmplot, rclass
         exit 198
     }
     if "`pvalue'" == "" & ("`pvaluepos'" != "" | "`pvalueformat'" != "" | ///
-        `"`pvaluetext'"' != "" | `"`pvalueat'"' != "") {
+        `"`macval(pvaluetext)'"' != "" | `"`pvalueat'"' != "") {
         noisily display as error "pvaluepos(), pvalueformat(), pvaluetext(), and pvalueat() require pvalue"
         exit 198
     }
@@ -240,8 +258,8 @@ program define kmplot, rclass
         noisily display as error "pvalueformat() must be a valid numeric display format"
         exit 198
     }
-    if `"`pvaluetext'"' != "" {
-        local pvalue_label `"`pvaluetext'"'
+    if `"`macval(pvaluetext)'"' != "" {
+        local pvalue_label `"`macval(pvaluetext)'"'
     }
     if `"`pvalueat'"' != "" {
         capture numlist `"`pvalueat'"', min(2) max(2)
@@ -267,7 +285,7 @@ program define kmplot, rclass
         noisily display as error "colors() must contain at least one color"
         exit 198
     }
-    if `"`ytitle'"' == "" {
+    if `"`macval(ytitle)'"' == "" {
         if "`failure'" != "" {
             local ytitle "Cumulative failure"
         }
@@ -275,14 +293,19 @@ program define kmplot, rclass
             local ytitle "Survival probability"
         }
     }
-    if `"`xtitle'"' == "" local xtitle "Analysis time"
+    if `"`macval(xtitle)'"' == "" local xtitle "Analysis time"
     * Strip outer quotes from string-asis options (asis preserves user quotes)
     foreach _ttl in xtitle ytitle title subtitle note pvalue_label {
-        local _len = strlen(`"``_ttl''"')
-        if `_len' >= 2 & ///
-            substr(`"``_ttl''"', 1, 1) == char(34) & ///
-            substr(`"``_ttl''"', `_len', 1) == char(34) {
-            local `_ttl' = substr(`"``_ttl''"', 2, `_len' - 2)
+        mata: st_local("_text", st_local(st_local("_ttl")))
+        mata: st_local("_compound", strofreal(substr(st_local("_text"), 1, 2) == char(96)+char(34) & substr(st_local("_text"), -2, 2) == char(34)+char(39)))
+        if `_compound' {
+            mata: st_local(st_local("_ttl"), substr(st_local("_text"), 3, strlen(st_local("_text"))-4))
+        }
+        else {
+            mata: st_local("_quoted", strofreal(substr(st_local("_text"), 1, 1) == char(34) & substr(st_local("_text"), -1, 1) == char(34)))
+            if `_quoted' {
+                mata: st_local(st_local("_ttl"), substr(st_local("_text"), 2, strlen(st_local("_text"))-2))
+            }
         }
     }
     * Parse name option (handle "name, replace" syntax)
@@ -318,12 +341,12 @@ program define kmplot, rclass
             else {
                 local pval = chi2tail(r(df), r(chi2))
 	                if `pval' < 0.001 {
-	                    local pval_text "`pvalue_label' < 0.001"
+	                    local pval_text `"`macval(pvalue_label)' < 0.001"'
 	                }
 	                else {
 	                    local pval_fmt : display `pvalue_format' `pval'
 	                    local pval_fmt = strtrim("`pval_fmt'")
-	                    local pval_text "`pvalue_label' = `pval_fmt'"
+	                    local pval_text `"`macval(pvalue_label)' = `pval_fmt'"'
 	                }
 	            }
 	        }
@@ -390,19 +413,21 @@ program define kmplot, rclass
 
         if `ngroups' > 1 {
             quietly sts generate `km_s' = s, by(`grpid')
-            quietly sts generate `km_se' = se(s), by(`grpid')
+            if !`is_pweight' quietly sts generate `km_se' = se(s), by(`grpid')
         }
         else {
             quietly sts generate `km_s' = s
-            quietly sts generate `km_se' = se(s)
+            if !`is_pweight' quietly sts generate `km_se' = se(s)
         }
+
+        if `is_pweight' quietly gen double `km_se' = .
 
         * Handle all-censored groups (no events -> S = 1)
         forvalues g = 1/`ngroups' {
             quietly count if `grpid' == `g' & !missing(`km_s')
             if r(N) == 0 {
                 quietly replace `km_s' = 1 if `grpid' == `g'
-                quietly replace `km_se' = 0 if `grpid' == `g'
+                if !`is_pweight' quietly replace `km_se' = 0 if `grpid' == `g'
             }
         }
 
@@ -481,7 +506,7 @@ program define kmplot, rclass
                     }
 	            if "`censor'" != "" & `censorthin' > 1 {
 	                tempvar _ccnt
-	                bysort `grpid' (_t) : gen int `_ccnt' = ///
+	                bysort `grpid' (_t) : gen double `_ccnt' = ///
 	                    sum(`km_cens') if `km_cens' == 1
                 quietly replace `km_cens' = 0 ///
                     if `km_cens' == 1 & mod(`_ccnt', `censorthin') != 0
@@ -507,9 +532,9 @@ program define kmplot, rclass
             if `_comma' > 0 {
                 local _rt_posspec = strtrim(substr(`"`_rt_posspec'"', 1, `_comma' - 1))
             }
-            capture numlist `"`_rt_posspec'"', sort
+            capture _kmplot_times, values(`"`_rt_posspec'"')
             if _rc == 0 {
-                local timepoints `r(numlist)'
+                local timepoints `r(times)'
             }
         }
 
@@ -519,8 +544,8 @@ program define kmplot, rclass
 	        }
 	        local rt_height_opt "riskheight(`riskheight')"
         local rt_xtitle_opt ""
-        if `"`xtitle'"' != "" {
-            local rt_xtitle_opt xtitle("`xtitle'")
+        if `"`macval(xtitle)'"' != "" {
+            local rt_xtitle_opt xtitle(`"`macval(xtitle)'"')
         }
         local rt_xlabel_opt ""
         if `"`xlabel'"' != "" {
@@ -552,9 +577,9 @@ program define kmplot, rclass
 	            _kmplot_risktable, grpvar(`grpid') ngroups(`ngroups') ///
 	                colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
 	                graphname(`_kmplot_risk_graph') ///
-	                `rt_xtitle_opt' `rt_xlabel_opt' `rt_ylabel_opt' ///
+	                `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
 	                `rt_height_opt' `rt_flags' ///
-	                callerversion("1.3.0") toptimeaxis
+	                callerversion("1.3.1") toptimeaxis
 	            matrix `risktable_mat' = r(risktable)
 	            local has_risktable_mat = 1
 	            local risk_timepoints "`r(timepoints)'"
@@ -627,6 +652,9 @@ program define kmplot, rclass
 	        matrix colnames `landmarks_mat' = group time estimate lower upper
 	        local _lm_row = 0
 	        forvalues g = 1/`ngroups' {
+                quietly summarize _t if `grpid' == `g' & `km_anchor' == 0, meanonly
+                tempname lm_max
+                scalar `lm_max' = r(max)
 	            foreach tp of local landmark {
 	                local ++_lm_row
 	                matrix `landmarks_mat'[`_lm_row', 1] = `g'
@@ -635,6 +663,8 @@ program define kmplot, rclass
 	                    _t <= `tp' & !missing(`km_s'), meanonly
 	                if r(N) > 0 {
 	                    local _lm_obs = r(max)
+                        if `tp' > scalar(`lm_max') & ///
+                            `km_s'[`_lm_obs'] != ("`failure'" != "") continue
 	                    matrix `landmarks_mat'[`_lm_row', 3] = `km_s'[`_lm_obs']
 	                    if "`ci'" != "" {
 	                        if !missing(`km_lb'[`_lm_obs']) {
@@ -718,46 +748,38 @@ program define kmplot, rclass
     * bound (vertical riser). Drawn in data order (no sort).
 
     if "`ci'" != "" & "`cistyle'" == "band" {
-        tempvar bgrp btime blo bhi
-        local band_pts = 0
-        forvalues g = 1/`ngroups' {
-            quietly levelsof _t if `grpid' == `g' & !missing(`km_lb'), local(_btimes`g')
-            local _nb : word count `_btimes`g''
-            local band_pts = `band_pts' + 2 * `_nb'
-        }
+        tempvar bgrp btime blo bhi btag
+        * Use source row indices; event times and bounds never pass through text.
+        quietly bysort `grpid' _t: gen byte `btag' = ///
+            (_n == 1 & !missing(`km_lb', `km_ub'))
+        quietly count if `btag'
+        local band_pts = 2 * r(N)
         if `band_pts' > 0 {
             local _bbase = _N
             quietly set obs `=`_bbase' + `band_pts''
             quietly gen double `btime' = .
-            quietly gen double `blo'   = .
-            quietly gen double `bhi'   = .
-            quietly gen long   `bgrp'  = .
+            quietly gen double `blo' = .
+            quietly gen double `bhi' = .
+            quietly gen long `bgrp' = .
             local _br = `_bbase'
-            forvalues g = 1/`ngroups' {
-                local _plo = .
-                local _phi = .
-                local _bfirst = 1
-                foreach tt of local _btimes`g' {
-                    quietly summarize `km_lb' if `grpid' == `g' & _t == `tt', meanonly
-                    local _clo = r(mean)
-                    quietly summarize `km_ub' if `grpid' == `g' & _t == `tt', meanonly
-                    local _chi = r(mean)
-                    * carry-forward base (horizontal segment to this time)
-                    local ++_br
-                    quietly replace `bgrp'  = `g'  in `_br'
-                    quietly replace `btime' = `tt' in `_br'
-                    quietly replace `blo'   = cond(`_bfirst', `_clo', `_plo') in `_br'
-                    quietly replace `bhi'   = cond(`_bfirst', `_chi', `_phi') in `_br'
-                    * step to the new bound (vertical riser)
-                    local ++_br
-                    quietly replace `bgrp'  = `g'  in `_br'
-                    quietly replace `btime' = `tt' in `_br'
-                    quietly replace `blo'   = `_clo' in `_br'
-                    quietly replace `bhi'   = `_chi' in `_br'
-                    local _plo = `_clo'
-                    local _phi = `_chi'
-                    local _bfirst = 0
+            local _prev = 0
+            forvalues _src = 1/`_bbase' {
+                if `btag'[`_src'] != 1 continue
+                local ++_br
+                quietly replace `bgrp' = `grpid'[`_src'] in `_br'
+                quietly replace `btime' = _t[`_src'] in `_br'
+                local _carry = `_src'
+                if `_prev' > 0 {
+                    if `grpid'[`_prev'] == `grpid'[`_src'] local _carry = `_prev'
                 }
+                quietly replace `blo' = `km_lb'[`_carry'] in `_br'
+                quietly replace `bhi' = `km_ub'[`_carry'] in `_br'
+                local ++_br
+                quietly replace `bgrp' = `grpid'[`_src'] in `_br'
+                quietly replace `btime' = _t[`_src'] in `_br'
+                quietly replace `blo' = `km_lb'[`_src'] in `_br'
+                quietly replace `bhi' = `km_ub'[`_src'] in `_br'
+                local _prev = `_src'
             }
             local has_stepband = 1
         }
@@ -776,7 +798,7 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`tw_layers' (rarea `bhi' `blo' `btime' if `bgrp' == `g', fcolor(`col'%`ciopacity') lwidth(none))"'
+                local tw_layers `"`macval(tw_layers)' (rarea `bhi' `blo' `btime' if `bgrp' == `g', fcolor(`col'%`ciopacity') lwidth(none))"'
             }
             local legend_offset = `ngroups'
         }
@@ -794,7 +816,7 @@ program define kmplot, rclass
         else {
             local pat "solid"
         }
-            local tw_layers `"`tw_layers' (line `km_s' _t if `grpid' == `g' & !missing(`km_s'), lcolor(`col') lwidth(`lwidth') lpattern(`pat') sort connect(J))"'
+            local tw_layers `"`macval(tw_layers)' (line `km_s' _t if `grpid' == `g' & !missing(`km_s'), lcolor(`col') lwidth(`lwidth') lpattern(`pat') sort connect(J))"'
         }
 
     * --- CI lines (alternative to bands) ---
@@ -803,8 +825,8 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`tw_layers' (line `km_lb' _t if `grpid' == `g' & !missing(`km_lb'), lcolor(`col') lwidth(thin) lpattern(dash) sort connect(J))"'
-                local tw_layers `"`tw_layers' (line `km_ub' _t if `grpid' == `g' & !missing(`km_ub'), lcolor(`col') lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `km_lb' _t if `grpid' == `g' & !missing(`km_lb'), lcolor(`col') lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `km_ub' _t if `grpid' == `g' & !missing(`km_ub'), lcolor(`col') lwidth(thin) lpattern(dash) sort connect(J))"'
             }
         }
 
@@ -814,7 +836,7 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`tw_layers' (scatter `km_s' _t if `grpid' == `g' & `km_cens' == 1, msymbol(pipe) mcolor(`col') msize(medsmall))"'
+                local tw_layers `"`macval(tw_layers)' (scatter `km_s' _t if `grpid' == `g' & `km_cens' == 1, msymbol(pipe) mcolor(`col') msize(medsmall))"'
             }
         }
 
@@ -831,7 +853,7 @@ program define kmplot, rclass
         }
         if `any_med' {
             * Thin horizontal line from x=0 to just past the rightmost median
-            local tw_layers `"`tw_layers' (pci 0.5 0 0.5 `=`max_med' * 1.05', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
+            local tw_layers `"`macval(tw_layers)' (pci 0.5 0 0.5 `=`max_med' * 1.05', lcolor(gs12) lpattern(shortdash) lwidth(vthin))"'
         }
         * Short vertical drop at each group's median
         forvalues g = 1/`ngroups' {
@@ -839,7 +861,7 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`tw_layers' (pci 0 `median_`g'' 0.5 `median_`g'', lcolor(`col') lpattern(shortdash) lwidth(vthin))"'
+                local tw_layers `"`macval(tw_layers)' (pci 0 `median_`g'' 0.5 `median_`g'', lcolor(`col') lpattern(shortdash) lwidth(vthin))"'
             }
         }
     }
@@ -860,14 +882,20 @@ program define kmplot, rclass
         local legend_cmd `"legend(order(`legend_items') cols(1) position(1) ring(0) size(vsmall) region(lcolor(none) fcolor(none)) symxsize(8) keygap(1))"'
     }
 
+    * Graph's internal parser expands macros again. Encode macro delimiters
+    * only in graph copies; the returned labels retain the original bytes.
+    foreach _label in title subtitle xtitle ytitle note pval_text {
+        mata: st_local("_plot_"+st_local("_label"), subinstr(subinstr(st_local(st_local("_label")), char(96), "{c 96}"), char(36), "{c 36}"))
+    }
+
     * --- Global options ---
     local tw_opts ""
 
-    if `"`title'"' != "" {
-        local tw_opts `"`tw_opts' title(`title', size(medium))"'
+    if `"`macval(_plot_title)'"' != "" {
+        local tw_opts `"`macval(tw_opts)' title(`"`macval(_plot_title)'"', size(medium))"'
     }
-    if `"`subtitle'"' != "" {
-        local tw_opts `"`tw_opts' subtitle(`subtitle', size(small))"'
+    if `"`macval(_plot_subtitle)'"' != "" {
+        local tw_opts `"`macval(tw_opts)' subtitle(`"`macval(_plot_subtitle)'"', size(small))"'
     }
     * With a risk table the y title carries the same right margin as the risk
     * panel's, so the two label columns start at the same place.
@@ -875,30 +903,30 @@ program define kmplot, rclass
     if "`risktable'" != "" {
         local ytitle_margin "margin(r=`risk_title_gap')"
     }
-    local tw_opts `"`tw_opts' xtitle(`"`xtitle'"', size(small)) ytitle(`"`ytitle'"', size(small) `ytitle_margin')"'
+    local tw_opts `"`macval(tw_opts)' xtitle(`"`macval(_plot_xtitle)'"', size(small)) ytitle(`"`macval(_plot_ytitle)'"', size(small) `ytitle_margin')"'
 
     if `"`ylabel'"' != "" {
-        local tw_opts `"`tw_opts' ylabel(`ylabel')"'
+        local tw_opts `"`macval(tw_opts)' ylabel(`ylabel')"'
     }
     else {
-        local tw_opts `"`tw_opts' ylabel(0(0.25)1, format(%4.2f) angle(0) nogrid)"'
+        local tw_opts `"`macval(tw_opts)' ylabel(0(0.25)1, format(%4.2f) angle(0) nogrid)"'
     }
 
     if `"`xlabel'"' != "" & "`risktable'" == "" {
-        local tw_opts `"`tw_opts' xlabel(`xlabel')"'
+        local tw_opts `"`macval(tw_opts)' xlabel(`xlabel')"'
     }
 
     * Note
-    if `"`note'"' != "" {
-        local tw_opts `"`tw_opts' note(`"`note'"', size(vsmall))"'
+    if `"`macval(_plot_note)'"' != "" {
+        local tw_opts `"`macval(tw_opts)' note(`"`macval(_plot_note)'"', size(vsmall))"'
     }
     else if "`med_note'" != "" & "`risktable'" == "" {
         * Only show median note when no risktable (avoids clutter between graphs)
-        local tw_opts `"`tw_opts' note(`"`med_note'"', size(vsmall) color(gs5))"'
+        local tw_opts `"`macval(tw_opts)' note(`"`med_note'"', size(vsmall) color(gs5))"'
     }
 
 	    * P-value text annotation
-	    if "`pval_text'" != "" {
+	    if `"`macval(_plot_pval_text)'"' != "" {
 	        if `"`pvalueat'"' != "" {
 	            local p_place "`pvalue_place'"
 	            local p_y = `pvalue_y'
@@ -925,18 +953,18 @@ program define kmplot, rclass
             local p_x = `tmax' * 0.95
             local p_place "w"
         }
-        local tw_opts `"`tw_opts' text(`p_y' `p_x' `"`pval_text'"', placement(`p_place') size(vsmall) color(gs5))"'
+        local tw_opts `"`macval(tw_opts)' text(`p_y' `p_x' `"`macval(_plot_pval_text)'"', placement(`p_place') size(vsmall) color(gs5))"'
     }
 
     if "`aspectratio'" != "" {
-        local tw_opts `"`tw_opts' aspectratio(`aspectratio')"'
+        local tw_opts `"`macval(tw_opts)' aspectratio(`aspectratio')"'
     }
 
-    local tw_opts `"`tw_opts' scheme(`scheme') `legend_cmd'"'
+    local tw_opts `"`macval(tw_opts)' scheme(`scheme') `legend_cmd'"'
 
     * Passthrough options
     if `"`options'"' != "" {
-        local tw_opts `"`tw_opts' `options'"'
+        local tw_opts `"`macval(tw_opts)' `options'"'
     }
 
     * =========================================================================
@@ -994,21 +1022,21 @@ program define kmplot, rclass
         local rt_grp_ylabel_cmd `"ylabel(`rt_grp_ylabels', add custom angle(0) labsize(small) labgap(`risk_row_labgap') labcolor(none) tlcolor(none) nogrid)"'
 
         local rt_main_opts `"xtitle("") `rt_main_xlabel' `rt_grp_ylabel_cmd' xscale(range(0 `tmax') noextend) plotregion(margin(l=`risk_plot_left' r=`risk_plot_right' t=2 b=0)) graphregion(margin(l=0 t=0 b=0))"'
-        twoway `tw_layers', `tw_opts' `rt_main_opts' ///
+        twoway `macval(tw_layers)', `macval(tw_opts)' `rt_main_opts' ///
             nodraw name(`_kmplot_main_graph', replace)
 
         local combine_note `"note("")"'
-        if `"`note'"' == "" & `"`med_note'"' != "" {
+        if `"`macval(_plot_note)'"' == "" & `"`med_note'"' != "" {
             local combine_note `"note(`"`med_note'"', size(vsmall) color(gs5))"'
         }
         graph combine `_kmplot_main_graph' `_kmplot_risk_graph', ///
             cols(1) xcommon ///
             imargin(0 0 0 0) ///
             name(`name', replace) ///
-            scheme(`scheme') `combine_note'
+            scheme(`scheme') `macval(combine_note)'
         }
 	    else {
-	        twoway `tw_layers', `tw_opts' name(`name', replace)
+	        twoway `macval(tw_layers)', `macval(tw_opts)' name(`name', replace)
 	    }
 
     * Remove the stepped-band helper rows now that the graph is rendered,
@@ -1024,7 +1052,16 @@ program define kmplot, rclass
         if `"`export'"' != "" {
             local export_file `"`export'"'
             local export_opts ""
-        local cpos = strpos(`"`export'"', ",")
+        local cpos = 0
+            local _inquote = 0
+            forvalues _pos = 1/`=strlen(`"`export'"')' {
+                local _ch = substr(`"`export'"', `_pos', 1)
+                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
+                if `"`_ch'"' == "," & !`_inquote' {
+                    local cpos = `_pos'
+                    continue, break
+                }
+            }
         if `cpos' > 0 {
             local export_file = strtrim(substr(`"`export'"', 1, `cpos' - 1))
             local export_opts = strtrim(substr(`"`export'"', `cpos' + 1, .))
@@ -1068,7 +1105,16 @@ program define kmplot, rclass
 	        if `"`saving'"' != "" {
 	            local curve_file `"`saving'"'
 	            local curve_opts ""
-	            local cpos = strpos(`"`curve_file'"', ",")
+	            local cpos = 0
+            local _inquote = 0
+            forvalues _pos = 1/`=strlen(`"`curve_file'"')' {
+                local _ch = substr(`"`curve_file'"', `_pos', 1)
+                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
+                if `"`_ch'"' == "," & !`_inquote' {
+                    local cpos = `_pos'
+                    continue, break
+                }
+            }
 	            if `cpos' > 0 {
 	                local curve_opts = strtrim(substr(`"`curve_file'"', `cpos' + 1, .))
 	                local curve_file = strtrim(substr(`"`curve_file'"', 1, `cpos' - 1))
@@ -1139,7 +1185,16 @@ program define kmplot, rclass
 	        if `"`risksaving'"' != "" {
 	            local risk_file `"`risksaving'"'
 	            local risk_opts ""
-	            local cpos = strpos(`"`risk_file'"', ",")
+	            local cpos = 0
+            local _inquote = 0
+            forvalues _pos = 1/`=strlen(`"`risk_file'"')' {
+                local _ch = substr(`"`risk_file'"', `_pos', 1)
+                if `"`_ch'"' == char(34) local _inquote = !`_inquote'
+                if `"`_ch'"' == "," & !`_inquote' {
+                    local cpos = `_pos'
+                    continue, break
+                }
+            }
 	            if `cpos' > 0 {
 	                local risk_opts = strtrim(substr(`"`risk_file'"', `cpos' + 1, .))
 	                local risk_file = strtrim(substr(`"`risk_file'"', 1, `cpos' - 1))
@@ -1199,8 +1254,8 @@ program define kmplot, rclass
     if "`ci'" != "" {
         display as text "  CI transform: " as result "`citransform'"
     }
-    if "`pval_text'" != "" {
-        display as text "  `pval_text'"
+    if `"`macval(pval_text)'"' != "" {
+        display as text `"  `macval(pval_text)'"'
     }
     if "`median'" != "" {
         forvalues g = 1/`ngroups' {
@@ -1230,6 +1285,12 @@ program define kmplot, rclass
         local _drop_risk_rc = _rc
         if `_kmplot_preserved' {
             capture restore
+        }
+        forvalues _s = 1/6 {
+            if "`_S_exists`_s''" != "" {
+                global S_`_s' `"`macval(_S_saved`_s')'"'
+            }
+            else capture macro drop S_`_s'
         }
         set varabbrev `_orig_varabbrev'
         if `rc' exit `rc'
@@ -1277,8 +1338,8 @@ program define kmplot, rclass
 	        return local timepoints "`risk_timepoints'"
 	        return local landmark_times "`landmark'"
 	        return local group_labels `"`group_labels'"'
-	        return local xtitle `"`xtitle'"'
-	        return local ytitle `"`ytitle'"'
+	        return local xtitle `"`macval(xtitle)'"'
+	        return local ytitle `"`macval(ytitle)'"'
 	        if `"`export_file'"' != "" {
 	            return local export `"`export_file'"'
 	        }
@@ -1289,8 +1350,8 @@ program define kmplot, rclass
 	            return local risksaving `"`risk_saved'"'
 	        }
 	        if "`pvalue'" != "" {
-	            return local pvalue_text `"`pval_text'"'
-	            return local pvalue_label `"`pvalue_label'"'
+	            return local pvalue_text `"`macval(pval_text)'"'
+	            return local pvalue_label `"`macval(pvalue_label)'"'
 	            return local pvalue_format "`pvalue_format'"
 	            return local pvalue_pos "`pvaluepos'"
 	            return local pvalue_at `"`pvalueat'"'

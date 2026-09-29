@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.3.0  2026/08/21
+*! _kmplot_risktable Version 1.3.1  2026/09/30
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -21,7 +21,7 @@ program define _kmplot_risktable, rclass
         capture noisily {
 
     syntax , GRPvar(varname) NGRoups(integer) GRAPHName(name) ///
-        [TIMEpoints(numlist sort) ///
+        [TIMEpoints(string) ///
 	         COLors(string asis) SCHeme(string) XMax(real -1) RISKHeight(real -1) ///
 	         XTItle(string asis) XLAbel(string asis) YLAbel(string asis) ///
 	         EVents MONO TOPTimeaxis CALLERVersion(string)]
@@ -31,7 +31,7 @@ program define _kmplot_risktable, rclass
     * package update mid-session leaves the old kmplot.ado in memory while
     * this file is reloaded from disk, which would silently misalign the two
     * panels.  Refuse rather than draw a wrong graph.
-    local rt_this_version "1.3.0"
+    local rt_this_version "1.3.1"
     if "`callerversion'" != "`rt_this_version'" {
         noisily display as error ///
             "kmplot and _kmplot_risktable versions differ (helper `rt_this_version')"
@@ -41,19 +41,26 @@ program define _kmplot_risktable, rclass
     }
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
-    if `"`xtitle'"' == "" local xtitle "Analysis time"
+    if `"`macval(xtitle)'"' == "" local xtitle "Analysis time"
     local ncolors : word count `colors'
     if `ncolors' == 0 & "`mono'" == "" {
         noisily display as error "colors() must contain at least one color"
         exit 198
     }
-    local _xt_len = strlen(`"`xtitle'"')
-    while `_xt_len' >= 2 & ///
-        substr(`"`xtitle'"', 1, 1) == char(34) & ///
-        substr(`"`xtitle'"', `_xt_len', 1) == char(34) {
-        local xtitle = substr(`"`xtitle'"', 2, `_xt_len' - 2)
-        local _xt_len = strlen(`"`xtitle'"')
+    mata: st_local("_text", st_local("xtitle"))
+    mata: st_local("_compound", strofreal(substr(st_local("_text"), 1, 2) == char(96)+char(34) & substr(st_local("_text"), -2, 2) == char(34)+char(39)))
+    if `_compound' {
+        mata: st_local("xtitle", substr(st_local("_text"), 3, strlen(st_local("_text"))-4))
     }
+    else {
+        mata: st_local("_quoted", strofreal(substr(st_local("_text"), 1, 1) == char(34) & substr(st_local("_text"), -1, 1) == char(34)))
+        if `_quoted' {
+            mata: st_local("xtitle", substr(st_local("_text"), 2, strlen(st_local("_text"))-2))
+        }
+    }
+
+    * Preserve literal macro characters through graph's second parse.
+    mata: st_local("xtitle", subinstr(subinstr(st_local("xtitle"), char(96), "{c 96}"), char(36), "{c 36}"))
 
     * Read group labels from dataset characteristics (set by kmplot)
     forvalues g = 1/`ngroups' {
@@ -101,6 +108,8 @@ program define _kmplot_risktable, rclass
         }
     }
 
+    _kmplot_times, values("`timepoints'")
+    local timepoints "`r(times)'"
     local ntp : word count `timepoints'
 
     * =====================================================================
@@ -413,7 +422,7 @@ program define _kmplot_risktable, rclass
     * value/"text" pairs -- a rule such as 0(0.25)1 is rejected there.
     local grp_ylabel_cmd `"ylabel(`grp_ylabels', add custom angle(0) labsize(small) labgap(`rt_row_labgap') labcolor(black) tlcolor(none) nogrid)"'
 
-    local xtitle_cmd `"xtitle(`"`xtitle'"', size(vsmall))"'
+    local xtitle_cmd `"xtitle(`"`macval(xtitle)'"', size(vsmall))"'
     local xscale_cmd "xscale(range(`xstart' `xmax') noextend noline)"
     local separator_cmd ""
     local time_title_cmd ""
@@ -435,7 +444,7 @@ program define _kmplot_risktable, rclass
         local ymax = `ngroups' + 1.50 + `rt_row_offset'
         local time_title_y = `ngroups' + 1.025 + `rt_row_offset'
         local time_title_x = (`xstart' + `xmax') / 2
-        local time_title_cmd `"text(`time_title_y' `time_title_x' `"`xtitle'"', placement(c) size(small))"'
+        local time_title_cmd `"text(`time_title_y' `time_title_x' `"`macval(xtitle)'"', placement(c) size(small))"'
         local separator_y = `ngroups' + 0.55 + `rt_row_offset'
         local separator_cmd "yline(`separator_y', lcolor(gs8) lpattern(solid) lwidth(thin))"
     }

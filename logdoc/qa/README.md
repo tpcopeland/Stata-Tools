@@ -25,6 +25,10 @@ stata-mp -b do test_logdoc_v117.do         # one standalone suite
 - Inputs are generated at runtime under `c(tmpdir)`; there are no tracked QA data fixtures.
 - Generated `.log`, `.smcl`, `.dta`, `.xlsx`, and other temporary outputs are gitignored; tracked documentation assets remain under `demo/`.
 
+## Dependencies
+
+The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `pypdf`. Install the Python packages into the interpreter reported by `logdoc_py`.
+
 ## File index
 
 ### Functional and regression tests
@@ -40,6 +44,7 @@ stata-mp -b do test_logdoc_v117.do         # one standalone suite
 | `test_logdoc_v112.do` | Version 1.1.2 shell-argument and embedded-quote forwarding regressions |
 | `test_logdoc_v114.do` | Executable paths with spaces, SMCL help links, `r(compare)`, and the Stata help render oracle |
 | `test_logdoc_v115.do` | Source/output collision, child-run failure, HTML structure and injection, renderer atomicity, direct-CLI validation, and platform regressions |
+| `test_logdoc_v119.do` | Source identity, partial writes, graph payload provenance, batch collisions, combine order, session replay/Python selection, primary paths, and final DOCX/PDF sizes |
 | `test_logdoc_v117.do` | Config allowlisting, dotted output paths, quoted comma filenames, zero-result batch errors, helper state restoration, and help-table width |
 | `test_logdoc_wrapped_output.do` | Text-log lines wrapped at the linesize: output continuations stay in their output fence whatever they start with, wrapped lines keep their trailing blanks, wrapped commands stay together, and a wrapped closing log header is skipped whole |
 | `test_logdoc_hostile.do` | Shell-hostile paths, quoted space-containing paths, 31-character basenames, extended missing values, and caller-data preservation |
@@ -56,19 +61,20 @@ stata-mp -b do test_logdoc_v117.do         # one standalone suite
 | Path | Contents |
 |---|---|
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner |
+| `tools/check_review_regressions.py` | Independent fixture builder and artifact-content oracle for the review regressions |
 | `tools/_logdoc_check_sthlp_width.py` | Self-contained Stata Viewer column-width oracle for released help files |
 
 ## Coverage map
 
 | Command/subcommand | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `logdoc` conversion | `test_logdoc.do`, `test_logdoc_wrapped_output.do` | `validation_logdoc.do` | Documentation examples, error contracts, Phase 7–8, refactor, and version regressions through v1.1.7 |
+| `logdoc` conversion | `test_logdoc.do`, `test_logdoc_wrapped_output.do` | `validation_logdoc.do` | Documentation examples, error contracts, Phase 7–8, refactor, and version regressions through v1.1.9 |
 | `logdoc start` / `stop` | Phase 7–8 | — | Refactor guards and version regressions |
-| `logdoc batch` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.7 |
-| `logdoc combine` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.7 |
+| `logdoc batch` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.9 |
+| `logdoc combine` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.9 |
 | `logdoc diff` | Phase 7–8 | — | Refactor guards |
 | `logdoc replay` | Phase 7–8 | — | Refactor guards and version regressions |
-| `logdoc_py` | `test_logdoc_py.do` | — | Error contracts and version/release-surface regressions through v1.1.7 |
+| `logdoc_py` | `test_logdoc_py.do` | — | Error contracts and version/release-surface regressions through v1.1.9 |
 
 ## Lane membership
 
@@ -77,5 +83,5 @@ stata-mp -b do test_logdoc_v117.do         # one standalone suite
 | Lane | Suites |
 |---|---|
 | `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
-| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, and `test_logdoc_errors.do` |
+| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, and `test_logdoc_v119.do` |
 | `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |
