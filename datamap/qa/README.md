@@ -47,6 +47,7 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_v169.do` | Left-justified date formats, exclude() privacy in the description and detectors, JSON control-character escaping, caller matrices, small-scale and float-level display, exact strL counts, saving() caps, hostile string levels, float-precision gates, datamvp tie order and float-level gby()/over() graphs, datacheck exclude() consistency, JSON refusal of text-only sections, missing(pattern), and string categorical frequencies. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
+| `test_datacheck_gates.do` | `rule()`, `stat()`, and `binary()` gates, `checks()` rows for them, the PASS line, `r(singlelevel_vars)`, `maskrare` p1/p99 in place of extremes, silence under `quietly`, and `violations()`/`makespec()` to a new frame with `replace`. |
 | `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts. |
 | `test_datamvp_labels.do` | Value-label and graph-label handling. |
 | `test_datamvp_oracle.do` | Hand-computable missing-pattern counts, filters, ordering, and monotonicity. |

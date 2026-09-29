@@ -25,6 +25,7 @@ local quick_suites ///
     test_datamap_errors.do ///
     test_datadict_v14.do ///
     test_datacheck.do ///
+    test_datacheck_gates.do ///
     test_datamvp.do ///
     test_regressions.do ///
     test_datamap_documentation_examples.do ///

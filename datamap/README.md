@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.6.9** | 2026-09-29
+**Version 1.7.0** | 2026-09-29
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -257,10 +257,10 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 |-------|----------------------|
 | `single()`, `id()`, `exclude()`, `continuous()`, `categorical()`, `date()`, `detail`, `maxfreq(20)`, `rare()`, `outliers(0)`, `mincell(0)`, `maskrare` | Profile variables, distributions, rare cells, and outliers. |
 | `nomissing`, `patterns` | Missingness summaries and pattern analysis. |
-| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `warn`, `gatesonly`, `onlyflagged`, `show(flagged)` | Expectations, gates, display filters, and halting behavior. |
+| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `stat()`, `binary()`, `warn`, `gatesonly`, `onlyflagged`, `show(flagged)` | Expectations, gates, display filters, and halting behavior. |
 | `by()`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, and settings. |
 
-`rare()` flags low-frequency levels, `outliers(#)` uses an IQR rule, and `maskrare` masks cells below the effective rare/minimum-cell threshold. Gate failures exit with return code 9 unless `warn` is used.
+`rare()` flags low-frequency levels, `outliers(#)` uses an IQR rule, and `maskrare` masks cells below the effective rare/minimum-cell threshold and replaces minima and maxima with p1 and p99, suppressing any statistic with fewer than the threshold of observations on either side. `rule("label": expression)` gates row-level logic, `stat(median income lo hi)` gates a mean, sd, or percentile against a band, and `binary()` requires 0/1 flags with both levels observed. Gate failures exit with return code 9 unless `warn` is used; a run where every gate passes prints a `PASS:` line.
 
 ### `datamvp`
 
@@ -302,6 +302,7 @@ The help files document the complete stored-result contracts. The following tabl
 | `r(N)`, `r(complete_cases)`, `r(complete_pct)` | Profile denominator and complete-case summary. |
 | `r(n_checks)`, `r(n_passed)`, `r(n_failed)`, `r(n_violations)` | Gate and violation counts. |
 | `r(violations)`, `r(failed_checks)` | Variable lists or structured violation identifiers. |
+| `r(singlelevel_vars)`, `r(n_singlelevel)` | Variables with exactly one observed nonmissing value, such as a 0/1 flag delivered as 1/missing. |
 | `r(compare_added)`, `r(compare_dropped)`, `r(compare_type_changed)`, `r(compare_class_changed)`, `r(compare_changed)` | Schema comparison counts. |
 
 ### `datamvp`
@@ -331,6 +332,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.7.0 (2026-09-29)
+
+Added three `datacheck` gates: `rule("label": expression)` for labelled row-level rules evaluated in the data's sort order, `stat()` for a mean, sd, median, or percentile band, and `binary()` for 0/1 flags that must show both levels. Added `r(singlelevel_vars)` and `r(n_singlelevel)` for variables with one observed nonmissing value, and a `PASS:` line when every gate passes. `rule`, `stat`, and `binary` rows are accepted in `checks()` files. Under `maskrare`, the continuous and date profiles and `inrange()` violation messages report guarded p1/p99 instead of minima and maxima, and dates at month precision. Fixed profile lines ("single level (constant)", outlier and max-category notes, and blank lines from frequency tables) that printed under `quietly`; `violations()` and `makespec()` with `replace` now create a frame that does not yet exist instead of failing with r(111); `rule()` expressions containing string literals print and save intact in violation messages; and `nodups` compares only the dataset's own columns.
 
 ### 1.6.9 (2026-09-29)
 

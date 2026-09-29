@@ -1,4 +1,4 @@
-*! datacheck Version 1.6.9  2026/09/29
+*! datacheck Version 1.7.0  2026/09/29
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,6 +32,7 @@ program define datacheck, rclass
 	            EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
 	            REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
 	            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
+	            RULE(string asis) STAT(string) BINary(string) ///
 	            BY(varlist) OVER(varname) ///
 	            CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) CONFig(string) COMPare(string) ]
@@ -86,6 +87,14 @@ program define datacheck, rclass
         local _maskcell = `mincell'
         if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = `rare'
         if "`maskrare'" != "" & `_maskcell' == 0 local _maskcell = 5
+        // Under maskrare an extreme (min/max) is never printed: p1/p99 take
+        // its place, and any order statistic with fewer than the mask count
+        // of observations at or beyond it is suppressed.
+        local _xmask = 0
+        if "`maskrare'" != "" local _xmask = `_maskcell'
+        // Profile emphasis: red when output is on, but plain text under
+        // quietly, because as-error text prints even inside quietly.
+        local _em = cond(c(noisily), "error", "text")
         local show = lower(trim(`"`show'"'))
         local showflagged = 0
         if "`onlyflagged'" != "" local showflagged = 1
@@ -201,11 +210,15 @@ program define datacheck, rclass
                     local carg2 ""
                     local cvalues ""
                     local cpattern ""
+                    local craw_values ""
+                    local craw_pattern ""
                     if `has_var'     local cv = strtrim(var[`ci'])
                     if `has_arg1'    local carg1 = strtrim(arg1[`ci'])
                     if `has_arg2'    local carg2 = strtrim(arg2[`ci'])
                     if `has_values'  local cvalues = strtrim(values[`ci'])
                     if `has_pattern' local cpattern = strtrim(pattern[`ci'])
+                    local craw_values `"`cvalues'"'
+                    local craw_pattern `"`cpattern'"'
                     if "`cvalues'" == "" local cvalues "`carg1'"
                     if "`cpattern'" == "" local cpattern "`carg1'"
                     if "`cg'" == "" continue
@@ -284,6 +297,32 @@ program define datacheck, rclass
                         if `"`regex'"' == "" local regex `"`cv' `cpattern'"'
                         else local regex `"`regex' \ `cv' `cpattern'"'
                     }
+                    else if "`cg'" == "binary" {
+                        if "`cv'" == "" local cv "`cvalues'"
+                        if "`cv'" == "" {
+                            display as error "checks(): binary row requires var or values"
+                            exit 198
+                        }
+                        local binary "`binary' `cv'"
+                    }
+                    else if "`cg'" == "stat" {
+                        if "`cv'" == "" | `"`craw_values'"' == "" | "`carg1'" == "" | "`carg2'" == "" {
+                            display as error "checks(): stat row requires var, values (the statistic), arg1, and arg2"
+                            exit 198
+                        }
+                        if `"`stat'"' == "" local stat `"`craw_values' `cv' `carg1' `carg2'"'
+                        else local stat `"`stat' \ `craw_values' `cv' `carg1' `carg2'"'
+                    }
+                    else if "`cg'" == "rule" {
+                        local rexpr `"`craw_pattern'"'
+                        if `"`rexpr'"' == "" local rexpr `"`craw_values'"'
+                        if "`cv'" == "" | `"`rexpr'"' == "" {
+                            display as error "checks(): rule row requires var (the label) and pattern (the expression)"
+                            exit 198
+                        }
+                        if `"`rule'"' == "" local rule `""`cv'": `rexpr'"'
+                        else local rule `"`rule' \ "`cv'": `rexpr'"'
+                    }
                     else {
                         display as error "checks(): unsupported gate `cg'"
                         exit 198
@@ -321,6 +360,75 @@ program define datacheck, rclass
         // touse is now constant (all rows kept); drop it so it never reaches
         // the classifier as a phantom variable in r() lists or saving().
         quietly drop `touse'
+        // The user's columns, before any datacheck tempvar exists: nodups
+        // compares these only, so a rule() indicator built from subscripts
+        // cannot make two identical rows look distinct.
+        quietly ds
+        local _datavars `r(varlist)'
+
+        // ---- rule(): "label: expression" specs, backslash-separated ----
+        // Each rule is evaluated here, on the if/in subset in the caller's
+        // row order and before any sort, so subscripted expressions
+        // (stop[_n-1]) see the data as the user arranged it.  A rule holds
+        // where the expression is true under Stata's if-qualifier semantics.
+        local n_rule = 0
+        local rulevars ""
+        if `"`rule'"' != "" {
+            local rest `"`rule'"'
+            while `"`rest'"' != "" {
+                local bs = strpos(`"`rest'"', "\")
+                if `bs' {
+                    local part = substr(`"`rest'"', 1, `bs' - 1)
+                    local rest = substr(`"`rest'"', `bs' + 1, .)
+                }
+                else {
+                    local part `"`rest'"'
+                    local rest ""
+                }
+                local part = strtrim(`"`part'"')
+                if `"`part'"' == "" continue
+                if substr(`"`part'"', 1, 1) == char(34) {
+                    local qe = strpos(substr(`"`part'"', 2, .), char(34))
+                    local rlab = substr(`"`part'"', 2, `qe' - 1)
+                    local rexp = strtrim(substr(`"`part'"', `qe' + 2, .))
+                    if `qe' == 0 | substr(`"`rexp'"', 1, 1) != ":" {
+                        display as error `"rule() spec must be "label: expression": `part'"'
+                        exit 198
+                    }
+                    local rexp = strtrim(substr(`"`rexp'"', 2, .))
+                }
+                else {
+                    local cp = strpos(`"`part'"', ":")
+                    if `cp' == 0 {
+                        display as error `"rule() spec must be "label: expression": `part'"'
+                        exit 198
+                    }
+                    local rlab = strtrim(substr(`"`part'"', 1, `cp' - 1))
+                    local rexp = strtrim(substr(`"`part'"', `cp' + 1, .))
+                }
+                local rlab = strtrim(`"`rlab'"')
+                if `"`rlab'"' == "" | `"`rexp'"' == "" {
+                    display as error `"rule() spec must be "label: expression": `part'"'
+                    exit 198
+                }
+                if strpos(`"`rlab'"', char(34)) | strpos(`"`rlab'"', char(96)) {
+                    display as error "rule() label must not contain quotes or backticks"
+                    exit 198
+                }
+                local ++n_rule
+                tempvar rfail`n_rule'
+                quietly gen byte `rfail`n_rule'' = 0
+                capture replace `rfail`n_rule'' = 1 if !(`rexp')
+                if _rc {
+                    local _rrc = _rc
+                    display as error `"rule(`rlab'): cannot evaluate expression `rexp'"'
+                    exit `_rrc'
+                }
+                local rule_lab`n_rule' `"`rlab'"'
+                local rule_exp`n_rule' `"`rexp'"'
+                local rulevars "`rulevars' `rfail`n_rule''"
+            }
+        }
 
         // ---- validate option varlists against the loaded data ----
         if "`exclude'"     != "" unab exclude     : `exclude'
@@ -330,6 +438,69 @@ program define datacheck, rclass
         if "`isid'"        != "" unab isid        : `isid'
         if "`notmissing'"  != "" unab notmissing  : `notmissing'
         if "`byvars'"      != "" unab byvars      : `byvars'
+        if "`binary'"      != "" {
+            unab binary : `binary'
+            local binary : list uniq binary
+            foreach v of local binary {
+                capture confirm numeric variable `v'
+                if _rc {
+                    display as error "binary(): `v' is not numeric"
+                    exit 109
+                }
+            }
+        }
+
+        // ---- parse stat(): backslash-separated "statistic var lo hi" specs ----
+        // Commas are accepted as separators so a band held as "lo, hi" for
+        // inrange() can be reused unchanged.
+        local n_stat = 0
+        local statvars ""
+        if `"`stat'"' != "" {
+            local rest = subinstr(`"`stat'"', ",", " ", .)
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = trim(`"`part'"')
+                if `"`part'"' == "" continue
+                local nw : word count `part'
+                if `nw' != 4 {
+                    display as error `"stat() spec must be "statistic var lo hi": `part'"'
+                    exit 198
+                }
+                local sst = lower("`: word 1 of `part''")
+                local sv : word 2 of `part'
+                local lo : word 3 of `part'
+                local hi : word 4 of `part'
+                if "`sst'" == "median" local sst "p50"
+                if !inlist("`sst'", "mean", "sd", "p1", "p5", "p10", "p25") & ///
+                   !inlist("`sst'", "p50", "p75", "p90", "p95", "p99") {
+                    display as error "stat(): statistic must be mean, sd, median, or p1 p5 p10 p25 p50 p75 p90 p95 p99; got `sst'"
+                    exit 198
+                }
+                unab sv : `sv', max(1)
+                capture confirm numeric variable `sv'
+                if _rc {
+                    display as error "stat(): `sv' is not numeric"
+                    exit 109
+                }
+                _datacheck_bound `sv' `"`lo'"'
+                local lo_num = r(value)
+                _datacheck_bound `sv' `"`hi'"'
+                local hi_num = r(value)
+                if `lo_num' > `hi_num' {
+                    display as error `"stat() lower bound exceeds upper bound: `part'"'
+                    exit 198
+                }
+                local ++n_stat
+                local stat_st`n_stat' "`sst'"
+                local stat_var`n_stat' "`sv'"
+                local stat_lo`n_stat' "`lo_num'"
+                local stat_hi`n_stat' "`hi_num'"
+                local stat_lolab`n_stat' `"`lo'"'
+                local stat_hilab`n_stat' `"`hi'"'
+                local statvars "`statvars' `sv'"
+            }
+        }
 
         // ---- parse inrange(): backslash-separated "var lo hi" specs ----
         local n_inr = 0
@@ -484,6 +655,9 @@ program define datacheck, rclass
         local unionvars : list unionvars | value_gatevars
         local unionvars : list unionvars | keyvars_all
         local unionvars : list unionvars | byvars
+        local unionvars : list unionvars | binary
+        local unionvars : list unionvars | statvars
+        local unionvars : list unionvars | rulevars
         if `"`varlistspec'"' != "" {
             quietly keep `unionvars'
         }
@@ -655,6 +829,32 @@ program define datacheck, rclass
             if "`flg'" != "" local flagged_vars "`flagged_vars' `v'"
             local flag`pj' "`flg'"
         }
+        // ---- one observed nonmissing level: the 1/missing flag trap ----
+        // Missing values are not a level here, so a 0/1 flag delivered as
+        // 1/missing is caught even though its constant flag is not set.
+        local singlelevel_vars ""
+        local pj = 0
+        foreach v of local profilevars {
+            local ++pj
+            if "`FC`pj''" == "excluded" continue
+            capture confirm numeric variable `v'
+            if !_rc {
+                quietly summarize `v', meanonly
+                if r(N) > 0 & r(min) == r(max) local singlelevel_vars "`singlelevel_vars' `v'"
+            }
+            else {
+                tempvar _sl
+                quietly gen long `_sl' = _n if !missing(`v')
+                quietly summarize `_sl', meanonly
+                if r(N) > 0 {
+                    quietly count if !missing(`v') & `v' != `v'[`r(min)']
+                    if r(N) == 0 local singlelevel_vars "`singlelevel_vars' `v'"
+                }
+                quietly drop `_sl'
+            }
+        }
+        local singlelevel_vars : list uniq singlelevel_vars
+        local n_singlelevel : word count `singlelevel_vars'
         local flagged_vars : list uniq flagged_vars
         local constant_vars : list uniq constant_vars
         local highcard_vars : list uniq highcard_vars
@@ -750,30 +950,61 @@ program define datacheck, rclass
                     display as text "  " as result "`v'" as text ": all missing"
                     continue
                 }
-                display as text "  " as result "`v'" as text ":  N=" ///
-                    as result `cN`pj'' as text "  mean=" as result %10.4g `cmean`pj'' ///
-                    as text "  sd=" as result %10.4g `csd`pj''
-                display as text "    min=" as result %10.4g `cmin`pj'' ///
-                    as text "  p25=" as result %10.4g `cp25_`pj'' ///
-                    as text "  p50=" as result %10.4g `cp50_`pj'' ///
-                    as text "  p75=" as result %10.4g `cp75_`pj'' ///
-                    as text "  max=" as result %10.4g `cmax`pj''
-                if "`detail'" != "" {
-                    display as text "    p1=" as result %10.4g `cp1_`pj'' ///
-                        as text "  p5=" as result %10.4g `cp5_`pj'' ///
-                        as text "  p10=" as result %10.4g `cp10_`pj'' ///
-                        as text "  p90=" as result %10.4g `cp90_`pj'' ///
-                        as text "  p95=" as result %10.4g `cp95_`pj'' ///
-                        as text "  p99=" as result %10.4g `cp99_`pj''
+                if !`_xmask' {
+                    display as text "  " as result "`v'" as text ":  N=" ///
+                        as result `cN`pj'' as text "  mean=" as result %10.4g `cmean`pj'' ///
+                        as text "  sd=" as result %10.4g `csd`pj''
+                    display as text "    min=" as result %10.4g `cmin`pj'' ///
+                        as text "  p25=" as result %10.4g `cp25_`pj'' ///
+                        as text "  p50=" as result %10.4g `cp50_`pj'' ///
+                        as text "  p75=" as result %10.4g `cp75_`pj'' ///
+                        as text "  max=" as result %10.4g `cmax`pj''
+                    if "`detail'" != "" {
+                        display as text "    p1=" as result %10.4g `cp1_`pj'' ///
+                            as text "  p5=" as result %10.4g `cp5_`pj'' ///
+                            as text "  p10=" as result %10.4g `cp10_`pj'' ///
+                            as text "  p90=" as result %10.4g `cp90_`pj'' ///
+                            as text "  p95=" as result %10.4g `cp95_`pj'' ///
+                            as text "  p99=" as result %10.4g `cp99_`pj''
+                    }
+                }
+                else {
+                    // maskrare: p1/p99 replace min/max; each statistic is
+                    // shown only when enough observations lie on both sides.
+                    quietly summarize `v', detail
+                    foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
+                        tempname _q`_st'
+                        if "`_st'" == "mean" scalar `_q`_st'' = r(mean)
+                        else if "`_st'" == "sd" scalar `_q`_st'' = r(sd)
+                        else scalar `_q`_st'' = r(`_st')
+                    }
+                    foreach _st in mean sd p1 p5 p10 p25 p50 p75 p90 p95 p99 {
+                        _datacheck_qshow `v', value(`_q`_st'') mask(`_xmask') stat(`_st')
+                        local _qs`_st' `"`r(s)'"'
+                    }
+                    display as text "  " as result "`v'" as text ":  N=" ///
+                        as result `cN`pj'' as text "  mean=" as result %10s "`_qsmean'" ///
+                        as text "  sd=" as result %10s "`_qssd'"
+                    display as text "    p1=" as result %10s "`_qsp1'" ///
+                        as text "  p25=" as result %10s "`_qsp25'" ///
+                        as text "  p50=" as result %10s "`_qsp50'" ///
+                        as text "  p75=" as result %10s "`_qsp75'" ///
+                        as text "  p99=" as result %10s "`_qsp99'"
+                    if "`detail'" != "" {
+                        display as text "    p5=" as result %10s "`_qsp5'" ///
+                            as text "  p10=" as result %10s "`_qsp10'" ///
+                            as text "  p90=" as result %10s "`_qsp90'" ///
+                            as text "  p95=" as result %10s "`_qsp95'"
+                    }
                 }
                 if `cvar`pj'' == 0 {
-                    display as text "    " as error "zero variance (constant)"
+                    display as text "    " as `_em' "zero variance (constant)"
                 }
                 if `outliers' > 0 {
                     local nout = `cnout`pj''
                     if `nout' > 0 {
                         local pout = round(100 * `nout' / `n', 0.1)
-                        display as text "    " as error "`nout' outlier(s)" ///
+                        display as text "    " as `_em' "`nout' outlier(s)" ///
                             as text " (" as result %3.1f `pout' as text "%) beyond " ///
                             as result `outliers' as text " IQR"
                     }
@@ -793,10 +1024,10 @@ program define datacheck, rclass
                 display as text "  " as result "`v'" as text ":  " ///
                     as result `nlev' as text " levels"
                 if `nlev' == 1 {
-                    display as text "    " as error "single level (constant)"
+                    display as text "    " as `_em' "single level (constant)"
                 }
                 if `nlev' > `maxcat' {
-                    display as text "    " as error "level count exceeds maxcat(" ///
+                    display as text "    " as `_em' "level count exceeds maxcat(" ///
                         "`maxcat')" as text " — possible free-text/misclassification"
                 }
                 _datacheck_freq `v' `maxfreq' `rare' `_maskcell'
@@ -833,10 +1064,30 @@ program define datacheck, rclass
                 else if strpos("`_vf'", "%ty") local span_unit "years"
                 else if strpos("`_vf'", "%tb") local span_unit "business days"
                 else if !(strpos("`_vf'", "%td") | strpos("`_vf'", "%d")) local span_unit "units"
-                display as text "  " as result "`v'" as text ":  min=" ///
-                    as result "`dmin'" as text "  max=" as result "`dmax'" ///
-                    as text "  span=" as result `span' as text " `span_unit'  missing=" ///
-                    as result `m_mn`i''
+                if !`_xmask' {
+                    display as text "  " as result "`v'" as text ":  min=" ///
+                        as result "`dmin'" as text "  max=" as result "`dmax'" ///
+                        as text "  span=" as result `span' as text " `span_unit'  missing=" ///
+                        as result `m_mn`i''
+                }
+                else {
+                    // maskrare: p1/p99 at month precision instead of min/max
+                    quietly summarize `v', detail
+                    tempname _dq1 _dq99
+                    scalar `_dq1' = r(p1)
+                    scalar `_dq99' = r(p99)
+                    _datacheck_qshow `v', value(`_dq1') mask(`_xmask') stat(p1)
+                    local _dp1 `"`r(s)'"'
+                    local _dok1 = r(shown)
+                    _datacheck_qshow `v', value(`_dq99') mask(`_xmask') stat(p99)
+                    local _dp99 `"`r(s)'"'
+                    local _dspan "[suppressed]"
+                    if `_dok1' & r(shown) local _dspan = strtrim(string(`_dq99' - `_dq1', "%12.0g")) + " `span_unit'"
+                    display as text "  " as result "`v'" as text ":  p1=" ///
+                        as result "`_dp1'" as text "  p99=" as result "`_dp99'" ///
+                        as text "  p1-p99 span=" as result "`_dspan'" as text "  missing=" ///
+                        as result `m_mn`i''
+                }
                 forvalues k = 1/`n_inr' {
                     if "`inr_var`k''" == "`v'" {
                         local _dlo "`inr_lo`k''"
@@ -909,7 +1160,7 @@ program define datacheck, rclass
             capture which datamvp
             if _rc {
                 display ""
-                display as text "  " as error ///
+                display as text "  " as `_em' ///
                     "patterns: datamvp unavailable — skipping pattern table"
             }
             else {
@@ -924,7 +1175,7 @@ program define datacheck, rclass
                 }
                 else capture noisily datamvp `_mvpvars'
                 if "`_mvpvars'" != "" & _rc {
-                    display as text "  " as error ///
+                    display as text "  " as `_em' ///
                         "patterns: datamvp could not render a table for these variables"
                 }
             }
@@ -1038,7 +1289,8 @@ program define datacheck, rclass
         local gate_on = 0
         if `"`expectn'"' != "" | "`isid'" != "" | "`nodups'" != "" | ///
            "`require'" != "" | "`notmissing'" != "" | `"`inrange'"' != "" | ///
-           `n_allowed' > 0 | `n_forbid' > 0 | `n_regex' > 0 | `n_notvalues' > 0 {
+           `n_allowed' > 0 | `n_forbid' > 0 | `n_regex' > 0 | `n_notvalues' > 0 | ///
+           `n_rule' > 0 | `n_stat' > 0 | "`binary'" != "" {
             local gate_on = 1
         }
 
@@ -1147,7 +1399,9 @@ program define datacheck, rclass
 
                 // nodups
                 if "`nodups'" != "" {
-                    quietly duplicates report if `IF'
+                    local _dupvars `_datavars'
+                    if `"`varlistspec'"' != "" local _dupvars : list _datavars & unionvars
+                    quietly duplicates report `_dupvars' if `IF'
                     local ndup = r(N) - r(unique_value)
                     if `ndup' > 0 {
                         local ++n_viol
@@ -1196,18 +1450,38 @@ program define datacheck, rclass
                     quietly count if `IF' & (`iv' < `lo' | `iv' > `hi') & !missing(`iv')
                     if r(N) > 0 {
                         local noutr = r(N)
-                        quietly summarize `iv' if `IF'
-                        local omin = strtrim(string(r(min), "%14.0g"))
-                        local omax = strtrim(string(r(max), "%14.0g"))
+                        local xlo "min"
+                        local xhi "max"
+                        if !`_xmask' {
+                            quietly summarize `iv' if `IF'
+                            local omin = strtrim(string(r(min), "%14.0g"))
+                            local omax = strtrim(string(r(max), "%14.0g"))
+                        }
+                        else {
+                            // maskrare: the offending extremes are single
+                            // persons; report guarded p1/p99 instead.
+                            local xlo "p1"
+                            local xhi "p99"
+                            quietly summarize `iv' if `IF', detail
+                            tempname _iq1 _iq99
+                            scalar `_iq1' = r(p1)
+                            scalar `_iq99' = r(p99)
+                            _datacheck_qshow `iv', value(`_iq1') mask(`_xmask') ///
+                                cond(`"`IF'"') stat(p1) fmt(%14.0g)
+                            local omin `"`r(s)'"'
+                            _datacheck_qshow `iv', value(`_iq99') mask(`_xmask') ///
+                                cond(`"`IF'"') stat(p99) fmt(%14.0g)
+                            local omax `"`r(s)'"'
+                        }
                         local ++n_viol
                         local viol_names "`viol_names' inrange"
                         local vgate`n_viol' "inrange"
                         local vvar`n_viol' "`iv'"
-                        local vobs`n_viol' "`noutr' outside; min `omin', max `omax'"
+                        local vobs`n_viol' "`noutr' outside; `xlo' `omin', `xhi' `omax'"
                         local vexp`n_viol' "[`inr_lolab`k'', `inr_hilab`k'']"
                         local vgroup`n_viol' "`GP'"
                         local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
-                        local vmsg`n_viol' "`PFX'inrange(`iv'): `noutr' obs outside [`inr_lolab`k'', `inr_hilab`k'']  (min `omin', max `omax')"
+                        local vmsg`n_viol' "`PFX'inrange(`iv'): `noutr' obs outside [`inr_lolab`k'', `inr_hilab`k'']  (`xlo' `omin', `xhi' `omax')"
                     }
                 }
 
@@ -1340,6 +1614,92 @@ program define datacheck, rclass
                         local vgroup`n_viol' "`GP'"
                         local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
                         local vmsg`n_viol' "`PFX'regex(`rv'): `nbad' obs do not match `pat'"
+                    }
+                }
+
+                // rule: indicators were evaluated at parse time
+                forvalues k = 1/`n_rule' {
+                    quietly count if `IF' & `rfail`k''
+                    if r(N) > 0 {
+                        local nbad = r(N)
+                        local ++n_viol
+                        local viol_names "`viol_names' rule"
+                        local vgate`n_viol' "rule"
+                        local vvar`n_viol' `"`rule_lab`k''"'
+                        local vobs`n_viol' "`nbad' fail"
+                        local vexp`n_viol' `"`rule_exp`k''"'
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' `"`PFX'rule(`rule_lab`k''): `nbad' obs fail `rule_exp`k''"'
+                    }
+                }
+
+                // stat: a summary statistic must fall inside a declared band
+                forvalues k = 1/`n_stat' {
+                    local sv "`stat_var`k''"
+                    local sst "`stat_st`k''"
+                    local lo "`stat_lo`k''"
+                    local hi "`stat_hi`k''"
+                    quietly summarize `sv' if `IF', detail
+                    local sn = r(N)
+                    tempname sval
+                    if "`sst'" == "mean" scalar `sval' = r(mean)
+                    else if "`sst'" == "sd" scalar `sval' = r(sd)
+                    else scalar `sval' = r(`sst')
+                    // Percentiles of a float variable are float values; compare
+                    // them against the float-rounded bound, as inrange() does.
+                    if "`: type `sv''" == "float" & !inlist("`sst'", "mean", "sd") {
+                        local lo "cond(missing(float(`lo')), `lo', float(`lo'))"
+                        local hi "cond(missing(float(`hi')), `hi', float(`hi'))"
+                    }
+                    if `sn' == 0 | missing(`sval') | `sval' < `lo' | `sval' > `hi' {
+                        _datacheck_qshow `sv', value(`sval') mask(`_xmask') ///
+                            cond(`"`IF'"') stat(`sst') fmt(%14.0g)
+                        local sshow `"`r(s)'"'
+                        if `sn' == 0 local sshow "no nonmissing values"
+                        local sname = cond("`sst'" == "p50", "median", "`sst'")
+                        local ++n_viol
+                        local viol_names "`viol_names' stat"
+                        local vgate`n_viol' "stat"
+                        local vvar`n_viol' "`sv'"
+                        local vobs`n_viol' `"`sname' `sshow'"'
+                        local vexp`n_viol' `"[`stat_lolab`k'', `stat_hilab`k'']"'
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' `"`PFX'stat(`sname' `sv'): `sshow', expected [`stat_lolab`k'', `stat_hilab`k'']"'
+                    }
+                }
+
+                // binary: only 0 and 1, and both observed
+                foreach bv of local binary {
+                    quietly count if `IF' & !missing(`bv') & !inlist(`bv', 0, 1)
+                    local nnot = r(N)
+                    quietly count if `IF' & `bv' == 0
+                    local n0 = r(N)
+                    quietly count if `IF' & `bv' == 1
+                    local n1 = r(N)
+                    quietly count if `IF' & missing(`bv')
+                    local nmv = r(N)
+                    local bobs ""
+                    if `nnot' > 0 local bobs "`nnot' obs not 0/1"
+                    if `n0' == 0 & `n1' == 0 {
+                        local bobs = trim("`bobs'" + cond("`bobs'" != "", "; ", "") + "neither 0 nor 1 observed")
+                    }
+                    else if `n0' == 0 | `n1' == 0 {
+                        local _only = cond(`n0' == 0, 1, 0)
+                        local bobs = trim("`bobs'" + cond("`bobs'" != "", "; ", "") + "only `_only' observed")
+                    }
+                    if "`bobs'" != "" {
+                        local bobs "`bobs' (`nmv' missing)"
+                        local ++n_viol
+                        local viol_names "`viol_names' binary"
+                        local vgate`n_viol' "binary"
+                        local vvar`n_viol' "`bv'"
+                        local vobs`n_viol' "`bobs'"
+                        local vexp`n_viol' "both 0 and 1, nothing else"
+                        local vgroup`n_viol' "`GP'"
+                        local vsev`n_viol' = cond("`warn'" != "", "warning", "error")
+                        local vmsg`n_viol' "`PFX'binary(`bv'): `bobs'"
                     }
                 }
 	            }
@@ -1502,18 +1862,23 @@ program define datacheck, rclass
 	        local viol_names = trim("`viol_names'")
 	        local failed_checks : list uniq viol_names
         local n_failed : word count `failed_checks'
-        local n_checks = 0
-        if `"`expectn'"' != "" local ++n_checks
-        if "`isid'" != "" local ++n_checks
-        if "`nodups'" != "" local ++n_checks
-        if "`require'" != "" local ++n_checks
-        if "`notmissing'" != "" local ++n_checks
-        if `n_inr' > 0 local ++n_checks
-        if `n_allowed' > 0 local ++n_checks
-        if `n_forbid' > 0 local ++n_checks
-	        if `n_regex' > 0 local ++n_checks
-	        if `n_notvalues' > 0 local ++n_checks
-	        if `"`compare'"' != "" local ++n_checks
+        local checks_run ""
+        if `"`expectn'"' != "" local checks_run "`checks_run' expectn"
+        if "`isid'" != "" local checks_run "`checks_run' isid"
+        if "`nodups'" != "" local checks_run "`checks_run' nodups"
+        if "`require'" != "" local checks_run "`checks_run' require"
+        if "`notmissing'" != "" local checks_run "`checks_run' notmissing"
+        if `n_inr' > 0 local checks_run "`checks_run' inrange"
+        if `n_allowed' > 0 local checks_run "`checks_run' allowed"
+        if `n_forbid' > 0 local checks_run "`checks_run' forbid"
+        if `n_regex' > 0 local checks_run "`checks_run' regex"
+        if `n_notvalues' > 0 local checks_run "`checks_run' notvalues"
+        if `n_rule' > 0 local checks_run "`checks_run' rule"
+        if `n_stat' > 0 local checks_run "`checks_run' stat"
+        if "`binary'" != "" local checks_run "`checks_run' binary"
+        if `"`compare'"' != "" local checks_run "`checks_run' compare"
+        local checks_run = trim("`checks_run'")
+        local n_checks : word count `checks_run'
         local n_passed = `n_checks' - `n_failed'
         if `n_passed' < 0 local n_passed = 0
         local n_groups = 0
@@ -1542,12 +1907,12 @@ program define datacheck, rclass
                 forvalues j = 1/`n_viol' {
                     quietly replace check = "`vgate`j''" in `j'
                     quietly replace gate = "`vgate`j''" in `j'
-                    quietly replace variable = "`vvar`j''" in `j'
-                    quietly replace group = "`vgroup`j''" in `j'
-                    quietly replace observed = "`vobs`j''" in `j'
-                    quietly replace expected = "`vexp`j''" in `j'
+                    quietly replace variable = `"`vvar`j''"' in `j'
+                    quietly replace group = `"`vgroup`j''"' in `j'
+                    quietly replace observed = `"`vobs`j''"' in `j'
+                    quietly replace expected = `"`vexp`j''"' in `j'
                     quietly replace severity = "`vsev`j''" in `j'
-                    quietly replace message = "`vmsg`j''" in `j'
+                    quietly replace message = `"`vmsg`j''"' in `j'
                 }
             }
             local _isfile = 0
@@ -1565,15 +1930,18 @@ program define datacheck, rclass
                     exit 198
                 }
                 capture frame `vdest': describe
-                if !_rc & !`vreplace' {
+                local _vexists = (_rc == 0)
+                if `_vexists' & !`vreplace' {
                     display as error "violations() frame `vdest' already exists; specify replace"
                     exit 110
                 }
-                if `vreplace' {
+                // replace on a frame that does not exist yet simply creates it
+                if `_vexists' {
                     capture frame drop `vdest'
                     if _rc {
+                        local _vdrc = _rc
                         display as error "violations() could not replace frame `vdest'"
-                        exit _rc
+                        exit `_vdrc'
                     }
                 }
                 frame copy `vframe' `vdest'
@@ -1704,15 +2072,17 @@ program define datacheck, rclass
                     exit 198
                 }
                 capture frame `sdest': describe
-                if !_rc & !`sreplace' {
+                local _sexists = (_rc == 0)
+                if `_sexists' & !`sreplace' {
                     display as error "makespec() frame `sdest' already exists; specify replace"
                     exit 110
                 }
-                if `sreplace' {
+                if `_sexists' {
                     capture frame drop `sdest'
                     if _rc {
+                        local _sdrc = _rc
                         display as error "makespec() could not replace frame `sdest'"
-                        exit _rc
+                        exit `_sdrc'
                     }
                 }
                 frame copy `sframe' `sdest'
@@ -1741,6 +2111,7 @@ program define datacheck, rclass
         return scalar n_missing_vars = `n_missing_vars'
         return scalar n_outlier_vars = `n_outlier_vars'
         return scalar n_rare_vars    = `n_rare_vars'
+        return scalar n_singlelevel  = `n_singlelevel'
 	        return scalar n_group_missing_vars = `n_group_missing_vars'
 	        return scalar mincell        = `mincell'
 	        return scalar maskrare       = ("`maskrare'" != "")
@@ -1758,6 +2129,7 @@ program define datacheck, rclass
         return local  excluded_vars  "`f_excluded'"
         return local  flagged_vars   "`flagged_vars'"
         return local  constant_vars  "`constant_vars'"
+        return local  singlelevel_vars "`singlelevel_vars'"
         return local  highcard_vars  "`highcard_vars'"
         return local  missing_vars   "`missing_vars'"
 	        return local  outlier_vars   "`outlier_vars'"
@@ -1879,18 +2251,29 @@ program define datacheck, rclass
         }
 
         // ---- gate verdict ----
+        // A passing gate run prints one PASS line, so a clean log is
+        // distinguishable from one where the gates never ran.
+        if `n_viol' == 0 & `n_checks' > 0 {
+            display ""
+            display as text "PASS: " as result "`n_checks'" as text " gate(s) (" ///
+                as result "`checks_run'" as text "), N = " as result "`nobs'" ///
+                as text ", 0 violations"
+        }
+        else if `n_checks' == 0 & "`gatesonly'" != "" {
+            display as text "datacheck: gatesonly with no gates declared; nothing was checked"
+        }
         if `n_viol' > 0 {
             display ""
             if "`warn'" != "" {
                 display as text "WARNINGS (`n_viol')"
                 forvalues j = 1/`n_viol' {
-                    display as text "  " as result "`vmsg`j''"
+                    display as text "  " as result `"`vmsg`j''"'
                 }
             }
             else {
                 display as error "EXPECTATION VIOLATIONS (`n_viol')"
                 forvalues j = 1/`n_viol' {
-                    display as error "  `vmsg`j''"
+                    display as error `"  `vmsg`j''"'
                 }
                 exit 9
             }
@@ -2001,6 +2384,57 @@ program define _datacheck_bound, rclass
     return scalar value = `out'
 end
 
+capture program drop _datacheck_qshow
+local _drop_qshow_rc = _rc
+program define _datacheck_qshow, rclass
+    // Format one summary statistic of `varlist' for display.  With mask(#)
+    // > 0 the value is suppressed unless at least # nonmissing observations
+    // (within cond()) lie at or below it and at least # at or above it; sd
+    // needs # nonmissing observations.  Dates print at month precision
+    // under masking and in their own format otherwise.
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, VALue(name) MASK(integer) [COND(string) STAT(string) FMT(string)]
+        if `"`cond'"' == "" local cond "1"
+        if "`fmt'" == "" local fmt "%10.4g"
+        local shown = 1
+        if `mask' > 0 & !missing(scalar(`value')) {
+            if "`stat'" == "sd" {
+                quietly count if (`cond') & !missing(`varlist')
+                if r(N) < `mask' local shown = 0
+            }
+            else {
+                quietly count if (`cond') & !missing(`varlist') & `varlist' <= scalar(`value')
+                if r(N) < `mask' local shown = 0
+                quietly count if (`cond') & !missing(`varlist') & `varlist' >= scalar(`value')
+                if r(N) < `mask' local shown = 0
+            }
+        }
+        local vf : format `varlist'
+        local vf = subinstr("`vf'", "%-", "%", 1)
+        local isdate = (substr("`vf'", 1, 2) == "%t" | substr("`vf'", 1, 2) == "%d")
+        if !`shown' local s "[suppressed]"
+        else if missing(scalar(`value')) local s "."
+        else if `isdate' & "`stat'" != "sd" {
+            if `mask' > 0 & (strpos("`vf'", "%td") | substr("`vf'", 1, 2) == "%d") {
+                local s = string(scalar(`value'), "%tdCCYY-NN")
+            }
+            else if `mask' > 0 & (strpos("`vf'", "%tc") | strpos("`vf'", "%tC")) {
+                local s = string(dofc(scalar(`value')), "%tdCCYY-NN")
+            }
+            else local s = strtrim(string(scalar(`value'), "`vf'"))
+        }
+        else local s = strtrim(string(scalar(`value'), "`fmt'"))
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+    return scalar shown = `shown'
+    return local s `"`s'"'
+end
+
 capture program drop _datacheck_flag
 local _drop_flag_rc = _rc
 program define _datacheck_flag, rclass
@@ -2042,6 +2476,8 @@ program define _datacheck_freq, nclass
     // Frequency table sorted by descending count, capped at maxfreq.
     args v maxfreq rare maskcell
     if "`maskcell'" == "" local maskcell = 0
+    // Display-only: under quietly, as-error segments would still print.
+    if !c(noisily) exit
     tempname fr
     frame put `v', into(`fr')
     frame `fr' {

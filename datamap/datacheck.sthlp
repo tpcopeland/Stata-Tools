@@ -71,6 +71,9 @@
 {synopt:{opt for:bid(spec)}}reject forbidden values{p_end}
 {synopt:{opt regex(spec)}}require strings to match regexes{p_end}
 {synopt:{opt notv:alues(spec)}}reject sentinel or disallowed values{p_end}
+{synopt:{opt rule(spec)}}require labelled row-level rules to hold{p_end}
+{synopt:{opt stat(spec)}}require a mean, sd, or percentile band{p_end}
+{synopt:{opt bin:ary(varlist)}}require 0/1 flags with both levels{p_end}
 {synopt:{opt by(varlist)}}evaluate gates/missingness within groups{p_end}
 {synopt:{opt over(varname)}}single-variable synonym for {opt by()}{p_end}
 {synopt:{opt check:s(filename)}}read checks from file{p_end}
@@ -183,6 +186,19 @@ variable itself is otherwise valid.
 {opt mincell(#)} when specified; otherwise it uses {opt rare(#)}, and defaults
 to 5 if neither threshold is given. The underlying data are not changed.
 
+{pmore}
+Under {opt maskrare} no minimum or maximum is printed, because each is one
+person's value. The continuous profile shows p1 and p99 in their place, the
+date profile shows p1 and p99 at month precision, and an {opt inrange()}
+violation reports p1 and p99 instead of the offending extremes. Every
+percentile, mean, or {opt stat()} value is shown only when at least the mask
+threshold of nonmissing observations lie at or below it and at or above it;
+otherwise it prints as {bf:[suppressed]}. With all-distinct values and the
+default threshold of 5, p1 and p99 therefore need about 500 observations. An
+sd is shown when the threshold count of nonmissing observations exists.
+{opt saving()} and {opt makespec()} still write observed minima and maxima to
+their files.
+
 {phang}
 {opt out:liers(#)} flags continuous values lying more than {it:#} interquartile
 ranges beyond the first or third quartile. {cmd:outliers(3)} is a sensible
@@ -250,6 +266,40 @@ values such as {cmd:-9}, {cmd:999}, or {cmd:"UNKNOWN"}. The syntax matches {opt 
 {opt forbid()}: {cmd:notvalues(age -9 999 \ outcome "UNKNOWN")}.
 
 {phang}
+{opt rule(spec)} asserts row-level rules. Each {cmd:\}-separated entry is
+{it:label}{cmd::} {it:expression}, for example
+{cmd:rule("timeline": dob < dx_date & dx_date <= entry \ "entry_exit": entry < exit)}.
+The label may be quoted and appears in the violation message and in the
+{cmd:variable} column of {opt violations()}; the expression is stored in the
+{cmd:expected} column. A rule holds for a row where the expression is true
+under Stata's {cmd:if} semantics, so a comparison against a missing value
+follows the usual rule that missing is larger than any number; add
+{cmd:!missing()} terms where that matters. Rules are evaluated once, on the
+{cmd:if}/{cmd:in} subset, in the data's current sort order and before
+{cmd:datacheck} sorts anything, so subscripted expressions such as
+{cmd:id != id[_n-1] | start >= stop[_n-1]} see the rows as arranged; sort the
+data first. An expression cannot contain a backslash. An expression that
+cannot be evaluated is an error, not a violation.
+
+{phang}
+{opt stat(spec)} asserts that a summary statistic falls within a declared
+inclusive band. Each {cmd:\}-separated entry is {it:statistic var lo hi}, where
+{it:statistic} is {cmd:mean}, {cmd:sd}, {cmd:median}, or one of {cmd:p1},
+{cmd:p5}, {cmd:p10}, {cmd:p25}, {cmd:p50}, {cmd:p75}, {cmd:p90}, {cmd:p95},
+{cmd:p99}, computed as by {help summarize:summarize, detail}. Use {cmd:mean} of a
+0/1 variable for a proportion:
+{cmd:stat(mean outcome 0.03 0.20 \ median income 1500 4000)}. Commas are read
+as spaces, so a band stored as {it:lo, hi} can be reused. Bounds may be date
+literals, as in {opt inrange()}. A variable with no nonmissing values in scope
+is a violation.
+
+{phang}
+{opt bin:ary(varlist)} asserts that each variable is a 0/1 flag: every
+nonmissing value is 0 or 1, and both 0 and 1 occur. Missing values are
+allowed and counted in the message. A flag delivered as 1/missing, where
+missing means "no", fails because 0 is never observed.
+
+{phang}
 {opt by(varlist)} evaluates gates within groups defined by {it:varlist} and adds a
 groupwise completeness and missingness profile to the console report. Use this
 when a rule is meaningful within strata, for example checking duplicate visit
@@ -259,7 +309,13 @@ numbers within each site. {opt over(varname)} is a single-variable synonym for
 {phang}
 {opt check:s(filename)} reads gate specifications from {it:filename}. This is
 intended for project-level QC specs that should be versioned and reused across
-imports, refreshes, and batch runs.
+imports, refreshes, and batch runs. Each row names its gate in string variable
+{cmd:gate} (or {cmd:check}) and its arguments in {cmd:var}, {cmd:arg1},
+{cmd:arg2}, {cmd:values}, and {cmd:pattern}. A {cmd:rule} row takes the label
+in {cmd:var} and the expression in {cmd:pattern}; a {cmd:stat} row takes the
+variable in {cmd:var}, the statistic in {cmd:values}, and the band in
+{cmd:arg1} and {cmd:arg2}; a {cmd:binary} row takes the variables in
+{cmd:var}.
 
 {phang}
 {opt makes:pec(filename[, replace])} writes a starter checks file from the
@@ -329,6 +385,13 @@ a single block so one run tells you everything that is wrong. For example:
 {pmore}{err: inrange(age): 14 obs outside [18, 110]  (min 0, max 119)}{p_end}
 
 {pstd}
+When every gate passes, {cmd:datacheck} prints one line naming the gate
+families that ran, for example
+{cmd:PASS: 3 gate(s) (isid rule binary), N = 12000, 0 violations}, so a clean
+log is distinguishable from one where the gates were skipped. {opt gatesonly}
+with no gate declared prints a note saying nothing was checked.
+
+{pstd}
 On any violation {cmd:datacheck} exits with return code {bf:9}. With {opt warn}
 the same block prints under a {bf:WARNINGS} heading, the stored results are set,
 and execution continues. Because Stata batch ({cmd:-b}) mode does not propagate
@@ -371,6 +434,9 @@ steps need structured diagnostics rather than console text.
 {pstd}Gate dates using Stata date literals:{p_end}
 {phang2}{cmd:. datacheck, inrange(index_date td(01jan2010) td(31dec2025) \ birth_date td(01jan1900) td(31dec2025))}{p_end}
 
+{pstd}Gate a cohort on row-level rules, a proportion band, and 0/1 flags:{p_end}
+{phang2}{cmd:. datacheck, gatesonly isid(id) rule("timeline": dob < entry \ "entry_exit": entry < exit) stat(mean outcome 0.03 0.20) binary(outcome exposure)}{p_end}
+
 {pstd}Apply value and format rules within site:{p_end}
 {phang2}{cmd:. datacheck, by(site) allowed(sex 0 1 \ arm "usual" "active") regex(person_id "^[0-9]{12}$") notvalues(age -9 999)}{p_end}
 
@@ -392,7 +458,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(N)}}number of observations profiled{p_end}
 {synopt:{cmd:r(complete_cases)}}complete observations (excluded vars ignored){p_end}
 {synopt:{cmd:r(complete_pct)}}percent complete{p_end}
-{synopt:{cmd:r(n_checks)}}number of checks evaluated{p_end}
+{synopt:{cmd:r(n_checks)}}number of check families evaluated{p_end}
 {synopt:{cmd:r(n_passed)}}number of check families without violations{p_end}
 {synopt:{cmd:r(n_failed)}}check families with one or more violations{p_end}
 {synopt:{cmd:r(n_violations)}}number of accumulated violations{p_end}
@@ -410,6 +476,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(n_missing_vars)}}number of variables with missing values{p_end}
 {synopt:{cmd:r(n_outlier_vars)}}number of variables with outlier flags{p_end}
 {synopt:{cmd:r(n_rare_vars)}}number of variables with rare-level flags{p_end}
+{synopt:{cmd:r(n_singlelevel)}}number of variables with one nonmissing level{p_end}
 {synopt:{cmd:r(n_group_missing_vars)}}vars missing in a {opt by()} or {opt over()} group{p_end}
 {synopt:{cmd:r(mincell)}}small-cell threshold supplied through {opt mincell()}{p_end}
 {synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was specified; otherwise 0{p_end}
@@ -430,6 +497,7 @@ steps need structured diagnostics rather than console text.
 {synopt:{cmd:r(excluded_vars)}}excluded variables{p_end}
 {synopt:{cmd:r(flagged_vars)}}flagged variables{p_end}
 {synopt:{cmd:r(constant_vars)}}constant variables{p_end}
+{synopt:{cmd:r(singlelevel_vars)}}vars with exactly one nonmissing value{p_end}
 {synopt:{cmd:r(highcard_vars)}}high-cardinality variables{p_end}
 {synopt:{cmd:r(missing_vars)}}non-excluded variables with missing values{p_end}
 {synopt:{cmd:r(outlier_vars)}}variables with outlier flags{p_end}

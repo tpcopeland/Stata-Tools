@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.9  29sep2026}{...}
+{* *! version 1.7.0  29sep2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -614,7 +614,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.6.9 {hline 2} 29sep2026{p_end}
+{pstd}Version 1.7.0 {hline 2} 29sep2026{p_end}
 
 
 {title:Also see}
