@@ -1,4 +1,4 @@
-*! tvexpose Version 1.17.2  2026/09/09
+*! tvexpose Version 1.17.3  2026/09/29
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1201,13 +1201,19 @@ program define tvexpose, rclass
     }
     
     * Apply fillgaps option
-    * Extends last exposure period forward by fillgaps days
-    * Useful for studies where last exposure recorded but time to event longer
+    * Extends the person's last recorded exposure by fillgaps days. "Last" is
+    * the latest STOP date: ordering by start marked a nested episode that
+    * began last but ended early, whose extension then vanished under the
+    * enclosing episode. Every episode ending on that latest stop is extended,
+    * so overlap resolution (layer by default: latest start, then later source
+    * row) picks the continuing value exactly as it does on the last recorded
+    * day.
     if `fillgaps' > 0 {
-        sort id exp_start
-        quietly by id: gen double is_last = (_n == _N)
-        quietly replace exp_stop = exp_stop + `fillgaps' if is_last == 1
-        drop is_last
+        tempvar _tvx_maxstop
+        quietly egen double `_tvx_maxstop' = max(exp_stop), by(id)
+        quietly replace exp_stop = exp_stop + `fillgaps' ///
+            if exp_stop == `_tvx_maxstop' & !missing(exp_stop)
+        drop `_tvx_maxstop'
     }
     
     * Merge exposure data with study entry/exit dates
@@ -1243,11 +1249,13 @@ program define tvexpose, rclass
     drop _merge_check
     
     * Remove exposures completely outside study observation window
-    * If exposure ended before entry or started after exit, person never truly exposed
-    quietly count if exp_stop < study_entry | exp_start > study_exit
+    * If exposure ended before entry or started after exit, person never truly exposed.
+    * washout() extends the effective stop, so an episode that ends before entry
+    * but whose washout reaches entry is still active at entry and must be kept.
+    quietly count if exp_stop + `washout' < study_entry | exp_start > study_exit
     local n_outside_window = r(N)
-    quietly drop if exp_stop < study_entry | exp_start > study_exit
-    
+    quietly drop if exp_stop + `washout' < study_entry | exp_start > study_exit
+
     * Apply lag period (delay before exposure becomes active)
     * Lag represents latency period before biological effect begins
     * For example: lag(30) means 30-day delay before chemotherapy starts damaging cells
@@ -1263,38 +1271,67 @@ program define tvexpose, rclass
     * Apply washout period (persistence after exposure stops)
     * Washout represents residual effect after exposure ends
     * For example: washout(90) means protective immunity lasts 90 days after vaccination
+    * The effective episode stop before any study-window clipping. dose mode
+    * apportions each episode's amount over this unclipped span.
+    tempvar _tvx_ustop _tvx_ustart
+    quietly generate double `_tvx_ustop' = exp_stop + `washout'
     if `washout' > 0 {
         quietly replace exp_stop = exp_stop + `washout'
         * Ensure washout doesn't extend beyond study exit
         quietly replace exp_stop = study_exit if exp_stop > study_exit
     }
-    
+
     * Apply window restriction for acute exposures
     * Restricts effect to specific time window around exposure
     * For example: window(1 7) measures days 1-7 after exposure (week-long window)
     if "`window'" != "" {
+        quietly replace `_tvx_ustop' = min(exp_start + `window_max', `_tvx_ustop')
         quietly replace exp_stop = min(exp_start + `window_max', exp_stop)
         quietly replace exp_start = exp_start + `window_min'
         quietly drop if exp_start > exp_stop
     }
-    
+
+    * The effective episode start before study-window clipping. Clipping moves
+    * every episode that began before entry onto the same entry date; layer
+    * precedence ("later exposures take precedence") must still rank those
+    * episodes by when they actually began, not by their source-row order.
+    quietly generate double `_tvx_ustart' = exp_start
+
     * Truncate all periods to study observation window
     * All exposure periods must fall within [entry, exit] for that person
     * This is final truncation after all transformations
     quietly replace exp_start = study_entry if exp_start < study_entry
     quietly replace exp_stop = study_exit if exp_stop > study_exit
-    
+
+    * An episode can still lie wholly before entry after window() (its acute
+    * window closes before entry); clipping then reverses its bounds. It has no
+    * follow-up days, exactly like an episode that ended before entry.
+    quietly count if exp_start > exp_stop
+    local n_outside_window = `n_outside_window' + r(N)
+    quietly drop if exp_start > exp_stop
+
+    * dose: the exposure value is the total amount for the whole effective
+    * episode, apportioned at a constant daily rate. A clipped episode keeps
+    * only the share of that amount that falls inside [entry, exit].
+    if "`exp_type'" == "dose" {
+        * An integer-typed amount would silently truncate its apportioned share.
+        quietly recast double exp_value
+        quietly replace exp_value = exp_value * ///
+            (exp_stop - exp_start + 1) / (`_tvx_ustop' - `_tvx_ustart' + 1) ///
+            if exp_start != `_tvx_ustart' | exp_stop != `_tvx_ustop'
+    }
+
     * Retain only essential variables for processing
     * Drop all other variables to reduce memory usage
-    * Keep only: id, dates, exposure value, stable source order, and
-    * user-specified keepvars.
+    * Keep only: id, dates, exposure value, stable source order, unclipped
+    * start (layer precedence), and user-specified keepvars.
     if "`keepvars'" != "" {
         keep id exp_start exp_stop exp_value study_entry study_exit ///
-            `_tvx_source_order' `keepvars'
+            `_tvx_source_order' `_tvx_ustart' `keepvars'
     }
     else {
         keep id exp_start exp_stop exp_value study_entry study_exit ///
-            `_tvx_source_order'
+            `_tvx_source_order' `_tvx_ustart'
     }
     
     * Sort for sequential processing
@@ -1349,8 +1386,19 @@ program define tvexpose, rclass
     *       first corrupts those rates and produces wrong cumulative doses.
     if "`exp_type'" != "dose" {
     quietly use `exp_cleaned', clear
+
+    * Adjacency order for merging same-value episodes. Under layer precedence
+    * (the policy whenever priority(), split, and combine() are absent) the
+    * order must be the precedence order itself -- unclipped start, then source
+    * row -- so a merged or removed episode never has a different-value episode
+    * ranked between it and the episode that absorbs it. Otherwise episodes
+    * clipped onto the same entry date merge by stop date and lose their rank.
+    local _tvx_s1order "exp_start exp_stop exp_value"
+    if "`priority'" == "" & "`split'" == "" & "`combine'" == "" {
+        local _tvx_s1order "exp_start `_tvx_ustart' `_tvx_source_order'"
+    }
     
-    sort id exp_start exp_stop exp_value
+    sort id `_tvx_s1order'
     quietly gen double drop_flag = 0
     
     * ===========================================================================
@@ -1393,7 +1441,7 @@ program define tvexpose, rclass
         * Merge condition: same ID, same exposure value, gap <= merge() days
         * The gap is calculated as: start[n+1] - stop[n], which is negative for overlaps
         quietly gen double can_merge = 0
-        quietly by id (exp_start exp_stop): replace can_merge = 1 if ///
+        quietly by id (`_tvx_s1order'): replace can_merge = 1 if ///
             (exp_start[_n+1] - exp_stop <= `merge') & ///
             !missing(exp_start[_n+1]) & ///
             (exp_value == exp_value[_n+1]) & ///
@@ -1418,7 +1466,7 @@ program define tvexpose, rclass
         }
 
         quietly drop can_merge
-        sort id exp_start exp_stop exp_value
+        sort id `_tvx_s1order'
         local iter = `iter' + 1
     }
 
@@ -1432,7 +1480,7 @@ program define tvexpose, rclass
     * miss. The caller's data is restored by the snapshot taken at entry.
     if `iter' >= `max_merge_iter' {
         quietly gen double __merge_left = 0
-        quietly by id (exp_start exp_stop): replace __merge_left = 1 if ///
+        quietly by id (`_tvx_s1order'): replace __merge_left = 1 if ///
             (exp_start[_n+1] - exp_stop <= `merge') & ///
             !missing(exp_start[_n+1]) & ///
             (exp_value == exp_value[_n+1]) & ///
@@ -1456,7 +1504,7 @@ program define tvexpose, rclass
     
     * Remove exact duplicate periods
     * Same ID, start, stop, and exposure value = redundant record
-    sort id exp_start exp_stop exp_value
+    sort id `_tvx_s1order'
     quietly gen double is_dup = 0
     quietly by id: replace is_dup = 1 if (exp_start == exp_start[_n-1]) & ///
                               (exp_stop == exp_stop[_n-1]) & ///
@@ -1500,7 +1548,7 @@ program define tvexpose, rclass
         quietly count if contained == 1
         if r(N) > 0 {
             quietly drop if contained == 1
-            sort id exp_start exp_stop exp_value
+            sort id `_tvx_s1order'
         }
         local iter = `iter' + 1
 
@@ -2153,22 +2201,31 @@ program define tvexpose, rclass
             }
         }
 
+        * Precedence rank: the engine's heap key is (clipped start, rank).
+        * Ranking by the unclipped start and then source row makes an episode
+        * that began later win even when entry clipping gave both episodes the
+        * same start; ties on the true start still go to the later source row.
+        tempvar _tvx_layer_rank
+        sort `_tvx_layer_group' exp_start `_tvx_ustart' `_tvx_source_order'
+        quietly generate long `_tvx_layer_rank' = _n
+
         tempfile layer_payload_data
         preserve
-        quietly keep `_tvx_source_order' `layer_payload'
-        quietly isid `_tvx_source_order'
+        quietly keep `_tvx_layer_rank' `layer_payload'
+        quietly isid `_tvx_layer_rank'
         quietly save `layer_payload_data', replace
         restore
 
         quietly keep `_tvx_layer_group' exp_start exp_stop exp_value ///
-            `_tvx_source_order'
-        sort `_tvx_layer_group' exp_start `_tvx_source_order'
+            `_tvx_layer_rank'
+        sort `_tvx_layer_group' exp_start `_tvx_layer_rank'
         quietly _tvexpose_mata_layer `_tvx_layer_group' exp_start exp_stop ///
-            exp_value `_tvx_source_order'
+            exp_value `_tvx_layer_rank'
         local n_layer_rows = r(n_layer)
         quietly keep in 1/`n_layer_rows'
-        quietly merge m:1 `_tvx_source_order' using `layer_payload_data', ///
+        quietly merge m:1 `_tvx_layer_rank' using `layer_payload_data', ///
             keep(3) nogen
+        drop `_tvx_layer_rank'
         drop `_tvx_layer_group'
         sort id exp_start exp_stop exp_value
     }
@@ -2191,6 +2248,7 @@ program define tvexpose, rclass
     } // End of if "`exp_type'" != "dose" block for overlap handling
 
     capture drop `_tvx_source_order'
+    capture drop `_tvx_ustart'
 
     * Save cleaned and overlap-adjusted exposures
     sort id exp_start exp_stop exp_value
@@ -2590,6 +2648,7 @@ program define tvexpose, rclass
     * It must not survive into the appended person rows, where it would be
     * missing for every one of them.
     if `_tvx_fast_build' capture drop `_tvx_source_order'
+    if `_tvx_fast_build' capture drop `_tvx_ustart'
 
     local _tvx_fast_build_opts ""
     if `_tvx_fast_build' & `_tvx_fast' == 0 ///

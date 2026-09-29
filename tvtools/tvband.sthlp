@@ -111,7 +111,7 @@ allowed for {cmd:type(calendar)}.
 {opt width(#)} sets the band width. For {cmd:age} and {cmd:calendar} the unit is years (for
 example {cmd:width(10)} gives 10-year bands); for {cmd:elapsed} the unit is set by
 {opt unit()}. Age, calendar, and elapsed-year widths must be positive whole
-years. Default is {cmd:width(1)}.
+years, and elapsed-day widths positive whole days. Default is {cmd:width(1)}.
 
 {phang}
 {opt unit(day|year)} sets the elapsed-time unit. Default is {cmd:day}. Used only

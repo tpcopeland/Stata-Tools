@@ -1,4 +1,4 @@
-*! _tvbuild_load_source Version 1.17.2  2026/09/09
+*! _tvbuild_load_source Version 1.17.3  2026/09/29
 *! Copy one tvbuild source into a scratch frame under fixed internal names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

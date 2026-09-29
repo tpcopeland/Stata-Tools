@@ -1,4 +1,4 @@
-*! tvband Version 1.17.2  2026/09/09
+*! tvband Version 1.17.3  2026/09/29
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -48,6 +48,10 @@ program define tvband, rclass
     }
     if "`type'" == "calendar" & `width' != int(`width') {
         display as error "type(calendar) requires an integer width() in years"
+        exit 198
+    }
+    if `width' != int(`width') {
+        display as error "width() must be a whole number; band boundaries are whole daily dates"
         exit 198
     }
 

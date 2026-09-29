@@ -1,4 +1,4 @@
-*! tvevent Version 1.17.2  2026/09/09
+*! tvevent Version 1.17.3  2026/09/29
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -900,6 +900,10 @@ program define tvevent, rclass
                 num(`v_outside') note("events")
             noisily display as text ///
                 "    (these events will not be flagged in output)"
+            if "`type'" == "single" {
+                noisily display as text ///
+                    "    (type(single): person-time after a first event in a coverage gap is dropped)"
+            }
         }
         else {
             noisily _tvtools_row "events outside bounds", value("none (OK)")
@@ -1529,6 +1533,63 @@ program define tvevent, rclass
             gen double `ev_date' = `stopvar' if `generate' > 0
             bysort `id': egen double _first_fail = min(`ev_date')
 
+            * The terminal date is the person's earliest resolved event date
+            * on or after their first interval start, whether or not an
+            * interval contains it. An event in an internal coverage gap cannot
+            * be flagged, but it still ends follow-up: without this, the next
+            * interval was kept as event-free person-time and a LATER event
+            * could be flagged as the first one. Events before the first
+            * interval are pre-study history and remain ignored.
+            tempvar term_date old_first_fail first_start fs_tag
+            gen double `old_first_fail' = _first_fail
+            gen double `term_date' = .
+            if `n_event_rows' > 0 {
+                bysort `id': egen double `first_start' = min(`startvar')
+                by `id': gen byte `fs_tag' = _n == 1
+                tempname term_frame fs_frame
+                capture noisily {
+                    frame put `id' `first_start' if `fs_tag', into(`fs_frame')
+                    frame create `term_frame'
+                    frame `term_frame' {
+                        use `id' `date' using `events', clear
+                        tempvar fs_link
+                        quietly frlink m:1 `id', frame(`fs_frame') ///
+                            generate(`fs_link')
+                        quietly generate double `first_start' = ///
+                            frval(`fs_link', `first_start')
+                        quietly keep if !missing(`first_start') & ///
+                            `date' >= `first_start'
+                        quietly count
+                        if r(N) > 0 {
+                            collapse (min) `term_date' = `date', by(`id')
+                        }
+                        else {
+                            keep `id'
+                            quietly generate double `term_date' = .
+                        }
+                    }
+                    tempvar term_link
+                    quietly frlink m:1 `id', frame(`term_frame') ///
+                        generate(`term_link')
+                    quietly replace `term_date' = ///
+                        frval(`term_link', `term_date')
+                    drop `term_link'
+                }
+                local term_rc = _rc
+                capture frame drop `term_frame'
+                capture frame drop `fs_frame'
+                if `term_rc' exit `term_rc'
+                drop `first_start' `fs_tag'
+            }
+            quietly replace _first_fail = min(_first_fail, `term_date')
+
+            * Persons whose first event no interval contains. All of their
+            * rows from that date on are post-event time.
+            tempvar unflagged_person
+            quietly gen byte `unflagged_person' = !missing(`term_date') & ///
+                (missing(`old_first_fail') | `term_date' < `old_first_fail')
+            drop `old_first_fail' `term_date'
+
             * Events after the first are censored; ties on the first date are
             * all retained, because they are the same event.
             replace `generate' = 0 if `generate' > 0 & ///
@@ -1561,6 +1622,24 @@ program define tvevent, rclass
             * Under [start, stop] inclusive convention, post-event intervals
             * have start > event_date. Keep every row carrying the first
             * event (which may have start == _first_fail for one-day rows).
+            tempvar unflagged_drop
+            quietly gen byte `unflagged_drop' = `unflagged_person' & ///
+                `startvar' >= _first_fail & !(`generate' > 0)
+            quietly count if `unflagged_drop'
+            local n_unflagged_rows = r(N)
+            if `n_unflagged_rows' > 0 {
+                tempvar unflagged_days
+                quietly gen double `unflagged_days' = ///
+                    (`stopvar' - `startvar' + 1) * `unflagged_drop'
+                quietly summarize `unflagged_days', meanonly
+                local n_unflagged_days = r(sum)
+                noisily di as txt "Note: `n_unflagged_rows' interval row(s) (" ///
+                    %1.0f `n_unflagged_days' " person-days) follow a first event" ///
+                    " in a coverage gap; dropped as post-event time."
+                drop `unflagged_days'
+            }
+            drop `unflagged_drop' `unflagged_person'
+
             drop if !missing(_first_fail) & `startvar' >= _first_fail ///
                 & !(`generate' > 0)
 

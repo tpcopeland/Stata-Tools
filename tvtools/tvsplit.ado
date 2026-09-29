@@ -1,4 +1,4 @@
-*! tvsplit Version 1.17.2  2026/09/09
+*! tvsplit Version 1.17.3  2026/09/29
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -155,8 +155,8 @@ program define tvsplit, rclass
             display as error "elapsed() unit() must be day or year"
             exit 198
         }
-        if "`eunit'" == "year" & `ewidth' != int(`ewidth') {
-            display as error "elapsed() year width() must be a whole number"
+        if `ewidth' != int(`ewidth') {
+            display as error "elapsed() width() must be a whole number of `eunit's"
             exit 198
         }
         local axisnames "`axisnames' elapsed"

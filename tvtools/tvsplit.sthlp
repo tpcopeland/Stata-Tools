@@ -111,8 +111,8 @@ variable {it:refvar} (for example a copy of study entry). It must be a
 non-missing numeric daily date and must be distinct from {opt id()},
 {opt start()}, and {opt stop()}. Suboptions: {cmd:width(#)} (default 1),
 {cmd:unit(day|year)} (default {cmd:day}), {cmd:min(#)}/{cmd:max(#)}, and
-{cmd:generate(name)} (band variable, default {cmd:fuband}). Year-unit widths
-must be positive whole years.
+{cmd:generate(name)} (band variable, default {cmd:fuband}). Widths must be
+positive whole numbers of the chosen unit (days or years).
 
 {dlgtab:General}
 

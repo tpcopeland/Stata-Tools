@@ -1,4 +1,4 @@
-*! _tvtools_rule Version 1.17.2  2026/09/09
+*! _tvtools_rule Version 1.17.3  2026/09/29
 *! Draw the standard tvtools report rule
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

@@ -18,6 +18,7 @@ local quick_suites test_package_runner_contract ///
 
 local core_only_suites test_regressions test_regressions_1_9_0 ///
     test_tvtools_v1172 ///
+    test_tvtools_v1173 ///
     test_tvweight_cumprod ///
     test_tvmerge_frame_native ///
     test_tvmerge_idname ///
@@ -77,6 +78,7 @@ local manifest_suites test_package_runner_contract ///
     test_help_examples ///
     test_regressions test_regressions_1_9_0 ///
     test_tvtools_v1172 ///
+    test_tvtools_v1173 ///
     test_tvweight_cumprod ///
     test_tvmerge_frame_native ///
     test_tvmerge_idname ///
@@ -116,7 +118,7 @@ local manifest_counts 11 ///
     87 22 15 10 22 ///
     7 5 21 ///
     11 ///
-    167 21 10 29 17 14 20 67 75 52 35 27 24 18 82 8 20 13 12 15 4 7 ///
+    167 21 10 14 29 17 14 20 67 75 52 35 27 24 18 82 8 20 13 12 15 4 7 ///
     15 28 14 15 9 9 7 7 4 29 5 ///
     20 25 ///
     13 4 2 ///

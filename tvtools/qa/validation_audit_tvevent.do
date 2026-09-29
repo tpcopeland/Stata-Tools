@@ -140,12 +140,13 @@ capture noisily {
     local nevents = r(N_events)
     assert `outside' == 1
     assert `multiple' == 1
-    assert `nevents' == 1
-    quietly count if outcome == 1 & stop == 8
-    assert r(N) == 1
+    * The day-5 gap event is the first, terminal event: it cannot be flagged,
+    * the day-8 event is not a first event, and [7,10] is post-event time.
+    assert `nevents' == 0
+    assert _N == 1 & start == 1 & stop == 3 & outcome == 0
 }
 if _rc == 0 {
-    display as result "  PASS: gap events are outside and duplicate rows count one person"
+    display as result "  PASS: gap events are outside, terminal, and duplicate rows count one person"
     local ++pass_count
 }
 else {
