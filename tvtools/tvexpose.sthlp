@@ -292,7 +292,9 @@ type. With {cmd:bytype}, histories are tracked independently by type.
 {phang}
 {opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable
 contains the total dose for the source period rather than a categorical type. Dose
-is apportioned across split segments at a constant daily rate. Each output
+is apportioned across split segments at a constant daily rate. An episode
+clipped at study entry or exit keeps only the share of its amount that falls
+inside follow-up. Each output
 row contains cumulative dose known before that row starts; the current row's
 dose is not included. The {cmd:reference()} option defaults to 0 for
 {cmd:dose} mode and can be omitted. The {cmd:bytype} option is not supported
@@ -350,7 +352,13 @@ continuous.
 
 {phang}
 {opt fillgaps(#)} assumes exposure continues for # days beyond the last
-recorded stop date. Useful when exposure records may be incomplete or delayed.
+recorded stop date. The extended episode is the one with the person's latest
+stop date, not the one that started last; when several episodes share that
+stop date, each is extended, and the overlap policy ({opt layer} by default,
+which ranks by latest start, then later source record) chooses the continuing
+value exactly as it does on the last recorded day. The extension is applied to the source
+episodes before {opt lag()}, {opt washout()}, and clipping at exit. Useful
+when exposure records may be incomplete or delayed.
 
 {phang}
 {opt carryforward(#)} carries the most recent exposure forward through gaps
@@ -363,8 +371,11 @@ up to # days. Used when exposure is likely to persist beyond recorded periods.
 {phang}
 {opt layer} handles overlapping exposures by giving precedence to later exposures,
 with earlier exposures resuming after the later one ends. This is the default
-behavior. If records start on the same day, their order in the exposure dataset
-breaks the tie: the later source record takes precedence.
+behavior. "Later" means the episode's own start date (after {opt lag()} and
+{opt window()}), not the date it is clipped to at study entry, so an episode
+that began before entry still ranks by when it began. If records start on the
+same day, their order in the exposure dataset breaks the tie: the later source
+record takes precedence.
 
 {phang}
 {opt priority(numlist)} specifies priority order when exposures overlap. The
@@ -416,8 +427,9 @@ model delayed biological effects.
 
 {phang}
 {opt washout(#)} specifies that exposure effects persist for # days after the stop
-date. Exposure status remains active until # days past the recorded end. Used
-to model residual effects.
+date. Exposure status remains active until # days past the recorded end,
+including for an episode that ended before study entry but whose washout
+reaches it. Used to model residual effects.
 
 {phang}
 {opt window(# #)} specifies minimum and maximum days for an acute exposure

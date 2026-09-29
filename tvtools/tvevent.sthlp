@@ -212,7 +212,10 @@ survival models.
 {phang}
 {opt type(string)} specifies the event logic. {break}{bf:single} (default): Treats the first
 event as terminal. Drops all follow-up time after the first
-event. {break}{bf:recurring}: Allows multiple events per person. Splits intervals as
+event, even when that event falls in an internal coverage gap: it cannot be
+flagged, but later rows are still dropped and a note reports the rows and
+person-days removed. An event before the person's first interval is pre-study
+history and is ignored. {break}{bf:recurring}: Allows multiple events per person. Splits intervals as
 needed but retains all follow-up time. {break}
 {break}{bf:Event placement and duplicate intervals.} With {bf:single}, the first
 event is identified by its {bf:date}, not by row position. Rows that share the
@@ -303,7 +306,8 @@ command prints the exact preserved and excluded lists. Uniqueness remains strict
 {opt validate} displays validation diagnostics before processing. This option checks
 for: {break}1. {bf:Events outside interval coverage}: Events with no match in the
 actual union of a person's closed intervals, including events in internal gaps
-(those events cannot be flagged)
+(those events cannot be flagged; under {bf:single} the person-time after a
+first event in an internal gap is dropped)
 {break}2. {bf:Multiple events per person}: With {cmd:type(single)}, affected IDs
 are counted once rather than once per event row
 {break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases

@@ -94,6 +94,7 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `test_tvtools_catalog.do` | Dispatcher catalog completeness and classifications. |
 | `test_tvtools_v1141.do` | Weighting and dispatcher regressions from the 1.14 line. |
 | `test_tvtools_v1172.do` | Release regressions for caller state, extra exposure maps, empty-output schemas, event clocks, quoted labels, and reference-label failure handling. |
+| `test_tvtools_v1173.do` | Release regressions with daily oracles: layer precedence under entry clipping, clipped dose apportionment, pre-entry washout and acute windows, last-stop `fillgaps()`, unflagged terminal events, and whole-number band widths. |
 | `test_tvweight.do` | `tvweight` functional surface. |
 | `test_tvweight_cumprod.do` | Cumulative-weight product engine. |
 | `test_tvweight_v1150.do` | Numerator-model and longitudinal-weight regressions. |
@@ -182,14 +183,14 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `tvtools` | `test_tvtools`, `test_tvtools_catalog` | `validation_known_answers` | `crossval_tvtools` | integration, state, release |
 | `tvbuild` | dryrun, construct, commit, manifest, regressions | `validation_tvbuild_conservation` | frozen primitive pipelines | integration, state, fixtures |
 | `tvspec` | `test_tvspec` | hand-built plan equivalence | — | `tvbuild` suites |
-| `tvexpose` | command, diagnostics, fast path | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases |
+| `tvexpose` | command, diagnostics, fast path, `test_tvtools_v1173.do` | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases |
 | `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases |
-| `tvevent` | command, segments, `test_tvtools_v1172.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
+| `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
 | `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration and verbose paths |
 | `tvweight` | command, cumulative product, regressions | balance and recovery suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
 | `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming and missing-value suites |
-| `tvband` | command and hand oracle | `validation_tvband` | — | naming and missing-value suites |
-| `tvsplit` | `test_tvsplit` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
+| `tvband` | command, hand oracle, `test_tvtools_v1173.do` | `validation_tvband` | — | naming and missing-value suites |
+| `tvsplit` | `test_tvsplit`, `test_tvtools_v1173.do` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
 | `tvpanel` | `test_tvpanel` | panel audit and known answers | — | integration and missing-value suites |
 
 ## Lane membership

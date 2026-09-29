@@ -1,4 +1,4 @@
-*! _tvexpose_dose_sweep Version 1.17.2  2026/09/09
+*! _tvexpose_dose_sweep Version 1.17.3  2026/09/29
 *! Allocate overlapping dose periods with the shared interval plane sweep
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

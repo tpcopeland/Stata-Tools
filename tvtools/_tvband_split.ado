@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.17.2  2026/09/09
+*! _tvband_split Version 1.17.3  2026/09/29
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -50,6 +50,18 @@ program define _tvband_split, rclass
     if ("`type'" == "age" | ("`type'" == "elapsed" & "`unit'" == "year")) ///
             & `width' != int(`width') {
         display as error "_tvband_split: year-based width() must be a whole number of years"
+        exit 198
+    }
+    if "`anchor'" != "" {
+        if `anchorval' != int(`anchorval') {
+            display as error "_tvband_split: anchor() must be a whole calendar year"
+            exit 198
+        }
+    }
+    * Day widths too: band boundaries become interval bounds, and a fractional
+    * width would write fractional start/stop dates.
+    if `width' != int(`width') {
+        display as error "_tvband_split: width() must be a whole number of days"
         exit 198
     }
     if inlist("`type'", "age", "elapsed") & "`origin'" == "" {
