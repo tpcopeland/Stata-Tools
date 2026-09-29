@@ -1,4 +1,4 @@
-*! tabtools_tips Version 2.1.16  2026/09/29
+*! tabtools_tips Version 2.1.17  2026/09/29
 *! Quick links to the tabtools tips reference and worked recipes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

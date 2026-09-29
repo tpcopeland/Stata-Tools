@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.1.16  2026/09/29
+*! _desctab_collect Version 2.1.17  2026/09/29
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -660,7 +660,13 @@ program define _desctab_collect, rclass
         /* Build disclosure masks while every count still has numeric lineage.
            Base blocks contain the real group columns only; displayed totals
            are the corresponding row margins. Unreleased complements and
-           missingness rows remain logical cells but are not public markers. */
+           missingness rows remain logical cells but are not public markers.
+           They are still sensitive: printed level counts and the group N
+           give the missing row by subtraction, and a printed percentage
+           releases the non-missing denominator that gives a binary's
+           negative row. Left non-exact, such a row is pinned only when the
+           released cells and margins pin it, and a small one is then
+           protected like a printed cell. */
         local _smallcells_active = "`smallcells'" != ""
         local _missing_summary = "`missingsummary'" != ""
         tempname sc_samplemask sc_contmask sc_catmask sc_missmask sc_denmask sc_derived
@@ -702,7 +708,8 @@ program define _desctab_collect, rclass
                         sensitive(`_scS') rowexact(`_scRE') ///
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
-                        grandsensitive(`include_total') smallcells(`smallcells')
+                        grandsensitive(`include_total') smallcells(`smallcells') ///
+                        fixedmargins
                     matrix `_scM' = r(mask)
                     matrix `_scRM' = r(rowmask)
                     matrix `_scCM' = r(colmask)
@@ -754,6 +761,8 @@ program define _desctab_collect, rclass
                             local _sc_nonmiss = `catmat'[`_scrow', 6]
                             matrix `_scC'[`_sc_negrow', `_g'] = `_sc_nonmiss' - `_sc_pos'
                             matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
+                            matrix `_scS'[`_sc_negrow', `_g'] = 1
+                            matrix `_scS'[`_sc_missrow', `_g'] = 1
                             if `_missing_summary' | ("`slashN'" == "slashN" & ///
                                 (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "")) {
                                 matrix `_scE'[`_sc_missrow', `_g'] = 1
@@ -772,6 +781,7 @@ program define _desctab_collect, rclass
                             local _scrow = `cat_start_`i'' + `_g' - 1
                             local _sc_nonmiss = `catmat'[`_scrow', 6]
                             matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
+                            matrix `_scS'[`_sc_missrow', `_g'] = 1
                             if `_missing_summary' | ("`slashN'" == "slashN" & "`catrowperc'" == "") {
                                 matrix `_scE'[`_sc_missrow', `_g'] = 1
                                 matrix `_scS'[`_sc_missrow', `_g'] = 1
@@ -794,6 +804,9 @@ program define _desctab_collect, rclass
                         matrix `_scRE'[`_r', 1] = `_sc_row_released'
                         matrix `_scRS'[`_r', 1] = `_sc_row_released'
                     }
+                    forvalues _r = `=`_scL' + 1'/`_scR' {
+                        matrix `_scRS'[`_r', 1] = `_sc_row_released'
+                    }
                     if `_sc_missrow' > 0 & `_missing_summary' & `include_total' {
                         matrix `_scRE'[`_sc_missrow', 1] = 1
                         matrix `_scRS'[`_sc_missrow', 1] = 1
@@ -805,7 +818,8 @@ program define _desctab_collect, rclass
                         sensitive(`_scS') rowexact(`_scRE') ///
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
-                        grandsensitive(`include_total') smallcells(`smallcells')
+                        grandsensitive(`include_total') smallcells(`smallcells') ///
+                        fixedmargins
                     matrix `_scM' = r(mask)
                     matrix `_scRM' = r(rowmask)
                     matrix `_scCM' = r(colmask)
@@ -1114,8 +1128,8 @@ program define _desctab_collect, rclass
                     * A published percentage releases its own denominator -- the
                     * per-variable, per-group NON-MISSING count -- which the
                     * suppression engine is not told about: it is handed the
-                    * group N as the column margin and leaves the missing row
-                    * free. A reader who divides a published count by its
+                    * group N as the column margin and leaves the hidden rows
+                    * non-exact. A reader who divides a published count by its
                     * published percentage recovers that denominator and then
                     * subtracts, which reconstructs a primary-suppressed count
                     * exactly. Withhold every percentage in a block that carries

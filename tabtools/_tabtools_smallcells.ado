@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 2.1.16  2026/09/29
+*! _tabtools_smallcells Version 2.1.17  2026/09/29
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -13,7 +13,8 @@ program define _tabtools_smallcells, rclass
             [ EXACT(name) SENSitive(name) ///
               ROWEXact(name) ROWSENsitive(name) ///
               COLEXact(name) COLSENsitive(name) ///
-              GRANDExact(integer 0) GRANDSensitive(integer 0) ]
+              GRANDExact(integer 0) GRANDSensitive(integer 0) ///
+              FIXEDmargins ]
 
         if `smallcells' < 3 {
             display as error "smallcells() must be an integer greater than or equal to 3"
@@ -99,7 +100,8 @@ program define _tabtools_smallcells, rclass
             st_matrix("`sensitive_m'"), st_matrix("`rowexact_m'"), ///
             st_matrix("`rowsens_m'"), st_matrix("`colexact_m'"), ///
             st_matrix("`colsens_m'"), `grandexact', `grandsensitive', ///
-            `smallcells', "`mask'", "`rowmask'", "`colmask'", ///
+            `smallcells', "`fixedmargins'" != "", ///
+            "`mask'", "`rowmask'", "`colmask'", ///
             "`totalmask'", "`nprimary'", "`nsecondary'"))
 
         if scalar(`status') == -1 {
@@ -366,6 +368,7 @@ real scalar _ttsc_run(
     real scalar grandexact,
     real scalar grandsensitive,
     real scalar k,
+    real scalar fixedmargins,
     string scalar mask_name,
     string scalar rowmask_name,
     string scalar colmask_name,
@@ -518,12 +521,15 @@ real scalar _ttsc_run(
                 rowstate[i] = (rowtotals[i] < k ? 1 : 2)
             }
         }
+        // Fixed column and grand margins are published outside this block
+        // (desctab prints each group N once for every variable), so
+        // withholding them here would protect nothing.
         for (j = 1; j <= nc; j++) {
-            if (colstate[j] == 0 & colexact[j] & coltotals[j] > 0) {
+            if (!fixedmargins & colstate[j] == 0 & colexact[j] & coltotals[j] > 0) {
                 colstate[j] = (coltotals[j] < k ? 1 : 2)
             }
         }
-        if (grandstate == 0 & grandexact & sum(counts) > 0) {
+        if (!fixedmargins & grandstate == 0 & grandexact & sum(counts) > 0) {
             grandstate = (sum(counts) < k ? 1 : 2)
         }
         failures = _ttsc_failures(counts, state, rowstate, colstate, grandstate, k)
