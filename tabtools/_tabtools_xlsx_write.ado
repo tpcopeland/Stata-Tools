@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.1.17  2026/09/29
+*! _tabtools_xlsx_write Version 2.1.18  2026/09/29
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,6 +11,11 @@ program define _tabtools_xlsx_write, rclass
         syntax using/ , SHEET(string) [BOOK(name)]
 
         if "`book'" == "" tempname book
+
+        * A fresh export never inherits cell-style rules queued by an earlier
+        * export that stopped before _tabtools_xlsx_compact_styles ran.
+        capture mata: rmexternal("_tt_xp_rules")
+        capture mata: rmexternal("_tt_xp_meta")
 
         * A closed xl() object left in Mata under this name is not reset by
         * assigning a fresh one over it: the next create_book() on that name

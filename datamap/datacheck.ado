@@ -1,10 +1,17 @@
-*! datacheck Version 1.7.0  2026/09/29
+*! datacheck Version 1.7.1  2026/09/29
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define datacheck, rclass
     version 16.0
+    local _legacy_globals : all globals
+    foreach g in S_1 S_FN S_FNDATE {
+        local _had_`g' : list g in _legacy_globals
+        mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
+        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+    }
+
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _preserved   = 0
@@ -33,7 +40,7 @@ program define datacheck, rclass
 	            REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
 	            ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
 	            RULE(string asis) STAT(string) BINary(string) ///
-	            BY(varlist) OVER(varname) ///
+	            BY(string) OVER(string) ///
 	            CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) CONFig(string) COMPare(string) ]
 
@@ -437,7 +444,17 @@ program define datacheck, rclass
         if "`date'"        != "" unab date        : `date'
         if "`isid'"        != "" unab isid        : `isid'
         if "`notmissing'"  != "" unab notmissing  : `notmissing'
-        if "`byvars'"      != "" unab byvars      : `byvars'
+        if "`byvars'" != "" {
+            unab byvars : `byvars'
+            local byvars : list uniq byvars
+            if "`over'" != "" {
+                local nby : word count `byvars'
+                if `nby' != 1 {
+                    display as error "over() requires one variable"
+                    exit 198
+                }
+            }
+        }
         if "`binary'"      != "" {
             unab binary : `binary'
             local binary : list uniq binary
@@ -2305,6 +2322,10 @@ program define datacheck, rclass
         capture restore
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
+    foreach g in S_1 S_FN S_FNDATE {
+        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        else macro drop `g'
+    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     if `cleanup_rc' exit `cleanup_rc'
@@ -2438,92 +2459,124 @@ end
 capture program drop _datacheck_flag
 local _drop_flag_rc = _rc
 program define _datacheck_flag, rclass
-    // Compact one-word flag for the QUICK REFERENCE table.
-    args v fc maxcat rare outliers
-    local flag ""
-    if "`fc'" == "continuous" {
-        quietly summarize `v', detail
-        if r(N) > 0 & r(Var) == 0 local flag "constant"
-        else if `outliers' > 0 {
-            local iqr = r(p75) - r(p25)
-            quietly count if (`v' < r(p25) - `outliers'*`iqr' | ///
-                `v' > r(p75) + `outliers'*`iqr') & !missing(`v')
-            if r(N) > 0 local flag "outliers"
-        }
-    }
-    else if "`fc'" == "categorical" {
-        quietly levelsof `v', missing
-        local nlev = r(r)
-        if `nlev' == 1 local flag "constant"
-        else if `nlev' > `maxcat' local flag "hi-card"
-        else if `rare' > 0 {
-            tempname fr
-            frame put `v', into(`fr')
-            frame `fr' {
-                quietly contract `v', freq(__f)
-                quietly count if __f < `rare'
-                if r(N) > 0 local flag "rare"
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    tempname fr
+    local _frame_open = 0
+    capture noisily {
+        // Compact one-word flag for the QUICK REFERENCE table.
+        args v fc maxcat rare outliers
+        local flag ""
+        if "`fc'" == "continuous" {
+            quietly summarize `v', detail
+            if r(N) > 0 & r(Var) == 0 local flag "constant"
+            else if `outliers' > 0 {
+                local iqr = r(p75) - r(p25)
+                quietly count if (`v' < r(p25) - `outliers'*`iqr' | ///
+                    `v' > r(p75) + `outliers'*`iqr') & !missing(`v')
+                if r(N) > 0 local flag "outliers"
             }
-            frame drop `fr'
         }
+        else if "`fc'" == "categorical" {
+            quietly levelsof `v', missing
+            local nlev = r(r)
+            if `nlev' == 1 local flag "constant"
+            else if `nlev' > `maxcat' local flag "hi-card"
+            else if `rare' > 0 {
+                tempvar freq
+                frame put `v', into(`fr')
+                local _frame_open = 1
+                frame `fr' {
+                    quietly contract `v', freq(`freq')
+                    quietly count if `freq' < `rare'
+                    if r(N) > 0 local flag "rare"
+                }
+                frame drop `fr'
+                local _frame_open = 0
+            }
+        }
+        return local flag "`flag'"
     }
-    return local flag "`flag'"
+    local rc = _rc
+    if `_frame_open' capture frame drop `fr'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+
 end
 
 capture program drop _datacheck_freq
 local _drop_freq_rc = _rc
 program define _datacheck_freq, nclass
-    // Frequency table sorted by descending count, capped at maxfreq.
-    args v maxfreq rare maskcell
-    if "`maskcell'" == "" local maskcell = 0
-    // Display-only: under quietly, as-error segments would still print.
-    if !c(noisily) exit
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
     tempname fr
-    frame put `v', into(`fr')
-    frame `fr' {
-        quietly contract `v', freq(__f)
-        quietly count
-        local nlev = r(N)
-        quietly summarize __f
-        local tot = r(sum)
-        gsort -__f
-        local lblname : value label `v'
-        local show = min(`nlev', `maxfreq')
-        forvalues r = 1/`show' {
-            local lv = `v'[`r']
-            local ct = __f[`r']
-            local pc = 100 * `ct' / `tot'
-            // macval(): a string level holding a backtick or $ is data, not
-            // macro syntax; re-expanding it corrupted the display line.
-            local disp `"`macval(lv)'"'
-            // A float level widened to double prints IEEE noise
-            // (.1000000014901161); show it at float precision.
-            if "`: type `v''" == "float" & !missing(`v'[`r']) {
-                local disp = strtrim(string(`v'[`r'], "%9.0g"))
-            }
-            if "`lblname'" != "" {
-                local lab : label `lblname' `lv'
-                if `"`macval(lab)'"' != "" & `"`macval(lab)'"' != "`lv'" {
-                    local disp `"`macval(disp)' `macval(lab)'"'
+    local _frame_open = 0
+    local _display = c(noisily)
+    capture noisily {
+        // Frequency table sorted by descending count, capped at maxfreq.
+        args v maxfreq rare maskcell
+        if "`maskcell'" == "" local maskcell = 0
+        // Display-only: under quietly, as-error segments would still print.
+        if !`_display' {
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
+        tempvar freq
+        frame put `v', into(`fr')
+        local _frame_open = 1
+        frame `fr' {
+            quietly contract `v', freq(`freq')
+            quietly count
+            local nlev = r(N)
+            quietly summarize `freq'
+            local tot = r(sum)
+            gsort -`freq'
+            local lblname : value label `v'
+            local show = min(`nlev', `maxfreq')
+            forvalues r = 1/`show' {
+                local lv = `v'[`r']
+                local ct = `freq'[`r']
+                local pc = 100 * `ct' / `tot'
+                // macval(): a string level holding a backtick or $ is data, not
+                // macro syntax; re-expanding it corrupted the display line.
+                local disp `"`macval(lv)'"'
+                // A float level widened to double prints IEEE noise
+                // (.1000000014901161); show it at float precision.
+                if "`: type `v''" == "float" & !missing(`v'[`r']) {
+                    local disp = strtrim(string(`v'[`r'], "%9.0g"))
+                }
+                if "`lblname'" != "" {
+                    local lab : label `lblname' `lv'
+                    if `"`macval(lab)'"' != "" & `"`macval(lab)'"' != "`lv'" {
+                        local disp `"`macval(disp)' `macval(lab)'"'
+                    }
+                }
+                local rflag ""
+                if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
+                if `maskcell' > 0 & `ct' < `maskcell' {
+                    display as text "    " as result %-28s "[suppressed]" ///
+                        as text "  suppressed (<" as result `maskcell' as text ")" ///
+                        as error "`rflag'"
+                }
+                else {
+                    display as text "    " as result %-28s `"`macval(disp)'"' ///
+                        as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
+                        as text "%)" as error "`rflag'"
                 }
             }
-            local rflag ""
-            if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
-            if `maskcell' > 0 & `ct' < `maskcell' {
-                display as text "    " as result %-28s "[suppressed]" ///
-                    as text "  suppressed (<" as result `maskcell' as text ")" ///
-                    as error "`rflag'"
-            }
-            else {
-                display as text "    " as result %-28s `"`macval(disp)'"' ///
-                    as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
-                    as text "%)" as error "`rflag'"
+            if `nlev' > `maxfreq' {
+                display as text "    ... " as result `=`nlev'-`maxfreq'' ///
+                    as text " more level(s) not shown (maxfreq)"
             }
         }
-        if `nlev' > `maxfreq' {
-            display as text "    ... " as result `=`nlev'-`maxfreq'' ///
-                as text " more level(s) not shown (maxfreq)"
-        }
+        frame drop `fr'
+        local _frame_open = 0
     }
-    frame drop `fr'
+    local rc = _rc
+    if `_frame_open' capture frame drop `fr'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+
 end

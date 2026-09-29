@@ -4,7 +4,6 @@ clear all
 set varabbrev off
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-capture ado uninstall pkgtransfer
 run "`qa_dir'/_pkgtransfer_qa_common.do"
 _pkgtransfer_qa_setup, pkgdir("`pkg_dir'")
 local root `"`r(root)'"'

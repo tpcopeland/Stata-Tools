@@ -488,6 +488,8 @@ else {
 }
 display as text "{hline 70}"
 
+
+display "RESULT: test_consort_v104 tests=`= `pass_count' + `fail_count'' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error _n "Some tests FAILED."
     exit 1

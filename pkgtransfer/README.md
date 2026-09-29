@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.1.0** | 2026-08-16
+**Version 1.1.1** | 2026-09-29
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -371,6 +371,8 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 | `download(online)` or `download(local)` | The installer do-file plus `pkgtransfer_files.zip`, or the name supplied by `zipfile()`; the archive contains package descriptors, package files, and `stata.toc` |
 | `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, and `stata.trk.backup` is created first |
 
+Bundle creation rejects conflicting source identities at the same archive path, including reserved descriptors and `stata.toc`. Installer and archive paths must be outside `pkgtransfer_files`.
+
 Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the exact archive name selected by `zipfile()`, uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
 
 ## Key Options
@@ -417,6 +419,8 @@ After package selection has succeeded, capturing a later output-write or archive
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
+
+- **1.1.1** (2026-09-29): Reject conflicting bundle payload and metadata paths; resolve output paths before staging and confirm outputs after cleanup; select plugin platforms independently of filenames; bootstrap the selected github package with net install. QA now preserves caller installations across every suite.
 
 - **1.1.0** (2026-08-16): Offline bundles retain every OS plugin variant by default, while explicit `os(Windows)`, `os(Unix)`, or `os(MacOSX)` limits both plugin files and descriptor records to the selected platform; source files are no longer duplicated under their installation target names inside archives.
 - **1.0.5** (2026-08-11): Offline bundles now emit canonical version-3 package and content metadata; preserve plugin directive case, normalized source/target paths, and descriptor terminators; support multiple plugins per package and SSC descriptor lookup; use unambiguous restore markers with legacy URL compatibility; and keep the QA runner from uninstalling the user's package.

@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.3** | 2026-09-29
+**Version 1.7.4** | 2026-09-30
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -394,6 +394,8 @@ matrix list r(balance)
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **v1.7.4** (30 Sep 2026): One-arm zero variances now count as variance imbalance (infinite ratios use `.a`); both-arm constants retain their undefined VR convention. Weighted balance normalizes each covariate's available-case weights within each arm, preserving diagnostics under extreme positive rescaling. Crump trimming selects the first empirical inequality crossing on an ascending 0.001 grid through 0.500 and errors if no crossing retains observations. Balance row headers now say `SMD status` to distinguish the row's SMD check from the panel verdict.
 
 - **v1.7.3** (29 Sep 2026): Review fixes. Common-support bounds are compared with the data as exact values, so the observation that defines an overlap or support bound is no longer counted outside it (overlap, support, `qtrim()`, `generate()`, multi-group, and longitudinal periods), and `r(lower_bound)`/`r(upper_bound)`/`r(overlap_lower)`/`r(overlap_upper)` are exact. Two-valued covariates stored as non-integer doubles, such as centred indicators, are now treated as binary. A treatment-only `psdash balance` call with `matched` no longer requires a propensity score or reads a stale model, and a `strategies()` overlay whose weight is undefined at an exact 0/1 propensity score now exits with error 459 instead of plotting a silently smaller sample. Balance-table columns stay separated when values are negative and align under the wider matched header, and with `ks` the table now shows the adjusted (weighted) KS column that the adjusted maximum summarizes. Multi-group Love plots, including the dashboard balance panel, show raw and adjusted SMDs per contrast named with the treatment's value labels; value labels are printed verbatim everywhere (a label containing a double quote no longer stops multi-group output). Weight-histogram frequency axes print whole counts, and the help now states that the pooled SMD denominator matches the `cobalt` default only for the ATE.
 - **v1.7.2** (9 Sep 2026): Release-review fixes. Weight ESS, CV, and SD remain stable at extreme scales, including arm and period summaries. Detection clears stale metadata, rejects unusable samples, and preserves error codes. Missing balance and truncation cutoffs are rejected. Combined reports retain every sheet title, and workbook failures retain analytical results; longitudinal diagnostics reject ambiguous period row names and unavailable cross-sectional controls. Help contracts and QA failure reporting were tightened, with new regression coverage.

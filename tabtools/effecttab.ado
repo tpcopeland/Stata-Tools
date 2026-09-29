@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.17  2026/09/29
+*! effecttab Version 2.1.18  2026/09/29
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1756,7 +1756,7 @@ quietly {
 
 			_tabtools_xlsx_build_styles, matrix(`_style_rules') ///
 				rules(`"`_style_rule_rows'"') cols(9)
-			_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+			_tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
 				rules(`_style_rules') font("`_font'") ///
 				color1("`_headercolor'") color2("`_zebracolor'") ///
 				color3("255 255 204")

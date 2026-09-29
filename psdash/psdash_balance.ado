@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.7.3  2026/09/29
+*! psdash_balance Version 1.7.4  2026/09/30
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -464,13 +464,13 @@ program define psdash_balance, rclass
             display as text "{hline 84}"
             display as text %20s "Covariate" " {c |}" ///
                 %9s "SMD Raw" %8s "VR Raw" %8s "KS Raw" ///
-                %9s "SMD Adj" %8s "VR Adj" %8s "KS Adj" %12s "Status"
+                %9s "SMD Adj" %8s "VR Adj" %8s "KS Adj" %12s "SMD status"
             display as text "{hline 84}"
         }
         else {
             display as text "{hline 68}"
             display as text %20s "Covariate" " {c |}" ///
-                %9s "SMD Raw" %8s "VR Raw" %9s "SMD Adj" %8s "VR Adj" %12s "Status"
+                %9s "SMD Raw" %8s "VR Raw" %9s "SMD Adj" %8s "VR Adj" %12s "SMD status"
             display as text "{hline 68}"
         }
     }
@@ -478,13 +478,13 @@ program define psdash_balance, rclass
         if `show_ks' {
             display as text "{hline `=59+`smd_pad''}"
             display as text %20s "Covariate" " {c |}" ///
-                %`smd_w's "`smd_label'" %8s "VR" %8s "KS" %12s "Status"
+                %`smd_w's "`smd_label'" %8s "VR" %8s "KS" %12s "SMD status"
             display as text "{hline `=59+`smd_pad''}"
         }
         else {
             display as text "{hline `=51+`smd_pad''}"
             display as text %20s "Covariate" " {c |}" ///
-                %`smd_w's "`smd_label'" %8s "VR" %12s "Status"
+                %`smd_w's "`smd_label'" %8s "VR" %12s "SMD status"
             display as text "{hline `=51+`smd_pad''}"
         }
     }
@@ -1173,7 +1173,7 @@ program define psdash_balance, rclass
             if `show_ks' local hdr_line `"`hdr_line' %8s "KS""'
         }
     }
-    local hdr_line `"`hdr_line' %12s "Status""'
+    local hdr_line `"`hdr_line' %12s "SMD status""'
     display as text `hdr_line'
     display as text "{hline `hdr_width'}"
 

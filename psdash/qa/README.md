@@ -46,6 +46,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 
 | File | Covers |
 |---|---|
+| `test_v174_review_regressions.do` | One-arm degeneracy, complete-matrix weight scale invariance including incomplete covariates, and Crump first crossing; quick/full. |
 | `test_psdash.do` | Public binary commands, options, dispatch, returns, and exports. |
 | `test_adversarial.do` | Invalid inputs, boundary cases, state cleanup, and router failures. |
 | `test_binary_balance_weights_adversarial.do` | Binary balance and weight edge cases. |

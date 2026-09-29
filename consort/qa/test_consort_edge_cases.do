@@ -425,6 +425,8 @@ else {
 }
 display as text "{hline 70}"
 
+
+display "RESULT: test_consort_edge_cases tests=`= `pass_count' + `fail_count'' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error _n "Some edge case tests FAILED."
     exit 1

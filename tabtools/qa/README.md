@@ -111,6 +111,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_tabtools_v202.do` | Caller Mata namespace preservation, unconditional stored results, and atomic multi-sink composition. |
 | `test_theme_removed.do` | Rejection of the removed `theme()` surface. |
 | `test_xlsx_style_compaction.do` | Style-pool compaction, workbook equivalence, verification guards, and platform paths. |
+| `test_xlsx_deferred_styles.do` | Deferred (direct-XML) cell styling: rendered parity with immediate `xl()` styling for all rule operations, a 3,000-row styled table, the `xl()` fallback, `xl()`-rejected color names, stale-queue and invalid-rule guards. |
 
 ### Validation
 

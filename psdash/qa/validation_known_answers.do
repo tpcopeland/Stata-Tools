@@ -303,7 +303,7 @@ capture noisily {
 }
 _vka_result "KA9 support if-sample indicator exact by row" `=_rc'
 
-* KA10: Crump (2009) optimal alpha is the fixed-point minimizer and the
+* KA10: Crump (2009) alpha is the first empirical inequality crossing and the
 * trim bounds/count it implies are exact. Designed data: a symmetric bulk in
 * [0.15,0.85] plus 5 low (0.02) and 5 high (0.97) tails that must be trimmed.
 capture noisily {
@@ -322,7 +322,8 @@ capture noisily {
     local tu = r(trim_upper)
     local nt = r(n_trimmed)
     * alpha is a genuine trimming threshold inside the admissible grid
-    assert `a' >= 0.01 & `a' <= 0.49
+    assert !missing(`a')
+    assert `a' >= 0.001 & `a' <= 0.500
     * trim window is symmetric about 0.5 by construction
     assert abs(`tl' - `a') < 1e-12
     assert abs(`tu' - (1 - `a')) < 1e-12
@@ -330,21 +331,24 @@ capture noisily {
     count if (ps < `a' | ps > 1 - `a')
     assert `nt' == r(N)
     assert `nt' == 10
-    * defining property: alpha minimises |1/(a(1-a)) - 2*E[1/(e(1-e))|a<=e<=1-a]|
-    * on the 0.001 refinement grid, so residual(a) <= residual(a +/- 0.001)
+    * Published implementation, p. 193: chosen alpha satisfies the inequality,
+    * and every preceding nonempty grid interval fails it.
     gen double _ivp = 1 / (ps * (1 - ps))
-    local lhs_a = 1 / (`a' * (1 - `a'))
-    quietly summarize _ivp if ps >= `a' & ps <= 1 - `a'
-    local res_a = abs(`lhs_a' - 2 * r(mean))
-    foreach d in -0.001 0.001 {
-        local al = `a' + (`d')
-        local lhs = 1 / (`al' * (1 - `al'))
-        quietly summarize _ivp if ps >= `al' & ps <= 1 - `al'
-        assert `res_a' <= abs(`lhs' - 2 * r(mean)) + 1e-9
+    quietly summarize _ivp if inrange(ps, `a', 1 - `a'), meanonly
+    assert r(N) > 0 & !missing(r(mean))
+    assert 1/(`a'*(1-`a')) <= 2*r(mean)
+    local previous = round(`a'*1000)-1
+    forvalues step = 1/`previous' {
+        local al = `step'/1000
+        quietly summarize _ivp if inrange(ps,`al',1-`al'), meanonly
+        if r(N) > 0 {
+            assert !missing(r(mean))
+            assert 1/(`al'*(1-`al')) > 2*r(mean)
+        }
     }
     drop _ivp
 }
-_vka_result "KA10 Crump optimal alpha fixed-point minimizer + exact trim" `=_rc'
+_vka_result "KA10 Crump first inequality crossing + exact trim" `=_rc'
 
 * KA11: dispersion summaries are exact. wt={1,1,4,1,1,1}: mean=1.5,
 * sample SD=sqrt(1.5), so CV=sqrt(1.5)/1.5 and max_ratio=max/mean=4/1.5.

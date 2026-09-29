@@ -45,6 +45,7 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_v160.do` | Capped unique counts, frame-based writers, and the shared counter. |
 | `test_datamap_v168.do` | Hostile text payloads, graph-label round-trips, helper state restoration, help widths, and QA-index synchronization. |
 | `test_datamap_v169.do` | Left-justified date formats, exclude() privacy in the description and detectors, JSON control-character escaping, caller matrices, small-scale and float-level display, exact strL counts, saving() caps, hostile string levels, float-precision gates, datamvp tie order and float-level gby()/over() graphs, datacheck exclude() consistency, JSON refusal of text-only sections, missing(pattern), and string categorical frequencies. |
+| `test_datamap_v171.do` | Review F01–F08: date-safe metadata in memory/file daily/datetime routes, exact double counts, separate destination collision refusal, deferred grouping, complete-data sorting, caller scratch-name collisions, config/console parity, and tetrachoric fallback diagnostics. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
 | `test_datacheck_gates.do` | `rule()`, `stat()`, and `binary()` gates, `checks()` rows for them, the PASS line, `r(singlelevel_vars)`, `maskrare` p1/p99 in place of extremes, silence under `quietly`, and `violations()`/`makespec()` to a new frame with `replace`. |
@@ -65,6 +66,9 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 
 | File | Purpose |
 |------|---------|
+| `_qa_state.do` | Vendored session fingerprints used by the current-release regression suite. |
+| `_qa_parity.do` | Vendored report/metadata privacy parity assertions used by the current-release regression suite. |
+| `_qa_hostile.do` | Vendored hostile double fixtures used by the current-release regression suite. |
 | `run_all.do` | Validates the lane, sandboxes installation state, installs the local package, runs suites, and emits a lane sentinel. |
 
 ## Coverage map

@@ -1,4 +1,4 @@
-*! comptab Version 2.1.17  2026/09/29
+*! comptab Version 2.1.18  2026/09/29
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1677,7 +1677,7 @@ program define _comptab_rates, rclass
 
                 _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
                     rules(`_style_rule_spec') cols(9)
-                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+                _tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                     rules(`_style_rules') font("`_font'") ///
                     color1("`_headercolor'") color2("`_zebracolor'")
                 mata: `_xlsx_book'.close_book()
@@ -3034,7 +3034,7 @@ program define _comptab_vertical, rclass
 
         _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
             rules(`_style_rule_spec') cols(9)
-        _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+        _tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
             rules(`_style_rules') font("`_font'") ///
             color1("`_headercolor'") color2("`_zebracolor'") ///
             color3("255 255 204")

@@ -1,0 +1,8 @@
+*.log
+*.smcl
+*.xlsx
+*.png
+*.pdf
+*.dta
+run_all_status.txt
+__pycache__/

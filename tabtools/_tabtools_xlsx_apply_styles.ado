@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 2.1.17  2026/09/29
+*! _tabtools_xlsx_apply_styles Version 2.1.18  2026/09/29
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,7 @@ program define _tabtools_xlsx_apply_styles, rclass
         syntax , BOOK(name) RULES(name) SHEET(string) ///
             [FONT(string) ALTFONT(string) ///
              COLOR1(string) COLOR2(string) ///
-             COLOR3(string) COLOR4(string)]
+             COLOR3(string) COLOR4(string) DEFER]
 
         capture confirm matrix `rules'
         if _rc {
@@ -33,13 +33,19 @@ program define _tabtools_xlsx_apply_styles, rclass
         if `"`font'"' == "" local font "Arial"
         if `"`altfont'"' == "" local altfont "Times New Roman"
 
+        * defer: cell-level rules are validated here but written straight into
+        * the workbook XML by _tabtools_xlsx_compact_styles after close_book(),
+        * so xl() never appends a style record per styled cell (the reason a
+        * large table used to run for minutes and then hit the style-record
+        * ceiling).  Row heights, column widths and merges still go through xl().
         mata: _tt_xlsx_apply_styles(`book', `"`macval(sheet)'"', st_matrix("`rules'"), ///
             `"`font'"', `"`altfont'"', `"`color1'"', `"`color2'"', `"`color3'"', ///
-            `"`color4'"')
+            `"`color4'"', "`defer'" != "")
 
         return scalar n_rules = `_n_rules'
         return scalar n_cols = `_n_cols'
         return local rules "`rules'"
+        return scalar deferred = ("`defer'" != "")
         return local sheet `"`macval(sheet)'"'
     }
     local rc = _rc
@@ -49,6 +55,8 @@ end
 
 version 17.0
 capture mata: mata drop _tt_xlsx_apply_styles()
+capture mata: mata drop _tt_xlsx_apply_one()
+capture mata: mata drop _tt_xlsx_pend_add()
 capture mata: mata drop _tt_xlsx_style_font()
 capture mata: mata drop _tt_xlsx_style_onoff()
 capture mata: mata drop _tt_xlsx_style_halign()
@@ -77,10 +85,13 @@ void _tt_xlsx_apply_styles(
     string scalar color1,
     string scalar color2,
     string scalar color3,
-    string scalar color4)
+    string scalar color4,
+    real scalar defer)
 {
-    real scalar i, op, r1, r2, c1, c2
+    real scalar i, op
+    real colvector qsel
     string rowvector colors, sheets
+    string scalar fname
 
     colors = (color1, color2, color3, color4)
     sheets = b.get_sheets()
@@ -91,73 +102,119 @@ void _tt_xlsx_apply_styles(
         }
     }
 
+    // Validate every rule before any is applied or queued, so an invalid
+    // rule leaves nothing half-applied and nothing queued.
+    for (i = 1; i <= rows(rules); i++) _tt_xlsx_style_validate(rules, i, colors)
+
+    fname = defer ? b.query("filename") : ""
+    qsel = J(rows(rules), 1, 0)
     for (i = 1; i <= rows(rules); i++) {
-        _tt_xlsx_style_validate(rules, i, colors)
-
         op = rules[i, 1]
-        r1 = rules[i, 2]
-        r2 = rules[i, 3]
-        c1 = rules[i, 4]
-        c2 = rules[i, 5]
-
-        if (op == 1) {
-            b.set_font((r1, r2), (c1, c2),
-                _tt_xlsx_style_font(rules[i, 7], font, altfont), rules[i, 6])
-        }
-        else if (op == 2) {
-            b.set_font_bold((r1, r2), (c1, c2),
-                _tt_xlsx_style_onoff(rules[i, 7]))
-        }
-        else if (op == 3) {
-            b.set_font_italic((r1, r2), (c1, c2),
-                _tt_xlsx_style_onoff(rules[i, 7]))
-        }
-        else if (op == 4) {
-            b.set_text_wrap((r1, r2), (c1, c2),
-                _tt_xlsx_style_onoff(rules[i, 7]))
-        }
-        else if (op == 5) {
-            b.set_horizontal_align((r1, r2), (c1, c2),
-                _tt_xlsx_style_halign(rules[i, 7]))
-        }
-        else if (op == 6) {
-            b.set_vertical_align((r1, r2), (c1, c2),
-                _tt_xlsx_style_valign(rules[i, 7]))
-        }
-        else if (op == 7) {
-            b.set_fill_pattern((r1, r2), (c1, c2), "solid",
-                _tt_xlsx_style_rgb(rules[i, (7..9)], colors))
-        }
-        else if (op == 8) {
-            b.set_top_border((r1, r2), (c1, c2),
-                _tt_xlsx_style_border(rules[i, 7]))
-        }
-        else if (op == 9) {
-            b.set_bottom_border((r1, r2), (c1, c2),
-                _tt_xlsx_style_border(rules[i, 7]))
-        }
-        else if (op == 10) {
-            b.set_left_border((r1, r2), (c1, c2),
-                _tt_xlsx_style_border(rules[i, 7]))
-        }
-        else if (op == 11) {
-            b.set_right_border((r1, r2), (c1, c2),
-                _tt_xlsx_style_border(rules[i, 7]))
-        }
-        else if (op == 12) {
-            b.set_row_height(r1, r2, rules[i, 6])
-        }
-        else if (op == 13) {
-            b.set_column_width(c1, c2, rules[i, 6])
-        }
-        else if (op == 14) {
-            b.set_sheet_merge(sheet, (r1, r2), (c1, c2))
-        }
-        else if (op == 15) {
-            b.set_font((r1, r2), (c1, c2), font, rules[i, 6],
-                _tt_xlsx_style_rgb(rules[i, (7..9)], colors))
-        }
+        if (defer & op != 12 & op != 13 & op != 14) qsel[i] = 1
+        else _tt_xlsx_apply_one(b, sheet, rules[i, (1..9)], font, altfont, colors)
     }
+    // one append for the whole batch: per-rule appends are quadratic in the
+    // rule count, and zebra striping emits one rule per striped row
+    if (any(qsel)) _tt_xlsx_pend_add(fname, sheet,
+        select(rules[., (1..9)], qsel), (font, altfont, colors))
+}
+
+void _tt_xlsx_apply_one(
+    class xl scalar b,
+    string scalar sheet,
+    real rowvector rule,
+    string scalar font,
+    string scalar altfont,
+    string rowvector colors)
+{
+    real scalar op, r1, r2, c1, c2
+
+    op = rule[1]
+    r1 = rule[2]
+    r2 = rule[3]
+    c1 = rule[4]
+    c2 = rule[5]
+
+    if (op == 1) {
+        b.set_font((r1, r2), (c1, c2),
+            _tt_xlsx_style_font(rule[7], font, altfont), rule[6])
+    }
+    else if (op == 2) {
+        b.set_font_bold((r1, r2), (c1, c2), _tt_xlsx_style_onoff(rule[7]))
+    }
+    else if (op == 3) {
+        b.set_font_italic((r1, r2), (c1, c2), _tt_xlsx_style_onoff(rule[7]))
+    }
+    else if (op == 4) {
+        b.set_text_wrap((r1, r2), (c1, c2), _tt_xlsx_style_onoff(rule[7]))
+    }
+    else if (op == 5) {
+        b.set_horizontal_align((r1, r2), (c1, c2), _tt_xlsx_style_halign(rule[7]))
+    }
+    else if (op == 6) {
+        b.set_vertical_align((r1, r2), (c1, c2), _tt_xlsx_style_valign(rule[7]))
+    }
+    else if (op == 7) {
+        b.set_fill_pattern((r1, r2), (c1, c2), "solid",
+            _tt_xlsx_style_rgb(rule[(7..9)], colors))
+    }
+    else if (op == 8) {
+        b.set_top_border((r1, r2), (c1, c2), _tt_xlsx_style_border(rule[7]))
+    }
+    else if (op == 9) {
+        b.set_bottom_border((r1, r2), (c1, c2), _tt_xlsx_style_border(rule[7]))
+    }
+    else if (op == 10) {
+        b.set_left_border((r1, r2), (c1, c2), _tt_xlsx_style_border(rule[7]))
+    }
+    else if (op == 11) {
+        b.set_right_border((r1, r2), (c1, c2), _tt_xlsx_style_border(rule[7]))
+    }
+    else if (op == 12) {
+        b.set_row_height(r1, r2, rule[6])
+    }
+    else if (op == 13) {
+        b.set_column_width(c1, c2, rule[6])
+    }
+    else if (op == 14) {
+        b.set_sheet_merge(sheet, (r1, r2), (c1, c2))
+    }
+    else if (op == 15) {
+        b.set_font((r1, r2), (c1, c2), font, rule[6],
+            _tt_xlsx_style_rgb(rule[(7..9)], colors))
+    }
+}
+
+// ---- deferred-style queue (option defer) --------------------------------
+// Rules are queued in two Mata externals shared with
+// _tabtools_xlsx_deferred_styles.ado.  Font names and colors are resolved
+// here, where the style helpers live, so the XML pass never needs them.
+// meta columns: file, sheet, font, altfont, color1..color4, font name, color
+void _tt_xlsx_pend_add(string scalar file, string scalar sheet,
+    real matrix rules, string rowvector strs)
+{
+    pointer(real matrix) scalar rp
+    pointer(string matrix) scalar mp
+    string matrix meta
+    real scalar i, op
+
+    if ((rp = findexternal("_tt_xp_rules")) == NULL) {
+        rp = crexternal("_tt_xp_rules")
+        *rp = J(0, 9, .)
+    }
+    if ((mp = findexternal("_tt_xp_meta")) == NULL) {
+        mp = crexternal("_tt_xp_meta")
+        *mp = J(0, 10, "")
+    }
+    meta = J(rows(rules), 1, (file, sheet, strs, "", ""))
+    for (i = 1; i <= rows(rules); i++) {
+        op = rules[i, 1]
+        if (op == 1) meta[i, 9] = _tt_xlsx_style_font(rules[i, 7], strs[1], strs[2])
+        if (op == 15) meta[i, 9] = strs[1]
+        if (op == 7 | op == 15) meta[i, 10] = _tt_xlsx_style_rgb(rules[i, (7..9)], strs[(3..6)])
+    }
+    *rp = *rp \ rules
+    *mp = *mp \ meta
 }
 
 string scalar _tt_xlsx_style_font(

@@ -1,10 +1,17 @@
-*! datamvp Version 1.7.0  2026/09/29
+*! datamvp Version 1.7.1  2026/09/29
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
 
 program define datamvp, rclass byable(recall) sortpreserve
     version 16.0
+    local _legacy_globals : all globals
+    foreach g in S_1 S_FN S_FNDATE {
+        local _had_`g' : list g in _legacy_globals
+        mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
+        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+    }
+
     local _uservarabbrev `c(varabbrev)'
     local _return_ready = 0
     local _return_has_monotone = 0
@@ -413,7 +420,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     local varlist `vlist'
 
     * Sort variables by missingness if requested
-    if "`sort'" != "" {
+    if "`sort'" != "" & "`varlist'" != "" {
         tempname sortmat
         local nv : word count `varlist'
         matrix `sortmat' = J(`nv', 2, .)
@@ -461,6 +468,10 @@ program define datamvp, rclass byable(recall) sortpreserve
         // A clean -exit 0- here would leave the capture block WITHOUT reaching
         // the post-block restore (capture only intercepts errors), leaking
         // -set varabbrev off- to the user; restore before exiting.
+    foreach g in S_1 S_FN S_FNDATE {
+        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        else macro drop `g'
+    }
         set varabbrev `_uservarabbrev'
         exit 0
     }
@@ -632,6 +643,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
     else {
         qui {
+            keep `mv_patt' `mv_n' `ng' `patpct' `cpct'
             rename `mv_patt' _pattern
             rename `mv_n' _miss
             rename `ng' _freq
@@ -761,9 +773,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as txt "(correlations among missingness indicators)"
         }
         
-        * Try tetrachoric, fall back to pairwise if not available
+        * Try tetrachoric; retain its failure code before Pearson fallback
         capture tetrachoric `misslist' if `touse'
-        if _rc == 0 {
+        local tetra_rc = _rc
+        if `tetra_rc' == 0 {
             * tetrachoric succeeded
             matrix `corrmat' = r(Rho)
             
@@ -783,7 +796,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         else {
             * Fall back to pwcorr
             if "`correlate'" != "" {
-                di as txt "(tetrachoric not available; using Pearson correlations)"
+                di as txt "(tetrachoric failed (rc=`tetra_rc'); using Pearson correlations)"
             }
             qui correlate `misslist' if `touse'
             matrix `corrmat' = r(C)
@@ -1582,6 +1595,10 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     } // end capture noisily
     local rc = _rc
+    foreach g in S_1 S_FN S_FNDATE {
+        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        else macro drop `g'
+    }
     set varabbrev `_uservarabbrev'
     if `_return_ready' {
         return clear

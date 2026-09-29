@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  05aug2026}{...}
+{* *! version 1.1.2  29sep2026}{...}
 {vieweralsosee "[D] drop" "help drop"}{...}
 {vieweralsosee "[D] count" "help count"}{...}
 {viewerjumpto "Syntax" "consort##syntax"}{...}
@@ -34,7 +34,7 @@
 
 {p 8 16 2}
 {cmd:consort exclude}
-{it:if}{cmd:,}
+{cmd:if} {it:exp}{cmd:,}
 {opt lab:el(string)}
 [{opt rem:aining(string)}]
 
@@ -73,7 +73,7 @@
 {synoptline}
 {p2coldent:* {opt out:put(filename)}}output image path (.png recommended){p_end}
 {synopt:{opt fin:al(string)}}final-label argument; default "Final Cohort"{p_end}
-{synopt:{opt shad:ing}}enable box shading (blue for flow, red for exclusions){p_end}
+{synopt:{opt shad:ing}}enable colored box shading{p_end}
 {synopt:{opt python(path)}}path to Python executable{p_end}
 {synopt:{opt dpi(#)}}image resolution; default 150{p_end}
 {synopt:{opt csv(filename)}}also write the diagram data as a CSV table{p_end}
@@ -409,7 +409,7 @@ it can be read without parsing the image:
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(n_excluded)}}number of observations excluded{p_end}
 {synopt:{cmd:r(n_remaining)}}number of observations remaining{p_end}
-{synopt:{cmd:r(step)}}exclusion step number{p_end}
+{synopt:{cmd:r(step)}}exclusion step number (absent for zero matches){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(label)}}exclusion label{p_end}

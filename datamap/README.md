@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.7.0** | 2026-09-29
+**Version 1.7.1** | 2026-09-29
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
 
@@ -332,6 +332,14 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.7.1 (2026-09-29)
+
+- Apply `datesafe` to saved metadata as well as reports.
+- Preserve exact double category membership in dictionary frequencies and reject colliding separate dictionary destinations before writing.
+- Resolve file-owned grouping variables after loading `single()` inputs; accept the documented config display flags and avoid caller-variable frequency collisions.
+- Preserve the caller’s active estimation sample and legacy Stata globals during documentation and profiling.
+- Handle complete-data sorting and pattern-table name collisions in `datamvp`; report the tetrachoric failure code when using Pearson fallback.
 
 ### 1.7.0 (2026-09-29)
 

@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.1.0  2026/08/16
+*! pkgtransfer Version 1.1.1  2026/09/29
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -34,6 +34,10 @@ program define pkgtransfer, rclass
 	local _varabbrev `c(varabbrev)'
 	local _did_preserve 0
 	local _staging_created 0
+	local _registry_created 0
+    local _output_cwd_changed 0
+    local _output_cwd `"`c(pwd)'"'
+	tempname _bundle_registry
 	local _installer_open 0
 	local _tracker_open 0
 	local _returns_ready 0
@@ -170,35 +174,35 @@ quietly {
 		}
 
 		/* Error if dofile not specified correctly */
-			if "`dofile'" != "" {
-				if regexm(`"`dofile'"', "[;&|><\$\`]") | ///
-					strpos(`"`dofile'"', char(34)) | ///
-					strpos(`"`dofile'"', char(39)) {
+			if "`macval(dofile)'" != "" {
+				if regexm(`"`macval(dofile)'"', "[;&|><\$\`]") | ///
+					strpos(`"`macval(dofile)'"', char(34)) | ///
+					strpos(`"`macval(dofile)'"', char(39)) {
 				noisily display as error "Error: dofile() contains invalid characters"
 				exit 198
 			}
-			if substr("`dofile'", -3, .) != ".do" {
+			if substr("`macval(dofile)'", -3, .) != ".do" {
 				noisily display as error "Do file name must end with '.do' extension"
 				exit 198
 			}
 		}
 
 		/* Error if zipfile not specified correctly */
-			if "`zipfile'" != "" {
-				if regexm(`"`zipfile'"', "[;&|><\$\`]") | ///
-					strpos(`"`zipfile'"', char(34)) | ///
-					strpos(`"`zipfile'"', char(39)) {
+			if "`macval(zipfile)'" != "" {
+				if regexm(`"`macval(zipfile)'"', "[;&|><\$\`]") | ///
+					strpos(`"`macval(zipfile)'"', char(34)) | ///
+					strpos(`"`macval(zipfile)'"', char(39)) {
 				noisily display as error "Error: zipfile() contains invalid characters"
 				exit 198
 			}
-			if substr("`zipfile'", -4, .) != ".zip" {
+			if substr("`macval(zipfile)'", -4, .) != ".zip" {
 				noisily display as error "ZIP file name must end with '.zip' extension"
 				exit 198
 			}
 		}
 
 	/* Error if zipfile specified without 'download' option */
-		if "`zipfile'" != "" & "`download'" == "" {
+		if "`macval(zipfile)'" != "" & "`download'" == "" {
 			noisily display as error "Only ZIP file name if downloading data"
 			exit 198
 		}
@@ -209,13 +213,67 @@ quietly {
 /* Default Locals */
 quietly {
 		/* DO file name */
-		if "`dofile'" == "" local dofile "pkgtransfer.do"
+		if "`macval(dofile)'" == "" local dofile "pkgtransfer.do"
 
 		/* ZIP file name */
-		if "`zipfile'" == "" local zipfile "pkgtransfer_files.zip"
+		if "`macval(zipfile)'" == "" local zipfile "pkgtransfer_files.zip"
 
 		/* If OS is not specified, use current OS */
 		if "`os'" == "" local os "`c(os)'"
+}
+
+/* Resolve output paths before staging can own or delete any files. */
+if "`download'" != "" {
+    foreach output in dofile zipfile {
+        local output_path = subinstr(`"`macval(`output')'"', "\", "/", .)
+        if substr(`"`output_path'"', 1, 1) != "/" & ///
+            substr(`"`output_path'"', 2, 1) != ":" ///
+            local output_path `"`c(pwd)'/`output_path'"'
+        local remaining `"`output_path'"'
+        local resolved ""
+        while `"`remaining'"' != "" {
+            gettoken part remaining : remaining, parse("/")
+            if inlist(`"`part'"', "/", ".", "") continue
+            if `"`part'"' == ".." local resolved = regexr(`"`resolved'"', "/[^/]+$", "")
+            else local resolved `"`resolved'/`part'"'
+        }
+        if "`c(os)'" == "Windows" {
+            if substr(`"`resolved'"', 3, 1) == ":" ///
+                local resolved = substr(`"`resolved'"', 2, .)
+            if substr(`"`output_path'"', 1, 2) == "//" ///
+                local resolved `"/`resolved'"'
+        }
+        * Resolve existing ancestors too, so directory aliases cannot hide staging.
+        local probe = regexr(`"`resolved'"', "/[^/]+$", "")
+        local suffix = substr(`"`resolved'"', strlen(`"`probe'"') + 2, .)
+        while `"`probe'"' != "" {
+            capture quietly cd `"`probe'"'
+            if _rc == 0 {
+                local _output_cwd_changed 1
+                local resolved = subinstr(`"`c(pwd)'/`suffix'"', "\", "/", .)
+                quietly cd `"`_output_cwd'"'
+                local _output_cwd_changed 0
+                continue, break
+            }
+            local suffix = substr(`"`probe'"', strrpos(`"`probe'"', "/") + 1, .) + "/" + `"`suffix'"'
+            local probe = regexr(`"`probe'"', "/[^/]+$", "")
+            if `"`probe'"' == "/" continue, break
+        }
+        local staging = subinstr(`"`_output_cwd'/pkgtransfer_files"', "\", "/", .)
+        if "`c(os)'" == "Windows" {
+            local resolved = lower(`"`resolved'"')
+            local staging = lower(`"`staging'"')
+        }
+        if `"`resolved'"' == `"`staging'"' | ///
+            substr(`"`resolved'"', 1, strlen(`"`staging'/"')) == `"`staging'/"' {
+            noisily display as error "`output'() must be outside pkgtransfer_files"
+            exit 198
+        }
+    }
+    frame create `_bundle_registry' strL path strL owner
+    local _registry_created 1
+    _pkgtransfer_prepare_destination, root("pkgtransfer_files") ///
+        relative("stata.toc") registry(`_bundle_registry') owner("metadata:toc")
 }
 
 /* Preserve user data */
@@ -299,6 +357,13 @@ quietly{
 				local _return_pkg_list "`pkg_list_for_do'"
 				local _return_N : word count `pkg_list_for_do'
 				local _returns_ready 1
+                if "`download'" != "" {
+                    foreach reserved of local pkg_list_for_do {
+                        _pkgtransfer_prepare_destination, root("pkgtransfer_files") ///
+                            relative("`reserved'.pkg") registry(`_bundle_registry') ///
+                            owner("metadata:`reserved'")
+                    }
+                }
 			}
 
         /* Creation of do file to install with internet access [Final Product for Default] */
@@ -306,10 +371,10 @@ quietly{
 	            gen command = "net install " + package + ///
 				", replace from(" + char(34) + url + char(34) + ")"
             replace command = "ssc install " + package + ", replace" if strmatch(url, "*fmwww.bc.edu/repec/bocode*")
-			replace command = "github install haghish/" + package + ", stable replace" if strpos(url,"githubusercontent.com/haghish") & !strpos(command,"github install")
+			replace command = "github install haghish/" + package + ", stable replace" if strpos(url,"githubusercontent.com/haghish") & package != "github" & !strpos(command,"github install")
             keep command
-	            outfile using "`dofile'", noquote replace wide
-			capture confirm file "`dofile'"
+	            outfile using "`macval(dofile)'", noquote replace wide
+			capture confirm file "`macval(dofile)'"
 			if _rc exit 603
 			noisily display "Preparation of installation do file completed!"
 			clear
@@ -377,6 +442,13 @@ quietly{
 				local _return_pkg_list "`pkg_list_for_do'"
 				local _return_N : word count `pkg_list_for_do'
 				local _returns_ready 1
+                if "`download'" != "" {
+                    foreach reserved of local pkg_list_for_do {
+                        _pkgtransfer_prepare_destination, root("pkgtransfer_files") ///
+                            relative("`reserved'.pkg") registry(`_bundle_registry') ///
+                            owner("metadata:`reserved'")
+                    }
+                }
 	            save "`pkg_list'", replace
 			keep if substr(v1,1,2) == "N " | substr(v1,1,2) == "S "
 			gen url = v1[_n+1]
@@ -410,7 +482,7 @@ quietly{
 			}
 
             use "`pkg_list'", replace
-			keep if substr(v1,1,2) == "f "
+			keep if substr(v1,1,2) == "f " & !strpos(v1,".plugin")
 			replace v1 = subinstr(v1,"\","/",.)
 			replace v1 = substr(v1,3,.)
 			gen source_file = "`plusdir'" + v1
@@ -421,7 +493,8 @@ quietly{
 						local destination `"`=v1[`i']'"'
 						_pkgtransfer_prepare_destination, ///
 							root("pkgtransfer_files") ///
-							relative(`"`destination'"')
+							relative(`"`destination'"') registry(`_bundle_registry') ///
+                            owner(`"`=package[`i']':`source'"')
 						capture copy `"`source'"' ///
 							`"pkgtransfer_files/`destination'"', replace
 					if _rc {
@@ -437,7 +510,7 @@ quietly{
 			tempfile pluginfiles
 			noisily display "Copying OS-specific plugins from online..."
             use "`pkg_list'", replace
-			keep if substr(lower(v1),1,2) == "f " & strpos(v1,".plugin") & !strpos(v1,"gtools")
+			keep if substr(lower(v1),1,2) == "f " & strpos(v1,".plugin")
 			rename v1 plugin_name
 			merge m:1 package using "`pkg_url'", nogen keep(3)
 			replace plugin_name = subinstr(plugin_name,"f ","",.)
@@ -503,7 +576,8 @@ quietly{
 							`"`target_file'"', "\", "/", .)
 						_pkgtransfer_prepare_destination, ///
 							root("pkgtransfer_files") ///
-							relative(`"`clean_source'"')
+							relative(`"`clean_source'"') registry(`_bundle_registry') ///
+                            owner(`"`package':`plugin_base_url'`source_file'"')
 						_pkgtransfer_prepare_destination, ///
 							root("pkgtransfer_files") ///
 							relative(`"`clean_target'"')
@@ -676,7 +750,8 @@ quietly{
 							local clean_source "`source_file'"
 							_pkgtransfer_prepare_destination, ///
 								root("pkgtransfer_files") ///
-								relative(`"`clean_source'"')
+								relative(`"`clean_source'"') registry(`_bundle_registry') ///
+                                owner(`"`curr_pkg':`base_url'`source_file'"')
 
 						// Download all platform-specific files with retry logic
 						local max_retries = 3
@@ -722,7 +797,8 @@ quietly{
 							local clean_filepath "`filepath'"
 							_pkgtransfer_prepare_destination, ///
 								root("pkgtransfer_files") ///
-								relative(`"`clean_filepath'"')
+								relative(`"`clean_filepath'"') registry(`_bundle_registry') ///
+                                owner(`"`curr_pkg':`base_url'`filepath'"')
 
 						// Download with retry logic
 						local max_retries = 3
@@ -830,7 +906,7 @@ quietly{
 			local date = string(year(date("`c(current_date)'", "DMY")), "%4.0f") + "_" + string(month(date("`c(current_date)'", "DMY")), "%02.0f") + "_" + string(day(date("`c(current_date)'", "DMY")), "%02.0f")
 
             // Create installation do-file
-			file open `_installer_fh' using "`dofile'", write replace
+			file open `_installer_fh' using "`macval(dofile)'", write replace
 			local _installer_open 1
 			file write `_installer_fh' "*pkgtransfer local installation script" _n
 			file write `_installer_fh' "*Generated: `date' $S_TIME" _n _n
@@ -845,7 +921,7 @@ quietly{
 			file write `_installer_fh' "capture noisily {" _n
 			file write `_installer_fh' "    cd " `"""' ///
 				"\`package_dir'" `"""' _n
-			file write `_installer_fh' "    unzipfile " `"""' "`zipfile'" `"""' ", replace" _n
+			file write `_installer_fh' "    unzipfile " `"""' "`macval(zipfile)'" `"""' ", replace" _n
 			file write `_installer_fh' "    foreach pkg in `pkg_list_for_do' {" _n
 			file write `_installer_fh' "        net install \`pkg', from(" ///
 				`"""' "\`package_dir'/pkgtransfer_files" `"""' ")" _n
@@ -868,16 +944,18 @@ quietly{
 			}
 				file close `_installer_fh'
 				local _installer_open 0
-				capture confirm file "`dofile'"
+				capture confirm file "`macval(dofile)'"
 				if _rc exit 603
 
 	            // Create ZIP file
-	            zipfile "pkgtransfer_files", saving("`zipfile'", replace)
-				capture confirm file "`zipfile'"
+	            zipfile "pkgtransfer_files", saving("`macval(zipfile)'", replace)
+				capture confirm file "`macval(zipfile)'"
 				if _rc exit 603
 
 			_pkgtransfer_cleanup_staging, directory("pkgtransfer_files")
 			local _staging_created 0
+                confirm file "`macval(dofile)'"
+                confirm file "`macval(zipfile)'"
 
             // Announce Completion
 			noisily display "Preparation of installation do file and package ZIP file completed!"
@@ -934,6 +1012,14 @@ local _did_preserve 0
 
 		/* Clean up on success or error */
 		local rc = _rc
+        if `_output_cwd_changed' {
+            capture quietly cd `"`_output_cwd'"'
+            if _rc & !`rc' local rc = _rc
+        }
+        if `_registry_created' {
+            capture frame drop `_bundle_registry'
+            if _rc & !`rc' local rc = _rc
+        }
 		if `_tracker_open' capture file close `_tracker_fh'
 		if `_installer_open' capture file close `_installer_fh'
 	if `rc' & `_staging_created' {
@@ -964,9 +1050,9 @@ local _did_preserve 0
 					return local download_mode "script_only"
 				}
 				return local os "`os'"
-				return local dofile "`dofile'"
+				return local dofile "`macval(dofile)'"
 				if "`download'" != "" {
-					return local zipfile "`zipfile'"
+					return local zipfile "`macval(zipfile)'"
 				}
 			}
 		}
@@ -983,7 +1069,7 @@ program define _pkgtransfer_prepare_destination, nclass
 	set varabbrev off
 
 	capture noisily {
-		syntax, ROOT(string) RELative(string)
+		syntax, ROOT(string) RELative(string) [REGistry(name) OWNer(string)]
 		local relative = subinstr(`"`relative'"', "\", "/", .)
 		local padded "/`relative'/"
 		local unsafe = ///
@@ -1003,7 +1089,26 @@ program define _pkgtransfer_prepare_destination, nclass
 			exit 198
 		}
 
-		local parent = regexr(`"`relative'"', "/[^/]+$", "")
+		* Claims include generated metadata and full package/source identity.
+        * Fold paths only for collision refusal, so bundles are portable.
+        if "`registry'" != "" {
+            local key = lower(`"`relative'"')
+            frame `registry': quietly count if path == `"`key'"' & owner != `"`owner'"'
+            if r(N) {
+                noisily display as error "Conflicting bundle destination: `relative'"
+                exit 459
+            }
+            frame `registry': quietly count if path == `"`key'"'
+            if r(N) == 0 {
+                frame `registry': quietly count
+                local row = r(N) + 1
+                frame `registry': quietly set obs `row'
+                frame `registry': quietly replace path = `"`key'"' in `row'
+                frame `registry': quietly replace owner = `"`owner'"' in `row'
+            }
+        }
+
+        local parent = regexr(`"`relative'"', "/[^/]+$", "")
 		if `"`parent'"' == `"`relative'"' local parent ""
 		local path_built ""
 		local remaining `"`parent'"'

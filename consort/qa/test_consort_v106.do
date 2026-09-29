@@ -316,8 +316,7 @@ _clear_consort_state
 * SECTION 6: FINAL LABEL WITH EMBEDDED DOUBLE QUOTES
 * =============================================================================
 
-* Test 10: Final label with single quotes (embedded doubles are a Stata
-* syntax limitation — compound quotes inside option() don't work reliably)
+* Test 10: Plain final label (embedded quotes covered in v112)
 local ++test_count
 capture noisily {
     _clear_consort_state

@@ -1,4 +1,4 @@
-*! puttab Version 2.1.17  2026/09/29
+*! puttab Version 2.1.18  2026/09/29
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -535,11 +535,15 @@ program define puttab, rclass
                 (9, `_x_last_data', `_x_last_data', 2, `_xK', 0, `_hbc', 0, 0)
 
             * ===== zebra striping over data rows =====
-            if "`zebra'" != "" {
-                forvalues _zr = `=`_x_data_start' + 1'(2)`_x_last_data' {
-                    matrix `_rules' = `_rules' \ ///
-                        (7, `_zr', `_zr', 2, `_xK', 0, -2, 0, 0)
-                }
+            * Built in one step: appending a row per stripe is quadratic in
+            * the number of data rows.
+            if "`zebra'" != "" & `=`_x_data_start' + 1' <= `_x_last_data' {
+                mata: _tt_zr = `=`_x_data_start' + 1' :+ 2 :* (0::floor((`_x_last_data' - `=`_x_data_start' + 1') / 2))
+                mata: st_matrix("`_rules'", st_matrix("`_rules'") \ ///
+                    (J(rows(_tt_zr), 1, 7), _tt_zr, _tt_zr, J(rows(_tt_zr), 1, 2), ///
+                    J(rows(_tt_zr), 1, `_xK'), J(rows(_tt_zr), 1, 0), ///
+                    J(rows(_tt_zr), 1, -2), J(rows(_tt_zr), 2, 0)))
+                mata: mata drop _tt_zr
             }
 
             * ===== footnote row (column B onward, smaller italic) =====
@@ -566,7 +570,7 @@ program define puttab, rclass
             * and return the spelling actually in the workbook.
             mata: st_local("sheet", st_global("r(sheet)"))
 
-            _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+            _tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
                 rules(`_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'")
 

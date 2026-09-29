@@ -1,4 +1,4 @@
-*! desctab Version 2.1.17  2026/09/29 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.18  2026/09/29 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -2065,7 +2065,7 @@ program define desctab, rclass
 
 	                _tabtools_xlsx_build_styles, matrix(`_xlsx_style_rules') ///
 	                    rules(`_xlsx_style_rule_spec') cols(10)
-	                _tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
+	                _tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
 	                    rules(`_xlsx_style_rules') font("`_font'") ///
 	                    color1("`_headercolor'") color2("`_zebracolor'") ///
 	                    color3("255 255 204") color4("255 235 205")

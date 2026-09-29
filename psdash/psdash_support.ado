@@ -1,4 +1,4 @@
-*! psdash_support Version 1.7.3  2026/09/29
+*! psdash_support Version 1.7.4  2026/09/30
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -310,11 +310,11 @@ program define psdash_support, rclass
         local has_trimming = 1
 
         * Crump et al. (2009) optimal trimming rule:
-        * Find alpha that satisfies 1/(alpha*(1-alpha)) = 2*E[1/(e*(1-e))]
-        * where expectation is over observations with alpha <= e <= 1-alpha
-        * The helper sorts once and uses cumulative sums plus binary searches for
-        * every retained interval. This preserves the original coarse/refined
-        * grid while avoiding roughly 70 full-data summarize passes.
+        * Select the first 0.001-grid alpha satisfying
+        * 1/(alpha*(1-alpha)) <= 2*E[1/(e*(1-e))], with expectation over
+        * alpha <= e <= 1-alpha (Crump et al., p. 193 implementation paragraph).
+        * The helper sorts once and uses cumulative sums plus binary searches
+        * for every retained interval; no nonempty crossing errors with 498.
         quietly {
             _psdash_crump_alpha `psvar' if `touse'
             local best_alpha = r(alpha)

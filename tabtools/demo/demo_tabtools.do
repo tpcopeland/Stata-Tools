@@ -91,7 +91,11 @@ discard
 local _demo_isolated 1
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`tc_schemes_dir'") replace
-set scheme plotplainblind
+set scheme white_tableau
+if "`c(scheme)'" != "white_tableau" {
+    display as error "demo expects scheme white_tableau; got `c(scheme)'"
+    exit 111
+}
 
 * Install tabtools from local repo
 capture ado uninstall tabtools

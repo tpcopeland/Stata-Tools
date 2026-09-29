@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 2.1.17  2026/09/29
+*! _tabtools_xlsx_compact_styles Version 2.1.18  2026/09/29
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -44,6 +44,22 @@ program define _tabtools_xlsx_compact_styles, rclass
         * middle of a table export.
         capture _tabtools_xlsx_compact_engine using `"`using'"'
         local _engine_rc = _rc
+
+        * The workbook is replaced only after the rebuilt archive verifies, so
+        * a failed engine leaves it exactly as xl() closed it -- without the
+        * queued cell styles.  Apply those through xl() instead, so a failure
+        * costs speed, never formatting.
+        _tabtools_xlsx_deferred_styles count using `"`using'"', local(_tt_pend)
+        if `_engine_rc' & `_tt_pend' > 0 {
+            if "`warning'" == "" {
+                noisily display as text "note: fast style pass failed (rc `_engine_rc'); applying cell styles through xl()"
+            }
+            _tabtools_xlsx_deferred_styles legacy using `"`using'"'
+            _tabtools_xlsx_deferred_styles clear
+            capture _tabtools_xlsx_compact_engine using `"`using'"'
+            local _engine_rc = _rc
+        }
+        _tabtools_xlsx_deferred_styles clear
 
         if `_engine_rc' == 0 {
             return scalar compacted = 1
@@ -107,7 +123,16 @@ program define _tabtools_xlsx_compact_engine, rclass
         * absence has to stop the run before anything is rewritten.
         confirm file "xl/workbook.xml"
 
+        * Cell styles queued by _tabtools_xlsx_apply_styles, defer are
+        * written into the unpacked XML first; the dedupe below then folds
+        * them into the pools like any other record.
+        _tabtools_xlsx_deferred_styles count using `"`using'"', local(_tt_pend)
+        if `_tt_pend' > 0 {
+            _tabtools_xlsx_deferred_styles apply using `"`using'"', root(".")
+        }
+
         mata: _tt_xlsx_compact_dir(".")
+        if `_tt_pend' > 0 local _tt_changed 1
 
         * Every pool already holds nothing but distinct records, so rebuilding
         * the archive would write the same workbook back byte for byte.  The

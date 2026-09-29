@@ -144,7 +144,7 @@ capture noisily {
 }
 _psdash_mc_record boundary_warning_return_contract `=_rc'
 
-**# Optimized Crump search is numerically identical to the defining grid search
+**# Crump search follows the published first empirical inequality crossing
 capture noisily {
     clear
     set obs 240
@@ -153,32 +153,15 @@ capture noisily {
     generate double invvar = 1 / (ps * (1 - ps))
 
     local best_alpha = 0
-    local best_diff = .
     quietly summarize invvar
     local full_sample = r(max) <= 2 * r(mean)
     if !`full_sample' {
-        forvalues a = 1/49 {
-            local alpha = `a' / 100
-            quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
-            if r(N) {
-                local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
-                if missing(`best_diff') | `diff' < `best_diff' {
-                    local best_diff = `diff'
-                    local best_alpha = `alpha'
-                }
-            }
-        }
-        local lo = max(1, round(100 * (`best_alpha' - .01)))
-        local hi = min(49, round(100 * (`best_alpha' + .01)))
-        forvalues a = `=`lo'*10'/`=`hi'*10' {
+        forvalues a = 1/500 {
             local alpha = `a' / 1000
             quietly summarize invvar if inrange(ps, `alpha', 1 - `alpha')
-            if r(N) {
-                local diff = abs(1/(`alpha'*(1-`alpha')) - 2*r(mean))
-                if `diff' < `best_diff' {
-                    local best_diff = `diff'
-                    local best_alpha = `alpha'
-                }
+            if r(N) > 0 & 1/(`alpha'*(1-`alpha')) <= 2*r(mean) {
+                local best_alpha = `alpha'
+                continue, break
             }
         }
     }

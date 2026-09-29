@@ -1,9 +1,16 @@
-*! datadict Version 1.7.0  2026/09/29
+*! datadict Version 1.7.1  2026/09/29
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 program define datadict, rclass
 	version 16.0
+    local _legacy_globals : all globals
+    foreach g in S_1 S_FN S_FNDATE {
+        local _had_`g' : list g in _legacy_globals
+        mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
+        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+    }
+
 	local _varabbrev = c(varabbrev)
 	set varabbrev off
 	local _restore_needed = 0
@@ -334,6 +341,10 @@ program define datadict, rclass
 		capture restore
 		local _restore_rc = _rc
 	}
+    foreach g in S_1 S_FN S_FNDATE {
+        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        else macro drop `g'
+    }
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
 
@@ -1074,70 +1085,80 @@ capture program drop _datadict_GetCategoricalStats
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetCategoricalStats, rclass
-	version 16.0
-	args vname vallabname maxlevels totalobs mincell
-	if "`mincell'" == "" local mincell = 0
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args vname vallabname maxlevels totalobs mincell
+        if "`mincell'" == "" local mincell = 0
 
-	// Get unique non-missing values
-	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
-	if _rc != 0 | `"`levels'"' == "" {
-		return local valstring "All missing"
-		exit
-	}
+        // Get unique non-missing values
+        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        if _rc != 0 | `"`levels'"' == "" {
+            return local valstring "All missing"
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	local nlevels: word count `levels'
+        local nlevels: word count `levels'
 
-	// If too many levels, just note the count
-	if `nlevels' > `maxlevels' {
-		return local valstring "Unique=`nlevels'"
-		exit
-	}
+        // If too many levels, just note the count
+        if `nlevels' > `maxlevels' {
+            return local valstring "Unique=`nlevels'"
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	// Count non-missing
-	quietly count if !missing(`vname')
-	local nvalid = r(N)
-	local vtype : type `vname'
+        // Count non-missing
+        quietly count if !missing(`vname')
+        local nvalid = r(N)
+        local vtype : type `vname'
 
-	// Build multi-line output: Unique= first, then one line per category
-	local valstring "Unique=`nlevels'"
-	foreach lev of local levels {
-		_datadict_FormatLevelNumber `vname' `lev'
-		local levdisplay `"`r(formatted)'"'
-		capture local labtext: label `vallabname' `lev'
-		if _rc != 0 {
-			local labtext ""
-		}
+        // Build multi-line output: Unique= first, then one line per category
+        local valstring "Unique=`nlevels'"
+        foreach lev of local levels {
+            _datadict_FormatLevelNumber `vname' `lev'
+            local levdisplay `"`r(formatted)'"'
+            capture local labtext: label `vallabname' `lev', strict
+            if _rc != 0 {
+                local labtext ""
+            }
 
-		// Get count for this level
-		if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-		else quietly count if `vname' == `lev'
-		local levcount = r(N)
-		if `nvalid' > 0 {
-			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
-		}
-		else {
-			local levpct "0.0"
-		}
+            // Get count for this level
+            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+            else quietly count if `vname' == `lev'
+            local levcount = r(N)
+            if `nvalid' > 0 {
+                local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
+            }
+            else {
+                local levpct "0.0"
+            }
 
-		mata: st_local("labtext", _datadict_md_escape(st_local("labtext")))
+            mata: st_local("labtext", _datadict_md_escape(st_local("labtext")))
 
-		if `mincell' > 0 & `levcount' < `mincell' {
-			if `"`labtext'"' != "" {
-				local valstring `"`valstring'<br>`levdisplay' `labtext' (suppressed <`mincell')"'
-			}
-			else {
-				local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
-			}
-		}
-		else if `"`labtext'"' != "" {
-			local valstring `"`valstring'<br>`levdisplay' `labtext' (`levcount'; `levpct'%)"'
-		}
-		else {
-			local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
-		}
-	}
+            if `mincell' > 0 & `levcount' < `mincell' {
+                if `"`labtext'"' != "" {
+                    local valstring `"`valstring'<br>`levdisplay' `labtext' (suppressed <`mincell')"'
+                }
+                else {
+                    local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
+                }
+            }
+            else if `"`labtext'"' != "" {
+                local valstring `"`valstring'<br>`levdisplay' `labtext' (`levcount'; `levpct'%)"'
+            }
+            else {
+                local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
+            }
+        }
 
-	return local valstring `"`valstring'"'
+        return local valstring `"`valstring'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+
 end
 
 // =============================================================================
@@ -1147,71 +1168,82 @@ capture program drop _datadict_GetUnlabeledStats
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datadict_GetUnlabeledStats, rclass
-	version 16.0
-	args vname maxlevels totalobs mincell
-	if "`mincell'" == "" local mincell = 0
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args vname maxlevels totalobs mincell
+        if "`mincell'" == "" local mincell = 0
 
-	capture confirm string variable `vname'
-	if _rc == 0 {
-		mata: _datadict_str_levels("`vname'", `maxlevels', `mincell')
-		return local valstring `"`macval(valstring)'"'
-		exit
-	}
+        capture confirm string variable `vname'
+        if _rc == 0 {
+            mata: _datadict_str_levels("`vname'", `maxlevels', `mincell')
+            return local valstring `"`macval(valstring)'"'
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
-	if _rc != 0 | `"`levels'"' == "" {
-		return local valstring "All missing"
-		exit
-	}
+        capture quietly levelsof `vname' if !missing(`vname'), local(levels) hexadecimal
+        if _rc != 0 | `"`levels'"' == "" {
+            return local valstring "All missing"
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	local nlevels: word count `levels'
+        local nlevels: word count `levels'
 
-	// Count non-missing
-	quietly count if !missing(`vname')
-	local nvalid = r(N)
-	capture confirm numeric variable `vname'
-	local is_numeric = (_rc == 0)
-	if `is_numeric' local vtype : type `vname'
+        // Count non-missing
+        quietly count if !missing(`vname')
+        local nvalid = r(N)
+        capture confirm numeric variable `vname'
+        local is_numeric = (_rc == 0)
+        if `is_numeric' local vtype : type `vname'
 
-	if `nlevels' > `maxlevels' {
-		return local valstring "Unique=`nlevels'"
-		exit
-	}
+        if `nlevels' > `maxlevels' {
+            return local valstring "Unique=`nlevels'"
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
 
-	// Build multi-line output: Unique= first, then one line per value
-	local valstring "Unique=`nlevels'"
-	foreach lev of local levels {
-		// Get count for this level
-		local levdisplay `"`macval(lev)'"'
-		if `is_numeric' {
-			if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-			else quietly count if `vname' == `lev'
-			local levcount = r(N)
-			_datadict_FormatLevelNumber `vname' `lev'
-			local levdisplay `"`r(formatted)'"'
-		}
-		else {
-			local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
-			quietly count if `vname' == `"`macval(levcmp)'"'
-			local levcount = r(N)
-			mata: st_local("levdisplay", _datadict_md_escape(st_local("levcmp")))
-		}
-		if `nvalid' > 0 {
-			local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
-		}
-		else {
-			local levpct "0.0"
-		}
+        // Build multi-line output: Unique= first, then one line per value
+        local valstring "Unique=`nlevels'"
+        foreach lev of local levels {
+            // Get count for this level
+            local levdisplay `"`macval(lev)'"'
+            if `is_numeric' {
+                if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+                else quietly count if `vname' == `lev'
+                local levcount = r(N)
+                _datadict_FormatLevelNumber `vname' `lev'
+                local levdisplay `"`r(formatted)'"'
+            }
+            else {
+                local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
+                quietly count if `vname' == `"`macval(levcmp)'"'
+                local levcount = r(N)
+                mata: st_local("levdisplay", _datadict_md_escape(st_local("levcmp")))
+            }
+            if `nvalid' > 0 {
+                local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
+            }
+            else {
+                local levpct "0.0"
+            }
 
-		if `mincell' > 0 & `levcount' < `mincell' {
-			local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
-		}
-		else {
-			local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
-		}
-	}
+            if `mincell' > 0 & `levcount' < `mincell' {
+                local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
+            }
+            else {
+                local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
+            }
+        }
 
-	return local valstring `"`valstring'"'
+        return local valstring `"`valstring'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+
 end
 
 // =============================================================================
@@ -1768,6 +1800,34 @@ program define _datadict_ProcessSeparate, rclass
 		file open `fh_names' using `"`namesfile'"', read text
 		local _fh_names_open = 1
 
+        // Resolve every destination before opening any output. Distinct
+        // sources can share a basename in outdir(); refuse that collision.
+        local ndest = 0
+        file read `fh_list' filepath
+        file read `fh_names' nameline
+        while r(eof) == 0 {
+            _datadict_ParseNameLine `"`macval(nameline)'"'
+            local dsname `"`r(dsname)'"'
+            _datadict_DeriveSeparateOutput, filepath(`"`macval(filepath)'"') ///
+                dsname(`"`dsname'"') suffix(`"`suffix'"') outdir(`"`outdir'"') `memory'
+            local dest `"`r(output)'"'
+            _datadict_ValidatePath `"`macval(dest)'"', option("separate output path")
+            if `ndest' > 0 {
+                forvalues j = 1/`ndest' {
+                    if `"`macval(dest)'"' == `"`macval(dest`j')'"' {
+                        noisily display as error `"separate outputs collide: `macval(dest)'"'
+                        exit 198
+                    }
+                }
+            }
+            local ++ndest
+            local dest`ndest' `"`macval(dest)'"'
+            file read `fh_list' filepath
+            file read `fh_names' nameline
+        }
+        file seek `fh_list' 0
+        file seek `fh_names' 0
+
 		local outputs ""
 		local nobs_total 0
 		local nvars_total 0
@@ -1904,10 +1964,12 @@ program define _datadict_ProcessOneDataset, rclass
 			// maxfreq, or a censored count could misclassify or hide a table.
 			if `uniqcap' == 0 local nuniq_cap = 0
 			else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
+            local loadedopt ""
+            if "`memory'" != "" local loadedopt "loaded"
 			_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
 				maxcat(`maxcat') obs(`obs') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
-				date(`"`datevars'"') cap(`nuniq_cap')
+				date(`"`datevars'"') cap(`nuniq_cap') `loadedopt'
 			local allvars "`r(all_vars)'"
 			local categorical_vars "`r(categorical_vars)'"
 			local continuous_vars "`r(continuous_vars)'"

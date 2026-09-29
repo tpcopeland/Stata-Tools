@@ -1,4 +1,4 @@
-*! _datamap_validate_path Version 1.7.0  2026/09/29
+*! _datamap_validate_path Version 1.7.1  2026/09/29
 *! Shared path guard for datamap package file options
 *! Author: Timothy P Copeland, Karolinska Institutet
 

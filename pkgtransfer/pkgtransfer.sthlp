@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  16aug2026}{...}
+{* *! version 1.1.1  29sep2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -25,7 +25,7 @@
 {synopt:{cmdab:res:tore}}restore online source URLs in stata.trk{p_end}
 
 {syntab:Advanced}
-{synopt:{opt os(string)}}target OS and plugin filter: {bf:Windows}, {bf:Unix}, or {bf:MacOSX}{p_end}
+{synopt:{opt os(string)}}target OS and plugin filter{p_end}
 {synopt:{cmdab:do:file(}{it:filename}{cmd:)}}custom name for generated do-file{p_end}
 {synopt:{cmdab:zip:file(}{it:filename}{cmd:)}}custom name for generated ZIP file{p_end}
 
@@ -185,7 +185,7 @@ Restores online source URLs in {cmd:stata.trk} for packages previously installed
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(package_list)}}list of packages processed{p_end}
-{synopt:{cmd:r(download_mode)}}download mode: local, online, script_only, or restore{p_end}
+{synopt:{cmd:r(download_mode)}}local, online, script_only, or restore{p_end}
 {synopt:{cmd:r(os)}}target operating system{p_end}
 {synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
 {synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode specified){p_end}
@@ -217,11 +217,20 @@ Generated offline installers use local macros, restore the caller's working
 directory, and propagate installation failures without overwriting a caller's
 global {cmd:package_dir} macro.
 
+{pstd}
+Bundle creation refuses conflicting payload paths and paths reserved for package
+descriptors or stata.toc. Installer and archive outputs must be outside
+pkgtransfer_files, which is removed after bundling. GitHub-origin entries need
+github on the destination; when github itself is selected, its generated command
+uses net install to bootstrap it.
+{p_end}
+
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.0 - 2026-08-16{p_end}
+{pstd}Version 1.1.1 - 2026-09-29{p_end}
+
 
 {hline}

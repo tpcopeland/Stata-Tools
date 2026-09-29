@@ -973,6 +973,8 @@ else {
 }
 display as text "{hline 70}"
 
+
+display "RESULT: validation_consort tests=`= `pass_count' + `fail_count'' pass=`pass_count' fail=`fail_count'"
 if `fail_count' > 0 {
     display as error _n "FAILED TESTS:`failed_tests'"
     display as text "{hline 70}"

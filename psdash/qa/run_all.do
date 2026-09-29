@@ -43,7 +43,7 @@ local suites_quick test_psdash.do validation_psdash.do validation_known_answers.
     test_rb12_kimi_audit.do ///
     test_remaining_audit_regressions.do test_v164_regressions.do ///
     test_v169_regressions.do test_v171_audit_regressions.do ///
-    test_v173_audit_regressions.do ///
+    test_v173_audit_regressions.do test_v174_review_regressions.do ///
     test_release_detect.do test_release_numeric.do test_release_combined.do ///
     test_producer_contracts.do ///
     test_real_producer_integrations.do ///
