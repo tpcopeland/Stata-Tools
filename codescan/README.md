@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.3** | 2026-09-09
+**Version 4.2.4** | 2026-09-29
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -369,6 +369,13 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.4 (2026-09-29)
+
+- Convert numeric codes exactly under `tostring`, in both `codescan` and `codescan_describe`. Stata's `tostring, force` wrote `1234567890123` as `1.23457e+12` and a float `401.9` as `401.8999939`, so the code silently failed its pattern at rc=0 and `codescan_describe` inventoried codes that do not exist. Each value is now written as the shortest decimal text that reads back as the stored number.
+- Reject a `%tw`/`%tm`/`%tq`/`%th`/`%ty`/`%tb` `date()` or `refdate()` when `lookback()`/`lookforward()` is used, and read the date unit after a left-alignment `-`. A `%tm` date passed the daily-date guard, so `lookback(365)` spanned 365 months at rc=0, and `%-tc` slipped the datetime check.
+- Honour an explicit `format()` in `export(.csv)`. The CSV wrote the prevalence at full precision whatever `format()` said; without `format()` it still does.
+- Keep the data's sort order declared after `merge`. The row order was restored but `: sortedby` came back empty, so a following `by id:` failed with `r(5)`.
 
 ### 4.2.3 (2026-09-09)
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.2.3  09sep2026}{...}
+{* *! version 4.2.4  29sep2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -387,6 +387,16 @@ stored on Stata's daily date scale. It is required for windowing and for
 {opt refdate(varname)} specifies the reference date used by
 {cmd:lookback()} and {cmd:lookforward()}. It must also be a numeric daily date.
 
+{pmore}
+Because windows are counted in days, a {cmd:date()} or {cmd:refdate()} carrying
+a datetime format ({cmd:%tc}, {cmd:%tC}) is rejected, and so is a weekly,
+monthly, quarterly, half-yearly, yearly, or business-calendar format
+({cmd:%tw}, {cmd:%tm}, {cmd:%tq}, {cmd:%th}, {cmd:%ty}, {cmd:%tb}) whenever
+{cmd:lookback()} or {cmd:lookforward()} is used, left-aligned forms such as
+{cmd:%-tm} included. Without a window, such a {cmd:date()} is accepted, and
+{cmd:earliestdate}, {cmd:latestdate}, and {cmd:countdate} summarize it in its
+own unit.
+
 {phang}
 {opt lookback(#|numlist)} limits matches to observations within a backward window
 relative to {cmd:refdate}. Every value must be a nonnegative integer. A single
@@ -421,7 +431,8 @@ are collapsed with {cmd:(sum)} instead.
 
 {phang}
 {opt merge} computes patient-level results exactly as {cmd:collapse} would, then
-merges them back onto the original row structure. Every {it:analyzed} row for a
+merges them back onto the original row structure, in the original row order
+and with the data's sort order ({cmd:sortedby}) intact. Every {it:analyzed} row for a
 given {cmd:id()} receives the same patient-level values. An {cmd:id()} whose rows
 are all excluded from the analysis — by {cmd:if}/{cmd:in} or by a
 {cmd:lookback()}/{cmd:lookforward()} window — receives {cmd:.} (missing), not 0,
@@ -546,7 +557,11 @@ column per condition containing the pairwise count.
 
 {phang}
 {opt format(%fmt)} controls the displayed and exported format of the prevalence
-column. The default prevalence format is {cmd:%9.1f}.
+column. The default prevalence format is {cmd:%9.1f}. In an {cmd:.xlsx} export
+the format is the cell's number format and the cell keeps full precision. A
+{cmd:.csv} cell is text, so an explicit {cmd:format()} is applied to the written
+digits ({cmd:format(%9.2f)} writes {cmd:33.33}); without {cmd:format()} the
+{cmd:.csv} carries full precision.
 
 {dlgtab:Matching behavior and naming}
 
@@ -581,7 +596,13 @@ metacharacter and is left untouched.)
 {phang}
 {opt tostring} converts numeric variables in {varlist} to temporary strings for scanning,
 leaving the original numeric variables unchanged. This is helpful when code
-variables were imported as numeric rather than text. Scan variables must be
+variables were imported as numeric rather than text. Each value is written as
+the shortest decimal text that reads back as the stored number: integers in
+full, never in scientific notation ({cmd:1234567890123}, not
+{cmd:1.23457e+12}), and a {cmd:float} holding 250.01 as {cmd:250.01}, not
+{cmd:250.0099945}. Missing values, including {cmd:.a}-{cmd:.z}, are treated as
+empty codes. Leading zeros cannot be recovered from a number, so codes such as
+{cmd:0101} must be stored as strings. Scan variables must be
 fixed-width strings ({cmd:str#}); {cmd:strL} variables are rejected — convert them first
 with {helpb compress} or {helpb recast}.
 

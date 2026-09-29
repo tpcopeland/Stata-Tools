@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.2.3  2026/09/09
+*! codescan_describe Version 4.2.4  2026/09/29
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -103,15 +103,16 @@ program define codescan_describe, rclass
             capture confirm string variable `var'
             if _rc {
                 noisily display as text "(note: converting `var' from numeric to string)"
-                * Extended missings .a-.z stringify to ".a".."z", which the
-                * downstream ""/"." filter does not catch — they would be counted
-                * as real entries and unique codes. tostring replaces the
-                * variable in place, so record the missing mask first.
-                tempvar _ts_miss
-                quietly gen byte `_ts_miss' = missing(`var')
-                quietly tostring `var', replace force
-                quietly replace `var' = "" if `_ts_miss'
-                drop `_ts_miss'
+                * Exact text via the shared helper (codescan uses the same
+                * one, so both commands see the same code). `tostring, force'
+                * wrote 1234567890123 as "1.23457e+12" and float 401.9 as
+                * "401.8999939", inventorying codes that do not exist. The
+                * helper also blanks . and .a-.z, which would otherwise count
+                * as entries ".a".."z". Safe to replace in place: preserved.
+                tempvar _ts_str
+                _codescan_tostring `var', generate(`_ts_str')
+                drop `var'
+                rename `_ts_str' `var'
             }
         }
     }

@@ -189,6 +189,7 @@ capture noisily {
         _codescan_outputs.ado ///
         _codescan_parse_filespec.ado ///
         _codescan_validate_path.ado ///
+        _codescan_tostring.ado ///
         codescan.sthlp ///
         codescan_describe.ado ///
         codescan_describe.sthlp {
@@ -222,7 +223,8 @@ capture noisily {
     * compared to the distribution date.
     foreach f in codescan.ado _codescan_engine.ado codescan_describe.ado ///
         _codescan_codefile.ado _codescan_definitions.ado _codescan_outputs.ado ///
-        _codescan_parse_filespec.ado _codescan_validate_path.ado {
+        _codescan_parse_filespec.ado _codescan_validate_path.ado ///
+        _codescan_tostring.ado {
         _cs_extract_first "`pkg_dir'/`f'" "^\*! [_a-zA-Z]+ Version ([0-9]+\.[0-9]+\.[0-9]+)"
         if "`r(value)'" != "`ver'" {
             display as error "    `f' version [`r(value)'] != flagship [`ver']"
