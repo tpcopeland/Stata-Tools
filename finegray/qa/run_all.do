@@ -77,6 +77,7 @@ local quick_files test_finegray_entry_state.do test_finegray.do test_finegray_v1
     test_finegray_horizon_precision.do test_finegray_cif_overflow.do ///
     test_finegray_codexaudit_2026_09_27_a.do ///
     test_finegray_codexaudit_2026_09_27_b.do ///
+    test_finegray_fv_base_terms.do test_finegray_user_text.do ///
     test_finegray_failclosed.do ///
     test_finegray_hostile.do ///
     test_finegray_estimates_use.do ///

@@ -1,4 +1,4 @@
-*! _finegray_display Version 1.3.7  2026/09/28
+*! _finegray_display Version 1.3.7  2026/09/29
 *! Render the finegray header, coefficient table and fit-time notes from e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -471,16 +471,22 @@ program define _finegray_display
                         local _rtxt : label `_rvl' `_rlev'
                     }
                 }
-                if `"`_rtxt'"' == "" local _rtxt "`_rlev'"
+                * The label is user text: macval() so `$name' or a backtick in
+                * it is printed, not re-expanded (an unbalanced one stopped the
+                * display with r(132) after the fit had posted, through 1.3.7).
+                if `"`macval(_rtxt)'"' == "" local _rtxt "`_rlev'"
+                * display interprets SMCL, so {bf:x} in a label printed as
+                * markup: write SMCL-active characters as character codes.
+                _finegray_graph_text _rtxt : `"`macval(_rtxt)'"'
                 local ++_nrefs
-                local _refline`_nrefs' `"i.`_rvar': `_rtxt' (`_rvar'==`_rlev')"'
+                local _refline`_nrefs' `"i.`_rvar': `macval(_rtxt)' (`_rvar'==`_rlev')"'
             }
         }
     }
     if `_nrefs' > 0 {
         display as text ""
         forvalues _i = 1/`_nrefs' {
-            display as text `"Reference: `_refline`_i''"'
+            display as text `"Reference: `macval(_refline`_i')'"'
         }
     }
 

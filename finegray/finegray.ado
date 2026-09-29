@@ -1,4 +1,4 @@
-*! finegray Version 1.3.7  2026/09/28
+*! finegray Version 1.3.7  2026/09/29
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -1281,8 +1281,18 @@ program define finegray, eclass sortpreserve
             local _term : word `_i' of `_fv_semantic'
             local _var : word `_i' of `_fv_actual'
 
-            * Skip base categories (marked with Nb. in fvexpand output)
-            if regexm("`_term'", "[0-9]+b\.") {
+            * Skip the terms Stata itself omits: any part carrying an `o'
+            * marker (2o.a#1b.b, 1b.a#co.x), and a pure factor term whose
+            * every part is a base level (1b.grp, 1b.a#1b.b).  A base level
+            * is NOT by itself an omission: 1b.grp#c.x in i.grp#c.x is the
+            * group-1 slope and 1b.a#2.b in i.a#i.b a real cell -- stcox,
+            * stcrreg and _ms_omit_info estimate both.  Through 1.3.7 any
+            * `Nb.' part skipped the term, so i.grp#c.x fitted with the
+            * group-1 slope fixed at 0 at rc 0.  The same two-regex rule is
+            * used at every site that pairs e(fvsemantic) or the e(b) stripe
+            * with the design (_finegray_bnb, _finegray_beta, ...).
+            if regexm("`_term'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_term'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") {
                 local _fv_namemap "`_fv_namemap' ."
                 continue
             }
@@ -1312,9 +1322,11 @@ program define finegray, eclass sortpreserve
                 * A kept factor level part is `N.var' or `Nbn.var' (base-none:
                 * ibn. omits no reference, so its first level 1bn.var carries a
                 * REAL coefficient and must produce a legal name, not the raw
-                * token _fg_1bn.varXx that r(198)'d before).  Base parts (Nb.var)
-                * never reach here -- the whole term is skipped above.
-                if regexm("`_part'", "^([0-9]+)(bn)?\.(.+)$") {
+                * token _fg_1bn.varXx that r(198)'d before).  A base part
+                * `Nb.var' reaches here only inside a kept term (1b.grp#c.x,
+                * 1b.a#2.b), where it is the indicator (var == N) like any
+                * other level; all-base and `o'-marked terms were skipped above.
+                if regexm("`_part'", "^([0-9]+)(bn|b)?\.(.+)$") {
                     if "`_fg_parts'" != "" local _fg_parts "`_fg_parts'X"
                     local _fg_parts "`_fg_parts'`=regexs(3)'_`=regexs(1)'"
                 }
@@ -1628,7 +1640,13 @@ program define finegray, eclass sortpreserve
                     local _lbl_remaining ""
                 }
 
-                if regexm("`_lbl_part'", "^([0-9]+)(bn)?\.(.+)$") {
+                * Value and variable labels are USER TEXT: every expansion
+                * below goes through macval(), so a label holding `$name' or a
+                * backtick is copied, not re-expanded as macro text.  Through
+                * 1.3.7 a label "A $G" became "A <contents of $G>", a quoted
+                * `q' pair vanished, and an unbalanced backtick stopped a valid
+                * fit with r(132).
+                if regexm("`_lbl_part'", "^([0-9]+)(bn|b)?\.(.+)$") {
                     * Factor part: use value label if available (Nbn. base-none
                     * levels label like ordinary levels; they have no reference)
                     local _lp_lev = regexs(1)
@@ -1638,7 +1656,7 @@ program define finegray, eclass sortpreserve
                     if "`_lp_vallbl'" != "" {
                         local _lp_txt : label `_lp_vallbl' `_lp_lev'
                     }
-                    if `"`_lp_txt'"' == "" local _lp_txt "`_lp_lev'"
+                    if `"`macval(_lp_txt)'"' == "" local _lp_txt "`_lp_lev'"
                     * Find reference category for (vs. ref) suffix
                     local _lp_ref ""
                     foreach _bterm of local _fv_semantic {
@@ -1646,31 +1664,42 @@ program define finegray, eclass sortpreserve
                             local _lp_ref = regexs(1)
                         }
                     }
-                    if "`_lp_ref'" != "" {
+                    * A base level inside a kept term (1b.grp#c.x) IS the
+                    * reference; "(vs. itself)" says nothing.
+                    if "`_lp_ref'" != "" & "`_lp_ref'" != "`_lp_lev'" {
                         local _lp_reftxt ""
                         if "`_lp_vallbl'" != "" {
                             local _lp_reftxt : label `_lp_vallbl' `_lp_ref'
                         }
-                        if `"`_lp_reftxt'"' == "" local _lp_reftxt "`_lp_ref'"
-                        local _lp_txt `"`_lp_txt' (vs. `_lp_reftxt')"'
+                        if `"`macval(_lp_reftxt)'"' == "" local _lp_reftxt "`_lp_ref'"
+                        local _lp_txt `"`macval(_lp_txt)' (vs. `macval(_lp_reftxt)')"'
                     }
-                    if `"`_lbl_full'"' != "" local _lbl_full `"`_lbl_full' # "'
-                    local _lbl_full `"`_lbl_full'`_lp_txt'"'
+                    if `"`macval(_lbl_full)'"' != "" {
+                        * block form: a one-line if re-expands its command
+                        local _lbl_full `"`macval(_lbl_full)' # "'
+                    }
+                    local _lbl_full `"`macval(_lbl_full)'`macval(_lp_txt)'"'
                 }
                 else if regexm("`_lbl_part'", "^c\.(.+)$") {
                     * Continuous part: use variable label if available
                     local _lp_var = regexs(1)
                     local _lp_txt : variable label `_lp_var'
-                    if `"`_lp_txt'"' == "" local _lp_txt "`_lp_var'"
-                    if `"`_lbl_full'"' != "" local _lbl_full `"`_lbl_full' # "'
-                    local _lbl_full `"`_lbl_full'`_lp_txt'"'
+                    if `"`macval(_lp_txt)'"' == "" local _lp_txt "`_lp_var'"
+                    if `"`macval(_lbl_full)'"' != "" {
+                        * block form: a one-line if re-expands its command
+                        local _lbl_full `"`macval(_lbl_full)' # "'
+                    }
+                    local _lbl_full `"`macval(_lbl_full)'`macval(_lp_txt)'"'
                 }
                 else {
-                    if `"`_lbl_full'"' != "" local _lbl_full `"`_lbl_full' # "'
-                    local _lbl_full `"`_lbl_full'`_lbl_part'"'
+                    if `"`macval(_lbl_full)'"' != "" {
+                        * block form: a one-line if re-expands its command
+                        local _lbl_full `"`macval(_lbl_full)' # "'
+                    }
+                    local _lbl_full `"`macval(_lbl_full)'`_lbl_part'"'
                 }
             }
-            label variable `_fg_name' `"`_lbl_full'"'
+            label variable `_fg_name' `"`macval(_lbl_full)'"'
 
             local _fv_final "`_fv_final' `_fg_name'"
         }
@@ -1700,7 +1729,8 @@ program define finegray, eclass sortpreserve
         if `_has_fv' {
             local _rk_nb ""
             foreach _rk_t of local _fv_semantic {
-                if regexm("`_rk_t'", "[0-9]+b\.") continue
+                if regexm("`_rk_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_rk_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
                 local _rk_nb "`_rk_nb' `_rk_t'"
             }
             local _rk_nnb : word count `_rk_nb'
@@ -1782,7 +1812,8 @@ program define finegray, eclass sortpreserve
         if `_has_fv' {
             local _tv_c = 0
             foreach _tv_term of local _fv_semantic {
-                if regexm("`_tv_term'", "[0-9]+b\.") continue
+                if regexm("`_tv_term'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_tv_term'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
                 local ++_tv_c
                 local _tv_parts = subinstr(subinstr("`_tv_term'", "##", "#", .), "#", " ", .)
                 foreach _tv_p of local _tv_parts {
@@ -2117,7 +2148,8 @@ program define finegray, eclass sortpreserve
     if `_has_fv' {
         local _cn_fv ""
         foreach _cn_t of local _fv_semantic {
-            if regexm("`_cn_t'", "[0-9]+b\.") continue
+            if regexm("`_cn_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_cn_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
             local _cn_fv "`_cn_fv' `_cn_t'"
         }
         local _cn_n : word count `_cn_fv'
@@ -2208,7 +2240,8 @@ program define finegray, eclass sortpreserve
         local _wn_j = 0
         forvalues _wn_i = 1/`_wn_k' {
             local _wn_t : word `_wn_i' of `_wn_names'
-            if regexm("`_wn_t'", "[0-9]+b\.") continue
+            if regexm("`_wn_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_wn_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
             local ++_wn_j
             if `_wn_j' <= `_fg_ncol' matrix `_wS'[`_wn_i', `_wn_j'] = 1
         }

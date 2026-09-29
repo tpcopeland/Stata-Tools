@@ -24,7 +24,7 @@ d KW: survival analysis
 d
 d Requires: Stata version 16
 d
-d Distribution-Date: 20260928
+d Distribution-Date: 20260929
 d
 d Author: Timothy P Copeland, Karolinska Institutet
 d Support: timothy.copeland@ki.se
@@ -42,6 +42,7 @@ f _finegray_fv_design.ado
 f _finegray_weight_groups.ado
 f _finegray_weight_var.ado
 f _finegray_resolve_baseline.ado
+f _finegray_graph_text.ado
 f finegray_predict.ado
 f finegray_predict.sthlp
 f finegray_cif.ado

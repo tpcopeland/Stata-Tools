@@ -1,4 +1,4 @@
-*! _finegray_fv_design Version 1.3.7  2026/09/28
+*! _finegray_fv_design Version 1.3.7  2026/09/29
 *! Resolve the fitted factor-variable design from the FIT-TIME expansion
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -86,13 +86,15 @@ program define _finegray_fv_design, rclass
         local _fvarv ""
         local _k = 0
         foreach _term of local _fvsem {
-            * Base levels carry no coefficient.  This rule must agree with
+            * Omitted terms carry no coefficient.  This rule must agree with
             * finegray.ado's own kept-term filter, which decides what goes into
-            * e(b) in the first place: `Nb.' is skipped, `Nbn.' is kept, because
-            * ibn. omits no reference and its first level carries a real
-            * coefficient.  Everything downstream pairs terms with e(b) by
-            * position, so a divergence here mislabels silently.
-            if regexm("`_term'", "[0-9]+b\.") continue
+            * e(b) in the first place: a term is skipped when a part carries an
+            * `o' marker or every part is a base level (Stata's omission rule);
+            * 1b.grp#c.x, 1b.a#2.b and Nbn. terms are real columns and kept.
+            * Everything downstream pairs terms with e(b) by position, so a
+            * divergence here mislabels silently.
+            if regexm("`_term'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_term'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
             local ++_k
             local _terms "`_terms' `_term'"
 

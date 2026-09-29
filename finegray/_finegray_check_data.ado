@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.3.7  2026/09/28
+*! _finegray_check_data Version 1.3.7  2026/09/29
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal
@@ -153,7 +153,8 @@ program define _finegray_check_data
         if `"`_fvsem'"' != "" {
             local _nb_terms ""
             foreach _t of local _fvsem {
-                if regexm("`_t'", "[0-9]+b\.") continue
+                if regexm("`_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                    regexm("`_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
                 local _nb_terms "`_nb_terms' `_t'"
             }
             local _covcols "`e(designvars)'"

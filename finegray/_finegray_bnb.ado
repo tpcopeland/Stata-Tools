@@ -1,4 +1,4 @@
-*! _finegray_bnb Version 1.3.7  2026/09/28
+*! _finegray_bnb Version 1.3.7  2026/09/29
 *! Non-base coefficient vector (and variance) of the finegray fit in e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)
@@ -7,7 +7,7 @@
   _finegray_bnb, b(tempname) [v(tempname)]
 
 Copies e(b) -- and e(V) when v() is given -- into the caller's tempnames with
-every base-level column (`0b.pelnode', `1b.grp#c.x') removed, so that what
+every omitted base column (`0b.pelnode', `1b.grp#co.x') removed, so that what
 comes back is one coefficient per column of e(designvars), in that order.
 
 WHY THIS EXISTS.  finegray posts the full fit-time expansion as its stripe on
@@ -22,9 +22,11 @@ index into e(b) positionally and land on a base column.
 
 The rule is the stripe, not a stored index: margins builds its delta-method
 Jacobian by reposting a perturbed e(b) and calling predict, so a consumer must
-read whatever e(b) holds NOW.  `Nb.' is the base marker; `Nbn.' (from ibn.)
-is kept because it carries a real coefficient -- the same filter finegray.ado
-applies when it decides which fit-time terms enter the design.
+read whatever e(b) holds NOW.  A column is dropped when a part carries an `o'
+marker or when every part is a base level (`1b.grp', `1b.a#1b.b') -- Stata's
+own omission rule.  `1b.grp#c.x' and `1b.a#2.b' are real columns and stay, as
+does `Nbn.' (ibn.) -- the same filter finegray.ado applies when it decides
+which fit-time terms enter the design.
 
 A tvc() fit is posted narrow (one equation per interval, no base columns), so
 here the copy is the identity and the equation stripe is preserved; a
@@ -53,7 +55,8 @@ program define _finegray_bnb
         local _nb = 0
         forvalues _i = 1/`_k' {
             local _n : word `_i' of `_cn'
-            if regexm("`_n'", "[0-9]+b\.") continue
+            if regexm("`_n'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_n'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
             local ++_nb
             local _keep "`_keep' `_i'"
             local _kn "`_kn' `_n'"

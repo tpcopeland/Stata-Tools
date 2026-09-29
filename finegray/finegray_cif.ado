@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.7  2026/09/28
+*! finegray_cif Version 1.3.7  2026/09/29
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -42,6 +42,7 @@ program define finegray_cif, rclass sortpreserve
     local _rngstate ""
     local _side_rc = 0
     local _fgrebuilt ""
+    local _vlheld = 0
 
     capture noisily {
 
@@ -552,32 +553,39 @@ program define finegray_cif, rclass sortpreserve
         }
     }
 
-    * Parse saving(filename[, replace]); reject shell metacharacters
+    * Parse saving(filename[, replace]); reject shell metacharacters.
+    * The name is user text and is read and tested in Mata, never expanded
+    * as a macro before the character check: through 1.3.7 the trim below
+    * re-expanded it, so a literal `$G' in the name wrote a file under the
+    * CONTENTS of $G at rc 0, a quoted local pair vanished from the name,
+    * and an unbalanced backtick exited r(199) after the analysis ran
+    * instead of the documented r(198).
     local savefile ""
     local savereplace ""
-    if `"`saving'"' != "" {
-        gettoken savefile _svrest : saving, parse(",") bind
-        local savefile = strtrim(`"`savefile'"')
-        local _svrest = lower(strtrim(`"`_svrest'"'))
-        * Accept ",replace" and ", replace" alike: strip the leading comma,
-        * then compare the bare suboption.
-        if substr(`"`_svrest'"', 1, 1) == "," {
-            local _svrest = strtrim(substr(`"`_svrest'"', 2, .))
+    mata: st_local("_svc", strofreal(strpos(st_local("saving"), ",")))
+    mata: st_local("_svany", strofreal(st_local("saving") != ""))
+    if `_svany' {
+        if `_svc' {
+            mata: st_local("savefile", strtrim(substr(st_local("saving"), 1, `_svc' - 1)))
+            mata: st_local("_svrest", strlower(strtrim(substr(st_local("saving"), `_svc' + 1, .))))
         }
-        if `"`savefile'"' == "" | !inlist(`"`_svrest'"', "", "replace") {
+        else {
+            mata: st_local("savefile", strtrim(st_local("saving")))
+            local _svrest ""
+        }
+        mata: st_local("_svbad", strofreal(sum(strpos(st_local("savefile"), ///
+            (";", "|", "&", "<", ">", char(36), char(96), char(34), char(39))) :> 0) > 0))
+        if `_svbad' {
+            display as error "invalid characters in saving() filename"
+            exit 198
+        }
+        mata: st_local("_svok", strofreal(st_local("savefile") != "" & ///
+            anyof(("", "replace"), st_local("_svrest"))))
+        if !`_svok' {
             display as error "saving() must be filename[, replace]"
             exit 198
         }
         if `"`_svrest'"' == "replace" local savereplace "replace"
-        if strpos(`"`savefile'"', ";") | strpos(`"`savefile'"', "|") | ///
-           strpos(`"`savefile'"', "&") | strpos(`"`savefile'"', "<") | ///
-           strpos(`"`savefile'"', ">") | strpos(`"`savefile'"', "$") | ///
-           strpos(`"`savefile'"', char(96)) | ///
-           strpos(`"`savefile'"', char(34)) | ///
-           strpos(`"`savefile'"', char(39)) {
-            display as error "invalid characters in saving() filename"
-            exit 198
-        }
     }
 
     local covs "`e(designvars)'"
@@ -601,7 +609,8 @@ program define finegray_cif, rclass sortpreserve
     if `"`_fvsem_r'"' != "" & `"`_fvsem_r'"' != "." {
         * Non-base semantic terms align 1:1, in order, with e(designvars).
         foreach _t of local _fvsem_r {
-            if regexm("`_t'", "[0-9]+b\.") continue
+            if regexm("`_t'", "(^|#)([0-9]+b?n?|c)?o\.") | ///
+                regexm("`_t'", "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$") continue
             local _nbterms `"`_nbterms' `_t'"'
         }
     }
@@ -923,6 +932,12 @@ program define finegray_cif, rclass sortpreserve
             local _lev`g' : word `g' of `_ovlevs'
             local _levx`g' : word `g' of `_ovlevsx'
             local _lbl`g' : label (`_ovvar') `_lev`g''
+            * The same label for display sinks (console and graph): SMCL and
+            * the graph commands' own re-expansion would otherwise act on it, so
+            * $name, a backquote, {bf:...} or a double quote in a value label was
+            * drawn expanded or as markup, and an unbalanced backquote stopped the
+            * graph with r(132).  `_lbl`g'' stays raw for r() and saving().
+            _finegray_graph_text _glbl`g' : `"`macval(_lbl`g')'"'
         }
         * The levels as machine doubles, returned so a caller can feed a level
         * straight back into at()/bstratum() and land on the same curve.
@@ -1318,7 +1333,9 @@ program define finegray_cif, rclass sortpreserve
         mata: st_local("_fg_nmis", strofreal(sum(st_matrix("`_O'")[., 1] :>= .)))
         if `_fg_nmis' > 0 {
             display as error "the CIF could not be evaluated at `_fg_nmis' of `ngrid`g'' requested time(s)"
-            if "`_overmode'" != "" display as error `"(curve `_ovvar' = `_lbl`g'')"'
+            if "`_overmode'" != "" {
+                display as error `"(curve `_ovvar' = `macval(_glbl`g')')"'
+            }
             display as error "the covariate profile gives a nonfinite linear predictor; check the at() values"
             exit 498
         }
@@ -1493,7 +1510,7 @@ program define finegray_cif, rclass sortpreserve
             if `_bok`g'' < `_minboot' {
                 display as error "bootstrap failed: only `_bok`g'' of `bootstrap' replications succeeded"
                 if "`_overmode'" != "" {
-                    display as error `"(curve `_ovvar' = `_lbl`g'')"'
+                    display as error `"(curve `_ovvar' = `macval(_glbl`g')')"'
                 }
                 display as error "at least `_minboot' are required to estimate a standard error"
                 exit 498
@@ -1656,7 +1673,7 @@ program define finegray_cif, rclass sortpreserve
         forvalues g = 1/`_ncurve' {
             if "`_overmode'" != "" {
                 display as text ""
-                display as text "-> `_ovvar' = " as result `"`_lbl`g''"'
+                display as text "-> `_ovvar' = " as result `"`macval(_glbl`g')'"'
             }
             display as text "{hline 13}{c TT}{hline `_rulew'}"
             if "`ci'" != "" {
@@ -1721,13 +1738,17 @@ program define finegray_cif, rclass sortpreserve
                 local _tf : display %9.0g `_tfirst'
                 local _tf = trim("`_tf'")
                 local _which ""
-                if "`_overmode'" == "bstrata" local _which `" (`_bsvar' = `_lbl`g'')"'
+                * block form: a one-line if re-expands its command, and the
+                * label is user text that must not be (see saving() parse)
+                if "`_overmode'" == "bstrata" {
+                    local _which `" (`_bsvar' = `macval(_glbl`g')')"'
+                }
                 if `_nafter' > 0 {
-                    display as text "note: `_nafter' requested time(s) exceed the last cause-event time (`_tl')`_which';"
+                    display as text `"note: `_nafter' requested time(s) exceed the last cause-event time (`_tl')`macval(_which)';"'
                     display as text "the CIF is flat beyond it, so those rows repeat the terminal estimate"
                 }
                 if `_nbefore' > 0 {
-                    display as text "note: `_nbefore' requested time(s) precede the first cause-event time (`_tf')`_which';"
+                    display as text `"note: `_nbefore' requested time(s) precede the first cause-event time (`_tf')`macval(_which)';"'
                     display as text "the CIF is exactly 0 there and has no confidence limits"
                 }
             }
@@ -1766,12 +1787,16 @@ program define finegray_cif, rclass sortpreserve
     * The over() variable's value label, carried into the saving() dataset so
     * its `over' column reads as the source variable does.  Read now: the
     * preserved dataset below is cleared, and value labels go with it.
+    * Copied through Mata, not `label save' + `run': running the saved
+    * do-file re-expanded each label as macro text, so a label "A $G" was
+    * saved as "A <contents of $G>" at rc 0 (through 1.3.7).
     local _ovvl ""
     if "`_overmode'" != "" {
         local _ovvl : value label `_ovvar'
         if "`_ovvl'" != "" {
-            tempfile _ovvlfile
-            quietly label save `_ovvl' using `"`_ovvlfile'"', replace
+            tempname _vlv _vlt
+            local _vlheld = 1
+            mata: st_vlload("`_ovvl'", `_vlv' = ., `_vlt' = .)
         }
     }
 
@@ -1784,7 +1809,8 @@ program define finegray_cif, rclass sortpreserve
             if "`_overmode'" == "" svmat double `R', names(col)
             else svmat double `RALL', names(col)
             if "`_ovvl'" != "" {
-                run `"`_ovvlfile'"'
+                mata: st_local("_vln", strofreal(rows(`_vlv')))
+                if `_vln' mata: st_vlmodify("`_ovvl'", `_vlv', `_vlt')
                 label values over `_ovvl'
             }
         }
@@ -1923,7 +1949,7 @@ program define finegray_cif, rclass sortpreserve
                     }
                     local _plots `"`_plots' (line cif time `_pif', `_pst' lwidth(medthick) connect(stairstep) `plotopts' `plot`g'opts')"'
                     if "`_overmode'" != "" {
-                        local _legord `"`_legord' `=`_nband' + `g'' `"`_ovvar' = `_lbl`g''"'"'
+                        local _legord `"`macval(_legord)' `=`_nband' + `g'' `"`_ovvar' = `macval(_glbl`g')'"'"'
                     }
                 }
                 * Default legend is a single row; because repeated legend()
@@ -1939,12 +1965,12 @@ program define finegray_cif, rclass sortpreserve
                     else local _gleg "legend(rows(1))"
                 }
                 else {
-                    local _gleg `"legend(order(`_legord') rows(1))"'
+                    local _gleg `"legend(order(`macval(_legord)') rows(1))"'
                     if "`ci'" != "" {
-                        local _gleg `"legend(order(`_legord') rows(1) note("Shaded: `level'% CI"))"'
+                        local _gleg `"legend(order(`macval(_legord)') rows(1) note("Shaded: `level'% CI"))"'
                     }
                 }
-                local _gopts `"ytitle("Cumulative incidence") xtitle("Analysis time") `_gleg' xscale(range(0 .)) plotregion(margin(zero))"'
+                local _gopts `"ytitle("Cumulative incidence") xtitle("Analysis time") `macval(_gleg)' xscale(range(0 .)) plotregion(margin(zero))"'
                 * Leading-zero y labels (0.1, not .1).  The decimals follow
                 * the tick step, which only twoway knows once the user's own
                 * ylabel()/yscale() are merged in, so _finegray_cif_yfmt
@@ -1953,8 +1979,8 @@ program define finegray_cif, rclass sortpreserve
                 * which then stands; a user ylabel() without format() still
                 * gets the leading zero, because repeated ylabel() merge.
                 local _yfmt ""
-                _finegray_cif_yfmt _yfmt : `_plots', `_gopts' `options'
-                twoway `_plots', `_gopts' `_yfmt' `options'
+                _finegray_cif_yfmt _yfmt : `_plots', `macval(_gopts)' `options'
+                twoway `_plots', `macval(_gopts)' `_yfmt' `options'
             }
             local _graph_rc = _rc
             * Cleanup is required even after a graph-side failure so saving()
@@ -2024,6 +2050,7 @@ program define finegray_cif, rclass sortpreserve
 
     local rc = _rc
     if `_preserved' capture restore
+    if `_vlheld' capture mata: mata drop `_vlv' `_vlt'
     if `_held' capture _estimates unhold `_esth'
     * Give the caller back the random-number stream the bootstrap borrowed.
     if `_rngsaved' capture set rngstate `_rngstate'
@@ -2168,7 +2195,7 @@ program define _finegray_cif_yfmt
         * once, in the user's terms; quietly also keeps notes such as a
         * missing scheme from printing twice.
         capture quietly twoway `_plots', ylabel(, format(`_sentinel')) ///
-            `options' nodraw name(`_gprobe')
+            `macval(options)' nodraw name(`_gprobe')
         local _made = _rc == 0
         if `_made' & ///
             `"`.`_gprobe'.yaxis1.major.label_format'"' == "`_sentinel'" {

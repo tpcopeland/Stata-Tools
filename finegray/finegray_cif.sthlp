@@ -147,7 +147,9 @@ for {opt bstratum()}, and the two may not be combined.
 With {opt attime()} one table is printed per curve; otherwise the curves are
 overlaid on one graph, each confidence band (with {opt ci}) shaded in its own
 curve's color, with a legend entry per level (the value label where one is
-defined). {cmd:r(table)} gains a sixth column, {cmd:over}, holding each row's level, {cmd:r(at)}
+defined). A value label is drawn and printed exactly as written: {cmd:$},
+backquotes, braces and double quotes in it are text, not macro or SMCL
+syntax. {cmd:r(table)} gains a sixth column, {cmd:over}, holding each row's level, {cmd:r(at)}
 has one row per curve, and the {opt saving()} dataset gains an {cmd:over} variable
 carrying the source variable's value label; {cmd:r(over)} and {cmd:r(levels)} name the
 variable and the levels drawn. With {opt bootstrap()} the replications are shared
@@ -296,7 +298,10 @@ are those of {opt plot#opts()}. Requires {opt ci}.
 {phang}
 {it:twoway_options} are any of the options documented in {help twoway_options},
 for example {cmd:title()}, {cmd:xtitle()}, {cmd:note()}, or
-{cmd:scheme()}. These pass through to the CIF plot and override the defaults. In
+{cmd:scheme()}. These pass through to the CIF plot and override the defaults;
+their text is read exactly as {cmd:twoway} reads it, so SMCL markup in it is
+honoured and a literal dollar sign, brace or backquote is typed as its SMCL
+character code (see {help smcl}). In
 {opt attime()} mode no graph is drawn, so these options, and the plot options
 above, are ignored with a note.
 

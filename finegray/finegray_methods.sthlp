@@ -1116,7 +1116,7 @@ same term.
 {pstd}
 {bf:How {cmd:margins} addresses a factor term.} Estimation runs on the
 generated {cmd:_fg_*} design columns, but what is posted is the full fit-time
-expansion: {cmd:e(b)} and {cmd:e(V)} carry every base level ({cmd:1b.grp},
+expansion: {cmd:e(b)} and {cmd:e(V)} carry every omitted base term ({cmd:1b.grp},
 {cmd:0b.pelnode#co.ifp}) as a zero coefficient with a zero row and column,
 exactly as {helpb stcox} and {helpb stcrreg} post theirs. That stripe is what
 {cmd:margins}, {helpb contrast} and {helpb pwcompare} enumerate a factor's

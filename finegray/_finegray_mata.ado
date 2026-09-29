@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.7  2026/09/28
+*! _finegray_mata Version 1.3.7  2026/09/29
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -73,9 +73,12 @@ void _finegray_mata_ok() {}
    before any such pairing.  Read the LIVE e(b) and drop by stripe, never a
    stored narrow copy: margins builds its delta-method Jacobian by reposting a
    perturbed e(b) and calling predict, and a private copy would leave that
-   derivative at zero.  `Nb.' is the base marker; `Nbn.' (ibn.) carries a real
-   coefficient and stays.  Same rule as _finegray_bnb on the Stata side and the
-   kept-term filter in finegray.ado; a tvc() or non-factor fit is the identity. */
+   derivative at zero.  Dropped: a term with an `o'-marked part (1b.a#co.x) or
+   a pure factor term whose every part is a base level (1b.grp, 1b.a#1b.b) --
+   Stata's own omission rule (_ms_omit_info).  Kept: 1b.grp#c.x and 1b.a#2.b,
+   which are real columns, and `Nbn.' (ibn.).  Same rule as _finegray_bnb on
+   the Stata side and the kept-term filter in finegray.ado; a tvc() or
+   non-factor fit is the identity. */
 real colvector _finegray_beta()
 {
     real rowvector b
@@ -85,7 +88,8 @@ real colvector _finegray_beta()
     b = st_matrix("e(b)")
     if (cols(b) == 0) return(J(0, 1, .))
     s = st_matrixcolstripe("e(b)")
-    keep = selectindex(!regexm(s[., 2], "[0-9]+b\."))
+    keep = selectindex(!(regexm(s[., 2], "(^|#)([0-9]+b?n?|c)?o\.") :|
+        regexm(s[., 2], "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$")))
     if (length(keep) == cols(b)) return(b')
     return(b[1, keep]')
 }
