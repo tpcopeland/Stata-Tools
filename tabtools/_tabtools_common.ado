@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.15  2026/09/27
+*! _tabtools_common Version 2.1.16  2026/09/29
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -455,24 +455,24 @@ program _tabtools_validate_sheet, nclass
     set varabbrev off
     capture noisily {
     args sheet option_name
-    if ustrlen(`"`sheet'"') == 0 {
+    if ustrlen(`"`macval(sheet)'"') == 0 {
         display as error "`option_name': sheet name may not be blank"
         exit 198
     }
-    if ustrlen(`"`sheet'"') > 31 {
-        display as error `"`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"'
+    if ustrlen(`"`macval(sheet)'"') > 31 {
+        display as error `"`option_name': sheet name '`macval(sheet)'' exceeds Excel's 31-character limit"'
         exit 198
     }
-    if regexm(`"`sheet'"', "[][/\\?*:]" ) {
+    if regexm(`"`macval(sheet)'"', "[][/\\?*:]" ) {
         display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ] :)"
         exit 198
     }
-    if substr(`"`sheet'"', 1, 1) == char(39) | ///
-            substr(`"`sheet'"', -1, 1) == char(39) {
+    if substr(`"`macval(sheet)'"', 1, 1) == char(39) | ///
+            substr(`"`macval(sheet)'"', -1, 1) == char(39) {
         display as error "`option_name': sheet name may not begin or end with an apostrophe"
         exit 198
     }
-    if lower(`"`sheet'"') == "history" {
+    if lower(`"`macval(sheet)'"') == "history" {
         display as error "`option_name': History is reserved by Excel and cannot be used as a sheet name"
         exit 198
     }
@@ -1098,6 +1098,9 @@ end
 version 17.0
 capture mata: mata drop _tt_strip_outer_quotes()
 capture mata: mata drop _tt_collect_ci_level_json()
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -1146,5 +1149,6 @@ string scalar _tt_strip_outer_quotes(string scalar x)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'
 
 * End of file

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_compact_styles Version 2.1.15  2026/09/27
+*! _tabtools_xlsx_compact_styles Version 2.1.16  2026/09/29
 *! Collapse duplicate style records in a closed xlsx workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -186,6 +186,9 @@ capture mata: mata drop _tt_xlsx_unescape()
 capture mata: mata drop _tt_xlsx_check_manifest()
 capture mata: mata drop _tt_xlsx_filesize()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -656,3 +659,4 @@ void _tt_xlsx_verify(string scalar rebuilt, string scalar root)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

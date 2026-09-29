@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.15  2026/09/27
+*! effecttab Version 2.1.16  2026/09/29
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -106,7 +106,7 @@ program define effecttab, rclass
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
 		local _has_xlsx = "`xlsx'" != ""
-		if "`sheet'" == "" local sheet "Effects"
+		if `"`macval(sheet)'"' == "" local sheet "Effects"
 
 		local _eplotframe_name ""
 		local _eplotframe_replace 0
@@ -214,7 +214,7 @@ program define effecttab, rclass
 	if `highpdp' == -1 local highpdp = 2
 
 	* Validate sheet name for Excel constraints
-	_tabtools_validate_sheet "`sheet'" "sheet()"
+	_tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
 quietly {
 	* =========================================================================
@@ -1450,10 +1450,10 @@ quietly {
 		if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
 
 		if `_has_xlsx' {
-			capture noisily _tabtools_xlsx_write using "`xlsx'", sheet("`sheet'") book(`_xlsx_book')
+			capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
 			if _rc {
 				local _export_rc = _rc
-				noisily display as error "Failed to export to `xlsx', sheet `sheet'"
+				noisily display as error `"Failed to export to `xlsx', sheet `macval(sheet)'"'
 				noisily display as error "Check file permissions and that file is not open in Excel"
 			capture erase "`temp_xlsx'"
 			restore
@@ -1756,7 +1756,7 @@ quietly {
 
 			_tabtools_xlsx_build_styles, matrix(`_style_rules') ///
 				rules(`"`_style_rule_rows'"') cols(9)
-			_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet("`sheet'") ///
+			_tabtools_xlsx_apply_styles, book(`_xlsx_book') sheet(`"`macval(sheet)'"') ///
 				rules(`_style_rules') font("`_font'") ///
 				color1("`_headercolor'") color2("`_zebracolor'") ///
 				color3("255 255 204")
@@ -1801,12 +1801,12 @@ quietly {
 		}
 		else {
 			local _xlsx_ok 1
-			noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
+			noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sheet)'"'
 		}
 	}
 	if `_xlsx_ok' {
 		return local xlsx "`xlsx'"
-		return local sheet "`sheet'"
+		return local sheet `"`macval(sheet)'"'
 	}
 
 		* Open file if requested (W3)

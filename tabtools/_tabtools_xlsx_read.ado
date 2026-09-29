@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_read Version 2.1.15  2026/09/27
+*! _tabtools_xlsx_read Version 2.1.16  2026/09/29
 *! Read an Excel sheet into the current dataset through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,14 +35,15 @@ program define _tabtools_xlsx_read, rclass
         local _range ""
         local _found = 0
         forvalues _s = 1/`=r(N_worksheet)' {
-            if lower(`"`r(worksheet_`_s')'"') == lower(`"`sheet'"') {
+            mata: st_local("_wsname", st_global("r(worksheet_`_s')"))
+            if lower(`"`macval(_wsname)'"') == lower(`"`macval(sheet)'"') {
                 local _range `"`r(range_`_s')'"'
                 local _found = 1
                 continue, break
             }
         }
         if !`_found' {
-            noisily display as error `"sheet `sheet' not found in `using'"'
+            noisily display as error `"sheet `macval(sheet)' not found in `using'"'
             exit 111
         }
         if `"`_range'"' == "" exit 2000
@@ -61,7 +62,7 @@ program define _tabtools_xlsx_read, rclass
         local proberows = max(`proberows', `_endrow')
         local probecols = max(`probecols', `_endcolnum')
 
-        mata: _tt_xlsx_read_mata(`"`using'"', `"`sheet'"', `maxrows', `maxcols', `proberows', `probecols')
+        mata: _tt_xlsx_read_mata(`"`using'"', `"`macval(sheet)'"', `maxrows', `maxcols', `proberows', `probecols')
 
         quietly ds
         local _vars `r(varlist)'
@@ -71,7 +72,7 @@ program define _tabtools_xlsx_read, rclass
         return scalar n_rows = _N
         return scalar n_cols = c(k)
         return local varlist "`_vars'"
-        return local sheet `"`sheet'"'
+        return local sheet `"`macval(sheet)'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc
@@ -85,6 +86,9 @@ capture mata: mata drop _tt_excel_colname()
 capture mata: mata drop _tt_xlsx_bounds()
 capture mata: mata drop _tt_xlsx_stata_strtype()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -219,3 +223,4 @@ string scalar _tt_excel_colname(real scalar colnum)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

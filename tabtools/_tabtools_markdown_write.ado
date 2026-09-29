@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 2.1.15  2026/09/27
+*! _tabtools_markdown_write Version 2.1.16  2026/09/29
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -122,6 +122,9 @@ capture mata: mata drop _tt_md_body_cell()
 capture mata: mata drop _tt_md_write()
 capture mata: mata drop _tt_md_append()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -273,3 +276,4 @@ void _tt_md_append(string scalar stage, string scalar target)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'

@@ -1,4 +1,4 @@
-*! stacktab Version 2.1.15  2026/09/27
+*! stacktab Version 2.1.16  2026/09/29
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -69,7 +69,7 @@ program define stacktab, rclass
         }
         _tabtools_validate_path `"`using'"' "using"
         confirm file `"`using'"'
-        _tabtools_validate_sheet `"`sheet'"' "sheet()"
+        _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         if "`layout'" == "" local layout "vstack"
         local layout = lower("`layout'")
@@ -541,10 +541,10 @@ program define stacktab, rclass
         local export_start_row = 2
         local export_start_col = 2
         capture noisily _stacktab_xlsx_sheet_bounds using `"`using'"', ///
-            sheet(`"`sheet'"')
+            sheet(`"`macval(sheet)'"')
         local _sheet_bounds_rc = _rc
         if `_sheet_bounds_rc' == 0 {
-            local sheet `"`r(sheet)'"'
+            mata: st_local("sheet", st_global("r(sheet)"))
             local existing_rows = r(rows)
         }
         else if `_sheet_bounds_rc' != 601 {
@@ -553,7 +553,7 @@ program define stacktab, rclass
 
         if "`append'" == "" & "`sheetreplace'" == "" & ///
             `_sheet_bounds_rc' == 0 {
-            display as error `"stacktab: sheet "`sheet'" already exists; specify append or sheetreplace"'
+            display as error `"stacktab: sheet `"`macval(sheet)'"' already exists; specify append or sheetreplace"'
             exit 602
         }
         if "`append'" != "" & `_sheet_bounds_rc' == 0 & `existing_rows' > 0 {
@@ -663,7 +663,7 @@ program define stacktab, rclass
 
         quietly use `"`finaldata'"', clear
 
-        _stacktab_xlsx_write using `"`_stage_book'"', sheet(`"`sheet'"') ///
+        _stacktab_xlsx_write using `"`_stage_book'"', sheet(`"`macval(sheet)'"') ///
             startrow(`export_start_row') startcol(`export_start_col') ///
             `sheetreplace'
 
@@ -684,7 +684,7 @@ program define stacktab, rclass
             if `"`section_rows'"' != "" {
                 local _sectionrowsopt `"sectionrows(`section_rows')"'
             }
-            _stacktab_apply_style, book(`"`_stage_book'"') sheet(`"`sheet'"') ///
+            _stacktab_apply_style, book(`"`_stage_book'"') sheet(`"`macval(sheet)'"') ///
                 `_styleopt' `_bordersopt' widths(`"`width_values'"') ///
                 rows(`rows_written') cols(`final_ncols') ///
                 startrow(`export_start_row') startcol(`export_start_col') ///
@@ -692,12 +692,12 @@ program define stacktab, rclass
 
         local last_sheet_col = `export_start_col' + `final_ncols' - 1
         if `"`macval(title)'"' != "" & `export_title_row' > 0 {
-            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
+            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`macval(sheet)'"', ///
                 `export_title_row', 1, 1, `last_sheet_col', st_local("title"), ///
                 12, `title_height', 1, 0)
         }
         if `"`macval(note)'"' != "" {
-            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`sheet'"', ///
+            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`macval(sheet)'"', ///
                 `note_row', `export_start_col', `export_start_col', ///
                 `last_sheet_col', st_local("note"), 8, `note_height', 0, 1)
         }
@@ -847,7 +847,7 @@ program define stacktab, rclass
         local _ret_title_cell ""
         if `"`macval(title)'"' != "" & `export_title_row' > 0 local _ret_title_cell "A`export_title_row'"
         local _ret_note_row = `note_row'
-        local _ret_sheet `"`sheet'"'
+        local _ret_sheet `"`macval(sheet)'"'
         local _ret_book `"`using'"'
         local _ret_layout `"`layout'"'
         local _ret_frame `"`frame_name'"'
@@ -906,7 +906,7 @@ program define stacktab, rclass
     return scalar append_start  = `_ret_append_start'
     if `_ret_note_row' < . return scalar note_row = `_ret_note_row'
     return local  layout        `"`_ret_layout'"'
-    return local  sheet         `"`_ret_sheet'"'
+    return local  sheet         `"`macval(_ret_sheet)'"'
     return local  book          `"`_ret_book'"'
     return local  table_start   `"`_ret_table_start'"'
     if `"`_ret_title_cell'"' != "" return local title_cell `"`_ret_title_cell'"'
@@ -918,7 +918,7 @@ program define stacktab, rclass
         return scalar markdown_cols = `_ret_markdown_cols'
     }
 
-    display as text "stacktab: `_ret_blocks_loaded' blocks -> `_ret_rows_written' rows written -> sheet `_ret_sheet'"
+    display as text `"stacktab: `_ret_blocks_loaded' blocks -> `_ret_rows_written' rows written -> sheet `macval(_ret_sheet)'"'
 end
 
 
@@ -953,14 +953,14 @@ program define _stacktab_xlsx_write, rclass
         }
 
         local _replace = ("`sheetreplace'" != "")
-        mata: _stacktab_xlsx_write_mata(`"`using'"', `"`sheet'"', ///
+        mata: _stacktab_xlsx_write_mata(`"`using'"', `"`macval(sheet)'"', ///
             `"`_vars'"', `startrow', `startcol', `_replace')
 
         return scalar n_rows = _N
         return scalar n_cols = `: word count `_vars''
         return scalar startrow = `startrow'
         return scalar startcol = `startcol'
-        return local sheet `"`sheet'"'
+        return local sheet `"`macval(sheet)'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc
@@ -982,13 +982,15 @@ program define _stacktab_xlsx_sheet_bounds, rclass
         local _actual_sheet ""
         local _used_range ""
         forvalues _s = 1/`_n_sheets' {
-            local _candidate `"`r(worksheet_`_s')'"'
-            if lower(`"`_candidate'"') == lower(`"`sheet'"') {
-                local _actual_sheet `"`_candidate'"'
+            * Workbook sheet names are data: read them through Mata, never
+            * re-expanded as macro text.
+            mata: st_local("_candidate", st_global("r(worksheet_`_s')"))
+            if lower(`"`macval(_candidate)'"') == lower(`"`macval(sheet)'"') {
+                local _actual_sheet : copy local _candidate
                 local _used_range `"`r(range_`_s')'"'
             }
         }
-        if `"`_actual_sheet'"' == "" {
+        if `"`macval(_actual_sheet)'"' == "" {
             exit 601
         }
 
@@ -999,7 +1001,7 @@ program define _stacktab_xlsx_sheet_bounds, rclass
             local _last_cell = substr(`"`_used_range'"', `_colon' + 1, .)
         }
         if !regexm(upper(`"`_last_cell'"'), "^([A-Z]+)([0-9]+)$") {
-            display as error `"could not parse used range "`_used_range'" for worksheet "`_actual_sheet'""'
+            display as error `"could not parse used range "`_used_range'" for worksheet "`macval(_actual_sheet)'""'
             exit 498
         }
         local _last_col_letters = regexs(1)
@@ -1012,14 +1014,14 @@ program define _stacktab_xlsx_sheet_bounds, rclass
         }
         if `_last_col' < 1 | `_last_col' > 16384 | ///
             `_last_row' < 1 | `_last_row' > 1048576 {
-            display as error `"invalid used range "`_used_range'" for worksheet "`_actual_sheet'""'
+            display as error `"invalid used range "`_used_range'" for worksheet "`macval(_actual_sheet)'""'
             exit 498
         }
 
         return scalar rows = `_last_row'
         return scalar cols = `_last_col'
         return local range `"`_used_range'"'
-        return local sheet `"`_actual_sheet'"'
+        return local sheet `"`macval(_actual_sheet)'"'
         return local xlsx `"`using'"'
     }
     local rc = _rc
@@ -1418,7 +1420,7 @@ program define _stacktab_apply_style, nclass
     mata: `_style_book' = xl()
     local _book_open = 1
     mata: `_style_book'.load_book("`book'")
-    mata: `_style_book'.set_sheet("`sheet'")
+    mata: `_style_book'.set_sheet(`"`macval(sheet)'"')
     mata: `_style_book'.set_mode("open")
 
     local endrow = `startrow' + `rows' - 1
@@ -1540,6 +1542,9 @@ capture mata: mata drop _stacktab_xlsx_write_mata()
 capture mata: mata drop _stacktab_cur_strmat()
 capture mata: mata drop _stacktab_xlsx_put_text_mata()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -1652,6 +1657,7 @@ void _stacktab_xlsx_put_text_mata(
 }
 
 end
+mata: mata set matastrict `_tt_ms0'
 
 * ============================================================================
 * MATA: blocks() tokenizer (C8/C9, codex audit 2026-09-26)
@@ -1662,6 +1668,9 @@ capture mata: mata drop _stacktab_cm_parse()
 capture mata: mata drop _stacktab_blk_unquote()
 capture mata: mata drop _stacktab_blk_close()
 
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
 
@@ -1826,6 +1835,7 @@ void _stacktab_blocks(string scalar spec)
 }
 
 end
+mata: mata set matastrict `_tt_ms0'
 
 
 * F09 (codex audit 2026-09-27): columnmerge() rules. Splits on backslashes
