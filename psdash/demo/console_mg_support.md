@@ -42,10 +42,10 @@ Observed-arm PS Overlap (informational)
 -------------------------------------------------------
 Lower bound:               0.3046
 Upper bound:               0.3586
-Outside overlap:             1129 (94.08%)
+Outside overlap:             1128 (94.00%)
   Placebo outside:        152
   Low dose outside:        253
-  High dose outside:        724
+  High dose outside:        723
 -------------------------------------------------------
 
 -------------------------------------------------------

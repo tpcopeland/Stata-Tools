@@ -19,15 +19,15 @@ Weights:       ipw
 Threshold:      0.100
 
 
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
            Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
----------------------------------------------------------------------------------------
-                 age | 0.472  0.99 0.013  1.01    Balanced
-              female | 0.431  1.03 0.001  1.00    Balanced
-                 bmi | 0.156  1.02 0.014  1.07    Balanced
-                 sbp | 0.194  1.01 0.018  1.05    Balanced
-         cholesterol | 0.039  1.04 0.047  0.99    Balanced
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
+                 age |    0.472    0.99    0.013    1.01    Balanced
+              female |    0.431    1.03    0.001    1.00    Balanced
+                 bmi |    0.156    1.02    0.014    1.07    Balanced
+                 sbp |    0.194    1.01    0.018    1.05    Balanced
+         cholesterol |    0.039    1.04    0.047    0.99    Balanced
+--------------------------------------------------------------------
 
 
 Maximum |SMD| (raw):       0.472
@@ -35,7 +35,7 @@ Maximum |SMD| (adjusted):  0.047
 Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
 Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
       (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 
@@ -51,11 +51,13 @@ scalars:
          r(n_warnings) =  0
           r(n_cov_min) =  800
    r(n_cov_incomplete) =  0
+       r(n_wt_dropped) =  0
+     r(n_wt_undefined) =  0
   r(n_ps_near_boundar
     y)                 =  0
       r(n_ps_boundary) =  0
           r(threshold) =  .1
-         r(max_ks_adj) =  .093744814098041
+         r(max_ks_adj) =  .0937448140980408
          r(max_ks_raw) =  .2105117384237494
         r(n_binary_vr) =  1
   r(n_vr_imbalanced_a
@@ -65,7 +67,7 @@ scalars:
     r(n_vr_imbalanced) =  0
        r(n_imbalanced) =  0
          r(max_vr_adj) =  1.071577802203555
-        r(max_smd_adj) =  .047032989657052
+        r(max_smd_adj) =  .0470329896570498
          r(max_vr_raw) =  1.04099727858756
         r(max_smd_raw) =  .4715906455790541
           r(N_control) =  249

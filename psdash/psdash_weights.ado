@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.7.2  2026/09/09
+*! psdash_weights Version 1.7.3  2026/09/29
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -813,9 +813,13 @@ program define psdash_weights, rclass
                 local graph_max = `max_wt'
                 local hist_stat "frequency"
                 local graph_ytitle "Frequency"
+                * Counts are integers; only the compact fraction axis needs
+                * decimals (a fixed %4.2f printed counts as "400.00").
+                local graph_yfmt "%9.0gc"
                 if "`compact'" != "" {
                     local hist_stat "fraction"
                     local graph_ytitle "Fraction"
+                    local graph_yfmt "%4.2f"
                 }
                 if "`xlabel'" == "" {
                     local graph_cap = `max_wt'
@@ -867,7 +871,7 @@ program define psdash_weights, rclass
                        legend(order(1 "Treated" 2 "Control") rows(1) position(6) size(small)) ///
                        xtitle("`weight_xtitle'", size(small)) ///
                        ytitle("`graph_ytitle'", size(small)) ///
-                       ylabel(, format(%4.2f) labsize(vsmall) angle(horizontal)) ///
+                       ylabel(, format(`graph_yfmt') labsize(vsmall) angle(horizontal)) ///
                        title("`graph_title'", size(medsmall)) ///
                        xlabel(`xlabel', labsize(small)) ///
                        `xscale_opt' `graph_note' ///
@@ -1100,12 +1104,13 @@ program define psdash_weights, rclass
     * Header row
     display as text %25s "" %15s "Overall" _c
     foreach lev of local levels {
-        * Try to get value labels
-        local lbl_`lev' "Group `lev'"
+        * Value label, verbatim and inert ("Group #" without a value label)
         local vallbl : value label `treatment'
-        if "`vallbl'" != "" {
-            local lbl_`lev' : label `vallbl' `lev'
-        }
+        local _lbl_default "`lev'"
+        if "`vallbl'" == "" local _lbl_default "Group `lev'"
+        _psdash_label_text, variable(`treatment') level(`lev') ///
+            default("`_lbl_default'")
+        local lbl_`lev' `"`r(text)'"'
         display as text %15s "`lbl_`lev''" _c
     }
     display ""
@@ -1332,9 +1337,13 @@ program define psdash_weights, rclass
                 local graph_max = `max_wt'
                 local hist_stat "frequency"
                 local graph_ytitle "Frequency"
+                * Counts are integers; only the compact fraction axis needs
+                * decimals (a fixed %4.2f printed counts as "400.00").
+                local graph_yfmt "%9.0gc"
                 if "`compact'" != "" {
                     local hist_stat "fraction"
                     local graph_ytitle "Fraction"
+                    local graph_yfmt "%4.2f"
                 }
                 if "`xlabel'" == "" {
                     local graph_cap = `max_wt'
@@ -1396,7 +1405,7 @@ program define psdash_weights, rclass
                     legend(order(`legend_order') rows(1) position(6) size(small)) ///
                     xtitle("`weight_xtitle'", size(small)) ///
                     ytitle("`graph_ytitle'", size(small)) ///
-                    ylabel(, format(%4.2f) labsize(vsmall) angle(horizontal)) ///
+                    ylabel(, format(`graph_yfmt') labsize(vsmall) angle(horizontal)) ///
                     title("`graph_title'", size(medsmall)) ///
                     xlabel(`xlabel', labsize(small)) ///
                     `xscale_opt' `graph_note' ///

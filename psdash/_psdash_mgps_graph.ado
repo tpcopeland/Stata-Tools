@@ -1,4 +1,4 @@
-*! _psdash_mgps_graph Version 1.7.2  2026/09/09
+*! _psdash_mgps_graph Version 1.7.3  2026/09/29
 *! Component-by-treatment generalized propensity score graph
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,8 +62,8 @@ program define _psdash_mgps_graph, rclass
                 tempvar score_tmp
                 frame `compact_frame': rename `score_var' `score_tmp'
                 local score_tmps "`score_tmps' `score_tmp'"
-                local score_label : label (`treatment') `score_level'
-                if `"`score_label'"' == "" local score_label "Group `score_level'"
+                _psdash_label_text, variable(`treatment') level(`score_level')
+                local score_label `"`r(text)'"'
                 local component_label_defs `"`component_label_defs' `score_idx' `"Pr(A=`score_label' | X)"'"'
                 local legend_order `"`legend_order' `score_idx' `"`score_label'"'"'
             }
@@ -125,8 +125,8 @@ program define _psdash_mgps_graph, rclass
             foreach score_level of local levels {
                 local ++score_idx
                 local score_var : word `score_idx' of `psvars'
-                local score_label : label (`treatment') `score_level'
-                if `"`score_label'"' == "" local score_label "Group `score_level'"
+                _psdash_label_text, variable(`treatment') level(`score_level')
+                local score_label `"`r(text)'"'
 
                 quietly summarize `score_var' if `samplevar', meanonly
                 local score_min = r(min)
@@ -146,10 +146,9 @@ program define _psdash_mgps_graph, rclass
                 local group_idx = 0
                 foreach observed_level of local levels {
                     local ++group_idx
-                    local observed_label : label (`treatment') `observed_level'
-                    if `"`observed_label'"' == "" {
-                        local observed_label "Group `observed_level'"
-                    }
+                    _psdash_label_text, variable(`treatment') ///
+                        level(`observed_level')
+                    local observed_label `"`r(text)'"'
                     local color_idx = mod(`group_idx' - 1, 8) + 1
                     local color : word `color_idx' of `color_list'
 

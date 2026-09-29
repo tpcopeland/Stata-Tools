@@ -10,7 +10,7 @@ title: "console_teffects_auto"
 
 ```
 Iteration 0:   EE criterion =  7.348e-24
-Iteration 1:   EE criterion =  3.610e-31
+Iteration 1:   EE criterion =  6.560e-31
 
 Treatment-effects estimation                    Number of obs     =        800
 Estimator      : inverse-probability weights
@@ -85,15 +85,15 @@ Weights:       __000002
 Threshold:      0.100
 
 
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
            Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
----------------------------------------------------------------------------------------
-                 age | 0.472  0.99 0.007  1.00    Balanced
-              female | 0.431  1.03 0.003  1.00    Balanced
-                 bmi | 0.156  1.02 0.007  1.07    Balanced
-                 sbp | 0.194  1.01 0.012  1.05    Balanced
-         cholesterol | 0.039  1.04-0.032  0.99    Balanced
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
+                 age |    0.472    0.99    0.007    1.00    Balanced
+              female |    0.431    1.03    0.003    1.00    Balanced
+                 bmi |    0.156    1.02    0.007    1.07    Balanced
+                 sbp |    0.194    1.01    0.012    1.05    Balanced
+         cholesterol |    0.039    1.04   -0.032    0.99    Balanced
+--------------------------------------------------------------------
 
 
 Maximum |SMD| (raw):       0.472
@@ -101,7 +101,7 @@ Maximum |SMD| (adjusted):  0.032
 Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------
 Note: variance ratio is not a meaningful balance diagnostic for binary covariate(s): female
       (VR for a two-level covariate is determined by the SMD; excluded from the VR count).
 

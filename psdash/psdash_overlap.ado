@@ -1,4 +1,4 @@
-*! psdash_overlap Version 1.7.2  2026/09/09
+*! psdash_overlap Version 1.7.3  2026/09/29
 *! Propensity score overlap diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -248,6 +248,10 @@ program define psdash_overlap, rclass
     local sd_ps_c = r(sd_ps_c)
     local overlap_lower = r(overlap_lower)
     local overlap_upper = r(overlap_upper)
+    * Exact copies for the stored results; the decimal locals serve display.
+    tempname ov_lower ov_upper
+    scalar `ov_lower' = r(overlap_lower)
+    scalar `ov_upper' = r(overlap_upper)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
     local n_outside_t = r(n_outside_t)
@@ -472,8 +476,9 @@ program define psdash_overlap, rclass
 
     * Get group labels
     foreach lev of local levels {
-        local lbl_`lev' : label (`treatment') `lev'
-        if "`lbl_`lev''" == "" local lbl_`lev' "Group `lev'"
+        * Value label, verbatim and inert (code when unlabelled)
+        _psdash_label_text, variable(`treatment') level(`lev')
+        local lbl_`lev' `"`r(text)'"'
     }
 
     * CALCULATE OVERLAP STATISTICS
@@ -495,6 +500,10 @@ program define psdash_overlap, rclass
     }
     local overlap_lower = r(overlap_lower)
     local overlap_upper = r(overlap_upper)
+    * Exact copies for the stored results; the decimal locals serve display.
+    tempname ov_lower ov_upper
+    scalar `ov_lower' = r(overlap_lower)
+    scalar `ov_upper' = r(overlap_upper)
     local n_outside = r(n_outside)
     local pct_outside = r(pct_outside)
     * RB-12: full-vector GPS positivity. The engine has always computed these,
@@ -698,8 +707,8 @@ program define psdash_overlap, rclass
             return scalar max_ps_treated = `max_ps_t'
             return scalar min_ps_control = `min_ps_c'
             return scalar max_ps_control = `max_ps_c'
-            return scalar overlap_lower = `overlap_lower'
-            return scalar overlap_upper = `overlap_upper'
+            return scalar overlap_lower = `ov_lower'
+            return scalar overlap_upper = `ov_upper'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             if !missing(`auc') return scalar auc = `auc'
@@ -720,8 +729,8 @@ program define psdash_overlap, rclass
                 return scalar max_ps_group_`lev' = `max_ps_`lev''
                 return scalar min_gps_group_`lev' = `min_gps_`lev''
             }
-            return scalar overlap_lower = `overlap_lower'
-            return scalar overlap_upper = `overlap_upper'
+            return scalar overlap_lower = `ov_lower'
+            return scalar overlap_upper = `ov_upper'
             return scalar n_outside = `n_outside'
             return scalar pct_outside = `pct_outside'
             * RB-12: full-vector GPS positivity, same keys as psdash support

@@ -89,7 +89,7 @@ capture noisily {
 
     psdash weights arm, psvars(ps0 ps1 ps2) detail
     assert r(K) == 3 & r(N) == 300
-    assert !missing(r(ess)) & r(ess) > 0 & r(ess) <= r(N)
+    assert !missing(r(ess)) & !missing(r(N)) & r(ess) > 0 & r(ess) <= r(N)
 
     psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
     assert r(K) == 3 & r(N) == 300

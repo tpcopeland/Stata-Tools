@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.7.2  2026/09/09
+*! _psdash_ltmle_diagnostics Version 1.7.3  2026/09/29
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -100,7 +100,7 @@ program define _psdash_ltmle_diagnostics, rclass
             exit 2000
         }
 
-        tempname overlap wtperiod
+        tempname overlap wtperiod ov_lo ov_hi ov_min_t ov_max_t ov_min_c ov_max_c
         matrix `overlap' = J(`n_periods', 12, .)
         matrix colnames `overlap' = N N_treated N_control mean_treated ///
             mean_control min_treated max_treated min_control max_control ///
@@ -163,6 +163,8 @@ program define _psdash_ltmle_diagnostics, rclass
                 local mean_t = r(mean)
                 local min_t = r(min)
                 local max_t = r(max)
+                scalar `ov_min_t' = r(min)
+                scalar `ov_max_t' = r(max)
             }
 
             local mean_c = .
@@ -174,16 +176,22 @@ program define _psdash_ltmle_diagnostics, rclass
                 local mean_c = r(mean)
                 local min_c = r(min)
                 local max_c = r(max)
+                scalar `ov_min_c' = r(min)
+                scalar `ov_max_c' = r(max)
             }
 
-            local overlap_lower = .
-            local overlap_upper = .
+            scalar `ov_lo' = .
+            scalar `ov_hi' = .
             local pct_outside = .
             if `p_Nt' > 0 & `p_Nc' > 0 {
-                local overlap_lower = max(`min_t', `min_c')
-                local overlap_upper = min(`max_t', `max_c')
+                * The bounds are data values; compare the data with exact
+                * scalars, not with their decimal macro text (a double does
+                * not round-trip through it, which counted the bound-defining
+                * observation outside its own support).
+                scalar `ov_lo' = max(`ov_min_t', `ov_min_c')
+                scalar `ov_hi' = min(`ov_max_t', `ov_max_c')
                 quietly count if `samplevar' & `period' == `p' ///
-                    & (`psvar' < `overlap_lower' | `psvar' > `overlap_upper')
+                    & (`psvar' < `ov_lo' | `psvar' > `ov_hi')
                 local n_outside = r(N)
                 local pct_outside = 100 * `n_outside' / `p_N'
                 if `pct_outside' > `max_pct_outside' {
@@ -200,8 +208,8 @@ program define _psdash_ltmle_diagnostics, rclass
             matrix `overlap'[`i', 7] = `max_t'
             matrix `overlap'[`i', 8] = `min_c'
             matrix `overlap'[`i', 9] = `max_c'
-            matrix `overlap'[`i', 10] = `overlap_lower'
-            matrix `overlap'[`i', 11] = `overlap_upper'
+            matrix `overlap'[`i', 10] = `ov_lo'
+            matrix `overlap'[`i', 11] = `ov_hi'
             matrix `overlap'[`i', 12] = `pct_outside'
 
             * Use the same scaled weight moments as the overall summary;

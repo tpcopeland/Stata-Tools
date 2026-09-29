@@ -85,6 +85,8 @@ capture mkdir "`demo_dir'"
 * --- Install local package build ---
 capture ado uninstall psdash
 quietly net install psdash, from("`pkg_dir'") replace
+which psdash
+which psdash_balance
 
 * --- Graph scheme ---
 local tc_dir "`repo'/tc_schemes"
@@ -94,7 +96,20 @@ if !fileexists("`tc_dir'/tc_schemes.pkg") {
 }
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`tc_dir'") replace
-set scheme plotplainblind
+* Resolve the scheme from the sandboxed tc_schemes install and assert it took
+* effect; a missing scheme must stop the demo rather than fall back silently.
+capture findfile scheme-white_tableau.scheme
+if _rc {
+    display as error "scheme white_tableau not found after tc_schemes install"
+    exit 601
+}
+set scheme white_tableau
+if "`c(scheme)'" != "white_tableau" {
+    display as error "scheme white_tableau did not take effect (c(scheme) = `c(scheme)')"
+    exit 198
+}
+* saving() exports at the batch-mode default size (576 x 384); each graph is
+* re-exported from memory at README resolution right after its saving() call.
 
 
 **# Binary treatment setup
@@ -139,10 +154,12 @@ noisily psdash overlap statin ps, nograph
 log close overlap
 
 psdash overlap statin ps, saving("`demo_dir'/overlap_density.png")
+quietly graph export "`demo_dir'/overlap_density.png", width(1400) replace
 capture graph close _all
 
 psdash overlap statin ps, histogram bins(25) ///
     saving("`demo_dir'/overlap_histogram.png")
+quietly graph export "`demo_dir'/overlap_histogram.png", width(1400) replace
 capture graph close _all
 
 **# 2. Balance and weight diagnostics
@@ -156,6 +173,7 @@ log close balwt
 
 psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
     wvar(ipw) loveplot saving("`demo_dir'/love_plot.png")
+quietly graph export "`demo_dir'/love_plot.png", width(1400) replace
 capture graph close _all
 
 **# 3. Weight modification options
@@ -170,6 +188,7 @@ log close weight_opts
 
 psdash weights statin ps, wvar(ipw) graph xlabel(0 2 5 10 15) ///
     saving("`demo_dir'/weight_distribution.png")
+quietly graph export "`demo_dir'/weight_distribution.png", width(1400) replace
 capture graph close _all
 
 **# 4. Support assessment
@@ -180,6 +199,7 @@ noisily tabulate in_support statin, column
 log close support
 
 psdash support statin ps, crump saving("`demo_dir'/support_region.png")
+quietly graph export "`demo_dir'/support_region.png", width(1400) replace
 capture graph close _all
 
 **# 5. Stored result example
@@ -196,6 +216,7 @@ log close return_values
 psdash combined statin ps, ///
     covariates(age female bmi sbp cholesterol) wvar(ipw) ///
     saving("`demo_dir'/dashboard.png")
+quietly graph export "`demo_dir'/dashboard.png", width(1400) replace
 capture graph close _all
 
 **# 7. Fully automatic workflow after teffects
@@ -207,6 +228,7 @@ noisily psdash combined
 log close teffects_auto
 
 psdash combined, saving("`demo_dir'/dashboard_teffects.png")
+quietly graph export "`demo_dir'/dashboard_teffects.png", width(1400) replace
 capture graph close _all
 
 **# B1. Auto-detection inspection + machine-readable verdict (v1.3.0)
@@ -243,12 +265,14 @@ log close trim_compare
 **# B4. Multi-strategy Love plot overlay (v1.3.0)
 psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
     strategies(raw ate att) saving("`demo_dir'/strategies_loveplot.png")
+quietly graph export "`demo_dir'/strategies_loveplot.png", width(1400) replace
 capture graph close _all
 
 **# B5. Per-covariate distributional balance (v1.3.0)
 psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
     wvar(ipw) distribution(age bmi sbp) ///
     saving("`demo_dir'/distribution_balance.png")
+quietly graph export "`demo_dir'/distribution_balance.png", width(1400) replace
 capture graph close _all
 
 **# B6/B7. Excel report workbook + single-panel export parity (v1.3.0)
@@ -310,19 +334,24 @@ log close mg_overlap
 
 psdash overlap arm, psvars(ps0 ps1 ps2) ///
     saving("`demo_dir'/mg_overlap_density.png")
+quietly graph export "`demo_dir'/mg_overlap_density.png", width(1400) replace
 capture graph close _all
 
 **# 6. Multi-group balance
+* Two contrasts with raw and adjusted SMD/VR/KS columns need 134 columns.
+set linesize 140
 log using "`demo_dir'/console_mg_balance.log", replace text ///
     name(mg_balance) nomsg
 * # Multi-group balance diagnostics
 noisily psdash balance arm, psvars(ps0 ps1 ps2) ///
     covariates(age female bmi sbp cholesterol creatinine) wvar(gipw) ks
 log close mg_balance
+set linesize 120
 
 psdash balance arm, psvars(ps0 ps1 ps2) ///
     covariates(age female bmi sbp cholesterol creatinine) wvar(gipw) ///
     loveplot saving("`demo_dir'/mg_love_plot.png")
+quietly graph export "`demo_dir'/mg_love_plot.png", width(1400) replace
 capture graph close _all
 
 **# 7. Multi-group weights
@@ -354,6 +383,7 @@ log close mg_reference
 psdash combined arm, psvars(ps0 ps1 ps2) ///
     covariates(age female bmi sbp cholesterol creatinine) wvar(gipw) ///
     saving("`demo_dir'/mg_dashboard.png")
+quietly graph export "`demo_dir'/mg_dashboard.png", width(1400) replace
 capture graph close _all
 
 **# Convert console logs to markdown via logdoc

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.2  09sep2026}{...}
+{* *! version 1.7.3  29sep2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -389,14 +389,19 @@ which enforces one complete-case sample across every panel, or an explicit
 {cmd:if} restriction, when every row must share one N.
 
 {phang}
-{opt loveplot} generates a Love plot showing SMDs for each covariate.
+{opt loveplot} generates a Love plot showing SMDs for each covariate: raw and,
+when weights are applied, adjusted. For multi-group treatments each contrast
+has a hollow raw and a solid adjusted series, named with the treatment's value
+labels (numeric codes for unlabelled levels); labels are shown verbatim.
 
 {phang}
 {opt strategies(strategylist)} overlays the SMD for several weighting strategies
 in one Love plot, replacing the default raw/adjusted plot. {it:strategylist} is a
 space-separated subset of {cmd:raw} (unadjusted), {cmd:ate}, {cmd:att}, and
 {cmd:atc} (each IPTW-weighted under that estimand). Requires a propensity score
-and binary treatment. This mirrors R {cmd:cobalt}'s multi-strategy {cmd:love.plot}.
+and binary treatment. A strategy whose weight is undefined for an exact 0 or 1
+propensity score exits with error 459 rather than plotting a smaller sample. This
+mirrors R {cmd:cobalt}'s multi-strategy {cmd:love.plot}.
 
 {phang}
 {opt distribution(varlist)} draws per-covariate distributional balance plots
@@ -415,7 +420,8 @@ be passed to {helpb puttab} or appended as a balance column in a {help table1_tc
 table.
 
 {phang}
-{opt ks} displays Kolmogorov-Smirnov statistics in the balance table. KS
+{opt ks} displays Kolmogorov-Smirnov statistics in the balance table: a raw
+column and, when weights are applied, an adjusted (weighted) column. KS
 statistics are always computed and stored in the {cmd:r(balance)} matrix
 regardless of this option; {opt ks} controls display only. Both the raw KS
 ({cmd:KS_Raw}) and, when weights are applied, a {it:weighted} KS ({cmd:KS_Adj},
@@ -448,7 +454,12 @@ there is no universal verdict threshold.
 {bf:SMD denominator.} {cmd:psdash} standardizes both the raw and the adjusted SMD
 by the same {it:unweighted} pooled standard deviation, so the two columns share a
 scale and are directly comparable — including across the several weighting schemes
-of {opt strategies()}. This is the {cmd:cobalt} (R) default convention. It is
+of {opt strategies()}. Computing the denominator once in the unadjusted sample
+follows {cmd:cobalt} (R); the pooled denominator is {cmd:cobalt}'s default only
+for the ATE. For ATT and ATC, {cmd:cobalt} defaults to the treated-group and
+control-group standard deviation, whereas {cmd:psdash} uses the pooled
+denominator of Austin (2009) for every estimand, so ATT/ATC SMDs can differ
+from a default {cmd:cobalt} table. It is
 {it:not} the formulation in Austin and Stuart (2015), whose section 4.1.1 replaces
 {it:each} sample estimate by its weighted equivalent, so that the weighted SMD's
 denominator is a weighted variance as well. The two agree when weights are equal

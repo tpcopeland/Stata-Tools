@@ -106,7 +106,8 @@ capture noisily {
     gen byte treat = mod(_n, 2)
     gen double ps3 = 0.5
     capture psdash combined treat ps3, nooverlap noweights nobalance nosupport
-    assert _rc != 0                                    // OLD: rc=0, verdict=PASS
+    assert _rc == 198                                  // OLD: rc=0, verdict=PASS
+    assert `"`r(verdict)'"' == ""                      // no verdict posted
 }
 _t "V1_zero_panel_is_error_not_PASS" `=_rc'
 

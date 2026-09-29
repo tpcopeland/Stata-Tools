@@ -1,4 +1,4 @@
-*! _psdash_crump_alpha Version 1.7.2  2026/09/09
+*! _psdash_crump_alpha Version 1.7.3  2026/09/29
 *! Efficient Crump optimal-trimming grid search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
