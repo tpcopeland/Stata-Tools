@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  21aug2026}{...}
+{* *! version 1.3.1  30sep2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -31,14 +31,14 @@
 {synoptline}
 {syntab:Model}
 {synopt:{opt by(varname)}}group variable for stratified curves{p_end}
-{synopt:{opt fail:ure}}plot cumulative failure (1-KM) instead of survival{p_end}
+{synopt:{opt fail:ure}}plot cumulative failure (1-KM){p_end}
 
 {syntab:Confidence intervals}
 {synopt:{opt ci}}show confidence intervals{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {bf:95}{p_end}
-{synopt:{opt cis:tyle(string)}}CI display: {bf:band} (default) or {bf:line}{p_end}
+{synopt:{opt cis:tyle(string)}}CI display: band or line{p_end}
 {synopt:{opt cio:pacity(#)}}band opacity 0-100; default {bf:12}{p_end}
-{synopt:{opt citr:ansform(string)}}CI transform: {bf:loglog} (default), {bf:log}, or {bf:plain}{p_end}
+{synopt:{opt citr:ansform(string)}}CI transform: loglog, log, plain{p_end}
 
 {syntab:Median}
 {synopt:{opt med:ian}}draw median survival reference lines{p_end}
@@ -46,10 +46,10 @@
 
 {syntab:Risk table}
 {synopt:{opt risk:table}}add number-at-risk table below plot{p_end}
-{synopt:{opt riskev:ents}}add cumulative events as {it:N (events)} in risk table{p_end}
-{synopt:{opt riskcom:pact}}same as {opt riskevents}; compact {it:N (events)} format{p_end}
+{synopt:{opt riskev:ents}}show cumulative events{p_end}
+{synopt:{opt riskcom:pact}}synonym for riskevents{p_end}
 {synopt:{opt riskm:ono}}display risk-table numbers in black{p_end}
-{synopt:{opt riskh:eight(#)}}risk-table graph height; default auto by group count{p_end}
+{synopt:{opt riskh:eight(#)}}risk-table height; default auto{p_end}
 {synopt:{opt time:points(numlist)}}timepoints for risk table; default auto{p_end}
 
 {syntab:Fixed-time summaries}
@@ -62,14 +62,14 @@
 {syntab:P-value}
 {synopt:{opt pval:ue}}display log-rank p-value on plot{p_end}
 {synopt:{opt pvaluepo:s(string)}}position for p-value text{p_end}
-{synopt:{opt pvaluef:ormat(string)}}numeric display format for p-value; default {bf:%5.3f}{p_end}
-{synopt:{opt pvaluet:ext(string)}}label text before the p-value; default {bf:Log-rank p}{p_end}
-{synopt:{opt pvalueat(y x)}}place p-value text at explicit y x graph coordinates{p_end}
+{synopt:{opt pvaluef:ormat(string)}}p-value format; default %5.3f{p_end}
+{synopt:{opt pvaluet:ext(string)}}p-value label; default Log-rank p{p_end}
+{synopt:{opt pvalueat(y x)}}p-value graph coordinates{p_end}
 
 {syntab:Appearance}
-{synopt:{opt col:ors(colorlist)}}line colors; default colorblind-safe palette{p_end}
-{synopt:{opt lw:idth(string)}}line width; default {bf:medthick}{p_end}
-{synopt:{opt lp:attern(patternlist)}}line patterns; default all {bf:solid}{p_end}
+{synopt:{opt col:ors(colorlist)}}line colors{p_end}
+{synopt:{opt lw:idth(string)}}line width; default medthick{p_end}
+{synopt:{opt lp:attern(patternlist)}}line patterns; default solid{p_end}
 
 {syntab:Labels}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
@@ -82,12 +82,12 @@
 {synopt:{opt note(string)}}graph note{p_end}
 
 {syntab:Output}
-{synopt:{opt sch:eme(string)}}graph scheme; default is the current Stata scheme{p_end}
+{synopt:{opt sch:eme(string)}}graph scheme; default current{p_end}
 {synopt:{opt name(string)}}graph name; default {bf:kmplot}{p_end}
 {synopt:{opt asp:ectratio(string)}}aspect ratio{p_end}
-{synopt:{opt exp:ort(string)}}export graph to file (e.g., {it:file.pdf, replace}){p_end}
+{synopt:{opt exp:ort(string)}}export graph{p_end}
 {synopt:{opt sav:ing(filename[, replace])}}save curve data used for the graph{p_end}
-{synopt:{opt risksav:ing(filename[, replace])}}save risk-table counts as a Stata dataset{p_end}
+{synopt:{opt risksav:ing(filename[, replace])}}save risk-table counts{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -200,7 +200,10 @@ title from the first risk-table row. Numeric positions are also used when
 
 {phang}{opt landmark(numlist)} returns estimates at fixed analysis times. In survival mode,
 the returned estimate is S(t). With {opt failure}, it is 1 - S(t). If {opt ci} is
-specified, lower and upper bounds are included in {cmd:r(landmarks)}.{p_end}
+specified, lower and upper bounds are included in {cmd:r(landmarks)}. Explicit
+times retain double precision. Beyond a group's last observed follow-up,
+estimates and bounds are missing unless survival has reached zero (failure has
+reached one); that terminal value remains defined.{p_end}
 
 {dlgtab:Censoring}
 
@@ -313,7 +316,10 @@ Fine-Gray competing-risk estimators.{p_end}
 {pstd}
 The {opt pvalue} option uses Stata's {cmd:sts test, logrank}. Risk-table
 counts honor delayed entry, active {cmd:stset} weights, and subject
-identifiers. In multiple-record data, subjects are counted once per
+identifiers. Probability weights support point estimates and weighted counts,
+but {opt ci} and {opt pvalue} are refused because Greenwood inference and the
+log-rank test are unsupported. Saved standard errors are missing with
+probability weights. In multiple-record data, subjects are counted once per
 timepoint. Contiguous records within the same group are not treated as
 censoring; departures from a group are.{p_end}
 
@@ -374,10 +380,10 @@ censoring; departures from a group are.{p_end}
 {synopt:{cmd:r(failure)}}1 if {opt failure} was requested{p_end}
 {synopt:{cmd:r(n_landmarks)}}number of requested landmark timepoints{p_end}
 {synopt:{cmd:r(n_timepoints)}}number of risk-table timepoints{p_end}
-{synopt:{cmd:r(riskheight)}}risk-table graph height when risk data were computed{p_end}
+{synopt:{cmd:r(riskheight)}}risk-table graph height used{p_end}
 {synopt:{cmd:r(p)}}log-rank p-value when computed{p_end}
-{synopt:{cmd:r(pvalue_y)}}explicit y coordinate when {opt pvalueat()} was used{p_end}
-{synopt:{cmd:r(pvalue_x)}}explicit x coordinate when {opt pvalueat()} was used{p_end}
+{synopt:{cmd:r(pvalue_y)}}explicit p-value y coordinate{p_end}
+{synopt:{cmd:r(pvalue_x)}}explicit p-value x coordinate{p_end}
 {synopt:{cmd:r(median_)}}median scalar family by group{p_end}
 
 {p2col 5 16 20 2: Macros}{p_end}
@@ -396,8 +402,8 @@ censoring; departures from a group are.{p_end}
 {synopt:{cmd:r(xtitle)}}x-axis title{p_end}
 {synopt:{cmd:r(ytitle)}}y-axis title{p_end}
 {synopt:{cmd:r(export)}}requested path when {opt export()} was specified{p_end}
-{synopt:{cmd:r(saving)}}curve dataset path when {opt saving()} succeeded{p_end}
-{synopt:{cmd:r(risksaving)}}risk-table dataset path when {opt risksaving()} succeeded{p_end}
+{synopt:{cmd:r(saving)}}saved curve dataset path{p_end}
+{synopt:{cmd:r(risksaving)}}saved risk-table dataset path{p_end}
 {synopt:{cmd:r(pvalue_text)}}displayed p-value text{p_end}
 {synopt:{cmd:r(pvalue_label)}}p-value label text{p_end}
 {synopt:{cmd:r(pvalue_format)}}p-value numeric format{p_end}
@@ -405,7 +411,7 @@ censoring; departures from a group are.{p_end}
 {synopt:{cmd:r(pvalue_at)}}explicit p-value coordinates, if specified{p_end}
 
 {p2col 5 16 20 2: Matrices}{p_end}
-{synopt:{cmd:r(medians)}}group and median columns when {opt median} is requested{p_end}
+{synopt:{cmd:r(medians)}}group and median columns{p_end}
 {synopt:{cmd:r(landmarks)}}fixed-time estimate matrix{p_end}
 {synopt:{cmd:r(risktable)}}risk-table count matrix{p_end}
 
@@ -424,6 +430,6 @@ though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 {pstd}
 Timothy P Copeland, Karolinska Institutet{break}
-Version 1.3.0, 2026-08-21{p_end}
+Version 1.3.1, 2026-09-30{p_end}
 
 {hline}

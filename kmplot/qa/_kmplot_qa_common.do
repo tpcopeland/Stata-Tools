@@ -21,6 +21,7 @@ program define _kmplot_qa_bootstrap
     sysdir set PLUS "`plus_dir'"
     sysdir set PERSONAL "`personal_dir'"
 
+    quietly ado dir
     capture ado uninstall kmplot
     quietly net install kmplot, from("`pkg_dir'") replace
     discard

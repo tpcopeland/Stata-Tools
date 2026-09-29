@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.8  27sep2026}{...}
+{* *! version 1.1.9  30sep2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -209,7 +209,8 @@ content with color-coded blocks.
 {dlgtab:logdoc batch}
 
 {pstd}
-Converts multiple files matching a glob pattern in one command.
+Converts multiple files matching a glob pattern in one command. Inputs that
+map to the same output basename are rejected before conversion.
 
 {phang2}{cmd:. logdoc batch, input("*.smcl") outdir("/reports/") replace}{p_end}
 
@@ -229,7 +230,9 @@ Re-runs the most recent {cmd:logdoc} conversion using the last resolved
 options, with optional overrides. Useful for quickly switching themes
 or formats without retyping metadata or filtering options. If the
 previous conversion used {opt run}, replay re-executes the .do file in
-batch mode (with the same {opt stataexe()} setting) before converting.
+batch mode (with the same {opt stataexe()} setting) before converting. The
+latest successful live-session transcript remains in temporary storage
+for replay until a successful conversion of another input replaces it.
 
 {phang2}{cmd:. logdoc replay, theme(dark)}{p_end}
 
@@ -629,7 +632,8 @@ SMCL or log format. An empty input produces no output.
 {phang}
 {bf:Graphs not embedded}: Graphs are embedded only when a
 {cmd:graph export} command appears in the log AND the image file exists
-relative to the input file's directory. Use absolute paths for reliability.
+relative to the input file's directory (the execution directory for {opt run}
+or live capture). Use absolute paths for reliability.
 
 {phang}
 {bf:Tables not formatted}: Tables are rendered as monospace by default for

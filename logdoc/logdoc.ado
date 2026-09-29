@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.8  2026/09/27
+*! logdoc Version 1.1.9  2026/09/30
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -128,6 +128,8 @@ program define _logdoc_convert, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    tempname _sizefh
+    local _sizefh_open = 0
 
     capture noisily {
 
@@ -502,6 +504,14 @@ program define _logdoc_convert, rclass
     local cmd `""`python'" "`scriptpath'" "`input_file'" "`output'""'
     local cmd `"`cmd' --format `format'"'
     local cmd `"`cmd' --theme `theme'"'
+    local _graphbase ""
+    if "`run'" != "" local _graphbase `"`c(pwd)'"'
+    if `"`using'"' == `"$LOGDOC_TMPLOG"' local _graphbase `"$LOGDOC_GRAPHBASE"'
+    if `"`using'"' == `"$LOGDOC_SESSION_INPUT"' local _graphbase `"$LOGDOC_SESSION_BASE"'
+    if `"`_graphbase'"' != "" {
+        _logdoc_validate_shell_path, path(`"`_graphbase'"') context("graph directory")
+        local cmd `"`cmd' --graph-base "`_graphbase'""'
+    }
 
     if "`title'" != "" {
         * Write title to tempfile to avoid shell quoting issues
@@ -656,6 +666,14 @@ program define _logdoc_convert, rclass
     local _actual_format "`format'"
     local _temphtml_path ""
     if inlist("`format'", "docx", "pdf") {
+        tempfile _identityout
+        shell "`python'" "`scriptpath'" "`input_file'" "`output'" ///
+            --check-output-only > "`_identityout'" 2>&1
+        _logdoc_parse_pyout using "`_identityout'"
+        if !r(completed) {
+            display as error `"`r(lastmsg)'"'
+            exit 198
+        }
         tempfile _temphtml
         local _temphtml_path "`_temphtml'.html"
         * Rewrite the command to produce HTML to the temp path
@@ -684,13 +702,15 @@ program define _logdoc_convert, rclass
     local _ntables = r(ntables)
     local _nwarnings = r(nwarnings)
     local _ngenerated = r(ngenerated)
+    local _completed = r(completed)
     local _py_lastmsg `"`r(lastmsg)'"'
 
     * Stata's shell does not report the renderer's exit status, and with
     * replace/append the output path may already exist, so file existence
-    * alone cannot prove success.  Require the renderer's own
-    * "Generated:" confirmation before any file check.
-    if `_ngenerated' == 0 {
+    * alone cannot prove success. Require renderer completion and one
+    * artifact announcement for every expected file before any file check.
+    local _expected = cond("`format'" == "both", 2, 1)
+    if !`_completed' | `_ngenerated' != `_expected' {
         display as error "failed to generate output document"
         if `"`_py_lastmsg'"' != "" {
             display as error `"`_py_lastmsg'"'
@@ -841,6 +861,16 @@ program define _logdoc_convert, rclass
         capture erase "`_temphtml_path'"
     }
 
+    if inlist("`_actual_format'", "docx", "pdf") {
+        file open `_sizefh' using "`output'", read binary
+        local _sizefh_open = 1
+        file seek `_sizefh' eof
+        file seek `_sizefh' query
+        local _filesize = r(loc)
+        file close `_sizefh'
+        local _sizefh_open = 0
+    }
+
     * Verify output
     * For format(both), Python creates .html/.md variants; the raw output
     * path may not exist if it has no extension, so compute expected paths.
@@ -913,6 +943,12 @@ program define _logdoc_convert, rclass
         }
     }
 
+    if `"$LOGDOC_SESSION_INPUT"' != "" & ///
+        `"$LOGDOC_SESSION_INPUT"' != `"`using'"' {
+        capture erase `"$LOGDOC_SESSION_INPUT"'
+        capture macro drop LOGDOC_SESSION_INPUT LOGDOC_SESSION_BASE
+    }
+
     global LOGDOC_LAST_INPUT `"`using'"'
     global LOGDOC_LAST_OUTPUT `"`output'"'
     global LOGDOC_LAST_FORMAT `"`format'"'
@@ -970,6 +1006,7 @@ program define _logdoc_convert, rclass
     } // end capture noisily
 
     local rc = _rc
+    if `_sizefh_open' capture file close `_sizefh'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -1060,7 +1097,7 @@ program define _logdoc_start
     global LOGDOC_PREFORMATTED "`preformatted'"
     global LOGDOC_NOFOLD "`nofold'"
     global LOGDOC_NODOTS "`nodots'"
-    global LOGDOC_PYTHON `"`python'"'
+    global LOGDOC_SESSION_PYTHON `"`python'"'
     global LOGDOC_CSS `"`css'"'
     global LOGDOC_ACCENT `"`accent'"'
     global LOGDOC_OPEN "`open'"
@@ -1100,6 +1137,7 @@ program define _logdoc_start
     set rngstate `_rngstate'
     local _tmplog "`c(tmpdir)'/logdoc_session_`_ts'_`_rand'.smcl"
     global LOGDOC_TMPLOG "`_tmplog'"
+    global LOGDOC_GRAPHBASE `"`c(pwd)'"'
 
     capture log close _logdoc
     quietly log using "`_tmplog'", replace name(_logdoc)
@@ -1123,13 +1161,13 @@ program define _logdoc_start
             capture erase "`_tmplog'"
             capture macro drop LOGDOC_ACTIVE LOGDOC_OUTPUT LOGDOC_FORMAT LOGDOC_THEME ///
                 LOGDOC_TITLE LOGDOC_DATE LOGDOC_PREFORMATTED LOGDOC_NOFOLD ///
-                LOGDOC_NODOTS LOGDOC_PYTHON LOGDOC_CSS LOGDOC_OPEN ///
+                LOGDOC_NODOTS LOGDOC_SESSION_PYTHON LOGDOC_CSS LOGDOC_OPEN ///
                 LOGDOC_ACCENT LOGDOC_REPLACE LOGDOC_APPEND LOGDOC_QUIET LOGDOC_VERBOSE LOGDOC_FOOTER ///
                 LOGDOC_STAMP LOGDOC_NOGRAPH LOGDOC_GRAPHWIDTH LOGDOC_GRAPHHEIGHT ///
                 LOGDOC_LINENUMBERS LOGDOC_TOC LOGDOC_FOLD LOGDOC_HIGHLIGHT ///
                 LOGDOC_TABLES LOGDOC_COPY LOGDOC_DOWNLOAD LOGDOC_KEEP LOGDOC_DROP ///
                 LOGDOC_NOTEBOOK LOGDOC_EMAIL LOGDOC_ANNOTATE LOGDOC_LEGACY ///
-                LOGDOC_GENERATED LOGDOC_ORIG_LINESIZE LOGDOC_TMPLOG
+                LOGDOC_GENERATED LOGDOC_ORIG_LINESIZE LOGDOC_TMPLOG LOGDOC_GRAPHBASE
         }
     }
     set varabbrev `_orig_varabbrev'
@@ -1186,8 +1224,8 @@ program define _logdoc_stop, rclass
     if "$LOGDOC_NODOTS" != "" {
         local _opts `"`_opts' nodots"'
     }
-    if `"$LOGDOC_PYTHON"' != "" {
-        local _opts `"`_opts' python(`"$LOGDOC_PYTHON"')"'
+    if `"$LOGDOC_SESSION_PYTHON"' != "" {
+        local _opts `"`_opts' python(`"$LOGDOC_SESSION_PYTHON"')"'
     }
     if `"$LOGDOC_CSS"' != "" {
         local _opts `"`_opts' css(`"$LOGDOC_CSS"')"'
@@ -1272,12 +1310,12 @@ program define _logdoc_stop, rclass
     capture noisily _logdoc_convert using "`_tmplog'", `_opts'
     local _convert_rc = _rc
 
-    * Clean up globals even on error, but only erase the captured log
-    * after a successful conversion -- it is the only copy of the session
-    * transcript, and erasing it on failure would make the error
-    * unrecoverable.
+    * Retain the latest successful session for replay; the next successful
+    * conversion of a different input removes it. Failed captures remain
+    * recoverable and do not replace the replay source.
     if `_convert_rc' == 0 {
-        capture erase "`_tmplog'"
+        global LOGDOC_SESSION_INPUT `"`_tmplog'"'
+        global LOGDOC_SESSION_BASE `"$LOGDOC_GRAPHBASE"'
     }
     else {
         display as error "conversion failed; captured session log preserved:"
@@ -1286,13 +1324,13 @@ program define _logdoc_stop, rclass
     }
     capture macro drop LOGDOC_ACTIVE LOGDOC_OUTPUT LOGDOC_FORMAT LOGDOC_THEME ///
         LOGDOC_TITLE LOGDOC_DATE LOGDOC_PREFORMATTED LOGDOC_NOFOLD ///
-        LOGDOC_NODOTS LOGDOC_PYTHON LOGDOC_CSS LOGDOC_OPEN ///
+        LOGDOC_NODOTS LOGDOC_SESSION_PYTHON LOGDOC_CSS LOGDOC_OPEN ///
         LOGDOC_ACCENT LOGDOC_REPLACE LOGDOC_APPEND LOGDOC_QUIET LOGDOC_VERBOSE LOGDOC_FOOTER ///
         LOGDOC_STAMP LOGDOC_NOGRAPH LOGDOC_GRAPHWIDTH LOGDOC_GRAPHHEIGHT ///
         LOGDOC_LINENUMBERS LOGDOC_TOC LOGDOC_FOLD LOGDOC_HIGHLIGHT ///
         LOGDOC_TABLES LOGDOC_COPY LOGDOC_DOWNLOAD LOGDOC_KEEP LOGDOC_DROP ///
         LOGDOC_NOTEBOOK LOGDOC_EMAIL LOGDOC_ANNOTATE LOGDOC_LEGACY ///
-        LOGDOC_GENERATED LOGDOC_ORIG_LINESIZE LOGDOC_TMPLOG
+        LOGDOC_GENERATED LOGDOC_ORIG_LINESIZE LOGDOC_TMPLOG LOGDOC_GRAPHBASE
     if "`_orig_linesize'" != "" {
         capture set linesize `_orig_linesize'
         local _linesize_restore_rc = _rc
@@ -1676,11 +1714,13 @@ program define _logdoc_combine, rclass
     local _ntables = r(ntables)
     local _nwarnings = r(nwarnings)
     local _ngenerated = r(ngenerated)
+    local _completed = r(completed)
     local _py_lastmsg `"`r(lastmsg)'"'
 
     * File existence cannot prove success when the output pre-exists
-    * (replace/append); require the renderer's "Generated:" confirmation.
-    if `_ngenerated' == 0 {
+    * (replace/append); require completion and every artifact announcement.
+    local _expected = cond("`format'" == "both", 2, 1)
+    if !`_completed' | `_ngenerated' != `_expected' {
         display as error "failed to generate combined output document"
         if `"`_py_lastmsg'"' != "" display as error `"`_py_lastmsg'"'
         display as error "command attempted:"
@@ -1707,6 +1747,7 @@ program define _logdoc_combine, rclass
             exit 601
         }
         local _secondary_path "`secondary'"
+        local output "`primary_file'"
         if "`quiet'" == "" {
             display as result "Output: `primary_file'"
             display as result "Output: `secondary'"
@@ -1851,6 +1892,22 @@ program define _logdoc_batch, rclass
     * Determine file extension for output
     local _outext ""
     _logdoc_format_ext, format("`format'") ext(_outext)
+
+    * Reject ambiguous destinations before converting any source.
+    local _bases ""
+    foreach f of local files {
+        local _dotpos = strrpos("`f'", ".")
+        local _base "`f'"
+        if `_dotpos' > 0 local _base = substr("`f'", 1, `_dotpos' - 1)
+        if "`c(os)'" == "Windows" local _base = lower("`_base'")
+        foreach _previous of local _bases {
+            if `"`_previous'"' == `"`_base'"' {
+                display as error "batch inputs map to the same output basename: `_base'"
+                exit 198
+            }
+        }
+        local _bases `"`_bases' `"`_base'"'"'
+    }
 
     * Loop over files
     local _count = 0
@@ -2201,6 +2258,7 @@ program define _logdoc_parse_pyout, rclass
     local _ntables = 0
     local _nwarnings = 0
     local _ngenerated = 0
+    local _completed = 0
     local _lastmsg ""
 
     capture confirm file "`using'"
@@ -2228,7 +2286,10 @@ program define _logdoc_parse_pyout, rclass
                 }
                 else if strtrim(`"`_pyoline'"') != "" {
                     local _trimline = strtrim(`"`_pyoline'"')
-                    if regexm(`"`_trimline'"', "^Generated: ") {
+                    if `"`_trimline'"' == "LOGDOC_OK" {
+                        local _completed = 1
+                    }
+                    else if regexm(`"`_trimline'"', "^Generated: ") {
                         local _ngenerated = `_ngenerated' + 1
                     }
                     else if !regexm(`"`_trimline'"', "^logdoc: processing ") {
@@ -2247,6 +2308,7 @@ program define _logdoc_parse_pyout, rclass
     return scalar ntables = `_ntables'
     return scalar nwarnings = `_nwarnings'
     return scalar ngenerated = `_ngenerated'
+    return scalar completed = `_completed'
     return local lastmsg `"`_lastmsg'"'
 
     }

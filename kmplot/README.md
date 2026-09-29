@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.3.0** | 2026-08-21
+**Version 1.3.1** | 2026-09-30
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -247,7 +247,11 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
+Landmarks beyond a group’s last observed follow-up are missing unless its survival curve has reached zero. Probability weights support point estimates and weighted counts; `ci` and `pvalue` are refused, and saved standard errors are missing.
+
 ## Version History
+
+- **1.3.1** (2026-09-30): Preserve continuous-time landmark/risk requests and shaded-band coordinates; limit landmarks to supported follow-up unless survival reaches zero; retain censor markers beyond 32,740 observations; handle quoted annotations, comma-containing titles and output paths; allow probability-weighted point estimates and counts while refusing unsupported inference.
 
 - **1.3.0** (2026-08-21): Rebuilt the risk-table layout. Group labels now occupy the risk table's y-axis label column instead of sitting inside the plotting region, so the main plot's time origin returns to its own y axis while the two time axes stay aligned; the label gutter, the row-label gap and the right-hand reserve are derived from the rendered text rather than from fixed margins. Risk-table counts and event counts are formatted with thousands separators.
 - **1.2.11** (2026-08-21): Added a dedicated left gutter and wider label gap so risk-table group labels do not overlap the vertical table title or time-zero counts. Superseded by 1.3.0: the shared plotregion margin it used to keep the panels aligned also pushed the main plot's time origin away from the y axis.
