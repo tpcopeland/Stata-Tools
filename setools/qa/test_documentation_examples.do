@@ -159,7 +159,7 @@ capture noisily {
 
     use `edss_source', clear
     pira id edss edss_date, dxdate(dx_date) ///
-        relapses("`relapse_file'") windowbefore(0) windowafter(30) ///
+        relapses("`relapse_file'") windowbefore(30) windowafter(0) ///
         generate(pira_sensitivity) rawgenerate(raw_sensitivity) keepall quietly
     confirm variable pira_sensitivity raw_sensitivity
 }
@@ -178,7 +178,7 @@ else {
 * crash. Exercise the shipped data when present; otherwise fall back to an
 * in-file multi-person fixture that reproduces the same trailing-flat shape.
 local ++test_count
-local repo_dir = subinstr("`pkg_dir'", "/setools", "", 1)
+local repo_dir = regexr("`pkg_dir'", "/setools$", "")
 capture confirm file "`repo_dir'/_data/relapses.dta"
 capture noisily {
     if _rc == 0 {

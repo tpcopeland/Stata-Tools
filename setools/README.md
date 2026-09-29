@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.7** | 2026-08-30
+**Version 1.5.8** | 2026-09-29
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -137,7 +137,7 @@ cdp id edss edss_date, dxdate(dx_date) roving allevents eventnumvar(cdp_number) 
 
 ### 8. Classify the first CDP as PIRA or RAW
 
-`pira` reads relapse events from a separate file. The default relapse window is 90 days before through 30 days after relapse onset.
+`pira` reads relapse events from a separate file. A first CDP is relapse-associated worsening (RAW) when a relapse began from 90 days before through 30 days after the progression onset (defaults); otherwise it is PIRA.
 
 ```stata
 local relapsefile "`c(tmpdir)'/relapses_only.dta"
@@ -189,7 +189,7 @@ cci_se [if] [in], id(varname) icd(varlist) date(varname) [generate(name) compone
 | `dates` | Off | Generate earliest component dates; also enables `components` |
 | `prefix(string)` | `cci_` | Prefix for component and component-date variables |
 | `dateformat(string)` | Numeric date: `stata`; string date: `yyyymmdd` | Parse dates as `stata`, `yyyymmdd`, or `ymd` |
-| `indexdate(varname)` | None | Exclude diagnoses after the row's index date |
+| `indexdate(varname)` | None | Exclude diagnoses after the patient's index date; conflicting nonmissing index dates within an `id()` are an error |
 | `lookback(#)` | Disabled | Keep only diagnoses in the positive-number-of-days window ending at `indexdate()`; requires `indexdate()` |
 | `noisily` | Off | Display patient counts, CCI summary statistics, and component prevalence when components are requested |
 
@@ -280,8 +280,8 @@ pira idvar edssvar datevar [if] [in], dxdate(varname) relapses(filename) [relaps
 | `relapses(filename)` | Required | Separate relapse-event dataset |
 | `relapseidvar(varname)` | Same as the EDSS ID variable | ID variable in the relapse file |
 | `relapsedatevar(varname)` | `relapse_date` | Stata daily relapse date variable |
-| `windowbefore(#)` | `90` | Days before relapse included in the RAW window |
-| `windowafter(#)` | `30` | Days after relapse included in the RAW window |
+| `windowbefore(#)` | `90` | A relapse this many days before the CDP onset (inclusive) makes it RAW |
+| `windowafter(#)` | `30` | A relapse this many days after the CDP onset (inclusive) makes it RAW |
 | `generate(name)` | `pira_date` | Date of the first confirmed progression outside relapse windows |
 | `rawgenerate(name)` | `raw_date` | Date of the first confirmed progression inside a relapse window |
 | `confirmdays(#)` | `180` | CDP confirmation interval |
@@ -411,8 +411,8 @@ The row names of `r(flow)` identify cohort start, exclusion stages, total exclud
 | `r(N_cdp_preexit)` | Scalar | First CDP count before exit censoring |
 | `r(N_pira)` | Scalar | First CDPs outside relapse windows |
 | `r(N_raw)` | Scalar | First CDPs inside relapse windows |
-| `r(windowbefore)` | Scalar | Pre-relapse window in days |
-| `r(windowafter)` | Scalar | Post-relapse window in days |
+| `r(windowbefore)` | Scalar | Relapse window before the CDP onset, in days |
+| `r(windowafter)` | Scalar | Relapse window after the CDP onset, in days |
 | `r(confirmdays)` | Scalar | CDP confirmation interval in days |
 | `r(baselinewindow)` | Scalar | Baseline window in days |
 | `r(converged)` | Scalar | Confirmation-loop convergence indicator |
@@ -445,6 +445,8 @@ The row names of `r(flow)` identify cohort start, exclusion stages, total exclud
 - Lublin FD, Reingold SC, Cohen JA, et al. Defining the clinical course of multiple sclerosis: the 2013 revisions. `Neurology`. 2014;83(3):278-286.
 - Kappos L, Butzkueven H, Wiendl H, et al. Greater sensitivity to multiple sclerosis disability worsening and progression events using a roving versus a fixed reference value. `Multiple Sclerosis Journal`. 2018;24:963-973.
 - Kappos L, Wolinsky JS, Giovannoni G, et al. Contribution of relapse-independent progression versus relapse-associated worsening to overall confirmed disability accumulation. `JAMA Neurology`. 2020;77:1132-1140.
+- Portaccio E, Betti M, De Meo E, et al. Progression independent of relapse activity in relapsing multiple sclerosis: impact and relationship with secondary progression. `Journal of Neurology`. 2024;271(8):5074-5082. doi:10.1007/s00415-024-12448-4.
+- Portaccio E, Betti M, De Meo E, et al. Toward a unified definition of progression independent of relapse activity in multiple sclerosis. `Neurology`. 2025;105(8):e213977. doi:10.1212/WNL.0000000000213977.
 - Kappos L, et al. Inclusion of brain volume loss in a revised measure of no evidence of disease activity in relapsing-remitting multiple sclerosis. `Multiple Sclerosis Journal`. 2016;22(10):1297-1305.
 
 ## QA
@@ -453,6 +455,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.8** (2026-09-29): Fixed `pira` classifying relapse-associated worsening with a mirrored window. The window was anchored on each relapse, so the defaults called a first CDP RAW when a relapse began up to 30 days before or up to 90 days after the progression onset; a progression 60 days after a relapse was returned as PIRA. The window is now anchored on the CDP onset: a first CDP is RAW when a relapse began from `windowbefore()` days before through `windowafter()` days after its onset (defaults 90 and 30, the published rule). Rerun earlier `pira` results. `cci_se` now rejects conflicting nonmissing `indexdate()` values within one `id()` (r(459)) instead of windowing each row by its own index date, and `pira` accepts a `relapses()` filename without the `.dta` extension.
 - **1.5.7** (2026-08-30): Rejected missing or nonpositive sustained-EDSS thresholds, missing or negative reversal floors, and negative CCI lookback windows instead of accepting public sentinel values. Added exact rollback, installed-helper, and self-contained help-render coverage, and repaired over-wide help-table descriptions.
 - **1.5.6** (2026-08-28): Accelerated the registry-scale longitudinal engines without changing their public interface or numerical definitions. `pira, rebaselinerelapse` now uses one forward Mata state-machine pass, while `cdp`, `pira`, and `sustainedss` use a shared sort-free grouped-minimum helper inside their iterative confirmation loops. Added row-level legacy-equivalence validation and a reproducible one-million-visit benchmark.
 - **1.5.5** (2026-08-13): Fixed `migrations` silently dropping the emigration censoring date for a person who immigrated before study start and emigrated permanently after it; because `in_`/`out_` are independently numbered, both events could share one reshape row and the immigration-only pre-filter discarded the row wholesale. This also made wide- and long-format migration files disagree. Corrected the `r(converged)` description in `cdp`, `pira`, and `sustainedss` (it is always 1; non-convergence exits with error r(430)) and removed the unreachable display branches, a no-op wide-format date assignment, and a duplicate-name hazard in the `pira` working varlist.

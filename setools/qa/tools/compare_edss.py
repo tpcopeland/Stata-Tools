@@ -143,14 +143,17 @@ def pira_one(visits, dxday, window, confirmdays, threetier, ctype,
              relapse_days, wbefore, wafter):
     """Classify the first confirmed CDP as PIRA or RAW.
 
-    pira.sthlp: the window runs from windowbefore() days before a relapse to
-    windowafter() days after. A first CDP outside every window is PIRA; one
-    inside any window is RAW.
+    pira.sthlp: the window is anchored on the CDP onset and runs from
+    windowbefore() days before it to windowafter() days after it. A first CDP
+    with a relapse onset in that window is RAW; otherwise it is PIRA. This is
+    the published "no relapse within 90 days before and 30 days after the
+    event" rule (Kappos 2020; Portaccio 2024, 2025), written from the papers
+    rather than from pira.ado.
     """
     c = cdp_one(visits, dxday, window, confirmdays, threetier, ctype)
     if c is None:
         return None, None
-    raw = any(r - wbefore <= c <= r + wafter for r in relapse_days)
+    raw = any(c - wbefore <= r <= c + wafter for r in relapse_days)
     return (None, c) if raw else (c, None)
 
 
