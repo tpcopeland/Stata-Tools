@@ -1,4 +1,4 @@
-*! desctab Version 2.1.16  2026/09/29 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.17  2026/09/29 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -296,8 +296,12 @@ program define desctab, rclass
        leave the block empty, so the combination cannot be protected and is
        refused rather than shipped as a reconstructable table. This check sits
        after the weighted default above so it catches an implicitly set
-       percent, not only an explicitly requested one. */
-    if "`smallcells'" != "" & "`percent'" != "" {
+       percent, not only an explicitly requested one. wtcompare is exempt
+       from that default, but its weighted columns are percent-only unless
+       wtn or percent_n restores the count, so it is refused on the same
+       terms. */
+    if "`smallcells'" != "" & ("`percent'" != "" | ///
+        (`has_wt' & "`wtcompare'" != "" & !`_show_wtn')) {
         display as error "smallcells() cannot be combined with percent-only display"
         display as error "Hint: use percent_n, wtn, or the default n (%); percentages are withheld for any variable that carries a suppressed count"
         exit 198

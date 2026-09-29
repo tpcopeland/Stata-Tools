@@ -460,6 +460,18 @@ zeros remain visible and are never selected as complementary
 cells.{p_end}
 
 {pstd}
+{bf:Counts that follow from printed ones are protected too.} A categorical
+variable's missing count equals the group N minus its printed levels, and a
+binary variable's negative and missing counts follow from the non-missing
+denominator its percentage releases. These counts are not printed, but one below
+the threshold is protected as a primary cell, as it would be if
+{opt missingsummary} or {opt slashN} printed it: printed cells are marked
+{cmd:≥#} where needed, percentages are withheld, and the p-value is
+suppressed. The group and total sample sizes are shared by every variable, so
+they are never withheld as complementary cells; when a count cannot be protected without them, {cmd:desctab}
+stops with an error.{p_end}
+
+{pstd}
 {bf:Percentages are withheld for a protected variable.} A published percentage
 releases its own denominator: dividing a published count by its published
 percentage recovers the per-variable non-missing group total, after which the
@@ -467,8 +479,9 @@ remaining counts follow by subtraction. Whenever a variable's block carries a
 primary suppression, {cmd:desctab} therefore publishes counts only for that
 variable, in every column including {opt total()}. Other variables keep their
 percentages. For the same reason {opt smallcells()} may not be combined with a
-percent-only display -- explicit {opt percent}, or the percent-only default that
-{opt wt()} applies without {opt wtn} or {opt percent_n} -- because a protected
+percent-only display -- explicit {opt percent}, the percent-only default that
+{opt wt()} applies without {opt wtn} or {opt percent_n}, or the percent-only
+weighted columns of {opt wtcompare} without {opt wtn} or {opt percent_n} -- because a protected
 block would then have nothing left to publish; use {opt percent_n}, {opt wtn}, or
 the default {cmd:n (%)}.{p_end}
 
