@@ -50,6 +50,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 | `test_eplot_v128.do` | Multi-equation identity, estimate state, interval validation, option conflicts, interaction messaging, and rendered help |
 | `test_eplot_v129.do` | Finite-df inference, immutable coefficient identity, prediction intervals, fail-closed parsing, long labels, exact annotations, and shipped-example regressions |
 | `test_eplot_v140.do` | Logarithmic effect axis: multiplicative range padding, decade tick lattice and its linear fallback, non-positive value/`null()`/`xline()` refusals, the `xscale()`/`yscale()` passthrough guard, and `logscale` across all four modes and both orientations |
+| `test_eplot_v142.do` | Matrix row-stripe identity (names with spaces, repeated names with equation prefixes), absence of unavailable `r()` results on success and error paths, zero- versus tiny-variance coefficients, parameter-specific degrees of freedom (`e(df_mi)`, `mixed, dfmethod()`) against Stata's own coefficient table, shared weighted-box scale under `sigcolors` (read from the graph sersets), `eform` axis titles from `e(cmd2)`, `null(-999)`, estimates-mode console output, and drawn layer colors read from the graph object (multi-model `mcolor()`/`cicolor()` lists and refusals, RGB colors in every mode, preset colors yielding to the palette), refusal of multi-color or unknown color values in every mode, acceptance of every documented single-color form, and a scan of the suite's own log for twoway's unknown-style note |
 | `test_examples.do` | Installed-user execution of shipped help examples across all input modes |
 
 ### Validation
@@ -70,7 +71,7 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 
 | Command | Functional | Validation | Also exercised in |
 |---------|------------|------------|-------------------|
-| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128`, `test_eplot_v129`, `test_eplot_v140` |
+| `eplot` | `test_eplot`, `test_options`, `test_edge_cases`, `test_eplot_frame`, and concern suites | `validation_eplot` | `test_examples`, `test_regressions`, `test_eplot_v128`, `test_eplot_v129`, `test_eplot_v140`, `test_eplot_v142` |
 
 ## Lane membership
 
