@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.6  09sep2026}{...}
+{* *! version 1.5.7  29sep2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -159,7 +159,8 @@ themselves.
 {phang}
 {opt overlap(ulow uhigh)} switches {cmd:rangematch} from point-in-interval matching to
 {bf:interval-overlap} matching. {it:ulow} and {it:uhigh} name the two numeric interval-bound
-variables in the using dataset or frame. In this mode no point {it:keyvar} is
+variables in the using dataset or frame; they may name the same variable, which
+treats each using value as a degenerate point interval. In this mode no point {it:keyvar} is
 given: the positional arguments are the master interval {it:low} and {it:high}, and a
 master observation matches a using observation when their intervals
 overlap. With {opt closed(both)} (the default) the overlap test is master.{it:low} <=
@@ -208,8 +209,10 @@ by-variable, decode using-only rows against the using data.
 
 {phang}
 {opt keepu:sing(varlist)} specifies which variables to carry from the using
-dataset. By default, all using variables are carried. The using key and
-by-variables needed for matching are loaded automatically.
+dataset. By default, all using variables are carried. Wildcards, ranges, and
+{cmd:_all} are expanded in the using data's own variable order, whether the
+using source is a file or a frame. The using key and by-variables needed for
+matching are loaded automatically; the key is carried only when {opt keepu:sing()} includes it.
 
 {dlgtab:Naming}
 
@@ -865,7 +868,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.6, 09sep2026{p_end}
+{pstd}Version 1.5.7, 29sep2026{p_end}
 
 
 {title:Also see}

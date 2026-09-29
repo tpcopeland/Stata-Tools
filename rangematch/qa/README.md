@@ -162,6 +162,7 @@ _rm_qa_teardown
 | `test_rangematch_v133.do` | v1.3.3 maxpairs, session-state, naming, label, and return-gate regressions |
 | `test_rangematch_v154.do` | v1.5.4 default `(master observation, using observation)` output-order contract across sweep, binary, and overlap backends |
 | `test_rangematch_v155.do` | v1.5.5 rc=0 corruption regressions: scalar-offset arithmetic leaving the double range, dangling value-label collisions in both directions, unrepresentable `distance()`, whitespace-padded affixes, and the missing/stale Mata-helper handshake; later distance regressions cover matched missing master keys and true negative overflow while accepting finite negative gaps |
+| `test_rangematch_v157.do` | v1.5.7 regressions: `keepusing()` ranges/wildcards/`_all` expand in the using source's own order with file/frame parity (a frame range spanning the key once dropped it at rc=0; file `_all`/`*` with `by()` once failed r(103)), `overlap(u u)` degenerate point intervals under both closures, repeated `by()` variables, and invalid-name refusal on both sources |
 | `test_rangematch_regress_options_output.do` | Option and output-contract regressions: `keepusing()` pre-validation, date/datetime format preservation, stats-gated density results, `tolerance()` boundaries, output order |
 | `test_rangematch_regress_performance.do` | Performance-path regressions |
 | `test_rangematch_regress_backend_selection.do` | Backend selection: automatic sweep for monotone joins, binary fallback for nonmonotone intervals |
