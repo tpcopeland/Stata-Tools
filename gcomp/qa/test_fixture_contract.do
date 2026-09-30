@@ -412,6 +412,12 @@ else {
     display as error "FAIL: U: duplicate-key refusal also preserves an unseeded caller stream (rc=`=_rc')"
 }
 
-display as text "RESULT: test_fixture_contract tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
-capture log close _all
-if `fail_count' > 0 exit 1
+if `fail_count' > 0 {
+    display "RESULT: test_fixture_contract tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
+    capture log close _all
+    exit 1
+}
+else {
+    display "RESULT: test_fixture_contract tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
+    capture log close _all
+}

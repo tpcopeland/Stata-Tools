@@ -218,6 +218,12 @@ else {
     local ++fail_count
     display as error "FAIL: U: near_positivity canonical risk recovery (rc=`=_rc')"
 }
-display as text "RESULT: validation_fixture_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
-capture log close _all
-if `fail_count' > 0 exit 1
+if `fail_count' > 0 {
+    display "RESULT: validation_fixture_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
+    capture log close _all
+    exit 1
+}
+else {
+    display "RESULT: validation_fixture_recovery tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
+    capture log close _all
+}

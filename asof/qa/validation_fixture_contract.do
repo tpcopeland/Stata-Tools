@@ -11,6 +11,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
+do "`qa_dir'/_qa_hostile.do"
 
 capture program drop _fx_asof_1
 program define _fx_asof_1, rclass
@@ -122,6 +123,16 @@ local fail=`fail'+r(qa_fail)
 * expect: EXACT
 qa_fx_a4_asof, clear tier(micro) seed(931) perturb(unsorted)
 _fx_asof_1 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* Primitive oracle is derived from changed rows, not stale generator dates.
+qa_fx_a4_asof, clear tier(micro) seed(931)
+* expect: EXACT
+qa_hostile_times, generate(hostile_time)
+replace date=hostile_time
+drop hostile_time
+_fx_asof_1 time_hostile ""
 local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)

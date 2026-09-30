@@ -14,6 +14,7 @@ quietly _codescan_qa_bootstrap
 local qa_owner=r(owner)
 do "`qa_dir'/_qa_fx_a5.do"
 do "`qa_dir'/_qa_state.do"
+do "`qa_dir'/_qa_metamorphic.do"
 
 capture program drop _fx_codescan_2
 program define _fx_codescan_2, rclass
@@ -65,6 +66,31 @@ program define _fx_codescan_2, rclass
     local case_rc=_rc
     capture restore
     if `case_rc'==0 local ++pass
+    else local ++fail
+
+    local ++tests
+    capture noisily {
+        quietly use `fx_input', clear
+        preserve
+            use `tally', clear
+            quietly summarize want, meanonly
+            local largest=r(max)
+        restore
+        qa_state_snapshot, tag(desc_top)
+        codescan_describe dx1-dx4, top(1)
+        qa_state_compare, tag(desc_top)
+        assert rowsof(r(top_codes))==1 & r(top_codes)[1,1]==`largest'
+        di "ORACLE codescan_describe `op' top1: maximum raw frequency exact"
+    }
+    if _rc==0 local ++pass
+    else local ++fail
+    local ++tests
+    capture noisily {
+        quietly use `fx_input', clear
+        * expect: EXACT
+        qa_option_domain, command(codescan_describe dx1-dx4, top(@v@)) inside(1;100) outside(0;0.5)
+    }
+    if _rc==0 local ++pass
     else local ++fail
 
     capture _return restore `fx_returns'
@@ -235,6 +261,24 @@ local fail=`fail'+r(qa_fail)
 * expect: EXACT
 qa_fx_a5_wide, clear tier(micro) perturb(unsorted)
 _fx_codescan_2 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(codes_sparse)
+_fx_codescan_2 codes_sparse "perturb(codes_sparse)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(prefix_ambiguous_codes)
+_fx_codescan_2 prefix_ambiguous_codes "perturb(prefix_ambiguous_codes)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(dates_out_of_window)
+_fx_codescan_2 dates_out_of_window "perturb(dates_out_of_window)"
 local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)

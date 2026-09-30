@@ -92,7 +92,7 @@ program define _fx_msm_public
     local ess = `sw'^2/r(sum)
     capture frame drop fxdiag
     quietly msm_diagnose, balance_covariates(l_t l0) accumulate(fxdiag) contrast("Fixture") outcome("Event")
-    assert !missing(r(ess)) & reldif(r(ess),`ess') < 1e-10
+    assert !missing(r(ess),`ess') & reldif(r(ess),`ess') < 1e-10
     matrix fx_expected_balance = r(balance)
     matrix fx_expected_balance = fx_expected_balance[1...,1..2]
     frame fxdiag: assert !missing(ess) & reldif(ess,`ess') < 1e-10
@@ -204,7 +204,7 @@ program define _fx_msm_public
         if "`type'"=="weights" {
             assert !missing(_msm_weight) & _msm_weight>0
             quietly summarize _msm_weight, meanonly
-            assert r(N)>1600
+            assert !missing(r(N)) & r(N)>1600
         }
         restore
         graph export "`g'.svg", as(svg) replace

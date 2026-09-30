@@ -190,7 +190,7 @@ python3 tools/option_coverage.py
 python3 tools/check_sthlp_width.py ..
 ```
 
-archetypes: A7(crosstab corrtab puttab desctab table1_tc) A6(puttab)
+archetypes: A7(crosstab corrtab puttab desctab table1_tc tabtools) A6(puttab effecttab comptab) A1(regtab)
 
 ## Canonical fixture adoption
 
@@ -201,3 +201,5 @@ Exact sparse-code cross-tab counts, Spearman/pairwise N including undefined all-
 | `validation_tabtools_fixture_contract.do` | Canonical fixture truth and hostile contracts | quick/full/release |
 
 | `validation_tabtools_fixture_descriptive.do` | Exact sparse-column N and mean±SD cell text, all-missing blanks and single-level refusal, desctab/front-end routes, all canonical LABELLED variants with full caller fingerprints | quick/full/release |
+
+| `validation_tabtools_fixture_models.do` | Exact four-column ESTMAT payloads including permuted stripes/missing/unbounded limits, independent Gaussian sample OLS/Student intervals/p-values and sparse identities, selected composite cells, data-independent catalogue inventory; full caller fingerprints | core/full |

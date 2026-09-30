@@ -13,7 +13,7 @@ local pass = 0
 local fail = 0
 local skip = 0
 
-local suites_quick validation_fixture_truth.do test_psdash.do validation_psdash.do validation_known_answers.do ///
+local suites_quick validation_fixture_truth.do validation_fixture_routes.do test_psdash.do validation_psdash.do validation_known_answers.do ///
     validation_multigroup_longitudinal.do validation_method_contracts.do ///
     validation_extended_known_answers.do validation_public_known_answers.do ///
     test_refactor_qa_bootstrap_contract.do test_refactor_install_autoload.do ///

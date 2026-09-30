@@ -58,7 +58,7 @@ if `install_rc' {
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do"
+local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do validation_tabtools_fixture_models.do"
 local test_files "`test_files' test_ci_level_provenance.do"
 local test_files "`test_files' test_column_widths.do"
 local test_files "`test_files' test_comptab.do"
