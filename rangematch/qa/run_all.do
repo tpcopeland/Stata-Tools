@@ -102,7 +102,7 @@ local suites ///
     test_release_integrity.do
 
 if "`mode'" == "full" {
-    local suites `suites' test_rangematch_oracle.do
+    local suites `suites' validation_fixture_contract.do test_rangematch_oracle.do
     local suites `suites' validation_rangematch_oracle.do
     local suites `suites' validation_rangematch_manual.do
     local suites `suites' validation_rangematch_nearest.do

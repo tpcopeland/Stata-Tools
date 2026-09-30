@@ -1,4 +1,4 @@
-*! datadict Version 1.8.0  2026/09/30
+*! datadict Version 1.8.1  2026/09/30
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -17,7 +17,7 @@ program define datadict, rclass
 	local _post_open = 0
 	capture noisily {
 	syntax [anything(name=varspec id="varlist")] [, ///
-	          SIngle(string) DIRectory(string) FILElist(string) ///
+	          SIngle(string) DIRectory(string) FILElist(string asis) ///
 	          MANifest(string) RECursive ///
 	          OUtput(string) OUTDir(string) SUFfix(string) SEParate ///
 	          TItle(string) SUBTitle(string) VERsion(string) ///
@@ -227,6 +227,15 @@ program define datadict, rclass
 		exit 601
 	}
 
+	// exclude() against every file before any output is written (see
+	// _datamap_classify, precheck)
+	if `"`exclude'"' != "" {
+		local _pcm ""
+		if `from_memory' local _pcm "memory"
+		_datamap_classify using `"`filelist_tmp'"', precheck ///
+			exclude(`"`exclude'"') `_pcm'
+	}
+
 	// Collect dataset names for TOC
 	tempfile names_tmp
 	_datadict_CollectDatasetNames `"`filelist_tmp'"' `"`names_tmp'"' `nfiles'
@@ -374,6 +383,8 @@ capture mata: mata drop _datadict_parse_name_line()
 capture mata: mata drop _datadict_transport_encode()
 capture mata: mata drop _datadict_transport_decode()
 capture mata: mata drop _datadict_str_levels()
+capture mata: mata drop _datadict_cellmask()
+capture mata: mata drop _datadict_cellmask_locals()
 mata:
 string scalar _datadict_md_escape(string scalar text)
 {
@@ -409,6 +420,7 @@ void _datadict_str_levels(string scalar vname, real scalar maxlevels,
 	real scalar mincell)
 {
 	string colvector x, u
+	real colvector cc, h
 	real scalar i, n, nvalid, c
 	string scalar out
 
@@ -423,11 +435,17 @@ void _datadict_str_levels(string scalar vname, real scalar maxlevels,
 	n = rows(u)
 	out = "Unique=" + strofreal(n)
 	if (n <= maxlevels) {
+		cc = J(n, 1, .)
+		for (i = 1; i <= n; i++) cc[i] = sum(x :== u[i])
+		h = _datadict_cellmask(cc, mincell)
 		for (i = 1; i <= n; i++) {
-			c = sum(x :== u[i])
+			c = cc[i]
 			out = out + "<br>" + _datadict_md_escape(u[i])
-			if (mincell > 0 & c < mincell) {
+			if (h[i] == 1) {
 				out = out + " (suppressed <" + strofreal(mincell) + ")"
+			}
+			else if (h[i] == 2) {
+				out = out + " (suppressed, complementary)"
 			}
 			else {
 				out = out + " (" + strofreal(c) + "; " +
@@ -436,6 +454,48 @@ void _datadict_str_levels(string scalar vname, real scalar maxlevels,
 		}
 	}
 	st_local("valstring", out)
+}
+
+// Small-cell mask with complementary suppression (same rule as datamap's
+// _datamap_cellmask_core and datacheck's maskrare): N and the missing count are
+// printed, so a lone suppressed cell is recoverable by subtraction; the
+// smallest shown cell joins the withheld set until it has at least two members
+// and a pooled count of at least m.  0 = shown, 1 = below m, 2 = complement.
+real colvector _datadict_cellmask(real colvector c, real scalar m)
+{
+	real colvector h
+	real scalar k, best, j
+
+	k = rows(c)
+	h = J(k, 1, 0)
+	if (m <= 0 | k == 0) return(h)
+	h = (c :< m) :& (c :> 0)
+	while (sum(h :!= 0) > 0) {
+		if (sum(h :!= 0) >= 2 & sum(select(c, h :!= 0)) >= m) break
+		best = 0
+		for (j = 1; j <= k; j++) {
+			if (h[j] != 0) continue
+			if (best == 0) best = j
+			else if (c[j] < c[best]) best = j
+		}
+		if (best == 0) break
+		h[best] = 2
+	}
+	return(h)
+}
+
+// Stata front end: counts in locals <stub>1..<stub>n -> codes in locals
+// <hstub>1..<hstub>n.
+void _datadict_cellmask_locals(string scalar stub, real scalar n,
+	real scalar m, string scalar hstub)
+{
+	real colvector c, h
+	real scalar k
+
+	c = J(n, 1, .)
+	for (k = 1; k <= n; k++) c[k] = strtoreal(st_local(stub + strofreal(k)))
+	h = _datadict_cellmask(c, m)
+	for (k = 1; k <= n; k++) st_local(hstub + strofreal(k), strofreal(h[k]))
 }
 
 string scalar _datadict_transport_decode(string scalar text)
@@ -1114,9 +1174,21 @@ program define _datadict_GetCategoricalStats, rclass
         local nvalid = r(N)
         local vtype : type `vname'
 
+        // Counts first, so the small-cell mask can see the whole table.
+        local li 0
+        foreach lev of local levels {
+            local ++li
+            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+            else quietly count if `vname' == `lev'
+            local _cnt`li' = r(N)
+        }
+        mata: _datadict_cellmask_locals("_cnt", `li', `mincell', "_hid")
+
         // Build multi-line output: Unique= first, then one line per category
         local valstring "Unique=`nlevels'"
+        local li 0
         foreach lev of local levels {
+            local ++li
             _datadict_FormatLevelNumber `vname' `lev'
             local levdisplay `"`r(formatted)'"'
             capture local labtext: label `vallabname' `lev', strict
@@ -1124,10 +1196,7 @@ program define _datadict_GetCategoricalStats, rclass
                 local labtext ""
             }
 
-            // Get count for this level
-            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-            else quietly count if `vname' == `lev'
-            local levcount = r(N)
+            local levcount = `_cnt`li''
             if `nvalid' > 0 {
                 local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
             }
@@ -1137,12 +1206,14 @@ program define _datadict_GetCategoricalStats, rclass
 
             mata: st_local("labtext", _datadict_md_escape(st_local("labtext")))
 
-            if `mincell' > 0 & `levcount' < `mincell' {
+            if `_hid`li'' {
+                local _why "suppressed <`mincell'"
+                if `_hid`li'' == 2 local _why "suppressed, complementary"
                 if `"`labtext'"' != "" {
-                    local valstring `"`valstring'<br>`levdisplay' `labtext' (suppressed <`mincell')"'
+                    local valstring `"`valstring'<br>`levdisplay' `labtext' (`_why')"'
                 }
                 else {
-                    local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
+                    local valstring `"`valstring'<br>`levdisplay' (`_why')"'
                 }
             }
             else if `"`labtext'"' != "" {
@@ -1205,24 +1276,26 @@ program define _datadict_GetUnlabeledStats, rclass
             exit
         }
 
+        // Counts first, so the small-cell mask can see the whole table.
+        // (String variables returned above via _datadict_str_levels.)
+        local li 0
+        foreach lev of local levels {
+            local ++li
+            if "`vtype'" == "float" quietly count if `vname' == float(`lev')
+            else quietly count if `vname' == `lev'
+            local _cnt`li' = r(N)
+        }
+        mata: _datadict_cellmask_locals("_cnt", `li', `mincell', "_hid")
+
         // Build multi-line output: Unique= first, then one line per value
         local valstring "Unique=`nlevels'"
+        local li 0
         foreach lev of local levels {
-            // Get count for this level
-            local levdisplay `"`macval(lev)'"'
-            if `is_numeric' {
-                if "`vtype'" == "float" quietly count if `vname' == float(`lev')
-                else quietly count if `vname' == `lev'
-                local levcount = r(N)
-                _datadict_FormatLevelNumber `vname' `lev'
-                local levdisplay `"`r(formatted)'"'
-            }
-            else {
-                local levcmp = subinstr(`"`macval(lev)'"', char(34), "", .)
-                quietly count if `vname' == `"`macval(levcmp)'"'
-                local levcount = r(N)
-                mata: st_local("levdisplay", _datadict_md_escape(st_local("levcmp")))
-            }
+            local ++li
+            local levcount = `_cnt`li''
+            _datadict_FormatLevelNumber `vname' `lev'
+            local levdisplay `"`r(formatted)'"'
+
             if `nvalid' > 0 {
                 local levpct = strtrim(string(100 * `levcount' / `nvalid', "%9.1f"))
             }
@@ -1230,8 +1303,11 @@ program define _datadict_GetUnlabeledStats, rclass
                 local levpct "0.0"
             }
 
-            if `mincell' > 0 & `levcount' < `mincell' {
+            if `_hid`li'' == 1 {
                 local valstring `"`valstring'<br>`levdisplay' (suppressed <`mincell')"'
+            }
+            else if `_hid`li'' == 2 {
+                local valstring `"`valstring'<br>`levdisplay' (suppressed, complementary)"'
             }
             else {
                 local valstring `"`valstring'<br>`levdisplay' (`levcount'; `levpct'%)"'
@@ -1966,7 +2042,10 @@ program define _datadict_ProcessOneDataset, rclass
 			else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
             local loadedopt ""
             if "`memory'" != "" local loadedopt "loaded"
+			local _srcn `"`macval(filepath)'"'
+			if "`memory'" != "" local _srcn "memory"
 			_datamap_classify using `"`macval(filepath)'"', saving("`classifications'") ///
+				srcname(`"`_srcn'"') ///
 				maxcat(`maxcat') obs(`obs') exclude(`"`exclude'"') ///
 				continuous(`"`continuous'"') categorical(`"`categorical'"') ///
 				date(`"`datevars'"') cap(`nuniq_cap') `loadedopt'

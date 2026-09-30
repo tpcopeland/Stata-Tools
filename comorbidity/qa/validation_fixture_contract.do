@@ -17,21 +17,25 @@ sysdir set PERSONAL "`sysbase'_personal"
 quietly net install codescan, from("`pkg_dir'/../codescan") replace
 do "`qa_dir'/_qa_fx_a5.do"
 do "`qa_dir'/_qa_state.do"
-local tests=0
-local pass=0
-local fail=0
 
-**# Built-in weighting schemes: four fixture diseases, exact hand weights
-foreach op in friendly codes_sparse prefix_ambiguous_codes empty_slots case_whitespace_variants dates_out_of_window unsorted {
+capture program drop _fx_comorbidit_1
+program define _fx_comorbidit_1, rclass
+    version 16.0
+    args op fixtureopts
+    tempfile fx_input
+    tempname fx_returns
+    _return hold `fx_returns'
+    quietly save `fx_input'
+    local tests=0
+    local pass=0
+    local fail=0
+
     foreach index in original quan2011 vanwalraven {
         foreach shape in collapse merge {
             local ++tests
             capture noisily {
-                if "`op'"=="friendly" qa_fx_a5_wide, clear tier(micro)
-                else {
-                    * expect: EXACT
-                    qa_fx_a5_wide, clear tier(micro) perturb(`op')
-                }
+                quietly use `fx_input', clear
+                _return restore `fx_returns', hold
                 tempname T
                 matrix `T'=r(truth_ids)
                 gen double ref=mdy(1,4,2020)
@@ -69,7 +73,59 @@ foreach op in friendly codes_sparse prefix_ambiguous_codes empty_slots case_whit
             }
         }
     }
-}
+
+    capture _return restore `fx_returns'
+    return scalar qa_tests=`tests'
+    return scalar qa_pass=`pass'
+    return scalar qa_fail=`fail'
+end
+
+local tests=0
+local pass=0
+local fail=0
+
+**# Built-in weighting schemes: four fixture diseases, exact hand weights
+qa_fx_a5_wide, clear tier(micro)
+_fx_comorbidit_1 friendly ""
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(codes_sparse)
+_fx_comorbidit_1 codes_sparse "perturb(codes_sparse)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(prefix_ambiguous_codes)
+_fx_comorbidit_1 prefix_ambiguous_codes "perturb(prefix_ambiguous_codes)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(empty_slots)
+_fx_comorbidit_1 empty_slots "perturb(empty_slots)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(case_whitespace_variants)
+_fx_comorbidit_1 case_whitespace_variants "perturb(case_whitespace_variants)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(dates_out_of_window)
+_fx_comorbidit_1 dates_out_of_window "perturb(dates_out_of_window)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a5_wide, clear tier(micro) perturb(unsorted)
+_fx_comorbidit_1 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

@@ -88,3 +88,13 @@ The runner writes suite logs in the active `qa/` directory. Concurrent runs of t
 - The suite validates graph commands, analytical returns, save failures, and representative exports, but it does not perform pixel-level comparison of rendered graphs. Layer-level assertions read the generated `twoway` command in `r(cmd)`; they prove which plot layers and colors were requested, not how the result looks.
 - `test_examples.do` recreates the shipped help examples by hand rather than extracting and executing the code blocks from `eplot.sthlp` and `README.md`, so example prose can drift from the executed form.
 - Some suites reuse data or estimation state across adjacent cases for narrative continuity, which weakens isolated diagnosis when one of those cases fails.
+
+archetypes: A6(eplot)
+
+## Canonical fixture adoption
+
+Exact coefficient and interval identity across data/matrix/estimates/frame modes; case and 32-character twins, restored estimates, missing bounds refusals and factor labels. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_eplot_fixture_contract.do` | Canonical fixture truth and hostile contracts | full |

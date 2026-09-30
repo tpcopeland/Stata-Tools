@@ -1,5 +1,11 @@
 # datefix QA
 
+archetypes: A4
+
+Canonical fixture adoption is in progress. Every returned daily date is compared with the canonical start date after string conversion/native pass-through and each output ownership mode. Leap/year boundaries, row shuffling, invalid-order refusal and shared long-name invariance are exercised. Spell overlap/length columns unused by the date parser are not counted as hostile parser evidence. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
+
 The `datefix` QA suite is flat and concern-oriented: functional, regression, release-surface, and known-answer files at the `qa/` root are driven by one curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run

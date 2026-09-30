@@ -14,7 +14,7 @@ if !inlist("`mode'", "quick", "core", "full") {
 }
 
 local quick "test_basic.do test_return_values.do test_errors.do test_data_preservation.do test_regressions.do"
-local core "`quick' validation_canonical_tables.do test_export.do test_options.do test_features.do test_density.do test_documentation_examples.do"
+local core "validation_fixture_truth.do `quick' validation_canonical_tables.do test_export.do test_options.do test_features.do test_density.do test_documentation_examples.do"
 local full "`core'"
 local suites "``mode''"
 

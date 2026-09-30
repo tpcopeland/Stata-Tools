@@ -105,3 +105,13 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 ## Benchmarks
 
 Run `stata-mp -b do run_all.do benchmark` on demand. The suite fixes Stata to one processor and checks scaling ratios rather than absolute wall time, so it is a performance regression signal rather than a correctness or hardware comparison gate.
+
+archetypes: A7(pygrid pyattach)
+
+## Canonical fixture adoption
+
+Canonical daily and leap-date adapters recover exact inclusive one-day person-time and exactly one event per person. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_pygrid_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |

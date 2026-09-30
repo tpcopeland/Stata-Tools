@@ -1,5 +1,7 @@
 # fvgen QA
 
+<!-- archetypes: A1 A7 -->
+
 The `fvgen` QA suite is flat and concern-oriented, with one curated lane runner and independently runnable suites covering generation, provenance, margins replay, installed-user behavior, and known-answer equivalence.
 
 ## How to run
@@ -77,3 +79,13 @@ Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fv
 | `quick` | `test_fvgen` |
 | `core` | `quick` plus `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
 | `full` | `core` plus `test_package_release` |
+
+Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases compare every materialized indicator/product with its labelled-group arithmetic and verify drop removes exactly the six generated variables. Unsorted and label-gap variants are consumed.
+
+| Added QA file | Role |
+|---|---|
+| `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+
+Fixture coverage still owed: Margins bridge, reference/centering/weights, A1 recovery and remaining A1/A7 minima; no interval consumer is declared. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

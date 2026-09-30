@@ -1,4 +1,4 @@
-*! _datacheck_jumps Version 1.8.0  2026/09/30
+*! _datacheck_jumps Version 1.8.1  2026/09/30
 *! datacheck jumps(): implausible jumps between consecutive repeated measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -6,7 +6,8 @@
 // Spec: id time value [, ratio(#)]   (default ratio 10)
 //
 // Within id, sorted by time, a pair of consecutive positive values is a jump
-// when either value exceeds ratio() times the other.  Rows with a missing
+// when either value exceeds ratio() times the other (at float precision for
+// a float value).  Rows with a missing
 // time or value are not measures and are left out of the sequence.  Rows of
 // one id at the same time are ordered by value, so the count does not depend
 // on the order of the data; the message then says how many persons have
@@ -59,8 +60,11 @@ program define _datacheck_jumps, rclass
             quietly generate byte `ok' = !missing(`tm', `val')
             quietly bysort `ok' `ids' (`tm' `val'): generate double `prev' = `val'[_n-1] ///
                 if `ok' & _n > 1
+            // a float value is compared with ratio() times the other at float
+            // precision, so values typed exactly ratio()-fold apart are no jump
+            local fc = cond("`: type `val''" == "float", "float", "")
             quietly generate byte `jmp' = `ok' & `val' > 0 & `prev' > 0 & !missing(`prev') & ///
-                (`val' > `ratio' * `prev' | `prev' > `ratio' * `val')
+                (`val' > `fc'(`ratio' * `prev') | `prev' > `fc'(`ratio' * `val'))
             // persons with two or more measures at the same time
             quietly bysort `ok' `ids' `tm': generate byte `tt' = `ok' & _N > 1
             quietly egen byte `tp' = tag(`ids') if `tt'

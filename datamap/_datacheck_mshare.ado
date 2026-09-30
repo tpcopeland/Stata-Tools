@@ -1,4 +1,4 @@
-*! _datacheck_mshare Version 1.8.0  2026/09/30
+*! _datacheck_mshare Version 1.8.1  2026/09/30
 *! Mask a count and its share of a known total for display under maskrare
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -7,7 +7,9 @@
 // its percentage as ".".  When the complement n - k is the small cell, k
 // itself would reveal it next to a published n, so k prints as
 // "all but <m" and the percentage as "." as well.  A zero count prints as 0
-// with its share: it reveals nothing about the total.
+// with its share: it reveals nothing about the total.  r(pcttxt) is the
+// share ready to print: "12.3%", "[masked]" when masked, or "n/a" when n is
+// 0; a caller prints it instead of appending "%" to r(pct).
 program define _datacheck_mshare, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -32,12 +34,14 @@ program define _datacheck_mshare, rclass
             local pct "."
             local num = .
         }
+        local pcttxt = cond(`masked', "[masked]", cond("`pct'" == ".", "n/a", "`pct'%"))
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     return local cnt "`cnt'"
     return local pct "`pct'"
+    return local pcttxt "`pcttxt'"
     return scalar num = `num'
     return scalar masked = `masked'
 end

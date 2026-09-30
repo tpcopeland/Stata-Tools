@@ -1,4 +1,4 @@
-*! datamvp Version 1.8.0  2026/09/30
+*! datamvp Version 1.8.1  2026/09/30
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -6,7 +6,7 @@
 program define datamvp, rclass byable(recall) sortpreserve
     version 16.0
     local _legacy_globals : all globals
-    foreach g in S_1 S_FN S_FNDATE {
+    foreach g in S_1 S_2 S_FN S_FNDATE {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
         if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
@@ -307,6 +307,13 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
     }
 
+    * graph(matrix) plots one row per observation: no mask can apply to it
+    if "`graphtype'" == "matrix" & `_m' > 0 {
+        di as err "graph(matrix) plots individual observations and is not available under masking"
+        di as err "drop maskrare and mincell(), or type nomaskrare to override a session default"
+        exit 198
+    }
+
     * Validate gby/over compatibility with graph type
     if "`over'" != "" & "`graphtype'" != "bar" & "`graphtype'" != "" {
         di as err "option {bf:over()} requires graph(bar)"
@@ -511,7 +518,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         // A clean -exit 0- here would leave the capture block WITHOUT reaching
         // the post-block restore (capture only intercepts errors), leaking
         // -set varabbrev off- to the user; restore before exiting.
-    foreach g in S_1 S_FN S_FNDATE {
+    foreach g in S_1 S_2 S_FN S_FNDATE {
         if `_had_`g'' global `g' `"`macval(_old_`g')'"'
         else macro drop `g'
     }
@@ -683,7 +690,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
         * Generate percent and cumulative
         gen double `patpct' = 100 * `ng' / `N' if `touse'
-        gen `order' = _n if `isf'
+        gen long `order' = _n if `isf'
         sort `order'
         gen double `cpct' = sum(`patpct' * `isf') if `touse'
     }
@@ -721,7 +728,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
     else {
         qui {
-            keep `mv_patt' `mv_n' `ng' `patpct' `cpct'
+            keep `mv_patt' `mv_n' `ng' `patpct' `cpct' `order'
             rename `mv_patt' _pattern
             rename `mv_n' _miss
             rename `ng' _freq
@@ -770,6 +777,10 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
             qui count if _pool
             local _npooled = r(N)
+            // graph(patterns) draws only the patterns this table shows
+            if `_m' > 0 {
+                qui levelsof `order' if !_pool, local(_shownord)
+            }
         }
         local _plab ""
         if `_npooled' > 0 | `_m' > 0 {
@@ -900,9 +911,12 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
         di _n as txt "{hline 50}"
         di as txt "Total observations:      " as res %10s "`s_N'"
-        di as txt "Complete cases:          " as res %10s "`s_cc'" ///
+        // a withheld share is left out, never printed as ".%"
+        if "`s_ccp'" == "." di as txt "Complete cases:          " as res %10s "`s_cc'"
+        else di as txt "Complete cases:          " as res %10s "`s_cc'" ///
             as txt "  (" as res %5s "`s_ccp'" as txt "%)"
-        di as txt "Incomplete cases:        " as res %10s "`s_ic'" ///
+        if "`s_icp'" == "." di as txt "Incomplete cases:        " as res %10s "`s_ic'"
+        else di as txt "Incomplete cases:        " as res %10s "`s_ic'" ///
             as txt "  (" as res %5s "`s_icp'" as txt "%)"
         di as txt "Unique patterns:         " as res %10.0fc `npatterns'
         di as txt "Variables analyzed:      " as res %10.0fc `nvar'
@@ -957,7 +971,8 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local s_mpct "."
                 local _anymask = 1
             }
-            di as txt "  Observations with monotone pattern: " ///
+            if "`s_mpct'" == "." di as txt "  Observations with monotone pattern: " as res "`s_mono'"
+            else di as txt "  Observations with monotone pattern: " ///
                 as res "`s_mono'" as txt " (" as res "`s_mpct'" as txt "%)"
             di as txt "  Pattern is {res}non-monotone{txt}"
             local mono_status "non-monotone"
@@ -1281,6 +1296,22 @@ program define datamvp, rclass byable(recall) sortpreserve
         if "`graphtype'" == "bar" {
             preserve
 
+            * Under masking a bar is withheld when its missing count or the
+            * complement is from 1 to m-1 (the rule of the variable table);
+            * with gby() or over() the group size below m withholds it too
+            local _gmask ""
+            local _ngmask = 0
+            local _nbar = 1
+            if `_m' > 0 & "`gby'" == "" & "`over'" == "" {
+                tokenize `varlist'
+                forv i = 1/`nvar' {
+                    qui count if missing(``i'') & `touse'
+                    local _gk = (r(N) >= 1 & r(N) < `_m') | (`N' - r(N) >= 1 & `N' - r(N) < `_m')
+                    local _gmask `_gmask' `_gk'
+                    local _ngmask = `_ngmask' + `_gk'
+                }
+            }
+
             * Adjust label size based on number of variables
             local labsz "vsmall"
             if `nvar' > 30 local labsz "tiny"
@@ -1335,6 +1366,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                             qui count if missing(``i'') & `gby_grp' == `_gk' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
+                            if `_m' > 0 & (`nlev' < `_m' | ///
+                                (`nmisslev' >= 1 & `nmisslev' < `_m') | ///
+                                (`nlev' - `nmisslev' >= 1 & `nlev' - `nmisslev' < `_m')) {
+                                local pctlev = .
+                                local ++_ngmask
+                            }
                             * Load tempfile, update, save back
                             use `gby_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
@@ -1350,14 +1387,24 @@ program define datamvp, rclass byable(recall) sortpreserve
                 local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable and `gby'")"')
 
                 * Draw faceted bar chart
-                `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
-                    by(gbyid, note("") `macval(titleopts)' ///
-                        `macval(subtitleopts)') ///
-                    ytitle("Percent missing") ///
-                    `bartitle_text' ///
-                    blabel(bar, format(%4.1f) size(tiny)) ///
-                    bar(1, color(`barcolor')) ///
-                    `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                if `_ngmask' > 0 {
+                    quietly count if !missing(pctmiss)
+                    local _nbar = r(N)
+                }
+                if `_ngmask' > 0 & `_nbar' == 0 {
+                    di as txt "(graph not drawn: every bar comes from a count below `_m')"
+                }
+                else {
+                    `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
+                        by(gbyid, note("") `macval(titleopts)' ///
+                            `macval(subtitleopts)') ///
+                        ytitle("Percent missing") ///
+                        `bartitle_text' ///
+                        blabel(bar, format(%4.1f) size(tiny)) ///
+                        bar(1, color(`barcolor')) ///
+                        `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                    if `_ngmask' > 0 di as txt "(graph: `_ngmask' bar(s) from counts below `_m' withheld)"
+                }
             }
 
             * Handle over() option - grouped bar chart with overlay
@@ -1403,6 +1450,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                             qui count if missing(``i'') & `over_grp' == `_ok' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
+                            if `_m' > 0 & (`nlev' < `_m' | ///
+                                (`nmisslev' >= 1 & `nmisslev' < `_m') | ///
+                                (`nlev' - `nmisslev' >= 1 & `nlev' - `nmisslev' < `_m')) {
+                                local pctlev = .
+                                local ++_ngmask
+                            }
                             * Load tempfile, update, save back
                             use `over_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
@@ -1429,15 +1482,25 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Draw grouped bar chart with over() levels side-by-side
-                `barcmd' pctmiss, over(overid, `gapopts') ///
-                    over(varname, sort(varorder) label(labsize(`labsz'))) ///
-                    ytitle("Percent missing") ///
-                    `bartitle_text' ///
-                    `macval(titleopts)' `macval(subtitleopts)' ///
-                    blabel(bar, format(%4.1f) size(tiny)) ///
-                    asyvars ///
-                    `legendopts_final' ///
-                    `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                if `_ngmask' > 0 {
+                    quietly count if !missing(pctmiss)
+                    local _nbar = r(N)
+                }
+                if `_ngmask' > 0 & `_nbar' == 0 {
+                    di as txt "(graph not drawn: every bar comes from a count below `_m')"
+                }
+                else {
+                    `barcmd' pctmiss, over(overid, `gapopts') ///
+                        over(varname, sort(varorder) label(labsize(`labsz'))) ///
+                        ytitle("Percent missing") ///
+                        `bartitle_text' ///
+                        `macval(titleopts)' `macval(subtitleopts)' ///
+                        blabel(bar, format(%4.1f) size(tiny)) ///
+                        asyvars ///
+                        `legendopts_final' ///
+                        `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                    if `_ngmask' > 0 di as txt "(graph: `_ngmask' bar(s) from counts below `_m' withheld)"
+                }
             }
 
             * Handle stacked option — each variable is a separate bar segment
@@ -1450,6 +1513,9 @@ program define datamvp, rclass byable(recall) sortpreserve
                     tokenize `varlist'
                     forv i = 1/`nvar' {
                         local _p : word `i' of `pctlist'
+                        if `_m' > 0 {
+                            if `: word `i' of `_gmask'' local _p = .
+                        }
                         gen double pct`i' = `_p'
                         label var pct`i' "``i''"
                     }
@@ -1469,14 +1535,23 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Draw stacked bar chart with each variable as a segment
-                `barcmd' (asis) pct1-pct`nvar', ///
-                    over(grp) stack ///
-                    ytitle("Percent missing") ///
-                    `bartitle_text' ///
-                    `macval(titleopts)' `macval(subtitleopts)' ///
-                    legend(rows(2) position(6) size(vsmall)) ///
-                    `baropts' ///
-                    `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                if `_ngmask' > 0 {
+                    local _nbar = `nvar' - `_ngmask'
+                }
+                if `_ngmask' > 0 & `_nbar' == 0 {
+                    di as txt "(graph not drawn: every bar comes from a count below `_m')"
+                }
+                else {
+                    `barcmd' (asis) pct1-pct`nvar', ///
+                        over(grp) stack ///
+                        ytitle("Percent missing") ///
+                        `bartitle_text' ///
+                        `macval(titleopts)' `macval(subtitleopts)' ///
+                        legend(rows(2) position(6) size(vsmall)) ///
+                        `baropts' ///
+                        `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                    if `_ngmask' > 0 di as txt "(graph: `_ngmask' bar(s) from counts below `_m' withheld)"
+                }
             }
 
             * Standard bar chart (no stratification)
@@ -1491,6 +1566,9 @@ program define datamvp, rclass byable(recall) sortpreserve
                     tokenize `varlist'
                     forv i = 1/`nvar' {
                         local _p : word `i' of `pctlist'
+                        if `_m' > 0 {
+                            if `: word `i' of `_gmask'' local _p = .
+                        }
                         replace varname = "``i''" in `i'
                         replace pctmiss = `_p' in `i'
                     }
@@ -1499,13 +1577,23 @@ program define datamvp, rclass byable(recall) sortpreserve
                 * Set default title if not specified
                 local bartitle_text = cond(`"`macval(title)'"' != "", "", `"title("Missing Values by Variable")"')
 
-                `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
-                    ytitle("Percent missing") ///
-                    `bartitle_text' ///
-                    `macval(titleopts)' `macval(subtitleopts)' ///
-                    blabel(bar, format(%4.1f) size(vsmall)) ///
-                    bar(1, color(`barcolor')) ///
-                    `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                if `_ngmask' > 0 {
+                    quietly count if !missing(pctmiss)
+                    local _nbar = r(N)
+                }
+                if `_ngmask' > 0 & `_nbar' == 0 {
+                    di as txt "(graph not drawn: every bar comes from a count below `_m')"
+                }
+                else {
+                    `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
+                        ytitle("Percent missing") ///
+                        `bartitle_text' ///
+                        `macval(titleopts)' `macval(subtitleopts)' ///
+                        blabel(bar, format(%4.1f) size(vsmall)) ///
+                        bar(1, color(`barcolor')) ///
+                        `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                    if `_ngmask' > 0 di as txt "(graph: `_ngmask' bar(s) from counts below `_m' withheld)"
+                }
             }
 
             restore
@@ -1547,6 +1635,10 @@ program define datamvp, rclass byable(recall) sortpreserve
                     bys `gby' _mv_patt: gen long _ng = _N
                     bys `gby' _mv_patt: gen byte _isf = (_n == 1)
                     keep if _isf
+                    // under masking a group's pattern below m is not drawn
+                    count if _ng < `_m'
+                    local _npwh = r(N)
+                    drop if _ng < `_m'
 
                     * Get group labels (use pre-extracted texts)
                     gen int _gbyid = .
@@ -1594,19 +1686,39 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
 
                 * Draw faceted pattern chart
-                `barcmd' _ng, over(_patid, sort(_patorder) label(labsize(`patlabsz'))) ///
-                    by(_gbyid, note("") `macval(patby_titleopts)' ///
-                        `macval(patby_subtitleopts)') ///
-                    ytitle("Frequency") ///
-                    blabel(bar, format(%9.0fc) size(tiny)) ///
-                    note("P1=`pat1_display'", size(vsmall)) ///
-                    bar(1, color(`barcolor')) ///
-                    `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                if _N == 0 {
+                    di as txt "(graph not drawn: every pattern has a frequency below `_m' in its group)"
+                }
+                else {
+                    `barcmd' _ng, over(_patid, sort(_patorder) label(labsize(`patlabsz'))) ///
+                        by(_gbyid, note("") `macval(patby_titleopts)' ///
+                            `macval(patby_subtitleopts)') ///
+                        ytitle("Frequency") ///
+                        blabel(bar, format(%9.0fc) size(tiny)) ///
+                        note("P1=`pat1_display'", size(vsmall)) ///
+                        bar(1, color(`barcolor')) ///
+                        `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
+                }
+                if `_npwh' > 0 di as txt "(graph: `_npwh' group pattern(s) with a frequency below `_m' withheld)"
             }
 
             * Standard patterns chart (no stratification)
             else {
                 qui keep if `isf'
+                // under masking only the patterns the table shows are drawn:
+                // a pattern pooled for secondary suppression would recover
+                // the pooled small total
+                local _npwh = 0
+                if `_m' > 0 {
+                    tempvar _shown
+                    qui gen byte `_shown' = 0
+                    foreach _k of local _shownord {
+                        qui replace `_shown' = 1 if `order' == `_k'
+                    }
+                    qui count if !`_shown'
+                    local _npwh = r(N)
+                    qui keep if `_shown'
+                }
                 qui count
                 local npat_graph = min(r(N), `top')
 
@@ -1647,6 +1759,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 else {
                     di as txt "(no patterns to graph)"
                 }
+                if `_npwh' > 0 di as txt "(graph: `_npwh' pattern(s) pooled in the table withheld)"
             }
 
             restore
@@ -1683,7 +1796,10 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                 * Sample if needed
                 if `use_sample' {
+                    // the display sample must not move the caller's RNG
+                    local _rngstate = c(rngstate)
                     sample `sample_n', count
+                    set rngstate `_rngstate'
                 }
 
                 * Create observation ID
@@ -1913,7 +2029,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     } // end capture noisily
     local rc = _rc
-    foreach g in S_1 S_FN S_FNDATE {
+    foreach g in S_1 S_2 S_FN S_FNDATE {
         if `_had_`g'' global `g' `"`macval(_old_`g')'"'
         else macro drop `g'
     }

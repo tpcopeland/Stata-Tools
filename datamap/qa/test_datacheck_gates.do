@@ -1170,7 +1170,8 @@ capture {
         foreach y in 2019 2020 {
             if `s' == 1 & `y' == 2019 continue
             quietly summarize bcell if site == `s' & year == `y', detail
-            local ms = strtrim(string(r(p50), "%10.4g"))
+            * a failing value prints at full precision (%14.0g, as stat())
+            local ms = strtrim(string(r(p50), "%14.0g"))
             frame dg_gs: count if strpos(group, "`s' `y'") > 0 & observed == "median `ms'"
             assert r(N) == 1
         }
@@ -1457,6 +1458,535 @@ capture {
     assert _rc == 198
 }
 _dg `=_rc' "checks(): kind review is refused; only invariant and band rows exist"
+
+* ============================================================
+* 25. Gate-helper review 2026-09-30: untested samples, float bounds, masking
+* ============================================================
+* A gate never passes on a sample it did not test; float values are compared
+* at float precision at a threshold; counts whose complement in the printed N
+* is a small cell are masked.
+
+* events(): lv is missing on every row, so no level is tested
+clear
+set obs 6
+gen byte _d = 1
+gen byte lv = .
+gen byte grp = cond(_n <= 3, 1, 2)
+capture frame drop dg_b
+capture {
+    capture datacheck, gatesonly events(_d: lv)
+    assert _rc == 9
+    capture datacheck, gatesonly events(_d: lv) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & gate[1] == "events" & observed[1] == "no nonmissing levels"
+    frame dg_b: assert strpos(message[1], "events(_d): lv has no nonmissing level in scope") == 1
+    * within by(): only the group without a level fails
+    replace lv = 1 if grp == 1
+    capture datacheck, gatesonly by(grp) events(_d: lv) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & strpos(group[1], "by(grp group 2)") == 1
+}
+_dg `=_rc' "events(): a covariate with no nonmissing level in scope fails, not a pass on 0 levels"
+
+* groupstat(): an entry if that selects no rows, and a min() above every group
+clear
+set obs 10
+gen byte g = mod(_n, 2)
+gen double y = _n
+gen byte z = 0
+capture {
+    capture datacheck, gatesonly bands(groupstat(mean y, by(g) band(100 200) if z == 1)) warn violations(dg_b, replace)
+    assert _rc == 0
+    frame dg_b: assert _N == 1 & gate[1] == "groupstat" & observed[1] == "no rows in scope"
+    capture datacheck, gatesonly groupstat(mean y, by(g) if z == 1)
+    assert _rc == 0
+    * each group has 5 rows; min(50) leaves none in the band
+    capture datacheck, gatesonly bands(groupstat(mean y, by(g) min(50) band(100 200))) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & observed[1] == "0 groups tested"
+    frame dg_b: assert strpos(message[1], "no group has 50 or more rows") > 0
+    * min(5) keeps both groups (means 5 and 6), inside [5, 6]
+    capture datacheck, gatesonly bands(groupstat(mean y, by(g) min(5) band(5 6)))
+    assert _rc == 0
+}
+_dg `=_rc' "groupstat() band: an empty entry scope and a min() that excludes every group fail, not pass"
+
+* groupstat(): a float median equal to the typed bound is inside it, as in stat()
+clear
+set obs 6
+gen byte g = _n <= 3
+gen float y = 0.2
+capture {
+    capture datacheck, gatesonly bands(stat(median y 0.1 0.2))
+    assert _rc == 0
+    capture datacheck, gatesonly bands(groupstat(median y, by(g) band(0.1 0.2)))
+    assert _rc == 0
+    * one float step above the bound still fails in both groups
+    replace y = 0.2000001
+    capture datacheck, gatesonly bands(groupstat(median y, by(g) band(0.1 0.2))) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 2
+}
+_dg `=_rc' "groupstat() band: a float percentile is compared with the float-rounded bound"
+
+* intervals(): rows without an id belong to no person and are not compared
+clear
+input id start stop
+1 0 10
+1 10 20
+. 0 5
+. 3 8
+end
+capture {
+    capture datacheck, gatesonly intervals(id start stop, contiguous) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & label[1] == "missing"
+    * the two rows have no id, so they are intervals of no person
+    frame dg_b: assert observed[1] == "2 intervals in 0 persons"
+    frame dg_b: assert strpos(message[1], "have a missing id, start, or stop") > 0
+}
+_dg `=_rc' "intervals(): a missing id fails intervals(missing) and creates no overlap between strangers"
+
+* intervals(): an event on a row already failing intervals(missing) is not
+* also an event_last violation; the id's last interval carries it
+clear
+input id start stop ev
+2 . 5 1
+2 5 9 1
+end
+capture {
+    capture datacheck, gatesonly intervals(id start stop, event(ev)) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & label[1] == "missing"
+}
+_dg `=_rc' "intervals(): event_last reads only the rows the ordering checks use"
+
+* intervals(): a float start typed on the tolerance boundary is within tol()
+clear
+input long id float start float stop
+1 0 10
+1 10.1 20
+end
+capture {
+    capture datacheck, gatesonly intervals(id start stop, contiguous tol(0.1))
+    assert _rc == 0
+    replace start = 10.2 in 2
+    capture datacheck, gatesonly intervals(id start stop, contiguous tol(0.1)) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & label[1] == "gap"
+}
+_dg `=_rc' "intervals() tol(): float start +/- tol compared at float precision"
+
+* jumps(): float values typed exactly ratio()-fold apart are no jump
+clear
+input long id float t float v
+1 1 0.11
+1 2 1.1
+1 3 12
+end
+local dgled "`c(tmpdir)'/dg_b_jumps_ledger.dta"
+capture erase "`dgled'"
+capture frame drop dg_led
+capture {
+    datacheck, gatesonly jumps(id t v) ledger("`dgled'")
+    frame create dg_led
+    * 0.11 -> 1.1 is exactly 10-fold; 1.1 -> 12 is a jump
+    frame dg_led: use "`dgled'", clear
+    frame dg_led: assert _N == 1 & observed_num[1] == 1
+}
+_dg `=_rc' "jumps(): a float pair exactly ratio()-fold apart is not counted"
+capture frame drop dg_led
+capture erase "`dgled'"
+
+* keyset(): a quoted filename containing a comma (helper contract)
+clear
+set obs 3
+gen long id = _n
+local dgkf "`c(tmpdir)'/dg b,keys.dta"
+save "`dgkf'", replace
+capture frame drop dg_rf
+frame create dg_rf str32 fam str10 kind byte ok strL label strL variable strL grp ///
+    strL observed double obsnum strL expected double nscope strL scope strL msg ///
+    double minshown byte omasked
+capture {
+    _datacheck_keyset, spec(`"id using "`dgkf'""') rf(dg_rf) kind(invariant)
+    assert r(only_master) == 0 & r(only_using) == 0 & r(mode) == "equal"
+    _datacheck_keyset, spec(`"id using "`dgkf'", subset"') rf(dg_rf) kind(invariant)
+    assert r(mode) == "subset"
+    frame dg_rf: assert _N == 2 & ok[1] == 1 & ok[2] == 1
+}
+_dg `=_rc' "keyset(): a quoted filename with a comma is read whole, options after it"
+capture frame drop dg_rf
+capture erase "`dgkf'"
+
+* stat() under maskrare: a count or pmiss whose complement is a small cell
+clear
+set obs 20
+gen double x = cond(_n <= 2, _n, .)
+gen double y = cond(_n <= 18, _n, .)
+gen long id = cond(_n <= 18, _n, 1)
+capture {
+    capture datacheck, gatesonly stat(pmiss x 0 0.5 \ n y 0 1 \ distinct id 0 1) maskrare warn violations(dg_b, replace)
+    frame dg_b: assert _N == 3
+    * 18 of 20 missing leaves 2 nonmissing; 18 nonmissing of 20 leaves 2
+    * missing; 18 distinct of 20 rows leaves 2 duplicated rows
+    frame dg_b: assert observed[1] == "pmiss ." & observed[2] == "n all but <5" & observed[3] == "distinct all but <5"
+    * without maskrare the values print
+    capture datacheck, gatesonly stat(pmiss x 0 0.5 \ n y 0 1) warn violations(dg_b, replace)
+    frame dg_b: assert observed[1] == "pmiss .9" & observed[2] == "n 18"
+}
+_dg `=_rc' "stat() maskrare: n, distinct, and pmiss are masked when their complement is a small cell"
+
+* sets(values) under maskrare: 18 bad rows of 20 give back the 2 good rows
+clear
+set obs 20
+gen long sid = ceil(_n / 2)
+gen byte ex = 7
+replace ex = 1 in 1
+replace ex = 0 in 2
+capture {
+    capture datacheck, gatesonly sets(sid ex) maskrare warn violations(dg_b, replace)
+    frame dg_b: assert _N == 3 & label[1] == "values"
+    frame dg_b: assert observed[1] == "all but <5 rows"
+    * set counts have no printed total and print as numbers
+    frame dg_b: assert observed[2] == "9 sets"
+}
+_dg `=_rc' "sets(values) maskrare: a row count whose complement in N is small is masked"
+
+* stat() sum and distinct under maskrare: the complement in the nonmissing
+* rows is a cell too.  990 ones, 2 zeros, 8 missing: sum 990 beside n 992
+* gives back the 2 zeros; 990 distinct ids in 992 nonmissing rows give back
+* 2 duplicated rows.
+clear
+set obs 1000
+gen double x = cond(_n <= 990, 1, cond(_n <= 992, 0, .))
+gen double id = cond(_n <= 990, _n, cond(_n <= 992, 1, .))
+capture {
+    capture datacheck, gatesonly stat(sum x 0 1 \ n x 0 1 \ distinct id 0 1) maskrare warn violations(dg_b, replace)
+    frame dg_b: assert _N == 3
+    frame dg_b: assert observed[1] == "sum all but <5" & observed[2] == "n 992" & observed[3] == "distinct all but <5"
+    * without maskrare every value prints
+    capture datacheck, gatesonly stat(sum x 0 1 \ distinct id 0 1) warn violations(dg_b, replace)
+    frame dg_b: assert observed[1] == "sum 990" & observed[2] == "distinct 990"
+    * 6 zeros and 4 missing: neither complement of the sum is small
+    replace x = 0 in 993/996
+    capture datacheck, gatesonly stat(sum x 0 1) maskrare warn violations(dg_b, replace)
+    frame dg_b: assert observed[1] == "sum 990"
+}
+_dg `=_rc' "stat() maskrare: sum and distinct are masked when their complement in the nonmissing rows is small"
+
+* intervals(): a double start beside a float stop typed equal is contiguous;
+* the tol() boundary holds with a float stop too
+clear
+input long id double start float stop
+1 0 1.1
+1 1.1 2
+end
+capture {
+    capture datacheck, gatesonly intervals(id start stop, contiguous)
+    assert _rc == 0
+    replace start = 1.0 in 2
+    capture datacheck, gatesonly intervals(id start stop, contiguous tol(0.1))
+    assert _rc == 0
+    * a start beyond the tolerance still overlaps
+    replace start = 0.9 in 2
+    capture datacheck, gatesonly intervals(id start stop, contiguous tol(0.1)) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & label[1] == "overlap"
+}
+_dg `=_rc' "intervals() tol(): float precision applies when either start or stop is float"
+
+* keyset() through datacheck: an entry written as one quoted token, which
+* 1.8.0 accepted, is the spec; unquoted, quoted-path (with a comma and a
+* space), and two-entry forms still work
+clear
+set obs 3
+gen long id = _n
+local dgkq "`c(tmpdir)'/dg_b_keyset.dta"
+local dgkc "`c(tmpdir)'/dg b,keyset.dta"
+save "`dgkq'", replace
+save "`dgkc'", replace
+capture frame drop dg_b
+capture {
+    capture datacheck, gatesonly keyset("id using `dgkq'")
+    assert _rc == 0
+    capture datacheck, gatesonly keyset("id using `dgkq', subset")
+    assert _rc == 0
+    capture datacheck, gatesonly keyset(id using `dgkq')
+    assert _rc == 0
+    capture datacheck, gatesonly keyset(id using "`dgkc'", superset \ id using "`dgkq'")
+    assert _rc == 0
+    * the unwrapped entry still gates: a key lost from memory fails
+    drop in 3
+    capture datacheck, gatesonly keyset("id using `dgkq'") warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & gate[1] == "keyset"
+}
+_dg `=_rc' "keyset(): a whole-quoted 1.8.0-style entry is unwrapped; quoted and unquoted paths still work"
+capture frame drop dg_b
+capture erase "`dgkq'"
+capture erase "`dgkc'"
+
+* complete() under maskrare: a masked share is left out, never printed as
+* ".%", on the console and in the ledger.  3 of 20 rows are complete (a small
+* cell); within by(g) group 2 has 3 rows, so its size is withheld.
+clear
+set obs 20
+gen double x = cond(_n <= 3, 1, .)
+gen byte g = cond(_n <= 17, 1, 2)
+local dgcl "`c(tmpdir)'/dg_b_complete_ledger.dta"
+capture erase "`dgcl'"
+capture log close _dgc
+log using "`lg'", text replace name(_dgc)
+capture noisily datacheck, gatesonly complete(x) maskrare ledger("`dgcl'")
+capture noisily datacheck, gatesonly by(g) complete(x, min(0.5)) maskrare warn ledger("`dgcl'")
+log close _dgc
+capture frame drop dg_led
+capture {
+    _dg_count "`lg'" ".%"
+    assert r(n) == 0
+    _dg_count "`lg'" "complete(x): <5 of 20 complete"
+    assert r(n) == 1
+    frame create dg_led
+    frame dg_led: use "`dgcl'", clear
+    frame dg_led: count if family == "complete"
+    assert !missing(r(N)) & r(N) >= 3
+    frame dg_led: count if strpos(observed, ".%") | strpos(message, ".%")
+    assert r(N) == 0
+}
+_dg `=_rc' "complete() maskrare: a masked share is omitted, never .%, in the console and the ledger"
+capture frame drop dg_led
+capture erase "`dgcl'"
+capture frame drop dg_b
+
+* ============================================================
+* 26. dataqa findings 2026-09-30: groupstat() headers, masked shares (items 3 4)
+* ============================================================
+
+* === End columns of the blank-separated tokens of a line ===
+capture program drop _dg_ends
+program define _dg_ends, rclass
+    args line
+    local ends ""
+    local len = length(`"`line'"')
+    forvalues i = 1/`len' {
+        local c = substr(`"`line'"', `i', 1)
+        local nx = substr(`"`line'"', `i' + 1, 1)
+        if `"`c'"' != " " & (`"`nx'"' == " " | `"`nx'"' == "") local ends "`ends' `i'"
+    }
+    local ends = strtrim("`ends'")
+    return local ends "`ends'"
+    return scalar n = wordcount("`ends'")
+end
+
+* groupstat(): 12-character abbreviations stay separated, and each header
+* ends in the column its cells end in
+sysuse auto, clear
+gen headroom_rating = headroom
+gen displacement_cc = displacement
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly groupstat(pmiss headroom_rating displacement_cc, by(foreign))
+local grc = _rc
+log close _dgq
+capture {
+    assert `grc' == 0
+    tempname gfh
+    local hdr ""
+    local nrow = 0
+    file open `gfh' using "`lg'", read text
+    file read `gfh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "  Group ") == 1 & strpos(`"`line'"', "headroom_r~g") local hdr `"`line'"'
+        else if `"`hdr'"' != "" & inlist(word(`"`line'"', 1), "Domestic", "Foreign", "pooled") {
+            local ++nrow
+            local row`nrow' `"`line'"'
+        }
+        file read `gfh' line
+    }
+    file close `gfh'
+    assert `nrow' == 3
+    * Group, headroom_r~g, displaceme~c: three tokens, not two run together
+    _dg_ends `"`hdr'"'
+    assert r(n) == 3
+    local hends "`r(ends)'"
+    forvalues k = 1/3 {
+        _dg_ends `"`row`k''"'
+        assert r(n) == 3
+        assert word("`r(ends)'", 2) == word("`hends'", 2) & word("`r(ends)'", 3) == word("`hends'", 3)
+    }
+    * at least one blank before each column
+    assert strpos(`"`hdr'"', " headroom_r~g displaceme~c") > 0
+}
+_dg `=_rc' "groupstat(): 12-character headers are separated and end in their cells' column"
+capture file close `gfh'
+
+* _datacheck_mshare r(pcttxt): the share ready to print
+capture {
+    _datacheck_mshare 12 100 5
+    assert "`r(pcttxt)'" == "12.0%" & "`r(pct)'" == "12.0"
+    _datacheck_mshare 2 100 5
+    assert "`r(pcttxt)'" == "[masked]" & "`r(pct)'" == "."
+    _datacheck_mshare 98 100 5
+    assert "`r(pcttxt)'" == "[masked]"
+    _datacheck_mshare 0 100 5
+    assert "`r(pcttxt)'" == "0.0%"
+    _datacheck_mshare 0 0 5
+    assert "`r(pcttxt)'" == "n/a" & "`r(pct)'" == "."
+    _datacheck_mshare 2 100 0
+    assert "`r(pcttxt)'" == "2.0%"
+}
+_dg `=_rc' "_datacheck_mshare: r(pcttxt) is 12.0%, [masked], or n/a"
+
+* heaping() and coverage() under maskrare: 200 dates, 2 on 1 January 2021
+* and 2 on 1 January 2030, outside [2020, 2021]; no share prints as .%.
+* 1 January holds 4 dates (masked); the 1st holds 10 (5%), the 15th 7.
+clear
+set obs 200
+gen visit_dt = td(01jan2020) + _n
+replace visit_dt = td(01jan2021) in 1/2
+replace visit_dt = td(01jan2030) in 3/4
+format visit_dt %td
+tempfile dgl4f
+local dgl4 "`dgl4f'.dta"
+capture erase "`dgl4'"
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly maskrare name(visits) heaping(visit_dt) ///
+    bands(coverage(visit_dt td(01jan2020) td(31dec2021), gap(400))) ledger("`dgl4'", run(h1))
+local hrc = _rc
+log close _dgq
+capture frame drop dg_led
+capture {
+    assert `hrc' == 9
+    _dg_count "`lg'" ".%"
+    assert r(n) == 0
+    _dg_count "`lg'" "[masked]"
+    assert r(n) >= 1
+    _dg_count "`lg'" "coverage(outside): <5 of visit_dt dates outside [01jan2020, 31dec2021], tail allows 0%"
+    assert r(n) == 1
+    frame create dg_led
+    frame dg_led {
+        use "`dgl4'", clear
+        count if strpos(observed, ".%") | strpos(message, ".%") | strpos(message, "(.")
+        assert r(N) == 0
+        count if family == "heaping"
+        assert r(N) == 1
+        assert observed == "Jan 1 [masked], 1st 5.00%, 15th 3.50%" if family == "heaping"
+        assert missing(observed_num) & obs_masked == 1 if family == "heaping"
+        assert observed == "<5 dates outside" if family == "coverage" & label == "outside"
+    }
+    * unmasked, the share is printed with its sign once
+    capture datacheck, gatesonly heaping(visit_dt) ///
+        bands(coverage(visit_dt td(01jan2020) td(31dec2021), gap(400))) warn violations(dg_b, replace)
+    frame dg_b: assert _N == 1 & observed[1] == "2 dates (1.0%) outside"
+}
+_dg `=_rc' "heaping()/coverage() maskrare: a masked share reads [masked], never .%; the message drops it"
+capture frame drop dg_led
+capture frame drop dg_b
+capture erase "`dgl4'"
+
+* heaping() with no nonmissing date prints n/a, not .%
+clear
+set obs 20
+gen e_dt = .
+format e_dt %td
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly heaping(e_dt)
+local hrc = _rc
+log close _dgq
+capture {
+    assert `hrc' == 0
+    _dg_count "`lg'" ".%"
+    assert r(n) == 0
+    _dg_count "`lg'" "n/a        n/a        n/a"
+    assert r(n) == 1
+}
+_dg `=_rc' "heaping(): an empty date variable prints n/a for each share"
+
+* groupstat() band: a failing value prints at full precision.  A constant
+* float 0.2 has mean .200000003, above band(0 0.2); at %10.4g it read ".2",
+* a value inside the band.  The table cell stays short.
+clear
+set obs 40
+gen byte g = _n > 20
+gen float x = 0.2
+capture frame drop dg_gb
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly groupstat(mean x, by(g) band(0 0.2)) warn violations(dg_gb, replace)
+log close _dgq
+capture {
+    local xs = strtrim(string(float(0.2), "%14.0g"))
+    assert "`xs'" != ".2"
+    frame dg_gb: assert _N == 2
+    frame dg_gb: assert observed[1] == "mean `xs'" & observed[2] == "mean `xs'"
+    frame dg_gb: assert real(substr(observed[1], 6, .)) > 0.2
+    _dg_count "`lg'" "groupstat(mean x): mean `xs' in group 0, expected [0, .2]"
+    assert r(n) == 1
+    _dg_count "`lg'" "mean .2 in group"
+    assert r(n) == 0
+    * the cells keep %10.4g
+    local pl : display "  " %-24s "pooled" %13s ".2"
+    _dg_count "`lg'" "`pl'"
+    assert r(n) == 1
+}
+_dg `=_rc' "groupstat() band: a failing value prints at full precision, cells stay short"
+capture frame drop dg_gb
+
+* heaping() and coverage(): a daily date without a date display format is
+* refused, and the message says how to fix it; %-td and %tdCCYY-NN-DD pass
+clear
+set obs 30
+gen d = td(01jan2020) + _n
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly heaping(d)
+local rc1 = _rc
+capture noisily datacheck, gatesonly coverage(d 01jan2020 31dec2020, gap(0))
+local rc2 = _rc
+log close _dgq
+capture {
+    assert `rc1' == 198 & `rc2' == 198
+    _dg_count "`lg'" "heaping(): d must be a daily (%td) date; give it a daily date display format, e.g. format d %td"
+    assert r(n) == 1
+    _dg_count "`lg'" "coverage(): d must be a daily (%td) date; give it a daily date display format, e.g. format d %td"
+    assert r(n) == 1
+    foreach f in %-td %tdCCYY-NN-DD {
+        format d `f'
+        capture datacheck, gatesonly heaping(d)
+        assert _rc == 0
+        * the dates run from 2 to 31 January 2020
+        capture datacheck, gatesonly coverage(d 02jan2020 31jan2020, gap(0))
+        assert _rc == 0
+    }
+}
+_dg `=_rc' "heaping()/coverage(): an unformatted date is r(198) with the format fix named; %-td and %tdCCYY-NN-DD pass"
+
+* groupstat(relative): the cells are the ratios band() tests, as the
+* heading says; the pooled row stays raw.  Oracle: summarize, detail.
+sysuse auto, clear
+quietly summarize price if rep78 == 4, detail
+local m4 = r(p50)
+quietly summarize price, detail
+local m0 = r(p50)
+local r4 = strtrim(string(`m4' / `m0', "%10.4g"))
+local p0 = strtrim(string(`m0', "%10.4g"))
+capture frame drop dg_gr
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly groupstat(median price, by(rep78) relative band(0.9 1.1)) ///
+    warn violations(dg_gr, replace)
+log close _dgq
+capture {
+    local l4 : display "  " %-24s "4" %13s "`r4'"
+    _dg_count "`lg'" "`l4'"
+    assert r(n) == 1
+    local lp : display "  " %-24s "pooled" %13s "`p0'"
+    _dg_count "`lg'" "`lp'"
+    assert r(n) == 1
+    * the raw median is not printed as a cell
+    local l4raw : display "  " %-24s "4" %13s strtrim(string(`m4', "%10.4g"))
+    _dg_count "`lg'" "`l4raw'"
+    assert r(n) == 0
+    * the failure reports the same ratio
+    frame dg_gr: assert _N == 1
+    frame dg_gr: assert abs(real(substr(observed[1], 17, .)) - `m4' / `m0') < 1e-9
+}
+_dg `=_rc' "groupstat(relative): cells show group/pooled, the value band() tests; pooled stays raw"
+capture frame drop dg_gr
 
 * ============================================================
 * Summary

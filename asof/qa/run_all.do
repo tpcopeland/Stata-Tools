@@ -23,7 +23,7 @@ quietly _asof_qa_bootstrap
 local quick_suites test_asof_syntax test_asof_selection test_asof_windows ///
     test_asof_ties test_asof_edge_cases test_asof_types test_asof_install ///
     test_asof_help test_asof_examples test_asof_errors test_asof_hostile test_asof_v011
-local core_suites `quick_suites' validation_asof_known_truth ///
+local core_suites `quick_suites' validation_fixture_contract validation_asof_known_truth ///
     validation_asof_mogad test_asof_oracle
 local crossval_suites crossval_asof_pandas
 local full_suites `core_suites' `crossval_suites'

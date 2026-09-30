@@ -66,3 +66,13 @@ The suites install `massdesas`, `filelist`, and `fs` into process-specific tempo
 | Lane | Suites |
 |---|---|
 | `full` | The explicit suite list in `run_all.do` |
+
+archetypes: A7(massdesas)
+
+## Canonical fixture adoption
+
+Real R/haven SAS binaries from canonical numeric cells recover every value; discovery stand-in is counted as failed conversion and retained even under erase. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_massdesas_fixture_contract.do` | Canonical fixture truth and hostile contracts | full |

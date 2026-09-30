@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.8.0  2026/09/30
+*! _datamap_post_metadata_rows Version 1.8.1  2026/09/30
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -121,6 +121,15 @@ program define _datamap_post_metadata_rows, nclass
                     if `"`chars'"' == "" local chars `"`cname'=`macval(cval)'"'
                     else local chars `"`macval(chars)'<br>`cname'=`macval(cval)'"'
                 }
+            }
+
+            // Excluded means sensitive: match the classifier, which blanks an
+            // excluded variable's value label, and withhold its notes and
+            // characteristics too -- both are free text that can carry values.
+            if "`varclass'" == "excluded" {
+                local vallabname ""
+                local notes ""
+                local chars ""
             }
 
             local post_vlab = substr(`"`macval(vlab)'"', 1, 2045)

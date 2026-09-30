@@ -1,5 +1,7 @@
 # swimlane QA
 
+<!-- archetypes: A2 A4 A7 -->
+
 The `swimlane` QA suite is flat and concern-oriented, with a curated lane runner and independently runnable suites for functional behavior, regressions, exports, state preservation, and canonical-table validation.
 
 ## How to run
@@ -75,3 +77,13 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 ## Known gaps
 
 The package lane exercises graph creation and inspects named graph/file contracts, while the SMCL render axis is gated separately with `artifact help swimlane` during documentation and review workflows.
+
+Canonical fixture adoption is in progress. `4` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Four cases check distinct subjects, event/ongoing markers and exposure-span summaries, then every subject-keyed canonical bar start/stop/duration against the fixture records. Unsorted, late-entry and tied-time variants are consumed.
+
+| Added QA file | Role |
+|---|---|
+| `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a2.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+
+Fixture coverage still owed: A4 state/interval and A7 wide/file routes, other A2 minima, graph rendering and marker/weighting/options routes. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

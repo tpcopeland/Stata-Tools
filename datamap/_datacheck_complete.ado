@@ -1,4 +1,4 @@
-*! _datacheck_complete Version 1.8.0  2026/09/30
+*! _datacheck_complete Version 1.8.1  2026/09/30
 *! datacheck complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -50,7 +50,7 @@ program define _datacheck_complete, rclass
             local k = r(N)
             _datacheck_mshare `k' `n' `mask'
             local kc "`r(cnt)'"
-            local kp "`r(pct)'"
+            local kp "`r(pcttxt)'"
             local om = r(masked)
             local knum = r(num)
             _datacheck_mcount `n' `mask'
@@ -60,7 +60,7 @@ program define _datacheck_complete, rclass
             // is withheld; the share would give the size back
             if `mask' > 0 & missing(`nscope') {
                 local ns "[suppressed]"
-                local kp "."
+                local kp "[masked]"
                 local om = 1
             }
             if `om' local anymask = 1
@@ -68,7 +68,8 @@ program define _datacheck_complete, rclass
             if `knum' < . & `k' >= 1 local mins = `k'
             local vtxt "`cvars'"
             if length("`vtxt'") > 60 local vtxt = substr("`vtxt'", 1, 57) + "..."
-            local obs "`kc' of `ns' (`kp'%)"
+            // a masked share is left out rather than printed as ".%"
+            local obs = "`kc' of `ns'" + cond(`om', "", " (`kp')")
             local share = cond(`n' > 0, `k' / `n', .)
             local onum = cond(`om', ., `share')
             local rmsg `"`pfx'complete(`vtxt'): `obs' complete"'

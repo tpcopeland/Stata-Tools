@@ -81,6 +81,14 @@ foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_isolation {
     else local ++suite_fail
 }
 
+if inlist("`mode'", "core", "full") {
+    capture noisily do "`qa_dir'/validation_pkgtransfer_fixture_contract.do"
+    local fixture_rc = _rc
+    local ++suite_count
+    if `fixture_rc' == 0 local ++suite_pass
+    else local ++suite_fail
+}
+
 local validation_rc .
 if inlist("`mode'", "core", "full") {
     capture noisily do "`qa_dir'/validation_pkgtransfer.do"

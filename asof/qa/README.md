@@ -1,5 +1,11 @@
 # asof QA
 
+archetypes: A4
+
+Canonical fixture adoption is in progress. Brute-force Cartesian source-row/date oracles cover every direction and selection combination, tied event identity, duplicate sources, inclusive window edges, missing anchors and row shuffling. A4 spell operators whose meaning requires an interval source do not establish asof point-event coverage merely by appearing in unused columns. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `validation_fixture_contract.do`.
+
 The `asof` QA suite is flat and concern-oriented, with functional, known-answer, external-parity, and scaling files driven by one curated runner. Every suite is independently runnable from this directory.
 
 ## How to run

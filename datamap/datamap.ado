@@ -1,4 +1,4 @@
-*! datamap Version 1.8.0  2026/09/30
+*! datamap Version 1.8.1  2026/09/30
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -111,7 +111,7 @@ program define datamap, rclass
 		local _restore_needed = 0
 		local _metadata_post_open = 0
 		capture noisily {
-				syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
+				syntax [, DIRectory(string) FILElist(string asis) SINGLE(string) ///
 			          RECursive ///
 			          Output(string) Format(string) SEParate APPend SAVing(string) ///
 			          CONFig(string) ///
@@ -177,7 +177,9 @@ program define datamap, rclass
 		}
 
 	// Validate mutually exclusive input options (only one allowed)
-	local ninput = ("`directory'" != "") + ("`filelist'" != "") + ("`single'" != "")
+	// filelist() is -asis-: plain -string- stripped the quotes around a
+	// name containing spaces, so filelist("my dir/a") read as two names.
+	local ninput = ("`directory'" != "") + (`"`filelist'"' != "") + ("`single'" != "")
 	if `ninput' > 1 {
 		noisily di as error "specify only one of directory(), filelist(), or single()"
 		exit 198
@@ -385,7 +387,7 @@ program define datamap, rclass
 			file write `fh_tmp' `"`single'"' _n
 			file close `fh_tmp'
 	}
-	else if "`filelist'" != "" {
+	else if `"`filelist'"' != "" {
 		// File list mode: parse space-separated dataset names
 		_datamap_collect_filelist `"`filelist'"' `"`filelist_tmp'"'
 		_datamap_count_files `"`filelist_tmp'"'
@@ -410,6 +412,14 @@ program define datamap, rclass
 		// Process files and generate output
 		local memoryopt ""
 		if "`input_source'" == "memory" local memoryopt "memory"
+
+		// exclude() against every file before any output is written: an
+		// unresolvable range errors here, and a token matching no variable
+		// in any file gets a note (see _datamap_classify, precheck).
+		if `"`exclude'"' != "" {
+			_datamap_classify using `"`filelist_tmp'"', precheck ///
+				exclude(`"`exclude'"') `memoryopt'
+		}
 	if "`separate'" != "" {
 		// Generate separate output file per dataset
 		_datamap_ProcessSeparate, filelist("`filelist_tmp'") format(`format') ///
@@ -605,6 +615,11 @@ program define datamap, rclass
 		return scalar n_string = `n_string'
 		return scalar n_excluded = `n_excluded'
 		return scalar n_suggested_exclude = `n_suggested_exclude'
+		// Accumulated per dataset with a leading separator; return clean
+		// lists so a string comparison does not trip on stray spaces.
+		foreach _L in categorical_vars continuous_vars date_vars string_vars excluded_vars suggested_exclude {
+			local `_L' : list retokenize `_L'
+		}
 		return local categorical_vars "`categorical_vars'"
 		return local continuous_vars "`continuous_vars'"
 		return local date_vars "`date_vars'"
@@ -1067,7 +1082,10 @@ program define _datamap_ProcessDataset, rclass
         if `uniqcap' == 0 local nuniq_cap = 0
         else local nuniq_cap = max(`uniqcap', `maxcat', `maxfreq')
         tempfile classifications
+                local _srcn `"`filepath'"'
+                if "`memory'" != "" local _srcn "memory"
                 _datamap_classify using "`filepath'", saving("`classifications'") loaded ///
+                    srcname(`"`_srcn'"') ///
                     maxcat(`maxcat') obs(`obs') exclude("`exclude'") ///
                     continuous("`continuous'") categorical("`categorical'") ///
                     date("`force_date'") cap(`nuniq_cap') ///
@@ -1142,7 +1160,8 @@ program define _datamap_ProcessDataset, rclass
             _datamap_DetectPanel `fh' "`filepath'" "`panelid'" "`format'" "`excluded_vars'"
         }
         if `detect_survival' | "`survivalvars'" != "" {
-            _datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'" "`excluded_vars'"
+            _datamap_DetectSurvival `fh' "`filepath'" "`survivalvars'" "`format'" "`excluded_vars'" ///
+                "`date_vars'" "`datesafe'" `mincell' "`dateformat'"
         }
         if `detect_survey' {
             _datamap_DetectSurvey `fh' "`filepath'" "`format'" "`excluded_vars'"
@@ -1531,18 +1550,88 @@ end
 // raw level) and _sf_c<k> (its count); st_local() never macro-expands them.
 capture mata: mata drop _datamap_strfreq()
 mata:
-void _datamap_strfreq(string scalar vname)
+void _datamap_strfreq(string scalar vname, | string scalar cmat)
 {
 	string colvector x, u
+	real colvector cnt
 	real scalar k
 
 	x = st_sdata(., vname)
 	x = select(x, x :!= "")
 	u = uniqrows(x)
+	cnt = J(rows(u), 1, .)
 	st_local("_sf_n", strofreal(rows(u)))
 	for (k = 1; k <= rows(u); k++) {
+		cnt[k] = sum(x :== u[k])
 		st_local("_sf_v" + strofreal(k), u[k])
-		st_local("_sf_c" + strofreal(k), strofreal(sum(x :== u[k]), "%18.0f"))
+		st_local("_sf_c" + strofreal(k), strofreal(cnt[k], "%18.0f"))
+	}
+	// Counts as a Stata matrix for _datamap_cellmask (no rows: no matrix).
+	if (cmat != "" & rows(u) > 0) st_matrix(cmat, cnt)
+}
+end
+
+// Small-cell mask with complementary suppression.  The row count N and the
+// missing count are both printed, so a lone suppressed cell equals
+// N - missing - (shown cells): primary suppression alone disclosed it exactly.
+// Following datacheck's maskrare rule, the smallest shown cell joins the
+// withheld set until the set has at least two members and its pooled count is
+// at least the threshold, or nothing is left to withhold.  Codes: 0 = shown,
+// 1 = below the threshold, 2 = withheld as a complement.  Cells flagged in
+// `pre' are withheld for another reason (e.g. a pattern beyond the printed
+// top ten); they count toward the pool and come back coded 0.
+capture mata: mata drop _datamap_cellmask_core()
+capture mata: mata drop _datamap_cellmask()
+capture mata: mata drop _datamap_patmask()
+mata:
+real colvector _datamap_cellmask_core(real colvector c, real scalar m,
+	real colvector pre)
+{
+	real colvector h
+	real scalar k, best, j
+
+	k = rows(c)
+	h = J(k, 1, 0)
+	if (m <= 0 | k == 0) return(h)
+	h = (c :< m) :& (c :> 0)
+	h = h :| (pre :!= 0)
+	while (sum(h :!= 0) > 0) {
+		if (sum(h :!= 0) >= 2 & sum(select(c, h :!= 0)) >= m) break
+		best = 0
+		for (j = 1; j <= k; j++) {
+			if (h[j] != 0) continue
+			if (best == 0) best = j
+			else if (c[j] < c[best]) best = j
+		}
+		if (best == 0) break
+		h[best] = 2
+	}
+	return(h :* (pre :== 0))
+}
+
+// Stata-matrix front end: counts in `cmat' (one per row) -> codes in `hmat'.
+void _datamap_cellmask(string scalar cmat, real scalar m, string scalar hmat)
+{
+	real colvector c
+
+	c = st_matrix(cmat)[., 1]
+	st_matrix(hmat, _datamap_cellmask_core(c, m, J(rows(c), 1, 0)))
+}
+
+// Missing-pattern front end: counts in variable `cvar' of the current frame
+// (sorted most frequent first); rows past `nshow' are not printed.  Writes
+// locals _ph1 ... _ph<nshow>.  Reads the column directly, so there is no
+// matrix-size ceiling on the number of distinct patterns.
+void _datamap_patmask(string scalar cvar, real scalar m, real scalar nshow)
+{
+	real colvector c, pre, h
+	real scalar k
+
+	c = st_data(., cvar)
+	pre = (1::rows(c)) :> nshow
+	h = _datamap_cellmask_core(c, m, pre)
+	for (k = 1; k <= min((nshow, rows(c))); k++) {
+		st_local("_ph" + strofreal(k), strofreal(h[k]))
 	}
 }
 end
@@ -1773,7 +1862,9 @@ program define _datamap_ProcessDatasetJson, nclass
 		if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' & ///
 			substr("`vtype'", 1, 3) == "str" {
 			// String categorical (forced via categorical()): see _datamap_strfreq.
-			mata: _datamap_strfreq("`vname'")
+			tempname _dm_sc _dm_hide
+			mata: _datamap_strfreq("`vname'", "`_dm_sc'")
+			if `_sf_n' > 0 mata: _datamap_cellmask("`_dm_sc'", `mincell', "`_dm_hide'")
 			forvalues j = 1/`_sf_n' {
 				local sval : copy local _sf_v`j'
 				mata: _datamap_jsonesc("sval", "sval_json")
@@ -1782,7 +1873,7 @@ program define _datamap_ProcessDatasetJson, nclass
 				file write `fh' "            {" _n
 				file write `fh' `"              "value": "`macval(sval_json)'","' _n
 				file write `fh' `"              "label": "","' _n
-				if `mincell' > 0 & `freq' < `mincell' {
+				if `_dm_hide'[`j', 1] {
 					file write `fh' `"              "count": null,"' _n
 					file write `fh' `"              "pct": null,"' _n
 					file write `fh' `"              "suppressed": true,"' _n
@@ -1805,10 +1896,11 @@ program define _datamap_ProcessDatasetJson, nclass
 		}
 		else if "`vclass'" == "categorical" & "`nofreq'" == "" & `nuniq' < . & `nuniq' <= `maxfreq' {
 			// tempnames: fixed names clobbered caller matrices vals/freqs
-			tempname _dm_vals _dm_freqs
+			tempname _dm_vals _dm_freqs _dm_hide
 			capture quietly tab `vname', matrow(`_dm_vals') matcell(`_dm_freqs')
 			if _rc == 0 {
 				local nvals = r(r)
+				if `nvals' > 0 mata: _datamap_cellmask("`_dm_freqs'", `mincell', "`_dm_hide'")
 				forvalues j = 1/`nvals' {
 					local val = `_dm_vals'[`j',1]
 					local freq = `_dm_freqs'[`j',1]
@@ -1826,7 +1918,7 @@ program define _datamap_ProcessDatasetJson, nclass
 					file write `fh' "            {" _n
 					file write `fh' `"              "value": "`val_json'","' _n
 					file write `fh' `"              "label": "`macval(vallab_json)'","' _n
-					if `mincell' > 0 & `freq' < `mincell' {
+					if `_dm_hide'[`j', 1] {
 						file write `fh' `"              "count": null,"' _n
 						file write `fh' `"              "pct": null,"' _n
 						file write `fh' `"              "suppressed": true,"' _n
@@ -1919,10 +2011,12 @@ program define _datamap_ProcessCategorical, nclass
 		if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
 			file write `fh' "  Frequencies:" _n
 			// tempnames: fixed names clobbered caller matrices vals/freqs
-			tempname _dm_vals _dm_freqs
+			tempname _dm_vals _dm_freqs _dm_sc _dm_hide
 			local _isstr = (substr("`vtype'", 1, 3) == "str")
 			if `_isstr' {
-				mata: _datamap_strfreq("`vname'")
+				mata: _datamap_strfreq("`vname'", "`_dm_sc'")
+				if `_sf_n' == 0 file write `fh' "    (no non-missing values)" _n
+				else mata: _datamap_cellmask("`_dm_sc'", `mincell', "`_dm_hide'")
 				forvalues j = 1/`_sf_n' {
 					local sval : copy local _sf_v`j'
 					// keep one cell per line
@@ -1930,8 +2024,11 @@ program define _datamap_ProcessCategorical, nclass
 					local freq = `_sf_c`j''
 					local pct "."
 					if `obs' > 0 local pct = strtrim(string(round(100*`freq'/`obs', 0.1), "%5.1f"))
-					if `mincell' > 0 & `freq' < `mincell' {
+					if `_dm_hide'[`j', 1] == 1 {
 						file write `fh' `"    "`macval(sval)'": suppressed (<`mincell')"' _n
+					}
+					else if `_dm_hide'[`j', 1] == 2 {
+						file write `fh' `"    "`macval(sval)'": suppressed (complementary)"' _n
 					}
 					else {
 						file write `fh' `"    "`macval(sval)'": `freq' (`pct'%)"' _n
@@ -1945,6 +2042,8 @@ program define _datamap_ProcessCategorical, nclass
 			}
 			if !`_isstr' & `_tabrc' == 0 {
 				local nvals = r(r)
+				if `nvals' == 0 file write `fh' "    (no non-missing values)" _n
+				else mata: _datamap_cellmask("`_dm_freqs'", `mincell', "`_dm_hide'")
 				forvalues j = 1/`nvals' {
 					local val = `_dm_vals'[`j',1]
 					local freq = `_dm_freqs'[`j',1]
@@ -1961,8 +2060,11 @@ program define _datamap_ProcessCategorical, nclass
 					}
 					local vltext : label (`vname') `val'
 					if `"`macval(vltext)'"' == "`val'" local vltext "`valdisp'"
-					if `mincell' > 0 & `freq' < `mincell' {
+					if `_dm_hide'[`j', 1] == 1 {
 						file write `fh' `"    `valdisp' = `macval(vltext)': suppressed (<`mincell')"' _n
+					}
+					else if `_dm_hide'[`j', 1] == 2 {
+						file write `fh' `"    `valdisp' = `macval(vltext)': suppressed (complementary)"' _n
 					}
 					else {
 						file write `fh' `"    `valdisp' = `macval(vltext)': `freq' (`pct'%)"' _n
@@ -2396,6 +2498,25 @@ program define _datamap_ProcessExcluded, nclass
 	}
 end
 
+// Sorted distinct non-missing values across the variables in `vars', written
+// to the caller's local `levels'.
+capture mata: mata drop _datamap_vllevels()
+mata:
+void _datamap_vllevels(string scalar vars)
+{
+	string rowvector v
+	real colvector d
+	real scalar k
+
+	v = tokens(vars)
+	d = J(0, 1, .)
+	for (k = 1; k <= cols(v); k++) d = uniqrows(d \ st_data(., v[k]))
+	d = select(d, d :< .)
+	if (rows(d) == 0) st_local("levels", "")
+	else st_local("levels", invtokens(strofreal(d, "%18.0g")'))
+}
+end
+
 capture program drop _datamap_ProcessValueLabels
 local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
@@ -2449,9 +2570,9 @@ program define _datamap_ProcessValueLabels, nclass
 			// Label exists - extract values by iterating through them
 			local labname "`vl'"
 
-			// Use extended macro to get label range
-			local firstvar : word 1 of `varlist'
-			quietly levelsof `firstvar', local(levels)
+			// Levels present in ANY variable using the label.  Reading only
+			// the first user dropped every level that occurs in the others.
+			mata: _datamap_vllevels("`varlist'")
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
 				file write `fh' `"  `lev' = `macval(labtext)'"' _n
@@ -2513,9 +2634,10 @@ program define _datamap_ProcessBinary, nclass
 
 		// Show frequency distribution
 		// tempnames: fixed names clobbered caller matrices vals/freqs
-		tempname _dm_vals _dm_freqs
+		tempname _dm_vals _dm_freqs _dm_hide
 		quietly tab `vname', matrow(`_dm_vals') matcell(`_dm_freqs')
 		local nvals = r(r)
+		if `nvals' > 0 mata: _datamap_cellmask("`_dm_freqs'", `mincell', "`_dm_hide'")
 
 		file write `fh' "  Frequency:" _n
 		forvalues j = 1/`nvals' {
@@ -2536,12 +2658,14 @@ program define _datamap_ProcessBinary, nclass
 			capture local vallabtext : label (`vname') `val'
 			local _labrc = _rc
 			if `"`macval(vallabtext)'"' == "`val'" local vallabtext "`valdisp'"
-			if `mincell' > 0 & `freq' < `mincell' {
+			if `_dm_hide'[`j', 1] {
+				local _why "<`mincell'"
+				if `_dm_hide'[`j', 1] == 2 local _why "complementary"
 				if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
-					file write `fh' `"    `valdisp' (`macval(vallabtext)'): suppressed (<`mincell')"' _n
+					file write `fh' `"    `valdisp' (`macval(vallabtext)'): suppressed (`_why')"' _n
 				}
 				else {
-					file write `fh' "    `valdisp': suppressed (<`mincell')" _n
+					file write `fh' "    `valdisp': suppressed (`_why')" _n
 				}
 			}
 			else if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
@@ -2629,12 +2753,13 @@ program define _datamap_ProcessSamples, nclass
 	local allvars `r(varlist)'
 
 	// Print header
+	// Mask by the classifier's verdict, not by re-matching exclude() here:
+	// the classifier expands wildcards and ranges, a literal re-match would not.
 	file write `fh' "| "
 	foreach vn of local allvars {
+		local cx : list posof "`vn'" in classvars
 		local isexcl 0
-		foreach ev of local exclude {
-			if "`vn'" == "`ev'" local isexcl 1
-		}
+		if `cx' > 0 local isexcl = ("`class`cx''" == "excluded")
 		if `isexcl' {
 			file write `fh' "`vn'(masked) | "
 		}
@@ -2656,15 +2781,10 @@ program define _datamap_ProcessSamples, nclass
 	forvalues row = 1/`maxrow' {
 		file write `fh' "| "
 		foreach vn of local allvars {
-			local isexcl 0
-			foreach ev of local exclude {
-				if "`vn'" == "`ev'" local isexcl 1
-			}
-
 				local cx : list posof "`vn'" in classvars
 				local vnclass ""
 				if `cx' > 0 local vnclass "`class`cx''"
-				if `isexcl' {
+				if "`vnclass'" == "excluded" {
 					file write `fh' "[MASKED] | "
 				}
 				else if "`datesafe'" != "" & "`vnclass'" == "date" {
@@ -2801,7 +2921,8 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_DetectSurvival, nclass
 	version 16.0
-	args fh filepath survivalvars format excluded
+	args fh filepath survivalvars format excluded datevars datesafe mincell dateformat
+	if "`mincell'" == "" local mincell = 0
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -2857,8 +2978,12 @@ program define _datamap_DetectSurvival, nclass
 		file write `fh' "  Likely time variables:`time_vars'" _n
 		// Show range for the first numeric, non-excluded time variable
 		local first_time ""
+		// A date-class time variable (e.g. followup_date, %td) is a date:
+		// datesafe withholds its range like every other date, and without
+		// datesafe it prints in date format rather than as raw day counts.
 		foreach tv of local time_vars {
 			if `: list tv in excluded' continue
+			if "`datesafe'" != "" & `: list tv in datevars' continue
 			capture confirm numeric variable `tv'
 			if _rc continue
 			local first_time "`tv'"
@@ -2869,6 +2994,15 @@ program define _datamap_DetectSurvival, nclass
 			if r(N) > 0 {
 				local t_min = strtrim(string(round(r(min), 0.1), "%14.0g"))
 				local t_max = strtrim(string(round(r(max), 0.1), "%14.0g"))
+				if `: list first_time in datevars' {
+					tempname _tlo _thi
+					scalar `_tlo' = r(min)
+					scalar `_thi' = r(max)
+					local _tfmt : format `first_time'
+					_datamap_DateDisplayFormat, vfmt("`_tfmt'") dateformat("`dateformat'")
+					local t_min = string(`_tlo', "`r(display_format)'")
+					local t_max = string(`_thi', "`r(display_format)'")
+				}
 				file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
 			}
 		}
@@ -2889,7 +3023,14 @@ program define _datamap_DetectSurvival, nclass
 			quietly summarize `ev'
 			if r(min) != 0 | r(max) != 1 continue
 			local event_rate = strtrim(string(round(100 * r(mean), 0.1), "%14.0g"))
-			file write `fh' "    `ev' rate: `event_rate'%" _n
+			// The rate times the printed N is the event count: withhold it
+			// when either cell is below mincell(), as the frequency table does.
+			local _nev = r(sum)
+			local _nnon = r(N) - r(sum)
+			if `mincell' > 0 & (`_nev' < `mincell' | `_nnon' < `mincell') {
+				file write `fh' "    `ev' rate: suppressed (<`mincell' in a cell)" _n
+			}
+			else file write `fh' "    `ev' rate: `event_rate'%" _n
 			continue, break
 		}
 	}
@@ -3111,7 +3252,15 @@ program define _datamap_SummarizeMissing, nclass
 		file write `fh' "  Variables with >50% missing: 0" _n
 	}
 	file write `fh' "  Variables with >10% missing: `n_gt10'" _n
-	file write `fh' "  Observations with complete data: `n_complete' (`pct_complete'%)" _n
+	// The complete-case count is the all-observed pattern cell (and its
+	// complement the rows with any missing): it obeys mincell() like any cell,
+	// or it would print the very count the pattern table suppresses.
+	local _n_incomplete = `obs' - `n_complete'
+	if `mincell' > 0 & ((`n_complete' > 0 & `n_complete' < `mincell') | ///
+		(`_n_incomplete' > 0 & `_n_incomplete' < `mincell')) {
+		file write `fh' "  Observations with complete data: suppressed (<`mincell' in a cell)" _n
+	}
+	else file write `fh' "  Observations with complete data: `n_complete' (`pct_complete'%)" _n
 
 	// missing(pattern): the joint missingness patterns across the variables
 	// that have any missing value.  Before 1.6.9 the pattern keyword was
@@ -3147,12 +3296,18 @@ program define _datamap_SummarizeMissing, nclass
 					local pat`k' = pattern[`k']
 					local n`k' = n[`k']
 				}
+				// Patterns beyond the printed ten are withheld already; they
+				// pool with any suppressed pattern (see _datamap_cellmask_core).
+				mata: _datamap_patmask("n", `mincell', `nshow')
 			}
 			frame drop `pfr'
 			file write `fh' "    Distinct patterns: `npat'" _n
 			forvalues k = 1/`nshow' {
-				if `mincell' > 0 & `n`k'' < `mincell' {
+				if `_ph`k'' == 1 {
 					file write `fh' "    `pat`k'': suppressed (<`mincell')" _n
+				}
+				else if `_ph`k'' == 2 {
+					file write `fh' "    `pat`k'': suppressed (complementary)" _n
 				}
 				else {
 					local ppct = 0

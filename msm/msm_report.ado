@@ -187,11 +187,11 @@ program define msm_report, rclass
         if `has_weights' {
             display as text ""
             display as text "{bf:IP Weight Summary}"
-            display as text "  Mean:     " as result %9.`decimals'f `w_mean'
-            display as text "  SD:       " as result %9.`decimals'f `w_sd'
-            display as text "  Range:    " as result %9.`decimals'f `w_min' ///
-                as text " - " as result %9.`decimals'f `w_max'
-            display as text "  Median:   " as result %9.`decimals'f `w_p50'
+            display as text "  Mean:     " as result %24.`decimals'f `w_mean'
+            display as text "  SD:       " as result %24.`decimals'f `w_sd'
+            display as text "  Range:    " as result %24.`decimals'f `w_min' ///
+                as text " - " as result %24.`decimals'f `w_max'
+            display as text "  Median:   " as result %24.`decimals'f `w_p50'
             display as text "  ESS:      " as result %9.1f `ess'
         }
 
@@ -221,12 +221,12 @@ program define msm_report, rclass
                 _msm_coef_scale_label, model("`model'") eform report
                 local transform_label "`r(label)'"
                 display as text %20s "Variable" "  " ///
-                    %10s "`transform_label'" "  " ///
-                    %10s "CI low" "  " %10s "CI high" "  " %8s "p-value"
+                    %24s "`transform_label'" "  " ///
+                    %24s "CI low" "  " %24s "CI high" "  " %8s "p-value"
             }
             else {
                 display as text %20s "Variable" "  " ///
-                    %10s "Coef" "  " %10s "SE" "  " %8s "p-value"
+                    %24s "Coef" "  " %24s "SE" "  " %8s "p-value"
             }
             display as text _dup(60) "-"
 
@@ -251,15 +251,15 @@ program define msm_report, rclass
                     local ef_lo = exp(`b' - `_z_crit' * `se')
                     local ef_hi = exp(`b' + `_z_crit' * `se')
                     display as text %20s "`abbrev_name'" "  " ///
-                        as result %10.`decimals'f `ef' "  " ///
-                        %10.`decimals'f `ef_lo' "  " ///
-                        %10.`decimals'f `ef_hi' "  " ///
+                        as result %24.`decimals'f `ef' "  " ///
+                        %24.`decimals'f `ef_lo' "  " ///
+                        %24.`decimals'f `ef_hi' "  " ///
                         %8.4f `p'
                 }
                 else {
                     display as text %20s "`abbrev_name'" "  " ///
-                        as result %10.`decimals'f `b' "  " ///
-                        %10.`decimals'f `se' "  " ///
+                        as result %24.`decimals'f `b' "  " ///
+                        %24.`decimals'f `se' "  " ///
                         %8.4f `p'
                 }
             }
@@ -302,10 +302,10 @@ program define msm_report, rclass
                 file write `fh' "" _n
                 file write `fh' "IP Weight Summary" _n
                 file write `fh' "Metric,Value" _n
-                file write `fh' `"Mean,`=string(`w_mean', "%9.`decimals'f")'"' _n
-                file write `fh' `"SD,`=string(`w_sd', "%9.`decimals'f")'"' _n
-                file write `fh' `"Min,`=string(`w_min', "%9.`decimals'f")'"' _n
-                file write `fh' `"Max,`=string(`w_max', "%9.`decimals'f")'"' _n
+                file write `fh' `"Mean,`=string(`w_mean', "%24.`decimals'f")'"' _n
+                file write `fh' `"SD,`=string(`w_sd', "%24.`decimals'f")'"' _n
+                file write `fh' `"Min,`=string(`w_min', "%24.`decimals'f")'"' _n
+                file write `fh' `"Max,`=string(`w_max', "%24.`decimals'f")'"' _n
                 file write `fh' `"ESS,`=string(`ess', "%9.1f")'"' _n
             }
 
@@ -350,15 +350,15 @@ program define msm_report, rclass
                         local ef_lo = exp(`b' - `_z_crit' * `se')
                         local ef_hi = exp(`b' + `_z_crit' * `se')
                         file write `fh' "`cname'," ///
-                            "`=string(`ef', "%9.`decimals'f")'," ///
-                            "`=string(`ef_lo', "%9.`decimals'f")'," ///
-                            "`=string(`ef_hi', "%9.`decimals'f")'," ///
+                            "`=string(`ef', "%24.`decimals'f")'," ///
+                            "`=string(`ef_lo', "%24.`decimals'f")'," ///
+                            "`=string(`ef_hi', "%24.`decimals'f")'," ///
                             "`=string(`p', "%8.4f")'" _n
                     }
                     else {
                         file write `fh' "`cname'," ///
-                            "`=string(`b', "%9.`decimals'f")'," ///
-                            "`=string(`se', "%9.`decimals'f")'," ///
+                            "`=string(`b', "%24.`decimals'f")'," ///
+                            "`=string(`se', "%24.`decimals'f")'," ///
                             "`=string(`p', "%8.4f")'" _n
                     }
                 }
@@ -464,14 +464,14 @@ program define msm_report, rclass
                 replace A = "" in `_r'
                 local ++_r
                 replace A = "IP Weight Mean" in `_r'
-                replace B = string(`w_mean', "%9.`decimals'f") in `_r'
+                replace B = string(`w_mean', "%24.`decimals'f") in `_r'
                 local ++_r
                 replace A = "IP Weight SD" in `_r'
-                replace B = string(`w_sd', "%9.`decimals'f") in `_r'
+                replace B = string(`w_sd', "%24.`decimals'f") in `_r'
                 local ++_r
                 replace A = "IP Weight Range" in `_r'
-                replace B = string(`w_min', "%9.`decimals'f") + ///
-                    " - " + string(`w_max', "%9.`decimals'f") in `_r'
+                replace B = string(`w_min', "%24.`decimals'f") + ///
+                    " - " + string(`w_max', "%24.`decimals'f") in `_r'
                 local ++_r
                 replace A = "ESS" in `_r'
                 replace B = string(`ess', "%9.1f") in `_r'
@@ -643,9 +643,9 @@ program define msm_report, rclass
                             local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
                         }
                         local _disp_b = exp(`_b_i')
-                        replace B = strtrim(string(`_disp_b', "%9.`decimals'f")) in `_row'
-                        local _ci_lo = strtrim(string(exp(`_lo'), "%9.`decimals'f"))
-                        local _ci_hi = strtrim(string(exp(`_hi'), "%9.`decimals'f"))
+                        replace B = strtrim(string(`_disp_b', "%24.`decimals'f")) in `_row'
+                        local _ci_lo = strtrim(string(exp(`_lo'), "%24.`decimals'f"))
+                        local _ci_hi = strtrim(string(exp(`_hi'), "%24.`decimals'f"))
                         replace C = "(" + "`_ci_lo'" + ", " + "`_ci_hi'" + ")" in `_row'
 
                         _msm_coef_pvalue_string, pvalue(`_p')
@@ -684,8 +684,8 @@ program define msm_report, rclass
                         else {
                             local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
                         }
-                        replace B = strtrim(string(`_b_i', "%9.`decimals'f")) in `_row'
-                        replace C = strtrim(string(`_se_i', "%9.`decimals'f")) in `_row'
+                        replace B = strtrim(string(`_b_i', "%24.`decimals'f")) in `_row'
+                        replace C = strtrim(string(`_se_i', "%24.`decimals'f")) in `_row'
 
                         _msm_coef_pvalue_string, pvalue(`_p')
                         replace D = "`r(pvalue)'" in `_row'

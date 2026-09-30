@@ -1,4 +1,4 @@
-*! _datacheck_keyset Version 1.8.0  2026/09/30
+*! _datacheck_keyset Version 1.8.1  2026/09/30
 *! datacheck keyset(): the same distinct keys as a saved dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,6 +30,13 @@ program define _datacheck_keyset, rclass
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
             PFX(string) MASK(integer 0) NSCOPE(real 0)]
+        // an entry written as one quoted token, keyset("id using f.dta"),
+        // is unwrapped: 1.8.0 read the option with its quotes stripped
+        local _sw = strtrim(`"`spec'"')
+        if substr(`"`_sw'"', 1, 1) == char(34) | substr(`"`_sw'"', 1, 2) == char(96) + char(34) {
+            gettoken _tok _rem : _sw, qed(_wq)
+            if `_wq' & strtrim(`"`_rem'"') == "" local spec `"`_tok'"'
+        }
         local up = strpos(`"`spec'"', " using ")
         if `up' == 0 {
             display as error `"keyset() spec must be "varlist using filename [, equal|subset|superset]": `spec'"'
@@ -38,12 +45,25 @@ program define _datacheck_keyset, rclass
         local vars = strtrim(substr(`"`spec'"', 1, `up' - 1))
         local rest = strtrim(substr(`"`spec'"', `up' + 7, .))
         local opts ""
-        local cp = strpos(`"`rest'"', ",")
-        if `cp' {
-            local opts = strtrim(substr(`"`rest'"', `cp' + 1, .))
-            local rest = strtrim(substr(`"`rest'"', 1, `cp' - 1))
+        if substr(`"`rest'"', 1, 1) == char(34) | substr(`"`rest'"', 1, 2) == char(96) + char(34) {
+            // a quoted filename may itself contain a comma
+            gettoken file rest : rest, qed(_q)
+            local rest = strtrim(`"`rest'"')
+            if substr(`"`rest'"', 1, 1) == "," local opts = strtrim(substr(`"`rest'"', 2, .))
+            else if `"`rest'"' != "" {
+                display as error `"keyset() spec must be "varlist using filename [, equal|subset|superset]": `spec'"'
+                exit 198
+            }
         }
-        local file = strtrim(subinstr(`"`rest'"', char(34), "", .))
+        else {
+            local cp = strpos(`"`rest'"', ",")
+            if `cp' {
+                local opts = strtrim(substr(`"`rest'"', `cp' + 1, .))
+                local rest = strtrim(substr(`"`rest'"', 1, `cp' - 1))
+            }
+            local file `"`rest'"'
+        }
+        local file = strtrim(subinstr(`"`file'"', char(34), "", .))
         unab vars : `vars'
         local mode = lower(`"`opts'"')
         if "`mode'" == "" local mode "equal"

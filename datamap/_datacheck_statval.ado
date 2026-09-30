@@ -1,4 +1,4 @@
-*! _datacheck_statval Version 1.8.0  2026/09/30
+*! _datacheck_statval Version 1.8.1  2026/09/30
 *! One summary statistic of a variable over a condition, raw and masked
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,8 +20,10 @@
 //
 // Masking: order statistics and the mean follow _datacheck_qshow (at least
 // mask() observations at or below and at or above the value; sd needs
-// mask() observations).  Counts 1..mask()-1 print as <m.  pmiss prints "."
-// when fewer than mask() values are missing.  ess and ratio print
+// mask() observations).  Counts 1..mask()-1 print as <m, and a count whose
+// complement in the rows in scope, or in the nonmissing rows, is
+// 1..mask()-1 as "all but <m".  pmiss
+// prints "." when fewer than mask() values are missing or nonmissing.  ess and ratio print
 // [suppressed] when fewer than mask() rows contribute.
 program define _datacheck_statval, rclass
     version 16.0
@@ -115,16 +117,31 @@ program define _datacheck_statval, rclass
 
         // display text for the statistics not handled by _datacheck_qshow
         if !inlist("`st'", "mean", "sd") & !`isorder' {
+            // A count whose complement is a small cell gives that cell
+            // back.  Complements are taken against the rows in scope (the
+            // printed N) and against the nonmissing count (what stat(n)
+            // prints): sum 990 beside n 992 reveals 2 zeros.
+            quietly count if (`cond')
+            local nrow = r(N)
+            quietly count if (`cond') & !missing(`v')
+            local nnm = r(N)
             if !`defined' | missing(scalar(`val')) local s "."
             else if `iscount' {
                 if `mask' > 0 & scalar(`val') >= 1 & scalar(`val') < `mask' {
                     local s "<`mask'"
                     local shown = 0
                 }
+                else if `mask' > 0 & scalar(`val') >= 1 & ///
+                    ((`nrow' - scalar(`val') >= 1 & `nrow' - scalar(`val') < `mask') | ///
+                    (`nnm' - scalar(`val') >= 1 & `nnm' - scalar(`val') < `mask')) {
+                    local s "all but <`mask'"
+                    local shown = 0
+                }
                 else local s = strtrim(string(scalar(`val'), "%20.0f"))
             }
             else if "`st'" == "pmiss" {
-                if `mask' > 0 & `nmiss' >= 1 & `nmiss' < `mask' {
+                if `mask' > 0 & ((`nmiss' >= 1 & `nmiss' < `mask') | ///
+                    (`n' - `nmiss' >= 1 & `n' - `nmiss' < `mask')) {
                     local s "."
                     local shown = 0
                 }

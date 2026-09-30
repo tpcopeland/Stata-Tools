@@ -1,4 +1,4 @@
-*! dataqa Version 1.8.0  2026/09/30
+*! dataqa Version 1.8.1  2026/09/30
 *! Session defaults and a structured QA ledger over datacheck gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -55,7 +55,7 @@ program define _dataqa_set, rclass
         exit
     }
     local 0 `", `rest'"'
-    syntax [, MASKrare MINcell(integer -1) LEDger(string) RUN(string) BANDWARN SIGnature]
+    syntax [, MASKrare MINcell(integer -1) LEDger(string) RUN(string) BANDWARN SIGnature REPLACE]
     if `mincell' < -1 {
         display as error "dataqa set: mincell() must be non-negative"
         exit 198
@@ -88,6 +88,57 @@ program define _dataqa_set, rclass
         display as error "dataqa set: run() labels ledger rows; give ledger() as well"
         exit 198
     }
+    if "`replace'" != "" & (`"`ledger'"' == "" | `"`run'"' == "") {
+        display as error "dataqa set: replace removes the rows of run() from ledger(); give both"
+        exit 198
+    }
+    // Rows the ledger already holds under run().  replace is a one-shot
+    // action here, not a stored default: it removes them before any gate
+    // call of this session appends.  Without replace they are kept and read
+    // with this session's rows, and a note says so.
+    local n_prior = 0
+    local n_removed = 0
+    if `"`ledger'"' != "" & `"`run'"' != "" {
+        capture confirm file `"`ledger'"'
+        if !_rc {
+            tempname sf
+            frame create `sf'
+            capture noisily {
+                frame `sf' {
+                    if "`replace'" == "" {
+                        // a file that is not a ledger is refused by datacheck
+                        capture quietly use run using `"`ledger'"', clear
+                        if !_rc {
+                            capture confirm string variable run
+                            if !_rc {
+                                quietly count if run == `"`run'"'
+                                local n_prior = r(N)
+                            }
+                        }
+                    }
+                    else {
+                        quietly use `"`ledger'"', clear
+                        foreach v in run seq dataset family label status kind observed observed_num {
+                            capture confirm variable `v'
+                            if _rc {
+                                display as error `"dataqa set: `ledger' is not a datacheck ledger (no variable `v'); replace left it untouched"'
+                                exit 610
+                            }
+                        }
+                        quietly count if run == `"`run'"'
+                        local n_removed = r(N)
+                        if `n_removed' > 0 {
+                            quietly drop if run == `"`run'"'
+                            quietly save `"`ledger'"', replace
+                        }
+                    }
+                }
+            }
+            local rc = _rc
+            capture frame drop `sf'
+            if `rc' exit `rc'
+        }
+    }
     local spec ""
     if "`maskrare'" != "" local spec "maskrare"
     if `mincell' >= 0 local spec "`spec' mincell(`mincell')"
@@ -98,6 +149,16 @@ program define _dataqa_set, rclass
     local spec = strtrim(`"`spec'"')
     global DATAMAP_DQ `"`spec'"'
     display as text "dataqa session defaults: " as result `"`spec'"'
+    if "`replace'" != "" {
+        display as text "dataqa set: " as result "`n_removed'" as text " row(s) of run " ///
+            as result `"`run'"' as text " removed from " as result `"`ledger'"'
+        return scalar n_removed = `n_removed'
+    }
+    else if `n_prior' > 0 {
+        display as text "note: ledger already holds " as result "`n_prior'" as text ///
+            " row(s) of run " as result `"`run'"' as text "; they are read with this" ///
+            " session's rows; add replace to start the run afresh"
+    }
     return local defaults `"`spec'"'
 end
 
@@ -147,6 +208,124 @@ program define _dataqa_load, rclass
     return scalar N = `N'
 end
 
+// Reduce the ledger rows in memory to the latest call of each gate within
+// its run.  The keys are defined here only, for report, assert, export and
+// compare alike.  A gate is dataset without (modified), family, label,
+// variable, scope, expectation, and the variables of a datacheck by() call.
+// The expectation is part of it, so a rerun with changed bounds is a new
+// gate and cannot hide the old failure (that would widen an invariant in
+// code).  The level part of grp is not: events() and a groupstat() band
+// write one failed row per level or group ("lv = 2", "by(g) = 2"), a passing
+// rerun writes one row without it, and each must supersede the other.
+// Every row of the gate's latest call is kept.  A row with no dataset name
+// is never superseded: an unnamed call cannot be told apart from another
+// unnamed dataset.  grp is the group's number within its call, so a group
+// can map to another level if the data change between calls.  With one,
+// each _key (the gate plus the whole grp) then keeps a single row, so
+// compare links the runs 1:1 group by group, and _key is left in place.
+// Row order is kept.  Returns r(n_superseded).
+capture program drop _dataqa_latest
+program define _dataqa_latest, rclass
+    version 16.0
+    syntax [, ONE]
+    foreach v in variable grp scope expected {
+        capture confirm variable `v'
+        if _rc {
+            display as error "dataqa: the ledger has no variable `v'; it predates the gate key"
+            exit 610
+        }
+    }
+    tempvar ord mx gate
+    quietly generate long `ord' = _n
+    // the by() variables of a datacheck by() call, "by(foreign group 1)"
+    // -> "by(foreign)"; a helper's own level ("lv = 2", "by(g) = 2") drops
+    quietly generate strL `gate' = ""
+    quietly replace `gate' = "by(" + regexs(1) + ")" if regexm(grp, "^by\(([^()]*) group [0-9]+\)")
+    quietly replace `gate' = regexr(dataset, " \(modified\)$", "") + char(9) + ///
+        family + char(9) + label + char(9) + variable + char(9) + scope + ///
+        char(9) + expected + char(9) + `gate'
+    local N0 = _N
+    // a run with no rows: by would run nothing and create no variable
+    if `N0' == 0 {
+        if "`one'" != "" quietly generate strL _key = ""
+        return scalar n_superseded = 0
+        exit
+    }
+    quietly bysort run `gate' (seq): generate double `mx' = seq[_N]
+    quietly drop if seq < `mx' & regexr(dataset, " \(modified\)$", "") != ""
+    local nsup = `N0' - _N
+    if "`one'" != "" {
+        quietly generate strL _key = `gate' + char(9) + grp
+        quietly bysort run _key (seq `ord'): keep if _n == _N
+    }
+    sort `ord'
+    return scalar n_superseded = `nsup'
+end
+
+// Resolve a file name for comparison: relative to c(pwd), "." segments
+// removed and "dir/.." folded.  On Windows "\" is a separator (elsewhere
+// it is a character of the name).  On Windows and macOS, whose file systems
+// ignore case by default, the result is lower-cased.  It does not see
+// through a symbolic link or a mapped drive.  Returns r(path).
+capture program drop _dataqa_canon
+program define _dataqa_canon, rclass
+    version 16.0
+    gettoken p : 0
+    local win = (c(os) == "Windows")
+    local pwd `"`c(pwd)'"'
+    if `win' {
+        local p = subinstr(`"`p'"', char(92), "/", .)
+        local pwd = subinstr(`"`pwd'"', char(92), "/", .)
+    }
+    else if `"`p'"' == "~" | substr(`"`p'"', 1, 2) == "~/" {
+        local home : env HOME
+        local p = `"`home'"' + substr(`"`p'"', 2, .)
+    }
+    local isabs = (substr(`"`p'"', 1, 1) == "/") | regexm(`"`p'"', "^[A-Za-z]:/")
+    if !`isabs' local p `"`pwd'/`p'"'
+    local pre ""
+    if regexm(`"`p'"', "^[A-Za-z]:/") {
+        local pre = substr(`"`p'"', 1, 3)
+        local p = substr(`"`p'"', 4, .)
+    }
+    else if `win' & substr(`"`p'"', 1, 2) == "//" {
+        local pre "//"
+        local p = substr(`"`p'"', 3, .)
+    }
+    else if substr(`"`p'"', 1, 1) == "/" {
+        // on Windows a leading / is the root of the current drive
+        local pre "/"
+        if `win' & regexm(`"`pwd'"', "^[A-Za-z]:") local pre = substr(`"`pwd'"', 1, 2) + "/"
+        local p = substr(`"`p'"', 2, .)
+    }
+    local n = 0
+    while `"`p'"' != "" {
+        local k = strpos(`"`p'"', "/")
+        if `k' == 0 {
+            local seg `"`p'"'
+            local p ""
+        }
+        else {
+            local seg = substr(`"`p'"', 1, `k' - 1)
+            local p = substr(`"`p'"', `k' + 1, .)
+        }
+        if `"`seg'"' == "" | `"`seg'"' == "." continue
+        if `"`seg'"' == ".." {
+            if `n' > 0 local --n
+            continue
+        }
+        local ++n
+        local s`n' `"`seg'"'
+    }
+    local out `"`pre'"'
+    forvalues i = 1/`n' {
+        if `i' > 1 local out `"`out'/"'
+        local out `"`out'`s`i''"'
+    }
+    if `win' | c(os) == "MacOSX" local out = ustrlower(`"`out'"')
+    return local path `"`out'"'
+end
+
 // Allowed dispositions per kind: the register may never widen an invariant.
 capture program drop _dataqa_allowed
 program define _dataqa_allowed, rclass
@@ -170,13 +349,16 @@ program define _dataqa_report, rclass
         _dataqa_load `lf', file(`"`using'"') run(`"`run'"') who(report)
         local file `"`r(file)'"'
         local run `"`r(run)'"'
-        local N = r(N)
+        frame `lf': _dataqa_latest
+        local nsup = r(n_superseded)
+        frame `lf': local N = _N
         local runtxt = cond(`"`run'"' == "", "all runs", `"run `run'"')
         display ""
         display as text "dataqa report: " as result `"`file'"' as text ", `runtxt'"
         if `N' == 0 {
             display as text "  no ledger rows"
         }
+        if `nsup' > 0 display as text "  `nsup' row(s) superseded by a later call of the same gate"
         frame `lf' {
             quietly generate strL _ds = dataset
             quietly replace _ds = "(unnamed)" if _ds == ""
@@ -292,6 +474,7 @@ program define _dataqa_report, rclass
         return local ledger `"`file'"'
         return local run `"`run'"'
         return scalar N = `N'
+        return scalar n_superseded = `nsup'
         return scalar n_datasets = `nds'
         return scalar n_failed = `tot_f'
         return scalar n_warned = `tot_w'
@@ -315,9 +498,12 @@ program define _dataqa_assert, rclass
         _dataqa_load `lf', file(`"`using'"') run(`"`run'"') needrun who(assert)
         local file `"`r(file)'"'
         local run `"`r(run)'"'
-        local N = r(N)
+        frame `lf': _dataqa_latest
+        local nsup = r(n_superseded)
+        frame `lf': local N = _N
         display ""
         display as text "dataqa assert: " as result `"`file'"' as text ", run " as result `"`run'"'
+        if `nsup' > 0 display as text "  `nsup' row(s) superseded by a later call of the same gate"
         local nbad = 0
         local missing ""
         if `N' == 0 {
@@ -356,6 +542,7 @@ program define _dataqa_assert, rclass
                 cond("`expect'" != "", "; every expected dataset has rows", "")
         }
         return scalar N = `N'
+        return scalar n_superseded = `nsup'
         return scalar n_failed = `nbad'
         return local missing "`missing'"
         return local run `"`run'"'
@@ -386,7 +573,18 @@ program define _dataqa_export, rclass
         _dataqa_load `lf', file(`"`using'"') run(`"`run'"') needrun who(export)
         local file `"`r(file)'"'
         local run `"`r(run)'"'
-        local N = r(N)
+        // the release copy may never be written over the ledger it is read
+        // from: that would drop every other run and blank scope expressions
+        _dataqa_canon `"`file'"'
+        local cfile `"`r(path)'"'
+        _dataqa_canon `"`sfile'"'
+        if `"`r(path)'"' == `"`cfile'"' {
+            display as error "dataqa export: saving() names the ledger being exported; the release copy needs its own file"
+            exit 602
+        }
+        frame `lf': _dataqa_latest
+        local nsup = r(n_superseded)
+        frame `lf': local N = _N
         if `N' == 0 {
             display as error "dataqa export: no ledger rows for run `run'"
             exit 2000
@@ -434,6 +632,7 @@ program define _dataqa_export, rclass
             as text " written to " as result `"`sfile'"'
         if `n_scope_dropped' display as text "  `n_scope_dropped' scope expression(s) with literal values blanked"
         return scalar N = `N'
+        return scalar n_superseded = `nsup'
         return scalar n_scope_dropped = `n_scope_dropped'
         return local saving `"`sfile'"'
     }
@@ -479,13 +678,12 @@ program define _dataqa_compare, rclass
             display as text "  baseline run `baseline' has no rows; nothing to compare"
         }
         else {
-        // one key per gate entry; (modified) is not part of the name
+        // one row per gate key (_dataqa_latest); (modified) is not part of
+        // the name
         foreach f in `lf' `bf' {
             frame `f' {
+                _dataqa_latest, one
                 quietly replace dataset = regexr(dataset, " \(modified\)$", "")
-                quietly generate strL _key = dataset + char(9) + family + char(9) + label + ///
-                    char(9) + variable + char(9) + grp + char(9) + scope
-                quietly bysort _key (seq): keep if _n == _N
             }
         }
         tempvar lk
@@ -576,6 +774,8 @@ program define _dataqa_compare, rclass
                 local fl = family[`j'] + "(" + label[`j'] + ")"
                 local g = grp[`j']
                 if `"`g'"' != "" local fl `"`fl' [`g']"'
+                local e = expected[`j']
+                if `"`e'"' != "" local fl `"`fl', expected `e'"'
                 display as text "  absent  " as result `"`ds'"' as text " `fl': in the baseline, not in this run"
                 local ++nflag
             }

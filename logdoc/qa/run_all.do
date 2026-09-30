@@ -36,10 +36,10 @@ discard
 
 local suites "test_logdoc test_logdoc_py"
 if "`lane'" == "core" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119"
+    local suites "`suites' validation_logdoc_fixture_contract validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119"
 }
 if "`lane'" == "full" {
-    local suites "`suites' validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119"
+    local suites "`suites' validation_logdoc_fixture_contract validation_logdoc test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119"
     local suites "`suites' test_logdoc_refactor_guards test_logdoc_v111 test_logdoc_v112"
 }
 

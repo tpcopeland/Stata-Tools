@@ -160,7 +160,9 @@ capture noisily {
     assert r(N) == 1
     count if family == "review" & status == "review" & kind == "review"
     assert r(N) == 1
-    assert run == "g1" & version == "1.8.0" & masked == 1 & mincell == 5
+    * the ledger records the installed datacheck version, whatever it is
+    quietly _datamap_version datacheck
+    assert run == "g1" & version == "`r(version)'" & "`r(version)'" != "unknown" & masked == 1 & mincell == 5
     assert missing(observed_num) if obs_masked == 1
     restore
 }
@@ -262,6 +264,9 @@ capture noisily {
     _dq_fix
     capture datacheck, gatesonly rule("big": x <= 16) maskrare mincell(3) warn ledger("`L2'", run(u2))
     capture dataqa export using "`L2'", run(u2) saving("`EX'") replace
+    assert _rc == 459
+    * threshold() only raises the floor: a mask of 3 is refused at threshold(3)
+    capture dataqa export using "`L2'", run(u2) saving("`EX'") replace threshold(3)
     assert _rc == 459
     * a masked row that kept observed_num (a leak) is refused
     _dq_fix
@@ -368,6 +373,317 @@ capture noisily {
     assert _rc == 601
 }
 _dq `=_rc' "ledger: a non-ledger file is refused (r(610)) without losing the verdict; no gates, no rows"
+
+* Items 1 and 2 of the 2026-09-30 dataqa findings.  Each ledger lives in its
+* own tempfile-named directory, so a concurrent run of this suite cannot
+* share it.  An earlier block that failed inside preserve would leave the
+* data preserved; restore it so these blocks run on their own.
+capture restore
+tempfile dqbase
+local DQD "`dqbase'_d"
+capture mkdir "`DQD'"
+capture mkdir "`DQD'/sub"
+
+**# latest row per gate: a fixed rerun under the same run label (item 1)
+
+local L3 "`DQD'/rerun.dta"
+capture erase "`L3'"
+capture noisily {
+    dataqa set maskrare mincell(5) ledger("`L3'") run(r1)
+    * the gate fails, the data are fixed, the same call is rerun
+    _dq_fix
+    replace x = . in 1/3
+    capture datacheck, gatesonly name(auto) notmissing(x)
+    assert _rc == 9
+    _dq_fix
+    datacheck, gatesonly name(auto) notmissing(x)
+    capture dataqa assert, expect(auto)
+    assert _rc == 0
+    assert r(n_failed) == 0 & r(N) == 1 & r(n_superseded) == 1
+    dataqa report
+    assert r(N) == 1 & r(n_failed) == 0 & r(n_superseded) == 1
+    * one call writes two rows under one key (heaping's review row and its
+    * gate row); both are kept, and the failed gate still halts.  10 of 20
+    * dates fall on 1 January against max(0.1); the other 10 run from 17 to
+    * 26 June, so no share is masked.
+    clear
+    set obs 20
+    gen dt = td(06jun2020) + _n
+    replace dt = td(01jan2021) in 1/10
+    format dt %td
+    capture datacheck, gatesonly name(dates) heaping(dt, max(0.1))
+    assert _rc == 9
+    capture dataqa assert
+    assert _rc == 9 & r(n_failed) == 1
+    dataqa report
+    assert r(N) == 3 & r(n_failed) == 1
+    * a call without a dataset name is never superseded: a pass on other
+    * unnamed data leaves the earlier failure standing
+    dataqa set maskrare mincell(5) ledger("`L3'") run(r2)
+    _dq_fix
+    replace x = . in 1/3
+    capture datacheck, gatesonly notmissing(x)
+    _dq_fix
+    datacheck, gatesonly notmissing(x)
+    capture dataqa assert
+    assert _rc == 9 & r(n_failed) == 1 & r(n_superseded) == 0
+    * export keeps one row per gate: only the fixed rerun leaves
+    dataqa set maskrare mincell(5) ledger("`L3'") run(r1)
+    dataqa export, saving("`DQD'/rerun_release.dta") replace
+    assert r(N) == 3 & r(n_superseded) == 1
+    preserve
+    use "`DQD'/rerun_release.dta", clear
+    assert _N == 3
+    count if dataset == "auto"
+    assert r(N) == 1 & status[1] == "pass"
+    restore
+    dataqa set clear
+}
+_dq `=_rc' "latest row per gate: a fixed rerun passes assert and counts once; two rows of one call and unnamed calls are kept"
+macro drop DATAMAP_DQ
+
+**# dataqa set replace: a rerun starts its run afresh (item 1)
+
+local L4 "`DQD'/replace.dta"
+capture erase "`L4'"
+capture noisily {
+    * run r0 is a baseline in the same ledger
+    dataqa set maskrare ledger("`L4'") run(r0)
+    _dq_fix
+    datacheck, gatesonly isid(id) name(alpha)
+    * session 1 of run r1: alpha fails, beta passes
+    dataqa set maskrare ledger("`L4'") run(r1)
+    _dq_fix
+    capture datacheck, gatesonly rule("big": x <= 18) name(alpha)
+    assert _rc == 9
+    _dq_fix
+    datacheck, gatesonly isid(id) name(beta)
+    * session 2 without replace: a note, and the rows are kept
+    capture log close _dql
+    log using "`lg'", text replace name(_dql)
+    dataqa set maskrare ledger("`L4'") run(r1)
+    log close _dql
+    _dq_count "`lg'" "note: ledger already holds 2 row(s) of run r1; they are read with this session's rows; add replace to start the run afresh"
+    assert r(n) == 1
+    preserve
+    use "`L4'", clear
+    assert _N == 3
+    keep if run == "r0"
+    quietly datasignature
+    local sig0 "`r(datasignature)'"
+    restore
+    * session 2 with replace: alpha is fixed and the call on beta was
+    * deleted by mistake
+    capture log close _dql
+    log using "`lg'", text replace name(_dql)
+    dataqa set maskrare ledger("`L4'") run(r1) replace
+    local nrem = r(n_removed)
+    log close _dql
+    assert `nrem' == 2
+    _dq_count "`lg'" "dataqa set: 2 row(s) of run r1 removed from `L4'"
+    assert r(n) == 1
+    * replace is an action, not a stored default
+    assert `"$DATAMAP_DQ"' == `"maskrare ledger("`L4'") run(r1)"'
+    _dq_fix
+    datacheck, gatesonly rule("big": x <= 20) name(alpha)
+    preserve
+    use "`L4'", clear
+    count if run == "r1"
+    assert r(N) == 1
+    assert family == "rule" & status == "pass" & seq == 1 if run == "r1"
+    * every r0 row is kept
+    keep if run == "r0"
+    assert _N == 1
+    quietly datasignature
+    assert "`r(datasignature)'" == "`sig0'"
+    restore
+    capture dataqa assert, expect(alpha beta)
+    assert _rc == 9 & "`r(missing)'" == "beta" & r(n_failed) == 0
+    * replace needs both ledger() and run(); the defaults stay as they were
+    capture dataqa set maskrare ledger("`L4'") replace
+    assert _rc == 198
+    capture dataqa set maskrare replace
+    assert _rc == 198
+    assert `"$DATAMAP_DQ"' == `"maskrare ledger("`L4'") run(r1)"'
+    * a file that is not a ledger is left untouched
+    clear
+    set obs 3
+    gen run = "r1"
+    save "`DQD'/notled.dta", replace
+    quietly datasignature
+    local sign "`r(datasignature)'"
+    capture dataqa set ledger("`DQD'/notled.dta") run(r1) replace
+    assert _rc == 610
+    use "`DQD'/notled.dta", clear
+    quietly datasignature
+    assert "`r(datasignature)'" == "`sign'" & _N == 3
+    dataqa set clear
+}
+_dq `=_rc' "dataqa set replace: removes only run() rows, keeps other runs, needs ledger() and run(); a note without it"
+macro drop DATAMAP_DQ
+
+**# the gate key includes the expectation (review D1, D2)
+
+local L6 "`DQD'/expect.dta"
+capture erase "`L6'"
+capture noisily {
+    * D1: a failed inrange(x 0 10) is not cleared by rerunning the gate
+    * with wider bounds; that would widen an invariant in code
+    _dq_fix
+    capture datacheck, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
+    assert _rc == 9
+    datacheck, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(r1))
+    capture dataqa assert using "`L6'", run(r1)
+    assert _rc == 9 & r(n_failed) == 1 & r(n_superseded) == 0
+    dataqa report using "`L6'", run(r1)
+    assert r(n_failed) == 1 & r(N) == 2
+    * the same bounds rerun on fixed data still supersede the failure
+    replace x = min(x, 10)
+    datacheck, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
+    capture dataqa assert using "`L6'", run(r1)
+    assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 1
+    * D2: two entries on one variable are compared one by one.  The
+    * baseline has [0, 10] and [0, 100]; a run with only [0, 100] reports
+    * [0, 10] absent
+    _dq_fix
+    capture datacheck, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b0))
+    datacheck, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(b1))
+    capture log close _dql
+    log using "`lg'", text replace name(_dql)
+    dataqa compare using "`L6'", run(b1) baseline(b0)
+    local f1 = r(n_flags)
+    log close _dql
+    assert `f1' == 1
+    _dq_count "`lg'" "absent  cohort inrange(x), expected"
+    assert r(n) == 1
+    * 6 of 20 rows fewer: each entry's N change is flagged, not one for both
+    drop in 1/6
+    replace x = min(x, 10)
+    datacheck, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b2))
+    dataqa compare using "`L6'", run(b2) baseline(b0)
+    assert r(n_flags) == 2
+}
+_dq `=_rc' "gate key includes the expectation: wider bounds cannot clear a failure; compare links each entry"
+capture erase "`L6'"
+
+**# per-level fail rows are superseded by a passing rerun (review B1)
+
+local L7 "`DQD'/levels.dta"
+capture erase "`L7'"
+capture noisily {
+    * events(): level 2 has 5 events against min(10); its fail row carries
+    * "lv = 2" in grp, the passing rerun's row has no level
+    clear
+    set obs 40
+    gen byte lv = ceil(_n / 20)
+    gen byte ev = _n <= 25
+    capture datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
+    assert _rc == 9
+    replace ev = 1
+    datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
+    capture dataqa assert using "`L7'", run(r1)
+    assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 1
+    * groupstat() band: group 2's mean fails with "by(g) = 2" in grp
+    clear
+    set obs 40
+    gen byte g = ceil(_n / 20)
+    gen double x = cond(g == 2, 10, 1)
+    capture datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
+    dataqa report using "`L7'", run(r2)
+    assert r(n_warned) == 1
+    replace x = 1
+    datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
+    dataqa report using "`L7'", run(r2)
+    assert r(n_warned) == 0 & r(n_superseded) == 2
+    * a datacheck by() call keeps one row per by() group from its latest
+    * call: notmissing fails in both foreign groups, then passes
+    sysuse auto, clear
+    capture datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
+    assert _rc == 9
+    replace rep78 = 3 if missing(rep78)
+    datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
+    capture dataqa assert using "`L7'", run(r3)
+    assert _rc == 0 & r(N) == 2 & r(n_superseded) == 2
+    * the same gate under another by() grouping is another gate
+    sysuse auto, clear
+    capture datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r4))
+    datacheck, gatesonly name(auto) notmissing(mpg) ledger("`L7'", run(r4))
+    replace rep78 = 3 if missing(rep78)
+    datacheck, gatesonly name(auto) notmissing(rep78) ledger("`L7'", run(r4))
+    capture dataqa assert using "`L7'", run(r4)
+    assert _rc == 9 & r(n_failed) == 2 & r(n_superseded) == 0
+}
+_dq `=_rc' "per-level fail rows (events, groupstat band, by() groups) are superseded by a passing rerun; another grouping is not"
+capture erase "`L7'"
+
+**# dataqa export: saving() may not name the ledger it reads (item 2)
+
+local L5 "`DQD'/self.dta"
+capture erase "`L5'"
+capture noisily {
+    _dq_fix
+    datacheck, gatesonly isid(id) maskrare name(alpha) ledger("`L5'", run(s1))
+    _dq_fix
+    datacheck, gatesonly isid(id) maskrare name(beta) ledger("`L5'", run(s2))
+    preserve
+    use "`L5'", clear
+    local n0 = _N
+    quietly datasignature
+    local sig0 "`r(datasignature)'"
+    restore
+    assert `n0' == 2
+    quietly cd "`DQD'"
+    local nbad = 0
+    foreach u in "self.dta" "`L5'" {
+        foreach s in "self.dta" "`L5'" "./self.dta" "./self" "sub/../self.dta" "`DQD'/./sub/../self.dta" {
+            capture dataqa export using "`u'", run(s1) saving("`s'") replace
+            if _rc != 602 {
+                display as error "  export using `u' saving(`s'): rc = " _rc
+                local ++nbad
+            }
+        }
+    }
+    if inlist(c(os), "Windows", "MacOSX") {
+        * these file systems ignore case; Windows also reads \ as /
+        capture dataqa export using "self.dta", run(s1) saving("SELF.dta") replace
+        if _rc != 602 local ++nbad
+        if c(os) == "Windows" {
+            capture dataqa export using "self.dta", run(s1) saving(".\sub\..\self.dta") replace
+            if _rc != 602 local ++nbad
+        }
+    }
+    else {
+        * a case-sensitive file system: SELF.dta is another file
+        capture erase "SELF.dta"
+        dataqa export using "self.dta", run(s1) saving("SELF.dta") replace
+        erase "SELF.dta"
+    }
+    assert `nbad' == 0
+    preserve
+    use "`L5'", clear
+    quietly datasignature
+    assert _N == `n0' & "`r(datasignature)'" == "`sig0'"
+    restore
+    * a distinct release copy is written; the working ledger is unchanged
+    dataqa export using "self.dta", run(s1) saving("self_release.dta") replace
+    assert r(N) == 1
+    preserve
+    use "self_release.dta", clear
+    assert _N == 1 & run == "s1"
+    use "`L5'", clear
+    quietly datasignature
+    assert _N == `n0' & "`r(datasignature)'" == "`sig0'"
+    restore
+}
+local rc = _rc
+quietly cd "`qa_dir'"
+_dq `rc' "dataqa export: saving() naming the source ledger (relative, absolute, ./, dir/.., case) is r(602); the ledger is unchanged"
+capture erase "`DQD'/self_release.dta"
+foreach f in rerun rerun_release replace notled self {
+    capture erase "`DQD'/`f'.dta"
+}
+capture rmdir "`DQD'/sub"
+capture rmdir "`DQD'"
 
 foreach f in "`L'" "`L2'" "`MD'" "`EX'" {
     capture erase `f'

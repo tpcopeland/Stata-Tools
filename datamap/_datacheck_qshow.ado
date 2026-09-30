@@ -1,4 +1,4 @@
-*! _datacheck_qshow Version 1.8.0  2026/09/30
+*! _datacheck_qshow Version 1.8.1  2026/09/30
 *! Format one summary statistic for display, suppressed under a mask
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

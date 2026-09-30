@@ -11,21 +11,25 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
-local tests=0
-local pass=0
-local fail=0
 
-**# All closure and directional-nearest routes against direct joinby
-foreach op in friendly ties boundary_values missing_anchor dup_key unsorted {
+capture program drop _fx_rangematch_1
+program define _fx_rangematch_1, rclass
+    version 16.0
+    args op fixtureopts
+    tempfile fx_input
+    tempname fx_returns
+    _return hold `fx_returns'
+    quietly save `fx_input'
+    local tests=0
+    local pass=0
+    local fail=0
+
     foreach closed in both left right none {
         foreach direction in all before after both {
             local ++tests
             capture noisily {
-                if "`op'"=="friendly" qa_fx_a4_asof, clear tier(micro) seed(931)
-                else {
-                    * expect: EXACT
-                    qa_fx_a4_asof, clear tier(micro) seed(931) perturb(`op')
-                }
+                quietly use `fx_input', clear
+                _return restore `fx_returns', hold
                 tempfile events master expected actual
                 preserve
                     keep if role==2
@@ -72,7 +76,53 @@ foreach op in friendly ties boundary_values missing_anchor dup_key unsorted {
             }
         }
     }
-}
+
+    capture _return restore `fx_returns'
+    return scalar qa_tests=`tests'
+    return scalar qa_pass=`pass'
+    return scalar qa_fail=`fail'
+end
+
+local tests=0
+local pass=0
+local fail=0
+
+**# All closure and directional-nearest routes against direct joinby
+qa_fx_a4_asof, clear tier(micro) seed(931)
+_fx_rangematch_1 friendly ""
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_asof, clear tier(micro) seed(931) perturb(ties)
+_fx_rangematch_1 ties "perturb(ties)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_asof, clear tier(micro) seed(931) perturb(boundary_values)
+_fx_rangematch_1 boundary_values "perturb(boundary_values)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_asof, clear tier(micro) seed(931) perturb(missing_anchor)
+_fx_rangematch_1 missing_anchor "perturb(missing_anchor)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_asof, clear tier(micro) seed(931) perturb(dup_key)
+_fx_rangematch_1 dup_key "perturb(dup_key)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_asof, clear tier(micro) seed(931) perturb(unsorted)
+_fx_rangematch_1 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

@@ -1,5 +1,11 @@
 # spaghetti QA
 
+archetypes: A3
+
+Canonical fixture adoption is in progress. Exact person/row/group/sample returns and caller fingerprints on noiseless micro trajectories, shuffled rows, single-time subjects, overlapping/empty trajectory groups; graph outputs are dropped after the checks. Mean-curve rendering is not claimed as estimator recovery. Shared long-name invariance adds a variable-name probe. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
+
 This flat suite covers the public trajectory plot command, its deterministic invariants, and literal safe help examples. `run_all.do` is the curated runner and each suite runs from this directory.
 
 ## How to run

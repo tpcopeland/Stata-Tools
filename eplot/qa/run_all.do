@@ -43,7 +43,7 @@ local core_suites `quick_suites' ///
     test_eplot_v142
 
 * Canonical release QA: core plus known-answer validation.
-local full_suites `core_suites' validation_eplot test_examples
+local full_suites `core_suites' validation_eplot test_examples validation_eplot_fixture_contract
 
 local suite_list ``mode'_suites'
 

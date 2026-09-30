@@ -11,7 +11,7 @@ program define _comorbidity_qa_bootstrap
     local repo_dir = substr("`pkg_dir'", 1, `slash' - 1)
     local slash = strrpos("`repo_dir'", "/")
     local parent = substr("`repo_dir'", 1, `slash' - 1)
-    local codescan_dir "`parent'/Stata-Tools/codescan"
+    local codescan_dir "`repo_dir'/codescan"
 
     tempfile sysbase
     local plus "`sysbase'_plus"

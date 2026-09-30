@@ -1,4 +1,4 @@
-*! _datacheck_sets Version 1.8.0  2026/09/30
+*! _datacheck_sets Version 1.8.1  2026/09/30
 *! datacheck sets(): matched-set structure
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,8 @@
 //   exposed    each set has exactly one exposed row (exposure == 1)
 //   unexposed  each set has exactly k unexposed rows (at least one without k())
 //   index      (index()) each set has one index date
-// Observed counts are numbers of sets (rows for values), masked under maskrare.
+// Observed counts are numbers of sets (rows for values), masked under maskrare
+// (a row count also when its complement in nscope() is a small cell).
 program define _datacheck_sets, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -88,7 +89,11 @@ program define _datacheck_sets, rclass
                 }
                 quietly count if `bad'
                 local nb = r(N)
-                _datacheck_mcount `nb' `mask'
+                // rows are counted out of the N a run prints, so a small
+                // complement is masked too; sets are counted out of no
+                // printed total
+                if "`ck'" == "values" _datacheck_mcount `nb' `mask' `nscope'
+                else _datacheck_mcount `nb' `mask'
                 local nbs "`r(s)'"
                 local nbnum = r(num)
                 local om = r(masked)

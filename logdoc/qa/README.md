@@ -85,3 +85,13 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
 | `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, and `test_logdoc_v119.do` |
 | `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |
+
+archetypes: A7(logdoc logdoc_py)
+
+## Canonical fixture adoption
+
+Real wrapped log/SMCL content in Markdown and HTML, existing extensionless output refusal and actual Python renderer resolution. Trailing line blanks are normalized by the renderer; this suite asserts semantic text, not byte identity. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_logdoc_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |

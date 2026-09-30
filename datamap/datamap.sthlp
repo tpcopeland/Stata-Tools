@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  30sep2026}{...}
+{* *! version 1.8.1  30sep2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -167,7 +167,16 @@ also specified.
 {phang}
 {opt file:list(names)} documents a specific set of datasets given as a
 space-separated list. For example, {cmd:filelist(patients hrt dmt)} documents
-{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}.
+{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}. Enclose a name that contains
+spaces in double quotes: {cmd:filelist("my data/patients" hrt)}. For backward
+compatibility, a quoted string that is not itself a file is read as a list when
+every word looks like a whole name ({cmd:filelist("patients hrt")}); a string
+ending in {cmd:.dta}, or containing a path separator, splits only if every word
+does, or if every word is an existing file written with its {cmd:.dta}
+extension ({cmd:filelist("sub/a.dta b.dta")}). The bare form is ambiguous: if {it:my file.dta} does not exist but
+{it:my.dta} and {it:file.dta} do, {cmd:filelist("my file")} documents those
+two files. Give the extension or a path ({cmd:filelist("./my file")}) to make a
+spaced name unambiguous.
 
 {phang}
 {opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
@@ -199,7 +208,8 @@ than silently omitting them.
 {phang}
 {opt sep:arate} writes a separate output file for each dataset instead of
 combining them into one file. Output files are named
-{it:datasetname}{cmd:_map.txt}.
+{it:datasetname}{cmd:_map.txt} ({cmd:_map.json} with {cmd:format(json)}) and are
+written beside each source dataset; {opt output()} is ignored.
 
 {phang}
 {opt app:end} appends to an existing output file rather than replacing it. Useful for
@@ -216,8 +226,10 @@ notes, characteristics, numeric summaries, and Stata datasignature when
 available. Specify {cmd:replace} to overwrite an existing file.
 
 {pmore}
-{bf:unique_capped} marks rows whose {bf:unique} count was censored by
-{opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
+{bf:unique} counts distinct nonmissing values; for a string variable the
+empty string, Stata's string missing value, is not counted, so {cmd:datamap}
+and {cmd:datadict} report the same count. {bf:unique_capped} marks rows whose
+{bf:unique} count was censored by {opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
 cardinality.
 
 {phang}
@@ -279,6 +291,16 @@ smaller than {it:#}. Suppressed text output shows {bf:suppressed (<#)}; JSON
 sets the count and percent to {bf:null} and marks {bf:suppressed: true}. The
 default is {bf:5}. Specify {cmd:mincell(0)} to show all cells.
 
+{pmore}
+Suppression is complementary. The observation and missing counts are printed,
+so a single suppressed cell could be recovered by subtraction; the smallest
+remaining cell is therefore also withheld until the withheld cells number at
+least two and together hold at least {it:#} observations. Such a cell shows
+{bf:suppressed (complementary)} in text and is marked {bf:suppressed: true} in
+JSON. The same rule applies to the missing-value patterns of
+{cmd:missing(pattern)}, and the survival detector withholds a 0/1 event rate
+when either cell is below {it:#}.
+
 {phang}
 {opt nog:uidance} removes the ANALYSIS GUIDANCE and privacy-note prose while
 leaving statistics, frequency tables, and metadata in place.
@@ -295,9 +317,18 @@ shortening.
 {opt exc:lude(varlist)} lists variables whose values should not appear in the
 output. They are documented with type and missingness only, classified as
 "excluded". Use this for personally identifiable information such as names,
-national IDs, and addresses. Variable names that do not exist in a given
-dataset are silently ignored. Wildcard expansion is not supported; list each
-variable name explicitly.
+national IDs, and addresses. Wildcards and ranges ({cmd:exclude(ssn*)},
+{cmd:exclude(name1-name3)}) are expanded against each dataset. Names and
+wildcards that match no variable in a given dataset are ignored there, so one
+list can serve several files; a note names any that match no variable in any
+dataset. A range must resolve in every dataset: if either endpoint is absent
+from a file, or the endpoints appear in reverse order, the command stops with
+error 111 before writing any output, rather than guess which variables the
+range covers. A range is positional and resolves separately in each
+file: {cmd:exclude(a-c)} withholds {it:x} in a file ordered {it:a b x c} but prints it
+in one ordered {it:a c x b}. For multi-file runs, list the
+names or use wildcards. Abbreviations are not expanded; spell each name in
+full or use a wildcard.
 
 {phang}
 {opt dates:afe} prevents exact dates from appearing in the output. Date
@@ -359,7 +390,9 @@ consider. If omitted, the detector searches all variables for common
 time-to-event naming patterns ({it:time*}, {it:event*}, {it:death*}, etc.). A
 listed variable that matches neither pattern is treated as an event indicator
 when it takes at most two distinct values and as a time variable otherwise. An
-event rate is reported only for an indicator coded 0/1.
+event rate is reported only for an indicator coded 0/1. A time variable that is
+classified as a date prints its range as dates, and under {opt datesafe} its
+range is withheld.
 
 {pmore}
 The detectors never summarize a variable listed in {opt exclude()}: excluded
@@ -626,7 +659,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.8.0 {hline 2} 30sep2026{p_end}
+{pstd}Version 1.8.1 {hline 2} 30sep2026{p_end}
 
 
 {title:Also see}

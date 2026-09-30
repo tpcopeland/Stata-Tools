@@ -13,7 +13,7 @@ if "`extra'" != "" | !inlist("`mode'", "quick", "core", "full") {
 local qa_dir "`c(pwd)'"
 capture ado uninstall tc_schemes
 local quick_suites "test_tc_schemes test_tc_schemes_errors test_tc_schemes_documentation_examples test_tc_schemes_hostile"
-local core_suites "`quick_suites' validation_tc_schemes"
+local core_suites "validation_tc_schemes_fixture_contract `quick_suites' validation_tc_schemes"
 if "`mode'" == "quick" local suites "`quick_suites'"
 else local suites "`core_suites'"
 

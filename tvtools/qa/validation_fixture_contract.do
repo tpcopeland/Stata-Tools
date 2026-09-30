@@ -11,20 +11,90 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
-local tests=0
-local pass=0
-local fail=0
+do "`qa_dir'/_qa_metamorphic.do"
 
-**# Inclusive-day exposure tiling and panel; half-open fixture is adapted exactly
-foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
+capture program drop _fx_tvtools_2
+program define _fx_tvtools_2, rclass
+    version 16.0
+    args op fixtureopts
+    tempfile fx_input
+    tempname fx_returns
+    _return hold `fx_returns'
+    quietly save `fx_input'
+    local tests=0
+    local pass=0
+    local fail=0
+
+    foreach route in elapsed age calendar split {
+        local ++tests
+        capture noisily {
+            quietly use `fx_input', clear
+                _return restore `fx_returns', hold
+            tempname P
+            matrix `P'=r(truth_panel)
+            keep id
+            duplicates drop
+            gen double entry=`P'[1,2]
+            gen double exit=entry+7
+            gen double dob=mdy(2,28,2000)
+            gen double origin=entry
+            format entry exit dob origin %td
+            if "`route'"=="elapsed" tvband, id(id) start(entry) stop(exit) type(elapsed) origin(origin) width(1) unit(day) generate(band) startgen(lo) stopgen(hi)
+            if "`route'"=="age" tvage, id(id) dob(dob) entry(entry) exit(exit) generate(band) startgen(lo) stopgen(hi)
+            if "`route'"=="calendar" tvband, id(id) start(entry) stop(exit) type(calendar) width(1) generate(band) startgen(lo) stopgen(hi)
+            if "`route'"=="split" {
+                rename entry lo
+                rename exit hi
+                tvsplit, id(id) start(lo) stop(hi) elapsed(origin, width(1) unit(day) generate(band))
+            }
+            local got_persons=r(n_persons)
+            gen double duration=hi-lo+1
+            bysort id: egen double total=total(duration)
+            assert total==8
+            assert `got_persons'==2
+            if inlist("`route'","elapsed","split") {
+                assert lo==`P'[1,2]+band & hi==lo
+                assert _N==16
+            }
+            if "`route'"=="calendar" assert band==year(lo) & year(lo)==year(hi)
+            if "`route'"=="age" {
+                assert band==year(lo)-2000-(lo<mdy(2,28,year(lo)))
+                assert band==year(hi)-2000-(hi<mdy(2,28,year(hi)))
+            }
+        }
+        local case_rc=_rc
+        capture restore
+        if `case_rc'==0 local ++pass
+        else {
+            local ++fail
+            di as error "FAIL tvtools `op' `route' rc=`case_rc'"
+        }
+    }
+
+    capture _return restore `fx_returns'
+    return scalar qa_tests=`tests'
+    return scalar qa_pass=`pass'
+    return scalar qa_fail=`fail'
+end
+
+capture program drop _fx_tvtools_1
+program define _fx_tvtools_1, rclass
+    version 16.0
+    args op fixtureopts
+    tempfile fx_input
+    tempname fx_returns
+    _return hold `fx_returns'
+    quietly save `fx_input'
+    
+local tests=0
+    local pass=0
+    local fail=0
+
     foreach route in expose ever former panel build {
         local ++tests
         capture noisily {
-            if "`op'"=="friendly" qa_fx_a4_spells, clear tier(micro)
-            else {
-                * expect: EXACT
-                qa_fx_a4_spells, clear tier(micro) perturb(`op')
-            }
+            quietly use `fx_input', clear
+                _return restore `fx_returns', hold
             tempname P W
             matrix `P'=r(truth_panel)
             scalar win=real("`: char _dta[qa_truth_window_start]'")
@@ -39,6 +109,8 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
             * Brute-force day oracle handles overlap policy separately: priority1
             * for tvexpose/tvbuild; latest-start/larger-value for tvpanel.
             matrix `W'=`P'
+            tempname C
+            matrix `C'=J(16,2,0)
             forvalues i=1/16 {
                 local ident=`P'[`i',1]
                 scalar day=`P'[`i',2]
@@ -64,6 +136,19 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
                 if "`route'"=="ever" scalar chosen=scalar(ever)
                 if "`route'"=="former" scalar chosen=cond(chosen>0,1,cond(before,2,0))
                 matrix `W'[`i',3]=scalar(chosen)
+                * Union of each class before the panel start, including days
+                * prior to cohort entry; cumulative exposure is lifetime-to-date.
+                forvalues cls=1/2 {
+                    quietly summarize start if id==`ident', meanonly
+                    local firstday=r(min)
+                    local lastday=scalar(day)-1
+                    if `firstday'<=`lastday' {
+                        forvalues d=`firstday'/`lastday' {
+                            quietly count if id==`ident' & category==`cls' & inrange(`d',start,stop)
+                            if r(N)>0 matrix `C'[`i',`cls']=`C'[`i',`cls']+1
+                        }
+                    }
+                }
             }
             keep id
             duplicates drop
@@ -76,8 +161,12 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
                 assert r(n_observations)==16 & r(n_persons)==2
             }
             else if "`route'"=="build" {
-                tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(fx_built)
-                frame change fx_built
+                if inlist("`op'","overlap","dup_key") {
+                    * expect: REFUSED
+                    qa_option_effect, command(tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(@v@)) values("fx_built") returns("r(N)") refused cause("overlap")
+                }
+                else tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(fx_built)
+                if !inlist("`op'","overlap","dup_key") frame change fx_built
             }
             else {
                 local opts "priority(1 2)"
@@ -86,6 +175,7 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
                 tvexpose using `episodes', id(id) start(start) stop(stop) exposure(category) reference(0) entry(entry) exit(exit) generate(got) `opts'
                 assert r(total_time)==16
             }
+            if !("`route'"=="build" & inlist("`op'","overlap","dup_key")) {
             expand stop-start+1
             bysort id start: gen double day=start+_n-1
             sort id day
@@ -94,9 +184,10 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
                 assert id[`i']==`W'[`i',1] & day[`i']==`W'[`i',2] & got[`i']==`W'[`i',3]
             }
             if "`route'"=="panel" {
-                by id (day): gen double c1=sum(inlist(`P'[8*(id-1)+_n,3],1,-1))
-                by id (day): gen double c2=sum(inlist(`P'[8*(id-1)+_n,3],2,-1))
-                assert cum_1==c1 & cum_2==c2
+                forvalues i=1/16 {
+                    assert cum_1[`i']==`C'[`i',1] & cum_2[`i']==`C'[`i',2]
+                }
+            }
             }
         }
         local case_rc=_rc
@@ -109,57 +200,77 @@ foreach op in friendly overlap abut open_end unsorted dup_key boundary_values {
             di as error "FAIL tvtools `op' `route' rc=`case_rc'"
         }
     }
-}
+
+    capture _return restore `fx_returns'
+    return scalar qa_tests=`tests'
+    return scalar qa_pass=`pass'
+    return scalar qa_fail=`fail'
+end
+
+local tests=0
+local pass=0
+local fail=0
+
+**# Inclusive-day exposure tiling and panel; half-open fixture is adapted exactly
+qa_fx_a4_spells, clear tier(micro)
+_fx_tvtools_1 friendly ""
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(overlap)
+_fx_tvtools_1 overlap "perturb(overlap)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(abut)
+_fx_tvtools_1 abut "perturb(abut)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(open_end)
+_fx_tvtools_1 open_end "perturb(open_end)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(unsorted)
+_fx_tvtools_1 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(dup_key)
+_fx_tvtools_1 dup_key "perturb(dup_key)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(boundary_values)
+_fx_tvtools_1 boundary_values "perturb(boundary_values)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
 **# Exact day splitting; age uses calendar birthdays, not365.25 approximation
-foreach op in friendly unsorted boundary_values {
-    foreach route in elapsed age calendar split {
-        local ++tests
-        capture noisily {
-            if "`op'"=="friendly" qa_fx_a4_spells, clear tier(micro)
-            else {
-                * expect: EXACT
-                qa_fx_a4_spells, clear tier(micro) perturb(`op')
-            }
-            tempname P
-            matrix `P'=r(truth_panel)
-            keep id
-            duplicates drop
-            gen double entry=`P'[1,2]
-            gen double exit=entry+7
-            gen double dob=mdy(2,28,2000)
-            gen double origin=entry
-            format entry exit dob origin %td
-            if "`route'"=="elapsed" tvband, id(id) start(entry) stop(exit) type(elapsed) origin(origin) width(1) unit(day) generate(band) startgen(lo) stopgen(hi)
-            if "`route'"=="age" tvage, id(id) dob(dob) entry(entry) exit(exit) generate(band) startgen(lo) stopgen(hi)
-            if "`route'"=="calendar" tvband, id(id) start(entry) stop(exit) type(calendar) width(1) generate(band) startgen(lo) stopgen(hi)
-            if "`route'"=="split" {
-                rename entry lo
-                rename exit hi
-                tvsplit, id(id) start(lo) stop(hi) elapsed(origin, width(1) unit(day) generate(band))
-            }
-            gen double duration=hi-lo+1
-            bysort id: egen double total=total(duration)
-            assert total==8
-            assert r(n_persons)==2
-            if inlist("`route'","elapsed","split") {
-                assert lo==`P'[1,2]+band & hi==lo
-                assert _N==16
-            }
-            if "`route'"=="calendar" assert band==year(lo) & year(lo)==year(hi)
-            if "`route'"=="age" {
-                assert band==year(lo)-2000-(lo<mdy(2,28,year(lo)))
-                assert band==year(hi)-2000-(hi<mdy(2,28,year(hi)))
-            }
-        }
-        local case_rc=_rc
-        capture restore
-        if `case_rc'==0 local ++pass
-        else {
-            local ++fail
-            di as error "FAIL tvtools `op' `route' rc=`case_rc'"
-        }
-    }
-}
+qa_fx_a4_spells, clear tier(micro)
+_fx_tvtools_2 friendly ""
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(unsorted)
+_fx_tvtools_2 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(boundary_values)
+_fx_tvtools_2 boundary_values "perturb(boundary_values)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

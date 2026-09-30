@@ -1,5 +1,11 @@
 # tvtools QA
 
+archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel tvsplit) A1(tvweight)
+
+Canonical fixture adoption is in progress. Inclusive-day adapters pin exposure priority/current/former/ever, fixed-width panels and pre-entry cumulative unions, exact age/elapsed/calendar splitting, tvbuild overlap refusal, merge intersections, single/recurring events, diagnostics and typed specification/catalog results. Saturated propensity cells pin IPTW/ATO/matching/stabilized weights with a stated native-optimizer numerical bound; this is exact weight-function evidence, not stochastic treatment-effect recovery. Legacy-global success/refusal sentinels cover both presence and literal punctuation. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_routes.do`, `test_fixture_state.do`, `validation_fixture_contract.do`, `validation_fixture_recovery.do`.
+
 The `tvtools` QA suite is flat and concern-oriented, with one curated lane runner and independently runnable suites at the `qa/` root. It covers the public commands, shared interval engines, method invariants, external parity, state preservation, documentation, and the installed release surface.
 
 ## How to run

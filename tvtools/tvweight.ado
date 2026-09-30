@@ -1,4 +1,4 @@
-*! tvweight Version 1.17.3  2026/09/29
+*! tvweight Version 1.17.4  2026/09/30
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -64,6 +64,13 @@ See help tvweight for complete documentation
 
 program define tvweight, rclass sortpreserve
     version 16.0
+    * Native estimation and summarize paths use these legacy globals.
+    * Preserve both their bytes and whether the caller had defined them.
+    local _sg_names : all globals
+    foreach _sg in S_1 S_2 {
+        local _sg_has_`_sg' : list _sg in _sg_names
+        local _sg_val_`_sg' : copy global `_sg'
+    }
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _outputs_touched = 0
@@ -93,6 +100,10 @@ program define tvweight, rclass sortpreserve
     if !`_caller_eheld' {
         local _hold_rc = _rc
         set varabbrev `orig_varabbrev'
+        foreach _sg in S_1 S_2 {
+            if `_sg_has_`_sg'' mata: st_global("`_sg'", st_local("_sg_val_`_sg'"))
+            else capture macro drop `_sg'
+        }
         exit `_hold_rc'
     }
 
@@ -1732,6 +1743,10 @@ program define tvweight, rclass sortpreserve
         if `_bak_combgenerate_needed' capture rename `_bak_combgenerate' `combgenerate'
     }
 
+    foreach _sg in S_1 S_2 {
+        if `_sg_has_`_sg'' mata: st_global("`_sg'", st_local("_sg_val_`_sg'"))
+        else capture macro drop `_sg'
+    }
     set varabbrev `orig_varabbrev'
 
     if `rc' {

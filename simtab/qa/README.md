@@ -1,5 +1,7 @@
 # simtab QA
 
+<!-- archetypes: A1 A7 -->
+
 The `simtab` QA suite is flat and concern-oriented, with functional, error-path, documentation, known-answer, and independent-oracle checks driven by a curated runner. Each suite is independently runnable from this directory.
 
 ## How to run
@@ -74,3 +76,13 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 | --- | --- |
 | `quick` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do` |
 | `full` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `validation_simtab.do`, `test_simtab_oracle.do` |
+
+Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases check group means, bias, empirical SD, root-mean-square model SE, MSE and RMSE against exact ten-row integer-block formulas in the numeric companion frame. order(sort) explicitly aligns ordinal output keys after permutation.
+
+| Added QA file | Role |
+|---|---|
+| `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+
+Fixture coverage still owed: Default first-occurrence ordering needs a separate label-key oracle; ingest, file writers, A1 simulation recovery and remaining A1/A7 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

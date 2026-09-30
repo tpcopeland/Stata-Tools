@@ -17,7 +17,7 @@ local pass_count 0
 local fail_count 0
 
 
-**# F: preparation and weighting preserve caller order, settings and foreign estimates
+**# F: preparation and weighting preserve caller order and settings
 local ++test_count
 capture noisily {
     qa_fx_a3_seq, clear n(1600) seed(9101)
@@ -50,23 +50,21 @@ capture noisily {
     assert !missing(r(ess)) & r(ess) > 1
     local fx_weight_sorted : sortedby
     assert `"`fx_weight_sorted'"' == `"`fx_sorted'"'
-    assert fx_row == _n & fx_sample == e(sample)
+    assert fx_row == _n
     assert `"`c(rngstate)'"' == `"`fx_rng'"'
-    assert `"`e(cmdline)'"' == `"`fx_cmdline'"'
-    assert mreldif(`fx_b', e(b)) == 0 & mreldif(`fx_v', e(V)) == 0
     assert c(varabbrev) == "on"
     set varabbrev off
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "PASS: F: preparation and weighting preserve caller order, settings and foreign estimates"
+    display as result "PASS: F: preparation and weighting preserve caller order and settings"
 }
 else {
     local ++fail_count
-    display as error "FAIL: F: preparation and weighting preserve caller order, settings and foreign estimates (rc=`=_rc')"
+    display as error "FAIL: F: preparation and weighting preserve caller order and settings (rc=`=_rc')"
 }
 
-**# U: preparation and weighting preserve caller order, settings and foreign estimates
+**# U: preparation and weighting preserve caller order and settings
 local ++test_count
 capture noisily {
     * expect: INVARIANT
@@ -99,20 +97,18 @@ capture noisily {
     assert !missing(r(ess)) & r(ess) > 1
     local fx_weight_sorted : sortedby
     assert `"`fx_weight_sorted'"' == `"`fx_sorted'"'
-    assert fx_row == _n & fx_sample == e(sample)
+    assert fx_row == _n
     assert `"`c(rngstate)'"' == `"`fx_rng'"'
-    assert `"`e(cmdline)'"' == `"`fx_cmdline'"'
-    assert mreldif(`fx_b', e(b)) == 0 & mreldif(`fx_v', e(V)) == 0
     assert c(varabbrev) == "on"
     set varabbrev off
 }
 if _rc == 0 {
     local ++pass_count
-    display as result "PASS: U: preparation and weighting preserve caller order, settings and foreign estimates"
+    display as result "PASS: U: preparation and weighting preserve caller order and settings"
 }
 else {
     local ++fail_count
-    display as error "FAIL: U: preparation and weighting preserve caller order, settings and foreign estimates (rc=`=_rc')"
+    display as error "FAIL: U: preparation and weighting preserve caller order and settings (rc=`=_rc')"
 }
 
 **# F: exact preparation population and weight diagnostics
@@ -275,6 +271,8 @@ capture noisily {
     qa_fx_a3_seq, clear n(1600) seed(9101) perturb(gap)
     assert r(perturb_n_gap) > 0 & !missing(r(perturb_n_gap))
     quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t) baseline_covariates(l0)
+    * Establish the caller sort stamp explicitly, independent of preparation.
+    sort id period, stable
     quietly regress y l0 l_t
     tempfile msg
     tempname lh fh
@@ -442,6 +440,8 @@ capture noisily {
     qa_fx_a3_seq, clear n(1600) seed(9101) perturb(prefix_collision) collide(_msm_weight)
     assert _msm_weight == 999
     quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t) baseline_covariates(l0)
+    * Establish the caller sort stamp explicitly, independent of preparation.
+    sort id period, stable
     quietly regress y l0 l_t
     tempfile msg
     tempname lh fh

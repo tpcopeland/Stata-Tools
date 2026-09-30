@@ -1,4 +1,6 @@
 # kmplot QA
+<!-- archetypes: A2(kmplot) -->
+
 
 The `kmplot` QA suite covers functional behavior, regressions, graph artifacts, published known answers, and survival-estimate recovery. One curated lane runner drives the flat suite, and every test file is independently runnable from this directory.
 
@@ -80,3 +82,5 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `quick` | `test_kmplot.do`, `test_kmplot_errors.do` |
 | `core` | `quick` plus eight version-regression suites, recovery, and comprehensive validation |
 | `full` | `core` plus `crossval_kmplot_sts.do` |
+
+The canonical A2 suite `validation_fixture_truth.do` runs in core/full. Its 40 cases check survival/failure landmarks, Greenwood log-log limits, risk/event/censor tables, medians and log-rank probabilities against independent risk-table calculations, with all A2 life-table hostile variants and positive time scaling. Vendored `_qa_fx_a2.do` and `_qa_hostile.do` match the canonical sources. The new scope covers unweighted two-group curves; weighted and other plotting routes remain covered by existing suites and need fixture adoption.

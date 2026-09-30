@@ -68,3 +68,13 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 | Command | Regression witnesses |
 |---|---|
 | `pkgtransfer` | `test_pkgtransfer_v111.do` covers both bundle routes and published package/output returns; `test_pkgtransfer_isolation.do` measures caller installation survival. Existing functional and validation suites cover the rest of the option and return surface. |
+
+archetypes: A7(pkgtransfer)
+
+## Canonical fixture adoption
+
+Isolated tracker fixture produces exact alpha net-install and fre SSC installer commands; quote and extensionless path refusals preserve caller state. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_pkgtransfer_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |

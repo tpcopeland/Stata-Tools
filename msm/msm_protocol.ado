@@ -69,25 +69,25 @@ program define msm_protocol, rclass
         display as text ""
 
         display as text "  {result:1. Population}"
-        display as text "     `population'"
+        display as text `"     `macval(population)'"'
         display as text ""
         display as text "  {result:2. Treatment strategies}"
-        display as text "     `treatment'"
+        display as text `"     `macval(treatment)'"'
         display as text ""
         display as text "  {result:3. Confounders}"
-        display as text "     `confounders'"
+        display as text `"     `macval(confounders)'"'
         display as text ""
         display as text "  {result:4. Outcome}"
-        display as text "     `outcome'"
+        display as text `"     `macval(outcome)'"'
         display as text ""
         display as text "  {result:5. Causal contrast}"
-        display as text "     `causal_contrast'"
+        display as text `"     `macval(causal_contrast)'"'
         display as text ""
         display as text "  {result:6. Weight specification}"
-        display as text "     `weight_spec'"
+        display as text `"     `macval(weight_spec)'"'
         display as text ""
         display as text "  {result:7. Statistical analysis}"
-        display as text "     `analysis'"
+        display as text `"     `macval(analysis)'"'
         display as text ""
         display as text "{hline 70}"
     }
@@ -116,13 +116,13 @@ program define msm_protocol, rclass
             file open `fh' using "`export'", write `replace'
             local _fh_open = 1
             file write `fh' `""Component","Description""' _n
-            file write `fh' `""Population",`_csv_population'"' _n
-            file write `fh' `""Treatment strategies",`_csv_treatment'"' _n
-            file write `fh' `""Confounders",`_csv_confounders'"' _n
-            file write `fh' `""Outcome",`_csv_outcome'"' _n
-            file write `fh' `""Causal contrast",`_csv_causal_contrast'"' _n
-            file write `fh' `""Weight specification",`_csv_weight_spec'"' _n
-            file write `fh' `""Statistical analysis",`_csv_analysis'"' _n
+            file write `fh' `""Population",`macval(_csv_population)'"' _n
+            file write `fh' `""Treatment strategies",`macval(_csv_treatment)'"' _n
+            file write `fh' `""Confounders",`macval(_csv_confounders)'"' _n
+            file write `fh' `""Outcome",`macval(_csv_outcome)'"' _n
+            file write `fh' `""Causal contrast",`macval(_csv_causal_contrast)'"' _n
+            file write `fh' `""Weight specification",`macval(_csv_weight_spec)'"' _n
+            file write `fh' `""Statistical analysis",`macval(_csv_analysis)'"' _n
             file close `fh'
             local _fh_open = 0
         }
@@ -161,19 +161,19 @@ program define msm_protocol, rclass
             gen strL description = ""
 
             replace component = "1. Population" in 1
-            replace description = `"`population'"' in 1
+            replace description = `"`macval(population)'"' in 1
             replace component = "2. Treatment strategies" in 2
-            replace description = `"`treatment'"' in 2
+            replace description = `"`macval(treatment)'"' in 2
             replace component = "3. Confounders" in 3
-            replace description = `"`confounders'"' in 3
+            replace description = `"`macval(confounders)'"' in 3
             replace component = "4. Outcome" in 4
-            replace description = `"`outcome'"' in 4
+            replace description = `"`macval(outcome)'"' in 4
             replace component = "5. Causal contrast" in 5
-            replace description = `"`causal_contrast'"' in 5
+            replace description = `"`macval(causal_contrast)'"' in 5
             replace component = "6. Weight specification" in 6
-            replace description = `"`weight_spec'"' in 6
+            replace description = `"`macval(weight_spec)'"' in 6
             replace component = "7. Statistical analysis" in 7
-            replace description = `"`analysis'"' in 7
+            replace description = `"`macval(analysis)'"' in 7
 
             export excel using "`export'", sheet("Protocol") ///
                 firstrow(variables) `rep_opt'
@@ -214,13 +214,13 @@ program define msm_protocol, rclass
             file write `fh' "\toprule" _n
             file write `fh' "Component & Description \\" _n
             file write `fh' "\midrule" _n
-            file write `fh' `"1. Population & `_tex_population' \\"' _n
-            file write `fh' `"2. Treatment strategies & `_tex_treatment' \\"' _n
-            file write `fh' `"3. Confounders & `_tex_confounders' \\"' _n
-            file write `fh' `"4. Outcome & `_tex_outcome' \\"' _n
-            file write `fh' `"5. Causal contrast & `_tex_causal_contrast' \\"' _n
-            file write `fh' `"6. Weight specification & `_tex_weight_spec' \\"' _n
-            file write `fh' `"7. Statistical analysis & `_tex_analysis' \\"' _n
+            file write `fh' `"1. Population & `macval(_tex_population)' \\"' _n
+            file write `fh' `"2. Treatment strategies & `macval(_tex_treatment)' \\"' _n
+            file write `fh' `"3. Confounders & `macval(_tex_confounders)' \\"' _n
+            file write `fh' `"4. Outcome & `macval(_tex_outcome)' \\"' _n
+            file write `fh' `"5. Causal contrast & `macval(_tex_causal_contrast)' \\"' _n
+            file write `fh' `"6. Weight specification & `macval(_tex_weight_spec)' \\"' _n
+            file write `fh' `"7. Statistical analysis & `macval(_tex_analysis)' \\"' _n
             file write `fh' "\bottomrule" _n
             file write `fh' "\end{tabular}" _n
             file write `fh' "\end{table}" _n
@@ -245,13 +245,13 @@ program define msm_protocol, rclass
     * RETURN RESULTS
     * =========================================================================
 
-    return local population "`population'"
-    return local treatment "`treatment'"
-    return local confounders "`confounders'"
-    return local outcome "`outcome'"
-    return local causal_contrast "`causal_contrast'"
-    return local weight_spec "`weight_spec'"
-    return local analysis "`analysis'"
+    return local population `"`macval(population)'"'
+    return local treatment `"`macval(treatment)'"'
+    return local confounders `"`macval(confounders)'"'
+    return local outcome `"`macval(outcome)'"'
+    return local causal_contrast `"`macval(causal_contrast)'"'
+    return local weight_spec `"`macval(weight_spec)'"'
+    return local analysis `"`macval(analysis)'"'
     return local format "`format'"
 
     } /* end capture noisily */

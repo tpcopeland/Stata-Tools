@@ -1,4 +1,4 @@
-*! _datamap_classify Version 1.8.0  2026/09/30
+*! _datamap_classify Version 1.8.1  2026/09/30
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -7,11 +7,101 @@ program define _datamap_classify, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _post_open = 0
+    local _pfh_open = 0
     capture noisily {
-        syntax using/ , SAVing(string) [MAXCat(integer 25) OBS(integer -1) ///
+        syntax using/ , [SAVing(string) MAXCat(integer 25) OBS(integer -1) ///
             EXClude(string) CONTinuous(string) CATegorical(string) date(string) ///
             DETECT_binary(integer 0) QUality_level(string) LOADED ///
-            CAPacity(integer 1000)]
+            CAPacity(integer 1000) SRCname(string) PRECHECK MEMory]
+
+        // precheck: `using' is a text file listing one dataset per line.
+        // Before any output is written, check every exclude() token against
+        // every file (variable names only, via -describe using-):
+        //   - a range (a-c) whose endpoints are not both in a file errors
+        //     r(111), naming the file: the range cannot be resolved there,
+        //     and guessing which variables it covers would fail open;
+        //   - a token that matches no variable in ANY file gets a note
+        //     (r(unmatched)); a name absent from only some files is normal.
+        if "`precheck'" != "" {
+            local _unmatched ""
+            local _ntok : word count `exclude'
+            forvalues t = 1/`_ntok' {
+                local _hit`t' = 0
+            }
+            tempname _pfh
+            file open `_pfh' using `"`using'"', read text
+            local _pfh_open = 1
+            file read `_pfh' _pf
+            while r(eof) == 0 {
+                if trim(`"`macval(_pf)'"') != "" {
+                    quietly describe using `"`_pf'"', varlist
+                    local _pvars `"`r(varlist)'"'
+                    local _plab `"`_pf'"'
+                    if "`memory'" != "" local _plab "memory"
+                    local t = 0
+                    foreach _etok of local exclude {
+                        local ++t
+                        if strpos(`"`_etok'"', "-") {
+                            gettoken _lo _hi : _etok, parse("-")
+                            local _hi = substr(`"`_hi'"', 2, .)
+                            local _miss ""
+                            if !`: list _lo in _pvars' local _miss "`_lo'"
+                            if !`: list _hi in _pvars' local _miss "`_miss' `_hi'"
+                            // both present but in reverse order: -unab- would
+                            // refuse the range later, after output is open
+                            local _plo : list posof "`_lo'" in _pvars
+                            local _phi : list posof "`_hi'" in _pvars
+                            if `"`_miss'"' == "" & `_plo' > `_phi' {
+                                file close `_pfh'
+                                local _pfh_open = 0
+                                noisily display as error ///
+                                    `"exclude(): range `_etok' cannot be resolved in `_plab' (`_hi' comes before `_lo')"'
+                                noisily display as error ///
+                                    "list the variables to withhold by name or wildcard instead"
+                                exit 111
+                            }
+                            if `"`_miss'"' != "" {
+                                file close `_pfh'
+                                local _pfh_open = 0
+                                noisily display as error ///
+                                    `"exclude(): range `_etok' cannot be resolved in `_plab' (`=strtrim("`_miss'")' not found)"'
+                                noisily display as error ///
+                                    "list the variables to withhold by name or wildcard instead"
+                                exit 111
+                            }
+                            local _hit`t' = 1
+                        }
+                        else {
+                            mata: st_local("_m", strofreal(sum(strmatch(tokens(st_local("_pvars")), ///
+                                subinstr(st_local("_etok"), "~", "*")))))
+                            if `_m' > 0 local _hit`t' = 1
+                        }
+                    }
+                }
+                file read `_pfh' _pf
+            }
+            file close `_pfh'
+            local _pfh_open = 0
+            local t = 0
+            foreach _etok of local exclude {
+                local ++t
+                if !`_hit`t'' local _unmatched `"`_unmatched' `_etok'"'
+            }
+            local _unmatched = strtrim(`"`_unmatched'"')
+            if `"`_unmatched'"' != "" {
+                noisily display as text ///
+                    `"note: exclude() matches no variable in any dataset: `_unmatched'"'
+            }
+            return local unmatched `"`_unmatched'"'
+            // a clean exit leaves the capture block without reaching the
+            // restore below
+            set varabbrev `_orig_varabbrev'
+            exit
+        }
+        if `"`saving'"' == "" {
+            noisily display as error "option saving() required"
+            exit 198
+        }
 
         if `maxcat' <= 0 {
             noisily display as error "maxcat must be positive"
@@ -38,7 +128,9 @@ program define _datamap_classify, rclass
             confirm file `"`using'"'
             quietly use `"`using'"', clear
         }
-        else if c(N) == 0 | c(k) == 0 {
+        // A zero-observation dataset with variables is still documentable
+        // (structure only); only a dataset with no variables is refused.
+        else if c(k) == 0 {
             noisily display as error "loaded classification requires data in memory"
             exit 198
         }
@@ -47,6 +139,30 @@ program define _datamap_classify, rclass
         quietly describe, varlist
         local all_vars `r(varlist)'
         local nvars : word count `all_vars'
+
+        // exclude() is a varlist: expand wildcards and ranges (exclude(ssn*),
+        // exclude(name1-name3)) against this dataset.  A literal-only match
+        // silently excluded nothing for a pattern, disclosing every variable
+        // the user meant to withhold.  A token that matches nothing here is
+        // kept verbatim, so names absent from one file of a multi-file run
+        // are still ignored rather than an error.
+        // A range (a-c) must resolve: if it does not, error rather than keep
+        // it as literal text, which excluded nothing (fail open).
+        if `"`srcname'"' == "" local srcname `"`using'"'
+        local _exclude_x ""
+        foreach _etok of local exclude {
+            capture unab _eexp : `_etok'
+            if _rc {
+                if strpos(`"`_etok'"', "-") {
+                    noisily display as error ///
+                        `"exclude(): range `_etok' cannot be resolved in `srcname'"'
+                    exit 111
+                }
+                local _eexp `"`_etok'"'
+            }
+            local _exclude_x : list _exclude_x | _eexp
+        }
+        local exclude `"`_exclude_x'"'
 
         local force_continuous "`continuous'"
         if `"`continuous'"' != "" {
@@ -131,9 +247,11 @@ program define _datamap_classify, rclass
             // variable's cardinality, max length, or frequency distribution.
             if !`isexcluded' {
                 if strpos("`vtype'", "str") == 1 {
-                    // countempty: "" has always counted as a distinct value
-                    // here, matching the -duplicates report- this replaced.
-                    capture _datamap_nuniq `vname', countempty cap(`capacity')
+                    // Non-empty values only: "" is Stata's string missing, and
+                    // counting it made datamap report one more unique value
+                    // than datadict for the same variable (shared saving()
+                    // schema).  Missing is never a value, as for numerics.
+                    capture _datamap_nuniq `vname', cap(`capacity')
                     if _rc == 0 {
                         local nuniq = r(n)
                         local ncapped = r(capped)
@@ -288,6 +406,7 @@ program define _datamap_classify, rclass
         return local suggested_exclude "`suggested_exclude'"
     }
     local rc = _rc
+    if `_pfh_open' capture file close `_pfh'
 	    if `_post_open' {
 	        capture postclose `posth'
 	        local _postclose_rc = _rc

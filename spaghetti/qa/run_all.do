@@ -12,7 +12,7 @@ local qa_dir "`c(pwd)'"
 capture ado uninstall spaghetti
 local quick "test_spaghetti test_spaghetti_documentation_examples test_spaghetti_errors test_spaghetti_hostile"
 if "`mode'" == "quick" local suites "`quick'"
-else local suites "`quick' validation_spaghetti"
+else local suites "`quick' validation_fixture_contract test_fixture_names validation_spaghetti"
 local tests = 0
 local pass = 0
 local fail = 0

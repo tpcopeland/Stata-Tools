@@ -1,5 +1,11 @@
 # rangematch QA
 
+archetypes: A4
+
+Canonical fixture adoption is in progress. Cartesian point joins verify every pair under four endpoint conventions and all/nearest directional modes, including ties, missing anchors with explicit missing(drop), duplicates and row shuffling. Interval-overlap, other missing policies and backend/selection routes remain additional canonical work. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `validation_fixture_contract.do`.
+
 The `rangematch` QA suite uses a flat `qa/` root and one curated lane runner,
 `run_all.do`. The tests cover the single public command through functional,
 adversarial, routing, return-contract, documentation-example, install, release,
