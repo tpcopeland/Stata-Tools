@@ -1,4 +1,4 @@
-*! _swimlane_resolve Version 0.1.0  2026/06/29
+*! _swimlane_resolve Version 0.1.1  2026/09/30
 *! Resolve swimlane input shapes into a canonical lane frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

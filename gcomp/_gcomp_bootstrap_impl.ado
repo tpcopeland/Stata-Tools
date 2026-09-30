@@ -110,8 +110,12 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
 	post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 10000) ///
 	obe oce specific boceam linexp minsim moreMC logOR logRR graph saving(string) replace ///
 	_gc_maxid(integer 0) _gc_chk_del(integer 0) _gc_chk_prt(integer 0) _gc_chk_sav(integer 0) _gc_almost(string) ///
-	_gc_origvars(string) _gc_runid(string) _gc_rngstate(string) ///
-	_gc_graphname(string) GCDIAGnostics GCDIAGShow]
+	_gc_origvars(string) _gc_runid(string) _gc_support(string) _gc_rngstate(string) ///
+	_gc_graphname(string) _gc_intref(name) GCDIAGnostics GCDIAGShow]
+* The public command transports raw intervention bytes outside replay text.
+if "`_gc_intref'"!="" {
+    mata: st_local("interventions",st_global(st_local("_gc_intref")))
+}
 if "`gcdiagshow'" != "" {
 	local _gc_show_flag "show"
 }
@@ -729,29 +733,46 @@ forvalues i=1/`nvar' {
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
 }
+* The point-estimate categorical map is supplied by gcomp and never rebuilt
+* from a resampled subset.  Direct internal callers use their entry-data map.
+forvalues i=1/`nvar' {
+    local _gc_support`i' ""
+}
+if `"`_gc_support'"' != "" {
+    tokenize `"`_gc_support'"', parse("|")
+    while `"`1'"' != "" {
+        if `"`1'"' != "|" {
+            local _gc_clause = strtrim(`"`1'"')
+            local _gc_colon = strpos(`"`_gc_clause'"', ":")
+            local _gc_position = real(substr(`"`_gc_clause'"', 1, `_gc_colon'-1))
+            local _gc_support`_gc_position' = strtrim(substr(`"`_gc_clause'"', `_gc_colon'+1, .))
+        }
+        mac shift
+    }
+}
+else if "`mediation'" == "" {
+    forvalues i=1/`nvar' {
+        if `is_intvar_`i'' & inlist("`command`i''", "logit", "mlogit", "ologit") {
+            quietly levelsof `simvar`i'' if `int_no' == 0, local(_gc_support`i') hexadecimal
+        }
+    }
+}
 * tokenize interventions
 if "`mediation'"=="" {
-	tokenize "`interventions'", parse(",")
-	local nint 0 			
-	while "`1'"!="" {
-		if "`1'"!="," {
-			local nint=`nint'+1
-			local int`nint' "`1'"
-		}
-		mac shift
-	}
+	_gcomp_split_interventions, text(`"`macval(interventions)'"') prefix(int)
+	local nint = `intn'
 }
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
 }
 if "`mediation'"=="" {
 	forvalues i=1/`nint' {
-		tokenize "`int`i''", parse("\")
+		tokenize `"`macval(int`i')'"', parse("\")
 		local nintcomp`i' 0 			
-		while "`1'"!="" {
-			if "`1'"!="\" {
+		while `"`macval(1)'"'!="" {
+			if `"`macval(1)'"'!="\" {
 				local nintcomp`i'=`nintcomp`i''+1
-				local intcomp`i'`nintcomp`i'' "`1'"
+				local intcomp`i'`nintcomp`i'' `"`macval(1)'"'
 			}	
 			mac shift
 		}
@@ -1009,8 +1030,17 @@ if `_gc_chk_prt'==0 {
         forvalues i=1/`nint' {
             qui replace `int_no'=`i' if _n>`M' & _n<=`N'
             forvalues j=1/`nintcomp`i'' {
-				_gcomp_apply_rule, rule(`"`intcomp`i'`j''"') ///
+				_gcomp_apply_rule, rule(`"`macval(intcomp`i'`j')'"') ///
 					condition(`"if _n>`M' & _n<=`N'"') context("interventions() arm `i', component `j'")
+            }
+            forvalues _gc_si=1/`nvar' {
+                if `"`_gc_support`_gc_si''"' != "" {
+                    local _gc_label "`simvar`_gc_si''"
+                    local _gc_name_pos : list posof "`_gc_label'" in varlist
+                    if `_gc_name_pos'>0 & `"`_gc_origvars'"'!="" local _gc_label : word `_gc_name_pos' of `_gc_origvars'
+                    _gcomp_check_categorical `simvar`_gc_si'' if _n>`M' & _n<=`N', ///
+                        levels(`"`_gc_support`_gc_si''"') label(`_gc_label') context("interventions() arm `i'")
+                }
             }
             local M=`N'
             local N=`N'+`simulations'*`maxv'
@@ -1785,10 +1815,19 @@ if "`mediation'"=="" {
 			*update intervention variables (needed if interventions are dynamic)
 			forvalues ii=1/`nint' {
 				forvalues jj=1/`nintcomp`ii'' {
-					_gcomp_apply_rule, rule(`"`intcomp`ii'`jj''"') ///
+					_gcomp_apply_rule, rule(`"`macval(intcomp`ii'`jj')'"') ///
 						condition(`"if `int_no'==`ii'"') context("interventions() arm `ii', component `jj'")
 				}
 			}
+            forvalues _gc_si=1/`nvar' {
+                if `"`_gc_support`_gc_si''"' != "" {
+                    local _gc_label "`simvar`_gc_si''"
+                    local _gc_name_pos : list posof "`_gc_label'" in varlist
+                    if `_gc_name_pos'>0 & `"`_gc_origvars'"'!="" local _gc_label : word `_gc_name_pos' of `_gc_origvars'
+                    _gcomp_check_categorical `simvar`_gc_si'' if `int_no'>0 & `int_no'<=`nint', ///
+                        levels(`"`_gc_support`_gc_si''"') label(`_gc_label') context("dynamic interventions() after visit `k'")
+                }
+            }
 			*update lagged variables (in case they depend on intervention variables)
 			sort `idvar' `tvar'
 			forvalues ii=1/`nlag' {
@@ -2489,7 +2528,7 @@ if "`saving'"!="" & `_gc_chk_sav'==1 {
 	if "`mediation'"=="" {
 		local _gc_saved_arm_schema "0=observed analytic rows; 1..`nint'=interventions() in supplied order; `nintplus1'=simulated observed regime"
 		char _dta[gcomp_analysis_type] "time_varying"
-		char _dta[gcomp_interventions] `"`interventions'"'
+		char _dta[gcomp_interventions] `"`macval(interventions)'"'
 	}
 	else if "`oce'"!="" {
 		local _gc_saved_arm_schema "0=observed analytic rows; 1/3/5=nonbaseline exposure arms identified by the exposure value; 2/4=baseline arms; higher codes=MSM/BOCE auxiliary arms when requested"

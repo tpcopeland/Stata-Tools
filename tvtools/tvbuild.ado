@@ -1,4 +1,4 @@
-*! tvbuild Version 1.17.4  2026/09/30
+*! tvbuild Version 1.17.6  2026/09/30
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -40,6 +40,17 @@ specification frame, and every input frame are read and never written.
 capture program drop tvbuild
 program define tvbuild, rclass
     version 16.0
+    local _caller_matastrict = c(matastrict)
+    * Native recurring reshape also removes these observed caller macros.
+    foreach _legacy_key in S_1 S_2 {
+        mata: st_local("_legacy_present_"+st_local("_legacy_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_legacy_key"))>0))
+        mata: st_local("_legacy_bytes_"+st_local("_legacy_key"),st_global(st_local("_legacy_key")))
+    }
+    * Preserve the native initialization macro's exact caller presence/bytes.
+    mata: st_local("_reshape_present",strofreal(sum(st_dir("global","macro","*"):=="ReS_Call")>0))
+    mata: st_local("_reshape_bytes",st_global("ReS_Call"))
+    mata: st_local("_reshape_jv2_present",strofreal(sum(st_dir("global","macro","*"):=="ReS_jv2")>0))
+    mata: st_local("_reshape_jv2_bytes",st_global("ReS_jv2"))
     local _orig_varabbrev = c(varabbrev)
     local _caller_frame "`c(frame)'"
     set varabbrev off
@@ -824,6 +835,28 @@ program define tvbuild, rclass
     * above, which genuinely can fail.
     set varabbrev `_orig_varabbrev'
 
+    foreach _legacy_key in S_1 S_2 {
+        if `_legacy_present_`_legacy_key'' {
+            mata: st_global(st_local("_legacy_key"),st_local("_legacy_bytes_"+st_local("_legacy_key")))
+        }
+        else {
+            capture macro drop `_legacy_key'
+        }
+    }
+    * Native frame-link initialization can also alter the compilation setting.
+    mata: mata set matastrict `_caller_matastrict'
+    if `_reshape_jv2_present' {
+        mata: st_global("ReS_jv2",st_local("_reshape_jv2_bytes"))
+    }
+    else {
+        capture macro drop ReS_jv2
+    }
+    if `_reshape_present' {
+        mata: st_global("ReS_Call",st_local("_reshape_bytes"))
+    }
+    else {
+        capture macro drop ReS_Call
+    }
     if !`rc' & `_cleanup_rc' local rc = `_cleanup_rc'
     if `rc' exit `rc'
 end

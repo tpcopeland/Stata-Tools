@@ -390,7 +390,8 @@ contribution is shown as a segment. Only works with {opt graph(bar)}.
 
 {phang}
 {opt group:gap(#)} specifies the gap between bar groups when using {opt over()}. Default is
-0. Larger values increase spacing between groups.
+0. Values must be finite and non-negative; ordinary and extended missing values
+are refused. Larger values increase spacing between groups.
 
 {phang}
 {opt leg:endopts(string)} allows customization of the legend when using {opt over()}. The

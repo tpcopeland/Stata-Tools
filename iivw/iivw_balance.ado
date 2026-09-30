@@ -1,4 +1,4 @@
-*! iivw_balance Version 4.3.3  2026/09/30
+*! iivw_balance Version 4.3.4  2026/09/30
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -32,6 +32,11 @@ See help iivw_balance for complete documentation
 
 program define iivw_balance, rclass
     version 16.0
+    * Native visit-model refit mutates S_1/S_2; preserve observed caller state.
+    foreach _native_key in S_1 S_2 {
+        mata: st_local("_native_present_"+st_local("_native_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_native_key"))>0))
+        mata: st_local("_native_bytes_"+st_local("_native_key"),st_global(st_local("_native_key")))
+    }
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
 
@@ -133,7 +138,7 @@ program define iivw_balance, rclass
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
-    if `"`font'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
+    if `"`macval(font)'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
     if `fontsize' != -1    local __iivw_exportonly "`__iivw_exportonly' fontsize()"
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
@@ -1538,8 +1543,8 @@ program define iivw_balance, rclass
         if "`headershade'" != "" {
             local __iivw_export_opts `"`macval(__iivw_export_opts)' headershade"'
         }
-        if `"`font'"' != "" {
-            local __iivw_export_opts `"`macval(__iivw_export_opts)' font(`"`font'"')"'
+        if `"`macval(font)'"' != "" {
+            local __iivw_export_opts `"`macval(__iivw_export_opts)' font(`"`macval(font)'"')"'
         }
         if `fontsize' != -1 {
             local __iivw_export_opts `"`macval(__iivw_export_opts)' fontsize(`fontsize')"'
@@ -1592,6 +1597,14 @@ program define iivw_balance, rclass
         capture frame drop `__iivw_export_table'
         local __iivw_drop_rc = _rc
         if `rc' == 0 & `__iivw_drop_rc' != 0 local rc = `__iivw_drop_rc'
+    }
+    foreach _native_key in S_1 S_2 {
+        if `_native_present_`_native_key'' {
+            mata: st_global(st_local("_native_key"),st_local("_native_bytes_"+st_local("_native_key")))
+        }
+        else {
+            capture macro drop `_native_key'
+        }
     }
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'

@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.3  2026/09/30
+*! iivw_diagnose Version 4.3.4  2026/09/30
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -72,7 +72,7 @@ program define iivw_diagnose, rclass
         if "`decimals'"      != "" local _exportonly "`_exportonly' decimals()"
         if `"`borderstyle'"' != "" local _exportonly "`_exportonly' borderstyle()"
         if "`headershade'"   != "" local _exportonly "`_exportonly' headershade"
-        if `"`font'"'        != "" local _exportonly "`_exportonly' font()"
+        if `"`macval(font)'"'        != "" local _exportonly "`_exportonly' font()"
         if `fontsize' != -1    local _exportonly "`_exportonly' fontsize()"
         if `"`headercolor'"' != "" local _exportonly "`_exportonly' headercolor()"
         if `"`zebracolor'"'  != "" local _exportonly "`_exportonly' zebracolor()"
@@ -1026,8 +1026,8 @@ program define iivw_diagnose, rclass
             if "`headershade'" != "" {
                 local _export_opts `"`macval(_export_opts)' headershade"'
             }
-            if `"`font'"' != "" {
-                local _export_opts `"`macval(_export_opts)' font(`"`font'"')"'
+            if `"`macval(font)'"' != "" {
+                local _export_opts `"`macval(_export_opts)' font(`"`macval(font)'"')"'
             }
             if `fontsize' != -1 {
                 local _export_opts `"`macval(_export_opts)' fontsize(`fontsize')"'

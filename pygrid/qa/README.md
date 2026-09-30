@@ -115,3 +115,5 @@ Canonical daily and leap-date adapters recover exact inclusive one-day person-ti
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_pygrid_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+
+| `validation_pygrid_fixture_primitives.do` | Exact label/missing-column retention; all hostile string/case/32-character/negative/above-maxlong identifiers and event attachments; anniversary partial keep/flag contents and empty-result drop refusal/state | core/full |

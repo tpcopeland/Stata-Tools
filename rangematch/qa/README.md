@@ -1,16 +1,6 @@
 # rangematch QA
 
-archetypes: A4
-
-Canonical fixture adoption is in progress. Cartesian point joins verify every pair under four endpoint conventions and all/nearest directional modes, including ties, missing anchors with explicit missing(drop), duplicates and row shuffling. Interval-overlap, other missing policies and backend/selection routes remain additional canonical work. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `validation_fixture_contract.do`.
-
-The `rangematch` QA suite uses a flat `qa/` root and one curated lane runner,
-`run_all.do`. The tests cover the single public command through functional,
-adversarial, routing, return-contract, documentation-example, install, release,
-known-answer validation, and external R cross-validation suites. Test data are
-generated at runtime with temporary files; generated logs are ignored.
+The `rangematch` QA suite uses a flat `qa/` root and one curated lane runner, `run_all.do`. The tests cover the single public command through functional, adversarial, routing, return-contract, documentation-example, install, release, known-answer validation, and external R cross-validation suites. Test data are generated at runtime with temporary files; generated logs are ignored.
 
 ## How to run
 
@@ -21,19 +11,9 @@ stata-mp -b do run_all.do quick
 stata-mp -b do test_rangematch_v155.do
 ```
 
-`full` is the default release gate and adds all validation and cross-validation
-suites to the functional tests. `quick` runs the functional and release-surface suites only.
-The runner uses an explicit suite list rather than auto-discovery and exits
-nonzero if any suite fails.
+`full` is the default release gate and adds all validation and cross-validation suites to the functional tests. `quick` runs the functional and release-surface suites only. The runner uses an explicit suite list rather than auto-discovery and exits nonzero if any suite fails.
 
-Any single suite is runnable on its own, as the third line shows, **in batch**.
-Batch is the supported form because the bootstrap redirects `PLUS` and
-`PERSONAL` into a `c(tmpdir)` sandbox for the whole session and only
-`run_all.do` calls `_rm_qa_teardown` afterwards; when the batch process exits,
-the redirection dies with it. Running a suite directly inside an *interactive*
-session leaves those two trees pointed at the sandbox, which the OS later
-deletes — the user's own `rangematch` then stops resolving. Restore them by
-hand in that case:
+Any single suite is runnable on its own, as the third line shows, **in batch**. Batch is the supported form because the bootstrap redirects `PLUS` and `PERSONAL` into a `c(tmpdir)` sandbox for the whole session and only `run_all.do` calls `_rm_qa_teardown` afterwards; when the batch process exits, the redirection dies with it. Running a suite directly inside an *interactive* session leaves those two trees pointed at the sandbox, which the OS later deletes — the user's own `rangematch` then stops resolving. Restore them by hand in that case:
 
 ```stata
 quietly do "_rangematch_qa_common.do"
@@ -41,6 +21,8 @@ _rm_qa_teardown
 ```
 
 ## Conventions
+
+archetypes: A4
 
 - `test_*.do` files cover functional, option, state, regression, release, and
   adversarial contracts for the public command.
@@ -111,13 +93,12 @@ _rm_qa_teardown
 | `crossval_survival_neardate.do` | `Rscript` and R package `survival` | Hard failure |
 | `crossval_datatable_public_studies.do` | `Rscript` and R packages `data.table`, `survival` | Hard failure |
 
-## File Index
+## File index
+
+### Functional and regression tests
 
 | File | Covers |
-|------|--------|
-| `run_all.do` | Curated `quick` and `full` lane runner |
-| `_rangematch_qa_common.do` | Shared sandboxed bootstrap (`_rm_qa_bootstrap` / `_rm_qa_teardown`) |
-| `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
+|---|---|
 | `test_install.do` | Local install, public command resolution, basic installed-user run |
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
 | `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; native `inrange()` missing-bound parity; reviewed help markup, filename, and unmatched contracts; overlapping missing-row exclusion counts and the documented failure-time `r()` contract, including that the once-unscoped "a captured error leaves no counts" sentence stays scoped to `missing(error)`; missing-row diagnostic union/overlap wording; cleanup-safe install/net-get distribution contract |
@@ -177,6 +158,12 @@ _rm_qa_teardown
 | `test_rangematch_regress_mata_surface.do` | Mata backend version handshake; dead functions absent, live functions callable |
 | `test_rangematch_v16compat.do` | Stata 16.1 compatibility surface |
 | `test_rangematch_oracle.do` | Large randomized point-join oracle grid |
+| `test_fixture_compile.do` | Private byte-preserving helper compile faults propagate native errors with caller state intact. |
+
+### Validation
+
+| File | Covers |
+|---|---|
 | `validation_rangematch_oracle.do` | Known-answer oracle scenarios |
 | `validation_rangematch_manual.do` | Manual count/statistic validation |
 | `validation_rangematch_nearest.do` | Nearest/ties validation scenarios |
@@ -184,22 +171,43 @@ _rm_qa_teardown
 | `validation_rangematch_overlap_oracle.do` | Overlap backend vs a brute-force `cross` oracle (both closures, `tolerance()`, every interval relation), emission order, and the scaling contract |
 | `validation_rangematch_option_fuzz.do` | Randomized differential validation over the option **cross-product** against a `joinby` oracle: point mode (`closed()` x `tolerance()` x `by()` x backend), `nearest()`/`ties()`, and `overlap()` plus the `stats` diagnostics incl. the p50/p90/p99 family against `_pctile`. Compares the pair set via `masterid()`/`usingid()`, not counts alone |
 | `validation_public_examples.do` | Hand-computed pair sets from the official `data.table::foverlaps()` examples and a deterministic `survival::neardate()` example subset |
+| `validation_fixture_intervals.do` | Exact interval-overlap pairs and domains under both endpoints and backends, hostile binary64 times and cold strict off/on state. |
+| `validation_fixture_contract.do` | Cartesian point-join pair identities under every endpoint closure and directional selection, ties, missing policies, duplicated sources and shuffled rows. |
+
+### Cross-validation
+
+| File | Covers |
+|---|---|
 | `crossval_survival_neardate.do` + `crossval_survival_neardate_r.R` | Exact after/prior/21-day match parity with the public `survival::neardate()` example |
 | `crossval_datatable_public_studies.do` + `crossval_datatable_public_studies_r.R` | Exact `foverlaps()` pair-set parity on ChickWeight growth phases and PBC sequential visit spells |
 
-## Coverage Map
+### Support
+
+| File | Covers |
+|---|---|
+| `run_all.do` | Curated `quick` and `full` lane runner |
+| `_rangematch_qa_common.do` | Shared sandboxed bootstrap (`_rm_qa_bootstrap` / `_rm_qa_teardown`) |
+| `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
+| `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
+
+## Coverage map
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz, public_examples | survival::neardate, data.table::foverlaps on ChickWeight and pbcseq | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz, public_examples, canonical point/interval contracts | survival::neardate, data.table::foverlaps on ChickWeight and pbcseq | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity and private compile-fault state |
 
-The external layer compares exact pair identities, not only counts. R companions
-build their expected results at runtime from independent implementations and
-public datasets; no expected pair is copied from `rangematch`.
+The external layer compares exact pair identities, not only counts. R companions build their expected results at runtime from independent implementations and public datasets; no expected pair is copied from `rangematch`.
 
-## Lane Membership
+## Lane membership
 
 | Lane | Suites |
 |------|--------|
 | `quick` | All `test_*.do` suites listed in `run_all.do`, including complete backend/output parity, edge, label, missing-using, tie, behavior-named regression, documentation, doc-contract, demo-contract, lane-isolation, benchmark-smoke, strict runner-contract, install, and release gates |
 | `full` | All `quick` suites plus every `validation_*.do` and `crossval_*.do` suite explicitly listed in `run_all.do` |
+
+## Known gaps
+
+Successful memory output replaces the dataset and clears c(filename) and exactly S_FN/S_FNDATE; every other caller global remains exact. Frame/dryrun and all refusals retain readonly checks.

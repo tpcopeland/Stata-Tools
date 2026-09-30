@@ -95,3 +95,5 @@ Real wrapped log/SMCL content in Markdown and HTML, existing extensionless outpu
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_logdoc_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+| `test_logdoc_fixture_paths.do` | Actual hostile renderer/interpreter refusal, Unicode output, replay-cache and caller state contracts | core/full |
+| `validation_logdoc_fixture_primitives.do` | Actual opaque transcript rendering and full hostile caller preservation on renderer and interpreter checks | core/full |

@@ -61,6 +61,10 @@ program define _gcomp_draw_sim, rclass
             quietly replace `target' = `prefillsource' if missing(`target') & `prefillsource' < .
         }
 
+        * Native factor prediction otherwise treats an unseen fitted level as
+        * a zero dummy column, silently reusing the reference-category mean.
+        _gcomp_check_fit_levels, drawif(`"`drawif'"') context("`command' prediction")
+
         if inlist("`command'", "logit", "regress", "poisson", "nbreg") {
             tempvar _pred
             if inlist("`command'", "poisson", "nbreg") {

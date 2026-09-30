@@ -99,13 +99,14 @@ timer on 91
 sleep 10
 timer off 91
 quietly timer list 91
-local timer_before = r(t91)
+tempname timer_before
+scalar `timer_before'=r(t91)
 clear
 set obs 1
 generate double key = 1
 rangematch key 0 0 using "`point_using'", count verbose
 quietly timer list 91
-assert r(t91) == `timer_before'
+assert r(t91) == scalar(`timer_before')
 timer clear 91
 display as result "PASS: verbose preserves occupied user timers"
 

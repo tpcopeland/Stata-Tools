@@ -1,4 +1,4 @@
-*! _tvmerge_mata Version 1.17.4  2026/09/30
+*! _tvmerge_mata Version 1.17.6  2026/09/30
 *! Mata interval-overlap engine for tvmerge
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)
@@ -42,7 +42,9 @@ capture mata: mata drop _tvm_bsearch_right()
 capture mata: mata drop _tvm_bsearch_first_ge()
 capture mata: mata drop _tvm_bsearch_last_lt()
 
-mata:
+* Compile under strict declarations and restore the caller setting on error too.
+local _tvm_compile_strict = c(matastrict)
+capture noisily mata:
 mata set matastrict on
 
 // ----------------------------------------------------------------------------
@@ -678,6 +680,9 @@ void _tvm_build_pairs_point(
     st_local("_tvm_n_pairs", strofreal(n_pairs))
 }
 end
+local _tvm_compile_rc = _rc
+mata: mata set matastrict `_tvm_compile_strict'
+if `_tvm_compile_rc' exit `_tvm_compile_rc'
 
 ********************************************************************************
 * ADO WRAPPER PROGRAM

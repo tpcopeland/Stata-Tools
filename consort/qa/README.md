@@ -72,3 +72,5 @@ Exact sparse-group exclusion counts, resolved CSV nodes, and SVG labels; single-
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_consort_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+
+| `validation_consort_fixture_primitives.do` | Exact exclusion populations for32-character/negative/above-maxlong variables, zero-match missing-variable no-op followed by real exclusion, actual resolvedCSV/SVG labels for all9opaque strings | core/full |

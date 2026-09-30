@@ -1,6 +1,6 @@
 # swimlane — Swimmer and state swimlane plots
 
-**Version 0.1.0** | 2026-06-29
+**Version 0.1.1** | 2026-09-30
 
 `swimlane` draws swimmer and state swimlane plots for clinical and longitudinal data. It accepts wide subject-level, long interval, or `stset` input and can also write the canonical lane table.
 
@@ -426,6 +426,8 @@ After a successful run, `swimlane` stores the following in `r()`.
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **0.1.1** (2026-09-30): Preserve caller `S_1` and `S_2` globals on success and failure, including absent and literal macro values. Refusals before analytical results are prepared also retain prior caller `r()`; later output failures publish the analytical payload.
 
 - **0.1.0** (2026-06-29): Initial release
 

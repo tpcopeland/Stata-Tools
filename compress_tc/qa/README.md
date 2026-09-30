@@ -11,3 +11,5 @@ All labelled fixture variants preserve every cell, labels and date format; exact
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_compress_tc_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+
+| `validation_compress_tc_fixture_primitives.do` | Every actual hostile name/code/string value survives compression; full dryrun state, exact inclusive244-byte minlength boundary and negative refusal | core/full |

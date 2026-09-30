@@ -32,6 +32,8 @@ program define msm_plot, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    tempname _caller_r
+    _return hold `_caller_r'
     local _restore_needed = 0
     set varabbrev off
     set more off
@@ -415,5 +417,9 @@ program define msm_plot, rclass
     set varabbrev `_varabbrev'
     set more `_more'
 
-    if `_rc' exit `_rc'
+    if `_rc' {
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end

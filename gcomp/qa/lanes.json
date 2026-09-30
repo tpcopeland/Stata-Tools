@@ -81,6 +81,34 @@
         {
           "name": "test_fixture_mediation",
           "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_mediation_routes",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_table_refusals",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_session",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_categorical_support",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_native_globals",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_category_helpers",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_table_domains",
+          "timeout_seconds": 300
         }
       ]
     },
@@ -154,6 +182,10 @@
         {
           "name": "validation_timevarying",
           "timeout_seconds": 900
+        },
+        {
+          "name": "validation_fixture_count_means",
+          "timeout_seconds": 300
         }
       ]
     },

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.0 29jun2026}{...}
+{* *! version 0.1.1 30sep2026}{...}
 {vieweralsosee "[G-2] graph twoway rbar" "help twoway rbar"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "swimlane##syntax"}{...}
@@ -637,6 +637,13 @@ event label.
 
 
 {marker results}{...}
+{pstd}
+The command preserves the caller's legacy {cmd:S_1} and {cmd:S_2} globals on
+success and failure, including when either global was initially absent.
+Refusals before analytical results are prepared retain the caller's previous
+{cmd:r()} scalars, macros, and matrices. Errors after results are prepared
+publish the command's analytical results, including output-side failures.
+
 {title:Stored results}
 
 {pstd}
@@ -692,6 +699,6 @@ event label.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 0.1.0, 2026-06-29{p_end}
+{pstd}Version 0.1.1, 2026-09-30{p_end}
 
 {hline}

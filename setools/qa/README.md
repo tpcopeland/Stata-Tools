@@ -1,11 +1,5 @@
 # setools QA
 
-archetypes: A3(cdp pira sustainedss) A4(migrations) A5(cci_se)
-
-Canonical fixture adoption is in progress. Exact micro-series separately pin two-/three-tier sustained/visit CDP, threshold6 sustained/visit crossings, relapse-filtered PIRA and every roving event/baseline. Swedish CCI uses exact code-profile components; migration cases distinguish later returns from permanent emigration. These EDSS micro-series are deterministic event rules, not stochastic clinical-effect recovery. Shared long-name code invariance is separate. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
-
 The `setools` QA suite is flat and concern-oriented: one functional, regression, validation, or cross-validation file per concern, driven by a curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run
@@ -25,6 +19,8 @@ The `python` alias runs the three external-oracle cross-validation suites, while
 `run_all.do` writes its batch log in the active `qa/` directory, so concurrent runs of the same lane can corrupt evidence; a disagreement between `run_all.log` and a suite sentinel is the tell. Run release evidence from a scratch copy that preserves the repository layout, remove copied `qa/*.log` and `qa/run_all_status.txt` first, and include the sibling `_data/` directory so the shipped-data documentation path is exercised rather than its embedded fallback.
 
 ## Conventions
+
+archetypes: A3(cdp pira sustainedss) A4(migrations) A5(cci_se)
 
 - `test_*` files provide functional and regression coverage; `validation_*` files provide known-answer and invariant checks; `crossval_*` files compare with an independently implemented external oracle; `benchmark_*` files are timing guardrails and never correctness gates.
 - Every suite ends with one `RESULT: <name> tests=N pass=N fail=N [skip=N]` sentinel and exits nonzero on failure. The `full` release lane accepts no skips.
@@ -48,6 +44,7 @@ Stata 16 or later is required throughout. No R package is used.
 
 | File | Covers |
 |---|---|
+| `test_fixture_names.do` | Long-name invariance for actual public output values and returned identities. |
 | `test_setools.do` | Public command discovery, overview output, and basic command behavior. |
 | `test_setools_option_errors.do` | Numeric option boundaries, exact rollback, dispatcher invalid-option, and mutually-exclusive-option errors. |
 | `test_setools_oracle.do` | Seeded repeated catalog oracle for exact category command lists and counts. |
@@ -77,6 +74,9 @@ Stata 16 or later is required throughout. No R package is used.
 
 | File | Covers |
 |---|---|
+| `validation_fixture_domains.do` | Independent enumeration of all CDP/PIRA candidates and future assessments over confirmation, baseline and relapse boundaries; sustained dates, residence exclusions, catalog and dateformat domains. |
+| `validation_fixture_windows.do` | Every person score across numeric/string YYYYMMDD, string YMD and native daily dates, short windows and exact option refusals. |
+| `validation_fixture_contract.do` | Distinct CDP/PIRA/sustained-threshold event-date microseries, exact Swedish CCI components, migration returns/permanent emigration, selected missing-anchor and fractional-date refusals. |
 | `validation_cci_se_date_hierarchy.do` | CCI component precedence and earliest-date hierarchy. |
 | `validation_cci_se_era_boundaries.do` | ICD-era transition boundaries. |
 | `validation_cci_se_known_scores.do` | Hand-computable CCI component and total scores. |
@@ -106,8 +106,14 @@ Stata 16 or later is required throughout. No R package is used.
 
 | Path | Contents |
 |---|---|
+| `_qa_fx_a3.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_fx_a5.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Authoritative lane membership and result aggregation. |
 | `benchmark_setools_performance.do` | Seeded registry-scale timing for PIRA, CDP, and sustained EDSS; accepts the person count as its argument. |
+| `_qa_hostile.do` | Byte-vendored binary64 hostile-time primitive used by named daily-date refusal controls. |
 | `_setools_qa_common.do` | Isolated installation and session-state teardown. |
 | `_expected_warnings.txt` | Narrow declarations for warning messages deliberately provoked by negative-path suites. |
 | `tools/build_edss_fixture.do` | Deterministic EDSS fixture generator, run by hand. |
@@ -123,12 +129,12 @@ Stata 16 or later is required throughout. No R package is used.
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `setools` | `test_setools`, `test_setools_abbrev_and_namespace` | `validation_setools` | — | `test_release_integrity`, `test_setools_sthlp_render` |
-| `cci_se` | CCI engine, date-parity, adversarial, and versioned suites | CCI era, score, date, mapping, boundary, and crosscheck validations | `crossval_cci_se_python` | Documentation, audit, and help-render suites |
-| `migrations` | Migration regression, rollback, namespace, and versioned suites | Migration boundary, type-2, long/wide, general, and crosscheck validations | `crossval_migrations_python` | Documentation, audit, and help-render suites |
-| `sustainedss` | Adversarial and versioned regression suites | Known-answer, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, and help-render suites |
-| `cdp` | Adversarial, roving, date-consistency, and versioned suites | Fixed/roving/threshold/boundary/general crosschecks | `crossval_edss_python` | Documentation, audit, and help-render suites |
-| `pira` | Parser, censoring, and versioned regression suites | PIRA known answers, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, and help-render suites |
+| `setools` | `test_setools`, `test_setools_abbrev_and_namespace` | `validation_setools` | — | `test_release_integrity`, `test_setools_sthlp_render`, canonical catalog domains |
+| `cci_se` | CCI engine, date-parity, adversarial, and versioned suites | CCI era, score, date, mapping, boundary, and crosscheck validations | `crossval_cci_se_python` | Documentation, audit, help-render and canonical contract/domain suites |
+| `migrations` | Migration regression, rollback, namespace, and versioned suites | Migration boundary, type-2, long/wide, general, and crosscheck validations | `crossval_migrations_python` | Documentation, audit, help-render and canonical contract/domain suites |
+| `sustainedss` | Adversarial and versioned regression suites | Known-answer, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, help-render and canonical contract/domain suites |
+| `cdp` | Adversarial, roving, date-consistency, and versioned suites | Fixed/roving/threshold/boundary/general crosschecks | `crossval_edss_python` | Documentation, audit, help-render and canonical contract/domain suites |
+| `pira` | Parser, censoring, and versioned regression suites | PIRA known answers, boundary, general, and crosscheck validations | `crossval_edss_python` | Documentation, audit, help-render and canonical contract/domain suites |
 
 ## Lane membership
 
@@ -144,6 +150,8 @@ Stata 16 or later is required throughout. No R package is used.
 | `benchmark` | The non-gating one-million-visit longitudinal-engine benchmark only. |
 
 ## Known gaps
+
+Canonical EDSS event rules keep clinical PIRA/CDP distinct from sustained-threshold crossings; deterministic microseries do not establish stochastic clinical-effect recovery. The ordinary migration adapter discards the missing middle anchor; a separate selected-anchor refusal reaches the public command.
 
 - The repository-root version badge is checked by `check version`, not by the relocatable Stata lane.
 - The optional network checksum is deliberately outside `full`; deterministic release evidence comes from the pinned local fixture and Python parity.

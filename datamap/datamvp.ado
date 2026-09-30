@@ -6,7 +6,8 @@
 program define datamvp, rclass byable(recall) sortpreserve
     version 16.0
     local _legacy_globals : all globals
-    foreach g in S_1 S_2 S_FN S_FNDATE {
+    foreach g in S_1 S_2 S_FN S_FNDATE S_1_full ReS_Call ReS_j ReS_jv ///
+        ReS_jv2 ReS_i ReS_Xij Res_Xi ReS_atwl ReS_str rVANS rtmpST {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
         if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
@@ -15,6 +16,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     local _uservarabbrev `c(varabbrev)'
     local _nomask_explicit = regexm(" " + lower(`"`macval(0)'"') + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]")
     local _return_ready = 0
+    local _owned_preserved = 0
     local _return_has_missby = 0
     local _anymask = 0
     local _vmask = 0
@@ -211,7 +213,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
         }
     }
-    if `groupgap' < 0 {
+    if `groupgap' < 0 | missing(`groupgap') {
         di as err "groupgap() must be non-negative"
         exit 198
     }
@@ -518,8 +520,9 @@ program define datamvp, rclass byable(recall) sortpreserve
         // A clean -exit 0- here would leave the capture block WITHOUT reaching
         // the post-block restore (capture only intercepts errors), leaking
         // -set varabbrev off- to the user; restore before exiting.
-    foreach g in S_1 S_2 S_FN S_FNDATE {
-        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+    foreach g in S_1 S_2 S_FN S_FNDATE S_1_full ReS_Call ReS_j ReS_jv ///
+        ReS_jv2 ReS_i ReS_Xij Res_Xi ReS_atwl ReS_str rVANS rtmpST {
+        if `_had_`g'' mata: st_global(st_local("g"), st_local("_old_" + st_local("g")))
         else macro drop `g'
     }
         set varabbrev `_uservarabbrev'
@@ -719,6 +722,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     * Display patterns
     preserve
+    local _owned_preserved = 1
     qui keep if `isf'
     qui count
     local npat = r(N)
@@ -845,6 +849,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
     }
     restore
+    local _owned_preserved = 0
 
     * Summarize patterns not listed
     if `nsmallg' > 0 & `minfreq' > 1 {
@@ -1221,6 +1226,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     if "`save'" != "" {
         preserve
+        local _owned_preserved = 1
         qui keep if `isf'
         qui keep `mv_patt' `mv_n' `ng' `patpct' `cpct'
         qui rename `mv_patt' pattern
@@ -1253,6 +1259,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
         }
         restore
+        local _owned_preserved = 0
     }
 
     * ===================================================================
@@ -1260,6 +1267,9 @@ program define datamvp, rclass byable(recall) sortpreserve
     * ===================================================================
 
     if "`graphtype'" != "" {
+        * Graph inputs below are derived data, not the caller's native file.
+        macro drop S_FN S_FNDATE
+
         * Build common graph options
         local schemeopts = cond("`scheme'" != "", `"scheme(`scheme')"', "")
         local nameopts = cond("`gname'" != "", `"name(`gname', replace)"', "")
@@ -1295,6 +1305,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         * -----------------------------------------------------------------
         if "`graphtype'" == "bar" {
             preserve
+            local _owned_preserved = 1
 
             * Under masking a bar is withheld when its missing count or the
             * complement is from 1 to m-1 (the rule of the variable table);
@@ -1597,6 +1608,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             restore
+            local _owned_preserved = 0
         }
 
         * -----------------------------------------------------------------
@@ -1604,6 +1616,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         * -----------------------------------------------------------------
         else if "`graphtype'" == "patterns" {
             preserve
+            local _owned_preserved = 1
 
             * Handle gby() option for patterns - faceted display
             if "`gby'" != "" {
@@ -1763,6 +1776,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             restore
+            local _owned_preserved = 0
         }
 
         * -----------------------------------------------------------------
@@ -1770,6 +1784,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         * -----------------------------------------------------------------
         else if "`graphtype'" == "matrix" {
             preserve
+            local _owned_preserved = 1
 
             * Sample if requested or if N is large
             local use_sample = 0
@@ -1852,6 +1867,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
 
             restore
+            local _owned_preserved = 0
         }
 
         * -----------------------------------------------------------------
@@ -1872,6 +1888,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             }
 
             preserve
+            local _owned_preserved = 1
             tempvar rowid colid corr corrlabel colorint
             qui {
                 clear
@@ -2024,13 +2041,24 @@ program define datamvp, rclass byable(recall) sortpreserve
                 `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
 
             restore
+            local _owned_preserved = 0
         }
     }
 
     } // end capture noisily
     local rc = _rc
-    foreach g in S_1 S_2 S_FN S_FNDATE {
-        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+    local _owned_restore_rc = 0
+    if `_owned_preserved' {
+        capture restore
+        local _owned_restore_rc = _rc
+        if `_owned_restore_rc' {
+            di as err "datamvp: caller data rollback failed (rc `_owned_restore_rc')"
+            if !`rc' local rc = `_owned_restore_rc'
+        }
+    }
+    foreach g in S_1 S_2 S_FN S_FNDATE S_1_full ReS_Call ReS_j ReS_jv ///
+        ReS_jv2 ReS_i ReS_Xij Res_Xi ReS_atwl ReS_str rVANS rtmpST {
+        if `_had_`g'' mata: st_global(st_local("g"), st_local("_old_" + st_local("g")))
         else macro drop `g'
     }
     set varabbrev `_uservarabbrev'

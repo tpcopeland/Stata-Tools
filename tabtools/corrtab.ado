@@ -1,10 +1,20 @@
-*! corrtab Version 2.1.18  2026/09/29
+*! corrtab Version 2.1.19  2026/09/30
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define corrtab, rclass
     version 17.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _own_r_posted = 0
+    local _legacy_names S_1 S_4 S_6
+    local _legacy_i = 0
+    foreach _legacy_name of local _legacy_names {
+        local ++_legacy_i
+        mata: st_local("_had_legacy_`_legacy_i'", strofreal(any(st_dir("global", "macro", "*") :== st_local("_legacy_name"))))
+        mata: st_local("_old_legacy_`_legacy_i'", st_global(st_local("_legacy_name")))
+    }
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _xlsx_book
@@ -40,8 +50,8 @@ program define corrtab, rclass
             HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
             csv(string) MARKdown(string) MDAPPend FRAme(string) open]
 
-        if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-        local _has_xlsx = (`"`xlsx'"' != "")
+        if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" mata: st_local("xlsx", st_local("excel"))
+        local _has_xlsx = (`"`macval(xlsx)'"' != "")
         if "`open'" != "" & !`_has_xlsx' {
             noisily display as error "open requires xlsx() or excel()"
             exit 198
@@ -50,11 +60,11 @@ program define corrtab, rclass
         if `"`macval(sheet)'"' == "" local sheet "Correlation"
         _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
         if `_has_xlsx' {
-            if !strmatch(lower("`xlsx'"), "*.xlsx") {
+            if !strmatch(lower(`"`macval(xlsx)'"'), "*.xlsx") {
                 noisily display as error "xlsx() must have .xlsx extension"
                 exit 198
             }
-            _tabtools_validate_path "`xlsx'" "xlsx()"
+            _tabtools_validate_path `"`macval(xlsx)'"' "xlsx()"
         }
         if "`csv'" != "" {
             * Suite-wide contract: csv() must name a .csv file. corrtab
@@ -134,6 +144,10 @@ program define corrtab, rclass
             }
         }
         local n_stars : word count `star'
+        if `n_stars' > 3 {
+            noisily display as error "star() permits at most 3 unique thresholds"
+            exit 198
+        }
 
         marksample _pwtouse, novarlist
 
@@ -386,6 +400,7 @@ program define corrtab, rclass
             local frame `"`_frame_name'"'
         }
 
+        local _own_r_posted = 1
         return matrix C = `_corr'
         return matrix P = `_pmat'
         return matrix N = `_nmat'
@@ -533,8 +548,24 @@ program define corrtab, rclass
         if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
     }
     local _rc = _rc
+    local _legacy_i = 0
+    foreach _legacy_name of local _legacy_names {
+        local ++_legacy_i
+        if `_had_legacy_`_legacy_i'' {
+            mata: st_global(st_local("_legacy_name"), st_local("_old_legacy_`_legacy_i'"))
+        }
+        else capture macro drop `_legacy_name'
+    }
     set varabbrev `_orig_varabbrev'
-    if `_rc' exit `_rc'
+    if `_rc' {
+        * Refusals before our analytic payload preserve the caller's r().
+        * Published analytic returns still survive a later export failure.
+        if !`_own_r_posted' {
+            _return restore `_caller_r'
+            return add
+        }
+        exit `_rc'
+    }
 end
 
 version 17.0

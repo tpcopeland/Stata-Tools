@@ -1,4 +1,4 @@
-*! tvexpose Version 1.17.4  2026/09/30
+*! tvexpose Version 1.17.6  2026/09/30
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -114,6 +114,12 @@ See help tvexpose for complete documentation with examples
 
 program define tvexpose, rclass
     version 16.0
+    local _caller_matastrict = c(matastrict)
+    * Native rollback/frame-output loads mutate caller filename aliases.
+    foreach _fn in S_FN S_FNDATE {
+        mata: st_local("_fn_present_"+st_local("_fn"),strofreal(sum(st_dir("global","macro","*"):==st_local("_fn"))>0))
+        mata: st_local("_fn_bytes_"+st_local("_fn"),st_global(st_local("_fn")))
+    }
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _frameout_snap_taken = 0    // init before block for error-path restore
@@ -5286,6 +5292,24 @@ program define tvexpose, rclass
         local _tvx_drc = _rc    // best-effort restore; do not mask `rc'
     }
 
+    * A refused call or frameout() preserves the caller dataset, including
+    * its actual filename macro presence and opaque bytes. Successful saved
+    * output keeps its new filename; new memory output clears aliases below.
+    if `rc' | "`frameout'"!="" {
+        foreach _fn in S_FN S_FNDATE {
+            if `_fn_present_`_fn'' {
+                mata: st_global(st_local("_fn"),st_local("_fn_bytes_"+st_local("_fn")))
+            }
+            else capture macro drop `_fn'
+        }
+    }
+    * A newly constructed memory dataset has no saved native filename.
+    * saveas() keeps the actual newly written filename; frameout()/refusal
+    * restored the original caller aliases above.
+    if `rc'==0 & "`frameout'"=="" & `"`macval(saveas)'"'=="" {
+        capture macro drop S_FN S_FNDATE
+    }
+    set matastrict `_caller_matastrict'
     set varabbrev `orig_varabbrev'
 
     if `rc' {

@@ -25,6 +25,8 @@ program define msm_prepare, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    tempname _caller_r
+    _return hold `_caller_r'
     local _caller_sorted : sortedby
     local _prep_preserved = 0
     set varabbrev off
@@ -349,5 +351,9 @@ program define msm_prepare, rclass
     set varabbrev `_varabbrev'
     set more `_more'
 
-    if `_rc' exit `_rc'
+    if `_rc' {
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end

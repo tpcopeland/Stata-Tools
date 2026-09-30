@@ -78,3 +78,5 @@ Isolated tracker fixture produces exact alpha net-install and fre SSC installer 
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_pkgtransfer_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+| `validation_pkgtransfer_fixture_primitives.do` | Exact generated installer text and hostile caller-data preservation | core/full |
+| `test_pkgtransfer_fixture_state.do` | Exact absent/numeric/string native cv preservation, variable shadow, success/refusal and next import | core/full |

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  29sep2026}{...}
+{* *! version 1.1.2  30sep2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -230,7 +230,7 @@ uses net install to bootstrap it.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.1 - 2026-09-29{p_end}
+{pstd}Version 1.1.2 - 2026-09-30{p_end}
 
 
 {hline}

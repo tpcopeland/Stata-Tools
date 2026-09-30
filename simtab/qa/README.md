@@ -41,6 +41,11 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | File | Covers |
 | --- | --- |
+| `test_fixture_error_payload.do` | Both strict contexts, late named603 export refusal with exact four numeric companion cells, analytical r publication, preserved active native estimates/xb/stdp and all other caller state |
+| `test_fixture_error_returns.do` | Genuine empty/populated scalar/macro/striped-matrix prior r() on named pre-payload refusals; complete caller snapshot compared after logopen/before logclose |
+| `test_fixture_cold_workbook.do` | Cold strict off/on compilation through actual Excel export and named198 sheet refusal, independent finite mean/SD payloads, full non-r caller fingerprint and subsequent native Mata work |
+| `test_fixture_compile_state.do` | All five actual helper compilation blocks with planted syntax errors under strict off/on, compared with native compiler rc and caller strict/data preservation |
+| `test_fixture_precision.do` | All five estimate storage types under friendly/permuted inputs, independent Bernoulli means/SDs, requested digits0/6 and exact caller fingerprint |
 | `test_simtab.do` | Compute and ingest modes, metrics, MCSEs, every public option, artifacts, frames, caller Mata state, external-oracle adapters, and formatting regressions |
 | `test_simtab_errors.do` | Sheet and formatting guards, summary proportion domains, simsum-row uniqueness, output-option conflicts, and symmetric caller-data preservation |
 | `test_simtab_documentation_examples.do` | Executable compute and summary help workflows plus a self-contained SMCL render oracle with a positive control |
@@ -50,6 +55,8 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | File | Covers |
 | --- | --- |
+| `validation_fixture_truth.do` | Canonical exact labelled-group moments |
+| `validation_fixture_matrix.do` | Two independent Gaussian recovery seeds and finite A1/A7/primitive summaries with named refusal fingerprints |
 | `validation_simtab.do` | Hand-computed performance metrics, RMS model SE, inclusive rejection boundary, MCSEs, and live `simsum` parity |
 
 ### Support
@@ -74,15 +81,19 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | Lane | Suites |
 | --- | --- |
-| `quick` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do` |
-| `full` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `validation_simtab.do`, `test_simtab_oracle.do` |
+| `quick` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do` |
+| `full` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `validation_simtab.do`, `test_simtab_oracle.do` |
 
 Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases check group means, bias, empirical SD, root-mean-square model SE, MSE and RMSE against exact ten-row integer-block formulas in the numeric companion frame. order(sort) explicitly aligns ordinal output keys after permutation.
 
 | Added QA file | Role |
 |---|---|
 | `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a1.do` | Byte-for-byte canonical regression DGP vendor |
+| `_qa_state.do` | Byte-for-byte full session fingerprint vendor |
 | `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
 
-Fixture coverage still owed: Default first-occurrence ordering needs a separate label-key oracle; ingest, file writers, A1 simulation recovery and remaining A1/A7 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+The matrix computes direct centered finite moments before the candidate, and two seeds recover mean2 using the independent Gaussian DGP MCSE1/sqrt(cellN). A1 outcome/design/group roles are consumed explicitly. Zero/extreme analytic weights have no compute-mode weight argument; collinear regressors have no role in a scalar simulation estimate. Those cells remain visible for applicability review. Fixture coverage still owed: default first-occurrence ordering, ingest, file writers and remaining A1/A7 minima. Cold state/export precision controls remain under review. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+
+Refusals before analytical payload preparation retain genuine empty or populated prior r(). Successful and late output-side calls publish the command’s analytical returns; these paths are checked numerically rather than demanding unchanged prior r(). Earlier cold/global checks omitted rreturn and prove non-r state only.

@@ -154,6 +154,11 @@ to see exactly which individuals or periods are affected:{p_end}
 {pstd}
 {cmd:msm_validate} stores the following in {cmd:r()}:
 
+{pstd}
+Completed checks publish these findings even when {opt strict} exits with
+return code 198. A guard or operational failure before the checks finish
+preserves the caller's previous returned results.
+
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(n_checks)}}number of checks run (always 10){p_end}

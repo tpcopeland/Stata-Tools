@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 4.3.3  2026/09/30
+*! _iivw_export_table Version 4.3.4  2026/09/30
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -65,8 +65,8 @@ program define _iivw_export_table, rclass
     * Defaults match the tabtools house style: thin framed grid (frame plus
     * group separators, no full interior grid), no header shade.
     local borderstyle = lower(strtrim(subinstr(`"`borderstyle'"', `"`__iivw_dq'"', "", .)))
-    local __iivw_font = strtrim(subinstr(`"`font'"', `"`__iivw_dq'"', "", .))
-    if `"`__iivw_font'"' == "" local __iivw_font "Arial"
+    mata: st_local("__iivw_font", _iivw_xlsx_font(st_local("font")))
+    if `"`macval(__iivw_font)'"' == "" local __iivw_font "Arial"
     local __iivw_fontsize = cond(`fontsize' == -1, 10, `fontsize')
     if `fontsize' != -1 & (`__iivw_fontsize' < 1 | `__iivw_fontsize' > 72) {
         display as error "fontsize() must be between 1 and 72"
@@ -249,7 +249,7 @@ program define _iivw_export_table, rclass
             `"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"', `"`__iivw_vars'"', ///
             `__iivw_return_rows', `__iivw_return_cols', ///
             `__iivw_note_row', `"`__iivw_widths'"', ///
-            `"`__iivw_font'"', `__iivw_fontsize', `__iivw_bcode', ///
+            st_local("__iivw_font"), `__iivw_fontsize', `__iivw_bcode', ///
             `__iivw_headershade_flag', `__iivw_zebra_flag', ///
             `"`__iivw_headercolor'"', `"`__iivw_zebracolor'"', ///
             `valuespanfrom')
@@ -438,11 +438,43 @@ capture mata: mata drop _iivw_xlsx_write_tabtools()
 local __iivw_mata_drop_rc = _rc
 capture mata: mata drop _iivw_xlsx_style_tabtools()
 local __iivw_mata_drop_rc = _rc
+capture mata: mata drop _iivw_xlsx_font()
+local __iivw_mata_drop_rc = _rc
 capture mata: mata drop _iivw_xlsx_cur_strmat()
 local __iivw_mata_drop_rc = _rc
 
 mata:
 mata set matastrict on
+
+// Font is transported through nested string-asis option dispatch. Read the
+// bytes directly rather than interpolating them into a Stata string expression.
+string scalar _iivw_xlsx_font(string scalar raw)
+{
+    real scalar n, changed
+
+    raw = strtrim(raw)
+    changed = 1
+    while (changed) {
+        changed = 0
+        n = strlen(raw)
+        if (n >= 4) {
+            if (substr(raw, 1, 2) == char(96) + char(34) &
+                substr(raw, n - 1, 2) == char(34) + char(39)) {
+                raw = strtrim(substr(raw, 3, n - 4))
+                changed = 1
+            }
+        }
+        if (!changed & n >= 2) {
+            if (substr(raw, 1, 1) == char(34) &
+                substr(raw, n, 1) == char(34)) {
+                raw = strtrim(substr(raw, 2, n - 2))
+                changed = 1
+            }
+        }
+    }
+    // Retain the existing font policy of removing literal double quotes.
+    return(strtrim(subinstr(raw, char(34), "")))
+}
 
 real scalar _iivw_xlsx_sheet_exists(string scalar filepath, string scalar sheet)
 {

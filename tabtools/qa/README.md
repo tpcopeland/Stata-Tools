@@ -190,7 +190,7 @@ python3 tools/option_coverage.py
 python3 tools/check_sthlp_width.py ..
 ```
 
-archetypes: A7(crosstab corrtab puttab desctab table1_tc tabtools) A6(puttab effecttab comptab) A1(regtab)
+archetypes: A7(crosstab corrtab puttab desctab table1_tc tabtools survtab stratetab hrcomptab stacktab tabtools_tips) A6(puttab effecttab comptab) A1(regtab)
 
 ## Canonical fixture adoption
 
@@ -203,3 +203,18 @@ Exact sparse-code cross-tab counts, Spearman/pairwise N including undefined all-
 | `validation_tabtools_fixture_descriptive.do` | Exact sparse-column N and mean±SD cell text, all-missing blanks and single-level refusal, desctab/front-end routes, all canonical LABELLED variants with full caller fingerprints | quick/full/release |
 
 | `validation_tabtools_fixture_models.do` | Exact four-column ESTMAT payloads including permuted stripes/missing/unbounded limits, independent Gaussian sample OLS/Student intervals/p-values and sparse identities, selected composite cells, data-independent catalogue inventory; full caller fingerprints | core/full |
+
+| `validation_tabtools_fixture_catalogue_primitives.do` | Dataset-independent14-command/category identity and rendered tips contract across actual case/32-byte names, sparse signed codes, opaque strings, missing/one-row callers; full fingerprints | core/full |
+| `validation_tabtools_fixture_numeric_primitives.do` | Exact case/32-byte stripe identity and Pearson correlations, signed large-code count cells, all nine opaque label bytes, long-name means and explicit signed-group refusal with positive large-code mirrors | core/full |
+| `test_tabtools_fixture_files.do` | Both Excel spellings, exact correlation/count/mean workbook cells, stale report-sheet replacement, user sheets, extensionless and hostile filename refusals, owned-tree bytes and caller fingerprints | core/full |
+| `test_tabtools_fixture_path_macros.do` | Literal dollar/backtick paths with absent/opaque/matching macros, shared validator and all three writer alias routes; named198 causes and unchanged trees and non-r caller state | core/full |
+| `test_tabtools_fixture_rreturns.do` | Both Excel aliases refuse hostile filenames with original198 and exact empty/populated scalar/macro/matrix r() plus other caller-state equality; snapshot after logopen and comparison before logclose | quick/full |
+| `test_tabtools_fixture_publication.do` | Populated caller r() is replaced by exact analytic scalars/matrices/macros on success and retained after named native16106 workbook-save failures; other caller state and file contents unchanged | quick/full |
+| `validation_tabtools_fixture_domains.do` | Nine actual option sweeps (67 cells): numeric endpoints, missing/special values, invalid controls and exact correlation/count/ANOVA/suppression content; canonical domain helper | quick/full |
+| `test_corrtab_fixture_stars.do` | Exact one/two/three significance-symbol counts and full-r caller fingerprints on distinct duplicate/four-threshold refusals with named198 causes | quick/full |
+| `validation_corrtab_fixture_inputs.do` | Independent60-digit signed/large-code Pearson and tied-rank Spearman recovery, supported single-row missing C/P and N1 across frames/workbook/CSV/Markdown and accepted undefined components beside finite diagonals | quick/full |
+| `test_corrtab_fixture_legacy.do` | Fresh absent/numeric/opaque native S_1/S_4/S_6 on Spearman success, early198, supported single-row N1 and late16106, with exact analytical/state/tree assertions | quick/full |
+| `validation_tabtools_fixture_fonts.do` | Eight actual workbook writes check default/Latin/spaced/Unicode font bytes in native styles, exact report values and preserved user sheets/unrelated files; nominal string domain | quick/full |
+| `validation_tabtools_fixture_strings.do` | All nine opaque variable-label byte strings in actual count/mean frames, exact numerical payloads and full caller fingerprints across crosstab/desctab/table1_tc | core/full |
+| `validation_tabtools_fixture_remaining.do` | Explicit canonical survival adapter: exact KM/RMST/logrank and event/person-time rates, symmetricHR composition, documented blank-category refusal, all six workbook cells/stale sheet/user sheet/stem preservation, real tips text | core/full |
+| `test_survtab_fixture_state.do` | Empty/foreign estimates; absent/opaque/empty legacy globals with long-name twins; native KM/RMST/median results and early/late rc preserved | core/full |

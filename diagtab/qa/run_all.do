@@ -44,7 +44,7 @@ if `install_rc' {
 }
 
 local files "test_diagtab.do test_diagtab_errors.do test_diagtab_documentation_examples.do"
-if "`lane'" == "full" local files "`files' validation_diagtab.do validation_diagtab_fixture_contract.do test_diagtab_fixture_files.do"
+if "`lane'" == "full" local files "`files' validation_diagtab.do validation_diagtab_fixture_contract.do test_diagtab_fixture_files.do validation_diagtab_fixture_routes.do test_diagtab_fixture_state.do test_diagtab_fixture_text.do test_diagtab_fixture_compile.do test_diagtab_fixture_rreturns.do test_diagtab_fixture_publication.do"
 if "`lane'" == "full" local files "`files' test_diagtab_oracle.do"
 
 local suite_pass = 0

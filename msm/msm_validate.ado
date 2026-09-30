@@ -22,6 +22,10 @@ program define msm_validate, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _caller_sorted : sortedby
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _validation_findings = 0
     set varabbrev off
     set more off
 
@@ -545,9 +549,11 @@ program define msm_validate, rclass
     return local validation = cond(`n_errors' == 0, "passed", "failed")
 
     if `n_errors' > 0 {
+        local _validation_findings = 1
         exit 198
     }
     if "`strict'" != "" & `n_warnings' > 0 {
+        local _validation_findings = 1
         exit 198
     }
 
@@ -558,8 +564,19 @@ program define msm_validate, rclass
     local _order_rc = _rc
     if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
+    * Re-stamp the original keys without changing the restored order in ties.
+    if `"`_caller_sorted'"' != "" {
+        capture sort `_caller_sorted', stable
+        local _sorted_rc = _rc
+        if `_rc' == 0 & `_sorted_rc' != 0 local _rc = `_sorted_rc'
+    }
+
     set varabbrev `_varabbrev'
     set more `_more'
 
+    if `_rc' & !`_validation_findings' {
+        _return restore `_caller_r'
+        return add
+    }
     if `_rc' exit `_rc'
 end

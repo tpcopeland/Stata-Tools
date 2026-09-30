@@ -5,7 +5,7 @@ clear all
 set varabbrev off
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 capture ado uninstall spaghetti
 quietly net install spaghetti, from("`pkg_dir'") replace
 

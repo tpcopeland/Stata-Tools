@@ -4,11 +4,10 @@ version 16.0
 clear all
 set more off
 set varabbrev off
-capture log close _all
-log using "test_fixture_names.log", replace text nomsg
 local qa_dir "`c(pwd)'"
 local pkg_dir=regexr("`qa_dir'","/qa$","")
-adopath ++ "`pkg_dir'"
+do "`qa_dir'/_iivw_qa_common.do"
+iivw_qa_bootstrap
 do "`qa_dir'/_qa_fx_a3.do"
 do "`qa_dir'/_qa_state.do"
 do "`qa_dir'/_qa_metamorphic.do"
@@ -25,6 +24,6 @@ capture noisily {
 if _rc==0 local ++pass
 else local ++fail
 capture graph drop fx_names
-di "RESULT: test_fixture_names tests=`tests' pass=`pass' fail=`fail' skip=0"
-log close _all
+display "RESULT: test_fixture_names tests=`tests' pass=`pass' fail=`fail' skip=0"
+iivw_qa_sandbox_restore
 if `fail'>0 exit 1

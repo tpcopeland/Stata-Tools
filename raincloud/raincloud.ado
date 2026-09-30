@@ -1,4 +1,4 @@
-*! raincloud Version 1.0.3  2026/08/11
+*! raincloud Version 1.0.4  2026/09/30
 *! Raincloud plots: half-violin density + jittered scatter + box elements
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -17,11 +17,17 @@ See help raincloud for complete documentation
 
 program define raincloud, rclass
     version 16.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    _return restore `_caller_r', hold
     local _varabbrev = c(varabbrev)
     set varabbrev off
     local _rng_state = c(rngstate)
     local _restore_rng = 1
     local _return_ready = 0
+    * Native kdensity publishes legacy S_1 through S_4; retain caller values.
+    mata: st_local("_rain_s1", st_global("S_1")); st_local("_rain_s2", st_global("S_2"))
+    mata: st_local("_rain_s3", st_global("S_3")); st_local("_rain_s4", st_global("S_4"))
 
     capture noisily {
 
@@ -142,14 +148,22 @@ program define raincloud, rclass
     * =========================================================================
     preserve
 
+    * Native kdensity and graph internals parse labels as Stata text. Keep
+    * the raw value label opaque for the explicit axis title, and clear only
+    * this preserved working copy throughout numeric/graph construction.
+    mata: st_local("_value_label", st_varlabel(st_local("varlist"))); st_varlabel(st_local("varlist"), "")
     quietly keep if `touse'
 
     tempvar over_num
     local n_groups = 1
     local grp_levels "1"
     local grp_labels `"`"All"'"'
+    local grplab1 "All"
 
     if "`over'" != "" {
+        * Native clonevar/encode re-expand variable labels. Clear only the
+        * preserved working label during copying, then restore it opaquely.
+        mata: st_local("_over_copy_label", st_varlabel(st_local("over"))); st_varlabel(st_local("over"), "")
         * Encode string variables to numeric
         capture confirm string variable `over'
         if _rc == 0 {
@@ -159,6 +173,7 @@ program define raincloud, rclass
             quietly clonevar `over_num' = `over'
         }
 
+        mata: st_varlabel(st_local("over"), st_local("_over_copy_label"))
         quietly levelsof `over_num', local(grp_levels)
         local n_groups : word count `grp_levels'
 
@@ -168,14 +183,17 @@ program define raincloud, rclass
         local lbl : value label `over_num'
         if "`lbl'" != "" local has_labels 1
 
+        local _label_index = 0
         foreach lev of local grp_levels {
             if `has_labels' {
-                local lab : label `lbl' `lev'
+                mata: st_local("lab", st_vlmap(st_local("lbl"), strtoreal(st_local("lev"))))
             }
             else {
                 local lab "`lev'"
             }
-            local grp_labels `"`grp_labels' `"`lab'"'"'
+            mata: st_local("grp_labels", st_local("grp_labels")+" "+char(96)+char(34)+st_local("lab")+char(34)+char(39))
+            local ++_label_index
+            mata: st_local("grplab"+st_local("_label_index"), st_local("lab"))
         }
     }
     else {
@@ -224,7 +242,8 @@ program define raincloud, rclass
     foreach lev of local grp_levels {
         local ++g
         local center = `g' * `gap'
-        local grp_lab : word `g' of `grp_labels'
+        mata: st_local("grp_lab", st_local("grplab"+st_local("g")))
+        mata: st_local("plot_grp_lab", _raincloud_text(st_local("grp_lab")))
         local ylab_vals "`ylab_vals' `center'"
 
         * Color: cycle with modular arithmetic
@@ -248,7 +267,7 @@ program define raincloud, rclass
         matrix `stats'[`g', 5] = `grp_q25'
         matrix `stats'[`g', 6] = `grp_q75'
         matrix `stats'[`g', 7] = `grp_iqr'
-        local stat_names `"`stat_names' `"`grp_lab'"'"'
+        mata: st_local("stat_names", st_local("stat_names")+" "+char(96)+char(34)+st_local("grp_lab")+char(34)+char(39))
 
         * Whiskers: data values within 1.5*IQR
         local whi_lo = `grp_q25' - 1.5 * `grp_iqr'
@@ -324,7 +343,7 @@ program define raincloud, rclass
                 local twoway_cmd "`twoway_cmd' (rarea `cloud_hi_`g'' `cloud_lo_`g'' `kd_x_`g'', horizontal fcolor(`clr'%`opacity') lcolor(`clr') lwidth(vthin) `cloudopts')"
             }
             local legend_order "`legend_order' `layer'"
-            local legend_labels `"`legend_labels' label(`layer' `"`grp_lab'"')"'
+            local legend_labels `"`macval(legend_labels)' label(`layer' `"`macval(plot_grp_lab)'"')"'
         }
 
         * --- Compute shared positions for box and rain ---
@@ -432,12 +451,12 @@ program define raincloud, rclass
             if "`norain'" == "" {
                 * Use rain layer for legend
                 local legend_order "`legend_order' `layer'"
-                local legend_labels `"`legend_labels' label(`layer' `"`grp_lab'"')"'
+                local legend_labels `"`macval(legend_labels)' label(`layer' `"`macval(plot_grp_lab)'"')"'
             }
             else if "`nobox'" == "" {
                 * Use median marker layer for legend (last box layer)
                 local legend_order "`legend_order' `layer'"
-                local legend_labels `"`legend_labels' label(`layer' `"`grp_lab'"')"'
+                local legend_labels `"`macval(legend_labels)' label(`layer' `"`macval(plot_grp_lab)'"')"'
             }
         }
     }
@@ -450,8 +469,9 @@ program define raincloud, rclass
     foreach lev of local grp_levels {
         local ++g
         local center = `g' * `gap'
-        local grp_lab : word `g' of `grp_labels'
-        local ylab_spec `"`ylab_spec' `center' `"`grp_lab'"'"'
+        mata: st_local("grp_lab", st_local("grplab"+st_local("g")))
+        mata: st_local("plot_grp_lab", _raincloud_text(st_local("grp_lab")))
+        local ylab_spec `"`macval(ylab_spec)' `center' `"`macval(plot_grp_lab)'"'"'
     }
 
     * =========================================================================
@@ -461,62 +481,67 @@ program define raincloud, rclass
     if `n_groups' == 1 {
         local legend_spec "legend(off)"
     }
-    else if `"`legend'"' != "" {
-        local legend_spec `"legend(`legend')"'
+    else if `"`macval(legend)'"' != "" {
+        local legend_spec `"legend(`macval(legend)')"'
     }
     else {
-        local legend_spec `"legend(order(`legend_order') `legend_labels' rows(1) position(6) size(small))"'
+        local legend_spec `"legend(order(`legend_order') `macval(legend_labels)' rows(1) position(6) size(small))"'
     }
 
     * =========================================================================
     * ASSEMBLE GRAPH OPTIONS
     * =========================================================================
-    local var_label : variable label `varlist'
-    if `"`var_label'"' == "" local var_label "`varlist'"
+    mata: st_local("var_label", st_local("_value_label") != "" ? st_local("_value_label") : st_local("varlist"))
+
+    foreach _text_opt in title subtitle note {
+        mata: st_local(st_local("_text_opt"), _raincloud_text_option(st_local(st_local("_text_opt"))))
+    }
 
     local graph_opts "scheme(`scheme')"
 
-    if `"`title'"'       != "" local graph_opts `"`graph_opts' title(`title')"'
-    if `"`subtitle'"'    != "" local graph_opts `"`graph_opts' subtitle(`subtitle')"'
-    if `"`note'"'        != "" local graph_opts `"`graph_opts' note(`note')"'
-    if `"`name'"'        != "" local graph_opts `"`graph_opts' name(`name')"'
-    if `"`saving'"'      != "" local graph_opts `"`graph_opts' saving(`saving')"'
-    if `"`plotregion'"'  != "" local graph_opts `"`graph_opts' plotregion(`plotregion')"'
-    if `"`graphregion'"' != "" local graph_opts `"`graph_opts' graphregion(`graphregion')"'
+    if `"`macval(title)'"'       != "" local graph_opts `"`macval(graph_opts)' title(`macval(title)')"'
+    if `"`macval(subtitle)'"'    != "" local graph_opts `"`macval(graph_opts)' subtitle(`macval(subtitle)')"'
+    if `"`macval(note)'"'        != "" local graph_opts `"`macval(graph_opts)' note(`macval(note)')"'
+    if `"`macval(name)'"'        != "" local graph_opts `"`macval(graph_opts)' name(`macval(name)')"'
+    if `"`macval(saving)'"'      != "" local graph_opts `"`macval(graph_opts)' saving(`macval(saving)')"'
+    if `"`macval(plotregion)'"'  != "" local graph_opts `"`macval(graph_opts)' plotregion(`macval(plotregion)')"'
+    if `"`macval(graphregion)'"' != "" local graph_opts `"`macval(graph_opts)' graphregion(`macval(graphregion)')"'
 
     * Axis titles
     if "`orient'" == "horizontal" {
-        if `"`xtitle'"' == "" local xtitle `"`"`var_label'"'"'
-        if `"`ytitle'"' == "" & `n_groups' > 1 {
-            local over_label : variable label `over'
-            if `"`over_label'"' == "" & "`over'" != "" local over_label "`over'"
-            local ytitle `"`"`over_label'"'"'
+        if `"`macval(xtitle)'"' == "" mata: st_local("xtitle", char(96)+char(34)+_raincloud_text(st_local("var_label"))+char(34)+char(39))
+        if `"`macval(ytitle)'"' == "" & `n_groups' > 1 {
+            mata: st_local("over_label", st_varlabel(st_local("over")) != "" ? st_varlabel(st_local("over")) : st_local("over"))
+            mata: st_local("ytitle", char(96)+char(34)+_raincloud_text(st_local("over_label"))+char(34)+char(39))
         }
-        else if `"`ytitle'"' == "" {
+        else if `"`macval(ytitle)'"' == "" {
             local ytitle `"" ""'
         }
-        local graph_opts `"`graph_opts' xtitle(`xtitle') ytitle(`ytitle')"'
-        local graph_opts `"`graph_opts' ylabel(`ylab_spec', angle(0) noticks nogrid) yscale(noline)"'
+        mata: st_local("xtitle", _raincloud_text_option(st_local("xtitle")))
+        mata: st_local("ytitle", _raincloud_text_option(st_local("ytitle")))
+        local graph_opts `"`macval(graph_opts)' xtitle(`macval(xtitle)') ytitle(`macval(ytitle)')"'
+        local graph_opts `"`macval(graph_opts)' ylabel(`macval(ylab_spec)', angle(0) noticks nogrid) yscale(noline)"'
     }
     else {
-        if `"`ytitle'"' == "" local ytitle `"`"`var_label'"'"'
-        if `"`xtitle'"' == "" & `n_groups' > 1 {
-            local over_label : variable label `over'
-            if `"`over_label'"' == "" & "`over'" != "" local over_label "`over'"
-            local xtitle `"`"`over_label'"'"'
+        if `"`macval(ytitle)'"' == "" mata: st_local("ytitle", char(96)+char(34)+_raincloud_text(st_local("var_label"))+char(34)+char(39))
+        if `"`macval(xtitle)'"' == "" & `n_groups' > 1 {
+            mata: st_local("over_label", st_varlabel(st_local("over")) != "" ? st_varlabel(st_local("over")) : st_local("over"))
+            mata: st_local("xtitle", char(96)+char(34)+_raincloud_text(st_local("over_label"))+char(34)+char(39))
         }
-        else if `"`xtitle'"' == "" {
+        else if `"`macval(xtitle)'"' == "" {
             local xtitle `"" ""'
         }
-        local graph_opts `"`graph_opts' ytitle(`ytitle') xtitle(`xtitle')"'
-        local graph_opts `"`graph_opts' xlabel(`ylab_spec', noticks nogrid) xscale(noline)"'
+        mata: st_local("xtitle", _raincloud_text_option(st_local("xtitle")))
+        mata: st_local("ytitle", _raincloud_text_option(st_local("ytitle")))
+        local graph_opts `"`macval(graph_opts)' ytitle(`macval(ytitle)') xtitle(`macval(xtitle)')"'
+        local graph_opts `"`macval(graph_opts)' xlabel(`macval(ylab_spec)', noticks nogrid) xscale(noline)"'
     }
 
     * Prepare analytical results before graph rendering.  If graph creation or
     * saving fails, callers can still inspect the successfully computed results.
     matrix colnames `stats' = n mean sd median q25 q75 iqr bandwidth
     if "`over'" != "" {
-        capture matrix rownames `stats' = `stat_names'
+        capture matrix rownames `stats' = `macval(stat_names)'
         if _rc {
             local fallback_names ""
             forvalues j = 1/`n_groups' {
@@ -530,7 +555,7 @@ program define raincloud, rclass
     * =========================================================================
     * DRAW GRAPH
     * =========================================================================
-    twoway `twoway_cmd', `legend_spec' `graph_opts' `options'
+    twoway `macval(twoway_cmd)', `macval(legend_spec)' `macval(graph_opts)' `macval(options)'
     if `seed' < 0 local _restore_rng = 0
 
     } // end capture noisily
@@ -538,6 +563,8 @@ program define raincloud, rclass
     * Save return code from the captured block
     local rc = _rc
     capture restore
+    mata: st_global("S_1", st_local("_rain_s1")); st_global("S_2", st_local("_rain_s2"))
+    mata: st_global("S_3", st_local("_rain_s3")); st_global("S_4", st_local("_rain_s4"))
 
     * Always restore session state
     set varabbrev `_varabbrev'
@@ -546,6 +573,10 @@ program define raincloud, rclass
     * =========================================================================
     * RETURN RESULTS
     * =========================================================================
+    if `rc' & !`_return_ready' {
+        _return restore `_caller_r'
+        return add
+    }
     if `_return_ready' {
         return clear
         return scalar N = `N'
@@ -555,7 +586,7 @@ program define raincloud, rclass
             return local over "`over'"
         }
         return local group_levels "`grp_levels'"
-        return local group_labels `"`grp_labels'"'
+        return local group_labels `"`macval(grp_labels)'"'
         return matrix stats = `stats'
     }
 
@@ -575,4 +606,54 @@ program define raincloud, rclass
         cond("`norain'" == "",  "rain ",  "") ///
         cond("`nobox'" == "",   "box",    "")
 
+end
+
+
+capture mata: mata drop _raincloud_text()
+capture mata: mata drop _raincloud_text_option()
+mata:
+// Encode only graph copies: the native graph parser expands macro characters.
+string scalar _raincloud_text(string scalar text)
+{
+    return(subinstr(subinstr(subinstr(text, char(96), "{c 96}"), char(36), "{c 36}"), char(34), "{c 34}"))
+}
+
+// Retain native title syntax, including multiple quoted lines and suboptions.
+// tokenget binds quotes; comma outside quotes starts the untouched suboptions.
+string scalar _raincloud_text_option(string scalar input)
+{
+    transmorphic t
+    string scalar token, out, raw, opening, closing
+    real scalar first, after, previous, n
+    t = tokeninit(" "+char(9), ",", (char(34)+char(34), char(96)+char(34)+char(34)+char(39)))
+    tokenset(t, input)
+    out = ""
+    previous = 1
+    opening = char(96)+char(34)
+    closing = char(34)+char(39)
+    while ((token = tokenget(t)) != "") {
+        after = tokenoffset(t)
+        first = after - strlen(token)
+        out = out + substr(input, previous, first-previous)
+        if (token == ",") return(out + substr(input, first, .))
+        raw = token
+        n = strlen(raw)
+        if (n >= 4 & substr(raw, 1, 2) == opening & substr(raw, n-1, 2) == closing) {
+            raw = substr(raw, 3, n-4)
+            token = opening + _raincloud_text(raw) + closing
+        }
+        else if (n >= 2 & substr(raw, 1, 1) == char(34) & substr(raw, n, 1) == char(34)) {
+            raw = substr(raw, 2, n-2)
+            token = opening + _raincloud_text(raw) + closing
+        }
+        else {
+            // Preserve malformed native quote syntax for the graph parser.
+            if (strpos(raw, char(34))) return(input)
+            token = _raincloud_text(raw)
+        }
+        out = out + token
+        previous = after
+    }
+    return(out + substr(input, previous, .))
+}
 end

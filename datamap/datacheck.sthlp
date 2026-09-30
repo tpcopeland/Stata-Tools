@@ -589,8 +589,9 @@ entry with variables {cmd:check}, {cmd:gate}, {cmd:variable}, {cmd:label},
 {phang}
 {opt ledger(filename[, run(string)])} appends one row per gate entry, passed or
 failed, and one per review item, to a Stata dataset, creating it when absent; {opt .dta}
-is added to a filename without an extension. The
-ledger is normally set once for a do-file with
+is added to a filename without an extension. Quote the filename when it contains
+spaces; embedded double quotes, backticks and shell metacharacters in the actual
+filename are refused. The ledger is normally set once for a do-file with
 {help dataqa:dataqa set ledger() run()}. Its columns are {cmd:run},
 {cmd:stamp}, {cmd:seq} (call number within the run), {cmd:dataset},
 {cmd:scope} (the call's and the entry's {cmd:if}), {cmd:family}, {cmd:label},

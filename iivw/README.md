@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.3.3** | 2026-09-30
+**Version 4.3.4** | 2026-09-30
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -457,6 +457,8 @@ Weighted `model(mixed)` requires `experimentalmixed` because a single observatio
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **4.3.4** (2026-09-30): Preserve exact caller presence and opaque bytes of native `S_1` and `S_2` across `iivw_balance`, `iivw_weight` and `iivw_exogtest` success or refusal. Treat an already removed owned column as successful rollback instead of reporting false data corruption. Preserve quoted Excel font names through reporting option dispatch instead of silently replacing them with Arial.
 
 - **4.3.3** (2026-09-30): `iivw_diagnose` preserves the caller’s variable order after inspecting stored estimates, including refusal after a stored estimate has been restored. Native estimate restoration can otherwise move existing sample-marker columns to the end of the data.
 

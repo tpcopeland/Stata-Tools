@@ -1,11 +1,5 @@
 # asof QA
 
-archetypes: A4
-
-Canonical fixture adoption is in progress. Brute-force Cartesian source-row/date oracles cover every direction and selection combination, tied event identity, duplicate sources, inclusive window edges, missing anchors and row shuffling. A4 spell operators whose meaning requires an interval source do not establish asof point-event coverage merely by appearing in unused columns. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `validation_fixture_contract.do`.
-
 The `asof` QA suite is flat and concern-oriented, with functional, known-answer, external-parity, and scaling files driven by one curated runner. Every suite is independently runnable from this directory.
 
 ## How to run
@@ -24,6 +18,8 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 `run_all.do` and every suite write logs in `qa/`, so concurrent runs of the same lane can corrupt evidence. Run the lane through `python3 -m _devkit.stata_dev_cli run qa asof --isolated` or from a scratch copy that preserves the repository layout and starts without copied logs.
 
 ## Conventions
+
+archetypes: A4
 
 - `test_*` covers functional and regression behavior; `validation_*` uses hand-computable or brute-force independent oracles; `crossval_*` compares against an independently implemented Python oracle; `benchmark_*` enforces timing shape and is not in a correctness lane.
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N skip=N` and exits nonzero on a failure. The full lane permits no skips.
@@ -62,6 +58,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | File | Covers |
 |---|---|
+| `validation_fixture_contract.do` | Brute-force Cartesian event/date oracle for every direction and selection, exact tied identity, duplicate events, inclusive window edges, missing anchors and shuffled input. |
 | `validation_asof_known_truth.do` | Hand-computed rows and gaps, strict anchors, exact parity with a brute-force `joinby` oracle, and eligible-row union counts. |
 | `validation_asof_mogad.do` | All eleven MOGAD extraction sites from the build spec, represented by twelve exact single-call assertions because the cleaning site produces both index and last values. |
 
@@ -75,6 +72,8 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | Path | Contents |
 |---|---|
+| `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Curated quick, core, crossval, full, and benchmark lanes. |
 | `_qa_state.do` | Vendored caller-state fingerprint helper. |
 | `_asof_qa_common.do` | Relocatable sandbox installation bootstrap. |
@@ -85,7 +84,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `asof` | `test_asof_*` | `validation_asof_known_truth.do`, `validation_asof_mogad.do` | `crossval_asof_pandas.do` | `benchmark_asof_scaling.do` |
+| `asof` | `test_asof_*` | `validation_asof_known_truth.do`, `validation_asof_mogad.do`, `validation_fixture_contract.do` | `crossval_asof_pandas.do` | `benchmark_asof_scaling.do` |
 
 ## Lane membership
 
@@ -94,10 +93,14 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 | Lane | Suites |
 |---|---|
 | `quick` | Functional, hostile, install, help-render, example, and error and v0.1.1 regression suites; excludes the randomized oracle. |
-| `core` | `quick` plus both `validation_asof_*` suites and `test_asof_oracle.do`. |
+| `core` | Quick plus canonical event/date contract, both general validations and randomized point oracle. |
 | `crossval` | `crossval_asof_pandas.do`. |
 | `full` | `core` plus `crossval`. |
 | `benchmark` | `benchmark_asof_scaling.do` only, on demand. |
+
+## Known gaps
+
+ASOF inputs are point events and anchors; spell overlap/open-end operators do not define point-event matching coverage.
 
 ## False-green checks
 

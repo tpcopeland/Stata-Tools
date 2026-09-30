@@ -31,6 +31,13 @@ program define _qafg_domain_fitcheck
     qa_assert_equal _b[x1] refB[1,1], property("legal iteration coefficient x1") tol(1e-6)
     qa_assert_equal _b[x2] refB[1,2], property("legal iteration coefficient x2") tol(1e-6)
 end
+capture program drop _qafg_domain_predictcheck
+program define _qafg_domain_predictcheck
+    version 16.0
+    assert !missing(fxpred,fxpred_lci,fxpred_uci,wantAll)
+    assert fxpred_lci<fxpred & fxpred_uci>fxpred
+    assert abs(fxpred-wantAll)<1e-6
+end
 local tests=0
 local pass=0
 local fail=0
@@ -123,6 +130,55 @@ capture noisily {
     assert "`r(se_method)'"=="bootstrap" & "`c(rngstate)'"=="`rng'"
     qa_assert_equal got[1,3] wantBootstrapSD, property("independent native matched-draw bootstrap SD") tol(1e-6)
     _qafg_domain_check
+}
+if _rc local ++fail
+else local ++pass
+local ++tests
+capture noisily {
+    // F positive controls and U domain cells consume row-specific prediction.
+    qa_fx_a2_pwexp, clear model(finegray) n(240) seed(541)
+    quietly stset t, failure(cause==1) id(id)
+    quietly stcrreg x1 x2, compete(cause==2) nolog
+    matrix refB=e(b)
+    quietly predict double nativeBase, basecif
+    quietly summarize nativeBase if t<=2, meanonly
+    scalar wantPoint=r(max)
+    generate double evaltime=2
+    generate double wantAll=1-(1-wantPoint)^exp(x1*refB[1,1]+x2*refB[1,2])
+    drop nativeBase
+    quietly stset t, failure(d) id(id)
+    quietly finegray x1 x2, compete(cause) cause(1) nolog
+    * expect: REFUSED (outside), EXACT (inside, every subject profile)
+    qa_option_domain, command(finegray_predict fxpred, cif timevar(evaltime) ci level(@v@)) inside(90 99) outside(0 100) setup(finegray x1 x2, compete(cause) cause(1) nolog) check(_qafg_domain_predictcheck)
+    assert r(n_cells)==4 & r(n_violations)==0
+    qa_option_domain, command(finegray_predict fxpred, cif timevar(evaltime) ci bootstrap(@v@) seed(17)) inside(25) outside(-1 24) setup(finegray x1 x2, compete(cause) cause(1) nolog) check(_qafg_domain_predictcheck)
+    assert r(n_cells)==3 & r(n_violations)==0
+    qa_option_domain, command(finegray_predict fxpred, cif timevar(evaltime) ci bootstrap(25) seed(@v@)) inside(0 2147483647) outside(-1 2147483648) setup(finegray x1 x2, compete(cause) cause(1) nolog) check(_qafg_domain_predictcheck)
+    assert r(n_cells)==4 & r(n_violations)==0
+    foreach axis in level bootstrap seed {
+        local vals "0 100"
+        local rest ""
+        if "`axis'"=="bootstrap" {
+            local vals "-1 24"
+            local rest "seed(17)"
+        }
+        if "`axis'"=="seed" {
+            local vals "-1 2147483648"
+            local rest "bootstrap(25)"
+        }
+        foreach value of local vals {
+            quietly finegray x1 x2, compete(cause) cause(1) nolog
+            qa_state_snapshot, tag(predict_domain)
+            tempfile namedlog
+            log using "`namedlog'.log", text replace name(predict_error)
+            capture noisily finegray_predict fxpred, cif timevar(evaltime) ci `axis'(`value') `rest'
+            local refusal_rc=_rc
+            log close predict_error
+            qa_state_compare, tag(predict_domain)
+            mata: st_local("named",strofreal(any(strpos(strlower(cat(st_local("namedlog")+".log")),st_local("axis")+"()"))))
+            assert `refusal_rc'==198 & `named'==1
+        }
+    }
 }
 if _rc local ++fail
 else local ++pass

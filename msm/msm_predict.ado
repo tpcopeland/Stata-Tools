@@ -33,7 +33,15 @@ program define msm_predict, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _caller_sorted : sortedby
     local _restore_needed = 0
+    local _entry_rngstate `"`c(rngstate)'"'
+    local _entry_globals : all globals
+    local _uuid_key "MSM_UUID_SEQ"
+    local _uuid_present : list _uuid_key in _entry_globals
+    mata: st_local("_uuid_value", st_global("MSM_UUID_SEQ"))
+    tempname _caller_r
+    _return hold `_caller_r'
     set varabbrev off
     set more off
 
@@ -65,8 +73,6 @@ program define msm_predict, rclass
     _msm_check_fitted
     _msm_get_settings
 
-    _msm_uuid
-    local _pred_uuid "`r(uuid)'"
     local _fit_uuid : char _dta[_msm_fit_uuid]
 
     local id        "`_msm_id'"
@@ -131,7 +137,6 @@ program define msm_predict, rclass
     }
     local seed_source "session_rng_state"
     if `seed' >= 0 {
-        set seed `seed'
         local seed_source "seed()"
         local seed_used "`seed'"
     }
@@ -377,6 +382,10 @@ program define msm_predict, rclass
         }
     }
 
+    * All explicit refusal checks precede seed mutation and Monte Carlo draws.
+    if `seed' >= 0 set seed `seed'
+    local seed_state `"`c(seed)'"'
+
     * Mata draws the complete Z matrix before arithmetic chunking. rnormal()
     * fills rows in the same sim-major order as the former scalar ado loop, so
     * seed() continues to reproduce the identical coefficient draws.
@@ -535,6 +544,8 @@ program define msm_predict, rclass
 
     * Persist the matrix in the dataset, not only in the live Stata session.
     * The UUID and dependency bind it to this dataset's current fitted model.
+    _msm_uuid
+    local _pred_uuid "`r(uuid)'"
     _msm_mat_save `results', key(_msm_pred_mat) token(`_pred_uuid')
     capture matrix drop _msm_pred_matrix
     matrix _msm_pred_matrix = `results'
@@ -593,10 +604,28 @@ program define msm_predict, rclass
     local _order_rc = _rc
     if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
+    * Re-stamp the original keys without changing the restored order in ties.
+    if `"`_caller_sorted'"' != "" {
+        capture sort `_caller_sorted', stable
+        local _sorted_rc = _rc
+        if `_rc' == 0 & `_sorted_rc' != 0 local _rc = `_sorted_rc'
+    }
+
     set varabbrev `_varabbrev'
     set more `_more'
 
-    if `_rc' exit `_rc'
+    if `_rc' {
+        quietly set rngstate `_entry_rngstate'
+        if `_uuid_present' {
+            mata: st_global("MSM_UUID_SEQ", st_local("_uuid_value"))
+        }
+        else {
+            capture macro drop MSM_UUID_SEQ
+        }
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end
 
 * =========================================================================

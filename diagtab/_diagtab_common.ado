@@ -948,8 +948,8 @@ end
 * boxed-table look as table1_tc.
 *
 * Usage:
-*   _diagtab_console_display `num_cols' `"`title'"'
-*   _diagtab_console_display `num_cols' `"`title'"', labelvar(A) datastart(4) headerstart(3)
+*   _diagtab_console_display `num_cols' `"`macval(title)'"'
+*   _diagtab_console_display `num_cols' `"`macval(title)'"', labelvar(A) datastart(4) headerstart(3)
 *
 * Options:
 *   labelvar(varname)  — separate label column (e.g. A in regtab/effecttab/comptab)
@@ -966,11 +966,11 @@ program _diagtab_console_display, nclass
 
     gettoken num_cols title : args
     * Resolve compound-quoted title passed via `"`macro'"'
-    local title `title'
+    local title `macval(title)'
 
-    if `"`title'"' != "" {
+    if `"`macval(title)'"' != "" {
         display as text ""
-        display as result `"`title'"'
+        display as result `"`macval(title)'"'
     }
 
     local total_rows = _N
@@ -1198,6 +1198,8 @@ end
 
 version 17.0
 capture mata: mata drop _dt_strip_outer_quotes()
+local _load_matastrict = c(matastrict)
+capture noisily {
 mata:
 mata set matastrict on
 
@@ -1222,6 +1224,10 @@ string scalar _dt_strip_outer_quotes(string scalar x)
 }
 
 end
+}
+local _load_mata_rc = _rc
+set matastrict `_load_matastrict'
+if `_load_mata_rc' exit `_load_mata_rc'
 
 * End of file
 capture program drop _diagtab_visible_vars

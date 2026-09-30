@@ -58,7 +58,7 @@ if `install_rc' {
 
 * Explicit lane membership. Do not auto-discover files here; new suites should
 * be reviewed and added deliberately so release coverage cannot drift silently.
-local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do validation_tabtools_fixture_models.do"
+local test_files "validation_tabtools_fixture_contract.do validation_tabtools_fixture_descriptive.do validation_tabtools_fixture_models.do validation_tabtools_fixture_catalogue_primitives.do validation_tabtools_fixture_numeric_primitives.do test_tabtools_fixture_files.do test_tabtools_fixture_path_macros.do test_tabtools_fixture_rreturns.do test_tabtools_fixture_publication.do validation_tabtools_fixture_domains.do test_corrtab_fixture_stars.do validation_corrtab_fixture_inputs.do test_corrtab_fixture_legacy.do validation_tabtools_fixture_fonts.do validation_tabtools_fixture_strings.do validation_tabtools_fixture_remaining.do test_survtab_fixture_state.do"
 local test_files "`test_files' test_ci_level_provenance.do"
 local test_files "`test_files' test_column_widths.do"
 local test_files "`test_files' test_comptab.do"

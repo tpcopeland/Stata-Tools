@@ -11,6 +11,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
+do "`qa_dir'/_qa_hostile.do"
 do "`qa_dir'/_qa_metamorphic.do"
 
 capture program drop _fx_tvtools_2
@@ -157,25 +158,29 @@ local tests=0
             format entry exit %td
             save `cohort'
             if "`route'"=="panel" {
-                tvpanel using `episodes', id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) width(1) cumulative(days) generate(got)
+                tvpanel using `episodes', id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) width(1) cumulative(days) generate(got) `=cond("`op'"=="zero_length","dropinvalid","")'
                 assert r(n_observations)==16 & r(n_persons)==2
             }
             else if "`route'"=="build" {
-                if inlist("`op'","overlap","dup_key") {
+                if inlist("`op'","overlap","dup_key","zero_length") {
+                    local refusal_cause "overlap"
+                    if "`op'"=="zero_length" local refusal_cause "Malformed tvbuild input"
                     * expect: REFUSED
-                    qa_option_effect, command(tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(@v@)) values("fx_built") returns("r(N)") refused cause("overlap")
+                    qa_option_effect, command(tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(@v@)) values("fx_built") returns("r(N)") refused cause("`refusal_cause'")
                 }
                 else tvbuild, sourceusing(`episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(fx_built)
-                if !inlist("`op'","overlap","dup_key") frame change fx_built
+                if !inlist("`op'","overlap","dup_key","zero_length") frame change fx_built
             }
             else {
                 local opts "priority(1 2)"
+                local invalidopts ""
+                if "`op'"=="zero_length" local invalidopts "dropinvalid"
                 if "`route'"=="ever" local opts "evertreated"
                 if "`route'"=="former" local opts "currentformer"
-                tvexpose using `episodes', id(id) start(start) stop(stop) exposure(category) reference(0) entry(entry) exit(exit) generate(got) `opts'
+                tvexpose using `episodes', id(id) start(start) stop(stop) exposure(category) reference(0) entry(entry) exit(exit) generate(got) `opts' `invalidopts'
                 assert r(total_time)==16
             }
-            if !("`route'"=="build" & inlist("`op'","overlap","dup_key")) {
+            if !("`route'"=="build" & inlist("`op'","overlap","dup_key","zero_length")) {
             expand stop-start+1
             bysort id start: gen double day=start+_n-1
             sort id day
@@ -185,7 +190,14 @@ local tests=0
             }
             if "`route'"=="panel" {
                 forvalues i=1/16 {
-                    assert cum_1[`i']==`C'[`i',1] & cum_2[`i']==`C'[`i',2]
+                    assert cum_1[`i']==`C'[`i',1]
+                    if "`op'"=="zero_length" {
+                        * The sole category2 episode is removed explicitly;
+                        * tvpanel emits cumulative columns for observed classes.
+                        capture confirm variable cum_2
+                        assert _rc==111 & `C'[`i',2]==0
+                    }
+                    else assert cum_2[`i']==`C'[`i',2]
                 }
             }
             }
@@ -271,6 +283,68 @@ _fx_tvtools_2 boundary_values "perturb(boundary_values)"
 local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)
+* expect: EXACT (empty half-open spells become malformed closed episodes;
+* dropinvalid removes them explicitly, while tvbuild refuses the same row)
+qa_fx_a4_spells, clear tier(micro) perturb(zero_length)
+_fx_tvtools_1 zero_length "perturb(zero_length)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+
+* Daily-date routes must refuse actual binary64 hostile fractional times.
+qa_fx_a4_spells, clear tier(micro)
+tempfile bad_episodes
+qa_hostile_times, generate(hostile_time)
+replace start=hostile_time
+replace stop=8
+keep id start stop category
+quietly count if start!=floor(start)
+assert r(N)>0
+save `bad_episodes'
+keep id
+duplicates drop
+generate double entry=0
+generate double exit=8
+foreach route in expose panel build {
+    local ++tests
+    capture noisily {
+        local command "tvexpose using `bad_episodes', id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got)"
+        local cause "Malformed exposure input"
+        if "`route'"=="panel" {
+            local command "tvpanel using `bad_episodes', id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) width(1) generate(got)"
+            local cause "malformed episode row(s)"
+        }
+        if "`route'"=="build" {
+            local command "tvbuild, sourceusing(`bad_episodes') id(id) entry(entry) exit(exit) start(start) stop(stop) exposure(category) reference(0) generate(got) frameout(fx_invalid)"
+            local cause "Malformed tvbuild input"
+        }
+        qa_state_snapshot, tag(daily_refusal)
+        tempfile cause_log
+        tempname fh
+        log using `cause_log', name(daily_cause) text replace nomsg
+        capture noisily `command'
+        local call_rc=_rc
+        log close daily_cause
+        local named=0
+        file open `fh' using `cause_log', read text
+        file read `fh' line
+        while !r(eof) {
+            if strpos(`"`macval(line)'"',"`cause'") local named=1
+            file read `fh' line
+        }
+        file close `fh'
+        assert `call_rc'==498 & `named'==1
+        qa_state_compare, tag(daily_refusal)
+        display "ORACLE TV `route' time_hostile: actual fractional binary64 values refused rc498 with named daily-date cause and exact non-r state"
+    }
+    local rc=_rc
+    capture log close daily_cause
+    if `rc'==0 local ++pass
+    else {
+        local ++fail
+        display as error "FAIL TV `route' daily-date refusal rc=`rc'"
+    }
+}
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

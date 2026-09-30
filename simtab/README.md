@@ -1,6 +1,6 @@
 # simtab — Monte Carlo simulation performance tables
 
-**Version 2.0.1** | 2026-08-30
+**Version 2.0.2** | 2026-09-30
 
 `simtab` computes and renders publication-ready performance tables from replication-level simulation results or pre-computed summaries. It exports styled Excel, CSV, Markdown, rendered-frame, and numeric-frame outputs.
 
@@ -177,6 +177,8 @@ Run [`demo/demo_simtab.do`](demo/demo_simtab.do) from a repository checkout to r
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.0.2** (2026-09-30): Retain double precision for computed means and empirical standard errors when input estimates use byte, int, or float storage; preserve original caller values, types and order. Restore the caller's Mata strict setting after helper compilation, including failed compilation. Preserve prior caller `r()` on refusals before analytical results are prepared; late output failures retain analytical publication.
 
 - **2.0.1** (2026-08-30): Corrected RMS model-SE and inclusive alpha-boundary calculations, protected caller Mata state during Excel export, rejected ambiguous or out-of-range ingest data, and expanded documentation contracts.
 - **2.0.0** (2026-08-19): Extracted `simtab` into a standalone package while preserving its compute, ingest, export, and stored-result contracts.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.18  29sep2026}{...}
+{* *! version 2.1.19  30sep2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -66,6 +66,11 @@ instead. Markdown text is written literally: it is never macro-expanded, and
 render as the text they contain rather than as emphasis, HTML, entities,
 links, strikethrough, or code. Line breaks become {cmd:<br>} and first-column indentation
 becomes {cmd:&nbsp;}.
+
+{pstd}
+Output filenames may contain spaces and Unicode. Filename validation rejects
+either quote character, dollar signs, backticks, semicolons, ampersands, pipes,
+and angle brackets.
 
 {pstd}
 {opt title()}, {opt footnote()}, and {cmd:stacktab}'s {opt note()} text reaches
@@ -432,6 +437,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.1.18{p_end}
+{pstd}{bf:Version} 2.1.19{p_end}
 
 {hline}

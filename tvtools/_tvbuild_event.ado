@@ -1,4 +1,4 @@
-*! _tvbuild_event Version 1.17.4  2026/09/30
+*! _tvbuild_event Version 1.17.6  2026/09/30
 *! Run tvbuild's optional event stage through the shared tvevent engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

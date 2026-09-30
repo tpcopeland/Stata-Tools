@@ -515,6 +515,27 @@ else {
     display as result "PASS: T14 absent Mata helper aborts with r(111)"
 }
 
+* Opaque source copying preserves literal compile-guard macro references.
+mata:
+void _qa_rm_stale_copy(string scalar src, string scalar dest)
+{
+    real scalar fi, fo, seen
+    string matrix line
+    fi=fopen(src,"r");fo=fopen(dest,"w");seen=0
+    while(1) {
+        line=fget(fi)
+        if(rows(line)==0) break
+        if(!seen & strpos(line,"return("+char(34)) & strpos(line,".")) {
+            fput(fo,"    return("+char(34)+"0.0.0"+char(34)+")")
+            seen=1
+        }
+        else fput(fo,line)
+    }
+    fclose(fi);fclose(fo)
+    st_local("stale_seen",strofreal(seen))
+}
+end
+
 **# T15: a STALE _rangematch_mata.ado aborts with r(111) rather than running
 * An in-session user who updates the package keeps whatever backend is already
 * loaded unless the version strings disagree. A helper that loads but reports
@@ -528,22 +549,7 @@ capture noisily {
 
     * Copy the shipped helper with its version function rewritten. Everything
     * else is byte-identical, so the only reason to refuse it is the version.
-    tempname fin fout
-    file open `fin' using "`pkg_dir'/_rangematch_mata.ado", read text
-    file open `fout' using "`stale_dir'/_rangematch_mata.ado", write text replace
-    file read `fin' mline
-    while r(eof) == 0 {
-        local outline `"`mline'"'
-        if strpos(`"`mline'"', `"return(""') > 0 & ///
-            strpos(`"`mline'"', `"."') > 0 & `"`stale_seen'"' == "" {
-            local outline `"    return("0.0.0")"'
-            local stale_seen "1"
-        }
-        file write `fout' `"`outline'"' _n
-        file read `fin' mline
-    }
-    file close `fin'
-    file close `fout'
+    mata: _qa_rm_stale_copy(st_local("pkg_dir")+"/_rangematch_mata.ado",st_local("stale_dir")+"/_rangematch_mata.ado")
     assert "`stale_seen'" == "1"
 
     clear all

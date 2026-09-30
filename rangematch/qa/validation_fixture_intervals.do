@@ -1,6 +1,6 @@
 *! validation_fixture_intervals.do — canonical SPELLS overlap Cartesian oracle
 *! Author: Timothy P Copeland, Karolinska Institutet
-version 16.0
+version 16.1
 clear all
 set more off
 set varabbrev off
@@ -35,7 +35,7 @@ void _fx_output_metadata_diff(string scalar was, string scalar now)
 end
 capture program drop _fx_intervals
 program define _fx_intervals, rclass
-    version 16.0
+    version 16.1
     args op
     tempfile source usingdata master expected
     quietly save `source'

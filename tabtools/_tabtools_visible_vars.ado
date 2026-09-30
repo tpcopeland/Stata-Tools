@@ -1,4 +1,4 @@
-*! _tabtools_visible_vars Version 2.1.18  2026/09/29
+*! _tabtools_visible_vars Version 2.1.19  2026/09/30
 *! Resolve visible table variables for CSV and Markdown exports
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,4 +1,4 @@
-*! simtab Version 2.0.1  2026/08/30
+*! simtab Version 2.0.2  2026/09/30
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -26,6 +26,9 @@ DESCRIPTION:
 
 program define simtab, rclass
     version 17.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    _return restore `_caller_r', hold
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
@@ -607,6 +610,11 @@ program define simtab, rclass
             quietly gen double `sqdev' = (`estimate' - `truev')^2
             quietly gen double `sqse' = `se'^2
 
+            * Retain double moment precision even when estimates arrive as
+            * byte/int/long/float. This is the preserved analysis copy; the
+            * caller's values, storage type and data order are restored.
+            quietly recast double `estimate'
+
             * ----- collapse to cell level -----
             collapse (count) n=`estimate' n_coverage=`covered' n_power=`rejected' ///
                 (mean) m_mean=`estimate' `mean_sqse'=`sqse' ///
@@ -1101,6 +1109,10 @@ program define simtab, rclass
     * =====================================================================
     * Post returns
     * =====================================================================
+    if `rc' & !`_return_ready' {
+        _return restore `_caller_r'
+        return add
+    }
     if `_return_ready' {
         return local mode    "`_ret_mode'"
         return local source  "`_ret_source'"

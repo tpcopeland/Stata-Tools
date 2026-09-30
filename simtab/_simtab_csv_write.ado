@@ -1,4 +1,4 @@
-*! _simtab_csv_write Version 2.0.1  2026/08/30
+*! _simtab_csv_write Version 2.0.2  2026/09/30
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

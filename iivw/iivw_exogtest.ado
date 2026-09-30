@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 4.3.3  2026/09/30
+*! iivw_exogtest Version 4.3.4  2026/09/30
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -33,6 +33,11 @@ See help iivw_exogtest for complete documentation
 
 program define iivw_exogtest, rclass sortpreserve
     version 16.0
+    * Native visit-model estimation mutates these observed legacy globals.
+    foreach _native_key in S_1 S_2 {
+        mata: st_local("_native_present_"+st_local("_native_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_native_key"))>0))
+        mata: st_local("_native_bytes_"+st_local("_native_key"),st_global(st_local("_native_key")))
+    }
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
 
@@ -196,7 +201,7 @@ program define iivw_exogtest, rclass sortpreserve
     if "`decimals'"      != "" local __iivw_exportonly "`__iivw_exportonly' decimals()"
     if `"`borderstyle'"' != "" local __iivw_exportonly "`__iivw_exportonly' borderstyle()"
     if "`headershade'"   != "" local __iivw_exportonly "`__iivw_exportonly' headershade"
-    if `"`font'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
+    if `"`macval(font)'"'        != "" local __iivw_exportonly "`__iivw_exportonly' font()"
     if `fontsize' != -1    local __iivw_exportonly "`__iivw_exportonly' fontsize()"
     if `"`headercolor'"' != "" local __iivw_exportonly "`__iivw_exportonly' headercolor()"
     if `"`zebracolor'"'  != "" local __iivw_exportonly "`__iivw_exportonly' zebracolor()"
@@ -1177,8 +1182,8 @@ program define iivw_exogtest, rclass sortpreserve
         if "`headershade'" != "" {
             local __iivw_exog_opts `"`macval(__iivw_exog_opts)' headershade"'
         }
-        if `"`font'"' != "" {
-            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' font(`"`font'"')"'
+        if `"`macval(font)'"' != "" {
+            local __iivw_exog_opts `"`macval(__iivw_exog_opts)' font(`"`macval(font)'"')"'
         }
         if `fontsize' != -1 {
             local __iivw_exog_opts `"`macval(__iivw_exog_opts)' fontsize(`fontsize')"'
@@ -1268,6 +1273,14 @@ program define iivw_exogtest, rclass sortpreserve
             display as error "  Do not analyze this dataset. Reload it from disk."
             display as error ///
                 "  (The command's own failure, reported above, is the return code.)"
+        }
+    }
+    foreach _native_key in S_1 S_2 {
+        if `_native_present_`_native_key'' {
+            mata: st_global(st_local("_native_key"),st_local("_native_bytes_"+st_local("_native_key")))
+        }
+        else {
+            capture macro drop `_native_key'
         }
     }
     set varabbrev `__iivw_old_varabbrev'

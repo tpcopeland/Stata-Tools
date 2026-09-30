@@ -123,7 +123,6 @@ program define datacheck, rclass
                     exit 198
                 }
             }
-            local _ledfile = subinstr(`"`_ledfile'"', char(34), "", .)
             local _ledrun = subinstr(`"`_ledrun'"', char(34), "", .)
         }
 
