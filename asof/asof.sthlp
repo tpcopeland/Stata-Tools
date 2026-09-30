@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.0  12aug2026}{...}
+{* *! version 0.1.1  30sep2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] frames" "help frames intro"}{...}
 {viewerjumpto "Syntax" "asof##syntax"}{...}
@@ -119,7 +119,9 @@ restriction.
 {phang}
 {opt window(# #)} specifies inclusive signed day offsets from the anchor. For
 example, {cmd:window(-365 30)} allows records from 365 days before through 30
-days after the anchor. Specify {cmd:.} for either open bound.
+days after the anchor. Supply two numeric endpoints separated by spaces or a
+comma; fractional endpoints retain double precision. Specify {cmd:.} for either
+open bound.
 
 {phang}
 {opth range(varlist)} specifies lower and upper observability-bound variables
@@ -270,6 +272,6 @@ Select the latest record on or before the end of observable follow-up:
 Timothy P Copeland, Karolinska Institutet
 
 {pstd}
-Version 0.1.0, 2026-08-12
+Version 0.1.1, 2026-09-30
 
 {hline}

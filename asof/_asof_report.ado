@@ -1,4 +1,4 @@
-*! _asof_report Version 0.1.0  2026/08/12
+*! _asof_report Version 0.1.1  2026/09/30
 *! Display asof match coverage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

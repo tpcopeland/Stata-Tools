@@ -44,6 +44,8 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 | File | Covers |
 |---|---|
 | `test_comorbidity.do` | Public index schemes, output shapes, prefixes, replacement, windows, hierarchy control, and returned values |
+| `test_comorbidity_v102.do` | Exact custom double weights in DTA/CSV, sort metadata, case-distinct names, invalid/valid windows, caller-state fingerprints, and hostile double identifiers |
+| `test_qa_isolation.do` | Caller-owned package files and registry survive the quick runner and each standalone helper suite |
 | `test_regressions.do` | Failure atomicity, structural output collisions, patient-level bands, negative scores, and post-hierarchy summaries |
 | `test_documentation_examples.do` | Executable help and README workflows for Charlson, Elixhauser, merge, windows, and custom dictionaries |
 | `test_comorbidity_adversarial.do` | Invalid schemes, missing identifiers, malformed custom files, and `varabbrev` restoration |
@@ -73,6 +75,7 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 | Path | Contents |
 |---|---|
 | `run_all.do` | Explicit `quick`, `core`, and `full` lane membership with suite-level failure propagation |
+| `_qa_state.do`, `_qa_hostile.do` | Byte-identical vendored session fingerprints and hostile fixtures |
 | `_comorbidity_qa_common.do` | Temporary sysdir sandbox, local package/dependency installation, and terminal result helper |
 | `.gitignore` | Generated QA artifact policy |
 
@@ -80,7 +83,7 @@ For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbid
 
 | Command | Functional and regression | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `comorbidity` | `test_comorbidity.do`, `test_comorbidity_errors.do`, `test_comorbidity_oracle.do`, `test_regressions.do`, `test_comorbidity_adversarial.do`, `test_comorbidity_hostile.do` | `validation_comorbidity.do`, `validation_dictionary_quan2005.do` | `crossval_comorbidity_r.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
+| `comorbidity` | `test_comorbidity.do`, `test_comorbidity_errors.do`, `test_comorbidity_oracle.do`, `test_regressions.do`, `test_comorbidity_v102.do`, `test_comorbidity_adversarial.do`, `test_comorbidity_hostile.do` | `validation_comorbidity.do`, `validation_dictionary_quan2005.do` | `crossval_comorbidity_r.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
 
 Private dictionaries, weights, and hierarchy helpers are covered directly by their corresponding `test_dictionary.do`, `test_weights.do`, and `test_hierarchy.do` suites.
 
@@ -91,7 +94,7 @@ Private dictionaries, weights, and hierarchy helpers are covered directly by the
 | Lane | Suites |
 |---|---|
 | `quick` | `test_dictionary.do`, `test_weights.do`, `test_hierarchy.do`, `test_comorbidity.do`, `test_comorbidity_errors.do`, and `test_comorbidity_oracle.do` |
-| `core` | `quick` plus `test_regressions.do`, `test_documentation_examples.do`, both `validation_*` suites, `test_comorbidity_adversarial.do`, and `test_comorbidity_hostile.do` |
+| `core` | `quick` plus `test_regressions.do`, `test_comorbidity_v102.do`, `test_qa_isolation.do`, `test_documentation_examples.do`, both `validation_*` suites, `test_comorbidity_adversarial.do`, and `test_comorbidity_hostile.do` |
 | `full` | `core` plus `test_comorbidity_install.do` and `crossval_comorbidity_r.do` |
 
 ## Known gaps

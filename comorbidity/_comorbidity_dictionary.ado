@@ -1,4 +1,4 @@
-*! _comorbidity_dictionary Version 1.0.1  2026/08/30
+*! _comorbidity_dictionary Version 1.0.2  2026/09/30
 *! Built-in ICD-10 condition dictionaries for comorbidity
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -50,7 +50,7 @@ program define _comorbidity_dictionary, rclass
             post `fh' ("pvd") ("I70|I71|I731|I738|I739|I771|I790|I792|K551|K558|K559|Z958|Z959") ("") ("Peripheral Vascular Disorders") (0)
             post `fh' ("htn_uncomp") ("I10") ("") ("Hypertension Uncomplicated") (0)
             post `fh' ("htn_comp") ("I11|I12|I13|I15") ("") ("Hypertension Complicated") (0)
-            post `fh' ("paralysis") ("G041|G114|G801|G802|G803|G81|G82|G830|G831|G832|G833|G834|G839") ("") ("Paralysis") (0)
+            post `fh' ("paralysis") ("G041|G114|G801|G802|G81|G82|G830|G831|G832|G833|G834|G839") ("") ("Paralysis") (0)
             post `fh' ("neuro_other") ("G10|G11|G12|G13|G20|G21|G22|G254|G255|G312|G318|G319|G32|G35|G36|G37|G40|G41|G931|G934|R470|R56") ("") ("Other Neurological Disorders") (0)
             post `fh' ("copd") ("I278|I279|J40|J41|J42|J43|J44|J45|J46|J47|J60|J61|J62|J63|J64|J65|J66|J67|J684|J701|J703") ("") ("Chronic Pulmonary Disease") (0)
             post `fh' ("dm_uncomp") ("E100|E101|E109|E110|E111|E119|E120|E121|E129|E130|E131|E139|E140|E141|E149") ("") ("Diabetes Uncomplicated") (0)

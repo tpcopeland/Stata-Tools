@@ -24,7 +24,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.2.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
 | [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.7.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
@@ -38,7 +38,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
+| [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [pygrid](pygrid) | Person-period denominator grids with zero-filled event attachment (`pygrid`, `pyattach`) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.17.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |

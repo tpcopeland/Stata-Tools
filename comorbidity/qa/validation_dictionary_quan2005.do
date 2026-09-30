@@ -154,6 +154,29 @@ else {
     local ++fail_count
 }
 
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str6 dx1
+    1 "G803"
+    2 "G80.3"
+    3 "G802"
+    4 "G801"
+    end
+    comorbidity dx1, id(pid) elixhauser(vanwalraven)
+    assert paralysis == 0 & elixhauser == 0 if pid <= 2
+    assert paralysis == 1 & elixhauser == 7 if pid >= 3
+}
+if _rc == 0 {
+    local ++pass_count
+    display as result "PASS: paralysis adjacent included and excluded codes"
+}
+else {
+    local ++fail_count
+    display as error "FAIL: paralysis adjacent included and excluded codes (error `=_rc')"
+}
+
 **# Summary
 
 _comorbidity_result validation_dictionary_quan2005 `test_count' `pass_count' `fail_count'
