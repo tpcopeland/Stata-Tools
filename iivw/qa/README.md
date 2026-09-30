@@ -217,3 +217,5 @@ Adversarial axes, in cells (`check qa iivw --view axes`: 36/36 owed cells probed
 ## Audit notes
 
 See [AUDIT_NOTES.md](AUDIT_NOTES.md) for the historical false-green defects, method-evidence boundaries, and links to retained coverage receipts.
+
+`test_fixture_state.do` checks exact caller column order, data, active estimates and session state after stored-estimate diagnosis on friendly and unsorted VISIT fixtures, with present/absent active estimates and success/refusal.

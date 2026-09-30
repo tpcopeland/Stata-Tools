@@ -483,7 +483,9 @@ in the laboratory unit-switch check
 {cmd:groupstat(median bcell, by(lab_site year) band(0.05 20) relative)}; the
 table then prints each group's ratio, the value the band tests, and the pooled
 row stays raw. Under the mask a withheld pooled value withholds the ratios as
-well. {cmd:pmiss}
+well, and a withheld cell reads {bf:[suppr.]}. When the pooled statistic is 0
+or undefined, the ratio is undefined for every group: the band fails once with
+"ratio to pooled undefined" and the pooled value, whatever the groups hold. {cmd:pmiss}
 comes from the same computation as
 {help datamvp:datamvp, bytable()}. A band entry whose scope has no rows, or
 whose {cmd:min()} leaves every group out, fails. {opt groupstat()} ignores

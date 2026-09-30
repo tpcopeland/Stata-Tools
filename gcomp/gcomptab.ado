@@ -1407,6 +1407,15 @@ program define _gcomptab_models, rclass
     local _orig_va = c(varabbrev)
     set varabbrev off
     local _est_held 0
+    local _xl_context_saved 0
+    local _xl_keys "S_PUTEXCEL_FILE_NAME S_PUTEXCEL_FILE_TYPE S_PUTEXCEL_FILE_MODE S_PUTEXCEL_SHEET_NAME S_PUTEXCEL_SHEET_REPLACE S_PUTEXCEL_LOCALE S_PUTEXCEL_OPEN_FHANDLE S_PUTEXCEL_KEEP_CELL_FORMAT"
+    local _xl_entry_globals : all globals
+    local _xl_i 0
+    foreach _xl_key of local _xl_keys {
+        local ++_xl_i
+        local _xl_present_`_xl_i' : list _xl_key in _xl_entry_globals
+        mata: st_local("_xl_value_`_xl_i'", st_global("`_xl_key'"))
+    }
     tempname _esthold
 capture noisily {
     syntax , [USEMODels(string) MODELLabels(string) TERMLabels(string) ///
@@ -1466,6 +1475,16 @@ capture noisily {
     }
     * scale override precedence: raw/noeform > eform ; coef() overrides label only
     if "`raw'" != "" local noeform noeform
+
+    * Preserve native closed putexcel context as opaque bytes. An open
+    * workbook has an unsaved Mata handle, which we must never replace/close.
+    if `"`xlsx'"' != "" {
+        if `"$S_PUTEXCEL_OPEN_FHANDLE"' == "yes" {
+            noisily display as error "putexcel workbook is open; save or close it before exporting"
+            exit 198
+        }
+        local _xl_context_saved 1
+    }
 
     * ----- Resolve and validate the model list -----
     if `"`usemodels'"' != "" local _names "`usemodels'"
@@ -2114,6 +2133,16 @@ capture noisily {
     if `_est_held' {
         capture _estimates unhold `_esthold'
         if `_rc' == 0 & _rc local _rc = _rc
+    }
+    if `_xl_context_saved' {
+        local _xl_i 0
+        foreach _xl_key of local _xl_keys {
+            local ++_xl_i
+            if `_xl_present_`_xl_i'' {
+                mata: st_global("`_xl_key'", st_local("_xl_value_`_xl_i'"))
+            }
+            else capture macro drop `_xl_key'
+        }
     }
     set varabbrev `_orig_va'
     if `_rc' exit `_rc'
