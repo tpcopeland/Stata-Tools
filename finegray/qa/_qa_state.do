@@ -1,4 +1,4 @@
-*! qa-lib _qa_state 1.0.1 sha256:a8dc13cf34f24991d29d42b77a675ac5bb32533e6a1d851578361884d2aab533
+*! qa-lib _qa_state 1.0.2 sha256:f7616d0d19d642476a5e2c6b1345b1caa537d840c2dcadcbdd132588df99c49b
 * _qa_state.do -- session fingerprint: did a command change what the caller owns?
 *
 * Load from a suite with: do "`qa_dir'/_qa_state.do"
@@ -152,10 +152,17 @@ program define _qa_st_collect
         mata: _qa_st_label("`ext'", "`l'")
     }
 
-    capture quietly generate byte `mark' = e(sample)
-    if _rc mata: _qa_st_put("`ext'", "e|sample", "rc `=_rc'")
-    else mata: _qa_st_coldigest("`ext'", "e|sample", "`mark'")
-    capture drop `mark'
+    * Empty e() returns an all-zero e(sample) expression but owns no sample.
+    * Keep that absence independent of intentional changes in dataset N.
+    mata: st_local("_qa_has_e", strofreal(rows(st_dir("e()", "macro", "*")) + ///
+        rows(st_dir("e()", "numscalar", "*")) + rows(st_dir("e()", "matrix", "*")) > 0))
+    if `_qa_has_e' {
+        capture quietly generate byte `mark' = e(sample)
+        if _rc mata: _qa_st_put("`ext'", "e|sample", "rc `=_rc'")
+        else mata: _qa_st_coldigest("`ext'", "e|sample", "`mark'")
+        capture drop `mark'
+    }
+    else mata: _qa_st_put("`ext'", "e|sample", "absent")
 
     if `"`predict'"' != "" {
         _estimates hold `ehold', copy nullok restore

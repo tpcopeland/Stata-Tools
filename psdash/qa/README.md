@@ -157,4 +157,11 @@ Canonical fixture adoption is in progress. `3` cases in `validation_fixture_trut
 | `_qa_fx_a1.do` | Byte-for-byte canonical fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
 
-Fixture coverage still owed: Other six public commands, A3 producer/manual period routes, modified/weighted/overlap estimands and remaining A1/A3 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+Fixture coverage still owed: A3 producer/manual period routes, modified/overlap estimands, A1 outcome separation and remaining A3 minima. A1 `separate` changes only y, which no manual PS diagnostic consumes; it is not credited by a dummy mutation. Automatic PS-estimation separation requires a treatment-model fixture, separately adjudicated. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+
+Canonical direct route extension: `validation_fixture_routes.do` ran12/12 with zero failures. Every public command consumes F plus unsorted, collinear, single-level covariate, absent factor base, multi-digit codes, missing subgroup/whole column, zero/extreme weights, near positivity and shifted covariates. Mathematical oracles use supplied-weight means/ESS, raw and unbiased weighted moments, Bernoulli variance and complete weighted ECDF supremum distances. The dashboard uses its documented common complete-case sample; standalone balance reports incomplete covariates. A wholly missing common covariate refuses2000 with its actual message and unchanged caller data/e/settings fingerprint. The shift SMD uses the inherited qa_shift_invariance tolerance1e-6; ordinary cells use1e-10.
+
+| File | Coverage |
+|---|---|
+| `validation_fixture_routes.do` | Seven public manual binary PS routes and meaningful A1 consumed-role operators; quick/full |
+| `_qa_state.do` | Current byte-for-byte caller-state helper vendor |

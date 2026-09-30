@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.7** | 2026-09-29
+**Version 1.5.8** | 2026-09-30
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -360,6 +360,8 @@ The command also returns parsing and routing macros. Macros marked as conditiona
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.5.8** (2026-09-30): Restore the caller’s `matastrict` setting after the first backend compilation, including a compilation error.
 
 - **1.5.7** (2026-09-29): `keepusing()` is now expanded against the using source's own variable order. On a frame source a range was expanded inside the internal work frame, whose columns put the key and `by()` first, so `keepusing(a-c)` over `a key c` silently dropped `key` at `rc=0`; on a file source `keepusing(_all)` or `keepusing(*)` together with `by()` failed `r(103)`. `overlap(u u)` (one using variable as both bounds, i.e. degenerate point intervals) crashed in Mata with `r(3300)` and now follows the documented closure rule. A repeated `by()` variable no longer fails `r(111)`.
 

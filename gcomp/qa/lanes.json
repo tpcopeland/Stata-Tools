@@ -65,6 +65,22 @@
         {
           "name": "test_fixture_domains",
           "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_public",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_putexcel_context",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_model_scale",
+          "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_mediation",
+          "timeout_seconds": 300
         }
       ]
     },

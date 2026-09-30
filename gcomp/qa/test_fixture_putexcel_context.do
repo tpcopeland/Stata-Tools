@@ -158,6 +158,12 @@ else {
     local ++fail_count
     display as error "FAIL: U opaque context (rc=`=_rc')"
 }
-display "RESULT: test_fixture_putexcel_context tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
-capture log close _all
-if `fail_count'>0 exit 1
+if `fail_count' > 0 {
+    display "RESULT: test_fixture_putexcel_context tests=`test_count' pass=`pass_count' fail=`fail_count' status=FAIL"
+    capture log close _all
+    exit 1
+}
+else {
+    display "RESULT: test_fixture_putexcel_context tests=`test_count' pass=`pass_count' fail=`fail_count' status=PASS"
+    capture log close _all
+}

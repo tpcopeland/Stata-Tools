@@ -15,6 +15,7 @@
 // in a temporary frame; the data in memory are never touched.
 program define dataqa, rclass
     version 16.0
+    local _orig_matastrict = c(matastrict)
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -28,6 +29,7 @@ program define dataqa, rclass
         _dataqa_`sub' `macval(0)'
     }
     local rc = _rc
+    capture mata: mata set matastrict `_orig_matastrict'
     return add
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

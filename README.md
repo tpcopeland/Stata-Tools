@@ -32,7 +32,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
 | [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
-| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
+| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 
 ### Cohorts, registries, and time-varying data
 

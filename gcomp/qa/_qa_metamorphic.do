@@ -1,4 +1,4 @@
-*! qa-lib _qa_metamorphic 1.1.0 sha256:d12eae1172dbbb0eb7601d2e1d95daef86ee3e4fa9e67e9f84fc64db5c561165
+*! qa-lib _qa_metamorphic 1.1.1 sha256:181ccadd980e83759d83681a188c4e7d8d0bd560762c8b35c01bab6c80ccf73b
 * _qa_metamorphic.do -- oracles that are relations between two runs
 *
 * Load from a suite with: do "`qa_dir'/_qa_metamorphic.do"
@@ -441,6 +441,9 @@ program define _qa_mm_cell, rclass
     * output must contain. acceptmsg: the finding when an outside cell runs.
     args want cmd setup check cause acceptmsg
     if `"`acceptmsg'"' == "" local acceptmsg "accepted an out-of-domain value"
+    * Remove estimates from an earlier cell before setup. A postestimation
+    * setup explicitly fits the model the candidate must then consume.
+    if "`want'" == "outside" ereturn clear
     if `"`setup'"' != "" {
         capture noisily quietly `setup'
         if _rc {
@@ -448,10 +451,6 @@ program define _qa_mm_cell, rclass
             exit 198
         }
     }
-    * An outside cell starts from an empty e() (the caller's estimates are
-    * held by the calling program), so the fingerprint sees only what the
-    * refusing command itself leaves behind, not an earlier cell's fit.
-    if "`want'" == "outside" ereturn clear
     _qa_mm_fingerprint
     local fp0 `"`r(fp)'"'
     local hit = 0

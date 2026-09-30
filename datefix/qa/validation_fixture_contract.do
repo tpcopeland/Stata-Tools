@@ -11,6 +11,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
+do "`qa_dir'/_qa_hostile.do"
 
 capture program drop _fx_datefix_1
 program define _fx_datefix_1, rclass
@@ -95,6 +96,26 @@ capture noisily {
 }
 if _rc==0 local ++pass
 else local ++fail
+* Numeric dates keep all five hostile binary64 values exactly.
+qa_fx_a4_spells, clear tier(micro)
+* expect: EXACT
+qa_hostile_times, generate(hostile_time)
+generate double hostile_want=hostile_time
+foreach mode in inplace copy {
+    local ++tests
+    capture noisily {
+        qa_state_snapshot, tag(date_hostile)
+        local options ""
+        if "`mode'"=="copy" local options "newvar(hostile_copy)"
+        datefix hostile_time, `options'
+        qa_state_compare, tag(date_hostile) allow(data)
+        assert hostile_time==hostile_want
+        if "`mode'"=="copy" assert hostile_copy==hostile_want
+        di "ORACLE datefix time_hostile `mode': all binary64 values exact"
+    }
+    if _rc==0 local ++pass
+    else local ++fail
+}
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

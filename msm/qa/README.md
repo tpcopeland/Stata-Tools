@@ -6,7 +6,9 @@ archetypes: A3(msm_prepare msm_validate msm_weight msm_fit msm_predict msm_diagn
 
 Canonical fixture adoption is incremental. `test_fixture_contract.do` covers exact preparation population, direct-sum ESS, shuffled estimation/prediction, duplicate-key preparation refusal, gapped weighting refusal, singleton clusters, explicitly mapped sparse/multidigit factors and reserved-output collisions. `validation_fixture_recovery.do` recovers the catalog's enumerated single-decision risks at 100,000 subjects. `test_fixture_edges.do` adds a single-period weighted-mean oracle and a partial-baseline missingness refusal. The refusal checks compare data/order, RNG, active estimates, settings, matrices, labels and characteristics with the vendored state helper and require the documented cause. They do not require arbitrary `r()` to survive an `rclass` refusal.
 
-The current catalog receipt does not discharge the full archetype/operator/route matrix: multi-period risk recovery, separated outcome/treatment/censoring routes, absorption, irrelevant missingness and remaining partial-missingness routes, remaining factor/name routes, extreme weights, Cox/linear outcome routes, and export/file-hostility cells remain explicit census gaps. A3-SEQ's multi-period dynamic-programming truth is not asserted against an additive history model whose marginal hazard specification is different. The declaration describes the public command scope; these gaps remain owed.
+`test_fixture_public.do` adds friendly and unsorted readers/dispatcher, diagnosis, sensitivity, predictors, five graph types, and reports/tables with actual numeric series and cells. `test_fixture_protocol.do` checks nine hostile strings at every text sink and strict missing/no-replace refusals. `test_fixture_report_precision.do` checks default, zero and eight decimals, including raw workbook precision. These receipts do not establish native multi-period recovery.
+
+The current catalog receipt does not discharge the full archetype/operator/route matrix: multi-period risk recovery, separated outcome/treatment/censoring routes, absorption, irrelevant missingness and remaining partial-missingness routes, remaining factor/name routes, extreme weights, Cox/linear outcome routes, and remaining export/file-hostility cells remain explicit census gaps. A3-SEQ's multi-period dynamic-programming truth is not asserted against an additive history model whose marginal hazard specification is different. The declaration describes the public command scope; these gaps remain owed.
 
 ## How to run
 
@@ -47,6 +49,9 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 
 | File | Primary coverage |
 |---|---|
+| `test_fixture_public.do` | A3 friendly/unsorted public pipeline, direct ESS/E-value, fitted coefficient/workbook/CSV values and five actual graph series |
+| `test_fixture_protocol.do` | A7 UTF-8/hostile literal descriptions in seven returns and four sinks, owned sheet replacement, strict missing/no-replace refusals |
+| `test_fixture_report_precision.do` | Default/0/8 decimal raw/eform numeric transport, positive/negative/large values, console alignment and raw numeric workbook cells |
 | `test_fixture_edges.do` | A3 single-period weighted-mean oracle and incomplete-baseline refusal; seed 9109 |
 | `test_fixture_contract.do` | Canonical A3 F/U population, order, duplicate/gap atomicity and singleton-cluster contracts |
 | `test_qa_harness.do` | Fail-closed runner handshake controls |
@@ -116,7 +121,7 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 | `benchmark_msm_predict.do` | Vectorized-versus-scalar equivalence and timing guard; benchmark lane only |
 | `run_all.do`, `run_all_validations.do` | Canonical runner and compatibility validation wrapper |
 | `_install_msm_isolated.do`, `_record_qa_result.do` | Sandboxed install and reconciled child-result handshake |
-| `_qa_fx_a1.do`, `_qa_fx_a3.do`, `_qa_state.do` | Byte-for-byte canonical fixture and caller-state helpers |
+| `_qa_fx_a1.do`, `_qa_fx_a3.do`, `_qa_fx_a7.do`, `_qa_hostile.do`, `_qa_state.do` | Byte-for-byte canonical fixture and caller-state helpers |
 | `_msm_qa_common.do`, `_crossval_dgp_generate.do`, `_cleanup_runtime_artifacts.do` | Shared fixtures, DGP generation, and artifact cleanup |
 | `crossval_msm_nhefs.R`, `crossval_msm_haart.R` | Public-data reference calculations added for NHEFS and HAART |
 | `crossval_external_models.R`, `crossval_external_models.py`, `crossval_r.R`, `crossval_python.py`, `crossval_msm_ipw_dta.R` | Existing external reference calculations |
@@ -127,19 +132,19 @@ Legacy aliases remain accepted: `tests` maps to `quick`, `stata` maps to `core`,
 
 | Command | Functional | Validation | Cross-validation |
 |---|---|---|---|
-| `msm` | `test_msm_status.do`, `test_msm_state_guards.do` | `validation_msm.do` | `crossval_msm.do` |
+| `msm` | `test_msm_status.do`, `test_msm_state_guards.do`, `test_fixture_public.do` | `validation_msm.do` | `crossval_msm.do` |
 | `msm_prepare` | `test_msm_prepare_validate_adversarial.do`, `test_fixture_contract.do`, `test_fixture_edges.do` | `validation_msm_joint_weights.do` | `crossval_msm_nhefs.do`, `crossval_msm_haart.do` |
-| `msm_validate` | `test_msm_prepare_validate_adversarial.do` | `validation_msm.do` | — |
-| `msm_weight` | `test_msm_weight_adversarial.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do`, `test_msm_period_basis.do` | `validation_msm_known_answers.do`, `validation_msm_joint_weights.do`, recovery suites | All cross-validation suites |
-| `msm_fit` | `test_msm_fit_prediction_regressions.do`, `test_msm_cox_state.do` | Fit, recovery, and prediction validation suites | `crossval_msm.do`, `crossval_external_models.do`, `crossval_msm_haart.do` |
+| `msm_validate` | `test_msm_prepare_validate_adversarial.do`, `test_fixture_public.do` | `validation_msm.do` | — |
+| `msm_weight` | `test_msm_weight_adversarial.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do`, `test_msm_period_basis.do`, `test_fixture_public.do` | `validation_msm_known_answers.do`, `validation_msm_joint_weights.do`, recovery suites | All cross-validation suites |
+| `msm_fit` | `test_msm_fit_prediction_regressions.do`, `test_msm_cox_state.do`, `test_fixture_public.do` | Fit, recovery, and prediction validation suites | `crossval_msm.do`, `crossval_external_models.do`, `crossval_msm_haart.do` |
 | `msm_predict` | `test_msm_fit_prediction_regressions.do`, `test_fixture_contract.do`, `test_fixture_edges.do` | `validation_msm_history_recovery.do`, `validation_msm_predict_vectorized.do` | `crossval_external_models.do` |
-| `msm_diagnose` | `test_msm_diagnostic_contracts.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do` | `validation_msm.do` | — |
-| `msm_diagtab` | `test_msm_diagtab.do` | — | — |
-| `msm_plot` | `test_msm_documentation_examples.do`, `test_msm_output_adversarial.do` | `validation_msm.do` | — |
-| `msm_table` | `test_msm_table.do`, `test_export_surface.do` | — | — |
-| `msm_report` | `test_export_surface.do`, `test_msm_documentation_examples.do` | `validation_msm.do` | — |
-| `msm_protocol` | `test_demo_contract.do`, `test_msm_options.do` | `validation_msm.do` | — |
-| `msm_sensitivity` | `test_msm_diagnostics_output_regressions.do` | `validation_msm_sensitivity.do`, `validation_msm_known_answers.do` | — |
+| `msm_diagnose` | `test_msm_diagnostic_contracts.do`, `test_msm_weight_scale.do`, `test_msm_truncation_cutoffs.do`, `test_fixture_public.do` | `validation_msm.do` | — |
+| `msm_diagtab` | `test_msm_diagtab.do`, `test_fixture_public.do` | — | — |
+| `msm_plot` | `test_msm_documentation_examples.do`, `test_msm_output_adversarial.do`, `test_fixture_public.do` | `validation_msm.do` | — |
+| `msm_table` | `test_msm_table.do`, `test_export_surface.do`, `test_fixture_public.do` | — | — |
+| `msm_report` | `test_export_surface.do`, `test_msm_documentation_examples.do`, `test_fixture_public.do` | `validation_msm.do` | — |
+| `msm_protocol` | `test_demo_contract.do`, `test_msm_options.do`, `test_fixture_protocol.do` | `validation_msm.do` | — |
+| `msm_sensitivity` | `test_msm_diagnostics_output_regressions.do`, `test_fixture_public.do` | `validation_msm_sensitivity.do`, `validation_msm_known_answers.do` | — |
 
 ## Lane membership
 

@@ -78,6 +78,32 @@ program define _fx_windows, rclass
     }
     if _rc==0 local ++pass
     else local ++fail
+    foreach level in 1 3 10 {
+        local ++tests
+        capture noisily {
+            use `source', clear
+            generate byte want=0
+            local prefix=substr("I211",1,`level')
+            forvalues slot=1/4 {
+                replace want=1 if substr(upper(subinstr(dx`slot',".","",.)),1,strlen("`prefix'"))=="`prefix'"
+            }
+            qa_state_snapshot, tag(code_level)
+            codescan dx1-dx4, define(ami I211) mode(prefix) level(`level')
+            qa_state_compare, tag(code_level) allow(data)
+            assert ami==want
+            di "ORACLE codescan `op' level(`level'): all raw prefix flags exact"
+        }
+        if _rc==0 local ++pass
+        else local ++fail
+    }
+    local ++tests
+    capture noisily {
+        use `source', clear
+        * expect: EXACT
+        qa_option_domain, command(codescan dx1-dx4, define(ami I211) mode(prefix) level(@v@)) inside(1;10) outside(0;11;0.5)
+    }
+    if _rc==0 local ++pass
+    else local ++fail
     return scalar tests=`tests'
     return scalar pass=`pass'
     return scalar fail=`fail'

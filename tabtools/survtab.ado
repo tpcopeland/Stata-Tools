@@ -30,6 +30,19 @@ SYNTAX:
 
 program define survtab, rclass
     version 17.0
+    * Native sts/stci/log-rank helpers use numbered and S_E_* legacy globals.
+    * Indexed locals retain exact names and opaque values without truncation.
+    local _legacy_keys S_1 S_2 S_3 S_5 S_6
+    mata: st_local("_entry_e_keys", invtokens(st_dir("global", "macro", "S_E_*")'))
+    local _legacy_keys : list _legacy_keys | _entry_e_keys
+    local _legacy_i 0
+    foreach _legacy of local _legacy_keys {
+        local ++_legacy_i
+        mata: st_local("_had_legacy_" + st_local("_legacy_i"), strofreal(rows(st_dir("global", "macro", st_local("_legacy"))) > 0))
+        mata: st_local("_old_legacy_" + st_local("_legacy_i"), st_global(st_local("_legacy")))
+    }
+    local _held_estimates 0
+    tempname _prior_estimates
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _xlsx_book
@@ -339,6 +352,11 @@ capture noisily {
             local atrisk_g`g' = `gn_`g''
         }
     }
+
+    * stci's native estimate hold does not handle an empty e() namespace.
+    * Hold before its first call and before any subsequent preserve block.
+    _estimates hold `_prior_estimates', copy restore nullok
+    local _held_estimates 1
 
 **# Compute KM Estimates at Specified Timepoints
     * Use sts generate for reliable KM function extraction
@@ -1156,6 +1174,23 @@ capture noisily {
 
 } // end capture noisily
     local _rc = _rc
+    if `_held_estimates' {
+        capture _estimates unhold `_prior_estimates'
+        local _unhold_rc = _rc
+        if `_unhold_rc' & !`_rc' local _rc = `_unhold_rc'
+    }
+    mata: st_local("_current_e_keys", invtokens(st_dir("global", "macro", "S_E_*")'))
+    foreach _legacy of local _current_e_keys {
+        if !`: list _legacy in _legacy_keys' capture macro drop `_legacy'
+    }
+    local _legacy_i 0
+    foreach _legacy of local _legacy_keys {
+        local ++_legacy_i
+        if `_had_legacy_`_legacy_i'' {
+            capture mata: st_global(st_local("_legacy"), st_local("_old_legacy_" + st_local("_legacy_i")))
+        }
+        else capture macro drop `_legacy'
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end

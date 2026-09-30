@@ -101,7 +101,7 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `full` (default) | Currently the same suites as `core`; reserved for future external-oracle or slow coverage. |
 | `benchmark` | `benchmark_gatesonly.do` only; timing, never part of the release gate. |
 
-archetypes: A7(datamap datamvp datacheck datadict)
+archetypes: A7(datamap datamvp datacheck datadict dataqa)
 
 ## Canonical fixture adoption
 
@@ -111,5 +111,7 @@ Exact JSON means, empty all-missing summaries, sparse code frequencies, missingn
 | --- | --- | --- |
 | `validation_datamap_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
 | `test_datamvp_fixture_state.do` | Caller legacy-global preservation controls | core/full |
-
 | `validation_datadict_fixture_contract.do` | Exact means/cardinality/missingness/labels/date formats in metadata plus real rendered dictionary summaries, all six LABELLED variants and full caller fingerprint | core/full |
+
+| `validation_dataqa_fixture_contract.do` | All six LABELLED variants: exact ledger gates, masked release cells, register text and three independently corrupted baseline fields | core/full |
+| `test_dataqa_fixture_state.do` | Fresh matastrict off/on preserved across comparison success and early/late refusals; existing output bytes retained | core/full |
