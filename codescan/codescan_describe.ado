@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.2.4  2026/09/29
+*! codescan_describe Version 4.2.5  2026/09/30
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

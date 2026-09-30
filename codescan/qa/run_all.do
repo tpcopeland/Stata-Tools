@@ -52,7 +52,7 @@ local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
 
 * Correctness lane: quick plus every validation suite and the adversarial
 * functional suites.
-local core_suites `quick_suites' validation_fixture_contract test_fixture_names ///
+local core_suites `quick_suites' validation_fixture_contract test_fixture_names validation_fixture_windows test_fixture_files ///
     validation_codescan_known_answers validation_codescan_dgp_recovery ///
     validation_codescan_dgp_recovery2 ///
     validation_codescan_public_known_answers ///

@@ -9,6 +9,9 @@ log using "test_fixture_names.log", replace text nomsg
 local qa_dir "`c(pwd)'"
 local pkg_dir=regexr("`qa_dir'","/qa$","")
 adopath ++ "`pkg_dir'"
+do "`qa_dir'/_codescan_qa_common.do"
+quietly _codescan_qa_bootstrap
+local qa_owner=r(owner)
 do "`qa_dir'/_qa_fx_a5.do"
 do "`qa_dir'/_qa_state.do"
 do "`qa_dir'/_qa_metamorphic.do"
@@ -34,6 +37,8 @@ capture noisily {
 if _rc==0 local ++pass
 else local ++fail
 capture graph drop fx_names
+_codescan_qa_restore "`qa_owner'"
+_codescan_qa_publish "test_fixture_names" `tests' `pass' `fail'
 di "RESULT: test_fixture_names tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

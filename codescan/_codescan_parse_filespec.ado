@@ -1,4 +1,4 @@
-*! _codescan_parse_filespec Version 4.2.4  2026/09/29
+*! _codescan_parse_filespec Version 4.2.5  2026/09/30
 *! Parse a "filename [, replace]" option spec and enforce overwrite authorization
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

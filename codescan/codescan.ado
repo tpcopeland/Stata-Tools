@@ -1,4 +1,4 @@
-*! codescan Version 4.2.4  2026/09/29
+*! codescan Version 4.2.5  2026/09/30
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -95,6 +95,12 @@ program define codescan, rclass
     local _outputs_created   = 0
     local _data_collapsed    = 0
     local _merge_collapsing  = 0
+    * Native use/save macros are visible through Mata even when the extended
+    * Stata macro functions omit them. Preserve their presence and exact bytes.
+    mata: st_local("_had_fn",strofreal(sum(st_dir("global","macro","*"):=="S_FN")>0))
+    mata: st_local("_had_fndate",strofreal(sum(st_dir("global","macro","*"):=="S_FNDATE")>0))
+    mata: st_local("_caller_fn",st_global("S_FN"))
+    mata: st_local("_caller_fndate",st_global("S_FNDATE"))
     capture noisily {
 
     * =========================================================================
@@ -2371,6 +2377,10 @@ program define codescan, rclass
                 scanvars("`varlist'") protected("`id' `date' `refdate'")
         }
     }
+    if `_had_fn' mata: st_global("S_FN",st_local("_caller_fn"))
+    else capture macro drop S_FN
+    if `_had_fndate' mata: st_global("S_FNDATE",st_local("_caller_fndate"))
+    else capture macro drop S_FNDATE
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

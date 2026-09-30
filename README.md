@@ -25,7 +25,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.2.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
+| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.2.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |
 | [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), a QA ledger (`dataqa`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.8.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--11-brightgreen) |
@@ -38,7 +38,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
+| [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [pygrid](pygrid) | Person-period denominator grids with zero-filled event attachment (`pygrid`, `pyattach`) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
 | [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.17.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
@@ -53,7 +53,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.3.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.11-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--10-brightgreen) |
+| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 
 ### Tables and reporting
 

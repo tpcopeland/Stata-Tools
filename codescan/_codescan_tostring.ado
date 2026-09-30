@@ -1,4 +1,4 @@
-*! _codescan_tostring Version 4.2.4  2026/09/29
+*! _codescan_tostring Version 4.2.5  2026/09/30
 *! Exact numeric-to-string conversion for the tostring option
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

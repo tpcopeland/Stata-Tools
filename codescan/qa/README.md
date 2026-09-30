@@ -254,3 +254,5 @@ option combinations, repeated calls in one session, installation behaviour,
 documentation examples, and release metadata.
 `run_all.do` restores `c(pwd)` to the QA directory after each suite so an
 install-smoke test cannot poison downstream path derivation.
+
+Zero/three-day inclusive lookback/lookforward windows match every person flag. Native filename state controls cover row/collapse/merge and direct refusal, including native use, opaque punctuation, empty assignment and absent macros. Additional core/full suites: `validation_fixture_windows.do`, `test_fixture_files.do`.

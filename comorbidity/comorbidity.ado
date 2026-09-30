@@ -1,4 +1,4 @@
-*! comorbidity Version 1.0.2  2026/09/30
+*! comorbidity Version 1.0.3  2026/09/30
 *! Charlson and Elixhauser comorbidity indices from wide-format ICD code fields
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,11 +11,12 @@ program define comorbidity, rclass
     local _restore_needed = 0
     local _estimates_held = 0
     tempname caller_estimates
-    local _caller_globals : all globals
-    local _had_fn : list posof "S_FN" in _caller_globals
-    local _had_fndate : list posof "S_FNDATE" in _caller_globals
-    local _caller_fn : copy global S_FN
-    local _caller_fndate : copy global S_FNDATE
+    * Native use/save macros can be omitted by Stata's extended macro
+    * functions; Mata reads their actual presence and opaque bytes.
+    mata: st_local("_had_fn",strofreal(sum(st_dir("global","macro","*"):=="S_FN")>0))
+    mata: st_local("_had_fndate",strofreal(sum(st_dir("global","macro","*"):=="S_FNDATE")>0))
+    mata: st_local("_caller_fn",st_global("S_FN"))
+    mata: st_local("_caller_fndate",st_global("S_FNDATE"))
 
     capture noisily {
         syntax varlist [if] [in] , ID(varname) ///
@@ -469,11 +470,11 @@ program define comorbidity, rclass
         capture _estimates unhold `caller_estimates'
         local _unhold_rc = _rc
         if `rc' == 0 & `_unhold_rc' local rc = `_unhold_rc'
-        if `_had_fn' global S_FN `"`macval(_caller_fn)'"'
-        else capture macro drop S_FN
-        if `_had_fndate' global S_FNDATE `"`macval(_caller_fndate)'"'
-        else capture macro drop S_FNDATE
     }
+    if `_had_fn' mata: st_global("S_FN",st_local("_caller_fn"))
+    else capture macro drop S_FN
+    if `_had_fndate' mata: st_global("S_FNDATE",st_local("_caller_fndate"))
+    else capture macro drop S_FNDATE
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

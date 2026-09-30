@@ -13,6 +13,8 @@ do "`qa_dir'/_qa_fx_a6.do"
 do "`qa_dir'/_qa_fx_a7.do"
 do "`qa_dir'/_qa_fx_a1.do"
 do "`qa_dir'/_qa_state.do"
+* Explicitly load bundled helpers for the direct models route.
+run "`qa_dir'/../gcomptab.ado"
 local test_count 0
 local pass_count 0
 local fail_count 0

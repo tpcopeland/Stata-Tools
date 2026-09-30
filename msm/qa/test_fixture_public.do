@@ -125,11 +125,21 @@ program define _fx_msm_public
     collapse (mean) fx_prop=a, by(period)
     mkmat period fx_prop, matrix(fx_expected_prop)
     restore
-    tempfile histories
+    * Independent sample reconstruction retains exact canonical subject histories.
+    local trajectory_rng = c(rngstate)
     preserve
     keep id period a
-    save "`histories'", replace
+    set seed 9122
+    bysort id: gen byte fx_tag=(_n==1)
+    gen double fx_draw=runiform() if fx_tag
+    sort fx_draw
+    gen byte fx_selected=(_n<=3) & fx_tag
+    bysort id: egen byte fx_subject=max(fx_selected)
+    keep if fx_subject
+    sort id period
+    mkmat id period a, matrix(fx_expected_trajectory)
     restore
+    quietly set rngstate `trajectory_rng'
     foreach type in weights balance survival trajectory positivity {
         tempfile g
         local opt ""
@@ -166,8 +176,22 @@ program define _fx_msm_public
             }
         }
         if "`type'"=="trajectory" {
-            assert inlist(a,0,1) & inrange(period,0,3)
-            assert period==_n-1
+            restore
+            forvalues panel=0/2 {
+                serset set `panel'
+                preserve
+                serset use, clear
+                assert _N==4 & inlist(a,0,1) & inrange(period,0,3)
+                isid period
+                sort period
+                forvalues i=1/4 {
+                    local j=4*`panel'+`i'
+                    assert period[`i']==fx_expected_trajectory[`j',2]
+                    assert a[`i']==fx_expected_trajectory[`j',3]
+                }
+                restore
+            }
+            preserve
         }
         if "`type'"=="balance" {
             assert _N==2 & !missing(smd_uw,smd_w)
@@ -183,7 +207,7 @@ program define _fx_msm_public
             assert r(N)>1600
         }
         restore
-        graph export "`g'.svg", replace
+        graph export "`g'.svg", as(svg) replace
     python: __import__("_qa_msm_public").check2()
         erase "`g'.gph"
         erase "`g'.svg"

@@ -49,14 +49,16 @@ program define _fx_diag_state, rclass
                     tempname D
                     matrix `D'=r(decomp)
                     assert `D'[1,1]==0 & `D'[2,1]==0 & `D'[3,1]==0
+                    matrix drop `D'
                 }
                 else {
                     * expect: REFUSED
-                    qa_option_effect, command(iivw_diagnose @v@, unweighted(fx_u) weighted(fx_w) adjusted(fx_a)) values(no_such_coefficient) returns(r(decomp)) refused cause(coefficient)
+                    capture noisily iivw_diagnose no_such_coefficient, unweighted(fx_u) weighted(fx_w) adjusted(fx_a)
+                    assert _rc==111
                 }
                 unab after : _all
                 assert "`before'"=="`after'"
-                qa_state_compare, tag(diag_state)
+                qa_state_compare, tag(diag_state) keep
                 if "`active'"=="present" {
                     assert `prior_sample'==e(sample)
                     quietly predict double `next_pred', xb
@@ -64,6 +66,7 @@ program define _fx_diag_state, rclass
                     drop `next_pred'
                     qa_state_compare, tag(diag_state)
                 }
+                else qa_state_drop, tag(diag_state)
                 di "ORACLE diagnose `op' active-`active' `route': exact column/data/e/state preservation"
             }
             local case_rc=_rc

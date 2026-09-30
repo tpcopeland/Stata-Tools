@@ -1,4 +1,4 @@
-*! qba_plot Version 1.1.3  2026/08/10
+*! qba_plot Version 1.1.4  2026/09/30
 *! Visualization for quantitative bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -17,6 +17,11 @@ References:
 capture program drop qba_plot
 program define qba_plot, rclass
     version 16.0
+    * Native graph initialization may create this global. Restore its exact
+    * entry presence and opaque bytes on success and every refusal path.
+    local _entry_globals : all globals
+    local _had_gm_span : list posof "T_gm_fix_span" in _entry_globals
+    mata: st_local("_old_gm_span", st_global("T_gm_fix_span"))
     local _saved_varabbrev = c(varabbrev)
     local _raw_syntax `"`0'"'
     set varabbrev off
@@ -406,6 +411,12 @@ program define qba_plot, rclass
 
     }
     local rc = _rc
+    if `_had_gm_span' {
+        capture mata: st_global("T_gm_fix_span", st_local("_old_gm_span"))
+    }
+    else {
+        capture macro drop T_gm_fix_span
+    }
     set varabbrev `_saved_varabbrev'
     if `rc' exit `rc'
 end

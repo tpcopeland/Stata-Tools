@@ -1,5 +1,5 @@
 v 3
-d 'fvgen': Flatten factor-variable interactions into labeled main and product variables
+d 'FVGEN': Flatten factor-variable interactions into labeled main and product variables
 d
 d Requires: Stata version 16+
 d

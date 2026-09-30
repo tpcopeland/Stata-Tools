@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.3** | 2026-08-10
+**Version 1.1.4** | 2026-09-30
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
@@ -431,6 +431,8 @@ Stores the macros `r(plot_type)`, `r(measure)`, and `r(scheme)`. Tornado and tip
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.1.4** (2026-09-30): Plotting preserves the exact entry presence and contents of Stata's native graph global on success and refusal, including fresh-session initialization.
 
 - **1.1.3** (2026-08-10): Rejected unsupported cumulative-hazard and subhazard model scales, detected supported survival models as hazard ratios, aligned total-error arms on one validity mask, and corrected uncertainty labels and second-edition citations.
 - **1.1.2** (2026-08-09): Rejected unsupported `from_model` link scales instead of silently treating them as additive coefficients, expanded release and option/return QA, and added a self-contained SMCL render gate.
