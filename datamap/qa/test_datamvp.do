@@ -1844,10 +1844,13 @@ capture noisily {
     * complete cases (2) are a small cell, and incomplete (38) its complement
     _mvp_count "`mvlog'" "Max missing/obs:         [suppressed]"
     assert r(n) == 1
-    _mvp_count "`mvlog'" "Complete cases:                  <5  (    .%)"
+    _mvp_count "`mvlog'" "Complete cases:                  <5"
     assert r(n) == 1
-    _mvp_count "`mvlog'" "Incomplete cases:        [suppressed]  (    .%)"
+    _mvp_count "`mvlog'" "Incomplete cases:        [suppressed]"
     assert r(n) == 1
+    * a withheld share is left out, never printed as ".%"
+    _mvp_count "`mvlog'" ".%"
+    assert r(n) == 0
 }
 if _rc == 0 {
     display as result "  PASS `test_count': a small Miss or Obs is masked and its complement withheld"
@@ -1977,6 +1980,255 @@ if _rc == 0 {
 else {
     display as error "  FAIL `test_count': datamvp session defaults (rc=`=_rc')"
     macro drop DATAMAP_DQ
+    local ++fail_count
+}
+
+* G1-G7: graphs under masking carry no cell the table masks; no .% shares
+* Oracle: sysuse auto with rep78 missing in 7 rows and mpg in 1 row (N = 74).
+* Under maskrare (m = 5) the table prints mpg's Miss as <5 and pools the
+* ".+" (6) and ".." (1) patterns; a graph must not carry 1, 6, or 1/74.
+capture program drop _mvp_gdata
+program define _mvp_gdata
+    sysuse auto, clear
+    quietly replace rep78 = . in 1/2
+    quietly replace mpg = . in 3
+end
+* the drawn y values of every serset in memory, nonmissing, as a list
+capture program drop _mvp_svals
+program define _mvp_svals, rclass
+    local vals ""
+    local nmiss = 0
+    forvalues k = 0/40 {
+        capture serset set `k'
+        if _rc continue
+        preserve
+        quietly serset use, clear
+        * the y values are the first serset variable (_values, or pctmiss
+        * under asyvars)
+        quietly describe, varlist
+        local y : word 1 of `r(varlist)'
+        forvalues i = 1/`=_N' {
+            if missing(`y'[`i']) local ++nmiss
+            else local vals "`vals' `=`y'[`i']'"
+        }
+        restore
+    }
+    return local vals "`vals'"
+    return scalar nmiss = `nmiss'
+    return scalar nvals = `: word count `vals''
+end
+
+* G1: graph(bar) withholds the masked mpg bar and keeps rep78 = 700/74
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    serset clear
+    quietly datamvp rep78 mpg, maskrare graph(bar) nodraw gname(_g1)
+    _mvp_svals
+    assert r(nvals) == 1 & r(nmiss) == 1
+    assert reldif(real(word("`r(vals)'", 1)), 700 / 74) < 1e-7
+    graph drop _g1
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G1 graph(bar) under maskrare withholds the bar the table masks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G1 graph(bar) masking (rc=`=_rc')"
+    local ++fail_count
+}
+
+* G2: graph(patterns) draws only the patterns the table shows (67), not 6 or 1;
+* without masking all three are drawn (positive control)
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    serset clear
+    quietly datamvp rep78 mpg, maskrare graph(patterns) nodraw gname(_g2)
+    _mvp_svals
+    assert r(nvals) == 1 & real(word("`r(vals)'", 1)) == 67
+    serset clear
+    quietly datamvp rep78 mpg, graph(patterns) nodraw gname(_g2)
+    _mvp_svals
+    local v "`r(vals)'"
+    assert r(nvals) == 3
+    assert `: list posof "1" in v' & `: list posof "6" in v' & `: list posof "67" in v'
+    graph drop _g2
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G2 graph(patterns) under maskrare draws only table-shown patterns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G2 graph(patterns) masking (rc=`=_rc')"
+    local ++fail_count
+}
+
+* G3: graph(bar) gby() and over() draw exactly the cells whose group has at
+* least 5 rows and whose missing count and complement are 0 or at least 5
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    local nallow = 0
+    local banned ""
+    foreach v in rep78 mpg {
+        forvalues g = 0/1 {
+            quietly count if foreign == `g'
+            local n = r(N)
+            quietly count if foreign == `g' & missing(`v')
+            local k = r(N)
+            if `n' >= 5 & !(`k' >= 1 & `k' < 5) & !(`n' - `k' >= 1 & `n' - `k' < 5) local ++nallow
+            else local banned "`banned' `=100 * `k' / `n''"
+        }
+    }
+    assert `nallow' < 4
+    foreach opt in gby over {
+        serset clear
+        quietly datamvp rep78 mpg, maskrare graph(bar) `opt'(foreign) nodraw gname(_g3)
+        _mvp_svals
+        assert r(nvals) == `nallow'
+        local drawn "`r(vals)'"
+        foreach b of local banned {
+            foreach d of local drawn {
+                assert reldif(`b', `d') > 1e-7 | (`b' == 0 & `d' == 0)
+            }
+        }
+    }
+    graph drop _g3
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G3 graph(bar) gby()/over() under maskrare withhold small cells"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G3 gby()/over() bar masking (rc=`=_rc')"
+    local ++fail_count
+}
+
+* G4: graph(patterns) gby() drops every group pattern with a frequency below 5;
+* without masking the small group patterns are drawn (positive control)
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    serset clear
+    quietly datamvp rep78 mpg, maskrare graph(patterns) gby(foreign) nodraw gname(_g4)
+    _mvp_svals
+    assert r(nvals) >= 1
+    foreach d in `r(vals)' {
+        assert `d' >= 5
+    }
+    serset clear
+    quietly datamvp rep78 mpg, graph(patterns) gby(foreign) nodraw gname(_g4)
+    _mvp_svals
+    local small = 0
+    foreach d in `r(vals)' {
+        if `d' < 5 local small = 1
+    }
+    assert `small'
+    graph drop _g4
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G4 graph(patterns) gby() under maskrare draws no frequency below 5"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G4 gby() patterns masking (rc=`=_rc')"
+    local ++fail_count
+}
+
+* G5: graph(matrix) is refused under maskrare, mincell(), and a session
+* default; nomaskrare draws it; the display sample leaves the RNG state alone
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    capture datamvp rep78 mpg, maskrare graph(matrix) nodraw
+    assert _rc == 198
+    capture datamvp rep78 mpg, mincell(3) graph(matrix) nodraw
+    assert _rc == 198
+    global DATAMAP_DQ "maskrare"
+    capture datamvp rep78 mpg, graph(matrix) nodraw
+    local rc_dq = _rc
+    capture datamvp rep78 mpg, nomaskrare graph(matrix) nodraw
+    local rc_nm = _rc
+    macro drop DATAMAP_DQ
+    assert `rc_dq' == 198 & `rc_nm' == 0
+    quietly expand 10
+    set seed 4711
+    local s1 = c(rngstate)
+    quietly datamvp rep78 mpg, graph(matrix) nodraw
+    assert `"`s1'"' == c(rngstate)
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G5 graph(matrix) refused under masking; its sample keeps the RNG state"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G5 graph(matrix) masking/RNG (rc=`=_rc')"
+    macro drop DATAMAP_DQ
+    local ++fail_count
+}
+
+* G6: a graph whose every bar is masked is not drawn, and the call succeeds
+local ++test_count
+capture noisily {
+    _mvp_gdata
+    capture graph drop _g6
+    quietly datamvp mpg, maskrare graph(bar) nodraw gname(_g6)
+    assert r(masked) == 1
+    capture graph describe _g6
+    assert _rc != 0
+    serset clear
+    quietly datamvp rep78 mpg, maskrare graph(bar) stacked nodraw gname(_g6)
+    * the stacked segments: rep78 700/74 drawn, the masked mpg segment missing
+    _mvp_svals
+    local v "`r(vals)'"
+    assert r(nmiss) >= 1
+    local hit = 0
+    foreach d of local v {
+        assert reldif(`d', 100 / 74) > 1e-7
+        if reldif(`d', 700 / 74) < 1e-7 local hit = 1
+    }
+    assert `hit'
+    graph drop _g6
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G6 a fully masked graph(bar) is skipped; stacked draws with a withheld segment"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G6 fully masked graph (rc=`=_rc')"
+    local ++fail_count
+}
+
+* G7: a masked monotone count prints without a ".%" share
+* 40 rows: a missing in 1-38, b in 1-2 -> monotone rows 1-2 and 39-40 (4 < 5)
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 40
+    gen a = 1
+    quietly replace a = . in 1/38
+    gen b = 1
+    quietly replace b = . in 1/2
+    tempfile g7log
+    capture log close _g7
+    quietly log using "`g7log'", text replace name(_g7)
+    datamvp a b, maskrare monotone
+    local nmono = r(N_monotone)
+    quietly log close _g7
+    assert `nmono' == 4
+    _mvp_count "`g7log'" "Observations with monotone pattern: <5"
+    assert r(n) == 1
+    _mvp_count "`g7log'" ".%"
+    assert r(n) == 0
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': G7 a masked monotone count carries no .% share"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': G7 masked monotone share (rc=`=_rc')"
+    capture log close _g7
     local ++fail_count
 }
 

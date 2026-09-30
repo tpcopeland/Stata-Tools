@@ -37,6 +37,7 @@ local quick_suites ///
     test_datamap_v180.do
 
 local core_suites ///
+    validation_datamap_fixture_contract.do test_datamvp_fixture_state.do ///
     `quick_suites' ///
     test_datamap_bugfixes.do ///
     test_datamap_paths.do ///

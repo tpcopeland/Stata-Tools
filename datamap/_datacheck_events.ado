@@ -1,4 +1,4 @@
-*! _datacheck_events Version 1.8.0  2026/09/30
+*! _datacheck_events Version 1.8.1  2026/09/30
 *! datacheck events(): every level of a covariate carries enough events
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,7 +11,8 @@
 // Records are posted to the record frame rf() in datacheck's column order:
 // fam kind ok label variable grp observed obsnum expected nscope scope msg
 // minshown omasked.  One fail record per failing level; one pass record per
-// covariate when every level passes.
+// covariate when every level passes.  A covariate with no nonmissing level
+// in scope fails: nothing was tested.
 program define _datacheck_events, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -64,7 +65,19 @@ program define _datacheck_events, rclass
                 local ++nfail
                 local ++nf_v
             }
-            if `nf_v' == 0 {
+            quietly count if `tg' == 1
+            if `nf_v' == 0 & r(N) == 0 {
+                // no nonmissing level in scope: nothing was tested, and a
+                // model would drop every row, so this is not a pass
+                local g `"`v'"'
+                if `"`grp'"' != "" local g `"`grp'; `g'"'
+                local msg `"`pfx'events(`ev'): `v' has no nonmissing level in scope"'
+                frame post `rf' ("events") ("`kind'") (0) ("`ev'") ("`v'") ///
+                    (`"`macval(g)'"') ("no nonmissing levels") (.) (">= `mtxt'") ///
+                    (`nscope') (`"`macval(scope)'"') (`"`macval(msg)'"') (.) (0)
+                local ++nfail
+            }
+            else if `nf_v' == 0 {
                 quietly summarize `tot' if `tg' == 1, meanonly
                 local nlev = r(N)
                 local k = cond(r(N) > 0, r(min), 0)

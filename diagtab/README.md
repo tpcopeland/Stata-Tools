@@ -1,6 +1,6 @@
 # diagtab — Diagnostic accuracy and cutoff analysis
 
-**Version 2.0.1** | 2026-08-30
+**Version 2.0.2** | 2026-09-30
 
 `diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
 
@@ -164,6 +164,8 @@ Run `demo/demo_diagtab.do` from a repository checkout to regenerate `demo/demo_d
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.0.2** (2026-09-30): Filename preflight now examines the actual quoted path and reports invalid characters accurately. Existing refusal of quote characters and shell metacharacters is retained; filenames with spaces and Unicode remain accepted.
 
 - **2.0.1** (2026-08-30): Preserved all real cutoff values, made multi-cutoff identifiers lossless and unique, preflighted output conflicts, rejected conflicting Excel aliases and invalid font sizes before export, and avoided degenerate prevalence-adjusted intervals at boundary estimates.
 - **2.0.0** (2026-08-19): Extracted `diagtab` into a standalone package while preserving its command and stored-result contracts.

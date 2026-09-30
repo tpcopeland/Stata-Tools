@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.1  30aug2026}{...}
+{* *! version 2.0.2  30sep2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -46,6 +46,11 @@ below. If {opt cutoff()}, {opt cutoffs()}, and
 {opt optimal} are all omitted, {it:test_var} must already be coded 0/1. The completed
 table is displayed in the Results window and may also be exported to Excel,
 CSV, or Markdown, or stored in a Stata frame.{p_end}
+
+{pstd}
+Output paths may contain spaces and Unicode characters. Quote characters and
+shell metacharacters (semicolon, ampersand, pipe, redirects, dollar sign, or
+backtick) are refused with error 198 before output or data changes.{p_end}
 
 {marker options}{title:Options}
 
@@ -333,6 +338,6 @@ Youden, W. J. 1950. Index for rating diagnostic tests. {it:Cancer} 3: 32-35.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.1, 2026-08-30{p_end}
+{pstd}Version 2.0.2, 2026-09-30{p_end}
 
 {hline}

@@ -378,9 +378,9 @@ capture noisily {
     assert `pmk' == 1
     * x: 2 missing prints <5; y: 38 of 40 missing leaves 2 observed, so it
     * prints "all but <5" (the needle below is also inside that line)
-    _priv_count using "`mlog'", needle("<5 missing  (.%)")
+    _priv_count using "`mlog'", needle("<5 missing  ([masked])")
     assert r(n) == 2
-    _priv_count using "`mlog'", needle("all but <5 missing  (.%)")
+    _priv_count using "`mlog'", needle("all but <5 missing  ([masked])")
     assert r(n) == 1
     * group 1 has 3 rows; pooled alone its size would be N minus group 2,
     * so group 2 is pooled with it

@@ -506,7 +506,7 @@ capture noisily {
     mata: mata drop _fgut_v _fgut_t
 }
 if _rc == 0 {
-    display as result "  PASS: UT-10 labelled keys drawn as the label alone, unlabelled as "grp = #""
+    display as result `"  PASS: UT-10 labelled keys drawn as the label alone, unlabelled as "grp = #""'
     local ++pass_count
 }
 else {

@@ -1,5 +1,11 @@
 # comorbidity QA
 
+archetypes: A5
+
+Canonical fixture adoption is in progress. All canonical code profiles have exact original/Quan2011 Charlson and VanWalraven subset scores in collapse/merge, including date exclusions and empty code slots. Built-in dictionaries use raw case-sensitive, start-anchored matching, so lowercase/leading-space input scores are explicitly zero rather than normalized clinical CCI truth. Shared long-name invariance compares scores. Full clinical dictionary/weight provenance remains covered by the separate existing reference suites. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
+
 The `comorbidity` QA suite is flat and concern-oriented, with functional, regression, source-definition, and known-answer suites driven by a curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run

@@ -189,3 +189,13 @@ No open findings. The 2026-09-28 `puttab, sheet()` re-expansion and the Muse I1 
 python3 tools/option_coverage.py
 python3 tools/check_sthlp_width.py ..
 ```
+
+archetypes: A7(crosstab corrtab puttab) A6(puttab)
+
+## Canonical fixture adoption
+
+Exact sparse-code cross-tab counts, Spearman/pairwise N including undefined all-missing column, and actual workbook/CSV/Markdown coefficient cells with user/unrelated sheets preserved. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_tabtools_fixture_contract.do` | Canonical fixture truth and hostile contracts | quick/full/release |

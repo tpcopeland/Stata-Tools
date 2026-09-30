@@ -46,6 +46,7 @@
 {synopt:{opt run(string)}}run label for ledger rows, such as the date{p_end}
 {synopt:{opt bandwarn}}make sanity bands warn (synthetic runs){p_end}
 {synopt:{opt sig:nature}}record each dataset's {help datasignature}{p_end}
+{synopt:{opt replace}}clear the ledger's rows of {opt run()} first{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -85,6 +86,16 @@ with {cmd:global qa_calib bandwarn} under the synthetic switch. Each
 them and {cmd:dataqa set clear} removes them.
 
 {pstd}
+The ledger only ever appends, so a rerun under the same {opt run()} label
+finds the rows of the earlier attempt. With {opt replace},
+{cmd:dataqa set ... ledger() run() replace} removes the rows of that run
+before any gate call of the session writes, and says how many; the rows of
+other runs, such as the baseline {cmd:dataqa compare} reads, are kept. Put it
+on the {cmd:dataqa set} line of a do-file that is rerun under the same
+label. Without {opt replace}, {cmd:dataqa set} prints a note when the run already
+has rows; they are then read with the session's own rows.
+
+{pstd}
 Precedence is: an option typed on the command line, then the session default,
 then a {opt config()} file. An explicit {cmd:nomaskrare} overrides a session
 {opt maskrare}, and {cmd:datacheck} prints a note when it does. Every PASS line
@@ -95,7 +106,14 @@ so a log shows that masking was on.
 
 {pstd}
 {cmd:dataqa report} prints, per dataset, the number of calls, gate entries,
-failures, warnings, and review items. {opt markdown(filename)} writes draft
+failures, warnings, and review items. Within a run, {cmd:report},
+{cmd:assert}, and {cmd:export} read only the latest call of each gate, a
+gate being matched as in {cmd:dataqa compare} (see below): a gate that
+failed and then passed when the same call was rerun counts once, as
+passed. A rerun with changed bounds is a new gate, so the earlier failure stays in
+the count; widening an expectation cannot clear it. A call without a dataset name (no {opt name()} and no file in memory) is
+never superseded, since it cannot be told apart from another unnamed
+dataset. {opt markdown(filename)} writes draft
 register rows in the column order Run | Dataset | Check | Observed |
 Expectation and source | Disposition | Date | PI consulted. The Check cell
 follows one grammar, {it:family}{cmd:(}{it:label}{cmd:):} {it:observed}
@@ -126,14 +144,22 @@ refuses with r(459) when any row comes from a call not run under
 {opt threshold()}-1, or when a masked row keeps {cmd:observed_num}. The copy
 blanks {cmd:scope} expressions that contain a quoted string or a number of four
 or more digits, which may be an identifier written in a hurry. The working
-ledger stays on the server; only the exported copy leaves it.
+ledger stays on the server; only the exported copy leaves it, so the copy is
+a different file: {opt saving()} naming the ledger being read is refused
+with r(602), even with {opt replace}. The comparison resolves a relative
+path against the working directory and folds {cmd:./} and
+{cmd:dir/..} segments; on Windows it treats {cmd:\} as {cmd:/} and, as on macOS,
+ignores case. It does not see through a symbolic link or a mapped drive.
 
 {dlgtab:dataqa compare}
 
 {pstd}
 {cmd:dataqa compare} matches the rows of {opt run()} with those of
-{opt baseline()} on dataset, family, label, variable, group, and scope, in the
-same ledger or in {opt baseledger()}. It flags a change in rows in scope beyond
+{opt baseline()} on dataset, family, label, variable, group, scope, and
+expectation, in the same ledger or in {opt baseledger()}. A gate whose bounds
+changed is therefore a different gate: its baseline row is flagged as
+absent. The group is recorded as its number within the call, so if the data change
+between calls a group number can name a different level. It flags a change in rows in scope beyond
 {opt ntol()} (a share, default 0.05), a change in a {opt stat()} value beyond
 {opt stattol()} (a relative change, default 0.05), a changed
 {help datasignature}, and a gate present in the baseline but absent now. A
@@ -178,6 +204,13 @@ synthetic run, where the bands are not calibrated.
 {opt sig:nature} turns on {opt signature} in every later {cmd:datacheck}
 call, so the ledger records each dataset's {help datasignature}.
 
+{phang}
+{opt replace} removes the rows of {opt run()} from {opt ledger()} when the
+defaults are set, so the run starts afresh; rows of other runs are kept. It
+requires both {opt ledger()} and {opt run()}, acts once, and is not stored
+with the defaults. A file that is not a datacheck ledger is refused with
+r(610) and left untouched.
+
 {dlgtab:Options for report, assert, export, and compare}
 
 {phang}
@@ -195,7 +228,8 @@ an existing file is an error, r(602).
 the run.
 
 {phang}
-{opt sav:ing(filename)} ({cmd:export}) is required and names the release copy. {opt .dta}
+{opt sav:ing(filename)} ({cmd:export}) is required and names the release copy,
+a file other than the ledger being exported. {opt .dta}
 is added to a filename without an extension, and {opt replace}
 permits overwriting an existing file.
 
@@ -249,16 +283,27 @@ propose widening an invariant.
 {phang2}{cmd:. dataqa report}{p_end}
 {phang2}{cmd:. dataqa assert, expect(auto_cars lifeexp)}{p_end}
 
+{pstd}Write the release copy of the run to its own file, never over the working ledger:{p_end}
+{phang2}{cmd:. dataqa export, saving("qa_ledger_release_demo.dta") replace}{p_end}
+
 {pstd}Clear the defaults:{p_end}
 {phang2}{cmd:. dataqa set clear}{p_end}
+
+{pstd}In a do-file rerun under the same run label, start the run afresh and name the release copy apart from the ledger:{p_end}
+{phang2}{cmd:. dataqa set maskrare mincell(5) ledger("$working/qa_ledger_$dt.dta") run($dt) replace}{p_end}
+{phang2}{cmd:. dataqa export, saving("$output/qa_ledger_release_$dt.dta") replace}{p_end}
 
 
 {marker results}{...}
 {title:Stored results}
 
 {pstd}
-{cmd:dataqa set} stores {cmd:r(defaults)}, the option string. {cmd:dataqa report}
-stores {cmd:r(N)} (rows read), {cmd:r(n_datasets)}, {cmd:r(n_failed)},
+{cmd:dataqa set} stores {cmd:r(defaults)}, the option string, and with
+{opt replace} {cmd:r(n_removed)}, the rows removed. {cmd:dataqa report},
+{cmd:dataqa assert}, and {cmd:dataqa export} store {cmd:r(n_superseded)}, the
+rows left out because a later call of the same gate replaced
+them. {cmd:dataqa report}
+stores {cmd:r(N)} (rows read after that), {cmd:r(n_datasets)}, {cmd:r(n_failed)},
 {cmd:r(n_warned)}, {cmd:r(ledger)}, {cmd:r(run)}, and with {opt markdown()}
 {cmd:r(markdown)} and {cmd:r(n_rows)}. {cmd:dataqa assert} stores {cmd:r(N)},
 {cmd:r(n_failed)}, {cmd:r(missing)} (expected datasets without rows), and

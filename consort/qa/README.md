@@ -62,3 +62,13 @@ Stata 16+, Python 3 with matplotlib, Pillow and openpyxl. Unix executable-path t
 | full | core plus `test_consort_expanded`, `test_consort_edge_cases`, `validation_consort_expanded` |
 
 `quick` is a subset of `core`, which is a subset of the default release gate `full`.
+
+archetypes: A7(consort)
+
+## Canonical fixture adoption
+
+Exact sparse-group exclusion counts, resolved CSV nodes, and SVG labels; single-row no-step save is refused with full caller fingerprint and original tracking CSV intact. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_consort_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |

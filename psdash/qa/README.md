@@ -1,5 +1,7 @@
 # psdash QA
 
+<!-- archetypes: A1 A3 -->
+
 The `psdash` QA suite is flat and concern-oriented: functional, regression, validation, and external-parity suites live at the `qa/` root and are driven by one curated runner. Every suite is independently runnable from this directory.
 
 ## How to run
@@ -146,3 +148,13 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 ## Lane membership
 
 `quick` and `external` are disjoint; `full = quick + external`, and `full` is the default release gate. The explicit authoritative suite lists live only in `run_all.do`: `quick` contains every `test_*` and `validation_*` suite listed above, while `external` contains every `crossval_*` suite.
+
+Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases align true propensity scores on actual covariate keys (including relabelled codes), then check mean inverse probability weights and total/arm ESS against independently summed moments through psdash_weights.
+
+| Added QA file | Role |
+|---|---|
+| `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a1.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+
+Fixture coverage still owed: Other six public commands, A3 producer/manual period routes, modified/weighted/overlap estimands and remaining A1/A3 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

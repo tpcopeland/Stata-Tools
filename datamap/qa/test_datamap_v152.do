@@ -149,7 +149,7 @@ local ok = ("`cls_hc'" == "continuous")
 local pass_count = `pass_count' + `ok'
 _v152_say `ok' "high-cardinality numeric stays continuous"
 
-* String distinct count treats "" as a value (matches -duplicates report-)
+* String distinct count excludes the empty string ("x", "", "y", "x": 2), as datadict does
 clear
 set obs 4
 gen str5 s = "x"
@@ -166,9 +166,9 @@ local got_s = r(mean)
 restore
 
 local ++test_count
-local ok = (`got_s' == 3)
+local ok = (`got_s' == 2)
 local pass_count = `pass_count' + `ok'
-_v152_say `ok' "string distinct count counts empty string as a value (got `got_s')"
+_v152_say `ok' "string distinct count excludes the empty string (got `got_s')"
 
 * strL is countable and does not abort classification
 clear

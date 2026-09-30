@@ -229,7 +229,18 @@ rest join the pooled row;{p_end}
 and the monotone count are masked the same way, and {bf:Max missing/obs} is
 suppressed unless at least {it:m} observations share the maximum;{p_end}
 {phang2}o  a zero count prints as {bf:0} with its percentage, even when the total
-is small: it reveals nothing about the total.{p_end}
+is small: it reveals nothing about the total;{p_end}
+{phang2}o  {opt graph(bar)} withholds a bar whose missing count or complement is
+from 1 to {it:m}-1 (with {opt gby()} or {opt over()}, also a bar from a group of
+fewer than {it:m} rows); {opt graph(patterns)} draws only the patterns the table
+shows, and with {opt gby()} omits a group's patterns with a frequency below
+{it:m}; {opt graph(matrix)}, which plots individual observations, is refused
+with error 198.{p_end}
+
+{pstd}
+Masking governs what is printed or drawn: no count from 1 to {it:m}-1 appears in
+the output. It does not guard against differencing across the outputs of one
+call, and correlations, which are not counts, are shown as computed.
 
 {pstd}
 {cmd:r(N_patterns)} still counts every pattern that passes the filters; {cmd:r(N_patterns_pooled)}
@@ -273,7 +284,8 @@ patterns; use {opt top(#)} to adjust.
 across the dataset. Missing values appear in red (customizable with
 {opt misscolor()}), observed values in blue (customizable with {opt obscolor()}). For
 large datasets (>500 observations), a random sample is drawn by
-default. The only accepted suboptions are:
+default; the sample follows the current {help set seed:seed} and leaves the random-number
+state as it found it. The only accepted suboptions are:
 
 {phang3}
 {opt graph(matrix, sample(#))} specifies the number of observations to sample.

@@ -136,7 +136,7 @@ local quick_suites ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial
 
-local core_suites ///
+local core_suites validation_fixture_recovery test_fixture_names ///
     test_iivw ///
     test_iivw_expanded ///
     test_iivw_replay ///

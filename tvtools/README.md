@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.17.3** | 2026-09-29
+**Version 1.17.4** | 2026-09-30
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -470,6 +470,10 @@ Result names below are returned in `r()` after successful execution; option-depe
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.17.4 (2026-09-30)
+
+- Preserve caller `S_1` and `S_2` globals, including absence, when `tvweight` succeeds or refuses a call.
 
 - **1.17.3** (2026-09-29): `tvexpose` layer precedence now ranks overlapping episodes by their own start date, not the entry date they are clipped to, so an episode that began later wins after clipping and same-value merging; `dose` keeps only the in-window share of an episode clipped at entry or exit; `washout()` now reaches past entry for an episode that ended before it; an acute `window()` closing before entry is counted as outside follow-up instead of stopping the default path. `fillgaps()` now extends the episode(s) with the latest stop date instead of the latest-starting episode, whose extension could vanish inside an enclosing episode. `tvevent, type(single)` drops person-time after a first event that falls in an internal coverage gap (it cannot be flagged, and a later event is no longer flagged as the first) and reports it; events before the first interval remain ignored. `tvband`/`tvsplit` reject fractional widths and calendar anchors that would write fractional dates. Added release regressions with daily oracles.
 - **1.17.2** (2026-09-09): Fixed extra-exposure mapping and metadata with `tvmerge, generate()`, preserved caller scalars and empty-output schemas, corrected recurring-event sequence numbers across parallel strata and gap-time clocks across observation gaps, preserved quoted event labels, made failed `tvspec add` calls transactional, and rejected unrepresentable reference labels without committing output, and supported legal source/output names that resemble internal build variables. Added release regressions and self-contained specification examples.

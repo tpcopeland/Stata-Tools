@@ -573,6 +573,343 @@ capture {
 }
 _dc `=_rc' "planned inrange(): td() date literals are accepted for date variables"
 
+**# 1.8.0 review regressions (datacheck core)
+
+* Log scanner: lines containing every one of up to three literal strings
+capture program drop _dca_count
+program define _dca_count, rclass
+    args file n1 n2 n3
+    tempname fh
+    local n = 0
+    file open `fh' using `"`file'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local hit = strpos(`"`macval(line)'"', `"`n1'"') > 0
+        if `"`n2'"' != "" & !strpos(`"`macval(line)'"', `"`n2'"') local hit = 0
+        if `"`n3'"' != "" & !strpos(`"`macval(line)'"', `"`n3'"') local hit = 0
+        if `hit' local ++n
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar n = `n'
+end
+local _ls0 = c(linesize)
+set linesize 255
+tempfile dca_log dca_spec dca_ms
+
+* checks(): an allowed row whose values are quoted strings (was r(198))
+clear
+set obs 10
+gen str10 arm = cond(_n <= 5, "usual", "active")
+preserve
+clear
+input str16 check str32 var str60 values
+"allowed" "arm" `""usual" "active""'
+end
+quietly save "`dca_spec'", replace
+restore
+capture {
+    capture quietly datacheck, gatesonly checks("`dca_spec'")
+    assert _rc == 0
+    assert r(n_checks) == 1
+    assert r(n_violations) == 0
+    replace arm = "other" in 1
+    capture quietly datacheck, gatesonly checks("`dca_spec'")
+    assert _rc == 9
+}
+_dc `=_rc' "checks(): allowed row with quoted string values runs, passes, and fails on a new level"
+
+* makespec(): the starter spec passes on the data it was made from
+* (spaced string levels, 11-digit double levels, a fractional double range)
+clear
+set obs 40
+gen str10 city = cond(_n <= 20, "New York", "Oslo")
+gen double lev = 1.99999999999 + mod(_n, 20)
+gen double y = 1.99999999999 + _n / 7
+capture {
+    capture quietly datacheck city lev y, makespec("`dca_ms'.dta", replace)
+    assert _rc == 0
+    quietly summarize y
+    local ymin = r(min)
+    local ymax = r(max)
+    preserve
+    quietly use "`dca_ms'.dta", clear
+    quietly count if check == "allowed"
+    assert r(N) == 2
+    quietly count if check == "inrange" & var == "y"
+    assert r(N) == 1
+    quietly levelsof arg1 if var == "y", local(a1) clean
+    quietly levelsof arg2 if var == "y", local(a2) clean
+    restore
+    * an independent oracle: the written bounds read back as the observed extremes
+    tempvar chk
+    quietly gen double `chk' = y
+    quietly count if `chk' < real("`a1'") | `chk' > real("`a2'")
+    assert r(N) == 0
+    assert real("`a1'") == `ymin'
+    assert real("`a2'") == `ymax'
+    capture quietly datacheck city lev y, gatesonly checks("`dca_ms'.dta")
+    assert _rc == 0
+    assert r(n_violations) == 0
+    assert strpos(" `r(checks_run)' ", " allowed ") > 0
+    assert strpos(" `r(checks_run)' ", " inrange ") > 0
+}
+local _trc = _rc
+* a failed assert inside the block leaves the data preserved
+capture restore
+_dc `_trc' "makespec(): spec round-trips through checks() on its own data (strings, doubles)"
+capture erase "`dca_ms'.dta"
+
+* regex() on a numeric id is matched on the integer in full, not 1.23e+09
+clear
+set obs 5
+gen long pnr = 1234567890 + _n
+gen float fl = 16777216 + 2 * _n
+capture {
+    capture quietly datacheck, gatesonly regex(pnr "^123456789[0-9]$" \ fl "^167772[0-9][0-9]$")
+    assert _rc == 0
+    assert r(n_violations) == 0
+    replace pnr = 999 in 1
+    capture quietly datacheck, gatesonly regex(pnr "^123456789[0-9]$") warn
+    assert _rc == 0
+    assert r(n_violations) == 1
+}
+_dc `=_rc' "regex(): numeric ids and float integers match in fixed notation"
+
+* checks() isid and expectn rows add entries; they never replace isid()/expectn()
+clear
+set obs 10
+gen id = _n
+gen dup = 1
+preserve
+clear
+input str16 check str32 var str8 arg1
+"isid"    "id" ""
+"expectn" ""   "10"
+end
+quietly save "`dca_spec'", replace
+restore
+capture {
+    capture quietly datacheck, gatesonly isid(dup) checks("`dca_spec'")
+    assert _rc == 9
+    capture quietly datacheck, gatesonly isid(dup) checks("`dca_spec'") warn
+    assert r(n_violations) == 1
+    assert "`r(violations)'" == "isid"
+    capture quietly datacheck, gatesonly expectn(99) checks("`dca_spec'")
+    assert _rc == 9
+    capture quietly datacheck, gatesonly expectn(99) checks("`dca_spec'") warn
+    assert r(n_violations) == 1
+    assert "`r(violations)'" == "expectn"
+    capture quietly datacheck, gatesonly isid(id \ dup) warn
+    assert r(n_violations) == 1
+    capture quietly datacheck, gatesonly isid(id) expectn(10) checks("`dca_spec'")
+    assert _rc == 0
+    assert r(n_violations) == 0
+}
+_dc `=_rc' "checks() isid/expectn rows evaluate beside isid()/expectn(); a failing CLI gate fails"
+
+* two checks() isid rows: both keys are checked, in either order
+clear
+set obs 10
+gen id = _n
+gen dup = 1
+foreach ord in "id dup" "dup id" {
+    preserve
+    clear
+    set obs 2
+    gen str16 check = "isid"
+    gen str32 var = word("`ord'", _n)
+    quietly save "`dca_spec'", replace
+    restore
+    capture quietly datacheck, gatesonly checks("`dca_spec'") warn
+    local _r`=subinstr("`ord'", " ", "_", .)' = r(n_violations)
+}
+capture {
+    assert `_rid_dup' == 1
+    assert `_rdup_id' == 1
+}
+_dc `=_rc' "checks(): two isid rows are two gates whichever row comes first"
+
+* forbid()/notvalues(): an explicit missing code matches that code
+clear
+set obs 10
+gen x = _n
+replace x = .a in 1
+capture {
+    capture quietly datacheck, gatesonly forbid(x .a)
+    assert _rc == 9
+    capture quietly datacheck, gatesonly notvalues(x .a) warn
+    assert r(n_violations) == 1
+    capture quietly datacheck, gatesonly forbid(x . .b)
+    assert _rc == 0
+    capture quietly datacheck, gatesonly allowed(x 2 3 4 5 6 7 8 9 10) warn
+    assert r(n_violations) == 0
+}
+_dc `=_rc' "forbid()/notvalues(): .a matches .a only; . and .b do not"
+
+* maskrare: the DATE window count is masked when its complement is small
+clear
+set obs 100
+gen dt = td(01jan2020) + _n
+format dt %td
+capture log close _dca
+quietly log using "`dca_log'", text replace name(_dca)
+capture noisily datacheck dt, maskrare inrange(dt td(01jan2020) td(03jan2020)) warn
+local _drc = _rc
+quietly log close _dca
+capture {
+    assert `_drc' == 0
+    _dca_count "`dca_log'" "98 obs outside declared window"
+    assert r(n) == 0
+    _dca_count "`dca_log'" "all but <5 obs outside declared window"
+    assert r(n) == 1
+}
+_dc `=_rc' "maskrare: DATE window count beside missing=0 masks its small complement"
+
+* maskrare: KEY STRUCTURE multi-record key count masks its small complement
+clear
+set obs 200
+gen long pid = ceil(_n / 2)
+replace pid = 1000 + _n in 1/2
+capture log close _dca
+quietly log using "`dca_log'", text replace name(_dca)
+capture noisily datacheck pid, id(pid) maskrare
+local _krc = _rc
+quietly log close _dca
+capture {
+    assert `_krc' == 0
+    _dca_count "`dca_log'" "101 distinct keys"
+    assert r(n) == 1
+    _dca_count "`dca_log'" "99 key(s)"
+    assert r(n) == 0
+    _dca_count "`dca_log'" "all but <5 key(s) with >1 record"
+    assert r(n) == 1
+}
+_dc `=_rc' "maskrare: KEY STRUCTURE never prints distinct keys beside a near-total multi-key count"
+
+* exclude(): no missing share in QUICK REFERENCE and no extremes in inrange()
+clear
+set obs 30
+gen double pnr = 190001011000 + _n
+replace pnr = . in 1/2
+gen byte k = mod(_n, 3)
+capture log close _dca
+quietly log using "`dca_log'", text replace name(_dca)
+capture noisily datacheck, exclude(pnr) inrange(pnr 0 10) warn
+capture noisily datacheck, gatesonly exclude(pnr) inrange(pnr 0 10) warn
+quietly log close _dca
+capture {
+    _dca_count "`dca_log'" "pnr" "excluded" "6.7%"
+    assert r(n) == 0
+    _dca_count "`dca_log'" "190001011003"
+    assert r(n) == 0
+    _dca_count "`dca_log'" "inrange(pnr): 28 obs outside" "extremes withheld: excluded"
+    assert r(n) == 2
+}
+_dc `=_rc' "exclude(): Miss% and inrange() extremes of an excluded variable are withheld"
+* positive control: without exclude() the extremes print, so the scan can see them
+capture log close _dca
+quietly log using "`dca_log'", text replace name(_dca)
+capture noisily datacheck, gatesonly inrange(pnr 0 10) warn
+quietly log close _dca
+capture {
+    _dca_count "`dca_log'" "min 190001011003"
+    assert r(n) == 1
+}
+_dc `=_rc' "exclude() control: a non-excluded variable's inrange() extremes do print"
+
+* makespec(): a string level holding a dollar sign cannot round-trip through a
+* macro, so that variable gets no allowed row and the spec still passes
+clear
+set obs 20
+gen str4 s = cond(_n <= 5, "a" + char(36) + "b", cond(_n <= 10, "t ", "u"))
+gen str1 k = cond(_n <= 10, "x", "y")
+capture {
+    capture quietly datacheck s k, makespec("`dca_ms'.dta", replace)
+    assert _rc == 0
+    preserve
+    quietly use "`dca_ms'.dta", clear
+    quietly count if check == "allowed" & var == "s"
+    assert r(N) == 0
+    quietly count if check == "allowed" & var == "k"
+    assert r(N) == 1
+    restore
+    capture quietly datacheck s k, gatesonly checks("`dca_ms'.dta")
+    assert _rc == 0
+    assert r(n_violations) == 0
+}
+local _trc = _rc
+* a failed assert inside the block leaves the data preserved
+capture restore
+_dc `_trc' "makespec(): a level with a dollar sign gets no allowed row; the spec passes"
+capture erase "`dca_ms'.dta"
+
+* maskrare: no masked share prints as ".%" in any profile block
+clear
+set obs 40
+gen byte g = 1 + (_n > 20)
+gen double m = _n
+replace m = . in 1/2
+gen double o = _n
+replace o = 1000 + _n in 39/40
+gen double e = _n
+capture log close _dca
+quietly log using "`dca_log'", text replace name(_dca)
+capture noisily datacheck m o e, by(g) exclude(e) outliers(1) maskrare ///
+    review("r": _n <= 2)
+local _prc = _rc
+quietly log close _dca
+capture {
+    assert `_prc' == 0
+    * every block that prints a share ran
+    foreach blk in "complete cases:" "QUICK REFERENCE" "outlier(s)" "MISSINGNESS" ///
+        "GROUPWISE SUMMARY" "GROUPWISE MISSINGNESS" "review(r):" {
+        _dca_count "`dca_log'" "`blk'"
+        assert !missing(r(n)) & r(n) >= 1
+    }
+    _dca_count "`dca_log'" ".%"
+    assert r(n) == 0
+    _dca_count "`dca_log'" "[masked]"
+    assert !missing(r(n)) & r(n) >= 1
+    _dca_count "`dca_log'" "[excluded]"
+    assert r(n) == 1
+}
+_dc `=_rc' "maskrare: masked shares never print as .% (header, QUICK REFERENCE, outliers, MISSINGNESS, GROUPWISE, review)"
+set linesize `_ls0'
+
+* keyset(): a quoted filename holding a comma and a space reaches the helper whole
+local dca_kf "`c(tmpdir)'/dca keys,1.dta"
+clear
+set obs 9
+gen long id = _n
+quietly save "`dca_kf'", replace
+clear
+set obs 10
+gen long id = _n
+preserve
+clear
+set obs 1
+gen str16 check = "keyset"
+gen str32 var = "id"
+gen str244 values = "`dca_kf'"
+gen str16 arg1 = "superset"
+quietly save "`dca_spec'", replace
+restore
+capture {
+    capture quietly datacheck, gatesonly keyset(id using "`dca_kf'", superset)
+    assert _rc == 0
+    assert r(keyset_only_master) == 1
+    assert r(keyset_only_using) == 0
+    capture quietly datacheck, gatesonly keyset(id using "`dca_kf'") warn
+    assert _rc == 0
+    assert r(n_violations) == 1
+    capture quietly datacheck, gatesonly checks("`dca_spec'")
+    assert _rc == 0
+    assert "`r(checks_run)'" == "keyset"
+}
+_dc `=_rc' "keyset(): quoted filename with a comma, through datacheck and a checks() row"
+capture erase "`dca_kf'"
+
 * ============================================================
 * Summary
 * ============================================================

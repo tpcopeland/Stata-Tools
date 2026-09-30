@@ -1,5 +1,11 @@
 # setools QA
 
+archetypes: A3(cdp pira sustainedss) A4(migrations) A5(cci_se)
+
+Canonical fixture adoption is in progress. Exact micro-series separately pin two-/three-tier sustained/visit CDP, threshold6 sustained/visit crossings, relapse-filtered PIRA and every roving event/baseline. Swedish CCI uses exact code-profile components; migration cases distinguish later returns from permanent emigration. These EDSS micro-series are deterministic event rules, not stochastic clinical-effect recovery. Shared long-name code invariance is separate. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
+
 The `setools` QA suite is flat and concern-oriented: one functional, regression, validation, or cross-validation file per concern, driven by a curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run

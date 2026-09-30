@@ -79,3 +79,11 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 archetypes: A1(diagtab) A7(diagtab)
 
 `validation_diagtab_fixture_contract.do` runs in full: seven independently enumerated diagnostic-count/AUC and hostile-score/refusal-state cases from canonical A1-DIAG. Exact counts and rates use 1e-14; AUC uses 1e-7 because native `roctab` returns .8199999856948854 for exact .82 in the observed micro design. A7 export and primitive-hostility adoption is pending; declared archetypes report owed cells rather than claiming completion. Existing functional/validation export tests continue to run.
+
+## Canonical fixture adoption
+
+File fixture regression covers specific quoted-path refusal cause, whole owned-tree byte preservation, extensionless refusal, stale target/user sheets and Unicode/spaces alias across workbook/CSV/Markdown contents. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `test_diagtab_fixture_files.do` | Canonical fixture truth and hostile contracts | full |

@@ -100,6 +100,12 @@ capture noisily {
             NOINTercept KEEPINTercept KEEP(string) DROP(string) ///
             DIGits(integer -1) STATs(string) DISPlay]
 
+    * Stata stores the automatic no-negation in eform, not noeform.
+    if "`eform'" == "noeform" {
+        local eform ""
+        local noeform "noeform"
+    }
+
     if `digits' >= 0 local decimal = `digits'
 
     * Auto-load bundled Excel helpers on demand
@@ -1411,6 +1417,12 @@ capture noisily {
         FONTSize(integer 10) BORDERstyle(string) ZEBRA ZEBRAColor(string) ///
         HEADERShade HEADERColor(string) BOLDp(real 0) HIGHlight(real 0) ///
         DISPlay]
+
+    * Stata stores the automatic no-negation in eform, not noeform.
+    if "`eform'" == "noeform" {
+        local eform ""
+        local noeform "noeform"
+    }
 
     if `decimal' < 1 | `decimal' > 6 {
 		noisily display as error "decimal()/digits() must be between 1 and 6"

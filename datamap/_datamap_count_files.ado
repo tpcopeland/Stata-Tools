@@ -1,4 +1,4 @@
-*! _datamap_count_files Version 1.8.0  2026/09/30
+*! _datamap_count_files Version 1.8.1  2026/09/30
 *! Count file paths in a datamap/datadict filelist
 *! Author: Timothy P Copeland, Karolinska Institutet
 

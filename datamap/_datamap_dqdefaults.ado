@@ -1,4 +1,4 @@
-*! _datamap_dqdefaults Version 1.8.0  2026/09/30
+*! _datamap_dqdefaults Version 1.8.1  2026/09/30
 *! Parse the dataqa session defaults held in the global DATAMAP_DQ
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

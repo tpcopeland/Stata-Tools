@@ -1,5 +1,7 @@
 # raincloud QA
 
+<!-- archetypes: A1 A7 -->
+
 The `raincloud` QA suite is flat and concern-oriented, with a curated runner and independently runnable functional, regression, release-surface, and known-answer suites.
 
 ## How to run
@@ -67,3 +69,13 @@ For this compact package, `quick` and `full` intentionally run the same release 
 |---|---|
 | `quick` | `test_raincloud.do`, `test_raincloud_errors.do`, `test_regressions.do`, `validation_raincloud.do`, `test_package_release.do` |
 | `full` | Same curated release gate as `quick` |
+
+Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases check all seven numerical summary columns and the intentionally absent bandwidth for nocloud against exact integer-block formulas. Unsorted and label-gap variants are consumed.
+
+| Added QA file | Role |
+|---|---|
+| `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
+| `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+
+Fixture coverage still owed: KDE/grid/rendered literal text, weights, A1 Gaussian recovery, file output and remaining A1/A7 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

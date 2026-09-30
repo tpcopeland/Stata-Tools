@@ -1,5 +1,11 @@
 # iivw QA
 
+archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iivw_bspool)
+
+Canonical fixture adoption is in progress. Predictable visit intensity and analytic full-data mean recovery at two seeds; weight, unweighted/fixed-sandwich fit and replay, balance, exogeneity, overview and decomposition numeric/state contracts. Long-name fit invariance uses the shared primitive. Shard pooling and additional weight/inference routes remain uncovered by these new canonical suites. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_recovery.do`.
+
 The `iivw` QA suite is flat and concern-oriented, with curated lanes in `run_all.do` and independently runnable suites in this directory. It covers the public commands, pipeline state, installed-user behavior, numerical recovery, documentation, exports, and external parity.
 
 ## How to run

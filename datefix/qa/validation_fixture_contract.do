@@ -11,20 +11,24 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
-local tests=0
-local pass=0
-local fail=0
 
-**# String conversion/native pass-through and all output modes
-foreach op in friendly boundary_values unsorted {
+capture program drop _fx_datefix_1
+program define _fx_datefix_1, rclass
+    version 16.0
+    args op fixtureopts
+    tempfile fx_input
+    tempname fx_returns
+    _return hold `fx_returns'
+    quietly save `fx_input'
+    local tests=0
+    local pass=0
+    local fail=0
+
     foreach mode in inplace new drop numeric {
         local ++tests
         capture noisily {
-            if "`op'"=="friendly" qa_fx_a4_spells, clear tier(micro)
-            else {
-                * expect: EXACT
-                qa_fx_a4_spells, clear tier(micro) perturb(`op')
-            }
+            quietly use `fx_input', clear
+                _return restore `fx_returns', hold
             gen double want=start
             gen str12 text=string(start,"%tdCCYY-NN-DD")
             qa_state_snapshot, tag(date_f)
@@ -44,7 +48,35 @@ foreach op in friendly boundary_values unsorted {
         if _rc==0 local ++pass
         else local ++fail
     }
-}
+
+    capture _return restore `fx_returns'
+    return scalar qa_tests=`tests'
+    return scalar qa_pass=`pass'
+    return scalar qa_fail=`fail'
+end
+
+local tests=0
+local pass=0
+local fail=0
+
+**# String conversion/native pass-through and all output modes
+qa_fx_a4_spells, clear tier(micro)
+_fx_datefix_1 friendly ""
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(boundary_values)
+_fx_datefix_1 boundary_values "perturb(boundary_values)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
+* expect: EXACT
+qa_fx_a4_spells, clear tier(micro) perturb(unsorted)
+_fx_datefix_1 unsorted "perturb(unsorted)"
+local tests=`tests'+r(qa_tests)
+local pass=`pass'+r(qa_pass)
+local fail=`fail'+r(qa_fail)
 **# Explicit invalid order refusal with friendly positive control above
 local ++tests
 capture noisily {

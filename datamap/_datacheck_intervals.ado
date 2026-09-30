@@ -1,4 +1,4 @@
-*! _datacheck_intervals Version 1.8.0  2026/09/30
+*! _datacheck_intervals Version 1.8.1  2026/09/30
 *! datacheck intervals(): interval-file structure checked on its own sort
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -6,15 +6,19 @@
 // Spec: id [id ...] start stop [, contiguous event(varname) tol(#)]
 //
 // Named checks, each posted as its own record (label = check name):
-//   missing     start and stop nonmissing
+//   missing     id, start, and stop nonmissing
 //   order       start < stop
 //   overlap     within id, sorted by start, start >= latest earlier stop - tol
 //   gap         (contiguous) within id, start <= latest earlier stop + tol
 //   event_last  (event()) the event is nonzero only on the id's last interval
 //
 // The helper sorts datacheck's working copy itself, so the caller's sort
-// order does not matter.  Rows with a missing start or stop fail
-// intervals(missing) and are left out of the ordering checks.  parseonly
+// order does not matter.  Rows with a missing id, start, or stop fail
+// intervals(missing) and are left out of the other checks: rows without an
+// id belong to no person, so they are never compared with each other.
+// With a float start or stop, start and stop +/- tol are compared at float
+// precision, so a start typed on the tolerance boundary is not a violation.
+// The persons count is of nonmissing ids.  parseonly
 // validates the spec and returns r(vars) without touching the data.
 program define _datacheck_intervals, rclass
     version 16.0
@@ -66,6 +70,12 @@ program define _datacheck_intervals, rclass
         local ivars "`ids' `start' `stop'"
         tempvar nm prev last tg fail
         quietly generate byte `nm' = !missing(`start') & !missing(`stop')
+        foreach iv of local ids {
+            quietly replace `nm' = 0 if missing(`iv')
+        }
+        // With a float start or stop, the ordering checks compare at float
+        // precision on both sides, so values typed equal are equal.
+        local fc = cond("`: type `start''" == "float" | "`: type `stop''" == "float", "float", "")
         // prev is the latest stop so far within the id, so an interval nested
         // inside an earlier long one neither hides an overlap nor makes a gap
         tempvar runmax
@@ -82,8 +92,8 @@ program define _datacheck_intervals, rclass
             capture drop `tg'
             if "`ck'" == "missing" {
                 quietly generate byte `fail' = !`nm'
-                local what "have a missing start or stop"
-                local exp "start and stop nonmissing"
+                local what "have a missing id, start, or stop"
+                local exp "id, start, and stop nonmissing"
             }
             else if "`ck'" == "order" {
                 quietly generate byte `fail' = `nm' & !(`start' < `stop')
@@ -91,17 +101,17 @@ program define _datacheck_intervals, rclass
                 local exp "start < stop"
             }
             else if "`ck'" == "overlap" {
-                quietly generate byte `fail' = `nm' & !missing(`prev') & `start' < `prev' - `tol'
+                quietly generate byte `fail' = `nm' & !missing(`prev') & `fc'(`start') < `fc'(`prev' - `tol')
                 local what "overlap the previous interval"
                 local exp "start >= latest earlier stop - `ttxt'"
             }
             else if "`ck'" == "gap" {
-                quietly generate byte `fail' = `nm' & !missing(`prev') & `start' > `prev' + `tol'
+                quietly generate byte `fail' = `nm' & !missing(`prev') & `fc'(`start') > `fc'(`prev' + `tol')
                 local what "start after the previous stop (gap)"
                 local exp "start = latest earlier stop within `ttxt'"
             }
             else {
-                quietly generate byte `fail' = !missing(`event') & `event' != 0 & !`last'
+                quietly generate byte `fail' = `nm' & !missing(`event') & `event' != 0 & !`last'
                 local what "carry `event' on an interval other than the last"
                 local exp "`event' nonzero only on the last interval"
             }

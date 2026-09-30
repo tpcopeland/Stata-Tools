@@ -1,4 +1,4 @@
-*! tvmerge Version 1.17.3  2026/09/29
+*! tvmerge Version 1.17.4  2026/09/30
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -56,3 +56,13 @@ stata-mp -b do test_tc_schemes_errors.do
 | `quick` | `test_tc_schemes.do`, `test_tc_schemes_errors.do`, `test_tc_schemes_documentation_examples.do`, `test_tc_schemes_hostile.do` |
 | `core` | `quick` plus `validation_tc_schemes.do` |
 | `full` | `core` |
+
+archetypes: A7(tc_schemes)
+
+## Canonical fixture adoption
+
+Exact original catalogue identities and caller fingerprints under labelled variants; native graph description verifies real bundled ki scheme rendering. Catalogue truth is dataset independent. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_tc_schemes_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |

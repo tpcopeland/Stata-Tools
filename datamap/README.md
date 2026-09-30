@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.8.0** | 2026-09-30
+**Version 1.8.1** | 2026-09-30
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -379,6 +379,16 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.8.1 (2026-09-30)
+
+- `dataqa`: `dataqa set ..., replace` removes the rows already under `run()` from the ledger (a note is printed when a run already has rows); `report`, `assert`, and `export` read only the latest call of each gate, so a fixed failure no longer halts a same-run rerun (`r(n_superseded)`), while a rerun with changed bounds is a new gate and leaves the old failure visible; `compare` keys entries the same way; `export` refuses a `saving()` path that resolves to the ledger it reads (r(602)).
+- Disclosure: `datamap` and `datadict` withhold a complementary cell when a lone suppressed cell could be recovered from N and the missing count, and apply `mincell()` to the survival event rate and the complete-case count; `datesafe` withholds date-class survival time ranges; `saving()` rows of excluded variables carry no value-label name, notes, or characteristics. `datacheck` masks a small complement in `stat()` `n`/`sum`/`distinct`/`pmiss`, `sets(values)`, the DATE window, and KEY STRUCTURE, and withholds an excluded variable's Miss% and `inrange()` extremes. `datamvp` graphs follow the table's mask: `graph(bar)` withholds masked bars, `graph(patterns)` draws only table-shown patterns, and `graph(matrix)`, which plots individual observations, is refused under masking.
+- Display: a masked share prints as `[masked]` (or `n/a` for an empty denominator) rather than `.%`, and an excluded variable's share as `[excluded]`, which widens the `datacheck` QUICK REFERENCE Miss% column; `groupstat()` columns stay separated for 12-character names, a failing band value prints at full precision, and with `relative` the cells show the group-to-pooled ratio that the band tests.
+- `exclude()` in `datamap` and `datadict` expands wildcards and ranges; a range that cannot be resolved in a file is an error (r(111)) before any output is written, and a token matching no variable prints a note. `filelist()` keeps quoted names with spaces; a quoted whole list is split into names only when the words cannot be one path (bare names, or every word written with `.dta` or a path), so a mixed form such as `filelist("sub/a b")` must list each name separately. Zero-observation files are documented. String `unique` counts exclude the empty string in every command.
+- `datacheck`: `checks()` `isid`/`expectn` rows add gates instead of replacing the command-line ones, and `isid()` takes `\`-separated keys; `forbid()`/`notvalues()` with an explicit missing code (`.`, `.a`-`.z`) now match that code, so a call that passed can halt; `regex()` on a numeric variable matches integers in full and other values at `%16.0g`; `makespec()` writes specs that read back as passing on the same data (a string variable with a level containing `$`, a quote, a backtick, or `\` gets no allowed row); `keyset()` accepts quoted filenames with commas or spaces; `heaping()` and `coverage()` explain how to give a date variable a daily display format when they refuse it.
+- Gates that passed on data they did not test now fail: `events()` with an all-missing covariate, `groupstat()` bands with an empty scope or no group tested, and `intervals()` rows with a missing id; float values are compared at float precision at `intervals()` `tol()`, `jumps()` `ratio()`, and `groupstat()` percentile bounds.
+- `datamvp` restores the random-number state after sampling for `graph(matrix)`, and preserves an existing or absent `S_2` legacy global on success, the no-missing shortcut, and refusal.
 
 ### 1.8.0 (2026-09-30)
 

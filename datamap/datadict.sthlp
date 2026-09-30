@@ -144,7 +144,16 @@ specified). Use {cmd:directory(.)} to scan the current working directory.
 {phang}
 {opt file:list(names)} documents a specific set of datasets given as a
 space-separated list. For example, {cmd:filelist(patients hrt dmt)} documents
-{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}.
+{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}. Enclose a name that contains
+spaces in double quotes: {cmd:filelist("my data/patients" hrt)}. For backward
+compatibility, a quoted string that is not itself a file is read as a list when
+every word looks like a whole name ({cmd:filelist("patients hrt")}); a string
+ending in {cmd:.dta}, or containing a path separator, splits only if every word
+does, or if every word is an existing file written with its {cmd:.dta}
+extension ({cmd:filelist("sub/a.dta b.dta")}). The bare form is ambiguous: if {it:my file.dta} does not exist but
+{it:my.dta} and {it:file.dta} do, {cmd:filelist("my file")} documents those
+two files. Give the extension or a path ({cmd:filelist("./my file")}) to make a
+spaced name unambiguous.
 
 {phang}
 {opt rec:ursive} makes {opt directory()} also descend into subdirectories. Hidden
@@ -192,8 +201,10 @@ schema is shared with {help datamap} and {help datacheck}. Specify
 {cmd:replace} to overwrite an existing file.
 
 {pmore}
-{bf:unique_capped} marks rows whose {bf:unique} count was censored by
-{opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
+{bf:unique} counts distinct nonmissing values; for a string variable the
+empty string, Stata's string missing value, is not counted, so {cmd:datamap}
+and {cmd:datadict} report the same count. {bf:unique_capped} marks rows whose
+{bf:unique} count was censored by {opt uniqcap()}. When it is 1, {bf:unique} is a lower bound, not an exact
 cardinality.
 
 {dlgtab:Document metadata}
@@ -303,12 +314,25 @@ count. Default is {bf:25}. Must be positive.
 {opt minc:ell(#)} suppresses categorical frequency cells with counts smaller
 than {it:#} when {opt stats} is requested. Suppressed cells are shown as
 {bf:(suppressed <#)}. The default is {bf:5}; specify {cmd:mincell(0)} to show
-all cells.
+all cells. Suppression is complementary: because the observation and missing
+counts are printed, a single suppressed cell could be recovered by
+subtraction, so the smallest remaining cell is also withheld, shown as
+{bf:(suppressed, complementary)}, until the withheld cells number at least two
+and together hold at least {it:#} observations.
 
 {phang}
 {opt exc:lude(varlist)} removes sensitive variables from the Markdown dictionary
 and from the {opt saving()} metadata dataset. Use this for direct identifiers
-and any variable whose values should not leave the working data file.
+and any variable whose values should not leave the working data
+file. Wildcards and ranges ({cmd:exclude(ssn*)}, {cmd:exclude(name1-name3)}) are
+expanded against each dataset. Names and wildcards that match no variable in a
+given dataset are ignored there; a note names any that match no variable in
+any dataset. A range must resolve in every dataset: if either endpoint is
+absent from a file, or the endpoints appear in reverse order, the command stops
+with error 111 before writing any output. A range is positional and resolves
+separately in each file: {cmd:exclude(a-c)} removes {it:x} from a file ordered
+{it:a b x c} but documents it in one ordered {it:a c x b}. For multi-file runs,
+list the names or use wildcards. Abbreviations are not expanded.
 
 {phang}
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt datev:ars(varlist)} force the

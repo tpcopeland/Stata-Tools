@@ -1,4 +1,4 @@
-*! _datacheck_coverage Version 1.8.0  2026/09/30
+*! _datacheck_coverage Version 1.8.1  2026/09/30
 *! datacheck coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -46,7 +46,13 @@ program define _datacheck_coverage, rclass
         local vf : format `dv'
         local vf = subinstr("`vf'", "%-", "%", 1)
         if !(substr("`vf'", 1, 3) == "%td" | substr("`vf'", 1, 2) == "%d") {
-            display as error "coverage(): `dv' must be a daily (%td) date; convert a %tc datetime with dofc()"
+            // another date unit needs a conversion, not a display format
+            local tl = substr("`vf'", 3, 1)
+            if substr("`vf'", 1, 2) == "%t" {
+                local cv = cond(strpos("cCmqwhyb", "`tl'") > 0, "; convert it to a daily date with dof`tl'()", "")
+                display as error "coverage(): `dv' has a %t`tl' format, not a daily (%td) date`cv'"
+            }
+            else display as error "coverage(): `dv' must be a daily (%td) date; give it a daily date display format, e.g. format `dv' %td"
             exit 198
         }
         local 0 `", `opts'"'
@@ -112,14 +118,16 @@ program define _datacheck_coverage, rclass
                     local ok = (`nout' / `n' <= `tail')
                     _datacheck_mshare `nout' `n' `mask'
                     local ocnt "`r(cnt)'"
-                    local opct "`r(pct)'"
+                    local opct "`r(pcttxt)'"
                     local om = r(masked)
                     if !`om' & `nout' >= 1 local mins = `nout'
                     if !`om' local onum = `nout' / `n'
                     local ttxt = strtrim(string(100 * `tail', "%9.2g"))
-                    local obs "`ocnt' dates (`opct'%) outside"
+                    // a masked share is left out: the count says what can be said
+                    local oshr = cond(`om', "", " (`opct')")
+                    local obs "`ocnt' dates`oshr' outside"
                     local exp "at most `ttxt'% outside [`lotxt', `hitxt']"
-                    local msg `"`pfx'coverage(`ck'): `ocnt' of `dv' dates (`opct'%) outside [`lotxt', `hitxt'], tail allows `ttxt'%"'
+                    local msg `"`pfx'coverage(`ck'): `ocnt' of `dv' dates`oshr' outside [`lotxt', `hitxt'], tail allows `ttxt'%"'
                 }
                 else if "`ck'" == "late_end" {
                     local cut = `hi_num' - `gap'

@@ -1,5 +1,8 @@
 # finegray QA
 
+archetypes: A2
+
+
 The `finegray` QA suite covers estimation, prediction, cumulative-incidence reporting, and proportional-subdistribution-hazards diagnostics through functional, known-answer, and independent-oracle checks. Suites live in a flat `qa/` root, use one curated lane runner, and are independently runnable from this directory.
 
 This file is the runbook: how to run each lane, and one sentence on what each file checks. The retrospective material — why a check exists, what it was measured at, and which defect it was written against — is in [AUDIT_NOTES.md](AUDIT_NOTES.md).
@@ -211,3 +214,15 @@ Adversarial axes, in cells (`check qa finegray --view axes`: 21/21 owed cells pr
 - `full` intentionally excludes the multi-hour `gates` lane and scaling benchmark; their separate receipts and transfer pin do not substitute for rerunning them after an estimator-core change.
 
 `PWEIGHT_SCOPE.md` records a reproducible high-censoring counterexample and the precise population-interpretation boundary for pweights. Passing the recovery configuration or frozen R parity does not establish validity under general outcome-dependent sampling.
+
+## Canonical A2 fixture adoption
+
+`validation_fixture_recovery.do` precedes `validation_fixture_matrix.do` in quick/core/full. The recovery suite fits the genuinely proportional Fine–Gray mixture and checks both coefficients and twelve keyed CIF cells under administrative and random censoring. The direct suite enumerates censoring KM and retained-competitor risk weights independently, checks modified Breslow baselines, all prediction types and raw residual/time correlations, then compares aligned coefficient fits to native Stata. It covers every required A2 operator, model replay, frequency replication, design weights, cluster variance and inverse-information routes. The design-weight coefficient comparator is the independent weighted score equation with the documented unweighted censoring KM; an unaligned native stcrreg weighting convention is not treated as parity. Delayed entry is checked on the one-cause Weibull route, where the score reduces to Cox. Stratified competing-risk delayed entry and piecewise time effects remain adoption gaps; existing dedicated QA continues to cover their implementation.
+
+| Fixture file | Purpose |
+|---|---|
+| `validation_fixture_recovery.do` | Known population coefficient and CIF recovery before sample parity. |
+| `validation_fixture_matrix.do` | Independent public-command numerical matrix and A2 operators. |
+| `_qa_fx_a2.do` | Current byte-for-byte canonical survival generator. |
+| `_qa_hostile.do` | Current primitive time and numerical equality helper. |
+| `_qa_state.do` | Current complete caller-state fingerprint helper. |

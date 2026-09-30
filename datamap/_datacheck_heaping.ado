@@ -1,4 +1,4 @@
-*! _datacheck_heaping Version 1.8.0  2026/09/30
+*! _datacheck_heaping Version 1.8.1  2026/09/30
 *! datacheck heaping(): placeholder-date heaping on 1 January, the 1st, the 15th
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,8 +36,18 @@ program define _datacheck_heaping, rclass
             local isnum = (_rc == 0)
             local vf : format `dv'
             local vf = subinstr("`vf'", "%-", "%", 1)
-            if !`isnum' | !(substr("`vf'", 1, 3) == "%td" | substr("`vf'", 1, 2) == "%d") {
-                display as error "heaping(): `dv' must be a daily (%td) date"
+            if !`isnum' {
+                display as error "heaping(): `dv' must be a numeric daily (%td) date"
+                exit 198
+            }
+            if !(substr("`vf'", 1, 3) == "%td" | substr("`vf'", 1, 2) == "%d") {
+                // another date unit needs a conversion, not a display format
+                local tl = substr("`vf'", 3, 1)
+                if substr("`vf'", 1, 2) == "%t" {
+                    local cv = cond(strpos("cCmqwhyb", "`tl'") > 0, "; convert it to a daily date with dof`tl'()", "")
+                    display as error "heaping(): `dv' has a %t`tl' format, not a daily (%td) date`cv'"
+                }
+                else display as error "heaping(): `dv' must be a daily (%td) date; give it a daily date display format, e.g. format `dv' %td"
                 exit 198
             }
         }
@@ -78,10 +88,11 @@ program define _datacheck_heaping, rclass
                 local marks ""
                 forvalues j = 1/3 {
                     local sh`j' = cond(`n' > 0, `c`j'' / `n', .)
+                    // p`j' is the printed share: "5.00%", "[masked]" or "n/a"
                     _datacheck_mshare `c`j'' `n' `mask'
-                    local p`j' "`r(pct)'"
+                    local p`j' "`r(pcttxt)'"
                     local sm`j' = r(masked)
-                    if !`sm`j'' & `n' > 0 local p`j' = strtrim(string(100 * `sh`j'', "%9.2f"))
+                    if !`sm`j'' & `n' > 0 local p`j' = strtrim(string(100 * `sh`j'', "%9.2f")) + "%"
                     if `sm`j'' local om = 1
                     local f`j' = cond(`n' > 0 & `sh`j'' > `fold' * `e`j'' & !`sm`j'', "*", " ")
                     if "`f`j''" == "*" local marks "`marks' `j'"
@@ -89,9 +100,9 @@ program define _datacheck_heaping, rclass
                 if `om' local anymask = 1
                 local vshow = substr("`dv'", 1, 21)
                 display as text "  " as result %-22s "`vshow'" %9s "`ns'" ///
-                    %10s "`p1'%" as text "`f1'" as result %10s "`p2'%" as text "`f2'" ///
-                    as result %10s "`p3'%" as text "`f3'"
-                local obs "Jan 1 `p1'%, 1st `p2'%, 15th `p3'%"
+                    %10s "`p1'" as text "`f1'" as result %10s "`p2'" as text "`f2'" ///
+                    as result %10s "`p3'" as text "`f3'"
+                local obs "Jan 1 `p1', 1st `p2', 15th `p3'"
                 local onum = cond(`sm1', ., `sh1')
                 local rmsg `"`pfx'heaping(`dv'): `obs'"'
                 if "`marks'" != "" local rmsg `"`rmsg' (above `ftxt'x chance)"'
@@ -110,7 +121,7 @@ program define _datacheck_heaping, rclass
                         local exp = strtrim("`exp' `lab`j'' <= " + strtrim(string(100 * `m`j'', "%9.3g")) + "%")
                         if `n' == 0 | `sh`j'' > `m`j'' {
                             local ok = 0
-                            local bad = strtrim("`bad' `lab`j'' `p`j''%")
+                            local bad = strtrim("`bad' `lab`j'' `p`j''")
                         }
                     }
                     if `n' == 0 local bad "no nonmissing dates"

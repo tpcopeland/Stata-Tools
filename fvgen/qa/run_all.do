@@ -27,7 +27,7 @@ if !`: list mode in valid' {
 }
 
 local quick "test_fvgen"
-local core  "`quick' test_ref test_simple test_errors test_provenance test_margins test_regressions test_fvgen_hostile test_fvgen_oracle validation_fvgen"
+local core  "validation_fixture_truth `quick' test_ref test_simple test_errors test_provenance test_margins test_regressions test_fvgen_hostile test_fvgen_oracle validation_fvgen"
 local full  "`core' test_package_release"
 
 local suites "``mode''"

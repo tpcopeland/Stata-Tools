@@ -1,5 +1,11 @@
 # codescan QA
 
+archetypes: A5
+
+Canonical fixture adoption is in progress. Literal independent code predicates pin flags/counts for regex/prefix and row/collapse/merge/frame/count shapes across every A5-WIDE named variant; describe compares raw-frequency identities. Prefix matching retains whitespace; regex rules explicitly admit leading spaces. Shared long-name invariance checks scanning and describe. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
+
+New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
+
 Tests, validation, and release checks for the `codescan` package
 (`codescan`, `codescan_describe`). The suite follows the house QA layout:
 a flat `qa/` root, files named by concern then command, one curated lane

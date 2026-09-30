@@ -35,7 +35,7 @@ local quick ///
     validation_setools_performance_identity ///
     test_edss_fixture
 
-local core_extra ///
+local core_extra validation_fixture_contract test_fixture_names ///
     test_setools_v130_features ///
     test_setools_v140_features ///
     test_cci_se_adversarial ///

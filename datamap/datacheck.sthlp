@@ -59,7 +59,7 @@
 {synopt:{opt d:etail}}add continuous percentiles{p_end}
 {synopt:{opt maxf:req(#)}}levels shown per variable; default {bf:20}{p_end}
 {synopt:{opt rare(#)}}flag levels with count below {it:#}{p_end}
-{synopt:{opt min:cell(#)}}flag tabulated cells below {it:#}{p_end}
+{synopt:{opt min:cell(#)}}suppress tabulated cells below {it:#}{p_end}
 {synopt:{opt mask:rare}}mask counts below the threshold{p_end}
 {synopt:{opt out:liers(#)}}flag values beyond {it:#} IQRs{p_end}
 
@@ -70,7 +70,7 @@
 {syntab:Invariant gates {it:(any gate option turns on gate mode)}}
 {synopt:{opt gates:only}}run validation gates only{p_end}
 {synopt:{opt expectn(numlist)}}require exact {cmd:_N} or a range{p_end}
-{synopt:{opt isid(varlist)}}assert the dataset is unique by this key{p_end}
+{synopt:{opt isid(keyspec)}}assert unique by a key; {cmd:\}-separate keys{p_end}
 {synopt:{opt nodups}}assert no fully duplicated rows{p_end}
 {synopt:{opt req:uire(varlist)}}assert these variables exist{p_end}
 {synopt:{opt notmiss:ing(varlist)}}require complete values{p_end}
@@ -193,7 +193,9 @@ is also the most levels a covariate in {opt events()} may have.
 excluded variables are listed by name but their distributions, cardinality, and
 value-label coding are never shown. They are never flagged and never appear in
 {cmd:r(flagged_vars)}, {cmd:r(missing_vars)}, the MISSINGNESS section, or the
-{opt patterns} table.
+{opt patterns} table; the quick-reference table prints {bf:[excluded]} for
+their missing share. An {opt inrange()} violation on an excluded variable reports
+the count only, never the offending minimum and maximum.
 
 {phang}
 {opt cont:inuous(varlist)}, {opt cat:egorical(varlist)}, and {opt date(varlist)} force the named
@@ -260,11 +262,14 @@ any {opt gatesonly}.
 {phang}
 {opt expectn(numlist)} asserts the number of observations. One number is an
 exact expectation ({cmd:expectn(282252)}); two numbers are an inclusive range
-({cmd:expectn(1000 1200)}).
+({cmd:expectn(1000 1200)}). Each {cmd:expectn} row of {opt checks()} adds an
+entry beside {opt expectn()}; it never replaces it.
 
 {phang}
-{opt isid(varlist)} asserts that the dataset is unique by the named key. A
-row with a missing key value counts as a duplicate.
+{opt isid(keyspec)} asserts that the dataset is unique by the named key. A
+row with a missing key value counts as a duplicate. {cmd:\}-separate several
+keys, each checked on its own ({cmd:isid(lopnr \ tx_id)}); each {cmd:isid} row
+of {opt checks()} adds a key beside {opt isid()}.
 
 {phang}
 {opt nodups} asserts that no fully duplicated rows exist.
@@ -295,11 +300,17 @@ specification is {cmd:\}-separated entries of the form
 
 {phang}
 {opt for:bid(spec)} asserts that variables do not contain declared forbidden
-values.
+values. Missing values are not checked by {opt allowed()}, {opt forbid()}, or
+{opt notvalues()}, except that an explicit missing code in {opt forbid()} or
+{opt notvalues()}, such as {cmd:notvalues(consent .a)}, matches that code.
 
 {phang}
 {opt regex(spec)} asserts that string variables match regular expressions. Each
-{cmd:\}-separated entry is {it:var pattern}.
+{cmd:\}-separated entry is {it:var pattern}. A pattern cannot contain a
+backslash, because {cmd:\} separates entries: write {cmd:[.]} for a literal
+period rather than {cmd:\.}, as in {cmd:regex(x ^-?[0-9][.][0-9]+$)}. A numeric variable is matched on
+its value as text: an integer in full ({cmd:1234567890}, not {cmd:1.23e+09}),
+other values in {cmd:%16.0g} ({cmd:%9.0g} for a float).
 
 {phang}
 {opt notv:alues(spec)} asserts that variables do not contain sentinel or
@@ -333,7 +344,11 @@ share missing over all rows in scope; {cmd:ess}, the Kish effective sample size
 are read as spaces in the band, before the {cmd:if}, so a band stored as
 {it:lo, hi} can be reused. A statistic with no value in scope (a mean of no
 observations, {cmd:pmiss} of no rows) is a violation; {cmd:sum}, {cmd:n}, and
-{cmd:distinct} of no rows are 0.
+{cmd:distinct} of no rows are 0. A percentile of a float variable is compared
+with the bounds at float precision, but a mean, sd, or sum is compared
+exactly, in double precision: a float variable holding 0.2 in every row has
+mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
+little wider than float resolution, as in {cmd:stat(mean x 0 0.2000001)}.
 
 {phang}
 {opt bin:ary(varlist)} asserts that each variable is a 0/1 flag: every
@@ -350,14 +365,16 @@ count) must be at least {cmd:min()}, which defaults to 1. The entry's
 {cmd:events(ev_pri if at_pri: ms_type edss_cat)}. Missing levels are skipped
 because the model drops them; an explicit code such as 99 is a level and is
 checked. A covariate with more than {opt maxcat()} levels is an error, so a
-continuous variable passed by mistake stops the call. The message names the
+continuous variable passed by mistake stops the call. A covariate with no
+nonmissing level in scope fails. The message names the
 level and its value label: {cmd:events(_d): mstype = 3 (SPMS) has 0 events}.
 
 {phang}
 {opt intervals(spec)} checks an interval file. Each {cmd:\}-separated entry is
 {it:id} [{it:id ...}] {it:start stop} [{cmd:,} {cmd:contiguous}
 {cmd:event(}{it:varname}{cmd:)} {cmd:tol(}{it:#}{cmd:)}]. The checks are named
-separately: {bf:intervals(missing)} (start and stop nonmissing),
+separately: {bf:intervals(missing)} (id, start, and stop nonmissing; such rows
+are left out of the other interval checks),
 {bf:intervals(order)} (start < stop), {bf:intervals(overlap)} (within id,
 sorted by start, start >= the latest earlier stop - tol), {bf:intervals(gap)} (with
 {cmd:contiguous}, no start after the latest earlier stop + tol), and
@@ -414,7 +431,10 @@ run, where the bands are not calibrated, while production runs leave it off.
 {phang}
 {opt coverage(spec)} checks that a delivered file covers the period it should. Each
 entry is {it:datevar lo hi}{cmd:,} {cmd:gap(}{it:#}{cmd:)}
-[{cmd:tail(}{it:#}{cmd:)} {cmd:years}] for a daily date. {cmd:gap()}, the
+[{cmd:tail(}{it:#}{cmd:)} {cmd:years}] for a daily date. The variable must
+carry a daily display format ({cmd:%td} or {cmd:%d}, in any variant such as
+{cmd:%tdCCYY-NN-DD}); an unformatted day count is refused with r(198), and a
+{cmd:%tc} datetime needs {cmd:dofc()} first. {cmd:gap()}, the
 delivery lag in days, is required and has no default, so an unsourced coverage
 expectation stops the call. The checks are {bf:coverage(outside)} (the share of
 dates outside [lo, hi] is at most {cmd:tail()}, default 0),
@@ -435,7 +455,10 @@ like {opt rule()}, before any sort. {cmd:review("day0": outcome == 1 & outcome_d
 {phang}
 {opt heaping(spec)} prints, for each daily date in {it:datevarlist}
 [{cmd:,} {cmd:fold(}{it:#}{cmd:)} {cmd:max(}{it:# [# #]}{cmd:)}], the share of
-dates on 1 January, on the 1st of any month, and on the 15th, next to the
+dates on 1 January, on the 1st of any month, and on the 15th (each variable
+must carry a daily display format, {cmd:%td} or {cmd:%d} in any variant; an
+unformatted day count is refused with r(198), and a {cmd:%tc} datetime needs
+{cmd:dofc()} first), next to the
 shares expected by chance (1/365.25, 12/365.25, 12/365.25). A share above
 {cmd:fold()} times its chance share (default 5) is marked. With {cmd:max()},
 the 1 January share (and with two or three numbers the 1st and 15th shares)
@@ -451,12 +474,20 @@ than {cmd:ratio}. Groups with fewer than {cmd:min()} rows (default: the mask
 threshold, or 1 without masking) are pooled into one line. With {cmd:band()},
 every group's statistic must lie in [lo, hi], including a group pooled away
 under the mask, which fails as {cmd:[suppressed]}; only an explicit
-{cmd:min()} leaves the groups below it out of the band. With {cmd:relative}, the
+{cmd:min()} leaves the groups below it out of the band. As in {opt stat()}, a
+mean of a float variable is compared with the band exactly, so a group whose
+float values are all 0.2 fails {cmd:band(0 0.2)}; set the band a little wider
+than float resolution. With {cmd:relative}, the
 band applies to the ratio of the group's statistic to the pooled statistic, as
 in the laboratory unit-switch check
-{cmd:groupstat(median bcell, by(lab_site year) band(0.05 20) relative)}. {cmd:pmiss}
+{cmd:groupstat(median bcell, by(lab_site year) band(0.05 20) relative)}; the
+table then prints each group's ratio, the value the band tests, and the pooled
+row stays raw. Under the mask a withheld pooled value withholds the ratios as
+well. {cmd:pmiss}
 comes from the same computation as
-{help datamvp:datamvp, bytable()}. {opt groupstat()} ignores {opt by()}.
+{help datamvp:datamvp, bytable()}. A band entry whose scope has no rows, or
+whose {cmd:min()} leaves every group out, fails. {opt groupstat()} ignores
+{opt by()}.
 
 {phang}
 {opt complete(spec)} prints the masked complete-case count and share over
@@ -510,7 +541,11 @@ suboptions in {cmd:values}; a {cmd:complete} row takes the variables in
 current dataset: the observed row count, required variables, observed ranges
 or allowed values, and a candidate {cmd:isid} key. It describes the data as
 they are; review it before treating it as a gate contract, and never use it
-as a source of bands.
+as a source of bands. Numeric bounds and levels are written at full precision
+and string levels in double quotes, so {opt checks()} reads the file back as a
+passing spec on the same data. A string variable with a level containing a
+double quote, a backtick, a dollar sign, or a backslash gets no {cmd:allowed}
+row.
 
 {phang}
 {opt comp:are(filename)} compares the current profiled variables with a saved
@@ -645,12 +680,16 @@ nor an order statistic held by fewer than {it:m} observations:
 {bf:<}{it:m}: {cmd:rule(entry_exit): <5 obs fail}. {opt isid()}
 reports only the masked number
 of duplicated rows, never the row and distinct-key counts, whose difference
-would be the small cell. {cmd:r(n_violations)} counts gates, not persons, and is
+would be the small cell. A gate count whose complement in its scope is small
+prints as {bf:all but <}{it:m}, as do the {opt stat()} values {cmd:n},
+{cmd:distinct}, and {cmd:sum} and the {bf:sets(values)} count; {opt stat()}
+{cmd:pmiss} prints as {bf:.} when either the missing or the nonmissing count is
+small. {cmd:r(n_violations)} counts gates, not persons, and is
 not masked.{p_end}
 {phang2}o  the MISSINGNESS and GROUPWISE blocks print a small missing count as
-{bf:<}{it:m} and its percentage as {bf:.}; a count whose complement is small prints as
+{bf:<}{it:m} and its percentage as {bf:[masked]}; a count whose complement is small prints as
 {bf:all but <}{it:m}, while a zero count prints as {bf:0}; a {opt by()} group smaller than {it:m} is not shown and is counted
-in one line, {cmd:groups with <5 rows: 2}.{p_end}
+in one line, {cmd:groups pooled (each <5 rows, or pooled with them): 2}.{p_end}
 {phang2}o  no minimum or maximum is printed. The continuous and date profiles and
 {opt inrange()} messages show p1 and p99, dates at month precision, and any
 percentile, mean, or {opt stat()} value is shown only when at least {it:m}

@@ -165,6 +165,120 @@ else {
     local ++fail_count
 }
 
+* 2026-09-30 review cycle (owner C): filelist quoting, exclude() patterns,
+* complementary small-cell suppression
+
+local ++test_count
+capture noisily {
+    local sdir "`tmp_dir'/_dd14 dir (v2)"
+    capture mkdir "`sdir'"
+    sysuse auto, clear
+    quietly save "`sdir'/one.dta", replace
+    quietly save "`sdir'/two.dta", replace
+    datadict, filelist("`sdir'/one" "`sdir'/two") output("`tmp_dir'/_dd14_fl.md")
+    assert r(nfiles) == 2
+    assert "`r(mode)'" == "filelist"
+    _dd14_contains using "`tmp_dir'/_dd14_fl.md", needle("## 2. Two")
+    assert r(found) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: filelist() accepts quoted paths with spaces and parentheses"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: filelist() quoted spaced paths (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 20
+    gen long patient_id = 1000 + _n
+    gen long patient_no = 5000 + _n
+    gen byte age = 20 + _n
+    datadict, output("`tmp_dir'/_dd14_ex.md") stats exclude(patient_*) ///
+        saving("`tmp_dir'/_dd14_ex.dta", replace)
+    assert r(nvars_total) == 1
+    _dd14_contains using "`tmp_dir'/_dd14_ex.md", needle("patient_")
+    assert r(found) == 0
+    preserve
+    use "`tmp_dir'/_dd14_ex.dta", clear
+    assert _N == 1
+    assert variable[1] == "age"
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: exclude() expands wildcards in the dictionary and saving()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: exclude() wildcard left identifiers in the dictionary (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 1000
+    gen byte flag = _n <= 2
+    label define flagl 0 "No" 1 "Yes"
+    label values flag flagl
+    gen byte u = _n <= 3
+    gen str3 s = cond(_n <= 2, "b", "a")
+    gen byte three = cond(_n <= 3, 1, cond(_n <= 6, 2, 3))
+    datadict, output("`tmp_dir'/_dd14_cs.md") stats categorical(s)
+    * 998 = 1000 - 2: printing it discloses the suppressed cell
+    _dd14_contains using "`tmp_dir'/_dd14_cs.md", needle("(998;")
+    assert r(found) == 0
+    _dd14_contains using "`tmp_dir'/_dd14_cs.md", needle("0 No (suppressed, complementary)")
+    assert r(found) == 1
+    _dd14_contains using "`tmp_dir'/_dd14_cs.md", needle("(997;")
+    assert r(found) == 0
+    _dd14_contains using "`tmp_dir'/_dd14_cs.md", needle("a (suppressed, complementary)")
+    assert r(found) == 1
+    * two small cells that pool to >= mincell need no complement
+    _dd14_contains using "`tmp_dir'/_dd14_cs.md", needle("3 (994; 99.4%)")
+    assert r(found) == 1
+    datadict, output("`tmp_dir'/_dd14_cs0.md") stats mincell(0)
+    _dd14_contains using "`tmp_dir'/_dd14_cs0.md", needle("0 No (998; 99.8%)")
+    assert r(found) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: stats cells use complementary small-cell suppression"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: a lone suppressed stats cell is recoverable (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    clear
+    set obs 20
+    gen byte a = mod(_n, 2)
+    gen byte b = mod(_n, 3)
+    gen byte c = mod(_n, 4)
+    quietly save "`tmp_dir'/_dd14_r1.dta", replace
+    drop c
+    quietly save "`tmp_dir'/_dd14_r2.dta", replace
+    capture erase "`tmp_dir'/_dd14_r.md"
+    capture noisily datadict, filelist(`tmp_dir'/_dd14_r1 `tmp_dir'/_dd14_r2) ///
+        exclude(a-c) stats output("`tmp_dir'/_dd14_r.md")
+    assert _rc == 111
+    capture confirm file "`tmp_dir'/_dd14_r.md"
+    assert _rc == 601
+}
+if _rc == 0 {
+    display as result "  PASS: an exclude() range unresolvable in one file errors r(111)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: exclude() range fails open in a multi-file datadict run (error `=_rc')"
+    local ++fail_count
+}
+
 capture erase "`md'"
 capture erase "`meta'"
 capture erase "`manifest'"

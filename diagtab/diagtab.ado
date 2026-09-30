@@ -1,4 +1,4 @@
-*! diagtab Version 2.0.1  2026/08/30
+*! diagtab Version 2.0.2  2026/09/30
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -162,12 +162,12 @@ capture noisily {
         local cutoffs = strtrim("`cutoffs'")
     }
 
-    if "`xlsx'" != "" & "`excel'" != "" {
+    if `"`macval(xlsx)'"' != "" & `"`macval(excel)'"' != "" {
         noisily display as error "xlsx() and excel() are mutually exclusive aliases"
         exit 198
     }
-    if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    local _has_xlsx = "`xlsx'" != ""
+    if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" local xlsx `"`macval(excel)'"'
+    local _has_xlsx = `"`macval(xlsx)'"' != ""
     if "`open'" != "" & !`_has_xlsx' {
         noisily display as error "open requires xlsx() or excel()"
         exit 198
@@ -194,19 +194,19 @@ capture noisily {
     }
     _diagtab_validate_sheet "`sheet'" "sheet()"
     if `_has_xlsx' {
-        if !strmatch(lower("`xlsx'"), "*.xlsx") {
+        if !strmatch(lower(`"`macval(xlsx)'"'), "*.xlsx") {
             noisily display as error "xlsx() must have .xlsx extension"
             exit 198
         }
-        _diagtab_validate_path "`xlsx'" "xlsx()"
+        _diagtab_validate_path `"`macval(xlsx)'"' "xlsx()"
     }
-    if "`csv'" != "" _diagtab_validate_path "`csv'" "csv()"
+    if `"`macval(csv)'"' != "" _diagtab_validate_path `"`macval(csv)'"' "csv()"
     if "`mdappend'" != "" & `"`markdown'"' == "" {
         noisily display as error "mdappend requires markdown()"
         exit 198
     }
     if `"`markdown'"' != "" {
-        _diagtab_validate_path `"`markdown'"' "markdown()"
+        _diagtab_validate_path `"`macval(markdown)'"' "markdown()"
         local _md_lower = lower(`"`markdown'"')
         if !(strmatch(`"`_md_lower'"', "*.md") | ///
              strmatch(`"`_md_lower'"', "*.markdown") | ///
@@ -944,8 +944,8 @@ capture noisily {
     noisily _diagtab_console_display `out_ncols' `"`title'"'
 
 **# CSV/Frame/Excel Export
-    if "`csv'" != "" {
-        _diagtab_csv_write using "`csv'", reservedrow title(`"`title'"') footnote(`"`footnote'"')
+    if `"`macval(csv)'"' != "" {
+        _diagtab_csv_write using `"`macval(csv)'"', reservedrow title(`"`title'"') footnote(`"`footnote'"')
     }
 
     local _ret_markdown ""
@@ -954,7 +954,7 @@ capture noisily {
     if `"`markdown'"' != "" {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
-        capture noisily _diagtab_markdown_write using `"`markdown'"', ///
+        capture noisily _diagtab_markdown_write using `"`macval(markdown)'"', ///
             `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
         if _rc {
             local _md_rc = _rc
@@ -1023,7 +1023,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture noisily _diagtab_xlsx_write using "`xlsx'", sheet("`sheet'") book(b)
+        capture noisily _diagtab_xlsx_write using `"`macval(xlsx)'"', sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -1126,7 +1126,7 @@ capture noisily {
             * reusing one per distinct format, so collapse the pools here;
             * a workbook that keeps growing would otherwise reach Stata's
             * 65,536-record ceiling and fail with r(16147).
-            _diagtab_xlsx_compact_styles using "`xlsx'"
+            _diagtab_xlsx_compact_styles using `"`macval(xlsx)'"'
         }
         if _rc {
             local _format_rc = _rc

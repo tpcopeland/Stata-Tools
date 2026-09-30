@@ -108,6 +108,9 @@ capture noisily {
     dataqa report
     assert r(n_datasets) == 2 & r(n_failed) == 0
     dataqa assert, expect(auto_cars lifeexp)
+    tempfile release
+    dataqa export, saving("`release'") replace
+    assert r(N) >= 1
     dataqa set clear
     assert `"$DATAMAP_DQ"' == ""
 }
