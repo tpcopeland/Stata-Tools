@@ -1,4 +1,4 @@
-*! asof Version 0.1.0  2026/08/12
+*! asof Version 0.1.1  2026/09/30
 *! Attach measurement values selected relative to a reference date
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -7,6 +7,7 @@
 program define asof, rclass sortpreserve
     version 16.0
 
+    local _orig_matastrict = c(matastrict)
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _event_made = 0
@@ -22,12 +23,12 @@ program define asof, rclass sortpreserve
         syntax anything(name=carry id="variables to carry") [if] [in] using/ , ///
             ID(varname) DATE(name) ANCHOR(varname) ///
             DIRection(string) SELect(string) ///
-            [WINdow(numlist min=2 max=2 missingokay) ///
+            [WINdow(string) ///
              RANGE(varlist min=2 max=2) ///
              REQuire(string asis) ///
              SUFfix(string) PREfix(string) GENerate(namelist) ///
              DATEName(name) GAPName(name) MATCHName(name) ///
-             TIES(string) FRAME(name) replace nowarn NOIsily]
+             TIES(string) FRAME(name) replace NOWARN NOIsily]
 
         _asof_parse_rules, direction(`direction') select(`select') ties(`ties')
         local direction "`r(direction)'"
@@ -91,9 +92,24 @@ program define asof, rclass sortpreserve
         local winlow "."
         local winhigh "."
         if "`window'" != "" {
+            * Keep literal endpoints: numlist normalization rounds decimals.
+            local window = subinstr("`window'", ",", " ", .)
+            if `: word count `window'' != 2 {
+                display as error "window() requires two numeric endpoints"
+                exit 198
+            }
             local winlow : word 1 of `window'
             local winhigh : word 2 of `window'
-            if "`winlow'" != "." & "`winhigh'" != "." {
+            foreach endpoint in winlow winhigh {
+                if !regexm("``endpoint''", "^[.][a-z]?$") {
+                    capture confirm number ``endpoint''
+                    if _rc {
+                        display as error "window() requires numeric endpoints"
+                        exit 198
+                    }
+                }
+            }
+            if !missing(`winlow') & !missing(`winhigh') {
                 if `winlow' > `winhigh' {
                     display as error "window() lower bound may not exceed its upper bound"
                     exit 198
@@ -206,15 +222,13 @@ program define asof, rclass sortpreserve
         }
 
         local anchorfmt : format `anchor'
-        local datefmt_l = lower("`datefmt'")
-        local anchorfmt_l = lower("`anchorfmt'")
-        local date_tc = (substr("`datefmt_l'", 1, 3) == "%tc")
-        local anchor_tc = (substr("`anchorfmt_l'", 1, 3) == "%tc")
-        local date_td = (substr("`datefmt_l'", 1, 3) == "%td")
-        local anchor_td = (substr("`anchorfmt_l'", 1, 3) == "%td")
+        local date_tc = (substr("`datefmt'", 1, 3) == "%tc")
+        local anchor_tc = (substr("`anchorfmt'", 1, 3) == "%tc")
+        local date_td = (substr("`datefmt'", 1, 3) == "%td")
+        local anchor_td = (substr("`anchorfmt'", 1, 3) == "%td")
 
-        if (substr("`datefmt_l'", 1, 2) == "%t" & !`date_tc' & !`date_td') | ///
-           (substr("`anchorfmt_l'", 1, 2) == "%t" & !`anchor_tc' & !`anchor_td') {
+        if (substr("`datefmt'", 1, 2) == "%t" & !`date_tc' & !`date_td') | ///
+           (substr("`anchorfmt'", 1, 2) == "%t" & !`anchor_tc' & !`anchor_td') {
             display as error "date() and anchor() must use daily dates or %tc datetimes"
             exit 109
         }
@@ -226,10 +240,9 @@ program define asof, rclass sortpreserve
 
         foreach bound of local range {
             local boundfmt : format `bound'
-            local boundfmt_l = lower("`boundfmt'")
-            local bound_tc = (substr("`boundfmt_l'", 1, 3) == "%tc")
-            local bound_td = (substr("`boundfmt_l'", 1, 3) == "%td")
-            if substr("`boundfmt_l'", 1, 2) == "%t" & !`bound_tc' & !`bound_td' {
+            local bound_tc = (substr("`boundfmt'", 1, 3) == "%tc")
+            local bound_td = (substr("`boundfmt'", 1, 3) == "%td")
+            if substr("`boundfmt'", 1, 2) == "%t" & !`bound_tc' & !`bound_td' {
                 display as error "range() variables must use daily dates or %tc datetimes"
                 exit 109
             }
@@ -486,6 +499,7 @@ program define asof, rclass sortpreserve
     if `_master_link_made' capture drop `masterlink'
     if `_key_made' capture frame drop `keyframe'
     if `_event_made' capture frame drop `eventframe'
+    set matastrict `_orig_matastrict'
     set varabbrev `_orig_varabbrev'
 
     if `rc' == 0 & `_return_ready' {

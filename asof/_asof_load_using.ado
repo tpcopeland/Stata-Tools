@@ -1,4 +1,4 @@
-*! _asof_load_using Version 0.1.0  2026/08/12
+*! _asof_load_using Version 0.1.1  2026/09/30
 *! Validate and prepare the asof event frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

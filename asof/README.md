@@ -529,8 +529,9 @@ See [qa/README.md](qa/README.md) for the test runbook and coverage map.
 
 ## Version History
 
-Version 0.1.0, 2026-08-30.
+Version 0.1.1, 2026-09-30.
 
+- 0.1.1 (2026-09-30): Preserve fractional window endpoints, reject leap-second `%tC` encodings, honor `nowarn`, and restore caller `matastrict`.
 - 0.1.0 (2026-08-12): Initial release.
 
 ## Author

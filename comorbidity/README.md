@@ -1,6 +1,6 @@
 # comorbidity — Charlson and Elixhauser scores from ICD-10 fields
 
-**Version 1.0.1**
+**Version 1.0.2**
 
 `comorbidity` scans wide-format ICD-10 diagnosis fields and creates patient-level Charlson, Elixhauser, or custom weighted scores. It is for analysts who need to turn one or more diagnosis variables per encounter into condition indicators and a reproducible comorbidity score.
 
@@ -236,6 +236,8 @@ After a successful run, `comorbidity` stores:
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.0.2**: Preserve exact custom double weights and merge sort metadata and the caller’s estimation sample; correct the Quan paralysis boundary; accept case-distinct output names; reject invalid negative windows; protect caller installations during QA
 
 - **1.0.1**: Prevent custom-weight overflow from changing caller data; strengthen method caveats, released-package wording, and QA oracles
 - **1.0.0**: Initial release with Charlson original, Charlson Quan 2011, Elixhauser van Walraven, custom weighted code files, and hierarchy handling

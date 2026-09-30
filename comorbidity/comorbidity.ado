@@ -1,4 +1,4 @@
-*! comorbidity Version 1.0.1  2026/08/30
+*! comorbidity Version 1.0.2  2026/09/30
 *! Charlson and Elixhauser comorbidity indices from wide-format ICD code fields
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -9,6 +9,13 @@ program define comorbidity, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _restore_needed = 0
+    local _estimates_held = 0
+    tempname caller_estimates
+    local _caller_globals : all globals
+    local _had_fn : list posof "S_FN" in _caller_globals
+    local _had_fndate : list posof "S_FNDATE" in _caller_globals
+    local _caller_fn : copy global S_FN
+    local _caller_fndate : copy global S_FNDATE
 
     capture noisily {
         syntax varlist [if] [in] , ID(varname) ///
@@ -16,6 +23,11 @@ program define comorbidity, rclass
               COLLapse MERge DATE(varname) REFDate(varname) ///
               LOOKBack(integer -1) LOOKForward(integer -1) INCLusive ///
               GENerate(string) REPlace NOHIERarchy BAND NOIsily ]
+
+        if `lookback' < -1 | `lookforward' < -1 {
+            display as error "lookback() and lookforward() must be -1 or nonnegative"
+            exit 198
+        }
 
         capture which codescan
         if _rc {
@@ -40,6 +52,12 @@ program define comorbidity, rclass
             local collapse "collapse"
         }
         local shape "`collapse' `merge'"
+
+        * Hold before any preserve so scanner reconstruction retains e(sample).
+        if "`merge'" != "" {
+            _estimates hold `caller_estimates', copy nullok restore
+            local _estimates_held = 1
+        }
 
         local nidx = (`"`charlson'"' != "") + (`"`elixhauser'"' != "") + (`"`custom'"' != "")
         if `nidx' == 0 {
@@ -108,7 +126,7 @@ program define comorbidity, rclass
         }
         local protected "`id' `varlist' `date' `refdate'"
         foreach protected_var of local protected {
-            if strlower("`scorevar'") == strlower("`protected_var'") {
+            if "`scorevar'" == "`protected_var'" {
                 display as error "score variable `scorevar' conflicts with structural input `protected_var'"
                 exit 198
             }
@@ -237,20 +255,20 @@ program define comorbidity, rclass
                     display as error "custom() condition `custom_name_`i'' creates invalid variable name `output_name'"
                     exit 198
                 }
-                if strlower("`output_name'") == strlower("`scorevar'") {
+                if "`output_name'" == "`scorevar'" {
                     display as error "custom() condition `custom_name_`i'' conflicts with score variable `scorevar'"
                     exit 198
                 }
                 foreach protected_var of local protected {
-                    if strlower("`output_name'") == strlower("`protected_var'") {
+                    if "`output_name'" == "`protected_var'" {
                         display as error "custom() condition `custom_name_`i'' conflicts with structural input `protected_var'"
                         exit 198
                     }
                 }
 
                 local custom_names "`custom_names' `custom_name_`i''"
-                local custom_weight = weight[`i']
-                scalar `custom_abs_total' = `custom_abs_total' + abs(`custom_weight')
+                local custom_weight : display %21x weight[`i']
+                scalar `custom_abs_total' = `custom_abs_total' + abs(weight[`i'])
                 if missing(`custom_abs_total') {
                     display as error "sum of absolute custom() weights exceeds Stata's numeric range"
                     exit 198
@@ -363,10 +381,13 @@ program define comorbidity, rclass
         matrix colnames `wmat' = weight
         label variable `scorevar' "`index' (`scheme') comorbidity score"
 
+        * Retain valid incoming keys ahead of an input-order tiebreaker.
+        * Dropping score_order on exit leaves the declared keys intact.
+        local score_keys : sortedby
         tempvar score_order patient_tag
         quietly gen long `score_order' = _n
         quietly egen byte `patient_tag' = tag(`id') if !missing(`scorevar')
-        quietly sort `score_order'
+        quietly sort `score_keys' `score_order'
         quietly count if `patient_tag' == 1
         if r(N) != `N' {
             display as error "internal patient count mismatch after scoring"
@@ -443,6 +464,15 @@ program define comorbidity, rclass
         if `rc' == 0 & `_restore_rc' {
             local rc = `_restore_rc'
         }
+    }
+    if `_estimates_held' {
+        capture _estimates unhold `caller_estimates'
+        local _unhold_rc = _rc
+        if `rc' == 0 & `_unhold_rc' local rc = `_unhold_rc'
+        if `_had_fn' global S_FN `"`macval(_caller_fn)'"'
+        else capture macro drop S_FN
+        if `_had_fndate' global S_FNDATE `"`macval(_caller_fndate)'"'
+        else capture macro drop S_FNDATE
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

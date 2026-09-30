@@ -49,6 +49,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 | `test_asof_examples.do` | Inline synthetic fixtures, exact execution of all three documented workflows, and public-example path hygiene. |
 | `test_asof_errors.do` | Exact error codes, unchanged master data, and successful recovery after invalid calls. |
 | `test_asof_hostile.do` | 31/32-character output-name rejection, structural collisions, empty restrictions, repeated calls, and unsorted-row preservation. |
+| `test_asof_v011.do` | Fractional daily/clock endpoints for numeric/string IDs, outside neighbors, `%tC` refusal with state fingerprints, and warning output. |
 | `test_asof_oracle.do` | Seeded brute-force `joinby` parity over randomized fixtures plus missing-key and exact-tie cases. |
 
 ### Validation
@@ -69,6 +70,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 | Path | Contents |
 |---|---|
 | `run_all.do` | Curated quick, core, crossval, full, and benchmark lanes. |
+| `_qa_state.do` | Vendored caller-state fingerprint helper. |
 | `_asof_qa_common.do` | Relocatable sandbox installation bootstrap. |
 | `benchmark_asof_scaling.do` | On-demand 10K/100K/1M event shape gate; excluded from correctness lanes. |
 | `.gitignore` | Generated-artifact policy. |
@@ -85,7 +87,7 @@ The benchmark is deliberately separate: `stata-mp -b do run_all.do benchmark`.
 
 | Lane | Suites |
 |---|---|
-| `quick` | Functional, hostile, install, help-render, example, and error suites; excludes the randomized oracle. |
+| `quick` | Functional, hostile, install, help-render, example, and error and v0.1.1 regression suites; excludes the randomized oracle. |
 | `core` | `quick` plus both `validation_asof_*` suites and `test_asof_oracle.do`. |
 | `crossval` | `crossval_asof_pandas.do`. |
 | `full` | `core` plus `crossval`. |
