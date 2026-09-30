@@ -113,6 +113,7 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 
 | File | Covers |
 |---|---|
+| `validation_fixture_phase2_tvweight.do` | Saturated finite-cell propensity and target-weight relations under row/nominal/name/list changes, plus raw double products at empirical probabilities near0/1 under the documented native optimization criterion. |
 | `validation_fixture_recovery.do` | Exact finite binary/multinomial category-fraction IPTW, overlap, matching and stabilized formulas; no population treatment-effect recovery claim. |
 | `validation_fixture_domains.do` | Independent daily merge/grace/lag/washout/fill/carry effects, event clocks, diagnostic counts, catalog, build and weight/truncation domains. |
 | `validation_fixture_ps.do` | Saturated finite-cell binary propensity probabilities and weights for every target, independent native Newton-decrement bound, exclusion and named positivity/missingness refusals. |
@@ -207,7 +208,7 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases and canonical daily/domain contracts |
 | `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
 | `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration, verbose and canonical graph/state/domain paths |
-| `tvweight` | command, cumulative product, regressions | balance, recovery and canonical finite-cell propensity suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
+| `tvweight` | command, cumulative product, regressions | balance, recovery, canonical finite-cell propensity suites and Phase2 numerical relations | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
 | `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming, missing-value and canonical calendar suites |
 | `tvband` | command, hand oracle, `test_tvtools_v1173.do` | `validation_tvband` | — | naming, missing-value and canonical calendar suites |
 | `tvsplit` | `test_tvsplit`, `test_tvtools_v1173.do` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |

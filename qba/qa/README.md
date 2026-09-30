@@ -91,6 +91,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 |---|---|
 | `validation_qba.do` | Broad analytical and distribution-helper known answers |
 | `validation_qba_boundaries.do` | Boundary values and multi-bias invariants |
+| `validation_qba_precision.do` | Exact-rational tiny and near-null OR/RR effects, corrected cells, scale invariance and 100 identical saved draws across four analytic routes |
 | `validation_qba_known_misclass.do` | Hand-computed misclassification oracles |
 | `validation_qba_known_selection.do` | Hand-computed selection-bias oracles |
 | `validation_qba_known_confound.do` | Hand-computed confounding and `from_model` oracles |
@@ -114,6 +115,8 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `_qba_qa_common.do` | Root discovery, isolated installation, cleanup, metadata parsing, and assertions |
 | `tools/oracle_external_qba.R` | Independent `episensr` oracle driver |
 | `tools/oracle_fml_totalerror.R` | Published-code oracle transcribed to base R without package code reuse |
+
+The precision targets are recorded in `tools/qba_precision_oracles.json`, including exact-rational effects. The suite compares actual analytical returns and every saved draw; its domains are continuous cell counts and constant bias distributions.
 
 ## Coverage map
 

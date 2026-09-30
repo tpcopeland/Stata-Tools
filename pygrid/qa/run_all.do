@@ -16,7 +16,7 @@ if !inlist("`mode'", "quick", "core", "crossval", "full", "benchmark") {
 }
 
 local quick "test_pygrid.do test_pyattach.do test_package_contracts.do test_doc_examples.do test_pygrid_errors.do test_pygrid_hostile.do test_regressions.do"
-local core "validation_pygrid_fixture_contract.do validation_pygrid_fixture_primitives.do `quick' validation_pygrid_known_truth.do validation_pyattach_known_truth.do validation_pyattach_reference.do validation_mogad_section4d.do"
+local core "validation_pyattach_precision.do validation_pygrid_fixture_contract.do validation_pygrid_fixture_primitives.do `quick' validation_pygrid_known_truth.do validation_pyattach_known_truth.do validation_pyattach_reference.do validation_mogad_section4d.do"
 local crossval "crossval_pygrid.do"
 local full "`core' `crossval'"
 local benchmark "benchmark_pygrid.do"

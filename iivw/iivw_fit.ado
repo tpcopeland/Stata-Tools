@@ -1229,7 +1229,8 @@ program define iivw_fit, eclass
 
     if "`timespec'" != "none" {
         if "`timespec'" == "categorical" {
-            quietly levelsof `panel_time' if `touse', local(time_levels)
+            * Exact double identity is required when indicators compare time values.
+            quietly levelsof `panel_time' if `touse', local(time_levels) hexadecimal
             local n_time_levels : word count `time_levels'
 
             if `n_time_levels' < 2 {
@@ -1250,7 +1251,8 @@ program define iivw_fit, eclass
                     display as text "note: timebasecat(`timebasecat') not found in `panel_time'; using lowest value"
                 }
             }
-            local time_basecat_used "`base_time'"
+            local time_basecat_used : display %21.17g `base_time'
+            local time_basecat_used = strtrim("`time_basecat_used'")
 
             local tvar_vallbl : value label `panel_time'
             local tvar_label : variable label `panel_time'

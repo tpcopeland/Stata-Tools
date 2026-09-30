@@ -97,4 +97,5 @@ Exact coefficient and interval identity across data/matrix/estimates/frame modes
 
 | File | Coverage | Lanes |
 | --- | --- | --- |
+| `validation_eplot_precision.do` | Named raw coefficients, intervals and p-values near zero/one across data, frame, matrix and stored-estimate routes | full |
 | `validation_eplot_fixture_contract.do` | Canonical fixture truth and hostile contracts | full |

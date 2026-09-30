@@ -128,8 +128,10 @@ archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iiv
 
 | File | Covers |
 |---|---|
+| `validation_fixture_phase2_iivw.do` | Conditional raw-design coefficients/projections and actual metamorphic row/category/name/list relations; large and near0/1 double outputs, correctly rounded supported6-place Excel values and named decimals8 refusals. |
 | `validation_fixture_recovery.do` | Canonical visit-intensity and analytic full-data mean recovery at seeded populations. |
 | `validation_fixture_pool.do` | Saved finite draw covariance, Wald, percentile and basic interval pooling arithmetic. |
+| `validation_fixture_analytical.do` |26 independent raw-design Gaussian projections and uniquely mapped coefficients for polynomial/category/interaction/time-category/collinear designs, friendly and unsorted. Five noninteger waves are an explicit pre-weighting adapter; collinear coefficients are nonidentified and only projection is asserted. |
 | `validation_fixture_domains.do` | Finite-data weighted coefficients, confidence endpoints, threshold effects and observed-time cell means. |
 | `validation_fixture_weightdomains.do` | Exact treatment propensity and visit/treatment/combined weight rows with risk-entry controls. |
 | `validation_fixture_inference.do` | Fixed-weight saved-draw variance and interval arithmetic over confidence levels and RNG stream bounds; no coverage claim. |
@@ -195,11 +197,11 @@ archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iiv
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
 | `iivw` | `test_iivw`, release adversarial | version/distribution invariants | — | installed-user smoke |
-| `iivw_weight` | command, adversarial, interval, tie, regression suites | recovery and IPTW/FIPTIW oracles | all cross-validation suites | fit, balance, psdash, diagnostics |
+| `iivw_weight` | command, adversarial, interval, tie, regression suites | recovery and IPTW/FIPTIW oracles | all cross-validation suites (`crossval_iivw*`) | fit, balance, psdash, diagnostics |
 | `iivw_balance` | command, exports, adversarial regressions | known-answer balance checks | — | weighting and diagnostic workflow |
-| `iivw_fit` | command, unweighted, inference, stacked, replay, regressions; route grid 117 cells (117 EQUAL or REFUSED, 0 open); `test_iivw_route_grid_fixes` | recovery and canonical-link known answers | all cross-validation suites | bootstrap and psdash workflow |
+| `iivw_fit` | command, unweighted, inference, stacked, replay, regressions; route grid 117 cells (117 EQUAL or REFUSED, 0 open); `test_iivw_route_grid_fixes` | recovery, canonical-link known answers, conditional raw-design projections and Phase2 numerical relations | all cross-validation suites (`crossval_iivw*`) | bootstrap and psdash workflow |
 | `iivw_exogtest` | command, adversarial, exports, ties | diagnostic known answers | `crossval_iivw_pbcseq` | diagnostic workflow |
-| `iivw_diagnose` | command, exports, workflow | diagnostic known answers | — | unweighted/weighted/adjusted comparison |
+| `iivw_diagnose` | command, exports, workflow | diagnostic known answers and actual supported-decimal numerical exports | — | unweighted/weighted/adjusted comparison |
 | `iivw_bspool` | `test_iivw_v420_shard`, `test_iivw_codexaudit_2026_09_27_b`, route grid `bspool` row (13 cells) | pooled covariance equals the hand-computed replicate covariance (T19); split-and-repool is bit-identical (T1) | — | `demo/shard_driver.do` (C11), help examples |
 
 Adversarial axes, in cells (`check qa iivw --view axes`: 36/36 owed cells probed): route grid 2/2; fingerprint 7 commands × 2 paths; lifecycle 4/4 (`iivw_fit`, `iivw_weight`, `iivw_diagnose`, and `iivw_bspool` through 7/7 pool scenarios); parity 7/7; hostile strings 5/5; hostile fixtures 4/4. `demo/shard_driver.do` stale artifacts (F07) are pinned only by `test_iivw_codexaudit_2026_09_27_b.do` C11, which launches child Stata processes; the pool block's failed-rerun scenario is declared accept, since a genuine earlier shard file cannot be told from a fresh one at pool level.
@@ -215,6 +217,25 @@ Adversarial axes, in cells (`check qa iivw --view axes`: 36/36 owed cells probed
 | `full` | `core` plus regenerated R references and all cross-validation suites. |
 | `legacy` | Historical `validation_iivw_recovery*` constructions, outside the supported-estimator gate. |
 | `sensitivity` (`sim`) | Post-hoc scenario envelopes, outside validation lanes. |
+
+## Evidence layers
+
+One row per estimator route. Cells name files only; `check qa iivw --view evidence` derives each cell's state from lane membership, `_skip.txt` and the `run qa` receipts. A blank cell is owed evidence that does not exist yet. `iivw_balance` and `iivw_diagnose` report descriptive balance statistics and re-report stored estimates, so they have no row. The FIPTIW parity arms share the legacy observed-event risk set (`METHOD_ORACLE_MAP.md` §3), and fixed-weight SE parity certifies only the weights-known variance.
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `iivw_weight` IIW inverse visit-intensity weight (Andersen-Gill Cox) | `validation_fixture_recovery.do` | `crossval_iivw.do`; `crossval_iivw_dta.do`; `crossval_iivw_pbcseq.do` |  | none: no inference reported |
+| `iivw_weight` stabilized IPTW treatment weight | `validation_iivw_fiptiw_recovery.do` | `crossval_iivw_external.do`; `crossval_iivw.do` |  | none: no inference reported |
+| `iivw_weight` FIPTIW product weight | `validation_iivw_fiptiw_recovery.do` | `crossval_iivw.do`; `crossval_iivw_external.do` |  | none: no inference reported |
+| `iivw_fit` IIW/IPTW weighted GEE, refit subject bootstrap (default; FIPTIW on request) | `validation_fixture_recovery.do`; `validation_iivw_fiptiw_recovery.do` |  |  | `validation_iivw_inference.do` |
+| `iivw_fit` weighted GEE, `vce(fixed)` cluster-robust sandwich and fixed-weight bootstrap | `validation_fixture_recovery.do`; `validation_iivw_fiptiw_recovery.do` | `crossval_iivw.do`; `crossval_iivw_external.do`; `crossval_iivw_dta.do`; `crossval_iivw_pbcseq.do` |  | `validation_iivw_inference.do` |
+| `iivw_fit` weighted GEE, `vce(stacked)` two-step influence-function sandwich | `validation_fixture_recovery.do`; `validation_iivw_fiptiw_recovery.do` |  |  |  |
+| `iivw_fit` FIPTIW weighted GEE, bare-fit point estimate | `validation_iivw_fiptiw_recovery.do` | `crossval_iivw.do`; `crossval_iivw_external.do` |  | none: no inference reported |
+| `iivw_fit` unweighted GEE, cluster-robust sandwich |  |  |  |  |
+| `iivw_fit` weighted GEE, Poisson-log and binomial-logit links |  | `crossval_iivw_external.do` |  |  |
+| `iivw_fit` weighted `mixed` (`experimentalmixed`) |  |  |  |  |
+| `iivw_exogtest` lagged-outcome visit-intensity coefficients, Holm-adjusted p-values |  | `crossval_iivw_pbcseq.do` |  |  |
+| `iivw_bspool` pooled sharded bootstrap covariance and intervals | none: deterministic transform | none: deterministic transform | none: deterministic transform | none: deterministic transform |
 
 ## Known gaps
 

@@ -148,6 +148,46 @@ fg_oracle_cache <- function(name, outputs, compute,
 #   fg_oracle_cache_end(.fgc)
 # ---------------------------------------------------------------------------
 
+# REFERENCE lines for the devkit receipt: one `REFERENCE: <package> <version>`
+# per reference package, printed on stdout (the suite's plain `shell` puts it in
+# the suite log, and `run qa` copies it into qa/receipts/<suite>.json).  The
+# version is the one that PRODUCED the numbers the suite compares with: on a
+# frozen hit that is the toolchain recorded in the entry's PROVENANCE.txt
+# (either `pkg[<p>]=<v>` lines or raw sessionInfo() `<p>_<v>` tokens), not the
+# replay machine's installed copy; on a refresh it is the installed copy.  A
+# package the provenance does not record prints `unknown`, which is a
+# provenance gap to fix, never a line to drop.  Lives here, not in the
+# crossval_*_r.R companions, because each companion's md5 is part of its
+# frozen-oracle key: editing a companion would invalidate its reference.
+.fg_reference_lines <- function(packages, root, frozen) {
+    if (!length(packages)) return(invisible(NULL))
+    prov <- character(0)
+    if (frozen)
+        prov <- tryCatch(readLines(file.path(root, "PROVENANCE.txt"), warn = FALSE),
+                         error = function(e) character(0))
+    toks <- unlist(strsplit(prov, "[[:space:]]+"))
+    for (p in packages) {
+        v <- NA_character_
+        if (frozen) {
+            hit <- grep(sprintf("^pkg\\[%s\\]=", p), prov, value = TRUE)
+            if (length(hit)) {
+                v <- sub(sprintf("^pkg\\[%s\\]=", p), "", hit[1])
+            } else {
+                tok <- grep(sprintf("^%s_[0-9]", p), toks, value = TRUE)
+                if (length(tok)) v <- gsub("-", ".", sub(sprintf("^%s_", p), "", tok[1]))
+            }
+        } else {
+            v <- tryCatch(as.character(utils::packageVersion(p)),
+                          error = function(e) NA_character_)
+        }
+        if (is.na(v) || !nzchar(v)) v <- "unknown"
+        cat(sprintf("REFERENCE: %s %s (%s)\n", p, v,
+                    if (frozen) paste0("frozen oracle ", basename(root))
+                    else "installed, oracle refresh"))
+    }
+    invisible(NULL)
+}
+
 fg_oracle_cache_begin <- function(name, outputs = NA_character_,
                                   key_files = character(0),
                                   key_values = list(),
@@ -166,6 +206,7 @@ fg_oracle_cache_begin <- function(name, outputs = NA_character_,
                     name, if (is.na(out_dir)) length(outputs)
                           else length(list.files(out_dir, pattern = out_pattern)),
                     root))
+        .fg_reference_lines(packages, root, frozen = TRUE)
         h$state <- "hit"
         return(h)
     }
@@ -174,6 +215,7 @@ fg_oracle_cache_begin <- function(name, outputs = NA_character_,
              "; no R model was fitted. Restore qa/oracles or explicitly regenerate",
              " with FG_ORACLE_REFRESH=1 and review the reference changes.")
     cat(sprintf("ORACLE REFRESH [%s]: explicit regeneration requested\n", name))
+    .fg_reference_lines(packages, root, frozen = FALSE)
     h$state <- "refresh"
     h
 }

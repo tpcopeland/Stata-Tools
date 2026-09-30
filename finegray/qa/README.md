@@ -185,7 +185,7 @@ To deliberately regenerate references after changing a fixture or generator, run
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `finegray` | `test_finegray*`, optimizer/variance/bootstrap/ZZF/nuisance/`bstrata`/`tvc`/`tvc_bstrata`/`weights` suites, the fence matrix, the `mi` lattice probe, and the two `test_finegray_adversarial_*` suites | Recovery, clustered recovery, CIF, LT-SE, `bstrata` recovery, `tvc` recovery, `pweight` recovery, the `strata()` psi score-derivative oracle, the default-variance Monte Carlo, and ZZF gate suites | `crossval_finegray*`, `crossval_bstrata`, `crossval_public_studies`, `crossval_tvc`, `crossval_pweight`, `crossval_nuisance`, `crossval_predict_stcrreg` | Documentation examples, contracts, determinism, ties; adversarial cross-feature (`mi` x `bstrata()`, `mi` x `tvc()`, `tvc()` x `strata()` x `cluster()`), namespace, hostile-label, and degenerate-mass probes |
+| `finegray` | `test_finegray*`, optimizer/variance/bootstrap/ZZF/nuisance/`bstrata`/`tvc`/`tvc_bstrata`/`weights` suites, the fence matrix, the `mi` lattice probe, and the two `test_finegray_adversarial_*` suites | Recovery, clustered recovery, CIF, LT-SE, `bstrata` recovery, `tvc` recovery, `pweight` recovery, the `strata()` psi score-derivative oracle, the default-variance Monte Carlo, and ZZF gate suites | `crossval_finegray*`, `crossval_bstrata`, `crossval_public_studies`, `crossval_tvc`, `crossval_tvc_bstrata`, `crossval_pweight`, `crossval_nuisance`, `crossval_predict_stcrreg` | Documentation examples, contracts, determinism, ties; adversarial cross-feature (`mi` x `bstrata()`, `mi` x `tvc()`, `tvc()` x `strata()` x `cluster()`), namespace, hostile-label, and degenerate-mass probes |
 | `finegray_predict` | Postestimation, factor-grammar, options, reporting, v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_predict_phtest`, `crossval_predict_stcrreg`, `crossval_cif` | Determinism, saved-estimate reloads; adversarial `mi` fail-closed and long-name `tvc()` prediction |
 | `finegray_cif` | CIF/bootstrap/reporting/options, `at()` profiles on factor and interaction designs, `over()` overlay identity, the v1.3.3 graph-tail regression, and v1.1/v1.2.1 regressions | CIF recovery and CIF/LT-SE suites | `crossval_cif`, `crossval_finegray`, `crossval_predict_stcrreg` | Documentation examples, determinism, saved-estimate reloads; adversarial `bstratum()` addressing, empty-risk-set CIF, and bootstrap-failure honesty |
 | `finegray_phtest` | Diagnostic, factor, postestimation, and determinism suites | Core invariant suite | `crossval_predict_phtest` | Documentation examples, saved-estimate reloads |
@@ -205,6 +205,26 @@ Adversarial axes, in cells (`check qa finegray --view axes`: 21/21 owed cells pr
 | `gates` | The three multi-hour ZZF recovery, coverage, and factorization validations, run on demand. |
 | Shell gates | Wrapper regression on non-`gates` lanes; stale-oracle gate on `python`/`full`; delayed-entry transfer proof on `full`/`gates`. |
 | Benchmark | `benchmark_finegray_zzf.do` and `benchmark_finegray_crossval.do`, run manually and never interpreted as a correctness verdict. |
+
+## Evidence layers
+
+One row per estimator route. Cells name files only; `check qa finegray --view evidence` derives each cell's state from lane membership and the `run qa` receipts. A blank cell is owed evidence that does not exist yet. No suite yet reproduces a grounding paper's published numbers: `crossval_public_studies.do` fits the Zhou et al. (2011) public datasets but compares with live `crrSC::crrs` fits, not with the paper's printed tables, so it is reference parity.
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `finegray` log-SHR, default fixed-weight sandwich | `validation_finegray_recovery.do`; `validation_finegray_recovery_paths.do`; `validation_fixture_recovery.do` | `crossval_finegray.do`; `crossval_finegray_dta.do` |  | `validation_variance_default_mc.do` |
+| `finegray` log-SHR, `nuisance` (eta + psi) variance | `validation_finegray_recovery.do` | `crossval_nuisance.do`; `crossval_finegray_dta.do`; `crossval_finegray.do` |  | `validation_variance_default_mc.do` |
+| `finegray` log-SHR, `norobust` model-based variance | `validation_finegray_recovery.do` | `crossval_finegray.do` |  | `validation_finegray_zzf_coverage.do` |
+| `finegray` log-SHR, `cluster()` sandwich | `validation_cluster_recovery.do` | `crossval_public_studies.do`; `crossval_tvc_bstrata.do` |  |  |
+| `finegray` log-SHR, delayed entry (ZZF Weight 1), fixed-weight / `nuisance` / `norobust` variance | `validation_finegray_zzf_recovery.do` | `crossval_finegray_zzf.do`; `crossval_finegray_zzf_ties.do` |  | `validation_finegray_zzf_coverage.do`; `validation_variance_default_mc.do` |
+| `finegray` `bstrata()` shared log-SHR and per-stratum baseline | `validation_bstrata_recovery.do` | `crossval_bstrata.do`; `crossval_public_studies.do` |  | `validation_bstrata_recovery.do`; `validation_variance_default_mc.do` |
+| `finegray` `tvc()` piecewise log-SHR(t), fixed-weight sandwich | `validation_tvc_recovery.do` | `crossval_tvc.do`; `crossval_tvc_bstrata.do` |  | `validation_tvc_recovery.do` |
+| `finegray` `[pweight=]` log-SHR, fixed-weight sandwich | `validation_pweight_recovery.do` | `crossval_pweight.do` |  | `validation_pweight_recovery.do` |
+| `finegray_cif` analytic CIF, fixed-weight influence-function SE | `validation_finegray_cif_recovery.do` | `crossval_cif.do`; `crossval_finegray.do` |  |  |
+| `finegray_cif` analytic CIF SE, delayed entry with `cluster()` | `validation_finegray_lt_cluster_cif_se.do` |  |  | `validation_finegray_lt_cluster_cif_se.do` |
+| `finegray_cif` `bootstrap()` CIF interval | `validation_finegray_cif_recovery.do` | `crossval_cif.do` |  |  |
+| `finegray_predict` row CIF and `xb`, `ci` limits | `validation_finegray_cif_recovery.do` | `crossval_predict_stcrreg.do`; `crossval_predict_phtest.do` |  |  |
+| `finegray_phtest` Schoenfeld-residual time correlations | none: deterministic transform | `crossval_predict_phtest.do` |  | none: no inference reported |
 
 ## Known gaps
 
