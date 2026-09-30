@@ -163,14 +163,15 @@ psi_i is the contribution from having estimated the censoring weights; that
 is the estimator {cmd:finegray} computes under {opt nuisance}, not by
 default. Under right censoring, {cmd:finegray, nuisance} reproduces {cmd:stcrreg}'s
 full covariance matrix to numerical precision (mreldif of order 1e-12 on
-untied data in the package's QA suite) with {opt noadjust} on both, or with
-the finite-sample factor on both. The default fixed-weight covariance
+the {cmd:hypoxia} data, whose cause-event times are tied, and of order 1e-9,
+the convergence tolerance, after rounding its times to whole years) with
+{opt noadjust} on both, or with the finite-sample factor on both. The default fixed-weight covariance
 differs from {cmd:stcrreg}'s by exactly the psi terms; on the package's
 fixtures the standard errors then agree to three or four significant figures,
 and a comparison of the default against {cmd:stcrreg} should be read as
-agreement to a tolerance, not as equality. Tied censoring times add a second,
-smaller source of difference: the two commands break ties in the censoring
-Kaplan-Meier differently. Under delayed entry the commands use different
+agreement to a tolerance, not as equality. Tied event and censoring times do
+not add a difference: without delayed entry both commands keep tied failures
+in the censoring risk set. Under delayed entry the commands use different
 weights, and the censoring Kaplan-Meier follows Geskus's tie ordering there
 (see {help finegray_methods##lt:Left truncation}), so neither estimates nor
 standard errors are numerically comparable. Coefficients are unaffected by
@@ -1314,15 +1315,13 @@ time. The per-observation {opt cif} is the covariate-adjusted CIF, which
 {cmd:predict}, and it matches to numerical precision.
 
 {pstd}
-{bf:Ties in the Schoenfeld residuals.} Residuals are identical to
-{cmd:stcrreg}'s {bf:at untied cause-event times}. At a {bf:tied} cause-event
-time the two implementations split the residual among the simultaneous events
-using different conventions, so an individual residual at a tied time can
-differ; the {bf:sum of the residuals within each event time is identical}, as
-is the overall score (their grand total, which is zero at the estimate). Only
-the per-observation values at tied times are affected -- untied times, the
-per-time totals, and every quantity that aggregates over event times are
-unchanged.
+{bf:Ties in the Schoenfeld residuals.} Residuals match {cmd:stcrreg}'s
+observation by observation, at tied cause-event times as well as untied ones:
+each event at time t receives Z_i minus the weighted risk-set mean at t in
+both commands. On the {cmd:hypoxia} data, with 17 cause events at tied times,
+the largest difference is of order 1e-10; after rounding its times to whole
+years, which ties most events and censorings, it is of order 1e-6, the
+convergence tolerance of the two fits.
 
 {pstd}
 {bf:Under delayed entry, parity is neither expected nor a validity}

@@ -22,6 +22,8 @@ The declaration retains the complete public scope and leaves unmet cells visible
 
 `test_fixture_table_domains.do` checks the public stored-model formatter decimal/font/border/bold thresholds against exact native coefficients and actual XLSX strings/styles. Friendly cells preserve caller state except documented r() publication; eight named hostile option refusals retain full caller state and the existing workbook digest. Academic and none edges are checked exactly.
 
+`test_fixture_intervention_numeric.do` checks nine executable native assignment expressions against independently observed terminal-class Poisson means: nested `cond()`/functions/brackets, ordinary and compound quoted commas, alias-looking quoted text, dollar/backtick literals and a quoted ` if ` with a real qualifier. These are numerical assignment checks, without longitudinal causal or interval-calibration claims. Byte-only `e(interventions)` metadata transport remains deferred under S4.
+
 ## Commands
 
 Run from this `qa/` directory:
@@ -60,6 +62,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 
 | Suite | Class | Lane | Timeout | Dependency | Oracle or fixture | Generator / seed | Feature IDs |
 | --- | --- | --- | ---: | --- | --- | --- | --- |
+| `test_fixture_intervention_numeric.do` | numerical intervention grammar | quick | 300s | Stata | exact observed saturated terminal-class means plus native replacement control and separated class targets | A3-TRAJ; 9281/9282 | nested/quoted/bracket/alias/literal/qualified assignments |
 | `test_fixture_public.do` | canonical matrices/files | quick | 300s | Stata/Python/openpyxl | A6 exact coefficient identity and values in display/CSV/Markdown/XLSX; SAT owned-sheet risks | A6/A7; 9141 | raw/eform/omission/stripes/files |
 | `test_fixture_putexcel_context.do` | transaction | quick | 300s | Stata/Python/openpyxl | Full context fingerprints plus subsequent caller writes, pending unsaved cells/live handle | A6 | native putexcel context |
 | `test_fixture_mediation.do` | canonical mediation recovery/exports | quick | 300s | Stata/Python/openpyxl | Balanced GAUSS target TCE/NDE/CDE2, NIE/PM0; exact fitted CDE, derived mediator MC bounds and real CSV/Markdown/XLSX | 9151; MC9152–9154 | OBE/control/minsim/moreMC and shuffled input |

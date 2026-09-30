@@ -78,7 +78,27 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `_qa_state.do` | Vendored session fingerprints used by the current-release regression suite. |
 | `_qa_parity.do` | Vendored report/metadata privacy parity assertions used by the current-release regression suite. |
 | `_qa_hostile.do` | Vendored hostile double fixtures used by the current-release regression suite. |
+| `_qa_fx_a7.do` | Canonical labelled-data and owned-file fixtures. |
+| `_qa_metamorphic.do` | Canonical option-domain and estimator-relation helpers. |
 | `run_all.do` | Validates the lane, sandboxes installation state, installs the local package, runs suites, and emits a lane sentinel. |
+
+### Canonical fixture suites
+
+| File | Coverage | Lanes |
+| --- | --- | --- |
+| `validation_datamap_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+| `validation_datamap_fixture_primitives.do` | All five commands: exact case/32-byte schema, numeric/string code frequencies, dictionary rows, QC/missingness and actual masked ledger release | core/full |
+| `test_datamap_fixture_domains.do` | All four numeric-option surfaces: declared lower domains, missing/fractional refusals and exact JSON/dictionary/QC/missingness payloads | core/full |
+| `test_datamvp_fixture_groupgap.do` | Missing-value named-cause/state refusals and exact retained series plus rendered SVG spacing ratios | core/full |
+| `test_datamap_fixture_files.do` | Four actual writer routes: hostile-path refusal, exact extensionless text/dictionary/pattern content and complete owned-tree mutation policy | core/full |
+| `test_datacheck_fixture_ledger_quotes.do` | Simple/compound space/Unicode ledger paths, exact append rows/sequences/run labels and separate directory/leaf-quote named-cause refusals | core/full |
+| `test_datamvp_fixture_reshape_state.do` | Absent/opaque16native aliases across four graphs, no-missing shortcut and early/late refusals; exact real filename/next native graph, next native reshape, pattern I/O and caller-owned preserve | core/full |
+| `test_datamap_fixture_option_strings.do` | All four graph types plus invalid-category refusal on an exact known missingness adapter; actual new ledger row payload and missing-parent filename refusal | core/full |
+| `test_datamvp_fixture_state.do` | Caller legacy-global preservation controls | core/full |
+| `validation_datadict_fixture_contract.do` | Exact means/cardinality/missingness/labels/date formats in metadata plus real rendered dictionary summaries, all six LABELLED variants and full caller fingerprint | core/full |
+
+| `validation_dataqa_fixture_contract.do` | All six LABELLED variants: exact ledger gates, masked release cells, register text and three independently corrupted baseline fields | core/full |
+| `test_dataqa_fixture_state.do` | Fresh matastrict off/on preserved across comparison success and early/late refusals; existing output bytes retained | core/full |
 
 ## Coverage map
 
@@ -106,19 +126,3 @@ archetypes: A7(datamap datamvp datacheck datadict dataqa)
 ## Canonical fixture adoption
 
 Exact JSON means, empty all-missing summaries, sparse code frequencies, missingness and QC gates; existing/undefined S_2 preserved on success, no-missing, early and late refusal. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
-
-| File | Coverage | Lanes |
-| --- | --- | --- |
-| `validation_datamap_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
-| `validation_datamap_fixture_primitives.do` | All five commands: exact case/32-byte schema, numeric/string code frequencies, dictionary rows, QC/missingness and actual masked ledger release | core/full |
-| `test_datamap_fixture_domains.do` | All four numeric-option surfaces: declared lower domains, missing/fractional refusals and exact JSON/dictionary/QC/missingness payloads | core/full |
-| `test_datamvp_fixture_groupgap.do` | Missing-value named-cause/state refusals and exact retained series plus rendered SVG spacing ratios | core/full |
-| `test_datamap_fixture_files.do` | Four actual writer routes: hostile-path refusal, exact extensionless text/dictionary/pattern content and complete owned-tree mutation policy | core/full |
-| `test_datacheck_fixture_ledger_quotes.do` | Simple/compound space/Unicode ledger paths, exact append rows/sequences/run labels and separate directory/leaf-quote named-cause refusals | core/full |
-| `test_datamvp_fixture_reshape_state.do` | Absent/opaque16native aliases across four graphs, no-missing shortcut and early/late refusals; exact real filename/next native graph, next native reshape, pattern I/O and caller-owned preserve | core/full |
-| `test_datamap_fixture_option_strings.do` | All four graph types plus invalid-category refusal on an exact known missingness adapter; actual new ledger row payload and missing-parent filename refusal | core/full |
-| `test_datamvp_fixture_state.do` | Caller legacy-global preservation controls | core/full |
-| `validation_datadict_fixture_contract.do` | Exact means/cardinality/missingness/labels/date formats in metadata plus real rendered dictionary summaries, all six LABELLED variants and full caller fingerprint | core/full |
-
-| `validation_dataqa_fixture_contract.do` | All six LABELLED variants: exact ledger gates, masked release cells, register text and three independently corrupted baseline fields | core/full |
-| `test_dataqa_fixture_state.do` | Fresh matastrict off/on preserved across comparison success and early/late refusals; existing output bytes retained | core/full |
