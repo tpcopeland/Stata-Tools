@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 2.0.1** | 2026-08-28
+**Version 2.0.2** | 2026-09-30
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 
@@ -450,6 +450,8 @@ Monte Carlo and finite-bootstrap error are sampling approximations. `saving()` w
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **2.0.2** (2026-09-30): Failed `gcomp` calls restore the caller's RNG state, including structural-input refusals after `seed()` validation and errors after partial simulation. Successful simulations retain their draw order.
 
 - **2.0.1** (2026-08-28): Accelerated longitudinal simulation by absorbing post-death rows in one pass, scanning observed visit support once per variable, and hoisting invariant monotreatment histories out of the visit loop.
 - **2.0.0** (2026-08-19): Removed journal theme presets from `gcomptab`; use direct formatting options.

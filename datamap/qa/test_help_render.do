@@ -79,12 +79,12 @@ capture noisily {
         local paths "`paths' `pkg_dir'/`sthlp'"
     }
     local n_sthlp : word count `sthlps'
-    assert `n_sthlp' == 4
+    assert `n_sthlp' == 5
     _datamap_sthlp_render `paths'
     assert r(nbad) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: all four help files render cleanly"
+    display as result "  PASS: all five help files render cleanly"
     local ++pass_count
 }
 else {

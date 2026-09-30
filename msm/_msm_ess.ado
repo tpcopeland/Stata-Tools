@@ -1,4 +1,4 @@
-*! _msm_ess Version 1.4.10  2026/09/27
+*! _msm_ess Version 1.4.11  2026/09/30
 *! Kish effective sample size of a weight variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

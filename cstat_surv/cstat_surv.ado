@@ -1,4 +1,4 @@
-*! cstat_surv Version 1.0.1  2026/08/05
+*! cstat_surv Version 1.0.2  2026/09/30
 *! C-statistic for Cox proportional hazards models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Standalone version with embedded calculation (no somersd dependency)
@@ -33,6 +33,25 @@ program define cstat_surv, eclass
         if _rc {
             display as error "data not st; use stset"
             exit 119
+        }
+
+        * A tvc() fit has no single time-invariant prognostic score.
+        * Native stcox posts e(texp) for both explicit and default time
+        * functions; e(tvc) is not a stored-result indicator for this route.
+        if `"`e(texp)'"' != "" {
+            display as error "cstat_surv does not support time-varying coefficients"
+            display as error "refit stcox without tvc() before computing concordance"
+            exit 498
+        }
+
+        * Harrell's right-censored pair ordering does not account for
+        * delayed entry. Check only rows used by the fitted Cox model,
+        * before creating predictions or replacing the active estimates.
+        capture assert _t0 == 0 if e(sample) & _st == 1
+        if _rc {
+            display as error "cstat_surv does not support delayed entry"
+            display as error "analysis entry time _t0 must be zero in the Cox estimation sample"
+            exit 498
         }
 
         * Capture weight type before ereturn post clears it

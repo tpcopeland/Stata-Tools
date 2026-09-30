@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.10** | 2026-09-27
+**Version 1.4.11** | 2026-09-30
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -496,6 +496,8 @@ These are export commands. Their durable output is the Excel workbook; they do n
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.4.11** (2026-09-30): Failed `msm_prepare` and `msm_weight` calls restore the caller's original sort metadata as well as its physical row order.
 
 - **1.4.10** (2026-09-27): `msm_weight, truncate()` counts and caps weights at the exact percentile cutoffs, and `msm_diagnose` counts extreme weights above the exact P99. The cutoffs used to pass through a macro, which could move them by one unit in the last place, so a weight equal to the cutoff was counted as truncated and rewritten slightly off it (off by one in `r(n_truncated)` on ordinary data). `msm_diagnose` no longer prints its imbalanced count when run quietly.
 - **1.4.9** (2026-09-26): The effective sample size reported by `msm_weight`, `msm_diagnose` (overall, by treatment group, and in `r(support)`, `r(treatment_balance)` and `r(censor_balance)`) and `msm_report`, and the weighted SMD of a continuous covariate, no longer become missing when the weights are extremely small or large (near 1e-200 or 1e200, where their squares underflow or overflow); both are computed on weights divided by a power of two. Ordinary weights give the same values to within the last digit or two.

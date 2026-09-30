@@ -1,4 +1,4 @@
-*! msm_weight Version 1.4.10  2026/09/27
+*! msm_weight Version 1.4.11  2026/09/30
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -41,6 +41,7 @@ program define msm_weight, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _caller_sorted : sortedby
     local _weight_preserved = 0
     set varabbrev off
     set more off
@@ -870,6 +871,12 @@ program define msm_weight, rclass
     capture _msm_restore_order `_msm_orig_order'
     local _order_rc = _rc
     if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
+
+    * Preserve the caller's sort stamp as well as its physical row sequence.
+    * Stable sorting leaves the already restored order within tied keys intact.
+    if `"`_caller_sorted'"' != "" {
+        sort `_caller_sorted', stable
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.2  29sep2026}{...}
+{* *! version 1.4.3  30sep2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -992,7 +992,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.2, 29sep2026{p_end}
+{pstd}Version 1.4.3, 30sep2026{p_end}
 
 
 {marker alsosee}{...}

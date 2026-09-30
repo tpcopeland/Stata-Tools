@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  05aug2026}{...}
+{* *! version 1.0.2  30sep2026}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "cstat_surv##syntax"}{...}
@@ -71,6 +71,15 @@ The C-statistic ranges from 0 to 1:
 
 {phang2}1. Your data must be {helpb stset} before running the Cox model{p_end}
 {phang2}2. You must have just run {helpb stcox} in the current session{p_end}
+{phang2}3. Analysis entry time {cmd:_t0} must be zero for every observation in the Cox estimation sample{p_end}
+{phang2}4. The Cox model must have time-invariant coefficients; {cmd:tvc()} fits are refused{p_end}
+
+{pstd}
+Delayed entry and {cmd:tvc()} fits are refused with {cmd:r(498)} before generating predictions or
+replacing the active Cox estimates. Positive entry times outside
+{cmd:e(sample)} do not trigger this refusal. The pair-ordering formula below
+assumes right-censored data without delayed entry; see
+{help stcox postestimation##concordance:estat concordance}.{p_end}
 
 {pstd}
 The command works by:

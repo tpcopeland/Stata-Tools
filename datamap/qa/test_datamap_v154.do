@@ -96,14 +96,22 @@ _v154_record `ok' "datacheck rejects invalid configured maxcat"
 **# datamvp validation and no-op rejection
 
 replace arm = . in 3
+* top() without a graph caps the pattern table since 1.8.0, so it is
+* tested as accepted below rather than rejected here
 foreach spec in "minfreq(0)" "minmissing(-2)" "maxmissing(-2)" ///
-    "top(2)" "groupgap(2)" "legendopts(rows(2))" {
+    "groupgap(2)" "legendopts(rows(2))" {
     local ++test_count
     capture noisily datamvp arm, `spec'
     local ok = (_rc == 198)
     local pass_count = `pass_count' + `ok'
     _v154_record `ok' "datamvp rejects `spec' without a valid graph context"
 }
+
+local ++test_count
+capture noisily datamvp arm, top(2)
+local ok = (_rc == 0)
+local pass_count = `pass_count' + `ok'
+_v154_record `ok' "datamvp accepts top() for the pattern table without graph()"
 
 local ++test_count
 capture noisily datamvp arm, graph(bar) top(2) nodraw

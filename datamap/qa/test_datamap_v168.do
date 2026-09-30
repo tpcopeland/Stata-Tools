@@ -338,7 +338,7 @@ _v168_record `test_rc' `pass_count' `fail_count' "FileListMacro memory branch re
 **# T9: every synopt description fits its active Viewer column
 local ++test_count
 capture noisily {
-    local help_files datamap.sthlp datadict.sthlp datacheck.sthlp datamvp.sthlp
+    local help_files datamap.sthlp datadict.sthlp datacheck.sthlp datamvp.sthlp dataqa.sthlp
     local nbad 0
     foreach help_file of local help_files {
         local synopt_width 0

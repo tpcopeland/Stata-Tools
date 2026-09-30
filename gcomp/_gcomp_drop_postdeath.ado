@@ -1,4 +1,4 @@
-*! _gcomp_drop_postdeath Version 2.0.1  2026/08/28
+*! _gcomp_drop_postdeath Version 2.0.2  2026/09/30
 *! Drop every observation strictly after the first death within subject
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

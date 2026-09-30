@@ -1,4 +1,4 @@
-*! eplot Version 1.4.2  2026/09/29
+*! eplot Version 1.4.3  2026/09/30
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1928,7 +1928,8 @@ program define _eplot_estimates, rclass
                 }
                 // Fall back to "VarLabel = value" or "varname = value"
                 if `"`_label'"' == "" | `"`_label'"' == "`_facval'" {
-                    local _vl : variable label `_purvar'
+                    capture local _vl : variable label `_purvar'
+                    if _rc local _vl ""
                     if `"`_vl'"' != "" {
                         local _label `"`_vl' = `_facval'"'
                     }

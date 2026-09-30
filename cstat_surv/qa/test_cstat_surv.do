@@ -991,10 +991,14 @@ capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
     stcox age, tvc(drug) texp(_t)
-    cstat_surv
-    assert !missing(e(c))
-    assert !missing(e(c))
-    assert e(c) >= 0 & e(c) <= 1
+    matrix b_before=e(b)
+    matrix V_before=e(V)
+    capture noisily cstat_surv
+    local call_rc=_rc
+    assert `call_rc'==498
+    assert "`e(cmd)'"=="cox" & "`e(texp)'"=="_t"
+    assert mreldif(b_before,e(b))==0 & mreldif(V_before,e(V))==0
+    // The fixture TVC suite also checks the named cause and full fingerprint.
 }
 if _rc == 0 {
     display as result "  PASS: Test `test_count' — stcox with tvc()"

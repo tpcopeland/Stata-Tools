@@ -1,4 +1,4 @@
-*! _msm_invalidate Version 1.4.10  2026/09/27
+*! _msm_invalidate Version 1.4.11  2026/09/30
 *! Invalidate MSM pipeline artifacts downstream of a replaced stage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

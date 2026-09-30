@@ -1,4 +1,4 @@
-*! _gcomp_draw_sim Version 2.0.1  2026/08/28
+*! _gcomp_draw_sim Version 2.0.2  2026/09/30
 *! Fit one gcomp component model and draw its simulated target
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

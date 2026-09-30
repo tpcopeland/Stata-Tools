@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.4.2** | 2026-09-29
+**Version 1.4.3** | 2026-09-30
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -302,6 +302,8 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.4.3** (2026-09-30): Estimates containing factor coefficients can be plotted after their source variable is absent from the current dataset. Missing variable/value labels now fall back to the factor variable name and level; the analytic coefficient stripe remains exact, and available labels retain their existing behavior.
 
 - **1.4.2** (2026-09-29): Matrix-mode row names that contain spaces had shifted every later label onto the wrong effect; row labels now come from the matrix stripe, and repeated row names keep their equation prefix as in estimates mode. Estimates mode now uses parameter-specific degrees of freedom (`e(df_mi)` after `mi estimate, post`; `e(df)` after `mixed, dfmethod()`), matching Stata's own intervals and p-values, and no longer drops a coefficient whose standard error is tiny but nonzero. With `weights()` and `sigcolors`, equal weights now draw equal boxes. `r(pvalues)` and `r(table)` are no longer posted as 1 × 1 missing matrices when unavailable, and failed calls no longer leave missing `r(N)`/`r(k)`. In multi-model plots `mcolor()` and `cicolor()`, previously ignored, now apply (one color for all models or one per model; `mcolor()` with `palette()` exits with `r(198)`), and RGB colors such as `mcolor("0 128 0")` are drawn as specified instead of black in every mode. A color option that holds more than one color where one is expected, or an unknown color name, now exits with `r(198)` instead of silently drawing the default color, and `sigcolor()`/`insigncolor()` without `sigcolors` exit with `r(198)` instead of being ignored. The `eform` axis title recognizes `stcox`, `melogit`, `mepoisson`, `menbreg`, and proportional-hazards `streg`/`mestreg`; `null(-999)` is honored; results from `mi estimate` without `post` get a clear error.
 - **1.4.1** (2026-09-24): The `values` column now starts to the right of the null line and the last labelled tick as well as the widest interval; when every interval lay left of the null it had been drawn on the null line. Added `vgap()` to set the gap before the column.
