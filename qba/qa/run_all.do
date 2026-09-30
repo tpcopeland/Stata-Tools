@@ -44,7 +44,7 @@ local quick_suites test_qba test_qba_v110 test_qba_v111 test_qba_v112 ///
     test_refactor_qba_plot_install_smoke test_refactor_qba_plot_sideeffects
 
 local validation_suites validation_qba validation_qba_boundaries ///
-    validation_qba_fixture_contract validation_qba_fixture_plots test_qba_plot_fixture_state ///
+    validation_qba_fixture_contract validation_qba_fixture_plots test_qba_plot_fixture_state validation_qba_fixture_routes validation_qba_fixture_domains validation_qba_fixture_callers validation_qba_fixture_ci_domain test_qba_plot_fixture_files ///
     validation_qba_known_misclass validation_qba_known_selection ///
     validation_qba_known_confound validation_qba_known_multi ///
     validation_qba_known_plot

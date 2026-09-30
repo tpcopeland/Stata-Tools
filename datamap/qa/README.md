@@ -110,6 +110,13 @@ Exact JSON means, empty all-missing summaries, sparse code frequencies, missingn
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_datamap_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+| `validation_datamap_fixture_primitives.do` | All five commands: exact case/32-byte schema, numeric/string code frequencies, dictionary rows, QC/missingness and actual masked ledger release | core/full |
+| `test_datamap_fixture_domains.do` | All four numeric-option surfaces: declared lower domains, missing/fractional refusals and exact JSON/dictionary/QC/missingness payloads | core/full |
+| `test_datamvp_fixture_groupgap.do` | Missing-value named-cause/state refusals and exact retained series plus rendered SVG spacing ratios | core/full |
+| `test_datamap_fixture_files.do` | Four actual writer routes: hostile-path refusal, exact extensionless text/dictionary/pattern content and complete owned-tree mutation policy | core/full |
+| `test_datacheck_fixture_ledger_quotes.do` | Simple/compound space/Unicode ledger paths, exact append rows/sequences/run labels and separate directory/leaf-quote named-cause refusals | core/full |
+| `test_datamvp_fixture_reshape_state.do` | Absent/opaque16native aliases across four graphs, no-missing shortcut and early/late refusals; exact real filename/next native graph, next native reshape, pattern I/O and caller-owned preserve | core/full |
+| `test_datamap_fixture_option_strings.do` | All four graph types plus invalid-category refusal on an exact known missingness adapter; actual new ledger row payload and missing-parent filename refusal | core/full |
 | `test_datamvp_fixture_state.do` | Caller legacy-global preservation controls | core/full |
 | `validation_datadict_fixture_contract.do` | Exact means/cardinality/missingness/labels/date formats in metadata plus real rendered dictionary summaries, all six LABELLED variants and full caller fingerprint | core/full |
 

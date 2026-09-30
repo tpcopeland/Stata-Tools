@@ -1,4 +1,4 @@
-*! tvmerge Version 1.17.4  2026/09/30
+*! tvmerge Version 1.17.6  2026/09/30
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -65,6 +65,10 @@ EXPOSURE TYPES:
 program define tvmerge, rclass
 
     version 16.0
+    foreach _sg in S_FN S_FNDATE {
+        mata: st_local("_fn_has_`_sg'",strofreal(sum(st_dir("global","macro","*"):=="`_sg'")>0))
+        mata: st_local("_fn_val_`_sg'",st_global("`_sg'"))
+    }
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     local _frameout_snap_taken = 0    // init before block for error-path restore
@@ -2093,6 +2097,12 @@ program define tvmerge, rclass
                 quietly save "`saveas'", replace
                 return local output_file "`saveas'"
             }
+            * Capture metadata from the real native output save before later
+            * diagnostics reload private temporary datasets.
+            foreach _sg in S_FN S_FNDATE {
+                mata: st_local("_out_has_`_sg'",strofreal(sum(st_dir("global","macro","*"):=="`_sg'")>0))
+                mata: st_local("_out_val_`_sg'",st_global("`_sg'"))
+            }
         }
     
     }
@@ -2248,6 +2258,24 @@ program define tvmerge, rclass
         }
     }
     set varabbrev `_orig_varabbrev'
+
+    * Refusal and readonly frame output retain the caller dataset metadata;
+    * new memory output has no filename, while saveas() retains its real path.
+    if `rc' | "`frameout'"!="" {
+        foreach _sg in S_FN S_FNDATE {
+            if `_fn_has_`_sg'' mata: st_global("`_sg'",st_local("_fn_val_`_sg'"))
+            else capture macro drop `_sg'
+        }
+    }
+    else if "`saveas'"=="" {
+        capture macro drop S_FN S_FNDATE
+    }
+    else {
+        foreach _sg in S_FN S_FNDATE {
+            if `_out_has_`_sg'' mata: st_global("`_sg'",st_local("_out_val_`_sg'"))
+            else capture macro drop `_sg'
+        }
+    }
 
     if `rc' exit `rc'
 

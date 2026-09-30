@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.6  29sep2026}{...}
+{* *! version 1.2.7  30sep2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -87,6 +87,12 @@ labels become variable labels, so a level coded {cmd:2} with value label
 level with no value label, or with no entry in its attached value label, is
 labeled {it:var}{cmd:=}{it:level} (for example {cmd:rep78=2}). String variables
 are rejected; {helpb encode} them first.
+
+{pstd}
+Variable and value-label text is preserved literally, including quotes,
+backticks, dollar signs and Unicode. Generated labels retain the intended
+centering, interaction and reference suffixes, then are truncated to Stata's
+80-character variable-label limit when necessary.
 
 {pstd}
 The motivation is friendlier export. Estimating with native factor-variable
@@ -423,7 +429,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.6, 2026-09-29{p_end}
+{pstd}Version 1.2.7, 2026-09-30{p_end}
 
 
 {title:Also see}

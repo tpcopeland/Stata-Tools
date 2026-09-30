@@ -1,11 +1,5 @@
 # comorbidity QA
 
-archetypes: A5
-
-Canonical fixture adoption is in progress. All canonical code profiles have exact original/Quan2011 Charlson and VanWalraven subset scores in collapse/merge, including date exclusions and empty code slots. Built-in dictionaries use raw case-sensitive, start-anchored matching, so lowercase/leading-space input scores are explicitly zero rather than normalized clinical CCI truth. Shared long-name invariance compares scores. Full clinical dictionary/weight provenance remains covered by the separate existing reference suites. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
-
 The `comorbidity` QA suite is flat and concern-oriented, with functional, regression, source-definition, and known-answer suites driven by a curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run
@@ -26,6 +20,8 @@ Each suite and the runner emit a terminal `RESULT:` line and exit nonzero on fai
 For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the dependency as `<scratch>/codescan`, remove copied `qa/*.log`, and run from the copied `comorbidity/qa` directory. The package and its dependency must be siblings because the bootstrap derives the dependency path from `c(pwd)`.
 
 ## Conventions
+
+archetypes: A5
 
 - `test_*` files cover functional, regression, state-preservation, and install behavior; `validation_*` files use hand-computable or source-tabulated known answers; `crossval_comorbidity_r.do` compares the Quan ICD-10 indicator mappings and original/Quan/van Walraven scores with R's `comorbidity` package.
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N [skip=N]` and exits nonzero on failure. The full lane accepts no dependency skips.
@@ -49,6 +45,8 @@ For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the
 
 | File | Covers |
 |---|---|
+| `test_fixture_names.do` | Long-name invariance for actual public output values and returned identities. |
+| `test_fixture_files.do` | Native-created, absent and opaque filename globals on collapse/merge success and refusal, with next native use controls. |
 | `test_comorbidity.do` | Public index schemes, output shapes, prefixes, replacement, windows, hierarchy control, and returned values |
 | `test_comorbidity_v102.do` | Exact custom double weights in DTA/CSV, sort metadata, case-distinct names, invalid/valid windows, caller-state fingerprints, and hostile double identifiers |
 | `test_qa_isolation.do` | Caller-owned package files and registry survive the quick runner and each standalone helper suite |
@@ -67,6 +65,8 @@ For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the
 
 | File | Covers |
 |---|---|
+| `validation_fixture_windows.do` | Every person score under inclusive zero/three-day lookback/lookforward windows. |
+| `validation_fixture_contract.do` | Exact canonical original/Quan Charlson and van Walraven subset scores and components in collapse/merge, including empty slots and date exclusions. |
 | `validation_comorbidity.do` | Hand-computable Charlson, Elixhauser, and custom weighted scores |
 | `validation_dictionary_quan2005.do` | Boundary inclusions and exclusions from Quan et al. (2005), Table 2 |
 
@@ -80,6 +80,8 @@ For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the
 
 | Path | Contents |
 |---|---|
+| `_qa_fx_a5.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Explicit `quick`, `core`, and `full` lane membership with suite-level failure propagation |
 | `_qa_state.do`, `_qa_hostile.do` | Byte-identical vendored session fingerprints and hostile fixtures |
 | `_comorbidity_qa_common.do` | Temporary sysdir sandbox, local package/dependency installation, and terminal result helper |
@@ -89,7 +91,7 @@ For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the
 
 | Command | Functional and regression | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `comorbidity` | `test_comorbidity.do`, `test_comorbidity_errors.do`, `test_comorbidity_oracle.do`, `test_regressions.do`, `test_comorbidity_v102.do`, `test_comorbidity_adversarial.do`, `test_comorbidity_hostile.do` | `validation_comorbidity.do`, `validation_dictionary_quan2005.do` | `crossval_comorbidity_r.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
+| `comorbidity` | `test_comorbidity.do`, `test_comorbidity_errors.do`, `test_comorbidity_oracle.do`, `test_regressions.do`, `test_comorbidity_v102.do`, `test_comorbidity_adversarial.do`, `test_comorbidity_hostile.do`, canonical names/filename state | `validation_comorbidity.do`, `validation_dictionary_quan2005.do`, canonical score/window contracts | `crossval_comorbidity_r.do` | `test_documentation_examples.do`, `test_comorbidity_install.do` |
 
 Private dictionaries, weights, and hierarchy helpers are covered directly by their corresponding `test_dictionary.do`, `test_weights.do`, and `test_hierarchy.do` suites.
 
@@ -100,11 +102,11 @@ Private dictionaries, weights, and hierarchy helpers are covered directly by the
 | Lane | Suites |
 |---|---|
 | `quick` | `test_dictionary.do`, `test_weights.do`, `test_hierarchy.do`, `test_comorbidity.do`, `test_comorbidity_errors.do`, and `test_comorbidity_oracle.do` |
-| `core` | `quick` plus `test_regressions.do`, `test_comorbidity_v102.do`, `test_qa_isolation.do`, `test_documentation_examples.do`, both `validation_*` suites, `test_comorbidity_adversarial.do`, and `test_comorbidity_hostile.do` |
+| `core` | Quick plus regression, isolation, documentation, deterministic validation, adversarial and canonical score/window/name/filename contracts listed in run_all.do. |
 | `full` | `core` plus `test_comorbidity_install.do` and `crossval_comorbidity_r.do` |
 
 ## Known gaps
 
-The Stata help render axis is checked outside these lanes with the devkit `artifact help` and package checks. The R cross-validation covers the Quan ICD-10 mapping plus original Charlson, Quan 2011, and van Walraven weight surfaces, but R parity is not an independent audit of the Quan 2011 primary weight table. AHRQ schemes are intentionally unimplemented.
+Built-in dictionaries use raw case-sensitive, start-anchored matching; lowercase and leading-space inputs score zero. Canonical subset scores do not replace the existing full dictionary/weight reference oracles.
 
-Zero/three-day inclusive lookback/lookforward windows match every person score. Native filename state controls cover collapse/merge and direct refusal, including native use, opaque punctuation, empty assignment and absent macros. Additional core/full suites: `validation_fixture_windows.do`, `test_fixture_files.do`.
+The Stata help render axis is checked outside these lanes with the devkit `artifact help` and package checks. The R cross-validation covers the Quan ICD-10 mapping plus original Charlson, Quan 2011, and van Walraven weight surfaces, but R parity is not an independent audit of the Quan 2011 primary weight table. AHRQ schemes are intentionally unimplemented.

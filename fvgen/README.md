@@ -1,6 +1,6 @@
 # fvgen — Flatten factor-variable interactions into labeled variables
 
-**Version 1.2.6** | 2026-09-29
+**Version 1.2.7** | 2026-09-30
 
 `fvgen` turns Stata factor-variable specifications into ordinary, labeled main-effect and interaction variables for regression tables and other exports. It returns a ready-to-use `r(allvars)` varlist while preserving the estimable design of the native model.
 
@@ -205,6 +205,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.7** (2026-09-30): Preserve literal quotes, backticks, dollar signs and Unicode when building labels for centered copies, factor indicators and interactions, including reference suffixes. The documented 80-character label limit and suffix rules are unchanged.
 - **1.2.6** (2026-09-29): The margins bridge now refuses (r(498)) a native refit that is not the same model as the flattened fit (different estimation sample, N, rank, free coefficients, or log likelihood), which previously substituted a different model silently after `fvgen ... if` or `alllevels` with `noconstant`; `margins store(name)` no longer silently overwrites an existing stored estimate without `replace`; a level missing from an attached value label is labeled `var=level` instead of a bare number; string variables and `i(numlist)` factors with `ref()`/`simple()` get accurate errors.
 - **1.2.5** (2026-08-30): Strengthened margins provenance to include outcomes and other pre-existing data, restored active estimates after replay failures, rejected nonconverged native replays, and corrected weight documentation.
 - **1.2.4** (2026-08-11): Added atomic generated-name preflight, exact and ambiguity-safe `ref()` label resolution, and stale-data guards for margins refits.

@@ -76,3 +76,4 @@ Real R/haven SAS binaries from canonical numeric cells recover every value; disc
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_massdesas_fixture_contract.do` | Canonical fixture truth and hostile contracts | full |
+| `validation_massdesas_fixture_primitives.do` | Genuine SAS row truth and full hostile caller-data preservation; honest discovery stand-in failure | full |

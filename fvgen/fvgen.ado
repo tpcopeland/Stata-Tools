@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.6  2026/09/29
+*! fvgen Version 1.2.7  2026/09/30
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -579,8 +579,9 @@ program define fvgen, rclass
                     quietly summarize `cv' `wmean' if `touse', meanonly
                     quietly generate double `cname' = `cv' - r(mean)
                     local clab : variable label `cv'
-                    if "`clab'" == "" local clab "`cv'"
-                    _fvgen_setlabel `cname' `"`clab' (centered)"'
+                    mata: st_local("_label_empty", strofreal(st_local("clab") == ""))
+                    if `_label_empty' local clab "`cv'"
+                    _fvgen_setlabel `cname' `"`macval(clab)' (centered)"'
                     char `cname'[fvgen_role] "centered"
                     char `cname'[fvgen_term] "c.`cv'"
                     local genvars `genvars' `cname'
@@ -621,19 +622,19 @@ program define fvgen, rclass
                     local newname "`prefix'`v'_`L'"
                     _fvgen_newvar `newname' "`replace'"
                     quietly generate double `newname' = (`v' == `L') if !missing(`v')
-                    _fvgen_partlabel `v' `L' "`xsymbol'"
-                    local _flab `"`r(label)'"'
+                    _fvgen_partlabel `v' `L'
+                    mata: st_local("_flab", st_global("r(label)"))
                     * vsref(): append the base level (skip the base row itself).
                     if `"`vsref'"' != "" & !`base' {
                         local _vsidx : list posof "`v'" in _vsbasevars
                         if `_vsidx' {
                             local _bl : word `_vsidx' of `_vsbaselevels'
-                            _fvgen_partlabel `v' `_bl' "`xsymbol'"
-                            local _vstxt : subinstr local vsref "@" `"`r(label)'"', all
-                            local _flab `"`_flab' `_vstxt'"'
+                            _fvgen_partlabel `v' `_bl'
+                            mata: st_local("_vstxt", subinstr(st_local("vsref"), "@", st_global("r(label)")))
+                            mata: st_local("_flab", st_local("_flab") + " " + st_local("_vstxt"))
                         }
                     }
-                    _fvgen_setlabel `newname' `"`_flab'"'
+                    _fvgen_setlabel `newname' `"`macval(_flab)'"'
                     char `newname'[fvgen_role] "main"
                     char `newname'[fvgen_term] "`t'"
                     local mainvars `mainvars' `newname'
@@ -658,8 +659,8 @@ program define fvgen, rclass
                         local e1 "(`n1' == `l1')"
                         local m1 "`n1'"
                         local suff "`suff'_`l1'"
-                        _fvgen_partlabel `n1' `l1' "`xsymbol'"
-                        local lab1 "`r(label)'"
+                        _fvgen_partlabel `n1' `l1'
+                        mata: st_local("lab1", st_global("r(label)"))
                     }
                     else {
                         if "`center'" != "" {
@@ -670,14 +671,15 @@ program define fvgen, rclass
                         local e1 "`use1'"
                         local m1 "`n1'"
                         local lab1 : variable label `n1'
-                        if "`lab1'" == "" local lab1 "`n1'"
+                        mata: st_local("_label_empty", strofreal(st_local("lab1") == ""))
+                        if `_label_empty' local lab1 "`n1'"
                     }
                     if `f2' {
                         local e2 "(`n2' == `l2')"
                         local m2 "`n2'"
                         local suff "`suff'_`l2'"
-                        _fvgen_partlabel `n2' `l2' "`xsymbol'"
-                        local lab2 "`r(label)'"
+                        _fvgen_partlabel `n2' `l2'
+                        mata: st_local("lab2", st_global("r(label)"))
                     }
                     else {
                         if "`center'" != "" {
@@ -688,7 +690,8 @@ program define fvgen, rclass
                         local e2 "`use2'"
                         local m2 "`n2'"
                         local lab2 : variable label `n2'
-                        if "`lab2'" == "" local lab2 "`n2'"
+                        mata: st_local("_label_empty", strofreal(st_local("lab2") == ""))
+                        if `_label_empty' local lab2 "`n2'"
                     }
 
                     local newname "`stem'`suff'"
@@ -698,14 +701,14 @@ program define fvgen, rclass
                     * a simple() moderator interaction reads "<continuous> (<level>)";
                     * everything else joins the two sides with the x symbol.
                     if "`n1'" == "`n2'" & `f1' == 0 & `f2' == 0 {
-                        local _ilab `"`lab1'²"'
+                        mata: st_local("_ilab", st_local("lab1") + "²")
                     }
                     else if "`simplemod'" != "" & ("`n1'" == "`simplemod'" | "`n2'" == "`simplemod'") {
-                        if "`n1'" == "`simplemod'" local _ilab `"`lab2' (`lab1')"'
-                        else                       local _ilab `"`lab1' (`lab2')"'
+                        if "`n1'" == "`simplemod'" mata: st_local("_ilab", st_local("lab2") + " (" + st_local("lab1") + ")")
+                        else mata: st_local("_ilab", st_local("lab1") + " (" + st_local("lab2") + ")")
                     }
-                    else local _ilab `"`lab1' `xsymbol' `lab2'"'
-                    _fvgen_setlabel `newname' `"`_ilab'"'
+                    else mata: st_local("_ilab", st_local("lab1") + " " + st_local("xsymbol") + " " + st_local("lab2"))
+                    _fvgen_setlabel `newname' `"`macval(_ilab)'"'
                     char `newname'[fvgen_role] "interaction"
                     char `newname'[fvgen_term] "`t'"
                     local intvars `intvars' `newname'
@@ -808,7 +811,7 @@ program define _fvgen_partlabel, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        args var level xsymbol
+        args var level
         * A level absent from an attached value label falls back to var=level
         * like an unlabeled factor, instead of a bare, context-free number.
         local vl : value label `var'
@@ -816,10 +819,11 @@ program define _fvgen_partlabel, rclass
         if "`vl'" != "" {
             local lab : label `vl' `level', strict
         }
-        if `"`lab'"' == "" {
+        mata: st_local("_label_empty", strofreal(st_local("lab") == ""))
+        if `_label_empty' {
             local lab "`var'=`level'"
         }
-        return local label `"`lab'"'
+        return local label `"`macval(lab)'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -835,12 +839,13 @@ program define _fvgen_setlabel, nclass
     capture noisily {
         gettoken name 0 : 0
         gettoken lab  0 : 0
-        if ustrlen(`"`lab'"') > 80 {
-            local lab = usubstr(`"`lab'"', 1, 80)
+        mata: st_local("_label_long", strofreal(ustrlen(st_local("lab")) > 80))
+        if `_label_long' {
+            mata: st_local("lab", usubstr(st_local("lab"), 1, 80))
             display as text ///
                 "note: variable label for `name' truncated to Stata's 80-character limit"
         }
-        label variable `name' `"`lab'"'
+        mata: st_varlabel(st_local("name"), st_local("lab"))
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

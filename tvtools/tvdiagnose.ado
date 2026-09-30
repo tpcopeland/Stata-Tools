@@ -1,4 +1,4 @@
-*! tvdiagnose Version 1.17.4  2026/09/30
+*! tvdiagnose Version 1.17.6  2026/09/30
 *! Diagnostic tools for time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -38,6 +38,14 @@ See help tvdiagnose for complete documentation
 
 program define tvdiagnose, rclass
     version 16.0
+    foreach _sg in S_1 S_2 {
+        mata: st_local("_sg_has_`_sg'",strofreal(sum(st_dir("global","macro","*"):=="`_sg'")>0))
+        mata: st_local("_sg_val_`_sg'",st_global("`_sg'"))
+    }
+    * Native first graph initialization can create this macro. Preserve the
+    * caller's exact presence/bytes without expanding opaque macro contents.
+    mata: st_local("_gm_present",strofreal(sum(st_dir("global","macro","*"):=="T_gm_fix_span")>0))
+    mata: st_local("_gm_bytes",st_global("T_gm_fix_span"))
     local orig_varabbrev = c(varabbrev)
     local _preserved = 0
     set varabbrev off
@@ -738,6 +746,13 @@ program define tvdiagnose, rclass
     }
 
     set varabbrev `orig_varabbrev'
+    if `_gm_present' mata: st_global("T_gm_fix_span",st_local("_gm_bytes"))
+    else capture macro drop T_gm_fix_span
+
+    foreach _sg in S_1 S_2 {
+        if `_sg_has_`_sg'' mata: st_global("`_sg'",st_local("_sg_val_`_sg'"))
+        else capture macro drop `_sg'
+    }
 
     if `rc' {
         exit `rc'

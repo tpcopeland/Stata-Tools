@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.18  2026/09/29
+*! crosstab Version 2.1.19  2026/09/30
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,6 +20,9 @@ SYNTAX:
 
 program define crosstab, rclass
     version 17.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _own_r_posted = 0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _xlsx_book
@@ -78,8 +81,8 @@ capture noisily {
     }
 
     * Accept excel() as synonym
-    if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-    local _has_xlsx = "`xlsx'" != ""
+    if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" mata: st_local("xlsx", st_local("excel"))
+    local _has_xlsx = `"`macval(xlsx)'"' != ""
     if "`open'" != "" & !`_has_xlsx' {
         noisily display as error "open requires xlsx() or excel()"
         exit 198
@@ -126,11 +129,11 @@ capture noisily {
     if `"`macval(sheet)'"' == "" local sheet "Crosstab"
     _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
     if `_has_xlsx' {
-        if !strmatch(lower("`xlsx'"), "*.xlsx") {
+        if !strmatch(lower(`"`macval(xlsx)'"'), "*.xlsx") {
             noisily display as error "xlsx() must have .xlsx extension"
             exit 198
         }
-        _tabtools_validate_path "`xlsx'" "xlsx()"
+        _tabtools_validate_path `"`macval(xlsx)'"' "xlsx()"
     }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
     if "`mdappend'" != "" & `"`markdown'"' == "" {
@@ -738,6 +741,7 @@ capture noisily {
     * Post the safe analytical payload before optional workbook side effects.
     * These returns intentionally survive a later nonzero export rc; copy the
     * matrices because the successful return gate below still needs them.
+    local _own_r_posted = 1
     return clear
     if `_sc_suppress_derived' {
         return scalar chi2 = .d
@@ -988,5 +992,13 @@ capture noisily {
 } // end capture noisily
     local _rc = _rc
     set varabbrev `_orig_varabbrev'
-    if `_rc' exit `_rc'
+    if `_rc' {
+        * Refusals before our analytic payload preserve the caller's r().
+        * Published analytic returns still survive a later export failure.
+        if !`_own_r_posted' {
+            _return restore `_caller_r'
+            return add
+        }
+        exit `_rc'
+    }
 end

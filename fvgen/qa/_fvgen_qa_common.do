@@ -34,6 +34,9 @@ program define _fvgen_qa_bootstrap, rclass
     sysdir set PLUS "$FLATINT_QA_PLUS"
     sysdir set PERSONAL "$FLATINT_QA_PERSONAL"
 
+    * A preceding standalone fixture may prepend the package source. The
+    * installed-user bootstrap must resolve the fresh sandbox installation.
+    capture adopath - "`pkg_dir'"
     capture ado uninstall fvgen
     quietly net install fvgen, from("`pkg_dir'") replace
 

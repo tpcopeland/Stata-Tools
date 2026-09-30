@@ -24,6 +24,7 @@ program define _fx_tvtools_1, rclass
     local pass=0
     local fail=0
 
+    foreach model in logit mlogit {
     foreach route in iptw ato matching stabilized {
         local ++tests
         capture noisily {
@@ -47,11 +48,23 @@ program define _fx_tvtools_1, rclass
                 replace want=.5*want
                 local opts "stabilized"
             }
+            gen double expected_ps=p
+            if "`model'"=="mlogit" {
+                * Each canonical treated cell has an even count. Split it
+                * exactly into two treatment categories; empirical category
+                * probabilities are (1-p,p/2,p/2), all independently known.
+                replace a=cond(a,1+mod(id,2),0)
+                replace expected_ps=cond(a,p/2,1-p)
+                replace want=1/expected_ps
+                if "`route'"=="ato" replace want=(1/(1/(1-p)+4/p))*want
+                if "`route'"=="matching" replace want=min(p/2,1-p)*want
+                if "`route'"=="stabilized" replace want=cond(a,.25,.5)*want
+            }
             qa_state_snapshot, tag(tvwt_f)
-            tvweight a, covariates(i.s##i.x2) generate(got) denominator(ps) `opts' nolog
+            tvweight a, covariates(i.s##i.x2) generate(got) denominator(ps) `opts' model(`model') nolog
             qa_state_compare, tag(tvwt_f) allow(data)
             assert !missing(got,want,ps,p)
-            gen double numerical_error=max(reldif(got,want),reldif(ps,p))
+            gen double numerical_error=max(reldif(got,want),reldif(ps,expected_ps))
             quietly summarize numerical_error, meanonly
             di "ORACLE tvweight `op' `route': maximum relative numerical error=" r(max)
             * Native logit's default convergence leaves residuals up to6e-8
@@ -66,6 +79,7 @@ program define _fx_tvtools_1, rclass
         }
     }
 
+    }
     capture _return restore `fx_returns'
     return scalar qa_tests=`tests'
     return scalar qa_pass=`pass'

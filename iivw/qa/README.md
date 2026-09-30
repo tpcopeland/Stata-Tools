@@ -1,11 +1,5 @@
 # iivw QA
 
-archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iivw_bspool)
-
-Canonical fixture adoption is in progress. Predictable visit intensity and analytic full-data mean recovery at two seeds; weight, unweighted/fixed-sandwich fit and replay, balance, exogeneity, overview and decomposition numeric/state contracts. Long-name fit invariance uses the shared primitive. Shard pooling and additional weight/inference routes remain uncovered by these new canonical suites. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_names.do`, `validation_fixture_recovery.do`.
-
 The `iivw` QA suite is flat and concern-oriented, with curated lanes in `run_all.do` and independently runnable suites in this directory. It covers the public commands, pipeline state, installed-user behavior, numerical recovery, documentation, exports, and external parity.
 
 ## How to run
@@ -25,9 +19,11 @@ Legacy lanes are `legacy` and `sensitivity`; `sim` aliases `sensitivity`.
 
 The runner writes shared logs and status files in `qa/`, so do not run the same lane concurrently from one checkout. For parallel or repeated audit runs, use a scratch copy that preserves the repository layout and remove copied `qa/*.log`, `run_all_status.txt`, and `run_all_expected.txt` before starting.
 
-Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the local package tree. Scratch copies must include the sibling `tabtools/` package used by installed export smokes.
+Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the local package tree. Scratch copies must include the sibling `_data/` directory and `tabtools/` package used by installed export smokes.
 
 ## Conventions
+
+archetypes: A3(iivw_weight iivw_fit iivw_balance iivw_exogtest iivw_diagnose iivw_bspool)
 
 - `test_*` covers functional, adversarial, integration, release, and regression behavior; `validation_*` uses known-answer, invariant, or simulated-truth oracles; `crossval_*` compares with independent R implementations; `benchmark_*` and `probe_*` are diagnostics outside correctness lanes.
 - Every curated suite ends with one `RESULT: <name> tests=N pass=N fail=N [skip=N]` sentinel and exits nonzero on failure. `full` accepts no skips.
@@ -51,6 +47,13 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 
 | File | Covers |
 |---|---|
+| `test_fixture_names.do` | Long-name fit invariance using the shared canonical primitive. |
+| `test_fixture_state.do` | Stored-estimate diagnosis preserves original variable order, data, estimates and session state on success/refusal. |
+| `test_fixture_balance_state.do` | Native, opaque, absent and empty global controls with next native ttest and outcome predictions. |
+| `test_fixture_weight_state.do` | Native global boundaries, named separating-FIPTIW refusal and late owned-column rollback fault. |
+| `test_fixture_exog_state.do` | Exogeneity native globals on analytical success and named late worksheet refusal; exact original data and non-r caller state, then next native predictions. Analytical r() and the generated column intentionally survive late export refusal. |
+| `test_fixture_font_tokens.do` | Entire unbound macro-token font payloads are preserved as workbook style bytes. |
+| `test_fixture_font_forms.do` | Actual workbook fonts for bare, quoted, nested, Unicode and opaque byte forms across reporting commands. |
 | `test_help_examples.do` | Shipped help examples and documentation contracts. |
 | `test_iivw.do` | Public workflow, options, errors, returns, and session state. |
 | `test_iivw_balance.do` | Balance diagnostics, returns, and state preservation. |
@@ -125,6 +128,12 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 
 | File | Covers |
 |---|---|
+| `validation_fixture_recovery.do` | Canonical visit-intensity and analytic full-data mean recovery at seeded populations. |
+| `validation_fixture_pool.do` | Saved finite draw covariance, Wald, percentile and basic interval pooling arithmetic. |
+| `validation_fixture_domains.do` | Finite-data weighted coefficients, confidence endpoints, threshold effects and observed-time cell means. |
+| `validation_fixture_weightdomains.do` | Exact treatment propensity and visit/treatment/combined weight rows with risk-entry controls. |
+| `validation_fixture_inference.do` | Fixed-weight saved-draw variance and interval arithmetic over confidence levels and RNG stream bounds; no coverage claim. |
+| `validation_fixture_excel.do` | Actual workbook decimal endpoints and fonts, exported numerical cells and named styling refusals. |
 | `validation_iivw.do` | Core known-answer identities. |
 | `validation_iivw_diagnostics_known_answers.do` | Hand-computable diagnostic outputs. |
 | `validation_iivw_expanded.do` | Extended invariants. |
@@ -167,6 +176,8 @@ Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` and install from the loca
 | Path | Contents |
 |---|---|
 | `_iivw_qa_common.do` | Sandboxed bootstrap, selector, summary, and data builders. |
+| `_iivw_fixture_excel.do`, `tools/check_iivw_format.py` | Shared reporting-form assertions and workbook style/numerical inspection. |
+| `_qa_fx_a3.do`, `_qa_state.do`, `_qa_hostile.do`, `_qa_lifecycle.do`, `_qa_metamorphic.do`, `_qa_parity.do`, `_qa_route_grid.do` | Byte-vendored canonical fixture, state and primitive helpers. |
 | `_iivw_cr_ladder.do` | Shared correlation-structure ladder implementation. |
 | `run_all.do` | Curated Stata lane manifest and runner. |
 | `run_all.sh`, `test_run_all_wrapper.sh` | Reliable shell exit and sentinel gate, plus its regression test. |
@@ -218,6 +229,5 @@ Adversarial axes, in cells (`check qa iivw --view axes`: 36/36 owed cells probed
 
 See [AUDIT_NOTES.md](AUDIT_NOTES.md) for the historical false-green defects, method-evidence boundaries, and links to retained coverage receipts.
 
-`test_fixture_state.do` checks exact caller column order, data, active estimates and session state after stored-estimate diagnosis on friendly and unsorted VISIT fixtures, with present/absent active estimates and success/refusal.
 
-Saved VISIT bootstrap draws are pooled against independent centered-draw covariance and all Wald/percentile/basic interval cells. Fixed weights and 20 draws exercise arithmetic only; the suite does not certify bootstrap coverage. Additional core/full suites: `validation_fixture_pool.do`, `test_fixture_state.do`.
+For bounded integration, `do run_all.do core 1 30` accepts validated inclusive suite positions. Default lanes retain their complete curated manifests. Reconcile disjoint chunk coverage before reporting manifest coverage; separate receipts do not establish one uninterrupted core session.

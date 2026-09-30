@@ -1,11 +1,5 @@
 # datefix QA
 
-archetypes: A4
-
-Canonical fixture adoption is in progress. Every returned daily date is compared with the canonical start date after string conversion/native pass-through and each output ownership mode. Leap/year boundaries, row shuffling, invalid-order refusal and shared long-name invariance are exercised. Spell overlap/length columns unused by the date parser are not counted as hostile parser evidence. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
-
 The `datefix` QA suite is flat and concern-oriented: functional, regression, release-surface, and known-answer files at the `qa/` root are driven by one curated lane runner. Every suite is independently runnable from this directory.
 
 ## How to run
@@ -25,6 +19,8 @@ Each batch process installs `datefix` into temporary PLUS/PERSONAL directories. 
 
 ## Conventions
 
+archetypes: A4
+
 - **Prefixes:** `test_*` files cover functional, regression, and package contracts; `validation_*` files use hand-computable known-answer and invariant oracles. `datefix` is a deterministic transform, so it needs neither parameter-recovery nor external cross-validation.
 - **Sentinel contract:** every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero on failure; the full lane accepts no failed suite.
 - **Install isolation:** suites sandbox PLUS/PERSONAL under `c(tmpdir)` through `_datefix_qa_common.do`; batch-process termination restores the user's configured Stata paths.
@@ -38,6 +34,10 @@ Each batch process installs `datefix` into temporary PLUS/PERSONAL directories. 
 
 | File | Covers |
 |---|---|
+| `test_fixture_names.do` | Long-name invariance for actual public output values and returned identities. |
+| `test_datefix_documentation_examples.do` | Executable documentation examples through an isolated installed package. |
+| `test_datefix_errors.do` | Exact invalid-order refusal, rollback and matched legal controls. |
+| `test_datefix_oracle.do` | Seeded independent native-date oracle with mixed-varlist rollback. |
 | `test_datefix.do` | Core conversion, every option, error handling, data preservation, varabbrev restoration, and install discoverability |
 | `test_datefix_expanded.do` | Separators, tie-breaking, `topyear()`, mixed input types, labels, formats, larger data, and option combinations |
 | `test_diagnose.do` | Diagnostic failure paths, command-wide rollback, capped reporting, abbreviation, and incidental `r()` cleanup |
@@ -48,12 +48,17 @@ Each batch process installs `datefix` into temporary PLUS/PERSONAL directories. 
 
 | File | Covers |
 |---|---|
+| `validation_fixture_contract.do` | Exact daily dates after string conversion or native pass-through in each output mode, calendar boundaries, shuffled input and invalid-order refusal. |
 | `validation_datefix.do` | Known daily-date values, YMD/DMY/MDY parity, leap years, date arithmetic, missing propagation, and agreement with Stata's `date()` |
 
 ### Support
 
 | Path | Contents |
 |---|---|
+| `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Curated quick/full lane runner |
 | `_datefix_qa_common.do` | Temporary PLUS/PERSONAL bootstrap and local package installation |
 | `.gitignore` | Generated-log and transient-artifact exclusions |
@@ -62,7 +67,7 @@ Each batch process installs `datefix` into temporary PLUS/PERSONAL directories. 
 
 | Command | Functional and regression | Validation | Also exercised in |
 |---|---|---|---|
-| `datefix` | `test_datefix`, `test_datefix_expanded`, `test_diagnose`, `test_datefix_v112` | `validation_datefix` | `test_package_release` |
+| `datefix` | `test_datefix`, `test_datefix_expanded`, `test_diagnose`, `test_datefix_v112`, `test_fixture_names` | `validation_datefix`, `validation_fixture_contract` | `test_package_release` |
 
 ## Lane membership
 
@@ -70,5 +75,9 @@ Each batch process installs `datefix` into temporary PLUS/PERSONAL directories. 
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_datefix`, `test_diagnose`, `test_datefix_v112` |
-| `full` | `quick` + `test_datefix_expanded`, `validation_datefix`, `test_package_release` |
+| `quick` | Functional, diagnostic, conversion-regression and exact error suites listed in run_all.do. |
+| `full` | Quick plus expanded options, validation, documentation, randomized oracle, canonical date/name contracts and release surface. |
+
+## Known gaps
+
+The parser consumes one date column; unused spell overlap, length and identifier relationships receive no coverage credit.

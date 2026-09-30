@@ -60,6 +60,8 @@ variables. The pairwise observation count matrix is stored in
 has fewer than two non-missing observations or has no variation, matching the
 undefined result from {helpb spearman}.{p_end}
 
+{pstd}Native Spearman legacy globals are restored on success and refusal.{p_end}
+
 {marker options}{...}
 {title:Options}
 

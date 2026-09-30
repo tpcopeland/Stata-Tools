@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.1.1** | 2026-09-29
+**Version 1.1.2** | 2026-09-30
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -419,6 +419,8 @@ After package selection has succeeded, capturing a later output-write or archive
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
+
+- **1.1.2** (2026-09-30): Preserve an existing numeric or string `cv` scalar, or its absence, across native delimited imports on success and errors.
 
 - **1.1.1** (2026-09-29): Reject conflicting bundle payload and metadata paths; resolve output paths before staging and confirm outputs after cleanup; select plugin platforms independently of filenames; bootstrap the selected github package with net install. QA now preserves caller installations across every suite.
 

@@ -306,6 +306,8 @@ capture noisily {
     corrtab x y, spearman full
     assert missing(r(C)[1, 1])
     assert missing(r(C)[2, 2])
+    assert missing(r(C)[1, 2]) & missing(r(P)[1, 2])
+    assert r(N)[1, 1] == 1 & r(N)[1, 2] == 1 & r(N)[2, 2] == 1
 }
 if _rc == 0 {
     display as result "  PASS: corrtab leaves undefined correlations missing"

@@ -245,6 +245,12 @@ subject. Time-varying analyses use {bf:panel} (long) data: one row per subject p
 time point, identified by {opt i:dvar()} and {opt t:var()}.
 
 
+{pstd}
+Successful and failed calls retain the caller's {cmd:set matastrict} setting.
+A failed call also restores the caller's random-number state and scalar,
+macro and matrix results in {cmd:r()}; successful simulation leaves the
+random-number stream advanced by its draws.
+
 {marker options}{...}
 {title:Options}
 
@@ -314,7 +320,30 @@ assigned under each intervention are defined in {opt interventions()}.
 example, {cmd:interventions(A=1, A=0)} creates two scenarios: one where every
 subject receives treatment at every time point, and one where no subject
 receives treatment. {cmd:gcomp} simulates the population under each regime
-and contrasts the outcomes.
+and contrasts the outcomes. Only commas outside parentheses, subscripts and
+quoted strings separate regimes. Expressions such as
+{cmd:interventions(A=cond(L>0,1,0), A=0)} retain their function arguments.
+Assignments to variables modelled with
+{cmd:logit}, {cmd:mlogit}, or {cmd:ologit} must remain within their observed
+nonmissing categories. Unsupported categories are rejected before fitting when
+observed-history evaluation detects them, and during simulation when dynamic
+rules generate them. Categories are fixed from the original analytic data for
+bootstrap replicates. This check covers nonmissing assigned categories;
+missing-valued rules remain subject to the existing usable-outcome checks.
+Dynamic regimes are ordinarily deterministic functions of available covariate
+history. Preflight evaluation retains the caller's random-number state,
+including when an assignment expression uses a random-number function.
+Observed support is collected from all selected analytic rows; this check does
+not establish positivity conditional on each covariate history. Separately,
+factor predictor levels used for component predictions must occur in that
+component's actual estimation sample; absent fitted levels are refused rather
+than interpreted as the reference category. This marginal-level check does not
+establish support for every interaction combination.
+
+{pstd}
+Native reshape and legacy component-result global macros retain their caller
+presence and contents on successful and failed calls. These internal working
+macros are not a result interface; use the documented {cmd:e()} results.
 
 {dlgtab:Required (mediation)}
 

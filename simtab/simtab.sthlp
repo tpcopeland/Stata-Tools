@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.1  2026/08/30}{...}
+{* *! version 2.0.2  2026/09/30}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -271,6 +271,8 @@ dropped this way and returns both denominators, {cmd:r(N_input)} and
 {cmd:r(n_dropped_se)}, so the analysis sample is always recoverable. Supply
 complete {opt se()} values if you want every replication included.{p_end}
 
+{pstd}Compute mode uses double storage for the internal estimate copy before calculating cell means and empirical standard errors, including when the supplied estimates use byte, int, long, or float storage. The original caller values, storage types, and observation order are restored after the command. Helper loading preserves the caller's {cmd:matastrict} setting on successful or failed compilation.{p_end}
+
 {pstd}The leading {it:estimator} variable and the variables supplied to
 {opt by()} and {opt estimand()} may be numeric (with or without value labels)
 or string; their nonmissing values are preserved as cell identities and
@@ -402,6 +404,11 @@ or per-replication bias plot, which need replication-level CIs. Use {cmd:siman}'
 {phang2}{cmd:        coverage=coverage n=n) display}{p_end}
 
 {marker stored}{...}
+{pstd}
+Refusals before analytical results are prepared preserve the caller's previous
+{cmd:r()} scalars, macros, and matrices. Errors after results are prepared
+publish the analytical results, including output-side failures.
+
 {title:Stored results}
 
 {pstd}{cmd:simtab} stores metadata in {cmd:r()}:{p_end}
@@ -458,6 +465,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.1, 2026-08-30{p_end}
+{pstd}Version 2.0.2, 2026-09-30{p_end}
 
 {hline}

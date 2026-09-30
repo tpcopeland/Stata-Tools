@@ -29,7 +29,7 @@ program define _gcomp_bootstrap, rclass
             exit 111
         }
 
-        _gcomp_bootstrap_impl `0'
+        _gcomp_bootstrap_impl `macval(0)'
         return add
     }
     local rc = _rc

@@ -175,7 +175,7 @@ example, {cmd:"200 220 240"}){p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
-Excel, CSV, and frame exports{p_end}
+Excel, CSV, and frame exports. Markdown trims outer whitespace from titles, footnotes, and cells; it escapes backslashes, vertical bars, asterisks, and underscores, and renders line breaks as {cmd:<br>}. CSV, frame, and Excel title text retains its literal bytes{p_end}
 
 {phang}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}

@@ -345,7 +345,7 @@ mutually exclusive with {opt doseresponse} and with the mediation-only options
 ({opt xlsx()}, {opt markdown()}, {opt csv()}, or {opt display}) is required.
 
 {phang}
-Excel component-table export preserves the caller's configured closed {cmd:putexcel} file and sheet. If the caller has an open workbook with an active handle, it refuses with error 198 before export; save or close that workbook first. Pending caller cells are retained.
+Excel component-table export preserves the caller's configured closed {cmd:putexcel} file and sheet. If the caller has an open workbook with an active handle, it refuses with error 198 before export; save or close that workbook first. Pending caller cells are retained. Failed calls also preserve the caller's scalar, macro and matrix results in {cmd:r()}.
 
 {phang}
 {opt usemodels(namelist)} selects which stored estimates to include; the default

@@ -107,6 +107,15 @@ The package covers the full analysis pipeline:
 {phang2}7. {bf:Reporting} {hline 2} tables, plots, and sensitivity analysis{p_end}
 
 
+{pstd}
+The dispatcher, preparation, validation, diagnosis, fitting, plotting,
+reporting, protocol and sensitivity commands preserve caller returned
+results on guard and operational refusals. Temporary sorts preserve the
+caller's original row order and sort keys. A completed
+{helpb msm_validate} check still publishes its documented findings when
+strict mode exits with return code 198.
+
+
 {marker when}{...}
 {title:When to use this package}
 

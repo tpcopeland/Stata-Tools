@@ -68,7 +68,7 @@ program define _diagtab_markdown_write, rclass
         * table1_tc, row 1 holds the group labels, so a by(foreign) table with
         * no title() was headed "### Domestic". Header-shaped data must never
         * become a heading.
-        local _title `"`title'"'
+        local _title `"`macval(title)'"'
 
         forvalues _j = 1/`_k' {
             local _v : word `_j' of `_vars'
@@ -97,9 +97,9 @@ program define _diagtab_markdown_write, rclass
         local _fh_open = 1
 
         if `_append_existing' file write `_fh' _n
-        if `"`_title'"' != "" {
+        if `"`macval(_title)'"' != "" {
             mata: st_local("_title", _dt_md_escape(st_local("_title")))
-            file write `_fh' `"### `_title'"' _n _n
+            file write `_fh' `"### `macval(_title)'"' _n _n
         }
 
         file write `_fh' "|"
@@ -135,9 +135,9 @@ program define _diagtab_markdown_write, rclass
             }
         }
 
-        if `"`footnote'"' != "" {
+        if `"`macval(footnote)'"' != "" {
             mata: st_local("footnote", _dt_md_escape(st_local("footnote")))
-            file write `_fh' _n `"*`footnote'*"' _n
+            file write `_fh' _n `"*`macval(footnote)'*"' _n
         }
 
         file close `_fh'

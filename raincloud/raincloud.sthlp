@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  11aug2026}{...}
+{* *! version 1.0.4  30sep2026}{...}
 {vieweralsosee "[R] kdensity" "help kdensity"}{...}
 {vieweralsosee "[G-2] graph twoway rarea" "help twoway rarea"}{...}
 {viewerjumpto "Syntax" "raincloud##syntax"}{...}
@@ -232,7 +232,7 @@ palette is {cmd:navy cranberry forest_green dkorange purple teal maroon olive_te
 graph scheme.
 
 {phang}
-{opt title(string)} adds a graph title.
+{opt title(string)} adds a graph title. Literal macro characters and quote characters in titles and default axis or group labels are preserved in the rendered graph; raw group-label results remain unchanged. Native quoted multiline text and title suboptions are retained. Malformed native quote syntax is not repaired.
 
 {phang}
 {opt subtitle(string)} adds a graph subtitle.
@@ -343,6 +343,15 @@ points, or reduce {opt n()} to speed density estimation.
 
 
 {marker results}{...}
+{pstd}
+The caller's legacy {cmd:S_1} through {cmd:S_4} globals are retained on
+success and errors, including when a global was initially absent.
+
+{pstd}
+Refusals before analytical results are prepared preserve the caller's previous
+{cmd:r()} scalars, macros, and matrices. Errors after results are prepared
+publish the analytical results, including output-side failures.
+
 {title:Stored results}
 
 {pstd}
@@ -389,7 +398,7 @@ plots: a multi-platform tool for robust data visualization. {it:Wellcome Open}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.3, 2026-08-11{p_end}
+{pstd}Version 1.0.4, 2026-09-30{p_end}
 
 
 {title:Also see}

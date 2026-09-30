@@ -39,6 +39,9 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 | `test_density.do` | All-subject retention, schema/rank metadata, deterministic single- and multi-key ordering, density preset overrides, selective labels, independent block headers and color groups, bar/line canonical equality, physical lane sizing, marker/continuation policies, and persistent render metadata. |
 | `test_documentation_examples.do` | Installed-user README and help workflows, including long and wide inputs, frames, interval layers, exports, dense layouts, pagination, and documented sorting recipes. |
 | `test_errors.do` | Invalid input shapes, option combinations, display labels, external events, interval layers, bounds, paths, empty samples, and graph/frame preservation on early and late output errors. |
+| `test_fixture_error_returns.do` | Genuine empty/populated prior r scalar/macro/striped-matrix contexts on named198/459 refusals, before logclose; full caller fingerprint. |
+| `test_fixture_error_estimates.do` | Same eight refusal contexts with active native e(), row-wise xb/stdp and full source/data/order/RNG/settings preservation. |
+| `test_fixture_global_state.do` | Missing/opaque caller S_1/S_2 globals across success, named early198/late459 and both varabbrev settings; full non-r fingerprint and exact next native summary; prior r() is tested separately. |
 | `test_export.do` | Canonical CSV, Markdown, DTA, and frame output plus return survival after side-effect failure. |
 | `test_features.do` | Long and external events, date formats including absolute wide events and readable calendar axes, compact facets, display labels, palettes, custom overlays, state ordering, censoring, bar labels, and command reconstruction. |
 | `test_options.do` | Styling, graph save/export, grouping, and `nostset` behavior. |
@@ -49,6 +52,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 
 | File | Covers |
 |---|---|
+| `validation_fixture_intervals.do` | A4 friendly and seven consumed hostile variants; independently enumerated state tuples, swimmer spans, overlap/gap audits, caller state and open-stop exclusion. |
 | `validation_canonical_tables.do` | Hand-checked canonical rows, exact interval layers, geometry and out-of-span audits, event coordinates, state labels, lane order, and truncation. |
 
 ### Support
@@ -62,7 +66,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 
 | Command | Functional and regression | Validation | Also exercised in |
 |---|---|---|---|
-| `swimlane` | All `test_*.do` suites | `validation_canonical_tables.do` | Installed-helper smoke in `_swimlane_qa_common.do` and literal README/help workflows in `test_documentation_examples.do`. |
+| `swimlane` | All `test_*.do` suites | `validation_fixture_truth.do`, `validation_fixture_intervals.do`, `validation_canonical_tables.do` | Installed-helper smoke and literal documentation workflows. |
 
 ## Lane membership
 
@@ -71,7 +75,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 | Lane | Suites |
 |---|---|
 | `quick` | `test_basic.do`, `test_return_values.do`, `test_errors.do`, `test_data_preservation.do`, and `test_regressions.do` |
-| `core` | `quick` plus `validation_canonical_tables.do`, `test_export.do`, `test_options.do`, `test_features.do`, `test_density.do`, and `test_documentation_examples.do` |
+| `core` | `quick` plus `validation_fixture_truth.do`, `validation_fixture_intervals.do`, `test_fixture_global_state.do`, `test_fixture_error_returns.do`, `test_fixture_error_estimates.do`, `validation_canonical_tables.do`, `test_export.do`, `test_options.do`, `test_features.do`, `test_density.do`, and `test_documentation_examples.do` |
 | `full` | Same membership as `core` |
 
 ## Known gaps
@@ -86,4 +90,4 @@ Canonical fixture adoption is in progress. `4` cases in `validation_fixture_trut
 | `_qa_fx_a2.do` | Byte-for-byte canonical fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
 
-Fixture coverage still owed: A4 state/interval and A7 wide/file routes, other A2 minima, graph rendering and marker/weighting/options routes. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+Fixture coverage still owed: remaining A4 boundaries and A7 wide/file routes, other A2 minima, graph rendering and marker/weighting/options routes. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.

@@ -66,3 +66,4 @@ Exact original catalogue identities and caller fingerprints under labelled varia
 | File | Coverage | Lanes |
 | --- | --- | --- |
 | `validation_tc_schemes_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
+| `validation_tc_schemes_fixture_primitives.do` | Exact modern catalogue, hostile caller-data preservation, all six source selections and invalid-source refusal | core/full |

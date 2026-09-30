@@ -1,15 +1,6 @@
 # codescan QA
 
-archetypes: A5
-
-Canonical fixture adoption is in progress. Literal independent code predicates pin flags/counts for regex/prefix and row/collapse/merge/frame/count shapes across every A5-WIDE named variant; describe compares raw-frequency identities. Prefix matching retains whitespace; regex rules explicitly admit leading spaces. Shared long-name invariance checks scanning and describe. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_names.do`, `validation_fixture_contract.do`.
-
-Tests, validation, and release checks for the `codescan` package
-(`codescan`, `codescan_describe`). The suite follows the house QA layout:
-a flat `qa/` root, files named by concern then command, one curated lane
-runner, and a shared install scaffold.
+Tests, validation, and release checks for the `codescan` package (`codescan`, `codescan_describe`). The suite follows the house QA layout: a flat `qa/` root, files named by concern then command, one curated lane runner, and a shared install scaffold.
 
 ## How to run
 
@@ -29,23 +20,11 @@ python3 -m _devkit.stata_dev_cli run qa codescan --repo tools --mode full --isol
 python3 -m _devkit.stata_dev_cli inspect log /path/from-the-run-output.log --view parse
 ```
 
-`run_all.do` sources `_codescan_qa_common.do` and calls
-`_codescan_qa_bootstrap`, which sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)`
-and installs the local package copy. Every suite sources the same scaffold and
-calls the same bootstrap, so running one file standalone sandboxes the install
-too rather than mutating the developer's real adopath. The bootstrap is
-idempotent, so the lane re-entering it per suite is harmless.
+`run_all.do` sources `_codescan_qa_common.do` and calls `_codescan_qa_bootstrap`, which sandboxes `PLUS`/`PERSONAL` under `c(tmpdir)` and installs the local package copy. Every suite sources the same scaffold and calls the same bootstrap, so running one file standalone sandboxes the install too rather than mutating the developer's real adopath. The bootstrap is idempotent, so the lane re-entering it per suite is harmless.
 
-The bootstrap returns `r(owner)`, which is `1` only for the caller that actually
-created the sandbox. Each suite passes it to `_codescan_qa_restore` just before
-publishing its handshake, so a suite run standalone puts `PLUS`/`PERSONAL` back
-where it found them and drops the scaffold globals, while a suite running inside
-`run_all.do` leaves the lane's shared sandbox alone. `run_all.do` restores its
-own saved values at the end regardless.
+The bootstrap returns `r(owner)`, which is `1` only for the caller that actually created the sandbox. Each suite passes it to `_codescan_qa_restore` just before publishing its handshake, so a suite run standalone puts `PLUS`/`PERSONAL` back where it found them and drops the scaffold globals, while a suite running inside `run_all.do` leaves the lane's shared sandbox alone. `run_all.do` restores its own saved values at the end regardless.
 
-`test_codescan_install_docs.do` is the one deliberate exception: it builds its
-own `PLUS`/`PERSONAL`/work sandbox and `cd`s into it, because its whole purpose
-is to exercise the package as a freshly installed user sees it.
+`test_codescan_install_docs.do` is the one deliberate exception: it builds its own `PLUS`/`PERSONAL`/work sandbox and `cd`s into it, because its whole purpose is to exercise the package as a freshly installed user sees it.
 
 The last line of a run is the aggregate sentinel:
 
@@ -53,32 +32,11 @@ The last line of a run is the aggregate sentinel:
 RESULT: run_all_full tests=N pass=N fail=0
 ```
 
-Gate on that line, not on the shell exit status — `stata-mp -b do` exits 0 even
-when the do-file ends in `r(1)`. An absent or malformed sentinel is itself a
-failure, and a crashed runner cannot fake one. Each suite also publishes its
-name and counters back to the runner; a missing report, zero-test report,
-counter mismatch, or nonzero reported failure makes the lane red even when the
-suite do-file itself returns 0.
-
-## Dependencies
-
-### Python + openpyxl
-
-`validation_codescan_output.do` (core and full lanes) shells out to
-`tools/check_codescan_artifacts.py`, which needs `python3` with **openpyxl**:
-
-```bash
-pip install --break-system-packages openpyxl
-```
-
-The suite probes for it and exits `499` when it is missing — it does not skip.
-The `quick` lane has no Python dependency.
-
-### Public Stata Press ICD-10 data
-
-`crossval_codescan_icd10.do` and `validation_codescan_public_known_answers.do` load the fixed public Release 17 `australia10.dta` fixture over HTTPS. Network or source failure is a hard failure, not a skip; the fixed URL prevents a later Stata release from silently changing the known answers.
+Gate on that line, not on the shell exit status — `stata-mp -b do` exits 0 even when the do-file ends in `r(1)`. An absent or malformed sentinel is itself a failure, and a crashed runner cannot fake one. Each suite also publishes its name and counters back to the runner; a missing report, zero-test report, counter mismatch, or nonzero reported failure makes the lane red even when the suite do-file itself returns 0.
 
 ## Conventions
+
+archetypes: A5
 
 - Every suite ends with `RESULT: <name> tests=N pass=N fail=N`, publishes the
   same counters through `_codescan_qa_publish`, and exits 1 on any failure.
@@ -99,160 +57,134 @@ The `quick` lane has no Python dependency.
 - `run_all.do` separately restores the caller's original `PLUS`, `PERSONAL`,
   `more`, and `varabbrev` settings and drops its temporary QA globals.
 
+## Dependencies
+
+### Python + openpyxl
+
+`validation_codescan_output.do` (core and full lanes) shells out to `tools/check_codescan_artifacts.py`, which needs `python3` with **openpyxl**:
+
+```bash
+pip install --break-system-packages openpyxl
+```
+
+The suite probes for it and exits `499` when it is missing — it does not skip. The `quick` lane has no Python dependency.
+
+### Public Stata Press ICD-10 data
+
+`crossval_codescan_icd10.do` and `validation_codescan_public_known_answers.do` load the fixed public Release 17 `australia10.dta` fixture over HTTPS. Network or source failure is a hard failure, not a skip; the fixed URL prevents a later Stata release from silently changing the known answers.
+
 ## File index
 
-Test counts below are the `RESULT: ... tests=N` totals each suite reports.
+### Functional and regression tests
 
-| File | Type | Tests | What it covers |
-|------|------|------:|----------------|
-| `test_codescan.do` | functional | 41 | Core `codescan` behaviour: basic/regex/prefix modes, time windows, collapse, labels, `replace`, `noisily`, `if`/`in`, return values, edge cases, error handling |
-| `test_codescan_v1_fixes.do` | functional | 86 | Regression guards for the v1.0.2-v1.3.0 fixes: varabbrev restore, collapse `if`/`in`, `countdate` tag logic, name collision, missing `id`, cleanup, `codescan_describe`, `frame()`, `preserve`, `tostring`, `nodots` |
-| `test_codescan_errors.do` | functional | 35 | Error paths: `define()`/`codefile()` grammar, window and `level()` bounds, output-name collisions, extension and file-existence rejection |
-| `test_codescan_functional.do` | functional | 47 | Extended functional coverage: `alldates`, `detail`, `countmode`, exclusions, codefile DTA, merge semantics, `save()`, co-occurrence, boundary name lengths, data preservation |
-| `test_codescan_edge_cases.do` | functional | 30 | `frame()`/`export()`/`graph` output, codefile edge cases, co-occurrence, single-obs and degenerate windows, extended `codescan_describe` and merge cases |
-| `test_codescan_install_verify.do` | functional | 7 | `which` resolves both commands after `net install`; README example runs; v1.4.1 regressions |
-| `test_codescan_coverage.do` | functional | 64 | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, `saving()`/`format()`/`export()` content, cross-variable exclusion |
-| `test_countrows.do` | functional | 25 | `countrows`/`countmode` counting semantics |
-| `test_mata_opt.do` | functional | 15 | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
-| `test_codescan_regressions.do` | functional | 42 | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary and long describe row names, prefix validation, path guards, the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37), an extension-less `saving()` refused *before* `export()` writes (T39), and the 4.1.4 review fixes: a failed side effect after `collapse` keeps the collapsed result instead of leaving only `id()` (T40) and unusable describe row names are aliased rather than silently replaced by `r1`/`r2`, with `r(chapter_#)` carrying the exact character (T41, mirrored by T42) |
-| `test_codescan_v208.do` | functional | 5 | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
-| `test_codescan_v300_critical.do` | functional | 62 | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
-| `test_codescan_v2_no_scoring.do` | functional | 5 | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
-| `test_codescan_v203_hardening.do` | functional | 15 | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
-| `test_codescan_v410.do` | functional | 12 | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
-| `test_codescan_v415.do` | functional | 7 | v4.1.5: Unicode `level()` prefix truncation (`usubstr` vs `substr`), `export()` pattern/exclusion `str244` width, `codescan_describe` early `save()` extension validation, `graph` bar label `format()` passthrough, `error 2000` without duplicate message |
-| `test_codescan_v421.do` | functional | 18 | v4.2.1, 8 of 18 proven red on 4.2.0: a zero-width regex keyed to a non-ASCII character rejected on the live scan axis as an inclusion and as an exclusion (with consuming non-ASCII patterns and the ASCII option-time guard as controls), casefold-equivalent `codefile()` columns refused for required and optional fields (each paired with the same call succeeding once the duplicate is dropped), and `save()` writing no codefile after an empty sample or a failing `export()` while a successful call still writes and round-trips it. The zero-width guard is the first error codescan can raise during the scan rather than while parsing options, so two blocks cover the rollback from that new failure site: an in-place `replace` over a caller variable and a `collapse` that must not consume the data |
-| `test_codescan_v422.do` | functional | 13 | v4.2.2, 6 of 13 proven red on 4.2.1: `frame()` naming the current frame refused at option validation instead of failing at commit with `r(119)` (paired with `frame(default)` from another frame, which is legal and must stay legal); an output name differing from a scanned variable or from `id()` only by case refused (paired with a distinct name that still runs); a `codefile()` value carrying a backquote or `"` followed by `'` refused with the column and row named, where the corrupted expansion used to die at `r(199)` against an unrelated line (paired with a lone double quote, which round-trips and still scans); and the two shipped-doc fixes checked on the shipped files -- the `.sthlp` examples that write `dm_rules.csv` and `codescan_results.xlsx` carrying `replace`, and `r(chapter_#)` appearing as a row of the README stored-results table rather than only in a changelog bullet. Three further blocks are contract pins that pass on 4.2.1 too: the output frame carrying no internal tempvars, and a >80-character label and >244-character pattern/exclusion reaching `export()` and a replayable `save()` codefile whole (the audit's truncation finding, refuted -- `replace` widens a string variable to fit) |
-| `test_codescan_v424.do` | functional | 13 | v4.2.4, 10 of 13 proven red on 4.2.3: `tostring` writes numeric codes exactly in `codescan` and `codescan_describe` (a 13-digit double code matching its own digits instead of `1.23457e+12`; float `401.9`/`250.01` reading back as typed; 400 random codes round-tripping text → number → scanned text against the generating text as oracle); a `%tm` date and a left-aligned `%-tc` datetime refused under `lookback()`, and every other non-daily unit (`%tw`/`%tq`/`%th`/`%ty`/`%tb`, `%-` forms) refused on either `date()` or `refdate()` while `%-td` still runs; `export(.csv)` writing the prevalence with an explicit `format()` and at full precision without it; and `merge` keeping `: sortedby` (truncated at a sort key the call replaced). Three blocks are contract pins that pass on 4.2.3 too: extended missing never matching under `nocase nodots`, an unwindowed `%tm` date still summarized in its own unit, and session hygiene |
-| `test_codescan_perf_equiv.do` | functional | 6 | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
-| `test_codescan_oracle.do` | functional | 200 | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
-| `test_codescan_adversarial.do` | functional | 12 | Hostile inputs: wide varlists, metachars, dup IDs/dates |
-| `test_codescan_describe_adversarial.do` | functional | 11 | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
-| `test_codescan_stress_adversarial.do` | functional | 7 | Scale/sparsity/name-collision stress |
-| `test_codescan_hostile.do` | functional | 3 | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
-| `test_codescan_install_docs.do` | functional | 12 | `net install` smoke + help/README example reality |
-| `test_documentation_examples.do` | functional | 20 | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
-| `test_release_integrity.do` | functional | 11 | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
-| `validation_codescan.do` | validation | 26 | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
-| `validation_codescan_extended.do` | validation | 37 | Extended exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
-| `validation_codescan_known_answers.do` | validation | 9 | Known-answer matrix across option combinations |
-| `validation_codescan_public_known_answers.do` | validation | 8 | Pinned counts, death totals, sex-stratified collapse results, wide-slot totals, inventory returns, and Quan et al. boundary cases using the public Australian mortality fixture |
-| `validation_codescan_dgp_recovery.do` | validation | 22 | DGP known-answer recovery (batch 1): simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, and describe |
-| `validation_codescan_dgp_recovery2.do` | validation | 19 | DGP known-answer recovery (batch 2): the option/output paths batch 1 omitted — matched_code first-hit, unmatched flag, regex/prefix alternation in one condition, multi-pattern & prefix exclusion, multi-window lookback + fixed lookforward, merge-broadcast date/count summaries, countrows+collapse, countmode+merge, patient-level cooccurrence, tostring numeric codes, label() variable labels, detail varcounts first-slot attribution, combined multi-output collapse, alldates shorthand, and empty-window boundary contract |
-| `validation_mata.do` | validation | 9 | Known-answer equivalence for the Mata fast paths |
-| `validation_codescan_io.do` | validation | 6 | Save/export/saving artifact fidelity |
-| `validation_codescan_output.do` | validation | 5 | Graph/co-occurrence output structure, failed-export cleanup, and `format()` propagation to XLSX cell formats. The XLSX checker derives its column letters from the expected header list, so a new export column moves every downstream cell check with it |
-| `validation_codescan_describe.do` | validation | 7 | `codescan_describe` oracles |
-| `validation_codescan_describe_adversarial.do` | validation | 10 | `codescan_describe` adversarial oracles |
-| `validation_codescan_crosscheck.do` | validation | 33 | `codescan` vs hand-computed `regexm()`/manual collapse |
-| `validation_countrows.do` | validation | 9 | `countrows` oracles |
-| `crossval_codescan_icd10.do` | cross-validation | 7 | Row-level parity with Stata's official `icd10 generate` on the public Australian mortality example, including Quan et al. definitions, dotted codes, wide slots, and exclusion boundaries |
-| `_codescan_qa_common.do` | scaffold | — | Sandboxed-install bootstrap |
-| `run_all.do` | runner | — | Curated lane runner |
-| `CROSSVAL_MODULE_MAP.md` | support | — | Source provenance, exact-parity contract, mapping from external comparisons to pinned known answers, and revision triggers |
-| `benchmark_codescan_scale.do` | benchmark | — | Exploratory wall-time timing at 100k and 1M rows, prefix vs ICU regex; not in any lane |
-| `benchmark_codescan_vs_manual.do` | benchmark | — | Exploratory head-to-head vs a hand-coded `gen`/`replace` + `regexm()` loop for the same task; asserts identical columns, reports the time ratio; not in any lane |
-| `tools/check_codescan_artifacts.py` | tool | — | Package-local `xlsx` and `svg` artifact checker (openpyxl) |
+| File | Covers |
+|---|---|
+| `test_codescan.do` | Core `codescan` behaviour: basic/regex/prefix modes, time windows, collapse, labels, `replace`, `noisily`, `if`/`in`, return values, edge cases, error handling |
+| `test_codescan_v1_fixes.do` | Regression guards for the v1.0.2-v1.3.0 fixes: varabbrev restore, collapse `if`/`in`, `countdate` tag logic, name collision, missing `id`, cleanup, `codescan_describe`, `frame()`, `preserve`, `tostring`, `nodots` |
+| `test_codescan_errors.do` | Error paths: `define()`/`codefile()` grammar, window and `level()` bounds, output-name collisions, extension and file-existence rejection |
+| `test_codescan_functional.do` | Extended functional coverage: `alldates`, `detail`, `countmode`, exclusions, codefile DTA, merge semantics, `save()`, co-occurrence, boundary name lengths, data preservation |
+| `test_codescan_edge_cases.do` | `frame()`/`export()`/`graph` output, codefile edge cases, co-occurrence, single-obs and degenerate windows, extended `codescan_describe` and merge cases |
+| `test_codescan_install_verify.do` | `which` resolves both commands after `net install`; README example runs; v1.4.1 regressions |
+| `test_codescan_coverage.do` | Consolidated coverage: window boundaries, label/date/type contracts, `r()` surface, v1.4.2 fixes, `saving()`/`format()`/`export()` content, cross-variable exclusion |
+| `test_countrows.do` | `countrows`/`countmode` counting semantics |
+| `test_mata_opt.do` | Mata fast-path semantics. Every block compares codescan against a naive Stata-level oracle (one `ustrregexm()` per cell, no memoization, no early exit) on an immutable reloaded fixture, so the optimizations must reproduce a brute-force scan exactly: row-level, collapse, merge, `countmode` (`total_hits` vs `positive_units`), nested/overlapping conditions, multi-window sensitivity **and** its `r(sensitivity_n)` denominators, describe vs a `reshape`+`levelsof` tabulation, `nodots` invariance, first-slot vs `allslots` detail, prefix, `nocase`, co-occurrence, and `matched_code` first-hit order |
+| `test_codescan_regressions.do` | Fixed-bug regression guards, including regex-escape-safe `nocase`, merge row order, non-mutating `tostring`, arbitrary and long describe row names, prefix validation, path guards, the 4.0.1 audit fixes: `saving()`+`merge` tempvar leak (T32), mata-clear self-heal (T33), case-variant duplicate names (T34), datetime `date()`/`refdate()` rejection (T35), merge fully-excluded-id missing (T36), reloaded regex validator still rejects invalid patterns post-clear (T37), an extension-less `saving()` refused *before* `export()` writes (T39), and the 4.1.4 review fixes: a failed side effect after `collapse` keeps the collapsed result instead of leaving only `id()` (T40) and unusable describe row names are aliased rather than silently replaced by `r1`/`r2`, with `r(chapter_#)` carrying the exact character (T41, mirrored by T42) |
+| `test_codescan_v208.do` | v2.0.8: `label()` backslash preserved (Windows paths) + `\` separator still splits, bare `.`/all-dots skipped to match `codescan_describe`, `if` on numeric scan var works with `tostring` (proven-fail on pre-2.0.8) |
+| `test_codescan_v300_critical.do` | v3.0.0 critical and contract regressions, each proven red by mutating the fix out: transactional rollback (C1), empty-match regex rejection (C2), codefile optional-column typing (C3), extended-missing blanking (C4), file-overwrite authorization (C5), `r(sensitivity_n)` (I2), labels reaching console/graph/export while machine names stay put (I1), three-state `unmatched()` (I4), `total_hits` vs `positive_units` (I3), first-slot vs `allslots` detail attribution (I5) |
+| `test_codescan_v2_no_scoring.do` | v2.0 contract: `score()`/`hierarchy()` rejected (rc=198), basename codefile gone (rc=601), core scan intact |
+| `test_codescan_v203_hardening.do` | v2.0.3: malformed-regex rejection (compile-probe, define()+codefile()+exclusion), unicode `nocase` (å/Å), ASCII regression guard, `r(n_excluded_missingdate)` |
+| `test_codescan_v410.do` | v4.1.0, 10 of 12 proven red on 4.0.1: `codescan_describe` reproducibility across repeated runs (top codes, the reported code SET at a tie-straddled `top()` cutoff, chapters, and the `save()` draft codefile), `r(detail_allslots)` vs the rule that actually built `r(varcounts)` under `countmode`, the `lookforward(-1)` / `level(0)` numeric-option sentinels, dead dotted prefix under `nodots`, `matched_code()` truncation, repeated `lookback()` window |
+| `test_codescan_v415.do` | v4.1.5: Unicode `level()` prefix truncation (`usubstr` vs `substr`), `export()` pattern/exclusion `str244` width, `codescan_describe` early `save()` extension validation, `graph` bar label `format()` passthrough, `error 2000` without duplicate message |
+| `test_codescan_v421.do` | v4.2.1, 8 of 18 proven red on 4.2.0: a zero-width regex keyed to a non-ASCII character rejected on the live scan axis as an inclusion and as an exclusion (with consuming non-ASCII patterns and the ASCII option-time guard as controls), casefold-equivalent `codefile()` columns refused for required and optional fields (each paired with the same call succeeding once the duplicate is dropped), and `save()` writing no codefile after an empty sample or a failing `export()` while a successful call still writes and round-trips it. The zero-width guard is the first error codescan can raise during the scan rather than while parsing options, so two blocks cover the rollback from that new failure site: an in-place `replace` over a caller variable and a `collapse` that must not consume the data |
+| `test_codescan_v422.do` | v4.2.2, 6 of 13 proven red on 4.2.1: `frame()` naming the current frame refused at option validation instead of failing at commit with `r(119)` (paired with `frame(default)` from another frame, which is legal and must stay legal); an output name differing from a scanned variable or from `id()` only by case refused (paired with a distinct name that still runs); a `codefile()` value carrying a backquote or `"` followed by `'` refused with the column and row named, where the corrupted expansion used to die at `r(199)` against an unrelated line (paired with a lone double quote, which round-trips and still scans); and the two shipped-doc fixes checked on the shipped files -- the `.sthlp` examples that write `dm_rules.csv` and `codescan_results.xlsx` carrying `replace`, and `r(chapter_#)` appearing as a row of the README stored-results table rather than only in a changelog bullet. Three further blocks are contract pins that pass on 4.2.1 too: the output frame carrying no internal tempvars, and a >80-character label and >244-character pattern/exclusion reaching `export()` and a replayable `save()` codefile whole (the audit's truncation finding, refuted -- `replace` widens a string variable to fit) |
+| `test_codescan_v424.do` | v4.2.4, 10 of 13 proven red on 4.2.3: `tostring` writes numeric codes exactly in `codescan` and `codescan_describe` (a 13-digit double code matching its own digits instead of `1.23457e+12`; float `401.9`/`250.01` reading back as typed; 400 random codes round-tripping text → number → scanned text against the generating text as oracle); a `%tm` date and a left-aligned `%-tc` datetime refused under `lookback()`, and every other non-daily unit (`%tw`/`%tq`/`%th`/`%ty`/`%tb`, `%-` forms) refused on either `date()` or `refdate()` while `%-td` still runs; `export(.csv)` writing the prevalence with an explicit `format()` and at full precision without it; and `merge` keeping `: sortedby` (truncated at a sort key the call replaced). Three blocks are contract pins that pass on 4.2.3 too: extended missing never matching under `nocase nodots`, an unwindowed `%tm` date still summarized in its own unit, and session hygiene |
+| `test_codescan_perf_equiv.do` | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
+| `test_codescan_oracle.do` | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
+| `test_codescan_adversarial.do` | Hostile inputs: wide varlists, metachars, dup IDs/dates |
+| `test_codescan_describe_adversarial.do` | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
+| `test_codescan_stress_adversarial.do` | Scale/sparsity/name-collision stress |
+| `test_codescan_hostile.do` | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
+| `test_codescan_install_docs.do` | `net install` smoke + help/README example reality |
+| `test_documentation_examples.do` | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
+| `test_release_integrity.do` | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
+| `test_fixture_names.do` | Long-name invariance for actual public output values and returned identities. |
+| `test_fixture_files.do` | Native-created, absent and opaque filename globals on row/collapse/merge success and refusal, with next native use controls. |
 
-Neither benchmark is a gate: both are **exploratory** and have no reproducible
-wall-time threshold, because timings are machine- and load-dependent. They print
-timings for a human to read; nothing fails on a slow run. Run them by hand:
+### Validation
+
+| File | Covers |
+|---|---|
+| `validation_codescan.do` | Core hand-computed matching, prefix, window, collapse, date-summary, and option oracles for `codescan` |
+| `validation_codescan_extended.do` | Extended exclusion, output, co-occurrence, merge, sensitivity, frame, export, and invariant oracles split from the former validation monolith |
+| `validation_codescan_known_answers.do` | Known-answer matrix across option combinations |
+| `validation_codescan_public_known_answers.do` | Pinned counts, death totals, sex-stratified collapse results, wide-slot totals, inventory returns, and Quan et al. boundary cases using the public Australian mortality fixture |
+| `validation_codescan_dgp_recovery.do` | DGP known-answer recovery (batch 1): simulated wide-format code data with an independent (ustrregexm/substr/date-arithmetic) oracle across matching, windows, counting, collapse/merge, cooccurrence, sensitivity, and describe |
+| `validation_codescan_dgp_recovery2.do` | DGP known-answer recovery (batch 2): the option/output paths batch 1 omitted — matched_code first-hit, unmatched flag, regex/prefix alternation in one condition, multi-pattern & prefix exclusion, multi-window lookback + fixed lookforward, merge-broadcast date/count summaries, countrows+collapse, countmode+merge, patient-level cooccurrence, tostring numeric codes, label() variable labels, detail varcounts first-slot attribution, combined multi-output collapse, alldates shorthand, and empty-window boundary contract |
+| `validation_mata.do` | Known-answer equivalence for the Mata fast paths |
+| `validation_codescan_io.do` | Save/export/saving artifact fidelity |
+| `validation_codescan_output.do` | Graph/co-occurrence output structure, failed-export cleanup, and `format()` propagation to XLSX cell formats. The XLSX checker derives its column letters from the expected header list, so a new export column moves every downstream cell check with it |
+| `validation_codescan_describe.do` | `codescan_describe` oracles |
+| `validation_codescan_describe_adversarial.do` | `codescan_describe` adversarial oracles |
+| `validation_codescan_crosscheck.do` | `codescan` vs hand-computed `regexm()`/manual collapse |
+| `validation_countrows.do` | `countrows` oracles |
+| `validation_fixture_windows.do` | Every person flag under inclusive zero/three-day lookback/lookforward windows. |
+| `validation_fixture_contract.do` | Independent literal code predicates for regex/prefix row, collapse, merge, frame and count outputs across named WIDE variants; exact raw-frequency describe identities. |
+
+### Cross-validation
+
+| File | Covers |
+|---|---|
+| `crossval_codescan_icd10.do` | Row-level parity with Stata's official `icd10 generate` on the public Australian mortality example, including Quan et al. definitions, dotted codes, wide slots, and exclusion boundaries |
+
+### Support
+
+| File | Covers |
+|---|---|
+| `_codescan_qa_common.do` | Sandboxed-install bootstrap |
+| `run_all.do` | Curated lane runner |
+| `CROSSVAL_MODULE_MAP.md` | Source provenance, exact-parity contract, mapping from external comparisons to pinned known answers, and revision triggers |
+| `benchmark_codescan_scale.do` | Exploratory wall-time timing at 100k and 1M rows, prefix vs ICU regex; not in any lane |
+| `benchmark_codescan_vs_manual.do` | Exploratory head-to-head vs a hand-coded `gen`/`replace` + `regexm()` loop for the same task; asserts identical columns, reports the time ratio; not in any lane |
+| `tools/check_codescan_artifacts.py` | Package-local `xlsx` and `svg` artifact checker (openpyxl) |
+| `_qa_fx_a5.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
+
+Neither benchmark is a gate: both are **exploratory** and have no reproducible wall-time threshold, because timings are machine- and load-dependent. They print timings for a human to read; nothing fails on a slow run. Run them by hand:
 
 ```bash
 stata-mp -b do benchmark_codescan_scale.do
 stata-mp -b do benchmark_codescan_vs_manual.do
 ```
 
-Performance *correctness* is gated instead by `test_codescan_perf_equiv.do`,
-which is in every lane and asserts the memoized fast path returns exactly what
-the brute-force reference returns.
+Performance *correctness* is gated instead by `test_codescan_perf_equiv.do`, which is in every lane and asserts the memoized fast path returns exactly what the brute-force reference returns.
 
 `crossval_codescan_icd10.do` uses Stata's official ICD-10 classifier as an independent implementation. It compares every source row rather than only aggregate totals; the companion known-answer suite pins the independently resolved aggregates so a shared runtime or source-data change cannot pass silently.
 
 ## Coverage map
 
-`check qa codescan --view contract` reports full coverage of the public surface:
-
-| Command | Options | Returns | Status |
-|---------|--------:|--------:|--------|
-| `codescan` | 37/37 | 27/27 | covered |
-| `codescan_describe` | 4/4 | 8/8 | covered |
-
-`codescan` has 27 distinct documented return names, and `codescan_describe` 8. Two names are returned from
-two places each, and both paths are exercised: `r(lookback)` as a scalar for a
-single window and as a macro for several, and `r(newvars)` as the
-created-variable list on the normal path and as an empty string after
-`preserve`/`frame()`, where nothing is left in memory. `codescan_describe` also
-returns the exact code for each displayed top-code row through dynamic
-`r(top_code_#)` locals.
-
-Headline coverage by area: option-by-option (the seven `test_codescan*` suites
-split out of the former functional monolith, `validation_codescan.do`, and
-`validation_codescan_extended.do`), counting modes (`*countrows*`), date windows
-(`lookback`/`lookforward`/`refdate`), codefiles & I/O & export failure cleanup
-(`validation_codescan_io.do`, `validation_codescan_output.do`), Mata fast
-paths (`test_mata_opt.do`, `validation_mata.do`), the v2.0 no-scoring
-contract (`test_codescan_v2_no_scoring.do`), the v3.0.0 critical contracts
-(`test_codescan_v300_critical.do`), and the release surface
-(`test_release_integrity.do`).
+| Command | Functional | Validation | Cross-val |
+|---|---|---|---|
+| `codescan` | Command, option, error, adversarial, regression and fixture names/files suites | Matching/count/window/output/DGP and canonical contract/window oracles | Official ICD-10 rowwise parity |
+| `codescan_describe` | Describe adversarial, command and fixture name/contract suites | Exact describe inventory and raw-frequency oracles | — |
 
 ## Lane membership
 
-| Suite | quick | core | full |
-|-------|:---:|:---:|:---:|
-| `test_codescan` | ✓ | ✓ | ✓ |
-| `test_codescan_v1_fixes` | ✓ | ✓ | ✓ |
-| `test_codescan_errors` | ✓ | ✓ | ✓ |
-| `test_codescan_functional` | ✓ | ✓ | ✓ |
-| `test_codescan_edge_cases` | ✓ | ✓ | ✓ |
-| `test_codescan_install_verify` | ✓ | ✓ | ✓ |
-| `test_codescan_coverage` | ✓ | ✓ | ✓ |
-| `test_countrows` | ✓ | ✓ | ✓ |
-| `test_mata_opt` | ✓ | ✓ | ✓ |
-| `test_codescan_regressions` | ✓ | ✓ | ✓ |
-| `test_codescan_v208` | ✓ | ✓ | ✓ |
-| `test_codescan_v2_no_scoring` | ✓ | ✓ | ✓ |
-| `test_codescan_v203_hardening` | ✓ | ✓ | ✓ |
-| `test_codescan_v410` | ✓ | ✓ | ✓ |
-| `test_codescan_v415` | ✓ | ✓ | ✓ |
-| `test_codescan_v421` | ✓ | ✓ | ✓ |
-| `test_codescan_v422` | ✓ | ✓ | ✓ |
-| `test_codescan_v424` | ✓ | ✓ | ✓ |
-| `test_codescan_v300_critical` | ✓ | ✓ | ✓ |
-| `test_codescan_perf_equiv` | ✓ | ✓ | ✓ |
-| `validation_codescan` | ✓ | ✓ | ✓ |
-| `validation_codescan_extended` | ✓ | ✓ | ✓ |
-| `validation_countrows` | ✓ | ✓ | ✓ |
-| `validation_codescan_known_answers` |  | ✓ | ✓ |
-| `validation_codescan_public_known_answers` |  | ✓ | ✓ |
-| `validation_codescan_dgp_recovery` |  | ✓ | ✓ |
-| `validation_codescan_dgp_recovery2` |  | ✓ | ✓ |
-| `validation_mata` |  | ✓ | ✓ |
-| `validation_codescan_io` |  | ✓ | ✓ |
-| `validation_codescan_output` |  | ✓ | ✓ |
-| `validation_codescan_describe` |  | ✓ | ✓ |
-| `validation_codescan_describe_adversarial` |  | ✓ | ✓ |
-| `validation_codescan_crosscheck` |  | ✓ | ✓ |
-| `crossval_codescan_icd10` |  |  | ✓ |
-| `test_codescan_adversarial` |  | ✓ | ✓ |
-| `test_codescan_describe_adversarial` |  | ✓ | ✓ |
-| `test_codescan_stress_adversarial` |  | ✓ | ✓ |
-| `test_codescan_hostile` |  | ✓ | ✓ |
-| `test_codescan_oracle` |  | ✓ | ✓ |
-| `test_codescan_install_docs` |  |  | ✓ |
-| `test_documentation_examples` |  |  | ✓ |
-| `test_release_integrity` |  |  | ✓ |
+`quick` ⊆ `core` ⊆ `full`; full is the default release gate. run_all.do owns the exact suite list.
 
-`quick` ⊆ `core` ⊆ `full`; `full` is the release gate. The orthogonal `crossval` lane runs `crossval_codescan_icd10.do` alone, and `full` includes it. The authoritative counts are the `RESULT:` sentinels, not this README. Every runnable suite belongs to a lane except the two exploratory benchmarks above; there is no `_skip.txt`.
+| Lane | Suites |
+|---|---|
+| `quick` | Functional/regression and core matching/count validations. |
+| `core` | Quick plus deterministic known-answer, DGP, I/O, adversarial and canonical fixture contracts. |
+| `full` | Core plus official ICD-10 parity, installed documentation and release integrity. |
+| `crossval` | Official ICD-10 parity alone. |
+
+Benchmarks are exploratory, run by hand, and excluded from correctness lanes.
+
+## Known gaps
+
+Prefix matching retains whitespace; the canonical regex explicitly admits leading spaces. These distinct predicates are checked separately rather than equated with normalized clinical codes.
 
 ## Adversarial coverage notes
 
-The adversarial and stress suites concentrate on wide varlists, sparse
-strings, punctuation and regex metacharacters, case variation, missing IDs
-and dates, duplicate IDs, numeric `tostring`, output-name collisions, invalid
-option combinations, repeated calls in one session, installation behaviour,
-documentation examples, and release metadata.
-`run_all.do` restores `c(pwd)` to the QA directory after each suite so an
-install-smoke test cannot poison downstream path derivation.
-
-Zero/three-day inclusive lookback/lookforward windows match every person flag. Native filename state controls cover row/collapse/merge and direct refusal, including native use, opaque punctuation, empty assignment and absent macros. Additional core/full suites: `validation_fixture_windows.do`, `test_fixture_files.do`.
+The adversarial and stress suites concentrate on wide varlists, sparse strings, punctuation and regex metacharacters, case variation, missing IDs and dates, duplicate IDs, numeric `tostring`, output-name collisions, invalid option combinations, repeated calls in one session, installation behaviour, documentation examples, and release metadata. `run_all.do` restores `c(pwd)` to the QA directory after each suite so an install-smoke test cannot poison downstream path derivation.

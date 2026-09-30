@@ -1,4 +1,4 @@
-*! swimlane Version 0.1.0  2026/06/29
+*! swimlane Version 0.1.1  2026/09/30
 *! Swimmer and state swimlane plots for clinical and longitudinal data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -6,8 +6,13 @@
 
 program define swimlane, rclass sortpreserve
     version 16.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    _return restore `_caller_r', hold
 
     local _orig_varabbrev = c(varabbrev)
+    * Native gsort/unabbrev writes these legacy globals even at version16.
+    mata: st_local("_swim_s1", st_global("S_1")); st_local("_swim_s2", st_global("S_2"))
     set varabbrev off
 
     local _drop_canon = 0
@@ -980,8 +985,13 @@ program define swimlane, rclass sortpreserve
     }
     if "`_addplotstub'" != "" capture macro drop `_addplotstub'
     if `_drop_canon' capture frame drop `canonframe'
+    mata: st_global("S_1", st_local("_swim_s1")); st_global("S_2", st_local("_swim_s2"))
     set varabbrev `_orig_varabbrev'
 
+    if `rc' & !`_has_payload' {
+        _return restore `_caller_r'
+        return add
+    }
     if `_has_payload' {
         return clear
         return scalar max_duration = `_max_duration'

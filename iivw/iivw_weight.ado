@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.3.3  2026/09/30
+*! iivw_weight Version 4.3.4  2026/09/30
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -52,6 +52,11 @@ See help iivw_weight for complete documentation
 
 program define iivw_weight, rclass sortpreserve
     version 16.0
+    * Native nuisance fits mutate these observed caller legacy macros.
+    foreach _native_key in S_1 S_2 {
+        mata: st_local("_native_present_"+st_local("_native_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_native_key"))>0))
+        mata: st_local("_native_bytes_"+st_local("_native_key"),st_global(st_local("_native_key")))
+    }
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
     local __iivw_smcl_lb = char(123)
@@ -2887,8 +2892,13 @@ program define iivw_weight, rclass sortpreserve
         * also failed -- but they are told, loudly, that the data is not intact.
         local __iivw_rollback_failed ""
         foreach v of local __iivw_created_vars {
-            capture drop `v'
-            if _rc local __iivw_rollback_failed "`__iivw_rollback_failed' `v'(not dropped)"
+            * Component cleanup may already have removed this owned column.
+            * Its absence is successful rollback, not data corruption.
+            capture confirm variable `v'
+            if _rc == 0 {
+                capture drop `v'
+                if _rc local __iivw_rollback_failed "`__iivw_rollback_failed' `v'(not dropped)"
+            }
         }
         local __iivw_bi = 0
         foreach g of local __iivw_bk_names {
@@ -2926,6 +2936,14 @@ program define iivw_weight, rclass sortpreserve
             display as error ""
             display as error "  Do not analyze this dataset. Reload it from disk."
             display as error "  (The command's own failure, reported above, is the return code.)"
+        }
+    }
+    foreach _native_key in S_1 S_2 {
+        if `_native_present_`_native_key'' {
+            mata: st_global(st_local("_native_key"),st_local("_native_bytes_"+st_local("_native_key")))
+        }
+        else {
+            capture macro drop `_native_key'
         }
     }
     set varabbrev `__iivw_old_varabbrev'

@@ -1,4 +1,4 @@
-*! desctab Version 2.1.18  2026/09/29 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.1.19  2026/09/30 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -6,6 +6,9 @@
 
 program define desctab, rclass
     version 17.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _own_r_posted = 0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _xlsx_book _p_raw_mata _smd_raw_mata _vl_vals _vl_text
@@ -95,7 +98,7 @@ program define desctab, rclass
     local _markdown_title `"`macval(title)'"'
 
     /* Accept xlsx() as synonym for excel() */
-    if "`excel'" == "" & "`xlsx'" != "" local excel "`xlsx'"
+    if `"`macval(excel)'"' == "" & `"`macval(xlsx)'"' != "" mata: st_local("excel", st_local("xlsx"))
 
     * Resolve persistent defaults
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
@@ -163,7 +166,7 @@ program define desctab, rclass
     }
 
     /* Check if Excel options are properly specified */
-    local has_excel = "`excel'" != ""  // Boolean flag for Excel option
+    local has_excel = `"`macval(excel)'"' != ""  // Boolean flag for Excel option
     local has_markdown = `"`markdown'"' != ""
     local has_sheet = `"`macval(sheet)'"' != ""  // Boolean flag for sheet option
     local has_title = `"`macval(title)'"' != ""  // Boolean flag for title option
@@ -199,11 +202,11 @@ program define desctab, rclass
 
     /* Validate Excel file path for security */
     if `has_excel' {
-        if !regexm(lower(`"`excel'"'), "\.xlsx$") {
+        if !regexm(lower(`"`macval(excel)'"'), "\.xlsx$") {
             display as error "excel()/xlsx() must specify a .xlsx file"
             exit 198
         }
-        _tabtools_validate_path "`excel'" "excel()"
+        _tabtools_validate_path `"`macval(excel)'"' "excel()"
     }
     if "`mdappend'" != "" & !`has_markdown' {
         display as error "mdappend requires markdown()"
@@ -1423,6 +1426,7 @@ program define desctab, rclass
         if `"`varlabplus'"' == "" {
             display "`Dapa'"
         }
+        local _own_r_posted = 1
         return local Dapa "`Dapa'"
         display " "
 
@@ -1581,6 +1585,7 @@ program define desctab, rclass
 
 **# Export to Excel if Requested
     local _processed_varlist = strtrim("`_processed_varlist'")
+    local _own_r_posted = 1
     return local varlist "`_processed_varlist'"
     if `_rt_nrows' > 0 {
         return matrix table = `_rtable'
@@ -2224,7 +2229,15 @@ program define desctab, rclass
     capture frame drop `_result_frame'
     capture frame drop `_wtc_crude_table'
     set varabbrev `_orig_varabbrev'
-    if `_rc' exit `_rc'
+    if `_rc' {
+        * Refusals before our analytic payload preserve the caller's r().
+        * Published analytic returns still survive a later export failure.
+        if !`_own_r_posted' {
+            _return restore `_caller_r'
+            return add
+        }
+        exit `_rc'
+    }
     * The Mata cleanup above runs on the success path too, where those objects
     * exist only in the Excel branch, so both captures fail with r(111) and the
     * caller was left reading _rc == 111 after every successful call. _rc is

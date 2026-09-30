@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.1.1  2026/09/29
+*! pkgtransfer Version 1.1.2  2026/09/30
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -32,6 +32,11 @@
 program define pkgtransfer, rclass
 	version 16.0
 	local _varabbrev `c(varabbrev)'
+    * Native import delimited uses the non-temporary scalar cv.
+    tempname _old_cv
+    capture confirm scalar cv
+    local _had_cv = !_rc
+    if `_had_cv' scalar `_old_cv' = scalar(cv)
 	local _did_preserve 0
 	local _staging_created 0
 	local _registry_created 0
@@ -1012,6 +1017,8 @@ local _did_preserve 0
 
 		/* Clean up on success or error */
 		local rc = _rc
+        if `_had_cv' scalar cv = scalar(`_old_cv')
+        else capture scalar drop cv
         if `_output_cwd_changed' {
             capture quietly cd `"`_output_cwd'"'
             if _rc & !`rc' local rc = _rc

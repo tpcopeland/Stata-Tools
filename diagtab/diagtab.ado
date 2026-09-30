@@ -20,7 +20,18 @@ SYNTAX:
 
 program define diagtab, rclass
     version 17.0
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _own_r_posted = 0
     local _orig_varabbrev = c(varabbrev)
+    local _orig_matastrict = c(matastrict)
+    local _legacy_names S_1 S_2 S_3 S_4 S_5 S_6
+    local _legacy_i = 0
+    foreach _legacy_name of local _legacy_names {
+        local ++_legacy_i
+        mata: st_local("_had_legacy_`_legacy_i'", strofreal(any(st_dir("global", "macro", "*") :== st_local("_legacy_name"))))
+        mata: st_local("_old_legacy_`_legacy_i'", st_global(st_local("_legacy_name")))
+    }
     set varabbrev off
 
 capture noisily {
@@ -491,6 +502,7 @@ capture noisily {
             local _rnames `"`_rnames' cut_`_cv_unique'"'
         }
         matrix rownames `_cutmat' = `_rnames'
+        local _own_r_posted = 1
         return matrix cutoff_table = `_cutmat'
         return local cutoffs "`cutoffs'"
 
@@ -508,7 +520,7 @@ capture noisily {
         * Row 1: Title
         local row 1
         qui set obs 1
-        qui replace title = `"`title'"' in 1
+        mata: st_sstore(1,"title",st_local("title"))
 
         * Row 2: Column headers
         local row = `row' + 1
@@ -745,6 +757,7 @@ capture noisily {
     }
 
 **# Return Scalars
+    local _own_r_posted = 1
     return scalar TP = `TP'
     return scalar FP = `FP'
     return scalar FN = `FN'
@@ -795,7 +808,7 @@ capture noisily {
     * Row 1: Title
     local row 1
     qui set obs 1
-    qui replace title = `"`title'"' in 1
+    mata: st_sstore(1,"title",st_local("title"))
 
     * Row 2: Confusion matrix header
     local row = `row' + 1
@@ -941,11 +954,11 @@ capture noisily {
     local _top_header_row = 2
 
 **# Console Display
-    noisily _diagtab_console_display `out_ncols' `"`title'"'
+    noisily _diagtab_console_display `out_ncols' `"`macval(title)'"'
 
 **# CSV/Frame/Excel Export
     if `"`macval(csv)'"' != "" {
-        _diagtab_csv_write using `"`macval(csv)'"', reservedrow title(`"`title'"') footnote(`"`footnote'"')
+        _diagtab_csv_write using `"`macval(csv)'"', reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
     }
 
     local _ret_markdown ""
@@ -955,7 +968,7 @@ capture noisily {
         local _mdappend_opt ""
         if "`mdappend'" != "" local _mdappend_opt "append"
         capture noisily _diagtab_markdown_write using `"`macval(markdown)'"', ///
-            `_mdappend_opt' title(`"`title'"') footnote(`"`footnote'"') strictheaders
+            `_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') strictheaders
         if _rc {
             local _md_rc = _rc
             noisily display as error "Failed to export Markdown to `markdown'"
@@ -1000,21 +1013,21 @@ capture noisily {
     else {
         local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported."
     }
-    local _footnote_display `"`footnote'"'
+    local _footnote_display `"`macval(footnote)'"'
     if `_has_undefined' {
         local _undefined_note "Undefined estimates are shown as --."
         local _methods `"`_methods' `_undefined_note'"'
-        if `"`_footnote_display'"' == "" {
+        if `"`macval(_footnote_display)'"' == "" {
             local _footnote_display `"`_undefined_note'"'
         }
-        else if strpos(`"`_footnote_display'"', "Undefined estimates") == 0 {
+        else if strpos(`"`macval(_footnote_display)'"', "Undefined estimates") == 0 {
             * Punctuation-aware join: a user footnote already ending in
             * terminal punctuation must not gain a ";" after it.
-            local _fn_trim = strtrim(`"`_footnote_display'"')
-            local _fn_last = substr(`"`_fn_trim'"', -1, 1)
+            local _fn_trim = strtrim(`"`macval(_footnote_display)'"')
+            local _fn_last = substr(`"`macval(_fn_trim)'"', -1, 1)
             if inlist(`"`_fn_last'"', ".", ";", ":", "!", "?") ///
-                local _footnote_display `"`_fn_trim' `_undefined_note'"'
-            else local _footnote_display `"`_fn_trim'; `_undefined_note'"'
+                local _footnote_display `"`macval(_fn_trim)' `_undefined_note'"'
+            else local _footnote_display `"`macval(_fn_trim)'; `_undefined_note'"'
         }
     }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
@@ -1104,10 +1117,10 @@ capture noisily {
                     }
                 }
             }
-            if `"`_footnote_display'"' != "" {
+            if `"`macval(_footnote_display)'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: b.put_string(`_fn_row', 2, `"`_footnote_display'"')
+                mata: b.put_string(`_fn_row', 2, st_local("_footnote_display"))
                 matrix `_style_rules' = `_style_rules' \ ///
                     (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
                     (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
@@ -1156,13 +1169,32 @@ capture noisily {
 
 } // end capture noisily
     local _rc = _rc
+    local _legacy_i = 0
+    foreach _legacy_name of local _legacy_names {
+        local ++_legacy_i
+        if `_had_legacy_`_legacy_i'' {
+            mata: st_global(st_local("_legacy_name"), st_local("_old_legacy_`_legacy_i'"))
+        }
+        else capture macro drop `_legacy_name'
+    }
+    set matastrict `_orig_matastrict'
     set varabbrev `_orig_varabbrev'
-    if `_rc' exit `_rc'
+    if `_rc' {
+        * Refusals before our analytic payload preserve the caller's r().
+        * Published analytic returns still survive a later export failure.
+        if !`_own_r_posted' {
+            _return restore `_caller_r'
+            return add
+        }
+        exit `_rc'
+    }
 end
 
 version 17.0
 capture mata: mata drop _diagtab_counts_at_cutoffs()
 
+local _load_matastrict = c(matastrict)
+capture noisily {
 mata:
 mata set matastrict on
 
@@ -1203,3 +1235,7 @@ real matrix _diagtab_counts_at_cutoffs(
 }
 
 end
+}
+local _load_mata_rc = _rc
+set matastrict `_load_matastrict'
+if `_load_mata_rc' exit `_load_mata_rc'

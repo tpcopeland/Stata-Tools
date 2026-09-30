@@ -255,6 +255,9 @@ which is equivalent to {cmd:truncate(1 99)}. Truncation reduces the influence of
 extreme weights at the cost of a small amount of bias. Values must lie
 strictly between 0 and 100.
 
+{pstd}
+Weight fitting preserves the caller's active estimation results. Failed calls also restore caller returned results, RNG state and the weight identifier counter.
+
 {dlgtab:Model behavior}
 
 {phang}

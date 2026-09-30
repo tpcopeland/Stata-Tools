@@ -34,6 +34,9 @@ program define msm_sensitivity, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _caller_sorted : sortedby
+    tempname _caller_r
+    _return hold `_caller_r'
     set varabbrev off
     set more off
 
@@ -493,8 +496,19 @@ program define msm_sensitivity, rclass
     local _order_rc = _rc
     if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
 
+    * Re-stamp the original keys without changing the restored order in ties.
+    if `"`_caller_sorted'"' != "" {
+        capture sort `_caller_sorted', stable
+        local _sorted_rc = _rc
+        if `_rc' == 0 & `_sorted_rc' != 0 local _rc = `_sorted_rc'
+    }
+
     set varabbrev `_varabbrev'
     set more `_more'
 
-    if `_rc' exit `_rc'
+    if `_rc' {
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end

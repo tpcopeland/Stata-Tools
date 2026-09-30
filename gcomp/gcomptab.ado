@@ -81,6 +81,8 @@ EXAMPLES:
 capture program drop gcomptab
 program define gcomptab, rclass
     version 16.0
+    tempname _caller_r
+    _return hold `_caller_r'
     local _gc_varabbrev = c(varabbrev)
     set varabbrev off
 
@@ -342,7 +344,11 @@ quietly {
 } /* end capture noisily */
 local _gc_rc = _rc
 set varabbrev `_gc_varabbrev'
-if `_gc_rc' exit `_gc_rc'
+if `_gc_rc' {
+    _return restore `_caller_r'
+    return add
+    exit `_gc_rc'
+}
 end
 
 capture program drop _gcomptab_validate
@@ -1412,6 +1418,8 @@ end
 capture program drop _gcomptab_models
 program define _gcomptab_models, rclass
     version 16.0
+    tempname _caller_r
+    _return hold `_caller_r'
     local _orig_va = c(varabbrev)
     set varabbrev off
     local _est_held 0
@@ -2162,7 +2170,11 @@ capture noisily {
         }
     }
     set varabbrev `_orig_va'
-    if `_rc' exit `_rc'
+    if `_rc' {
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end
 
 *

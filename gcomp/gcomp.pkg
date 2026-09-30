@@ -37,6 +37,10 @@ f _gcomp_bootstrap_impl.ado
 f _gcomp_drop_postdeath.ado
 f _gcomp_warn_fit_sample_loss.ado
 f _gcomp_apply_rule.ado
+f _gcomp_check_categorical.ado
+f _gcomp_check_fit_levels.ado
+f _gcomp_check_interventions.ado
+f _gcomp_split_interventions.ado
 f _gcomp_draw_sim.ado
 f _gcomp_parse_structural.ado
 f _gcomp_refit_models.ado

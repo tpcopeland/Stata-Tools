@@ -43,6 +43,18 @@ program define msm_weight, rclass
     local _more = c(more)
     local _caller_sorted : sortedby
     local _weight_preserved = 0
+    local _weight_e_held = 0
+    local _entry_rngstate `"`c(rngstate)'"'
+    local _entry_globals : all globals
+    local _caller_globals "S_E_cmd S_E_depv MSM_UUID_SEQ"
+    local _global_i = 0
+    foreach _global_key of local _caller_globals {
+        local ++_global_i
+        local _global_present_`_global_i' : list _global_key in _entry_globals
+        mata: st_local("_global_value_`_global_i'", st_global("`_global_key'"))
+    }
+    tempname _caller_e _caller_r
+    _return hold `_caller_r'
     set varabbrev off
     set more off
 
@@ -54,6 +66,8 @@ program define msm_weight, rclass
 
     capture noisily {
 
+    _estimates hold `_caller_e', copy restore nullok
+    local _weight_e_held = 1
     quietly gen long `_msm_orig_order' = _n
 
     * =========================================================================
@@ -878,10 +892,33 @@ program define msm_weight, rclass
         sort `_caller_sorted', stable
     }
 
+    if `_weight_e_held' {
+        capture _estimates unhold `_caller_e'
+        local _e_rc = _rc
+        if `_rc' == 0 & `_e_rc' != 0 local _rc = `_e_rc'
+    }
+    * Native nuisance fits may clear legacy estimation globals; restore bytes.
+    local _global_i = 0
+    foreach _global_key of local _caller_globals {
+        local ++_global_i
+        if `_global_i' < 3 | `_rc' {
+            if `_global_present_`_global_i'' {
+                mata: st_global("`_global_key'", st_local("_global_value_`_global_i'"))
+            }
+            else {
+                capture macro drop `_global_key'
+            }
+        }
+    }
     set varabbrev `_varabbrev'
     set more `_more'
 
-    if `_rc' exit `_rc'
+    if `_rc' {
+        quietly set rngstate `_entry_rngstate'
+        _return restore `_caller_r'
+        return add
+        exit `_rc'
+    }
 end
 
 * =========================================================================

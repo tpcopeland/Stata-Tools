@@ -50,7 +50,7 @@ else {
 local ++tests
 capture noisily {
     local root ""
-    * expect: EXACT
+    * expect: REFUSED
     qa_fx_a7_files, clear seed(37) perturb(path_hostile)
     local root `"`r(root)'"'
     local output `"`r(path_active)'"'

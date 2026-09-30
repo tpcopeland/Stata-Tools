@@ -77,13 +77,13 @@ program define _diagtab_csv_write, nclass
         local _dt_first : word 1 of `_vars'
         capture confirm string variable `_dt_first'
         if !_rc & _N > 0 {
-            if `"`title'"' != "" {
+            if `"`macval(title)'"' != "" {
                 quietly insobs 1, before(1)
-                quietly replace `_dt_first' = `"`title'"' in 1
+                quietly replace `_dt_first' = `"`macval(title)'"' in 1
             }
-            if `"`footnote'"' != "" {
+            if `"`macval(footnote)'"' != "" {
                 quietly insobs 1
-                quietly replace `_dt_first' = `"`footnote'"' in `=_N'
+                quietly replace `_dt_first' = `"`macval(footnote)'"' in `=_N'
             }
         }
 

@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.17.4** | 2026-09-30
+**Version 1.17.6** | 2026-09-30
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -470,6 +470,16 @@ Result names below are returned in `r()` after successful execution; option-depe
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.17.6 (2026-09-30)
+
+- Preserve caller native `S_1`/`S_2` bytes on `tvdiagnose` success/refusal, and exact filename aliases on `tvmerge` refusal or readonly frame output; clear unsaved memory metadata and retain actual saved-output filename/date.
+- Preserve caller native filename bytes on `tvexpose` refusal and frame output, clear filename metadata for new memory output, retain actual `saveas()` filename, and restore cold caller `matastrict`.
+- Preserve exact caller presence/bytes of native `ReS_Call`, `ReS_jv2`, `S_1` and `S_2` across recurring-event `tvevent` and `tvbuild` success or refusal. Restore native filenames on refusal; clear filename aliases for newly constructed memory output. Preserve cold interval-engine caller `matastrict`.
+
+### 1.17.5 (2026-09-30)
+
+- Preserve exact caller presence/bytes of native `T_gm_fix_span` when `tvdiagnose` initializes a cold swimlane graph or refuses a call.
 
 ### 1.17.4 (2026-09-30)
 

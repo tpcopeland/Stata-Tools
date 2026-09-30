@@ -49,6 +49,7 @@ Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fv
 | `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, nonconvergence rejection, native-refit model-equivalence guards (if-sample and `alllevels` + `noconstant` mismatches), `store()` clobber protection, partial value-label fallback, and string / `i(numlist)` rejection. |
 | `test_fvgen_hostile.do` | Adversarial namespace collision and empty-data state preservation. |
 | `test_fvgen_oracle.do` | Seeded row-level factor-indicator and product oracles plus generated-name shadow preservation. |
+| `test_fixture_metadata.do` | Literal hostile labels through centered, factor, reference, interaction, simple-slope, square and continuous-product routes; Unicode80-character truncation; exact name twins/singleton and named factor-domain/empty-sample refusals. |
 | `test_package_release.do` | Isolated install resolution, repeated autoload, every visible help workflow, and help-render integrity with a positive control. |
 
 ### Validation
@@ -56,6 +57,7 @@ Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fv
 | File | Covers |
 |------|--------|
 | `validation_fvgen.do` | Hand-computed dummy/product values, native model-space equivalence, and centering invariance. |
+| `validation_fixture_matrix.do` | Twelve consumed A1 design/centering cases with independent weighted means and row arithmetic; two finite OLS native-factor active/stored clone and marginal-effect oracles. |
 
 ### Support
 
@@ -77,7 +79,7 @@ Each suite redirects `PLUS` and `PERSONAL` to temporary directories through `_fv
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_fvgen` |
-| `core` | `quick` plus `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
+| `core` | `quick` plus `validation_fixture_truth`, `validation_fixture_matrix`, `test_fixture_metadata`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
 | `full` | `core` plus `test_package_release` |
 
 Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases compare every materialized indicator/product with its labelled-group arithmetic and verify drop removes exactly the six generated variables. Unsorted and label-gap variants are consumed.
@@ -86,6 +88,10 @@ Canonical fixture adoption is in progress. `3` cases in `validation_fixture_trut
 |---|---|
 | `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
 | `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_fx_a1.do` | Byte-for-byte canonical cross-sectional fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+| `_qa_state.do` | Byte-for-byte session-fingerprint helper vendor |
 
-Fixture coverage still owed: Margins bridge, reference/centering/weights, A1 recovery and remaining A1/A7 minima; no interval consumer is declared. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+The expanded matrix ran14/14 and the literal-metadata suite13/13 in private isolated copies after independent review of the1.2.7 transport patch. The matrix consumes every A1 minimum in requested factor/continuous roles; `separate` enters as a transformed continuous input and `near_positivity` as changed factor support, so neither is represented as an estimator claim. Every generated row is checked by arithmetic derived before the command. Finite OLS predictions and native marginal derivatives are checked independently of the candidate clone. The metadata suite checks actual read-back labels across nine hostile texts and each label path, preserving intentional suffixes and the documented80-character Unicode truncation. The source approval does not itself approve these new QA assertions.
+
+Fixture coverage still owed: route-specific weight/reference/margins variants beyond these finite controls and writer contracts where applicable; no interval consumer is declared. Archetype declarations retain census obligations; a green runtime subset does not meet the full census.

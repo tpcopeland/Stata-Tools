@@ -404,6 +404,8 @@ display as result "PASS: auxiliary .do files honor the 16.1 version floor"
 * test_rangematch_v16compat.do. A real 16.1 lane remains outstanding.
 local ++test_count
 local qa_files : dir "`qa_dir'" files "*.do"
+* Frozen qa-lib vendors explicitly target16.0; ordinary suites remain16.1.
+local canonical_vendors "_qa_fx_a4.do _qa_state.do _qa_hostile.do _qa_metamorphic.do"
 local n_qa = 0
 local bad_ver ""
 foreach f of local qa_files {
@@ -416,7 +418,8 @@ foreach f of local qa_files {
     }
     * Every declaration in the file must be the floor -- not just the first.
     foreach d of local decls {
-        if "`d'" != "16.1" local bad_ver "`bad_ver' `f'(`d')"
+        local supported_vendor = (`: list f in canonical_vendors' & "`d'"=="16.0")
+        if "`d'" != "16.1" & !`supported_vendor' local bad_ver "`bad_ver' `f'(`d')"
     }
 }
 * Guard against the screen passing because it found no files to check.

@@ -161,7 +161,7 @@ produce smoother CIs but take longer. Must be at least 10.
 {phang}
 {opt seed(#)} sets the random number seed before the MC simulation for
 reproducibility. If omitted, the command uses the current session RNG state
-and returns the starting state so you can reproduce the results later.
+and returns the starting state so you can reproduce the results later. Failed prediction calls restore the caller's RNG state, returned results and prediction identifier counter.
 
 {phang}
 {opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.

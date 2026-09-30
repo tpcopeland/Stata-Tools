@@ -11,6 +11,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
 do "`qa_dir'/_qa_fx_a3.do"
 do "`qa_dir'/_qa_state.do"
+do "`qa_dir'/_qa_hostile.do"
 
 capture program drop _fx_setools_4
 program define _fx_setools_4, rclass
@@ -352,6 +353,61 @@ _fx_setools_4 boundary_values "perturb(boundary_values)"
 local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)
+
+* The usual migration adapter selects anchor1; explicitly select missing
+* anchor2 here so this hostile property reaches the public command.
+qa_fx_a4_asof, clear tier(micro) perturb(missing_anchor)
+tempfile migration_bad
+preserve
+    keep if role==2
+    rename date event_date
+    generate byte event_type=1
+    keep id event_date event_type
+    save `migration_bad'
+restore
+keep if role==1 & mod(anchor_id,3)==2
+rename date study_start
+format study_start %td
+assert missing(study_start)
+foreach mode in missing fractional {
+    local ++tests
+    capture noisily {
+        local want_rc=498
+        local cause "migrations requires nonmissing study start dates"
+        if "`mode'"=="fractional" {
+            qa_hostile_times, generate(hostile_time)
+            replace study_start=hostile_time
+            assert study_start!=floor(study_start)
+            local want_rc=109
+            local cause "must contain whole-number Stata daily dates"
+        }
+        qa_state_snapshot, tag(mig_bad)
+        tempfile cause_log
+        tempname fh
+        log using `cause_log', name(mig_cause) text replace nomsg
+        capture noisily migrations, migfile(`migration_bad') idvar(id) startvar(study_start) intype(1) outtype(2) quietly
+        local call_rc=_rc
+        log close mig_cause
+        local named=0
+        file open `fh' using `cause_log', read text
+        file read `fh' line
+        while !r(eof) {
+            if strpos(`"`macval(line)'"',"`cause'") local named=1
+            file read `fh' line
+        }
+        file close `fh'
+        assert `call_rc'==`want_rc' & `named'==1
+        qa_state_compare, tag(mig_bad)
+        display "ORACLE migrations `mode': canonical hostile dates reach public command, named exact rc and non-r caller state"
+    }
+    local rc=_rc
+    capture log close mig_cause
+    if `rc'==0 local ++pass
+    else {
+        local ++fail
+        display as error "FAIL migrations `mode' date refusal rc=`rc'"
+    }
+}
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

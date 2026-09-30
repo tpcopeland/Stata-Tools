@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.18  2026/09/29
+*! _tabtools_common Version 2.1.19  2026/09/30
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -92,12 +92,12 @@ program _tabtools_validate_path, nclass
     * \$/\`. Double-quote (") is checked separately via char(34) to avoid
     * quoting headaches in the pattern itself. Both quote characters are
     * rejected because callers interpolate validated paths into commands.
-    local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
+    local _has_bad = regexm(`"`macval(filepath)'"', "[;&|><\$\`]")
     if !`_has_bad' {
-        local _has_bad = strpos(`"`filepath'"', char(34)) > 0
+        local _has_bad = strpos(`"`macval(filepath)'"', char(34)) > 0
     }
     if !`_has_bad' {
-        local _has_bad = strpos(`"`filepath'"', char(39)) > 0
+        local _has_bad = strpos(`"`macval(filepath)'"', char(39)) > 0
     }
     if `_has_bad' {
         noisily display as error "`option_name' contains invalid characters"

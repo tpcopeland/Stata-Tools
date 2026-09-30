@@ -90,10 +90,25 @@
 capture program drop gcomp
 program define gcomp, eclass
 version 16.0
+tempname _gc_caller_r
+_return hold `_gc_caller_r'
 local _gc_varabbrev = c(varabbrev)
+local _gc_matastrict = c(matastrict)
 local _gc_rng_caller `"`c(rngstate)'"'
 local _gc_rng_restore = 0
+local _gc_interventions_handle ""
+local _gc_interventions_had = 0
+local _gc_intref_option ""
 set varabbrev off
+* Native reshape and NB2 helpers write these legacy global macros.  Their
+* names/presence/opaque bytes belong to the caller across both exits.
+local _gc_native_globals "ReS_Call ReS_j ReS_jv2 ReS_i ReS_Xij ReS_str Res_Xi ReS_atwl ReS_jv S_1 S_1_full S_2 rVANS rtmpST"
+local _gc_native_index 0
+foreach _gc_native_name of local _gc_native_globals {
+    local ++_gc_native_index
+    mata: st_local("_gc_native_had`_gc_native_index'", strofreal(anyof(st_dir("global", "macro", "*"), st_local("_gc_native_name"))))
+    mata: st_local("_gc_native_value`_gc_native_index'", st_global(st_local("_gc_native_name")))
+}
 * A failed estimation command must leave the caller's previously active e()
 * result intact.  Hold before preserve so the hidden e(sample) marker is part
 * of the data snapshot; discard the hold only after new gcomp results are
@@ -123,6 +138,7 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
 	    SAMples(int 1000) SEED(string) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace ///
 	SAVEModels SHOWmodels MODELStyle(string)]
+mata: st_local("_gc_has_interventions", strofreal(strlen(st_local("interventions"))>0))
 * --- Component-model capture (savemodels/showmodels): normalize options ---
 if "`showmodels'"!="" local savemodels savemodels
 if "`modelstyle'"=="" local modelstyle compact
@@ -579,48 +595,43 @@ if "`mediation'"=="" & "`intvars'"=="" {
 	noi di as err "Error: intvars() must be specified for a time-varying confounding analysis."
 	exit 198
 }
-if "`mediation'"=="" & "`interventions'"=="" {
+if "`mediation'"=="" & !`_gc_has_interventions' {
 	noi di as err "Error: interventions() must be specified for a time-varying confounding analysis."
 	exit 198
 }
 if "`mediation'"=="" {
 	* Validate every intervention component as executable Stata replace syntax
 	* and require its assignment target to be an intervention variable.
-	tokenize `"`interventions'"', parse(",")
-	local _gc_pre_nint 0
-	while `"`1'"'!="" {
-		if `"`1'"'!="," {
-			local ++_gc_pre_nint
-			local _gc_pre_arm`_gc_pre_nint' `"`1'"'
-		}
-		mac shift
-	}
+    _gcomp_split_interventions, text(`"`macval(interventions)'"') prefix(_gc_pre_arm)
+    local _gc_pre_nint = `_gc_pre_armn'
 	forvalues _gc_ai=1/`_gc_pre_nint' {
-		tokenize `"`_gc_pre_arm`_gc_ai''"', parse("\")
+		tokenize `"`macval(_gc_pre_arm`_gc_ai')'"', parse("\")
 		local _gc_ci 0
-		while `"`1'"'!="" {
-			if `"`1'"'!="\" {
+		while `"`macval(1)'"'!="" {
+			if `"`macval(1)'"'!="\" {
 				local ++_gc_ci
-				local _gc_rule = strtrim(`"`1'"')
-				local _gc_equal = strpos(`"`_gc_rule'"', "=")
+				local _gc_rule = strtrim(`"`macval(1)'"')
+				local _gc_equal = strpos(`"`macval(_gc_rule)'"', "=")
 				if `_gc_equal'<=1 {
-					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is not an assignment: `_gc_rule'"'
+					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is not an assignment: `macval(_gc_rule)'"'
 					exit 198
 				}
-				local _gc_lhs = strtrim(substr(`"`_gc_rule'"', 1, `_gc_equal'-1))
+				local _gc_lhs = strtrim(substr(`"`macval(_gc_rule)'"', 1, `_gc_equal'-1))
 				local _gc_is_intvar : list posof "`_gc_lhs'" in intvars
 				if `_gc_is_intvar'==0 {
 					noi di as err `"interventions(): assignment target `_gc_lhs' is not listed in intvars()"'
 					exit 198
 				}
-				local _gc_rhs = strtrim(substr(`"`_gc_rule'"', `_gc_equal'+1, .))
-				local _gc_ifpos = strpos(lower(`" `_gc_rhs' "'), " if ")
-				if `_gc_ifpos'>0 local _gc_rhs = strtrim(substr(`"`_gc_rhs'"', 1, `_gc_ifpos'-1))
-				if `"`_gc_rhs'"' == "`_gc_lhs'" {
-					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is a no-op self-assignment: `_gc_rule'"'
+				local _gc_rhs = strtrim(substr(`"`macval(_gc_rule)'"', `_gc_equal'+1, .))
+                _gcomp_split_interventions, text(`"`macval(_gc_rule)'"') prefix(_gc_qual)
+                if `_gc_qualifpos'>0 {
+                    mata: st_local("_gc_rhs",strtrim(substr(st_local("_gc_rule"),strtoreal(st_local("_gc_equal"))+1,strtoreal(st_local("_gc_qualifpos"))-strtoreal(st_local("_gc_equal"))-1)))
+                }
+				if `"`macval(_gc_rhs)'"' == "`_gc_lhs'" {
+					noi di as err `"interventions(): arm `_gc_ai' component `_gc_ci' is a no-op self-assignment: `macval(_gc_rule)'"'
 					exit 198
 				}
-				_gcomp_apply_rule, rule(`"`_gc_rule'"') condition("if 0") context("interventions() arm `_gc_ai', component `_gc_ci'")
+				_gcomp_apply_rule, rule(`"`macval(_gc_rule)'"') condition("if 0") context("interventions() arm `_gc_ai', component `_gc_ci'")
 			}
 			mac shift
 		}
@@ -849,7 +860,7 @@ if "`intvars'"!="" & "`mediation'"!="" {
 	noi di as err "Warning: Option intvars() not relevant for the mediation analysis. Try dropping it."
 	exit 198
 }
-if "`interventions'"!="" & "`mediation'"!="" {
+if `_gc_has_interventions' & "`mediation'"!="" {
 	noi di as err "Warning: Option interventions() not relevant for the mediation analysis. Try dropping it."
 	exit 198
 }
@@ -1154,6 +1165,27 @@ forvalues i=1/`nvar' {
 			exit 459
 		}
 	}
+}
+* Freeze categorical intervention identities from the original analytic data.
+* Positional keys survive variable aliasing and are reused by every replicate.
+local _gc_support ""
+local _gc_categorical ""
+if "`mediation'" == "" {
+    forvalues i=1/`nvar' {
+        local _gc_variable : word `i' of `varlist2'
+        local _gc_is_intervention : list posof "`_gc_variable'" in intvars
+        if `_gc_is_intervention' & inlist("`command`i''", "logit", "mlogit", "ologit") {
+            quietly levelsof `_gc_variable', local(_gc_levels) hexadecimal
+            local _gc_support `"`_gc_support' `i': `_gc_levels' |"'
+            local _gc_categorical "`_gc_categorical' `_gc_variable'"
+        }
+    }
+    if "`_gc_categorical'" != "" {
+        forvalues _gc_ai=1/`_gc_pre_nint' {
+            _gcomp_check_interventions, categorical(`_gc_categorical') ///
+                rules(`"`macval(_gc_pre_arm`_gc_ai')'"') context("interventions() arm `_gc_ai'")
+        }
+    }
 }
 if "`obe'"!="" {
 	quietly count if !missing(`exposure') & !inlist(`exposure', 0, 1)
@@ -1598,7 +1630,8 @@ quietly keep `varlist'
 
 local originallist "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules structural fixedcovariates laggedvars lagrules msm mediation exposure mediator control baseline alternative base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
-	local original`member' "``member''"
+	if "`member'"=="interventions" local originalinterventions `"`macval(interventions)'"'
+    else local original`member' "``member''"
 }
 	* Map every working variable to a collision-free tempvar.  The mapping is
 	* independent of user-name length and supports factor/interactions because
@@ -1631,7 +1664,12 @@ foreach member of local originallist {
 	}
 	local listofstrings "varlist varlist2 outcome idvar tvar varyingcovariates intvars interventions death derived derrules structural fixedcovariates laggedvars lagrules exposure mediator base_confs post_confs impute control baseline alternative"
 	foreach currstring of local listofstrings {
+        if "`currstring'"=="interventions" {
+            mata: st_local("interventions", _gcomp_alias_expression(st_local("interventions"), st_local("_gc_original_names"), st_local("_gc_alias_names"), 1))
+        }
+        else {
 		mata: st_local("`currstring'", _gcomp_alias_expression(st_local("`currstring'"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
+        }
 	}
 	if `"`_gc_msm_command'"' != "" {
 		mata: st_local("_gc_msm_rest", _gcomp_alias_expression(st_local("_gc_msm_rest"), st_local("_gc_original_names"), st_local("_gc_alias_names")))
@@ -1697,6 +1735,17 @@ tempname _gc_run_token
 local _gc_run_id `"gcomp-`c(current_date)'-`c(current_time)'-`_gc_run_token'"'
 local _gc_graph_name "gcomp`=substr("`_gc_run_token'",3,8)'"
 
+* Native bootstrap replays command text; pass only an opaque run handle.
+if `_gc_has_interventions' & "`mediation'"=="" {
+    tempname _gc_interventions_token
+    local _gc_interventions_handle "gci`_gc_interventions_token'"
+    mata: st_local("_gc_interventions_had",strofreal(anyof(st_dir("global","macro","*"),st_local("_gc_interventions_handle"))))
+    mata: st_local("_gc_interventions_saved",st_global(st_local("_gc_interventions_handle")))
+    mata: st_global(st_local("_gc_interventions_handle"),st_local("interventions"))
+    local _gc_intref_option "_gc_intref(`_gc_interventions_handle')"
+}
+
+
 *now, for the time-varying confounding option, we must reshape the dataset into wide format so that the 
 *bootstrapping is done at the subject level, rather than the observation level
 if "`mediation'"=="" {
@@ -1725,12 +1774,13 @@ if "`diagnostics'" != "" {
 	local _gc_diag_show "gcdiagshow"
 }
 _gcomp_bootstrap_impl `varlist' `if' `in', out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') ///
-	var(`varyingcovariates') intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') ///
+	var(`varyingcovariates') intvars(`intvars') `_gc_intref_option' `monotreat' `eofu' `pooled' death(`death') ///
 	derived(`derived') derrules(`derrules') structural(`"`structural'"') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
 	msm(`msm') `mediation' ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') ///
 	base_confs(`base_confs') post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') ///
 	imp_cycles(`imp_cycles') sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' `graph' saving(`"`saving'"') `replace' ///
 	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist') ///
+	_gc_support(`"`_gc_support'"') ///
 	_gc_origvars(`"`_gc_original_names'"') _gc_runid(`"`_gc_run_id'"') _gc_rngstate(`"`_gc_rngstate_initial'"') ///
 	_gc_graphname(`_gc_graph_name') gcdiagnostics `_gc_diag_show'
 local _gc_saved_arm_schema `"`r(saved_arm_schema)'"'
@@ -1844,12 +1894,13 @@ else {
 set rngstate `_gc_rngstate_initial'
 bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable: _gcomp_bootstrap `varlist' `if' `in', ///
 	out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') var(`varyingcovariates') ///
-	intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') derived(`derived') ///
+	intvars(`intvars') `_gc_intref_option' `monotreat' `eofu' `pooled' death(`death') derived(`derived') ///
 	derrules(`derrules') structural(`"`structural'"') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') msm(`msm') `mediation' ///
 	ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') base_confs(`base_confs') ///
 	post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') imp_cycles(`imp_cycles') ///
 		sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' saving(`"`saving'"') `replace' ///
 		_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist') ///
+		_gc_support(`"`_gc_support'"') ///
 		_gc_origvars(`"`_gc_original_names'"') _gc_runid(`"`_gc_run_id'"') _gc_rngstate(`"`_gc_rngstate_initial'"')
 	local _gc_samples_successful=e(N_reps)
 	local _gc_samples_failed=e(N_misreps)
@@ -1887,7 +1938,8 @@ if "`all'"!="" matrix ci_bca=e(ci_bca)
 	}
 local originallist "if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules fixedcovariates laggedvars lagrules msm mediation base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
-	local `member' "`original`member''"
+	if "`member'"=="interventions" local interventions `"`macval(originalinterventions)'"'
+    else local `member' "`original`member''"
 }
 * =========================================================================
 * Column naming for e(b)/e(V) posting
@@ -2065,18 +2117,11 @@ if "`mediation'"=="" {
 	noi di as text " "
 	noi di as text _col(10) "Specified interventions: "
 	* tokenize interventions
-	tokenize "`interventions'", parse(",")
-	local nint 0 			
-	while "`1'"!="" {
-		if "`1'"!="," {
-			local nint=`nint'+1
-			local int`nint' "`1'"
-		}
-		mac shift
-	}
+	_gcomp_split_interventions, text(`"`macval(interventions)'"') prefix(int)
+	local nint = `intn'
 	forvalues i=1/`nint' { 	
 		noi di as text _col(15) "Intervention " `i' ": " _cont
-		noi di as result "`int`i''"
+		noi di as result `"`macval(int`i')'"'
 	}
 	noi di as text " "
 	if "`all'"=="" {
@@ -2188,18 +2233,11 @@ if "`mediation'"=="" {
 		noi di as text " "
 		noi di as text _col(10) "Specified interventions: "
 		* tokenize interventions
-		tokenize "`interventions'", parse(",")
-		local nint 0 			
-		while "`1'"!="" {
-			if "`1'"!="," {
-				local nint=`nint'+1
-				local int`nint' "`1'"
-			}
-			mac shift
-		}
+		_gcomp_split_interventions, text(`"`macval(interventions)'"') prefix(int)
+		local nint = `intn'
 		forvalues i=1/`nint' { 	
 			noi di as text _col(15) "Intervention " `i' ": " _cont
-			noi di as result "`int`i''"
+			noi di as result `"`macval(int`i')'"'
 		}
 		noi di as text " "
 		if "`all'"=="" {
@@ -3312,7 +3350,7 @@ else {
 	ereturn local idvar "`originalidvar'"
 	ereturn local tvar "`originaltvar'"
 	ereturn local intvars "`originalintvars'"
-	ereturn local interventions `"`originalinterventions'"'
+	ereturn local interventions `"`macval(originalinterventions)'"'
 	ereturn local structural `"`originalstructural'"'
 	ereturn local rngstate `"`_gc_rngstate_initial'"'
 	ereturn local run_id `"`_gc_run_id'"'
@@ -3405,9 +3443,31 @@ foreach _gc_matrix_name of local _gc_literal_matrices {
 * A refusal must not leave seed validation, imputation, or partial simulation
 * draws in the caller's RNG stream. Successful draw order is unchanged.
 if `_gc_rc' & `_gc_rng_restore' set rngstate `_gc_rng_caller'
+* Restore after native data/estimate/matrix cleanup, without reparsing bytes.
+local _gc_native_index 0
+foreach _gc_native_name of local _gc_native_globals {
+    local ++_gc_native_index
+    if `_gc_native_had`_gc_native_index'' {
+        mata: st_global(st_local("_gc_native_name"), st_local("_gc_native_value`_gc_native_index'"))
+    }
+    else {
+        capture macro drop `_gc_native_name'
+    }
+}
+* Drop or restore the exact run-scoped transport name on every exit.
+if "`_gc_interventions_handle'"!="" {
+    if `_gc_interventions_had' {
+        mata: st_global(st_local("_gc_interventions_handle"),st_local("_gc_interventions_saved"))
+    }
+    else capture macro drop `_gc_interventions_handle'
+}
 * Restore settings
+set matastrict `_gc_matastrict'
 set varabbrev `_gc_varabbrev'
-if `_gc_rc' exit `_gc_rc'
+if `_gc_rc' {
+    _return restore `_gc_caller_r'
+    exit `_gc_rc'
+}
 
 end
 
@@ -3570,13 +3630,15 @@ real scalar _gcomp_expression_uses_variable(string scalar s,
 
 string scalar _gcomp_alias_expression(string scalar s,
                                       string scalar from_string,
-                                      string scalar to_string)
+                                      string scalar to_string,
+                                      | real scalar preserve_literals)
 {
     string rowvector from, to
     string scalar out, ch, tok, next
     real rowvector hit
-    real scalar i, j, k
+    real scalar i, j, k, ordinary, compound
 
+    if (args()==3) preserve_literals=0
     from = tokens(from_string)
     to = tokens(to_string)
     if (cols(from) != cols(to)) _error(3200)
@@ -3585,6 +3647,35 @@ string scalar _gcomp_alias_expression(string scalar s,
     i = 1
     while (i <= strlen(s)) {
         ch = substr(s, i, 1)
+        next = i<strlen(s) ? substr(s,i+1,1) : ""
+        if (preserve_literals & (ch==char(34) | (ch==char(96) & next==char(34)))) {
+            ordinary=(ch==char(34))
+            compound=!ordinary
+            j=i+1+compound
+            while(j<=strlen(s)) {
+                ch=substr(s,j,1)
+                next=j<strlen(s) ? substr(s,j+1,1) : ""
+                if (ordinary & ch==char(34)) {
+                    j++
+                    break
+                }
+                if (compound & ch==char(96) & next==char(34)) {
+                    compound++
+                    j=j+2
+                    continue
+                }
+                if (compound & ch==char(34) & next==char(39)) {
+                    compound--
+                    j=j+2
+                    if (!compound) break
+                    continue
+                }
+                j++
+            }
+            out=out+substr(s,i,j-i)
+            i=j
+            continue
+        }
         if (regexm(ch, "[A-Za-z_]")) {
             j = i + 1
             while (j <= strlen(s) & regexm(substr(s, j, 1), "[A-Za-z0-9_]")) {

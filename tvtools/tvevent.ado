@@ -1,4 +1,4 @@
-*! tvevent Version 1.17.4  2026/09/30
+*! tvevent Version 1.17.6  2026/09/30
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -40,6 +40,22 @@ Description:
 
 program define tvevent, rclass
     version 16.0
+    local _caller_matastrict = c(matastrict)
+    * Native recurring reshape also removes these observed caller macros.
+    foreach _legacy_key in S_1 S_2 {
+        mata: st_local("_legacy_present_"+st_local("_legacy_key"),strofreal(sum(st_dir("global","macro","*"):==st_local("_legacy_key"))>0))
+        mata: st_local("_legacy_bytes_"+st_local("_legacy_key"),st_global(st_local("_legacy_key")))
+    }
+    * Native loads change filename aliases even when reloading a rollback copy.
+    foreach _fn in S_FN S_FNDATE {
+        mata: st_local("_fn_present_"+st_local("_fn"),strofreal(sum(st_dir("global","macro","*"):==st_local("_fn"))>0))
+        mata: st_local("_fn_bytes_"+st_local("_fn"),st_global(st_local("_fn")))
+    }
+    * Preserve the native initialization macro's exact caller presence/bytes.
+    mata: st_local("_reshape_present",strofreal(sum(st_dir("global","macro","*"):=="ReS_Call")>0))
+    mata: st_local("_reshape_bytes",st_global("ReS_Call"))
+    mata: st_local("_reshape_jv2_present",strofreal(sum(st_dir("global","macro","*"):=="ReS_jv2")>0))
+    mata: st_local("_reshape_jv2_bytes",st_global("ReS_jv2"))
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _te_master_frame _te_using_frame _te_output_frame
@@ -1842,6 +1858,37 @@ program define tvevent, rclass
         local _te_cleanup_rc = _rc
     }
 
+    foreach _fn in S_FN S_FNDATE {
+        if `rc' & `_fn_present_`_fn'' {
+            mata: st_global(st_local("_fn"),st_local("_fn_bytes_"+st_local("_fn")))
+        }
+        else {
+            * Success owns new memory data: never attach the caller's old file.
+            capture macro drop `_fn'
+        }
+    }
+    foreach _legacy_key in S_1 S_2 {
+        if `_legacy_present_`_legacy_key'' {
+            mata: st_global(st_local("_legacy_key"),st_local("_legacy_bytes_"+st_local("_legacy_key")))
+        }
+        else {
+            capture macro drop `_legacy_key'
+        }
+    }
+    * Native frame-link initialization can also alter the compilation setting.
+    mata: mata set matastrict `_caller_matastrict'
+    if `_reshape_jv2_present' {
+        mata: st_global("ReS_jv2",st_local("_reshape_jv2_bytes"))
+    }
+    else {
+        capture macro drop ReS_jv2
+    }
+    if `_reshape_present' {
+        mata: st_global("ReS_Call",st_local("_reshape_bytes"))
+    }
+    else {
+        capture macro drop ReS_Call
+    }
     set varabbrev `orig_varabbrev'
 
     if `rc' {

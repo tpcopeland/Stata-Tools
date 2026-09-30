@@ -1,6 +1,6 @@
 *! test_fixture_compile.do — intentional package Mata compilation errors
 *! Author: Timothy P Copeland, Karolinska Institutet
-version 16.0
+version 16.1
 clear all
 set more off
 set varabbrev off

@@ -1,6 +1,6 @@
 *! validation_fixture_contract.do — canonical F/U numerical contract for rangematch
 *! Author: Timothy P Copeland, Karolinska Institutet
-version 16.0
+version 16.1
 clear all
 set more off
 set varabbrev off
@@ -14,7 +14,7 @@ do "`qa_dir'/_qa_state.do"
 
 capture program drop _fx_rangematch_1
 program define _fx_rangematch_1, rclass
-    version 16.0
+    version 16.1
     args op fixtureopts
     tempfile fx_input
     tempname fx_returns

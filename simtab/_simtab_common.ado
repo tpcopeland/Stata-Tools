@@ -1,4 +1,4 @@
-*! _simtab_common Version 2.0.1  2026/08/30
+*! _simtab_common Version 2.0.2  2026/09/30
 *! Shared utility programs for simtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1186,6 +1186,8 @@ end
 
 version 17.0
 capture mata: mata drop _st_strip_outer_quotes()
+local _st_compile_ms = c(matastrict)
+capture noisily {
 mata:
 mata set matastrict on
 
@@ -1210,6 +1212,10 @@ string scalar _st_strip_outer_quotes(string scalar x)
 }
 
 end
+}
+local _st_compile_rc = _rc
+mata: mata set matastrict `_st_compile_ms'
+if `_st_compile_rc' exit `_st_compile_rc'
 
 capture program drop _simtab_visible_vars
 program define _simtab_visible_vars, nclass

@@ -1,11 +1,5 @@
 # tvtools QA
 
-archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel tvsplit) A1(tvweight)
-
-Canonical fixture adoption is in progress. Inclusive-day adapters pin exposure priority/current/former/ever, fixed-width panels and pre-entry cumulative unions, exact age/elapsed/calendar splitting, tvbuild overlap refusal, merge intersections, single/recurring events, diagnostics and typed specification/catalog results. Saturated propensity cells pin IPTW/ATO/matching/stabilized weights with a stated native-optimizer numerical bound; this is exact weight-function evidence, not stochastic treatment-effect recovery. Legacy-global success/refusal sentinels cover both presence and literal punctuation. Frozen generators and state/primitive helpers are byte-vendored from the devkit. New fixture suites join the core/full lane (full only where the runner has no core lane); additional route/minimum/domain cells reported by the fixture census remain explicit, and this declaration does not certify them.
-
-New suite index: `test_fixture_routes.do`, `test_fixture_state.do`, `validation_fixture_contract.do`, `validation_fixture_recovery.do`.
-
 The `tvtools` QA suite is flat and concern-oriented, with one curated lane runner and independently runnable suites at the `qa/` root. It covers the public commands, shared interval engines, method invariants, external parity, state preservation, documentation, and the installed release surface.
 
 ## How to run
@@ -33,6 +27,8 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 
 ## Conventions
 
+archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel tvsplit) A1(tvweight)
+
 - `test_*` files cover functional and regression behavior; `validation_*` files use hand-computable or simulated-truth oracles; `crossval_*` files compare with independent Stata, Mata, R, or Python implementations; `benchmark_*` files are timing guardrails and never correctness gates; `baseline_*` files capture or replay a frozen behavioral surface by hand.
 - Every gated suite ends with `RESULT: <name> tests=N pass=N fail=N [skip=N]` and exits nonzero on failure. Full and release lanes require zero skips.
 - Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` through `_tvtools_qa_common.do` and restore them after the run.
@@ -56,6 +52,13 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 
 | File | Covers |
 |---|---|
+| `test_fixture_compile.do` | Actual cold interval and exposure helper compile faults preserve native error and caller strict/state settings. |
+| `test_fixture_reshape_state.do` | Direct event/build spans and flags, native/opaque/empty/absent macro state, refusal rollback and new-output filename policy under both strict settings. |
+| `test_fixture_graph_state.do` | Cold native/opaque/absent graph-macro success/refusal and next native operation controls. |
+| `test_fixture_state.do` | Exact legacy-global presence and opaque bytes on success/refusal, caller fingerprint and next native operation. |
+| `test_fixture_routes.do` | Typed specification and dispatcher catalog returns on canonical friendly and hostile inputs. |
+| `test_fixture_interval_state.do` | Native/opaque/empty/absent merge filename and diagnose legacy globals on success/refusal; exact outputs, saved metadata and next native operation. |
+| `test_fixture_filename_state.do` | Exact native filename presence/bytes on readonly frame output and refusal; saved/new-memory metadata and next use/save controls. |
 | `test_default_naming.do` | Derived output names and default naming contracts. |
 | `test_dialogs_gui.do` | Interactive dialog parsing and submission behavior. |
 | `test_display_contract.do` | Stable command output and display-side contracts. |
@@ -110,6 +113,12 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 
 | File | Covers |
 |---|---|
+| `validation_fixture_recovery.do` | Exact finite binary/multinomial category-fraction IPTW, overlap, matching and stabilized formulas; no population treatment-effect recovery claim. |
+| `validation_fixture_domains.do` | Independent daily merge/grace/lag/washout/fill/carry effects, event clocks, diagnostic counts, catalog, build and weight/truncation domains. |
+| `validation_fixture_ps.do` | Saturated finite-cell binary propensity probabilities and weights for every target, independent native Newton-decrement bound, exclusion and named positivity/missingness refusals. |
+| `validation_fixture_calendar.do` | Exact age, calendar/elapsed band and split boundaries and person-time totals on reversed IDs and calendar dates. |
+| `validation_fixture_route_minima.do` | Exact preserved overlap/abut/duplicate Cartesian merge intervals and independent diagnostic raw/union/coverage time; missing/reversed bounds and binary64 fractional dates reach named refusals across merge, diagnose, age, bands, splitting and events. |
+| `validation_fixture_contract.do` | Independent inclusive-day exposure, panel, merge, age, event and build oracles, zero-length exclusion, named fractional-date refusals and diagnostic returns. |
 | `validation_audit_tvdiagnose.do` | Adversarial diagnostic counts and graph state. |
 | `validation_audit_tvevent.do` | Adversarial event mapping and validation counts. |
 | `validation_audit_tvexpose.do` | Adversarial exposure geometry and algebra. |
@@ -173,7 +182,12 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 
 | Path | Contents |
 |---|---|
+| `_qa_fx_a1.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Canonical lane runner and terminal result aggregation. |
+| `_qa_hostile.do` | Byte-vendored binary64 hostile-time primitive used by named daily-date refusal controls. |
 | `_tvtools_qa_common.do` | Sandboxed install, cleanup, result parsing, exact comparison, and shared assertions. |
 | `_tvtools_qa_manifest.do` | Authoritative lane membership, pinned result counts, and skip policy. |
 | `data/generate_test_data.do` | Regenerates selected canonical fixtures for deliberate review. |
@@ -189,13 +203,13 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `tvtools` | `test_tvtools`, `test_tvtools_catalog` | `validation_known_answers` | `crossval_tvtools` | integration, state, release |
 | `tvbuild` | dryrun, construct, commit, manifest, regressions | `validation_tvbuild_conservation` | frozen primitive pipelines | integration, state, fixtures |
 | `tvspec` | `test_tvspec` | hand-built plan equivalence | — | `tvbuild` suites |
-| `tvexpose` | command, diagnostics, fast path, `test_tvtools_v1173.do` | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases |
-| `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases |
-| `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases |
-| `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration and verbose paths |
-| `tvweight` | command, cumulative product, regressions | balance and recovery suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
-| `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming and missing-value suites |
-| `tvband` | command, hand oracle, `test_tvtools_v1173.do` | `validation_tvband` | — | naming and missing-value suites |
+| `tvexpose` | command, diagnostics, fast path, `test_tvtools_v1173.do` | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
+| `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases and canonical daily/domain contracts |
+| `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
+| `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration, verbose and canonical graph/state/domain paths |
+| `tvweight` | command, cumulative product, regressions | balance, recovery and canonical finite-cell propensity suites | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
+| `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming, missing-value and canonical calendar suites |
+| `tvband` | command, hand oracle, `test_tvtools_v1173.do` | `validation_tvband` | — | naming, missing-value and canonical calendar suites |
 | `tvsplit` | `test_tvsplit`, `test_tvtools_v1173.do` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
 | `tvpanel` | `test_tvpanel` | panel audit and known answers | — | integration and missing-value suites |
 
@@ -212,3 +226,7 @@ stata-mp -b do run_all.do release    # full lane plus release contracts
 | `release` | `full` plus distribution/install/help/menu contracts; GUI dialogs remain delegated to `run_dialog_gui.sh`. |
 | `meta` | Runner-contract suite only. |
 | Manual | `baseline_*` capture/replay and `benchmark_*` timing files are invoked directly and are not correctness lanes. |
+
+## Known gaps
+
+Canonical propensity tests establish finite saturated-cell fitted-model and weight-function truth under the documented native optimization bound, not population probability or treatment-effect recovery. Age/calendar cohort adapters discard episode relationships, so their unused spell overlap does not receive coverage credit.

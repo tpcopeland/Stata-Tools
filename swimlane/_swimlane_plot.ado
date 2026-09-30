@@ -1,4 +1,4 @@
-*! _swimlane_plot Version 0.1.0  2026/06/29
+*! _swimlane_plot Version 0.1.1  2026/09/30
 *! Render canonical swimlane frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

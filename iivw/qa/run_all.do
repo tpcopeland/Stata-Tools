@@ -25,7 +25,23 @@ version 16.0
 *   - a status file, qa/run_all_status.txt, whose first line is PASS or FAIL
 * CI and humans must read one of those two, never `$?'.
 
-args mode
+* Remove an earlier verdict before any selector/mode refusal can exit.
+local entry_dir "`c(pwd)'"
+local entry_base=substr("`entry_dir'",strrpos("`entry_dir'","/")+1,.)
+local entry_status "`entry_dir'/iivw/qa/run_all_status.txt"
+if "`entry_base'"=="qa" local entry_status "`entry_dir'/run_all_status.txt"
+capture erase "`entry_status'"
+capture confirm file "`entry_status'"
+if !_rc {
+    display as error "could not remove previous run_all_status.txt"
+    exit 603
+}
+local n_inputs : word count `0'
+if `n_inputs'>3 {
+    display as error "usage: run_all.do [mode [first last]]"
+    exit 198
+}
+args mode first last
 if "`mode'" == "" local mode "full"
 if !inlist("`mode'", "full", "core", "quick", "legacy", ///
     "sensitivity", "sim") {
@@ -136,7 +152,7 @@ local quick_suites ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial
 
-local core_suites validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool ///
+local core_suites validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool ///
     test_iivw ///
     test_iivw_expanded ///
     test_iivw_replay ///
@@ -212,7 +228,11 @@ local core_suites validation_fixture_recovery test_fixture_names test_fixture_st
     test_help_examples ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial ///
-    test_iivw_hostile
+    test_iivw_hostile ///
+    validation_fixture_excel ///
+    test_fixture_font_forms ///
+    test_fixture_font_tokens ///
+    test_fixture_exog_state
 
 local legacy_suites ///
     validation_iivw_recovery ///
@@ -275,6 +295,36 @@ if "`mode'" == "full" {
 
     local suites `suites' crossval_iivw crossval_iivw_external ///
         crossval_iivw_dta crossval_iivw_pbcseq
+}
+
+* Optional bounded contiguous chunk, preserving the default curated list.
+* Usage: do run_all.do core 1 30. Each chunk reports only its executed suites;
+* combining chunk receipts requires checking disjoint complete manifest ranges.
+if "`first'`last'" != "" {
+    local total : word count `suites'
+    capture confirm integer number `first'
+    local badfirst=_rc
+    capture confirm integer number `last'
+    local badlast=_rc
+    if `badfirst' | `badlast' {
+        display as error "first/last must both be integer suite positions"
+        sysdir set PLUS "`orig_plus'"
+        sysdir set PERSONAL "`orig_personal'"
+        exit 198
+    }
+    if `first'<1 | `last'<`first' | `last'>`total' {
+        display as error "suite range must satisfy 1 <= first <= last <= `total'"
+        sysdir set PLUS "`orig_plus'"
+        sysdir set PERSONAL "`orig_personal'"
+        exit 198
+    }
+    local selected ""
+    forvalues i=`first'/`last' {
+        local suite : word `i' of `suites'
+        local selected `selected' `suite'
+    }
+    local suites `selected'
+    display as text "BOUNDED CHUNK: `mode' suites `first'..`last' of `total'"
 }
 
 * -----------------------------------------------------------------------------

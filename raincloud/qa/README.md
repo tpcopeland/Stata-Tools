@@ -40,12 +40,18 @@ The runner and suites write logs in `qa/`, so do not run the same package lane c
 | `test_raincloud_documentation_examples.do` | Every displayed help example, with plotted-sample and group-count assertions. |
 | `test_regressions.do` | Long group labels, analytical returns after saving failure, and exact frequency-weight semantics. |
 | `test_package_release.do` | Installed command/help resolution, self-contained SMCL rendering with a positive control, and method terminology. |
+| `test_fixture_error_returns.do` | Genuine empty/populated scalar/macro/striped-matrix prior r() on named pre-payload refusals; complete caller snapshot compared after logopen/before logclose |
+| `test_fixture_global_state.do` | Missing/opaque S_1–S_4 and outside S_5 across actual cloud success, named early198/late602, both varabbrev settings, full state, exact old graph bytes and next native summary. |
+| `test_fixture_text_routes.do` | Actual SVG text across nine corpora/five explicit roles, numeric/string groups, both directions and all three layers, raw metadata and defaults, independent finite summaries/native bandwidth, full state, adjacent quotes and nested multiline/suboptions. |
+| `test_fixture_files.do` | Canonical friendly/hostile/extensionless native graph writers; actual live graph read-back and complete owned-tree byte preservation. |
+| `test_fixture_domains.do` | Eight legal/outside option axes on friendly/permuted canonical data, independent summary/default-bandwidth arithmetic, explicit bandwidth consumption, and sixteen additional named198/full-state refusals. |
 
 ### Validation
 
 | File | Covers |
 |---|---|
 | `validation_raincloud.do` | Hand-computed group statistics, sample restrictions, missingness, constants, and single-observation invariants. |
+| `validation_fixture_matrix.do` | Independent weighted mean/variance/percentile formulas for eleven consumed A1 cases and hostile singleton/code/name/missing-value primitives, with exact state fingerprints. |
 
 ### Support
 
@@ -67,7 +73,7 @@ For this compact package, `quick` and `full` intentionally run the same release 
 
 | Lane | Suites |
 |---|---|
-| `quick` | `test_raincloud.do`, `test_raincloud_errors.do`, `test_regressions.do`, `validation_raincloud.do`, `test_package_release.do` |
+| `quick` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_domains.do`, `test_fixture_global_state.do`, `test_fixture_error_returns.do`, `test_fixture_text_routes.do`, `test_fixture_files.do`, `test_raincloud.do`, `test_raincloud_errors.do`, `test_raincloud_documentation_examples.do`, `test_regressions.do`, `validation_raincloud.do`, `test_package_release.do` |
 | `full` | Same curated release gate as `quick` |
 
 Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases check all seven numerical summary columns and the intentionally absent bandwidth for nocloud against exact integer-block formulas. Unsorted and label-gap variants are consumed.
@@ -76,6 +82,15 @@ Canonical fixture adoption is in progress. `3` cases in `validation_fixture_trut
 |---|---|
 | `validation_fixture_truth.do` | Known-answer F/U suite; reached from the package runner |
 | `_qa_fx_a7.do` | Byte-for-byte canonical fixture vendor |
+| `_qa_fx_a1.do` | Byte-for-byte canonical cross-sectional fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
+| `_qa_state.do` | Byte-for-byte session-fingerprint helper vendor |
+| `_qa_metamorphic.do` | Byte-for-byte option-domain helper vendor |
 
-Fixture coverage still owed: KDE/grid/rendered literal text, weights, A1 Gaussian recovery, file output and remaining A1/A7 minima. Archetype declarations retain these obligations; a green runtime subset does not meet the full census.
+The expanded matrix ran16/16 in an isolated copy. Its oracle precedes the candidate and computes group means, aweight-normalized sample variances and empirical percentiles from fetched native formulas; all seven returned summary columns and the intentionally absent bandwidth are checked. Actual zero/extreme weights, changed group support, missingness and large shifts enter consumed variable/group roles. A friendly graph draw with an exact finite oracle initializes the native graphics environment before the subsequent state fingerprints. Cold native graphics initialization is not claimed to leave all globals untouched.
+
+The domain suite ran2/2, each case sweeping bandwidth, n, opacity, cloudwidth, jitter, seed, boxwidth and gap. Inside cells retain the exact finite summaries and positive bandwidth; automatic bandwidth equals the independent native formula `.9*min(sd,IQR/1.349)*N^(-1/5)` from fetched [R] kdensity pp9–10. Separate explicit bandwidth0/1/2 cells check the consumed return exactly. Each outside axis additionally has a direct named198 refusal and unchanged full-state fingerprint. Style-return invariance does not claim that graph appearance is unchanged.
+
+The new source/QA scopes above await independent root QA inspection; a final integrated lane is pending. Arbitrary KDE geometry/grid equivalence remains outside the finite summaries/native bandwidth and rendered text checks. The A1 `collinear` cell is inapplicable to the single plotted numeric-variable interface: it cannot consume a redundant multi-column design, and modifying an unused column would give a vacuous test. The declaration keeps that census gap visible. Summary arithmetic does not claim regression-coefficient recovery. A green runtime subset does not meet the full census.
+
+Refusals before analytical payload preparation retain genuine empty or populated prior r(). Successful and late output-side calls publish the command’s analytical returns; these paths are checked numerically rather than demanding unchanged prior r(). Earlier cold/global checks omitted rreturn and prove non-r state only.
