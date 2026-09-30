@@ -23,7 +23,7 @@ Each suite and the runner emit a terminal `RESULT:` line and exit nonzero on fai
 
 `run_all.do` and each suite write logs into the current `qa/` directory. Concurrent runs of the same lane can corrupt those logs; the tell is a `run_all.log` result that disagrees with a suite's own log.
 
-For concurrent or gate runs, copy the package as `<scratch>/<repo-name>/comorbidity` and the dependency as `<scratch>/Stata-Tools/codescan`, remove copied `qa/*.log`, and run from the copied `comorbidity/qa` directory. The repository names must be retained because the bootstrap derives the dependency path from `c(pwd)`.
+For concurrent or gate runs, copy the package as `<scratch>/comorbidity` and the dependency as `<scratch>/codescan`, remove copied `qa/*.log`, and run from the copied `comorbidity/qa` directory. The package and its dependency must be siblings because the bootstrap derives the dependency path from `c(pwd)`.
 
 ## Conventions
 
@@ -106,3 +106,5 @@ Private dictionaries, weights, and hierarchy helpers are covered directly by the
 ## Known gaps
 
 The Stata help render axis is checked outside these lanes with the devkit `artifact help` and package checks. The R cross-validation covers the Quan ICD-10 mapping plus original Charlson, Quan 2011, and van Walraven weight surfaces, but R parity is not an independent audit of the Quan 2011 primary weight table. AHRQ schemes are intentionally unimplemented.
+
+Zero/three-day inclusive lookback/lookforward windows match every person score. Native filename state controls cover collapse/merge and direct refusal, including native use, opaque punctuation, empty assignment and absent macros. Additional core/full suites: `validation_fixture_windows.do`, `test_fixture_files.do`.

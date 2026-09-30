@@ -9,6 +9,9 @@ log using "validation_fixture_contract.log", replace text nomsg
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
+do "`qa_dir'/_codescan_qa_common.do"
+quietly _codescan_qa_bootstrap
+local qa_owner=r(owner)
 do "`qa_dir'/_qa_fx_a5.do"
 do "`qa_dir'/_qa_state.do"
 
@@ -235,6 +238,8 @@ _fx_codescan_2 unsorted "perturb(unsorted)"
 local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)
+_codescan_qa_restore "`qa_owner'"
+_codescan_qa_publish "validation_fixture_contract" `tests' `pass' `fail'
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close _all
 if `fail'>0 exit 1

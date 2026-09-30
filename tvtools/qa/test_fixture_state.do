@@ -20,7 +20,7 @@ program define _fx_globals, rclass
 
     tempfile source
     save `source'
-    foreach status in absent present {
+    foreach status in absent present present_empty native {
         foreach route in success refusal {
             local ++tests
             capture noisily {
@@ -29,6 +29,20 @@ program define _fx_globals, rclass
                 if "`status'"=="present" {
                     mata: st_global("S_1",char(36)+"QA_SENTINEL"+char(34)+"one")
                     mata: st_global("S_2",char(96)+"two"+char(39))
+                }
+                if "`status'"=="present_empty" {
+                    global S_1 ""
+                    global S_2 ""
+                    mata: assert(sum(st_dir("global","macro","*"):=="S_1")==0)
+                    mata: assert(sum(st_dir("global","macro","*"):=="S_2")==0)
+                }
+                if "`status'"=="native" {
+                    generate double native_value=_n
+                    quietly ttest native_value==0
+                    mata: assert(sum(st_dir("global","macro","*"):=="S_1")==1)
+                    mata: assert(sum(st_dir("global","macro","*"):=="S_2")==1)
+                    mata: assert(strtoreal(st_global("S_1"))==st_nobs())
+                    mata: assert(strtoreal(st_global("S_2"))==(st_nobs()+1)/2)
                 }
                 qa_state_snapshot, tag(sglobals)
                 if "`route'"=="success" {
@@ -39,6 +53,12 @@ program define _fx_globals, rclass
                     * expect: REFUSED
                     qa_option_effect, command(tvweight a, covariates(i.s##i.x2) wtype(@v@)) values(invalid) returns(r(N)) refused cause(wtype)
                     qa_state_compare, tag(sglobals)
+                }
+                if "`status'"=="native" {
+                    quietly ttest native_value==0
+                    assert r(N_1)==_N & r(mu_1)==(_N+1)/2
+                    mata: assert(strtoreal(st_global("S_1"))==st_nobs())
+                    mata: assert(strtoreal(st_global("S_2"))==(st_nobs()+1)/2)
                 }
                 di "ORACLE legacy globals `op' `status' `route': bytes/existence preserved"
             }

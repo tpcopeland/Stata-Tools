@@ -154,5 +154,5 @@ local core_suites `core_suites' `fixture_suites'
 local full_suites `full_suites' `fixture_suites'
 local release_suites `release_suites' `fixture_suites'
 local manifest_suites `manifest_suites' `fixture_suites'
-local manifest_counts `manifest_counts' 47 16 8 18
+local manifest_counts `manifest_counts' 47 16 16 18
 local manifest_allow_skips `manifest_allow_skips' 0 0 0 0

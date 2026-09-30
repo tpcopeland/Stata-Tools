@@ -11,13 +11,6 @@ local pkg_dir=substr("`c(pwd)'",1,strlen("`c(pwd)'")-3)
 adopath ++ "`pkg_dir'"
 do _qa_fx_a6.do
 do _qa_state.do
-* Native first graph initializes T_gm_fix_span; proven by the native-only
-* control receipt. Initialize it with native twoway before package fingerprints.
-set obs 3
-generate double native_x=_n
-quietly twoway line native_x native_x
-graph drop _all
-clear
 local tests 0
 local pass 0
 local fail 0

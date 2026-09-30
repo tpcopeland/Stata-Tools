@@ -87,6 +87,10 @@ program define gcomptab, rclass
 capture noisily {
     return clear
 
+    local _gct_args `"`macval(0)'"'
+    syntax [, NOEFORM_seen *]
+    local _explicit_noeform = "`noeform_seen'" != ""
+    local 0 `"`macval(_gct_args)'"'
     syntax [, xlsx(string) sheet(string) ci(string) effect(string) title(string) ///
             labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
             BORDERstyle(string) HEADERShade NOSHAde ///
@@ -100,9 +104,13 @@ capture noisily {
             NOINTercept KEEPINTercept KEEP(string) DROP(string) ///
             DIGits(integer -1) STATs(string) DISPlay]
 
-    * Stata stores the automatic no-negation in eform, not noeform.
-    if "`eform'" == "noeform" {
-        local eform ""
+    * The full syntax's automatic no-negation discards explicit noeform.
+    * The first parse retains it; full syntax still rejects internal spellings.
+    if `_explicit_noeform' {
+        if "`eform'" != "" {
+            noisily display as error "eform and noeform are mutually exclusive"
+            exit 198
+        }
         local noeform "noeform"
     }
 
@@ -1408,6 +1416,7 @@ program define _gcomptab_models, rclass
     set varabbrev off
     local _est_held 0
     local _xl_context_saved 0
+    mata: st_local("_xl_open_at_entry", strofreal(st_global("S_PUTEXCEL_OPEN_FHANDLE") == "yes"))
     local _xl_keys "S_PUTEXCEL_FILE_NAME S_PUTEXCEL_FILE_TYPE S_PUTEXCEL_FILE_MODE S_PUTEXCEL_SHEET_NAME S_PUTEXCEL_SHEET_REPLACE S_PUTEXCEL_LOCALE S_PUTEXCEL_OPEN_FHANDLE S_PUTEXCEL_KEEP_CELL_FORMAT"
     local _xl_entry_globals : all globals
     local _xl_i 0
@@ -1418,6 +1427,10 @@ program define _gcomptab_models, rclass
     }
     tempname _esthold
 capture noisily {
+    local _gct_args `"`macval(0)'"'
+    syntax [, NOEFORM_seen *]
+    local _explicit_noeform = "`noeform_seen'" != ""
+    local 0 `"`macval(_gct_args)'"'
     syntax , [USEMODels(string) MODELLabels(string) TERMLabels(string) ///
         XLSX(string) SHEET(string) MARKDown(string) CSV(string) COEF(string) ///
         EFORM NOEFORM RAW SE COMPact NOPValue STARS STARSLevels(numlist) ///
@@ -1427,9 +1440,13 @@ capture noisily {
         HEADERShade HEADERColor(string) BOLDp(real 0) HIGHlight(real 0) ///
         DISPlay]
 
-    * Stata stores the automatic no-negation in eform, not noeform.
-    if "`eform'" == "noeform" {
-        local eform ""
+    * The full syntax's automatic no-negation discards explicit noeform.
+    * The first parse retains it; full syntax still rejects internal spellings.
+    if `_explicit_noeform' {
+        if "`eform'" != "" {
+            noisily display as error "eform and noeform are mutually exclusive"
+            exit 198
+        }
         local noeform "noeform"
     }
 
@@ -1479,7 +1496,7 @@ capture noisily {
     * Preserve native closed putexcel context as opaque bytes. An open
     * workbook has an unsaved Mata handle, which we must never replace/close.
     if `"`xlsx'"' != "" {
-        if `"$S_PUTEXCEL_OPEN_FHANDLE"' == "yes" {
+        if `_xl_open_at_entry' {
             noisily display as error "putexcel workbook is open; save or close it before exporting"
             exit 198
         }

@@ -32,10 +32,15 @@ program define _fx_datefix_1, rclass
             gen double want=start
             gen str12 text=string(start,"%tdCCYY-NN-DD")
             qa_state_snapshot, tag(date_f)
-            if "`mode'"=="inplace" datefix text, order(YMD)
-            if "`mode'"=="new" datefix text, order(YMD) newvar(converted)
-            if "`mode'"=="drop" datefix text, order(YMD) newvar(converted) drop
-            if "`mode'"=="numeric" datefix start
+            local input "text"
+            local options "order(YMD)"
+            if "`mode'"=="new" local options "order(YMD) newvar(converted)"
+            if "`mode'"=="drop" local options "order(YMD) newvar(converted) drop"
+            if "`mode'"=="numeric" {
+                local input "start"
+                local options ""
+            }
+            datefix `input', `options'
             qa_state_compare, tag(date_f) allow(data)
             if "`mode'"=="inplace" assert text==want
             if inlist("`mode'","new","drop") assert converted==want

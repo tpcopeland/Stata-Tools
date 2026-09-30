@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.4** | 2026-09-29
+**Version 4.2.5** | 2026-09-30
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -369,6 +369,10 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.2.5 (2026-09-30)
+
+Preserve native `S_FN` and `S_FNDATE` caller macros across internal file operations, including merge output and refusal. Capture and restore exact native macro bytes through Mata.
 
 ### 4.2.4 (2026-09-29)
 

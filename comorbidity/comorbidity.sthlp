@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  30sep2026}{...}
+{* *! version 1.0.3  30sep2026}{...}
 {vieweralsosee "codescan" "help codescan"}{...}
 {viewerjumpto "Syntax" "comorbidity##syntax"}{...}
 {viewerjumpto "Description" "comorbidity##description"}{...}
@@ -281,7 +281,7 @@ van Walraven, C., P. C. Austin, A. Jennings, H. Quan, and A. J. Forster. 2009. A
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-09-30{p_end}
+{pstd}Version 1.0.3, 2026-09-30{p_end}
 
 {title:Also see}
 

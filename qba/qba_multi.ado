@@ -1,4 +1,4 @@
-*! qba_multi Version 1.1.3  2026/08/10
+*! qba_multi Version 1.1.4  2026/09/30
 *! Multi-bias analysis combining misclassification, selection, and confounding
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
