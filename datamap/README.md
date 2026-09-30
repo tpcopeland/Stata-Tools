@@ -1,8 +1,8 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.7.1** | 2026-09-29
+**Version 1.8.0** | 2026-09-30
 
-`datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, and missing-value pattern analysis.
+`datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
 ## Quick Start
 
@@ -16,7 +16,7 @@ datamap, output(auto_map.txt)
 ## Requirements
 
 - Stata 16 or later
-- No external package dependencies for the four commands
+- No external package dependencies for the five commands
 - Pandoc is optional and is needed only when converting a `datadict` Markdown file to HTML, PDF, or Word
 
 The repository demo uses the sibling `logdoc` and `tc_schemes` packages to regenerate console transcripts and the gallery graph. It installs them from the checkout when available and otherwise uses their public Stata-Tools sources.
@@ -34,7 +34,8 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 |---------|---------|
 | `datamap` | Create aggregate text or JSON documentation for one dataset or a collection of `.dta` files |
 | `datadict` | Create a Markdown data dictionary with optional metadata, missingness, statistics, and separate-file output |
-| `datacheck` | Profile data in the console and enforce declared expectations or schema comparisons |
+| `datacheck` | Profile data in the console and enforce declared invariants, sanity bands, and schema comparisons |
+| `dataqa` | Set session QA defaults and report, assert, compare, and export the ledger `datacheck` writes |
 | `datamvp` | Tabulate missing-value patterns, test monotone missingness, and draw missingness graphs |
 
 ## How It Works
@@ -56,6 +57,7 @@ On successful in-memory runs, `datamap` and `datadict` leave the caller's observ
 | Build a technical inventory for a handoff or pipeline | `datamap` | Privacy-aware text or JSON map with classifications, summaries, and optional samples |
 | Publish a readable variable reference | `datadict` | CommonMark Markdown with optional metadata, missingness, statistics, and notes |
 | Inspect or gate a dataset before analysis | `datacheck` | Console profile, expectation verdict, and optional profile or violation artifact |
+| Keep a structured record of every gate run | `dataqa` | Ledger rows per gate entry, a register draft, and an assert that every expected dataset was checked |
 | Understand joint missingness | `datamvp` | Pattern-frequency table, monotone test, generated indicators, or graph |
 
 Start with one dataset and the default output. Add `exclude()` and `datesafe` before sharing a map, then move to `directory()` plus `recursive` for nested collections; for `datadict`, use `manifest()` when the single-dataset contract is settled.
@@ -170,6 +172,20 @@ graph export auto_missing.png, as(png) replace
 
 `datamvp` treats empty strings as missing, returns pattern counts and monotone status, and supports `generate()` or `save()` when the pattern data should be reused.
 
+### 10. Record gate results in a QA ledger
+
+```stata
+tempfile ledger
+dataqa set maskrare mincell(5) ledger("`ledger'") run(demo)
+sysuse auto, clear
+datacheck, gatesonly isid(make) rule("heavy": weight > 1500) bands(expectn(70 80) stat(mean mpg 18 25)) name(auto_cars)
+dataqa report
+dataqa assert, expect(auto_cars)
+dataqa set clear
+```
+
+Each gate entry, passed or failed, becomes one ledger row with its kind (invariant, band, or review), masked observation, and expectation. `dataqa assert` exits with return code 9 if any gate in the run failed (or an invariant only warned under bare `warn`), the run has no rows, or a named dataset has no rows; `dataqa report, markdown()` drafts register rows that list the dispositions each kind allows.
+
 ## Demo
 
 From a Stata-Tools repository checkout, run the named demo script from the repository root:
@@ -216,6 +232,18 @@ datacheck [varlist] [if] [in] [, options]
 
 See [datacheck.sthlp](datacheck.sthlp) for profile fields, gate syntax, reusable `.dta` check specifications, comparison artifacts, and return codes.
 
+### `dataqa`
+
+```stata
+dataqa set [options | clear]
+dataqa report [using ledger] [, run() markdown() replace]
+dataqa assert [using ledger] [, run() expect()]
+dataqa export [using ledger], saving() [run() replace threshold()]
+dataqa compare [using ledger] [, run() baseline() baseledger() ntol() stattol()]
+```
+
+See [dataqa.sthlp](dataqa.sthlp) for the session defaults, the register grammar, and the dispositions each kind allows; the ledger columns are listed under `ledger()` in [datacheck.sthlp](datacheck.sthlp).
+
 ### `datamvp`
 
 ```stata
@@ -257,20 +285,24 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 |-------|----------------------|
 | `single()`, `id()`, `exclude()`, `continuous()`, `categorical()`, `date()`, `detail`, `maxfreq(20)`, `rare()`, `outliers(0)`, `mincell(0)`, `maskrare` | Profile variables, distributions, rare cells, and outliers. |
 | `nomissing`, `patterns` | Missingness summaries and pattern analysis. |
-| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `stat()`, `binary()`, `warn`, `gatesonly`, `onlyflagged`, `show(flagged)` | Expectations, gates, display filters, and halting behavior. |
-| `by()`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, and settings. |
+| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `stat()`, `binary()`, `events()`, `intervals()`, `keyset()`, `constant()`, `sets()` | Invariant gates. |
+| `bands()`, `bandwarn`, `coverage()` | Sanity bands kept apart from invariants; `bandwarn` makes only bands warn. |
+| `review()`, `heaping()`, `groupstat()`, `complete()`, `jumps()` | Review items that print and never halt (or gate with a threshold). |
+| `warn`, `gatesonly`, `onlyflagged`, `show(flagged)`, `minversion()` | Halting behavior, display filters, and a version probe. |
+| `by()`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, the QA ledger, and settings. |
 
-`rare()` flags low-frequency levels, `outliers(#)` uses an IQR rule, and `maskrare` masks cells below the effective rare/minimum-cell threshold and replaces minima and maxima with p1 and p99, suppressing any statistic with fewer than the threshold of observations on either side. `rule("label": expression)` gates row-level logic, `stat(median income lo hi)` gates a mean, sd, or percentile against a band, and `binary()` requires 0/1 flags with both levels observed. Gate failures exit with return code 9 unless `warn` is used; a run where every gate passes prints a `PASS:` line.
+`maskrare` masks every printed count below the threshold (gate messages, missingness and groupwise blocks, the `patterns` table), withholds percentages and complements that would recover one, and replaces minima and maxima with guarded p1 and p99. `stat()` accepts mean, sd, percentiles, `sum`, `n`, `distinct`, `pmiss`, `ess` (Kish effective sample size), and `ratio num den`, each with an optional `if` per entry. `events()` requires an event at every covariate level, `intervals()` checks overlap, gaps, order, and event placement on its own sort, `keyset()` compares keys with a saved file, and `constant()` requires time-fixed values within a key. Gates inside `bands()` are sanity bands: with `bandwarn` they warn while invariants still halt. Under `gatesonly` the profile is skipped and only the gate columns are kept. Gate failures exit with return code 9; a run where every gate passes prints a `PASS:` line naming the dataset and the active masking.
 
 ### `datamvp`
 
 | Options | Purpose |
 |-------|----------------------|
 | `minfreq(1)`, `notable`, `skip`, `sort`, `nodrop`, `percent`, `cumulative`, `ascending`, `minmissing()`, `maxmissing()`, `nosummary`, `wide` | Pattern table filters, ordering, and display. |
-| `correlate`, `monotone`, `generate()`, `save()` | Missingness analysis and reusable outputs. |
-| `graph(bar|patterns|matrix|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
+| `correlate`, `monotone`, `bytable()`, `generate()`, `save()` | Missingness analysis, percent missing by group, and reusable outputs. |
+| `mincell()`, `maskrare`, `top()` | Small-cell masking, pooling of rare patterns, and a cap on the pattern table. |
+| `graph(bar\|patterns\|matrix\|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
 
-The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
+Under `mincell()` or `maskrare`, patterns below the threshold are pooled into one final row, so the displayed frequencies still sum to N. `top()` caps the pattern table (at 20 by default under masking) and pools the rest into the same row. The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
 
 ## Stored Results
 
@@ -300,10 +332,21 @@ The help files document the complete stored-result contracts. The following tabl
 | Result | Meaning |
 |--------|---------|
 | `r(N)`, `r(complete_cases)`, `r(complete_pct)` | Profile denominator and complete-case summary. |
-| `r(n_checks)`, `r(n_passed)`, `r(n_failed)`, `r(n_violations)` | Gate and violation counts. |
-| `r(violations)`, `r(failed_checks)` | Variable lists or structured violation identifiers. |
-| `r(singlelevel_vars)`, `r(n_singlelevel)` | Variables with exactly one observed nonmissing value, such as a 0/1 flag delivered as 1/missing. |
+| `r(n_checks)`, `r(n_passed)`, `r(n_failed)`, `r(n_violations)`, `r(n_errors)`, `r(n_warnings)`, `r(n_reviews)` | Gate, violation, warning, and review counts. |
+| `r(violations)`, `r(failed_checks)`, `r(checks_run)` | Families of failed entries and of the gates that ran. |
+| `r(version)`, `r(dataset)`, `r(masked)`, `r(ledger)`, `r(ledger_seq)` | Installed version, dataset name, masking, and ledger position. |
+| `r(singlelevel_vars)`, `r(n_singlelevel)` | Variables with exactly one observed nonmissing value (not set on the `gatesonly` fast path). |
 | `r(compare_added)`, `r(compare_dropped)`, `r(compare_type_changed)`, `r(compare_class_changed)`, `r(compare_changed)` | Schema comparison counts. |
+
+### `dataqa`
+
+| Result | Meaning |
+|--------|---------|
+| `r(defaults)` | `dataqa set`: the session-default option string. |
+| `r(N)`, `r(n_datasets)`, `r(n_failed)`, `r(n_warned)`, `r(ledger)`, `r(run)` | `dataqa report`: rows read, datasets, failed and warned rows, and the ledger and run read; `r(markdown)` and `r(n_rows)` with `markdown()`. |
+| `r(N)`, `r(n_failed)`, `r(missing)`, `r(run)` | `dataqa assert`: rows, halting rows, and expected datasets without rows, set also when it halts with r(9). |
+| `r(N)`, `r(n_scope_dropped)`, `r(saving)` | `dataqa export`: rows written, scope expressions blanked, and the release copy. |
+| `r(n_flags)`, `r(baseline)` | `dataqa compare`: items to review and the baseline run. |
 
 ### `datamvp`
 
@@ -313,6 +356,7 @@ The help files document the complete stored-result contracts. The following tabl
 | `r(N_vars)`, `r(max_miss)`, `r(mean_miss)`, `r(N_mv_total)` | Variable and missingness summaries. |
 | `r(N_monotone)`, `r(pct_monotone)`, `r(monotone_status)` | Monotone-missingness results when `monotone` is requested. |
 | `r(corr_miss)` | Missingness correlation matrix when `correlate` or a correlation graph is requested. |
+| `r(N_patterns_pooled)`, `r(mincell)`, `r(masked)`, `r(miss_by)` | Pooled patterns, mask threshold, masking flag, and the `bytable()` matrix. |
 
 ## Assumptions and Limits
 
@@ -320,18 +364,32 @@ The help files document the complete stored-result contracts. The following tabl
 - `mincell()` suppresses categorical and binary frequency cells below the threshold, and `uniqcap()` reports a lower-bound count when the distinct-value cap is exceeded.
 - `datamap` and `datadict` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
 - `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
-- `datacheck` treats `warn` as a non-halting gate mode; without it, failed expectations exit with return code 9.
+- `datacheck` treats `warn` as a non-halting gate mode for every gate and `bandwarn` as one for sanity bands only; without them, failed expectations exit with return code 9.
+- Stored results are never masked; only printed output is. The working `dataqa` ledger and `datamvp` `save()` files hold small cells and belong with the data; `dataqa export` writes the copy that may leave the server and refuses one that shows a small cell.
 - `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit; reserved-name or existing-target collisions stop with an error before any output variable is created.
 
 ## References
 
 `datamvp` is a fork of Jeroen Weesie's `mvpatterns` (STB-61: dm91); attribution and implementation notes are in [datamvp.sthlp](datamvp.sthlp).
 
+`datacheck`'s `stat(ess ...)` is the Kish effective sample size, (sum w)^2 / sum w^2: Kish, L. 1965. *Survey Sampling*. New York: Wiley.
+
 ## QA
 
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.8.0 (2026-09-30)
+
+- Disclosure: under `maskrare`, `datacheck` masks every printed count below the threshold, including failing-row counts in gate messages and in `violations()`, the MISSINGNESS and GROUPWISE blocks (small groups pooled), key structure, and profile counts, and never prints a percentage or complement that would recover one; `isid()` reports only the masked number of duplicated rows. `datamvp` gains `mincell()` and `maskrare`, pooling patterns below the threshold into one row, and `datacheck, patterns maskrare` passes the masking on. `r(masked)` reports whether anything was masked.
+- Speed: `gatesonly` without `compare()`, `saving()`, or `makespec()` skips classification and the profile and keeps only the gate columns (a 44-column, 1M-row gate call fell from 39 s to under 1 s), no longer scans groupwise missingness, and tags `isid()`/`nodups` keys once per call instead of once per `by()` group.
+- New invariant gates: `events()`, `intervals()`, `keyset()`, `constant()`, and `sets()`; `stat()` adds `sum`, `n`, `distinct`, `pmiss`, `ess`, and `ratio` with an optional `if` per entry; `inrange()` takes several variables per bound pair and open bounds.
+- `bands()` and `bandwarn` keep sanity bands apart from invariants in one call; new `coverage()` band and `review()`, `heaping()`, `groupstat()`, `complete()`, and `jumps()` review items.
+- The verdict names the dataset (or `name()`) and the active masking; `minversion()` and `r(version)`; `signature`; `ledger()` appends one row per gate entry, passed or failed.
+- New command `dataqa`: `set` (session defaults read by `datacheck` and `datamvp`), `report` (register draft with the dispositions each kind allows), `assert`, `export` (a release copy that refuses small cells), and `compare` (drift against a baseline run).
+- `datamvp` also adds `bytable()`, applies `top()` to the pattern table, and sizes the Obs and Miss columns from the largest count with comma format throughout.
+- Fixed: range bounds written as date strings (`inrange(dt 01jan2020 31dec2020)`) failed with r(198) instead of being parsed as dates; ISO and slash dates (`2020-01-01`) are read as dates rather than as arithmetic, `%tc` bounds in milliseconds, and a bound naming a variable is refused.
 
 ### 1.7.1 (2026-09-29)
 

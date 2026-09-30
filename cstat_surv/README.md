@@ -1,6 +1,6 @@
 # cstat_surv — Harrell's C-statistic after `stcox`
 
-**Version 1.0.1** | 2026-08-05
+**Version 1.0.2** | 2026-09-30
 
 `cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, a leave-one-out jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
 
@@ -158,7 +158,8 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 - The data must be declared with `stset` before the Cox model is fit, and the current estimation results must come from `stcox`.
 - The C-statistic uses unweighted pairs even when the original `stcox` model used weights; the command displays a note when weights are detected.
 - Two events at the same survival time are not comparable; an event and a censoring at that same time are comparable.
-- Delayed entry through `_t0` is not accounted for in pair comparisons.
+- Time-varying coefficients from `stcox, tvc()` are refused with `r(498)`, including its default time function.
+- Delayed entry is refused with `r(498)`: `_t0` must be zero in the Cox estimation sample. The refusal preserves the active Cox estimates; entry times outside `e(sample)` do not trigger it.
 - Multi-record counting-process data are not supported; the command assumes one record per subject.
 - The algorithm compares all pairs of observations and has O(n²) complexity. For datasets with more than 10,000 observations, computation may take several seconds.
 - The command exits with an error when no comparable pairs are found.
@@ -169,6 +170,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 ## Version History
 
+- **1.0.2** (2026-09-30): Refuse delayed entry in the Cox estimation sample and time-varying coefficients from `tvc()` before predictions or pair calculations, preserving the active estimates.
 - **1.0.1** (2026-08-05): Correct the documented default confidence level and clarify the valid estimation sample used for pair comparisons.
 - **1.0.0** (2026-07-10): Initial Stata-Tools release
 

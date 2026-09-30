@@ -1,4 +1,4 @@
-*! datamvp Version 1.7.1  2026/09/29
+*! datamvp Version 1.8.0  2026/09/30
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -13,7 +13,12 @@ program define datamvp, rclass byable(recall) sortpreserve
     }
 
     local _uservarabbrev `c(varabbrev)'
+    local _nomask_explicit = regexm(" " + lower(`"`macval(0)'"') + " ", "[ ,]nomask(r|ra|rar|rare)?[ ,]")
     local _return_ready = 0
+    local _return_has_missby = 0
+    local _anymask = 0
+    local _vmask = 0
+    local _npooled = 0
     local _return_has_monotone = 0
     local _return_has_corr = 0
     set varabbrev off
@@ -60,10 +65,32 @@ program define datamvp, rclass byable(recall) sortpreserve
         GBy(varname)            /// stratify graphs by categorical variable
         OVER(varname)           /// overlay comparison by categorical variable
         STacked                 /// show stacked bar chart
-        GRoupgap(real -999999999) /// gap between bar groups
+        GROUPgap(real -999999999) /// gap between bar groups
         LEGendopts(string asis) /// pass-through legend options
         GRAPHOPTions(string asis) /// additional twoway options
+        /// Small-cell control and missingness by group
+        MINCell(integer -999999999) /// mask counts below #
+        MASKrare                /// mask counts below mincell() (default 5)
+        BYTable(varname)        /// percent missing by group
     ]
+
+    * Session defaults from dataqa set: explicit option > session default
+    // an explicit nomaskrare turns the session masking off, mincell() included
+    if `"$DATAMAP_DQ"' != "" & !`_nomask_explicit' {
+        _datamap_dqdefaults
+        if r(maskrare) & "`maskrare'" == "" local maskrare "maskrare"
+        if `mincell' == -999999999 & r(mincell) >= 0 local mincell = r(mincell)
+    }
+    if `mincell' == -999999999 local mincell = 0
+    if `mincell' < 0 {
+        di as err "mincell() must be non-negative"
+        exit 198
+    }
+    * Mask threshold m: mincell() when given, 5 under maskrare alone.  With
+    * m > 0 no count from 1 to m-1 is printed, and no percentage or
+    * complement from which one could be recovered.
+    local _m = `mincell'
+    if "`maskrare'" != "" & `_m' == 0 local _m = 5
 
     mata: st_local("title", _datamvp_graph_text(st_local("title")))
     mata: st_local("subtitle", _datamvp_graph_text(st_local("subtitle")))
@@ -109,8 +136,8 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as err "option {bf:graphoptions()} requires {bf:graph()} option"
             exit 198
         }
-        if `_user_top' | `_user_groupgap' | `_user_legendopts' {
-            di as err "options {bf:top()}, {bf:groupgap()}, and {bf:legendopts()} require {bf:graph()} option"
+        if `_user_groupgap' | `_user_legendopts' {
+            di as err "options {bf:groupgap()} and {bf:legendopts()} require {bf:graph()} option"
             exit 198
         }
     }
@@ -291,9 +318,21 @@ program define datamvp, rclass byable(recall) sortpreserve
             exit 198
         }
     }
-    if `_user_top' & "`graphtype'" != "patterns" {
-        di as err "option {bf:top()} requires graph(patterns)"
+    if `_user_top' & "`graphtype'" != "patterns" & "`graphtype'" != "" {
+        di as err "option {bf:top()} applies to the pattern table and graph(patterns); not to graph(`graphtype')"
         exit 198
+    }
+    * Patterns shown in the table: top() when given, 20 under masking,
+    * otherwise all.  The rest are pooled into one final row.
+    local tabtop = .
+    if `_user_top' local tabtop = `top'
+    else if `_m' > 0 local tabtop = 20
+    if "`bytable'" != "" {
+        capture confirm variable `bytable'
+        if _rc {
+            di as err "bytable() variable `bytable' not found"
+            exit 111
+        }
     }
     if (`_user_groupgap' | `_user_legendopts') & ///
         ("`graphtype'" != "bar" | "`over'" == "") {
@@ -462,6 +501,10 @@ program define datamvp, rclass byable(recall) sortpreserve
         return scalar max_miss = 0
         return scalar mean_miss = 0
         return scalar N_mv_total = 0
+        return scalar N_patterns_pooled = 0
+        return scalar mincell = `_m'
+        return scalar maskrare = ("`maskrare'" != "")
+        return scalar masked = 0
         if "`origvarlist'" != "" {
             return local varlist_nomiss "`origvarlist'"
         }
@@ -495,9 +538,19 @@ program define datamvp, rclass byable(recall) sortpreserve
         else {
             local vlwidth = min(`linesize'-40, `len')
         }
-        local ndup = 26 + `vlwidth'
+        * Obs and Miss are sized from the largest count and always use
+        * comma format; the rule spans the whole table.
+        local cw = max(5, length(strtrim(string(`N', "%20.0fc"))))
+        local c_obs = 24
+        local c_miss = `c_obs' + `cw' + 2
+        local c_pct = `c_miss' + `cw' + 1
+        local c_lab = `c_pct' + 8
+        local vlwidth = max(1, min(`vlwidth', `linesize' - `c_lab' - 1))
+        local ndup = `c_lab' - 14 + `vlwidth'
 
-        di as txt _n "Variable     {c |} Type     Obs    Miss   %Miss   Variable label"
+        di as txt _n "Variable     {c |} Type" _col(`c_obs') %`cw's "Obs" ///
+            _col(`c_miss') %`cw's "Miss" _col(`c_pct') %6s "%Miss" ///
+            _col(`c_lab') "Variable label"
         di as txt "{hline 13}{c +}{hline `ndup'}"
 
         local i 0
@@ -506,7 +559,32 @@ program define datamvp, rclass byable(recall) sortpreserve
 
             qui count if missing(`v') & `touse'
             local thismv = r(N)
-            local pctmiss = 100 * `thismv' / `N'
+            local nobsv = `N' - `thismv'
+            local s_obs = strtrim(string(`nobsv', "%20.0fc"))
+            local s_miss = strtrim(string(`thismv', "%20.0fc"))
+            local s_pct = strtrim(string(100 * `thismv' / `N', "%6.1f"))
+            if `_m' > 0 {
+                // a small Miss (or a small Obs) is masked, and the other
+                // count and the percentage are withheld because N minus
+                // either would recover it
+                if `thismv' >= 1 & `thismv' < `_m' {
+                    local s_miss "<`_m'"
+                    if `nobsv' >= 1 local s_obs "."
+                    local s_pct "."
+                    local _anymask = 1
+                    local _vmask = 1
+                }
+                else if `nobsv' >= 1 & `nobsv' < `_m' {
+                    // a zero Miss stays 0: it reveals nothing about N
+                    local s_obs "<`_m'"
+                    if `thismv' >= 1 {
+                        local s_miss "."
+                        local s_pct "."
+                    }
+                    local _anymask = 1
+                    local _vmask = 1
+                }
+            }
 
             local vt : type `v'
             local vlab : var label `v'
@@ -514,16 +592,16 @@ program define datamvp, rclass byable(recall) sortpreserve
 
             di as txt "{lalign 12:`v'}" "{col 14}{c |}" as res ///
                 _col(16) "`:di %7s abbrev("`vt'",7)'" ///
-                _col(24) %6.0fc `N'-`thismv' ///
-                _col(31) %6.0fc `thismv' ///
-                _col(38) %6.1f `pctmiss' ///
-                _col(47) as txt `"`macval(vl)'"'
+                _col(`c_obs') %`cw's "`s_obs'" ///
+                _col(`c_miss') %`cw's "`s_miss'" ///
+                _col(`c_pct') %6s "`s_pct'" ///
+                _col(`c_lab') as txt `"`macval(vl)'"'
 
             * Rest of variable label
             local j 2
             local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
             while `"`macval(vl)'"' != "" {
-                di as txt "{col 14}{c |}{col 47}" `"`macval(vl)'"'
+                di as txt "{col 14}{c |}{col `c_lab'}" `"`macval(vl)'"'
                 local ++j
                 local vl : piece `j' `vlwidth' of `"`macval(vlab)'"'
             }
@@ -655,6 +733,93 @@ program define datamvp, rclass byable(recall) sortpreserve
             format _cumpct %7.2f
         }
 
+        * Pool the patterns below the mask and beyond tabtop into one final
+        * row.  Without pooling the table is listed exactly as before.
+        if `_m' > 0 | `tabtop' < . {
+            qui gen byte _pool = 0
+            if `_m' > 0 qui replace _pool = 1 if _freq < `_m'
+            local _bytop = 0
+            if `tabtop' < . {
+                qui gen long _ord = _n
+                qui gsort -_freq _ord
+                qui count if _n > `tabtop' & !_pool
+                local _bytop = r(N)
+                qui replace _pool = 1 if _n > `tabtop'
+                qui sort _ord
+                qui drop _ord
+            }
+            // Secondary suppression: a pooled total below m would be N minus
+            // the shown patterns, so the smallest shown pattern joins the
+            // pool until the pooled total is at least m.
+            local _pulled = 0
+            if `_m' > 0 {
+                qui summarize _freq if _pool, meanonly
+                local _pf = r(sum)
+                while `_pf' >= 1 & `_pf' < `_m' {
+                    qui count if !_pool
+                    if r(N) == 0 continue, break
+                    qui summarize _freq if !_pool, meanonly
+                    local _mn = r(min)
+                    qui gen byte _cand = !_pool & _freq == `_mn'
+                    qui replace _pool = 1 if _cand & sum(_cand) == 1
+                    qui drop _cand
+                    local ++_pulled
+                    qui summarize _freq if _pool, meanonly
+                    local _pf = r(sum)
+                }
+            }
+            qui count if _pool
+            local _npooled = r(N)
+        }
+        local _plab ""
+        if `_npooled' > 0 | `_m' > 0 {
+            local _pfreq = 0
+            if `_npooled' > 0 {
+                qui summarize _freq if _pool, meanonly
+                local _pfreq = r(sum)
+                qui drop if _pool
+            }
+            qui drop _pool
+            local _nk = _N
+            qui gen str20 _fs = strtrim(string(_freq, "%12.0fc"))
+            qui gen str12 _ps = strtrim(string(_pct, "%7.2f"))
+            qui gen double _c = sum(_pct)
+            qui gen str12 _cs = strtrim(string(_c, "%7.2f"))
+            if `_npooled' > 0 {
+                qui set obs `=`_nk' + 1'
+                if `_m' > 0 & `_bytop' == 0 & `_pulled' == 0 local _plab "other patterns (each <`_m')"
+                else if `_m' > 0 & `_bytop' == 0 local _plab "other patterns (<`_m', or pooled with them)"
+                else if `_m' > 0 local _plab "other patterns (beyond top `tabtop' or <`_m')"
+                else local _plab "other patterns (beyond top `tabtop')"
+                qui replace _pattern = "`_plab'" in L
+                local _ppct = 100 * `_pfreq' / `N'
+                if `_m' > 0 & `_pfreq' >= 1 & `_pfreq' < `_m' {
+                    // the pooled total is itself a small cell; its share and
+                    // the cumulative share after it would recover it
+                    qui replace _fs = "<`_m'" in L
+                    qui replace _ps = "." in L
+                    qui replace _cs = "." in L
+                    local _anymask = 1
+                }
+                else {
+                    qui replace _fs = strtrim(string(`_pfreq', "%12.0fc")) in L
+                    qui replace _ps = strtrim(string(`_ppct', "%7.2f")) in L
+                    qui replace _cs = strtrim(string(_c[`_nk'] + `_ppct', "%7.2f")) in L
+                    if `_nk' == 0 qui replace _cs = strtrim(string(`_ppct', "%7.2f")) in L
+                }
+                if `_m' > 0 local _anymask = 1
+            }
+            qui drop _freq _pct _cumpct _c
+            rename _fs _freq
+            rename _ps _pct
+            rename _cs _cumpct
+            format _freq %12s
+            format _pct %8s
+            format _cumpct %8s
+            local _pw = max(8, `: strlen local _plab')
+            format _pattern %-`_pw's
+        }
+
         if "`percent'" != "" & "`cumulative'" != "" {
             list _pattern _miss _freq _pct _cumpct, noobs sep(0) subvarname
         }
@@ -672,12 +837,17 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     * Summarize patterns not listed
     if `nsmallg' > 0 & `minfreq' > 1 {
+        local _nss = strtrim(string(scalar(`nsmall'), "%20.0fc"))
+        if `_m' > 0 & scalar(`nsmall') >= 1 & scalar(`nsmall') < `_m' {
+            local _nss "<`_m'"
+            local _anymask = 1
+        }
         if `minfreq' == 2 {
-            di _n as txt "Additional: {res}`=scalar(`nsmall')'" ///
+            di _n as txt "Additional: {res}`_nss'" ///
                 as txt " observations with unique patterns"
         }
         else {
-            di _n as txt "Additional: {res}`=scalar(`nsmall')'" ///
+            di _n as txt "Additional: {res}`_nss'" ///
                 as txt " observations in {res}`=scalar(`nsmallg')'" ///
                 as txt " patterns with freq < `minfreq'"
         }
@@ -698,16 +868,57 @@ program define datamvp, rclass byable(recall) sortpreserve
     local meanmiss = r(mean)
 
     if "`summary'" == "" {
+        local s_N = strtrim(string(`N', "%20.0fc"))
+        local s_cc = strtrim(string(`ncomplete', "%20.0fc"))
+        local s_ic = strtrim(string(`nincomplete', "%20.0fc"))
+        local s_ccp = strtrim(string(100*`ncomplete'/`N', "%5.1f"))
+        local s_icp = strtrim(string(100*`nincomplete'/`N', "%5.1f"))
+        local s_max = strtrim(string(`maxmiss_obs', "%20.0fc"))
+        if `_m' > 0 {
+            if `N' < `_m' {
+                local s_N "<`_m'"
+                local _anymask = 1
+            }
+            // complete + incomplete = N: when either is small, both are
+            // withheld, with their percentages; a zero count stays 0
+            if (`ncomplete' >= 1 & `ncomplete' < `_m') | (`nincomplete' >= 1 & `nincomplete' < `_m') {
+                local _z = (`ncomplete' == 0 | `nincomplete' == 0)
+                local s_cc = cond(`ncomplete' >= 1 & `ncomplete' < `_m', "<`_m'", cond(`ncomplete' == 0, "0", "[suppressed]"))
+                local s_ic = cond(`nincomplete' >= 1 & `nincomplete' < `_m', "<`_m'", cond(`nincomplete' == 0, "0", "[suppressed]"))
+                if !`_z' {
+                    local s_ccp "."
+                    local s_icp "."
+                }
+                local _anymask = 1
+            }
+            // the maximum is shown only when enough observations share it
+            qui count if `mv_n' == `maxmiss_obs' & `touse'
+            if r(N) < `_m' {
+                local s_max "[suppressed]"
+                local _anymask = 1
+            }
+        }
         di _n as txt "{hline 50}"
-        di as txt "Total observations:      " as res %10.0fc `N'
-        di as txt "Complete cases:          " as res %10.0fc `ncomplete' ///
-            as txt "  (" as res %5.1f 100*`ncomplete'/`N' as txt "%)"
-        di as txt "Incomplete cases:        " as res %10.0fc `nincomplete' ///
-            as txt "  (" as res %5.1f 100*`nincomplete'/`N' as txt "%)"
+        di as txt "Total observations:      " as res %10s "`s_N'"
+        di as txt "Complete cases:          " as res %10s "`s_cc'" ///
+            as txt "  (" as res %5s "`s_ccp'" as txt "%)"
+        di as txt "Incomplete cases:        " as res %10s "`s_ic'" ///
+            as txt "  (" as res %5s "`s_icp'" as txt "%)"
         di as txt "Unique patterns:         " as res %10.0fc `npatterns'
         di as txt "Variables analyzed:      " as res %10.0fc `nvar'
-        di as txt "Max missing/obs:         " as res %10.0fc `maxmiss_obs'
-        di as txt "Mean missing/obs:        " as res %10.2f `meanmiss'
+        di as txt "Max missing/obs:         " as res %10s "`s_max'"
+        // mean x N is the total of missing cells: beside the other
+        // variables' shown Miss counts it recovers a masked one
+        local s_mean = strtrim(string(`meanmiss', "%10.2f"))
+        if `_m' > 0 & `_vmask' {
+            local s_mean "[suppressed]"
+            local _anymask = 1
+        }
+        di as txt "Mean missing/obs:        " as res %10s "`s_mean'"
+        if `_npooled' > 0 {
+            di as txt "Patterns pooled:         " as res %10.0fc `_npooled'
+        }
+        if `_m' > 0 di as txt "(counts below `_m' masked)"
         di as txt "{hline 50}"
     }
 
@@ -739,8 +950,15 @@ program define datamvp, rclass byable(recall) sortpreserve
             local mono_status "monotone"
         }
         else {
+            local s_mono = strtrim(string(`nmono', "%20.0fc"))
+            local s_mpct = strtrim(string(`pctmono', "%5.1f"))
+            if `_m' > 0 & `nmono' >= 1 & (`nmono' < `_m' | `N' - `nmono' < `_m') {
+                local s_mono = cond(`nmono' >= 1 & `nmono' < `_m', "<`_m'", "all but <`_m'")
+                local s_mpct "."
+                local _anymask = 1
+            }
             di as txt "  Observations with monotone pattern: " ///
-                as res %8.0fc `nmono' as txt " (" as res %5.1f `pctmono' as txt "%)"
+                as res "`s_mono'" as txt " (" as res "`s_mpct'" as txt "%)"
             di as txt "  Pattern is {res}non-monotone{txt}"
             local mono_status "non-monotone"
         }
@@ -814,6 +1032,106 @@ program define datamvp, rclass byable(recall) sortpreserve
 
             local _return_has_corr = 1
         }
+    }
+
+    * ===================================================================
+    * Missingness by group: bytable()
+    * ===================================================================
+
+    tempname MB
+    if "`bytable'" != "" {
+        tempvar _bt
+        qui gen byte `_bt' = `touse' & !missing(`bytable')
+        qui count if `_bt'
+        if r(N) == 0 {
+            di as err "bytable(): no observations with nonmissing `bytable'"
+            exit 2000
+        }
+        * one computation of missingness by group for the whole package:
+        * datacheck groupstat(pmiss ...) reads the same helper
+        _datamap_missby `varlist', by(`bytable') touse(`_bt')
+        local G = r(G)
+        forvalues k = 1/`G' {
+            local _bl`k' `"`r(lab`k')'"'
+        }
+        tempname _NM _PM _NG
+        matrix `_NM' = r(nmiss)
+        matrix `_PM' = r(pmiss)
+        matrix `_NG' = r(ngroup)
+        matrix `MB' = J(`nvar', `G' + 2, .)
+        local _cn ""
+        forvalues k = 1/`G' {
+            local _cn "`_cn' g`k'"
+        }
+        matrix colnames `MB' = `_cn' maxdiff ratio
+        matrix rownames `MB' = `varlist'
+        forvalues i = 1/`nvar' {
+            local _hi = .
+            local _lo = .
+            local _shi = .
+            local _slo = .
+            local _nshown = 0
+            forvalues k = 1/`G' {
+                local _p = 100 * `_PM'[`i', `k']
+                matrix `MB'[`i', `k'] = `_p'
+                local _hi = cond(missing(`_hi'), `_p', max(`_hi', `_p'))
+                local _lo = cond(missing(`_lo'), `_p', min(`_lo', `_p'))
+                // shown cells: a group of at least m rows whose missing
+                // count and complement are both zero or at least m
+                local _nk = `_NG'[1, `k']
+                local _mk = `_NM'[`i', `k']
+                local _sh = 1
+                if `_m' > 0 {
+                    if `_nk' < `_m' local _sh = 0
+                    if (`_mk' >= 1 & `_mk' < `_m') | (`_nk' - `_mk' >= 1 & `_nk' - `_mk' < `_m') local _sh = 0
+                }
+                local _show`i'_`k' = `_sh'
+                if `_sh' {
+                    local ++_nshown
+                    local _shi = cond(missing(`_shi'), `_p', max(`_shi', `_p'))
+                    local _slo = cond(missing(`_slo'), `_p', min(`_slo', `_p'))
+                }
+                else local _anymask = 1
+            }
+            matrix `MB'[`i', `G' + 1] = `_hi' - `_lo'
+            matrix `MB'[`i', `G' + 2] = cond(`_lo' > 0, `_hi' / `_lo', .)
+            local _sd`i' "."
+            local _sr`i' "."
+            // a difference needs two shown groups; one cell compares nothing
+            if `_nshown' >= 2 {
+                local _sd`i' = strtrim(string(`_shi' - `_slo', "%6.1f"))
+                if `_slo' > 0 local _sr`i' = strtrim(string(`_shi' / `_slo', "%6.2f"))
+            }
+        }
+        * display: variables by groups, in blocks that fit the line
+        di _n as txt "Percent missing by `bytable'"
+        local _per = max(1, floor((`linesize' - 14 - 20) / 9))
+        local _k0 = 1
+        while `_k0' <= `G' {
+            local _k1 = min(`G', `_k0' + `_per' - 1)
+            local _last = (`_k1' == `G')
+            local _hdr ""
+            forvalues k = `_k0'/`_k1' {
+                local _t = abbrev(`"`_bl`k''"', 8)
+                local _hdr `"`_hdr' as txt %9s `"`_t'"'"'
+            }
+            if `_last' local _hdr `"`_hdr' as txt %10s "Max diff" %9s "Hi/Lo""'
+            di as txt "{lalign 12:Variable}" "{col 14}{c |}" `_hdr'
+            forvalues i = 1/`nvar' {
+                local v : word `i' of `varlist'
+                local _line ""
+                forvalues k = `_k0'/`_k1' {
+                    local _c "."
+                    if `_show`i'_`k'' local _c = strtrim(string(`MB'[`i', `k'], "%6.1f"))
+                    local _line `"`_line' as res %9s "`_c'""'
+                }
+                if `_last' local _line `"`_line' as res %10s "`_sd`i''" %9s "`_sr`i''""'
+                di as txt "{lalign 12:`=abbrev("`v'", 12)'}" "{col 14}{c |}" `_line'
+            }
+            local _k0 = `_k1' + 1
+        }
+        if `_m' > 0 di as txt "(cells from groups or counts below `_m' shown as .)"
+        local _return_has_missby = 1
     }
 
     * The analytical payload is now complete.  Optional generate/save/graph
@@ -1610,8 +1928,16 @@ program define datamvp, rclass byable(recall) sortpreserve
         return scalar max_miss = `maxmiss_obs'
         return scalar mean_miss = `meanmiss'
         return scalar N_mv_total = `nmvtotal'
+        return scalar N_patterns_pooled = `_npooled'
+        return scalar mincell = `_m'
+        return scalar maskrare = ("`maskrare'" != "")
+        return scalar masked = `_anymask'
         return local varlist "`varlist'"
         if "`varnomv'" != "" return local varlist_nomiss "`varnomv'"
+        if `_return_has_missby' {
+            return local bytable "`bytable'"
+            return matrix miss_by = `MB'
+        }
         if "`gby'" != "" {
             return local gby "`gby'"
             return local gby_levels "`gby_levels'"

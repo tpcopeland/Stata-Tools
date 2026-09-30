@@ -1,4 +1,4 @@
-*! msm_table Version 1.4.10  2026/09/27
+*! msm_table Version 1.4.11  2026/09/30
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland, Karolinska Institutet
 

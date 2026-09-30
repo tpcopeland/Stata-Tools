@@ -1,4 +1,4 @@
-*! _gcomp_parse_structural Version 2.0.1  2026/08/28
+*! _gcomp_parse_structural Version 2.0.2  2026/09/30
 *! Parse deterministic structural rules for gcomp modelled variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

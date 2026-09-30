@@ -2,6 +2,8 @@
 
 The curated runner exercises functional, documentation-example, validation, and independent cross-validation suites.
 
+archetypes: A2
+
 ## How to run
 
 ```bash
@@ -30,13 +32,21 @@ stata-mp -b do test_cstat_surv_documentation_examples.do
 | `validation_cstat_surv.do` | Known-answer and identity checks. |
 | `crossval_cstat_surv.do` | Independent cross-validation. |
 | `crossval_cstat_surv_sksurv.do` | scikit-survival comparator. |
+| `test_fixture_entry.do` | Named delayed-entry refusal with complete caller-state fingerprints, both varabbrev settings, and entry outside the Cox sample. |
+| `test_fixture_tvc.do` | Named explicit/default time-varying-score refusal with full caller fingerprints and static-model controls under both varabbrev settings. |
+| `validation_fixture_truth.do` | Weibull population concordance recovery, independently enumerated pair counts and jackknife on both event definitions, A2 hostile cases, exact time-rank transport, and confidence-level boundaries. |
+| `_qa_fx_a2.do` | Byte-for-byte vendored single-record survival and competing-risk generators with truth/provenance. |
+| `_qa_hostile.do` | Vendored primitive time values and missing-guarded equality oracle. |
+| `_qa_state.do` | Vendored complete caller-state fingerprints. |
+| `_qa_metamorphic.do` | Vendored option-domain sweeps and metamorphic relations. |
+| `tools/crossval_cstat_surv_sksurv.py` | Native scikit-survival pair-accounting oracle. |
 | `run_all.do` | Curated full runner. |
 
 ## Coverage map
 
 | Command | Functional | Validation | Cross-validation |
 |---|---|---|---|
-| `cstat_surv` | Functional, error, hostile, and documentation-example suites | `validation_cstat_surv.do` | `crossval_cstat_surv.do`, `crossval_cstat_surv_sksurv.do` |
+| `cstat_surv` | Functional, error, hostile, documentation-example, `test_fixture_entry.do`, and `test_fixture_tvc.do` suites | `validation_cstat_surv.do`, `validation_fixture_truth.do` | `crossval_cstat_surv.do`, `crossval_cstat_surv_sksurv.do` |
 
 ## Lane membership
 

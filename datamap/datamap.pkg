@@ -6,14 +6,15 @@ d datasets. It automatically classifies variables and generates appropriate
 d documentation for each type, with privacy controls to exclude sensitive
 d variables or limit date precision.
 d
-d The package includes four commands:
-d - datamap: Generate privacy-safe dataset documentation (text)
+d The package includes five commands:
+d - datamap: Generate privacy-safe dataset documentation (text or JSON)
 d - datadict: Generate Markdown data dictionaries
 d - datacheck: Console QC profiling and expectation gates
+d - dataqa: Session defaults and a structured QA ledger over datacheck
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20260929
+d Distribution-Date: 20260930
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -32,6 +33,8 @@ f datacheck.ado
 f datacheck.sthlp
 f datamvp.ado
 f datamvp.sthlp
+f dataqa.ado
+f dataqa.sthlp
 f _datamap_classify.ado
 f _datamap_fmt_uniq.ado
 f _datamap_collect_filelist.ado
@@ -41,3 +44,23 @@ f _datamap_load_config.ado
 f _datamap_nuniq.ado
 f _datamap_post_metadata_rows.ado
 f _datamap_validate_path.ado
+f _datamap_version.ado
+f _datamap_dqdefaults.ado
+f _datamap_missby.ado
+f _datacheck_mcount.ado
+f _datacheck_mshare.ado
+f _datacheck_statval.ado
+f _datacheck_events.ado
+f _datacheck_intervals.ado
+f _datacheck_keyset.ado
+f _datacheck_constant.ado
+f _datacheck_sets.ado
+f _datacheck_jumps.ado
+f _datacheck_coverage.ado
+f _datacheck_heaping.ado
+f _datacheck_complete.ado
+f _datacheck_groupstat.ado
+f _datacheck_bandsparse.ado
+f _datacheck_ledger.ado
+f _datacheck_qshow.ado
+f _datacheck_bound.ado

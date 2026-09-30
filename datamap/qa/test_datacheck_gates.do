@@ -5,6 +5,9 @@ version 16.0
 set linesize 255
 
 * test_datacheck_gates.do - datacheck rule(), stat(), binary(), the PASS line,
+* the 1.8.0 families (events, intervals, keyset, constant, stat statistics,
+* inrange spans, bands/bandwarn, review items, heaping, coverage, groupstat,
+* sets, checks() rows), the named verdict, minversion(), fast-path parity,
 * r(singlelevel_vars), maskrare extremes, quietly silence, and frame-target
 * violations()/makespec().  Expected values are hand-computed from the
 * constructed fixtures; console contracts are checked by scanning a text log.
@@ -432,10 +435,12 @@ capture {
     quietly datacheck, exclude(secret)
     assert "`r(singlelevel_vars)'" == "onemiss sconst"
     assert r(n_singlelevel) == 2
+    * 1.8.0 F1: gatesonly does no classification, so profile results are unset
     quietly datacheck, gatesonly exclude(secret)
-    assert "`r(singlelevel_vars)'" == "onemiss sconst"
+    assert "`r(singlelevel_vars)'" == ""
+    assert missing(r(n_singlelevel))
 }
-_dg `=_rc' "r(singlelevel_vars): one nonmissing level; all-missing, two-level, excluded not listed"
+_dg `=_rc' "r(singlelevel_vars): one nonmissing level; all-missing, two-level, excluded not listed; unset under gatesonly"
 
 * ============================================================
 * 8. maskrare: p1/p99 replace min/max (plan item 5)
@@ -530,6 +535,928 @@ capture {
     assert "`r(violations)'" == "stat binary"
 }
 _dg `=_rc' "checks(): rule, stat, and binary rows evaluate like the options; a colon in a rule label is kept"
+
+* ============================================================
+* 10. events(): every covariate level carries an event (1.8.0 G1)
+* ============================================================
+* 60 rows; mstype = mod(_n,3)+1, so level 1 is n = 3,6,...,60, level 2 is
+* n = 1,4,...,58 and level 3 is n = 2,5,...,59 (20 rows each).  Events on
+* level 1 with n <= 30 (n = 3..30: 10 events) and level 2 with n <= 12
+* (n = 1,4,7,10: 4 events); level 3 has none.
+capture program drop _dg_events
+program define _dg_events
+    clear
+    set obs 60
+    gen long id = _n
+    gen byte mstype = mod(_n, 3) + 1
+    label define _dgmst 1 "RRMS" 2 "SPMS" 3 "PPMS", replace
+    label values mstype _dgmst
+    gen byte _d = (mstype == 1 & _n <= 30) | (mstype == 2 & _n <= 12)
+    gen str1 sx = cond(mod(_n, 2), "F", "M")
+    gen byte grp = cond(_n <= 30, 1, 2)
+end
+
+_dg_events
+capture frame drop dg_ev
+capture {
+    capture datacheck, gatesonly events(_d: mstype sx) violations(dg_ev, replace)
+    assert _rc == 9
+    frame dg_ev: assert _N == 1
+    frame dg_ev: assert gate[1] == "events" & variable[1] == "mstype" & label[1] == "_d"
+    frame dg_ev: assert group[1] == "mstype = 3 (PPMS)"
+    frame dg_ev: assert strpos(message[1], "events(_d): mstype = 3 (PPMS) has 0 events") == 1
+}
+_dg `=_rc' "events(): the eventless level fails, named with its value label; the string covariate passes"
+
+_dg_events
+capture {
+    capture datacheck, gatesonly events(_d: mstype, min(5)) warn violations(dg_ev, replace)
+    assert _rc == 0
+    frame dg_ev: assert _N == 2
+    frame dg_ev: assert observed[1] == "4 events" & observed[2] == "0 events"
+    capture datacheck, gatesonly events(_d: mstype, min(5)) maskrare warn violations(dg_ev, replace)
+    * 4 events is a small cell; 0 is printed as 0
+    frame dg_ev: assert observed[1] == "<5 events" & observed[2] == "0 events"
+}
+_dg `=_rc' "events() min(): levels below min fail; under maskrare a nonzero count below 5 prints <5, zero prints 0"
+
+_dg_events
+capture {
+    * events among id <= 12: level 1 has n = 3,6,9,12 (4), level 2 has 4
+    capture datacheck, gatesonly events(_d if id <= 12: mstype) warn violations(dg_ev, replace)
+    frame dg_ev: assert _N == 1 & group[1] == "mstype = 3 (PPMS)"
+    * no event has id > 30, so every level fails
+    capture datacheck, gatesonly events(_d if id > 30: mstype) warn violations(dg_ev, replace)
+    frame dg_ev: assert _N == 3
+}
+_dg `=_rc' "events() entry if restricts the event sum only; levels still come from the call's sample"
+
+_dg_events
+gen byte lv = mstype
+replace lv = . if lv == 3
+capture {
+    capture datacheck, gatesonly events(_d: lv)
+    assert _rc == 0
+    * an explicit Unknown code is a level and is checked
+    replace lv = 99 in 59
+    capture datacheck, gatesonly events(_d: lv) warn violations(dg_ev, replace)
+    frame dg_ev: assert _N == 1 & group[1] == "lv = 99"
+}
+_dg `=_rc' "events(): a missing level is skipped; an explicit code such as 99 is checked"
+
+_dg_events
+capture {
+    capture datacheck, gatesonly events(_d: id)
+    assert _rc == 198
+    capture datacheck, gatesonly events(_d mstype)
+    assert _rc == 198
+    capture datacheck, gatesonly events(sx: mstype)
+    assert _rc == 109
+}
+_dg `=_rc' "events(): a covariate beyond maxcat(), a spec without a colon, and a string event are errors"
+
+_dg_events
+capture {
+    * group 1 (n <= 30): level 3 has no events; group 2: no events at all
+    capture datacheck, gatesonly by(grp) events(_d: mstype) warn violations(dg_ev, replace)
+    frame dg_ev: assert _N == 4
+    frame dg_ev: count if strpos(group, "by(grp group 2)") == 1
+    frame dg_ev: assert r(N) == 3
+}
+_dg `=_rc' "events() within by(): each group is checked on its own levels"
+capture frame drop dg_ev
+
+* ============================================================
+* 11. intervals(): structure checked on its own sort (1.8.0 G2)
+* ============================================================
+capture program drop _dg_intervals
+program define _dg_intervals
+    clear
+    set obs 12
+    gen long id = .
+    gen double start = .
+    gen double stop = .
+    gen byte ev = .
+    replace id = 1 in 1
+    replace start = 0 in 1
+    replace stop = 10 in 1
+    replace ev = 0 in 1
+    replace id = 1 in 2
+    replace start = 10 in 2
+    replace stop = 20 in 2
+    replace ev = 1 in 2
+    replace id = 2 in 3
+    replace start = 0 in 3
+    replace stop = 5 in 3
+    replace ev = 0 in 3
+    replace id = 2 in 4
+    replace start = 5 in 4
+    replace stop = 12 in 4
+    replace ev = 0 in 4
+    replace id = 2 in 5
+    replace start = 12 in 5
+    replace stop = 20 in 5
+    replace ev = 1 in 5
+    replace id = 3 in 6
+    replace start = 0 in 6
+    replace stop = 10 in 6
+    replace ev = 0 in 6
+    replace id = 3 in 7
+    replace start = 8 in 7
+    replace stop = 15 in 7
+    replace ev = 0 in 7
+    replace id = 3 in 8
+    replace start = 15 in 8
+    replace stop = 20 in 8
+    replace ev = 0 in 8
+    replace id = 4 in 9
+    replace start = 0 in 9
+    replace stop = 10 in 9
+    replace ev = 1 in 9
+    replace id = 4 in 10
+    replace start = 20 in 10
+    replace stop = 30 in 10
+    replace ev = 0 in 10
+    replace id = 5 in 11
+    replace start = 5 in 11
+    replace stop = 5 in 11
+    replace ev = 0 in 11
+    replace id = 5 in 12
+    replace start = . in 12
+    replace stop = 9 in 12
+    replace ev = 0 in 12
+    set seed 20260930
+    gen double _u = runiform()
+    sort _u
+    drop _u
+end
+* hand count: missing = id 5 row 2; order = id 5 (5, 5); overlap = id 3
+* (8 < 10); gap = id 4 (20 > 10); event_last = id 4 first row.
+_dg_intervals
+capture frame drop dg_iv
+capture {
+    capture datacheck, gatesonly intervals(id start stop, contiguous event(ev)) ///
+        violations(dg_iv, replace)
+    assert _rc == 9
+    frame dg_iv: assert _N == 5
+    foreach ck in missing order overlap gap event_last {
+        frame dg_iv: count if label == "`ck'" & observed == "1 intervals in 1 persons"
+        assert r(N) == 1
+        frame dg_iv: count if label == "`ck'" & strpos(message, "intervals(`ck'):") == 1
+        assert r(N) == 1
+    }
+}
+_dg `=_rc' "intervals(): missing, order, overlap, gap and event_last each named once with hand counts"
+
+_dg_intervals
+capture {
+    * the caller's order does not matter: sorted and shuffled agree
+    capture datacheck, gatesonly intervals(id start stop, contiguous event(ev)) warn violations(dg_iv, replace)
+    frame dg_iv: local m1 = message[1] + message[2] + message[3] + message[4] + message[5]
+    sort id start
+    capture datacheck, gatesonly intervals(id start stop, contiguous event(ev)) warn violations(dg_iv, replace)
+    frame dg_iv: local m2 = message[1] + message[2] + message[3] + message[4] + message[5]
+    assert `"`m1'"' == `"`m2'"'
+    * tol(2): 8 >= 10 - 2, so the overlap passes; the gap (20 > 12) stays
+    capture datacheck, gatesonly intervals(id start stop, contiguous tol(2)) warn violations(dg_iv, replace)
+    frame dg_iv: count if label == "overlap"
+    assert r(N) == 0
+    frame dg_iv: count if label == "gap"
+    assert r(N) == 1
+    * without contiguous or event(), neither check runs
+    capture datacheck, gatesonly intervals(id start stop) warn violations(dg_iv, replace)
+    frame dg_iv: count if inlist(label, "gap", "event_last")
+    assert r(N) == 0
+    keep if inlist(id, 1, 2)
+    capture datacheck, gatesonly intervals(id start stop, contiguous event(ev))
+    assert _rc == 0
+}
+_dg `=_rc' "intervals(): sort-independent, tol() relaxes overlap only, optional checks off by default, clean file passes"
+
+_dg_intervals
+gen byte dose = 1
+capture {
+    capture datacheck, gatesonly intervals(id dose start stop) warn violations(dg_iv, replace)
+    frame dg_iv: assert variable[1] == "id dose start stop"
+    capture datacheck, gatesonly intervals(id start, contiguous)
+    assert _rc == 198
+    capture datacheck, gatesonly intervals(id start stop, tol(-1))
+    assert _rc == 198
+}
+_dg `=_rc' "intervals(): a composite id works; too few variables and a negative tol() are errors"
+capture frame drop dg_iv
+
+* ============================================================
+* 12. keyset(): the same persons as a saved file (1.8.0 G3)
+* ============================================================
+tempfile dg_ids
+clear
+set obs 50
+gen long id = _n
+gen str4 sid = "P" + string(_n)
+save "`dg_ids'", replace
+capture frame drop dg_ks
+capture {
+    capture datacheck, gatesonly keyset(id using "`dg_ids'" \ sid using "`dg_ids'")
+    assert _rc == 0
+    * persons_swapped: drop 5 ids, add 5 others; the count rule still passes
+    drop if id <= 5
+    set obs 50
+    replace id = 100 + _n - 45 if missing(id)
+    quietly count
+    local nper = r(N)
+    capture datacheck, gatesonly rule("same_persons": `nper' == 50)
+    assert _rc == 0
+    capture datacheck, gatesonly keyset(id using "`dg_ids'") warn violations(dg_ks, replace)
+    assert r(keyset_only_master) == 5 & r(keyset_only_using) == 5
+    frame dg_ks: assert _N == 1 & gate[1] == "keyset"
+    frame dg_ks: assert strpos(message[1], "keyset(id): equal") == 1
+}
+_dg `=_rc' "keyset(): swapped persons fail though the count rule passes; both directions counted"
+
+capture {
+    clear
+    set obs 40
+    gen long id = _n
+    capture datacheck, gatesonly keyset(id using "`dg_ids'", subset)
+    assert _rc == 0
+    capture datacheck, gatesonly keyset(id using "`dg_ids'", superset)
+    assert _rc == 9
+    assert r(keyset_only_using) == 10
+    capture datacheck, gatesonly keyset(id using "`dg_ids'")
+    assert _rc == 9
+    set obs 60
+    replace id = _n
+    capture datacheck, gatesonly keyset(id using "`dg_ids'", superset)
+    assert _rc == 0
+    capture datacheck, gatesonly keyset(id using "`dg_ids'", subset) maskrare warn violations(dg_ks, replace)
+    * 10 keys not in the file (>= 5, shown); 0 absent
+    frame dg_ks: assert strpos(observed[1], "10 keys not in ") == 1 & strpos(observed[1], "; 0 keys of ") > 0
+    assert r(keyset_only_master) == 10 & r(keyset_only_using) == 0
+}
+_dg `=_rc' "keyset(): subset and superset read one direction each; equal reads both"
+
+capture {
+    clear
+    set obs 3
+    gen str4 id = "P1"
+    capture datacheck, gatesonly keyset(id using "`dg_ids'")
+    assert _rc != 0 & _rc != 9
+    capture datacheck, gatesonly keyset(id using "`c(tmpdir)'/no_such_ids_file")
+    assert _rc == 601
+    gen long k = _n
+    capture datacheck, gatesonly keyset(k using "`dg_ids'", sideways)
+    assert _rc == 198
+}
+_dg `=_rc' "keyset(): type mismatch, a missing file and a bad mode are errors, not violations"
+capture frame drop dg_ks
+
+* ============================================================
+* 13. constant(): time-fixed values within a key (1.8.0 G5)
+* ============================================================
+capture program drop _dg_tv
+program define _dg_tv
+    clear
+    set obs 30
+    gen long id = ceil(_n / 3)
+    bysort id: gen byte fu_band = _n
+    gen byte sex = mod(id, 2) + 1
+    gen dob = td(01jan1970) + id
+    gen str3 grp = cond(id <= 5, "abc", "xyz")
+end
+_dg_tv
+capture frame drop dg_cn
+capture {
+    capture datacheck, gatesonly constant(id: sex dob grp)
+    assert _rc == 0
+    * covariate_varies_within_person: 4 persons change sex in band 2
+    replace sex = 3 - sex if fu_band == 2 & id <= 4
+    capture datacheck, gatesonly constant(id: sex) warn violations(dg_cn, replace)
+    frame dg_cn: assert _N == 1 & observed[1] == "4 keys vary"
+    frame dg_cn: assert strpos(message[1], "constant(id: sex): 4 keys with more than one value") == 1
+    capture datacheck, gatesonly constant(id: sex) maskrare warn violations(dg_cn, replace)
+    frame dg_cn: assert observed[1] == "<5 keys vary"
+}
+_dg `=_rc' "constant(): a covariate varying within 4 persons is caught and masked"
+
+_dg_tv
+capture {
+    replace dob = . in 20
+    capture datacheck, gatesonly constant(id: dob)
+    assert _rc == 9
+    capture datacheck, gatesonly constant(id: dob, ignoremissing)
+    assert _rc == 0
+    replace grp = "zzz" in 30
+    capture datacheck, gatesonly constant(id: grp) warn violations(dg_cn, replace)
+    frame dg_cn: assert observed[1] == "1 keys vary"
+    capture datacheck, gatesonly constant(id sex)
+    assert _rc == 198
+}
+_dg `=_rc' "constant(): missing next to a value is a second value unless ignoremissing; strings work"
+capture frame drop dg_cn
+
+* ============================================================
+* 14. stat(): sum n distinct pmiss ess ratio and a condition per entry (G4)
+* ============================================================
+* 100 rows: w = 1 on 50 rows and 3 on 50, so sum w = 200, sum w^2 = 500
+* and Kish ess = 200^2 / 500 = 80.  x is missing on 10 rows (pmiss 0.1,
+* n 90); g takes 7 distinct values; d sums to 20; ev/py = 20 / 1000.
+capture program drop _dg_stats
+program define _dg_stats
+    clear
+    set obs 100
+    gen long id = _n
+    gen double w = cond(_n <= 50, 1, 3)
+    gen double x = _n
+    replace x = . if _n > 90
+    gen byte g = mod(_n, 7)
+    gen byte d = _n <= 20
+    gen double py = 10
+    gen byte grp = cond(_n <= 50, 1, 2)
+end
+_dg_stats
+capture frame drop dg_st
+capture {
+    capture datacheck, gatesonly stat(sum d 20 20 \ n x 90 90 \ distinct g 7 7 \ ///
+        pmiss x 0.1 0.1 \ ess w 79.999999 80.000001 \ ratio d py 0.02 0.02)
+    assert _rc == 0
+    capture datacheck, gatesonly stat(ess w 81 90 \ ratio d py 0.03 0.04) warn violations(dg_st, replace)
+    frame dg_st: assert _N == 2
+    frame dg_st: assert observed[1] == "ess 80" & observed[2] == "ratio .02"
+    frame dg_st: assert strpos(message[2], "stat(ratio d/py):") == 1
+}
+_dg `=_rc' "stat(): sum, n, distinct, pmiss, Kish ess and ratio equal their hand values"
+
+_dg_stats
+capture {
+    * the entry if restricts that entry only: x among id <= 50 has mean 25.5
+    capture datacheck, gatesonly stat(mean x 25.5 25.5 if grp == 1 \ n x 90 90)
+    assert _rc == 0
+    * a comma inside the condition survives
+    capture datacheck, gatesonly stat(n x 10 10 if inrange(id, 1, 10))
+    assert _rc == 0
+    * zero rows: n and sum are 0; pmiss has no value and fails
+    capture datacheck, gatesonly stat(n x 0 0 if id > 1000 \ sum d 0 0 if id > 1000)
+    assert _rc == 0
+    capture datacheck, gatesonly stat(pmiss x 0 1 if id > 1000) warn violations(dg_st, replace)
+    frame dg_st: assert strpos(observed[1], "no rows in scope") > 0
+    * the call's if combines with the entry's
+    capture datacheck if grp == 2, gatesonly stat(n x 20 20 if id <= 70)
+    assert _rc == 0
+}
+_dg `=_rc' "stat(): per-entry conditions, commas in conditions, and zero-row statistics"
+
+_dg_stats
+capture {
+    capture datacheck, gatesonly stat(sum d 0 1) maskrare warn violations(dg_st, replace)
+    frame dg_st: assert observed[1] == "sum 20"
+    replace d = 0 if _n > 3
+    capture datacheck, gatesonly stat(sum d 0 1) maskrare warn violations(dg_st, replace)
+    frame dg_st: assert observed[1] == "sum <5"
+    capture datacheck, gatesonly stat(ratio d py 0 1 2)
+    assert _rc == 198
+    capture datacheck, gatesonly stat(mode x 0 1)
+    assert _rc == 198
+}
+_dg `=_rc' "stat(): a small sum is masked; malformed ratio and unknown statistics are errors"
+capture frame drop dg_st
+
+* ============================================================
+* 15. inrange(): several variables per bound pair, open bounds (G6)
+* ============================================================
+clear
+set obs 20
+gen double a = _n / 2
+gen double b = _n
+gen double c = cond(_n == 1, -100, 3)
+replace c = 6 in 2
+gen dt = td(01jan2020) + 30 * (_n - 1)
+format dt %td
+capture frame drop dg_ir
+capture {
+    * a is in [0, 10]; b has 11..20 above 10
+    capture datacheck, gatesonly inrange(a b 0 10) warn violations(dg_ir, replace)
+    frame dg_ir: assert _N == 1 & variable[1] == "b" & strpos(observed[1], "10 outside") == 1
+    * an open lower bound: -100 is fine, 6 is above 5
+    capture datacheck, gatesonly inrange(c . 5) warn violations(dg_ir, replace)
+    frame dg_ir: assert _N == 1 & strpos(observed[1], "1 outside") == 1
+    capture datacheck, gatesonly inrange(c . .)
+    assert _rc == 198
+    * a date written as a string bound parses as a date (r(198) in 1.7.1)
+    * 20 dates from 01jan2020 by 30 days: the last is 06jul2021, so the
+    * dates after 31dec2020 are rows 14..20 (7 rows)
+    capture datacheck, gatesonly inrange(dt 01jan2020 31dec2020) warn violations(dg_ir, replace)
+    assert _rc == 0
+    frame dg_ir: assert strpos(observed[1], "7 outside") == 1
+    capture datacheck, gatesonly inrange(dt 01jan2020 31dec2021)
+    assert _rc == 0
+}
+_dg `=_rc' "inrange(): a bound pair covers several variables, '.' is open, and date strings parse"
+capture frame drop dg_ir
+
+* ============================================================
+* 16. bands() and bandwarn: invariants and bands in one call (E1)
+* ============================================================
+_dg_flags
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly isid(flag) bands(stat(mean x 0 1)) bandwarn
+local brc = _rc
+local nerr = r(n_errors)
+local nwarn = r(n_warnings)
+log close _dgq
+capture {
+    * band_invariant_split: the failing band warns, the failing invariant halts
+    assert `brc' == 9 & `nerr' == 1 & `nwarn' == 1
+    _dg_count "`lg'" "BAND WARNINGS (1)"
+    assert r(n) == 1
+    _dg_count "`lg'" "EXPECTATION VIOLATIONS (1)"
+    assert r(n) == 1
+}
+_dg `=_rc' "bandwarn: a failing band warns while a failing invariant in the same call halts"
+
+_dg_flags
+capture {
+    capture datacheck, gatesonly isid(id) bands(stat(mean x 0 1)) bandwarn
+    assert _rc == 0 & r(n_warnings) == 1 & r(n_errors) == 0
+    capture datacheck, gatesonly isid(id) bands(stat(mean x 0 1))
+    assert _rc == 9
+    capture datacheck, gatesonly isid(flag) bands(stat(mean x 0 1)) warn
+    assert _rc == 0 & r(n_warnings) == 2
+    capture datacheck, gatesonly bands(isid(id))
+    assert _rc == 198
+    capture datacheck, gatesonly bands(expectn(20) inrange(x 1 20)) bandwarn
+    assert _rc == 0 & r(n_warnings) == 0
+    capture datacheck, gatesonly bands(expectn(30 40)) bandwarn violations(dg_bd, replace)
+    frame dg_bd: assert kind[1] == "band" & severity[1] == "warning"
+}
+_dg `=_rc' "bands(): production halts on a band, bare warn downgrades both, invariants are refused inside bands()"
+capture frame drop dg_bd
+
+* ============================================================
+* 17. review(), complete(), jumps(): printed, never halting (R1 R5 P3)
+* ============================================================
+_dg_flags
+replace x = . in 1/2
+gen double y = _n
+replace y = . in 3/5
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly review("small": x < 5) complete(x y)
+local rrc = _rc
+local nrev = r(n_reviews)
+log close _dgq
+capture {
+    assert `rrc' == 0 & `nrev' == 2
+    * x = 3, 4 are below 5 (rows 1-2 are missing): 2 of 20 rows
+    _dg_count "`lg'" "review(small): 2 of 20 rows (10.0%)"
+    assert r(n) == 1
+    * complete over x y: rows 6..20 are complete, 15 of 20
+    _dg_count "`lg'" "complete(x y): 15 of 20 (75.0%) complete"
+    assert r(n) == 1
+    capture datacheck, gatesonly complete(x y, min(0.8))
+    assert _rc == 9
+    capture datacheck, gatesonly complete(x y, min(0.7))
+    assert _rc == 0
+}
+_dg `=_rc' "review() and complete() print hand counts and never halt; complete(min()) is a gate"
+
+capture {
+    clear
+    set obs 20
+    gen long id = ceil(_n / 4)
+    bysort id: gen byte t = _n
+    gen double v = 10
+    replace v = 200 if id == 2 & t == 3
+    capture datacheck, gatesonly jumps(id t v) warn violations(dg_jp, replace)
+    assert _rc == 0 & r(n_reviews) == 1 & r(n_violations) == 0
+    * 10 -> 200 and 200 -> 10 are both jumps, in one person
+    capture log close _dgq
+    log using "`lg'", text replace name(_dgq)
+    capture noisily datacheck, gatesonly jumps(id t v, ratio(10))
+    log close _dgq
+    _dg_count "`lg'" "jumps(v): 2 consecutive pairs in 1 persons"
+    assert r(n) == 1
+    capture datacheck, gatesonly jumps(id t v, ratio(1))
+    assert _rc == 198
+}
+_dg `=_rc' "jumps(): both sides of a jump are counted; ratio() must exceed 1"
+capture frame drop dg_jp
+
+* ============================================================
+* 18. heaping() and coverage(): placeholder dates, truncated deliveries (R2 R4)
+* ============================================================
+* 1000 dates: 100 on 1 Jan 2020, 40 on 1 Feb, 60 on 15 Mar, 800 on 7 Apr.
+* Shares: 1 January 10%, the 1st 14%, the 15th 6%.
+clear
+set obs 1000
+gen dt = td(07apr2020)
+replace dt = td(01jan2020) in 1/100
+replace dt = td(01feb2020) in 101/140
+replace dt = td(15mar2020) in 141/200
+format dt %td
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly heaping(dt)
+local hrc = _rc
+log close _dgq
+capture {
+    assert `hrc' == 0
+    _dg_count "`lg'" "10.00%*"
+    assert r(n) == 1
+    * 14% on the 1st is below 5 x 3.29% = 16.4%, so it is not marked
+    _dg_count "`lg'" "14.00%*"
+    assert r(n) == 0
+    _dg_count "`lg'" "14.00%"
+    assert r(n) == 1
+    _dg_count "`lg'" "6.00%"
+    assert r(n) == 1
+    _dg_count "`lg'" "6.00%*"
+    assert r(n) == 0
+    * placeholder_dates: a 2% ceiling on the 1 January share halts
+    capture datacheck, gatesonly heaping(dt, max(0.02))
+    assert _rc == 9
+    capture datacheck, gatesonly heaping(dt, max(0.2 0.2 0.1))
+    assert _rc == 0
+    capture datacheck, gatesonly heaping(dt, max(0.2 0.1))
+    assert _rc == 9
+}
+_dg `=_rc' "heaping(): hand shares and marks; max() gates the 1 January share, and the 1st with two numbers"
+
+capture program drop _dg_cov
+program define _dg_cov
+    clear
+    set obs `=td(31dec2020) - td(01jan2015) + 1'
+    gen dt = td(01jan2015) + _n - 1
+    format dt %td
+end
+_dg_cov
+capture frame drop dg_cv
+capture {
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(60) years)
+    assert _rc == 0
+    * truncated_delivery: the file stops 730 days before its end
+    drop if dt > td(31dec2020) - 730
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(60)) violations(dg_cv, replace)
+    assert _rc == 9
+    frame dg_cv: assert _N == 1 & label[1] == "late_end" & kind[1] == "band"
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(60)) bandwarn
+    assert _rc == 0
+}
+_dg `=_rc' "coverage(): a truncated delivery fails late_end; coverage() is a band, so bandwarn warns"
+
+_dg_cov
+capture {
+    * missing_year: no rows in 2017
+    drop if year(dt) == 2017
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(60) years) warn violations(dg_cv, replace)
+    frame dg_cv: assert _N == 1 & label[1] == "year_gap" & observed[1] == "no rows in 2017"
+    _dg_cov
+    set obs `=_N + 3'
+    replace dt = td(15jun2014) if missing(dt)
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(60))
+    assert _rc == 9
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020, gap(600) tail(0.01))
+    assert _rc == 0
+    capture datacheck, gatesonly coverage(dt 01jan2015 31dec2020)
+    assert _rc == 198
+    gen double tc = cofd(dt)
+    format tc %tc
+    capture datacheck, gatesonly coverage(tc 01jan2015 31dec2020, gap(60))
+    assert _rc == 198
+}
+_dg `=_rc' "coverage(): a missing year and out-of-window dates fail; gap() is required; %tc is refused"
+capture frame drop dg_cv
+
+* ============================================================
+* 19. groupstat(): a statistic by group against the pooled value (R3)
+* ============================================================
+* 3 sites x 2 years, 30 rows each; site 3 in 2020 reports in the wrong unit
+capture program drop _dg_lab
+program define _dg_lab
+    clear
+    set seed 11
+    set obs 180
+    gen byte site = ceil(_n / 60)
+    gen int year = 2019 + mod(_n, 2)
+    gen double bcell = 50 + 10 * rnormal()
+    replace bcell = bcell * 1000 if site == 3 & year == 2020
+end
+_dg_lab
+capture frame drop dg_gs
+capture {
+    capture datacheck, gatesonly groupstat(median bcell, by(site year) band(0.05 20) relative) ///
+        violations(dg_gs, replace)
+    assert _rc == 9
+    frame dg_gs: assert _N == 1 & strpos(group[1], "3 2020") > 0
+    capture datacheck, gatesonly groupstat(median bcell, by(site year))
+    assert _rc == 0 & r(n_reviews) == 1
+}
+_dg `=_rc' "groupstat(relative): a laboratory unit switch in one site-year halts; without band() it is a review"
+
+_dg_lab
+capture {
+    * oracle: summarize, detail within each group; a band around group
+    * (1, 2019)'s median passes that group only, and every other failing
+    * cell reports its own median
+    quietly summarize bcell if site == 1 & year == 2019, detail
+    local m11 = r(p50)
+    local lo = `m11' - 1e-9
+    local hi = `m11' + 1e-9
+    capture datacheck, gatesonly groupstat(median bcell, by(site year) band(`lo' `hi')) ///
+        warn violations(dg_gs, replace)
+    frame dg_gs: assert _N == 5
+    foreach s in 1 2 3 {
+        foreach y in 2019 2020 {
+            if `s' == 1 & `y' == 2019 continue
+            quietly summarize bcell if site == `s' & year == `y', detail
+            local ms = strtrim(string(r(p50), "%10.4g"))
+            frame dg_gs: count if strpos(group, "`s' `y'") > 0 & observed == "median `ms'"
+            assert r(N) == 1
+        }
+    }
+}
+_dg `=_rc' "groupstat(): each group's median equals summarize, detail within the group"
+
+clear
+set obs 43
+gen byte g = cond(_n <= 20, 1, cond(_n <= 40, 2, 3))
+gen double x = cond(mod(_n, 4) == 0, ., _n)
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly groupstat(pmiss x, by(g)) maskrare
+log close _dgq
+capture {
+    * group 3 has 3 rows: pooled away under the mask of 5
+    _dg_count "`lg'" "groups with <5 rows: 1"
+    assert r(n) == 1
+    * the pmiss computation is the one datamvp bytable() reads
+    quietly datamvp x, bytable(g) nosummary notable
+    matrix M = r(miss_by)
+    * hand: group 1 rows 4 8 12 16 20 missing (5 of 20); group 2 rows
+    * 24 28 32 36 40 (5 of 20); group 3 rows 41-43 none
+    assert !missing(M[1, 1], M[1, 2], M[1, 3])
+    assert reldif(M[1, 1], 25) < 1e-12 & reldif(M[1, 2], 25) < 1e-12 & M[1, 3] == 0
+    capture datacheck, gatesonly groupstat(pmiss x, by(g) band(0.3 1)) warn violations(dg_gs, replace)
+    frame dg_gs: count if observed == "pmiss .25"
+    assert r(N) == 2
+}
+_dg `=_rc' "groupstat(pmiss): small groups pooled under the mask; values agree with datamvp bytable()"
+capture frame drop dg_gs
+
+* ============================================================
+* 20. sets(): matched-set structure (P3)
+* ============================================================
+clear
+set obs 50
+gen long set_id = ceil(_n / 5)
+bysort set_id: gen byte exposure = (_n == 1)
+gen index_dt = td(01jan2020) + set_id
+capture frame drop dg_ms
+capture {
+    capture datacheck, gatesonly sets(set_id exposure, k(4) index(index_dt))
+    assert _rc == 0
+    * rows 11-15 are set 3 (row 11 exposed); rows 21-25 are set 5
+    replace exposure = 1 in 12
+    replace index_dt = index_dt + 1 in 25
+    capture datacheck, gatesonly sets(set_id exposure, k(4) index(index_dt)) warn violations(dg_ms, replace)
+    * set 3 now has 2 exposed and 3 unexposed rows; set 5 has two index dates
+    frame dg_ms: count if label == "exposed" & observed == "1 sets"
+    assert r(N) == 1
+    frame dg_ms: count if label == "unexposed" & observed == "1 sets"
+    assert r(N) == 1
+    frame dg_ms: count if label == "index" & observed == "1 sets"
+    assert r(N) == 1
+}
+_dg `=_rc' "sets(): one set with two exposed, and one with two index dates, are named per check"
+capture frame drop dg_ms
+
+* ============================================================
+* 21. checks() rows for the 1.8.0 families
+* ============================================================
+_dg_events
+tempfile spec2 dg_ids2
+preserve
+keep id
+save "`dg_ids2'", replace
+clear
+input str12 gate str20 var str40 pattern str20 values str10 arg1 str10 arg2 str8 kind
+"events"   "mstype"     ""           "_d"        ""      ""     ""
+"keyset"   "id"         ""           "PLACEHOLD" ""      ""     ""
+"constant" "sx"         ""           "id"        ""      ""     ""
+"stat"     "id"         "id <= 30"   "n"         "30"    "30"   ""
+"stat"     "_d"         ""           "sum"       "0"     "1"    "band"
+"review"   "early"      "id < 10"    ""          ""      ""     ""
+"complete" "mstype sx"  ""           ""          "0.9"   ""     ""
+"intervals" "id mstype grp" ""       ""          ""      ""     ""
+end
+replace values = "`dg_ids2'" if gate == "keyset"
+save "`spec2'", replace
+restore
+capture {
+    capture datacheck, gatesonly checks("`spec2'") bandwarn
+    local rc_spec = _rc
+    local v_spec "`r(violations)'"
+    local c_spec "`r(checks_run)'"
+    capture datacheck, gatesonly events(_d: mstype) keyset(id using "`dg_ids2'") ///
+        constant(id: sx) stat(n id 30 30 if id <= 30) bands(stat(sum _d 0 1)) ///
+        review("early": id < 10) complete(mstype sx, min(0.9)) ///
+        intervals(id mstype grp) bandwarn
+    assert _rc == `rc_spec'
+    assert "`r(violations)'" == "`v_spec'"
+    assert "`r(checks_run)'" == "`c_spec'"
+    assert strpos("`v_spec'", "stat events intervals") == 1
+}
+_dg `=_rc' "checks(): 1.8.0 family rows, including a band row, reproduce the inline verdict"
+
+* ============================================================
+* 22. the verdict names the dataset; minversion() (E3 E4)
+* ============================================================
+_dg_flags
+local dgfile "`c(tmpdir)'/dg_named_fixture.dta"
+quietly save "`dgfile'", replace
+use "`dgfile'", clear
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+datacheck, gatesonly isid(id) maskrare
+replace x = x + 1
+datacheck, gatesonly isid(id)
+datacheck, gatesonly isid(id) name(flags, restricted)
+log close _dgq
+capture {
+    _dg_count "`lg'" "PASS: dg_named_fixture, 1 gate(s) (isid), N = 20, 0 violations [masked <5]"
+    assert r(n) == 1
+    _dg_count "`lg'" "PASS: dg_named_fixture (modified), 1 gate(s) (isid), N = 20, 0 violations"
+    assert r(n) == 1
+    _dg_count "`lg'" "PASS: flags, restricted, 1 gate(s)"
+    assert r(n) == 1
+}
+_dg `=_rc' "PASS line: dataset basename, (modified) after a change, name() override, active masking"
+capture erase "`dgfile'"
+
+capture {
+    clear
+    capture datacheck, minversion(1.8.0)
+    assert _rc == 0
+    local v = "`r(version)'"
+    findfile datacheck.ado
+    tempname fh
+    file open `fh' using "`r(fn)'", read text
+    file read `fh' line
+    file close `fh'
+    assert regexm(`"`line'"', "Version `v' ")
+    capture datacheck, minversion(99.0)
+    assert _rc == 198
+    capture datacheck, minversion(1.8.0.1.2)
+    assert _rc == 198
+    capture datacheck, minversion(1.7)
+    assert _rc == 0
+    sysuse auto, clear
+    capture datacheck, gatesonly isid(make)
+    assert "`r(version)'" == "`v'"
+}
+_dg `=_rc' "minversion(): answers without data, refuses a newer request, and r(version) matches the header"
+
+* ============================================================
+* 23. gatesonly fast path: same verdicts as the profile (F1)
+* ============================================================
+capture program drop _dg_parity
+program define _dg_parity
+    clear
+    set seed 3
+    set obs 300
+    gen long id = ceil(_n / 3)
+    bysort id: gen start = _n * 10
+    gen stop = start + 10
+    replace stop = start in 7
+    gen byte _d = runiform() < 0.2
+    gen byte grp = mod(id, 4)
+    forvalues j = 1/10 {
+        gen double z`j' = rnormal()
+    }
+    gen str3 s = cond(_n <= 150, "a", "b")
+    replace grp = 9 in 5
+end
+local pcall `"isid(id start) rule("ok": start < stop) inrange(z1 -3 3) allowed(grp 0 1 2 3) stat(mean z2 -0.1 0.1 \ sum _d 50 70) events(_d: grp s) intervals(id start stop) constant(id: grp) warn"'
+capture {
+    _dg_parity
+    capture datacheck, gatesonly `pcall' violations(dg_p1, replace)
+    local g1 "`r(checks_run)'"
+    capture datacheck id start stop z1 z2 grp _d s, gatesonly `pcall' violations(dg_p2, replace)
+    local g2 "`r(checks_run)'"
+    capture quietly datacheck, `pcall' violations(dg_p3, replace)
+    local g3 "`r(checks_run)'"
+    assert "`g1'" == "`g2'" & "`g1'" == "`g3'"
+    frame dg_p1: assert _N >= 4
+    foreach f in dg_p2 dg_p3 {
+        frame dg_p1: local n1 = _N
+        frame `f': assert _N == `n1'
+        forvalues j = 1/`n1' {
+            frame dg_p1: local m1 = message[`j']
+            frame `f': assert message[`j'] == `"`m1'"'
+        }
+    }
+}
+_dg `=_rc' "gatesonly fast path, gatesonly with a varlist, and profile mode give identical gate records"
+foreach f in dg_p1 dg_p2 dg_p3 {
+    capture frame drop `f'
+}
+
+* by(): the one-sort key tags still judge each group on its own rows (F3)
+capture {
+    clear
+    set obs 40
+    gen byte grp = cond(_n <= 20, 1, 2)
+    gen long id = _n
+    replace id = 22 in 21
+    gen byte v = 1
+    replace v = 2 in 1/20
+    capture datacheck, gatesonly by(grp) isid(id) warn violations(dg_f3, replace)
+    frame dg_f3: assert _N == 1 & strpos(group[1], "group 2") > 0
+    * rows 1 and 2 identical within group 1 only
+    replace id = 1 in 2
+    capture datacheck, gatesonly by(grp) nodups warn violations(dg_f3, replace)
+    frame dg_f3: assert _N == 2
+    frame dg_f3: count if strpos(group, "group 1") > 0
+    assert r(N) == 1
+}
+_dg `=_rc' "by(): isid and nodups flag only the group holding the duplicate"
+capture frame drop dg_f3
+
+* ============================================================
+* 24. 1.8.0 review round: parser, parity, nested intervals, checks kinds
+* ============================================================
+capture {
+    clear
+    set obs 20
+    gen double x = _n
+    gen str1 s = cond(_n <= 10, "a", "b")
+    gen byte d = mod(_n, 2)
+    gen byte g = mod(_n, 3)
+    * a string literal inside a per-entry condition: x in rows 1-10 has
+    * mean 5.5; r(111) in the first 1.8.0 build
+    capture datacheck, gatesonly stat(mean x 5.5 5.5 if s == "a")
+    assert _rc == 0
+    capture datacheck, gatesonly events(d if s == "a": g)
+    assert _rc == 0
+    capture datacheck, gatesonly groupstat(mean x, by(g) if s == "b")
+    assert _rc == 0
+    capture datacheck, gatesonly groupstat(mean x, by(nosuchvar))
+    assert _rc == 111
+}
+_dg `=_rc' "stat(), events(), groupstat(): a string literal in the entry's if condition is kept"
+
+capture {
+    * nodups compares the varlist and the option varlists on every path:
+    * a and k together are distinct, a alone is not
+    clear
+    set obs 10
+    gen byte a = 1
+    gen long k = _n
+    capture datacheck a, gatesonly nodups id(k)
+    local rf = _rc
+    capture quietly datacheck a, nodups id(k)
+    local rp = _rc
+    assert `rf' == `rp' & `rf' == 0
+    capture datacheck a, gatesonly nodups exclude(k)
+    local rf = _rc
+    capture quietly datacheck a, nodups exclude(k)
+    assert _rc == `rf'
+}
+_dg `=_rc' "gatesonly fast path: nodups with a varlist compares id()/exclude() columns like the profile"
+
+capture {
+    * nested: (0,100) holds (10,20) and (30,40); the latest earlier stop is
+    * 100, so rows 2 and 3 overlap and no gap exists
+    clear
+    set obs 3
+    gen long id = 1
+    gen double start = cond(_n == 1, 0, cond(_n == 2, 10, 30))
+    gen double stop = cond(_n == 1, 100, cond(_n == 2, 20, 40))
+    capture datacheck, gatesonly intervals(id start stop, contiguous) warn violations(dg_nv, replace)
+    frame dg_nv: assert _N == 1 & label[1] == "overlap" & observed[1] == "2 intervals in 1 persons"
+}
+_dg `=_rc' "intervals(): a nested interval is compared with the latest earlier stop"
+capture frame drop dg_nv
+
+_dg_flags
+tempfile spec3
+preserve
+clear
+set obs 1
+gen str8 gate = "stat"
+gen str8 var = "x"
+gen str8 values = "mean"
+gen str8 arg1 = "0"
+gen str8 arg2 = "1"
+gen str8 kind = "review"
+save "`spec3'", replace
+restore
+capture {
+    capture datacheck, gatesonly checks("`spec3'")
+    assert _rc == 198
+}
+_dg `=_rc' "checks(): kind review is refused; only invariant and band rows exist"
 
 * ============================================================
 * Summary

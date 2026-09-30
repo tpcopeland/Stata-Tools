@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 2.0.1  2026/08/28
+*! _gcomp_bootstrap_impl Version 2.0.2  2026/09/30
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Original author: Rhian Daniel

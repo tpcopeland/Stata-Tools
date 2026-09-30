@@ -1,6 +1,6 @@
 # datamap QA
 
-The suite covers the four public commands: `datamap`, `datadict`, `datacheck`, and `datamvp`. The curated runner defaults to the full lane; every suite can also be run directly from `qa/`.
+The suite covers the five public commands: `datamap`, `datadict`, `datacheck`, `dataqa`, and `datamvp`. The curated runner defaults to the full lane; every suite can also be run directly from `qa/`.
 
 ## How to run
 
@@ -8,6 +8,7 @@ The suite covers the four public commands: `datamap`, `datadict`, `datacheck`, a
 cd datamap/qa
 stata-mp -b do run_all.do
 stata-mp -b do run_all.do quick
+stata-mp -b do run_all.do benchmark
 stata-mp -b do test_regressions.do
 ```
 
@@ -36,7 +37,7 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_paths.do` | Parenthesized metadata paths across metadata writers. |
 | `test_datamap_float_format.do` | Stable numeric formatting and gate messages. |
 | `test_datamap_golden.do` | Normalized golden text and Markdown outputs. |
-| `test_datamap_privacy.do` | Exclusions, small-cell protection, and JSON privacy. |
+| `test_datamap_privacy.do` | Exclusions, small-cell protection, JSON privacy, and the `maskrare` contract: masked gate counts, `isid()` derived counts, profile and groupwise blocks, complementary suppression, the `patterns` table, the ledger, and the masking tag. |
 | `test_datamap_v2.do` | Historical map and dictionary behavior. |
 | `test_datamap_v11.do` | Classification, stored results, and validation regressions. |
 | `test_datamap_v15.do` | Config, metadata, schema comparison, and shared contracts. |
@@ -45,11 +46,13 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `test_datamap_v160.do` | Capped unique counts, frame-based writers, and the shared counter. |
 | `test_datamap_v168.do` | Hostile text payloads, graph-label round-trips, helper state restoration, help widths, and QA-index synchronization. |
 | `test_datamap_v169.do` | Left-justified date formats, exclude() privacy in the description and detectors, JSON control-character escaping, caller matrices, small-scale and float-level display, exact strL counts, saving() caps, hostile string levels, float-precision gates, datamvp tie order and float-level gby()/over() graphs, datacheck exclude() consistency, JSON refusal of text-only sections, missing(pattern), and string categorical frequencies. |
-| `test_datamap_v171.do` | Review F01–F08: date-safe metadata in memory/file daily/datetime routes, exact double counts, separate destination collision refusal, deferred grouping, complete-data sorting, caller scratch-name collisions, config/console parity, and tetrachoric fallback diagnostics. |
+| `test_datamap_v171.do` | Date-safe metadata in memory/file daily/datetime routes, exact double counts, separate destination collision refusal, deferred grouping, complete-data sorting, caller scratch-name collisions, config/console parity, and tetrachoric fallback diagnostics. |
+| `test_datamap_v180.do` | Date-string range bounds (ISO, slash, `%tm`, `%tc`) and refusal of a variable-name bound in `inrange()`, `stat()`, and `coverage()`; date-formatted extremes in `inrange()` messages; SCHEMA COMPARE N masking; `groupstat()` bands that test small groups under `maskrare`; `dataqa report` run attribution, `dataqa export` refusal reasons, and `dataqa compare` on withheld and zero baselines; `jumps()` independence from row order; zero counts under masking; `ledger()` and `dataqa set ledger()` quoting. |
 | `test_datadict_v14.do` | Markdown dictionary routes and metadata exports. |
 | `test_datacheck.do` | Profiles, gates, grouping, saved metadata, and privacy controls. |
-| `test_datacheck_gates.do` | `rule()`, `stat()`, and `binary()` gates, `checks()` rows for them, the PASS line, `r(singlelevel_vars)`, `maskrare` p1/p99 in place of extremes, silence under `quietly`, and `violations()`/`makespec()` to a new frame with `replace`. |
-| `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts. |
+| `test_datacheck_gates.do` | `rule()`, `stat()`, and `binary()` gates, `checks()` rows for them, the PASS line, `r(singlelevel_vars)`, `maskrare` p1/p99 in place of extremes, silence under `quietly`, and `violations()`/`makespec()` to a new frame with `replace`; the gate, band, and review families (`events()`, `intervals()`, `keyset()`, `constant()`, the `sum`, `n`, `distinct`, `pmiss`, `ess`, and `ratio` statistics of `stat()` and its per-entry conditions, multi-variable and open `inrange()`, `bands()`/`bandwarn`, `review()`, `complete()`, `jumps()`, `heaping()`, `coverage()`, `groupstat()`, `sets()`), their `checks()` rows, the named verdict, `minversion()`, and gate parity between the `gatesonly` fast path, the varlist form, and profile mode. |
+| `test_dataqa.do` | `dataqa set` and the precedence of explicit, session, and config defaults; `ledger()` rows; `dataqa report` against the golden register draft; `dataqa assert`, `export`, and `compare`; ledger error handling. |
+| `test_datamvp.do` | Missingness patterns, graphs, paths, and return contracts; pooling under `mincell()`, `top()` in the table, masked variable table and summary, comma widths, `bytable()`, and session defaults. |
 | `test_datamvp_labels.do` | Value-label and graph-label handling. |
 | `test_datamvp_oracle.do` | Hand-computable missing-pattern counts, filters, ordering, and monotonicity. |
 | `test_regressions.do` | Collision safety, strict graph parsing, return preservation, quoted paths and metadata, stable memory identity, and separate output. |
@@ -61,6 +64,12 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 |------|--------|
 | `validation_datamap.do` | Classification, output, and deterministic map invariants. |
 | `validation_datamvp.do` | Known-answer missing-pattern and stored-result checks. |
+
+### Benchmark suites
+
+| File | Covers |
+|------|--------|
+| `benchmark_gatesonly.do` | `gatesonly` cost on a 1M-row, 44-column interval file (fast path at most twice the varlist form; `by(year)` without the profile scan) and identical verdicts with and without a varlist. Timing only; run it in its own lane. |
 
 ### Runner
 
@@ -77,7 +86,8 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 |---------|------------|------------|-------------------|
 | `datamap` | `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | Documentation and help-render suites |
 | `datadict` | `test_datadict_v14.do`, `test_datamap*.do`, `test_regressions.do` | `validation_datamap.do` | `test_datamap_v168.do` hostile-text regressions |
-| `datacheck` | `test_datacheck.do`, `test_datamap_float_format.do`, `test_datamap_v15.do`, `test_regressions.do` | Invariants in `test_datacheck.do` | Documentation examples |
+| `datacheck` | `test_datacheck.do`, `test_datacheck_gates.do`, `test_datamap_privacy.do`, `test_datamap_float_format.do`, `test_datamap_v15.do`, `test_regressions.do` | Invariants in `test_datacheck.do`; hand-computed family oracles in `test_datacheck_gates.do` | Documentation examples, `benchmark_gatesonly.do` |
+| `dataqa` | `test_dataqa.do` | Golden register draft `golden/dataqa_report.md` | `test_datamap_privacy.do` (ledger masking) |
 | `datamvp` | `test_datamvp.do`, `test_datamvp_labels.do`, `test_regressions.do` | `validation_datamvp.do`, `test_datamvp_oracle.do` | `test_datamap_v168.do` hostile-label regressions |
 
 ## Lane membership
@@ -89,3 +99,4 @@ The runner reinstalls `datamap` from the package parent, redirects PLUS and PERS
 | `quick` | Primary command suites, exact error checks, high-value regressions, documentation examples, help rendering, and current-release regressions. |
 | `core` | Every functional, regression, help-render, and validation suite in the file index. |
 | `full` (default) | Currently the same suites as `core`; reserved for future external-oracle or slow coverage. |
+| `benchmark` | `benchmark_gatesonly.do` only; timing, never part of the release gate. |

@@ -1,9 +1,12 @@
 {smcl}
-{* *! version 1.7.1  29sep2026}{...}
+{* *! version 1.8.0  30sep2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
 {vieweralsosee "datadict" "help datadict"}{...}
+{vieweralsosee "datacheck" "help datacheck"}{...}
+{vieweralsosee "dataqa" "help dataqa"}{...}
+{vieweralsosee "datamvp" "help datamvp"}{...}
 {viewerjumpto "Syntax" "datamap##syntax"}{...}
 {viewerjumpto "Description" "datamap##description"}{...}
 {viewerjumpto "Options" "datamap##options"}{...}
@@ -108,6 +111,13 @@ Default output is aggregate-level. Frequency cells smaller than {opt mincell()}
 are suppressed by default. No cross-variable combinations or individual
 observations are exported unless you explicitly request sample rows with
 {opt samples()}.
+
+{pstd}
+The package has four more commands: {help datadict} writes a Markdown data
+dictionary, {help datacheck} profiles a dataset in the console and gates on
+declared expectations, {help dataqa} keeps a structured QA ledger over
+{cmd:datacheck} gate calls, and {help datamvp} tabulates missing-value
+patterns.
 
 {pstd}
 Your data in memory is unchanged by a successful run.
@@ -616,13 +626,14 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.7.1 {hline 2} 29sep2026{p_end}
+{pstd}Version 1.8.0 {hline 2} 30sep2026{p_end}
 
 
 {title:Also see}
 
 {psee}
-{help datadict}, {manlink D describe}, {manlink D codebook}, {manlink R summarize}
+{help datadict}, {help datacheck}, {help dataqa}, {help datamvp},
+{manlink D describe}, {manlink D codebook}, {manlink R summarize}
 {p_end}
 
 {hline}

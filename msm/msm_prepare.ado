@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.4.10  2026/09/27
+*! msm_prepare Version 1.4.11  2026/09/30
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -25,6 +25,7 @@ program define msm_prepare, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _caller_sorted : sortedby
     local _prep_preserved = 0
     set varabbrev off
     set more off
@@ -338,6 +339,12 @@ program define msm_prepare, rclass
     capture _msm_restore_order `_msm_orig_order'
     local _order_rc = _rc
     if `_rc' == 0 & `_order_rc' != 0 local _rc = `_order_rc'
+
+    * Restoring the physical sequence through a temporary variable clears the
+    * sortedby stamp; stable sorting retains the restored order within ties.
+    if `"`_caller_sorted'"' != "" {
+        sort `_caller_sorted', stable
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

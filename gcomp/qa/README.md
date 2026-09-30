@@ -1,5 +1,11 @@
 # gcomp QA
 
+archetypes: A1(gcomp) A3(gcomp) A6(gcomptab) A7(gcomptab)
+
+Canonical fixture adoption is incremental. `validation_fixture_recovery.do` uses A1-SAT to recover the exact standardized risks (49/120 and 11/20) with a saturated outcome model and deterministic `minsim`, and A1-LOGIT for 100,008-subject model recovery, including single-level and near-positivity targets. The transparent eofu adapter duplicates each subject into two visits and observes its unchanged point-treatment outcome only at visit two; it preserves the A1 intervention target. `test_fixture_contract.do` pairs exact SAT baselines with unsorted/sparse/multidigit relabel controls and adds collinear/absent-base nuisance-model controls, and tests native A3 duplicate keys and single-period refusal with successful two-visit limiting-case controls. Refusal checks fingerprint caller data/order, RNG, active estimates, matrices and settings and match the documented cause.
+
+The declaration retains the complete public scope and leaves unmet cells visible: native multi-period sequential-regime recovery, mediation/link/imputation/resampling routes and remaining model routes, the remaining A1/A3 hostile minima, and gcomptab A6/A7/file-writer cells are not discharged by these suites. Native A3-SEQ risk truth includes period-zero events; gcomp's default longitudinal outcome fit excludes its first visit, so those risk returns are not used as a mismatched oracle.
+
 `run_qa.py` is the canonical fail-closed orchestrator. It runs every Stata suite in a fresh process, resolves the package working tree through `_qa_bootstrap.do`, moves batch logs to a temporary artifact directory, requires an exact terminal `RESULT:` record, and rejects unexplained bootstrap/jackknife `x` or `e` progress markers. `lanes.json` is the machine-readable inventory and budget contract; `feature_matrix.csv` maps every comprehensive-audit requirement to an expected behavior, oracle, and executable gate.
 
 ## Commands
@@ -40,6 +46,9 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 
 | Suite | Class | Lane | Timeout | Dependency | Oracle or fixture | Generator / seed | Feature IDs |
 | --- | --- | --- | ---: | --- | --- | --- | --- |
+| `test_fixture_domains.do` | canonical option domains | quick | 300s | Stata | SAT rational risks; inside/outside domains and complete refusal fingerprints | 9141/9142 | commands/simulations/samples/seed/imp_cycles/modelstyle |
+| `test_fixture_contract.do` | canonical F/U | quick | 300s | Stata | SAT exact cells; SEQ structural refusals | 9141, 9145 | key/order/relabel/state |
+| `validation_fixture_recovery.do` | known-answer/recovery | core | 300s | Stata | A1-SAT exact and A1-LOGIT enumerated truth | 9141, 9143 | limiting-case causal risks |
 | `test_errors.do` | functional | quick | 600s | Stata | explicit return-code matrix | fixed seeds in suite | option error surface |
 | `test_audit_remediation.do` | adversarial/known-answer | quick | 2400s | Stata | 24 package-local audit probes | per-probe seeds | C01-C05, C07, C30, H01-H15, GCTAB-H02-H06, M01, M03 |
 | `test_expected_resampling_failure.do` | adversarial | quick | 300s | Stata | fail-closed rc plus bounded progress markers | 606 | C06, Q02 |

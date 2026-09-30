@@ -12,8 +12,8 @@ if "`extra'" != "" {
     display as error "run_all.do accepts at most one lane argument"
     exit 198
 }
-if !inlist("`mode'", "quick", "core", "full") {
-    display as error "lane must be quick, core, or full"
+if !inlist("`mode'", "quick", "core", "full", "benchmark") {
+    display as error "lane must be quick, core, full, or benchmark"
     exit 198
 }
 
@@ -26,13 +26,15 @@ local quick_suites ///
     test_datadict_v14.do ///
     test_datacheck.do ///
     test_datacheck_gates.do ///
+    test_dataqa.do ///
     test_datamvp.do ///
     test_regressions.do ///
     test_datamap_documentation_examples.do ///
     test_help_render.do ///
     test_datamap_v168.do ///
     test_datamap_v169.do ///
-    test_datamap_v171.do
+    test_datamap_v171.do ///
+    test_datamap_v180.do
 
 local core_suites ///
     `quick_suites' ///
@@ -52,8 +54,13 @@ local core_suites ///
     validation_datamap.do ///
     validation_datamvp.do
 
+* timing on a 1M-row file; never part of quick, core, or full
+local benchmark_suites ///
+    benchmark_gatesonly.do
+
 local suites "`core_suites'"
 if "`mode'" == "quick" local suites "`quick_suites'"
+if "`mode'" == "benchmark" local suites "`benchmark_suites'"
 
 local old_plus : sysdir PLUS
 local old_personal : sysdir PERSONAL

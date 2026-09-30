@@ -73,3 +73,9 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 | --- | --- |
 | `quick` | `test_diagtab.do`, `test_diagtab_errors.do`, `test_diagtab_documentation_examples.do` |
 | `full` | All quick suites plus `validation_diagtab.do` and `test_diagtab_oracle.do` |
+
+## Canonical fixture contract
+
+archetypes: A1(diagtab) A7(diagtab)
+
+`validation_diagtab_fixture_contract.do` runs in full: seven independently enumerated diagnostic-count/AUC and hostile-score/refusal-state cases from canonical A1-DIAG. Exact counts and rates use 1e-14; AUC uses 1e-7 because native `roctab` returns .8199999856948854 for exact .82 in the observed micro design. A7 export and primitive-hostility adoption is pending; declared archetypes report owed cells rather than claiming completion. Existing functional/validation export tests continue to run.

@@ -1,4 +1,4 @@
-*! _msm_crit_dist Version 1.4.10  2026/09/27
+*! _msm_crit_dist Version 1.4.11  2026/09/30
 *! Two-sided critical value and p-value distribution from the fit's inference
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

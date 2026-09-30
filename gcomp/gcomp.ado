@@ -1,4 +1,4 @@
-*! gcomp Version 2.0.1  2026/08/28
+*! gcomp Version 2.0.2  2026/09/30
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -91,6 +91,8 @@ capture program drop gcomp
 program define gcomp, eclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
+local _gc_rng_caller `"`c(rngstate)'"'
+local _gc_rng_restore = 0
 set varabbrev off
 * A failed estimation command must leave the caller's previously active e()
 * result intact.  Hold before preserve so the hidden e(sample) marker is part
@@ -112,6 +114,8 @@ foreach _gc_matrix_name of local _gc_literal_matrices {
 	}
 }
 capture noisily {
+* Any RNG use below is transactional until estimates have posted successfully.
+local _gc_rng_restore = 1
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
 	    Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat dynamic eofu pooled death(varname) ///
 	    derived(varlist) derrules(string) STRUCTural(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
@@ -3398,6 +3402,9 @@ foreach _gc_matrix_name of local _gc_literal_matrices {
 	}
 }
 
+* A refusal must not leave seed validation, imputation, or partial simulation
+* draws in the caller's RNG stream. Successful draw order is unchanged.
+if `_gc_rc' & `_gc_rng_restore' set rngstate `_gc_rng_caller'
 * Restore settings
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'

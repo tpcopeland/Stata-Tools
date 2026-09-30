@@ -1661,6 +1661,326 @@ else {
 
 
 * =========================================================================
+* 1.8.0: SMALL-CELL CONTROL, POOLED ROW, top() TABLE CAP, bytable(), WIDTHS
+* =========================================================================
+
+* Helper: read the pattern table of a closed text log.  Returns the number of
+* shown pattern rows, the sum of their frequencies, how many print a
+* frequency from 1 to 4, and the pooled row's frequency text.
+capture program drop _mvp_tab
+program define _mvp_tab, rclass
+    version 16.0
+    args file
+    tempname fh
+    local in = 0
+    local nshown = 0
+    local sum = 0
+    local small = 0
+    local pooled ""
+    file open `fh' using `"`file'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local L `"`macval(line)'"'
+        if strpos(`"`L'"', "_pattern") & strpos(`"`L'"', "_freq") local in = 1
+        else if `in' & regexm(`"`L'"', "^ *\+-") local in = 0
+        else if `in' & regexm(`"`L'"', "^ *\| ") {
+            local t = strtrim(subinstr(`"`L'"', "|", " ", .))
+            local nw : word count `t'
+            local f : word `nw' of `t'
+            if strpos(`"`t'"', "other patterns") local pooled "`f'"
+            else {
+                local ++nshown
+                local num = real(subinstr("`f'", ",", "", .))
+                local sum = `sum' + `num'
+                if `num' >= 1 & `num' < 5 local ++small
+            }
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar nshown = `nshown'
+    return scalar sum = `sum'
+    return scalar small = `small'
+    return local pooled "`pooled'"
+end
+
+capture program drop _mvp_count
+program define _mvp_count, rclass
+    version 16.0
+    args file needle
+    tempname fh
+    local n 0
+    file open `fh' using `"`file'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', `"`needle'"') local ++n
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar n = `n'
+end
+
+capture program drop _mvp_bench
+program define _mvp_bench
+    clear
+    set seed 2
+    set obs 10000
+    forvalues j = 1/8 {
+        gen double x`j' = rnormal()
+        replace x`j' = . if runiform() < 0.05 * `j'
+    }
+end
+tempfile mvlog
+
+* D3: no displayed frequency below 5; displayed + pooled = N; oracle from save()
+local ++test_count
+capture noisily {
+    _mvp_bench
+    quietly datamvp x1-x8, save(mvp_oracle) nosummary notable
+    local P = r(N_patterns)
+    frame mvp_oracle {
+        quietly count if freq < 5
+        local n_small = r(N)
+        quietly count if freq >= 5
+        local n_big = r(N)
+        gsort -freq
+        quietly generate long _rk = sum(freq >= 5)
+        quietly summarize freq if freq >= 5 & _rk <= 20, meanonly
+        local shown_sum = r(sum)
+    }
+    local pooled_n = `n_small' + max(0, `n_big' - 20)
+    capture log close _mv
+    log using "`mvlog'", text replace name(_mv)
+    datamvp x1-x8, mincell(5) nosummary
+    local rP = r(N_patterns)
+    local rpool = r(N_patterns_pooled)
+    log close _mv
+    _mvp_tab "`mvlog'"
+    assert r(small) == 0
+    assert r(nshown) == min(20, `n_big')
+    assert r(sum) == `shown_sum'
+    assert r(sum) + real(subinstr("`r(pooled)'", ",", "", .)) == 10000
+    assert `rP' == `P'
+    assert `rpool' == `pooled_n'
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': mincell(5): no shown frequency below 5, pooled + shown = N, pooled count matches save()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': D3 pooled pattern row (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop mvp_oracle
+
+* M3: top() caps the table without masking; the rest are pooled
+local ++test_count
+capture noisily {
+    _mvp_bench
+    quietly datamvp x1-x8, save(mvp_oracle) nosummary notable
+    local P = r(N_patterns)
+    frame mvp_oracle {
+        gsort -freq
+        quietly summarize freq in 1/5, meanonly
+        local top5 = r(sum)
+    }
+    capture log close _mv
+    log using "`mvlog'", text replace name(_mv)
+    datamvp x1-x8, top(5) nosummary
+    local rpool = r(N_patterns_pooled)
+    log close _mv
+    _mvp_tab "`mvlog'"
+    assert r(nshown) == 5
+    assert r(sum) == `top5'
+    assert real(subinstr("`r(pooled)'", ",", "", .)) == 10000 - `top5'
+    assert `rpool' == `P' - 5
+    * top() is refused only for another graph type
+    capture datamvp x1-x8, top(5) graph(bar) nodraw
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': top(5) shows the five largest patterns and pools the rest"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': M3 top() table cap (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop mvp_oracle
+
+* D3: the variable table, summary, and pooled total under a mask
+local ++test_count
+capture noisily {
+    clear
+    set obs 40
+    gen double a = _n
+    replace a = . in 1/2
+    gen double b = cond(_n <= 38, ., 1)
+    capture log close _mv
+    log using "`mvlog'", text replace name(_mv)
+    datamvp a b, maskrare
+    local rmk = r(masked)
+    log close _mv
+    assert `rmk' == 1
+    tempname fh
+    local arow ""
+    local brow ""
+    file open `fh' using "`mvlog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "^a +\|") local arow `"`line'"'
+        if regexm(`"`line'"', "^b +\|") local brow `"`line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    * a: 2 missing -> Miss <5, Obs and %Miss withheld
+    local t = strtrim(subinstr(`"`arow'"', "|", " ", .))
+    assert word("`t'", 3) == "." & word("`t'", 4) == "<5" & word("`t'", 5) == "."
+    * b: 38 missing, 2 observed -> Obs <5, Miss and %Miss withheld
+    local t = strtrim(subinstr(`"`brow'"', "|", " ", .))
+    assert word("`t'", 3) == "<5" & word("`t'", 4) == "." & word("`t'", 5) == "."
+    * patterns: rows 1-2 miss both (2 obs), rows 3-38 miss b, rows 39-40
+    * are complete (2 obs): the maximum (2) is held by 2 < 5 observations,
+    * complete cases (2) are a small cell, and incomplete (38) its complement
+    _mvp_count "`mvlog'" "Max missing/obs:         [suppressed]"
+    assert r(n) == 1
+    _mvp_count "`mvlog'" "Complete cases:                  <5  (    .%)"
+    assert r(n) == 1
+    _mvp_count "`mvlog'" "Incomplete cases:        [suppressed]  (    .%)"
+    assert r(n) == 1
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': a small Miss or Obs is masked and its complement withheld"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': D3 variable-table masking (rc=`=_rc')"
+    local ++fail_count
+}
+
+* M4: Obs and Miss use comma format at six digits; the rule spans the table
+local ++test_count
+capture noisily {
+    clear
+    set obs 120000
+    gen x = cond(_n <= 100116, ., 1)
+    gen y = cond(_n <= 19781, ., 2)
+    capture log close _mv
+    log using "`mvlog'", text replace name(_mv)
+    datamvp x y, nosummary
+    log close _mv
+    tempname fh
+    local rule = 0
+    local wmax = 0
+    local ok100 = 0
+    local ok19 = 0
+    local inv = 0
+    file open `fh' using "`mvlog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "^-+\+-+$") & `rule' == 0 {
+            local rule = length(`"`line'"')
+            local inv = 1
+        }
+        else if `inv' & regexm(`"`line'"', "^[xy] +\|") {
+            local wmax = max(`wmax', length(strrtrim(`"`line'"')))
+            if strpos(`"`line'"', "100,116") local ok100 = 1
+            if strpos(`"`line'"', "19,781") local ok19 = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `ok100' & `ok19'
+    assert `rule' >= `wmax' & `wmax' > 0
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': six-digit counts keep comma format and the header rule spans the rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': M4 column widths (rc=`=_rc')"
+    local ++fail_count
+}
+
+* M2: bytable() against a hand computation, masked cells, and r(miss_by)
+local ++test_count
+capture noisily {
+    clear
+    set obs 53
+    * g = 1: rows 1-30, v missing on rows 1-6 (20%); g = 2: rows 31-50,
+    * v missing on rows 31-32 (10%); g = 3: rows 51-53, none missing
+    gen byte g = cond(_n <= 30, 1, cond(_n <= 50, 2, 3))
+    gen double v = _n
+    replace v = . in 1/6
+    replace v = . in 31/32
+    quietly datamvp v, bytable(g) nosummary notable
+    matrix M = r(miss_by)
+    assert colsof(M) == 5 & rowsof(M) == 1
+    assert !missing(M[1, 1], M[1, 2], M[1, 3], M[1, 4])
+    assert reldif(M[1, 1], 20) < 1e-12 & reldif(M[1, 2], 10) < 1e-12 & M[1, 3] == 0
+    assert reldif(M[1, 4], 20) < 1e-12
+    assert missing(M[1, 5])
+    assert "`r(bytable)'" == "g"
+    capture log close _mv
+    log using "`mvlog'", text replace name(_mv)
+    datamvp v, bytable(g) maskrare nosummary notable
+    log close _mv
+    * masked: group 2's 2 missing and group 3's 3 rows print "."; only group 1
+    * is shown, so the difference and ratio have one cell and print "."
+    tempname fh
+    local vrow ""
+    file open `fh' using "`mvlog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if regexm(`"`line'"', "^v +\|") local vrow `"`line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    local t = strtrim(subinstr(`"`vrow'"', "|", " ", .))
+    assert word("`t'", 2) == "20.0" & word("`t'", 3) == "." & word("`t'", 4) == "."
+    assert word("`t'", 5) == "." & word("`t'", 6) == "."
+    capture datamvp v, bytable(nosuchvar)
+    assert _rc == 111
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': bytable() equals hand shares; small cells print '.' under maskrare"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': M2 bytable() (rc=`=_rc')"
+    local ++fail_count
+}
+
+* E2: a dataqa session default masks datamvp; nomaskrare overrides it
+local ++test_count
+capture noisily {
+    _mvp_bench
+    global DATAMAP_DQ "maskrare"
+    quietly datamvp x1-x8, nosummary notable
+    local m1 = r(mincell)
+    local p1 = r(N_patterns_pooled)
+    assert r(maskrare) == 1
+    quietly datamvp x1-x8, nomaskrare nosummary notable
+    local m2 = r(mincell)
+    local p2 = r(N_patterns_pooled)
+    assert r(maskrare) == 0
+    macro drop DATAMAP_DQ
+    assert `m1' == 5 & `p1' > 0
+    assert `m2' == 0 & `p2' == 0
+    capture datamvp x1-x8, mincell(-1)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS `test_count': session maskrare masks datamvp; nomaskrare and a bad mincell() behave"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL `test_count': datamvp session defaults (rc=`=_rc')"
+    macro drop DATAMAP_DQ
+    local ++fail_count
+}
+
+* =========================================================================
 * SUMMARY
 * =========================================================================
 

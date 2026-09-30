@@ -45,12 +45,18 @@ help for {cmd:datamvp}
 {synopt:{opt minm:issing(#)}}minimum missing values per pattern{p_end}
 {synopt:{opt maxm:issing(#)}}maximum missing values per pattern{p_end}
 {synopt:{opt a:scending}}sort patterns from rarest to most common{p_end}
+{synopt:{opt top(#)}}patterns shown; the rest are pooled{p_end}
+
+{syntab:Small cells}
+{synopt:{opt minc:ell(#)}}mask counts below {it:#}{p_end}
+{synopt:{opt mask:rare}}mask counts below {opt mincell()}, default 5{p_end}
 
 {syntab:Statistics}
 {synopt:{opt p:ercent}}display percentages{p_end}
 {synopt:{opt cu:mulative}}display cumulative frequencies/percentages{p_end}
 {synopt:{opt cor:relate}}display missingness correlations{p_end}
 {synopt:{opt mon:otone}}test for monotone missingness pattern{p_end}
+{synopt:{opt byt:able(varname)}}percent missing by group{p_end}
 
 {syntab:Output}
 {synopt:{opt gen:erate(stub)}}generate missingness indicator variables{p_end}
@@ -60,7 +66,7 @@ help for {cmd:datamvp}
 {synopt:{opt gr:aph(type)}}graph: {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
 {synopt:{opt sch:eme(schemename)}}graph scheme{p_end}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
-{synopt:{opt subti:tle(string)}}graph subtitle{p_end}
+{synopt:{opt sub:title(string)}}graph subtitle{p_end}
 {synopt:{opt gn:ame(name)}}name the graph in memory{p_end}
 {synopt:{opt gsav:ing(filename)}}save graph to file{p_end}
 {synopt:{opt nodraw}}suppress graph display{p_end}
@@ -70,7 +76,6 @@ help for {cmd:datamvp}
 {synopt:{opt barc:olor(colorstyle)}}bar fill color; default is {cmd:navy}{p_end}
 {synopt:{opt hor:izontal}}horizontal bars (default){p_end}
 {synopt:{opt ver:tical}}vertical bars{p_end}
-{synopt:{opt top(#)}}number of top patterns to show; default is 20{p_end}
 
 {syntab:Matrix heatmap options}
 {synopt:{opt missc:olor(colorstyle)}}missing-value color{p_end}
@@ -84,8 +89,8 @@ help for {cmd:datamvp}
 {synopt:{opt gb:y(varname)}}facet graphs by categorical var{p_end}
 {synopt:{opt over(varname)}}overlay by categorical var{p_end}
 {synopt:{opt st:acked}}show stacked bar chart; requires graph(bar){p_end}
-{synopt:{opt groupg:ap(#)}}gap between bar groups; default is 0{p_end}
-{synopt:{opt legendo:pts(string)}}pass-through legend options{p_end}
+{synopt:{opt group:gap(#)}}gap between bar groups; default is 0{p_end}
+{synopt:{opt leg:endopts(string)}}pass-through legend options{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -160,6 +165,16 @@ variables.
 {opt ascending} sorts patterns by ascending frequency (rarest patterns first)
 instead of the default descending order.
 
+{phang}
+{opt top(#)} specifies how many of the most common patterns to display in the
+pattern table and in {opt graph(patterns)}. The graph shows 20 by default. The
+table shows every pattern by default, and 20 under masking; patterns beyond
+the table's top {it:#} are pooled into one final row,
+{bf:other patterns (beyond top} {it:#}{bf:)}, or under masking
+{bf:other patterns (beyond top} {it:#} {bf:or <}{it:m}{bf:)}. The minimum is 1. {opt top()}
+with {opt graph(bar)}, {opt graph(matrix)}, or
+{opt graph(correlation)} is an error.
+
 {dlgtab:Statistics}
 
 {phang}
@@ -179,6 +194,48 @@ helps identify variables whose missingness tends to co-occur.
 monotone if, for each observation, once a variable is missing, all subsequent
 variables (in the specified or sorted order) are also missing. Monotone
 patterns are important for multiple imputation methods.
+
+{phang}
+{opt bytable(varname)} prints a table of percent missing for each analyzed
+variable (rows) by each group of {it:varname} (columns), with two final
+columns: the largest absolute difference between groups and the ratio of the
+highest to the lowest group share. By calendar year it shows structural
+missingness where a registry's coverage starts; by exposure it shows
+differential missingness. Rows with {it:varname} missing are left out. Under
+masking, a cell is shown as {bf:.} when its group has fewer than {it:m} rows or
+its missing count, or the count observed, is between 1 and {it:m}-1, and the
+two final columns use the shown cells only. The unmasked percentages, and the
+two final columns over all groups, are returned in {cmd:r(miss_by)}. The
+computation is shared with {help datacheck:datacheck, groupstat(pmiss ...)}.
+
+{dlgtab:Small cells}
+
+{phang}
+{opt mincell(#)} and {opt maskrare} turn on small-cell control. The threshold
+{it:m} is {opt mincell(#)} when given, and 5 with {opt maskrare} alone; either
+option turns masking on, and a session default set by {help dataqa:dataqa set}
+applies unless {cmd:nomaskrare} is typed. Under masking:
+
+{phang2}o  patterns with a frequency below {it:m} are pooled into one final row,
+{bf:other patterns (each <}{it:m}{bf:)}, which carries their combined frequency and
+percentage, so the displayed frequencies still sum to N; a pooled total below
+{it:m} prints as {bf:<}{it:m} and its percentages as {bf:.};{p_end}
+{phang2}o  the table shows at most 20 patterns unless {opt top()} says otherwise; the
+rest join the pooled row;{p_end}
+{phang2}o  a variable's {bf:Miss} count below {it:m} prints as {bf:<}{it:m}, and its
+{bf:Obs} and {bf:%Miss} as {bf:.}, because N minus either count recovers the other
+(and likewise for a small {bf:Obs});{p_end}
+{phang2}o  complete and incomplete counts, the {opt minfreq()} "Additional" count,
+and the monotone count are masked the same way, and {bf:Max missing/obs} is
+suppressed unless at least {it:m} observations share the maximum;{p_end}
+{phang2}o  a zero count prints as {bf:0} with its percentage, even when the total
+is small: it reveals nothing about the total.{p_end}
+
+{pstd}
+{cmd:r(N_patterns)} still counts every pattern that passes the filters; {cmd:r(N_patterns_pooled)}
+counts the pooled ones. {opt save()} and {opt generate()} are not masked: the
+saved pattern file holds small cells and belongs with the data, not in a
+shared folder.
 
 {dlgtab:Output}
 
@@ -238,7 +295,7 @@ each cell. Use {opt colorramp()} to change the color scheme.
 a default title is used based on the graph type.
 
 {phang}
-{opt subtitle(string)} specifies a custom subtitle for the graph.
+{opt sub:title(string)} specifies a custom subtitle for the graph.
 
 {phang}
 {opt gname(name)} names the graph in memory, allowing you to save or manipulate
@@ -269,10 +326,6 @@ and {opt graph(patterns)}. Default is {cmd:navy}. Accepts any valid Stata color.
 
 {phang}
 {opt vertical} displays bars vertically.
-
-{phang}
-{opt top(#)} specifies how many of the most common patterns to display in
-{opt graph(patterns)}. Default is 20. Minimum is 1.
 
 {dlgtab:Matrix heatmap options}
 
@@ -324,11 +377,11 @@ works with {opt graph(bar)}. Uses value labels if available.
 contribution is shown as a segment. Only works with {opt graph(bar)}.
 
 {phang}
-{opt groupgap(#)} specifies the gap between bar groups when using {opt over()}. Default is
+{opt group:gap(#)} specifies the gap between bar groups when using {opt over()}. Default is
 0. Larger values increase spacing between groups.
 
 {phang}
-{opt legendopts(string)} allows customization of the legend when using {opt over()}. The
+{opt leg:endopts(string)} allows customization of the legend when using {opt over()}. The
 string is passed directly to the legend option of the graph
 command. Example: {cmd:legendopts(rows(2) position(3))}
 
@@ -342,6 +395,10 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 
 {pstd}Analyze specific variables with percentages{p_end}
 {phang2}{stata "datamvp price mpg rep78 headroom, percent":. datamvp price mpg rep78 headroom, percent}{p_end}
+
+{pstd}Mask small cells, pool rare patterns, and show missingness by group{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, maskrare percent bytable(foreign)":. datamvp price mpg rep78 headroom, maskrare percent bytable(foreign)}{p_end}
+{phang2}{stata "datamvp price mpg rep78 headroom, top(3)":. datamvp price mpg rep78 headroom, top(3)}{p_end}
 
 {pstd}Sort variables by missingness, show rare patterns first{p_end}
 {phang2}{stata "datamvp, sort ascending":. datamvp, sort ascending}{p_end}
@@ -459,11 +516,15 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {synopt:{cmd:r(N)}}number of observations{p_end}
 {synopt:{cmd:r(N_complete)}}number of complete cases (no missing){p_end}
 {synopt:{cmd:r(N_incomplete)}}number of incomplete cases{p_end}
-{synopt:{cmd:r(N_patterns)}}number of unique patterns displayed{p_end}
+{synopt:{cmd:r(N_patterns)}}unique patterns after filters, pooled included{p_end}
 {synopt:{cmd:r(N_vars)}}number of variables analyzed{p_end}
 {synopt:{cmd:r(max_miss)}}maximum missing values in any observation{p_end}
 {synopt:{cmd:r(mean_miss)}}mean missing values per observation{p_end}
 {synopt:{cmd:r(N_mv_total)}}total number of missing values{p_end}
+{synopt:{cmd:r(N_patterns_pooled)}}patterns pooled into the final row{p_end}
+{synopt:{cmd:r(mincell)}}mask threshold in effect (0 without masking){p_end}
+{synopt:{cmd:r(maskrare)}}1 when {opt maskrare} was in effect{p_end}
+{synopt:{cmd:r(masked)}}1 when any printed count was masked{p_end}
 
 {pstd}If {opt monotone} is specified:{p_end}
 {synopt:{cmd:r(N_monotone)}}observations with monotone pattern{p_end}
@@ -473,6 +534,7 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 {synopt:{cmd:r(varlist)}}variables with missing values analyzed{p_end}
 {synopt:{cmd:r(varlist_nomiss)}}variables with no missing values{p_end}
 {synopt:{cmd:r(monotone_status)}}{cmd:monotone} or {cmd:non-monotone} if tested{p_end}
+{synopt:{cmd:r(bytable)}}the {opt bytable()} variable, if specified{p_end}
 
 {pstd}If {opt gby()} is specified:{p_end}
 {synopt:{cmd:r(gby)}}name of the gby variable{p_end}
@@ -484,6 +546,7 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(corr_miss)}}missingness correlation matrix if requested{p_end}
+{synopt:{cmd:r(miss_by)}}percent missing by {opt bytable()} group{p_end}
 
 
 {marker authors}{...}

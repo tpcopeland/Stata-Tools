@@ -6,7 +6,7 @@ set varabbrev off
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
-local files "test_cstat_surv.do test_cstat_surv_errors.do test_cstat_surv_hostile.do test_cstat_surv_documentation_examples.do validation_cstat_surv.do crossval_cstat_surv.do crossval_cstat_surv_sksurv.do"
+local files "test_fixture_entry.do test_fixture_tvc.do validation_fixture_truth.do test_cstat_surv.do test_cstat_surv_errors.do test_cstat_surv_hostile.do test_cstat_surv_documentation_examples.do validation_cstat_surv.do crossval_cstat_surv.do crossval_cstat_surv_sksurv.do"
 local pass = 0
 local fail = 0
 foreach file of local files {
