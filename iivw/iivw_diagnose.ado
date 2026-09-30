@@ -777,7 +777,7 @@ program define iivw_diagnose, rclass
             local _clean_title `"`macval(title)'"'
             local _clean_footnote `"`macval(footnote)'"'
             local _dq = char(34)
-            local _num_fmt "%9.`_decimals_final'f"
+            local _num_fmt "%21.`_decimals_final'f"
             local _clean_sheet `"`macval(_sheet)'"'
             foreach _text in xlsx sheet title footnote {
                 local _text_n = strlen(`"`macval(_clean_`_text')'"')

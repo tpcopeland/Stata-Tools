@@ -1316,9 +1316,9 @@ time. The per-observation {opt cif} is the covariate-adjusted CIF, which
 
 {pstd}
 {bf:Ties in the Schoenfeld residuals.} Residuals match {cmd:stcrreg}'s
-observation by observation, at tied cause-event times as well as untied ones:
-each event at time t receives Z_i minus the weighted risk-set mean at t in
-both commands. On the {cmd:hypoxia} data, with 17 cause events at tied times,
+observation by observation, at tied cause-event times as well as untied
+ones; in both commands each event at time t receives Z_i minus the weighted
+risk-set mean at t. On the {cmd:hypoxia} data, with 17 cause events at tied times,
 the largest difference is of order 1e-10; after rounding its times to whole
 years, which ties most events and censorings, it is of order 1e-6, the
 convergence tolerance of the two fits.

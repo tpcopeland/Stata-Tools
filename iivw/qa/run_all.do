@@ -152,7 +152,7 @@ local quick_suites ///
     test_iivw_final_adversarial ///
     test_iivw_release_adversarial
 
-local core_suites validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool ///
+local core_suites validation_fixture_phase2_iivw validation_fixture_analytical validation_fixture_weightdomains validation_fixture_inference test_fixture_weight_state validation_fixture_domains test_fixture_balance_state validation_fixture_recovery test_fixture_names test_fixture_state validation_fixture_pool ///
     test_iivw ///
     test_iivw_expanded ///
     test_iivw_replay ///

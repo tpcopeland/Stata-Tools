@@ -41,6 +41,9 @@ program define qba_selection, rclass
 
     _qba_require_distributions
 
+        * Validate the complete original grammar before reparsing raw bytes.
+        * Scientific-notation locals from this first parse are discarded.
+        local _raw_numeric_syntax : copy local 0
 	    syntax , A(real) B(real) C(real) D(real) ///
 	        SELa(real) SELb(real) SELc(real) SELd(real) ///
 	        [MEAsure(string) ///
@@ -49,6 +52,20 @@ program define qba_selection, rclass
          dist_selc(string) dist_seld(string) ///
 	         Seed(integer -1) Level(cilevel) ///
 	         SAving(string asis)]
+        local 0 : copy local _raw_numeric_syntax
+	    syntax , A(string asis) B(string asis) C(string asis) D(string asis) ///
+	        SELa(string asis) SELb(string asis) SELc(string asis) SELd(string asis) ///
+	        [MEAsure(string) ///
+         Reps(integer 0) ///
+         dist_sela(string) dist_selb(string) ///
+         dist_selc(string) dist_seld(string) ///
+	         Seed(integer -1) Level(cilevel) ///
+	         SAving(string asis)]
+
+        * Keep raw continuous values after native type validation.
+        foreach _numopt in a b c d sela selb selc seld {
+            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+        }
 
 	    if missing(`reps') | `reps' < 0 {
 	        display as error "reps() must be a nonnegative integer"
@@ -119,51 +136,51 @@ program define qba_selection, rclass
     }
 
     * Compute observed measure (guard division by zero)
-    local N1 = `a' + `c'
-    local N0 = `b' + `d'
+    local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
+    local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
     if `b' * `c' != 0 {
-        local obs_or = (`a' * `d') / (`b' * `c')
+        local obs_or : display regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "")
     }
     else {
-        local obs_or = .
+        local obs_or : display regexr(string(., "%21x"), "^[+]", "")
     }
     if "`measure'" == "RR" {
         if `N1' != 0 & `N0' != 0 & `b' != 0 {
-            local obs_rr = (`a' / `N1') / (`b' / `N0')
+            local obs_rr : display regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "")
         }
         else {
-            local obs_rr = .
+            local obs_rr : display regexr(string(., "%21x"), "^[+]", "")
         }
     }
 
 	    * SIMPLE BIAS ANALYSIS
     if `reps' == 0 {
         * Correct by dividing each cell by its selection probability
-        local a_corr = `a' / `sela'
-        local b_corr = `b' / `selb'
-        local c_corr = `c' / `selc'
-        local d_corr = `d' / `seld'
+        local a_corr : display regexr(string(`a' / `sela', "%21x"), "^[+]", "")
+        local b_corr : display regexr(string(`b' / `selb', "%21x"), "^[+]", "")
+        local c_corr : display regexr(string(`c' / `selc', "%21x"), "^[+]", "")
+        local d_corr : display regexr(string(`d' / `seld', "%21x"), "^[+]", "")
 
         * Corrected measures
         if `b_corr' * `c_corr' != 0 {
-            local corr_or = (`a_corr' * `d_corr') / (`b_corr' * `c_corr')
+            local corr_or : display regexr(string((`a_corr' * `d_corr') / (`b_corr' * `c_corr'), "%21x"), "^[+]", "")
         }
         else {
-            local corr_or = .
+            local corr_or : display regexr(string(., "%21x"), "^[+]", "")
         }
         if "`measure'" == "RR" {
-            local N1_corr = `a_corr' + `c_corr'
-            local N0_corr = `b_corr' + `d_corr'
+            local N1_corr : display regexr(string(`a_corr' + `c_corr', "%21x"), "^[+]", "")
+            local N0_corr : display regexr(string(`b_corr' + `d_corr', "%21x"), "^[+]", "")
             if `N1_corr' != 0 & `N0_corr' != 0 {
-                local corr_rr = (`a_corr' / `N1_corr') / (`b_corr' / `N0_corr')
+                local corr_rr : display regexr(string((`a_corr' / `N1_corr') / (`b_corr' / `N0_corr'), "%21x"), "^[+]", "")
             }
             else {
-                local corr_rr = .
+                local corr_rr : display regexr(string(., "%21x"), "^[+]", "")
             }
         }
 
         * Selection bias factor
-        local sbf = (`sela' * `seld') / (`selb' * `selc')
+        local sbf : display regexr(string((`sela' * `seld') / (`selb' * `selc'), "%21x"), "^[+]", "")
 
         * Display
         display as text ""
@@ -193,20 +210,20 @@ program define qba_selection, rclass
             display as text "  Observed OR:  " as result %9.4f `obs_or'
             display as text "  Corrected OR: " as result %9.4f `corr_or'
             if `obs_or' != 0 & `obs_or' < . & `corr_or' < . {
-                local ratio = `corr_or' / `obs_or'
+                local ratio : display regexr(string(`corr_or' / `obs_or', "%21x"), "^[+]", "")
             }
             else {
-                local ratio = .
+                local ratio : display regexr(string(., "%21x"), "^[+]", "")
             }
         }
         else {
             display as text "  Observed RR:  " as result %9.4f `obs_rr'
             display as text "  Corrected RR: " as result %9.4f `corr_rr'
             if `obs_rr' != 0 & `obs_rr' < . & `corr_rr' < . {
-                local ratio = `corr_rr' / `obs_rr'
+                local ratio : display regexr(string(`corr_rr' / `obs_rr', "%21x"), "^[+]", "")
             }
             else {
-                local ratio = .
+                local ratio : display regexr(string(., "%21x"), "^[+]", "")
             }
         }
         display as text "  Selection bias factor (OR scale): " as result %6.4f `sbf'
@@ -315,11 +332,11 @@ program define qba_selection, rclass
 	        local save_rc = 0
 	        quietly {
 		            _qba_mc_summary _result, level(`level')
-		            local mc_mean = r(mean)
-		            local mc_median = r(median)
-	            local mc_sd = r(sd)
-	            local mc_lo = r(ci_lower)
-	            local mc_hi = r(ci_upper)
+		            local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
+		            local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
+	            local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
+	            local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
+	            local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
 
             if `"`saving'"' != "" {
                 keep _sa _sb _sc _sd _a_corr _b_corr _c_corr _d_corr _result

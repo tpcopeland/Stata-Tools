@@ -60,4 +60,6 @@ foreach censor in admin random {
 }
 display "RESULT: validation_fixture_recovery tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close
+* Leave the adopath as found: a later suite in the same run must reach the installed copy.
+capture adopath - "`pkgdir'"
 if `fail' exit 9

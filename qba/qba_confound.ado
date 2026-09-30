@@ -55,6 +55,9 @@ program define qba_confound, rclass
 
     _qba_require_distributions
 
+        * Validate the complete original grammar before reparsing raw bytes.
+        * Scientific-notation locals from this first parse are discarded.
+        local _raw_numeric_syntax : copy local 0
     syntax , [ESTimate(real -999) ///
 	        MEAsure(string) ///
 	        P1(real -1) P0(real -1) ///
@@ -66,6 +69,30 @@ program define qba_confound, rclass
 	        EVAlue CI_bound(real -999) COMmonoutcome ///
 	        from_model COEF(string) ///
 	        SAving(string asis)]
+        local 0 : copy local _raw_numeric_syntax
+    syntax , [ESTimate(string asis) ///
+	        MEAsure(string) ///
+	        P1(string asis) P0(string asis) ///
+	        RRcd(string asis) RRud(string asis) CONFeffect(string asis) ///
+	        Reps(integer 0) ///
+	        dist_p1(string) dist_p0(string) dist_rr(string) ///
+	        dist_confeffect(string) ///
+	        Seed(integer -1) Level(cilevel) ///
+	        EVAlue CI_bound(string asis) COMmonoutcome ///
+	        from_model COEF(string) ///
+	        SAving(string asis)]
+
+        * Keep raw continuous values after native type validation.
+        if `"`macval(estimate)'"' == "" local estimate -999
+        if `"`macval(p1)'"' == "" local p1 -1
+        if `"`macval(p0)'"' == "" local p0 -1
+        if `"`macval(rrcd)'"' == "" local rrcd -1
+        if `"`macval(rrud)'"' == "" local rrud -1
+        if `"`macval(confeffect)'"' == "" local confeffect -999
+        if `"`macval(ci_bound)'"' == "" local ci_bound -999
+        foreach _numopt in estimate p1 p0 rrcd rrud confeffect ci_bound {
+            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+        }
 
 	    if `reps' < 0 {
 	        display as error "reps() must be a nonnegative integer"
@@ -105,7 +132,7 @@ program define qba_confound, rclass
 
     * Get estimate from model, active estimator contract, or option
     local is_linear = 0
-    local se_treat = .
+    local se_treat : display regexr(string(., "%21x"), "^[+]", "")
     local contract_flag = 0
     local contract_source ""
     local contract_cmd ""
@@ -183,8 +210,8 @@ program define qba_confound, rclass
             display as error "available: `eligible_names'"
             exit 198
         }
-        local b_treat = _b[`treat_var']
-        local se_treat = _se[`treat_var']
+        local b_treat : display regexr(string(_b[`treat_var'], "%21x"), "^[+]", "")
+        local se_treat : display regexr(string(_se[`treat_var'], "%21x"), "^[+]", "")
         * Exponentiate only for log-scale models (logistic, Cox, Poisson, etc.)
         * For the st-family, e(cmd) holds the distribution ("cox", "weibull",
         * "lnormal", ...) while e(cmd2) holds the st-command ("stcox"/"streg");
@@ -255,15 +282,15 @@ program define qba_confound, rclass
             }
         }
         if `is_logscale' {
-            local estimate = exp(`b_treat')
-            local est_lo = exp(`b_treat' - invnormal((100+`level')/200) * `se_treat')
-            local est_hi = exp(`b_treat' + invnormal((100+`level')/200) * `se_treat')
+            local estimate : display regexr(string(exp(`b_treat'), "%21x"), "^[+]", "")
+            local est_lo : display regexr(string(exp(`b_treat' - invnormal((100+`level')/200) * `se_treat'), "%21x"), "^[+]", "")
+            local est_hi : display regexr(string(exp(`b_treat' + invnormal((100+`level')/200) * `se_treat'), "%21x"), "^[+]", "")
         }
         else if `is_linearscale' {
             * Linear model: use coefficient directly
-            local estimate = `b_treat'
-            local est_lo = `b_treat' - invnormal((100+`level')/200) * `se_treat'
-            local est_hi = `b_treat' + invnormal((100+`level')/200) * `se_treat'
+            local estimate : display regexr(string(`b_treat', "%21x"), "^[+]", "")
+            local est_lo : display regexr(string(`b_treat' - invnormal((100+`level')/200) * `se_treat', "%21x"), "^[+]", "")
+            local est_hi : display regexr(string(`b_treat' + invnormal((100+`level')/200) * `se_treat', "%21x"), "^[+]", "")
             local is_linear = 1
         }
         else {
@@ -304,10 +331,10 @@ program define qba_confound, rclass
         if `estimate' == -999 {
             _qba_detect_contract
             if r(has_contract) {
-                local estimate = r(estimate)
-                local est_lo = r(ci_lo)
-                local est_hi = r(ci_hi)
-                local se_treat = r(se)
+                local estimate : display regexr(string(r(estimate), "%21x"), "^[+]", "")
+                local est_lo : display regexr(string(r(ci_lo), "%21x"), "^[+]", "")
+                local est_hi : display regexr(string(r(ci_hi), "%21x"), "^[+]", "")
+                local se_treat : display regexr(string(r(se), "%21x"), "^[+]", "")
                 local contract_flag = 1
                 local contract_source "`r(source)'"
                 local contract_cmd "`r(cmd)'"
@@ -433,11 +460,11 @@ program define qba_confound, rclass
 	        else {
 	            if `rrud' != -1 {
 	                local use_rrud = 1
-	                local rr_val = `rrud'
+	                local rr_val : display regexr(string(`rrud', "%21x"), "^[+]", "")
 	            }
 	            else {
 	                local use_rrud = 0
-	                local rr_val = `rrcd'
+	                local rr_val : display regexr(string(`rrcd', "%21x"), "^[+]", "")
 	            }
 	        }
 	    }
@@ -472,63 +499,63 @@ program define qba_confound, rclass
                     local eval_conv "hrcommon"
                 }
             }
-            local rr_for_eval = `estimate'
+            local rr_for_eval : display regexr(string(`estimate', "%21x"), "^[+]", "")
             if "`eval_conv'" == "sqrtor" {
-                local rr_for_eval = sqrt(`estimate')
+                local rr_for_eval : display regexr(string(sqrt(`estimate'), "%21x"), "^[+]", "")
             }
             else if "`eval_conv'" == "hrcommon" {
-                local rr_for_eval = ///
-                    (1 - 0.5^sqrt(`estimate')) / (1 - 0.5^sqrt(1/`estimate'))
+                local rr_for_eval : display regexr(string( ///
+                    (1 - 0.5^sqrt(`estimate')) / (1 - 0.5^sqrt(1/`estimate')), "%21x"), "^[+]", "")
             }
 
             * E-value for point estimate
             if `rr_for_eval' >= 1 {
-                local eval_point = `rr_for_eval' + sqrt(`rr_for_eval' * (`rr_for_eval' - 1))
+                local eval_point : display regexr(string(`rr_for_eval' + sqrt(`rr_for_eval' * (`rr_for_eval' - 1)), "%21x"), "^[+]", "")
             }
             else {
-                local rr_inv = 1 / `rr_for_eval'
-                local eval_point = `rr_inv' + sqrt(`rr_inv' * (`rr_inv' - 1))
+                local rr_inv : display regexr(string(1 / `rr_for_eval', "%21x"), "^[+]", "")
+                local eval_point : display regexr(string(`rr_inv' + sqrt(`rr_inv' * (`rr_inv' - 1)), "%21x"), "^[+]", "")
             }
 
             * E-value for CI bound. The null-crossing test is on the ORIGINAL
             * scale; both conversions are monotone and map 1 to 1, so the
             * direction of the limit relative to the null is unchanged.
-            local eval_ci = .
-            local ci_use = .
+            local eval_ci : display regexr(string(., "%21x"), "^[+]", "")
+            local ci_use : display regexr(string(., "%21x"), "^[+]", "")
             if `ci_bound' != -999 {
 	                if missing(`ci_bound') | `ci_bound' <= 0 {
 	                    display as error "ci_bound() must be > 0"
 	                    exit 198
 	                }
-                local ci_use = `ci_bound'
+                local ci_use : display regexr(string(`ci_bound', "%21x"), "^[+]", "")
             }
             else if `has_est_ci' {
                 * Use the limit nearest the null (Table 1)
                 if `estimate' >= 1 {
-                    local ci_use = `est_lo'
+                    local ci_use : display regexr(string(`est_lo', "%21x"), "^[+]", "")
                 }
                 else {
-                    local ci_use = `est_hi'
+                    local ci_use : display regexr(string(`est_hi', "%21x"), "^[+]", "")
                 }
             }
             if `ci_use' < . {
                 if (`estimate' >= 1 & `ci_use' <= 1) | (`estimate' < 1 & `ci_use' >= 1) {
                     * Limit includes the null
-                    local eval_ci = 1
+                    local eval_ci : display regexr(string(1, "%21x"), "^[+]", "")
                 }
                 else {
-                    local rr_ci = `ci_use'
+                    local rr_ci : display regexr(string(`ci_use', "%21x"), "^[+]", "")
                     if "`eval_conv'" == "sqrtor" {
-                        local rr_ci = sqrt(`ci_use')
+                        local rr_ci : display regexr(string(sqrt(`ci_use'), "%21x"), "^[+]", "")
                     }
                     else if "`eval_conv'" == "hrcommon" {
-                        local rr_ci = ///
-                            (1 - 0.5^sqrt(`ci_use')) / (1 - 0.5^sqrt(1/`ci_use'))
+                        local rr_ci : display regexr(string( ///
+                            (1 - 0.5^sqrt(`ci_use')) / (1 - 0.5^sqrt(1/`ci_use')), "%21x"), "^[+]", "")
                     }
                     if `rr_ci' < 1 {
-                        local rr_ci = 1 / `rr_ci'
+                        local rr_ci : display regexr(string(1 / `rr_ci', "%21x"), "^[+]", "")
                     }
-                    local eval_ci = `rr_ci' + sqrt(`rr_ci' * (`rr_ci' - 1))
+                    local eval_ci : display regexr(string(`rr_ci' + sqrt(`rr_ci' * (`rr_ci' - 1)), "%21x"), "^[+]", "")
                 }
             }
         }
@@ -548,18 +575,18 @@ program define qba_confound, rclass
 	            if `is_linear' {
 	                * Subtractive correction for linear coefficients
 	                * MD_adj = MD_obs - (p1 - p0) * confounder_effect
-	                local corrected = `estimate' - (`p1' - `p0') * `confeffect'
+	                local corrected : display regexr(string(`estimate' - (`p1' - `p0') * `confeffect', "%21x"), "^[+]", "")
             }
             else {
                 if `use_rrud' {
                     * Greenland/Schneeweiss: BF = (p1*RRud + (1-p1)) / (p0*RRud + (1-p0))
-                    local bf = (`p1' * `rr_val' + (1 - `p1')) / (`p0' * `rr_val' + (1 - `p0'))
+                    local bf : display regexr(string((`p1' * `rr_val' + (1 - `p1')) / (`p0' * `rr_val' + (1 - `p0')), "%21x"), "^[+]", "")
                 }
                 else {
                     * Schneeweiss: BF = (p1*(RRcd-1) + 1) / (p0*(RRcd-1) + 1)
-                    local bf = (`p1' * (`rr_val' - 1) + 1) / (`p0' * (`rr_val' - 1) + 1)
+                    local bf : display regexr(string((`p1' * (`rr_val' - 1) + 1) / (`p0' * (`rr_val' - 1) + 1), "%21x"), "^[+]", "")
                 }
-                local corrected = `estimate' / `bf'
+                local corrected : display regexr(string(`estimate' / `bf', "%21x"), "^[+]", "")
             }
         }
 
@@ -608,7 +635,7 @@ program define qba_confound, rclass
                 display as text "  Bias factor:     " as result %9.4f `bf'
                 display as text "  Corrected `meas_label':  " as result %9.4f `corrected'
                 if `estimate' != 0 & `estimate' < . {
-                    local ratio = `corrected' / `estimate'
+                    local ratio : display regexr(string(`corrected' / `estimate', "%21x"), "^[+]", "")
                     display as text "  Ratio (corrected/observed): " as result %6.4f `ratio'
                 }
             }
@@ -765,11 +792,11 @@ program define qba_confound, rclass
 	        local save_rc = 0
 	        quietly {
 		            _qba_mc_summary _result, level(`level')
-		            local mc_mean = r(mean)
-	            local mc_median = r(median)
-	            local mc_sd = r(sd)
-	            local mc_lo = r(ci_lower)
-	            local mc_hi = r(ci_upper)
+		            local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
+	            local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
+	            local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
+	            local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
+	            local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
 
 	            if `"`saving'"' != "" {
 	                if `is_linear' {

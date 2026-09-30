@@ -59,6 +59,7 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 | File | Covers |
 |---|---|
 | `validation_pygrid_known_truth.do` | Hand-computed person-time, boundary dates, window restrictions, randomized partition identities, and input-order invariance. |
+| `validation_pyattach_precision.do` | Actual IEEE float/double event sums, maxima, rates and zero-event people against Python `math.fsum`. |
 | `validation_pyattach_known_truth.do` | Zero-filled denominators, exact rates, orphan accounting, all-missing sums, and boundary assignments. |
 | `validation_pyattach_reference.do` | Exact equality against a direct interval join, including repeated same-period episodes. |
 | `validation_mogad_section4d.do` | Self-contained equality between six MOGAD-shaped manual tables and the `pygrid`/`pyattach` rewrite. |

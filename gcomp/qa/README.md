@@ -83,7 +83,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `test_expected_resampling_failure.do` | adversarial | quick | 300s | Stata | fail-closed rc plus bounded progress markers | 606 | C06, Q02 |
 | `test_gcomptab_regressions.do` | functional | quick | 600s | Stata | mocked result/value and workbook contracts | fixed | gcomptab regressions |
 | `test_gcomp_v147.do` | regression | quick | 600s | Stata | stored-result presence, exact t inference, and option-validation contracts | 14701/14702 and fixed small samples | v1.4.7 regressions |
-| `test_fit_sample_loss.do` | regression | quick | 600s | Stata | exact component-fit row-count warning and quiet-control contracts | 424242/424243 | C09 |
+| `test_fit_sample_loss.do` | regression | quick | 600s | Stata | independent native category-loss counts, named prediction refusals and supported warning controls | 424242/424243 | C09 |
 | `test_structural_rules.do` | regression/known-answer | quick | 900s | Stata | analytic deterministic-structure effects, complement N, saved-arm simulated-history identity, time-varying dispatch, and exact errors | 424242/51002-51007 | C10 |
 | `test_count_commands.do` | regression/known-answer | quick | 900s | Stata | Poisson/NB2 DGP recovery, independent gamma-Poisson standardization, saved count draws, validation, and imputation | 52001-52005 | C11 |
 | `test_gcomp_v201_hotpath.do` | regression | quick | 900s | Stata | exact seeded e()/saved-arm identity plus post-death absorption invariant | 202608281-202608283 | v2.0.1 death/visitcalc/monotreat hot paths |

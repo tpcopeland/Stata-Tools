@@ -21,6 +21,11 @@ suppressPackageStartupMessages({
     library(geepack)
 })
 
+# Provenance: one REFERENCE line per reference package, read from the installed
+# copy at run time (the devkit receipt records it next to the numbers).
+for (p in c("survival", "geepack"))
+    cat(sprintf("REFERENCE: %s %s\n", p, as.character(utils::packageVersion(p))))
+
 args <- commandArgs(trailingOnly = FALSE)
 outdir_arg <- grep("^--outdir=", args, value = TRUE)
 if (length(outdir_arg) != 1L) {

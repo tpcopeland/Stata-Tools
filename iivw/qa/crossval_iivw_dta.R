@@ -19,6 +19,11 @@ for (pkg in c("haven", "survival", "geepack")) {
     }
 }
 
+# Provenance: one REFERENCE line per reference package, read from the installed
+# copy at run time (the devkit receipt records it next to the numbers).
+for (p in c("survival", "geepack"))
+    cat(sprintf("REFERENCE: %s %s\n", p, as.character(utils::packageVersion(p))))
+
 d <- haven::read_dta(infile)
 d <- d[order(d$id, d$time), ]
 if (anyDuplicated(d[c("id", "time")])) stop("id-time keys must be unique")

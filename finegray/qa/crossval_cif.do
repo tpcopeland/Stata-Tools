@@ -110,9 +110,26 @@ if "`Rscript'" != "" {
     capture erase "`_cv_out'"
     capture confirm file "`_cv_out'"
     assert _rc != 0
+    tempfile _cv_rlog
     capture shell `Rscript' "`qa_dir'/crossval_cif_r.R" ///
         "`_cv_in'" "`_cv_nd'" ///
-        "`_cv_tm'" "`_cv_out'"
+        "`_cv_tm'" "`_cv_out'" > "`_cv_rlog'" 2>&1
+    * Relay the companion's REFERENCE lines: `capture shell' discards the
+    * child's output, so without this the run receipt records no reference
+    * version.
+    capture confirm file "`_cv_rlog'"
+    if !_rc {
+        tempname _cv_rfh
+        file open `_cv_rfh' using "`_cv_rlog'", read text
+        file read `_cv_rfh' _cv_rline
+        while r(eof) == 0 {
+            if substr(`"`macval(_cv_rline)'"', 1, 11) == "REFERENCE: " {
+                display `"`macval(_cv_rline)'"'
+            }
+            file read `_cv_rfh' _cv_rline
+        }
+        file close `_cv_rfh'
+    }
     capture confirm file "`_cv_out'"
     if !_rc local have_r = 1
 }

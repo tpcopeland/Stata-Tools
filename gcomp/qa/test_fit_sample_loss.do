@@ -1,4 +1,4 @@
-* test_fit_sample_loss.do - Component-model estimation-sample warning regressions
+* test_fit_sample_loss.do - Fitted-category loss refusal and valid warning controls
 * The separation fixture has a known direct-fit N of 1,485 from 2,000 rows.
 
 clear all
@@ -110,9 +110,41 @@ program define _gc_log_has_sample_warning, rclass
     if `rc' exit `rc'
 end
 
-**# Exact separation warning
+mata:
+void _gc_fit_refusal_read()
+{
+    real scalar handle, n, ok
+    string scalar text
+    string matrix line
+    handle=fopen(st_local("path"),"r")
+    text=""
+    while ((line=fget(handle))!=J(0,0,"")) text=text+line+char(10)
+    fclose(handle)
+    /* Only native echo continuation markers are removed; plain line breaks
+       become whitespace so a wrapped cause is matched as one logical line. */
+    text=subinstr(text,char(10)+"> ","")
+    text=subinstr(text,char(10)," ")
+    ok=strpos(text,"logit prediction; factor predictor")>0 & strpos(text,"in component e(sample)")>0 & regexm(text,"has ([0-9]+) value[(]s[)] outside observed categorical support")
+    n=(ok ? strtoreal(regexs(1)) : 0)
+    ok=ok & n>0
+    if (strtoreal(st_local("count"))>0) ok=ok & n==strtoreal(st_local("count"))
+    st_local("found",strofreal(ok))
+    st_local("unsupported_n",strofreal(n))
+}
+end
 
-**## Warning without diagnostics
+capture program drop _gc_log_has_fit_refusal
+program define _gc_log_has_fit_refusal, rclass
+    version 16.0
+    args path count
+    mata: _gc_fit_refusal_read()
+    return scalar found=`found'
+    return scalar unsupported_n=`unsupported_n'
+end
+
+**# Exact separated-category refusal
+
+**## Refusal without diagnostics
 local ++test_count
 tempfile _lossbase
 local _losslog "`_lossbase'.txt"
@@ -120,108 +152,104 @@ capture log close _gc_loss
 capture noisily {
     _gc_make_sample_loss
     quietly logit y i.mcat i.x c
-    assert e(N) == 1485
+    assert e(N)==1485
+    assert !e(sample)==(mcat==0)
+    quietly count if mcat==0
+    assert r(N)==515
     log using "`_losslog'", text replace name(_gc_loss)
-    gcomp y mcat x c, outcome(y) mediation oce exposure(x) mediator(mcat) ///
+    capture noisily gcomp y mcat x c, outcome(y) mediation oce exposure(x) mediator(mcat) ///
         commands(mcat: ologit, y: logit) ///
         equations(mcat: i.x c, y: i.mcat i.x c) ///
         base_confs(c) baseline(0) sim(300) samples(2) seed(11)
+    local refusal_rc=_rc
+    assert `refusal_rc'==198
     log close _gc_loss
-    _gc_log_has_sample_warning "`_losslog'"
-    assert r(found) == 1
-
-    capture file close _gcwarnfh
-    file open _gcwarnfh using "`_losslog'", read text
-    local _found_exact = 0
-    file read _gcwarnfh _line
-    while r(eof) == 0 {
-        if strpos(`"`macval(_line)'"', "logit model for y used 1485 of 2000 eligible observations; 515 rows omitted") local _found_exact = 1
-        file read _gcwarnfh _line
-    }
-    file close _gcwarnfh
-    assert `_found_exact' == 1
+    _gc_log_has_fit_refusal "`_losslog'" 515
+    assert r(found)==1
 }
-local _test_rc = _rc
+local _test_rc=_rc
 capture log close _gc_loss
 capture file close _gcwarnfh
-if `_test_rc' == 0 {
-    display as result "  PASS: sample-loss warning reports y and the exact 515-row shortfall"
+if `_test_rc'==0 {
+    display as result "  PASS: native fit loses category0 and gcomp refuses its 515 predictions"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: sample-loss warning without diagnostics (error `_test_rc')"
+    display as error "  FAIL: fitted-category refusal without diagnostics (error `_test_rc')"
     local ++fail_count
 }
 
-**## Warning with diagnostics
+**## Refusal with diagnostics
 local ++test_count
 tempfile _diagbase
 local _diaglog "`_diagbase'.txt"
 capture log close _gc_diag
 capture noisily {
     _gc_make_sample_loss
+    quietly logit y i.mcat i.x c
+    assert e(N)==1485
+    assert !e(sample)==(mcat==0)
+    quietly count if mcat==0
+    assert r(N)==515
     log using "`_diaglog'", text replace name(_gc_diag)
-    gcomp y mcat x c, outcome(y) mediation oce exposure(x) mediator(mcat) ///
+    capture noisily gcomp y mcat x c, outcome(y) mediation oce exposure(x) mediator(mcat) ///
         commands(mcat: ologit, y: logit) ///
         equations(mcat: i.x c, y: i.mcat i.x c) ///
         base_confs(c) baseline(0) sim(300) samples(2) seed(11) diagnostics
+    local refusal_rc=_rc
+    assert `refusal_rc'==198
     log close _gc_diag
-    _gc_log_has_sample_warning "`_diaglog'"
-    assert r(found) == 1
+    _gc_log_has_fit_refusal "`_diaglog'" 515
+    assert r(found)==1
 }
-local _test_rc = _rc
+local _test_rc=_rc
 capture log close _gc_diag
 capture file close _gcwarnfh
-if `_test_rc' == 0 {
-    display as result "  PASS: diagnostics does not gate the sample-loss warning"
+if `_test_rc'==0 {
+    display as result "  PASS: diagnostics does not bypass fitted-category refusal"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: sample-loss warning with diagnostics (error `_test_rc')"
+    display as error "  FAIL: fitted-category refusal with diagnostics (error `_test_rc')"
     local ++fail_count
 }
 
-**## Time-varying outcome warning
+**## Time-varying fitted-category refusal
 local ++test_count
 tempfile _tvbase
 local _tvlog "`_tvbase'.txt"
 capture log close _gc_tv
 capture noisily {
     _gc_make_tv_sample_loss
-    quietly logit Y i.Z Alag Llag L0 if time == 3
-    assert e(N) == 100
+    quietly logit Y i.Z Alag Llag L0 if time==3
+    assert e(N)==100
+    assert !e(sample)==(Z==0) if time==3
+    quietly count if time==3 & Z==0
+    assert r(N)==100
     log using "`_tvlog'", text replace name(_gc_tv)
-    gcomp Y L0 Z A L Alag Llag id time, outcome(Y) idvar(id) tvar(time) ///
+    capture noisily gcomp Y L0 Z A L Alag Llag id time, outcome(Y) idvar(id) tvar(time) ///
         varyingcovariates(L) fixedcovariates(L0 Z) ///
         laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
         commands(A: logit, Y: logit, L: regress) ///
         equations(A: L0 L Z, Y: i.Z Alag Llag L0, ///
             L: Alag Llag L0 Z) intvars(A) interventions(A=1, A=0) ///
         sim(50) samples(2) seed(42) eofu
+    local refusal_rc=_rc
+    assert `refusal_rc'==198
     log close _gc_tv
-    _gc_log_has_sample_warning "`_tvlog'"
-    assert r(found) == 1
-
-    capture file close _gcwarnfh
-    file open _gcwarnfh using "`_tvlog'", read text
-    local _found_exact = 0
-    file read _gcwarnfh _line
-    while r(eof) == 0 {
-        if strpos(`"`macval(_line)'"', "logit model for Y (t=3) used 100 of 200 eligible observations; 100 rows omitted") local _found_exact = 1
-        file read _gcwarnfh _line
-    }
-    file close _gcwarnfh
-    assert `_found_exact' == 1
+    * Native source loss100 is independently exact; simulation count must be positive.
+    _gc_log_has_fit_refusal "`_tvlog'" 0
+    assert r(found)==1 & r(unsupported_n)>0
 }
-local _test_rc = _rc
+local _test_rc=_rc
 capture log close _gc_tv
 capture file close _gcwarnfh
-if `_test_rc' == 0 {
-    display as result "  PASS: time-varying outcome warning reports the exact visit shortfall"
+if `_test_rc'==0 {
+    display as result "  PASS: native terminal fit loses Z0 and gcomp refuses unsupported predictions"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: time-varying outcome warning (error `_test_rc')"
+    display as error "  FAIL: time-varying fitted-category refusal (error `_test_rc')"
     local ++fail_count
 }
 

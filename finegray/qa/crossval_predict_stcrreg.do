@@ -534,6 +534,27 @@ else {
     local failed_tests "`failed_tests' C2"
 }
 
+* Provenance: REFERENCE line for Stata's stcrreg (the reference implementation
+* this suite compares with), read at run time from its installed *! line.
+local _ref_ver "unknown"
+capture findfile stcrreg.ado
+if !_rc {
+    tempname _ref_fh
+    file open `_ref_fh' using "`r(fn)'", read text
+    file read `_ref_fh' _ref_line
+    while r(eof) == 0 & substr(`"`macval(_ref_line)'"', 1, 2) != "*!" {
+        file read `_ref_fh' _ref_line
+    }
+    file close `_ref_fh'
+    foreach _ref_w of local _ref_line {
+        if regexm("`_ref_w'", "^v?[0-9]") {
+            local _ref_ver = regexr("`_ref_w'", "^v", "")
+            continue, break
+        }
+    }
+}
+display "REFERENCE: stcrreg `_ref_ver'"
+
 * ============================================================================
 **# Summary
 * ============================================================================

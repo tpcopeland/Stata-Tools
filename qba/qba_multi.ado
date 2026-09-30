@@ -41,6 +41,9 @@ program define qba_multi, rclass
 
     _qba_require_distributions
 
+        * Validate the complete original grammar before reparsing raw bytes.
+        * Scientific-notation locals from this first parse are discarded.
+        local _raw_numeric_syntax : copy local 0
     syntax , A(real) B(real) C(real) D(real) Reps(integer) ///
         [MEAsure(string) ///
          SEca(real -1) SPca(real -1) SEcb(real -1) SPcb(real -1) ///
@@ -55,6 +58,39 @@ program define qba_multi, rclass
 	         ORder(string) ///
 	         Seed(integer -1) Level(cilevel) ///
 	         SAving(string asis)]
+        local 0 : copy local _raw_numeric_syntax
+    syntax , A(string asis) B(string asis) C(string asis) D(string asis) Reps(integer) ///
+        [MEAsure(string) ///
+         SEca(string asis) SPca(string asis) SEcb(string asis) SPcb(string asis) ///
+         MCtype(string) ///
+         dist_se(string) dist_sp(string) ///
+         dist_se1(string) dist_sp1(string) CORR(string asis) ///
+         SELa(string asis) SELb(string asis) SELc(string asis) SELd(string asis) ///
+         dist_sela(string) dist_selb(string) ///
+         dist_selc(string) dist_seld(string) ///
+         P1(string asis) P0(string asis) RRcd(string asis) RRud(string asis) ///
+         dist_p1(string) dist_p0(string) dist_rr(string) ///
+	         ORder(string) ///
+	         Seed(integer -1) Level(cilevel) ///
+	         SAving(string asis)]
+
+        * Keep raw continuous values after native type validation.
+        if `"`macval(seca)'"' == "" local seca -1
+        if `"`macval(spca)'"' == "" local spca -1
+        if `"`macval(secb)'"' == "" local secb -1
+        if `"`macval(spcb)'"' == "" local spcb -1
+        if `"`macval(corr)'"' == "" local corr 0
+        if `"`macval(sela)'"' == "" local sela -1
+        if `"`macval(selb)'"' == "" local selb -1
+        if `"`macval(selc)'"' == "" local selc -1
+        if `"`macval(seld)'"' == "" local seld -1
+        if `"`macval(p1)'"' == "" local p1 -1
+        if `"`macval(p0)'"' == "" local p0 -1
+        if `"`macval(rrcd)'"' == "" local rrcd -1
+        if `"`macval(rrud)'"' == "" local rrud -1
+        foreach _numopt in a b c d seca spca secb spcb corr sela selb selc seld p1 p0 rrcd rrud {
+            local `_numopt' : display regexr(string(``_numopt'', "%21x"), "^[+]", "")
+        }
 
 	    if missing(`reps') {
 	        display as error "reps() must be a nonmissing integer"
@@ -299,11 +335,11 @@ program define qba_multi, rclass
     if `do_confound' {
         if `rrud' != -1 {
             local use_rrud = 1
-            local rr_val = `rrud'
+            local rr_val : display regexr(string(`rrud', "%21x"), "^[+]", "")
         }
         else {
             local use_rrud = 0
-            local rr_val = `rrcd'
+            local rr_val : display regexr(string(`rrcd', "%21x"), "^[+]", "")
         }
     }
 
@@ -312,20 +348,20 @@ program define qba_multi, rclass
     }
 
     * Compute observed measure (guard division by zero)
-    local N1 = `a' + `c'
-    local N0 = `b' + `d'
+    local N1 : display regexr(string(`a' + `c', "%21x"), "^[+]", "")
+    local N0 : display regexr(string(`b' + `d', "%21x"), "^[+]", "")
     if `b' * `c' != 0 {
-        local obs_or = (`a' * `d') / (`b' * `c')
+        local obs_or : display regexr(string((`a' * `d') / (`b' * `c'), "%21x"), "^[+]", "")
     }
     else {
-        local obs_or = .
+        local obs_or : display regexr(string(., "%21x"), "^[+]", "")
     }
     if "`measure'" == "RR" {
         if `N1' != 0 & `N0' != 0 & `b' != 0 {
-            local obs_rr = (`a' / `N1') / (`b' / `N0')
+            local obs_rr : display regexr(string((`a' / `N1') / (`b' / `N0'), "%21x"), "^[+]", "")
         }
         else {
-            local obs_rr = .
+            local obs_rr : display regexr(string(., "%21x"), "^[+]", "")
         }
     }
 
@@ -523,11 +559,11 @@ program define qba_multi, rclass
 		    local save_rc = 0
 		    quietly {
 		        _qba_mc_summary _result, level(`level')
-		        local mc_mean = r(mean)
-	        local mc_median = r(median)
-	        local mc_sd = r(sd)
-	        local mc_lo = r(ci_lower)
-	        local mc_hi = r(ci_upper)
+		        local mc_mean : display regexr(string(r(mean), "%21x"), "^[+]", "")
+	        local mc_median : display regexr(string(r(median), "%21x"), "^[+]", "")
+	        local mc_sd : display regexr(string(r(sd), "%21x"), "^[+]", "")
+	        local mc_lo : display regexr(string(r(ci_lower), "%21x"), "^[+]", "")
+	        local mc_hi : display regexr(string(r(ci_upper), "%21x"), "^[+]", "")
 
         if `"`saving'"' != "" {
             keep _wa _wb _wc _wd _result

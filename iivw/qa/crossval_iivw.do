@@ -95,6 +95,31 @@ foreach ref in ///
     }
 }
 
+* Provenance: relay the reference toolchain as REFERENCE lines.  The two R
+* generators record it in *_versions.csv, read from the installed packages in
+* this invocation (the .ok sentinels above prove it).  In the full lane the
+* runner, not this suite, launches them, so their own stdout would land before
+* an earlier suite's RESULT line and never reach this suite's receipt.
+local _ref_seen ""
+foreach _ref_vf in crossval_irreglong_versions.csv crossval_fiptiw_versions.csv {
+    tempname _ref_fh
+    file open `_ref_fh' using "`qa_dir'/`_ref_vf'", read text
+    file read `_ref_fh' _ref_line
+    while r(eof) == 0 {
+        local _ref_line = subinstr(`"`macval(_ref_line)'"', `"""', "", .)
+        gettoken _ref_pkg _ref_ver : _ref_line, parse(",")
+        local _ref_ver = strtrim(subinstr(`"`_ref_ver'"', ",", "", 1))
+        local _ref_key "`_ref_pkg'@`_ref_ver'"
+        local _ref_dup : list _ref_key in _ref_seen
+        if !inlist(`"`_ref_pkg'"', "package", "R") & `"`_ref_ver'"' != "" & !`_ref_dup' {
+            display "REFERENCE: `_ref_pkg' `_ref_ver'"
+            local _ref_seen `_ref_seen' `_ref_key'
+        }
+        file read `_ref_fh' _ref_line
+    }
+    file close `_ref_fh'
+}
+
 * ============================================================
 * PART A: IrregLong / Phenobarb Cross-Validation
 * ============================================================

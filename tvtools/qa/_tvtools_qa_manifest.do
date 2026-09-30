@@ -149,10 +149,10 @@ forvalues i = 1/`_n_leading' {
 local manifest_allow_skips "`manifest_allow_skips' 1 1 1 1 1 0 0 0"
 
 **# Canonical fixture adoption: exact numeric and caller-state contracts.
-local fixture_suites validation_fixture_contract validation_fixture_recovery test_fixture_state test_fixture_routes validation_fixture_calendar validation_fixture_ps validation_fixture_domains test_fixture_graph_state test_fixture_reshape_state test_fixture_compile test_fixture_filename_state validation_fixture_route_minima test_fixture_interval_state
+local fixture_suites validation_fixture_contract validation_fixture_recovery test_fixture_state test_fixture_routes validation_fixture_calendar validation_fixture_ps validation_fixture_domains test_fixture_graph_state test_fixture_reshape_state test_fixture_compile test_fixture_filename_state validation_fixture_route_minima test_fixture_interval_state validation_fixture_phase2_tvweight
 local core_suites `core_suites' `fixture_suites'
 local full_suites `full_suites' `fixture_suites'
 local release_suites `release_suites' `fixture_suites'
 local manifest_suites `manifest_suites' `fixture_suites'
-local manifest_counts `manifest_counts' 55 32 16 18 21 36 88 16 32 4 28 28 44
-local manifest_allow_skips `manifest_allow_skips' 0 0 0 0 0 0 0 0 0 0 0 0 0
+local manifest_counts `manifest_counts' 55 32 16 18 21 36 88 16 32 4 28 28 44 12
+local manifest_allow_skips `manifest_allow_skips' 0 0 0 0 0 0 0 0 0 0 0 0 0 0
