@@ -1,4 +1,4 @@
-*! _iivw_bs_stamp Version 4.3.2  2026/09/29
+*! _iivw_bs_stamp Version 4.3.3  2026/09/30
 *! Stamp iivw shard identity onto a bootstrap replicate file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (adds e(iivw_bs_lineage/asig/dsig/dsig_vars) only)

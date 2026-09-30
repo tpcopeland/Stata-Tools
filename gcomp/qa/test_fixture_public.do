@@ -50,10 +50,10 @@ def checksheet():
     assert 'STALE_SUMMARY' not in values
     B=Matrix.get('fx_dose_b')[0]
     for i,b in enumerate(B):
-        cell=w['package_summary'].cell(i+3,2).value
+        cell=w['package_summary'].cell(i+3,3).value.strip()
         risk=float(re.match(r'([-+0-9.]+)',cell).group(1))
         assert abs(risk-b)<=5.1e-7
-    assert abs(w['package_summary']['C3'].value-(B[0]-B[1]))<=5.1e-7
+    assert abs(w['package_summary']['D3'].value-(B[0]-B[1]))<=5.1e-7
     w.close()
 import types,sys
 m=types.ModuleType('_qa_gc_public');m.checkmodels=checkmodels;m.checksheet=checksheet;sys.modules['_qa_gc_public']=m
@@ -68,8 +68,21 @@ program define _fx_gc_models
     matrix fx_truth_V=r(V)
     estimates store fixture_component
     tempfile csv md book
-    quietly gcomptab, models usemodels(fixture_component) noeform keepintercept ///
+    local state_failed 0
+    foreach route in public direct eform {
+        local call "gcomptab"
+        local mode "models"
+        local scale "noeform"
+        if "`route'"=="direct" {
+            local call "_gcomptab_models"
+            local mode ""
+        }
+        if "`route'"=="eform" local scale "eform"
+        qa_state_snapshot, tag(modelsuccess)
+    quietly `call', `mode' usemodels(fixture_component) `scale' keepintercept ///
         xlsx("`book'.xlsx") sheet("Fixture") csv("`csv'.csv") markdown("`md'.md") display decimal(6)
+    capture noisily qa_state_compare, tag(modelsuccess)
+    if _rc local state_failed 1
     matrix fx_model_table=r(table)
     assert r(N_models)==1 & r(N_rows)==cond(inlist("`op'","omitted","base_rows"),2,3)
     assert colsof(fx_model_table)==1
@@ -80,13 +93,16 @@ program define _fx_gc_models
         local term : word `i' of `terms'
         local j=colnumb(fx_truth_b,"`term'")
         assert !missing(`j',fx_model_table[`i',1],fx_truth_b[1,`j'])
-        assert abs(fx_model_table[`i',1]-fx_truth_b[1,`j'])<1e-12
+        local expected=cond("`route'"=="eform",exp(fx_truth_b[1,`j']),fx_truth_b[1,`j'])
+        assert abs(fx_model_table[`i',1]-`expected')<1e-12
     }
     python: __import__('_qa_gc_public').checkmodels()
+    }
     erase "`csv'.csv"
     erase "`md'.md"
     erase "`book'.xlsx"
     estimates drop fixture_component
+    assert `state_failed'==0
 end
 **# F: A6 model matrices format exact coefficient payloads across all sinks
 local ++test_count

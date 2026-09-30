@@ -1988,6 +1988,87 @@ capture {
 _dg `=_rc' "groupstat(relative): cells show group/pooled, the value band() tests; pooled stays raw"
 capture frame drop dg_gr
 
+* heaping()/coverage(): a date in another unit gets the conversion, not
+* the display-format advice
+clear
+set obs 30
+gen tm = ym(2020, 1) + _n
+format tm %tm
+gen double tc = cofd(td(01jan2020) + _n)
+format tc %tc
+gen double tbig = tc
+format tbig %tC
+gen tq = yq(2020, 1) + _n
+format tq %tq
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly heaping(tm)
+local rc1 = _rc
+capture noisily datacheck, gatesonly coverage(tc 01jan2020 31dec2020, gap(0))
+local rc2 = _rc
+capture noisily datacheck, gatesonly heaping(tbig)
+local rc3 = _rc
+capture noisily datacheck, gatesonly coverage(tq 01jan2020 31dec2020, gap(0))
+local rc4 = _rc
+log close _dgq
+capture {
+    assert `rc1' == 198 & `rc2' == 198 & `rc3' == 198 & `rc4' == 198
+    _dg_count "`lg'" "heaping(): tm has a %tm format, not a daily (%td) date; convert it to a daily date with dofm()"
+    assert r(n) == 1
+    _dg_count "`lg'" "coverage(): tc has a %tc format, not a daily (%td) date; convert it to a daily date with dofc()"
+    assert r(n) == 1
+    _dg_count "`lg'" "heaping(): tbig has a %tC format, not a daily (%td) date; convert it to a daily date with dofC()"
+    assert r(n) == 1
+    _dg_count "`lg'" "coverage(): tq has a %tq format, not a daily (%td) date; convert it to a daily date with dofq()"
+    assert r(n) == 1
+    _dg_count "`lg'" "format tm %td"
+    assert r(n) == 0
+    _dg_count "`lg'" "display format"
+    assert r(n) == 0
+}
+_dg `=_rc' "heaping()/coverage(): %tm, %tc, %tC, %tq dates get the dof*() conversion, no format advice"
+
+* groupstat(relative) with a pooled value of 0: the ratio is undefined; one
+* failure says so, whatever each group holds
+clear
+set obs 40
+gen byte g = ceil(_n / 20)
+gen double z = 0
+capture frame drop dg_gz
+capture {
+    capture datacheck, gatesonly groupstat(median z, by(g) band(0.9 1.1) relative) warn violations(dg_gz, replace)
+    assert _rc == 0
+    frame dg_gz: assert _N == 1
+    frame dg_gz: assert observed[1] == "pooled 0"
+    frame dg_gz: assert message[1] == "groupstat(median z): ratio to pooled undefined, pooled median 0, expected ratio to pooled in [.9, 1.1]"
+    capture datacheck, gatesonly groupstat(median z, by(g) band(0.9 1.1) relative)
+    assert _rc == 9
+}
+_dg `=_rc' "groupstat(relative): a pooled value of 0 fails once as an undefined ratio"
+capture frame drop dg_gz
+
+* groupstat() under the mask: one withheld marker in a column.  pmiss and
+* a count masked in a ratio column read [suppr.], never "." or "<5"
+sysuse auto, clear
+capture log close _dgq
+log using "`lg'", text replace name(_dgq)
+capture noisily datacheck, gatesonly maskrare groupstat(pmiss rep78, by(foreign))
+capture noisily datacheck, gatesonly maskrare groupstat(n rep78, by(rep78) relative band(0 10))
+log close _dgq
+capture {
+    * 4 of 52 domestic and 1 of 22 foreign rep78 are missing: both masked
+    local ld : display "  " %-24s "Domestic" %13s "[suppr.]"
+    _dg_count "`lg'" "`ld'"
+    assert r(n) == 1
+    local lf : display "  " %-24s "Foreign" %13s "[suppr.]"
+    _dg_count "`lg'" "`lf'"
+    assert r(n) == 1
+    local c5 : display %13s "<5"
+    _dg_count "`lg'" "`c5'"
+    assert r(n) == 0
+}
+_dg `=_rc' "groupstat() masking: pmiss and ratio cells use [suppr.], not . or <5"
+
 * ============================================================
 * Summary
 * ============================================================

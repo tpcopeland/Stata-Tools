@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.2  2026/09/29
+*! iivw_diagnose Version 4.3.3  2026/09/30
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,6 +10,7 @@ program define iivw_diagnose, rclass
 
     tempname _held_est _estimates _diagnose_export
     local _held_ests = 0
+    local _caller_vars ""
     local _diagnose_export_created = 0
     local _export_rc = 0
     local _export_xlsx ""
@@ -104,6 +105,9 @@ program define iivw_diagnose, rclass
             error 198
         }
 
+        * Restoring stored estimates can recreate their existing sample-marker
+        * variables at the end of the data. Retain the caller's column order.
+        capture unab _caller_vars : _all
         capture _estimates hold `_held_est', nullok
         if _rc {
             local hold_rc = _rc
@@ -1073,6 +1077,10 @@ program define iivw_diagnose, rclass
     if `_held_ests' {
         capture _estimates unhold `_held_est'
         if `rc' == 0 & _rc local rc = _rc
+        if "`_caller_vars'" != "" {
+            capture order `_caller_vars'
+            if `rc' == 0 & _rc local rc = _rc
+        }
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

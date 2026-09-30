@@ -1,4 +1,4 @@
-*! _iivw_require_meta Version 4.3.2  2026/09/29
+*! _iivw_require_meta Version 4.3.3  2026/09/30
 *! Fail closed when an explicitly named source does not carry a required field
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (errors, or returns silently)

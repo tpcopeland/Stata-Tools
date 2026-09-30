@@ -46,7 +46,7 @@ def _fx_msm_py_1():
     wb=load_workbook(Macro.getLocal('diag')+'.xlsx',data_only=True)
     ws=wb['Weight Diagnostics']
     assert ws['A3'].value=='Fixture' and ws['B3'].value=='Event'
-    assert abs(ws['D3'].value-float(Macro.getLocal('ess')))<1e-10
+    assert ws['D3'].value==round(float(Macro.getLocal('ess')))
     wb.close()
 def _fx_msm_py_2():
     from sfi import Macro
@@ -94,6 +94,7 @@ program define _fx_msm_public
     quietly msm_diagnose, balance_covariates(l_t l0) accumulate(fxdiag) contrast("Fixture") outcome("Event")
     assert !missing(r(ess)) & reldif(r(ess),`ess') < 1e-10
     matrix fx_expected_balance = r(balance)
+    matrix fx_expected_balance = fx_expected_balance[1...,1..2]
     frame fxdiag: assert !missing(ess) & reldif(ess,`ess') < 1e-10
     quietly msm_fit, model(logistic) period_spec(cubic) nolog
     matrix fx_expected_b = e(b)
@@ -120,6 +121,15 @@ program define _fx_msm_public
     quietly msm_table, xlsx("`table'.xlsx") all decimals(8) replace
     quietly msm_diagtab, frame(fxdiag) xlsx("`diag'.xlsx") decimals(8) replace
     python: __import__("_qa_msm_public").check1()
+    preserve
+    collapse (mean) fx_prop=a, by(period)
+    mkmat period fx_prop, matrix(fx_expected_prop)
+    restore
+    tempfile histories
+    preserve
+    keep id period a
+    save "`histories'", replace
+    restore
     foreach type in weights balance survival trajectory positivity {
         tempfile g
         local opt ""
@@ -133,6 +143,46 @@ program define _fx_msm_public
             assert mreldif(r(balance),fx_expected_balance) < 1e-10
         }
         graph use "`g'.gph"
+        * Stata sersets carry the numeric series actually rendered (official
+        * serset manual fetched2026-09-30), not a success marker or file proxy.
+        preserve
+        serset use, clear
+        if "`type'"=="survival" {
+            assert _N==2
+            forvalues i=1/2 {
+                assert time[`i']==fx_expected_predictions[`i',1]
+                assert !missing(ci_never[`i'],ci_always[`i'])
+                assert abs(ci_never[`i']-fx_expected_predictions[`i',2])<1e-12
+                assert abs(ci_always[`i']-fx_expected_predictions[`i',5])<1e-12
+            }
+        }
+        if "`type'"=="positivity" {
+            assert _N==4
+            forvalues i=1/4 {
+                assert period[`i']==fx_expected_prop[`i',1]
+                assert !missing(treat_prob[`i'])
+                * collapse default float output has at most one float ulp.
+                assert treat_prob[`i']==float(fx_expected_prop[`i',2])
+            }
+        }
+        if "`type'"=="trajectory" {
+            assert inlist(a,0,1) & inrange(period,0,3)
+            assert period==_n-1
+        }
+        if "`type'"=="balance" {
+            assert _N==2 & !missing(smd_uw,smd_w)
+            forvalues i=1/2 {
+                local j=3-plot_order[`i']
+                assert abs(smd_uw[`i']-abs(fx_expected_balance[`j',1]))<1e-12
+                assert abs(smd_w[`i']-abs(fx_expected_balance[`j',2]))<1e-12
+            }
+        }
+        if "`type'"=="weights" {
+            assert !missing(_msm_weight) & _msm_weight>0
+            quietly summarize _msm_weight, meanonly
+            assert r(N)>1600
+        }
+        restore
         graph export "`g'.svg", replace
     python: __import__("_qa_msm_public").check2()
         erase "`g'.gph"

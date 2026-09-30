@@ -151,3 +151,5 @@ archetypes: A6(qba_misclass qba_selection qba_confound qba_multi qba_plot) A7(qb
 fixture-exempt: qba (catalog dispatcher does not consume analytical data)
 
 `validation_qba_fixture_contract.do` runs in core/full: 17 exact outcome-misclassification OR/RR, selection OR and confounding RR checks, with constant-parameter probabilistic paths and one-bias `qba_multi` paths. The canonical table is explicitly adapted to qba cell order E1Y1/E0Y1/E1Y0/E0Y0. Friendly and identity sensitivity/specificity boundary cases assert exact corrected cells/effects; constant draws assert 100 valid replicates and exact mean/interval targets. Full combined bias, exposure classification, plotting, and remaining hostile primitives/file paths remain owed, with current existing QA retained.
+
+| `validation_qba_fixture_plots.do` | Actual native graph serset numeric series for outcome/selection/confounding sensitivity curves, canonical friendly and boundary cells, full caller fingerprints after observed native first-graph initialization | core/full |
