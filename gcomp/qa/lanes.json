@@ -109,6 +109,10 @@
         {
           "name": "test_fixture_table_domains",
           "timeout_seconds": 300
+        },
+        {
+          "name": "test_fixture_intervention_numeric",
+          "timeout_seconds": 300
         }
       ]
     },

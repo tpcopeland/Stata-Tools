@@ -173,9 +173,8 @@ are set to missing for observations that are not cause-of-interest
 events. {opt timevar()} is not allowed with {opt schoenfeld} and is
 rejected with {cmd:r(198)}; residuals are computed at the original event
 times. The residuals match {helpb stcrreg}'s {cmd:predict, schoenfeld}
-exactly at untied event times; at a tied event time the per-event split
-follows {cmd:finegray}'s own convention but preserves the per-time
-total; see {help finegray_methods##stcrreg:Comparison with stcrreg}. After
+observation by observation, at tied and untied event times; see
+{help finegray_methods##stcrreg:Comparison with stcrreg}. After
 a {cmd:[pweight=]} fit the residual is the per-unit-weight contribution
 Z_i - zbar_w(t_i), with zbar_w the design-weighted risk-set mean, so the
 weighted sum over cause events is zero while the plain sum is not;
