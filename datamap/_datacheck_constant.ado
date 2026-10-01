@@ -1,4 +1,4 @@
-*! _datacheck_constant Version 1.8.1  2026/09/30
+*! _datacheck_constant Version 1.8.2  2026/10/01
 *! datacheck constant(): time-fixed values within a key
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

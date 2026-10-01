@@ -1,4 +1,4 @@
-*! _datacheck_bound Version 1.8.1  2026/09/30
+*! _datacheck_bound Version 1.8.2  2026/10/01
 *! Parse a range bound (number, date literal, or date string) for a variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

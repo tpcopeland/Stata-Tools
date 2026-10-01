@@ -1,4 +1,4 @@
-*! _datacheck_events Version 1.8.1  2026/09/30
+*! _datacheck_events Version 1.8.2  2026/10/01
 *! datacheck events(): every level of a covariate carries enough events
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

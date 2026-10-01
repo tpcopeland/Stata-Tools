@@ -247,8 +247,14 @@ program define _priv_count, rclass
     local n 0
     file open `fh' using `"`using'"', read text
     file read `fh' line
+    local _hdr = 0
     while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', `"`needle'"') > 0 local ++n
+        // the log's own header and footer (its tempfile path, the clock),
+        // including a wrapped "> " continuation, are not output: a PID such
+        // as 1895983 matched needle("98")
+        if regexm(`"`macval(line)'"', "^ *(name|log|log type|opened on|closed on):") local _hdr = 1
+        else if !(`_hdr' & substr(`"`macval(line)'"', 1, 2) == "> ") local _hdr = 0
+        if !`_hdr' & strpos(`"`macval(line)'"', `"`needle'"') > 0 local ++n
         file read `fh' line
     }
     file close `fh'

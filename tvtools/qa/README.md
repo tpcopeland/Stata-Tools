@@ -143,8 +143,10 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `validation_tvevent.do` | Known event placement and clock values. |
 | `validation_tvexpose.do` | Known exposure tilings and durations. |
 | `validation_tvexpose_statetime.do` | Known exposure-state time histories. |
+| `validation_tvexpose_priority.do` | `priority()` resumption and nested same-value geometries, unranked-overlap and duplicate-value refusals, and a person-day oracle. |
 | `validation_tvmerge.do` | Known merged intervals and quantity values. |
 | `validation_tvpanel.do` | Known fixed-width panel rows. |
+| `validation_tvpanel_sweep.do` | Person-day oracle for the active class and `cumulative()` columns over hostile random geometries. |
 | `validation_tvsplit.do` | Known multi-axis split rows. |
 | `validation_tvweight.do` | Known weight calculations. |
 | `validation_tvweight_balance.do` | Known balance metrics. |

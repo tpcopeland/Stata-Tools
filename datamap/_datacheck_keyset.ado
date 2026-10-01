@@ -1,4 +1,4 @@
-*! _datacheck_keyset Version 1.8.1  2026/09/30
+*! _datacheck_keyset Version 1.8.2  2026/10/01
 *! datacheck keyset(): the same distinct keys as a saved dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

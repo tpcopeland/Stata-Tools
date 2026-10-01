@@ -1,4 +1,4 @@
-*! tvexpose Version 1.17.6  2026/09/30
+*! tvexpose Version 1.17.7  2026/10/01
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -536,7 +536,17 @@ program define tvexpose, rclass
         noisily display as error "Only one overlap handling option can be specified: priority(), split, layer, or combine()"
         exit 198
     }
-    
+
+    * A value listed twice has two ranks; refuse rather than silently keep the
+    * lower one. syntax has already expanded the numlist to canonical numbers.
+    if "`priority'" != "" {
+        local _tvx_prio_dups : list dups priority
+        if "`_tvx_prio_dups'" != "" {
+            noisily display as error "priority() lists exposure value(s) more than once: `_tvx_prio_dups'"
+            exit 198
+        }
+    }
+
     * NOTE: Default to layer is set AFTER overlap detection/warning block
     * so the warning can fire when no overlap option is specified
     
@@ -1713,7 +1723,7 @@ program define tvexpose, rclass
     * Four strategies available:
     *   1. split: Create separate periods at all boundary points (every combination)
     *   2. combine: Encode overlaps as combined exposure value (val1*100 + val2)
-    *   3. priority: Assign precedence order, truncate lower priority periods
+    *   3. priority: Highest-ranked active value wins each day; lower ranks resume
     * Default (none specified): Later exposures take precedence (simple truncation)
 
     * Skip standard overlap handling for dose (already handled above)
@@ -2100,73 +2110,7 @@ program define tvexpose, rclass
             noisily display as text "Note: simple overlap resolution reached its safety bound; checking the final invariant"
         }
     }
-    
-    * Apply priority ordering if specified
-    * When periods overlap, user specifies which exposure takes precedence
-    * priority(3 2 1) means: type 3 highest priority, then 2, then 1
-    * Higher priority periods take precedence; lower priority periods are truncated/removed
-    if "`priority'" != "" {
-        * Create ranking variable based on priority order
-        quietly generate double priority_rank = 999
-        local rank = 1
-        foreach val of numlist `priority' {
-            quietly replace priority_rank = `rank' if exp_value == `val'
-            local rank = `rank' + 1
-        }
-        
-        * Sort by person, priority (lower rank = higher priority), then start date
-        sort id priority_rank exp_start exp_stop
-        
-        * Iteratively handle overlaps between different priority levels
-        local iter = 0
-        local max_iter = _N + 1
-        local changed = 1
-        
-        while `changed' == 1 & `iter' < `max_iter' {
-            sort id priority_rank exp_start exp_stop
 
-            * ================================================================
-            * MATA OPTIMIZATION: O(n log n) overlap detection and resolution
-            * Replaces O(n²) nested forvalues loops with compiled Mata code
-            * Performance: 10K obs <1s, 100K obs <10s, 1M obs <2min
-            * ================================================================
-
-            * Call Mata library for overlap detection and resolution
-            * Creates: __overlaps_higher, __first_overlap_row, __adj_start, __adj_stop, __valid
-            * Invoked `noisily' so the engine's >100k-row progress line surfaces on
-            * a normal run yet stays suppressed under `quietly tvexpose'.
-            noisily _tvexpose_mata_overlaps id exp_start exp_stop priority_rank
-            local n_overlaps = r(n_overlaps)
-
-            if `n_overlaps' == 0 {
-                local changed = 0
-                capture quietly drop __overlaps_higher __first_overlap_row __adj_start __adj_stop __valid
-                local _overlap_drop_rc = _rc
-            }
-            else {
-                * Apply Mata-computed adjustments to overlapping records
-                * For non-overlapping: __adj_start == exp_start, __adj_stop == exp_stop
-                * For overlapping: dates adjusted to resolve priority conflicts
-                quietly replace exp_start = __adj_start
-                quietly replace exp_stop = __adj_stop
-
-                * Remove records completely covered by higher-priority periods
-                quietly keep if __valid == 1
-
-                * Clean up temp variables
-                quietly drop __overlaps_higher __first_overlap_row __adj_start __adj_stop __valid
-            }
-
-            local iter = `iter' + 1
-        }
-        
-        if `changed' & `iter' >= `max_iter' {
-            noisily display as text "Note: priority resolution reached its safety bound; checking the final invariant"
-        }
-        
-        drop priority_rank
-    }
-    
     * ===========================================================================
     * LAYER ALGORITHM: Sequential Precedence with Resumption
     * ===========================================================================
@@ -2188,13 +2132,17 @@ program define tvexpose, rclass
     *
     * Why layer vs other strategies:
     *   - split: Creates separate periods for every combination (exponential growth)
-    *   - priority: Static ordering, no resumption
+    *   - priority: Same sweep with a user-ranked key instead of start date
     *   - combine: Merges overlaps into new combined type
     *   - layer: Preserves original types with natural chronological precedence
     *
     * ===========================================================================
+    * priority(numlist) runs the same sweep with the precedence key set to the
+    * user's rank: on each day the highest-priority active exposure wins, and a
+    * lower-priority exposure resumes when it ends. Same-priority ties fall back
+    * to the layer order (later start, then later source row).
     **# Layer option: Sequential precedence with resumption
-    if "`layer'" != "" {
+    if "`layer'" != "" | "`priority'" != "" {
         tempvar _tvx_layer_group
         quietly egen long `_tvx_layer_group' = group(id)
 
@@ -2215,6 +2163,33 @@ program define tvexpose, rclass
         sort `_tvx_layer_group' exp_start `_tvx_ustart' `_tvx_source_order'
         quietly generate long `_tvx_layer_rank' = _n
 
+        local _tvx_layer_key ""
+        if "`priority'" != "" {
+            tempvar _tvx_layer_key _tvx_unranked_group
+            quietly generate double `_tvx_layer_key' = 0
+            local _tvx_prio_n : word count `priority'
+            foreach val of numlist `priority' {
+                quietly replace `_tvx_layer_key' = `_tvx_prio_n' if exp_value == `val'
+                local --_tvx_prio_n
+            }
+
+            * Values priority() does not list share key 0, so no order between
+            * them was specified. Refuse rather than guess when two of them with
+            * different values overlap; every non-zero-key row is its own group.
+            quietly generate double `_tvx_unranked_group' = ///
+                cond(`_tvx_layer_key' == 0, `_tvx_layer_group', -_n)
+            sort `_tvx_unranked_group' exp_start exp_stop exp_value
+            quietly _tvexpose_mata_conflicts `_tvx_unranked_group' ///
+                exp_start exp_stop exp_value
+            local _tvx_n_unranked = r(n_conflicts)
+            drop `_tvx_unranked_group'
+            if `_tvx_n_unranked' > 0 {
+                noisily display as error "priority() does not rank exposure values that overlap each other (`_tvx_n_unranked' row(s))"
+                noisily display as error "List every overlapping exposure value in priority()."
+                exit 498
+            }
+        }
+
         tempfile layer_payload_data
         preserve
         quietly keep `_tvx_layer_rank' `layer_payload'
@@ -2223,12 +2198,13 @@ program define tvexpose, rclass
         restore
 
         quietly keep `_tvx_layer_group' exp_start exp_stop exp_value ///
-            `_tvx_layer_rank'
+            `_tvx_layer_rank' `_tvx_layer_key'
         sort `_tvx_layer_group' exp_start `_tvx_layer_rank'
         quietly _tvexpose_mata_layer `_tvx_layer_group' exp_start exp_stop ///
-            exp_value `_tvx_layer_rank'
+            exp_value `_tvx_layer_rank' `_tvx_layer_key'
         local n_layer_rows = r(n_layer)
         quietly keep in 1/`n_layer_rows'
+        if "`_tvx_layer_key'" != "" drop `_tvx_layer_key'
         quietly merge m:1 `_tvx_layer_rank' using `layer_payload_data', ///
             keep(3) nogen
         drop `_tvx_layer_rank'

@@ -1,4 +1,4 @@
-*! regtab Version 2.1.19  2026/09/30
+*! regtab Version 2.1.20  2026/10/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -167,13 +167,13 @@ if `highpdp' == -1 local highpdp = 2
 		}
 		if `"`_displayframe_name'"' != "" & ///
 			`"`_eplotframe_name'"' != "" & ///
-			lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+			`"`_displayframe_name'"' == `"`_eplotframe_name'"' {
 			noisily display as error "frame() and eplotframe() must name different frames"
 			exit 198
 		}
 		foreach _dest in _displayframe_name _eplotframe_name {
 			if `"``_dest''"' != "" & ///
-				lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+				`"``_dest''"' == `"`c(frame)'"' {
 				noisily display as error "output frames cannot replace the current frame"
 				exit 198
 			}
@@ -383,7 +383,10 @@ quietly{
     _tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
     * Create temporary file for intermediate processing
+    * Pair provenance must distinguish repeated fits with identical metadata.
+    * The allocator also guards reusable tempfile names and live frame tokens.
     tempfile temp_export
+    _tabtools_companion_id
     local temp_xlsx "`temp_export'.xlsx"
 
     if "`labelmatch'" != "" & "`keep'`drop'" == "" {
@@ -726,6 +729,7 @@ quietly{
                 local _sm_`_sl'_`_m' ""
             }
             local _sm_k_`_m' = 0
+            local _sm_reg_eqs_`_m' ""
         }
         forvalues _r = 3/`=_N' {
             local _key = strtrim(_raw_colname[`_r'])
@@ -744,6 +748,11 @@ quietly{
                 local _cb = strtrim(`_vb'[`_r'])
                 local _cs = subinstr(strtrim(`_vs'[`_r']), ",", "", .)
                 if `"`_cb'`_cs'"' == "" continue
+                local _sm_depvars `"`model_depvar_`_m''"'
+                local _sm_outcome : list _eq in _sm_depvars
+                if ("`_role'" == "reg" | ("`_role'" == "cons" & `_sm_outcome')) ///
+                    & `"`_eq'"' != "" ///
+                    local _sm_reg_eqs_`_m' `"`_sm_reg_eqs_`_m'' `_eq'"'
                 if inlist("`_role'", "anc", "cut") {
                     local _sm_`_role'_`_m' `"`_sm_`_role'_`_m'' `_key'"'
                 }
@@ -780,6 +789,13 @@ quietly{
             }
             local _sm_reg_all `"`_sm_reg_all' `_sm_reg_`_m''"'
             local _sm_ac_all `"`_sm_ac_all' `_sm_anc_`_m'' `_sm_cut_`_m''"'
+        }
+        * Different single-equation outcomes across models still align by
+        * term; only several regression equations within one model require
+        * equation-qualified rows.
+        forvalues _m = 1/`_sm_n' {
+            local _sm_reg_eqs_`_m' : list uniq _sm_reg_eqs_`_m'
+            if `: word count `_sm_reg_eqs_`_m''' > 1 local _has_multieq_estimator = 1
         }
         local _sm_ckeys : list _sm_reg_all & _sm_ac_all
         local _sm_ckeys : list uniq _sm_ckeys
@@ -1561,8 +1577,14 @@ quietly{
         * as Partial_response or 2 back to reader-facing outcome labels.
         local _depvar ""
         local _dep_label ""
-        capture local _depvar "`e(depvar)'"
-        local _depvar_rc = _rc
+        * Outcome labels belong to the collected model. Ambient e() may
+        * describe a later fit, so use an unambiguous collected identity.
+        if `_meta_models' > 0 {
+            local _depvar `"`model_depvar_1'"'
+            forvalues _m = 2/`_meta_models' {
+                if `"`model_depvar_`_m''"' != `"`_depvar'"' local _depvar ""
+            }
+        }
         if "`_depvar'" != "" {
             capture local _dep_label : variable label `_depvar'
             local _dep_label_rc = _rc
@@ -1570,7 +1592,7 @@ quietly{
             capture local _dep_vallab : value label `_depvar'
             local _dep_vallab_rc = _rc
             if "`_dep_vallab'" != "" {
-                capture levelsof `_depvar' if e(sample), local(_dep_levels_for_eq)
+                capture levelsof `_depvar', local(_dep_levels_for_eq)
                 local _dep_levels_rc = _rc
                 if `_dep_levels_rc' == 0 {
                     foreach _dlev of local _dep_levels_for_eq {
@@ -2632,6 +2654,17 @@ destring c`i', gen(double c`i'z) force
 local _omit_ok = 0
 capture confirm variable _omit_type`_model_ix'
 if _rc == 0 local _omit_ok = 1
+* Save the constraint class before substituting display labels; a numeric
+* label can also equal an ordinary coefficient after rounding.
+gen str6 _constraint`_model_ix' = ""
+if `_omit_ok' {
+    replace _constraint`_model_ix' = _omit_type`_model_ix' ///
+        if inlist(_omit_type`_model_ix', "base", "omit", "empty") ///
+        & strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
+}
+replace _constraint`_model_ix' = "base" if _constraint`_model_ix' == "" ///
+    & _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" ///
+    & strtrim(c`=`i'+2') == "" & _n >= 3
 if `_omit_ok' {
 	replace c`i' = `"`refcat'"' if _omit_type`_model_ix' == "base" ///
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
@@ -2662,7 +2695,7 @@ if "`re_transform'" != "none" {
 * A transform that overflows double precision leaves no representable value;
 * the cell is blank rather than collect's untransformed text.
 replace c`i' = "" if _b_had & missing(c`i'z) & _n >= 3 ///
-	& !inlist(strtrim(c`i'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+	& !(_constraint`_model_ix' != "")
 drop _b_had
 	gen double _coefnum`i' = c`i'z if _n >= 3
 	capture confirm variable _eplot_est`_model_ix'
@@ -2677,7 +2710,7 @@ replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
 replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
 replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3 ///
-	& !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+	& !(_constraint`_model_ix' != "")
 drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
 if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -2771,7 +2804,7 @@ if "`dimnonsig'" != "" {
     gen byte _is_refrow = 0
     forvalues _ri = 1(3)`last' {
         replace _is_refrow = 1 if _n >= 3 ///
-            & inlist(c`_ri', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+            & (_constraint`=(`_ri'+2)/3' != "")
     }
     gen byte _is_cathead = (_ci_seen == 0 & !_is_refrow & _n >= 3)
     forvalues _ri = 1(3)`last' {
@@ -2814,13 +2847,13 @@ gen str20 c`i'_orig = c`i'
 	replace _eplot_p`_model_ix' = c`i'z if _n >= 3 & c`i'z < .
 	capture confirm variable _eplot_est`_model_ix'
 	if !_rc replace _eplot_est`_model_ix' = . if _n >= 3 ///
-		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+		& (_constraint`_model_ix' != "")
 	capture confirm variable _eplot_ll`_model_ix'
 	if !_rc replace _eplot_ll`_model_ix' = . if _n >= 3 ///
-		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+		& (_constraint`_model_ix' != "")
 	capture confirm variable _eplot_ul`_model_ix'
 	if !_rc replace _eplot_ul`_model_ix' = . if _n >= 3 ///
-		& inlist(strtrim(c`=`i'-2'), `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+		& (_constraint`_model_ix' != "")
 gen str20 c`i'_fmt = ""
 * Handle genuinely missing p-values (e.g., omitted variables, base categories)
 * If original string was "." or empty or converted to missing, leave blank
@@ -2882,7 +2915,7 @@ if "`stars'" != "" {
 	            if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"
 	            local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 	            local _ep_rowtype "effect"
-	            if lower(`"`_ep_cell'"') == lower(`"`refcat'"') local _ep_rowtype "reference"
+	            if _constraint`_ep_m'[`_ep_obs'] == "base" local _ep_rowtype "reference"
 	            if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
 	                * C1 (codex audit 2026-09-26): the row and model labels are stored
 	                * in Mata after the post, so they are never expanded as macros.
@@ -2897,6 +2930,7 @@ if "`stars'" != "" {
 	        }
 	    }
 	    frame `_eplotframe_name': char _dta[tabtools_source] "regtab"
+	    frame `_eplotframe_name': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 	    frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level'"
 	    frame `_eplotframe_name': char _dta[tabtools_n_models] "`n_models'"
 	    frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
@@ -2926,8 +2960,7 @@ if `n_models' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if !inlist(strtrim(c`_ci'[`_obs']), `"`refcat'"', ///
-                    `"`omitlabel'"', `"`emptylabel'"') {
+                if (_constraint`=(`_ci'+2)/3'[`_obs'] == "") {
                     local _row_has_data = 1
                 }
             }
@@ -2953,8 +2986,7 @@ if `_mat_nrows' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if !inlist(strtrim(c`_ci'[`_obs']), `"`refcat'"', ///
-                    `"`omitlabel'"', `"`emptylabel'"') {
+                if (_constraint`=(`_ci'+2)/3'[`_obs'] == "") {
                     matrix `_rtable'[`_mr', `_mc'] = `_coefval'
                 }
             }
@@ -3003,6 +3035,16 @@ if `_mat_nrows' > 0 {
     }
     capture matrix rownames `_rtable' = `_rnames'
 }
+* Keep original body row positions for the later title-row shift and
+* compact/nopvalue column renumbering, then remove internal status columns.
+forvalues _m = 1/`n_models' {
+    local _constraint_rows_`_m' ""
+    forvalues _cr = 3/`=_N' {
+        if _constraint`_m'[`_cr'] != "" ///
+            local _constraint_rows_`_m' "`_constraint_rows_`_m'' `=`_cr'+1'"
+    }
+}
+capture drop _constraint*
 capture drop _coefnum*
 drop _is_re _is_re_intercept _is_ancillary
 capture drop _role_m*
@@ -3689,7 +3731,10 @@ drop A_length factor_length
 local _ref_model_ix = 0
 forvalues i = 1(`_cols_per_model')`last'{
 local _ref_model_ix = `_ref_model_ix' + 1
-gen ref`i' = _n if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+gen ref`i' = .
+foreach _cr of local _constraint_rows_`_ref_model_ix' {
+    replace ref`i' = _n in `_cr'
+}
 order ref`i', after(c`i')
 levelsof ref`i', local(_ref_rows_`_ref_model_ix')
 }
@@ -3761,6 +3806,7 @@ if `"`markdown'"' != "" {
 		_tabtools_frame_put `"`frame'"'
 		local frame `"`_frame_name'"'
 		frame `frame': char _dta[tabtools_source] "regtab"
+		frame `frame': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
 		frame `frame': char _dta[tabtools_n_models] "`n_models'"
 		local _frame_stat_ids "estimate ci pvalue"
@@ -4823,4 +4869,3 @@ program define _regtab_scale, nclass
 	set varabbrev `_orig_varabbrev'
 	if `_rc' exit `_rc'
 end
-

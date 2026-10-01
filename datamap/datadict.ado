@@ -1,4 +1,4 @@
-*! datadict Version 1.8.1  2026/09/30
+*! datadict Version 1.8.2  2026/10/01
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -8,7 +8,9 @@ program define datadict, rclass
     foreach g in S_1 S_FN S_FNDATE {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
-        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+        // in Mata: a saved value ending in an unmatched ` (S_FNDATE keeps
+        // only 17 characters) opened a compound quote here, r(132)
+        mata: st_local("_had_" + st_local("g"), strofreal(st_local("_had_" + st_local("g")) == "1" | st_local("_old_" + st_local("g")) != ""))
     }
 
 	local _varabbrev = c(varabbrev)
@@ -351,7 +353,9 @@ program define datadict, rclass
 		local _restore_rc = _rc
 	}
     foreach g in S_1 S_FN S_FNDATE {
-        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        // Mata, not -global-: a one-line -if- expands its command a second
+        // time, so a saved value holding $name or `name' came back rewritten
+        if `_had_`g'' mata: st_global(st_local("g"), st_local("_old_" + st_local("g")))
         else macro drop `g'
     }
 	set varabbrev `_varabbrev'
@@ -1452,7 +1456,8 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 			MAXCat(integer) MAXFreq(integer) MINCell(integer) DATEFormat(string) VARCLASS(string) ///
 			UNIQCap(integer) ///
 			SOURCE(string asis) OUtput(string asis) DSName(string asis) ///
-			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis)]
+			DSLABEL(string asis) NVARS(integer) [POSTNAME(name) DATASIGnature(string asis) ///
+			KNOWNMISS(string) KNOWNUNIQ(string) KNOWNCAP(string)]
 
 	foreach field in source output dsname dslabel {
 		mata: st_local("`field'", _datadict_unquote(st_local("`field'")))
@@ -1484,8 +1489,13 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 		local typestr "Date"
 	}
 
-	quietly count if missing(`vname')
-	local nmiss = r(N)
+	// knownmiss/knownuniq/knowncap: the classifier's counts for this
+	// variable on the same data at the same cap, so not counted twice.
+	if "`knownmiss'" != "" local nmiss = `knownmiss'
+	else {
+		quietly count if missing(`vname')
+		local nmiss = r(N)
+	}
 	if `obs' > 0 local pctmiss = strtrim(string(100 * `nmiss' / `obs', "%9.1f"))
 	else local pctmiss "0.0"
 	local missingstr "`nmiss' (`pctmiss'%)"
@@ -1496,10 +1506,16 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	// and stops early once the count exceeds the cap.  See _datamap_nuniq.ado.
 	local nuniq = .
 	local ncapped = 0
-	capture _datamap_nuniq `vname', cap(`uniqcap')
-	if _rc == 0 {
-		local nuniq = r(n)
-		local ncapped = r(capped)
+	if "`knownuniq'" != "" {
+		local nuniq = `knownuniq'
+		if !missing(`nuniq') local ncapped = `knowncap'
+	}
+	else {
+		capture _datamap_nuniq `vname', cap(`uniqcap')
+		if _rc == 0 {
+			local nuniq = r(n)
+			local ncapped = r(capped)
+		}
 	}
 
 	local valuesstr ""
@@ -1542,13 +1558,19 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	capture confirm numeric variable `vname'
 	local is_numeric = (_rc == 0)
 	if `is_numeric' {
-		quietly summarize `vname', detail
+		// The percentiles (a sort per variable) are read only by the
+		// continuous row and the saving() post; other rows need min and max.
+		local _sumdetail = ("`varclass'" == "continuous" | "`postname'" != "")
+		if `_sumdetail' quietly summarize `vname', detail
+		else quietly summarize `vname'
 		if r(N) > 0 {
-			local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
-			local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
-			local p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
-			local p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
-			local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
+			if `_sumdetail' {
+				local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
+				local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
+				local p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
+				local p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
+				local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
+			}
 			local vmin_raw = regexr(string(r(min), "%21x"), "^[+]", "")
 			local vmax_raw = regexr(string(r(max), "%21x"), "^[+]", "")
 		}
@@ -2121,6 +2143,25 @@ program define _datadict_ProcessOneDataset, rclass
 			local postopt ""
 			if "`postname'" != "" local postopt "postname(`postname')"
 
+			// The classifier already counted each variable's missing rows and
+			// distinct values on these data at cap `nuniq_cap'; the rows reuse
+			// them rather than repeat both passes per variable.
+			tempname _kfr
+			frame create `_kfr'
+			local _knames ""
+			frame `_kfr' {
+				quietly use varname missing_n unique_vals unique_capped ///
+					using "`classifications'", clear
+				forvalues i = 1/`=_N' {
+					local _kvn = varname[`i']
+					local _knames "`_knames' `_kvn'"
+					local _kmiss`i' = missing_n[`i']
+					local _kuniq`i' = unique_vals[`i']
+					local _kcap`i' = cond(missing(unique_capped[`i']), 0, unique_capped[`i'])
+				}
+			}
+			frame drop `_kfr'
+
 			foreach vn of local allvars {
 			local varclass "continuous"
 			foreach cv of local categorical_vars {
@@ -2135,9 +2176,14 @@ program define _datadict_ProcessOneDataset, rclass
 			foreach cv of local string_vars {
 				if "`vn'" == "`cv'" local varclass "string"
 			}
+				local _ki : list posof "`vn'" in _knames
+				local knownopt ""
+				if `_ki' > 0 & !missing(`_kmiss`_ki'') {
+					local knownopt "knownmiss(`_kmiss`_ki'') knownuniq(`_kuniq`_ki'') knowncap(`_kcap`_ki'')"
+				}
 				_datadict_WriteVariableRow, handle(`handle') vname(`vn') obs(`obs') ///
 					columns(`columns') maxcat(`maxcat') maxfreq(`maxfreq') ///
-						uniqcap(`nuniq_cap') ///
+						uniqcap(`nuniq_cap') `knownopt' ///
 						mincell(`mincell') dateformat("`dateformat'") varclass("`varclass'") ///
 							source(`"`macval(metadata_source)'"') output(`"`output'"') ///
 						dsname(`"`metadata_dsname'"') dslabel(`"`macval(dslabel_transport)'"') ///

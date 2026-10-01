@@ -8,6 +8,7 @@ The `tabtools` QA suite is flat and concern-oriented, with one curated lane runn
 cd tabtools/qa
 stata-mp -b do run_all.do            # full lane (default correctness gate)
 stata-mp -b do run_all.do quick      # fast functional lane
+stata-mp -b do run_all.do core       # functional and known-answer suites
 stata-mp -b do test_desctab.do       # one suite standalone
 ```
 
@@ -29,7 +30,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 ## Conventions
 
 - `test_*` files cover functional and regression behavior; `validation_*` files use known-answer or invariant oracles; `crossval_*` files compare against an independent implementation; `benchmark_*` files are timing guardrails, not correctness evidence.
-- Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N [skip=N]` and exits nonzero on failure. Any skip fails `full` and `release`; `quick` treats `_skip.txt` as advisory.
+- Every runnable suite ends with one `RESULT: <name> tests=N pass=N fail=N [skip=N]` and exits nonzero on failure. The runner rejects missing, duplicate, empty, failing, or unreconciled receipts even when the child exits zero. Any skip fails `core`, `full`, `release`, and `benchmark`; `quick` treats skips as advisory.
 - The runner sandboxes package installation and restores PLUS/PERSONAL; standalone files install from the package root for independent execution.
 - Paths derive from `c(pwd)`; no suite uses a machine-local repository path.
 - Synthetic data are generated at runtime; tracked cross-validation inputs live in `data/`, and fixture ownership is recorded in `fixtures_manifest.md`.
@@ -40,6 +41,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 
 | Suite or lane | Needs | If missing |
 |---|---|---|
+| Runner receipt checks | Python 3 | hard failure |
 | Excel/artifact suites | Python 3, `openpyxl`, and Pillow | hard failure |
 | `crossval_tabtools.do` | `Rscript`; Python with `numpy` and `statsmodels` | hard failure |
 | full/release bootstrap | Stata packages `simsum`, `siman`, `sencode`, and `labelsof` | installed into the sandbox; installation failure is fatal |
@@ -53,6 +55,10 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_ci_level_provenance.do` | Confidence-level provenance and explicit fallback contracts across model-table commands. |
 | `test_column_widths.do` | `_tabtools_colwidth` unit contract (display width, `exclude()`, block wrap, varabbrev restore) and per-column xlsx width sizing for desctab/table1_tc, regtab, effecttab, and comptab, with the header-row wrap that replaces label-driven column widening. |
 | `test_comptab.do` | Vertical composition, source-frame handling, option guards, and error-state restoration. |
+| `test_review_2026_10_01_composition.do` | Model alignment in numeric companions, opaque labels, frame identity, and missing/duplicate companion refusals. |
+| `test_review_2026_10_01_models.do` | Equation identity, reference-label collisions, case-sensitive frames, large matrix values, and collected-model labels. |
+| `test_review_2026_10_01_statistics.do` | Translation-invariant Cochran trend tests and literal rate-table text and filename refusals. |
+| `test_runner_contracts.do` | Controlled child suites prove receipt enforcement, skip policy, argument refusals, and ado-path restoration. |
 | `test_corrtab.do` | Pearson/Spearman output, stars, shapes, pairwise-N p-values, and undefined diagonals for degenerate Spearman variables. |
 | `test_crosstab.do` | Association measures, weights, small-cell disclosure control, returns, and sink parity. |
 | `test_deep_audit_core.do` | Destructive and silent-corruption regressions in frames, metadata, scales, weights, and samples. |
@@ -122,6 +128,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `validation_effecttab.do` | Treatment-effect values, standard errors, intervals, and stored results. |
 | `validation_package.do` | Cross-command identities, sanity bounds, type detection, settings, and frame preservation. |
 | `validation_regtab.do` | Coefficients, intervals, p-values, fit statistics, Excel values, and display precision. |
+| `validation_regtab_return_contracts.do` | Exact OLS fit statistics, Cox event counts, and MI returns against the collected fits. |
 | `validation_smallcells.do` | Bounded exhaustive safety and irredundancy oracles for disclosure control. |
 | `validation_stratetab.do` | Rate scaffold structure, contents, and returns. |
 | `validation_survtab.do` | Survival estimates, conservation, log-rank tests, RMST, Excel values, and rendering. |
@@ -132,6 +139,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | File | Oracle |
 |---|---|
 | `crossval_tabtools.do` + `crossval_tabtools_companion.R` | Fresh R formulas and Python statsmodels parity for statistical and model-fit contracts. |
+| `crossval_crosstab_cochran.do` + `crossval_crosstab_cochran.R` | Native R `stats::prop.trend.test` parity under score translation, scaling, and direction changes. |
 
 ### Support and benchmarks
 
@@ -141,6 +149,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `benchmark_tabtools_speed.do` | Timing guardrail included only in `release`/`benchmark`. |
 | `_visual_stress_gen.do` | Manual disposable workbook generator; not a gate. |
 | `tools/` | Package-local Excel, Markdown (`check_md_render.py`, `md_facts.py`), SMCL-width, demo, style, crossval, and option-coverage validators. |
+| `tools/check_suite_result.py`, `tools/runner_fixture.py` | Runner receipt validator and controlled child generator for its regression suite. |
 | `data/`, `baseline/`, root QA fixtures | Tracked oracle inputs and semantic artifact summaries governed by `fixtures_manifest.md`. |
 | `CROSSVAL_MODULE_MAP.md`, `TOLERANCE_FRAMEWORK.md` | Oracle ownership and numerical tolerance policy. |
 | `clean_artifacts.sh`, `.gitignore` | Recoverable artifact cleanup and generated-file policy. |
@@ -151,14 +160,14 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 |---|---|---|---|---|
 | `table1_tc` | `test_table1_tc`, `test_smallcells`, `test_smallcells_derivable`, `test_tabtools_v1163`, `test_table1_overflow`, `test_codex_parity_2026_09_26`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_table1_tc`, `validation_smallcells` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, follow-ups, codex audit |
 | `desctab` | `test_desctab`, `test_smallcells_derivable`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage, output sinks, follow-ups, codex audit |
-| `crosstab` | `test_crosstab`, `test_review_2026_09_29` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `crosstab` | `test_crosstab`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools`, `crossval_crosstab_cochran` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
 | `corrtab` | `test_corrtab`, `test_review_2026_09_29` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial, output sinks, follow-ups, codex audit |
-| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_regtab` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, codex audit |
-| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks, codex audit |
+| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models` | `validation_regtab`, `validation_regtab_return_contracts` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, codex audit |
+| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks, codex audit |
 | `survtab` | `test_survtab`, `test_output_sinks_markdown`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit, follow-ups, codex audit |
-| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_review_2026_09_29` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
 | `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial, output sinks, follow-ups, codex audit |
-| `comptab` | `test_comptab`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_package` | — | integration, adversarial, output sinks, follow-ups, codex audit |
+| `comptab` | `test_comptab`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_composition` | `validation_package` | — | integration, adversarial, output sinks, follow-ups, codex audit |
 | `puttab` | `test_puttab`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | — | — | helpers, release, output sinks, follow-ups, 2.1.12 review fixes (Markdown `~`), codex audit |
 | `stacktab` | `test_stacktab`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | — | — | release, output sinks, follow-ups, codex audit |
 | `tabtools` | `test_tabtools`, `test_tabtools_oracle` | `validation_package` | — | integration, release |
@@ -168,18 +177,21 @@ Adversarial axes, in cells (`check qa tabtools --view axes`: 54/54 owed cells pr
 
 ## Lane membership
 
-`quick` is contained in `full`, and `full` is contained in `release`; the explicit file list in `run_all.do` is authoritative.
+`quick` is contained in `core`, `core` in `full`, and `full` in `release`; the explicit file list in `run_all.do` is authoritative.
 
 | Lane | Suites |
 |---|---|
 | `quick` | Functional/regression suites except the adversarial sweep. |
+| `core` | All functional/regression and known-answer validation suites. |
 | `full` | All functional/regression suites, validation suites, and external cross-validation; default correctness gate. |
 | `release` | `full` plus the timing benchmark. |
 | `benchmark` | Timing benchmark only; run on demand. |
 
 ## Known gaps
 
-No open findings. The 2026-09-28 `puttab, sheet()` re-expansion and the Muse I1 `crosstab, trend missing` ledgers were fixed in 2.1.16 (`test_review_2026_09_29.do`), and `qa_surface_parity` now accepts a quoted sheet name with spaces (`d7e252c1`).
+The [2026-10-01 QA and review report](review_2026_10_01.md) records the bug regressions, numerical reference scope, review identity, and observed lane results.
+
+Platform behavior outside the local Stata 17 Linux installation remains untested. The 2026-09-28 `puttab, sheet()` re-expansion and the Muse I1 `crosstab, trend missing` ledgers were fixed in 2.1.16 (`test_review_2026_09_29.do`), and `qa_surface_parity` now accepts a quoted sheet name with spaces (`d7e252c1`).
 
 ## Coverage verification
 
@@ -198,32 +210,32 @@ Exact sparse-code cross-tab counts, Spearman/pairwise N including undefined all-
 
 | File | Coverage | Lanes |
 | --- | --- | --- |
-| `validation_tabtools_fixture_contract.do` | Canonical fixture truth and hostile contracts | quick/full/release |
+| `validation_tabtools_fixture_contract.do` | Canonical fixture truth and hostile contracts | quick/core/full/release |
 
-| `validation_tabtools_fixture_descriptive.do` | Exact sparse-column N and mean±SD cell text, all-missing blanks and single-level refusal, desctab/front-end routes, all canonical LABELLED variants with full caller fingerprints | quick/full/release |
+| `validation_tabtools_fixture_descriptive.do` | Exact sparse-column N and mean±SD cell text, all-missing blanks and single-level refusal, desctab/front-end routes, all canonical LABELLED variants with full caller fingerprints | quick/core/full/release |
 
-| `validation_tabtools_fixture_models.do` | Exact four-column ESTMAT payloads including permuted stripes/missing/unbounded limits, independent Gaussian sample OLS/Student intervals/p-values and sparse identities, selected composite cells, data-independent catalogue inventory; full caller fingerprints | core/full |
+| `validation_tabtools_fixture_models.do` | Exact four-column ESTMAT payloads including permuted stripes/missing/unbounded limits, independent Gaussian sample OLS/Student intervals/p-values and sparse identities, selected composite cells, data-independent catalogue inventory; full caller fingerprints | quick/core/full/release |
 
-| `validation_tabtools_fixture_catalogue_primitives.do` | Dataset-independent14-command/category identity and rendered tips contract across actual case/32-byte names, sparse signed codes, opaque strings, missing/one-row callers; full fingerprints | core/full |
-| `validation_tabtools_fixture_numeric_primitives.do` | Exact case/32-byte stripe identity and Pearson correlations, signed large-code count cells, all nine opaque label bytes, long-name means and explicit signed-group refusal with positive large-code mirrors | core/full |
-| `test_tabtools_fixture_files.do` | Both Excel spellings, exact correlation/count/mean workbook cells, stale report-sheet replacement, user sheets, extensionless and hostile filename refusals, owned-tree bytes and caller fingerprints | core/full |
-| `test_tabtools_fixture_path_macros.do` | Literal dollar/backtick paths with absent/opaque/matching macros, shared validator and all three writer alias routes; named198 causes and unchanged trees and non-r caller state | core/full |
-| `test_tabtools_fixture_rreturns.do` | Both Excel aliases refuse hostile filenames with original198 and exact empty/populated scalar/macro/matrix r() plus other caller-state equality; snapshot after logopen and comparison before logclose | quick/full |
-| `test_tabtools_fixture_publication.do` | Populated caller r() is replaced by exact analytic scalars/matrices/macros on success and retained after named native16106 workbook-save failures; other caller state and file contents unchanged | quick/full |
-| `validation_tabtools_fixture_domains.do` | Nine actual option sweeps (67 cells): numeric endpoints, missing/special values, invalid controls and exact correlation/count/ANOVA/suppression content; canonical domain helper | quick/full |
-| `test_corrtab_fixture_stars.do` | Exact one/two/three significance-symbol counts and full-r caller fingerprints on distinct duplicate/four-threshold refusals with named198 causes | quick/full |
-| `validation_corrtab_fixture_inputs.do` | Independent60-digit signed/large-code Pearson and tied-rank Spearman recovery, supported single-row missing C/P and N1 across frames/workbook/CSV/Markdown and accepted undefined components beside finite diagonals | quick/full |
-| `test_corrtab_fixture_legacy.do` | Fresh absent/numeric/opaque native S_1/S_4/S_6 on Spearman success, early198, supported single-row N1 and late16106, with exact analytical/state/tree assertions | quick/full |
-| `validation_tabtools_fixture_fonts.do` | Eight actual workbook writes check default/Latin/spaced/Unicode font bytes in native styles, exact report values and preserved user sheets/unrelated files; nominal string domain | quick/full |
-| `validation_tabtools_fixture_strings.do` | All nine opaque variable-label byte strings in actual count/mean frames, exact numerical payloads and full caller fingerprints across crosstab/desctab/table1_tc | core/full |
-| `validation_tabtools_fixture_remaining.do` | Explicit canonical survival adapter: exact KM/RMST/logrank and event/person-time rates, symmetricHR composition, documented blank-category refusal, all six workbook cells/stale sheet/user sheet/stem preservation, real tips text | core/full |
-| `test_survtab_fixture_state.do` | Empty/foreign estimates; absent/opaque/empty legacy globals with long-name twins; native KM/RMST/median results and early/late rc preserved | core/full |
+| `validation_tabtools_fixture_catalogue_primitives.do` | Dataset-independent14-command/category identity and rendered tips contract across actual case/32-byte names, sparse signed codes, opaque strings, missing/one-row callers; full fingerprints | quick/core/full/release |
+| `validation_tabtools_fixture_numeric_primitives.do` | Exact case/32-byte stripe identity and Pearson correlations, signed large-code count cells, all nine opaque label bytes, long-name means and explicit signed-group refusal with positive large-code mirrors | quick/core/full/release |
+| `test_tabtools_fixture_files.do` | Both Excel spellings, exact correlation/count/mean workbook cells, stale report-sheet replacement, user sheets, extensionless and hostile filename refusals, owned-tree bytes and caller fingerprints | quick/core/full/release |
+| `test_tabtools_fixture_path_macros.do` | Literal dollar/backtick paths with absent/opaque/matching macros, shared validator and all three writer alias routes; named198 causes and unchanged trees and non-r caller state | quick/core/full/release |
+| `test_tabtools_fixture_rreturns.do` | Both Excel aliases refuse hostile filenames with original198 and exact empty/populated scalar/macro/matrix r() plus other caller-state equality; snapshot after logopen and comparison before logclose | quick/core/full/release |
+| `test_tabtools_fixture_publication.do` | Populated caller r() is replaced by exact analytic scalars/matrices/macros on success and retained after named native16106 workbook-save failures; other caller state and file contents unchanged | quick/core/full/release |
+| `validation_tabtools_fixture_domains.do` | Nine actual option sweeps (67 cells): numeric endpoints, missing/special values, invalid controls and exact correlation/count/ANOVA/suppression content; canonical domain helper | quick/core/full/release |
+| `test_corrtab_fixture_stars.do` | Exact one/two/three significance-symbol counts and full-r caller fingerprints on distinct duplicate/four-threshold refusals with named198 causes | quick/core/full/release |
+| `validation_corrtab_fixture_inputs.do` | Independent60-digit signed/large-code Pearson and tied-rank Spearman recovery, supported single-row missing C/P and N1 across frames/workbook/CSV/Markdown and accepted undefined components beside finite diagonals | quick/core/full/release |
+| `test_corrtab_fixture_legacy.do` | Fresh absent/numeric/opaque native S_1/S_4/S_6 on Spearman success, early198, supported single-row N1 and late16106, with exact analytical/state/tree assertions | quick/core/full/release |
+| `validation_tabtools_fixture_fonts.do` | Eight actual workbook writes check default/Latin/spaced/Unicode font bytes in native styles, exact report values and preserved user sheets/unrelated files; nominal string domain | quick/core/full/release |
+| `validation_tabtools_fixture_strings.do` | All nine opaque variable-label byte strings in actual count/mean frames, exact numerical payloads and full caller fingerprints across crosstab/desctab/table1_tc | quick/core/full/release |
+| `validation_tabtools_fixture_remaining.do` | Explicit canonical survival adapter: exact KM/RMST/logrank and event/person-time rates, symmetricHR composition, documented blank-category refusal, all six workbook cells/stale sheet/user sheet/stem preservation, real tips text | quick/core/full/release |
+| `test_survtab_fixture_state.do` | Empty/foreign estimates; absent/opaque/empty legacy globals with long-name twins; native KM/RMST/median results and early/late rc preserved | quick/core/full/release |
 
 ## Numerical precision suites
 
-These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. The runner defines their lane membership.
 
 | File | Scope | Cases | Lanes |
 | --- | --- | --- | --- |
-| `validation_tabtools_precision.do` | Twelve public numerical writers: raw frame/table cells and strict independently calculated workbook values. PutTab checks its documented 6-place text. | 14 | full/release |
-| `validation_stacktab_precision_controls.do` | Mixed signed/tiny/large/blank cells, independent daily calendar dates plus native formatted-string parity, exact default preformatted strings. | 3 | full/release |
+| `validation_tabtools_precision.do` | Twelve public numerical writers: raw frame/table cells and strict independently calculated workbook values. PutTab checks its documented 6-place text. | 14 | core/full/release |
+| `validation_stacktab_precision_controls.do` | Mixed signed/tiny/large/blank cells, independent daily calendar dates plus native formatted-string parity, exact default preformatted strings. | 3 | core/full/release |

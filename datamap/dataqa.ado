@@ -1,4 +1,4 @@
-*! dataqa Version 1.8.1  2026/09/30
+*! dataqa Version 1.8.2  2026/10/01
 *! Session defaults and a structured QA ledger over datacheck gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

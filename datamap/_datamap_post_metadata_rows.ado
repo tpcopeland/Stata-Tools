@@ -1,4 +1,4 @@
-*! _datamap_post_metadata_rows Version 1.8.1  2026/09/30
+*! _datamap_post_metadata_rows Version 1.8.2  2026/10/01
 *! Post common variable-metadata rows from a loaded dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -108,8 +108,12 @@ program define _datamap_post_metadata_rows, nclass
             if "`note0'" == "" local note0 0
             forvalues ni = 1/`note0' {
                 local notei : char `vname'[note`ni']
-                if `"`notei'"' != "" {
-                    if `"`notes'"' == "" local notes `"`macval(notei)'"'
+                // braces, not a one-line -if-: that expands the assignment a
+                // second time, rewriting $name and `name' inside the note
+                if `"`macval(notei)'"' != "" {
+                    if `"`macval(notes)'"' == "" {
+                        local notes `"`macval(notei)'"'
+                    }
                     else local notes `"`macval(notes)'<br>`macval(notei)'"'
                 }
             }
@@ -118,7 +122,9 @@ program define _datamap_post_metadata_rows, nclass
             foreach cname of local allchars {
                 if !regexm("`cname'", "^note[0-9]+$") {
                     local cval : char `vname'[`cname']
-                    if `"`chars'"' == "" local chars `"`cname'=`macval(cval)'"'
+                    if `"`macval(chars)'"' == "" {
+                        local chars `"`cname'=`macval(cval)'"'
+                    }
                     else local chars `"`macval(chars)'<br>`cname'=`macval(cval)'"'
                 }
             }

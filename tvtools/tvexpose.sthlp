@@ -380,7 +380,12 @@ record takes precedence.
 {phang}
 {opt priority(numlist)} specifies priority order when exposures overlap. The
 numlist lists exposure values in priority order (highest first). For example,
-{cmd:priority(2 1 0)} gives type 2 highest priority.
+{cmd:priority(2 1 0)} gives type 2 highest priority; each value may be
+listed only once. On each day the highest-priority active exposure is
+assigned, and a lower-priority exposure resumes when the higher-priority one
+ends. Values not listed rank below every listed value; if two unlisted
+values with different codes overlap, no order exists between them and
+{cmd:tvexpose} exits with error 498.
 
 {phang}
 {opt split} splits overlapping periods at all exposure boundaries, creating

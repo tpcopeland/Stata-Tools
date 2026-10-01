@@ -1,4 +1,4 @@
-*! stratetab Version 2.1.19  2026/09/30
+*! stratetab Version 2.1.20  2026/10/01
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -79,37 +79,43 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	Level(real -1)]
 
 * Accept excel() as synonym for xlsx()
-if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-local _has_xlsx = "`xlsx'" != ""
+if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
+    local xlsx `"`macval(excel)'"'
+}
+local _has_xlsx = `"`macval(xlsx)'"' != ""
 if "`open'" != "" & !`_has_xlsx' {
 	di as err "open requires xlsx() or excel()"
 	exit 198
 }
 
-if `_has_xlsx' & !strmatch(lower("`xlsx'"), "*.xlsx") {
+if `_has_xlsx' & !strmatch(lower(`"`macval(xlsx)'"'), "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
 	exit 198
 }
 
 * Sanitize file path and sheet name to prevent injection
-if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
-if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
-if "`mdappend'" != "" & `"`markdown'"' == "" {
+if `_has_xlsx' {
+    _tabtools_validate_path `"`macval(xlsx)'"' "xlsx()"
+}
+if `"`macval(csv)'"' != "" {
+    _tabtools_validate_path `"`macval(csv)'"' "csv()"
+}
+if "`mdappend'" != "" & `"`macval(markdown)'"' == "" {
 	di as err "mdappend requires markdown()"
 	exit 198
 }
-if `"`markdown'"' != "" {
-	_tabtools_validate_path `"`markdown'"' "markdown()"
-	local _md_lower = lower(`"`markdown'"')
-	if !(strmatch(`"`_md_lower'"', "*.md") | ///
-		 strmatch(`"`_md_lower'"', "*.markdown") | ///
-		 strmatch(`"`_md_lower'"', "*.qmd") | ///
-		 strmatch(`"`_md_lower'"', "*.rmd")) {
+if `"`macval(markdown)'"' != "" {
+	_tabtools_validate_path `"`macval(markdown)'"' "markdown()"
+	local _md_lower = lower(`"`macval(markdown)'"')
+	if !(strmatch(`"`macval(_md_lower)'"', "*.md") | ///
+		 strmatch(`"`macval(_md_lower)'"', "*.markdown") | ///
+		 strmatch(`"`macval(_md_lower)'"', "*.qmd") | ///
+		 strmatch(`"`macval(_md_lower)'"', "*.rmd")) {
 		di as err "markdown() must specify a .md, .markdown, .qmd, or .rmd file"
 		exit 198
 	}
 }
-_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
+_tabtools_check_sinks, xlsx(`"`macval(xlsx)'"') csv(`"`macval(csv)'"') markdown(`"`macval(markdown)'"')
 if `"`macval(sheet)'"' != "" {
 	_tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 }
@@ -157,7 +163,7 @@ if `ratiodigits' < 0 | `ratiodigits' > 10 {
 	exit 198
 }
 
-local n_files : word count `using'
+local n_files : word count `macval(using)'
 if mod(`n_files', `outcomes') != 0 {
 	di as err "Number of files must be divisible by number of outcomes"
 	exit 198
@@ -169,26 +175,24 @@ if "`rateratio'" != "" & `n_exposures' < 2 {
 	exit 198
 }
 
-	* Sanitize file paths in using()
-	foreach file of local using {
-	if regexm("`file'", "[;&|><\$\`]") {
-		di as err "using() contains invalid characters: `file'"
-		exit 198
-	}
+* Validate each source path before loading any source file. A literal $ or
+* backtick must be refused, rather than expanded into a different filename.
+foreach file of local using {
+    _tabtools_validate_path `"`macval(file)'"' "using()"
 }
 
 * Parse outcome labels
-if `"`outlabels'"' != "" {
-	local outlabels = subinstr(`"`outlabels'"', " \ ", "\", .)
-	local outlabels = subinstr(`"`outlabels'"', "\  ", "\", .)
-	local outlabels = subinstr(`"`outlabels'"', "  \", "\", .)
-	tokenize `"`outlabels'"', parse("\")
+if `"`macval(outlabels)'"' != "" {
+	local outlabels = subinstr(`"`macval(outlabels)'"', " \ ", "\", .)
+	local outlabels = subinstr(`"`macval(outlabels)'"', "\  ", "\", .)
+	local outlabels = subinstr(`"`macval(outlabels)'"', "  \", "\", .)
+	tokenize `"`macval(outlabels)'"', parse("\")
 	local n_outlabs = 0
 	forvalues i = 1/100 {
 		local j = (`i'-1)*2 + 1
-		if `"``j''"' == "" continue, break
+		if `"`macval(`j')'"' == "" continue, break
 		local n_outlabs = `n_outlabs' + 1
-		local outlab`i' = strtrim(`"``j''"')
+		local outlab`i' = strtrim(`"`macval(`j')'"')
 	}
 	if `n_outlabs' != `outcomes' {
 		di as err "Number of outcome labels (`n_outlabs') must match outcomes (`outcomes')"
@@ -203,24 +207,24 @@ else {
 
 * Machine-readable outcome identities default to the outcome labels, but can
 * be supplied separately when presentation text is not a stable identifier.
-if `"`outcomeids'"' != "" {
+if `"`macval(outcomeids)'"' != "" {
 	* outcomeids() is string asis: when the whole list is one quoted string,
 	* "a \ b", drop that layer so it is split like the unquoted a \ b. Items
 	* quoted one by one ("a" \ "b") are left for tokenize.
 	gettoken _oid_first _oid_rest : outcomeids, qed(_oid_quoted)
-	if `_oid_quoted' & strtrim(`"`_oid_rest'"') == "" {
-		local outcomeids `"`_oid_first'"'
+	if `_oid_quoted' & strtrim(`"`macval(_oid_rest)'"') == "" {
+		local outcomeids `"`macval(_oid_first)'"'
 	}
 	local outcomeids : subinstr local outcomeids " \ " "\", all
 	local outcomeids : subinstr local outcomeids "\  " "\", all
 	local outcomeids : subinstr local outcomeids "  \" "\", all
-	tokenize `"`outcomeids'"', parse("\")
+	tokenize `"`macval(outcomeids)'"', parse("\")
 	local _n_outcome_ids = 0
 	forvalues i = 1/100 {
 		local j = (`i' - 1) * 2 + 1
-		if `"``j''"' == "" continue, break
+		if `"`macval(`j')'"' == "" continue, break
 		local ++_n_outcome_ids
-		local outcome_id_`i' = strtrim(`"``j''"')
+		local outcome_id_`i' = strtrim(`"`macval(`j')'"')
 	}
 	if `_n_outcome_ids' != `outcomes' {
 		di as err "Number of outcome IDs (`_n_outcome_ids') must match outcomes (`outcomes')"
@@ -229,19 +233,19 @@ if `"`outcomeids'"' != "" {
 }
 else {
 	forvalues i = 1/`outcomes' {
-		local outcome_id_`i' `"`outlab`i''"'
+		local outcome_id_`i' `"`macval(outlab`i')'"'
 	}
 }
 forvalues i = 1/`outcomes' {
-	local outcome_id_`i' = strtrim(`"`outcome_id_`i''"')
-	if `"`outcome_id_`i''"' == "" {
+	local outcome_id_`i' = strtrim(`"`macval(outcome_id_`i')'"')
+	if `"`macval(outcome_id_`i')'"' == "" {
 		di as err "outcome identities may not be blank"
 		exit 198
 	}
 	if `i' > 1 {
 		forvalues j = 1/`=`i'-1' {
-			if lower(`"`outcome_id_`i''"') == lower(`"`outcome_id_`j''"') {
-				di as err `"duplicate outcome identity "`outcome_id_`i''""'
+			if lower(`"`macval(outcome_id_`i')'"') == lower(`"`macval(outcome_id_`j')'"') {
+				di as err `"duplicate outcome identity "`macval(outcome_id_`i')'""'
 				exit 198
 			}
 		}
@@ -254,7 +258,7 @@ forvalues i = 1/`outcomes' {
 local _matrix_cnames ""
 local _used_cnames ""
 forvalues i = 1/`outcomes' {
-	local _cname = strtoname(`"`outcome_id_`i''"')
+	mata: st_local("_cname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("outcome_id_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 	local _cname = substr(`"`_cname'"', 1, 32)
 	if `"`_cname'"' == "" | strtrim(subinstr(`"`_cname'"', "_", "", .)) == "" {
 		local _cname "outcome`i'"
@@ -273,17 +277,17 @@ forvalues i = 1/`outcomes' {
 }
 
 * Parse exposure labels
-if `"`explabels'"' != "" {
-	local explabels = subinstr(`"`explabels'"', " \ ", "\", .)
-	local explabels = subinstr(`"`explabels'"', "\  ", "\", .)
-	local explabels = subinstr(`"`explabels'"', "  \", "\", .)
-	tokenize `"`explabels'"', parse("\")
+if `"`macval(explabels)'"' != "" {
+	local explabels = subinstr(`"`macval(explabels)'"', " \ ", "\", .)
+	local explabels = subinstr(`"`macval(explabels)'"', "\  ", "\", .)
+	local explabels = subinstr(`"`macval(explabels)'"', "  \", "\", .)
+	tokenize `"`macval(explabels)'"', parse("\")
 	local n_explabs = 0
 	forvalues i = 1/100 {
 		local j = (`i'-1)*2 + 1
-		if `"``j''"' == "" continue, break
+		if `"`macval(`j')'"' == "" continue, break
 		local n_explabs = `n_explabs' + 1
-		local explab`i' = strtrim(`"``j''"')
+		local explab`i' = strtrim(`"`macval(`j')'"')
 	}
 	if `n_explabs' != `n_exposures' {
 		di as err "Number of exposure labels (`n_explabs') must match number of exposure groups (`n_exposures')"
@@ -299,7 +303,7 @@ else {
 qui {
 
 * Set default unit label
-if "`unitlabel'" == "" {
+if `"`macval(unitlabel)'"' == "" {
 	local unitlabel "1,000"
 }
 
@@ -312,20 +316,20 @@ local _ci_unknown_seen = 0
 forvalues e = 1/`n_exposures' {
 	forvalues o = 1/`outcomes' {
 		local filenum = `filenum' + 1
-		local file : word `filenum' of `using'
+		local file : word `filenum' of `macval(using)'
 		
 		* The caller's data is preserved above, so each source file can be
 		* loaded over it; every failure path exits to that single restore.
-		cap use "`file'.dta", clear
+		cap use `"`macval(file)'.dta"', clear
 		if _rc {
-			noi di as err "File not found: `file'.dta"
+			noi di as err "File not found: `macval(file)'.dta"
 			noi di as err "Hint: using() expects strate output file names without .dta extension"
 			exit 601
 		}
 		
 		cap confirm var _Rate _Lower _Upper _D _Y
 		if _rc {
-			noi di as err "`file'.dta missing required columns"
+			noi di as err "`macval(file)'.dta missing required columns"
 			noi di as err "Hint: file must contain _Rate, _Lower, _Upper, _D, and _Y from strate output"
 			exit 111
 		}
@@ -338,16 +342,16 @@ forvalues e = 1/`n_exposures' {
 		* 97.5% interval is labelled "97,5%"; a period-only pattern would read
 		* it as 5%.
 		local _file_level = .
-		if regexm(lower(`"`_lower_vlabel'"'), "([0-9]+([.,][0-9]+)?)%") {
+		if regexm(lower(`"`macval(_lower_vlabel)'"'), "([0-9]+([.,][0-9]+)?)%") {
 			local _file_level = real(subinstr(regexs(1), ",", ".", .))
 		}
 		local _upper_level = .
-		if regexm(lower(`"`_upper_vlabel'"'), "([0-9]+([.,][0-9]+)?)%") {
+		if regexm(lower(`"`macval(_upper_vlabel)'"'), "([0-9]+([.,][0-9]+)?)%") {
 			local _upper_level = real(subinstr(regexs(1), ",", ".", .))
 		}
 		if !missing(`_file_level') & !missing(`_upper_level') & ///
 			abs(`_file_level' - `_upper_level') > 1e-8 {
-			noi di as err "`file'.dta has conflicting confidence levels in _Lower and _Upper labels"
+			noi di as err "`macval(file)'.dta has conflicting confidence levels in _Lower and _Upper labels"
 			exit 459
 		}
 		if missing(`_file_level') local _file_level = `_upper_level'
@@ -357,7 +361,7 @@ forvalues e = 1/`n_exposures' {
 		else {
 			local _ci_provenance_seen = 1
 			if `level' != -1 & abs(`level' - `_file_level') > 1e-8 {
-				noi di as err "level(`level') conflicts with `file'.dta's `_file_level'% intervals"
+				noi di as err "level(`level') conflicts with `macval(file)'.dta's `_file_level'% intervals"
 				exit 198
 			}
 			if missing(`_ci_level') local _ci_level = `_file_level'
@@ -409,7 +413,7 @@ forvalues e = 1/`n_exposures' {
 			replace `catvar_str' = strtrim(`catvar_str')
 			qui count if `catvar_str' == ""
 			if r(N) > 0 {
-				noi di as err "Blank category labels are not allowed in `file'.dta"
+				noi di as err "Blank category labels are not allowed in `macval(file)'.dta"
 				exit 198
 			}
 			tempvar _dup_cat _obs_id
@@ -424,7 +428,7 @@ forvalues e = 1/`n_exposures' {
 				local _n_dup = r(N)
 			}
 			if `_n_dup' > 0 {
-				noi di as err "Duplicate category labels found in `file'.dta"
+				noi di as err "Duplicate category labels found in `macval(file)'.dta"
 				noi di as err "Each strate file must have unique category labels"
 				exit 198
 			}
@@ -467,8 +471,8 @@ forvalues e = 1/`n_exposures' {
 						}
 					}
 					if `_match_count' != 1 {
-						noi di as err "Category label mismatch for exposure `e', outcome `o' in `file'.dta"
-						noi di as err `"Expected category "`_target_cat'" from outcome 1"'
+						noi di as err "Category label mismatch for exposure `e', outcome `o' in `macval(file)'.dta"
+						noi di as err `"Expected category "`macval(_target_cat)'" from outcome 1"'
 						exit 198
 					}
 					local D_o`o'_e`e'_`i' = _D[`_match_row']
@@ -523,7 +527,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				}
 				if `_ref_count' != 1 {
 					noi di as err "rateratio requires exposure `e' categories to match exposure 1"
-					noi di as err `"No unique match for category "`_target_cat'" in exposure 1"'
+					noi di as err `"No unique match for category "`macval(_target_cat)'" in exposure 1"'
 					exit 198
 				}
 				local _d_ref = `D_o`o'_e1_`_ref_i''
@@ -567,7 +571,7 @@ quietly set obs `new'
 quietly replace c1 = "Exposure" in `new'
 local col = 2
 forvalues o = 1/`outcomes' {
-	quietly replace c`col' = `"`outlab`o''"' in `new'
+	quietly replace c`col' = `"`macval(outlab`o')'"' in `new'
 	local col = `col' + `_cols_per_outcome'
 }
 
@@ -581,7 +585,7 @@ forvalues o = 1/`outcomes' {
 	local col = `col' + 1
 	quietly replace c`col' = "Person-Years (PY)" in `new'
 	local col = `col' + 1
-	quietly replace c`col' = "Per `unitlabel' PY (`_ci_level_txt'% CI)" in `new'
+	quietly replace c`col' = `"Per `macval(unitlabel)' PY (`_ci_level_txt'% CI)"' in `new'
 	local col = `col' + 1
 	if "`rateratio'" != "" {
 		quietly replace c`col' = "IRR (`_ci_level_txt'% CI)" in `new'
@@ -601,7 +605,7 @@ forvalues e = 1/`n_exposures' {
 	* the rule does not depend on the label text)
 	local new = _N + 1
 	quietly set obs `new'
-	quietly replace c1 = `"`explab`e''"' in `new'
+	quietly replace c1 = `"`macval(explab`e')'"' in `new'
 	local exp_rows `"`exp_rows' `new'"'
 	
 	* Category rows (indented)
@@ -674,11 +678,11 @@ forvalues e = 1/`n_exposures' {
 local lastrow = _N
 
 * CSV export (if requested)
-if "`csv'" != "" {
-	_tabtools_validate_path "`csv'" "csv()"
+if `"`macval(csv)'"' != "" {
+	_tabtools_validate_path `"`macval(csv)'"' "csv()"
 	order title c*
-	_tabtools_csv_write using "`csv'", reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
-	local _ret_csv `"`csv'"'
+	_tabtools_csv_write using `"`macval(csv)'"', reservedrow title(`"`macval(title)'"') footnote(`"`macval(footnote)'"')
+	local _ret_csv `"`macval(csv)'"'
 }
 
 local sht = cond(`"`macval(sheet)'"' != "", `"`macval(sheet)'"', "Results")
@@ -686,7 +690,7 @@ _tabtools_validate_sheet `"`macval(sht)'"' "sheet()"
 local _ret_markdown ""
 local _ret_markdown_rows .
 local _ret_markdown_cols .
-if `"`markdown'"' != "" {
+if `"`macval(markdown)'"' != "" {
 	local _mdappend_opt ""
 	if "`mdappend'" != "" local _mdappend_opt "append"
 	* Markdown has one header row: flatten the outcome and statistic rows to
@@ -703,7 +707,7 @@ if `"`markdown'"' != "" {
 				local ++col
 			}
 		}
-		capture noisily _tabtools_markdown_write using `"`markdown'"', ///
+		capture noisily _tabtools_markdown_write using `"`macval(markdown)'"', ///
 			`_mdappend_opt' title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') ///
 			headerstart(3) datastart(4) strictheaders
 		local _md_rc = _rc
@@ -714,11 +718,11 @@ if `"`markdown'"' != "" {
 	}
 	frame drop `_md_frame'
 	if `_md_rc' {
-		noi di as err "Failed to export Markdown to `markdown'"
+		noi di as err "Failed to export Markdown to `macval(markdown)'"
 		exit `_md_rc'
 	}
-	local _ret_markdown `"`markdown'"'
-	noi di as text "Markdown exported to `markdown'"
+	local _ret_markdown `"`macval(markdown)'"'
+	noi di as text "Markdown exported to `macval(markdown)'"
 }
 * Console display
 noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
@@ -741,7 +745,7 @@ if `"`_frame_name'"' != "" {
 	}
 	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
 	forvalues _meta_o = 1/`outcomes' {
-		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`outcome_id_`_meta_o''"'
+		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`macval(outcome_id_`_meta_o')'"'
 	}
 }
 
@@ -838,9 +842,11 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 		* No matrix exists when every comparison exposure is empty.
 		if `_ratio_cats' > 0 return matrix ratios = `_rratios'
 	}
-if `"`_ret_csv'"' != "" return local csv `"`_ret_csv'"'
-if `"`_ret_markdown'"' != "" {
-	return local markdown `"`_ret_markdown'"'
+if `"`macval(_ret_csv)'"' != "" {
+    return local csv `"`macval(_ret_csv)'"'
+}
+if `"`macval(_ret_markdown)'"' != "" {
+	return local markdown `"`macval(_ret_markdown)'"'
 	return scalar markdown_rows = `_ret_markdown_rows'
 	return scalar markdown_cols = `_ret_markdown_cols'
 }
@@ -850,19 +856,19 @@ return scalar N_outcomes = `outcomes'
 return scalar ci_level = `_ci_level'
 local _outcome_ids_return ""
 forvalues _meta_o = 1/`outcomes' {
-	local _outcome_ids_return `"`_outcome_ids_return' \ `outcome_id_`_meta_o''"'
+	local _outcome_ids_return `"`macval(_outcome_ids_return)' \ `macval(outcome_id_`_meta_o')'"'
 }
-local _outcome_ids_return = substr(strtrim(`"`_outcome_ids_return'"'), 3, .)
-return local outcome_ids `"`_outcome_ids_return'"'
+local _outcome_ids_return = substr(strtrim(`"`macval(_outcome_ids_return)'"'), 3, .)
+return local outcome_ids `"`macval(_outcome_ids_return)'"'
 return local methods "Incidence rates and confidence intervals were formatted at the `_ci_level_txt'% level; rate-ratio intervals use an independent-rate log-normal approximation at the same level."
 
 	* Export to Excel
 	if `_has_xlsx' {
 		order title c*
-		capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sht)'"') book(`_xlsx_book')
+		capture noisily _tabtools_xlsx_write using `"`macval(xlsx)'"', sheet(`"`macval(sht)'"') book(`_xlsx_book')
 		if _rc {
 			local saved_rc = _rc
-			noi di as err "Failed to export to `xlsx'"
+			noi di as err "Failed to export to `macval(xlsx)'"
 			noi di as err "Hint: ensure the xlsx file is not open in another application"
 		local _fatal_rc = `saved_rc'
 		exit `saved_rc'
@@ -991,7 +997,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				* reusing one per distinct format, so collapse the pools here;
 				* a workbook that keeps growing would otherwise reach Stata's
 				* 65,536-record ceiling and fail with r(16147).
-				_tabtools_xlsx_compact_styles using "`xlsx'"
+				_tabtools_xlsx_compact_styles using `"`macval(xlsx)'"'
 			}
 			if _rc {
 				local saved_rc = _rc
@@ -1004,7 +1010,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 			}
 			else {
 				capture mata: mata drop `_xlsx_book'
-				capture confirm file "`xlsx'"
+				capture confirm file `"`macval(xlsx)'"'
 				if _rc {
 				    noisily display as error "Export command succeeded but file not found"
 				    local _fatal_rc = 601
@@ -1012,7 +1018,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				}
 				else {
 					local _xlsx_ok 1
-					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`macval(sht)'"'
+					noisily display as text "Exported to " as result `"`macval(xlsx)'"' as text ", sheet " as result `"`macval(sht)'"'
 				}
 			}
 			}
@@ -1032,12 +1038,14 @@ restore
 local _restore_needed 0
 
 if `_xlsx_ok' {
-	return local xlsx "`xlsx'"
+	return local xlsx `"`macval(xlsx)'"'
 	return local sheet `"`macval(sht)'"'
 }
 
 * Open file if requested (W3)
-if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
+if "`open'" != "" & `_xlsx_ok' {
+    _tabtools_open_file `"`macval(xlsx)'"'
+}
 
 } // end capture noisily
 local _rc = _rc

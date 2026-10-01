@@ -156,3 +156,12 @@ local release_suites `release_suites' `fixture_suites'
 local manifest_suites `manifest_suites' `fixture_suites'
 local manifest_counts `manifest_counts' 55 32 16 18 21 36 88 16 32 4 28 28 44 12
 local manifest_allow_skips `manifest_allow_skips' 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+**# 1.17.7 sweep engines: tvexpose priority() and tvpanel active/cumulative
+local sweep_suites validation_tvexpose_priority validation_tvpanel_sweep
+local core_suites `core_suites' `sweep_suites'
+local full_suites `full_suites' `sweep_suites'
+local release_suites `release_suites' `sweep_suites'
+local manifest_suites `manifest_suites' `sweep_suites'
+local manifest_counts `manifest_counts' 6 12
+local manifest_allow_skips `manifest_allow_skips' 0 0

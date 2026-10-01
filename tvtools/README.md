@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.17.6** | 2026-09-30
+**Version 1.17.7** | 2026-10-01
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -470,6 +470,11 @@ Result names below are returned in `r()` after successful execution; option-depe
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.17.7 (2026-10-01)
+
+- `tvexpose, priority()` now assigns the highest-priority active exposure on every day and resumes a lower-priority exposure after a higher-priority one ends. Previously those resumed days were reported as the reference category at rc 0, and two overlapping same-value episodes with a different value starting between them failed with r(498). `priority()` now uses the same single boundary sweep as `layer` instead of an iterative pairwise resolver. Overlapping exposure values that `priority()` does not rank still exit with r(498), now with a message naming the cause. A value listed twice in `priority()` now exits with r(198); previously the later listing silently set its rank, so `priority(2 1 2)` ranked 1 above 2.
+- `tvpanel` computes the active class and `cumulative()` columns in one Mata pass per person instead of building period-by-episode pairs, a grid-by-class join, and a reshape. Output is unchanged; on 600,000 episodes (1.8 million panel rows) `cumulative(years)` drops from about 48 to 5 seconds and the default call from about 10 to 2.5 seconds.
 
 ### 1.17.6 (2026-09-30)
 

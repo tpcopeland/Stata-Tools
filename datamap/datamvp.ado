@@ -1,4 +1,4 @@
-*! datamvp Version 1.8.1  2026/09/30
+*! datamvp Version 1.8.2  2026/10/01
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -10,7 +10,9 @@ program define datamvp, rclass byable(recall) sortpreserve
         ReS_jv2 ReS_i ReS_Xij Res_Xi ReS_atwl ReS_str rVANS rtmpST {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
-        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+        // in Mata: a saved value ending in an unmatched ` (S_FNDATE keeps
+        // only 17 characters) opened a compound quote here, r(132)
+        mata: st_local("_had_" + st_local("g"), strofreal(st_local("_had_" + st_local("g")) == "1" | st_local("_old_" + st_local("g")) != ""))
     }
 
     local _uservarabbrev `c(varabbrev)'
@@ -23,6 +25,7 @@ program define datamvp, rclass byable(recall) sortpreserve
     local _npooled = 0
     local _return_has_monotone = 0
     local _return_has_corr = 0
+    local _corr_frame = 0
     set varabbrev off
     capture noisily {
 
@@ -1011,12 +1014,23 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as txt "(correlations among missingness indicators)"
         }
         
-        * Try tetrachoric; retain its failure code before Pearson fallback
-        capture tetrachoric `misslist' if `touse'
-        local tetra_rc = _rc
+        * Try tetrachoric; retain its failure code before Pearson fallback.
+        * It runs on the distinct indicator patterns with frequency weights:
+        * every pairwise 2x2 table is the same, so r(Rho) is identical, but
+        * the per-pair passes see a few hundred rows instead of N.
+        tempname _cfr _cw
+        frame put `misslist' if `touse', into(`_cfr')
+        local _corr_frame = 1
+        frame `_cfr' {
+            qui contract `misslist', freq(`_cw')
+            capture tetrachoric `misslist' [fw=`_cw']
+            local tetra_rc = _rc
+            if `tetra_rc' == 0 matrix `corrmat' = r(Rho)
+        }
+        frame drop `_cfr'
+        local _corr_frame = 0
         if `tetra_rc' == 0 {
             * tetrachoric succeeded
-            matrix `corrmat' = r(Rho)
             
             * Rename matrix rows/cols
             local rnames
@@ -1666,14 +1680,16 @@ program define datamvp, rclass byable(recall) sortpreserve
                     label values _gbyid `pattern_gby_label'
 
                     * Keep top patterns per group
-                    bys `gby' (_ng _mv_n): gen int _patorder = _N - _n + 1
+                    * _mv_patt breaks the remaining ties, which otherwise
+                    * fell in arbitrary order at the top() cut
+                    bys `gby' (_ng _mv_n _mv_patt): gen int _patorder = _N - _n + 1
                     keep if _patorder <= `top'
 
                     * Create pattern ID
                     bys `gby' (_patorder): gen str8 _patid = "P" + string(_n)
 
                     * Get first pattern for note (overall most common)
-                    gsort -_ng
+                    gsort -_ng _mv_n _mv_patt
                     local pat1 = _mv_patt[1]
                 }
 
@@ -1737,7 +1753,9 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                 if `npat_graph' > 0 {
                     qui {
-                        gsort -`ng'
+                        * the table's order, so ties at the top() cut are
+                        * drawn in the order the table lists them
+                        gsort -`ng' `mv_n' `mv_patt'
                         keep in 1/`npat_graph'
                         local pat1 = `mv_patt'[1]
                         gen int patorder = _n
@@ -2047,6 +2065,7 @@ program define datamvp, rclass byable(recall) sortpreserve
 
     } // end capture noisily
     local rc = _rc
+    if `_corr_frame' capture frame drop `_cfr'
     local _owned_restore_rc = 0
     if `_owned_preserved' {
         capture restore

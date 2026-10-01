@@ -1,9 +1,10 @@
 * run_all.do - QA runner for tabtools (flat layout)
-* Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
+* Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|core|quick|release|benchmark]
 *
 * Lanes:
 *   full      - curated functional, validation, and crossval suite (default)
 *   quick     - curated functional suite, minus the adversarial suite
+*   core      - functional and known-answer validation suites
 *   release   - full plus benchmark_tabtools_speed.do
 *   benchmark - benchmark_tabtools_speed.do only
 *
@@ -16,11 +17,11 @@ set processors 1
 set varabbrev off
 version 17.0
 
-args lane
+args lane extra
 local lane = lower(strtrim("`lane'"))
 if "`lane'" == "" local lane "full"
-if !inlist("`lane'", "full", "quick", "release", "benchmark") {
-    display as error "Usage: run_all.do [full|quick|release|benchmark]"
+if "`extra'" != "" | !inlist("`lane'", "full", "core", "quick", "release", "benchmark") {
+    display as error "Usage: run_all.do [full|core|quick|release|benchmark]"
     exit 198
 }
 
@@ -121,6 +122,10 @@ local test_files "`test_files' test_tabtools_state_sweep.do"
 local test_files "`test_files' test_tabtools_surfaces.do"
 local test_files "`test_files' test_review_2026_09_29.do"
 local test_files "`test_files' test_smallcells_derivable.do"
+local test_files "`test_files' test_review_2026_10_01_composition.do"
+local test_files "`test_files' test_review_2026_10_01_models.do"
+local test_files "`test_files' test_review_2026_10_01_statistics.do"
+local test_files "`test_files' test_runner_contracts.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"
@@ -132,8 +137,10 @@ local validation_files "`validation_files' validation_smallcells.do"
 local validation_files "`validation_files' validation_stratetab.do"
 local validation_files "`validation_files' validation_survtab.do"
 local validation_files "`validation_files' validation_table1_tc.do"
+local validation_files "`validation_files' validation_regtab_return_contracts.do"
 
 local crossval_files "crossval_tabtools.do"
+local crossval_files "`crossval_files' crossval_crosstab_cochran.do"
 local benchmark_files "benchmark_tabtools_speed.do"
 
 local quick_files "`test_files'"
@@ -141,9 +148,13 @@ local adversarial "test_package_adversarial.do"
 local quick_files : list quick_files - adversarial
 
 local full_files "`test_files' `validation_files' `crossval_files'"
+local core_files "`test_files' `validation_files'"
 
 if "`lane'" == "quick" {
     local all_files "`quick_files'"
+}
+else if "`lane'" == "core" {
+    local all_files "`core_files'"
 }
 else if "`lane'" == "benchmark" {
     local all_files "`benchmark_files'"
@@ -224,15 +235,48 @@ foreach f of local all_files {
     clear all
     discard
     set more off
+    local child_name = substr("`f'", 1, strlen("`f'") - 3)
+    local child_log "`qa_dir'/`child_name'.log"
+    if "`f'" == "benchmark_tabtools_speed.do" ///
+        local child_log "`run_output_dir'/`child_name'.log"
+    capture erase "`child_log'"
+    capture confirm file "`child_log'"
+    if !_rc {
+        local ++n_fail
+        local failed_files "`failed_files' `f'"
+        display as error "  FAILED: `f' (cannot remove stale child log)"
+        continue
+    }
+    tempfile child_capture child_status
+    capture log close _qa_child
+    log using "`child_capture'", text replace name(_qa_child)
     capture noisily do "`qa_dir'/`f'"
-    if _rc == 0 {
+    local child_rc = _rc
+    capture log close _qa_child
+    if `child_rc' == 0 {
+        local skip_option ""
+        if "`lane'" == "quick" local skip_option "--allow-skip"
+        capture noisily shell python3 "`qa_dir'/tools/check_suite_result.py" ///
+            "`child_name'" "`child_log'" "`child_capture'" ///
+            --status "`child_status'" `skip_option'
+        capture confirm file "`child_status'"
+        if _rc local child_rc = 1
+        else {
+            tempname receipt_fh
+            file open `receipt_fh' using "`child_status'", read text
+            file read `receipt_fh' receipt
+            file close `receipt_fh'
+            if "`receipt'" != "PASS" local child_rc = 1
+        }
+    }
+    if `child_rc' == 0 {
         local ++n_pass
         display as result "  PASSED: `f'"
     }
     else {
         local ++n_fail
         local failed_files "`failed_files' `f'"
-        display as error "  FAILED: `f' (rc=`=_rc')"
+        display as error "  FAILED: `f' (rc=`child_rc')"
     }
 }
 
@@ -252,7 +296,7 @@ if `n_fail' > 0 {
 * fail on any skip; quick remains advisory.
 if `n_skip' > 0 {
     display as text "Skipped files came from _skip.txt:`skipped_files'"
-    if inlist("`lane'", "full", "release") {
+    if inlist("`lane'", "core", "full", "release", "benchmark") {
         display as error "`n_skip' file(s) were skipped; the `lane' lane requires every discovered file to run"
         display as error "remove the _skip.txt entries, or use the quick lane if a skip is intended"
         local suite_rc = 1
