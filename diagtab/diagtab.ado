@@ -708,16 +708,21 @@ capture noisily {
     }
 
     * AUC
-    local _auc = .
-    local _auc_lo = .
-    local _auc_hi = .
+    tempname _auc _auc_lo _auc_hi
+    scalar `_auc' = .
+    scalar `_auc_lo' = .
+    scalar `_auc_hi' = .
     if "`auc'" != "" {
+        local _roc_type = c(type)
+        set type double
         capture qui roctab `goldvar' `testvar' if `touse', level(`level')
-        if !_rc {
-            local _auc = r(area)
-            local _auc_lo = r(lb)
-            local _auc_hi = r(ub)
+        local _roc_rc = _rc
+        if `_roc_rc' == 0 {
+            scalar `_auc' = r(area)
+            scalar `_auc_lo' = r(lb)
+            scalar `_auc_hi' = r(ub)
         }
+        set type `_roc_type'
     }
 
     * Adjust PPV/NPV with external prevalence (point estimates and CIs)

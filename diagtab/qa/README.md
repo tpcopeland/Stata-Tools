@@ -94,3 +94,11 @@ File fixture regression covers specific quoted-path refusal cause, whole owned-t
 | `test_diagtab_fixture_compile.do` | Off/on strict compiler errors in dispatcher/common plus cold Markdown success/dependency compilation refusals preserve original3000, caller state and analytical results | full |
 | `test_diagtab_fixture_rreturns.do` | Both Excel aliases refuse hostile filenames with original198 and exact empty/populated scalar/macro/matrix r() plus other caller-state equality; snapshot after logopen and comparison before logclose | full |
 | `test_diagtab_fixture_publication.do` | Populated caller r() is replaced by exact analytic scalars/matrices/macros on success and retained after named native16106 workbook-save failures; other caller state and file contents unchanged | full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_diagtab_precision.do` | Independent empirical rank AUC/DeLong CI and precise cutoff/Wilson arithmetic, exact writer payload. | 2 | full |

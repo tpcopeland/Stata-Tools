@@ -74,3 +74,11 @@ Exact sparse-group exclusion counts, resolved CSV nodes, and SVG labels; single-
 | `validation_consort_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
 
 | `validation_consort_fixture_primitives.do` | Exact exclusion populations for32-character/negative/above-maxlong variables, zero-match missing-variable no-op followed by real exclusion, actual resolvedCSV/SVG labels for all9opaque strings | core/full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_consort_precision.do` | Actual documented 2-place count/percentage text from independent arithmetic. | 1 | core/full |

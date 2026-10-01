@@ -118,3 +118,11 @@ Canonical daily and leap-date adapters recover exact inclusive one-day person-ti
 | `validation_pygrid_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
 
 | `validation_pygrid_fixture_primitives.do` | Exact label/missing-column retention; all hostile string/case/32-character/negative/above-maxlong identifiers and event attachments; anniversary partial keep/flag contents and empty-result drop refusal/state | core/full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_pygrid_saved_precision.do` | Actual saved-grid DTA kept doubles/types and independently calculated 101/365.25 duration. | 1 | core/full |

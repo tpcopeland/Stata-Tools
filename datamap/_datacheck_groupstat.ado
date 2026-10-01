@@ -199,11 +199,11 @@ program define _datacheck_groupstat, rclass
                             local ++j
                             if "`st'" == "pmiss" {
                                 local nmk = `MN'[`j', `k']
-                                local val_`k'_`j' = `nmk' / `MNG'[1, `k']
+                                local val_`k'_`j' = regexr(string(`nmk' / `MNG'[1, `k'], "%21x"), "^[+]", "")
                                 local nm_`k'_`j' = `nmk'
                             }
                             else {
-                                local val_`k'_`j' = `gv`j''[`k']
+                                local val_`k'_`j' = regexr(string(`gv`j''[`k'], "%21x"), "^[+]", "")
                                 local nn_`k'_`j' = `nn`j''[`k']
                                 capture confirm variable `nle`j''
                                 if !_rc {
@@ -222,7 +222,7 @@ program define _datacheck_groupstat, rclass
                 foreach v of local gvars {
                     local ++j
                     _datacheck_statval `st' `v', cond(`"`in'"') mask(`mask') fmt(%10.4g)
-                    local pool_`j' = r(value)
+                    local pool_`j' = regexr(string(r(value), "%21x"), "^[+]", "")
                     local pools_`j' `"`r(s)'"'
                     local pshown_`j' = r(shown)
                     if !r(shown) local anymask = 1
@@ -267,7 +267,7 @@ program define _datacheck_groupstat, rclass
                     local j = 0
                     foreach v of local gvars {
                         local ++j
-                        local x = `val_`k'_`j''
+                        local x = regexr(string(`val_`k'_`j'', "%21x"), "^[+]", "")
                         local shown = 1
                         if missing(`x') local s "."
                         else if "`st'" == "pmiss" {
@@ -382,8 +382,8 @@ program define _datacheck_groupstat, rclass
                     forvalues k = 1/`G' {
                         if `rundef' continue
                         if !`tst_`k'' continue
-                        local x = `val_`k'_`j''
-                        if "`relative'" != "" local x = `x' / `pool_`j''
+                        local x = regexr(string(`val_`k'_`j'', "%21x"), "^[+]", "")
+                        if "`relative'" != "" local x = regexr(string(`x' / `pool_`j'', "%21x"), "^[+]", "")
                         if !missing(`x') & `x' >= `blo' & `x' <= `bhi' continue
                         local ++nf_v
                         local ++nfail
@@ -391,7 +391,7 @@ program define _datacheck_groupstat, rclass
                             // full precision, as stat() prints: a value just
                             // outside the band must not round onto its bound
                             local xs = strtrim(string(`x', "%14.0g"))
-                            local onum = `x'
+                            local onum = regexr(string(`x', "%21x"), "^[+]", "")
                             local om = 0
                         }
                         else {

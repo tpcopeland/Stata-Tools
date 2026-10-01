@@ -97,3 +97,11 @@ Real wrapped log/SMCL content in Markdown and HTML, existing extensionless outpu
 | `validation_logdoc_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
 | `test_logdoc_fixture_paths.do` | Actual hostile renderer/interpreter refusal, Unicode output, replay-cache and caller state contracts | core/full |
 | `validation_logdoc_fixture_primitives.do` | Actual opaque transcript rendering and full hostile caller preservation on renderer and interpreter checks | core/full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_logdoc_precision.do` | Exact numerical tokens retained in actual generated text. | 1 | core/full |

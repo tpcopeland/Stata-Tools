@@ -93,13 +93,13 @@ program define _datamap_post_metadata_rows, nclass
                 !("`datesafe'" != "" & "`varclass'" == "date") {
                 quietly summarize `vname', detail
                 if r(N) > 0 {
-                    local mean = r(mean)
-                    local sd = r(sd)
-                    local p50 = r(p50)
-                    local p25 = r(p25)
-                    local p75 = r(p75)
-                    local vmin = r(min)
-                    local vmax = r(max)
+                    local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
+                    local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
+                    local p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
+                    local p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
+                    local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
+                    local vmin = regexr(string(r(min), "%21x"), "^[+]", "")
+                    local vmax = regexr(string(r(max), "%21x"), "^[+]", "")
                 }
             }
 

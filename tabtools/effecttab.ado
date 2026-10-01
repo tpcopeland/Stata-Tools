@@ -1291,10 +1291,10 @@ quietly {
 					local _ep_ll = .
 					local _ep_ul = .
 					local _ep_p = .
-					capture local _ep_est = _eplot_est`_ep_m'[`_ep_obs']
-					capture local _ep_ll = _eplot_ll`_ep_m'[`_ep_obs']
-					capture local _ep_ul = _eplot_ul`_ep_m'[`_ep_obs']
-					capture local _ep_p = _eplot_p`_ep_m'[`_ep_obs']
+					capture local _ep_est = regexr(string(_eplot_est`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_ll = regexr(string(_eplot_ll`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_ul = regexr(string(_eplot_ul`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					capture local _ep_p = regexr(string(_eplot_p`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
 					local _ep_model_col = (`_ep_m' - 1) * 3 + 1
 					mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
 					if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"

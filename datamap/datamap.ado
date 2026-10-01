@@ -1506,7 +1506,7 @@ program define _datamap_json_number, rclass
 		exit
 	}
 
-	local number = strtrim(string(`num', "%21.12g"))
+	local number = strtrim(string(`num', "%24.17g"))
 	if substr("`number'", 1, 1) == "." {
 		local number "0`number'"
 	}
@@ -1786,13 +1786,13 @@ program define _datamap_ProcessDatasetJson, nclass
 			quietly summarize `vname', detail
 			if r(N) > 0 {
 				local s_n = r(N)
-				local s_mean = r(mean)
-				local s_sd = r(sd)
-				local s_p25 = r(p25)
-				local s_p50 = r(p50)
-				local s_p75 = r(p75)
-				local s_min = r(min)
-				local s_max = r(max)
+				local s_mean = regexr(string(r(mean), "%21x"), "^[+]", "")
+				local s_sd = regexr(string(r(sd), "%21x"), "^[+]", "")
+				local s_p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
+				local s_p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
+				local s_p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
+				local s_min = regexr(string(r(min), "%21x"), "^[+]", "")
+				local s_max = regexr(string(r(max), "%21x"), "^[+]", "")
 				_datamap_json_number `s_n'
 				local j_n "`r(number)'"
 				_datamap_json_number `s_mean'

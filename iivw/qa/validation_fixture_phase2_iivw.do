@@ -7,7 +7,8 @@ version 16.0
 set more off
 set varabbrev off
 capture log close _all
-log using "validation_fixture_phase2_iivw.log", text replace name(phase2)
+tempfile suite_log
+log using "`suite_log'", text replace name(phase2)
 do _iivw_qa_common.do
 iivw_qa_bootstrap
 do _qa_fx_a3.do
@@ -236,7 +237,7 @@ foreach profile in large nearzero nearone {
         di as error "FAIL phase2 IIVW precision `profile' rc=`rc'"
     }
 }
-di "RESULT: validation_fixture_phase2_iivw tests=`tests' pass=`pass' fail=`fail' skip=0"
+display "RESULT: validation_fixture_phase2_iivw tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close phase2
 iivw_qa_sandbox_restore
 if `fail'>0 exit 1

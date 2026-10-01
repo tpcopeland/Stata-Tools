@@ -444,9 +444,9 @@ forvalues e = 1/`n_exposures' {
 					mata: st_local("cat_e`e'_`i'", st_sdata(`i', "`catvar_str'"))
 					local D_o`o'_e`e'_`i' = _D[`i']
 					local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = `_Rate_scaled'[`i']
-					local Lower_o`o'_e`e'_`i' = `_Lower_scaled'[`i']
-					local Upper_o`o'_e`e'_`i' = `_Upper_scaled'[`i']
+					local Rate_o`o'_e`e'_`i' = regexr(string(`_Rate_scaled'[`i'], "%21x"), "^[+]", "")
+					local Lower_o`o'_e`e'_`i' = regexr(string(`_Lower_scaled'[`i'], "%21x"), "^[+]", "")
+					local Upper_o`o'_e`e'_`i' = regexr(string(`_Upper_scaled'[`i'], "%21x"), "^[+]", "")
 				}
 			}
 			else {
@@ -473,9 +473,9 @@ forvalues e = 1/`n_exposures' {
 					}
 					local D_o`o'_e`e'_`i' = _D[`_match_row']
 					local Y_o`o'_e`e'_`i' = _Y[`_match_row'] / `pyscale'
-					local Rate_o`o'_e`e'_`i' = `_Rate_scaled'[`_match_row']
-					local Lower_o`o'_e`e'_`i' = `_Lower_scaled'[`_match_row']
-					local Upper_o`o'_e`e'_`i' = `_Upper_scaled'[`_match_row']
+					local Rate_o`o'_e`e'_`i' = regexr(string(`_Rate_scaled'[`_match_row'], "%21x"), "^[+]", "")
+					local Lower_o`o'_e`e'_`i' = regexr(string(`_Lower_scaled'[`_match_row'], "%21x"), "^[+]", "")
+					local Upper_o`o'_e`e'_`i' = regexr(string(`_Upper_scaled'[`_match_row'], "%21x"), "^[+]", "")
 				}
 			}
 			
@@ -639,14 +639,14 @@ forvalues e = 1/`n_exposures' {
 			* CIs in one table.
 			* A rate without bounds (strate gives none for zero events) shows
 			* the en dash the IRR column uses for a missing estimate.
-			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f"))
+			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
 			if missing(`Lower_o`o'_e`e'_`i'') | missing(`Upper_o`o'_e`e'_`i'') {
 				local rt_fmt `"`rt_fmt' (–)"'
 			}
 			else {
 				local rt_fmt = `"`rt_fmt'"' + ///
-					" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f")) + ///
-					", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%11.`digits'f")) + ")"
+					" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ///
+					", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ")"
 			}
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1

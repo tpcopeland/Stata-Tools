@@ -2395,7 +2395,7 @@ program define datacheck, rclass
                 local sname = cond("`sst'" == "p50", "median", "`sst'")
                 local slab "`sname' `sv'"
                 if "`sst'" == "ratio" local slab "ratio `sv'/`sden'"
-                local onum = cond(`sshown' & `sdef', `sval', .)
+                local onum = regexr(string(cond(`sshown' & `sdef', `sval', .), "%21x"), "^[+]", "")
                 local om = !`sshown'
                 local mins = .
                 if `siscount' & `sshown' & `sval' >= 1 local mins = `sval'

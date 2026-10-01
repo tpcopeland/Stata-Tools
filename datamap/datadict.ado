@@ -1544,13 +1544,13 @@ if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 	if `is_numeric' {
 		quietly summarize `vname', detail
 		if r(N) > 0 {
-			local mean = r(mean)
-			local sd = r(sd)
-			local p50 = r(p50)
-			local p25 = r(p25)
-			local p75 = r(p75)
-			local vmin_raw = r(min)
-			local vmax_raw = r(max)
+			local mean = regexr(string(r(mean), "%21x"), "^[+]", "")
+			local sd = regexr(string(r(sd), "%21x"), "^[+]", "")
+			local p50 = regexr(string(r(p50), "%21x"), "^[+]", "")
+			local p25 = regexr(string(r(p25), "%21x"), "^[+]", "")
+			local p75 = regexr(string(r(p75), "%21x"), "^[+]", "")
+			local vmin_raw = regexr(string(r(min), "%21x"), "^[+]", "")
+			local vmax_raw = regexr(string(r(max), "%21x"), "^[+]", "")
 		}
 	}
 
