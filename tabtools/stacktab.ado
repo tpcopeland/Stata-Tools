@@ -223,10 +223,10 @@ program define stacktab, rclass
                 }
                 if `"`cellrange'"' != "" {
                     import excel `"`using'"', ///
-                        sheet(`"`macval(bsh)'"') cellrange(`"`cellrange'"') clear allstring
+                        sheet(`"`macval(bsh)'"') cellrange(`"`cellrange'"') clear allstring("%24.17g")
                 }
                 else {
-                    import excel `"`using'"', sheet(`"`macval(bsh)'"') clear allstring
+                    import excel `"`using'"', sheet(`"`macval(bsh)'"') clear allstring("%24.17g")
                 }
             }
             if _rc {

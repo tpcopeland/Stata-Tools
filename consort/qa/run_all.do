@@ -18,7 +18,7 @@ sysdir set PERSONAL "`sandbox'/personal"
 ado dir
 capture ado uninstall consort
 local suites "test_consort_v112 test_consort_help"
-if inlist("`mode'", "core", "full") local suites "`suites' validation_consort_fixture_contract validation_consort_fixture_primitives test_consort test_consort_v104 test_consort_v106 test_consort_v110 validation_consort"
+if inlist("`mode'", "core", "full") local suites "`suites' validation_consort_precision validation_consort_fixture_contract validation_consort_fixture_primitives test_consort test_consort_v104 test_consort_v106 test_consort_v110 validation_consort"
 if "`mode'" == "full" local suites "`suites' test_consort_expanded test_consort_edge_cases validation_consort_expanded"
 local failed 0
 local passed 0

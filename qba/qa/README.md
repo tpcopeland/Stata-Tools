@@ -164,3 +164,11 @@ fixture-exempt: qba (catalog dispatcher does not consume analytical data)
 | `validation_qba_fixture_callers.do` | Eight exact scalar-cell curves with full caller fingerprints across arbitrary friendly/one-row/missing/label-gap/case/32-byte/signed-large-code/opaque-string caller datasets; these data serve a preservation role and are not analytical inputs | core/full |
 | `validation_qba_fixture_ci_domain.do` | Thirteen actual CI-limit cases: independent numerical inversion of the primary sharp bounding equation, risk/protective/null limits, finite positive range and named missing/negative/no-evalue refusals; full caller fingerprints | core/full |
 | `test_qba_plot_fixture_files.do` | Actual Unicode and quote-hostile SVG exports (A7.xlsx suffix adapted to supported.svg), exact retained curve and independently checked rendered spacing/ordinate ratios, extensionless existing-target602 and whole owned tree/caller preservation | core/full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_qba_metamorphic.do` | Deterministic OR/RR and constant-draw relations, table-count scaling with correct SE changes; finite returned scalars. | 10 | core/full |

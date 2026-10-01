@@ -122,7 +122,7 @@ local test_files "`test_files' test_tabtools_surfaces.do"
 local test_files "`test_files' test_review_2026_09_29.do"
 local test_files "`test_files' test_smallcells_derivable.do"
 
-local validation_files ""
+local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"
 local validation_files "`validation_files' validation_crosstab.do"
 local validation_files "`validation_files' validation_effecttab.do"

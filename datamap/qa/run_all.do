@@ -37,6 +37,7 @@ local quick_suites ///
     test_datamap_v180.do
 
 local core_suites ///
+    validation_datamap_precision.do validation_dataqa_writer_precision.do ///
     validation_datamap_fixture_contract.do validation_datamap_fixture_primitives.do test_datamap_fixture_domains.do test_datamap_fixture_option_strings.do test_datamvp_fixture_groupgap.do test_datamvp_fixture_reshape_state.do test_datamap_fixture_files.do test_datacheck_fixture_ledger_quotes.do validation_datadict_fixture_contract.do validation_dataqa_fixture_contract.do test_dataqa_fixture_state.do test_datamvp_fixture_state.do ///
     `quick_suites' ///
     test_datamap_bugfixes.do ///

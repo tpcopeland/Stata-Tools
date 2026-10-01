@@ -218,3 +218,12 @@ Exact sparse-code cross-tab counts, Spearman/pairwise N including undefined all-
 | `validation_tabtools_fixture_strings.do` | All nine opaque variable-label byte strings in actual count/mean frames, exact numerical payloads and full caller fingerprints across crosstab/desctab/table1_tc | core/full |
 | `validation_tabtools_fixture_remaining.do` | Explicit canonical survival adapter: exact KM/RMST/logrank and event/person-time rates, symmetricHR composition, documented blank-category refusal, all six workbook cells/stale sheet/user sheet/stem preservation, real tips text | core/full |
 | `test_survtab_fixture_state.do` | Empty/foreign estimates; absent/opaque/empty legacy globals with long-name twins; native KM/RMST/median results and early/late rc preserved | core/full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_tabtools_precision.do` | Twelve public numerical writers: raw frame/table cells and strict independently calculated workbook values. PutTab checks its documented 6-place text. | 14 | full/release |
+| `validation_stacktab_precision_controls.do` | Mixed signed/tiny/large/blank cells, independent daily calendar dates plus native formatted-string parity, exact default preformatted strings. | 3 | full/release |

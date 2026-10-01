@@ -8,7 +8,8 @@ version 16.0
 set more off
 set varabbrev off
 capture log close _all
-log using "validation_fixture_analytical.log", text replace name(analytical)
+tempfile suite_log
+log using "`suite_log'", text replace name(analytical)
 do _iivw_qa_common.do
 iivw_qa_bootstrap
 do _qa_fx_a3.do
@@ -240,7 +241,7 @@ _draft_analytical unsorted
 local tests=`tests'+r(tests)
 local pass=`pass'+r(pass)
 local fail=`fail'+r(fail)
-di "RESULT: validation_fixture_analytical tests=`tests' pass=`pass' fail=`fail' skip=0"
+display "RESULT: validation_fixture_analytical tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close analytical
 iivw_qa_sandbox_restore
 if `fail'>0 exit 1

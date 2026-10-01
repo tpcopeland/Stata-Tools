@@ -77,3 +77,11 @@ Real R/haven SAS binaries from canonical numeric cells recover every value; disc
 | --- | --- | --- |
 | `validation_massdesas_fixture_contract.do` | Canonical fixture truth and hostile contracts | full |
 | `validation_massdesas_fixture_primitives.do` | Genuine SAS row truth and full hostile caller-data preservation; honest discovery stand-in failure | full |
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_massdesas_precision.do` | Real haven-generated SAS, native input precheck and conversion roundtrip of exact doubles/types. | 2 | full |

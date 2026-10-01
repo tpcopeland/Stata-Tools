@@ -746,9 +746,9 @@ program define _dataqa_compare, rclass
                     local ++nflag
                     continue
                 }
-                local a = observed_num[`j']
-                local b = _bo[`j']
-                local rel = cond(`b' != 0, (`a' - `b') / abs(`b'), `a' - `b')
+                local a = regexr(string(observed_num[`j'], "%21x"), "^[+]", "")
+                local b = regexr(string(_bo[`j'], "%21x"), "^[+]", "")
+                local rel = regexr(string(cond(`b' != 0, (`a' - `b') / abs(`b'), `a' - `b'), "%21x"), "^[+]", "")
                 if abs(`rel') > `stattol' {
                     local ds = dataset[`j']
                     local fl = "stat(" + label[`j'] + ")"

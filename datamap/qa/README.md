@@ -126,3 +126,12 @@ archetypes: A7(datamap datamvp datacheck datadict dataqa)
 ## Canonical fixture adoption
 
 Exact JSON means, empty all-missing summaries, sparse code frequencies, missingness and QC gates; existing/undefined S_2 preserved on success, no-missing, early and late refusal. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
+
+## Numerical precision suites
+
+These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
+
+| File | Scope | Cases | Lanes |
+| --- | --- | --- | --- |
+| `validation_datamap_precision.do` | Unrounded JSON and raw metadata/dictionary summary doubles; valid masked stat ledger/export rows. | 5 | core/full |
+| `validation_dataqa_writer_precision.do` | Tiny relative stat comparison flags and raw groupstat ledger/export values, labels/masking and keys. | 2 | core/full |
