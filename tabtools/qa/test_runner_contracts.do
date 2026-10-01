@@ -10,13 +10,16 @@ log using "test_runner_contracts.log", text replace name(_runner_contracts)
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 local outer_output "$TABTOOLS_QA_OUTPUT_DIR"
+local stata_binary "`c(sysdir_stata)'stata-mp"
 tempfile fixture_token
 local fixture_root "`fixture_token'_runner_contracts"
 local tests 0
 local pass 0
 local fail 0
 
-* Each case runs the actual runner with a single deliberately controlled child.
+* Each case runs the actual runner in a private Stata process with a single
+* deliberately controlled child. Its expected failure receipts cannot pollute
+* the enclosing lane, and native child evidence checks sysdir restoration.
 * Only lane membership is narrowed in the scratch copy; verdict logic stays
 * byte for byte identical to the runner under test (including --against runs).
 python:
@@ -52,15 +55,11 @@ foreach case in good wrap wrapnumber mismatch failed missing empty duplicate wro
         local orig_plus "`c(sysdir_plus)'"
         local orig_personal "`c(sysdir_personal)'"
         python script "`qa_dir'/tools/runner_fixture.py", args("`case'" "`fixture_root'/tabtools/qa")
-        cd "`fixture_root'/tabtools/qa"
-        log off _runner_contracts
-        capture noisily do run_all.do `mode'
-        local actual_rc = _rc
-        log on _runner_contracts
-        global TABTOOLS_QA_OUTPUT_DIR "`outer_output'"
+        python script "`qa_dir'/tools/runner_fixture.py", ///
+            args("execute" "`fixture_root'/tabtools/qa" "`mode'" "`stata_binary'")
         python script "`qa_dir'/tools/runner_fixture.py", args("restore" "`fixture_root'/tabtools/qa")
-        cd "`qa_dir'"
         assert `actual_rc' == `wanted_rc'
+        assert `dirs_restored' == 1
         assert "`c(sysdir_plus)'" == "`orig_plus'"
         assert "`c(sysdir_personal)'" == "`orig_personal'"
     }
@@ -82,14 +81,10 @@ foreach arguments in "unknown" "full unexpected" {
     local ++tests
     capture noisily {
         clear
-        cd "`fixture_root'/tabtools/qa"
-        log off _runner_contracts
-        capture noisily do run_all.do `arguments'
-        local argument_rc = _rc
-        log on _runner_contracts
-        global TABTOOLS_QA_OUTPUT_DIR "`outer_output'"
-        cd "`qa_dir'"
-        assert `argument_rc' == 198
+        python script "`qa_dir'/tools/runner_fixture.py", ///
+            args("execute" "`fixture_root'/tabtools/qa" "`arguments'" "`stata_binary'")
+        assert `actual_rc' == 198
+        assert `dirs_restored' == 1
     }
     local argument_test_rc = _rc
     global TABTOOLS_QA_OUTPUT_DIR "`outer_output'"
@@ -104,11 +99,14 @@ foreach arguments in "unknown" "full unexpected" {
     }
 }
 
-python:
+if !`fail' {
+    python:
 import shutil
 from sfi import Macro
 shutil.rmtree(Macro.getLocal("fixture_root"))
 end
+}
+else display as error "Runner fixture evidence retained at `fixture_root'"
 display "RESULT: test_runner_contracts tests=`tests' pass=`pass' fail=`fail'"
 log close _runner_contracts
 if `fail' exit 1

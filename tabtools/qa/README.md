@@ -58,7 +58,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_review_2026_10_01_composition.do` | Model alignment in numeric companions, opaque labels, frame identity, and missing/duplicate companion refusals. |
 | `test_review_2026_10_01_models.do` | Equation identity, reference-label collisions, case-sensitive frames, large matrix values, and collected-model labels. |
 | `test_review_2026_10_01_statistics.do` | Translation-invariant Cochran trend tests and literal rate-table text and filename refusals. |
-| `test_runner_contracts.do` | Controlled child suites prove receipt enforcement, skip policy, argument refusals, and ado-path restoration. |
+| `test_runner_contracts.do` | Private Stata child suites prove receipt enforcement, skip policy, argument refusals, exact nondefault sysdir restoration, and enclosing-lane receipt isolation. |
 | `test_corrtab.do` | Pearson/Spearman output, stars, shapes, pairwise-N p-values, and undefined diagonals for degenerate Spearman variables. |
 | `test_crosstab.do` | Association measures, weights, small-cell disclosure control, returns, and sink parity. |
 | `test_deep_audit_core.do` | Destructive and silent-corruption regressions in frames, metadata, scales, weights, and samples. |
@@ -149,7 +149,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `benchmark_tabtools_speed.do` | Timing guardrail included only in `release`/`benchmark`. |
 | `_visual_stress_gen.do` | Manual disposable workbook generator; not a gate. |
 | `tools/` | Package-local Excel, Markdown (`check_md_render.py`, `md_facts.py`), SMCL-width, demo, style, crossval, and option-coverage validators. |
-| `tools/check_suite_result.py`, `tools/runner_fixture.py` | Runner receipt validator and controlled child generator for its regression suite. |
+| `tools/check_suite_result.py`, `tools/runner_fixture.py` | Runner receipt validator, controlled child generator, and private Stata driver for its regression suite. |
 | `data/`, `baseline/`, root QA fixtures | Tracked oracle inputs and semantic artifact summaries governed by `fixtures_manifest.md`. |
 | `CROSSVAL_MODULE_MAP.md`, `TOLERANCE_FRAMEWORK.md` | Oracle ownership and numerical tolerance policy. |
 | `clean_artifacts.sh`, `.gitignore` | Recoverable artifact cleanup and generated-file policy. |
