@@ -8,7 +8,7 @@ d observational studies.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260930
+d Distribution-Date: 20261001
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -79,7 +79,7 @@ f tvsplit.sthlp
 f _tvband_split.ado
 f tvpanel.ado
 f tvpanel.sthlp
-f _tvpanel_cumulative.ado
+f _tvpanel_sweep.ado
 f tvbuild.ado
 f tvbuild.sthlp
 f _tvbuild_normalize_spec.ado

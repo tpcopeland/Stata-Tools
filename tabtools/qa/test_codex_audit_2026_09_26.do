@@ -1,5 +1,5 @@
 * test_codex_audit_2026_09_26.do - the nine findings of the 2026-09-26 Codex
-* audit (Stata-Dev _take_action/tabtools_codex.md)
+* audit; its regression provenance is recorded below.
 * Regression suite, written against commit 96f090d8 (tabtools 2.1.13) before
 * any fix. Every test below failed on 96f090d8.
 *   C1  a variable label, a value label and a collected label holding a

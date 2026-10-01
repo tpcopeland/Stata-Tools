@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.19  2026/09/30
+*! crosstab Version 2.1.20  2026/10/01
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -446,7 +446,7 @@ capture noisily {
 	        * The event is the second row level, coded from the values (egen
 	        * group) rather than by matching levelsof text, which misses a
 	        * fractional float level.
-	        tempvar _ca_ev _ca_evs _ca_dev2 _ca_rgrp
+	        tempvar _ca_ev _ca_evs _ca_dev2 _ca_rgrp _ca_score
 	        qui egen byte `_ca_rgrp' = group(`rowvar')
 	        qui gen byte `_ca_ev' = (`_ca_rgrp' == 2) ///
 	            if !missing(`rowvar') & !missing(`colvar')
@@ -455,12 +455,30 @@ capture noisily {
 	        qui summarize `_ca_ev' if !missing(`_ca_ev'), meanonly
 	        local _ca_R = r(sum)
 	        local _ca_pbar = cond(`_ca_N' > 0, `_ca_R' / `_ca_N', .)
+	        * PROC FREQ's score numerator is sum(y * (score - mean(score))).
+	        * Remove the origin before summing: sum(y*score)-R*mean(score)
+	        * loses the trend when, for example, scores 0/2/4 are shifted 1e16.
+	        * A positive rescaling preserves z and keeps squared scores finite.
+	        tempname _ca_origin _ca_scale _ca_mean
 	        qui summarize `colvar' if !missing(`_ca_ev'), meanonly
-	        local _ca_sbar = r(mean)
-	        qui gen double `_ca_evs' = `_ca_ev' * `colvar' if !missing(`_ca_ev')
+	        scalar `_ca_origin' = r(min)
+	        scalar `_ca_scale' = max(abs(r(min)), abs(r(max)))
+	        qui gen double `_ca_score' = `colvar' - scalar(`_ca_origin') if !missing(`_ca_ev')
+	        qui count if missing(`_ca_score') & !missing(`_ca_ev')
+	        if r(N) > 0 {
+	            * Opposite extreme finite scores can overflow the subtraction.
+	            qui replace `_ca_score' = `colvar'/scalar(`_ca_scale') - ///
+	                scalar(`_ca_origin')/scalar(`_ca_scale') if !missing(`_ca_ev')
+	        }
+	        qui summarize `_ca_score' if !missing(`_ca_ev'), meanonly
+	        scalar `_ca_scale' = r(max)
+	        qui replace `_ca_score' = `_ca_score'/scalar(`_ca_scale') if !missing(`_ca_ev')
+	        qui summarize `_ca_score' if !missing(`_ca_ev'), meanonly
+	        scalar `_ca_mean' = r(mean)
+	        qui gen double `_ca_evs' = `_ca_ev' * (`_ca_score' - scalar(`_ca_mean')) if !missing(`_ca_ev')
 	        qui summarize `_ca_evs' if !missing(`_ca_ev'), meanonly
-	        local _ca_T = r(sum) - `_ca_R' * `_ca_sbar'
-	        qui gen double `_ca_dev2' = (`colvar' - `_ca_sbar')^2 if !missing(`_ca_ev')
+	        local _ca_T = r(sum)
+	        qui gen double `_ca_dev2' = (`_ca_score' - scalar(`_ca_mean'))^2 if !missing(`_ca_ev')
 	        qui summarize `_ca_dev2' if !missing(`_ca_ev'), meanonly
 	        local _ca_varT = `_ca_pbar' * (1 - `_ca_pbar') * r(sum)
 	        if `_ca_varT' > 0 & !missing(`_ca_varT') {

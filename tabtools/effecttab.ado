@@ -1,4 +1,4 @@
-*! effecttab Version 2.1.19  2026/09/30
+*! effecttab Version 2.1.20  2026/10/01
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -158,13 +158,13 @@ program define effecttab, rclass
 			}
 			if `"`_displayframe_name'"' != "" & ///
 				`"`_eplotframe_name'"' != "" & ///
-				lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+				`"`_displayframe_name'"' == `"`_eplotframe_name'"' {
 				noisily display as error "frame() and eplotframe() must name different frames"
 				exit 198
 			}
 				foreach _dest in _displayframe_name _eplotframe_name {
 					if `"``_dest''"' != "" & ///
-						lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+						`"``_dest''"' == `"`c(frame)'"' {
 						noisily display as error "output frames cannot replace the current frame"
 						exit 198
 					}
@@ -347,7 +347,7 @@ quietly {
 	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
 	* Build format strings from digits
-	local coef_fmt "%21.`digits'f"
+	local coef_fmt "%32.`digits'f"
 	local coef_round = 10^(-`digits')
 
 	* Resolve formatting
@@ -480,7 +480,9 @@ quietly {
 	* Create temporary file for intermediate processing
 	* Note: tempfile on Unix creates paths like /tmp/StXXXXX.XXXXXX without .tmp
 	* We append .xlsx to ensure a valid Excel file path
+	* Pair provenance distinguishes separate invocations with identical metadata.
 	tempfile temp_export
+    _tabtools_companion_id
 	local temp_xlsx "`temp_export'.xlsx"
 
 	* =========================================================================
@@ -739,10 +741,10 @@ quietly {
 				local _cilo = `from'[`_fr', 2]
 				local _cihi = `from'[`_fr', 3]
 				local _pv = `from'[`_fr', 4]
-				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "%21.`digits'f")) in `_obs'
+				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "%32.`digits'f")) in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
-				local _cilo_s : display %21.`digits'f `_cilo'
-				local _cihi_s : display %21.`digits'f `_cihi'
+				local _cilo_s : display %32.`digits'f `_cilo'
+				local _cihi_s : display %32.`digits'f `_cihi'
 				local _cilo_s = strtrim("`_cilo_s'")
 				local _cihi_s = strtrim("`_cihi_s'")
 				qui replace c2 = "(`_cilo_s'`sep'`_cihi_s')" in `_obs'
@@ -1168,16 +1170,31 @@ quietly {
 						& (strtrim(c`=`i'+1') == "" | ///
 						strpos(lower(strtrim(c`=`i'+1')), "base") > 0) & _n >= 3
 				}
+        * Constraint identity is structural, never the rendered label. The
+        * matrix route contains estimates only, even if an estimate's text
+        * equals refcat(), omitlabel(), or emptylabel().
+        gen str6 _constraint`_model_ix' = ""
+        if !`_from_matrix' {
+            if `_omit_ok' {
+                replace _constraint`_model_ix' = _omit_type`_model_ix' ///
+                    if inlist(_omit_type`_model_ix', "base", "omit", "empty") ///
+                    & _n >= 3
+            }
+            replace _constraint`_model_ix' = "base" ///
+                if _constraint`_model_ix' == "" & real(c`i'z) == 0 ///
+                & (strtrim(c`=`i'+1') == "" | ///
+                    strpos(lower(strtrim(c`=`i'+1')), "base") > 0) & _n >= 3
+        }
 		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 ///
-			& !inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+			& !(_constraint`_model_ix' != "")
 		* Clear CI and p-value for constrained rows
 			replace c`=`i'+1' = "" ///
-				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
+				if (_constraint`_model_ix' != "") & _n >= 3
 			capture confirm variable c`=`i'+2'
 			if _rc == 0 replace c`=`i'+2' = "" ///
-				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
+				if (_constraint`_model_ix' != "") & _n >= 3
 			replace _eplot_est`_model_ix' = . ///
-				if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"') & _n >= 3
+				if (_constraint`_model_ix' != "") & _n >= 3
 			drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -1300,7 +1317,7 @@ quietly {
 					if `"`macval(_ep_model_label)'"' == "" local _ep_model_label "Model `_ep_m'"
 					local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 					local _ep_rowtype "effect"
-					if lower(`"`_ep_cell'"') == lower(`"`refcat'"') local _ep_rowtype "reference"
+					if _constraint`_ep_m'[`_ep_obs'] == "base" local _ep_rowtype "reference"
 					if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
 						* C1 (codex audit 2026-09-26): the row and model labels are stored
 						* in Mata after the post, so they are never expanded as macros.
@@ -1317,6 +1334,7 @@ quietly {
 			}
 				}
 			frame `_eplotframe_name': char _dta[tabtools_source] "effecttab"
+			frame `_eplotframe_name': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 			frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level'"
 			frame `_eplotframe_name': char _dta[tabtools_n_models] "`_n_models'"
 			frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "estimate ci pvalue"
@@ -1394,11 +1412,12 @@ quietly {
 	* model with a real result on a row another model treats as its reference.
 	forvalues i = 1(3)`last' {
 		gen ref`i' = _n ///
-			if inlist(c`i', `"`refcat'"', `"`omitlabel'"', `"`emptylabel'"')
+			if _constraint`=(`i'+2)/3' != ""
 		levelsof ref`i', local(ref_rows_`i')
 		drop ref`i'
 	}
 
+	capture drop _constraint*
 	local num_rows = _N
 	local num_cols = c(k)
 	local _xlsx_ok 0
@@ -1579,6 +1598,7 @@ quietly {
 		_tabtools_frame_put `"`frame'"'
 		local frame `"`_frame_name'"'
 		frame `frame': char _dta[tabtools_source] "effecttab"
+		frame `frame': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
 		frame `frame': char _dta[tabtools_n_models] "`_n_models'"
 		frame `frame': char _dta[tabtools_statistic_ids] "estimate ci pvalue"

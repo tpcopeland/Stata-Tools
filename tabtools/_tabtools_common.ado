@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.1.19  2026/09/30
+*! _tabtools_common Version 2.1.20  2026/10/01
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -27,6 +27,7 @@ PROGRAMS INCLUDED:
     _tabtools_frame_put         - Store output in a named frame with optional replace
     _tabtools_frame_preflight   - Validate a frame spec without mutating anything
     _tabtools_resolve_ci_level  - Resolve the CI level to label intervals with
+    _tabtools_companion_id      - Allocate an opaque identity for paired output frames
     _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
     _tabtools_require_helpers   - Exit with package reinstall message if helpers are incomplete
 USAGE:
@@ -893,7 +894,14 @@ program _tabtools_helpers_ready, nclass
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_require_helpers"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers"
+    }
+
+    local _pair_helper "_tabtools_companion_id"
+    local _pair_required : list _pair_helper in required
+    if `_pair_required' {
+        mata: st_local("_pair_ready", strofreal(findexternal("_tt_companion_id()") != NULL))
+        if !`_pair_ready' exit 111
     }
 
     foreach _prog of local required {
@@ -1097,12 +1105,63 @@ end
 
 version 17.0
 capture mata: mata drop _tt_strip_outer_quotes()
+* Allocate without altering caller returns, RNG, globals, or current frame.
+capture program drop _tabtools_companion_id
+program _tabtools_companion_id, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        tempfile _pair_file
+        mata: st_local("_pair_id", _tt_companion_id(st_local("_pair_file")))
+        c_local _companion_id `"`macval(_pair_id)'"'
+    }
+    local _rc_outer = _rc
+    quietly version
+    set varabbrev `_orig_varabbrev'
+    if `_rc_outer' exit `_rc_outer'
+end
+
+capture mata: mata drop _tt_companion_id()
 capture mata: mata drop _tt_collect_ci_level_json()
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
 local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
+
+// tempfile names are reusable after program return. A persistent invocation
+// sequence distinguishes calls; a live-frame scan also protects mata clear.
+string scalar _tt_companion_id(string scalar filetoken)
+{
+    pointer() scalar sequence
+    string scalar candidate, current
+    string rowvector frames
+    real scalar i, collision
+
+    sequence = findexternal("_tabtools_companion_seq")
+    if (sequence == NULL) {
+        sequence = crexternal("_tabtools_companion_seq")
+        *sequence = 0
+    }
+    if (eltype(*sequence) != "real") _error(3498)
+    if (rows(*sequence) != 1 | cols(*sequence) != 1) _error(3498)
+    if (missing(*sequence) | *sequence < 0 | *sequence != floor(*sequence)) _error(3498)
+    current = st_framecurrent()
+    frames = st_framedir()
+    do {
+        if (*sequence >= 9007199254740991) _error(3498)
+        *sequence = *sequence + 1
+        candidate = filetoken + ":" + strtrim(strofreal(*sequence, "%21.0f"))
+        collision = 0
+        for (i = 1; i <= cols(frames); i++) {
+            st_framecurrent(frames[i])
+            if (st_global("_dta[tabtools_companion_id]") == candidate) collision = 1
+        }
+        st_framecurrent(current)
+    } while (collision)
+    return(candidate)
+}
 
 // First usable "ci-level" value (0 < level < 100) in a collect save .stjson
 // file, or missing. Mirrors the line scan it replaced: the text after the

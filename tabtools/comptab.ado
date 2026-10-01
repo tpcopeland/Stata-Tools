@@ -1,4 +1,4 @@
-*! comptab Version 2.1.19  2026/09/30
+*! comptab Version 2.1.20  2026/10/01
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -176,7 +176,7 @@ program define comptab, rclass
         local _rate_mode = (`"`rateframe'"' != "" | `"`modelframes'"' != "")
         if `_rate_mode' {
             if "`compact'" != "" | `"`separator'"' != "" | ///
-                `"`section'"' != "" | `"`relabel'"' != "" | ///
+                `"`macval(section)'"' != "" | `"`relabel'"' != "" | ///
                 `highlight' != -1 | `boldp' != -1 | `labelwidth' != 0 {
                 noisily display as error "compact, separator(), section(), relabel(), highlight(), boldp(), and labelwidth() are not allowed with rateframe()"
                 exit 198
@@ -228,7 +228,7 @@ program define comptab, rclass
             if `"`separator'"' != "" {
                 local _vertical_opts `"`macval(_vertical_opts)' separator(`separator')"'
             }
-            if `"`section'"' != "" {
+            if `"`macval(section)'"' != "" {
                 local _vertical_opts `"`macval(_vertical_opts)' section(`macval(section)')"'
             }
             if `"`relabel'"' != "" {
@@ -293,6 +293,7 @@ program define _comptab_rates, rclass
             }
         }
         _tabtools_require_helpers
+        _tabtools_companion_id
 
         syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
             [rows(string asis) ROWNames(string asis) ///
@@ -550,12 +551,12 @@ program define _comptab_rates, rclass
 	            }
 	        }
 	        if `"`_displayframe_name'"' != "" & `"`_eplotframe_name'"' != "" & ///
-	            lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+	            `"`_displayframe_name'"' == `"`_eplotframe_name'"' {
 	            display as error "frame() and eplotframe() must name different frames"
 	            exit 198
 	        }
 	        foreach _dest in _displayframe_name _eplotframe_name {
-	            if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+	            if `"``_dest''"' != "" & `"``_dest''"' == `"`c(frame)'"' {
 	                display as error "output frames cannot replace the current frame"
 	                exit 198
 	            }
@@ -563,7 +564,7 @@ program define _comptab_rates, rclass
 	        local _rateframe_original `"`rateframe'"'
 	        local _modelframes_original `"`modelframes'"'
 	        foreach _dest in _displayframe_name _eplotframe_name {
-	            if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_rateframe_original'"') {
+	            if `"``_dest''"' != "" & `"``_dest''"' == `"`_rateframe_original'"' {
 	                display as error "output frame ``_dest'' aliases rate source frame `_rateframe_original'"
 	                exit 198
 	            }
@@ -572,14 +573,14 @@ program define _comptab_rates, rclass
 	            local _source_original_`_f' : word `_f' of `_modelframes_original'
 	            if `_f' > 1 {
 	                forvalues _j = 1/`=`_f'-1' {
-	                    if lower(`"`_source_original_`_f''"') == lower(`"`_source_original_`_j''"') {
+	                    if `"`_source_original_`_f''"' == `"`_source_original_`_j''"' {
 	                        display as error "modelframes() contains a duplicate source frame"
 	                        exit 198
 	                    }
 	                }
 	            }
 	            foreach _dest in _displayframe_name _eplotframe_name {
-	                if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_source_original_`_f''"') {
+	                if `"``_dest''"' != "" & `"``_dest''"' == `"`_source_original_`_f''"' {
 	                    display as error "output frame ``_dest'' aliases model source frame `_source_original_`_f''"
 	                    exit 198
 	                }
@@ -593,7 +594,7 @@ program define _comptab_rates, rclass
 	            }
 	            if `"`_source_ep_original_`_f''"' != "" {
 	                foreach _dest in _displayframe_name _eplotframe_name {
-	                    if `"``_dest''"' != "" & lower(`"``_dest''"') == lower(`"`_source_ep_original_`_f''"') {
+	                    if `"``_dest''"' != "" & `"``_dest''"' == `"`_source_ep_original_`_f''"' {
 	                        display as error "output frame ``_dest'' aliases model companion frame `_source_ep_original_`_f''"
 	                        exit 198
 	                    }
@@ -1279,6 +1280,16 @@ program define _comptab_rates, rclass
                     capture frame `_src_ep': quietly count
                     local _src_ep_rc = _rc
                     if `_src_ep_rc' == 0 {
+                        frame `_mfname_ep': local _display_pair : char _dta[tabtools_companion_id]
+                        frame `_src_ep': local _numeric_pair : char _dta[tabtools_companion_id]
+                        mata: st_local("_same_pair", strofreal( ///
+                            st_local("_display_pair") != "" & ///
+                            st_local("_display_pair") == st_local("_numeric_pair")))
+                        if !`_same_pair' {
+                            display as error "model display and numeric companion have missing or different tabtools_companion_id"
+                            display as error "Recreate the model display and eplotframe together with regtab or effecttab"
+                            exit 459
+                        }
 	                        forvalues _o = 1/`outcomes' {
 	                            local _source_model_ep = `_model_map_`_mfindex_ep'_`_o''
 	                            local _found_ep = 0
@@ -1319,6 +1330,7 @@ program define _comptab_rates, rclass
                     }
                 }
             }
+	            frame `_eplot_build_name': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 	            frame `_eplot_build_name': char _dta[tabtools_source] "hrcomptab"
 	            frame `_eplot_build_name': char _dta[tabtools_ci_level] "`_ci_level_label'"
 	            frame `_eplot_build_name': char _dta[tabtools_n_models] "`outcomes'"
@@ -1513,6 +1525,7 @@ program define _comptab_rates, rclass
 	            tempname _display_build
 	            local _display_build_name `"`_display_build'"'
 	            frame put *, into(`_display_build_name')
+	            frame `_display_build_name': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 	            frame `_display_build_name': char _dta[tabtools_source] "hrcomptab"
 	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level_label'"
 	            frame `_display_build_name': char _dta[tabtools_n_outcomes] "`outcomes'"
@@ -1834,6 +1847,7 @@ program define _comptab_vertical, rclass
         }
     }
     _tabtools_require_helpers
+    _tabtools_companion_id
 
     syntax anything(name=framelist), [rows(string) ROWNames(string)] ///
         [xlsx(string) excel(string) sheet(string)] ///
@@ -1987,13 +2001,13 @@ program define _comptab_vertical, rclass
     }
     if `"`_displayframe_name'"' != "" & ///
         `"`_eplotframe_name'"' != "" & ///
-        lower(`"`_displayframe_name'"') == lower(`"`_eplotframe_name'"') {
+        `"`_displayframe_name'"' == `"`_eplotframe_name'"' {
         noisily display as error "frame() and eplotframe() must name different frames"
         exit 198
     }
     foreach _dest in _displayframe_name _eplotframe_name {
         if `"``_dest''"' != "" & ///
-            lower(`"``_dest''"') == lower(`"`c(frame)'"') {
+            `"``_dest''"' == `"`c(frame)'"' {
             noisily display as error "output frames cannot replace the current frame"
             exit 198
         }
@@ -2002,7 +2016,7 @@ program define _comptab_vertical, rclass
         local _fname : word `f' of `framelist'
         foreach _dest in _displayframe_name _eplotframe_name {
             if `"``_dest''"' != "" & ///
-                lower(`"``_dest''"') == lower(`"`_fname'"') {
+                `"``_dest''"' == `"`_fname'"' {
                 noisily display as error "output frame ``_dest'' aliases source frame `_fname'"
                 exit 198
             }
@@ -2013,7 +2027,7 @@ program define _comptab_vertical, rclass
 	        if `"`_source_ep_original_`f''"' != "" {
 	            foreach _dest in _displayframe_name _eplotframe_name {
 	                if `"``_dest''"' != "" & ///
-	                    lower(`"``_dest''"') == lower(`"`_source_ep_original_`f''"') {
+	                    `"``_dest''"' == `"`_source_ep_original_`f''"' {
 	                    noisily display as error "output frame ``_dest'' aliases source companion frame `_source_ep_original_`f''"
 	                    exit 198
 	                }
@@ -2318,6 +2332,9 @@ program define _comptab_vertical, rclass
 	    * command IDs. This permits different predictor rows under the same
 	    * outcome while still rejecting ambiguous model attribution.
     local _source_cols_per_model = cond("`source_layout'" == "compact", 2, 3)
+    forvalues _m = 1/`n_models' {
+        local _source_model_map_1_`_m' = `_m'
+    }
     frame `fname1': local _meta_n_ref : char _dta[tabtools_n_models]
     frame `fname1': local _ci_level_ref : char _dta[tabtools_ci_level]
     frame `fname1': local _stat_ids_ref : char _dta[tabtools_statistic_ids]
@@ -2426,6 +2443,7 @@ program define _comptab_vertical, rclass
                 exit 198
             }
             local _model_map_`_target_m' = `_source_m'
+            local _source_model_map_`f'_`_target_m' = `_source_m'
             if `"`_outcome_id_ref_`_target_m''"' != ///
                 `"`_outcome_id_src_`_source_m''"' {
                 noisily display as error "source frames disagree on model outcome identity"
@@ -2475,21 +2493,23 @@ program define _comptab_vertical, rclass
     * PARSE SECTION() — BACKSLASH-SEPARATED LABELS
     * =====================================================================
     local has_sections = 0
-    if `"`section'"' != "" {
+    if `"`macval(section)'"' != "" {
         local has_sections = 1
         local section : subinstr local section " \ " "\", all
         local section : subinstr local section "\  " "\", all
         local section : subinstr local section "  \" "\", all
-        tokenize `"`section'"', parse("\")
+        tokenize `"`macval(section)'"', parse("\")
 
         local sidx = 1
         local sfidx = 0
-        while `"``sidx''"' != "" {
-            if `"``sidx''"' != "\" {
+        local _sectoken : copy local `sidx'
+        while `"`macval(_sectoken)'"' != "" {
+            if `"`macval(_sectoken)'"' != "\" {
                 local sfidx = `sfidx' + 1
-                local seclabel`sfidx' `"``sidx''"'
+                local seclabel`sfidx' : copy local _sectoken
             }
             local sidx = `sidx' + 1
+            local _sectoken : copy local `sidx'
         }
 
         if `sfidx' != `n_frames' {
@@ -2533,12 +2553,13 @@ program define _comptab_vertical, rclass
         }
         frame create `_eplotframe_name' str244 label double estimate double ll double ul ///
             double pvalue int model str244 model_label str24 rowtype str244 section ///
-            long source_row str32 source_frame
+            long source_row str32 source_frame long table_row
+        local _composite_row = 0
 	        forvalues f = 1/`n_frames' {
 	            local _fname : word `f' of `framelist'
 	            local _source_label `"`_source_original_`f''"'
 	            local _sec_label ""
-            if `has_sections' local _sec_label `"`seclabel`f''"'
+            if `has_sections' local _sec_label : copy local seclabel`f'
 
             * Resolve the source companion frame for this display frame.
             local _src_ep ""
@@ -2557,54 +2578,154 @@ program define _comptab_vertical, rclass
                 local _ep_rows`f' `"`r(numlist)'"'
             }
 
-            * Count the plotted rows this section contributes. A section header
-            * that owns exactly one row is redundant in a forest plot, so fold
-            * the section label into that single row and skip the header.
+            * Each analytical display cell must have one numeric row for its
+            * original model. Headings and model-fit/custom rows have no CI or
+            * p-value and legitimately have no companion; special nonnumeric
+            * rows (reference/omitted/empty) may likewise be absent. Never infer
+            * a missing estimate, or multiply it, from companion row count.
+            local _source_row_key source_row
+            frame `_fname': local _source_kind : char _dta[tabtools_source]
+            if "`_source_kind'" == "comptab" local _source_row_key table_row
+            frame `_src_ep' {
+                foreach _v in source_row `_source_row_key' model estimate ll ul pvalue {
+                    capture confirm numeric variable `_v'
+                    if _rc {
+                        noisily display as error "source companion lacks numeric variable `_v'"
+                        noisily display as error "Recreate the source display and eplotframe together with regtab, effecttab, or comptab"
+                        exit 459
+                    }
+                }
+                foreach _v in label model_label rowtype {
+                    capture confirm string variable `_v'
+                    if _rc {
+                        noisily display as error "source companion lacks string variable `_v'"
+                        exit 459
+                    }
+                }
+            }
+            * Only a pair created by the same producer invocation can supply
+            * numeric results. Command/model metadata also matches later fits
+            * on different data, so it cannot authenticate the numeric payload.
+            frame `_fname': local _display_pair : char _dta[tabtools_companion_id]
+            frame `_src_ep': local _numeric_pair : char _dta[tabtools_companion_id]
+            mata: st_local("_same_pair", strofreal( ///
+                st_local("_display_pair") != "" & ///
+                st_local("_display_pair") == st_local("_numeric_pair")))
+            if !`_same_pair' {
+                noisily display as error "source display and numeric companion have missing or different tabtools_companion_id"
+                noisily display as error "Recreate the source display and eplotframe together with regtab, effecttab, or comptab"
+                exit 459
+            }
+            * The frame pointer and row keys do not authenticate a companion:
+            * another fit can have exactly the same rows/model numbers.
+            frame `_src_ep': local _ep_meta_n : char _dta[tabtools_n_models]
+            frame `_src_ep': local _ep_meta_ci : char _dta[tabtools_ci_level]
+            mata: st_local("_same_provenance", strofreal( ///
+                strtoreal(st_local("_ep_meta_n")) == `n_models' & ///
+                !missing(strtoreal(st_local("_ep_meta_ci"))) & ///
+                strtoreal(st_local("_ep_meta_ci")) == strtoreal(st_local("_ci_level_ref"))))
+            if !`_same_provenance' {
+                noisily display as error "source companion has incompatible model-count or confidence-level provenance"
+                exit 459
+            }
+            forvalues _source_m = 1/`n_models' {
+                foreach _meta in model_id outcome_id effect_scale {
+                    frame `_fname': local _display_identity : char _dta[tabtools_`_meta'_`_source_m']
+                    frame `_src_ep': local _companion_identity : char _dta[tabtools_`_meta'_`_source_m']
+                    mata: st_local("_same_identity", strofreal(st_local("_display_identity") == st_local("_companion_identity")))
+                    if !`_same_identity' {
+                        noisily display as error "source companion disagrees with display model `_source_m' (`_meta')"
+                        noisily display as error "Recreate the source display and eplotframe together with regtab or effecttab"
+                        exit 459
+                    }
+                }
+            }
             local _n_eff_f = 0
-            if `_src_ep_ok' {
-                foreach r of local _ep_rows`f' {
-                    frame `_src_ep' {
-                        forvalues _ep_i = 1/`=_N' {
-                            if source_row[`_ep_i'] == `r' local ++_n_eff_f
+            foreach r of local _ep_rows`f' {
+                frame `_src_ep': quietly count if `_source_row_key' == `r' & ///
+                    (missing(model) | model != floor(model) | model < 1 | model > `n_models')
+                if r(N) {
+                    noisily display as error "source companion contains an invalid model identity for selected row `r'"
+                    exit 459
+                }
+                forvalues _target_m = 1/`n_models' {
+                    local _source_m = `_source_model_map_`f'_`_target_m''
+                    frame `_src_ep': quietly count if `_source_row_key' == `r' & model == `_source_m'
+                    local _found_ep = r(N)
+                    local _est_c = (`_target_m' - 1) * `_source_cols_per_model' + 1
+                    local _last_c = `_est_c' + `_source_cols_per_model' - 1
+                    local _needs_ep = 0
+                    frame `_fname' {
+                        * In compact sources the estimate cell includes the CI;
+                        * a missing p-value must not erase that analytical row.
+                        if `_source_compact' & regexm(c`_est_c'[`r' + 3], "[(][^)]*[)]") local _needs_ep = 1
+                        forvalues _stat_c = `=`_est_c' + 1'/`_last_c' {
+                            if strtrim(c`_stat_c'[`r' + 3]) != "" local _needs_ep = 1
                         }
                     }
+                    if `_found_ep' > 1 | (`_needs_ep' & `_found_ep' != 1) {
+                        noisily display as error "source companion does not uniquely identify selected row `r', model `_source_m'"
+                        noisily display as error "Recreate the source display and eplotframe together with regtab or effecttab"
+                        exit 459
+                    }
+                    local _n_eff_f = `_n_eff_f' + `_found_ep'
                 }
             }
             local _fold = (`has_sections' & `_n_eff_f' == 1)
             if `has_sections' & !`_fold' {
-                frame post `_eplotframe_name' (`"`_sec_label'"') (.) (.) (.) (.) ///
-	                    (.) ("") ("section") (`"`_sec_label'"') (.) (`"`_source_label'"')
+                frame post `_eplotframe_name' ("") (.) (.) (.) (.) ///
+                    (.) ("") ("section") ("") (.) ("") (.)
+                frame `_eplotframe_name' {
+                    mata: st_sstore(st_nobs(), "label", st_local("_sec_label"))
+                    mata: st_sstore(st_nobs(), "section", st_local("_sec_label"))
+                    mata: st_sstore(st_nobs(), "source_frame", st_local("_source_label"))
+                }
             }
 
-            if `_src_ep_ok' {
-                foreach r of local _ep_rows`f' {
+            if `has_sections' local _composite_row = `_composite_row' + 1
+            foreach r of local _ep_rows`f' {
+                local _composite_row = `_composite_row' + 1
+                forvalues _target_m = 1/`n_models' {
+                    local _source_m = `_source_model_map_`f'_`_target_m''
                     frame `_src_ep' {
                         local _ep_N = _N
                         forvalues _ep_i = 1/`_ep_N' {
-                            if source_row[`_ep_i'] == `r' {
-                                local _ep_label = label[`_ep_i']
+                            if `_source_row_key'[`_ep_i'] == `r' & model[`_ep_i'] == `_source_m' {
+                                mata: st_local("_ep_label", st_sdata(`_ep_i', "label"))
                                 local _ep_est = estimate[`_ep_i']
                                 local _ep_ll = ll[`_ep_i']
                                 local _ep_ul = ul[`_ep_i']
                                 local _ep_p = pvalue[`_ep_i']
-                                local _ep_model = model[`_ep_i']
-                                local _ep_model_label = model_label[`_ep_i']
-                                local _ep_rowtype = rowtype[`_ep_i']
-                                local _post_label `"`_ep_label'"'
-                                if `_fold' local _post_label `"`_sec_label'"'
-                                frame post `_eplotframe_name' (`"`_post_label'"') (`_ep_est') (`_ep_ll') (`_ep_ul') ///
-                                    (`_ep_p') (`_ep_model') (`"`_ep_model_label'"') (`"`_ep_rowtype'"') ///
-	                                    (`"`_sec_label'"') (`r') (`"`_source_label'"')
+                                mata: st_local("_ep_model_label", st_sdata(`_ep_i', "model_label"))
+                                mata: st_local("_ep_rowtype", st_sdata(`_ep_i', "rowtype"))
+                                local _post_label : copy local _ep_label
+                                if `_fold' local _post_label : copy local _sec_label
+                                frame post `_eplotframe_name' ("") (`_ep_est') (`_ep_ll') (`_ep_ul') ///
+                                    (`_ep_p') (`_target_m') ("") ("") ///
+                                    ("") (`r') ("") (`_composite_row')
+                                frame `_eplotframe_name' {
+                                    mata: st_sstore(st_nobs(), "label", st_local("_post_label"))
+                                    mata: st_sstore(st_nobs(), "model_label", st_local("_ep_model_label"))
+                                    mata: st_sstore(st_nobs(), "rowtype", st_local("_ep_rowtype"))
+                                    mata: st_sstore(st_nobs(), "section", st_local("_sec_label"))
+                                    mata: st_sstore(st_nobs(), "source_frame", st_local("_source_label"))
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        frame `_eplotframe_name': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
         frame `_eplotframe_name': char _dta[tabtools_source] "comptab"
         frame `_eplotframe_name': char _dta[tabtools_ci_level] "`_ci_level_ref'"
         frame `_eplotframe_name': char _dta[tabtools_n_models] "`n_models'"
         frame `_eplotframe_name': char _dta[tabtools_statistic_ids] "`_stat_ids_ref'"
+        forvalues _meta_m = 1/`n_models' {
+            frame `_eplotframe_name': char _dta[tabtools_model_id_`_meta_m'] `"`_model_id_ref_`_meta_m''"'
+            frame `_eplotframe_name': char _dta[tabtools_outcome_id_`_meta_m'] `"`_outcome_id_ref_`_meta_m''"'
+            frame `_eplotframe_name': char _dta[tabtools_effect_scale_`_meta_m'] `"`_effect_scale_ref_`_meta_m''"'
+        }
     }
 
     * Extract header rows (model labels + column headers) from first frame
@@ -2629,7 +2750,7 @@ program define _comptab_vertical, rclass
             use `_build', clear
             local _nobs = _N + 1
             qui set obs `_nobs'
-            qui replace A = `"`seclabel`f''"' in `_nobs'
+            qui replace A = `"`macval(seclabel`f')'"' in `_nobs'
             forvalues _ci = 1/`ncols' {
                 capture confirm variable c`_ci'
                 if !_rc qui replace c`_ci' = "" in `_nobs'
@@ -2844,6 +2965,7 @@ program define _comptab_vertical, rclass
 	        if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
 	            frame `frame': char _dta[tabtools_eplotframe] "`_eplotframe_target'"
         }
+        frame `frame': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
         frame `frame': char _dta[tabtools_source] "comptab"
         frame `frame': char _dta[tabtools_ci_level] "`_ci_level_ref'"
         frame `frame': char _dta[tabtools_n_models] "`n_models'"

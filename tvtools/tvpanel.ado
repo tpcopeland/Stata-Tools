@@ -1,4 +1,4 @@
-*! tvpanel Version 1.17.6  2026/09/30
+*! tvpanel Version 1.17.7  2026/10/01
 *! Build a fixed-width, entry-anchored person-period panel for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -17,8 +17,8 @@ program define tvpanel, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
     set varabbrev off
-    tempname _tp_master_frame _tp_using_frame _tp_output_frame
-    tempvar tp_estart tp_estop tp_eclass tp_pobs tp_gid tp_plo tp_phi tp_eobs
+    tempname _tp_using_frame _tp_output_frame
+    tempvar tp_estart tp_estop tp_eclass
 
     capture noisily {
 
@@ -356,7 +356,7 @@ program define tvpanel, rclass
         generate double `_tp_exit' = `exit'
         keep `id' `_tp_entry' `_tp_exit' `keepvars'
 
-        tempvar nper tp_row tp_active tp_days
+        tempvar nper tp_active tp_days
         * Inclusive [entry, exit] follow-up: emit interval k whenever
         * entry + width*k <= exit. Without the +1, an exit-entry that is an
         * exact multiple of width left the exit day itself uncovered.
@@ -367,140 +367,56 @@ program define tvpanel, rclass
         tempvar pstart pstop
         gen double `pstart' = `_tp_entry' + `width' * `period'
         gen double `pstop'  = min(`_tp_entry' + `width' * (`period' + 1) - 1, `_tp_exit')
-        gen long `tp_row' = _n
         format `pstart' `pstop' %tdCCYY/NN/DD
-        tempfile grid
-        save `grid', replace
     }
 
-    * --- Active exposure class at each interval start (latest-start wins) ---
-    * Point-in-interval via the shared overlap engine: each period start `pstart'
-    * is a degenerate master interval [pstart, pstart]; episodes are using
-    * intervals [estart, estop]. This replaces the former joinby(`id')+filter,
-    * whose within-person periods x episodes Cartesian blew up on dense data.
-    * Equivalent because [pstart,pstart] overlaps [estart,estop] (closed) iff
-    * estart <= pstart & estop >= pstart -- the exact former filter.
-    tempfile active
-    if `n_valid_episodes' == 0 {
-        quietly {
-            clear
-            set obs 0
-            generate long `tp_row' = .
-            generate double `tp_active' = .
-            save `active', replace
-        }
+    * --- Active class and per-class cumulative exposure (one sweep) ---
+    * Active class: among episodes with start <= period start <= stop, the
+    * latest start wins, then the highest class. Cumulative class-c exposure:
+    * days of the class-c episode union strictly before the period start.
+    * _tvpanel_sweep visits each person's periods in order with a heap of
+    * started episodes and one pointer per class union, so no period x episode
+    * pairs, grid x class rows, or reshape are ever built.
+    capture findfile _tvpanel_sweep.ado
+    if _rc {
+        noisily display as error "_tvpanel_sweep.ado not found; reinstall tvtools"
+        exit 111
     }
-    else {
-        capture findfile _tvmerge_mata.ado
-        if _rc == 0 {
-            quietly run "`r(fn)'"
-        }
-        else {
-            noisily display as error "_tvmerge_mata.ado not found; reinstall tvtools"
-            exit 111
-        }
-        quietly {
-            use `grid', clear
-            keep `tp_row' `id' `pstart'
-            gen long `tp_pobs' = _n
-            tempfile _tp_periods
-            save `_tp_periods', replace
+    quietly run "`r(fn)'"
 
-            * id -> contiguous gid crosswalk shared by period rows and episodes
-            keep `id'
-            duplicates drop
-            gen long `tp_gid' = _n
-            tempfile _tp_xwalk
-            save `_tp_xwalk', replace
-
-            * Retain only episodes whose ids occur in the panel. A nonempty
-            * episode source with no matching ids is still a valid all-reference
-            * panel and must not send an empty frame through the overlap engine.
-            use `epi', clear
-            merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-            gen long `tp_eobs' = _n
-            tempfile _tp_epi_idx
-            save `_tp_epi_idx', replace
-            count
-            local n_matched_episodes = r(N)
-
-            if `n_matched_episodes' == 0 {
-                clear
-                set obs 0
-                generate long `tp_row' = .
-                generate double `tp_active' = .
-                save `active', replace
-            }
-            else {
-                frame put `tp_gid' `tp_estart' `tp_estop' `tp_eobs', ///
-                    into(`_tp_using_frame')
-                frame `_tp_using_frame': order `tp_gid' `tp_estart' ///
-                    `tp_estop' `tp_eobs'
-
-                * master work frame: gid, low=pstart, high=pstart, obs
-                use `_tp_periods', clear
-                merge m:1 `id' using `_tp_xwalk', keep(match) nogenerate
-                gen double `tp_plo' = `pstart'
-                gen double `tp_phi' = `pstart'
-                frame put `tp_gid' `tp_plo' `tp_phi' `tp_pobs', ///
-                    into(`_tp_master_frame')
-                frame `_tp_master_frame': order `tp_gid' `tp_plo' ///
-                    `tp_phi' `tp_pobs'
-
-                * overlap sweep -> (period, episode) point-in-interval pairs
-                frame create `_tp_output_frame'
-                _tvmerge_overlap_pairs `_tp_master_frame' `_tp_using_frame' ///
-                    `_tp_output_frame'
-                tempfile _tp_pairs
-                frame `_tp_output_frame': save `_tp_pairs', replace
-                frame drop `_tp_master_frame'
-                frame drop `_tp_using_frame'
-                frame drop `_tp_output_frame'
-
-                * Latest-start (then highest class) wins. The sweep can return
-                * no pairs when all episodes lie outside every interval start.
-                use `_tp_pairs', clear
-                count
-                if r(N) == 0 {
-                    clear
-                    set obs 0
-                    generate long `tp_row' = .
-                    generate double `tp_active' = .
-                }
-                else {
-                    rename __tvm_mi `tp_pobs'
-                    rename __tvm_ui `tp_eobs'
-                    merge m:1 `tp_pobs' using `_tp_periods', ///
-                        keep(match) nogenerate keepusing(`tp_row')
-                    merge m:1 `tp_eobs' using `_tp_epi_idx', ///
-                        keep(match) nogenerate ///
-                        keepusing(`tp_estart' `tp_eclass')
-                    bysort `tp_row' (`tp_estart' `tp_eclass'): ///
-                        keep if _n == _N
-                    gen double `tp_active' = `tp_eclass'
-                    keep `tp_row' `tp_active'
-                }
-                save `active', replace
-            }
-        }
-    }
-
-    * --- Per-class cumulative exposure as of interval start (optional) ---
     local cumvars ""
-    local have_cum_rows 0
-    if "`cumulative'" != "" & "`cumclasses'" != "" {
-        tempfile cum
-        quietly _tvpanel_cumulative, gridfile("`grid'") episodes("`epi_union'") ///
-            outfile("`cum'") id(`id') row(`tp_row') pstart(`pstart') ///
-            estart(`tp_estart') estop(`tp_estop') class(`tp_eclass') ///
-            days(`tp_days')
-        local have_cum_rows = r(has_rows)
+    quietly {
+        generate double `tp_active' = .
+        local _tp_daysvars ""
+        foreach cls of local cumclasses {
+            generate double `tp_days'`cls' = 0
+            local _tp_daysvars "`_tp_daysvars' `tp_days'`cls'"
+        }
+        sort `id' `period'
+
+        frame create `_tp_using_frame'
+        frame `_tp_using_frame' {
+            use `id' `tp_estart' `tp_estop' `tp_eclass' using `epi', clear
+            sort `id' `tp_estart' `tp_estop' `tp_eclass'
+        }
+        local _tp_sweep_cum ""
+        if "`cumclasses'" != "" {
+            frame create `_tp_output_frame'
+            frame `_tp_output_frame' {
+                use `id' `tp_eclass' `tp_estart' `tp_estop' using `epi_union', clear
+                sort `id' `tp_eclass' `tp_estart'
+            }
+            local _tp_sweep_cum `"days(`_tp_daysvars') uframe(`_tp_output_frame') uvars(`id' `tp_eclass' `tp_estart' `tp_estop') classes(`cumclasses')"'
+        }
+        _tvpanel_sweep, id(`id') pstart(`pstart') active(`tp_active') ///
+            eframe(`_tp_using_frame') evars(`id' `tp_estart' `tp_estop' `tp_eclass') ///
+            `_tp_sweep_cum'
+        frame drop `_tp_using_frame'
+        capture frame drop `_tp_output_frame'
     }
 
     * --- Assemble the panel ---
     quietly {
-        use `grid', clear
-        merge 1:1 `tp_row' using `active', nogen keep(1 3)
         replace `tp_active' = `reference' if missing(`tp_active')
         rename `tp_active' `generate'
         if "`explbl'" != "" {
@@ -509,20 +425,12 @@ program define tvpanel, rclass
             else label values `generate' `explbl'
         }
 
-        if `have_cum_rows' {
-            merge 1:1 `tp_row' using `cum', nogen keep(1 3)
-        }
         if "`cumulative'" != "" {
             foreach cls of local cumclasses {
                 local d "`tp_days'`cls'"
                 local cv "`prefix'cum_`cls'"
-                capture confirm variable `d'
-                if _rc generate double `cv' = 0
-                else {
-                    gen double `cv' = `d' / `cumdiv'
-                    drop `d'
-                }
-                replace `cv' = 0 if missing(`cv')
+                gen double `cv' = `d' / `cumdiv'
+                drop `d'
                 label variable `cv' "Cumulative class `cls' exposure (`cumlower') as of interval start"
                 char `cv'[tvtools_quantity] "cumulative"
                 char `cv'[tvtools_history_point] "start"
@@ -607,8 +515,6 @@ program define tvpanel, rclass
 
     } // end capture noisily
     local rc = _rc
-    capture frame drop `_tp_master_frame'
-    local _tp_cleanup_rc = _rc
     capture frame drop `_tp_using_frame'
     local _tp_cleanup_rc = _rc
     capture frame drop `_tp_output_frame'

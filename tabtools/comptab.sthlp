@@ -125,8 +125,8 @@ Common use cases:
 {bf:4.} Cherry-picked rows from supplementary tables into a main table
 
 {pstd}
-Source frames are created by running {cmd:regtab} or {cmd:effecttab} with
-the {opt frame()} option. All source frames must have the same column structure
+Source frames are created by running {cmd:regtab}, {cmd:effecttab}, or an
+earlier vertical {cmd:comptab} with {opt frame()}. All source frames must have the same column structure
 (same layout and number of model blocks). Standard frames
 ({it:estimate} | {it:CI} | {it:p}) and compact frames
 ({it:estimate+CI} | {it:p}) are both supported, but all source frames in one
@@ -148,6 +148,21 @@ For plot-ready composites, create each source table with both {opt frame()} and
 selected estimate/CI rows into one graph-ready frame. {cmd:comptab, forest}
 uses that frame with {helpb eplot} and leaves the active graph scheme in effect
 unless you pass a {opt scheme()} option through {opt eplotoptions()}.
+{p_end}
+
+{pstd}
+Create the display and numeric companion in the same command call. Their
+pair identity must agree; a later fit with the same command is a different
+pair. Missing pair metadata, incompatible provenance, and missing or
+duplicated analytical companion rows are refused with error 459. Recreate
+older saved source pairs with the current {cmd:regtab}, {cmd:effecttab}, or {cmd:comptab}
+before requesting a plot-ready composite.{p_end}
+
+{pstd}
+In vertical composite companions, {cmd:source_row} retains the selected row
+number in the input frame. The additional {cmd:table_row} identifies its row
+in the composite table body and lets a later composition match it exactly. Section rows
+count toward {cmd:table_row}.{p_end}
 
 
 {marker options}{...}
@@ -260,7 +275,7 @@ as the last row, both in the first column and the table body between them.{p_end
 
 {phang}
 {opt eplotf:rame(name[, replace])} save a graph-ready composite companion frame for {helpb eplot}; source
-frames must have been created by {cmd:regtab} or {cmd:effecttab} with {opt eplotframe()}{p_end}
+frames must have been created with matching {opt frame()} and {opt eplotframe()} outputs{p_end}
 
 {phang}
 {opt eploto:ptions(string asis)} pass additional options to {cmd:eplot} when {opt forest} is

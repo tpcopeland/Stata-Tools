@@ -1,4 +1,4 @@
-*! _datacheck_statval Version 1.8.1  2026/09/30
+*! _datacheck_statval Version 1.8.2  2026/10/01
 *! One summary statistic of a variable over a condition, raw and masked
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

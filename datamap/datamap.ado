@@ -1,4 +1,4 @@
-*! datamap Version 1.8.1  2026/09/30
+*! datamap Version 1.8.2  2026/10/01
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -103,7 +103,9 @@ program define datamap, rclass
     foreach g in S_1 S_FN S_FNDATE {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
-        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+        // in Mata: a saved value ending in an unmatched ` (S_FNDATE keeps
+        // only 17 characters) opened a compound quote here, r(132)
+        mata: st_local("_had_" + st_local("g"), strofreal(st_local("_had_" + st_local("g")) == "1" | st_local("_old_" + st_local("g")) != ""))
     }
 
 		local _varabbrev = c(varabbrev)
@@ -644,7 +646,9 @@ program define datamap, rclass
 			if !`rc' & `_restore_rc' local rc = `_restore_rc'
 		}
     foreach g in S_1 S_FN S_FNDATE {
-        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        // Mata, not -global-: a one-line -if- expands its command a second
+        // time, so a saved value holding $name or `name' came back rewritten
+        if `_had_`g'' mata: st_global(st_local("g"), st_local("_old_" + st_local("g")))
         else macro drop `g'
     }
 		set varabbrev `_varabbrev'

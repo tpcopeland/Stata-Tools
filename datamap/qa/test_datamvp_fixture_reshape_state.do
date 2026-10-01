@@ -12,6 +12,13 @@ do _qa_state.do
 * Native inventory: installed base/r/reshape.ado globals/drop at9,190,257,898,
 *915,1174,1294,1507-1514,1569; names preserved as opaque caller state.
 local native S_1 S_2 S_FN S_FNDATE S_1_full ReS_Call ReS_j ReS_jv ReS_jv2 ReS_i ReS_Xij Res_Xi ReS_atwl ReS_str rVANS rtmpST
+* The cases below leave hostile values in these globals; restore the session's
+* own values at the end so later suites in one runner do not inherit them.
+local _sess_globals : all globals
+foreach g of local native {
+    local _sess_had_`g' : list g in _sess_globals
+    mata: st_local("_sess_old_" + st_local("g"), st_global(st_local("g")))
+}
 local tests 0
 local pass 0
 local fail 0
@@ -803,6 +810,10 @@ if `outcome' {
 else {
     local ++pass
     display as result "PASS: caller external preserve late"
+}
+foreach g of local native {
+    if `_sess_had_`g'' mata: st_global(st_local("g"), st_local("_sess_old_" + st_local("g")))
+    else macro drop `g'
 }
 display "RESULT: test_datamvp_fixture_reshape_state tests=`tests' pass=`pass' fail=`fail'"
 log close

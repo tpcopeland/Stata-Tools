@@ -1,4 +1,4 @@
-*! datacheck Version 1.8.1  2026/09/30
+*! datacheck Version 1.8.2  2026/10/01
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,7 +33,9 @@ program define datacheck, rclass
     foreach g in S_1 S_FN S_FNDATE {
         local _had_`g' : list g in _legacy_globals
         mata: st_local("_old_" + st_local("g"), st_global(st_local("g")))
-        if `"`macval(_old_`g')'"' != "" local _had_`g' = 1
+        // in Mata: a saved value ending in an unmatched ` (S_FNDATE keeps
+        // only 17 characters) opened a compound quote here, r(132)
+        mata: st_local("_had_" + st_local("g"), strofreal(st_local("_had_" + st_local("g")) == "1" | st_local("_old_" + st_local("g")) != ""))
     }
 
     local _orig_varabbrev = c(varabbrev)
@@ -45,12 +47,14 @@ program define datacheck, rclass
     local _sframe_made = 0
     local _bframe_made = 0
     local _rframe_made = 0
+    local _gframe_made = 0
     local _pframe      = ""
     local _cframe      = ""
     local _vframe      = ""
     local _sframe      = ""
     local _bframe      = ""
     local _rframe      = ""
+    local _gframe      = ""
     local _exit9       = 0
     local _ledger_rc   = 0
     // syntax reads an explicit nomaskrare as the absence of maskrare, so it
@@ -1493,19 +1497,25 @@ program define datacheck, rclass
         local n_rare_vars : word count `rare_vars'
 
         // ---- groupwise profile summaries ----
+        // Every group count below comes from one pass (_datacheck_groupmiss):
+        // frame `_gframe' row gg holds n, c (complete cases) and m<j>, the
+        // rows missing the j-th variable of `_gvars'.
         local group_missing_vars ""
+        local _gvars ""
         if `has_groups' & "`gatesonly'" == "" {
             local pj = 0
             foreach v of local profilevars {
                 local ++pj
-                if "`FC`pj''" == "excluded" continue
-                local has_group_miss = 0
-                foreach gg of local group_levels {
-                    quietly count if `dc_group' == `gg' & missing(`v')
-                    if r(N) > 0 local has_group_miss = 1
-                }
-                if `has_group_miss' local group_missing_vars "`group_missing_vars' `v'"
+                if "`FC`pj''" != "excluded" local _gvars "`_gvars' `v'"
             }
+            local _gvars : list uniq _gvars
+            tempname _gfr
+            local _gframe "`_gfr'"
+            // an empty `_gvars' (all excluded) still yields the n and c columns
+            quietly _datacheck_groupmiss `_gvars', group(`dc_group') ///
+                complete(`cc') frame(`_gframe')
+            local group_missing_vars "`r(missvars)'"
+            local _gframe_made = 1
         }
         local group_missing_vars : list uniq group_missing_vars
         local n_group_missing_vars : word count `group_missing_vars'
@@ -1875,22 +1885,18 @@ program define datacheck, rclass
             // fewer than the mask of persons.  Such groups are pooled into
             // one line.
             foreach gg of local group_levels {
-                quietly count if `dc_group' == `gg'
-                local gn = r(N)
+                local gn = _frval(`_gframe', n, `gg')
                 if `: list gg in _pooledg' continue
-                quietly count if `dc_group' == `gg' & `cc'
-                local gc = r(N)
+                local gc = _frval(`_gframe', c, `gg')
                 _datacheck_mshare `gc' `gn' `_xmask'
                 local gcs "`r(cnt)'"
                 local gpcts "`r(pcttxt)'"
                 if r(masked) local _pmasked = 1
                 local gmissvars ""
-                local pj = 0
-                foreach v of local profilevars {
-                    local ++pj
-                    if "`FC`pj''" == "excluded" continue
-                    quietly count if `dc_group' == `gg' & missing(`v')
-                    if r(N) > 0 local gmissvars "`gmissvars' `v'"
+                local gj = 0
+                foreach v of local _gvars {
+                    local ++gj
+                    if _frval(`_gframe', m`gj', `gg') > 0 local gmissvars "`gmissvars' `v'"
                 }
                 local gmissvars : list uniq gmissvars
                 local gmissct : word count `gmissvars'
@@ -1913,12 +1919,11 @@ program define datacheck, rclass
             display as text "  " %-20s "Group" %-22s "Variable" ///
                 %9s "Missing" %10s "Missing%"
             foreach gg of local group_levels {
-                quietly count if `dc_group' == `gg'
-                local gn = r(N)
+                local gn = _frval(`_gframe', n, `gg')
                 if `: list gg in _pooledg' continue
                 foreach v of local group_missing_vars {
-                    quietly count if `dc_group' == `gg' & missing(`v')
-                    local gm = r(N)
+                    local gj : list posof "`v'" in _gvars
+                    local gm = _frval(`_gframe', m`gj', `gg')
                     if `gm' == 0 continue
                     _datacheck_mshare `gm' `gn' `_xmask'
                     local gms "`r(cnt)'"
@@ -3230,6 +3235,10 @@ program define datacheck, rclass
     }
     local rc = _rc
     local cleanup_rc = 0
+    if `_gframe_made' {
+        capture frame drop `_gframe'
+        if _rc & !`cleanup_rc' local cleanup_rc = _rc
+    }
     if `_rframe_made' {
         capture frame drop `_rframe'
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
@@ -3259,7 +3268,9 @@ program define datacheck, rclass
         if _rc & !`cleanup_rc' local cleanup_rc = _rc
     }
     foreach g in S_1 S_FN S_FNDATE {
-        if `_had_`g'' global `g' `"`macval(_old_`g')'"'
+        // Mata, not -global-: a one-line -if- expands its command a second
+        // time, so a saved value holding $name or `name' came back rewritten
+        if `_had_`g'' mata: st_global(st_local("g"), st_local("_old_" + st_local("g")))
         else macro drop `g'
     }
     set varabbrev `_orig_varabbrev'
@@ -3367,7 +3378,10 @@ program define _datacheck_freq, nclass
             local nlev = r(N)
             quietly summarize `freq'
             local tot = r(sum)
-            gsort -`freq'
+            // ties in level order: without a tie key, equal counts came out
+            // in arbitrary order, which also moved levels across the
+            // maxfreq cut and the masked pool from run to run
+            gsort -`freq' `v'
             local lblname : value label `v'
             local show = min(`nlev', `maxfreq')
             // Secondary suppression: the suppressed cells and the levels

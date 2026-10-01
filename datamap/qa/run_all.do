@@ -34,7 +34,8 @@ local quick_suites ///
     test_datamap_v168.do ///
     test_datamap_v169.do ///
     test_datamap_v171.do ///
-    test_datamap_v180.do
+    test_datamap_v180.do ///
+    test_datamap_v182.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///

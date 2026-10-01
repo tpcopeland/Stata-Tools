@@ -1,7 +1,10 @@
 *! tabtools theme-option removal regression tests
+*! Author: Timothy P Copeland, Karolinska Institutet
 version 16.0
 clear all
 set more off
+capture log close _all
+log using "test_theme_removed.log", text replace name(_theme_removed)
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
@@ -17,4 +20,5 @@ capture noisily tabtools set theme lancet
 assert _rc == 198
 
 display as result "RESULT: test_theme_removed tests=2 pass=2 fail=0"
+log close _theme_removed
 exit 0

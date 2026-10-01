@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.8.1** | 2026-09-30
+**Version 1.8.2** | 2026-10-01
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -379,6 +379,13 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.8.2 (2026-10-01)
+
+- Faster on large files, with identical output: `datacheck, by()` counts group sizes, complete cases, and per-variable missingness in one pass rather than one pass per group and variable; `datadict` reuses the classifier's missing and distinct counts, and computes percentiles only for the rows that report or save them; `datamvp, correlate` fits the tetrachoric correlations on the distinct missingness patterns with frequency weights (the same estimates).
+- `datacheck` frequency tables and `datamvp` pattern graphs order tied counts by value and pattern, so which levels show and which fall past `maxfreq()`/`top()` or into a masked pool no longer varies between runs.
+- `datamap`, `datadict`, and `datacheck` put the caller's `S_1`, `S_FN`, and `S_FNDATE` globals back exactly as they were; a value holding `$name` or `` `name' `` came back rewritten. All four commands (with `datamvp`) no longer stop with r(132) when one of those globals ends in an unmatched backtick.
+- `datamap, saving()` and `datacheck, saving()` record a variable's first note and characteristic literally; `$name` and `` `name' `` inside them were expanded.
 
 ### 1.8.1 (2026-09-30)
 

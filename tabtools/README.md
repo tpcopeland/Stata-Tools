@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.19** | 2026-09-30
+**Version 2.1.20** | 2026-10-01
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -62,6 +62,8 @@ Most table commands follow the same three-stage pattern: calculate or receive re
 `xlsx()` is the main Excel option and `excel()` is retained as a synonym on commands that support both names. `sheet()` selects the worksheet. `open` opens an Excel target after writing it and therefore requires an `xlsx()` or `using` target. `csv()` exports the visible table data for commands that offer it; `markdown()` writes GitHub-Flavored Markdown, and `mdappend` appends to an existing Markdown file rather than replacing it.
 
 `frame(name[, replace])` stores the rendered table in a Stata frame for later composition or inspection. `eplotframe(name[, replace])` stores graph-ready estimates, confidence limits, p-values, labels, and model identifiers for the model/effect commands that support it. `comptab` consumes compatible model/effect frames and, with `rateframe()`, a rate frame plus model frames; `hrcomptab` is the compatibility wrapper for that mode.
+
+For plot-ready composition, create each display frame and its numeric companion in the same command call. Their pair identities must agree. Recreate older saved pairs with the current `regtab` or `effecttab` before requesting a composite plot frame.
 
 Shared formatting options include `font()`, `fontsize()`, `borderstyle()`, `headershade`, `headercolor()`, `zebra`, `zebracolor()`, `title()`, `footnote()`, `boldp()`, and `highlight()` where supported. A fresh session resolves the shared baseline as Arial 10-point text with thin borders, while command-specific precision and display defaults are listed below.
 
@@ -466,6 +468,8 @@ Returns `r(blocks_loaded)`, `r(rows_written)`, `r(rows_out)`, `r(cols_out)`, `r(
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.1.20** (2026-10-01): Cochran–Armitage trend results remain stable when numeric scores are translated or rescaled. Regression tables retain separate equations and use collected-model outcome labels; numeric estimates cannot be confused with reference labels. Effect matrices preserve large fixed-format values. Model and composite outputs respect case-sensitive frame names. Composite numeric companions follow displayed model order and reject missing or ambiguous companion rows and companions from a different rendering call. Older saved pairs require recreation for plot-ready composition. Rate-table labels and identities preserve literal text, and unsafe source or export filenames are refused before use. QA adds bug-specific regressions, native R trend-test parity, exact model-return checks, and runner receipt enforcement.
 
 - **2.1.19** (2026-09-30): `survtab` preserves caller estimates and native legacy globals on success and refusal, including an initially empty estimation namespace during median calculation. Numerical results and output options are unchanged. Excel filename aliases in `corrtab`, `crosstab` and `desctab` preserve literal bytes before preflight; the shared validator refuses embedded quotes and macro-looking filename characters with the original named cause. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure. `corrtab` enforces its documented maximum of three unique significance thresholds, restores native Spearman legacy globals, including supported results with undefined correlations.
 

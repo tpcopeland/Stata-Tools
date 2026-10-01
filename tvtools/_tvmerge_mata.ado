@@ -1,4 +1,4 @@
-*! _tvmerge_mata Version 1.17.6  2026/09/30
+*! _tvmerge_mata Version 1.17.7  2026/10/01
 *! Mata interval-overlap engine for tvmerge
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (wrapper)

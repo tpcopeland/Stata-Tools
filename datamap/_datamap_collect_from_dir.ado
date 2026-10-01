@@ -1,4 +1,4 @@
-*! _datamap_collect_from_dir Version 1.8.1  2026/09/30
+*! _datamap_collect_from_dir Version 1.8.2  2026/10/01
 *! Shared datamap/datadict directory scanner
 *! Author: Timothy P Copeland, Karolinska Institutet
 

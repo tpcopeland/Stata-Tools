@@ -167,11 +167,12 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
-    * 75 programs since 2.1.18 added _tabtools_xlsx_deferred_styles; 74 since
+    * 76 programs since 2.1.20 added _tabtools_companion_id; 75 since
+    * 2.1.18 added _tabtools_xlsx_deferred_styles; 74 since
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=75 class_missing=0 wrapper_missing=0"
+        "PASS programs=76 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"

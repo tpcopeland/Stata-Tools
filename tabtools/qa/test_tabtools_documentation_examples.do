@@ -1,9 +1,11 @@
 *! test_tabtools_documentation_examples.do - executable self-contained help examples
+*! Author: Timothy P Copeland, Karolinska Institutet
 version 17.0
 clear all
 set more off
 set varabbrev off
 capture log close _all
+log using "test_tabtools_documentation_examples.log", text replace name(_documentation_examples)
 
 local tests = 0
 local pass = 0
@@ -47,4 +49,5 @@ if _rc == 0 local ++pass
 else local ++fail
 
 display "RESULT: test_tabtools_documentation_examples tests=`tests' pass=`pass' fail=`fail'"
+log close _documentation_examples
 if `fail' exit 9
