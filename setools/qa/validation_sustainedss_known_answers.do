@@ -79,8 +79,8 @@ local ok = (r(N) == 6 & r(min) == 400 & r(max) == 400)
 wc_check "failed candidate is rejected and next valid event is selected" `ok'
 
 quietly summarize sus_wc if id == "C", meanonly
-local ok = (r(N) == 3 & r(min) == 300 & r(max) == 300)
-wc_check "temporary dip rejects the earlier candidate across observed follow-up" `ok'
+local ok = (r(N) == 3 & r(min) == 200 & r(max) == 200)
+wc_check "temporary dip is sustained when last window value returns to threshold" `ok'
 
 quietly count if id == "D" & missing(sus_wc)
 local ok = (r(N) == 5)
@@ -90,7 +90,7 @@ quietly summarize sus_wc if id == "E", meanonly
 local ok = (r(N) == 4 & r(min) == 300 & r(max) == 300)
 wc_check "missing EDSS and missing dates are ignored without dropping keepall rows" `ok'
 
-local ok = (`cmd_N_events' == 4 & `cmd_iterations' == 2 & ///
+local ok = (`cmd_N_events' == 4 & `cmd_iterations' == 3 & ///
     `cmd_converged' == 1 & `cmd_threshold' == 6 & ///
     `cmd_confirmwindow' == 100 & "`cmd_varname'" == "sus_wc")
 wc_check "stored results match known branch run" `ok'

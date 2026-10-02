@@ -107,25 +107,33 @@ def cdp_roving_events(visits, dxday, window, confirmdays, threetier, ctype):
 def sustained_one(visits, threshold, confirmwindow, mode, floor):
     """First sustained threshold crossing, or None.
 
-    Same-date duplicates collapse to the lowest EDSS. Default mode accepts a
-    candidate when no later observed EDSS is below the floor, including when
-    there is no later visit. window/unlimited require an observed later visit.
-    A rejected candidate is removed and the next crossing is tested.
+    Same-date duplicates collapse to the lowest EDSS for confirmation. Default
+    mode: a date is a candidate when any score on it meets the threshold, and
+    the candidate is rejected only when an assessment within confirmwindow
+    days falls below the floor and the last assessment in that window is
+    still below the threshold; no assessment in the window means sustained.
+    window/unlimited require an observed later visit and use the lowest
+    same-date score for candidacy. A rejected candidate is removed and the
+    next crossing is tested.
     """
-    byday = {}
+    byday, dayhigh = {}, {}
     for d, e in visits:
         byday[d] = min(e, byday.get(d, e))
+        dayhigh[d] = max(e, dayhigh.get(d, e))
     vs = sorted(byday.items())
     banned = set()
     while True:
-        cands = [d for d, e in vs if e >= threshold and d not in banned]
+        cands = [d for d, e in vs
+                 if (dayhigh[d] if mode == "" else e) >= threshold
+                 and d not in banned]
         if not cands:
             return None
         c = min(cands)
         later = [(d, e) for d, e in vs if d > c]
         inwin = [(d, e) for d, e in later if d <= c + confirmwindow]
         if mode == "":
-            ok = (not later) or min(e for d, e in later) >= floor
+            ok = (not inwin) or min(e for d, e in inwin) >= floor \
+                or max(inwin)[1] >= threshold
         else:
             pool = inwin if mode == "window" else later
             if not pool:

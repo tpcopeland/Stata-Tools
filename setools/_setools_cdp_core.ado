@@ -1,4 +1,4 @@
-*! _setools_cdp_core Version 1.5.8  2026/09/29
+*! _setools_cdp_core Version 1.5.9  2026/10/02
 *! setools internal: confirmed disability progression engine (non-roving)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

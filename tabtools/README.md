@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.1.20** | 2026-10-01
+**Version 2.2.0** | 2026-10-02
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -311,10 +311,10 @@ comptab modelframes, rateframe(name) rows(string) [rownames(string) effect(strin
 ### `puttab`
 
 ```stata
-puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade digits(#) varlabels noheader csv(string) markdown(string) mdappend open]
+puttab [varlist] [if] [in] [using filename.xlsx], [frame(string) matrix(name) sheet(string) title(string) footnote(string) font(string) fontsize(#) borderstyle(string) headercolor(string) zebracolor(string) zebra headershade digits(#) varlabels noheader noembedheader hlines(numlist) vlines(numlist) boldrows(numlist) csv(string) markdown(string) mdappend open]
 ```
 
-`puttab` is Stata 17+ and accepts exactly one source: a current-data varlist, `frame()`, or `matrix()`. The default sheet is `Table` and digits default to the session setting or `2`; `using` is required for Excel output, while Markdown-only output can omit it. `varlabels` uses variable labels and `noheader` suppresses the header row.
+`puttab` is Stata 17+ and accepts exactly one source: a current-data varlist, `frame()`, or `matrix()`. The default sheet is `Table` and digits default to the session setting or `2`; `using` is required for Excel output, while Markdown-only output can omit it. `varlabels` uses variable labels and `noheader` suppresses the header row. `hlines()` draws a rule above the listed data rows, `vlines()` a rule right of the listed columns, and `boldrows()` bolds the listed data rows, so a second table stacked in the same source can be ruled off with its own bold header row.
 
 ### `stacktab`
 
@@ -469,6 +469,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.2.0** (2026-10-02): `puttab`, `corrtab`, `crosstab`, and `survtab` now draw the suite's boxed border layout under the default, `thin`, and `medium` border styles: a full box around the table body, the header row boxed by its rules, and a rule right of the row-label column, matching `regtab`, `desctab`, and `stratetab`. `borderstyle(academic)` still draws horizontal rules only. `puttab` adds `hlines(numlist)` (rule above data rows), `vlines(numlist)` (rule right of columns), and `boldrows(numlist)` (bold data rows) for a second table stacked in one source; a row or column outside the table is an error.
 - **2.1.20** (2026-10-01): Cochran–Armitage trend results remain stable when numeric scores are translated or rescaled. Regression tables retain separate equations and use collected-model outcome labels; numeric estimates cannot be confused with reference labels. Effect matrices preserve large fixed-format values. Model and composite outputs respect case-sensitive frame names. Composite numeric companions follow displayed model order and reject missing or ambiguous companion rows and companions from a different rendering call. Older saved pairs require recreation for plot-ready composition. Rate-table labels and identities preserve literal text, and unsafe source or export filenames are refused before use. QA adds bug-specific regressions, native R trend-test parity, exact model-return checks, and runner receipt enforcement.
 
 - **2.1.19** (2026-09-30): `survtab` preserves caller estimates and native legacy globals on success and refusal, including an initially empty estimation namespace during median calculation. Numerical results and output options are unchanged. Excel filename aliases in `corrtab`, `crosstab` and `desctab` preserve literal bytes before preflight; the shared validator refuses embedded quotes and macro-looking filename characters with the original named cause. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure. `corrtab` enforces its documented maximum of three unique significance thresholds, restores native Spearman legacy globals, including supported results with undefined correlations.

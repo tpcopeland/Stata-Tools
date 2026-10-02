@@ -39,6 +39,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt zeb:ra} {opt headers:hade}
 {opt dig:its(#)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
+{opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -124,6 +125,9 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt zeb:ra}}alternating row shading over data rows{p_end}
+{synopt:{opt hl:ines(numlist)}}rule above the listed data rows{p_end}
+{synopt:{opt vl:ines(numlist)}}rule right of the listed columns{p_end}
+{synopt:{opt bold:rows(numlist)}}bold each listed data row{p_end}
 {synoptline}
 
 
@@ -190,7 +194,32 @@ labels. Use it for raw data whose first observation happens to match the labels.
 
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or
-{cmd:academic}{p_end}
+{cmd:academic}. {cmd:default}, {cmd:thin}, and {cmd:medium} draw a full box around the
+table body (header row and data rows), rules above and below the header row, and a rule
+right of the first (row-label) column, so the column headers and the row labels each sit
+in their own box. {cmd:academic} draws horizontal rules only.{p_end}
+
+{phang}
+{opt hl:ines(numlist)} draws a horizontal rule above each listed data row. Data rows are
+numbered 1, 2, ... in the order they are written below the header, after {it:if}/{it:in}
+and after any embedded header row is consumed. Use it to separate a second table stacked
+below the first in the same source. A row outside the table is an error. Excel output
+only.{p_end}
+
+{phang}
+{opt vl:ines(numlist)} draws a vertical rule right of each listed column, from the header
+row to the last data row. Columns are numbered as exported, with the row-label (first)
+column as 1. A column outside the table is an error. Excel output only.{p_end}
+
+{phang}
+{opt bold:rows(numlist)} bolds each listed data row, numbered as for {opt hlines()}; for
+example, the sub-header row of a second stacked table. A row outside the table is an
+error. Excel output only.{p_end}
+
+{pstd}
+{opt hlines()} and {opt vlines()} use the table's border weight (medium under
+{cmd:borderstyle(medium)}, otherwise thin) and apply under every border style, including
+{cmd:academic}.{p_end}
 
 {phang}
 {opt font(string)} sets the Excel font family, and {opt fontsize(#)} sets its
@@ -245,6 +274,20 @@ or RGB triplet{p_end}
 {phang2}{cmd:. puttab using parts.xlsx, sheet("B") matrix(MB) title("Model B")}{p_end}
 {phang2}{cmd:. stacktab using parts.xlsx, sheet("Table 2") ///}{p_end}
 {phang3}{cmd:blocks(sheet("A") \ sheet("B"))}{p_end}
+
+{pstd}{bf:Example 5: Two tables stacked in one source}{p_end}
+{pstd}Data row 3 is the second table's own header: rule it off above and below and set it
+in bold. Use {helpb stacktab} instead when the parts are already separate sheets.{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input str12 group str6 n str8 price}{p_end}
+{phang2}{cmd:. "Domestic" "52" "6,072"}{p_end}
+{phang2}{cmd:. "Foreign" "22" "6,385"}{p_end}
+{phang2}{cmd:. "Repair" "N" "Price"}{p_end}
+{phang2}{cmd:. "Good (4-5)" "29" "6,013"}{p_end}
+{phang2}{cmd:. "Poor (1-3)" "40" "6,118"}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. puttab group n price using table.xlsx, sheet("Stacked") ///}{p_end}
+{phang3}{cmd:title("Price by origin and repair") hlines(3 4) boldrows(3)}{p_end}
 
 {marker stored}{...}
 {title:Stored results}

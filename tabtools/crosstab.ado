@@ -1,4 +1,4 @@
-*! crosstab Version 2.1.20  2026/10/01
+*! crosstab Version 2.2.0  2026/10/02
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -886,6 +886,17 @@ capture noisily {
                 }
                 matrix `_style_rules' = `_style_rules' \ ///
                     (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
+            }
+            * Non-academic styles box the table body and close the row-label
+            * column, as regtab/desctab/stratetab do; academic keeps horizontal
+            * rules only. The row-label rule stops at the Total row: the
+            * association-measure rows below it are merged across the table.
+            if "`borderstyle'" != "academic" {
+                local _vborder_code = cond("`borderstyle'" == "medium", 2, 1)
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (10, `_header_row', `num_rows', 2, 2, 0, `_vborder_code', 0, 0) \ ///
+                    (11, `_header_row', `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0) \ ///
+                    (11, `_header_row', `_total_row', 2, 2, 0, `_vborder_code', 0, 0)
             }
             if `boldp' != -1 & !`_sc_suppress_derived' & !missing(`_p') & `_p' < `boldp' {
                 matrix `_style_rules' = `_style_rules' \ ///

@@ -1,4 +1,4 @@
-*! pira Version 1.5.8  2026/09/29
+*! pira Version 1.5.9  2026/10/02
 *! Progression Independent of Relapse Activity
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

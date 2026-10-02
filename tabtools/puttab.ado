@@ -1,4 +1,4 @@
-*! puttab Version 2.1.20  2026/10/01
+*! puttab Version 2.2.0  2026/10/02
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -80,6 +80,8 @@ program define puttab, rclass
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
                   DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
+                  HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
+                  BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ]
         }
         else {
@@ -90,6 +92,8 @@ program define puttab, rclass
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
                   DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
+                  HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
+                  BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ]
         }
 
@@ -365,6 +369,24 @@ program define puttab, rclass
         }
         local _ndatarows = `_last_data_row' - `_data_start' + 1
 
+        * hlines()/boldrows() number the exported data rows 1.._ndatarows and
+        * vlines() the exported columns 1..K. A number outside the table has
+        * no cell to style, so it is an error rather than silently dropped.
+        foreach _lopt in hlines boldrows {
+            foreach _r of local `_lopt' {
+                if `_r' > `_ndatarows' {
+                    noisily display as error "`_lopt'(): row `_r' is outside the table (data rows 1 to `_ndatarows')"
+                    exit 125
+                }
+            }
+        }
+        foreach _c of local vlines {
+            if `_c' > `K' {
+                noisily display as error "vlines(): column `_c' is outside the table (columns 1 to `K')"
+                exit 125
+            }
+        }
+
         * Footnote as a trailing row
         local _foot_row = 0
         if `"`macval(footnote)'"' != "" {
@@ -533,6 +555,41 @@ program define puttab, rclass
             * ===== bottom rule below the last data row =====
             matrix `_rules' = `_rules' \ ///
                 (9, `_x_last_data', `_x_last_data', 2, `_xK', 0, `_hbc', 0, 0)
+
+            * ===== vertical rules: outer box and row-label column =====
+            * Non-academic styles box the table body (header + data rows) and
+            * close the row-label column, so with the header rules above the
+            * header row and the row labels each sit in their own box, as in
+            * regtab/desctab/stratetab. academic keeps horizontal rules only.
+            local _vbc = cond("`borderstyle'" == "medium", 2, 1)
+            local _x_box_top = cond(`_headerrows', `_x_header_row', `_x_data_start')
+            if "`borderstyle'" != "academic" {
+                matrix `_rules' = `_rules' \ ///
+                    (10, `_x_box_top', `_x_last_data', 2, 2, 0, `_vbc', 0, 0) \ ///
+                    (11, `_x_box_top', `_x_last_data', `_xK', `_xK', 0, `_vbc', 0, 0)
+                if `K' >= 2 {
+                    matrix `_rules' = `_rules' \ ///
+                        (11, `_x_box_top', `_x_last_data', 2, 2, 0, `_vbc', 0, 0)
+                }
+            }
+
+            * ===== user rules: hlines() above data row #, vlines() right of
+            * column #, boldrows() bold data row # (all styles) =====
+            foreach _r of local hlines {
+                local _xr = `_x_data_start' + `_r' - 1
+                matrix `_rules' = `_rules' \ ///
+                    (8, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
+            }
+            foreach _c of local vlines {
+                local _xc = `_c' + 1
+                matrix `_rules' = `_rules' \ ///
+                    (11, `_x_box_top', `_x_last_data', `_xc', `_xc', 0, `_vbc', 0, 0)
+            }
+            foreach _r of local boldrows {
+                local _xr = `_x_data_start' + `_r' - 1
+                matrix `_rules' = `_rules' \ ///
+                    (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0)
+            }
 
             * ===== zebra striping over data rows =====
             * Built in one step: appending a row per stripe is quadratic in
