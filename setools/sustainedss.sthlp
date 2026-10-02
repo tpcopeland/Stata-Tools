@@ -59,9 +59,11 @@ a {cmd:%td} display format. Other time encodings ({cmd:%tm}, {cmd:%tq},
 
 {pstd}
 {cmd:sustainedss} finds the first date each patient's EDSS (Expanded Disability
-Status Scale) reaches or exceeds a user-specified threshold without a later
-observed EDSS below the reversal floor. By default, no later visit is required,
-so an event with no subsequent assessment is sustained by implication. Use
+Status Scale) reaches or exceeds a user-specified threshold and is not reversed within the confirmation window. By default, a
+crossing is reversed only when an assessment within {opt confirmwindow()} days
+falls below the reversal floor and the last assessment in that window is still
+below the threshold; a crossing with no assessment in the window is sustained by
+implication, and assessments after the window are not read. Use
 {opt confirmvisit()} when the analysis requires an observed confirming visit.
 
 {pstd}
@@ -75,9 +77,10 @@ compute a change score. For a {it:change-from-baseline} progression measure, see
 
 {phang2}1. Find the first date EDSS {ul:>}= {opt threshold()} for each patient.{p_end}
 
-{phang2}2. Apply the selected confirmation mode. The default accepts the
-candidate if no later observed EDSS is below {opt baselinethreshold()}, including
-when there is no later visit. {cmd:confirmvisit(window)} requires the first later
+{phang2}2. Apply the selected confirmation mode. The default rejects the
+candidate only when the lowest EDSS within {opt confirmwindow()} days after it is
+below {opt baselinethreshold()} and the last EDSS in that window is below
+{opt threshold()}; it accepts a candidate with no assessment in the window. {cmd:confirmvisit(window)} requires the first later
 visit within {opt confirmwindow()} to meet {opt threshold()} and no value through
 the window to fall below the reversal floor. {cmd:confirmvisit(unlimited)}
 requires the first later visit, however late, to meet {opt threshold()} and no
@@ -111,9 +114,9 @@ replaced by underscores, so {cmd:threshold(3.5)} produces {cmd:sustained3_5_dt})
 
 {phang}
 {opt confirmwindow(#)} specifies the number of days after the initial
-threshold crossing used by {cmd:confirmvisit(window)}. The default is {cmd:182}
-(approximately 6 months). It does not limit follow-up in the default or
-{cmd:confirmvisit(unlimited)} modes.
+threshold crossing used by the default rule and by {cmd:confirmvisit(window)}. The default is
+{cmd:182} (approximately 6 months). It does not limit follow-up in
+{cmd:confirmvisit(unlimited)} mode.
 
 {phang}
 {opt confirmvisit(mode)} requires an observed later assessment. Specify
@@ -126,9 +129,11 @@ so no later assessment is required.
 
 {phang}
 {opt baselinethreshold(#)} specifies the EDSS reversal floor. The default equals
-{opt threshold()}. Any observed later EDSS below the floor rejects a candidate
-across all available follow-up in the default and unlimited modes, or through
-the bounded period in window mode. A lower value explicitly permits that amount
+{opt threshold()}. In the default mode a value below the floor within
+{opt confirmwindow()} rejects a candidate only if the last value in the window
+is also below {opt threshold()}. Any observed later EDSS below the floor rejects a
+candidate across all available follow-up in unlimited mode, or through the
+bounded period in window mode. A lower value explicitly permits that amount
 of tolerance; for example, with {cmd:threshold(4) baselinethreshold(3)}, only a
 later value below 3 reverses the candidate. The value must be nonnegative.
 
@@ -199,7 +204,9 @@ requires an observed confirming assessment.
 {pstd}
 If multiple EDSS scores exist on the same date for the same patient, the lowest
 value on that date is used for confirmation checks. This conservative approach
-reduces false positives. Consider resolving duplicates before running the
+reduces false positives. In the default mode a date is a candidate when any
+score on it meets {opt threshold()}; with {opt confirmvisit()} the lowest score
+on the date must meet it. Consider resolving duplicates before running the
 command.
 
 {pstd}
@@ -219,8 +226,8 @@ patients should be excluded from your analysis, filter them before running
 {bf:Example 1: Sustained EDSS {ul:>}= 4}
 
 {pstd}
-Find the first date each patient reached EDSS 4 or above with no later observed
-EDSS below 4. No confirming visit is required by default.{p_end}
+Find the first date each patient reached EDSS 4 or above without a reversal
+within 182 days. No confirming visit is required by default.{p_end}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use "https://.../relapses.dta", clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4)":. sustainedss id edss edss_date, threshold(4)}{p_end}

@@ -252,13 +252,12 @@ use `sustained_base', clear
 sustainedss id edss visit_date, threshold(6) keepall generate(default_dt) quietly
 local default_mode "`r(confirmvisit)'"
 capture {
-    assert default_dt == 0 if inlist(id, 1, 2, 3)
+    assert default_dt == 0 if inlist(id, 1, 2, 3, 5, 6)
     assert default_dt == 400 if id == 4
-    assert default_dt == 200 if inlist(id, 5, 7)
-    assert missing(default_dt) if id == 6
+    assert default_dt == 200 if id == 7
     assert "`default_mode'" == ""
 }
-ar_check "SET-M04 default needs no visit but rejects any later reversal" ///
+ar_check "SET-M04 default needs no visit and reads reversals only in the window" ///
     `=(_rc == 0)'
 
 use `sustained_base', clear

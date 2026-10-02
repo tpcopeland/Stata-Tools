@@ -1,4 +1,4 @@
-*! sustainedss Version 1.5.8  2026/09/29
+*! sustainedss Version 1.5.9  2026/10/02
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -157,7 +157,7 @@ program define sustainedss, rclass
     qui count
     local n_original = r(N)
     tempvar sortorder exit_min exit_max candidate eligible minfollow minall ///
-        nextdate nextedss accepted personorder
+        nextdate nextedss lastdate lastedss edssmax accepted personorder
     tempfile original_full analytic persons results
 
     preserve
@@ -197,11 +197,19 @@ program define sustainedss, rclass
     qui duplicates drop `idvar', force
     qui save `persons', replace
 
-    * Same-date duplicates are reduced conservatively to the lowest EDSS.
+    * Same-date duplicates are reduced conservatively to the lowest EDSS for
+    * every confirmation check. In the default mode a date is a candidate when
+    * any assessment on it meets threshold(), as in setools 1.2-1.4.
     qui use `analytic', clear
-    qui collapse (min) `edssvar', by(`idvar' `datevar')
+    qui collapse (min) `edssvar' (max) `edssmax' = `edssvar', ///
+        by(`idvar' `datevar')
     qui sort `idvar' `datevar'
-    qui gen byte `eligible' = (`edssvar' >= `threshold')
+    if "`confirmvisit'" == "" {
+        qui gen byte `eligible' = (`edssmax' >= `threshold')
+    }
+    else {
+        qui gen byte `eligible' = (`edssvar' >= `threshold')
+    }
     qui gen byte `accepted' = 0
 
     qui count
@@ -214,7 +222,7 @@ program define sustainedss, rclass
             exit 430
         }
         foreach _ss_work in `candidate' `minfollow' `minall' `nextdate' ///
-            `nextedss' `accepted' {
+            `nextedss' `lastdate' `lastedss' `accepted' {
             capture drop `_ss_work'
         }
         qui gen long `candidate' = cond(`eligible', `datevar', .)
@@ -250,11 +258,21 @@ program define sustainedss, rclass
         _setools_gmin `nextedss', by(`idvar')
 
         if "`confirmvisit'" == "" {
-            * Package convention: no follow-up implies sustainment; observed
-            * values anywhere in available follow-up must not fall below the
-            * chosen floor.
-            qui gen byte `accepted' = missing(`minall') | ///
-                `minall' >= `baselinethreshold'
+            * Default rule (setools 1.2-1.4, restored in 1.5.9): reject only
+            * when the confirmation window holds a value below the floor and
+            * its last assessment is still below threshold(). No assessment
+            * in the window implies sustainment; later values are not read.
+            qui gen long `lastdate' = cond( ///
+                `datevar' > `candidate' & ///
+                `datevar' <= `candidate' + `confirmwindow', -`datevar', .)
+            _setools_gmin `lastdate', by(`idvar')
+            qui replace `lastdate' = -`lastdate'
+            qui gen double `lastedss' = cond( ///
+                `datevar' == `lastdate', `edssvar', .)
+            _setools_gmin `lastedss', by(`idvar')
+            qui gen byte `accepted' = missing(`minfollow') | ///
+                `minfollow' >= `baselinethreshold' | ///
+                `lastedss' >= `threshold'
         }
         else if "`confirmvisit'" == "window" {
             qui gen byte `accepted' = !missing(`nextdate') & ///

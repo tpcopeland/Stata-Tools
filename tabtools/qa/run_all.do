@@ -126,6 +126,7 @@ local test_files "`test_files' test_review_2026_10_01_composition.do"
 local test_files "`test_files' test_review_2026_10_01_models.do"
 local test_files "`test_files' test_review_2026_10_01_statistics.do"
 local test_files "`test_files' test_runner_contracts.do"
+local test_files "`test_files' test_border_geometry.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"

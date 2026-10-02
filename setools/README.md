@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.8** | 2026-09-29
+**Version 1.5.9** | 2026-10-02
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 
@@ -241,7 +241,7 @@ sustainedss idvar edssvar datevar [if] [in], threshold(#) [generate(name) confir
 | `keepall` | Off | Retain all original rows, including people without an accepted event |
 | `quietly` | Off | Suppress iteration and summary messages |
 
-Without `confirmvisit()`, a candidate is accepted if no later observed EDSS is below the reversal floor; no later visit is required. `confirmvisit(window)` uses the first later visit within the confirmation window, while `confirmvisit(unlimited)` uses the first later visit without a time limit and still checks the later values against the floor. Same-date EDSS duplicates are reduced conservatively to the lowest value.
+Without `confirmvisit()`, a candidate is rejected only when an assessment within `confirmwindow()` days falls below the reversal floor and the last assessment in that window is still below the threshold; a crossing with no assessment in the window is sustained, and assessments after the window are not read. `confirmvisit(window)` uses the first later visit within the confirmation window, while `confirmvisit(unlimited)` uses the first later visit without a time limit and still checks the later values against the floor. Same-date EDSS duplicates are reduced conservatively to the lowest value.
 
 ### cdp
 
@@ -455,6 +455,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.9** (2026-10-02): Restored the default `sustainedss` rule of versions 1.2 to 1.4, which 1.5.0 replaced without a changelog entry. Without `confirmvisit()`, a candidate is again rejected only when an assessment within `confirmwindow()` days falls below the reversal floor and the last assessment in that window is still below `threshold()`, and a date is a candidate when any same-day score meets the threshold. Versions 1.5.0 to 1.5.8 instead rejected a candidate when any later assessment, at any time, fell below the floor, which returned fewer events wherever a later assessment dipped below the floor. The default now reproduces 1.4.1 row for row. Rerun default-mode `sustainedss` results produced with 1.5.0 to 1.5.8; `confirmvisit(window)` and `confirmvisit(unlimited)` are unchanged.
 - **1.5.8** (2026-09-29): Fixed `pira` classifying relapse-associated worsening with a mirrored window. The window was anchored on each relapse, so the defaults called a first CDP RAW when a relapse began up to 30 days before or up to 90 days after the progression onset; a progression 60 days after a relapse was returned as PIRA. The window is now anchored on the CDP onset: a first CDP is RAW when a relapse began from `windowbefore()` days before through `windowafter()` days after its onset (defaults 90 and 30, the published rule). Rerun earlier `pira` results. `cci_se` now rejects conflicting nonmissing `indexdate()` values within one `id()` (r(459)) instead of windowing each row by its own index date, and `pira` accepts a `relapses()` filename without the `.dta` extension.
 - **1.5.7** (2026-08-30): Rejected missing or nonpositive sustained-EDSS thresholds, missing or negative reversal floors, and negative CCI lookback windows instead of accepting public sentinel values. Added exact rollback, installed-helper, and self-contained help-render coverage, and repaired over-wide help-table descriptions.
 - **1.5.6** (2026-08-28): Accelerated the registry-scale longitudinal engines without changing their public interface or numerical definitions. `pira, rebaselinerelapse` now uses one forward Mata state-machine pass, while `cdp`, `pira`, and `sustainedss` use a shared sort-free grouped-minimum helper inside their iterative confirmation loops. Added row-level legacy-equivalence validation and a reproducible one-million-visit benchmark.
