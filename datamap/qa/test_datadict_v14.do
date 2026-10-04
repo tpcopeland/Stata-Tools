@@ -285,6 +285,14 @@ capture erase "`manifest'"
 capture erase "`config'"
 capture erase "`sepout'"
 capture erase "`dta'"
+foreach f in _dd14_fl.md _dd14_ex.md _dd14_ex.dta _dd14_cs.md _dd14_cs0.md ///
+    _dd14_r1.dta _dd14_r2.dta _dd14_r.md {
+    capture erase "`tmp_dir'/`f'"
+}
+foreach f in one.dta two.dta {
+    capture erase "`tmp_dir'/_dd14 dir (v2)/`f'"
+}
+capture rmdir "`tmp_dir'/_dd14 dir (v2)"
 
 display as text "datadict v14 tests: `pass_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

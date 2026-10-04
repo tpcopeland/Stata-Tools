@@ -1,4 +1,4 @@
-*! datacheck Version 1.8.2  2026/10/01
+*! datacheck Version 1.9.0  2026/10/03
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -29,6 +29,11 @@ program define datacheck, rclass
         exit
     }
 
+    // the raw command line, kept for the error row of a call that fails to parse
+    local _raw0 `"`macval(0)'"'
+    local _collect     = 0
+    local _ledfile     ""
+    local _dsname      ""
     local _legacy_globals : all globals
     foreach g in S_1 S_FN S_FNDATE {
         local _had_`g' : list g in _legacy_globals
@@ -71,15 +76,18 @@ program define datacheck, rclass
             OUTliers(real -999999999) ///
             GATESonly ONLYflagged SHOW(string) MINcell(integer -999999999) MASKrare ///
             NOMISSing PATTERNS ///
+            BYFREQ ///
             EXPECTN(numlist integer max=2) ISID(string) NODUPS ///
             REQuire(string) NOTMISSing(string) INRANGE(string) WARN ///
             ALLowed(string) FORbid(string) REGEX(string) NOTValues(string) ///
             RULE(string asis) STAT(string asis) BINary(string) ///
+            BYRULE(string asis) ///
             EVENTS(string asis) INTERVALS(string) KEYSET(string asis) CONSTANT(string) ///
             SETS(string) JUMPS(string) ///
             BANDS(string asis) BANDWARN ///
             REVIEW(string asis) HEAPING(string) GROUPSTAT(string asis) ///
             COVERAGE(string) COMPLETE(string) ///
+            SMALLcells(string asis) ///
             BY(string) OVER(string) ///
             CHECKs(string) MAKESpec(string) VIOLations(string) ///
             SAVing(string) CONFig(string) COMPare(string) ///
@@ -143,6 +151,7 @@ program define datacheck, rclass
             if `"`_ledrun'"' == "" local _ledrun `"`r(run)'"'
             if "`bandwarn'" == "" & r(bandwarn) local bandwarn "bandwarn"
             if "`signature'" == "" & r(signature) local signature "signature"
+            local _collect = r(collect)
         }
 
         if `"`config'"' != "" {
@@ -226,6 +235,10 @@ program define datacheck, rclass
         }
         local byvars `"`by'"'
         if `"`over'"' != "" local byvars `"`over'"'
+        if "`byfreq'" != "" & "`byvars'" == "" {
+            display as error "byfreq requires by()"
+            exit 198
+        }
 
         if `"`_ledfile'"' != "" {
             _datamap_validate_path `"`_ledfile'"', option(ledger())
@@ -507,6 +520,17 @@ program define datacheck, rclass
                         local ctxt `""`cv'": `rexpr'"'
                         local ctgt "`cg'"
                     }
+                    else if "`cg'" == "byrule" {
+                        // var = label, values = byspec (byvars (sortvars)), pattern = expression
+                        local rexpr `"`craw_pattern'"'
+                        if `"`rexpr'"' == "" local rexpr `"`carg1'"'
+                        if "`cv'" == "" | `"`rexpr'"' == "" | `"`craw_values'"' == "" {
+                            display as error "checks(): byrule row requires var (the label), values (the by spec) and pattern (the expression)"
+                            exit 198
+                        }
+                        local ctxt `"`craw_values': "`cv'": `rexpr'"'
+                        local ctgt "byrule"
+                    }
                     else if "`cg'" == "events" {
                         if "`cv'" == "" | `"`craw_values'"' == "" {
                             display as error "checks(): events row requires var (the covariates) and values (the event variable)"
@@ -574,6 +598,15 @@ program define datacheck, rclass
                         local ctxt `"`cv'"'
                         if `"`carg1'"' != "" local ctxt `"`ctxt', min(`carg1')"'
                         local ctgt "complete"
+                    }
+                    else if "`cg'" == "smallcells" {
+                        if "`cv'" == "" {
+                            display as error "checks(): smallcells row requires var (the countexps) and optionally pattern (the if condition)"
+                            exit 198
+                        }
+                        local ctxt `"`cv'"'
+                        if `"`craw_pattern'"' != "" local ctxt `"`ctxt' if `craw_pattern'"'
+                        local ctgt "smallcells"
                     }
                     else {
                         display as error "checks(): unsupported gate `cg'"
@@ -645,6 +678,9 @@ program define datacheck, rclass
         quietly ds
         local _datavars `r(varlist)'
 
+        // sort order at entry, for the note on subscripted rule()/review()
+        local _sortedby_entry : sortedby
+
         // ---- rule() and review(): "label: expression" specs ----
         // Each is evaluated here, on the if/in subset in the caller's row
         // order and before any sort, so subscripted expressions
@@ -711,6 +747,47 @@ program define datacheck, rclass
                 local `_fam'_lab`_k' `"`rlab'"'
                 local `_fam'_exp`_k' `"`rexp'"'
                 local rulevars "`rulevars' ``_fam'ind`_k''"
+                // a note, never a verdict: subscripts read the rows as arranged
+                if ustrregexm(`"`rexp'"', "(\w\[|\b_n\b|\b_N\b)") {
+                    local _sv ""
+                    local _rest `"`rexp'"'
+                    while ustrregexm(`"`_rest'"', "([A-Za-z_][A-Za-z0-9_]*)\[") {
+                        local _sv "`_sv' `=ustrregexs(1)'"
+                        local _rest = subinstr(`"`_rest'"', ustrregexs(0), " ", 1)
+                    }
+                    local _shared : list _sortedby_entry & _sv
+                    if "`_sortedby_entry'" == "" | ("`_sv'" != "" & "`_shared'" == "") {
+                        local _sbtxt = cond("`_sortedby_entry'" == "", "had no sort order", "was sorted by `_sortedby_entry'")
+                        display as text `"  note: `_fam'(`rlab') uses subscripts or _n/_N and the data `_sbtxt' at entry, so the result depends on row order; byrule() sorts within groups"'
+                    }
+                }
+            }
+        }
+
+        // ---- byrule(): "byvars (sortvars): label: expression" under by semantics ----
+        local n_byrule = 0
+        if `"`byrule'"' != "" {
+            local rest `"`byrule'"'
+            while `"`rest'"' != "" {
+                local bs = strpos(`"`rest'"', "\")
+                if `bs' {
+                    local part = substr(`"`rest'"', 1, `bs' - 1)
+                    local rest = substr(`"`rest'"', `bs' + 1, .)
+                }
+                else {
+                    local part `"`rest'"'
+                    local rest ""
+                }
+                local part = strtrim(`"`part'"')
+                if `"`part'"' == "" continue
+                local ++n_byrule
+                local _k = `n_byrule'
+                tempvar byruleind`_k'
+                quietly gen byte `byruleind`_k'' = 0
+                _datacheck_byrule, spec(`"`part'"') ind(`byruleind`_k'')
+                local byrule_lab`_k' `"`r(lab)'"'
+                local byrule_exp`_k' `"`r(exp)'"'
+                local rulevars "`rulevars' `byruleind`_k''"
             }
         }
 
@@ -1140,6 +1217,23 @@ program define datacheck, rclass
                 local `_f'_spec`_k' `"`part'"'
             }
         }
+        // smallcells(): a publication invariant (never a band); the mask
+        // threshold is the one the call resolved
+        local nf_smallcells = 0
+        if `"`smallcells'"' != "" {
+            local rest `"`smallcells'"'
+            while `"`rest'"' != "" {
+                gettoken part rest : rest, parse("\") quotes
+                if `"`part'"' == "\" continue
+                local part = strtrim(`"`part'"')
+                if `"`part'"' == "" continue
+                _datacheck_smallcells, spec(`"`part'"') mcell(`_maskcell') parseonly
+                local famvars "`famvars' `r(vars)'"
+                local ++nf_smallcells
+                local _k = `nf_smallcells'
+                local smallcells_spec`_k' `"`part'"'
+            }
+        }
         // band-capable families: kind from the declaration (coverage is
         // always a band); an entry with no threshold is a review item
         foreach _f in coverage heaping complete groupstat {
@@ -1258,9 +1352,18 @@ program define datacheck, rclass
         local has_groups = 0
         local group_levels ""
         if "`byvars'" != "" {
-            quietly egen long `dc_group' = group(`byvars'), label missing
+            quietly egen long `dc_group' = group(`byvars'), missing
             quietly levelsof `dc_group', local(group_levels)
             local has_groups = 1
+            // each group's values (ledger form) and display label, from its
+            // first row.  A blank string is (blank) on screen and [] in the
+            // ledger; a numeric missing is its code (. or .a).  Never the
+            // group number.
+            quietly _datacheck_gtext `byvars', group(`dc_group')
+            foreach gg of local group_levels {
+                local group_led`gg' `"`r(led`gg')'"'
+                local group_label`gg' `"`r(disp`gg')'"'
+            }
         }
         // ---- by() groups whose size is withheld under maskrare ----
         // A group smaller than the mask is withheld.  A pool of one group,
@@ -1519,17 +1622,6 @@ program define datacheck, rclass
         }
         local group_missing_vars : list uniq group_missing_vars
         local n_group_missing_vars : word count `group_missing_vars'
-        local group_vallab ""
-        if `has_groups' & "`gatesonly'" == "" {
-            local group_vallab : value label `dc_group'
-            foreach gg of local group_levels {
-                local group_label`gg' "`gg'"
-                if "`group_vallab'" != "" {
-                    local _gtxt : label `group_vallab' `gg'
-                    if `"`_gtxt'"' != "" local group_label`gg' `"`_gtxt'"'
-                }
-            }
-        }
 
         // ===================== DISPLAY =====================
         local nv : word count `profilevars'
@@ -1901,8 +1993,8 @@ program define datacheck, rclass
                 local gmissvars : list uniq gmissvars
                 local gmissct : word count `gmissvars'
                 if `showflagged' & `gmissct' == 0 continue
-                local gshow = substr(`"`group_label`gg''"', 1, 20)
-                display as text "  " as result %-20s `"`gshow'"' ///
+                mata: st_local("gshow", _datacheck_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
+                display as text "  " as result `"`macval(gshow)'"' ///
                     as result %9.0f `gn' %12s "`gcs'" %10s "`gpcts'" ///
                     as result %9.0f `gmissct'
             }
@@ -1929,14 +2021,36 @@ program define datacheck, rclass
                     local gms "`r(cnt)'"
                     local gmpcts "`r(pcttxt)'"
                     if r(masked) local _pmasked = 1
-                    local gshow = substr(`"`group_label`gg''"', 1, 20)
-                    display as text "  " as result %-20s `"`gshow'"' ///
+                    mata: st_local("gshow", _datacheck_dshow(usubstr(st_local("group_label`gg'"), 1, 20), 20))
+                    display as text "  " as result `"`macval(gshow)'"' ///
                         as result %-22s "`v'" %9s "`gms'" %10s "`gmpcts'"
                 }
             }
             if `_npooledg' > 0 {
                 display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
                     as result `_npooledg'
+            }
+        }
+
+        // ---- GROUPWISE FREQUENCIES (byfreq): the CATEGORICAL and STRING tables within each by() group ----
+        if "`gatesonly'" == "" & "`byfreq'" != "" & `has_groups' & !`showflagged' & ///
+            `"`f_categorical' `f_string'"' != " " {
+            display ""
+            display as text "GROUPWISE FREQUENCIES"
+            display as text "  by: " as result "`byvars'"
+            foreach v in `f_categorical' `f_string' {
+                display as text "  " as result "`v'" as text ":"
+                foreach gg of local group_levels {
+                    if `: list gg in _pooledg' continue
+                    mata: st_local("_gl", _datacheck_dshow(st_local("group_label`gg'"), 0))
+                    display as text "    by group " as result `"`macval(_gl)'"' as text ":"
+                    _datacheck_freq `v' `maxfreq' `rare' `_maskcell' `"`dc_group' == `gg'"' "      "
+                }
+            }
+            if `_npooledg' > 0 {
+                display as text "  groups pooled (each <`_xmask' rows, or pooled with them): " ///
+                    as result `_npooledg'
+                local _pmasked = 1
             }
         }
 
@@ -2058,7 +2172,10 @@ program define datacheck, rclass
             foreach gg of local group_levels {
                 local ++si
                 local scope_if`si' "`dc_group' == `gg'"
-                local scope_lab`si' "by(`byvars' group `gg')"
+                // a group withheld under maskrare keeps its number: its
+                // values would name a group of fewer than the mask of rows
+                if `: list gg in _hideg' local scope_lab`si' "by(`byvars' group `gg')"
+                else local scope_lab`si' `"by(`byvars' | `macval(group_led`gg')')"'
                 local scope_hide`si' : list gg in _hideg
             }
         }
@@ -2365,6 +2482,22 @@ program define datacheck, rclass
                     (`"`macval(rule_exp`k')'"') (`scope_npost') ("") (`"`macval(msg)'"') (`mins') (`om')
             }
 
+            // byrule: indicators were evaluated at parse time, under by semantics
+            forvalues k = 1/`n_byrule' {
+                quietly count if `IF' & `byruleind`k''
+                local nbad = r(N)
+                local ok = (`nbad' == 0)
+                _datacheck_mcount `nbad' `_gm' `scope_n'
+                local nbs "`r(s)'"
+                local onum = r(num)
+                local om = r(masked)
+                local mins = cond(`om' | `nbad' < 1, ., `nbad')
+                local msg `"`PFX'byrule(`byrule_lab`k''): `nbs' obs fail `byrule_exp`k''"'
+                frame post `RF' ("byrule") ("invariant") (`ok') (`"`byrule_lab`k''"') ///
+                    (`"`byrule_lab`k''"') (`"`GP'"') ("`nbs' fail") (`onum') ///
+                    (`"`macval(byrule_exp`k')'"') (`scope_npost') ("") (`"`macval(msg)'"') (`mins') (`om')
+            }
+
             // stat: a summary statistic must fall inside a declared band
             forvalues k = 1/`n_stat' {
                 local sv "`stat_var`k''"
@@ -2479,6 +2612,7 @@ program define datacheck, rclass
                 local rsh ""
                 if !`om' & "`scope_hide`si''" != "1" local rsh " (`rp_'%)"
                 local msg `"`PFX'review(`review_lab`k''): `rc_' of `scope_ns' rows`rsh'"'
+                mata: st_local("msg", _datacheck_dshow(st_local("msg"), 0))
                 display as text "  " as result `"`macval(msg)'"'
                 frame post `RF' ("review") ("review") (2) (`"`review_lab`k''"') ///
                     (`"`review_lab`k''"') (`"`GP'"') ("`rc_' rows`rsh'") (`onum') ///
@@ -2539,6 +2673,11 @@ program define datacheck, rclass
             _datacheck_groupstat, spec(`"`groupstat_spec`k''"') rf(`RF') ///
                 kind(`groupstat_kind`k'') mask(`_gm') nscope(`nobs') ///
                 cond(`groupstat_cond`k'') scope(`"`groupstat_if`k''"')
+        }
+
+        forvalues k = 1/`nf_smallcells' {
+            _datacheck_smallcells, spec(`"`smallcells_spec`k''"') rf(`RF') kind(invariant) ///
+                mask(`_gm') mcell(`_maskcell') nscope(`nobs')
         }
 
         local compare_added ""
@@ -2753,8 +2892,8 @@ program define datacheck, rclass
             local checks_run ""
             local failed_checks ""
             foreach f in expectn isid nodups require notmissing inrange allowed forbid ///
-                regex notvalues rule stat binary events intervals keyset constant sets ///
-                coverage heaping groupstat complete compare {
+                regex notvalues rule byrule stat binary events intervals keyset constant sets ///
+                coverage heaping groupstat complete smallcells compare {
                 quietly count if fam == "`f'" & kind != "review"
                 if r(N) > 0 local checks_run "`checks_run' `f'"
                 quietly count if fam == "`f'" & inlist(status, "fail", "warn")
@@ -3105,7 +3244,7 @@ program define datacheck, rclass
 	                _datamap_post_metadata_rows, postname(`dcmeta_post') ///
 	                    classifications(`"`proff'"') sourcecommand("datacheck") ///
 	                    source(`"`_dcsource'"') output("") dsname("current") ///
-	                    dslabel(`"`_dclabel'"') nvars(`: word count `profilevars'') ///
+						nvars(`: word count `profilevars'') ///
 	                    varlist(`"`profilevars'"') datasignature(`"`_dcdsig'"')
 	                postclose `dcmeta_post'
 	                local _isfile = 0
@@ -3216,6 +3355,7 @@ program define datacheck, rclass
                 forvalues j = 1/`n_rec' {
                     if status[`j'] != "warn" continue
                     local _m = msg[`j']
+                    mata: st_local("_m", _datacheck_dshow(st_local("_m"), 0))
                     display as text "  " as result `"`macval(_m)'"'
                 }
             }
@@ -3227,6 +3367,7 @@ program define datacheck, rclass
                 forvalues j = 1/`n_rec' {
                     if status[`j'] != "fail" continue
                     local _m = msg[`j']
+                    mata: st_local("_m", _datacheck_dshow(st_local("_m"), 0))
                     display as error `"  `macval(_m)'"'
                 }
             }
@@ -3274,8 +3415,28 @@ program define datacheck, rclass
         else macro drop `g'
     }
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
-    if `_exit9' exit 9
+    if `rc' {
+        // R4: a call that exits for any reason other than a gate failure
+        // (rc 9) or Break (rc 1) leaves one error row in the ledger, so
+        // dataqa assert cannot pass over it
+        if `rc' != 9 & `rc' != 1 {
+            capture noisily _datacheck_errrow `rc' `"`_dsname'"' `"`_ledfile'"' `"`_ledrun'"' `macval(_raw0)'
+        }
+        exit `rc'
+    }
+    if `_exit9' {
+        // W3: under dataqa set collect with a ledger that took the rows, a
+        // failed gate does not halt; dataqa assert is the halting point
+        if `_collect' & `"`_ledfile'"' != "" & !`_ledger_rc' & !`cleanup_rc' {
+            display as text "datacheck: " as result "`n_err'" as text " gate failure(s) recorded in the ledger; " ///
+                "collect is on, so this call does not halt - dataqa assert will halt"
+            exit
+        }
+        if `_collect' & `"`_ledfile'"' == "" {
+            display as text "note: dataqa set collect has no effect without a ledger; exiting 9"
+        }
+        exit 9
+    }
     if `_ledger_rc' exit `_ledger_rc'
     if `cleanup_rc' exit `cleanup_rc'
 end
@@ -3351,6 +3512,35 @@ program define _datacheck_flag, rclass
 
 end
 
+// Display text for a data value or value label: neutralizes everything that
+// could run as a directive or break a display line.  A backtick, double
+// quote and dollar sign become {char N}, a brace becomes {c -(}, and a
+// control character (line feed, tab, ...) is written as \n, \t or \xHH, so
+// the text prints as the literal characters.  w > 0 right-pads to w display
+// columns (measured before the substitution, as %-ws would have).
+capture mata: mata drop _datacheck_dshow()
+mata:
+string scalar _datacheck_dshow(string scalar s, real scalar w)
+{
+	real scalar i, n
+	string scalar out
+	out = subinstr(s, char(10), char(92) + "n")
+	out = subinstr(out, char(13), char(92) + "r")
+	out = subinstr(out, char(9), char(92) + "t")
+	for (i = 1; i <= 31; i++) {
+		if (i == 9 | i == 10 | i == 13) continue
+		out = subinstr(out, char(i), char(92) + "x" + substr("0123456789abcdef", floor(i / 16) + 1, 1) + substr("0123456789abcdef", mod(i, 16) + 1, 1))
+	}
+	n = ustrlen(out)
+	out = subinstr(out, "{", "{c -(}")
+	out = subinstr(out, char(96), "{char 96}")
+	out = subinstr(out, char(34), "{char 34}")
+	out = subinstr(out, char(36), "{char 36}")
+	if (w > n) out = out + (w - n) * " "
+	return(out)
+}
+end
+
 capture program drop _datacheck_freq
 local _drop_freq_rc = _rc
 program define _datacheck_freq, nclass
@@ -3362,15 +3552,19 @@ program define _datacheck_freq, nclass
     local _display = c(noisily)
     capture noisily {
         // Frequency table sorted by descending count, capped at maxfreq.
-        args v maxfreq rare maskcell
+        // cond: a within-group table (rows where cond holds), printed at
+        // indent ind; both empty for the pooled table
+        args v maxfreq rare maskcell cond ind
         if "`maskcell'" == "" local maskcell = 0
+        if `"`ind'"' == "" local ind "    "
         // Display-only: under quietly, as-error segments would still print.
         if !`_display' {
             set varabbrev `_orig_varabbrev'
             exit
         }
         tempvar freq
-        frame put `v', into(`fr')
+        if `"`cond'"' == "" frame put `v', into(`fr')
+        else frame put `v' if `cond', into(`fr')
         local _frame_open = 1
         frame `fr' {
             quietly contract `v', freq(`freq')
@@ -3417,7 +3611,7 @@ program define _datacheck_freq, nclass
                 local pc = 100 * `ct' / `tot'
                 // macval(): a string level holding a backtick or $ is data, not
                 // macro syntax; re-expanding it corrupted the display line.
-                local disp `"`macval(lv)'"'
+                local disp : copy local lv
                 // A float level widened to double prints IEEE noise
                 // (.1000000014901161); show it at float precision.
                 if "`: type `v''" == "float" & !missing(`v'[`r']) {
@@ -3425,26 +3619,27 @@ program define _datacheck_freq, nclass
                 }
                 if "`lblname'" != "" {
                     local lab : label `lblname' `lv'
-                    if `"`macval(lab)'"' != "" & `"`macval(lab)'"' != "`lv'" {
-                        local disp `"`macval(disp)' `macval(lab)'"'
-                    }
+                    // Mata joins the label: one holding a backtick or a quote
+                    // cannot be re-read as quote syntax
+                    mata: st_local("disp", st_local("disp") + (st_local("lab") != "" & st_local("lab") != st_local("lv") ? " " + st_local("lab") : ""))
                 }
                 local rflag ""
                 if `rare' > 0 & `ct' < `rare' local rflag "  <rare"
                 if `sup'[`r'] {
                     local _why = cond(`ct' < `maskcell', "suppressed (<`maskcell')", ///
                         "suppressed (complement)")
-                    display as text "    " as result %-28s "[suppressed]" ///
+                    display as text `"`ind'"' as result %-28s "[suppressed]" ///
                         as text "  `_why'" as error "`rflag'"
                 }
                 else {
-                    display as text "    " as result %-28s `"`macval(disp)'"' ///
+                    mata: st_local("disp", _datacheck_dshow(st_local("disp"), 28))
+                    display as text `"`ind'"' as result `"`macval(disp)'"' ///
                         as result %9.0f `ct' as text "  (" as result %4.1f `pc' ///
                         as text "%)" as error "`rflag'"
                 }
             }
             if `nlev' > `maxfreq' {
-                display as text "    ... " as result `=`nlev'-`maxfreq'' ///
+                display as text `"`ind'... "' as result `=`nlev'-`maxfreq'' ///
                     as text " more level(s) not shown (maxfreq)"
             }
         }
@@ -3514,8 +3709,10 @@ program define _datacheck_speclevels, rclass
             forvalues r = 1/`=_N' {
                 if `isstr' {
                     local x = `v'[`r']
-                    if strpos(`"`macval(x)'"', char(34)) | strpos(`"`macval(x)'"', char(96)) | ///
-                        strpos(`"`macval(x)'"', char(92)) | strpos(`"`macval(x)'"', char(36)) {
+                    // Mata reads the level: a level holding a backtick or quote
+                    // cannot be written back inside compound quotes to test it
+                    mata: st_local("_hostile", strofreal(strpos(st_local("x"), char(34)) | strpos(st_local("x"), char(96)) | strpos(st_local("x"), char(92)) | strpos(st_local("x"), char(36))))
+                    if `_hostile' {
                         local ok = 0
                         continue, break
                     }

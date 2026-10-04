@@ -1,4 +1,4 @@
-*! datamap Version 1.8.2  2026/10/01
+*! datamap Version 1.9.0  2026/10/03
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -526,7 +526,7 @@ program define datamap, rclass
 					_datamap_post_metadata_rows, postname(`metadata_post') ///
 						classifications(`"`_mclass'"') sourcecommand("datamap") ///
 						source(`"`_msource'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
-						dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
+						nvars(`_mnvars') ///
 						datasignature(`"`_mdsig'"') `datesafe'
 				}
 				else {
@@ -561,7 +561,7 @@ program define datamap, rclass
 							_datamap_post_metadata_rows, postname(`metadata_post') ///
 								classifications(`"`_mclass'"') sourcecommand("datamap") ///
 								source(`"`_mfile'"') output(`"`output'"') dsname(`"`_mdsname'"') ///
-								dslabel(`"`_mlabel'"') nvars(`_mnvars') ///
+						nvars(`_mnvars') ///
 								datasignature(`"`_mdsig'"') `datesafe'
 						}
 						file read `_mfl' _mfile
@@ -1058,8 +1058,10 @@ program define _datamap_ProcessDataset, rclass
             file write `fh' "--------" _n
             file write `fh' "Observations: `obs'" _n
             file write `fh' "Variables: `nvars'" _n
-            if `"`macval(label)'"' != "" & `"`macval(label)'"' != "." {
-                file write `fh' `"Label: `macval(label)'"' _n
+            mata: st_local("_dmshow", strofreal(st_local("label") != "" & st_local("label") != "."))
+            if `_dmshow' {
+                mata: _datamap_fwargs("label", "_dmw")
+                file write `fh' "Label: " `_dmw' _n
             }
             if "`dsig'" != "" {
                 file write `fh' "Data Signature: `dsig'" _n
@@ -1113,7 +1115,7 @@ program define _datamap_ProcessDataset, rclass
 
         if "`format'" == "json" {
             _datamap_ProcessDatasetJson `fh' "`filepath'" "`classifications'" ///
-                "`basename'" `obs' `nvars' `"`macval(label)'"' "`dsig'" "`sortorder'" ///
+                "`basename'" `obs' `nvars' "" "`dsig'" "`sortorder'" ///
                 `idx' `total' "`nostats'" "`nofreq'" "`nolabels'" `maxfreq' ///
                 `mincell' "`datesafe'" "`dateformat'" ///
                 `detect_panel' `detect_binary' `detect_survival' `detect_survey' ///
@@ -1155,8 +1157,8 @@ program define _datamap_ProcessDataset, rclass
         // Generate natural language summary
         // Excluded variables are passed on so that no summary or detector derives
         // a value, range, rate, or cardinality from them (exclude() contract).
-        _datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' `"`macval(label)'"' ///
-            `detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'" ///
+        _datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars\' "" ///
+            `detect_panel\' `detect_survival\' "`panelid'" "`dateformat'" "`datesafe'" ///
             "`excluded_vars'"
 
         // Run detection features if requested
@@ -1310,8 +1312,9 @@ program define _datamap_ProcessVariables, nclass
 		file write `fh' "  `vname'" _n
 		file write `fh' "    Type: `vtype'" _n
 		file write `fh' "    Format: `vfmt'" _n
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"    Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "    Label: " `_dmw' _n
 		}
 		file write `fh' "    Missing: `nmiss' (`pctmiss'%)" _n
 			file write `fh' "    Classification: `vclass'" _n _n
@@ -1526,6 +1529,7 @@ end
 // st_local/subinstr copy bytes verbatim with no macro expansion.  Reads the
 // caller's local `src', escapes it, and writes the caller's local `dst'.
 capture mata: mata drop _datamap_jsonesc()
+capture mata: mata drop _datamap_fwargs()
 mata:
 void _datamap_jsonesc(string scalar src, string scalar dst)
 {
@@ -1543,7 +1547,38 @@ void _datamap_jsonesc(string scalar src, string scalar dst)
 	for (c = 1; c < 32; c++) {
 		s = subinstr(s, char(c), char(92) + sprintf("u%04.0f", c))
 	}
+	// A backtick, and an apostrophe straight after a double quote, would be
+	// read by the file-write line's compound quotes as quote syntax, so they
+	// are written as \u escapes (the same JSON text once parsed).
+	s = subinstr(s, char(96), char(92) + "u0060")
+	s = subinstr(s, char(34) + char(39), char(34) + char(92) + "u0027")
 	st_local(dst, s)
+}
+
+// Text-file counterpart.  Writes the caller's local `dst' as the argument list
+// of a -file write- that prints the caller's local `src' verbatim: runs of
+// ordinary characters in plain quotes, and each double quote, backtick and
+// dollar sign as _char(#), so none of them can be read as quote or macro
+// syntax by the line the list is spliced into.
+void _datamap_fwargs(string scalar src, string scalar dst)
+{
+	string scalar s, out, run, ch
+	real scalar i, a
+	s = st_local(src)
+	out = ""
+	run = ""
+	for (i = 1; i <= strlen(s); i++) {
+		ch = substr(s, i, 1)
+		a = ascii(ch)
+		if (a == 34 | a == 96 | a == 36) {
+			if (run != "") out = out + char(34) + run + char(34) + " "
+			run = ""
+			out = out + "_char(" + strofreal(a) + ") "
+		}
+		else run = run + ch
+	}
+	if (run != "" | out == "") out = out + char(34) + run + char(34)
+	st_local(dst, out)
 }
 end
 
@@ -1740,7 +1775,7 @@ program define _datamap_ProcessDatasetJson, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local valab "`valab_`i''"
 		local vclass "`class_`i''"
 		local nmiss = `nmiss_`i''
@@ -1915,7 +1950,8 @@ program define _datamap_ProcessDatasetJson, nclass
 					if `j' > 1 file write `fh' "," _n
 					capture local vallabtext : label (`vname') `val'
 					if _rc != 0 local vallabtext ""
-					if `"`macval(vallabtext)'"' == "`val'" local vallabtext "`valdisp'"
+					mata: st_local("_dmsame", strofreal(st_local("vallabtext") == st_local("val")))
+					if `_dmsame' local vallabtext "`valdisp'"
 					_datamap_json_escape "`valdisp'"
 					local val_json "`r(escaped)'"
 					mata: _datamap_jsonesc("vallabtext", "vallab_json")
@@ -1988,7 +2024,7 @@ program define _datamap_ProcessCategorical, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local valab "`valab_`i''"
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
@@ -2003,8 +2039,9 @@ program define _datamap_ProcessCategorical, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "Label: " `_dmw' _n
 		}
 		if "`valab'" != "" file write `fh' "Value Label: `valab'" _n
 		file write `fh' "Classification: categorical" _n
@@ -2029,13 +2066,16 @@ program define _datamap_ProcessCategorical, nclass
 					local pct "."
 					if `obs' > 0 local pct = strtrim(string(round(100*`freq'/`obs', 0.1), "%5.1f"))
 					if `_dm_hide'[`j', 1] == 1 {
-						file write `fh' `"    "`macval(sval)'": suppressed (<`mincell')"' _n
+						mata: _datamap_fwargs("sval", "_dmw")
+						file write `fh' "    " _char(34) `_dmw' _char(34) `": suppressed (<`mincell')"' _n
 					}
 					else if `_dm_hide'[`j', 1] == 2 {
-						file write `fh' `"    "`macval(sval)'": suppressed (complementary)"' _n
+						mata: _datamap_fwargs("sval", "_dmw")
+						file write `fh' "    " _char(34) `_dmw' _char(34) `": suppressed (complementary)"' _n
 					}
 					else {
-						file write `fh' `"    "`macval(sval)'": `freq' (`pct'%)"' _n
+						mata: _datamap_fwargs("sval", "_dmw")
+						file write `fh' "    " _char(34) `_dmw' _char(34) `": `freq' (`pct'%)"' _n
 					}
 				}
 			}
@@ -2063,15 +2103,19 @@ program define _datamap_ProcessCategorical, nclass
 						local pct "."
 					}
 					local vltext : label (`vname') `val'
-					if `"`macval(vltext)'"' == "`val'" local vltext "`valdisp'"
+					mata: st_local("_dmsame", strofreal(st_local("vltext") == st_local("val")))
+					if `_dmsame' local vltext "`valdisp'"
 					if `_dm_hide'[`j', 1] == 1 {
-						file write `fh' `"    `valdisp' = `macval(vltext)': suppressed (<`mincell')"' _n
+						mata: _datamap_fwargs("vltext", "_dmw")
+						file write `fh' "    `valdisp' = " `_dmw' `": suppressed (<`mincell')"' _n
 					}
 					else if `_dm_hide'[`j', 1] == 2 {
-						file write `fh' `"    `valdisp' = `macval(vltext)': suppressed (complementary)"' _n
+						mata: _datamap_fwargs("vltext", "_dmw")
+						file write `fh' "    `valdisp' = " `_dmw' `": suppressed (complementary)"' _n
 					}
 					else {
-						file write `fh' `"    `valdisp' = `macval(vltext)': `freq' (`pct'%)"' _n
+						mata: _datamap_fwargs("vltext", "_dmw")
+						file write `fh' "    `valdisp' = " `_dmw' `": `freq' (`pct'%)"' _n
 					}
 				}
 			}
@@ -2139,7 +2183,7 @@ program define _datamap_ProcessContinuous, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -2153,8 +2197,9 @@ program define _datamap_ProcessContinuous, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "Label: " `_dmw' _n
 		}
 		file write `fh' "Classification: continuous" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
@@ -2269,7 +2314,7 @@ program define _datamap_ProcessDate, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -2280,8 +2325,9 @@ program define _datamap_ProcessDate, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "Label: " `_dmw' _n
 		}
 		file write `fh' "Classification: date" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n _n
@@ -2387,7 +2433,7 @@ program define _datamap_ProcessString, nclass
 	forvalues i = 1/`nvars' {
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -2412,8 +2458,9 @@ program define _datamap_ProcessString, nclass
 		if `is_strL' {
 			file write `fh' "Note: strL (long string) — can store up to 2 billion characters" _n
 		}
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "Label: " `_dmw' _n
 		}
 		file write `fh' "Classification: string" _n
 		file write `fh' "Max Length: `maxlen' characters" _n
@@ -2475,7 +2522,7 @@ program define _datamap_ProcessExcluded, nclass
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
 		local vfmt "`vfmt_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local origpos = `origpos_`i''
 		local nmiss = `nmiss_`i''
 		local pctmiss : di %5.1f `pctmiss_`i''
@@ -2486,8 +2533,9 @@ program define _datamap_ProcessExcluded, nclass
 		file write `fh' "Position: `origpos'" _n
 		file write `fh' "Storage Type: `vtype'" _n
 		file write `fh' "Display Format: `vfmt'" _n
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `"Label: `macval(vlab)'"' _n
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' "Label: " `_dmw' _n
 		}
 		file write `fh' "Classification: excluded (privacy)" _n
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n
@@ -2579,7 +2627,8 @@ program define _datamap_ProcessValueLabels, nclass
 			mata: _datamap_vllevels("`varlist'")
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
-				file write `fh' `"  `lev' = `macval(labtext)'"' _n
+				mata: _datamap_fwargs("labtext", "_dmw")
+				file write `fh' "  `lev' = " `_dmw' _n
 			}
 		}
 		else {
@@ -2624,13 +2673,14 @@ program define _datamap_ProcessBinary, nclass
 	forvalues i = 1/`nvars' {
 		local vname "`vname_`i''"
 		local vtype "`vtype_`i''"
-		local vlab `"`macval(vlab_`i')'"'
+		local vlab : copy local vlab_`i'
 		local nmiss = `nmiss_`i''
 		local pctmiss = `pctmiss_`i''
 
 		file write `fh' "`vname'"
-		if `"`macval(vlab)'"' != "" {
-			file write `fh' `": `macval(vlab)'"'
+		if `: length local vlab' > 0 {
+			mata: _datamap_fwargs("vlab", "_dmw")
+			file write `fh' ": " `_dmw'
 		}
 		file write `fh' _n
 		file write `fh' "  Type: `vtype' (binary)" _n
@@ -2661,19 +2711,22 @@ program define _datamap_ProcessBinary, nclass
 			local vallabtext ""
 			capture local vallabtext : label (`vname') `val'
 			local _labrc = _rc
-			if `"`macval(vallabtext)'"' == "`val'" local vallabtext "`valdisp'"
+			mata: st_local("_dmsame", strofreal(st_local("vallabtext") == st_local("val")))
+			if `_dmsame' local vallabtext "`valdisp'"
 			if `_dm_hide'[`j', 1] {
 				local _why "<`mincell'"
 				if `_dm_hide'[`j', 1] == 2 local _why "complementary"
-				if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
-					file write `fh' `"    `valdisp' (`macval(vallabtext)'): suppressed (`_why')"' _n
+				if `_labrc' == 0 & `: length local vallabtext' > 0 {
+					mata: _datamap_fwargs("vallabtext", "_dmw")
+					file write `fh' "    `valdisp' (" `_dmw' `"): suppressed (`_why')"' _n
 				}
 				else {
 					file write `fh' "    `valdisp': suppressed (`_why')" _n
 				}
 			}
-			else if `_labrc' == 0 & `"`macval(vallabtext)'"' != "" {
-				file write `fh' `"    `valdisp' (`macval(vallabtext)'): `freq' (`pct'%)"' _n
+			else if `_labrc' == 0 & `: length local vallabtext' > 0 {
+				mata: _datamap_fwargs("vallabtext", "_dmw")
+				file write `fh' "    `valdisp' (" `_dmw' `"): `freq' (`pct'%)"' _n
 			}
 			else {
 				file write `fh' "    `valdisp': `freq' (`pct'%)" _n
@@ -2798,10 +2851,9 @@ program define _datamap_ProcessSamples, nclass
 					local vtype : type `vn'
 					if substr("`vtype'", 1, 3) == "str" {
 					local val = `vn'[`row']
-					if length(`"`macval(val)'"') > 20 {
-						local val = substr(`"`macval(val)'"', 1, 17) + "..."
-					}
-					file write `fh' `"`macval(val)' | "'
+					mata: st_local("val", (strlen(st_local("val")) > 20 ? substr(st_local("val"), 1, 17) + "..." : st_local("val")))
+					mata: _datamap_fwargs("val", "_dmw")
+					file write `fh' `_dmw' " | "
 				}
 					else {
 						local val = `vn'[`row']

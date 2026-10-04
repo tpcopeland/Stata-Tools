@@ -35,7 +35,18 @@ local quick_suites ///
     test_datamap_v169.do ///
     test_datamap_v171.do ///
     test_datamap_v180.do ///
-    test_datamap_v182.do
+    test_datamap_v182.do ///
+    test_datacheck_v190_groupstat.do ///
+    test_datacheck_v190_coverage.do ///
+    test_dataqa_v190.do ///
+    test_dataqa_v190_collect.do ///
+    test_datacheck_v190_byrule.do ///
+    test_datacheck_v190_smallcells.do ///
+    test_dataqa_v190_defaults.do ///
+    test_datacheck_v190_groupfreq.do ///
+    test_dataqa_v190_groupkeys.do ///
+    test_datacheck_v190_hostile.do ///
+    test_datamap_v190_review.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///
@@ -59,7 +70,8 @@ local core_suites ///
 
 * timing on a 1M-row file; never part of quick, core, or full
 local benchmark_suites ///
-    benchmark_gatesonly.do
+    benchmark_gatesonly.do ///
+    benchmark_study.do
 
 local suites "`core_suites'"
 if "`mode'" == "quick" local suites "`quick_suites'"

@@ -1,4 +1,4 @@
-*! datadict Version 1.8.2  2026/10/01
+*! datadict Version 1.9.0  2026/10/03
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -395,6 +395,9 @@ string scalar _datadict_md_escape(string scalar text)
 	text = subinstr(text, "|", char(92) + "|")
 	text = subinstr(text, char(36), "&#36;")
 	text = subinstr(text, char(96), "&#96;")
+	// a double quote followed by an apostrophe closes the compound quotes
+	// the cell is carried in; the apostrophe is written as an entity
+	text = subinstr(text, char(34) + char(39), char(34) + "&#39;")
 	text = subinstr(text, char(10), " ")
 	text = subinstr(text, char(13), " ")
 	text = subinstr(text, "<", "&lt;")

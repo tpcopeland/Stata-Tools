@@ -1,4 +1,4 @@
-*! _datacheck_groupmiss Version 1.8.2  2026/10/01
+*! _datacheck_groupmiss Version 1.9.0  2026/10/03
 *! Group sizes, complete-case counts, and missing counts by group, one pass
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -34,6 +34,7 @@ void _datacheck_groupmiss_engine(string scalar gname, string scalar ccname,
 {
 	string rowvector v, names
 	real colvector g, o, R, keep, m
+	real rowvector mm
 	real matrix info, out
 	string scalar cur
 	real scalar G, N, P, j, lo, hi, chunk
@@ -89,7 +90,10 @@ void _datacheck_groupmiss_engine(string scalar gname, string scalar ccname,
 
 	st_local("G", strofreal(G))
 	if (P > 0 & G > 0) {
-		st_local("missvars", invtokens(select(v, colsum(out[., 3..P + 2]) :> 0)))
+		// no variable missing: select() of a 1x1 v returns 0x0, which
+		// invtokens() rejects (r(3202)), so test the mask first
+		mm = (colsum(out[., 3..P + 2]) :> 0)
+		st_local("missvars", (any(mm) ? invtokens(select(v, mm)) : ""))
 	}
 	else st_local("missvars", "")
 }

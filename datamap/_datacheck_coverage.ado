@@ -1,13 +1,18 @@
-*! _datacheck_coverage Version 1.8.2  2026/10/01
+*! _datacheck_coverage Version 1.9.0  2026/10/03
 *! datacheck coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
-// Spec: datevar lo hi, gap(#) [tail(#) years]
+// Spec: datevar lo hi, gap(# | none) [tail(#) years endq(#)]
 //
 // datevar is a daily (%td) date; lo and hi are bounds (numbers or date
 // literals) and gap() is the delivery lag in days.  gap() is required and
-// has no default, so an unsourced expectation stops the run.  Checks:
+// has no default, so an unsourced expectation stops the run.  gap(none) is
+// a typed declaration that the plan sources no lag: late_end and early_start
+// are then not tested, post no row and never count as passes.  endq(#), with
+// 0 < # < 0.5, tests early_start on the #-quantile and late_end on the
+// (1-#)-quantile (_pctile's default definition) instead of the raw minimum
+// and maximum; gap(none) with endq() is an error.  Checks:
 //   outside      the share of dates outside [lo, hi] is at most tail() (default 0)
 //   late_end     the last date is at least hi - gap (a truncated delivery fails)
 //   early_start  the first date is at most lo + gap
@@ -31,7 +36,7 @@ program define _datacheck_coverage, rclass
             local opts = substr(`"`spec'"', `cp' + 1, .)
         }
         if `: word count `head'' != 3 {
-            display as error `"coverage() spec must be "datevar lo hi, gap(#) [tail(#) years]": `spec'"'
+            display as error `"coverage() spec must be "datevar lo hi, gap(# | none) [tail(#) years endq(#)]": `spec'"'
             exit 198
         }
         local dv : word 1 of `head'
@@ -56,14 +61,40 @@ program define _datacheck_coverage, rclass
             exit 198
         }
         local 0 `", `opts'"'
-        capture syntax , GAP(real) [TAIL(real 0) YEARS]
+        capture syntax , GAP(string) [TAIL(real 0) YEARS ENDQ(string)]
         if _rc {
             display as error "coverage(): gap() is required, with the delivery lag in days from the plan; tail() and years are optional"
             exit 198
         }
+        local gapnone = (strlower(strtrim(`"`gap'"')) == "none")
+        if `gapnone' local gap = 0
+        else {
+            capture confirm number `gap'
+            if _rc {
+                display as error "coverage(): gap() is required, with the delivery lag in days from the plan, or gap(none); tail() and years are optional"
+                exit 198
+            }
+        }
         if `gap' < 0 | missing(`gap') | `tail' < 0 | `tail' > 1 {
             display as error "coverage(): gap() must be non-negative and tail() a share between 0 and 1"
             exit 198
+        }
+        local useq = 0
+        if `"`endq'"' != "" {
+            capture confirm number `endq'
+            if _rc {
+                display as error "coverage(): endq() must be a number strictly between 0 and 0.5"
+                exit 198
+            }
+            if `endq' <= 0 | `endq' >= 0.5 {
+                display as error "coverage(): endq() must lie strictly between 0 and 0.5"
+                exit 198
+            }
+            if `gapnone' {
+                display as error "coverage(): gap(none) tests no end checks, so it cannot be combined with endq()"
+                exit 198
+            }
+            local useq = 1
         }
         // bounds stay in scalars: a decimal round trip through a macro could
         // move a value sitting on a bound to the other side
@@ -83,6 +114,7 @@ program define _datacheck_coverage, rclass
             local lotxt = strtrim(string(`lo_num', "%td"))
             local hitxt = strtrim(string(`hi_num', "%td"))
             local gtxt = strtrim(string(`gap', "%12.0g"))
+            tempname qlo qhi
             quietly summarize `dv', detail
             local n = r(N)
             local dmin = r(min)
@@ -100,7 +132,33 @@ program define _datacheck_coverage, rclass
                 local firsttxt = strtrim(string(`dmin', "%td"))
                 local lasttxt = strtrim(string(`dmax', "%td"))
             }
+            local emin = `dmin'
+            local emax = `dmax'
+            if `useq' & `n' > 0 {
+                // _pctile's default definition; missing dates are ignored
+                quietly _pctile `dv', percentiles(`=100 * `endq'' `=100 * (1 - `endq')')
+                scalar `qlo' = r(r1)
+                scalar `qhi' = r(r2)
+                local pplo = strtrim(string(100 * `endq', "%9.4g"))
+                local pphi = strtrim(string(100 * (1 - `endq'), "%9.4g"))
+                local emin = `qlo'
+                local emax = `qhi'
+                if `mask' > 0 {
+                    _datacheck_qshow `dv', value(`qlo') mask(`mask') stat(p`pplo')
+                    local firsttxt "p`pplo' `r(s)'"
+                    _datacheck_qshow `dv', value(`qhi') mask(`mask') stat(p`pphi')
+                    local lasttxt "p`pphi' `r(s)'"
+                }
+                else {
+                    local firsttxt = "p`pplo' " + strtrim(string(`emin', "%td"))
+                    local lasttxt = "p`pphi' " + strtrim(string(`emax', "%td"))
+                }
+            }
             local checks "outside late_end early_start"
+            if `gapnone' {
+                local checks "outside"
+                display as text "coverage(`dv'): late_end and early_start not declared (gap(none))"
+            }
             if "`years'" != "" local checks "`checks' year_gap"
             foreach ck of local checks {
                 local onum = .
@@ -131,19 +189,21 @@ program define _datacheck_coverage, rclass
                 }
                 else if "`ck'" == "late_end" {
                     local cut = `hi_num' - `gap'
-                    local ok = (`dmax' >= `cut')
+                    local ok = (`emax' >= `cut')
                     local cuttxt = strtrim(string(`cut', "%td"))
                     local obs "last `lasttxt'"
                     local exp "last date >= `hitxt' - `gtxt' days (`cuttxt')"
+                    if `useq' local exp "`exp', tested on the p`pphi' (endq(`endq'))"
                     if `ok' local msg `"`pfx'coverage(`ck'): `dv' reaches `cuttxt' (last `lasttxt')"'
                     else local msg `"`pfx'coverage(`ck'): `dv' ends before `cuttxt' = `hitxt' - `gtxt' days (last `lasttxt'); truncated delivery?"'
                 }
                 else if "`ck'" == "early_start" {
                     local cut = `lo_num' + `gap'
-                    local ok = (`dmin' <= `cut')
+                    local ok = (`emin' <= `cut')
                     local cuttxt = strtrim(string(`cut', "%td"))
                     local obs "first `firsttxt'"
                     local exp "first date <= `lotxt' + `gtxt' days (`cuttxt')"
+                    if `useq' local exp "`exp', tested on the p`pplo' (endq(`endq'))"
                     if `ok' local msg `"`pfx'coverage(`ck'): `dv' starts by `cuttxt' (first `firsttxt')"'
                     else local msg `"`pfx'coverage(`ck'): `dv' starts after `cuttxt' = `lotxt' + `gtxt' days (first `firsttxt')"'
                 }

@@ -563,7 +563,7 @@ capture {
     assert _rc == 9
     frame dg_ev: assert _N == 1
     frame dg_ev: assert gate[1] == "events" & variable[1] == "mstype" & label[1] == "_d"
-    frame dg_ev: assert group[1] == "mstype = 3 (PPMS)"
+    frame dg_ev: assert group[1] == "mstype = 3"
     frame dg_ev: assert strpos(message[1], "events(_d): mstype = 3 (PPMS) has 0 events") == 1
 }
 _dg `=_rc' "events(): the eventless level fails, named with its value label; the string covariate passes"
@@ -584,7 +584,7 @@ _dg_events
 capture {
     * events among id <= 12: level 1 has n = 3,6,9,12 (4), level 2 has 4
     capture datacheck, gatesonly events(_d if id <= 12: mstype) warn violations(dg_ev, replace)
-    frame dg_ev: assert _N == 1 & group[1] == "mstype = 3 (PPMS)"
+    frame dg_ev: assert _N == 1 & group[1] == "mstype = 3"
     * no event has id > 30, so every level fails
     capture datacheck, gatesonly events(_d if id > 30: mstype) warn violations(dg_ev, replace)
     frame dg_ev: assert _N == 3
@@ -620,7 +620,7 @@ capture {
     * group 1 (n <= 30): level 3 has no events; group 2: no events at all
     capture datacheck, gatesonly by(grp) events(_d: mstype) warn violations(dg_ev, replace)
     frame dg_ev: assert _N == 4
-    frame dg_ev: count if strpos(group, "by(grp group 2)") == 1
+    frame dg_ev: count if strpos(group, "by(grp | grp=2)") == 1
     frame dg_ev: assert r(N) == 3
 }
 _dg `=_rc' "events() within by(): each group is checked on its own levels"
@@ -1172,7 +1172,7 @@ capture {
             quietly summarize bcell if site == `s' & year == `y', detail
             * a failing value prints at full precision (%14.0g, as stat())
             local ms = strtrim(string(r(p50), "%14.0g"))
-            frame dg_gs: count if strpos(group, "`s' `y'") > 0 & observed == "median `ms'"
+            frame dg_gs: count if strpos(group, "`s' `y'") > 0 & regexm(observed, "^median " + "`ms'" + "(;|$)")
             assert r(N) == 1
         }
     }
@@ -1199,7 +1199,7 @@ capture {
     assert !missing(M[1, 1], M[1, 2], M[1, 3])
     assert reldif(M[1, 1], 25) < 1e-12 & reldif(M[1, 2], 25) < 1e-12 & M[1, 3] == 0
     capture datacheck, gatesonly groupstat(pmiss x, by(g) band(0.3 1)) warn violations(dg_gs, replace)
-    frame dg_gs: count if observed == "pmiss .25"
+    frame dg_gs: count if regexm(observed, "^pmiss [.]25(;|$)")
     assert r(N) == 2
 }
 _dg `=_rc' "groupstat(pmiss): small groups pooled under the mask; values agree with datamvp bytable()"
@@ -1373,12 +1373,12 @@ capture {
     gen byte v = 1
     replace v = 2 in 1/20
     capture datacheck, gatesonly by(grp) isid(id) warn violations(dg_f3, replace)
-    frame dg_f3: assert _N == 1 & strpos(group[1], "group 2") > 0
+    frame dg_f3: assert _N == 1 & strpos(group[1], "grp=2") > 0
     * rows 1 and 2 identical within group 1 only
     replace id = 1 in 2
     capture datacheck, gatesonly by(grp) nodups warn violations(dg_f3, replace)
     frame dg_f3: assert _N == 2
-    frame dg_f3: count if strpos(group, "group 1") > 0
+    frame dg_f3: count if strpos(group, "grp=1") > 0
     assert r(N) == 1
 }
 _dg `=_rc' "by(): isid and nodups flag only the group holding the duplicate"
@@ -1482,7 +1482,7 @@ capture {
     * within by(): only the group without a level fails
     replace lv = 1 if grp == 1
     capture datacheck, gatesonly by(grp) events(_d: lv) warn violations(dg_b, replace)
-    frame dg_b: assert _N == 1 & strpos(group[1], "by(grp group 2)") == 1
+    frame dg_b: assert _N == 1 & strpos(group[1], "by(grp | grp=2)") == 1
 }
 _dg `=_rc' "events(): a covariate with no nonmissing level in scope fails, not a pass on 0 levels"
 
@@ -1912,8 +1912,10 @@ capture {
     local xs = strtrim(string(float(0.2), "%14.0g"))
     assert "`xs'" != ".2"
     frame dg_gb: assert _N == 2
-    frame dg_gb: assert observed[1] == "mean `xs'" & observed[2] == "mean `xs'"
-    frame dg_gb: assert real(substr(observed[1], 6, .)) > 0.2
+    frame dg_gb: assert regexm(observed[1], "^mean `xs'(;|$)") & regexm(observed[2], "^mean `xs'(;|$)")
+    frame dg_gb: local o1 = observed[1]
+    assert regexm("`o1'", "^mean ([^;]*)")
+    assert real(regexs(1)) > 0.2
     _dg_count "`lg'" "groupstat(mean x): mean `xs' in group 0, expected [0, .2]"
     assert r(n) == 1
     _dg_count "`lg'" "mean .2 in group"
@@ -1983,7 +1985,9 @@ capture {
     assert r(n) == 0
     * the failure reports the same ratio
     frame dg_gr: assert _N == 1
-    frame dg_gr: assert abs(real(substr(observed[1], 17, .)) - `m4' / `m0') < 1e-9
+    frame dg_gr: local o1 = observed[1]
+    assert regexm("`o1'", "^ratio to pooled ([^;]*)")
+    assert abs(real(regexs(1)) - `m4' / `m0') < 1e-9
 }
 _dg `=_rc' "groupstat(relative): cells show group/pooled, the value band() tests; pooled stays raw"
 capture frame drop dg_gr

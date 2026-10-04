@@ -295,7 +295,7 @@ capture noisily {
     quietly keep if status == "fail"
     assert _N == 1
     * the small group's value stays masked
-    assert observed == "mean [suppressed]"
+    assert regexm(observed, "^mean [[]suppressed[]](;|$)")
     assert missing(observed_num) & obs_masked == 1
     restore
     * an explicit min() leaves the small group out by choice

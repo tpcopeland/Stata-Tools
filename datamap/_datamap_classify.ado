@@ -1,6 +1,35 @@
-*! _datamap_classify Version 1.8.2  2026/10/01
+*! _datamap_classify Version 1.9.0  2026/10/03
 *! Shared classification engine for datamap and datadict
 *! Author: Timothy P Copeland, Karolinska Institutet
+
+// Builds the caller's local `dst' as a Stata string expression that evaluates
+// to the caller's local `src' verbatim: runs of ordinary characters in plain
+// quotes joined with char() calls for each double quote, backtick and dollar
+// sign, so a label holding any of them cannot be read as quote or macro syntax
+// when the expression is spliced into a -post- line.
+capture mata: mata drop _datamap_strexpr()
+mata:
+void _datamap_strexpr(string scalar src, string scalar dst)
+{
+	string scalar s, out, run, ch
+	real scalar i, a
+	s = st_local(src)
+	out = ""
+	run = ""
+	for (i = 1; i <= strlen(s); i++) {
+		ch = substr(s, i, 1)
+		a = ascii(ch)
+		if (a == 34 | a == 96 | a == 36) {
+			if (run != "") out = out + (out == "" ? "" : "+") + char(34) + run + char(34)
+			run = ""
+			out = out + (out == "" ? "" : "+") + "char(" + strofreal(a) + ")"
+		}
+		else run = run + ch
+	}
+	if (run != "" | out == "") out = out + (out == "" ? "" : "+") + char(34) + run + char(34)
+	st_local(dst, "(" + out + ")")
+}
+end
 
 program define _datamap_classify, rclass
     version 16.0
@@ -380,8 +409,9 @@ program define _datamap_classify, rclass
             local valab_post `"`valab'"'
             if `isexcluded' local valab_post ""
 
+            mata: _datamap_strexpr("vlab", "_dmx_vlab")
             post `posth' (`"`vname'"') (`"`vtype'"') (`"`vfmt'"') ///
-                (`"`macval(vlab)'"') (`"`valab_post'"') (`nmiss') (`pctmiss') ///
+                (`_dmx_vlab') (`"`valab_post'"') (`nmiss') (`pctmiss') ///
                 (`"`class'"') (`nuniq') (`is_binary') (`"`qflag'"') (`i') ///
                 (`maxlen') (`ncapped')
         }
