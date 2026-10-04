@@ -547,10 +547,11 @@ capture noisily {
     format visit_dt index_dt %td
     codescan dx1, define(dm2 "E11") date(visit_dt) refdate(index_dt) ///
         lookback(0) lookforward(0) inclusive
-    * Only patient 1 (visit_dt == index_dt) should match
+    * Only patient 1 (visit_dt == index_dt) is in the window; the others are
+    * outside it and carry a missing indicator (v4.3.0 three-state contract)
     assert dm2 == 1 in 1
-    assert dm2 == 0 in 2
-    assert dm2 == 0 in 3
+    assert missing(dm2) in 2
+    assert missing(dm2) in 3
 }
 if _rc == 0 {
     display as result "  PASS: Lookback(0) lookforward(0) inclusive (single day)"

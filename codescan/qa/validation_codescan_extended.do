@@ -266,13 +266,15 @@ else {
 * Window: [21915, 22280]
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21914 21915 0
+    1 "E110" 21914 21915 .
     2 "E110" 21915 21915 1
     3 "E110" 21916 21915 1
     4 "E110" 22280 21915 1
-    5 "E110" 22281 21915 0
+    5 "E110" 22281 21915 .
     end
     format visit_dt index_dt %td
 
@@ -514,7 +516,7 @@ capture noisily {
     * 30d window: 1/2 patients → 50%
     assert abs(S[1,1] - 50) < 0.1
     * 90d window: 2/3 patients → 66.7%
-    assert abs(S[1,2] - 66.667) < 0.1
+    assert abs(S[1,2] - 200/3) < 0.1
     * 365d window: 3/4 patients → 75%
     assert abs(S[1,3] - 75) < 0.1
 }
@@ -833,13 +835,15 @@ else {
 * Row 5: visit 21926 → OUTSIDE (1 day after window)
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21884 21915 0
+    1 "E110" 21884 21915 .
     2 "E110" 21885 21915 1
     3 "E110" 21915 21915 1
     4 "E110" 21925 21915 1
-    5 "E110" 21926 21915 0
+    5 "E110" 21926 21915 .
     end
     format visit_dt index_dt %td
     codescan dx1, define(dm2 "E11") date(visit_dt) refdate(index_dt) ///

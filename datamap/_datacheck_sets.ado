@@ -1,4 +1,4 @@
-*! _datacheck_sets Version 1.9.0  2026/10/03
+*! _datacheck_sets Version 1.9.0  2026/10/04
 *! datacheck sets(): matched-set structure
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

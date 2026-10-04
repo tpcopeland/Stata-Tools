@@ -1,4 +1,4 @@
-*! _datacheck_gtext Version 1.9.0  2026/10/03
+*! _datacheck_gtext Version 1.9.0  2026/10/04
 *! Group-value text for a by() group or one row: the ledger form and the display form
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal helper)

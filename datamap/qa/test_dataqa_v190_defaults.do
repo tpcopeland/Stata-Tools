@@ -455,7 +455,7 @@ capture noisily {
     datacheck, gatesonly isid(idcode) name(nlsw)
     capture dataqa assert
     assert _rc == 9
-    assert r(n_failed) >= 1
+    assert !missing(r(n_failed)) & r(n_failed) >= 1
     dataqa set clear
 }
 _dq `=_rc' "pipeline negative controls: synthetic switch blanks the baseline; absent dataset and failed gate halt assert"

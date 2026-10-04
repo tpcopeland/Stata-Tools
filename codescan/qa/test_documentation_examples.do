@@ -233,7 +233,8 @@ capture noisily {
     sort condition
     assert matches == 1 if condition == "dm2"
     assert matches == 1 if condition == "htn"
-    assert abs(prevalence - 33.33) < 0.01 if inlist(condition, "dm2", "htn")
+    * 1 of 3 units matched each condition: 100/3 percent
+    assert abs(prevalence - 100/3) < 0.01 if inlist(condition, "dm2", "htn")
     restore
 }
 if _rc == 0 {

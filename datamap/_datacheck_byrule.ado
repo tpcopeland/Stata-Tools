@@ -1,4 +1,4 @@
-*! _datacheck_byrule Version 1.9.0  2026/10/03
+*! _datacheck_byrule Version 1.9.0  2026/10/04
 *! datacheck byrule(): a row-level rule evaluated under Stata's by byvars (sortvars): semantics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -36,6 +36,11 @@ program define _datacheck_byrule, rclass
         }
         local bspec = strtrim(substr(`"`part'"', 1, `cp' - 1))
         local rest = strtrim(substr(`"`part'"', `cp' + 1, .))
+        // only the label may be quoted: "id (t): ..." quoted whole is not a byspec
+        if strpos(`"`bspec'"', char(34)) | strpos(`"`bspec'"', char(96)) {
+            display as error `"byrule() spec must be byvars (sortvars): "label": expression, with only the label in quotes"'
+            exit 198
+        }
         // ---- byspec: byvars (sortvars) | byvars | (sortvars) ----
         local byv ""
         local srt ""

@@ -59,7 +59,8 @@ local mata_surface ///
     _rm_bsearch_first_gt _rm_bsearch_last_lt _rm_key_block_uobs ///
     _rm_store_indexed _rm_vl_same _rm_vl_candidate _rm_vl_taken ///
     _rm_vl_resolve_dangling _rm_vl_resolve ///
-    _rm_materialize _rm_fill_using_only _rm_generate_distance
+    _rm_materialize _rm_fill_using_only _rm_generate_distance ///
+    _rm_copy_vl_defs
 local missing_fn ""
 foreach fn of local mata_surface {
     mata: st_local("has_fn", strofreal(findexternal("`fn'()") != NULL))

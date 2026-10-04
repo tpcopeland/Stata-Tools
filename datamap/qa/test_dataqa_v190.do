@@ -303,7 +303,7 @@ _dq `=_rc' "assert baseline(): optional()/baseledger() without baseline() r(198)
 
 capture noisily {
     dataqa compare using "`L'", run(n1) baseline(b0)
-    assert r(n_flags) >= 1
+    assert !missing(r(n_flags)) & r(n_flags) >= 1
     capture log close _dql
     log using "`lgf'", text replace name(_dql)
     dataqa compare using "`L'", run(n1) baseline(b0)
@@ -311,7 +311,7 @@ capture noisily {
     _dq_has "`lgf'" "absent  gamma"
     assert r(has) == 1
     dataqa compare using "`LC'", run(n1) baseline(b0) baseledger("`LB'")
-    assert r(n_flags) >= 1
+    assert !missing(r(n_flags)) & r(n_flags) >= 1
     dataqa compare using "`L'", run(n2) baseline(b0)
     assert r(n_flags) == 0
 }

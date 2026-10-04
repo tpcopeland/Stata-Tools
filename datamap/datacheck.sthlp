@@ -82,7 +82,7 @@
 {synopt:{opt regex(spec)}}require strings to match regexes{p_end}
 {synopt:{opt notv:alues(spec)}}reject sentinel or disallowed values{p_end}
 {synopt:{opt rule(spec)}}require labelled row-level rules to hold{p_end}
-{synopt:{opt byrule(spec)}}row-level rules under {cmd:by} {it:byvars} {cmd:(}{it:sortvars}{cmd:):} semantics{p_end}
+{synopt:{opt byrule(spec)}}row-level rules under {cmd:by} semantics{p_end}
 {synopt:{opt stat(spec)}}require a statistic inside a band{p_end}
 {synopt:{opt bin:ary(varlist)}}require 0/1 flags with both levels{p_end}
 {synopt:{opt events(spec)}}require events at every covariate level{p_end}
@@ -344,9 +344,8 @@ and {cmd:x[_n}{it:+-k}{cmd:]} refer to positions within a group. Each
 {cmd:\}-separated entry is {it:byspec}{cmd::} {it:label}{cmd::} {it:expression},
 where {it:byspec} is {it:byvars} {cmd:(}{it:sortvars}{cmd:)}, {it:byvars} alone,
 or {cmd:(}{it:sortvars}{cmd:)} alone, for no groups, exactly as in
-{help bysort}. Examples:
-{cmd:byrule(id (dose_date): "seq": dose_num == _n)};
-{cmd:byrule(id (dose_date): "last": _n == _N | next_dose == dose_date[_n+1])};
+{help bysort}. Examples: {cmd:byrule(id (dose_date): "seq": dose_num == _n)},
+{cmd:byrule(id (dose_date): "last": _n == _N | next_dose == dose_date[_n+1])}, and
 {cmd:byrule((step): "monotone": _n == 1 | value >= value[_n-1])}. The rows are
 sorted with {cmd:sort} {it:byvars sortvars}{cmd:, stable} on {cmd:datacheck}'s own
 copy, so the data and their order are unchanged after the call, and rows tied on
@@ -478,8 +477,8 @@ well, and zero is not, so a table written by tabtools with the same
 {it:#} passes this gate.
 
 {pmore}
-{opt smallcells()} is always an invariant, never a band, and fails with exit 9.
-The message and the record carry no count value, only the number of table rows
+{opt smallcells()} is always an invariant, never a band, and fails with exit 9. The
+message and the record carry no count value, only the number of table rows
 that fail, with the {it:countexp} and reason that failed, as in
 {bf:1 table rows fail, n1-e1 (1 small)}. The row count is
 a count of table rows, not persons; under {opt maskrare} it prints as
@@ -533,8 +532,8 @@ statistic. Without {cmd:endq()} the raw extremes are used, as before.
 {pmore}
 {cmd:gap(none)} declares that the plan sources no delivery lag. {cmd:gap()}
 is still required and has no default; {cmd:none} is a typed declaration, not a
-default. The {bf:outside} check, {cmd:tail()} and {cmd:years} still run;
-{bf:late_end} and {bf:early_start} are not tested, print as "not declared
+default. The {bf:outside} check, {cmd:tail()} and {cmd:years} still run; {bf:late_end}
+and {bf:early_start} are not tested, print as "not declared
 (gap(none))", write no {opt ledger()} or {opt checks()} rows, and are not
 counted as passes. {cmd:gap(none)} with {cmd:endq()} is r(198).
 
@@ -620,14 +619,14 @@ whose value is undefined is reported as undefined. A passing band and an entry w
 read as before.
 
 {pmore}
-A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::}
-{it:var}{cmd:, by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)},
+A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
+[{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)},
 prints one table with a column per statistic, for example
 {cmd:groupstat(n mean p1 median p99: ipw, by(arm))}. At most six statistics fit
 the table. Each statistic is computed and recorded exactly as its own
 single-statistic entry would be, so {cmd:ledger()} gets one row per statistic,
-labelled {it:statistic var}, and {cmd:checks()} rows stay one statistic each.
-Masking follows the rules above cell by cell, and {cmd:min()} and the entry's
+labelled {it:statistic var}, and {cmd:checks()} rows stay one statistic each. Masking
+follows the rules above cell by cell, and {cmd:min()} and the entry's
 {cmd:if} apply to every column. {cmd:band()} and {cmd:relative} are declared per
 statistic, so an entry with two or more statistics takes neither and is a review
 item; write a separate entry for each banded statistic. An entry with two or more
@@ -665,8 +664,8 @@ apostrophe, backtick, dollar sign, square bracket or brace, and tab, line feed a
 carriage return, written as
 {cmd:\x}{it:HH} (two lowercase hex digits), so a value holding spaces, {cmd:=},
 {cmd:|} or quotes cannot be mistaken for a separator. A group withheld under
-{opt maskrare} is named by its number ({cmd:by(site group 7)}), not its values.
-{opt intervals()},
+{opt maskrare} is named by its number ({cmd:by(site group 7)}), not its values. {opt intervals()},
+
 {opt keyset()}, {opt constant()}, {opt sets()}, {opt smallcells()}, {opt coverage()},
 {opt heaping()}, {opt groupstat()}, and {opt jumps()} ignore {opt by()} and run
 once on the {cmd:if}/{cmd:in} sample. {opt over(varname)} is a single-variable
@@ -676,8 +675,8 @@ synonym for {opt by(varlist)}.
 {opt byfreq} adds a GROUPWISE FREQUENCIES block to the profile: for every
 categorical and string variable, the same frequency table as the pooled one
 (descending count, ties in level order, {opt maxfreq()} levels, {opt rare()} flags)
-within each {opt by()} group, headed by the group label of the GROUPWISE SUMMARY.
-Under {opt maskrare}, each cell and the pooled {bf:[suppressed]} lines follow the pooled
+within each {opt by()} group, headed by the group label of the GROUPWISE SUMMARY. Under
+{opt maskrare}, each cell and the pooled {bf:[suppressed]} lines follow the pooled
 table's rules, and a group pooled away by the mask is not listed. The call's
 {cmd:if}/{cmd:in} apply, string and numeric groups work, and {opt nomissing} leaves the
 tables as they are. {opt byfreq} is an option because {opt by()} alone leaves the
@@ -773,8 +772,8 @@ printed), {cmd:observed_num} (missing whenever {cmd:observed} is masked),
 {opt maskrare} with a threshold of at least 5), {cmd:mincell},
 {cmd:minshown} (the smallest positive count printed unmasked),
 {cmd:obs_masked}, and {cmd:message}. The working ledger belongs on the server
-with the data; {help dataqa:dataqa export} writes the release copy.
-A call that exits for any reason other than a gate failure (exit 9) or Break,
+with the data; {help dataqa:dataqa export} writes the release copy. A
+call that exits for any reason other than a gate failure (exit 9) or Break,
 such as a parse error or a missing variable, appends one row with
 {cmd:family} {cmd:call} and {cmd:status} {cmd:error} before exiting with its own
 return code, and {help dataqa:dataqa assert} halts on it. Under

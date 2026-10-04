@@ -204,13 +204,14 @@ capture noisily {
     * matched, 0 = analyzed and something matched, . = outside the analysis
     * sample. The two keepme==0 rows are filtered out by the if, so they are not
     * analyzed and must be missing -- previously they were 0, which was
-    * indistinguishable from the row that genuinely matched.
+    * indistinguishable from the row that genuinely matched. Since v4.3.0 the
+    * condition indicator follows the same contract: missing on those rows.
     clear
     input byte keepme str10 dx1 byte exp_dm2 byte exp_unmatched str10 exp_mc
     1 "E110" 1 0 "E110"
-    0 "E110" 0 . ""
+    0 "E110" . . ""
     1 "Z00"  0 1 ""
-    0 "Z00"  0 . ""
+    0 "Z00"  . . ""
     end
 
     codescan dx1 if keepme, define(dm2 "E11") unmatched(nohit) matched_code(mc)

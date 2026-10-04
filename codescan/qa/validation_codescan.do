@@ -208,14 +208,16 @@ else {
 
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21549 21915 0
+    1 "E110" 21549 21915 .
     2 "E110" 21550 21915 1
     3 "E110" 21551 21915 1
     4 "E110" 21914 21915 1
-    5 "E110" 21915 21915 0
-    6 "E110" 21916 21915 0
+    5 "E110" 21915 21915 .
+    6 "E110" 21916 21915 .
     end
     format visit_dt index_dt %td
 
@@ -237,13 +239,15 @@ else {
 * V3b: Lookback with inclusive — refdate boundary included
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21549 21915 0
+    1 "E110" 21549 21915 .
     2 "E110" 21550 21915 1
     3 "E110" 21914 21915 1
     4 "E110" 21915 21915 1
-    5 "E110" 21916 21915 0
+    5 "E110" 21916 21915 .
     end
     format visit_dt index_dt %td
 
@@ -272,13 +276,15 @@ else {
 
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21914 21915 0
-    2 "E110" 21915 21915 0
+    1 "E110" 21914 21915 .
+    2 "E110" 21915 21915 .
     3 "E110" 21916 21915 1
     4 "E110" 22280 21915 1
-    5 "E110" 22281 21915 0
+    5 "E110" 22281 21915 .
     end
     format visit_dt index_dt %td
 
@@ -301,13 +307,15 @@ else {
 * Window: [2019-01-02, 2021-01-01] — refdate included
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" 21549 21915 0
+    1 "E110" 21549 21915 .
     2 "E110" 21550 21915 1
     3 "E110" 21915 21915 1
     4 "E110" 22280 21915 1
-    5 "E110" 22281 21915 0
+    5 "E110" 22281 21915 .
     end
     format visit_dt index_dt %td
 
@@ -330,11 +338,13 @@ else {
 * V3e: Missing date excluded from window
 local ++test_count
 capture noisily {
+    * v4.3.0: every code matches, so expected 0 meant "outside the window";
+    * those rows now carry a missing indicator (three-state row-level contract).
     clear
     input long pid str10 dx1 double visit_dt double index_dt byte expected
-    1 "E110" .     21915 0
-    2 "E110" 21914 .     0
-    3 "E110" .     .     0
+    1 "E110" .     21915 .
+    2 "E110" 21914 .     .
+    3 "E110" .     .     .
     4 "E110" 21914 21915 1
     end
     format visit_dt index_dt %td

@@ -246,6 +246,7 @@ local ++tests
 local root ""
 capture noisily {
     * expect: REFUSED
+    * (the call is refused; its call-error row is the one write)
     qa_fx_a7_files, clear seed(37) perturb(path_hostile)
     local root `"`r(root)'"'
     local ledger `"`root'/ledger spaces.dta"'
@@ -259,7 +260,20 @@ capture noisily {
     log close ledgercause
     assert `original_rc'==198
     qa_state_compare, tag(ledger_quotes)
-    python: assert "the only suboption is run(string)" in Path(Macro.getLocal("cause")).read_text(); assert _ld_before=={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    * The call failed after the ledger path was read, so it leaves one
+    * call-error row there (rc 198), as the plain-quoted form always did;
+    * nothing else in the tree changes.  Before 1.9.0's quoting fix the
+    * compound-quoted path made the row writer stop with r(132).
+    python: assert "the only suboption is run(string)" in Path(Macro.getLocal("cause")).read_text(); assert "could not be written" not in Path(Macro.getLocal("cause")).read_text(); _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; assert set(_ld_after)-set(_ld_before)=={"ledger spaces.dta"}, sorted(set(_ld_after)^set(_ld_before)); assert all(_ld_after[k]==v for k,v in _ld_before.items())
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N == 1
+    assert family == "call" & status == "error" & kind == "invariant"
+    assert observed_num == 198 & observed == "rc 198"
+    assert run == ""
+    assert strpos(message, "datacheck call exited with rc 198: datacheck ") == 1
+    assert strpos(message, "not_an_option") > 0
+    restore
 }
 local outcome=_rc
 capture log close ledgercause

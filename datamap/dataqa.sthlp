@@ -173,17 +173,17 @@ without {bf:(modified)}.
 {pstd}
 With {opt baseline()}, {cmd:dataqa assert} also exits with return code 9 when a
 named dataset has rows in the baseline run but none in the run asserted,
-unless the dataset is listed in {opt optional()}. It names every such dataset.
-This replaces a hand-kept {opt expect()} list and covers datasets the list
+unless the dataset is listed in {opt optional()}. It names every such dataset. This
+replaces a hand-kept {opt expect()} list and covers datasets the list
 omits. Without {opt baseline()} on the call, the session baseline of
 {cmd:dataqa set baseline()} is used, with the same check. The baseline is resolved as in {cmd:dataqa compare}: the run
 {opt baseline()} in the ledger given by {opt baseledger()}, else in the ledger
 asserted. A baseline label with no rows is an error, r(2000), never a pass. A
-dataset with rows now and none in the baseline is not an error.
-{opt expect()} still works, alone or together with {opt baseline()}. Calls
+dataset with rows now and none in the baseline is not an error. {opt expect()}
+still works, alone or together with {opt baseline()}. Calls
 without a dataset name cannot be matched and are not checked. {opt optional()}
-and {opt baseledger()} without {opt baseline()} are r(198).
-A dataset name with a space goes in compound quotes in {opt expect()} and
+and {opt baseledger()} without {opt baseline()} are r(198). A
+dataset name with a space goes in compound quotes in {opt expect()} and
 {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'} {it:d}{cmd:)}.
 
 {dlgtab:dataqa export}
@@ -265,12 +265,12 @@ specification, so a call without {opt baseline()}, or with
 {cmd:baseline("")}, leaves no baseline; this is how a synthetic run switches
 it off. The same quoting limits as {opt run()} apply. With only a session
 baseline, {cmd:dataqa assert} runs the baseline check described there, and
-a baseline with no rows is r(2000) there, as with an explicit one.
-{cmd:dataqa compare} says it has no rows and exits 0.
+a baseline with no rows is r(2000) there, as with an explicit one. {cmd:dataqa compare}
+says it has no rows and exits 0.
 
 {phang}
-{opt baseled:ger(filename)} is the ledger file that holds the baseline run;
-without it the baseline is read from the ledger of the current run. It
+{opt baseled:ger(filename)} is the ledger file that holds the baseline run; without
+it the baseline is read from the ledger of the current run. It
 requires {opt baseline()} (r(198) otherwise) and takes the same suffix rule as
 {opt ledger()}. It goes with the session baseline: a call that types its own
 {opt baseline()} but no {opt baseledger()} reads that baseline from the ledger of
@@ -436,13 +436,16 @@ rows left out because a later call of the same gate replaced
 them. {cmd:dataqa report}
 stores {cmd:r(N)} (rows read after that), {cmd:r(n_datasets)}, {cmd:r(n_failed)},
 {cmd:r(n_warned)}, {cmd:r(ledger)}, {cmd:r(run)}, with {opt markdown()}
-{cmd:r(markdown)} and {cmd:r(n_rows)}, and with {opt bands} {cmd:r(n_bands)}. {cmd:dataqa assert} stores {cmd:r(N)},
-{cmd:r(n_failed)}, {cmd:r(n_errors)} (error rows, included in {cmd:r(n_failed)}), {cmd:r(missing)} (expected datasets without rows), and
+{cmd:r(markdown)} and {cmd:r(n_rows)}, and with {opt bands} {cmd:r(n_bands)}. {cmd:dataqa assert}
+stores {cmd:r(N)}, {cmd:r(n_failed)}, {cmd:r(n_errors)} (error rows, included in
+{cmd:r(n_failed)}),
+{cmd:r(missing)} (expected datasets without rows), and
 {cmd:r(run)}, also when it halts with r(9). With {opt baseline()} it also stores
 {cmd:r(baseline)}, {cmd:r(n_missing_base)} and {cmd:r(missing_base)} (baseline
 datasets without rows now, each in compound quotes),
-{cmd:r(n_optional_absent)} and {cmd:r(optional_absent)} (those waived by {opt optional()}); the baseline may come from {cmd:dataqa set baseline()}. {cmd:dataqa export} stores
-{cmd:r(N)}, {cmd:r(n_scope_dropped)}, and {cmd:r(saving)}. {cmd:dataqa compare}
+{cmd:r(n_optional_absent)} and {cmd:r(optional_absent)} (those waived by
+{opt optional()}); the baseline may come from {cmd:dataqa set baseline()}. {cmd:dataqa export}
+stores {cmd:r(N)}, {cmd:r(n_scope_dropped)}, and {cmd:r(saving)}. {cmd:dataqa compare}
 stores {cmd:r(n_flags)} and {cmd:r(baseline)}, and with {opt baseline()}
 {cmd:r(run)}.
 

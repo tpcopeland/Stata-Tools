@@ -478,7 +478,9 @@ capture noisily {
     mata: assert(st_global("r(chapter_3)") == char(36))
 
     import delimited using "`dollar_csv'", clear stringcols(_all) varnames(1)
-    count if name == "chapter___3" & pattern == char(36) & ///
+    * v4.3.0: the draft pattern is regex-escaped -- a bare "$" anchored as
+    * ^($) matches only the empty string and is refused by codescan.
+    count if name == "chapter___3" & pattern == char(92) + char(36) & ///
         exclusion == "" & label == ""
     assert r(N) == 1
 

@@ -268,8 +268,9 @@ capture noisily {
     format visit_dt index_dt %td
 
     * Manual: lookback(100) exclusive of refdate → [21900, 22000)
-    gen byte manual_dm2 = 0
-    replace manual_dm2 = 1 if regexm(dx1, "^(E11)") & ///
+    * Three-state (v4.3.0): missing outside the window, else the regex result
+    gen byte manual_dm2 = .
+    replace manual_dm2 = regexm(dx1, "^(E11)") if ///
         visit_dt >= index_dt - 100 & visit_dt < index_dt & ///
         !missing(visit_dt) & !missing(index_dt)
 
@@ -510,8 +511,9 @@ capture noisily {
     format visit_dt index_dt %td
 
     * Manual: lookback(100) + lookforward(50) → [21900, 22050] inclusive
-    gen byte manual = 0
-    replace manual = 1 if regexm(dx1, "^(E11)") & ///
+    * Three-state (v4.3.0): missing outside the window, else the regex result
+    gen byte manual = .
+    replace manual = regexm(dx1, "^(E11)") if ///
         visit_dt >= index_dt - 100 & visit_dt <= index_dt + 50 & ///
         !missing(visit_dt) & !missing(index_dt)
 

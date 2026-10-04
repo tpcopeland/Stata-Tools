@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.2.5  30sep2026}{...}
+{* *! version 4.3.0  04oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -114,7 +114,10 @@ Rules can be supplied inline through {cmd:define()} or read from a reusable
 CSV/{cmd:.dta} code dictionary via {cmd:codefile()}. Matching is anchored at
 the start of each code value — for example, the pattern {cmd:"E11"} matches
 {cmd:E110}, {cmd:E119}, and any other code that starts with {cmd:E11}, but
-does not match {cmd:AE11}. The default {cmd:regex} mode supports character
+does not match {cmd:AE11}. Code values are matched exactly as stored, and
+leading or trailing spaces are not trimmed, so a padded {cmd:" E11"} does not
+match {cmd:"E11"}. {helpb codescan_describe} lists such values as their own
+codes; clean them with {helpb strtrim()} before scanning. The default {cmd:regex} mode supports character
 classes and alternation (for example {cmd:"I1[0-35]"} matches {cmd:I10},
 {cmd:I11}, {cmd:I12}, {cmd:I13}, and {cmd:I15}); {cmd:prefix} mode uses
 simple starts-with comparisons and is faster when regex features are not
@@ -304,8 +307,8 @@ fit inside Stata's 32-character variable-name limit.
 {phang}
 {opt codefile(string)} reads definitions from a CSV or {cmd:.dta} dataset. The
 file must contain string variables {bf:name} and {bf:pattern}. Optional columns
-are {bf:label} and {bf:exclusion}. Column names are matched case-insensitively,
-and exactly one column may supply each of the four fields: a file carrying two
+are {bf:label}, {bf:exclusion}, and {bf:match}. Column names are matched case-insensitively,
+and exactly one column may supply each of the five fields: a file carrying two
 columns whose names differ only by case, such as {bf:pattern} and {bf:PATTERN},
 is rejected rather than resolved to one of them.
 
@@ -314,6 +317,18 @@ The {bf:name} column must contain valid, unique Stata names no longer than 26
 characters. The {bf:pattern} column supplies the inclusion rule. The {bf:exclusion}
 column supplies one or more exclusions separated by {cmd:|}. The {bf:label} column is
 used for variable labels and displayed/exported condition labels.
+
+{pmore}
+The {bf:match} column records the matching options the rules were written for,
+for example {cmd:mode(prefix) nocase}; {cmd:save()} writes it. The same pattern
+means different things under different options (in {cmd:mode(prefix)}
+{cmd:"E1.1"} is one literal code; in {cmd:mode(regex)} the {cmd:.} matches any
+character), so when the column is present, {cmd:codescan} refuses a call whose
+{cmd:mode()}, {cmd:nocase}, and {cmd:nodots} differ from it, and names the
+options to use. It must hold the same value on every row, using only
+{cmd:mode(regex)} or {cmd:mode(prefix)}, {cmd:nocase}, and {cmd:nodots}. A file
+without the column, or with it empty on every row, is accepted under any
+options.
 
 {pmore}
 Values in codefile fields must not contain global-macro references such as
@@ -363,7 +378,11 @@ rejected with {cmd:r(198)} rather than applied.
 
 {phang}
 {opt save(filename [, replace])} writes the parsed {cmd:define()} rules to a CSV
-with columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. The
+with columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, {cmd:label}, and
+{cmd:match}, the last recording this call's {cmd:mode()}, {cmd:nocase}, and
+{cmd:nodots} so that reloading the file through {cmd:codefile()} under other
+options is refused rather than silently giving a different cohort. Patterns
+are written after any {cmd:level()} truncation. The
 filename must end in {cmd:.csv}. This option is not allowed with
 {cmd:codefile()} because a file-based definition source already exists. An
 existing file is never overwritten unless the {cmd:replace} suboption is
@@ -432,8 +451,10 @@ are collapsed with {cmd:(sum)} instead.
 {phang}
 {opt merge} computes patient-level results exactly as {cmd:collapse} would, then
 merges them back onto the original row structure, in the original row order
-and with the data's sort order ({cmd:sortedby}) intact. Every {it:analyzed} row for a
-given {cmd:id()} receives the same patient-level values. An {cmd:id()} whose rows
+and with the data's sort order ({cmd:sortedby}) intact. Every row of an
+{cmd:id()} with at least one analyzed row receives that id's patient-level
+values, including the id's own rows that fell outside {cmd:if}/{cmd:in} or the
+window: the values describe the person, not the row. An {cmd:id()} whose rows
 are all excluded from the analysis — by {cmd:if}/{cmd:in} or by a
 {cmd:lookback()}/{cmd:lookforward()} window — receives {cmd:.} (missing), not 0,
 in every condition variable: missing marks "not analyzed" and is distinct from 0
@@ -557,7 +578,8 @@ column per condition containing the pairwise count.
 
 {phang}
 {opt format(%fmt)} controls the displayed and exported format of the prevalence
-column. The default prevalence format is {cmd:%9.1f}. In an {cmd:.xlsx} export
+column, the multi-window sensitivity table, and the {cmd:graph} bar labels. The
+default prevalence format is {cmd:%9.1f}. In an {cmd:.xlsx} export
 the format is the cell's number format and the cell keeps full precision. A
 {cmd:.csv} cell is text, so an explicit {cmd:format()} is applied to the written
 digits ({cmd:format(%9.2f)} writes {cmd:33.33}); without {cmd:format()} the
@@ -590,8 +612,11 @@ a period (for example {cmd:"E11.0"}) can never match a stripped value like
 {cmd:E110}, so {cmd:codescan} rejects it rather than returning a silent zero
 cohort. The same check applies to {cmd:~} exclusion prefixes, and it runs after
 {cmd:level()} truncation, so a period that {cmd:level()} cuts away is not an
-error. (In {cmd:mode(regex)} a {cmd:.} is the regex "any character"
-metacharacter and is left untouched.)
+error. In {cmd:mode(regex)} a bare {cmd:.} is the "any character"
+metacharacter and is left untouched, but a {it:required} literal period -- an
+escaped {cmd:\.} or the class {cmd:[.]} -- can never match undotted data either,
+so it is rejected in an inclusion or an exclusion for the same reason (a dead
+exclusion would silently exclude nothing).
 
 {phang}
 {opt tostring} converts numeric variables in {varlist} to temporary strings for scanning,
@@ -665,6 +690,14 @@ The window rules implemented by {cmd:codescan} are:
 
 {phang2}{cmd:lookback(#)} plus {cmd:lookforward(#)}: date in
 [{cmd:refdate} - lookback, {cmd:refdate} + lookforward]{p_end}
+
+{pstd}
+At the row level (no {cmd:collapse} or {cmd:merge}), condition variables have
+three states, like {cmd:unmatched()}: 1 (or a count) when an analyzed row
+matched, 0 when it was analyzed and did not, and missing ({cmd:.}) when the row
+was outside the analysis sample -- excluded by {cmd:if}/{cmd:in}, a missing
+date, or the window. So {cmd:count if !missing(}{it:name}{cmd:)} reproduces
+{cmd:r(N)}, and {cmd:summarize} {it:name} reproduces the displayed prevalence.
 
 {pstd}
 When a window is active, {cmd:r(N)} refers to the analyzed sample after {cmd:if},
@@ -745,7 +778,10 @@ in full. Either way the pattern never defines cohort membership.
 and {cmd:saving()} reject quotes, shell metacharacters, and control characters
 inside filenames. Use ordinary quoted paths with spaces or hyphens. Within one call,
 {cmd:save()}, {cmd:export()}, and {cmd:saving()} must name
-different output paths.
+different output files. This is checked on the filesystem before any work, not
+only on the path text, so two paths that reach one file through a symbolic link
+or a case-insensitive filesystem are refused too; the check briefly creates and
+removes an empty file at each target that does not yet exist.
 
 {pstd}
 {bf:Reusable workflows.} Many projects start with

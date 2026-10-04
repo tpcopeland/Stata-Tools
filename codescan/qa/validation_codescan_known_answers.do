@@ -114,15 +114,17 @@ capture noisily {
     clear
     input str12 scenario str10 dx1 double visit_dt double index_dt ///
         byte exp_lb byte exp_lb_inc byte exp_lf byte exp_lf_inc byte exp_both
-    "pre_out" "E110" 21549 21915 0 0 0 0 0
-    "lb_lo"   "E110" 21550 21915 1 1 0 0 1
-    "pre_in"  "E110" 21914 21915 1 1 0 0 1
-    "ref"     "E110" 21915 21915 0 1 0 1 1
-    "post_in" "E110" 21916 21915 0 0 1 1 1
-    "lf_hi"   "E110" 22280 21915 0 0 1 1 1
-    "post_out" "E110" 22281 21915 0 0 0 0 0
-    "miss_d"  "E110" .     21915 0 0 0 0 0
-    "miss_r"  "E110" 21914 .     0 0 0 0 0
+    * v4.3.0: every code matches, so 0 meant "outside the window"; those rows
+    * now carry a missing indicator (three-state row-level contract).
+    "pre_out" "E110" 21549 21915 . . . . .
+    "lb_lo"   "E110" 21550 21915 1 1 . . 1
+    "pre_in"  "E110" 21914 21915 1 1 . . 1
+    "ref"     "E110" 21915 21915 . 1 . 1 1
+    "post_in" "E110" 21916 21915 . . 1 1 1
+    "lf_hi"   "E110" 22280 21915 . . 1 1 1
+    "post_out" "E110" 22281 21915 . . . . .
+    "miss_d"  "E110" .     21915 . . . . .
+    "miss_r"  "E110" 21914 .     . . . . .
     end
     format visit_dt index_dt %td
 
@@ -381,7 +383,8 @@ capture noisily {
     assert rowsof(MW) == 1
     assert colsof(MW) == 3
     assert abs(MW[1,1] - 50) < 0.01
-    assert abs(MW[1,2] - 66.6667) < 0.01
+    * 2 of 3 patients in the 90d window: 200/3 percent
+    assert abs(MW[1,2] - 200/3) < 0.01
     assert abs(MW[1,3] - 75) < 0.01
     assert "`r(lookback)'" == "30 90 365"
 }

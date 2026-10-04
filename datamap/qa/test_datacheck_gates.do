@@ -1853,7 +1853,7 @@ capture {
     _dg_count "`lg'" ".%"
     assert r(n) == 0
     _dg_count "`lg'" "[masked]"
-    assert r(n) >= 1
+    assert !missing(r(n)) & r(n) >= 1
     _dg_count "`lg'" "coverage(outside): <5 of visit_dt dates outside [01jan2020, 31dec2021], tail allows 0%"
     assert r(n) == 1
     frame create dg_led

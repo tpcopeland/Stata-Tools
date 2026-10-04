@@ -1,4 +1,4 @@
-*! _datacheck_groupstat Version 1.9.0  2026/10/03
+*! _datacheck_groupstat Version 1.9.0  2026/10/04
 *! datacheck groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

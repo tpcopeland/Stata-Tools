@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.8  30sep2026}{...}
+{* *! version 1.5.9  04oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -133,7 +133,10 @@ a named frame and leaves the current data unchanged.
 {pstd}
 Output preserves variable labels, value-label attachments and definitions, and
 the master dataset label for both master and carried using variables, as
-{helpb merge} does. If the master and using data define the same value-label
+{helpb merge} does. Every master value-label definition in memory is carried,
+including one that no variable is attached to; a using definition is carried
+when a carried using variable is attached to it. With {opt saving()}, the file is
+written by {helpb save}, which stores only definitions attached to a variable. If the master and using data define the same value-label
 name with the same mapping, the single definition is shared. If they define it
 with {it:different} mappings, the master keeps the original name and the using
 definition is copied under a collision-free name ({it:name}{cmd:_U}, then
@@ -868,7 +871,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.8, 30sep2026{p_end}
+{pstd}Version 1.5.9, 04oct2026{p_end}
 
 
 {title:Also see}

@@ -264,8 +264,11 @@ capture noisily {
     capture log close _dql
     log using "`LG'", text replace name(_dql)
     dataqa compare using "`L'", run(c1) baseline(b0)
+    * read before log close, which clears r(): the old assert passed on missing
+    local nflags = r(n_flags)
     log close _dql
-    assert r(n_flags) >= 1
+    * one item: the error row of c1; its other gates match the baseline
+    assert `nflags' == 1
     _dq_has "`LG'" "error  auto: the call exited with rc 198"
     assert r(has) == 1
     * the control: a baseline against itself flags nothing
@@ -340,7 +343,7 @@ capture noisily {
     * an invariant fails as well: rc 0 under collect, assert halts
     dataqa set ledger("`L'") run(bw2) collect bandwarn
     datacheck, gatesonly rule("big": x <= 18) bands(stat(mean x 0 5)) name(alpha)
-    assert r(n_failed) >= 1
+    assert !missing(r(n_failed)) & r(n_failed) >= 1
     _dq_nstat "`L'" bw2 warn
     assert r(n) == 1
     _dq_nstat "`L'" bw2 fail

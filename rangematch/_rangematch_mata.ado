@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.8  2026/09/30
+*! _rangematch_mata Version 1.5.9  2026/10/04
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -33,6 +33,7 @@ capture mata: mata drop _rm_vl_resolve()
 capture mata: mata drop _rm_materialize()
 capture mata: mata drop _rm_fill_using_only()
 capture mata: mata drop _rm_generate_distance()
+capture mata: mata drop _rm_copy_vl_defs()
 
 * Compile with strict declarations, then restore the caller's setting.
 local _rm_compile_strict = c(matastrict)
@@ -41,7 +42,7 @@ mata set matastrict on
 
 string scalar _rm_mata_version()
 {
-    return("1.5.8")
+    return("1.5.9")
 }
 
 // ============================================================================
@@ -113,7 +114,7 @@ string scalar _rm_first_empty_opt(string scalar cmdline)
              5 \ 6 \ 4 \ 4 \
              4 \ 4 \ 2 \ 3)
 
-    s = strlower(_rm_blank_quoted(cmdline))
+    s = strlower(_rm_blank_quoted(cmdline))  // stata-dev-ignore: identity-fold — folds option NAMES for the empty-argument scan only; values are never compared
     for (i = 1; i <= rows(fulls); i++) {
         L = strlen(fulls[i])
         for (j = mins[i]; j <= L; j++) {
@@ -467,8 +468,13 @@ void _rm_build_pairs_sweep(
         }
     }
 
+    // Sort using by (gid, key, uobs). The trailing uobs (col 3, unique) breaks
+    // ties on equal keys: Mata's sort() does not order ties reproducibly across
+    // calls, so without it nosort output listed tied using rows in a different
+    // order on every run. The binary and overlap backends already break ties
+    // the same way; all three must agree.
     if (nu > 0) {
-        Usorted = sort(U, (1, 2))
+        Usorted = sort(U, (1, 2, 3))
         ugid  = Usorted[., 1]
         ukeys = Usorted[., 2]
         uobs  = Usorted[., 3]
@@ -2017,6 +2023,36 @@ string scalar _rm_vl_resolve(string scalar vvl, real colvector vals,
     // Never pad or fall back to the wrong map: an unresolvable name must error
     // rather than silently attach a definition that means something else.
     _error("unable to derive a collision-free value-label name from " + vvl)
+}
+
+// Copy master value-label definitions that no materialized variable carried
+// into the output frame. Attached definitions travel with their variables in
+// _rm_materialize(); a definition attached to NO variable was dropped, so the
+// rebuilt output lost labels that merge (which leaves the master in place)
+// keeps. Called after the master variables and BEFORE the using variables, so
+// a master definition keeps its own name and a conflicting using mapping is the
+// one _rm_vl_resolve() moves to a collision-free name.
+void _rm_copy_vl_defs(
+    string scalar src_frame,
+    string scalar out_frame,
+    string rowvector names
+)
+{
+    string scalar oldframe
+    string colvector vltxt
+    real colvector vlvals
+    real scalar j
+
+    oldframe = st_framecurrent()
+    for (j = 1; j <= cols(names); j++) {
+        st_framecurrent(src_frame)
+        if (!st_vlexists(names[j])) continue
+        st_vlload(names[j], vlvals, vltxt)
+        if (rows(vlvals) == 0) continue
+        st_framecurrent(out_frame)
+        if (!st_vlexists(names[j])) st_vlmodify(names[j], vlvals, vltxt)
+    }
+    st_framecurrent(oldframe)
 }
 
 void _rm_materialize(

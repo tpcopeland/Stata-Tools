@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.2.5  2026/09/30
+*! _codescan_definitions Version 4.3.0  2026/10/04
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -231,7 +231,61 @@ end
 * Drop first so a reload of this bundled file (loader re-runs it on partial-load)
 * does not crash with "_codescan_validate_regex() already exists" (r3000).
 capture mata: mata drop _codescan_validate_regex()
+capture mata: mata drop _codescan_regex_literal_dot()
 mata:
+// Does a regex REQUIRE a literal period somewhere? nodots strips every period
+// from the data before matching, so an escaped "\." or the one-character class
+// "[.]" can never match, and the pattern silently identifies nothing (as an
+// exclusion it silently excludes nothing). The any-character metacharacter "."
+// and a negated or wider class such as "[^.]" or "[.0-9]" are unaffected. A
+// "\\" pair is an escaped backslash, so the "." after it is the metacharacter.
+real scalar _codescan_regex_literal_dot(string scalar pat)
+{
+    real scalar   i, n, esc, inbr
+    string scalar ch, cls
+
+    n    = strlen(pat)
+    esc  = 0
+    inbr = 0
+    cls  = ""
+    for (i = 1; i <= n; i++) {
+        ch = substr(pat, i, 1)
+        if (inbr) {
+            if (esc) {
+                cls = cls + "\" + ch
+                esc = 0
+                continue
+            }
+            if (ch == "\") {
+                esc = 1
+                continue
+            }
+            if (ch == "]" & cls != "") {
+                inbr = 0
+                if (cls == "." | cls == "\.") return(1)
+                continue
+            }
+            cls = cls + ch
+            continue
+        }
+        if (esc) {
+            esc = 0
+            if (ch == ".") return(1)
+            continue
+        }
+        if (ch == "\") {
+            esc = 1
+            continue
+        }
+        if (ch == "[") {
+            inbr = 1
+            cls  = ""
+        }
+    }
+    return(0)
+}
+
+
 void _codescan_validate_regex(string scalar pat, string scalar cname, string scalar ptype)
 {
     real scalar i, n, depth_paren, depth_bracket, escaped
