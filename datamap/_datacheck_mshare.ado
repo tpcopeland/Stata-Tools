@@ -1,4 +1,4 @@
-*! _datacheck_mshare Version 1.9.0  2026/10/04
+*! _datacheck_mshare Version 1.9.1  2026/10/04
 *! Mask a count and its share of a known total for display under maskrare
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _datacheck_errrow Version 1.9.0  2026/10/04
+*! _datacheck_errrow Version 1.9.1  2026/10/04
 *! Append one error row to the QA ledger for a datacheck call that failed
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

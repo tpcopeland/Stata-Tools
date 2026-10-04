@@ -1,4 +1,4 @@
-*! _datacheck_smallcells Version 1.9.0  2026/10/04
+*! _datacheck_smallcells Version 1.9.1  2026/10/04
 *! datacheck smallcells(): no released count of 1 to m-1 in a results dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

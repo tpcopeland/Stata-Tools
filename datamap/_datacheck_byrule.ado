@@ -1,4 +1,4 @@
-*! _datacheck_byrule Version 1.9.0  2026/10/04
+*! _datacheck_byrule Version 1.9.1  2026/10/04
 *! datacheck byrule(): a row-level rule evaluated under Stata's by byvars (sortvars): semantics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
