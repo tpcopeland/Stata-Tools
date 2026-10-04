@@ -1,10 +1,19 @@
-*! _datacheck_groupstat Version 1.8.2  2026/10/01
+*! _datacheck_groupstat Version 1.9.0  2026/10/03
 *! datacheck groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 // Spec (the entry's own "if" is split off and evaluated by datacheck):
 //   statistic varlist, by(groupvars) [min(#) band(lo hi) relative]
+//   statistic statistic ...: varlist, by(groupvars) [min(#)]
+//
+// The colon form (one or more plain-word statistics, then a colon) prints
+// one table with a column per statistic.  Each statistic runs the
+// single-statistic code path below, so its ledger/record rows are exactly
+// those of the corresponding single-statistic entry; only the display is
+// merged.  A band() or relative is declared per statistic and is refused on
+// an entry with two or more statistics (rc 198), as is a varlist of more
+// than one variable with two or more statistics, and a statistic named twice.
 //
 // statistic: mean sd median p1 p5 p10 p25 p50 p75 p90 p95 p99 sum n distinct
 // pmiss ess, with the definitions of stat().  Prints one row per group and
@@ -28,10 +37,12 @@ program define _datacheck_groupstat, rclass
     local vars ""
     local isgate = 0
     local _fr_made = 0
+    local _cf_made = 0
     tempname fr
     capture noisily {
         syntax , SPEC(string) [PARSEonly RF(name) KIND(string) GRP(string) ///
-            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string)]
+            PFX(string) MASK(integer 0) NSCOPE(real 0) COND(string) SCOPE(string) ///
+            CELLFRAME(name) CELLIDX(integer 0)]
         local head `"`spec'"'
         local opts ""
         local cp = strpos(`"`spec'"', ",")
@@ -39,6 +50,140 @@ program define _datacheck_groupstat, rclass
             local head = strtrim(substr(`"`spec'"', 1, `cp' - 1))
             local opts = substr(`"`spec'"', `cp' + 1, .)
         }
+        local multi = 0
+        local colp = strpos(`"`head'"', ":")
+        if `colp' {
+            local stlist = strtrim(substr(`"`head'"', 1, `colp' - 1))
+            local head = strtrim(substr(`"`head'"', `colp' + 1, .))
+            local nstat : word count `stlist'
+            if `nstat' == 0 | `"`head'"' == "" {
+                display as error `"groupstat() entry must be "statistic [statistic ...]: varlist, by(groupvars)": `spec'"'
+                exit 198
+            }
+            local stnorm ""
+            foreach s1 of local stlist {
+                local s1 = lower("`s1'")
+                if "`s1'" == "median" local s1 "p50"
+                if !inlist("`s1'", "p1", "p5", "p10", "p25", "p50", "p75", "p90", "p95", "p99") & ///
+                    !inlist("`s1'", "mean", "sd", "sum", "n", "distinct", "pmiss", "ess") {
+                    display as error "groupstat(): statistic must be mean, sd, median, p1-p99, sum, n, distinct, pmiss, or ess; got `s1'"
+                    exit 198
+                }
+                if `: list s1 in stnorm' {
+                    display as error "groupstat(): statistic `s1' is listed twice (median and p50 are the same statistic)"
+                    exit 198
+                }
+                local stnorm "`stnorm' `s1'"
+            }
+            local stnorm = strtrim("`stnorm'")
+            if `nstat' == 1 {
+                // one statistic before the colon is today's grammar
+                local head "`stnorm' `head'"
+            }
+            else {
+                local multi = 1
+                if `nstat' > 6 {
+                    display as error "groupstat(): at most 6 statistics per entry (one table column each); got `nstat'"
+                    exit 198
+                }
+                local nhv : word count `head'
+                capture unab hvars : `head'
+                if _rc {
+                    local _src = _rc
+                    display as error `"groupstat(): cannot resolve the variables in: `spec'"'
+                    exit `_src'
+                }
+                local nhv : word count `hvars'
+                if `nhv' > 1 {
+                    display as error "groupstat(): several statistics take one variable per entry (columns are one per statistic); use one groupstat() entry per variable"
+                    exit 198
+                }
+                local 0 `", `opts'"'
+                capture syntax , BY(varlist) [MIN(integer -1) BAND(numlist min=2 max=2) RELative]
+                if _rc {
+                    local _src = _rc
+                    display as error `"groupstat() entry must be "statistic [statistic ...]: varlist, by(groupvars) [min(#)]": `spec'"'
+                    if `_src' == 111 exit 111
+                    exit 198
+                }
+                if "`band'" != "" | "`relative'" != "" {
+                    display as error "groupstat(): band() and relative are declared per statistic; an entry with several statistics is a review item and takes neither. Write one groupstat() entry per banded statistic"
+                    exit 198
+                }
+                foreach s1 of local stnorm {
+                    if !inlist("`s1'", "n", "distinct", "pmiss") {
+                        capture confirm numeric variable `hvars'
+                        if _rc {
+                            display as error "groupstat(): `hvars' is not numeric"
+                            exit 109
+                        }
+                    }
+                }
+                local vars "`hvars' `by'"
+                if "`parseonly'" == "" {
+                    if `"`cond'"' == "" local cond "1"
+                    tempname cf
+                    frame create `cf' int si int kk str244 txt
+                    local _cf_made = 1
+                    local si = 0
+                    foreach s1 of local stnorm {
+                        local ++si
+                        _datacheck_groupstat, spec(`"`s1' `hvars', `opts'"') rf(`rf') ///
+                            kind(`kind') grp(`"`macval(grp)'"') pfx(`"`macval(pfx)'"') ///
+                            mask(`mask') nscope(`nscope') cond(`"`cond'"') ///
+                            scope(`"`macval(scope)'"') cellframe(`cf') cellidx(`si')
+                        local _m1 = r(masked)
+                        local _f1 = r(nfail)
+                        if `_m1' local anymask = 1
+                        local nfail = `nfail' + `_f1'
+                    }
+                    // one table: a column per statistic, the group labels and
+                    // the small-group line taken from the first statistic
+                    local nrow = 0
+                    frame `cf' {
+                        local ncf = _N
+                        forvalues i = 1/`ncf' {
+                            local _si = si[`i']
+                            local _kk = kk[`i']
+                            local _tx = txt[`i']
+                            local t_`_si'_`_kk' `"`macval(_tx)'"'
+                            if `_kk' > `nrow' local nrow = `_kk'
+                        }
+                    }
+                    if `ncf' > 0 {
+                        local sdisp ""
+                        foreach s1 of local stlist {
+                            local sdisp "`sdisp' `=lower("`s1'")'"
+                        }
+                        local sdisp = strtrim("`sdisp'")
+                        display ""
+                        display as text "GROUPSTAT " as result "`sdisp'" as text ": " as result "`hvars'" ///
+                            as text " by(" as result "`by'" as text ")"
+                        local hdr ""
+                        foreach s1 of local sdisp {
+                            local hdr `"`hdr' as text %10s abbrev("`s1'", 9)"'
+                        }
+                        display as text "  " %-16s "Group" `hdr'
+                        forvalues k = 1/`nrow' {
+                            if `"`t_0_`k''"' == "" continue
+                            local line ""
+                            forvalues j = 1/`nstat' {
+                                local line `"`line' as result %10s `"`t_`j'_`k''"'"'
+                            }
+                            local gshow = substr(`"`t_0_`k''"', 1, 16)
+                            display as text "  " as result %-16s `"`gshow'"' `line'
+                        }
+                        local line ""
+                        forvalues j = 1/`nstat' {
+                            local line `"`line' as result %10s `"`t_`j'_0'"'"'
+                        }
+                        display as text "  " as text %-16s "pooled" `line'
+                        if `"`t_0_0'"' != "" display as text `"  `macval(t_0_0)'"'
+                    }
+                }
+            }
+        }
+        if `multi' == 0 {
         gettoken st head : head
         local st = lower("`st'")
         if "`st'" == "median" local st "p50"
@@ -230,14 +375,18 @@ program define _datacheck_groupstat, rclass
 
                 // display
                 local reltxt = cond("`relative'" != "", "  (cells relative to pooled)", "")
-                display ""
-                display as text "GROUPSTAT " as result "`sname'" as text " by(" as result "`byv'" ///
-                    as text ")`reltxt'"
-                local hdr ""
-                foreach v of local gvars {
-                    local hdr `"`hdr' as text %13s abbrev("`v'", 12)"'
+                // cellframe(): the table is printed by the multi-statistic
+                // caller, which collects this statistic's cells
+                if "`cellframe'" == "" {
+                    display ""
+                    display as text "GROUPSTAT " as result "`sname'" as text " by(" as result "`byv'" ///
+                        as text ")`reltxt'"
+                    local hdr ""
+                    foreach v of local gvars {
+                        local hdr `"`hdr' as text %13s abbrev("`v'", 12)"'
+                    }
+                    display as text "  " %-24s "Group" `hdr'
                 }
-                display as text "  " %-24s "Group" `hdr'
                 local nsmall = 0
                 local j = 0
                 foreach v of local gvars {
@@ -333,7 +482,11 @@ program define _datacheck_groupstat, rclass
                         local line `"`line' as result %13s "`s_`k'_`j''""'
                     }
                     local gshow = substr(`"`gl_`k''"', 1, 24)
-                    display as text "  " as result %-24s `"`gshow'"' `line'
+                    if "`cellframe'" == "" display as text "  " as result %-24s `"`gshow'"' `line'
+                    else {
+                        if `cellidx' == 1 frame post `cellframe' (0) (`k') (`"`macval(gl_`k')'"')
+                        frame post `cellframe' (`cellidx') (`k') (`"`s_`k'_1'"')
+                    }
                 }
                 local line ""
                 local j = 0
@@ -341,10 +494,16 @@ program define _datacheck_groupstat, rclass
                     local ++j
                     local line `"`line' as result %13s "`pools_`j''""'
                 }
-                display as text "  " as text %-24s "pooled" `line'
+                if "`cellframe'" == "" display as text "  " as text %-24s "pooled" `line'
+                else frame post `cellframe' (`cellidx') (0) (`"`pools_1'"')
                 if `nsmall' > 0 {
-                    if `mask' > 0 display as text "  groups with <`gmin' rows: " as result `nsmall'
-                    else display as text "  groups with fewer than `gmin' rows: " as result `nsmall'
+                    local smtxt "groups with fewer than `gmin' rows: `nsmall'"
+                    if `mask' > 0 local smtxt "groups with <`gmin' rows: `nsmall'"
+                    if "`cellframe'" == "" {
+                        if `mask' > 0 display as text "  groups with <`gmin' rows: " as result `nsmall'
+                        else display as text "  groups with fewer than `gmin' rows: " as result `nsmall'
+                    }
+                    else if `cellidx' == 1 frame post `cellframe' (0) (0) (`"`smtxt'"')
                 }
 
                 // records
@@ -379,6 +538,78 @@ program define _datacheck_groupstat, rclass
                             (`"`macval(grp)'"') ("pooled `pools_`j''") (.) ("`etxt'") ///
                             (`nscope') (`"`macval(scope)'"') (`"`macval(umsg)'"') (.) (!`pshown_`j'')
                     }
+                    // direction of the failing groups: groups and in-scope rows
+                    // above the band, below it, and (value undefined) neither
+                    local dsum ""
+                    if !`rundef' {
+                        local ng_1 = 0
+                        local ng_2 = 0
+                        local ng_3 = 0
+                        local nr_1 = 0
+                        local nr_2 = 0
+                        local nr_3 = 0
+                        local rtot = 0
+                        local sm_1 = 0
+                        local sm_2 = 0
+                        local sm_3 = 0
+                        forvalues k = 1/`G' {
+                            local rtot = `rtot' + `n_`k''
+                            if !`tst_`k'' continue
+                            local x = regexr(string(`val_`k'_`j'', "%21x"), "^[+]", "")
+                            if "`relative'" != "" local x = regexr(string(`x' / `pool_`j'', "%21x"), "^[+]", "")
+                            if !missing(`x') & `x' >= `blo' & `x' <= `bhi' continue
+                            local dd = cond(missing(`x'), 3, cond(`x' > `bhi', 1, 2))
+                            local ++ng_`dd'
+                            local nr_`dd' = `nr_`dd'' + `n_`k''
+                            // a withheld or below-mask group inside a direction:
+                            // the direction's row total could be that group's size
+                            if `mask' > 0 & (`n_`k'' < `mask' | `sup_`k'') local sm_`dd' = 1
+                        }
+                        // rows of every direction that prints a count; what remains
+                        // of rtot (passing rows plus the withheld directions) of
+                        // 1 to mask-1 rows would give back a masked count
+                        local rshown = 0
+                        forvalues dd = 1/3 {
+                            if `ng_`dd'' == 0 continue
+                            // a withheld direction of mask rows or more gives nothing
+                            // away; one under the mask prints <m, with all-but-<m
+                            if `sm_`dd'' & `nr_`dd'' >= `mask' continue
+                            local rshown = `rshown' + `nr_`dd''
+                        }
+                        local rpass = `rtot' - `rshown'
+                        local dwith = (`mask' > 0 & `rpass' >= 1 & `rpass' < `mask')
+                        local dwords "above below undefined"
+                        forvalues dd = 1/3 {
+                            if `ng_`dd'' == 0 continue
+                            local dw : word `dd' of `dwords'
+                            local rmk = 0
+                            if `dwith' {
+                                local rs "[suppressed]"
+                                local rmk = 1
+                            }
+                            else if `sm_`dd'' & `nr_`dd'' >= `mask' {
+                                // two or more such groups sum past the mask, and the
+                                // sum would pin their sizes; fewer than the mask
+                                // rows in all already prints as <m below
+                                local rs "[suppressed]"
+                                local anymask = 1
+                            }
+                            else {
+                                _datacheck_mcount `nr_`dd'' `mask' `rtot'
+                                local rmk = r(masked)
+                                local rs = cond(`rmk', "`r(s)'", strtrim(string(`nr_`dd'', "%20.0fc")))
+                            }
+                            // a masked row count pins each group to a small cell
+                            // when the groups are many, so the group count follows
+                            local gs = strtrim(string(`ng_`dd'', "%20.0fc"))
+                            if `rmk' & `mask' > 0 & `ng_`dd'' >= 2 & `ng_`dd'' < `mask' local gs "<`mask'"
+                            local gnoun = cond(`ng_`dd'' == 1 & "`gs'" != "<`mask'", "group", "groups")
+                            if `rmk' local anymask = 1
+                            if "`dw'" == "undefined" local piece `"`gs' `gnoun' undefined (rows `rs')"'
+                            else local piece `"`gs' `gnoun' `dw' (rows `rs')"'
+                            local dsum = cond(`"`dsum'"' == "", `"`piece'"', `"`dsum', `piece'"')
+                        }
+                    }
                     forvalues k = 1/`G' {
                         if `rundef' continue
                         if !`tst_`k'' continue
@@ -402,9 +633,9 @@ program define _datacheck_groupstat, rclass
                         local what = cond("`relative'" != "", "ratio to pooled", "`sname'")
                         local g2 `"by(`byv') = `gl_`k''"'
                         if `"`grp'"' != "" local g2 `"`grp'; `g2'"'
-                        local fmsg `"`pfx'groupstat(`sname' `v'): `what' `xs' in group `gl_`k'', expected `etxt'"'
+                        local fmsg `"`pfx'groupstat(`sname' `v'): `what' `xs' in group `gl_`k'', expected `etxt' [`dsum']"'
                         frame post `rf' ("groupstat") ("`kind'") (0) ("`sname' `v'") ("`v'") ///
-                            (`"`macval(g2)'"') ("`what' `xs'") (`onum') ("`etxt'") ///
+                            (`"`macval(g2)'"') ("`what' `xs'; `dsum'") (`onum') ("`etxt'") ///
                             (`nscope') (`"`macval(scope)'"') (`"`macval(fmsg)'"') (.) (`om')
                     }
                     if `nf_v' == 0 {
@@ -430,9 +661,12 @@ program define _datacheck_groupstat, rclass
                 }
             }
         }
+        }
+        // end of the single-statistic path (if `multi' == 0)
     }
     local rc = _rc
     if `_fr_made' capture frame drop `fr'
+    if `_cf_made' capture frame drop `cf'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
     return local vars "`vars'"

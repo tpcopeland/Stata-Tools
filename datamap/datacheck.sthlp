@@ -13,6 +13,7 @@
 {viewerjumpto "Options" "datacheck##options"}{...}
 {viewerjumpto "Gate mode" "datacheck##gate"}{...}
 {viewerjumpto "Invariants, bands, and review items" "datacheck##kinds"}{...}
+{viewerjumpto "Idiom map" "datacheck##idioms"}{...}
 {viewerjumpto "Masking" "datacheck##masking"}{...}
 {viewerjumpto "Examples" "datacheck##examples"}{...}
 {viewerjumpto "Stored results" "datacheck##results"}{...}
@@ -66,6 +67,7 @@
 {syntab:Missingness}
 {synopt:{opt nomiss:ing}}suppress the missingness summary block{p_end}
 {synopt:{opt patterns}}add the {help datamvp} pattern table{p_end}
+{synopt:{opt byfreq}}frequency tables within each {opt by()} group{p_end}
 
 {syntab:Invariant gates {it:(any gate option turns on gate mode)}}
 {synopt:{opt gates:only}}run validation gates only{p_end}
@@ -80,6 +82,7 @@
 {synopt:{opt regex(spec)}}require strings to match regexes{p_end}
 {synopt:{opt notv:alues(spec)}}reject sentinel or disallowed values{p_end}
 {synopt:{opt rule(spec)}}require labelled row-level rules to hold{p_end}
+{synopt:{opt byrule(spec)}}row-level rules under {cmd:by} {it:byvars} {cmd:(}{it:sortvars}{cmd:):} semantics{p_end}
 {synopt:{opt stat(spec)}}require a statistic inside a band{p_end}
 {synopt:{opt bin:ary(varlist)}}require 0/1 flags with both levels{p_end}
 {synopt:{opt events(spec)}}require events at every covariate level{p_end}
@@ -87,6 +90,7 @@
 {synopt:{opt keyset(spec)}}require the keys of a saved dataset{p_end}
 {synopt:{opt constant(spec)}}require time-fixed values within a key{p_end}
 {synopt:{opt sets(spec)}}check matched-set structure{p_end}
+{synopt:{opt smallcells(spec)}}small-cell gate on a results table{p_end}
 
 {syntab:Sanity bands}
 {synopt:{opt bands(gates)}}declare the call's sanity bands{p_end}
@@ -327,7 +331,37 @@ order and before {cmd:datacheck} sorts anything, so subscripted expressions
 such as {cmd:id != id[_n-1] | start >= stop[_n-1]} see the rows as arranged; sort
 the data first, or use {opt intervals()}, which sorts its own copy. An
 expression cannot contain a backslash. An expression that cannot be evaluated
-is an error, not a violation.
+is an error, not a violation. When an expression uses a subscript, {cmd:_n} or
+{cmd:_N} and the data had no sort order at entry ({cmd:: sortedby} was empty),
+or were sorted by none of the variables it subscripts, {cmd:datacheck} prints a
+note naming the rule and pointing to {opt byrule()}; the note never changes a
+verdict. {opt review()} gets the same note.
+
+{phang}
+{opt byrule(spec)} asserts row-level rules under Stata's own
+{cmd:by} {it:byvars} {cmd:(}{it:sortvars}{cmd:):} semantics, so {cmd:_n}, {cmd:_N},
+and {cmd:x[_n}{it:+-k}{cmd:]} refer to positions within a group. Each
+{cmd:\}-separated entry is {it:byspec}{cmd::} {it:label}{cmd::} {it:expression},
+where {it:byspec} is {it:byvars} {cmd:(}{it:sortvars}{cmd:)}, {it:byvars} alone,
+or {cmd:(}{it:sortvars}{cmd:)} alone, for no groups, exactly as in
+{help bysort}. Examples:
+{cmd:byrule(id (dose_date): "seq": dose_num == _n)};
+{cmd:byrule(id (dose_date): "last": _n == _N | next_dose == dose_date[_n+1])};
+{cmd:byrule((step): "monotone": _n == 1 | value >= value[_n-1])}. The rows are
+sorted with {cmd:sort} {it:byvars sortvars}{cmd:, stable} on {cmd:datacheck}'s own
+copy, so the data and their order are unchanged after the call, and rows tied on
+({it:byvars sortvars}) keep the data's order; when the expression uses {cmd:_n},
+{cmd:_N} or a subscript and the ties exist, a note names the rule (without a
+count). With no {it:sortvars} the order within a group is the data's own. The
+rule runs on the {cmd:if}/{cmd:in} subset, so {cmd:_n} counts in-scope rows
+within the group. A missing {it:byvars} value forms its own group. A rule holds
+where the expression is true; one that cannot be evaluated is an error. A
+{opt byrule()} entry is an invariant, counted as {cmd:byrule} among the gate
+families, written to {opt ledger()}, {opt violations()}, and {opt checks()} (a
+{cmd:byrule} row takes the label in {cmd:var}, the by spec in {cmd:values}, and the
+expression in {cmd:pattern}), masked under {opt maskrare}, and tallied by
+{opt by()} groups exactly as {opt rule()} is. {opt makespec()} does not write
+{opt rule()} or {opt byrule()} rows.
 
 {phang}
 {opt stat(spec)} asserts that a statistic falls within a declared inclusive
@@ -411,6 +445,48 @@ or 1 on every row ({bf:sets(values)}), each set has one exposed row
 {cmd:k()} ({bf:sets(unexposed)}), and with {cmd:index()} one index date per set
 ({bf:sets(index)}).
 
+{phang}
+{opt small:cells(spec)} is a publication gate for a results dataset, one row per
+released table cell or row. Each {cmd:\}-separated entry is
+{it:countexp} [{it:countexp} ...] [{cmd:if} {it:exp}]. On the rows in scope,
+none of the {it:countexp} may lie in 1 to {it:m}-1; the scope is the entry's
+{cmd:if} (typically the rows not marked as suppressed) within the call's
+{cmd:if}/{cmd:in}, and without an entry {cmd:if} every row is in scope. A
+{it:countexp} is a variable or an expression such as {cmd:n1-e1}, the
+difference between two released counts. It must not contain spaces; an
+expression wrapped in parentheses may, as in {cmd:(n1 - e1)}. Zero passes, a
+value of {it:m} or more passes, and a missing value, including an extended
+missing such as the {cmd:.p} that tabtools writes, is a suppressed cell and
+passes. A negative or non-integer value fails, with the reason named in the
+message. An expression that does not evaluate is an error, never a pass. The
+entry {cmd:if} follows Stata's {cmd:if} semantics: a missing flag is true, so
+{cmd:if !suppressed} leaves a row with a missing {cmd:suppressed} out of scope,
+as {cmd:rule("x": ... | suppressed)} does, while {cmd:if suppressed != 1}
+keeps it in.
+
+{pmore}
+{it:m} is the threshold the call resolves for masking: {opt mincell(#)}
+when given or set by {cmd:dataqa set mincell(#)}; under {opt maskrare}
+otherwise {opt rare(#)}, otherwise 5. With none of these the gate stops with
+{cmd:r(198)} and asks for {opt mincell()}, because {opt mincell()} has no
+default. A threshold below 2, from {opt mincell()}, {opt rare()} under {opt maskrare},
+or the session default, stops the gate with {cmd:r(198)}: a check on counts in 1..0 tests
+nothing. The threshold used is in the gate line and in the ledger's
+{cmd:expected} column, {bf:no released count in 1..4 (m=5)}. A small positive
+count is a primary suppression in tabtools {cmd:smallcells(}{it:#}{cmd:)} as
+well, and zero is not, so a table written by tabtools with the same
+{it:#} passes this gate.
+
+{pmore}
+{opt smallcells()} is always an invariant, never a band, and fails with exit 9.
+The message and the record carry no count value, only the number of table rows
+that fail, with the {it:countexp} and reason that failed, as in
+{bf:1 table rows fail, n1-e1 (1 small)}. The row count is
+a count of table rows, not persons; under {opt maskrare} it prints as
+{bf:<}{it:m} like every other gate count. {cmd:violations()} holds one row for
+the failed gate, and no row identifier is printed. {opt smallcells()} ignores
+{opt by()}, and {opt makespec()} does not write it.
+
 {dlgtab:Sanity bands}
 
 {phang}
@@ -430,8 +506,8 @@ run, where the bands are not calibrated, while production runs leave it off.
 
 {phang}
 {opt coverage(spec)} checks that a delivered file covers the period it should. Each
-entry is {it:datevar lo hi}{cmd:,} {cmd:gap(}{it:#}{cmd:)}
-[{cmd:tail(}{it:#}{cmd:)} {cmd:years}] for a daily date. The variable must
+entry is {it:datevar lo hi}{cmd:,} {cmd:gap(}{it:#}|{cmd:none)}
+[{cmd:tail(}{it:#}{cmd:)} {cmd:years} {cmd:endq(}{it:#}{cmd:)}] for a daily date. The variable must
 carry a daily display format ({cmd:%td} or {cmd:%d}, in any variant such as
 {cmd:%tdCCYY-NN-DD}); an unformatted day count is refused with r(198), and a
 {cmd:%tc} datetime needs {cmd:dofc()} first. {cmd:gap()}, the
@@ -443,6 +519,44 @@ delivery fails), {bf:coverage(early_start)} (the first date is at most lo +
 gap), and with {cmd:years} {bf:coverage(year_gap)} (no calendar year between
 the first and last date is empty). {opt coverage()} is always a band, whether
 written inside {opt bands()} or not.
+
+{pmore}
+{cmd:endq(}{it:#}{cmd:)}, with {it:#} strictly between 0 and 0.5 (anything else
+is r(198)), tests {bf:early_start} on the {it:#}-quantile of the date and
+{bf:late_end} on the (1 - {it:#})-quantile, instead of the raw minimum and
+maximum, so one stray record near {it:hi} cannot hide a truncated delivery. The
+quantile is the default definition of {cmd:_pctile}. The printed line names the
+quantile tested (for example {bf:p99}), and under {opt maskrare} it is shown
+only when it passes the same suppression rule as any other printed
+statistic. Without {cmd:endq()} the raw extremes are used, as before.
+
+{pmore}
+{cmd:gap(none)} declares that the plan sources no delivery lag. {cmd:gap()}
+is still required and has no default; {cmd:none} is a typed declaration, not a
+default. The {bf:outside} check, {cmd:tail()} and {cmd:years} still run;
+{bf:late_end} and {bf:early_start} are not tested, print as "not declared
+(gap(none))", write no {opt ledger()} or {opt checks()} rows, and are not
+counted as passes. {cmd:gap(none)} with {cmd:endq()} is r(198).
+
+{pmore}
+{bf:Registry delivery checks.} Which gate answers which question:
+
+{p2colset 9 42 44 2}{...}
+{p2col:Question}Gate{p_end}
+{p2line}
+{p2col:Dates outside the window}{cmd:inrange(}{it:d lo hi}{cmd:)}, as an
+invariant or in a band{p_end}
+{p2col:Truncated delivery}{cmd:coverage()} {bf:late_end}; add {cmd:endq()}
+against stray records{p_end}
+{p2col:A missing calendar year}{cmd:coverage(}...{cmd:, years)}{p_end}
+{p2col:Share of dates inside the window}{cmd:coverage(}...{cmd:, tail())}{p_end}
+{p2col:No sourced lag}{cmd:gap(none)}, which drops the end checks{p_end}
+{p2line}
+{p2colreset}{...}
+
+{pmore}
+Only {cmd:coverage()} catches a truncated delivery. {cmd:inrange()} bounds do
+not: a file that ends two years early still lies inside the window.
 
 {dlgtab:Review items}
 
@@ -491,6 +605,37 @@ comes from the same computation as
 whose {cmd:min()} leaves every group out, fails. {opt groupstat()} ignores
 {opt by()}.
 
+{pmore}
+When a band fails, every failing group still has its own row, and each failing message and
+ledger {cmd:observed} text also reports the direction: the groups above the band and the groups
+below it, each with its count of groups and of in-scope rows, for example
+{cmd:3 groups above (rows 1,240), 1 group below (rows <5)}. Under {opt maskrare} the row counts
+follow the rule for small counts ({bf:<}{it:m}, or {bf:all but <}{it:m} when the rest would
+recover a small cell), both counts print {bf:[suppressed]} when the rows that pass the band
+are a small cell, and a group count that would pin masked rows is masked with them. A direction
+that holds a group with fewer than the mask of rows, or a group withheld from the table, also
+prints its rows as {bf:[suppressed]}, because the total of two such groups would give back their
+sizes; a direction whose groups all reach the mask keeps its rows. A group
+whose value is undefined is reported as undefined. A passing band and an entry without a band
+read as before.
+
+{pmore}
+A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::}
+{it:var}{cmd:, by(}{it:groupvars}{cmd:)} [{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)},
+prints one table with a column per statistic, for example
+{cmd:groupstat(n mean p1 median p99: ipw, by(arm))}. At most six statistics fit
+the table. Each statistic is computed and recorded exactly as its own
+single-statistic entry would be, so {cmd:ledger()} gets one row per statistic,
+labelled {it:statistic var}, and {cmd:checks()} rows stay one statistic each.
+Masking follows the rules above cell by cell, and {cmd:min()} and the entry's
+{cmd:if} apply to every column. {cmd:band()} and {cmd:relative} are declared per
+statistic, so an entry with two or more statistics takes neither and is a review
+item; write a separate entry for each banded statistic. An entry with two or more
+statistics takes one variable. Several variables, a statistic named twice
+({cmd:median} and {cmd:p50} are the same), an unknown statistic, or more than six
+statistics is an error (r(198)). The colon form with one statistic, and the form
+without a colon, behave as before.
+
 {phang}
 {opt complete(spec)} prints the masked complete-case count and share over
 {it:varlist}, within each {opt by()} group. With
@@ -509,11 +654,35 @@ the data; the message then counts the persons with such ties.
 
 {phang}
 {opt by(varlist)} evaluates gates within groups defined by {it:varlist} and adds a
-groupwise completeness and missingness profile. {opt intervals()},
-{opt keyset()}, {opt constant()}, {opt sets()}, {opt coverage()},
+groupwise completeness and missingness profile. A group is labelled by its values
+(a numeric variable by its value label if it has one); a blank string is shown as
+{cmd:(blank)} and a numeric missing as its code ({cmd:.}, {cmd:.a}). The gate messages
+and the ledger {cmd:grp} column name the group by its stored values,
+{cmd:by(site year | site=3 year=2015)}: the variables, then {it:var}{cmd:=}{it:value}
+for each, never a value label or a group number. A string is written in square
+brackets ({cmd:site=[abc]}, a blank string {cmd:[]}), with a backslash, double quote,
+apostrophe, backtick, dollar sign, square bracket or brace, and tab, line feed and
+carriage return, written as
+{cmd:\x}{it:HH} (two lowercase hex digits), so a value holding spaces, {cmd:=},
+{cmd:|} or quotes cannot be mistaken for a separator. A group withheld under
+{opt maskrare} is named by its number ({cmd:by(site group 7)}), not its values.
+{opt intervals()},
+{opt keyset()}, {opt constant()}, {opt sets()}, {opt smallcells()}, {opt coverage()},
 {opt heaping()}, {opt groupstat()}, and {opt jumps()} ignore {opt by()} and run
 once on the {cmd:if}/{cmd:in} sample. {opt over(varname)} is a single-variable
 synonym for {opt by(varlist)}.
+
+{pmore}
+{opt byfreq} adds a GROUPWISE FREQUENCIES block to the profile: for every
+categorical and string variable, the same frequency table as the pooled one
+(descending count, ties in level order, {opt maxfreq()} levels, {opt rare()} flags)
+within each {opt by()} group, headed by the group label of the GROUPWISE SUMMARY.
+Under {opt maskrare}, each cell and the pooled {bf:[suppressed]} lines follow the pooled
+table's rules, and a group pooled away by the mask is not listed. The call's
+{cmd:if}/{cmd:in} apply, string and numeric groups work, and {opt nomissing} leaves the
+tables as they are. {opt byfreq} is an option because {opt by()} alone leaves the
+pooled tables as before; {opt gatesonly} ignores it, and it needs {opt by()} or
+{opt over()} (r(198) otherwise). Example: {cmd:datacheck mc if cx, by(arm) byfreq maxfreq(15) maskrare}.
 
 {phang}
 {opt check:s(filename)} reads gate specifications from {it:filename}. Each row
@@ -536,7 +705,8 @@ lo and hi in {cmd:arg1} and {cmd:arg2}, and {cmd:gap()} and the other
 suboptions in {cmd:values}; {cmd:intervals}, {cmd:sets}, {cmd:jumps}, and
 {cmd:heaping} rows take the spec before the comma in {cmd:var} and the
 suboptions in {cmd:values}; a {cmd:complete} row takes the variables in
-{cmd:var} and {cmd:min()} in {cmd:arg1}.
+{cmd:var} and {cmd:min()} in {cmd:arg1}; a {cmd:smallcells} row takes the
+{it:countexp}s in {cmd:var} and the entry condition in {cmd:pattern}.
 
 {phang}
 {opt makes:pec(filename[, replace])} writes a starter checks file from the
@@ -596,7 +766,7 @@ filename are refused. The ledger is normally set once for a do-file with
 {cmd:stamp}, {cmd:seq} (call number within the run), {cmd:dataset},
 {cmd:scope} (the call's and the entry's {cmd:if}), {cmd:family}, {cmd:label},
 {cmd:variable}, {cmd:grp}, {cmd:kind} (invariant, band, or review),
-{cmd:status} (pass, fail, warn, or review), {cmd:observed} (masked, as
+{cmd:status} (pass, fail, warn, review, or error), {cmd:observed} (masked, as
 printed), {cmd:observed_num} (missing whenever {cmd:observed} is masked),
 {cmd:expected}, {cmd:n_scope} (missing below the mask threshold),
 {cmd:version}, {cmd:signature}, {cmd:masked} (1 when the call ran under
@@ -604,6 +774,12 @@ printed), {cmd:observed_num} (missing whenever {cmd:observed} is masked),
 {cmd:minshown} (the smallest positive count printed unmasked),
 {cmd:obs_masked}, and {cmd:message}. The working ledger belongs on the server
 with the data; {help dataqa:dataqa export} writes the release copy.
+A call that exits for any reason other than a gate failure (exit 9) or Break,
+such as a parse error or a missing variable, appends one row with
+{cmd:family} {cmd:call} and {cmd:status} {cmd:error} before exiting with its own
+return code, and {help dataqa:dataqa assert} halts on it. Under
+{help dataqa:dataqa set collect} a failed gate also writes its rows and the call
+returns 0, leaving the halt to {cmd:dataqa assert}.
 
 {phang}
 {opt sig:nature} records the {help datasignature} of the dataset, as loaded
@@ -671,6 +847,28 @@ One gate call per dataset can therefore hold every invariant and every band,
 with {cmd:global qa_calib bandwarn} set only under the synthetic switch.
 
 
+{marker idioms}{...}
+{title:Idiom map}
+
+{pstd}
+A hand-written check often has a gate of its own, with a clearer message and a
+ledger row. Each pair below gives the same pass or fail verdict on the same data.
+
+{p2colset 5 52 54 2}{...}
+{p2col:Hand-written pattern}Gate{p_end}
+{p2line}
+{p2col:{cmd:rule("flow": _N == 74)}}{cmd:expectn(74)}{p_end}
+{p2col:{cmd:stat(mean outside 0 0.1)} on a flag}{cmd:coverage(dt lo hi, gap(none) tail(0.1))}{p_end}
+{p2col:{cmd:bysort g: egen} median, {cmd:review()}}{cmd:groupstat(median x, by(g) band(lo hi) relative)}{p_end}
+{p2col:{cmd:rule()} with {cmd:id[_n-1]} or {cmd:_n}}{cmd:byrule(id (time): ...)}{p_end}
+{p2col:one {cmd:stat() if} per group label}{cmd:stat()} with {cmd:by(a b)}{p_end}
+{p2line}
+{p2colreset}{...}
+
+{pstd}
+The pairs are exercised in the package QA suite.
+
+
 {marker masking}{...}
 {title:Masking}
 
@@ -724,8 +922,15 @@ displayed.
 {pstd}Rates, sums, and distinct counts, each with its own condition:{p_end}
 {phang2}{cmd:. datacheck, gatesonly stat(sum foreign 22 22 \ distinct rep78 5 5 \ mean mpg 20 30 if foreign)}{p_end}
 
+{pstd}Rules within groups, with the data left in its order:{p_end}
+{phang2}{cmd:. datacheck, gatesonly byrule(make (price): "order": _n >= 1)}{p_end}
+
+{pstd}Gate a results table before release: no count or difference of 1 to 4 on rows not suppressed:{p_end}
+{phang2}{cmd:. datacheck, gatesonly mincell(5) smallcells(n1 e1 n1-e1 n0 e0 n0-e0 if !suppressed)}{p_end}
+
 {pstd}Review items that print and never halt:{p_end}
 {phang2}{cmd:. datacheck, gatesonly review("cheap": price < 4000) complete(rep78 mpg) groupstat(mean price mpg, by(foreign))}{p_end}
+{phang2}{cmd:. datacheck, gatesonly groupstat(n mean sd median: price, by(foreign))}{p_end}
 
 {pstd}Record the result in a ledger, with a stated dataset name:{p_end}
 {phang2}{cmd:. tempfile ledger}{p_end}

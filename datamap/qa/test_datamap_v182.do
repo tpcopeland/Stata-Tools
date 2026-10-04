@@ -93,7 +93,10 @@ capture noisily {
     local exp_s = 0
     foreach gg of local gl {
         local lab : label `glab' `gg'
-        if `"`lab'"' == "" local lab "`gg'"
+        * egen labels a blank string group with its number; the display
+        * names it (blank) (1.9.0)
+        quietly count if `g' == `gg' & site == ""
+        if r(N) > 0 local lab "(blank)"
         local lab = substr(`"`lab'"', 1, 20)
         quietly count if `g' == `gg'
         local on`gg' = r(N)

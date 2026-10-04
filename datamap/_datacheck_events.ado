@@ -1,4 +1,4 @@
-*! _datacheck_events Version 1.8.2  2026/10/01
+*! _datacheck_events Version 1.9.0  2026/10/03
 *! datacheck events(): every level of a covariate carries enough events
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -56,7 +56,9 @@ program define _datacheck_events, rclass
                 local km = r(masked)
                 if `km' local anymask = 1
                 local mins = cond(`km' | `k' < 1, ., `k')
-                local g `"`v' = `lev'"'
+                // the ledger records the level's value, not its label
+                quietly _datacheck_gtext `v', row(`r')
+                local g `"`v' = `r(val)'"'
                 if `"`grp'"' != "" local g `"`grp'; `g'"'
                 local msg `"`pfx'events(`ev'): `v' = `lev' has `ks' events, expected >= `mtxt'"'
                 frame post `rf' ("events") ("`kind'") (0) ("`ev'") ("`v'") ///

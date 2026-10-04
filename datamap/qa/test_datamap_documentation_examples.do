@@ -12,6 +12,14 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
+* The examples write to the working directory under their default names.
+* Each output is erased before its example runs, so a file left by an
+* earlier run cannot satisfy confirm file, and again at the end.
+local doc_outputs datamap.txt auto_codebook.txt auto_map.json data_dictionary.md auto_dict.md
+foreach f of local doc_outputs {
+    capture erase "`qa_dir'/`f'"
+}
+
 * datamap.sthlp: the three self-contained getting-started examples.
 foreach mode in text named json {
     local ++test_count
@@ -137,6 +145,10 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 macro drop DATAMAP_DQ
+
+foreach f of local doc_outputs {
+    capture erase "`qa_dir'/`f'"
+}
 
 display "RESULT: test_datamap_documentation_examples tests=`test_count' pass=`pass_count' fail=`fail_count' skip=0"
 if `fail_count' > 0 exit 1

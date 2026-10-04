@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.8.2** | 2026-10-01
+**Version 1.9.0** | 2026-10-03
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -184,7 +184,7 @@ dataqa assert, expect(auto_cars)
 dataqa set clear
 ```
 
-Each gate entry, passed or failed, becomes one ledger row with its kind (invariant, band, or review), masked observation, and expectation. `dataqa assert` exits with return code 9 if any gate in the run failed (or an invariant only warned under bare `warn`), the run has no rows, or a named dataset has no rows; `dataqa report, markdown()` drafts register rows that list the dispositions each kind allows.
+Each gate entry, passed or failed, becomes one ledger row with its kind (invariant, band, or review), masked observation, and expectation. `dataqa assert` exits with return code 9 if any gate in the run failed (or an invariant only warned under bare `warn`), the run has no rows, or a named dataset has no rows; `dataqa report, markdown()` drafts register rows that list the dispositions each kind allows, and `dataqa report, bands` lists every declared band and `stat()` invariant beside its observed value. A `datacheck` call that exits with any error other than a gate failure leaves a call-error row, so `dataqa assert` cannot pass over a call that never ran. Under `dataqa set ... collect` a failing gate records its rows and returns 0, leaving `dataqa assert` as the single halting point; `dataqa assert, baseline(label)` halts when a dataset of the baseline run has no rows now, unless it is listed in `optional()`; `dataqa set ... baseline()` stores the baseline so `compare` and `assert` need no arguments.
 
 ## Demo
 
@@ -236,8 +236,8 @@ See [datacheck.sthlp](datacheck.sthlp) for profile fields, gate syntax, reusable
 
 ```stata
 dataqa set [options | clear]
-dataqa report [using ledger] [, run() markdown() replace]
-dataqa assert [using ledger] [, run() expect()]
+dataqa report [using ledger] [, run() markdown() replace bands]
+dataqa assert [using ledger] [, run() expect() baseline() baseledger() optional()]
 dataqa export [using ledger], saving() [run() replace threshold()]
 dataqa compare [using ledger] [, run() baseline() baseledger() ntol() stattol()]
 ```
@@ -285,13 +285,13 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 |-------|----------------------|
 | `single()`, `id()`, `exclude()`, `continuous()`, `categorical()`, `date()`, `detail`, `maxfreq(20)`, `rare()`, `outliers(0)`, `mincell(0)`, `maskrare` | Profile variables, distributions, rare cells, and outliers. |
 | `nomissing`, `patterns` | Missingness summaries and pattern analysis. |
-| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `stat()`, `binary()`, `events()`, `intervals()`, `keyset()`, `constant()`, `sets()` | Invariant gates. |
+| `expectn()`, `isid()`, `nodups`, `require()`, `notmissing()`, `inrange()`, `allowed()`, `forbid()`, `regex()`, `notvalues()`, `rule()`, `byrule()`, `stat()`, `binary()`, `events()`, `intervals()`, `keyset()`, `constant()`, `sets()`, `smallcells()` | Invariant gates. |
 | `bands()`, `bandwarn`, `coverage()` | Sanity bands kept apart from invariants; `bandwarn` makes only bands warn. |
 | `review()`, `heaping()`, `groupstat()`, `complete()`, `jumps()` | Review items that print and never halt (or gate with a threshold). |
 | `warn`, `gatesonly`, `onlyflagged`, `show(flagged)`, `minversion()` | Halting behavior, display filters, and a version probe. |
-| `by()`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, the QA ledger, and settings. |
+| `by()`, `byfreq`, `over()`, `checks()`, `makespec()`, `compare()`, `saving()`, `violations()`, `ledger()`, `name()`, `signature`, `config()` | Grouped checks, reusable specs, comparisons, artifacts, the QA ledger, and settings. |
 
-`maskrare` masks every printed count below the threshold (gate messages, missingness and groupwise blocks, the `patterns` table), withholds percentages and complements that would recover one, and replaces minima and maxima with guarded p1 and p99. `stat()` accepts mean, sd, percentiles, `sum`, `n`, `distinct`, `pmiss`, `ess` (Kish effective sample size), and `ratio num den`, each with an optional `if` per entry. `events()` requires an event at every covariate level, `intervals()` checks overlap, gaps, order, and event placement on its own sort, `keyset()` compares keys with a saved file, and `constant()` requires time-fixed values within a key. Gates inside `bands()` are sanity bands: with `bandwarn` they warn while invariants still halt. Under `gatesonly` the profile is skipped and only the gate columns are kept. Gate failures exit with return code 9; a run where every gate passes prints a `PASS:` line naming the dataset and the active masking.
+`maskrare` masks every printed count below the threshold (gate messages, missingness and groupwise blocks, the `patterns` table), withholds percentages and complements that would recover one, and replaces minima and maxima with guarded p1 and p99. `stat()` accepts mean, sd, percentiles, `sum`, `n`, `distinct`, `pmiss`, `ess` (Kish effective sample size), and `ratio num den`, each with an optional `if` per entry. `events()` requires an event at every covariate level, `intervals()` checks overlap, gaps, order, and event placement on its own sort, `keyset()` compares keys with a saved file, `constant()` requires time-fixed values within a key, `byrule()` evaluates a rule under `by byvars (sortvars):` so `_n`, `_N`, and `[_n-1]` count within groups, and `smallcells()` is a publication gate on a results table (no released count or difference such as `n1-e1` in 1 to m-1). `coverage()` takes `endq()` to test the delivery ends on quantiles rather than the raw extremes, and `gap(none)` to declare that no delivery lag was sourced; `groupstat(n mean p99: x, by(g))` prints several statistics in one table, and `by(g) byfreq` adds frequency tables within each group. Gates inside `bands()` are sanity bands: with `bandwarn` they warn while invariants still halt. Under `gatesonly` the profile is skipped and only the gate columns are kept. Gate failures exit with return code 9; a run where every gate passes prints a `PASS:` line naming the dataset and the active masking.
 
 ### `datamvp`
 
@@ -343,8 +343,8 @@ The help files document the complete stored-result contracts. The following tabl
 | Result | Meaning |
 |--------|---------|
 | `r(defaults)` | `dataqa set`: the session-default option string. |
-| `r(N)`, `r(n_datasets)`, `r(n_failed)`, `r(n_warned)`, `r(ledger)`, `r(run)` | `dataqa report`: rows read, datasets, failed and warned rows, and the ledger and run read; `r(markdown)` and `r(n_rows)` with `markdown()`. |
-| `r(N)`, `r(n_failed)`, `r(missing)`, `r(run)` | `dataqa assert`: rows, halting rows, and expected datasets without rows, set also when it halts with r(9). |
+| `r(N)`, `r(n_datasets)`, `r(n_failed)`, `r(n_warned)`, `r(ledger)`, `r(run)` | `dataqa report`: rows read, datasets, failed and warned rows, and the ledger and run read; `r(markdown)` and `r(n_rows)` with `markdown()`; `r(n_bands)` with `bands`. |
+| `r(N)`, `r(n_failed)`, `r(n_errors)`, `r(missing)`, `r(run)` | `dataqa assert`: rows, halting rows, call-error rows, and expected datasets without rows, set also when it halts with r(9); with `baseline()`, `r(baseline)`, `r(n_missing_base)`, `r(missing_base)`, `r(n_optional_absent)`, and `r(optional_absent)`. |
 | `r(N)`, `r(n_scope_dropped)`, `r(saving)` | `dataqa export`: rows written, scope expressions blanked, and the release copy. |
 | `r(n_flags)`, `r(baseline)` | `dataqa compare`: items to review and the baseline run. |
 
@@ -379,6 +379,26 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.9.0 (2026-10-03)
+
+- Fix: `datacheck varname, by()` on one variable with no missing values stopped with r(3202) in the GROUPWISE MISSINGNESS block.
+- `datacheck` calls that fail to run no longer vanish from the QA ledger: any exit other than a gate failure (a parse error, a misspelled option, a bad expression, a missing variable) appends a call-error row carrying the return code, and `dataqa assert` halts on it. Error rows are never superseded by a later call; `dataqa export` refuses a run that holds one.
+- `dataqa set ... collect`: under a ledger, a failing gate prints its block, writes its rows, and returns 0 with `r(n_failed)` set, so `capture noisily` is no longer needed around gate calls; `dataqa assert` is the halting point. Without a ledger, or when the ledger append fails, the call still exits 9.
+- `dataqa assert, baseline(label) [baseledger() optional()]` halts when a named dataset with rows in the baseline run has none now, unless it is listed in `optional()`.
+- `dataqa report, bands` lists each band and `stat()` invariant of the run, passing or failing, with its declared range and observed value as the ledger stores them (masked values stay masked); with `markdown()` the table is added as its own section.
+- `datacheck byrule(byvars (sortvars): "label": exp)`: a rule evaluated under `by byvars (sortvars):` on datacheck's copy, so `_n`, `_N`, and subscripts count within groups; the caller's data and sort order are unchanged. `rule()` and `review()` print a note when a subscripted expression runs on data with no sort order.
+- `datacheck smallcells(countexp ... [if exp])`: a publication gate on a results table; no released count, and no difference written as an expression such as `n1-e1`, may lie in 1 to m-1 on rows in scope, where m is the call's `mincell()` threshold. Negative and non-integer counts fail; missing values count as suppressed.
+- `coverage(..., endq(#))` tests early_start and late_end on the # and 1-# quantiles, so one stray record cannot hide a truncated delivery; `coverage(..., gap(none))` declares that no delivery lag was sourced and drops the two end checks.
+- `groupstat(stat stat ...: var, by())` prints several statistics in one table, one column per statistic, with the same ledger rows as the single-statistic entries.
+- `dataqa set ... baseline(label) [baseledger(file)]` stores the baseline with the session defaults, so `dataqa compare` and `dataqa assert` need no arguments; an explicit option still wins. `dataqa.sthlp` gains an end-to-end pipeline example (version probe, synthetic switch, `dataqa set ... collect baseline() replace`, named gates, compare, report, export, assert).
+- A failing `groupstat(..., band())` reports how many groups, and how many of their rows, lie above and below the band (masked under `maskrare`); the summary is added to the failing rows' message and `observed` text, and `observed_num` is unchanged.
+- `datacheck ..., by(g) byfreq` prints the categorical and string frequency tables within each group, masked cell by cell.
+- The ledger `grp` column records a `by()` group by its values (`by(site year | site=3 year=2015)`), and `dataqa compare` pairs groups on them, so a level added between extracts no longer shifts every later group; a compare of an old-format baseline against a new-format run is flagged rather than paired by number. Under `maskrare` a withheld group keeps its number.
+- Fix: a blank string `by()` group printed its group number as its label; blank and missing groups now print as `(blank)` or their missing code. `dataqa` readers resolve a ledger path with the same rule as the writers (`.dta` added only to a name without a suffix), so a stray file without a suffix is no longer read in place of the ledger.
+- Fix: a data value or value label holding a backtick, a quote followed by an apostrophe, `$`, or SMCL braces broke `datacheck` tables and gate messages (display text leaked into the line) and stopped `datamap` text and JSON output, `datadict`, and `saving()` with r(132) or r(198); such values now print and write literally.
+- Under `maskrare`, the above/below summary of a failing `groupstat()` band withholds a direction's row count when one of its groups is below the mask. `smallcells()` refuses a threshold below 2, and `dataqa assert` accepts compound-quoted dataset names with spaces in `optional()` and `expect()`. A non-integer `by()` value is recorded as its shortest exact decimal text.
+- `datacheck.sthlp` gains a registry delivery-checks table (which gate catches dates outside the window, truncation, a missing year, or a share outside the window) and an idiom map from hand-written patterns to gate families.
 
 ### 1.8.2 (2026-10-01)
 
