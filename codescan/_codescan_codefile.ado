@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.2.5  2026/09/30
+*! _codescan_codefile Version 4.3.0  2026/10/04
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -46,7 +46,7 @@ program define _codescan_parse_codefile, rclass
     * conflicting rule sets at rc=0: a different cohort from the same file.
     * Ambiguity is not resolvable here, so collect every casefold match per
     * field and refuse the schema when there is more than one.
-    foreach _cfcol in name pattern label exclusion {
+    foreach _cfcol in name pattern label exclusion match {
         local _cfmatch ""
         local _cfnmatch = 0
         foreach _v of varlist * {
@@ -92,7 +92,8 @@ program define _codescan_parse_codefile, rclass
     * can change the resulting text.
     local _cf_has_label = 0
     local _cf_has_excl = 0
-    foreach _cfopt in label exclusion {
+    local _cf_has_match = 0
+    foreach _cfopt in label exclusion match {
         capture confirm variable `_cfopt'
         if _rc continue
         capture confirm string variable `_cfopt'
@@ -104,6 +105,7 @@ program define _codescan_parse_codefile, rclass
         }
         if "`_cfopt'" == "label"     local _cf_has_label = 1
         if "`_cfopt'" == "exclusion" local _cf_has_excl  = 1
+        if "`_cfopt'" == "match"     local _cf_has_match = 1
     }
 
     quietly count
@@ -125,6 +127,7 @@ program define _codescan_parse_codefile, rclass
     local _cf_qcols name pattern
     if `_cf_has_excl'  local _cf_qcols `_cf_qcols' exclusion
     if `_cf_has_label' local _cf_qcols `_cf_qcols' label
+    if `_cf_has_match' local _cf_qcols `_cf_qcols' match
     tempvar _cf_qbad _cf_qrow
     quietly gen long `_cf_qrow' = _n
     local _cf_qerr = 0
@@ -151,6 +154,62 @@ program define _codescan_parse_codefile, rclass
         display as error "  backquotes, global-macro references, and a double quote immediately followed by an apostrophe cannot be carried through Stata's macro quoting"
         display as error "  remove it; a double quote on its own is accepted"
         exit 198
+    }
+
+    * Optional match column, written by save(): the matching options the rules
+    * were authored under. A pattern means different things under different
+    * options -- prefix "E1.1" is one literal code, regex "E1.1" is any
+    * character in the third slot -- so a file reloaded under other options
+    * silently changes the cohort. The column is returned in canonical form
+    * and codescan refuses a call whose own options differ. Every row must
+    * carry the same value (the options apply to the whole call), or none.
+    local match ""
+    if `_cf_has_match' {
+        tempvar _cf_mnorm
+        quietly gen strL `_cf_mnorm' = lower(itrim(strtrim(match)))
+        quietly count if `_cf_mnorm' != ""
+        local _cf_nm = r(N)
+        if `_cf_nm' > 0 {
+            if `_cf_nm' < `n_conditions' {
+                display as error "codefile(): column {bf:match} is empty on some rows; fill every row with the same value or leave it empty"
+                exit 198
+            }
+            quietly count if `_cf_mnorm' != `_cf_mnorm'[1]
+            if r(N) > 0 {
+                display as error "codefile(): column {bf:match} must hold the same value on every row"
+                exit 198
+            }
+            local _cf_mraw = `_cf_mnorm'[1]
+            if strpos(`"`_cf_mraw'"', char(34)) > 0 {
+                display as error "codefile(): column {bf:match} may not contain quotes"
+                exit 198
+            }
+            local _cf_mmode ""
+            local _cf_mnocase ""
+            local _cf_mnodots ""
+            local _cf_mbad ""
+            foreach _cf_t of local _cf_mraw {
+                if inlist("`_cf_t'", "mode(regex)", "mode(prefix)") & "`_cf_mmode'" == "" {
+                    local _cf_mmode = substr("`_cf_t'", 6, strlen("`_cf_t'") - 6)
+                }
+                else if "`_cf_t'" == "nocase" & "`_cf_mnocase'" == "" {
+                    local _cf_mnocase "nocase"
+                }
+                else if "`_cf_t'" == "nodots" & "`_cf_mnodots'" == "" {
+                    local _cf_mnodots "nodots"
+                }
+                else {
+                    local _cf_mbad "`_cf_mbad' `_cf_t'"
+                }
+            }
+            if "`_cf_mbad'" != "" {
+                display as error "codefile(): column {bf:match} has an unrecognized or repeated entry:`_cf_mbad'"
+                display as error "  allowed: mode(regex) or mode(prefix), nocase, nodots"
+                exit 198
+            }
+            if "`_cf_mmode'" == "" local _cf_mmode "regex"
+            local match = itrim(strtrim("mode(`_cf_mmode') `_cf_mnocase' `_cf_mnodots'"))
+        }
     }
 
     local all_names ""
@@ -228,6 +287,7 @@ program define _codescan_parse_codefile, rclass
     return scalar n_labels = `n_labels'
     return local all_names "`all_names'"
     return local resolved_codefile `"`resolved_codefile'"'
+    return local match "`match'"
     forvalues i = 1/`n_conditions' {
         return local def_name_`i' "`def_name_`i''"
         return local def_pattern_`i' `"`def_pattern_`i''"'

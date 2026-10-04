@@ -1,4 +1,4 @@
-*! _codescan_outputs Version 4.2.5  2026/09/30
+*! _codescan_outputs Version 4.3.0  2026/10/04
 *! Private output-name helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 

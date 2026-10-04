@@ -83,9 +83,11 @@ capture noisily {
     format visit_dt index_dt %td
     codescan dx1, define(dm2 "E11") date(visit_dt) refdate(index_dt) ///
         lookforward(0) inclusive
-    assert dm2 == 0 in 1
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
+    assert missing(dm2) in 1
     assert dm2 == 1 in 2
-    assert dm2 == 0 in 3
+    assert missing(dm2) in 3
 }
 if _rc == 0 {
     display as result "  PASS: lookforward(0) inclusive matches refdate only"

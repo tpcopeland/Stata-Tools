@@ -46,7 +46,8 @@ local quick_suites ///
     test_datacheck_v190_groupfreq.do ///
     test_dataqa_v190_groupkeys.do ///
     test_datacheck_v190_hostile.do ///
-    test_datamap_v190_review.do
+    test_datamap_v190_review.do ///
+    test_datamap_quoting_linebreaks.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///

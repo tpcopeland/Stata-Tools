@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.8** | 2026-09-30
+**Version 1.5.9** | 2026-10-04
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -68,7 +68,7 @@ The `using` token names an existing frame when one exists with that name; otherw
 
 By default, successful output replaces the current data with matched pairs plus unmatched master observations. `frame(name)` writes the result to a named frame and preserves the current data, while `saving(filename[, replace])` writes a dataset to disk and preserves the current data. `dryrun` and its alias `count` validate the request and report counts without writing output.
 
-The default output order is original master observation order followed by original using observation order. `nosort` leaves backend materialization order. Carried variables preserve storage types, formats, variable labels, value-label attachments and definitions, and the master dataset label; dataset notes and characteristics — both `_dta[]` and variable-level — are not carried.
+The default output order is original master observation order followed by original using observation order. `nosort` leaves backend materialization order. Carried variables preserve storage types, formats, variable labels, value-label attachments and definitions (every master definition in memory, including one no variable is attached to; a `saving()` file, like any `save`, keeps only attached definitions), and the master dataset label; dataset notes and characteristics — both `_dta[]` and variable-level — are not carried.
 
 The point backends use binary search and can select a sweep backend for compatible all-match calls. Overlap mode uses a streaming plane-sweep backend, so the full within-group Cartesian product is not materialized before filtering. Check `r(backend)` after a run: it is `binary`, `sweep`, or `overlap`.
 
@@ -360,6 +360,8 @@ The command also returns parsing and routing macros. Macros marked as conditiona
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.5.9** (2026-10-04): Under `nosort`, the sweep backend listed using rows with tied keys in a different order on every run, because its internal key sort had no tiebreaker; it now breaks ties on the original using row, as the binary and overlap backends already did. The matched pairs were always correct; only their order varied. A master value-label definition attached to no variable is now carried into the output on the memory and `frame()` routes instead of being dropped; a conflicting using mapping under the same name is moved to a collision-free name as before. (`saving()` writes through Stata's `save`, which stores only attached definitions.)
 
 - **1.5.8** (2026-09-30): Restore the caller’s `matastrict` setting after the first backend compilation, including a compilation error.
 

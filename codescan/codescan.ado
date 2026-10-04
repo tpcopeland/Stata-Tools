@@ -1,4 +1,4 @@
-*! codescan Version 4.2.5  2026/09/30
+*! codescan Version 4.3.0  2026/10/04
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -515,6 +515,8 @@ program define codescan, rclass
     if _rc local _need_definitions_helper = 1
     capture program list _codescan_validate_def_prefix
     if _rc local _need_definitions_helper = 1
+    capture mata: mata which _codescan_regex_literal_dot()
+    if _rc local _need_definitions_helper = 1
     if `_need_definitions_helper' {
         capture findfile _codescan_definitions.ado
         if _rc == 0 {
@@ -570,6 +572,7 @@ program define codescan, rclass
         local all_names "`r(all_names)'"
         local n_labels = r(n_labels)
         local codefile `"`r(resolved_codefile)'"'
+        local _cf_match "`r(match)'"
         forvalues i = 1/`n_conditions' {
             local def_name_`i' "`r(def_name_`i')'"
             local def_pattern_`i' `"`r(def_pattern_`i')'"'
@@ -579,6 +582,19 @@ program define codescan, rclass
             forvalues i = 1/`n_labels' {
                 local lab_name_`i' "`r(lab_name_`i')'"
                 local lab_label_`i' `"`r(lab_label_`i')'"'
+            }
+        }
+
+        * A codefile written by save() records the matching options its rules
+        * were authored under. The same pattern under other options is a
+        * different rule (prefix "E1.1" vs regex "E1.1"), so a mismatch would
+        * silently change the cohort: refuse it and name the options to use.
+        if "`_cf_match'" != "" {
+            local _call_match = itrim(strtrim("mode(`mode') `nocase' `nodots'"))
+            if "`_cf_match'" != "`_call_match'" {
+                display as error "codefile(): these rules were saved under {bf:`_cf_match'}; this call uses {bf:`_call_match'}"
+                display as error "  rerun with the same matching options, or edit the file's match column"
+                exit 198
             }
         }
     }
@@ -693,7 +709,24 @@ program define codescan, rclass
     * (unclosed "[", empty alternation branch, zero-width assertion); this one
     * is the same class and gets the same treatment. Checked AFTER level(),
     * because level() truncation can itself remove the offending period.
-    * mode(regex) is untouched: there "." is the any-character metacharacter.
+    * In mode(regex) a bare "." is the any-character metacharacter and stays
+    * legal; only a REQUIRED literal period (an escaped "\." or the class "[.]")
+    * is dead, and it is refused below for the same reason.
+    if "`mode'" == "regex" & "`nodots'" != "" {
+        forvalues i = 1/`n_conditions' {
+            foreach _nd_kind in pattern excl {
+                local _nd_val `"`def_`_nd_kind'_`i''"'
+                mata: st_local("_nd_dead", ///
+                    strofreal(_codescan_regex_literal_dot(st_local("_nd_val"))))
+                if `_nd_dead' {
+                    local _nd_lbl = cond("`_nd_kind'" == "excl", "exclusion", "pattern")
+                    display as error "`_defsrc': `_nd_lbl' for `def_name_`i'' requires a literal period (\. or [.]) but nodots strips periods from the data"
+                    display as error "  it can never match a stripped value; write it undotted (E110, not E11\.0)"
+                    exit 198
+                }
+            }
+        }
+    }
     if "`mode'" == "prefix" & "`nodots'" != "" {
         forvalues i = 1/`n_conditions' {
             foreach _nd_kind in pattern excl {
@@ -914,6 +947,74 @@ program define codescan, rclass
             }
             local _output_key_`_outopt' `"`_output_key'"'
             local _output_options "`_output_options' `_outopt'"
+        }
+    }
+
+    * Two different path strings can still name one file: a symlinked
+    * directory, or a case-insensitive filesystem (macOS, Windows shares). The
+    * string comparison above cannot see that, so the later writer silently
+    * replaced the earlier one's payload at rc=0. Stata has no realpath, so ask
+    * the filesystem instead, before any work:
+    *   - a target that does not exist yet gets an empty marker file; if a
+    *     later target that did not exist before now does, they are one file;
+    *   - two targets that both already existed (overwrite authorized) are
+    *     compared by checksum and length.
+    * Every marker is erased again here, so a refusal leaves nothing behind.
+    local _n_outopt : word count `_output_options'
+    if `_n_outopt' > 1 {
+        foreach _outopt of local _output_options {
+            capture confirm file `"`_`_outopt'_fn'"'
+            local _pre_`_outopt' = (_rc == 0)
+        }
+        local _alias_markers ""
+        local _alias_pair ""
+        local _alias_rc = 0
+        tempname _alias_fh
+        forvalues _ai = 1/`_n_outopt' {
+            local _oa : word `_ai' of `_output_options'
+            if `_pre_`_oa'' {
+                capture checksum `"`_`_oa'_fn'"'
+                if _rc continue
+                local _ck_`_oa' "`r(checksum)'_`r(filelen)'"
+                forvalues _aj = 1/`=`_ai'-1' {
+                    local _ob : word `_aj' of `_output_options'
+                    if `_pre_`_ob'' & "`_ck_`_ob''" == "`_ck_`_oa''" {
+                        local _alias_pair "`_ob' `_oa'"
+                    }
+                }
+            }
+            else {
+                capture file open `_alias_fh' using `"`_`_oa'_fn'"', write
+                local _alias_rc = _rc
+                if `_alias_rc' == 0 {
+                    file close `_alias_fh'
+                    local _alias_markers "`_alias_markers' `_oa'"
+                    * A later target that did not exist before and exists now
+                    * is this marker seen through another name.
+                    forvalues _aj = `=`_ai'+1'/`_n_outopt' {
+                        local _ob : word `_aj' of `_output_options'
+                        if !`_pre_`_ob'' & "`_alias_pair'" == "" {
+                            capture confirm file `"`_`_ob'_fn'"'
+                            if _rc == 0 local _alias_pair "`_oa' `_ob'"
+                        }
+                    }
+                }
+            }
+            if "`_alias_pair'" != "" | `_alias_rc' continue, break
+        }
+        foreach _ob of local _alias_markers {
+            capture erase `"`_`_ob'_fn'"'
+        }
+        if `_alias_rc' {
+            display as error `"`_oa'(): cannot create `_`_oa'_fn'"'
+            exit `_alias_rc'
+        }
+        if "`_alias_pair'" != "" {
+            local _ob : word 1 of `_alias_pair'
+            local _oa : word 2 of `_alias_pair'
+            display as error "`_ob'() and `_oa'() name the same output file"
+            display as error `"  `_`_ob'_fn' and `_`_oa'_fn' resolve to one file (a symlink or a case-insensitive filesystem); choose distinct targets"'
+            exit 198
         }
     }
 
@@ -1572,6 +1673,23 @@ program define codescan, rclass
     }
 
     * =========================================================================
+    * ROW-LEVEL INDICATORS: MISSING OUTSIDE THE ANALYSIS SAMPLE
+    * =========================================================================
+    * The indicators were created as 0 on every row so the scanner, the overlap
+    * check, the sensitivity counts and co-occurrence could read them directly.
+    * Left that way, a row excluded by if/in or by the time window read as
+    * "analyzed, no match": `summarize dm2' then divided by _N rather than r(N),
+    * and the variable contradicted unmatched() and merge, which both mark an
+    * unanalyzed row missing. Every consumer above has run, so set the row-level
+    * result to its three-state form here. collapse/merge replace these
+    * variables with person-level values and need no step.
+    if "`collapse'" == "" & "`merge'" == "" {
+        forvalues i = 1/`n_conditions' {
+            quietly replace `def_name_`i'' = . if !`touse'
+        }
+    }
+
+    * =========================================================================
     * RESOLVE DISPLAY LABELS (I1)
     * =========================================================================
     * One resolution, reused by every presentation path (variable labels, the
@@ -1728,7 +1846,8 @@ program define codescan, rclass
             }
         }
         else if "`countmode'" != "" {
-            quietly count if `name' > 0
+            * Rows outside the sample are missing, and missing > 0 is true.
+            quietly count if `name' > 0 & !missing(`name')
             local n_match = r(N)
             quietly summarize `name', meanonly
             local n_total_match = r(sum)
@@ -1874,7 +1993,7 @@ program define codescan, rclass
         forvalues i = 1/`n_conditions' {
             display as text "  `def_name_`i''" _col(20) _continue
             forvalues _wi = 1/`n_lookback_windows' {
-                display as result %9.1f el(`sensitivity', `i', `_wi') _continue
+                display as result `_prev_fmt' el(`sensitivity', `i', `_wi') _continue
             }
             display ""
         }
@@ -2254,6 +2373,10 @@ program define codescan, rclass
                 gen str244 pattern = ""
                 gen str244 exclusion = ""
                 gen str80 label = ""
+                * The matching options travel with the rules: codefile()
+                * refuses a later call whose options differ, because the same
+                * pattern under other options is a different cohort.
+                gen str40 match = itrim(strtrim("mode(`mode') `nocase' `nodots'"))
                 forvalues i = 1/`n_conditions' {
                     local _sv_nm "`def_name_`i''"
                     * Strip generate() prefix if present

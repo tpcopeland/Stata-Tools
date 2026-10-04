@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.8  2026/09/30
+*! rangematch Version 1.5.9  2026/10/04
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -442,7 +442,7 @@ program define _rangematch_load_using, sclass
                     local _rm_file_vars `r(varlist)'
                     local _rm_file_nvars : word count `_rm_file_vars'
                     if `_rm_file_nvars' <= c(maxvar) {
-                        capture frame drop __rm_using
+                        capture frame drop __rm_using  // stata-dev-ignore: fixed-name-object — rangematch refuses to start while any __rm_* frame exists
                         local _rm_drop_rc = _rc
                         frame create __rm_using
                         frame __rm_using {
@@ -652,9 +652,9 @@ program define _rangematch_build_group_ids
             }
 
             if `_rm_direct_gid' {
-                quietly gen double `master_gid' = `_rm_by1'
+                quietly gen double `master_gid' = `_rm_by1'  // stata-dev-ignore: unchecked-commit — private work variable; direct path runs only after the missing/range/type screens above
                 frame __rm_using {
-                    quietly gen double `using_gid' = `_rm_by1'
+                    quietly gen double `using_gid' = `_rm_by1'  // stata-dev-ignore: unchecked-commit — private work variable; direct path runs only after the missing/range/type screens above
                 }
             }
             else {
@@ -688,12 +688,12 @@ program define _rangematch_build_group_ids
                 local _rm_side_alias "__rm_side"
                 local _rm_first_alias "__rm_first"
 
-                capture frame drop __rm_grp
+                capture frame drop __rm_grp  // stata-dev-ignore: fixed-name-object — rangematch refuses to start while any __rm_* frame exists
                 local _rm_drop_rc = _rc
                 quietly frame put `by' `master_obs' if `touse', into(__rm_grp)
 
                 frame __rm_using {
-                    capture frame drop __rm_grp_u
+                    capture frame drop __rm_grp_u  // stata-dev-ignore: fixed-name-object — rangematch refuses to start while any __rm_* frame exists
                     local _rm_drop_rc = _rc
                     quietly frame put `by' `using_obs', into(__rm_grp_u)
                 }
@@ -722,7 +722,7 @@ program define _rangematch_build_group_ids
                         if _N > 0 {
                             sort `_rm_aliases'
                             by `_rm_aliases': gen byte `_rm_first_alias' = (_n == 1)
-                            gen long `_rm_gid_alias' = sum(`_rm_first_alias')
+                            gen long `_rm_gid_alias' = sum(`_rm_first_alias')  // stata-dev-ignore: unchecked-commit — private catalog frame column, not user-visible
                             drop `_rm_first_alias'
                         }
                         else {
@@ -775,7 +775,7 @@ program define _rangematch_run_backend, sclass
             NEARESTCode(real) TIESCode(real) ORDEROutput(real) ///
             OVERLAPMode(real) MIVar(name) UIVar(name)
 
-        capture frame drop __rm_out
+        capture frame drop __rm_out  // stata-dev-ignore: fixed-name-object — rangematch refuses to start while any __rm_* frame exists
         local _rm_drop_rc = _rc
         if !`dryrun' {
             frame create __rm_out
@@ -941,7 +941,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.8"
+    local _rm_required_mata_version "1.5.9"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1581,7 +1581,7 @@ program define rangematch, rclass
         exit 110
     }
     frame __rm_using {
-        quietly gen long `_rm_uid0' = _n
+        quietly gen long `_rm_uid0' = _n  // stata-dev-ignore: unchecked-commit — private provenance column in __rm_using, not user-visible
     }
 
     * -------------------------------------------------------------------
@@ -1729,7 +1729,7 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Master work frame: __rm_gid, __rm_low, __rm_high, __rm_obs,
     * plus __rm_key only for nearest().
-    capture frame drop __rm_master
+    capture frame drop __rm_master  // stata-dev-ignore: fixed-name-object — rangematch refuses to start while any __rm_* frame exists
     local _rm_drop_rc = _rc
     local _rm_need_master_key = (`nearest_code' != 0)
     * Private variables in the master work path. These are deliberately NOT
@@ -1803,9 +1803,9 @@ program define rangematch, rclass
         }
     }
     quietly {
-        gen long `_rm_obs' = _n
+        gen long `_rm_obs' = _n  // stata-dev-ignore: unchecked-commit — private master work variable, removed by restore
         if `_rm_need_master_key' {
-            gen double `_rm_key' = `key'
+            gen double `_rm_key' = `key'  // stata-dev-ignore: unchecked-commit — private master work variable, removed by restore
         }
         if "`low_kind'" == "variable" {
             gen double `_rm_low' = `low'
@@ -1927,7 +1927,7 @@ program define rangematch, rclass
                 display as error "could not allocate a collision-free using work variable"
                 exit 110
             }
-            quietly gen double `_rm_uhi_copy' = `ulo'
+            quietly gen double `_rm_uhi_copy' = `ulo'  // stata-dev-ignore: unchecked-commit — private using work column in __rm_uwork
             order __rm_gid `ulo' `_rm_uhi_copy' __rm_obs
         }
     }
@@ -2063,6 +2063,17 @@ program define rangematch, rclass
             tokens(st_local("master_vars")), ///
             tokens(st_local("master_vars")), ///
             "__rm_using", tokens(st_local("by")))
+    }
+
+    * Carry master value-label definitions that no master variable is
+    * attached to; attached ones travelled with their variables above. Done
+    * before the using variables so a conflicting using mapping, not the
+    * master definition, is the one moved to a collision-free name.
+    quietly label dir
+    local _rm_master_vl `"`r(names)'"'
+    if `"`_rm_master_vl'"' != "" {
+        mata: _rm_copy_vl_defs("`_rm_caller_frame'", "__rm_out", ///
+            tokens(st_local("_rm_master_vl")))
     }
 
     * Materialize using variables
@@ -2303,7 +2314,7 @@ program define rangematch, rclass
     capture frame change `_rm_caller_frame'
     local _rm_frame_change_rc = _rc
     if `_rm_frames_owned' {
-        foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {
+        foreach _rm_frame in __rm_master __rm_using __rm_uwork __rm_out __rm_grp __rm_grp_u {  // stata-dev-ignore: fixed-name-object — cleanup of frames this call owns; guarded by _rm_frames_owned after the preflight
             * `_rm_keep_out' is set only when in-place replacement failed after
             * the caller's snapshot was discarded. __rm_out is then the only
             * surviving copy of the output; dropping it here would complete the

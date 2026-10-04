@@ -529,7 +529,9 @@ capture noisily {
     import delimited using "`csv13'", clear varnames(1) stringcols(_all)
     assert _N == 1
     unab _cols : _all
-    assert "`_cols'" == "name pattern exclusion label"
+    * v4.3.0 adds the match column recording the matching options
+    assert "`_cols'" == "name pattern exclusion label match"
+    assert match[1] == "mode(regex)"
     assert name[1] == "dm2"
     assert pattern[1] == "E11"
     assert exclusion[1] == "E116"

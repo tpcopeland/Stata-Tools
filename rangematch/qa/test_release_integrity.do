@@ -306,7 +306,11 @@ if _rc {
 else {
     local vbadge "version-`pkg_version'-blue"
     local dbadge "updated-`badge_date'-brightgreen"
-    local anchor "tree/main/rangematch)"
+    * The package table links each row relatively, "[rangematch](rangematch)".
+    * The anchor once read "tree/main/rangematch)", an absolute-URL form the
+    * README dropped on 2026-09-22; from then on this gate found zero rows and
+    * the full lane was red, including the 1.5.8 release.
+    local anchor "[rangematch](rangematch)"
     mata: _qa_badge_row_contract(st_local("repo_readme"), st_local("anchor"), st_local("vbadge"), st_local("dbadge"))
     if scalar(__badge_rows) != 1 | scalar(__badge_good) != 1 {
         display as error "top-level README.md must contain one rangematch row with both current badges"

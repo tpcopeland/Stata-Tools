@@ -1,4 +1,4 @@
-*! datacheck Version 1.9.0  2026/10/03
+*! datacheck Version 1.9.0  2026/10/04
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -135,7 +135,9 @@ program define datacheck, rclass
                     exit 198
                 }
             }
-            local _ledrun = subinstr(`"`_ledrun'"', char(34), "", .)
+            // run() as typed, plain or compound-quoted, without its quotes; a
+            // backtick left behind would be read as a macro by the writer
+            mata: st_local("_ledrun", subinstr(_datacheck_unwrap(st_local("_ledrun")), char(34), ""))
         }
 
         // ---- session defaults (dataqa set): explicit > session > config ----
@@ -693,6 +695,8 @@ program define datacheck, rclass
         foreach _fam in rule review {
             if `"``_fam''"' == "" continue
             local rest `"``_fam''"'
+            // a value written in compound quotes, `"..."', is unwrapped
+            mata: st_local("rest", _datacheck_unwrap(st_local("rest")))
             while `"`rest'"' != "" {
                 local bs = strpos(`"`rest'"', "\")
                 if `bs' {
@@ -703,7 +707,7 @@ program define datacheck, rclass
                     local part `"`rest'"'
                     local rest ""
                 }
-                local part = strtrim(`"`part'"')
+                mata: st_local("part", _datacheck_unwrap(st_local("part")))
                 if `"`part'"' == "" continue
                 if substr(`"`part'"', 1, 1) == char(34) {
                     local qe = strpos(substr(`"`part'"', 2, .), char(34))
@@ -768,6 +772,7 @@ program define datacheck, rclass
         local n_byrule = 0
         if `"`byrule'"' != "" {
             local rest `"`byrule'"'
+            mata: st_local("rest", _datacheck_unwrap(st_local("rest")))
             while `"`rest'"' != "" {
                 local bs = strpos(`"`rest'"', "\")
                 if `bs' {
@@ -778,7 +783,7 @@ program define datacheck, rclass
                     local part `"`rest'"'
                     local rest ""
                 }
-                local part = strtrim(`"`part'"')
+                mata: st_local("part", _datacheck_unwrap(st_local("part")))
                 if `"`part'"' == "" continue
                 local ++n_byrule
                 local _k = `n_byrule'
@@ -3519,7 +3524,35 @@ end
 // the text prints as the literal characters.  w > 0 right-pads to w display
 // columns (measured before the substitution, as %-ws would have).
 capture mata: mata drop _datacheck_dshow()
+capture mata: mata drop _datacheck_unwrap()
 mata:
+// One spec entry, trimmed, without a compound quote that wraps all of it:
+// `"a": x > 0"' is "a": x > 0.  The wrapper is removed only when the `" at
+// the start is closed by the "' at the end, so `"a"' \ `"b"' is kept.
+string scalar _datacheck_unwrap(string scalar s0)
+{
+	real scalar k, L, cq
+	string scalar s
+	s = strtrim(s0)
+	L = strlen(s)
+	if (L < 4 | substr(s, 1, 2) != char(96) + char(34) | substr(s, -2, 2) != char(34) + char(39)) return(s)
+	cq = 1
+	k = 3
+	while (k <= L & cq > 0) {
+		if (substr(s, k, 2) == char(96) + char(34)) {
+			cq++
+			k = k + 2
+		}
+		else if (substr(s, k, 2) == char(34) + char(39)) {
+			cq--
+			k = k + 2
+		}
+		else k++
+	}
+	if (cq == 0 & k == L + 1) return(strtrim(substr(s, 3, L - 4)))
+	return(s)
+}
+
 string scalar _datacheck_dshow(string scalar s, real scalar w)
 {
 	real scalar i, n

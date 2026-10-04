@@ -124,7 +124,12 @@ variables are rejected — convert them first with {helpb compress} or
 file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. Each row is a
 first-character chapter such as {cmd:chapter_E}. If no codes remain, the file
 contains the four-column header and no data rows. Punctuation chapter characters
-are converted to valid, unique Stata names, which you can open in a spreadsheet
+are converted to valid, unique Stata names. Each {cmd:pattern} is the chapter's
+leading character, regex-escaped when it is a regex metacharacter
+(a {cmd:.} chapter is written {cmd:\.}, a {cmd:$} chapter {cmd:\$}), because
+{cmd:codescan} reads a codefile in {cmd:mode(regex)} by default and an unescaped
+{cmd:.} would match every code. The draft carries no {cmd:match} column, so it is
+accepted under any matching options. Open it in a spreadsheet
 and refine into real scan rules before using with {helpb codescan:codescan, codefile()}. The
 filename must end in {cmd:.csv}; quotes, shell metacharacters, and control
 characters inside the filename are rejected. An existing file is never
@@ -296,8 +301,10 @@ fine and is left alone, so a code such as {cmd:A B} keeps its own row name.
 {pstd}
 Because of that aliasing, {bf:read the identity from the macros}, not from the
 row names. {cmd:r(top_code_#)} and {cmd:r(chapter_#)} always hold the exact
-value for row {it:#}, in the same order as the matrix rows, whether or not that
-row was aliased.
+value for row {it:#}, byte for byte -- including codes that are not valid UTF-8,
+such as Latin-1 registry extracts -- in the same order as the matrix rows,
+whether or not that row was aliased. The displayed tables show such bytes as the
+Unicode replacement character.
 
 {pstd}
 Both matrices, the displayed tables, and the {cmd:save()} draft codefile are

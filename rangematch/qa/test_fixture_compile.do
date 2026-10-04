@@ -4,8 +4,10 @@ version 16.1
 clear all
 set more off
 set varabbrev off
-capture log close _all
-log using "test_fixture_compile.log", replace text nomsg
+* A NAMED log, so the caller's log stays open. Closing all logs here once shut
+* run_all.log, and every later suite's RESULT sentinel went unscanned.
+capture log close fxcompile
+log using "test_fixture_compile.log", replace text nomsg name(fxcompile)
 local qa_dir "`c(pwd)'"
 local pkg_dir=regexr("`qa_dir'","/qa$","")
 adopath ++ "`pkg_dir'"
@@ -51,5 +53,5 @@ foreach strict in off on {
     }
 }
 di "RESULT: test_fixture_compile tests=`tests' pass=`pass' fail=`fail' skip=0"
-log close _all
+log close fxcompile
 if `fail'>0 exit 1

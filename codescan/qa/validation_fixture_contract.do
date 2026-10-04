@@ -76,6 +76,7 @@ program define _fx_codescan_2, rclass
             quietly summarize want, meanonly
             local largest=r(max)
         restore
+        * expect: EXACT
         qa_state_snapshot, tag(desc_top)
         codescan_describe dx1-dx4, top(1)
         qa_state_compare, tag(desc_top)
@@ -132,7 +133,8 @@ local tests=0
                     }
                     replace want_`name'=0 if !inrange(date,mdy(1,1,2020),ref)
                     if "`shape'"!="count" replace want_`name'=want_`name'>0
-                    if "`shape'"=="merge" replace want_`name'=. if !inrange(date,mdy(1,1,2020),ref)
+                    * Unanalyzed rows are missing under merge and, since v4.3.0, at the row level
+                    if inlist("`shape'","merge","row") replace want_`name'=. if !inrange(date,mdy(1,1,2020),ref)
                 }
                 tempname W
                 preserve

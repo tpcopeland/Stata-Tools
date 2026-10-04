@@ -4,8 +4,10 @@ version 16.1
 clear all
 set more off
 set varabbrev off
-capture log close _all
-log using "validation_fixture_intervals.log", replace text nomsg
+* A NAMED log, so the caller's log stays open. Closing all logs here once shut
+* run_all.log, and every later suite's RESULT sentinel went unscanned.
+capture log close fxintervals
+log using "validation_fixture_intervals.log", replace text nomsg name(fxintervals)
 args strict
 if "`strict'"=="" local strict off
 assert inlist("`strict'","off","on")
@@ -82,7 +84,7 @@ program define _fx_intervals, rclass
                     frame fx_overlap {
                         keep mid uid
                         sort mid uid
-                        cf _all using `expected', all
+                        cf mid uid using `expected', all
                     }
                     frame drop fx_overlap
                 }
@@ -99,7 +101,7 @@ program define _fx_intervals, rclass
                     assert `state_diffs'==0
                     keep mid uid
                     sort mid uid
-                    cf _all using `expected', all
+                    cf mid uid using `expected', all
                 }
                 di "ORACLE SPELLS `op' overlap `closed' `shape': all `pairs' row pairs exact"
             }
@@ -195,5 +197,5 @@ local tests=`tests'+r(tests)
 local pass=`pass'+r(pass)
 local fail=`fail'+r(fail)
 di "RESULT: validation_fixture_intervals tests=`tests' pass=`pass' fail=`fail' skip=0"
-log close _all
+log close fxintervals
 if `fail'>0 exit 1

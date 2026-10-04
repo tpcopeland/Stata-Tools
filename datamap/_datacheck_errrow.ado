@@ -1,4 +1,4 @@
-*! _datacheck_errrow Version 1.9.0  2026/10/03
+*! _datacheck_errrow Version 1.9.0  2026/10/04
 *! Append one error row to the QA ledger for a datacheck call that failed
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -24,75 +24,17 @@ program define _datacheck_errrow, nclass
         gettoken dsname 0 : 0
         gettoken ledfile 0 : 0
         gettoken ledrun 0 : 0
-        local raw `"`macval(0)'"'
-        // the options as typed, outside quotes and brackets
-        local rl ""
-        local rn ""
-        local inq = 0
-        local depth = 0
-        local L = length(`"`macval(raw)'"')
-        local i = 1
-        while `i' <= `L' {
-            local ch = substr(`"`macval(raw)'"', `i', 1)
-            if `"`ch'"' == char(34) {
-                local inq = !`inq'
-            }
-            else if !`inq' {
-                if `"`ch'"' == "(" local ++depth
-                else if `"`ch'"' == ")" local --depth
-                else if `depth' == 0 {
-                    local prev = cond(`i' == 1, " ", substr(`"`macval(raw)'"', `i' - 1, 1))
-                    if inlist(`"`prev'"', " ", ",") {
-                        local tail = lower(substr(`"`macval(raw)'"', `i', 12))
-                        if regexm(`"`tail'"', "^(ledger|ledge|led|name)[ ]*\(") {
-                            local key = regexs(1)
-                            local start = `i' + length(regexs(0))
-                            local d2 = 1
-                            local q2 = 0
-                            local j = `start'
-                            while `j' <= `L' & `d2' > 0 {
-                                local c2 = substr(`"`macval(raw)'"', `j', 1)
-                                if `"`c2'"' == char(34) local q2 = !`q2'
-                                else if !`q2' {
-                                    if `"`c2'"' == "(" local ++d2
-                                    else if `"`c2'"' == ")" local --d2
-                                }
-                                local ++j
-                            }
-                            if `d2' == 0 {
-                                local content = substr(`"`macval(raw)'"', `start', `j' - 1 - `start')
-                                if "`key'" == "name" & `"`rn'"' == "" local rn = strtrim(`"`content'"')
-                                else if "`key'" != "name" & `"`rl'"' == "" local rl = strtrim(`"`content'"')
-                                local i = `j' - 1
-                            }
-                        }
-                    }
-                }
-            }
-            local ++i
-        }
+        // the raw line is read in Mata only: it can hold compound quotes
+        // and backticks, which break any local that expands a piece of it
+        // inside quotes.  Sets rl (1 when ledger() was typed), rl_file,
+        // rl_run, rn (name() as typed, quotes removed), and _msg.
+        mata: _datacheck_errrow_scan(st_local("0"), st_local("erc"))
         // the ledger: what the body resolved, else ledger() as typed, else
         // the session default
         local lrun ""
-        if `"`ledfile'"' == "" & `"`rl'"' != "" {
-            local lq = substr(`"`rl'"', 1, 1) == char(34)
-            if `lq' {
-                gettoken ledfile lrest : rl
-                local lrest = strtrim(subinstr(`"`lrest'"', ",", "", 1))
-            }
-            else {
-                local cp = strpos(`"`rl'"', ",")
-                if `cp' {
-                    local ledfile = strtrim(substr(`"`rl'"', 1, `cp' - 1))
-                    local lrest = strtrim(substr(`"`rl'"', `cp' + 1, .))
-                }
-                else {
-                    local ledfile `"`rl'"'
-                    local lrest ""
-                }
-            }
-            if regexm(`"`lrest'"', "^run\((.*)\)$") local lrun = strtrim(regexs(1))
-            local ledfile = subinstr(`"`ledfile'"', char(34), "", .)
+        if `"`ledfile'"' == "" & `rl' {
+            local ledfile `"`rl_file'"'
+            local lrun `"`rl_run'"'
         }
         else if `"`ledfile'"' != "" local lrun `"`ledrun'"'
         local sess_run ""
@@ -120,14 +62,12 @@ program define _datacheck_errrow, nclass
             // the dataset name: the body's, else name() as typed, else the file
             // in memory, as datacheck names it
             if `"`dsname'"' == "" {
-                if `"`rn'"' != "" local dsname = subinstr(`"`rn'"', char(34), "", .)
+                if `"`rn'"' != "" local dsname `"`rn'"'
                 else if `"`c(filename)'"' != "" {
                     mata: st_local("dsname", pathrmsuffix(pathbasename(st_global("c(filename)"))))
                     if c(changed) local dsname "`dsname' (modified)"
                 }
             }
-            local cmdtxt = substr(strtrim(subinstr(subinstr(`"`macval(raw)'"', char(10), " ", .), char(13), " ", .)), 1, 240)
-            local msg `"datacheck call exited with rc `erc': datacheck `macval(cmdtxt)'"'
             capture _datamap_version datacheck
             local pkgver = cond(_rc, "", "`r(version)'")
             frame create `rf' str32 fam str10 kind byte ok strL label strL variable ///
@@ -135,7 +75,9 @@ program define _datacheck_errrow, nclass
                 strL scope strL msg double minshown byte omasked str8 status
             local _rf_made = 1
             frame post `rf' ("call") ("invariant") (0) ("datacheck call") ("") ("") ///
-                ("rc `erc'") (`erc') ("rc 0") (.) ("") (`"`macval(msg)'"') (.) (0) ("error")
+                ("rc `erc'") (`erc') ("rc 0") (.) ("") ("") (.) (0) ("error")
+            // the message holds the command text, stored without expansion
+            frame `rf': mata: st_sstore(1, "msg", st_local("_msg"))
             _datacheck_ledger, rf(`rf') file(`"`ledfile'"') run(`"`lrun'"') ///
                 dataset(`"`dsname'"') version(`pkgver')
         }
@@ -146,4 +88,181 @@ program define _datacheck_errrow, nclass
     if `rc' {
         display as error "datacheck: the ledger error row could not be written (rc `rc'); the call's own rc is returned"
     }
+end
+
+// The options of the raw command line, outside quotes and parentheses.  A
+// compound quote `" ... "' nests and hides everything inside it, as does a
+// plain "...".  ledger(file [, run(r)]) and name(text) are read as typed;
+// their quotes, plain or compound, are removed.  The ledger message is the
+// command text, line breaks as spaces, cut at 240 characters.
+capture mata: mata drop _datacheck_errrow_scan()
+capture mata: mata drop _datacheck_errrow_close()
+capture mata: mata drop _datacheck_errrow_unq()
+mata:
+// the position of the ")" that closes the "(" before position i, or 0
+real scalar _datacheck_errrow_close(string scalar s, real scalar i0)
+{
+	real scalar i, L, d, cq, inq
+	string scalar c2, c
+	L = strlen(s)
+	d = 1
+	cq = 0
+	inq = 0
+	i = i0
+	while (i <= L) {
+		c2 = substr(s, i, 2)
+		c = substr(s, i, 1)
+		if (!inq & c2 == char(96) + char(34)) {
+			cq++
+			i = i + 2
+			continue
+		}
+		if (cq > 0) {
+			if (c2 == char(34) + char(39)) {
+				cq--
+				i = i + 2
+			}
+			else i++
+			continue
+		}
+		if (c == char(34)) inq = !inq
+		else if (!inq) {
+			if (c == "(") d++
+			else if (c == ")") {
+				d--
+				if (d == 0) return(i)
+			}
+		}
+		i++
+	}
+	return(0)
+}
+
+// text without its quotes: a whole compound or plain quote is unwrapped,
+// then any remaining double quote is removed
+string scalar _datacheck_errrow_unq(string scalar s0)
+{
+	string scalar s
+	s = strtrim(s0)
+	if (substr(s, 1, 2) == char(96) + char(34) & substr(s, -2, 2) == char(34) + char(39)) {
+		s = substr(s, 3, strlen(s) - 4)
+	}
+	return(strtrim(subinstr(s, char(34), "")))
+}
+
+void _datacheck_errrow_scan(string scalar raw, string scalar erc)
+{
+	real scalar i, L, cq, inq, d, j, k, gotl, gotn
+	string scalar c, c2, prev, tail, key, content, s, rest, file, run, cmd
+	L = strlen(raw)
+	cq = 0
+	inq = 0
+	d = 0
+	gotl = 0
+	gotn = 0
+	content = ""
+	file = ""
+	run = ""
+	i = 1
+	while (i <= L) {
+		c2 = substr(raw, i, 2)
+		c = substr(raw, i, 1)
+		if (!inq & c2 == char(96) + char(34)) {
+			cq++
+			i = i + 2
+			continue
+		}
+		if (cq > 0) {
+			if (c2 == char(34) + char(39)) {
+				cq--
+				i = i + 2
+			}
+			else i++
+			continue
+		}
+		if (c == char(34)) {
+			inq = !inq
+			i++
+			continue
+		}
+		if (inq) {
+			i++
+			continue
+		}
+		if (c == "(") d++
+		else if (c == ")") d--
+		else if (d == 0) {
+			prev = (i == 1 ? " " : substr(raw, i - 1, 1))
+			if (prev == " " | prev == ",") {
+				tail = strlower(substr(raw, i, 12))
+				if (regexm(tail, "^(ledger|ledge|led|name)[ ]*\(")) {
+					key = regexs(1)
+					k = i + strlen(regexs(0))
+					j = _datacheck_errrow_close(raw, k)
+					if (j > 0) {
+						content = substr(raw, k, j - k)
+						if (key == "name") {
+							if (!gotn) st_local("rn", _datacheck_errrow_unq(content))
+							gotn = 1
+						}
+						else if (!gotl) {
+							gotl = 1
+							s = strtrim(content)
+							rest = ""
+							if (substr(s, 1, 2) == char(96) + char(34)) {
+								// the matching "' of the leading `"
+								cq = 1
+								k = 3
+								while (k <= strlen(s) & cq > 0) {
+									if (substr(s, k, 2) == char(96) + char(34)) {
+										cq++
+										k = k + 2
+									}
+									else if (substr(s, k, 2) == char(34) + char(39)) {
+										cq--
+										k = k + 2
+									}
+									else k++
+								}
+								file = substr(s, 3, k - 5)
+								rest = substr(s, k, .)
+								cq = 0
+							}
+							else if (substr(s, 1, 1) == char(34)) {
+								k = strpos(substr(s, 2, .), char(34))
+								if (k == 0) file = substr(s, 2, .)
+								else {
+									file = substr(s, 2, k - 1)
+									rest = substr(s, k + 2, .)
+								}
+							}
+							else {
+								k = strpos(s, ",")
+								if (k) {
+									file = substr(s, 1, k - 1)
+									rest = substr(s, k, .)
+								}
+								else file = s
+							}
+							rest = strtrim(rest)
+							if (substr(rest, 1, 1) == ",") rest = strtrim(substr(rest, 2, .))
+							if (regexm(rest, "^run\((.*)\)$")) run = _datacheck_errrow_unq(regexs(1))
+							file = strtrim(subinstr(file, char(34), ""))
+						}
+						i = j + 1
+						continue
+					}
+				}
+			}
+		}
+		i++
+	}
+	st_local("rl", strofreal(gotl))
+	st_local("rl_file", file)
+	st_local("rl_run", run)
+	if (!gotn) st_local("rn", "")
+	cmd = subinstr(subinstr(raw, char(10), " "), char(13), " ")
+	cmd = usubstr(strtrim(cmd), 1, 240)
+	st_local("_msg", "datacheck call exited with rc " + erc + ": datacheck " + cmd)
+}
 end

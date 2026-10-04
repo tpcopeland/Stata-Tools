@@ -4,8 +4,10 @@ version 16.1
 clear all
 set more off
 set varabbrev off
-capture log close _all
-log using "validation_fixture_contract.log", replace text nomsg
+* A NAMED log, so the caller's log stays open. Closing all logs here once shut
+* run_all.log, and every later suite's RESULT sentinel went unscanned.
+capture log close fxcontract
+log using "validation_fixture_contract.log", replace text nomsg name(fxcontract)
 local qa_dir "`c(pwd)'"
 local pkg_dir = regexr("`qa_dir'", "/qa$", "")
 adopath ++ "`pkg_dir'"
@@ -65,7 +67,7 @@ program define _fx_rangematch_1, rclass
                 keep anchor_id event_id
                 sort anchor_id event_id
                 save `actual'
-                cf _all using `expected', all
+                cf anchor_id event_id using `expected', all
             }
             local case_rc=_rc
             capture restore
@@ -124,5 +126,5 @@ local tests=`tests'+r(qa_tests)
 local pass=`pass'+r(qa_pass)
 local fail=`fail'+r(qa_fail)
 di "RESULT: validation_fixture_contract tests=`tests' pass=`pass' fail=`fail' skip=0"
-log close _all
+log close fxcontract
 if `fail'>0 exit 1

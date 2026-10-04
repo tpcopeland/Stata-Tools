@@ -118,7 +118,7 @@ capture noisily {
     dataqa assert, expect(auto_cars lifeexp)
     tempfile release
     dataqa export, saving("`release'") replace
-    assert r(N) >= 1
+    assert !missing(r(N)) & r(N) >= 1
     dataqa set clear
     assert `"$DATAMAP_DQ"' == ""
 }

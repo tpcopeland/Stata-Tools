@@ -87,6 +87,7 @@ program define _fx_windows, rclass
             forvalues slot=1/4 {
                 replace want=1 if substr(upper(subinstr(dx`slot',".","",.)),1,strlen("`prefix'"))=="`prefix'"
             }
+            * expect: EXACT
             qa_state_snapshot, tag(code_level)
             codescan dx1-dx4, define(ami I211) mode(prefix) level(`level')
             qa_state_compare, tag(code_level) allow(data)

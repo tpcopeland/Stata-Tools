@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.2.5  2026/09/30
+*! codescan_describe Version 4.3.0  2026/10/04
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -292,7 +292,7 @@ program define codescan_describe, rclass
             local nc = `_desc_ch_codes_`i''
             local ne = `_desc_ch_entries_`i''
             display as text "    define(`_desc_rule_name_`i'' " as result ///
-                char(34) + ustrunescape("`_desc_ch_hex_`i''") + char(34) ///
+                char(34) + ustrunescape("`_desc_ch_pat_hex_`i''") + char(34) ///
                 as text ") — `nc' codes, `ne' entries"
         }
     }
@@ -312,10 +312,15 @@ program define codescan_describe, rclass
                 gen str244 pattern = ""
                 gen str244 exclusion = ""
                 gen str80 label = ""
+                * The pattern is the chapter's own leading character, regex-
+                * escaped (a "." chapter must not become match-everything), and
+                * stored from the raw local through Mata: the hex transport
+                * used for display turns a non-UTF-8 byte into U+FFFD, a
+                * pattern that matches nothing in the data it came from.
                 if `n_chapters' > 0 {
                     forvalues i = 1/`n_chapters' {
                         replace name = "`_desc_rule_name_`i''" in `i'
-                        replace pattern = ustrunescape("`_desc_ch_hex_`i''") in `i'
+                        mata: st_sstore(`i', "pattern", st_local("_desc_ch_pat_`i'"))
                     }
                 }
                 keep name pattern exclusion label
@@ -345,9 +350,17 @@ program define codescan_describe, rclass
         return local varlist "`varlist'"
         return matrix top_codes = `top_codes', copy
         return matrix chapters = `chapters', copy
+        * Posted from the raw Mata-written locals, byte for byte. The hex
+        * round trip used for display is not exact for bytes that are invalid
+        * UTF-8 (Latin-1 registry extracts): it returned U+FFFD, a "code" that
+        * does not exist in the data. Staging the value in a string scalar and
+        * returning it as an expression keeps quotes and backticks out of
+        * macro parsing entirely.
+        tempname _rawval
         if `show' > 0 {
             forvalues i = 1/`show' {
-                return local top_code_`i' = ustrunescape("`_desc_code_hex_`i''")
+                mata: st_strscalar("`_rawval'", st_local("_desc_code_`i'"))
+                return local top_code_`i' = scalar(`_rawval')
             }
         }
         * The exact leading character for each r(chapters) row, in row order.
@@ -355,7 +368,8 @@ program define codescan_describe, rclass
         * this is the only place the chapter identity is always recoverable.
         if `n_chapters' > 0 {
             forvalues i = 1/`n_chapters' {
-                return local chapter_`i' = ustrunescape("`_desc_ch_hex_`i''")
+                mata: st_strscalar("`_rawval'", st_local("_desc_ch_`i'"))
+                return local chapter_`i' = scalar(`_rawval')
             }
         }
     }
@@ -534,6 +548,20 @@ void _codescan_describe_tabulate()
         st_local("_desc_ch_entries_" + strofreal(i), strofreal(cv[2]))
         st_local("_desc_ch_safe_" + strofreal(i),
                  strofreal(_codescan_rowname_safe(sch_keys[ci])))
+        st_local("_desc_ch_pat_" + strofreal(i),
+                 _codescan_regex_escape1(sch_keys[ci]))
+        st_local("_desc_ch_pat_hex_" + strofreal(i),
+                 ustrtohex(_codescan_regex_escape1(sch_keys[ci])))
     }
+}
+
+// The draft-codefile pattern for one chapter character. codescan reads a
+// codefile in regex mode, so an unescaped metacharacter chapter is either
+// invalid ("(", "*") or silently broader than the chapter ("." matches every
+// code). Escaping makes the rule mean "codes beginning with this character".
+string scalar _codescan_regex_escape1(string scalar c)
+{
+    if (strlen(c) == 1 & strpos("\^$.|?*+()[]{}", c) > 0) return("\" + c)
+    return(c)
 }
 end

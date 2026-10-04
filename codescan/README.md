@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.2.5** | 2026-09-30
+**Version 4.3.0** | 2026-10-04
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -24,7 +24,7 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
 matrix list r(summary)
 ```
 
-The first `codescan` call leaves one indicator per condition on each row; the second reduces the data to one row per `pid`. `r(summary)` reports the counts and prevalence for the final analysis unit.
+The first `codescan` call leaves one indicator per condition on each row; the second reduces the data to one row per `pid`. A row-level indicator is 1 (or a count) for an analyzed match, 0 for an analyzed non-match, and `.` for a row outside the analysis sample (`if`/`in`, missing date, or window), so `summarize` on it reproduces the reported prevalence. `r(summary)` reports the counts and prevalence for the final analysis unit.
 
 ## Requirements
 
@@ -64,11 +64,11 @@ Run separate scans with `generate()` when diagnosis, procedure, or medication fi
 
 ### Matching rules
 
-`mode(regex)` is the default. Every inclusion and exclusion pattern is anchored at the start of the code, so `"E11"` matches `E110` and `E119` but not `AE11`; character classes and alternation are supported. `mode(prefix)` treats pipe-separated tokens as simple starts-with prefixes and is useful when regex features are unnecessary.
+`mode(regex)` is the default. Every inclusion and exclusion pattern is anchored at the start of the code, so `"E11"` matches `E110` and `E119` but not `AE11`; character classes and alternation are supported. Codes are matched exactly as stored: leading or trailing spaces are not trimmed, so a padded `" E11"` does not match `"E11"` (`codescan_describe` lists such values as separate codes; clean them with `strtrim()` first). `mode(prefix)` treats pipe-separated tokens as simple starts-with prefixes and is useful when regex features are unnecessary.
 
 The unquoted `|` in `define()` separates conditions, while a `|` inside a quoted pattern is part of that regex or prefix list. Use `~` after an inclusion pattern for exclusions, for example `define(dm2 "E11" ~ "E116")`.
 
-Regex patterns that can match without consuming a character are rejected because an anchored empty match would identify every code; empty alternatives in prefix lists are rejected for the same reason. In `mode(regex)`, use `.` to match any nonempty code rather than `.*`; in `mode(prefix)`, a period is literal. `nocase` enables unicode-aware case-insensitive matching, and `nodots` removes periods from the data before matching without changing the stored data.
+Regex patterns that can match without consuming a character are rejected because an anchored empty match would identify every code; empty alternatives in prefix lists are rejected for the same reason. In `mode(regex)`, use `.` to match any nonempty code rather than `.*`; in `mode(prefix)`, a period is literal. `nocase` enables unicode-aware case-insensitive matching, and `nodots` removes periods from the data before matching without changing the stored data. Under `nodots`, a pattern that requires a literal period is rejected because it can never match: a dotted prefix in `mode(prefix)`, or an escaped `\.` or `[.]` in `mode(regex)`.
 
 ## Choosing a Workflow
 
@@ -148,7 +148,7 @@ codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]") ///
 codescan dx1 dx2, codefile(dm_rules.csv) replace
 ```
 
-The CSV contains `name`, `pattern`, `exclusion`, and `label` columns. The first call creates the condition variables, so `replace` permits the codefile call to recreate them.
+The CSV contains `name`, `pattern`, `exclusion`, `label`, and `match` columns. `match` records the call's `mode()`, `nocase`, and `nodots`; `codefile()` refuses a later call whose options differ, because the same pattern means something else under other options. The first call creates the condition variables, so `replace` permits the codefile call to recreate them.
 
 ### 6. Keep the original data in a frame
 
@@ -201,7 +201,7 @@ The workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx) contains
 codescan varlist [if] [in], define(string asis) | codefile(string) [options]
 ```
 
-Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion` and `label` columns (column names are case-insensitive). Values in codefile fields must not contain global-macro references such as `$name` or `${name}`; a lone `$`, including the regex end-of-string anchor, is allowed. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
+Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion`, `label`, and `match` columns (column names are case-insensitive). When `match` is present it must hold the same value on every row (`mode(regex)` or `mode(prefix)`, optionally `nocase` and `nodots`), and the call must use those options. Values in codefile fields must not contain global-macro references such as `$name` or `${name}`; a lone `$`, including the regex end-of-string anchor, is allowed. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
 
 ### `codescan_describe`
 
@@ -209,7 +209,7 @@ Exactly one of `define()` or `codefile()` is required. Inline definitions use `n
 codescan_describe varlist [if] [in] [, top(#) nodots tostring save(filename [, replace])]
 ```
 
-The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter, then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`. When the inventory is empty, `save()` writes the four-column header with no data rows.
+The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter (each pattern regex-escaped, so a `.` chapter matches only codes starting with a period), then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`. When the inventory is empty, `save()` writes the four-column header with no data rows.
 
 ## Key Options
 
@@ -218,7 +218,7 @@ The command pools nonempty values across all selected variables, excluding the b
 | Option | Use |
 |--------|-----|
 | `define()` | Supply inline condition definitions separated by an unquoted pipe |
-| `codefile()` | Read string `name` and `pattern` definitions from CSV or `.dta`, with optional `exclusion` and `label` columns |
+| `codefile()` | Read string `name` and `pattern` definitions from CSV or `.dta`, with optional `exclusion`, `label`, and `match` columns |
 | `label()` | Add presentation labels using `\` between entries; labels do not change condition identifiers |
 | `save()` | With `codescan`, write `define()` rules (not `codefile()`) to `.csv`; with `codescan_describe`, write a chapter draft; use the `replace` suboption to overwrite a file |
 
@@ -284,7 +284,7 @@ The command pools nonempty values across all selected variables, excluding the b
 | `tostring` | Convert numeric code variables temporarily before tabulating |
 | `save()` | Write the chapter summary as a draft CSV codefile |
 
-File options accept ordinary quoted paths with spaces or hyphens, reject unsafe shell/control characters, and never overwrite an existing file without the option-specific `replace` suboption. Within one call, `save()`, `export()`, and `saving()` must name different output paths.
+File options accept ordinary quoted paths with spaces or hyphens, reject unsafe shell/control characters, and never overwrite an existing file without the option-specific `replace` suboption. Within one call, `save()`, `export()`, and `saving()` must name different output files; this is checked on the filesystem, so two paths reaching one file through a symbolic link or a case-insensitive filesystem are refused too.
 
 ## Stored Results
 
@@ -369,6 +369,16 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.3.0 (2026-10-04)
+
+- **Behaviour change:** row-level condition variables are now missing (`.`) on rows outside the analysis sample (excluded by `if`/`in`, a missing date, or the time window), instead of 0. They follow the same three-state contract as `unmatched()` and `merge`, so `summarize` and `count if !missing()` agree with the reported prevalence and `r(N)`. `collapse` and `merge` output is unchanged.
+- Fix a crash on a one-observation dataset with an empty or `.` code cell: the scanner died with a raw Mata `r(3301)`.
+- Reject, under `nodots` in `mode(regex)`, an inclusion or exclusion that requires a literal period (`\.` or `[.]`). Such a pattern can never match undotted data and returned a silent zero cohort (or a silently inert exclusion); the any-character `.` is still accepted.
+- `codescan_describe` returns `r(top_code_#)` and `r(chapter_#)` byte for byte. Non-UTF-8 codes (for example Latin-1 extracts) came back as U+FFFD, a code absent from the data. The `save()` draft keeps the raw chapter character and regex-escapes metacharacters, so a `.` or `$` chapter no longer drafts a match-everything or invalid rule.
+- `save()` writes a `match` column recording `mode()`, `nocase`, and `nodots`, and `codefile()` refuses a call whose options differ: reloading a `mode(prefix)` rule such as `"E1.1"` in the default regex mode silently widened the cohort. Codefiles without the column are accepted as before.
+- Output files aliased through a symbolic link or a case-insensitive filesystem are refused before any work; previously the later writer silently replaced the earlier one's file.
+- `format()` now also applies to the multi-window sensitivity table.
 
 ### 4.2.5 (2026-09-30)
 

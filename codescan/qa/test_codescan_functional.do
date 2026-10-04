@@ -474,8 +474,9 @@ capture noisily {
     * Only refdate (2020-01-01) included → rows on that exact date
     * Row 3 (patient 1, visit_dt=2020-01-01, dx1=E119): match
     assert dm2 == 1 if _n == 3
-    * Row 1 (patient 1, visit_dt=2019-06-15): outside
-    assert dm2 == 0 if _n == 1
+    * Row 1 (patient 1, visit_dt=2019-06-15): outside, so missing (v4.3.0
+    * three-state row-level contract)
+    assert missing(dm2) if _n == 1
 }
 if _rc == 0 {
     display as result "  PASS: lookforward(0) inclusive matches refdate only"

@@ -1,4 +1,4 @@
-*! _datacheck_bandsparse Version 1.9.0  2026/10/03
+*! _datacheck_bandsparse Version 1.9.0  2026/10/04
 *! Parse the contents of datacheck bands()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

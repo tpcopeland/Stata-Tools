@@ -1,4 +1,4 @@
-*! datamap Version 1.9.0  2026/10/03
+*! datamap Version 1.9.0  2026/10/04
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1564,7 +1564,10 @@ void _datamap_fwargs(string scalar src, string scalar dst)
 {
 	string scalar s, out, run, ch
 	real scalar i, a
-	s = st_local(src)
+	// every caller writes one line of the text map: a line break in a
+	// label or value becomes a space, as string levels do
+	s = subinstr(subinstr(st_local(src), char(13) + char(10), " "), char(10), " ")
+	s = subinstr(s, char(13), " ")
 	out = ""
 	run = ""
 	for (i = 1; i <= strlen(s); i++) {

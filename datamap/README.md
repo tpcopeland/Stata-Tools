@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.9.0** | 2026-10-03
+**Version 1.9.0** | 2026-10-04
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -380,7 +380,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
-### 1.9.0 (2026-10-03)
+### 1.9.0 (2026-10-04)
 
 - Fix: `datacheck varname, by()` on one variable with no missing values stopped with r(3202) in the GROUPWISE MISSINGNESS block.
 - `datacheck` calls that fail to run no longer vanish from the QA ledger: any exit other than a gate failure (a parse error, a misspelled option, a bad expression, a missing variable) appends a call-error row carrying the return code, and `dataqa assert` halts on it. Error rows are never superseded by a later call; `dataqa export` refuses a run that holds one.
@@ -398,6 +398,9 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - Fix: a blank string `by()` group printed its group number as its label; blank and missing groups now print as `(blank)` or their missing code. `dataqa` readers resolve a ledger path with the same rule as the writers (`.dta` added only to a name without a suffix), so a stray file without a suffix is no longer read in place of the ledger.
 - Fix: a data value or value label holding a backtick, a quote followed by an apostrophe, `$`, or SMCL braces broke `datacheck` tables and gate messages (display text leaked into the line) and stopped `datamap` text and JSON output, `datadict`, and `saving()` with r(132) or r(198); such values now print and write literally.
 - Under `maskrare`, the above/below summary of a failing `groupstat()` band withholds a direction's row count when one of its groups is below the mask. `smallcells()` refuses a threshold below 2, and `dataqa assert` accepts compound-quoted dataset names with spaces in `optional()` and `expect()`. A non-integer `by()` value is recorded as its shortest exact decimal text.
+- Fix: a failing `datacheck` call whose command line held a compound quote (`` ledger(`"file"') ``, `` name(`"a b"') ``, a compound-quoted `rule()`) wrote no call-error row (r(132) in the writer), so `dataqa assert` could pass over it; the row is now written for every quoting form.
+- Fix: a `rule()`, `review()`, or `byrule()` value written in compound quotes, `` rule(`"label: make != """') ``, stopped with r(132) or r(109); it is unwrapped and parsed like the plain form. A `byrule()` spec quoted as a whole is refused with a message naming the form.
+- Fix: a line break in a variable label, value label, dataset label, or sample value broke the line structure of `datamap` text output; it is written as a space, as string levels already were. `dataqa assert` prints ledger messages with quote, macro, and SMCL characters as text, and `dataqa compare` its gate labels, as `datacheck` does.
 - `datacheck.sthlp` gains a registry delivery-checks table (which gate catches dates outside the window, truncation, a missing year, or a share outside the window) and an idiom map from hand-written patterns to gate families.
 
 ### 1.8.2 (2026-10-01)

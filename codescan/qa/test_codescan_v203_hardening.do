@@ -262,8 +262,9 @@ capture noisily {
     codescan dx1, define(dm "E11") mode(regex) ///
         id(pid) date(evdate) refdate(refdate) lookforward(3650)
     assert r(n_excluded_missingdate) == 1
-    * The missing-refdate row is zeroed even though its code matched.
-    assert dm == 0 in 3
+    * The missing-refdate row is not analyzed even though its code matched:
+    * missing, not 0, under the v4.3.0 three-state row-level contract.
+    assert missing(dm) in 3
 }
 if _rc == 0 {
     display as result "  PASS: r(n_excluded_missingdate) row-level == 1"

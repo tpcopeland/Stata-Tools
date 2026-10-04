@@ -2113,7 +2113,7 @@ capture noisily {
     serset clear
     quietly datamvp rep78 mpg, maskrare graph(patterns) gby(foreign) nodraw gname(_g4)
     _mvp_svals
-    assert r(nvals) >= 1
+    assert !missing(r(nvals)) & r(nvals) >= 1
     foreach d in `r(vals)' {
         assert `d' >= 5
     }
@@ -2182,7 +2182,7 @@ capture noisily {
     * the stacked segments: rep78 700/74 drawn, the masked mpg segment missing
     _mvp_svals
     local v "`r(vals)'"
-    assert r(nmiss) >= 1
+    assert !missing(r(nmiss)) & r(nmiss) >= 1
     local hit = 0
     foreach d of local v {
         assert reldif(`d', 100 / 74) > 1e-7

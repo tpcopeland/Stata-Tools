@@ -619,7 +619,7 @@ capture noisily {
         assert `rca' == r(rc)
         _u_logdiff "`lga'.log" "`lgb'.log"
         display "  case `gs': lines=`r(n)' differing=`r(nd)' rc=`rca'"
-        assert r(n) > 4
+        assert !missing(r(n)) & r(n) > 4
         assert r(nd) == 0
         _u_led "`la'_l.dta" "`la'_g.dta"
         _u_led "`lb'_l.dta" "`lb'_g.dta"
@@ -754,7 +754,7 @@ capture noisily {
     datacheck, gatesonly groupstat(n mean sd median p1 p99: y, by(gn))
     quietly log close u7
     quietly _u_block "`lg'.log" "GROUPSTAT n mean sd median p1 p99: y by(gn)"
-    assert r(n) >= 6
+    assert !missing(r(n)) & r(n) >= 6
     forvalues i = 1/`r(n)' {
         assert length(`"`r(l`i')'"') <= 80
     }

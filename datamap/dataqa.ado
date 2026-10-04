@@ -1,4 +1,4 @@
-*! dataqa Version 1.9.0  2026/10/03
+*! dataqa Version 1.9.0  2026/10/04
 *! Session defaults and a structured QA ledger over datacheck gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -751,7 +751,9 @@ program define _dataqa_assert, rclass
                 display as error "  `nbad' invariant or halting row(s) failed:"
                 forvalues j = 1/`=_N' {
                     if !_bad[`j'] continue
-                    local m = message[`j']
+                    // as text: no quote, macro or SMCL character in a label or
+                    // value is live, as datacheck prints it
+                    mata: st_local("m", _dataqa_show(st_sdata(`j', "message")))
                     local d = dataset[`j']
                     if `"`d'"' == "" local d "(unnamed)"
                     if status[`j'] == "error" {
@@ -1004,7 +1006,7 @@ program define _dataqa_compare, rclass
                 local b = _bn[`j']
                 if missing(`a') & missing(`b') continue
                 local ds = dataset[`j']
-                local fl = family[`j'] + "(" + label[`j'] + ")"
+                local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
                 if missing(`a') | missing(`b') {
                     local bs = cond(missing(`b'), "withheld", "`b'")
                     local as = cond(missing(`a'), "withheld", "`a'")
@@ -1037,7 +1039,7 @@ program define _dataqa_compare, rclass
                 // a value on one side only: masked or undefined in the other
                 if missing(observed_num[`j']) | missing(_bo[`j']) {
                     local ds = dataset[`j']
-                    local fl = "stat(" + label[`j'] + ")"
+                    local fl = subinstr("stat(" + label[`j'] + ")", "{", "{c -(}", .)
                     local bs = cond(_bom[`j'] == 1, "masked", "undefined")
                     if !missing(_bo[`j']) local bs = strtrim(string(_bo[`j'], "%10.4g"))
                     local as = cond(obs_masked[`j'] == 1, "masked", "undefined")
@@ -1052,7 +1054,7 @@ program define _dataqa_compare, rclass
                 local rel = regexr(string(cond(`b' != 0, (`a' - `b') / abs(`b'), `a' - `b'), "%21x"), "^[+]", "")
                 if abs(`rel') > `stattol' {
                     local ds = dataset[`j']
-                    local fl = "stat(" + label[`j'] + ")"
+                    local fl = subinstr("stat(" + label[`j'] + ")", "{", "{c -(}", .)
                     display as text "  stat  " as result `"`ds'"' as text " `fl': " ///
                         as result %10.4g `b' as text " -> " as result %10.4g `a'
                     local ++nflag
@@ -1077,7 +1079,7 @@ program define _dataqa_compare, rclass
             forvalues j = 1/`=_N' {
                 if missing(`lk'[`j']) & `newg'[`j'] & _gbase[`j'] != "" & grp[`j'] == _gbase[`j'] {
                     local ds = dataset[`j']
-                    local fl = family[`j'] + "(" + label[`j'] + ")"
+                    local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
                     display as text "  new  " as result `"`ds'"' as text `" `fl' [`=grp[`j']']: a group not in the baseline"'
                     local ++nflag
                 }
@@ -1091,7 +1093,7 @@ program define _dataqa_compare, rclass
             forvalues j = 1/`=_N' {
                 if !missing(`bl'[`j']) continue
                 local ds = dataset[`j']
-                local fl = family[`j'] + "(" + label[`j'] + ")"
+                local fl = subinstr(family[`j'] + "(" + label[`j'] + ")", "{", "{c -(}", .)
                 local g = grp[`j']
                 if `"`g'"' != "" local fl `"`fl' [`g']"'
                 local e = expected[`j']
@@ -1112,4 +1114,28 @@ program define _dataqa_compare, rclass
     if `_bf_made' capture frame drop `bf'
     if `_lf_made' capture frame drop `lf'
     if `rc' exit `rc'
+end
+
+// Display text for a stored ledger message, as datacheck prints it: a line
+// break, tab or other control character as \n, \r, \t or \xHH, a brace as
+// {c -(}, and a backtick, double quote and dollar sign as {char N}.
+capture mata: mata drop _dataqa_show()
+mata:
+string scalar _dataqa_show(string scalar s)
+{
+	real scalar i
+	string scalar out
+	out = subinstr(s, char(10), char(92) + "n")
+	out = subinstr(out, char(13), char(92) + "r")
+	out = subinstr(out, char(9), char(92) + "t")
+	for (i = 1; i <= 31; i++) {
+		if (i == 9 | i == 10 | i == 13) continue
+		out = subinstr(out, char(i), char(92) + "x" + substr("0123456789abcdef", floor(i / 16) + 1, 1) + substr("0123456789abcdef", mod(i, 16) + 1, 1))
+	}
+	out = subinstr(out, "{", "{c -(}")
+	out = subinstr(out, char(96), "{char 96}")
+	out = subinstr(out, char(34), "{char 34}")
+	out = subinstr(out, char(36), "{char 36}")
+	return(out)
+}
 end

@@ -200,9 +200,11 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11") date(visit_dt) refdate(index_dt) lookback(365)
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
     assert dm2 == 1 if _n == 1
-    assert dm2 == 0 if _n == 3
-    assert dm2 == 0 if _n == 4
+    assert missing(dm2) if _n == 3
+    assert missing(dm2) if _n == 4
     assert r(lookback) == 365
 }
 if _rc == 0 {
@@ -219,8 +221,10 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11") date(visit_dt) refdate(index_dt) lookforward(365)
-    assert dm2 == 0 if _n == 1
-    assert dm2 == 0 if _n == 3
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
+    assert missing(dm2) if _n == 1
+    assert missing(dm2) if _n == 3
     assert dm2 == 0 if _n == 4
 }
 if _rc == 0 {
@@ -256,9 +260,11 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11") date(visit_dt) refdate(index_dt) ///
         lookback(365) inclusive
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
     assert dm2 == 1 if _n == 1
     assert dm2 == 1 if _n == 3
-    assert dm2 == 0 if _n == 4
+    assert missing(dm2) if _n == 4
 }
 if _rc == 0 {
     display as result "  PASS: Inclusive option"
@@ -275,7 +281,9 @@ capture noisily {
     _make_test_data
     replace visit_dt = . if _n == 1
     codescan dx1-dx3, define(dm2 "E11") date(visit_dt) refdate(index_dt) lookback(365)
-    assert dm2 == 0 if _n == 1
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
+    assert missing(dm2) if _n == 1
 }
 if _rc == 0 {
     display as result "  PASS: Missing dates excluded from time window"
@@ -536,8 +544,10 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3 in 1/8, define(dm2 "E11")
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
     assert dm2 == 1 if _n == 1
-    assert dm2 == 0 if _n == 11
+    assert missing(dm2) if _n == 11
 }
 if _rc == 0 {
     display as result "  PASS: in range restriction"
@@ -553,8 +563,10 @@ local ++test_count
 capture noisily {
     _make_test_data
     codescan dx1-dx3 if pid <= 2, define(dm2 "E11")
+    * v4.3.0: a row outside the analysis sample carries a missing indicator
+    * (three-state, like unmatched()), not 0.
     assert dm2 == 1 if _n == 1
-    assert dm2 == 0 if _n == 11
+    assert missing(dm2) if _n == 11
 }
 if _rc == 0 {
     display as result "  PASS: if condition restriction"

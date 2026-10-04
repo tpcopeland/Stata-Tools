@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.2.5  2026/09/30
+*! _codescan_engine Version 4.3.0  2026/10/04
 *! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
@@ -194,7 +194,10 @@ void _codescan_mata_scan()
         else {
             st_sview(colv, ., scanvars[j])
         }
-        ncell = rows(cellidx)
+        // length(), not rows(): on a one-observation dataset the selector is
+        // 1x1, and selectindex() of a 1x1 zero returns a 1x0 ROW vector whose
+        // rows() is 1 -- the loop then read cellidx[1] and died r(3301).
+        ncell = length(cellidx)
 
         for (ci = 1; ci <= ncell; ci++) {
             i = cellidx[ci]
