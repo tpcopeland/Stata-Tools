@@ -273,11 +273,50 @@ capture noisily {
 _dq `=_rc' "assert baseline(): baseledger() reads the baseline from a separate file; session ledger default works"
 dataqa set clear
 
+**# optional() with no baseline is ignored with a note
+
+capture noisily {
+    capture log close _dql
+    log using "`lgf'", text replace name(_dql)
+    capture noisily dataqa assert using "`L'", run(n1) optional(gamma)
+    local rc1 = _rc
+    local N1 = r(N)
+    local nf1 = r(n_failed)
+    local nopt1 = r(n_optional_absent)
+    local nmb1 = r(n_missing_base)
+    local bl1 `"`r(baseline)'"'
+    log close _dql
+    * n1 has alpha and beta (2 rows), no failed gate: the run passes
+    assert `rc1' == 0
+    assert `N1' == 2 & `nf1' == 0 & `nopt1' == 0 & `nmb1' == 0 & `"`bl1'"' == ""
+    _dq_has "`lgf'" "note: optional() ignored; no baseline set"
+    assert r(has) == 1
+    * a compound-quoted name with a space is ignored the same way
+    capture dataqa assert using "`L'", run(n1) optional(`"b c"' d)
+    assert _rc == 0
+    * ignoring optional() softens no halt: a failed invariant and an unmet
+    * expect() still exit 9
+    capture dataqa assert using "`L'", run(n5) optional(alpha)
+    assert _rc == 9 & r(n_failed) == 1
+    capture dataqa assert using "`L'", run(n1) optional(gamma) expect(gamma)
+    assert _rc == 9 & r(missing) == "gamma"
+    * no note without optional(), nor when a baseline makes optional() live
+    log using "`lgf'", text replace name(_dql)
+    dataqa assert using "`L'", run(n1)
+    capture noisily dataqa assert using "`L'", run(n1) baseline(b0) optional(gamma)
+    local rc2 = _rc
+    local nopt2 = r(n_optional_absent)
+    log close _dql
+    assert `rc2' == 0 & `nopt2' == 1
+    _dq_has "`lgf'" "optional() ignored"
+    assert r(has) == 0
+}
+_dq `=_rc' "assert: optional() without a baseline is ignored with a note (rc 0); halts and expect() unaffected"
+capture log close _dql
+
 **# W4: parse errors and an empty baseline
 
 capture noisily {
-    capture dataqa assert using "`L'", run(n1) optional(gamma)
-    assert _rc == 198
     capture dataqa assert using "`L'", run(n1) baseledger("`LB'")
     assert _rc == 198
     * a baseline label with no rows is an error, never a silent pass
@@ -297,7 +336,7 @@ capture noisily {
     assert _rc == 610
     capture erase "`c(tmpdir)'/dq190_notled.dta"
 }
-_dq `=_rc' "assert baseline(): optional()/baseledger() without baseline() r(198); empty baseline 2000; missing file 601; not a ledger 610"
+_dq `=_rc' "assert baseline(): baseledger() without baseline() r(198); empty baseline 2000; missing file 601; not a ledger 610"
 
 **# W4: compare is unchanged by the shared baseline loader
 

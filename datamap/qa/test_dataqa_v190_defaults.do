@@ -258,13 +258,21 @@ capture noisily {
     dataqa set ledger("`L'") run(n1) baseline(b0) baseledger("`T'/dq190d_base")
     assert strpos(`"$DATAMAP_DQ"', `"baseledger("`T'/dq190d_base.dta")"') > 0
     dataqa set clear
-    * the assert-side refusal survives: optional() without any baseline
-    capture dataqa assert using "`L'", run(n1) optional(gamma)
-    assert _rc == 198
+    * the assert-side refusal survives: baseledger() without any baseline
     capture dataqa assert using "`L'", run(n1) baseledger("`LB'")
     assert _rc == 198
+    * optional() without any baseline is ignored, not refused; a session
+    * baseline set later makes the same call waive gamma
+    capture dataqa assert using "`L'", run(n1) optional(gamma)
+    assert _rc == 0 & r(n_optional_absent) == 0 & `"`r(baseline)'"' == ""
+    dataqa set ledger("`L'") run(n1) baseline(b0)
+    capture dataqa assert, optional(gamma)
+    assert _rc == 0 & r(n_optional_absent) == 1 & `"`r(baseline)'"' == "b0"
+    capture dataqa assert
+    assert _rc == 9
+    dataqa set clear
 }
-_dq `=_rc' "refusals: baseledger without baseline, hostile characters, assert without any baseline"
+_dq `=_rc' "refusals: baseledger without baseline, hostile characters; optional() without a baseline is ignored"
 
 **# datacheck and datamvp tolerate the new tokens
 capture noisily {

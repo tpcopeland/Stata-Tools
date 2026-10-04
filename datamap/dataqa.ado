@@ -1,4 +1,4 @@
-*! dataqa Version 1.9.0  2026/10/04
+*! dataqa Version 1.9.1  2026/10/04
 *! Session defaults and a structured QA ledger over datacheck gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -676,10 +676,14 @@ program define _dataqa_assert, rclass
             local baseline `"`r(baseline)'"'
             if `"`baseledger'"' == "" local baseledger `"`r(baseledger)'"'
         }
-        if `"`baseline'"' == "" & (`"`optional'"' != "" | `"`baseledger'"' != "") {
-            display as error "dataqa assert: optional() and baseledger() need baseline() (or dataqa set baseline())"
+        if `"`baseline'"' == "" & `"`baseledger'"' != "" {
+            display as error "dataqa assert: baseledger() needs baseline() (or dataqa set baseline())"
             exit 198
         }
+        // optional() only waives baseline datasets; with no baseline it is
+        // ignored with a note, so a study do-file may carry it before the
+        // first baseline run exists
+        local _optign = `"`baseline'"' == "" & `"`optional'"' != ""
         frame create `lf'
         local _lf_made = 1
         _dataqa_load `lf', file(`"`using'"') run(`"`run'"') needrun who(assert)
@@ -691,6 +695,7 @@ program define _dataqa_assert, rclass
         display ""
         display as text "dataqa assert: " as result `"`file'"' as text ", run " as result `"`run'"'
         if `nsup' > 0 display as text "  `nsup' row(s) superseded by a later call of the same gate"
+        if `_optign' display as text "  note: optional() ignored; no baseline set (baseline() or dataqa set baseline())"
         local nbad = 0
         local missing ""
         local bmissing ""

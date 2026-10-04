@@ -1,4 +1,4 @@
-*! _datacheck_groupmiss Version 1.9.0  2026/10/04
+*! _datacheck_groupmiss Version 1.9.1  2026/10/04
 *! Group sizes, complete-case counts, and missing counts by group, one pass
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

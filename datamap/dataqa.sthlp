@@ -181,8 +181,10 @@ omits. Without {opt baseline()} on the call, the session baseline of
 asserted. A baseline label with no rows is an error, r(2000), never a pass. A
 dataset with rows now and none in the baseline is not an error. {opt expect()}
 still works, alone or together with {opt baseline()}. Calls
-without a dataset name cannot be matched and are not checked. {opt optional()}
-and {opt baseledger()} without {opt baseline()} are r(198). A
+without a dataset name cannot be matched and are not checked. With no
+baseline, from the call or the session, {opt optional()} is ignored with a
+note, so a do-file may carry it before the first baseline run exists;
+{opt baseledger()} without a baseline is r(198). A
 dataset name with a space goes in compound quotes in {opt expect()} and
 {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'} {it:d}{cmd:)}.
 
