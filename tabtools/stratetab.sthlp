@@ -30,7 +30,8 @@
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt border:style(string)} {opt font(string)} {opt fontsize(#)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
-{opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}]
+{opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}
+{opt cf:ormat(%fmt)} {opt sep(string)} {opt small:cells(#)} {opt nosmall:cells} {opt zero:exact}]
 
 
 {marker description}{...}
@@ -110,6 +111,33 @@ files / outcomes). If not specified, exposures are labeled as "Exposure 1",
 {phang}
 {opt digits(integer 1)} specifies the number of decimal places for rates and
 confidence intervals. Must be between 0 and 10. Default is 1.
+
+{phang}
+{opt cformat(%fmt)} applies a full Stata numeric display format to each rate
+and both of its limits, for example {cmd:%9.1fc} for thousands separators. It
+replaces {opt digits()}; giving both is an error, as are string and date formats.
+
+{phang}
+{opt sep(string)} sets the separator between the two limits of the rate and
+rate-ratio intervals; the default is {cmd:", "}. It reaches every output:
+console, Excel, CSV, Markdown, and {opt frame()}.
+
+{phang}
+{opt smallcells(#)} prints an event count from 1 to #-1 as {cmd:<}# and
+withholds that cell's person-years and rate ({cmd:–}); with {opt rateratio},
+a ratio whose numerator or reference count is masked is withheld too. Zero is
+printed. Masking governs printed output only: {cmd:r(rates)} and
+{cmd:r(ratios)} keep the numbers. Masking is primary only: with several
+exposures over one sample, a masked count can be recovered from another
+exposure's totals. Without this option, a session default set
+with {cmd:tabtools set smallcells #} applies and is echoed in the log;
+{opt nosmallcells} ignores that default.
+
+{phang}
+{opt zeroexact} prints a zero-event cell whose source file carries no
+interval (as {cmd:strate} saves it) with its exact Poisson limits
+(0, -ln(alpha/2)/Y), the limits {cmd:ci means, poisson} reports for a zero
+count, instead of {cmd:0.0 (–)}. The level comes from the file or {opt level()}.
 
 {phang}
 {opt eventdigits(integer 0)} specifies the number of decimal places for event
@@ -319,6 +347,7 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(N_exposures)}}number of exposure groups{p_end}
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level carried by the source intervals{p_end}
+{synopt:{cmd:r(smallcells)}}small-cell threshold applied (0 = none){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 

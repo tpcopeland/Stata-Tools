@@ -1,4 +1,4 @@
-*! comptab Version 2.2.0  2026/10/02
+*! comptab Version 2.3.0  2026/10/05
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -103,7 +103,8 @@ program define comptab, rclass
             HEADERColor(string) ZEBRAColor(string) CSV(string) ///
             MARKdown(string) MDAPPend FRAme(string asis) ///
             EPLOTFrame(string asis) FOREST EPLOTOptions(string asis) ///
-            LABELWidth(integer 0) *]
+            LABELWidth(integer 0) CFormat(string) CISep(string) ///
+            KEYed MODELOnly ALLModels *]
 
         local _common_opts ""
         if `"`rows'"' != "" {
@@ -173,6 +174,15 @@ program define comptab, rclass
             local _common_opts `"`macval(_common_opts)' eplotoptions(`macval(eplotoptions)')"'
         }
 
+        * cformat() and cisep() (O1) apply in both modes; keyed, modelonly
+        * and allmodels (F4) belong to rate mode.
+        if `"`cformat'"' != "" {
+            local _common_opts `"`macval(_common_opts)' cformat(`cformat')"'
+        }
+        if `"`cisep'"' != "" {
+            local _common_opts `"`macval(_common_opts)' cisep(`"`cisep'"')"'
+        }
+
         local _rate_mode = (`"`rateframe'"' != "" | `"`modelframes'"' != "")
         if `_rate_mode' {
             if "`compact'" != "" | `"`separator'"' != "" | ///
@@ -211,6 +221,7 @@ program define comptab, rclass
             capture noisily _comptab_rates `rateframe', ///
                 modelframes(`modelframes') effect(`"`effect'"') ///
                 reflabel(`"`reflabel'"') outcomemap(`macval(outcomemap)') ///
+                `keyed' `modelonly' `allmodels' ///
                 `macval(_common_opts)' `macval(options)'
             local _sub_rc = _rc
             return add
@@ -219,6 +230,10 @@ program define comptab, rclass
         else {
             if `"`effect'"' != "" | `"`reflabel'"' != "" | `"`outcomemap'"' != "" {
                 noisily display as error "effect(), reflabel(), and outcomemap() require rateframe()"
+                exit 198
+            }
+            if "`keyed'`modelonly'`allmodels'" != "" {
+                noisily display as error "keyed, modelonly, and allmodels require rateframe()"
                 exit 198
             }
             local _vertical_opts `"`macval(_common_opts)'"'
@@ -304,7 +319,24 @@ program define _comptab_rates, rclass
             open zebra HEADERShade ///
             HEADERColor(string) ZEBRAColor(string) ///
             CSV(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
-            FOREST EPLOTOptions(string asis)]
+            FOREST EPLOTOptions(string asis) CFormat(string) CISep(string) ///
+            KEYed MODELOnly ALLModels]
+
+        * F4: keyed placement (modelonly implies it), K models per outcome.
+        local _modelonly = ("`modelonly'" != "")
+        local _keyed = ("`keyed'" != "" | `_modelonly')
+        local _allmodels = ("`allmodels'" != "")
+        * O1: cformat() re-renders model estimates from their numeric
+        * companions; cisep() sets the interval separator.
+        local _refmt = (`"`cformat'"' != "")
+        local _resep = (`"`cisep'"' != "")
+        if `_refmt' {
+            capture confirm numeric format `cformat'
+            if _rc | regexm(`"`cformat'"', "^%-?t") {
+                display as error `"cformat(): "`cformat'" is not a numeric display format"'
+                exit 198
+            }
+        }
 
         * rows() xor rownames()
         if `"`rows'"' == "" & `"`rownames'"' == "" {
@@ -355,6 +387,10 @@ program define _comptab_rates, rclass
             local _eplotframe_name `"`_forest_eplotframe'"'
             local _eplotframe_replace 1
             local _eplotframe_temporary 1
+        }
+        if `_keyed' & `"`_eplotframe_name'"' != "" {
+            display as error "eplotframe() and forest are not available with keyed or modelonly"
+            exit 198
         }
 
         if "`open'" != "" & !`_has_xlsx' {
@@ -531,24 +567,12 @@ program define _comptab_rates, rclass
 	        * cleared, dropped, or rebuilt.
 	        local _displayframe_name ""
 	        local _displayframe_replace 0
+	        local _displayframe_flat 0
 	        if `"`frame'"' != "" {
-	            local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
-	            gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
-	            local _displayframe_name = strtrim(`"`_displayframe_name'"')
-	            local _fr_rest : subinstr local _fr_rest "," "", all
-	            local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
-	            capture confirm name `_displayframe_name'
-	            if _rc {
-	                display as error "frame() must start with a valid Stata frame name"
-	                exit 198
-	            }
-	            if `"`_fr_rest'"' != "" {
-	                if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
-	                else {
-	                    display as error "frame() only allows the replace suboption"
-	                    exit 198
-	                }
-	            }
+	            _comptab_frame_spec `"`frame'"' "frame()"
+	            local _displayframe_name "`r(name)'"
+	            local _displayframe_replace = r(replace)
+	            local _displayframe_flat = r(flat)
 	        }
 	        if `"`_displayframe_name'"' != "" & `"`_eplotframe_name'"' != "" & ///
 	            `"`_displayframe_name'"' == `"`_eplotframe_name'"' {
@@ -591,6 +615,16 @@ program define _comptab_rates, rclass
 	            if `"`_eplotframe_name'"' != "" & `"`_source_ep_original_`_f''"' == "" {
 	                display as error "eplotframe()/forest requires every model source to have a numeric companion frame"
 	                exit 459
+	            }
+	            if `_refmt' & `"`_source_ep_original_`_f''"' == "" {
+	                display as error "cformat() requires every model source to have a numeric companion frame"
+	                display as error "Hint: create each model frame with regtab, frame() eplotframe()"
+	                exit 459
+	            }
+	            frame `_source_original_`_f'': local _src_layout : char _dta[tabtools_layout]
+	            if "`_src_layout'" == "flat" {
+	                display as error "Model frame '`_source_original_`_f''' is a flat frame; it is for puttab, not a comptab source"
+	                exit 198
 	            }
 	            if `"`_source_ep_original_`_f''"' != "" {
 	                foreach _dest in _displayframe_name _eplotframe_name {
@@ -639,131 +673,62 @@ program define _comptab_rates, rclass
 	        }
 	        local modelframes : list clean modelframes
 
+        * Model-frame layout from the persisted statistic identities (F4):
+        * with or without a p-value column, standard or compact.
         local _fname1 : word 1 of `modelframes'
-        frame `_fname1' {
-            quietly ds c*
-            local _model_cvars `r(varlist)'
-            local _model_cols : word count `r(varlist)'
-        }
-
         local model_mode ""
-        local _cols_per_model = .
-        local n_models = .
-        local _looks_standard = 0
-        local _looks_compact = 0
-        if mod(`_model_cols', 3) == 0 {
-            local _looks_standard = 1
-            forvalues _c = 1(3)`_model_cols' {
-                local _ci_var c`=`_c'+1'
-                local _p_var c`=`_c'+2'
-                frame `_fname1' {
-                    local _hdr_ci = lower(strtrim(`_ci_var'[3]))
-                    local _hdr_p = lower(strtrim(`_p_var'[3]))
-                }
-                if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
-                    local _looks_standard = 0
-                }
-            }
-        }
-        if mod(`_model_cols', 2) == 0 {
-            local _looks_compact = 1
-            forvalues _c = 1(2)`_model_cols' {
-                local _p_var c`=`_c'+1'
-                frame `_fname1' {
-                    local _hdr_est = lower(strtrim(c`_c'[3]))
-                    local _hdr_p = lower(strtrim(`_p_var'[3]))
-                }
-                if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
-                    local _looks_compact = 0
-                }
-            }
-        }
-
-        if `_looks_standard' & !`_looks_compact' {
-            local model_mode "standard"
-            local _cols_per_model = 3
-            local n_models = `_model_cols' / 3
-        }
-        else if `_looks_compact' & !`_looks_standard' {
-            local model_mode "compact"
-            local _cols_per_model = 2
-            local n_models = `_model_cols' / 2
-        }
-        else {
-            display as error "Model frame '`_fname1'' has unsupported column structure"
-            display as error "Expected 2 or 3 columns per model block from regtab"
-            exit 198
-        }
-
-        if `n_models' != `outcomes' {
-            display as error "Model columns (`n_models') must match rate outcomes (`outcomes')"
-            exit 198
-        }
-
-	        forvalues _f = 2/`n_frames' {
+        forvalues _f = 1/`n_frames' {
             local _fname : word `_f' of `modelframes'
             frame `_fname' {
                 quietly ds c*
                 local _model_cvars_f `r(varlist)'
                 local _model_cols_f : word count `r(varlist)'
             }
-
-            local model_mode_f ""
-            local n_models_f = .
-            local _looks_standard_f = 0
-            local _looks_compact_f = 0
-            if mod(`_model_cols_f', 3) == 0 {
-                local _looks_standard_f = 1
-                forvalues _c = 1(3)`_model_cols_f' {
-                    local _ci_var c`=`_c'+1'
-                    local _p_var c`=`_c'+2'
-                    frame `_fname' {
-                        local _hdr_ci = lower(strtrim(`_ci_var'[3]))
-                        local _hdr_p = lower(strtrim(`_p_var'[3]))
-                    }
-                    if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
-                        local _looks_standard_f = 0
-                    }
-                }
+            frame `_fname': local _sid_f : char _dta[tabtools_statistic_ids]
+            local _sid_f = strtrim(`"`_sid_f'"')
+            if `"`_sid_f'"' == "estimate ci pvalue" {
+                local _mode_f "standard"
+                local _cpm_f 3
+                local _hasp_f 1
             }
-            if mod(`_model_cols_f', 2) == 0 {
-                local _looks_compact_f = 1
-                forvalues _c = 1(2)`_model_cols_f' {
-                    local _p_var c`=`_c'+1'
-                    frame `_fname' {
-                        local _hdr_est = lower(strtrim(c`_c'[3]))
-                        local _hdr_p = lower(strtrim(`_p_var'[3]))
-                    }
-                    if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
-                        local _looks_compact_f = 0
-                    }
-                }
+            else if `"`_sid_f'"' == "estimate_ci pvalue" {
+                local _mode_f "compact"
+                local _cpm_f 2
+                local _hasp_f 1
             }
-
-            if `_looks_standard_f' & !`_looks_compact_f' {
-                local model_mode_f "standard"
-                local n_models_f = `_model_cols_f' / 3
+            else if `"`_sid_f'"' == "estimate ci" {
+                local _mode_f "standardnop"
+                local _cpm_f 2
+                local _hasp_f 0
             }
-            else if `_looks_compact_f' & !`_looks_standard_f' {
-                local model_mode_f "compact"
-                local n_models_f = `_model_cols_f' / 2
+            else if `"`_sid_f'"' == "estimate_ci" {
+                local _mode_f "compactnop"
+                local _cpm_f 1
+                local _hasp_f 0
             }
             else {
-                display as error "Model frame '`_fname'' has unsupported column structure"
-                display as error "Expected 2 or 3 columns per model block from regtab"
+                display as error "Model frame '`_source_original_`_f''' has unsupported column structure"
+                display as error "Expected regtab frame() output (estimate, interval and optional p-value per model)"
                 exit 198
             }
-
-            if "`model_mode_f'" != "`model_mode'" | `n_models_f' != `n_models' {
+            if mod(`_model_cols_f', `_cpm_f') != 0 {
+                display as error "Model frame '`_source_original_`_f''' has unsupported column structure"
+                exit 198
+            }
+            local _n_models_f = `_model_cols_f' / `_cpm_f'
+            if `_f' == 1 {
+                local model_mode "`_mode_f'"
+                local _cols_per_model = `_cpm_f'
+                local _has_p = `_hasp_f'
+                local n_models = `_n_models_f'
+                local _model_cvars `"`_model_cvars_f'"'
+            }
+            else if "`_mode_f'" != "`model_mode'" | `_n_models_f' != `n_models' {
                 display as error "All model frames must share the same layout"
-                display as error "Frame '`_fname1'' is `model_mode' with `n_models' model(s); '`_fname'' is `model_mode_f' with `n_models_f' model(s)"
+                display as error "Frame '`_source_original_1'' is `model_mode' with `n_models' model(s); '`_source_original_`_f''' is `_mode_f' with `_n_models_f' model(s)"
                 exit 198
             }
-            if `n_models_f' != `outcomes' {
-                display as error "Model frame '`_fname'' contributes `n_models_f' model(s), but rate frame requires `outcomes' outcome(s)"
-                exit 198
-	            }
-	        }
+        }
 
 	        * Validate rate provenance and establish stable outcome identities.
 	        frame `rateframe': local _rate_source : char _dta[tabtools_source]
@@ -806,9 +771,23 @@ program define _comptab_rates, rclass
 
 	        * outcomeMap() explicitly names, in rate-outcome order, a model ID,
 	        * model outcome ID, or persisted model label. Without it, matching is
-	        * allowed only by the analytical outcome ID.
+	        * allowed only by the analytical outcome ID. A slot may hold several
+	        * identities separated by "|": that outcome then takes one effect
+	        * column per model (F4). allmodels gives one outcome every block.
 	        local _explicit_outcome_map = (`"`outcomemap'"' != "")
-	        if `_explicit_outcome_map' {
+	        local _grouped_map 0
+	        if `_allmodels' {
+	            if `_explicit_outcome_map' {
+	                display as error "allmodels and outcomemap() may not be combined"
+	                exit 198
+	            }
+	            if `outcomes' != 1 {
+	                display as error "allmodels requires a rate frame with one outcome; use outcomemap(a | b \ c | d) for several"
+	                exit 198
+	            }
+	            local _K = `n_models'
+	        }
+	        else if `_explicit_outcome_map' {
 	            local outcomemap : subinstr local outcomemap " \ " "\", all
 	            local outcomemap : subinstr local outcomemap "\  " "\", all
 	            local outcomemap : subinstr local outcomemap "  \" "\", all
@@ -818,36 +797,76 @@ program define _comptab_rates, rclass
 	                local _j = (`_i' - 1) * 2 + 1
 	                if `"``_j''"' == "" continue, break
 	                local ++_map_n
-	                local _map_key_`_map_n' = strtrim(`"``_j''"')
+	                local _map_slot_`_map_n' = strtrim(`"``_j''"')
 	            }
 	            if `_map_n' != `outcomes' {
 	                display as error "outcomemap() requires `outcomes' identities separated by \"
 	                exit 198
 	            }
+	            local _K = .
+	            forvalues _o = 1/`outcomes' {
+	                local _rest `"`_map_slot_`_o''"'
+	                local _k = 0
+	                while `"`_rest'"' != "" {
+	                    gettoken _item _rest : _rest, parse("|")
+	                    if `"`_item'"' == "|" continue
+	                    local _item = strtrim(`"`_item'"')
+	                    if `"`_item'"' == "" continue
+	                    local ++_k
+	                    local _map_key_`_o'_`_k' `"`_item'"'
+	                }
+	                if `_k' == 0 {
+	                    display as error "outcomemap() has an empty slot"
+	                    exit 198
+	                }
+	                if missing(`_K') local _K = `_k'
+	                else if `_K' != `_k' {
+	                    display as error "outcomemap() must give every outcome the same number of models"
+	                    exit 198
+	                }
+	                local _map_key_`_o' `"`_map_key_`_o'_1'"'
+	            }
+	            if `_K' > 1 local _grouped_map 1
 	        }
 	        else {
+	            local _K = 1
 	            forvalues _o = 1/`outcomes' {
+	                local _map_key_`_o'_1 `"`_rate_outcome_id_`_o''"'
 	                local _map_key_`_o' `"`_rate_outcome_id_`_o''"'
 	            }
 	        }
+	        if !`_allmodels' & !`_grouped_map' & `n_models' != `outcomes' {
+	            display as error "Model columns (`n_models') must match rate outcomes (`outcomes')"
+	            display as error "Hint: with several models per outcome use allmodels or outcomemap(a | b \ ...)"
+	            exit 198
+	        }
+	        if `_K' > 1 & `"`_eplotframe_name'"' != "" {
+	            display as error "eplotframe() and forest support one model per outcome"
+	            exit 198
+	        }
 
+	        * Effect scale: hazard ratios (HR family) or rate ratios (IRR family).
+	        * effect() must truthfully describe the scale of every mapped model.
 	        local _effect_norm = lower(strtrim(`"`effect'"'))
 	        foreach _punct in " " "-" "_" "." "/" {
 	            local _effect_norm : subinstr local _effect_norm `"`_punct'"' "", all
 	        }
-	        if !inlist(`"`_effect_norm'"', "hr", "ahr", "hazardratio", "adjustedhazardratio") {
-	            display as error "effect() must truthfully describe a hazard-ratio scale"
+	        local _hr_names "hr ahr hazardratio adjustedhazardratio"
+	        local _irr_names "irr airr rr arr rateratio adjustedrateratio incidencerateratio adjustedincidencerateratio"
+	        local _effect_is_hr : list _effect_norm in _hr_names
+	        local _effect_is_irr : list _effect_norm in _irr_names
+	        if !`_effect_is_hr' & !`_effect_is_irr' {
+	            display as error "effect() must truthfully describe a hazard-ratio or rate-ratio scale"
 	            exit 198
 	        }
 
-	        local _expected_model_stats = cond("`model_mode'" == "standard", ///
-	            "estimate ci pvalue", "estimate_ci pvalue")
+	        local _model_stats_ok "estimate ci pvalue|estimate_ci pvalue|estimate ci|estimate_ci"
+	        local _scale_family ""
 	        forvalues _f = 1/`n_frames' {
 	            local _fname : word `_f' of `modelframes'
 	            frame `_fname': local _meta_n : char _dta[tabtools_n_models]
 	            frame `_fname': local _meta_ci : char _dta[tabtools_ci_level]
-	            frame `_fname': local _meta_stats : char _dta[tabtools_statistic_ids]
-	            if real(`"`_meta_n'"') != `n_models' | `"`_meta_stats'"' != `"`_expected_model_stats'"' {
+	            if real(`"`_meta_n'"') != `n_models' {
 	                display as error "model frame lacks required model/statistic provenance"
 	                exit 459
 	            }
@@ -870,46 +889,79 @@ program define _comptab_rates, rclass
 	                foreach _punct in " " "-" "_" "." "/" {
 	                    local _scale_norm : subinstr local _scale_norm `"`_punct'"' "", all
 	                }
-	                if !inlist(`"`_scale_norm'"', "hr", "ahr", "hazardratio", "adjustedhazardratio") {
-	                    display as error "model frame contains a non-hazard-ratio effect scale"
+	                if `: list _scale_norm in _hr_names' local _fam "HR"
+	                else if `: list _scale_norm in _irr_names' local _fam "IRR"
+	                else {
+	                    display as error "model frame contains an effect scale that is not a hazard or rate ratio"
+	                    exit 198
+	                }
+	                if "`_scale_family'" == "" local _scale_family "`_fam'"
+	                else if "`_scale_family'" != "`_fam'" {
+	                    display as error "model frames mix hazard-ratio and rate-ratio scales"
 	                    exit 198
 	                }
 	            }
 
+	            * Each rate outcome takes K model blocks: one by default, every
+	            * block with allmodels, or a "|" group per outcome in outcomemap().
 	            local _used_model_indices ""
 	            forvalues _o = 1/`outcomes' {
-	                local _key `"`_map_key_`_o''"'
-	                local _matched_index = 0
-	                local _matched_count = 0
-	                forvalues _m = 1/`n_models' {
-	                    local _matches = 0
-	                    if `_explicit_outcome_map' {
-	                        if `"`_key'"' == `"`_mid_`_m''"' | ///
-	                            `"`_key'"' == `"`_oid_`_m''"' | ///
-	                            lower(`"`_key'"') == lower(`"`_mlabel_`_m''"') local _matches = 1
-	                    }
-	                    else if `"`_key'"' == `"`_oid_`_m''"' local _matches = 1
-	                    if `_matches' {
-	                        local ++_matched_count
-	                        local _matched_index = `_m'
+	                if `_allmodels' {
+	                    forvalues _k = 1/`_K' {
+	                        local _mmap_`_f'_`_o'_`_k' = `_k'
 	                    }
 	                }
-	                if `_matched_count' != 1 {
-	                    if `_explicit_outcome_map' display as error `"outcomemap identity "`_key'" matched `_matched_count' model blocks"'
-	                    else display as error `"rate outcome "`_key'" could not be matched uniquely; specify outcomemap()"'
-	                    exit 198
+	                else {
+	                    forvalues _k = 1/`_K' {
+	                        local _key `"`_map_key_`_o'_`_k''"'
+	                        local _matched_index = 0
+	                        local _matched_count = 0
+	                        forvalues _m = 1/`n_models' {
+	                            local _matches = 0
+	                            if `_explicit_outcome_map' {
+	                                if `"`_key'"' == `"`_mid_`_m''"' | ///
+	                                    `"`_key'"' == `"`_oid_`_m''"' | ///
+	                                    lower(`"`_key'"') == lower(`"`_mlabel_`_m''"') local _matches = 1
+	                            }
+	                            else if `"`_key'"' == `"`_oid_`_m''"' local _matches = 1
+	                            if `_matches' {
+	                                local ++_matched_count
+	                                local _matched_index = `_m'
+	                            }
+	                        }
+	                        if `_matched_count' != 1 {
+	                            if `_explicit_outcome_map' display as error `"outcomemap identity "`_key'" matched `_matched_count' model blocks"'
+	                            else display as error `"rate outcome "`_key'" could not be matched uniquely; specify outcomemap()"'
+	                            exit 198
+	                        }
+	                        if strpos(" `_used_model_indices' ", " `_matched_index' ") {
+	                            display as error "outcomemap() maps more than one rate outcome or column to the same model block"
+	                            exit 198
+	                        }
+	                        local _used_model_indices `"`_used_model_indices' `_matched_index'"'
+	                        local _mmap_`_f'_`_o'_`_k' = `_matched_index'
+	                    }
 	                }
-	                if strpos(" `_used_model_indices' ", " `_matched_index' ") {
-	                    display as error "outcomemap() maps more than one rate outcome to the same model block"
-	                    exit 198
-	                }
-	                local _used_model_indices `"`_used_model_indices' `_matched_index'"'
-	                local _model_map_`_f'_`_o' = `_matched_index'
+	                local _model_map_`_f'_`_o' = `_mmap_`_f'_`_o'_1'
 	                if `_f' == 1 {
-	                    local _output_model_id_`_o' `"`_mid_`_matched_index''"'
-	                    local _output_model_label_`_o' `"`_mlabel_`_matched_index''"'
+	                    forvalues _k = 1/`_K' {
+	                        local _blk1 = `_mmap_1_`_o'_`_k''
+	                        local _output_model_id_`_o'_`_k' `"`_mid_`_blk1''"'
+	                        local _output_model_label_`_o'_`_k' `"`_mlabel_`_blk1''"'
+	                    }
+	                    local _output_model_id_`_o' `"`_output_model_id_`_o'_1'"'
+	                    local _output_model_label_`_o' `"`_output_model_label_`_o'_1'"'
 	                }
 	            }
+	        }
+	        if "`_scale_family'" == "HR" & !`_effect_is_hr' & ///
+	            !inlist(`"`_effect_norm'"', "rateratio", "adjustedrateratio") {
+	            display as error "effect() must truthfully describe the models' hazard-ratio scale"
+	            exit 198
+	        }
+	        if "`_scale_family'" == "IRR" & !`_effect_is_irr' {
+	            display as error "effect() must truthfully describe the models' rate-ratio scale"
+	            exit 198
 	        }
 
 	        * Parse rows() or rownames() for model frames
@@ -998,13 +1050,15 @@ program define _comptab_rates, rclass
 
             forvalues _f = 1/`n_frames' {
                 local _fname : word `_f' of `modelframes'
-                numlist `"`_rowspec`_f''"'
-                local expanded`_f' `r(numlist)'
-
                 frame `_fname' {
                     local _fn = _N
                 }
                 local _max_dr = `_fn' - 3
+                if strtrim(`"`_rowspec`_f''"') == "all" & `_keyed' & `_max_dr' >= 1 {
+                    local _rowspec`_f' "1/`_max_dr'"
+                }
+                numlist `"`_rowspec`_f''"'
+                local expanded`_f' `r(numlist)'
                 if `_max_dr' < 1 {
                     display as error "Model frame '`_fname'' has no data rows"
                     exit 198
@@ -1019,6 +1073,248 @@ program define _comptab_rates, rclass
             }
         }
 
+        * Every block index each model frame supplies (K per outcome).
+        forvalues _f = 1/`n_frames' {
+            local _all_blocks_`_f' ""
+            forvalues _o = 1/`outcomes' {
+                forvalues _k = 1/`_K' {
+                    local _all_blocks_`_f' "`_all_blocks_`_f'' `_mmap_`_f'_`_o'_`_k''"
+                }
+            }
+        }
+
+        local _mo_list ""
+        if `_keyed' {
+            **# F4 / R1: keyed placement. A selected model row is placed on the
+            * rate row whose section|category key equals its heading|level key;
+            * never by position. Duplicate keys and unmatched levels are errors.
+            forvalues _s = 1/`_n_sec_scan' {
+                frame `rateframe': mata: st_local("_sk_`_s'", strlower(strtrim(st_sdata(`_sec_row_`_s'', "c1"))))
+                if `_s' > 1 {
+                    forvalues _t = 1/`=`_s' - 1' {
+                        if `"`_sk_`_s''"' == `"`_sk_`_t''"' {
+                            display as error `"rate frame has two sections labelled "`_sk_`_s''"; keyed placement needs unique section|category keys"'
+                            exit 198
+                        }
+                    }
+                }
+                local _sec_used_`_s' 0
+                local _sec_levels_`_s' ""
+                local _seen ""
+                foreach _cr of local _sec_cats_`_s' {
+                    local _rowmap_`_cr' = 0
+                    local _rowref_`_cr' = 0
+                    frame `rateframe': mata: st_local("_ck_`_cr'", strlower(strtrim(st_sdata(`_cr', "c1"))))
+                    foreach _cr2 of local _seen {
+                        if `"`_ck_`_cr''"' == `"`_ck_`_cr2''"' {
+                            display as error `"rate section "`_sk_`_s''" has two categories labelled "`_ck_`_cr''""'
+                            exit 198
+                        }
+                    }
+                    local _seen "`_seen' `_cr'"
+                }
+            }
+            local _pos = 0
+            local _mo_keys ""
+            forvalues _f = 1/`n_frames' {
+                local _fname : word `_f' of `modelframes'
+                foreach _rr of local expanded`_f' {
+                    local _mr = `_rr' + 3
+                    frame `_fname': mata: st_local("_mlab_raw", st_sdata(`_mr', "A"))
+                    mata: st_local("_mlab", strtrim(st_local("_mlab_raw")))
+                    mata: st_local("_is_level", strofreal(substr(st_local("_mlab_raw"), 1, 2) == "  "))
+                    local _all_blank = 1
+                    foreach _cv of local _model_cvars {
+                        frame `_fname': local _mcell = strtrim(`_cv'[`_mr'])
+                        if `"`_mcell'"' != "" local _all_blank = 0
+                    }
+                    * a heading row carries no estimate; its levels carry the key
+                    if `_all_blank' continue
+                    local ++_pos
+                    local _map_frame`_pos' `"`_fname'"'
+                    local _map_f`_pos' = `_f'
+                    local _map_source`_pos' `"`_source_original_`_f''"'
+                    local _map_row`_pos' = `_mr'
+                    local _is_ref = 0
+                    foreach _blk of local _all_blocks_`_f' {
+                        local _es = 1 + (`_blk' - 1) * `_cols_per_model'
+                        capture frame `_fname': confirm numeric variable ref`_es'
+                        if _rc == 0 {
+                            frame `_fname': local _refv = ref`_es'[`_mr']
+                            if !missing(`_refv') local _is_ref = 1
+                        }
+                        else {
+                            frame `_fname': local _reft = lower(strtrim(c`_es'[`_mr']))
+                            if `"`_reft'"' == "reference" local _is_ref = 1
+                        }
+                    }
+                    local _blocklab ""
+                    if `_is_level' {
+                        local _b = `_mr' - 1
+                        local _bstop = 0
+                        while `_b' >= 4 & !`_bstop' {
+                            frame `_fname': mata: st_local("_bl", strofreal(substr(st_sdata(`_b', "A"), 1, 2) == "  "))
+                            if `_bl' local --_b
+                            else local _bstop = 1
+                        }
+                        if `_b' >= 4 frame `_fname': mata: st_local("_blocklab", strtrim(st_sdata(`_b', "A")))
+                    }
+                    mata: st_local("_bk", strlower(st_local("_blocklab")))
+                    mata: st_local("_lk", strlower(st_local("_mlab")))
+                    local _target = 0
+                    local _tsec = 0
+                    if `_is_level' & `"`_blocklab'"' != "" {
+                        forvalues _s = 1/`_n_sec_scan' {
+                            if `"`_sk_`_s''"' == `"`_bk'"' local _tsec = `_s'
+                        }
+                        if `_tsec' {
+                            foreach _cr of local _sec_cats_`_tsec' {
+                                if `"`_ck_`_cr''"' == `"`_lk'"' local _target = `_cr'
+                            }
+                            if !`_target' {
+                                display as error `"model row `_rr' ("`macval(_blocklab)'|`macval(_mlab)'") of frame '`_source_original_`_f''' matches no category of rate section "`macval(_blocklab)'""'
+                                display as error "keyed placement needs the model's level labels to equal the rate categories"
+                                exit 198
+                            }
+                        }
+                    }
+                    else if !`_is_level' {
+                        * R1 exact-or-error: only a factor level (block heading
+                        * plus level label) has an identity that can fill a rate
+                        * category. A plain row (a 0/1 indicator or a continuous
+                        * term) whose label equals a section or category label
+                        * would be placed by resemblance, so it is refused.
+                        local _clash ""
+                        forvalues _s = 1/`_n_sec_scan' {
+                            if `"`_sk_`_s''"' == `"`_lk'"' local _clash "section"
+                            foreach _cr of local _sec_cats_`_s' {
+                                if `"`_ck_`_cr''"' == `"`_lk'"' local _clash "category"
+                            }
+                        }
+                        if "`_clash'" != "" {
+                            display as error `"model row `_rr' ("`macval(_mlab)'") of frame '`_source_original_`_f''' is not a factor level, but its label equals a rate `_clash' label"'
+                            display as error "keyed placement fills a rate category only from a factor level; fit the variable as i.varname with the rate frame's labels, or relabel the row"
+                            exit 198
+                        }
+                    }
+                    if `_target' {
+                        if `_rowmap_`_target'' != 0 {
+                            frame `rateframe': mata: st_local("_clab", strtrim(st_sdata(`_target', "c1")))
+                            display as error `"two selected model rows have the key "`macval(_blocklab)'|`macval(_clab)'""'
+                            exit 198
+                        }
+                        local _rowmap_`_target' = `_pos'
+                        local _rowref_`_target' = `_is_ref'
+                        local _sec_used_`_tsec' 1
+                        if `_is_level' local _sec_levels_`_tsec' "`_sec_levels_`_tsec'' `_pos'"
+                    }
+                    else {
+                        if !`_modelonly' {
+                            display as error `"model row `_rr' ("`macval(_blocklab)'|`macval(_mlab)'") of frame '`_source_original_`_f''' has no rate row"'
+                            display as error "Hint: specify modelonly to list model rows without a rate section after the table"
+                            exit 198
+                        }
+                        mata: st_local("_mokey", strlower(st_local("_blocklab")) + "|" + strlower(st_local("_mlab")))
+                        forvalues _q = 1/`_pos' {
+                            if `"`_mokey_`_q''"' != "" & `"`_mokey_`_q''"' == `"`_mokey'"' {
+                                display as error `"two selected model rows have the key "`macval(_mokey)'""'
+                                exit 198
+                            }
+                        }
+                        local _mokey_`_pos' `"`_mokey'"'
+                        local _moblock_`_pos' `"`_blocklab'"'
+                        local _molevel_`_pos' = `_is_level'
+                        local _mo_list "`_mo_list' `_pos'"
+                    }
+                }
+            }
+            local _selected_total = `_pos'
+            if `_pos' == 0 {
+                display as error "no model rows with estimates were selected"
+                exit 198
+            }
+
+            * Reference per section with model rows; sections without carry rates only.
+            local ref_rows ""
+            local nonref_rows ""
+            forvalues _s = 1/`_n_sec_scan' {
+                if !`_sec_used_`_s'' continue
+                frame `rateframe': mata: st_local("_sec_label", strtrim(st_sdata(`_sec_row_`_s'', "c1")))
+                local _unf ""
+                local _nexp = 0
+                foreach _cr of local _sec_cats_`_s' {
+                    if `_rowmap_`_cr'' == 0 local _unf "`_unf' `_cr'"
+                    else if `_rowref_`_cr'' {
+                        local ++_nexp
+                        local ref_rows "`ref_rows' `_cr'"
+                    }
+                    else local nonref_rows "`nonref_rows' `_cr'"
+                }
+                local _nunf : word count `_unf'
+                if `_nexp' > 1 | (`_nexp' == 1 & `_nunf' > 0) | (`_nexp' == 0 & `_nunf' != 1) {
+                    display as error `"rate section "`macval(_sec_label)'": `_nunf' categor(ies) have no model row and `_nexp' reference row(s) were selected"'
+                    display as error "select every level of the model block, or every level but its reference"
+                    exit 198
+                }
+                if `_nexp' == 1 continue
+                local _ref_row = strtrim("`_unf'")
+                local ref_rows "`ref_rows' `_ref_row'"
+                frame `rateframe': mata: st_local("_ref_lab", strtrim(st_sdata(`_ref_row', "c1")))
+                * The unfilled category is labelled as the reference, so it must
+                * be the base level of every factor block that supplied a level.
+                foreach _i of local _sec_levels_`_s' {
+                    local _mfn `"`_map_frame`_i''"'
+                    local _mff = `_map_f`_i''
+                    local _mr = `_map_row`_i''
+                    local _msrc `"`_source_original_`_mff''"'
+                    frame `_mfn': local _mfN = _N
+                    local _b0 = `_mr'
+                    local _bstop = 0
+                    while `_b0' > 4 & !`_bstop' {
+                        frame `_mfn': local _bprev_lvl = (substr(A[`=`_b0' - 1'], 1, 2) == "  ")
+                        if `_bprev_lvl' local --_b0
+                        else local _bstop = 1
+                    }
+                    local _b1 = `_mr'
+                    local _bstop = 0
+                    while `_b1' < `_mfN' & !`_bstop' {
+                        frame `_mfn': local _bnext_lvl = (substr(A[`=`_b1' + 1'], 1, 2) == "  ")
+                        if `_bnext_lvl' local ++_b1
+                        else local _bstop = 1
+                    }
+                    local _base_found = 0
+                    forvalues _br = `_b0'/`_b1' {
+                        frame `_mfn': mata: st_local("_same", strofreal(strlower(strtrim(st_sdata(`_br', "A"))) == strlower(st_local("_ref_lab"))))
+                        if `_same' {
+                            local _all_ref = 1
+                            foreach _blk of local _all_blocks_`_mff' {
+                                local _es = 1 + (`_blk' - 1) * `_cols_per_model'
+                                local _br_ref = 0
+                                capture frame `_mfn': confirm numeric variable ref`_es'
+                                if _rc == 0 {
+                                    frame `_mfn': local _refv = ref`_es'[`_br']
+                                    if !missing(`_refv') local _br_ref = 1
+                                }
+                                else {
+                                    frame `_mfn': local _reft = lower(strtrim(c`_es'[`_br']))
+                                    if `"`_reft'"' == "reference" local _br_ref = 1
+                                }
+                                if !`_br_ref' local _all_ref = 0
+                            }
+                            if `_all_ref' local _base_found = 1
+                        }
+                    }
+                    if !`_base_found' {
+                        display as error `"rate category "`macval(_ref_lab)'" in section "`macval(_sec_label)'" would be shown as the reference,"'
+                        display as error `"but it is not the reference category of the model in frame '`_msrc''"'
+                        exit 198
+                    }
+                }
+            }
+            local ref_rows : list clean ref_rows
+            local nonref_rows : list clean nonref_rows
+        }
+        else {
         local _selected_total = 0
         local _map_i = 0
         forvalues _f = 1/`n_frames' {
@@ -1085,8 +1381,7 @@ program define _comptab_rates, rclass
                     exit 198
                 }
                 local _is_ref = 0
-                forvalues _o = 1/`outcomes' {
-                    local _blk = `_model_map_`_mff'_`_o''
+                foreach _blk of local _all_blocks_`_mff' {
                     local _es = 1 + (`_blk' - 1) * `_cols_per_model'
                     * regtab flags reference/omitted/empty rows in the numeric
                     * ref<estcol> variable; without it, use the default text.
@@ -1165,8 +1460,7 @@ program define _comptab_rates, rclass
                     frame `_mfn': mata: st_local("_same", strofreal(strlower(strtrim(st_sdata(`_br', "A"))) == strlower(st_local("_ref_lab"))))
                     if `_same' {
                         local _all_ref = 1
-                        forvalues _o = 1/`outcomes' {
-                            local _blk = `_model_map_`_mff'_`_o''
+                        foreach _blk of local _all_blocks_`_mff' {
                             local _es = 1 + (`_blk' - 1) * `_cols_per_model'
                             local _br_ref = 0
                             capture frame `_mfn': confirm numeric variable ref`_es'
@@ -1193,6 +1487,7 @@ program define _comptab_rates, rclass
         }
         local ref_rows : list clean ref_rows
         local nonref_rows : list clean nonref_rows
+        } // end positional placement
 
 	        local _eplot_build_name ""
 	        if `"`_eplotframe_name'"' != "" {
@@ -1338,17 +1633,38 @@ program define _comptab_rates, rclass
 	            forvalues _o = 1/`outcomes' {
 	                frame `_eplot_build_name': char _dta[tabtools_model_id_`_o'] `"`_output_model_id_`_o''"'
 	                frame `_eplot_build_name': char _dta[tabtools_outcome_id_`_o'] `"`_rate_outcome_id_`_o''"'
-	                frame `_eplot_build_name': char _dta[tabtools_effect_scale_`_o'] "HR"
+	                frame `_eplot_build_name': char _dta[tabtools_effect_scale_`_o'] "`_scale_family'"
 	            }
 	        }
 
-        * Build output table
-        local ncols = 1 + 5 * `outcomes'
+        * Build output table: per outcome events, person-time, rate, then K
+        * effect columns (each with its p-value when the model frames have one).
+        local _w = 1 + `_has_p'
+        local _bw = 3 + `_K' * `_w'
+        local ncols = 1 + `_bw' * `outcomes'
         local _out_title `"`macval(title)'"'
         if `"`macval(_out_title)'"' == "" local _out_title : copy local _rate_title
 
+        * Model-only rows (keyed modelonly): a heading row whenever the model
+        * block changes, then the rows in model-frame order.
+        local _mo_seq ""
+        local _mo_prev_block ""
+        local _mo_first 1
+        foreach _i of local _mo_list {
+            if `_molevel_`_i'' & (`_mo_first' | `"`_moblock_`_i''"' != `"`_mo_prev_block'"') {
+                local _mo_seq "`_mo_seq' h`_i'"
+            }
+            local _mo_seq "`_mo_seq' r`_i'"
+            local _mo_prev_block `"`_moblock_`_i''"'
+            if !`_molevel_`_i'' local _mo_prev_block ""
+            local _mo_first 0
+        }
+        local _n_mo_rows : word count `_mo_seq'
+        local _n_mo : word count `_mo_list'
+        local _out_rows = `_rate_rows' + `_n_mo_rows'
+
         clear
-        quietly set obs `_rate_rows'
+        quietly set obs `_out_rows'
         quietly gen str244 title = ""
         forvalues _c = 1/`ncols' {
             quietly gen str244 c`_c' = ""
@@ -1364,32 +1680,38 @@ program define _comptab_rates, rclass
 
         forvalues _o = 1/`outcomes' {
             local _rate_s = 2 + (`_o' - 1) * 3
-            local _out_s = 2 + (`_o' - 1) * 5
-            local _rate_s2 = `_rate_s' + 1
-            local _rate_s3 = `_rate_s' + 2
-            local _out_s2 = `_out_s' + 1
-            local _out_s3 = `_out_s' + 2
-            local _out_s4 = `_out_s' + 3
-
+            local _out_s = 2 + (`_o' - 1) * `_bw'
             frame `rateframe' {
                 mata: st_local("_outcome_header", st_sdata(2, "c`_rate_s'"))
                 local _hdr_events = c`_rate_s'[3]
-                local _hdr_py = c`_rate_s2'[3]
-                local _hdr_rate = c`_rate_s3'[3]
+                local _hdr_py = c`=`_rate_s' + 1'[3]
+                local _hdr_rate = c`=`_rate_s' + 2'[3]
             }
-
             quietly replace c`_out_s' = `"`macval(_outcome_header)'"' in 2
             quietly replace c`_out_s' = `"`_hdr_events'"' in 3
-            quietly replace c`_out_s2' = `"`_hdr_py'"' in 3
-            quietly replace c`_out_s3' = `"`_hdr_rate'"' in 3
-	            quietly replace c`_out_s4' = `"`effect' (`_ci_level_label'% CI)"' in 3
-            quietly replace c`=`_out_s4'+1' = "p-value" in 3
+            quietly replace c`=`_out_s' + 1' = `"`_hdr_py'"' in 3
+            quietly replace c`=`_out_s' + 2' = `"`_hdr_rate'"' in 3
+            forvalues _k = 1/`_K' {
+                local _ec = `_out_s' + 3 + (`_k' - 1) * `_w'
+                local _mlk `"`_output_model_label_`_o'_`_k''"'
+                if `"`_mlk'"' == "" local _mlk "Model `_k'"
+                if `_K' == 1 {
+                    quietly replace c`_ec' = `"`effect' (`_ci_level_label'% CI)"' in 3
+                    if `_has_p' quietly replace c`=`_ec' + 1' = "p-value" in 3
+                }
+                else {
+                    quietly replace c`_ec' = `"`_mlk', `effect' (`_ci_level_label'% CI)"' in 3
+                    if `_has_p' quietly replace c`=`_ec' + 1' = `"`_mlk', p-value"' in 3
+                }
+            }
         }
 
         * Data rows follow the stratetab scaffold exactly
         local _section_rows_sp " `section_rows' "
         local _ref_rows_sp " `ref_rows' "
-        local _next_model = 0
+        local _refmt_opts ""
+        if `_refmt' local _refmt_opts `"cformat(`cformat')"'
+        if `_resep' local _refmt_opts `"`_refmt_opts' cisep(`"`cisep'"')"'
 
         forvalues _r = 4/`_rate_rows' {
             frame `rateframe' {
@@ -1399,87 +1721,79 @@ program define _comptab_rates, rclass
 
             forvalues _o = 1/`outcomes' {
                 local _rate_s = 2 + (`_o' - 1) * 3
-                local _out_s = 2 + (`_o' - 1) * 5
-                local _rate_s2 = `_rate_s' + 1
-                local _rate_s3 = `_rate_s' + 2
-                local _out_s2 = `_out_s' + 1
-                local _out_s3 = `_out_s' + 2
-                local _out_s4 = `_out_s' + 3
-
+                local _out_s = 2 + (`_o' - 1) * `_bw'
                 frame `rateframe' {
                     local _rate_events = c`_rate_s'[`_r']
-                    local _rate_py = c`_rate_s2'[`_r']
-                    local _rate_rate = c`_rate_s3'[`_r']
+                    local _rate_py = c`=`_rate_s' + 1'[`_r']
+                    local _rate_rate = c`=`_rate_s' + 2'[`_r']
                 }
-
                 quietly replace c`_out_s' = `"`_rate_events'"' in `_r'
-                quietly replace c`_out_s2' = `"`_rate_py'"' in `_r'
-                quietly replace c`_out_s3' = `"`_rate_rate'"' in `_r'
+                quietly replace c`=`_out_s' + 1' = `"`_rate_py'"' in `_r'
+                quietly replace c`=`_out_s' + 2' = `"`_rate_rate'"' in `_r'
             }
 
-            if strpos("`_section_rows_sp'", " `_r' ") {
-                continue
-            }
+            if strpos("`_section_rows_sp'", " `_r' ") continue
 
             if strpos("`_ref_rows_sp'", " `_r' ") {
                 forvalues _o = 1/`outcomes' {
-                    local _out_s = 2 + (`_o' - 1) * 5
-                    local _out_s4 = `_out_s' + 3
-                    quietly replace c`_out_s4' = `"`reflabel'"' in `_r'
-                    quietly replace c`=`_out_s4'+1' = "" in `_r'
+                    forvalues _k = 1/`_K' {
+                        local _ec = 2 + (`_o' - 1) * `_bw' + 3 + (`_k' - 1) * `_w'
+                        quietly replace c`_ec' = `"`reflabel'"' in `_r'
+                    }
                 }
                 continue
             }
 
-	            local _next_model = 0
-	            if `"`_rowmap_`_r''"' != "" local _next_model = `_rowmap_`_r''
-	            if `_next_model' == 0 continue
-	            local _mfname `"`_map_frame`_next_model''"'
-	            local _mfindex = `_map_f`_next_model''
-	            local _mrow = `_map_row`_next_model''
-
-	            forvalues _o = 1/`outcomes' {
-	                local _out_s = 2 + (`_o' - 1) * 5
-	                local _out_s4 = `_out_s' + 3
-	                local _source_model = `_model_map_`_mfindex'_`_o''
-
-	                if "`model_mode'" == "standard" {
-	                    local _model_s = 1 + (`_source_model' - 1) * 3
-                    frame `_mfname' {
-                        local _eff_main = c`_model_s'[`_mrow']
-                        local _eff_ci = c`=`_model_s'+1'[`_mrow']
-                        local _eff_p = c`=`_model_s'+2'[`_mrow']
-                    }
-                    local _eff_main = strtrim(`"`_eff_main'"')
-                    local _eff_ci = strtrim(`"`_eff_ci'"')
-                    if `"`_eff_main'"' == "" {
-                        local _eff_text `"`_eff_ci'"'
-                    }
-                    else if `"`_eff_ci'"' == "" {
-                        local _eff_text `"`_eff_main'"'
-                    }
-                    else {
-                        local _eff_text `"`_eff_main' `_eff_ci'"'
-                    }
-	                }
-	                else {
-	                    local _model_s = 1 + (`_source_model' - 1) * 2
-                    frame `_mfname' {
-                        local _eff_text = c`_model_s'[`_mrow']
-                        local _eff_p = c`=`_model_s'+1'[`_mrow']
-                    }
-                    local _eff_text = strtrim(`"`_eff_text'"')
+            local _next_model = 0
+            if `"`_rowmap_`_r''"' != "" local _next_model = `_rowmap_`_r''
+            if `_next_model' == 0 continue
+            local _mfname `"`_map_frame`_next_model''"'
+            local _mfindex = `_map_f`_next_model''
+            local _mrow = `_map_row`_next_model''
+            forvalues _o = 1/`outcomes' {
+                forvalues _k = 1/`_K' {
+                    local _ec = 2 + (`_o' - 1) * `_bw' + 3 + (`_k' - 1) * `_w'
+                    _comptab_effect_cell, frame(`_mfname') row(`_mrow') ///
+                        block(`_mmap_`_mfindex'_`_o'_`_k'') mode(`model_mode') ///
+                        cpm(`_cols_per_model') `_refmt_opts'
+                    quietly replace c`_ec' = `"`r(text)'"' in `_r'
+                    if `_has_p' quietly replace c`=`_ec' + 1' = `"`r(p)'"' in `_r'
                 }
+            }
+        }
 
-                local _eff_p = strtrim(`"`_eff_p'"')
-
-                quietly replace c`_out_s4' = `"`_eff_text'"' in `_r'
-                quietly replace c`=`_out_s4'+1' = `"`_eff_p'"' in `_r'
+        * Model-only rows after the scaffold
+        local _r = `_rate_rows'
+        local _mo_head_rows ""
+        foreach _e of local _mo_seq {
+            local ++_r
+            local _i = substr("`_e'", 2, .)
+            if substr("`_e'", 1, 1) == "h" {
+                quietly replace c1 = `"`_moblock_`_i''"' in `_r'
+                local _mo_head_rows "`_mo_head_rows' `_r'"
+                continue
+            }
+            local _mfname `"`_map_frame`_i''"'
+            local _mfindex = `_map_f`_i''
+            local _mrow = `_map_row`_i''
+            frame `_mfname': mata: st_local("_mo_lab", strtrim(st_sdata(`_mrow', "A")))
+            if `_molevel_`_i'' local _mo_lab `"   `_mo_lab'"'
+            quietly replace c1 = `"`_mo_lab'"' in `_r'
+            if `_r' == `_rate_rows' + 1 & !`_molevel_`_i'' local _mo_head_rows "`_mo_head_rows' `_r'"
+            forvalues _o = 1/`outcomes' {
+                forvalues _k = 1/`_K' {
+                    local _ec = 2 + (`_o' - 1) * `_bw' + 3 + (`_k' - 1) * `_w'
+                    _comptab_effect_cell, frame(`_mfname') row(`_mrow') ///
+                        block(`_mmap_`_mfindex'_`_o'_`_k'') mode(`model_mode') ///
+                        cpm(`_cols_per_model') `_refmt_opts'
+                    quietly replace c`_ec' = `"`r(text)'"' in `_r'
+                    if `_has_p' quietly replace c`=`_ec' + 1' = `"`r(p)'"' in `_r'
+                }
             }
         }
 
         local lastrow = _N
-        local exp_rows `"`section_rows'"'
+        local exp_rows `"`section_rows' `_mo_head_rows'"'
 
         * Console display
         noisily _tabtools_console_display `ncols' `"`macval(_out_title)'"', datastart(4) headerstart(2)
@@ -1529,14 +1843,30 @@ program define _comptab_rates, rclass
 	            frame `_display_build_name': char _dta[tabtools_source] "hrcomptab"
 	            frame `_display_build_name': char _dta[tabtools_ci_level] "`_ci_level_label'"
 	            frame `_display_build_name': char _dta[tabtools_n_outcomes] "`outcomes'"
-	            frame `_display_build_name': char _dta[tabtools_statistic_ids] "events person_years rate_ci estimate_ci pvalue"
+	            local _disp_stats "events person_years rate_ci"
+	            forvalues _k = 1/`_K' {
+	                local _disp_stats "`_disp_stats' estimate_ci"
+	                if `_has_p' local _disp_stats "`_disp_stats' pvalue"
+	            }
+	            frame `_display_build_name': char _dta[tabtools_statistic_ids] "`_disp_stats'"
+	            frame `_display_build_name': char _dta[tabtools_models_per_outcome] "`_K'"
 	            if `"`_eplotframe_name'"' != "" & !`_eplotframe_temporary' {
 	                frame `_display_build_name': char _dta[tabtools_eplotframe] "`_eplotframe_name'"
 	            }
 	            forvalues _o = 1/`outcomes' {
 	                frame `_display_build_name': char _dta[tabtools_model_id_`_o'] `"`_output_model_id_`_o''"'
 	                frame `_display_build_name': char _dta[tabtools_outcome_id_`_o'] `"`_rate_outcome_id_`_o''"'
-	                frame `_display_build_name': char _dta[tabtools_effect_scale_`_o'] "HR"
+	                frame `_display_build_name': char _dta[tabtools_effect_scale_`_o'] "`_scale_family'"
+	            }
+	            if `_displayframe_flat' {
+	                local _flat_cols ""
+	                local _flat_starts ""
+	                forvalues _fc = 2/`ncols' {
+	                    local _flat_cols "`_flat_cols' c`_fc'"
+	                    if mod(`_fc' - 2, `_bw') == 0 local _flat_starts "`_flat_starts' `=`_fc' - 1'"
+	                }
+	                frame `_display_build_name': _comptab_flatten, labelvar(c1) ///
+	                    cols(`_flat_cols') blockstarts(`_flat_starts')
 	            }
 	            local frame `"`_displayframe_name'"'
 	        }
@@ -1547,6 +1877,8 @@ program define _comptab_rates, rclass
         return scalar N_sections = `n_sections'
         return scalar N_modelrows = `_selected_total'
         return scalar N_modelframes = `n_frames'
+        return scalar N_models_per_outcome = `_K'
+        return scalar N_modelonly = `_n_mo'
 	        return scalar ci_level = `_ci_level'
 	        return local rateframe "`_rateframe_original'"
 	        return local modelframes "`_modelframes_original'"
@@ -1572,7 +1904,12 @@ program define _comptab_rates, rclass
             drop `_hrc_len'
 
             forvalues _c = 2/`ncols' {
-                local _block_pos = mod(`_c' - 2, 5)
+                local _block_pos = mod(`_c' - 2, `_bw')
+                * positions 3+ alternate effect and p-value when there is a p
+                if `_block_pos' >= 3 {
+                    if `_has_p' & mod(`_block_pos' - 3, 2) == 1 local _block_pos = 4
+                    else local _block_pos = 3
+                }
                 tempvar _hrc_len
                 quietly generate long `_hrc_len' = length(c`_c')
                 * Row 2 holds merged outcome headers; size each display column from
@@ -1646,9 +1983,9 @@ program define _comptab_rates, rclass
 
                 local _merge_col = 3
                 forvalues _o = 1/`outcomes' {
-                    local _col_end = `_merge_col' + 4
+                    local _col_end = `_merge_col' + `_bw' - 1
                     local _style_rule_spec `"`_style_rule_spec' | 14 2 2 `_merge_col' `_col_end' 0 0 0 0 | 2 2 2 `_merge_col' `_merge_col' 0 1 0 0 | 5 2 2 `_merge_col' `_merge_col' 0 2 0 0 | 6 2 2 `_merge_col' `_merge_col' 0 3 0 0 | 9 2 2 `_merge_col' `_col_end' 0 `_hborder_code' 0 0"'
-                    local _merge_col = `_merge_col' + 5
+                    local _merge_col = `_merge_col' + `_bw'
                 }
 
                 local _style_rule_spec `"`_style_rule_spec' | 14 2 3 2 2 0 0 0 0 | 2 2 3 2 2 0 1 0 0 | 5 2 3 2 2 0 2 0 0 | 6 2 3 2 2 0 2 0 0 | 9 3 3 2 2 0 `_hborder_code' 0 0 | 2 3 3 3 `_total_cols' 0 1 0 0 | 5 3 3 3 `_total_cols' 0 2 0 0 | 6 3 3 3 `_total_cols' 0 2 0 0"'
@@ -1668,9 +2005,9 @@ program define _comptab_rates, rclass
                     local _style_rule_spec `"`_style_rule_spec' | 10 2 `lastrow' 2 2 0 `_vborder_code' 0 0 | 11 2 `lastrow' 2 2 0 `_vborder_code' 0 0"'
                     local _vcol = 3
                     forvalues _o = 1/`outcomes' {
-                        local _col_end = `_vcol' + 4
+                        local _col_end = `_vcol' + `_bw' - 1
                         local _style_rule_spec `"`_style_rule_spec' | 11 2 `lastrow' `_col_end' `_col_end' 0 `_vborder_code' 0 0"'
-                        local _vcol = `_vcol' + 5
+                        local _vcol = `_vcol' + `_bw'
                     }
                 }
                 foreach _sr of local exp_rows {
@@ -1682,10 +2019,25 @@ program define _comptab_rates, rclass
                 local _style_rule_spec `"`_style_rule_spec' | 9 `lastrow' `lastrow' 2 `_total_cols' 0 `_hborder_code' 0 0"'
 
                 if `"`macval(footnote)'"' != "" {
-                    local _fn_row = `lastrow' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
-                    mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
-                    local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `_total_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+                    * One row per paragraph; " \ " separates paragraphs.
+                    local _fn_rest `"`macval(footnote)'"'
+                    local _fp 0
+                    while `"`macval(_fn_rest)'"' != "" {
+                        local _fn_at = strpos(`"`macval(_fn_rest)'"', " \ ")
+                        if `_fn_at' == 0 {
+                            local _fn_piece `"`macval(_fn_rest)'"'
+                            local _fn_rest ""
+                        }
+                        else {
+                            local _fn_piece = substr(`"`macval(_fn_rest)'"', 1, `_fn_at' - 1)
+                            local _fn_rest = substr(`"`macval(_fn_rest)'"', `_fn_at' + 3, .)
+                        }
+                        local ++_fp
+                        local _fn_row = `lastrow' + `_fp'
+                        mata: `_xlsx_book'.put_string(`_fn_row', 2, strtrim(st_local("_fn_piece")))
+                        local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `_total_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+                    }
                 }
 
                 _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
@@ -1758,7 +2110,8 @@ program define _comptab_rates, rclass
         * Final frame commit: validate both staged schemas, then replace caller
         * destinations only after every preceding operation has succeeded.
         if `"`_display_build_name'"' != "" {
-            frame `_display_build_name': confirm variable title
+            if `_displayframe_flat' frame `_display_build_name': confirm variable rowlabel
+            else frame `_display_build_name': confirm variable title
             frame `_display_build_name': confirm variable c1
         }
         if `"`_eplot_build_name'"' != "" {
@@ -1801,6 +2154,8 @@ program define _comptab_rates, rclass
     return scalar N_sections = `n_sections'
     return scalar N_modelrows = `_selected_total'
     return scalar N_modelframes = `n_frames'
+    return scalar N_models_per_outcome = `_K'
+    return scalar N_modelonly = `_n_mo'
     return scalar ci_level = `_ci_level'
     return local rateframe "`_rateframe_original'"
     return local modelframes "`_modelframes_original'"
@@ -1858,7 +2213,21 @@ program define _comptab_vertical, rclass
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
-        FOREST EPLOTOptions(string asis) LABELWidth(integer 0)]
+        FOREST EPLOTOptions(string asis) LABELWidth(integer 0) ///
+        CFormat(string) CISep(string)]
+
+    * cformat()/cisep() (O1): re-render each selected estimate and interval.
+    * cformat() needs the numbers, so it reads the numeric companions;
+    * cisep() alone rewrites the "(a, b)" text exactly or refuses.
+    local _refmt = (`"`cformat'"' != "")
+    if `_refmt' {
+        capture confirm numeric format `cformat'
+        if _rc | regexm(`"`cformat'"', "^%-?t") {
+            noisily display as error `"cformat(): "`cformat'" is not a numeric display format"'
+            exit 198
+        }
+    }
+    local _resep = (`"`cisep'"' != "")
 
     * Label-column width cap (0 -> default 45): keeps a lone verbose label from
     * stretching the whole column; longer labels wrap (text-wrap rule below).
@@ -1973,6 +2342,11 @@ program define _comptab_vertical, rclass
             noisily display as error "Hint: use {bf:regtab} or {bf:effecttab} with {bf:frame()} to create source frames"
             exit 111
         }
+        frame `_fname': local _src_layout : char _dta[tabtools_layout]
+        if "`_src_layout'" == "flat" {
+            noisily display as error "Frame '`_fname'' is a flat frame (frame(, flat)); it is for puttab, not a comptab source"
+            exit 198
+        }
     }
 
     * Resolve the display-frame destination without changing it, then reject
@@ -1980,24 +2354,12 @@ program define _comptab_vertical, rclass
     * dropped or rebuilt.
 	    local _displayframe_name ""
 	    local _displayframe_replace 0
+	    local _displayframe_flat 0
 	    if `"`frame'"' != "" {
-        local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
-        gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
-	        local _displayframe_name = strtrim(`"`_displayframe_name'"')
-	        local _fr_rest : subinstr local _fr_rest "," "", all
-	        local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
-        capture confirm name `_displayframe_name'
-        if _rc {
-            noisily display as error "frame() must start with a valid Stata frame name"
-	            exit 198
-	        }
-	        if `"`_fr_rest'"' != "" {
-	            if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
-	            else {
-	                noisily display as error "frame() only allows the replace suboption"
-	                exit 198
-	            }
-	        }
+	        _comptab_frame_spec `"`frame'"' "frame()"
+	        local _displayframe_name "`r(name)'"
+	        local _displayframe_replace = r(replace)
+	        local _displayframe_flat = r(flat)
     }
     if `"`_displayframe_name'"' != "" & ///
         `"`_eplotframe_name'"' != "" & ///
@@ -2059,6 +2421,11 @@ program define _comptab_vertical, rclass
 	        frame copy `_source_original_`f'' `_source_snapshot_`f''
 	        if `"`_eplotframe_name'"' != "" & `"`_source_ep_original_`f''"' == "" {
 	            noisily display as error "eplotframe()/forest requires every source to have a numeric companion frame"
+	            exit 459
+	        }
+	        if `_refmt' & `"`_source_ep_original_`f''"' == "" {
+	            noisily display as error "cformat() requires every source to have a numeric companion frame"
+	            noisily display as error "Hint: create each source with regtab or effecttab, frame() eplotframe()"
 	            exit 459
 	        }
 	        if `"`_source_ep_original_`f''"' != "" {
@@ -2771,6 +3138,8 @@ program define _comptab_vertical, rclass
         }
         keep if _keep
         sort _orig_n
+        gen int __srcf = `f'
+        gen long __srcr = _orig_n - 3
         drop _orig_n _keep
 
         local _n_added = _N
@@ -2783,6 +3152,87 @@ program define _comptab_vertical, rclass
     }
 
     use `_build', clear
+
+    * =====================================================================
+    * CFORMAT()/CISEP() — RE-RENDER SELECTED ESTIMATES (O1)
+    * =====================================================================
+    capture confirm variable __srcf
+    if _rc {
+        gen int __srcf = .
+        gen long __srcr = .
+    }
+    if `_refmt' | `_resep' {
+        if `"`cisep'"' == "" local cisep ", "
+        forvalues _i = 1/`=_N' {
+            if missing(__srcf[`_i']) continue
+            local f = __srcf[`_i']
+            local r = __srcr[`_i']
+            local _fname : word `f' of `framelist'
+            local _ep_key source_row
+            if `_refmt' {
+                frame `_fname': local _src_ep : char _dta[tabtools_eplotframe]
+                frame `_fname': local _display_pair : char _dta[tabtools_companion_id]
+                frame `_src_ep': local _numeric_pair : char _dta[tabtools_companion_id]
+                mata: st_local("_same_pair", strofreal(st_local("_display_pair") != "" & ///
+                    st_local("_display_pair") == st_local("_numeric_pair")))
+                if !`_same_pair' {
+                    noisily display as error "source display and numeric companion have missing or different tabtools_companion_id"
+                    exit 459
+                }
+                frame `_fname': local _source_kind : char _dta[tabtools_source]
+                if "`_source_kind'" == "comptab" local _ep_key table_row
+            }
+            forvalues _target_m = 1/`n_models' {
+                local _source_m = `_source_model_map_`f'_`_target_m''
+                local _est_c = (`_target_m' - 1) * `_source_cols_per_model' + 1
+                local _ci_c = `_est_c' + 1
+                local _cell_est = c`_est_c'[`_i']
+                local _cell_ci = ""
+                if !`_source_compact' local _cell_ci = c`_ci_c'[`_i']
+                * stars appended by regtab stay on the estimate
+                local _stars ""
+                if regexm(strtrim(`"`_cell_est'"'), "^[^(]*[^*(](\*+)") local _stars = regexs(1)
+                if `_refmt' {
+                    _comptab_ep_value, ep(`_src_ep') key(`_ep_key') row(`r') model(`_source_m')
+                    if !r(found) | missing(r(est)) | missing(r(ll)) | missing(r(ul)) continue
+                    local _t_est = strtrim(string(r(est), "`cformat'"))
+                    local _t_ci = "(" + strtrim(string(r(ll), "`cformat'")) + `"`cisep'"' + ///
+                        strtrim(string(r(ul), "`cformat'")) + ")"
+                }
+                else {
+                    * cisep() alone: rewrite "(a, b)" exactly or refuse
+                    local _txt = cond(`_source_compact', strtrim(`"`_cell_est'"'), strtrim(`"`_cell_ci'"'))
+                    if `"`_txt'"' == "" | strpos(`"`_txt'"', "(") == 0 continue
+                    if `_source_compact' {
+                        if !regexm(`"`_txt'"', "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
+                            noisily display as error `"cisep(): the interval in "`_txt'" is not in (a, b) form"'
+                            exit 198
+                        }
+                        local _t_est = regexs(1)
+                        local _t_ci = "(" + regexs(2) + `"`cisep'"' + regexs(4) + ")"
+                        local _stars ""
+                    }
+                    else {
+                        if !regexm(`"`_txt'"', "^\(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
+                            noisily display as error `"cisep(): the interval "`_txt'" is not in (a, b) form"'
+                            exit 198
+                        }
+                        local _t_ci = "(" + regexs(1) + `"`cisep'"' + regexs(3) + ")"
+                        local _t_est = strtrim(`"`_cell_est'"')
+                        local _stars ""
+                    }
+                }
+                if `_source_compact' {
+                    qui replace c`_est_c' = `"`_t_est'`_stars' `_t_ci'"' in `_i'
+                }
+                else {
+                    qui replace c`_est_c' = `"`_t_est'`_stars'"' in `_i'
+                    qui replace c`_ci_c' = `"`_t_ci'"' in `_i'
+                }
+            }
+        }
+    }
+    drop __srcf __srcr
 
     * =====================================================================
     * COMPACT MODE — MERGE ESTIMATE + CI INTO SINGLE COLUMN
@@ -2975,6 +3425,15 @@ program define _comptab_vertical, rclass
             frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_outcome_id_ref_`_meta_m''"'
             frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`_effect_scale_ref_`_meta_m''"'
         }
+        if `_displayframe_flat' {
+            local _flat_cols ""
+            local _flat_starts ""
+            forvalues _fc = 1/`n' {
+                local _flat_cols "`_flat_cols' c`_fc'"
+                if mod(`_fc' - 1, `n_cols_per_model') == 0 local _flat_starts "`_flat_starts' `_fc'"
+            }
+            frame `frame': _comptab_flatten, labelvar(A) cols(`_flat_cols') blockstarts(`_flat_starts')
+        }
 	        return local frame "`frame'"
 	    }
 	    if `"$TABTOOLS_QA_COMP_STAGE_FAIL"' == "1" {
@@ -3148,10 +3607,25 @@ program define _comptab_vertical, rclass
             }
         }
         if `"`macval(footnote)'"' != "" {
-            local _fn_row = `num_rows' + 1
             local _fn_fontsize = max(`_fontsize' - 2, 6)
-            mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
-            local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+            * One row per paragraph; " \ " separates paragraphs.
+            local _fn_rest `"`macval(footnote)'"'
+            local _fp 0
+            while `"`macval(_fn_rest)'"' != "" {
+                local _fn_at = strpos(`"`macval(_fn_rest)'"', " \ ")
+                if `_fn_at' == 0 {
+                    local _fn_piece `"`macval(_fn_rest)'"'
+                    local _fn_rest ""
+                }
+                else {
+                    local _fn_piece = substr(`"`macval(_fn_rest)'"', 1, `_fn_at' - 1)
+                    local _fn_rest = substr(`"`macval(_fn_rest)'"', `_fn_at' + 3, .)
+                }
+                local ++_fp
+                local _fn_row = `num_rows' + `_fp'
+                mata: `_xlsx_book'.put_string(`_fn_row', 2, strtrim(st_local("_fn_piece")))
+                local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+            }
         }
 
         _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
@@ -3284,4 +3758,220 @@ program define _comptab_vertical, rclass
 	    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _comptab_frame_spec: parse frame(name[, replace flat]) for both modes
+* =============================================================================
+capture program drop _comptab_frame_spec
+program define _comptab_frame_spec, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args spec label
+        local spec = subinstr(strtrim(`"`spec'"'), char(34), "", .)
+        gettoken name rest : spec, parse(",")
+        local name = strtrim(`"`name'"')
+        local rest : subinstr local rest "," "", all
+        local rest = lower(strtrim(`"`rest'"'))
+        capture confirm name `name'
+        if _rc {
+            display as error "`label' must start with a valid Stata frame name"
+            exit 198
+        }
+        local replace 0
+        local flat 0
+        foreach w of local rest {
+            if "`w'" == "replace" local replace 1
+            else if "`w'" == "flat" local flat 1
+            else {
+                display as error "`label' only allows the replace and flat suboptions"
+                exit 198
+            }
+        }
+        return local name "`name'"
+        return scalar replace = `replace'
+        return scalar flat = `flat'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* =============================================================================
+* _comptab_ep_value: one numeric companion row for (source row, model)
+* =============================================================================
+* The values travel as r() scalars (full double precision), never as macros.
+capture program drop _comptab_ep_value
+program define _comptab_ep_value, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , EP(name) KEY(name) ROW(integer) MODEL(integer)
+        tempvar hit
+        frame `ep' {
+            quietly gen byte `hit' = (`key' == `row' & model == `model')
+            quietly count if `hit'
+            local found = r(N)
+            if `found' > 1 {
+                display as error "numeric companion has `found' rows for row `row', model `model'"
+                exit 459
+            }
+            if `found' == 1 {
+                quietly summarize estimate if `hit', meanonly
+                return scalar est = r(min)
+                quietly summarize ll if `hit', meanonly
+                return scalar ll = r(min)
+                quietly summarize ul if `hit', meanonly
+                return scalar ul = r(min)
+            }
+            else {
+                return scalar est = .
+                return scalar ll = .
+                return scalar ul = .
+            }
+            drop `hit'
+        }
+        return scalar found = `found'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* =============================================================================
+* _comptab_flatten: turn a staged display frame into frame(name, flat)
+* =============================================================================
+* In the current frame: drops the title variable and the title/header rows
+* (rows 1 to 3), renames the label column to rowlabel, renumbers the printed
+* columns c1..cK in display order, and labels each with its printed header:
+* "<block header>, <column header>" when the block has a row-2 header.
+*   cols()        printed columns in display order (label column excluded)
+*   blockstarts() 1-based positions in cols() where a header block starts
+capture program drop _comptab_flatten
+program define _comptab_flatten, nclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , LABELvar(name) COLS(string) BLOCKSTARTS(numlist integer >0)
+        local k : word count `cols'
+        local blk ""
+        forvalues j = 1/`k' {
+            local v : word `j' of `cols'
+            if `: list j in blockstarts' {
+                mata: st_local("blk", strtrim(st_sdata(2, "`v'")))
+            }
+            mata: st_local("hdr", strtrim(st_sdata(3, "`v'")))
+            if `"`macval(blk)'"' != "" & `"`macval(hdr)'"' != "" local lab `"`macval(blk)', `macval(hdr)'"'
+            else if `"`macval(blk)'"' != "" local lab `"`macval(blk)'"'
+            else local lab `"`macval(hdr)'"'
+            local lab_`j' `"`macval(lab)'"'
+        }
+        capture drop title
+        quietly drop in 1/3
+        rename `labelvar' __flat_rowlabel
+        forvalues j = 1/`k' {
+            local v : word `j' of `cols'
+            rename `v' __flat_c`j'
+        }
+        rename __flat_rowlabel rowlabel
+        mata: st_varlabel("rowlabel", "")
+        * As regtab's _tabtools_flatframe: the full header is kept in
+        * char c#[tabtools_header]; a variable label holds 80 characters.
+        local _long ""
+        forvalues j = 1/`k' {
+            rename __flat_c`j' c`j'
+            mata: st_global("c`j'[tabtools_header]", st_local("lab_`j'"))
+            mata: st_varlabel("c`j'", substr(st_local("lab_`j'"), 1, 80))
+            if strlen(`"`macval(lab_`j')'"') > 80 local _long "`_long' c`j'"
+        }
+        if "`_long'" != "" {
+            noisily display as text "(frame flat: header of`_long' longer than 80 characters;" ///
+                " the variable label is truncated and char c#[tabtools_header] holds it in full)"
+        }
+        keep rowlabel c*
+        order rowlabel c*
+        char _dta[tabtools_layout] "flat"
+        char _dta[tabtools_eplotframe]
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+* =============================================================================
+* _comptab_effect_cell: one model's effect (and p) text for one model row
+* =============================================================================
+* With cformat() the estimate and interval are re-rendered from the source's
+* numeric companion (full precision); with cisep() alone the "(a, b)" text is
+* rewritten exactly or refused. Rows the companion does not hold (model-fit
+* and custom rows) keep their text.
+capture program drop _comptab_effect_cell
+program define _comptab_effect_cell, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , FRame(name) ROW(integer) BLOCK(integer) MODE(string) CPM(integer) ///
+            [CFORMAT(string) CISEP(string)]
+        local es = 1 + (`block' - 1) * `cpm'
+        local p ""
+        frame `frame' {
+            if "`mode'" == "standard" | "`mode'" == "standardnop" {
+                local main = strtrim(c`es'[`row'])
+                local ci = strtrim(c`=`es' + 1'[`row'])
+                if `"`main'"' == "" local text `"`ci'"'
+                else if `"`ci'"' == "" local text `"`main'"'
+                else local text `"`main' `ci'"'
+                if "`mode'" == "standard" local p = strtrim(c`=`es' + 2'[`row'])
+            }
+            else {
+                local text = strtrim(c`es'[`row'])
+                if "`mode'" == "compact" local p = strtrim(c`=`es' + 1'[`row'])
+            }
+        }
+        if `"`cisep'"' == "" local sep ", "
+        else local sep `"`cisep'"'
+        if `"`cformat'"' != "" {
+            frame `frame': local ep : char _dta[tabtools_eplotframe]
+            frame `frame': local kind : char _dta[tabtools_source]
+            local key source_row
+            if "`kind'" == "comptab" local key table_row
+            capture confirm frame `ep'
+            if _rc | `"`ep'"' == "" {
+                display as error "cformat() requires every model source to have a numeric companion frame"
+                exit 459
+            }
+            frame `frame': local dpair : char _dta[tabtools_companion_id]
+            frame `ep': local npair : char _dta[tabtools_companion_id]
+            mata: st_local("same", strofreal(st_local("dpair") != "" & st_local("dpair") == st_local("npair")))
+            if !`same' {
+                display as error "model display and numeric companion have missing or different tabtools_companion_id"
+                exit 459
+            }
+            _comptab_ep_value, ep(`ep') key(`key') row(`=`row' - 3') model(`block')
+            if r(found) & !missing(r(est)) & !missing(r(ll)) & !missing(r(ul)) {
+                local stars ""
+                if regexm(`"`text'"', "^[^(]*[^*(](\*+)") local stars = regexs(1)
+                local text = strtrim(string(r(est), "`cformat'")) + "`stars' (" + ///
+                    strtrim(string(r(ll), "`cformat'")) + `"`sep'"' + ///
+                    strtrim(string(r(ul), "`cformat'")) + ")"
+            }
+        }
+        else if `"`cisep'"' != "" & strpos(`"`text'"', "(") {
+            if !regexm(`"`text'"', "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
+                display as error `"cisep(): the interval in "`text'" is not in (a, b) form"'
+                exit 198
+            }
+            local text = regexs(1) + " (" + regexs(2) + `"`sep'"' + regexs(4) + ")"
+        }
+        return local text `"`text'"'
+        return local p `"`p'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

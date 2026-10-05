@@ -58,9 +58,12 @@
 {syntab:Required}
 {synopt:{opt rows(string)}}row selections, one per source frame{p_end}
 {synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
-{synopt:{opt ratef:rame(name)}}use a {cmd:stratetab} frame as a rate scaffold{p_end}
+{synopt:{opt ratef:rame(name)}}rate scaffold frame ({cmd:stratetab}/{cmd:ratetab}){p_end}
 {synopt:{opt modelf:rames(framelist)}}model frames for rate-scaffold mode{p_end}
 {synopt:{opt outcomem:ap(string)}}map rate outcomes to model identities{p_end}
+{synopt:{opt allm:odels}}rate mode: one column per model{p_end}
+{synopt:{opt key:ed}}rate mode: place rows by key{p_end}
+{synopt:{opt modelo:nly}}rate mode: append unmatched model rows{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook; must end in {cmd:.xlsx}{p_end}
@@ -69,7 +72,7 @@
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt mark:down(filename)}}export GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdapp:end}}append to an existing Markdown file{p_end}
-{synopt:{opt fra:me(name[, replace])}}save composite to a named Stata frame{p_end}
+{synopt:{opt fra:me(name[, replace flat])}}save composite to a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready composite frame{p_end}
 {synopt:{opt forest}}draw an eplot forest plot{p_end}
 {synopt:{opt eploto:ptions(string asis)}}pass options to eplot{p_end}
@@ -79,6 +82,8 @@
 {synopt:{opt title(string)}}table title for cell A1{p_end}
 {synopt:{opt foot:note(string)}}footnote text below the table{p_end}
 {synopt:{opt comp:act}}combine estimate and CI per model{p_end}
+{synopt:{opt cf:ormat(%fmt)}}format of estimates and limits{p_end}
+{synopt:{opt cis:ep(string)}}separator between interval limits{p_end}
 {synopt:{opt sec:tion(string)}}section labels, one per source frame{p_end}
 {synopt:{opt rela:bel(string)}}rename selected composite rows{p_end}
 {synopt:{opt sep:arator(numlist)}}add borders above selected data rows{p_end}
@@ -214,6 +219,31 @@ compatibility with {cmd:hrcomptab}.
 are placed on the scaffold by category label, as described there.
 
 {phang}
+{opt cformat(%fmt)} re-renders every selected estimate and both interval
+limits from the sources' numeric companion frames with a full Stata numeric
+display format, for example {cmd:%12.0fc} for thousands separators. Create
+each source with {cmd:regtab} or {cmd:effecttab} using both {opt frame()} and
+{opt eplotframe()}; a source without a companion is refused (error 459). Rows
+the companion does not hold (headings, model statistics, custom rows) and
+reference rows keep their text; significance stars stay on the estimate.
+p-values are unaffected. String and date formats are refused. In rate mode it
+applies to the model columns; format rates in {helpb stratetab} or
+{helpb ratetab}.
+
+{phang}
+{opt cisep(string)} sets the separator between the interval limits, for
+example {cmd:cisep(" to ")}, in every output (console, Excel, CSV, Markdown,
+and frames). With {opt cformat()} the intervals are rebuilt from the numbers;
+without it the "(a, b)" text is rewritten exactly, and an interval in any
+other form is an error. (The name is {opt cisep()} because {opt separator()}
+already draws row borders.)
+
+{phang}
+{opt allmodels}, {opt keyed}, and {opt modelonly} extend rate mode to several
+models per outcome, keyed placement, and model rows without a rate row; see
+{helpb hrcomptab}.
+
+{phang}
 {opt compact} merges the estimate and CI into a single column per model,
 changing the layout from ({it:Est} | {it:CI} | {it:p}) to
 ({it:Est (CI)} | {it:p}). This produces a more compact table, common in
@@ -328,8 +358,15 @@ Excel, CSV, and frame exports{p_end}
 
 
 {phang}
-{opt fra:me(name[, replace])} save composite to a named Stata frame; specify
-{cmd:frame(name, replace)} to replace an existing frame{p_end}
+{opt fra:me(name[, replace flat])} save composite to a named Stata frame; specify
+{cmd:frame(name, replace)} to replace an existing frame. With {cmd:flat} the
+frame holds one row per body line (section rows included): a string variable
+{cmd:rowlabel}, then one string variable per printed column whose variable
+label is its printed header, "{it:model label}, {it:statistic}" (for example
+"Model 1, HR"), with no title, header, or helper rows, so
+{cmd:puttab rowlabel c*, varlabels} reproduces the table without any
+{cmd:drop}. A header longer than 80 characters is truncated in the variable label and kept in full in {cmd:char c}{it:#}{cmd:[tabtools_header]}. A flat frame
+cannot be used as a {cmd:comptab} source.{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -404,6 +441,17 @@ Table 2 layout directly. Here {cmd:m1} holds a binary exposure indicator
 {phang2}{cmd:    xlsx("table2.xlsx") sheet("Table 2")}{p_end}
 
 
+{pstd}
+{bf:Example 7: Thousands separators, a "to" separator, and a flat frame for puttab}
+
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: regress price mpg weight}{p_end}
+{phang2}{cmd:. regtab, frame(p1, replace) eplotframe(p1e, replace) noint}{p_end}
+{phang2}{cmd:. comptab p1, rows(1 2) cformat(%9.1fc) cisep(" to ") frame(flat1, replace flat)}{p_end}
+{phang2}{cmd:. puttab rowlabel c*, frame(flat1) varlabels markdown(composite_demo.md)}{p_end}
+
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -431,7 +479,8 @@ Table 2 layout directly. Here {cmd:m1} holds a binary exposure indicator
 {pstd}
 In rate-scaffold mode, {cmd:comptab} instead stores the {cmd:hrcomptab}
 contract: {cmd:r(N_rows)}, {cmd:r(N_outcomes)}, {cmd:r(N_sections)},
-{cmd:r(N_modelrows)}, {cmd:r(N_modelframes)}, {cmd:r(ci_level)},
+{cmd:r(N_modelrows)}, {cmd:r(N_modelframes)}, {cmd:r(N_models_per_outcome)},
+{cmd:r(N_modelonly)}, {cmd:r(ci_level)},
 {cmd:r(rateframe)}, {cmd:r(modelframes)}, {cmd:r(effect)}, and any requested
 output-path or frame results.
 

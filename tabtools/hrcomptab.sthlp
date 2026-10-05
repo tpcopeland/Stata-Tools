@@ -47,7 +47,12 @@ and {cmd:regtab} frames
 {synopt:{opt modelframes(framelist)}}regtab source frames{p_end}
 {synopt:{opt rows(string)}}row selections, one per model frame{p_end}
 {synopt:{opt rown:ames(string)}}select rows by displayed-label pattern{p_end}
-{synopt:{opt outcomemap(string)}}map rate outcomes to model identities{p_end}
+{synopt:{opt outcomemap(string)}}map outcomes to models ({cmd:|} = several){p_end}
+{synopt:{opt allm:odels}}one effect column per model block{p_end}
+{synopt:{opt key:ed}}place model rows by block|level key{p_end}
+{synopt:{opt modelo:nly}}append unmatched model rows{p_end}
+{synopt:{opt cf:ormat(%fmt)}}format of estimates and limits{p_end}
+{synopt:{opt cis:ep(string)}}separator between interval limits{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel workbook; must end in {cmd:.xlsx}{p_end}
@@ -56,7 +61,7 @@ and {cmd:regtab} frames
 {synopt:{opt csv(filename)}}export the composite table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
-{synopt:{opt fra:me(name)}}save output in a named Stata frame{p_end}
+{synopt:{opt fra:me(name[, replace flat])}}save output in a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready eplot frame{p_end}
 {synopt:{opt forest}}draw an eplot forest plot{p_end}
 {synopt:{opt eploto:ptions(string asis)}}pass options to eplot{p_end}
@@ -131,16 +136,19 @@ the indicator must be coded 1 for that category. Give factor variables the same
 value labels used for {cmd:strate} so their levels can be matched.
 
 {pstd}
-{cmd:hrcomptab} expects the rate frame to come from {cmd:stratetab} without
-{cmd:rateratio}; the scaffold must contain one label column plus 3 columns per
-outcome. Model frames must come from {cmd:regtab} and must contain exactly one
-model block per outcome in the rate frame. Standard {cmd:regtab} frames
-({it:estimate} | {it:CI} | {it:p}) and compact frames ({it:estimate+CI} | {it:p})
-are both supported, but all model frames in one call must share the same layout.
+{cmd:hrcomptab} expects the rate frame to come from {cmd:stratetab} or
+{helpb ratetab} without {cmd:rateratio}; the scaffold must contain one label
+column plus 3 columns per outcome. Model frames must come from {cmd:regtab}
+and contain one model block per outcome in the rate frame, unless
+{opt allmodels} or a {cmd:|} group in {opt outcomemap()} gives an outcome
+several. Standard {cmd:regtab} frames ({it:estimate} | {it:CI} | {it:p}), compact
+frames ({it:estimate+CI} | {it:p}), and both without the p-value
+({cmd:regtab, nopvalue}) are supported, but all model frames in one call must
+share the same layout.
 
 {pstd}
 Before values are combined, {cmd:hrcomptab} verifies confidence-level,
-statistic-order, outcome-identity, and hazard-ratio-scale metadata. Model blocks
+statistic-order, outcome-identity, and effect-scale metadata. Model blocks
 are matched to rate outcomes by the machine-readable outcome identities stored
 by {cmd:stratetab} and {cmd:regtab}; they are never assigned only by position, so use
 {opt outcomemap()} when the two sources use different identities. A missing,
@@ -201,14 +209,75 @@ corresponding model outcome ID.
 {dlgtab:Content}
 
 {phang}
-{opt effect(string)} controls the header text for the injected hazard-ratio
-column. Default is {cmd:aHR}; {cmd:HR}, {cmd:hazard ratio}, and
-{cmd:adjusted hazard ratio} are also accepted. Other effect scales are rejected
-because {cmd:hrcomptab} is specifically a hazard-ratio composite.
+{opt effect(string)} controls the header text for the injected effect
+column. Default is {cmd:aHR}. The text must describe the models' effect scale
+(hazard ratios or rate ratios); see {it:Several models, keyed placement, and formats} below.
 
 {phang}
 {opt reflabel(string)} controls the text shown in inferred reference rows. Default
 is {cmd:Reference}.
+
+{dlgtab:Several models, keyed placement, and formats}
+
+{phang}
+{opt effect()} must describe the models' scale: for hazard-ratio models
+{cmd:aHR}, {cmd:HR}, {cmd:hazard ratio}, {cmd:adjusted hazard ratio}, or
+{cmd:rate ratio} (an Andersen-Gill hazard ratio is a ratio of event rates); for
+rate-ratio models ({cmd:poisson, irr}) {cmd:IRR}, {cmd:RR}, {cmd:rate ratio},
+or {cmd:incidence rate ratio}. Model frames may not mix the two scales.
+
+{phang}
+{opt allmodels} gives the one outcome of the rate frame every model block of
+the model frames, one effect column per model, headed
+"{it:model label}, {it:effect} (95% CI)". With several outcomes, list the models
+of each outcome in {opt outcomemap()}, separated by {cmd:|}:
+{cmd:outcomemap("M1 | M2 \ M1b | M2b")}; every outcome must have the same number.
+
+{phang}
+{opt keyed} places each selected model row by key instead of by position: a
+factor level is placed on the rate category whose section label equals the
+model block heading and whose label equals the level label (ignoring case).
+Only a factor level fills a rate category: a plain row (a 0/1 indicator or a
+continuous term) whose label equals a section or category label is an error
+(fit it as {cmd:i.}{it:varname}), and other plain rows need {opt modelonly}. A level of a matched block that
+matches no category, two rows with one key, or a rate frame with duplicate
+section or category labels is an error. A section that receives no model row
+carries rates only; in a section that does, every category must receive a
+row except one, which is shown as {opt reflabel()} and must be the model's
+reference level (or the reference row may be selected itself). With
+{opt keyed}, {cmd:rows(all)} selects every row of a model frame; heading rows
+are skipped.
+
+{phang}
+{opt modelonly} implies {opt keyed} and lists the selected model rows that have
+no rate row (blocks without a rate section, such as spline read-outs, and
+custom {cmd:regtab, addrow()} rows such as a nonlinearity p-value or model
+counts) after the rate rows, in model-frame order, with the block heading
+above its levels. Without {opt modelonly} such rows are an error.
+{opt eplotframe()} and {opt forest} are not available with {opt keyed},
+{opt modelonly}, or several models per outcome.
+
+{phang}
+{opt cformat(%fmt)} re-renders every model estimate and its interval from
+the model frames' numeric companions (create them with
+{cmd:regtab, frame() eplotframe()}) with a full Stata numeric display format,
+for example {cmd:%9.0fc}; rows the companion does not hold (custom rows) keep
+their text. String and date formats are refused. Format the rates in
+{helpb stratetab} or {helpb ratetab} with their own {opt cformat()}.
+
+{phang}
+{opt cisep(string)} sets the separator between the interval limits of the
+model estimates, for example {cmd:cisep(" to ")}. Without {opt cformat()} the
+"(a, b)" text is rewritten exactly and any other form is an error.
+
+{phang}
+{opt frame(name, flat)} saves the table as one row per body line: a string
+variable {cmd:rowlabel} with the row label, then one string variable per
+printed column whose variable label is its printed header ("Outcome, Events",
+"Outcome, M1, aHR (95% CI)"). There are no title, header, or helper rows, so
+{cmd:puttab rowlabel c*, varlabels} reproduces the table. A header longer than
+80 characters is truncated in the variable label and kept in full in
+{cmd:char c}{it:#}{cmd:[tabtools_header]}. A flat frame is not a {cmd:comptab} source.
 
 
 
@@ -339,6 +408,24 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {phang3}{cmd:    effect("aHR")}{p_end}
 
 
+{pstd}
+{bf:Several models, keyed placement, a rates-only section, and model-only rows}
+
+{phang2}{cmd:. webuse drugtr, clear}{p_end}
+{phang2}{cmd:. generate byte agegrp = 1 + (age >= 55) + (age >= 60)}{p_end}
+{phang2}{cmd:. label define agegrp 1 "<55" 2 "55-59" 3 "60+"}{p_end}
+{phang2}{cmd:. label values agegrp agegrp}{p_end}
+{phang2}{cmd:. label variable agegrp "Age band"}{p_end}
+{phang2}{cmd:. generate byte older = age >= 57}{p_end}
+{phang2}{cmd:. label variable older "Rates only"}{p_end}
+{phang2}{cmd:. ratetab agegrp older, outlabels("Death") frame(rates, replace)}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: stcox i.agegrp drug}{p_end}
+{phang2}{cmd:. collect: stcox i.agegrp drug age}{p_end}
+{phang2}{cmd:. regtab, frame(models, replace) noint compact models("M1 \ M2") addrow("Events" "31" "31")}{p_end}
+{phang2}{cmd:. hrcomptab rates, modelframes(models) rows(all) allmodels modelonly effect("Rate ratio") frame(t2, replace flat)}{p_end}
+
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -352,6 +439,8 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(N_sections)}}number of scaffold sections{p_end}
 {synopt:{cmd:r(N_modelrows)}}number of selected model rows injected{p_end}
 {synopt:{cmd:r(N_modelframes)}}number of source model frames{p_end}
+{synopt:{cmd:r(N_models_per_outcome)}}effect columns per outcome{p_end}
+{synopt:{cmd:r(N_modelonly)}}model rows listed after the rate rows ({opt modelonly}){p_end}
 {synopt:{cmd:r(ci_level)}}confidence level shared by all source frames{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown (if exported){p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown (if exported){p_end}

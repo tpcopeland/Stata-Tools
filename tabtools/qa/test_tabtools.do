@@ -127,7 +127,7 @@ else {
 * Test: tabtools models category excludes composite commands
 capture noisily {
     tabtools, category(models)
-    assert r(n_commands) == 2
+    assert r(n_commands) == 4
     assert strpos("`r(commands)'", "regtab") > 0
     assert strpos("`r(commands)'", "effecttab") > 0
     assert strpos("`r(commands)'", "comptab") == 0
@@ -1012,14 +1012,14 @@ else {
 **## 5a. tabtools returns 14 current commands
 capture noisily {
     tabtools
-    assert r(n_commands) == 14
+    assert r(n_commands) == 17
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 14"
+    display as result "  PASS: tabtools returns n_commands = 17"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 14 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 17 (error `=_rc')"
     local ++fail_count
 }
 
@@ -1100,7 +1100,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips {
+    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }

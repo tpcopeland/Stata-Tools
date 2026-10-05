@@ -9,7 +9,10 @@ d   desctab        - Consolidated descriptive table engine
 d   tabtools       - Suite controller and persistent defaults manager
 d   regtab         - Regression results from any model
 d   effecttab      - Treatment effects and margins results
+d   tabcell        - One estimate (CI), p-value, n (%), or median (IQR) cell
+d   outtab         - Binary outcomes by exposure with model ratios
 d   stratetab      - Incidence rates from strate output
+d   ratetab        - Events, person-time, and rates with exact/robust CIs
 d   hrcomptab      - Compatibility wrapper for comptab rate-scaffold mode
 d   comptab        - Vertical model composites and rate-interlocked tables
 d   survtab        - Kaplan-Meier survival estimates and medians
@@ -25,7 +28,7 @@ d
 d Requires: Stata version 17+ (all commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d
-d Distribution-Date: 20261002
+d Distribution-Date: 20261005
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -44,6 +47,8 @@ f _tabtools_check_sinks.ado
 f _tabtools_xlsx_read.ado
 f _tabtools_collect_render.ado
 f _tabtools_match_rows.ado
+f _tabtools_fitcount.ado
+f _tabtools_flatframe.ado
 f _tabtools_xlsx_apply_styles.ado
 f _tabtools_xlsx_build_styles.ado
 f _tabtools_xlsx_compact_styles.ado
@@ -51,6 +56,9 @@ f _tabtools_xlsx_deferred_styles.ado
 f _desctab_collect.ado
 f _tabtools_smallcells.ado
 f _tabtools_smallcells_render.ado
+f _tabtools_smallcells_opt.ado
+f _tabtools_set.ado
+f _tabtools_set_sinks.ado
 f table1_tc.ado
 f table1_tc.sthlp
 f desctab.ado
@@ -75,3 +83,12 @@ f puttab.ado
 f puttab.sthlp
 f stacktab.ado
 f stacktab.sthlp
+f _stacktab_frames.ado
+f tabcell.ado
+f tabcell.sthlp
+f _tabcell_render.ado
+f _tabtools_fmt_p.ado
+f ratetab.ado
+f ratetab.sthlp
+f outtab.ado
+f outtab.sthlp

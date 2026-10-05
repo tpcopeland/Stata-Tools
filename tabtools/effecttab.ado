@@ -1,4 +1,4 @@
-*! effecttab Version 2.2.0  2026/10/02
+*! effecttab Version 2.3.0  2026/10/05
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -86,7 +86,7 @@ program define effecttab, rclass
 		        HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) EPLOTFrame(string asis) ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1) ///
 	        LABELWidth(integer 0) Level(real -1) REFcat(string) ///
-	        OMITLabel(string) EMPTYLabel(string)]
+	        OMITLabel(string) EMPTYLabel(string) CFormat(string)]
 
 	* Label used for reference (base-category) rows; matches regtab's refcat()
 	if `"`refcat'"' == "" local refcat "Reference"
@@ -137,6 +137,7 @@ program define effecttab, rclass
 			}
 				local _displayframe_name ""
 				local _displayframe_replace 0
+				local _displayframe_flat 0
 				if `"`frame'"' != "" {
 				local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
 				gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
@@ -148,10 +149,13 @@ program define effecttab, rclass
 					noisily display as error "frame() must start with a valid Stata frame name"
 						exit 198
 					}
-					if `"`_fr_rest'"' != "" {
-						if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+					* Suboptions replace and flat, in any order (flat: one row per
+					* body line, printed headers as variable labels).
+					foreach _fr_w of local _fr_rest {
+						if `"`_fr_w'"' == "replace" local _displayframe_replace 1
+						else if `"`_fr_w'"' == "flat" local _displayframe_flat 1
 						else {
-							noisily display as error "frame() only allows the replace suboption"
+							noisily display as error "frame() only allows the replace and flat suboptions"
 							exit 198
 						}
 					}
@@ -203,6 +207,24 @@ program define effecttab, rclass
 	* stretching the whole column; longer labels wrap (text-wrap rule below).
 	local _label_width_cap = `labelwidth'
 	if `_label_width_cap' <= 0 local _label_width_cap = 45
+
+	* cformat(): a full numeric display format for the estimate and both CI
+	* bounds (regtab's rule); digits() is the shorthand, so not both.
+	local _cfmt `"`cformat'"'
+	if `"`_cfmt'"' != "" {
+		if `digits' != -1 {
+			noisily display as error "cformat() and digits() cannot both be specified"
+			exit 198
+		}
+		local _cfmt = strtrim(`"`_cfmt'"')
+		capture confirm numeric format `_cfmt'
+		local _cf_rc = _rc
+		if !`_cf_rc' & !ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*[.,][0-9]+[fge]c?$") local _cf_rc = 7
+		if `_cf_rc' {
+			noisily display as error `"cformat() must be a numeric display format such as %9.2f or %12.0fc (got `_cfmt')"'
+			exit 198
+		}
+	}
 
 	* Resolve persistent defaults
 	if `digits' == -1 {
@@ -346,9 +368,19 @@ quietly {
 	if `"`csv'"' != "" _tabtools_validate_path "`csv'" "csv()"
 	_tabtools_check_sinks, xlsx(`"`xlsx'"') csv(`"`csv'"') markdown(`"`markdown'"')
 
-	* Build format strings from digits
+	* Build format strings from digits, or take cformat() as given:
+	* strtrim(string(x, fmt)), unrounded (round(x, 0) is x).
 	local coef_fmt "%32.`digits'f"
 	local coef_round = 10^(-`digits')
+	if `"`_cfmt'"' != "" {
+		local coef_fmt `"`_cfmt'"'
+		local coef_round = 0
+	}
+	* from(): bounds pass through text before they are re-read, at full
+	* precision under cformat() so a format with more decimals than digits()
+	* is not fed pre-rounded numbers.
+	local _from_fmt "%32.`digits'f"
+	if `"`_cfmt'"' != "" local _from_fmt "%21.0g"
 
 	* Resolve formatting
 	_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
@@ -361,6 +393,14 @@ quietly {
 			local sep `"`r(text)'"'
 		}
 		if `"`sep'"' == "" local sep ", "
+		* A comma-decimal cformat() (%9,2f) prints "0,45"; with a comma in the CI
+		* separator the two bounds could not be told apart: refused.
+		if `"`_cfmt'"' != "" & strpos(`"`sep'"', ",") {
+		    if ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*,") {
+		        noisily display as error `"cformat(`_cfmt') uses a decimal comma; choose a sep() without a comma, such as sep(" to ") or sep("; ")"'
+		        exit 198
+		    }
+		}
 	if "`type'" == "" local type "auto"
 
 	* Validate type option
@@ -741,10 +781,10 @@ quietly {
 				local _cilo = `from'[`_fr', 2]
 				local _cihi = `from'[`_fr', 3]
 				local _pv = `from'[`_fr', 4]
-				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "%32.`digits'f")) in `_obs'
+				if !missing(`_est') qui replace c1 = strtrim(string(`_est', "`_from_fmt'")) in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
-				local _cilo_s : display %32.`digits'f `_cilo'
-				local _cihi_s : display %32.`digits'f `_cihi'
+				local _cilo_s : display `_from_fmt' `_cilo'
+				local _cihi_s : display `_from_fmt' `_cihi'
 				local _cilo_s = strtrim("`_cilo_s'")
 				local _cihi_s = strtrim("`_cihi_s'")
 				qui replace c2 = "(`_cilo_s'`sep'`_cihi_s')" in `_obs'
@@ -1595,8 +1635,20 @@ quietly {
 
 	* Store output in frame if requested
 	if `"`frame'"' != "" {
+		* frame(name, flat): one row per body line, rowlabel then one string
+		* variable per printed column labelled "Model, statistic".
+		local _flat_snapshot ""
+		if `_displayframe_flat' {
+			tempfile _flat_snapshot
+			quietly save `"`_flat_snapshot'"', replace
+			_tabtools_flatframe `n' 3
+		}
 		_tabtools_frame_put `"`frame'"'
 		local frame `"`_frame_name'"'
+		if `_displayframe_flat' {
+			quietly use `"`_flat_snapshot'"', clear
+			frame `frame': char _dta[tabtools_layout] "flat"
+		}
 		frame `frame': char _dta[tabtools_source] "effecttab"
 		frame `frame': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
@@ -1763,15 +1815,35 @@ quietly {
 				}
 			}
 			if `"`macval(footnote)'"' != "" {
-				local _fn_row = `num_rows' + 1
+				* The token space-backslash-space separates footnote paragraphs:
+				* one merged, wrapped row per paragraph, as the shared CSV and
+				* Markdown writers do, with the same text.
 				local _fn_fontsize = max(`_fontsize' - 2, 6)
-				mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
-				local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0"'
-				local _style_rule_rows `"`_style_rule_rows' | 3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+				local _fn_rest : copy local footnote
+				local _fn_k = 0
+				local _fn_more = 1
+				while `_fn_more' {
+					mata: st_local("_fn_pos", strofreal(strpos(st_local("_fn_rest"), " " + char(92) + " ")))
+					if `_fn_pos' == 0 {
+						mata: st_local("_fn_piece", strtrim(st_local("_fn_rest")))
+						local _fn_more = 0
+					}
+					else {
+						mata: st_local("_fn_piece", strtrim(substr(st_local("_fn_rest"), 1, `_fn_pos' - 1)))
+						mata: st_local("_fn_rest", substr(st_local("_fn_rest"), `_fn_pos' + 3, .))
+					}
+					mata: st_local("_fn_empty", strofreal(strtrim(st_local("_fn_piece")) == ""))
+					if `_fn_empty' continue
+					local ++_fn_k
+					local _fn_row = `num_rows' + `_fn_k'
+					mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("_fn_piece"))
+					local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+				}
 			}
 
 			_tabtools_xlsx_build_styles, matrix(`_style_rules') ///

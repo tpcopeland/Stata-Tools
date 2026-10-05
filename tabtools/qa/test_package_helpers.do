@@ -2531,7 +2531,7 @@ else {
 capture noisily {
     tabtools set clear
     tabtools
-    assert r(n_commands) == 14
+    assert r(n_commands) == 17
     assert strpos("`r(commands)'", "table1_tc") > 0
     assert strpos("`r(commands)'", "desctab") > 0
     assert strpos("`r(commands)'", "regtab") > 0

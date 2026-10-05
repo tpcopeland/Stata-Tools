@@ -37,9 +37,10 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt ti:tle(string)} {opt foot:note(string)}
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
-{opt zeb:ra} {opt headers:hade}
+{opt zeb:ra} {opt headers:hade} {opt noheaders:hade}
 {opt dig:its(#)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
+{opt pan:el(varname)} {opt panelh:eader(varlist)} {opt span:header(spec)}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -53,7 +54,9 @@ the current frame holds.{p_end}
 
 {pstd}Specify either {cmd:using} {it:filename}{cmd:.xlsx} for Excel output or
 {opt markdown(filename)} for Markdown-only output. {opt open} requires an
-Excel workbook target.{p_end}
+Excel workbook target. After {cmd:tabtools set workbook} or
+{cmd:tabtools set markdown}, either may be omitted; see
+{it:Session destinations} below.{p_end}
 
 {marker description}{...}
 {title:Description}
@@ -122,12 +125,16 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt font(string)}}set the Excel font family{p_end}
 {synopt:{opt fontsize(#)}}set the Excel font size in points{p_end}
 {synopt:{opt headers:hade}}shade the header row{p_end}
+{synopt:{opt noheaders:hade}}no shading, even after {cmd:tabtools set}{p_end}
 {synopt:{opt headerc:olor(string)}}set the header fill color{p_end}
 {synopt:{opt zebrac:olor(string)}}set alternating-row fill color{p_end}
 {synopt:{opt zeb:ra}}alternating row shading over data rows{p_end}
 {synopt:{opt hl:ines(numlist)}}rule above the listed data rows{p_end}
 {synopt:{opt vl:ines(numlist)}}rule right of the listed columns{p_end}
 {synopt:{opt bold:rows(numlist)}}bold each listed data row{p_end}
+{synopt:{opt pan:el(varname)}}heading row wherever {it:varname} changes{p_end}
+{synopt:{opt panelh:eader(varlist)}}header row repeated under each heading{p_end}
+{synopt:{opt span:header(spec)}}spanning column labels above the header{p_end}
 {synoptline}
 
 
@@ -146,6 +153,10 @@ between them.{p_end}
 
 {phang}
 {opt headers:hade} apply background fill to the header row{p_end}
+
+{phang}
+{opt noheaders:hade} leave the header row unshaded for this call even after
+{cmd:tabtools set headershade on}; may not be combined with {opt headershade}.{p_end}
 
 {phang}
 {opt markdown(filename)} export the rendered table as GitHub-Flavored Markdown; may be combined with
@@ -226,7 +237,43 @@ error. Excel output only.{p_end}
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
-{opt foot:note(string)} footnote below the table in smaller italic font{p_end}
+{opt foot:note(string)} footnote below the table in smaller italic font. The literal
+token {cmd:\}, with a space on each side, separates paragraphs: each
+paragraph is its own wrapped, merged row in the workbook, its own row in the CSV, and its
+own italic paragraph in Markdown. A footnote without the token is one row, as before.
+Empty paragraphs are dropped. The same rule applies to {opt footnote()} in every tabtools
+command.{p_end}
+
+{phang}
+{opt pan:el(varname)} splits the table into panels. Wherever {it:varname} changes from
+one observation to the next (in the order the rows are exported), a heading row is
+inserted that holds the panel's value label, or its value when it has none (a string
+{it:varname} gives its text). In the workbook the heading row is bold, merged across the
+table, and ruled above; the row labels of the panel's rows are indented by three spaces
+(written as {cmd:&nbsp;} in Markdown, where the heading is bold). A panel whose value is
+missing or blank gets no heading and no indent. {it:varname} is never exported, even if it
+is also in {it:varlist}. Not allowed with {opt matrix()}. Heading rows count as data rows
+for {opt hlines()}, {opt boldrows()}, {opt zebra}, and {cmd:r(n_datarows)}.{p_end}
+
+{phang}
+{opt panelh:eader(varlist)} names one string variable per exported column. At the first
+row of each panel, their values form a header row written under the panel heading, in
+bold with a rule below (shaded with {opt headershade}); a panel whose values are all blank
+gets none. Use it when panels have different column meanings, such as counts and
+person-years in one panel and scans and percentages in the next. The variables are never
+exported. Requires {opt panel()}.{p_end}
+
+{phang}
+{opt span:header(spec)} adds a row of spanning labels above the header row.
+{it:spec} is {cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] [{cmd:\} {cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] ...],
+where columns are numbered as exported with the row-label column as 1; for example
+{cmd:spanheader("Narcolepsy" 2/3 \ "Risk ratio (95% CI)" 4/5)}. In the workbook each label
+is merged across its columns, centred, bold, and ruled below, and the table's top rule
+moves above the span row. The CSV carries the span row with each label in its first
+column. Markdown tables have a single header row, so there each spanned column's header
+reads {it:label}{cmd:, }{it:header}. Columns outside the table (r(125)), overlapping spans,
+a range that ends before it starts, an unquoted or empty label, and {opt noheader} are
+errors.{p_end}
 
 {phang}
 {opt fra:me(name)} use the named frame as the source instead of the current dataset{p_end}
@@ -244,6 +291,29 @@ labels/headers. {it:matname} is a matrix name, {cmd:r(}{it:name}{cmd:)}, or
 {phang}
 {opt zebrac:olor(string)} custom zebra stripe color as a supported Stata color name
 or RGB triplet{p_end}
+
+{pstd}
+{it:Session destinations}{p_end}
+
+{pstd}After {cmd:tabtools set workbook "}{it:file}{cmd:.xlsx"}, {cmd:puttab} writes to that
+workbook whenever {cmd:using} is omitted; after {cmd:tabtools set markdown "}{it:file}{cmd:.md"},
+it writes Markdown there whenever {opt markdown()} is omitted; after
+{cmd:tabtools set headershade on}, it shades the header row. Each call that uses a session
+setting says so in the log, e.g. {cmd:(tabtools: using session workbook "out.xlsx")}. An
+explicit {cmd:using}, {opt markdown()}, {opt headershade}, or {opt noheadershade} always wins
+for that call; the session headershade is honoured by {cmd:puttab} only. Session paths are
+stored absolute ({cmd:.} and {cmd:..} resolved; symbolic links and letter case are not), so
+a later {cmd:cd} does not move them. The
+first write to a session workbook after {cmd:tabtools set workbook} erases the file and
+starts it over; later writes add or replace sheets. The first write to a session Markdown
+file overwrites it; later writes append, as does an explicit {opt mdappend}. A table any
+tabtools command writes to the session file with an explicit {cmd:using}, {opt xlsx()}, or
+{opt markdown()} (the same file, however its path is spelled) counts as that first write,
+so a later session write never erases it. Setting a different file with
+{cmd:tabtools set workbook} or {cmd:tabtools set markdown} re-arms the replace; setting the
+current file again changes nothing; and a file any tabtools command already wrote in this
+Stata session is never replaced, so switching A, then B, then back to A keeps A's tables. See
+{helpb tabtools} for {cmd:tabtools set} and {cmd:tabtools query}.{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -289,6 +359,32 @@ in bold. Use {helpb stacktab} instead when the parts are already separate sheets
 {phang2}{cmd:. puttab group n price using table.xlsx, sheet("Stacked") ///}{p_end}
 {phang3}{cmd:title("Price by origin and repair") hlines(3 4) boldrows(3)}{p_end}
 
+{pstd}{bf:Example 6: Panels with their own column headers, a spanning header, and a two-paragraph note}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input str16 row str6(c1 c2) byte blk str12(h0 h1 h2)}{p_end}
+{phang2}{cmd:. "Under 55" "12" "310" 1 "" "Relapses" "Person-years"}{p_end}
+{phang2}{cmd:. "55 and over" "9" "280" 1 "" "Relapses" "Person-years"}{p_end}
+{phang2}{cmd:. "Repleted" "40" "18" 2 "" "Scans" "Percent"}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. label define blk 1 "A. Relapses" 2 "B. New MRI activity"}{p_end}
+{phang2}{cmd:. label values blk blk}{p_end}
+{phang2}{cmd:. puttab row c1 c2 using table.xlsx, sheet("Panels") noheader ///}{p_end}
+{phang3}{cmd:panel(blk) panelheader(h0 h1 h2) title("Table 3") ///}{p_end}
+{phang3}{cmd:footnote("Counts are crude. \ Ratios are adjusted.")}{p_end}
+{phang2}{cmd:. label variable c1 "Events"}{p_end}
+{phang2}{cmd:. label variable c2 "Exposure"}{p_end}
+{phang2}{cmd:. puttab row c1 c2 using table.xlsx, sheet("Spans") varlabels ///}{p_end}
+{phang3}{cmd:spanheader("Counts" 2/3)}{p_end}
+
+{pstd}{bf:Example 7: Session destinations}{p_end}
+{phang2}{cmd:. tabtools set workbook "tables.xlsx"}{p_end}
+{phang2}{cmd:. tabtools set markdown "tables.md"}{p_end}
+{phang2}{cmd:. tabtools set headershade on}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. puttab make price in 1/5, sheet("Prices") title("Five cars")}{p_end}
+{phang2}{cmd:. puttab make mpg in 1/5, sheet("Mileage") title("Five cars")}{p_end}
+{phang2}{cmd:. tabtools set clear}{p_end}
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -298,7 +394,9 @@ in bold. Use {helpb stacktab} instead when the parts are already separate sheets
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(n_rows)}}assembled rows, including title/header/footnote{p_end}
 {synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
-{synopt:{cmd:r(n_datarows)}}number of data rows (excluding title, header, footnote){p_end}
+{synopt:{cmd:r(n_datarows)}}data rows, incl. {opt panel()} rows{p_end}
+{synopt:{cmd:r(n_panels)}}number of {opt panel()} heading rows (0 without {opt panel()}){p_end}
+{synopt:{cmd:r(n_spans)}}number of {opt spanheader()} spans (0 without it){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 

@@ -37,6 +37,15 @@ one composite sheet with {cmd:stacktab}.
   {opt sh:eet(sheetname)}
   [{it:options}]
 
+{pstd}Stack in-memory frames as labelled panels:{p_end}
+
+{p 8 16 2}
+{cmd:stacktab} [{cmd:using} {it:outbook.xlsx}]{cmd:,}
+  {opt frames(name ["label"] [\ name ["label"] ...])}
+  {opt sh:eet(sheetname)}
+  [{opt ti:tle()} {opt no:te()}|{opt foot:note()} {opt csv()} {opt mark:down()} {opt mdapp:end}
+  {opt headers:hade} {opt border:style()} {opt font()} {opt fontsize()} {opt zeb:ra} {opt dig:its()} {opt open}]
+
 {marker options}{...}
 {title:Options}
 
@@ -94,7 +103,29 @@ the last row, both in the first column and the table body between them.{p_end}
 {opt dis:play} list the composed table in the Results window before writing{p_end}
 
 {phang}
-{opt foot:note(string)} tabtools-style alias for {opt note()}{p_end}
+{opt foot:note(string)} tabtools-style alias for {opt note()}. In {opt note()} and
+{opt footnote()} the literal token {cmd:\}, with a space on each side, separates
+paragraphs: one note row per paragraph in the workbook and CSV, one italic paragraph each
+in Markdown.{p_end}
+
+{phang}
+{opt frames(name ["label"] [\ ...])} stacks frames that are already in memory, such as
+the {opt frame()} output of {helpb table1_tc} or {helpb desctab} for two units of analysis,
+without exporting them to sheets first. Each frame is one panel, in the order listed; its
+label becomes a bold heading row with a rule above, and the row labels under it are
+indented, exactly as {helpb puttab:puttab, panel()} draws them (a frame given no label, or
+{cmd:""}, gets no heading). Columns are stacked by position, so every frame must have the
+same number of columns; the header row comes from the first frame's variable labels
+(variable names where a label is empty). A first observation that only repeats the
+variable labels -- the embedded header of a {cmd:clear} or {cmd:frame()} table -- is dropped
+from each frame. Numeric columns are written through their value labels or display
+formats. {cmd:using} names the output workbook (it need not exist) and may be omitted after
+{cmd:tabtools set workbook}. A frame that does not exist (r(111)), a frame listed twice,
+frames with different column counts, and {opt blocks()}, {opt layout()},
+{opt columnmerge()}, {opt style()}, {opt borders()}, {opt spacing()}, {opt frame()},
+{opt display}, {opt append}, or {opt sheetreplace} in the same call are errors. The sheet is
+created or replaced. Results are those of {helpb puttab} plus {cmd:r(n_frames)} and
+{cmd:r(frames)}.{p_end}
 
 {phang}
 {opt fra:me(framespec)} store the composed table in a Stata frame; use {cmd:frame("name, replace")}
@@ -254,6 +285,16 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {cmd:. puttab using parts.xlsx, sheet("B") matrix(MB) title("Model B")}{break}
 {cmd:. stacktab using parts.xlsx, sheet("Table 2") blocks(sheet(A) \ sheet(B))}
 
+{p 4 4 2}
+Stack two {cmd:table1_tc} frames, one per unit of analysis, as panels:
+
+{p 8 12 2}
+{cmd:. sysuse auto, clear}{break}
+{cmd:. table1_tc, by(foreign) vars(mpg contn \ rep78 cat) frame(t_all, replace)}{break}
+{cmd:. table1_tc if price > 5000, by(foreign) vars(mpg contn \ rep78 cat) frame(t_exp, replace)}{break}
+{cmd:. stacktab using parts.xlsx, sheet("Table 1") title("Table 1") ///}{break}
+{cmd:      frames(t_all "All cars" \ t_exp "Cars over 5,000 dollars")}
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -277,6 +318,10 @@ Use {helpb puttab} to write each styled source block to its own sheet, then
 {synopt:{cmd:r(title_cell)}}title cell, when {opt title()} is specified{p_end}
 {synopt:{cmd:r(frame)}}frame name, when {opt frame()} is specified{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when {opt csv()} is specified{p_end}
+
+{pstd}With {opt frames()}, {cmd:stacktab} returns the results of {helpb puttab}
+({cmd:r(n_rows)}, {cmd:r(n_cols)}, {cmd:r(n_datarows)}, {cmd:r(n_panels)}, {cmd:r(sheet)},
+{cmd:r(file)}, ...) plus {cmd:r(n_frames)} and {cmd:r(frames)}.{p_end}
 
 {marker alsosee}{...}
 {title:Also see}

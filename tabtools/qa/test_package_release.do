@@ -172,7 +172,7 @@ capture noisily {
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=76 class_missing=0 wrapper_missing=0"
+        "PASS programs=91 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"
@@ -857,8 +857,8 @@ else {
 **# Migrated: public command inventory
 
 
-local public_cmds "tabtools table1_tc desctab regtab effecttab stratetab hrcomptab comptab survtab crosstab corrtab puttab stacktab tabtools_tips"
-local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+local public_cmds "tabtools table1_tc desctab regtab effecttab tabcell outtab stratetab ratetab hrcomptab comptab survtab crosstab corrtab puttab stacktab tabtools_tips"
+local advertised_cmds "table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
 **# Public Inventory
 
@@ -872,7 +872,7 @@ capture noisily {
     }
 
     local n_public : word count `public_ado'
-    assert `n_public' == 14
+    assert `n_public' == 17
 
     foreach cmd of local public_cmds {
         local ado_file "`cmd'.ado"
@@ -883,7 +883,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: source tree has exact 14-command public inventory"
+    display as result "  PASS: source tree has exact 17-command public inventory"
     local ++pass_count
 }
 else {
@@ -946,7 +946,7 @@ else {
 
 capture noisily {
     tabtools
-    assert r(n_commands) == 14
+    assert r(n_commands) == 17
     local commands " `r(commands)' "
     foreach cmd of local advertised_cmds {
         assert strpos("`commands'", " `cmd' ") > 0
@@ -958,7 +958,7 @@ capture noisily {
     assert strpos("`export_commands'", " stacktab ") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools advertises 14 current commands"
+    display as result "  PASS: tabtools advertises 17 current commands"
     local ++pass_count
 }
 else {

@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 2.2.0  2026/10/02
+*! _tabtools_csv_write Version 2.3.0  2026/10/05
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -83,9 +83,14 @@ program define _tabtools_csv_write, nclass
                 quietly insobs 1, before(1)
                 quietly replace `_tt_first' = `"`macval(title)'"' in 1
             }
+            * One row per footnote paragraph (" \ " separates them); a
+            * footnote without the token is one row, written as typed.
             if `"`macval(footnote)'"' != "" {
-                quietly insobs 1
-                quietly replace `_tt_first' = `"`macval(footnote)'"' in `=_N'
+                mata: _tt_csv_fn_rows(st_local("footnote"))
+                forvalues _tt_j = 1/`_tt_fn_n' {
+                    quietly insobs 1
+                    quietly replace `_tt_first' = `"`macval(_tt_fn_p`_tt_j')'"' in `=_N'
+                }
             }
         }
 
@@ -103,3 +108,52 @@ program define _tabtools_csv_write, nclass
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
+
+version 17.0
+capture mata: mata drop _tt_csv_fn_rows()
+capture mata: mata drop _tt_csv_fn_paras()
+
+* matastrict is a session setting: save the caller's value here and
+* restore it after the block, so loading this file never leaks it.
+local _tt_ms0 = c(matastrict)
+mata:
+mata set matastrict on
+
+// Split footnote text into paragraphs on the literal token " \ " (space,
+// backslash, space). Text without the token is returned unchanged; otherwise
+// each piece is trimmed and empty pieces are dropped. Same rule in every
+// tabtools writer.
+string colvector _tt_csv_fn_paras(string scalar s)
+{
+    string colvector out
+    string scalar rest, piece
+    real scalar pos
+
+    if (!strpos(s, " " + char(92) + " ")) return(s)
+    out = J(0, 1, "")
+    rest = s
+    while ((pos = strpos(rest, " " + char(92) + " ")) > 0) {
+        piece = strtrim(substr(rest, 1, pos - 1))
+        if (piece != "") out = out \ piece
+        rest = substr(rest, pos + 3, .)
+    }
+    piece = strtrim(rest)
+    if (piece != "") out = out \ piece
+    if (rows(out) == 0) out = ""
+    return(out)
+}
+
+// Footnote paragraphs into locals _tt_fn_n and _tt_fn_p1, _tt_fn_p2, ...;
+// the caller writes them with -replace-, which widens the column as needed.
+void _tt_csv_fn_rows(string scalar foot)
+{
+    string colvector paras
+    real scalar j
+
+    paras = _tt_csv_fn_paras(foot)
+    for (j = 1; j <= rows(paras); j++) st_local("_tt_fn_p" + strofreal(j), paras[j])
+    st_local("_tt_fn_n", strofreal(rows(paras)))
+}
+
+end
+mata: mata set matastrict `_tt_ms0'

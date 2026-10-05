@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 2.2.0  2026/10/02
+*! _tabtools_markdown_write Version 2.3.0  2026/10/05
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -10,7 +10,7 @@ program define _tabtools_markdown_write, rclass
     capture noisily {
         syntax using/ , [APPEND LABELVar(name) HEADERStart(integer 2) ///
             DATAStart(integer 3) DATAEnd(integer -1) TITLE(string) FOOTnote(string) ///
-            NOVARNAMES STRICTHeaders KEEPBlank]
+            NOVARNAMES STRICTHeaders KEEPBlank BOLDRows(numlist >0 integer)]
 
         capture _tabtools_helpers_ready
         if _rc {
@@ -97,7 +97,7 @@ program define _tabtools_markdown_write, rclass
         mata: _tt_md_write(st_local("_stage"), st_local("_vars"), ///
             `headerstart', `datastart', `dataend', ///
             "`novarnames'" != "", "`strictheaders'" != "", `_append_existing', ///
-            "`keepblank'" != "")
+            "`keepblank'" != "", "`boldrows'")
         local _n_body = `_tt_md_nbody'
         if `_append' {
             mata: _tt_md_append(st_local("_stage"), st_local("using"))
@@ -105,6 +105,9 @@ program define _tabtools_markdown_write, rclass
         else {
             quietly copy `"`_stage'"' `"`using'"', replace
         }
+        * tabtools set markdown: once the session file has been written by
+        * any command, later session writes append to it.
+        _tabtools_set_sinks mddone, path(`"`using'"')
 
         return scalar n_rows = `_n_body'
         return scalar n_cols = `_k'
@@ -121,12 +124,38 @@ capture mata: mata drop _tt_md_cell()
 capture mata: mata drop _tt_md_body_cell()
 capture mata: mata drop _tt_md_write()
 capture mata: mata drop _tt_md_append()
+capture mata: mata drop _tt_md_fn_paras()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
 local _tt_ms0 = c(matastrict)
 mata:
 mata set matastrict on
+
+
+// Split footnote text into paragraphs on the literal token " \ " (space,
+// backslash, space). Text without the token is returned unchanged; otherwise
+// each piece is trimmed and empty pieces are dropped. Same rule in every
+// tabtools writer.
+string colvector _tt_md_fn_paras(string scalar s)
+{
+    string colvector out
+    string scalar rest, piece
+    real scalar pos
+
+    if (!strpos(s, " " + char(92) + " ")) return(s)
+    out = J(0, 1, "")
+    rest = s
+    while ((pos = strpos(rest, " " + char(92) + " ")) > 0) {
+        piece = strtrim(substr(rest, 1, pos - 1))
+        if (piece != "") out = out \ piece
+        rest = substr(rest, pos + 3, .)
+    }
+    piece = strtrim(rest)
+    if (piece != "") out = out \ piece
+    if (rows(out) == 0) out = ""
+    return(out)
+}
 
 string scalar _tt_md_escape(string scalar x)
 {
@@ -202,12 +231,13 @@ string scalar _tt_md_body_cell(string scalar v, real scalar i, real scalar inden
 void _tt_md_write(string scalar stage, string scalar varlist,
     real scalar hs, real scalar ds, real scalar de,
     real scalar novarnames, real scalar strict, real scalar lead_blank,
-    real scalar keepblank)
+    real scalar keepblank, string scalar boldrows)
 {
     string rowvector vars
-    string colvector out
+    string colvector out, paras
     string scalar h, line, cell, title, foot
-    real scalar j, i, k, nobs, body_end, has_text, nbody, fh
+    real scalar j, i, k, nobs, body_end, has_text, nbody, fh, isbold
+    real rowvector bold
 
     vars = tokens(varlist)
     k = cols(vars)
@@ -234,6 +264,8 @@ void _tt_md_write(string scalar stage, string scalar varlist,
     for (j = 1; j <= k; j++) line = line + " --- |"
     out = out \ line
 
+    // boldrows(): observations written in bold (puttab panel rows).
+    bold = (boldrows != "" ? strtoreal(tokens(boldrows)) : J(1, 0, .))
     nbody = 0
     body_end = (de < 0 ? nobs : min((de, nobs)))
     for (i = ds; i <= body_end; i++) {
@@ -244,6 +276,8 @@ void _tt_md_write(string scalar stage, string scalar varlist,
             // the hierarchy and are written as &nbsp; entities, because GFM
             // trims cell whitespace. Value columns are trimmed.
             cell = _tt_md_body_cell(vars[j], i, j == 1)
+            isbold = (cols(bold) > 0 ? any(bold :== i) : 0)
+            if (isbold & cell != "") cell = "**" + cell + "**"
             if (cell != "") has_text = 1
             line = line + " " + cell + " |"
         }
@@ -253,8 +287,14 @@ void _tt_md_write(string scalar stage, string scalar varlist,
         }
     }
 
+    // One italic paragraph per footnote paragraph (" \ " separates them).
     foot = st_local("footnote")
-    if (foot != "") out = out \ "" \ ("*" + _tt_md_escape(foot) + "*")
+    if (foot != "") {
+        paras = _tt_md_fn_paras(foot)
+        for (i = 1; i <= rows(paras); i++) {
+            out = out \ "" \ ("*" + _tt_md_escape(paras[i]) + "*")
+        }
+    }
 
     fh = fopen(stage, "w")
     for (i = 1; i <= rows(out); i++) fput(fh, out[i])

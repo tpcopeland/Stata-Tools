@@ -1,4 +1,4 @@
-*! corrtab Version 2.2.0  2026/10/02
+*! corrtab Version 2.3.0  2026/10/05
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -51,6 +51,18 @@ program define corrtab, rclass
             csv(string) MARKdown(string) MDAPPend FRAme(string) open]
 
         if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" mata: st_local("xlsx", st_local("excel"))
+        * Session destinations (tabtools set workbook/markdown) apply only
+        * when sheet() asks for a sheet; an explicit option wins.
+        local _sess_xlsx 0
+        local _sess_md 0
+        if `"`macval(sheet)'"' != "" {
+            _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+            local xlsx `"`_ss_xlsx'"'
+            local markdown `"`_ss_md'"'
+            local mdappend "`_ss_mdappend'"
+            local _sess_xlsx = `_ss_xlsx_sess'
+            local _sess_md = `_ss_md_sess'
+        }
         local _has_xlsx = (`"`macval(xlsx)'"' != "")
         if "`open'" != "" & !`_has_xlsx' {
             noisily display as error "open requires xlsx() or excel()"
@@ -354,7 +366,12 @@ program define corrtab, rclass
                 mata: st_local("_fn_trim", strtrim(st_local("_md_footnote")))
                 mata: st_local("_fn_endp", strofreal(strlen(st_local("_fn_trim")) > 0 & ///
                     strpos(".;:!?", substr(st_local("_fn_trim"), -1, 1)) > 0))
-                if `_fn_endp' {
+                * A footnote in paragraphs (" \ ") keeps the legend as its own
+                * first paragraph, the order of the workbook rows.
+                if strpos(`"`macval(_fn_trim)'"', " \ ") {
+                    local _md_footnote `"`_star_note' \ `macval(_fn_trim)'"'
+                }
+                else if `_fn_endp' {
                     local _md_footnote `"`macval(_fn_trim)' `_star_note'"'
                 }
                 else {
@@ -393,6 +410,7 @@ program define corrtab, rclass
             local _ret_markdown_rows = r(n_rows)
             local _ret_markdown_cols = r(n_cols)
             noisily display as text "Markdown exported to `markdown'"
+            if `_sess_md' _tabtools_set_sinks mddone
         }
 
         if `"`frame'"' != "" {
@@ -429,6 +447,7 @@ program define corrtab, rclass
             local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
 
             order title c*
+            if `_sess_xlsx' _tabtools_set_sinks xlsxstart
             capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             if _rc {
                 local _export_rc = _rc
