@@ -1,4 +1,4 @@
-*! _datacheck_jumps Version 1.9.1  2026/10/04
+*! _datacheck_jumps Version 1.9.2  2026/10/05
 *! datacheck jumps(): implausible jumps between consecutive repeated measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

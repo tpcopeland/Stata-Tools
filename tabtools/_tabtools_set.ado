@@ -1,4 +1,4 @@
-*! _tabtools_set Version 2.3.1  2026/10/05
+*! _tabtools_set Version 2.4.0  2026/10/05
 *! Session destinations and defaults behind tabtools set / tabtools query
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -18,6 +18,10 @@
         TABTOOLS_set_headershade       on | off
         TABTOOLS_set_smallcells        # (3 or more)
         TABTOOLS_set_smallcells_mode   full | primary
+        TABTOOLS_BORDER                default | thin | medium | academic
+                                       (set by -tabtools set borderstyle-,
+                                       which can also save it to a profile;
+                                       reported here, cleared by clear)
         TABTOOLS_written               every file a tabtools writer wrote in
                                        this session (absolute, normalised);
                                        kept by -tabtools set clear-
@@ -177,6 +181,7 @@ program define _tabtools_set, rclass
                 global TABTOOLS_set_`_k'_fresh
                 global TABTOOLS_set_`_k'_mode
             }
+            global TABTOOLS_BORDER
             if "`quiet'" == "" display as text "tabtools: all session settings cleared"
             return local action "cleared"
         }
@@ -190,6 +195,7 @@ program define _tabtools_set, rclass
             local _hs `"$TABTOOLS_set_headershade"'
             local _sc `"$TABTOOLS_set_smallcells"'
             local _scm `"$TABTOOLS_set_smallcells_mode"'
+            local _bs `"$TABTOOLS_BORDER"'
             if `"`_sc'"' != "" & `"`_scm'"' == "" local _scm "full"
             display as text ""
             display as text "tabtools session settings"
@@ -208,11 +214,14 @@ program define _tabtools_set, rclass
             else display as text "  Headershade: " as result "`_hs'"
             if `"`_sc'"' == "" display as text "  Smallcells:  (not set)"
             else display as text "  Smallcells:  " as result "`_sc'" as text " (`_scm')"
+            if `"`_bs'"' == "" display as text "  Borderstyle: (not set)"
+            else display as text "  Borderstyle: " as result `"`_bs'"'
             return local workbook `"`_wb'"'
             return local markdown `"`_md'"'
             return local headershade `"`_hs'"'
             return local smallcells `"`_sc'"'
             return local smallcells_mode `"`_scm'"'
+            return local borderstyle `"`_bs'"'
             return local workbook_fresh = cond(`"`_wb'"' != "", cond("$TABTOOLS_set_workbook_fresh" == "1", "1", "0"), "")
             return local markdown_fresh = cond(`"`_md'"' != "", cond("$TABTOOLS_set_markdown_fresh" == "1", "1", "0"), "")
         }

@@ -1,4 +1,4 @@
-*! desctab Version 2.3.1  2026/10/05 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.4.0  2026/10/05 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -71,6 +71,8 @@ program define desctab, rclass
         [BORDERstyle(string)]   /// Border style: "default" or "thin"
         [wt(varname)]           /// Importance/probability weight variable (e.g., IPTW)
         [smd]                   /// Standardized mean differences column
+        [smdtype(string)]       /// pair (default), population, or maxpair
+        [smdpair(string asis)]  /// Two by() values the pair SMD compares
         [FOOTnote(string)]      /// Footnote text below table
         [open]                  /// Open Excel file after export
         [BOLDp(real -1)]        /// Bold p-values below threshold (-1 = disabled)
@@ -337,6 +339,27 @@ program define desctab, rclass
         exit 198
     }
 
+    * smdtype()/smdpair() (multi-group SMD). smdtype is spelled out in full:
+    * SMDThreshold already owns the abbreviation smdt.
+    local smdtype = strlower(strtrim(`"`smdtype'"'))
+    if "`smdtype'" != "" & !`has_smd' {
+        display as error "smdtype() requires smd"
+        exit 198
+    }
+    if `"`smdpair'"' != "" & !`has_smd' {
+        display as error "smdpair() requires smd"
+        exit 198
+    }
+    if "`smdtype'" == "" local smdtype "pair"
+    if !inlist("`smdtype'", "pair", "population", "maxpair") {
+        display as error "smdtype() must be pair, population, or maxpair"
+        exit 198
+    }
+    if `"`smdpair'"' != "" & "`smdtype'" != "pair" {
+        display as error "smdpair() requires smdtype(pair): population and maxpair use every group"
+        exit 198
+    }
+
     * wtcompare requires both wt() and by()
     local has_wtcompare = "`wtcompare'" != ""
     if `has_wtcompare' & !`has_wt' {
@@ -565,11 +588,116 @@ program define desctab, rclass
     local level2 `2'
     local level3 `3'
 
-    * SMD >2 groups warning (R3)
-    if `has_smd' & `groupcount' > 2 {
+    * smdpair(): map the two groups the user named to group codes. A token
+    * can name a group by value (a number, numeric by() only) or by label
+    * (the string value of a string by(), or the value-label text of a
+    * numeric by(); an unlabelled value's label is the value itself). A
+    * token that names one group by value and a DIFFERENT group by label
+    * (value labels that are themselves numbers) is refused as ambiguous
+    * unless the suboption values or labels says which reading to use.
+    * Quotes only group a label with spaces; they do not select labels.
+    local _smdpair_codes ""
+    if `has_smd' & `"`smdpair'"' != "" {
+        capture confirm numeric variable `by'
+        local _sp_numby = !_rc
+        local _sp_all `"`smdpair'"'
+        local _sp_mode ""
+        if strpos(`"`macval(_sp_all)'"', ",") {
+            _parse comma _sp_lhs _sp_rhs : _sp_all
+            local _sp_mode = strlower(strtrim(substr(`"`_sp_rhs'"', 2, .)))
+            if !inlist("`_sp_mode'", "values", "labels") {
+                display as error "smdpair(): the suboption must be values or labels"
+                exit 198
+            }
+            local _sp_all `"`_sp_lhs'"'
+        }
+        local _sp_rest `"`_sp_all'"'
+        local _sp_codes ""
+        local _sp_n 0
+        while `"`_sp_rest'"' != "" {
+            gettoken _sp_tok _sp_rest : _sp_rest
+            if `"`macval(_sp_tok)'"' == "" continue
+            local ++_sp_n
+            if `_sp_n' > 2 continue
+            * groups named by value, and by label
+            local _sp_vhit ""
+            local _sp_lhit ""
+            capture confirm number `_sp_tok'
+            local _sp_isnum = !_rc
+            foreach _l of local levels {
+                if `_sp_numby' & `_sp_isnum' & "`_sp_mode'" != "labels" {
+                    if `_l' == `_sp_tok' local _sp_vhit "`_sp_vhit' `_l'"
+                }
+                if "`_sp_mode'" != "values" | !`_sp_numby' {
+                    local _sp_lab : label (`groupnum') `_l'
+                    if `"`macval(_sp_lab)'"' == `"`macval(_sp_tok)'"' local _sp_lhit "`_sp_lhit' `_l'"
+                }
+            }
+            local _sp_vhit : list retokenize _sp_vhit
+            local _sp_lhit : list retokenize _sp_lhit
+            if "`_sp_vhit'" != "" & "`_sp_lhit'" != "" & "`_sp_vhit'" != "`_sp_lhit'" {
+                local _sp_vlab : label (`groupnum') `_sp_vhit'
+                display as error `"smdpair(): `macval(_sp_tok)' is ambiguous: it is the value of the group labelled "`macval(_sp_vlab)'" and the label of the group with value `_sp_lhit'"'
+                display as error `"  add values or labels to say which is meant, e.g. smdpair(`macval(_sp_all)', values)"'
+                exit 198
+            }
+            local _sp_hit : list _sp_vhit | _sp_lhit
+            if `: word count `_sp_hit'' != 1 {
+                display as error `"smdpair(): `macval(_sp_tok)' does not name exactly one group of `by'"'
+                exit 198
+            }
+            local _sp_codes "`_sp_codes' `_sp_hit'"
+        }
+        if `_sp_n' != 2 {
+            display as error "smdpair() requires exactly two groups of by()"
+            exit 198
+        }
+        local level1 : word 1 of `_sp_codes'
+        local level2 : word 2 of `_sp_codes'
+        if `level1' == `level2' {
+            display as error "smdpair() must name two different groups"
+            exit 198
+        }
+        local _smdpair_codes "`level1' `level2'"
+    }
+
+    * SMD column header and the note naming what it compares. The header is
+    * the smd_str variable label, which every sink reads (console listing,
+    * excel(), csv(), markdown(), frame(), clear), so a 3+ group table never
+    * carries a bare "SMD". The note joins footnote() (excel, csv,
+    * markdown), prints above the console table, is r(smdnote), and is the
+    * frame characteristic _dta[tabtools_smdnote].
+    local _smd_header "SMD"
+    local _smd_note ""
+    if `has_smd' {
         local _l1lab : label (`groupnum') `level1'
         local _l2lab : label (`groupnum') `level2'
-        display as text `"{bf:Note:} SMD computed for first two groups only (`macval(_l1lab)' vs `macval(_l2lab)')"'
+        if "`smdtype'" == "pair" & `groupcount' > 2 {
+            local _smd_header `"SMD (`macval(_l1lab)' vs `macval(_l2lab)')"'
+            if "`_smdpair_codes'" == "" local _smd_note `"SMD compares `macval(_l1lab)' vs `macval(_l2lab)' only (the first two of `groupcount' groups)."'
+            else local _smd_note `"SMD compares `macval(_l1lab)' vs `macval(_l2lab)' only (2 of `groupcount' groups, chosen with smdpair())."'
+        }
+        else if "`smdtype'" == "pair" & "`_smdpair_codes'" != "" {
+            local _smd_header `"SMD (`macval(_l1lab)' vs `macval(_l2lab)')"'
+        }
+        else if "`smdtype'" == "population" {
+            local _smd_header "Pop. SB"
+            local _smd_note "Pop. SB: largest absolute difference between a group mean and the overall mean, in overall-sample SDs, across the `groupcount' groups (McCaffrey et al. 2013)."
+        }
+        else if "`smdtype'" == "maxpair" {
+            local _smd_header "Max SMD"
+            local _smd_note "Max SMD: largest absolute pairwise difference across the `groupcount' groups, in the root-mean of the group variances."
+        }
+        if `"`macval(_smd_note)'"' != "" {
+            display as text `"{bf:Note:} `macval(_smd_note)'"'
+            if strpos(`"`macval(footnote)'"', `"`macval(_smd_note)'"') == 0 {
+                if `"`macval(footnote)'"' == "" local footnote `"`macval(_smd_note)'"'
+                else if strpos(`"`macval(footnote)'"', " \ ") {
+                    local footnote `"`macval(footnote)' \ `macval(_smd_note)'"'
+                }
+                else local footnote `"`macval(footnote)' `macval(_smd_note)'"'
+            }
+        }
     }
 
     /* Create placeholder group variable if not specified */
@@ -616,6 +744,8 @@ program define desctab, rclass
 
     local _fast_analysis_opts ""
     if "`smd'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' smd"'
+    if "`smd'" != "" & "`smdtype'" != "pair" local _fast_analysis_opts `"`_fast_analysis_opts' smdtype(`smdtype')"'
+    if "`_smdpair_codes'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' smdpair(`_smdpair_codes')"'
     if "`test'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' test"'
     if "`statistic'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' statistic"'
     if "`nopvalue'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' nopvalue"'
@@ -681,7 +811,7 @@ program define desctab, rclass
 
         frame `_wtc_crude_table' {
             capture confirm variable sort1
-            if !_rc replace sort1 = sort1 + 1 if sort1 >= 2
+            if !_rc quietly replace sort1 = sort1 + 1 if sort1 >= 2
 
             local _wtc_merge_levels `"`_group_levels'"'
             if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
@@ -710,8 +840,8 @@ program define desctab, rclass
         frame `_result_frame' {
             capture confirm variable sort2
             if _rc gen sort2 = 0
-            frlink 1:1 sort1 sort2, frame(`_wtc_crude_table') generate(_wtc_link)
-            frget crtmp_*, from(_wtc_link)
+            quietly frlink 1:1 sort1 sort2, frame(`_wtc_crude_table') generate(_wtc_link)
+            quietly frget crtmp_*, from(_wtc_link)
             rename crtmp_* _cr_*
             drop _wtc_link
         }
@@ -918,7 +1048,7 @@ program define desctab, rclass
         if !_rc {
             qui gen smd_str = string(abs(smd_val), "%5.3f") if !missing(smd_val)
             if "`smallcells'" != "" quietly replace smd_str = "Suppressed" if `_sc_anyderived'
-            lab var smd_str "SMD"
+            mata: st_varlabel("smd_str", st_local("_smd_header"))
         }
     }
 
@@ -1709,6 +1839,10 @@ program define desctab, rclass
     local _processed_varlist = strtrim("`_processed_varlist'")
     local _own_r_posted = 1
     return local varlist "`_processed_varlist'"
+    if `has_smd' {
+        return local smdtype "`smdtype'"
+        if `"`macval(_smd_note)'"' != "" return local smdnote `"`macval(_smd_note)'"'
+    }
     if `_cr_n' > 0 return scalar n_cellreplace = `_cr_n'
     if `_rt_nrows' > 0 {
         return matrix table = `_rtable'
@@ -2320,6 +2454,9 @@ program define desctab, rclass
             frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
             if `_sc_primary' frame `frame': char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
             else frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        }
+        if `"`macval(_smd_note)'"' != "" {
+            frame `frame': mata: st_global("_dta[tabtools_smdnote]", st_local("_smd_note"))
         }
         return local frame "`frame'"
     }

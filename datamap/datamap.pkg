@@ -14,7 +14,7 @@ d - dataqa: Session defaults and a structured QA ledger over datacheck
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
-d Distribution-Date: 20261004
+d Distribution-Date: 20261005
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet

@@ -1,4 +1,4 @@
-*! _tabtools_check_sinks Version 2.3.1  2026/10/05
+*! _tabtools_check_sinks Version 2.4.0  2026/10/05
 *! Refuse output options that name the same file, before anything is written
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

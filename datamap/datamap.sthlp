@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.1  4oct2026}{...}
+{* *! version 1.9.2  5oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -7,6 +7,7 @@
 {vieweralsosee "datacheck" "help datacheck"}{...}
 {vieweralsosee "dataqa" "help dataqa"}{...}
 {vieweralsosee "datamvp" "help datamvp"}{...}
+{viewerjumpto "Package commands" "datamap##commands"}{...}
 {viewerjumpto "Syntax" "datamap##syntax"}{...}
 {viewerjumpto "Description" "datamap##description"}{...}
 {viewerjumpto "Options" "datamap##options"}{...}
@@ -20,6 +21,21 @@
 
 {phang}
 {bf:datamap} {hline 2} Generate privacy-safe dataset documentation for LLM-assisted coding
+
+
+{marker commands}{...}
+{title:Package commands}
+
+{pstd}
+{cmd:datamap} is the flagship command of the {bf:datamap} package, which also
+installs:
+
+{p2colset 5 18 20 2}{...}
+{p2col:{helpb datadict}}Markdown data dictionaries from Stata datasets{p_end}
+{p2col:{helpb datacheck}}console QC profiling and expectation gates{p_end}
+{p2col:{helpb dataqa}}session defaults and a QA ledger over {cmd:datacheck}{p_end}
+{p2col:{helpb datamvp}}missing-value pattern analysis{p_end}
+{p2colreset}{...}
 
 
 {marker syntax}{...}
@@ -659,7 +675,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.9.1 {hline 2} 4oct2026{p_end}
+{pstd}Version 1.9.2 {hline 2} 5oct2026{p_end}
 
 
 {title:Also see}

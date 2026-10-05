@@ -348,13 +348,17 @@ capture noisily {
     quietly collect: logit foreign mpg weight
     regtab, frame(_h1a, replace flat)
     frame _h1a {
-        assert "`: variable label c2'" == "Model, 95% CI"
-        assert "`: variable label c3'" == "Model, p-value"
+        assert "`: variable label c2'" == "95% CI"
+        assert "`: char c2[tabtools_header]'" == "Model, 95% CI"
+        assert "`: variable label c3'" == "p-value"
+        assert "`: char c3[tabtools_header]'" == "Model, p-value"
     }
     regtab, frame(_h1b, replace flat) compact
     frame _h1b {
-        assert "`: variable label c1'" == "Model, OR 95% CI"
-        assert "`: variable label c2'" == "Model, p-value"
+        assert "`: variable label c1'" == "OR 95% CI"
+        assert "`: char c1[tabtools_header]'" == "Model, OR 95% CI"
+        assert "`: variable label c2'" == "p-value"
+        assert "`: char c2[tabtools_header]'" == "Model, p-value"
     }
     regtab, frame(_h1c, replace flat) transpose
     frame _h1c {
@@ -408,13 +412,17 @@ capture noisily {
     assert strpos(`"`t'"', "95% CI") == 0
     regtab, cilabel("`cil'") plabel("`pl'") frame(_h1e, replace flat)
     frame _h1e {
-        assert "`: variable label c2'" == "Model 1, `cil'"
-        assert "`: variable label c6'" == "Model 2, `pl'"
+        assert "`: variable label c2'" == "`cil'"
+        assert "`: char c2[tabtools_header]'" == "Model 1, `cil'"
+        assert "`: variable label c6'" == "`pl'"
+        assert "`: char c6[tabtools_header]'" == "Model 2, `pl'"
     }
     regtab, cilabel("`cil'") plabel("`pl'") compact frame(_h1f, replace flat)
     frame _h1f {
-        assert "`: variable label c1'" == "Model 1, OR `cil'"
-        assert "`: variable label c2'" == "Model 1, `pl'"
+        assert "`: variable label c1'" == "OR `cil'"
+        assert "`: char c1[tabtools_header]'" == "Model 1, OR `cil'"
+        assert "`: variable label c2'" == "`pl'"
+        assert "`: char c2[tabtools_header]'" == "Model 1, `pl'"
     }
     regtab, cilabel("`cil'") plabel("`pl'") transpose frame(_h1g, replace flat)
     frame _h1g {

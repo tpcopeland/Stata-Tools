@@ -1,4 +1,4 @@
-*! stratetab Version 2.3.1  2026/10/05
+*! stratetab Version 2.4.0  2026/10/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -115,13 +115,18 @@ if `smallcells' < 0 {
 	exit 198
 }
 * zerocells(): a level with no events prints a dash or nothing in place of
-* its count and rate (CI); its person-time stays. masktext(): the text of a
-* masked event count, in place of <#.
-local zerocells = strtrim(lower(`"`zerocells'"'))
-if !inlist(`"`zerocells'"', "", "dash", "blank") {
-	di as err "zerocells() must be dash or blank"
+* its count and rate (CI); its person-time stays unless the persontime
+* suboption withholds it too. masktext(): the text of a masked event count,
+* in place of <#.
+_parse comma _zc_mode _zc_rest : zerocells
+local zerocells = strtrim(lower(`"`_zc_mode'"'))
+local _zc_rest = strtrim(lower(substr(strtrim(`"`_zc_rest'"'), 2, .)))
+if !inlist(`"`zerocells'"', "", "dash", "blank") | !inlist(`"`_zc_rest'"', "", "persontime") | ///
+	(`"`zerocells'"' == "" & `"`_zc_rest'"' != "") {
+	di as err "zerocells() must be dash or blank, optionally with the suboption persontime: zerocells(dash, persontime)"
 	exit 198
 }
+local _zc_pt = ("`_zc_rest'" == "persontime")
 local _zero_txt = cond("`zerocells'" == "dash", "–", "")
 local _mask_given = (`"`macval(masktext)'"' != "")
 if `_mask_given' & `smallcells' == 0 {
@@ -374,6 +379,10 @@ if `"`macval(unitlabel)'"' == "" {
 * Process each file and store data
 * Files are organized: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
 local filenum = 0
+* Cells (level x outcome) whose person-time is zero: no rate is computable,
+* so the cell is left empty in every sink.
+local _n_cells 0
+local _n_nopt 0
 local _ci_level = cond(`level' == -1, ., `level')
 local _ci_provenance_seen = 0
 local _ci_unknown_seen = 0
@@ -496,6 +505,14 @@ forvalues e = 1/`n_exposures' {
 				noi di as err "Each strate file must have unique category labels"
 				exit 198
 			}
+			qui count if _D > 0 & !missing(_D) & _Y == 0
+			if r(N) > 0 {
+				noi di as err "`macval(file)'.dta has events without person-time in `r(N)' row(s)"
+				exit 459
+			}
+			qui count if _Y == 0
+			local _n_nopt = `_n_nopt' + r(N)
+			local _n_cells = `_n_cells' + _N
 			
 			* Scale and format rate
 			gen double `_Rate_scaled' = _Rate * `ratescale'
@@ -586,6 +603,11 @@ if missing(`_ci_level') local _ci_level = 95
 local _ci_level_txt = strtrim(string(`_ci_level', "%21.15g"))
 local _ci_alpha = (100 - `_ci_level') / 200
 local _ci_z = invnormal(1 - `_ci_alpha')
+
+if `_n_cells' > 0 & `_n_nopt' == `_n_cells' {
+	noi di as err "no category has person-time for any outcome; no rate is computable"
+	exit 459
+}
 
 * Compute rate ratios if requested (F4)
 if "`rateratio'" != "" & `n_exposures' >= 2 {
@@ -697,6 +719,10 @@ forvalues e = 1/`n_exposures' {
 			* Small cells: 1..#-1 events print as <#, with their person-time
 			* and rate withheld (printed output only; r() keeps the numbers).
 			local _masked = (`smallcells' > 0 & `D_o`o'_e`e'_`i'' >= 1 & `D_o`o'_e`e'_`i'' < `smallcells')
+			* No person-time: nothing is computable, so the events,
+			* person-time and rate cells are left empty (not 0, not a dash,
+			* which zerocells() uses for a computable zero-event rate).
+			local _nopt = (`Y_o`o'_e`e'_`i'' == 0)
 			* Events
 			if `eventdigits' == 0 {
 				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.0fc")
@@ -708,8 +734,9 @@ forvalues e = 1/`n_exposures' {
 				if `_mask_given' local ev_fmt `"`macval(masktext)'"'
 				else local ev_fmt "<`smallcells'"
 			}
-			local _zero_cell = ("`zerocells'" != "" & `D_o`o'_e`e'_`i'' == 0)
+			local _zero_cell = ("`zerocells'" != "" & `D_o`o'_e`e'_`i'' == 0 & !`_nopt')
 			if `_zero_cell' local ev_fmt `"`_zero_txt'"'
+			if `_nopt' local ev_fmt ""
 			quietly replace c`col' = strtrim(`"`macval(ev_fmt)'"') in `new'
 			local col = `col' + 1
 
@@ -721,6 +748,8 @@ forvalues e = 1/`n_exposures' {
 				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%24.`pydigits'fc")
 			}
 			if `_masked' local py_fmt "–"
+			if `_zero_cell' & `_zc_pt' local py_fmt `"`_zero_txt'"'
+			if `_nopt' local py_fmt ""
 			quietly replace c`col' = strtrim(`"`py_fmt'"') in `new'
 			local col = `col' + 1
 
@@ -752,13 +781,22 @@ forvalues e = 1/`n_exposures' {
 			}
 			if `_masked' local rt_fmt "–"
 			if `_zero_cell' local rt_fmt `"`_zero_txt'"'
+			if `_nopt' local rt_fmt ""
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
 			* Rate Ratio (IRR) if requested
 			if "`rateratio'" != "" {
-				if `e' == 1 {
+				* a reference row without person-time has no rate to be the
+				* reference for, so it is empty like the rest of the row
+				if `e' == 1 & `_nopt' {
+					quietly replace c`col' = "" in `new'
+				}
+				else if `e' == 1 {
 					quietly replace c`col' = "Ref." in `new'
+				}
+				else if `_nopt' {
+					quietly replace c`col' = "" in `new'
 				}
 				else if missing(`IRR_o`o'_e`e'_`i'') {
 					quietly replace c`col' = "–" in `new'
@@ -963,6 +1001,7 @@ return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 return scalar ci_level = `_ci_level'
 return scalar smallcells = `smallcells'
+return scalar N_nopt = `_n_nopt'
 local _outcome_ids_return ""
 forvalues _meta_o = 1/`outcomes' {
 	local _outcome_ids_return `"`macval(_outcome_ids_return)' \ `macval(outcome_id_`_meta_o')'"'

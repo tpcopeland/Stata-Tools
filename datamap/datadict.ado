@@ -1,4 +1,4 @@
-*! datadict Version 1.9.1  2026/10/04
+*! datadict Version 1.9.2  2026/10/05
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 

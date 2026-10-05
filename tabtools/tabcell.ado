@@ -1,4 +1,4 @@
-*! tabcell Version 2.3.1  2026/10/05
+*! tabcell Version 2.4.0  2026/10/05
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,15 +14,24 @@ SYNTAX
           matrix(M row)    a row of a matrix, e.g. matrix(r(table)' mpg); its
                            columns b, ll, ul, or cols(# # #)
           b() ll() ul()    explicit numbers; or b() se() for a normal interval
-    tabcell p ,   p(#) [pdp(#) highpdp(#) pstyle(table|footnote) missing(str)]
+    tabcell p ,   p(#) [pdp(#) highpdp(#) pstyle(table|footnote|Pfootnote) missing(str)]
     tabcell n ,   n(#) [mincell(#) nformat() missing(str)]
-    tabcell np ,  n(#) d(#) [mincell(#) nformat() pformat() missing(str)]
+    tabcell np ,  n(#) d(#) [ci(exact) level(#) sep(str) mincell(#) nformat() pformat() missing(str)]
     tabcell enp , e(#) n(#) [mincell(#) nformat() pformat() missing(str)]
     tabcell iqr , median(#) q1(#) q3(#) [format() sep() missing(str)]
 
     generate(newvar) [if] [in]: the numeric options are expressions in the
     data and a string variable is filled in one vectorised pass. Data are
     never written unless generate() is given.
+
+    local(name) / global(name) (scalar forms): also store the cell text in a
+    local of the caller (c_local) or a global; on error the macro is cleared,
+    so a captured failure never leaves a stale cell behind.
+
+    ci(exact) (np): the exact binomial (Clopper-Pearson 1934) interval for the
+    percentage, n (pct; lo, hi), with lo = invibeta(n, d-n+1, a/2) and
+    hi = invibetatail(n+1, d-n, a/2); lo = 0 when n = 0 and hi = 1 when n = d,
+    as in [R] ci, Methods and formulas, and Thulin (2014, eq. 4).
 
 A missing or non-finite value is refused (rc 459) unless missing("text")
 is given; a failed fit can never print as ". (., .)".
@@ -35,7 +44,25 @@ program define tabcell, rclass
     set varabbrev off
     tempname _cframe _M _sb _sll _sul _sse _sq _s1 _s2 _s3
     local _frame_made 0
+    local _set_local ""
+    local _set_global ""
     capture noisily {
+        **# local()/global() names first, from a copy of the command line,
+        * so a call that fails anywhere later (a bad form word, an unknown
+        * option, a failed syntax) still clears the macros it named. A name
+        * that fails these same rules is not recorded and clears nothing.
+        local _cl0 : copy local 0
+        _parse comma _cl_lhs _cl_rhs : _cl0
+        local 0 : copy local _cl_rhs
+        capture syntax [, LOCal(name) GLOBal(name) *]
+        if !_rc {
+            if "`local'" != "" & ustrlen("`local'") <= 31 local _set_local "`local'"
+            if "`global'" != "" & substr("`global'", 1, 1) != "_" local _set_global "`global'"
+        }
+        local local ""
+        local global ""
+        local options ""
+        local 0 : copy local _cl0
         gettoken form 0 : 0, parse(" ,")
         local form = lower(strtrim(`"`form'"'))
         if !inlist(`"`form'"', "est", "p", "n", "np", "enp", "iqr") {
@@ -49,7 +76,25 @@ program define tabcell, rclass
             LINcom NLcom MATrix(string) COLs(numlist min=3 max=3 integer >0) ///
             P(string) PDP(integer 3) HIGHPDP(integer 2) PSTYle(string) ///
             N(string) D(string) E(string) MEDian(string) Q1(string) Q3(string) ///
-            MINcell(integer 0) NFormat(string) PFormat(string) SCALE(string)]
+            MINcell(integer 0) NFormat(string) PFormat(string) SCALE(string) ///
+            LOCal(name) GLOBal(name) CI(string)]
+
+        **# local()/global(): validate the names before anything else, so the
+        * cleanup zone clears only a macro the caller could have named.
+        if "`local'" != "" {
+            if ustrlen("`local'") > 31 {
+                display as error "local(): `local' is longer than 31 characters"
+                exit 198
+            }
+            local _set_local "`local'"
+        }
+        if "`global'" != "" {
+            if substr("`global'", 1, 1) == "_" {
+                display as error "global(): a global macro name may not begin with an underscore"
+                exit 198
+            }
+            local _set_global "`global'"
+        }
 
         **# Source capture first: r() and e() belong to the caller until the
         * first rclass call below.
@@ -73,6 +118,22 @@ program define tabcell, rclass
             }
         }
         local _gen = ("`generate'" != "")
+        if `_gen' & "`local'`global'" != "" {
+            display as error "local() and global() store one cell; with generate() the cells are a variable"
+            exit 198
+        }
+        local ci = strtrim(lower(`"`ci'"'))
+        if `"`ci'"' != "" {
+            if "`form'" != "np" {
+                display as error "ci() belongs to tabcell np"
+                exit 198
+            }
+            if `"`ci'"' != "exact" {
+                display as error `"ci(): "`ci'" is not supported; the interval is ci(exact) (Clopper-Pearson)"'
+                exit 198
+            }
+            if !`_level_given' local level = c(level)
+        }
         if `_gen' & "`form'" == "est" & `"`b'"' == "" {
             display as error "tabcell est, generate() takes its numbers from b() with ll()/ul() or se()"
             exit 198
@@ -272,12 +333,12 @@ program define tabcell, rclass
         local _not_est ""
         if "`form'" != "est" {
             if "`eform'" != "" local _not_est "`_not_est' eform"
-            if `_level_given' local _not_est "`_not_est' level()"
+            if `_level_given' & `"`ci'"' == "" local _not_est "`_not_est' level()"
             if `"`b'`ll'`ul'`se'"' != "" local _not_est "`_not_est' b()/ll()/ul()/se()"
         }
         if !inlist("`form'", "est", "iqr") {
             if `"`format'"' != "" local _not_est "`_not_est' format()"
-            if `"`sep'"' != "" local _not_est "`_not_est' sep()"
+            if `"`sep'"' != "" & `"`ci'"' == "" local _not_est "`_not_est' sep()"
         }
         if "`form'" != "p" & (`pdp' != 3 | `highpdp' != 2 | `"`p'`pstyle'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()/pstyle()"
         if !inlist("`form'", "n", "np", "enp") {
@@ -301,11 +362,12 @@ program define tabcell, rclass
             display as error "tabcell p requires p()"
             exit 198
         }
-        * pstyle(footnote): p = 0.012, p < 0.001, p > 0.99 (prose); the
+        * pstyle(footnote): p = 0.012, p < 0.001, p > 0.99 (prose);
+        * pstyle(Pfootnote): the same with a capital P (P = 0.012); the
         * default, table, is the bare regtab text
         local pstyle = strtrim(lower(`"`pstyle'"'))
-        if !inlist(`"`pstyle'"', "", "table", "footnote") {
-            display as error "pstyle() must be table or footnote"
+        if !inlist(`"`pstyle'"', "", "table", "footnote", "pfootnote") {
+            display as error "pstyle() must be table, footnote, or Pfootnote"
             exit 198
         }
         if "`pstyle'" == "" local pstyle "table"
@@ -364,9 +426,16 @@ program define tabcell, rclass
         if `_hasmiss' {
             * one layer of simple or compound quotes is removed; unquoted
             * text is taken whole
+            * The text is data: copied, never re-expanded. A one-line
+            * "if ... local missing `"`macval(_m1)'"'" re-expanded it, so a
+            * $name in missing() printed the global's value.
             gettoken _m1 _m2 : missing, qed(_mq)
-            if `_mq' & strtrim(`"`macval(_m2)'"') == "" local missing `"`macval(_m1)'"'
-            else local missing = strtrim(`"`macval(missing)'"')
+            if `_mq' & strtrim(`"`macval(_m2)'"') == "" {
+                local missing : copy local _m1
+            }
+            else {
+                mata: st_local("missing", strtrim(st_local("missing")))
+            }
         }
 
         **# The numbers, as named expressions
@@ -427,7 +496,8 @@ program define tabcell, rclass
             _tabcell_render `form' `_vlist', touse(`touse') generate(`_out') ///
                 fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
                 hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
-                nformat(`nformat') pformat(`pformat') mincell(`mincell')
+                nformat(`nformat') pformat(`pformat') mincell(`mincell') ///
+                ci(`ci') level(`level')
             local _N = r(N)
             local _N_missing = r(N_missing)
             rename `_out' `generate'
@@ -514,14 +584,36 @@ program define tabcell, rclass
                 _tabcell_render `form' `_vlist', touse(touse) generate(cell) ///
                     fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
                     hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
-                    nformat(`nformat') pformat(`pformat') mincell(`mincell')
+                    nformat(`nformat') pformat(`pformat') mincell(`mincell') ///
+                    ci(`ci') level(`level') cilimits(`=cond("`ci'" != "", "cilb ciub cipct", "")')
                 local _isbad = r(N_missing)
                 mata: st_local("_cell", st_sdata(1, "cell"))
+                if "`ci'" != "" {
+                    scalar `_s1' = cilb[1]
+                    scalar `_s2' = ciub[1]
+                    scalar `_s3' = cipct[1]
+                }
             }
             display as result `"`macval(_cell)'"'
             return local cell `"`macval(_cell)'"'
             return local form "`form'"
             return scalar missing = `_isbad'
+            if "`ci'" != "" {
+                * the percentage and limits as printed (missing when the
+                * cell prints none: a 0 denominator, a masked or missing cell)
+                return scalar pct = `_s3'
+                return scalar lb = `_s1'
+                return scalar ub = `_s2'
+                return scalar level = `level'
+                return local citype "exact"
+            }
+            * copied, never re-expanded (a one-line if re-expands its command)
+            if "`local'" != "" {
+                c_local `local' : copy local _cell
+            }
+            if "`global'" != "" {
+                global `global' : copy local _cell
+            }
             if "`form'" == "est" {
                 return local source "`_src'"
                 return scalar estimate = `_s1'
@@ -548,6 +640,9 @@ program define tabcell, rclass
     }
     local rc = _rc
     if `_frame_made' capture frame drop `_cframe'
+    * a failed call clears the requested macro: never a stale cell
+    if `rc' & "`_set_local'" != "" c_local `_set_local'
+    if `rc' & "`_set_global'" != "" global `_set_global'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

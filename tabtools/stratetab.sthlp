@@ -32,7 +32,7 @@
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
 {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}
 {opt cf:ormat(%fmt)} {opt sep(string)} {opt small:cells(#)} {opt nosmall:cells} {opt mask:text(string)}
-{opt zero:exact} {opt zeroc:ells(dash|blank)}]
+{opt zero:exact} {opt zeroc:ells(dash|blank[, persontime])}]
 
 
 {marker description}{...}
@@ -146,10 +146,21 @@ example {cmd:masktext("–")}; the default is {cmd:<}#. It requires a
 small-cell threshold.
 
 {phang}
-{opt zerocells(dash|blank)} prints a cell with no events with {cmd:–}
+{opt zerocells(dash|blank[, persontime])} prints a cell with no events with {cmd:–}
 ({cmd:dash}) or nothing ({cmd:blank}) in place of its event count and its
-rate and interval; person-years are still shown. {cmd:r(rates)} keeps the
-numbers.
+rate and interval; person-years are still shown unless the suboption
+{cmd:persontime} is given, which withholds them the same way
+({cmd:zerocells(dash, persontime)} prints {cmd:–} in all three cells).
+{cmd:r(rates)} keeps the numbers.
+
+{pstd}
+A row with zero person-time ({cmd:_Y} = 0) has no computable rate. Its events,
+person-years, and rate cells (and, with {opt rateratio}, its rate ratio,
+including the {cmd:Ref.} of a reference row, which has no rate to compare
+with) are left empty in every output, it is counted in {cmd:r(N_nopt)}, and
+{cmd:r(rates)} holds a missing value for it. A row with events but zero
+person-time is refused (r(459)), and so is a table in which no row has
+person-time.
 
 {phang}
 {opt zeroexact} prints a zero-event cell whose source file carries no
@@ -366,6 +377,7 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
 {synopt:{cmd:r(ci_level)}}confidence level carried by the source intervals{p_end}
 {synopt:{cmd:r(smallcells)}}small-cell threshold applied (0 = none){p_end}
+{synopt:{cmd:r(N_nopt)}}cells with zero person-time (no rate; printed empty){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 

@@ -1,4 +1,4 @@
-*! _datacheck_intervals Version 1.9.1  2026/10/04
+*! _datacheck_intervals Version 1.9.2  2026/10/05
 *! datacheck intervals(): interval-file structure checked on its own sort
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

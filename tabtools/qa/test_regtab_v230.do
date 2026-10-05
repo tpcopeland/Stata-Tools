@@ -347,10 +347,14 @@ capture noisily {
     regtab, frame(_i2r, replace) models("Crude \ Adjusted") stats(n)
     frame _i2 {
         confirm string variable rowlabel
-        assert "`: variable label c1'" == "Crude, Coef."
-        assert "`: variable label c2'" == "Crude, 95% CI"
-        assert "`: variable label c3'" == "Crude, p-value"
-        assert "`: variable label c4'" == "Adjusted, Coef."
+        assert "`: variable label c1'" == "Coef."
+        assert "`: char c1[tabtools_header]'" == "Crude, Coef."
+        assert "`: variable label c2'" == "95% CI"
+        assert "`: char c2[tabtools_header]'" == "Crude, 95% CI"
+        assert "`: variable label c3'" == "p-value"
+        assert "`: char c3[tabtools_header]'" == "Crude, p-value"
+        assert "`: variable label c4'" == "Coef."
+        assert "`: char c4[tabtools_block]'" == "Adjusted"
         assert "`: char c4[tabtools_header]'" == "Adjusted, Coef."
         assert "`: char _dta[tabtools_layout]'" == "flat"
         capture confirm variable title
@@ -386,7 +390,7 @@ capture noisily {
     local hit_hdr = 0
     local hit_row = 0
     foreach v of varlist * {
-        quietly count if strtrim(`v') == "Adjusted, 95% CI"
+        quietly count if strtrim(`v') == "95% CI"
         if r(N) == 1 local hit_hdr = 1
     }
     assert `hit_hdr'
@@ -417,7 +421,8 @@ capture noisily {
     frame _i2c {
         unab vv : *
         assert "`vv'" == "rowlabel c1"
-        assert "`: variable label c1'" == "Model, OR 95% CI"
+        assert "`: variable label c1'" == "OR 95% CI"
+        assert "`: char c1[tabtools_header]'" == "Model, OR 95% CI"
     }
     capture regtab, frame(_i2d, flatt)
     assert _rc == 198

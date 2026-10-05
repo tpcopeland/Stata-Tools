@@ -167,13 +167,16 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
-    * 97 programs since 2.3.1 added six _regtab_* helpers;
+    * 108 programs since _regtab_cmdsets; 107 since _regtab_activeb; 106 since _regtab_collabels (transpose collabels()); 105
+    * since the regtab.ado split moved seven blocks of regtab
+    * into _regtab_* helpers and added _regtab_fvbase; 97 since 2.3.1 added
+    * six _regtab_* helpers;
     * 76 programs since 2.1.20 added _tabtools_companion_id; 75 since
     * 2.1.18 added _tabtools_xlsx_deferred_styles; 74 since
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=97 class_missing=0 wrapper_missing=0"
+        "PASS programs=108 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"
@@ -1610,20 +1613,44 @@ else {
 
     **# Verify Artifacts
     capture noisily {
-        local xlsx_files ///
-            demo_table1.xlsx ///
-            demo_desctab.xlsx ///
-            demo_regtab.xlsx ///
-            demo_regtab_models.xlsx ///
-            demo_comptab.xlsx ///
-            demo_effecttab.xlsx ///
-            demo_stratetab.xlsx ///
-            demo_corrtab.xlsx ///
-            demo_crosstab.xlsx ///
-            demo_survtab.xlsx ///
-            demo_hrcomptab.xlsx ///
-            demo_puttab.xlsx ///
-            demo_stacktab.xlsx
+        * The workbook inventory is what the demo run produced, checked three
+        * ways below: it must contain every workbook the demo documents
+        * (required_xlsx), equal the tracked inventory and content
+        * (compare_demo_tree.py), and match the README's stated counts.
+        * A hand-kept list and a literal sheet count went stale at 2.3.1:
+        * the demo gained demo_ratetab/outtab/tabcell.xlsx and new sheets
+        * (82 regenerated in the 13 listed workbooks, 102 in all 16) while
+        * this gate still listed 13 workbooks and pinned 77, so the gate
+        * was red on main from fe700833.
+        local required_xlsx ///
+            demo_table1.xlsx demo_desctab.xlsx demo_regtab.xlsx ///
+            demo_regtab_models.xlsx demo_comptab.xlsx demo_effecttab.xlsx ///
+            demo_stratetab.xlsx demo_corrtab.xlsx demo_crosstab.xlsx ///
+            demo_survtab.xlsx demo_hrcomptab.xlsx demo_puttab.xlsx ///
+            demo_stacktab.xlsx demo_ratetab.xlsx demo_outtab.xlsx ///
+            demo_tabcell.xlsx
+        local xlsx_files : dir "`demo_dir'" files "demo_*.xlsx"
+        local xlsx_files : list clean xlsx_files
+        local xlsx_files : list sort xlsx_files
+        local _xlsx_missing : list required_xlsx - xlsx_files
+        if "`_xlsx_missing'" != "" {
+            display as error "  demo did not produce: `_xlsx_missing'"
+        }
+        assert "`_xlsx_missing'" == ""
+        local n_workbooks : word count `xlsx_files'
+        local tracked_xlsx : dir "`tracked_demo_dir'" files "demo_*.xlsx"
+        local tracked_xlsx : list clean tracked_xlsx
+        local tracked_xlsx : list sort tracked_xlsx
+        if !`: list xlsx_files === tracked_xlsx' {
+            display as error "  regenerated workbooks: `xlsx_files'"
+            display as error "  tracked workbooks:     `tracked_xlsx'"
+        }
+        assert `: list xlsx_files === tracked_xlsx'
+        local tracked_sheets 0
+        foreach f of local tracked_xlsx {
+            quietly import excel using "`tracked_demo_dir'/`f'", describe
+            local tracked_sheets = `tracked_sheets' + r(N_worksheet)
+        }
 
         local actual_sheets 0
         confirm file "`checker'"
@@ -1665,15 +1692,16 @@ else {
             file close `widthfh'
             assert substr("`width_line'", 1, 4) == "PASS"
         }
-        * 80 -> 82 at 1.15.0. Commit 3c5f99c0 added a "Small Cells Binary"
-        * sheet to demo_table1.xlsx (13 -> 14) and demo_desctab.xlsx (8 -> 9)
-        * and left this literal and the README count at 80, so this gate was
-        * RED on main from that commit until it was noticed here. Keep the
-        * number literal: deriving it from the README would make the check
-        * vacuous, and it is the literal that caught the drift.
-        assert `actual_sheets' == 77
+        * The sheet count is not derived from the README (that would be
+        * vacuous) but from two independent sources that must agree: the
+        * regenerated workbooks and the tracked ones. The README must then
+        * state exactly that count; a demo that adds a sheet without the
+        * tracked assets and README following fails here, as 3c5f99c0
+        * (80 -> 82) and fe700833 (77 -> 102) would have.
+        display as text "  demo: `n_workbooks' workbooks, `actual_sheets' sheets regenerated, `tracked_sheets' tracked"
+        assert `actual_sheets' == `tracked_sheets'
         tempfile readme_hit
-        shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
+        shell grep -F "`n_workbooks' workbooks (`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
         tempname readmefh
         file open `readmefh' using "`readme_hit'", read text
         file read `readmefh' readme_line
@@ -1690,7 +1718,7 @@ else {
         * the specific mismatch (which workbook, which Markdown line, which PNG
         * geometry); without echoing them a failure here says only "rc=9" and
         * the staging tree is deleted before anyone can look at it.
-        if strpos(`"`demo_compare_line'"', "PASS 13 workbooks") != 1 {
+        if strpos(`"`demo_compare_line'"', "PASS `n_workbooks' workbooks") != 1 {
             display as error `"  demo comparison status: `demo_compare_line'"'
             local _dcl = 0
             file read `democmpfh' demo_compare_detail
@@ -1701,7 +1729,7 @@ else {
             }
         }
         file close `democmpfh'
-        assert strpos(`"`demo_compare_line'"', "PASS 13 workbooks") == 1
+        assert strpos(`"`demo_compare_line'"', "PASS `n_workbooks' workbooks") == 1
     }
     if _rc == 0 {
         display as result "  PASS: demo workbooks are readable, width-fit, and free of release text anomalies"
