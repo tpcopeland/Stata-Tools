@@ -1,4 +1,4 @@
-*! regtab Version 2.3.0  2026/10/05
+*! regtab Version 2.3.1  2026/10/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -75,7 +75,7 @@ capture noisily {
 	_tabtools_require_helpers
 
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
-	title(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
+	title(string) NOINTercept KEEPIntercept NOREeffects stats(string asis) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend ///
@@ -84,10 +84,28 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1) ///
 	CFormat(string) REFTop CELLNote(string asis) MINCount(integer -1) ///
-	TRANSpose EXPOSURELabel(string)]
+	TRANSpose EXPOSURELabel(string) CILabel(string) PLabel(string) ///
+	ADDCol(string asis) STATLabels(string asis)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
+* Session destinations (tabtools set workbook/markdown) apply only when
+* sheet() asks for a sheet; an explicit option wins. The same rule as corrtab,
+* crosstab, desctab, and puttab. The first write to the session workbook
+* erases it: _tabtools_xlsx_write runs _tabtools_set_sinks xlsxstart on its
+* target, and the Markdown writer clears its own flag.
+if `"`macval(sheet)'"' != "" {
+	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+	local xlsx `"`_ss_xlsx'"'
+	local markdown `"`_ss_md'"'
+	local mdappend "`_ss_mdappend'"
+	if `"`xlsx'"' == "" {
+		display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
+	}
+}
+
+* stats() e(name) items and statlabels(): see _regtab_statspec
+_regtab_statspec `"`macval(stats)'"' `"`macval(statlabels)'"' `"`macval(exposurelabel)'"'
 local _user_coef_spec = ("`coef'" != "")
 local _user_noint_spec = ("`nointercept'" != "")
 
@@ -146,85 +164,8 @@ if `pdp' == -1 local pdp = 3
 if `highpdp' == -1 local highpdp = 2
 	local _show_pvalues = ("`nopvalue'" == "")
 
-	local _eplotframe_name ""
-	local _eplotframe_replace 0
-		if `"`eplotframe'"' != "" {
-	    local _ep_spec = subinstr(strtrim(`"`eplotframe'"'), char(34), "", .)
-	    gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
-	    local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
-	    if `"`_eplotframe_name'"' == "" {
-	        noisily display as error "eplotframe() requires a frame name"
-	        exit 198
-	    }
-	    capture confirm name `_eplotframe_name'
-	    if _rc {
-	        noisily display as error "eplotframe() must start with a valid Stata frame name"
-	        exit 198
-	    }
-	    local _ep_rest : subinstr local _ep_rest "," "", all
-	    local _ep_rest = lower(strtrim(`"`_ep_rest'"'))
-	    if `"`_ep_rest'"' != "" {
-	        if `"`_ep_rest'"' == "replace" {
-	            local _eplotframe_replace 1
-	        }
-	        else {
-	            noisily display as error "eplotframe() only allows the replace suboption"
-	            exit 198
-	        }
-		    }
-		}
-		local _displayframe_name ""
-		local _displayframe_replace 0
-		local _displayframe_flat 0
-		if `"`frame'"' != "" {
-			local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
-			gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
-			local _displayframe_name = strtrim(`"`_displayframe_name'"')
-			local _fr_rest : subinstr local _fr_rest "," "", all
-			local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
-			capture confirm name `_displayframe_name'
-			if _rc {
-				noisily display as error "frame() must start with a valid Stata frame name"
-				exit 198
-			}
-			* Suboptions replace and flat, in any order. flat writes one row
-			* per body line with the printed headers as variable labels.
-			foreach _fr_w of local _fr_rest {
-				if `"`_fr_w'"' == "replace" local _displayframe_replace 1
-				else if `"`_fr_w'"' == "flat" local _displayframe_flat 1
-				else {
-					noisily display as error "frame() only allows the replace and flat suboptions"
-					exit 198
-				}
-			}
-		}
-		if `"`_displayframe_name'"' != "" & ///
-			`"`_eplotframe_name'"' != "" & ///
-			`"`_displayframe_name'"' == `"`_eplotframe_name'"' {
-			noisily display as error "frame() and eplotframe() must name different frames"
-			exit 198
-		}
-		foreach _dest in _displayframe_name _eplotframe_name {
-			if `"``_dest''"' != "" & ///
-				`"``_dest''"' == `"`c(frame)'"' {
-				noisily display as error "output frames cannot replace the current frame"
-				exit 198
-			}
-		}
-		if `"`_displayframe_name'"' != "" {
-			capture confirm frame `_displayframe_name'
-			if !_rc & !`_displayframe_replace' {
-				noisily display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
-				exit 110
-			}
-		}
-		if `"`_eplotframe_name'"' != "" {
-			capture confirm frame `_eplotframe_name'
-			if !_rc & !`_eplotframe_replace' {
-				noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
-				exit 110
-			}
-		}
+	* frame() and eplotframe() suboptions and target checks: _regtab_frameopts
+	_regtab_frameopts `"`eplotframe'"' `"`frame'"'
 
 		* Stage both frame sinks under temporary names. Caller-visible targets are
 		* swapped only after every requested file export has succeeded.
@@ -407,6 +348,11 @@ quietly{
 	local _ci_level_num = r(level)
 	local _ci_level = strtrim(string(`_ci_level_num', "%21.15g"))
 	local _ci_found = r(found)
+	* cilabel()/plabel(): the interval and p-value header text. Each replaces
+	* the default text verbatim in every layout and sink; the parentheses a
+	* transposed header puts around the interval label stay.
+	if `"`macval(cilabel)'"' == "" local cilabel "`_ci_level'% CI"
+	if `"`macval(plabel)'"' == "" local plabel "p-value"
 
     * Validation: Check xlsx if specified
     if `_has_xlsx' {
@@ -440,7 +386,8 @@ quietly{
     if `_tp' {
         foreach _tpo in addrow dimnonsig {
             if `"``_tpo''"' != "" {
-                noisily display as error "transpose cannot be combined with `_tpo'"
+                noisily display as error "transpose cannot be combined with `_tpo'" ///
+                    cond("`_tpo'" == "addrow", "(); use addcol() to add a column to a transposed table", "")
                 exit 198
             }
         }
@@ -448,6 +395,10 @@ quietly{
             noisily display as error "transpose cannot be combined with highlight() or boldp()"
             exit 198
         }
+    }
+    else if `"`addcol'"' != "" {
+        noisily display as error "addcol() requires transpose; use addrow() to add a row"
+        exit 198
     }
     if `"`exposurelabel'"' != "" & !strpos(" " + strlower("`stats'") + " ", " exposure ") {
         noisily display as error "exposurelabel() requires stats(exposure)"
@@ -762,44 +713,7 @@ quietly{
     * cellnote("row label" model# "text" [\ ...]): parsed now, so a malformed
     * specification is refused before any rendering; rows are matched later.
     local _cn_n = 0
-    if `"`cellnote'"' != "" {
-        local _cn_rest `"`cellnote'"'
-        while `"`_cn_rest'"' != "" {
-            gettoken _cn_lab _cn_rest : _cn_rest
-            gettoken _cn_m _cn_rest : _cn_rest
-            * the text is required; "" is a deliberate blank, a missing
-            * token (end of spec or the next \) is an error
-            local _cn_rest = strtrim(`"`_cn_rest'"')
-            local _cn_notxt = (`"`_cn_rest'"' == "" | substr(`"`_cn_rest'"', 1, 2) == "\ " | `"`_cn_rest'"' == "\")
-            gettoken _cn_txt _cn_rest : _cn_rest
-            capture confirm integer number `_cn_m'
-            local _cn_bad = _rc | `_cn_notxt'
-            if !`_cn_bad' {
-                if `_cn_m' < 1 local _cn_bad = 1
-            }
-            if `_cn_bad' | `"`_cn_lab'"' == "" {
-                noisily display as error `"cellnote() expects "row label" model# "text" [\ ...]"'
-                exit 198
-            }
-            local ++_cn_n
-            local _cn_lab_`_cn_n' `"`_cn_lab'"'
-            local _cn_m_`_cn_n' = `_cn_m'
-            local _cn_txt_`_cn_n' `"`_cn_txt'"'
-            local _cn_rest = strtrim(`"`_cn_rest'"')
-            if `"`_cn_rest'"' != "" {
-                gettoken _cn_bs _cn_rest : _cn_rest
-                if `"`_cn_bs'"' != "\" {
-                    noisily display as error `"cellnote(): separate specifications with \ (got `_cn_bs')"'
-                    exit 198
-                }
-                local _cn_rest = strtrim(`"`_cn_rest'"')
-                if `"`_cn_rest'"' == "" {
-                    noisily display as error "cellnote(): nothing follows the last separator"
-                    exit 198
-                }
-            }
-        }
-    }
+    if `"`cellnote'"' != "" _regtab_cellnote `"`cellnote'"'
 
     * =========================================================================
     * FIT-TIME PER-TERM COUNTS (tabtools fitcount, terms) FOR MINCOUNT()
@@ -976,7 +890,7 @@ quietly{
     * These may get cleared during processing, so capture them now
 
     local add_stats = 0
-    if "`stats'" != "" {
+    if "`stats'" != "" | `_cst_n' > 0 {
         local add_stats = 1
 
         * Parse requested statistics
@@ -1493,6 +1407,15 @@ quietly{
                     "Could not recover requested ICC components from the active collection"
                 exit 459
             }
+        }
+
+        * Generic e(name) items: see _regtab_estats
+        if `_cst_n' > 0 {
+            local _cst_names ""
+            forvalues _k = 1/`_cst_n' {
+                local _cst_names "`_cst_names' `_cst_nm_`_k''"
+            }
+            _regtab_estats `=max(`_meta_models', 1)' `_cst_names'
         }
     }
 
@@ -2713,6 +2636,15 @@ if !`_user_coef_spec' & "`cdisc'" == "" & `_meta_models' > 0 {
         replace c`_hdr_col' = `"`model_coef_`_hdr_m''"' if _n == 2
     }
 }
+* cilabel()/plabel(): the interval and p-value headers of every model. Every
+* sink (console, Excel, CSV, Markdown, frame(), flat frame) reads row 2, and
+* compact joins the estimate header to this interval header.
+forvalues _hdr_col = 1(3)`n' {
+    capture confirm variable c`=`_hdr_col'+1'
+    if !_rc quietly replace c`=`_hdr_col'+1' = `"`macval(cilabel)'"' in 2
+    capture confirm variable c`=`_hdr_col'+2'
+    if !_rc quietly replace c`=`_hdr_col'+2' = `"`macval(plabel)'"' in 2
+}
 
 * Apply collect-style factor parent and child labels captured before rendering.
 * Parent rows keep the variable label flush-left; child levels are indented.
@@ -2856,9 +2788,30 @@ if `_omit_ok' {
         if inlist(_omit_type`_model_ix', "base", "omit", "empty") ///
         & strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
 }
-replace _constraint`_model_ix' = "base" if _constraint`_model_ix' == "" ///
+* Without a class, a constrained level is known only by its cells: an empty CI
+* AND an empty p-value. An estimated level whose interval bound is missing (a
+* near-separated fit prints "(0, .)") still has a p-value. Such a level is the
+* base (or a dropped level) only when collect holds the constrained value
+* itself: 0 on the coefficient scale, 1 when collect holds a ratio. A factor
+* level the model did estimate but whose variance is zero or missing (stcox
+* after separation: b = 39.8, se = 0) has blank CI and p too; it is not the
+* reference and is shown as not estimable, by emptylabel().
+* Without per-model metadata the scale collect holds is unknown: 0 or 1.
+local _base_cond "inlist(c`i'z, 0, 1)"
+if `_model_ix' <= `_meta_models' {
+	local _base_val = cond(`_needs_eform', 0, `model_null_`_model_ix'')
+	local _base_cond "c`i'z == `_base_val'"
+}
+gen byte _unclassed = _constraint`_model_ix' == "" ///
     & _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" ///
     & strtrim(c`=`i'+2') == "" & _n >= 3
+if `_omit_ok' {
+	replace _unclassed = 0 if !inlist(_omit_type`_model_ix', "", "mixed")
+}
+replace _constraint`_model_ix' = "base" if _unclassed ///
+    & ((`_base_cond') | missing(c`i'z))
+replace _constraint`_model_ix' = "empty" if _unclassed ///
+    & !(`_base_cond') & !missing(c`i'z)
 if `_omit_ok' {
 	replace c`i' = `"`refcat'"' if _omit_type`_model_ix' == "base" ///
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
@@ -2866,17 +2819,10 @@ if `_omit_ok' {
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
 	replace c`i' = `"`emptylabel'"' if _omit_type`_model_ix' == "empty" ///
 		& strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
-	* Without a class, a constrained level is known only by its cells: an
-	* empty CI AND an empty p-value. An estimated level whose interval bound
-	* is missing (a near-separated fit prints "(0, .)") still has a p-value.
-	replace c`i' = `"`refcat'"' if inlist(_omit_type`_model_ix', "", "mixed") ///
-		& _is_base_level & strtrim(c`i') != "" & c`=`i'+1' == "" ///
-		& strtrim(c`=`i'+2') == "" & _n >= 3
 }
-else {
-	replace c`i' = `"`refcat'"' if _is_base_level & strtrim(c`i') != "" ///
-		& c`=`i'+1' == "" & strtrim(c`=`i'+2') == "" & _n >= 3
-}
+replace c`i' = `"`refcat'"' if _unclassed & _constraint`_model_ix' == "base"
+replace c`i' = `"`emptylabel'"' if _unclassed & _constraint`_model_ix' == "empty"
+drop _unclassed
 gen byte _b_had = !missing(c`i'z)
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
@@ -3443,6 +3389,11 @@ if `add_stats' == 1 {
     local _nr_fmt_F "%9.2f"
     local _nr_lab_fmi "Largest FMI"
     local _nr_fmt_fmi "%6.4f"
+    * statlabels(): a row label the user gave replaces the default
+    foreach _nt in obs events people mi_m r2_a rmse fmi {
+        if `"`macval(_stl_`_nt')'"' != "" local _nr_lab_`_nt' `"`macval(_stl_`_nt')'"'
+    }
+    if `"`macval(_stl_f)'"' != "" local _nr_lab_F `"`macval(_stl_f)'"'
 
     * Add N row
     if `want_n' == 1 {
@@ -3454,6 +3405,7 @@ if `add_stats' == 1 {
             local curr_n = _N
             set obs `=`curr_n'+1'
             local _n_label = cond(`_any_N_sub', "Subjects", "Observations")
+            if `"`macval(_stl_n)'"' != "" local _n_label `"`macval(_stl_n)'"'
             replace A = `"`_n_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if !missing(`stat_N_`m'') {
@@ -3494,7 +3446,9 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "Groups" in `=`curr_n'+1'
+            local _grp_label "Groups"
+            if `"`macval(_stl_groups)'"' != "" local _grp_label `"`macval(_stl_groups)'"'
+            replace A = `"`_grp_label'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if !missing(`stat_groups_`m'') {
                     local col = (`m' - 1) * 3 + 1
@@ -3542,7 +3496,10 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = `"`_aic_label'"' in `=`curr_n'+1'
+            local _aic_shown `"`_aic_label'"'
+            if "`_aic_label'" == "AIC" & `"`macval(_stl_aic)'"' != "" local _aic_shown `"`macval(_stl_aic)'"'
+            if "`_aic_label'" == "QICu" & `"`macval(_stl_qic)'"' != "" local _aic_shown `"`macval(_stl_qic)'"'
+            replace A = `"`_aic_shown'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if "`_aic_label'" == "AIC" {
                     if !missing(`stat_aic_`m'') {
@@ -3571,7 +3528,9 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "QICu" in `=`curr_n'+1'
+            local _qic_shown "QICu"
+            if `"`macval(_stl_qic)'"' != "" local _qic_shown `"`macval(_stl_qic)'"'
+            replace A = `"`_qic_shown'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if !missing(`stat_qic_`m'') {
                     local col = (`m' - 1) * 3 + 1
@@ -3591,7 +3550,9 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "BIC" in `=`curr_n'+1'
+            local _bic_shown "BIC"
+            if `"`macval(_stl_bic)'"' != "" local _bic_shown `"`macval(_stl_bic)'"'
+            replace A = `"`_bic_shown'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if !missing(`stat_bic_`m'') {
                     local col = (`m' - 1) * 3 + 1
@@ -3611,7 +3572,9 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "Log-likelihood" in `=`curr_n'+1'
+            local _ll_shown "Log-likelihood"
+            if `"`macval(_stl_ll)'"' != "" local _ll_shown `"`macval(_stl_ll)'"'
+            replace A = `"`_ll_shown'"' in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if !missing(`stat_ll_`m'') {
                     local col = (`m' - 1) * 3 + 1
@@ -3632,7 +3595,9 @@ if `add_stats' == 1 {
         if `has_icc' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "ICC" in `=`curr_n'+1'
+            local _icc_shown "ICC"
+            if `"`macval(_stl_icc)'"' != "" local _icc_shown `"`macval(_stl_icc)'"'
+            replace A = `"`_icc_shown'"' in `=`curr_n'+1'
             forvalues m = 1/`use_icc_models' {
                 if !missing(`stat_icc_`m'') {
                     local col = (`m' - 1) * 3 + 1
@@ -3663,6 +3628,7 @@ if `add_stats' == 1 {
             }
             if !`_any_r2' & `_any_pseudo_r2' local r2_label "Pseudo R²"
             else if `_any_r2' & `_any_pseudo_r2' local r2_label "R² / Pseudo R²"
+            if `"`macval(_stl_r2)'"' != "" local r2_label `"`macval(_stl_r2)'"'
 
             local curr_n = _N
             set obs `=`curr_n'+1'
@@ -3700,6 +3666,22 @@ if `add_stats' == 1 {
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
     }
 
+    * Generic e(name) rows, in the order given: integers with thousands
+    * separators, other values to three decimals; blank where a model lacks it.
+    forvalues _k = 1/`_cst_n' {
+        local curr_n = _N
+        set obs `=`curr_n'+1'
+        replace A = `"`macval(_cst_lb_`_k')'"' in `=`curr_n'+1'
+        local _cst_fmt = cond(`_cst_int_`_k'', "%12.0fc", "%12.3f")
+        forvalues m = 1/`=min(`n_models', max(`_meta_models', 1))' {
+            if !missing(`_cstv_`_k'_`m'') {
+                local col = (`m' - 1) * 3 + 1
+                replace c`col' = strtrim(string(`_cstv_`_k'_`m'', "`_cst_fmt'")) in `=`curr_n'+1'
+            }
+        }
+        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    }
+
     local stats_rows = strtrim("`stats_rows'")
 }
 
@@ -3718,7 +3700,7 @@ if `_tp' {
     forvalues _j = 1/`n' {
         local _tp_cvars "`_tp_cvars' c`_j'"
     }
-    local _tp_hdr `"`coef' (`_ci_level'% CI)"'
+    local _tp_hdr `"`coef' (`macval(cilabel)')"'
     mata: _tp_S = st_sdata(., ("A", tokens(st_local("_tp_cvars"))))
     mata: _tp_L = st_sdata(., "_tp_lab")
     mata: _tp_ix = 2 :+ ((0::`_tp_nm1') :* 3)
@@ -3733,7 +3715,7 @@ if `_tp' {
         mata: _tp_c = strtrim(_tp_S[`_rr', (_tp_ix :+ 1)']')
         mata: _tp_O = _tp_O, (_tp_L[`_rr'] \ st_local("_tp_hdr") \ (_tp_e :+ (" " :* (_tp_c :!= "")) :+ _tp_c))
         if `_show_pvalues' {
-            mata: _tp_O = _tp_O, (_tp_L[`_rr'] \ "p-value" \ strtrim(_tp_S[`_rr', (_tp_ix :+ 2)']'))
+            mata: _tp_O = _tp_O, (_tp_L[`_rr'] \ st_local("plabel") \ strtrim(_tp_S[`_rr', (_tp_ix :+ 2)']'))
         }
     }
     mata: _tp_A = ("" \ "" \ strtrim(_tp_S[1, _tp_ix']'))
@@ -3773,6 +3755,11 @@ local addrow_rows = ""
 if `"`addrow'"' != "" {
     * Split on backslash to get individual rows
     local _ar_rest `"`addrow'"'
+    * A specification wrapped whole in one more layer of quotes (addrow(`"`spec'"')
+    * from a program) is unwrapped: it used to become one row labelled with
+    * the whole specification.
+    _regtab_unwrap `"`_ar_rest'"'
+    local _ar_rest `"`_uw_spec'"'
     while `"`_ar_rest'"' != "" {
         * Split on backslash using string position (gettoken + parse
         * breaks quoted strings — it returns "P trend" as a separate
@@ -3813,6 +3800,21 @@ if `"`addrow'"' != "" {
         local addrow_rows = "`addrow_rows' `=`curr_n'+1'"
     }
     local addrow_rows = strtrim("`addrow_rows'")
+}
+
+* =========================================================================
+* ADD CUSTOM COLUMNS (addcol option, transposed layout)
+* =========================================================================
+* addcol("label" val1 val2 ... [\ ...]): addrow()'s specification for a
+* transposed table, one column per specification after the last column, the
+* label as its header and the values given to the models (rows) in order.
+if `"`addcol'"' != "" & `_tp' {
+    _regtab_addcol `n' `n_models' `"`addcol'"'
+    forvalues _j = `=`n' + 1'/`_ac_n' {
+        local _constraint_rows_`_j' ""
+    }
+    local _n_blocks = `_n_blocks' + `_ac_n' - `n'
+    local n = `_ac_n'
 }
 
 gen id = _n
@@ -4067,6 +4069,15 @@ if `add_stats' == 1 {
         if `want_groups' & !missing(`stat_groups_`m'')    return scalar groups_`m' = `stat_groups_`m''
         foreach _nt in obs events people exposure mi_m r2_a rmse F fmi {
             if `want_`_nt'' & !missing(`stat_`_nt'_`m'') return scalar `_nt'_`m' = `stat_`_nt'_`m''
+        }
+    }
+    * generic e(name) items as r(e_<name>_<model>), when that name fits
+    forvalues _k = 1/`_cst_n' {
+        forvalues m = 1/`=min(`n_models', max(`_meta_models', 1))' {
+            local _cst_rn "e_`_cst_nm_`_k''_`m'"
+            if strlen("`_cst_rn'") <= 32 & !missing(`_cstv_`_k'_`m'') {
+                return scalar `_cst_rn' = `_cstv_`_k'_`m''
+            }
         }
     }
     if `want_icc' {
@@ -5340,6 +5351,451 @@ program define _regtab_scale, nclass
 		c_local _rs_noint `_i'
 		c_local _rs_known `_k'
 		c_local _rs_level `_lv'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_unwrap: one extra quote layer around a whole specification
+* =============================================================================
+* Usage: _regtab_unwrap `"<spec>"'
+* Returns _uw_spec in the caller: <spec> itself, or, when <spec> is a single
+* quoted token whose content starts with a quote (addrow(`"`spec'"') written
+* by a program around "label" ...), that content.
+capture program drop _regtab_unwrap
+program define _regtab_unwrap, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken _spec 0 : 0
+	capture noisily {
+		gettoken _t _r2 : _spec, quotes
+		if `"`_r2'"' == "" {
+			gettoken _in : _spec
+			local _in = strtrim(`"`_in'"')
+			if substr(`"`_in'"', 1, 1) == char(34) | ///
+				substr(`"`_in'"', 1, 2) == char(96) + char(34) local _spec `"`_in'"'
+		}
+	}
+	local _rc = _rc
+	c_local _uw_spec `"`_spec'"'
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_statspec: parse stats() e(name) items and statlabels()
+* =============================================================================
+* Usage: _regtab_statspec `"<stats>"' `"<statlabels>"' `"<exposurelabel>"'
+* stats(): generic items e(name) or e(name)="label" (also =`"label"') are
+* taken out of stats(), before any code reads stats() as plain words; each
+* becomes its own row, in the order given, after the built-in rows.
+* statlabels(): key "label" pairs relabelling built-in stats() rows.
+* Returns in the caller: stats (the built-in words), _cst_n, _cst_nm_#,
+* _cst_lb_#, _stl_<key> for every built-in key, and exposurelabel.
+capture program drop _regtab_statspec
+program define _regtab_statspec, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken stats 0 : 0
+	gettoken statlabels 0 : 0
+	gettoken exposurelabel 0 : 0
+	capture noisily {
+		* stats() and statlabels() are asis: a list quoted whole is unquoted
+		foreach _o in stats statlabels {
+			gettoken _t _r : `_o', quotes
+			if `"`_r'"' == "" gettoken `_o' : `_o'
+		}
+		local _cst_n = 0
+		local _cst_re "e\(([A-Za-z_][A-Za-z0-9_]*)\)(\s*=\s*(\x60\x22(.*?)\x22'|\x22([^\x22]*)\x22))?"
+		while ustrregexm(`"`macval(stats)'"', "`_cst_re'") {
+			local _cst_all = ustrregexs(0)
+			local _cst_nm = ustrregexs(1)
+			local _cst_lb = ustrregexs(4) + ustrregexs(5)
+			local stats = subinstr(`"`macval(stats)'"', `"`macval(_cst_all)'"', " ", 1)
+			if `"`macval(_cst_lb)'"' == "" local _cst_lb "`_cst_nm'"
+			forvalues _k = 1/`_cst_n' {
+				if "`_cst_nm_`_k''" == "`_cst_nm'" {
+					display as error "stats(): e(`_cst_nm') is requested more than once"
+					exit 198
+				}
+			}
+			local ++_cst_n
+			local _cst_nm_`_cst_n' "`_cst_nm'"
+			local _cst_lb_`_cst_n' `"`macval(_cst_lb)'"'
+		}
+		if ustrregexm(`"`macval(stats)'"', "[\x22\x60=()]") {
+			display as error `"stats(): could not read `macval(stats)'"'
+			display as error `"  give built-in statistics as words and others as e(name) or e(name)="label""'
+			exit 198
+		}
+		local stats = strtrim(`"`stats'"')
+
+		local _stl_keys "n obs events people exposure groups mi_m aic qic bic ll icc r2 r2_a rmse f fmi"
+		foreach _k of local _stl_keys {
+			local _stl_`_k' ""
+		}
+		if `"`macval(statlabels)'"' != "" {
+			local _stl_rest `"`macval(statlabels)'"'
+			local _stl_sl = " " + strlower("`stats'") + " "
+			foreach _al in n_sub subjects {
+				local _stl_sl : subinstr local _stl_sl " `_al' " " n ", all
+			}
+			local _stl_sl : subinstr local _stl_sl " r-squared " " r2 ", all
+			while `"`macval(_stl_rest)'"' != "" {
+				gettoken _stl_k _stl_rest : _stl_rest
+				local _stl_rest = strtrim(`"`macval(_stl_rest)'"')
+				if `"`macval(_stl_rest)'"' == "" {
+					display as error `"statlabels(): `_stl_k' has no label; give statlabels(stat "label" [stat "label" ...])"'
+					exit 198
+				}
+				gettoken _stl_l _stl_rest : _stl_rest
+				local _stl_k = strlower(`"`_stl_k'"')
+				local _stl_ok : list _stl_k in _stl_keys
+				if !`_stl_ok' {
+					display as error `"statlabels(): `_stl_k' is not a built-in statistic (`_stl_keys')"'
+					exit 198
+				}
+				if !strpos("`_stl_sl'", " `_stl_k' ") {
+					display as error `"statlabels(): `_stl_k' is not requested in stats()"'
+					exit 198
+				}
+				local _stl_`_stl_k' `"`macval(_stl_l)'"'
+				local _stl_rest = strtrim(`"`macval(_stl_rest)'"')
+			}
+			if `"`macval(_stl_exposure)'"' != "" & `"`macval(exposurelabel)'"' != "" {
+				display as error "exposurelabel() and statlabels(exposure ...) cannot both be specified"
+				exit 198
+			}
+			if `"`macval(_stl_exposure)'"' != "" local exposurelabel `"`macval(_stl_exposure)'"'
+		}
+		c_local stats `"`stats'"'
+		c_local exposurelabel `"`macval(exposurelabel)'"'
+		c_local _cst_n `_cst_n'
+		forvalues _k = 1/`_cst_n' {
+			c_local _cst_nm_`_k' "`_cst_nm_`_k''"
+			c_local _cst_lb_`_k' `"`macval(_cst_lb_`_k')'"'
+		}
+		foreach _k of local _stl_keys {
+			c_local _stl_`_k' `"`macval(_stl_`_k')'"'
+		}
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_cellnote: parse cellnote("row label" model# "text" [\ ...])
+* =============================================================================
+* Usage: _regtab_cellnote `"<cellnote>"'
+* Tokens are read quote-aware, so a label or text may hold spaces,
+* backslashes, and embedded quotes, and \ may touch its neighbours
+* ("a"\"b"), the forms addrow() takes. A specification wrapped whole in one
+* more layer of quotes is unwrapped first. Each specification is exactly three
+* tokens. Returns _cn_n, _cn_lab_#, _cn_m_#, _cn_txt_# in the caller.
+capture program drop _regtab_cellnote
+program define _regtab_cellnote, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken _cn_rest 0 : 0
+	capture noisily {
+		local _cn_n = 0
+		_regtab_unwrap `"`_cn_rest'"'
+		local _cn_rest `"`_uw_spec'"'
+		local _cn_k = 0
+		local _cn_more = 1
+		local _cn_msg `"cellnote() expects "row label" model# "text" [\ ...]"'
+		while `_cn_more' {
+			local _cn_rest = strtrim(`"`_cn_rest'"')
+			local _cn_tok ""
+			if `"`_cn_rest'"' != "" gettoken _cn_tok _cn_rest : _cn_rest, parse("\ ") quotes
+			local _cn_end = (`"`_cn_rest'"' == "" & `"`_cn_tok'"' != "\")
+			if `"`_cn_tok'"' != "\" & `"`_cn_tok'"' != "" {
+				local ++_cn_k
+				local _cn_tk_`_cn_k' `"`_cn_tok'"'
+				if !`_cn_end' continue
+			}
+			* a specification is complete: at a \ or at the end
+			if `_cn_k' != 3 {
+				display as error `"`_cn_msg'"'
+				exit 198
+			}
+			gettoken _cn_lab : _cn_tk_1
+			gettoken _cn_m : _cn_tk_2
+			gettoken _cn_txt : _cn_tk_3
+			capture confirm integer number `_cn_m'
+			local _cn_bad = _rc
+			if !`_cn_bad' {
+				if `_cn_m' < 1 local _cn_bad = 1
+			}
+			if `_cn_bad' | `"`_cn_lab'"' == "" {
+				display as error `"`_cn_msg'"'
+				exit 198
+			}
+			local ++_cn_n
+			c_local _cn_lab_`_cn_n' `"`_cn_lab'"'
+			c_local _cn_m_`_cn_n' `_cn_m'
+			c_local _cn_txt_`_cn_n' `"`_cn_txt'"'
+			local _cn_k = 0
+			if `_cn_end' local _cn_more = 0
+			else if strtrim(`"`_cn_rest'"') == "" {
+				display as error "cellnote(): nothing follows the last separator"
+				exit 198
+			}
+		}
+		c_local _cn_n `_cn_n'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_estats: generic stats() e(name) values from the collection
+* =============================================================================
+* Usage: _regtab_estats <models> <name> [<name> ...]
+* Read from the collection, never from the active e(). Models are matched by
+* their cmdset level, in the order collect lists the levels, so a model
+* without the scalar stays blank (missing). A name no collected model holds
+* is an error. Returns _cstv_<k>_<m> and _cst_int_<k> (1 when every value is
+* an integer) in the caller, k indexing the names as given.
+capture program drop _regtab_estats
+program define _regtab_estats, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken _nmod 0 : 0
+	local _names `0'
+	local _nn : word count `_names'
+	local _rl_n 0
+	local _rl_present ""
+	capture noisily {
+		forvalues _k = 1/`_nn' {
+			forvalues m = 1/`_nmod' {
+				local _v_`_k'_`m' = .
+			}
+		}
+		quietly collect levelsof cmdset
+		local _levels `"`s(levels)'"'
+		_regtab_rlabels `_names'
+		local _present "`_rl_present'"
+		if "`_present'" != "" {
+			quietly collect layout (cmdset) (result[`_present'])
+			preserve
+			_tabtools_collect_render, type(stats) rowdim(cmdset) results(`_present')
+			quietly ds A, not
+			local _vars `r(varlist)'
+			forvalues _k = 1/`_nn' {
+				local _nm : word `_k' of `_names'
+				local _col_`_k' ""
+				foreach v of local _vars {
+					if strtrim(`v'[1]) == "`_nm'" local _col_`_k' "`v'"
+				}
+			}
+			forvalues _r = 2/`=_N' {
+				local _lev = strtrim(A[`_r'])
+				local m : list posof "`_lev'" in _levels
+				if `m' < 1 | `m' > `_nmod' continue
+				forvalues _k = 1/`_nn' {
+					if "`_col_`_k''" == "" continue
+					local _x = real(subinstr(strtrim(`_col_`_k''[`_r']), ",", "", .))
+					if !missing(`_x') local _v_`_k'_`m' = `_x'
+				}
+			}
+			restore
+		}
+	}
+	local _rc = _rc
+	forvalues _rli = 1/`_rl_n' {
+		local _rlv : word `_rli' of `_rl_present'
+		capture quietly collect label levels result `_rlv' `"`macval(_rl_lbl_`_rli')'"', modify
+	}
+	if `_rc' {
+		display as error "stats(): could not read the e() statistics from the collection"
+	}
+	else {
+		forvalues _k = 1/`_nn' {
+			local _any = 0
+			local _int = 1
+			forvalues m = 1/`_nmod' {
+				c_local _cstv_`_k'_`m' `_v_`_k'_`m''
+				if !missing(`_v_`_k'_`m'') {
+					local _any = 1
+					if `_v_`_k'_`m'' != round(`_v_`_k'_`m'') local _int = 0
+				}
+			}
+			c_local _cst_int_`_k' `_int'
+			if !`_any' & !`_rc' {
+				local _nm : word `_k' of `_names'
+				display as error "stats(): e(`_nm') is not in any collected model"
+				local _rc = 111
+			}
+		}
+	}
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_addcol: addcol() columns of a transposed table
+* =============================================================================
+* Usage: _regtab_addcol <n> <models> `"<spec>"'
+* addcol("label" val1 val2 ... [\ ...]): addrow()'s specification for a
+* transposed table, one column per specification after column c<n>, the
+* label as its header (row 1) and the values given to the models (rows 3 on)
+* in order. Returns the new column count in _ac_n in the caller.
+capture program drop _regtab_addcol
+program define _regtab_addcol, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken n 0 : 0
+	gettoken n_models 0 : 0
+	gettoken _ac_rest 0 : 0
+	capture noisily {
+		_regtab_unwrap `"`_ac_rest'"'
+		local _ac_rest `"`_uw_spec'"'
+		while `"`_ac_rest'"' != "" {
+			local _bs_pos = strpos(`"`_ac_rest'"', "\")
+			if `_bs_pos' > 0 {
+				local _ac_chunk = substr(`"`_ac_rest'"', 1, `_bs_pos' - 1)
+				local _ac_rest = substr(`"`_ac_rest'"', `_bs_pos' + 1, .)
+			}
+			else {
+				local _ac_chunk `"`_ac_rest'"'
+				local _ac_rest ""
+			}
+			local _ac_chunk = strtrim(`"`_ac_chunk'"')
+			if `"`_ac_chunk'"' == "" continue
+			gettoken _ac_label _ac_vals : _ac_chunk
+			_tabtools_strip_outer_quotes, text(`"`_ac_label'"')
+			local _ac_label `"`r(text)'"'
+			local ++n
+			quietly generate str244 c`n' = ""
+			quietly replace c`n' = `"`_ac_label'"' in 1
+			local _ac_m = 0
+			local _ac_vals = strtrim(`"`_ac_vals'"')
+			while `"`_ac_vals'"' != "" {
+				gettoken _ac_v _ac_vals : _ac_vals
+				local ++_ac_m
+				if `_ac_m' > `n_models' {
+					display as error `"addcol(): "`_ac_label'" has more values than the `n_models' models"'
+					exit 198
+				}
+				quietly replace c`n' = `"`_ac_v'"' in `=2 + `_ac_m''
+			}
+		}
+		c_local _ac_n `n'
+	}
+	local _rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `_rc' exit `_rc'
+end
+
+* =============================================================================
+* _regtab_frameopts: parse and check frame() and eplotframe()
+* =============================================================================
+* Usage: _regtab_frameopts `"<eplotframe>"' `"<frame>"'
+* Returns _eplotframe_name, _eplotframe_replace, _displayframe_name,
+* _displayframe_replace, and _displayframe_flat in the caller.
+capture program drop _regtab_frameopts
+program define _regtab_frameopts, nclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	gettoken eplotframe 0 : 0
+	gettoken frame 0 : 0
+	capture noisily {
+
+	local _eplotframe_name ""
+	local _eplotframe_replace 0
+		if `"`eplotframe'"' != "" {
+	    local _ep_spec = subinstr(strtrim(`"`eplotframe'"'), char(34), "", .)
+	    gettoken _eplotframe_name _ep_rest : _ep_spec, parse(",")
+	    local _eplotframe_name = strtrim(`"`_eplotframe_name'"')
+	    if `"`_eplotframe_name'"' == "" {
+	        noisily display as error "eplotframe() requires a frame name"
+	        exit 198
+	    }
+	    capture confirm name `_eplotframe_name'
+	    if _rc {
+	        noisily display as error "eplotframe() must start with a valid Stata frame name"
+	        exit 198
+	    }
+	    local _ep_rest : subinstr local _ep_rest "," "", all
+	    local _ep_rest = lower(strtrim(`"`_ep_rest'"'))
+	    if `"`_ep_rest'"' != "" {
+	        if `"`_ep_rest'"' == "replace" {
+	            local _eplotframe_replace 1
+	        }
+	        else {
+	            noisily display as error "eplotframe() only allows the replace suboption"
+	            exit 198
+	        }
+		    }
+		}
+		local _displayframe_name ""
+		local _displayframe_replace 0
+		local _displayframe_flat 0
+		if `"`frame'"' != "" {
+			local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
+			gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
+			local _displayframe_name = strtrim(`"`_displayframe_name'"')
+			local _fr_rest : subinstr local _fr_rest "," "", all
+			local _fr_rest = lower(strtrim(`"`_fr_rest'"'))
+			capture confirm name `_displayframe_name'
+			if _rc {
+				noisily display as error "frame() must start with a valid Stata frame name"
+				exit 198
+			}
+			* Suboptions replace and flat, in any order. flat writes one row
+			* per body line with the printed headers as variable labels.
+			foreach _fr_w of local _fr_rest {
+				if `"`_fr_w'"' == "replace" local _displayframe_replace 1
+				else if `"`_fr_w'"' == "flat" local _displayframe_flat 1
+				else {
+					noisily display as error "frame() only allows the replace and flat suboptions"
+					exit 198
+				}
+			}
+		}
+		if `"`_displayframe_name'"' != "" & ///
+			`"`_eplotframe_name'"' != "" & ///
+			`"`_displayframe_name'"' == `"`_eplotframe_name'"' {
+			noisily display as error "frame() and eplotframe() must name different frames"
+			exit 198
+		}
+		foreach _dest in _displayframe_name _eplotframe_name {
+			if `"``_dest''"' != "" & ///
+				`"``_dest''"' == `"`c(frame)'"' {
+				noisily display as error "output frames cannot replace the current frame"
+				exit 198
+			}
+		}
+		if `"`_displayframe_name'"' != "" {
+			capture confirm frame `_displayframe_name'
+			if !_rc & !`_displayframe_replace' {
+				noisily display as error "frame `_displayframe_name' already exists; specify frame(`_displayframe_name', replace)"
+				exit 110
+			}
+		}
+		if `"`_eplotframe_name'"' != "" {
+			capture confirm frame `_eplotframe_name'
+			if !_rc & !`_eplotframe_replace' {
+				noisily display as error "frame `_eplotframe_name' already exists; specify eplotframe(`_eplotframe_name', replace)"
+				exit 110
+			}
+		}
+		c_local _eplotframe_name `"`_eplotframe_name'"'
+		c_local _eplotframe_replace `_eplotframe_replace'
+		c_local _displayframe_name `"`_displayframe_name'"'
+		c_local _displayframe_replace `_displayframe_replace'
+		c_local _displayframe_flat `_displayframe_flat'
 	}
 	local _rc = _rc
 	set varabbrev `_orig_varabbrev'

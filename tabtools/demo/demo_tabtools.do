@@ -16,20 +16,24 @@
                                          (gitignored; not a README source)
       Markdown report:
         3. demo_markdown_report.md    - sequential Markdown exports with mdappend
-      Per-command workbooks (13 xlsx files, 77 sheets total):
-        demo_table1.xlsx    (14 sheets) - table1_tc + explicit styles + small cells
-        demo_desctab.xlsx   (9 sheets)  - descriptive tables + small cells
-        demo_regtab.xlsx    (13 sheets) - regtab core/styling variants
+      Per-command workbooks (16 xlsx files, 102 sheets total):
+        demo_table1.xlsx    (16 sheets) - table1_tc + explicit styles + small cells
+        demo_desctab.xlsx   (10 sheets) - descriptive tables + small cells
+        demo_regtab.xlsx    (18 sheets) - regtab core/styling/2.3 layout variants
         demo_regtab_models.xlsx (10 sheets) - regtab model-family coverage
-        demo_comptab.xlsx    (5 sheets) - comptab + source frames
-        demo_effecttab.xlsx  (4 sheets) - effecttab ATE + margins
-        demo_stratetab.xlsx  (1 sheet)  - stratetab rates
+        demo_comptab.xlsx    (7 sheets) - comptab + source frames + flat frame
+        demo_effecttab.xlsx  (5 sheets) - effecttab ATE + margins + cformat
+        demo_stratetab.xlsx  (2 sheets) - stratetab rates + cformat
         demo_corrtab.xlsx    (3 sheets) - corrtab Pearson + Spearman
-        demo_crosstab.xlsx   (7 sheets) - crosstab variants + small cells
+        demo_crosstab.xlsx   (8 sheets) - crosstab variants + small cells
         demo_survtab.xlsx    (3 sheets) - survtab KM + RMST
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
-        demo_puttab.xlsx     (3 sheets) - puttab matrix/frame/data sources
-        demo_stacktab.xlsx (4 sheets) - puttab blocks + stacktab assembly
+        demo_puttab.xlsx     (6 sheets) - puttab sources + hlines/panels/spans
+        demo_stacktab.xlsx   (5 sheets) - puttab blocks + stacktab assembly + frames()
+        demo_ratetab.xlsx    (5 sheets) - ratetab rates + comptab rate/model composite
+        demo_outtab.xlsx     (2 sheets) - outtab binary outcomes by exposure
+        demo_tabcell.xlsx    (1 sheet)  - tabcell column cells, written to a
+                                          tabtools session workbook
 */
 
 version 17.0
@@ -114,6 +118,9 @@ local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
 local xlsx_puttab    "`pkg_dir'/demo_puttab.xlsx"
 local xlsx_stacktab "`pkg_dir'/demo_stacktab.xlsx"
+local xlsx_ratetab   "`pkg_dir'/demo_ratetab.xlsx"
+local xlsx_outtab    "`pkg_dir'/demo_outtab.xlsx"
+local xlsx_tabcell   "`pkg_dir'/demo_tabcell.xlsx"
 local markdown_report "`pkg_dir'/demo_markdown_report.md"
 local markdown_report_export "`pkg_ref'/demo_markdown_report.md"
 local console_log    "`pkg_dir'/console_output.log"
@@ -123,7 +130,7 @@ local do_main = 1
 
 * Erase prior demo artifacts before regenerating the full documentation set.
 if `do_main' {
-    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab {
+    foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
         capture erase "`xlsx_`_f''"
     }
     capture erase "`pkg_dir'/demo_tabtools.xlsx"
@@ -142,6 +149,13 @@ merge 1:1 id using `repo_root'/_data/outcomes.dta, nogen keep(master match)
 foreach v in diabetes hypertension anxiety prior_cvd {
     replace `v' = 0 if missing(`v')
 }
+
+* Confound treatment: the fixture's treated is independent of the covariates,
+* so crude and adjusted ratios would agree. Redraw it from age, sex, diabetes,
+* and hypertension (the latter two predict the outcomes), keeping ~40% treated.
+set seed 20261005
+replace treated = runiform() < invlogit(-2.4 + 0.05 * (index_age - 58) ///
+    - 0.3 * female + 2.2 * diabetes + 2.0 * hypertension)
 
 * Derive binary outcome
 gen byte cv_event = (cv_event_date < .)
@@ -189,6 +203,14 @@ replace smoking = 2 if missing(smoking) & runiform() < 0.60
 label variable smoking "Smoking status"
 label define smoke_lbl 0 "Never" 1 "Former" 2 "Current", replace
 label values smoking smoke_lbl
+
+* Binary indicators for the other outcomes -- for the outtab demo
+foreach _o in selfharm fracture gi_bleed {
+    gen byte `_o' = (`_o'_date < .)
+}
+label variable selfharm "Self-harm"
+label variable fracture "Fracture"
+label variable gi_bleed "GI bleeding"
 
 * Save working dataset
 tempfile analysis
@@ -471,6 +493,139 @@ noisily desctab rare_ae, by(group) vars(rare_ae bin) ///
 
 log off demo
 restore
+
+**# Console: smallcells(#, primary) and cellreplace()
+* Same 2/8/6/4 table as the complementary example above: primary mode masks
+* the printed counts below 5 only and adds no complementary cells.
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 8
+1 0 6
+1 1 4
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+log on demo
+
+* ## Primary-only suppression: table1_tc smallcells(5, primary)
+noisily table1_tc category, by(group) vars(category cat) ///
+    total(after) smallcells(5, primary)
+
+log off demo
+restore
+
+use `analysis', clear
+log on demo
+
+* ## cellreplace(): overwrite one structurally non-reportable cell
+noisily table1_tc, by(treated) vars(education cat \ civil_status cat) ///
+    cellreplace("Widowed" "SNRI" "Not reported")
+
+log off demo
+
+**# Console: tabtools session settings
+log on demo
+
+* # Session destinations and defaults
+noisily tabtools set smallcells 5 primary
+noisily tabtools query
+noisily tabtools set smallcells clear
+
+log off demo
+
+**# Console: tabcell single cells
+use `analysis', clear
+quietly logistic cv_event treated index_age female
+
+log on demo
+
+* # tabcell: one publication cell at a time
+noisily tabcell est treated, eform
+noisily tabcell est treated, eform format(%5.3f) sep(" to ")
+quietly lincom treated + female
+noisily tabcell est, lincom
+noisily tabcell p, p(0.0004)
+noisily tabcell np, n(3) d(40) mincell(5)
+noisily tabcell enp, e(2149) n(6066)
+quietly summarize follow_up, detail
+noisily tabcell iqr, median(`r(p50)') q1(`r(p25)') q3(`r(p75)') format(%6.0fc)
+
+log off demo
+
+**# Console: ratetab incidence rates
+use `analysis', clear
+quietly stset follow_up, failure(cv_event) scale(365.25) id(id)
+
+log on demo
+
+* # ratetab: events, person-years, and rates from stset data
+noisily ratetab treated education, outlabels("CV events") ///
+    explabels("Treatment" \ "Education")
+
+noisily ratetab treated, ci(cluster(region)) outlabels("CV events") ///
+    cformat(%5.2f) sep(" to ")
+
+log off demo
+
+**# Console: outtab binary outcomes by exposure
+use `analysis', clear
+log on demo
+
+* # outtab: events/N by exposure plus one ratio column per model
+noisily outtab cv_event selfharm fracture gi_bleed, exposure(treated) ///
+    models("" \ "index_age female i.education diabetes hypertension") ///
+    modellabels("Crude" \ "Adjusted") ///
+    estimator(poisson, irr vce(robust)) ratiolabel("RR")
+
+log off demo
+
+**# Console: regtab 2.3 layout options
+use `analysis', clear
+collect clear
+quietly collect: logistic cv_event treated
+quietly collect: logistic cv_event treated index_age female i.education ///
+    diabetes hypertension
+
+log on demo
+
+* # regtab: cformat(), transpose, and cellnote()
+noisily regtab, cformat(%5.3f) sep(" to ") noint models("Crude \ Adjusted")
+
+noisily regtab, transpose keep(treated) stats(n) nopvalue ///
+    models("Crude \ Adjusted")
+
+noisily regtab, cellnote("Diabetes" 1 "Not in model") nopvalue noint ///
+    models("Crude \ Adjusted")
+
+log off demo
+
+* Fit-time counts: GI bleeding among patients aged 80 and over, where some
+* regions have fewer than 15 events
+keep if index_age >= 80
+gen double pt = follow_up / 365.25
+quietly stset pt, failure(gi_bleed) id(id)
+collect clear
+quietly collect: stcox i.region
+quietly tabtools fitcount, events(_d) people(id) exposure(pt) terms
+quietly collect: stcox i.region treated female
+quietly tabtools fitcount, events(_d) people(id) exposure(pt) terms
+
+log on demo
+
+* ## regtab: stats(events people exposure) from tabtools fitcount, mincount()
+noisily regtab, stats(events people exposure) exposurelabel("Person-years") ///
+    mincount(15) models("Crude \ Adjusted")
+
+log off demo
 
 **# Console: puttab + stacktab export pipeline
 * Emit two styled estimate blocks with puttab, then assemble them into one
@@ -1212,6 +1367,14 @@ stratetab, using("`pkg_dir'/_strate_cv_m" "`pkg_dir'/_strate_sh_m" "`pkg_dir'/_s
     title("Table 12. Incidence Rates per 1,000 Person-Years by Sex") ///
     footnote("IRR = incidence rate ratio, Female vs Male. CI by log-normal method.")
 
+* Demonstrates: stratetab cformat() and sep() on the same rate files
+stratetab, using("`pkg_dir'/_strate_cv_m" "`pkg_dir'/_strate_sh_m" "`pkg_dir'/_strate_cv_f" "`pkg_dir'/_strate_sh_f") ///
+    xlsx("`xlsx_stratetab'") outcomes(2) sheet("Rates Formatted") ///
+    outlabels("CV Events \ Self-Harm") ///
+    explabels("Male \ Female") ///
+    cformat(%5.2f) sep(" to ") ///
+    title("Table 12b. Incidence Rates, Two Decimals and 'to' Intervals")
+
 capture erase "`pkg_dir'/_strate_cv_m.dta"
 capture erase "`pkg_dir'/_strate_sh_m.dta"
 capture erase "`pkg_dir'/_strate_cv_f.dta"
@@ -1829,6 +1992,295 @@ foreach _sc_cmd in table1 desctab {
     restore
 }
 
+**# Sheets: regtab 2.3 options -- cformat, flat frame + reftop, transpose, cellnote, fit counts
+use `analysis', clear
+collect clear
+collect: logistic cv_event treated index_age female i.education ///
+    diabetes hypertension
+
+* Demonstrates: cformat() and sep() for estimate and interval text
+regtab, xlsx("`xlsx_regtab'") sheet("Regtab cformat") noint ///
+    cformat(%5.3f) sep(" to ") ///
+    title("Table 2b. CV Events (Three Decimals, 'to' Intervals)")
+
+* Demonstrates: reftop puts the reference level first in its block, and a
+* flat frame (one header row as variable labels) that puttab writes as is
+collect clear
+collect: logistic cv_event treated index_age female ib3.education
+regtab, frame(_demo_flat, replace flat) reftop compact noint
+frame _demo_flat: puttab rowlabel c* using "`xlsx_regtab'", ///
+    sheet("Flat Reftop") varlabels ///
+    title("Table 2c. regtab flat frame written by puttab (reference level on top)")
+capture frame drop _demo_flat
+
+* Demonstrates: transpose (one row per model) and cellnote()
+collect clear
+collect: logistic cv_event treated
+collect: logistic cv_event treated index_age female i.education ///
+    diabetes hypertension
+regtab, xlsx("`xlsx_regtab'") sheet("Transpose") ///
+    transpose keep(treated) stats(n) nopvalue models("Crude \ Adjusted") ///
+    title("Table 2d. Treatment Odds Ratio by Model Specification")
+regtab, xlsx("`xlsx_regtab'") sheet("Cell Note") noint nopvalue ///
+    cellnote("Diabetes" 1 "Not in model") models("Crude \ Adjusted") ///
+    title("Table 2e. Text in a Cell That Must Not Show an Estimate")
+
+* Demonstrates: tabtools fitcount -> stats(events people exposure) + mincount()
+keep if index_age >= 80
+gen double pt = follow_up / 365.25
+stset pt, failure(gi_bleed) id(id)
+collect clear
+collect: stcox i.region
+tabtools fitcount, events(_d) people(id) exposure(pt) terms
+collect: stcox i.region treated female
+tabtools fitcount, events(_d) people(id) exposure(pt) terms
+regtab, xlsx("`xlsx_regtab'") sheet("Fit Counts") ///
+    stats(events people exposure) exposurelabel("Person-years") ///
+    mincount(15) models("Crude \ Adjusted") ///
+    title("Table 2f. GI Bleeding by Region, Patients Aged 80+") ///
+    footnote("Regions with fewer than 15 events are not estimated (–).")
+assert r(N_masked) > 0
+
+**# Sheet: effecttab cformat()
+use `analysis', clear
+collect clear
+collect: teffects ipw (cv_event) (treated index_age female i.education ///
+    diabetes hypertension anxiety), ate
+effecttab, xlsx("`xlsx_effecttab'") sheet("ATE cformat") ///
+    effect("ATE") cformat(%6.4f) tlabels(0 "SSRI" 1 "SNRI") ///
+    title("Table 6b. Average Treatment Effect, Four Decimals")
+
+**# Sheets: comptab cformat(), cisep(), and a flat frame
+collect clear
+collect: stcox treated index_age female diabetes hypertension, nolog
+regtab, frame(_demo_cf, replace) eplotframe(_demo_cfe, replace) noint coef("HR")
+comptab _demo_cf, rows(1 4 5) cformat(%5.3f) cisep(" to ") ///
+    xlsx("`xlsx_comptab'") sheet("Composite Formatted") ///
+    frame(_demo_cflat, replace flat) ///
+    title("Table S3. Selected Hazard Ratios (Three Decimals)")
+frame _demo_cflat: puttab rowlabel c* using "`xlsx_comptab'", ///
+    sheet("Composite Flat") varlabels ///
+    title("Table S3 flat frame written by puttab")
+capture frame drop _demo_cf
+capture frame drop _demo_cfe
+capture frame drop _demo_cflat
+
+**# Sheets: ratetab -- rates from stset data, then rates + models with comptab
+use `analysis', clear
+stset follow_up, failure(cv_event) scale(365.25) id(id)
+
+ratetab treated education, outlabels("CV events") ///
+    explabels("Treatment" \ "Education") ///
+    xlsx("`xlsx_ratetab'") sheet("Rates Exact") ///
+    title("Table R1. CV Event Rates per 1,000 Person-Years (Exact Poisson CI)")
+
+ratetab treated education, ci(poisson) per(100) outlabels("CV events") ///
+    explabels("Treatment" \ "Education") ///
+    xlsx("`xlsx_ratetab'") sheet("Rates Poisson") ///
+    title("Table R2. CV Event Rates per 100 Person-Years (Normal-Approximation CI)")
+
+ratetab treated, ci(cluster(region)) outlabels("CV events") ///
+    xlsx("`xlsx_ratetab'") sheet("Rates Cluster") ///
+    title("Table R3. CV Event Rates with Region-Clustered CI")
+
+ratetab treated education, cformat(%5.2f) sep(" to ") ///
+    outlabels("CV events") explabels("Treatment" \ "Education") ///
+    xlsx("`xlsx_ratetab'") sheet("Rates Formatted") ///
+    title("Table R4. CV Event Rates, Two Decimals")
+
+* Rates scaffold + crude and adjusted Cox models, keyed by level
+ratetab education, outlabels("CV events") frame(_demo_rates, replace)
+collect clear
+collect: stcox i.education, nolog
+collect: stcox i.education treated index_age female diabetes hypertension, nolog
+regtab, frame(_demo_rmodels, replace) noint compact ///
+    models("Crude \ Adjusted") keep(education)
+comptab _demo_rmodels, rateframe(_demo_rates) rows(all) allmodels keyed ///
+    effect("HR") xlsx("`xlsx_ratetab'") sheet("Rates Models") ///
+    title("Table R5. CV Events, Rates, and Hazard Ratios by Education") ///
+    footnote("HR = hazard ratio. \ Adjusted for treatment, age, sex, diabetes, and hypertension.")
+capture frame drop _demo_rates
+capture frame drop _demo_rmodels
+
+**# Sheets: outtab -- binary outcomes by exposure
+use `analysis', clear
+outtab cv_event selfharm fracture gi_bleed, exposure(treated) ///
+    models("" \ "index_age female i.education diabetes hypertension") ///
+    modellabels("Crude" \ "Adjusted") ///
+    estimator(poisson, irr vce(robust)) ratiolabel("RR") ///
+    xlsx("`xlsx_outtab'") sheet("Outcomes") ///
+    title("Table 3. Outcomes by Treatment: Events/N and Risk Ratios") ///
+    footnote("RR = risk ratio from modified Poisson regression with robust SE.")
+
+gen byte all_patients = 1
+gen byte age_65plus = index_age >= 65
+label variable all_patients "All patients"
+label variable age_65plus "Aged 65 and over"
+outtab cv_event gi_bleed, exposure(treated) ///
+    models("" \ "index_age female") modellabels("Crude" \ "Adjusted") ///
+    estimator(logit, or) ratiolabel("OR") panels(all_patients age_65plus) ///
+    xlsx("`xlsx_outtab'") sheet("Outcomes OR Panels") ///
+    title("Table 3b. Outcomes by Treatment in Two Analysis Panels")
+
+**# Sheet: tabcell columns, written to a tabtools session workbook
+* tabtools set workbook makes demo_tabcell.xlsx the default puttab target, so
+* puttab needs no using.
+use `analysis', clear
+collapse (count) n = id (sum) events = cv_event ///
+    (p50) med = follow_up (p25) q1 = follow_up (p75) q3 = follow_up, by(education)
+tabcell enp, e(events) n(n) generate(ev_cell)
+tabcell iqr, median(med) q1(q1) q3(q3) format(%6.0fc) generate(fu_cell)
+label variable ev_cell "CV events, n (%)"
+label variable fu_cell "Follow-up (days), median (IQR)"
+tabtools set workbook "`xlsx_tabcell'"
+tabtools set headershade on
+puttab education ev_cell fu_cell, sheet("Tabcell Column") varlabels ///
+    title("Table T1. CV Events and Follow-up by Education (tabcell cells)")
+tabtools set workbook clear
+tabtools set headershade clear
+
+**# Sheets: puttab 2.2/2.3 layout options -- hlines/boldrows, panels, spans
+clear
+input str12 group str6 n str8 price
+"Domestic"   "52" "6,072"
+"Foreign"    "22" "6,385"
+"Repair"     "N"  "Price"
+"Good (4-5)" "29" "6,013"
+"Poor (1-3)" "40" "6,118"
+end
+puttab group n price using "`xlsx_puttab'", sheet("Stacked Tables") ///
+    title("Table P4. Two Tables Stacked in One Source") hlines(3 4) boldrows(3)
+
+clear
+input str16 row str6(c1 c2) byte blk str12(h0 h1 h2)
+"Under 55"    "12" "310" 1 "" "Relapses" "Person-years"
+"55 and over" "9"  "280" 1 "" "Relapses" "Person-years"
+"Repleted"    "40" "18"  2 "" "Scans"    "Percent"
+end
+label define demo_blk 1 "A. Relapses" 2 "B. New MRI activity", replace
+label values blk demo_blk
+puttab row c1 c2 using "`xlsx_puttab'", sheet("Panels") noheader ///
+    panel(blk) panelheader(h0 h1 h2) title("Table P5. Panels with Their Own Headers") ///
+    footnote("Counts are crude. \ Ratios are adjusted.")
+label variable row "Age group"
+label variable c1 "Events"
+label variable c2 "Exposure"
+puttab row c1 c2 using "`xlsx_puttab'", sheet("Spans") varlabels ///
+    spanheader("Counts" 2/3) title("Table P6. A Spanning Header")
+
+**# Sheet: stacktab frames() -- stack table1_tc frames as panels
+use `analysis', clear
+table1_tc, by(treated) vars(index_age contn %5.1f \ female bin \ education cat) ///
+    frame(_demo_t_all, replace)
+table1_tc if index_age >= 65, by(treated) ///
+    vars(index_age contn %5.1f \ female bin \ education cat) ///
+    frame(_demo_t_old, replace)
+stacktab using "`xlsx_stacktab'", sheet("Frames") ///
+    title("Table 1. Baseline Characteristics, All Patients and Aged 65+") ///
+    frames(_demo_t_all "All patients" \ _demo_t_old "Aged 65 and over")
+capture frame drop _demo_t_all
+capture frame drop _demo_t_old
+
+**# Sheets: table1_tc/desctab/crosstab smallcells(#, primary) and cellreplace()
+preserve
+clear
+input byte group byte category int frequency
+0 0 2
+0 1 8
+1 0 6
+1 1 4
+end
+expand frequency
+drop frequency
+label define demo_group 0 "Control" 1 "Treatment", replace
+label values group demo_group
+label variable group "Study group"
+label define demo_category 0 "Absent" 1 "Present", replace
+label values category demo_category
+label variable category "Characteristic"
+
+table1_tc category, by(group) vars(category cat) total(after) ///
+    smallcells(5, primary) ///
+    title("Small-cell suppression: primary mode") ///
+    xlsx("`xlsx_table1'") sheet("Small Cells Primary Mode")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 0
+
+desctab category, by(group) vars(category cat) total(after) ///
+    smallcells(5, primary) ///
+    title("Small-cell suppression: primary mode") ///
+    xlsx("`xlsx_desctab'") sheet("Small Cells Primary Mode")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 0
+
+crosstab group category, label smallcells(5, primary) ///
+    title("Small-cell suppression: primary mode") ///
+    xlsx("`xlsx_crosstab'") sheet("Small Cells Primary Mode")
+assert r(N_primary_suppressed) == 2
+assert r(N_secondary_suppressed) == 0
+restore
+
+use `analysis', clear
+table1_tc, by(treated) vars(education cat \ civil_status cat) ///
+    cellreplace("Widowed" "SNRI" "Not reported") ///
+    title("Table 1. cellreplace() Overwrites One Cell") ///
+    xlsx("`xlsx_table1'") sheet("Cell Replace")
+assert r(n_cellreplace) == 1
+
+**# Verify 2.3 workbook content
+preserve
+import excel using "`xlsx_ratetab'", sheet("Rates Models") clear allstring
+assert A[1] == "Table R5. CV Events, Rates, and Hazard Ratios by Education"
+local _has_ref 0
+local _has_crude 0
+foreach v of varlist _all {
+    quietly count if strtrim(`v') == "Reference"
+    if r(N) > 0 local _has_ref 1
+    quietly count if strpos(`v', "Crude") > 0
+    if r(N) > 0 local _has_crude 1
+}
+assert `_has_ref' == 1 & `_has_crude' == 1
+restore
+
+preserve
+import excel using "`xlsx_outtab'", sheet("Outcomes") clear allstring
+assert A[1] == "Table 3. Outcomes by Treatment: Events/N and Risk Ratios"
+local _has_hdr 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "SNRI, events/N (%)") > 0
+    if r(N) > 0 local _has_hdr 1
+}
+assert `_has_hdr' == 1
+restore
+
+preserve
+import excel using "`xlsx_tabcell'", sheet("Tabcell Column") clear allstring
+assert A[1] == "Table T1. CV Events and Follow-up by Education (tabcell cells)"
+restore
+
+preserve
+import excel using "`xlsx_table1'", sheet("Small Cells Primary Mode") clear allstring
+local _sc_primary 0
+local _sc_secondary 0
+foreach _sc_v of varlist _all {
+    quietly count if strtrim(`_sc_v') == "<5"
+    local _sc_primary = `_sc_primary' + r(N)
+    quietly count if strtrim(`_sc_v') == "≥5"
+    local _sc_secondary = `_sc_secondary' + r(N)
+}
+assert `_sc_primary' == 2 & `_sc_secondary' == 0
+restore
+
+preserve
+import excel using "`xlsx_table1'", sheet("Cell Replace") clear allstring
+local _has_nr 0
+foreach v of varlist _all {
+    quietly count if strtrim(`v') == "Not reported"
+    if r(N) > 0 local _has_nr 1
+}
+assert `_has_nr' == 1
+restore
+
 **# Convert console output to markdown
 local logdoc_dir "`repo_root'/logdoc"
 capture confirm file "`logdoc_dir'/stata.toc"
@@ -1848,7 +2300,7 @@ display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.log"
 display as result "  `pkg_dir'/console_output.md"
 display as result "  `markdown_report'"
-foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab {
+foreach _f in table1 desctab regtab regtab_models comptab effecttab stratetab corrtab crosstab survtab hrcomptab puttab stacktab ratetab outtab tabcell {
     capture confirm file "`xlsx_`_f''"
     if _rc {
         display as error "Expected demo artifact not found: `xlsx_`_f''"

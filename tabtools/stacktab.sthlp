@@ -32,7 +32,7 @@ one composite sheet with {cmd:stacktab}.
 {title:Syntax}
 
 {p 8 16 2}
-{cmd:stacktab} {cmd:using} {it:outbook.xlsx}{cmd:,}
+{cmd:stacktab} [{cmd:using} {it:outbook.xlsx}]{cmd:,}
   {opt bl:ocks(blockspec)}
   {opt sh:eet(sheetname)}
   [{it:options}]
@@ -167,7 +167,11 @@ Excel, CSV, and frame exports{p_end}
 stacks them (vstack) or places them side-by-side (hstack), applies column-merge
 transforms, and exports the composite to a new sheet in the same workbook using
 the tabtools Excel layout. The title is written to {cmd:A1}, and the main table
-starts at {cmd:B2}.
+starts at {cmd:B2}. After {cmd:tabtools set workbook}, {cmd:using} may be omitted:
+the session workbook is then both the source of the blocks and the target sheet,
+and the first-write replace of a session workbook never applies, because
+{cmd:stacktab} reads the book it writes. Without {cmd:using} and without a session
+workbook, {cmd:stacktab} exits with r(100).
 
 {title:Block specification}
 

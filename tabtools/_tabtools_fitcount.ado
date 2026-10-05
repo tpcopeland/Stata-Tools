@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 2.3.0  2026/10/05
+*! _tabtools_fitcount Version 2.3.1  2026/10/05
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,7 +22,8 @@ collect: prefix (or collect get e()). On the fit's own e(sample) it counts
 	           variance for it
 
 and stores them with collect get in the active collection, tagged with the
-fit's own cmdset, as results tt_events, tt_people, tt_exposure, and tt_terms.
+fit's own cmdset, as results tt_events, tt_people, tt_people_ev (people
+with an event, when people() is given), tt_exposure, and tt_terms.
 regtab reads them for stats(events people exposure) and mincount(). The
 collection does not keep e(sample), which is why the counts are taken here.
 
@@ -211,11 +212,12 @@ program define _tabtools_fitcount, rclass
 			noisily display as error "tabtools fitcount: events() must be a nonnegative integer count (0/1 for a failure indicator)"
 			exit 459
 		}
-		tempname _ev _pp _px
+		tempname _ev _pp _ppe _px
 		quietly summarize `events' if `touse', meanonly
 		scalar `_ev' = r(sum)
 
 		scalar `_pp' = .
+		scalar `_ppe' = .
 		if "`people'" != "" {
 			capture confirm string variable `people'
 			if _rc quietly count if `touse' & missing(`people')
@@ -228,9 +230,15 @@ program define _tabtools_fitcount, rclass
 			preserve
 			local _restore_needed = 1
 			quietly keep if `touse'
-			quietly keep `people'
-			quietly duplicates drop
+			quietly keep `people' `events'
+			* people with an event: distinct people() with events() > 0 on
+			* any of their e(sample) rows
+			tempvar _anyev
+			quietly bysort `people': egen byte `_anyev' = max(`events' > 0)
+			quietly by `people': keep if _n == 1
 			scalar `_pp' = _N
+			quietly count if `_anyev'
+			scalar `_ppe' = r(N)
 			restore
 			local _restore_needed = 0
 		}
@@ -355,6 +363,7 @@ program define _tabtools_fitcount, rclass
 		* Attach to the fit's own cmdset in the active collection.
 		quietly collect get tt_events = (scalar(`_ev')), tags(cmdset[`_k'])
 		if !missing(`_pp') quietly collect get tt_people = (scalar(`_pp')), tags(cmdset[`_k'])
+		if !missing(`_ppe') quietly collect get tt_people_ev = (scalar(`_ppe')), tags(cmdset[`_k'])
 		if !missing(`_px') quietly collect get tt_exposure = (scalar(`_px')), tags(cmdset[`_k'])
 		if "`terms'" != "" {
 			if `"`_terms_str'"' == "" local _terms_str "-"
@@ -364,10 +373,12 @@ program define _tabtools_fitcount, rclass
 		noisily display as text "tabtools fitcount (model `_k', " as result "`_n_sample'" as text " obs): events " ///
 			as result strtrim(string(`_ev', "%21.0fc")) ///
 			as text cond(missing(`_pp'), "", ", people ") as result cond(missing(`_pp'), "", strtrim(string(`_pp', "%21.0fc"))) ///
+			as text cond(missing(`_ppe'), "", ", people with an event ") as result cond(missing(`_ppe'), "", strtrim(string(`_ppe', "%21.0fc"))) ///
 			as text cond(missing(`_px'), "", ", exposure ") as result cond(missing(`_px'), "", strtrim(string(`_px', "%21.2fc")))
 
 		return scalar events = `_ev'
 		if !missing(`_pp') return scalar people = `_pp'
+		if !missing(`_ppe') return scalar people_ev = `_ppe'
 		if !missing(`_px') return scalar exposure = `_px'
 		return scalar N = `_n_sample'
 		return scalar cmdset = `_k'

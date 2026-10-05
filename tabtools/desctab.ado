@@ -1,4 +1,4 @@
-*! desctab Version 2.3.0  2026/10/05 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.3.1  2026/10/05 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -80,7 +80,8 @@ program define desctab, rclass
         [FRAme(string)]         /// Store output in a named frame
         [FONT(string)]          /// Font family for Excel output
         [FONTSIZE(integer -1)]  /// Font size in points for Excel output
-        [SMDThreshold(real 0.1)] /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
+        [SMDThreshold(string)]  /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
+        [NOSMDHighlight]        /// No SMD highlighting (same as smdthreshold(-1))
         [HEADERColor(string)]   /// Custom header background color (R G B)
         [ZEBRAColor(string)]    /// Custom zebra stripe color (R G B)
         [csv(string)]           /// Export data as CSV file
@@ -361,7 +362,23 @@ program define desctab, rclass
         exit 198
     }
 
-    * Validate smdthreshold
+    * Validate smdthreshold. Parsed as a string so an explicit
+    * smdthreshold() is detectable: combined with nosmdhighlight it would
+    * ask for highlighting and no highlighting at once.
+    local smdthreshold = strtrim(`"`smdthreshold'"')
+    if `"`smdthreshold'"' != "" {
+        capture confirm number `smdthreshold'
+        if _rc {
+            display as error "smdthreshold() must be a number"
+            exit 198
+        }
+        if "`nosmdhighlight'" != "" {
+            display as error "nosmdhighlight and smdthreshold() may not be combined"
+            exit 198
+        }
+    }
+    else local smdthreshold = 0.1
+    if "`nosmdhighlight'" != "" local smdthreshold = -1
     if `smdthreshold' != -1 & `smdthreshold' <= 0 {
         display as error "smdthreshold() must be positive or -1 to disable highlighting"
         exit 198

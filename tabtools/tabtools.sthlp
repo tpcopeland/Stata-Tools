@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.3.0  05oct2026}{...}
+{* *! version 2.3.1  05oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -305,8 +305,14 @@ nothing; and a file already written as a session target in this Stata session
 is never replaced, even after {cmd:tabtools set clear}, so switching from A to B
 and back to A keeps A's tables. Every command that
 uses a session key echoes the resolved value in the log. {helpb desctab},
-{helpb table1_tc}, {helpb crosstab}, and {helpb corrtab} use a session workbook or
-Markdown file only when {opt sheet()} is given. {cmd:smallcells} is honoured by
+{helpb table1_tc}, {helpb crosstab}, {helpb corrtab}, {helpb regtab},
+{helpb effecttab}, {helpb comptab}, {helpb hrcomptab}, {helpb survtab}, and
+{helpb stratetab} use a session workbook or Markdown file only when {opt sheet()}
+is given. When {opt sheet()} is given and there is neither {opt xlsx()} nor a
+session workbook, {cmd:desctab} and {cmd:table1_tc} exit with r(498), and the
+others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.
+{helpb puttab} and {helpb stacktab} use the session workbook whenever
+{cmd:using} is omitted. {cmd:smallcells} is honoured by
 {helpb desctab}, {helpb table1_tc}, {helpb crosstab}, {helpb stratetab},
 {helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one call.
 {it:Session destinations} in {helpb puttab} has the details.
@@ -316,7 +322,11 @@ Markdown file only when {opt sheet()} is given. {cmd:smallcells} is honoured by
 and person-time ({opt exposure()}) on {cmd:e(sample)} of the active fit and,
 with {opt terms}, events per factor level, and stores them with the collected
 model so that {helpb regtab} {opt stats(events people exposure)} and
-{opt mincount()} can use them. Run it immediately after the {cmd:collect:} fit.
+{opt mincount()} can use them. With {opt people()} it also counts the people with
+an event (distinct {opt people()} values with {opt events()} > 0), stored as
+{cmd:tt_people_ev} for {helpb regtab}
+{cmd:stats(e(tt_people_ev)="People with an event")}. Run it immediately after the
+{cmd:collect:} fit.
 The active fit must be the collected one: its {cmd:e(cmdline)}, {cmd:e(N)}, and
 {cmd:e(b)} must match the collected model, or the command exits with error 459.
 {opt name()} names the collection when the fit used {cmd:collect, name():}.
@@ -519,6 +529,7 @@ only read when you run {cmd:tabtools use} or source it from your own
 {synopt:{cmd:r(N)}}observations in {cmd:e(sample)}{p_end}
 {synopt:{cmd:r(events)}}events{p_end}
 {synopt:{cmd:r(people)}}distinct {opt people()} values, if given{p_end}
+{synopt:{cmd:r(people_ev)}}people with an event, if {opt people()} given{p_end}
 {synopt:{cmd:r(exposure)}}total person-time, if given{p_end}
 {synopt:{cmd:r(cmdset)}}collected model the counts are stored under{p_end}
 {synopt:{cmd:r(n_terms)}}number of factor levels counted, with {opt terms}{p_end}
@@ -540,6 +551,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.3.0{p_end}
+{pstd}{bf:Version} 2.3.1{p_end}
 
 {hline}

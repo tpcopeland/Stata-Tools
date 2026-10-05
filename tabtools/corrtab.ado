@@ -1,4 +1,4 @@
-*! corrtab Version 2.3.0  2026/10/05
+*! corrtab Version 2.3.1  2026/10/05
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,6 +62,7 @@ program define corrtab, rclass
             local mdappend "`_ss_mdappend'"
             local _sess_xlsx = `_ss_xlsx_sess'
             local _sess_md = `_ss_md_sess'
+            if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
         }
         local _has_xlsx = (`"`macval(xlsx)'"' != "")
         if "`open'" != "" & !`_has_xlsx' {

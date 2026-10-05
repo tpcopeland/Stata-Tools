@@ -1,4 +1,4 @@
-*! stratetab Version 2.3.0  2026/10/05
+*! stratetab Version 2.3.1  2026/10/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -77,7 +77,7 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
 	Level(real -1) CFormat(string) SEP(string) SMALLcells(integer -1) NOSMALLcells ///
-	ZEROexact]
+	ZEROexact ZEROCells(string) MASKtext(string)]
 
 * O1: cformat() is a full display format for the rate and both bounds; it
 * replaces digits(), so giving both is an error.
@@ -114,10 +114,37 @@ if `smallcells' < 0 {
 	di as err "smallcells() must be a nonnegative integer"
 	exit 198
 }
+* zerocells(): a level with no events prints a dash or nothing in place of
+* its count and rate (CI); its person-time stays. masktext(): the text of a
+* masked event count, in place of <#.
+local zerocells = strtrim(lower(`"`zerocells'"'))
+if !inlist(`"`zerocells'"', "", "dash", "blank") {
+	di as err "zerocells() must be dash or blank"
+	exit 198
+}
+local _zero_txt = cond("`zerocells'" == "dash", "–", "")
+local _mask_given = (`"`macval(masktext)'"' != "")
+if `_mask_given' & `smallcells' == 0 {
+	di as err "masktext() requires a small-cell threshold (smallcells() or tabtools set smallcells)"
+	exit 198
+}
 
 * Accept excel() as synonym for xlsx()
 if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
     local xlsx `"`macval(excel)'"'
+}
+* Session destinations (tabtools set workbook/markdown) apply only when
+* sheet() asks for a sheet; an explicit option wins (as in corrtab). The
+* first write to the session workbook starts it over: _tabtools_xlsx_write
+* calls _tabtools_set_sinks xlsxstart for every write.
+if `"`macval(sheet)'"' != "" {
+	_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+	local xlsx `"`_ss_xlsx'"'
+	local markdown `"`_ss_md'"'
+	local mdappend "`_ss_mdappend'"
+	if `"`macval(xlsx)'"' == "" {
+		di as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
+	}
 }
 local _has_xlsx = `"`macval(xlsx)'"' != ""
 if "`open'" != "" & !`_has_xlsx' {
@@ -677,8 +704,13 @@ forvalues e = 1/`n_exposures' {
 			else {
 				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.`eventdigits'fc")
 			}
-			if `_masked' local ev_fmt "<`smallcells'"
-			quietly replace c`col' = strtrim(`"`ev_fmt'"') in `new'
+			if `_masked' {
+				if `_mask_given' local ev_fmt `"`macval(masktext)'"'
+				else local ev_fmt "<`smallcells'"
+			}
+			local _zero_cell = ("`zerocells'" != "" & `D_o`o'_e`e'_`i'' == 0)
+			if `_zero_cell' local ev_fmt `"`_zero_txt'"'
+			quietly replace c`col' = strtrim(`"`macval(ev_fmt)'"') in `new'
 			local col = `col' + 1
 
 			* Person-years
@@ -719,6 +751,7 @@ forvalues e = 1/`n_exposures' {
 					`"`sep'"' + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ")"
 			}
 			if `_masked' local rt_fmt "–"
+			if `_zero_cell' local rt_fmt `"`_zero_txt'"'
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
@@ -793,8 +826,13 @@ if `"`macval(markdown)'"' != "" {
 	local _ret_markdown `"`macval(markdown)'"'
 	noi di as text "Markdown exported to `macval(markdown)'"
 }
-* Console display
+* Console display. Row 3 repeats "Exposure" under row 2 so the merged
+* workbook header (B2:B3) and the frame layout keep it; the console lists
+* both header rows, so it is shown once there.
+local _c1_row3 = c1[3]
+quietly replace c1 = "" in 3
 noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
+quietly replace c1 = `"`_c1_row3'"' in 3
 
 * Frame output is staged here and committed only after every export has
 * succeeded, so a failed xlsx write neither creates nor replaces frame().

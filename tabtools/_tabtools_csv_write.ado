@@ -1,4 +1,4 @@
-*! _tabtools_csv_write Version 2.3.0  2026/10/05
+*! _tabtools_csv_write Version 2.3.1  2026/10/05
 *! Write visible table columns as CSV without Stata variable names
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,4 +1,4 @@
-*! _tabtools_set_sinks Version 2.3.0  2026/10/05
+*! _tabtools_set_sinks Version 2.3.1  2026/10/05
 *! Resolve and track the session workbook/Markdown targets (tabtools set)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

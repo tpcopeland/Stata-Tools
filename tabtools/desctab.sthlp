@@ -106,6 +106,7 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt headers:hade}}apply shading to header rows{p_end}
 {synopt:{opt high:light(#)}}highlight rows where p < threshold{p_end}
 {synopt:{opt smdt:hreshold(#)}}SMD highlighting threshold in Excel{p_end}
+{synopt:{opt nosmdh:ighlight}}no SMD highlighting in Excel{p_end}
 {synopt:{opt headerc:olor(string)}}custom header background color{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra stripe color{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
@@ -319,8 +320,13 @@ first write to a session target replaces it and later writes add sheets or appen
 {opt smd} add standardized mean differences column (requires {opt by()}){p_end}
 
 {phang}
-{opt smdt:hreshold(#)} SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to
-disable{p_end}
+{opt smdt:hreshold(#)} SMD threshold for orange highlighting in Excel; default is 0.1; use
+{opt nosmdhighlight} (or -1) to disable{p_end}
+
+{phang}
+{opt nosmdh:ighlight} leaves every SMD cell unhighlighted in Excel; the SMD
+values themselves are unchanged. It is the same as {cmd:smdthreshold(-1)} and
+may not be combined with {opt smdthreshold()}.{p_end}
 
 {phang}
 {opt space:lowpercent} report ( 3%) instead of (3%); no-space alignment is the default{p_end}
@@ -467,6 +473,19 @@ variables and weight.{p_end}
 
 {phang2}{cmd:. desctab age sex bmi, by(treated) smd smdthreshold(0.2) ///}{p_end}
 {phang3}{cmd:xlsx("table1_smd.xlsx")}{p_end}
+
+{pstd}{bf:SMD column without highlighting:}{p_end}
+
+{phang2}{cmd:. desctab age sex bmi, by(treated) smd nosmdhighlight xlsx("table1_smd.xlsx")}{p_end}
+
+{pstd}{bf:Two Table 1 blocks in one sheet:} store each block in a frame, then stack the
+frames with {helpb stacktab}; each block gets a bold heading and keeps its own N row.{p_end}
+
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. desctab price mpg, by(foreign) frame(b1, replace)}{p_end}
+{phang2}{cmd:. desctab headroom trunk, by(foreign) frame(b2, replace)}{p_end}
+{phang2}{cmd:. stacktab using table1.xlsx, sheet("Table 1") ///}{p_end}
+{phang3}{cmd:frames(b1 "A. Price and mileage" \ b2 "B. Size")}{p_end}
 
 {pstd}{bf:Store results in a frame:}{p_end}
 
@@ -641,7 +660,8 @@ the weighted columns follow the same rule: percent-only by default, {opt wtn} or
 {opt percent_n} to add the weighted effective count.{p_end}
 
 {pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel
-and Markdown output. Specify {cmd:smdthreshold(-1)} to disable this formatting. The
+output; Markdown, CSV, and frame output are not highlighted. Specify {opt nosmdhighlight}
+to disable this formatting. The
 0.1 convention follows Austin (2009).{p_end}
 
 {pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups

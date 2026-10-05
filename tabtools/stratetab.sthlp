@@ -31,7 +31,8 @@
 {opt border:style(string)} {opt font(string)} {opt fontsize(#)} {opt headers:hade}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}
 {opt mark:down(filename)} {opt mdapp:end} {opt fra:me(name)} {opt l:evel(#)}
-{opt cf:ormat(%fmt)} {opt sep(string)} {opt small:cells(#)} {opt nosmall:cells} {opt zero:exact}]
+{opt cf:ormat(%fmt)} {opt sep(string)} {opt small:cells(#)} {opt nosmall:cells} {opt mask:text(string)}
+{opt zero:exact} {opt zeroc:ells(dash|blank)}]
 
 
 {marker description}{...}
@@ -85,6 +86,12 @@ can still display the table, write {opt csv()} or {opt markdown()}, or populate 
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
+When {opt sheet()} is given without {opt xlsx()}, the session workbook set by
+{cmd:tabtools set workbook} receives the sheet (and a session Markdown file set
+by {cmd:tabtools set markdown} receives the table when {opt markdown()} is not
+given); the first write since {cmd:tabtools set workbook} starts that workbook
+over, later writes add sheets. With no session workbook either, the log says
+{cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.
 
 {phang}
 {opt title(string)} specifies title text that appears in row 1 of the output table.
@@ -132,6 +139,17 @@ exposures over one sample, a masked count can be recovered from another
 exposure's totals. Without this option, a session default set
 with {cmd:tabtools set smallcells #} applies and is echoed in the log;
 {opt nosmallcells} ignores that default.
+
+{phang}
+{opt masktext(string)} is printed in place of a masked event count, for
+example {cmd:masktext("–")}; the default is {cmd:<}#. It requires a
+small-cell threshold.
+
+{phang}
+{opt zerocells(dash|blank)} prints a cell with no events with {cmd:–}
+({cmd:dash}) or nothing ({cmd:blank}) in place of its event count and its
+rate and interval; person-years are still shown. {cmd:r(rates)} keeps the
+numbers.
 
 {phang}
 {opt zeroexact} prints a zero-event cell whose source file carries no

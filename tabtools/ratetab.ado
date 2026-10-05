@@ -1,4 +1,4 @@
-*! ratetab Version 2.3.0  2026/10/05
+*! ratetab Version 2.3.1  2026/10/05
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -25,6 +25,15 @@ INTERVALS (ci())
              unreliable, so the cluster count is reported.
     A level with zero events has no likelihood-based interval; every method
     then shows the exact limits (0, -ln(alpha/2)/Y) (R3).
+    excludemasked  Levels with 1 to #-1 events (# = the small-cell threshold)
+             are left out of the cluster fit too. The saturated model's
+             information is diagonal, Var(b_j) = G/(G-1) sum_c u_cj^2 / D_j^2,
+             so the other levels' estimates are unchanged and their variances
+             change only through G (rate-intervals.notes.md, sec. 3).
+
+PERSON-TIME
+    exposure() takes one variable for every outcome or one per outcome,
+    paired in order with events().
 
 The table is rendered by stratetab from strate-format files, so its frame()
 is a stratetab frame that comptab, rateframe() accepts.
@@ -35,15 +44,17 @@ program define ratetab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    tempname _work _est _clus
+    tempname _work _est _clus _save
     local _work_made 0
+    local _save_made 0
     local _files ""
     capture noisily {
         syntax varlist(min=1) [if] [in] , [EVents(varlist numeric) ///
-            EXPosure(varname numeric) PER(real 1000) CI(string) Level(real -1) ///
+            EXPosure(varlist numeric) PER(real 1000) CI(string) Level(real -1) ///
             SMALLcells(integer -1) NOSMALLcells CFormat(string) DIGits(integer -1) ///
             PYDigits(integer 0) PYScale(real 1) SEP(string) ///
-            OUTLabels(string) EXPLabels(string) UNITlabel(string) *]
+            OUTLabels(string) EXPLabels(string) UNITlabel(string) ///
+            ZEROCells(string) MASKtext(string) EXCLUDEMasked SAVing(string asis) *]
 
         **# Source of events and person-time
         local _st 0
@@ -79,6 +90,42 @@ program define ratetab, rclass
             display as error "cformat() and digits() may not be combined"
             exit 198
         }
+        * exposure(): one person-time variable for every outcome, or one per
+        * outcome, paired in order with events()
+        local _n_exp : word count `exposure'
+        local _n_ev : word count `events'
+        if `_n_exp' > 1 & `_n_exp' != `_n_ev' {
+            display as error "exposure() takes one variable, or one per events() variable (`_n_ev'); `_n_exp' given"
+            exit 198
+        }
+        local zerocells = strtrim(lower(`"`zerocells'"'))
+        if !inlist(`"`zerocells'"', "", "dash", "blank") {
+            display as error "zerocells() must be dash or blank"
+            exit 198
+        }
+        * saving(): checked now (existence, replace), written after the table
+        local _save_file ""
+        local _save_replace ""
+        if `"`saving'"' != "" {
+            * filename[, replace]; a quoted name loses one layer of quotes
+            _parse comma _sv_fn _sv_rest : saving
+            gettoken _sv_fn : _sv_fn
+            * (a second syntax call here would reset varlist, if and in)
+            local _sv_rest = strtrim(subinstr(`"`_sv_rest'"', ",", "", 1))
+            if !inlist(lower(`"`_sv_rest'"'), "", "replace") {
+                display as error `"saving(): "`_sv_rest'" not allowed; the only suboption is replace"'
+                exit 198
+            }
+            if `"`_sv_fn'"' == "" {
+                display as error "saving() requires a file name"
+                exit 198
+            }
+            local _save_file `"`_sv_fn'"'
+            local _save_replace = lower(`"`_sv_rest'"')
+            local _sv_dta `"`_save_file'"'
+            if !strmatch(lower(`"`_sv_dta'"'), "*.dta") local _sv_dta `"`_sv_dta'.dta"'
+            if "`_save_replace'" == "" confirm new file `"`_sv_dta'"'
+        }
 
         **# ci()
         local _ci = strtrim(lower(`"`ci'"'))
@@ -97,6 +144,28 @@ program define ratetab, rclass
             display as error "ci() must be exact, poisson, or cluster(varname)"
             exit 198
         }
+        * excludemasked: levels with 1 to #-1 events (# the small-cell
+        * threshold that stratetab will apply: smallcells(), else the session
+        * default unless nosmallcells) are left out of the clustered fit, as
+        * levels with no events always are. Only the cluster count G of the
+        * fit changes for the other levels (rate-intervals.notes.md, sec. 3).
+        local _dmin 1
+        if "`excludemasked'" != "" {
+            if "`_ci'" != "cluster" {
+                display as error "excludemasked requires ci(cluster(varname))"
+                exit 198
+            }
+            local _sc_fit 0
+            if `smallcells' != -1 local _sc_fit = `smallcells'
+            else if "`nosmallcells'" == "" & `"$TABTOOLS_set_smallcells"' != "" {
+                local _sc_fit = real(`"$TABTOOLS_set_smallcells"')
+            }
+            if missing(`_sc_fit') | `_sc_fit' < 2 {
+                display as error "excludemasked requires a small-cell threshold of 2 or more (smallcells() or tabtools set smallcells)"
+                exit 198
+            }
+            local _dmin = `_sc_fit'
+        }
 
         **# Sample
         * Each grouping variable keeps its own nonmissing rows (as strate run
@@ -114,6 +183,7 @@ program define ratetab, rclass
             quietly gen double `_py' = _t - _t0 if `touse'
             local events "`_ev'"
             local exposure "`_py'"
+            local _n_exp 1
             local _evnames "_d"
         }
         else {
@@ -133,18 +203,23 @@ program define ratetab, rclass
             exit 2000
         }
         local _N = r(N)
-        quietly count if `touse' & `exposure' < 0
-        if r(N) {
-            display as error "exposure is negative in `r(N)' observation(s)"
-            exit 459
+        foreach _x of local exposure {
+            quietly count if `touse' & `_x' < 0
+            if r(N) {
+                display as error "exposure is negative in `r(N)' observation(s)"
+                exit 459
+            }
         }
+        local _o 0
         foreach _e of local events {
+            local ++_o
+            local _x : word `=cond(`_n_exp' == 1, 1, `_o')' of `exposure'
             quietly count if `touse' & (`_e' < 0 | `_e' != floor(`_e'))
             if r(N) {
                 display as error "events must be nonnegative integers (counts); `r(N)' observation(s) are not"
                 exit 459
             }
-            quietly count if `touse' & `_e' > 0 & `exposure' == 0
+            quietly count if `touse' & `_e' > 0 & `_x' == 0
             if r(N) {
                 display as error "`r(N)' observation(s) have events but no person-time"
                 exit 459
@@ -191,6 +266,7 @@ program define ratetab, rclass
         matrix `_clus' = J(`n_grp', `n_out', .)
         local _n_zero 0
         local _n_noci 0
+        local _n_maskfit 0
         forvalues _g = 1/`n_grp' {
             local _gv : word `_g' of `varlist'
             frame `_work': quietly count if !missing(`_gv')
@@ -200,6 +276,7 @@ program define ratetab, rclass
             }
             forvalues _o = 1/`n_out' {
                 local _e : word `_o' of `events'
+                local _x : word `=cond(`_n_exp' == 1, 1, `_o')' of `exposure'
                 tempfile _tf
                 frame `_work' {
                     tempvar _grp _dl _lo _hi
@@ -212,7 +289,7 @@ program define ratetab, rclass
                         * rows without person-time carry no events (refused above)
                         * and no information; leave them out explicitly so the
                         * fit's sample is known in advance
-                        quietly count if `_dl' > 0 & `exposure' > 0 & !missing(`_grp')
+                        quietly count if `_dl' >= `_dmin' & `_x' > 0 & !missing(`_grp')
                         local _nfit = r(N)
                         if `_nfit' {
                             * start at the closed-form MLE, ln(D/Y) per level, so
@@ -221,14 +298,14 @@ program define ratetab, rclass
                             tempname _init
                             capture matrix drop `_init'
                             foreach _l of local _levs {
-                                quietly summarize `_e' if `_grp' == `_l' & `_dl' > 0 & `exposure' > 0, meanonly
+                                quietly summarize `_e' if `_grp' == `_l' & `_dl' >= `_dmin' & `_x' > 0, meanonly
                                 if r(N) == 0 continue
                                 local _Dl = r(sum)
-                                quietly summarize `exposure' if `_grp' == `_l' & `_dl' > 0 & `exposure' > 0, meanonly
+                                quietly summarize `_x' if `_grp' == `_l' & `_dl' >= `_dmin' & `_x' > 0, meanonly
                                 matrix `_init' = nullmat(`_init'), ln(`_Dl' / r(sum))
                             }
-                            capture noisily quietly poisson `_e' ibn.`_grp' if `_dl' > 0 & `exposure' > 0 & !missing(`_grp'), ///
-                                exposure(`exposure') noconstant vce(cluster `_clusvar') from(`_init', copy)
+                            capture noisily quietly poisson `_e' ibn.`_grp' if `_dl' >= `_dmin' & `_x' > 0 & !missing(`_grp'), ///
+                                exposure(`_x') noconstant vce(cluster `_clusvar') from(`_init', copy)
                             if _rc {
                                 local _prc = _rc
                                 display as error "ratetab: the clustered Poisson fit for `_gv' failed (r(`_prc'))"
@@ -245,7 +322,7 @@ program define ratetab, rclass
                             matrix `_clus'[`_g', `_o'] = e(N_clust)
                             foreach _l of local _levs {
                                 quietly summarize `_dl' if `_grp' == `_l', meanonly
-                                if r(max) > 0 {
+                                if r(max) >= `_dmin' {
                                     local _b = _b[`_l'.`_grp']
                                     local _s = _se[`_l'.`_grp']
                                     if `_s' > 0 & !missing(`_s') {
@@ -259,7 +336,7 @@ program define ratetab, rclass
                     }
                     preserve
                     quietly drop if missing(`_grp')
-                    quietly collapse (sum) _D = `_e' _Y = `exposure' (max) _lo_c = `_lo' _hi_c = `_hi', by(`_grp')
+                    quietly collapse (sum) _D = `_e' _Y = `_x' (max) _lo_c = `_lo' _hi_c = `_hi', by(`_grp')
                     quietly count if _Y <= 0
                     if r(N) {
                         display as error "ratetab: a level of `_gv' has no person-time"
@@ -282,10 +359,14 @@ program define ratetab, rclass
                     }
                     else {
                         * exp(b) is a rate per unit of the exposure variable
-                        quietly replace _Lower = _lo_c * `pyscale' if _D > 0
-                        quietly replace _Upper = _hi_c * `pyscale' if _D > 0
-                        quietly count if _D > 0 & (missing(_Lower) | missing(_Upper))
+                        quietly replace _Lower = _lo_c * `pyscale' if _D >= `_dmin'
+                        quietly replace _Upper = _hi_c * `pyscale' if _D >= `_dmin'
+                        quietly count if _D >= `_dmin' & (missing(_Lower) | missing(_Upper))
                         local _n_noci = `_n_noci' + r(N)
+                        * excludemasked: masked levels were not fitted and get
+                        * no interval (they print masked)
+                        quietly count if _D > 0 & _D < `_dmin'
+                        local _n_maskfit = `_n_maskfit' + r(N)
                     }
                     * R3: zero events -> exact limits (0, -ln(alpha/2)/Y)
                     quietly count if _D == 0
@@ -299,6 +380,7 @@ program define ratetab, rclass
                     local _nl = _N
                     forvalues _i = 1/`_nl' {
                         local ++_nrows
+                        mata: st_local("_svlab`_nrows'", st_sdata(`_i', "cat"))
                         matrix `_est' = nullmat(`_est') \ (`_o', `_g', `_i', _D[`_i'], _Y[`_i'], ///
                             _Rate[`_i'] * `per', _Lower[`_i'] * `per', _Upper[`_i'] * `per')
                     }
@@ -322,10 +404,14 @@ program define ratetab, rclass
         else if `digits' != -1 local _fmt_opt "digits(`digits')"
         local _sep_opt ""
         if `"`sep'"' != "" local _sep_opt `"sep(`"`sep'"')"'
+        local _zc_opt ""
+        if "`zerocells'" != "" local _zc_opt "zerocells(`zerocells')"
+        local _mt_opt ""
+        if `"`masktext'"' != "" local _mt_opt `"masktext(`"`masktext'"')"'
         capture noisily stratetab, using(`_files') outcomes(`n_out') ///
             outlabels(`"`outlabels'"') explabels(`"`explabels'"') level(`level') ///
             ratescale(`per') unitlabel(`"`unitlabel'"') pydigits(`pydigits') ///
-            `_fmt_opt' `_sep_opt' `_sc_opt' `macval(options)'
+            `_fmt_opt' `_sep_opt' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
         local _st_rc = _rc
         * read what is needed before return add hands r() over
         local _sc_used = r(smallcells)
@@ -352,8 +438,12 @@ program define ratetab, rclass
             }
             local _m "`_m' (cluster counts in r(clusters))"
         }
-        if `_n_zero' local _m "`_m'; cells with no events show the exact upper limit"
-        if `_sc_used' > 0 local _m "`_m'; cells with 1 to `=`_sc_used' - 1' events are shown as <`_sc_used' with their person-time and rate withheld"
+        if `_n_maskfit' local _m "`_m'; levels with 1 to `=`_dmin' - 1' events were left out of the clustered fit and have no interval"
+        if `_n_zero' & "`zerocells'" == "" local _m "`_m'; cells with no events show the exact upper limit"
+        if `_n_zero' & "`zerocells'" != "" local _m "`_m'; cells with no events are printed without a count or rate"
+        local _mtxt "<`_sc_used'"
+        if `"`masktext'"' != "" local _mtxt `"`masktext'"'
+        if `_sc_used' > 0 local _m "`_m'; cells with 1 to `=`_sc_used' - 1' events are shown as `_mtxt' with their person-time and rate withheld"
         local _m "`_m'."
         return local methods `"`_m'"'
         return local ci_method "`_ci'"
@@ -367,10 +457,79 @@ program define ratetab, rclass
         return scalar level = `level'
         return scalar N_zero = `_n_zero'
         return scalar N_noci = `_n_noci'
+        if "`excludemasked'" != "" return scalar N_maskfit = `_n_maskfit'
+
+        **# saving(): one row per printed level, as numbers
+        if `"`_save_file'"' != "" {
+            * outcome labels as stratetab splits them
+            local _ol = subinstr(`"`outlabels'"', " \ ", "\", .)
+            tokenize `"`_ol'"', parse("\")
+            local _k 0
+            forvalues _i = 1/`=2 * `n_out''  {
+                if `"``_i''"' == "\" continue
+                local ++_k
+                local _olab`_k' = strtrim(`"``_i''"')
+            }
+            frame create `_save'
+            local _save_made 1
+            frame `_save' {
+                quietly set obs `_nrows'
+                quietly gen int outcome = .
+                quietly gen str32 outcome_var = ""
+                quietly gen strL outcome_label = ""
+                quietly gen int group = .
+                quietly gen str32 groupvar = ""
+                quietly gen int level = .
+                quietly gen strL level_label = ""
+                foreach _v in events persontime rate lb ub {
+                    quietly gen double `_v' = .
+                }
+                quietly gen byte masked = 0
+                forvalues _r = 1/`_nrows' {
+                    local _o = el(`_est', `_r', 1)
+                    local _g = el(`_est', `_r', 2)
+                    quietly replace outcome = `_o' in `_r'
+                    quietly replace group = `_g' in `_r'
+                    quietly replace level = el(`_est', `_r', 3) in `_r'
+                    local _c 3
+                    foreach _v in events persontime rate lb ub {
+                        local ++_c
+                        quietly replace `_v' = el(`_est', `_r', `_c') in `_r'
+                    }
+                    local _en : word `_o' of `_evnames'
+                    local _gv : word `_g' of `varlist'
+                    quietly replace outcome_var = "`_en'" in `_r'
+                    quietly replace groupvar = "`_gv'" in `_r'
+                    mata: st_sstore(`_r', "outcome_label", st_local("_olab`_o'"))
+                    mata: st_sstore(`_r', "level_label", st_local("_svlab`_r'"))
+                }
+                if `_sc_used' > 0 quietly replace masked = (events >= 1 & events < `_sc_used')
+                label variable outcome "Outcome (column group) number"
+                label variable outcome_var "Event variable"
+                label variable outcome_label "Outcome label"
+                label variable group "Grouping variable number"
+                label variable groupvar "Grouping variable"
+                label variable level "Level number within the grouping variable"
+                label variable level_label "Level"
+                label variable events "Events"
+                label variable persontime "Person-time (divided by pyscale())"
+                label variable rate "Rate per `unitlabel' person-time"
+                label variable lb "Lower `level'% limit of the rate"
+                label variable ub "Upper `level'% limit of the rate"
+                label variable masked "1 if printed masked (1 to smallcells()-1 events)"
+                char _dta[ratetab_ci_method] "`_ci'"
+                char _dta[ratetab_per] "`per'"
+                char _dta[ratetab_level] "`level'"
+                quietly compress
+                quietly save `"`_save_file'"', `_save_replace'
+            }
+            return local saving `"`_save_file'"'
+        }
         return matrix estimates = `_est'
     }
     local rc = _rc
     if `_work_made' capture frame drop `_work'
+    if `_save_made' capture frame drop `_save'
     foreach _f of local _files {
         capture erase "`_f'.dta"
     }

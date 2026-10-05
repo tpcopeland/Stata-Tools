@@ -1,4 +1,4 @@
-*! puttab Version 2.3.0  2026/10/05
+*! puttab Version 2.3.1  2026/10/05
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -79,11 +79,11 @@ program define puttab, rclass
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
-                  DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
+                  DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string) SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) NOINDent SPANheader(string asis) ]
         }
         else {
             syntax [anything(name=vlist)] [if] [in] [using/] , ///
@@ -92,11 +92,11 @@ program define puttab, rclass
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
                   HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
-                  DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
+                  DIGits(integer -1) NFormat(string) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string) SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) NOINDent SPANheader(string asis) ]
         }
 
         * matrix(): a matrix name, r(name), or e(name); copy it now.
@@ -232,6 +232,20 @@ program define puttab, rclass
             exit 198
         }
 
+        * ----- nformat(): display format for integer-valued columns -----
+        * The width is rewritten to 32 because a narrow width overflows to
+        * scientific notation (1234567890 under %6.0fc is 1.2e+09), and a
+        * %9.0gc drops its commas; cells are trimmed after formatting, so
+        * width never pads the output.
+        local nformat = strtrim(`"`nformat'"')
+        if `"`nformat'"' != "" {
+            if !regexm(`"`nformat'"', "^%(-?)0?[0-9]*[.]([0-9]+)([fg]c?)$") {
+                noisily display as error "nformat() must be a %f or %g numeric format such as %12.0fc"
+                exit 198
+            }
+            local nformat "%`=regexs(1)'32.`=regexs(2)'`=regexs(3)'"
+        }
+
         * ----- shared formatting / colors -----
         _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
@@ -296,6 +310,27 @@ program define puttab, rclass
             noisily display as error "panelheader() requires panel()"
             exit 198
         }
+        if "`noindent'" != "" & !`_has_panel' {
+            noisily display as error "noindent requires panel()"
+            exit 198
+        }
+        * Read by _puttab_panelize: 1 = leave panel row labels unindented.
+        local _pt_noindent = ("`noindent'" != "")
+        * panelheader() is a varlist of string variables (per-panel text),
+        * or, when it starts with a quote, literal text: one string per
+        * exported column, repeated under every panel heading.
+        local _ph_lit 0
+        local _ph_n 0
+        if `_has_phdr' {
+            local _ph_first = substr(strtrim(`"`macval(panelheader)'"'), 1, 1)
+            if `"`_ph_first'"' == char(34) | `"`_ph_first'"' == char(96) {
+                local _ph_lit 1
+                local _ph_n : word count `macval(panelheader)'
+                forvalues _i = 1/`_ph_n' {
+                    local _ph_t`_i' : word `_i' of `macval(panelheader)'
+                }
+            }
+        }
         if `_has_panel' & "`_src'" == "matrix" {
             noisily display as error "panel() is not allowed with a matrix() source"
             exit 198
@@ -321,7 +356,7 @@ program define puttab, rclass
 
         if "`_src'" == "matrix" {
             clear
-            mata: _puttab_matrix_table("`matrix'", `digits', `_titlerows', `_headerrows')
+            mata: _puttab_matrix_table("`matrix'", `digits', `_titlerows', `_headerrows', "`nformat'")
         }
         else {
             if "`_src'" == "frame" {
@@ -340,7 +375,7 @@ program define puttab, rclass
                     exit 111
                 }
                 local _pt_pvars "`panel'"
-                if `_has_phdr' {
+                if `_has_phdr' & !`_ph_lit' {
                     capture unab _pt_phvars : `panelheader'
                     if _rc {
                         noisily display as error "panelheader(): `panelheader' not found in the source"
@@ -427,6 +462,21 @@ program define puttab, rclass
             local _pt_headvar ""
             local _pt_newvar ""
             if `_has_panel' {
+                if `_ph_lit' {
+                    if `_ph_n' != `: word count `_srcvars'' {
+                        noisily display as error "panelheader() must give one string per exported column (`: word count `_srcvars'')"
+                        exit 198
+                    }
+                    * Literal text: one tempvar per column, the same on
+                    * every observation; created after _srcvars is fixed,
+                    * so it is never exported as a column.
+                    forvalues _i = 1/`_ph_n' {
+                        tempvar _ph_v`_i'
+                        quietly gen strL `_ph_v`_i'' = ""
+                        mata: st_sstore(., "`_ph_v`_i''", J(st_nobs(), 1, st_local("_ph_t`_i'")))
+                        local _pt_phvars "`_pt_phvars' `_ph_v`_i''"
+                    }
+                }
                 if `_has_phdr' & `: word count `_pt_phvars'' != `: word count `_srcvars'' {
                     noisily display as error "panelheader() must name one string variable per exported column (`: word count `_srcvars'')"
                     exit 198
@@ -440,7 +490,7 @@ program define puttab, rclass
                     quietly gen strL `_pt_head' = ""
                     mata: st_sstore(., "`_pt_head'", _puttab_fmt_num( ///
                         st_data(., "`panel'"), `digits', ///
-                        st_varvaluelabel("`panel'"), st_varformat("`panel'")))
+                        st_varvaluelabel("`panel'"), st_varformat("`panel'"), ""))
                 }
                 quietly gen byte `_pt_new' = (_n == 1) | (`panel' != `panel'[_n - 1])
                 local _pt_headvar "`_pt_head'"
@@ -448,7 +498,7 @@ program define puttab, rclass
             }
             mata: _puttab_data_table("`_srcvars'", `digits', `_titlerows', ///
                 `_headerrows', `_uselbl', "`_pt_headvar'", "`_pt_newvar'", ///
-                "`_pt_phvars'")
+                "`_pt_phvars'", "`nformat'")
         }
 
         local K = c(k)
@@ -942,16 +992,21 @@ mata set matastrict on
 // date/time display format (%t...), then integer-vs-fractional display at the
 // requested number of digits. digits() cannot describe a date, so a %t column
 // is always written through its own format; every other numeric column uses
-// digits(). A value that rounds to zero is written without a minus sign.
+// digits(). An all-integer column uses nfmt (nformat(), already widened)
+// when given. A column whose own format ends in fc keeps its comma
+// grouping, with digits() still setting the decimals (gc is not followed:
+// stock data such as auto carry %8.0gc without asking for separators). A value that rounds
+// to zero is written without a minus sign.
 string colvector _puttab_fmt_num(
     real colvector v,
     real scalar digits,
     string scalar vlabel,
-    string scalar vfmt)
+    string scalar vfmt,
+    string scalar nfmt)
 {
     string colvector out, mapped
     real scalar i, n, allint, isdate
-    string scalar ifmt, ffmt
+    string scalar ifmt, ffmt, grp
 
     n = rows(v)
     out = J(n, 1, "")
@@ -979,8 +1034,9 @@ string colvector _puttab_fmt_num(
             break
         }
     }
-    ifmt = "%32.0f"
-    ffmt = "%32." + strofreal(digits, "%9.0f") + "f"
+    grp = (regexm(vfmt, "^%-?0?[0-9]+[.][0-9]+fc$") ? "c" : "")
+    ifmt = (nfmt != "" ? nfmt : "%32.0f" + grp)
+    ffmt = "%32." + strofreal(digits, "%9.0f") + "f" + grp
 
     for (i = 1; i <= n; i++) {
         if (mapped[i] != "") {
@@ -1101,7 +1157,8 @@ void _puttab_data_table(
     real scalar usevarlabels,
     string scalar headvar,
     string scalar newvar,
-    string scalar phvars)
+    string scalar phvars,
+    string scalar nfmt)
 {
     string rowvector vars
     string matrix out
@@ -1136,7 +1193,7 @@ void _puttab_data_table(
         else {
             ncol = st_data(., vars[j])
             scol = _puttab_fmt_num(ncol, digits, st_varvaluelabel(vars[j]),
-                st_varformat(vars[j]))
+                st_varformat(vars[j]), nfmt)
         }
         out[(datatop..total), j] = scol
     }
@@ -1148,7 +1205,8 @@ void _puttab_data_table(
 // panel(): insert a heading row where a panel starts (its text in column 1,
 // the rest blank), then -- with panelheader() -- that panel's header row
 // when any of its cells is non-blank, and indent the row labels of a panel
-// that has a heading by three spaces. A panel whose heading text is blank
+// that has a heading by three spaces (none when the caller's local
+// _pt_noindent is 1, from noindent). A panel whose heading text is blank
 // (missing or empty panel value) gets no heading and no indent. Posts the
 // body positions (1 = first body row) of the heading rows in _pt_hrows and
 // of the panel header rows in _pt_phrows, and the count in _pt_npanels.
@@ -1164,8 +1222,9 @@ string matrix _puttab_panelize(
     string matrix ph, body, nb
     string rowvector row
     real colvector hrows, phrows
-    real scalar i, n, K, headed, r, npan
+    real scalar i, n, K, headed, r, npan, indent
 
+    indent = (st_local("_pt_noindent") != "1")
     head = st_sdata(., headvar)
     isnew = st_data(., newvar)
     n = rows(head)
@@ -1196,7 +1255,7 @@ string matrix _puttab_panelize(
             }
         }
         row = body[i, .]
-        if (headed & row[1] != "") row[1] = "   " + row[1]
+        if (indent & headed & row[1] != "") row[1] = "   " + row[1]
         r++
         nb[r, .] = row
     }
@@ -1338,7 +1397,8 @@ void _puttab_matrix_table(
     string scalar matname,
     real scalar digits,
     real scalar titlerows,
-    real scalar headerrows)
+    real scalar headerrows,
+    string scalar nfmt)
 {
     real matrix M
     string matrix out
@@ -1370,7 +1430,7 @@ void _puttab_matrix_table(
     // Format column by column so decimals are consistent within each column.
     for (j = 1; j <= C; j++) {
         out[(datatop..(datatop + R - 1)), j + 1] =
-            _puttab_fmt_num(M[., j], digits, "", "")
+            _puttab_fmt_num(M[., j], digits, "", "", nfmt)
     }
 
     _puttab_emit_table(out)

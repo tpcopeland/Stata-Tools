@@ -1,4 +1,4 @@
-*! effecttab Version 2.3.0  2026/10/05
+*! effecttab Version 2.3.1  2026/10/05
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -105,6 +105,16 @@ program define effecttab, rclass
 
 	* Accept excel() as synonym for xlsx()
 	if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
+	* Session destinations (tabtools set workbook/markdown) apply only when
+	* sheet() asks for a sheet; an explicit option wins. Without this a
+	* sheet() call after tabtools set workbook wrote nothing, silently.
+	if `"`macval(sheet)'"' != "" {
+		_tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+		local xlsx `"`_ss_xlsx'"'
+		local markdown `"`_ss_md'"'
+		local mdappend "`_ss_mdappend'"
+		if `"`xlsx'"' == "" display as text "(tabtools: sheet() ignored; no xlsx() and no session workbook)"
+	}
 		local _has_xlsx = "`xlsx'" != ""
 		if `"`macval(sheet)'"' == "" local sheet "Effects"
 
