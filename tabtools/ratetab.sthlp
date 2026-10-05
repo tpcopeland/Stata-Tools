@@ -28,7 +28,7 @@
 {synoptline}
 {syntab:Data}
 {synopt:{opt ev:ents(varlist)}}event counts per outcome; default {cmd:_d}{p_end}
-{synopt:{opt exp:osure(varname)}}person-time; default {cmd:_t - _t0} of {cmd:stset} data{p_end}
+{synopt:{opt exp:osure(varlist)}}person-time: one, or one per outcome{p_end}
 
 {syntab:Rates}
 {synopt:{opt per(#)}}rate per # person-time units; default {cmd:1000}{p_end}
@@ -37,6 +37,9 @@
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt small:cells(#)}}mask 1 to #-1 events as {cmd:<}#{p_end}
 {synopt:{opt nosmall:cells}}ignore the session smallcells default{p_end}
+{synopt:{opt mask:text(string)}}text of a masked event count; default {cmd:<}#{p_end}
+{synopt:{opt excludem:asked}}keep masked levels out of the cluster fit{p_end}
+{synopt:{opt zeroc:ells(dash|blank)}}print zero-event cells as {cmd:–} or empty{p_end}
 
 {syntab:Format}
 {synopt:{opt dig:its(#)}}decimal places of rates; default 1{p_end}
@@ -48,6 +51,7 @@
 {synopt:{opt unit:label(string)}}rate unit in the header{p_end}
 
 {syntab:Output}
+{synopt:{opt sav:ing(filename[, replace])}}save the numbers per level as a dataset{p_end}
 {synopt:{it:stratetab_options}}output options of {helpb stratetab}{p_end}
 {synoptline}
 
@@ -79,9 +83,15 @@ it, as {cmd:strate} run one variable at a time would.
 {phang}
 {opt events(varlist)} names nonnegative integer event counts (0/1 indicators or
 counts), one variable per outcome; each becomes a column group.
-{opt exposure(varname)} names the person-time of each observation. Give both,
-or neither for {cmd:stset} data. Negative person-time, non-integer counts,
-and events without person-time are refused.
+{opt exposure(varlist)} names the person-time of each observation: one
+variable used for every outcome, or one variable per outcome, paired in order
+with {opt events()} ({cmd:events(e1 e2) exposure(py1 py2)}: {cmd:e1} over
+{cmd:py1}, {cmd:e2} over {cmd:py2}), for outcomes whose follow-up ends at
+different times. Any other number of variables is refused. Give both, or
+neither for {cmd:stset} data. Negative person-time, non-integer counts, and
+events without person-time (in the outcome's own variable) are refused. An
+observation missing any of the {opt events()} or {opt exposure()} variables
+is left out of every outcome, so all outcomes share one sample ({cmd:r(N)}).
 
 {dlgtab:Rates}
 
@@ -115,6 +125,27 @@ recovered from another variable's totals. Without it, a
 session default set by {cmd:tabtools set smallcells #} applies and is echoed
 in the log; {opt nosmallcells} ignores that default.
 
+{phang}
+{opt masktext(string)} is printed in place of a masked event count, for
+example {cmd:masktext("–")}; the default is {cmd:<}#, as in {cmd:<5}. The
+person-time and rate of a masked cell are withheld ({cmd:–}) either way. It
+requires a small-cell threshold.
+
+{phang}
+{opt excludemasked}, with {cmd:ci(cluster(}{it:varname}{cmd:))} and a small-cell
+threshold # of 2 or more, leaves the levels with 1 to #-1 events out of the
+clustered Poisson fit, as levels with no events always are. Those levels
+then have no interval in {cmd:r(estimates)} (they print masked anyway) and
+are counted in {cmd:r(N_maskfit)}, not {cmd:r(N_noci)}. See {it:Methods} for
+what this does and does not change.
+
+{phang}
+{opt zerocells(dash|blank)} prints a level with no events with {cmd:–}
+({cmd:dash}) or nothing ({cmd:blank}) in place of its count and its rate and
+interval; its person-time is still shown. Without it, the count 0 is printed
+with the rate 0 and the exact limits (0, -ln(alpha/2)/Y). {cmd:r()} and
+{opt saving()} keep the numbers.
+
 {dlgtab:Format}
 
 {phang}
@@ -132,6 +163,16 @@ column groups, the sections, and the rate header. The defaults are the
 variable labels (or names) and {it:per()}.
 
 {dlgtab:Output}
+
+{phang}
+{opt saving(filename[, replace])} saves a numeric dataset with one row per
+printed level: {cmd:outcome}, {cmd:outcome_var}, {cmd:outcome_label},
+{cmd:group}, {cmd:groupvar}, {cmd:level}, {cmd:level_label}, {cmd:events},
+{cmd:persontime} (in {opt pyscale()} units), {cmd:rate}, {cmd:lb}, and
+{cmd:ub} (per {opt per()}), and {cmd:masked} (1 when the printed cell is
+masked). The numbers are the unmasked numbers of {cmd:r(estimates)}, so the
+file is an analysis file, not a release table. The file is checked before
+any work and written after the table.
 
 {phang}
 All other options are passed to {helpb stratetab}: {opt xlsx()},
@@ -152,6 +193,24 @@ clustered limits are exp(b_j -/+ z se_j) from the saturated Poisson model, whose
 estimate exp(b_j) equals D_j/Y_j; the fit starts at that closed-form estimate, so
 b_j and se_j are evaluated at it exactly. Levels with no events are left out of that fit.
 
+{pstd}
+{it:What excludemasked changes.} The saturated model's information matrix is
+diagonal, so each level's coefficient and its sandwich variance depend only on
+that level's own events and person-time: Var(b_j) = G/(G-1) * sum_c u_cj^2 / D_j^2,
+with u_cj = d_cj - Y_cj D_j/Y_j the score of cluster c for level j and G the
+number of clusters in the fit. Leaving the masked levels out therefore does
+not change the estimand or the estimate of any other level; it changes their
+standard errors only through G, the clusters that contribute to the fit,
+and so only through the small-sample factor G/(G-1). With many clusters the
+change is negligible; with few it is not, and the cluster count reported is
+that of the reduced fit. The masked levels themselves get no clustered
+interval. This follows the closed form derived for the package (see the
+literature notes on rate intervals); it is not a separate method.
+
+{pstd}
+With one {opt exposure()} variable per outcome, each outcome's rate, interval,
+and clustered fit use that outcome's own person-time.
+
 
 {marker examples}{...}
 {title:Examples}
@@ -168,6 +227,13 @@ b_j and se_j are evaluated at it exactly. Levels with no events are left out of 
 {phang2}{cmd:. generate double pt = _t - _t0}{p_end}
 {phang2}{cmd:. ratetab drug, events(died) exposure(pt)}{p_end}
 
+{pstd}Per-outcome person-time, masking, and a saved numeric file{p_end}
+
+{phang2}{cmd:. generate byte died2 = died & _t < 20}{p_end}
+{phang2}{cmd:. generate double pt2 = min(_t, 20) - _t0}{p_end}
+{phang2}{cmd:. ratetab drug, events(died died2) exposure(pt pt2) smallcells(15) masktext("–") zerocells(dash) saving(rates, replace)}{p_end}
+{phang2}{cmd:. ratetab drug, ci(cluster(id)) smallcells(15) excludemasked}{p_end}
+
 
 {marker stored}{...}
 {title:Stored results}
@@ -183,11 +249,13 @@ b_j and se_j are evaluated at it exactly. Levels with no events are left out of 
 {synopt:{cmd:r(level)}}confidence level{p_end}
 {synopt:{cmd:r(N_zero)}}cells with no events{p_end}
 {synopt:{cmd:r(N_noci)}}cells without a clustered interval{p_end}
+{synopt:{cmd:r(N_maskfit)}}masked cells left out of the clustered fit{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(ci_method)}}{cmd:exact}, {cmd:poisson}, or {cmd:cluster}{p_end}
 {synopt:{cmd:r(cluster)}}cluster variable{p_end}
 {synopt:{cmd:r(methods)}}methods sentence{p_end}
+{synopt:{cmd:r(saving)}}file written by {opt saving()}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(estimates)}}one row per cell; see {it:Remarks} below{p_end}

@@ -296,6 +296,66 @@ else {
     local ++fail_count
 }
 
+**# O7: console preview names its columns with the header labels (2.3.1)
+* 2.3.0 listed the frame with variable names, so the console showed
+* c1 c2 c3 c4 and never said which group or model a column held.
+capture noisily {
+    _ot_births
+    label define _otq 1 "Narc" 0 "Comp \$HOME", replace
+    label values narc _otq
+    local _nobs = _N
+    local _ls = c(linesize)
+    set linesize 250
+    local cl "$OT_OUT/ot_o7.log"
+    capture erase "`cl'"
+    log using "`cl'", text replace name(_oto7)
+    outtab cs ptb, exposure(narc) models("" \ "age") modellabels("Crude" \ "Adjusted") ///
+        estimator(poisson, irr vce(cluster id)) frame(_oto7, replace)
+    log close _oto7
+    set linesize `_ls'
+    assert _N == `_nobs'
+    frame _oto7 {
+        assert _N == 2
+        assert rowlabel[1] == "Caesarean section"
+        local _l2 : variable label c2
+        assert `"`macval(_l2)'"' == "Comp \$HOME, events/N (%)"
+    }
+    * typed group labels keep "$name" text too
+    outtab cs, exposure(narc) grouplabels("Ex \$HOME" \ "Co") frame(_oto7g, replace)
+    frame _oto7g {
+        local _l1 : variable label c1
+        assert `"`macval(_l1)'"' == "Ex \$HOME, events/N (%)"
+    }
+    * the label row carries every column label and precedes the first data row
+    tempname h
+    local hdr 0
+    local first 0
+    local ln 0
+    file open `h' using "`cl'", read text
+    file read `h' line
+    while r(eof) == 0 {
+        local ++ln
+        if strpos(`"`macval(line)'"', "Comp \$HOME, events/N (%)") & ///
+            strpos(`"`macval(line)'"', "Crude, RR (95% CI)") & `hdr' == 0 local hdr `ln'
+        if strpos(`"`macval(line)'"', "Caesarean section") & `first' == 0 local first `ln'
+        file read `h' line
+    }
+    file close `h'
+    assert `hdr' > 0 & `first' > `hdr'
+    _ot_has "`cl'" " c1 "
+    assert !r(found)
+}
+if _rc == 0 {
+    display as result "  PASS: O7 console preview shows the column labels; frame and data unchanged"
+    local ++pass_count
+}
+else {
+    local _o7rc = _rc
+    capture log close _oto7
+    display as error "  FAIL: O7 console header (rc=`_o7rc')"
+    local ++fail_count
+}
+
 local _tc = `pass_count' + `fail_count'
 display "RESULT: test_outtab_v230 tests=`_tc' pass=`pass_count' fail=`fail_count'"
 log close _ot230

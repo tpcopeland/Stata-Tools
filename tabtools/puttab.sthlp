@@ -38,9 +38,9 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt zeb:ra} {opt headers:hade} {opt noheaders:hade}
-{opt dig:its(#)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
+{opt dig:its(#)} {opt nf:ormat(%fmt)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
-{opt pan:el(varname)} {opt panelh:eader(varlist)} {opt span:header(spec)}
+{opt pan:el(varname)} {opt panelh:eader(spec)} {opt noind:ent} {opt span:header(spec)}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -80,9 +80,12 @@ numeric columns are formatted to {opt digits()} decimals. Integer-valued numeric
 columns are written without decimals, and value labels are honored when
 present. A column with a date or time display format ({cmd:%td}, {cmd:%tc},
 {cmd:%tm}, and the other {cmd:%t} formats) is written through that format, for
-example {cmd:01jan2020}, because {opt digits()} cannot describe a date; other
-display formats are not used. A value that rounds to zero is written without a
-minus sign.{p_end}
+example {cmd:01jan2020}, because {opt digits()} cannot describe a date. A column
+whose display format ends in {cmd:fc} (for example {cmd:%12.0fc}) keeps
+its thousands separators, with {opt digits()} still setting the decimals, so
+{cmd:1234567} is written as {cmd:1,234,567}. Other display formats are not used.
+{opt nformat()} sets the format of every integer-valued column at once. A value
+that rounds to zero is written without a minus sign.{p_end}
 
 {pstd}When an Excel workbook is written, the named {opt sheet()} is created if it does not
 exist and replaced if it does (sheet names match regardless of case, and the
@@ -103,6 +106,7 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt noh:eader}}omit the header row entirely{p_end}
 {synopt:{opt noemb:edheader}}export a label-shaped first row as data{p_end}
 {synopt:{opt dig:its(#)}}decimal places for numeric columns{p_end}
+{synopt:{opt nf:ormat(%fmt)}}format for integer-valued columns{p_end}
 {synoptline}
 
 {dlgtab:Output}
@@ -133,7 +137,8 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt vl:ines(numlist)}}rule right of the listed columns{p_end}
 {synopt:{opt bold:rows(numlist)}}bold each listed data row{p_end}
 {synopt:{opt pan:el(varname)}}heading row wherever {it:varname} changes{p_end}
-{synopt:{opt panelh:eader(varlist)}}header row repeated under each heading{p_end}
+{synopt:{opt panelh:eader(spec)}}header row repeated under each heading{p_end}
+{synopt:{opt noind:ent}}do not indent the row labels of a panel{p_end}
 {synopt:{opt span:header(spec)}}spanning column labels above the header{p_end}
 {synoptline}
 
@@ -150,6 +155,18 @@ between them.{p_end}
 {phang}
 {opt dig:its(#)} decimal places for numeric columns; default 2, range 0-6; also respects
 {cmd:tabtools set digits}{p_end}
+
+{phang}
+{opt nf:ormat(%fmt)} display format for integer-valued numeric columns, named
+to match the {opt nformat()} option of {helpb desctab}; for example
+{cmd:nformat(%12.0fc)} writes counts with thousands separators. It must be a
+{cmd:%f} or {cmd:%g} format, optionally ending in {cmd:c}. The width is ignored,
+so a large count never overflows to scientific notation. It applies to every
+integer-valued column without a value label or a date format, a year or ID
+column included; to add separators to some columns only, give those columns a
+{cmd:%fc} display format instead. Columns with decimals still use
+{opt digits()}. {opt nformat()} also applies to the columns of a {opt matrix()}
+source.{p_end}
 
 {phang}
 {opt headers:hade} apply background fill to the header row{p_end}
@@ -251,17 +268,27 @@ inserted that holds the panel's value label, or its value when it has none (a st
 {it:varname} gives its text). In the workbook the heading row is bold, merged across the
 table, and ruled above; the row labels of the panel's rows are indented by three spaces
 (written as {cmd:&nbsp;} in Markdown, where the heading is bold). A panel whose value is
-missing or blank gets no heading and no indent. {it:varname} is never exported, even if it
+missing or blank gets no heading and no indent; {opt noindent} drops the indent for every
+panel. {it:varname} is never exported, even if it
 is also in {it:varlist}. Not allowed with {opt matrix()}. Heading rows count as data rows
 for {opt hlines()}, {opt boldrows()}, {opt zebra}, and {cmd:r(n_datarows)}.{p_end}
 
 {phang}
-{opt panelh:eader(varlist)} names one string variable per exported column. At the first
+{opt panelh:eader(spec)} gives the header row of each panel. {it:spec} is either a
+{it:varlist} or literal text. A literal {it:spec}, recognized by its opening quote, gives one
+quoted string per exported column, for example
+{cmd:panelheader("" "Events" "Person-years")}. It writes the same header row under every
+panel heading, and the strings may contain quotes when compound-quoted. A {it:varlist}
+names one string variable per exported column. At the first
 row of each panel, their values form a header row written under the panel heading, in
 bold with a rule below (shaded with {opt headershade}); a panel whose values are all blank
 gets none. Use it when panels have different column meanings, such as counts and
 person-years in one panel and scans and percentages in the next. The variables are never
 exported. Requires {opt panel()}.{p_end}
+
+{phang}
+{opt noind:ent} leaves the row labels under a panel heading unindented in every sink.
+Requires {opt panel()}.{p_end}
 
 {phang}
 {opt span:header(spec)} adds a row of spanning labels above the header row.
@@ -384,6 +411,17 @@ in bold. Use {helpb stacktab} instead when the parts are already separate sheets
 {phang2}{cmd:. puttab make price in 1/5, sheet("Prices") title("Five cars")}{p_end}
 {phang2}{cmd:. puttab make mpg in 1/5, sheet("Mileage") title("Five cars")}{p_end}
 {phang2}{cmd:. tabtools set clear}{p_end}
+
+{pstd}{bf:Example 8: Thousands separators}{p_end}
+{pstd}{opt nformat()} formats every integer-valued column; a {cmd:%fc} display
+format adds separators to one column only, and {opt digits()} still sets its
+decimals.{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. collapse (sum) price weight (mean) mpg, by(foreign)}{p_end}
+{phang2}{cmd:. puttab foreign price weight mpg using table.xlsx, sheet("Totals") ///}{p_end}
+{phang3}{cmd:nformat(%12.0fc) digits(1)}{p_end}
+{phang2}{cmd:. format weight %12.0fc}{p_end}
+{phang2}{cmd:. puttab foreign price weight mpg using table.xlsx, sheet("Weight")}{p_end}
 
 {marker stored}{...}
 {title:Stored results}

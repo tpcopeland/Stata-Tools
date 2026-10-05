@@ -1,4 +1,4 @@
-*! outtab Version 2.3.0  2026/10/05
+*! outtab Version 2.3.1  2026/10/05
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -101,9 +101,9 @@ program define outtab, rclass
         local _K 0
         if `"`models'"' == "" local models `""""'
         local _rest `"`models'"'
-        while `"`_rest'"' != "" {
+        while `"`macval(_rest)'"' != "" {
             gettoken _m _rest : _rest, parse("\") qed(_mq)
-            if `"`_m'"' == "\" & !`_mq' continue
+            if `"`macval(_m)'"' == "\" & !`_mq' continue
             local ++_K
             local _spec`_K' = strtrim(`"`_m'"')
             if `"`_spec`_K''"' != "" {
@@ -120,12 +120,12 @@ program define outtab, rclass
         }
         local _nl 0
         if `"`modellabels'"' != "" {
-            local _rest `"`modellabels'"'
-            while `"`_rest'"' != "" {
+            local _rest `"`macval(modellabels)'"'
+            while `"`macval(_rest)'"' != "" {
                 gettoken _m _rest : _rest, parse("\") qed(_mq)
-                if `"`_m'"' == "\" & !`_mq' continue
+                if `"`macval(_m)'"' == "\" & !`_mq' continue
                 local ++_nl
-                local _mlab`_nl' = strtrim(`"`_m'"')
+                local _mlab`_nl' = strtrim(`"`macval(_m)'"')
             }
             if `_nl' != `_K' {
                 display as error "modellabels() needs `_K' labels separated by \"
@@ -140,13 +140,13 @@ program define outtab, rclass
 
         **# Group labels: exposed (1) first, then comparator (0)
         if `"`grouplabels'"' != "" {
-            local _rest `"`grouplabels'"'
+            local _rest `"`macval(grouplabels)'"'
             local _ng 0
-            while `"`_rest'"' != "" {
+            while `"`macval(_rest)'"' != "" {
                 gettoken _m _rest : _rest, parse("\") qed(_mq)
-                if `"`_m'"' == "\" & !`_mq' continue
+                if `"`macval(_m)'"' == "\" & !`_mq' continue
                 local ++_ng
-                local _glab`_ng' = strtrim(`"`_m'"')
+                local _glab`_ng' = strtrim(`"`macval(_m)'"')
             }
             if `_ng' != 2 {
                 display as error "grouplabels() needs two labels: exposed \ comparator"
@@ -157,7 +157,10 @@ program define outtab, rclass
             local _vl : value label `exposure'
             forvalues _g = 1/2 {
                 local _code = 2 - `_g'
-                local _glab`_g' = cond("`_vl'" != "", `"`: label (`exposure') `_code''"', "`exposure' = `_code'")
+                * extended function, not cond(): an inline label lookup is
+                * rescanned, so "$name" in a value label was expanded away
+                if "`_vl'" != "" local _glab`_g' : label (`exposure') `_code'
+                else local _glab`_g' "`exposure' = `_code'"
             }
         }
 
@@ -369,14 +372,29 @@ program define outtab, rclass
             mata: st_varlabel("c1", st_local("_glab1") + ", events/N (%)")
             mata: st_varlabel("c2", st_local("_glab2") + ", events/N (%)")
             forvalues _k = 1/`_K' {
-                local _lab `"`_mlab`_k'', `ratiolabel' (`=strtrim(string(`level', "%9.0g"))'% CI)"'
+                local _lab `"`macval(_mlab`_k')', `macval(ratiolabel)' (`=strtrim(string(`level', "%9.0g"))'% CI)"'
                 mata: st_varlabel("c`=2 + `_k''", st_local("_lab"))
             }
             mata: st_varlabel("rowlabel", " ")
             quietly compress
             char _dta[tabtools_source] "outtab"
             char _dta[tabtools_layout] "flat"
-            noisily list rowlabel c*, noobs abbreviate(32) separator(0) string(40)
+            * Console preview: the column labels as a header row, since
+            * list shows variable names (c1, c2, ...) otherwise
+            preserve
+            quietly {
+                set obs `=_N + 1'
+                tempvar _ord _hd
+                generate long `_ord' = cond(_n == _N, 0, _n)
+                sort `_ord'
+                generate byte `_hd' = _n == 1
+                foreach _v of varlist c* {
+                    local _vl : variable label `_v'
+                    replace `_v' = `"`macval(_vl)'"' in 1
+                }
+            }
+            noisily list rowlabel c*, noobs noheader table sepby(`_hd') string(40)
+            restore
         }
 
         **# Sinks through puttab

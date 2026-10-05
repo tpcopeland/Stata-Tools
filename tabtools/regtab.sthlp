@@ -35,7 +35,7 @@ for treatment effects and margins tables.
 {p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)}
 {opt sheet(string)} {opt sep(string asis)} {opt models(string)}
 {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept}
-{opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)}
+{opt nore:effects} {opt stats(string asis)} {opt relab:el} {opt digits(#)}
 {opt l:evel(#)}
 {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
@@ -47,7 +47,8 @@ for treatment effects and margins tables.
 {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
 {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}
 {opt cf:ormat(%fmt)} {opt reft:op} {opt celln:ote(spec)} {opt minc:ount(#)}
-{opt trans:pose} {opt exposurel:abel(string)}]{p_end}
+{opt trans:pose} {opt exposurel:abel(string)} {opt cil:abel(string)}
+{opt pl:abel(string)} {opt addc:ol(string asis)} {opt statl:abels(string asis)}]{p_end}
 
 {p 4 8 2}{cmd:tabtools fitcount}, {opt ev:ents(varname)} [{opt peo:ple(varname)}
 {opt exp:osure(varname)} {opt terms} {opt nam:e(collection)}]{p_end}
@@ -78,7 +79,8 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt noint:ercept}}drop intercept, cutpoint, and ancillary rows{p_end}
 {synopt:{opt keepi:ntercept}}retain the intercept row{p_end}
 {synopt:{opt nore:effects}}omit random-effects rows{p_end}
-{synopt:{opt stats(string)}}select model-fit statistics{p_end}
+{synopt:{opt stats(string asis)}}model-fit statistics, built-in or {cmd:e(}{it:name}{cmd:)}{p_end}
+{synopt:{opt statl:abels(string asis)}}relabel built-in {opt stats()} rows{p_end}
 {synopt:{opt digits(#)}}set decimals for coefficients and CIs{p_end}
 {synopt:{opt cf:ormat(%fmt)}}display format for estimate and CI bounds{p_end}
 {synopt:{opt level(#)}}verify the collection's confidence level{p_end}
@@ -115,6 +117,7 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt comp:act}}combine estimate and CI per model{p_end}
 {synopt:{opt nop:value}}suppress p-value columns{p_end}
 {synopt:{opt addr:ow(string asis)}}append custom label/value rows{p_end}
+{synopt:{opt addc:ol(string asis)}}append custom columns to a transposed table{p_end}
 {synopt:{opt pdp(#)}}decimal places for p < 0.10{p_end}
 {synopt:{opt highpdp(#)}}decimal places for p >= 0.10{p_end}
 {synopt:{opt reft:op}}print reference level first in its block{p_end}
@@ -122,6 +125,8 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt minc:ount(#)}}mask factor levels with fewer than # events{p_end}
 {synopt:{opt trans:pose}}models as rows; terms, stats as columns{p_end}
 {synopt:{opt exposurel:abel(string)}}label of the {cmd:stats(exposure)} row{p_end}
+{synopt:{opt cil:abel(string)}}header text of the interval column{p_end}
+{synopt:{opt pl:abel(string)}}header text of the p-value column{p_end}
 {synoptline}
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
@@ -151,7 +156,20 @@ random-effects rows if desired.{p_end}
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt addr:ow(string asis)} append custom label/value rows below the table (see Remarks for syntax){p_end}
+{opt addr:ow(string asis)} append custom label/value rows below the table (see Remarks for syntax).
+A specification wrapped whole in one more layer of quotes, as a program
+passes {cmd:addrow(`"`spec'"')}, is unwrapped: {cmd:addrow(`""P trend" 0.03"')}
+is {cmd:addrow("P trend" 0.03)}.{p_end}
+
+{phang}
+{opt addc:ol(string asis)} the {opt addrow()} of a transposed table; requires
+{opt transpose} (r(198) otherwise). Each specification
+{cmd:"}{it:label}{cmd:"} {it:value1} {it:value2} ..., separated by {cmd:\},
+adds one column after the last one, headed by {it:label}, with {it:value1}
+in the first model's row, {it:value2} in the second's, and so on; fewer values
+leave the remaining rows blank and more values than models is an error
+(r(198)): {cmd:regtab, transpose addcol("P trend" 0.032 0.041)}. The column
+reaches every sink; {cmd:r(table)} and {opt eplotframe()} do not include it.{p_end}
 
 {phang}
 {opt bold:p(#)} bold p-value cells below #{p_end}
@@ -159,6 +177,16 @@ random-effects rows if desired.{p_end}
 {phang}
 {opt border:style(string)} border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}
 (default {cmd:thin}){p_end}
+
+{phang}
+{opt cil:abel(string)} replaces the confidence-interval header text, by
+default {cmd:"95% CI"} (the collection's level), in every layout and sink:
+the interval column's header, the {opt compact} header ({cmd:"HR 95% CI"}
+becomes {cmd:"HR} {it:string}{cmd:"}), the {opt transpose} header (the text inside
+{cmd:"HR (95% CI)"}), the {opt frame()} rows and {cmd:flat} variable labels,
+Excel, CSV, and Markdown. For example {cmd:cilabel("95% confidence interval")}.
+The text is used as given: {cmd:cilabel("(95% CI)")} gives a compact header
+{cmd:"HR (95% CI)"}.{p_end}
 
 {phang}
 {opt cdisc} CDISC mode: digits 4, coef label "Estimate", forces {cmd:stats(n)}{p_end}
@@ -179,7 +207,11 @@ row or several rows, a model number outside the table, or a specification
 without its text, is an error (r(198)), never a guess; {cmd:""} as the text
 blanks the cell deliberately. {opt cellnote()} is applied after {opt mincount()}
 and before {opt transpose}; it cannot target {opt stats()} or {opt addrow()}
-rows.{p_end}
+rows. Labels and texts may be in plain or compound quotes and may hold
+spaces, backslashes, and quotation marks; the {cmd:\} between specifications
+may touch its neighbours ({cmd:"a""Smoking"}); and a specification wrapped
+whole in one more layer of quotes, as a program passes
+{cmd:cellnote(`"`spec'"')}, is unwrapped, as in {opt addrow()}.{p_end}
 
 {phang}
 {opt cf:ormat(%fmt)} is a full Stata numeric display format for the estimate
@@ -339,6 +371,11 @@ among the ancillary rows. The collection itself is not changed.{p_end}
 {opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {phang}
+{opt pl:abel(string)} replaces the p-value header text, by default
+{cmd:"p-value"}, in every layout and sink, as {opt cilabel()} does:
+{cmd:plabel("P")}.{p_end}
+
+{phang}
 {opt pdp(#)} max decimal places for small p-values (p < 0.10); default 3{p_end}
 
 {phang}
@@ -381,7 +418,13 @@ collinearity. Default {cmd:"Omitted"}{p_end}
 
 {phang}
 {opt emptyl:abel(string)} label for a factor cell that identifies no observations
-in the estimation sample, which Stata reports as {cmd:(empty)}; default {cmd:"Empty"}{p_end}
+in the estimation sample, which Stata reports as {cmd:(empty)}; default {cmd:"Empty"}.
+It also labels a factor level the model estimated but whose variance is zero
+or missing (a {cmd:stcox} level whose coefficient diverged under separation
+prints a hazard ratio with blank standard error): the level is not
+estimable and is not the reference. The reference is the level the model's
+factor-variable base marks ({cmd:1b.x}); see {it:Constrained rows} under
+Remarks.{p_end}
 
 {phang}
 {opt relab:el} relabel random effects using variable labels and parameter types (see Remarks){p_end}
@@ -393,7 +436,13 @@ sink (console, Excel, CSV, Markdown, {opt frame()} with or without {cmd:flat});
 {cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers.{p_end}
 
 {phang}
-{opt sheet(string)} target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}{p_end}
+{opt sheet(string)} target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}.
+After {cmd:tabtools set workbook} (or {cmd:markdown}), a call that gives
+{opt sheet()} without {opt xlsx()} (or {opt markdown()}) writes to the session
+target and says so in the log; the first write of the session workbook
+starts it over (see {helpb tabtools}). An explicit {opt xlsx()} or
+{opt markdown()} wins. When {opt sheet()} is given and no workbook resolves,
+{cmd:regtab} prints {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.{p_end}
 
 {phang}
 {opt stars} add significance stars to coefficients (*, **, ***){p_end}
@@ -403,7 +452,7 @@ sink (console, Excel, CSV, Markdown, {opt frame()} with or without {cmd:flat});
 0.001){p_end}
 
 {phang}
-{opt stats(string)} model-fit statistics rows: {cmd:n}, {cmd:obs}, {cmd:events},
+{opt stats(string asis)} model-fit statistics rows: {cmd:n}, {cmd:obs}, {cmd:events},
 {cmd:people}, {cmd:exposure},
 {cmd:groups}, {cmd:mi_m}, {cmd:aic}, {cmd:qic}, {cmd:bic}, {cmd:ll}, {cmd:icc},
 {cmd:r2}, {cmd:r2_a}, {cmd:rmse}, {cmd:F}, {cmd:fmi}. The {cmd:qic} API name displays Pan's
@@ -445,7 +494,31 @@ stores a design-based {cmd:e(F)}{p_end}
 {p2col:{cmd:fmi}}"Largest FMI", {cmd:e(fmi_max_mi)} (%6.4f), the largest
 fraction of missing information across coefficients, as {cmd:mi estimate}
 reports it{p_end}
+{p2col:{cmd:e(}{it:name}{cmd:)}}any other scalar the collection holds, as
+{cmd:e(}{it:name}{cmd:)} or {cmd:e(}{it:name}{cmd:)="}{it:label}{cmd:"}
+(compound quotes also work), for example
+{cmd:stats(n e(N_lc)="Left-censored" e(N_rc)="Right-censored")}. Each is a
+row of its own after the built-in rows, in the order given, labelled
+{it:label} (default {it:name}): integers with thousands separators
+(%12.0fc), other values to three decimals (%12.3f). The value comes from the
+collection, never from the active {cmd:e()}. A model that does not hold the
+scalar has a blank cell; a scalar no collected model holds is an error
+(r(111)), as is a name requested twice (r(198)). Returned as
+{cmd:r(e_}{it:name}{cmd:_}{it:#}{cmd:)} when that name fits in 32 characters{p_end}
 {p2colreset}{...}
+
+{phang}
+{opt statl:abels(string asis)} relabels built-in {opt stats()} rows with
+{it:stat} {cmd:"}{it:label}{cmd:"} pairs, {it:stat} being one of {cmd:n},
+{cmd:obs}, {cmd:events}, {cmd:people}, {cmd:exposure}, {cmd:groups},
+{cmd:mi_m}, {cmd:aic}, {cmd:qic}, {cmd:bic}, {cmd:ll}, {cmd:icc}, {cmd:r2},
+{cmd:r2_a}, {cmd:rmse}, {cmd:F}, {cmd:fmi}:
+{cmd:stats(n events) statlabels(n "Patients" events "Deaths")}. A statistic
+that is not requested in {opt stats()}, an unknown one, or a missing label is
+an error (r(198)). {cmd:statlabels(exposure ...)} is {opt exposurelabel()};
+the two cannot both be given. {cmd:qic} also labels the QICu row that
+{cmd:aic} falls back to for {cmd:xtgee}. Labels the {cmd:e(}{it:name}{cmd:)}
+items of {opt stats()} carry their own.{p_end}
 
 {phang}
 {opt title(string)} title written to {cmd:A1}, merged across the table; blank if omitted{p_end}
@@ -464,7 +537,7 @@ untransposed row label shows it ("2: Car origin: Foreign"), its second the estim
 term has a blank cell; reference, omitted, masked, and {opt cellnote()} cells
 show their labels. {opt compact} is implied. {opt addrow()}, {opt dimnonsig},
 {opt highlight()}, and {opt boldp()} act on rows that a transposed table does
-not have and are refused (r(198)). {cmd:r(table)}, {cmd:r(N_models)}, and
+not have and are refused (r(198)); {opt addcol()} adds columns instead. {cmd:r(table)}, {cmd:r(N_models)}, and
 {opt eplotframe()} keep their usual, untransposed meaning.{p_end}
 
 {phang}
@@ -691,7 +764,11 @@ estimate column, spanning that model's CI and p-value cells. The class is read
 per model, so a level one model dropped keeps its estimate in the models that
 retained it. Change the words with {opt refcat()}, {opt omitlabel()}, and
 {opt emptylabel()}; the three must differ. Where the collection carries no
-class, {cmd:regtab} labels a constrained factor level {it:Reference}. Stata 17's
+class, {cmd:regtab} labels a constrained factor level {it:Reference} only when
+the cell holds the constrained value itself (0, or 1 when the collection holds
+a ratio): a level the model estimated, whose variance is zero or missing, has
+a blank CI and p-value as well but is shown as {opt emptylabel()}, not as the
+reference. Stata 17's
 {cmd:collect} records every constrained cell of some fits as empty --
 {cmd:nbreg}, {cmd:zinb}, {cmd:intreg}, and {cmd:streg} with an ancillary
 parameter -- although the model reports the level as {cmd:(base)}; a model whose
@@ -906,6 +983,7 @@ an estimate:{p_end}
 {synopt:{cmd:r(rmse_}{it:#}{cmd:)}}root MSE for model {it:#} (when {cmd:stats(rmse)}){p_end}
 {synopt:{cmd:r(F_}{it:#}{cmd:)}}linear-model F for model {it:#} (when {cmd:stats(F)}){p_end}
 {synopt:{cmd:r(fmi_}{it:#}{cmd:)}}largest FMI for model {it:#} (when {cmd:stats(fmi)}){p_end}
+{synopt:{cmd:r(e_}{it:name}{cmd:_}{it:#}{cmd:)}}{cmd:e(}{it:name}{cmd:)} for model {it:#} (when {cmd:stats(e(}{it:name}{cmd:))}){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 

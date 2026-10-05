@@ -1,11 +1,11 @@
-*! tabcell Version 2.3.0  2026/10/05
-*! One formatter for publication cells: estimate (CI), p, n (%), e/n (%), median (IQR)
+*! tabcell Version 2.3.1  2026/10/05
+*! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
 SYNTAX
-    tabcell est [coef] [, eform format(%fmt) sep(str) level(#) missing(str)]
+    tabcell est [coef] [, eform scale(#) format(%fmt) sep(str) level(#) missing(str)]
         sources (exactly one):
           coef             a coefficient of the active e(): _b[coef], _se[coef];
                            t interval when e(df_r) exists, else normal
@@ -14,7 +14,8 @@ SYNTAX
           matrix(M row)    a row of a matrix, e.g. matrix(r(table)' mpg); its
                            columns b, ll, ul, or cols(# # #)
           b() ll() ul()    explicit numbers; or b() se() for a normal interval
-    tabcell p ,   p(#) [pdp(#) highpdp(#) missing(str)]
+    tabcell p ,   p(#) [pdp(#) highpdp(#) pstyle(table|footnote) missing(str)]
+    tabcell n ,   n(#) [mincell(#) nformat() missing(str)]
     tabcell np ,  n(#) d(#) [mincell(#) nformat() pformat() missing(str)]
     tabcell enp , e(#) n(#) [mincell(#) nformat() pformat() missing(str)]
     tabcell iqr , median(#) q1(#) q3(#) [format() sep() missing(str)]
@@ -37,8 +38,8 @@ program define tabcell, rclass
     capture noisily {
         gettoken form 0 : 0, parse(" ,")
         local form = lower(strtrim(`"`form'"'))
-        if !inlist(`"`form'"', "est", "p", "np", "enp", "iqr") {
-            display as error `"tabcell: the first word must be est, p, np, enp, or iqr"'
+        if !inlist(`"`form'"', "est", "p", "n", "np", "enp", "iqr") {
+            display as error `"tabcell: the first word must be est, p, n, np, enp, or iqr"'
             exit 198
         }
         syntax [anything(name=coef)] [if] [in] [, ///
@@ -46,9 +47,9 @@ program define tabcell, rclass
             MISSing(string asis) GENerate(name) ///
             B(string) LL(string) UL(string) SE(string) ///
             LINcom NLcom MATrix(string) COLs(numlist min=3 max=3 integer >0) ///
-            P(string) PDP(integer 3) HIGHPDP(integer 2) ///
+            P(string) PDP(integer 3) HIGHPDP(integer 2) PSTYle(string) ///
             N(string) D(string) E(string) MEDian(string) Q1(string) Q3(string) ///
-            MINcell(integer 0) NFormat(string) PFormat(string)]
+            MINcell(integer 0) NFormat(string) PFormat(string) SCALE(string)]
 
         **# Source capture first: r() and e() belong to the caller until the
         * first rclass call below.
@@ -90,6 +91,20 @@ program define tabcell, rclass
                 if `_rc1' | _rc {
                     display as error "tabcell est, lincom: no lincom results in r(); run lincom immediately before tabcell"
                     exit 301
+                }
+                * r() left by an earlier tabcell (it now carries r(se) and
+                * r(p)) is not lincom's: its estimate may be scaled or
+                * exponentiated. lincom posts no r(form).
+                if `"`r(form)'"' != "" {
+                    display as error "tabcell est, lincom: r() holds tabcell's own results, not lincom's; run lincom immediately before tabcell"
+                    exit 301
+                }
+                * keep every scalar lincom left (estimate, se, lb, ub, level,
+                * df, t or z, p): tabcell is rclass and clears r() on return
+                local _lc_names : r(scalars)
+                foreach _nm of local _lc_names {
+                    tempname _lc_`_nm'
+                    scalar `_lc_`_nm'' = r(`_nm')
                 }
                 scalar `_sb' = r(estimate)
                 scalar `_sse' = r(se)
@@ -264,11 +279,13 @@ program define tabcell, rclass
             if `"`format'"' != "" local _not_est "`_not_est' format()"
             if `"`sep'"' != "" local _not_est "`_not_est' sep()"
         }
-        if "`form'" != "p" & (`pdp' != 3 | `highpdp' != 2 | `"`p'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()"
-        if !inlist("`form'", "np", "enp") {
-            if `mincell' != 0 | `"`nformat'`pformat'"' != "" local _not_est "`_not_est' mincell()/nformat()/pformat()"
+        if "`form'" != "p" & (`pdp' != 3 | `highpdp' != 2 | `"`p'`pstyle'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()/pstyle()"
+        if !inlist("`form'", "n", "np", "enp") {
+            if `mincell' != 0 | `"`nformat'"' != "" local _not_est "`_not_est' mincell()/nformat()"
         }
-        if !inlist("`form'", "np", "enp") & `"`n'"' != "" local _not_est "`_not_est' n()"
+        if !inlist("`form'", "np", "enp") & `"`pformat'"' != "" local _not_est "`_not_est' pformat()"
+        if !inlist("`form'", "n", "np", "enp") & `"`n'"' != "" local _not_est "`_not_est' n()"
+        if "`form'" != "est" & `"`scale'"' != "" local _not_est "`_not_est' scale()"
         if "`form'" != "np" & `"`d'"' != "" local _not_est "`_not_est' d()"
         if "`form'" != "enp" & `"`e'"' != "" local _not_est "`_not_est' e()"
         if "`form'" != "iqr" & `"`median'`q1'`q3'"' != "" local _not_est "`_not_est' median()/q1()/q3()"
@@ -283,6 +300,33 @@ program define tabcell, rclass
         if "`form'" == "p" & `"`p'"' == "" {
             display as error "tabcell p requires p()"
             exit 198
+        }
+        * pstyle(footnote): p = 0.012, p < 0.001, p > 0.99 (prose); the
+        * default, table, is the bare regtab text
+        local pstyle = strtrim(lower(`"`pstyle'"'))
+        if !inlist(`"`pstyle'"', "", "table", "footnote") {
+            display as error "pstyle() must be table or footnote"
+            exit 198
+        }
+        if "`pstyle'" == "" local pstyle "table"
+        if "`form'" == "n" & `"`n'"' == "" {
+            display as error "tabcell n requires n()"
+            exit 198
+        }
+        * scale(#): multiplies the estimate and both limits (after eform),
+        * e.g. scale(1000) for a rate per 1,000; tabcell est only
+        local _scale 1
+        if `"`scale'"' != "" {
+            capture confirm number `scale'
+            if _rc {
+                display as error `"scale(): "`scale'" is not a number"'
+                exit 198
+            }
+            if !(`scale' > 0) | missing(`scale') {
+                display as error "scale() must be a positive number"
+                exit 198
+            }
+            local _scale = `scale'
         }
         if "`form'" == "np" & (`"`n'"' == "" | `"`d'"' == "") {
             display as error "tabcell np requires n() and d()"
@@ -328,6 +372,7 @@ program define tabcell, rclass
         **# The numbers, as named expressions
         if "`form'" == "est" local _exps `"`b' \ `ll' \ `ul'"'
         if "`form'" == "p" local _exps `"`p'"'
+        if "`form'" == "n" local _exps `"`n'"'
         if "`form'" == "np" local _exps `"`n' \ `d'"'
         if "`form'" == "enp" local _exps `"`e' \ `n'"'
         if "`form'" == "iqr" local _exps `"`median' \ `q1' \ `q3'"'
@@ -373,10 +418,15 @@ program define tabcell, rclass
                     quietly replace `_v' = exp(`_v') if `touse'
                 }
             }
+            if `"`scale'"' != "" {
+                foreach _v of local _vlist {
+                    quietly replace `_v' = `_v' * `_scale' if `touse'
+                }
+            }
             tempvar _out
             _tabcell_render `form' `_vlist', touse(`touse') generate(`_out') ///
                 fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
-                hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') ///
+                hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
                 nformat(`nformat') pformat(`pformat') mincell(`mincell')
             local _N = r(N)
             local _N_missing = r(N_missing)
@@ -446,6 +496,11 @@ program define tabcell, rclass
                     scalar `_s`_j'' = exp(`_s`_j'')
                 }
             }
+            if `"`scale'"' != "" {
+                forvalues _j = 1/`_k' {
+                    scalar `_s`_j'' = `_s`_j'' * `_scale'
+                }
+            }
             frame create `_cframe'
             local _frame_made 1
             frame `_cframe' {
@@ -458,7 +513,7 @@ program define tabcell, rclass
                 quietly gen byte touse = 1
                 _tabcell_render `form' `_vlist', touse(touse) generate(cell) ///
                     fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
-                    hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') ///
+                    hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
                     nformat(`nformat') pformat(`pformat') mincell(`mincell')
                 local _isbad = r(N_missing)
                 mata: st_local("_cell", st_sdata(1, "cell"))
@@ -474,6 +529,19 @@ program define tabcell, rclass
                 return scalar ub = `_s3'
                 if "`_src'" != "matrix" & !("`_src'" == "numbers" & `"`se'"' == "") {
                     return scalar level = `level'
+                }
+                if `"`scale'"' != "" return scalar scale = `_scale'
+                if "`_src'" == "lincom" {
+                    * lincom's own results, kept: names tabcell does not use
+                    * (p, se, df, t or z) as lincom stored them; estimate, lb,
+                    * ub and level, which tabcell reports as printed, under
+                    * lincom_*
+                    foreach _nm of local _lc_names {
+                        if inlist("`_nm'", "estimate", "lb", "ub", "level", "missing", "scale") {
+                            return scalar lincom_`_nm' = `_lc_`_nm''
+                        }
+                        else return scalar `_nm' = `_lc_`_nm''
+                    }
                 }
             }
         }

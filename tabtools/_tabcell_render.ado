@@ -1,4 +1,4 @@
-*! _tabcell_render Version 2.3.0  2026/10/05
+*! _tabcell_render Version 2.3.1  2026/10/05
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -15,6 +15,7 @@ generate() column can never disagree about formatting, masking or refusal.
   form est : var1 = estimate, var2 = lower, var3 = upper (already on the
              reported scale)
   form p   : var1 = p-value
+  form n   : var1 = count
   form np  : var1 = count, var2 = denominator
   form enp : var1 = events, var2 = total
   form iqr : var1 = median, var2 = Q1, var3 = Q3
@@ -31,7 +32,7 @@ program define _tabcell_render, rclass
         gettoken form 0 : 0
         syntax varlist(numeric min=1 max=3), TOUSE(varname) GENerate(name) ///
             [FMT(string) SEP(string) MISSING(string) HASMISSING(integer 0) ///
-            PDP(integer 3) HIGHPDP(integer 2) NFORMAT(string) PFORMAT(string) ///
+            PDP(integer 3) HIGHPDP(integer 2) PSTYLE(string) NFORMAT(string) PFORMAT(string) ///
             MINCELL(integer 0)]
         local v1 : word 1 of `varlist'
         local v2 : word 2 of `varlist'
@@ -41,7 +42,7 @@ program define _tabcell_render, rclass
             if "`form'" == "est" | "`form'" == "iqr" {
                 gen byte `bad' = missing(`v1') | missing(`v2') | missing(`v3') if `touse'
             }
-            else if "`form'" == "p" {
+            else if "`form'" == "p" | "`form'" == "n" {
                 gen byte `bad' = missing(`v1') if `touse'
             }
             else {
@@ -80,6 +81,13 @@ program define _tabcell_render, rclass
                     exit 198
                 }
             }
+            if "`form'" == "n" {
+                count if `touse' & !`bad' & `v1' < 0
+                if r(N) {
+                    noisily display as error "tabcell n: counts must be nonnegative"
+                    exit 198
+                }
+            }
             if "`form'" == "np" | "`form'" == "enp" {
                 count if `touse' & !`bad' & (`v1' < 0 | `v2' < 0)
                 if r(N) {
@@ -106,6 +114,19 @@ program define _tabcell_render, rclass
                 _tabtools_fmt_p `v1' if `touse' & !`bad', generate(`ptxt') ///
                     pdp(`pdp') highpdp(`highpdp')
                 replace `generate' = `ptxt' if `touse' & !`bad'
+                if "`pstyle'" == "footnote" {
+                    * prose form: "p = 0.012", "p < 0.001", "p > 0.99"
+                    replace `generate' = cond(inlist(substr(`ptxt', 1, 1), "<", ">"), ///
+                        "p " + substr(`ptxt', 1, 1) + " " + substr(`ptxt', 2, .), ///
+                        "p = " + `ptxt') if `touse' & !`bad'
+                }
+            }
+            else if "`form'" == "n" {
+                replace `generate' = strtrim(string(`v1', "`nformat'")) if `touse' & !`bad'
+                if `mincell' > 0 {
+                    replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
+                        `v1' >= 1 & `v1' < `mincell'
+                }
             }
             else if "`form'" == "np" {
                 * n (%): the percentage is omitted when the denominator is 0

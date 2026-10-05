@@ -1,4 +1,4 @@
-*! stacktab Version 2.3.0  2026/10/05
+*! stacktab Version 2.3.1  2026/10/05
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -49,7 +49,7 @@ program define stacktab, rclass
     tempname _stage_frame _backup_frame
     capture noisily {
 
-        syntax using/ , ///
+        syntax [using/] , ///
             BLocks(string asis) ///
             SHeet(string) ///
             [LAYout(string) ///
@@ -79,12 +79,6 @@ program define stacktab, rclass
 
         tempvar _xblock _xorder _rowid
 
-        if !strmatch(lower(`"`using'"'), "*.xlsx") {
-            display as error "using file must have a .xlsx extension"
-            exit 198
-        }
-        _tabtools_validate_path `"`using'"' "using"
-        confirm file `"`using'"'
         _tabtools_validate_sheet `"`macval(sheet)'"' "sheet()"
 
         if "`layout'" == "" local layout "vstack"
@@ -124,6 +118,26 @@ program define stacktab, rclass
                 local `opt' = substr(`"`macval(_sq_v)'"', 2, `_sq_n' - 2)
             }
         }
+        * Session destinations (tabtools set workbook/markdown): without
+        * using, the session workbook is both the source of the blocks and
+        * the target sheet; an explicit using or markdown() wins. stacktab
+        * reads the book it writes, so it records the write with xlsxdone
+        * (below) and never takes the first-write erase.
+        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend'
+        local using `"`_ss_xlsx'"'
+        local markdown `"`_ss_md'"'
+        local mdappend "`_ss_mdappend'"
+        if `"`using'"' == "" {
+            display as error "using required, or set a session workbook with tabtools set workbook"
+            exit 100
+        }
+
+        if !strmatch(lower(`"`using'"'), "*.xlsx") {
+            display as error "using file must have a .xlsx extension"
+            exit 198
+        }
+        _tabtools_validate_path `"`using'"' "using"
+        confirm file `"`using'"'
         if `"`csv'"' != "" & !strmatch(lower(`"`csv'"'), "*.csv") {
             display as error "csv() must have a .csv extension"
             exit 198
