@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.2.0  02oct2026}{...}
+{* *! version 2.3.0  05oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -21,6 +21,9 @@
 {vieweralsosee "stacktab" "help stacktab"}{...}
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
+{vieweralsosee "ratetab" "help ratetab"}{...}
+{vieweralsosee "tabcell" "help tabcell"}{...}
+{vieweralsosee "outtab" "help outtab"}{...}
 {vieweralsosee "tabtools tips" "help tabtools_tips"}{...}
 {title:Title}
 
@@ -119,6 +122,8 @@ guide and end-to-end worked recipes.
 
 {synopt:{helpb regtab}}Regression results from any estimation command{p_end}
 {synopt:{helpb effecttab}}Treatment effects and margins results{p_end}
+{synopt:{helpb tabcell}}One estimate (CI), p-value, n (%), or median (IQR) cell{p_end}
+{synopt:{helpb outtab}}Binary outcomes by exposure with model ratios{p_end}
 
 {pstd}
 {bf:Composite and assembly}
@@ -137,6 +142,7 @@ guide and end-to-end worked recipes.
 
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
+{synopt:{helpb ratetab}}Events, person-time, and rates with exact or robust CIs{p_end}
 
 {pstd}
 {bf:Utility}
@@ -215,6 +221,34 @@ Display current formatting defaults
 {cmd:tabtools get}
 
 {pstd}
+Set or clear a session destination or masking default
+
+{p 8 17 2}
+{cmd:tabtools set} {c -(}{cmd:workbook}|{cmd:markdown}{c )-} {it:filename}
+
+{p 8 17 2}
+{cmd:tabtools set headershade} {c -(}{cmd:on}|{cmd:off}{c )-}
+
+{p 8 17 2}
+{cmd:tabtools set smallcells} {it:#} [{cmd:primary}]
+
+{p 8 17 2}
+{cmd:tabtools set} {it:sessionkey} {cmd:clear}
+
+{pstd}
+Display the session destinations and masking default
+
+{p 8 17 2}
+{cmd:tabtools query}
+
+{pstd}
+Store fit-time counts for {helpb regtab} right after a {cmd:collect:} fit
+
+{p 8 17 2}
+{cmd:tabtools fitcount}{cmd:,} {opt events(varname)} [{opt people(varname)}
+{opt exposure(varname)} {opt terms} {opt name(collection)}]
+
+{pstd}
 Load formatting defaults from a saved tabtools profile
 
 {p 8 17 2}
@@ -246,8 +280,48 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:zebracolor} {it:color}}default zebra fill color{p_end}
 {synopt:{cmd:digits} {it:#}}numeric display digits; integer from 0 to 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting{p_end}
-{synopt:{cmd:clear}}remove all persistent defaults{p_end}
+{synopt:{cmd:clear}}clear all persistent defaults and session keys{p_end}
 {synoptline}
+
+{dlgtab:Session keys}
+
+{synoptset 22 tabbed}{...}
+{synopt:{cmd:workbook} {it:filename}}default {cmd:.xlsx} target for {helpb puttab}{p_end}
+{synopt:{cmd:markdown} {it:filename}}default Markdown target for {helpb puttab}{p_end}
+{synopt:{cmd:headershade} {it:on|off}}header shading default ({helpb puttab} only){p_end}
+{synopt:{cmd:smallcells} {it:#} [{cmd:primary}]}default small-cell masking{p_end}
+{synoptline}
+
+{pstd}
+Session keys live for the Stata session only; {opt permanent} is refused for
+them. An explicit option in a call always wins over a session key. Paths are stored
+absolute ({cmd:.} and {cmd:..} resolved; symbolic links and letter case are
+not), so a later {cmd:cd} does not move them. The first write to a session
+workbook or Markdown file replaces it, and later writes add sheets or append. A
+table any tabtools command writes to that file with an explicit {cmd:using},
+{opt xlsx()}, or {opt markdown()} counts as that first write. Setting a
+different file re-arms the replace; setting the current file again changes
+nothing; and a file already written as a session target in this Stata session
+is never replaced, even after {cmd:tabtools set clear}, so switching from A to B
+and back to A keeps A's tables. Every command that
+uses a session key echoes the resolved value in the log. {helpb desctab},
+{helpb table1_tc}, {helpb crosstab}, and {helpb corrtab} use a session workbook or
+Markdown file only when {opt sheet()} is given. {cmd:smallcells} is honoured by
+{helpb desctab}, {helpb table1_tc}, {helpb crosstab}, {helpb stratetab},
+{helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one call.
+{it:Session destinations} in {helpb puttab} has the details.
+
+{pstd}
+{cmd:tabtools fitcount} counts events, people (distinct values of {opt people()}),
+and person-time ({opt exposure()}) on {cmd:e(sample)} of the active fit and,
+with {opt terms}, events per factor level, and stores them with the collected
+model so that {helpb regtab} {opt stats(events people exposure)} and
+{opt mincount()} can use them. Run it immediately after the {cmd:collect:} fit.
+The active fit must be the collected one: its {cmd:e(cmdline)}, {cmd:e(N)}, and
+{cmd:e(b)} must match the collected model, or the command exits with error 459.
+{opt name()} names the collection when the fit used {cmd:collect, name():}.
+Counts are unweighted; {cmd:fweight}s and {cmd:iweight}s and {cmd:svy, subpop()}
+fits are refused. See {help regtab:regtab} ("Fit-time counts").
 
 {dlgtab:Profile options}
 
@@ -425,6 +499,35 @@ only read when you run {cmd:tabtools use} or source it from your own
 {synopt:{cmd:r(boldp)}}current boldp setting{p_end}
 
 {pstd}
+{cmd:tabtools query} stores the following in {cmd:r()}:{p_end}
+
+{synoptset 22 tabbed}{...}
+{p2col 5 22 26 2: Macros}{p_end}
+{synopt:{cmd:r(workbook)}}session workbook, if set{p_end}
+{synopt:{cmd:r(markdown)}}session Markdown file, if set{p_end}
+{synopt:{cmd:r(headershade)}}session header shading, if set{p_end}
+{synopt:{cmd:r(smallcells)}}session small-cell threshold, if set{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary}, if set{p_end}
+{synopt:{cmd:r(workbook_fresh)}}{cmd:1} if the next write replaces the workbook{p_end}
+{synopt:{cmd:r(markdown_fresh)}}{cmd:1} if the next write replaces the Markdown file{p_end}
+
+{pstd}
+{cmd:tabtools fitcount} stores the following in {cmd:r()}:{p_end}
+
+{synoptset 22 tabbed}{...}
+{p2col 5 22 26 2: Scalars}{p_end}
+{synopt:{cmd:r(N)}}observations in {cmd:e(sample)}{p_end}
+{synopt:{cmd:r(events)}}events{p_end}
+{synopt:{cmd:r(people)}}distinct {opt people()} values, if given{p_end}
+{synopt:{cmd:r(exposure)}}total person-time, if given{p_end}
+{synopt:{cmd:r(cmdset)}}collected model the counts are stored under{p_end}
+{synopt:{cmd:r(n_terms)}}number of factor levels counted, with {opt terms}{p_end}
+
+{p2col 5 22 26 2: Macros}{p_end}
+{synopt:{cmd:r(terms)}}factor levels counted, with {opt terms}{p_end}
+{synopt:{cmd:r(collection)}}collection the counts were written to{p_end}
+
+{pstd}
 {cmd:tabtools use} stores the following in {cmd:r()}:{p_end}
 
 {synoptset 18 tabbed}{...}
@@ -437,6 +540,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.2.0{p_end}
+{pstd}{bf:Version} 2.3.0{p_end}
 
 {hline}

@@ -90,9 +90,9 @@ capture noisily {
     tabtools set clear
 
     tabtools
-    assert r(n_commands) == 14
+    assert r(n_commands) == 17
     assert "`r(commands)'" == ///
-        "table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+        "table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
 
     set varabbrev on
     capture tabtools nonsense

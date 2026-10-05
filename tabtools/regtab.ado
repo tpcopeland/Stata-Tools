@@ -1,4 +1,4 @@
-*! regtab Version 2.2.0  2026/10/02
+*! regtab Version 2.3.0  2026/10/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -82,7 +82,9 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	FRAme(string) EPLOTFrame(string asis) keep(string) drop(string) LABELMatch DIMNONsig FACTORLabel ///
 	REFcat(string) OMITLabel(string) EMPTYLabel(string) ///
 	CUTLabels(string) ADDRow(string asis) COMPact NOPvalue ///
-	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1)]
+	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1) ///
+	CFormat(string) REFTop CELLNote(string asis) MINCount(integer -1) ///
+	TRANSpose EXPOSURELabel(string)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -96,6 +98,10 @@ if `"`refcat'"' == "" local refcat "Reference"
 * observations all arrive as a zero (a one after eform) with an empty interval;
 * they are different facts and are labelled differently.
 if `"`omitlabel'"' == "" local omitlabel "Omitted"
+* mincount() masks a level by the same label as an empty cell; its default is
+* then a dash (U+2013), the convention for a value that is not shown.
+local _user_emptylabel = (`"`emptylabel'"' != "")
+if `"`emptylabel'"' == "" & `mincount' != -1 local emptylabel = uchar(8211)
 if `"`emptylabel'"' == "" local emptylabel "Empty"
 if `"`refcat'"' == `"`omitlabel'"' | `"`refcat'"' == `"`emptylabel'"' ///
 	| `"`omitlabel'"' == `"`emptylabel'"' {
@@ -106,6 +112,29 @@ if `"`refcat'"' == `"`omitlabel'"' | `"`refcat'"' == `"`emptylabel'"' ///
 local _has_xlsx = "`xlsx'" != ""
 if `_has_xlsx' & `"`macval(sheet)'"' == "" local sheet "Regression"
 if !`_has_xlsx' & `"`macval(sheet)'"' == "" local sheet "Regression"
+
+* cformat(): a full numeric display format for the estimate and both CI
+* bounds; digits() is the shorthand, so the two cannot both be given. Dates,
+* strings and hex formats are refused even where Stata calls them numeric.
+local _cfmt `"`cformat'"'
+if `"`_cfmt'"' != "" {
+	if `digits' != -1 {
+		display as error "cformat() and digits() cannot both be specified"
+		exit 198
+	}
+	local _cfmt = strtrim(`"`_cfmt'"')
+	capture confirm numeric format `_cfmt'
+	local _cf_rc = _rc
+	if !`_cf_rc' & !ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*[.,][0-9]+[fge]c?$") local _cf_rc = 7
+	if `_cf_rc' {
+		display as error `"cformat() must be a numeric display format such as %9.2f or %12.0fc (got `_cfmt')"'
+		exit 198
+	}
+}
+if `mincount' != -1 & `mincount' < 1 {
+	display as error "mincount() must be a positive integer"
+	exit 198
+}
 
 * Resolve persistent defaults
 if `digits' == -1 {
@@ -146,6 +175,7 @@ if `highpdp' == -1 local highpdp = 2
 		}
 		local _displayframe_name ""
 		local _displayframe_replace 0
+		local _displayframe_flat 0
 		if `"`frame'"' != "" {
 			local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
 			gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
@@ -157,10 +187,13 @@ if `highpdp' == -1 local highpdp = 2
 				noisily display as error "frame() must start with a valid Stata frame name"
 				exit 198
 			}
-			if `"`_fr_rest'"' != "" {
-				if `"`_fr_rest'"' == "replace" local _displayframe_replace 1
+			* Suboptions replace and flat, in any order. flat writes one row
+			* per body line with the printed headers as variable labels.
+			foreach _fr_w of local _fr_rest {
+				if `"`_fr_w'"' == "replace" local _displayframe_replace 1
+				else if `"`_fr_w'"' == "flat" local _displayframe_flat 1
 				else {
-					noisily display as error "frame() only allows the replace suboption"
+					noisily display as error "frame() only allows the replace and flat suboptions"
 					exit 198
 				}
 			}
@@ -319,6 +352,14 @@ if "`starslevels'" != "" {
 local coef_fmt "%32.`digits'f"
 local ci_fmt "%32.`digits'f"
 local coef_round = 10^(-`digits')
+* cformat() replaces both formats and is applied as given: strtrim(string(x,
+* fmt)) for the estimate and both bounds (round(x, 0) is x), the rule every
+* tabtools command with cformat() shares.
+if `"`_cfmt'"' != "" {
+	local coef_fmt `"`_cfmt'"'
+	local ci_fmt `"`_cfmt'"'
+	local coef_round = 0
+}
 
 * Resolve formatting
 _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
@@ -393,6 +434,26 @@ quietly{
         noisily display as error "labelmatch requires keep() or drop()"
         exit 198
     }
+    * transpose prints models as rows and terms as columns; the row-based
+    * options have no row to act on there.
+    local _tp = ("`transpose'" != "")
+    if `_tp' {
+        foreach _tpo in addrow dimnonsig {
+            if `"``_tpo''"' != "" {
+                noisily display as error "transpose cannot be combined with `_tpo'"
+                exit 198
+            }
+        }
+        if `has_highlight' | `has_boldp' {
+            noisily display as error "transpose cannot be combined with highlight() or boldp()"
+            exit 198
+        }
+    }
+    if `"`exposurelabel'"' != "" & !strpos(" " + strlower("`stats'") + " ", " exposure ") {
+        noisily display as error "exposurelabel() requires stats(exposure)"
+        exit 198
+    }
+    if `"`exposurelabel'"' == "" local exposurelabel "Person-time"
     * Validate keep/drop mutual exclusivity
     if "`keep'" != "" & "`drop'" != "" {
         noisily display as error "keep() and drop() cannot be used together"
@@ -404,6 +465,14 @@ quietly{
 	    local sep `"`r(text)'"'
 	}
 	if `"`sep'"' == "" local sep ", "      // Default CI delimiter
+	* A comma-decimal cformat() (%9,2f) prints "0,45"; with a comma in the CI
+	* separator the two bounds could not be told apart: refused.
+	if `"`_cfmt'"' != "" & strpos(`"`sep'"', ",") {
+	    if ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*,") {
+	        noisily display as error `"cformat(`_cfmt') uses a decimal comma; choose a sep() without a comma, such as sep(" to ") or sep("; ")"'
+	        exit 198
+	    }
+	}
 
     * =========================================================================
     * EXTRACT PER-MODEL COMMAND METADATA
@@ -688,6 +757,99 @@ quietly{
     local noint `nointercept'
 
     * =========================================================================
+    * CELLNOTE() SPECIFICATION
+    * =========================================================================
+    * cellnote("row label" model# "text" [\ ...]): parsed now, so a malformed
+    * specification is refused before any rendering; rows are matched later.
+    local _cn_n = 0
+    if `"`cellnote'"' != "" {
+        local _cn_rest `"`cellnote'"'
+        while `"`_cn_rest'"' != "" {
+            gettoken _cn_lab _cn_rest : _cn_rest
+            gettoken _cn_m _cn_rest : _cn_rest
+            * the text is required; "" is a deliberate blank, a missing
+            * token (end of spec or the next \) is an error
+            local _cn_rest = strtrim(`"`_cn_rest'"')
+            local _cn_notxt = (`"`_cn_rest'"' == "" | substr(`"`_cn_rest'"', 1, 2) == "\ " | `"`_cn_rest'"' == "\")
+            gettoken _cn_txt _cn_rest : _cn_rest
+            capture confirm integer number `_cn_m'
+            local _cn_bad = _rc | `_cn_notxt'
+            if !`_cn_bad' {
+                if `_cn_m' < 1 local _cn_bad = 1
+            }
+            if `_cn_bad' | `"`_cn_lab'"' == "" {
+                noisily display as error `"cellnote() expects "row label" model# "text" [\ ...]"'
+                exit 198
+            }
+            local ++_cn_n
+            local _cn_lab_`_cn_n' `"`_cn_lab'"'
+            local _cn_m_`_cn_n' = `_cn_m'
+            local _cn_txt_`_cn_n' `"`_cn_txt'"'
+            local _cn_rest = strtrim(`"`_cn_rest'"')
+            if `"`_cn_rest'"' != "" {
+                gettoken _cn_bs _cn_rest : _cn_rest
+                if `"`_cn_bs'"' != "\" {
+                    noisily display as error `"cellnote(): separate specifications with \ (got `_cn_bs')"'
+                    exit 198
+                }
+                local _cn_rest = strtrim(`"`_cn_rest'"')
+                if `"`_cn_rest'"' == "" {
+                    noisily display as error "cellnote(): nothing follows the last separator"
+                    exit 198
+                }
+            }
+        }
+    }
+
+    * =========================================================================
+    * FIT-TIME PER-TERM COUNTS (tabtools fitcount, terms) FOR MINCOUNT()
+    * =========================================================================
+    * Each model's per-level events and variance status were stored with its
+    * own cmdset at fit time; the collection itself does not keep e(sample).
+    local _fct_models = 0
+    if `mincount' != -1 {
+        _regtab_rlabels tt_terms
+        local _fct_levels "`_rl_present'"
+        local _fct_rc = 0
+        if "`_fct_levels'" != "" {
+            capture {
+                collect layout (cmdset) (result[tt_terms])
+            }
+            local _fct_rc = _rc
+            if !`_fct_rc' {
+                preserve
+                capture {
+                    _tabtools_collect_render, type(meta) rowdim(cmdset) results(tt_terms)
+                    local _fct_models = _N - 1
+                    forvalues _m = 1/`_fct_models' {
+                        mata: st_local("_fct_`_m'", strtrim(st_sdata(`_m' + 1, "B")))
+                    }
+                }
+                local _fct_rc = _rc
+                restore
+            }
+        }
+        forvalues _rli = 1/`_rl_n' {
+            local _rlv : word `_rli' of `_rl_present'
+            quietly collect label levels result `_rlv' `"`macval(_rl_lbl_`_rli')'"', modify
+        }
+        if `_fct_rc' {
+            noisily display as error "mincount(): could not read the fit-time counts from the collection"
+            exit `_fct_rc'
+        }
+        local _fct_missing ""
+        local _fct_check = max(`_fct_models', `_meta_models')
+        forvalues _m = 1/`_fct_check' {
+            if `"`_fct_`_m''"' == "" local _fct_missing "`_fct_missing' `_m'"
+        }
+        if "`_fct_levels'" == "" | "`_fct_missing'" != "" {
+            noisily display as error "mincount() requires {bf:tabtools fitcount, events() terms} right after every model's fit" ///
+                cond("`_fct_missing'" != "", " (none for model" + "`_fct_missing'" + ")", "")
+            exit 198
+        }
+    }
+
+    * =========================================================================
     * STRUCTURAL COEFFICIENT MAP
     * =========================================================================
     * Every coefficient's role (intercept, cutpoint, ancillary parameter,
@@ -819,6 +981,7 @@ quietly{
 
         * Parse requested statistics
         local want_n = 0
+        local want_obs = 0
         local want_aic = 0
         local want_bic = 0
         local want_qic = 0
@@ -832,9 +995,14 @@ quietly{
         local want_F = 0
         local want_mi_m = 0
         local want_fmi = 0
+        local want_people = 0
+        local want_exposure = 0
 
         local stats_lower = " " + strlower("`stats'") + " "
         if strpos("`stats_lower'", " n ") local want_n = 1
+        * obs: e(N), the observations (records, intervals) even where n
+        * reports subjects (e(N_sub)) for a survival model
+        if strpos("`stats_lower'", " obs ") local want_obs = 1
         if strpos("`stats_lower'", " aic ") local want_aic = 1
         if strpos("`stats_lower'", " bic ") local want_bic = 1
         if strpos("`stats_lower'", " qic ") local want_qic = 1
@@ -848,6 +1016,10 @@ quietly{
         if strpos("`stats_lower'", " f ") local want_F = 1
         if strpos("`stats_lower'", " mi_m ") local want_mi_m = 1
         if strpos("`stats_lower'", " fmi ") local want_fmi = 1
+        * people and exposure come only from tabtools fitcount; events from
+        * fitcount when the model has it, else from e(N_fail)
+        if strpos("`stats_lower'", " people ") local want_people = 1
+        if strpos("`stats_lower'", " exposure ") local want_exposure = 1
 
         * Aliases: treat n_sub / subjects as a request for the N row; regtab
         * already prefers N_sub (subjects) over N (rows) for survival models.
@@ -855,13 +1027,13 @@ quietly{
             local want_n = 1
 
         * Warn (do not silently drop) on unrecognized stats() tokens.
-        local _stat_known " n n_sub subjects aic bic qic icc ll groups r2 r-squared events r2_a rmse f mi_m fmi "
+        local _stat_known " n n_sub subjects obs aic bic qic icc ll groups r2 r-squared events people exposure r2_a rmse f mi_m fmi "
         foreach _stok of local stats {
             local _stok_l = strlower("`_stok'")
             if !strpos("`_stat_known'", " `_stok_l' ") {
                 noisily display as error ///
                     "warning: stats() token '`_stok'' not recognized and ignored;" ///
-                    " valid: n (n_sub/subjects) events groups mi_m aic bic qic ll icc r2 r2_a rmse F fmi"
+                    " valid: n (n_sub/subjects) obs events people exposure groups mi_m aic bic qic ll icc r2 r2_a rmse F fmi"
             }
         }
 
@@ -878,7 +1050,9 @@ quietly{
         * even if the user didn't ask for the N row in the output.
         local result_levels ""
         local _any_N_sub = 0
-        if `want_n' | `want_bic' local result_levels "N N_sub"
+        * N_mi: mi estimate, esampvaryok leaves e(N) missing and reports the
+        * average number of observations, as its own header prints it
+        if `want_n' | `want_bic' | `want_obs' local result_levels "N N_sub N_mi"
         if `want_ll' | `want_aic' | `want_bic' {
             local result_levels "`result_levels' ll"
         }
@@ -895,7 +1069,9 @@ quietly{
         }
         if `want_groups' local result_levels "`result_levels' N_g"
         if `want_r2' local result_levels "`result_levels' r2 r2_p r2_a"
-        if `want_events' local result_levels "`result_levels' N_fail"
+        if `want_events' local result_levels "`result_levels' N_fail tt_events"
+        if `want_people' local result_levels "`result_levels' tt_people"
+        if `want_exposure' local result_levels "`result_levels' tt_exposure"
         if `want_r2_a' local result_levels "`result_levels' r2_a"
         if `want_rmse' local result_levels "`result_levels' rmse"
         if `want_F' local result_levels "`result_levels' F"
@@ -916,7 +1092,8 @@ quietly{
                 local n_stat_models = `_meta_models'
                 forvalues m = 1/`n_stat_models' {
                     foreach lname in N N_sub ll aic bic qic rank deviance phi groups r2 ///
-                        r2_p r2_a events rmse F mi_m fmi N_clust N_reps {
+                        r2_p r2_a events rmse F mi_m fmi N_clust N_reps people exposure ///
+                        tt_events N_mi obs {
                         local stat_`lname'_`m' = .
                     }
                 }
@@ -946,7 +1123,8 @@ quietly{
                     local stat_col_r2 ""
                     local stat_col_r2_p ""
                     local stat_col_r2_a ""
-                    foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
+                    foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
+                        tt_events tt_people tt_exposure N_mi {
                         local stat_col_`_sx' ""
                     }
 
@@ -966,7 +1144,8 @@ quietly{
                         if "`hdr'" == "r2" local stat_col_r2 "`v'"
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
                         if "`hdr'" == "r2_a" local stat_col_r2_a "`v'"
-                        foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
+                        foreach _sx in N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
+                            tt_events tt_people tt_exposure N_mi {
                             if "`hdr'" == "`_sx'" local stat_col_`_sx' "`v'"
                         }
                     }
@@ -978,11 +1157,14 @@ quietly{
 
                         * Extract each result level
                         foreach sname in N N_sub ll aic bic rank deviance phi N_g r2 r2_p r2_a ///
-                            N_fail rmse F M_mi fmi_max_mi N_clust N_reps {
+                            N_fail rmse F M_mi fmi_max_mi N_clust N_reps ///
+                            tt_events tt_people tt_exposure N_mi {
                             if "`sname'" == "N_g" local lname "groups"
                             else if "`sname'" == "N_fail" local lname "events"
                             else if "`sname'" == "M_mi" local lname "mi_m"
                             else if "`sname'" == "fmi_max_mi" local lname "fmi"
+                            else if "`sname'" == "tt_people" local lname "people"
+                            else if "`sname'" == "tt_exposure" local lname "exposure"
                             else local lname "`sname'"
                             local stat_`lname'_`m' = .
                             if "`stat_col_`sname''" != "" {
@@ -994,6 +1176,15 @@ quietly{
                                 }
                             }
                         }
+
+                        * Fit-time counts from tabtools fitcount take precedence
+                        * over e(N_fail): they are what the user asked to count.
+                        if !missing(`stat_tt_events_`m'') local stat_events_`m' = `stat_tt_events_`m''
+                        if missing(`stat_N_`m'') & !missing(`stat_N_mi_`m'') {
+                            local stat_N_`m' = `stat_N_mi_`m''
+                        }
+                        * obs keeps e(N) (or e(N_mi)); n may switch to N_sub below
+                        local stat_obs_`m' = `stat_N_`m''
 
                         * Compute QIC_u from deviance + rank only for xtgee
                         * models whose dispersion is fixed at phi=1.
@@ -2410,6 +2601,9 @@ local n2 `=`n'-3'
 local n `=`n'-1'
 * Model count (used by stats() and ICC placement)
 local n_models = `n' / 3
+* Column blocks of the printed table: one per model, or one per column under
+* transpose (set there).
+local _n_blocks = `n_models'
 * Preserve the raw key through all later display edits and row selections.
 rename _raw_colname _raw_A
 
@@ -2701,13 +2895,13 @@ drop _b_had
 	capture confirm variable _eplot_est`_model_ix'
 	if _rc gen double _eplot_est`_model_ix' = .
 	replace _eplot_est`_model_ix' = c`i'z if _n >= 3
-* Fixed effects: user-specified decimal places (default 2)
-gen str32 c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") if !_is_re & !missing(c`i'z)
+* Fixed effects: user-specified decimal places (default 2), or cformat().
+gen str64 c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) if !_is_re & !missing(c`i'z)
 * Transformed random intercept (MOR/MHR): same precision as fixed effects
-replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
+replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
     if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(c`i'z)
 * Other random effects: same decimal places as fixed effects
-replace c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") ///
+replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
 replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3 ///
 	& !(_constraint`_model_ix' != "")
@@ -2772,13 +2966,13 @@ forvalues i = 2(3)`=`last'+1' {
 	    replace _eplot_ll`_model_ix' = _ci_lo if _n >= 3 & _ci_lo < .
 	    replace _eplot_ul`_model_ix' = _ci_hi if _n >= 3 & _ci_hi < .
 	    * Fixed effects: user-specified decimal places
-    replace _ci_fmt = "(" + string(_ci_lo, "`ci_fmt'") + `"`sep'"' + string(_ci_hi, "`ci_fmt'") + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Transformed random intercept (MOR/MHR): same precision as fixed effects
-    replace _ci_fmt = "(" + string(_ci_lo, "`ci_fmt'") + `"`sep'"' + string(_ci_hi, "`ci_fmt'") + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Other random effects: same decimal places as fixed effects
-    replace _ci_fmt = "(" + string(_ci_lo, "`ci_fmt'") + `"`sep'"' + string(_ci_hi, "`ci_fmt'") + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     replace c`i' = _ci_fmt if _ci_fmt != ""
     * A row regtab transforms (eform fixed effect, MOR/MHR intercept) whose
@@ -2882,6 +3076,134 @@ if "`stars'" != "" {
 	replace c`_coef_col' = c`_coef_col' + "*" if c`i'z >= `_sl2' & c`i'z < `_sl1' & !missing(c`i'z) & _n >= 3
 }
 	drop c`i'z c`i'_fmt c`i'_orig
+	}
+
+	* =====================================================================
+	* REFTOP, MINCOUNT(), CELLNOTE(): row order and cell masks on the body
+	* =====================================================================
+	* reftop: within each consecutive block of one factor's levels, the level
+	* a model holds as its base moves to the top of the block. Models that
+	* hold different levels of one block as base are refused, not guessed.
+	if "`reftop'" != "" {
+		quietly generate double _rt_ord = _n
+		quietly generate str244 _rt_par = ""
+		forvalues _rr = 3/`=_N' {
+			local _rt_key = strtrim(_raw_A[`_rr'])
+			_regtab_fvparent `"`_rt_key'"'
+			if `"`_fp_parent'"' != "" quietly replace _rt_par = `"`_fp_parent'"' in `_rr'
+		}
+		quietly generate long _rt_blk = sum(_rt_par != "" & _rt_par != _rt_par[_n - 1])
+		quietly replace _rt_blk = 0 if _rt_par == ""
+		quietly generate byte _rt_base = 0
+		forvalues _m = 1/`n_models' {
+			quietly replace _rt_base = 1 if _n >= 3 & _rt_par != "" & _constraint`_m' == "base"
+		}
+		quietly levelsof _rt_blk if _rt_base, local(_rt_blks)
+		foreach _b of local _rt_blks {
+			quietly count if _rt_blk == `_b' & _rt_base
+			if r(N) > 1 {
+				quietly levelsof _rt_par if _rt_blk == `_b', local(_rt_pn) clean
+				noisily display as error "reftop: the models use different reference levels of `_rt_pn'"
+				noisily display as error "  tabulate them in separate regtab calls, or refit them with one base level"
+				restore
+				exit 198
+			}
+			quietly summarize _rt_ord if _rt_blk == `_b', meanonly
+			quietly replace _rt_ord = r(min) - 0.5 if _rt_blk == `_b' & _rt_base
+		}
+		sort _rt_ord
+		drop _rt_ord _rt_par _rt_blk _rt_base
+	}
+
+	* mincount(#): a factor level (or a 0/1 indicator) whose events (tabtools
+	* fitcount, terms) are fewer than #, or whose variance the fit could not
+	* estimate, is shown as
+	* emptylabel() with its interval and p-value blank. A model's own base
+	* level keeps its reference label. Every level a model shows must be
+	* covered by that model's counts.
+	local _n_masked = 0
+	if `mincount' != -1 {
+		forvalues _m = 1/`n_models' {
+			local _fct_s `";`_fct_`_m'';"'
+			local _ce = (`_m' - 1) * 3 + 1
+			forvalues _rr = 3/`=_N' {
+				local _rt_key = strtrim(_raw_A[`_rr'])
+				if `"`_rt_key'"' == "" continue
+				_regtab_fvparent `"`_rt_key'"'
+				if strtrim(c`_ce'[`_rr']) == "" continue
+				if _constraint`_m'[`_rr'] == "base" continue
+				local _pos = strpos(`"`_fct_s'"', `";`_rt_key'="')
+				* a term that is not a factor level is masked only when the
+				* counts cover it (a 0/1 indicator); others have no count
+				if `"`_fp_parent'"' == "" & `_pos' == 0 continue
+				if `_pos' == 0 {
+					noisily display as error "mincount(): the fit-time counts of model `_m' do not cover `_rt_key';" ///
+						" run tabtools fitcount, terms right after that model's fit"
+					restore
+					exit 459
+				}
+				local _frag = substr(`"`_fct_s'"', `_pos' + strlen(`";`_rt_key'="'), .)
+				local _frag = substr(`"`_frag'"', 1, strpos(`"`_frag'"', ";") - 1)
+				local _bar = strpos(`"`_frag'"', "|")
+				local _tev = real(substr(`"`_frag'"', 1, `_bar' - 1))
+				local _tvok = real(substr(`"`_frag'"', `_bar' + 1, .))
+				if missing(`_tev') | missing(`_tvok') {
+					noisily display as error "mincount(): unreadable fit-time count for `_rt_key' in model `_m'"
+					restore
+					exit 459
+				}
+				if `_tev' >= `mincount' & `_tvok' == 1 & _constraint`_m'[`_rr'] == "" continue
+				quietly replace c`_ce' = `"`emptylabel'"' in `_rr'
+				quietly replace c`=`_ce' + 1' = "" in `_rr'
+				quietly replace c`=`_ce' + 2' = "" in `_rr'
+				quietly replace _constraint`_m' = "masked" in `_rr'
+				foreach _ev in est ll ul p {
+					capture confirm variable _eplot_`_ev'`_m'
+			if !_rc quietly replace _eplot_`_ev'`_m' = . in `_rr'
+				}
+				local ++_n_masked
+			}
+		}
+	}
+
+	* cellnote(): the model's cell on the one body row whose label is exactly
+	* the given text; zero or several matching rows is an error.
+	forvalues _ci = 1/`_cn_n' {
+		local _m = `_cn_m_`_ci''
+		if `_m' > `n_models' {
+			noisily display as error "cellnote(): model `_m' does not exist (the table has `n_models' models)"
+			restore
+			exit 198
+		}
+		mata: st_local("_cn_rows", invtokens(strofreal(selectindex( ///
+			strtrim(st_sdata(., "A")) :== strtrim(st_local("_cn_lab_`_ci'")) :& ///
+			(1::st_nobs()) :>= 3))'))
+		local _cn_k : word count `_cn_rows'
+		if `_cn_k' != 1 {
+			mata: st_local("_cn_show", st_local("_cn_lab_`_ci'"))
+			noisily display as error `"cellnote(): row label ""' as result `"`macval(_cn_show)'"' ///
+				as error `"" matches `_cn_k' coefficient rows; it must match exactly one"'
+			restore
+			exit 198
+		}
+		local _ce = (`_m' - 1) * 3 + 1
+		* st_sstore() truncates to the variable's width: widen it first
+		mata: st_local("_cn_w", strofreal(max((strlen(st_local("_cn_txt_`_ci'")), 1))))
+		local _cn_t : type c`_ce'
+		if "`_cn_t'" != "strL" {
+			if `_cn_w' > real(substr("`_cn_t'", 4, .)) {
+				if `_cn_w' <= 2045 quietly recast str`_cn_w' c`_ce'
+				else quietly recast strL c`_ce'
+			}
+		}
+		mata: st_sstore(`_cn_rows', "c`_ce'", st_local("_cn_txt_`_ci'"))
+		quietly replace c`=`_ce' + 1' = "" in `_cn_rows'
+		quietly replace c`=`_ce' + 2' = "" in `_cn_rows'
+		quietly replace _constraint`_m' = "note" in `_cn_rows'
+		foreach _ev in est ll ul p {
+			capture confirm variable _eplot_`_ev'`_m'
+			if !_rc quietly replace _eplot_`_ev'`_m' = . in `_cn_rows'
+		}
 	}
 
 	if `"`_eplotframe_name'"' != "" {
@@ -3049,6 +3371,36 @@ capture drop _coefnum*
 drop _is_re _is_re_intercept _is_ancillary
 capture drop _role_m*
 capture drop _re_group_label
+* transpose: each term's column header, "Factor: level" for a factor level,
+* taken from the raw key while it is still here.
+if `_tp' {
+    quietly generate str244 _tp_lab = strtrim(A)
+    forvalues _rr = 3/`=_N' {
+        local _rt_key = strtrim(_raw_A[`_rr'])
+        _regtab_fvparent `"`_rt_key'"'
+        if `"`_fp_parent'"' == "" continue
+        local _tp_plab `"`_fp_parent'"'
+        forvalues _fvp = 1/`_fvrow_parent_n' {
+            if `"`_fvrow_parent_var_`_fvp''"' == `"`_fp_parent'"' {
+                local _tp_plab : copy local _fvrow_parent_lab_`_fvp'
+            }
+        }
+        * a multi-equation row reads "eq:   level" (the equation prefix, then
+        * the level's indent); its header keeps regtab's "eq: " prefix in
+        * front: "eq: Factor: level", as the untransposed row reads "eq: level"
+        local _tp_eqp ""
+        mata: st_local("_tp_lev", strtrim(st_sdata(`_rr', "A")))
+        if `_is_multieq' {
+            mata: st_local("_tp_hit", strofreal(ustrregexm(st_local("_tp_lev"), "^(.+?): {2,}(\S.*)$")))
+            if `_tp_hit' {
+                mata: st_local("_tp_eqp", ustrregexra(st_local("_tp_lev"), "^(.+?): {2,}(\S.*)$", "$1") + ": ")
+                mata: st_local("_tp_lev", ustrregexra(st_local("_tp_lev"), "^(.+?): {2,}(\S.*)$", "$2"))
+            }
+        }
+        mata: st_local("_tp_new", st_local("_tp_eqp") + st_local("_tp_plab") + ": " + st_local("_tp_lev"))
+        mata: st_sstore(`_rr', "_tp_lab", st_local("_tp_new"))
+    }
+}
 capture drop _raw_A
 capture drop _ci_seen
 
@@ -3073,8 +3425,14 @@ if `add_stats' == 1 {
             }
         }
     }
+    local _nr_lab_obs "Observations"
+    local _nr_fmt_obs "%12.0fc"
     local _nr_lab_events "Events"
     local _nr_fmt_events "%12.0fc"
+    local _nr_lab_people "People"
+    local _nr_fmt_people "%12.0fc"
+    local _nr_lab_exposure `"`exposurelabel'"'
+    local _nr_fmt_exposure "%12.0fc"
     local _nr_lab_mi_m "Imputations"
     local _nr_fmt_mi_m "%12.0fc"
     local _nr_lab_r2_a "Adjusted R²"
@@ -3108,7 +3466,7 @@ if `add_stats' == 1 {
     }
 
 
-    foreach _nt in events {
+    foreach _nt in obs events people exposure {
         if `want_`_nt'' != 1 continue
         local has_val = 0
         forvalues m = 1/`use_models' {
@@ -3345,6 +3703,68 @@ if `add_stats' == 1 {
     local stats_rows = strtrim("`stats_rows'")
 }
 
+* =========================================================================
+* TRANSPOSE: MODELS AS ROWS, TERMS AND STATISTICS AS COLUMNS
+* =========================================================================
+* One column per stats() row (its label over the models' values), then per
+* coefficient row with an estimate in any model one "estimate (CI)" column
+* and, unless nopvalue, one p-value column. A factor's header row, which holds
+* no estimate, is not a column. Every column is its own block downstream.
+if `_tp' {
+    local _tp_nm1 = `n_models' - 1
+    local _tp_end = _N
+    if `stats_start_row' > 0 local _tp_end = `stats_start_row' - 1
+    local _tp_cvars ""
+    forvalues _j = 1/`n' {
+        local _tp_cvars "`_tp_cvars' c`_j'"
+    }
+    local _tp_hdr `"`coef' (`_ci_level'% CI)"'
+    mata: _tp_S = st_sdata(., ("A", tokens(st_local("_tp_cvars"))))
+    mata: _tp_L = st_sdata(., "_tp_lab")
+    mata: _tp_ix = 2 :+ ((0::`_tp_nm1') :* 3)
+    mata: _tp_O = J(2 + `n_models', 0, "")
+    foreach _sr of local stats_rows {
+        mata: _tp_O = _tp_O, (strtrim(_tp_S[`_sr', 1]) \ "" \ strtrim(_tp_S[`_sr', _tp_ix']'))
+    }
+    forvalues _rr = 3/`_tp_end' {
+        mata: st_local("_tp_has", strofreal(any(strtrim(_tp_S[`_rr', _tp_ix']) :!= "")))
+        if !`_tp_has' continue
+        mata: _tp_e = strtrim(_tp_S[`_rr', _tp_ix']')
+        mata: _tp_c = strtrim(_tp_S[`_rr', (_tp_ix :+ 1)']')
+        mata: _tp_O = _tp_O, (_tp_L[`_rr'] \ st_local("_tp_hdr") \ (_tp_e :+ (" " :* (_tp_c :!= "")) :+ _tp_c))
+        if `_show_pvalues' {
+            mata: _tp_O = _tp_O, (_tp_L[`_rr'] \ "p-value" \ strtrim(_tp_S[`_rr', (_tp_ix :+ 2)']'))
+        }
+    }
+    mata: _tp_A = ("" \ "" \ strtrim(_tp_S[1, _tp_ix']'))
+    mata: st_local("_tp_k", strofreal(cols(_tp_O)))
+    if `_tp_k' == 0 {
+        capture mata: mata drop _tp_S _tp_L _tp_ix _tp_O _tp_A
+        noisily display as error "transpose: no coefficient or statistic to show"
+        restore
+        exit 2000
+    }
+    clear
+    quietly set obs `=2 + `n_models''
+    quietly generate str244 A = ""
+    local _tp_newc ""
+    forvalues _j = 1/`_tp_k' {
+        quietly generate str244 c`_j' = ""
+        local _tp_newc "`_tp_newc' c`_j'"
+    }
+    mata: st_sstore(., "A", _tp_A)
+    mata: st_sstore(., tokens(st_local("_tp_newc")), _tp_O)
+    capture mata: mata drop _tp_S _tp_L _tp_ix _tp_O _tp_A _tp_e _tp_c
+    local n = `_tp_k'
+    local _n_blocks = `_tp_k'
+    local stats_rows ""
+    local first_re_row ""
+    forvalues _m = 1/`_tp_k' {
+        local _constraint_rows_`_m' ""
+    }
+}
+capture drop _tp_lab
+
 *
 * =========================================================================
 * ADD CUSTOM ROWS (addrow option)
@@ -3408,7 +3828,7 @@ replace title = `"`macval(title)'"' if _n == 1
 
 * Save p-value strings before optional layout changes remove p columns.
 if `has_boldp' | `has_highlight' {
-    forvalues _m = 1/`n_models' {
+    forvalues _m = 1/`_n_blocks' {
         local _pvar = (`_m' - 1) * 3 + 3
         forvalues _dr = 4/`=_N' {
             local _bp_m`_m'_r`_dr' = strtrim(c`_pvar'[`_dr'])
@@ -3419,7 +3839,7 @@ if `has_boldp' | `has_highlight' {
 * =====================================================================
 * COMPACT MODE — MERGE ESTIMATE + CI INTO SINGLE COLUMN
 * =====================================================================
-if "`compact'" != "" {
+if "`compact'" != "" & !`_tp' {
     * Merge estimate (c1,c4,c7,...) + CI (c2,c5,c8,...) for data rows
     * Data rows start at dataset row 3 (rows 1-2 are headers)
     forvalues m = 1(3)`n' {
@@ -3455,13 +3875,18 @@ if "`compact'" != "" {
     local n = `_new_idx' - 1
     local _cols_per_model = 2
 }
+else if `_tp' {
+    * transposed: every column is a block of its own, already merged
+    local _cols_per_model = 1
+}
 else {
     local _cols_per_model = 3
 }
 
 * Optional p-value suppression. p-values remain available internally before
 * this point for stars and row highlighting, but are removed from all outputs.
-if !`_show_pvalues' {
+* A transposed table left them out when it was built.
+if !`_show_pvalues' & !`_tp' {
     local _drop_cols ""
     if "`compact'" != "" {
         forvalues m = 2(2)`n' {
@@ -3489,6 +3914,12 @@ if !`_show_pvalues' {
 }
 
 local last = `n' - `_cols_per_model' + 1
+* The width and style code below treats a transposed column as a compact
+* block without a p-value column of its own.
+if `_tp' {
+    local compact "compact"
+    local _show_pvalues = 0
+}
 
 * Save _nonsig values before dropping (needed for formatting after export)
 if "`dimnonsig'" != "" {
@@ -3616,6 +4047,7 @@ return scalar N_cols = `num_cols'
 	return scalar N_models = `n_models'
 	return scalar ci_level = `_ci_level_num'
 	return local coef_label "`_coef_label_return'"
+	if `mincount' != -1 return scalar N_masked = `_n_masked'
 	return local stars "`stars'"
 	return local methods "`_methods'"
 	if `"`_eplotframe_name'"' != "" return local eplotframe "`_eplotframe_name'"
@@ -3633,7 +4065,7 @@ if `add_stats' == 1 {
         if `want_ll'  & !missing(`stat_ll_`m'')           return scalar ll_`m'     = `stat_ll_`m''
         if `want_n'   & !missing(`stat_N_`m'')            return scalar n_`m'      = `stat_N_`m''
         if `want_groups' & !missing(`stat_groups_`m'')    return scalar groups_`m' = `stat_groups_`m''
-        foreach _nt in events mi_m r2_a rmse F fmi {
+        foreach _nt in obs events people exposure mi_m r2_a rmse F fmi {
             if `want_`_nt'' & !missing(`stat_`_nt'_`m'') return scalar `_nt'_`m' = `stat_`_nt'_`m''
         }
     }
@@ -3671,7 +4103,7 @@ if `_has_xlsx' {
 * metadata, hence scale(1) pad(-0.5).
 local _p_offset = `_cols_per_model' - 1
 local _est_min = cond("`compact'" != "", 10, 7)
-forvalues _mw = 1/`n_models' {
+forvalues _mw = 1/`_n_blocks' {
     local _c_first = (`_mw' - 1) * `_cols_per_model' + 1
 
     local _est_width_`_mw' = `_est_min'
@@ -3765,7 +4197,7 @@ if `"`markdown'"' != "" {
 	tempfile _md_snapshot
 	quietly save `"`_md_snapshot'"', replace
 	if _N >= 3 {
-		forvalues _mdc = 1/`n_models' {
+		forvalues _mdc = 1/`_n_blocks' {
 			local _md_first = (`_mdc' - 1) * `_cols_per_model' + 1
 			* C1: the model name is used as a data expression, never through a
 			* macro holding its text.
@@ -3803,8 +4235,32 @@ if `"`markdown'"' != "" {
 
 * Store output in frame if requested
 	if `"`frame'"' != "" {
+		* Model labels: row 2 of each model's first column, or under transpose
+		* the label column of each model's row.
+		forvalues _meta_m = 1/`n_models' {
+			if `_tp' {
+				mata: st_local("_meta_label_`_meta_m'", st_sdata(`_meta_m' + 3, "A"))
+			}
+			else {
+				local _meta_label_col = (`_meta_m' - 1) * `_cols_per_model' + 1
+				mata: st_local("_meta_label_`_meta_m'", st_sdata(2, "c`_meta_label_col'"))
+			}
+		}
+		* frame(name, flat): one row per body line, rowlabel then one string
+		* variable per printed column labelled with its printed header ("Model
+		* 1, HR"); no title, header, or reference-marker rows or columns.
+		local _flat_snapshot ""
+		if `_displayframe_flat' {
+			tempfile _flat_snapshot
+			quietly save `"`_flat_snapshot'"', replace
+			_tabtools_flatframe `n' `_cols_per_model'
+		}
 		_tabtools_frame_put `"`frame'"'
 		local frame `"`_frame_name'"'
+		if `_displayframe_flat' {
+			quietly use `"`_flat_snapshot'"', clear
+			frame `frame': char _dta[tabtools_layout] "flat"
+		}
 		frame `frame': char _dta[tabtools_source] "regtab"
 		frame `frame': mata: st_global("_dta[tabtools_companion_id]", st_local("_companion_id"))
 		frame `frame': char _dta[tabtools_ci_level] "`_ci_level'"
@@ -3812,14 +4268,14 @@ if `"`markdown'"' != "" {
 		local _frame_stat_ids "estimate ci pvalue"
 		if "`compact'" != "" local _frame_stat_ids "estimate_ci pvalue"
 		if "`nopvalue'" != "" local _frame_stat_ids : subinstr local _frame_stat_ids " pvalue" "", all
+		if `_tp' local _frame_stat_ids "transposed"
 		frame `frame': char _dta[tabtools_statistic_ids] "`_frame_stat_ids'"
 		forvalues _meta_m = 1/`n_models' {
 			local _meta_cmdline `"`model_cmdline_`_meta_m''"'
 			local _meta_depvar `"`model_depvar_`_meta_m''"'
 			local _meta_scale `"`model_coef_`_meta_m''"'
 			if `"`_meta_scale'"' == "" local _meta_scale `"`coef'"'
-			local _meta_label_col = (`_meta_m' - 1) * `_cols_per_model' + 1
-			mata: st_local("_meta_label", st_sdata(2, "c`_meta_label_col'"))
+			mata: st_local("_meta_label", st_local("_meta_label_`_meta_m'"))
 			frame `frame': char _dta[tabtools_model_id_`_meta_m'] `"`_meta_cmdline'"'
 			frame `frame': char _dta[tabtools_outcome_id_`_meta_m'] `"`_meta_depvar'"'
 			frame `frame': char _dta[tabtools_effect_scale_`_meta_m'] `"`_meta_scale'"'
@@ -3871,7 +4327,7 @@ if "`stars'" != "" {
 * Prepare p-value/nonsig data vectors for Mata
 local _n_bp_entries 0
 if `has_boldp' | `has_highlight' {
-	forvalues _m = 1/`n_models' {
+	forvalues _m = 1/`_n_blocks' {
 		forvalues _dr = 4/`num_rows' {
 			local _pstr `"`_bp_m`_m'_r`_dr''"'
 			if substr("`_pstr'", 1, 1) == "<" {
@@ -3906,7 +4362,7 @@ capture {
 	tempname _style_rules
 	local _style_rule_rows "12 1 1 1 1 30 0 0 0 | 13 1 1 1 1 1 0 0 0 | 13 1 1 2 2 `factor_length' 0 0 0"
 	local headerheight = 1
-	forvalues _mc = 1/`n_models' {
+	forvalues _mc = 1/`_n_blocks' {
 		local _c_first = (`_mc' - 1) * `_cols_per_model' + 1
 		local _x_first = `_c_first' + 2
 		local _style_rule_rows `"`_style_rule_rows' | 13 1 1 `_x_first' `_x_first' `_est_width_`_mc'' 0 0 0"'
@@ -3946,7 +4402,7 @@ capture {
 	* reference label on that row. Merging on the union of reference rows
 	* across models destroys the CI and p-value of any model with a real
 	* result on a row some OTHER model treats as its reference.
-	forvalues _mc = 1/`n_models' {
+	forvalues _mc = 1/`_n_blocks' {
 		local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 		local _col_end = `_col_start' + `_cols_per_model' - 1
 		foreach row of local _ref_rows_`_mc' {
@@ -3954,7 +4410,7 @@ capture {
 		}
 	}
 
-	forvalues _mc = 1/`n_models' {
+	forvalues _mc = 1/`_n_blocks' {
 		local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 		local _col_end = `_col_start' + `_cols_per_model' - 1
 		local _style_rule_rows `"`_style_rule_rows' | 14 2 2 `_col_start' `_col_end' 0 0 0 0 | 5 2 2 `_col_start' `_col_start' 0 2 0 0 | 6 2 2 `_col_start' `_col_start' 0 2 0 0 | 2 2 2 `_col_start' `_col_start' 0 1 0 0 | 4 2 2 `_col_start' `_col_start' 0 1 0 0"'
@@ -3979,7 +4435,7 @@ capture {
 				local _style_rule_rows `"`_style_rule_rows' | 8 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 				local first_stat = 0
 			}
-			forvalues _mc = 1/`n_models' {
+			forvalues _mc = 1/`_n_blocks' {
 				local _sc = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 				local _sc_end = `_sc' + `_cols_per_model' - 1
 				local _style_rule_rows `"`_style_rule_rows' | 14 `excel_row' `excel_row' `_sc' `_sc_end' 0 0 0 0 | 5 `excel_row' `excel_row' `_sc' `_sc' 0 2 0 0 | 6 `excel_row' `excel_row' `_sc' `_sc' 0 2 0 0"'
@@ -3997,7 +4453,7 @@ capture {
 					local _style_rule_rows `"`_style_rule_rows' | 8 `excel_row' `excel_row' 2 `num_cols' 0 `_hborder_code' 0 0"'
 					local first_ar = 0
 				}
-				forvalues _mc = 1/`n_models' {
+				forvalues _mc = 1/`_n_blocks' {
 					local _ac = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 					local _ac_end = `_ac' + `_cols_per_model' - 1
 					local _style_rule_rows `"`_style_rule_rows' | 14 `excel_row' `excel_row' `_ac' `_ac_end' 0 0 0 0 | 5 `excel_row' `excel_row' `_ac' `_ac' 0 2 0 0 | 6 `excel_row' `excel_row' `_ac' `_ac' 0 2 0 0"'
@@ -4016,7 +4472,7 @@ capture {
 			local _style_rule_rows `"`_style_rule_rows' | 5 4 `num_rows' 3 `num_cols' 0 2 0 0"'
 		}
 		if `has_boldp' | `has_highlight' {
-			forvalues _m = 1/`n_models' {
+			forvalues _m = 1/`_n_blocks' {
 				local _pcol = 2 + `_m' * `_cols_per_model'
 				forvalues _dr = 4/`num_rows' {
 					local _pnum = `_bp_m`_m'_r`_dr'_num'
@@ -4039,10 +4495,30 @@ capture {
 		}
 	}
 	if `"`macval(_fn_text)'"' != "" {
-		local _fn_row = `num_rows' + 1
+		* The token " \ " separates footnote paragraphs: one merged, wrapped row
+		* per paragraph, as the shared CSV and Markdown writers do, with the same
+		* text in every sink.
 		local _fn_fontsize = max(`_fontsize' - 2, 6)
-		mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("_fn_text"))
-		local _style_rule_rows `"`_style_rule_rows' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+		local _fn_rest : copy local _fn_text
+		local _fn_k = 0
+		local _fn_more = 1
+		while `_fn_more' {
+			mata: st_local("_fn_pos", strofreal(strpos(st_local("_fn_rest"), " " + char(92) + " ")))
+			if `_fn_pos' == 0 {
+				mata: st_local("_fn_piece", strtrim(st_local("_fn_rest")))
+				local _fn_more = 0
+			}
+			else {
+				mata: st_local("_fn_piece", strtrim(substr(st_local("_fn_rest"), 1, `_fn_pos' - 1)))
+				mata: st_local("_fn_rest", substr(st_local("_fn_rest"), `_fn_pos' + 3, .))
+			}
+			mata: st_local("_fn_empty", strofreal(strtrim(st_local("_fn_piece")) == ""))
+			if `_fn_empty' continue
+			local ++_fn_k
+			local _fn_row = `num_rows' + `_fn_k'
+			mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("_fn_piece"))
+			local _style_rule_rows `"`_style_rule_rows' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
+		}
 	}
 
 	_tabtools_xlsx_build_styles, matrix(`_style_rules') ///

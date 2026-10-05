@@ -119,6 +119,22 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_theme_removed.do` | Rejection of the removed `theme()` surface. |
 | `test_xlsx_style_compaction.do` | Style-pool compaction, workbook equivalence, verification guards, and platform paths. |
 | `test_xlsx_deferred_styles.do` | Deferred (direct-XML) cell styling: rendered parity with immediate `xl()` styling for all rule operations, a 3,000-row styled table, the `xl()` fallback, `xl()`-rejected color names, stale-queue and invalid-rule guards. |
+| `test_puttab_v230.do` | 2.3.0 `puttab` `panel()`/`panelheader()` heading rows, `spanheader()` merged spans and their refusals, `cellreplace()`-style exact-or-error placement in Excel, CSV, and Markdown. |
+| `test_smallcells_v230.do` | `smallcells(#, primary)` printed-count masking in `desctab`/`table1_tc`/`crosstab`, `nosmallcells`, the session default, and the unchanged full-protection default. |
+| `test_tabtools_v230.do` | `tabtools set workbook|markdown|headershade|smallcells`, `set <key> clear`, `tabtools query` returns, first-write-replaces/later-writes-append session tracking, and log echoes. |
+| `test_stacktab_v230.do` | `stacktab, frames()` panel stacking of in-memory frames through `puttab panel()`. |
+| `test_desctab_v230.do` | `desctab`/`table1_tc` `cellreplace()` exact-or-error and the embedded header row consumed by `puttab, varlabels`. |
+| `test_writers_v230.do` | Footnote paragraphs split on ` \ ` in the shared Excel, CSV, and Markdown writers. |
+| `test_regtab_v230.do` | 2.3.0 `regtab`: `mi estimate` observations, `cformat()`, `sep()` in every sink, `frame(, flat)`, `reftop`, `cellnote()`, `tabtools fitcount` with `stats(events people exposure)` and `mincount()`, `transpose`, footnote forwarding. |
+| `test_effecttab_v230.do` | `effecttab` `cformat()`, `frame(, flat)`, and footnote forwarding. |
+| `test_regtab_v230_review.do` | Independent-review regressions: mlogit base-equation masking, `svy subpop()` and weight refusals in `fitcount`, `cellnote()` missing text, UTF-8 flat-frame labels, blank corner label, and unquoted footnote paragraphs. |
+| `test_v230_review.do` | Independent-review regressions: primary masking with `slashN`, explicit writes clearing the session first-write flag, generated notes as their own footnote paragraph, one-column `spanheader()` spans, and same-label adjacent `stacktab` frames. |
+| `test_outtab_v230_review.do` | Independent-review regressions: zero-event groups print "not estimable", and `eform` with an already-exponentiated estimator is refused. |
+| `test_comptab_v230_review.do` | Independent-review regressions: keyed placement refuses a plain or continuous row whose label equals a rate section or category label, and `ratetab`/`stratetab` cells are identical under `set dp comma`. |
+| `test_tabcell_v230.do` | `tabcell` est/p/np/enp/iqr cells against `r(table)`, p-text parity with `regtab` over a grid, `mincell()`, `missing()` refusal, and `generate()`. |
+| `test_comptab_v230.do` | `comptab`/`hrcomptab` `cformat()`, `cisep()`, `frame(, flat)`, several models per outcome, keyed placement, rate-only sections, and `modelonly`. |
+| `test_stratetab_v230.do` | `stratetab` `cformat()`, `sep()`, `smallcells()`, the session default, and opt-in `zeroexact`. |
+| `test_outtab_v230.do` | `outtab` counts and ratio columns against hand-run fits, fit-failure text, `minevents()`, and panels. |
 
 ### Validation
 
@@ -141,6 +157,8 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 |---|---|
 | `crossval_tabtools.do` + `crossval_tabtools_companion.R` | Fresh R formulas and Python statsmodels parity for statistical and model-fit contracts. |
 | `crossval_crosstab_cochran.do` + `crossval_crosstab_cochran.R` | Native R `stats::prop.trend.test` parity under score translation, scaling, and direction changes. |
+| `crossval_ratetab_v230.do` | `ratetab` exact intervals against `cii means, poisson`, rates against `strate`, and cluster intervals against a hand-run `poisson ibn.group, exposure() vce(cluster)`. |
+| `test_ratetab_v230_review.do` | Review regressions for `ratetab` printed person-time under `pyscale()` and per-variable missing handling, plus clustered intervals against R `glm` + `sandwich::vcovCL(type = "HC0", cadjust = TRUE)` (needs Rscript and `sandwich`). |
 
 ### Support and benchmarks
 
@@ -149,6 +167,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `run_all.do` | Curated lane manifest, sandbox installer, skip policy, and terminal status writer. |
 | `benchmark_tabtools_speed.do` | Timing guardrail included only in `release`/`benchmark`. |
 | `_visual_stress_gen.do` | Manual disposable workbook generator; not a gate. |
+| `_qa_v230_helpers.do` | Shared Excel/CSV/Markdown readers for the 2.3.0 feature suites. |
 | `tools/` | Package-local Excel, Markdown (`check_md_render.py`, `md_facts.py`), SMCL-width, demo, style, crossval, and option-coverage validators. |
 | `tools/check_suite_result.py`, `tools/runner_fixture.py` | Runner receipt validator, controlled child generator, and private Stata driver for its regression suite. |
 | `data/`, `baseline/`, root QA fixtures | Tracked oracle inputs and semantic artifact summaries governed by `fixtures_manifest.md`. |
@@ -159,20 +178,23 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 
 | Command | Functional | Validation | Cross-val | Also exercised in |
 |---|---|---|---|---|
-| `table1_tc` | `test_table1_tc`, `test_smallcells`, `test_smallcells_derivable`, `test_tabtools_v1163`, `test_table1_overflow`, `test_codex_parity_2026_09_26`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_table1_tc`, `validation_smallcells` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, follow-ups, codex audit |
-| `desctab` | `test_desctab`, `test_smallcells_derivable`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage, output sinks, follow-ups, codex audit |
-| `crosstab` | `test_crosstab`, `test_border_geometry`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools`, `crossval_crosstab_cochran` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `table1_tc` | `test_table1_tc`, `test_smallcells`, `test_smallcells_derivable`, `test_tabtools_v1163`, `test_table1_overflow`, `test_codex_parity_2026_09_26`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_smallcells_v230`, `test_desctab_v230` | `validation_table1_tc`, `validation_smallcells` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, follow-ups, codex audit |
+| `desctab` | `test_desctab`, `test_smallcells_derivable`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_smallcells_v230`, `test_desctab_v230`, `test_v230_review` | `validation_table1_tc`, `validation_smallcells` | — | helpers, integration, option coverage, output sinks, follow-ups, codex audit |
+| `crosstab` | `test_crosstab`, `test_border_geometry`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics`, `test_smallcells_v230` | `validation_crosstab`, `validation_smallcells` | `crossval_tabtools`, `crossval_crosstab_cochran` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
 | `corrtab` | `test_corrtab`, `test_border_geometry`, `test_review_2026_09_29` | `validation_corrtab` | `crossval_tabtools` | integration, adversarial, output sinks, follow-ups, codex audit |
-| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models` | `validation_regtab`, `validation_regtab_return_contracts` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, codex audit |
-| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks, codex audit |
+| `regtab` | `test_regtab`, `test_regtab_omitted`, `test_regtab_multieq_mixed`, `test_regtab_backlog_2026_09_26`, `test_followups_2026_09_27`, `test_review_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models`, `test_regtab_v230`, `test_regtab_v230_review` | `validation_regtab`, `validation_regtab_return_contracts` | `crossval_tabtools` | helpers, integration, adversarial, deep audit, release, output sinks, codex audit |
+| `effecttab` | `test_effecttab`, `test_effecttab_omitted`, `test_effecttab_layout`, `test_audit_2026_09_26_fixes`, `test_followups_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_models`, `test_effecttab_v230` | `validation_effecttab` | `crossval_tabtools` | integration, adversarial, output sinks, codex audit |
 | `survtab` | `test_survtab`, `test_border_geometry`, `test_output_sinks_markdown`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | `validation_survtab` | `crossval_tabtools` | integration, adversarial, deep audit, follow-ups, codex audit |
-| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
-| `hrcomptab` | `test_hrcomptab` | — | — | integration, adversarial, output sinks, follow-ups, codex audit |
-| `comptab` | `test_comptab`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_composition` | `validation_package` | — | integration, adversarial, output sinks, follow-ups, codex audit |
-| `puttab` | `test_puttab`, `test_border_geometry`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | — | — | helpers, release, output sinks, follow-ups, 2.1.12 review fixes (Markdown `~`), codex audit |
-| `stacktab` | `test_stacktab`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29` | — | — | release, output sinks, follow-ups, codex audit |
-| `tabtools` | `test_tabtools`, `test_tabtools_oracle` | `validation_package` | — | integration, release |
+| `stratetab` | `test_stratetab`, `test_audit_2026_09_26_fixes`, `test_open_items_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_statistics`, `test_stratetab_v230` | `validation_stratetab` | `crossval_tabtools` | integration, adversarial, deep audit, output sinks, follow-ups, codex audit |
+| `hrcomptab` | `test_hrcomptab`, `test_comptab_v230`, `test_comptab_v230_review` | — | — | integration, adversarial, output sinks, follow-ups, codex audit |
+| `comptab` | `test_comptab`, `test_open_items_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_review_2026_10_01_composition`, `test_comptab_v230`, `test_comptab_v230_review` | `validation_package` | — | integration, adversarial, output sinks, follow-ups, codex audit |
+| `puttab` | `test_puttab`, `test_border_geometry`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_puttab_v230`, `test_writers_v230`, `test_v230_review` | — | — | helpers, release, output sinks, follow-ups, 2.1.12 review fixes (Markdown `~`), codex audit |
+| `stacktab` | `test_stacktab`, `test_puttab_stacktab_2026_09_27`, `test_codex_audit_2026_09_27`, `test_review_2026_09_29`, `test_stacktab_v230`, `test_v230_review` | — | — | release, output sinks, follow-ups, codex audit |
+| `tabtools` | `test_tabtools`, `test_tabtools_oracle`, `test_tabtools_v230`, `test_v230_review` | `validation_package` | — | integration, release |
 | `tabtools_tips` | `test_tabtools_tips` | — | — | release |
+| `tabcell` | `test_tabcell_v230` | — | — | outtab |
+| `ratetab` | `test_stratetab_v230` | — | `crossval_ratetab_v230`, `test_ratetab_v230_review` | comptab rate frames |
+| `outtab` | `test_outtab_v230`, `test_outtab_v230_review` | — | — | — |
 
 Adversarial axes, in cells (`check qa tabtools --view axes`: 54/54 owed cells probed): fingerprint 14 commands × 2 paths; parity 10/10 commands; hostile strings 10/10 commands through `title()` plus `columnmerge()` and `sheet()` (the 2 blocks that held open findings were closed in 2.1.16); hostile fixtures 4/4 (`corrtab`, `crosstab`, `desctab`, `survtab`); lifecycle `regtab` 1/1. The `desctab` lifecycle cell counts as probed only because the view's source window sees `qa_lifecycle` near a `desctab` call: `desctab` keeps no stored results, cache or file between calls (its `_dta[]` characteristics go to its own output frame), so a lifecycle block does not apply to it.
 

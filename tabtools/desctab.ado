@@ -1,4 +1,4 @@
-*! desctab Version 2.2.0  2026/10/02 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.3.0  2026/10/05 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -88,6 +88,8 @@ program define desctab, rclass
         [MDAPPend]              /// Append Markdown table
         [MISSINGSummary]        /// Add missing data summary row per variable
         [SMALLCells(string)]    /// Suppress counts below threshold and prevent reconstruction
+        [NOSMALLCells]          /// Ignore a session smallcells default for this call
+        [CELLReplace(string asis)] /// Replace named body cells: "rowlabel" column "text" [\ ...]
         [dots]                  /// Show progress dots per variable
         [WTCompare]             /// Side-by-side crude vs weighted comparison
         [WTN]                   /// Show weighted (effective) counts in weighted columns
@@ -120,22 +122,23 @@ program define desctab, rclass
         exit 100
     }
 
-    if "`smallcells'" != "" {
-        capture confirm integer number `smallcells'
-        if _rc {
-            display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
-        }
-        if `smallcells' < 3 {
-            display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
-        }
-    }
+    * smallcells(# [, primary]) / nosmallcells / session default
+    * (tabtools set smallcells #). After this, smallcells holds the bare
+    * threshold (or nothing) and _sc_mode is full or primary.
+    _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
+    local smallcells `"`_sc_k'"'
+    local _sc_primary = ("`_sc_mode'" == "primary")
 
     if "`smallcells'" != "" {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
+        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked, and other cells, totals and tests are shown as computed). This protects printed counts only."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
+            * A footnote in paragraphs (" \ ") gets the notice as its own
+            * last paragraph.
+            else if strpos(`"`macval(footnote)'"', " \ ") {
+                local footnote `"`macval(footnote)' \ `_sc_note'"'
+            }
             else {
                 local footnote `"`macval(footnote)' `_sc_note'"'
             }
@@ -163,6 +166,20 @@ program define desctab, rclass
         display as error "Reserved prefixes: N_, m_; reserved names: N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb"
         display as error "Rename the variable (e.g. {bf:rename `by' grp}); see {help table1_tc##technical:help table1_tc}"
         exit 498  // User-defined error
+    }
+
+    /* Session destinations (tabtools set workbook/markdown): used only when
+       sheet() asks for a sheet, so a console-, frame()- or clear-only call
+       never writes to the session workbook. An explicit option wins. */
+    local _sess_xlsx 0
+    local _sess_md 0
+    if `"`macval(sheet)'"' != "" {
+        _tabtools_set_sinks resolve, xlsx(`"`excel'"') markdown(`"`markdown'"') `mdappend'
+        local excel `"`_ss_xlsx'"'
+        local markdown `"`_ss_md'"'
+        local mdappend "`_ss_mdappend'"
+        local _sess_xlsx = `_ss_xlsx_sess'
+        local _sess_md = `_ss_md_sess'
     }
 
     /* Check if Excel options are properly specified */
@@ -561,6 +578,7 @@ program define desctab, rclass
     if "`missing'" != "" local _fast_common_opts `"`_fast_common_opts' missing"'
     if "`missingsummary'" != "" local _fast_common_opts `"`_fast_common_opts' missingsummary"'
     if "`smallcells'" != "" local _fast_common_opts `"`_fast_common_opts' smallcells(`smallcells')"'
+    if "`smallcells'" != "" & `_sc_primary' local _fast_common_opts `"`_fast_common_opts' scprimary"'
     if "`percent'" != "" local _fast_common_opts `"`_fast_common_opts' percent"'
     if "`percent_n'" != "" local _fast_common_opts `"`_fast_common_opts' percent_n"'
     if "`slashN'" != "" local _fast_common_opts `"`_fast_common_opts' slashN"'
@@ -1353,6 +1371,93 @@ program define desctab, rclass
     }
     local _descriptor_row_text `"`header_parts'"'
 
+    /* cellreplace("rowlabel" column "text" [\ ...]) (O5): overwrite a body
+       cell that is structurally not reportable. The row is the one row whose
+       label (leading spaces ignored) is rowlabel; the column is a position
+       among the columns after the label column, or the column's header text.
+       Anything that does not name exactly one cell is an error. Applied here,
+       before the console listing, so every sink and frame()/clear see it. */
+    local _cr_n 0
+    if strtrim(`"`macval(cellreplace)'"') != "" {
+        qui ds factor factor_sep _* N_* m_*, not
+        local _cr_cols `r(varlist)'
+        local _cr_ncols : word count `_cr_cols'
+        local _cr_spec : copy local cellreplace
+        while strtrim(`"`macval(_cr_spec)'"') != "" {
+            local _cr_spec = strtrim(`"`macval(_cr_spec)'"')
+            gettoken _cr_row _cr_spec : _cr_spec, quotes parse(" \")
+            gettoken _cr_col _cr_spec : _cr_spec, quotes parse(" \")
+            gettoken _cr_txt _cr_spec : _cr_spec, quotes parse(" \")
+            if inlist(`"`_cr_row'"', "\", "") | inlist(`"`_cr_col'"', "\", "") | ///
+                inlist(`"`_cr_txt'"', "\", "") {
+                display as error `"cellreplace(): each entry is "rowlabel" column "text"; separate entries with \"'
+                exit 198
+            }
+            * A quoted column is header text even when it looks like a
+            * number (a group labelled 2004); an unquoted integer is a
+            * position.
+            local _cr_colq = inlist(substr(`"`_cr_col'"', 1, 1), char(34), char(96))
+            local _cr_row `_cr_row'
+            local _cr_col `_cr_col'
+            local _cr_txt `_cr_txt'
+            if strtrim(`"`macval(_cr_row)'"') == "" | strtrim(`"`macval(_cr_col)'"') == "" {
+                display as error "cellreplace(): a row label or column is empty"
+                exit 198
+            }
+            local _cr_spec = strtrim(`"`macval(_cr_spec)'"')
+            if `"`macval(_cr_spec)'"' != "" {
+                if substr(`"`macval(_cr_spec)'"', 1, 1) != "\" {
+                    display as error `"cellreplace(): separate entries with \"'
+                    exit 198
+                }
+                local _cr_spec = substr(`"`macval(_cr_spec)'"', 2, .)
+                if strtrim(`"`macval(_cr_spec)'"') == "" {
+                    display as error "cellreplace(): trailing \ with no entry after it"
+                    exit 198
+                }
+            }
+            * column: a position 1..K after the label column, or header text
+            local _cr_var ""
+            capture confirm integer number `_cr_col'
+            if !_rc & !`_cr_colq' {
+                if `_cr_col' < 1 | `_cr_col' > `_cr_ncols' {
+                    display as error `"cellreplace(): column `_cr_col' is outside the table (columns 1 to `_cr_ncols' after the label column)"'
+                    exit 125
+                }
+                local _cr_var : word `_cr_col' of `_cr_cols'
+            }
+            else {
+                local _cr_hits 0
+                foreach _v of local _cr_cols {
+                    local _cr_lab : variable label `_v'
+                    mata: st_local("_cr_m", strofreal( ///
+                        strtrim(st_local("_cr_lab")) == strtrim(st_local("_cr_col")) | ///
+                        strtrim(st_sdata(1, "`_v'")) == strtrim(st_local("_cr_col"))))
+                    if `_cr_m' {
+                        local ++_cr_hits
+                        local _cr_var `_v'
+                    }
+                }
+                if `_cr_hits' != 1 {
+                    display as error `"cellreplace(): column "`_cr_col'" matches `_cr_hits' columns; give its header text exactly or its position"'
+                    exit 198
+                }
+            }
+            tempvar _cr_hit
+            mata: st_store(., st_addvar("byte", "`_cr_hit'"), ///
+                (strtrim(st_sdata(., "factor")) :== strtrim(st_local("_cr_row"))) :* ///
+                ((1::st_nobs()) :> 1))
+            quietly count if `_cr_hit'
+            if r(N) != 1 {
+                display as error `"cellreplace(): row label "`_cr_row'" matches `r(N)' rows; it must name exactly one row"'
+                exit 198
+            }
+            quietly replace `_cr_var' = `"`macval(_cr_txt)'"' if `_cr_hit'
+            drop `_cr_hit'
+            local ++_cr_n
+        }
+    }
+
     /* Display the table */
     qui ds factor_sep _* N_* m_*, not
     list `r(varlist)', sepby(factor_sep) noobs noheader table  // Show table with separators between variables
@@ -1587,6 +1692,7 @@ program define desctab, rclass
     local _processed_varlist = strtrim("`_processed_varlist'")
     local _own_r_posted = 1
     return local varlist "`_processed_varlist'"
+    if `_cr_n' > 0 return scalar n_cellreplace = `_cr_n'
     if `_rt_nrows' > 0 {
         return matrix table = `_rtable'
     }
@@ -1597,8 +1703,10 @@ program define desctab, rclass
         capture drop `_sc_anyderived'
         char _dta[tabtools_smallcells] "`smallcells'"
         char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
-        char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+        if `_sc_primary' char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
+        else char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
         return scalar smallcells = `smallcells'
+        return local smallcells_mode = cond(`_sc_primary', "primary", "full")
         return scalar N_primary_suppressed = `_sc_nprimary'
         return scalar N_secondary_suppressed = `_sc_nsecondary'
         return scalar N_derived_suppressed = `_sc_nderived'
@@ -1672,6 +1780,7 @@ program define desctab, rclass
 	            capture drop _columnb_*
 	            capture drop m_*
 	            capture drop _uwn*
+		            if `_sess_xlsx' _tabtools_set_sinks xlsxstart
 		            capture noisily _tabtools_xlsx_write using "`excel'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
 		            local _xlsx_write_rc = _rc
 		            if `_had_p_raw' {
@@ -2182,6 +2291,7 @@ program define desctab, rclass
         local _ret_markdown_cols = r(n_cols)
         quietly use `"`_t1_md_snapshot'"', clear
         display as text "Markdown exported to `markdown'"
+        if `_sess_md' _tabtools_set_sinks mddone
     }
 
 **#  Store output in frame if requested (I5)
@@ -2191,7 +2301,8 @@ program define desctab, rclass
         if "`smallcells'" != "" {
             frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
             frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
-            frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+            if `_sc_primary' frame `frame': char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
+            else frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
         }
         return local frame "`frame'"
     }

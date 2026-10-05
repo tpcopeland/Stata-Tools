@@ -20,7 +20,7 @@ Markdown export
 {p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] {cmd:[fweight=}{it:exp}{cmd:]},
 [{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt coch:ran} {opt ex:act} {opt fi:sher}
-{opt lab:el} {opt mis:sing} {opt smallc:ells(#)} {opt l:evel(#)}
+{opt lab:el} {opt mis:sing} {opt smallc:ells(#[, primary])} {opt nosmallc:ells} {opt l:evel(#)}
 {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt font(string)} {opt fontsize(#)} {opt border:style(string)} {opt bold:p(#)} {opt zebra}
@@ -55,7 +55,8 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {syntab:Content}
 {synopt:{opt lab:el}}use value labels for row and column headers{p_end}
 {synopt:{opt mis:sing}}treat missing values as a category{p_end}
-{synopt:{opt smallc:ells(#)}}protect sparse counts{p_end}
+{synopt:{opt smallc:ells(#[, primary])}}protect sparse counts{p_end}
+{synopt:{opt nosmallc:ells}}ignore a session {cmd:tabtools set smallcells} default{p_end}
 {synopt:{opt level(#)}}set the confidence level; default is {cmd:c(level)}{p_end}
 {synopt:{opt dig:its(#)}}set decimals for percentages and measures{p_end}
 {syntab:Output}
@@ -163,11 +164,22 @@ labelled {cmd:Missing (.a)} through {cmd:Missing (.z)}.{p_end}
 {opt row:pct} row percentages; may not be combined with {opt colpct} or {opt totalpct}{p_end}
 
 {phang}
-{opt sheet(string)} Excel sheet name (default {cmd:"Crosstab"}){p_end}
+{opt sheet(string)} Excel sheet name (default {cmd:"Crosstab"}). After
+{cmd:tabtools set workbook} (or {cmd:markdown}), a call that gives {opt sheet()} without
+{opt xlsx()} (or {opt markdown()}) writes to the session target and says so in the log; see
+{helpb tabtools}.{p_end}
 
 {phang}
-{opt smallc:ells(#)} protect exact counts below {it:#}; {it:#} must be an
-integer of at least 3.{p_end}
+{opt smallc:ells(#[, primary])} protect exact counts below {it:#}; {it:#} must be an
+integer of at least 3. With {cmd:primary}, only printed counts from 1 to {it:#}-1 (cells and
+margins) are masked, as {cmd:<#} without a percentage; no complementary cells are added and
+tests and association measures are shown as computed. See
+{help crosstab##smallcells:Small-cell disclosure control}. After {cmd:tabtools set smallcells},
+a call without {opt smallcells()} uses the session default and says so in the log.{p_end}
+
+{phang}
+{opt nosmallc:ells} ignore a session {cmd:tabtools set smallcells} default for this call; may
+not be combined with {opt smallcells()}.{p_end}
 
 {phang}
 {opt title(string)} title row in the exported table{p_end}
@@ -190,7 +202,8 @@ honored).{p_end}
 
 
 {phang}
-{opt foot:note(string)} footnote row below the table{p_end}
+{opt foot:note(string)} footnote row below the table. The literal token {cmd:\}, with a
+space on each side, separates paragraphs, one row (Markdown: paragraph) each.{p_end}
 
 {phang}
 {opt fra:me(name[, replace])} store the output dataset in a named Stata frame; specify
@@ -212,6 +225,12 @@ block and every released margin before display strings, tests, returns, or
 exports are built. Positive counts below {it:#} are primary suppressions shown
 as {cmd:<#}. Additional counts or margins are shown as {cmd:≥#} when needed to
 prevent exact reconstruction. Structural zeros remain visible.{p_end}
+
+{pstd}
+{cmd:smallcells(}{it:#}{cmd:, primary)} protects printed counts only: a printed cell or
+margin from 1 to {it:#}-1 is shown as {cmd:<#} without its percentage, and nothing else is
+masked, so a masked count may be recoverable from its row or column total. The footnote
+names the mode and {cmd:r(smallcells_mode)} is {cmd:primary}.{p_end}
 
 {pstd}
 After safety is certified, individually redundant complementary markers are
@@ -320,6 +339,7 @@ complementary count cells.{p_end}
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(trend_method)}}trend test method{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary} (with {opt smallcells()}){p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}

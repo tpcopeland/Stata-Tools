@@ -1,4 +1,4 @@
-*! stratetab Version 2.2.0  2026/10/02
+*! stratetab Version 2.3.0  2026/10/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -71,12 +71,49 @@ _tabtools_require_helpers
 
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) OUTCOMEIDs(string asis) explabels(string) ///
-	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
+	digits(integer -1) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
-	Level(real -1)]
+	Level(real -1) CFormat(string) SEP(string) SMALLcells(integer -1) NOSMALLcells ///
+	ZEROexact]
+
+* O1: cformat() is a full display format for the rate and both bounds; it
+* replaces digits(), so giving both is an error.
+if `"`cformat'"' != "" {
+	if `digits' != -1 {
+		di as err "cformat() and digits() may not be combined"
+		exit 198
+	}
+	capture confirm numeric format `cformat'
+	if _rc | regexm(`"`cformat'"', "^%-?t") {
+		di as err `"cformat(): "`cformat'" is not a numeric display format"'
+		exit 198
+	}
+}
+if `digits' == -1 local digits 1
+if `"`sep'"' == "" local sep ", "
+* Small cells: explicit option > session default (tabtools set smallcells)
+* > none. nosmallcells switches a session default off for this call.
+if `smallcells' != -1 & "`nosmallcells'" != "" {
+	di as err "smallcells() and nosmallcells may not be combined"
+	exit 198
+}
+if `smallcells' == -1 & "`nosmallcells'" == "" & `"$TABTOOLS_set_smallcells"' != "" {
+	capture confirm integer number $TABTOOLS_set_smallcells
+	if _rc | real(`"$TABTOOLS_set_smallcells"') < 0 {
+		di as err `"session smallcells default "$TABTOOLS_set_smallcells" is not a nonnegative integer"'
+		exit 198
+	}
+	local smallcells = $TABTOOLS_set_smallcells
+	di as text "(tabtools: using session smallcells `smallcells')"
+}
+if `smallcells' == -1 local smallcells 0
+if `smallcells' < 0 {
+	di as err "smallcells() must be a nonnegative integer"
+	exit 198
+}
 
 * Accept excel() as synonym for xlsx()
 if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" {
@@ -437,6 +474,19 @@ forvalues e = 1/`n_exposures' {
 			gen double `_Rate_scaled' = _Rate * `ratescale'
 			gen double `_Lower_scaled' = _Lower * `ratescale'
 			gen double `_Upper_scaled' = _Upper * `ratescale'
+			* R3, zeroexact: strate gives no interval for zero events; the
+			* exact Poisson limits are 0 and -ln(alpha/2)/Y ([R] ci, Methods
+			* and formulas: Pr(K <= 0 | lambda2) = alpha/2).
+			if "`zeroexact'" != "" {
+				local _zx_level = cond(`level' != -1, `level', `_file_level')
+				if missing(`_zx_level') {
+					noi di as err "zeroexact needs the confidence level; specify level()"
+					exit 459
+				}
+				replace `_Lower_scaled' = 0 if _D == 0 & _Y > 0 & missing(_Lower) & missing(_Upper)
+				replace `_Upper_scaled' = -ln((1 - `_zx_level' / 100) / 2) / _Y * `ratescale' ///
+					if _D == 0 & _Y > 0 & missing(_Upper) & `_Lower_scaled' == 0
+			}
 			
 			* Store and validate canonical categories for this exposure
 			if `o' == 1 {
@@ -534,6 +584,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				local _d_exp = `D_o`o'_e`e'_`i''
 				local _r_ref = `Rate_o`o'_e1_`_ref_i''
 				local _r_exp = `Rate_o`o'_e`e'_`i''
+				local _ref_masked_o`o'_e`e'_`i' = (`smallcells' > 0 & `_d_ref' >= 1 & `_d_ref' < `smallcells')
 				if `_d_ref' > 0 & `_d_exp' > 0 & `_r_ref' > 0 {
 					local _irr = `_r_exp' / `_r_ref'
 					local _se_ln = sqrt(1/`_d_exp' + 1/`_d_ref')
@@ -616,6 +667,9 @@ forvalues e = 1/`n_exposures' {
 		
 		local col = 2
 		forvalues o = 1/`outcomes' {
+			* Small cells: 1..#-1 events print as <#, with their person-time
+			* and rate withheld (printed output only; r() keeps the numbers).
+			local _masked = (`smallcells' > 0 & `D_o`o'_e`e'_`i'' >= 1 & `D_o`o'_e`e'_`i'' < `smallcells')
 			* Events
 			if `eventdigits' == 0 {
 				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.0fc")
@@ -623,6 +677,7 @@ forvalues e = 1/`n_exposures' {
 			else {
 				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.`eventdigits'fc")
 			}
+			if `_masked' local ev_fmt "<`smallcells'"
 			quietly replace c`col' = strtrim(`"`ev_fmt'"') in `new'
 			local col = `col' + 1
 
@@ -633,6 +688,7 @@ forvalues e = 1/`n_exposures' {
 			else {
 				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%24.`pydigits'fc")
 			}
+			if `_masked' local py_fmt "–"
 			quietly replace c`col' = strtrim(`"`py_fmt'"') in `new'
 			local col = `col' + 1
 
@@ -643,15 +699,26 @@ forvalues e = 1/`n_exposures' {
 			* CIs in one table.
 			* A rate without bounds (strate gives none for zero events) shows
 			* the en dash the IRR column uses for a missing estimate.
-			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+			if `"`cformat'"' != "" {
+				local rt_fmt = strtrim(string(`Rate_o`o'_e`e'_`i'', "`cformat'"))
+			}
+			else {
+				local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+			}
 			if missing(`Lower_o`o'_e`e'_`i'') | missing(`Upper_o`o'_e`e'_`i'') {
 				local rt_fmt `"`rt_fmt' (–)"'
+			}
+			else if `"`cformat'"' != "" {
+				local rt_fmt = `"`rt_fmt'"' + ///
+					" (" + strtrim(string(`Lower_o`o'_e`e'_`i'', "`cformat'")) + ///
+					`"`sep'"' + strtrim(string(`Upper_o`o'_e`e'_`i'', "`cformat'")) + ")"
 			}
 			else {
 				local rt_fmt = `"`rt_fmt'"' + ///
 					" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ///
-					", " + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ")"
+					`"`sep'"' + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ")"
 			}
+			if `_masked' local rt_fmt "–"
 			quietly replace c`col' = `"`rt_fmt'"' in `new'
 			local col = `col' + 1
 
@@ -666,7 +733,9 @@ forvalues e = 1/`n_exposures' {
 				else {
 					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
 						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
-						", " + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ")"
+						`"`sep'"' + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ")"
+					* a ratio whose numerator or reference count is masked is withheld
+					if `_masked' | `_ref_masked_o`o'_e`e'_`i'' local irr_fmt "–"
 					quietly replace c`col' = `"`irr_fmt'"' in `new'
 				}
 				local col = `col' + 1
@@ -744,6 +813,7 @@ if `"`_frame_name'"' != "" {
 		frame `_frame_stage': char _dta[tabtools_statistic_ids] "events person_years rate_ci"
 	}
 	frame `_frame_stage': char _dta[tabtools_n_outcomes] "`outcomes'"
+	frame `_frame_stage': char _dta[tabtools_smallcells] "`smallcells'"
 	forvalues _meta_o = 1/`outcomes' {
 		frame `_frame_stage': char _dta[tabtools_outcome_id_`_meta_o'] `"`macval(outcome_id_`_meta_o')'"'
 	}
@@ -854,6 +924,7 @@ return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 return scalar ci_level = `_ci_level'
+return scalar smallcells = `smallcells'
 local _outcome_ids_return ""
 forvalues _meta_o = 1/`outcomes' {
 	local _outcome_ids_return `"`macval(_outcome_ids_return)' \ `macval(outcome_id_`_meta_o')'"'
@@ -976,16 +1047,31 @@ return local methods "Incidence rates and confidence intervals were formatted at
 					(9, `lastrow', `lastrow', 2, `_total_cols', 0, `_hborder_code', 0, 0)
 
 				if `"`macval(footnote)'"' != "" {
-					local _fn_row = `lastrow' + 1
 					local _fn_fontsize = max(`_fontsize' - 2, 6)
-					mata: `_xlsx_book'.put_string(`_fn_row', 2, st_local("footnote"))
-					matrix `_style_rules' = `_style_rules' \ ///
-						(14, `_fn_row', `_fn_row', 2, `_total_cols', 0, 0, 0, 0) \ ///
-						(5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-						(6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
-						(4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-						(1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
-						(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+					* One row per paragraph; " \ " separates paragraphs.
+					local _fn_rest `"`macval(footnote)'"'
+					local _fp 0
+					while `"`macval(_fn_rest)'"' != "" {
+						local _fn_at = strpos(`"`macval(_fn_rest)'"', " \ ")
+						if `_fn_at' == 0 {
+							local _fn_piece `"`macval(_fn_rest)'"'
+							local _fn_rest ""
+						}
+						else {
+							local _fn_piece = substr(`"`macval(_fn_rest)'"', 1, `_fn_at' - 1)
+							local _fn_rest = substr(`"`macval(_fn_rest)'"', `_fn_at' + 3, .)
+						}
+						local ++_fp
+						local _fn_row = `lastrow' + `_fp'
+						mata: `_xlsx_book'.put_string(`_fn_row', 2, strtrim(st_local("_fn_piece")))
+						matrix `_style_rules' = `_style_rules' \ ///
+							(14, `_fn_row', `_fn_row', 2, `_total_cols', 0, 0, 0, 0) \ ///
+							(5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
+							(6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
+							(4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
+							(1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
+							(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+					}
 				}
 
 				_tabtools_xlsx_apply_styles, defer book(`_xlsx_book') sheet(`"`macval(sht)'"') ///

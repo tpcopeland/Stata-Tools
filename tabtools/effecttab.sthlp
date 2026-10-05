@@ -20,7 +20,7 @@
 {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean}
 {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
-{opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt l:evel(#)} {opt fra:me(name)}
+{opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt cf:ormat(%fmt)} {opt l:evel(#)} {opt fra:me(name[, replace flat])}
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt mark:down(filename)} {opt mdapp:end}
@@ -77,9 +77,10 @@ collection must remain unchanged.{p_end}
 {synopt:{opt border:style(string)}}Excel border style; see Options{p_end}
 {synopt:{opt full}}retain normally filtered rows{p_end}
 {synopt:{opt digits(#)}}set decimals for effects and CIs{p_end}
+{synopt:{opt cf:ormat(%fmt)}}display format for effect and CI bounds{p_end}
 {synopt:{opt level(#)}}set or verify the confidence level{p_end}
 {synopt:{opt labelw:idth(#)}}cap the label-column width{p_end}
-{synopt:{opt fra:me(name)}}store output in a named Stata frame{p_end}
+{synopt:{opt fra:me(name[, replace flat])}}store output in a named Stata frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
 {synopt:{opt from(name)}}read results from a named matrix{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}
@@ -121,6 +122,18 @@ workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
+{opt cf:ormat(%fmt)} a full Stata numeric display format for the effect and
+both confidence bounds, such as {cmd:%12.0fc} or {cmd:%9.4f}; each value is
+written as {cmd:strtrim(string(}{it:x}{cmd:, "}{it:%fmt}{cmd:"))}, the rule
+{helpb regtab} uses. {opt digits()} is its shorthand and cannot be combined
+with it (r(198)); date, string, and hexadecimal formats are refused (r(198)).
+With {opt from()}, the matrix values are formatted at full precision, so a
+format with more decimals than {opt digits()} shows them. A decimal-comma
+format ({cmd:%9,3f}) with a {opt sep()} that contains a comma, the default
+included, is refused (r(198)); use, for example, {cmd:sep(" to ")}. P-values,
+{cmd:r(table)}, and {opt eplotframe()} are unaffected.{p_end}
+
+{phang}
 {opt digits(#)} number of decimal places for effects and CIs (default 2, range 0-6){p_end}
 
 {phang}
@@ -132,11 +145,22 @@ the last row, both in the first column and the table body between them.{p_end}
 Remarks){p_end}
 
 {phang}
-{opt foot:note(string)} add a footnote row below the table in smaller italic font{p_end}
+{opt foot:note(string)} add a footnote below the table in smaller italic font.
+The token {cmd:" \ "} (a backslash with a space on each side) separates
+paragraphs: one merged, wrapped row per paragraph in Excel; the CSV and
+Markdown writers receive the text unchanged and split it the same way.{p_end}
 
 {phang}
-{opt fra:me(name)} store output in a named Stata frame. Specify {cmd:frame(name, replace)} to
-replace an existing frame{p_end}
+{opt fra:me(name[, replace flat])} stores the output in a named Stata frame;
+{cmd:replace} replaces an existing frame. With {cmd:flat} the frame holds one
+row per body line: {cmd:rowlabel}, then one string variable per printed column
+({cmd:c1}, {cmd:c2}, ...) whose variable label is the printed header, the
+model name and the statistic joined by ", " ({cmd:"IPTW, ATE"}), or the
+statistic alone when no {opt models()} name is shown. There are no title or
+header rows, so {cmd:frame f: puttab rowlabel c* using t.xlsx, varlabels}
+reproduces the table without any {cmd:drop}. Headers longer than 80
+characters are kept whole in {cmd:char c}{it:#}{cmd:[tabtools_header]}. See
+{helpb regtab} for the same contract.{p_end}
 
 {phang}
 {opt from(name)} read results from a named matrix instead of {cmd:collect} (see Remarks){p_end}
@@ -211,7 +235,10 @@ margin {cmd:margins} reports as not estimable. Default is {cmd:Omitted}{p_end}
 {cmd:Empty}. The three labels must differ from each other{p_end}
 
 {phang}
-{opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "}{p_end}
+{opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "};
+{cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. It reaches every sink (console,
+Excel, CSV, Markdown, {opt frame()} with or without {cmd:flat});
+{cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers.{p_end}
 
 {phang}
 {opt sheet(string)} target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}{p_end}
@@ -390,6 +417,12 @@ to align compatible sources and rejects ambiguous or conflicting metadata.{p_end
 {phang2}{cmd:. collect: margins, dydx(*)}{p_end}
 {phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("All AME") effect("AME") ///}{p_end}
 {phang3}{cmd:title("Average Marginal Effects on Diabetes")}{p_end}
+
+{pstd}{bf:Example 8: A formatted matrix of effects in a flat frame}{p_end}
+{phang2}{cmd:. matrix E = (1234.5678, 1000.1, 1500.9, 0.03 \ 2.5, 1, 3, 0.5)}{p_end}
+{phang2}{cmd:. matrix rownames E = Cost Visits}{p_end}
+{phang2}{cmd:. effecttab, from(E) cformat(%12.1fc) sep(" to ") frame(e8, replace flat)}{p_end}
+{phang2}{cmd:. frame e8: list, noobs}{p_end}
 
 {marker stored}{title:Stored results}
 

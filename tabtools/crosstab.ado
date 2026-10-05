@@ -1,4 +1,4 @@
-*! crosstab Version 2.2.0  2026/10/02
+*! crosstab Version 2.3.0  2026/10/05
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -62,7 +62,7 @@ capture noisily {
         HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
         csv(string) MARKdown(string) MDAPPend FRAme(string) ///
-        SMALLCells(string) open]
+        SMALLCells(string) NOSMALLCells open]
 
     gettoken rowvar colvar : varlist
     * The level as shown: at most 15 significant digits, so 99.9 never prints
@@ -82,6 +82,18 @@ capture noisily {
 
     * Accept excel() as synonym
     if `"`macval(xlsx)'"' == "" & `"`macval(excel)'"' != "" mata: st_local("xlsx", st_local("excel"))
+    * Session destinations (tabtools set workbook/markdown) apply only when
+    * sheet() asks for a sheet; an explicit option wins.
+    local _sess_xlsx 0
+    local _sess_md 0
+    if `"`macval(sheet)'"' != "" {
+        _tabtools_set_sinks resolve, xlsx(`"`xlsx'"') markdown(`"`markdown'"') `mdappend'
+        local xlsx `"`_ss_xlsx'"'
+        local markdown `"`_ss_md'"'
+        local mdappend "`_ss_mdappend'"
+        local _sess_xlsx = `_ss_xlsx_sess'
+        local _sess_md = `_ss_md_sess'
+    }
     local _has_xlsx = `"`macval(xlsx)'"' != ""
     if "`open'" != "" & !`_has_xlsx' {
         noisily display as error "open requires xlsx() or excel()"
@@ -102,23 +114,22 @@ capture noisily {
         noisily display as error "boldp() must be between 0 and 1"
         exit 198
     }
+    * smallcells(# [, primary]) / nosmallcells / session default.
+    _tabtools_smallcells_opt, smallcells(`smallcells') `nosmallcells'
+    local smallcells `"`_sc_k'"'
+    local _sc_primary = ("`_sc_mode'" == "primary")
     local _sc_active = "`smallcells'" != ""
-    if `_sc_active' {
-        capture confirm integer number `smallcells'
-        if _rc {
-            noisily display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
-        }
-        if `smallcells' < 3 {
-            noisily display as error "smallcells() must be an integer greater than or equal to 3"
-            exit 198
-        }
-    }
     local _sc_note ""
     if `_sc_active' {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
+        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked, and totals and tests are shown as computed). This protects printed counts only."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
+            * A footnote in paragraphs (" \ ") gets the notice as its own
+            * last paragraph.
+            else if strpos(`"`macval(footnote)'"', " \ ") {
+                local footnote `"`macval(footnote)' \ `_sc_note'"'
+            }
             else {
                 local footnote `"`macval(footnote)' `_sc_note'"'
             }
@@ -302,7 +313,8 @@ capture noisily {
             exact(`_sc_exact') sensitive(`_sc_sensitive') ///
             rowexact(`_sc_rowexact') rowsensitive(`_sc_rowsens') ///
             colexact(`_sc_colexact') colsensitive(`_sc_colsens') ///
-            grandexact(1) grandsensitive(1) smallcells(`smallcells')
+            grandexact(1) grandsensitive(1) smallcells(`smallcells') ///
+            `=cond(`_sc_primary', "primary", "")'
         if _rc {
             local _sc_rc = _rc
             restore
@@ -314,7 +326,9 @@ capture noisily {
         local _sc_totalmask = r(totalmask)
         local _sc_nprimary = r(N_primary_suppressed)
         local _sc_nsecondary = r(N_secondary_suppressed)
-        local _sc_suppress_derived = `_sc_nprimary' > 0
+        * primary mode protects printed counts only: tests and association
+        * measures are not count cells and stay as computed.
+        local _sc_suppress_derived = `_sc_nprimary' > 0 & !`_sc_primary'
     }
     else {
         matrix `_scmask' = J(`n_rows', `n_cols', 0)
@@ -716,6 +730,7 @@ capture noisily {
         local _ret_markdown_rows = r(n_rows)
         local _ret_markdown_cols = r(n_cols)
         noisily display as text "Markdown exported to `markdown'"
+        if `_sess_md' _tabtools_set_sinks mddone
     }
 
 **# Frame Output
@@ -727,7 +742,8 @@ capture noisily {
         if `_sc_active' {
             frame `frame': char _dta[tabtools_smallcells] "`smallcells'"
             frame `frame': char _dta[tabtools_suppression_codes] "0 visible; 1 primary; 2 complementary; 3 derived"
-            frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
+            if `_sc_primary' frame `frame': char _dta[tabtools_suppression_scope] "printed counts only (primary); single invocation; all sinks"
+            else frame `frame': char _dta[tabtools_suppression_scope] "exact disclosure; single invocation; all sinks"
         }
     }
 
@@ -807,6 +823,7 @@ capture noisily {
     }
     if `_sc_active' {
         return scalar smallcells = `smallcells'
+        return local smallcells_mode = cond(`_sc_primary', "primary", "full")
         return scalar N_primary_suppressed = `_sc_nprimary'
         return scalar N_secondary_suppressed = `_sc_nsecondary'
         return scalar N_derived_suppressed = `_sc_nderived'
@@ -818,6 +835,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
+        if `_sess_xlsx' _tabtools_set_sinks xlsxstart
         capture noisily _tabtools_xlsx_write using "`xlsx'", sheet(`"`macval(sheet)'"') book(`_xlsx_book')
         if _rc {
             local _export_rc = _rc
@@ -1011,6 +1029,7 @@ capture noisily {
     }
     if `_sc_active' {
         return scalar smallcells = `smallcells'
+        return local smallcells_mode = cond(`_sc_primary', "primary", "full")
         return scalar N_primary_suppressed = `_sc_nprimary'
         return scalar N_secondary_suppressed = `_sc_nsecondary'
         return scalar N_derived_suppressed = `_sc_nderived'

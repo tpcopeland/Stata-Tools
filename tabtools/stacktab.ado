@@ -1,4 +1,4 @@
-*! stacktab Version 2.2.0  2026/10/02
+*! stacktab Version 2.3.0  2026/10/05
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -20,6 +20,22 @@ program define stacktab, rclass
     version 17.0
     local _vao = c(varabbrev)
     set varabbrev off
+    * I3 (2.3.0): frames(name "label" [\ ...]) stacks in-memory frames as
+    * labelled panels through puttab's panel() rendering; it shares none of
+    * the workbook-block machinery below, so it is routed to its own program.
+    local _st_rhs ""
+    capture _parse comma _st_lhs _st_rhs : 0
+    * A call that also names blocks() stays on the workbook route, whose
+    * syntax then refuses frames().
+    if regexm(`"`macval(_st_rhs)'"', "(^|[ ,])[Ff][Rr][Aa][Mm][Ee][Ss][(]") & ///
+        !regexm(`"`macval(_st_rhs)'"', "(^|[ ,])[Bb][Ll][Oo]?[Cc]?[Kk]?[Ss]?[(]") {
+        capture noisily _stacktab_frames `macval(0)'
+        local rc = _rc
+        set varabbrev `_vao'
+        if `rc' exit `rc'
+        return add
+        exit
+    }
     local _restore_needed = 0
     local _stage_frame_created = 0
     local _backup_frame_created = 0
@@ -697,9 +713,10 @@ program define stacktab, rclass
                 12, `title_height', 1, 0)
         }
         if `"`macval(note)'"' != "" {
-            mata: _stacktab_xlsx_put_text_mata(`"`_stage_book'"', `"`macval(sheet)'"', ///
-                `note_row', `export_start_col', `export_start_col', ///
-                `last_sheet_col', st_local("note"), 8, `note_height', 0, 1)
+            * One row per paragraph (" \ " separates them).
+            mata: _stacktab_put_note(`"`_stage_book'"', `"`macval(sheet)'"', ///
+                `note_row', `export_start_col', `last_sheet_col', ///
+                st_local("note"), `note_height')
         }
 
         * Every write into this workbook is done by now.  xl() appends a
@@ -833,6 +850,10 @@ program define stacktab, rclass
             }
             exit `_commit_rc'
         }
+        * The workbook (and Markdown file) now hold this table: when either
+        * is a tabtools set session target, its first write has happened.
+        _tabtools_set_sinks xlsxdone, path(`"`using'"')
+        if `"`markdown'"' != "" _tabtools_set_sinks mddone, path(`"`markdown'"')
         if `_backup_frame_created' {
             frame drop `_backup_frame'
             local _backup_frame_created = 0
@@ -1541,6 +1562,7 @@ version 17.0
 capture mata: mata drop _stacktab_xlsx_write_mata()
 capture mata: mata drop _stacktab_cur_strmat()
 capture mata: mata drop _stacktab_xlsx_put_text_mata()
+capture mata: mata drop _stacktab_put_note()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -1654,6 +1676,40 @@ void _stacktab_xlsx_put_text_mata(
     if (italic) b.set_font_italic((row, row), (merge_start_col, merge_end_col), "on")
     if (rowheight > 0) b.set_row_height(row, row, rowheight)
     b.close_book()
+}
+
+// Footnote paragraphs: the literal token " \ " separates them, one row
+// each; a note without the token is one row, written as typed.
+void _stacktab_put_note(
+    string scalar filepath,
+    string scalar sheet,
+    real scalar row,
+    real scalar col,
+    real scalar lastcol,
+    string scalar note,
+    real scalar rowheight)
+{
+    string colvector paras
+    string scalar rest, piece
+    real scalar pos, j
+
+    if (!strpos(note, " " + char(92) + " ")) paras = note
+    else {
+        paras = J(0, 1, "")
+        rest = note
+        while ((pos = strpos(rest, " " + char(92) + " ")) > 0) {
+            piece = strtrim(substr(rest, 1, pos - 1))
+            if (piece != "") paras = paras \ piece
+            rest = substr(rest, pos + 3, .)
+        }
+        piece = strtrim(rest)
+        if (piece != "") paras = paras \ piece
+        if (rows(paras) == 0) paras = ""
+    }
+    for (j = 1; j <= rows(paras); j++) {
+        _stacktab_xlsx_put_text_mata(filepath, sheet, row + j - 1, col, col,
+            lastcol, paras[j], 8, rowheight, 0, 1)
+    }
 }
 
 end

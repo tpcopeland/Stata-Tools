@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.2.0  2026/10/02
+*! _tabtools_xlsx_write Version 2.3.0  2026/10/05
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -34,6 +34,10 @@ program define _tabtools_xlsx_write, rclass
             noisily display as error "No observations available for Excel export"
             exit 2000
         }
+
+        * tabtools set workbook: the first write to the session workbook,
+        * from any command and however the path was given, starts it over.
+        _tabtools_set_sinks xlsxstart, path(`"`using'"')
 
         local _tt_sheet_used `"`macval(sheet)'"'
         mata: `book' = _tt_xlsx_write_mata(`"`using'"', `"`macval(sheet)'"', `"`_vars'"')

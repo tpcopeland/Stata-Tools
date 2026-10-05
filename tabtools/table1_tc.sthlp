@@ -119,7 +119,9 @@ Stata weight syntax; see {help weight}.{p_end}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
 {synopt:{opt dots}}show progress dots while processing variables{p_end}
 {synopt:{opt missings:ummary}}add missing data summary row per variable{p_end}
-{synopt:{opt smallc:ells(#)}}suppress small counts and reconstruction{p_end}
+{synopt:{opt smallc:ells(#[, primary])}}suppress small counts and reconstruction{p_end}
+{synopt:{opt nosmallc:ells}}ignore the session smallcells default{p_end}
+{synopt:{opt cellr:eplace(spec)}}overwrite named body cells with text{p_end}
 {synopt:{opt wtc:ompare}}show weighted and unweighted statistics{p_end}
 {synopt:{opt wtn}}show weighted effective counts{p_end}
 {synoptline}
@@ -167,7 +169,9 @@ row, both in the first column and the table body between them.{p_end}
 {opt extraspace} helps alignment in .docx with non-monospaced fonts{p_end}
 
 {phang}
-{opt foot:note(string)} add footnote row below table{p_end}
+{opt foot:note(string)} add footnote row below table. The literal token {cmd:\},
+with a space on each side, separates paragraphs: each paragraph gets its own
+wrapped row in the workbook and CSV and its own italic paragraph in Markdown.{p_end}
 
 {phang}
 {opt f:ormat(%fmt)} default display format for continuous variables; default is %2.0f. The
@@ -222,7 +226,7 @@ chi-square or Fisher test uses that same coding{p_end}
 {opt missings:ummary} add missing data summary row per variable{p_end}
 
 {phang}
-{opt smallc:ells(#)} suppresses every positive count below {it:#} and adds
+{opt smallc:ells(#[, primary])} suppresses every positive count below {it:#} and adds
 complementary suppression where released cells or margins would otherwise
 reveal an exact protected count. {it:#} must be an integer of at least 3. Primary
 cells are shown as {cmd:<#}; complementary cells are shown as {cmd:≥#}. Zeros
@@ -230,6 +234,44 @@ remain visible. After safety is certified, individually redundant complementary
 markers are removed in a deterministic pass. See
 {help table1_tc##technical:Technical notes} for the disclosure-control contract
 and limits.{p_end}
+
+{pmore}
+{cmd:smallcells(}{it:#}{cmd:, primary)} protects printed counts only: every printed
+count from 1 to {it:#}-1 (a level or binary count, a printed missing count, a group,
+total or {opt slashN} denominator) is shown as {cmd:<#} without its percentage, and
+nothing else changes. No complementary {cmd:≥#} cells are added, other cells keep their
+percentages, and p-values, statistics and SMDs are shown as computed. A count that can
+be derived from printed cells (for example a missing count as N minus the printed
+levels) is not protected. The footnote says that this mode ran and that it protects
+printed counts only, and {cmd:r(smallcells_mode)} is {cmd:primary}. Use it when the
+publication rule is "no printed count from 1 to {it:#}-1"; keep the default when
+reconstruction by subtraction must also be prevented.{p_end}
+
+{pmore}
+After {cmd:tabtools set smallcells} {it:#} [{cmd:primary}], every call without
+{opt smallcells()} uses that threshold and mode and says so in the log
+({cmd:(tabtools: using session smallcells(5))}). An explicit {opt smallcells()} wins.{p_end}
+
+{phang}
+{opt nosmallc:ells} ignores a session {cmd:tabtools set smallcells} default for this
+call, so the table is shown without masking (an internal version of a table, say).
+It may not be combined with {opt smallcells()}.{p_end}
+
+{phang}
+{opt cellr:eplace(spec)} overwrites body cells that are structurally not reportable,
+such as a level that is reported inside another category in one group.
+{it:spec} is {cmd:"}{it:rowlabel}{cmd:"} {it:column} {cmd:"}{it:text}{cmd:"} [{cmd:\} ...].
+{it:rowlabel} must match exactly one row label, ignoring leading spaces;
+{it:column} is either an unquoted number, counting the columns after the row-label
+column (1 = the first group or Total column as printed), or the column's header text
+in quotes, exactly as printed (for example {cmd:"Total"}, a group label such as
+{cmd:"2004"}, or {cmd:"p-value"}).
+A row label that matches no row or more than one row, a header that matches no
+column or more than one, a column number outside the table (r(125)), and an entry
+without all three parts are errors; nothing is guessed. The replacement is made
+before the table is listed, so the console, Excel, CSV, Markdown, {opt frame()}, and
+{opt clear} all show it. Example:
+{cmd:cellreplace("Natalizumab" "2004-2008" "In Other")}.{p_end}
 
 {phang}
 {opt nf:ormat(%fmt)} display format for n and N; default is %12.0fc{p_end}
@@ -263,7 +305,12 @@ and limits.{p_end}
 
 {phang}
 {opt sheet("string")} Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/
-{opt excel()}{p_end}
+{opt excel()}. After {cmd:tabtools set workbook} (and {cmd:tabtools set markdown}), a call
+that gives {opt sheet()} but no {opt xlsx()}/{opt excel()} (or no {opt markdown()}) writes to the
+session workbook (and Markdown file) and says so in the log; a call without {opt sheet()}
+never uses them, so a console-, {opt frame()}- or {opt clear}-only table is not written. The
+first write to a session target replaces it and later writes add sheets or append; see
+{helpb puttab} and {helpb tabtools}.{p_end}
 
 {phang}
 {opt slashN} report n/N instead of n{p_end}
@@ -370,6 +417,19 @@ directly to a regression model:{p_end}
 {phang2}{cmd:. table1_tc rep78, by(foreign) vars(rep78 cat) ///}{p_end}
 {phang3}{cmd:total(after) smallcells(5) frame(table1_safe, replace)}{p_end}
 
+{pstd}{bf:Mask printed counts 1-4 only (no complementary cells):}{p_end}
+
+{phang2}{cmd:. table1_tc rep78, by(foreign) vars(rep78 cat) smallcells(5, primary)}{p_end}
+
+{pstd}{bf:Overwrite one structurally non-reportable cell:}{p_end}
+
+{phang2}{cmd:. table1_tc rep78, by(foreign) vars(rep78 cat) cellreplace("2" "Foreign" "In 3")}{p_end}
+
+{pstd}{bf:Hand the table to puttab; its embedded header row is consumed, no {cmd:drop in 1}:}{p_end}
+
+{phang2}{cmd:. table1_tc rep78 mpg, by(foreign) vars(rep78 cat \ mpg contn) frame(t1, replace)}{p_end}
+{phang2}{cmd:. puttab using table1.xlsx, frame(t1) varlabels sheet("Table 1")}{p_end}
+
 {pstd}{bf:With Excel and Markdown export and formatting:}{p_end}
 
 {phang2}{cmd:. table1_tc price mpg weight rep78, by(foreign) ///}{p_end}
@@ -421,6 +481,7 @@ variables and weight.{p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 {synopt:{cmd:r(smallcells)}}active small-cell threshold{p_end}
+{synopt:{cmd:r(n_cellreplace)}}cells set by {opt cellreplace()}{p_end}
 {synopt:{cmd:r(N_primary_suppressed)}}primary display cells{p_end}
 {synopt:{cmd:r(N_secondary_suppressed)}}complementary display cells{p_end}
 {synopt:{cmd:r(N_derived_suppressed)}}dependent display cells{p_end}
@@ -429,6 +490,7 @@ variables and weight.{p_end}
 {synopt:{cmd:r(Dapa)}}resolved data-presentation description{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for resolved tests{p_end}
 {synopt:{cmd:r(varlist)}}processed variables{p_end}
+{synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary} (with {opt smallcells()}){p_end}
 {synopt:{cmd:r(xlsx)}}exported Excel path{p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}

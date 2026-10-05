@@ -23,8 +23,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }
@@ -48,8 +48,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }
@@ -81,8 +81,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }
@@ -106,8 +106,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }
@@ -131,8 +131,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }
@@ -156,8 +156,8 @@ capture noisily {
     * these actual hostile datasets/opaque strings survive the public command.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert r(n_commands)==14
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
     assert `"`r(categories)'"'=="descriptive models rates survival composite export general"
     qa_state_compare, tag(tt_catalogue)
 }

@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 2.2.0  2026/10/02
+*! _tabtools_smallcells Version 2.3.0  2026/10/05
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,7 +14,7 @@ program define _tabtools_smallcells, rclass
               ROWEXact(name) ROWSENsitive(name) ///
               COLEXact(name) COLSENsitive(name) ///
               GRANDExact(integer 0) GRANDSensitive(integer 0) ///
-              FIXEDmargins ]
+              FIXEDmargins PRIMary ]
 
         if `smallcells' < 3 {
             display as error "smallcells() must be an integer greater than or equal to 3"
@@ -95,7 +95,21 @@ program define _tabtools_smallcells, rclass
         }
 
         tempname mask rowmask colmask status totalmask nprimary nsecondary
-        mata: st_numscalar("`status'", _ttsc_run( ///
+        * primary (smallcells(#, primary)): mask only the cells and margins
+        * that are printed (exact) and hold 1..k-1. No complementary cells
+        * and no reconstruction search: the caller has asked to protect
+        * printed counts only (user decision 2026-09-30).
+        if "`primary'" != "" {
+            mata: st_numscalar("`status'", _ttsc_primary( ///
+                st_matrix("`counts'"), st_matrix("`exact_m'"), ///
+                st_matrix("`sensitive_m'"), st_matrix("`rowexact_m'"), ///
+                st_matrix("`rowsens_m'"), st_matrix("`colexact_m'"), ///
+                st_matrix("`colsens_m'"), `grandexact', `grandsensitive', ///
+                `smallcells', ///
+                "`mask'", "`rowmask'", "`colmask'", ///
+                "`totalmask'", "`nprimary'", "`nsecondary'"))
+        }
+        else mata: st_numscalar("`status'", _ttsc_run( ///
             st_matrix("`counts'"), st_matrix("`exact_m'"), ///
             st_matrix("`sensitive_m'"), st_matrix("`rowexact_m'"), ///
             st_matrix("`rowsens_m'"), st_matrix("`colexact_m'"), ///
@@ -114,6 +128,7 @@ program define _tabtools_smallcells, rclass
         }
 
         return scalar smallcells = `smallcells'
+        return local mode = cond("`primary'" != "", "primary", "full")
         return scalar N_primary_suppressed = scalar(`nprimary')
         return scalar N_secondary_suppressed = scalar(`nsecondary')
         return scalar totalmask = scalar(`totalmask')
@@ -134,6 +149,7 @@ capture mata: mata drop _ttsc_has_alternative()
 capture mata: mata drop _ttsc_failures()
 capture mata: mata drop _ttsc_valid_binary()
 capture mata: mata drop _ttsc_run()
+capture mata: mata drop _ttsc_primary()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -592,6 +608,64 @@ real scalar _ttsc_run(
     st_numscalar(totalmask_name, totalmask)
     st_numscalar(nprimary_name, nprimary)
     st_numscalar(nsecondary_name, nsecondary)
+    return(1)
+}
+
+// Primary-only masking: a printed (exact) cell or margin holding 1..k-1 is
+// masked (code 1); nothing else is. Validation matches _ttsc_run().
+real scalar _ttsc_primary(
+    real matrix counts,
+    real matrix exact,
+    real matrix sensitive,
+    real colvector rowexact,
+    real colvector rowsensitive,
+    real rowvector colexact,
+    real rowvector colsensitive,
+    real scalar grandexact,
+    real scalar grandsensitive,
+    real scalar k,
+    string scalar mask_name,
+    string scalar rowmask_name,
+    string scalar colmask_name,
+    string scalar totalmask_name,
+    string scalar nprimary_name,
+    string scalar nsecondary_name)
+{
+    real scalar nr, nc, totalmask, g
+    real matrix mask
+    real colvector rowmask, rt
+    real rowvector colmask, ct
+
+    nr = rows(counts)
+    nc = cols(counts)
+    if (nr < 1 | nc < 1) return(-1)
+    if (rows(exact) != nr | cols(exact) != nc) return(-1)
+    if (rows(sensitive) != nr | cols(sensitive) != nc) return(-1)
+    if (rows(rowexact) != nr | cols(rowexact) != 1) return(-1)
+    if (rows(rowsensitive) != nr | cols(rowsensitive) != 1) return(-1)
+    if (rows(colexact) != 1 | cols(colexact) != nc) return(-1)
+    if (rows(colsensitive) != 1 | cols(colsensitive) != nc) return(-1)
+    if (any(counts :>= .) | any(counts :< 0) | any(counts :!= floor(counts))) return(-1)
+    if (!_ttsc_valid_binary(exact) | !_ttsc_valid_binary(sensitive)) return(-1)
+    if (!_ttsc_valid_binary(rowexact) | !_ttsc_valid_binary(rowsensitive)) return(-1)
+    if (!_ttsc_valid_binary(colexact) | !_ttsc_valid_binary(colsensitive)) return(-1)
+    if ((grandexact != 0 & grandexact != 1) | ///
+        (grandsensitive != 0 & grandsensitive != 1)) return(-1)
+
+    rt = rowsum(counts)
+    ct = colsum(counts)
+    g = sum(counts)
+    mask = exact :* (counts :> 0) :* (counts :< k)
+    rowmask = rowexact :* (rt :> 0) :* (rt :< k)
+    colmask = colexact :* (ct :> 0) :* (ct :< k)
+    totalmask = grandexact & g > 0 & g < k
+
+    st_matrix(mask_name, mask)
+    st_matrix(rowmask_name, rowmask)
+    st_matrix(colmask_name, colmask)
+    st_numscalar(totalmask_name, totalmask)
+    st_numscalar(nprimary_name, sum(mask) + sum(rowmask) + sum(colmask) + totalmask)
+    st_numscalar(nsecondary_name, 0)
     return(1)
 }
 end

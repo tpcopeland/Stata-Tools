@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.2.0  2026/10/02
+*! _desctab_collect Version 2.3.0  2026/10/05
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -38,7 +38,7 @@ program define _desctab_collect, rclass
               iqrmiddle(string) sdleft(string) sdright(string) ///
               gsdleft(string) gsdright(string) GSDFormat(string) ///
               percsign(string) NOSPACElowpercent extraspace ///
-              SMALLCells(string) MISSINGSummary ]
+              SMALLCells(string) SCPRIMary MISSINGSummary ]
 
         * F07 (codex audit 2026-09-27): the continuous-variable tests fit
         * anova/regress on a temporary group variable. Hold the caller's
@@ -682,6 +682,20 @@ program define _desctab_collect, rclass
             * levels add back up to them. A one-variable table is the only
             * block that releases them and keeps the full search.
             local _sc_fixed = cond(`nvars' > 1, "fixedmargins", "")
+            * smallcells(#, primary): the engine masks printed 1..k-1 cells
+            * and margins only; nothing is complementary and no block is
+            * marked derived, so percentages and tests stay as computed.
+            local _sc_primopt ""
+            * _sc_full: the slashN-derived exactness (a hidden missing or
+            * negative row released by subtraction from a printed n/N) and
+            * the "derived" denominator withholding are full-mode rules. In
+            * primary mode a row is exact only when it is printed, and a
+            * denominator is masked only when it is itself 1..k-1.
+            local _sc_full = ("`scprimary'" == "")
+            if "`scprimary'" != "" {
+                local _sc_primopt "primary"
+                local _sc_fixed ""
+            }
 
             forvalues i = 1/`nvars' {
                 local _sctyp `"`type_`i''"'
@@ -714,7 +728,7 @@ program define _desctab_collect, rclass
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
                         grandsensitive(`include_total') smallcells(`smallcells') ///
-                        `_sc_fixed'
+                        `_sc_fixed' `_sc_primopt'
                     if _rc == 498 & `nvars' > 1 {
                         display as error `"variable `var_`i'': a count below `smallcells' can only be protected by withholding a group or total N, which the other variables in the table release"'
                         display as error "Hint: combine sparse levels or leave the variable out of this table"
@@ -741,7 +755,8 @@ program define _desctab_collect, rclass
                         if `_scGM' == 1 | (`_scGM' == 2 & `_old' == 0) ///
                             matrix `sc_samplemask'[1, `ngout'] = `_scGM'
                     }
-                    if r(N_primary_suppressed) > 0 matrix `sc_derived'[`i', 1] = 1
+                    if r(N_primary_suppressed) > 0 & "`scprimary'" == "" ///
+                        matrix `sc_derived'[`i', 1] = 1
                 }
                 else {
                     local _scL = `cat_nlevels_`i''
@@ -774,12 +789,12 @@ program define _desctab_collect, rclass
                             matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
                             matrix `_scS'[`_sc_negrow', `_g'] = 1
                             matrix `_scS'[`_sc_missrow', `_g'] = 1
-                            if `_missing_summary' | ("`slashN'" == "slashN" & ///
+                            if `_missing_summary' | (`_sc_full' & "`slashN'" == "slashN" & ///
                                 (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "")) {
                                 matrix `_scE'[`_sc_missrow', `_g'] = 1
                                 matrix `_scS'[`_sc_missrow', `_g'] = 1
                             }
-                            if "`slashN'" == "slashN" & ///
+                            if `_sc_full' & "`slashN'" == "slashN" & ///
                                 (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") {
                                 matrix `_scE'[`_sc_negrow', `_g'] = 1
                                 matrix `_scS'[`_sc_negrow', `_g'] = 1
@@ -793,7 +808,7 @@ program define _desctab_collect, rclass
                             local _sc_nonmiss = `catmat'[`_scrow', 6]
                             matrix `_scC'[`_sc_missrow', `_g'] = `sample'[`_g', 3] - `_sc_nonmiss'
                             matrix `_scS'[`_sc_missrow', `_g'] = 1
-                            if `_missing_summary' | ("`slashN'" == "slashN" & "`catrowperc'" == "") {
+                            if `_missing_summary' | (`_sc_full' & "`slashN'" == "slashN" & "`catrowperc'" == "") {
                                 matrix `_scE'[`_sc_missrow', `_g'] = 1
                                 matrix `_scS'[`_sc_missrow', `_g'] = 1
                             }
@@ -830,7 +845,7 @@ program define _desctab_collect, rclass
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
                         grandsensitive(`include_total') smallcells(`smallcells') ///
-                        `_sc_fixed'
+                        `_sc_fixed' `_sc_primopt'
                     if _rc == 498 & `nvars' > 1 {
                         display as error `"variable `var_`i'': a count below `smallcells' can only be protected by withholding a group or total N, which the other variables in the table release"'
                         display as error "Hint: combine sparse levels or leave the variable out of this table"
@@ -856,20 +871,20 @@ program define _desctab_collect, rclass
                     if `_sc_missrow' > 0 {
                         forvalues _g = 1/`groupcount' {
                             matrix `sc_missmask'[`i', `_g'] = `_scM'[`_sc_missrow', `_g']
-                            if "`slashN'" == "slashN" & ///
+                            if `_sc_full' & "`slashN'" == "slashN" & ///
                                 (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") & ///
                                 `_scM'[`_sc_missrow', `_g'] > 0 ///
                                 matrix `sc_denmask'[`i', `_g'] = 3
                         }
                         if `include_total' {
                             matrix `sc_missmask'[`i', `ngout'] = `_scRM'[`_sc_missrow', 1]
-                            if "`slashN'" == "slashN" & ///
+                            if `_sc_full' & "`slashN'" == "slashN" & ///
                                 (inlist("`_sctyp'", "bin", "bine") | "`catrowperc'" == "") & ///
                                 `_scRM'[`_sc_missrow', 1] > 0 ///
                                 matrix `sc_denmask'[`i', `ngout'] = 3
                         }
                     }
-                    if inlist("`_sctyp'", "bin", "bine") & ///
+                    if `_sc_full' & inlist("`_sctyp'", "bin", "bine") & ///
                         "`slashN'" == "slashN" {
                         forvalues _g = 1/`groupcount' {
                             if `_scM'[`_sc_negrow', `_g'] > 0 ///
@@ -898,7 +913,8 @@ program define _desctab_collect, rclass
                         if `_scGM' == 1 | (`_scGM' == 2 & `_old' == 0) ///
                             matrix `sc_samplemask'[1, `ngout'] = `_scGM'
                     }
-                    if r(N_primary_suppressed) > 0 matrix `sc_derived'[`i', 1] = 1
+                    if r(N_primary_suppressed) > 0 & "`scprimary'" == "" ///
+                        matrix `sc_derived'[`i', 1] = 1
                 }
             }
         }

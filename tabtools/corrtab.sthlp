@@ -146,7 +146,10 @@ Excel, CSV, and frame exports{p_end}
 {opt pval:ues} show p-values in parentheses instead of stars; cannot be combined with {opt star()}{p_end}
 
 {phang}
-{opt sheet(string)} Excel sheet name; default is {cmd:"Correlation"}{p_end}
+{opt sheet(string)} Excel sheet name; default is {cmd:"Correlation"}. After
+{cmd:tabtools set workbook} (or {cmd:markdown}), a call that gives {opt sheet()} without
+{opt xlsx()} (or {opt markdown()}) writes to the session target and says so in the log; see
+{helpb tabtools}.{p_end}
 
 {phang}
 {opt spe:arman} Compute Spearman rank correlations instead of Pearson (for ordinal, skewed, or
@@ -181,7 +184,9 @@ named sheet is replaced{p_end}
 point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
-{opt foot:note(string)} footnote text below the table in smaller italic font{p_end}
+{opt foot:note(string)} footnote text below the table in smaller italic font. The
+literal token {cmd:\}, with a space on each side, separates paragraphs, one row (Markdown:
+paragraph) each.{p_end}
 
 {phang}
 {opt fra:me(name[, replace])} store output in a named Stata frame; specify

@@ -100,11 +100,13 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 91 since 2.3.0: tabcell, ratetab, outtab and their helpers, fitcount,
+    # flat frames, session settings (_tabtools_set*), stacktab frames.
     # 76 since 2.1.20: _tabtools_companion_id (paired output provenance).
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 76 and not class_missing and not wrapper_missing
+    passed = program_count == 91 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

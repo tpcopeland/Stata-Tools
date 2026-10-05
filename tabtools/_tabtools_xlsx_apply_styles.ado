@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 2.2.0  2026/10/02
+*! _tabtools_xlsx_apply_styles Version 2.3.0  2026/10/05
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -69,6 +69,8 @@ capture mata: mata drop _tt_xlsx_style_validate_code()
 capture mata: mata drop _tt_xlsx_style_validate_positive()
 capture mata: mata drop _tt_xlsx_style_validate_rgb()
 capture mata: mata drop _tt_xlsx_style_error()
+capture mata: mata drop _tt_xlsx_fn_paragraphs()
+capture mata: mata drop _tt_xlsx_fn_paras()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -101,6 +103,10 @@ void _tt_xlsx_apply_styles(
             break
         }
     }
+
+    // Multi-paragraph footnotes (" \ " separates paragraphs): one row per
+    // paragraph, each carrying the footnote row's own styling.
+    rules = _tt_xlsx_fn_paragraphs(b, rules)
 
     // Validate every rule before any is applied or queued, so an invalid
     // rule leaves nothing half-applied and nothing queued.
@@ -395,5 +401,75 @@ void _tt_xlsx_style_error(real scalar row, string scalar message)
     _error(198)
 }
 
+
+// Split footnote text into paragraphs on the literal token " \ " (space,
+// backslash, space). Text without the token is returned unchanged, so a
+// one-paragraph footnote is written exactly as before; otherwise each piece
+// is trimmed and empty pieces are dropped.
+string colvector _tt_xlsx_fn_paras(string scalar s)
+{
+    string colvector out
+    string scalar rest, piece
+    real scalar pos
+
+    if (!strpos(s, " " + char(92) + " ")) return(s)
+    out = J(0, 1, "")
+    rest = s
+    while ((pos = strpos(rest, " " + char(92) + " ")) > 0) {
+        piece = strtrim(substr(rest, 1, pos - 1))
+        if (piece != "") out = out \ piece
+        rest = substr(rest, pos + 3, .)
+    }
+    piece = strtrim(rest)
+    if (piece != "") out = out \ piece
+    if (rows(out) == 0) out = ""
+    return(out)
+}
+
+// The footnote row of every tabtools sheet is the bottom styled row, with
+// its text in column B and an italic rule (op 3, on) starting at column B.
+// When that cell holds paragraph separators, write one paragraph per row
+// and copy every rule that styles the footnote row (except top borders and
+// column widths) onto the added rows. Any other sheet is returned as is.
+real matrix _tt_xlsx_fn_paragraphs(class xl scalar b, real matrix rules)
+{
+    real scalar R, i, j, n, isfn
+    real matrix add, src
+    string colvector paras
+    string matrix cell
+
+    R = 0
+    for (i = 1; i <= rows(rules); i++) {
+        if (rules[i, 1] != 13 & rules[i, 3] < . & rules[i, 3] > R) R = rules[i, 3]
+    }
+    if (R < 2) return(rules)
+    isfn = 0
+    for (i = 1; i <= rows(rules); i++) {
+        if (rules[i, 1] == 3 & rules[i, 2] == R & rules[i, 3] == R &
+            rules[i, 4] == 2 & rules[i, 7] == 1) isfn = 1
+    }
+    if (!isfn) return(rules)
+    cell = b.get_string(R, 2)
+    if (rows(cell) != 1 | cols(cell) != 1) return(rules)
+    if (!strpos(cell[1, 1], " " + char(92) + " ")) return(rules)
+    paras = _tt_xlsx_fn_paras(cell[1, 1])
+    n = rows(paras)
+    for (j = 1; j <= n; j++) b.put_string(R + j - 1, 2, paras[j])
+    if (n < 2) return(rules)
+    src = J(0, cols(rules), .)
+    for (i = 1; i <= rows(rules); i++) {
+        if (rules[i, 1] == 13 | rules[i, 1] == 8) continue
+        if (rules[i, 2] <= R & rules[i, 3] >= R) src = src \ rules[i, .]
+    }
+    add = J(0, cols(rules), .)
+    for (j = 2; j <= n; j++) {
+        for (i = 1; i <= rows(src); i++) {
+            add = add \ src[i, .]
+            add[rows(add), 2] = R + j - 1
+            add[rows(add), 3] = R + j - 1
+        }
+    }
+    return(rules \ add)
+}
 end
 mata: mata set matastrict `_tt_ms0'

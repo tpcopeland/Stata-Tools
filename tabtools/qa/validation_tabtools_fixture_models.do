@@ -790,8 +790,8 @@ capture noisily {
     * Catalogue truth is the public command inventory, independent of data.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
-    assert r(n_commands)==14
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
     qa_state_compare, tag(tt_catalogue)
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(composite)
@@ -818,8 +818,8 @@ capture noisily {
     * Catalogue truth is the public command inventory, independent of data.
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(all)
-    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
-    assert r(n_commands)==14
+    assert `"`r(commands)'"'=="table1_tc desctab crosstab corrtab regtab effecttab tabcell outtab stratetab ratetab survtab comptab hrcomptab puttab stacktab tabtools tabtools_tips"
+    assert r(n_commands)==17
     qa_state_compare, tag(tt_catalogue)
     qa_state_snapshot, tag(tt_catalogue)
     quietly tabtools, list category(composite)

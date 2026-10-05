@@ -1,4 +1,4 @@
-*! tabtools Version 2.2.0  2026/10/02
+*! tabtools Version 2.3.0  2026/10/05
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -32,8 +32,19 @@ See help tabtools for complete documentation
 
 program define tabtools, rclass
     version 17.0
+    * SUBCOMMAND: fitcount (fit-time counts for regtab). Its options are its
+    * own, so it is dispatched before the display-mode syntax; the helper
+    * carries its own varabbrev wrapper and error codes.
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    gettoken _fc_word _fc_rest : 0, parse(" ,")
+    if lower(`"`_fc_word'"') == "fitcount" {
+        capture noisily _tabtools_fitcount `_fc_rest'
+        local _rc = _rc
+        if !`_rc' return add
+        set varabbrev `_orig_varabbrev'
+        exit `_rc'
+    }
     capture noisily {
         * Derive the package version from this file's *! header so it can never
         * drift from the header on a version bump (previously a hardcoded literal
@@ -120,7 +131,19 @@ program define tabtools, rclass
             global TABTOOLS_DIGITS
             global TABTOOLS_BOLDP
             display as text "tabtools: all persistent defaults cleared"
+            * 2.3.0: session settings (workbook, markdown, headershade,
+            * smallcells) are cleared with them.
+            _tabtools_set clear, quiet
             return local action "cleared"
+        }
+        * 2.3.0 session settings (U1, W1): logic in _tabtools_set.ado.
+        else if inlist("`setkey'", "workbook", "markdown", "headershade", "smallcells") {
+            if "`permanent'" != "" {
+                display as error "tabtools set `setkey' is a session setting and is not saved to a profile"
+                exit 198
+            }
+            _tabtools_set set `setkey' `setval'
+            return add
         }
         else if "`setkey'" == "font" {
             if "`setval'" == "" {
@@ -205,7 +228,7 @@ program define tabtools, rclass
             return scalar boldp = `setval'
         }
         else {
-            display as error `"Unknown setting "`setkey'". Valid: font, fontsize, borderstyle, headercolor, zebracolor, digits, boldp, clear"'
+            display as error `"Unknown setting "`setkey'". Valid: font, fontsize, borderstyle, headercolor, zebracolor, digits, boldp, workbook, markdown, headershade, smallcells, clear"'
             exit 198
         }
 
@@ -291,6 +314,18 @@ program define tabtools, rclass
     }
 
     * =========================================================================
+    * SUBCOMMAND: query (2.3.0 session settings; logic in _tabtools_set.ado)
+    * =========================================================================
+    else if "`subcmd'" == "query" {
+        if `_has_display_opts' | `_has_profile_opts' {
+            display as error "tabtools query does not accept options"
+            exit 198
+        }
+        _tabtools_set query `rest'
+        return add
+    }
+
+    * =========================================================================
     * SUBCOMMAND: use
     * =========================================================================
     else if "`subcmd'" == "use" {
@@ -344,7 +379,7 @@ program define tabtools, rclass
         }
         * If anything was passed that isn't a subcommand, error
         if "`subcmd'" != "" {
-            display as error `"Unknown subcommand "`subcmd'". Use: tabtools [set|get|use] or tabtools [, list detail]"'
+            display as error `"Unknown subcommand "`subcmd'". Use: tabtools [set|get|query|use] or tabtools [, list detail]"'
             exit 198
         }
 
@@ -363,8 +398,8 @@ program define tabtools, rclass
 
         // Define commands by category
         local cmd_descriptive "table1_tc desctab crosstab corrtab"
-        local cmd_models "regtab effecttab"
-        local cmd_rates "stratetab"
+        local cmd_models "regtab effecttab tabcell outtab"
+        local cmd_rates "stratetab ratetab"
         local cmd_survival "survtab"
         local cmd_composite "comptab hrcomptab"
         local cmd_export "puttab stacktab"
@@ -434,12 +469,15 @@ program define tabtools, rclass
                 display as text "{bf:Model Results}"
                 display as result "  regtab       " as text "- Regression results from any estimation command"
                 display as result "  effecttab    " as text "- Treatment-effect style tables from supported results"
+                display as result "  tabcell      " as text "- One publication cell from a fit, lincom, matrix, or numbers"
+                display as result "  outtab       " as text "- Binary outcomes by exposure: counts plus model ratios"
                 display as text ""
             }
 
             if inlist("`category'", "all", "rates") {
                 display as text "{bf:Incidence Rates}"
                 display as result "  stratetab    " as text "- Incidence rates from strate output"
+                display as result "  ratetab      " as text "- Events, person-time, and rates with exact/robust CIs"
                 display as text ""
             }
 
@@ -618,6 +656,13 @@ program define _tabtools_detail, nclass
             display as text "               Formats effect estimates, confidence intervals,"
             display as text "               and p-values for publication output."
             display as text ""
+            display as result "  tabcell" as text "      Format one estimate (CI), p-value, n (%),"
+            display as text "               e/n (%), or median (Q1, Q3) cell from a fit,"
+            display as text "               lincom/nlcom, a matrix row, or numbers."
+            display as text ""
+            display as result "  outtab" as text "       Tabulate binary outcomes by exposure with"
+            display as text "               events/N (%) and one ratio column per model."
+            display as text ""
         }
 
         if inlist("`category'", "all", "rates") {
@@ -627,6 +672,10 @@ program define _tabtools_detail, nclass
             display as text "               command output. Formats person-time, events,"
             display as text "               rates, and confidence intervals. Supports"
             display as text "               rate ratios and stratified analyses."
+            display as text ""
+            display as result "  ratetab" as text "      Compute events, person-time, and rates by group"
+            display as text "               from stset or event/exposure data, with exact,"
+            display as text "               Poisson, or cluster-robust intervals."
             display as text ""
         }
 

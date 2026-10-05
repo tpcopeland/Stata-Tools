@@ -1,4 +1,4 @@
-*! puttab Version 2.2.0  2026/10/02
+*! puttab Version 2.3.0  2026/10/05
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -78,11 +78,12 @@ program define puttab, rclass
                   SHeet(string) ///
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
-                  HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
+                  HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
                   DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
-                  CSV(string) MARKdown(string) MDAPPend open ]
+                  CSV(string) MARKdown(string) MDAPPend open ///
+                  PANel(string) PANELHeader(string) SPANheader(string asis) ]
         }
         else {
             syntax [anything(name=vlist)] [if] [in] [using/] , ///
@@ -90,11 +91,12 @@ program define puttab, rclass
                   SHeet(string) ///
                   TItle(string) FOOTnote(string) ///
                   FONT(string) FONTSIZE(integer -1) BORDERstyle(string) ///
-                  HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
+                  HEADERColor(string) ZEBRAColor(string) ZEBra NOHEADERShade HEADERShade ///
                   DIGits(integer -1) VARLabels NOHeader NOEMBedheader ///
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
-                  CSV(string) MARKdown(string) MDAPPend open ]
+                  CSV(string) MARKdown(string) MDAPPend open ///
+                  PANel(string) PANELHeader(string) SPANheader(string asis) ]
         }
 
         * matrix(): a matrix name, r(name), or e(name); copy it now.
@@ -148,6 +150,28 @@ program define puttab, rclass
             }
         }
         _tabtools_require_helpers
+
+        * ----- session destinations (tabtools set workbook/markdown/
+        * headershade): an explicit option wins; a session target is echoed.
+        _tabtools_set_sinks resolve, xlsx(`"`using'"') markdown(`"`markdown'"') `mdappend'
+        local using `"`_ss_xlsx'"'
+        local markdown `"`_ss_md'"'
+        local mdappend "`_ss_mdappend'"
+        local _sess_xlsx = `_ss_xlsx_sess'
+        local _sess_md = `_ss_md_sess'
+        * noheadershade: no shading for this call, whatever the session says.
+        * NOHEADERShade is declared before HEADERShade on purpose: declared
+        * after it, syntax swallows "noheadershade" as the negation of
+        * HEADERShade and leaves both locals empty.
+        if "`headershade'" != "" & "`noheadershade'" != "" {
+            noisily display as error "headershade and noheadershade may not be combined"
+            exit 198
+        }
+        if "`headershade'" == "" & "`noheadershade'" == "" & ///
+            "$TABTOOLS_set_headershade" == "on" {
+            local headershade "headershade"
+            display as text "(tabtools: using session headershade)"
+        }
 
         * ----- output file validation -----
         local _has_using = `"`using'"' != ""
@@ -264,6 +288,29 @@ program define puttab, rclass
             local _src "data"
         }
 
+        * ----- panel()/panelheader()/spanheader() (O2, O3) -----
+        local panel = strtrim(`"`panel'"')
+        local _has_panel = (`"`panel'"' != "")
+        local _has_phdr = (strtrim(`"`panelheader'"') != "")
+        if `_has_phdr' & !`_has_panel' {
+            noisily display as error "panelheader() requires panel()"
+            exit 198
+        }
+        if `_has_panel' & "`_src'" == "matrix" {
+            noisily display as error "panel() is not allowed with a matrix() source"
+            exit 198
+        }
+        if `_has_panel' & `: word count `panel'' != 1 {
+            noisily display as error "panel() takes one variable"
+            exit 198
+        }
+        local _pt_pvars ""
+        local _pt_phvars ""
+        local _pt_hrows ""
+        local _pt_phrows ""
+        local _pt_npanels 0
+        local _nspan 0
+
         * ===== build the in-memory string table (c1..cK) =====
         preserve
         local _restore_needed = 1
@@ -283,6 +330,35 @@ program define puttab, rclass
                 * quietly: -use- echoes the frame's dataset label, e.g.
                 * "(1978 automobile data)", ahead of puttab's own lines.
                 quietly use `"`_srcdata'"', clear
+            }
+            * panel(): the variable whose changes start a panel, and the
+            * panelheader() text variables; neither is ever exported.
+            if `_has_panel' {
+                capture confirm variable `panel', exact
+                if _rc {
+                    noisily display as error "panel(): variable `panel' not found in the source"
+                    exit 111
+                }
+                local _pt_pvars "`panel'"
+                if `_has_phdr' {
+                    capture unab _pt_phvars : `panelheader'
+                    if _rc {
+                        noisily display as error "panelheader(): `panelheader' not found in the source"
+                        exit 111
+                    }
+                    foreach _v of local _pt_phvars {
+                        capture confirm string variable `_v'
+                        if _rc {
+                            noisily display as error "panelheader(): `_v' is not a string variable"
+                            exit 109
+                        }
+                    }
+                    if `: list panel in _pt_phvars' {
+                        noisily display as error "panelheader() may not include the panel() variable"
+                        exit 198
+                    }
+                    local _pt_pvars "`_pt_pvars' `_pt_phvars'"
+                }
             }
             * Row subset (if/in) is marked on the caller's observations as
             * they are numbered in the source, before anything is dropped, so
@@ -319,6 +395,7 @@ program define puttab, rclass
                     local _hdrvars `r(varlist)'
                     if `_hasifin' local _hdrvars : list _hdrvars - _touse
                 }
+                local _hdrvars : list _hdrvars - _pt_pvars
                 if `"`_hdrvars'"' != "" & `_hdr_in_sel' {
                     mata: st_local("_hdr_dup", ///
                         strofreal(_puttab_is_headerrow("`_hdrvars'")))
@@ -331,11 +408,13 @@ program define puttab, rclass
             }
             if `"`vlist'"' != "" {
                 unab _keepvars : `vlist'
-                keep `_keepvars'
+                local _keepvars : list _keepvars - _pt_pvars
+                keep `_keepvars' `_pt_pvars'
                 order `_keepvars'
             }
             quietly ds
             local _srcvars `r(varlist)'
+            local _srcvars : list _srcvars - _pt_pvars
             if "`_srcvars'" == "" {
                 noisily display as error "source contains no variables to export"
                 exit 111
@@ -345,8 +424,31 @@ program define puttab, rclass
                 noisily display as error "source contains no observations to export"
                 exit 2000
             }
+            local _pt_headvar ""
+            local _pt_newvar ""
+            if `_has_panel' {
+                if `_has_phdr' & `: word count `_pt_phvars'' != `: word count `_srcvars'' {
+                    noisily display as error "panelheader() must name one string variable per exported column (`: word count `_srcvars'')"
+                    exit 198
+                }
+                * Heading text: the value label, else the value as displayed;
+                * a panel whose value is missing or blank has no heading.
+                tempvar _pt_head _pt_new
+                capture confirm string variable `panel'
+                if !_rc quietly gen strL `_pt_head' = `panel'
+                else {
+                    quietly gen strL `_pt_head' = ""
+                    mata: st_sstore(., "`_pt_head'", _puttab_fmt_num( ///
+                        st_data(., "`panel'"), `digits', ///
+                        st_varvaluelabel("`panel'"), st_varformat("`panel'")))
+                }
+                quietly gen byte `_pt_new' = (_n == 1) | (`panel' != `panel'[_n - 1])
+                local _pt_headvar "`_pt_head'"
+                local _pt_newvar "`_pt_new'"
+            }
             mata: _puttab_data_table("`_srcvars'", `digits', `_titlerows', ///
-                `_headerrows', `_uselbl')
+                `_headerrows', `_uselbl', "`_pt_headvar'", "`_pt_newvar'", ///
+                "`_pt_phvars'")
         }
 
         local K = c(k)
@@ -360,8 +462,28 @@ program define puttab, rclass
             quietly replace c1 = `"`macval(title)'"' in 1
         }
 
-        local _header_row = cond(`_headerrows', `_titlerows' + 1, 0)
-        local _data_start = `_titlerows' + `_headerrows' + 1
+        * spanheader("label" #/# [\ ...]) (O3): a row of spanning labels
+        * above the header row; columns number the exported columns 1..K.
+        if strtrim(`"`macval(spanheader)'"') != "" {
+            if !`_headerrows' {
+                noisily display as error "spanheader() requires a header row; remove noheader"
+                exit 198
+            }
+            mata: _puttab_span_parse(st_local("spanheader"), `K')
+            if `_sp_rc' {
+                noisily display as error `"spanheader(): `macval(_sp_err)'"'
+                exit `_sp_rc'
+            }
+            local _span_at = `_titlerows' + 1
+            quietly insobs 1, before(`_span_at')
+            forvalues _i = 1/`_nspan' {
+                quietly replace c`_sp_c1`_i'' = `"`macval(_sp_lab`_i')'"' in `_span_at'
+            }
+        }
+        local _span_rows = (`_nspan' > 0)
+        local _span_row = cond(`_span_rows', `_titlerows' + 1, 0)
+        local _header_row = cond(`_headerrows', `_titlerows' + `_span_rows' + 1, 0)
+        local _data_start = `_titlerows' + `_span_rows' + `_headerrows' + 1
         local _last_data_row = _N
         if `_last_data_row' < `_data_start' {
             noisily display as error "source produced no data rows"
@@ -387,12 +509,17 @@ program define puttab, rclass
             }
         }
 
-        * Footnote as a trailing row
+        * Footnote as trailing row(s): one per paragraph (" \ " separates
+        * paragraphs, O4); a footnote without the token is one row as typed.
         local _foot_row = 0
+        local _n_foot = 0
         if `"`macval(footnote)'"' != "" {
+            mata: _puttab_fn_locals(st_local("footnote"))
             local _foot_row = _N + 1
-            quietly set obs `_foot_row'
-            quietly replace c1 = `"`macval(footnote)'"' in `_foot_row'
+            quietly set obs `=_N + `_n_foot''
+            forvalues _j = 1/`_n_foot' {
+                quietly replace c1 = `"`macval(_fn_p`_j')'"' in `=`_foot_row' + `_j' - 1'
+            }
         }
         local _total_rows = _N
 
@@ -402,6 +529,8 @@ program define puttab, rclass
         local _ret_cols    = `K'
         local _ret_data    = `_ndatarows'
         local _ret_source  `"`_src'"'
+        local _ret_npanels = `_pt_npanels'
+        local _ret_nspan   = `_nspan'
         local _return_ready = 1
 
         * ----- optional CSV mirror of the assembled table -----
@@ -431,15 +560,38 @@ program define puttab, rclass
             * keepblank: every exported observation is data, so one that is
             * missing in every column stays a Markdown body row, as it does in
             * the workbook and the CSV (C3, codex audit 2026-09-26).
+            * Panel heading and panel header rows are bold in Markdown.
+            local _md_bold ""
+            foreach _r in `_pt_hrows' `_pt_phrows' {
+                local _md_bold "`_md_bold' `=`_data_start' + `_r' - 1'"
+            }
+            local _md_boldopt ""
+            if "`_md_bold'" != "" local _md_boldopt "boldrows(`_md_bold')"
+            * GFM tables have one header row, so a spanning label is folded
+            * into the header of each column it spans: "Span, Column".
+            if `_span_rows' {
+                tempfile _pt_pre_md
+                quietly save `"`_pt_pre_md'"'
+                forvalues _i = 1/`_nspan' {
+                    forvalues _c = `_sp_c1`_i''/`_sp_c2`_i'' {
+                        quietly replace c`_c' = cond(strtrim(c`_c'[`_header_row']) == "", ///
+                            c`_sp_c1`_i''[`_span_row'], ///
+                            c`_sp_c1`_i''[`_span_row'] + ", " + c`_c'[`_header_row']) ///
+                            in `_header_row'
+                    }
+                }
+            }
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
                 `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
-                dataend(`_last_data_row') keepblank ///
+                dataend(`_last_data_row') keepblank `_md_boldopt' ///
                 title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') `_md_novarnames'
-            if _rc {
-                local _md_rc = _rc
+            local _md_rc = _rc
+            if `_span_rows' quietly use `"`_pt_pre_md'"', clear
+            if `_md_rc' {
                 noisily display as error "Failed to export Markdown to `markdown'"
                 exit `_md_rc'
             }
+            if `_sess_md' _tabtools_set_sinks mddone
             local _ret_markdown `"`markdown'"'
             local _ret_markdown_rows = r(n_rows)
             local _ret_markdown_cols = r(n_cols)
@@ -483,6 +635,16 @@ program define puttab, rclass
             local _x_last_data  = `_last_data_row' + `_x_roff'
             local _x_total_rows = `_total_rows' + `_x_roff'
             local _x_foot_row   = cond(`_foot_row' > 0, `_foot_row' + `_x_roff', 0)
+            local _x_span_row   = cond(`_span_rows', `_span_row' + `_x_roff', 0)
+
+            * Rows whose text spans the table (panel headings, the span row)
+            * do not set a column's width.
+            tempvar _nowid
+            quietly gen byte `_nowid' = 0
+            if `_span_rows' quietly replace `_nowid' = 1 in `_x_span_row'
+            foreach _r of local _pt_hrows {
+                quietly replace `_nowid' = 1 in `=`_x_data_start' + `_r' - 1'
+            }
 
             * ===== border code (thin=1, medium=2, thick=3, none=4) =====
             local _hbc = 1
@@ -497,7 +659,7 @@ program define puttab, rclass
                 tempvar _len
                 quietly gen long `_len' = length(c`j')
                 quietly summarize `_len' ///
-                    if c`j' != "" & inrange(_n, 2, `_x_last_data'), meanonly
+                    if c`j' != "" & inrange(_n, 2, `_x_last_data') & !`_nowid', meanonly
                 local _w = cond(r(N) > 0, ceil(r(max) * 0.95) + 2, 10)
                 if `j' == 1 {
                     if `_w' < 12 local _w = 12
@@ -511,6 +673,7 @@ program define puttab, rclass
                 local _xcol = `j' + 1
                 matrix `_rules' = `_rules' \ (13, 1, 1, `_xcol', `_xcol', `_w', 0, 0, 0)
             }
+            drop `_nowid'
 
             * ===== base font, wrap, vertical centering, left alignment =====
             matrix `_rules' = `_rules' \ ///
@@ -534,11 +697,34 @@ program define puttab, rclass
                 matrix `_rules' = `_rules' \ ///
                     (2, `_x_header_row', `_x_header_row', 2, `_xK', 0, 1, 0, 0) \ ///
                     (5, `_x_header_row', `_x_header_row', 2, `_xK', 0, 2, 0, 0) \ ///
-                    (8, `_x_header_row', `_x_header_row', 2, `_xK', 0, `_hbc', 0, 0) \ ///
                     (9, `_x_header_row', `_x_header_row', 2, `_xK', 0, `_hbc', 0, 0)
+                * The table's top rule sits above the span row when there is one.
+                local _x_top_rule = cond(`_span_rows', `_x_span_row', `_x_header_row')
+                matrix `_rules' = `_rules' \ ///
+                    (8, `_x_top_rule', `_x_top_rule', 2, `_xK', 0, `_hbc', 0, 0)
                 if "`headershade'" != "" {
                     matrix `_rules' = `_rules' \ ///
                         (7, `_x_header_row', `_x_header_row', 2, `_xK', 0, -1, 0, 0)
+                }
+                * spanheader(): bold, centred, each span merged and ruled below.
+                if `_span_rows' {
+                    matrix `_rules' = `_rules' \ ///
+                        (2, `_x_span_row', `_x_span_row', 2, `_xK', 0, 1, 0, 0) \ ///
+                        (5, `_x_span_row', `_x_span_row', 2, `_xK', 0, 2, 0, 0)
+                    if "`headershade'" != "" {
+                        matrix `_rules' = `_rules' \ ///
+                            (7, `_x_span_row', `_x_span_row', 2, `_xK', 0, -1, 0, 0)
+                    }
+                    forvalues _i = 1/`_nspan' {
+                        local _xc1 = `_sp_c1`_i'' + 1
+                        local _xc2 = `_sp_c2`_i'' + 1
+                        if `_xc2' > `_xc1' {
+                            matrix `_rules' = `_rules' \ ///
+                                (14, `_x_span_row', `_x_span_row', `_xc1', `_xc2', 0, 0, 0, 0)
+                        }
+                        matrix `_rules' = `_rules' \ ///
+                            (9, `_x_span_row', `_x_span_row', `_xc1', `_xc2', 0, 1, 0, 0)
+                    }
                 }
             }
             else {
@@ -563,6 +749,7 @@ program define puttab, rclass
             * regtab/desctab/stratetab. academic keeps horizontal rules only.
             local _vbc = cond("`borderstyle'" == "medium", 2, 1)
             local _x_box_top = cond(`_headerrows', `_x_header_row', `_x_data_start')
+            if `_span_rows' local _x_box_top = `_x_span_row'
             if "`borderstyle'" != "academic" {
                 matrix `_rules' = `_rules' \ ///
                     (10, `_x_box_top', `_x_last_data', 2, 2, 0, `_vbc', 0, 0) \ ///
@@ -591,6 +778,30 @@ program define puttab, rclass
                     (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0)
             }
 
+            * ===== panel() heading rows: bold, rule above, merged across;
+            * panelheader() rows: bold with a rule below (shaded with
+            * headershade) =====
+            foreach _r of local _pt_hrows {
+                local _xr = `_x_data_start' + `_r' - 1
+                matrix `_rules' = `_rules' \ ///
+                    (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (8, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
+                if `_xK' > 2 {
+                    matrix `_rules' = `_rules' \ ///
+                        (14, `_xr', `_xr', 2, `_xK', 0, 0, 0, 0)
+                }
+            }
+            foreach _r of local _pt_phrows {
+                local _xr = `_x_data_start' + `_r' - 1
+                matrix `_rules' = `_rules' \ ///
+                    (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (9, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
+                if "`headershade'" != "" {
+                    matrix `_rules' = `_rules' \ ///
+                        (7, `_xr', `_xr', 2, `_xK', 0, -1, 0, 0)
+                }
+            }
+
             * ===== zebra striping over data rows =====
             * Built in one step: appending a row per stripe is quadratic in
             * the number of data rows.
@@ -609,18 +820,23 @@ program define puttab, rclass
             * range that merges nothing and that some consumers flag.
             if `_x_foot_row' > 0 {
                 local _fn_size = max(`_fontsize' - 2, 6)
-                if `_xK' > 2 {
+                forvalues _j = 1/`_n_foot' {
+                    local _xfr = `_x_foot_row' + `_j' - 1
+                    if `_xK' > 2 {
+                        matrix `_rules' = `_rules' \ ///
+                            (14, `_xfr', `_xfr', 2, `_xK', 0, 0, 0, 0)
+                    }
                     matrix `_rules' = `_rules' \ ///
-                        (14, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 0, 0, 0)
+                        (1, `_xfr', `_xfr', 2, `_xK', `_fn_size', 1, 0, 0) \ ///
+                        (3, `_xfr', `_xfr', 2, `_xK', 0, 1, 0, 0) \ ///
+                        (5, `_xfr', `_xfr', 2, `_xK', 0, 1, 0, 0)
                 }
-                matrix `_rules' = `_rules' \ ///
-                    (1, `_x_foot_row', `_x_foot_row', 2, `_xK', `_fn_size', 1, 0, 0) \ ///
-                    (3, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0) \ ///
-                    (5, `_x_foot_row', `_x_foot_row', 2, `_xK', 0, 1, 0, 0)
             }
 
             * ===== write the sheet and apply the styling =====
             local _sink "xlsx"
+            * Session workbook: the first write since tabtools set starts it over.
+            if `_sess_xlsx' _tabtools_set_sinks xlsxstart
             _tabtools_xlsx_write using `"`using'"', sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             local _book_open = 1
             * Excel matches an existing sheet case-insensitively; style, report,
@@ -669,6 +885,8 @@ program define puttab, rclass
         return scalar n_cols    = `_ret_cols'
         return scalar n_datarows = `_ret_data'
         return local  source    "`_ret_source'"
+        return scalar n_panels  = `_ret_npanels'
+        return scalar n_spans   = `_ret_nspan'
         if `"`_ret_file'"' != "" {
             return local  sheet     `"`macval(_ret_sheet)'"'
             return local  file      `"`_ret_file'"'
@@ -709,6 +927,10 @@ capture mata: mata drop _puttab_fmt_num()
 capture mata: mata drop _puttab_stripe_names()
 capture mata: mata drop _puttab_emit_table()
 capture mata: mata drop _puttab_is_headerrow()
+capture mata: mata drop _puttab_panelize()
+capture mata: mata drop _puttab_span_parse()
+capture mata: mata drop _puttab_fn_locals()
+capture mata: mata drop _puttab_span_err()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -867,13 +1089,19 @@ real scalar _puttab_is_headerrow(string scalar varlist)
     return(matched > 0)
 }
 
-// Build the table from the current dataset's variables.
+// Build the table from the current dataset's variables. headvar/newvar
+// (panel(); "" = none) name a string variable holding each observation's
+// panel heading text and a 0/1 variable marking the first observation of a
+// panel; phvars names the panelheader() text variables.
 void _puttab_data_table(
     string scalar varlist,
     real scalar digits,
     real scalar titlerows,
     real scalar headerrows,
-    real scalar usevarlabels)
+    real scalar usevarlabels,
+    string scalar headvar,
+    string scalar newvar,
+    string scalar phvars)
 {
     string rowvector vars
     string matrix out
@@ -913,7 +1141,196 @@ void _puttab_data_table(
         out[(datatop..total), j] = scol
     }
 
+    if (headvar != "") out = _puttab_panelize(out, datatop, headvar, newvar, phvars)
     _puttab_emit_table(out)
+}
+
+// panel(): insert a heading row where a panel starts (its text in column 1,
+// the rest blank), then -- with panelheader() -- that panel's header row
+// when any of its cells is non-blank, and indent the row labels of a panel
+// that has a heading by three spaces. A panel whose heading text is blank
+// (missing or empty panel value) gets no heading and no indent. Posts the
+// body positions (1 = first body row) of the heading rows in _pt_hrows and
+// of the panel header rows in _pt_phrows, and the count in _pt_npanels.
+string matrix _puttab_panelize(
+    string matrix out,
+    real scalar datatop,
+    string scalar headvar,
+    string scalar newvar,
+    string scalar phvars)
+{
+    string colvector head
+    real colvector isnew
+    string matrix ph, body, nb
+    string rowvector row
+    real colvector hrows, phrows
+    real scalar i, n, K, headed, r, npan
+
+    head = st_sdata(., headvar)
+    isnew = st_data(., newvar)
+    n = rows(head)
+    K = cols(out)
+    ph = (phvars != "" ? st_sdata(., tokens(phvars)) : J(n, 0, ""))
+    body = out[(datatop..rows(out)), .]
+    nb = J(n * (2 + (cols(ph) > 0)), K, "")
+    hrows = J(0, 1, .)
+    phrows = J(0, 1, .)
+    headed = 0
+    npan = 0
+    r = 0
+    for (i = 1; i <= n; i++) {
+        if (isnew[i]) {
+            headed = (strtrim(head[i]) != "")
+            if (headed) {
+                r++
+                nb[r, 1] = strtrim(head[i])
+                hrows = hrows \ r
+                npan++
+            }
+            if (cols(ph) > 0) {
+                if (any(strtrim(ph[i, .]) :!= "")) {
+                    r++
+                    nb[r, .] = ph[i, .]
+                    phrows = phrows \ r
+                }
+            }
+        }
+        row = body[i, .]
+        if (headed & row[1] != "") row[1] = "   " + row[1]
+        r++
+        nb[r, .] = row
+    }
+    st_local("_pt_hrows", rows(hrows) ? invtokens(strofreal(hrows')) : "")
+    st_local("_pt_phrows", rows(phrows) ? invtokens(strofreal(phrows')) : "")
+    st_local("_pt_npanels", strofreal(npan))
+    if (datatop > 1) return(out[(1..datatop - 1), .] \ nb[(1..r), .])
+    return(nb[(1..r), .])
+}
+
+void _puttab_span_err(real scalar rc, string scalar msg)
+{
+    st_local("_sp_rc", strofreal(rc))
+    st_local("_sp_err", msg)
+    st_local("_nspan", "0")
+}
+
+// spanheader("label" #[/#] [\ "label" #[/#] ...]): parse into locals
+// _nspan, _sp_lab#, _sp_c1#, _sp_c2#; on a bad specification set _sp_rc
+// (198 syntax or overlap, 125 a column outside 1..K) and _sp_err.
+void _puttab_span_parse(string scalar spec, real scalar K)
+{
+    real scalar pos, L, n, c1, c2, j, close
+    string scalar ch, lab, rng
+    real matrix used
+
+    st_local("_sp_rc", "0")
+    st_local("_sp_err", "")
+    L = strlen(spec)
+    pos = 1
+    n = 0
+    used = J(1, K, 0)
+    while (1) {
+        while (pos <= L & substr(spec, pos, 1) == " ") pos++
+        if (pos > L) break
+        // label: plain or compound double quotes
+        ch = substr(spec, pos, 1)
+        if (ch == char(34)) {
+            close = strpos(substr(spec, pos + 1, .), char(34))
+            if (!close) {
+                _puttab_span_err(198, "unmatched quote")
+                return
+            }
+            lab = substr(spec, pos + 1, close - 1)
+            pos = pos + close + 1
+        }
+        else if (ch == char(96) & substr(spec, pos + 1, 1) == char(34)) {
+            close = strpos(substr(spec, pos + 2, .), char(34) + char(39))
+            if (!close) {
+                _puttab_span_err(198, "unmatched compound quote")
+                return
+            }
+            lab = substr(spec, pos + 2, close - 1)
+            pos = pos + close + 3
+        }
+        else {
+            _puttab_span_err(198, "each span starts with a quoted label")
+            return
+        }
+        if (strtrim(lab) == "") {
+            _puttab_span_err(198, "a span label is empty")
+            return
+        }
+        while (pos <= L & substr(spec, pos, 1) == " ") pos++
+        rng = ""
+        while (pos <= L & substr(spec, pos, 1) != " " & substr(spec, pos, 1) != char(92)) {
+            rng = rng + substr(spec, pos, 1)
+            pos++
+        }
+        if (!regexm(rng, "^([0-9]+)(/([0-9]+))?$")) {
+            _puttab_span_err(198, "after each label give a column or first/last columns, e.g. 2/3")
+            return
+        }
+        // regexs() of the unmatched "/last" group prints an error line,
+        // so split on "/" instead of asking for it.
+        c1 = strtoreal(regexs(1))
+        c2 = (strpos(rng, "/") ? strtoreal(substr(rng, strpos(rng, "/") + 1, .)) : c1)
+        if (c2 < c1) {
+            _puttab_span_err(198, "span " + rng + " ends before it starts")
+            return
+        }
+        if (c1 < 1 | c2 > K) {
+            _puttab_span_err(125, "span " + rng + " is outside the table (columns 1 to " + strofreal(K) + ")")
+            return
+        }
+        for (j = c1; j <= c2; j++) {
+            if (used[j]) {
+                _puttab_span_err(198, "spans overlap at column " + strofreal(j))
+                return
+            }
+            used[j] = 1
+        }
+        n++
+        st_local("_sp_lab" + strofreal(n), lab)
+        st_local("_sp_c1" + strofreal(n), strofreal(c1))
+        st_local("_sp_c2" + strofreal(n), strofreal(c2))
+        while (pos <= L & substr(spec, pos, 1) == " ") pos++
+        if (pos > L) break
+        if (substr(spec, pos, 1) != char(92)) {
+            _puttab_span_err(198, "separate spans with " + char(92))
+            return
+        }
+        pos++
+    }
+    if (n == 0) {
+        _puttab_span_err(198, "no span given")
+        return
+    }
+    st_local("_nspan", strofreal(n))
+}
+
+// Footnote paragraphs into locals _n_foot, _fn_p1, ...: the literal token
+// " \ " separates paragraphs; text without it is one paragraph as typed.
+void _puttab_fn_locals(string scalar s)
+{
+    string colvector out
+    string scalar rest, piece
+    real scalar pos, j
+
+    if (!strpos(s, " " + char(92) + " ")) out = s
+    else {
+        out = J(0, 1, "")
+        rest = s
+        while ((pos = strpos(rest, " " + char(92) + " ")) > 0) {
+            piece = strtrim(substr(rest, 1, pos - 1))
+            if (piece != "") out = out \ piece
+            rest = substr(rest, pos + 3, .)
+        }
+        piece = strtrim(rest)
+        if (piece != "") out = out \ piece
+        if (rows(out) == 0) out = ""
+    }
+    for (j = 1; j <= rows(out); j++) st_local("_fn_p" + strofreal(j), out[j])
+    st_local("_n_foot", strofreal(rows(out)))
 }
 
 // Build the table from a Stata matrix (row/col names -> labels/header).
