@@ -1,4 +1,4 @@
-*! _regtab_collabels Version 2.4.0  2026/10/05
+*! _regtab_collabels Version 2.5.0  2026/10/06
 *! collabels(): column headers of a transposed table, by raw coefficient name
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

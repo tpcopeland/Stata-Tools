@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.4.0  2026/10/05
+*! _tabtools_common Version 2.5.0  2026/10/06
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -902,6 +902,10 @@ program _tabtools_helpers_ready, nclass
     args required
 
     if `"`required'"' == "" {
+        * the full bundle includes its Mata: a session holding the programs
+        * from an older copy of this file must load it again
+        mata: st_local("_sep_ready", strofreal(findexternal("_tt_sep_parse()") != NULL))
+        if !`_sep_ready' exit 111
         local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_collect_ci_level _tabtools_resolve_ci_level _tabtools_strip_outer_quotes _tabtools_format_p _tabtools_console_display _tabtools_frame_put _tabtools_frame_preflight _tabtools_companion_id _tabtools_require_helpers"
     }
 
@@ -1132,6 +1136,8 @@ end
 
 capture mata: mata drop _tt_companion_id()
 capture mata: mata drop _tt_collect_ci_level_json()
+capture mata: mata drop _tt_sep_parse()
+capture mata: mata drop _tt_sep_optarg()
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
 local _tt_ms0 = c(matastrict)
@@ -1144,7 +1150,7 @@ string scalar _tt_companion_id(string scalar filetoken)
 {
     pointer() scalar sequence
     string scalar candidate, current
-    string rowvector frames
+    string vector frames
     real scalar i, collision
 
     sequence = findexternal("_tabtools_companion_seq")
@@ -1162,7 +1168,8 @@ string scalar _tt_companion_id(string scalar filetoken)
         *sequence = *sequence + 1
         candidate = filetoken + ":" + strtrim(strofreal(*sequence, "%21.0f"))
         collision = 0
-        for (i = 1; i <= cols(frames); i++) {
+        // st_framedir() is a column vector: every frame, not the first
+        for (i = 1; i <= length(frames); i++) {
             st_framecurrent(frames[i])
             if (st_global("_dta[tabtools_companion_id]") == candidate) collision = 1
         }
@@ -1213,6 +1220,28 @@ string scalar _tt_strip_outer_quotes(string scalar x)
         x = substr(x, 2, n - 2)
     }
     return(x)
+}
+
+// The interval separator, sep() or cisep(), is data (help tabtools##sep).
+// Every command declares it a plain string option, so syntax reads it by
+// Stata's rule (one quote layer removed, blanks outside quotes dropped);
+// empty means the default ", ". It is read and written only through
+// st_local(), so no macro in it is ever expanded.
+string scalar _tt_sep_parse(string scalar raw)
+{
+    return(raw == "" ? ", " : raw)
+}
+
+// name(text) that hands a separator to another command's string option
+// unchanged: simple quotes, or compound quotes when the text holds a double
+// quote (text a user could type there is balanced in them). The result is
+// spliced into a command line with macval(), never re-expanded.
+string scalar _tt_sep_optarg(string scalar name, string scalar s)
+{
+    if (strpos(s, char(34))) {
+        return(name + "(" + char(96) + char(34) + s + char(34) + char(39) + ")")
+    }
+    return(name + "(" + char(34) + s + char(34) + ")")
 }
 
 end

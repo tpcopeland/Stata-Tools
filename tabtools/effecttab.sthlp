@@ -17,7 +17,7 @@
 
 {p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)}
 {opt sheet(string)} {opt type(string)} {opt effect(string)}
-{opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean}
+{opt sep(string)} {opt models(string)} {opt title(string)} {opt clean}
 {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
 {opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt cf:ormat(%fmt)} {opt l:evel(#)} {opt fra:me(name[, replace flat])}
@@ -64,7 +64,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt sheet(string)}}target Excel sheet name{p_end}
 {synopt:{opt type(string)}}select the collected-results adapter{p_end}
 {synopt:{opt effect(string)}}effect-column header{p_end}
-{synopt:{opt sep(string asis)}}CI delimiter; default {cmd:", "}{p_end}
+{synopt:{opt sep(string)}}text between the CI limits; default {cmd:", "}{p_end}
 {synopt:{opt models(string)}}model labels separated by backslashes{p_end}
 {synopt:{opt title(string)}}set the table title in cell A1{p_end}
 {synopt:{opt clean}}clean up teffects row labels{p_end}
@@ -235,10 +235,13 @@ margin {cmd:margins} reports as not estimable. Default is {cmd:Omitted}{p_end}
 {cmd:Empty}. The three labels must differ from each other{p_end}
 
 {phang}
-{opt sep(string asis)} delimiter between CI endpoints. Default is {cmd:", "};
-{cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. It reaches every sink (console,
-Excel, CSV, Markdown, {opt frame()} with or without {cmd:flat});
-{cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers.{p_end}
+{opt sep(string)} delimiter between CI endpoints. Default is {cmd:", "};
+{cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. The text prints as typed in
+every sink (console, Excel, CSV, Markdown, {opt frame()} with or without
+{cmd:flat}); {cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers;
+see {help tabtools##sep:interval separators}. It is never handed to
+{cmd:collect}: {cmd:effecttab} sets the collection's own {cmd:cidelimiter()}
+style to {cmd:", "} whatever {opt sep()} is.{p_end}
 
 {phang}
 {opt sheet(string)} target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}{p_end}

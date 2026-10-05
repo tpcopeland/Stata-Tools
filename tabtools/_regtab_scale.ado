@@ -1,4 +1,4 @@
-*! _regtab_scale Version 2.4.0  2026/10/05
+*! _regtab_scale Version 2.5.0  2026/10/06
 *! display scale of one collected model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -17,7 +17,7 @@
 *   _rs_level  confidence level requested with level(), or -1 when absent
 * Ratio families are always shown on the ratio scale: a fit displayed on the
 * coefficient scale (logit without or, stcox with nohr, logistic with coef,
-* streg in the time metric without tr) is exponentiated, and a fit Stata
+* streg or stintreg in the time metric without tratio) is exponentiated, and a fit Stata
 * already exponentiated (or, hr, tr, irr, eform) is left alone. The header
 * therefore always names the scale of the numbers printed under it.
 * Optional 4th and 5th arguments describe an estimation prefix: mode "mi"
@@ -95,19 +95,21 @@ program define _regtab_scale, nclass
 			local _n 1
 			local _i 1
 		}
-		else if inlist("`_rs_word'", "streg", "mestreg") {
-			* Metric rules from streg.ado/mestreg.ado: exponential and Weibull
-			* fit in the log-hazard metric unless time (or, for streg, tr) is
-			* given; Gompertz is log-hazard only; lognormal, loglogistic and
-			* (generalized) gamma are log-time only. The hazard metric displays
-			* hazard ratios unless nohr; the time metric displays coefficients
-			* unless tr.
+		else if inlist("`_rs_word'", "streg", "stintreg", "mestreg") {
+			* Metric rules from streg.ado/stintreg.ado/mestreg.ado: exponential
+			* and Weibull fit in the log-hazard metric unless time (or, for
+			* streg and stintreg, tratio) is given; Gompertz is log-hazard
+			* only; lognormal, loglogistic and (generalized) gamma are log-time
+			* only. The hazard metric displays hazard ratios unless nohr; the
+			* time metric displays coefficients unless tratio. stintreg, like
+			* streg, names its distribution in e(cmd) (ereg, weibull,
+			* gompertz, lnormal, llogistic, gamma; e(cmd2) is stintreg).
 			_regtab_cmdopts "TIme TRatio noHR Distribution(string)" `"`_rs_opt'"'
 			local _aft_opt = ("`_ro_time'`_ro_tratio'" != "")
 			if "`_rs_word'" == "mestreg" local _aft_opt = ("`_ro_time'" != "")
 			local _ph_capable 0
 			local _ph_only 0
-			if "`_rs_word'" == "streg" {
+			if inlist("`_rs_word'", "streg", "stintreg") {
 				if regexm("`_rs_ecmd'", "^(ereg|weibull)") local _ph_capable 1
 				if regexm("`_rs_ecmd'", "^gompertz") local _ph_only 1
 			}

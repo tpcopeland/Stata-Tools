@@ -1,5 +1,5 @@
-*! tabcell Version 2.4.0  2026/10/05
-*! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR)
+*! tabcell Version 2.5.0  2026/10/06
+*! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
@@ -16,9 +16,12 @@ SYNTAX
           b() ll() ul()    explicit numbers; or b() se() for a normal interval
     tabcell p ,   p(#) [pdp(#) highpdp(#) pstyle(table|footnote|Pfootnote) missing(str)]
     tabcell n ,   n(#) [mincell(#) nformat() missing(str)]
-    tabcell np ,  n(#) d(#) [ci(exact) level(#) sep(str) mincell(#) nformat() pformat() missing(str)]
+    tabcell np ,  n(#) d(#) [ci(exact) level(#) sep(str) nocount mincell(#) nformat() pformat() missing(str)]
     tabcell enp , e(#) n(#) [mincell(#) nformat() pformat() missing(str)]
     tabcell iqr , median(#) q1(#) q3(#) [format() sep() missing(str)]
+    tabcell rate, e(#) pt(#) per(#) [ci(exact|poisson) level(#) format() sep() mincell(#) missing(str)]
+
+    digits(#) is format(%9.#f) wherever format() applies (est, iqr, rate).
 
     generate(newvar) [if] [in]: the numeric options are expressions in the
     data and a string variable is filled in one vectorised pass. Data are
@@ -32,6 +35,17 @@ SYNTAX
     percentage, n (pct; lo, hi), with lo = invibeta(n, d-n+1, a/2) and
     hi = invibetatail(n+1, d-n, a/2); lo = 0 when n = 0 and hi = 1 when n = d,
     as in [R] ci, Methods and formulas, and Thulin (2014, eq. 4).
+    nocount (np): the percentage alone, pct, or pct (lo, hi) with ci(exact);
+    a masked count prints the withheld-value text, never its percentage.
+
+    rate: the incidence rate e/pt*per with ratetab's limits ([R] ci, Methods
+    and formulas, Poisson mean; [ST] strate; rate-intervals.notes.md):
+      ci(exact)   (default) invpoissontail(e, a/2)/pt*per (0 when e = 0),
+                  invpoisson(e, a/2)/pt*per
+      ci(poisson) rate*exp(-/+ z/sqrt(e)), the log-rate Wald limits of
+                  strate; at e = 0 the exact limits (0, -ln(a/2)/pt*per)
+    mincell(#) withholds a rate with 1 to #-1 events: the cell prints
+    "–" (en dash), as ratetab and stratetab print a withheld rate.
 
 A missing or non-finite value is refused (rc 459) unless missing("text")
 is given; a failed fit can never print as ". (., .)".
@@ -65,8 +79,8 @@ program define tabcell, rclass
         local 0 : copy local _cl0
         gettoken form 0 : 0, parse(" ,")
         local form = lower(strtrim(`"`form'"'))
-        if !inlist(`"`form'"', "est", "p", "n", "np", "enp", "iqr") {
-            display as error `"tabcell: the first word must be est, p, n, np, enp, or iqr"'
+        if !inlist(`"`form'"', "est", "p", "n", "np", "enp", "iqr", "rate") {
+            display as error `"tabcell: the first word must be est, p, n, np, enp, iqr, or rate"'
             exit 198
         }
         syntax [anything(name=coef)] [if] [in] [, ///
@@ -77,7 +91,11 @@ program define tabcell, rclass
             P(string) PDP(integer 3) HIGHPDP(integer 2) PSTYle(string) ///
             N(string) D(string) E(string) MEDian(string) Q1(string) Q3(string) ///
             MINcell(integer 0) NFormat(string) PFormat(string) SCALE(string) ///
-            LOCal(name) GLOBal(name) CI(string)]
+            LOCal(name) GLOBal(name) CI(string) PT(string) PER(string) NOCount ///
+            DIGits(integer -1)]
+        * sep() is data (help tabtools##sep): read and written in Mata only,
+        * never re-expanded; _sep_opt hands it to _tabcell_render unchanged
+        mata: st_local("_sep_given", strofreal(st_local("sep") != ""))
 
         **# local()/global(): validate the names before anything else, so the
         * cleanup zone clears only a macro the caller could have named.
@@ -123,13 +141,19 @@ program define tabcell, rclass
             exit 198
         }
         local ci = strtrim(lower(`"`ci'"'))
+        * rate: the exact Poisson limits unless ci(poisson) is asked for
+        if "`form'" == "rate" & `"`ci'"' == "" local ci "exact"
         if `"`ci'"' != "" {
-            if "`form'" != "np" {
-                display as error "ci() belongs to tabcell np"
+            if !inlist("`form'", "np", "rate") {
+                display as error "ci() belongs to tabcell np and tabcell rate"
                 exit 198
             }
-            if `"`ci'"' != "exact" {
+            if "`form'" == "np" & `"`ci'"' != "exact" {
                 display as error `"ci(): "`ci'" is not supported; the interval is ci(exact) (Clopper-Pearson)"'
+                exit 198
+            }
+            if "`form'" == "rate" & !inlist(`"`ci'"', "exact", "poisson") {
+                display as error `"ci(): "`ci'" is not supported; give ci(exact) or ci(poisson)"'
                 exit 198
             }
             if !`_level_given' local level = c(level)
@@ -330,25 +354,42 @@ program define tabcell, rclass
             exit 198
         }
         if `"`cformat'"' != "" local format `"`cformat'"'
+        * digits(#): shorthand for format(%9.#f)
+        if `digits' != -1 {
+            if `"`format'"' != "" {
+                display as error "digits() and format() may not be combined"
+                exit 198
+            }
+            if `digits' < 0 | `digits' > 10 {
+                display as error "digits() must be between 0 and 10"
+                exit 198
+            }
+            if !inlist("`form'", "est", "iqr", "rate") {
+                display as error "tabcell `form' does not take: digits()"
+                exit 198
+            }
+            local format "%9.`digits'f"
+        }
         local _not_est ""
         if "`form'" != "est" {
             if "`eform'" != "" local _not_est "`_not_est' eform"
             if `_level_given' & `"`ci'"' == "" local _not_est "`_not_est' level()"
             if `"`b'`ll'`ul'`se'"' != "" local _not_est "`_not_est' b()/ll()/ul()/se()"
         }
-        if !inlist("`form'", "est", "iqr") {
+        if !inlist("`form'", "est", "iqr", "rate") {
             if `"`format'"' != "" local _not_est "`_not_est' format()"
-            if `"`sep'"' != "" & `"`ci'"' == "" local _not_est "`_not_est' sep()"
+            if `_sep_given' & `"`ci'"' == "" local _not_est "`_not_est' sep()"
         }
         if "`form'" != "p" & (`pdp' != 3 | `highpdp' != 2 | `"`p'`pstyle'"' != "") local _not_est "`_not_est' p()/pdp()/highpdp()/pstyle()"
-        if !inlist("`form'", "n", "np", "enp") {
-            if `mincell' != 0 | `"`nformat'"' != "" local _not_est "`_not_est' mincell()/nformat()"
-        }
+        if !inlist("`form'", "n", "np", "enp", "rate") & `mincell' != 0 local _not_est "`_not_est' mincell()"
+        if !inlist("`form'", "n", "np", "enp") & `"`nformat'"' != "" local _not_est "`_not_est' nformat()"
         if !inlist("`form'", "np", "enp") & `"`pformat'"' != "" local _not_est "`_not_est' pformat()"
         if !inlist("`form'", "n", "np", "enp") & `"`n'"' != "" local _not_est "`_not_est' n()"
         if "`form'" != "est" & `"`scale'"' != "" local _not_est "`_not_est' scale()"
         if "`form'" != "np" & `"`d'"' != "" local _not_est "`_not_est' d()"
-        if "`form'" != "enp" & `"`e'"' != "" local _not_est "`_not_est' e()"
+        if !inlist("`form'", "enp", "rate") & `"`e'"' != "" local _not_est "`_not_est' e()"
+        if "`form'" != "rate" & `"`pt'`per'"' != "" local _not_est "`_not_est' pt()/per()"
+        if "`form'" != "np" & "`nocount'" != "" local _not_est "`_not_est' nocount"
         if "`form'" != "iqr" & `"`median'`q1'`q3'"' != "" local _not_est "`_not_est' median()/q1()/q3()"
         if `"`_not_est'"' != "" {
             display as error "tabcell `form' does not take:`_not_est'"
@@ -402,13 +443,34 @@ program define tabcell, rclass
             display as error "tabcell iqr requires median(), q1() and q3()"
             exit 198
         }
+        * rate: per() is a positive number, never an expression in the data;
+        * required, so a rate never prints without the unit it is per
+        local _per 1
+        if "`form'" == "rate" {
+            if `"`e'"' == "" | `"`pt'"' == "" | `"`per'"' == "" {
+                display as error "tabcell rate requires e(), pt() and per()"
+                exit 198
+            }
+            capture confirm number `per'
+            if _rc {
+                display as error `"per(): "`per'" is not a number"'
+                exit 198
+            }
+            if !(`per' > 0) | missing(`per') {
+                display as error "per() must be a positive number"
+                exit 198
+            }
+            * the number as typed, never re-rounded through a local
+            local _per : copy local per
+        }
         if !`_gen' & `"`if'`in'"' != "" {
             display as error "if and in require generate()"
             exit 198
         }
 
         **# Formats
-        if `"`format'"' == "" local format "%9.2f"
+        * rate: one decimal by default, as ratetab prints its rates
+        if `"`format'"' == "" local format = cond("`form'" == "rate", "%9.1f", "%9.2f")
         if `"`nformat'"' == "" local nformat "%12.0fc"
         if `"`pformat'"' == "" local pformat "%4.1f"
         foreach _f in format nformat pformat {
@@ -419,7 +481,18 @@ program define tabcell, rclass
                 exit 198
             }
         }
-        if `"`sep'"' == "" local sep ", "
+        mata: st_local("sep", st_local("sep") == "" ? ", " : st_local("sep"))
+        mata: st_local("_sep_opt", "sep(" + (strpos(st_local("sep"), char(34)) ? char(96) + char(34) + st_local("sep") + char(34) + char(39) : char(34) + st_local("sep") + char(34)) + ")")
+        * A decimal-comma format (%9,2f) for the limits with a comma in sep():
+        * printed as before, with a warning (regtab and effecttab refuse it)
+        local _lim_opt = cond("`form'" == "np", "pformat", "format")
+        local _lim_fmt `"``_lim_opt''"'
+        mata: st_local("_sep_comma", strofreal(strpos(st_local("sep"), ",") > 0))
+        if `_sep_comma' & (inlist("`form'", "est", "iqr", "rate") | ("`form'" == "np" & "`ci'" != "")) {
+            if ustrregexm(`"`_lim_fmt'"', "^%-?0?[0-9]*,") {
+                display as text "(tabcell: `_lim_opt'(`_lim_fmt') writes a decimal comma and the interval separator holds a comma: the two limits are hard to tell apart (help tabtools##sep))"
+            }
+        }
 
         **# missing(): present (even as "") or absent
         local _hasmiss = (`"`macval(missing)'"' != "")
@@ -445,6 +518,7 @@ program define tabcell, rclass
         if "`form'" == "np" local _exps `"`n' \ `d'"'
         if "`form'" == "enp" local _exps `"`e' \ `n'"'
         if "`form'" == "iqr" local _exps `"`median' \ `q1' \ `q3'"'
+        if "`form'" == "rate" local _exps `"`e' \ `pt'"'
         local _names "v1 v2 v3"
 
         if `_gen' {
@@ -494,10 +568,10 @@ program define tabcell, rclass
             }
             tempvar _out
             _tabcell_render `form' `_vlist', touse(`touse') generate(`_out') ///
-                fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
+                fmt(`format') `macval(_sep_opt)' missing(`"`macval(missing)'"') ///
                 hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
                 nformat(`nformat') pformat(`pformat') mincell(`mincell') ///
-                ci(`ci') level(`level')
+                ci(`ci') level(`level') per(`_per') `nocount'
             local _N = r(N)
             local _N_missing = r(N_missing)
             rename `_out' `generate'
@@ -582,23 +656,24 @@ program define tabcell, rclass
                 }
                 quietly gen byte touse = 1
                 _tabcell_render `form' `_vlist', touse(touse) generate(cell) ///
-                    fmt(`format') sep(`"`macval(sep)'"') missing(`"`macval(missing)'"') ///
+                    fmt(`format') `macval(_sep_opt)' missing(`"`macval(missing)'"') ///
                     hasmissing(`_hasmiss') pdp(`pdp') highpdp(`highpdp') pstyle(`pstyle') ///
                     nformat(`nformat') pformat(`pformat') mincell(`mincell') ///
-                    ci(`ci') level(`level') cilimits(`=cond("`ci'" != "", "cilb ciub cipct", "")')
+                    ci(`ci') level(`level') per(`_per') `nocount' ///
+                    cilimits(`=cond("`ci'" != "", "cilb ciub ciest", "")')
                 local _isbad = r(N_missing)
                 mata: st_local("_cell", st_sdata(1, "cell"))
                 if "`ci'" != "" {
                     scalar `_s1' = cilb[1]
                     scalar `_s2' = ciub[1]
-                    scalar `_s3' = cipct[1]
+                    scalar `_s3' = ciest[1]
                 }
             }
             display as result `"`macval(_cell)'"'
             return local cell `"`macval(_cell)'"'
             return local form "`form'"
             return scalar missing = `_isbad'
-            if "`ci'" != "" {
+            if "`ci'" != "" & "`form'" == "np" {
                 * the percentage and limits as printed (missing when the
                 * cell prints none: a 0 denominator, a masked or missing cell)
                 return scalar pct = `_s3'
@@ -606,6 +681,16 @@ program define tabcell, rclass
                 return scalar ub = `_s2'
                 return scalar level = `level'
                 return local citype "exact"
+            }
+            if "`form'" == "rate" {
+                * the rate and limits per per() as printed (missing when the
+                * cell prints none: masked, missing, or no person-time)
+                return scalar rate = `_s3'
+                return scalar lb = `_s1'
+                return scalar ub = `_s2'
+                return scalar level = `level'
+                return scalar per = `_per'
+                return local citype "`ci'"
             }
             * copied, never re-expanded (a one-line if re-expands its command)
             if "`local'" != "" {

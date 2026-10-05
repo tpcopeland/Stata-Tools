@@ -1,11 +1,12 @@
 {smcl}
-{* *! version 2.4.0  05oct2026}{...}
+{* *! version 2.5.0  06oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
 {viewerjumpto "Options" "tabtools##options"}{...}
 {viewerjumpto "Persistent defaults" "tabtools##defaults"}{...}
+{viewerjumpto "Interval separators" "tabtools##sep"}{...}
 {viewerjumpto "Examples" "tabtools##examples"}{...}
 {viewerjumpto "Stored results" "tabtools##stored"}{...}
 {viewerjumpto "Author" "tabtools##author"}{...}
@@ -433,6 +434,59 @@ only read when you run {cmd:tabtools use} or source it from your own
 {phang2}{cmd:. tabtools set clear}{p_end}
 
 
+{marker sep}{...}
+{title:Interval separators}
+
+{pstd}
+{helpb regtab}, {helpb effecttab}, {helpb ratetab}, {helpb stratetab},
+{helpb outtab}, and {helpb tabcell} take {opt sep(string)}, and
+{helpb comptab} and {helpb hrcomptab} take {opt cisep(string)}: the text
+printed between the two limits of a confidence interval, {cmd:(1.02, 1.31)}
+by default. One contract holds in all of them.
+
+{phang}
+1. Every command reads the option as Stata reads any string option. Text in
+simple or compound double quotes is kept exactly, blanks included, and the
+quotes are removed: {cmd:sep(" to ")} and {cmd:sep( " to " )} both print
+{cmd:(1.02 to 1.31)}. Blanks outside quotes are dropped, and two or more
+pieces are joined by a single blank: {cmd:sep( - )} prints {cmd:(1.02-1.31)},
+{cmd:sep(a  b)} and {cmd:sep("a" "b")} print {cmd:(1.02a b1.31)}. Quote a
+separator whose blanks matter. An omitted or empty separator, {cmd:sep("")},
+is the default {cmd:", "}.{p_end}
+
+{phang}
+2. The text is data and prints byte for byte, as typed. Nothing in it is
+expanded or changed: a dollar sign, a backquote, {cmd:%}, a parenthesis, a
+comma, Unicode such as the en dash, and a double quote (typed inside compound
+quotes, {cmd:sep(`"a"b"')}) all print as they are. A {cmd:$}{it:name} that
+reaches the option (typed {cmd:\$}{it:name} in a do-file) prints as those
+characters, never as the global's contents.{p_end}
+
+{phang}
+3. It reaches every output unchanged: the console, Excel, CSV (quoted as CSV
+requires), Markdown (escaped so that it displays as typed), {opt frame()} with
+or without {cmd:flat}, and a stored cell ({cmd:tabcell}'s {cmd:r(cell)},
+{opt local()}, {opt global()}, and {opt generate()}). {helpb comptab} and
+{helpb hrcomptab} keep the separator their source frames hold, except where
+{opt cformat()} rebuilds an interval from its numbers: that interval takes
+{opt cisep()}, or {cmd:", "} without it.{p_end}
+
+{phang}
+4. The limits are never read back from the printed text: {cmd:r(table)},
+{opt eplotframe()}, and the other numeric results hold them as numbers, so a
+separator that looks like a minus sign ({cmd:sep("-")}) or a thousands
+separator ({cmd:sep(",")}) cannot change them.{p_end}
+
+{phang}
+5. A separator that contains a comma (the default included) beside limits in
+a decimal-comma format such as {cmd:%9,2f} makes the two limits hard to tell
+apart. {helpb regtab} and {helpb effecttab} refuse it with r(198); the other
+commands print the table as before and show a one-line warning.
+{opt cisep()} without {opt cformat()} on an interval that is not in the
+default {cmd:(}{it:a}{cmd:, }{it:b}{cmd:)} form is an error, because that text
+is rewritten rather than rebuilt from numbers.{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -571,6 +625,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.4.0{p_end}
+{pstd}{bf:Version} 2.5.0{p_end}
 
 {hline}

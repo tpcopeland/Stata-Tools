@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.4.0  2026/10/05
+*! _tabtools_collect_render Version 2.5.0  2026/10/06
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -30,7 +30,8 @@ program define _tabtools_collect_render, rclass
             noisily display as error "coldim() is not supported with type(`type')"
             exit 198
         }
-        if `"`sep'"' == "" local sep ", "
+        * sep() is read in Mata only: the text is never re-expanded
+        mata: st_local("sep", st_local("sep") == "" ? ", " : st_local("sep"))
 
         quietly collect save "`_json'", replace
 
@@ -151,7 +152,7 @@ program define _tabtools_collect_render, rclass
         local _omitmap = ("`omitmap'" != "")
         local _tt_omit_n = 0
         mata: _tt_collect_render_mata(`"`_json'"', `"`type'"', `"`rowdim'"', ///
-            `"`coldim'"', `"`sep'"', `_row_n', `_col_n', `_res_n', `_dropempty', ///
+            `"`coldim'"', st_local("sep"), `_row_n', `_col_n', `_res_n', `_dropempty', ///
             `_factorparents', `_omitmap')
 
         * desctab must filter totals and missing categories by raw collect

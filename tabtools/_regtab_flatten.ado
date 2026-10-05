@@ -1,4 +1,4 @@
-*! _regtab_flatten Version 2.4.0  2026/10/05
+*! _regtab_flatten Version 2.5.0  2026/10/06
 *! regtab block: flatten coleq#colname rows (multilevel and multi-equation)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -117,7 +117,7 @@ if `_is_multilevel' {
         quietly generate long _fp_ord = _n
         quietly generate byte _fp_new = _n > 2 & _fp_par != "" & _fp_par != _fp_par[_n - 1]
         quietly expand 2 if _fp_new, generate(_fp_dup)
-        quietly ds A _raw_colname _fp_par _fp_ord _fp_new _fp_dup, not
+        quietly ds A _raw_colname _raw_eq _fp_par _fp_ord _fp_new _fp_dup, not
         foreach _fpv in `r(varlist)' {
             capture confirm string variable `_fpv'
             if _rc == 0 quietly replace `_fpv' = "" if _fp_dup
@@ -177,7 +177,7 @@ else if `_is_multieq' {
     * have estimates, so a table is never emptied.
     ds
     local _eqvars `r(varlist)'
-    local _eqhelpers "A _raw_colname _orig_row_order _is_header _parent_header _A_trim _eq_label `_role_vars'"
+    local _eqhelpers "A _raw_colname _raw_eq _orig_row_order _is_header _parent_header _A_trim _eq_label `_role_vars'"
     local _eqvars : list _eqvars - _eqhelpers
     local _eq_ci_vars ""
     local _eqpos = 0
@@ -225,7 +225,7 @@ else if `_is_multieq' {
         quietly generate long _fp_ord = _n
         quietly generate byte _fp_new = _n > 2 & _fp_par != "" & _fp_par != _fp_par[_n - 1]
         quietly expand 2 if _fp_new, generate(_fp_dup)
-        quietly ds A _raw_colname _fp_par _fp_ord _fp_new _fp_dup ///
+        quietly ds A _raw_colname _raw_eq _fp_par _fp_ord _fp_new _fp_dup ///
             _is_header _parent_header _eq_label _orig_row_order, not
         foreach _fpv in `r(varlist)' {
             capture confirm string variable `_fpv'

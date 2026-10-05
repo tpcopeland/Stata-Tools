@@ -1,4 +1,4 @@
-*! ratetab Version 2.4.0  2026/10/05
+*! ratetab Version 2.5.0  2026/10/06
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -468,8 +468,10 @@ program define ratetab, rclass
         local _fmt_opt ""
         if `"`cformat'"' != "" local _fmt_opt `"cformat(`cformat')"'
         else if `digits' != -1 local _fmt_opt "digits(`digits')"
+        * sep() is data (help tabtools##sep): handed to stratetab unchanged,
+        * built in Mata and spliced with macval(), never re-expanded
         local _sep_opt ""
-        if `"`sep'"' != "" local _sep_opt `"sep(`"`sep'"')"'
+        mata: st_local("_sep_opt", st_local("sep") == "" ? "" : "sep(" + (strpos(st_local("sep"), char(34)) ? char(96) + char(34) + st_local("sep") + char(34) + char(39) : char(34) + st_local("sep") + char(34)) + ")")
         local _zc_opt ""
         if "`zerocells'" != "" local _zc_opt = "zerocells(`zerocells'" + cond(`_zc_pt', ", persontime", "") + ")"
         local _mt_opt ""
@@ -477,7 +479,7 @@ program define ratetab, rclass
         capture noisily stratetab, using(`_files') outcomes(`n_out') ///
             outlabels(`"`outlabels'"') explabels(`"`explabels'"') level(`level') ///
             ratescale(`per') unitlabel(`"`unitlabel'"') pydigits(`pydigits') ///
-            `_fmt_opt' `_sep_opt' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
+            `_fmt_opt' `macval(_sep_opt)' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
         local _st_rc = _rc
         * read what is needed before return add hands r() over
         local _sc_used = r(smallcells)

@@ -1,4 +1,4 @@
-*! regtab Version 2.4.0  2026/10/05
+*! regtab Version 2.5.0  2026/10/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -6,7 +6,7 @@ DESCRIPTION:
 	Formats the collected regression tables; exports point estimate, 95% CI, and p-value to excel; and applies excel formatting (column widths, merges cells, sets column widths). Title appears in cell A1. Top left cell of table is B2.
 
 SYNTAX:
-	regtab, [xlsx(string) sheet(string) models(string) sep(string asis) coef(string) title(string) noint nore stats(string) relabel cutlabels(string asis) addrow(string asis)]
+	regtab, [xlsx(string) sheet(string) models(string) sep(string) coef(string) title(string) noint nore stats(string) relabel cutlabels(string asis) addrow(string asis)]
 
 	xlsx:	Optional. Excel file name. Requires .xlsx suffix. Omit for console,
 	        frame(), csv(), or markdown() output only
@@ -60,6 +60,9 @@ capture noisily {
 
 	* Auto-load shared helper programs
 	capture _tabtools_helpers_ready
+	if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+	* (a session can hold an older _tabtools_common.ado's programs: run,
+	* so discard keeps them; this release's Mata must be there too)
 	if _rc {
 		capture findfile _tabtools_common.ado
 		if _rc == 0 {
@@ -77,7 +80,7 @@ capture noisily {
 	}
 	_tabtools_require_helpers
 
-syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
+syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) models(string) coef(string) ///
 	title(string) NOINTercept KEEPIntercept NOREeffects stats(string asis) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) FONT(string) FONTSIZE(integer -1) stars ///
@@ -88,7 +91,8 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	pdp(integer -1) highpdp(integer -1) LABELWidth(integer 0) Level(real -1) ///
 	CFormat(string) REFTop CELLNote(string asis) MINCount(integer -1) ///
 	TRANSpose EXPOSURELabel(string) CILabel(string) PLabel(string) ///
-	ADDCol(string asis) STATLabels(string asis) COLLabels(string asis)]
+	ADDCol(string asis) STATLabels(string asis) COLLabels(string asis) ///
+	ABSENTLabel(string) CNSLabel(string)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -141,6 +145,21 @@ if `"`notestlabel'"' == `"`refcat'"' | `"`notestlabel'"' == `"`omitlabel'"' {
 	display as error "notestlabel() must differ from refcat() and omitlabel()"
 	exit 198
 }
+* absentlabel(): under mincount(), a level of a factor a model includes that
+* has no observation in that model's estimation sample (left out by design);
+* default blank. cnslabel(): the interval text of a coefficient fixed by a
+* constraint, as Stata prints it.
+if `"`macval(absentlabel)'"' != "" {
+	if `mincount' == -1 {
+		display as error "absentlabel() requires mincount()"
+		exit 198
+	}
+	if `"`macval(absentlabel)'"' == `"`macval(refcat)'"' {
+		display as error "absentlabel() must differ from refcat()"
+		exit 198
+	}
+}
+if `"`macval(cnslabel)'"' == "" local cnslabel "(constrained)"
 local _has_xlsx = "`xlsx'" != ""
 if `_has_xlsx' & `"`macval(sheet)'"' == "" local sheet "Regression"
 if !`_has_xlsx' & `"`macval(sheet)'"' == "" local sheet "Regression"
@@ -409,9 +428,14 @@ quietly{
             noisily display as error "transpose cannot be combined with highlight() or boldp()"
             exit 198
         }
+        * a transposed table's columns are terms: its rows have no term key
+        if `_displayframe_keys' {
+            noisily display as error "frame(, flat keys) cannot be combined with transpose; its keys describe the untransposed rows"
+            exit 198
+        }
     }
-    else if `"`addcol'"' != "" | `"`collabels'"' != "" {
-        noisily display as error cond(`"`addcol'"' != "", "addcol() requires transpose; use addrow() to add a row", ///
+    else if `"`macval(addcol)'"' != "" | `"`macval(collabels)'"' != "" {
+        noisily display as error cond(`"`macval(addcol)'"' != "", "addcol() requires transpose; use addrow() to add a row", ///
             "collabels() requires transpose; label rows with the variables' labels or factorlabel")
         exit 198
     }
@@ -426,14 +450,21 @@ quietly{
         exit 198
     }
 
-	if `"`sep'"' != "" {
-	    _tabtools_strip_outer_quotes, text(`"`sep'"')
-	    local sep `"`r(text)'"'
-	}
-	if `"`sep'"' == "" local sep ", "      // Default CI delimiter
+	* sep() is data (help tabtools##sep): syntax read it as it reads every
+	* string option (the rule all tabtools commands share); the default is
+	* applied in Mata, and the text then lives in this local only, read by
+	* Mata into the tables, never re-expanded or handed to collect.
+	mata: st_local("sep", _tt_sep_parse(st_local("sep")))
+	* The renderer joins the two bounds with a private delimiter no number
+	* holds; regtab splits the rendered numbers on it and joins the bounds
+	* with sep() itself, so no user text is ever searched for the delimiter.
+	* Two bytes, as long as the default ", ", so the columns the renderer
+	* makes keep the storage widths they have under the default.
+	local _ci_tok "~|"
 	* A comma-decimal cformat() (%9,2f) prints "0,45"; with a comma in the CI
 	* separator the two bounds could not be told apart: refused.
-	if `"`_cfmt'"' != "" & strpos(`"`sep'"', ",") {
+	mata: st_local("_sep_comma", strofreal(strpos(st_local("sep"), ",") > 0))
+	if `"`_cfmt'"' != "" & `_sep_comma' {
 	    if ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*,") {
 	        noisily display as error `"cformat(`_cfmt') uses a decimal comma; choose a sep() without a comma, such as sep(" to ") or sep("; ")"'
 	        exit 198
@@ -536,6 +567,7 @@ quietly{
     local _any_gee 0
     if `_meta_models' > 0 {
         local _shared_coef ""
+        local _shared_set 0
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
             local _cmdline_lc = lower(`"`model_cmdline_`m''"')
@@ -663,13 +695,19 @@ quietly{
                 }
             }
 
-            if `m' == 1 {
+            * a cmdset without command metadata (a fit that failed, collected
+            * as an empty cmdset or a placeholder) has no scale of its own
+            local model_nometa_`m' = (`"`model_cmdline_`m''`model_cmd_`m''"' == "")
+            if `model_nometa_`m'' {
+            }
+            else if !`_shared_set' {
                 local _shared_coef `"`model_coef_`m''"'
+                local _shared_set 1
             }
             else if "`model_coef_`m''" != "`_shared_coef'" {
                 local _model_headers_mixed = 1
             }
-            if `model_auto_noint_`m'' == 0 {
+            if `model_auto_noint_`m'' == 0 & !`model_nometa_`m'' {
                 local _all_auto_noint = 0
             }
             if "`model_re_family_`m''" != "none" {
@@ -684,12 +722,16 @@ quietly{
         * A model without level() was fit at the session's set level.
         local _lvl_first = .
         forvalues m = 1/`_meta_models' {
+            if `model_nometa_`m'' continue
             local _lvl_m = `model_level_`m''
             if `_lvl_m' == -1 local _lvl_m = c(level)
-            if `m' == 1 local _lvl_first = `_lvl_m'
+            if missing(`_lvl_first') {
+                local _lvl_first = `_lvl_m'
+                local _lvl_fm `m'
+            }
             else if abs(`_lvl_m' - `_lvl_first') > 1e-8 {
                 noisily display as error "collected models use different confidence levels: " ///
-                    "`_lvl_first'% (model 1) and `_lvl_m'% (model `m')"
+                    "`_lvl_first'% (model `_lvl_fm') and `_lvl_m'% (model `m')"
                 noisily display as error "refit the models with a common level(), or tabulate them in separate regtab calls"
                 exit 198
             }
@@ -701,6 +743,9 @@ quietly{
             exit 198
         }
 
+        forvalues m = 1/`_meta_models' {
+            if `model_nometa_`m'' local model_coef_`m' `"`_shared_coef'"'
+        }
         if !`_user_coef_spec' & "`cdisc'" == "" {
             if `_model_headers_mixed' {
                 local coef "Estimate"
@@ -733,51 +778,27 @@ quietly{
     }
 
     * =========================================================================
-    * FIT-TIME PER-TERM COUNTS (tabtools fitcount, terms) FOR MINCOUNT()
+    * FIT-TIME RECORDS (tabtools fitcount): COUNTS, NOTES, SAMPLE LEVELS
     * =========================================================================
-    * Each model's per-level events and variance status were stored with its
-    * own cmdset at fit time; the collection itself does not keep e(sample).
+    * Each model's per-level events and variance status (tt_terms), the fit's
+    * own notes for its constrained coefficients (tt_cns), and the levels each
+    * factor term holds in e(sample) (tt_levels) were stored with its own
+    * cmdset at fit time; the collection keeps neither e(sample) nor the b./o.
+    * markers. Model m is row m (_regtab_fitrec). Without mincount() the notes
+    * are optional and a failed read leaves them unused.
     local _fct_models = 0
-    if `mincount' != -1 {
-        _regtab_rlabels tt_terms
-        local _fct_levels "`_rl_present'"
-        local _fct_rc = 0
-        if "`_fct_levels'" != "" {
-            capture {
-                collect layout (cmdset) (result[tt_terms])
-            }
-            local _fct_rc = _rc
-            if !`_fct_rc' {
-                preserve
-                capture {
-                    _tabtools_collect_render, type(meta) rowdim(cmdset) results(tt_terms)
-                    local _fct_models = _N - 1
-                    forvalues _m = 1/`_fct_models' {
-                        mata: st_local("_fct_`_m'", strtrim(st_sdata(`_m' + 1, "B")))
-                    }
-                }
-                local _fct_rc = _rc
-                restore
-            }
-        }
-        forvalues _rli = 1/`_rl_n' {
-            local _rlv : word `_rli' of `_rl_present'
-            quietly collect label levels result `_rlv' `"`macval(_rl_lbl_`_rli')'"', modify
-        }
-        if `_fct_rc' {
-            noisily display as error "mincount(): could not read the fit-time counts from the collection"
-            exit `_fct_rc'
-        }
-        local _fct_missing ""
-        local _fct_check = max(`_fct_models', `_meta_models')
-        forvalues _m = 1/`_fct_check' {
-            if `"`_fct_`_m''"' == "" local _fct_missing "`_fct_missing' `_m'"
-        }
-        if "`_fct_levels'" == "" | "`_fct_missing'" != "" {
-            noisily display as error "mincount() requires {bf:tabtools fitcount, events() terms} right after every model's fit" ///
-                cond("`_fct_missing'" != "", " (none for model" + "`_fct_missing'" + ")", "")
-            exit 198
-        }
+    local _fr_need "tt_cns"
+    if `mincount' != -1 local _fr_need "tt_terms tt_cns tt_levels"
+    _regtab_fitrec `_fr_need'
+    if `_fr_rc' & `mincount' != -1 {
+        noisily display as error "mincount(): could not read the fit-time counts from the collection"
+        exit `_fr_rc'
+    }
+    if !`_fr_rc' local _fct_models = `_fr_models'
+    forvalues _m = 1/`_fct_models' {
+        local _fct_`_m' `"`_fr_tt_terms_`_m''"'
+        local _fcn_`_m' `"`_fr_tt_cns_`_m''"'
+        local _fcl_`_m' `"`_fr_tt_levels_`_m''"'
     }
 
     * =========================================================================
@@ -822,6 +843,8 @@ quietly{
                 local _sm_`_sl'_`_m' ""
             }
             local _sm_k_`_m' = 0
+            local _sm_nb_`_m' = 0
+            local _sm_sig_`_m' ""
             local _sm_reg_eqs_`_m' ""
         }
         forvalues _r = 3/`=_N' {
@@ -841,6 +864,8 @@ quietly{
                 local _cb = strtrim(`_vb'[`_r'])
                 local _cs = subinstr(strtrim(`_vs'[`_r']), ",", "", .)
                 if `"`_cb'`_cs'"' == "" continue
+                if `"`_cb'"' != "" local ++_sm_nb_`_m'
+                local _sm_sig_`_m' `"`_sm_sig_`_m''|`_eq':`_key'=`_cb'/`_cs'"'
                 if ustrregexm(`"`_key'"', "^[0-9]+\.[A-Za-z_][A-Za-z0-9_]*$") ///
                     local _sm_fvk_`_m' `"`_sm_fvk_`_m'' `_key'"'
                 local _sm_depvars `"`model_depvar_`_m''"'
@@ -901,6 +926,44 @@ quietly{
         noisily display as error "Could not map the collected coefficients to their equations"
         exit `_sm_rc'
     }
+    * A model whose command line and every collected estimate and standard
+    * error equal an earlier model's is that model again: most often a
+    * collect get e() right after a fit that failed, which leaves the
+    * previous results in e(). Kept, as the user may mean it, with a note.
+    forvalues _m = 2/`=min(`_sm_n', `_meta_models')' {
+        if `"`macval(_sm_sig_`_m')'"' == "" continue
+        forvalues _j = 1/`=`_m' - 1' {
+            if `"`macval(model_cmdline_`_m')'"' != `"`macval(model_cmdline_`_j')'"' continue
+            if `"`macval(_sm_sig_`_m')'"' != `"`macval(_sm_sig_`_j')'"' continue
+            noisily display as text "(regtab: model `_m' repeats model `_j': the same command line and estimates;" ///
+                " a collect get e() right after a fit that failed collects the previous model again)"
+            continue, break
+        }
+    }
+    * mincount() needs every model's fit-time counts, except a model with no
+    * estimate at all: a fit that failed, collected as an empty cmdset
+    * (ereturn clear, then collect get e()) or a placeholder. Its column has
+    * nothing to mask, so it is accepted and left as it is, with a note.
+    if `mincount' != -1 {
+        local _fct_missing ""
+        local _fct_failed ""
+        forvalues _m = 1/`=max(`_fct_models', `_meta_models', `_sm_n')' {
+            if `"`_fct_`_m''"' != "" continue
+            local _fct_nb = 1
+            if `_m' <= `_sm_n' local _fct_nb = `_sm_nb_`_m''
+            if `_fct_nb' == 0 local _fct_failed "`_fct_failed' `_m'"
+            else local _fct_missing "`_fct_missing' `_m'"
+        }
+        if "`_fct_missing'" != "" {
+            noisily display as error "mincount() requires {bf:tabtools fitcount, events() terms} right after every model's fit" ///
+                " (none for model`_fct_missing')"
+            exit 198
+        }
+        if "`_fct_failed'" != "" {
+            noisily display as text "(regtab: model`_fct_failed' holds no estimate and no fit-time counts," ///
+                " as a fit that failed does; mincount() has nothing to mask there)"
+        }
+    }
     * Each model's base levels by its own factor specification, read now while
     * the user's data are in memory (see _regtab_fvbase): collect records some
     * fits' base level as "empty", the class of a level that is not estimable.
@@ -948,7 +1011,9 @@ collect label levels result _r_b `"`macval(coef)'"', modify
 collect label levels result _r_ci "`_ci_level'% CI", modify
 collect label levels result _r_p "p-value", modify
 collect style cell result[_r_b], warn nformat(%4.2fc) halign(center) valign(center)
-collect style cell result[_r_ci], warn nformat(%12.8f) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
+* The renderer never reads collect's delimiter, and collect re-expands the
+* text it is given: sep() is not handed to it (help tabtools##sep).
+collect style cell result[_r_ci], warn nformat(%12.8f) sformat("(%s)") cidelimiter(", ") halign(center) valign(center)
 collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(center)
 collect style column, dups(center)
 collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) noabbreviate wrap(.) truncate(tail)
@@ -1050,7 +1115,7 @@ local _collect_render_rc = 0
 local _smr_done = 0
 if `_use_coleq_layout' {
     capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
-        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") omitmap rowkeys
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`_ci_tok'") omitmap rowkeys
     local _collect_render_rc = _rc
 }
 else {
@@ -1086,7 +1151,7 @@ else {
     }
     if `_collect_render_rc' == 0 {
         capture _tabtools_collect_render, type(main) rowdim(colname) ///
-            coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents omitmap rowkeys
+            coldim(cmdset) results(_r_b _r_ci _r_p) sep("`_ci_tok'") factorparents omitmap rowkeys
         local _collect_render_rc = _rc
     }
 }
@@ -1174,9 +1239,11 @@ if `_use_coleq_layout' {
             quietly replace `_rv' = "`_role'" in `_r'
         }
     }
-    drop _eq_key
+    * the raw equation of every row is kept for frame(, flat keys)
+    rename _eq_key _raw_eq
 }
 else {
+    quietly generate strL _raw_eq = ""
     * An ancillary or cutpoint name that is also a covariate of any model
     * was rendered under its private level (see above).
     forvalues _m = 1/`_sm_n' {
@@ -1242,7 +1309,7 @@ mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab
 * a role; a model's cell is blanked when another model's cell in the same row is
 * an ordinary coefficient that must stay.
 if "`noint'" != "" {
-    quietly ds A _raw_colname `_role_vars', not
+    quietly ds A _raw_colname _raw_eq `_role_vars', not
     local _ni_vars `r(varlist)'
     quietly generate byte _ni_keep = 0
     quietly generate byte _ni_drop = 0
@@ -1325,7 +1392,7 @@ else if "`re_transform'" == "mhr" & "`nore'" == "" {
 * Get all variables - first variable is row labels, rest are data columns
 ds
 local allvars `r(varlist)'
-local _helper_vars "_is_re _is_re_intercept _re_group_label _raw_colname `_role_vars'"
+local _helper_vars "_is_re _is_re_intercept _re_group_label _raw_colname _raw_eq `_role_vars'"
 local allvars : list allvars - _helper_vars
 
 * Get the first variable name (row labels column)
@@ -1419,116 +1486,10 @@ forvalues _ok = 1/`_omit_n' {
 	}
 }
 
-* The base level of a factor main effect where collect's class cannot be
-* trusted. A level is touched only when constrained in the model's column (an
-* estimate with neither interval nor p-value).
-* - A model whose only recorded class is "empty", or that records none, is
-*   one collect could not classify (nbreg, zinb, intreg, some streg fits).
-*   When that model is the active fit (_regtab_activeb proves it), e(b)'s own
-*   b. and o. markers decide: b. is the reference, o. is omitted. Otherwise
-*   the specification decides (_regtab_fvbase): the b. level of fvexpand is
-*   the reference and every other constrained level of the factor omitted
-*   (a main-effect level with no observations is not in e(b) at all, so the
-*   others were dropped); a level fvexpand names but the model estimated
-*   means the data no longer describe the fit, and the rules below apply.
-*   A base that only fvset names (it may postdate the fit) decides nothing
-*   when the factor has two or more constrained levels: none of them is
-*   called the reference, all are not estimable, and a note says so; with
-*   one constrained level, that level is the base.
-* - Elsewhere collect's "empty" on the b. level stands when another level of
-*   the factor is constrained too: a base level with no observations forces
-*   one out (logit drops a perfectly predicted base level's observations),
-*   so that level is not estimable. When it is the factor's only constrained
-*   level the base has observations and "empty" is the stamp nbreg gives a
-*   base beside an omitted continuous term: the reference.
-* column m is the m-th cmdset in column order (_regtab_cmdsets)
-_regtab_cmdsets
-local _ab_levels `"`_cs_levels'"'
-forvalues _m = 1/`n_models' {
-	if `_m' > `_sm_n' continue
-	local _unc = inlist(`"`_ocls_`_m''"', "", "empty") & `"`_ocls_0'"' == ""
-	local _cm = 3 * `_m' - 2
-	local _cc `"_n > 2 & strtrim(c`_cm') != "" & strtrim(c`=`_cm' + 1') == "" & strtrim(c`=`_cm' + 2') == """'
-	local _ab_ok = 0
-	if `_unc' & `_m' <= `_meta_models' & `"`_fvbv_`_m''"' != "" {
-		_regtab_activeb `: word `_m' of `_ab_levels'' `"`model_cmdline_`_m''"'
-	}
-	if `_ab_ok' {
-		foreach _k of local _ab_base {
-			quietly replace _omit_type`_m' = "base" if `_cc' & strtrim(_raw_A) == `"`_k'"' ///
-				& inlist(_omit_type`_m', "", "empty")
-		}
-		foreach _k of local _ab_omit {
-			quietly replace _omit_type`_m' = "omit" if `_cc' & strtrim(_raw_A) == `"`_k'"' ///
-				& inlist(_omit_type`_m', "", "empty")
-		}
-	}
-	else {
-	foreach _fv of local _fvbv_`_m' {
-		local _bk ""
-		foreach _k of local _fvb_`_m' {
-			if ustrregexm(`"`_k'"', "^[0-9]+\.`_fv'$") local _bk `"`_k'"'
-		}
-		local _fvrow `"ustrregexm(strtrim(_raw_A), "^[0-9]+\.`_fv'$")"'
-		if `"`_bk'"' != "" {
-			quietly count if `_cc' & strtrim(_raw_A) == `"`_bk'"'
-			if r(N) == 0 continue
-		}
-		quietly count if `_cc' & `_fvrow'
-		local _ncon = r(N)
-		local _soft : list _fv in _fvbs_`_m'
-		if `_unc' {
-			if `_soft' & `_ncon' > 1 {
-				quietly replace _omit_type`_m' = "empty" if `_cc' & `_fvrow' & inlist(_omit_type`_m', "", "empty")
-				noisily display as text "(regtab: model `_m': the base level of `_fv' cannot be told from its" ///
-					" omitted levels, as fvset may have changed since the fit; they are shown as not estimable." ///
-					" Fit with ib#.`_fv', or tabulate while the fit is active)"
-				continue
-			}
-			quietly replace _omit_type`_m' = "omit" if `_cc' & `_fvrow' & _omit_type`_m' == ""
-			if `_soft' & `_ncon' == 1 {
-				quietly replace _omit_type`_m' = "base" if `_cc' & `_fvrow'
-				continue
-			}
-		}
-		if `"`_bk'"' == "" continue
-		if `_unc' {
-			quietly replace _omit_type`_m' = "base" if _n > 2 ///
-				& strtrim(_raw_A) == `"`_bk'"' & inlist(_omit_type`_m', "empty", "omit")
-		}
-		else if `_ncon' == 1 {
-			quietly replace _omit_type`_m' = "base" if _n > 2 ///
-				& strtrim(_raw_A) == `"`_bk'"' & _omit_type`_m' == "empty"
-		}
-	}
-	}
-	* At most one reference per factor in a model. In a model collect could not
-	* classify, a constrained level still without a class goes to the value
-	* rule below, which calls it the reference. Two or more of them in one
-	* factor (the base unverifiable: the data in memory no longer hold the
-	* fit's levels), or one beside a decided base, are not estimable instead.
-	if !`_unc' continue
-	local _ivs ""
-	foreach _k of local _sm_fvk_`_m' {
-		if ustrregexm(`"`_k'"', "^[0-9]+\.([A-Za-z_][A-Za-z0-9_]*)$") {
-			local _iv = ustrregexs(1)
-			local _ivs : list _ivs | _iv
-		}
-	}
-	foreach _fv of local _ivs {
-		local _fvrow `"ustrregexm(strtrim(_raw_A), "^[0-9]+\.`_fv'$")"'
-		quietly count if _n > 2 & `_fvrow' & _omit_type`_m' == "base"
-		local _nb = r(N)
-		quietly count if `_cc' & `_fvrow' & _omit_type`_m' == ""
-		local _nf = r(N)
-		if (`_nb' == 0 & `_nf' < 2) | `_nf' == 0 continue
-		quietly replace _omit_type`_m' = "empty" if `_cc' & `_fvrow' & _omit_type`_m' == ""
-		if `_nb' == 0 {
-			noisily display as text "(regtab: model `_m': the base level of `_fv' cannot be told from its" ///
-				" omitted levels; they are shown as not estimable. Fit with ib#.`_fv', or tabulate while the fit is active)"
-		}
-	}
-}
+* Constraint classes collect could not record, per model: _regtab_classes.ado
+mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+noisily _regtab_classes
+mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
 
 if "`models'" != "" {
     * Split models string by backslashes
@@ -1730,7 +1691,7 @@ if _rc == 0 local _omit_ok = 1
 gen str6 _constraint`_model_ix' = ""
 if `_omit_ok' {
     replace _constraint`_model_ix' = _omit_type`_model_ix' ///
-        if inlist(_omit_type`_model_ix', "base", "omit", "empty") ///
+        if inlist(_omit_type`_model_ix', "base", "omit", "empty", "cns") ///
         & strtrim(c`i') != "" & c`=`i'+1' == "" & _n >= 3
 }
 * Without a class, a constrained level is known only by its cells: an empty CI
@@ -1780,7 +1741,7 @@ if "`re_transform'" != "none" {
 * A transform that overflows double precision leaves no representable value;
 * the cell is blank rather than collect's untransformed text.
 replace c`i' = "" if _b_had & missing(c`i'z) & _n >= 3 ///
-	& !(_constraint`_model_ix' != "")
+	& inlist(_constraint`_model_ix', "", "cns")
 drop _b_had
 	gen double _coefnum`i' = c`i'z if _n >= 3
 	capture confirm variable _eplot_est`_model_ix'
@@ -1795,7 +1756,7 @@ replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
 replace c`i'_fmt = strtrim(string(round(c`i'z, `coef_round'), "`coef_fmt'")) ///
     if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
 replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3 ///
-	& !(_constraint`_model_ix' != "")
+	& inlist(_constraint`_model_ix', "", "cns")
 drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
 if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -1805,7 +1766,14 @@ if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 drop _is_base_level
 capture drop _omit_type*
 * Reformat CI columns with appropriate precision
-local sep_len = strlen(`"`sep'"')
+local sep_len = strlen("`_ci_tok'")
+* sep() enters the table only as the value of this variable, stored from
+* Mata: the text is never part of a command line or an expression
+capture drop _ci_sepv
+quietly generate strL _ci_sepv = ""
+mata: st_sstore(., "_ci_sepv", J(st_nobs(), 1, st_local("sep")))
+* Two %32.#f bounds, the parentheses, and sep()
+mata: st_local("_ci_fmt_type", strlen(st_local("sep")) + 80 > 2045 ? "strL" : "str" + strofreal(strlen(st_local("sep")) + 80))
 local _model_ix = 0
 forvalues i = 2(3)`=`last'+1' {
     local _model_ix = `_model_ix' + 1
@@ -1822,17 +1790,10 @@ forvalues i = 2(3)`=`last'+1' {
     if _rc == 0 quietly replace _is_ancillary = inlist(_role_m`_model_ix', "anc", "ancd", "cut") if _n > 2
     gen _ci_raw = strtrim(c`i') if _n >= 3
     replace _ci_raw = subinstr(subinstr(_ci_raw, "(", "", 1), ")", "", 1)
-    * Strip thousands separators (collect's %#.#fc nformat emits "(1,234.56,
-    * 2,345.67)"). Only safe when sep contains whitespace: a sep "comma+space"
-    * disambiguates from a thousands "comma+digit". For exotic sep values
-    * without whitespace we leave the string untouched and rely on the user
-    * having matched the format precision in their collect style.
-    if strpos(`"`sep'"', " ") > 0 {
-        replace _ci_raw = subinstr(_ci_raw, `"`sep'"', "|||SEP|||", 1)
-        replace _ci_raw = subinstr(_ci_raw, ",", "", .)
-        replace _ci_raw = subinstr(_ci_raw, "|||SEP|||", `"`sep'"', 1)
-    }
-    gen int _ci_dpos = strpos(_ci_raw, `"`sep'"')
+    * Strip thousands separators (collect's %#.#fc nformat emits "1,234.56"):
+    * the bounds are split on the private delimiter, which holds no comma.
+    replace _ci_raw = subinstr(_ci_raw, ",", "", .)
+    gen int _ci_dpos = strpos(_ci_raw, "`_ci_tok'")
     gen _ci_lo_s = strtrim(substr(_ci_raw, 1, _ci_dpos - 1)) if _ci_dpos > 0
     gen _ci_hi_s = strtrim(substr(_ci_raw, _ci_dpos + `sep_len', .)) if _ci_dpos > 0
     destring _ci_lo_s, gen(double _ci_lo) force
@@ -1848,8 +1809,7 @@ forvalues i = 2(3)`=`last'+1' {
         replace _ci_hi = exp(sqrt(2 * _ci_hi) * invnormal(0.75)) ///
             if _is_re_intercept == 1 & !missing(_ci_hi) & _ci_hi >= 0
     }
-	    * Wide enough for two %32.#f bounds plus parentheses and any sep().
-	    gen str244 _ci_fmt = ""
+	    gen `_ci_fmt_type' _ci_fmt = ""
 	    capture confirm variable _eplot_ll`_model_ix'
 	    if _rc gen double _eplot_ll`_model_ix' = .
 	    capture confirm variable _eplot_ul`_model_ix'
@@ -1857,14 +1817,20 @@ forvalues i = 2(3)`=`last'+1' {
 	    replace _eplot_ll`_model_ix' = _ci_lo if _n >= 3 & _ci_lo < .
 	    replace _eplot_ul`_model_ix' = _ci_hi if _n >= 3 & _ci_hi < .
 	    * Fixed effects: user-specified decimal places
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Transformed random intercept (MOR/MHR): same precision as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Other random effects: same decimal places as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + `"`sep'"' + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
         if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+    * An interval left as rendered (a bound regtab could not read) takes
+    * sep() in place of the private delimiter. Only the renderer's own text
+    * is searched, before any cell holds sep(): a sep() that contains the
+    * delimiter is never substituted a second time.
+    replace c`i' = subinstr(c`i', "`_ci_tok'", _ci_sepv, .) ///
+        if _ci_fmt == "" & _n >= 3 & strpos(c`i', "`_ci_tok'")
     replace c`i' = _ci_fmt if _ci_fmt != ""
     * A row regtab transforms (eform fixed effect, MOR/MHR intercept) whose
     * interval could not be formatted - a bound that overflowed exp(), or one
@@ -1877,6 +1843,12 @@ forvalues i = 2(3)`=`last'+1' {
     if "`re_transform'" != "none" replace _ci_xf = 1 if _is_re_intercept == 1
     replace c`i' = "" if _ci_xf & _ci_fmt == "" & _n >= 3
     drop _ci_xf
+    * A coefficient a constraint fixes: its estimate, then cnslabel() where
+    * the interval would be, as Stata prints "(constrained)".
+    capture confirm variable _constraint`_model_ix'
+    if !_rc {
+        quietly replace c`i' = `"`macval(cnslabel)'"' if _constraint`_model_ix' == "cns" & _n >= 3
+    }
     * Save non-significance flag for dimnonsig formatting
     if "`dimnonsig'" != "" {
         replace _ci_seen = 1 if !_is_re & !_is_ancillary & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
@@ -1885,6 +1857,7 @@ forvalues i = 2(3)`=`last'+1' {
     }
     drop _ci_raw _ci_dpos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
 }
+drop _ci_sepv
 if "`dimnonsig'" != "" {
     gen byte _is_refrow = 0
     forvalues _ri = 1(3)`last' {
@@ -1932,7 +1905,7 @@ gen str20 c`i'_orig = c`i'
 	replace _eplot_p`_model_ix' = c`i'z if _n >= 3 & c`i'z < .
 	capture confirm variable _eplot_est`_model_ix'
 	if !_rc replace _eplot_est`_model_ix' = . if _n >= 3 ///
-		& (_constraint`_model_ix' != "")
+		& !inlist(_constraint`_model_ix', "", "cns")
 	capture confirm variable _eplot_ll`_model_ix'
 	if !_rc replace _eplot_ll`_model_ix' = . if _n >= 3 ///
 		& (_constraint`_model_ix' != "")
@@ -2006,84 +1979,13 @@ if "`stars'" != "" {
 		drop _rt_ord _rt_par _rt_blk _rt_base
 	}
 
-	* mincount(#): a factor level (or a 0/1 indicator) the model could not
-	* estimate - its variance is zero or missing, or collect records it as
-	* omitted or empty - is shown as notestlabel(); one whose events (tabtools
-	* fitcount, terms) are fewer than # as emptylabel(); both with the interval
-	* and p-value blank. A model's own base level keeps its reference label.
-	* Every level a model shows must be covered by that model's counts. A level
-	* of a factor block the model includes but that is missing from the model
-	* altogether (no observation of its estimation sample holds it, so e(b) has
-	* no column for it) is not estimable either: notestlabel(), not a blank.
+	* mincount(#): masks, not-estimable and absent levels: _regtab_mincount.ado
 	local _n_masked = 0
 	local _n_absent = 0
 	if `mincount' != -1 {
-		* the factor block of every row: one id per consecutive run of levels
-		quietly generate str244 _mc_par = ""
-		forvalues _rr = 3/`=_N' {
-			local _rt_key = strtrim(_raw_A[`_rr'])
-			if `"`_rt_key'"' == "" continue
-			_regtab_fvparent `"`_rt_key'"'
-			if `"`_fp_parent'"' != "" quietly replace _mc_par = `"`_fp_parent'"' in `_rr'
-		}
-		quietly generate long _mc_blk = sum(_mc_par != "" & _mc_par != _mc_par[_n - 1])
-		quietly replace _mc_blk = 0 if _mc_par == ""
-		forvalues _m = 1/`n_models' {
-			local _fct_s `";`_fct_`_m'';"'
-			local _ce = (`_m' - 1) * 3 + 1
-			quietly levelsof _mc_blk if _n >= 3 & _mc_blk > 0 & strtrim(c`_ce') != "", local(_mc_in)
-			forvalues _rr = 3/`=_N' {
-				local _rt_key = strtrim(_raw_A[`_rr'])
-				if `"`_rt_key'"' == "" continue
-				local _mc_b = _mc_blk[`_rr']
-				if strtrim(c`_ce'[`_rr']) == "" {
-					local _mc_has : list _mc_b in _mc_in
-					if `_mc_b' == 0 | !`_mc_has' continue
-					local _mc_lbl : copy local notestlabel
-					local _mc_abs = 1
-				}
-				else {
-					local _mc_abs = 0
-					if _constraint`_m'[`_rr'] == "base" continue
-					local _pos = strpos(`"`_fct_s'"', `";`_rt_key'="')
-					* a term that is not a factor level is masked only when the
-					* counts cover it (a 0/1 indicator); others have no count
-					if `_mc_b' == 0 & `_pos' == 0 continue
-					if `_pos' == 0 {
-						noisily display as error "mincount(): the fit-time counts of model `_m' do not cover `_rt_key';" ///
-							" run tabtools fitcount, terms right after that model's fit"
-						restore
-						exit 459
-					}
-					local _frag = substr(`"`_fct_s'"', `_pos' + strlen(`";`_rt_key'="'), .)
-					local _frag = substr(`"`_frag'"', 1, strpos(`"`_frag'"', ";") - 1)
-					local _bar = strpos(`"`_frag'"', "|")
-					local _tev = real(substr(`"`_frag'"', 1, `_bar' - 1))
-					local _tvok = real(substr(`"`_frag'"', `_bar' + 1, .))
-					if missing(`_tev') | missing(`_tvok') {
-						noisily display as error "mincount(): unreadable fit-time count for `_rt_key' in model `_m'"
-						restore
-						exit 459
-					}
-					if `_tvok' != 1 | _constraint`_m'[`_rr'] != "" local _mc_lbl : copy local notestlabel
-					else if `_tev' < `mincount' local _mc_lbl : copy local emptylabel
-					else continue
-				}
-				quietly replace c`_ce' = `"`macval(_mc_lbl)'"' in `_rr'
-				quietly replace c`=`_ce' + 1' = "" in `_rr'
-				quietly replace c`=`_ce' + 2' = "" in `_rr'
-				quietly replace _constraint`_m' = "masked" in `_rr'
-				foreach _ev in est ll ul p {
-					capture confirm variable _eplot_`_ev'`_m'
-					if !_rc quietly replace _eplot_`_ev'`_m' = . in `_rr'
-				}
-				* r(N_masked) keeps its 2.3.1 meaning (the cells of levels a model
-				* holds); a level missing from the model is counted apart
-				if `_mc_abs' local ++_n_absent
-				else local ++_n_masked
-			}
-		}
-		drop _mc_par _mc_blk
+mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+noisily _regtab_mincount
+mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
 	}
 
 	* cellnote(): the model's cell on the one body row whose label is exactly
@@ -2158,6 +2060,7 @@ if "`stars'" != "" {
 	            local _ep_cell = strtrim(c`_ep_model_col'[`_ep_obs'])
 	            local _ep_rowtype "effect"
 	            if _constraint`_ep_m'[`_ep_obs'] == "base" local _ep_rowtype "reference"
+	            if _constraint`_ep_m'[`_ep_obs'] == "cns" local _ep_rowtype "constrained"
 	            if `_ep_est' < . | `_ep_ll' < . | `_ep_ul' < . | `_ep_p' < . | `"`_ep_rowtype'"' == "reference" {
 	                * C1 (codex audit 2026-09-26): the row and model labels are stored
 	                * in Mata after the post, so they are never expanded as macros.
@@ -2204,7 +2107,7 @@ if `n_models' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if (_constraint`=(`_ci'+2)/3'[`_obs'] == "") {
+                if inlist(_constraint`=(`_ci'+2)/3'[`_obs'], "", "cns") {
                     local _row_has_data = 1
                 }
             }
@@ -2230,7 +2133,7 @@ if `_mat_nrows' > 0 {
             local _coefval = _coefnum`_ci'[`_obs']
             local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
             if `_coefval' < . {
-                if (_constraint`=(`_ci'+2)/3'[`_obs'] == "") {
+                if inlist(_constraint`=(`_ci'+2)/3'[`_obs'], "", "cns") {
                     matrix `_rtable'[`_mr', `_mc'] = `_coefval'
                 }
             }
@@ -2284,9 +2187,16 @@ if `_mat_nrows' > 0 {
 forvalues _m = 1/`n_models' {
     local _constraint_rows_`_m' ""
     forvalues _cr = 3/`=_N' {
-        if _constraint`_m'[`_cr'] != "" ///
+        if !inlist(_constraint`_m'[`_cr'], "", "cns") ///
             local _constraint_rows_`_m' "`_constraint_rows_`_m'' `=`_cr'+1'"
     }
+}
+* frame(, flat keys): each row's type and term, and the state of each
+* model's cell, while the constraint classes are here: _regtab_keys.ado
+if `_displayframe_keys' {
+mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+noisily _regtab_keys rows
+mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
 }
 capture drop _constraint*
 capture drop _coefnum*
@@ -2330,9 +2240,15 @@ if `_tp' {
 capture drop _ci_seen
 
 * stats(): model statistics rows below the table body: _regtab_statrows.ado
+local stats_row_ids ""
 mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
 noisily _regtab_statrows
 mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
+if `_displayframe_keys' {
+mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+noisily _regtab_keys stats
+mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
+}
 
 * =========================================================================
 * TRANSPOSE: MODELS AS ROWS, TERMS AND STATISTICS AS COLUMNS
@@ -2409,7 +2325,7 @@ mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_
 noisily _regtab_addrow
 mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
 * the raw names are kept through addrow(), which places rows by them
-capture drop _raw_A
+capture drop _raw_A _raw_eq
 
 * =========================================================================
 * ADD CUSTOM COLUMNS (addcol option, transposed layout)
@@ -2417,8 +2333,8 @@ capture drop _raw_A
 * addcol("label" val1 val2 ... [\ ...]): addrow()'s specification for a
 * transposed table, one column per specification after the last column, the
 * label as its header and the values given to the models (rows) in order.
-if `"`addcol'"' != "" & `_tp' {
-    _regtab_addcol `n' `n_models' `"`addcol'"' `"`_tp_keys'"'
+if `"`macval(addcol)'"' != "" & `_tp' {
+    _regtab_addcol `n' `n_models' `"`macval(addcol)'"' `"`_tp_keys'"'
     forvalues _j = `=`n' + 1'/`_ac_n' {
         local _constraint_rows_`_j' ""
     }
@@ -2426,6 +2342,11 @@ if `"`addcol'"' != "" & `_tp' {
     local n = `_ac_n'
 }
 
+if `_displayframe_keys' {
+mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+noisily _regtab_keys save
+mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
+}
 gen id = _n
 count
 local count `=`r(N)'+1'
@@ -2457,12 +2378,11 @@ if "`compact'" != "" & !`_tp' {
         local _ci_col = `m' + 1
         * Merge: "0.85" + " " + "(0.72, 1.01)" -> "0.85 (0.72, 1.01)"
         qui replace c`m' = c`m' + " " + c`_ci_col' if _n >= 3 & c`_ci_col' != ""
-        * Update column header to combined label
-        local _hdr_est = c`m'[2]
-        local _hdr_ci = c`_ci_col'[2]
-        * strtrim: with no CI header to append this leaves a trailing space in
-        * the stored cell ("Compact "), which reaches the CSV and the workbook.
-        qui replace c`m' = strtrim(`"`_hdr_est' `_hdr_ci'"') in 2
+        * The model-name row (row 2 once the title row is in): the same join,
+        * as a data expression. Read through a local, a name was re-expanded
+        * ($name, a backquote); the statistic headers of row 3 are joined by
+        * the rule above. strtrim: no trailing space in the stored cell.
+        qui replace c`m' = strtrim(c`m' + " " + c`_ci_col') in 2
     }
 
     * Drop CI columns (c2, c5, c8, ...)
@@ -2597,6 +2517,7 @@ if `add_stats' == 1 {
         }
     }
     if "`_cst_anymc'" == "1" return scalar N_stats_masked = `_n_stmask'
+    if "`_cst_anylink'" == "1" return scalar N_stats_linked = `_n_stlink'
     if `want_icc' {
         local _ret_icc_models = min(`n_icc_models', `n_models')
         forvalues m = 1/`_ret_icc_models' {
@@ -2785,6 +2706,11 @@ if `"`markdown'"' != "" {
 			* as printed under the model name (plabel("P") is "P"); a transposed
 			* column's block is its term, so it keeps "term, statistic".
 			_tabtools_flatframe `n' `_cols_per_model' `=cond(`_tp', "", "short")'
+			if `_displayframe_keys' {
+			mata: _regtab_nsN = st_dir("local", "macro", "*"); _regtab_nsN = select(_regtab_nsN, !strmatch(_regtab_nsN, "_rtns_*")); _regtab_nsV = J(rows(_regtab_nsN), 1, ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) _regtab_nsV[_regtab_nsI] = st_local(_regtab_nsN[_regtab_nsI])
+			noisily _regtab_keys put
+			mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsO); _regtab_nsI++) st_local(_regtab_nsO[_regtab_nsI], ""); for (_regtab_nsI = 1; _regtab_nsI <= rows(_regtab_nsN); _regtab_nsI++) st_local(_regtab_nsN[_regtab_nsI], _regtab_nsV[_regtab_nsI])
+			}
 		}
 		_tabtools_frame_put `"`frame'"'
 		local frame `"`_frame_name'"'
@@ -3139,6 +3065,8 @@ if `"`_displayframe_build'"' != "" {
 	        if `"`_displayframe_build'"' != "" capture frame drop `_displayframe_build'
 	        if `"`_eplotframe_build'"' != "" capture frame drop `_eplotframe_build'
 	    }
+	    * the keys matrix first: a successful run leaves _rc as 2.4.0 did
+	    capture mata: mata drop _regtab_K
 	    foreach _nsx in N V O I {
 	        capture mata: mata drop _regtab_ns`_nsx'
 	    }

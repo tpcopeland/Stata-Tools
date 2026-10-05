@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.4.0  2026/10/05
+*! _desctab_collect Version 2.5.0  2026/10/06
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -19,6 +19,7 @@ program define _desctab_collect, rclass
     capture noisily {
 
         capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {

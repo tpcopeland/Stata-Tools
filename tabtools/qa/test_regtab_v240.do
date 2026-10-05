@@ -402,8 +402,11 @@ else {
 
 **# M1 mincount() and levels absent from a model
 * M1a: the feedback repro. Model 2 (placebo only) has 0o.drug and no 1.drug
-* column at all: both are not estimable there, shown as notestlabel(); the
-* first counted by r(N_masked), the second by r(N_absent).
+* column at all. 0o.drug is held by every observation and not estimable:
+* notestlabel(), counted by r(N_masked). 1.drug has no observation in the
+* placebo sample, so the model leaves it out by design: since round 2 it is
+* absentlabel(), blank by default, and "–" only with absentlabel("–") (the
+* 2.4.0 output); it is counted by r(N_absent) either way.
 * Model 3 has no drug term: its drug rows stay
 * blank. Model 1 is unchanged.
 local ++test_count
@@ -424,16 +427,19 @@ capture noisily {
     _v240_cell _m1 A "0" c3 4
     assert "`r(cell)'" == "NE"
     _v240_cell _m1 A "1" c3 4
-    assert "`r(cell)'" == "NE"
+    assert "`r(cell)'" == ""
     _v240_cell _m1 A "1" c4 4
     assert "`r(cell)'" == ""
     _v240_cell _m1 A "0" c5 4
     assert "`r(cell)'" == ""
     _v240_cell _m1 A "1" c5 4
     assert "`r(cell)'" == ""
-    * default: the dash, never a blank
-    regtab, coef("HR") compact mincount(1) models("All" \ "Placebo" \ "Age") frame(_m1, replace)
+    * the 2.4.0 dash: absentlabel("–"); the held level keeps the default dash
+    regtab, coef("HR") compact mincount(1) models("All" \ "Placebo" \ "Age") frame(_m1, replace) absentlabel("`dash'")
+    assert r(N_absent) == 1
     _v240_cell _m1 A "1" c3 4
+    assert "`r(cell)'" == "`dash'"
+    _v240_cell _m1 A "0" c3 4
     assert "`r(cell)'" == "`dash'"
     * without mincount() a level absent from a model is still left blank
     regtab, coef("HR") compact frame(_m1, replace)
@@ -441,7 +447,7 @@ capture noisily {
     assert "`r(cell)'" == ""
 }
 if _rc == 0 {
-    display as result "  PASS: M1a mincount(): a level absent from e(b) is notestlabel(), not blank"
+    display as result "  PASS: M1a mincount(): a level absent from e(b) is absentlabel(), a held one notestlabel()"
     local ++pass_count
 }
 else {

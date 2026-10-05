@@ -1,4 +1,4 @@
-*! desctab Version 2.4.0  2026/10/05 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.5.0  2026/10/06 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -19,6 +19,7 @@ program define desctab, rclass
 
     * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
+    if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {

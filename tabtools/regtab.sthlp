@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)}
-{opt sheet(string)} {opt sep(string asis)} {opt models(string)}
+{opt sheet(string)} {opt sep(string)} {opt models(string)}
 {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept}
 {opt nore:effects} {opt stats(string asis)} {opt relab:el} {opt digits(#)}
 {opt l:evel(#)}
@@ -44,6 +44,7 @@ for treatment effects and margins tables.
 {opt eplotf:rame(name[, replace])} {opt keep(varlist)}
 {opt drop(varlist)} {opt labelm:atch} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)}
 {opt omitl:abel(string)} {opt emptyl:abel(string)} {opt notestl:abel(string)}
+{opt absentl:abel(string)} {opt cnsl:abel(string)}
 {opt cutl:abels(string)} {opt comp:act} {opt nop:value} {opt stars}
 {opt starsl:evels(numlist)} {opt addr:ow(string asis)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc} {opt labelw:idth(#)}
 {opt cf:ormat(%fmt)} {opt reft:op} {opt celln:ote(spec)} {opt minc:ount(#)}
@@ -73,7 +74,7 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synoptline}
 {synopt:{opt xlsx(string)}}output Excel filename (must end with .xlsx){p_end}
 {synopt:{opt sheet(string)}}target sheet to create/replace in xlsx(){p_end}
-{synopt:{opt sep(string asis)}}CI delimiter for {cmd:collect}; default {cmd:", "}{p_end}
+{synopt:{opt sep(string)}}text between the CI limits; default {cmd:", "}{p_end}
 {synopt:{opt models(string)}}set merged model labels{p_end}
 {synopt:{opt coef(string)}}header for the estimate column{p_end}
 {synopt:{opt title(string)}}title written to A1, merged across the table{p_end}
@@ -104,7 +105,7 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt csv(filename)}}also export the table as a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export the table as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append to an existing Markdown file{p_end}
-{synopt:{opt fra:me(name[, replace flat])}}store output in a named frame{p_end}
+{synopt:{opt fra:me(name[, replace flat keys])}}store output in a named frame{p_end}
 {synopt:{opt eplotf:rame(name[, replace])}}save a graph-ready companion frame{p_end}
 {synopt:{opt keep(varlist)}}keep exact variable or factor names{p_end}
 {synopt:{opt drop(varlist)}}drop exact variable or factor names{p_end}
@@ -115,6 +116,8 @@ text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 {synopt:{opt omitl:abel(string)}}label for coefficients the model dropped{p_end}
 {synopt:{opt emptyl:abel(string)}}label for cells identifying no observations{p_end}
 {synopt:{opt notestl:abel(string)}}label for levels not estimable{p_end}
+{synopt:{opt absentl:abel(string)}}label for levels a model leaves out{p_end}
+{synopt:{opt cnsl:abel(string)}}interval text of a constrained coefficient{p_end}
 {synopt:{opt cutl:abels(string)}}relabel ordered-model cutpoints{p_end}
 {synopt:{opt comp:act}}combine estimate and CI per model{p_end}
 {synopt:{opt nop:value}}suppress p-value columns{p_end}
@@ -323,10 +326,53 @@ no title or header rows and no reference-marker columns, so
 {cmd:frame f: puttab rowlabel c* using t.xlsx, varlabels} writes the body
 under one row of statistic headers without any {cmd:drop}; with several
 models, name them from {cmd:char c}{it:#}{cmd:[tabtools_block]} or use the
-full header in {cmd:char c}{it:#}{cmd:[tabtools_header]}. A variable label holds at most 80 characters; a longer
+full header in {cmd:char c}{it:#}{cmd:[tabtools_header]}, or let
+{cmd:puttab, blockheader} write each model's name as a spanning row over its
+columns; {cmd:char c}{it:#}{cmd:[tabtools_block_id]} identifies each column's
+block, so two models with the same name stay apart. A variable label holds at most 80 characters; a longer
 header is truncated in the label (with a note) and kept whole in
 {cmd:char c}{it:#}{cmd:[tabtools_header]}. The frame's
 {cmd:_dta[tabtools_layout]} characteristic is {cmd:flat}.{p_end}
+
+{pmore}
+{cmd:keys}, with {cmd:flat} only (r(198) otherwise), adds key variables after
+the printed columns, so a program can find rows and cells by what they are
+rather than by their printed text: {cmd:_order} (the row order, 1, 2, ...: give
+a new row 3.5 and {cmd:sort _order} to put it between rows 3 and 4),
+{cmd:_term}, {cmd:_rowtype}, and {cmd:_state}{it:#} for each printed column
+{cmd:c}{it:#}. {cmd:_term} is the row's raw coefficient name in {opt keep()}'s
+form, factor operators and level markers dropped ({cmd:9.edss}, {cmd:age},
+{cmd:1.a#2.b}, {cmd:1.g#x}), preceded in a multi-equation table by the
+equation as the collection names it ({cmd:4:mpg}, {cmd:4:1.foreign}) and on a
+random-effects row by its level ({cmd:district:var(_cons)}); a factor's
+heading row holds the factor ({cmd:edss}, {cmd:a#b}), a {opt stats()} row
+{cmd:stat:}{it:item}, and an {opt addrow()} row {cmd:addrow:}{it:k}, {it:k}
+its position in {opt addrow()}. For a built-in statistic {it:item} is its word
+as listed under {opt stats()} ({cmd:stat:n}, also for {cmd:n_sub} and
+{cmd:subjects}; {cmd:stat:aic}, also when that row shows QICu; {cmd:stat:F}),
+for an {cmd:e()} item the item as typed without its options or label
+({cmd:stat:e(N_fail)}, {cmd:stat:e(N_fail|N_sub)}), and for the {it:k}th
+{cmd:text()} item {cmd:text(}{it:k}{cmd:)} ({cmd:stat:text(1)}); so
+{cmd:stats(F e(F))} gives two distinct keys, and no two rows share one. {cmd:_rowtype} is {cmd:factor} (a heading
+row), {cmd:level} (a factor level or interaction cell), {cmd:var} (any other
+coefficient: a covariate, intercept, cutpoint, or ancillary parameter),
+{cmd:re} (a random effect), {cmd:stat}, {cmd:addrow}, or {cmd:header} (a
+body row without a coefficient name, which no standard layout prints). {cmd:_state}{it:#} is
+the state of the model cell that column {cmd:c}{it:#} belongs to, the same
+for a model's estimate, interval, and p-value columns: {cmd:est} (an
+estimate), {cmd:ref} ({opt refcat()}), {cmd:omit} ({opt omitlabel()}),
+{cmd:notest} ({opt notestlabel()}), {cmd:masked} (the {opt emptylabel()} of a
+level {opt mincount()} masks for too few events), {cmd:absent}
+({opt absentlabel()}), {cmd:constrained} (the estimate with {opt cnslabel()}),
+{cmd:note} ({opt cellnote()}), {cmd:stat} or {cmd:text} (a {opt stats()} or
+{opt addrow()} value), or {cmd:empty} (a blank cell: the model holds no such
+coefficient, or the row is a heading). Each key variable carries
+{cmd:char} {it:var}{cmd:[tabtools_key]} {cmd:1}, which tells {helpb puttab}
+to leave it out unless its varlist names it, and the frame's
+{cmd:_dta[tabtools_keys]} lists them. A frame without {cmd:keys} is unchanged.
+{cmd:keys} cannot be combined with {opt transpose} (r(198)): a transposed
+table's columns are terms and its rows models, which these keys do not
+describe. See {it:Editing a flat frame} under Examples.{p_end}
 
 {phang}
 {opt headers:hade} apply background fill to the header row{p_end}
@@ -451,13 +497,34 @@ terms are never masked. The event
 counts are those {cmd:tabtools fitcount, events() terms} stored right after
 each fit (see {it:Fit-time counts} under Remarks): every model in the table
 needs them, and a level a model shows that its counts do not cover is an error
-(r(459)); a model without counts is refused with r(198). Under {opt mincount()}
+(r(459)); a model with estimates but without counts is refused with r(198). A
+model with no estimate at all has nothing to mask and needs no counts: its
+column is left blank and a note names it. Such a column is how a fit that
+failed is kept in its place: a failed estimation command can leave the
+previous model's results in {cmd:e()}, so clear them before collecting
+({cmd:ereturn clear}, then {cmd:collect get e(), tags(cmdset[}{it:#}{cmd:])})
+or collect a placeholder result instead
+({cmd:collect get failed = "Did not converge", tags(cmdset[}{it:#}{cmd:])});
+a {cmd:collect get e()} straight after the error collects the previous model
+a second time, and {cmd:regtab} notes a model that repeats an earlier one. Under {opt mincount()}
 the default {opt emptylabel()} is a dash (U+2013), and {opt notestlabel()}
-defaults to it, so empty, omitted, absent, and masked levels all read "–";
-specify {opt emptylabel()} and {opt notestlabel()} to choose other texts. Masked cells are left out of {cmd:r(table)} and {opt eplotframe()};
+defaults to it, so empty, omitted, not estimable, and masked levels all read "–";
+specify {opt emptylabel()} and {opt notestlabel()} to choose other texts. A
+level of a factor block a model includes that is missing from the model's
+{cmd:e(b)} altogether is told apart by its estimation sample, which
+{cmd:tabtools fitcount, terms} records: a level no observation of the sample
+holds (an {cmd:if} restriction or subgroup leaves it out by design, such as
+{cmd:if edss != 9}) is shown as {opt absentlabel()}, blank by default; a level
+the sample holds that the model does not estimate is shown as
+{opt notestlabel()}. Counts stored by an older {cmd:fitcount}, which does not
+record the sample's levels, cannot tell the two apart: such a level is shown
+as {opt notestlabel()}, the reading that does not claim the model left it
+out, and a note names it. A model's own base level keeps its {opt refcat()}
+label and a coefficient a constraint fixes its value: neither is masked.
+Masked cells are left out of {cmd:r(table)} and {opt eplotframe()};
 {cmd:r(N_masked)} counts them, as in 2.3.1, for the levels a model holds;
-{cmd:r(N_absent)} counts the levels missing from a model that are shown as
-{opt notestlabel()}. This is reporting hygiene for unstable
+{cmd:r(N_absent)} counts the levels missing from a model, whichever label they
+are shown with. This is reporting hygiene for unstable
 estimates, not disclosure control.{p_end}
 
 {phang}
@@ -477,7 +544,9 @@ not estimate: a cell that identifies no observations in the estimation sample
 zero or missing (a {cmd:stcox} level whose coefficient diverged under
 separation prints a hazard ratio with blank standard error). Under
 {opt mincount()} it also labels a level the model omitted and a level of a
-factor block the model includes that is missing from the model altogether.
+factor block the model includes that is missing from the model although its
+estimation sample holds it (one the sample does not hold is
+{opt absentlabel()}).
 The default is the {opt emptylabel()} text, which these cells carried before
 {opt notestlabel()} existed, so a table that does not specify it is
 unchanged; specify it to tell them apart from levels masked for too few
@@ -487,13 +556,42 @@ reference, and a base level whose cell identifies no observations is such a
 level; see {it:Constrained rows} under Remarks.{p_end}
 
 {phang}
+{opt absentl:abel(string)} under {opt mincount()}, the label of a level of a
+factor block a model includes that no observation of that model's estimation
+sample holds, so the model leaves it out by design: the "Not recorded" level
+of a model fitted {cmd:if edss != 9}. The default is blank, the cell such a
+level had before 2.4.0; {cmd:absentlabel("–")} gives the dash 2.4.0 printed.
+A level the sample holds but the model does not estimate is
+{opt notestlabel()} instead (see {opt mincount()}). Requires {opt mincount()}
+and must differ from {opt refcat()} (r(198)).{p_end}
+
+{phang}
+{opt cnsl:abel(string)} the text printed where the interval would be for a
+coefficient that a constraint fixes ({helpb constraint} define, then the
+estimator's {cmd:constraints()}, {cmd:cnsreg}): its estimate, the fixed value
+on the table's scale, is shown, then this text, and its p-value is blank, as
+Stata's own table prints {cmd:(constrained)}. A coefficient a constraint
+fixes at 0 is one Stata prints {cmd:(omitted)}, and so does {cmd:regtab}
+({opt omitlabel()}); a factor level fixed so is never the reference (see
+{it:Constrained rows} under Remarks). Default {cmd:"(constrained)"};
+with {opt compact} the cell reads {cmd:1.05 (constrained)}. A constrained
+coefficient is known from the fit's own e(b) and {cmd:e(Cns)}: from the record
+{cmd:tabtools fitcount} stores, or from the active estimation results when
+they are the model; without either it cannot be told from a coefficient
+estimated with a zero variance, and is shown as such (see
+{it:Constrained rows} under Remarks). It is included in {cmd:r(table)} and
+posted to {opt eplotframe()} with rowtype {cmd:constrained}; {opt mincount()}
+does not mask it.{p_end}
+
+{phang}
 {opt relab:el} relabel random effects using variable labels and parameter types (see Remarks){p_end}
 
 {phang}
-{opt sep(string asis)} the text between the two confidence bounds, default
-{cmd:", "}: {cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. It reaches every
-sink (console, Excel, CSV, Markdown, {opt frame()} with or without {cmd:flat});
-{cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers.{p_end}
+{opt sep(string)} the text between the two confidence bounds, default
+{cmd:", "}: {cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. The text prints as
+typed in every sink (console, Excel, CSV, Markdown, {opt frame()} with or
+without {cmd:flat}); {cmd:r(table)} and {opt eplotframe()} hold the bounds as
+numbers; see {help tabtools##sep:interval separators}.{p_end}
 
 {phang}
 {opt sheet(string)} target sheet to create/replace in {opt xlsx()}. Default {cmd:"Regression"}.
@@ -571,7 +669,12 @@ characters. Options follow a comma inside the parentheses:
 display format ({cmd:e(N, %9.0fc)}); {cmd:mincell(}{it:#}{cmd:)}, # >= 2,
 prints a value from 1 to #-1 as {cmd:<}{it:#}, the small-cell text of
 {helpb tabcell} and {helpb ratetab} ({cmd:e(N_fail, mincell(5))}), and
-{cmd:r(N_stats_masked)} counts such cells.
+{cmd:r(N_stats_masked)} counts such cells. A statistic named in several
+items of one {opt stats()} is masked in every one of them with the strictest
+{cmd:mincell()} given for it in any, with no declaration needed:
+{cmd:stats(e(ev, mincell(5)) e(tot|ev))} prints {cmd:<5} in both rows,
+{cmd:13 (<5)}, never {cmd:13 (3)}, so one table never prints a count it
+masks elsewhere.
 {cmd:e(}{it:name1}{cmd:|}{it:name2}{cmd:)} is one row "value1 (value2)",
 each part formatted with the item's format and masked against its
 {cmd:mincell()} threshold on its own (so either part can read {cmd:<}{it:#}),
@@ -579,7 +682,9 @@ each part formatted with the item's format and masked against its
 lacks {it:name1}; default label "{it:name1} ({it:name2})":
 {cmd:e(N_fail|N_sub)="Events (subjects)"} prints {cmd:31 (48)}. The counts
 {cmd:tabtools fitcount} stores are collection results too, so
-{cmd:e(tt_events|tt_people)="Events (people)"} combines them{p_end}
+{cmd:e(tt_events|tt_people)="Events (people)"} combines them.
+{cmd:maskwith()}, a further option of {cmd:e()} items, is described below the
+list{p_end}
 {p2col:{cmd:text(}{it:label} {it:value1} {it:value2} ...{cmd:)}}a row of
 text, one value per model in order, among the {cmd:e()} rows in the order
 given: {cmd:stats(n text("Weighting" "Unweighted" "IPW"))}. Values with spaces
@@ -587,6 +692,39 @@ go in quotes; fewer values than models leave cells blank and more is an error
 (r(198)). Unlike {opt addrow()}, it sits with the statistics and becomes a
 column under {opt transpose}{p_end}
 {p2colreset}{...}
+
+{pmore}
+{cmd:maskwith(}{it:names}{cmd:)} declares rows that would give a masked count
+back, so they are masked with it ({it:complementary} masking within this
+table). {it:names} are other {cmd:e()} names in {opt stats()}. The item's own
+names and {it:names} form one group, and groups that share a name join. In a
+model where any member of a group prints {cmd:<}{it:#} under its
+{cmd:mincell()}, every other member of that group with a value prints
+{cmd:–} (an en dash) in that model, never a number, whatever its value (0
+included). For example, when people and people without an event are both
+printed, a masked event count is their difference, so
+{cmd:e(tt_events, mincell(5))="Events" e(tt_people)="People" e(n_noev, mincell(5) maskwith(tt_events))="Without an event"}
+masks the third row wherever the first is masked, and the first wherever the
+third is; people stay visible, since masking one of the dependent rows is
+enough. Name in a group only the rows that must be withheld together. No
+dependency is assumed: rows are linked only through {cmd:maskwith()}, and the
+two parts of {cmd:e(}{it:a}{cmd:|}{it:b}{cmd:)} are linked only when the pair
+item itself has a {cmd:maskwith()} (then both names join the group), because
+a pair such as people (events) is a layout, not a derivation. Two counts whose
+sum is printed in another row, such as cases (controls) under a total, need
+one: {cmd:e(n_case|n_ctrl, mincell(5) maskwith(n_case))}. A percentage next to
+a count whose denominator is known is linked from a row of its own, since
+{cmd:mincell()} would also mask a small percentage:
+{cmd:e(pct_ev, %4.1f maskwith(tt_events))="Events, %"}. Statistics that are
+not {cmd:e()} scalars enter the collection with
+{cmd:collect get} {it:name}{cmd: = (}{it:#}{cmd:), tags(cmdset[}{it:#}{cmd:])}
+and are then {cmd:e()} items like any other. A masked or linked cell is masked
+in every sink and in {opt frame()}; {cmd:r()} keeps the numbers.
+{cmd:r(N_stats_masked)} counts the {cmd:<}{it:#} cells and
+{cmd:r(N_stats_linked)} the {cmd:–} cells. A group in which no name has a
+{cmd:mincell()} masks nothing, and a note says so. The scope is this one table:
+differencing against counts printed in another table or document is not
+covered.{p_end}
 
 {phang}
 {opt statl:abels(string asis)} relabels built-in {opt stats()} rows with
@@ -679,7 +817,13 @@ so {cmd:collect set} {it:c} before it. The results are stored with
 {cmd:collect get} in the active collection under the model's own
 {cmd:cmdset}, as results {cmd:tt_events}, {cmd:tt_people}, {cmd:tt_exposure},
 and {cmd:tt_terms}; {cmd:regtab} reads them for {cmd:stats(events people exposure)}
-and {opt mincount()}. They do not appear in {cmd:regtab}'s coefficient rows,
+and {opt mincount()}. {cmd:fitcount} also stores {cmd:tt_cns}, the fit's own
+notes for its base, empty, omitted, and constrained coefficients (from the
+{cmd:e(b)} stripe and {cmd:e(Cns)}), which {cmd:regtab} reads to label them
+(see {it:Constrained rows} below), and, with {opt terms}, {cmd:tt_levels}, the
+level combinations each factor term of {cmd:e(b)} holds in {cmd:e(sample)},
+which tells a level a model leaves out from one it holds but does not
+estimate (see {opt mincount()} and {opt absentlabel()}). They do not appear in {cmd:regtab}'s coefficient rows,
 but a layout of your own naming {cmd:result} levels can show them.{p_end}
 
 {pstd}The fit is identified exactly: the collection's latest {cmd:cmdset} must
@@ -705,7 +849,7 @@ returns {cmd:r(events)}, {cmd:r(people)}, {cmd:r(exposure)}, {cmd:r(N)},
 relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
 {p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items
 {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as
-{cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
+{cmd:sformat("(%s")} with {cmd:cidelimiter(", ")}, and {cmd:_r_p} as %5.4f.{p_end}
 {p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it
 intentionally updates the labels of {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p},
 the cell styles, and the layout before export. The labels of every other
@@ -713,8 +857,10 @@ result it reads (the command, command line, and {cmd:vce} metadata, and the
 {opt stats()} results) are restored exactly as found. If you need the
 original collection layout unchanged for later commands, save or rebuild that
 collection before running {cmd:regtab}.{p_end}
-{p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example
-alternative: {cmd:sep("; ")}.{p_end}
+{p 4 8 2}- The text between the CI limits in {cmd:regtab}'s tables is
+{opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}. It is
+never handed to {cmd:collect}, so the collection's own {cmd:cidelimiter()}
+stays {cmd:", "}.{p_end}
 {p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display
 scale per collected model from the collected command metadata and fills the
 estimate header automatically. When models use different scales, estimate
@@ -754,12 +900,12 @@ explicit names. {opt models()} values are split on the backslash character.{p_en
 {p 4 8 2}- {opt coef()}: if omitted, the estimate-column header and scale are
 auto-detected per collected model: {cmd:logit}/{cmd:logistic}/{cmd:clogit} {it:->} OR,
 {cmd:mlogit} {it:->} RRR, {cmd:stcox} {it:->} HR, {cmd:poisson}/{cmd:nbreg}
-{it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg}/{cmd:mestreg} {it:->} HR in
+{it:->} IRR, {cmd:stcrreg} {it:->} SHR, {cmd:streg}/{cmd:stintreg}/{cmd:mestreg} {it:->} HR in
 the log-hazard metric and TR in the log-time metric, {cmd:regress}/{cmd:mixed}
 {it:->} Coef. A ratio family is always shown on its ratio scale: a fit displayed
 as coefficients ({cmd:logit} or {cmd:clogit} without {cmd:or}, {cmd:logistic} with
-{cmd:coef}, {cmd:stcox} or {cmd:streg} with {cmd:nohr}, {cmd:stcrreg} with
-{cmd:noshr}, or a log-time {cmd:streg} without {cmd:tr}) is exponentiated, and a fit Stata already
+{cmd:coef}, {cmd:stcox}, {cmd:streg}, or {cmd:stintreg} with {cmd:nohr}, {cmd:stcrreg} with
+{cmd:noshr}, or a log-time {cmd:streg} or {cmd:stintreg} without {cmd:tratio}) is exponentiated, and a fit Stata already
 exponentiated is left as it is, so the header always names the numbers under
 it. Display options are read only from the option list after the command's
 comma, with the estimator's own abbreviations ({cmd:ir}, {cmd:rr}, {cmd:ti},
@@ -782,11 +928,17 @@ distribution with each coefficient's own degrees of freedom
 ({cmd:e(df_mi)}); {cmd:mi estimate} reports no log likelihood, so the
 {cmd:ll}, {cmd:aic}, and {cmd:bic} rows stay blank. A {cmd:level()} given to
 {cmd:mi estimate} or {cmd:bootstrap} counts as the model's level.{p_end}
-{p 4 8 2}- {cmd:streg} and {cmd:mestreg} follow Stata's metric rules
+{p 4 8 2}- {cmd:streg}, {cmd:stintreg}, and {cmd:mestreg} follow Stata's metric rules
 (exponential and Weibull fit in the log-hazard metric, HR, unless {cmd:time} or
-{cmd:tr} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
+{cmd:tratio} is given; Gompertz is log-hazard only; lognormal, loglogistic, and
 generalized gamma are log-time only), and the log-time metric is shown as TR,
-the exponentiated log-time coefficients.{p_end}
+the exponentiated log-time coefficients: {cmd:stintreg, distribution(ggamma)}
+and {cmd:stintreg, distribution(ggamma) tratio} both print time ratios under
+"TR", and {cmd:r(methods)} reads "Time ratios ... from ... interval-censored
+accelerated failure-time survival regression" ("Hazard ratios ...
+interval-censored parametric proportional hazards survival regression" in the
+log-hazard metric). {cmd:stintreg} names its distribution in {cmd:e(cmd)}, as
+{cmd:streg} does.{p_end}
 {p 4 8 2}- {cmd:glm} and {cmd:xtgee} are resolved from their
 {opt family()} and {opt link()} rather than the command name, with glm's own
 abbreviations ({cmd:f(b)}, {cmd:fam(bin)}, {cmd:l(logit)}, {cmd:ef}), so
@@ -854,44 +1006,67 @@ perfectly predicted base level, and another level is then dropped to identify
 the rest) is not estimable: {opt notestlabel()}, not {it:Reference}. A base
 level {cmd:collect} records as empty while no other level of its factor is
 constrained has observations (Stata 17 stamps it so after {cmd:nbreg} beside
-an omitted continuous term) and is {it:Reference}. Where the
-collection carries no class, {cmd:regtab} labels a constrained factor level
-{it:Reference} only when the cell holds the constrained value itself (0, or 1
-when the collection holds a ratio): a level the model estimated, whose
-variance is zero or missing, has a blank CI and p-value as well but is shown
-as {opt notestlabel()}, not as the reference. Stata 17's {cmd:collect}
-records every constrained cell of some fits as empty -- {cmd:nbreg},
-{cmd:zinb}, {cmd:intreg}, and {cmd:streg} with an ancillary parameter --
-although the model reports the level as {cmd:(base)}; a model whose only
-recorded class is empty is treated as carrying no class. In such a model,
-when it is the active fit ({cmd:regtab} checks the command line and that
-every coefficient equals the collected one, as {cmd:tabtools fitcount}
-does), the fit's own {cmd:e(b)} markers decide: the {cmd:b.} level is
-{it:Reference} and an {cmd:o.} level {it:Omitted}. Otherwise the
-base level of a factor main effect is decided by the model's own
-specification: {cmd:regtab} expands its varlist, as {cmd:e(cmdline)} records
-it, with {helpb fvexpand} over the observations holding the levels the model
-holds, so the default (lowest level), {cmd:ib}{it:#}{cmd:.}, {cmd:ib(first)},
-{cmd:ib(last)}, {cmd:ibn.}, and {cmd:fvset base} resolve as they did at fit
-time; the level marked {cmd:b.} is {it:Reference} and any other constrained
-level of that factor is {it:Omitted} ({opt omitlabel()}), as {cmd:regress}
-reports a collinear level: a main-effect level with no observations is not
-in {cmd:e(b)} at all. A base that only {cmd:fvset} names (not an
-{cmd:ib}{it:#}{cmd:.} in the command line) may have been set after the fit, so
-when the factor has two or more constrained levels none of them is called
-{it:Reference}: all read {opt notestlabel()} and a note says so; fit with
-{cmd:ib}{it:#}{cmd:.}, or tabulate while the fit is active. In such a model a
-factor never shows two {it:Reference} cells: when the base cannot be verified
-(the data in memory no longer hold the fit's levels) and two or more levels
-are constrained, they all read {opt notestlabel()}, with the same note. This reads the data in
-memory, which must hold the model's variables, under your {cmd:varabbrev}
-setting; where it cannot decide -- the varlist does not expand, the base
-depends on frequencies ({cmd:ib(freq).}, {cmd:fvset base frequent}), the model
-holds a single level of the factor, or the level it names was estimated in
-the model (the data no longer describe the fit, e.g. after a later
-{cmd:fvset base}) -- the value rule above applies. Interactions are not resolved this way, so in an
-interaction under these estimators every constrained cell reads {it:Reference}. A
-collection whose raw row identities cannot be read is rejected before output.{p_end}
+an omitted continuous term) and is {it:Reference}.{p_end}
+{p 8 8 2}Stata 17's {cmd:collect} records every constrained cell of some fits
+as empty -- {cmd:nbreg}, {cmd:zinb}, {cmd:intreg}, and {cmd:streg} and
+{cmd:stintreg} with an ancillary parameter -- although the model reports the
+level as {cmd:(base)}; a model whose only recorded class is empty is treated
+as carrying no class. It records no class at all for a coefficient a
+constraint fixes. For these, the fit's own notes decide whenever they are
+known: the notes Stata prints in the estimator's table, {cmd:(base)},
+{cmd:(empty)}, {cmd:(omitted)}, and {cmd:(constrained)}, read from the
+{cmd:e(b)} column stripe and {cmd:e(Cns)}, for main effects and interaction
+cells alike. They come from the record {cmd:tabtools fitcount} stores with
+each model at fit time (result {cmd:tt_cns}), or, when the model is the active
+fit ({cmd:regtab} checks the command line and that every coefficient equals
+the collected one, as {cmd:tabtools fitcount} does), from the active
+{cmd:e(b)}. With the record, the labels do not depend on the data in memory:
+they hold after a variable is dropped, after {cmd:estimates restore} of
+another model, and on changed data.{p_end}
+{p 8 8 2}Without the fit's notes, the base level of a factor main effect is
+decided by the model's own specification: {cmd:regtab} expands its varlist,
+as {cmd:e(cmdline)} records it, with {helpb fvexpand} over the observations
+holding the levels the model holds, so the default (lowest level),
+{cmd:ib}{it:#}{cmd:.}, {cmd:ib(first)}, {cmd:ib(last)}, {cmd:ibn.}, and
+{cmd:fvset base} resolve as they did at fit time; the level marked {cmd:b.} is
+{it:Reference} and any other constrained level of that factor is {it:Omitted}
+({opt omitlabel()}), as {cmd:regress} reports a collinear level: a main-effect
+level with no observations is not in {cmd:e(b)} at all. A base that only
+{cmd:fvset} names (not an {cmd:ib}{it:#}{cmd:.} in the command line) may have
+been set after the fit, so when the factor has two or more constrained levels
+none of them is called {it:Reference}: all read {opt notestlabel()} and a note
+says so. A factor never shows two {it:Reference} cells: when the base cannot
+be verified (the data in memory no longer hold the fit's levels, or the
+variable was dropped) and two or more levels are constrained, they all read
+{opt notestlabel()}, with the same note; a single constrained level is the
+base. This reads the data in memory, which must hold the model's variables,
+under your {cmd:varabbrev} setting; where it cannot decide -- the varlist does
+not expand, the base depends on frequencies ({cmd:ib(freq).},
+{cmd:fvset base frequent}), the model holds a single level of the factor, or
+the level it names was estimated in the model -- the value rule below
+applies. An interaction cell is a base cell, {it:Reference}, when one of its
+factor levels is the base the model holds for that factor's main effect; any
+other constrained cell is empty or omitted and reads {opt notestlabel()}. A
+cell of a factor the model holds no decided base for (an interaction without
+its main effects) cannot be told: it reads {opt notestlabel()} and a note says
+so.{p_end}
+{p 8 8 2}Only a cell holding the constrained value itself (0, or 1 when the
+collection holds a ratio) can be a base, omitted, or empty coefficient. Any
+other value with a blank CI and p-value is an estimate: one a constraint fixes
+(shown with {opt cnslabel()} when the fit's notes say so) or one estimated with
+a zero or missing variance (a {cmd:stcox} level whose coefficient diverged
+under separation), shown as {opt notestlabel()}, never as the reference.{p_end}
+{p 8 8 2}In a model whose classes {cmd:collect} did record, a constrained
+level it left without a class (a level a constraint fixes at 0, which Stata
+prints {cmd:(omitted)}) is {it:Reference} only when it is the factor's base:
+the base its specification resolves, as above, or an {cmd:ib}{it:#}{cmd:.}
+of the command line (which holds without the data in memory). Any other such
+level is {it:Omitted} when the factor's base is known, and
+{opt notestlabel()}, with a note, when it is not. Where the collection
+carries no class and nothing above decides, a constrained factor level
+holding the constrained value is {it:Reference} only when it is the
+factor's only constrained level. A collection whose raw row identities cannot
+be read is rejected before output.{p_end}
 {p 4 8 2}- Equations with nothing estimated: in a multi-equation model such as
 {cmd:mlogit}, the base-outcome equation constrains every one of its
 coefficients. It carries no information and is dropped whole, so its levels
@@ -1049,6 +1224,32 @@ rows.{p_end}
 {phang2}{cmd:. regtab, frame(t2, replace flat) reftop compact}{p_end}
 {phang2}{cmd:. frame t2: puttab rowlabel c* using regression.xlsx, sheet("Flat") varlabels}{p_end}
 
+{pstd}{marker editflat}{...}
+{bf:Editing a flat frame.} With {cmd:frame(}{it:name}{cmd:, flat keys)} the
+frame carries each row's coefficient name, type, and order and each cell's
+state, so the table can be edited by what its rows are. Here two factors print
+the same level label ("Yes"), so a row label cannot pick one of them, but
+{cmd:_term} can; a row goes in before the {cmd:heavy} block through
+{cmd:_order}; and the rule above the first {opt stats()} row is computed from
+{cmd:_term}:{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. generate byte heavy = weight > 3000}{p_end}
+{phang2}{cmd:. generate byte lengthy = length > 190}{p_end}
+{phang2}{cmd:. label define yesno 0 "No" 1 "Yes"}{p_end}
+{phang2}{cmd:. label values heavy lengthy yesno}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: regress price mpg i.heavy i.lengthy}{p_end}
+{phang2}{cmd:. regtab, stats(n) compact frame(t, replace flat keys)}{p_end}
+{phang2}{cmd:. frame t: replace c1 = "see note" if _term == "1.lengthy"}{p_end}
+{phang2}{cmd:. frame t: summarize _order if _term == "heavy", meanonly}{p_end}
+{phang2}{cmd:. local before = r(min) - 0.5}{p_end}
+{phang2}{cmd:. frame t: insobs 1}{p_end}
+{phang2}{cmd:. frame t: replace rowlabel = "Vehicle size" in l}{p_end}
+{phang2}{cmd:. frame t: replace _order = `before' in l}{p_end}
+{phang2}{cmd:. frame t: sort _order}{p_end}
+{phang2}{cmd:. frame t: count if substr(_term, 1, 5) != "stat:"}{p_end}
+{phang2}{cmd:. frame t: puttab rowlabel c* using regression.xlsx, sheet("Edited") varlabels hlines(`=r(N) + 1')}{p_end}
+
 {pstd}Events, people, and person-time under each model, with thin levels
 masked:{p_end}
 {phang2}{cmd:. sysuse cancer, clear}{p_end}
@@ -1095,8 +1296,9 @@ an estimate:{p_end}
 {synopt:{cmd:r(exposure_}{it:#}{cmd:)}}person-time for model {it:#} (when {cmd:stats(exposure)}){p_end}
 {synopt:{cmd:r(obs_}{it:#}{cmd:)}}{cmd:e(N)} for model {it:#} (when {cmd:stats(obs)}){p_end}
 {synopt:{cmd:r(N_masked)}}cells masked by {opt mincount()} (when specified){p_end}
-{synopt:{cmd:r(N_absent)}}absent levels shown as {opt notestlabel()} by {opt mincount()}{p_end}
+{synopt:{cmd:r(N_absent)}}levels missing from a model under {opt mincount()}{p_end}
 {synopt:{cmd:r(N_stats_masked)}}{opt stats()} cells masked by {cmd:mincell()}{p_end}
+{synopt:{cmd:r(N_stats_linked)}}{opt stats()} cells masked through {cmd:maskwith()} (when given){p_end}
 {synopt:{cmd:r(mi_m_}{it:#}{cmd:)}}imputations for model {it:#} (when {cmd:stats(mi_m)}){p_end}
 {synopt:{cmd:r(r2_a_}{it:#}{cmd:)}}adjusted R² for model {it:#} (when {cmd:stats(r2_a)}){p_end}
 {synopt:{cmd:r(rmse_}{it:#}{cmd:)}}root MSE for model {it:#} (when {cmd:stats(rmse)}){p_end}

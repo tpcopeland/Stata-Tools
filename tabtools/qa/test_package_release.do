@@ -167,6 +167,9 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
+    * 114 programs since _tabtools_fitcount_rec (fitcount's long records);
+    * 113 programs since round 2 added _regtab_bnotes, _regtab_classes,
+    * _regtab_fitrec, _regtab_mincount, and _regtab_keys;
     * 108 programs since _regtab_cmdsets; 107 since _regtab_activeb; 106 since _regtab_collabels (transpose collabels()); 105
     * since the regtab.ado split moved seven blocks of regtab
     * into _regtab_* helpers and added _regtab_fvbase; 97 since 2.3.1 added
@@ -176,7 +179,7 @@ capture noisily {
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=108 class_missing=0 wrapper_missing=0"
+        "PASS programs=114 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"

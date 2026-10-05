@@ -1,4 +1,4 @@
-*! _regtab_fvparent Version 2.4.0  2026/10/05
+*! _regtab_fvparent Version 2.5.0  2026/10/06
 *! factor parent of a raw colname key
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -100,6 +100,11 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 114 since _tabtools_fitcount_rec (fitcount's string records as r()
+    # macros, so collect stores them whatever their length).
+    # 113 since round 2 after 2.4.0 (agent R1): _regtab_bnotes (the fit's own
+    # constraint notes), _regtab_classes, _regtab_fitrec, _regtab_mincount,
+    # and _regtab_keys (frame(, flat keys)).
     # 108 since 2.4.0 dev review 3: _regtab_cmdsets (cmdset column order).
     # 107 since 2.4.0 dev review: _regtab_activeb (active-fit e(b) markers).
     # 106 since 2.4.0 dev wave 2: _regtab_collabels (transpose collabels()).
@@ -116,7 +121,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 108 and not class_missing and not wrapper_missing
+    passed = program_count == 114 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 2.4.0  2026/10/05
+*! _tabtools_fitcount Version 2.5.0  2026/10/06
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -26,6 +26,11 @@ fit's own cmdset, as results tt_events, tt_people, tt_people_ev (people
 with an event, when people() is given), tt_exposure, and tt_terms.
 regtab reads them for stats(events people exposure) and mincount(). The
 collection does not keep e(sample), which is why the counts are taken here.
+It also stores tt_cns, the fit's own notes for its base, empty, omitted, and
+constrained coefficients (_regtab_bnotes), which regtab reads to label them
+when the collection's own class cannot be trusted, and, with terms,
+tt_levels, the level combinations each factor term holds in e(sample), which
+tells a level a model leaves out (no observation) from one it holds.
 
 The fit is identified exactly: the collection's latest cmdset must carry the
 same command line and number of observations as the active e(), and every
@@ -258,11 +263,11 @@ program define _tabtools_fitcount, rclass
 		* collection keys it (1b.x -> 1.x, 1b.g#co.z -> 1.g#z).
 		local _terms_str ""
 		local _n_terms = 0
+		local _names : colnames e(b)
 		if "`terms'" != "" {
 			tempname _V
 			capture matrix `_V' = e(V)
 			local _has_V = (_rc == 0)
-			local _names : colnames e(b)
 			local _ncol : word count `_names'
 			* In a multi-equation model, an equation whose every coefficient
 			* is constrained (mlogit's base outcome) estimates nothing and no
@@ -360,14 +365,75 @@ program define _tabtools_fitcount, rclass
 			}
 		}
 
-		* Attach to the fit's own cmdset in the active collection.
+		* The fit's own notes for its constrained coefficients (base, empty,
+		* omitted, constrained by e(Cns)), from the e(b) stripe: the
+		* collection keeps no b./o. markers, and its "omit-type" is "empty"
+		* for every constrained cell of some fits (stintreg, streg, nbreg).
+		_regtab_bnotes
+		local _cns_str `"`_bn_notes'"'
+		if `"`_cns_str'"' == "" local _cns_str "-"
+
+		* With terms, the levels every factor term of e(b) holds in e(sample):
+		* ";sig=key key ...;" per term, sig the key with each level written *
+		* (*.x, *.a#*.b, *.g#z), each key a level combination with at least one
+		* observation. A level of a term that is missing from e(b) and from
+		* this list has no observation in the estimation sample.
+		local _lev_str ""
+		if "`terms'" != "" {
+			local _sigs ""
+			foreach _nm of local _names {
+				local _key = ustrregexra(ustrregexra("`_nm'", ///
+					"(^|#)([0-9]+)[a-z]*\.", "$1$2."), "(^|#)[a-z]+\.", "$1")
+				if !ustrregexm("`_key'", "(^|#)[0-9]+\.") continue
+				local _sig = ustrregexra("`_key'", "(^|#)[0-9]+\.", "$1*.")
+				local _sigs : list _sigs | _sig
+			}
+			foreach _sig of local _sigs {
+				local _fvl ""
+				local _sok = 1
+				foreach _p in `=subinstr("`_sig'", "#", " ", .)' {
+					if substr("`_p'", 1, 2) != "*." continue
+					local _v = substr("`_p'", 3, .)
+					capture confirm numeric variable `_v', exact
+					if _rc local _sok = 0
+					local _fvl "`_fvl' `_v'"
+				}
+				if !`_sok' continue
+				mata: _tt_fc_U = uniqrows(st_data(., tokens(st_local("_fvl")), st_local("touse")))
+				mata: _tt_fc_P = tokens(subinstr(st_local("_sig"), "#", " ")); _tt_fc_o = ""; _tt_fc_M = rowmissing(_tt_fc_U)
+				mata: for (_tt_fc_i = 1; _tt_fc_i <= rows(_tt_fc_U); _tt_fc_i++) { if (_tt_fc_M[_tt_fc_i] > 0) continue; _tt_fc_q = 0; _tt_fc_k = ""; for (_tt_fc_j = 1; _tt_fc_j <= cols(_tt_fc_P); _tt_fc_j++) { _tt_fc_t = _tt_fc_P[_tt_fc_j]; if (substr(_tt_fc_t, 1, 2) == "*.") { _tt_fc_q++; _tt_fc_t = strofreal(_tt_fc_U[_tt_fc_i, _tt_fc_q], "%21.0g") + substr(_tt_fc_t, 2, strlen(_tt_fc_t)); }; _tt_fc_k = _tt_fc_k + (_tt_fc_j > 1 ? "#" : "") + _tt_fc_t; }; _tt_fc_o = _tt_fc_o + " " + _tt_fc_k; }
+				mata: st_local("_sigk", strtrim(_tt_fc_o))
+				capture mata: mata drop _tt_fc_*
+				local _lev_str `"`_lev_str';`_sig'=`_sigk'"'
+			}
+			if `"`_lev_str'"' != "" local _lev_str `"`_lev_str';"'
+			else local _lev_str "-"
+		}
+
+		* Attach to the fit's own cmdset in the active collection. The counts
+		* first; then the string records, as r() macros of a helper, because
+		* collect get name = ("...") refuses a string longer than 2,045 bytes
+		* (a strL expression) and a large factorial's record is longer.
 		quietly collect get tt_events = (scalar(`_ev')), tags(cmdset[`_k'])
 		if !missing(`_pp') quietly collect get tt_people = (scalar(`_pp')), tags(cmdset[`_k'])
 		if !missing(`_ppe') quietly collect get tt_people_ev = (scalar(`_ppe')), tags(cmdset[`_k'])
 		if !missing(`_px') quietly collect get tt_exposure = (scalar(`_px')), tags(cmdset[`_k'])
 		if "`terms'" != "" {
 			if `"`_terms_str'"' == "" local _terms_str "-"
-			quietly collect get tt_terms = ("`_terms_str'"), tags(cmdset[`_k'])
+			_tabtools_fitcount_rec tt_terms `"`_terms_str'"'
+			quietly collect get r(), tags(cmdset[`_k'])
+		}
+		* The notes and sample levels are optional: a record that cannot be
+		* stored is left out with a note, never at the cost of the counts;
+		* regtab then reads the model as one without the record.
+		local _rec_args `"tt_cns `"`_cns_str'"'"'
+		if "`terms'" != "" local _rec_args `"`_rec_args' tt_levels `"`_lev_str'"'"'
+		capture {
+			_tabtools_fitcount_rec `_rec_args'
+			quietly collect get r(), tags(cmdset[`_k'])
+		}
+		if _rc {
+			noisily display as text "(tabtools fitcount: the record of the fit's notes and sample levels could not be stored (error " _rc "); regtab reads model `_k' without it)"
 		}
 
 		noisily display as text "tabtools fitcount (model `_k', " as result "`_n_sample'" as text " obs): events " ///
@@ -396,3 +462,25 @@ program define _tabtools_fitcount, rclass
 	if `rc' exit `rc'
 end
 
+* =============================================================================
+* _tabtools_fitcount_rec: string records of tabtools fitcount, as r() macros
+* =============================================================================
+* Usage: _tabtools_fitcount_rec <name> `"<text>"' [<name> `"<text>"' ...]
+* Returns each text as r(<name>), so collect get r() stores it whatever its
+* length (collect get name = ("...") is limited to 2,045 bytes).
+capture program drop _tabtools_fitcount_rec
+program define _tabtools_fitcount_rec, rclass
+	version 17.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		while `"`0'"' != "" {
+			gettoken _nm 0 : 0
+			gettoken _tx 0 : 0
+			return local `_nm' `"`_tx'"'
+		}
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end

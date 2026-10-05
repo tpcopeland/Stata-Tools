@@ -137,7 +137,8 @@ the sample. The variable must exist for every outcome.
 
 {phang}
 {opt format()}, {opt sep()}, and {opt ratiolabel()} format the ratio cells and
-their headers, as in {helpb tabcell}.
+their headers, as in {helpb tabcell}; {opt sep()} prints as typed in every
+output, see {help tabtools##sep:interval separators}.
 
 {phang}
 {opt smallcells(#)} prints events or totals from 1 to #-1 as {cmd:<}# (through

@@ -1,4 +1,4 @@
-*! puttab Version 2.4.0  2026/10/05
+*! puttab Version 2.5.0  2026/10/06
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -83,7 +83,8 @@ program define puttab, rclass
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
+                  BLOCKheader ]
         }
         else {
             syntax [anything(name=vlist)] [if] [in] [using/] , ///
@@ -96,7 +97,8 @@ program define puttab, rclass
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ///
+                  BLOCKheader ]
         }
 
         * matrix(): a matrix name, r(name), or e(name); copy it now.
@@ -134,6 +136,7 @@ program define puttab, rclass
 
         * Auto-load shared helper programs
         capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
@@ -303,6 +306,25 @@ program define puttab, rclass
         }
 
         * ----- panel()/panelheader()/spanheader() (O2, O3) -----
+        * blockheader: a spanning row of block (model) names over the header
+        * row of statistic labels, read from char c#[tabtools_block] that
+        * regtab puts on a flat frame's columns. The header row is the
+        * variable labels, so blockheader implies varlabels.
+        if "`blockheader'" != "" {
+            if "`noheader'" != "" {
+                noisily display as error "blockheader requires a header row; remove noheader"
+                exit 198
+            }
+            if strtrim(`"`macval(spanheader)'"') != "" {
+                noisily display as error "blockheader and spanheader() may not be combined: both write the spanning row"
+                exit 198
+            }
+            if "`_src'" == "matrix" {
+                noisily display as error "blockheader reads variable characteristics; it is not allowed with matrix()"
+                exit 198
+            }
+            local varlabels "varlabels"
+        }
         local panel = strtrim(`"`panel'"')
         local _has_panel = (`"`panel'"' != "")
         local _has_phdr = (strtrim(`"`panelheader'"') != "")
@@ -405,6 +427,29 @@ program define puttab, rclass
                     local _pt_pvars "`_pt_pvars' `_pt_phvars'"
                 }
             }
+            * Key columns: a variable marked char <var>[tabtools_key] 1 (the
+            * row keys regtab adds with frame(name, flat keys)) is for the
+            * caller's own merges and rules, not the table. It is exported
+            * only when the varlist names it literally; without a varlist,
+            * or matched by a wildcard or range, it is left out of every
+            * sink. Variables without the characteristic are unaffected.
+            * A wildcard or range token never equals a variable name, so a
+            * key is named literally exactly when it is one of the tokens.
+            local _pt_keys ""
+            local _pt_vtok : copy local vlist
+            quietly ds
+            foreach _v in `r(varlist)' {
+                mata: st_local("_kc", strtrim(st_global("`_v'[tabtools_key]")))
+                if "`_kc'" == "1" {
+                    local _lit : list _v in _pt_vtok
+                    if !`_lit' local _pt_keys "`_pt_keys' `_v'"
+                }
+            }
+            local _pt_keys : list _pt_keys - _pt_pvars
+            local _pt_keys = strtrim("`_pt_keys'")
+            if "`_pt_keys'" != "" {
+                noisily display as text "(puttab: key column(s) `_pt_keys' not exported; name them in the varlist to export them)"
+            }
             * Row subset (if/in) is marked on the caller's observations as
             * they are numbered in the source, before anything is dropped, so
             * -in 1- means observation 1 of the data the user sees. The mark
@@ -441,6 +486,7 @@ program define puttab, rclass
                     if `_hasifin' local _hdrvars : list _hdrvars - _touse
                 }
                 local _hdrvars : list _hdrvars - _pt_pvars
+                local _hdrvars : list _hdrvars - _pt_keys
                 if `"`_hdrvars'"' != "" & `_hdr_in_sel' {
                     mata: st_local("_hdr_dup", ///
                         strofreal(_puttab_is_headerrow("`_hdrvars'")))
@@ -454,15 +500,29 @@ program define puttab, rclass
             if `"`vlist'"' != "" {
                 unab _keepvars : `vlist'
                 local _keepvars : list _keepvars - _pt_pvars
+                local _keepvars : list _keepvars - _pt_keys
+                if "`_keepvars'" == "" {
+                    noisily display as error "source contains no variables to export"
+                    exit 111
+                }
                 keep `_keepvars' `_pt_pvars'
                 order `_keepvars'
             }
             quietly ds
             local _srcvars `r(varlist)'
             local _srcvars : list _srcvars - _pt_pvars
+            local _srcvars : list _srcvars - _pt_keys
             if "`_srcvars'" == "" {
                 noisily display as error "source contains no variables to export"
                 exit 111
+            }
+            * blockheader: spans from the exported columns' characteristics,
+            * read now, while the source variables still exist
+            if "`blockheader'" != "" {
+                mata: _puttab_block_spans("`_srcvars'")
+                if `_nspan' == 0 {
+                    noisily display as text "(puttab: no exported column has char c#[tabtools_block]; blockheader adds no row)"
+                }
             }
             quietly count
             if r(N) == 0 {
@@ -538,10 +598,14 @@ program define puttab, rclass
                 noisily display as error `"spanheader(): `macval(_sp_err)'"'
                 exit `_sp_rc'
             }
+        }
+        * the span row, from spanheader() or blockheader; labels are data,
+        * written from the locals by Mata, never re-expanded
+        if `_nspan' > 0 {
             local _span_at = `_titlerows' + 1
             quietly insobs 1, before(`_span_at')
             forvalues _i = 1/`_nspan' {
-                quietly replace c`_sp_c1`_i'' = `"`macval(_sp_lab`_i')'"' in `_span_at'
+                mata: _puttab_put(`_span_at', "c`_sp_c1`_i''", st_local("_sp_lab`_i'"))
             }
         }
         local _span_rows = (`_nspan' > 0)
@@ -613,6 +677,8 @@ program define puttab, rclass
             local _mdappend_opt ""
             if "`mdappend'" != "" local _mdappend_opt "append"
             local _md_novarnames ""
+            local _md_hs = `_header_row'
+            local _md_ds = `_data_start'
             if "`noheader'" != "" local _md_novarnames "novarnames"
             * The header row puttab built is the intended header, blanks
             * included: a matrix() table leaves the row-label column's header
@@ -620,6 +686,21 @@ program define puttab, rclass
             * filled a blank header cell from the variable name, so the
             * Markdown header read "c1".
             else local _md_novarnames "strictheaders"
+            * A GFM table cannot omit its header row. Under noheader with
+            * panel(), the first body row is a panel heading, a panel header
+            * or (panelinline) both in one: in the workbook it is ruled and
+            * bold like a header, so in Markdown it takes the header slot
+            * instead of an empty "|  |  |" line above it. Without such a
+            * row the header line stays blank: data never becomes a header.
+            if "`noheader'" != "" & `_ndatarows' > 1 {
+                local _md_lead `_pt_hrows' `_pt_phrows' `_pt_ihrows'
+                local _md_lead : list posof "1" in _md_lead
+                if `_md_lead' {
+                    local _md_hs = `_data_start'
+                    local _md_ds = `_data_start' + 1
+                    local _md_novarnames "strictheaders"
+                }
+            }
             local _sink "markdown"
             * keepblank: every exported observation is data, so one that is
             * missing in every column stays a Markdown body row, as it does in
@@ -646,7 +727,7 @@ program define puttab, rclass
                 }
             }
             capture noisily _tabtools_markdown_write using `"`markdown'"', ///
-                `_mdappend_opt' headerstart(`_header_row') datastart(`_data_start') ///
+                `_mdappend_opt' headerstart(`_md_hs') datastart(`_md_ds') ///
                 dataend(`_last_data_row') keepblank `_md_boldopt' ///
                 title(`"`macval(title)'"') footnote(`"`macval(footnote)'"') `_md_novarnames'
             local _md_rc = _rc
@@ -1009,6 +1090,8 @@ capture mata: mata drop _puttab_panelize()
 capture mata: mata drop _puttab_span_parse()
 capture mata: mata drop _puttab_fn_locals()
 capture mata: mata drop _puttab_span_err()
+capture mata: mata drop _puttab_block_spans()
+capture mata: mata drop _puttab_put()
 
 * matastrict is a session setting: save the caller's value here and
 * restore it after the block, so loading this file never leaks it.
@@ -1412,6 +1495,65 @@ void _puttab_span_parse(string scalar spec, real scalar K)
     if (n == 0) {
         _puttab_span_err(198, "no span given")
         return
+    }
+    st_local("_nspan", strofreal(n))
+}
+
+// Store text in one cell of a string variable, widening a str# variable
+// first (st_sstore() truncates to the storage width; -replace- would widen).
+void _puttab_put(real scalar i, string scalar v, string scalar s)
+{
+    string scalar t
+    real scalar w
+
+    t = st_vartype(v)
+    if (t != "strL") {
+        w = strtoreal(substr(t, 4, .))
+        if (strlen(s) > w) {
+            if (strlen(s) <= 2045) stata("quietly recast str" + strofreal(strlen(s)) + " " + v)
+            else stata("quietly recast strL " + v)
+        }
+    }
+    st_sstore(i, v, s)
+}
+
+// blockheader: spans from char c#[tabtools_block] (the block name) and
+// c#[tabtools_block_id] (its identity) of the exported columns, in export
+// order, posted as spanheader() posts them: _nspan, _sp_lab#, _sp_c1#,
+// _sp_c2#. A span is a run of adjacent columns with the same non-empty id
+// and the same name; a column whose name is blank (the row-label column, a
+// column the caller added) has no span; a named column without an id is a
+// span of its own, since equal names are not evidence of one block.
+void _puttab_block_spans(string scalar varlist)
+{
+    string rowvector vars
+    string scalar nm, id
+    real scalar j, K, n, c1
+
+    vars = tokens(varlist)
+    K = cols(vars)
+    n = 0
+    j = 1
+    while (j <= K) {
+        nm = strtrim(st_global(vars[j] + "[tabtools_block]"))
+        id = st_global(vars[j] + "[tabtools_block_id]")
+        if (nm == "") {
+            j++
+            continue
+        }
+        c1 = j
+        if (id != "") {
+            while (j < K) {
+                if (st_global(vars[j + 1] + "[tabtools_block_id]") != id) break
+                if (strtrim(st_global(vars[j + 1] + "[tabtools_block]")) != nm) break
+                j++
+            }
+        }
+        n++
+        st_local("_sp_lab" + strofreal(n), nm)
+        st_local("_sp_c1" + strofreal(n), strofreal(c1))
+        st_local("_sp_c2" + strofreal(n), strofreal(j))
+        j++
     }
     st_local("_nspan", strofreal(n))
 }

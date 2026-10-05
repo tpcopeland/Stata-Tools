@@ -1,4 +1,4 @@
-*! stratetab Version 2.4.0  2026/10/05
+*! stratetab Version 2.5.0  2026/10/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -52,6 +52,9 @@ capture putexcel close
 
 * Auto-load shared helper programs if not already in memory
 capture _tabtools_helpers_ready
+if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+* (a session can hold an older _tabtools_common.ado's programs: run,
+* so discard keeps them; this release's Mata must be there too)
 if _rc {
 	capture findfile _tabtools_common.ado
 	if _rc == 0 {
@@ -93,7 +96,15 @@ if `"`cformat'"' != "" {
 	}
 }
 if `digits' == -1 local digits 1
-if `"`sep'"' == "" local sep ", "
+* sep() is data (help tabtools##sep): the default is applied in Mata and the
+* text is joined into the cells by Mata, never re-expanded
+mata: st_local("sep", st_local("sep") == "" ? ", " : st_local("sep"))
+* a decimal-comma cformat() with a comma in sep(): a warning, as before
+* printed (regtab and effecttab refuse it)
+mata: st_local("_sep_comma", strofreal(strpos(st_local("sep"), ",") > 0))
+if `_sep_comma' & ustrregexm(`"`cformat'"', "^%-?0?[0-9]*,") {
+	di as text "(stratetab: cformat(`cformat') writes a decimal comma and the interval separator holds a comma: the two limits are hard to tell apart (help tabtools##sep))"
+}
 * Small cells: explicit option > session default (tabtools set smallcells)
 * > none. nosmallcells switches a session default off for this call.
 if `smallcells' != -1 & "`nosmallcells'" != "" {
@@ -769,20 +780,21 @@ forvalues e = 1/`n_exposures' {
 			if missing(`Lower_o`o'_e`e'_`i'') | missing(`Upper_o`o'_e`e'_`i'') {
 				local rt_fmt `"`rt_fmt' (–)"'
 			}
-			else if `"`cformat'"' != "" {
-				local rt_fmt = `"`rt_fmt'"' + ///
-					" (" + strtrim(string(`Lower_o`o'_e`e'_`i'', "`cformat'")) + ///
-					`"`sep'"' + strtrim(string(`Upper_o`o'_e`e'_`i'', "`cformat'")) + ")"
-			}
 			else {
-				local rt_fmt = `"`rt_fmt'"' + ///
-					" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ///
-					`"`sep'"' + strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f")) + ")"
+				if `"`cformat'"' != "" {
+					local _lo_txt = strtrim(string(`Lower_o`o'_e`e'_`i'', "`cformat'"))
+					local _hi_txt = strtrim(string(`Upper_o`o'_e`e'_`i'', "`cformat'"))
+				}
+				else {
+					local _lo_txt = strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+					local _hi_txt = strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
+				}
+				mata: st_local("rt_fmt", st_local("rt_fmt") + " (" + st_local("_lo_txt") + st_local("sep") + st_local("_hi_txt") + ")")
 			}
 			if `_masked' local rt_fmt "–"
 			if `_zero_cell' local rt_fmt `"`_zero_txt'"'
 			if `_nopt' local rt_fmt ""
-			quietly replace c`col' = `"`rt_fmt'"' in `new'
+			quietly replace c`col' = `"`macval(rt_fmt)'"' in `new'
 			local col = `col' + 1
 
 			* Rate Ratio (IRR) if requested
@@ -802,12 +814,13 @@ forvalues e = 1/`n_exposures' {
 					quietly replace c`col' = "–" in `new'
 				}
 				else {
-					local irr_fmt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
-						" (" + strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ///
-						`"`sep'"' + strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f")) + ")"
+					local _est_txt = strtrim(string(round(`IRR_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
+					local _lo_txt = strtrim(string(round(`IRRlo_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
+					local _hi_txt = strtrim(string(round(`IRRhi_o`o'_e`e'_`i'', `_runit'), "%11.`ratiodigits'f"))
+					mata: st_local("irr_fmt", st_local("_est_txt") + " (" + st_local("_lo_txt") + st_local("sep") + st_local("_hi_txt") + ")")
 					* a ratio whose numerator or reference count is masked is withheld
 					if `_masked' | `_ref_masked_o`o'_e`e'_`i'' local irr_fmt "–"
-					quietly replace c`col' = `"`irr_fmt'"' in `new'
+					quietly replace c`col' = `"`macval(irr_fmt)'"' in `new'
 				}
 				local col = `col' + 1
 			}

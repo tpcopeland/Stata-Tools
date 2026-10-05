@@ -1,4 +1,4 @@
-*! _regtab_frameopts Version 2.4.0  2026/10/05
+*! _regtab_frameopts Version 2.5.0  2026/10/06
 *! parse and check frame() and eplotframe()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -8,7 +8,8 @@
 * =============================================================================
 * Usage: _regtab_frameopts `"<eplotframe>"' `"<frame>"'
 * Returns _eplotframe_name, _eplotframe_replace, _displayframe_name,
-* _displayframe_replace, and _displayframe_flat in the caller.
+* _displayframe_replace, _displayframe_flat, and _displayframe_keys in the
+* caller.
 capture program drop _regtab_frameopts
 program define _regtab_frameopts, nclass
 	version 17.0
@@ -48,6 +49,7 @@ program define _regtab_frameopts, nclass
 		local _displayframe_name ""
 		local _displayframe_replace 0
 		local _displayframe_flat 0
+		local _displayframe_keys 0
 		if `"`frame'"' != "" {
 			local _fr_spec = subinstr(strtrim(`"`frame'"'), char(34), "", .)
 			gettoken _displayframe_name _fr_rest : _fr_spec, parse(",")
@@ -59,15 +61,22 @@ program define _regtab_frameopts, nclass
 				noisily display as error "frame() must start with a valid Stata frame name"
 				exit 198
 			}
-			* Suboptions replace and flat, in any order. flat writes one row
-			* per body line with the printed headers as variable labels.
+			* Suboptions replace, flat, and keys, in any order. flat writes one
+			* row per body line with the printed headers as variable labels;
+			* keys adds the key variables (_order, _term, _rowtype, _state#)
+			* to a flat frame.
 			foreach _fr_w of local _fr_rest {
 				if `"`_fr_w'"' == "replace" local _displayframe_replace 1
 				else if `"`_fr_w'"' == "flat" local _displayframe_flat 1
+				else if `"`_fr_w'"' == "keys" local _displayframe_keys 1
 				else {
-					noisily display as error "frame() only allows the replace and flat suboptions"
+					noisily display as error "frame() only allows the replace, flat, and keys suboptions"
 					exit 198
 				}
+			}
+			if `_displayframe_keys' & !`_displayframe_flat' {
+				noisily display as error "frame(): keys requires flat, as in frame(`_displayframe_name', flat keys)"
+				exit 198
 			}
 		}
 		if `"`_displayframe_name'"' != "" & ///
@@ -102,6 +111,7 @@ program define _regtab_frameopts, nclass
 		c_local _displayframe_name `"`_displayframe_name'"'
 		c_local _displayframe_replace `_displayframe_replace'
 		c_local _displayframe_flat `_displayframe_flat'
+		c_local _displayframe_keys `_displayframe_keys'
 	}
 	local _rc = _rc
 	set varabbrev `_orig_varabbrev'

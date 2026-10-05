@@ -1,4 +1,4 @@
-*! effecttab Version 2.4.0  2026/10/05
+*! effecttab Version 2.5.0  2026/10/06
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -12,7 +12,7 @@ DESCRIPTION:
 
 SYNTAX:
 	effecttab, [xlsx(string) sheet(string) type(string) effect(string) models(string)
-	           sep(string asis) title(string) clean tlabels(string asis)]
+	           sep(string) title(string) clean tlabels(string asis)]
 
 	xlsx:    Optional. Excel file name (requires .xlsx suffix). Omit for console,
 	         frame(), csv(), or markdown() output only
@@ -62,6 +62,9 @@ program define effecttab, rclass
 
 	* Auto-load shared helper programs if not already in memory
 	capture _tabtools_helpers_ready
+	if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+	* (a session can hold an older _tabtools_common.ado's programs: run,
+	* so discard keeps them; this release's Mata must be there too)
 	if _rc {
 		capture findfile _tabtools_common.ado
 		if _rc == 0 {
@@ -79,7 +82,7 @@ program define effecttab, rclass
 	}
 	_tabtools_require_helpers
 
-	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
+	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string) type(string) effect(string) ///
 	        models(string) title(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full FONT(string) FONTSIZE(integer -1) digits(integer -1) ///
@@ -396,16 +399,20 @@ quietly {
 	_tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
-		* syntax, string asis preserves the user's balanced outer quote layer.
-		* Remove that one layer before forwarding the delimiter to collect.
-		if `"`sep'"' != "" {
-			_tabtools_strip_outer_quotes, text(`"`sep'"')
-			local sep `"`r(text)'"'
-		}
-		if `"`sep'"' == "" local sep ", "
+		* sep() is data (help tabtools##sep): syntax read it as it reads every
+		* string option (the rule all tabtools commands share); the default is
+		* applied in Mata, and the text then lives in this local only, read by
+		* Mata into the table, never re-expanded or handed to collect.
+		mata: st_local("sep", _tt_sep_parse(st_local("sep")))
+		* The renderer joins the two bounds with a private delimiter no number
+		* holds; the bounds are split on it and joined with sep() below. Two
+		* bytes, as long as the default ", ", so the columns the renderer makes
+		* keep the storage widths they have under the default.
+		local _ci_tok "~|"
 		* A comma-decimal cformat() (%9,2f) prints "0,45"; with a comma in the CI
 		* separator the two bounds could not be told apart: refused.
-		if `"`_cfmt'"' != "" & strpos(`"`sep'"', ",") {
+		mata: st_local("_sep_comma", strofreal(strpos(st_local("sep"), ",") > 0))
+		if `"`_cfmt'"' != "" & `_sep_comma' {
 		    if ustrregexm(`"`_cfmt'"', "^%-?0?[0-9]*,") {
 		        noisily display as error `"cformat(`_cfmt') uses a decimal comma; choose a sep() without a comma, such as sep(" to ") or sep("; ")"'
 		        exit 198
@@ -678,8 +685,10 @@ quietly {
 		* Otherwise sep(",") is indistinguishable from thousands separators and
 		* silently corrupts the numeric CI bounds posted to eplotframe().
 		collect style cell result[_r_b], warn nformat(%`=`digits'+2'.`digits'f) halign(center) valign(center)
+		* The renderer never reads collect's delimiter, and collect re-expands
+		* the text it is given: sep() is not handed to it.
 		collect style cell result[_r_ci], warn nformat(%`=`digits'+3'.`digits'f) sformat("(%s)") ///
-	        cidelimiter("`sep'") halign(center) valign(center)
+	        cidelimiter(", ") halign(center) valign(center)
 	collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(center)
 	collect style column, dups(center)
 	collect style row stack, nodelimiter nospacer indent length(.) ///
@@ -797,7 +806,7 @@ quietly {
 				local _cihi_s : display `_from_fmt' `_cihi'
 				local _cilo_s = strtrim("`_cilo_s'")
 				local _cihi_s = strtrim("`_cihi_s'")
-				qui replace c2 = "(`_cilo_s'`sep'`_cihi_s')" in `_obs'
+				qui replace c2 = "(`_cilo_s'`_ci_tok'`_cihi_s')" in `_obs'
 			}
 			if !missing(`_pv') {
 				qui replace c3 = string(`_pv', "%21.0g") in `_obs'
@@ -876,13 +885,13 @@ quietly {
 
 		if `_et_eqrows' {
 			capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
-				coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") ///
+				coldim(cmdset) results(_r_b _r_ci _r_p) sep("`_ci_tok'") ///
 				omitmap rowkeys parentkeys uniquekeys
 		}
 		else {
 			capture _tabtools_collect_render, type(main) rowdim(colname) ///
 				rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
-				results(_r_b _r_ci _r_p) sep("`sep'") `_fp_opt' omitmap rowkeys ///
+				results(_r_b _r_ci _r_p) sep("`_ci_tok'") `_fp_opt' omitmap rowkeys ///
 				eqlevels("`_te_eqlevels'") uniquekeys
 		}
 		local _collect_render_rc = _rc
@@ -1255,7 +1264,15 @@ quietly {
 	capture drop _omit_type*
 
 	* Normalize and reformat CI cells without changing numeric return values.
-	local _ci_sep_len = strlen(`"`sep'"')
+	* Every interval arrives with the private delimiter between its bounds
+	* (the renderer's and the from() matrix's alike); it is split there, on
+	* numbers only, and joined with sep(), which enters the table only as
+	* the value of a variable stored from Mata (help tabtools##sep).
+	local _ci_sep_len = strlen("`_ci_tok'")
+	tempvar _ci_sepv
+	quietly generate strL `_ci_sepv' = ""
+	mata: st_sstore(., st_local("_ci_sepv"), J(st_nobs(), 1, st_local("sep")))
+	mata: st_local("_ci_fmt_type", strlen(st_local("sep")) + 250 > 2045 ? "strL" : "str" + strofreal(strlen(st_local("sep")) + 250))
 	forvalues i = 2(3)`n' {
 		capture confirm variable c`i'
 		if _rc == 0 {
@@ -1265,20 +1282,13 @@ quietly {
 				replace c`i' = subinstr(c`i', "( ", "(", .) if _n >= 3
 				quietly count if strpos(c`i', "( ") > 0 & _n >= 3
 			}
-			if `"`sep'"' == ", " {
-				quietly count if strpos(c`i', ",  ") > 0 & _n >= 3
-				while r(N) > 0 {
-					replace c`i' = subinstr(c`i', ",  ", ", ", .) if _n >= 3
-					quietly count if strpos(c`i', ",  ") > 0 & _n >= 3
-				}
-			}
 			tempvar _ci_raw _ci_body _ci_pos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
 			gen str244 `_ci_raw' = strtrim(c`i') if _n >= 3
 			gen str244 `_ci_body' = `_ci_raw'
 			replace `_ci_body' = substr(`_ci_body', 2, length(`_ci_body') - 2) ///
 				if length(`_ci_body') >= 2 & substr(`_ci_body', 1, 1) == "(" ///
 				& substr(`_ci_body', length(`_ci_body'), 1) == ")"
-			gen int `_ci_pos' = strpos(`_ci_body', `"`sep'"')
+			gen int `_ci_pos' = strpos(`_ci_body', "`_ci_tok'")
 			gen str122 `_ci_lo_s' = strtrim(substr(`_ci_body', 1, `_ci_pos' - 1)) if `_ci_pos' > 0
 			gen str122 `_ci_hi_s' = strtrim(substr(`_ci_body', `_ci_pos' + `_ci_sep_len', .)) if `_ci_pos' > 0
 			replace `_ci_lo_s' = subinstr(`_ci_lo_s', ",", "", .)
@@ -1294,14 +1304,19 @@ quietly {
 					if _n >= 3 & `_ci_lo' < . & missing(_eplot_ll`_model_ix')
 				replace _eplot_ul`_model_ix' = `_ci_hi' ///
 					if _n >= 3 & `_ci_hi' < . & missing(_eplot_ul`_model_ix')
-				gen str244 `_ci_fmt' = ""
-			replace `_ci_fmt' = "(" + strtrim(string(`_ci_lo', "`coef_fmt'")) + `"`sep'"' + ///
+				gen `_ci_fmt_type' `_ci_fmt' = ""
+			replace `_ci_fmt' = "(" + strtrim(string(`_ci_lo', "`coef_fmt'")) + `_ci_sepv' + ///
 				strtrim(string(`_ci_hi', "`coef_fmt'")) + ")" ///
 				if `_ci_lo' < . & `_ci_hi' < . & _n >= 3
+			* an interval with a bound that is not a number keeps its bounds
+			* as rendered, joined by sep()
+			replace `_ci_fmt' = "(" + `_ci_lo_s' + `_ci_sepv' + `_ci_hi_s' + ")" ///
+				if `_ci_fmt' == "" & `_ci_pos' > 0 & _n >= 3
 			replace c`i' = `_ci_fmt' if `_ci_fmt' != "" & _n >= 3
 			drop `_ci_raw' `_ci_body' `_ci_pos' `_ci_lo_s' `_ci_hi_s' `_ci_lo' `_ci_hi' `_ci_fmt'
 		}
 	}
+	drop `_ci_sepv'
 
 	* Format p-values
 	forvalues i = 3(3)`n' {

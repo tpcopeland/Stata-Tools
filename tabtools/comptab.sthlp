@@ -233,10 +233,12 @@ applies to the model columns; format rates in {helpb stratetab} or
 {phang}
 {opt cisep(string)} sets the separator between the interval limits, for
 example {cmd:cisep(" to ")}, in every output (console, Excel, CSV, Markdown,
-and frames). With {opt cformat()} the intervals are rebuilt from the numbers;
-without it the "(a, b)" text is rewritten exactly, and an interval in any
-other form is an error. (The name is {opt cisep()} because {opt separator()}
-already draws row borders.)
+and frames), printed as typed; see {help tabtools##sep:interval separators}. With {opt cformat()}
+the intervals are rebuilt from the numbers and take {opt cisep()}, or
+{cmd:", "} without it, whatever separator the source frames hold; without
+{opt cformat()} the "(a, b)" text is rewritten exactly, and an interval in
+any other form is an error. (The name is {opt cisep()} because
+{opt separator()} already draws row borders.)
 
 {phang}
 {opt allmodels}, {opt keyed}, and {opt modelonly} extend rate mode to several
