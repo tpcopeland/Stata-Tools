@@ -160,6 +160,12 @@ local test_files "`test_files' test_tabtools_set_v240.do"
 local test_files "`test_files' test_tabcell_v240.do"
 local test_files "`test_files' test_puttab_v240.do"
 local test_files "`test_files' test_desctab_v240.do"
+* 2.5.0 features
+local test_files "`test_files' test_regtab_v250.do"
+local test_files "`test_files' test_regtab_stats_v250.do"
+local test_files "`test_files' test_puttab_v250.do"
+local test_files "`test_files' test_tabcell_v250.do"
+local test_files "`test_files' test_sep_v250.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"

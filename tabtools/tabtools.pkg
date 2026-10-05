@@ -28,7 +28,7 @@ d
 d Requires: Stata version 17+ (all commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d
-d Distribution-Date: 20261005
+d Distribution-Date: 20261006
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -68,17 +68,22 @@ f regtab.sthlp
 f _regtab_activeb.ado
 f _regtab_addcol.ado
 f _regtab_addrow.ado
+f _regtab_bnotes.ado
 f _regtab_cellnote.ado
+f _regtab_classes.ado
 f _regtab_cmdopts.ado
 f _regtab_cmdsets.ado
 f _regtab_collabels.ado
 f _regtab_eqkeys.ado
 f _regtab_estats.ado
+f _regtab_fitrec.ado
 f _regtab_flatten.ado
 f _regtab_frameopts.ado
 f _regtab_fvbase.ado
 f _regtab_fvparent.ado
+f _regtab_keys.ado
 f _regtab_methods.ado
+f _regtab_mincount.ado
 f _regtab_modelnoun.ado
 f _regtab_mstats.ado
 f _regtab_optstr.ado

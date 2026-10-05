@@ -1,4 +1,4 @@
-*! _tabtools_markdown_write Version 2.4.0  2026/10/05
+*! _tabtools_markdown_write Version 2.5.0  2026/10/06
 *! Write the current dataset as a GitHub-Flavored Markdown table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -13,6 +13,7 @@ program define _tabtools_markdown_write, rclass
             NOVARNAMES STRICTHeaders KEEPBlank BOLDRows(numlist >0 integer)]
 
         capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {

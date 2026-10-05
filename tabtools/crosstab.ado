@@ -1,4 +1,4 @@
-*! crosstab Version 2.4.0  2026/10/05
+*! crosstab Version 2.5.0  2026/10/06
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -33,6 +33,7 @@ capture noisily {
 
     * Auto-load shared helper programs
     capture _tabtools_helpers_ready
+    if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {

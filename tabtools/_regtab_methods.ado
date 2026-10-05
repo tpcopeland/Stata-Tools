@@ -1,4 +1,4 @@
-*! _regtab_methods Version 2.4.0  2026/10/05
+*! _regtab_methods Version 2.5.0  2026/10/06
 *! regtab block: the methods sentence (r(methods))
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -37,7 +37,7 @@ else if `"`macval(coef)'"' == "HR" {
     if `_meta_models' > 0 {
         gettoken _methods_word : model_cmdline_1
         local _methods_word = lower(`"`_methods_word'"')
-        if inlist("`_methods_word'", "streg", "mestreg") {
+        if inlist("`_methods_word'", "streg", "stintreg", "mestreg") {
             local _methods_model "parametric proportional hazards survival regression"
         }
         else if "`_methods_word'" == "mecloglog" {
@@ -88,6 +88,8 @@ if !`_model_headers_mixed' & `_meta_models' > 0 {
     local _mn_n = 0
     local _madjs ""
     forvalues m = 1/`_meta_models' {
+        * a cmdset without command metadata (a failed fit) names no model
+        if `"`model_cmdline_`m''`model_cmd_`m''"' == "" continue
         _regtab_modelnoun "`model_cmdword_`m''" `"`model_optstr_`m''"' ///
             "`model_coef_`m''" "`model_prefix_`m''"
         local _seen = 0

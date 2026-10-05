@@ -1,4 +1,4 @@
-*! outtab Version 2.4.0  2026/10/05
+*! outtab Version 2.5.0  2026/10/06
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -64,7 +64,16 @@ program define outtab, rclass
             exit 198
         }
         if `"`format'"' == "" local format "%4.2f"
-        if `"`sep'"' == "" local sep ", "
+        * sep() is data (help tabtools##sep): read and written in Mata only,
+        * never re-expanded; _sep_opt hands it to tabcell unchanged
+        mata: st_local("sep", st_local("sep") == "" ? ", " : st_local("sep"))
+        mata: st_local("_sep_opt", "sep(" + (strpos(st_local("sep"), char(34)) ? char(96) + char(34) + st_local("sep") + char(34) + char(39) : char(34) + st_local("sep") + char(34)) + ")")
+        * a decimal-comma format() with a comma in sep(): a warning, as before
+        * printed (regtab and effecttab refuse it)
+        mata: st_local("_sep_comma", strofreal(strpos(st_local("sep"), ",") > 0))
+        if `_sep_comma' & ustrregexm(`"`format'"', "^%-?0?[0-9]*,") {
+            display as text "(outtab: format(`format') writes a decimal comma and the interval separator holds a comma: the two limits are hard to tell apart (help tabtools##sep))"
+        }
         if `"`ratiolabel'"' == "" local ratiolabel "RR"
         capture confirm numeric format `format'
         if _rc | regexm(`"`format'"', "^%-?t") {
@@ -335,7 +344,7 @@ program define outtab, rclass
                         }
                         else if (`_frc' == 0) {
                             capture quietly tabcell est, matrix(`_rt'' `exposure') ///
-                                format(`format') sep(`"`sep'"') `eform'
+                                format(`format') `macval(_sep_opt)' `eform'
                             if _rc == 459 | _rc == 111 {
                                 local _cellk "not estimable"
                                 local _frc = 459
@@ -346,7 +355,8 @@ program define outtab, rclass
                                 exit `_trc'
                             }
                             else {
-                                local _cellk `"`r(cell)'"'
+                                * the cell as tabcell printed it, copied in Mata
+                                mata: st_local("_cellk", st_global("r(cell)"))
                                 matrix `_res'[`_ri', 4 + (`_k' - 1) * 4 + 1] = (r(estimate), r(lb), r(ub))
                             }
                         }
@@ -393,7 +403,14 @@ program define outtab, rclass
                     replace `_v' = `"`macval(_vl)'"' in 1
                 }
             }
-            noisily list rowlabel c*, noobs noheader table sepby(`_hd') string(40)
+            * The 2.4.0 layout (string(40)) unless a data cell is longer:
+            * then wide enough that no result (a long sep() among it) is
+            * cut to "..". The header row (obs 1) does not widen it.
+            local _cw 40
+            foreach _v of varlist c* {
+                mata: st_local("_cw", strofreal(max((strtoreal(st_local("_cw")), (st_nobs() >= 2 ? max(udstrlen(st_sdata(2::st_nobs(), st_local("_v")))) : 0)))))
+            }
+            noisily list rowlabel c*, noobs noheader table sepby(`_hd') string(`_cw')
             restore
         }
 

@@ -126,8 +126,8 @@ replaces {opt digits()}; giving both is an error, as are string and date formats
 
 {phang}
 {opt sep(string)} sets the separator between the two limits of the rate and
-rate-ratio intervals; the default is {cmd:", "}. It reaches every output:
-console, Excel, CSV, Markdown, and {opt frame()}.
+rate-ratio intervals; the default is {cmd:", "}. It reaches every output,
+printed as typed: console, Excel, CSV, Markdown, and {opt frame()}; see {help tabtools##sep:interval separators}.
 
 {phang}
 {opt smallcells(#)} prints an event count from 1 to #-1 as {cmd:<}# and

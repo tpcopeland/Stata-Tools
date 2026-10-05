@@ -13,7 +13,7 @@
 {title:Title}
 
 {phang}
-{bf:tabcell} {hline 2} Format one publication cell: estimate (CI), p-value, count, n (%), e/n (%), or median (Q1, Q3)
+{bf:tabcell} {hline 2} Format one publication cell: estimate (CI), p-value, count, n (%), e/n (%), median (Q1, Q3), or rate (CI)
 
 
 {marker syntax}{...}
@@ -23,7 +23,7 @@
 
 {p 8 17 2}
 {cmd:tabcell est} [{it:coef}]
-[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)} {it:store}]
+[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)} {it:store}]
 
 {pstd}where {it:source} is one of{p_end}
 
@@ -45,13 +45,18 @@
 {cmd:tabcell n} {cmd:,} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt ci(exact)} {opt l:evel(#)} {opt sep(string)} {opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt ci(exact)} {opt l:evel(#)} {opt sep(string)} {opt noc:ount} {opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
 {cmd:tabcell enp} {cmd:,} {opt e(#)} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)} {opt sep(string)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt miss:ing(text)} {it:store}]
+
+{pstd}Incidence rate with its confidence interval{p_end}
+
+{p 8 17 2}
+{cmd:tabcell rate} {cmd:,} {opt e(#)} {opt pt(#)} {opt per(#)} [{opt ci(exact|poisson)} {opt l:evel(#)} {opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt min:cell(#)} {opt miss:ing(text)} {it:store}]
 
 {pstd}where {it:store} is {opt loc:al(name)} and/or {opt glob:al(name)}{p_end}
 
@@ -62,8 +67,9 @@
 
 {pstd}
 With {opt generate()}, every numeric option ({opt b()}, {opt ll()}, {opt ul()},
-{opt se()}, {opt p()}, {opt n()}, {opt d()}, {opt e()}, {opt median()},
-{opt q1()}, {opt q3()}) is an expression in the data, evaluated row by row.
+{opt se()}, {opt p()}, {opt n()}, {opt d()}, {opt e()}, {opt pt()},
+{opt median()}, {opt q1()}, {opt q3()}) is an expression in the data,
+evaluated row by row; {opt per()} stays a number.
 
 
 {synoptset 22 tabbed}{...}
@@ -83,7 +89,9 @@ With {opt generate()}, every numeric option ({opt b()}, {opt ll()}, {opt ul()},
 {synopt:{opt p(#)}}p-value ({cmd:p}){p_end}
 {synopt:{opt n(#)}}count ({cmd:n}, {cmd:np}) or total ({cmd:enp}){p_end}
 {synopt:{opt d(#)}}denominator ({cmd:np}){p_end}
-{synopt:{opt e(#)}}events ({cmd:enp}){p_end}
+{synopt:{opt e(#)}}events ({cmd:enp}, {cmd:rate}){p_end}
+{synopt:{opt pt(#)}}person-time ({cmd:rate}){p_end}
+{synopt:{opt per(#)}}rate per # units of person-time ({cmd:rate}){p_end}
 {synopt:{opt med:ian(#)}}median ({cmd:iqr}){p_end}
 {synopt:{opt q1(#)}}first quartile ({cmd:iqr}){p_end}
 {synopt:{opt q3(#)}}third quartile ({cmd:iqr}){p_end}
@@ -91,17 +99,20 @@ With {opt generate()}, every numeric option ({opt b()}, {opt ll()}, {opt ul()},
 {syntab:Format}
 {synopt:{opt eform}}exponentiate the estimate and both limits{p_end}
 {synopt:{opt scale(#)}}multiply estimate and limits by # ({cmd:est}){p_end}
-{synopt:{opt f:ormat(%fmt)}}format of estimate and limits; default {cmd:%9.2f}{p_end}
+{synopt:{opt f:ormat(%fmt)}}format of estimate and limits; see below{p_end}
 {synopt:{opt cf:ormat(%fmt)}}synonym for {opt format()}{p_end}
+{synopt:{opt dig:its(#)}}{opt format(%9.#f)}; # from 0 to 10{p_end}
 {synopt:{opt sep(string)}}separator between the limits; default {cmd:", "}{p_end}
-{synopt:{opt l:evel(#)}}confidence level ({cmd:est}; {cmd:np} with {opt ci()}){p_end}
+{synopt:{opt l:evel(#)}}confidence level ({cmd:est}, {cmd:rate}; {cmd:np} with {opt ci()}){p_end}
 {synopt:{opt ci(exact)}}exact (Clopper-Pearson) interval ({cmd:np}){p_end}
+{synopt:{opt ci(exact|poisson)}}rate interval; default {cmd:exact} ({cmd:rate}){p_end}
+{synopt:{opt noc:ount}}the percentage without its count ({cmd:np}){p_end}
 {synopt:{opt pdp(#)}}decimal places for p < 0.10; default 3{p_end}
 {synopt:{opt highpdp(#)}}decimal places for p >= 0.10; default 2{p_end}
 {synopt:{opt psty:le(style)}}{cmd:table}, {cmd:footnote}, or {cmd:Pfootnote}{p_end}
 {synopt:{opt nf:ormat(%fmt)}}format of counts; default {cmd:%12.0fc}{p_end}
 {synopt:{opt pf:ormat(%fmt)}}format of percentages; default {cmd:%4.1f}{p_end}
-{synopt:{opt min:cell(#)}}print counts from 1 to #-1 as {cmd:<}#{p_end}
+{synopt:{opt min:cell(#)}}withhold counts from 1 to #-1{p_end}
 {synopt:{opt miss:ing(text)}}text for a missing or non-finite value{p_end}
 {synopt:{opt gen:erate(newvar)}}fill a new string variable{p_end}
 
@@ -126,7 +137,11 @@ for the same p-value, {opt pdp()}, and {opt highpdp()}, or, with
 {cmd:tabcell np} prints {it:n} ({it:%}), {cmd:tabcell enp} prints
 {it:e}/{it:n} ({it:%}), and {cmd:tabcell iqr} prints {it:median} ({it:Q1}, {it:Q3}).
 With {cmd:ci(exact)}, {cmd:tabcell np} adds the exact binomial confidence interval of
-the percentage: {it:n} ({it:%}; {it:lower}, {it:upper}).
+the percentage: {it:n} ({it:%}; {it:lower}, {it:upper}), or, with {opt nocount},
+{it:%} ({it:lower}, {it:upper}) alone. {cmd:tabcell rate} prints an incidence
+rate with its confidence interval, {it:rate} ({it:lower}, {it:upper}), for
+example {cmd:12.3 (6.4, 21.5)} for 12 events in 975.6 person-years per 1,000,
+with the intervals {helpb ratetab} uses.
 
 {pstd}
 {opt local()} and {opt global()} store the cell text in a macro as well, so a
@@ -206,13 +221,21 @@ refused by the other forms (a p-value, count, or percentage has no scale).
 
 {phang}
 {opt format(%fmt)} is any Stata numeric display format, applied to the
-estimate and both limits (or the median and quartiles); {cmd:%12.0fc} prints
-thousands separators. String and date formats are refused. The printed
+estimate and both limits (or the median and quartiles, or the rate and its
+limits); {cmd:%12.0fc} prints thousands separators. The default is
+{cmd:%9.2f}, and {cmd:%9.1f} for {cmd:tabcell rate}. String and date formats are refused. The printed
 numbers are trimmed of padding. {opt cformat()} is a synonym.
 
 {phang}
+{opt digits(#)} is shorthand for {cmd:format(%9.}{it:#}{cmd:f)}, # from 0 to 10,
+for the forms that take {opt format()} ({cmd:est}, {cmd:iqr}, and
+{cmd:rate}); it may not be combined with {opt format()}.
+
+{phang}
 {opt sep(string)} separates the two limits; the default is {cmd:", "}. It
-applies to {cmd:est}, {cmd:iqr}, and {cmd:np} with {opt ci()}.
+applies to {cmd:est}, {cmd:iqr}, {cmd:rate}, and {cmd:np} with {opt ci()}, and
+prints as typed in the cell, {cmd:r(cell)}, {opt local()}, {opt global()}, and
+{opt generate()}; see {help tabtools##sep:interval separators}.
 
 {phang}
 {opt level(#)} sets the confidence level; the default is {cmd:c(level)}, or
@@ -235,6 +258,40 @@ whose denominator is 0 prints no percentage and no interval, and a cell masked
 by {opt mincell()} prints {cmd:<}# only; {cmd:r(lb)} and {cmd:r(ub)} are then
 missing. The interval is conservative: its
 coverage is at least the nominal level (see {helpb ci}).
+
+{phang}
+{opt nocount} prints the percentage of {cmd:tabcell np} without the count
+in front of it: {cmd:10.0}, or with {cmd:ci(exact)} {cmd:10.0 (1.2, 31.7)}, the
+interval separated by {opt sep()}. A cell whose denominator is 0 has nothing
+to print and is refused (error 459) unless {opt missing()} gives its text.
+With {opt mincell()}, a cell whose count is masked prints {cmd:–} (an en dash)
+and no number: the percentage, and the interval limits, of a known
+denominator give the count back. {cmd:r(pct)}, {cmd:r(lb)}, and {cmd:r(ub)}
+are then missing. It works with {opt generate()}, {opt local()}, and
+{opt global()} as the other forms do.
+
+{phang}
+{opt e(#)}, {opt pt(#)}, and {opt per(#)} give {cmd:tabcell rate} its events,
+person-time, and the unit of the rate: the rate is {it:e}/{it:pt} x {it:per},
+so {cmd:per(1000)} with person-time in years prints the rate per 1,000
+person-years. {opt per()} is required and is a positive number, also with
+{opt generate()}. Events and person-time must be nonnegative; events with no
+person-time are an error (198), and a cell with neither events nor
+person-time has no rate and is refused (459) unless {opt missing()} gives its
+text. The default format is {cmd:%9.1f}, as {helpb ratetab} prints rates.
+
+{phang}
+{opt ci(exact|poisson)} chooses the interval of {cmd:tabcell rate}; the
+limits are those of {helpb ratetab}. {cmd:ci(exact)}, the default, gives the
+exact Poisson limits of the event count divided by the person-time,
+{cmd:invpoissontail(}{it:e}{cmd:, a/2)} and {cmd:invpoisson(}{it:e}{cmd:, a/2)},
+a = 1 - {opt level()}/100, the interval {cmd:cii means} {it:pt} {it:e}{cmd:, poisson}
+reports ([R] ci, Methods and formulas, Poisson mean); it needs whole-number
+events (error 459 otherwise). {cmd:ci(poisson)} gives {it:rate} x
+exp(-/+ z/sqrt({it:e})), the quadratic approximation to the Poisson log
+likelihood for the log rate that {helpb strate} uses by default. With no
+events, the lower limit is 0 and the upper limit is -ln(a/2)/{it:pt} x
+{it:per} under both choices, as {cmd:ci means, poisson} reports a zero count.
 
 {phang}
 {opt pdp(#)} and {opt highpdp(#)} set the decimal places of p-values below and
@@ -262,8 +319,12 @@ Negative counts and counts larger than their total are refused.
 {phang}
 {opt mincell(#)} prints a count from 1 to #-1 as {cmd:<}#, without its
 percentage; {cmd:tabcell n} masks its count the same way. In {cmd:enp}, a masked event count keeps its total
-({cmd:<5/40}), and a masked total masks the whole cell ({cmd:<5}). Zero is
-printed. This masks printed counts only; it is not complementary
+({cmd:<5/40}), and a masked total masks the whole cell ({cmd:<5}). In
+{cmd:tabcell rate}, a rate with 1 to #-1 events prints {cmd:–} (an en dash),
+the text {helpb ratetab} prints for a withheld rate, because the rate and the
+person-time give the event count back; {cmd:r(rate)}, {cmd:r(lb)}, and
+{cmd:r(ub)} are then missing. {cmd:tabcell np, nocount} also prints {cmd:–}.
+Zero is printed. This masks the one cell only; it is not complementary
 suppression.
 
 {phang}
@@ -326,12 +387,19 @@ p-values.
 {phang2}{cmd:. tabcell enp, e(12) n(74)}{p_end}
 {phang2}{cmd:. tabcell iqr, median(20) q1(18) q3(25) format(%4.0f)}{p_end}
 {phang2}{cmd:. tabcell est, b(.) ll(.) ul(.) missing("did not converge")}{p_end}
+{phang2}{cmd:. tabcell np, n(2) d(20) ci(exact) nocount}{p_end}
+{phang2}{cmd:. tabcell rate, e(12) pt(975.6) per(1000)}{p_end}
+{phang2}{cmd:. tabcell rate, e(12) pt(975.6) per(1000) ci(poisson) level(90) digits(2)}{p_end}
+{phang2}{cmd:. tabcell rate, e(0) pt(975.6) per(1000) local(r0)}{p_end}
+{phang2}{cmd:. tabcell rate, e(3) pt(975.6) per(1000) mincell(5)}{p_end}
 
 {pstd}A column of cells from numeric variables{p_end}
 
 {phang2}{cmd:. generate double lo = price * 0.9}{p_end}
 {phang2}{cmd:. generate double hi = price * 1.1}{p_end}
 {phang2}{cmd:. tabcell est, b(price) ll(lo) ul(hi) format(%12.0fc) generate(price_ci)}{p_end}
+{phang2}{cmd:. generate double py = 1000 * weight}{p_end}
+{phang2}{cmd:. tabcell rate, e(rep78) pt(py) per(100000) generate(rate_ci) missing("")}{p_end}
 
 
 {marker stored}{...}
@@ -351,6 +419,15 @@ Without {opt generate()}, {cmd:tabcell} stores the following in {cmd:r()}:
 {synopt:{cmd:r(pct)}}percentage as computed ({cmd:np} with {opt ci()}){p_end}
 {synopt:{cmd:r(lb)}, {cmd:r(ub)}}limits of the percentage ({cmd:np}, {opt ci()}){p_end}
 {synopt:{cmd:r(level)}}confidence level ({cmd:np} with {opt ci()}){p_end}
+{synopt:{cmd:r(rate)}}rate per {opt per()} as printed ({cmd:rate}){p_end}
+{synopt:{cmd:r(lb)}, {cmd:r(ub)}}limits of the rate ({cmd:rate}){p_end}
+{synopt:{cmd:r(level)}}confidence level ({cmd:rate}){p_end}
+{synopt:{cmd:r(per)}}the unit given in {opt per()} ({cmd:rate}){p_end}
+
+{pstd}
+{cmd:r(pct)}, {cmd:r(rate)}, {cmd:r(lb)}, and {cmd:r(ub)} are missing when the
+cell prints no number: a masked cell, a {opt missing()} cell, or a zero
+denominator.
 
 {pstd}
 With {opt lincom}, {cmd:lincom}'s own scalars are returned as well: those
@@ -366,9 +443,9 @@ as {cmd:r(lincom_estimate)}, {cmd:r(lincom_lb)}, {cmd:r(lincom_ub)}, and
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(cell)}}the cell text{p_end}
-{synopt:{cmd:r(form)}}{cmd:est}, {cmd:p}, {cmd:n}, {cmd:np}, {cmd:enp}, or {cmd:iqr}{p_end}
+{synopt:{cmd:r(form)}}{cmd:est}, {cmd:p}, {cmd:n}, {cmd:np}, {cmd:enp}, {cmd:iqr}, or {cmd:rate}{p_end}
 {synopt:{cmd:r(source)}}{cmd:e()}, {cmd:lincom}, {cmd:nlcom}, {cmd:matrix}, or {cmd:numbers} ({cmd:est}){p_end}
-{synopt:{cmd:r(citype)}}{cmd:exact} ({cmd:np} with {opt ci()}){p_end}
+{synopt:{cmd:r(citype)}}{cmd:exact} ({cmd:np} with {opt ci()}); {cmd:exact} or {cmd:poisson} ({cmd:rate}){p_end}
 
 {pstd}
 With {opt generate()}, it stores {cmd:r(N)} (rows rendered), {cmd:r(N_missing)}

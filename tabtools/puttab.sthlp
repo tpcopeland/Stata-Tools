@@ -41,6 +41,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt dig:its(#)} {opt nf:ormat(%fmt)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
 {opt pan:el(varname)} {opt panelh:eader(spec)} {opt paneli:nline} {opt noind:ent} {opt span:header(spec)}
+{opt block:header}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -51,6 +52,17 @@ restrict rows for the current-data or {opt frame()} source and are not allowed
 with {opt matrix()}. With {opt frame()}, {it:if} and {it:in} are evaluated in
 that frame, so they may name its variables and observation numbers whatever
 the current frame holds.{p_end}
+
+{pstd}A {it:key column}, a variable whose characteristic
+{cmd:char} {it:var}{cmd:[tabtools_key]} is {cmd:1} (the row keys a table
+producer adds for the caller's merges, such as {helpb regtab}'s
+{cmd:frame(}{it:name}{cmd:, flat keys)}), is not exported unless the
+{it:varlist} names it literally. Without a {it:varlist} (a {opt frame()}
+source), or matched only by a wildcard or range such as {cmd:*} or
+{cmd:rowlabel-c6}, it is left out of every sink and of {opt blockheader}, and
+a note lists it. Key columns may still be used in {it:if} and to compute the
+rows given to {opt hlines()} and {opt boldrows()}, which count the exported
+data rows. Variables without the characteristic are unaffected.{p_end}
 
 {pstd}Specify either {cmd:using} {it:filename}{cmd:.xlsx} for Excel output or
 {opt markdown(filename)} for Markdown-only output. {opt open} requires an
@@ -141,6 +153,7 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt paneli:nline}}heading and panel header share one row{p_end}
 {synopt:{opt noind:ent}}do not indent the row labels of a panel{p_end}
 {synopt:{opt span:header(spec)}}spanning column labels above the header{p_end}
+{synopt:{opt block:header}}model names of a flat frame above its header{p_end}
 {synoptline}
 
 
@@ -185,7 +198,13 @@ Excel and CSV exports. Leading spaces of string cells in the first column are wr
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
-{opt noh:eader} omit the header row entirely{p_end}
+{opt noh:eader} omit the header row entirely. A Markdown (GFM) table cannot omit its
+header row, so in Markdown the first {opt panel()} row takes the header's place
+when the table starts with one (a panel heading, a panel header, or a
+{opt panelinline} row, which the workbook rules and bolds like a header);
+without one the Markdown header row is left blank, so data never become a
+header. {cmd:r(markdown_rows)} then counts the body below it. The workbook and
+the CSV carry no header row.{p_end}
 
 {phang}
 {opt open} open the Excel file after export; requires {cmd:using}{p_end}
@@ -317,6 +336,30 @@ a range that ends before it starts, an unquoted or empty label, and {opt noheade
 errors.{p_end}
 
 {phang}
+{opt blockheader} writes the block (model) names of a flat frame from
+{helpb regtab} ({cmd:frame(}{it:name}{cmd:, flat)}) as a spanning row above the
+header row of statistic labels, so each model's name sits over its own
+columns. (Under {cmd:transpose}, and in an {helpb effecttab} flat frame, each
+column's label already holds its full header and there are no block names.) The names come from each exported column's
+{cmd:char c}{it:#}{cmd:[tabtools_block]}, and the columns of one block are found
+from {cmd:char c}{it:#}{cmd:[tabtools_block_id]}, which identifies the block
+(never from equal names, so two models that share a name stay apart). The
+header row is the variable labels, so {opt blockheader} implies
+{opt varlabels}. It reuses {opt spanheader()}'s layout in every sink: in the
+workbook each name is merged across its block's columns, centred, bold, and
+ruled below; the CSV carries the name row with each name in its block's first
+column; and Markdown, which has one header row, reads {it:model}{cmd:, }{it:statistic}
+in each header cell, the full header the frame keeps in
+{cmd:char c}{it:#}{cmd:[tabtools_header]}. A column without the characteristic
+(the row-label column, or a column added to the frame) has a blank cell in the
+name row; a named column without a block identifier is a block of its own; and
+when no exported column has a name, no row is added (a note says so). Not
+allowed with {opt noheader}, {opt spanheader()}, or {opt matrix()}. A
+two-row header is used rather than the joined header as one row because the
+model name is then written once per model, as {cmd:regtab} prints it, and
+Markdown still receives the joined form.{p_end}
+
+{phang}
 {opt fra:me(name)} use the named frame as the source instead of the current dataset{p_end}
 
 {phang}
@@ -439,6 +482,15 @@ decimals.{p_end}
 {phang2}{cmd:. format weight %12.0fc}{p_end}
 {phang2}{cmd:. puttab foreign price weight mpg using table.xlsx, sheet("Weight")}{p_end}
 
+{pstd}{bf:Example 9: Model names over a regtab flat frame}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: logit foreign mpg}{p_end}
+{phang2}{cmd:. collect: logit foreign mpg weight}{p_end}
+{phang2}{cmd:. regtab, frame(models, replace flat) models("Crude" \ "Adjusted")}{p_end}
+{phang2}{cmd:. frame models: puttab rowlabel c* using table.xlsx, sheet("Models") ///}{p_end}
+{phang3}{cmd:blockheader markdown(models.md)}{p_end}
+
 {marker stored}{...}
 {title:Stored results}
 
@@ -450,7 +502,7 @@ decimals.{p_end}
 {synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
 {synopt:{cmd:r(n_datarows)}}data rows, incl. {opt panel()} rows{p_end}
 {synopt:{cmd:r(n_panels)}}number of {opt panel()} heading rows, incl. shared rows{p_end}
-{synopt:{cmd:r(n_spans)}}number of {opt spanheader()} spans (0 without it){p_end}
+{synopt:{cmd:r(n_spans)}}spans of {opt spanheader()} or {opt blockheader} (0 without){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}
 

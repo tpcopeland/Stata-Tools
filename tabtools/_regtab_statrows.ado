@@ -1,4 +1,4 @@
-*! _regtab_statrows Version 2.4.0  2026/10/05
+*! _regtab_statrows Version 2.5.0  2026/10/06
 *! regtab block: model statistics rows below the table body (stats())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -25,6 +25,13 @@ quietly {
 * =========================================================================
 local stats_start_row = 0
 local stats_rows = ""
+* stats_row_ids: one id per stats_rows entry, in the same order, for
+* frame(, flat keys) (_term "stat:<id>"): the built-in word (n for
+* n/n_sub/subjects, aic also when the row shows QICu, F), e(name) or
+* e(name1|name2) for a generic item as typed without options or label, and
+* text(#) for the #th text() item. Built-in words hold no parenthesis and
+* generic e() items are unique, so no two rows share an id.
+local stats_row_ids ""
 if `add_stats' == 1 {
     local stats_start_row = _N + 1
     local use_models = min(`n_stat_models', `n_models')
@@ -89,6 +96,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' n"
         }
     }
 
@@ -110,6 +118,7 @@ if `add_stats' == 1 {
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        local stats_row_ids "`stats_row_ids' `_nt'"
     }
 
     * Add Groups row
@@ -133,6 +142,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' groups"
         }
     }
 
@@ -153,6 +163,7 @@ if `add_stats' == 1 {
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        local stats_row_ids "`stats_row_ids' `_nt'"
     }
 
     * Add AIC row (falls back to QICu for fixed-scale GEE models where AIC is
@@ -196,6 +207,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' aic"
             if "`_aic_label'" == "QICu" local _qicu_rendered_by_aic 1
         }
     }
@@ -221,6 +233,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' qic"
         }
     }
 
@@ -245,6 +258,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' bic"
         }
     }
 
@@ -269,6 +283,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' ll"
         }
     }
 
@@ -294,6 +309,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' icc"
         }
     }
 
@@ -335,6 +351,7 @@ if `add_stats' == 1 {
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' r2"
         }
     }
 
@@ -355,18 +372,42 @@ if `add_stats' == 1 {
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        local stats_row_ids "`stats_row_ids' `_nt'"
     }
 
     * Generic rows, in the order given. e(name): integers with thousands
     * separators, other values to three decimals, or the item's own format;
     * blank where a model lacks it. mincell(#) prints a value from 1 to #-1
-    * as "<#", the package's small-cell text (tabcell, ratetab). e(a|b) prints
+    * as "<#", the package's small-cell text (tabcell, ratetab); a name in
+    * several items takes the strictest mincell() given for it
+    * (_cst_mc_#, _cst_mc2_#, from _regtab_statspec). e(a|b) prints
     * "a (b)", each part formatted and masked alone; "a" alone when b is
-    * missing, and a blank cell when a is. text(): the values as
-    * given, one per model; more values than models is an error.
+    * missing, and a blank cell when a is. text(): the values as given, one
+    * per model; more values than models is an error.
+    * maskwith() (complementary masking, this table only): names in one
+    * group are masked together. In a model where any member prints <#
+    * (primary), every other member with a value prints the withheld text,
+    * the en dash, never a number, so no member gives a masked count back.
     local _n_stmask = 0
+    local _n_stlink = 0
+    local _cst_tk = 0
     local _cst_anymc = 0
+    local _cst_dash = uchar(8211)
     local _cst_mods = min(`n_models', max(`_meta_models', 1))
+    * primary masks first, so a group knows in which models it is masked
+    forvalues _k = 1/`_cst_n' {
+        if "`_cst_kind_`_k''" != "e" continue
+        forvalues m = 1/`_cst_mods' {
+            foreach _s in "" 2 {
+                if "`_s'" == "2" & "`_cst_nm2_`_k''" == "" continue
+                local _x = `_cstv`_s'_`_k'_`m''
+                local _cst_pm`_s'_`_k'_`m' = (`_cst_mc`_s'_`_k'' > 0 & !missing(`_x') & `_x' >= 1 & `_x' < `_cst_mc`_s'_`_k'')
+                if `_cst_pm`_s'_`_k'_`m'' & `_cst_g`_s'_`_k'' > 0 {
+                    local _cst_trig_`_cst_g`_s'_`_k''_`m' = 1
+                }
+            }
+        }
+    }
     forvalues _k = 1/`_cst_n' {
         if "`_cst_kind_`_k''" == "text" & `_cst_tn_`_k'' > `n_models' {
             noisily display as error `"stats(): text("`macval(_cst_lb_`_k')'" ...) has `_cst_tn_`_k'' values for `n_models' models"'
@@ -376,14 +417,16 @@ if `add_stats' == 1 {
         set obs `=`curr_n'+1'
         replace A = `"`macval(_cst_lb_`_k')'"' in `=`curr_n'+1'
         if "`_cst_kind_`_k''" == "text" {
+            local ++_cst_tk
             forvalues m = 1/`_cst_tn_`_k'' {
                 local col = (`m' - 1) * 3 + 1
                 replace c`col' = `"`macval(_cst_tv_`_k'_`m')'"' in `=`curr_n'+1'
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
+            local stats_row_ids "`stats_row_ids' text(`_cst_tk')"
             continue
         }
-        if `_cst_mc_`_k'' > 0 local _cst_anymc = 1
+        if `_cst_mc_`_k'' > 0 | `_cst_mc2_`_k'' > 0 local _cst_anymc = 1
         forvalues m = 1/`_cst_mods' {
             local _cst_cell ""
             foreach _s in "" 2 {
@@ -394,9 +437,16 @@ if `add_stats' == 1 {
                     local _cst_fmt "`_cst_fmt_`_k''"
                     if "`_cst_fmt'" == "" local _cst_fmt = cond(`_cst_int`_s'_`_k'', "%12.0fc", "%12.3f")
                     local _cst_txt = strtrim(string(`_x', "`_cst_fmt'"))
-                    if `_cst_mc_`_k'' > 0 & `_x' >= 1 & `_x' < `_cst_mc_`_k'' {
-                        local _cst_txt "<`_cst_mc_`_k''"
+                    local _cst_gs = `_cst_g`_s'_`_k''
+                    if `_cst_pm`_s'_`_k'_`m'' {
+                        local _cst_txt "<`_cst_mc`_s'_`_k''"
                         local ++_n_stmask
+                    }
+                    else if `_cst_gs' > 0 {
+                        if "`_cst_trig_`_cst_gs'_`m''" == "1" {
+                            local _cst_txt "`_cst_dash'"
+                            local ++_n_stlink
+                        }
                     }
                 }
                 if "`_s'" == "" local _cst_cell `"`_cst_txt'"'
@@ -411,6 +461,7 @@ if `add_stats' == 1 {
             }
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        local stats_row_ids "`stats_row_ids' e(`_cst_nm_`_k''`=cond("`_cst_nm2_`_k''" != "", "|`_cst_nm2_`_k''", "")')"
     }
 
     local stats_rows = strtrim("`stats_rows'")

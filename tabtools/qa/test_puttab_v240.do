@@ -101,7 +101,11 @@ capture noisily {
     _v_line "`csv'" "   Repleted,7,8,9" 1
     _v_line "`csv'" ",Events,PY,Rate" 0
     _v_line "`csv'" "A. Relapses,,," 0
-    _v_line "`md'" "| **A. Relapses** | **Events** | **PY** | **Rate** |" 1
+    * noheader: GFM needs a header row, so the first shared row takes the
+    * header slot (no blank "|  |  |" header above it); later ones stay bold
+    _v_line "`md'" "| A. Relapses | Events | PY | Rate |" 1
+    _v_line "`md'" "| **A. Relapses** | **Events** | **PY** | **Rate** |" 0
+    _v_line "`md'" "|  |  |  |  |" 0
     _v_line "`md'" "| **B. MRI** | **Scans** | **Pct** | **RR** |" 1
     _v_line "`md'" "| &nbsp;&nbsp;&nbsp;Repleted | 7 | 8 | 9 |" 1
     _v_line "`md'" "| **A. Relapses** |  |  |  |" 0

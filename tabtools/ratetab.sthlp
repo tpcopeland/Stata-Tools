@@ -168,7 +168,7 @@ person-time (all empty); use {cmd:dash} to tell them apart.
 
 {phang}
 {opt sep(string)} separates the two limits in every output (console, Excel,
-CSV, Markdown, and frame).
+CSV, Markdown, and frame), printed as typed; see {help tabtools##sep:interval separators}.
 
 {phang}
 {opt outlabels()}, {opt explabels()}, and {opt unitlabel()} label the outcome

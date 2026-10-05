@@ -1,4 +1,4 @@
-*! _regtab_modelnoun Version 2.4.0  2026/10/05
+*! _regtab_modelnoun Version 2.5.0  2026/10/06
 *! the model named in the methods sentence
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -93,9 +93,10 @@ program define _regtab_modelnoun, nclass
 		else if "`_w'" == "mlogit" local _n "multinomial logistic regression"
 		else if "`_w'" == "mprobit" local _n "multinomial probit regression"
 		else if "`_w'" == "stcox" local _n "Cox proportional hazards regression"
-		else if "`_w'" == "streg" {
+		else if inlist("`_w'", "streg", "stintreg") {
 			if "`_sc'" == "HR" local _n "parametric proportional hazards survival regression"
 			else local _n "accelerated failure-time survival regression"
+			if "`_w'" == "stintreg" local _n "interval-censored `_n'"
 		}
 		else if inlist("`_w'", "stcrreg", "finegray") local _n "Fine-Gray competing-risks regression"
 		else if "`_w'" == "mixed" local _n "linear mixed-effects regression"

@@ -1,4 +1,4 @@
-*! comptab Version 2.4.0  2026/10/05
+*! comptab Version 2.5.0  2026/10/06
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -179,9 +179,9 @@ program define comptab, rclass
         if `"`cformat'"' != "" {
             local _common_opts `"`macval(_common_opts)' cformat(`cformat')"'
         }
-        if `"`cisep'"' != "" {
-            local _common_opts `"`macval(_common_opts)' cisep(`"`cisep'"')"'
-        }
+        * cisep() is data (help tabtools##sep): appended in Mata and spliced
+        * with macval(), never re-expanded
+        mata: st_local("_common_opts", st_local("_common_opts") + (st_local("cisep") == "" ? "" : " cisep(" + (strpos(st_local("cisep"), char(34)) ? char(96) + char(34) + st_local("cisep") + char(34) + char(39) : char(34) + st_local("cisep") + char(34)) + ")"))
 
         local _rate_mode = (`"`rateframe'"' != "" | `"`modelframes'"' != "")
         if `_rate_mode' {
@@ -292,6 +292,9 @@ program define _comptab_rates, rclass
 
         * Auto-load shared helper programs
         capture _tabtools_helpers_ready
+        if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+        * (a session can hold an older _tabtools_common.ado's programs: run,
+        * so discard keeps them; this release's Mata must be there too)
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
@@ -329,12 +332,21 @@ program define _comptab_rates, rclass
         * O1: cformat() re-renders model estimates from their numeric
         * companions; cisep() sets the interval separator.
         local _refmt = (`"`cformat'"' != "")
-        local _resep = (`"`cisep'"' != "")
+        mata: st_local("_resep", strofreal(st_local("cisep") != ""))
         if `_refmt' {
             capture confirm numeric format `cformat'
             if _rc | regexm(`"`cformat'"', "^%-?t") {
                 display as error `"cformat(): "`cformat'" is not a numeric display format"'
                 exit 198
+            }
+        }
+        * a decimal-comma cformat() whose rebuilt intervals hold a comma (cisep(),
+        * or its default ", "): printed as before, with a warning (regtab and
+        * effecttab refuse it)
+        if `_refmt' {
+            mata: st_local("_sep_comma", strofreal(st_local("cisep") == "" | strpos(st_local("cisep"), ",") > 0))
+            if `_sep_comma' & ustrregexm(`"`cformat'"', "^%-?0?[0-9]*,") {
+                display as text "(comptab: cformat(`cformat') writes a decimal comma and the interval separator holds a comma: the two limits are hard to tell apart (help tabtools##sep))"
             }
         }
 
@@ -1135,8 +1147,9 @@ program define _comptab_rates, rclass
                     mata: st_local("_is_level", strofreal(substr(st_local("_mlab_raw"), 1, 2) == "  "))
                     local _all_blank = 1
                     foreach _cv of local _model_cvars {
-                        frame `_fname': local _mcell = strtrim(`_cv'[`_mr'])
-                        if `"`_mcell'"' != "" local _all_blank = 0
+                        * the cell's text (an interval's sep() among it) is data: tested in Mata
+                        frame `_fname': mata: st_local("_mcell_set", strofreal(strtrim(st_sdata(`_mr', "`_cv'")) != ""))
+                        if `_mcell_set' local _all_blank = 0
                     }
                     * a heading row carries no estimate; its levels carry the key
                     if `_all_blank' continue
@@ -1382,8 +1395,9 @@ program define _comptab_rates, rclass
 
                 local _all_blank = 1
                 foreach _cv of local _model_cvars {
-                    frame `_mfn': local _mcell = strtrim(`_cv'[`_mr'])
-                    if `"`_mcell'"' != "" local _all_blank = 0
+                    * the cell's text (an interval's sep() among it) is data: tested in Mata
+                    frame `_mfn': mata: st_local("_mcell_set", strofreal(strtrim(st_sdata(`_mr', "`_cv'")) != ""))
+                    if `_mcell_set' local _all_blank = 0
                 }
                 if `_all_blank' {
                     display as error `"model row `_mdr' ("`macval(_mlab)'") of frame '`_msrc'' is a heading row with no estimate"'
@@ -1721,7 +1735,7 @@ program define _comptab_rates, rclass
         local _ref_rows_sp " `ref_rows' "
         local _refmt_opts ""
         if `_refmt' local _refmt_opts `"cformat(`cformat')"'
-        if `_resep' local _refmt_opts `"`_refmt_opts' cisep(`"`cisep'"')"'
+        if `_resep' mata: st_local("_refmt_opts", st_local("_refmt_opts") + " " + _tt_sep_optarg("cisep", st_local("cisep")))
 
         forvalues _r = 4/`_rate_rows' {
             frame `rateframe' {
@@ -1737,9 +1751,10 @@ program define _comptab_rates, rclass
                     local _rate_py = c`=`_rate_s' + 1'[`_r']
                     local _rate_rate = c`=`_rate_s' + 2'[`_r']
                 }
-                quietly replace c`_out_s' = `"`_rate_events'"' in `_r'
-                quietly replace c`=`_out_s' + 1' = `"`_rate_py'"' in `_r'
-                quietly replace c`=`_out_s' + 2' = `"`_rate_rate'"' in `_r'
+                * copied as stored (a rate interval's sep() is data)
+                quietly replace c`_out_s' = `"`macval(_rate_events)'"' in `_r'
+                quietly replace c`=`_out_s' + 1' = `"`macval(_rate_py)'"' in `_r'
+                quietly replace c`=`_out_s' + 2' = `"`macval(_rate_rate)'"' in `_r'
             }
 
             if strpos("`_section_rows_sp'", " `_r' ") continue
@@ -1765,8 +1780,9 @@ program define _comptab_rates, rclass
                     local _ec = 2 + (`_o' - 1) * `_bw' + 3 + (`_k' - 1) * `_w'
                     _comptab_effect_cell, frame(`_mfname') row(`_mrow') ///
                         block(`_mmap_`_mfindex'_`_o'_`_k'') mode(`model_mode') ///
-                        cpm(`_cols_per_model') `_refmt_opts'
-                    quietly replace c`_ec' = `"`r(text)'"' in `_r'
+                        cpm(`_cols_per_model') `macval(_refmt_opts)'
+                    mata: st_local("_ec_text", st_global("r(text)"))
+                    quietly replace c`_ec' = `"`macval(_ec_text)'"' in `_r'
                     if `_has_p' quietly replace c`=`_ec' + 1' = `"`r(p)'"' in `_r'
                 }
             }
@@ -1795,8 +1811,9 @@ program define _comptab_rates, rclass
                     local _ec = 2 + (`_o' - 1) * `_bw' + 3 + (`_k' - 1) * `_w'
                     _comptab_effect_cell, frame(`_mfname') row(`_mrow') ///
                         block(`_mmap_`_mfindex'_`_o'_`_k'') mode(`model_mode') ///
-                        cpm(`_cols_per_model') `_refmt_opts'
-                    quietly replace c`_ec' = `"`r(text)'"' in `_r'
+                        cpm(`_cols_per_model') `macval(_refmt_opts)'
+                    mata: st_local("_ec_text", st_global("r(text)"))
+                    quietly replace c`_ec' = `"`macval(_ec_text)'"' in `_r'
                     if `_has_p' quietly replace c`=`_ec' + 1' = `"`r(p)'"' in `_r'
                 }
             }
@@ -2196,6 +2213,9 @@ program define _comptab_vertical, rclass
 
     * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
+    if !_rc capture mata: assert(findexternal("_tt_sep_parse()") != NULL)
+    * (a session can hold an older _tabtools_common.ado's programs: run,
+    * so discard keeps them; this release's Mata must be there too)
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
@@ -2237,7 +2257,16 @@ program define _comptab_vertical, rclass
             exit 198
         }
     }
-    local _resep = (`"`cisep'"' != "")
+    mata: st_local("_resep", strofreal(st_local("cisep") != ""))
+    * a decimal-comma cformat() whose rebuilt intervals hold a comma (cisep(),
+    * or its default ", "): printed as before, with a warning (regtab and
+    * effecttab refuse it)
+    if `_refmt' {
+        mata: st_local("_sep_comma", strofreal(st_local("cisep") == "" | strpos(st_local("cisep"), ",") > 0))
+        if `_sep_comma' & ustrregexm(`"`cformat'"', "^%-?0?[0-9]*,") {
+            noisily display as text "(comptab: cformat(`cformat') writes a decimal comma and the interval separator holds a comma: the two limits are hard to tell apart (help tabtools##sep))"
+        }
+    }
 
     * Label-column width cap (0 -> default 45): keeps a lone verbose label from
     * stretching the whole column; longer labels wrap (text-wrap rule below).
@@ -3182,7 +3211,10 @@ program define _comptab_vertical, rclass
         gen long __srcr = .
     }
     if `_refmt' | `_resep' {
-        if `"`cisep'"' == "" local cisep ", "
+        * cisep() is data (help tabtools##sep): the default is applied, the
+        * cells are read and the intervals joined in Mata, and the results
+        * are written through macval(), never re-expanded
+        mata: st_local("cisep", st_local("cisep") == "" ? ", " : st_local("cisep"))
         forvalues _i = 1/`=_N' {
             if missing(__srcf[`_i']) continue
             local f = __srcf[`_i']
@@ -3206,48 +3238,52 @@ program define _comptab_vertical, rclass
                 local _source_m = `_source_model_map_`f'_`_target_m''
                 local _est_c = (`_target_m' - 1) * `_source_cols_per_model' + 1
                 local _ci_c = `_est_c' + 1
-                local _cell_est = c`_est_c'[`_i']
-                local _cell_ci = ""
-                if !`_source_compact' local _cell_ci = c`_ci_c'[`_i']
+                mata: st_local("_cell_est", strtrim(st_sdata(`_i', "c`_est_c'")))
+                local _cell_ci ""
+                if !`_source_compact' mata: st_local("_cell_ci", strtrim(st_sdata(`_i', "c`_ci_c'")))
                 * stars appended by regtab stay on the estimate
                 local _stars ""
-                if regexm(strtrim(`"`_cell_est'"'), "^[^(]*[^*(](\*+)") local _stars = regexs(1)
+                mata: st_local("_stars", regexm(st_local("_cell_est"), "^[^(]*[^*(](\*+)") ? regexs(1) : "")
                 if `_refmt' {
                     _comptab_ep_value, ep(`_src_ep') key(`_ep_key') row(`r') model(`_source_m')
                     if !r(found) | missing(r(est)) | missing(r(ll)) | missing(r(ul)) continue
                     local _t_est = strtrim(string(r(est), "`cformat'"))
-                    local _t_ci = "(" + strtrim(string(r(ll), "`cformat'")) + `"`cisep'"' + ///
-                        strtrim(string(r(ul), "`cformat'")) + ")"
+                    local _t_lo = strtrim(string(r(ll), "`cformat'"))
+                    local _t_hi = strtrim(string(r(ul), "`cformat'"))
                 }
                 else {
                     * cisep() alone: rewrite "(a, b)" exactly or refuse
-                    local _txt = cond(`_source_compact', strtrim(`"`_cell_est'"'), strtrim(`"`_cell_ci'"'))
-                    if `"`_txt'"' == "" | strpos(`"`_txt'"', "(") == 0 continue
+                    if `_source_compact' local _txt : copy local _cell_est
+                    else local _txt : copy local _cell_ci
+                    mata: st_local("_has_ci", strofreal(st_local("_txt") != "" & strpos(st_local("_txt"), "(") > 0))
+                    if !`_has_ci' continue
                     if `_source_compact' {
-                        if !regexm(`"`_txt'"', "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
-                            noisily display as error `"cisep(): the interval in "`_txt'" is not in (a, b) form"'
+                        mata: st_local("_ci_ok", strofreal(regexm(st_local("_txt"), "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$")))
+                        if !`_ci_ok' {
+                            noisily display as error `"cisep(): the interval in "`macval(_txt)'" is not in (a, b) form"'
                             exit 198
                         }
-                        local _t_est = regexs(1)
-                        local _t_ci = "(" + regexs(2) + `"`cisep'"' + regexs(4) + ")"
+                        mata: st_local("_t_est", regexs(1)); st_local("_t_lo", regexs(2)); st_local("_t_hi", regexs(4))
                         local _stars ""
                     }
                     else {
-                        if !regexm(`"`_txt'"', "^\(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
-                            noisily display as error `"cisep(): the interval "`_txt'" is not in (a, b) form"'
+                        mata: st_local("_ci_ok", strofreal(regexm(st_local("_txt"), "^\(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$")))
+                        if !`_ci_ok' {
+                            noisily display as error `"cisep(): the interval "`macval(_txt)'" is not in (a, b) form"'
                             exit 198
                         }
-                        local _t_ci = "(" + regexs(1) + `"`cisep'"' + regexs(3) + ")"
-                        local _t_est = strtrim(`"`_cell_est'"')
+                        mata: st_local("_t_lo", regexs(1)); st_local("_t_hi", regexs(3))
+                        local _t_est : copy local _cell_est
                         local _stars ""
                     }
                 }
+                mata: st_local("_t_ci", "(" + st_local("_t_lo") + st_local("cisep") + st_local("_t_hi") + ")")
                 if `_source_compact' {
-                    qui replace c`_est_c' = `"`_t_est'`_stars' `_t_ci'"' in `_i'
+                    qui replace c`_est_c' = `"`macval(_t_est)'`macval(_stars)' `macval(_t_ci)'"' in `_i'
                 }
                 else {
-                    qui replace c`_est_c' = `"`_t_est'`_stars'"' in `_i'
-                    qui replace c`_ci_c' = `"`_t_ci'"' in `_i'
+                    qui replace c`_est_c' = `"`macval(_t_est)'`macval(_stars)'"' in `_i'
+                    qui replace c`_ci_c' = `"`macval(_t_ci)'"' in `_i'
                 }
             }
         }
@@ -3939,22 +3975,22 @@ program define _comptab_effect_cell, rclass
             [CFORMAT(string) CISEP(string)]
         local es = 1 + (`block' - 1) * `cpm'
         local p ""
+        * Cell text (a source sep() among it) and cisep() are data (help
+        * tabtools##sep): read, joined and returned in Mata, never re-expanded
         frame `frame' {
             if "`mode'" == "standard" | "`mode'" == "standardnop" {
-                local main = strtrim(c`es'[`row'])
-                local ci = strtrim(c`=`es' + 1'[`row'])
-                if `"`main'"' == "" local text `"`ci'"'
-                else if `"`ci'"' == "" local text `"`main'"'
-                else local text `"`main' `ci'"'
+                mata: st_local("main", strtrim(st_sdata(`row', "c`es'")))
+                mata: st_local("ci", strtrim(st_sdata(`row', "c`=`es' + 1'")))
+                mata: st_local("text", st_local("main") == "" ? st_local("ci") : (st_local("ci") == "" ? st_local("main") : st_local("main") + " " + st_local("ci")))
                 if "`mode'" == "standard" local p = strtrim(c`=`es' + 2'[`row'])
             }
             else {
-                local text = strtrim(c`es'[`row'])
+                mata: st_local("text", strtrim(st_sdata(`row', "c`es'")))
                 if "`mode'" == "compact" local p = strtrim(c`=`es' + 1'[`row'])
             }
         }
-        if `"`cisep'"' == "" local sep ", "
-        else local sep `"`cisep'"'
+        mata: st_local("sep", st_local("cisep") == "" ? ", " : st_local("cisep"))
+        mata: st_local("_resep", strofreal(st_local("cisep") != ""))
         if `"`cformat'"' != "" {
             frame `frame': local ep : char _dta[tabtools_eplotframe]
             frame `frame': local kind : char _dta[tabtools_source]
@@ -3975,20 +4011,25 @@ program define _comptab_effect_cell, rclass
             _comptab_ep_value, ep(`ep') key(`key') row(`=`row' - 3') model(`block')
             if r(found) & !missing(r(est)) & !missing(r(ll)) & !missing(r(ul)) {
                 local stars ""
-                if regexm(`"`text'"', "^[^(]*[^*(](\*+)") local stars = regexs(1)
-                local text = strtrim(string(r(est), "`cformat'")) + "`stars' (" + ///
-                    strtrim(string(r(ll), "`cformat'")) + `"`sep'"' + ///
-                    strtrim(string(r(ul), "`cformat'")) + ")"
+                mata: st_local("stars", regexm(st_local("text"), "^[^(]*[^*(](\*+)") ? regexs(1) : "")
+                local _t_est = strtrim(string(r(est), "`cformat'"))
+                local _t_lo = strtrim(string(r(ll), "`cformat'"))
+                local _t_hi = strtrim(string(r(ul), "`cformat'"))
+                mata: st_local("text", st_local("_t_est") + st_local("stars") + " (" + st_local("_t_lo") + st_local("sep") + st_local("_t_hi") + ")")
             }
         }
-        else if `"`cisep'"' != "" & strpos(`"`text'"', "(") {
-            if !regexm(`"`text'"', "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$") {
-                display as error `"cisep(): the interval in "`text'" is not in (a, b) form"'
-                exit 198
+        else if `_resep' {
+            mata: st_local("_has_ci", strofreal(strpos(st_local("text"), "(") > 0))
+            if `_has_ci' {
+                mata: st_local("_ci_ok", strofreal(regexm(st_local("text"), "^(.+) \(([^ ,]+(,[0-9][0-9][0-9])*), ([^ ]+)\)$")))
+                if !`_ci_ok' {
+                    display as error `"cisep(): the interval in "`macval(text)'" is not in (a, b) form"'
+                    exit 198
+                }
+                mata: st_local("text", regexs(1) + " (" + regexs(2) + st_local("sep") + regexs(4) + ")")
             }
-            local text = regexs(1) + " (" + regexs(2) + `"`sep'"' + regexs(4) + ")"
         }
-        return local text `"`text'"'
+        return local text `"`macval(text)'"'
         return local p `"`p'"'
     }
     local rc = _rc

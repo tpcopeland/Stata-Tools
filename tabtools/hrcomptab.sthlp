@@ -267,8 +267,11 @@ their text. String and date formats are refused. Format the rates in
 
 {phang}
 {opt cisep(string)} sets the separator between the interval limits of the
-model estimates, for example {cmd:cisep(" to ")}. Without {opt cformat()} the
-"(a, b)" text is rewritten exactly and any other form is an error.
+model estimates, for example {cmd:cisep(" to ")}, printed as typed; see {help tabtools##sep:interval separators}.
+With {opt cformat()} the model intervals are rebuilt from their numbers and
+take {opt cisep()}, or {cmd:", "} without it, whatever separator the model
+frames hold. Without {opt cformat()} the "(a, b)" text is rewritten exactly
+and any other form is an error.
 
 {phang}
 {opt frame(name, flat)} saves the table as one row per body line: a string
