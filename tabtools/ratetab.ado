@@ -1,4 +1,4 @@
-*! ratetab Version 2.3.1  2026/10/05
+*! ratetab Version 2.4.0  2026/10/05
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -98,11 +98,17 @@ program define ratetab, rclass
             display as error "exposure() takes one variable, or one per events() variable (`_n_ev'); `_n_exp' given"
             exit 198
         }
-        local zerocells = strtrim(lower(`"`zerocells'"'))
-        if !inlist(`"`zerocells'"', "", "dash", "blank") {
-            display as error "zerocells() must be dash or blank"
+        * zerocells(dash|blank [, persontime]): persontime also withholds
+        * the person-time of a zero-event level
+        _parse comma _zc_mode _zc_rest : zerocells
+        local zerocells = strtrim(lower(`"`_zc_mode'"'))
+        local _zc_rest = strtrim(lower(substr(strtrim(`"`_zc_rest'"'), 2, .)))
+        if !inlist(`"`zerocells'"', "", "dash", "blank") | !inlist(`"`_zc_rest'"', "", "persontime") | ///
+            (`"`zerocells'"' == "" & `"`_zc_rest'"' != "") {
+            display as error "zerocells() must be dash or blank, optionally with the suboption persontime: zerocells(dash, persontime)"
             exit 198
         }
+        local _zc_pt = ("`_zc_rest'" == "persontime")
         * saving(): checked now (existence, replace), written after the table
         local _save_file ""
         local _save_replace ""
@@ -125,6 +131,43 @@ program define ratetab, rclass
             local _sv_dta `"`_save_file'"'
             if !strmatch(lower(`"`_sv_dta'"'), "*.dta") local _sv_dta `"`_sv_dta'.dta"'
             if "`_save_replace'" == "" confirm new file `"`_sv_dta'"'
+            * each grouping variable is saved under its own name, beside the
+            * fixed columns. One that has a fixed column's name (a 2.3.1
+            * call such as -ratetab group, saving()- must still save) is
+            * saved as g_<name>, or g2_<name>, g3_<name>, ... when that is
+            * taken; the fixed columns never change. _svn<g> is the saved
+            * name of grouping variable g; a repeated variable shares one.
+            local _sv_fixed "outcome outcome_var outcome_label group groupvar level level_label events persontime rate lb ub masked nopersontime"
+            local _sv_uniq : list uniq varlist
+            local _sv_used : list _sv_fixed | _sv_uniq
+            local _sv_map ""
+            local _u 0
+            foreach _gv of local _sv_uniq {
+                local ++_u
+                local _sn "`_gv'"
+                if `: list _gv in _sv_fixed' {
+                    local _sn = substr("g_`_gv'", 1, 32)
+                    local _k 1
+                    while `: list _sn in _sv_used' & `_k' < 99 {
+                        local ++_k
+                        local _sn = substr("g`_k'_`_gv'", 1, 32)
+                    }
+                    if `: list _sn in _sv_used' {
+                        display as error "saving(): no unique name for grouping variable `_gv', which has the name of a saved column; rename it"
+                        exit 110
+                    }
+                    local _sv_used "`_sv_used' `_sn'"
+                    local _sv_map "`_sv_map' `_gv'=`_sn'"
+                }
+                local _svto_`_u' "`_sn'"
+            }
+            local _g 0
+            foreach _gv of local varlist {
+                local ++_g
+                local _p : list posof "`_gv'" in _sv_uniq
+                local _svn`_g' "`_svto_`_p''"
+            }
+            local _sv_map : list clean _sv_map
         }
 
         **# ci()
@@ -266,6 +309,8 @@ program define ratetab, rclass
         matrix `_clus' = J(`n_grp', `n_out', .)
         local _n_zero 0
         local _n_noci 0
+        local _n_nopt 0
+        local _n_cells 0
         local _n_maskfit 0
         forvalues _g = 1/`n_grp' {
             local _gv : word `_g' of `varlist'
@@ -282,6 +327,21 @@ program define ratetab, rclass
                     tempvar _grp _dl _lo _hi
                     quietly egen long `_grp' = group(`_gv'), label
                     quietly levelsof `_grp', local(_levs)
+                    * saving(): the grouping variable's own value of each
+                    * level, exact (%21x for numbers), for the saved file
+                    if `_o' == 1 & `"`_save_file'"' != "" {
+                        capture confirm string variable `_gv'
+                        local _gstr = !_rc
+                        foreach _l of local _levs {
+                            if `_gstr' {
+                                mata: st_local("_gval`_g'_`_l'", st_sdata(selectindex(st_data(., "`_grp'") :== `_l')[1], "`_gv'"))
+                            }
+                            else {
+                                quietly summarize `_gv' if `_grp' == `_l', meanonly
+                                local _gval`_g'_`_l' : display %21x r(min)
+                            }
+                        }
+                    }
                     quietly gen double `_lo' = .
                     quietly gen double `_hi' = .
                     if "`_ci'" == "cluster" {
@@ -337,16 +397,18 @@ program define ratetab, rclass
                     preserve
                     quietly drop if missing(`_grp')
                     quietly collapse (sum) _D = `_e' _Y = `_x' (max) _lo_c = `_lo' _hi_c = `_hi', by(`_grp')
-                    quietly count if _Y <= 0
-                    if r(N) {
-                        display as error "ratetab: a level of `_gv' has no person-time"
-                        exit 459
-                    }
+                    * a level with no person-time for this outcome has no
+                    * computable rate: its rate and limits stay missing and
+                    * stratetab leaves the cell empty (events are 0: events
+                    * without person-time were refused above)
+                    quietly count if _Y == 0
+                    local _n_nopt = `_n_nopt' + r(N)
+                    local _n_cells = `_n_cells' + _N
                     quietly decode `_grp', gen(cat)
                     * person-time in pyscale units (what stratetab prints) and
                     * rates per unit of it
                     quietly replace _Y = _Y / `pyscale'
-                    quietly gen double _Rate = _D / _Y
+                    quietly gen double _Rate = _D / _Y if _Y > 0
                     quietly gen double _Lower = .
                     quietly gen double _Upper = .
                     if "`_ci'" == "exact" {
@@ -369,10 +431,10 @@ program define ratetab, rclass
                         local _n_maskfit = `_n_maskfit' + r(N)
                     }
                     * R3: zero events -> exact limits (0, -ln(alpha/2)/Y)
-                    quietly count if _D == 0
+                    quietly count if _D == 0 & _Y > 0
                     local _n_zero = `_n_zero' + r(N)
-                    quietly replace _Lower = 0 if _D == 0
-                    quietly replace _Upper = -ln(`_alpha') / _Y if _D == 0
+                    quietly replace _Lower = 0 if _D == 0 & _Y > 0
+                    quietly replace _Upper = -ln(`_alpha') / _Y if _D == 0 & _Y > 0
                     local _lvtxt = strtrim(string(`level', "%21.15g"))
                     label variable _Lower "Lower `_lvtxt'% bound"
                     label variable _Upper "Upper `_lvtxt'% bound"
@@ -394,6 +456,10 @@ program define ratetab, rclass
             }
         }
         matrix colnames `_est' = outcome group level events persontime rate lb ub
+        if `_n_nopt' == `_n_cells' {
+            display as error "ratetab: no level has person-time for any outcome; no rate is computable"
+            exit 459
+        }
 
         **# Render with stratetab
         local _sc_opt ""
@@ -405,7 +471,7 @@ program define ratetab, rclass
         local _sep_opt ""
         if `"`sep'"' != "" local _sep_opt `"sep(`"`sep'"')"'
         local _zc_opt ""
-        if "`zerocells'" != "" local _zc_opt "zerocells(`zerocells')"
+        if "`zerocells'" != "" local _zc_opt = "zerocells(`zerocells'" + cond(`_zc_pt', ", persontime", "") + ")"
         local _mt_opt ""
         if `"`masktext'"' != "" local _mt_opt `"masktext(`"`masktext'"')"'
         capture noisily stratetab, using(`_files') outcomes(`n_out') ///
@@ -440,7 +506,9 @@ program define ratetab, rclass
         }
         if `_n_maskfit' local _m "`_m'; levels with 1 to `=`_dmin' - 1' events were left out of the clustered fit and have no interval"
         if `_n_zero' & "`zerocells'" == "" local _m "`_m'; cells with no events show the exact upper limit"
-        if `_n_zero' & "`zerocells'" != "" local _m "`_m'; cells with no events are printed without a count or rate"
+        if `_n_zero' & "`zerocells'" != "" & !`_zc_pt' local _m "`_m'; cells with no events are printed without a count or rate"
+        if `_n_zero' & "`zerocells'" != "" & `_zc_pt' local _m "`_m'; cells with no events are printed without a count, person-time or rate"
+        if `_n_nopt' local _m "`_m'; levels with no person-time for an outcome have no rate and are left empty"
         local _mtxt "<`_sc_used'"
         if `"`masktext'"' != "" local _mtxt `"`masktext'"'
         if `_sc_used' > 0 local _m "`_m'; cells with 1 to `=`_sc_used' - 1' events are shown as `_mtxt' with their person-time and rate withheld"
@@ -457,6 +525,7 @@ program define ratetab, rclass
         return scalar level = `level'
         return scalar N_zero = `_n_zero'
         return scalar N_noci = `_n_noci'
+        return scalar N_nopt = `_n_nopt'
         if "`excludemasked'" != "" return scalar N_maskfit = `_n_maskfit'
 
         **# saving(): one row per printed level, as numbers
@@ -485,6 +554,7 @@ program define ratetab, rclass
                     quietly gen double `_v' = .
                 }
                 quietly gen byte masked = 0
+                quietly gen byte nopersontime = 0
                 forvalues _r = 1/`_nrows' {
                     local _o = el(`_est', `_r', 1)
                     local _g = el(`_est', `_r', 2)
@@ -504,6 +574,7 @@ program define ratetab, rclass
                     mata: st_sstore(`_r', "level_label", st_local("_svlab`_r'"))
                 }
                 if `_sc_used' > 0 quietly replace masked = (events >= 1 & events < `_sc_used')
+                quietly replace nopersontime = (persontime == 0)
                 label variable outcome "Outcome (column group) number"
                 label variable outcome_var "Event variable"
                 label variable outcome_label "Outcome label"
@@ -517,10 +588,65 @@ program define ratetab, rclass
                 label variable lb "Lower `level'% limit of the rate"
                 label variable ub "Upper `level'% limit of the rate"
                 label variable masked "1 if printed masked (1 to smallcells()-1 events)"
+                label variable nopersontime "1 if no person-time (rate not computable; printed empty)"
+                * the grouping variables under their own names, types,
+                * formats, variable and value labels; each holds its value
+                * on its own rows and is missing on the other variables' rows
+                local _sv_made ""
+                forvalues _g = 1/`n_grp' {
+                    local _gv : word `_g' of `varlist'
+                    local _sn "`_svn`_g''"
+                    frame `_work': local _gtype : type `_gv'
+                    local _gstr = (substr("`_gtype'", 1, 3) == "str")
+                    * a repeated grouping variable has one column; each
+                    * listing fills its own rows
+                    if !`: list _sn in _sv_made' {
+                    local _sv_made "`_sv_made' `_sn'"
+                    frame `_work' {
+                        local _gtype : type `_gv'
+                        local _gfmt : format `_gv'
+                        local _gvl : value label `_gv'
+                        local _gvarlab : variable label `_gv'
+                        local _gvlfile ""
+                        if "`_gvl'" != "" {
+                            capture label list `_gvl'
+                            if !_rc {
+                                tempfile _gvlfile
+                                quietly label save `_gvl' using `"`_gvlfile'"', replace
+                            }
+                        }
+                    }
+                    if `_gstr' quietly gen `_gtype' `_sn' = ""
+                    else quietly gen `_gtype' `_sn' = .
+                    label variable `_sn' `"`macval(_gvarlab)'"'
+                    if `"`_gvlfile'"' != "" {
+                        quietly run `"`_gvlfile'"'
+                        label values `_sn' `_gvl'
+                    }
+                    * after label values, which widens a numeric format
+                    format `_sn' `_gfmt'
+                    if "`_sn'" != "`_gv'" char `_sn'[ratetab_groupvar] "`_gv'"
+                    }
+                    forvalues _r = 1/`_nrows' {
+                        if el(`_est', `_r', 2) != `_g' continue
+                        local _l = el(`_est', `_r', 3)
+                        if `_gstr' mata: st_sstore(`_r', "`_sn'", st_local("_gval`_g'_`_l'"))
+                        else quietly replace `_sn' = `_gval`_g'_`_l'' in `_r'
+                    }
+                }
+                if "`_sv_map'" != "" {
+                    char _dta[ratetab_renamed] "`_sv_map'"
+                    foreach _m of local _sv_map {
+                        gettoken _mo _mn : _m, parse("=")
+                        local _mn = substr("`_mn'", 2, .)
+                        display as text "(ratetab saving(): grouping variable `_mo' is saved as `_mn'; a saved column has its name)"
+                    }
+                }
                 char _dta[ratetab_ci_method] "`_ci'"
                 char _dta[ratetab_per] "`per'"
                 char _dta[ratetab_level] "`level'"
-                quietly compress
+                * the grouping variables keep their own storage types
+                quietly compress outcome-nopersontime
                 quietly save `"`_save_file'"', `_save_replace'
             }
             return local saving `"`_save_file'"'

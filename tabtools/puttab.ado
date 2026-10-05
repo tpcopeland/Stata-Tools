@@ -1,4 +1,4 @@
-*! puttab Version 2.3.1  2026/10/05
+*! puttab Version 2.4.0  2026/10/05
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -83,7 +83,7 @@ program define puttab, rclass
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string asis) NOINDent SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ]
         }
         else {
             syntax [anything(name=vlist)] [if] [in] [using/] , ///
@@ -96,7 +96,7 @@ program define puttab, rclass
                   HLines(numlist >0 integer sort) VLines(numlist >0 integer sort) ///
                   BOLDrows(numlist >0 integer sort) ///
                   CSV(string) MARKdown(string) MDAPPend open ///
-                  PANel(string) PANELHeader(string asis) NOINDent SPANheader(string asis) ]
+                  PANel(string) PANELHeader(string asis) PANELInline NOINDent SPANheader(string asis) ]
         }
 
         * matrix(): a matrix name, r(name), or e(name); copy it now.
@@ -316,6 +316,16 @@ program define puttab, rclass
         }
         * Read by _puttab_panelize: 1 = leave panel row labels unindented.
         local _pt_noindent = ("`noindent'" != "")
+        * panelinline: the panel heading and that panel's header row share
+        * one row (the heading takes the header's first cell, which must be
+        * blank). Read by _puttab_panelize.
+        if "`panelinline'" != "" & !`_has_phdr' {
+            noisily display as error "panelinline requires panelheader(): the heading shares the panel header row"
+            exit 198
+        }
+        local _pt_inline = ("`panelinline'" != "")
+        local _pt_inl_err ""
+        local _pt_ihrows ""
         * panelheader() is a varlist of string variables (per-panel text),
         * or, when it starts with a quote, literal text: one string per
         * exported column, repeated under every panel heading.
@@ -499,6 +509,10 @@ program define puttab, rclass
             mata: _puttab_data_table("`_srcvars'", `digits', `_titlerows', ///
                 `_headerrows', `_uselbl', "`_pt_headvar'", "`_pt_newvar'", ///
                 "`_pt_phvars'", "`nformat'")
+            if `"`macval(_pt_inl_err)'"' != "" {
+                noisily display as error `"panelinline: panel "`macval(_pt_inl_err)'" has text in the first cell of its panel header, where the heading goes; blank that cell or drop panelinline"'
+                exit 198
+            }
         }
 
         local K = c(k)
@@ -612,7 +626,7 @@ program define puttab, rclass
             * the workbook and the CSV (C3, codex audit 2026-09-26).
             * Panel heading and panel header rows are bold in Markdown.
             local _md_bold ""
-            foreach _r in `_pt_hrows' `_pt_phrows' {
+            foreach _r in `_pt_hrows' `_pt_phrows' `_pt_ihrows' {
                 local _md_bold "`_md_bold' `=`_data_start' + `_r' - 1'"
             }
             local _md_boldopt ""
@@ -845,6 +859,20 @@ program define puttab, rclass
                 local _xr = `_x_data_start' + `_r' - 1
                 matrix `_rules' = `_rules' \ ///
                     (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (9, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
+                if "`headershade'" != "" {
+                    matrix `_rules' = `_rules' \ ///
+                        (7, `_xr', `_xr', 2, `_xK', 0, -1, 0, 0)
+                }
+            }
+            * panelinline rows: heading and header in one row -- bold, the
+            * heading's rule above and the header's rule below, not merged
+            * (every cell holds text)
+            foreach _r of local _pt_ihrows {
+                local _xr = `_x_data_start' + `_r' - 1
+                matrix `_rules' = `_rules' \ ///
+                    (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0) \ ///
+                    (8, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0) \ ///
                     (9, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
                 if "`headershade'" != "" {
                     matrix `_rules' = `_rules' \ ///
@@ -1210,6 +1238,11 @@ void _puttab_data_table(
 // (missing or empty panel value) gets no heading and no indent. Posts the
 // body positions (1 = first body row) of the heading rows in _pt_hrows and
 // of the panel header rows in _pt_phrows, and the count in _pt_npanels.
+// With panelinline (_pt_inline = 1) a headed panel whose header row is not
+// blank gets ONE row: the header with the heading text in its first cell,
+// posted in _pt_ihrows; a non-blank first header cell there sets
+// _pt_inl_err to the heading text (the caller errors) instead of being
+// overwritten.
 string matrix _puttab_panelize(
     string matrix out,
     real scalar datatop,
@@ -1221,10 +1254,11 @@ string matrix _puttab_panelize(
     real colvector isnew
     string matrix ph, body, nb
     string rowvector row
-    real colvector hrows, phrows
-    real scalar i, n, K, headed, r, npan, indent
+    real colvector hrows, phrows, ihrows
+    real scalar i, n, K, headed, r, npan, indent, inl, hasph
 
     indent = (st_local("_pt_noindent") != "1")
+    inl = (st_local("_pt_inline") == "1")
     head = st_sdata(., headvar)
     isnew = st_data(., newvar)
     n = rows(head)
@@ -1234,20 +1268,34 @@ string matrix _puttab_panelize(
     nb = J(n * (2 + (cols(ph) > 0)), K, "")
     hrows = J(0, 1, .)
     phrows = J(0, 1, .)
+    ihrows = J(0, 1, .)
     headed = 0
     npan = 0
     r = 0
     for (i = 1; i <= n; i++) {
         if (isnew[i]) {
             headed = (strtrim(head[i]) != "")
-            if (headed) {
+            hasph = 0
+            if (cols(ph) > 0) hasph = any(strtrim(ph[i, .]) :!= "")
+            if (inl & headed & hasph) {
+                if (strtrim(ph[i, 1]) != "") {
+                    st_local("_pt_inl_err", strtrim(head[i]))
+                    return(out)
+                }
+                r++
+                nb[r, .] = ph[i, .]
+                nb[r, 1] = strtrim(head[i])
+                ihrows = ihrows \ r
+                npan++
+            }
+            else if (headed) {
                 r++
                 nb[r, 1] = strtrim(head[i])
                 hrows = hrows \ r
                 npan++
             }
-            if (cols(ph) > 0) {
-                if (any(strtrim(ph[i, .]) :!= "")) {
+            if (cols(ph) > 0 & !(inl & headed & hasph)) {
+                if (hasph) {
                     r++
                     nb[r, .] = ph[i, .]
                     phrows = phrows \ r
@@ -1261,6 +1309,7 @@ string matrix _puttab_panelize(
     }
     st_local("_pt_hrows", rows(hrows) ? invtokens(strofreal(hrows')) : "")
     st_local("_pt_phrows", rows(phrows) ? invtokens(strofreal(phrows')) : "")
+    st_local("_pt_ihrows", rows(ihrows) ? invtokens(strofreal(ihrows')) : "")
     st_local("_pt_npanels", strofreal(npan))
     if (datatop > 1) return(out[(1..datatop - 1), .] \ nb[(1..r), .])
     return(nb[(1..r), .])

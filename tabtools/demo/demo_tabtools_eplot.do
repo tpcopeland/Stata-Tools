@@ -34,6 +34,17 @@ local _demo_plus "`c(tmpdir)'/tabtools_eplot_demo_plus_`_demo_tag'"
 local _demo_personal "`c(tmpdir)'/tabtools_eplot_demo_personal_`_demo_tag'"
 local _demo_isolated 0
 local _demo_success ""
+local _demo_scheme_dir ""
+local _demo_scheme_added 0
+* The graphs use scheme white_tableau. Look for it now, while the user's own
+* PLUS/PERSONAL are still on the path: once the disposable trees replace
+* them, a scheme installed there can no longer be found, and a graph would
+* silently fall back to the default scheme.
+capture findfile scheme-white_tableau.scheme
+if !_rc {
+    * the file's directory, on either path separator
+    local _demo_scheme_dir = ustrregexra("`r(fn)'", "[/\\\\][^/\\\\]*$", "")
+}
 
 capture noisily {
 set varabbrev off
@@ -70,9 +81,26 @@ capture ado uninstall eplot
 quietly net install eplot, from("`repo_root'/eplot") replace
 
 * --- Graph scheme ---
+* tc_schemes ships white_tableau; if this checkout's copy lacks it, put back
+* the directory where the scheme was found before the sandbox (it holds only
+* scheme and style files, so it cannot shadow the sandboxed packages).
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
-set scheme plotplainblind
+capture findfile scheme-white_tableau.scheme
+if _rc & "`_demo_scheme_dir'" != "" {
+    adopath ++ "`_demo_scheme_dir'"
+    local _demo_scheme_added 1
+}
+capture findfile scheme-white_tableau.scheme
+if _rc {
+    display as error "demo_tabtools_eplot.do needs scheme white_tableau (tc_schemes)"
+    exit 111
+}
+set scheme white_tableau
+if "`c(scheme)'" != "white_tableau" {
+    display as error "demo expects scheme white_tableau; got `c(scheme)'"
+    exit 9
+}
 
 **# Build analysis dataset
 use "`repo_root'/_data/cohort.dta", clear
@@ -133,6 +161,7 @@ noisily comptab m_crude m_adj, rows(1 \ 1) ///
 log close demo
 
 **# Graph 1: single-model forest plot (regtab -> eplot)
+assert "`c(scheme)'" == "white_tableau"
 * The companion frame stored above is plotted with eplot frame mode.
 eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
     null(1) values stars vformat(%4.2f) ///
@@ -143,6 +172,7 @@ graph export "`pkg_dir'/forest_regtab.png", replace width(1400)
 capture graph close _all
 
 **# Graph 2: model-comparison forest plot (comptab forest one-step)
+assert "`c(scheme)'" == "white_tableau"
 * comptab's forest option calls eplot directly from the composite frame.
 collect clear
 quietly collect: logistic cv_event treated
@@ -174,6 +204,7 @@ local _rc = _rc
 if "`_demo_success'" == "1" local _rc = 0
 
 * --- Restore the session exactly as we found it -------------------------
+if `_demo_scheme_added' capture adopath - "`_demo_scheme_dir'"
 set scheme `_orig_scheme'
 set linesize `_orig_linesize'
 set varabbrev `_orig_varabbrev'

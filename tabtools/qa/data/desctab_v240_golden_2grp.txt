@@ -1,0 +1,792 @@
+== case 1: smd test
+  +----------------------------------------------------------------------------
+> ---+
+  |                             A        B        Test          p-value   SMD  
+>    |
+  |----------------------------------------------------------------------------
+> ---|
+  | No. (Column %) or Mean±SD   N=8      N=10                                  
+>    |
+  |----------------------------------------------------------------------------
+> ---|
+  | Age                         51±7     54±7     Ind. t test   0.33      0.478
+>    |
+  |----------------------------------------------------------------------------
+> ---|
+  | Female                      2 (25)   6 (60)   Chi-square    0.14      0.757
+>    |
+  |----------------------------------------------------------------------------
+> ---|
+  | Group                                         Chi-square    0.80      0.324
+>    |
+  |    x                        3 (38)   3 (30)                                
+>    |
+  |    y                        3 (38)   3 (30)                                
+>    |
+  |    z                        2 (25)   4 (40)                                
+>    |
+  +----------------------------------------------------------------------------
+> ---+
+CSV exported to output/dt240_g1.csv
+Markdown exported to output/dt240_g1.md
+Dapa: Data are presented as mean±SD for continuous measures, and No. (%) for ca
+> tegorical measures.
+
+r(table)[3,2]
+                      p_value                    smd
+   Age  +1.51fcdcd2ca28eX-002  +1.e949d0d258dbaX-002
+Female  +1.19bb194ba0a9bX-003  +1.8399de5707207X-001
+ Group  +1.98d71e29cb518X-001  +1.4c3abe93bcf74X-002
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  |                           | A      | B      | Test        | p-value |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                               SMD                                   |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  | No. (Column %) or Mean±SD | N=8    | N=10   |             |         |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                                                                     |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  | Age                       | 51±7   | 54±7   | Ind. t test | 0.33    |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                               0.478                                 |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  | Female                    | 2 (25) | 6 (60) | Chi-square  | 0.14    |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                               0.757                                 |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  | Group                     |        |        | Chi-square  | 0.80    |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                               0.324                                 |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  |    x                      | 3 (38) | 3 (30) |             |         |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                                                                     |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  |    y                      | 3 (38) | 3 (30) |             |         |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                                                                     |
+  +---------------------------------------------------------------------+
+
+  +---------------------------------------------------------------------+
+  | factor                    | arm_1  | arm_2  | test        | pvalue  |
+  |    z                      | 2 (25) | 4 (40) |             |         |
+  |---------------------------------------------------------------------|
+  |                               smd_str                               |
+  |                                                                     |
+  +---------------------------------------------------------------------+
+ ,A,B,Test,p-value,SMD
+No. (Column %) or Mean±SD,N=8,N=10,,,
+Age,51±7,54±7,Ind. t test,0.33,0.478
+Female,2 (25),6 (60),Chi-square,0.14,0.757
+Group,,,Chi-square,0.80,0.324
+   x,3 (38),3 (30),,,
+   y,3 (38),3 (30),,,
+   z,2 (25),4 (40),,,
+| No. (Column %) or Mean±SD | A (N=8) | B (N=10) | Test | p-value | SMD |
+| --- | --- | --- | --- | --- | --- |
+| Age | 51±7 | 54±7 | Ind. t test | 0.33 | 0.478 |
+| Female | 2 (25) | 6 (60) | Chi-square | 0.14 | 0.757 |
+| Group |  |  | Chi-square | 0.80 | 0.324 |
+| &nbsp;&nbsp;&nbsp;x | 3 (38) | 3 (30) |  |  |  |
+| &nbsp;&nbsp;&nbsp;y | 3 (38) | 3 (30) |  |  |  |
+| &nbsp;&nbsp;&nbsp;z | 2 (25) | 4 (40) |  |  |  |
+merge A1:G1
+merge B2:B3
+merge E2:E3
+merge F2:F3
+merge G2:G3
+width A 1.71
+width B 15.71
+width C 12.71
+width D 12.71
+width E 13.71
+width F 10.71
+width G 8.71
+bottom B9 thin
+bottom C9 thin
+bottom D9 thin
+bottom E9 thin
+bottom F9 thin
+bottom G9 thin
+value B2 No. (Column %) or Mean±SD
+value C2 A
+value D2 B
+value E2 Test
+value F2 p-value
+value G2 SMD
+value C3 N=8
+value D3 N=10
+value B4 Age
+value C4 51±7
+value D4 54±7
+value E4 Ind. t test
+value F4 0.33
+value G4 0.478
+value B5 Female
+value C5 2 (25)
+value D5 6 (60)
+value E5 Chi-square
+value F5 0.14
+value G5 0.757
+value B6 Group
+value E6 Chi-square
+value F6 0.80
+value G6 0.324
+value B7    x
+value C7 3 (38)
+value D7 3 (30)
+value B8    y
+value C8 3 (38)
+value D8 3 (30)
+value B9    z
+value C9 2 (25)
+value D9 4 (40)
+top B2 thin
+top C2 thin
+top D2 thin
+top E2 thin
+top F2 thin
+top G2 thin
+top B4 thin
+top C4 thin
+top D4 thin
+top E4 thin
+top F4 thin
+top G4 thin
+left B2 thin
+left E2 thin
+left F2 thin
+left G2 thin
+left B3 thin
+left E3 thin
+left F3 thin
+left G3 thin
+left B4 thin
+left E4 thin
+left F4 thin
+left G4 thin
+left B5 thin
+left E5 thin
+left F5 thin
+left G5 thin
+left B6 thin
+left E6 thin
+left F6 thin
+left G6 thin
+left B7 thin
+left E7 thin
+left F7 thin
+left G7 thin
+left B8 thin
+left E8 thin
+left F8 thin
+left G8 thin
+left B9 thin
+left E9 thin
+left F9 thin
+left G9 thin
+right B2 thin
+right G2 thin
+right B3 thin
+right G3 thin
+right B4 thin
+right G4 thin
+right B5 thin
+right G5 thin
+right B6 thin
+right G6 thin
+right B7 thin
+right G7 thin
+right B8 thin
+right G8 thin
+right B9 thin
+right G9 thin
+bold A1
+bold B2
+bold C2
+bold D2
+bold E2
+bold F2
+bold G2
+bold C3
+bold D3
+bold G4
+bold G5
+bold G6
+== case 2: smd wt(w)
+  +-------------------------------------------------+
+  |                         A       B       SMD     |
+  |-------------------------------------------------|
+  | Column % or Mean±SD     N=8     N=10            |
+  |-------------------------------------------------|
+  | Effective sample size   ESS=6   ESS=8           |
+  |-------------------------------------------------|
+  | Age                     52±6    55±7    0.461   |
+  |-------------------------------------------------|
+  | Female                  25      60      0.757   |
+  |-------------------------------------------------|
+  | Group                                   0.429   |
+  |    x                    31      35              |
+  |    y                    44      25              |
+  |    z                    25      40              |
+  +-------------------------------------------------+
+CSV exported to output/dt240_g2.csv
+Markdown exported to output/dt240_g2.md
+Dapa: Weighted data are presented as mean±SD for continuous measures, and % for
+>  categorical measures. P-values suppressed. SMD reflects weighted comparison.
+
+r(table)[3,1]
+                          smd
+   Age  +1.d858a66689b5eX-002
+Female  +1.8399de5707207X-001
+ Group  +1.b709eee63c912X-002
+
+  +-------------------------------------------------+
+  | factor                  arm_1   arm_2   smd_str |
+  |-------------------------------------------------|
+  |                         A       B       SMD     |
+  | Column % or Mean±SD     N=8     N=10            |
+  | Effective sample size   ESS=6   ESS=8           |
+  | Age                     52±6    55±7    0.461   |
+  | Female                  25      60      0.757   |
+  |-------------------------------------------------|
+  | Group                                   0.429   |
+  |    x                    31      35              |
+  |    y                    44      25              |
+  |    z                    25      40              |
+  +-------------------------------------------------+
+ ,A,B,SMD
+Column % or Mean±SD,N=8,N=10,
+Effective sample size,ESS=6,ESS=8,
+Age,52±6,55±7,0.461
+Female,25,60,0.757
+Group,,,0.429
+   x,31,35,
+   y,44,25,
+   z,25,40,
+| Column % or Mean±SD | A (N=8) | B (N=10) | SMD |
+| --- | --- | --- | --- |
+| Effective sample size | ESS=6 | ESS=8 |  |
+| Age | 52±6 | 55±7 | 0.461 |
+| Female | 25 | 60 | 0.757 |
+| Group |  |  | 0.429 |
+| &nbsp;&nbsp;&nbsp;x | 31 | 35 |  |
+| &nbsp;&nbsp;&nbsp;y | 44 | 25 |  |
+| &nbsp;&nbsp;&nbsp;z | 25 | 40 |  |
+merge A1:E1
+merge B2:B3
+merge E2:E3
+width A 1.71
+width B 20.71
+width C 12.71
+width D 12.71
+width E 8.71
+bottom B10 thin
+bottom C10 thin
+bottom D10 thin
+bottom E10 thin
+value B2 Column % or Mean±SD
+value C2 A
+value D2 B
+value E2 SMD
+value C3 N=8
+value D3 N=10
+value B4 Effective sample size
+value C4 ESS=6
+value D4 ESS=8
+value B5 Age
+value C5 52±6
+value D5 55±7
+value E5 0.461
+value B6 Female
+value C6 25
+value D6 60
+value E6 0.757
+value B7 Group
+value E7 0.429
+value B8    x
+value C8 31
+value D8 35
+value B9    y
+value C9 44
+value D9 25
+value B10    z
+value C10 25
+value D10 40
+top B2 thin
+top C2 thin
+top D2 thin
+top E2 thin
+top B4 thin
+top C4 thin
+top D4 thin
+top E4 thin
+left B2 thin
+left E2 thin
+left B3 thin
+left E3 thin
+left B4 thin
+left E4 thin
+left B5 thin
+left E5 thin
+left B6 thin
+left E6 thin
+left B7 thin
+left E7 thin
+left B8 thin
+left E8 thin
+left B9 thin
+left E9 thin
+left B10 thin
+left E10 thin
+right B2 thin
+right E2 thin
+right B3 thin
+right E3 thin
+right B4 thin
+right E4 thin
+right B5 thin
+right E5 thin
+right B6 thin
+right E6 thin
+right B7 thin
+right E7 thin
+right B8 thin
+right E8 thin
+right B9 thin
+right E9 thin
+right B10 thin
+right E10 thin
+bold A1
+bold B2
+bold C2
+bold D2
+bold E2
+bold C3
+bold D3
+bold E5
+bold E6
+bold E7
+== case 3: smd wt(w) wtcompare
+  +----------------------------------------------------------------------------
+> -------+
+  |                             Crude A   Crude B   Weighted A   Weighted B   S
+> MD     |
+  |----------------------------------------------------------------------------
+> -------|
+  | No. (Column %) or Mean±SD   N=8       N=10      N=8          N=10          
+>        |
+  |----------------------------------------------------------------------------
+> -------|
+  | Effective sample size                           ESS=6        ESS=8         
+>        |
+  |----------------------------------------------------------------------------
+> -------|
+  | Age                         51±7      54±7      52±6         55±7         0
+> .461   |
+  |----------------------------------------------------------------------------
+> -------|
+  | Female                      2 (25)    6 (60)    25           60           0
+> .757   |
+  |----------------------------------------------------------------------------
+> -------|
+  | Group                                                                     0
+> .429   |
+  |    x                        3 (38)    3 (30)    31           35            
+>        |
+  |    y                        3 (38)    3 (30)    44           25            
+>        |
+  |    z                        2 (25)    4 (40)    25           40            
+>        |
+  +----------------------------------------------------------------------------
+> -------+
+CSV exported to output/dt240_g3.csv
+Markdown exported to output/dt240_g3.md
+Dapa: Crude and weighted data are presented as mean±SD for continuous measures,
+>  and No. (%) for categorical measures. P-values suppressed. SMD reflects weig
+> hted comparison.
+
+r(table)[3,1]
+                          smd
+   Age  +1.d858a66689b5eX-002
+Female  +1.8399de5707207X-001
+ Group  +1.b709eee63c912X-002
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  |                           | Crude A | Crude B | Weighted A | Weighted B |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                 SMD                                     |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  | No. (Column %) or Mean±SD | N=8     | N=10    | N=8        | N=10       |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                                                         |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  | Effective sample size     |         |         | ESS=6      | ESS=8      |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                                                         |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  | Age                       | 51±7    | 54±7    | 52±6       | 55±7       |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                 0.461                                   |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  | Female                    | 2 (25)  | 6 (60)  | 25         | 60         |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                 0.757                                   |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  | Group                     |         |         |            |            |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                 0.429                                   |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  |    x                      | 3 (38)  | 3 (30)  | 31         | 35         |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                                                         |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  |    y                      | 3 (38)  | 3 (30)  | 44         | 25         |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                                                         |
+  +-------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------+
+  | factor                    | Cr_1    | Cr_2    | Wt_1       | Wt_2       |
+  |    z                      | 2 (25)  | 4 (40)  | 25         | 40         |
+  |-------------------------------------------------------------------------|
+  |                                 smd_str                                 |
+  |                                                                         |
+  +-------------------------------------------------------------------------+
+ ,Crude A,Crude B,Weighted A,Weighted B,SMD
+No. (Column %) or Mean±SD,N=8,N=10,N=8,N=10,
+Effective sample size,,,ESS=6,ESS=8,
+Age,51±7,54±7,52±6,55±7,0.461
+Female,2 (25),6 (60),25,60,0.757
+Group,,,,,0.429
+   x,3 (38),3 (30),31,35,
+   y,3 (38),3 (30),44,25,
+   z,2 (25),4 (40),25,40,
+| No. (Column %) or Mean±SD | Crude A (N=8) | Crude B (N=10) | Weighted A (N=8) | Weighted B (N=10) | SMD |
+| --- | --- | --- | --- | --- | --- |
+| Effective sample size |  |  | ESS=6 | ESS=8 |  |
+| Age | 51±7 | 54±7 | 52±6 | 55±7 | 0.461 |
+| Female | 2 (25) | 6 (60) | 25 | 60 | 0.757 |
+| Group |  |  |  |  | 0.429 |
+| &nbsp;&nbsp;&nbsp;x | 3 (38) | 3 (30) | 31 | 35 |  |
+| &nbsp;&nbsp;&nbsp;y | 3 (38) | 3 (30) | 44 | 25 |  |
+| &nbsp;&nbsp;&nbsp;z | 2 (25) | 4 (40) | 25 | 40 |  |
+merge A1:G1
+merge B2:B3
+merge G2:G3
+width A 1.71
+width B 20.71
+width C 12.71
+width D 12.71
+width E 12.71
+width F 12.71
+width G 8.71
+bottom B10 thin
+bottom C10 thin
+bottom D10 thin
+bottom E10 thin
+bottom F10 thin
+bottom G10 thin
+value B2 No. (Column %) or Mean±SD
+value C2 Crude A
+value D2 Crude B
+value E2 Weighted A
+value F2 Weighted B
+value G2 SMD
+value C3 N=8
+value D3 N=10
+value E3 N=8
+value F3 N=10
+value B4 Effective sample size
+value E4 ESS=6
+value F4 ESS=8
+value B5 Age
+value C5 51±7
+value D5 54±7
+value E5 52±6
+value F5 55±7
+value G5 0.461
+value B6 Female
+value C6 2 (25)
+value D6 6 (60)
+value E6 25
+value F6 60
+value G6 0.757
+value B7 Group
+value G7 0.429
+value B8    x
+value C8 3 (38)
+value D8 3 (30)
+value E8 31
+value F8 35
+value B9    y
+value C9 3 (38)
+value D9 3 (30)
+value E9 44
+value F9 25
+value B10    z
+value C10 2 (25)
+value D10 4 (40)
+value E10 25
+value F10 40
+top B2 thin
+top C2 thin
+top D2 thin
+top E2 thin
+top F2 thin
+top G2 thin
+top B4 thin
+top C4 thin
+top D4 thin
+top E4 thin
+top F4 thin
+top G4 thin
+left B2 thin
+left G2 thin
+left B3 thin
+left G3 thin
+left B4 thin
+left G4 thin
+left B5 thin
+left G5 thin
+left B6 thin
+left G6 thin
+left B7 thin
+left G7 thin
+left B8 thin
+left G8 thin
+left B9 thin
+left G9 thin
+left B10 thin
+left G10 thin
+right B2 thin
+right G2 thin
+right B3 thin
+right G3 thin
+right B4 thin
+right G4 thin
+right B5 thin
+right G5 thin
+right B6 thin
+right G6 thin
+right B7 thin
+right G7 thin
+right B8 thin
+right G8 thin
+right B9 thin
+right G9 thin
+right B10 thin
+right G10 thin
+bold A1
+bold B2
+bold C2
+bold D2
+bold E2
+bold F2
+bold G2
+bold C3
+bold D3
+bold E3
+bold F3
+bold G5
+bold G6
+bold G7
+== case 4: smd smdthreshold(0.05) nopvalue
+  +-------------------------------------------------------+
+  |                             A        B        SMD     |
+  |-------------------------------------------------------|
+  | No. (Column %) or Mean±SD   N=8      N=10             |
+  |-------------------------------------------------------|
+  | Age                         51±7     54±7     0.478   |
+  |-------------------------------------------------------|
+  | Female                      2 (25)   6 (60)   0.757   |
+  |-------------------------------------------------------|
+  | Group                                         0.324   |
+  |    x                        3 (38)   3 (30)           |
+  |    y                        3 (38)   3 (30)           |
+  |    z                        2 (25)   4 (40)           |
+  +-------------------------------------------------------+
+CSV exported to output/dt240_g4.csv
+Markdown exported to output/dt240_g4.md
+Dapa: Data are presented as mean±SD for continuous measures, and No. (%) for ca
+> tegorical measures. P-values suppressed.
+
+r(table)[3,1]
+                          smd
+   Age  +1.e949d0d258dbaX-002
+Female  +1.8399de5707207X-001
+ Group  +1.4c3abe93bcf74X-002
+
+  +-------------------------------------------------------+
+  | factor                      arm_1    arm_2    smd_str |
+  |-------------------------------------------------------|
+  |                             A        B        SMD     |
+  | No. (Column %) or Mean±SD   N=8      N=10             |
+  | Age                         51±7     54±7     0.478   |
+  | Female                      2 (25)   6 (60)   0.757   |
+  | Group                                         0.324   |
+  |-------------------------------------------------------|
+  |    x                        3 (38)   3 (30)           |
+  |    y                        3 (38)   3 (30)           |
+  |    z                        2 (25)   4 (40)           |
+  +-------------------------------------------------------+
+ ,A,B,SMD
+No. (Column %) or Mean±SD,N=8,N=10,
+Age,51±7,54±7,0.478
+Female,2 (25),6 (60),0.757
+Group,,,0.324
+   x,3 (38),3 (30),
+   y,3 (38),3 (30),
+   z,2 (25),4 (40),
+| No. (Column %) or Mean±SD | A (N=8) | B (N=10) | SMD |
+| --- | --- | --- | --- |
+| Age | 51±7 | 54±7 | 0.478 |
+| Female | 2 (25) | 6 (60) | 0.757 |
+| Group |  |  | 0.324 |
+| &nbsp;&nbsp;&nbsp;x | 3 (38) | 3 (30) |  |
+| &nbsp;&nbsp;&nbsp;y | 3 (38) | 3 (30) |  |
+| &nbsp;&nbsp;&nbsp;z | 2 (25) | 4 (40) |  |
+merge A1:E1
+merge B2:B3
+merge E2:E3
+width A 1.71
+width B 15.71
+width C 12.71
+width D 12.71
+width E 8.71
+bottom B9 thin
+bottom C9 thin
+bottom D9 thin
+bottom E9 thin
+value B2 No. (Column %) or Mean±SD
+value C2 A
+value D2 B
+value E2 SMD
+value C3 N=8
+value D3 N=10
+value B4 Age
+value C4 51±7
+value D4 54±7
+value E4 0.478
+value B5 Female
+value C5 2 (25)
+value D5 6 (60)
+value E5 0.757
+value B6 Group
+value E6 0.324
+value B7    x
+value C7 3 (38)
+value D7 3 (30)
+value B8    y
+value C8 3 (38)
+value D8 3 (30)
+value B9    z
+value C9 2 (25)
+value D9 4 (40)
+top B2 thin
+top C2 thin
+top D2 thin
+top E2 thin
+top B4 thin
+top C4 thin
+top D4 thin
+top E4 thin
+left B2 thin
+left E2 thin
+left B3 thin
+left E3 thin
+left B4 thin
+left E4 thin
+left B5 thin
+left E5 thin
+left B6 thin
+left E6 thin
+left B7 thin
+left E7 thin
+left B8 thin
+left E8 thin
+left B9 thin
+left E9 thin
+right B2 thin
+right E2 thin
+right B3 thin
+right E3 thin
+right B4 thin
+right E4 thin
+right B5 thin
+right E5 thin
+right B6 thin
+right E6 thin
+right B7 thin
+right E7 thin
+right B8 thin
+right E8 thin
+right B9 thin
+right E9 thin
+bold A1
+bold B2
+bold C2
+bold D2
+bold E2
+bold C3
+bold D3
+bold E4
+bold E5
+bold E6

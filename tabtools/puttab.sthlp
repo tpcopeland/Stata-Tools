@@ -40,7 +40,7 @@ sheets into one composite. The natural pipeline is to emit styled blocks with
 {opt zeb:ra} {opt headers:hade} {opt noheaders:hade}
 {opt dig:its(#)} {opt nf:ormat(%fmt)} {opt varl:abels} {opt noh:eader} {opt noemb:edheader}
 {opt hl:ines(numlist)} {opt vl:ines(numlist)} {opt bold:rows(numlist)}
-{opt pan:el(varname)} {opt panelh:eader(spec)} {opt noind:ent} {opt span:header(spec)}
+{opt pan:el(varname)} {opt panelh:eader(spec)} {opt paneli:nline} {opt noind:ent} {opt span:header(spec)}
 {opt csv(filename)} {opt mark:down(filename)} {opt mdapp:end} {opt open}]{p_end}
 
 {pstd}The table source is exactly one of: a {it:varlist} of the current dataset
@@ -138,6 +138,7 @@ and matrices in memory are left unchanged.{p_end}
 {synopt:{opt bold:rows(numlist)}}bold each listed data row{p_end}
 {synopt:{opt pan:el(varname)}}heading row wherever {it:varname} changes{p_end}
 {synopt:{opt panelh:eader(spec)}}header row repeated under each heading{p_end}
+{synopt:{opt paneli:nline}}heading and panel header share one row{p_end}
 {synopt:{opt noind:ent}}do not indent the row labels of a panel{p_end}
 {synopt:{opt span:header(spec)}}spanning column labels above the header{p_end}
 {synoptline}
@@ -287,6 +288,19 @@ person-years in one panel and scans and percentages in the next. The variables a
 exported. Requires {opt panel()}.{p_end}
 
 {phang}
+{opt paneli:nline} writes each panel heading and that panel's {opt panelheader()} row as
+one row: the heading text takes the first cell of the panel header row, and the other
+cells keep their header text, as in {cmd:Panel A | Events | Person-years}. The first cell
+of the panel header (the row-label column) must therefore be blank for every panel that
+has a heading; text there is an error (198), never overwritten. The shared row is bold,
+ruled above (as a heading) and below (as a header), shaded with {opt headershade}, and not
+merged across the table. CSV and Markdown get the same single row (bold in Markdown). A
+panel with a heading but an all-blank header keeps its separate heading row; a panel
+without a heading keeps its separate header row. The row labels under a heading are still
+indented unless {opt noindent} is given. Shared rows count in {cmd:r(n_panels)} and as
+data rows. Requires {opt panelheader()}.{p_end}
+
+{phang}
 {opt noind:ent} leaves the row labels under a panel heading unindented in every sink.
 Requires {opt panel()}.{p_end}
 
@@ -398,6 +412,8 @@ in bold. Use {helpb stacktab} instead when the parts are already separate sheets
 {phang2}{cmd:. puttab row c1 c2 using table.xlsx, sheet("Panels") noheader ///}{p_end}
 {phang3}{cmd:panel(blk) panelheader(h0 h1 h2) title("Table 3") ///}{p_end}
 {phang3}{cmd:footnote("Counts are crude. \ Ratios are adjusted.")}{p_end}
+{phang2}{cmd:. puttab row c1 c2 using table.xlsx, sheet("Inline") noheader ///}{p_end}
+{phang3}{cmd:panel(blk) panelheader(h0 h1 h2) panelinline title("Table 3")}{p_end}
 {phang2}{cmd:. label variable c1 "Events"}{p_end}
 {phang2}{cmd:. label variable c2 "Exposure"}{p_end}
 {phang2}{cmd:. puttab row c1 c2 using table.xlsx, sheet("Spans") varlabels ///}{p_end}
@@ -433,7 +449,7 @@ decimals.{p_end}
 {synopt:{cmd:r(n_rows)}}assembled rows, including title/header/footnote{p_end}
 {synopt:{cmd:r(n_cols)}}content columns, excluding the layout spacer column A{p_end}
 {synopt:{cmd:r(n_datarows)}}data rows, incl. {opt panel()} rows{p_end}
-{synopt:{cmd:r(n_panels)}}number of {opt panel()} heading rows (0 without {opt panel()}){p_end}
+{synopt:{cmd:r(n_panels)}}number of {opt panel()} heading rows, incl. shared rows{p_end}
 {synopt:{cmd:r(n_spans)}}number of {opt spanheader()} spans (0 without it){p_end}
 {synopt:{cmd:r(markdown_rows)}}body rows written to Markdown{p_end}
 {synopt:{cmd:r(markdown_cols)}}columns written to Markdown{p_end}

@@ -16,6 +16,7 @@ clear all
 set more off
 set varabbrev off
 version 17.0
+local _st231_ls0 = c(linesize)
 
 capture log close _st231
 log using "test_stratetab_v231.log", replace text name(_st231)
@@ -365,5 +366,6 @@ macro drop V230_TOOL V230_RES
 
 local _tc = `pass_count' + `fail_count'
 display "RESULT: test_stratetab_v231 tests=`_tc' pass=`pass_count' fail=`fail_count'"
+set linesize `_st231_ls0'
 log close _st231
 if `fail_count' > 0 exit 1

@@ -1,8 +1,14 @@
-*! _desctab_collect Version 2.3.1  2026/10/05
+*! _desctab_collect Version 2.4.0  2026/10/05
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Method: Standardized mean differences follow Yang and Dalton (2012).
+*! smdtype(population): McCaffrey et al. (2013) Stat Med 32:3388, sec. 4.1.2
+*!   eq. 5 and sec. 4.2, max_g |mean_g - mean_pop| / sd_pop, pooled mean/SD
+*!   unweighted under wt() (frequency-weighted under fweight).
+*! smdtype(maxpair): Lopez and Gutman (2017) Stat Sci 32:432, eq. 27, the
+*!   largest absolute pairwise difference, every pair on one shared scale:
+*!   sqrt(mean of the K group variances) (cobalt 4.6.3 s.d.denom="pooled").
 
 program define _desctab_collect, rclass
     version 17.0
@@ -38,7 +44,8 @@ program define _desctab_collect, rclass
               iqrmiddle(string) sdleft(string) sdright(string) ///
               gsdleft(string) gsdright(string) GSDFormat(string) ///
               percsign(string) NOSPACElowpercent extraspace ///
-              SMALLCells(string) SCPRIMary MISSINGSummary ]
+              SMALLCells(string) SCPRIMary MISSINGSummary ///
+              smdtype(string) smdpair(numlist min=2 max=2) ]
 
         * F07 (codex audit 2026-09-27): the continuous-variable tests fit
         * anova/regress on a temporary group variable. Hold the caller's
@@ -323,6 +330,28 @@ program define _desctab_collect, rclass
 
         local level1 : word 1 of `group_levels'
         local level2 : word 2 of `group_levels'
+        * smdpair(): desctab has already mapped the user's two by() values
+        * to group codes and checked them; the pair SMD compares those two.
+        if "`smdpair'" != "" {
+            local level1 : word 1 of `smdpair'
+            local level2 : word 2 of `smdpair'
+            foreach _sp in `level1' `level2' {
+                if !`: list _sp in group_levels' {
+                    display as error "smdpair(): `_sp' is not a level of by()"
+                    exit 198
+                }
+            }
+        }
+        if "`smdtype'" == "" local smdtype "pair"
+        if !inlist("`smdtype'", "pair", "population", "maxpair") {
+            display as error "smdtype() must be pair, population, or maxpair"
+            exit 198
+        }
+        local _smd_multi = ("`smdtype'" != "pair")
+        local _smd_kind = cond(`has_wt', 1, cond(`has_fw', 2, 0))
+        local _smd_wvar ""
+        if `has_wt' local _smd_wvar "`wt'"
+        else if `has_fw' local _smd_wvar "`fwvar'"
         local _used_ttest 0
         local _used_anova 0
         local _used_wilcoxon 0
@@ -518,7 +547,23 @@ program define _desctab_collect, rclass
                 }
             }
 
-            if "`smd'" != "" & "`level1'" != "" & "`level2'" != "" {
+            if "`smd'" != "" & `_smd_multi' {
+                * Population SB or max pairwise SMD over every by() group.
+                local _smd_y `"`testvar'"'
+                if inlist("`typ'", "bin", "bine", "cat", "cate") local _smd_y `"`v'"'
+                local _smd_class = cond(inlist("`typ'", "bin", "bine"), 1, ///
+                    cond(inlist("`typ'", "cat", "cate"), 2, 0))
+                tempvar _smd_sel
+                quietly gen byte `_smd_sel' = `touse' & `by' < . & `_smd_y' < .
+                tempname _smdm
+                mata: st_numscalar("`_smdm'", _t1tcfc_smd_multi( ///
+                    "`_smd_y'", "`by'", "`_smd_wvar'", "`_smd_sel'", ///
+                    "`group_levels'", `_smd_kind', `_smd_class', ///
+                    ("`smdtype'" == "population")))
+                local smd`i' = scalar(`_smdm')
+                drop `_smd_sel'
+            }
+            else if "`smd'" != "" & "`level1'" != "" & "`level2'" != "" {
                 if inlist("`typ'", "contn", "contln", "conts") {
                     local _smd_if1 "`touse' & `by' == `level1' & `testvar' < ."
                     local _smd_if2 "`touse' & `by' == `level2' & `testvar' < ."
@@ -1405,6 +1450,8 @@ capture mata: mata drop _t1tcfc_wscale()
 capture mata: mata drop _t1tcfc_ess()
 capture mata: mata drop _t1tcfc_wquantile()
 capture mata: mata drop _t1tcfc_cat_smd()
+capture mata: mata drop _t1tcfc_smd_wmv()
+capture mata: mata drop _t1tcfc_smd_multi()
 capture mata: mata drop _t1tcfc_collect_mata()
 
 mata:
@@ -1526,6 +1573,141 @@ real scalar _t1tcfc_cat_smd(real rowvector p1, real rowvector p2)
     if (distance2 < 0 & distance2 > -1e-12) distance2 = 0
     if (distance2 < 0 | distance2 >= .) return(.)
     return(sqrt(distance2))
+}
+
+// Weighted mean and variance as the pair SMD forms them: summarize with
+// [aw] (kind 1: n/(sum w (n - 1)) * SS), [fw] (kind 2: SS/(sum w - 1)),
+// or unweighted (kind 0: SS/(n - 1)). Variance is missing when undefined.
+real rowvector _t1tcfc_smd_wmv(real colvector y, real colvector w,
+                               real scalar kind)
+{
+    real scalar n, sw, m, ss, v
+
+    n = rows(y)
+    if (n == 0) return((., .))
+    sw = quadsum(w)
+    if (sw <= 0 | sw >= .) return((., .))
+    m = quadsum(w :* y) / sw
+    ss = quadsum(w :* (y :- m):^2)
+    if (kind == 2) v = (sw > 1 ? ss / (sw - 1) : .)
+    else v = (n > 1 ? n / (sw * (n - 1)) * ss : .)
+    return((m, v))
+}
+
+// Multi-group balance statistic for one variable (smdtype population or
+// maxpair). selname marks the analysed records (in sample, by() and the
+// variable nonmissing). kind: 0 unweighted, 1 wt() analytic, 2 fweight.
+// cls: 0 continuous (values already on the analysis scale, log for
+// contln), 1 binary 0/1, 2 categorical. pop: 1 population SB, 0 maxpair.
+//
+// population (McCaffrey et al. 2013, sec. 4.1.2 eq. 5; sec. 4.2 takes the
+// max over groups): max_g |m_g - m_pop| / sd_pop. Group means carry the
+// weights; the pooled reference is unweighted under wt() and frequency
+// weighted under fweight (records replicated). Continuous sd_pop uses
+// n - 1; binary sqrt(p(1 - p)); categorical takes the largest per-level
+// value with sqrt(p_l(1 - p_l)), as twang 2.6.2 ps.summary.new2() does per
+// factor level.
+//
+// maxpair (Lopez and Gutman 2017, eq. 27): max over pairs of |m_a - m_b|
+// divided by one denominator shared by every pair, sqrt(mean_g var_g)
+// (cobalt 4.6.3 s.d.denom = "pooled"); binary var_g = p_g(1 - p_g).
+// Categorical: Yang-Dalton (2012) eq. 2 with S averaged over all K
+// groups -- a tabtools extension with no published source; it reduces to
+// Yang-Dalton for K = 2 and to the binary form for a two-level variable.
+// Any group with no usable records (or an undefined variance) gives
+// missing, never a statistic over fewer groups.
+real scalar _t1tcfc_smd_multi(string scalar yname, string scalar gname,
+                              string scalar wname, string scalar selname,
+                              string scalar levels_string, real scalar kind,
+                              real scalar cls, real scalar pop)
+{
+    real colvector y, g, w, wpop, idx, yl, pp, den, d
+    real rowvector lv, mv, m, v
+    real matrix pg, pk, S, Sinv
+    real scalar G, L, k, a, b, out, val, popm, popv, dd
+
+    lv = strtoreal(tokens(levels_string))
+    G = cols(lv)
+    if (G < 2) return(.)
+    y = st_data(., yname, selname)
+    g = st_data(., gname, selname)
+    if (wname != "") w = st_data(., wname, selname)
+    else w = J(rows(y), 1, 1)
+    if (kind == 0) w = J(rows(y), 1, 1)
+    wpop = (kind == 2 ? w : J(rows(y), 1, 1))
+    for (k = 1; k <= G; k++) {
+        if (!any(g :== lv[k])) return(.)
+    }
+
+    out = .
+    if (cls == 0 | cls == 1) {
+        m = J(1, G, .)
+        v = J(1, G, .)
+        for (k = 1; k <= G; k++) {
+            idx = selectindex(g :== lv[k])
+            mv = _t1tcfc_smd_wmv(y[idx], w[idx], kind)
+            m[k] = mv[1]
+            v[k] = mv[2]
+        }
+        if (hasmissing(m)) return(.)
+        if (pop) {
+            mv = _t1tcfc_smd_wmv(y, wpop, (kind == 2 ? 2 : 0))
+            popm = mv[1]
+            popv = mv[2]
+            dd = (cls == 1 ? sqrt(popm * (1 - popm)) : sqrt(popv))
+            if (dd > 0 & dd < .) out = max(abs(m :- popm)) / dd
+        }
+        else {
+            if (cls == 1) v = m :* (1 :- m)
+            if (hasmissing(v)) return(.)
+            dd = sqrt(mean(v'))
+            if (dd > 0 & dd < .) out = (max(m) - min(m)) / dd
+        }
+    }
+    else {
+        yl = uniqrows(y)
+        L = rows(yl)
+        if (L < 2) return(.)
+        pg = J(L, G, .)
+        for (k = 1; k <= G; k++) {
+            idx = selectindex(g :== lv[k])
+            for (a = 1; a <= L; a++) {
+                pg[a, k] = quadsum(w[idx] :* (y[idx] :== yl[a])) / quadsum(w[idx])
+            }
+        }
+        if (hasmissing(pg)) return(.)
+        if (pop) {
+            pp = J(L, 1, .)
+            for (a = 1; a <= L; a++) {
+                pp[a] = quadsum(wpop :* (y :== yl[a])) / quadsum(wpop)
+            }
+            den = sqrt(pp :* (1 :- pp))
+            if (any(den :<= 0) | hasmissing(den)) return(.)
+            out = max(abs(pg :- pp) :/ den)
+        }
+        else {
+            pk = pg[|1, 1 \ L - 1, G|]
+            S = J(L - 1, L - 1, 0)
+            for (k = 1; k <= G; k++) {
+                S = S + diag(pk[., k]) - pk[., k] * pk[., k]'
+            }
+            S = S / G
+            if (rank(S) < L - 1) return(.)
+            Sinv = invsym(S)
+            for (a = 1; a < G; a++) {
+                for (b = a + 1; b <= G; b++) {
+                    d = pk[., a] - pk[., b]
+                    val = d' * Sinv * d
+                    if (val < 0 & val > -1e-12) val = 0
+                    if (val < 0 | val >= .) return(.)
+                    val = sqrt(val)
+                    if (out >= . | val > out) out = val
+                }
+            }
+        }
+    }
+    if (out >= .) return(.)
+    return(out)
 }
 
 void _t1tcfc_collect_mata(

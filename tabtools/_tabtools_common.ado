@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.3.1  2026/10/05
+*! _tabtools_common Version 2.4.0  2026/10/05
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -522,10 +522,18 @@ program _tabtools_resolve_format, nclass
     }
 
     * Resolve borderstyle: global -> default
-    if "`borderstyle'" == "" & "$TABTOOLS_BORDER" != "" local borderstyle "$TABTOOLS_BORDER"
+    * An explicit borderstyle() wins over the session value
+    * (tabtools set borderstyle); a session value is validated as an
+    * option is, and named as the session's if it is not valid.
+    local _bs_session 0
+    if "`borderstyle'" == "" & `"$TABTOOLS_BORDER"' != "" {
+        local borderstyle `"$TABTOOLS_BORDER"'
+        local _bs_session 1
+    }
     if "`borderstyle'" == "" local borderstyle "thin"
-    if !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
-        display as error "borderstyle must be: default, thin, medium, or academic"
+    if !inlist(`"`borderstyle'"', "default", "thin", "medium", "academic") {
+        if `_bs_session' display as error `"session borderstyle "`borderstyle'" is not valid; borderstyle must be: default, thin, medium, or academic"'
+        else display as error "borderstyle must be: default, thin, medium, or academic"
         exit 198
     }
     if "`borderstyle'" == "default" local borderstyle "thin"

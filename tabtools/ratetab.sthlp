@@ -39,7 +39,7 @@
 {synopt:{opt nosmall:cells}}ignore the session smallcells default{p_end}
 {synopt:{opt mask:text(string)}}text of a masked event count; default {cmd:<}#{p_end}
 {synopt:{opt excludem:asked}}keep masked levels out of the cluster fit{p_end}
-{synopt:{opt zeroc:ells(dash|blank)}}print zero-event cells as {cmd:–} or empty{p_end}
+{synopt:{opt zeroc:ells(dash|blank[, persontime])}}zero-event cells as {cmd:–} or empty{p_end}
 
 {syntab:Format}
 {synopt:{opt dig:its(#)}}decimal places of rates; default 1{p_end}
@@ -71,7 +71,8 @@ The table is laid out and written by {helpb stratetab}, so its Excel, CSV,
 Markdown, and {opt frame()} output have the {cmd:stratetab} layout, and the
 frame can be given to {helpb comptab}{cmd:, rateframe()} to place model estimates
 beside the rates. An observation with a missing value of a grouping variable
-is left out of that variable's table only; the other grouping variables keep
+({cmd:.} or an extended missing value {cmd:.a}-{cmd:.z}, as {cmd:tabulate}
+leaves them out) is left out of that variable's table only; the other grouping variables keep
 it, as {cmd:strate} run one variable at a time would.
 
 
@@ -89,7 +90,15 @@ with {opt events()} ({cmd:events(e1 e2) exposure(py1 py2)}: {cmd:e1} over
 {cmd:py1}, {cmd:e2} over {cmd:py2}), for outcomes whose follow-up ends at
 different times. Any other number of variables is refused. Give both, or
 neither for {cmd:stset} data. Negative person-time, non-integer counts, and
-events without person-time (in the outcome's own variable) are refused. An
+events without person-time (in the outcome's own variable) are refused. A
+level with no person-time for an outcome (every observation of the level has
+zero exposure for that outcome) has no computable rate: its events,
+person-time, and rate cells for that outcome are left empty in every output
+(console, Excel, CSV, Markdown, and frame), its {cmd:rate}, {cmd:lb}, and
+{cmd:ub} are missing in {cmd:r(estimates)} and {opt saving()}, and it is
+counted in {cmd:r(N_nopt)}, not in {cmd:r(N_zero)}. When no level has
+person-time for any outcome, there is nothing to show and {cmd:ratetab} exits
+with r(459). An
 observation missing any of the {opt events()} or {opt exposure()} variables
 is left out of every outcome, so all outcomes share one sample ({cmd:r(N)}).
 
@@ -140,11 +149,15 @@ are counted in {cmd:r(N_maskfit)}, not {cmd:r(N_noci)}. See {it:Methods} for
 what this does and does not change.
 
 {phang}
-{opt zerocells(dash|blank)} prints a level with no events with {cmd:–}
+{opt zerocells(dash|blank[, persontime])} prints a level with no events with {cmd:–}
 ({cmd:dash}) or nothing ({cmd:blank}) in place of its count and its rate and
-interval; its person-time is still shown. Without it, the count 0 is printed
-with the rate 0 and the exact limits (0, -ln(alpha/2)/Y). {cmd:r()} and
-{opt saving()} keep the numbers.
+interval; its person-time is still shown unless the suboption
+{cmd:persontime} is given, which withholds it the same way
+({cmd:zerocells(dash, persontime)} prints {cmd:–} in all three cells). Without
+it, the count 0 is printed with the rate 0 and the exact limits
+(0, -ln(alpha/2)/Y). {cmd:r()} and {opt saving()} keep the numbers. With
+{cmd:blank, persontime} a zero-event cell prints like a cell with no
+person-time (all empty); use {cmd:dash} to tell them apart.
 
 {dlgtab:Format}
 
@@ -169,8 +182,23 @@ variable labels (or names) and {it:per()}.
 printed level: {cmd:outcome}, {cmd:outcome_var}, {cmd:outcome_label},
 {cmd:group}, {cmd:groupvar}, {cmd:level}, {cmd:level_label}, {cmd:events},
 {cmd:persontime} (in {opt pyscale()} units), {cmd:rate}, {cmd:lb}, and
-{cmd:ub} (per {opt per()}), and {cmd:masked} (1 when the printed cell is
-masked). The numbers are the unmasked numbers of {cmd:r(estimates)}, so the
+{cmd:ub} (per {opt per()}), {cmd:masked} (1 when the printed cell is
+masked), and {cmd:nopersontime} (1 when the level has no person-time for the
+outcome, so {cmd:rate}, {cmd:lb}, and {cmd:ub} are missing). After these
+columns comes each grouping variable under its own name, with its storage
+type, display format, variable label, and value label: on the rows of that
+grouping variable it holds the level's value, and on the rows of the other
+grouping variables it is missing. So {cmd:ratetab drug} saves a numeric
+{cmd:drug} with its value labels, and {cmd:use rates, clear} followed by
+{cmd:list drug rate if groupvar == "drug"} shows the labelled levels. A
+grouping variable listed twice has one column, filled on the rows of both
+listings. A grouping variable that has the name of one of the fixed columns
+(for example {cmd:group} or {cmd:level}) is saved as {cmd:g_}{it:name}
+(or {cmd:g2_}{it:name}, {cmd:g3_}{it:name}, ... if that name is taken), so the
+fixed columns keep their meaning; a note says so, the column's
+characteristic {cmd:ratetab_groupvar} and the dataset characteristic
+{cmd:ratetab_renamed} record the original name, and {cmd:groupvar} holds it
+on every row. The numbers are the unmasked numbers of {cmd:r(estimates)}, so the
 file is an analysis file, not a release table. The file is checked before
 any work and written after the table.
 
@@ -234,6 +262,10 @@ and clustered fit use that outcome's own person-time.
 {phang2}{cmd:. ratetab drug, events(died died2) exposure(pt pt2) smallcells(15) masktext("–") zerocells(dash) saving(rates, replace)}{p_end}
 {phang2}{cmd:. ratetab drug, ci(cluster(id)) smallcells(15) excludemasked}{p_end}
 
+{pstd}Withhold the person-time of zero-event levels too{p_end}
+
+{phang2}{cmd:. ratetab drug, events(died died2) exposure(pt pt2) zerocells(dash, persontime)}{p_end}
+
 
 {marker stored}{...}
 {title:Stored results}
@@ -244,11 +276,12 @@ and clustered fit use that outcome's own person-time.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(N)}}observations used{p_end}
+{synopt:{cmd:r(N)}}observations with any grouping value{p_end}
 {synopt:{cmd:r(per)}}rate multiplier{p_end}
 {synopt:{cmd:r(level)}}confidence level{p_end}
 {synopt:{cmd:r(N_zero)}}cells with no events{p_end}
 {synopt:{cmd:r(N_noci)}}cells without a clustered interval{p_end}
+{synopt:{cmd:r(N_nopt)}}cells with no person-time (no rate; printed empty){p_end}
 {synopt:{cmd:r(N_maskfit)}}masked cells left out of the clustered fit{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}

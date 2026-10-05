@@ -5,6 +5,7 @@
 {viewerjumpto "Remarks" "tabcell##remarks"}{...}
 {viewerjumpto "Examples" "tabcell##examples"}{...}
 {viewerjumpto "Stored results" "tabcell##stored"}{...}
+{viewerjumpto "References" "tabcell##references"}{...}
 {viewerjumpto "Author" "tabcell##author"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "outtab" "help outtab"}{...}
@@ -22,7 +23,7 @@
 
 {p 8 17 2}
 {cmd:tabcell est} [{it:coef}]
-[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)}]
+[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)} {it:store}]
 
 {pstd}where {it:source} is one of{p_end}
 
@@ -38,19 +39,21 @@
 {pstd}p-value, counts, and quartiles{p_end}
 
 {p 8 17 2}
-{cmd:tabcell p} {cmd:,} {opt p(#)} [{opt pdp(#)} {opt highpdp(#)} {opt psty:le(table|footnote)} {opt miss:ing(text)}]
+{cmd:tabcell p} {cmd:,} {opt p(#)} [{opt pdp(#)} {opt highpdp(#)} {opt psty:le(table|footnote|Pfootnote)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell n} {cmd:,} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt miss:ing(text)}]
+{cmd:tabcell n} {cmd:,} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)}]
+{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt ci(exact)} {opt l:evel(#)} {opt sep(string)} {opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell enp} {cmd:,} {opt e(#)} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)}]
+{cmd:tabcell enp} {cmd:,} {opt e(#)} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)} {opt sep(string)} {opt miss:ing(text)}]
+{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)} {opt sep(string)} {opt miss:ing(text)} {it:store}]
+
+{pstd}where {it:store} is {opt loc:al(name)} and/or {opt glob:al(name)}{p_end}
 
 {pstd}Column form{p_end}
 
@@ -91,15 +94,20 @@ With {opt generate()}, every numeric option ({opt b()}, {opt ll()}, {opt ul()},
 {synopt:{opt f:ormat(%fmt)}}format of estimate and limits; default {cmd:%9.2f}{p_end}
 {synopt:{opt cf:ormat(%fmt)}}synonym for {opt format()}{p_end}
 {synopt:{opt sep(string)}}separator between the limits; default {cmd:", "}{p_end}
-{synopt:{opt l:evel(#)}}confidence level{p_end}
+{synopt:{opt l:evel(#)}}confidence level ({cmd:est}; {cmd:np} with {opt ci()}){p_end}
+{synopt:{opt ci(exact)}}exact (Clopper-Pearson) interval ({cmd:np}){p_end}
 {synopt:{opt pdp(#)}}decimal places for p < 0.10; default 3{p_end}
 {synopt:{opt highpdp(#)}}decimal places for p >= 0.10; default 2{p_end}
-{synopt:{opt psty:le(style)}}{cmd:table} (default, {cmd:0.012}) or {cmd:footnote} ({cmd:p = 0.012}){p_end}
+{synopt:{opt psty:le(style)}}{cmd:table}, {cmd:footnote}, or {cmd:Pfootnote}{p_end}
 {synopt:{opt nf:ormat(%fmt)}}format of counts; default {cmd:%12.0fc}{p_end}
 {synopt:{opt pf:ormat(%fmt)}}format of percentages; default {cmd:%4.1f}{p_end}
 {synopt:{opt min:cell(#)}}print counts from 1 to #-1 as {cmd:<}#{p_end}
 {synopt:{opt miss:ing(text)}}text for a missing or non-finite value{p_end}
 {synopt:{opt gen:erate(newvar)}}fill a new string variable{p_end}
+
+{syntab:Store}
+{synopt:{opt loc:al(name)}}also store the cell text in local macro {it:name}{p_end}
+{synopt:{opt glob:al(name)}}also store the cell text in global macro {it:name}{p_end}
 {synoptline}
 
 
@@ -117,6 +125,13 @@ for the same p-value, {opt pdp()}, and {opt highpdp()}, or, with
 {cmd:tabcell n} prints a count with thousands separators ({cmd:12,345}),
 {cmd:tabcell np} prints {it:n} ({it:%}), {cmd:tabcell enp} prints
 {it:e}/{it:n} ({it:%}), and {cmd:tabcell iqr} prints {it:median} ({it:Q1}, {it:Q3}).
+With {cmd:ci(exact)}, {cmd:tabcell np} adds the exact binomial confidence interval of
+the percentage: {it:n} ({it:%}; {it:lower}, {it:upper}).
+
+{pstd}
+{opt local()} and {opt global()} store the cell text in a macro as well, so a
+cell is produced and kept in one line:
+{cmd:tabcell n, n(`=r(N)') local(c_n)}.
 
 {pstd}
 {cmd:tabcell} never changes the data in memory unless {opt generate()} is
@@ -196,11 +211,30 @@ thousands separators. String and date formats are refused. The printed
 numbers are trimmed of padding. {opt cformat()} is a synonym.
 
 {phang}
-{opt sep(string)} separates the two limits; the default is {cmd:", "}.
+{opt sep(string)} separates the two limits; the default is {cmd:", "}. It
+applies to {cmd:est}, {cmd:iqr}, and {cmd:np} with {opt ci()}.
 
 {phang}
 {opt level(#)} sets the confidence level; the default is {cmd:c(level)}, or
-{cmd:r(level)} with {opt lincom}.
+{cmd:r(level)} with {opt lincom}. {cmd:tabcell np} takes {opt level()} only
+with {opt ci()}.
+
+{phang}
+{opt ci(exact)} adds to {cmd:tabcell np} the exact binomial (Clopper-Pearson)
+confidence interval of the percentage {it:n}/{it:d}, printed after a semicolon
+in the format of the percentage ({opt pformat()}):
+{cmd:2 (10.0; 1.2, 31.7)}. The limits are the beta quantiles
+B(a/2; n, d-n+1) and B(1-a/2; n+1, d-n), a = 1 - {opt level()}/100,
+computed with {cmd:invibeta()} and {cmd:invibetatail()}; when n = 0 the lower
+limit is 0, and when n = d the upper limit is 100, exactly as
+{cmd:cii proportions} {it:d} {it:n}{cmd:, exact} computes them (it then labels
+the interval one-sided at 1 - a/2; {cmd:tabcell} prints the same numbers).
+The interval needs whole-number counts: a non-integer {opt n()} or {opt d()}
+is refused (error 459), as is a cell whose interval cannot be computed. A cell
+whose denominator is 0 prints no percentage and no interval, and a cell masked
+by {opt mincell()} prints {cmd:<}# only; {cmd:r(lb)} and {cmd:r(ub)} are then
+missing. The interval is conservative: its
+coverage is at least the nominal level (see {helpb ci}).
 
 {phang}
 {opt pdp(#)} and {opt highpdp(#)} set the decimal places of p-values below and
@@ -212,8 +246,11 @@ at or above 0.10, as in {helpb regtab}. p-values below 10^-{it:pdp} print as
 {opt pstyle(style)} chooses how {cmd:tabcell p} writes the p-value.
 {cmd:pstyle(table)}, the default, prints the bare table text ({cmd:0.012},
 {cmd:<0.001}, {cmd:>0.99}). {cmd:pstyle(footnote)} prints it for running text
-or a footnote: {cmd:p = 0.012}, {cmd:p < 0.001}, {cmd:p > 0.99}. The number
-is the same in both styles, so {opt pdp()} and {opt highpdp()} apply to both.
+or a footnote: {cmd:p = 0.012}, {cmd:p < 0.001}, {cmd:p > 0.99}.
+{cmd:pstyle(Pfootnote)} is the footnote style with a capital P, as many
+journals require: {cmd:P = 0.012}, {cmd:P < 0.001}, {cmd:P > 0.99}. Style
+names are not case-sensitive. The number is the same in every style, so
+{opt pdp()} and {opt highpdp()} apply to all three.
 
 {phang}
 {opt nformat(%fmt)} and {opt pformat(%fmt)} format the counts and the
@@ -239,6 +276,23 @@ instead of refusing it, for example {cmd:missing("did not converge")}.
 {opt generate(newvar)} creates the string variable {it:newvar}; {ifin}
 restricts the rows filled, and other rows are left empty.
 
+{dlgtab:Store}
+
+{phang}
+{opt local(name)} stores the cell text, exactly as in {cmd:r(cell)}, in the
+local macro {it:name} of the do-file or program that called {cmd:tabcell};
+{it:name} has at most 31 characters. {opt global(name)} stores it in the
+global macro {it:name} (at most 32 characters, not beginning with an
+underscore). Both may be given. The text is stored as data, never
+re-expanded, so quotes, backquotes, and dollar signs in a {opt missing()} text
+survive.
+If {cmd:tabcell} fails, including on a mistyped form or option, each
+validly named macro is cleared, so a {cmd:capture}d failure cannot leave
+the previous cell in it. The exception is an option list that cannot be
+parsed at all, such as an unbalanced quote or parenthesis; then no macro
+is cleared. The {cmd:r()} results are posted
+as without these options. Not allowed with {opt generate()}.
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -262,6 +316,10 @@ p-values.
 {phang2}{cmd:. tabcell est, matrix(r(table)' weight) format(%6.4f)}{p_end}
 {phang2}{cmd:. tabcell p, p(0.0499)}{p_end}
 {phang2}{cmd:. tabcell p, p(0.0123) pstyle(footnote)}{p_end}
+{phang2}{cmd:. tabcell p, p(0.0004) pstyle(Pfootnote) local(pfoot)}{p_end}
+{phang2}{cmd:. display "`pfoot'"}{p_end}
+{phang2}{cmd:. tabcell np, n(2) d(20) ci(exact)}{p_end}
+{phang2}{cmd:. tabcell np, n(0) d(20) ci(exact) level(90) sep(" to ") global(np0)}{p_end}
 {phang2}{cmd:. tabcell n, n(12345)}{p_end}
 {phang2}{cmd:. tabcell est, b(0.0213) ll(0.0110) ul(0.0372) scale(1000) format(%5.1f)}{p_end}
 {phang2}{cmd:. tabcell np, n(3) d(40) mincell(5)}{p_end}
@@ -290,6 +348,9 @@ Without {opt generate()}, {cmd:tabcell} stores the following in {cmd:r()}:
 {synopt:{cmd:r(ub)}}upper limit ({cmd:est}){p_end}
 {synopt:{cmd:r(level)}}confidence level ({cmd:est}; not {opt matrix()} or {opt ll()}/{opt ul()}){p_end}
 {synopt:{cmd:r(scale)}}multiplier given in {opt scale()}{p_end}
+{synopt:{cmd:r(pct)}}percentage as computed ({cmd:np} with {opt ci()}){p_end}
+{synopt:{cmd:r(lb)}, {cmd:r(ub)}}limits of the percentage ({cmd:np}, {opt ci()}){p_end}
+{synopt:{cmd:r(level)}}confidence level ({cmd:np} with {opt ci()}){p_end}
 
 {pstd}
 With {opt lincom}, {cmd:lincom}'s own scalars are returned as well: those
@@ -307,10 +368,24 @@ as {cmd:r(lincom_estimate)}, {cmd:r(lincom_lb)}, {cmd:r(lincom_ub)}, and
 {synopt:{cmd:r(cell)}}the cell text{p_end}
 {synopt:{cmd:r(form)}}{cmd:est}, {cmd:p}, {cmd:n}, {cmd:np}, {cmd:enp}, or {cmd:iqr}{p_end}
 {synopt:{cmd:r(source)}}{cmd:e()}, {cmd:lincom}, {cmd:nlcom}, {cmd:matrix}, or {cmd:numbers} ({cmd:est}){p_end}
+{synopt:{cmd:r(citype)}}{cmd:exact} ({cmd:np} with {opt ci()}){p_end}
 
 {pstd}
 With {opt generate()}, it stores {cmd:r(N)} (rows rendered), {cmd:r(N_missing)}
 (rows given the {opt missing()} text), {cmd:r(varname)}, and {cmd:r(form)}.
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Clopper, C. J., and E. S. Pearson. 1934. The use of confidence or fiducial
+limits illustrated in the case of the binomial. {it:Biometrika} 26: 404-413.
+{browse "https://doi.org/10.1093/biomet/26.4.404"}.{p_end}
+
+{phang}
+Thulin, M. 2014. The cost of using exact confidence intervals for a binomial
+proportion. {it:Electronic Journal of Statistics} 8: 817-840.{p_end}
 
 
 {marker author}{...}

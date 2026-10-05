@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.3.1  05oct2026}{...}
+{* *! version 2.4.0  05oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -290,6 +290,7 @@ accepted with {cmd:tabtools set}, {cmd:tabtools get}, or {cmd:tabtools use}.
 {synopt:{cmd:markdown} {it:filename}}default Markdown target for {helpb puttab}{p_end}
 {synopt:{cmd:headershade} {it:on|off}}header shading default ({helpb puttab} only){p_end}
 {synopt:{cmd:smallcells} {it:#} [{cmd:primary}]}default small-cell masking{p_end}
+{synopt:{cmd:borderstyle} {it:name}|{cmd:clear}}border style of every command with {opt borderstyle()}{p_end}
 {synoptline}
 
 {pstd}
@@ -315,6 +316,13 @@ others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)
 {cmd:using} is omitted. {cmd:smallcells} is honoured by
 {helpb desctab}, {helpb table1_tc}, {helpb crosstab}, {helpb stratetab},
 {helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one call.
+{cmd:borderstyle} is both a settings key and a session key: it takes the
+values the {opt borderstyle()} option takes ({cmd:default}, {cmd:thin},
+{cmd:medium}, {cmd:academic}, in lower case), every command with a
+{opt borderstyle()} option uses it when that option is not given (an explicit
+{opt borderstyle()} wins), {cmd:tabtools query} reports it,
+{cmd:tabtools set borderstyle clear} removes it, and, unlike the other session
+keys, {opt permanent} saves it to a profile.
 {it:Session destinations} in {helpb puttab} has the details.
 
 {pstd}
@@ -436,6 +444,16 @@ only read when you run {cmd:tabtools use} or source it from your own
 {phang2}{cmd:. tabtools set borderstyle academic}{p_end}
 
 {pstd}
+{bf:A session border style, overridden for one table}
+
+{phang2}{cmd:. tabtools set borderstyle academic}{p_end}
+{phang2}{cmd:. tabtools query}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. crosstab rep78 foreign, xlsx(tables.xlsx) sheet("Academic")}{p_end}
+{phang2}{cmd:. crosstab rep78 foreign, xlsx(tables.xlsx) sheet("Boxed") borderstyle(thin)}{p_end}
+{phang2}{cmd:. tabtools set borderstyle clear}{p_end}
+
+{pstd}
 {bf:View current defaults}
 
 {phang2}{cmd:. tabtools get}{p_end}
@@ -491,7 +509,8 @@ only read when you run {cmd:tabtools use} or source it from your own
 {synopt:{cmd:r(borderstyle)}}border style (when setting borderstyle){p_end}
 {synopt:{cmd:r(headercolor)}}header color (when setting headercolor){p_end}
 {synopt:{cmd:r(zebracolor)}}zebra color (when setting zebracolor){p_end}
-{synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear}){p_end}
+{synopt:{cmd:r(action)}}{cmd:"cleared"} (when using {cmd:set clear} or {cmd:set} {it:key} {cmd:clear}){p_end}
+{synopt:{cmd:r(key)}}the key removed by {cmd:set} {it:key} {cmd:clear}{p_end}
 {synopt:{cmd:r(permanent)}}{cmd:"permanent"} (when saving a disk profile){p_end}
 {synopt:{cmd:r(profile)}}profile path written by {cmd:permanent}{p_end}
 
@@ -518,6 +537,7 @@ only read when you run {cmd:tabtools use} or source it from your own
 {synopt:{cmd:r(headershade)}}session header shading, if set{p_end}
 {synopt:{cmd:r(smallcells)}}session small-cell threshold, if set{p_end}
 {synopt:{cmd:r(smallcells_mode)}}{cmd:full} or {cmd:primary}, if set{p_end}
+{synopt:{cmd:r(borderstyle)}}session border style, if set{p_end}
 {synopt:{cmd:r(workbook_fresh)}}{cmd:1} if the next write replaces the workbook{p_end}
 {synopt:{cmd:r(markdown_fresh)}}{cmd:1} if the next write replaces the Markdown file{p_end}
 
@@ -551,6 +571,6 @@ only read when you run {cmd:tabtools use} or source it from your own
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.3.1{p_end}
+{pstd}{bf:Version} 2.4.0{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! tabtools Version 2.3.1  2026/10/05
+*! tabtools Version 2.4.0  2026/10/05
 *! Suite of table export commands for publication-ready Excel and Markdown output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -173,13 +173,28 @@ program define tabtools, rclass
             return scalar fontsize = `setval'
         }
         else if "`setkey'" == "borderstyle" {
-            if !inlist("`setval'", "default", "thin", "medium", "academic") {
-                display as error "borderstyle must be: default, thin, medium, or academic"
-                exit 198
+            * Also a session key: tabtools query reports it and
+            * "tabtools set borderstyle clear" removes it. An explicit
+            * borderstyle() in a call wins (_tabtools_resolve_format).
+            if "`setval'" == "clear" {
+                if "`permanent'" != "" {
+                    display as error "tabtools set borderstyle clear cannot be combined with permanent"
+                    exit 198
+                }
+                global TABTOOLS_BORDER
+                display as text "tabtools: session borderstyle cleared"
+                return local action "cleared"
+                return local key "borderstyle"
             }
-            global TABTOOLS_BORDER "`setval'"
-            display as text "tabtools: default border style set to " as result "`setval'"
-            return local borderstyle "`setval'"
+            else {
+                if !inlist("`setval'", "default", "thin", "medium", "academic") {
+                    display as error "borderstyle must be: default, thin, medium, or academic"
+                    exit 198
+                }
+                global TABTOOLS_BORDER "`setval'"
+                display as text "tabtools: default border style set to " as result "`setval'"
+                return local borderstyle "`setval'"
+            }
         }
         else if "`setkey'" == "headercolor" | "`setkey'" == "zebracolor" {
             if "`setval'" == "" {

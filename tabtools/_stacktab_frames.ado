@@ -1,4 +1,4 @@
-*! _stacktab_frames Version 2.3.1  2026/10/05
+*! _stacktab_frames Version 2.4.0  2026/10/05
 *! stacktab, frames(): stack in-memory frames as labelled panels via puttab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

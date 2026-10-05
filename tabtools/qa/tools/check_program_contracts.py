@@ -100,6 +100,14 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 108 since 2.4.0 dev review 3: _regtab_cmdsets (cmdset column order).
+    # 107 since 2.4.0 dev review: _regtab_activeb (active-fit e(b) markers).
+    # 106 since 2.4.0 dev wave 2: _regtab_collabels (transpose collabels()).
+    # 105 since 2.4.0 dev: the regtab.ado split moved seven blocks of regtab's
+    # main program to _regtab_mstats, _regtab_remeta, _regtab_flatten,
+    # _regtab_relabel, _regtab_statrows, _regtab_methods, _regtab_addrow, and
+    # added _regtab_fvbase (the other _regtab_* helpers moved to their own
+    # files and still count once each).
     # 97 since 2.3.1: regtab helpers _regtab_unwrap, _regtab_statspec,
     # _regtab_cellnote, _regtab_estats, _regtab_addcol, _regtab_frameopts.
     # 91 since 2.3.0: tabcell, ratetab, outtab and their helpers, fitcount,
@@ -108,7 +116,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 97 and not class_missing and not wrapper_missing
+    passed = program_count == 108 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

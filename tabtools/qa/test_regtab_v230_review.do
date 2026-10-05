@@ -171,31 +171,45 @@ else {
 }
 
 **# R5 flat label truncation keeps whole characters
+* The label is the statistic header (2.4.0), so a long coef() header is what
+* reaches the 80-character variable-label limit.
 local ++test_count
 capture noisily {
     sysuse auto, clear
     collect clear
     quietly collect: logit foreign mpg
     local nm = "a" + 45 * uchar(233)
-    regtab, models("`nm'") frame(_r5, replace flat)
+    regtab, coef("`nm'") frame(_r5, replace flat)
     frame _r5 {
         local L : variable label c1
         local H : char c1[tabtools_header]
     }
     * 50 characters (95 bytes) fit a variable label whole
     assert ustrinvalidcnt(`"`L'"') == 0
-    assert `"`L'"' == `"`nm', OR"'
-    assert `"`H'"' == `"`nm', OR"'
+    assert `"`L'"' == `"`nm'"'
+    assert `"`H'"' == `"Model, `nm'"'
     * past 80 characters the label is cut on a character boundary
     local nm2 = "a" + 90 * uchar(233)
-    regtab, models("`nm2'") frame(_r5, replace flat)
+    regtab, coef("`nm2'") frame(_r5, replace flat)
     frame _r5 {
         local L : variable label c1
         local H : char c1[tabtools_header]
     }
     assert ustrinvalidcnt(`"`L'"') == 0
     assert ustrlen(`"`L'"') == 80
-    assert usubstr(`"`H'"', 1, 80) == `"`L'"'
+    assert usubstr(`"`nm2'"', 1, 80) == `"`L'"'
+    assert `"`H'"' == `"Model, `nm2'"'
+    * a long model name: whole in char c#[tabtools_block] and in the
+    * header char; the label (the statistic header) is not cut
+    regtab, models("`nm2'") frame(_r5, replace flat)
+    frame _r5 {
+        local L : variable label c1
+        local H : char c1[tabtools_header]
+        local B : char c1[tabtools_block]
+    }
+    assert `"`B'"' == `"`nm2'"'
+    assert ustrinvalidcnt(`"`H'"') == 0 & `"`H'"' == `"`nm2', OR"'
+    assert `"`L'"' == "OR"
 }
 if _rc == 0 {
     display as result "  PASS: R5 flat label truncated on a character boundary"
@@ -223,7 +237,7 @@ capture noisily {
     foreach v of local vl {
         quietly count if strtrim(`v') == "rowlabel"
         if r(N) local hit = 1
-        quietly count if strtrim(`v') == "Model, Coef."
+        quietly count if strtrim(`v') == "Coef."
         if r(N) local hdr = 1
     }
     assert `hit' == 0
