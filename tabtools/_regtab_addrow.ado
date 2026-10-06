@@ -1,4 +1,4 @@
-*! _regtab_addrow Version 2.5.0  2026/10/06
+*! _regtab_addrow Version 2.5.1  2026/10/06
 *! regtab block: addrow() rows, appended or placed inside a factor block
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

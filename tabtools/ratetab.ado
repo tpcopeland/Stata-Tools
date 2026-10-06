@@ -1,4 +1,4 @@
-*! ratetab Version 2.5.0  2026/10/06
+*! ratetab Version 2.5.1  2026/10/06
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

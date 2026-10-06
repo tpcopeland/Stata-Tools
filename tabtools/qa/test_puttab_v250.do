@@ -486,6 +486,24 @@ capture noisily {
         puttab rowlabel c* if _rowtype == "coef", markdown("`key'.md")
         assert r(n_datarows) == `ncoef' & `ncoef' < _N
     }
+    * the note names only keys the selection matched and left out: a key the
+    * varlist never matched is not reported (review 2026-10-06)
+    local _ls0 = c(linesize)
+    set linesize 255
+    tempfile k6log
+    frame _pt250k {
+        log using "`k6log'", text replace name(_pt250k6)
+        puttab rowlabel _term c1 c2 c3, markdown("`key'.md")
+        puttab _order-_state1, markdown("`key'.md")
+        log close _pt250k6
+    }
+    set linesize `_ls0'
+    mata: _l = cat("`k6log'"); _h = select(_l, strpos(_l, "key column(s)") :> 0); ///
+        st_local("nnote", strofreal(rows(_h))); ///
+        st_local("note1", rows(_h) ? _h[1] : "")
+    assert `nnote' == 1
+    assert strpos(`"`note1'"', "key column(s) _order _term _rowtype _state1 not exported") > 0
+    assert strpos(`"`note1'"', "_state2") == 0
     * the default is unchanged without the characteristic: a variable named
     * _order, or one whose tabtools_key is not 1, is exported
     frame copy _pt250k _pt250u, replace

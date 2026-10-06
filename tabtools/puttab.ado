@@ -1,4 +1,4 @@
-*! puttab Version 2.5.0  2026/10/06
+*! puttab Version 2.5.1  2026/10/06
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -435,14 +435,20 @@ program define puttab, rclass
             * sink. Variables without the characteristic are unaffected.
             * A wildcard or range token never equals a variable name, so a
             * key is named literally exactly when it is one of the tokens.
+            * With a varlist, only keys it selects are candidates: a key it
+            * never matched is dropped by -keep- and is not named in the note.
             local _pt_keys ""
             local _pt_vtok : copy local vlist
+            local _pt_vsel ""
+            if `"`vlist'"' != "" capture unab _pt_vsel : `vlist'
             quietly ds
             foreach _v in `r(varlist)' {
                 mata: st_local("_kc", strtrim(st_global("`_v'[tabtools_key]")))
                 if "`_kc'" == "1" {
                     local _lit : list _v in _pt_vtok
-                    if !`_lit' local _pt_keys "`_pt_keys' `_v'"
+                    local _sel 1
+                    if `"`vlist'"' != "" local _sel : list _v in _pt_vsel
+                    if !`_lit' & `_sel' local _pt_keys "`_pt_keys' `_v'"
                 }
             }
             local _pt_keys : list _pt_keys - _pt_pvars

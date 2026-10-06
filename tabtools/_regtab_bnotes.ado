@@ -1,4 +1,4 @@
-*! _regtab_bnotes Version 2.5.0  2026/10/06
+*! _regtab_bnotes Version 2.5.1  2026/10/06
 *! the fit's own constraint notes for every coefficient of the active e(b)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -75,7 +75,7 @@ program define _regtab_bnotes, nclass
 					* equation marks and another estimates is ambiguous too
 					local _nm : word `_j' of `_names'
 					local _key = ustrregexra(ustrregexra(`"`_nm'"', ///
-						"(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)c\.", "$1")
+						"(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)co?\.", "$1")
 					local _pos : list posof `"`_key'"' in _keys
 					if `_pos' > 0 {
 						if "`_code'" != "`_code_`_pos''" local _bad : list _bad | _key
