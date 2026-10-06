@@ -1,4 +1,4 @@
-*! _regtab_remeta Version 2.5.2  2026/10/06
+*! _regtab_remeta Version 2.5.3  2026/10/06
 *! regtab block: random-effects, factor, and equation labels before rendering
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
