@@ -1,4 +1,4 @@
-*! desctab Version 2.5.2  2026/10/06 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.5.3  2026/10/06 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -937,6 +937,17 @@ program define desctab, rclass
     /* Add missing data summary rows when missingsummary specified */
     if "`missingsummary'" != "" {
         local _nobs_before = _N
+        * A Missing row's percentage is its count over the column N. Beside a
+        * withheld N header (<# or >=#) it releases that N (4 (33) over a
+        * hidden N pins N = 12), and with it every count the N was withheld
+        * to protect, so such a column prints the count alone.
+        foreach _lv of local levels {
+            local _sc_nhidden_`_lv' 0
+            if "`smallcells'" != "" {
+                quietly count if factor == "N" & _scmask_`_lv' > 0 & !missing(_scmask_`_lv')
+                if r(N) > 0 local _sc_nhidden_`_lv' 1
+            }
+        }
         forvalues _obs = 1/`_nobs_before' {
             * Compare the cell itself: a label holding a double quote must
             * never pass through a macro inside simple quotes.
@@ -974,6 +985,7 @@ program define desctab, rclass
                         else {
                             local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
                             local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
+                            if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
                         }
                         qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
                         if "`smallcells'" != "" qui replace _scmask_`_lv' = `_sc_mcode' in `_new'
@@ -993,6 +1005,7 @@ program define desctab, rclass
                         else if !missing(`_mval') & `_mval' > 0 {
                             local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
                             local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
+                            if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
                             qui replace _cr_`_lv' = "`_mstr'" in `_new'
                         }
                         else qui replace _cr_`_lv' = "0" in `_new'
@@ -2153,11 +2166,17 @@ program define desctab, rclass
             }
             * SMD column: sized by its header text (row 2, merged over rows 2-3)
             * with the same 0.85 factor as the test column, floored at 8. A bare
-            * "SMD", "Pop. SB" or "Max SMD" stays at 8; body cells never widen it.
+            * "SMD", "Pop. SB" or "Max SMD" stays at 8; body cells widen it only for
+            * the 10-character "Suppressed" marker.
             local _smd_width = 8
             if `smd_pos' > 0 {
                 local _smd_hlen = udstrlen(smd_str[2])
                 local _smd_width = max(8, ceil(`_smd_hlen' * 0.85) + 2)
+                * the smallcells marker is 10 characters wide, as in the p-value column
+                if "`smallcells'" != "" {
+                    quietly count if smd_str == "Suppressed"
+                    if r(N) > 0 local _smd_width = max(`_smd_width', 10)
+                }
             }
 
 	            capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace (if _rc, saved_rc), beyond the lint look-ahead window

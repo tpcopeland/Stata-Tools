@@ -608,7 +608,12 @@ where it follows from released figures: a column whose N header is withheld
 (shown as {cmd:≥#}) withholds its denominator, and the {opt total()} column
 withholds its own when its N or any group's denominator is withheld, since the
 Total denominator minus the printed group denominators would give the withheld
-one back.{p_end}
+one back. A denominator that is itself a positive count below {it:#} is shown as
+{cmd:Suppressed} rather than {cmd:<}{it:#}, because {cmd:<}{it:#} printed over
+level cells would bound their sum (a denominator of {cmd:<3} over two nonzero
+cells fixes both at 1). With {opt missingsummary}, a column whose N header is
+withheld shows its Missing count without the percentage, which would give the N
+back.{p_end}
 
 {pstd}
 {bf:Percentages are withheld for a protected variable.} A published percentage

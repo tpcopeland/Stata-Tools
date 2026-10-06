@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.5.2  2026/10/06
+*! _desctab_collect Version 2.5.3  2026/10/06
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -351,7 +351,22 @@ program define _desctab_collect, rclass
         local _smd_multi = ("`smdtype'" != "pair")
         local _smd_kind = cond(`has_wt', 1, cond(`has_fw', 2, 0))
         local _smd_wvar ""
-        if `has_wt' local _smd_wvar "`wt'"
+        if `has_wt' {
+            local _smd_wvar "`wt'"
+            * Probability weights are scale-free. Their sum overflows a double
+            * (summarize [aw] then fails) near 1e306, and the Mata variance
+            * forms the product (sum w) * (n - 1) as well, so weights large
+            * enough for that are rescaled by a power of two for the SMD;
+            * dividing by 2^k is exact and every SMD is scale invariant.
+            quietly summarize `wt' if `touse' & `by' < ., meanonly
+            if r(N) > 0 & r(max) < . {
+                if r(max) * r(N)^2 >= 1e300 {
+                    tempvar _smd_ws
+                    quietly generate double `_smd_ws' = `wt' / 2^ceil(ln(r(max)) / ln(2))
+                    local _smd_wvar "`_smd_ws'"
+                }
+            }
+        }
         else if `has_fw' local _smd_wvar "`fwvar'"
         local _used_ttest 0
         local _used_anova 0
@@ -596,10 +611,10 @@ program define _desctab_collect, rclass
                     local _smd_if1 "`touse' & `by' == `level1' & `testvar' < ."
                     local _smd_if2 "`touse' & `by' == `level2' & `testvar' < ."
                     if `has_wt' {
-                        quietly summarize `testvar' [aw=`wt'] if `_smd_if1'
+                        quietly summarize `testvar' [aw=`_smd_wvar'] if `_smd_if1'
                         local _m1 = r(mean)
                         local _s1 = r(sd)
-                        quietly summarize `testvar' [aw=`wt'] if `_smd_if2'
+                        quietly summarize `testvar' [aw=`_smd_wvar'] if `_smd_if2'
                         local _m2 = r(mean)
                         local _s2 = r(sd)
                         local _poolsd = sqrt((`_s1'^2 + `_s2'^2) / 2)
@@ -630,9 +645,9 @@ program define _desctab_collect, rclass
                 }
                 else if inlist("`typ'", "bin", "bine") {
                     if `has_wt' {
-                        quietly summarize `v' [aw=`wt'] if `touse' & `by' == `level1' & `v' < .
+                        quietly summarize `v' [aw=`_smd_wvar'] if `touse' & `by' == `level1' & `v' < .
                         local _p1 = r(mean)
-                        quietly summarize `v' [aw=`wt'] if `touse' & `by' == `level2' & `v' < .
+                        quietly summarize `v' [aw=`_smd_wvar'] if `touse' & `by' == `level2' & `v' < .
                         local _p2 = r(mean)
                     }
                     else if `has_fw' {
@@ -669,9 +684,9 @@ program define _desctab_collect, rclass
                     local _tot1 .
                     local _tot2 .
                     if `has_wt' {
-                        quietly summarize `wt' if `touse' & `by' == `level1' & `v' < .
+                        quietly summarize `_smd_wvar' if `touse' & `by' == `level1' & `v' < .
                         local _tot1 = r(sum)
-                        quietly summarize `wt' if `touse' & `by' == `level2' & `v' < .
+                        quietly summarize `_smd_wvar' if `touse' & `by' == `level2' & `v' < .
                         local _tot2 = r(sum)
                     }
                     else if `has_fw' {
@@ -696,9 +711,9 @@ program define _desctab_collect, rclass
                             local _num1 0
                             local _num2 0
                             if `has_wt' {
-                                quietly summarize `wt' if `touse' & `by' == `level1' & `_smd_ix' == `_cj'
+                                quietly summarize `_smd_wvar' if `touse' & `by' == `level1' & `_smd_ix' == `_cj'
                                 local _num1 = r(sum)
-                                quietly summarize `wt' if `touse' & `by' == `level2' & `_smd_ix' == `_cj'
+                                quietly summarize `_smd_wvar' if `touse' & `by' == `level2' & `_smd_ix' == `_cj'
                                 local _num2 = r(sum)
                             }
                             else if `has_fw' {
@@ -971,8 +986,14 @@ program define _desctab_collect, rclass
                         forvalues _g = 1/`ngout' {
                             local _scrow = `cat_start_`i'' + `_g' - 1
                             local _sc_denom = `catmat'[`_scrow', 6]
+                            * A denominator below k is a small count itself. Full
+                            * mode withholds it outright: printed as <k it is a
+                            * released upper bound on the sum of the level cells
+                            * (x: <3 over cells 1 and 1 pins both at k = 3, and
+                            * N = 6 beside a missing <4 pins the missing count).
+                            * Primary mode keeps the <k marker.
                             if `_sc_denom' > 0 & `_sc_denom' < `smallcells' ///
-                                matrix `sc_denmask'[`i', `_g'] = 1
+                                matrix `sc_denmask'[`i', `_g'] = cond(`_sc_full', 3, 1)
                         }
                     }
                     forvalues _g = 1/`groupcount' {
