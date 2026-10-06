@@ -1,4 +1,4 @@
-*! _regtab_addcol Version 2.5.3  2026/10/06
+*! _regtab_addcol Version 2.5.4  2026/10/06
 *! addcol() columns of a transposed table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

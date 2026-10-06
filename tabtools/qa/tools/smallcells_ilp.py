@@ -474,10 +474,11 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("gen")
     g.add_argument("--grid", choices=["base", "wide"], default="base")
-    # Known gap, not modelled as a pass: a continuous mean+-SD shown beside a
-    # small group N releases n >= k, which the suppression engine does not use,
-    # so a missingsummary count of 1..k-1 can be pinned (case: N = k + 1).
-    # --no-contn-missing drops missingsummary from tables holding one.
+    # --no-contn-missing drops missingsummary from tables holding a continuous
+    # variable. 2.5.3 needed it: a printed mean says n >= k, which the engine
+    # did not use, so a Missing <k beside N = k + 1 was pinned. The engine now
+    # takes that lower bound (lower()/rowlower()) and the default grid keeps
+    # those tables; the flag remains for comparison runs only.
     g.add_argument("--no-contn-missing", action="store_true")
     g.add_argument("--dir", required=True)
     g.add_argument("--n", type=int, required=True)

@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.5.3  2026/10/06
+*! _desctab_collect Version 2.5.4  2026/10/06
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -810,12 +810,21 @@ program define _desctab_collect, rclass
                     matrix `_scRS' = (`include_total' \ `_missing_summary' * `include_total')
                     matrix `_scCE' = J(1, `groupcount', 1)
                     matrix `_scCS' = J(1, `groupcount', 1)
+                    * The n row is never printed, but its summary is printed only
+                    * when n is not masked, so a printed mean or median says
+                    * n >= k (and an empty cell n = 0): a released lower bound.
+                    * Left out, N = 4 beside a printed mean (n >= 3) and a
+                    * Missing <3 pinned the missing count at 1.
+                    tempname _scLB _scRLB
+                    matrix `_scLB' = (J(1, `groupcount', 1) \ J(1, `groupcount', 0))
+                    matrix `_scRLB' = (`include_total' \ 0)
 
                     capture noisily _tabtools_smallcells, counts(`_scC') exact(`_scE') ///
                         sensitive(`_scS') rowexact(`_scRE') ///
                         rowsensitive(`_scRS') colexact(`_scCE') ///
                         colsensitive(`_scCS') grandexact(`include_total') ///
                         grandsensitive(`include_total') smallcells(`smallcells') ///
+                        lower(`_scLB') rowlower(`_scRLB') ///
                         `_sc_fixed' `_sc_primopt'
                     if _rc == 498 & `nvars' > 1 {
                         display as error `"variable `var_`i'': a count below `smallcells' can only be protected by withholding a group or total N, which the other variables in the table release"'
