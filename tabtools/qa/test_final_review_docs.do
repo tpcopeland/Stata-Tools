@@ -94,7 +94,9 @@ capture noisily {
     assert r(N_exposures) == 2 & r(N_outcomes) == 2 & r(N_rows) == 11
     matrix A = r(rates)
     assert rowsof(A) == 6 & colsof(A) == 2
+    assert !missing(A[1,1])
     assert reldif(A[1,1], 1000 * 11 / 220) < 1e-12
+    assert !missing(A[1,2])
     assert reldif(A[1,2], 1000 * 3 / 220) < 1e-12
     _finaldocs_check_book, book("`book'") checker("`checker'") ///
         result("`output_dir'/finaldocs_ex1.check")
@@ -111,6 +113,7 @@ capture noisily {
         ratescale(100) unitlabel(100) pyscale(1000) explabels(SSRI \ SNRI)
     assert r(N_exposures) == 2 & r(N_outcomes) == 2
     matrix B = r(rates)
+    assert !missing(B[1,1])
     assert reldif(B[1,1], 100 * 11 / 220) < 1e-12
     _finaldocs_check_book, book("`book'") checker("`checker'") ///
         result("`output_dir'/finaldocs_ex3.check")
@@ -124,6 +127,7 @@ capture noisily {
         outlabels(CV Event \ Self-Harm) explabels(SSRI \ SNRI) digits(2)
     assert r(N_exposures) == 2 & r(N_outcomes) == 2
     matrix C = r(rates)
+    assert !missing(C[1,2])
     assert reldif(C[1,2], 1000 * 3 / 220) < 1e-12
     _finaldocs_check_book, book("`book'") checker("`checker'") ///
         result("`output_dir'/finaldocs_ex4.check")
@@ -138,7 +142,9 @@ capture noisily {
         outlabels("Relapse \ EDSS 4") explabels("SSRI \ SNRI")
     assert r(N_exposures) == 2 & r(N_outcomes) == 2
     matrix D = r(rates)
+    assert !missing(D[1,1])
     assert reldif(D[1,1], 1000 * 11 / 220) < 1e-12
+    assert !missing(D[1,2])
     assert reldif(D[1,2], 1000 * 3 / 220) < 1e-12
     _finaldocs_check_book, book("`book'") checker("`checker'") ///
         result("`output_dir'/finaldocs_tips.check")

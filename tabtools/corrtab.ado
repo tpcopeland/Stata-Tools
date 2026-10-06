@@ -1,4 +1,4 @@
-*! corrtab Version 2.5.1  2026/10/06
+*! corrtab Version 2.5.2  2026/10/06
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -459,7 +459,7 @@ program define corrtab, rclass
                 exit `_export_rc'
             }
 
-            capture {
+            capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
                 local _hborder_code = 1
                 if "`_hborder'" == "medium" local _hborder_code = 2
                 if "`_hborder'" == "thick" local _hborder_code = 3
@@ -552,7 +552,7 @@ program define corrtab, rclass
             }
             if _rc {
                 local _format_rc = _rc
-                capture mata: `_xlsx_book'.close_book()
+                capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
                 capture mata: mata drop `_xlsx_book'
                 noisily display as error "Excel formatting failed with error `_format_rc'"
                 restore

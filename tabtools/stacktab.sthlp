@@ -167,8 +167,8 @@ Excel, CSV, and frame exports{p_end}
 stacks them (vstack) or places them side-by-side (hstack), applies column-merge
 transforms, and exports the composite to a new sheet in the same workbook using
 the tabtools Excel layout. The title is written to {cmd:A1}, and the main table
-starts at {cmd:B2}. After {cmd:tabtools set workbook}, {cmd:using} may be omitted:
-the session workbook is then both the source of the blocks and the target sheet,
+starts at {cmd:B2}. After {cmd:tabtools set workbook}, {cmd:using} may be omitted: the
+session workbook is then both the source of the blocks and the target sheet,
 and the first-write replace of a session workbook never applies, because
 {cmd:stacktab} reads the book it writes. Without {cmd:using} and without a session
 workbook, {cmd:stacktab} exits with r(100).
@@ -267,7 +267,8 @@ rows). A {it:#} outside the table is an error, and nothing is written.
 Excel formatting elements there. Specify {cmd:frame("myframe, replace")} to
 replace an existing frame. {opt csv()} writes the same composed table to a
 delimited file, with {opt title()} as its first row and {opt note()} as its
-last row (both in the first column), and requires a {cmd:.csv} extension. All requested destinations are staged and committed together, so a
+last row (both in the first column), and requires a {cmd:.csv} extension. All requested destinations
+are staged and committed together, so a
 failed export leaves existing frames and files unchanged. An existing
 {opt markdown()} file is replaced; specify {opt mdappend} to append to it
 instead. The workbook, {opt csv()} and {opt markdown()} must name different

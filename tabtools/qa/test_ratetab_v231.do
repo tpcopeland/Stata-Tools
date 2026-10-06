@@ -105,9 +105,13 @@ capture noisily {
             local Y = r(sum)
             assert E[`r', 1] == `o' & E[`r', 3] == `l'
             assert E[`r', 4] == `D'
+            assert !missing(E[`r', 5], `Y')
             assert reldif(E[`r', 5], `Y') < 1e-12
+            assert !missing(E[`r', 6], 1000 * `D' / `Y')
             assert reldif(E[`r', 6], 1000 * `D' / `Y') < 1e-12
+            assert !missing(E[`r', 7], 1000 * invpoissontail(`D', 0.025) / `Y')
             assert reldif(E[`r', 7], 1000 * invpoissontail(`D', 0.025) / `Y') < 1e-12
+            assert !missing(E[`r', 8], 1000 * invpoisson(`D', 0.025) / `Y')
             assert reldif(E[`r', 8], 1000 * invpoisson(`D', 0.025) / `Y') < 1e-12
         }
     }
@@ -125,6 +129,7 @@ capture noisily {
     ratetab g, events(e1 e2) exposure(py1)
     matrix S = r(estimates)
     quietly summarize py1 if g == 1
+    assert !missing(S[3, 5], r(sum))
     assert reldif(S[3, 5], r(sum)) < 1e-12
     * clustered limits per outcome use that outcome's person-time
     ratetab g, events(e1 e2) exposure(py1 py2) ci(cluster(id))
@@ -170,6 +175,7 @@ capture noisily {
     frame _r2: assert c2[6] == "8" & c3[6] == "100"
     matrix E = r(estimates)
     assert E[1, 4] == 0 & E[1, 6] == 0 & E[1, 7] == 0
+    assert !missing(E[1, 8], 1000 * -ln(0.025) / 100)
     assert reldif(E[1, 8], 1000 * -ln(0.025) / 100) < 1e-12
     assert strpos(`"`r(methods)'"', "cells with no events are printed without a count or rate") > 0
     assert strpos(`"`r(methods)'"', "exact upper limit") == 0
@@ -241,6 +247,7 @@ capture noisily {
     forvalues l = 1/2 {
         _rt231_cf `l' "1"
         assert r(G) == 40
+        assert !missing(A[`l', 7], r(lb), A[`l', 8], r(ub))
         assert reldif(A[`l', 7], r(lb)) < 1e-8 & reldif(A[`l', 8], r(ub)) < 1e-8
     }
     * with excludemasked: level 3 out of the fit, G = 36 (id 1 stays)
@@ -252,11 +259,14 @@ capture noisily {
     forvalues l = 1/2 {
         _rt231_cf `l' "grp != 3"
         assert r(G) == 36
+        assert !missing(B[`l', 7], r(lb), B[`l', 8], r(ub))
         assert reldif(B[`l', 7], r(lb)) < 1e-8 & reldif(B[`l', 8], r(ub)) < 1e-8
         * estimate unchanged; the interval moves only by the G/(G-1) factor
+        assert !missing(B[`l', 6], A[`l', 6])
         assert B[`l', 4] == A[`l', 4] & reldif(B[`l', 6], A[`l', 6]) < 1e-12
         local seA = ln(A[`l', 8] / A[`l', 6]) / invnormal(0.975)
         local seB = ln(B[`l', 8] / B[`l', 6]) / invnormal(0.975)
+        assert !missing(`seB' / `seA', sqrt((36 / 35) / (40 / 39)))
         assert reldif(`seB' / `seA', sqrt((36 / 35) / (40 / 39))) < 1e-8
     }
     * the masked level keeps its counts, has no interval
@@ -320,7 +330,9 @@ capture noisily {
     local Y = r(sum)
     preserve
     use "`f'", clear
+    assert !missing(persontime[1], `Y')
     assert events[1] == `D' & reldif(persontime[1], `Y') < 1e-12
+    assert !missing(rate[1], 1000 * `D' / `Y')
     assert reldif(rate[1], 1000 * `D' / `Y') < 1e-12
     * masked: 1 to 2 events at smallcells(3)
     assert masked == (events >= 1 & events < 3)
@@ -361,6 +373,7 @@ capture noisily {
     ratetab drug, events(died died2) exposure(pt pt2) smallcells(15) masktext("–") zerocells(dash) saving("`f'", replace)
     matrix E = r(estimates)
     quietly summarize pt2 if drug == 1
+    assert !missing(E[4, 5], r(sum))
     assert reldif(E[4, 5], r(sum)) < 1e-12
     ratetab drug, ci(cluster(id)) smallcells(15) excludemasked
     assert r(N_maskfit) == 1

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.5.1  2026/10/06
+*! _tabtools_xlsx_write Version 2.5.2  2026/10/06
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,8 +14,8 @@ program define _tabtools_xlsx_write, rclass
 
         * A fresh export never inherits cell-style rules queued by an earlier
         * export that stopped before _tabtools_xlsx_compact_styles ran.
-        capture mata: rmexternal("_tt_xp_rules")
-        capture mata: rmexternal("_tt_xp_meta")
+        mata: (void) rmexternal("_tt_xp_rules")
+        mata: (void) rmexternal("_tt_xp_meta")
 
         * A closed xl() object left in Mata under this name is not reset by
         * assigning a fresh one over it: the next create_book() on that name
@@ -53,6 +53,7 @@ program define _tabtools_xlsx_write, rclass
     local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' {
+        * stata-dev-ignore: capture-rc — error-path cleanup after local rc = _rc; a failed close must not mask the export error, which exit rc raises below
         capture mata: `book'.close_book()
         capture mata: mata drop `book'
         if `rc' == 603 | `rc' == 608 | `rc' == 610 {

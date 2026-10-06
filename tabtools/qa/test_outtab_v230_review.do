@@ -102,12 +102,15 @@ capture noisily {
     local e90 = r(estimate)
     quietly lincom mpg + weight, eform
     tabcell est, lincom level(90) format(%12.10f)
+    assert !missing(r(lb), `lb90', r(ub), `ub90')
     assert reldif(r(lb), `lb90') < 1e-10 & reldif(r(ub), `ub90') < 1e-10
+    assert !missing(r(estimate), `e90')
     assert reldif(r(estimate), `e90') < 1e-12
     * the stored level is used as stored
     quietly lincom mpg + weight, eform
     local lb95 = r(lb)
     tabcell est, lincom
+    assert !missing(r(lb), `lb95')
     assert reldif(r(lb), `lb95') < 1e-12
     * eform on top of an exponentiated lincom is refused
     quietly lincom mpg + weight, eform
@@ -118,6 +121,7 @@ capture noisily {
     local plb = exp(r(lb))
     quietly lincom mpg + weight
     tabcell est, lincom eform level(90)
+    assert !missing(r(lb), `plb')
     assert reldif(r(lb), `plb') < 1e-10
 }
 if _rc == 0 {
@@ -145,7 +149,7 @@ capture noisily {
     frame _ov3: assert regexm(c3[1], "^[0-9]+\.[0-9][0-9] \(") & c4[1] == "not estimable (sample reduced)"
     outtab y2, exposure(x) models("" \ "c") estimator(logit, or) droptext("n.e.") frame(_ov3, replace)
     frame _ov3: assert c4[1] == "n.e."
-    assert r(fits)[2, 3] < r(fits)[2, 4]
+    assert !missing(r(fits)[2, 3]) & !missing(r(fits)[2, 4]) & r(fits)[2, 3] < r(fits)[2, 4]
     * a covariate missing in 10% of rows: complete-case model, ratio printed
     gen double w = runiform() if mod(_n, 10) != 0
     quietly poisson y1 x w, irr vce(robust)

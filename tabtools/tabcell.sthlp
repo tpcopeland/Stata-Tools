@@ -23,7 +23,8 @@
 
 {p 8 17 2}
 {cmd:tabcell est} [{it:coef}]
-[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)} {it:store}]
+[{cmd:,} {it:source} {opt eform} {opt scale(#)} {opt f:ormat(%fmt)} {opt dig:its(#)}
+{opt sep(string)} {opt l:evel(#)} {opt miss:ing(text)} {it:store}]
 
 {pstd}where {it:source} is one of{p_end}
 
@@ -39,24 +40,31 @@
 {pstd}p-value, counts, and quartiles{p_end}
 
 {p 8 17 2}
-{cmd:tabcell p} {cmd:,} {opt p(#)} [{opt pdp(#)} {opt highpdp(#)} {opt psty:le(table|footnote|Pfootnote)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell p} {cmd:,} {opt p(#)} [{opt pdp(#)} {opt highpdp(#)}
+{opt psty:le(table|footnote|Pfootnote)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
 {cmd:tabcell n} {cmd:,} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt ci(exact)} {opt l:evel(#)} {opt sep(string)} {opt noc:ount} {opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell np} {cmd:,} {opt n(#)} {opt d(#)} [{opt ci(exact)} {opt l:evel(#)} {opt sep(string)}
+{opt noc:ount} {opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)}
+{it:store}]
 
 {p 8 17 2}
-{cmd:tabcell enp} {cmd:,} {opt e(#)} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)} {opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell enp} {cmd:,} {opt e(#)} {opt n(#)} [{opt min:cell(#)} {opt nf:ormat(%fmt)}
+{opt pf:ormat(%fmt)} {opt miss:ing(text)} {it:store}]
 
 {p 8 17 2}
-{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell iqr} {cmd:,} {opt med:ian(#)} {opt q1(#)} {opt q3(#)} [{opt f:ormat(%fmt)}
+{opt dig:its(#)} {opt sep(string)} {opt miss:ing(text)} {it:store}]
 
 {pstd}Incidence rate with its confidence interval{p_end}
 
 {p 8 17 2}
-{cmd:tabcell rate} {cmd:,} {opt e(#)} {opt pt(#)} {opt per(#)} [{opt ci(exact|poisson)} {opt l:evel(#)} {opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt min:cell(#)} {opt miss:ing(text)} {it:store}]
+{cmd:tabcell rate} {cmd:,} {opt e(#)} {opt pt(#)} {opt per(#)} [{opt ci(exact|poisson)}
+{opt l:evel(#)} {opt f:ormat(%fmt)} {opt dig:its(#)} {opt sep(string)} {opt min:cell(#)}
+{opt miss:ing(text)} {it:store}]
 
 {pstd}where {it:store} is {opt loc:al(name)} and/or {opt glob:al(name)}{p_end}
 
@@ -129,14 +137,14 @@ evaluated row by row; {opt per()} stays a number.
 {cmd:tabcell} turns numbers into the text of one table cell and returns it in
 {cmd:r(cell)}, for tables that are assembled by hand and finished with
 {helpb puttab}. {cmd:tabcell est} prints {it:estimate} ({it:lower}{it:sep}{it:upper}),
-for example {cmd:1.23 (1.01, 1.50)} or, with {cmd:sep(" to ")}, {cmd:1.23 (1.01 to 1.50)}.
-{cmd:tabcell p} prints a p-value with exactly the text {helpb regtab} prints
+for example {cmd:1.23 (1.01, 1.50)} or, with {cmd:sep(" to ")}, {cmd:1.23 (1.01 to 1.50)}. {cmd:tabcell p}
+prints a p-value with exactly the text {helpb regtab} prints
 for the same p-value, {opt pdp()}, and {opt highpdp()}, or, with
-{cmd:pstyle(footnote)}, the same number in prose form ({cmd:p = 0.012}).
-{cmd:tabcell n} prints a count with thousands separators ({cmd:12,345}),
+{cmd:pstyle(footnote)}, the same number in prose form ({cmd:p = 0.012}). {cmd:tabcell n}
+prints a count with thousands separators ({cmd:12,345}),
 {cmd:tabcell np} prints {it:n} ({it:%}), {cmd:tabcell enp} prints
-{it:e}/{it:n} ({it:%}), and {cmd:tabcell iqr} prints {it:median} ({it:Q1}, {it:Q3}).
-With {cmd:ci(exact)}, {cmd:tabcell np} adds the exact binomial confidence interval of
+{it:e}/{it:n} ({it:%}), and {cmd:tabcell iqr} prints {it:median} ({it:Q1}, {it:Q3}). With
+{cmd:ci(exact)}, {cmd:tabcell np} adds the exact binomial confidence interval of
 the percentage: {it:n} ({it:%}; {it:lower}, {it:upper}), or, with {opt nocount},
 {it:%} ({it:lower}, {it:upper}) alone. {cmd:tabcell rate} prints an incidence
 rate with its confidence interval, {it:rate} ({it:lower}, {it:upper}), for
@@ -145,8 +153,8 @@ with the intervals {helpb ratetab} uses.
 
 {pstd}
 {opt local()} and {opt global()} store the cell text in a macro as well, so a
-cell is produced and kept in one line:
-{cmd:tabcell n, n(`=r(N)') local(c_n)}.
+cell is produced and kept in one
+line: {cmd:tabcell n, n(`=r(N)') local(c_n)}.
 
 {pstd}
 {cmd:tabcell} never changes the data in memory unless {opt generate()} is
@@ -177,8 +185,8 @@ unless {opt missing()} is given.
 {cmd:r(ub)} when {opt level()} is not given or equals {cmd:r(level)}, otherwise
 an interval from {cmd:r(estimate)} and {cmd:r(se)} with {cmd:r(df)} degrees of
 freedom when {cmd:lincom} stored them. Run it immediately after
-{cmd:lincom}. After a plain {cmd:lincom}, add {opt eform} here for a ratio.
-{cmd:lincom, eform} (or {cmd:or}, {cmd:irr}, {cmd:hr}) stores the
+{cmd:lincom}. After a plain {cmd:lincom}, add {opt eform} here for a
+ratio. {cmd:lincom, eform} (or {cmd:or}, {cmd:irr}, {cmd:hr}) stores the
 exponentiated estimate and limits; they are printed as stored, an interval at
 another {opt level()} is computed on the coefficient scale, and adding
 {opt eform} is an error (it would exponentiate twice). Because
@@ -201,8 +209,8 @@ stored, so {opt level()} is not allowed.
 {phang}
 {opt b(#)}, {opt ll(#)}, and {opt ul(#)} give the numbers directly; {opt se(#)}
 in place of {opt ll()} and {opt ul()} gives a normal interval at
-{opt level()}. Without {opt generate()} each is a number or scalar expression;
-naming a variable is refused, because a variable name would silently read the
+{opt level()}. Without {opt generate()} each is a number or scalar expression; naming
+a variable is refused, because a variable name would silently read the
 first observation.
 
 {dlgtab:Format}
@@ -214,8 +222,8 @@ first observation.
 {opt scale(#)} multiplies the estimate and both limits by #, a positive
 number, after {opt eform}; {cmd:scale(1000)} prints a rate per person-year as a
 rate per 1,000 person-years. It belongs to {cmd:tabcell est} only and is
-refused by the other forms (a p-value, count, or percentage has no scale).
-{cmd:r(estimate)}, {cmd:r(lb)}, and {cmd:r(ub)} are the scaled numbers, and
+refused by the other forms (a p-value, count, or percentage has no
+scale). {cmd:r(estimate)}, {cmd:r(lb)}, and {cmd:r(ub)} are the scaled numbers, and
 {cmd:r(scale)} records #. The interval is scaled, not recomputed, so
 {opt level()} and {opt se()} work as without {opt scale()}.
 
@@ -245,14 +253,14 @@ with {opt ci()}.
 {phang}
 {opt ci(exact)} adds to {cmd:tabcell np} the exact binomial (Clopper-Pearson)
 confidence interval of the percentage {it:n}/{it:d}, printed after a semicolon
-in the format of the percentage ({opt pformat()}):
-{cmd:2 (10.0; 1.2, 31.7)}. The limits are the beta quantiles
+in the format of the percentage
+({opt pformat()}): {cmd:2 (10.0; 1.2, 31.7)}. The limits are the beta quantiles
 B(a/2; n, d-n+1) and B(1-a/2; n+1, d-n), a = 1 - {opt level()}/100,
 computed with {cmd:invibeta()} and {cmd:invibetatail()}; when n = 0 the lower
 limit is 0, and when n = d the upper limit is 100, exactly as
 {cmd:cii proportions} {it:d} {it:n}{cmd:, exact} computes them (it then labels
-the interval one-sided at 1 - a/2; {cmd:tabcell} prints the same numbers).
-The interval needs whole-number counts: a non-integer {opt n()} or {opt d()}
+the interval one-sided at 1 - a/2; {cmd:tabcell} prints the same numbers). The
+interval needs whole-number counts: a non-integer {opt n()} or {opt d()}
 is refused (error 459), as is a cell whose interval cannot be computed. A cell
 whose denominator is 0 prints no percentage and no interval, and a cell masked
 by {opt mincell()} prints {cmd:<}# only; {cmd:r(lb)} and {cmd:r(ub)} are then
@@ -263,8 +271,8 @@ coverage is at least the nominal level (see {helpb ci}).
 {opt nocount} prints the percentage of {cmd:tabcell np} without the count
 in front of it: {cmd:10.0}, or with {cmd:ci(exact)} {cmd:10.0 (1.2, 31.7)}, the
 interval separated by {opt sep()}. A cell whose denominator is 0 has nothing
-to print and is refused (error 459) unless {opt missing()} gives its text.
-With {opt mincell()}, a cell whose count is masked prints {cmd:–} (an en dash)
+to print and is refused (error 459) unless {opt missing()} gives its text. With
+{opt mincell()}, a cell whose count is masked prints {cmd:–} (an en dash)
 and no number: the percentage, and the interval limits, of a known
 denominator give the count back. {cmd:r(pct)}, {cmd:r(lb)}, and {cmd:r(ub)}
 are then missing. It works with {opt generate()}, {opt local()}, and
@@ -294,17 +302,35 @@ events, the lower limit is 0 and the upper limit is -ln(a/2)/{it:pt} x
 {it:per} under both choices, as {cmd:ci means, poisson} reports a zero count.
 
 {phang}
+{opt p(#)} is the p-value that {cmd:tabcell p} prints, a number or scalar
+expression (an expression in the data with {opt generate()}), required with
+{cmd:tabcell p}. It must lie in [0, 1], otherwise {cmd:tabcell} exits with
+error 198; a missing p-value is refused (error 459) unless {opt missing()}
+gives the text to print. {opt pdp()}, {opt highpdp()}, and {opt pstyle()} set
+how it is written.
+
+{phang}
+{opt median(#)}, {opt q1(#)}, and {opt q3(#)} give {cmd:tabcell iqr} the median
+and the first and third quartiles; all three are required and are printed as
+{it:median} ({it:Q1}, {it:Q3}) in {opt format()} or {opt digits()} with
+{opt sep()} between the quartiles. {cmd:tabcell} prints the numbers as given and
+checks them: {opt q1()} may not exceed {opt q3()} and {opt median()} must lie
+between them, inclusive, otherwise it exits with error 198. A missing number
+is refused (error 459) unless {opt missing()} gives the text to print. With
+{opt generate()} each is an expression in the data.
+
+{phang}
 {opt pdp(#)} and {opt highpdp(#)} set the decimal places of p-values below and
 at or above 0.10, as in {helpb regtab}. p-values below 10^-{it:pdp} print as
 {cmd:<0.001} (for {cmd:pdp(3)}), and values above 1-10^-{it:highpdp} and below
 1 print as {cmd:>0.99}. A p-value outside [0, 1] is refused.
 
 {phang}
-{opt pstyle(style)} chooses how {cmd:tabcell p} writes the p-value.
-{cmd:pstyle(table)}, the default, prints the bare table text ({cmd:0.012},
+{opt pstyle(style)} chooses how {cmd:tabcell p} writes the
+p-value. {cmd:pstyle(table)}, the default, prints the bare table text ({cmd:0.012},
 {cmd:<0.001}, {cmd:>0.99}). {cmd:pstyle(footnote)} prints it for running text
-or a footnote: {cmd:p = 0.012}, {cmd:p < 0.001}, {cmd:p > 0.99}.
-{cmd:pstyle(Pfootnote)} is the footnote style with a capital P, as many
+or a footnote: {cmd:p = 0.012}, {cmd:p < 0.001},
+{cmd:p > 0.99}. {cmd:pstyle(Pfootnote)} is the footnote style with a capital P, as many
 journals require: {cmd:P = 0.012}, {cmd:P < 0.001}, {cmd:P > 0.99}. Style
 names are not case-sensitive. The number is the same in every style, so
 {opt pdp()} and {opt highpdp()} apply to all three.
@@ -313,8 +339,8 @@ names are not case-sensitive. The number is the same in every style, so
 {opt nformat(%fmt)} and {opt pformat(%fmt)} format the counts and the
 percentage of {cmd:np} and {cmd:enp}; {opt nformat()} also formats the count of
 {cmd:tabcell n} (default {cmd:%12.0fc}, as in {helpb table1_tc}, so 12345 prints
-as {cmd:12,345}). The percentage is omitted when the denominator is 0.
-Negative counts and counts larger than their total are refused.
+as {cmd:12,345}). The percentage is omitted when the denominator is
+0. Negative counts and counts larger than their total are refused.
 
 {phang}
 {opt mincell(#)} prints a count from 1 to #-1 as {cmd:<}#, without its
@@ -323,14 +349,14 @@ percentage; {cmd:tabcell n} masks its count the same way. In {cmd:enp}, a masked
 {cmd:tabcell rate}, a rate with 1 to #-1 events prints {cmd:–} (an en dash),
 the text {helpb ratetab} prints for a withheld rate, because the rate and the
 person-time give the event count back; {cmd:r(rate)}, {cmd:r(lb)}, and
-{cmd:r(ub)} are then missing. {cmd:tabcell np, nocount} also prints {cmd:–}.
-Zero is printed. This masks the one cell only; it is not complementary
+{cmd:r(ub)} are then missing. {cmd:tabcell np, nocount} also prints {cmd:–}. Zero
+is printed. This masks the one cell only; it is not complementary
 suppression.
 
 {phang}
 {opt missing(text)} prints {it:text} for a missing or non-finite number
-instead of refusing it, for example {cmd:missing("did not converge")}.
-{cmd:missing("")} gives an empty cell: {cmd:r(cell)} is empty and
+instead of refusing it, for example {cmd:missing("did not converge")}. {cmd:missing("")}
+gives an empty cell: {cmd:r(cell)} is empty and
 {cmd:r(missing)} is 1, and with {opt generate()} those rows are left empty.
 
 {phang}
@@ -341,13 +367,13 @@ restricts the rows filled, and other rows are left empty.
 
 {phang}
 {opt local(name)} stores the cell text, exactly as in {cmd:r(cell)}, in the
-local macro {it:name} of the do-file or program that called {cmd:tabcell};
-{it:name} has at most 31 characters. {opt global(name)} stores it in the
+local macro {it:name} of the do-file or program that called {cmd:tabcell}; {it:name}
+has at most 31 characters. {opt global(name)} stores it in the
 global macro {it:name} (at most 32 characters, not beginning with an
 underscore). Both may be given. The text is stored as data, never
 re-expanded, so quotes, backquotes, and dollar signs in a {opt missing()} text
-survive.
-If {cmd:tabcell} fails, including on a mistyped form or option, each
+survive. If
+{cmd:tabcell} fails, including on a mistyped form or option, each
 validly named macro is cleared, so a {cmd:capture}d failure cannot leave
 the previous cell in it. The exception is an option list that cannot be
 parsed at all, such as an unbalanced quote or parenthesis; then no macro
@@ -423,6 +449,9 @@ Without {opt generate()}, {cmd:tabcell} stores the following in {cmd:r()}:
 {synopt:{cmd:r(lb)}, {cmd:r(ub)}}limits of the rate ({cmd:rate}){p_end}
 {synopt:{cmd:r(level)}}confidence level ({cmd:rate}){p_end}
 {synopt:{cmd:r(per)}}the unit given in {opt per()} ({cmd:rate}){p_end}
+{synopt:{cmd:r(N)}}rows printed with a number ({opt generate()}){p_end}
+{synopt:{cmd:r(N_missing)}}rows given {opt missing()} text ({opt generate()}){p_end}
+{synopt:{cmd:r(lincom_}{it:name}{cmd:)}}{cmd:lincom}'s own {it:name}; see below{p_end}
 
 {pstd}
 {cmd:r(pct)}, {cmd:r(rate)}, {cmd:r(lb)}, and {cmd:r(ub)} are missing when the
@@ -446,9 +475,10 @@ as {cmd:r(lincom_estimate)}, {cmd:r(lincom_lb)}, {cmd:r(lincom_ub)}, and
 {synopt:{cmd:r(form)}}{cmd:est}, {cmd:p}, {cmd:n}, {cmd:np}, {cmd:enp}, {cmd:iqr}, or {cmd:rate}{p_end}
 {synopt:{cmd:r(source)}}{cmd:e()}, {cmd:lincom}, {cmd:nlcom}, {cmd:matrix}, or {cmd:numbers} ({cmd:est}){p_end}
 {synopt:{cmd:r(citype)}}{cmd:exact} ({cmd:np} with {opt ci()}); {cmd:exact} or {cmd:poisson} ({cmd:rate}){p_end}
+{synopt:{cmd:r(varname)}}the new variable ({opt generate()}){p_end}
 
 {pstd}
-With {opt generate()}, it stores {cmd:r(N)} (rows rendered), {cmd:r(N_missing)}
+With {opt generate()}, it stores {cmd:r(N)} (rows printed with a number), {cmd:r(N_missing)}
 (rows given the {opt missing()} text), {cmd:r(varname)}, and {cmd:r(form)}.
 
 
@@ -457,8 +487,8 @@ With {opt generate()}, it stores {cmd:r(N)} (rows rendered), {cmd:r(N_missing)}
 
 {phang}
 Clopper, C. J., and E. S. Pearson. 1934. The use of confidence or fiducial
-limits illustrated in the case of the binomial. {it:Biometrika} 26: 404-413.
-{browse "https://doi.org/10.1093/biomet/26.4.404"}.{p_end}
+limits illustrated in the case of the binomial. {it:Biometrika}
+26: 404-413. {browse "https://doi.org/10.1093/biomet/26.4.404"}.{p_end}
 
 {phang}
 Thulin, M. 2014. The cost of using exact confidence intervals for a binomial
@@ -476,3 +506,5 @@ proportion. {it:Electronic Journal of Statistics} 8: 817-840.{p_end}
 {psee}
 {helpb regtab}, {helpb outtab}, {helpb puttab}, {helpb tabtools}
 {p_end}
+
+{hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.5.1  06oct2026}{...}
+{* *! version 2.5.2  06oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -61,8 +61,8 @@ step. For a numeric payload use {cmd:frame()}, the returned matrices such as
 {pstd}
 File outputs follow one contract in every command. {opt csv()} must name a
 {cmd:.csv} file, and the workbook ({opt xlsx()}, {opt excel()}, or
-{cmd:using}), {opt csv()}, and {opt markdown()} must name different files:
-paths are compared after resolving them against the working directory and
+{cmd:using}), {opt csv()}, and {opt markdown()} must name different files: paths
+are compared after resolving them against the working directory and
 ignoring case, and a collision is refused before anything is written. An
 existing {opt markdown()} file is replaced; {opt mdappend} appends to it
 instead. Markdown text is written literally: it is never macro-expanded, and
@@ -312,34 +312,34 @@ uses a session key echoes the resolved value in the log. {helpb desctab},
 {helpb stratetab} use a session workbook or Markdown file only when {opt sheet()}
 is given. When {opt sheet()} is given and there is neither {opt xlsx()} nor a
 session workbook, {cmd:desctab} and {cmd:table1_tc} exit with r(498), and the
-others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}.
-{helpb puttab} and {helpb stacktab} use the session workbook whenever
+others print {cmd:(tabtools: sheet() ignored; no xlsx() and no session workbook)}. {helpb puttab}
+and {helpb stacktab} use the session workbook whenever
 {cmd:using} is omitted. {cmd:smallcells} is honoured by
 {helpb desctab}, {helpb table1_tc}, {helpb crosstab}, {helpb stratetab},
-{helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one call.
-{cmd:borderstyle} is both a settings key and a session key: it takes the
+{helpb ratetab}, and {helpb outtab}; {opt nosmallcells} turns it off for one
+call. {cmd:borderstyle} is both a settings key and a session key: it takes the
 values the {opt borderstyle()} option takes ({cmd:default}, {cmd:thin},
 {cmd:medium}, {cmd:academic}, in lower case), every command with a
 {opt borderstyle()} option uses it when that option is not given (an explicit
 {opt borderstyle()} wins), {cmd:tabtools query} reports it,
 {cmd:tabtools set borderstyle clear} removes it, and, unlike the other session
-keys, {opt permanent} saves it to a profile.
-{it:Session destinations} in {helpb puttab} has the details.
+keys, {opt permanent} saves it to a
+profile. {it:Session destinations} in {helpb puttab} has the details.
 
 {pstd}
 {cmd:tabtools fitcount} counts events, people (distinct values of {opt people()}),
 and person-time ({opt exposure()}) on {cmd:e(sample)} of the active fit and,
 with {opt terms}, events per factor level, and stores them with the collected
-model so that {helpb regtab} {opt stats(events people exposure)} and
-{opt mincount()} can use them. With {opt people()} it also counts the people with
+model so that {helpb regtab} {cmd:stats(events people exposure)} and
+{cmd:mincount()} can use them. With {opt people()} it also counts the people with
 an event (distinct {opt people()} values with {opt events()} > 0), stored as
 {cmd:tt_people_ev} for {helpb regtab}
 {cmd:stats(e(tt_people_ev)="People with an event")}. Run it immediately after the
-{cmd:collect:} fit.
-The active fit must be the collected one: its {cmd:e(cmdline)}, {cmd:e(N)}, and
-{cmd:e(b)} must match the collected model, or the command exits with error 459.
-{opt name()} names the collection when the fit used {cmd:collect, name():}.
-Counts are unweighted; {cmd:fweight}s and {cmd:iweight}s and {cmd:svy, subpop()}
+{cmd:collect:} fit. The
+active fit must be the collected one: its {cmd:e(cmdline)}, {cmd:e(N)}, and
+{cmd:e(b)} must match the collected model, or the command exits with error
+459. {opt name()} names the collection when the fit used {cmd:collect, name():}. Counts
+are unweighted; {cmd:fweight}s and {cmd:iweight}s and {cmd:svy, subpop()}
 fits are refused. See {help regtab:regtab} ("Fit-time counts").
 
 {dlgtab:Profile options}
@@ -481,8 +481,8 @@ separator ({cmd:sep(",")}) cannot change them.{p_end}
 5. A separator that contains a comma (the default included) beside limits in
 a decimal-comma format such as {cmd:%9,2f} makes the two limits hard to tell
 apart. {helpb regtab} and {helpb effecttab} refuse it with r(198); the other
-commands print the table as before and show a one-line warning.
-{opt cisep()} without {opt cformat()} on an interval that is not in the
+commands print the table as before and show a one-line
+warning. {opt cisep()} without {opt cformat()} on an interval that is not in the
 default {cmd:(}{it:a}{cmd:, }{it:b}{cmd:)} form is an error, because that text
 is rewritten rather than rebuilt from numbers.{p_end}
 
@@ -625,6 +625,6 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.5.1{p_end}
+{pstd}{bf:Version} 2.5.2{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! puttab Version 2.5.1  2026/10/06
+*! puttab Version 2.5.2  2026/10/06
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -440,7 +440,12 @@ program define puttab, rclass
             local _pt_keys ""
             local _pt_vtok : copy local vlist
             local _pt_vsel ""
-            if `"`vlist'"' != "" capture unab _pt_vsel : `vlist'
+            * an unresolvable varlist leaves no selected keys here; the -keep-
+            * that applies the varlist reports the bad name
+            if `"`vlist'"' != "" {
+                capture unab _pt_vsel : `vlist'
+                if _rc local _pt_vsel ""
+            }
             quietly ds
             foreach _v in `r(varlist)' {
                 mata: st_local("_kc", strtrim(st_global("`_v'[tabtools_key]")))
@@ -1040,6 +1045,7 @@ program define puttab, rclass
     }
     local rc = _rc
     if `_book_open' {
+        * stata-dev-ignore: capture-rc — cleanup after local rc = _rc; a failed close must not mask the export status, which is returned through rc below
         capture mata: `_xlsx_book'.close_book()
     }
     capture mata: mata drop `_xlsx_book'

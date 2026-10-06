@@ -53,13 +53,19 @@ capture noisily {
                 assert !missing(`cm', `clb', `cub')
                 tabcell rate, e(`e') pt(`pt') per(1000) level(`lv')
                 assert !missing(r(rate), r(lb), r(ub))
+                assert !missing(1000 * `cm')
                 assert reldif(r(rate), 1000 * `cm') < 1e-12
+                assert !missing(1000 * `clb')
+                assert !missing(r(lb))
                 assert reldif(r(lb), 1000 * `clb') < 1e-7
+                assert !missing(1000 * `cub')
+                assert !missing(r(ub))
                 assert reldif(r(ub), 1000 * `cub') < 1e-7
                 assert r(level) == `lv' & "`r(citype)'" == "exact" & r(per) == 1000
                 if `e' == 0 {
                     * the zero-event limits: 0 and -ln(a/2)/pt
                     assert r(lb) == 0
+                    assert !missing(r(ub), -ln((1 - `lv' / 100) / 2) / `pt' * 1000)
                     assert reldif(r(ub), -ln((1 - `lv' / 100) / 2) / `pt' * 1000) < 1e-12
                 }
                 * the cell, built from cii's numbers in the default %9.1f
@@ -119,12 +125,19 @@ capture noisily {
             scalar `Y' = _Y[`i']
             tabcell rate, e(`D') pt(`=`Y'') per(1000) ci(poisson) level(`lv')
             assert !missing(r(rate), r(lb), r(ub), _Rate[`i'], _Lower[`i'], _Upper[`i'])
+            assert !missing(_Rate[`i'] * 1000)
             assert reldif(r(rate), _Rate[`i'] * 1000) < 1e-10
+            assert !missing(_Lower[`i'] * 1000)
+            assert !missing(r(lb))
             assert reldif(r(lb), _Lower[`i'] * 1000) < 1e-10
+            assert !missing(_Upper[`i'] * 1000)
+            assert !missing(r(ub))
             assert reldif(r(ub), _Upper[`i'] * 1000) < 1e-10
             * closed form, written out here
             local z = invnormal(1 - (1 - `lv' / 100) / 2)
+            assert !missing(r(lb), `D' / `Y' * 1000 * exp(-`z' / sqrt(`D')))
             assert reldif(r(lb), `D' / `Y' * 1000 * exp(-`z' / sqrt(`D'))) < 1e-10
+            assert !missing(r(ub), `D' / `Y' * 1000 * exp(`z' / sqrt(`D')))
             assert reldif(r(ub), `D' / `Y' * 1000 * exp(`z' / sqrt(`D'))) < 1e-10
             assert "`r(citype)'" == "poisson"
         }
@@ -136,10 +149,12 @@ capture noisily {
     scalar `zub' = r(ub)
     tabcell rate, e(0) pt(975.6) per(1000) ci(poisson)
     assert r(rate) == 0 & r(lb) == 0
+    assert !missing(r(ub), 1000 * `zub')
     assert reldif(r(ub), 1000 * `zub') < 1e-7
     assert `"`r(cell)'"' == "0.0 (0.0, 3.8)"
     * a non-integer count: refused by the exact interval, accepted here
     tabcell rate, e(2.5) pt(10) per(1000) ci(poisson)
+    assert !missing(r(lb), 250 * exp(-invnormal(.975) / sqrt(2.5)))
     assert reldif(r(lb), 250 * exp(-invnormal(.975) / sqrt(2.5))) < 1e-12
     capture tabcell rate, e(2.5) pt(10) per(1000)
     assert _rc == 459
@@ -188,11 +203,17 @@ capture noisily {
             assert rowsof(E) == 4
             forvalues g = 1/4 {
                 assert E[`g', 4] == `D`g''
+                assert !missing(E[`g', 5], `Y`g'')
                 assert reldif(E[`g', 5], `Y`g'') < 1e-12
                 tabcell rate, e(`D`g'') pt(`=`Y`g''') per(1000) ci(`ci') level(`lv')
                 assert !missing(E[`g', 6], E[`g', 7], E[`g', 8])
+                assert !missing(r(rate))
                 assert reldif(r(rate), E[`g', 6]) < 1e-12
+                assert !missing(r(lb))
+                assert !missing(E[`g', 7])
                 assert reldif(r(lb), E[`g', 7]) < 1e-12 | (r(lb) == 0 & E[`g', 7] == 0)
+                assert !missing(r(ub))
+                assert !missing(E[`g', 8])
                 assert reldif(r(ub), E[`g', 8]) < 1e-12
                 local cell`g' `"`r(cell)'"'
             }
@@ -304,8 +325,11 @@ capture noisily {
             scalar `plb' = r(lb)
             scalar `pub' = r(ub)
             tabcell np, n(`n') d(`d') ci(exact) nocount level(`lv')
+            assert !missing(r(lb), 100 * `plb')
             assert reldif(r(lb), 100 * `plb') < 1e-10 | (r(lb) == 0 & `plb' == 0)
+            assert !missing(r(ub), 100 * `pub')
             assert reldif(r(ub), 100 * `pub') < 1e-10
+            assert !missing(r(pct), 100 * `n' / `d')
             assert reldif(r(pct), 100 * `n' / `d') < 1e-12 | (r(pct) == 0 & `n' == 0)
             local want = strtrim(string(100 * `n' / `d', "%4.1f")) + " (" + ///
                 strtrim(string(100 * `plb', "%4.1f")) + ", " + ///

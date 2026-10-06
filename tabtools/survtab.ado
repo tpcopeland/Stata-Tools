@@ -1,4 +1,4 @@
-*! survtab Version 2.5.1  2026/10/06
+*! survtab Version 2.5.2  2026/10/06
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -49,7 +49,7 @@ program define survtab, rclass
 
 capture noisily {
 
-    capture putexcel close
+    capture putexcel close  // stata-dev-ignore: capture-rc — closes a possibly open putexcel handle; no open file is the normal case
 
     return clear
 
@@ -491,7 +491,7 @@ capture noisily {
             * as macro syntax, so a backtick in a label stopped it with r(132).
             tempvar _lr_group
             local _lr_type : type `groupvar'
-            quietly generate `_lr_type' `_lr_group' = `groupvar'
+            quietly generate `_lr_type' `_lr_group' = `groupvar'  // stata-dev-ignore: unchecked-commit — the written variable is the tempvar _lr_group (the flagged leading local is only its storage type); it copies groupvar from the caller's dataset and the no-failure case exits above
             qui sts test `_lr_group' if _st
             local logrank_chi2 = r(chi2)
             local logrank_df = r(df)
@@ -909,7 +909,7 @@ capture noisily {
         local _used_cnames `"`_used_cnames' `_cname'"'
         local _cnames `"`_cnames' `_cname'"'
     }
-    capture matrix rownames `_rtable' = `_rnames'
+    matrix rownames `_rtable' = `_rnames'
     matrix colnames `_rtable' = `_cnames'
 
 **# Console Display
@@ -1059,7 +1059,7 @@ capture noisily {
         }
 
         * Apply formatting through the shared rule backend.
-        capture {
+        capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
             local _hborder_code = 1
             if "`_hborder'" == "medium" local _hborder_code = 2
             if "`_hborder'" == "thick" local _hborder_code = 3
@@ -1160,7 +1160,7 @@ capture noisily {
         }
         if _rc {
             local saved_rc = _rc
-            capture mata: `_xlsx_book'.close_book()
+            capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
             capture mata: mata drop `_xlsx_book'
             noisily display as error "Excel formatting failed with error `saved_rc'"
             exit `saved_rc'

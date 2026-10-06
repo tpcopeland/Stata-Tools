@@ -5357,7 +5357,9 @@ capture noisily {
             quietly levelsof `_v215_col' if strpos(A, "Intercept") > 0, local(_v215_cell) clean
             local _v215_est = real(subinstr("`_v215_cell'", ",", "", .))
             assert !missing(`_v215_est')
-            assert abs(`_v215_est' - (12253.1 + (`_k' - 1) * 1000)) < 1
+            * digits(1): the cell is a one-decimal string, so it equals the expected
+            * value to float precision; a neighbouring model's cell is 1000 away
+            assert abs(`_v215_est' - (12253.1 + (`_k' - 1) * 1000)) < 1e-6
             quietly levelsof `_v215_col' if strtrim(A) == "Tag", local(_v215_tag) clean
             assert "`_v215_tag'" == "a`_k'"
         }

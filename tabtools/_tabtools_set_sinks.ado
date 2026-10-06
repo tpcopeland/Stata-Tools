@@ -1,4 +1,4 @@
-*! _tabtools_set_sinks Version 2.5.1  2026/10/06
+*! _tabtools_set_sinks Version 2.5.2  2026/10/06
 *! Resolve and track the session workbook/Markdown targets (tabtools set)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -183,6 +183,7 @@ string scalar _tt_ss_abs(string scalar p)
         s = substr(s, pos + 1, .)
         if (seg == "" | seg == ".") continue
         if (seg == "..") {
+            // stata-dev-ignore: shape-dispatch — keep is the stack of path segments and rows(keep) its depth, popped on a .. segment; not a layout dispatch
             if (rows(keep)) keep = (rows(keep) > 1 ? keep[(1..rows(keep) - 1)] : J(0, 1, ""))
             continue
         }

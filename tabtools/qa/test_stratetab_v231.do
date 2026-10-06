@@ -283,6 +283,7 @@ capture noisily {
     frame _s6: assert c2[5] == "" & c3[5] == "100" & c4[5] == ""
     frame _s6: assert c2[6] == "3" & c3[6] == "200"
     * r(rates) keeps the numbers
+    assert !missing(el(r(rates), 2, 1))
     assert el(r(rates), 1, 1) == 0 & reldif(el(r(rates), 2, 1), 15) < 1e-12
     * zeroexact limits are replaced too
     stratetab, using("`f2'") outcomes(1) frame(_s6, replace) zeroexact zerocells(dash)

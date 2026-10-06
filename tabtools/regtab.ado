@@ -1,4 +1,4 @@
-*! regtab Version 2.5.1  2026/10/06
+*! regtab Version 2.5.2  2026/10/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -271,6 +271,7 @@ if `"`markdown'"' != "" {
 * scale Stata displayed: a ratio family shown as coefficients is "Coef.".
 if "`coef'" == "" {
 	local _ecmd `"`e(cmd)'"'
+	* stata-dev-ignore: identity-fold — lowered copy is parsed only for the command word and display options; no identity is stored or compared
 	local _ecmdline = lower(`"`e(cmdline)'"')
 	* Without e(cmdline) the display options are unknown, so no rule is
 	* applied and the header stays unlabelled rather than guessed.
@@ -334,6 +335,15 @@ if `"`_cfmt'"' != "" {
 	local ci_fmt `"`_cfmt'"'
 	local coef_round = 0
 }
+* A CI bound takes the estimate's rounding, round(), so one value prints alike
+* in both cells: string() alone rounds an exact binary tie (0.125 at 2, 2.25 at
+* 1) to even where the estimate rounds it up, and a decimal that is only
+* nearly a tie in binary (0.85 at 1) the other way again. Defined after the
+* cformat() block: under cformat() coef_round is 0 and round(x, 0) is x.
+* A bound that rounds to zero keeps its own text, so a negative one still
+* prints as -0.00 and shows the interval crossing zero, as in 2.5.1.
+local _ci_lo_r "cond(round(_ci_lo, `coef_round') == 0, _ci_lo, round(_ci_lo, `coef_round'))"
+local _ci_hi_r "cond(round(_ci_hi, `coef_round') == 0, _ci_hi, round(_ci_hi, `coef_round'))"
 
 * Resolve formatting
 _tabtools_resolve_format, font(`"`font'"') fontsize(`fontsize') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
@@ -487,7 +497,9 @@ quietly{
     * own. _regtab_rlabels relabels the present levels with their names and
     * hands back their labels, restored exactly once the table is rendered.
     local _meta_own "cmdline_mi cmd_mi vce"
-    _regtab_rlabels cmd cmdline depvar ivars revars redim `_meta_own'
+    * group: the grouping variable of a matched or grouped fit that posts no
+    * group count (clogit); stats(groups) needs it to refuse rather than omit.
+    _regtab_rlabels cmd cmdline depvar ivars revars redim group `_meta_own'
     local _meta_levels "`_rl_present'"
     capture {
         collect layout (cmdset) (result[`_meta_levels'])
@@ -496,6 +508,7 @@ quietly{
     if "`_meta_levels'" == "" local _meta_layout_rc = 111
     if `_meta_layout_rc' == 0 {
         preserve
+        * stata-dev-ignore: capture-rc — a braced capture stops at its first error; _rc is read on the first line after the closing brace
         capture {
             _tabtools_collect_render, type(meta) rowdim(cmdset) ///
                 results(`_meta_levels') dropempty
@@ -506,6 +519,7 @@ quietly{
             local meta_col_ivars ""
             local meta_col_revars ""
             local meta_col_redim ""
+            local meta_col_group ""
             local meta_col_cmdline_mi ""
             local meta_col_cmd_mi ""
             local meta_col_vce ""
@@ -543,6 +557,10 @@ quietly{
                     local model_redim_`m' = strtrim(`meta_col_redim'[`r'])
                 }
                 else local model_redim_`m' ""
+                if "`meta_col_group'" != "" {
+                    local model_groupvar_`m' = strtrim(`meta_col_group'[`r'])
+                }
+                else local model_groupvar_`m' ""
                 foreach _mo of local _meta_own {
                     local model_`_mo'_`m' ""
                     if "`meta_col_`_mo''" != "" {
@@ -570,6 +588,7 @@ quietly{
         local _shared_set 0
         local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
+            * stata-dev-ignore: identity-fold — _cmdline_lc is a lowered working copy for classification; the identity model_cmdline_# is kept as typed
             local _cmdline_lc = lower(`"`model_cmdline_`m''"')
             * mi estimate stores the fitted command's line in e(cmdline) and
             * the prefix, with its options, only in e(cmdline_mi).
@@ -832,6 +851,7 @@ quietly{
         else {
             _tabtools_collect_render, type(main) rowdim(colname) ///
                 coldim(cmdset) results(_r_b _r_se) rowkeys
+            * stata-dev-ignore: hardcoded-tempname — column of the rendered frame inside preserve, discarded by restore; its name is the contract with _regtab_eqkeys
             quietly generate strL _eq_key = ""
         }
         quietly ds A _raw_colname _eq_key, not
@@ -1175,7 +1195,9 @@ if `_collect_render_rc' == 0 {
 * Back to the user's collection, after r() is read; drop the remapped copy.
 if `_smr_done' {
     capture quietly collect set `_smr_orig'
+    if _rc noisily display as text "(regtab: could not return to collection `_smr_orig')"
     capture quietly collect drop `_smr_coll'
+    if _rc noisily display as text "(regtab: could not drop its temporary collection `_smr_coll')"
 }
 if `_collect_render_rc' {
     restore
@@ -1817,13 +1839,13 @@ forvalues i = 2(3)`=`last'+1' {
 	    replace _eplot_ll`_model_ix' = _ci_lo if _n >= 3 & _ci_lo < .
 	    replace _eplot_ul`_model_ix' = _ci_hi if _n >= 3 & _ci_hi < .
 	    * Fixed effects: user-specified decimal places
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
         if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Transformed random intercept (MOR/MHR): same precision as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
         if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * Other random effects: same decimal places as fixed effects
-    replace _ci_fmt = "(" + strtrim(string(_ci_lo, "`ci_fmt'")) + _ci_sepv + strtrim(string(_ci_hi, "`ci_fmt'")) + ")" ///
+    replace _ci_fmt = "(" + strtrim(string(`_ci_lo_r', "`ci_fmt'")) + _ci_sepv + strtrim(string(`_ci_hi_r', "`ci_fmt'")) + ")" ///
         if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     * An interval left as rendered (a bound regtab could not read) takes
     * sep() in place of the private delimiter. Only the renderer's own text
@@ -2050,9 +2072,13 @@ mata: _regtab_nsO = st_dir("local", "macro", "*"); for (_regtab_nsI = 1; _regtab
 	            local _ep_ll = .
 	            local _ep_ul = .
 	            local _ep_p = .
+	            * stata-dev-ignore: capture-rc — preset to missing above; a model without this column keeps the missing value
 	            capture local _ep_est = _eplot_est`_ep_m'[`_ep_obs']
+	            * stata-dev-ignore: capture-rc — preset to missing above; a model without this column keeps the missing value
 	            capture local _ep_ll = _eplot_ll`_ep_m'[`_ep_obs']
+	            * stata-dev-ignore: capture-rc — preset to missing above; a model without this column keeps the missing value
 	            capture local _ep_ul = _eplot_ul`_ep_m'[`_ep_obs']
+	            * stata-dev-ignore: capture-rc — preset to missing above; a model without this column keeps the missing value
 	            capture local _ep_p = _eplot_p`_ep_m'[`_ep_obs']
 	            local _ep_model_col = (`_ep_m' - 1) * 3 + 1
 	            mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
@@ -2180,6 +2206,7 @@ if `_mat_nrows' > 0 {
         }
         local _rnames `"`_rnames' `_rname'"'
     }
+    * stata-dev-ignore: capture-rc — row names are cosmetic; on failure r(table) keeps its default row names
     capture matrix rownames `_rtable' = `_rnames'
 }
 * Keep original body row positions for the later title-row shift and
@@ -2501,9 +2528,15 @@ if `add_stats' == 1 {
         if `want_ll'  & !missing(`stat_ll_`m'')           return scalar ll_`m'     = `stat_ll_`m''
         if `want_n'   & !missing(`stat_N_`m'')            return scalar n_`m'      = `stat_N_`m''
         if `want_groups' & !missing(`stat_groups_`m'')    return scalar groups_`m' = `stat_groups_`m''
-        foreach _nt in obs events people exposure mi_m r2_a rmse F fmi {
-            if `want_`_nt'' & !missing(`stat_`_nt'_`m'') return scalar `_nt'_`m' = `stat_`_nt'_`m''
-        }
+        if `want_obs'      & !missing(`stat_obs_`m'')      return scalar obs_`m'      = `stat_obs_`m''
+        if `want_events'   & !missing(`stat_events_`m'')   return scalar events_`m'   = `stat_events_`m''
+        if `want_people'   & !missing(`stat_people_`m'')   return scalar people_`m'   = `stat_people_`m''
+        if `want_exposure' & !missing(`stat_exposure_`m'') return scalar exposure_`m' = `stat_exposure_`m''
+        if `want_mi_m'     & !missing(`stat_mi_m_`m'')     return scalar mi_m_`m'     = `stat_mi_m_`m''
+        if `want_r2_a'     & !missing(`stat_r2_a_`m'')     return scalar r2_a_`m'     = `stat_r2_a_`m''
+        if `want_rmse'     & !missing(`stat_rmse_`m'')     return scalar rmse_`m'     = `stat_rmse_`m''
+        if `want_F'        & !missing(`stat_F_`m'')        return scalar F_`m'        = `stat_F_`m''
+        if `want_fmi'      & !missing(`stat_fmi_`m'')      return scalar fmi_`m'      = `stat_fmi_`m''
     }
     * generic e(name) items as r(e_<name>_<model>), when that name fits
     forvalues _k = 1/`_cst_n' {
@@ -2808,6 +2841,7 @@ if "`dimnonsig'" != "" {
 }
 
 * All formatting in a single shared style-rule backend call
+* stata-dev-ignore: capture-rc — a braced capture stops at its first error; _rc is read on the first line after the closing brace
 capture {
 	local _hborder_code = 1
 	if "`_hborder'" == "medium" local _hborder_code = 2
@@ -3006,6 +3040,7 @@ capture {
 }
 if _rc {
 	local saved_rc = _rc
+	* stata-dev-ignore: capture-rc — cleanup after the failing rc was saved in saved_rc
 	capture mata: `_xlsx_book'.close_book()
 	capture mata: mata drop `_xlsx_book'
 	noisily display as error "Excel formatting failed with error `saved_rc'"

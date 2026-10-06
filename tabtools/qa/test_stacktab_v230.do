@@ -181,6 +181,7 @@ else {
 
 **# workbook-block route: note() paragraphs become rows; single note unchanged
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_empty/_v_line call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local src "`output_dir'/st230_src.xlsx"
     local csv "`output_dir'/st230_blk.csv"

@@ -47,12 +47,14 @@ capture noisily {
     local want = strtrim(string(T[1,1], "%9.2f")) + " (" + strtrim(string(T[5,1], "%9.2f")) + ", " + strtrim(string(T[6,1], "%9.2f")) + ")"
     tabcell est mpg
     assert `"`r(cell)'"' == `"`want'"'
+    assert !missing(r(lb), T[5,1], r(ub), T[6,1])
     assert reldif(r(lb), T[5,1]) < 1e-12 & reldif(r(ub), T[6,1]) < 1e-12
     assert r(level) == 95 & "`r(source)'" == "e()" & r(missing) == 0
     * level(90) by hand with the t quantile
     local q = invttail(e(df_r), 0.05)
     local lo = _b[mpg] - `q' * _se[mpg]
     tabcell est mpg, level(90)
+    assert !missing(r(lb), `lo')
     assert reldif(r(lb), `lo') < 1e-12 & r(level) == 90
 }
 if _rc == 0 {
@@ -73,6 +75,7 @@ capture noisily {
     quietly logit foreign mpg
     tabcell est mpg, eform format(%4.2f) sep(" to ")
     assert `"`r(cell)'"' == `"`want'"'
+    assert !missing(r(estimate), exp(_b[mpg]))
     assert reldif(r(estimate), exp(_b[mpg])) < 1e-12
 }
 if _rc == 0 {
@@ -99,13 +102,16 @@ capture noisily {
     assert "`r(source)'" == "lincom"
     quietly lincom mpg + 2*weight
     tabcell est, lincom level(80)
+    assert !missing(r(lb), `est' - invttail(`df', 0.10) * `se')
     assert reldif(r(lb), `est' - invttail(`df', 0.10) * `se') < 1e-12
     quietly logit foreign mpg
     quietly nlcom (rr: exp(_b[mpg])) (k: _b[mpg] * 2)
     matrix NB = r(b)
     matrix NV = r(V)
     tabcell est k, nlcom
+    assert !missing(r(estimate), NB[1,2])
     assert reldif(r(estimate), NB[1,2]) < 1e-12
+    assert !missing(r(ub), NB[1,2] + invnormal(.975) * sqrt(NV[2,2]))
     assert reldif(r(ub), NB[1,2] + invnormal(.975) * sqrt(NV[2,2])) < 1e-12
     _tc_clear_r
     capture tabcell est, lincom
@@ -355,7 +361,7 @@ capture noisily {
     assert np_cell == "" if !foreign
     assert np_cell == "<40" if foreign & n >= 1 & n < 40
     count if foreign & n >= 40
-    assert r(N) > 0
+    assert !missing(r(N)) & r(N) > 0
     assert np_cell == strtrim(string(n, "%12.0fc")) + " (" + strtrim(string(100 * n / 200, "%4.1f")) + ")" if foreign & n >= 40
     gen double pp = 1 / (_n + 1)
     tabcell p, p(pp) generate(p_cell)

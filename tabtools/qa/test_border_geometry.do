@@ -93,6 +93,7 @@ end
 **# puttab default (thin): box, header box, row-label column
 * Layout: title row 1, header row 2 (B..D), data rows 3..5, footnote row 6.
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _bg_has/_bg_none/_bg_count call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers defined at the top of this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/bg_puttab.xlsx"
     capture erase "`book'"
@@ -126,6 +127,7 @@ else {
 
 **# puttab medium: same geometry, medium weight
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _bg_has/_bg_none/_bg_count call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers defined at the top of this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/bg_puttab.xlsx"
     sysuse auto, clear
@@ -181,6 +183,7 @@ capture tabtools set clear
 
 **# puttab noheader and matrix(): box starts at the first data row
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _bg_has/_bg_none/_bg_count call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers defined at the top of this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/bg_puttab.xlsx"
     sysuse auto, clear

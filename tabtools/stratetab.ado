@@ -1,4 +1,4 @@
-*! stratetab Version 2.5.1  2026/10/06
+*! stratetab Version 2.5.2  2026/10/06
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -324,7 +324,7 @@ forvalues i = 1/`outcomes' {
 	}
 	if `i' > 1 {
 		forvalues j = 1/`=`i'-1' {
-			if lower(`"`macval(outcome_id_`i')'"') == lower(`"`macval(outcome_id_`j')'"') {
+			if lower(`"`macval(outcome_id_`i')'"') == lower(`"`macval(outcome_id_`j')'"') {  // stata-dev-ignore: identity-fold — documented refusal (stratetab.sthlp outcomeids()): case-insensitive duplicate identities are rejected; the fold only gates an error and no identity is merged or stored
 				di as err `"duplicate outcome identity "`macval(outcome_id_`i')'""'
 				exit 198
 			}
@@ -708,6 +708,19 @@ forvalues o = 1/`outcomes' {
 * (0.01, not 10^(-2), which is one ulp above it), as regtab rounds.
 local _unit = 10^(-`digits')
 local _runit = 10^(-`ratiodigits')
+local _evunit = 10^(-`eventdigits')
+local _pyunit = 10^(-`pydigits')
+* One tie rule for every printed number: round an exact half upward, as round() does (all values here are nonnegative, so this is also half away from zero),
+* then print. string(x, "%.nf") alone rounds an exact binary tie (2.25, 0.25)
+* the other way, so the events, person-years, rate and CI columns would not
+* agree. cformat() rounds to its own decimals when it is a fixed (f) format;
+* g and e formats keep their significant-digit rules (round(x, 0) is x).
+local _cfunit 0
+if `"`cformat'"' != "" {
+	if ustrregexm(`"`cformat'"', "^%-?0?[0-9]*[.,]([0-9]+)f") {
+		local _cfunit = 10^(-real(ustrregexs(1)))
+	}
+}
 local exp_rows ""
 
 * Data rows by exposure group
@@ -736,10 +749,10 @@ forvalues e = 1/`n_exposures' {
 			local _nopt = (`Y_o`o'_e`e'_`i'' == 0)
 			* Events
 			if `eventdigits' == 0 {
-				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.0fc")
+				local ev_fmt = string(round(`D_o`o'_e`e'_`i'', 1), "%24.0fc")
 			}
 			else {
-				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%24.`eventdigits'fc")
+				local ev_fmt = string(round(`D_o`o'_e`e'_`i'', `_evunit'), "%24.`eventdigits'fc")
 			}
 			if `_masked' {
 				if `_mask_given' local ev_fmt `"`macval(masktext)'"'
@@ -756,7 +769,7 @@ forvalues e = 1/`n_exposures' {
 				local py_fmt = string(round(`Y_o`o'_e`e'_`i'',1), "%24.0fc")
 			}
 			else {
-				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%24.`pydigits'fc")
+				local py_fmt = string(round(`Y_o`o'_e`e'_`i'', `_pyunit'), "%24.`pydigits'fc")
 			}
 			if `_masked' local py_fmt "–"
 			if `_zero_cell' & `_zc_pt' local py_fmt `"`_zero_txt'"'
@@ -772,7 +785,7 @@ forvalues e = 1/`n_exposures' {
 			* A rate without bounds (strate gives none for zero events) shows
 			* the en dash the IRR column uses for a missing estimate.
 			if `"`cformat'"' != "" {
-				local rt_fmt = strtrim(string(`Rate_o`o'_e`e'_`i'', "`cformat'"))
+				local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
 			}
 			else {
 				local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
@@ -782,8 +795,8 @@ forvalues e = 1/`n_exposures' {
 			}
 			else {
 				if `"`cformat'"' != "" {
-					local _lo_txt = strtrim(string(`Lower_o`o'_e`e'_`i'', "`cformat'"))
-					local _hi_txt = strtrim(string(`Upper_o`o'_e`e'_`i'', "`cformat'"))
+					local _lo_txt = strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
+					local _hi_txt = strtrim(string(round(`Upper_o`o'_e`e'_`i'', `_cfunit'), "`cformat'"))
 				}
 				else {
 					local _lo_txt = strtrim(string(round(`Lower_o`o'_e`e'_`i'', `_unit'), "%24.`digits'f"))
@@ -924,7 +937,7 @@ forvalues e = 1/`n_exposures' {
 				forvalues i = 1/`ncat_e`e'' {
 				local _rr = `_rr' + 1
 				forvalues o = 1/`outcomes' {
-				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
+				matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
 				mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 				local _rname = substr(`"`_rname'"', 1, 32)
@@ -966,7 +979,7 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 					forvalues i = 1/`ncat_e`e'' {
 					local _rr = `_rr' + 1
 				forvalues o = 1/`outcomes' {
-					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
+					matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
 					mata: st_local("_rname", subinstr(subinstr(subinstr(subinstr(strtoname(st_local("cat_e`e'_`i'")), char(96), "_"), char(39), "_"), char(36), "_"), char(34), "_"))
 					local _rname = substr(`"`_rname'"', 1, 32)
@@ -1049,7 +1062,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				local _cw = max(8, `_hdrlen' + 2)
 				local _xlsx_widths `"`_xlsx_widths' `_cw'"'
 			}
-			capture {
+			capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
 				local _hborder_code = 1
 				if "`_hborder'" == "medium" local _hborder_code = 2
 				if "`_hborder'" == "thick" local _hborder_code = 3
@@ -1177,7 +1190,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 			}
 			if _rc {
 				local saved_rc = _rc
-				capture mata: `_xlsx_book'.close_book()
+				capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
 				capture mata: mata drop `_xlsx_book'
 				noi di as err "Excel formatting failed with error `saved_rc'"
 				noi di as err "Hint: ensure the xlsx file is not open in another application"

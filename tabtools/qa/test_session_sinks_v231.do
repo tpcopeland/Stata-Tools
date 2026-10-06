@@ -57,7 +57,7 @@ capture noisily {
     assert "`r(sheets)'" == "ATE"
     _v_facts "`book'" "ATE"
     _v_grep "$V230_RES" "^value B[0-9]+ .*oreign"
-    assert r(n) >= 1
+    assert !missing(r(n)) & r(n) >= 1
     tabtools set clear
 }
 if _rc == 0 {
@@ -91,7 +91,7 @@ capture noisily {
     assert "`r(sheets)'" == "Surv Comp"
     _v_facts "`book'" "Comp"
     _v_grep "$V230_RES" "^value B[0-9]+ Car origin$"
-    assert r(n) >= 1
+    assert !missing(r(n)) & r(n) >= 1
     tabtools set clear
 }
 if _rc == 0 {

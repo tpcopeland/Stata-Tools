@@ -91,14 +91,14 @@ outcome are left out of that outcome's row.
 
 {phang}
 {opt models(spec \ spec ...)} lists the covariates of each model, separated by
-{cmd:\}; {cmd:""} is the model with the exposure alone. The default is one crude model.
-{opt modellabels()} names them in the headers ("Crude, RR (95% CI)").
+{cmd:\}; {cmd:""} is the model with the exposure alone. The default is one crude
+model. {opt modellabels()} names them in the headers ("Crude, RR (95% CI)").
 
 {phang}
 {opt estimator(cmd[, options])} is the estimation command and its options, for
 example {cmd:estimator(poisson, irr vce(cluster id))} for risk ratios by
-modified Poisson regression with variance clustered on the mother (Zou 2004).
-The ratio is read from {cmd:r(table)} as the command reports it, so ask for
+modified Poisson regression with variance clustered on the mother (Zou 2004). The
+ratio is read from {cmd:r(table)} as the command reports it, so ask for
 the ratio scale there ({cmd:irr}, {cmd:or}, {cmd:eform}) or give {opt eform}, not
 both: {opt eform} with an estimator that already reports the ratio is an error. The
 interval level is the estimator's ({cmd:level()} in its options, or
@@ -148,6 +148,65 @@ across rows is not done. Without it, a session default set with
 {cmd:tabtools set smallcells #} applies and is echoed; {opt nosmallcells}
 ignores it.
 
+
+{phang}
+{opt groupl:abels(exposed \ comparator)} names the two groups in the column
+headers, the exposed group (exposure = 1)
+first: {cmd:grouplabels("Smokers" \ "Non-smokers")} gives the headers
+"Smokers, events/N (%)" and "Non-smokers, events/N (%)". Exactly two labels
+are required. The default is the value labels of 1 and 0 of the exposure
+variable, or {it:exposure} = 1 and {it:exposure} = 0 when it has none.
+
+{phang}
+{opt xlsx(filename)} writes the table to an Excel workbook through
+{helpb puttab}; the filename must end in {cmd:.xlsx}. The sheet is created, or
+replaced if it exists, so repeated calls build a multi-sheet
+workbook. {opt excel(filename)} is a synonym for {opt xlsx()}; when both are given,
+{opt xlsx()} is used and {opt excel()} is ignored. {cmd:r(xlsx)} holds the
+file. {opt sheet(string)} names the sheet; the default is {cmd:Table}.
+
+{phang}
+{opt title(string)} puts a title above the table: cell A1 of the sheet, the
+first row of the CSV file, and a heading above the Markdown
+table. {opt footnote(string)} adds a footnote below the table, passed to {helpb puttab}
+unchanged: the token {cmd:\}, with a space on each side, separates paragraphs.
+
+{phang}
+{opt csv(filename)} also writes the table to a CSV file, which must end in
+{cmd:.csv}. The CSV mirrors the workbook, with {opt title()} as the first row
+and {opt footnote()} as the last.
+
+{phang}
+{opt mark:down(filename)} also writes the table as GitHub-Flavored Markdown,
+replacing an existing file. {opt mdapp:end} adds the table to the end of the
+existing file instead, after a blank line, so several tables can share one
+file; it is ignored without {opt markdown()}.
+
+{phang}
+{opt fra:me(name[, replace])} also saves the table in the frame {it:name}: a
+{cmd:rowlabel} variable and the string columns {cmd:c1}, {cmd:c2}, ..., whose
+variable labels are the headers, ready for {helpb puttab}. An
+existing frame is an error unless {cmd:replace} is given. {cmd:r(frame)}
+holds the name.
+
+{phang}
+{opt border:style(string)}, {opt headers:hade}, {opt font(string)}, and
+{opt fontsize(#)} style the Excel sheet and are passed to {helpb puttab}; see
+{helpb puttab} for the details. {opt borderstyle()} is {cmd:default},
+{cmd:thin}, {cmd:medium}, or {cmd:academic}; {cmd:default} and {cmd:thin} draw
+a thin box around the table, {cmd:academic} draws horizontal rules
+only. {opt headershade} fills the header row. {opt font()} is the font family and
+{opt fontsize()} the size in points, 1 through 72. Without them the table
+uses a thin border, no header fill, and 10-point Arial, or the session
+defaults set by {cmd:tabtools set} ({helpb tabtools}), which an explicit option
+overrides.
+
+{pstd}
+{opt sheet()}, {opt title()}, {opt footnote()}, and the styling options write
+nothing by themselves: with none of {opt xlsx()}, {opt csv()}, and
+{opt markdown()}, {cmd:outtab} only prints the table and fills
+{opt frame()}. {opt sheet()}, {opt borderstyle()}, {opt headershade}, {opt font()}, and
+{opt fontsize()} affect the workbook only.
 
 {marker examples}{...}
 {title:Examples}
@@ -205,7 +264,8 @@ observed; {cmd:N_cc} below {cmd:n1}+{cmd:n0} is listwise loss),
 {title:References}
 
 {phang}
-Zou G. 2004. A modified Poisson regression approach to prospective studies with binary data. American Journal of Epidemiology 159: 702-706.
+Zou G. 2004. A modified Poisson regression approach to prospective studies with binary
+data. American Journal of Epidemiology 159: 702-706.
 
 
 {marker author}{...}
@@ -219,3 +279,5 @@ Zou G. 2004. A modified Poisson regression approach to prospective studies with 
 {psee}
 {helpb tabcell}, {helpb puttab}, {helpb ratetab}, {helpb tabtools}
 {p_end}
+
+{hline}

@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.5.1  2026/10/06
+*! _tabtools_common Version 2.5.2  2026/10/06
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -526,6 +526,7 @@ program _tabtools_resolve_format, nclass
     * (tabtools set borderstyle); a session value is validated as an
     * option is, and named as the session's if it is not valid.
     local _bs_session 0
+    * stata-dev-ignore: ambient-fallback — borderstyle is a syntax option string, empty exactly when the caller did not give it; the documented session key (tabtools set borderstyle) then applies and an explicit option wins
     if "`borderstyle'" == "" & `"$TABTOOLS_BORDER"' != "" {
         local borderstyle `"$TABTOOLS_BORDER"'
         local _bs_session 1

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_deferred_styles Version 2.5.1  2026/10/06
+*! _tabtools_xlsx_deferred_styles Version 2.5.2  2026/10/06
 *! Apply queued cell style rules directly to a closed xlsx workbook's XML
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -60,6 +60,7 @@ program define _tabtools_xlsx_deferred_styles, nclass
                     }
                 }
                 local rc = _rc
+                * stata-dev-ignore: capture-rc — best-effort cleanup after local rc = _rc saved the apply-styles status; a failed close must not replace it, and the next line exits with rc
                 capture mata: `bk'.close_book()
                 capture mata: mata drop `bk'
                 forvalues g = 1/`_ngroups' {
@@ -69,8 +70,8 @@ program define _tabtools_xlsx_deferred_styles, nclass
             }
         }
         else if "`sub'" == "clear" {
-            capture mata: rmexternal("_tt_xp_rules")
-            capture mata: rmexternal("_tt_xp_meta")
+            mata: (void) rmexternal("_tt_xp_rules")
+            mata: (void) rmexternal("_tt_xp_meta")
         }
         else {
             display as error "_tabtools_xlsx_deferred_styles: unknown subcommand `sub'"
@@ -539,6 +540,7 @@ string scalar _tt_xlsx_pend_hex(string scalar color)
 
     t = tokens(color)
     if (cols(t) == 1) t = tokens(_tt_xlsx_pend_named(t[1]))
+    // stata-dev-ignore: shape-dispatch — t holds the whitespace tokens of one color string; three tokens (R G B) is the validity test of that string, not a matrix layout dispatch
     if (cols(t) != 3) {
         errprintf("deferred styles: cannot resolve color %s\n", color)
         _error(198)

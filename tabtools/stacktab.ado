@@ -1,4 +1,4 @@
-*! stacktab Version 2.5.1  2026/10/06
+*! stacktab Version 2.5.2  2026/10/06
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -24,6 +24,7 @@ program define stacktab, rclass
     * labelled panels through puttab's panel() rendering; it shares none of
     * the workbook-block machinery below, so it is routed to its own program.
     local _st_rhs ""
+    * stata-dev-ignore: capture-rc, capture_rc — a failed parse leaves _st_rhs empty, which routes the call to the workbook syntax and its own errors
     capture _parse comma _st_lhs _st_rhs : 0
     * A call that also names blocks() stays on the workbook route, whose
     * syntax then refuses frames().
@@ -241,6 +242,7 @@ program define stacktab, rclass
             * sheet rows 3-4. The used range's first row is read here and the
             * filter below is shifted by it.
             local _first_row = 1
+            * stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
             capture {
                 if `"`brow'"' != "" & `"`bcol'"' == "" {
                     quietly import excel `"`using'"', describe
@@ -267,6 +269,7 @@ program define stacktab, rclass
 
             * Apply row range filter if rows given but no cellrange
             if `"`brow'"' != "" & `"`bcol'"' == "" {
+                * stata-dev-ignore: double-macro-transport — _first_row, row_lo and row_hi are integer sheet-row numbers, exact in a macro
                 quietly keep if inrange(_n + `_first_row' - 1, `row_lo', `row_hi')
             }
             if `"`bcol'"' != "" & `"`brow'"' == "" {
@@ -557,7 +560,9 @@ program define stacktab, rclass
                     `"`macval(title)'"', headerstart(1)
                 local _disp_rc = _rc
                 capture rename (`_disp_to') (`final_vars')
+                local _disp_ren_rc = _rc
                 if `_disp_rc' exit `_disp_rc'
+                if `_disp_ren_rc' exit `_disp_ren_rc'
             }
             if `"`macval(note)'"' != "" {
                 noisily display as text `"`macval(note)'"'
@@ -1565,6 +1570,7 @@ program define _stacktab_apply_style, nclass
     }
     local rc = _rc
     if `_book_open' {
+        * stata-dev-ignore: capture-rc — cleanup zone; the original rc is saved in "local rc" above
         capture mata: `_style_book'.close_book()
     }
     capture mata: mata drop `_style_book'

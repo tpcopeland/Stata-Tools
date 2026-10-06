@@ -101,8 +101,11 @@ capture noisily {
                 local ++k
                 quietly poisson `y' narc `cov' if `p' == 1, irr vce(cluster id)
                 matrix T = r(table)
+                assert !missing(R[`ri', 4 + (`k' - 1) * 4 + 1], T[1,1])
                 assert reldif(R[`ri', 4 + (`k' - 1) * 4 + 1], T[1,1]) < 1e-12
+                assert !missing(R[`ri', 4 + (`k' - 1) * 4 + 2], T[5,1])
                 assert reldif(R[`ri', 4 + (`k' - 1) * 4 + 2], T[5,1]) < 1e-12
+                assert !missing(R[`ri', 4 + (`k' - 1) * 4 + 3], T[6,1])
                 assert reldif(R[`ri', 4 + (`k' - 1) * 4 + 3], T[6,1]) < 1e-12
                 assert R[`ri', 4 + `k' * 4] == 0
                 local want = strtrim(string(T[1,1], "%4.2f")) + " (" + strtrim(string(T[5,1], "%4.2f")) + ", " + strtrim(string(T[6,1], "%4.2f")) + ")"
@@ -190,7 +193,6 @@ capture noisily {
     frame _oto3e: assert substr(c1[1], 1, 1) != "<"
     global TABTOOLS_set_smallcells
 }
-global TABTOOLS_set_smallcells
 if _rc == 0 {
     display as result "  PASS: O3 minevents() text; smallcells masks counts and withholds ratios; session default"
     local ++pass_count
@@ -199,6 +201,7 @@ else {
     display as error "  FAIL: O3 minevents/smallcells (rc=`=_rc')"
     local ++fail_count
 }
+global TABTOOLS_set_smallcells
 
 **# O4: obsprefix(), missing outcomes, e() left as found
 capture noisily {

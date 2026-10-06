@@ -228,7 +228,7 @@ capture noisily {
     capture erase "`pbook'"
     puttab make price mpg in 1/3 using "`pbook'", sheet("sess")
     _ts240_count "`pbook'" "sess" left medium
-    assert r(n) > 0
+    assert !missing(r(n)) & r(n) > 0
     _ts240_count "`pbook'" "sess" left thin
     assert r(n) == 0
     puttab make price mpg in 1/3 using "`pbook'", sheet("opt") borderstyle(thin)
@@ -262,7 +262,7 @@ capture noisily {
     assert `_n' == 1
     crosstab rep78 foreign, xlsx("`book'") sheet("y") borderstyle(medium)
     _ts240_count "`book'" "y" left medium
-    assert r(n) > 0
+    assert !missing(r(n)) & r(n) > 0
     global TABTOOLS_BORDER
 }
 if _rc == 0 {
@@ -318,7 +318,7 @@ capture noisily {
     _ts240_count "`output_dir'/tables.xlsx" "Academic" left ""
     assert r(n) == 0
     _ts240_count "`output_dir'/tables.xlsx" "Boxed" left thin
-    assert r(n) > 0
+    assert !missing(r(n)) & r(n) > 0
 }
 if _rc == 0 {
     display as result "  PASS: B7 help example"

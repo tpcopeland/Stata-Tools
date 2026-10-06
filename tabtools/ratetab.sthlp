@@ -83,8 +83,8 @@ it, as {cmd:strate} run one variable at a time would.
 
 {phang}
 {opt events(varlist)} names nonnegative integer event counts (0/1 indicators or
-counts), one variable per outcome; each becomes a column group.
-{opt exposure(varlist)} names the person-time of each observation: one
+counts), one variable per outcome; each becomes a column
+group. {opt exposure(varlist)} names the person-time of each observation: one
 variable used for every outcome, or one variable per outcome, paired in order
 with {opt events()} ({cmd:events(e1 e2) exposure(py1 py2)}: {cmd:e1} over
 {cmd:py1}, {cmd:e2} over {cmd:py2}), for outcomes whose follow-up ends at
@@ -110,8 +110,8 @@ person-years when person-time is in years.
 
 {phang}
 {opt pyscale(#)} divides person-time before display, rate computation and
-{cmd:r(estimates)}, so the person-time column is in the scaled unit;
-{cmd:pyscale(365.25)} turns days into years.
+{cmd:r(estimates)}, so the person-time column is in the scaled
+unit; {cmd:pyscale(365.25)} turns days into years.
 
 {phang}
 {opt ci(method)} sets the interval. {cmd:exact} gives exact Poisson limits for
@@ -124,6 +124,12 @@ events in the same person; the number of clusters is displayed and stored in
 clusters. A level whose events all come from one cluster has no clustered
 interval and is printed without one. A level with no events shows the exact
 limits (0, -ln(alpha/2)/Y) whatever the method.
+
+{phang}
+{opt level(#)} sets the confidence level of the rate intervals, from 10 to
+99.99; the default is {cmd:c(level)}. It applies to every {opt ci()} method,
+is shown in the rate header ("Per 1,000 PY (90% CI)"), and is stored in
+{cmd:r(level)} and {cmd:r(ci_level)}.
 
 {phang}
 {opt smallcells(#)} prints an event count from 1 to #-1 as {cmd:<}# and
@@ -162,9 +168,15 @@ person-time (all empty); use {cmd:dash} to tell them apart.
 {dlgtab:Format}
 
 {phang}
-{opt digits(#)} sets the decimal places of the rate and its limits.
-{opt cformat(%fmt)} instead applies any numeric display format (for example
+{opt digits(#)} sets the decimal places of the rate and its
+limits. {opt cformat(%fmt)} instead applies any numeric display format (for example
 {cmd:%9.1fc}); string and date formats are refused.
+
+{phang}
+{opt pydigits(#)} sets the decimal places of the person-time column, from 0 to
+10; the default is 0, so 180.4 person-years print as {cmd:180}. It changes the
+printed person-time only: {cmd:r(estimates)} and {opt saving()} keep the
+numbers.
 
 {phang}
 {opt sep(string)} separates the two limits in every output (console, Excel,
@@ -173,7 +185,8 @@ CSV, Markdown, and frame), printed as typed; see {help tabtools##sep:interval se
 {phang}
 {opt outlabels()}, {opt explabels()}, and {opt unitlabel()} label the outcome
 column groups, the sections, and the rate header. The defaults are the
-variable labels (or names) and {it:per()}.
+variable labels (or names) and {it:per()} printed as typed, with thousands
+separators (for example, {cmd:per(0.5)} gives "0.5", {cmd:per(1500.5)} gives "1,500.5").
 
 {dlgtab:Output}
 
@@ -308,7 +321,8 @@ and {cmd:ub} (rates per {opt per()}, unmasked).
 StataCorp. Stata Base Reference Manual: ci (Methods and formulas, Poisson mean). College Station, TX: Stata Press.
 
 {phang}
-Ulm K. 1990. A simple method to calculate the confidence interval of a standardized mortality ratio (SMR). American Journal of Epidemiology 131: 373-375.
+Ulm K. 1990. A simple method to calculate the confidence interval of a standardized mortality ratio
+(SMR). American Journal of Epidemiology 131: 373-375.
 
 
 {marker author}{...}
@@ -322,3 +336,5 @@ Ulm K. 1990. A simple method to calculate the confidence interval of a standardi
 {psee}
 {helpb stratetab}, {helpb comptab}, {helpb strate}, {helpb tabtools}
 {p_end}
+
+{hline}

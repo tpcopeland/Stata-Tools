@@ -1,4 +1,4 @@
-*! outtab Version 2.5.1  2026/10/06
+*! outtab Version 2.5.2  2026/10/06
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -323,6 +323,7 @@ program define outtab, rclass
                             * reports (irr, or, eform) would exponentiate twice
                             if "`eform'" != "" & `_has_rt' {
                                 local _jx = colnumb(`_rt', "`exposure'")
+                                * stata-dev-ignore: omitted-coef-display — _bx is only compared with r(table) to refuse a doubled eform, never displayed or exported; an omitted exposure prints not estimable (459) through the tabcell est matrix() branch below
                                 capture local _bx = _b[`exposure']
                                 if !_rc & !missing(`_jx') {
                                     if reldif(el(`_rt', 1, `_jx'), exp(`_bx')) < 1e-8 {

@@ -3054,11 +3054,22 @@ capture noisily {
     gen byte group = _n > 50
     gen x = rnormal() + group * 0.5
     gen double ipw = cond(group, 2, 0.5)
+    * The weight is constant within each arm, so the weighted SMD equals the
+    * crude SMD (m1 - m0) / sqrt((s0^2 + s1^2) / 2), computed here from
+    * summarize before table1_tc replaces the data.
+    quietly summarize x if group == 0
+    local m0 = r(mean)
+    local s0 = r(sd)
+    quietly summarize x if group == 1
+    local want = string((r(mean) - `m0') / sqrt((`s0'^2 + r(sd)^2) / 2), "%5.3f")
+    assert real("`want'") > 0.5 & real("`want'") < 1.2
     capture frame drop _wtc_smd
     table1_tc, vars(x contn) by(group) wt(ipw) smd wtcompare frame(_wtc_smd) clear
     frame _wtc_smd {
         capture confirm variable smd_str
         assert _rc == 0  // SMD column should exist
+        quietly count if factor == "x" & strtrim(smd_str) == "`want'"
+        assert r(N) == 1
     }
     capture frame drop _wtc_smd
 }

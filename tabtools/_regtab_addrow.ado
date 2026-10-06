@@ -1,4 +1,4 @@
-*! _regtab_addrow Version 2.5.1  2026/10/06
+*! _regtab_addrow Version 2.5.2  2026/10/06
 *! regtab block: addrow() rows, appended or placed inside a factor block
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -170,6 +170,7 @@ if `"`macval(addrow)'"' != "" {
                     continue
                 }
                 quietly summarize _ar_new if _ar_old == `_r', meanonly
+                * stata-dev-ignore: double-macro-transport — row numbers are integers; their decimal expansion is exact
                 local _ar_map "`_ar_map' `=cond(r(N), r(min), `_r')'"
             }
             local `_arl' = strtrim("`_ar_map'")
@@ -178,6 +179,7 @@ if `"`macval(addrow)'"' != "" {
             local _ar_map ""
             foreach _r of local _constraint_rows_`_m' {
                 quietly summarize _ar_new if _ar_old == `_r' - 1, meanonly
+                * stata-dev-ignore: double-macro-transport — row numbers are integers; their decimal expansion is exact
                 local _ar_map "`_ar_map' `=r(min) + 1'"
             }
             local _constraint_rows_`_m' = strtrim("`_ar_map'")

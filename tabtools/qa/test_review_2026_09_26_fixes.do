@@ -166,6 +166,9 @@ capture noisily {
     local aic = r(aic)
     local bic = r(bic)
     assert r(df) == 4
+    * k = 4 by hand (rep78 levels 4 and 5, mpg, _cons): AIC = -2 ll + 2 k
+    assert abs(`aic' - (-2 * e(ll) + 2 * 4)) < 1e-9
+    * estat ic value from the reviewer probe, equal to the identity above
     assert abs(`aic' - 58.95657) < 1e-5
     collect clear
     quietly collect: logit foreign i.rep78 mpg if rep78 >= 3, vce(cluster cl)
@@ -334,6 +337,9 @@ capture noisily {
     local aic = r(aic)
     local bic = r(bic)
     assert r(df) == 3
+    * k = 3 by hand (mpg, weight, price, _cons less the one constraint): AIC = -2 ll + 2 k
+    assert abs(`aic' - (-2 * e(ll) + 2 * 3)) < 1e-9
+    * estat ic value from the reviewer probe, equal to the identity above
     assert abs(`aic' - 41.79776) < 1e-5
     collect clear
     quietly collect: logit foreign mpg weight price, constraints(1) vce(robust)

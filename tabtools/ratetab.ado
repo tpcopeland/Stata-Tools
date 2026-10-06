@@ -1,4 +1,4 @@
-*! ratetab Version 2.5.1  2026/10/06
+*! ratetab Version 2.5.2  2026/10/06
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -217,7 +217,7 @@ program define ratetab, rclass
         marksample touse, strok novarlist
         tempvar _nm
         quietly egen int `_nm' = rownonmiss(`varlist'), strok
-        quietly replace `touse' = 0 if `_nm' == 0
+        quietly replace `touse' = 0 if `_nm' == 0  // stata-dev-ignore: unchecked-commit — narrows the sample marker; a zero-row sample is refused at the count below (no observations, exit 2000)
         drop `_nm'
         if `_st' {
             quietly replace `touse' = 0 if _st != 1
@@ -296,7 +296,14 @@ program define ratetab, rclass
                 local explabels = cond(`_g' == 1, `"`_lab'"', `"`explabels' \ `_lab'"')
             }
         }
-        if `"`unitlabel'"' == "" local unitlabel = strtrim(string(`per', "%21.0fc"))
+        * default rate-header label: per() as typed (a fraction or 1500.5 keeps
+        * its decimals; %21.0fc printed per(0.5) as "0" over rates scaled by .5)
+        if `"`unitlabel'"' == "" {
+            local unitlabel = strtrim(string(`per', "%21.15gc"))
+            if substr(`"`unitlabel'"', 1, 1) == "." local unitlabel "0`unitlabel'"
+            * %g keeps a full-width mantissa in exponent form (1.00000000000000e-06)
+            if strpos(`"`unitlabel'"', "e") local unitlabel = regexr(`"`unitlabel'"', "[.]?0+e", "e")
+        }
 
         **# Per level counts and intervals, in a work frame
         local _alpha = (1 - `level' / 100) / 2
@@ -408,9 +415,9 @@ program define ratetab, rclass
                     * person-time in pyscale units (what stratetab prints) and
                     * rates per unit of it
                     quietly replace _Y = _Y / `pyscale'
-                    quietly gen double _Rate = _D / _Y if _Y > 0
-                    quietly gen double _Lower = .
-                    quietly gen double _Upper = .
+                    quietly gen double _Rate = _D / _Y if _Y > 0  // stata-dev-ignore: hardcoded-tempname — created after preserve + collapse, which leaves only _D, _Y, _lo_c, _hi_c and the by() variable, so only a by() variable of the same name can clash, and that fails loudly with r(110); the data are restored afterwards
+                    quietly gen double _Lower = .  // stata-dev-ignore: hardcoded-tempname — created after preserve + collapse, which leaves only _D, _Y, _lo_c, _hi_c and the by() variable, so only a by() variable of the same name can clash, and that fails loudly with r(110); the data are restored afterwards
+                    quietly gen double _Upper = .  // stata-dev-ignore: hardcoded-tempname — created after preserve + collapse, which leaves only _D, _Y, _lo_c, _hi_c and the by() variable, so only a by() variable of the same name can clash, and that fails loudly with r(110); the data are restored afterwards
                     if "`_ci'" == "exact" {
                         quietly replace _Lower = invpoissontail(_D, `_alpha') / _Y if _D > 0
                         quietly replace _Upper = invpoisson(_D, `_alpha') / _Y if _D > 0

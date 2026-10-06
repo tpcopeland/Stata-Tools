@@ -185,8 +185,8 @@ point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 
 {phang}
 {opt foot:note(string)} footnote text below the table in smaller italic font. The
-literal token {cmd:\}, with a space on each side, separates paragraphs, one row (Markdown:
-paragraph) each.{p_end}
+literal token {cmd:\}, with a space on each side, separates paragraphs, one row
+(Markdown: paragraph) each.{p_end}
 
 {phang}
 {opt fra:me(name[, replace])} store output in a named Stata frame; specify

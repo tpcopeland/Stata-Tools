@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.5.1  2026/10/06
+*! _desctab_collect Version 2.5.2  2026/10/06
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -401,30 +401,57 @@ program define _desctab_collect, rclass
 
             if !`suppress_p' {
                 if inlist("`typ'", "contn", "contln") & `nglevels' >= 2 {
-                    capture quietly anova `testvar' `by' [`weight'`exp'] if `touse' & `by' < . & `testvar' < .
-                    if _rc == 0 {
-                        local p`i' = Ftail(e(df_m), e(df_r), e(F))
-                        local f : display %6.2f e(F)
-                        local df1 = e(df_m)
-                        local df2 = e(df_r)
-                        if `nglevels' > 2 {
-                            local _used_anova 1
-                            local test`i' "ANOVA"
-                            if "`typ'" == "contln" local test`i' "ANOVA, logged data"
-                            local statistic`i' "F(`df1',`df2')=`f'"
-                        }
-                    }
+                    * One fit supplies the label, statistic, df and p. It is
+                    * weighted by the materialized weight (a weight expression
+                    * such as runiform() would otherwise be redrawn here) and
+                    * its sample is checked against the intended one in both
+                    * directions; on a mismatch the test is left blank rather
+                    * than published on a different sample.
+                    tempvar _tt_exp
+                    quietly generate byte `_tt_exp' = `touse' & `by' < . & `testvar' < .
+                    local _tt_w ""
+                    if `has_fw' local _tt_w "[fw=`fwvar']"
+                    local _tt_bad 0
                     if `nglevels' == 2 {
-                        capture quietly regress `testvar' ib(first).`by' [`weight'`exp'] if `touse' & `by' < . & `testvar' < .
+                        capture quietly regress `testvar' ib(first).`by' `_tt_w' if `touse' & `by' < . & `testvar' < .
                         if _rc == 0 {
+                            * r(table) first: count below overwrites r()
                             tempname Tmat
                             matrix `Tmat' = r(table)
-                            local tstat : display %6.2f -1 * `Tmat'[3,2]
-                            local _used_ttest 1
-                            local test`i' "Ind. t test"
-                            if "`typ'" == "contln" local test`i' "Ind. t test, logged data"
-                            local statistic`i' "t(`df2')=`tstat'"
+                            local df2 = e(df_r)
+                            local _tt_dfm = e(df_m)
+                            quietly count if `_tt_exp' != e(sample)
+                            if r(N) == 0 & `_tt_dfm' == 1 {
+                                local tstat : display %6.2f -1 * `Tmat'[3,2]
+                                local p`i' = 2 * ttail(`df2', abs(`Tmat'[3,2]))
+                                local _used_ttest 1
+                                local test`i' "Ind. t test"
+                                if "`typ'" == "contln" local test`i' "Ind. t test, logged data"
+                                local statistic`i' "t(`df2')=`tstat'"
+                            }
+                            else local _tt_bad 1
                         }
+                    }
+                    else {
+                        capture quietly anova `testvar' `by' `_tt_w' if `touse' & `by' < . & `testvar' < .
+                        if _rc == 0 {
+                            local _tt_f = e(F)
+                            local df1 = e(df_m)
+                            local df2 = e(df_r)
+                            quietly count if `_tt_exp' != e(sample)
+                            if r(N) == 0 & `df1' == `nglevels' - 1 {
+                                local p`i' = Ftail(`df1', `df2', `_tt_f')
+                                local f : display %6.2f `_tt_f'
+                                local _used_anova 1
+                                local test`i' "ANOVA"
+                                if "`typ'" == "contln" local test`i' "ANOVA, logged data"
+                                local statistic`i' "F(`df1',`df2')=`f'"
+                            }
+                            else local _tt_bad 1
+                        }
+                    }
+                    if `_tt_bad' {
+                        display as text "note: the comparison test for `orig' was not computed; the fitted sample differs from the tabulated sample"
                     }
                 }
                 else if "`typ'" == "conts" & `nglevels' >= 2 {
@@ -961,6 +988,33 @@ program define _desctab_collect, rclass
                     }
                     if r(N_primary_suppressed) > 0 & "`scprimary'" == "" ///
                         matrix `sc_derived'[`i', 1] = 1
+                }
+            }
+
+            * Each block above is certified with a printed denominator counted
+            * as N minus the hidden rows, which holds only while that N is
+            * printed. A denominator printed beside a withheld N is a released
+            * sum of the level cells the block never saw (x: <3 + 0 + <3 = 4
+            * pins both cells), and a Total denominator printed beside one
+            * withheld group denominator gives it back by subtraction. So a
+            * column whose N header is withheld withholds its denominator,
+            * and the Total withholds its own when its N or any group's
+            * denominator is withheld. Every printed denominator is then N
+            * minus rows the blocks treated as known.
+            if `_sc_full' & "`slashN'" == "slashN" {
+                forvalues i = 1/`nvars' {
+                    if !(inlist("`type_`i''", "bin", "bine") | ///
+                        (inlist("`type_`i''", "cat", "cate") & "`catrowperc'" == "")) continue
+                    local _sc_anyden 0
+                    forvalues _g = 1/`groupcount' {
+                        if `sc_samplemask'[1, `_g'] > 0 ///
+                            matrix `sc_denmask'[`i', `_g'] = 3
+                        if `sc_denmask'[`i', `_g'] > 0 local _sc_anyden 1
+                    }
+                    if `include_total' {
+                        if `sc_samplemask'[1, `ngout'] > 0 | `_sc_anyden' ///
+                            matrix `sc_denmask'[`i', `ngout'] = 3
+                    }
                 }
             }
         }
@@ -1743,7 +1797,7 @@ void _t1tcfc_collect_mata(
     real colvector levels, rawlevels, rowden
     real scalar n, nv, ng, ngout, i, j, g, gi, li, L, is_cont, is_cat
     real scalar dispw, mean, var, ss, denom, ess
-    real scalar swg, sxg, sx2g, nobsg, brow, pass
+    real scalar swg, sxg, sx2g, wdevsum, ovf, nobsg, brow, pass
     real colvector wprod, wprod2, wsrc, wdev, wdev2
 
     st_view(touse, ., touse_name)
@@ -1873,9 +1927,13 @@ void _t1tcfc_collect_mata(
             wprod2 = wvals :* (yvals:^2)
             // Mata's sum() skips missing elements, so an overflowing product
             // would silently drop out of the sum. Probability weights are
-            // scale-free: rescale them when a sum or product overflows, and
-            // let a sum that still contains a missing product be missing.
-            if (has_wt & (swg >= . | hasmissing(wprod) | hasmissing(wprod2))) {
+            // scale-free: rescale them when a sum or product overflows (a sum
+            // of finite products can overflow on its own: x near 3000 with
+            // weights near 1e300), and let a sum that still contains a
+            // missing product be missing.
+            ovf = (swg >= . | hasmissing(wprod) | hasmissing(wprod2))
+            if (!ovf) ovf = (sum(wprod) >= . | sum(wprod2) >= .)
+            if (has_wt & ovf) {
                 wvals = wvals / _t1tcfc_wscale(wvals)
                 swg = sum(wvals)
                 wprod = wvals :* yvals
@@ -1895,7 +1953,10 @@ void _t1tcfc_collect_mata(
                 wdev = wvals :* (yvals :- mean)
                 wdev2 = wdev :* (yvals :- mean)
                 if (!hasmissing(wdev2)) {
-                    ss = sum(wdev2) - sum(wdev)^2 / swg
+                    // s^2 overflows to missing once |s| > ~1.3e154 although
+                    // s * (s / swg) stays finite (rescaled huge weights)
+                    wdevsum = sum(wdev)
+                    ss = sum(wdev2) - wdevsum * (wdevsum / swg)
                 }
             }
             if (ss < 0 & ss > -1e-8) ss = 0

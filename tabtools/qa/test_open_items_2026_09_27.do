@@ -83,6 +83,15 @@ end
 
 * Trimmed cell of column `col' on the one frame row whose trimmed column-A
 * label is `label' (rows 4 and later).
+* _oi_logfind FILE NEEDLE: r(n) = number of lines of FILE that contain NEEDLE
+capture program drop _oi_logfind
+program define _oi_logfind, rclass
+    args file needle
+    mata: st_numscalar("_oi_lfn", sum(strpos(cat(st_local("file")), st_local("needle")) :> 0))
+    return scalar n = scalar(_oi_lfn)
+    scalar drop _oi_lfn
+end
+
 capture program drop _oi_cell
 program define _oi_cell, rclass
     version 17.0
@@ -213,15 +222,30 @@ else {
 
 * K1c: beside logistic, one OR header, no Intercept row by default, and both
 * model nouns in the methods sentence. clogit stores no group count
-* (e(N_group) is absent), so stats(groups) adds no invented Groups row.
+* (e(N_group) is absent), so stats(groups) adds no invented Groups row, only a note.
 capture noisily {
     _oi_clogit_data
     collect clear
     quietly collect: clogit case x1 noise smoke, group(set) or
     quietly collect: logistic case x1 noise smoke
-    regtab, frame(_oi1, replace) stats(N groups)
+    tempfile lgk
+    * a wide line keeps the note on one log line for the search
+    local ls0 = c(linesize)
+    set linesize 255
+    quietly log using "`lgk'.log", text replace name(_oicap)
+    capture noisily regtab, frame(_oi1, replace) stats(N groups)
+    local crc = _rc
     local methods `"`r(methods)'"'
-    assert "`r(coef_label)'" == "OR"
+    local coef_label "`r(coef_label)'"
+    quietly log close _oicap
+    set linesize `ls0'
+    assert `crc' == 0
+    * the omitted Groups row is announced, naming the model and the remedy
+    _oi_logfind "`lgk'.log" "Note: stats(groups) left out: no model stores a group count; model 1 (clogit, group variable set)"
+    assert r(n) == 1
+    _oi_logfind "`lgk'.log" "tabtools fitcount, events(case) people(set)"
+    assert r(n) == 1
+    assert "`coef_label'" == "OR"
     frame _oi1: assert strtrim(c1[3]) == "OR"
     frame _oi1: quietly count if strtrim(A) == "Intercept"
     assert r(N) == 0
@@ -441,6 +465,7 @@ capture noisily {
     stratetab, using(oi_dp_1 oi_dp_2) outcomes(1) rateratio frame(_ois, replace)
     local lvl = r(ci_level)
     quietly cd "`cwd'"
+    assert !missing(`lvl')
     assert reldif(`lvl', 97.5) < 1e-12
     frame _ois: assert strtrim(c4[3]) == "Per 1,000 PY (97.5% CI)"
     frame _ois: assert strtrim(c5[3]) == "IRR (97.5% CI)"

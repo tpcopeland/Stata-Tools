@@ -517,6 +517,7 @@ capture noisily {
     assert strpos("`nm5'", "cov") == 1 & strpos("`nm5'", "clinic")
     * row values stay aligned with their names
     matrix b = e(b)
+    assert !missing(`T'[3, 1], b[1, colnumb(b, "/:var(x[clinic])")])
     assert reldif(`T'[3, 1], b[1, colnumb(b, "/:var(x[clinic])")]) < 1e-12
 
     * relabelled melogit: names come from the display labels

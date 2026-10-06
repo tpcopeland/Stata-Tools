@@ -1,4 +1,4 @@
-*! _regtab_statrows Version 2.5.1  2026/10/06
+*! _regtab_statrows Version 2.5.2  2026/10/06
 *! regtab block: model statistics rows below the table body (stats())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -373,6 +373,23 @@ if `add_stats' == 1 {
         }
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
         local stats_row_ids "`stats_row_ids' `_nt'"
+    }
+
+    * A built-in row that no collected model reports is left out of the
+    * table; the console says which, so a requested row is never dropped
+    * without a word.
+    local _omit_ids ""
+    foreach _nt in n obs events people exposure groups mi_m aic qic bic ll icc ///
+        r2 r2_a rmse F fmi {
+        if `want_`_nt'' != 1 continue
+        local _shown : list _nt in stats_row_ids
+        if "`_nt'" == "qic" & `_qicu_rendered_by_aic' local _shown 1
+        if !`_shown' local _omit_ids "`_omit_ids' `_nt'"
+    }
+    local _omit_ids = strtrim("`_omit_ids'")
+    if "`_omit_ids'" != "" {
+        noisily display as text "(regtab: no model reports " ///
+            `"`: word count `_omit_ids'' requested statistic(s), left out of the table: `_omit_ids')"'
     }
 
     * Generic rows, in the order given. e(name): integers with thousands

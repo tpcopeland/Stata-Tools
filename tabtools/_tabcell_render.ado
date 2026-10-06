@@ -1,4 +1,4 @@
-*! _tabcell_render Version 2.5.1  2026/10/06
+*! _tabcell_render Version 2.5.2  2026/10/06
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -222,6 +222,7 @@ program define _tabcell_render, rclass
             }
             else if "`form'" == "np" & !`_ci' & "`nocount'" != "" {
                 * pct alone (the zero denominator is a bad row above)
+                * stata-dev-ignore: unchecked-commit — generate() is the caller's tempvar; the caller refuses an empty sample and this program refuses bad (zero-denominator or missing) rows above, unless missing() is given
                 replace `generate' = strtrim(string(100 * `v1' / `v2', "`pformat'")) ///
                     if `touse' & !`bad'
                 if `mincell' > 0 {

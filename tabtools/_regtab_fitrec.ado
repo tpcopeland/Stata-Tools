@@ -1,4 +1,4 @@
-*! _regtab_fitrec Version 2.5.1  2026/10/06
+*! _regtab_fitrec Version 2.5.2  2026/10/06
 *! fit-time records of tabtools fitcount, per model column
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -37,6 +37,7 @@ program define _regtab_fitrec, nclass
 			local _frc = _rc
 			if !`_frc' {
 				preserve
+				* stata-dev-ignore: capture-rc — a braced capture stops at its first error; _rc is read on the first line after the closing brace
 				capture {
 					_tabtools_collect_render, type(meta) rowdim(cmdset) results(`_pres')
 					local _nm = _N - 1

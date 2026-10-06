@@ -1241,6 +1241,7 @@ capture noisily {
             capture frame drop _fu9e
             quietly regtab, `lopt' frame(_fu9, replace) eplotframe(_fu9e, replace) csv("`csvf'")
             local meth `"`r(methods)'"'
+            assert !missing(r(ci_level), `v')
             assert reldif(r(ci_level), `v') < 1e-12
             frame _fu9: display as text "  regtab `how' level `v': header [" strtrim(c2[3]) "]"
             frame _fu9: assert strtrim(c2[3]) == "`v'% CI"
@@ -1274,6 +1275,7 @@ capture noisily {
         capture frame drop _fu9e
         quietly effecttab, level(`v') frame(_fu9, replace) eplotframe(_fu9e, replace) csv("`csvf'")
         local meth `"`r(methods)'"'
+        assert !missing(r(ci_level), `v')
         assert reldif(r(ci_level), `v') < 1e-12
         frame _fu9: assert strtrim(c2[3]) == "`v'% CI"
         assert strpos(`"`meth'"', "`v'% confidence intervals") > 0
@@ -1285,6 +1287,7 @@ capture noisily {
         capture frame drop _fu9
         quietly effecttab, from(fum) level(`v') frame(_fu9, replace) csv("`csvf'")
         local meth `"`r(methods)'"'
+        assert !missing(r(ci_level), `v')
         assert reldif(r(ci_level), `v') < 1e-12
         frame _fu9: assert strtrim(c2[3]) == "`v'% CI"
         assert strpos(`"`meth'"', "with `v'% confidence intervals") > 0
@@ -1318,6 +1321,7 @@ capture noisily {
             capture erase "`csvf'"
             capture frame drop _fu9
             quietly stratetab, using("`rate'") outcomes(1) `lopt' frame(_fu9, replace) csv("`csvf'")
+            assert !missing(r(ci_level), `v')
             assert reldif(r(ci_level), `v') < 1e-12
             _fu_char_is _fu9 "`v'"
             _fu_frame_has _fu9 "(`v'% CI)"
@@ -1332,7 +1336,7 @@ capture noisily {
             assert strpos(`"`meth'"', "with `v'% confidence intervals") > 0
             frame _fu9 {
                 quietly count if strtrim(c1) == "(`v'% CI)"
-                assert r(N) >= 1
+                assert !missing(r(N)) & r(N) >= 1
             }
 
             sysuse auto, clear
@@ -1340,6 +1344,7 @@ capture noisily {
             capture frame drop _fu9
             quietly crosstab foreign hi, or `lopt' frame(_fu9, replace)
             local meth `"`r(methods)'"'
+            assert !missing(r(ci_level), `v')
             assert reldif(r(ci_level), `v') < 1e-12
             _fu_char_is _fu9 "`v'"
             _fu_frame_has _fu9 "(`v'% CI: "
@@ -1376,6 +1381,7 @@ capture noisily {
         capture frame drop _fu9
         quietly hrcomptab fu9_rates, modelframes(fu9_hrm) rows(3/4) effect("HR") ///
             outcomemap("Death") frame(_fu9, replace)
+        assert !missing(r(ci_level), `v')
         assert reldif(r(ci_level), `v') < 1e-12
         _fu_frame_has _fu9 "HR (`v'% CI)"
         _fu_char_is _fu9 "`v'"

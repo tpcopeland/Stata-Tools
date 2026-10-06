@@ -144,15 +144,23 @@ capture noisily {
     crosstab y x [fw=w], cochran
     assert !missing(r(chi2_trend), r(p_trend), r(z_trend))
     assert reldif(r(chi2_trend), 20) < 1e-12
+    * stata-dev-ignore: missing-passes-reldif — the oracle -sqrt(20) is a constant expression, never missing; the package side is guarded by the assert !missing(r(chi2_trend), r(p_trend), r(z_trend)) above
     assert reldif(r(z_trend), -sqrt(20)) < 1e-12
+    assert !missing(r(p_trend))
+    * stata-dev-ignore: missing-passes-reldif — the oracle chi2tail(1, 20) is a constant expression, never missing; the package side is guarded by the assert !missing(r(chi2_trend), r(p_trend), r(z_trend)) above
     assert reldif(r(p_trend), chi2tail(1, 20)) < 1e-10
+    * R 4.x prop.trend.test p-value (see the comment above this block)
+    assert !missing(r(p_trend))
     assert reldif(r(p_trend), 7.74421643104e-06) < 1e-9
     * mirror image: the increasing trend has the same chi2 and p
     local pdown = r(p_trend)
     replace y = 1 - y
     crosstab y x [fw=w], cochran
+    assert !missing(r(chi2_trend))
     assert reldif(r(chi2_trend), 20) < 1e-12
+    assert !missing(r(p_trend), `pdown')
     assert reldif(r(p_trend), `pdown') < 1e-12
+    assert !missing(r(z_trend), sqrt(20))
     assert reldif(r(z_trend), sqrt(20)) < 1e-12
 }
 if _rc == 0 {
@@ -179,6 +187,7 @@ capture noisily {
     assert !missing(r(chi2_trend), scalar(r929_chi2))
     assert r(z_trend) < 0
     assert reldif(r(chi2_trend), scalar(r929_chi2)) < 1e-10
+    assert !missing(r(p_trend), scalar(r929_p))
     assert reldif(r(p_trend), scalar(r929_p)) < 1e-8
     scalar drop r929_chi2 r929_p
 }
@@ -210,6 +219,7 @@ capture noisily {
     local pcc = r(p)
     crosstab r c, trend
     assert r(N) == 5
+    assert !missing(r(p_trend), `pcc')
     assert reldif(r(p_trend), `pcc') < 1e-12
 }
 if _rc == 0 {
@@ -238,15 +248,22 @@ capture noisily {
     local rd = r(rd)
     crosstab r c, or rr rd
     assert !missing(r(or), r(rr), r(rd))
+    assert !missing(`or')
     assert reldif(r(or), `or') < 1e-12
+    assert !missing(`rr')
+    assert !missing(r(rr))
     assert reldif(r(rr), `rr') < 1e-12
+    assert !missing(`rd')
+    assert !missing(r(rd))
     assert reldif(r(rd), `rd') < 1e-12
     * the integer twin gives the identical trend test
     crosstab r01 c01, cochran
     local ptw = r(p_trend)
     local ctw = r(chi2_trend)
     crosstab r c01, cochran
+    assert !missing(r(p_trend), `ptw')
     assert reldif(r(p_trend), `ptw') < 1e-12
+    assert !missing(r(chi2_trend), `ctw')
     assert reldif(r(chi2_trend), `ctw') < 1e-12
 }
 if _rc == 0 {
@@ -276,6 +293,7 @@ capture noisily {
     assert mreldif(r(table), `Ti') < 1e-12
     assert r(events_1) == `e1' & r(events_2) == `e2' & r(atrisk_1) == `a1'
     assert r(median_1) == `m1' & r(median_2) == `m2'
+    assert !missing(r(logrank_chi2), `lr')
     assert reldif(r(logrank_chi2), `lr') < 1e-12
     * group 1 is the drug == 1 arm: 12 failures among 28 subjects
     assert r(events_1) == 12 & r(atrisk_1) == 28
@@ -354,6 +372,10 @@ capture noisily {
         save "`base'.dta", replace
     end
     _r929_strate "`od'/rate1"
+}
+if _rc != 0 {
+    display as error "  FAIL: R7 setup, stratetab input build (rc=`=_rc')"
+    local ++fail_count
 }
 
 foreach cmd in corrtab crosstab table1_tc puttab stacktab regtab effecttab ///

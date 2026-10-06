@@ -1,4 +1,4 @@
-*! desctab Version 2.5.1  2026/10/06 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.5.2  2026/10/06 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -817,15 +817,19 @@ program define desctab, rclass
             local _wtc_merge_levels `"`_group_levels'"'
             if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
 
+            * A column exists only for the levels and modes present; a column
+            * that is there must rename, so a collision fails loudly.
             foreach lv of local _wtc_merge_levels {
-                capture rename `groupnum'`lv' _cr_`lv'
-                capture rename _columna_`lv' _cr_columna_`lv'
-                capture rename _columnb_`lv' _cr_columnb_`lv'
-                capture rename N_`lv' _cr_N_`lv'
-                capture rename _scmask_`lv' _cr_scmask_`lv'
-                capture rename _scmiss_`lv' _cr_scmiss_`lv'
+                foreach _crpair in "`groupnum'`lv' _cr_`lv'" "_columna_`lv' _cr_columna_`lv'" ///
+                    "_columnb_`lv' _cr_columnb_`lv'" "N_`lv' _cr_N_`lv'" ///
+                    "_scmask_`lv' _cr_scmask_`lv'" "_scmiss_`lv' _cr_scmiss_`lv'" {
+                    gettoken _crold _crnew : _crpair
+                    capture confirm variable `_crold'
+                    if !_rc rename `_crold' `_crnew'
+                }
             }
-            capture rename _sc_derived _cr_sc_derived
+            capture confirm variable _sc_derived
+            if !_rc rename _sc_derived _cr_sc_derived
             capture confirm variable sort2
             if _rc gen sort2 = 0
             keep sort1 sort2 _cr_*
@@ -900,7 +904,8 @@ program define desctab, rclass
             // If no value label, use by-variable name and value
             lab var `groupnum'`level' "`by' = `level'"
             if `has_wtcompare' {
-                capture lab var _cr_`level' "Crude `by' = `level'"
+                capture confirm variable _cr_`level'
+                if !_rc lab var _cr_`level' "Crude `by' = `level'"
             }
         }
         else {
@@ -920,7 +925,8 @@ program define desctab, rclass
 
     /* Calculate missing counts */
     foreach i of local levels {
-        cap gen cat_not_top_row = .  // Create indicator for categorical variables
+        capture confirm variable cat_not_top_row
+        if _rc quietly gen cat_not_top_row = .  // Create indicator for categorical variables once
         qui recode N_`i' .=0 if cat_not_top_row !=1  // Use N=0 for categorical vars
         qui su N_`i'  // Get maximum sample size for this group
         local _max_n_`i' = r(max)
@@ -999,14 +1005,14 @@ program define desctab, rclass
 
     /* Apply variable labels */
     lab var factor "Factor "
-    capture lab var level "Level"
-    capture lab var test "Test"
-    capture lab var statistic "Statistic"
+    capture lab var level "Level"  // stata-dev-ignore: capture-rc — label text only; the column is absent without categorical variables or test/statistic, which is the designed case
+    capture lab var test "Test"  // stata-dev-ignore: capture-rc — label text only; the test column is absent without test/statistic
+    capture lab var statistic "Statistic"  // stata-dev-ignore: capture-rc — label text only; the statistic column is absent without statistic
     if `groupcount'==1 lab var `groupnum'1 "Total"  // Simplify single group label
-    capture lab var _columna_`_total_code' "T _columna_"  // Label total column components
-    capture lab var _columnb_`_total_code' "T _columnb_"
-    capture lab var N_`_total_code' "T N_"
-    capture lab var m_`_total_code' "T m_"
+    capture lab var _columna_`_total_code' "T _columna_"  // Label total column components  stata-dev-ignore: capture-rc — label text only; total-column components exist only with total()
+    capture lab var _columnb_`_total_code' "T _columnb_"  // stata-dev-ignore: capture-rc — label text only; total-column components exist only with total()
+    capture lab var N_`_total_code' "T N_"  // stata-dev-ignore: capture-rc — label text only; the total N column exists only with total()
+    capture lab var m_`_total_code' "T m_"  // stata-dev-ignore: capture-rc — label text only; the total missing-count column exists only with total()
 
     tempvar _sc_anyderived
     if "`smallcells'" != "" {
@@ -1024,7 +1030,8 @@ program define desctab, rclass
 
     /* Format p-values (skipped when wt() or nopvalue specified) */
     if `groupcount'>1 & !`_suppress_p' {
-        cap gen p = .  // Create p-value variable if it doesn't exist
+        capture confirm variable p
+        if _rc quietly gen p = .  // Create p-value variable if it doesn't exist
 
         // Format p-values according to their magnitude and specified decimal places
         qui gen pvalue=string(p, "%`=`highpdp'+2'.`highpdp'f") if !missing(p)  // Standard format for high p-values
@@ -1090,26 +1097,26 @@ program define desctab, rclass
     foreach var in `r(varlist)' {
         format `var' %-`=substr("`: format `var''", 2, .)'  // Set left alignment
     }
-    capture format %`=`pdp'+3's _columna_*  // Format column components
+    capture format %`=`pdp'+3's _columna_*  // Format column components  stata-dev-ignore: capture-rc — layout only; _columna_* exists only when a table row produced components
 
     /* Reorganize columns for display */
     order N_*, seq  // Group N columns together
     order `groupnum'*, seq  // Group data columns together
     order factor `groupnum'* N_* m_*  // Set main column order
-    capture order factor `groupnum'* pvalue  // Add p-value if exists
-    capture order test, before(pvalue)  // Add test column if exists
-    capture order statistic, before(pvalue)  // Add statistic column if exists
+    capture order factor `groupnum'* pvalue  // Add p-value if exists  stata-dev-ignore: capture-rc — layout only; pvalue is absent under nopvalue or wt()
+    capture order test, before(pvalue)  // Add test column if exists  stata-dev-ignore: capture-rc — layout only; test or its pvalue anchor is absent by design
+    capture order statistic, before(pvalue)  // Add statistic column if exists  stata-dev-ignore: capture-rc — layout only; statistic or its pvalue anchor is absent by design
     * Add SMD column after pvalue
-    capture order smd_str, after(pvalue)
-    capture order level, after(factor)  // Add level column for categorical variables
+    capture order smd_str, after(pvalue)  // stata-dev-ignore: capture-rc — layout only; smd_str or its pvalue anchor is absent without smd or with nopvalue
+    capture order level, after(factor)  // Add level column for categorical variables  stata-dev-ignore: capture-rc — layout only; level exists only with categorical variables
 
     /* Rename placeholder group variable or add group prefix */
     if `groupcount'==1 rename `groupnum'1 Total  // Simplify single group name
     else rename `groupnum'* `by'*  // Add by-variable name prefix to group columns
 
     if "`by'" !="" rename `by'* `by'_*  // Add underscore for clarity
-    capture rename *_`_total_code' *_T  // Rename total columns to _T
-    capture rename _*_`_total_code' _*_T  // Rename total column components
+    capture rename *_`_total_code' *_T  // Rename total columns to _T  stata-dev-ignore: capture-rc — wildcard matches nothing without total(); with total() every match renames to a reserved _T suffix
+    capture rename _*_`_total_code' _*_T  // Rename total column components  stata-dev-ignore: capture-rc — wildcard matches nothing without total(); with total() every match renames to a reserved _T suffix
 
     /* wtcompare: rename crude columns and reorder for side-by-side display */
     if `has_wtcompare' {
@@ -1186,11 +1193,11 @@ program define desctab, rclass
         tokenize `levels'
         local first `1'
         if `has_wtcompare' {
-            cap order Cr_T, before(Cr_`first')  // Move crude total before first crude group
-            cap order Wt_T, before(Wt_`first')  // Move weighted total before first weighted group
+            cap order Cr_T, before(Cr_`first')  // Move crude total before first crude group  stata-dev-ignore: capture-rc — layout only; the anchor column is absent when that group level has no crude column
+            cap order Wt_T, before(Wt_`first')  // Move weighted total before first weighted group  stata-dev-ignore: capture-rc — layout only; the anchor column is absent when that group level has no weighted column
         }
         else {
-            cap order `by'_T, before(`by'_`first')  // Move total before first group
+            cap order `by'_T, before(`by'_`first')  // Move total before first group  stata-dev-ignore: capture-rc — layout only; the total column is absent when the by-prefix rename found no match
         }
         order N_T, before(N_`first')  // Reorder N columns
         order m_T, before(m_`first')  // Reorder missing columns
@@ -1200,10 +1207,10 @@ program define desctab, rclass
     if "`total'" == "after" {
         tokenize `levels'
         local first `1'
-        cap order `by'_T, before(pvalue)  // Move total before p-value
-        cap order N_T, before(m_`first')  // Reorder N columns
-        cap order m_T, before(_columna_`first')  // Reorder missing columns
-        cap order _columna_T _columnb_T, last  // Move column components to end
+        cap order `by'_T, before(pvalue)  // Move total before p-value  stata-dev-ignore: capture-rc — layout only; the pvalue anchor is absent under nopvalue or wt()
+        cap order N_T, before(m_`first')  // Reorder N columns  stata-dev-ignore: capture-rc — layout only; the anchor column may be absent
+        cap order m_T, before(_columna_`first')  // Reorder missing columns  stata-dev-ignore: capture-rc — layout only; the anchor column may be absent
+        cap order _columna_T _columnb_T, last  // Move column components to end  stata-dev-ignore: capture-rc — layout only; the component columns may be absent
     }
 
     /* Snapshot the public suppression map before internal mask variables are
@@ -1409,6 +1416,7 @@ program define desctab, rclass
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
                 local _hp_var `"`hperc_scratch_for_`_hcol''"'
+                * stata-dev-ignore: unchecked-commit — appends a percentage to an existing header cell; a zero denominator or missing numerator correctly matches no row and leaves the header unchanged
                 replace `_hcol' = `_hcol' + " " + "(" + ///
                     string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
                     "`percsign'" + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
@@ -2143,8 +2151,16 @@ program define desctab, rclass
                 }
                 local _stat_width = max(14, ceil(`_stat_maxlen' * 0.85) + 2)
             }
+            * SMD column: sized by its header text (row 2, merged over rows 2-3)
+            * with the same 0.85 factor as the test column, floored at 8. A bare
+            * "SMD", "Pop. SB" or "Max SMD" stays at 8; body cells never widen it.
+            local _smd_width = 8
+            if `smd_pos' > 0 {
+                local _smd_hlen = udstrlen(smd_str[2])
+                local _smd_width = max(8, ceil(`_smd_hlen' * 0.85) + 2)
+            }
 
-	            capture {
+	            capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace (if _rc, saved_rc), beyond the lint look-ahead window
 	                * Column widths, row heights, and styles are dispatched
 	                * through the shared Mata style engine. Rule columns are:
 	                * op r1 r2 c1 c2 value code r g b.
@@ -2201,7 +2217,7 @@ program define desctab, rclass
 	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `statistic_pos' `statistic_pos' `_stat_width' 0 0 0 0"'
                 }
                 if `smd_pos' > 0 {
-	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `smd_pos' `smd_pos' 8 0 0 0 0"'
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `smd_pos' `smd_pos' `_smd_width' 0 0 0 0"'
                 }
 
                 * Font for entire table (single row-range call)

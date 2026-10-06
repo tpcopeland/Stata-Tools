@@ -80,6 +80,7 @@ end
 
 **# puttab nformat(): all three sinks, integer columns only
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/v231_nf.xlsx"
     local csv "`output_dir'/v231_nf.csv"
@@ -139,6 +140,7 @@ else {
 
 **# A column's own fc format keeps separators; digits() sets decimals; gc does not
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local md "`output_dir'/v231_fc.md"
     _v231_data
@@ -164,6 +166,7 @@ else {
 **# Default output unchanged; nformat() wins over an own fc format;
 * value labels and dates are never reformatted
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local md "`output_dir'/v231_prec.md"
     _v231_data
@@ -187,6 +190,7 @@ else {
 
 **# matrix() and frame() sources
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local md "`output_dir'/v231_src.md"
     matrix M = (1234567, 1.5 \ 89, 2.25)
@@ -218,6 +222,7 @@ else {
 
 **# panel(): a numeric panel heading is not run through nformat()
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local md "`output_dir'/v231_panel.md"
     clear
@@ -320,6 +325,7 @@ else {
 **# SMD highlighting: default, threshold, nosmdhighlight, smdthreshold(-1)
 * auto: price SMD 0.109, mpg SMD 0.860 (body rows 4-5, SMD column F).
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _v_value/_v_line/_v231_smd call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in _qa_v230_helpers.do and this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/v231_smd.xlsx"
     capture erase "`book'"

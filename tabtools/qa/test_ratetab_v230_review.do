@@ -55,6 +55,7 @@ capture noisily {
     gen double ptd = 365.25 * cond(_n <= 2, 10, 20)
     ratetab g, events(ev) exposure(ptd) pyscale(365.25) per(1) frame(_rv1, replace)
     matrix E = r(estimates)
+    assert !missing(E[1, 5], E[2, 5])
     assert reldif(E[1, 5], 40) < 1e-12 & reldif(E[2, 5], 20) < 1e-12
     * printed person-time is in person-years, matching r(estimates)
     frame _rv1: assert strtrim(c3[5]) == "40" & strtrim(c3[6]) == "20"
@@ -128,8 +129,11 @@ capture noisily {
     gen double ub = exp(ln(D / Y) + invnormal(0.975) * se)
     sort grp
     forvalues j = 1/4 {
+        assert !missing(C[`j', 6], D[`j'] / Y[`j'])
         assert reldif(C[`j', 6], D[`j'] / Y[`j']) < 1e-12
+        assert !missing(C[`j', 7], lb[`j'])
         assert reldif(C[`j', 7], lb[`j']) < 1e-9
+        assert !missing(C[`j', 8], ub[`j'])
         assert reldif(C[`j', 8], ub[`j']) < 1e-9
     }
     restore
@@ -179,9 +183,13 @@ capture noisily {
     sort level grp
     forvalues j = 1/4 {
         * 90% rows come first after sorting
+        assert !missing(C90[`j', 7], clb[`j'], C90[`j', 8], cub[`j'])
         assert reldif(C90[`j', 7], clb[`j']) < 1e-8 & reldif(C90[`j', 8], cub[`j']) < 1e-8
+        assert !missing(E90[`j', 7], elb[`j'], E90[`j', 8], eub[`j'])
         assert reldif(E90[`j', 7], elb[`j']) < 1e-8 & reldif(E90[`j', 8], eub[`j']) < 1e-8
+        assert !missing(C95[`j', 7], clb[`j' + 4], C95[`j', 8], cub[`j' + 4])
         assert reldif(C95[`j', 7], clb[`j' + 4]) < 1e-8 & reldif(C95[`j', 8], cub[`j' + 4]) < 1e-8
+        assert !missing(E95[`j', 7], elb[`j' + 4], E95[`j', 8], eub[`j' + 4])
         assert reldif(E95[`j', 7], elb[`j' + 4]) < 1e-8 & reldif(E95[`j', 8], eub[`j' + 4]) < 1e-8
     }
     restore
