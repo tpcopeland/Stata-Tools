@@ -1,4 +1,4 @@
-*! _regtab_relabel Version 2.5.0  2026/10/06
+*! _regtab_relabel Version 2.5.1  2026/10/06
 *! regtab block: relabel random-effects rows (relabel)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

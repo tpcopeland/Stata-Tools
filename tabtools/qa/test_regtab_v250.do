@@ -338,6 +338,37 @@ else {
     local ++fail_count
 }
 
+* B2a2: a factor by continuous interaction. The stripe marks the base cell
+* 0b.v#co.age, which collect keys 0.v#age; the record and the active fit
+* must key it the same way, or the base cell turns not estimable. No
+* record, data present; record, data present; record, data gone.
+local ++test_count
+capture noisily {
+    forvalues pass = 1/3 {
+        _v250_cancer
+        quietly stintreg i.v##c.age, interval(t0 t1) distribution(weibull)
+        _ms_element_info, element(5) matrix(e(b))
+        assert "`r(note)'" == "(base)"
+        quietly collect get e(), tags(cmdset[1])
+        if `pass' >= 2 quietly tabtools fitcount, events(_d) terms
+        if `pass' == 3 drop v
+        quietly regress age studytime
+        regtab, notestlabel("NE") frame(_b2c, replace flat)
+        _v250_cell _b2c "0.v#age" c1
+        assert "`r(cell)'" == "Reference"
+        _v250_cell _b2c "1.v#age" c1
+        assert !missing(real("`r(cell)'"))
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: B2a2 factor#continuous base cell stays Reference with fitcount's record"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: B2a2 factor#continuous base cell (rc=`=_rc')"
+    local ++fail_count
+}
+
 * B2c: the same factorial under streg (collect: every cell "empty"), stcox
 * and logit (collect classes them itself). The empty cell is never the
 * reference; logit's collinear and perfectly predicted cells keep their
@@ -1273,7 +1304,7 @@ else {
 display "RESULT: test_regtab_v250 tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture constraint drop 91 92 93 94 95
 capture frame drop t
-foreach f in _b1 _b2 _b3 _b3e _b4 _b5 _f9 _k1a _k1b _k2 _k3 _k4 _u1 _u1f _l1 _c1 {
+foreach f in _b1 _b2 _b2c _b3 _b3e _b4 _b5 _f9 _k1a _k1b _k2 _k3 _k4 _u1 _u1f _l1 _c1 {
     capture frame drop `f'
 }
 capture tabtools set clear

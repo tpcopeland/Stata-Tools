@@ -1,4 +1,4 @@
-*! _regtab_activeb Version 2.5.0  2026/10/06
+*! _regtab_activeb Version 2.5.1  2026/10/06
 *! constraint notes of a collected model that is the active fit
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -41,7 +41,7 @@ program define _regtab_activeb, nclass
 			mata: _rt_ab_cn = ustrregexra(_rt_ab_kk, `"^.*?[#"]colname\[(.+?)\][#"].*$"', "$1")
 			mata: _rt_ab_s = st_matrixcolstripe("e(b)")
 			mata: _rt_ab_b = st_matrix("e(b)")'
-			mata: _rt_ab_bn = ustrregexra(ustrregexra(_rt_ab_s[., 2], "(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)c\.", "$1")
+			mata: _rt_ab_bn = ustrregexra(ustrregexra(_rt_ab_s[., 2], "(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)co?\.", "$1")
 			mata: _rt_ab_q = all((_rt_ab_s[., 1] :== "") :| (_rt_ab_s[., 1] :== "_"))
 			mata: _rt_ab_bk = _rt_ab_q ? _rt_ab_bn : (_rt_ab_s[., 1] :+ ":" :+ _rt_ab_bn)
 			mata: _rt_ab_ck = _rt_ab_q ? _rt_ab_cn : (_rt_ab_ce :+ ":" :+ _rt_ab_cn)

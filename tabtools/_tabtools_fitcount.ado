@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 2.5.0  2026/10/06
+*! _tabtools_fitcount Version 2.5.1  2026/10/06
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -182,7 +182,7 @@ program define _tabtools_fitcount, rclass
 			mata: _tt_fc_s = st_matrixcolstripe("e(b)")
 			mata: _tt_fc_b = st_matrix("e(b)")'
 			* names as the collection keys them: 1b.x -> 1.x, c.z -> z
-			mata: _tt_fc_bn = ustrregexra(ustrregexra(_tt_fc_s[., 2], "(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)c\.", "$1")
+			mata: _tt_fc_bn = ustrregexra(ustrregexra(_tt_fc_s[., 2], "(^|#)([0-9]+)[a-z]+\.", "$1$2."), "(^|#)co?\.", "$1")
 			mata: _tt_fc_q = all((_tt_fc_s[., 1] :== "") :| (_tt_fc_s[., 1] :== "_"))
 			mata: _tt_fc_bk = _tt_fc_q ? _tt_fc_bn : (_tt_fc_s[., 1] :+ ":" :+ _tt_fc_bn)
 			mata: _tt_fc_ck = _tt_fc_q ? _tt_fc_cn : (_tt_fc_ce :+ ":" :+ _tt_fc_cn)
