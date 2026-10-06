@@ -596,7 +596,11 @@ denominator its percentage releases. These counts are not printed, but one below
 the threshold is protected as a primary cell, as it would be if
 {opt missingsummary} or {opt slashN} printed it: printed cells are marked
 {cmd:≥#} where needed, percentages are withheld, and the p-value is
-suppressed. In a table of two or more variables the group and total sample
+suppressed. A continuous variable's mean or median is printed only when its
+non-missing n is not masked, so a printed summary tells the reader that n is at
+least {it:#}; that bound is counted too, and with {opt missingsummary} it can
+withhold a group N that would otherwise pin a small missing count. In a table of
+two or more variables the group and total sample
 sizes are shared by every variable, so they are never withheld as complementary
 cells; when a count cannot be protected without them, {cmd:desctab} stops with an
 error.{p_end}

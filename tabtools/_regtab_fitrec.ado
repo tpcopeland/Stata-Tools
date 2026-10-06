@@ -1,4 +1,4 @@
-*! _regtab_fitrec Version 2.5.3  2026/10/06
+*! _regtab_fitrec Version 2.5.4  2026/10/06
 *! fit-time records of tabtools fitcount, per model column
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

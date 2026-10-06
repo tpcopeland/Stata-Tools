@@ -1,4 +1,4 @@
-*! _tabtools_smallcells Version 2.5.3  2026/10/06
+*! _tabtools_smallcells Version 2.5.4  2026/10/06
 *! Exact-disclosure suppression engine for tabtools count blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,6 +14,7 @@ program define _tabtools_smallcells, rclass
               ROWEXact(name) ROWSENsitive(name) ///
               COLEXact(name) COLSENsitive(name) ///
               GRANDExact(integer 0) GRANDSensitive(integer 0) ///
+              LOWer(name) ROWLOWer(name) ///
               FIXEDmargins PRIMary ]
 
         if `smallcells' < 3 {
@@ -94,6 +95,30 @@ program define _tabtools_smallcells, rclass
             matrix `colsens_m' = `colsensitive'
         }
 
+        * lower()/rowlower(): cells and row margins that are never printed
+        * but whose publication shows they are not small -- a continuous
+        * summary is printed only for an unmasked n, so a printed mean says
+        * n >= k (and a blank one n = 0). The engine counts that bound.
+        tempname lower_m rowlower_m
+        if "`lower'" == "" matrix `lower_m' = J(`nr', `nc', 0)
+        else {
+            capture confirm matrix `lower'
+            if _rc {
+                display as error "lower() must name an existing matrix"
+                exit 198
+            }
+            matrix `lower_m' = `lower'
+        }
+        if "`rowlower'" == "" matrix `rowlower_m' = J(`nr', 1, 0)
+        else {
+            capture confirm matrix `rowlower'
+            if _rc {
+                display as error "rowlower() must name an existing matrix"
+                exit 198
+            }
+            matrix `rowlower_m' = `rowlower'
+        }
+
         tempname mask rowmask colmask status totalmask nprimary nsecondary
         * primary (smallcells(#, primary)): mask only the cells and margins
         * that are printed (exact) and hold 1..k-1. No complementary cells
@@ -114,6 +139,7 @@ program define _tabtools_smallcells, rclass
             st_matrix("`sensitive_m'"), st_matrix("`rowexact_m'"), ///
             st_matrix("`rowsens_m'"), st_matrix("`colexact_m'"), ///
             st_matrix("`colsens_m'"), `grandexact', `grandsensitive', ///
+            st_matrix("`lower_m'"), st_matrix("`rowlower_m'"), ///
             `smallcells', "`fixedmargins'" != "", ///
             "`mask'", "`rowmask'", "`colmask'", ///
             "`totalmask'", "`nprimary'", "`nsecondary'"))
@@ -225,7 +251,7 @@ real rowvector _ttsc_bounds(
 {
     if (state == 0) return((actual, actual))
     if (state == 1) return((1, k - 1))
-    if (state == 2) return((k, upper))
+    if (state == 2 | state == 3) return((k, upper))
     return((0, upper))
 }
 
@@ -383,6 +409,8 @@ real scalar _ttsc_run(
     real rowvector colsensitive,
     real scalar grandexact,
     real scalar grandsensitive,
+    real matrix lower,
+    real colvector rowlower,
     real scalar k,
     real scalar fixedmargins,
     string scalar mask_name,
@@ -417,7 +445,14 @@ real scalar _ttsc_run(
     if (!_ttsc_valid_binary(colexact) | !_ttsc_valid_binary(colsensitive)) return(-1)
     if ((grandexact != 0 & grandexact != 1) | ///
         (grandsensitive != 0 & grandsensitive != 1)) return(-1)
+    if (rows(lower) != nr | cols(lower) != nc) return(-1)
+    if (rows(rowlower) != nr | cols(rowlower) != 1) return(-1)
+    if (!_ttsc_valid_binary(lower) | !_ttsc_valid_binary(rowlower)) return(-1)
 
+    // State 3: a released lower bound (k or more) on a cell that is never
+    // printed. It bounds the flow like a >=k marker but is not a mask, is
+    // never revealed, and never becomes a complementary candidate. A
+    // lower-bound cell holding 0 is published as empty, so it is exact.
     rowtotals = rowsum(counts)
     coltotals = colsum(counts)
     state = J(nr, nc, -1)
@@ -425,12 +460,14 @@ real scalar _ttsc_run(
         for (j = 1; j <= nc; j++) {
             if (sensitive[i, j] & counts[i, j] > 0 & counts[i, j] < k) state[i, j] = 1
             else if (exact[i, j]) state[i, j] = 0
+            else if (lower[i, j]) state[i, j] = (counts[i, j] == 0 ? 0 : 3)
         }
     }
     rowstate = J(nr, 1, -1)
     for (i = 1; i <= nr; i++) {
         if (rowsensitive[i] & rowtotals[i] > 0 & rowtotals[i] < k) rowstate[i] = 1
         else if (rowexact[i]) rowstate[i] = 0
+        else if (rowlower[i]) rowstate[i] = (rowtotals[i] == 0 ? 0 : 3)
     }
     colstate = J(1, nc, -1)
     for (j = 1; j <= nc; j++) {
@@ -595,8 +632,8 @@ real scalar _ttsc_run(
     failures = _ttsc_failures(counts, state, rowstate, colstate, grandstate, k)
     if (failures > 0) return(0)
 
-    mask = (state :>= 0) :* state
-    rowmask = (rowstate :>= 0) :* rowstate
+    mask = (state :>= 0 :& state :!= 3) :* state
+    rowmask = (rowstate :>= 0 :& rowstate :!= 3) :* rowstate
     colmask = (colstate :>= 0) :* colstate
     totalmask = (grandstate < 0 ? 0 : grandstate)
     nprimary = sum(mask :== 1) + sum(rowmask :== 1) + sum(colmask :== 1) + (totalmask == 1)

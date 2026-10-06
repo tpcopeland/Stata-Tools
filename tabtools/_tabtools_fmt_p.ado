@@ -1,4 +1,4 @@
-*! _tabtools_fmt_p Version 2.5.3  2026/10/06
+*! _tabtools_fmt_p Version 2.5.4  2026/10/06
 *! regtab's p-value display rule, vectorised, for tabcell and its callers
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

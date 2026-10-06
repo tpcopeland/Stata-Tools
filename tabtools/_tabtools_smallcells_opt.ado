@@ -1,4 +1,4 @@
-*! _tabtools_smallcells_opt Version 2.5.3  2026/10/06
+*! _tabtools_smallcells_opt Version 2.5.4  2026/10/06
 *! Resolve smallcells(# [, primary]), nosmallcells, and the session default
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

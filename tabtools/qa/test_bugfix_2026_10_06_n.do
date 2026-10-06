@@ -7,10 +7,13 @@
 * N2: a Missing row's percentage beside a withheld N header releases that N.
 * N3: wide exact-ILP grid (2-5 groups, cat/bin/contn, missing, missingsummary,
 *     catrowperc on any variable set, total before/after, percent_n, and the
-*     primary mode checked literally). Continuous variables with
-*     missingsummary are left out (known gap, see tools/smallcells_ilp.py).
+*     primary mode checked literally), continuous variables with
+*     missingsummary included.
 * N4: SMD with probability weights near the double range stays finite.
 * N5: the xlsx SMD column fits the 10-character Suppressed marker.
+* N6: a printed continuous summary says n >= k. Beside N = 4 (k = 3) and a
+*     Missing <3 that pinned the missing count at 1 (2.5.3); the N header is
+*     now withheld, and the Total N with it.
 *
 * Run from tabtools/qa.
 
@@ -190,7 +193,7 @@ capture noisily {
     local cdir "`tok'_n3"
     capture mkdir "`cdir'"
     local ilp "`qa_dir'/tools/smallcells_ilp.py"
-    shell python3 "`ilp'" gen --grid wide --no-contn-missing --dir "`cdir'" --n 500 --seed 20261007
+    shell python3 "`ilp'" gen --grid wide --dir "`cdir'" --n 500 --seed 20261008
     confirm file "`cdir'/cases.csv"
     import delimited using "`cdir'/cases.csv", clear varnames(1) stringcols(_all)
     local ncase = _N
@@ -331,6 +334,42 @@ capture frame drop _n3
 capture frame drop _n4a
 capture frame drop _n4b
 capture frame drop _n5
+
+**# N6: a printed mean says n >= k (continuous + missingsummary)
+local ++test_count
+capture noisily {
+    clear
+    quietly set obs 16
+    gen g = cond(_n <= 4, 1, cond(_n <= 10, 2, 3))
+    gen double x = _n
+    quietly replace x = . in 4
+    quietly replace x = . in 11/12
+    * group 1: N = 4, n = 3 (mean printed), missing 1 (<3): N - n <= 1 and
+    * missing >= 1 pinned it at 1 when N = 4 was printed
+    table1_tc, by(g) vars(x contn) missingsummary smallcells(3) frame(_n6, replace)
+    frame _n6: assert strtrim(g_1[2]) == "≥3"
+    frame _n6: assert strtrim(g_1[4]) == "<3"
+    frame _n6: assert strtrim(g_2[2]) == "N=6"
+    frame _n6: assert strtrim(g_3[2]) == "N=6"
+    * the mean is still printed: the bound protects without hiding it
+    frame _n6: assert strtrim(g_1[3]) == "2±1"
+    table1_tc, by(g) vars(x contn) missingsummary smallcells(3) total(after) frame(_n6t, replace)
+    frame _n6t: assert strtrim(g_1[2]) == "≥3"
+    frame _n6t: assert strtrim(g_T[2]) == "≥3"
+    frame _n6t: assert strtrim(g_T[4]) == "3"
+    * a group whose N leaves room (N = 6, missing <3) keeps its N
+    frame _n6t: assert strtrim(g_3[2]) == "N=6"
+    capture frame drop _n6
+    capture frame drop _n6t
+}
+if _rc == 0 {
+    display as result "  PASS: N6 a printed continuous summary is counted as n >= k"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: N6 continuous + missingsummary lower bound (rc=`=_rc')"
+    local ++fail_count
+}
 
 display "RESULT: test_bugfix_2026_10_06_n tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close _bfn
