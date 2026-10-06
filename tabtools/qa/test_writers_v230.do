@@ -94,6 +94,7 @@ else {
 
 **# crosstab and corrtab
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _wr_pair/_v_line call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helpers in this file and _qa_v230_helpers.do); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     local book "`output_dir'/wr230.xlsx"
     local md "`output_dir'/wr230_c.md"

@@ -257,24 +257,24 @@ After {cmd:tabtools set smallcells} {it:#} [{cmd:primary}], every call without
 
 {phang}
 {opt nosmallc:ells} ignores a session {cmd:tabtools set smallcells} default for this
-call, so the table is shown without masking (an internal version of a table, say).
-It may not be combined with {opt smallcells()}.{p_end}
+call, so the table is shown without masking (an internal version of a table, say). It
+may not be combined with {opt smallcells()}.{p_end}
 
 {phang}
 {opt cellr:eplace(spec)} overwrites body cells that are structurally not reportable,
-such as a level that is reported inside another category in one group.
-{it:spec} is {cmd:"}{it:rowlabel}{cmd:"} {it:column} {cmd:"}{it:text}{cmd:"} [{cmd:\} ...].
-{it:rowlabel} must match exactly one row label, ignoring leading spaces;
-{it:column} is either an unquoted number, counting the columns after the row-label
+such as a level that is reported inside another category in one
+group. {it:spec} is {cmd:"}{it:rowlabel}{cmd:"} {it:column} {cmd:"}{it:text}{cmd:"} [{cmd:\}
+...]. {it:rowlabel} must match exactly one row label, ignoring leading
+spaces; {it:column} is either an unquoted number, counting the columns after the row-label
 column (1 = the first group or Total column as printed), or the column's header text
 in quotes, exactly as printed (for example {cmd:"Total"}, a group label such as
-{cmd:"2004"}, or {cmd:"p-value"}).
-A row label that matches no row or more than one row, a header that matches no
+{cmd:"2004"}, or {cmd:"p-value"}). A
+row label that matches no row or more than one row, a header that matches no
 column or more than one, a column number outside the table (r(125)), and an entry
 without all three parts are errors; nothing is guessed. The replacement is made
 before the table is listed, so the console, Excel, CSV, Markdown, {opt frame()}, and
-{opt clear} all show it. Example:
-{cmd:cellreplace("Natalizumab" "2004-2008" "In Other")}.{p_end}
+{opt clear} all show
+it. Example: {cmd:cellreplace("Natalizumab" "2004-2008" "In Other")}.{p_end}
 
 {phang}
 {opt nf:ormat(%fmt)} display format for n and N; default is %12.0fc{p_end}
@@ -325,12 +325,12 @@ first write to a session target replaces it and later writes add sheets or appen
 {opt smdtype(type)} chooses what the {opt smd} column reports when {opt by()}
 has two or more groups. It requires {opt smd} and is typed in full
 ({opt smdt} abbreviates {opt smdthreshold()}). See {help table1_tc##multismd:Multi-group SMD}.{p_end}
-{p 8 12 2}{cmd:pair}, the default, is the two-group SMD of Yang and Dalton (2012).
-With more than two groups it compares the first two {opt by()} groups (or the
+{p 8 12 2}{cmd:pair}, the default, is the two-group SMD of Yang and Dalton (2012). With
+more than two groups it compares the first two {opt by()} groups (or the
 {opt smdpair()} groups) only; the column header becomes {cmd:SMD (}{it:A} {cmd:vs} {it:B}{cmd:)}
 and a footnote names the pair.{p_end}
-{p 8 12 2}{cmd:population} is the population standardized bias (McCaffrey et al. 2013):
-the largest |group mean - overall mean| / overall SD over all groups. Header {cmd:Pop. SB}.{p_end}
+{p 8 12 2}{cmd:population} is the population standardized bias (McCaffrey et al. 2013): the
+largest |group mean - overall mean| / overall SD over all groups. Header {cmd:Pop. SB}.{p_end}
 {p 8 12 2}{cmd:maxpair} is the largest absolute pairwise SMD over all pairs of
 groups (Lopez and Gutman 2017), every pair divided by one shared SD. Header {cmd:Max SMD}.{p_end}
 
@@ -340,8 +340,8 @@ groups (Lopez and Gutman 2017), every pair divided by one shared SD. Header {cmd
 table. Each of {it:g1} and {it:g2} is a {opt by()} value (a number, numeric
 {opt by()} only) or a group label (the string value of a string {opt by()}, or
 the value-label text of a numeric {opt by()}); quote a label that contains
-spaces. Quotes only group words: {cmd:"3"} and {cmd:3} are read the same way.
-Each must name exactly one group. When a number is the value of one group and
+spaces. Quotes only group words: {cmd:"3"} and {cmd:3} are read the same
+way. Each must name exactly one group. When a number is the value of one group and
 the label of another (value labels that are themselves numbers, such as
 1 {cmd:"3"}, 2 {cmd:"1"}, 3 {cmd:"2"}), it is ambiguous and is refused
 (r(198)); add {cmd:values} to read every token as a value or {cmd:labels} to
@@ -567,8 +567,8 @@ posted. The SMD column is named {cmd:smd} for every {opt smdtype()}: use
 statistic it holds, and {cmd:r(smdnote)} for the groups it compares. Under
 {opt wt()} p-values are suppressed, so {cmd:r(table)} has the {cmd:smd} column
 only, holding the weighted statistic (with {opt wtcompare}, the weighted
-comparison; crude SMDs are not computed); without {opt smd} it is not posted.
-Rows are named from the variable
+comparison; crude SMDs are not computed); without {opt smd} it is not posted. Rows
+are named from the variable
 labels, made unique with {cmd:_2}, {cmd:_3}, and so on, and replaced by a valid
 matrix name when a label cannot be one.{p_end}
 
@@ -710,8 +710,8 @@ to disable this formatting. The
 0.1 convention follows Austin (2009).{p_end}
 
 {marker multismd}{...}
-{pstd}{bf:Multi-group SMD.} The Yang-Dalton SMD is defined for two groups only.
-With three or more {opt by()} groups the default {cmd:smdtype(pair)} still
+{pstd}{bf:Multi-group SMD.} The Yang-Dalton SMD is defined for two groups only. With
+three or more {opt by()} groups the default {cmd:smdtype(pair)} still
 compares two groups -- the first two, or those named in {opt smdpair()} -- and
 says so in every output: the column header is {cmd:SMD (}{it:A} {cmd:vs} {it:B}{cmd:)}
 (console, Excel, CSV, Markdown, {opt frame()}, {opt clear}), and the note
@@ -723,15 +723,15 @@ stored in {cmd:r(smdnote)}, and stored in the frame characteristic
 {pstd}{cmd:smdtype(population)} reports, per variable, the population standardized
 bias of McCaffrey et al. (2013, sec. 4.1.2 eq. 5), maximized over groups as in
 their sec. 4.2: max over {it:g} of |{it:m_g} - {it:m_pop}| / {it:sd_pop}, where
-{it:m_pop} and {it:sd_pop} are the mean and SD (n-1) of all analysed records.
-Group means use {opt wt()} when given, but the overall mean and SD stay
+{it:m_pop} and {it:sd_pop} are the mean and SD (n-1) of all analysed records. Group
+means use {opt wt()} when given, but the overall mean and SD stay
 {it:unweighted}, as eq. 5 specifies (the population the weights aim at; twang's
 {cmd:mnps} does the same). Under an {cmd:fweight} the overall mean and SD are
 frequency-weighted, since the weight replicates records. Binary variables use
 sqrt({it:p_pop}(1-{it:p_pop})); categorical variables report the largest value
 over groups and levels, each level standardized by sqrt({it:p_l}(1-{it:p_l})) of its
-overall share (the per-level form of twang 2.6.2 and cobalt 4.6.3).
-McCaffrey et al. treat values below 0.20 as small.{p_end}
+overall share (the per-level form of twang 2.6.2 and cobalt
+4.6.3). McCaffrey et al. treat values below 0.20 as small.{p_end}
 
 {pstd}{cmd:smdtype(maxpair)} reports the largest absolute pairwise SMD over all
 pairs of groups, the summary of Lopez and Gutman (2017, eq. 27). Every pair is
@@ -751,8 +751,8 @@ pooled SD unweighted; {cmd:table1_tc} weights it, as the two-group SMD does.{p_e
 {pstd}For {cmd:population} and {cmd:maxpair} the footnote states the definition,
 including with two groups. A group with no non-missing values for a
 variable (or, for {cmd:maxpair}, a single value, so no variance) leaves that
-variable's statistic blank: it is never computed over fewer groups.
-{opt smdthreshold()} highlights any of the three, with the same default
+variable's statistic blank: it is never computed over fewer
+groups. {opt smdthreshold()} highlights any of the three, with the same default
 (0.1); McCaffrey et al. suggest 0.20 for the population SB. With
 {opt wtcompare} the statistic uses the weighted groups.{p_end}
 
@@ -776,13 +776,13 @@ such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd
 {phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
 covariates between treatment groups in propensity-score matched
 samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
-{phang}Lopez MJ, Gutman R. Estimation of causal effects with multiple treatments:
-a review and new ideas. Statistical Science 2017; 32: 432-454.
-doi:10.1214/17-STS612.{p_end}
-{phang}McCaffrey DF, Griffin BA, Almirall D, Slaughter ME, Ramchand R, Burgette LF.
-A tutorial on propensity score estimation for multiple treatments using
-generalized boosted models. Statistics in Medicine 2013; 32: 3388-3414.
-doi:10.1002/sim.5753.{p_end}
+{phang}Lopez MJ, Gutman R. Estimation of causal effects with multiple treatments: a
+review and new ideas. Statistical Science
+2017; 32: 432-454. doi:10.1214/17-STS612.{p_end}
+{phang}McCaffrey DF, Griffin BA, Almirall D, Slaughter ME, Ramchand R, Burgette LF. A
+tutorial on propensity score estimation for multiple treatments using
+generalized boosted models. Statistics in Medicine
+2013; 32: 3388-3414. doi:10.1002/sim.5753.{p_end}
 {phang}Yang D, Dalton JE. A unified approach to measuring the effect size between
 two groups using SAS. SAS Global Forum 2012, Paper 335-2012.{p_end}
 {phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics

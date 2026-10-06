@@ -91,6 +91,7 @@ capture noisily {
     quietly replace w = 8e307 if x == 3
     generate double wr = w / 8e307
     quietly summarize x [aw=wr] if g == 1
+    assert !missing(r(mean))
     assert reldif(r(mean), 3) < 1e-12
     local want1 = string(r(mean), "%9.3f") + "±" + string(r(sd), "%9.3f")
     quietly summarize x [aw=wr] if g == 2
@@ -118,7 +119,9 @@ capture noisily {
     generate double wr = w / 8e307
     local hand_sd = sqrt(10/9 * (8*(3-13/3)^2 + 4*(7-13/3)^2) / 12)
     quietly summarize x [aw=wr] if g == 1
+    assert !missing(r(mean))
     assert reldif(r(mean), 13/3) < 1e-9
+    assert !missing(r(sd), `hand_sd')
     assert reldif(r(sd), `hand_sd') < 1e-9
     local want1 = string(13/3, "%9.3f") + "±" + string(`hand_sd', "%9.3f")
     table1_tc, by(g) vars(x contn %9.3f) wt(w) frame(_t1o2, replace)
@@ -316,6 +319,7 @@ capture noisily {
     local s1 = r(sum)
     quietly summarize ws2
     local ess = `s1'^2 / r(sum)
+    assert !missing(`ess')
     assert reldif(`ess', 361/163) < 1e-12
     table1_tc, by(g) vars(x contn) wt(w) nformat(%9.4f) frame(_t1o9, replace)
     local want = "ESS=" + string(`ess', "%9.4f")
@@ -333,6 +337,7 @@ else {
 **# N5: ESS when only (sum w)^2 overflows
 * Arm 1: x = 2..5, w = 3e153 each: sum w^2 = 3.6e307 is finite, (sum w)^2
 * is not. Equal weights, so ESS = 4. Arm 2 has the same x with unit weights.
+* stata-dev-ignore: rc-only-test — the content oracle is the _t1o_expect call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helper defined in this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     clear
     quietly set obs 8
@@ -380,6 +385,7 @@ else {
 **# Guards: honest missing values stay missing
 * Unweighted arm 1 x = 1e200, 2e200, 3e200: the squares overflow, so the SD is
 * missing while the mean (2e200) is shown.
+* stata-dev-ignore: rc-only-test — the content oracle is the _t1o_expect call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helper defined in this file); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     clear
     quietly set obs 6

@@ -124,17 +124,20 @@ capture noisily {
     display as text "  hand: A vs B `smdAB'  PSB `psb'  max pairwise `mx'"
 
     table1_tc, by(arm) vars(age contn) smd
+    assert !missing(el(r(table), 1, 2), `smdAB')
     assert reldif(el(r(table), 1, 2), `smdAB') < 1e-12
     assert `smdAB' < 0.25
     assert "`r(smdtype)'" == "pair"
     assert `"`r(smdnote)'"' == "SMD compares A vs B only (the first two of 3 groups)."
 
     table1_tc, by(arm) vars(age contn) smd smdtype(population)
+    assert !missing(el(r(table), 1, 2), `psb')
     assert reldif(el(r(table), 1, 2), `psb') < 1e-12
     assert `psb' > 0.5
     assert "`r(smdtype)'" == "population"
 
     table1_tc, by(arm) vars(age contn) smd smdtype(maxpair)
+    assert !missing(el(r(table), 1, 2), `mx')
     assert reldif(el(r(table), 1, 2), `mx') < 1e-12
     assert `mx' > 1.5
 }
@@ -261,10 +264,15 @@ capture noisily {
     assert `ncmp' == 26
     * the R twin's published values (same toy data)
     table1_tc, by(arm) vars(age contn \ sex bin) smd smdtype(population) nopvalue
+    assert !missing(el(r(table), 1, 1))
     assert reldif(el(r(table), 1, 1), 0.879755808022535) < 1e-12
+    assert !missing(el(r(table), 2, 1))
     assert reldif(el(r(table), 2, 1), 0.639039154296497) < 1e-12
+    * maxpair: the R twin's published values on the same toy data
     table1_tc, by(arm) vars(age contn \ sex bin) smd smdtype(maxpair) nopvalue
+    assert !missing(el(r(table), 1, 1))
     assert reldif(el(r(table), 1, 1), 2.387998740048635) < 1e-12
+    assert !missing(el(r(table), 2, 1))
     assert reldif(el(r(table), 2, 1), 1.104315260748465) < 1e-12
 }
 if _rc == 0 {
@@ -337,13 +345,16 @@ capture noisily {
     _dt240_oracle "`od'/dt240_toy_py.csv" pair_CA age
     local want = r(value)
     table1_tc, by(arm) vars(age contn) smd smdpair(C A) nopvalue
+    assert !missing(el(r(table), 1, 1), `want')
     assert reldif(el(r(table), 1, 1), `want') < 1e-12
     assert `"`r(smdnote)'"' == "SMD compares C vs A only (2 of 3 groups, chosen with smdpair())."
     * numeric by: codes; labelled numeric by: label text or code
     quietly encode arm, gen(armn)
     table1_tc, by(armn) vars(age contn) smd smdpair(3 1) nopvalue
+    assert !missing(el(r(table), 1, 1), `want')
     assert reldif(el(r(table), 1, 1), `want') < 1e-12
     table1_tc, by(armn) vars(age contn) smd smdpair("C" A) nopvalue frame(dt240_pf, replace)
+    assert !missing(el(r(table), 1, 1), `want')
     assert reldif(el(r(table), 1, 1), `want') < 1e-12
     frame dt240_pf: assert strtrim(smd_str[1]) == "SMD (C vs A)"
     frame drop dt240_pf
@@ -384,6 +395,7 @@ capture noisily {
     capture erase "`f'.xlsx"
     table1_tc, by(arm) vars(age contn \ sex bin) smd smdtype(population) ///
         wt(w) wtcompare smdthreshold(0.7) excel("`f'.xlsx") sheet("W") frame(dt240_wf, replace)
+    assert !missing(el(r(table), 1, 1), `want')
     assert reldif(el(r(table), 1, 1), `want') < 1e-12
     assert strpos(`"`r(Dapa)'"', "SMD reflects weighted comparison.")
     frame dt240_wf {
@@ -457,6 +469,7 @@ capture noisily {
     }
     table1_tc, by(arm) vars(age contln) smd smdtype(maxpair) nopvalue
     local hand = (max(`mA', `mB', `mC') - min(`mA', `mB', `mC')) / sqrt(`vs' / 3)
+    assert !missing(el(r(table), 1, 1), `hand')
     assert reldif(el(r(table), 1, 1), `hand') < 1e-12
     capture table1_tc, by(arm) vars(age contn) smd smdtype(bogus)
     assert _rc == 198
@@ -500,10 +513,12 @@ capture noisily {
     }
     * values: 3 and 2 are by() values -> groups C and B
     table1_tc, by(armn) vars(age contn) smd smdpair(3 2, values) nopvalue frame(dt240_af, replace)
+    assert !missing(el(r(table), 1, 1), `wantCB')
     assert reldif(el(r(table), 1, 1), `wantCB') < 1e-12
     frame dt240_af: assert strtrim(smd_str[1]) == "SMD (2 vs 1)"
     * labels: "3" and "2" are label texts -> values 1 and 3 (groups A and C)
     table1_tc, by(armn) vars(age contn) smd smdpair("3" "2", labels) nopvalue frame(dt240_af, replace)
+    assert !missing(el(r(table), 1, 1), `wantAC')
     assert reldif(el(r(table), 1, 1), `wantAC') < 1e-12
     frame dt240_af: assert strtrim(smd_str[1]) == "SMD (3 vs 2)"
     frame drop dt240_af
@@ -511,6 +526,7 @@ capture noisily {
     label define dt240_same 1 "1" 2 "2" 3 "3"
     label values armn dt240_same
     table1_tc, by(armn) vars(age contn) smd smdpair(3 2) nopvalue
+    assert !missing(el(r(table), 1, 1), `wantCB')
     assert reldif(el(r(table), 1, 1), `wantCB') < 1e-12
     * bad suboption; values with a label-only token
     capture table1_tc, by(armn) vars(age contn) smd smdpair(3 2, both)

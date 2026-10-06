@@ -312,7 +312,7 @@ capture noisily {
     assert `fix2_rc' == 0
     _etl_valign _etl_two 8
     * 6 body rows x B..H = 42 cells; a correct layout checks 36 of them
-    assert r(checked) >= 30
+    assert !missing(r(checked)) & r(checked) >= 30
     assert r(bad) == 0
     * Spot-check the cells the old rule missed: last model's p-value column
     _etl_row _etl_two "X score"

@@ -134,7 +134,6 @@ capture noisily {
         }
     }
 }
-set dp period
 if _rc == 0 {
     display as result "  PASS: CK3 set dp comma: cformat/sep/zeroexact/level(97.5) cells equal the dp period cells"
     local ++pass_count
@@ -143,6 +142,7 @@ else {
     display as error "  FAIL: CK3 set dp comma (rc=`=_rc')"
     local ++fail_count
 }
+set dp period
 
 local _tc = `pass_count' + `fail_count'
 display "RESULT: test_comptab_v230_review tests=`_tc' pass=`pass_count' fail=`fail_count'"

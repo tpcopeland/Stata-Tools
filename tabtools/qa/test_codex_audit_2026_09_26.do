@@ -982,6 +982,7 @@ capture noisily {
     local want_p = chi2tail(r(df), r(chi2))
     quietly survtab, times(10 20) by(g)
     assert !missing(r(logrank_p))
+    assert !missing(`want_p')
     assert reldif(r(logrank_p), `want_p') < 1e-10
 }
 if _rc == 0 {
@@ -1040,6 +1041,7 @@ capture noisily {
         quietly effecttab, digits(`d') eplotframe(ca_c6e)
         matrix CA_R`d' = r(table)
         forvalues i = 1/3 {
+            assert !missing(CA_R`d'[`i', 1], CA_B[1, `i'])
             assert reldif(CA_R`d'[`i', 1], CA_B[1, `i']) < 1e-12
             frame ca_c6e: assert reldif(estimate[`i'], CA_B[1, `i']) < 1e-12
             frame ca_c6e: assert reldif(ll[`i'], CA_B[5, `i']) < 1e-12

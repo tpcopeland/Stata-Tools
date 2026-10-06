@@ -1,4 +1,4 @@
-*! effecttab Version 2.5.1  2026/10/06
+*! effecttab Version 2.5.2  2026/10/06
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -289,6 +289,7 @@ quietly {
 		* values stay allowed. The estimate is not required to lie inside its
 		* interval, which is not true of every method.
 		capture confirm matrix `from'
+		* stata-dev-ignore: shape-dispatch — a from() matrix under 4 columns is refused with r(198) at the _ncols check below; this guard only skips the range checks
 		if !_rc & colsof(`from') >= 4 {
 			forvalues _vr = 1/`=rowsof(`from')' {
 				mata: st_local("_vrn", st_matrixrowstripe(st_local("from"))[`_vr', 2])
@@ -462,6 +463,7 @@ quietly {
 		}
 			if _rc == 0 {
 				preserve
+				* stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
 				capture {
 					_tabtools_collect_render, type(meta) rowdim(cmdset) ///
 						results(cmd cmdline) dropempty
@@ -884,6 +886,7 @@ quietly {
 		preserve
 
 		if `_et_eqrows' {
+			* stata-dev-ignore: capture-rc, capture_rc — both branches join at "local _collect_render_rc = _rc" below
 			capture _tabtools_collect_render, type(main) rowdim(coleq#colname) ///
 				coldim(cmdset) results(_r_b _r_ci _r_p) sep("`_ci_tok'") ///
 				omitmap rowkeys parentkeys uniquekeys
@@ -1109,6 +1112,8 @@ quietly {
 		matrix `_rtable' = J(`_mat_nrows', `_n_models' * 2, .)
 		local _rnames ""
 		local _mr = 0
+		tempname _rprobe
+		matrix `_rprobe' = (0)
 		foreach _obs of local _keep_obs {
 			local _mr = `_mr' + 1
 			local _mc = 0
@@ -1178,6 +1183,11 @@ quietly {
 				    char(34), "_"), " ", "_"), ":", "_"))
 				if `"`_reqn'"' != "" local _rname = substr("`_reqn'", 1, 32) + ":" + "`_rname'"
 			}
+			* A label can still be a name matrix stripes refuse ("#1" before "[",
+			* read as factor-variable notation): that row takes row#, so one odd label
+			* cannot abort the table. The probe is a 1 x 1 scratch matrix.
+			capture matrix rownames `_rprobe' = `_rname'
+			if _rc local _rname "row`_mr'"
 			* Sanitizing and truncation can map two rows to one name, and a
 			* name lookup would then silently return the first row. Keep the
 			* names unique: a repeat takes _2, _3, ... within 32 characters.
@@ -1189,7 +1199,7 @@ quietly {
 			}
 			local _rnames `"`_rnames' `_rname'"'
 		}
-		capture matrix rownames `_rtable' = `_rnames'
+		matrix rownames `_rtable' = `_rnames'
 	}
 
 	* Format numeric columns
@@ -1305,8 +1315,12 @@ quietly {
 				replace _eplot_ul`_model_ix' = `_ci_hi' ///
 					if _n >= 3 & `_ci_hi' < . & missing(_eplot_ul`_model_ix')
 				gen `_ci_fmt_type' `_ci_fmt' = ""
-			replace `_ci_fmt' = "(" + strtrim(string(`_ci_lo', "`coef_fmt'")) + `_ci_sepv' + ///
-				strtrim(string(`_ci_hi', "`coef_fmt'")) + ")" ///
+			* A bound takes the estimate's rounding, round(), so one value prints
+			* alike in both cells: string() alone rounds an exact binary tie
+			* (2.25 at one decimal) to even where the estimate rounds it up. A
+			* bound that rounds to zero keeps its own text (-0.00 stays -0.00).
+			replace `_ci_fmt' = "(" + strtrim(string(cond(round(`_ci_lo', `coef_round') == 0, `_ci_lo', round(`_ci_lo', `coef_round')), "`coef_fmt'")) + `_ci_sepv' + ///
+				strtrim(string(cond(round(`_ci_hi', `coef_round') == 0, `_ci_hi', round(`_ci_hi', `coef_round')), "`coef_fmt'")) + ")" ///
 				if `_ci_lo' < . & `_ci_hi' < . & _n >= 3
 			* an interval with a bound that is not a number keeps its bounds
 			* as rendered, joined by sep()
@@ -1373,9 +1387,13 @@ quietly {
 					local _ep_ll = .
 					local _ep_ul = .
 					local _ep_p = .
+					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
 					capture local _ep_est = regexr(string(_eplot_est`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
 					capture local _ep_ll = regexr(string(_eplot_ll`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
 					capture local _ep_ul = regexr(string(_eplot_ul`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
+					* stata-dev-ignore: capture-rc — a missing _eplot column leaves the preset missing value, no rc to act on
 					capture local _ep_p = regexr(string(_eplot_p`_ep_m'[`_ep_obs'], "%21x"), "^[+]", "")
 					local _ep_model_col = (`_ep_m' - 1) * 3 + 1
 					mata: st_local("_ep_model_label", st_sdata(1, "c`_ep_model_col'"))
@@ -1502,6 +1520,7 @@ quietly {
 			* generic: the active e() may belong to an unrelated later fit.
 			local _te_subcmd ""
 			if `"`collect_cmdline_1'"' != "" {
+				* stata-dev-ignore: identity-fold — folds an executed teffects command line only to pick a descriptive sentence; the result is never stored or compared as an identity
 				if regexm(lower(`"`collect_cmdline_1'"'), "^teffects[ ]+([a-z0-9_]+)") {
 					local _te_subcmd = regexs(1)
 				}
@@ -1714,6 +1733,7 @@ quietly {
 		local _n_models = `n' / 3
 		forvalues _m = 1/`_n_models' {
 			forvalues _dr = 4/`num_rows' {
+				* stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
 				capture {
 					local _pstr = c`=`_m'*3'[`_dr']
 					local _pstr = strtrim("`_pstr'")
@@ -1729,6 +1749,7 @@ quietly {
 		}
 	}
 
+		* stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
 		capture {
 			local _hborder_code = 1
 			if "`_hborder'" == "medium" local _hborder_code = 2
@@ -1887,6 +1908,7 @@ quietly {
 		}
 	if _rc {
 		local saved_rc = _rc
+		* stata-dev-ignore: capture-rc — error-path cleanup; the original rc is saved in saved_rc above
 		capture mata: `_xlsx_book'.close_book()
 		capture mata: mata drop `_xlsx_book'
 		noisily display as error "Excel formatting failed with error `saved_rc'"

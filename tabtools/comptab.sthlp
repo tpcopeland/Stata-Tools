@@ -225,8 +225,8 @@ display format, for example {cmd:%12.0fc} for thousands separators. Create
 each source with {cmd:regtab} or {cmd:effecttab} using both {opt frame()} and
 {opt eplotframe()}; a source without a companion is refused (error 459). Rows
 the companion does not hold (headings, model statistics, custom rows) and
-reference rows keep their text; significance stars stay on the estimate.
-p-values are unaffected. String and date formats are refused. In rate mode it
+reference rows keep their text; significance stars stay on the estimate. p-values
+are unaffected. String and date formats are refused. In rate mode it
 applies to the model columns; format rates in {helpb stratetab} or
 {helpb ratetab}.
 
@@ -367,7 +367,8 @@ frame holds one row per body line (section rows included): a string variable
 label is its printed header, "{it:model label}, {it:statistic}" (for example
 "Model 1, HR"), with no title, header, or helper rows, so
 {cmd:puttab rowlabel c*, varlabels} reproduces the table without any
-{cmd:drop}. A header longer than 80 characters is truncated in the variable label and kept in full in {cmd:char c}{it:#}{cmd:[tabtools_header]}. A flat frame
+{cmd:drop}. A header longer than 80 characters is truncated in the variable label and kept in full
+in {cmd:char c}{it:#}{cmd:[tabtools_header]}. A flat frame
 cannot be used as a {cmd:comptab} source.{p_end}
 
 {marker examples}{...}

@@ -124,6 +124,7 @@ else {
 capture noisily {
     tabcell est, b(0.0213) ll(0.0110) ul(0.0372) scale(1000) format(%5.1f)
     assert `"`r(cell)'"' == "21.3 (11.0, 37.2)"
+    assert !missing(r(estimate), r(lb), r(ub))
     assert reldif(r(estimate), 21.3) < 1e-12 & reldif(r(lb), 11) < 1e-12 & reldif(r(ub), 37.2) < 1e-12
     assert r(scale) == 1000
     * b() se(): the scaled interval is b*s -/+ z*se*s
@@ -142,8 +143,11 @@ capture noisily {
     local b = _b[_cons]
     local s = _se[_cons]
     tabcell est _cons, eform scale(1000) format(%9.4f)
+    assert !missing(r(estimate))
     assert reldif(r(estimate), 1000 * 31 / 744) < 1e-6
+    assert !missing(r(lb), 1000 * exp(`b' - `z' * `s'))
     assert reldif(r(lb), 1000 * exp(`b' - `z' * `s')) < 1e-12
+    assert !missing(r(ub), 1000 * exp(`b' + `z' * `s'))
     assert reldif(r(ub), 1000 * exp(`b' + `z' * `s')) < 1e-12
     * no scale(): no r(scale)
     tabcell est, b(1) ll(0) ul(2)
@@ -194,18 +198,27 @@ capture noisily {
     local lc_lb = r(lb)
     local lc_ub = r(ub)
     tabcell est, lincom
+    assert !missing(r(p), `p_hand')
     assert reldif(r(p), `p_hand') < 1e-10
+    assert !missing(r(p), `lc_p')
     assert reldif(r(p), `lc_p') < 1e-14
+    assert !missing(r(se), `se')
     assert reldif(r(se), `se') < 1e-10 & r(df) == `df'
+    assert !missing(r(t), `est' / `se', `lc_t')
     assert reldif(r(t), `est' / `se') < 1e-10 & reldif(r(t), `lc_t') < 1e-14
+    assert !missing(r(lincom_estimate), `est')
     assert reldif(r(lincom_estimate), `est') < 1e-10
+    assert !missing(r(lincom_lb), `lc_lb', r(lincom_ub), `lc_ub')
     assert reldif(r(lincom_lb), `lc_lb') < 1e-14 & reldif(r(lincom_ub), `lc_ub') < 1e-14
     assert r(lincom_level) == 95
     * another level: tabcell's limits move, lincom's are kept
     quietly lincom mpg + 2*weight
     tabcell est, lincom level(80)
+    assert !missing(r(lb), `est' - invttail(`df', 0.10) * `se')
     assert reldif(r(lb), `est' - invttail(`df', 0.10) * `se') < 1e-10
+    assert !missing(r(lincom_lb), `lc_lb')
     assert reldif(r(lincom_lb), `lc_lb') < 1e-14 & r(lincom_level) == 95 & r(level) == 80
+    assert !missing(r(p), `p_hand')
     assert reldif(r(p), `p_hand') < 1e-10
     * a z statistic (logit), with lincom, or: r(z) and r(p) = 2*normal(-|z|)
     quietly logit foreign mpg weight
@@ -215,8 +228,11 @@ capture noisily {
     local p_hand = 2 * normal(-abs(`est' / `se'))
     quietly lincom mpg - weight, or
     tabcell est, lincom
+    assert !missing(r(p), `p_hand')
     assert reldif(r(p), `p_hand') < 1e-10
+    assert !missing(r(z), `est' / `se')
     assert reldif(r(z), `est' / `se') < 1e-10
+    assert !missing(r(lincom_estimate), exp(`est'))
     assert reldif(r(lincom_estimate), exp(`est')) < 1e-10
     * results left by tabcell itself are not read as lincom's
     capture tabcell est, lincom

@@ -63,12 +63,15 @@ capture noisily {
     replace precise_y=1.0000000187 in 4
     replace x=0.98765432198765002 in 5
     replace precise_y=0.12345678912345 in 5
+    * Expected r = 0.32190395135656833 (to 17 digits): Pearson r of the five pairs above by centered products in
+    * 50-digit decimal arithmetic in Python (independent of Stata and corrtab), computed 2026-10-06
     quietly corrtab x precise_y, full digits(6)
     tempname C
     matrix `C'=r(C)
     assert !missing(`C'[1,2]) & abs(`C'[1,2]-0.32190395135656835)<1e-12
     quietly corrtab precise_y x, full digits(6)
     matrix `C'=r(C)
+    * same truth as above with the columns swapped (r is symmetric)
     assert !missing(`C'[2,1]) & abs(`C'[2,1]-0.32190395135656835)<1e-12
     qa_metamorphic unsorted, command(corrtab x precise_y, full) returns(r(C) r(N)) tol(1e-12)
 
@@ -96,9 +99,11 @@ capture noisily {
     assert `got'[1,1]==13 & `got'[1,2]==17 & `got'[2,1]==19 & `got'[2,2]==23
     assert r(N)==72
     assert !missing(r(or),r(rr),r(rd))
-    assert abs(r(or)-0.92569659442724461)<1e-12
-    assert abs(r(rr)-0.96842105263157896)<1e-12
-    assert abs(r(rd)--0.018749999999999999)<1e-12
+    * Closed forms from the weighted 2x2 (cases = row 2, exposed = column 2, as cs reads it):
+    * OR = (23 * 13) / (17 * 19), RR = (23/40) / (19/32), RD = 23/40 - 19/32
+    assert abs(r(or) - (23 * 13) / (17 * 19)) < 1e-12
+    assert abs(r(rr) - (23 / 40) / (19 / 32)) < 1e-12
+    assert abs(r(rd) - (23 / 40 - 19 / 32)) < 1e-12
     qa_metamorphic weight_scale, command(crosstab row col [fw=@w@], or rr rd) weight(w) factor(7) returns(r(or) r(rr) r(rd)) tol(1e-12)
 
 }

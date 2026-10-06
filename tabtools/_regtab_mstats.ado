@@ -1,4 +1,4 @@
-*! _regtab_mstats Version 2.5.1  2026/10/06
+*! _regtab_mstats Version 2.5.2  2026/10/06
 *! regtab block: per-model statistics for stats() from the collection
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -156,6 +156,7 @@ quietly {
             local _stats_rc = _rc
             if `_stats_rc' == 0 {
                 preserve
+                * stata-dev-ignore: capture-rc — a braced capture stops at its first error; _rc is read on the first line after the closing brace
                 capture {
                     _tabtools_collect_render, type(stats) rowdim(cmdset) ///
                         results(`result_levels') dropempty
@@ -335,19 +336,54 @@ quietly {
 
         * A requested group count must come from the collection.  Active e()
         * is separate state and may describe a later, unrelated fit.
+        * A model that names a grouping variable (e(group): clogit) but
+        * posts no group count has one that cannot be read back from the
+        * collection, which holds neither e(N_g) nor the data's e(sample).
+        * The table still renders.  When no model reports a count the Groups
+        * row is left out and a note names the models and the remedy; when
+        * another model does report one, the model without it has a blank
+        * cell, as for any statistic a model does not report, and a note
+        * names it.
         if `n_stat_models' > 0 & `want_groups' == 1 {
             local _all_grp_miss = 1
             local _groups_supported = 0
+            local _grp_nocount ""
             forvalues m = 1/`n_stat_models' {
                 if !missing(`stat_groups_`m'') local _all_grp_miss = 0
                 if `m' <= `_meta_models' {
                     if "`model_re_family_`m''" != "none" local _groups_supported = 1
+                    if missing(`stat_groups_`m'') & `"`model_groupvar_`m''"' != "" {
+                        local _grp_nocount "`_grp_nocount' `m'"
+                    }
                 }
             }
+            local _grp_nocount = strtrim("`_grp_nocount'")
             if `_all_grp_miss' & `_groups_supported' {
                 noisily display as error ///
                     "Could not recover requested group counts from the active collection"
                 exit 459
+            }
+            if "`_grp_nocount'" != "" {
+                local _gm : word 1 of `_grp_nocount'
+                if `_all_grp_miss' {
+                    local _gdesc ""
+                    local _gsep ""
+                    foreach _gi of local _grp_nocount {
+                        local _gdesc `"`_gdesc'`_gsep'model `_gi' (`model_cmdword_`_gi'', group variable `model_groupvar_`_gi'')"'
+                        local _gsep "; "
+                    }
+                    noisily display as text ///
+                        `"Note: stats(groups) left out: no model stores a group count; `_gdesc'"'
+                    noisily display as text ///
+                        `"      run tabtools fitcount, events(`model_depvar_`_gm'') people(`model_groupvar_`_gm'') right after the fit, then request stats(people) with statlabels(people "Groups")"'
+                    * the row is left out here, so the generic left-out note
+                    * has nothing to add for it
+                    local want_groups = 0
+                }
+                else {
+                    noisily display as text ///
+                        `"(regtab: stats(groups) is blank for model(s) `_grp_nocount': the fit stores no group count; see tabtools fitcount, people())"'
+                }
             }
         }
 
@@ -440,6 +476,7 @@ quietly {
 
             if _rc == 0 {
                 preserve
+                * stata-dev-ignore: capture-rc — a braced capture stops at its first error; _rc is read on the first line after the closing brace
                 capture {
                     _tabtools_collect_render, type(icc) rowdim(cmdset) ///
                         coldim(colname) collevels(`"`_icc_collevels'"') results(_r_b)

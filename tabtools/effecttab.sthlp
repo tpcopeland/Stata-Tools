@@ -20,7 +20,8 @@
 {opt sep(string)} {opt models(string)} {opt title(string)} {opt clean}
 {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)}
-{opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt cf:ormat(%fmt)} {opt l:evel(#)} {opt fra:me(name[, replace flat])}
+{opt font(string)} {opt fontsize(#)} {opt full} {opt digits(#)} {opt cf:ormat(%fmt)} {opt l:evel(#)}
+{opt fra:me(name[, replace flat])}
 {opt eplotf:rame(name[, replace])} {opt from(name)}
 {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(string)} {opt mark:down(filename)} {opt mdapp:end}
@@ -126,8 +127,8 @@ the last row, both in the first column and the table body between them.{p_end}
 both confidence bounds, such as {cmd:%12.0fc} or {cmd:%9.4f}; each value is
 written as {cmd:strtrim(string(}{it:x}{cmd:, "}{it:%fmt}{cmd:"))}, the rule
 {helpb regtab} uses. {opt digits()} is its shorthand and cannot be combined
-with it (r(198)); date, string, and hexadecimal formats are refused (r(198)).
-With {opt from()}, the matrix values are formatted at full precision, so a
+with it (r(198)); date, string, and hexadecimal formats are refused (r(198)). With
+{opt from()}, the matrix values are formatted at full precision, so a
 format with more decimals than {opt digits()} shows them. A decimal-comma
 format ({cmd:%9,3f}) with a {opt sep()} that contains a comma, the default
 included, is refused (r(198)); use, for example, {cmd:sep(" to ")}. P-values,
@@ -145,14 +146,14 @@ included, is refused (r(198)); use, for example, {cmd:sep(" to ")}. P-values,
 Remarks){p_end}
 
 {phang}
-{opt foot:note(string)} add a footnote below the table in smaller italic font.
-The token {cmd:" \ "} (a backslash with a space on each side) separates
+{opt foot:note(string)} add a footnote below the table in smaller italic font. The
+token {cmd:" \ "} (a backslash with a space on each side) separates
 paragraphs: one merged, wrapped row per paragraph in Excel; the CSV and
 Markdown writers receive the text unchanged and split it the same way.{p_end}
 
 {phang}
-{opt fra:me(name[, replace flat])} stores the output in a named Stata frame;
-{cmd:replace} replaces an existing frame. With {cmd:flat} the frame holds one
+{opt fra:me(name[, replace flat])} stores the output in a named Stata
+frame; {cmd:replace} replaces an existing frame. With {cmd:flat} the frame holds one
 row per body line: {cmd:rowlabel}, then one string variable per printed column
 ({cmd:c1}, {cmd:c2}, ...) whose variable label is the printed header, the
 model name and the statistic joined by ", " ({cmd:"IPTW, ATE"}), or the
@@ -235,11 +236,11 @@ margin {cmd:margins} reports as not estimable. Default is {cmd:Omitted}{p_end}
 {cmd:Empty}. The three labels must differ from each other{p_end}
 
 {phang}
-{opt sep(string)} delimiter between CI endpoints. Default is {cmd:", "};
-{cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. The text prints as typed in
+{opt sep(string)} delimiter between CI endpoints. Default is
+{cmd:", "}; {cmd:sep(" to ")} prints {cmd:(1.02 to 1.31)}. The text prints as typed in
 every sink (console, Excel, CSV, Markdown, {opt frame()} with or without
-{cmd:flat}); {cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers;
-see {help tabtools##sep:interval separators}. It is never handed to
+{cmd:flat}); {cmd:r(table)} and {opt eplotframe()} hold the bounds as numbers; see
+{help tabtools##sep:interval separators}. It is never handed to
 {cmd:collect}: {cmd:effecttab} sets the collection's own {cmd:cidelimiter()}
 style to {cmd:", "} whatever {opt sep()} is.{p_end}
 
@@ -458,8 +459,8 @@ displayed text, so they are the same whatever {opt digits()} is.{p_end}
 
 {pstd}Row names of {cmd:r(table)} are the displayed row labels with periods and
 spaces replaced by underscores, backticks, apostrophes, dollar signs and double
-quotes replaced by underscores, commas removed, and truncated to 32 characters.
-When two rows would get the same name, the later one takes a suffix
+quotes replaced by underscores, commas removed, and truncated to 32 characters. When
+two rows would get the same name, the later one takes a suffix
 {cmd:_2}, {cmd:_3}, ... (still within 32 characters), so a lookup such as
 {cmd:rownumb(r(table), "}{it:name}{cmd:")} finds exactly one row.{p_end}
 

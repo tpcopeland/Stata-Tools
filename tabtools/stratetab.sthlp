@@ -85,8 +85,8 @@ extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab}
 can still display the table, write {opt csv()} or {opt markdown()}, or populate {opt frame()}.
 
 {phang}
-{opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
-When {opt sheet()} is given without {opt xlsx()}, the session workbook set by
+{opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}. When
+{opt sheet()} is given without {opt xlsx()}, the session workbook set by
 {cmd:tabtools set workbook} receives the sheet (and a session Markdown file set
 by {cmd:tabtools set markdown} receives the table when {opt markdown()} is not
 given); the first write since {cmd:tabtools set workbook} starts that workbook
@@ -122,7 +122,10 @@ confidence intervals. Must be between 0 and 10. Default is 1.
 {phang}
 {opt cformat(%fmt)} applies a full Stata numeric display format to each rate
 and both of its limits, for example {cmd:%9.1fc} for thousands separators. It
-replaces {opt digits()}; giving both is an error, as are string and date formats.
+replaces {opt digits()}; giving both is an error, as are string and date
+formats. A fixed format ({cmd:f} or {cmd:fc}) is applied to the value first
+rounded at its decimals by {cmd:round()}, the same rule as {opt digits()}, so
+2.25 prints as 2.3 in every column.
 
 {phang}
 {opt sep(string)} sets the separator between the two limits of the rate and
@@ -137,8 +140,8 @@ printed. Masking governs printed output only: {cmd:r(rates)} and
 {cmd:r(ratios)} keep the numbers. Masking is primary only: with several
 exposures over one sample, a masked count can be recovered from another
 exposure's totals. Without this option, a session default set
-with {cmd:tabtools set smallcells #} applies and is echoed in the log;
-{opt nosmallcells} ignores that default.
+with {cmd:tabtools set smallcells #} applies and is echoed in the
+log; {opt nosmallcells} ignores that default.
 
 {phang}
 {opt masktext(string)} is printed in place of a masked event count, for
@@ -150,8 +153,8 @@ small-cell threshold.
 ({cmd:dash}) or nothing ({cmd:blank}) in place of its event count and its
 rate and interval; person-years are still shown unless the suboption
 {cmd:persontime} is given, which withholds them the same way
-({cmd:zerocells(dash, persontime)} prints {cmd:–} in all three cells).
-{cmd:r(rates)} keeps the numbers.
+({cmd:zerocells(dash, persontime)} prints {cmd:–} in all three
+cells). {cmd:r(rates)} keeps the numbers.
 
 {pstd}
 A row with zero person-time ({cmd:_Y} = 0) has no computable rate. Its events,
@@ -174,7 +177,9 @@ counts. Must be between 0 and 10. Default is 0.
 
 {phang}
 {opt pydigits(integer 0)} specifies the number of decimal places for
-person-years. Must be between 0 and 10. Default is 0.
+person-years. Must be between 0 and 10. Default is 0. Events,
+person-years, rates, limits, and ratios all round an exact half upward, as
+{cmd:round()} does; stored results keep the unrounded values.
 
 {phang}
 {opt unitlabel(string)} specifies the unit label for the rate column header. Default

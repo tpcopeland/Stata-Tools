@@ -1,4 +1,4 @@
-*! _regtab_eqkeys Version 2.5.1  2026/10/06
+*! _regtab_eqkeys Version 2.5.2  2026/10/06
 *! equation key of every row of a coleq#colname rendering
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -33,18 +33,10 @@ program define _regtab_eqkeys, nclass
 			}
 		}
 		if `_allnum' & "`_ord'" != "" {
-			local _nn : word count `_ord'
-			tempname _lm
-			matrix `_lm' = J(`_nn', 1, .)
-			forvalues _i = 1/`_nn' {
-				local _lev : word `_i' of `_ord'
-				matrix `_lm'[`_i', 1] = real("`_lev'")
-			}
-			mata: st_matrix("`_lm'", sort(st_matrix("`_lm'"), 1))
-			local _ord ""
-			forvalues _i = 1/`_nn' {
-				local _ord "`_ord' `=`_lm'[`_i', 1]'"
-			}
+			* sorted on the numeric value, the level strings themselves kept
+			* (never rebuilt from a number): the order is a permutation
+			mata: _rg_s = tokens(st_local("_ord"))'; st_local("_ord", invtokens((_rg_s[order((strtoreal(_rg_s), (1::rows(_rg_s))), (1, 2))])'))
+			capture mata: mata drop _rg_s
 		}
 		local _levels = strtrim("`_ord' `_tot'")
 		local _lk = 0

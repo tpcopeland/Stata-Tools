@@ -270,7 +270,7 @@ foreach s in 1 1e150 1e-150 {
         set seed 20260926
         generate double y = exp(rnormal())
         quietly summarize y, detail
-        assert r(skewness) > 1
+        assert !missing(r(skewness)) & r(skewness) > 1
         generate double x = y * `s'
         _cxp_type x
         assert "`r(type)'" == "conts"
@@ -333,7 +333,7 @@ foreach s in 1 1e150 1e-150 {
         quietly set obs 1500
         generate double y = invnormal((_n - 0.5) / 1500)
         quietly swilk y
-        assert r(p) >= 0.05
+        assert !missing(r(p)) & r(p) >= 0.05
         generate double x = y * `s'
         _cxp_type x
         assert "`r(type)'" == "contn"

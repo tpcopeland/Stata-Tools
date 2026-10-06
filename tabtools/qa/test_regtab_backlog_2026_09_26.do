@@ -419,10 +419,15 @@ capture noisily {
     quietly estat ic
     matrix S2 = r(S)
     quietly regtab, stats(n ll aic bic)
+    assert !missing(r(aic_1), -2*`ll' + 2*4)
     assert reldif(r(aic_1), -2*`ll' + 2*4) < 1e-10
+    assert !missing(r(bic_1), -2*`ll' + 4*ln(`N'))
     assert reldif(r(bic_1), -2*`ll' + 4*ln(`N')) < 1e-10
+    assert !missing(r(aic_1), r(aic_2))
     assert reldif(r(aic_1), r(aic_2)) < 1e-10
+    assert !missing(r(aic_2), S2[1, 5])
     assert reldif(r(aic_2), S2[1, 5]) < 1e-8
+    assert !missing(r(bic_2), S2[1, 6])
     assert reldif(r(bic_2), S2[1, 6]) < 1e-8
 
     quietly regress yc x1 x2 x3, vce(cluster c)
@@ -433,8 +438,11 @@ capture noisily {
     quietly estat ic
     matrix S3 = r(S)
     quietly regtab, stats(aic bic)
+    assert !missing(r(aic_1), -2*`ll' + 2*4)
     assert reldif(r(aic_1), -2*`ll' + 2*4) < 1e-10
+    assert !missing(r(aic_1), r(aic_2))
     assert reldif(r(aic_1), r(aic_2)) < 1e-10
+    assert !missing(r(aic_2), S3[1, 5])
     assert reldif(r(aic_2), S3[1, 5]) < 1e-8
 
     quietly stset t, failure(d)
@@ -444,7 +452,9 @@ capture noisily {
     quietly collect: stcox x1 x2 x3, vce(cluster c)
     quietly collect: stcox x1 x2 x3
     quietly regtab, stats(aic)
+    assert !missing(r(aic_1), -2*`ll' + 2*3)
     assert reldif(r(aic_1), -2*`ll' + 2*3) < 1e-10
+    assert !missing(r(aic_1), r(aic_2))
     assert reldif(r(aic_1), r(aic_2)) < 1e-10
 }
 if _rc == 0 {
@@ -468,7 +478,9 @@ capture noisily {
         quietly estat ic
         matrix S = r(S)
         quietly regtab, stats(aic bic)
+        assert !missing(r(aic_1), S[1, 5])
         assert reldif(r(aic_1), S[1, 5]) < 1e-8
+        assert !missing(r(bic_1), S[1, 6])
         assert reldif(r(bic_1), S[1, 6]) < 1e-8
         local ++nfits
     }
@@ -479,6 +491,7 @@ capture noisily {
     quietly estat ic
     matrix S = r(S)
     quietly regtab, stats(aic bic)
+    assert !missing(r(aic_1), S[1, 5])
     assert reldif(r(aic_1), S[1, 5]) < 1e-8
     webuse pig, clear
     collect clear
@@ -486,7 +499,9 @@ capture noisily {
     quietly estat ic
     matrix S = r(S)
     quietly regtab, stats(aic bic)
+    assert !missing(r(aic_1), S[1, 5])
     assert reldif(r(aic_1), S[1, 5]) < 1e-8
+    assert !missing(r(bic_1), S[1, 6])
     assert reldif(r(bic_1), S[1, 6]) < 1e-8
     assert `nfits' == 6
 }
@@ -512,7 +527,9 @@ capture noisily {
     quietly collect: xtgee y x1 x2 x3, family(binomial) link(logit) corr(independent) vce(robust)
     quietly collect: xtgee y x1 x2 x3, family(binomial) link(logit) corr(independent)
     quietly regtab, stats(qic)
+    assert !missing(r(qic_1), `dev' + 2*4)
     assert reldif(r(qic_1), `dev' + 2*4) < 1e-10
+    assert !missing(r(qic_1), r(qic_2))
     assert reldif(r(qic_1), r(qic_2)) < 1e-10
 }
 if _rc == 0 {
@@ -766,6 +783,7 @@ capture noisily {
     assert "`r(cell)'" == "`M'"
     _rbl_cell _rb5 "Largest FMI" c1
     assert "`r(cell)'" == strtrim(string(`fmax', "%6.4f"))
+    assert !missing(`r_fmi', `fmax')
     assert reldif(`r_fmi', `fmax') < 1e-12
     assert `r_mim' == `M'
     foreach r in "AIC" "BIC" "Log-likelihood" {
@@ -920,7 +938,9 @@ capture noisily {
     assert `r_n' < `r_ev' & `r_ev' < `r_aic' & `r_aic' < `r_r2' ///
         & `r_r2' < `r_r2a' & `r_r2a' < `r_rmse' & `r_rmse' < `r_F'
     assert `r_ev4' == `nf' & missing(`r_ev1')
+    assert !missing(`r_r2a1', `r2a', `r_rmse1', `rmse')
     assert reldif(`r_r2a1', `r2a') < 1e-12 & reldif(`r_rmse1', `rmse') < 1e-12
+    assert !missing(`r_F1', `F')
     assert reldif(`r_F1', `F') < 1e-12 & missing(`r_F3')
 }
 if _rc == 0 {
@@ -936,6 +956,7 @@ else {
 
 local _ci "with 95% confidence intervals from"
 * Sentences that must not change
+* stata-dev-ignore: rc-only-test — the content oracle is the _rbl_methods call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helper defined above R1 in this file: strpos match of r(methods) against the expected sentence); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     sysuse auto, clear
     foreach pair in ///
@@ -1079,6 +1100,7 @@ capture noisily {
     local vars mpg weight length turn headroom trunk _cons
     forvalues j = 1/7 {
         local v : word `j' of `vars'
+        assert !missing(T[`j', 1], bb[1, colnumb(bb, "`v'")])
         assert reldif(T[`j', 1], bb[1, colnumb(bb, "`v'")]) < 1e-6
         local nm : word `j' of `rn'
         assert strlen("`nm'") <= 32

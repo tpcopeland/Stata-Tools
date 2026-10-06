@@ -67,8 +67,11 @@ capture noisily {
             local D = E[`i', 4]
             local Y = E[`i', 5]
             quietly cii means `Y' `D', poisson level(`lv')
+            assert !missing(E[`i', 7], r(lb) * 1000)
             assert reldif(E[`i', 7], r(lb) * 1000) < 1e-7
+            assert !missing(E[`i', 8], r(ub) * 1000)
             assert reldif(E[`i', 8], r(ub) * 1000) < 1e-7
+            assert !missing(E[`i', 6], `D' / `Y' * 1000)
             assert reldif(E[`i', 6], `D' / `Y' * 1000) < 1e-12
         }
     }
@@ -91,7 +94,9 @@ capture noisily {
     preserve
     use "$RT_OUT/_rt_strate", clear
     forvalues i = 1/3 {
+        assert !missing(E[`i', 7], _Lower[`i'] * 1000)
         assert reldif(E[`i', 7], _Lower[`i'] * 1000) < 1e-10
+        assert !missing(E[`i', 8], _Upper[`i'] * 1000)
         assert reldif(E[`i', 8], _Upper[`i'] * 1000) < 1e-10
     }
     restore
@@ -120,8 +125,11 @@ capture noisily {
     quietly poisson ev ibn.grp, exposure(pt) noconstant vce(cluster id)
     assert G[1,1] == e(N_clust)
     forvalues l = 1/3 {
+        assert !missing(E[`l', 6], exp(_b[`l'.grp]) * 1000)
         assert reldif(E[`l', 6], exp(_b[`l'.grp]) * 1000) < 1e-8
+        assert !missing(E[`l', 7], exp(_b[`l'.grp] - invnormal(.975) * _se[`l'.grp]) * 1000)
         assert reldif(E[`l', 7], exp(_b[`l'.grp] - invnormal(.975) * _se[`l'.grp]) * 1000) < 1e-10
+        assert !missing(E[`l', 8], exp(_b[`l'.grp] + invnormal(.975) * _se[`l'.grp]) * 1000)
         assert reldif(E[`l', 8], exp(_b[`l'.grp] + invnormal(.975) * _se[`l'.grp]) * 1000) < 1e-10
     }
     * clustering widens the interval against the exact Poisson one here
@@ -149,8 +157,10 @@ capture noisily {
         matrix E = r(estimates)
         assert r(N_zero) == 1
         assert E[3, 4] == 0 & E[3, 7] == 0
+        assert !missing(E[3, 8], -ln(0.025) / `Y3' * 1000)
         assert reldif(E[3, 8], -ln(0.025) / `Y3' * 1000) < 1e-12
         quietly cii means `Y3' 0, poisson
+        assert !missing(E[3, 8], r(ub) * 1000)
         assert reldif(E[3, 8], r(ub) * 1000) < 1e-6
         frame _rtx4: assert regexm(c4[7], "^0\.0 \(0\.0, [0-9.]+\)$")
     }
@@ -222,7 +232,6 @@ capture noisily {
     local want = strtrim(string(E[1,6], "%7.3f")) + " (" + strtrim(string(E[1,7], "%7.3f")) + " to " + strtrim(string(E[1,8], "%7.3f")) + ")"
     frame _rtx6d: assert c4[5] == "`want'" & c4[3] == "Per 100 PY (95% CI)"
 }
-global TABTOOLS_set_smallcells
 if _rc == 0 {
     display as result "  PASS: X6 smallcells (explicit and session), cformat/sep/per in the cells; numbers unmasked"
     local ++pass_count
@@ -231,6 +240,7 @@ else {
     display as error "  FAIL: X6 masking and formats (rc=`=_rc')"
     local ++fail_count
 }
+global TABTOOLS_set_smallcells
 
 **# X7: refusals
 capture noisily {
@@ -284,7 +294,7 @@ capture noisily {
     replace grp = 3 if id == 1
     replace grp = 1 if id != 1 & grp == 3
     quietly count if grp == 3 & ev > 0
-    assert r(N) > 0
+    assert !missing(r(N)) & r(N) > 0
     ratetab grp, events(ev) exposure(pt) ci(cluster(id)) frame(_rtx8, replace)
     assert r(N_noci) == 1
     frame _rtx8: assert c1[7] == "   High" & strpos(c4[7], "(–)") > 0

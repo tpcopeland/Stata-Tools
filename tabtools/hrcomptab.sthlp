@@ -230,14 +230,14 @@ or {cmd:incidence rate ratio}. Model frames may not mix the two scales.
 {opt allmodels} gives the one outcome of the rate frame every model block of
 the model frames, one effect column per model, headed
 "{it:model label}, {it:effect} (95% CI)". With several outcomes, list the models
-of each outcome in {opt outcomemap()}, separated by {cmd:|}:
-{cmd:outcomemap("M1 | M2 \ M1b | M2b")}; every outcome must have the same number.
+of each outcome in {opt outcomemap()}, separated by
+{cmd:|}: {cmd:outcomemap("M1 | M2 \ M1b | M2b")}; every outcome must have the same number.
 
 {phang}
 {opt keyed} places each selected model row by key instead of by position: a
 factor level is placed on the rate category whose section label equals the
-model block heading and whose label equals the level label (ignoring case).
-Only a factor level fills a rate category: a plain row (a 0/1 indicator or a
+model block heading and whose label equals the level label (ignoring case). Only
+a factor level fills a rate category: a plain row (a 0/1 indicator or a
 continuous term) whose label equals a section or category label is an error
 (fit it as {cmd:i.}{it:varname}), and other plain rows need {opt modelonly}. A level of a matched block that
 matches no category, two rows with one key, or a rate frame with duplicate
@@ -253,8 +253,8 @@ are skipped.
 no rate row (blocks without a rate section, such as spline read-outs, and
 custom {cmd:regtab, addrow()} rows such as a nonlinearity p-value or model
 counts) after the rate rows, in model-frame order, with the block heading
-above its levels. Without {opt modelonly} such rows are an error.
-{opt eplotframe()} and {opt forest} are not available with {opt keyed},
+above its levels. Without {opt modelonly} such rows are an
+error. {opt eplotframe()} and {opt forest} are not available with {opt keyed},
 {opt modelonly}, or several models per outcome.
 
 {phang}
@@ -267,8 +267,8 @@ their text. String and date formats are refused. Format the rates in
 
 {phang}
 {opt cisep(string)} sets the separator between the interval limits of the
-model estimates, for example {cmd:cisep(" to ")}, printed as typed; see {help tabtools##sep:interval separators}.
-With {opt cformat()} the model intervals are rebuilt from their numbers and
+model estimates, for example {cmd:cisep(" to ")}, printed as typed; see {help tabtools##sep:interval separators}. With
+{opt cformat()} the model intervals are rebuilt from their numbers and
 take {opt cisep()}, or {cmd:", "} without it, whatever separator the model
 frames hold. Without {opt cformat()} the "(a, b)" text is rewritten exactly
 and any other form is an error.

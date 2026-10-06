@@ -527,7 +527,9 @@ capture noisily {
     local rn : rownames `T'
     local i : list posof "__`ld'" in rn
     assert `i' > 0
+    assert !missing(`T'[`i', 1], exp(0.5))
     assert reldif(`T'[`i', 1], exp(0.5)) < 1e-8
+    assert !missing(`T'[`i', 2])
     assert reldif(`T'[`i', 2], 0.5) < 1e-8
     frame _b3e: quietly count if rowtype == "constrained" & model == 1 & reldif(estimate, exp(0.5)) < 1e-8 & missing(ll)
     assert r(N) == 1
@@ -675,7 +677,7 @@ capture noisily {
     local cn : colnames e(b)
     assert "`cn'" == "3.drug age"
     quietly count if e(sample) & drug == 1
-    assert r(N) > 0
+    assert !missing(r(N)) & r(N) > 0
     quietly collect get e(), tags(cmdset[2])
     quietly tabtools fitcount, events(_d) terms
     local l1 : label (drug) 1
@@ -753,7 +755,7 @@ capture noisily {
             local vl : variable label c28
             assert "`vl'" == "HR"
             quietly count if strtrim(c31) != ""
-            assert r(N) > 0
+            assert !missing(r(N)) & r(N) > 0
         }
     }
     * estimates without counts: refused, the model named
@@ -811,6 +813,7 @@ capture noisily {
     frame _k1b {
         unab vb : _all
         assert "`va'" == "`vb'"
+        * stata-dev-ignore: cf-one-directional — the varlists of both frames are asserted equal (va == vb) three lines above, so no variable can be dropped unseen
         cf _all using `"`fa'"'
         foreach v of local vb {
             local lb : variable label `v'
@@ -1171,6 +1174,7 @@ else {
 * local they name are never substituted. 2.4.0 re-expanded models() under
 * compact, addcol() everywhere, and sep() in the renderer.
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracles are the frame/mata-prefixed mata: assert(...) comparisons in this block (leaked-global and cell-text checks); the rule does not parse an assert behind a mata: prefix
 capture noisily {
     global V250_SECRET "LEAKED"
     local x "XLOCAL"

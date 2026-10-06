@@ -915,6 +915,7 @@ capture noisily {
     mata: assert(st_global("r(cell)") == "2 (10.0; " + strtrim(strofreal(`plo', "%4.1f")) + st_local("s") + strtrim(strofreal(`phi', "%4.1f")) + ")")
     tabcell rate, e(12) pt(975.6) per(1000) sep(`"`macval(s)'"')
     mata: assert(st_global("r(cell)") == strtrim(strofreal(12 / 975.6 * 1000, "%9.1f")) + " (" + strtrim(strofreal(`rlo', "%9.1f")) + st_local("s") + strtrim(strofreal(`rhi', "%9.1f")) + ")")
+    assert !missing(r(lb), `rlo', r(ub), `rhi')
     assert reldif(r(lb), `rlo') < 1e-7 & reldif(r(ub), `rhi') < 1e-7
 }
 if _rc == 0 {
@@ -1046,6 +1047,7 @@ else {
 
 **# D2 a $ in sep() with every frame() form and eplotframe(), every command
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _sp_every/_sp_noleak call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (_sp_pair asserts the interval text per sink, _sp_noleak exits 9 if the global changed); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     foreach t in "\$SP250_X" "\$" "a\$" "\${SP250_X}" "\$ SP250_X" {
         mata: _sp_set("sep", st_local("t"))
@@ -1091,6 +1093,7 @@ capture frame drop _sp_c1e
 * 2.4.0: regtab r(198) "may not contain a double quote", effecttab r(198)
 * or r(132). The CSV doubles it inside a quoted field.
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracles are the mata: assert(...) comparisons of the frame cell and CSV line against the expected text, plus _sp_every; the rule does not parse an assert behind a mata: prefix
 capture noisily {
     mata: _sp_set("sep", char(34) + " " + char(34))
     _sp_every "`output_dir'"
@@ -1127,6 +1130,7 @@ capture frame drop _sp_c1e
 * regtab and effecttab, and printed sep( - ) as " - " there but "-"
 * elsewhere.
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _sp_every call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (_sp_pair asserts the interval text per sink); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     forvalues j = 1/8 {
         mata: _SP_O = "sep" + _SP_QF[`j']; _SP_S = _SP_QS[`j']
@@ -1325,6 +1329,7 @@ foreach f in _sp_rates _sp_models _sp_c1 _sp_c1e {
 * delimiter is as long as ", ", so the columns the renderer makes keep the
 * widths they had (the first fix's three-byte delimiter widened them by one).
 local ++test_count
+* stata-dev-ignore: rc-only-test — the content oracle is the _sp_types call(s) in this block: each compares the produced cell/line/fact with the expected text and exits 9 on mismatch (helper defined in this file: compares the frame variable types with the expected list); the rule cannot see a helper whose name has no "assert" substring
 capture noisily {
     sysuse auto, clear
     collect clear

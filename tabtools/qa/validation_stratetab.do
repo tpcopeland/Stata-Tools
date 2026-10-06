@@ -376,7 +376,8 @@ capture noisily {
     assert abs(r(rates)[`row_low',1] - 5.0) < 1e-6
     assert abs(r(rates)[`row_low',2] - 2.5) < 1e-6
     assert abs(r(rates)[`row_med',1] - 3.75) < 1e-6
-    assert abs(r(rates)[`row_med',2] - 1.875) < 1e-6
+    * Med, outcome 2: 15 events / 8000 person-years x 1000, from the _val_strate_o2 data above
+    assert abs(r(rates)[`row_med',2] - 1000 * 15 / 8000) < 1e-6
     assert abs(r(rates)[`row_high',1] - 70/12) < 1e-6
     assert abs(r(rates)[`row_high',2] - 10/3) < 1e-6
     local rate_cols : colnames r(rates)

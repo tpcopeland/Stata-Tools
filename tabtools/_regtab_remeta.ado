@@ -1,4 +1,4 @@
-*! _regtab_remeta Version 2.5.1  2026/10/06
+*! _regtab_remeta Version 2.5.2  2026/10/06
 *! regtab block: random-effects, factor, and equation labels before rendering
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -80,6 +80,7 @@ quietly {
             * C1 (codex audit 2026-09-26): labels are data. Every copy,
             * test and write of a label below is macval()/Mata protected, so a
             * $word or a backtick in a label is never expanded.
+            * stata-dev-ignore: capture-rc — a missing label is the expected case; the default label is set on the next line
             capture local _glbl : variable label `_gvar'
             if `"`macval(_glbl)'"' == "" local _glbl "`_gvar'"
             local re_grouplbl_`_lev' : copy local _glbl
@@ -117,6 +118,7 @@ quietly {
                     local lbl_`revar' "Intercept"
                 }
                 else {
+                    * stata-dev-ignore: capture-rc — a missing label is the expected case; the default label is set on the next line
                     capture local lbl_`revar' : variable label `revar'
                     if `"`macval(lbl_`revar')'"' == "" local lbl_`revar' "`revar'"
                 }
@@ -242,6 +244,7 @@ quietly {
                         local _fvrow_parent_lab_`_fvrow_parent_n' : copy local _fvplbl
                     }
                     local _fvlbl `"`_fvval'"'
+                    * stata-dev-ignore: capture-rc — a missing label is the expected case; the default label is set on the next line
                     capture local _fvlbl : label (`_fvvar') `_fvval'
                     if `"`macval(_fvlbl)'"' == "" local _fvlbl "`_fvval'"
                     local ++_fvrow_label_n
@@ -292,6 +295,7 @@ quietly {
                 if `_dep_levels_rc' == 0 {
                     foreach _dlev of local _dep_levels_for_eq {
                         local _dlbl ""
+                        * stata-dev-ignore: capture-rc — a missing label is the expected case; the default label is set on the next line
                         capture local _dlbl : label `_dep_vallab' `_dlev'
                         if `"`macval(_dlbl)'"' != "" {
                             local ++_coleq_label_n

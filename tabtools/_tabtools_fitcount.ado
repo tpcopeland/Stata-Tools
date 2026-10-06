@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 2.5.1  2026/10/06
+*! _tabtools_fitcount Version 2.5.2  2026/10/06
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -428,12 +428,14 @@ program define _tabtools_fitcount, rclass
 		* regtab then reads the model as one without the record.
 		local _rec_args `"tt_cns `"`_cns_str'"'"'
 		if "`terms'" != "" local _rec_args `"`_rec_args' tt_levels `"`_lev_str'"'"'
-		capture {
-			_tabtools_fitcount_rec `_rec_args'
-			quietly collect get r(), tags(cmdset[`_k'])
+		capture _tabtools_fitcount_rec `_rec_args'
+		local _rec_rc = _rc
+		if `_rec_rc' == 0 {
+			capture quietly collect get r(), tags(cmdset[`_k'])
+			local _rec_rc = _rc
 		}
-		if _rc {
-			noisily display as text "(tabtools fitcount: the record of the fit's notes and sample levels could not be stored (error " _rc "); regtab reads model `_k' without it)"
+		if `_rec_rc' {
+			noisily display as text "(tabtools fitcount: the record of the fit's notes and sample levels could not be stored (error `_rec_rc'); regtab reads model `_k' without it)"
 		}
 
 		noisily display as text "tabtools fitcount (model `_k', " as result "`_n_sample'" as text " obs): events " ///
@@ -457,6 +459,7 @@ program define _tabtools_fitcount, rclass
 	local rc = _rc
 	if `_restore_needed' capture restore
 	capture mata: mata drop _tt_fc_*
+	* cleanup zone: the fit's rc is already saved in rc, and the caller's current collection is restored best-effort
 	if `_coll_switched' capture quietly collect set `_coll0'
 	set varabbrev `_orig_varabbrev'
 	if `rc' exit `rc'

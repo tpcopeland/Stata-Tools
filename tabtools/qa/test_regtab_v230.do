@@ -256,11 +256,14 @@ capture noisily {
     _v23_cell _o1 A "Intercept" c2 4
     assert `"`r(cell)'"' == `"`wcons_ci'"'
     * r(table) and eplotframe() stay numeric at full precision
+    assert !missing(`R'[1, 1], T[1, 1])
     assert reldif(`R'[1, 1], T[1, 1]) < 1e-12
     frame _o1e {
         quietly summarize ll if strtrim(label) == "Intercept", meanonly
+        assert !missing(r(mean), T[5, 5])
         assert reldif(r(mean), T[5, 5]) < 1e-10
         quietly summarize ul if strtrim(label) == "Intercept", meanonly
+        assert !missing(r(mean), T[6, 5])
         assert reldif(r(mean), T[6, 5]) < 1e-10
     }
     * Excel
@@ -599,6 +602,7 @@ capture noisily {
     tabtools fitcount, events(y) people(id) exposure(pt) terms
     assert r(events) == `w_ev'
     assert r(people) == `w_pp'
+    assert !missing(r(exposure), `w_pt')
     assert reldif(r(exposure), `w_pt') < 1e-12
     assert r(cmdset) == 1
     assert r(n_terms) == 4
@@ -615,6 +619,7 @@ capture noisily {
     regtab, frame(_i1, replace) stats(n events people exposure) exposurelabel("Person-years")
     assert r(events_1) == `w_ev'
     assert r(people_1) == `w_pp'
+    assert !missing(r(exposure_1), `w_pt')
     assert reldif(r(exposure_1), `w_pt') < 1e-12
     assert r(events_2) == `w_ev2'
     _v23_cell _i1 A "Events" c1 4

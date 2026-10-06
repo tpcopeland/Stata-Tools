@@ -1,4 +1,4 @@
-*! crosstab Version 2.5.1  2026/10/06
+*! crosstab Version 2.5.2  2026/10/06
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -699,8 +699,8 @@ capture noisily {
             }
         }
     }
-    capture matrix rownames `_rtable' = `row_levels'
-    capture matrix colnames `_rtable' = `col_levels'
+    matrix rownames `_rtable' = `row_levels'
+    matrix colnames `_rtable' = `col_levels'
     order title c*
 
 **# Console Display
@@ -855,7 +855,7 @@ capture noisily {
         }
         local _b_width = max(12, ceil(`_rlbl_maxlen' * 0.85) + 2)
 
-        capture {
+        capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
             local _hborder_code = 1
             if "`_hborder'" == "medium" local _hborder_code = 2
             if "`_hborder'" == "thick" local _hborder_code = 3
@@ -958,7 +958,7 @@ capture noisily {
         }
         if _rc {
             local _format_rc = _rc
-            capture mata: `_xlsx_book'.close_book()
+            capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
             capture mata: mata drop `_xlsx_book'
             noisily display as error "Excel formatting failed with error `_format_rc'"
             restore

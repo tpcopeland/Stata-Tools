@@ -275,6 +275,7 @@ capture noisily {
                     exit 9
                 }
                 assert r(level) == `lev' & "`r(citype)'" == "exact"
+                assert !missing(r(pct), 100 * `k' / `d')
                 assert reldif(r(pct), 100 * `k' / `d') < 1e-12
                 * the printed text is the cii numbers in pformat()
                 local want = strtrim(string(`k', "%12.0fc")) + " (" + ///
@@ -293,9 +294,11 @@ capture noisily {
     assert `nchk' == 87
     * edges spelled out: k = 0 lower limit 0, k = d upper limit 100
     tabcell np, n(0) d(20) ci(exact)
+    assert !missing(r(ub) / 100)
     assert r(lb) == 0 & reldif(r(ub) / 100, 1 - 0.025^(1/20)) < 1e-12
     assert `"`r(cell)'"' == "0 (0.0; 0.0, 16.8)"
     tabcell np, n(20) d(20) ci(exact)
+    assert !missing(r(lb) / 100)
     assert r(ub) == 100 & reldif(r(lb) / 100, 0.025^(1/20)) < 1e-12
     assert `"`r(cell)'"' == "20 (100.0; 83.2, 100.0)"
     * [R] ci example 6: 2 of 20 promoted, 95%: .0123485, .3169827

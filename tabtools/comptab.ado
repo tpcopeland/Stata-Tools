@@ -1,4 +1,4 @@
-*! comptab Version 2.5.1  2026/10/06
+*! comptab Version 2.5.2  2026/10/06
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1989,7 +1989,7 @@ program define _comptab_rates, rclass
             }
 
             local _total_cols = `ncols' + 1
-            capture {
+            capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
                 local _hborder_code = 1
                 if "`_hborder'" == "medium" local _hborder_code = 2
                 if "`_hborder'" == "thick" local _hborder_code = 3
@@ -2082,7 +2082,7 @@ program define _comptab_rates, rclass
             }
             if _rc {
                 local _fmt_rc = _rc
-                capture mata: `_xlsx_book'.close_book()
+                capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
                 capture mata: mata drop `_xlsx_book'
                 display as error "Excel formatting failed with error `_fmt_rc'"
                 exit `_fmt_rc'
@@ -3555,7 +3555,7 @@ program define _comptab_vertical, rclass
             local _pcol_data = `_m' * `n_cols_per_model'
             local _pcol_excel = `_pcol_data' + 2
             forvalues _dr = 4/`num_rows' {
-                capture {
+                capture {  // stata-dev-ignore: capture-rc — _rc is tested on the line after the closing brace (if _rc, p-value left missing)
                     local _pstr = c`_pcol_data'[`_dr']
                     local _pstr = strtrim("`_pstr'")
                     if substr("`_pstr'", 1, 1) == "<" {
@@ -3570,7 +3570,7 @@ program define _comptab_vertical, rclass
         }
     }
 
-    capture {
+    capture {  // stata-dev-ignore: capture-rc — _rc is tested at the closing brace of this block, beyond the lint look-ahead window
         local _hborder_code = 1
         if "`_hborder'" == "medium" local _hborder_code = 2
         if "`_hborder'" == "thick" local _hborder_code = 3
@@ -3700,7 +3700,7 @@ program define _comptab_vertical, rclass
     }
     if _rc {
         local saved_rc = _rc
-        capture mata: `_xlsx_book'.close_book()
+        capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
         capture mata: mata drop `_xlsx_book'
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore

@@ -251,6 +251,7 @@ capture noisily {
     local collected_icc = r(icc2)
     quietly melogit y z || group2:
     regtab, stats(icc)
+    assert !missing(r(icc_1), `collected_icc')
     assert reldif(r(icc_1), `collected_icc') < 1e-8
 }
 if _rc == 0 {
@@ -282,7 +283,7 @@ capture noisily {
     quietly mixed y x2 || group2: x2
     regtab, relabel frame(_qa_re_labels, replace)
     frame _qa_re_labels: count if strpos(A, "Collected clusters") > 0
-    assert r(N) >= 1
+    assert !missing(r(N)) & r(N) >= 1
     frame _qa_re_labels: count if strpos(A, "Ambient clusters") > 0
     assert r(N) == 0
     frame drop _qa_re_labels

@@ -529,6 +529,9 @@ capture noisily {
     survtab, times(10 20 30) by(drug) ///
         xlsx("`output_dir'/_val_survtab.xlsx") sheet("surv")
 
+    * Expected Kaplan-Meier values (rows t = 10 20 30, columns drug 1 2 3) computed
+    * independently by a hand-written product-limit pass in Python on the cancer
+    * data (2026-10-06); they do not come from sts or survtab.
     assert r(N_rows) == 7
     assert rowsof(r(table)) == 3
     assert colsof(r(table)) == 3

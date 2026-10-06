@@ -521,6 +521,7 @@ capture noisily {
     _v231_cell _g1 A "r2_a" c4 4
     assert "`r(cell)'" == ""
     assert `ret_lc2' == `nlc2'
+    assert !missing(`ret_r2a1', `r2a1')
     assert reldif(`ret_r2a1', `r2a1') < 1e-12
     assert missing(`ret_lc1')
     * the generic rows follow the built-in ones, in the order given

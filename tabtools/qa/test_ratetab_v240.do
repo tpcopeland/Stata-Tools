@@ -122,6 +122,7 @@ capture noisily {
     ratetab g, events(e1 e2) exposure(py1 py2) zerocells(dash, persontime)
     matrix E = r(estimates)
     assert E[1, 4] == 0 & E[1, 5] == 10 & E[1, 6] == 0
+    assert !missing(E[1, 8], 1000 * -ln(0.025) / 10)
     assert reldif(E[1, 8], 1000 * -ln(0.025) / 10) < 1e-12
     assert r(N_zero) == 2
     assert strpos(`"`r(methods)'"', "without a count, person-time or rate") > 0
@@ -229,6 +230,7 @@ capture noisily {
     assert E[6, 4] == 0 & E[6, 5] == 0
     assert missing(E[6, 6]) & missing(E[6, 7]) & missing(E[6, 8])
     * r(rates): Low/Mid/High x e1/e2; High e2 missing
+    assert !missing(R[3, 1])
     assert missing(R[3, 2]) & reldif(R[3, 1], 200) < 1e-12
     * workbook
     capture erase "$RT240_RES"

@@ -95,8 +95,8 @@ present. A column with a date or time display format ({cmd:%td}, {cmd:%tc},
 example {cmd:01jan2020}, because {opt digits()} cannot describe a date. A column
 whose display format ends in {cmd:fc} (for example {cmd:%12.0fc}) keeps
 its thousands separators, with {opt digits()} still setting the decimals, so
-{cmd:1234567} is written as {cmd:1,234,567}. Other display formats are not used.
-{opt nformat()} sets the format of every integer-valued column at once. A value
+{cmd:1234567} is written as {cmd:1,234,567}. Other display formats are not
+used. {opt nformat()} sets the format of every integer-valued column at once. A value
 that rounds to zero is written without a minus sign.{p_end}
 
 {pstd}When an Excel workbook is written, the named {opt sheet()} is created if it does not
@@ -201,8 +201,8 @@ Excel and CSV exports. Leading spaces of string cells in the first column are wr
 {opt noh:eader} omit the header row entirely. A Markdown (GFM) table cannot omit its
 header row, so in Markdown the first {opt panel()} row takes the header's place
 when the table starts with one (a panel heading, a panel header, or a
-{opt panelinline} row, which the workbook rules and bolds like a header);
-without one the Markdown header row is left blank, so data never become a
+{opt panelinline} row, which the workbook rules and bolds like a header); without
+one the Markdown header row is left blank, so data never become a
 header. {cmd:r(markdown_rows)} then counts the body below it. The workbook and
 the CSV carry no header row.{p_end}
 
@@ -277,8 +277,8 @@ point size from 1 through 72. The defaults are {cmd:Arial} and {cmd:10}.{p_end}
 {opt foot:note(string)} footnote below the table in smaller italic font. The literal
 token {cmd:\}, with a space on each side, separates paragraphs: each
 paragraph is its own wrapped, merged row in the workbook, its own row in the CSV, and its
-own italic paragraph in Markdown. A footnote without the token is one row, as before.
-Empty paragraphs are dropped. The same rule applies to {opt footnote()} in every tabtools
+own italic paragraph in Markdown. A footnote without the token is one row, as before. Empty
+paragraphs are dropped. The same rule applies to {opt footnote()} in every tabtools
 command.{p_end}
 
 {phang}
@@ -320,12 +320,13 @@ indented unless {opt noindent} is given. Shared rows count in {cmd:r(n_panels)} 
 data rows. Requires {opt panelheader()}.{p_end}
 
 {phang}
-{opt noind:ent} leaves the row labels under a panel heading unindented in every sink.
-Requires {opt panel()}.{p_end}
+{opt noind:ent} leaves the row labels under a panel heading unindented in every
+sink. Requires {opt panel()}.{p_end}
 
 {phang}
-{opt span:header(spec)} adds a row of spanning labels above the header row.
-{it:spec} is {cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] [{cmd:\} {cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] ...],
+{opt span:header(spec)} adds a row of spanning labels above the header
+row. {it:spec} is {cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] [{cmd:\}
+{cmd:"}{it:label}{cmd:"} {it:first}[{cmd:/}{it:last}] ...],
 where columns are numbered as exported with the row-label column as 1; for example
 {cmd:spanheader("Narcolepsy" 2/3 \ "Risk ratio (95% CI)" 4/5)}. In the workbook each label
 is merged across its columns, centred, bold, and ruled below, and the table's top rule

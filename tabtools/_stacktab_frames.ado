@@ -1,4 +1,4 @@
-*! _stacktab_frames Version 2.5.1  2026/10/06
+*! _stacktab_frames Version 2.5.2  2026/10/06
 *! stacktab, frames(): stack in-memory frames as labelled panels via puttab
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -179,7 +179,9 @@ program define _stacktab_frames, rclass
             * One panel per frame: a numeric panel id carrying the label as
             * its value label, so two frames with the same label stay two
             * panels; an unlabeled frame is missing (no heading).
+            * stata-dev-ignore: hardcoded-tempname — only tempvars survive the keep above, so no user variable can collide; discarded by restore
             quietly gen long _stk_panel = cond(`"`macval(_l`_i')'"' != "", `_i', .)
+            * stata-dev-ignore: hardcoded-tempname — only tempvars survive the keep above, so no user variable can collide; discarded by restore
             quietly gen long _stk_ord = `_i' * 1e7 + _n
             if `_i' > 1 quietly append using `"`_acc'"'
             quietly save `"`_acc'"', replace

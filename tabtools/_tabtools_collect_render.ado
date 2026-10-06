@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.5.1  2026/10/06
+*! _tabtools_collect_render Version 2.5.2  2026/10/06
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -552,6 +552,7 @@ void _tt_collect_omit_locals(
     string scalar key, cdim, frag, clev, cname, otype, prior
     real scalar i, j, n, mi
 
+    // stata-dev-ignore: shape-dispatch — width guard on items, which _tt_collect_items always builds with 3 columns (key, value, omit-type); a missing omit-type column means no omit information, not a second layout
     if (cols(items) < 3) {
         st_local("_tt_omit_n", "0")
         return

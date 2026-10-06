@@ -1,4 +1,4 @@
-*! tabcell Version 2.5.1  2026/10/06
+*! tabcell Version 2.5.2  2026/10/06
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -574,7 +574,7 @@ program define tabcell, rclass
                 ci(`ci') level(`level') per(`_per') `nocount'
             local _N = r(N)
             local _N_missing = r(N_missing)
-            rename `_out' `generate'
+            rename `_out' `generate'  // stata-dev-ignore: unchecked-commit — tabcell refuses an empty sample (exit 2000) at its marksample count, and _tabcell_render refuses non-estimable cells (exit 459) unless missing() is given
             quietly compress `generate'
             return local varname "`generate'"
             return scalar N = `_N'

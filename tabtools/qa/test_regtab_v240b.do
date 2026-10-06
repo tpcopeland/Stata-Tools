@@ -364,11 +364,20 @@ capture noisily {
     _vb_cell _v1 A "`l1'" c1
     assert !inlist("`r(cell)'", "Reference", "Empty", "")
 }
+if _rc == 0 {
+    display as result "  PASS: V1a nbreg omitted term, later fvset, ib(last) base levels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1a nbreg omitted term/fvset/ib(last) (rc=`=_rc')"
+    local ++fail_count
+}
 * V1a (continued): the counterfeit twin. x = (g == 3) makes 3o.g a
 * collinear level that is constrained like the base 1b.g; fvset base 3 g after
 * the fit. With the fit active its e(b) decides: 1 Reference, 3 Omitted.
 * After an unrelated fit only fvset names a base, so neither constrained
 * level is called the reference (2.3.1 printed both as Reference).
+local ++test_count
 capture noisily {
     clear
     set seed 240
@@ -398,11 +407,11 @@ capture noisily {
     assert r(N) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: V1a nbreg base levels follow e(b) (omitted term, later fvset, ib(last))"
+    display as result "  PASS: V1a counterfeit twin: with the fit active e(b) decides (1 Reference, 3 Omitted); after an unrelated fit only fvset names a base"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1a nbreg base levels (rc=`=_rc')"
+    display as error "  FAIL: V1a counterfeit twin base levels (rc=`=_rc')"
     local ++fail_count
 }
 

@@ -83,6 +83,7 @@ capture noisily {
     assert "`r(cell)'" == "(1000.1250, 1500.9000)"
     frame _e1e {
         quietly summarize ll if label == "alpha", meanonly
+        assert !missing(r(mean))
         assert reldif(r(mean), 1000.125) < 1e-12
     }
 }

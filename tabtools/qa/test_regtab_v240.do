@@ -210,12 +210,12 @@ capture noisily {
     quietly count if rep78 == 1 & e(sample)
     assert r(N) == 0
     quietly count if rep78 == 1
-    assert r(N) > 0
+    assert !missing(r(N)) & r(N) > 0
     * the collection's own class of the base level is "empty"
     tempfile cj
     quietly collect save "`cj'.stjson", replace
     mata: st_local("hit", strofreal(ustrregexm(invtokens(cat(st_local("cj") + ".stjson")'), ///
-        `"colname\[1\.rep78\][^"]*result\[_r_b\][^"]*":\s*\{\s*"d":\s*[^,]*,\s*"omit-type":\s*"empty""')))
+        `"colname\[1\.rep78\][^"]*result\[_r_b\][^"]*":\s*\x7b\s*"d":\s*[^,]*,\s*"omit-type":\s*"empty""')))
     assert `hit'
     regtab, noint notestlabel("NE") frame(_b1, replace)
     _v240_cell _b1 A "1" c1 4
@@ -547,7 +547,7 @@ capture noisily {
     }
     frame _r1e {
         quietly count
-        assert r(N) > 0
+        assert !missing(r(N)) & r(N) > 0
         forvalues i = 1/`=_N' {
             local s = source_row[`i']
             local l = strtrim(label[`i'])

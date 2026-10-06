@@ -104,6 +104,7 @@ capture noisily {
     stratetab, using("$ST_OUT/_st_a") outcomes(1) smallcells(10) frame(_sts2, replace)
     assert r(smallcells) == 10
     matrix R = r(rates)
+    assert !missing(R[3,1], `r3')
     assert reldif(R[3,1], `r3') < 1e-12
     frame _sts2 {
         assert c2[7] == "<10" & c3[7] == "–" & c4[7] == "–"
@@ -148,7 +149,6 @@ capture noisily {
     stratetab, using("$ST_OUT/_st_a") outcomes(1)
     assert r(smallcells) == 0
 }
-global TABTOOLS_set_smallcells
 if _rc == 0 {
     display as result "  PASS: S3 session smallcells default applies; nosmallcells and explicit values take precedence"
     local ++pass_count
@@ -157,6 +157,7 @@ else {
     display as error "  FAIL: S3 session default (rc=`=_rc')"
     local ++fail_count
 }
+global TABTOOLS_set_smallcells
 
 **# S4: rateratio withholds ratios whose numerator or reference is masked
 capture noisily {
@@ -215,6 +216,7 @@ capture noisily {
     frame _sts5b: assert c4[6] == "0.00 (0.00, `u')"
     * the same limit Stata's ci reports for a zero count
     quietly cii means 250 0, poisson
+    assert !missing(r(ub) * 1000, -ln(0.025) / 250 * 1000)
     assert reldif(r(ub) * 1000, -ln(0.025) / 250 * 1000) < 1e-6
     stratetab, using("$ST_OUT/_st_z") outcomes(1) zeroexact level(95) cformat(%9.3f) frame(_sts5c, replace)
     frame _sts5c: assert c4[6] == "0.000 (0.000, " + strtrim(string(-ln(0.025) / 250 * 1000, "%9.3f")) + ")"
