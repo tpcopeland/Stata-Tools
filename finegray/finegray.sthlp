@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.8  06oct2026}{...}
+{* *! version 1.3.8  07oct2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -352,15 +352,15 @@ coefficients; {cmd:r(se_method)} for CIF intervals.
 {p2col:delayed entry {opt nuisance} {opt strata()}}{bf:refused}, {cmd:r(198)}{p_end}
 {p2colreset}{...}
 
-{pmore2}
-{it:CIF intervals}: {opt ci} gives {cmd:analytic}; {opt ci bootstrap()}
+{pmore2} {it:CIF intervals}: {opt ci} gives {cmd:analytic}; {opt ci bootstrap()}
 gives {cmd:bootstrap}. Analytic intervals are available after supported
-converged fits, including {opt tvc()}, {opt bstrata()}, and weighted fits. Bootstrap intervals support those same fit routes except {cmd:fweight}s;
-expand frequency-weighted data to individual records and refit first.
-Both routes require the original estimation data and are unavailable after
-an {cmd:mi} fit. Bootstrap resampling is by subject, or by whole cluster
-after {opt cluster()}, and requires at least 25 requested and successful
-refits. The analytic route is fixed-weight in all cases.
+converged fits, including {opt tvc()}, {opt bstrata()}, and weighted fits. Bootstrap
+intervals support those same fit routes except {cmd:fweight}s; expand
+frequency-weighted data to individual records and refit first. Both routes
+require the original estimation data and are unavailable after an {cmd:mi}
+fit. Bootstrap resampling is by subject, or by whole cluster after
+{opt cluster()}, and requires at least 25 requested and successful refits. The
+analytic route is fixed-weight in all cases.
 
 {marker vcebootstrap}{...}
 {phang}
@@ -401,14 +401,19 @@ into {helpb test} or {helpb lincom}. It is a replay-only option, and it may not
 be combined with {opt level(#)} or {opt noshr} ({cmd:r(198)}): the legend table
 reports neither an interval nor a coefficient scale.
 
-{phang}
-{opt basehaz} posts the baseline cumulative subdistribution hazard in
+{phang} {opt basehaz} posts the baseline cumulative subdistribution hazard in
 {cmd:e(basehaz)}, a matrix with one row per distinct cause-event time (under
-{opt bstrata()}, one block per stratum). Not posted by default because building
-a tall matrix is O(rows^2); for the baseline as a variable at O(N) cost, use
-{cmd:predict, basecshazard}. Use {opt basehaz} when you want the matrix itself,
-or when you will {helpb estimates:estimates save} the fit for a later session --
-the cached baseline does not cross sessions.
+{opt bstrata()}, one block per stratum). Not posted by default because
+building a tall matrix is O(rows^2); for the baseline as a variable at O(N)
+cost, use {cmd:predict, basecshazard}. Use {opt basehaz} when you want the
+matrix itself, or when you will {helpb estimates:estimates save} the fit for a
+later session -- the cached baseline does not cross sessions. With
+{opt tvc()}, {opt basehaz} also posts {cmd:e(basehaz_tvc)} to preserve each
+interval's mass separately. Its columns are {it:bstratum}, {it:interval},
+{it:time} and {it:cumhazard}; the last column accumulates within that
+interval, before adding earlier intervals. A saved TVC fit without this
+payload needs the verified fitting data to rebuild it. If neither the payload
+nor those data are available, CIF prediction refuses with {cmd:r(459)}.
 
 {dlgtab:Optimization}
 
@@ -447,24 +452,23 @@ alongside. Tied cause-event times use the Breslow approximation, as
 {cmd:stcrreg} does; there is no {cmd:ties()} option. The derivations, the
 interpretive cautions and the design rationale are in {helpb finegray_methods}.
 
-{pstd}
-{bf:Factor variables and interactions:} {cmd:finegray} supports the full Stata
-factor-variable syntax. Design columns are created with the prefix {cmd:_fg_}
-and persist for {helpb finegray_predict}. Re-running {cmd:finegray} drops only
-the columns its own prior run created and still owns: each is stamped with a
-per-run marker, so a column you dropped and rebuilt yourself under the same
-name is preserved and the fit is {cmd:r(198)} instead. Coefficient names follow the user's
-specification ({cmd:2.grp}), so {helpb test}, {helpb lincom} and
-{helpb estimates table} address them directly; each omitted base term is
-posted with a zero coefficient for {helpb margins}. A base level that enters
-a real column is estimated, as in {helpb stcrreg}: {cmd:i.grp#c.x} fits a
-slope for every level, {cmd:1b.grp#c.x} included. {cmd:ibn.} as a main effect
-is {cmd:r(459)}; inside an interaction it is estimable. A fit with factor
-terms stores every raw level it observed in {cmd:e(fvsupport_vars)} and
+{pstd} {bf:Factor variables and interactions:} {cmd:finegray} supports the
+full Stata factor-variable syntax. Design columns are created with the prefix
+{cmd:_fg_} and persist for {helpb finegray_predict}. Re-running {cmd:finegray}
+drops only the columns its own prior run created and still owns: each is
+stamped with a per-run marker, so a column you dropped and rebuilt yourself
+under the same name is preserved and the fit is {cmd:r(198)} instead. Coefficient names follow the user's
+specification ({cmd:2.grp}), so {helpb test},
+{helpb lincom} and {helpb estimates table} address them directly; each omitted
+base term is posted with a zero coefficient for {helpb margins}. A base level
+that enters a real column is estimated, as in {helpb stcrreg}: {cmd:i.grp#c.x}
+fits a slope for every level, {cmd:1b.grp#c.x} included. {cmd:ibn.} as a main
+effect is {cmd:r(459)}; inside an interaction it is estimable. A fit with
+factor terms stores every raw level it observed in {cmd:e(fvsupport_vars)} and
 {cmd:e(fvsupport}{it:#}{cmd:)}, so {helpb finegray_predict} scores any level
-seen at fit time even when only some terms were typed (for example {cmd:2.grp});
-estimates from a build that did not store that support keep the narrower
-fail-closed rule and need a refit. See
+seen at fit time even when only some terms were typed (for example
+{cmd:2.grp}); estimates from a build that did not store that support keep the
+narrower fail-closed rule and need a refit. See
 {help finegray_methods##fv:Factor variables and margins}.
 
 {marker sideeffects}{...}
@@ -533,15 +537,15 @@ detected by {cmd:_dta[_mi_style]} or {cmd:_dta[_mi_substyle]}, not by variable n
 {pstd}
 {bf:Baseline strata.} Right censoring only. What changes downstream:
 
-{phang2}
-The header gains the {opt bstrata()} variable and {cmd:e(k_bstrata)}.
-With {opt basehaz} and more than one baseline stratum, {cmd:e(basehaz)}
-has three columns ({it:bstratum}, {it:time}, {it:cumhazard}), with one
-row per distinct cause-event time within each stratum and the stratum
-blocks stacked. A single-level fit retains the unstratified two-column
-form. {helpb finegray_predict} answers each row from its own stratum's baseline. {helpb finegray_cif} requires {opt bstratum(#)} when there is more than one
-stratum ({cmd:e(k_bstrata)} > 1) and refuses it otherwise; use {opt over()} on
-the {opt bstrata()} variable for all strata at once.
+{phang2} The header gains the {opt bstrata()} variable and {cmd:e(k_bstrata)}. With
+{opt basehaz} and more than one baseline stratum, {cmd:e(basehaz)} has three
+columns ({it:bstratum}, {it:time}, {it:cumhazard}), with one row per distinct
+cause-event time within each stratum and the stratum blocks stacked. A
+single-level fit retains the unstratified two-column form. {helpb finegray_predict}
+answers each row from its own stratum's baseline. {helpb finegray_cif}
+requires {opt bstratum(#)} when there is more than one stratum
+({cmd:e(k_bstrata)} > 1) and refuses it otherwise; use {opt over()} on the
+{opt bstrata()} variable for all strata at once.
 
 {pstd}
 A stratum with no cause event is noted and recorded in
@@ -654,21 +658,22 @@ constant within {cmd:id()} ({cmd:r(198)} otherwise); zero or missing weights
 leave the estimation sample; negative is {cmd:r(402)}; noninteger {cmd:fweight}
 is {cmd:r(401)}.
 
-{pstd}
-{bf:pweight.} Every subject's contribution to every risk-set sum, score,
-information and Breslow baseline is multiplied by its weight. The censoring
-survivor {it:G} stays {bf:unweighted} and is estimated from the analysis
-sample. Population interpretation requires sampling to preserve the required
-censoring distribution and independent censoring. This is not a general
-case-cohort or outcome-dependent sampling estimator; weighting the score does
-not repair a distorted censoring estimate. See
-{help finegray_methods##weights:Design weights}. The variance is the fixed-weight sandwich with meat
-sum_i (w_i s_i)^2, cluster-summed under {opt cluster()}; {opt norobust} is
-refused ({cmd:r(198)}). It omits uncertainty from estimating {it:G}. Internally the {cmd:pweight}s are rescaled to mean one for computation, so
-results are invariant to a common rescaling of the weights; {cmd:e(sum_w)},
+{pstd} {bf:pweight.} Every subject's contribution to every risk-set sum,
+score, information and Breslow baseline is multiplied by its weight. The
+censoring survivor {it:G} stays {bf:unweighted} and is estimated from the
+analysis sample. Population interpretation requires sampling to preserve the
+required censoring distribution and independent censoring. This is not a
+general case-cohort or outcome-dependent sampling estimator; weighting the
+score does not repair a distorted censoring estimate. See
+{help finegray_methods##weights:Design weights}. The variance is the
+fixed-weight sandwich with meat sum_i (w_i s_i)^2, cluster-summed under
+{opt cluster()}; {opt norobust} is refused ({cmd:r(198)}). It omits
+uncertainty from estimating {it:G}. Internally the {cmd:pweight}s are rescaled
+over rows contributing to cause-event risk sets for computation, so results
+are invariant to a common rescaling of the weights; {cmd:e(sum_w)},
 {cmd:e(ll)}, {cmd:e(ll_0)} and the iteration log stay on the scale of the
-weights you supplied. A weight range (smallest over largest) below the normal
-double range is refused with {cmd:r(430)}.
+weights you supplied. A contributing-weight range (smallest over largest)
+below the normal double range is refused with {cmd:r(430)}.
 
 {pstd}
 {bf:fweight.} Replication semantics: a subject carrying {it:w} is {it:w}
@@ -686,20 +691,20 @@ fweighted fit is the fit of the replicated data -- so use it, or {helpb expand}
 the data and bootstrap the expanded fit. See
 {help finegray_methods##weights:Design weights}.
 
-{pstd}
-{bf:A weight declared in {cmd:stset} is not inherited.} Fitting on weighted
-{cmd:stset} data with no command-line weight is {cmd:r(198)}. The weight
-expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
+{pstd} {bf:A weight declared in {cmd:stset} is not inherited.} Fitting on
+weighted {cmd:stset} data with no command-line weight is {cmd:r(198)}. The
+weight expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
 reconciles the rebuilt column against {cmd:e(sum_w)} and against
 {cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by each
 observation's whole fitting tuple, the values of the variables listed in
 {cmd:e(wsigkeyvars)} (the {cmd:e(datasignature)} variables plus the
-{cmd:stset} {opt id()} and entry variables, as in {cmd:e(rowsigvars)}), so a change that leaves the
-total untouched -- including an exchange of two subjects' weights, or of two
-scalars the weight expression reads -- is refused too; a plain re-sort is not. Estimates saved by finegray 1.3.7 or earlier carry no
-{cmd:e(rowsig)} and are refused with {cmd:r(301)} before any weight column is
-rebuilt, on every route that reads the estimation rows; they must be refit (see
-{help finegray##results:Stored results}).
+{cmd:stset} {opt id()} and entry variables, as in {cmd:e(rowsigvars)}), so a
+change that leaves the total untouched -- including an exchange of two
+subjects' weights, or of two scalars the weight expression reads -- is refused
+too; a plain re-sort is not. Estimates saved by finegray 1.3.7 or earlier
+carry no {cmd:e(rowsig)} and are refused with {cmd:r(301)} before any weight
+column is rebuilt, on every route that reads the estimation rows; they must be
+refit (see {help finegray##results:Stored results}).
 
 
 {marker examples}{...}
@@ -1007,6 +1012,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(b)}}coefficient vector (log-SHR); zero at omitted terms{p_end}
 {synopt:{cmd:e(V)}}variance-covariance matrix; zero at omitted terms{p_end}
 {synopt:{cmd:e(basehaz)}}baseline cumulative subhazard; only with {opt basehaz}{p_end}
+{synopt:{cmd:e(basehaz_tvc)}}interval baseline masses; {opt basehaz} with {opt tvc()}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -1018,21 +1024,22 @@ purely continuous interaction fits. On a factor fit {cmd:e(b)} is wider than
 {cmd:e(designvars)} by one zero column per omitted base term; under {opt tvc()} it is wider by
 one column per named covariate per extra interval.
 
-{pstd}
-{cmd:e(rowsig)} and {cmd:e(rowsig_n)} bind every original fitting tuple
+{pstd} {cmd:e(rowsig)} and {cmd:e(rowsig_n)} bind every original fitting tuple
 (the {cmd:e(datasignaturevars)} variables plus the {opt stset} {opt id()} and
-entry variables, listed in {cmd:e(rowsigvars)}, which {cmd:e(wsigkeyvars)} also
-uses) jointly; the digest hashes values, so {cmd:compress} or {cmd:recast} of an
-id or entry variable is accepted, so the post-estimation commands detect a
-permutation of one variable's values across observations ({cmd:r(459)}); the
-digest is a finite noncryptographic checksum, not a proof of dataset equality. {bf:Estimates saved by finegray 1.3.7 or earlier} carry no {cmd:e(rowsig)} and must be refit
-for {helpb finegray_cif} (every form, including a point CIF),
-{cmd:finegray_predict, cif ci}, {cmd:finegray_predict, schoenfeld} and
-{helpb finegray_phtest}; each is {cmd:r(301)}. Only {cmd:finegray_predict, xb} and, when the
-saved estimates hold {cmd:e(basehaz)} (fitted with {opt basehaz}),
-{cmd:cif} and {cmd:basecshazard} still work; without a posted baseline those two
-need the estimation rows and are {cmd:r(301)} too. There is no pass-through for
-the routes that read estimation rows.
+entry variables, listed in {cmd:e(rowsigvars)}, which {cmd:e(wsigkeyvars)}
+also uses) jointly; the digest hashes values, so {cmd:compress} or
+{cmd:recast} of an id or entry variable is accepted, so the post-estimation
+commands detect a permutation of one variable's values across observations
+({cmd:r(459)}); the digest is a finite noncryptographic checksum, not a proof
+of dataset equality. {bf:Estimates saved by finegray 1.3.7 or earlier} carry
+no {cmd:e(rowsig)} and must be refit for {helpb finegray_cif} (every form,
+including a point CIF), {cmd:finegray_predict, cif ci},
+{cmd:finegray_predict, schoenfeld} and {helpb finegray_phtest}; each is
+{cmd:r(301)}. Only {cmd:finegray_predict, xb} and, when the saved estimates
+hold {cmd:e(basehaz)} (fitted with {opt basehaz}), {cmd:cif} and
+{cmd:basecshazard} still work; without a posted baseline those two need the
+estimation rows and are {cmd:r(301)} too. There is no pass-through for the
+routes that read estimation rows.
 
 
 {marker methods}{...}

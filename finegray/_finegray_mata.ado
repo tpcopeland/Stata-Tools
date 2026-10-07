@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.8  2026/10/06
+*! _finegray_mata Version 1.3.8  2026/10/07
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -57,6 +57,48 @@ end
 * Package code still compiles strict; the caller's setting is put back after
 * the Mata block.  A compile failure aborts this file before that line runs,
 * so each loader call site also restores the setting on failure.
+* Replacing an older resident engine must not clear the caller's Mata objects
+* or the keyed baseline cache.  Drop only these exact shipped function names
+* before compiling their replacements; externals and similarly prefixed user
+* functions survive.  This list is generated from this file's definitions.
+local _fg_mata_functions ///
+    _finegray_mata_ok _finegray_beta _finegray_pweight_unit ///
+    _finegray_pweight_model_unit _finegray_pweight_ll _finegray_last_hole ///
+    _finegray_km_censor_single _finegray_km_censor _finegray_group_index ///
+    _finegray_bs_setup _finegray_bs_rows _finegray_G_at_times ///
+    _finegray_G_minus _finegray_H_at_times _finegray_joint_setup ///
+    _finegray_A_at_times _finegray_lt_normalizer _finegray_use_pooled_stabilizer ///
+    _finegray_A_pool_at_times _finegray_prepare_weight_design _finegray_positivity_check ///
+    _finegray_positivity_prehole _finegray_weight_diag_zzf _finegray_weight_diag ///
+    _finegray_gfloor_consulted _finegray_n_le _finegray_loglik_zzf_strat ///
+    _finegray_score_info_zzf_strat _finegray_scores_zzf_strat _finegray_loglik ///
+    _finegray_score_info _finegray_score_residuals _finegray_psi_residuals ///
+    _finegray_cluster_sums _finegray_robust_var _finegray_basehaz_zzf ///
+    _finegray_basehazard _finegray_information_inverse _finegray_schoenfeld_zzf ///
+    _finegray_schoenfeld _finegray_schoenfeld_compute _finegray_tvc_interval ///
+    _finegray_tvc_positions _finegray_tvc_ncoef _finegray_tvc_design ///
+    _finegray_tvc_mask _finegray_tvc_labels _finegray_loglik_pw ///
+    _finegray_score_info_pw _finegray_score_residuals_pw _finegray_psi_residuals_pw ///
+    _finegray_psi_residuals_lt _finegray_basehazard_pw _finegray_bh_calls_reset ///
+    _finegray_bh_calls_get _finegray_tvc_bhpieces _finegray_rank_fail ///
+    _finegray_engine _finegray_eta_shift _finegray_cif_core_zzf ///
+    _finegray_cif_accum _finegray_cif_core _finegray_cif_core_pw ///
+    _finegray_cif_var_st _finegray_cif_predict _finegray_boot_cif ///
+    _finegray_boot_cif_obs _finegray_tvc_eta _finegray_tvc_bhpieces_bs ///
+    _finegray_hazard_product _finegray_hazard_cif _finegray_cloglog_ci ///
+    _finegray_cif_stable _finegray_tvc_lambda _finegray_boot_cif_tvc ///
+    _finegray_boot_cif_obs_tvc _finegray_bh_rebuild _finegray_bh_store ///
+    _finegray_wsig _finegray_bh_escal _finegray_bh_setkey ///
+    _finegray_bh_have _finegray_bh_stash _finegray_bh_unstash ///
+    _finegray_bh_cutvals _finegray_tvc_mass_lookup _finegray_tvc_mass_store ///
+    _finegray_step_lookup_cached _finegray_bh_grid_cached _finegray_step_core ///
+    _finegray_step_core_bs _finegray_bh_stratum _finegray_step_lookup_direct ///
+    _finegray_bh_grid _finegray_step_lookup _finegray_assign_schoenfeld_vars ///
+    _finegray_numeric_ok
+foreach _fg_mata_fn of local _fg_mata_functions {
+    capture mata: mata drop `_fg_mata_fn'()
+}
+
 local _fg_matastrict0 = c(matastrict)
 mata: mata set matastrict on
 
@@ -136,6 +178,57 @@ real colvector _finegray_pweight_unit(real colvector w, | real scalar c)
     av = mean(q)
     c = mx * av
     return(q :/ av)
+}
+
+/* Computational pweights on the rows contributing to a cause-event risk set.
+   On the supported right-censoring weighted route, a non-competing exit before
+   the first cause event has no score, likelihood or baseline contribution.
+   Keep these rows in the sample and in the unweighted censoring KM; only their
+   computational weights are zero.  Normalizing over them let an early censored
+   row with weight 1e12 shrink every event weight until the Newton-decrement
+   test fired early; at 1e17 adding and removing it erased the active risk sum.
+   Every fit and post-estimation entry point uses this same definition.
+
+   Uniform weights retain the original all-ones arithmetic, including its exact
+   equivalence with an unweighted fit.  All raw-weight summaries and signatures
+   remain in Stata, before this computational conversion. */
+real colvector _finegray_pweight_model_unit(
+    real colvector w,
+    real colvector t,
+    real colvector delta,
+    real scalar cause,
+    real scalar censval,
+    real colvector event_type,
+    | real scalar c)
+{
+    real colvector is_cause, active, q, out
+    real scalar first, mx, av
+
+    c = 1
+    if (rows(w) == 0) return(w)
+    if (hasmissing(w) | min(w) <= 0) {
+        errprintf("finegray: probability weights must be positive and finite\n")
+        exit(error(402))
+    }
+    if (min(w) == max(w)) return(_finegray_pweight_unit(w, c))
+    is_cause = (event_type :== cause) :& (delta :== 1)
+    if (sum(is_cause) == 0) return(_finegray_pweight_unit(w, c))
+    first = min(select(t, is_cause))
+    active = (t :>= first) :| ((delta :== 1) :&
+        (event_type :!= cause) :& (event_type :!= censval))
+    q = select(w, active)
+    mx = max(q)
+    q = q :/ mx
+    if (min(q) < smallestdouble()) {
+        errprintf("finegray: the ratio of the smallest to the largest ")
+        errprintf("probability weight is below double precision range\n")
+        exit(430)
+    }
+    av = mean(q)
+    c = mx * av
+    out = J(rows(w), 1, 0)
+    out[selectindex(active)] = q :/ av
+    return(out)
 }
 
 /* The typed-pweight log pseudo-likelihood from the unit-weight one.  With
@@ -253,7 +346,7 @@ real colvector _finegray_km_censor_single(
 {
     real colvector row_id, wk
     real scalar n, i, j, surv, n_risk_at_t, n_cens_at_t, n_fail_at_t
-    real scalar cur_time, ep, hole, n_risk_cens
+    real scalar cur_time, ep, hole, n_risk_cens, jump, next_surv
     real colvector G, ord, entry_ord
 
     n = rows(t)
@@ -327,7 +420,13 @@ real colvector _finegray_km_censor_single(
            the failures at cur_time have left the censoring risk set. */
         n_risk_cens = (events_first ? n_risk_at_t - n_fail_at_t : n_risk_at_t)
         if (n_cens_at_t > 0 & n_risk_cens > 0) {
-            surv = surv * (1 - n_cens_at_t / n_risk_cens)
+            jump = 1 - n_cens_at_t / n_risk_cens
+            next_surv = surv * jump
+            if (surv > 0 & jump > 0 & next_surv == 0) {
+                errprintf("finegray: a positive censoring survivor is below double precision range\n")
+                exit(430)
+            }
+            surv = next_surv
         }
 
         /* Assign G to all obs at this time, then remove them from risk set */
@@ -343,7 +442,10 @@ real colvector _finegray_km_censor_single(
     n_trunc = 0
     fl = J(n, 1, 0)
     for (i = 1; i <= n; i++) {
-        if (G[i] < 1e-10) {
+        /* Preserve every positive product-limit probability.  A floor on a
+           positive G changes ratios and can turn a finite delayed-entry weight
+           into a different estimator.  Retain the existing exact-zero policy. */
+        if (G[i] <= 0) {
             G[i] = 1e-10
             fl[i] = 1
             n_trunc++
@@ -746,7 +848,16 @@ real matrix _finegray_H_at_times(
         for (j = nl; j >= 1; j--) {
             r_j = rv[j]
             w_j = wv[j]
-            if (r_j > 0 & w_j > 0) acc = acc * (1 - w_j / r_j)
+            if (r_j > 0 & w_j > 0) {
+                real scalar jump, next_acc
+                jump = 1 - w_j / r_j
+                next_acc = acc * jump
+                if (acc > 0 & jump > 0 & next_acc == 0) {
+                    errprintf("finegray: a positive entry survivor is below double precision range\n")
+                    exit(430)
+                }
+                acc = next_acc
+            }
             Hleft[j] = acc        /* = prod over entry times >= lt[j] */
         }
 
@@ -865,7 +976,14 @@ real matrix _finegray_A_at_times(
 
     nj = rows(jc)
     out = J(rows(target_t), nj, 1)
-    for (j = 1; j <= nj; j++) out[., j] = Gt[., jc[j]] :* Ht[., ju[j]]
+    for (j = 1; j <= nj; j++) {
+        out[., j] = Gt[., jc[j]] :* Ht[., ju[j]]
+        if (sum((Gt[., jc[j]] :> 0) :& (Ht[., ju[j]] :> 0) :&
+            (out[., j] :== 0)) > 0) {
+            errprintf("finegray: a positive joint G/H weight probability is below double precision range\n")
+            exit(430)
+        }
+    }
     return(out)
 }
 
@@ -987,25 +1105,34 @@ real colvector _finegray_lt_normalizer(
     | real colvector nexcl)
 {
     real scalar j, nj, i, n, h
-    real colvector kappa, cnt, excl
+    real colvector kappa, rawsum, cnt, excl
 
     nj = rows(ju)
     n = rows(gidx)
     kappa = J(nj, 1, 0)
+    rawsum = J(nj, 1, 0)
     cnt = J(nj, 1, 0)
     excl = J(nj, 1, 0)
+    for (i = 1; i <= n; i++) cnt[gidx[i]] = cnt[gidx[i]] + 1
     for (i = 1; i <= n; i++) {
         j = gidx[i]
-        cnt[j] = cnt[j] + 1
         h = Ht[i, ju[j]]
         if (h <= 0 | h >= .) {
             excl[j] = excl[j] + 1
             continue
         }
-        kappa[j] = kappa[j] + 1 / h
+        /* Preserve the released reciprocal summation order when finite.
+           In parallel, divide the unit by the cell count BEFORE H: this
+           mean can be finite when a reciprocal or its unscaled sum is not. */
+        rawsum[j] = rawsum[j] + 1 / h
+        kappa[j] = kappa[j] + (1 / cnt[j]) / h
     }
     for (j = 1; j <= nj; j++) {
-        if (cnt[j] > 0) kappa[j] = kappa[j] / cnt[j]
+        if (cnt[j] > 0 & rawsum[j] < .) kappa[j] = rawsum[j] / cnt[j]
+        if (kappa[j] >= .) {
+            errprintf("finegray: an entry-weight normalizer exceeds double precision range\n")
+            exit(430)
+        }
     }
     if (args() >= 4) nexcl = excl
     return(kappa)
@@ -1546,7 +1673,8 @@ void _finegray_weight_diag(
     real colvector gidx,
     real colvector Gminus,
     real matrix Aden,
-    real colvector Apool)
+    real colvector Apool,
+    real colvector bsraw)
 {
     real scalar A_FLOOR, WT_CEIL
     real scalar n, nj, K, i, k, g, r, minprob, maxwt, nprobwarn, nwtwarn, w, a
@@ -1554,10 +1682,54 @@ void _finegray_weight_diag(
     real colvector ord, row_id, cmin
     real matrix Aev, SUF
     string scalar warnstr
+    real colvector bslev, bscode, rows_k
+    real scalar kb, K_bs, v
+    string rowvector warned
 
     if (args() < 14) {
         _finegray_prepare_weight_design(t, delta, censval, event_type, G,
             byg_id, t0, tg_id, use_pooled, gidx, Gminus, Aden, Apool)
+    }
+    if (args() < 15) bsraw = J(rows(t), 1, 1)
+
+    /* A competitor is retained only by a later cause event in its OWN
+       baseline stratum.  G/H themselves are still the full-sample weight
+       design: subset the consultation rows, not the estimated distributions.
+       The one-baseline and delayed-entry routes keep their existing scan. */
+    _finegray_bs_setup(bsraw, bslev, bscode, K_bs)
+    if (!use_pooled & K_bs > 1) {
+        nj = cols(Aden)
+        minprob = maxwt = .
+        nprobwarn = nwtwarn = 0
+        flagged = J(nj, 1, 0)
+        for (kb = 1; kb <= K_bs; kb++) {
+            rows_k = select((1::rows(t)), bscode :== kb)
+            _finegray_weight_diag(t[rows_k], delta[rows_k], cause, censval,
+                event_type[rows_k], G[rows_k], byg_id[rows_k], t0[rows_k],
+                tg_id[rows_k], use_pooled, gidx[rows_k], Gminus[rows_k],
+                Aden[rows_k, .], Apool[rows_k])
+            v = st_matrix("_finegray_minprob")[1, 1]
+            if (v < minprob) minprob = v
+            v = st_matrix("_finegray_maxwt")[1, 1]
+            if (v < .) {
+                if (maxwt >= . | v > maxwt) maxwt = v
+            }
+            nprobwarn = nprobwarn + st_matrix("_finegray_nprobwarn")[1, 1]
+            nwtwarn = nwtwarn + st_matrix("_finegray_nwtwarn")[1, 1]
+            warned = tokens(st_local("_fg_warnstrata"))
+            for (i = 1; i <= cols(warned); i++) flagged[strtoreal(warned[i])] = 1
+        }
+        warnstr = ""
+        for (i = 1; i <= nj; i++) {
+            if (flagged[i]) warnstr = warnstr + (warnstr == "" ? "" : " ") + strofreal(i)
+        }
+        st_matrix("_finegray_nwstrata", nj)
+        st_matrix("_finegray_minprob", minprob)
+        st_matrix("_finegray_maxwt", maxwt)
+        st_matrix("_finegray_nprobwarn", nprobwarn)
+        st_matrix("_finegray_nwtwarn", nwtwarn)
+        st_local("_fg_warnstrata", warnstr)
+        return
     }
 
     if (use_pooled) {
@@ -3925,7 +4097,7 @@ real matrix _finegray_schoenfeld(
     /* Legacy internal diagonal rescaling; no public caller requests it.
        Do NOT re-enable this as "Grambsch-Therneau scaling": GT scale by the FULL
        V^-1(beta,t_k) (eq. 5-6, p.517) or by the average variance Vbar = J/d
-       (p.518-519).  GT sec. 5, p.523 attributes DIAGONAL-only standardization to
+       (p.518-519).  GT sec. 4, p.524 attributes DIAGONAL-only standardization to
        Pettitt & Bin Daud (1990) and rejects it -- valid "only if the covariates
        are uncorrelated at each time point", otherwise it leaks one covariate's
        time-dependence into another's plot and "precludes equivalence ... to
@@ -3935,7 +4107,7 @@ real matrix _finegray_schoenfeld(
        Fine-Gray score is an estimating function, so it would not transport
        even in full-matrix form.  See Grambsch, P. M. and T. M. Therneau.
        1994.  Proportional hazards tests and diagnostics based on weighted
-       residuals.  Biometrika 81: 515-526, sections 3-5, pp.517-523.  */
+       residuals.  Biometrika 81: 515-526, sections 3-4, pp.517-524.  */
     if (do_scale & n_events > 0) {
         _finegray_score_info(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, score_vec, info_mat, t0, tg_id,
@@ -4009,7 +4181,8 @@ void _finegray_schoenfeld_compute(
 
     if (w_str != "") w = st_data(., w_str)
     else             w = J(rows(t), 1, 1)
-    if (wtype == 1) w = _finegray_pweight_unit(w)
+    if (wtype == 1) w = _finegray_pweight_model_unit(w, t, delta,
+        cause, censval, event_type)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     if (wtype == 2) {
@@ -4794,7 +4967,8 @@ real matrix _finegray_basehazard_pw(
     real colvector fixpos,
     real colvector tvcpos,
     real scalar nint,
-    | real colvector w)
+    | real colvector w,
+    real matrix interval_bh)
 {
     real scalar j, carry, kb, nlev
     real colvector etj, lev, carryv
@@ -4802,6 +4976,7 @@ real matrix _finegray_basehazard_pw(
     pointer(real matrix) colvector acc
 
     if (args() < 22) w = J(rows(t), 1, 1)
+    interval_bh = J(0, 4, .)
 
     if (nint <= 1) {
         return(_finegray_basehazard(t, delta, cause, censval, event_type, Z,
@@ -4828,6 +5003,8 @@ real matrix _finegray_basehazard_pw(
                 errprintf("reached the unstratified tvc() baseline scan\n")
                 exit(error(498))
             }
+            interval_bh = interval_bh \
+                (J(rows(bhj), 1, lev[1]), J(rows(bhj), 1, j), bhj)
             bhj[., 2] = bhj[., 2] :+ carry
             carry = bhj[rows(bhj), 2]
             out = out \ bhj
@@ -4872,6 +5049,8 @@ real matrix _finegray_basehazard_pw(
             errprintf("baseline reached the stratified tvc() scan\n")
             exit(error(498))
         }
+        interval_bh = interval_bh \
+            (bhj[., 1], J(rows(bhj), 1, j), bhj[., 2..3])
         for (kb = 1; kb <= nlev; kb++) {
             /* select(), not selectindex(): Mata's 1x1 orientation ambiguity
                makes selectindex() return a 1 x 0 ROW vector for a one-row
@@ -4996,14 +5175,14 @@ void _finegray_engine(
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id, w, gfloored
     real scalar nadj, pw_scale, pw_events
-    real matrix Z, V, bh, weight_A
+    real matrix Z, V, bh, interval_bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
     real colvector weight_gidx, weight_Gminus, weight_Apool, weight_nprehole
     real colvector bsraw
     real matrix info_mat, info_inv
     real scalar n, p, ll, ll_new, ll_0, converged, iter
     real scalar step_scale, halving, max_halvings, chi2, df_m
-    real scalar decrement, accepted, n_clust, rank_V, npos, weight_pooled
+    real scalar decrement, decrement_scale, accepted, n_clust, rank_V, npos, weight_pooled
     real scalar K_bs, kb
     real colvector bslev_e
     string scalar bs_noev, bs_noevx
@@ -5033,9 +5212,17 @@ void _finegray_engine(
        and pw_events restore the typed e(ll)/e(ll_0) and the iteration log. */
     pw_scale = 1
     pw_events = 0
+    decrement_scale = 1
     if (wtype == 1) {
-        w = _finegray_pweight_unit(w, pw_scale)
+        w = _finegray_pweight_model_unit(w, t, delta, cause, censval,
+            event_type, pw_scale)
         pw_events = sum(select(w, (event_type :== cause) :& (delta :== 1)))
+        /* A participating censored row may still dominate the computational
+           mean.  Compare convergence in the mean event-weight unit when that
+           unit is below one, so small event weights cannot create a false
+           small-decrement success.  Uniform and unweighted fits keep scale 1. */
+        decrement_scale = min((1, pw_events /
+            sum((event_type :== cause) :& (delta :== 1))))
     }
 
     /* Read byg variable if specified */
@@ -5100,10 +5287,13 @@ void _finegray_engine(
        mass before it, at rc 0.
 
        The refusal's stated reason was that the pair "has no reference
-       implementation to validate against".  That turned out to be false and was
-       checked rather than assumed: crrSC::crrs takes cov2/tf TOGETHER with its
-       strata argument (crrs.r's signature and its ctype=1 branch both handle
-       nc2 > 0 per stratum), so crrs IS the external oracle for the pair. */
+       implementation to validate against".  That turned out to be false: the
+       pair is fitted externally by survival::finegray() expansion plus a
+       stratified weighted coxph (qa/crossval_tvc_bstrata_r.R).  crrSC::crrs
+       accepts cov2/tf with strata, but it is NOT a reliable oracle here: crrs.r
+       passes one tf row per UNIQUE failure time while crrcs.c reads ndf rows,
+       so repeated piecewise time functions are mis-shaped before the native
+       call (crrSC 1.1.2, crrs.r:185-195, crrcs.c:345). */
 
     /* A stratum with no cause event is legitimate -- its terms simply drop out
        of the pseudo-likelihood -- but it has NO baseline, so `predict, cif' or
@@ -5280,7 +5470,7 @@ void _finegray_engine(
         decrement = score_vec' * step
         if (decrement < 0) decrement = 0    /* info is PSD; absorb fp noise */
 
-        if (decrement < tol) {
+        if (decrement / decrement_scale < tol) {
             beta = beta + step
             converged = 1
             break
@@ -5445,8 +5635,8 @@ void _finegray_engine(
     bh = _finegray_basehazard_pw(t, delta, cause, censval, event_type,
         Z, beta, G, byg_id, t0, tg_id, weight_pooled, weight_gidx,
         weight_Gminus, weight_A, weight_Apool, bsraw, ivl, fixpos, tvcpos,
-        nint, w)
-    _finegray_bh_store(bh)
+        nint, w, interval_bh)
+    _finegray_bh_store(bh, interval_bh)
 
     /* Model chi2 degrees of freedom.  Counting positive diagonal entries is
        not the rank: a cluster-robust V can have p positive variances and still
@@ -5460,7 +5650,7 @@ void _finegray_engine(
     /* Combined-weight sensitivity diagnostics (the e() weight contract). */
     _finegray_weight_diag(t, delta, cause, censval, event_type,
         G, byg_id, t0, tg_id, weight_pooled, weight_gidx, weight_Gminus,
-        weight_A, weight_Apool)
+        weight_A, weight_Apool, bsraw)
 
     /* Subjects excluded from their weight cell's normalizer because they were
        observed before the cell's truncation group last had an empty risk set
@@ -5483,6 +5673,11 @@ void _finegray_engine(
     if (n_clust < .) st_matrix("_finegray_nclust", n_clust)
     if (want_bh) {
         st_matrix("_finegray_basehaz", bh)
+        if (nint > 1) {
+            st_matrix("_finegray_basehaz_tvc", interval_bh)
+            st_matrixcolstripe("_finegray_basehaz_tvc",
+                (J(4,1,""), ("bstratum" \ "interval" \ "time" \ "cumhazard")))
+        }
         /* K x 2 unstratified -- the shape every released consumer knows -- and
            K x 3 under bstrata(), whose first column is the stratum VALUE. */
         if (cols(bh) == 3) {
@@ -5790,7 +5985,7 @@ real matrix _finegray_cif_core_zzf(
             st_local("_fg_cifovf", "1")
             continue
         }
-        cif = 1 - exp(-lam)
+        cif = _finegray_hazard_cif(lam)
         factor = rstar * exp(-lam)
 
         own = J(n, 1, 0)
@@ -6179,7 +6374,7 @@ real matrix _finegray_cif_core(
                 st_local("_fg_cifovf", "1")
                 continue
             }
-            cif = 1 - exp(-lam)
+            cif = _finegray_hazard_cif(lam)
             factor = rstar * exp(-lam)
 
             own = J(n, 1, 0)
@@ -6465,7 +6660,7 @@ real matrix _finegray_cif_core_pw(
                     V = colsum(clust_sum :^ 2)
                 }
                 else V = colsum(psi :^ 2)
-                out[e, 1] = 1 - expo
+                out[e, 1] = _finegray_hazard_cif(LAM[ee])
                 out[e, 2] = sqrt(V)
             }
         }
@@ -6527,7 +6722,8 @@ void _finegray_cif_var_st(
     else             bsraw = J(n, 1, 1)
     if (w_str != "") w = st_data(., w_str, tousevar)
     else             w = J(n, 1, 1)
-    if (wtype == 1) w = _finegray_pweight_unit(w)
+    if (wtype == 1) w = _finegray_pweight_model_unit(w, t, delta,
+        cause, censval, event_type)
 
     E = st_matrix(evalmat)
     /* tvc(): the analytic variance is the piecewise one (2026-08-26).  Both routes
@@ -6630,7 +6826,8 @@ void _finegray_cif_predict(
     }
     if (w_str != "") w = st_data(., w_str, est_touse)
     else             w = J(n, 1, 1)
-    if (wtype == 1) w = _finegray_pweight_unit(w)
+    if (wtype == 1) w = _finegray_pweight_model_unit(w, t, delta,
+        cause, censval, event_type)
 
     /* tvc(): the piecewise influence function (2026-08-26).  Both routes reach the
        same accumulators through _finegray_cif_accum. */
@@ -6824,26 +7021,81 @@ real matrix _finegray_tvc_bhpieces_bs(
     return(D)
 }
 
-/* CIF = 1 - exp(-H0 exp(xb)), evaluated so that exp() overflow at a FINITE
-   linear predictor gives the limit the arithmetic is approaching rather than a
-   missing value.  Lambda above maxdouble means exp(-Lambda) = 0 and CIF = 1;
-   H0 = 0 (no baseline mass yet) is CIF = 0 however large xb is, where Stata's
-   0 * missing would be missing.  A missing H0 or xb stays missing: there is
-   no prediction.  Same contract as _finegray_cif_core's overflow branch. */
-real colvector _finegray_cif_stable(real colvector H0, real colvector xb)
+/* A cumulative hazard times exp(xb).  Preserve ordinary multiplication when
+   it is representable, and otherwise combine on the log scale before exp().
+   Overflow of exp(xb) alone need not imply overflow of the product.  A true
+   product overflow is represented by maxdouble(), sufficient for its CIF
+   limit; zero mass remains zero for a finite predictor. */
+real colvector _finegray_hazard_product(real colvector H0, real colvector xb)
 {
-    real colvector lam, cif
+    real colvector out
+    real scalar i, e, v, lv
+
+    out = J(rows(H0), 1, .)
+    for (i = 1; i <= rows(H0); i++) {
+        if (H0[i] >= . | xb[i] >= . | H0[i] < 0) continue
+        if (H0[i] == 0) {
+            out[i] = 0
+            continue
+        }
+        e = exp(xb[i])
+        v = H0[i] * e
+        if (e > 0 & e < . & v > 0 & v < .) {
+            out[i] = v
+            continue
+        }
+        lv = ln(H0[i]) + xb[i]
+        out[i] = (lv > ln(maxdouble()) ? maxdouble() : exp(lv))
+    }
+    return(out)
+}
+
+/* -expm1(-Lambda) retains CIFs smaller than the spacing below one. */
+real colvector _finegray_hazard_cif(real colvector lambda)
+{
+    real colvector out
     real scalar i
 
-    lam = H0 :* exp(xb)
-    cif = 1 :- exp(-lam)
-    if (!hasmissing(cif)) return(cif)
-    for (i = 1; i <= rows(cif); i++) {
-        if (cif[i] < .) continue
-        if (H0[i] >= . | xb[i] >= .) continue
-        cif[i] = (H0[i] > 0)
+    out = J(rows(lambda), 1, .)
+    for (i = 1; i <= rows(lambda); i++) {
+        if (lambda[i] >= . | lambda[i] < 0) continue
+        out[i] = -expm1(-lambda[i])
     }
-    return(cif)
+    return(out)
+}
+
+/* Complementary-log-log limits for interior CIFs.  Boundary points retain
+   missing limits.  Compute the delta-method scale and transformed endpoints
+   without overflow and without subtracting a tiny CIF from one. */
+real matrix _finegray_cloglog_ci(real colvector F, real colvector se,
+    real scalar z)
+{
+    real matrix out
+    real scalar i, a, theta, delta, ld, lo, hi
+
+    out = J(rows(F), 2, .)
+    if (z >= . | z < 0) return(out)
+    for (i = 1; i <= rows(F); i++) {
+        if (F[i] >= . | se[i] >= . | F[i] <= 0 | F[i] >= 1 | se[i] < 0) continue
+        a = -ln1p(-F[i])
+        theta = ln(a)
+        delta = 0
+        if (se[i] > 0 & z > 0) {
+            ld = ln(z) + ln(se[i]) - ln1p(-F[i]) - ln(a)
+            delta = (ld > ln(maxdouble()) ? maxdouble() : exp(ld))
+        }
+        lo = theta - delta
+        hi = theta + delta
+        out[i, 1] = -expm1(-exp(lo))
+        out[i, 2] = (hi > ln(maxdouble()) ? 1 : -expm1(-exp(hi)))
+    }
+    return(out)
+}
+
+/* Proportional-model CIF from the shared cumulative-hazard arithmetic. */
+real colvector _finegray_cif_stable(real colvector H0, real colvector xb)
+{
+    return(_finegray_hazard_cif(_finegray_hazard_product(H0, xb)))
 }
 
 /* Lambda(s|z) from the per-interval baseline masses and per-interval linear
@@ -6866,7 +7118,10 @@ real colvector _finegray_tvc_lambda(
     real colvector lam
     real scalar i, j, bad, ovf, acc
 
-    term = pieces :* exp(eta)
+    term = J(rows(pieces), cols(pieces), .)
+    for (j = 1; j <= cols(pieces); j++) {
+        term[., j] = _finegray_hazard_product(pieces[., j], eta[., j])
+    }
     lam = rowsum(term, 1)
     if (!hasmissing(lam)) return(lam)
     for (i = 1; i <= rows(lam); i++) {
@@ -6900,7 +7155,7 @@ void _finegray_boot_cif_tvc(
     string scalar tsplit_str,
     | real scalar lev)
 {
-    external real matrix _finegray_bh_cache
+    external real matrix _finegray_bh_cache, _finegray_bh_tvc_cache
     external string scalar _finegray_bh_key
     real matrix eta, pieces
     real colvector beta, gg, cuts, fixpos, tvcpos
@@ -6921,11 +7176,11 @@ void _finegray_boot_cif_tvc(
     /* Under bstrata() the replication's cache holds one curve per stratum; the
        requested stratum is the one the point estimate was built on.  Same
        contract as _finegray_boot_cif. */
-    pieces = _finegray_tvc_bhpieces_bs(_finegray_bh_cache, gg,
-        J(rows(gg), 1, lev), cuts, nint)
+    pieces = _finegray_tvc_mass_lookup(_finegray_bh_tvc_cache, gg,
+        J(rows(gg), 1, (cols(_finegray_bh_cache) == 2 ? _finegray_bh_tvc_cache[1, 1] : lev)), nint)
     eta = _finegray_tvc_eta(J(rows(gg), 1, 1) # st_matrix(zmat), beta,
         fixpos, tvcpos, nint)
-    st_matrix(omat, 1 :- exp(-_finegray_tvc_lambda(pieces, eta)))
+    st_matrix(omat, _finegray_hazard_cif(_finegray_tvc_lambda(pieces, eta)))
 }
 
 /* Bootstrap helper (per-observation mode): piecewise CIF at each evaluation
@@ -6941,7 +7196,7 @@ void _finegray_boot_cif_obs_tvc(
     string scalar tsplit_str,
     | string scalar bsvar)
 {
-    external real matrix _finegray_bh_cache
+    external real matrix _finegray_bh_cache, _finegray_bh_tvc_cache
     external string scalar _finegray_bh_key
     real matrix Z, eta, pieces
     real colvector beta, tt, cif, sumc, ssc, tousev, sel, bsvals
@@ -6967,11 +7222,11 @@ void _finegray_boot_cif_obs_tvc(
     _finegray_tvc_positions(tvc_str, cols(Z), fixpos, tvcpos)
 
     if (bsvar != "") bsvals = st_data(sel, bsvar)
-    else             bsvals = J(length(sel), 1, .)
-    pieces = _finegray_tvc_bhpieces_bs(_finegray_bh_cache, tt, bsvals,
-        cuts, nint)
+    else             bsvals = J(length(sel), 1, _finegray_bh_tvc_cache[1, 1])
+    pieces = _finegray_tvc_mass_lookup(_finegray_bh_tvc_cache, tt, bsvals,
+        nint)
     eta = _finegray_tvc_eta(Z, beta, fixpos, tvcpos, nint)
-    cif = 1 :- exp(-_finegray_tvc_lambda(pieces, eta))
+    cif = _finegray_hazard_cif(_finegray_tvc_lambda(pieces, eta))
 
     sumc = st_data(sel, sumv)
     ssc = st_data(sel, ssv)
@@ -7017,7 +7272,8 @@ real matrix _finegray_bh_rebuild(
     string scalar tvc_str,
     string scalar tsplit_str,
     string scalar w_str,
-    real scalar wtype)
+    real scalar wtype,
+    real matrix interval_bh)
 {
     real matrix Z
     real colvector t, t0, delta, event_type, beta, byg_id, tg_id, G, bsraw, w
@@ -7031,6 +7287,7 @@ real matrix _finegray_bh_rebuild(
     if (args() < 11) tsplit_str = ""
     if (args() < 12) w_str = ""
     if (args() < 13) wtype = 0
+    interval_bh = J(0, 4, .)
 
     Z = st_data(., tokens(zvars), tousevar)
     t = st_data(., "_t", tousevar)
@@ -7052,7 +7309,8 @@ real matrix _finegray_bh_rebuild(
        Breslow baseline is a different curve from the unweighted one. */
     if (w_str != "")   w = st_data(., w_str, tousevar)
     else               w = J(n, 1, 1)
-    if (wtype == 1)    w = _finegray_pweight_unit(w)
+    if (wtype == 1) w = _finegray_pweight_model_unit(w, t, delta,
+        cause, censval, event_type)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     if (wtype == 2) {
@@ -7077,7 +7335,7 @@ real matrix _finegray_bh_rebuild(
         ivl = _finegray_tvc_interval(t, cuts)
         return(_finegray_basehazard_pw(t, delta, cause, censval, event_type,
             Z, beta, G, byg_id, t0, tg_id, use_pooled, gidx, Gminus, Gt,
-            Apool, bsraw, ivl, fixpos, tvcpos, nint, w))
+            Apool, bsraw, ivl, fixpos, tvcpos, nint, w, interval_bh))
     }
 
     return(_finegray_basehazard(t, delta, cause, censval, event_type, Z, beta,
@@ -7114,14 +7372,17 @@ real matrix _finegray_bh_rebuild(
    itself, so no two fits can present the same key and a cleared cache simply
    has no key at all.
    ------------------------------------------------------------------------ */
-void _finegray_bh_store(real matrix bh)
+void _finegray_bh_store(real matrix bh, | real matrix interval_bh)
 {
     external real matrix    _finegray_bh_cache
+    external real matrix    _finegray_bh_tvc_cache
     external real scalar    _finegray_bh_seq
     external string scalar  _finegray_bh_key
 
     if (_finegray_bh_seq == J(1,1,.) | _finegray_bh_seq >= .) _finegray_bh_seq = 0
     _finegray_bh_cache = bh
+    if (args() >= 2) _finegray_bh_tvc_cache = interval_bh
+    else _finegray_bh_tvc_cache = J(0, 4, .)
     _finegray_bh_seq   = _finegray_bh_seq + 1
     /* The key is minted only AFTER `ereturn post', by _finegray_bh_setkey,
        because the digest reads e().  Between the store and the mint the cache
@@ -7274,16 +7535,21 @@ void _finegray_bh_setkey(string scalar salt)
 }
 
 /* Does the cache hold the curve for THIS fit?  Sets the caller's local to 1/0. */
-void _finegray_bh_have(string scalar key, string scalar lname)
+void _finegray_bh_have(string scalar key, string scalar lname,
+    | real scalar need_tvc)
 {
     external real matrix _finegray_bh_cache
+    external real matrix _finegray_bh_tvc_cache
     external string scalar _finegray_bh_key
     real scalar ok
 
     ok = 0
+    if (args() < 3) need_tvc = 0
     if (_finegray_bh_key != "" & _finegray_bh_key == key) {
         if (rows(_finegray_bh_cache) > 0) ok = 1
     }
+    if (need_tvc & (cols(_finegray_bh_tvc_cache) != 4 |
+        rows(_finegray_bh_tvc_cache) == 0)) ok = 0
     st_local(lname, strofreal(ok))
 }
 
@@ -7303,10 +7569,12 @@ void _finegray_bh_have(string scalar key, string scalar lname)
 void _finegray_bh_stash()
 {
     external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
+    external real matrix _finegray_bh_tvc_cache, _finegray_bh_tvc_cache_stash
     external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
     external string scalar _finegray_bh_key, _finegray_bh_key_stash
 
     _finegray_bh_cache_stash = _finegray_bh_cache
+    _finegray_bh_tvc_cache_stash = _finegray_bh_tvc_cache
     _finegray_bh_seq_stash   = _finegray_bh_seq
     /* The key travels WITH the matrix.  Restoring the curve without its token
        leaves the held fit's e(bh_key) naming a cache that answers to the last
@@ -7316,10 +7584,12 @@ void _finegray_bh_stash()
 void _finegray_bh_unstash()
 {
     external real matrix _finegray_bh_cache, _finegray_bh_cache_stash
+    external real matrix _finegray_bh_tvc_cache, _finegray_bh_tvc_cache_stash
     external real scalar _finegray_bh_seq,   _finegray_bh_seq_stash
     external string scalar _finegray_bh_key, _finegray_bh_key_stash
 
     _finegray_bh_cache = _finegray_bh_cache_stash
+    _finegray_bh_tvc_cache = _finegray_bh_tvc_cache_stash
     _finegray_bh_seq   = _finegray_bh_seq_stash
     _finegray_bh_key   = _finegray_bh_key_stash
 }
@@ -7369,6 +7639,57 @@ void _finegray_bh_cutvals(
     st_matrix(cutmat, out)
 }
 
+/* Interval cumulative masses were captured BEFORE the cumulative carry.  A
+   small second-interval mass may disappear in the displayed total baseline,
+   yet give a substantial hazard after multiplication by its own exp(eta_j).
+   Never recover this payload by subtracting two rounded cumulative totals. */
+real matrix _finegray_tvc_mass_lookup(real matrix interval_bh,
+    real colvector times, real colvector bsvals, real scalar nint)
+{
+    real matrix out, block
+    real colvector lev, sel
+    real scalar k, j
+
+    if (cols(interval_bh) != 4 | rows(interval_bh) == 0) {
+        errprintf("finegray: separate tvc() interval baseline masses are not available\n")
+        errprintf("restore the estimation data or re-fit finegray with basehaz\n")
+        exit(error(459))
+    }
+    out = J(rows(times), nint, 0)
+    lev = uniqrows(bsvals)
+    for (k = 1; k <= rows(lev); k++) {
+        if (sum(interval_bh[., 1] :== lev[k]) == 0) {
+            errprintf("finegray: no tvc() interval baseline for bstrata() level %g\n", lev[k])
+            exit(error(459))
+        }
+        sel = select((1::rows(times)), bsvals :== lev[k])
+        for (j = 1; j <= nint; j++) {
+            block = select(interval_bh, (interval_bh[., 1] :== lev[k]) :&
+                (interval_bh[., 2] :== j))
+            if (rows(block) == 0) continue
+            out[sel, j] = _finegray_step_core(block[., 3..4], times[sel])
+        }
+    }
+    return(out)
+}
+
+void _finegray_tvc_mass_store(real matrix interval_bh, string scalar tvar,
+    string scalar tousevar, string scalar bsvar, string scalar piecevars)
+{
+    real colvector sel, times, bsvals
+    string rowvector vars
+
+    if (piecevars == "") return
+    vars = tokens(piecevars)
+    sel = selectindex(st_data(., tousevar))
+    if (length(sel) == 0) return
+    times = st_data(sel, tvar)
+    if (bsvar != "") bsvals = st_data(sel, bsvar)
+    else bsvals = J(length(sel), 1, 1)
+    st_store(sel, vars, _finegray_tvc_mass_lookup(interval_bh, times,
+        bsvals, length(vars)))
+}
+
 /* Step lookup against the cached curve.  Refuses a mismatched seq rather than
    answering from another fit's baseline. */
 void _finegray_step_lookup_cached(
@@ -7378,15 +7699,18 @@ void _finegray_step_lookup_cached(
     string scalar tousevar,
     | string scalar bsvar,
     string scalar tsplit_str,
-    string scalar cutmat)
+    string scalar cutmat,
+    string scalar piecevars)
 {
     external real matrix _finegray_bh_cache
+    external real matrix _finegray_bh_tvc_cache
     external string scalar _finegray_bh_key
     real colvector touse_vec, sel, times, H0, bsvals
 
     if (args() < 5) bsvar = ""
     if (args() < 6) tsplit_str = ""
     if (args() < 7) cutmat = ""
+    if (args() < 8) piecevars = ""
 
     if (_finegray_bh_key == "" | _finegray_bh_key != key |
         rows(_finegray_bh_cache) == 0) {
@@ -7402,6 +7726,8 @@ void _finegray_step_lookup_cached(
     else             bsvals = J(length(sel), 1, 1)
     H0 = _finegray_step_core_bs(_finegray_bh_cache, times, bsvals)
     st_store(sel, H0var, H0)
+    _finegray_tvc_mass_store(_finegray_bh_tvc_cache, tvar, tousevar,
+        bsvar, piecevars)
 }
 
 /* The thinned grid, taken from the cached curve (finegray_cif's curve mode). */
@@ -7548,9 +7874,10 @@ void _finegray_step_lookup_direct(
     string scalar tsplit_str,
     string scalar cutmat,
     string scalar w_str,
-    real scalar wtype)
+    real scalar wtype,
+    string scalar piecevars)
 {
-    real matrix bh
+    real matrix bh, interval_bh
     real colvector touse_vec, sel, times, H0, bsvals
 
     if (args() < 12) bs_str = ""
@@ -7559,9 +7886,10 @@ void _finegray_step_lookup_direct(
     if (args() < 15) cutmat = ""
     if (args() < 16) w_str = ""
     if (args() < 17) wtype = 0
+    if (args() < 18) piecevars = ""
 
     bh = _finegray_bh_rebuild(zvars, events_str, cause, censval, byg_str,
-        tg_str, est_touse, t0var, bs_str, tvc_str, tsplit_str, w_str, wtype)
+        tg_str, est_touse, t0var, bs_str, tvc_str, tsplit_str, w_str, wtype, interval_bh)
     _finegray_bh_cutvals(bh, tsplit_str, cutmat)
     touse_vec = st_data(., eval_touse)
     sel = selectindex(touse_vec)
@@ -7571,6 +7899,7 @@ void _finegray_step_lookup_direct(
     else              bsvals = J(length(sel), 1, 1)
     H0 = _finegray_step_core_bs(bh, times, bsvals)
     st_store(sel, H0var, H0)
+    _finegray_tvc_mass_store(interval_bh, tvar, eval_touse, bs_str, piecevars)
 }
 
 /* The THINNED baseline time grid for finegray_cif's curve mode.  Posts at most
@@ -7637,7 +7966,8 @@ void _finegray_step_lookup(
     string scalar tousevar,
     | string scalar bsvar,
     string scalar tsplit_str,
-    string scalar cutmat)
+    string scalar cutmat,
+    string scalar piecevars)
 {
     real matrix bh
     real colvector times, H0, touse_vec, sel, bsvals
@@ -7645,6 +7975,7 @@ void _finegray_step_lookup(
     if (args() < 5) bsvar = ""
     if (args() < 6) tsplit_str = ""
     if (args() < 7) cutmat = ""
+    if (args() < 8) piecevars = ""
 
     bh = st_matrix(bh_matname)
     _finegray_bh_cutvals(bh, tsplit_str, cutmat)
@@ -7656,6 +7987,8 @@ void _finegray_step_lookup(
     else             bsvals = J(length(sel), 1, 1)
     H0 = _finegray_step_core_bs(bh, times, bsvals)
     st_store(sel, H0var, H0)
+    if (piecevars != "") _finegray_tvc_mass_store(st_matrix("e(basehaz_tvc)"),
+        tvar, tousevar, bsvar, piecevars)
 }
 
 /* Assign Schoenfeld residuals from matrix to variables via index lookup.
@@ -7687,6 +8020,9 @@ void _finegray_assign_schoenfeld_vars(
     }
 }
 
+
+/* Installed callers probe this after every numerical helper compiled. */
+void _finegray_numeric_ok() {}
 
 end
 

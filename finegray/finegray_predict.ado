@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.8  2026/10/06
+*! finegray_predict Version 1.3.8  2026/10/07
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -169,15 +169,16 @@ program define finegray_predict, rclass sortpreserve
     * much smaller design and the reported SE is inflated (measured 2026-09-01:
     * about twice the analytic one).  Refuse rather than report it.  The
     * analytic interval needs no resampling here: under frequency weights the
-    * influence-function variance is exact, because an fweighted fit IS the fit
-    * of the replicated data (asserted bit for bit in qa/test_finegray_weights.do,
-    * WT-03).
+    * influence-function variance equals that of the expanded data, because an
+    * fweighted fit IS the fit of the replicated data (asserted bit for bit in
+    * qa/test_finegray_weights.do, WT-03).  It is the same asymptotic interval,
+    * not an exact one.
     if `bootstrap' > 0 & `"`e(wtype)'"' == "fweight" {
         display as error "bootstrap() is not supported after a fit with fweights"
         display as error "{bf:bsample} resamples rows, not the replicated subjects the"
         display as error "frequency weights stand for, so the replicate SD would describe"
         display as error "a smaller sample than the fit"
-        display as error "the analytic interval is exact under fweights -- use {bf:ci} without"
+        display as error "the analytic interval equals that of the expanded data -- use {bf:ci} without"
         display as error "{bf:bootstrap()}, or expand the data ({bf:expand} the weight) and"
         display as error "bootstrap the expanded fit"
         exit 198
@@ -284,7 +285,11 @@ program define finegray_predict, rclass sortpreserve
             display as error "{bf:`attime'} is not a usable analysis time"
             exit 198
         }
-        local _fg_attime = real(`"`attime'"')
+        * Carried in a scalar: exact, and a subnormal horizon would print in
+        * %21x as +0.0...X-3ff, which Stata cannot read back as a literal.
+        tempname _fg_attime_s
+        scalar `_fg_attime_s' = real(`"`attime'"')
+        local _fg_attime "`_fg_attime_s'"
     }
 
     * FG-07: refuse options that the selected statistic silently ignores, so a
@@ -854,8 +859,8 @@ program define finegray_predict, rclass sortpreserve
             * a missing prediction rather than the first interval's answer.
             tempvar _pxt
             if "`_fg_attime'" != "" {
-                quietly gen double `_pxt' = `_fg_attime'
-                local _xblbl "at t = `_fg_attime'"
+                quietly gen double `_pxt' = scalar(`_fg_attime')
+                local _xblbl "at t = `attime'"
             }
             else {
                 capture confirm variable _t
@@ -915,7 +920,7 @@ program define finegray_predict, rclass sortpreserve
         }
 
         * Load Mata engine for the baseline rebuild / step lookup
-        capture mata: _finegray_mata_ok()
+        capture mata: _finegray_numeric_ok()
         * probe MATA, not a Stata program: `mata clear' drops Mata functions but
         * leaves Stata programs standing, so a program sentinel says "loaded" when
         * the engine is gone and the next Mata call dies with r(3499).
@@ -1056,7 +1061,7 @@ program define finegray_predict, rclass sortpreserve
         quietly gen double `H0_val' = 0
 
         * Load Mata engine for step lookup
-        capture mata: _finegray_mata_ok()
+        capture mata: _finegray_numeric_ok()
         * probe MATA, not a Stata program: `mata clear' drops Mata functions but
         * leaves Stata programs standing, so a program sentinel says "loaded" when
         * the engine is gone and the next Mata call dies with r(3499).
@@ -1078,16 +1083,19 @@ program define finegray_predict, rclass sortpreserve
                 exit 111
             }
         }
-        * Under tvc() the same call also returns Lambda_0 AT each tsplit()
-        * boundary, from the SAME curve it just evaluated per observation.
-        * Reading those from a second, independently resolved baseline is how a
-        * CIF ends up mixing two curves at rc 0.
-        tempname _pcut
+        * Under tvc() resolve each interval's baseline mass from the SAME
+        * fitted curve as the cumulative lookup; no rounded-total subtraction.
         if `_fg_istvc' {
+            local _p_piecevars ""
+            forvalues _pj = 1/`_fg_nint' {
+                tempvar _ppv`_pj'
+                quietly gen double `_ppv`_pj'' = . if `touse'
+                local _p_piecevars "`_p_piecevars' `_ppv`_pj''"
+            }
             _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') ///
                 touse(`touse') hasbh(`_has_bh') t0var(`_t0var') ///
-                bsvar(`_bsvar') tsplit(`_fg_cuts') cutmat(`_pcut') ///
-                tvcpos(`_fg_tvcpos')
+                bsvar(`_bsvar') tsplit(`_fg_cuts') ///
+                piecevars(`_p_piecevars') tvcpos(`_fg_tvcpos')
         }
         else {
             _finegray_resolve_baseline, tvar(`tvar') h0(`H0_val') touse(`touse') ///
@@ -1095,81 +1103,26 @@ program define finegray_predict, rclass sortpreserve
         }
 
         if !`_fg_istvc' {
-            * exp(xb), or H0 exp(xb), can exceed double precision at a finite
-            * but extreme profile; Stata then returns missing for a CIF whose
-            * value is 1 to machine precision (Lambda above maxdouble), or 0
-            * when H0 is still 0 (0 * missing is missing).  Evaluate those
-            * limits; a missing H0 or xb stays missing.  The finite branch is
-            * the shipped arithmetic, unchanged.  Same contract as
-            * _finegray_cif_stable in _finegray_mata.ado.
-            quietly gen `typlist' `varlist' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, which covers this branch and the piecewise one (both write `varlist')
-                cond(!missing(`H0_val' * exp(`xb_val')), ///
-                    1 - exp(-`H0_val' * exp(`xb_val')), ///
-                    cond(missing(`H0_val') | missing(`xb_val'), ., ///
-                        cond(`H0_val' > 0, 1, 0))) if `touse'
+            * Evaluate the hazard product in the log domain and the CIF with
+            * expm1(): an overflowing exp(xb) may still have a finite product,
+            * and subtracting exp(-Lambda) from 1 loses a tiny positive CIF.
+            quietly gen `typlist' `varlist' = . if `touse' // stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below
+            local _created_vars "`varlist'"
+            mata: st_store(., "`varlist'", "`touse'", ///
+                _finegray_cif_stable(st_data(., "`H0_val'", "`touse'"), ///
+                st_data(., "`xb_val'", "`touse'")))
         }
         else {
-            * CIF(s|z) = 1 - exp(-sum_j m_j(s) exp(eta_j(z))), where m_j(s) is
-            * the baseline mass that falls inside interval j up to s:
-            *   m_j(s) = max(0, min(H0(s), H0(cut_j)) - H0(cut_{j-1}))
-            * with H0(cut_0) = 0 and cut_J = +infinity.  This needs no left
-            * limits because interval j is (cut_{j-1}, cut_j]: a baseline jump
-            * exactly at a boundary belongs to the interval that closes there,
-            * which is the same tie rule the fit used.  min() ignores a missing
-            * argument in Stata, so the open last interval is written as min(H0, .).
-            * The tsplit() boundary values of Lambda_0.  Without bstrata() there
-            * is one baseline, so `_pcut' is 1 x (J-1) and every row shares the
-            * same boundaries.  WITH bstrata() the baseline is one curve per
-            * stratum and so are the boundaries: `_pcut' comes back K x J with
-            * the stratum VALUE in column 1 (the e(basehaz) convention), and the
-            * accumulation below has to read each row's own stratum's row.
-            * Materialise them as columns rather than macros, because a macro
-            * cannot vary by observation and a scalar boundary applied to every
-            * stratum is exactly the pooled-baseline answer this composition
-            * exists to avoid.
-            * The layout is read from the COLUMN count, which is the schema:
-            * J-1 boundaries alone, or a stratum column plus J-1 boundaries.
-            * The row count is not: a fit with several strata but cause
-            * events in only one posts a ONE-row stratified matrix, and
-            * `rowsof() > 1' read its stratum value as Lambda_0(cut_1)
-            * (1.3.7).  A genuinely single-level fit keeps the compact
-            * unstratified K x 2 baseline and so the J-1 shape.
-            local _p_ncol = colsof(`_pcut')
-            if `_p_ncol' != `_fg_nint' - 1 & `_p_ncol' != `_fg_nint' {
-                display as error "internal error: tsplit() boundary matrix has `_p_ncol' columns"
-                display as error "for `_fg_nint' intervals"
-                exit 498
-            }
-            local _p_bs = ("`_bsvar'" != "" & `_p_ncol' == `_fg_nint')
-            if `_p_bs' {
-                forvalues _pj = 1/`= `_fg_nint' - 1' {
-                    tempvar _pcv`_pj'
-                    quietly gen double `_pcv`_pj'' = . if `touse'
-                }
-                forvalues _pr = 1/`= rowsof(`_pcut')' {
-                    local _plv : display %21x `_pcut'[`_pr', 1]
-                    forvalues _pj = 1/`= `_fg_nint' - 1' {
-                        quietly replace `_pcv`_pj'' = `_pcut'[`_pr', `= `_pj' + 1'] ///
-                            if `touse' & `_bsvar' == `_plv'
-                    }
-                }
-                * A row whose stratum the fit never saw has no baseline to
-                * answer from; the H0 lookup above has already refused such a
-                * row, so any missing left here would be a routing error.
-                forvalues _pj = 1/`= `_fg_nint' - 1' {
-                    quietly count if `touse' & missing(`_pcv`_pj'')
-                    if r(N) > 0 {
-                        display as error "internal error: `r(N)' observation(s) have no"
-                        display as error "baseline boundary value for their bstrata() level"
-                        exit 498
-                    }
-                }
-            }
-
-            tempvar _plam _ppiece _pterm _pbad _povf
+            * Each interval carries its own cumulative baseline mass. Subtracting
+            * two cumulative totals loses a later interval's positive mass when
+            * it is below one ulp of the earlier interval's much larger total.
+            * The resolver supplied all pieces from the same fitted baseline,
+            * including a stratum-specific lookup when bstrata() was fitted.
+            tempvar _plam _ppiece _pterm _pbad _povf _peta
             quietly gen double `_plam' = 0 if `touse'
             quietly gen double `_ppiece' = .
             quietly gen double `_pterm' = .
+            quietly gen double `_peta' = .
             * Overflow bookkeeping, one flag per row: `_pbad' marks a missing
             * piece or linear predictor (no prediction); `_povf' marks a term
             * that exceeded double precision at a finite predictor over a
@@ -1178,24 +1131,17 @@ program define finegray_predict, rclass sortpreserve
             * _finegray_tvc_lambda in _finegray_mata.ado.
             quietly gen byte `_pbad' = 0 if `touse'
             quietly gen byte `_povf' = 0 if `touse'
-            tempvar _plov
-            quietly gen double `_plov' = 0 if `touse'
             forvalues _pj = 1/`_fg_nint' {
-                if `_pj' == `_fg_nint' {
-                    quietly replace `_ppiece' = `H0_val' - `_plov' if `touse'
+                quietly replace `_ppiece' = `_ppv`_pj'' if `touse'
+                quietly count if `touse' & `_ppiece' < 0
+                if r(N) {
+                    display as error "internal error: negative interval baseline mass"
+                    exit 498
                 }
-                else if `_p_bs' {
-                    quietly replace `_ppiece' = ///
-                        min(`H0_val', `_pcv`_pj'') - `_plov' if `touse'
-                }
-                else {
-                    local _phi = `_pcut'[1, `_pj']
-                    quietly replace `_ppiece' = ///
-                        min(`H0_val', `_phi') - `_plov' if `touse'
-                }
-                quietly replace `_ppiece' = 0 if `touse' & `_ppiece' < 0
-                quietly replace `_pterm' = ///
-                    `_ppiece' * exp(`_fg_xbfix' + `_fg_xbtv`_pj'') if `touse'
+                quietly replace `_peta' = `_fg_xbfix' + `_fg_xbtv`_pj'' if `touse'
+                mata: st_store(., "`_pterm'", "`touse'", ///
+                    _finegray_hazard_product(st_data(., "`_ppiece'", "`touse'"), ///
+                    st_data(., "`_peta'", "`touse'")))
                 quietly replace `_pbad' = 1 if `touse' & (missing(`_ppiece') ///
                     | missing(`_fg_xbfix' + `_fg_xbtv`_pj''))
                 quietly replace `_pterm' = 0 if `touse' & missing(`_pterm') ///
@@ -1203,15 +1149,16 @@ program define finegray_predict, rclass sortpreserve
                 quietly replace `_povf' = 1 if `touse' & missing(`_pterm') ///
                     & !`_pbad'
                 quietly replace `_plam' = `_plam' + `_pterm' if `touse'
-                if `_pj' < `_fg_nint' {
-                    if `_p_bs' quietly replace `_plov' = `_pcv`_pj'' if `touse'
-                    else       quietly replace `_plov' = `_phi' if `touse'
-                }
             }
             * A missing `_plam' with neither flag set is the SUM overflowing,
             * which is the same limit as a term overflowing.
-            quietly gen `typlist' `varlist' = cond(`_pbad', ., ///
-                cond(`_povf' | missing(`_plam'), 1, 1 - exp(-`_plam'))) if `touse'
+            quietly replace `_plam' = . if `touse' & `_pbad'
+            quietly gen `typlist' `varlist' = . if `touse'
+            local _created_vars "`varlist'"
+            mata: st_store(., "`varlist'", "`touse'", ///
+                _finegray_hazard_cif(st_data(., "`_plam'", "`touse'")))
+            quietly replace `varlist' = 1 if `touse' & !`_pbad' & ///
+                (`_povf' | missing(`_plam'))
         }
         local _created_vars "`varlist'"
 
@@ -1484,17 +1431,12 @@ program define finegray_predict, rclass sortpreserve
             * Complementary log-log limits keep the interval inside (0,1):
             * g = ln(-ln(1-CIF)), SE(g) = SE(CIF)/((1-CIF)*(-ln(1-CIF)))
             local z = invnormal(1 - (1 - `level'/100)/2)
-            tempvar gpt segp
-            quietly gen double `gpt' = ln(-ln(1 - `varlist')) ///
-                if `touse' & `varlist' > 0 & `varlist' < 1
-            quietly gen double `segp' = `se_cif' / ///
-                ((1 - `varlist') * (-ln(1 - `varlist'))) ///
-                if `touse' & `varlist' > 0 & `varlist' < 1
-            quietly gen double `lci' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
-                1 - exp(-exp(`gpt' - `z' * `segp')) if `touse'
-            quietly gen double `uci' = /// stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below, after both limits are registered for cleanup
-                1 - exp(-exp(`gpt' + `z' * `segp')) if `touse'
+            quietly gen double `lci' = . if `touse' // stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below
+            quietly gen double `uci' = . if `touse' // stata-dev-ignore: unchecked-commit -- guarded by the _finegray_assert_cardinality call below
             local _created_vars "`_created_vars' `lci' `uci'"
+            mata: st_store(., ("`lci'", "`uci'"), "`touse'", ///
+                _finegray_cloglog_ci(st_data(., "`varlist'", "`touse'"), ///
+                st_data(., "`se_cif'", "`touse'"), `z'))
             * A limit that could not be computed stays MISSING.  Through v1.1.0
             * these two lines collapsed it onto the point estimate, which turns
             * "we cannot quantify the uncertainty here" into "there is none":
@@ -1556,7 +1498,7 @@ program define finegray_predict, rclass sortpreserve
         }
 
         * Load Mata engine
-        capture mata: _finegray_mata_ok()
+        capture mata: _finegray_numeric_ok()
         * probe MATA, not a Stata program: `mata clear' drops Mata functions but
         * leaves Stata programs standing, so a program sentinel says "loaded" when
         * the engine is gone and the next Mata call dies with r(3499).

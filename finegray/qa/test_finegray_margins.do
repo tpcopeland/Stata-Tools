@@ -485,7 +485,9 @@ capture noisily {
     * at(pel_1=1) alone leaves pel_1_ifp at its sample mean; the factor fit's
     * over() sets the interaction from the level, so build that profile
     quietly summarize ifp if e(sample), meanonly
-    quietly finegray_cif, at(pel_1=1 pel_1_ifp=`r(mean)') attime(2 5) nograph
+    * Match the factor profile's actual mean, retaining its full double.
+    local mean_ifp : display %21x r(mean)
+    quietly finegray_cif, at(pel_1=1 pel_1_ifp=`mean_ifp') attime(2 5) nograph
     tempname O1 S0 S1
     matrix `O1' = r(table)
     matrix `S0' = `C1o'[1..2, 1..5]

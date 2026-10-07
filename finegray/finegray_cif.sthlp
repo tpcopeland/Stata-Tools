@@ -74,18 +74,18 @@ follow-up when its grid reaches the last cause-event time (the CIF is flat past
 it), and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
 
-{pstd}
-The command requires the unchanged {cmd:stset} estimation data: it checks the
-complete original fitting tuples, so a change to the data, including a
-permutation of one variable's values across observations, is {cmd:r(459)}
-({cmd:the estimation data no longer reproduce the fitted observation tuples}).
-Estimates saved by finegray 1.3.7 or earlier carry no {cmd:e(rowsig)}, so every
-form of {cmd:finegray_cif}, including a point CIF with {opt at()} and a baseline
+{pstd} The command requires the unchanged {cmd:stset} estimation data: it
+checks the complete original fitting tuples, so a change to the data,
+including a permutation of one variable's values across observations, is
+{cmd:r(459)}
+({cmd:the estimation data no longer reproduce the fitted observation tuples}). Estimates
+saved by finegray 1.3.7 or earlier carry no {cmd:e(rowsig)}, so every form of
+{cmd:finegray_cif}, including a point CIF with {opt at()} and a baseline
 posted by {opt basehaz}, is {cmd:r(301)}
-({cmd:this fit predates joint-row estimation-data identity checks}); refit with
-{cmd:finegray}. A converged fit
-is required ({cmd:r(430)} otherwise). Not available after a fit on {cmd:mi}
-data ({cmd:r(301)}); see {help finegray##mi:Multiple imputation}.
+({cmd:this fit predates joint-row estimation-data identity checks}); refit
+with {cmd:finegray}. A converged fit is required ({cmd:r(430)} otherwise). Not
+available after a fit on {cmd:mi} data ({cmd:r(301)}); see
+{help finegray##mi:Multiple imputation}.
 
 {marker options}{...}
 {title:Options}
@@ -248,8 +248,9 @@ the standard error and limits differ. The original estimation results and
 {cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
 fweighted fit stores its replication in a weight column rather than in rows, so
 the replicate SD would describe a much smaller design than the fit. The
-analytic {opt ci} is exact under frequency weights -- an fweighted fit is the
-fit of the replicated data -- so use it, or {helpb expand} the data by the
+analytic {opt ci} needs no resampling under frequency weights -- an fweighted
+fit is the fit of the replicated data, so the analytic interval equals the one
+from the expanded data, with the same large-sample approximation -- so use it, or {helpb expand} the data by the
 weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
 unaffected.
 
@@ -308,15 +309,14 @@ example, {cmd:ciopts(color(navy%20))} draws a navy band at 20% opacity. Requires
 {it:#} only, after anything in {opt ciopts()}. The numbering and the range rule
 are those of {opt plot#opts()}. Requires {opt ci}.
 
-{phang}
-{it:twoway_options} are any of the options documented in {help twoway_options},
-for example {cmd:title()}, {cmd:xtitle()}, {cmd:note()}, or
-{cmd:scheme()}. These pass through to the CIF plot and override the defaults;
-their text is read exactly as {cmd:twoway} reads it, so SMCL markup in it is
-honoured and a literal dollar sign, brace or backquote is typed as its SMCL
-character code (see {help smcl}). In
-{opt attime()} mode no graph is drawn, so these options, and the plot options
-above, are ignored with a note.
+{phang} {it:twoway_options} are any of the options documented in
+{help twoway_options}, for example {cmd:title()}, {cmd:xtitle()},
+{cmd:note()}, or {cmd:scheme()}. These pass through to the CIF plot and
+override the defaults; their text is read exactly as {cmd:twoway} reads it, so
+SMCL markup in it is honoured and a literal dollar sign, brace or backquote is
+typed as its SMCL character code (see {help smcl}). In {opt attime()} mode no
+graph is drawn, so these options, and the plot options above, are ignored with
+a note.
 
 {pmore}
 The default graph has no note; add one with, for example,

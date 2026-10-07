@@ -1,4 +1,4 @@
-*! finegray Version 1.3.8  2026/10/06
+*! finegray Version 1.3.8  2026/10/07
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -89,7 +89,7 @@ program define finegray, eclass sortpreserve
     * cleanup zone puts them back, contents and stripes, on success and error.
     local _fg_engmats _finegray_b _finegray_V _finegray_ll _finegray_ll_0 ///
         _finegray_chi2 _finegray_df_m _finegray_conv ///
-        _finegray_rank _finegray_nclust _finegray_basehaz ///
+        _finegray_rank _finegray_nclust _finegray_basehaz _finegray_basehaz_tvc ///
         _finegray_kbstrata ///
         _finegray_nwstrata _finegray_minprob _finegray_maxwt ///
         _finegray_nprobwarn _finegray_nwtwarn _finegray_nprehole
@@ -1146,12 +1146,16 @@ program define finegray, eclass sortpreserve
     * counts alone: e(N) is the number of subjects, as in every official
     * pweight estimator.  e(sum_w) carries the weight total either way.
     local _fg_Nrep = `N'
-    local _fg_sumw = .
+    * The weight total travels in a scalar, not a macro: no text round-trip
+    * can drop its last bit, and a subnormal total (pweight*1e-318) prints in
+    * %21x as +0.0...X-3ff, which Stata cannot read back as a literal.
+    tempname _fg_sumw
+    scalar `_fg_sumw' = .
     local _fg_wsig ""
     local _fg_wsig_n = 0
     if "`weight'" != "" {
         quietly summarize `_fg_w' if `touse', meanonly
-        local _fg_sumw = r(sum)
+        scalar `_fg_sumw' = r(sum)
         if "`weight'" == "fweight" {
             local _fg_Nrep = r(sum)
             quietly summarize `_fg_w' if `compete' == `cause' & `touse', meanonly
@@ -1937,7 +1941,7 @@ program define finegray, eclass sortpreserve
     * =========================================================================
     * LOAD MATA ENGINE
     * =========================================================================
-    capture mata: _finegray_mata_ok()
+    capture mata: _finegray_numeric_ok()
     * probe MATA, not a Stata program: `mata clear' drops Mata functions but
     * leaves Stata programs standing, so a program sentinel says "loaded" when
     * the engine is gone and the next Mata call dies with r(3499).
@@ -2360,7 +2364,7 @@ program define finegray, eclass sortpreserve
 
     ereturn scalar N = `_fg_Nrep'
     if "`weight'" != "" {
-        ereturn scalar sum_w = `_fg_sumw'
+        ereturn scalar sum_w = scalar(`_fg_sumw')
         ereturn scalar wsig_n = `_fg_wsig_n'
         ereturn local wsig "`_fg_wsig'"
         ereturn local wsigkeyvars "`_fg_wsigkey'"
@@ -2768,6 +2772,10 @@ program define finegray, eclass sortpreserve
         capture confirm matrix _finegray_basehaz
         if _rc == 0 {
             ereturn matrix basehaz = _finegray_basehaz
+        }
+        if "`tvc'" != "" {
+            capture confirm matrix _finegray_basehaz_tvc
+            if _rc == 0 ereturn matrix basehaz_tvc = _finegray_basehaz_tvc
         }
     }
 
