@@ -77,7 +77,11 @@ capture noisily {
     _v_value B6 "B. MRI"
     _v_value B7 "   Repleted"
     _v_value E7 "9"
-    _v_has merge "" "B3:E3 B6:E6"
+    * 2.5.6: heading rows are not merged; the title is the only merge
+    _v_none merge "B3:E3 B6:E6"
+    _v_count merge
+    assert r(n) == 1
+    _v_has merge "" "A1:E1"
     _v_has bold "" "B3 B6"
     _v_none bold "B4 B5 B7"
     _v_has top thin "B3 C3 D3 E3 B6 C6 D6 E6"
@@ -291,6 +295,59 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: spanheader() refusals (rc=`=_rc')"
+    local ++fail_count
+}
+
+**# 2.5.6: panel headings are not merged and set the row-label column width
+local ++test_count
+capture noisily {
+    local book "`output_dir'/pt230_pw.xlsx"
+    capture erase "`book'"
+    * Headings longer than every row label: the 41-character heading must
+    * widen column B; the 71-character one hits the 50-character cap.
+    clear
+    input str12 lab str4(a b c) str80 pan
+    "Short" "1" "2" "3" "Any narcolepsy code on or before delivery"
+    "Other" "4" "5" "6" "Any narcolepsy code on or before delivery"
+    "Third" "7" "8" "9" "Second"
+    end
+    local h1 "Any narcolepsy code on or before delivery"
+    assert strlen("`h1'") == 41
+    puttab lab a b c using "`book'", sheet("W") panel(pan) title("T")
+    assert r(n_panels) == 2
+    * Layout: title 1, header 2, heading 3, rows 4-5, heading 6, row 7.
+    _v_facts "`book'" "W"
+    _v_value B3 "`h1'"
+    _v_value B6 "Second"
+    _v_none merge "B3:E3 B6:E6"
+    _v_count merge
+    assert r(n) == 1
+    _v_has merge "" "A1:E1"
+    _v_none value "C3 D3 E3 C6 D6 E6"
+    _v_has bold "" "B3 C3 D3 E3 B6"
+    _v_has top thin "B3 C3 D3 E3 B6 C6 D6 E6"
+    * width fact: "width B <w>"; the longest row label is 8 characters
+    * ("   Short"), so a heading-blind width is under 12 + 1.
+    _v_grep "$V230_RES" "^width B "
+    assert r(n) == 1
+    mata: st_local("wB", tokens(select(cat("$V230_RES"), strmatch(cat("$V230_RES"), "width B *"))[1])[3])
+    assert `wB' >= 41
+
+    * a heading over the 50-character cap stops at the cap (and wraps)
+    replace pan = "A heading that is far longer than fifty characters, it really is long" in 1/2
+    assert strlen(pan[1]) > 50
+    puttab lab a b c using "`book'", sheet("W2") panel(pan)
+    _v_facts "`book'" "W2"
+    _v_none merge "B3:E3"
+    mata: st_local("wB", tokens(select(cat("$V230_RES"), strmatch(cat("$V230_RES"), "width B *"))[1])[3])
+    assert `wB' >= 50 & `wB' < 51
+}
+if _rc == 0 {
+    display as result "  PASS: panel headings unmerged; heading text sets column B width (capped at 50)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: panel heading merge/width (rc=`=_rc')"
     local ++fail_count
 }
 

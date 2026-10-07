@@ -1,4 +1,4 @@
-*! _regtab_eqkeys Version 2.5.5  2026/10/07
+*! _regtab_eqkeys Version 2.5.6  2026/10/07
 *! equation key of every row of a coleq#colname rendering
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
