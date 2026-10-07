@@ -358,10 +358,15 @@ capture noisily {
     webuse hypoxia, clear
     gen byte status = failtype
     replace ifp = . in 1/12
+    stset dftime, failure(status==1) id(stnum)
+    sts generate na1 = na
+    stset dftime, failure(status==2) id(stnum)
+    sts generate na2 = na
+    stset, clear
     mi set wide
     mi register imputed ifp
-    mi register regular tumsize pelnode status dftime dfcens stnum
-    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi register regular tumsize pelnode status dftime dfcens stnum na1 na2
+    mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)
     mi stset dftime, failure(dfcens==1) id(stnum)
     mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)
 }
@@ -1125,10 +1130,15 @@ capture noisily {
     webuse hypoxia, clear
     gen byte status = failtype
     replace ifp = . in 1/12
+    stset dftime, failure(status==1) id(stnum)
+    sts generate na1 = na
+    stset dftime, failure(status==2) id(stnum)
+    sts generate na2 = na
+    stset, clear
     mi set wide
     mi register imputed ifp
-    mi register regular tumsize pelnode status dftime dfcens stnum
-    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi register regular tumsize pelnode status dftime dfcens stnum na1 na2
+    mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)
     mi stset dftime, failure(dfcens == 1) id(stnum)
     mi estimate, cmdok eform("SHR"): finegray ifp tumsize pelnode, compete(status) cause(1)
 }
@@ -1234,10 +1244,15 @@ capture noisily {
     webuse hypoxia, clear
     gen byte status = failtype
     replace ifp = . in 1/12
+    stset dftime, failure(status==1) id(stnum)
+    sts generate na1 = na
+    stset dftime, failure(status==2) id(stnum)
+    sts generate na2 = na
+    stset, clear
     mi set wide
     mi register imputed ifp
-    mi register regular tumsize pelnode status dftime dfcens stnum
-    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi register regular tumsize pelnode status dftime dfcens stnum na1 na2
+    mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)
     mi stset dftime, failure(dfcens==1) id(stnum)
     mi estimate, cmdok eform("SHR"): finegray ifp, compete(status) cause(1)
     assert "`e(cmd)'" == "mi estimate"
@@ -1268,10 +1283,15 @@ capture noisily {
     webuse hypoxia, clear
     gen byte status = failtype
     replace ifp = . in 1/12
+    stset dftime, failure(status==1) id(stnum)
+    sts generate na1 = na
+    stset dftime, failure(status==2) id(stnum)
+    sts generate na2 = na
+    stset, clear
     mi set wide
     mi register imputed ifp
-    mi register regular tumsize pelnode status dftime dfcens stnum
-    mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)
+    mi register regular tumsize pelnode status dftime dfcens stnum na1 na2
+    mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)
     mi stset dftime, failure(dfcens==1) id(stnum)
     mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)
     assert "`e(cmd_mi)'" == "finegray"
