@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.3.8  2026/10/06
+*! _finegray_resolve_baseline Version 1.3.8  2026/10/07
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)
@@ -55,7 +55,7 @@ program define _finegray_resolve_baseline
         * types these.
         syntax , tvar(name) h0(name) touse(name) hasbh(integer) ///
             [t0var(string) bsvar(string) tsplit(string) cutmat(string) ///
-            tvcpos(string)]
+            tvcpos(string) piecevars(string)]
 
         * PIECEWISE beta(t).  Two things change under tvc(), and both have to
         * travel down whichever of the three paths is taken:
@@ -74,22 +74,30 @@ program define _finegray_resolve_baseline
             exit 198
         }
 
+        * A posted cumulative total cannot recover an interval mass lost to
+        * rounding.  Older estimates without the separate payload may still
+        * use their keyed cache or the verified estimation-data rebuild.
+        if `"`piecevars'"' != "" & `hasbh' {
+            capture confirm matrix e(basehaz_tvc)
+            if _rc local hasbh = 0
+        }
+
         * 1. the posted matrix
         if `hasbh' {
             mata: _finegray_step_lookup("e(basehaz)", "`tvar'", "`h0'", ///
-                "`touse'", "`bsvar'", "`tsplit'", "`cutmat'")
+                "`touse'", "`bsvar'", "`tsplit'", "`cutmat'", "`piecevars'")
         }
         else {
             * 2. the Mata cache, but only if it belongs to THIS fit
             local _key `"`e(bh_key)'"'
             local _have = 0
             if `"`_key'"' != "" {
-                mata: _finegray_bh_have("`_key'", "_have")
+                mata: _finegray_bh_have("`_key'", "_have", (`"`piecevars'"' != ""))
             }
 
             if `_have' {
                 mata: _finegray_step_lookup_cached("`_key'", "`tvar'", "`h0'", ///
-                    "`touse'", "`bsvar'", "`tsplit'", "`cutmat'")
+                    "`touse'", "`bsvar'", "`tsplit'", "`cutmat'", "`piecevars'")
             }
             else {
                 * 3. rebuild from the estimation data -- if they are still here
@@ -102,6 +110,12 @@ program define _finegray_resolve_baseline
                 }
 
                 if !`_rebuildable' {
+                    if `"`piecevars'"' != "" {
+                        display as error "separate tvc() interval baseline masses are not available"
+                        display as error "this saved fit has no retained interval payload and the estimation data"
+                        display as error "are no longer in memory; restore those data or re-fit finegray with basehaz"
+                        exit 459
+                    }
                     * A fit saved before e(rowsig) cannot be rebuilt from the
                     * data in any state: name that, as every recomputing route
                     * does (_finegray_check_data), rather than the generic loss.
@@ -257,7 +271,7 @@ program define _finegray_resolve_baseline
                     "`_byg_mata'", "`_tg_mata'", "`_es'", "`t0var'", ///
                     "`tvar'", "`h0'", "`touse'", "`_bs_est'", ///
                     "`tvcpos'", "`tsplit'", "`cutmat'", ///
-                    "`_fg_wmata'", `_fg_wtype')
+                    "`_fg_wmata'", `_fg_wtype', "`piecevars'")
             }
         }
     }

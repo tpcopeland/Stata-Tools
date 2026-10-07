@@ -1,8 +1,4 @@
-# Finegray calibration-transfer pin: populated only from a verified fresh
-# run_all.sh gates bundle. No historical engine digest has been established.
-# Full fails closed on the UNRECORDED values below. Fresh gates must be run,
-# inspected, and accepted with _finegray_accept_gate_bundle.sh afterward.
-gated_commit: c7ca4445
-engine_sha256: UNRECORDED
-calibration_bundle: UNRECORDED
-calibration_index_sha256: UNRECORDED
+gated_commit: fc324e68ab7337abba0d1d85e0ca559f7aea1c68
+engine_sha256: 00cd5b25bf1c59eba23ecbd2177db2f3819a6dcafa31517ed00915ddef53cfe9
+calibration_bundle: gates-20261007T131407Z-3410336.iOaFXL
+calibration_index_sha256: d4aee61effcdeaa6405cb852959310a443d4974fb9639c47bf4d2783b741c3ac

@@ -48,7 +48,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [cstat_surv](cstat_surv) | Harrell's C after `stcox`, with a leave-one-out jackknife SE and CI | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic | ![version](https://img.shields.io/badge/version-1.3.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--06-brightgreen) |
+| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic | ![version](https://img.shields.io/badge/version-1.3.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--07-brightgreen) |
 | [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.3.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--06-brightgreen) |
 | [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.11-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
@@ -63,7 +63,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.1.9-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.5.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--07-brightgreen) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.5.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--07-brightgreen) |
 
 ### Graphics
 

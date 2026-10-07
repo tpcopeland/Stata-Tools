@@ -1,4 +1,4 @@
-*! _finegray_check_data Version 1.3.8  2026/10/06
+*! _finegray_check_data Version 1.3.8  2026/10/07
 *! Verify that post-estimation commands still see the finegray estimation data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal
@@ -149,7 +149,7 @@ program define _finegray_check_data
 
         * A per-column signature cannot establish the original row association;
         * e(rowsig) (checked above) does, over e(rowsigvars).
-        capture mata: _finegray_mata_ok()
+        capture mata: _finegray_numeric_ok()
         if _rc {
             capture findfile _finegray_mata.ado
             if _rc {

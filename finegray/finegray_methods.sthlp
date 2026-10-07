@@ -61,12 +61,11 @@ have not yet experienced that specific cause. Subjects who experience a
 competing event remain in the risk set indefinitely with time-dependent weights
 derived from the Kaplan-Meier estimate of the censoring distribution.
 
-{pstd}
-{bf:Interpreting the SHR.} A subdistribution hazard ratio (SHR) above 1 means
-the covariate raises the cumulative incidence of the cause of interest at every
-horizon, and below 1 that it lowers it; the direction transfers to the CIF, the
-magnitude does not, except approximately while the cumulative incidence is
-small. The SHR is a ratio of hazards, not a ratio of cumulative
+{pstd} {bf:Interpreting the SHR.} A subdistribution hazard ratio (SHR) above 1
+means the covariate raises the cumulative incidence of the cause of interest
+at every horizon, and below 1 that it lowers it; the direction transfers to
+the CIF, the magnitude does not, except approximately while the cumulative
+incidence is small. The SHR is a ratio of hazards, not a ratio of cumulative
 incidences or a relative risk: exp(b) is not CIF(t | Z+1)/CIF(t | Z) at any
 {it:t}. Its risk set retains subjects after a competing event, so it is not a
 rate among subjects still able to fail, and a covariate that raises the
@@ -75,8 +74,8 @@ when it raises the competing hazard more. Like every hazard ratio it is
 non-collapsible: adding a covariate that is not a confounder changes it. Report
 the CIF itself ({helpb finegray_cif}) for absolute differences, and consider
 fitting the cause-specific hazards with {helpb stcox} alongside, since the two
-answer different questions (Latouche et al. 2013; Austin, Lee and Fine 2016;
-Austin and Fine 2017).
+answer different questions (Latouche et al. 2013; Austin, Lee and Fine 2016; Austin
+and Fine 2017).
 
 {pstd}
 {bf:Computation.} The estimator uses a native forward-backward scan
@@ -87,36 +86,36 @@ variance extensions are package extensions rather than theirs. See
 {help finegray_methods##citation:Citation scope} for what each source does
 and does not ground.
 
-{pstd}
-{bf:Ties.} Tied cause-event times are handled by the Breslow approximation:
-every event at a time is scored against the risk-set sum taken before any of
-them leaves, as {cmd:stcrreg} and R's {cmd:cmprsk::crr} do. There is no
-{cmd:ties()} option and no Efron form. With no competing events {cmd:finegray}
-reproduces {cmd:stcox, breslow} to machine precision and differs from
-{cmd:stcox, efron} wherever event times are tied; on heavily tied analysis
-time (days, years) the two can differ materially. With many
-ties Breslow is the less accurate approximation ([ST] stcox), and in Cox
-regression it tends to bias coefficients toward zero, more so as ties become
-heavier (Hertz-Picciotto and Rockhill 1997). A finer time scale is the
-remedy.
+{pstd} {bf:Ties.} Tied cause-event times are handled by the Breslow
+approximation: every event at a time is scored against the risk-set sum taken
+before any of them leaves, as {cmd:stcrreg} and R's {cmd:cmprsk::crr} do. There
+is no {cmd:ties()} option and no Efron form. With no competing events
+{cmd:finegray} reproduces {cmd:stcox, breslow} to machine precision and
+differs from {cmd:stcox, efron} wherever event times are tied; on heavily tied
+analysis time (days, years) the two can differ materially. With many ties
+Breslow is the less accurate approximation ([ST] stcox), and in Cox regression
+it tends to bias coefficients toward zero, more so as ties become heavier
+(Hertz-Picciotto and Rockhill 1997). A finer time scale is the remedy.
 
-{pstd}
-{bf:The censoring-survivor floor.} The censoring Kaplan-Meier G is clamped at
-1e-10 before any weight is formed. Every weight reads G as a left limit G(u-)
-at a later time u, so the clamp matters only where a weight reads a clamped
-value, and {cmd:e(N_G_trunc)} and the fit-time note count exactly the
-observations whose weight does so at some cause-event time, in its numerator
-or its denominator (under delayed entry with several weight strata, also an
-at-risk subject's own-stratum denominator and the pooled stabilizer). The
-clamp also acts at the last time of any censoring Kaplan-Meier whose final
-risk set is emptied by censoring (the last censored subject of
-{cmd:webuse hypoxia}, or every subject still under observation at an
-{cmd:exit(time)} cutoff); no weight reads those values, and they are not
-counted. Without delayed entry the denominator G(X_i-) is positive by
-construction, so a counted observation has a clamped numerator: under
-{opt strata()}, a competing-event subject whose censoring stratum's follow-up
-ended in censoring before a later cause event in another stratum. Its weight
-there is 1e-10/G(X_i-), in effect the zero the unclamped estimate gives.
+{pstd} {bf:The censoring-survivor floor.} Positive censoring Kaplan-Meier
+values are retained, including values below 1e-10. An exact-zero terminal
+value is replaced by 1e-10 under the existing boundary convention. A positive
+product that underflows is a numerical error, not an exact-zero terminal
+value. Every weight reads G as a left limit G(u-) at a later time u, so the
+clamp matters only where a weight reads a clamped value, and
+{cmd:e(N_G_trunc)} and the fit-time note count exactly the observations whose
+weight does so at some cause-event time, in its numerator or its denominator
+(under delayed entry with several weight strata, also an at-risk subject's
+own-stratum denominator and the pooled stabilizer). The clamp also acts at the
+last time of any censoring Kaplan-Meier whose final risk set is emptied by
+censoring (the last censored subject of {cmd:webuse hypoxia}, or every subject
+still under observation at an {cmd:exit(time)} cutoff); no weight reads those
+values, and they are not counted. Without delayed entry the denominator
+G(X_i-) is positive by construction, so a counted observation has a clamped
+numerator: under {opt strata()}, a competing-event subject whose censoring
+stratum's follow-up ended in censoring before a later cause event in another
+stratum. Its weight there is 1e-10/G(X_i-), in effect the zero the unclamped
+estimate gives.
 
 {pstd}
 {bf:Identification.} Because the subdistribution pseudo-likelihood is evaluated
@@ -753,19 +752,18 @@ set, so right-censored results do not move. This is why delayed-entry
 estimates differ from {cmd:stcrreg} on tied data even before the weight
 does; {cmd:e(lt_weight)} reports {cmd:zzf1_geskus} for this case.
 
-{pstd}
-{bf:Two conventions the papers leave open.} First, the at-risk indicator
-follows Stata's {cmd:stset} interval (t0, t]: a subject entering at exactly
-{it:t} is not at risk at {it:t}. Zhang, Zhang and Fine (2011, sec. 2) write the
-indicator with closed inequalities, L_i <= t <= X_i. The two coincide unless an
-entry time equals an observed event time; on a fixture where two fifths of the
-entries did, as happens with rounded registry dates, the coefficients differed
-by about 1e-2 relative. Second, the tie ordering above is chosen once for the
-whole fit: a single subject with a positive entry time switches the censoring
-Kaplan-Meier from the {cmd:stcrreg} convention to Geskus's for every stratum
-and every other subject. A right-censored fit and the same data with one
-delayed entrant are therefore not on a continuum at tied times;
-{cmd:e(lt_weight)} is the tell.
+{pstd} {bf:Two conventions the papers leave open.} First, the at-risk
+indicator follows Stata's {cmd:stset} interval (t0, t]: a subject entering at
+exactly {it:t} is not at risk at {it:t}. Zhang, Zhang and Fine (2011, sec. 2)
+write the indicator with closed inequalities, L_i <= t <= X_i. The two
+coincide unless an entry time equals an observed event time; on a fixture
+where two fifths of the entries did, as happens with rounded registry dates,
+the coefficients differed by about 1e-2 relative. Second, the tie ordering
+above is chosen once for the whole fit: a single subject with a positive entry
+time switches the censoring Kaplan-Meier from the {cmd:stcrreg} convention to
+Geskus's for every stratum and every other subject. A right-censored fit and
+the same data with one delayed entrant are therefore not on a continuum at
+tied times; {cmd:e(lt_weight)} is the tell.
 
 {pstd}
 {bf:Multiple weight strata: the stratified form.} The time-side stabilizer is
@@ -801,26 +799,25 @@ are estimated on the identifiable region, below; through 1.3.4 an
 observation gap in a censoring stratum put G on its 1e-10 floor and the
 weights reached 1e10.)
 
-{pstd}
-{bf:The factorized extension (experimental), and what it assumes.} When
+{pstd} {bf:The factorized extension (experimental), and what it assumes.} When
 {opt strata()} and {opt truncstrata()} name {it:different} groupings (under
-delayed entry, naming a grouping in only one of the two options counts), {cmd:finegray} estimates G
-within {opt strata()}, estimates H within {opt truncstrata()}, and multiplies
-the components in each observed combination. That cross-classification is a
-package extension, not a construction attributed to Zhang et al., and
-{cmd:e(lt_weight)} reports {cmd:zzf1_factorized} so that a consumer can tell
-the extension apart from the ZZF construction it is not. Each observed joint
-cell {it:j} = ({it:c}, {it:u}) is normalized by its own members through the
-entry product limit of its truncation group, kappa_j = n_j^-1 sum over i in j
-of 1/H_u(X_i-), the same cohort-size estimate as above applied to the cell; with
-matching groupings it reduces to kappa_g exactly. This normalizer is a
-package derivation. The same contract is used by estimation and by every
-post-estimation calculation. The extension has no published derivation;
-the package's checks confirm that it is computed as specified and that it
-recovered known coefficients in simulation, not that it is valid in
-general. It is therefore {bf:experimental}: prefer the published stratified
-weight for primary analyses and use the extension, if at all, as a
-sensitivity analysis.
+delayed entry, naming a grouping in only one of the two options counts),
+{cmd:finegray} estimates G within {opt strata()}, estimates H within
+{opt truncstrata()}, and multiplies the components in each observed
+combination. That cross-classification is a package extension, not a
+construction attributed to Zhang et al., and {cmd:e(lt_weight)} reports
+{cmd:zzf1_factorized} so that a consumer can tell the extension apart from the
+ZZF construction it is not. Each observed joint cell {it:j} = ({it:c}, {it:u})
+is normalized by its own members through the entry product limit of its
+truncation group, kappa_j = n_j^-1 sum over i in j of 1/H_u(X_i-), the same
+cohort-size estimate as above applied to the cell; with matching groupings it
+reduces to kappa_g exactly. This normalizer is a package derivation. The same
+contract is used by estimation and by every post-estimation calculation. The
+extension has no published derivation; the package's checks confirm that it is
+computed as specified and that it recovered known coefficients in simulation,
+not that it is valid in general. It is therefore {bf:experimental}: prefer the
+published stratified weight for primary analyses and use the extension, if at
+all, as a sensitivity analysis.
 
 {pstd}
 {bf:Gaps in a sample's observation window (1.3.4, corrected in 1.3.5).} A
@@ -1016,10 +1013,11 @@ equals the {cmd:expand}ed fit to summation order; with no censoring, a
 {cmd:pweight}ed fit equals the expanded data clustered on subject, which pins
 the meat form; a constant pweight c leaves {cmd:e(b)} and {cmd:e(V)} unchanged
 and gives ll_w = c (ll - N_fail log c). Computation uses the pweights
-rescaled to mean one, so convergence is judged on the same footing at any
+rescaled over rows contributing to cause-event risk sets, so convergence is
+judged on the same footing at any
 scale ({cmd:[pw=1e-12*w]} converges to the {cmd:[pw=w]} fit), while
 {cmd:e(sum_w)}, {cmd:e(ll)}, {cmd:e(ll_0)} and the iteration log report the
-scale of the weights supplied. A smallest-to-largest weight ratio below the
+scale of the weights supplied. A smallest-to-largest contributing-weight ratio below the
 normal double range is refused with {cmd:r(430)} rather than flushed toward
 zero. Externally the weighted fit is the same
 estimator as {cmd:survival::finegray(weights=)} followed by a weighted
@@ -1444,10 +1442,8 @@ and neither is implemented in this package.
 {marker references}{...}
 {title:References}
 
-{pstd}
-Austin PC, Fine JP. Practical recommendations for reporting Fine-Gray model
-analyses for competing risk data. {it:Statistics in Medicine} 2017;
-36(27): 4391-4400.
+{pstd} Austin PC, Fine JP. Practical recommendations for reporting Fine-Gray
+model analyses for competing risk data. {it:Statistics in Medicine} 2017; 36(27): 4391-4400.
 
 {pstd}{browse "https://doi.org/10.1002/sim.7501":doi:10.1002/sim.7501}{p_end}
 
@@ -1503,11 +1499,9 @@ risks data. {it:Journal of Computational and Graphical Statistics}
 
 {pstd}{browse "https://doi.org/10.1080/10618600.2020.1841650":doi:10.1080/10618600.2020.1841650}{p_end}
 
-{pstd}
-Latouche A, Allignol A, Beyersmann J, Labopin M, Fine JP. A competing risks
-analysis should report results on all cause-specific hazards and cumulative
-incidence functions. {it:Journal of Clinical Epidemiology} 2013;
-66(6): 648-653.
+{pstd} Latouche A, Allignol A, Beyersmann J, Labopin M, Fine JP. A competing
+risks analysis should report results on all cause-specific hazards and
+cumulative incidence functions. {it:Journal of Clinical Epidemiology} 2013; 66(6): 648-653.
 
 {pstd}{browse "https://doi.org/10.1016/j.jclinepi.2012.09.017":doi:10.1016/j.jclinepi.2012.09.017}{p_end}
 

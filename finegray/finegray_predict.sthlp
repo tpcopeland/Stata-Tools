@@ -80,19 +80,23 @@ Not available after a fit on {cmd:mi} data ({cmd:r(301)}); see
 fitted coefficients and baseline move; see
 {help finegray##lt:Left truncation}.
 
-{pstd}
-{opt cif} evaluates the CIF at each observation's own {cmd:_t}; for a common
-horizon, set a constant time variable and use {opt timevar()}. The {opt ci} and
-{opt schoenfeld} paths verify that the estimation data are unchanged
-({cmd:r(459)} otherwise). The check covers the complete original fitting
-tuples, so permuting one variable's values across observations is
-{cmd:r(459)} ({cmd:the estimation data no longer reproduce the fitted observation tuples}).
-Estimates saved by finegray 1.3.7 or earlier lack {cmd:e(rowsig)} and must be refit
-for {opt ci} and {opt schoenfeld} ({cmd:r(301)}, {cmd:this fit predates joint-row estimation-data identity checks}).
-On such estimates {opt xb} still works on compatible data; {opt cif} and
+{pstd} {opt cif} evaluates the CIF at each observation's own {cmd:_t}; for a
+common horizon, set a constant time variable and use {opt timevar()}. The
+{opt ci} and {opt schoenfeld} paths verify that the estimation data are
+unchanged ({cmd:r(459)} otherwise). The check covers the complete original
+fitting tuples, so permuting one variable's values across observations is
+{cmd:r(459)}
+({cmd:the estimation data no longer reproduce the fitted observation tuples}). Estimates
+saved by finegray 1.3.7 or earlier lack {cmd:e(rowsig)} and must be refit for
+{opt ci} and {opt schoenfeld} ({cmd:r(301)},
+{cmd:this fit predates joint-row estimation-data identity checks}). On such
+estimates {opt xb} still works on compatible data; {opt cif} and
 {opt basecshazard} work only if the saved estimates hold a baseline
-({cmd:e(basehaz)}, from {opt basehaz} at fit time) and are {cmd:r(301)} otherwise,
-because the baseline is then rebuilt from the estimation rows. The digest behind this check is a finite noncryptographic checksum, not a proof
+({cmd:e(basehaz)}, from {opt basehaz} at fit time) and are {cmd:r(301)}
+otherwise, because the baseline is then rebuilt from the estimation rows. For
+TVC CIF prediction, refit such older estimates with {opt basehaz} to save the
+separate interval masses in {cmd:e(basehaz_tvc)}. The digest behind this
+check is a finite noncryptographic checksum, not a proof
 that two datasets are equal. See
 {help finegray_methods##stcrreg:Comparison with stcrreg} and
 {help finegray_methods##cif:Cumulative incidence}.
@@ -166,28 +170,26 @@ prediction; a stratum with no cause event, or one the fit never saw (also
 after a single-level fit), is {cmd:r(459)}. {opt xb} is
 unaffected. See {help finegray##bstrata:Baseline strata}.
 
-{phang}
-{opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For
+{phang} {opt sch:oenfeld} computes Schoenfeld residuals at cause-event times. For
 a model with {it:p} covariates, {it:p} variables are created: {it:newvar}
-contains residuals for the first covariate, and {it:newvar}{cmd:_2}
-through {it:newvar}{cmd:_}{it:p} contain residuals for the remaining
-covariates. Because the suffix is part of the created name, a
-one-covariate model allows a 32-character {it:newvar}; with multiple
-covariates, its maximum length is 32 - 1 - length(string({it:p}))
-characters (30 for 2-9 terms, 29 for 10-99, and so on). An over-long stub
-is refused with {cmd:r(198)} before any residual is computed. Residuals
-are set to missing for observations that are not cause-of-interest
-events. {opt timevar()} is not allowed with {opt schoenfeld} and is
-rejected with {cmd:r(198)}; residuals are computed at the original event
-times. The residuals match {helpb stcrreg}'s {cmd:predict, schoenfeld}
+contains residuals for the first covariate, and {it:newvar}{cmd:_2} through
+{it:newvar}{cmd:_}{it:p} contain residuals for the remaining covariates. Because
+the suffix is part of the created name, a one-covariate model allows a
+32-character {it:newvar}; with multiple covariates, its maximum length is 32 -
+1 - length(string({it:p})) characters (30 for 2-9 terms, 29 for 10-99, and so
+on). An over-long stub is refused with {cmd:r(198)} before any residual is
+computed. Residuals are set to missing for observations that are not
+cause-of-interest events. {opt timevar()} is not allowed with {opt schoenfeld}
+and is rejected with {cmd:r(198)}; residuals are computed at the original
+event times. The residuals match {helpb stcrreg}'s {cmd:predict, schoenfeld}
 observation by observation, at tied and untied event times; see
-{help finegray_methods##stcrreg:Comparison with stcrreg}. After
-a {cmd:[pweight=]} fit the residual is the per-unit-weight contribution
-Z_i - zbar_w(t_i), with zbar_w the design-weighted risk-set mean, so the
-weighted sum over cause events is zero while the plain sum is not;
-{helpb finegray_phtest} refuses that fit because no design-weighted form of its
-correlation summary is held, and a correlation formed from these residuals by
-hand should carry the same weights.
+{help finegray_methods##stcrreg:Comparison with stcrreg}. After a
+{cmd:[pweight=]} fit the residual is the per-unit-weight contribution Z_i -
+zbar_w(t_i), with zbar_w the design-weighted risk-set mean, so the weighted
+sum over cause events is zero while the plain sum is not; {helpb finegray_phtest}
+refuses that fit because no design-weighted form of its correlation summary is
+held, and a correlation formed from these residuals by hand should carry the
+same weights.
 
 {phang}
 {opth timevar(varname)} specifies a variable to use as the time axis instead
@@ -237,8 +239,9 @@ results and {cmd:e(sample)} are preserved.
 {cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
 fweighted fit stores its replication in a weight column rather than in rows, so
 the replicate SD would describe a much smaller design than the fit. The
-analytic {opt ci} is exact under frequency weights -- an fweighted fit is the
-fit of the replicated data -- so use it, or {helpb expand} the data by the
+analytic {opt ci} needs no resampling under frequency weights -- an fweighted
+fit is the fit of the replicated data, so the analytic interval equals the one
+from the expanded data, with the same large-sample approximation -- so use it, or {helpb expand} the data by the
 weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
 unaffected.
 

@@ -1,4 +1,4 @@
-*! _finegray_weight_var Version 1.3.8  2026/10/06
+*! _finegray_weight_var Version 1.3.8  2026/10/07
 *! Rebuild the fit's design-weight column from e(wexp) for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal)
@@ -155,7 +155,12 @@ program define _finegray_weight_var, rclass
             }
         }
 
-        quietly generate double `wname' `e(wexp)' if `touse'
+        * Reuse the column that passed BOTH checks.  Evaluating e(wexp) again
+        * can read changed r() state, or draw a second random column after the
+        * checked first draw reproduced the fit exactly.  New prediction rows
+        * are not in the checked fit population and are evaluated separately.
+        quietly generate double `wname' = `_chk' if `touse' & `_es'
+        quietly replace `wname' `e(wexp)' if `touse' & !`_es'
         quietly count if `touse' & (missing(`wname') | `wname' <= 0)
         if r(N) > 0 {
             display as error "the fit's weights cannot be rebuilt from e(wexp)"

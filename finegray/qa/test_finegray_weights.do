@@ -1093,8 +1093,9 @@ local fail_count = `fail_count' + r(fail)
 * sampling probability attached to a row that really is one row.
 *
 * The second half is the reason the refusal is affordable: under frequency
-* weights the analytic interval is EXACT, because an fweighted fit is the fit
-* of the replicated data (WT-03), so the user loses nothing by using it.
+* weights the analytic interval equals the expanded-data one, because an
+* fweighted fit is the fit of the replicated data (WT-03), so the user loses
+* nothing by using it (it is the same asymptotic interval, not an exact one).
 local ++test_count
 capture noisily {
     _fgwt_data

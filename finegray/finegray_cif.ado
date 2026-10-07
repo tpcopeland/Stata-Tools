@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.8  2026/10/06
+*! finegray_cif Version 1.3.8  2026/10/07
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -370,15 +370,16 @@ program define finegray_cif, rclass sortpreserve
     * much smaller design and the reported SE is inflated (measured 2026-09-01:
     * about twice the analytic one).  Refuse rather than report it.  The
     * analytic interval needs no resampling here: under frequency weights the
-    * influence-function variance is exact, because an fweighted fit IS the fit
-    * of the replicated data (asserted bit for bit in qa/test_finegray_weights.do,
-    * WT-03).
+    * influence-function variance equals that of the expanded data, because an
+    * fweighted fit IS the fit of the replicated data (asserted bit for bit in
+    * qa/test_finegray_weights.do, WT-03).  It is the same asymptotic interval,
+    * not an exact one.
     if `bootstrap' > 0 & `"`e(wtype)'"' == "fweight" {
         display as error "bootstrap() is not supported after a fit with fweights"
         display as error "{bf:bsample} resamples rows, not the replicated subjects the"
         display as error "frequency weights stand for, so the replicate SD would describe"
         display as error "a smaller sample than the fit"
-        display as error "the analytic interval is exact under fweights -- use {bf:ci} without"
+        display as error "the analytic interval equals that of the expanded data -- use {bf:ci} without"
         display as error "{bf:bootstrap()}, or expand the data ({bf:expand} the weight) and"
         display as error "bootstrap the expanded fit"
         exit 198
@@ -1178,7 +1179,7 @@ program define finegray_cif, rclass sortpreserve
     } /* end per-curve profile loop */
 
     * Load Mata engine
-    capture mata: _finegray_mata_ok()
+    capture mata: _finegray_numeric_ok()
     * probe MATA, not a Stata program: `mata clear' drops Mata functions but
     * leaves Stata programs standing, so a program sentinel says "loaded" when
     * the engine is gone and the next Mata call dies with r(3499).
@@ -1587,16 +1588,16 @@ program define finegray_cif, rclass sortpreserve
     * =====================================================================
     local z = invnormal(1 - (1 - `level'/100)/2)
     forvalues g = 1/`_ncurve' {
-        tempname _R
+        tempname _R _CI _cifv _sev
         local R`g' "`_R'"
         matrix `_R' = J(`ngrid`g'', 5, .)
         forvalues r = 1/`ngrid`g'' {
             local tt : word `r' of `grid`g''
-            local cifv = `OUT`g''[`r', 1]
-            local sev  = `OUT`g''[`r', 2]
+            scalar `_cifv' = `OUT`g''[`r', 1]
+            scalar `_sev' = `OUT`g''[`r', 2]
             matrix `_R'[`r', 1] = `tt'
-            matrix `_R'[`r', 2] = `cifv'
-            matrix `_R'[`r', 3] = `sev'
+            matrix `_R'[`r', 2] = `_cifv'
+            matrix `_R'[`r', 3] = `_sev'
             * Confidence limits, or NOTHING.  `R' is initialised to missing, and a
             * limit we cannot compute must stay missing.  Writing the point estimate
             * into lci/uci instead -- which is what this did through v1.1.0 --
@@ -1605,11 +1606,11 @@ program define finegray_cif, rclass sortpreserve
             * uncertainty-free estimate. It also meant r(table) carried
             * lci = uci = cif whenever ci was NOT requested, so a caller reading
             * those columns got a fabricated interval it never asked for.
-            if "`ci'" != "" & `cifv' > 0 & `cifv' < 1 & `sev' < . & `sev' > 0 {
-                local g_ = ln(-ln(1 - `cifv'))
-                local seg = `sev' / ((1 - `cifv') * (-ln(1 - `cifv')))
-                matrix `_R'[`r', 4] = 1 - exp(-exp(`g_' - `z' * `seg'))
-                matrix `_R'[`r', 5] = 1 - exp(-exp(`g_' + `z' * `seg'))
+            if "`ci'" != "" & `_cifv' > 0 & `_cifv' < 1 & `_sev' < . & `_sev' > 0 {
+                mata: st_matrix("`_CI'", _finegray_cloglog_ci( ///
+                    st_numscalar("`_cifv'"), st_numscalar("`_sev'"), `z'))
+                matrix `_R'[`r', 4] = `_CI'[1, 1]
+                matrix `_R'[`r', 5] = `_CI'[1, 2]
             }
         }
         matrix colnames `_R' = time cif se lci uci
