@@ -59,7 +59,8 @@ capture noisily {
     _v_value C2 "Domestic"
     _v_value B3 "All cars"
     _v_value B`hb' "Expensive cars"
-    _v_has merge "" "B3:E3 B`hb':E`hb'"
+    * 2.5.6: panel headings are not merged
+    _v_none merge "B3:E3 B`hb':E`hb'"
     _v_has bold "" "B3 B`hb'"
     _v_has top thin "B3 B`hb'"
     _v_value D`=3 + `na'' "`a_last'"

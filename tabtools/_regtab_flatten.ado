@@ -1,4 +1,4 @@
-*! _regtab_flatten Version 2.5.5  2026/10/07
+*! _regtab_flatten Version 2.5.6  2026/10/07
 *! regtab block: flatten coleq#colname rows (multilevel and multi-equation)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

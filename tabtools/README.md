@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.5.5** | 2026-10-07
+**Version 2.5.6** | 2026-10-07
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -533,6 +533,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.5.6** (2026-10-07): `puttab panel()` heading rows (and so `stacktab` panel headings) are no longer merged across the table. The heading sits in the row-label column, bold and ruled above, with the other cells blank, and that column is now widened to fit the heading text (up to the usual 50-character cap), where before headings were left out of the width.
 - **2.5.5** (2026-10-07): The `desctab`/`table1_tc` and `crosstab` `smallcells(#, primary)` footnotes no longer claim that other cells, totals and tests are shown as computed. The help now states that primary mode still withholds a weighted effective sample size whose group N is masked and counts it in `r(N_derived_suppressed)`. `ratetab` help for `ci(cluster())` no longer says events from one cluster remove the interval. The interval is omitted only when the level's exposure comes from a single cluster or its clustered variance is zero or missing.
 - **2.5.4** (2026-10-06): `desctab`/`table1_tc` `smallcells()` counts a printed continuous summary as n ≥ k (a mean or median prints only for an unmasked n), closing the 2.5.3 known gap: with `missingsummary`, a group N that would pin a small missing count beside it (N = 4, mean printed, Missing <3) is now withheld. The suppression engine gains a released lower-bound cell type for this.
 - **2.5.3** (2026-10-06): `desctab`/`table1_tc` `smallcells()`: a `slashN` denominator of 1 to k-1 is withheld rather than printed as `<k` (as an upper bound on the level cells it could pin them), and with `missingsummary` a Missing count beside a withheld group N prints without its percentage (the percentage gave the N back). A weighted SMD with weights near 1e306 or larger is no longer blank. The Excel SMD column fits the `Suppressed` marker. Known gap: with `missingsummary`, a continuous variable's printed mean implies n of at least k, which the suppression engine does not yet use, so a small missing count beside it can still be inferred.

@@ -1,4 +1,4 @@
-*! puttab Version 2.5.5  2026/10/07
+*! puttab Version 2.5.6  2026/10/07
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -793,14 +793,12 @@ program define puttab, rclass
             local _x_foot_row   = cond(`_foot_row' > 0, `_foot_row' + `_x_roff', 0)
             local _x_span_row   = cond(`_span_rows', `_span_row' + `_x_roff', 0)
 
-            * Rows whose text spans the table (panel headings, the span row)
-            * do not set a column's width.
+            * The span row's labels are merged across their columns, so they
+            * do not set a column's width. Panel headings are not merged:
+            * their text sits in the row-label column and sets its width.
             tempvar _nowid
             quietly gen byte `_nowid' = 0
             if `_span_rows' quietly replace `_nowid' = 1 in `_x_span_row'
-            foreach _r of local _pt_hrows {
-                quietly replace `_nowid' = 1 in `=`_x_data_start' + `_r' - 1'
-            }
 
             * ===== border code (thin=1, medium=2, thick=3, none=4) =====
             local _hbc = 1
@@ -934,18 +932,15 @@ program define puttab, rclass
                     (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0)
             }
 
-            * ===== panel() heading rows: bold, rule above, merged across;
-            * panelheader() rows: bold with a rule below (shaded with
+            * ===== panel() heading rows: bold and ruled above, not merged
+            * (the heading sits in the row-label column, the other cells stay
+            * blank); panelheader() rows: bold with a rule below (shaded with
             * headershade) =====
             foreach _r of local _pt_hrows {
                 local _xr = `_x_data_start' + `_r' - 1
                 matrix `_rules' = `_rules' \ ///
                     (2, `_xr', `_xr', 2, `_xK', 0, 1, 0, 0) \ ///
                     (8, `_xr', `_xr', 2, `_xK', 0, `_vbc', 0, 0)
-                if `_xK' > 2 {
-                    matrix `_rules' = `_rules' \ ///
-                        (14, `_xr', `_xr', 2, `_xK', 0, 0, 0, 0)
-                }
             }
             foreach _r of local _pt_phrows {
                 local _xr = `_x_data_start' + `_r' - 1

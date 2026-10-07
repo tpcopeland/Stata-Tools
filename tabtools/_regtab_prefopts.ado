@@ -1,4 +1,4 @@
-*! _regtab_prefopts Version 2.5.5  2026/10/07
+*! _regtab_prefopts Version 2.5.6  2026/10/07
 *! display options given to an estimation prefix
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

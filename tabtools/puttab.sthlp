@@ -285,8 +285,9 @@ command.{p_end}
 {opt pan:el(varname)} splits the table into panels. Wherever {it:varname} changes from
 one observation to the next (in the order the rows are exported), a heading row is
 inserted that holds the panel's value label, or its value when it has none (a string
-{it:varname} gives its text). In the workbook the heading row is bold, merged across the
-table, and ruled above; the row labels of the panel's rows are indented by three spaces
+{it:varname} gives its text). In the workbook the heading row is bold and ruled above, its
+text in the row-label column, which is widened to fit it, and the other cells blank (not
+merged); the row labels of the panel's rows are indented by three spaces
 (written as {cmd:&nbsp;} in Markdown, where the heading is bold). A panel whose value is
 missing or blank gets no heading and no indent; {opt noindent} drops the indent for every
 panel. {it:varname} is never exported, even if it

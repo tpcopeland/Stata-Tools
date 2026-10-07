@@ -224,9 +224,9 @@ capture noisily {
     mata: st_local("_nl", strofreal(rows(cat("`csv'"))))
     assert `_nl' == 7
     _v_facts "`book'" "M"
-    * the G1 heading row is a heading (merged across), G2 is shared (not)
+    * the G1 heading row is a heading (not merged since 2.5.6), G2 is shared
     _v_value B4 "G1"
-    _v_has merge "" "B4:C4"
+    _v_none merge "B4:C4"
     _v_value B7 "G2"
     _v_value C7 "N2"
     _v_none merge "B7:C7"

@@ -1,4 +1,4 @@
-*! _regtab_statrows Version 2.5.5  2026/10/07
+*! _regtab_statrows Version 2.5.6  2026/10/07
 *! regtab block: model statistics rows below the table body (stats())
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -120,7 +120,7 @@ Concurrent runs of the same lane can collide through shared logs. Use a scratch 
 | `test_theme_removed.do` | Rejection of the removed `theme()` surface. |
 | `test_xlsx_style_compaction.do` | Style-pool compaction, workbook equivalence, verification guards, and platform paths. |
 | `test_xlsx_deferred_styles.do` | Deferred (direct-XML) cell styling: rendered parity with immediate `xl()` styling for all rule operations, a 3,000-row styled table, the `xl()` fallback, `xl()`-rejected color names, stale-queue and invalid-rule guards. |
-| `test_puttab_v230.do` | 2.3.0 `puttab` `panel()`/`panelheader()` heading rows, `spanheader()` merged spans and their refusals, `cellreplace()`-style exact-or-error placement in Excel, CSV, and Markdown. |
+| `test_puttab_v230.do` | 2.3.0 `puttab` `panel()`/`panelheader()` heading rows (2.5.6: unmerged, heading text sets the row-label column width up to the 50 cap), `spanheader()` merged spans and their refusals, `cellreplace()`-style exact-or-error placement in Excel, CSV, and Markdown. |
 | `test_smallcells_v230.do` | `smallcells(#, primary)` printed-count masking in `desctab`/`table1_tc`/`crosstab`, `nosmallcells`, the session default, and the unchanged full-protection default. |
 | `test_tabtools_v230.do` | `tabtools set workbook|markdown|headershade|smallcells`, `set <key> clear`, `tabtools query` returns, first-write-replaces/later-writes-append session tracking, and log echoes. |
 | `test_stacktab_v230.do` | `stacktab, frames()` panel stacking of in-memory frames through `puttab panel()`. |
