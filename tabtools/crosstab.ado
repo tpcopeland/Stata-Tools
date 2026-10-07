@@ -1,4 +1,4 @@
-*! crosstab Version 2.5.4  2026/10/06
+*! crosstab Version 2.5.5  2026/10/07
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -124,7 +124,7 @@ capture noisily {
     local _sc_note ""
     if `_sc_active' {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction."
-        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked, and totals and tests are shown as computed). This protects printed counts only."
+        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked). This protects printed counts only."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
             * A footnote in paragraphs (" \ ") gets the notice as its own

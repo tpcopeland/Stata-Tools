@@ -64,6 +64,15 @@ fi
 # it can publish a final verdict.  The lane is validated above so the
 # lane-pinned target cannot escape qa/.
 rm -f run_all.log run_all_status.txt "run_status_${lane}.txt" run_all_inputs.sha256
+receipt_pkg_dir="$(cd "$qa_dir/.." && pwd)"
+receipt_pkg_name="$(basename "$receipt_pkg_dir")"
+receipt_repo="${source_repo:-$(git -C "$receipt_pkg_dir" rev-parse --show-toplevel 2>/dev/null || true)}"
+source "$qa_dir/_finegray_receipt.sh" || exit 1
+if ! fg_receipt_begin "$receipt_repo" "$receipt_pkg_name" "$receipt_pkg_dir" "$lane" "$qa_dir"; then
+    printf 'lane: %s\nverdict:     FAIL\nbundle: NOT-PUBLISHED (input preflight error)\n' "$lane" > run_all_status.txt
+    cp -f run_all_status.txt "run_status_${lane}.txt"
+    exit 1
+fi
 "$stata_bin" -b do run_all.do "$lane" >/dev/null 2>&1
 stata_rc=$?
 
@@ -174,6 +183,59 @@ if [[ "$lane" != "gates" && -z "${FINEGRAY_WRAPPER_TEST_ACTIVE:-}" ]]; then
     fi
 fi
 
+# Runner-integrity regressions from the 2026-10-05 audit (Q02 receipt grammar,
+# Q04 benchmark isolation).  Its own gate and status line, under the same
+# recursion guard; a missing suite fails closed like the wrapper test.
+audit_qa_status="not-applicable"
+if [[ "$lane" != "gates" && -z "${FINEGRAY_WRAPPER_TEST_ACTIVE:-}" ]]; then
+    if [[ ! -f test_finegray_audit_2026_10_05_qa.sh ]]; then
+        audit_qa_status="FAIL (test_finegray_audit_2026_10_05_qa.sh missing)"
+        verdict="FAIL"
+        echo "audit_qa_test: $audit_qa_status" >&2
+    else
+        audit_output="$(FINEGRAY_WRAPPER_TEST_ACTIVE=1 ./test_finegray_audit_2026_10_05_qa.sh 2>&1)"
+        audit_rc=$?
+        if (( audit_rc == 0 )) &&
+                printf '%s\n' "$audit_output" |
+                grep -qE '^RESULT: test_finegray_audit_2026_10_05_qa tests=[0-9]+ pass=[0-9]+ fail=0$'; then
+            audit_qa_status="PASS"
+            echo "audit_qa_test: PASS"
+        else
+            audit_qa_status="FAIL (rc=$audit_rc)"
+            verdict="FAIL"
+            printf '%s\n' "$audit_output" >&2
+            echo "audit_qa_test: $audit_qa_status" >&2
+        fi
+    fi
+fi
+
+# Bind transfer to an immutable, successful fresh-calibration bundle.
+fg_transfer_pin_verify() {
+    local qa="$1" pkg="$2"
+    local pin="$qa/gates_transfer_pin.txt"
+    local engine bundle index observed archived
+    engine=$(awk '/^engine_sha256:/ {print $2; exit}' "$pin")
+    bundle=$(awk '/^calibration_bundle:/ {print $2; exit}' "$pin")
+    index=$(awk '/^calibration_index_sha256:/ {print $2; exit}' "$pin")
+    [[ "$engine" =~ ^[[:xdigit:]]{64}$ && "$index" =~ ^[[:xdigit:]]{64}$ &&
+       "$bundle" =~ ^[[:alnum:]_][[:alnum:]_.-]*$ ]] || return 1
+    FG_TRANSFER_BUNDLE="$qa/receipts/$bundle"
+    [[ -d "$FG_TRANSFER_BUNDLE" ]] || return 1
+    observed=$(sha256sum -- "$FG_TRANSFER_BUNDLE/SHA256SUMS") || return 1
+    [[ "${observed%% *}" == "$index" ]] || return 1
+    (cd "$FG_TRANSFER_BUNDLE" && sha256sum -c --strict SHA256SUMS >/dev/null) || return 1
+    grep -Eq '^lane:[[:space:]]+gates$' "$FG_TRANSFER_BUNDLE/receipt.txt" || return 1
+    grep -Eq '^verdict:[[:space:]]+PASS$' "$FG_TRANSFER_BUNDLE/receipt.txt" || return 1
+    [[ "$(grep -c '^RESULT: run_all tests=3 pass=3 fail=0 skip=0$' "$FG_TRANSFER_BUNDLE/receipt.txt")" == 1 ]] || return 1
+    archived=$(awk '$2 == "_finegray_mata.ado" {print $1}' "$FG_TRANSFER_BUNDLE/inputs.before.sha256")
+    [[ "$archived" == "$engine" ]] || return 1
+    observed=$(sha256sum -- "$FG_TRANSFER_BUNDLE/inputs/_finegray_mata.ado") || return 1
+    [[ "${observed%% *}" == "$engine" ]] || return 1
+    observed=$(sha256sum -- "$pkg/_finegray_mata.ado") || return 1
+    [[ "${observed%% *}" == "$engine" ]] || return 1
+    [[ "$(cat "$FG_TRANSFER_BUNDLE/head.txt")" == "$(git -C "$transfer_repo" rev-parse "${gated_commit}^{commit}")" ]] || return 1
+}
+
 # Delayed-entry (ZZF) TRANSFER gate.  run_status_gates.txt is the receipt
 # README.md cites for the three ~7h Monte Carlo gates, and it states its own
 # invalidation rule: any change to the delayed-entry weight, score, or variance
@@ -187,7 +249,11 @@ fi
 # that perturbs the delayed-entry path now fails the lane instead of silently
 # voiding a receipt nobody re-reads.
 transfer_status="not-applicable"
-if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
+if [[ "$lane" == "gates" ]]; then
+    # These three studies calibrate the current inputs afresh. They do not
+    # transfer an older receipt; successful evidence can establish a new pin.
+    transfer_status="fresh-calibration (no historical receipt transfer)"
+elif [[ "$lane" == "full" ]]; then
     transfer_repo="$(repo_top "${source_repo:-$pkg_dir}" || true)"
     gated_commit=""
     if [[ -f gates_transfer_pin.txt ]]; then
@@ -216,6 +282,10 @@ if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
         transfer_status="NOT-RUN (no git tree for $gated_commit; pass --source-repo PATH)"
         verdict="FAIL"
         echo "transfer_gate: $transfer_status" >&2
+    elif ! fg_transfer_pin_verify "$qa_dir" "$pkg_dir"; then
+        transfer_status="FAIL (missing, invalid or changed calibrated engine/bundle pin)"
+        verdict="FAIL"
+        echo "transfer_gate: $transfer_status" >&2
     else
         gt_dir="$(mktemp -d)"
         trap 'rm -rf "$gt_dir"' EXIT
@@ -231,9 +301,9 @@ if [[ "$lane" == "full" || "$lane" == "gates" ]]; then
         printf 'set processors 1\n' > "$gt_dir/a/profile.do"
         printf 'set processors 1\n' > "$gt_dir/b/profile.do"
 
-        if ! git -C "$transfer_repo" archive "$gated_commit" "$pkg_name" 2>/dev/null |
-                tar -x -C "$gt_dir/gated"; then
-            transfer_status="FAIL (cannot extract $pkg_name at $gated_commit)"
+        if ! mkdir -p "$gt_dir/gated/$pkg_name" ||
+                ! cp -a "$FG_TRANSFER_BUNDLE/inputs/." "$gt_dir/gated/$pkg_name/"; then
+            transfer_status="FAIL (cannot extract calibrated input snapshot)"
             verdict="FAIL"
         else
             ( cd "$gt_dir/a" && "$stata_bin" -b do "$qa_dir/gates_transfer_proof.do" \
@@ -386,6 +456,7 @@ else
     tree_hash="not-a-git-repo"; head_commit="unknown"; tree_state="unknown"
     copy_state="n/a (no git repo; pass --source-repo PATH)"
 fi
+if (( FG_RECEIPT_INPUTS_MISSING > 0 )); then verdict="FAIL"; fi
 r_version="$(Rscript -e 'cat(as.character(getRversion()))' 2>/dev/null || echo "R-not-found")"
 
 {
@@ -402,6 +473,7 @@ r_version="$(Rscript -e 'cat(as.character(getRversion()))' 2>/dev/null || echo "
     echo "R_version:   $r_version"
     echo "fg02_gate:   $fg02_status"
     echo "wrapper_test: $wrapper_status"
+    echo "audit_qa_test: $audit_qa_status"
     echo "transfer_gate: $transfer_status"
     echo
     echo "per-suite RESULT trail (as echoed by each suite):"
@@ -414,6 +486,13 @@ r_version="$(Rscript -e 'cat(as.character(getRversion()))' 2>/dev/null || echo "
 # run_all_status.txt always mirrors the most recent run.  Commit whichever
 # lane receipt you want to record as evidence.
 cp -f run_all_status.txt "run_status_${lane}.txt"
+if ! fg_receipt_finish; then
+    sed -i 's/^verdict:.*/verdict:     FAIL/' run_all_status.txt
+    printf 'bundle: NOT-PUBLISHED (missing/changed inputs or verification error)\n' >> run_all_status.txt
+    cp -f run_all_status.txt "run_status_${lane}.txt"
+    echo "receipt bundle could not be verified; FAIL receipt only" >&2
+    exit 1
+fi
 
 if [[ "$verdict" == "PASS" ]]; then
     echo "$result"

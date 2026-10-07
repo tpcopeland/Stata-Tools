@@ -140,6 +140,27 @@ blocklist() {
 blocktag() { printf '%s_%05d_%05d' "$1" "$2" "$3"; }
 
 # ---------------------------------------------------------------------------
+source_manifest() {
+    ( cd "$SRC" && find . -type f \( -name '*.ado' -o -name '*.do' \) \
+        -not -path './qa/coverage_results/*' \
+        -exec sha256sum {} + | sort -k2 )
+}
+
+require_current_build() {
+    [ -f "$RESULTS/MANIFEST.PREV.txt" ] || {
+        echo "FATAL: no retained source manifest -- run prep" >&2; return 3;
+    }
+    local candidate
+    candidate=$(mktemp) || return 2
+    source_manifest > "$candidate" || { rm -f "$candidate"; return 2; }
+    if ! cmp -s "$RESULTS/MANIFEST.PREV.txt" "$candidate"; then
+        rm -f "$candidate"
+        echo "FATAL: SRC differs from the retained source manifest" >&2
+        return 3
+    fi
+    rm -f "$candidate"
+}
+
 cmd_prep() {
     [ -d "$SRC/qa" ] || { echo "FATAL: no qa/ under SRC=$SRC" >&2; exit 2; }
     case "$BASE" in
@@ -157,11 +178,9 @@ cmd_prep() {
     # which build produced its number is not evidence. The manifest is filed
     # with the rows it describes, not in scratch -- a manifest that outlives its
     # pool, or a pool that outlives its manifest, certifies nothing.
-    ( cd "$SRC" && find . -type f \( -name '*.ado' -o -name '*.do' \) \
-        -not -path './qa/coverage_results/*' \
-        -exec sha256sum {} + | sort -k2 ) > "$RESULTS/MANIFEST.txt"
-    ( cd "$SRC/.." && git rev-parse HEAD 2>/dev/null ) > "$RESULTS/GIT_HEAD.txt" || true
-    echo "manifest: $(wc -l < "$RESULTS/MANIFEST.txt") files, head $(cat "$RESULTS/GIT_HEAD.txt" 2>/dev/null)"
+    local candidate
+    candidate=$(mktemp "$RESULTS/.manifest.XXXXXX") || return 2
+    source_manifest > "$candidate" || { rm -f "$candidate"; return 2; }
 
     # Existing work trees are kept so an interrupted run resumes -- but that
     # means they hold the code as it was when first copied. If SRC has changed
@@ -169,14 +188,18 @@ cmd_prep() {
     # still to run, and the union would not be one study. Refuse rather than
     # silently mix builds.
     if [ -f "$RESULTS/MANIFEST.PREV.txt" ] && \
-       ! cmp -s "$RESULTS/MANIFEST.PREV.txt" "$RESULTS/MANIFEST.txt"; then
+       ! cmp -s "$RESULTS/MANIFEST.PREV.txt" "$candidate"; then
         echo "FATAL: SRC changed since the existing blocks were produced." >&2
         echo "  Mixing builds in one union is not a valid study." >&2
         echo "  Start clean:  rm -rf '$RESULTS' '$BASE'   (discards completed blocks)" >&2
-        diff "$RESULTS/MANIFEST.PREV.txt" "$RESULTS/MANIFEST.txt" | grep '^[<>]' | head -5 >&2
+        diff "$RESULTS/MANIFEST.PREV.txt" "$candidate" | grep '^[<>]' | head -5 >&2
+        rm -f "$candidate"
         exit 3
     fi
+    mv -f "$candidate" "$RESULTS/MANIFEST.txt"
     cp -f "$RESULTS/MANIFEST.txt" "$RESULTS/MANIFEST.PREV.txt"
+    ( cd "$SRC/.." && git rev-parse HEAD 2>/dev/null ) > "$RESULTS/GIT_HEAD.txt" || true
+    echo "manifest: $(wc -l < "$RESULTS/MANIFEST.txt") files, head $(cat "$RESULTS/GIT_HEAD.txt" 2>/dev/null)"
 
     n=0
     while read -r fam f t; do
@@ -224,14 +247,24 @@ run_one() {
     d="$WORK/$tag/iivw/qa"
     [ -d "$d" ] || { rmdir "$CLAIMS/$tag" 2>/dev/null; echo "FAIL  $tag (no work tree -- run prep)"; return 1; }
 
+    if ! (cd "$d/.." && sha256sum -c "$RESULTS/MANIFEST.PREV.txt" >/dev/null 2>&1); then
+        rmdir "$CLAIMS/$tag" 2>/dev/null
+        echo "FAIL  $tag (work tree differs from retained manifest)"
+        return 1
+    fi
+    # A failed rerun must not pool an earlier artifact from this work tree.
+    rm -f "$d/_inf_blocks/$out" "$d/validation_iivw_inference.log"
     ( cd "$d" && stata-mp -b do validation_iivw_inference.do \
         "$fam" "$SIMS" "$REPS" "$SEED" "$f" "$t" 0 "$PSCALE" ) >/dev/null 2>&1
 
     # stata-mp -b ALWAYS exits 0 -- the exit status is not a verdict. The real
     # artifact is the rows file; the RESULT line is the corroborating check.
-    if [ -f "$d/_inf_blocks/$out" ]; then
+    if [ -f "$d/_inf_blocks/$out" ] && \
+       grep -q "^RESULT: validation_iivw_inference $fam BLOCK $f-$t non-gate$" \
+           "$d/validation_iivw_inference.log"; then
         cp -f "$d/_inf_blocks/$out" "$POOL/$out"
         cp -f "$d/validation_iivw_inference.log" "$LOGS/$tag.log" 2>/dev/null
+        rm -f "$LOGS/$tag.FAILED.log"
         echo "OK    $tag"
         return 0
     fi
@@ -243,17 +276,20 @@ run_one() {
     return 1
 }
 export -f run_one blocktag
-export WORK POOL LOGS CLAIMS SIMS REPS SEED PSCALE
+export WORK POOL LOGS CLAIMS SIMS REPS SEED PSCALE RESULTS
 
 cmd_run() {
+    require_current_build || return $?
     mkdir -p "$POOL" "$LOGS"
     total=$(blocklist | wc -l)
     echo "run: $total block(s), $WORKERS worker(s), processors=1 each"
     echo "run: started $(date -Is)"
+    local queue_rc=0
     blocklist | xargs -P "$WORKERS" -n 3 bash -c 'run_one "$@"' _ \
-        | tee -a "$RESULTS/run.log"
+        | tee -a "$RESULTS/run.log" || queue_rc=$?
     echo "run: finished $(date -Is)"
     cmd_status
+    return "$queue_rc"
 }
 
 # ---------------------------------------------------------------------------
@@ -275,6 +311,7 @@ cmd_status() {
 
 # ---------------------------------------------------------------------------
 cmd_combine() {
+    require_current_build || return $?
     # ALWAYS refresh from SRC. Combine holds no resumable state, and a cached
     # tree silently runs whatever code was current when it was first copied --
     # that masked a real fix during development.
@@ -288,6 +325,7 @@ cmd_combine() {
     rc_all=0
     for fam in $FAMILIES; do
         echo "--- combine_$fam ---"
+        rm -f "$d/validation_iivw_inference.log" "$LOGS/combine_$fam.log"
         ( cd "$d" && stata-mp -b do validation_iivw_inference.do \
             "combine_$fam" "$SIMS" "$REPS" "$SEED" 0 0 0 "$PSCALE" ) >/dev/null 2>&1
         cp -f "$d/validation_iivw_inference.log" "$LOGS/combine_$fam.log" 2>/dev/null

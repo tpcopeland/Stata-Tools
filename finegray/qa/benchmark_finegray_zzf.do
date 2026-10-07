@@ -55,6 +55,57 @@ set more off
 set varabbrev off
 version 16.0
 
+local benchmark_original_plus "`c(sysdir_plus)'"
+local benchmark_original_personal "`c(sysdir_personal)'"
+tempfile benchmark_install
+local benchmark_plus "`benchmark_install'_plus"
+local benchmark_personal "`benchmark_install'_personal"
+capture mkdir "`benchmark_plus'"
+capture mkdir "`benchmark_personal'"
+sysdir set PLUS "`benchmark_plus'"
+sysdir set PERSONAL "`benchmark_personal'"
+discard
+
+program define _zzf_bench_gen
+    syntax , n(integer) seed(integer) groups(integer)
+
+    clear
+    set seed `seed'
+    quietly set obs `=`n' * 6'
+
+    gen byte   z1 = runiform() < 0.5
+    gen double z2 = rnormal()
+    gen double ez = exp(0.5 * z1 - 0.5 * z2)
+    gen double p1 = 1 - (1 - 0.5)^ez
+
+    gen byte   cause = cond(runiform() < p1, 1, 2)
+    gen double v     = runiform()
+    gen double tev = -ln(1 - (1 - (1 - v * p1)^(1 / ez)) / 0.5) if cause == 1
+    replace    tev = rexponential(1 / (0.5 * exp(0.5 * z1 + 0.5 * z2))) if cause == 2
+    gen double cens = min(rexponential(1 / 0.15), 6)
+    gen double t0   = rexponential(1 / cond(z1 == 1, 1.6, 0.5))
+
+    gen double t      = min(tev, cens)
+    gen byte   status = cond(tev <= cens, cause, 0)
+    gen byte   anyev  = status > 0
+
+    quietly drop if !(t0 < t)
+    quietly count
+    if r(N) < `n' {
+        display as error "oversample exhausted at n = `n'"
+        exit 498
+    }
+    quietly keep in 1/`n'
+    gen long id = _n
+
+    * The weight design: `groups' observed truncation strata, fixed within a lane.
+    gen int wg = ceil(runiform() * `groups')
+    quietly replace wg = 1 if wg < 1
+end
+
+capture program drop _finegray_benchmark_body
+program define _finegray_benchmark_body
+    version 16.0
 local pkgroot "`c(pwd)'"
 capture confirm file "`pkgroot'/finegray.pkg"
 if _rc {
@@ -101,42 +152,6 @@ display as text "measuring CPU time (set processors 1); wall clock is diagnostic
 * ---------------------------------------------------------------------------
 * Fixture: delayed entry, with a tunable number of truncation strata.
 * ---------------------------------------------------------------------------
-program define _zzf_bench_gen
-    syntax , n(integer) seed(integer) groups(integer)
-
-    clear
-    set seed `seed'
-    quietly set obs `=`n' * 6'
-
-    gen byte   z1 = runiform() < 0.5
-    gen double z2 = rnormal()
-    gen double ez = exp(0.5 * z1 - 0.5 * z2)
-    gen double p1 = 1 - (1 - 0.5)^ez
-
-    gen byte   cause = cond(runiform() < p1, 1, 2)
-    gen double v     = runiform()
-    gen double tev = -ln(1 - (1 - (1 - v * p1)^(1 / ez)) / 0.5) if cause == 1
-    replace    tev = rexponential(1 / (0.5 * exp(0.5 * z1 + 0.5 * z2))) if cause == 2
-    gen double cens = min(rexponential(1 / 0.15), 6)
-    gen double t0   = rexponential(1 / cond(z1 == 1, 1.6, 0.5))
-
-    gen double t      = min(tev, cens)
-    gen byte   status = cond(tev <= cens, cause, 0)
-    gen byte   anyev  = status > 0
-
-    quietly drop if !(t0 < t)
-    quietly count
-    if r(N) < `n' {
-        display as error "oversample exhausted at n = `n'"
-        exit 498
-    }
-    quietly keep in 1/`n'
-    gen long id = _n
-
-    * The weight design: `groups' observed truncation strata, fixed within a lane.
-    gen int wg = ceil(runiform() * `groups')
-    quietly replace wg = 1 if wg < 1
-end
 
 * ---------------------------------------------------------------------------
 * Measure: one saved fixture per cell, `RUNS' clean child processes per cell.
@@ -320,3 +335,14 @@ if `fail' {
 }
 display as result _newline "BENCHMARK PASSED: runtime and memory are linear in n in every stratum lane"
 log close _bench_zzf
+end
+
+capture noisily _finegray_benchmark_body
+local benchmark_rc = _rc
+capture log close _bench_zzf
+sysdir set PLUS "`benchmark_original_plus'"
+sysdir set PERSONAL "`benchmark_original_personal'"
+discard
+capture shell rm -rf "`benchmark_plus'" "`benchmark_personal'"
+capture program drop _finegray_benchmark_body
+exit `benchmark_rc'

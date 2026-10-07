@@ -90,9 +90,7 @@ that outlives its manifest, certifies nothing.
 
 ### Calibrate before committing to the full run
 
-Runtime at `REPS=999` has **not** been measured end to end. The plumbing was
-verified at `REPS=10` (8 blocks, 1000 replications, 2m40s on 8 workers). Time
-one real block first rather than trusting an extrapolation:
+Historical `REPS=999` runs took 8h55m on 2026-07-22 and 5h34m for the block phase on 2026-08-05; see the retained result reports for their hardware, competing workload, and source manifests. These times do not establish runtime or calibration for the current source. The plumbing pilot at `REPS=10` took 2m40s (8 blocks, 1000 replications, 8 workers). Time one current-source block before launching the full study:
 
 ```bash
 s=$(date +%s)
@@ -241,10 +239,10 @@ are fabricated. Only the real release run says anything about the estimator.
 
 ## Open items — not done
 
-- **The gate has not been run against the 4.1.2 source manifest.** Historical
+- **The gate has not been reproduced against the current 4.3.4 source manifest.** Historical
   receipts remain provenance for their recorded builds, not clearance for this
   one. Production reports `uncleared-current-build` until reproduction.
-- Full-`REPS` runtime is unmeasured (see §2).
+- Current-source full-`REPS` runtime has not been measured here; historical measurements are listed in §2.
 - `run_coverage_gate.sh` is untested at `WORKERS=22`; it was exercised at
   `WORKERS=8`, and the pool-path change of 2026-07-22 has not been exercised by
   a real multi-block run at all.

@@ -185,6 +185,7 @@ capture noisily {
     * _b/_se read the posted results, which is what ereturn display formats.
     local replay_ll = _b[a] - invnormal(.975)*_se[a]
     local replay_ul = _b[a] + invnormal(.975)*_se[a]
+    assert !missing(`stored_ll', `stored_ul', `replay_ll', `replay_ul')
     assert reldif(`stored_ll', `replay_ll') < 1e-12
     assert reldif(`stored_ul', `replay_ul') < 1e-12
 }

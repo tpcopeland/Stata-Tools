@@ -1,4 +1,4 @@
-*! iivw_bspool Version 4.3.4  2026/09/30
+*! iivw_bspool Version 4.3.5  2026/10/06
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)
@@ -319,6 +319,40 @@ program define iivw_bspool, eclass
             * bstat and ereturn actually rebuild the matrix from.
             quietly ds
             local s_vars`i' "`r(varlist)'"
+
+            * Reconcile each artifact with its own counts before accumulation.
+            * Aggregate checks cannot see a short file offset by extra rows in
+            * another file. Native bstat counts complete rows across every saved
+            * statistic (marksample's ordinary varlist rule); so does this.
+            foreach _field in req done fail {
+                local _count `"`s_`_field'`i''"'
+                capture confirm number `_count'
+                if _rc {
+                    display as error "iivw_bspool: nonnumeric `_field' count in `path`i''"
+                    error 459
+                }
+                if missing(`_count') | `_count' < 0 | `_count' != floor(`_count') {
+                    display as error "iivw_bspool: invalid `_field' count in `path`i''"
+                    error 459
+                }
+            }
+            if `s_req`i'' < 2 | ///
+                `s_req`i'' != `s_done`i'' + `s_fail`i'' | ///
+                `s_rows`i'' != `s_req`i'' {
+                display as error "iivw_bspool: artifact row count/stamps disagree in `path`i''"
+                error 459
+            }
+            tempvar _draw_valid
+            quietly gen byte `_draw_valid' = 1
+            markout `_draw_valid' `s_vars`i''
+            quietly count if `_draw_valid'
+            local _actual_done = r(N)
+            if `_actual_done' != `s_done`i'' | ///
+                `s_rows`i'' - `_actual_done' != `s_fail`i'' {
+                display as error "iivw_bspool: artifact completed/failed stamps disagree in `path`i''"
+                error 459
+            }
+            drop `_draw_valid'
             local s_stripe`i' ""
             local s_obs`i' ""
             foreach v of local s_vars`i' {
@@ -388,21 +422,19 @@ program define iivw_bspool, eclass
     }
 
     * ---- BCa: a documented scope boundary, not a silent gap ---------------
-    * BCa needs a bias correction, which pools from the draws, and an
-    * acceleration, which comes from a jackknife over clusters and does not.
-    * Pooling the draws while keeping one shard's acceleration would report an
-    * interval whose skewness correction was estimated from a fraction of the
-    * evidence, under a BCa label.
+    * BCa's bias correction is computed from the pooled draws. Acceleration
+    * comes from a delete-one-cluster jackknife of the observed analysis, so
+    * valid shards of that analysis should agree. This implementation has no
+    * BCa acceleration validation/repost contract and explicitly refuses it.
     forvalues i = 1/`nshards' {
         if "`s_citype`i''" == "bca" {
             display as error "iivw_bspool cannot pool BCa intervals"
             display as error ""
-            display as text "  BCa has two corrections. The bias correction z0 pools from"
-            display as text "  the replicate draws. The acceleration does not: it comes from"
-            display as text "  a delete-one jackknife over clusters, which each shard ran"
-            display as text "  separately. Reusing one shard's acceleration on 999 pooled"
-            display as text "  draws would report a skewness correction estimated from that"
-            display as text "  shard's evidence alone, under a BCa label."
+            display as text "  This implementation pools only Wald, percentile and basic intervals."
+            display as text "  BCa additionally requires an acceleration vector from a"
+            display as text "  delete-one-cluster jackknife of the observed analysis."
+            display as text "  Shards of the same analysis should have the same acceleration,"
+            display as text "  but this pooler does not verify and combine that BCa metadata."
             display as text ""
             display as text "  Refit the shards with citype(percentile), citype(basic) or"
             display as text "  citype(wald), which pool exactly."
@@ -775,6 +807,12 @@ program define iivw_bspool, eclass
     if `: list posof "ci_normal" in _native'     ereturn matrix ci_normal     = `nat_ci_normal'
     if `: list posof "ci_percentile" in _native' ereturn matrix ci_percentile = `nat_ci_percentile'
     if `: list posof "ci_bc" in _native'         ereturn matrix ci_bc         = `nat_ci_bc'
+    * BCa is outside the pooler's supported scope, but a compatible anchor can
+    * have requested it. Its limits came from one shard and must not survive
+    * under pooled counts. An empty e() macro removes an e() matrix of that name.
+    ereturn local ci_bca ""
+    ereturn local accel ""
+    ereturn local iivw_ci_bca ""
     ereturn scalar N_reps    = `pooled_done'
     ereturn scalar N_misreps = `pooled_fail'
     * The anchor's RNG state is one shard's; the pool drew from several.

@@ -241,9 +241,13 @@ and limits.{p_end}
 {pmore}
 {cmd:smallcells(}{it:#}{cmd:, primary)} protects printed counts only: every printed
 count from 1 to {it:#}-1 (a level or binary count, a printed missing count, a group,
-total or {opt slashN} denominator) is shown as {cmd:<#} without its percentage, and
-nothing else changes. No complementary {cmd:≥#} cells are added, other cells keep their
-percentages, and p-values, statistics and SMDs are shown as computed. A count that can
+total or {opt slashN} denominator) is shown as {cmd:<#} without its percentage. No
+complementary {cmd:≥#} cells are added, other cells keep their percentages, and the
+ordinary variable statistics, p-values and SMDs are shown as computed. One derived
+cell is still withheld: a weighted effective sample size ({opt wt()} with
+{opt wtn}) whose published group N is masked is shown as {cmd:Suppressed}
+(suppression code 3) and is counted in {cmd:r(N_derived_suppressed)}, which is
+otherwise 0 in primary mode. A count that can
 be derived from printed cells (for example a missing count as N minus the printed
 levels) is not protected. The footnote says that this mode ran and that it protects
 printed counts only, and {cmd:r(smallcells_mode)} is {cmd:primary}. Use it when the
@@ -545,7 +549,7 @@ frames with {helpb stacktab}; each block gets a bold heading and keeps its own N
 {synopt:{cmd:r(n_cellreplace)}}cells set by {opt cellreplace()}{p_end}
 {synopt:{cmd:r(N_primary_suppressed)}}primary display cells{p_end}
 {synopt:{cmd:r(N_secondary_suppressed)}}complementary display cells{p_end}
-{synopt:{cmd:r(N_derived_suppressed)}}dependent display cells{p_end}
+{synopt:{cmd:r(N_derived_suppressed)}}dependent cells, incl. masked ESS{p_end}
 
 {p2col 5 32 36 2: Macros}{p_end}
 {synopt:{cmd:r(Dapa)}}resolved data-presentation description{p_end}

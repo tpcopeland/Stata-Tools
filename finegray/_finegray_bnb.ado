@@ -1,4 +1,4 @@
-*! _finegray_bnb Version 1.3.7  2026/09/29
+*! _finegray_bnb Version 1.3.8  2026/10/06
 *! Non-base coefficient vector (and variance) of the finegray fit in e()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (nclass)

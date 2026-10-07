@@ -1,4 +1,4 @@
-*! _regtab_mincount Version 2.5.4  2026/10/06
+*! _regtab_mincount Version 2.5.5  2026/10/07
 *! regtab block: mincount() masks, not-estimable and absent levels
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

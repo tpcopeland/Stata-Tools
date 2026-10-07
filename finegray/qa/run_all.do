@@ -83,6 +83,8 @@ local quick_files validation_fixture_recovery.do validation_fixture_matrix.do te
     test_finegray_estimates_use.do ///
     test_finegray_sthlp_render.do ///
     test_finegray_state_surfaces.do ///
+    test_finegray_audit_2026_10_05_method.do ///
+    test_finegray_audit_2026_10_05_runtime.do ///
     test_documentation_examples.do
 * The route x condition grid (98 cells, ~25 s) is the default developer lane's
 * contract test (DOTHIS 2026-09-28 Part 2): core, not quick.
@@ -252,15 +254,17 @@ foreach f of local all_files {
             if _rc == 0 {
                 * The line appears twice: echoed source macros parse as missing;
                 * only the evaluated output supplies numeric fields.
+                quietly gen byte _receipt = regexm(v1, ///
+                    "^RESULT: `_base' tests=[0-9]+ pass=[0-9]+ fail=[0-9]+( skip=[0-9]+)?( smoke=[0-9]+)?( repdrop=[0-9]+)?( secs=[0-9]+)?$")
                 quietly capture gen double _tv = ///
                     real(word(substr(v1, strpos(v1, "tests=") + 6, .), 1)) ///
-                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "tests=") > 0
+                    if _receipt & strpos(v1, "tests=") > 0
                 quietly capture gen double _pv = ///
                     real(word(substr(v1, strpos(v1, "pass=") + 5, .), 1)) ///
-                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "pass=") > 0
+                    if _receipt & strpos(v1, "pass=") > 0
                 quietly capture gen double _fv = ///
                     real(word(substr(v1, strpos(v1, "fail=") + 5, .), 1)) ///
-                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "fail=") > 0
+                    if _receipt & strpos(v1, "fail=") > 0
                 quietly count if !missing(_tv, _pv, _fv)
                 if _rc == 0 & r(N) == 1 {
                     quietly summarize _tv if !missing(_tv, _pv, _fv), meanonly
@@ -272,7 +276,7 @@ foreach f of local all_files {
                     local _smoke = 0
                     quietly capture gen double _smv = ///
                         real(word(substr(v1, strpos(v1, "smoke=") + 6, .), 1)) ///
-                        if strpos(v1, "RESULT:") > 0 & strpos(v1, "smoke=") > 0
+                        if _receipt & strpos(v1, "smoke=") > 0
                     if _rc == 0 {
                         quietly summarize _smv, meanonly
                         if r(N) > 0 & r(max) < . local _smoke = r(max)
@@ -290,7 +294,7 @@ foreach f of local all_files {
                 }
                 quietly capture gen double _skv = ///
                     real(word(substr(v1, strpos(v1, "skip=") + 5, .), 1)) ///
-                    if strpos(v1, "RESULT:") > 0 & strpos(v1, "skip=") > 0
+                    if _receipt & strpos(v1, "skip=") > 0
                 if _rc == 0 {
                     quietly summarize _skv
                     if r(N) > 0 & r(max) < . local _sk = r(max)

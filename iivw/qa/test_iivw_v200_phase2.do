@@ -159,7 +159,7 @@ else {
     display "FAIL T2: balance verdict on correctly weighted data (C2)"
 }
 
-**# T3 - C2 negative control: misspecified weights must be flagged exceeds_rule
+**# T3 - C2 negative control: misspecified weights are flagged by r(extra_flag)
 
 local ++test_count
 capture noisily {
@@ -173,14 +173,37 @@ capture noisily {
     * Ask for balance on z, which the weight model never saw.
     quietly iivw_balance z, nolog
 
-    * A diagnostic that says within_rule here would be useless. The weighted
+    * A diagnostic that says nothing here would be useless. The weighted
     * visits do NOT reproduce the person-time distribution of z.
-    assert abs(r(balance_max_tsmd)) > 0.20
-    assert "`r(balance_flag)'" == "exceeds_rule"
+    *
+    * 2026-10-05 audit (DX03): this used to read the omission off
+    * r(balance_max_tsmd)/r(balance_flag), which let an extra varlist
+    * covariate set the MODELED verdict -- the help says only the stored model
+    * covariates do. The extra covariate now has its own verdict, and THAT is
+    * the negative control: misspecified weights must be flagged there.
+    assert "`r(extra_flag)'" == "exceeds_rule"
+    assert !missing(r(extra_max_tsmd))
+    assert r(extra_max_tsmd) > 0.20
+    matrix T = r(target)
+    local zr = rownumb(T, "z")
+    assert `zr' < .
+    assert T[`zr', 4] == 0
+    assert !missing(T[`zr', 3])
+    assert abs(T[`zr', 3]) > 0.20
+    local modmax = .
+    forvalues i = 1/`=rowsof(T)' {
+        if T[`i', 4] == 1 & !missing(T[`i', 3]) {
+            if missing(`modmax') | abs(T[`i', 3]) > `modmax' local modmax = abs(T[`i', 3])
+        }
+    }
+    assert !missing(`modmax') & !missing(r(balance_max_tsmd))
+    assert reldif(r(balance_max_tsmd), `modmax') < 1e-12
+    assert !missing(r(extra_max_tsmd)) & !missing(abs(T[`zr', 3]))
+    assert reldif(r(extra_max_tsmd), abs(T[`zr', 3])) < 1e-12
 }
 if _rc == 0 {
     local ++pass_count
-    display "PASS T3: misspecified weights are flagged exceeds_rule against the target (C2)"
+    display "PASS T3: misspecified weights are flagged exceeds_rule for the omitted covariate (C2)"
 }
 else {
     local ++fail_count

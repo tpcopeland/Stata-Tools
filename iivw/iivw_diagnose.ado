@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.4  2026/09/30
+*! iivw_diagnose Version 4.3.5  2026/10/06
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -217,6 +217,10 @@ program define iivw_diagnose, rclass
                 local cmd_`role' "`e(iivw_underlying_cmd)'"
             }
             local cmd2_`role'    "`e(cmd2)'"
+            * xtreg's within (fe), between (be), random-effects (re) and
+            * population-averaged (pa) estimators share e(cmd), sample and link
+            * but target different relationships; e(model) names the estimator.
+            local model_`role'   "`e(model)'"
 
             * The family and link the estimator actually reports.
             *
@@ -300,6 +304,10 @@ program define iivw_diagnose, rclass
             * runs between `estimates restore' and the marker read.
             _iivw_require_meta explicit "stored estimates '`estname''" ///
                 "depvar=`depvar_`role''" "cmd=`cmd_`role''"
+            if "`cmd_`role''" == "xtreg" {
+                _iivw_require_meta explicit "stored estimates '`estname''" ///
+                    "model=`model_`role''"
+            }
         }
 
         * =================================================================
@@ -346,6 +354,14 @@ program define iivw_diagnose, rclass
                 local ++_n_incomp
                 local _incomp_`_n_incomp' ///
                     "estimator(`role': `cmd_`role'' vs unweighted: `cmd_unweighted')"
+            }
+            * Same e(cmd) is not the same estimator for xtreg: fe and be are
+            * within and between estimates of different relationships (DX04).
+            if "`cmd_`role''" == "xtreg" & "`cmd_unweighted'" == "xtreg" & ///
+                "`model_`role''" != "`model_unweighted'" {
+                local ++_n_incomp
+                local _incomp_`_n_incomp' ///
+                    "panel estimator(`role': xtreg, `model_`role'' vs unweighted: xtreg, `model_unweighted')"
             }
             if "`family_`role''" != "`family_unweighted'" | ///
                 "`link_`role''" != "`link_unweighted'" {
@@ -992,14 +1008,18 @@ program define iivw_diagnose, rclass
             * quote parity so a later ")" terminates the option early. See the
             * note at iivw_balance's dispatch site for the measured failure.
             local _quote_sentinel = uchar(57344)
-            local _dispatch_title = subinstr(`"`macval(_clean_title)'"', ///
-                char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_footnote = subinstr(`"`macval(_clean_footnote)'"', ///
-                char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_sheet = subinstr(`"`macval(_clean_sheet)'"', ///
-                char(34), `"`_quote_sentinel'"', .)
-            local _dispatch_xlsx = subinstr(`"`macval(_clean_xlsx)'"', ///
-                char(34), `"`_quote_sentinel'"', .)
+            local _dispatch_title = subinstr(subinstr(`"`macval(_clean_title)'"', ///
+                `"`_quote_sentinel'"', `"`_quote_sentinel'0"', .), ///
+                char(34), `"`_quote_sentinel'1"', .)
+            local _dispatch_footnote = subinstr(subinstr(`"`macval(_clean_footnote)'"', ///
+                `"`_quote_sentinel'"', `"`_quote_sentinel'0"', .), ///
+                char(34), `"`_quote_sentinel'1"', .)
+            local _dispatch_sheet = subinstr(subinstr(`"`macval(_clean_sheet)'"', ///
+                `"`_quote_sentinel'"', `"`_quote_sentinel'0"', .), ///
+                char(34), `"`_quote_sentinel'1"', .)
+            local _dispatch_xlsx = subinstr(subinstr(`"`macval(_clean_xlsx)'"', ///
+                `"`_quote_sentinel'"', `"`_quote_sentinel'0"', .), ///
+                char(34), `"`_quote_sentinel'1"', .)
 
             local _export_opts `"tableframe(`_diagnose_export') decimals(`_decimals_final') layout(tabtools) valuespanfrom(`_valuespanfrom')"'
             if `"`macval(_dispatch_xlsx)'"' != "" {
@@ -1108,6 +1128,9 @@ program define iivw_diagnose, rclass
     * (force), because they were not fitted on the same rows, because the sample
     * could not be verified at all, or because the link is not collapsible.
     local _decomposable = 1 - `_forced_incomparable'
+    * estimand(contrast) is movement only: no shares are formed and the console
+    * says it is not a decomposition, so the eligibility scalar must agree.
+    if "`estimand'" == "contrast"      local _decomposable = 0
     if `_sample_identical' != 1        local _decomposable = 0
     if "`_noncollapsible'" != ""       local _decomposable = 0
     return scalar decomposable = `_decomposable'

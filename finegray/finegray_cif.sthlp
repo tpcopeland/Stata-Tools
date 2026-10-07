@@ -75,7 +75,15 @@ it), and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
 
 {pstd}
-The command requires the unchanged {cmd:stset} estimation data. A converged fit
+The command requires the unchanged {cmd:stset} estimation data: it checks the
+complete original fitting tuples, so a change to the data, including a
+permutation of one variable's values across observations, is {cmd:r(459)}
+({cmd:the estimation data no longer reproduce the fitted observation tuples}).
+Estimates saved by finegray 1.3.7 or earlier carry no {cmd:e(rowsig)}, so every
+form of {cmd:finegray_cif}, including a point CIF with {opt at()} and a baseline
+posted by {opt basehaz}, is {cmd:r(301)}
+({cmd:this fit predates joint-row estimation-data identity checks}); refit with
+{cmd:finegray}. A converged fit
 is required ({cmd:r(430)} otherwise). Not available after a fit on {cmd:mi}
 data ({cmd:r(301)}); see {help finegray##mi:Multiple imputation}.
 
@@ -164,7 +172,11 @@ counts when they differ.
 {opt timepoints()}. Horizons are used exactly as typed, to full double
 precision: the CIF is a step function, so a horizon at a cause-event time
 includes that event and one an ulp before it does not. Repeated horizons are
-collapsed to one row; horizons that differ in any digit are separate rows.
+collapsed to one row; horizons that differ in any digit are separate rows. A
+range ({cmd:1(1)5}, {cmd:1/5}, {cmd:1 2 to 5}) is expanded by {cmd:numlist},
+which may round a range's endpoints and step: any range endpoint or step that
+{cmd:numlist} would round is {cmd:r(198)}
+({cmd:list that range's analysis times one by one instead}).
 
 {phang}
 {opt timepoints(numlist)} evaluates the curve at the specified times rather than
@@ -177,7 +189,8 @@ the requested grid is not thinned. Times are used exactly as typed, as for
 time is at or beyond the curve's last cause-event time, in which case the flat
 tail is drawn out to the end of follow-up as for the default grid; a grid that
 stops earlier is not extended, because the CIF still rises past it. A
-requested time beyond the last cause-event time is flagged with a note.
+requested time beyond the last cause-event time is flagged with a note. The
+same range rule applies as for {opt attime()}.
 
 {marker tvc}{...}
 {phang}

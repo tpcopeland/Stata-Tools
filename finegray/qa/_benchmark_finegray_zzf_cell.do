@@ -42,6 +42,69 @@ version 16.0
 * Install the exact source tree in every clean child.  The parent also installs
 * it before spawning cells, but a child must not be able to inherit a stale PLUS
 * registration if the parent setup is changed or interrupted.
+local benchmark_original_plus "`c(sysdir_plus)'"
+local benchmark_original_personal "`c(sysdir_personal)'"
+tempfile benchmark_install
+local benchmark_plus "`benchmark_install'_plus"
+local benchmark_personal "`benchmark_install'_personal"
+capture mkdir "`benchmark_plus'"
+capture mkdir "`benchmark_personal'"
+sysdir set PLUS "`benchmark_plus'"
+sysdir set PERSONAL "`benchmark_personal'"
+discard
+
+capture program drop _fg_vmhwm
+program define _fg_vmhwm, rclass
+    tempname fh
+    local kb = .
+    capture file open `fh' using "/proc/self/status", read text
+    if _rc {
+        return scalar kb = .
+        exit
+    }
+    file read `fh' line
+    while r(eof) == 0 {
+        if substr(`"`macval(line)'"', 1, 6) == "VmHWM:" {
+            * Tabs first -- see the header.  word() will not split on one.
+            local clean = subinstr(`"`macval(line)'"', char(9), " ", .)
+            local clean = subinstr("`clean'", "VmHWM:", "", 1)
+            local kb = real(word("`clean'", 1))
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    return scalar kb = `kb'
+end
+capture program drop _fg_cpu
+program define _fg_cpu, rclass
+    tempname fh
+    local secs = .
+    capture file open `fh' using "/proc/self/stat", read text
+    if _rc {
+        return scalar secs = .
+        exit
+    }
+    file read `fh' line
+    file close `fh'
+    local clean = subinstr(`"`macval(line)'"', char(9), " ", .)
+    local ut = real(word("`clean'", 14))
+    local st = real(word("`clean'", 15))
+    if !missing(`ut') & !missing(`st') local secs = (`ut' + `st') / 100
+    return scalar secs = `secs'
+end
+capture program drop _fg_vmreset
+program define _fg_vmreset
+    tempname cr
+    capture file open `cr' using "/proc/self/clear_refs", write text
+    if _rc exit
+    file write `cr' "5" _n
+    file close `cr'
+end
+
+capture program drop _finegray_benchmark_body
+program define _finegray_benchmark_body
+    version 16.0
+args fixture groups nn run csv
 local pkgroot "`c(pwd)'"
 capture confirm file "`pkgroot'/finegray.pkg"
 if _rc {
@@ -77,58 +140,11 @@ capture set processors 1
 * ---------------------------------------------------------------------------
 * Peak RSS (kB) from /proc/self/status, and the high-water-mark reset.
 * ---------------------------------------------------------------------------
-capture program drop _fg_vmhwm
-program define _fg_vmhwm, rclass
-    tempname fh
-    local kb = .
-    capture file open `fh' using "/proc/self/status", read text
-    if _rc {
-        return scalar kb = .
-        exit
-    }
-    file read `fh' line
-    while r(eof) == 0 {
-        if substr(`"`macval(line)'"', 1, 6) == "VmHWM:" {
-            * Tabs first -- see the header.  word() will not split on one.
-            local clean = subinstr(`"`macval(line)'"', char(9), " ", .)
-            local clean = subinstr("`clean'", "VmHWM:", "", 1)
-            local kb = real(word("`clean'", 1))
-        }
-        file read `fh' line
-    }
-    file close `fh'
-    return scalar kb = `kb'
-end
 
 * CPU time (seconds) consumed by this process: utime + stime from /proc/self/stat,
 * fields 14 and 15, in clock ticks (100/s on Linux).  The comm field is
 * "(stata-mp)" -- no embedded spaces -- so plain word() parsing is safe here.
-capture program drop _fg_cpu
-program define _fg_cpu, rclass
-    tempname fh
-    local secs = .
-    capture file open `fh' using "/proc/self/stat", read text
-    if _rc {
-        return scalar secs = .
-        exit
-    }
-    file read `fh' line
-    file close `fh'
-    local clean = subinstr(`"`macval(line)'"', char(9), " ", .)
-    local ut = real(word("`clean'", 14))
-    local st = real(word("`clean'", 15))
-    if !missing(`ut') & !missing(`st') local secs = (`ut' + `st') / 100
-    return scalar secs = `secs'
-end
 
-capture program drop _fg_vmreset
-program define _fg_vmreset
-    tempname cr
-    capture file open `cr' using "/proc/self/clear_refs", write text
-    if _rc exit
-    file write `cr' "5" _n
-    file close `cr'
-end
 
 * ---------------------------------------------------------------------------
 * Untimed warm-up: pays Mata compilation and ado loading.
@@ -209,3 +225,14 @@ file write `out' "`groups',`nn',`run',`secs',`kb_incr',`wall'" _n
 file close `out'
 
 display as text "cell groups=`groups' n=`nn' run=`run' cpu=`secs' wall=`wall' kb_incr=`kb_incr'"
+end
+
+capture noisily _finegray_benchmark_body `"`macval(fixture)'"' `groups' `nn' `run' `"`macval(csv)'"'
+local benchmark_rc = _rc
+capture log close _bench_zzf
+sysdir set PLUS "`benchmark_original_plus'"
+sysdir set PERSONAL "`benchmark_original_personal'"
+discard
+capture shell rm -rf "`benchmark_plus'" "`benchmark_personal'"
+capture program drop _finegray_benchmark_body
+exit `benchmark_rc'

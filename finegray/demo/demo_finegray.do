@@ -336,10 +336,12 @@ bysort id (ndays): gen byte pneu0 = pneumonia[1]
 noisily finegray age pneu0, compete(outcome) cause(1) nolog
 
 **# Delayed entry with entry strata
-* Entry here depends on z1 and censoring does not, and z1 is a model covariate,
-* so the specified analysis is truncstrata(z1) with no strata().  The other
-* fits are shown to display the weight labels and to make the cost of pooling
-* visible, not because they are the right analysis for these data.
+* Entry here depends on z1.  Use matching strata(z1) truncstrata(z1) for the
+* published stratified construction, subject to its conditional-independence
+* assumptions.  A censoring KM may legitimately be estimated within z1 even
+* though its generating law is common across z1 here.  The pooled and one-sided
+* fits below are mechanism sensitivity analyses; their numerical feasibility
+* does not establish general inferential validity.
 clear
 set seed 20260713
 quietly set obs 24000
@@ -362,22 +364,24 @@ gen long id = _n
 gen byte any_event = status > 0
 stset time, failure(any_event==1) id(id) enter(time entry_time)
 
-* # Entry stratified on z1: the specification these data call for
-noisily finegray z1 z2, compete(status) cause(1) truncstrata(z1) nolog
+* # Matching censoring/entry strata: the published primary construction
+noisily finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1) nolog
 noisily display as text "weight = " as result "`e(lt_weight)'"
+assert "`e(lt_weight)'" == "zzf1_stratified"
 matrix b_ts = e(b)
 
-* # Pooling the entry distribution instead, and what it costs
+* # Pooled-weight mechanism sensitivity, and what pooling costs
 noisily finegray z1 z2, compete(status) cause(1) nolog
 noisily display as text "weight            = " as result "`e(lt_weight)'"
 noisily display as text "min weight prob A = " as result %9.5f e(min_weight_prob)
 noisily display as text "max entry weight  = " as result %9.3f e(max_lt_weight)
-noisily display as text "log-SHR on z1, entry-stratified = " ///
+noisily display as text "log-SHR on z1, matching strata = " ///
     as result %9.5f b_ts[1,1] as text "; pooled = " as result %9.5f _b[z1]
 
-* # Matching and cross-classified censoring/entry strata
-noisily finegray z1 z2, compete(status) cause(1) strata(z1) truncstrata(z1) nolog
+* # Experimental one-sided and cross-classified mechanism sensitivities
+noisily finegray z1 z2, compete(status) cause(1) truncstrata(z1) nolog
 noisily display as text "weight = " as result "`e(lt_weight)'"
+assert "`e(lt_weight)'" == "zzf1_factorized"
 noisily finegray z1 z2, compete(status) cause(1) strata(g4) truncstrata(z1) nolog
 noisily display as text "weight = " as result "`e(lt_weight)'"
 noisily finegray_cif, attime(1 3 5) ci nograph

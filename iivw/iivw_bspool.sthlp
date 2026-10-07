@@ -280,14 +280,13 @@ stamp it has not earned.
 {title:Limitations}
 
 {pstd}
-{bf:BCa intervals cannot be pooled.} BCa has two corrections. The bias
-correction pools from the replicate draws; the acceleration does not, because
-it comes from a delete-one jackknife over clusters that each shard ran
-separately. Reusing one shard's acceleration on 999 pooled draws would report a
-skewness correction estimated from a fraction of the evidence, under a BCa
-label. {cmd:iivw_bspool} errors on {cmd:citype(bca)} shards rather than doing
-that. Use {cmd:citype(percentile)}, {cmd:citype(basic)} or {cmd:citype(wald)},
-which pool exactly.
+{bf:BCa intervals are outside this pooler's supported scope.} BCa combines
+a bias correction computed from the bootstrap draws with an acceleration
+computed by a delete-one-cluster jackknife of the observed analysis.
+Shards of the same analysis should have the same acceleration. This version
+of {cmd:iivw_bspool} does not verify or repost the BCa acceleration metadata
+and errors on {cmd:citype(bca)} shards. Use {cmd:citype(wald)},
+{cmd:citype(percentile)} or {cmd:citype(basic)} for pooling.
 
 {pstd}
 {bf:The equivalence claim is bounded by what has been measured.} Pooling one

@@ -1,4 +1,4 @@
-*! _finegray_assert_cardinality Version 1.3.7  2026/09/29
+*! _finegray_assert_cardinality Version 1.3.8  2026/10/06
 *! Refuse a destructive commit that would carry zero (or too few) usable values
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

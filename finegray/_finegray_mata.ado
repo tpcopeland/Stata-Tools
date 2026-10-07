@@ -1,4 +1,4 @@
-*! _finegray_mata Version 1.3.7  2026/09/29
+*! _finegray_mata Version 1.3.8  2026/10/06
 *! Mata forward-backward scan engine for Fine-Gray regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (stores results in Stata matrices)
@@ -8,7 +8,10 @@ Internal command: Fits Fine-Gray subdistribution hazard model using
 the forward-backward scan algorithm (Kawaguchi et al. 2021).
 Called by finegray. Not intended for direct user invocation.
 
-Algorithm: O(np) per Newton-Raphson iteration
+Algorithm: per Newton-Raphson iteration, for fixed numbers of weight and
+baseline strata, the score scan is O(np) and the full-information scan is
+O(np^2); the Newton solve is O(p^3).  Sorting, weight preparation and
+piecewise-time (tvc) passes have separate costs.
   1. KM censoring distribution G(t) (supports left truncation)
   2. Incremental risk-set tracking with entry-time pointer
   3. Backward scan: weighted sums for competing-event subjects
@@ -92,6 +95,56 @@ real colvector _finegray_beta()
         regexm(s[., 2], "^[0-9]+b\.[^#]+(#[0-9]+b\.[^#]+)*$")))
     if (length(keep) == cols(b)) return(b')
     return(b[1, keep]')
+}
+
+/* Probability weights in the computational unit: mean one, w = c * unit.
+
+   A common factor c on every pweight leaves the weighted score root, the
+   fixed-weight sandwich, the Breslow baseline and the CIF unchanged (Wogu et
+   al. 2021 eq. 3: rho_i multiplies every risk-set sum and the subject's own
+   term, so U_c = c U, I_c = c I, Delta Lambda_c = Delta Lambda).  The
+   arithmetic does not: through 1.3.7 the absolute Newton-decrement test ran
+   on the RAW scale, so [pw = 1e-12*w] stopped after one step with
+   e(converged) = 1 (b(x) .611 against .642), and 1e-160 underflowed to
+   b = 0, V = 0 at rc 0 (audit M02, 2026-10-05).  Every consumer that reads a
+   pweight column (engine, CIF variance, observation CIF, Schoenfeld, baseline
+   rebuild) therefore works on this unit, so the optimizer stops on the same
+   footing as an unweighted fit.  e(sum_w), e(wexp) and the weight signature
+   are computed in Stata from the RAW column and are untouched.  Dividing by
+   the maximum first means obtaining the mean cannot overflow; a relative
+   weight range the double cannot represent as a normal number is refused
+   rather than silently flushed toward zero.  An all-ones column comes back
+   bit-identical, so [pw = 1] stays bit-identical to the unweighted fit. */
+real colvector _finegray_pweight_unit(real colvector w, | real scalar c)
+{
+    real scalar mx, av
+    real colvector q
+
+    c = 1
+    if (rows(w) == 0) return(w)
+    if (hasmissing(w) | min(w) <= 0) {
+        errprintf("finegray: probability weights must be positive and finite\n")
+        exit(error(402))
+    }
+    mx = max(w)
+    q = w :/ mx
+    if (min(q) < smallestdouble()) {
+        errprintf("finegray: the ratio of the smallest to the largest ")
+        errprintf("probability weight is below double precision range\n")
+        exit(430)
+    }
+    av = mean(q)
+    c = mx * av
+    return(q :/ av)
+}
+
+/* The typed-pweight log pseudo-likelihood from the unit-weight one.  With
+   w = c * unit and d = the unit weight total over cause events,
+   ell_w(beta) = c * (ell_unit(beta) - d * log(c)).  c == 1 returns ll
+   bit for bit. */
+real scalar _finegray_pweight_ll(real scalar ll, real scalar c, real scalar d)
+{
+    return(c * (ll - d * ln(c)))
 }
 
 /* Last observation gap ("hole") of a left-truncated sample: the largest entry
@@ -1267,9 +1320,14 @@ real scalar _finegray_positivity_check(
     npos = 0
     flagged = J(nj, 1, 0)
     for (i = 1; i <= n; i++) {
-        /* Only X_i < t_k subjects are retained at a later cause time. A zero
-           denominator after the final cause event is never consulted. */
-        if (!is_compete[i] | t[i] >= last_cause) continue
+        /* A cause event consults its own A(X_i-) at its own event time; a
+           competing exit consults it only if a later cause event retains it
+           (X_i < t_k), so a zero after the final cause event is never read.
+           Through 1.3.7 cause events were skipped here, and a lone cause
+           event before the last gap -- where the published b/S(t-) is
+           undefined -- fitted at rc 0 with e(converged) = 1 (audit M04,
+           2026-10-05).  The multi-cell branch above already checks them. */
+        if (!is_cause[i] & (!is_compete[i] | t[i] >= last_cause)) continue
         if (Gminus[i] > 0) continue
         npos++
         flagged[gidx[i]] = 1
@@ -3951,6 +4009,7 @@ void _finegray_schoenfeld_compute(
 
     if (w_str != "") w = st_data(., w_str)
     else             w = J(rows(t), 1, 1)
+    if (wtype == 1) w = _finegray_pweight_unit(w)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     if (wtype == 2) {
@@ -4903,6 +4962,12 @@ void _finegray_rank_fail(
         errprintf("the covariates are collinear within the cause-event ")
         errprintf("risk sets\n")
     }
+    /* The rank test runs on the raw-unit information, so an algebraically
+       full-rank design whose columns sit far from zero or on extreme scales
+       can fail it numerically (audit M01, 2026-10-05: x + 1e6, 1e8 * x). */
+    errprintf("a varying covariate far from zero or on an extreme scale can also\n")
+    errprintf("fail this check numerically: center and rescale continuous\n")
+    errprintf("covariates and refit\n")
     errprintf("remove or recode the offending term(s) and fit the model again\n")
     exit(error(459))
 }
@@ -4930,7 +4995,7 @@ void _finegray_engine(
     real scalar wtype)
 {
     real colvector t, delta, event_type, G, byg_id, t0, tg_id, w, gfloored
-    real scalar nadj
+    real scalar nadj, pw_scale, pw_events
     real matrix Z, V, bh, weight_A
     real colvector beta, beta_new, score_vec, step, clust_id
     real colvector weight_gidx, weight_Gminus, weight_Apool, weight_nprehole
@@ -4964,6 +5029,14 @@ void _finegray_engine(
        is a per-subject constant (finegray.ado checks it within id()). */
     if (w_str != "") w = st_data(., w_str)
     else              w = J(n, 1, 1)
+    /* pweights in the mean-one unit (see _finegray_pweight_unit); pw_scale
+       and pw_events restore the typed e(ll)/e(ll_0) and the iteration log. */
+    pw_scale = 1
+    pw_events = 0
+    if (wtype == 1) {
+        w = _finegray_pweight_unit(w, pw_scale)
+        pw_events = sum(select(w, (event_type :== cause) :& (delta :== 1)))
+    }
 
     /* Read byg variable if specified */
     if (byg_str != "") {
@@ -5156,12 +5229,13 @@ void _finegray_engine(
         nint, w)
     if (ll_0 >= .) {
         errprintf("finegray: the null log pseudo-likelihood is not finite\n")
-        exit(error(430))
+        exit(430)
     }
     ll = ll_0
 
     if (show_log) {
-        printf("{txt}Iteration 0: log pseudo-likelihood = {res}%12.6f\n", ll)
+        printf("{txt}Iteration 0: log pseudo-likelihood = {res}%12.6f\n",
+            (wtype == 1 ? _finegray_pweight_ll(ll, pw_scale, pw_events) : ll))
     }
 
     converged = 0
@@ -5177,7 +5251,9 @@ void _finegray_engine(
         if (hasmissing(info_mat) | hasmissing(score_vec)) {
             errprintf("finegray: the score or information matrix is not ")
             errprintf("finite at iteration %g\n", iter)
-            exit(error(430))
+            errprintf("covariates far from zero or on extreme scales can ")
+            errprintf("overflow exp(xb): center and rescale them and refit\n")
+            exit(430)
         }
         if (rank(info_mat) < ptot)
             _finegray_rank_fail(info_mat, coefnames, ptot)
@@ -5249,7 +5325,8 @@ void _finegray_engine(
 
         if (show_log) {
             printf("{txt}Iteration %g: log pseudo-likelihood = {res}%12.6f\n",
-                iter, ll)
+                iter, (wtype == 1 ?
+                _finegray_pweight_ll(ll, pw_scale, pw_events) : ll))
         }
     }
 
@@ -5272,7 +5349,7 @@ void _finegray_engine(
     if (ll >= .) {
         errprintf("finegray: the log pseudo-likelihood is not finite at the ")
         errprintf("solution\n")
-        exit(error(430))
+        exit(430)
     }
 
     /* Final information for variance */
@@ -5283,7 +5360,7 @@ void _finegray_engine(
     if (hasmissing(info_mat)) {
         errprintf("finegray: the information matrix is not finite at the ")
         errprintf("solution\n")
-        exit(error(430))
+        exit(430)
     }
     if (rank(info_mat) < ptot) _finegray_rank_fail(info_mat, coefnames, ptot)
     info_inv = invsym(info_mat)
@@ -5356,7 +5433,7 @@ void _finegray_engine(
         errprintf("finegray: the variance matrix is not finite\n")
         errprintf("the estimated weights or score contributions are numerically unstable\n")
         errprintf("inspect the weight warnings and use coarser strata()/truncstrata()\n")
-        exit(error(430))
+        exit(430)
     }
 
     /* Compute the baseline hazard ALWAYS -- the scan and Mata cache copy are
@@ -5415,6 +5492,16 @@ void _finegray_engine(
         else {
             st_matrixcolstripe("_finegray_basehaz",
                 (J(2,1,""), ("time" \ "cumhazard")))
+        }
+    }
+    /* Back to the typed-pweight convention the user's weights define. */
+    if (wtype == 1) {
+        ll = _finegray_pweight_ll(ll, pw_scale, pw_events)
+        ll_0 = _finegray_pweight_ll(ll_0, pw_scale, pw_events)
+        if (ll >= . | ll_0 >= .) {
+            errprintf("finegray: the log pseudo-likelihood on the scale of ")
+            errprintf("the supplied probability weights is not finite\n")
+            exit(430)
         }
     }
     st_matrix("_finegray_ll", ll)
@@ -6440,6 +6527,7 @@ void _finegray_cif_var_st(
     else             bsraw = J(n, 1, 1)
     if (w_str != "") w = st_data(., w_str, tousevar)
     else             w = J(n, 1, 1)
+    if (wtype == 1) w = _finegray_pweight_unit(w)
 
     E = st_matrix(evalmat)
     /* tvc(): the analytic variance is the piecewise one (2026-08-26).  Both routes
@@ -6542,6 +6630,7 @@ void _finegray_cif_predict(
     }
     if (w_str != "") w = st_data(., w_str, est_touse)
     else             w = J(n, 1, 1)
+    if (wtype == 1) w = _finegray_pweight_unit(w)
 
     /* tvc(): the piecewise influence function (2026-08-26).  Both routes reach the
        same accumulators through _finegray_cif_accum. */
@@ -6963,6 +7052,7 @@ real matrix _finegray_bh_rebuild(
        Breslow baseline is a different curve from the unweighted one. */
     if (w_str != "")   w = st_data(., w_str, tousevar)
     else               w = J(n, 1, 1)
+    if (wtype == 1)    w = _finegray_pweight_unit(w)
 
     /* post-estimation recompute: quiet=1, the fit already printed any note */
     if (wtype == 2) {

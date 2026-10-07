@@ -84,9 +84,16 @@ fitted coefficients and baseline move; see
 {opt cif} evaluates the CIF at each observation's own {cmd:_t}; for a common
 horizon, set a constant time variable and use {opt timevar()}. The {opt ci} and
 {opt schoenfeld} paths verify that the estimation data are unchanged
-({cmd:r(459)} otherwise). Point {opt xb} predictions remain available on
-compatible new data, and point {opt cif} and {opt basecshazard} predictions too
-while the fit still holds a resolvable baseline. See
+({cmd:r(459)} otherwise). The check covers the complete original fitting
+tuples, so permuting one variable's values across observations is
+{cmd:r(459)} ({cmd:the estimation data no longer reproduce the fitted observation tuples}).
+Estimates saved by finegray 1.3.7 or earlier lack {cmd:e(rowsig)} and must be refit
+for {opt ci} and {opt schoenfeld} ({cmd:r(301)}, {cmd:this fit predates joint-row estimation-data identity checks}).
+On such estimates {opt xb} still works on compatible data; {opt cif} and
+{opt basecshazard} work only if the saved estimates hold a baseline
+({cmd:e(basehaz)}, from {opt basehaz} at fit time) and are {cmd:r(301)} otherwise,
+because the baseline is then rebuilt from the estimation rows. The digest behind this check is a finite noncryptographic checksum, not a proof
+that two datasets are equal. See
 {help finegray_methods##stcrreg:Comparison with stcrreg} and
 {help finegray_methods##cif:Cumulative incidence}.
 
@@ -248,8 +255,11 @@ two decimal places -- the same rule {cmd:finegray} itself applies.
 {marker fvalign}{...}
 {pstd}
 {bf:Factor variables:} Predictions are aligned to the current data by level
-{bf:value}, not position. An observation at a level the fit never saw is
-{cmd:r(459)}, not silently collapsed onto the base. {cmd:xb} honours the
+{bf:value}, not position. Every level observed in the estimation sample is
+accepted, including levels not typed as terms (after {cmd:finegray 2.grp x},
+levels 1 and 3 are scored); an observation at a level the fit never saw is
+{cmd:r(459)}, not silently collapsed onto the base. Estimates without
+{cmd:e(fvsupport_vars)} (older builds) keep the narrower typed-level rule and need a refit. {cmd:xb} honours the
 {cmd:predict} contract {helpb margins} relies on. See
 {help finegray_methods##fv:Factor variables and margins}.
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.4  30sep2026}
+{* *! version 4.3.5  06oct2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -464,7 +464,7 @@ answer.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.4, 2026-09-30{p_end}
+{pstd}Version 4.3.5, 2026-10-06{p_end}
 
 
 {title:Also see}

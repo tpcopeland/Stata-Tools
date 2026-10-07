@@ -1,4 +1,4 @@
-*! _finegray_resolve_baseline Version 1.3.7  2026/09/29
+*! _finegray_resolve_baseline Version 1.3.8  2026/10/06
 *! Resolve the baseline cumulative subhazard for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: internal (fills a caller-named H0 variable)
@@ -102,6 +102,14 @@ program define _finegray_resolve_baseline
                 }
 
                 if !`_rebuildable' {
+                    * A fit saved before e(rowsig) cannot be rebuilt from the
+                    * data in any state: name that, as every recomputing route
+                    * does (_finegray_check_data), rather than the generic loss.
+                    if `"`e(rowsig)'"' == "" | missing(e(rowsig_n)) {
+                        display as error "this fit predates joint-row estimation-data identity checks"
+                        display as error "re-run finegray, or refit with {bf:basehaz} so the baseline is posted in {bf:e(basehaz)}"
+                        exit 301
+                    }
                     display as error "baseline cumulative subhazard not available"
                     display as error "the estimation data are no longer in memory and the cached"
                     display as error "baseline was cleared (by {bf:discard} or {bf:mata clear})"

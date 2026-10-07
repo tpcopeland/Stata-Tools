@@ -1,4 +1,4 @@
-*! _finegray_weight_var Version 1.3.7  2026/09/29
+*! _finegray_weight_var Version 1.3.8  2026/10/06
 *! Rebuild the fit's design-weight column from e(wexp) for post-estimation
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (internal)
@@ -71,29 +71,18 @@ program define _finegray_weight_var, rclass
         * value-sensitive, order-invariant digest of the fit's own weight
         * column, so it moves for that change and does NOT move for a plain
         * re-sort of a variable weight.
-        * DEGRADATION, and it is now AUDIBLE rather than silent: when e(wsig) is
-        * absent the reconciliation above is by TOTAL only, and a compensated
-        * change of an unsignable weight input passes at rc 0.  The else branch
-        * below says so, in the user's face, on every such call.
-        *
-        * WARNING, NOT REFUSAL, and the reason is a fact about what can reach
-        * here rather than a preference.  Two states leave e(wsig) empty:
-        *
-        *   1  Estimates from a build that predates the digest.  Weighted fits
-        *      shipped WITHOUT e(wsig) in released commits d2cb1bda and
-        *      789e2635, so `estimates use' of a legitimate weighted fit made by
-        *      the current release lands here.  Those results are correct; a
-        *      hard exit would break a working, previously supported path for
-        *      users who cannot re-fit without the original data.
-        *   2  An e() assembled by `mi estimate'.  That state never arrives:
-        *      every post-estimation entry point refuses it first and by name --
-        *      finegray_cif.ado, finegray_predict.ado and finegray_phtest.ado
-        *      each exit 301 on e(cmd) == "mi estimate" & e(cmd_mi) ==
-        *      "finegray" BEFORE any weight is rebuilt.  So a refusal here would
-        *      buy nothing on the mi path and cost the legacy one.
-        *
-        * The message is `display as error' inside the `capture noisily' block,
-        * so it survives a caller's `quietly' and prints in the error colour.
+        * DEFENCE IN DEPTH, normally unreachable.  Every caller reaches this
+        * helper only after _finegray_check_data, which refuses (r(301)) any e()
+        * that lacks e(rowsig).  Every fit that lacks e(wsig) -- weighted fits
+        * from before the digest, in released commits d2cb1bda and 789e2635 --
+        * also lacks e(rowsig), so such estimates are refused before any weight
+        * is rebuilt and must be re-fit.  The branch below survives only for an
+        * e() that carries e(rowsig) but no e(wsig) (hand-assembled): then the
+        * reconciliation above is by TOTAL only, and a compensated change of an
+        * unsignable weight input would pass at rc 0, so it says so, as an
+        * error-coloured message inside `capture noisily', surviving `quietly'.
+        * It is a warning rather than an exit only because nothing shipped can
+        * reach it; do not read it as a supported legacy path.
         if `"`e(wsig)'"' == "" {
             display as error "warning: this fit's e() carries no weight digest e(wsig)"
             display as error "the rebuilt weights were reconciled against e(sum_w) ONLY, which is their"
@@ -109,6 +98,7 @@ program define _finegray_weight_var, rclass
             * two subjects' weights is caught; without it the digest sees only
             * the multiset of weight values.
             local _wsigid `"`e(idvar)'"'
+            if `"`e(wsigkeyvars)'"' != "" local _wsigid `"`e(wsigkeyvars)'"'
             if `"`_wsigid'"' != "" {
                 * The digest the fit stored is KEYED by this variable.  Blanking
                 * the key when the variable is gone rebuilds a value-only digest
@@ -116,13 +106,13 @@ program define _finegray_weight_var, rclass
                 * mismatch, reported as "a scalar has changed since the fit",
                 * which is the wrong diagnosis and sends the user looking in the
                 * wrong place.  Refuse over the missing key by name instead.
-                capture confirm variable `_wsigid'
-                if _rc {
-                    display as error "the id variable `_wsigid' used by the fit is not in the data"
-                    display as error "postestimation weight reconciliation needs it: the fit's weight"
-                    display as error "digest is keyed by subject, so it cannot be rebuilt without it"
-                    display as error "restore the variable, or re-run {bf:finegray} before this post-estimation command"
-                    exit 459
+                foreach _wk of local _wsigid {
+                    capture confirm variable `_wk', exact
+                    if _rc {
+                        display as error "estimation tuple variable `_wk' is no longer in the data"
+                        display as error "restore it or re-run finegray before rebuilding the weights"
+                        exit 459
+                    }
                 }
             }
             * Without id() the fit keyed each row by its content in the

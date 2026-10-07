@@ -1,4 +1,4 @@
-*! _finegray_graph_text Version 1.3.7  2026/09/29
+*! _finegray_graph_text Version 1.3.8  2026/10/06
 *! Inert, verbatim display and graph text for user-supplied labels
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (returns through c_local)

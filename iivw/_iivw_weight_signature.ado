@@ -1,4 +1,4 @@
-*! _iivw_weight_signature Version 4.3.4  2026/09/30
+*! _iivw_weight_signature Version 4.3.5  2026/10/06
 *! Sort-invariant signature binding the stored weighting contract to the data
 *! it describes: every consumed input, every owned output, and the specification
 *! itself.
@@ -27,8 +27,10 @@
 *   inputs   id, time, entry, censor, raw visit covariates, raw lag sources,
 *            generated lag columns, stabilization covariates, treatment,
 *            treatment-model covariates
-*   outputs  _iivw_iw, _iivw_ps, _iivw_tw, the final weight, and -- when
-*            scores was requested -- every ndN/nsN influence-function column
+*   outputs  _iivw_iw, _iivw_ps, _iivw_tw, the final weight, the untrimmed
+*            component snapshots _iivw_iw_raw/_iivw_tw_raw when a component
+*            trim created them, and -- when scores was requested -- every
+*            ndN/nsN influence-function column
 *   spec     the weight type, prefix, baseline mode, risk-set contract, tie
 *            method, truncation, estimand, convergence state, the stacked
 *            nuisance parameter layout, and a fingerprint of the stored
@@ -92,6 +94,19 @@ program define _iivw_weight_signature, rclass sortpreserve
         quietly count if `touse'
         local __iivw_parts "an|`r(N)'"
         foreach __iivw_v of local analysis {
+            * A string column (a mixed residuals by() group) is bound through
+            * its group() coding, which depends on the values alone.
+            capture confirm string variable `__iivw_v', exact
+            if !_rc {
+                tempvar __iivw_sg
+                quietly egen long `__iivw_sg' = group(`__iivw_v') if `touse'
+                mata: _iivw_weight_signature_vars( ///
+                    "`__iivw_sg'", "`k'", "`__iivw_t'", "`touse'")
+                local __iivw_mp : subinstr local __iivw_mata_parts "`__iivw_sg':" "`__iivw_v'(str):"
+                local __iivw_parts "`__iivw_parts'`__iivw_mp'"
+                drop `__iivw_sg'
+                continue
+            }
             capture confirm numeric variable `__iivw_v', exact
             if _rc {
                 local __iivw_parts "`__iivw_parts'|`__iivw_v':GONE"
@@ -119,6 +134,8 @@ program define _iivw_weight_signature, rclass sortpreserve
     local s_iw       : char _dta[_iivw_iw_var]
     local s_tw       : char _dta[_iivw_tw_var]
     local s_ps       : char _dta[_iivw_ps_var]
+    local s_iwraw    : char _dta[_iivw_iw_raw_var]
+    local s_twraw    : char _dta[_iivw_tw_raw_var]
     local s_vcraw    : char _dta[_iivw_visit_cov_raw]
     local s_lagsrc   : char _dta[_iivw_lagvars]
     local s_lagnames : char _dta[_iivw_lag_names]
@@ -155,7 +172,7 @@ program define _iivw_weight_signature, rclass sortpreserve
     local __iivw_bind ///
         `s_time' `s_entry' `s_censvar' `s_vcraw' `s_lagsrc' `s_lagnames' ///
         `s_stabcov' `s_treat' `s_tcov' `s_iw' `s_ps' `s_tw' `s_wvar' ///
-        `s_scorevars'
+        `s_iwraw' `s_twraw' `s_scorevars'
     local __iivw_bind : list uniq __iivw_bind
 
     * ---------------------------------------------------------------------
@@ -233,6 +250,16 @@ program define _iivw_weight_signature, rclass sortpreserve
             local __iivw_cv : char _dta[`__iivw_ch']
             local __iivw_specparts "`__iivw_specparts'~`__iivw_cv'"
         }
+        * The raw-snapshot ROLE names, appended only when a component trim
+        * stamped them. An untrimmed contract therefore keeps exactly the spec
+        * string it had before these roles were bound, and a stored role
+        * removed while its column stays behind is still detected.
+        foreach __iivw_ch in _iivw_iw_raw_var _iivw_tw_raw_var {
+            local __iivw_cv : char _dta[`__iivw_ch']
+            if "`__iivw_cv'" != "" {
+                local __iivw_specparts "`__iivw_specparts'~`__iivw_ch':`__iivw_cv'"
+            }
+        }
 
         * The serialized inverse information is bound by FINGERPRINT, not
         * verbatim. A k-term model stores k^2 %21x cells; pasting that whole
@@ -294,15 +321,20 @@ void _iivw_weight_signature_vars(
         if (touse == "") st_view(v, ., vars[j])
         else             st_view(v, ., vars[j], touse)
 
-        // quadcross() performs the four numeric reductions without
-        // materializing v^2, v*k, or v*time in Stata. Replacing missings by
-        // zero reproduces summarize's exclusion rule for each cross-product.
+        // Replacing missings by zero reproduces summarize's exclusion rule
+        // for each sum. quadcolsum() on the elementwise products, NOT
+        // quadcross(): under Stata/MP quadcross() splits its reduction by
+        // processor count, and its %21x result moved in the last bit between
+        // `set processors 16' and `set processors 1' on the same data -- so a
+        // panel weighted on one machine or session was refused (459) as
+        // changed on another. quadcolsum() gave identical bits at 16, 8 and
+        // 1 processors on a 3,000,000-row probe (2026-10-06).
         nmiss = colsum(missing(v))
         vv = editmissing(v, 0)
         s1 = quadcolsum(vv)
-        s2 = quadcross(vv, vv)
-        sk = quadcross(vv, kk)
-        st = quadcross(vv, tt)
+        s2 = quadcolsum(vv :* vv)
+        sk = quadcolsum(vv :* kk)
+        st = quadcolsum(vv :* tt)
 
         parts = parts + "|" + vars[j] + ":" +
             strtrim(strofreal(s1, "%21x")) + "," +

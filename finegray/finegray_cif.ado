@@ -1,4 +1,4 @@
-*! finegray_cif Version 1.3.7  2026/09/29
+*! finegray_cif Version 1.3.8  2026/10/06
 *! Cumulative incidence curves and fixed-horizon CIF after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -222,40 +222,69 @@ program define finegray_cif, rclass sortpreserve
         }
         local _fg_expanded `"`r(numlist)'"'
         local _fg_raw : list retokenize `_fgopt'
-        * Token by token: a plain number is kept as typed, a one-token range
-        * (0(1)10, 1/5, 1[1]5) is expanded on its own.  The multi-token forms
-        * `1 2 to 5' and `1 2 : 5' read their step from the tokens before
-        * them, so a list containing `to' or `:' is taken from numlist whole.
-        local _fg_multi : list posof "to" in _fg_raw
-        if `_fg_multi' == 0 local _fg_multi : list posof ":" in _fg_raw
-        if `_fg_multi' == 0 {
-            local _fg_kept ""
-            foreach _v of local _fg_raw {
-                capture confirm number `_v'
-                if _rc == 0 local _fg_kept "`_fg_kept' `_v'"
-                else {
-                    * The whole list passed numlist above, so a token that
-                    * fails on its own is one that reads its neighbours;
-                    * hand the whole list to numlist's expansion instead.
-                    capture numlist "`_v'"
-                    if _rc {
-                        local _fg_multi = 1
-                        continue, break
-                    }
-                    local _fg_kept "`_fg_kept' `r(numlist)'"
+        local _fg_ntok : word count `_fg_raw'
+        local _fg_rng ""
+        forvalues _fg_j = 1/`_fg_ntok' {
+            local _fg_c : word `_fg_j' of `_fg_raw'
+            if inlist(`"`_fg_c'"', "to", ":") {
+                local _fg_rng `"`_fg_rng' `: word `=`_fg_j' - 1' of `_fg_raw'' `: word `=`_fg_j' + 1' of `_fg_raw''"'
+                if `_fg_j' > 2 {
+                    local _fg_p : word `=`_fg_j' - 2' of `_fg_raw'
+                    if !inlist(`"`_fg_p'"', "to", ":") local _fg_rng `"`_fg_rng' `_fg_p'"'
                 }
+                continue
+            }
+            capture confirm number `_fg_c'
+            if _rc {
+                local _fg_parts = ustrregexra(`"`_fg_c'"', "[\(\)\[\]/]", " ")
+                local _fg_rng `"`_fg_rng' `_fg_parts'"'
             }
         }
-        if `_fg_multi' == 0 {
-            * Sort permutation by value.  Built-in Mata only: the package
-            * engine is loaded further down, after the parse.
-            mata: st_local("_fg_ord", invtokens(strofreal(order(strtoreal(tokens(st_local("_fg_kept")))', 1)')))
-            local _fg_sorted ""
-            foreach _i of local _fg_ord {
-                local _fg_sorted "`_fg_sorted' `: word `_i' of `_fg_kept''"
+        foreach _fg_c of local _fg_rng {
+            capture confirm number `_fg_c'
+            if _rc continue
+            quietly numlist "`_fg_c'"
+            local _fg_s `"`r(numlist)'"'
+            if real("`_fg_s'") != real("`_fg_c'") {
+                display as error "`_fgopt'(): a range reads `_fg_c', which numlist rounds to `_fg_s'"
+                display as error "list that range's analysis times one by one instead"
+                exit 198
             }
         }
-        else local _fg_sorted `"`_fg_expanded'"'
+        quietly numlist `"``_fgopt''"'
+        local _fg_kept `"`r(numlist)'"'
+        local _fg_pre ""
+        forvalues _fg_j = 1/`_fg_ntok' {
+            local _fg_c : word `_fg_j' of `_fg_raw'
+            local _fg_pre `"`_fg_pre' `_fg_c'"'
+            if inlist(`"`_fg_c'"', "to", ":") continue
+            local _fg_nx : word `=`_fg_j' + 1' of `_fg_raw'
+            if inlist(`"`_fg_nx'"', "to", ":") continue
+            local _fg_pv ""
+            if `_fg_j' > 1 local _fg_pv : word `=`_fg_j' - 1' of `_fg_raw'
+            if inlist(`"`_fg_pv'"', "to", ":") continue
+            capture confirm number `_fg_c'
+            if _rc continue
+            if `_fg_j' + 2 <= `_fg_ntok' {
+                local _fg_nx2 : word `=`_fg_j' + 2' of `_fg_raw'
+                if inlist(`"`_fg_nx2'"', "to", ":") continue
+            }
+            quietly numlist `"`_fg_pre'"'
+            local _fg_pos : word count `r(numlist)'
+            local _fg_new ""
+            local _fg_k = 0
+            foreach _fg_e of local _fg_kept {
+                local ++_fg_k
+                if `_fg_k' == `_fg_pos' local _fg_new `"`_fg_new' `_fg_c'"'
+                else                    local _fg_new `"`_fg_new' `_fg_e'"'
+            }
+            local _fg_kept `"`_fg_new'"'
+        }
+        mata: st_local("_fg_ord", invtokens(strofreal(order(strtoreal(tokens(st_local("_fg_kept")))', 1)')))
+        local _fg_sorted ""
+        foreach _i of local _fg_ord {
+            local _fg_sorted "`_fg_sorted' `: word `_i' of `_fg_kept''"
+        }
         * Collapse repeats: numlist's `sort' keeps duplicates, and every
         * duplicate became a duplicate ROW of the table (and a repeated marker
         * on the curve): attime(1 1 2) printed t = 1 twice at rc 0 with

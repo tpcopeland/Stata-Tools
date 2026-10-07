@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.7  29sep2026}{...}
+{* *! version 1.3.8  06oct2026}{...}
 {vieweralsosee "finegray_methods" "help finegray_methods"}{...}
 {vieweralsosee "finegray_predict" "help finegray_predict"}{...}
 {vieweralsosee "finegray_cif" "help finegray_cif"}{...}
@@ -353,9 +353,14 @@ coefficients; {cmd:r(se_method)} for CIF intervals.
 {p2colreset}{...}
 
 {pmore2}
-{it:CIF intervals}: {opt ci} gives {cmd:analytic}; {opt ci bootstrap()} gives
-{cmd:bootstrap}. Both are available on every fit, {opt tvc()} and
-{opt bstrata()} included. The analytic route is fixed-weight in all cases.
+{it:CIF intervals}: {opt ci} gives {cmd:analytic}; {opt ci bootstrap()}
+gives {cmd:bootstrap}. Analytic intervals are available after supported
+converged fits, including {opt tvc()}, {opt bstrata()}, and weighted fits. Bootstrap intervals support those same fit routes except {cmd:fweight}s;
+expand frequency-weighted data to individual records and refit first.
+Both routes require the original estimation data and are unavailable after
+an {cmd:mi} fit. Bootstrap resampling is by subject, or by whole cluster
+after {opt cluster()}, and requires at least 25 requested and successful
+refits. The analytic route is fixed-weight in all cases.
 
 {marker vcebootstrap}{...}
 {phang}
@@ -421,7 +426,10 @@ below {it:#}; see {help finegray_methods##estimator:The estimator}.
 {phang}
 {cmd:finegray} requires the model to be identified. A covariate that
 contributes no information to the cause-event risk sets, or a constant or
-collinear column, is refused with {cmd:r(459)} naming the offending terms.
+collinear column, is refused with {cmd:r(459)} naming the offending terms. A
+covariate far from zero or on an extreme scale can make that check, or the
+exponentiated linear predictor, fail numerically; the messages suggest
+centering and rescaling the covariate and refitting.
 
 
 {marker remarks}{...}
@@ -451,7 +459,12 @@ specification ({cmd:2.grp}), so {helpb test}, {helpb lincom} and
 posted with a zero coefficient for {helpb margins}. A base level that enters
 a real column is estimated, as in {helpb stcrreg}: {cmd:i.grp#c.x} fits a
 slope for every level, {cmd:1b.grp#c.x} included. {cmd:ibn.} as a main effect
-is {cmd:r(459)}; inside an interaction it is estimable. See
+is {cmd:r(459)}; inside an interaction it is estimable. A fit with factor
+terms stores every raw level it observed in {cmd:e(fvsupport_vars)} and
+{cmd:e(fvsupport}{it:#}{cmd:)}, so {helpb finegray_predict} scores any level
+seen at fit time even when only some terms were typed (for example {cmd:2.grp});
+estimates from a build that did not store that support keep the narrower
+fail-closed rule and need a refit. See
 {help finegray_methods##fv:Factor variables and margins}.
 
 {marker sideeffects}{...}
@@ -521,9 +534,12 @@ detected by {cmd:_dta[_mi_style]} or {cmd:_dta[_mi_substyle]}, not by variable n
 {bf:Baseline strata.} Right censoring only. What changes downstream:
 
 {phang2}
-The header gains the {opt bstrata()} variable and {cmd:e(k_bstrata)}. {cmd:e(basehaz)} becomes
-{it:K}-by-3 ({it:bstratum}, {it:time}, {it:cumhazard}). {helpb finegray_predict} answers each row from its
-own stratum's baseline. {helpb finegray_cif} requires {opt bstratum(#)} when there is more than one
+The header gains the {opt bstrata()} variable and {cmd:e(k_bstrata)}.
+With {opt basehaz} and more than one baseline stratum, {cmd:e(basehaz)}
+has three columns ({it:bstratum}, {it:time}, {it:cumhazard}), with one
+row per distinct cause-event time within each stratum and the stratum
+blocks stacked. A single-level fit retains the unstratified two-column
+form. {helpb finegray_predict} answers each row from its own stratum's baseline. {helpb finegray_cif} requires {opt bstratum(#)} when there is more than one
 stratum ({cmd:e(k_bstrata)} > 1) and refuses it otherwise; use {opt over()} on
 the {opt bstrata()} variable for all strata at once.
 
@@ -648,7 +664,11 @@ case-cohort or outcome-dependent sampling estimator; weighting the score does
 not repair a distorted censoring estimate. See
 {help finegray_methods##weights:Design weights}. The variance is the fixed-weight sandwich with meat
 sum_i (w_i s_i)^2, cluster-summed under {opt cluster()}; {opt norobust} is
-refused ({cmd:r(198)}). It omits uncertainty from estimating {it:G}.
+refused ({cmd:r(198)}). It omits uncertainty from estimating {it:G}. Internally the {cmd:pweight}s are rescaled to mean one for computation, so
+results are invariant to a common rescaling of the weights; {cmd:e(sum_w)},
+{cmd:e(ll)}, {cmd:e(ll_0)} and the iteration log stay on the scale of the
+weights you supplied. A weight range (smallest over largest) below the normal
+double range is refused with {cmd:r(430)}.
 
 {pstd}
 {bf:fweight.} Replication semantics: a subject carrying {it:w} is {it:w}
@@ -671,15 +691,15 @@ the data and bootstrap the expanded fit. See
 {cmd:stset} data with no command-line weight is {cmd:r(198)}. The weight
 expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
 reconciles the rebuilt column against {cmd:e(sum_w)} and against
-{cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by the
-{cmd:stset} {opt id()} variable ({cmd:e(idvar)}) when one was declared and
-otherwise by each observation's values of the {cmd:e(datasignature)} variables
-(listed in {cmd:e(wsigkeyvars)}), so a change that leaves the
+{cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by each
+observation's whole fitting tuple, the values of the variables listed in
+{cmd:e(wsigkeyvars)} (the {cmd:e(datasignature)} variables plus the
+{cmd:stset} {opt id()} and entry variables, as in {cmd:e(rowsigvars)}), so a change that leaves the
 total untouched -- including an exchange of two subjects' weights, or of two
-scalars the weight expression reads -- is refused too; a plain re-sort is not. Estimates saved before this build carry no {cmd:e(wsig)} and
-reconcile by total only; post-estimation prints a warning on every such call,
-because a change that leaves {cmd:e(sum_w)} unmoved is then undetected and the
-result may be computed from a weight column the fit never saw.
+scalars the weight expression reads -- is refused too; a plain re-sort is not. Estimates saved by finegray 1.3.7 or earlier carry no
+{cmd:e(rowsig)} and are refused with {cmd:r(301)} before any weight column is
+rebuilt, on every route that reads the estimation rows; they must be refit (see
+{help finegray##results:Stored results}).
 
 
 {marker examples}{...}
@@ -899,6 +919,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(N)}}number of subjects (replicated under {cmd:fweight}s){p_end}
 {synopt:{cmd:e(sum_w)}}sum of weights (only with weights){p_end}
 {synopt:{cmd:e(wsig_n)}}rows behind {cmd:e(wsig)} (only with weights){p_end}
+{synopt:{cmd:e(rowsig_n)}}estimation observations behind {cmd:e(rowsig)}{p_end}
 {synopt:{cmd:e(N_fail)}}subjects with a cause-of-interest event{p_end}
 {synopt:{cmd:e(N_compete)}}subjects with a competing event{p_end}
 {synopt:{cmd:e(N_cens)}}censored subjects{p_end}
@@ -965,7 +986,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
 {synopt:{cmd:e(wsig)}}weight-column digest; only with weights{p_end}
-{synopt:{cmd:e(wsigkeyvars)}}{cmd:e(wsig)} key; weights without {opt id()}{p_end}
+{synopt:{cmd:e(wsigkeyvars)}}tuple variables keying {cmd:e(wsig)}; with weights{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(vcetype)}}{cmd:Robust}; not set under {opt norobust}{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
@@ -974,7 +995,11 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(marginsok)}}{cmd:xb}; empty in the cases below{p_end}
 {synopt:{cmd:e(properties)}}b V{p_end}
 {synopt:{cmd:e(datasignature)}}signature of the estimation data{p_end}
-{synopt:{cmd:e(datasignaturevars)}}variables covered by {cmd:e(datasignature)}{p_end}
+{synopt:{cmd:e(datasignaturevars)}}variables behind {cmd:e(datasignature)}{p_end}
+{synopt:{cmd:e(rowsig)}}order-invariant digest of fitting tuples{p_end}
+{synopt:{cmd:e(rowsigvars)}}variables behind {cmd:e(rowsig)}{p_end}
+{synopt:{cmd:e(fvsupport_vars)}}factor variables with stored support{p_end}
+{synopt:{cmd:e(fvsupport}{it:#}{cmd:)}}fit-time levels of the {it:#}th such variable{p_end}
 {synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
 
 {synoptset 20 tabbed}{...}
@@ -992,6 +1017,22 @@ weight total in {cmd:e(sum_w)}. {cmd:e(marginsok)} is empty under {opt tvc()} an
 purely continuous interaction fits. On a factor fit {cmd:e(b)} is wider than
 {cmd:e(designvars)} by one zero column per omitted base term; under {opt tvc()} it is wider by
 one column per named covariate per extra interval.
+
+{pstd}
+{cmd:e(rowsig)} and {cmd:e(rowsig_n)} bind every original fitting tuple
+(the {cmd:e(datasignaturevars)} variables plus the {opt stset} {opt id()} and
+entry variables, listed in {cmd:e(rowsigvars)}, which {cmd:e(wsigkeyvars)} also
+uses) jointly; the digest hashes values, so {cmd:compress} or {cmd:recast} of an
+id or entry variable is accepted, so the post-estimation commands detect a
+permutation of one variable's values across observations ({cmd:r(459)}); the
+digest is a finite noncryptographic checksum, not a proof of dataset equality. {bf:Estimates saved by finegray 1.3.7 or earlier} carry no {cmd:e(rowsig)} and must be refit
+for {helpb finegray_cif} (every form, including a point CIF),
+{cmd:finegray_predict, cif ci}, {cmd:finegray_predict, schoenfeld} and
+{helpb finegray_phtest}; each is {cmd:r(301)}. Only {cmd:finegray_predict, xb} and, when the
+saved estimates hold {cmd:e(basehaz)} (fitted with {opt basehaz}),
+{cmd:cif} and {cmd:basecshazard} still work; without a posted baseline those two
+need the estimation rows and are {cmd:r(301)} too. There is no pass-through for
+the routes that read estimation rows.
 
 
 {marker methods}{...}
@@ -1024,7 +1065,7 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.7, 2026-09-29{p_end}
+{pstd}Version 1.3.8, 2026-10-06{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

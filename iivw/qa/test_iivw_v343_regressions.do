@@ -1,9 +1,11 @@
 * test_iivw_v343_regressions.do
 * Regression coverage for the end-of-follow-up boundary defect fixed in 3.4.3:
 *   T1  a float censor() equal to a double last visit time does not abort
-*   T2  the boundary case takes the `alreadythere' branch (no censoring row)
+*   T2  a double censor() above the last visit by a sub-ulp gap is a real
+*       encoded interval: it is kept and leaves the Cox fit unchanged
 *   T3  positive control: a genuine censor()-before-last-visit still errors
-*   T4  a visit landing exactly on maxfu() does not abort
+*   T4  a visit landing exactly on maxfu() does not abort; a typed value
+*       rounded below the last visit is refused
 *   T5  positive control: a genuine visit after maxfu() still errors
 *   T6  iivw_exogtest accepts the same boundary data iivw_weight accepts
 *   T7  positive control: iivw_exogtest still rejects a genuine violation
@@ -11,6 +13,16 @@
 *
 * T1, T2, and T4 fail on the released 3.4.2 files. T3 and T5 are the positive
 * controls: widening a guard must not retire it.
+*
+* 2026-10-05 audit (WM02): the 3.4.3 fix was a 1e-6 RELATIVE tolerance on the
+* absolute clock, which deleted real terminal intervals once the clock had a
+* large origin or a small unit. The comparison is now exact on the stored
+* values, at float precision when time() or censor() is a float (see
+* _iivw_endpoint.ado). T1, T3, T5-T7 keep their 3.4.3 meaning unchanged. T2
+* and T4 pinned the tolerance itself and were re-pinned to the exact policy:
+* T2's double-held endpoint is a genuine positive encoded interval, and T4's
+* typed maxfu() fell below the last visit, which left that visit's event
+* outside every other subject's risk set.
 *
 * T6 and T8 guard the OTHER TWO COPIES of this code. iivw_weight,
 * iivw_exogtest and iivw_balance each build the same Andersen-Gill risk set
@@ -155,40 +167,57 @@ else {
     local failed "`failed' T1"
 }
 
-**# T2: the boundary case adds no censoring row
+**# T2: a sub-ulp gap held in a double is a kept interval, not a new fit
 *
-* (last visit, C] has zero length when the last visit IS C. Appending a row of
-* length ~5e-07 puts a subject in the risk set for an instant that is really
-* the visit's own instant, and inflates r(n_censor_rows).
-*
-* The tie fixture holds C at float precision but never below the last visit,
-* so this case reaches the branch instead of aborting first -- otherwise the
-* assertion would be satisfied by the T1 defect rather than by this one.
+* The tie fixture holds C at float precision in a DOUBLE variable, never below
+* the last visit. Both sides are double, so the stored values are compared
+* exactly: every subject whose C sits above the last visit gets its terminal
+* interval (3.4.3 dropped them through a relative tolerance, the same rule
+* that deleted real intervals on a shifted clock). No visit time falls inside
+* such a sub-ulp interval, so the Cox fit must equal the fit on the same panel
+* with C set exactly to the last visit: the interval is in the risk set but
+* changes no risk set at any event.
 
 local ++test_count
 capture noisily {
     _iivw_v343_panel, tie
-    tempvar lastvis
+    tempvar lastvis tag
     bysort id: egen double `lastvis' = max(t)
-    quietly count if fu > `lastvis'
+    egen byte `tag' = tag(id)
+    quietly count if `tag' & fu > `lastvis'
     local n_above = r(N)
-    display as text "  T2 fixture: `n_above' rows sit above their own last " ///
+    display as text "  T2 fixture: `n_above' subjects sit above their own last " ///
         "visit under an exact comparison"
     assert `n_above' > 0
-    drop `lastvis'
+    drop `lastvis' `tag'
 
     _iivw_v343_panel, tie
     quietly iivw_weight, id(id) time(t) censor(fu) visit_cov(z) ///
         baseline(entry) wtype(iivw) nolog
-    display as text "  T2: r(n_censor_rows) = " r(n_censor_rows) " (expected 0)"
-    assert r(n_censor_rows) == 0
+    local ncens = r(n_censor_rows)
+    local g_gap = r(visit_b)[1,1]
+
+    _iivw_v343_panel, tie
+    tempvar lastvis
+    bysort id: egen double `lastvis' = max(t)
+    quietly replace fu = `lastvis'
+    drop `lastvis'
+    quietly iivw_weight, id(id) time(t) censor(fu) visit_cov(z) ///
+        baseline(entry) wtype(iivw) nolog
+    local ncens0 = r(n_censor_rows)
+    local g_tie = r(visit_b)[1,1]
+    display as text "  T2: r(n_censor_rows) = `ncens' (expected `n_above'), " ///
+        "exact tie `ncens0'; gamma reldif " %10.3e reldif(`g_gap', `g_tie')
+    assert `ncens' == `n_above'
+    assert `ncens0' == 0
+    assert reldif(`g_gap', `g_tie') < 1e-12
 }
 if _rc == 0 {
-    display as result "  PASS: T2 - last visit at end of follow-up adds no censoring row"
+    display as result "  PASS: T2 - sub-ulp encoded intervals are kept and change no risk set"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T2 - alreadythere branch (error `=_rc')"
+    display as error "  FAIL: T2 - encoded terminal intervals (error `=_rc')"
     local ++fail_count
     local failed "`failed' T2"
 }
@@ -217,21 +246,30 @@ else {
 **# T4: a visit landing exactly on maxfu() does not abort
 *
 * maxfu() is a typed literal; time() is computed. The same boundary, reached
-* from the other direction.
+* from the other direction. Typed at full precision (maxfu() keeps every bit)
+* the boundary visit is accepted. Typed rounded to 7 digits it falls BELOW the
+* last visit: the other subjects' terminal intervals would then end before
+* that visit's event and leave them out of its risk set, so it is refused.
 
 local ++test_count
 capture noisily {
     _iivw_v343_panel, double
     quietly summarize t, meanonly
-    local tmax = r(max)
-    * A common window ending at the largest observed visit time, typed to the
-    * precision a user would type rather than carried at full double width.
-    local maxfu = string(`tmax', "%9.0g")
-    display as text "  T4: max visit time `tmax', maxfu(`maxfu')"
+    tempname tmax
+    scalar `tmax' = r(max)
+    local maxfu : display %21x `tmax'
+    display as text "  T4: max visit time " %21.0g `tmax' ", maxfu(`maxfu')"
     quietly iivw_weight, id(id) time(t) maxfu(`maxfu') visit_cov(z) ///
         baseline(entry) wtype(iivw) nolog
     assert !missing(r(N))
     assert r(N) > 0
+
+    local typed = string(`tmax', "%9.0g")
+    assert real("`typed'") < `tmax'
+    capture iivw_weight, id(id) time(t) maxfu(`typed') visit_cov(z) ///
+        baseline(entry) wtype(iivw) replace nolog
+    display as text "  T4: maxfu(`typed') below the last visit returns rc = " _rc
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: T4 - a visit on the maxfu() boundary is accepted"

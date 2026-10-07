@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.5.4  06oct2026}{...}
+{* *! version 2.5.5  07oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -625,6 +625,6 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}{bf:Version} 2.5.4{p_end}
+{pstd}{bf:Version} 2.5.5{p_end}
 
 {hline}

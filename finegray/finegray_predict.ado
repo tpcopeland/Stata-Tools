@@ -1,4 +1,4 @@
-*! finegray_predict Version 1.3.7  2026/09/29
+*! finegray_predict Version 1.3.8  2026/10/06
 *! Post-estimation predictions after finegray
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (creates variable; returns no results)
@@ -604,7 +604,14 @@ program define finegray_predict, rclass sortpreserve
             * A level the fit never saw has no coefficient.  Scoring it would silently
             * collapse the observation onto the base category (all its dummies zero),
             * which is a fabricated prediction, not an extrapolation.
+            * Coefficient terms need not enumerate every level the fit observed.
+            local _fg_fsv "`e(fvsupport_vars)'"
             foreach _fvar of local _fv_facvars {
+                local _fg_spos : list posof "`_fvar'" in _fg_fsv
+                if `_fg_spos' > 0 {
+                    local _fpos : list posof "`_fvar'" in _fv_facvars
+                    local _fvlevels`_fpos' "`e(fvsupport`_fg_spos')'"
+                }
                 local _fpos : list posof "`_fvar'" in _fv_facvars
                 capture confirm numeric variable `_fvar'
                 if _rc {
