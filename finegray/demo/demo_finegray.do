@@ -474,11 +474,18 @@ assert d_tvc < 1e-6
 webuse hypoxia, clear
 gen byte status = failtype
 replace ifp = . in 1/12
+* The imputation model includes the outcome: an indicator for each event type
+* and each cause's Nelson-Aalen cumulative hazard (na1, na2).
+stset dftime, failure(status==1) id(stnum)
+sts generate na1 = na
+stset dftime, failure(status==2) id(stnum)
+sts generate na2 = na
+stset, clear
 mi set wide
 mi register imputed ifp
-mi register regular tumsize pelnode status dftime dfcens stnum
+mi register regular tumsize pelnode status dftime dfcens stnum na1 na2
 set seed 20260825
-quietly mi impute regress ifp = tumsize pelnode, add(5)
+quietly mi impute regress ifp = tumsize pelnode i.status na1 na2, add(5)
 mi stset dftime, failure(dfcens==1) id(stnum)
 
 * # Pooled estimates over the imputations

@@ -520,12 +520,23 @@ survive and must be re-declared with {cmd:estimates esample:} after {cmd:estimat
 {phang2}{cmd:. webuse hypoxia, clear}{p_end}
 {phang2}{cmd:. gen byte status = failtype}{p_end}
 {phang2}{cmd:. replace ifp = . in 1/12}{p_end}
+{phang2}{cmd:. stset dftime, failure(status==1) id(stnum)}{p_end}
+{phang2}{cmd:. sts generate na1 = na}{p_end}
+{phang2}{cmd:. stset dftime, failure(status==2) id(stnum)}{p_end}
+{phang2}{cmd:. sts generate na2 = na}{p_end}
+{phang2}{cmd:. stset, clear}{p_end}
 {phang2}{cmd:. mi set wide}{p_end}
 {phang2}{cmd:. mi register imputed ifp}{p_end}
-{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum}{p_end}
-{phang2}{cmd:. mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)}{p_end}
+{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum na1 na2}{p_end}
+{phang2}{cmd:. mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)}{p_end}
 {phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
 {phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp, compete(status) cause(1)}{p_end}
+
+{pstd}
+The imputation model includes the outcome: an indicator for each event type
+({cmd:i.status}) and each cause's Nelson-Aalen cumulative hazard at the
+subject's exit time ({cmd:na1}, {cmd:na2}). Omitting them biases the imputed
+covariate's SHR towards the null.
 
 {pstd}
 {bf:Post-estimation is not available after a fit on mi data} ({cmd:r(301)}). Refit on a
@@ -862,10 +873,15 @@ runs as printed.
 {phang2}{cmd:. webuse hypoxia, clear}{p_end}
 {phang2}{cmd:. gen byte status = failtype}{p_end}
 {phang2}{cmd:. replace ifp = . in 1/12}{p_end}
+{phang2}{cmd:. stset dftime, failure(status==1) id(stnum)}{p_end}
+{phang2}{cmd:. sts generate na1 = na}{p_end}
+{phang2}{cmd:. stset dftime, failure(status==2) id(stnum)}{p_end}
+{phang2}{cmd:. sts generate na2 = na}{p_end}
+{phang2}{cmd:. stset, clear}{p_end}
 {phang2}{cmd:. mi set wide}{p_end}
 {phang2}{cmd:. mi register imputed ifp}{p_end}
-{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum}{p_end}
-{phang2}{cmd:. mi impute regress ifp = tumsize pelnode, add(10) rseed(20260825)}{p_end}
+{phang2}{cmd:. mi register regular tumsize pelnode status dftime dfcens stnum na1 na2}{p_end}
+{phang2}{cmd:. mi impute regress ifp = tumsize pelnode i.status na1 na2, add(10) rseed(20260825)}{p_end}
 {phang2}{cmd:. mi stset dftime, failure(dfcens==1) id(stnum)}{p_end}
 {phang2}{cmd:. mi estimate, cmdok eform("SHR"): finegray ifp tumsize, compete(status) cause(1)}{p_end}
 
