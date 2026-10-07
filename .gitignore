@@ -24,3 +24,5 @@ __pycache__/
 # Per-suite evidence receipts written by `run qa` (read by `check qa --view evidence`).
 # Machine state, gitignored in both repos.
 **/qa/receipts/
+
+finegray/qa/receipts/gates-20261007T074528Z-2214176.iy3zcS/
