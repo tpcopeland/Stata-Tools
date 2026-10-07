@@ -1,4 +1,4 @@
-*! iivw_balance Version 4.3.4  2026/09/30
+*! iivw_balance Version 4.3.5  2026/10/06
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -40,7 +40,7 @@ program define iivw_balance, rclass
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
 
-    tempname __iivw_balance __iivw_hr_unweighted
+    tempname __iivw_balance __iivw_hr_unweighted __iivw_target
     tempname __iivw_export_table
     local __iivw_export_frame_created = 0
     local __iivw_return_ok = 0
@@ -179,17 +179,14 @@ program define iivw_balance, rclass
     local rep_maxfu     "`r(maxfu)'"
     local rep_nonconv   "`r(nonconverged)'"
 
-    * Representation tolerance for the terminal-interval test below, identical
-    * to iivw_weight's. iivw_balance REBUILDS the risk set iivw_weight built, so
-    * the two must take the same branch on the same data: a last visit falling
-    * ON the end of follow-up that iivw_weight left alone must not acquire a
-    * terminal interval here. Without the tolerance it did -- 151 intervals of
-    * length ~5e-07 on a fixture where iivw_weight reported r(n_censor_rows)=0,
-    * which both inflated the printed at-risk interval count and moved the
-    * SOL-11 verdict off its refit_ncens==0 branch. Rationale for the constant
-    * is at its declaration in iivw_weight.ado; it is also carried in
-    * iivw_exogtest.ado, and all three must move together.
-    local __iivw_teps = 1e-6
+    * End-of-follow-up replay. iivw_balance REBUILDS the risk set iivw_weight
+    * built, so the terminal intervals are reconstructed by the same shared
+    * policy (_iivw_endpoint.ado): endpoints compared exactly as encoded, at
+    * float precision when time() or the stored censor() is float, and a
+    * terminal interval appended exactly when the effective endpoint is later
+    * than the last visit. The 1e-6 clock-relative tolerance this replaced
+    * deleted every terminal interval on a clock with a large origin or a small
+    * unit, so the replay described a different risk set from the weights.
 
     if !inlist("`weighttype'", "iivw", "fiptiw") {
         display as error "iivw_balance requires weights with an IIW visit-intensity component"
@@ -488,6 +485,13 @@ program define iivw_balance, rclass
     local zcrit = invnormal((100 + `level') / 200)
     local balance_flag "unknown"
     local balance_max_tsmd = .
+    * The extra-covariate verdict: the same target comparison over varlist
+    * covariates the visit model was NOT fitted on. Kept apart from the modeled
+    * verdict (see the loop below), and initialized here because the returns
+    * read it unconditionally.
+    local extra_max_tsmd = .
+    local extra_flag ""
+    local __iivw_refit_done = 0
     local refit_N = .
     local refit_ncens = 0
     * Initialized here for the same reason as the loop below: the return block
@@ -580,9 +584,14 @@ program define iivw_balance, rclass
         * wrong by exactly one visit, which is why iivw_weight records lagvars()
         * and why the lag columns are rebuilt from their sources here.
         if !inlist("`rep_cens_mode'", "", "lastvisit") {
-            tempvar __iivw_censt __iivw_lastrow __iivw_newrow
+            tempvar __iivw_censt __iivw_lastrow __iivw_newrow __iivw_endpt
             if "`rep_cens_mode'" == "maxfu" {
-                gen double `__iivw_censt' = `rep_maxfu'
+                * The stored token is validated, not trusted: a contract that
+                * does not carry one finite number cannot be replayed.
+                _iivw_endpoint token `rep_maxfu'
+                local __iivw_rep_maxfu "`r(token)'"
+                quietly _iivw_endpoint build, id(`panel_id') time(`panel_time') ///
+                    maxfu(`__iivw_rep_maxfu') generate(`__iivw_endpt')
             }
             else {
                 capture confirm numeric variable `rep_cens_var'
@@ -591,14 +600,24 @@ program define iivw_balance, rclass
                     display as error "restore it, or rerun iivw_weight, before iivw_balance"
                     error 111
                 }
-                bysort `panel_id' (`panel_time'): gen double ///
-                    `__iivw_censt' = `rep_cens_var'[1]
+                quietly _iivw_endpoint build, id(`panel_id') time(`panel_time') ///
+                    censor(`rep_cens_var') generate(`__iivw_endpt')
             }
+            * iivw_weight refuses a visit after the end of follow-up, so one
+            * here means the data changed after the weights were built.
+            if r(n_after) > 0 {
+                display as error "`=r(n_after)' visit(s) occur after the stored end of follow-up"
+                display as error "the data no longer match the stored weighting contract; rerun iivw_weight"
+                error 198
+            }
+            bysort `panel_id' (`panel_time'): gen double ///
+                `__iivw_censt' = `__iivw_endpt'[1]
             bysort `panel_id' (`panel_time'): gen byte ///
                 `__iivw_lastrow' = (_n == _N)
+            * Exact `>' on the effective endpoint, as in iivw_weight: equal
+            * endpoints add no row and every positive encoded interval is kept.
             expand 2 if `__iivw_lastrow' & ///
-                `__iivw_censt' > ///
-                    `__iivw_stop' + `__iivw_teps' * max(1, abs(`__iivw_stop')) & ///
+                `__iivw_censt' > `__iivw_stop' & ///
                 !missing(`__iivw_censt'), gen(`__iivw_newrow')
             quietly count if `__iivw_newrow'
             local refit_ncens = r(N)
@@ -992,15 +1011,30 @@ program define iivw_balance, rclass
             local __iivw_tmean_`__iivw_bix' = `__iivw_tmean'
             local __iivw_wmean_`__iivw_bix' = `__iivw_wmean'
 
+            * Two maxima, never mixed. The modeled maximum sets
+            * r(balance_flag) (help, varlist): an extra covariate must neither
+            * move it nor rescue a modeled maximum that is unavailable. But a
+            * modeled covariate's target SMD is typically near zero BY
+            * CONSTRUCTION -- the visit model was fitted on it -- so the
+            * misspecification check lives in the extra maximum: an unmodeled
+            * covariate or transform (z^2, an omitted u) the weights fail to
+            * balance. That sets r(extra_flag).
+            local __iivw_is_modeled : list v in model_covars
             local __iivw_a = abs(`__iivw_tsmd_`__iivw_bix'')
-            if `__iivw_a' < . {
+            if `__iivw_is_modeled' & `__iivw_a' < . {
                 if `balance_max_tsmd' >= . | `__iivw_a' > `balance_max_tsmd' {
                     local balance_max_tsmd = `__iivw_a'
+                }
+            }
+            else if !`__iivw_is_modeled' & `__iivw_a' < . {
+                if `extra_max_tsmd' >= . | `__iivw_a' > `extra_max_tsmd' {
+                    local extra_max_tsmd = `__iivw_a'
                 }
             }
             drop `__iivw_dHv' `__iivw_wv'
         }
 
+        local __iivw_refit_done = 1
         if `balance_max_tsmd' < . local __iivw_refit_ok = 1
     }
     local __iivw_ag_rc = _rc
@@ -1024,6 +1058,7 @@ program define iivw_balance, rclass
         display as text "note: the visit-model refit could not be completed (rc=`__iivw_ag_rc');"
         display as text "  no balance verdict is reported. Leverage and composition shift are unaffected."
         local __iivw_refit_ok = 0
+        local __iivw_refit_done = 0
     }
 
     * A nuisance model the user accepted nonconverged via allownonconverged does
@@ -1033,6 +1068,7 @@ program define iivw_balance, rclass
     * a within_rule here would be the most dangerous output the command can produce.
     if "`rep_nonconv'" == "1" {
         local __iivw_refit_ok = 0
+        local __iivw_refit_done = 0
         display as error ///
             "warning: the weights come from a nonconverged nuisance model"
         display as text ///
@@ -1074,46 +1110,32 @@ program define iivw_balance, rclass
         local target_status "target_incomplete"
     }
     else if "`__iivw_bal_method'" == "efron" & ///
-            `__iivw_bal_mult' < . & `__iivw_bal_mult' >= 2 {
+            `__iivw_bal_mult' < . & `__iivw_bal_mult' > 1 {
         * ---------------------------------------------------------------
-        * THE TARGET SMD IS A BRESLOW SCORE RESIDUAL.
+        * EFRON TIED-EVENT VERDICT POLICY.
         *
-        * The target compares the observed weighted covariate mean against
-        * the mean implied by the replayed visit model over at-risk
-        * person-time. That comparison is exactly the Cox SCORE equation --
-        * observed covariate sum among events minus its risk-set expectation
-        * -- so it is zero BY CONSTRUCTION at the fitted coefficients, and
-        * that is what makes it a balance statistic rather than an arbitrary
-        * contrast. But the score equation it is zero at is BRESLOW's. An
-        * Efron fit solves a different one, because Efron modifies the risk
-        * set at tied event times, so the Breslow residual evaluated at
-        * Efron's beta-hat is not zero and the nonzero part is the tie
-        * correction, not imbalance.
+        * The general target contrast is motivated by a population moment
+        * condition (Buzkova & Lumley 2007), not by an exact empirical Cox
+        * score identity. Saturated stabilization gives unit visit weights;
+        * for the fitted model covariates the BRESLOW score then gives a zero
+        * target contrast up to numerical precision. Efron uses a different
+        * tied-event likelihood and prediction calculation (stcox manual,
+        * methods and formulas), and the implemented person-time contrast
+        * need not preserve that special identity under Efron ties.
         *
-        * MEASURED, on the saturated-stabilization fixture where the weight
-        * is identically 1 and every SMD must therefore be zero by algebra
-        * (test_iivw_phase2_contract.do T6): under a Breslow contract
-        * max |TSMD| = 0.0000000 and the verdict is within_rule; under an
-        * Efron contract the SAME weight gives 0.1594933 and the verdict is
-        * exceeds_rule -- a false imbalance flag, above the balcut(0.10)
-        * default, for weights that reweight nothing.
+        * MEASURED on the saturated unit-weight fixture
+        * (test_iivw_phase2_contract.do T6): Breslow gives max |TSMD| 0 and
+        * within_rule; Efron on the same weights gives 0.1594933. A sparse
+        * tie (multiplicity 1.086, test_iivw_audit_2026_10_05_diag.do) gives
+        * 0.00089776 under Efron and 0 under Breslow.
         *
-        * Ruled out as the cause: the baseline hazard estimator. Substituting
-        * the Breslow baseline evaluated at Efron's coefficients (a null model
-        * with the linear predictor as an offset) changes Lambda_0 materially
-        * -- mean 5.608 to 3.391 on that fixture -- and leaves max |TSMD| at
-        * 0.1594933 to seven decimals, because the target is a ratio in which
-        * any rescaling of dLambda_0 cancels.
-        *
-        * So this refuses to issue a verdict rather than issuing a wrong one.
-        * r(balance_max_tsmd) is still returned, and the leverage/ESS half of
-        * this command is unaffected -- neither depends on the score identity.
-        * The gate keys on MULTIPLICITY, not merely on the method: Efron and
-        * Breslow coincide exactly when no two events share a time, so an
-        * Efron contract on continuous visit times still gets a full verdict.
-        *
-        * The real fix is an Efron-consistent score residual, which is a
-        * separate piece of estimator work and is not attempted here.
+        * So the verdict is withheld on ANY tie (multiplicity > 1): Efron and
+        * Breslow coincide only when no two events share a time. This
+        * eligibility gate is distinct from the multiplicity-2 tie-density
+        * advisory in _iivw_tie_density.ado, which is a heuristic. The
+        * numerical contrast is still returned, and the leverage/ESS
+        * descriptions do not depend on it. No universal tie-bias direction
+        * or Efron-specific calibration is claimed.
         * ---------------------------------------------------------------
         local target_status "tie_method_efron"
     }
@@ -1141,6 +1163,30 @@ program define iivw_balance, rclass
         display as text ""
         display as text "  No balance verdict is reported. r(balance_max_tsmd) is still returned,"
         display as text "  and the leverage/ESS half of this command is unaffected."
+    }
+
+    * The extra-covariate verdict uses the same rule and the same eligibility
+    * as the modeled verdict -- a completed refit on a converged contract,
+    * terminal at-risk intervals, usable increments, no Efron ties -- except
+    * that it does not depend on the modeled maximum. Empty when no extra
+    * covariate was given or none had a finite target SMD.
+    local __iivw_extra_only : list balance_covars - model_covars
+    if "`__iivw_extra_only'" != "" {
+        if !`__iivw_refit_done' {
+            local extra_flag "unknown"
+        }
+        else if `refit_ncens' == 0 {
+            local extra_flag "not_identified"
+        }
+        else if `__iivw_target_unusable' > 0 | ///
+            ("`__iivw_bal_method'" == "efron" & ///
+            `__iivw_bal_mult' < . & `__iivw_bal_mult' > 1) {
+            local extra_flag "not_assessed"
+        }
+        else if `extra_max_tsmd' < . {
+            local extra_flag = cond(`extra_max_tsmd' <= `balcut', ///
+                "within_rule", "exceeds_rule")
+        }
     }
 
     display as text ""
@@ -1213,7 +1259,9 @@ program define iivw_balance, rclass
     display as text "`__iivw_smcl_lb'bf:Balance against the at-risk person-time target`__iivw_smcl_rb'"
     display as text "  Under a correct visit model the IIW-weighted mean over the observed"
     display as text "  visits equals the mean over the at-risk person-time. Target SMD is the"
-    display as text "  gap between them, in target SD units; it is 0 when the weights work."
+    display as text "  gap between them, in target SD units. Modeled covariates are near 0"
+    display as text "  almost by construction; list unmodeled covariates or transforms"
+    display as text "  (e.g. z^2, an omitted covariate) to check the visit model itself."
     display as text ""
     if `__iivw_refit_ok' {
         display as text "  At-risk intervals: " as result %9.0f `refit_N' ///
@@ -1232,6 +1280,9 @@ program define iivw_balance, rclass
         display as text ""
         display as text "  Max |target SMD|:  " as result %9.4f `balance_max_tsmd' ///
             as text "  (exceeds_rule if > " as result %5.3f `balcut' as text ")"
+        if "`__iivw_extra_only'" != "" {
+            display as text "  (modeled covariates; extra covariates are judged separately below)"
+        }
 
         * With no terminal at-risk interval the person-time target is built from
         * the visit intervals alone, so it collapses toward the observed visits
@@ -1259,31 +1310,19 @@ program define iivw_balance, rclass
         * assignment for the measurement and for what was ruled out.
         if "`target_status'" == "tie_method_efron" {
             display as text ""
-            display as error "  no balance verdict: the target SMD is not valid under Efron ties here."
-            display as text "        The target SMD is the Cox SCORE residual --" ///
-                " the observed covariate"
-            display as text "        mean among visits minus its risk-set" ///
-                " expectation -- and it is zero"
-            display as text "        by construction only at the coefficients" ///
-                " that SOLVE that score."
+            display as error "  no balance verdict: this policy withholds target-SMD verdicts under Efron ties."
             display as text "        These weights were fitted with " as result "efron" ///
-                as text ", which solves a different"
-            display as text "        score equation at tied event times, and" ///
-                " this fit is heavily tied"
-            display as text "        (" as result %6.1f `__iivw_bal_mult' as text ///
-                " events per distinct event time). The residual"
-            display as text "        below is therefore contaminated by the tie" ///
-                " correction and is not"
-            display as text "        an imbalance measure, so no verdict is" ///
-                " reported from it."
+                as text " and contain tied events"
+            display as text "        (" as result %6.3f `__iivw_bal_mult' as text ///
+                " events per distinct event time)."
+            display as text "        The implemented target contrast need not preserve the saturated"
+            display as text "        unit-weight score identity under Efron ties. Its numerical value"
+            display as text "        remains descriptive here; balcut() is a heuristic."
             display as text ""
-            display as text "        The leverage/ESS diagnostics above are" ///
-                " unaffected -- neither"
-            display as text "        depends on the score identity. For a" ///
-                " target-SMD verdict, rebuild"
-            display as text "        the weights with " as result "iivw_weight, breslow" ///
-                as text ", or use a finer time()"
-            display as text "        so that visit times are not tied."
+            display as text "        Leverage and ESS descriptions remain available. To obtain a"
+            display as text "        target-SMD verdict, rebuild with " as result "iivw_weight, breslow" ///
+                as text " and report"
+            display as text "        that change to the fitted weighting model."
         }
     }
     else {
@@ -1291,6 +1330,20 @@ program define iivw_balance, rclass
     }
     display as text "  Rule flag:       " as result "`balance_flag'" ///
         as text "  (max |target SMD| vs balcut() = " as result %5.3f `balcut' as text ")"
+    if "`__iivw_extra_only'" != "" {
+        * As visible as the modeled verdict: modeled covariates are balanced
+        * almost by construction, so this is where a misspecified visit model
+        * shows up.
+        display as text "  Extra flag:      " as result cond("`extra_flag'" == "", ///
+            "not evaluable", "`extra_flag'") ///
+            as text "  (max |target SMD| over unmodeled covariates = " ///
+            as result %6.4f `extra_max_tsmd' as text ")"
+        if "`extra_flag'" == "exceeds_rule" {
+            display as text "        An unmodeled covariate is not balanced against the at-risk"
+            display as text "        person-time target: the visit model may omit it or misspecify"
+            display as text "        its form. Consider adding it (or the transform) to visit_cov()."
+        }
+    }
 
     if "`agrefit'" != "" {
         display as text ""
@@ -1509,14 +1562,18 @@ program define iivw_balance, rclass
         * characters as unsafe); it makes the rejection arrive as the writer's
         * own named error instead of a parse mangle.
         local __iivw_quote_sentinel = uchar(57344)
-        local __iivw_dispatch_title = subinstr(`"`macval(__iivw_clean_title)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_footnote = subinstr(`"`macval(__iivw_clean_footnote)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_sheet = subinstr(`"`macval(__iivw_clean_sheet)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_xlsx = subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_title = subinstr(subinstr(`"`macval(__iivw_clean_title)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_footnote = subinstr(subinstr(`"`macval(__iivw_clean_footnote)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_sheet = subinstr(subinstr(`"`macval(__iivw_clean_sheet)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_xlsx = subinstr(subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
 
         local __iivw_export_opts `"tableframe(`__iivw_export_table') decimals(`__iivw_decimals') layout(tabtools)"'
         if `"`macval(__iivw_dispatch_xlsx)'"' != "" {
@@ -1658,6 +1715,9 @@ program define iivw_balance, rclass
     return local balance_covars "`balance_covars'"
     return local leverage "`leverage'"
     return local balance_flag "`balance_flag'"
+    * Unmodeled varlist covariates: same rule, separate verdict.
+    return scalar extra_max_tsmd = `extra_max_tsmd'
+    return local extra_flag "`extra_flag'"
     return local component "`component'"
     return local result_columns "unweighted_mean weighted_mean sd shift abs_shift N n_missing modeled"
     if `"`macval(__iivw_export_xlsx)'"' != "" {
@@ -1673,8 +1733,25 @@ program define iivw_balance, rclass
     * a pweighted AG refit has no null at 0 (see the note at the refit), so the
     * matrix could not be read as a balance result and should never have been
     * offered beside r(hr_unweighted) as though it could.
+    * Per-covariate target comparison, one row per r(balance) row. Extra
+    * varlist covariates are descriptive (modeled = 0): they never set
+    * r(balance_max_tsmd) or r(balance_flag), but their target SMD is a real
+    * check for a covariate the visit model omitted, so it is returned rather
+    * than only displayed.
+    matrix `__iivw_target' = J(`n_covars', 4, .)
+    forvalues i = 1/`n_covars' {
+        local v : word `i' of `balance_covars'
+        local __iivw_is_modeled : list v in model_covars
+        matrix `__iivw_target'[`i', 1] = `__iivw_wmean_`i''
+        matrix `__iivw_target'[`i', 2] = `__iivw_tmean_`i''
+        matrix `__iivw_target'[`i', 3] = `__iivw_tsmd_`i''
+        matrix `__iivw_target'[`i', 4] = `__iivw_is_modeled'
+    }
+    matrix rownames `__iivw_target' = `balance_covars'
+    matrix colnames `__iivw_target' = weighted_mean target_mean target_smd modeled
     return matrix hr_unweighted = `__iivw_hr_unweighted'
     return matrix balance = `__iivw_balance'
+    return matrix target = `__iivw_target'
 
     * Re-raise a failed export now that the analytical payload is posted. The
     * caller still sees the export's rc, but r() survives it: the diagnostic ran

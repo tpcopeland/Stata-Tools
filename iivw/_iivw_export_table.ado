@@ -1,4 +1,4 @@
-*! _iivw_export_table Version 4.3.4  2026/09/30
+*! _iivw_export_table Version 4.3.5  2026/10/06
 *! Internal styled Excel sheet writer for iivw reporting commands
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -45,8 +45,13 @@ program define _iivw_export_table, rclass
             substr(`"`macval(__iivw_tmp)'"', `__iivw_tmp_n', 1) == char(34) {
             local __iivw_tmp = substr(`"`macval(__iivw_tmp)'"', 2, `__iivw_tmp_n' - 2)
         }
+        * Transport escape (callers encode): U+E000 followed by 1 is a quote,
+        * U+E000 followed by 0 is a literal U+E000. Decode quotes first, then
+        * the escape, so original U+E0000/U+E0001 text is restored verbatim.
         local __iivw_tmp = subinstr(`"`macval(__iivw_tmp)'"', ///
-            `"`__iivw_quote_sentinel'"', char(34), .)
+            `"`__iivw_quote_sentinel'1"', char(34), .)
+        local __iivw_tmp = subinstr(`"`macval(__iivw_tmp)'"', ///
+            `"`__iivw_quote_sentinel'0"', `"`__iivw_quote_sentinel'"', .)
         local `__iivw_opt' `"`macval(__iivw_tmp)'"'
     }
     local layout = lower(strtrim(`"`layout'"'))
@@ -183,7 +188,7 @@ program define _iivw_export_table, rclass
 
     if `"`macval(sheet)'"' == "" local sheet "Sheet1"
     if strlen(`"`macval(sheet)'"') > 31 {
-        display as error "sheet() must be 31 characters or fewer"
+        display as error "sheet() must be 31 UTF-8 bytes or fewer"
         error 198
     }
     local __iivw_bslash = char(92)
@@ -272,7 +277,11 @@ program define _iivw_export_table, rclass
 
     local __iivw_header_row = 3
     local __iivw_first_data = `__iivw_header_row' + 1
-    quietly putexcel A1 = (`"`macval(title)'"')
+    * Text cells (title, headers, footnote, string columns) are written as raw
+    * bytes by _iivw_xlsx_style below: putexcel would re-expand macro syntax
+    * ($name, `name') held in frame text. A blank A1 makes putexcel create the
+    * workbook even for an all-string frame.
+    quietly putexcel A1 = ("")
 
     local __iivw_decimal_format "0"
     if `decimals' > 0 {
@@ -285,12 +294,11 @@ program define _iivw_export_table, rclass
         local __iivw_col = char(64 + `__iivw_j')
         local __iivw_header "`__iivw_v'"
         capture frame `tableframe': local __iivw_label : variable label `__iivw_v'
-        if _rc == 0 & `"`__iivw_label'"' != "" {
-            local __iivw_header `"`__iivw_label'"'
+        if _rc == 0 & `"`macval(__iivw_label)'"' != "" {
+            local __iivw_header `"`macval(__iivw_label)'"'
         }
-        quietly putexcel `__iivw_col'`__iivw_header_row' = (`"`__iivw_header'"')
 
-        local __iivw_width = strlen(`"`__iivw_header'"') + 2
+        local __iivw_width = strlen(`"`macval(__iivw_header)'"') + 2
         capture frame `tableframe': confirm string variable `__iivw_v'
         if _rc == 0 {
             forvalues __iivw_i = 1/`__iivw_return_rows' {
@@ -336,9 +344,7 @@ program define _iivw_export_table, rclass
                 }
             }
             else {
-                frame `tableframe': local __iivw_cell = `__iivw_v'[`__iivw_i']
-                quietly putexcel `__iivw_col'`__iivw_excel_row' = ///
-                    (`"`__iivw_cell'"')
+                * String cells are written raw through Mata after putexcel closes.
             }
         }
     }
@@ -346,15 +352,15 @@ program define _iivw_export_table, rclass
     local __iivw_note_row = 0
     if `"`macval(footnote)'"' != "" {
         local __iivw_note_row = `__iivw_first_data' + `__iivw_return_rows' + 1
-        quietly putexcel A`__iivw_note_row' = (`"`macval(footnote)'"')
     }
 
     quietly putexcel clear
     local __iivw_putexcel_open = 0
 
-    mata: _iivw_xlsx_style(`"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"', ///
+    frame `tableframe': mata: _iivw_xlsx_style(`"`macval(__iivw_xlsx)'"', `"`macval(sheet)'"', ///
         `__iivw_return_rows', `__iivw_return_cols', `__iivw_header_row', ///
-        `__iivw_note_row', `"`__iivw_widths'"', `"`macval(title)'"', `"`macval(footnote)'"')
+        `__iivw_note_row', `"`__iivw_widths'"', st_local("title"), st_local("footnote"), ///
+        st_local("__iivw_vars"))
 
     local __iivw_return_xlsx `"`macval(__iivw_xlsx)'"'
     local __iivw_return_sheet `"`macval(sheet)'"'
@@ -512,9 +518,12 @@ void _iivw_xlsx_style(
     real scalar note_row,
     string scalar widths,
     string scalar title,
-    string scalar footnote)
+    string scalar footnote,
+    string scalar varlist)
 {
     class xl scalar b
+    string rowvector vars
+    string scalar label
     real rowvector w
     real scalar data_first, data_last, j
 
@@ -525,6 +534,16 @@ void _iivw_xlsx_style(
 
     data_first = header_row + 1
     data_last = header_row + n_rows
+
+    vars = tokens(varlist)
+    for (j = 1; j <= n_cols; j++) {
+        label = st_varlabel(vars[j])
+        if (label == "") label = vars[j]
+        b.put_string(header_row, j, label)
+        if (st_isstrvar(vars[j]) & n_rows > 0) {
+            b.put_string(data_first, j, st_sdata((1, n_rows), vars[j]))
+        }
+    }
 
     b.put_string(1, 1, J(1, 1, title))
     b.set_sheet_merge(sheet, (1, 1), (1, n_cols))

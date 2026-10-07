@@ -7,11 +7,20 @@ arithmetic has therefore never been checked by anything but itself. This does
 not make the check independent of me -- I wrote both -- but it does make it
 independent of that code path.
 """
+import argparse
 import glob, os, sys
 import pandas as pd
 import numpy as np
 
-POOL = "/tmp/claude-1000/covgate/blockpool/r999_s20260715"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("pool", help="retained directory containing raw family block .dta files")
+args = parser.parse_args()
+POOL = os.path.abspath(args.pool)
+if not os.path.isdir(POOL):
+    parser.error(f"raw block directory does not exist: {POOL}")
+for family in ("iiw", "iptw", "fiptiw"):
+    if not glob.glob(os.path.join(POOL, f"{family}_*.dta")):
+        parser.error(f"raw {family} blocks are absent from {POOL}; no headline can be recomputed")
 TRUTH = {"iiw": 0.5, "iptw": 1.5, "fiptiw": 1.0}
 FLOOR = 0.92
 
@@ -43,7 +52,9 @@ for fam, truth in TRUTH.items():
     mse = df["se_refit"].mean()
     bias = df["b_refit"].mean() - truth
     mcse = empsd / np.sqrt(R)
-    gate = (lo <= 0.95 <= hi) and (cov >= FLOOR)
+    finite = np.isfinite(df[["cov_refit", "b_refit", "se_refit"]].to_numpy()).all()
+    valid_coverage = df["cov_refit"].isin([0, 1]).all()
+    gate = tiles and finite and valid_coverage and (lo <= 0.95 <= hi) and (cov >= FLOOR)
 
     print(f"{fam:8s} {R:5d} {cov:7.3f} [{lo:6.3f},{hi:6.3f}] {empsd:9.5f} "
           f"{mse:9.5f} {mse/empsd:7.4f} {bias:9.5f} {mcse:8.5f}  "

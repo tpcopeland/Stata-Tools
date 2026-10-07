@@ -144,6 +144,9 @@ program define _cr_compare, rclass
             return local why "R output has `nrow' rows, expected 6"
             exit
         }
+        assert !missing(value)
+        isid type
+        assert inlist(type, "b", "CR0", "CR1", "CR1S", "CR2", "CR3")
         quietly summarize value if type == "b",    meanonly
         scalar `R_B' = r(mean)
         quietly summarize value if type == "CR0",  meanonly
@@ -164,6 +167,8 @@ program define _cr_compare, rclass
     local r_cr2  = `R_CR2'
     local r_cr3  = `R_CR3'
 
+    assert !missing(`s_b', `s_cr0', `s_cr1', `s_cr1s', `s_cr2', `s_cr3')
+    assert !missing(`r_b', `r_cr0', `r_cr1', `r_cr1s', `r_cr2', `r_cr3')
     local d_b    = reldif(`s_b',    `r_b')
     local d_cr0  = reldif(`s_cr0',  `r_cr0')
     local d_cr1  = reldif(`s_cr1',  `r_cr1')

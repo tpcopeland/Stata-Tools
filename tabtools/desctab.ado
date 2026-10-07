@@ -1,4 +1,4 @@
-*! desctab Version 2.5.4  2026/10/06 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.5.5  2026/10/07 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -135,7 +135,7 @@ program define desctab, rclass
 
     if "`smallcells'" != "" {
         local _sc_note "Counts below `smallcells' are shown as <`smallcells'; complementary cells are shown as ≥`smallcells' to prevent exact reconstruction. Percentages are withheld for any variable carrying a suppressed count."
-        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked, and other cells, totals and tests are shown as computed). This protects printed counts only."
+        if `_sc_primary' local _sc_note "Counts from 1 to `=`smallcells' - 1' are shown as <`smallcells' without a percentage (primary suppression only: no complementary cells are masked). This protects printed counts only."
         if strpos(`"`macval(footnote)'"', `"`_sc_note'"') == 0 {
             if `"`macval(footnote)'"' == "" local footnote `"`_sc_note'"'
             * A footnote in paragraphs (" \ ") gets the notice as its own

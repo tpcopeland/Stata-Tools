@@ -27,10 +27,21 @@ trap 'rm -rf "$scratch"' EXIT
 run_qa="$scratch/repo/finegray/qa"
 mkdir -p "$run_qa"
 cp "$wrapper" "$run_qa/run_all.sh"
+cp "$qa_dir/_finegray_receipt.sh" "$run_qa/_finegray_receipt.sh"
+cp "$qa_dir/_finegray_accept_gate_bundle.sh" "$run_qa/_finegray_accept_gate_bundle.sh"
 chmod +x "$run_qa/run_all.sh"
 printf 'stub\n' > "$scratch/repo/finegray/finegray.ado"
+printf 'engine stub\n' > "$scratch/repo/finegray/_finegray_mata.ado"
 cp "$qa_dir/gates_transfer_pin.txt" "$run_qa/gates_transfer_pin.txt"
 printf '* stub\n' > "$run_qa/gates_transfer_proof.do"
+# Stand-in for the audit runner-integrity suite, which run_all.sh runs as its
+# own gate whenever the recursion guard is clear (tests 12-14, 23-24).
+cat > "$run_qa/test_finegray_audit_2026_10_05_qa.sh" <<'EOF2'
+#!/usr/bin/env bash
+echo "RESULT: test_finegray_audit_2026_10_05_qa tests=1 pass=1 fail=${AUDIT_STUB_FAIL:-0}"
+exit "${AUDIT_STUB_RC:-0}"
+EOF2
+chmod +x "$run_qa/test_finegray_audit_2026_10_05_qa.sh"
 
 # The real repo TRACKS the receipts and the input manifest, and run_all.sh
 # deletes the two receipts before Stata starts and rewrites all three itself.
@@ -52,7 +63,6 @@ git -C "$scratch/repo" config user.name "QA"
 git -C "$scratch/repo" add -A
 git -C "$scratch/repo" commit -qm "stub tree"
 gated_sha="$(git -C "$scratch/repo" rev-parse HEAD)"
-printf 'gated_commit: %s\n' "$gated_sha" > "$run_qa/gates_transfer_pin.txt"
 
 cat > "$scratch/fake-stata" <<'EOF'
 #!/usr/bin/env bash
@@ -88,6 +98,13 @@ fi
 if [[ "${FAKE_STATA_MODE:-pass}" == "fail" ]]; then
     exit 7
 fi
+if [[ "$tag" == "gates" ]]; then
+cat > run_all.log <<'LOG'
+RESULT: fake_suite tests=3 pass=3 fail=0
+RESULT: run_all tests=3 pass=3 fail=0 skip=0
+LOG
+exit 0
+fi
 cat > run_all.log <<'LOG'
 RESULT: fake_suite tests=1 pass=1 fail=0
 RESULT: run_all tests=1 pass=1 fail=0 skip=0
@@ -110,6 +127,18 @@ EOF
 tests=0
 pass=0
 fail=0
+
+# Promote a pin the only supported way: a fresh gates bundle, verified and
+# accepted by the helper.  The fake gates lane stands in for the 7-hour studies;
+# what is under test is the binding, not the calibration.
+STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" gates >"$scratch/gates.out" 2>"$scratch/gates.err" || {
+    echo "FAIL: setup: fake gates lane did not pass" >&2; cat "$scratch/gates.err" >&2; exit 1; }
+(cd "$run_qa" && bash ./_finegray_accept_gate_bundle.sh run_status_gates.pointer) || {
+    echo "FAIL: setup: pin promotion from the fresh gates bundle failed" >&2; exit 1; }
+git -C "$scratch/repo" add finegray/qa/gates_transfer_pin.txt
+git -C "$scratch/repo" commit -qm "accepted calibration pin"
+head_sha="$(git -C "$scratch/repo" rev-parse HEAD)"
+rm -f "$run_qa/run_all_status.txt" "$run_qa/run_status_gates.txt"
 
 check() {
     local label="$1"
@@ -352,7 +381,7 @@ FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
 rc=$?
 set -e
 if (( rc == 0 )) &&
-        grep -Eq "^head_commit: $gated_sha\$" "$copy_qa/run_all_status.txt" &&
+        grep -Eq "^head_commit: $head_sha\$" "$copy_qa/run_all_status.txt" &&
         grep -Eq '^provenance:  --source-repo ' "$copy_qa/run_all_status.txt" &&
         grep -Eq '^transfer_gate: PASS ' "$copy_qa/run_all_status.txt"; then
     ((pass += 1))
@@ -476,6 +505,211 @@ if (( rc == 1 )) &&
     ((pass += 1))
 else
     echo "FAIL: missing wrapper test did not fail closed" >&2
+    ((fail += 1))
+fi
+
+# -----------------------------------------------------------------------------
+# 15-18. Q01: the transfer is bound to the calibrated numerical engine and an
+# immutable gates bundle.  The fake proof emits identical rows regardless of the
+# engine, which is exactly the original defect: the four fixtures cannot see a
+# nuisance-variance mutation.  The binding, not the fixtures, must refuse it.
+# -----------------------------------------------------------------------------
+write_gate
+pin_backup="$scratch/pin.backup"
+cp "$run_qa/gates_transfer_pin.txt" "$pin_backup"
+engine="$scratch/repo/finegray/_finegray_mata.ado"
+
+# 15. Baseline: the accepted pin lets an unchanged engine through.
+((tests += 1))
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" full >"$scratch/q01-ok.out" 2>"$scratch/q01-ok.err"
+rc=$?
+set -e
+if (( rc == 0 )) && grep -Eq '^transfer_gate: PASS ' "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: an unchanged calibrated engine was refused" >&2
+    ((fail += 1))
+fi
+
+# 16. Engine mutation with all four proof rows identical must be refused.
+((tests += 1))
+printf '* nuisance variance x1000\n' >> "$engine"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" full >"$scratch/q01-mut.out" 2>"$scratch/q01-mut.err"
+rc=$?
+set -e
+if (( rc == 1 )) && grep -Eq '^transfer_gate: FAIL \(missing, invalid or changed calibrated engine' "$run_qa/run_all_status.txt" &&
+        grep -Eq '^verdict:[[:space:]]+FAIL$' "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: transfer accepted an engine mutation the fixtures cannot see" >&2
+    ((fail += 1))
+fi
+
+# 17. A change outside the engine (reporting/help) does not void the transfer.
+((tests += 1))
+git -C "$scratch/repo" checkout -q -- finegray/_finegray_mata.ado
+printf '* reporting-only change\n' >> "$scratch/repo/finegray/finegray.ado"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" full >"$scratch/q01-rep.out" 2>"$scratch/q01-rep.err"
+rc=$?
+set -e
+git -C "$scratch/repo" checkout -q -- finegray/finegray.ado
+if (( rc == 0 )) && grep -Eq '^transfer_gate: PASS ' "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: a non-engine change voided the transfer" >&2
+    ((fail += 1))
+fi
+
+# 18. Unrecorded, malformed and corrupted pins all refuse.
+((tests += 1))
+q01_bad=0
+for variant in unrecorded badindex corrupt-bundle; do
+    cp "$pin_backup" "$run_qa/gates_transfer_pin.txt"
+    bundle_dir="$run_qa/receipts/$(awk '/^calibration_bundle:/ {print $2}' "$pin_backup")"
+    case "$variant" in
+        unrecorded)
+            sed -i 's/^\(engine_sha256\|calibration_bundle\|calibration_index_sha256\):.*/\1: UNRECORDED/' "$run_qa/gates_transfer_pin.txt" ;;
+        badindex)
+            sed -i 's/^calibration_index_sha256:.*/calibration_index_sha256: 0000000000000000000000000000000000000000000000000000000000000000/' "$run_qa/gates_transfer_pin.txt" ;;
+        corrupt-bundle)
+            cp "$bundle_dir/inputs/_finegray_mata.ado" "$scratch/engine.saved"
+            printf 'x' >> "$bundle_dir/inputs/_finegray_mata.ado" ;;
+    esac
+    set +e
+    FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" full >"$scratch/q01-$variant.out" 2>&1
+    rc=$?
+    set -e
+    [[ "$variant" == corrupt-bundle ]] && cp "$scratch/engine.saved" "$bundle_dir/inputs/_finegray_mata.ado"
+    if (( rc != 1 )) || ! grep -Eq '^transfer_gate: FAIL \(missing, invalid or changed' "$run_qa/run_all_status.txt"; then
+        echo "FAIL: pin variant $variant was not refused" >&2
+        q01_bad=1
+    fi
+done
+cp "$pin_backup" "$run_qa/gates_transfer_pin.txt"
+if (( q01_bad == 0 )); then ((pass += 1)); else ((fail += 1)); fi
+
+# -----------------------------------------------------------------------------
+# 19-22. Q03: per-run immutable evidence.
+# -----------------------------------------------------------------------------
+# 19. A passing full run publishes a verified bundle, pointer included, that
+# archives the input manifest, the proof logs and the frozen nested fixtures.
+((tests += 1))
+mkdir -p "$run_qa/oracles/sub"
+printf 'frozen\n' > "$run_qa/oracles/sub/blob.dta"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" full >"$scratch/q03-full.out" 2>"$scratch/q03-full.err"
+rc=$?
+set -e
+read -r full_id full_idx < "$run_qa/run_status_full.pointer"
+full_bundle="$run_qa/receipts/$full_id"
+if (( rc == 0 )) && ( source "$run_qa/_finegray_receipt.sh" && fg_receipt_verify "$run_qa" "$run_qa/run_status_full.pointer" ) &&
+        [[ -s "$full_bundle/inputs.before.sha256" ]] && cmp -s "$full_bundle/inputs.before.sha256" "$full_bundle/inputs.after.sha256" &&
+        [[ -s "$full_bundle/gates_transfer/gt4_GATED.log" ]] &&
+        [[ -f "$full_bundle/inputs/qa/oracles/sub/blob.dta" ]] &&
+        grep -q 'qa/oracles/sub/blob.dta$' "$full_bundle/inputs.before.sha256"; then
+    ((pass += 1))
+else
+    echo "FAIL: full run did not publish a verified bundle with manifest, proof and nested fixtures" >&2
+    ((fail += 1))
+fi
+
+# 20. A later lane must not overwrite the earlier bundle or its pointer target.
+((tests += 1))
+before_sum="$(sha256sum "$full_bundle/SHA256SUMS" | cut -d' ' -f1)"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata" "$run_qa/run_all.sh" quick >"$scratch/q03-quick.out" 2>&1
+rc=$?
+set -e
+if (( rc == 0 )) && [[ -d "$full_bundle" ]] && [[ "$(sha256sum "$full_bundle/SHA256SUMS" | cut -d' ' -f1)" == "$before_sum" ]] &&
+        [[ "$before_sum" == "$full_idx" ]] &&
+        ( source "$run_qa/_finegray_receipt.sh" && fg_receipt_verify "$run_qa" "$run_qa/run_status_full.pointer" ) &&
+        [[ -s "$run_qa/run_status_quick.pointer" ]]; then
+    ((pass += 1))
+else
+    echo "FAIL: a later lane clobbered the earlier immutable bundle" >&2
+    ((fail += 1))
+fi
+
+# 21. Tampering one archived byte is detected by the verifier.
+((tests += 1))
+cp "$full_bundle/run_all.log" "$scratch/runlog.saved"
+printf 'tamper\n' >> "$full_bundle/run_all.log"
+if ! ( source "$run_qa/_finegray_receipt.sh" && fg_receipt_verify "$run_qa" "$run_qa/run_status_full.pointer" ) 2>/dev/null; then
+    ((pass += 1))
+else
+    echo "FAIL: verifier accepted a tampered bundle" >&2
+    ((fail += 1))
+fi
+cp "$scratch/runlog.saved" "$full_bundle/run_all.log"
+
+# 22. An input edited while the lane runs cannot leave a PASS receipt.
+((tests += 1))
+cat > "$scratch/fake-stata-edit" <<EOF
+#!/usr/bin/env bash
+if [[ "\${*: -1}" == "quick" ]]; then printf '* edited mid-run\n' >> "$run_qa/oracles/sub/blob.dta"; fi
+exec "$scratch/fake-stata" "\$@"
+EOF
+chmod +x "$scratch/fake-stata-edit"
+set +e
+FG02_RC=0 STATA_BIN="$scratch/fake-stata-edit" "$run_qa/run_all.sh" quick >"$scratch/q03-edit.out" 2>&1
+rc=$?
+set -e
+if (( rc == 1 )) && grep -Eq '^verdict:[[:space:]]+FAIL$' "$run_qa/run_all_status.txt" &&
+        grep -q '^bundle: NOT-PUBLISHED' "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: an input edited during the run still produced a PASS/verified receipt" >&2
+    ((fail += 1))
+fi
+
+# -----------------------------------------------------------------------------
+# 23-24. The audit runner-integrity gate (test_finegray_audit_2026_10_05_qa.sh)
+# has its own status line; a failing or missing suite takes the lane red without
+# being mistaken for the wrapper test's verdict.
+# -----------------------------------------------------------------------------
+cat > "$run_qa/test_run_all_wrapper.sh" <<'EOF2'
+#!/usr/bin/env bash
+echo "RESULT: test_run_all_wrapper tests=1 pass=1 fail=0"
+EOF2
+chmod +x "$run_qa/test_run_all_wrapper.sh"
+
+# 23. A failing audit suite takes the lane red.
+((tests += 1))
+set +e
+env -u FINEGRAY_WRAPPER_TEST_ACTIVE AUDIT_STUB_RC=1 AUDIT_STUB_FAIL=1 FG02_RC=0 \
+    STATA_BIN="$scratch/fake-stata" \
+    "$run_qa/run_all.sh" full >"$scratch/audit-fail.out" 2>"$scratch/audit-fail.err"
+rc=$?
+set -e
+if (( rc == 1 )) &&
+        grep -Eq '^verdict:[[:space:]]+FAIL$' "$run_qa/run_all_status.txt" &&
+        grep -Eq '^audit_qa_test: FAIL ' "$run_qa/run_all_status.txt" &&
+        grep -Eq '^wrapper_test: PASS$' "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: a failing audit QA suite did not take the lane red" >&2
+    ((fail += 1))
+fi
+
+# 24. A missing audit suite fails closed.
+((tests += 1))
+mv "$run_qa/test_finegray_audit_2026_10_05_qa.sh" "$scratch/audit-parked.sh"
+set +e
+env -u FINEGRAY_WRAPPER_TEST_ACTIVE FG02_RC=0 STATA_BIN="$scratch/fake-stata" \
+    "$run_qa/run_all.sh" full >"$scratch/audit-missing.out" 2>"$scratch/audit-missing.err"
+rc=$?
+set -e
+mv "$scratch/audit-parked.sh" "$run_qa/test_finegray_audit_2026_10_05_qa.sh"
+rm -f "$run_qa/test_run_all_wrapper.sh"
+if (( rc == 1 )) &&
+        grep -Eq '^audit_qa_test: FAIL \(test_finegray_audit_2026_10_05_qa.sh missing\)$' \
+            "$run_qa/run_all_status.txt"; then
+    ((pass += 1))
+else
+    echo "FAIL: missing audit QA suite did not fail closed" >&2
     ((fail += 1))
 fi
 

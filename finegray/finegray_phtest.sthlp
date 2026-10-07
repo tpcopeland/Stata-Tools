@@ -80,7 +80,10 @@ row. The same applies to any individual term whose raw residuals do
 not vary across cause-event times.
 
 {pstd}
-Requires the unchanged {cmd:stset} estimation data ({cmd:r(459)} if changed). Dropped
+Requires the unchanged {cmd:stset} estimation data ({cmd:r(459)} if changed,
+including a permutation of one variable's values across observations; estimates
+saved by finegray 1.3.7 or earlier lack {cmd:e(rowsig)} and are
+{cmd:r(301)}; refit). Dropped
 {cmd:_fg_*} design columns are rebuilt on demand; altered ones are {cmd:r(459)}.
 
 {pstd}

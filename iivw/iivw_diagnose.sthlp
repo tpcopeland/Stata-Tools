@@ -88,7 +88,12 @@ into an artifact gap. Those subtractions mean nothing unless all three
 estimates are of the same coefficient, of the same outcome, on the same scale,
 at the same cluster level. The command therefore checks {cmd:e(depvar)},
 {cmd:e(cmd)}, the reported family and link, and {cmd:e(clustvar)} across the
-three roles and exits with an error if they disagree. The family and link are
+three roles and exits with an error if they disagree. For {cmd:xtreg}, it also
+requires and compares {cmd:e(model)}, because within ({cmd:fe}) and between
+({cmd:be}) estimators have different targets even when the command name and
+sample match. These checks are necessary metadata checks; the user must also
+establish that the named coefficient, exposure contrast, design, and model
+assumptions describe the intended common estimand. The family and link are
 read from {cmd:e(varfunct)}/{cmd:e(linkt)} when the estimator sets them and
 from {cmd:e(family)}/{cmd:e(link)} otherwise: {cmd:glm} -- and therefore
 {cmd:iivw_fit}'s {cmd:model(gee)} path -- leaves {cmd:e(family)} empty and
@@ -139,7 +144,7 @@ adjusts for the measurement process.
 
 {phang}
 Each of the three must carry both {cmd:e(depvar)} and {cmd:e(cmd)}. The
-comparability check below decides "same estimand" by comparing those fields
+comparability check below screens recorded model identity by comparing those fields
 across the three roles, so estimates that carry neither would compare equal to
 one another on empty strings and pass the check without anything having been
 verified. {cmd:iivw_diagnose} names the missing field and exits with
@@ -162,7 +167,8 @@ diagnostic range because direct adjustment may over-correct.
 {phang}
 {opt estimand(string)} specifies whether {it:coefficient} is a {cmd:marginal} or {cmd:contrast}
 estimand. The default is {cmd:marginal}. With {cmd:estimand(contrast)}, the command
-reports model movement only and does not compute sampling or artifact shares.
+reports model movement only, withholds sampling and artifact shares, and sets
+{cmd:r(decomposable)} to 0.
 
 {phang}
 {opt true(#)} supplies a known true value. When specified, the command returns
@@ -194,13 +200,16 @@ title, grouped headers, and estimate rows under {cmd:Estimate}, {cmd:SE}, and
 a confidence-interval column headed with the level in force, for example
 {cmd:95% CI}. A bold {cmd:Diagnostic values} divider row then introduces the
 single-value diagnostic and optional bias rows, each of which reports its
-value in the {cmd:Estimate} column merged across the estimate columns. The
+value in the {cmd:Estimate} column. These scalar rows are not merged across
+the estimate columns. The
 sheet also carries readable row labels, column widths, borders, and an
 explanatory footnote.
 
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
 {cmd:Diagnostics}. This option requires {opt xlsx()}.
+The iivw export path limits worksheet names to 31 UTF-8 bytes.
+A non-ASCII character may occupy more than one byte.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists. Excel
@@ -376,7 +385,8 @@ Example 4: export formatted diagnostics to a workbook sheet.
 {cmd:iivw_diagnose} stores the following in {cmd:r()}:
 
 {pstd}
-{cmd:r(decomposable)} is 1 only when all three fits share an estimand, were
+{cmd:r(decomposable)} is 1 only for {cmd:estimand(marginal)}, when all three
+fits pass the recorded identity checks, were
 fitted on the {bf:same rows} ({cmd:r(sample_identical)} = 1), and use an
 identity link. Equal {cmd:e(N)} is not an equal sample, so the check compares
 the estimation-sample markers rather than the counts. When a marker cannot be

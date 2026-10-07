@@ -1,4 +1,4 @@
-*! iivw_exogtest Version 4.3.4  2026/09/30
+*! iivw_exogtest Version 4.3.5  2026/10/06
 *! Test whether lagged outcomes predict subsequent visit timing
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -62,13 +62,24 @@ program define iivw_exogtest, rclass sortpreserve
     syntax varlist(numeric min=1) [if] [in] , ///
         ID(varname) TIME(varname numeric) ///
         [ADJust(varlist numeric) BY(varname) BYSTart ENTry(varname numeric) ///
-         CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
+         CENSor(varname numeric) MAXfu(string) ENDATLASTvisit ///
          GENerate(name) REPLACE EFRon BREslow noLOG Level(cilevel) ///
          XLSX(string asis) SHEET(string asis) ///
          TITLE(string asis) FOOTNOTE(string asis) ///
          DECimals(string) OPEN ///
          BORDERstyle(string) HEADERShade FONT(string asis) FONTSIZE(integer -1) ///
          HEADERColor(string) ZEBRAColor(string) ZEBra]
+
+    * maxfu() is ONE exact numeric token, parsed as iivw_weight parses it:
+    * numlist() shortened it to 13 significant digits, so a boundary typed at
+    * full double precision reached the comparison as a different number. The
+    * typed spelling is kept for messages. See _iivw_endpoint.ado.
+    local __iivw_maxfu_typed ""
+    if `"`maxfu'"' != "" {
+        local __iivw_maxfu_typed = strtrim(`"`maxfu'"')
+        _iivw_endpoint token `maxfu'
+        local maxfu "`r(token)'"
+    }
 
     * =========================================================================
     * END-OF-FOLLOW-UP CONTRACT
@@ -108,21 +119,14 @@ program define iivw_exogtest, rclass sortpreserve
     if "`endatlastvisit'" != "" local __iivw_cens_mode "lastvisit"
     if "`maxfu'" != ""          local __iivw_cens_mode "maxfu"
 
-    * Representation tolerance for the three time comparisons below, identical
-    * to iivw_weight's. The full rationale is at its declaration in
-    * iivw_weight.ado; in short, a visit falling ON the end of follow-up makes
-    * censor()/maxfu() and time() the same instant, but they are reached by
-    * different expressions and often stored at different types, and a float
-    * encoding of days/365.25 sits up to one float epsilon below the double
-    * encoding. An exact comparison reads that gap as a visit after censoring.
-    *
-    * This constant appears in three files -- iivw_weight.ado, iivw_exogtest.ado
-    * and iivw_balance.ado -- because each builds the SAME Andersen-Gill risk
-    * set from its own copy of this code. They must move together: a subject
-    * iivw_weight accepts and gives no terminal interval must be accepted by
-    * iivw_exogtest and given no terminal interval by iivw_balance, or the three
-    * commands describe different risk sets for one analysis.
-    local __iivw_teps = 1e-6
+    * End-of-follow-up comparisons follow the policy shared with iivw_weight
+    * and iivw_balance (_iivw_endpoint.ado): endpoints are compared exactly as
+    * encoded, at float precision when time() or censor() is float, and a
+    * terminal interval is appended exactly when the effective endpoint is
+    * later than the last selected visit. The 1e-6 clock-relative tolerance it
+    * replaced deleted real terminal intervals on a clock with a large origin
+    * or a small unit. The three commands must build the same risk set.
+    tempvar __iivw_endpt
 
     * Build the analysis sample BEFORE validating follow-up. Values outside an
     * if/in restriction are not inputs to this diagnostic and cannot invalidate
@@ -146,17 +150,22 @@ program define iivw_exogtest, rclass sortpreserve
         error 2000
     }
 
+    * Validated on the selected rows only, and the effective endpoint is built
+    * there once and reused when the terminal intervals are appended.
     if "`__iivw_cens_mode'" == "maxfu" {
         quietly summarize `time' if `touse', meanonly
-        local __iivw_maxfu_hi = `maxfu' + `__iivw_teps' * max(1, abs(`maxfu'))
-        if r(max) > `__iivw_maxfu_hi' {
-            quietly count if `touse' & `time' > `__iivw_maxfu_hi'
-            display as error "`=r(N)' visits occur after maxfu(`maxfu')"
+        tempname __iivw_tmax
+        scalar `__iivw_tmax' = r(max)
+        _iivw_endpoint build, id(`id') time(`time') maxfu(`maxfu') ///
+            touse(`touse') generate(`__iivw_endpt')
+        if r(n_after) > 0 {
+            display as error "`=r(n_after)' visits occur after maxfu(`__iivw_maxfu_typed')"
+            display as error "  the maximum selected visit time is " %21.0g `__iivw_tmax'
             error 198
         }
     }
     if "`__iivw_cens_mode'" == "censor" {
-        tempvar __iivw_cmin __iivw_cmax __iivw_lastvis
+        tempvar __iivw_cmin __iivw_cmax
         quietly bysort `id': egen double `__iivw_cmin' = min(`censor') if `touse'
         quietly bysort `id': egen double `__iivw_cmax' = max(`censor') if `touse'
         quietly count if `touse' & `__iivw_cmin' != `__iivw_cmax'
@@ -164,14 +173,13 @@ program define iivw_exogtest, rclass sortpreserve
             display as error "censor() must be constant within each id()"
             error 198
         }
-        quietly bysort `id': egen double `__iivw_lastvis' = max(`time') if `touse'
-        quietly count if `touse' & `censor' < ///
-            `__iivw_lastvis' - `__iivw_teps' * max(1, abs(`__iivw_lastvis'))
-        if r(N) > 0 {
+        drop `__iivw_cmin' `__iivw_cmax'
+        _iivw_endpoint build, id(`id') time(`time') censor(`censor') ///
+            touse(`touse') generate(`__iivw_endpt')
+        if r(n_after) > 0 {
             display as error "censor() is earlier than the last observed visit for some subjects"
             error 198
         }
-        drop `__iivw_cmin' `__iivw_cmax' `__iivw_lastvis'
     }
 
     if "`decimals'" != "" {
@@ -370,7 +378,11 @@ program define iivw_exogtest, rclass sortpreserve
     foreach v of local varlist {
         local ++lag_index
         local lagname : word `lag_index' of `generated_lags'
-        quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
+        * The lag is the previous SELECTED visit. Rows outside if/in are not
+        * inputs to this diagnostic, so they neither supply history nor
+        * receive a generated lag (DX01, 2026-10-05 audit).
+        quietly bysort `id' `touse' (`time'): gen double `lagname' = ///
+            `v'[_n-1] if `touse'
         * Read without expansion: a label such as "Score in $USD" is data.
         mata: st_local("vlab", st_varlabel("`v'"))
         if `"`macval(vlab)'"' == "" local vlab "`v'"
@@ -396,6 +408,10 @@ program define iivw_exogtest, rclass sortpreserve
 
     preserve
     local __iivw_restore_needed = 1
+    * Entry, previous visit, last visit, terminal interval and bystart history
+    * are all built from the one selected rowset. A selected final visit is the
+    * last row here even when the full data continue past it.
+    quietly keep if `touse'
 
     tempvar __iivw_start __iivw_stop __iivw_event __iivw_usable
     tempvar __iivw_group __iivw_idtag
@@ -423,19 +439,16 @@ program define iivw_exogtest, rclass sortpreserve
     if "`__iivw_cens_mode'" != "lastvisit" {
         tempvar __iivw_cens_t __iivw_lastrow __iivw_newrow
 
-        if "`__iivw_cens_mode'" == "maxfu" {
-            quietly gen double `__iivw_cens_t' = `maxfu'
-        }
-        else {
-            quietly bysort `id' (`time'): gen double `__iivw_cens_t' = `censor'[1]
-        }
+        * The effective endpoint built at validation: constant within id,
+        * float-rounded under a float time(), and moved onto the last visit
+        * where a float censor() agrees with it only at float precision.
+        quietly bysort `id' (`time'): gen double `__iivw_cens_t' = `__iivw_endpt'[1]
         quietly bysort `id' (`time'): gen byte `__iivw_lastrow' = (_n == _N)
 
-        * Tolerance, not `>': a last visit falling ON the end of follow-up is
-        * the `alreadythere' case and needs no extra row. See iivw_weight.ado.
+        * Exact `>': a last visit ON the end of follow-up is the `alreadythere'
+        * case and needs no extra row; every positive encoded interval is kept.
         quietly expand 2 if `__iivw_lastrow' & ///
-            `__iivw_cens_t' > ///
-                `__iivw_stop' + `__iivw_teps' * max(1, abs(`__iivw_stop')) & ///
+            `__iivw_cens_t' > `__iivw_stop' & ///
             !missing(`__iivw_cens_t'), gen(`__iivw_newrow')
 
         quietly replace `__iivw_start' = `__iivw_stop'    if `__iivw_newrow'
@@ -570,29 +583,11 @@ program define iivw_exogtest, rclass sortpreserve
     }
     display as text "Alpha:            " as result %5.3f `alpha'
 
-    * -------------------------------------------------------------------------
-    * Tie density of the models about to be fitted.
-    *
-    * This command fits the same Andersen-Gill Cox model as iivw_weight and
-    * takes the same tie-method default (Efron since 3.0.0), so it carries the
-    * same exposure: the lagged-outcome coefficients -- and therefore every
-    * p-value in the table below -- move with the tie method. The p-values are
-    * the specific reason this command must not be left on Breslow by default:
-    * Hertz-Picciotto & Rockhill (1997) find Breslow's tail probabilities are
-    * ASYMMETRIC about the nominal level while Efron's sit close to it, and a
-    * tail probability is exactly what this table reports. See
-    * _iivw_tie_density.ado for the measured divergence.
-    *
-    * Computed ONCE over the whole usable set rather than inside the by()
-    * loop: the tie structure is a property of time(), not of a subgroup, and
-    * one note per group would be noise. `__iivw_usable' already enforces
-    * `stop' > `start', so zero-length intervals are excluded here too.
-    * -------------------------------------------------------------------------
-    _iivw_tie_density, event(`__iivw_event') stop(`__iivw_stop') ///
-        touse(`__iivw_usable') cmdname(exogeneity) method(`tie_method')
-    local __iivw_tie_mult   = r(tie_multiplicity)
-    local __iivw_tie_ntimes = r(n_event_times)
-    local __iivw_tie_nev    = r(n_modeled_events)
+    * Rows of the models actually fitted, from each fit's native e(sample).
+    * The tie statistics are measured on these after the loop; skipped groups
+    * enter no fitted risk set and contribute nothing (DX06).
+    tempvar __iivw_fitrows
+    quietly gen byte `__iivw_fitrows' = 0
 
     local group_index = 0
     foreach g of local group_levels {
@@ -654,6 +649,10 @@ program define iivw_exogtest, rclass sortpreserve
             display as text "note: skipped (Cox model failed with rc=`fit_rc')"
             continue
         }
+
+        * Marked BEFORE the convergence gate: n_models and N count fitted
+        * models, including fitted groups whose inference is unknown.
+        quietly replace `__iivw_fitrows' = 1 if e(sample) & `__iivw_group' == `g'
 
         * A converged fit is a precondition for reading anything off this model.
         * stcox returns rc 0 when it stops at the iteration ceiling, so the rc
@@ -860,6 +859,29 @@ program define iivw_exogtest, rclass sortpreserve
         display as text  "  parameter, or an adjust() specification the data cannot support."
         error 2000
     }
+
+    * -------------------------------------------------------------------------
+    * Tie density of the models that were fitted.
+    *
+    * This command uses the same tie-method default as iivw_weight (Efron since
+    * 3.0.0), and the lagged-outcome coefficients and p-values move with that
+    * choice when event times are tied. See _iivw_tie_density.ado.
+    *
+    * Measured on the fitted models' own estimation rows, and per model: ties
+    * exist only WITHIN a separately fitted risk set, so the event-time key is
+    * (model group, event time). Equal clock values in two independent by()
+    * models are not ties, and a skipped group's events are not modeled events.
+    * r(n_event_times) is therefore the sum of distinct event times within the
+    * fitted models. `__iivw_usable' already enforces `stop' > `start'.
+    * -------------------------------------------------------------------------
+    tempvar __iivw_tiekey
+    quietly egen long `__iivw_tiekey' = group(`__iivw_group' `__iivw_stop') ///
+        if `__iivw_fitrows' & `__iivw_event' == 1
+    _iivw_tie_density, event(`__iivw_event') stop(`__iivw_tiekey') ///
+        touse(`__iivw_fitrows') cmdname(exogeneity) method(`tie_method')
+    local __iivw_tie_mult   = r(tie_multiplicity)
+    local __iivw_tie_ntimes = r(n_event_times)
+    local __iivw_tie_nev    = r(n_modeled_events)
 
     matrix `__iivw_results' = `__iivw_results'[1..`row', 1..11]
     matrix colnames `__iivw_results' = group_index term_index b se z p hr lb ub N n_ids
@@ -1157,14 +1179,18 @@ program define iivw_exogtest, rclass sortpreserve
         * quote parity so a later ")" terminates the option early. See the
         * note at iivw_balance's dispatch site for the measured failure.
         local __iivw_quote_sentinel = uchar(57344)
-        local __iivw_dispatch_title = subinstr(`"`macval(__iivw_clean_title)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_foot = subinstr(`"`macval(__iivw_clean_foot)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_sheet = subinstr(`"`macval(__iivw_clean_sheet)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
-        local __iivw_dispatch_xlsx = subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
-            char(34), `"`__iivw_quote_sentinel'"', .)
+        local __iivw_dispatch_title = subinstr(subinstr(`"`macval(__iivw_clean_title)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_foot = subinstr(subinstr(`"`macval(__iivw_clean_foot)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_sheet = subinstr(subinstr(`"`macval(__iivw_clean_sheet)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
+        local __iivw_dispatch_xlsx = subinstr(subinstr(`"`macval(__iivw_clean_xlsx)'"', ///
+            `"`__iivw_quote_sentinel'"', `"`__iivw_quote_sentinel'0"', .), ///
+            char(34), `"`__iivw_quote_sentinel'1"', .)
         local __iivw_exog_opts ///
             `"tableframe(`__iivw_exog_frame') decimals(`decimals') sheet("`macval(__iivw_dispatch_sheet)'") title("`macval(__iivw_dispatch_title)'") footnote("`macval(__iivw_dispatch_foot)'") layout(tabtools)"'
         if `"`macval(__iivw_dispatch_xlsx)'"' != "" {

@@ -113,7 +113,12 @@ combination used in the diagnostic must be unique.
 numeric and nonnegative: the counting process is at risk from time 0, so
 visits at negative times are rejected rather than silently excluded from the
 Cox model. Within subject, observations are sorted by this variable before
-lags and counting-process intervals are constructed.
+lags and counting-process intervals are constructed. An {cmd:if}/{cmd:in}
+restriction selects the rows used to construct that history: excluded rows do
+not supply previous visits, lagged values, or the last visit used to append a
+terminal interval. The first selected visit of a subject has no selected prior
+history and is excluded from the timing model. Generated lags are missing
+outside the selected analysis rows.
 
 {dlgtab:Model}
 
@@ -157,13 +162,31 @@ exogeneity test describes a different visit-intensity model than the one that
 produced your weights.
 
 {pmore}
-{cmd:iivw_exogtest} fits the same Andersen-Gill visit-intensity model as
-{helpb iivw_weight}, so it inherits the same requirement: the model needs each
-subject's observation {it:window}, not merely the intervals between their
-visits. Without a post-last-visit at-risk interval, every subject leaves the
-risk set at their own last visit, and the test statistic is computed on a risk
+{cmd:iivw_exogtest} uses Andersen-Gill counting-process Cox models and needs
+each subject's observation {it:window}, not merely the intervals between
+visits. It always excludes a subject's first selected visit because the tested
+lagged outcome is unavailable there. This agrees with the first-event policy
+of {helpb iivw_weight:iivw_weight, baseline(entry)}; it does not reproduce
+{cmd:baseline(event)} risk sets. Match the selected population, conditioning
+variables, follow-up endpoint, and tie method when comparing the diagnostic
+with a weighting model. Without a post-last-visit at-risk interval, every
+subject leaves the risk set at their own last visit, and the test statistic is computed on a risk
 set shaped by the very process it is testing. See {helpb iivw_weight##options:iivw_weight} for the full
-discussion; the three options mean exactly what they mean there.
+discussion of the follow-up requirement.
+
+{phang2}
+{opt maxfu()} accepts one finite Stata numeric token, including decimal,
+scientific, and hexadecimal representations, and keeps it at full double
+precision. Endpoints are compared on the selected rows exactly as encoded,
+under the same policy as {helpb iivw_weight}: equality adds no terminal
+interval, while a strictly later endpoint adds the positive remaining risk
+time. A {cmd:float} {opt time()} or {opt censor()} is handled exactly as in
+{helpb iivw_weight##options:iivw_weight}: an end of follow-up that matches the
+last visit only after rounding to float is moved onto that visit, with a note,
+and the run is refused (error 198) if a selected visit of any subject falls in
+the gap that would drop. Recasting an already
+rounded {cmd:float} to {cmd:double} does not recover its lost precision;
+rebuild the clock from the original dates or times.
 
 {dlgtab:Generated lags}
 
@@ -171,7 +194,9 @@ discussion; the three options mean exactly what they mean there.
 {opt generate(name)} specifies the prefix for generated lag variables. The
 default is {cmd:_iivw_exog_}. For a test variable {cmd:sdmt}, the default
 lag variable is {cmd:_iivw_exog_sdmt_lag1}. Generated lag variables remain
-in the dataset after a successful command.
+in the dataset after a successful command. Each holds the value at the
+subject's previous selected visit, and is missing on rows outside an
+{cmd:if}/{cmd:in} restriction.
 
 {phang}
 {opt replace} allows overwriting generated lag variables from a previous
@@ -198,19 +223,23 @@ weights. Since both commands default to Efron, that happens automatically unless
 you override one of them.
 
 {phang2}
-The two methods agree exactly when no two visits share a time and diverge as
-tie {it:multiplicity} grows -- the mean number of modeled events per distinct
-event time. The lagged-outcome coefficients, and therefore every p-value in the
-table, move with that choice. The p-values are the specific reason the default
-moved: Hertz-Picciotto and Rockhill (1997) find the tail probabilities under
-Breslow are asymmetric about the nominal level while Efron's sit close to it,
-and a tail probability is what this table reports.
+The two methods agree when no events within a fitted model share a time.
+With ties, their likelihood approximations differ and can change the fitted
+lagged-outcome coefficients and inference. Hertz-Picciotto and Rockhill (1997)
+found advantages for Efron in grouped-failure simulations with two groups,
+constant exponential hazards, and no censoring. Those results motivate the
+choice of default but do not establish bias direction or p-value calibration
+for every recurrent-event model used by this diagnostic.
 
 {phang2}
-{cmd:iivw_exogtest} measures the tie structure once for the whole command and
-returns it in {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)} and
-{cmd:r(n_modeled_events)}. A note is printed when {opt breslow} was requested
-{it:and} multiplicity reaches 2. Under the default there is nothing to advise,
+{cmd:iivw_exogtest} summarizes the actual estimation rows of the fitted
+models in {cmd:r(tie_multiplicity)}, {cmd:r(n_event_times)}, and
+{cmd:r(n_modeled_events)}. Distinct times are counted within each separately
+fitted model and then summed, so equal clock values in different {opt by()}
+models do not create ties. Skipped groups contribute no events; fitted groups
+whose inference is unknown still contribute their fitted rows, matching
+{cmd:r(n_models)}. A note is printed when {opt breslow} was requested
+{it:and} multiplicity reaches 2; this advisory cutoff is a heuristic. Under the default there is nothing to advise,
 so no note appears; and the note cannot appear on continuous visit times, whose
 multiplicity is exactly 1. See
 {helpb iivw_weight##efron_ties:iivw_weight} for the measured size of the
@@ -239,6 +268,8 @@ footnote.
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
 {cmd:Exogeneity}. This option requires {opt xlsx()}.
+The iivw export path limits worksheet names to 31 UTF-8 bytes.
+A non-ASCII character may occupy more than one byte.
 
 {phang}
 Excel output follows the tabtools workbook convention: only the named sheet is
@@ -411,8 +442,8 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 {synopt:{cmd:r(n_tests)}}groups in the Holm family{p_end}
 {synopt:{cmd:r(history_association_flag)}}1 if {cmd:r(holm_min_p)} < alpha, else 0{p_end}
 {synopt:{cmd:r(tie_multiplicity)}}events per distinct time (1 if untied){p_end}
-{synopt:{cmd:r(n_event_times)}}distinct event times in exogeneity models{p_end}
-{synopt:{cmd:r(n_modeled_events)}}modeled events in the exogeneity models{p_end}
+{synopt:{cmd:r(n_event_times)}}sum of distinct times within fitted models{p_end}
+{synopt:{cmd:r(n_modeled_events)}}events on fitted models' estimation rows{p_end}
 {synopt:{cmd:r(decimals)}}Excel decimals used (export only){p_end}
 
 {p2col 5 28 32 2:Macros}{p_end}

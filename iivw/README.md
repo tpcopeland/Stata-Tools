@@ -1,6 +1,6 @@
 # iivw — Inverse intensity of visit weighting for longitudinal data
 
-**Version 4.3.4** | 2026-09-30
+**Version 4.3.5** | 2026-10-06
 
 `iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
 
@@ -401,7 +401,7 @@ The command also returns analysis and model counts such as `r(N)`, `r(n_ids)`, m
 
 ### iivw_balance
 
-Key scalars are `r(weight_cv)`, `r(ess)`, `r(ess_ratio)`, `r(ess_cluster)`, `r(ess_cluster_ratio)`, `r(balance_max_shift)`, and `r(balance_max_tsmd)`. The diagnostic labels are in `r(leverage)`, `r(balance_flag)`, `r(target_status)`, and `r(component)`. `r(balance)` contains the covariate table and `r(hr_unweighted)` contains refit hazard ratios when available.
+Key scalars are `r(weight_cv)`, `r(ess)`, `r(ess_ratio)`, `r(ess_cluster)`, `r(ess_cluster_ratio)`, `r(balance_max_shift)`, `r(balance_max_tsmd)`, and `r(extra_max_tsmd)`. The diagnostic labels are in `r(leverage)`, `r(balance_flag)`, `r(extra_flag)`, `r(target_status)`, and `r(component)`. `r(balance)` contains the covariate table, `r(target)` the per-covariate target SMDs, and `r(hr_unweighted)` contains refit hazard ratios when available.
 
 ### iivw_fit
 
@@ -433,7 +433,7 @@ Current visit measurements must not be used as if they were known before the vis
 
 ### Diagnostics and stability
 
-A large composition shift is descriptive and can be evidence that the weights are doing work; the target SMD is the diagnostic with a reference distribution. Read `r(balance_flag)` together with leverage and effective sample size, and treat `unknown` or `not_assessed` as absence of a supported verdict rather than as balance.
+A large composition shift is descriptive and can be evidence that the weights are doing work; the target SMD is the diagnostic with a reference distribution. Modeled covariates are close to balanced almost by construction, so list unmodeled covariates or transforms (for example `z2` or an omitted `u`) and read their separate verdict `r(extra_flag)` to check the visit model. Read `r(balance_flag)` together with leverage and effective sample size, and treat `unknown` or `not_assessed` as absence of a supported verdict rather than as balance.
 
 Extreme weights, low effective sample size, rare treatment patterns, few clusters, and nonconvergence can make estimates unstable. The default is to stop on nonconvergence or missing weights; `allownonconverged`, `allowmissingweights`, and `allowfailedreps` are explicit acknowledgments of weakened analyses, not repairs.
 
@@ -458,6 +458,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **4.3.5** (2026-10-06): Fixes from the 2026-10-05 audit. **Weighting:** the stale-score sweep deletes only columns this prefix owns; end of follow-up is compared exactly, so large time origins and tiny units no longer lose terminal risk intervals, and `maxfu()` keeps its exact value; a float `censor()` that matches the last visit only at float precision is moved onto that visit with a note, and refused when another subject's visit falls in the gap this would drop; treatment-model scores are zero outside the treatment model's sample, so stacked variance uses the full subject union; untrimmed component snapshots are bound by the weight signature; the weight signature no longer depends on `set processors`, so data weighted on one machine can be fitted on another. **Rerun `iivw_weight` once on data weighted by 4.3.4 or earlier:** stored weighting contracts fail the signature check until rebuilt, and data weighted with `scores` and treatment-model exclusions otherwise keeps the old stacked-variance subject loss. **Fit:** `e(sample)`, `e(N)` and clusters match the engine's sample; stacked intercept-only and `noconstant` fits work and the stacked Wald test uses the stacked variance; `family()`/`link()` are refused under `model(mixed)`; grouped-binomial responses are judged as successes/trials; offset, exposure, trials and residual `by()`/`t()` variables cannot be overwritten by generated columns; `predict` checks each generated design column against its stored expression (fits saved before 4.3.5 with generated design columns must be refit to predict, and `margins` at counterfactual raw-time values is refused after generated time columns); native mixed `predict` and `estat` work under `iivw_fit`; point-only linear predictions keep the offset. **Bootstrap and pooling:** auxiliary model inputs join the pooling identity; each shard's own counts are reconciled; an undefined percentile, basic or BCa endpoint is refused rather than posted as available, and a Wald interval with an undefined model variance is reported with a note; stale BCa results are cleared after pooling. **Diagnostics:** `iivw_exogtest` builds risk histories from the selected rows only and counts ties on each fitted sample; `iivw_balance` withholds its verdict under any Efron ties, bases `r(balance_flag)` on modeled covariates only, reports listed unmodeled covariates in a separate verdict `r(extra_flag)` (the misspecification check), and returns `r(target)` for every covariate; `iivw_balance` and `iivw_exogtest` share the weighting end-of-follow-up policy; `iivw_diagnose` distinguishes `xtreg` fe/be estimands and withholds decomposition in contrast mode. **Reporting:** worksheet names round-trip exactly, string cells are written verbatim, the `sheet()` limit is stated in UTF-8 bytes, and a malformed package version header is refused. Help text corrected for entry-only IIW, merged diagnostic cells, IPTW-only weights and bootstrap convergence.
 - **4.3.4** (2026-09-30): Preserve exact caller presence and opaque bytes of native `S_1` and `S_2` across `iivw_balance`, `iivw_weight` and `iivw_exogtest` success or refusal. Treat an already removed owned column as successful rollback instead of reporting false data corruption. Preserve quoted Excel font names through reporting option dispatch instead of silently replacing them with Arial.
 
 - **4.3.3** (2026-09-30): `iivw_diagnose` preserves the caller’s variable order after inspecting stored estimates, including refusal after a stored estimate has been restored. Native estimate restoration can otherwise move existing sample-marker columns to the end of the data.

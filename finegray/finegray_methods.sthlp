@@ -126,7 +126,10 @@ nonzero only for subjects censored before the first cause event. Such a
 coefficient is not estimable, so {cmd:finegray} names the offending term and
 stops rather than reporting an arbitrary value for it. Constant and exactly
 collinear covariate columns are refused the same way with {cmd:r(459)}; the
-command does not silently impose a ridge penalty.
+command does not silently impose a ridge penalty. A covariate far from zero
+or on an extreme scale can also fail these checks, or overflow the
+exponentiated linear predictor, numerically; the refusals suggest centering
+and rescaling it and refitting.
 
 {pstd}
 {bf:Convergence.} Convergence is declared when the Newton decrement,
@@ -316,7 +319,9 @@ region is the published estimator itself, the pre-gap subject contributes
 exactly zero to both the score and the appendix terms, and the
 nuisance-adjusted variance equals the one computed on the identifiable
 sample (pinned in the QA suite), so {opt nuisance} is accepted
-there. Without delayed entry b/S(t-) is G(t-) itself, and the three-term
+there. On the pooled single-cell path a cause event before the last gap is
+refused with {cmd:r(459)}, with or without {opt nuisance}: the published form
+is undefined there (see the gap discussion below). Without delayed entry b/S(t-) is G(t-) itself, and the three-term
 representation converges to Fine and Gray's eta+psi as n grows -- converges,
 not coincides: the appendix's w_i is the exact influence of an empirical
 average where eq. (8) uses the martingale linearization, and the two agree only
@@ -525,10 +530,12 @@ left-truncated data when independent truncation may fail; that statement is
 not a general impossibility claim about stratified delayed-entry models.
 
 {pstd}
-{bf:Variance.} The reported standard errors are the package's usual
-subject-level sandwich, with the score residuals now formed within stratum and
-summed across subjects as before; it is consistent for a {it:fixed} number of
-strata as the strata grow. Two things follow.
+{bf:Variance.} The reported standard errors use the package's subject-level
+sandwich, with score residuals formed within baseline stratum. The default
+treats the estimated censoring weights as fixed; {opt nuisance} adds their
+estimation contribution. The regularly stratified source result applies
+to a fixed number of strata whose sizes grow, with the source's full
+eta+psi variance. Two things follow.
 
 {phang2}
 Zhou et al. (2011) sec. 4.1 gives the regularly-stratified variance as
@@ -853,10 +860,12 @@ sample size) should be refitted. The excluded subjects stay in
 {cmd:e(sample)}, their count is posted as {cmd:e(N_lt_prehole)} and printed
 as a note (on the pooled path too since 1.3.5), and their own denominators
 are zero: the fit is refused with {cmd:r(459)} only if a weight consults
-one -- a cause event inside the gap, or a competing event before the gap
-closes whose subject would be retained -- which are the configurations in
-which the published form is undefined as well (S_g reaches zero). The
-message names the count and the affected strata; a later time origin,
+one -- a cause event inside the gap, a cause event before the last
+observation gap, or a competing event before the gap closes whose subject
+would be retained. Such a cause event lies outside the identifiable region
+the package estimates, so it is refused whether or not the published
+b_g/S_g form happens to be finite there (it can be, when later censoring
+keeps S_g positive). The message names the count and the affected strata; a later time origin,
 dropping the subjects observed before the gap, or a coarser stratification
 are the remedies. Version 1.3.3 refused every fit in which any member of
 any weight cell had H_u(X_i-) = 0, consulted or not.
@@ -959,8 +968,9 @@ population interpretation for an arbitrary sampling design.
 {pstd}
 {bf:Computation.} A per-subject constant composes with the Kawaguchi et
 al. (2021) forward-backward decomposition: every accumulator in the scan is
-a sum of per-subject terms, so w_i scales each term once and the scan keeps
-its O(np) shape. The log pseudo-likelihood is sum_i w_i [eta_i - log
+a sum of per-subject terms, so w_i scales each term once; for fixed numbers
+of strata the score scan remains O(np) and the full-information scan
+O(np^2); sorting, weight preparation and matrix solves have separate costs. The log pseudo-likelihood is sum_i w_i [eta_i - log
 S^(0)_w(T_i)] over cause events; the score is sum_i w_i (Z_i - Zbar_w(T_i)); the
 information is sum_i w_i [S^(2)_w/S^(0)_w - Zbar_w Zbar_w']; the Breslow
 increment at a cause event is w_i / S^(0)_w(T_i). The score residual s_i is
@@ -1005,7 +1015,13 @@ signature.
 equals the {cmd:expand}ed fit to summation order; with no censoring, a
 {cmd:pweight}ed fit equals the expanded data clustered on subject, which pins
 the meat form; a constant pweight c leaves {cmd:e(b)} and {cmd:e(V)} unchanged
-and gives ll_w = c (ll - N_fail log c). Externally the weighted fit is the same
+and gives ll_w = c (ll - N_fail log c). Computation uses the pweights
+rescaled to mean one, so convergence is judged on the same footing at any
+scale ({cmd:[pw=1e-12*w]} converges to the {cmd:[pw=w]} fit), while
+{cmd:e(sum_w)}, {cmd:e(ll)}, {cmd:e(ll_0)} and the iteration log report the
+scale of the weights supplied. A smallest-to-largest weight ratio below the
+normal double range is refused with {cmd:r(430)} rather than flushed toward
+zero. Externally the weighted fit is the same
 estimator as {cmd:survival::finegray(weights=)} followed by a weighted
 {cmd:coxph} -- coefficients, robust and cluster-robust standard errors, and the
 weighted baseline. A finite-simulation recovery check also exercises one
@@ -1095,7 +1111,12 @@ error. Matching by value cannot.
 
 {pstd}
 A fitted level that is {bf:absent} from the current data is therefore not an
-error: prediction succeeds for the rows that remain. What is refused is the
+error: prediction succeeds for the rows that remain. The levels the fit saw
+are the raw levels in the estimation sample, stored in {cmd:e(fvsupport_vars)}
+and {cmd:e(fvsupport}{it:#}{cmd:)}, not only the levels typed as terms: after
+{cmd:finegray 2.grp x}, rows at levels 1 and 3 are scored on the base-category
+footing the fit used. Estimates that lack {cmd:e(fvsupport_vars)} keep the
+narrower rule (only typed levels) and need a refit. What is refused is the
 opposite case -- an observation at a level the fit never saw has no
 coefficient, so {helpb finegray_predict} exits with {cmd:r(459)} naming the
 variable and the fitted levels rather than collapsing that row onto the base

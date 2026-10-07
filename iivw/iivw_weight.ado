@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.3.4  2026/09/30
+*! iivw_weight Version 4.3.5  2026/10/06
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -101,7 +101,7 @@ program define iivw_weight, rclass sortpreserve
          STABcov(varlist numeric) ///
          LAGvars(varlist numeric) ///
          ENTry(varname numeric) ///
-         CENSor(varname numeric) MAXfu(numlist max=1) ENDATLASTvisit ///
+         CENSor(varname numeric) MAXfu(string) ENDATLASTvisit ///
          TRUNCate(numlist min=2 max=2) ///
          TRUNCVisit(numlist min=2 max=2) ///
          TRUNCTreat(numlist min=2 max=2) ///
@@ -111,6 +111,18 @@ program define iivw_weight, rclass sortpreserve
          ALLOWNONCONVerged ALLOWMISSINGWeights ///
          SCores ///
          EXPERIMENTALNOTREATVISit]
+
+    * maxfu() is parsed as ONE exact numeric token, not a numlist: numlist
+    * shortens its tokens to 13 significant digits, so a boundary typed -- or
+    * replayed from the stored contract -- at full precision reached the
+    * end-of-follow-up comparison as a different number. The canonical token
+    * reads back as exactly the same double; see _iivw_endpoint.ado.
+    local __iivw_maxfu_typed ""
+    if `"`maxfu'"' != "" {
+        local __iivw_maxfu_typed = strtrim(`"`maxfu'"')
+        _iivw_endpoint token `maxfu'
+        local maxfu "`r(token)'"
+    }
 
     * -------------------------------------------------------------------------
     * scores: emit the two-step (stacked) influence-function inputs alongside
@@ -507,29 +519,13 @@ program define iivw_weight, rclass sortpreserve
     * 2.0.0 requires the user to state the design.
     local __iivw_cens_mode ""
 
-    * ---------------------------------------------------------------------
-    * Representation tolerance for time comparisons.
-    *
-    * Three guards below order a subject's end of follow-up against their last
-    * visit time. Both are usually derived from the same calendar dates -- a
-    * visit falling ON the end of follow-up makes them the SAME instant -- but
-    * they reach that instant by different expressions, and often at different
-    * storage types. A float holds ~7 significant digits, so float(d/365.25)
-    * sits below double(d/365.25) for about half of all day counts d, by up to
-    * 6e-08 in relative terms (2^-24, float epsilon). An exact `<' then reads
-    * that representation gap as a subject who kept visiting after they were
-    * censored, and aborts the run.
-    *
-    * 1e-6 relative is ~17x float epsilon, so it absorbs every representation
-    * gap; and it is ~1/2700 of one day on a time scale in years, so it cannot
-    * absorb a violation of any substantive size. Scaled by max(1,|t|) so it
-    * behaves on either side of 1 and on any time unit.
-    *
-    * This is a REPRESENTATION tolerance, not a statistical one: it judges
-    * whether two encodings denote the same instant. qa/TOLERANCE_FRAMEWORK.md
-    * governs acceptance bounds on estimated quantities and does not apply.
-    * ---------------------------------------------------------------------
-    local __iivw_teps = 1e-6
+    * End-of-follow-up comparisons are EXACT on the encoded values, except
+    * that a float-stored time() or censor() is compared at float precision.
+    * The policy, and the relative tolerance it replaced (which deleted real
+    * terminal intervals on a clock with a large origin or a small unit), are
+    * documented in _iivw_endpoint.ado. Its effective endpoint variable is
+    * built once here and reused when the terminal intervals are appended.
+    tempvar __iivw_endpt
 
     if inlist("`wtype'", "iivw", "fiptiw") {
         local __iivw_n_cens_opts = 0
@@ -572,19 +568,19 @@ program define iivw_weight, rclass sortpreserve
             * A visit after the stated end of follow-up is a data error, not a
             * modeling choice: the subject was demonstrably still at risk.
             quietly summarize `time', meanonly
-            * Capture r(max) BEFORE the count: -count- resets r() and leaves
-            * only r(N), so reading r(max) after it printed a missing value and
-            * made the message read as though time() contained missing values --
-            * a different error the package raises separately.
-            local __iivw_tmax = r(max)
+            * Capture r(max) BEFORE the helper: it resets r(), and reading
+            * r(max) after it printed a missing value and made the message read
+            * as though time() contained missing values -- a different error
+            * the package raises separately.
+            tempname __iivw_tmax
+            scalar `__iivw_tmax' = r(max)
             * A visit landing exactly ON maxfu() is at the boundary, not past
-            * it; compare past the representation tolerance so a rounded time
-            * does not read as a visit after the end of follow-up.
-            local __iivw_maxfu_hi = `maxfu' + `__iivw_teps' * max(1, abs(`maxfu'))
-            if `__iivw_tmax' > `__iivw_maxfu_hi' {
-                quietly count if `time' > `__iivw_maxfu_hi'
-                display as error "`=r(N)' visits occur after maxfu(`maxfu')"
-                display as error "  the maximum visit time is " %12.0g `__iivw_tmax'
+            * it. Exact comparison, at float precision under a float time().
+            _iivw_endpoint build, id(`id') time(`time') maxfu(`maxfu') ///
+                generate(`__iivw_endpt')
+            if r(n_after) > 0 {
+                display as error "`=r(n_after)' visits occur after maxfu(`__iivw_maxfu_typed')"
+                display as error "  the maximum visit time is " %21.0g `__iivw_tmax'
                 display as error "  use censor() for subject-specific follow-up"
                 error 198
             }
@@ -599,7 +595,7 @@ program define iivw_weight, rclass sortpreserve
                 error 198
             }
 
-            tempvar _cmin _cmax _lastvis
+            tempvar _cmin _cmax
             quietly bysort `id': egen double `_cmin' = min(`censor')
             quietly bysort `id': egen double `_cmax' = max(`censor')
             quietly count if `_cmin' != `_cmax'
@@ -609,15 +605,16 @@ program define iivw_weight, rclass sortpreserve
                 error 198
             }
 
-            quietly bysort `id': egen double `_lastvis' = max(`time')
-            quietly count if `censor' < `_lastvis' - `__iivw_teps' * max(1, abs(`_lastvis'))
-            if r(N) > 0 {
+            * Exact comparison, at float precision when either side is float.
+            _iivw_endpoint build, id(`id') time(`time') censor(`censor') ///
+                generate(`__iivw_endpt')
+            if r(n_after) > 0 {
                 display as error "censor() is earlier than the last observed visit for some subjects"
                 display as error "  a subject cannot have stopped being at risk at a time when they"
                 display as error "  were observably still visiting; check the censoring variable"
                 error 198
             }
-            drop `_cmin' `_cmax' `_lastvis'
+            drop `_cmin' `_cmax'
         }
     }
 
@@ -1030,17 +1027,46 @@ program define iivw_weight, rclass sortpreserve
     * scores at all, clears them atomically on success. Without this a dataset
     * keeps derivative columns describing a weight that no longer exists, and
     * iivw_fit, vce(stacked) would build its sandwich out of them.
+    *
+    * The prior layout describes columns under the PRIOR prefix. Its count is
+    * applied only when that prefix is the current one: a run under a new
+    * prefix leaves the old prefix's score columns alone, exactly as it leaves
+    * the old prefix's weight columns alone, and must not reinterpret the old
+    * count as names under the new prefix. Every name the sweep would move is
+    * then required to carry the package's own nd/ns stamp for this prefix and
+    * to be no current scientific input: a caller column that merely sits
+    * under a score-shaped name is refused, never silently discarded. The
+    * refusal happens inside the name transaction, so earlier backups are
+    * restored by the cleanup zone.
     local __iivw_prev_terms : char _dta[_iivw_score_terms]
+    local __iivw_prev_prefix : char _dta[_iivw_prefix]
     local __iivw_prev_n : word count `__iivw_prev_terms'
     local __iivw_sweep "`__iivw_score_names'"
-    forvalues __iivw_j = 1/`__iivw_prev_n' {
-        local __iivw_sweep ///
-            "`__iivw_sweep' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
+    if "`__iivw_prev_prefix'" == "`prefix'" {
+        forvalues __iivw_j = 1/`__iivw_prev_n' {
+            local __iivw_sweep ///
+                "`__iivw_sweep' `prefix'nd`__iivw_j' `prefix'ns`__iivw_j'"
+        }
     }
     local __iivw_sweep : list uniq __iivw_sweep
     foreach __iivw_g of local __iivw_sweep {
-        capture confirm variable `__iivw_g'
+        capture confirm variable `__iivw_g', exact
         if _rc == 0 {
+            local __iivw_isinput : list __iivw_g in __iivw_protected
+            if `__iivw_isinput' {
+                display as error "iivw_weight: score column `__iivw_g' is a current input to this call"
+                display as error "  rename it before reweighting under prefix `prefix'"
+                error 110
+            }
+            local __iivw_role = substr("`__iivw_g'", strlen("`prefix'") + 1, 2)
+            _iivw_own token, role(`__iivw_role') prefix(`prefix')
+            local __iivw_want "`r(token)'"
+            local __iivw_have : char `__iivw_g'[_iivw_owner]
+            if `"`__iivw_have'"' != "`__iivw_want'" {
+                display as error "iivw_weight: `__iivw_g' is not a score column owned by this prefix"
+                display as error "  it would be discarded as a stale score column; rename or drop it"
+                error 110
+            }
             tempvar __iivw_bk
             quietly rename `__iivw_g' `__iivw_bk'
             local __iivw_bk_names "`__iivw_bk_names' `__iivw_g'"
@@ -1265,26 +1291,23 @@ program define iivw_weight, rclass sortpreserve
             if "`__iivw_cens_mode'" != "lastvisit" {
                 tempvar _cens_t _lastrow _newrow
 
-                if "`__iivw_cens_mode'" == "maxfu" {
-                    gen double `_cens_t' = `maxfu'
-                }
-                else {
-                    bysort `id' (`time'): gen double `_cens_t' = `censor'[1]
-                }
+                * The effective endpoint built by _iivw_endpoint at validation:
+                * constant within id, already rounded to float under a float
+                * time(), and moved onto the last visit where a float censor()
+                * agrees with it only at float precision.
+                bysort `id' (`time'): gen double `_cens_t' = `__iivw_endpt'[1]
                 bysort `id' (`time'): gen byte `_lastrow' = (_n == _N)
 
                 * A subject last seen exactly at their end of follow-up needs no
                 * extra row: the interval would have zero length, and stset drops
                 * it anyway. (IrregLong calls this case `alreadythere'.)
                 *
-                * Tolerance, not `>': when the last visit falls ON the end of
-                * follow-up but the two are encoded slightly differently, an
-                * exact `>' takes the wrong branch and appends a no-event
-                * interval of length ~5e-07 -- a row that is in the risk set,
-                * and in the reported censoring-row count, for an instant that
-                * is really the same instant as the visit.
+                * Exact `>' on the effective endpoint. Every positive encoded
+                * interval is a real interval of the risk set, however small
+                * against the clock's origin; the same-instant cases a float
+                * encoding creates were resolved when the endpoint was built.
                 expand 2 if `_lastrow' & ///
-                    `_cens_t' > `_stop' + `__iivw_teps' * max(1, abs(`_stop')) & ///
+                    `_cens_t' > `_stop' & ///
                     !missing(`_cens_t'), gen(`_newrow')
                 quietly count if `_newrow'
                 local __iivw_n_cens_rows = r(N)
@@ -1839,6 +1862,11 @@ program define iivw_weight, rclass sortpreserve
             logit `treat' `treat_covars', `log_opt'
             local __iivw_logit_converged = e(converged)
             local __iivw_ps_N = e(N)
+            * The model's own estimation sample, captured before anything can
+            * replace e(): the alpha and prevalence estimating functions below
+            * are zero outside it.
+            tempvar __iivw_psfit
+            quietly gen byte `__iivw_psfit' = e(sample)
 
             * The stabilization numerator is the treatment prevalence in the
             * population the propensity model actually describes -- its own
@@ -1872,6 +1900,19 @@ program define iivw_weight, rclass sortpreserve
             *                by test_iivw_stacked.do S2.
             *   p is a sample mean, so its estimating function is (A_i - p)
             *   with information exactly n_ps; A_p^-1 = 1/n_ps.
+            *
+            * The ns (estimating-function) columns are ZERO for a subject
+            * outside the logit's e(sample): such a subject contributes nothing
+            * to the alpha score equation or to the prevalence mean, both of
+            * which are solved on e(sample) alone. Left as the raw formulas,
+            * a subject excluded for a missing treat_cov() value carried a
+            * MISSING alpha score and a NONZERO (A - p), and the stacked
+            * covariance -- which admits a nuisance-only subject only when its
+            * whole score vector is nonmissing -- then dropped that subject's
+            * genuine visit-model (g:) contribution as well. The nd columns
+            * are the derivative of each row's OWN weight and keep their
+            * formulas: they are missing exactly where that weight cannot be
+            * formed, and are read only on rows with a usable weight.
             * ---------------------------------------------------------------
             local __iivw_pskeep ""
             if `__iivw_scores' {
@@ -1884,7 +1925,7 @@ program define iivw_weight, rclass sortpreserve
                     local __iivw_kv : word `__iivw_j' of `treat_covars'
                     local __iivw_m = `__iivw_off' + `__iivw_j'
                     quietly gen double `prefix'ns`__iivw_m' = ///
-                        `__iivw_sc0' * `__iivw_kv'
+                        cond(`__iivw_psfit', `__iivw_sc0' * `__iivw_kv', 0)
                     quietly gen double `prefix'nd`__iivw_m' = ///
                         -(`treat' - `_ps_tmp') * `__iivw_kv'
                     local __iivw_pskeep ///
@@ -1892,14 +1933,15 @@ program define iivw_weight, rclass sortpreserve
                 }
                 * The logit intercept: design column 1.
                 local __iivw_mc = `__iivw_off' + `__iivw_na' + 1
-                quietly gen double `prefix'ns`__iivw_mc' = `__iivw_sc0'
+                quietly gen double `prefix'ns`__iivw_mc' = ///
+                    cond(`__iivw_psfit', `__iivw_sc0', 0)
                 quietly gen double `prefix'nd`__iivw_mc' = ///
                     -(`treat' - `_ps_tmp')
                 * The stabilization numerator.
                 *   d log tw / d p = A/p - (1-A)/(1-p)
                 local __iivw_mp = `__iivw_mc' + 1
                 quietly gen double `prefix'ns`__iivw_mp' = ///
-                    `treat' - `__iivw_p_treat'
+                    cond(`__iivw_psfit', `treat' - `__iivw_p_treat', 0)
                 quietly gen double `prefix'nd`__iivw_mp' = ///
                     `treat'/`__iivw_p_treat' ///
                     - (1 - `treat')/(1 - `__iivw_p_treat')

@@ -1,4 +1,4 @@
-*! _regtab_frameopts Version 2.5.4  2026/10/06
+*! _regtab_frameopts Version 2.5.5  2026/10/07
 *! parse and check frame() and eplotframe()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

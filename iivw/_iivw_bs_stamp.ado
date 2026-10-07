@@ -1,4 +1,4 @@
-*! _iivw_bs_stamp Version 4.3.4  2026/09/30
+*! _iivw_bs_stamp Version 4.3.5  2026/10/06
 *! Stamp iivw shard identity onto a bootstrap replicate file
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (adds e(iivw_bs_lineage/asig/dsig/dsig_vars) only)
@@ -169,6 +169,37 @@ program define _iivw_bs_stamp, eclass
             if !_rc local _dvars "`_dvars' `_c'"
         }
         local _dvars "`_dvars' `e(iivw_weight_var)' `_id' `_time' `e(iivw_cluster)'"
+
+        * The engine can consume model inputs that have no coefficient stripe.
+        * Read the observed fit's own resolved roles instead of reparsing
+        * user option abbreviations.
+        if "`e(iivw_model)'" == "gee" {
+            local _offset "`e(offset)'"
+            * glm records exposure(expo) as e(offset) = ln(expo)
+            if substr("`_offset'", 1, 3) == "ln(" & ///
+                substr("`_offset'", -1, 1) == ")" {
+                local _offset = substr("`_offset'", 4, strlen("`_offset'") - 4)
+            }
+            if "`_offset'" != "" {
+                confirm numeric variable `_offset', exact
+                local _dvars "`_dvars' `_offset'"
+            }
+            local _trials "`e(m)'"
+            if "`_trials'" != "" {
+                capture confirm number `_trials'
+                if _rc {
+                    confirm numeric variable `_trials', exact
+                    local _dvars "`_dvars' `_trials'"
+                }
+            }
+        }
+        else if "`e(iivw_model)'" == "mixed" {
+            local _auxvars "`e(rbyvar)' `e(timevar)' `e(spcoordvars)'"
+            foreach _v of local _auxvars {
+                confirm variable `_v', exact
+                local _dvars "`_dvars' `_v'"
+            }
+        }
         local _dvars : list uniq _dvars
         local _dvars : list retokenize _dvars
         tempvar _es

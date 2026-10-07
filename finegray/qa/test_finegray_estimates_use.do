@@ -512,8 +512,8 @@ else {
 * fit reads its subject-level entry times from a package-owned _fg_entry column
 * that a pre-fit dataset does not contain; answering from per-record _t0 instead
 * would be a wrong answer at rc 0.  It does not happen, and this test pins the
-* two independent reasons why: _fg_entry is in e(datasignaturevars), so the
-* variable check names it; and the column is now recorded in e(entryvar) as well
+* two independent reasons why: _fg_entry is in e(rowsigvars) (1.3.8; it was in
+* e(datasignaturevars) before), so the variable check names it; and the column is now recorded in e(entryvar) as well
 * as in the dataset characteristic, so a consumer that has lost the
 * characteristic still asks for the right variable rather than falling back to
 * _t0.  On the pre-fix tree this stopped at r(301) "estimation state is not

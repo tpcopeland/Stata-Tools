@@ -1,4 +1,4 @@
-*! finegray Version 1.3.7  2026/09/29
+*! finegray Version 1.3.8  2026/10/06
 *! Fine-Gray competing risks regression
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -1257,6 +1257,23 @@ program define finegray, eclass sortpreserve
         fvexpand `varlist' if `touse'
         local _fv_semantic `r(varlist)'
 
+        * Record full observed support independently of selected coefficient terms.
+        local _fg_fvsvars ""
+        foreach _fg_sterm of local _fv_semantic {
+            local _fg_sparts = subinstr("`_fg_sterm'", "#", " ", .)
+            foreach _fg_spart of local _fg_sparts {
+                if regexm("`_fg_spart'", "^([0-9]+)[a-z]*\.(.+)$") {
+                    local _fg_sv = regexs(2)
+                    local _fg_fvsvars : list _fg_fvsvars | _fg_sv
+                }
+            }
+        }
+        local _fg_si = 0
+        foreach _fg_sv of local _fg_fvsvars {
+            local ++_fg_si
+            quietly levelsof `_fg_sv' if `touse', local(_fg_fvslev`_fg_si') clean
+        }
+
         * Get actual variable columns (one per term, including base)
         fvrevar `varlist' if `touse'
         local _fv_actual `r(varlist)'
@@ -1772,6 +1789,7 @@ program define finegray, eclass sortpreserve
         if "`_fv_created'" != "" quietly drop `_fv_created'
         display as error "finegray covariates are not full rank"
         display as error "constant or collinear term(s): `_rk_report'"
+        display as error "(a varying covariate far from zero or on an extreme scale can also fail this check numerically; center and rescale it)"
         if `_rk_bn' {
             display as error "an ibn. main effect names every level, and the Fine-Gray partial"
             display as error "likelihood has no intercept to absorb the redundancy: the level"
@@ -1960,10 +1978,29 @@ program define finegray, eclass sortpreserve
     * by its content in the signature variables instead -- sort-invariant, and
     * rows identical in all of them are interchangeable to the fit.  The list is
     * posted as e(wsigkeyvars) so post-estimation rebuilds the same key.
+    * _datasignature is invariant to independent column permutations.
+    * Bind every original analysis tuple (including subject id and entry)
+    * jointly.  The id and entry variables are kept OUT of e(datasignaturevars):
+    * _datasignature is storage-type sensitive, so signing them there refused
+    * `compress' or `recast' of an id at r(459).  The digest below hashes
+    * values, not storage types, and the list it covers is posted as
+    * e(rowsigvars).
+    local _fg_rowkeys "`_fg_sigvars'"
+    if `"`_fg_idvar'"' != "" {
+        local _fg_rowkeys : list _fg_rowkeys | _fg_idvar
+    }
+    if "`_fg_entryvar'" != "" {
+        local _fg_rowkeys : list _fg_rowkeys | _fg_entryvar
+    }
+    tempvar _fg_one
+    quietly generate byte `_fg_one' = 1 if `touse'
+    mata: _finegray_wsig("`_fg_one'", "`touse'", "`_fg_rowkeys'")
+    local _fg_rowsig "`_fg_wsig'"
+    local _fg_rowsig_n = `_fg_wsig_n'
+
     local _fg_wsigkey ""
     if "`weight'" != "" {
-        if `"`_fg_idvar'"' != "" local _fg_wsigkey `"`_fg_idvar'"'
-        else local _fg_wsigkey "`_fg_sigvars'"
+        local _fg_wsigkey "`_fg_rowkeys'"
         mata: _finegray_wsig("`_fg_w'", "`touse'", "`_fg_wsigkey'")
     }
 
@@ -2326,7 +2363,7 @@ program define finegray, eclass sortpreserve
         ereturn scalar sum_w = `_fg_sumw'
         ereturn scalar wsig_n = `_fg_wsig_n'
         ereturn local wsig "`_fg_wsig'"
-        if `"`_fg_idvar'"' == "" ereturn local wsigkeyvars "`_fg_wsigkey'"
+        ereturn local wsigkeyvars "`_fg_wsigkey'"
     }
     ereturn scalar N_fail = `N_fail'
     ereturn scalar N_compete = `N_compete'
@@ -2345,7 +2382,7 @@ program define finegray, eclass sortpreserve
     ereturn scalar N_delayed = `_fg_n_lt'
     * Baseline strata actually fitted.  1 on an unstratified fit, so a consumer
     * never has to test e(bstrata) for emptiness to know the baseline's shape:
-    * e(k_bstrata) > 1 means e(basehaz) is K x 3 and every baseline lookup needs
+    * e(k_bstrata) > 1 means e(basehaz) is stacked stratum/event-time rows x 3 and every baseline lookup needs
     * a stratum.
     ereturn scalar k_bstrata = _finegray_kbstrata[1,1]
     * Piecewise beta(t) shape.  A consumer must be able to tell from e() alone
@@ -2472,6 +2509,14 @@ program define finegray, eclass sortpreserve
     * current data and matching positionally silently applies the fitted
     * coefficients to whatever levels happen to be present now.
     if `_has_fv' ereturn local fvsemantic "`_fv_semantic'"
+    if `_has_fv' {
+        ereturn local fvsupport_vars "`_fg_fvsvars'"
+        local _fg_si = 0
+        foreach _fg_sv of local _fg_fvsvars {
+            local ++_fg_si
+            ereturn local fvsupport`_fg_si' "`_fg_fvslev`_fg_si''"
+        }
+    }
     if "`strata'" != "" ereturn local strata "`strata'"
     if "`truncstrata'" != "" ereturn local truncstrata "`truncstrata'"
     * The BASELINE stratification variable.  A different axis from strata()
@@ -2693,11 +2738,6 @@ program define finegray, eclass sortpreserve
         ereturn local marginsok "xb"
     }
 
-    local _sig_entry_seen = 0
-    if "`_fg_entryvar'" != "" {
-        local _sig_entry_seen : list posof "`_fg_entryvar'" in _fg_sigvars
-        if `_sig_entry_seen' == 0 local _fg_sigvars "`_fg_sigvars' `_fg_entryvar'"
-    }
     * Package-owned _fg_* design columns are deliberately NOT in this signature.
     * They are derived from the raw factor variables, and post-estimation is
     * allowed to rebuild them when they have been dropped -- putting them here
@@ -2708,6 +2748,9 @@ program define finegray, eclass sortpreserve
     quietly _datasignature `_fg_sigvars' if e(sample), nodefault nonames
     ereturn local datasignature `"`r(datasignature)'"'
     ereturn local datasignaturevars "`_fg_sigvars'"
+    ereturn local rowsig "`_fg_rowsig'"
+    ereturn local rowsigvars "`_fg_rowkeys'"
+    ereturn scalar rowsig_n = `_fg_rowsig_n'
 
     * e(basehaz) carries one row per distinct cause-event time, so K is roughly
     * n/2.  Creating ANY K-row Stata matrix is O(K^2) -- Stata builds the

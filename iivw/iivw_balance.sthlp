@@ -87,7 +87,18 @@ because IPTW-only weights do not contain a visit-intensity component.
 {pstd}
 The optional {it:varlist} adds extra numeric covariates to the displayed
 balance table. The stored visit-model covariates always appear first and are
-the covariates used for {cmd:r(balance_flag)}.
+the covariates used for {cmd:r(balance_flag)}. Extra covariates receive their
+own verdict, {cmd:r(extra_flag)}; a variable that is also a stored
+visit-model covariate is treated as modeled and counted once.
+
+{pstd}
+{bf:Supply unmodeled covariates to check the visit model.} A modeled
+covariate's target SMD is typically small whenever the visit model was fitted
+on that covariate, whether or not the model is correctly specified, so
+{cmd:r(balance_flag)} alone rarely detects misspecification. To check it, list
+covariates or transforms the visit model did {it:not} use -- for example
+{cmd:z2} = z^2 when z entered linearly, or a covariate {cmd:u} the model
+omitted -- and read {cmd:r(extra_flag)}.
 
 
 {marker options}{...}
@@ -140,34 +151,33 @@ a note and a nonzero row-specific return code.
 
 {marker tiegate}{...}
 {phang}
-{bf:The target SMD is not reported as a verdict under Efron ties.} The target
-SMD is the Cox {it:score residual} -- the observed covariate mean among visits
-minus its expectation over the risk set -- and it is zero by construction only
-at the coefficients that solve that score equation. The score equation it is
-zero at is {bf:Breslow's}. An {opt breslow}-fitted visit model therefore gives
-an exactly zero target SMD when the weights reweight nothing, but an
-{opt efron} fit solves a different score at tied event times, so the residual
-there is contaminated by the tie correction rather than measuring imbalance.
+{bf:Efron tied-event verdict policy.} The target-SMD verdict is withheld
+whenever an Efron fit contains tied events. The statistic compares a
+weighted observed-visit mean with a fitted at-risk person-time mean. Its population motivation is the visit-intensity
+moment condition; a correctly specified model does not make every empirical
+inverse-weight target SMD exactly zero.
 
 {phang2}
-Measured on a fixture whose stabilization is saturated, so the weight is
-identically 1 and every SMD must be zero by algebra: a Breslow contract gives
-max |target SMD| = 0.0000000 and the verdict {cmd:within_rule}, while an Efron
-contract on the same data gives 0.1594933 -- above the {opt balcut()} default of
-0.10, and so would have been reported as {cmd:exceeds_rule}. Since Efron became the
-default in 3.0.0, {cmd:iivw_balance} detects this case and {it:withholds the verdict}
-rather than issuing a false one: {cmd:r(target_status)} is {cmd:tie_method_efron} and
-{cmd:r(balance_flag)} is {cmd:not_assessed}. {cmd:r(balance_max_tsmd)} is still returned.
+In the special case of saturated stabilization, the visit weights are
+identically 1. With Breslow fitting, the model's own fitted covariates satisfy
+a score identity giving a zero target contrast, up to numerical precision.
+Efron uses a different tied-event likelihood and prediction calculation. The
+implemented target contrast need not preserve that saturated identity under
+Efron ties, so its verdict is withheld: {cmd:r(target_status)} is
+{cmd:tie_method_efron} and {cmd:r(balance_flag)} is {cmd:not_assessed}.
+{cmd:r(balance_max_tsmd)} is still returned. This is a bounded implementation
+policy; the discrepancy need not have the same size in other datasets.
 
 {phang2}
-The gate keys on tie {it:multiplicity}, not merely on the method. Efron and
-Breslow coincide exactly when no two events share a time, so an Efron contract
-on continuous visit times still receives a full verdict. The leverage and
-effective-sample-size diagnostics are unaffected in every case -- neither
-depends on the score identity. To obtain a target-SMD verdict on tied data,
-rebuild the weights with {helpb iivw_weight:iivw_weight, breslow}, or use a
-finer {opt time()} so that visit times are not tied. An Efron-consistent score
-residual is not yet implemented.
+The gate detects any event-time tie (multiplicity greater than 1), rather than
+using the separate advisory cutoff of 2. Efron and Breslow coincide when no
+two events in a fitted risk set share a time, so an untied Efron fit may receive
+a verdict. Leverage and effective-sample-size descriptions remain available.
+The {opt balcut()} threshold remains a descriptive heuristic, not a test with
+established size or a proof that the visit model is correctly specified.
+To request a verdict on tied data, rebuild the weights with
+{helpb iivw_weight:iivw_weight, breslow}. Changing the tie method changes the
+fitted weighting model and should be reported.
 
 {phang}
 {opt efr:on} and {opt bre:slow} are both accepted and both {it:ignored}. This
@@ -196,6 +206,8 @@ numeric values are rendered from {cmd:r(balance)} for presentation.
 {phang}
 {opt sheet(sheetname)} sets the Excel worksheet name. The default is
 {cmd:Balance}. This option requires {opt xlsx()}.
+The iivw export path limits worksheet names to 31 UTF-8 bytes.
+A non-ASCII character may occupy more than one byte.
 
 {phang}
 {opt replace} overwrites the target worksheet when it already exists. Excel
@@ -271,20 +283,25 @@ it properly.
 
 {pstd}
 {bf:Target SMD} is the verdict. Under a correctly specified visit-intensity
-model the IIW weight cancels the intensity, so the IIW-weighted distribution of
-a covariate over the {it:observed visits} equals its distribution over the
-{it:at-risk person-time}, measured in {it:dLambda-0} units:
+model, inverse-rate weighting motivates equality in expectation between
+weighted observed-visit moments and corresponding at-risk integrals. The
+implemented statistic compares their estimated covariate distributions,
+measuring person-time in {it:dLambda-0} units:
 
 {p 12 12 2}
 {it:target SMD} = (IIW-weighted visit mean - person-time mean) / person-time SD.
 
 {pstd}
 That is a real reference distribution rather than a rearrangement of the same
-visits, so it has a null: it is 0 when the weights work. {cmd:r(balance_flag)}
-is {cmd:within_rule} when the largest absolute target SMD is at or below
-{opt balcut()}, and {cmd:exceeds_rule} otherwise. The flag names where the
-measured SMD falls relative to the {opt balcut()} convention (0.10 by default); it
-is not a proof that the visit model is correctly specified. Computing the
+visits. Its population moment discrepancy is centered at zero under the
+model assumptions; finite-sample estimated target SMDs need not be exactly
+zero. {cmd:r(balance_flag)} is {cmd:within_rule} when the largest absolute
+modeled-covariate target SMD is at or below
+{opt balcut()}, and {cmd:exceeds_rule} otherwise. {cmd:r(extra_flag)} applies the
+same rule to the largest absolute target SMD over the extra {it:varlist}
+covariates, {cmd:r(extra_max_tsmd)}. The flags name where the
+measured SMD falls relative to the {opt balcut()} convention (0.10 by default);
+neither is a proof that the visit model is correctly specified. Computing the
 person-time target
 requires each subject's terminal at-risk interval, which is why the weights
 must have been built with {opt censor()} or {opt maxfu()} to get the most out
@@ -361,6 +378,20 @@ to the visit before it. This keeps the refit's risk sets aligned with the
 weight-generating model.
 
 {pstd}
+Replay applies the same end-of-follow-up policy as {helpb iivw_weight}, so it
+rebuilds the terminal intervals the weights were built with. Endpoints are
+compared exactly as encoded: equal endpoints add no terminal row, and a
+strictly later endpoint retains the positive remaining risk time however small
+it is against the clock's origin or unit. When {opt time()} or the stored
+{opt censor()} is {cmd:float}, an end that matches the last visit only after
+rounding to float is moved onto that visit, and data where a visit of any
+subject falls in the gap that would drop are refused, as described under
+{helpb iivw_weight##options:iivw_weight}. A visit after the
+stored end of follow-up means the data changed after the weights were built:
+the refit is then unavailable and no target-SMD verdict is issued, while the
+descriptive results remain available.
+
+{pstd}
 {bf:Why no weighted refit is reported.} The intuitive check -- refit the visit
 model with the IIW weights and see whether the coefficients go to zero -- does
 not work, and is no longer offered. {cmd:stcox} with {cmd:pweight}s applies the weight to
@@ -431,15 +462,24 @@ returned whether or not any were found.
 {pstd}
 {cmd:r(target_status)} takes five values. {cmd:identified} means the
 person-time target supports a verdict. {cmd:not_identified} means no terminal
-at-risk interval exists. {cmd:tie_method_efron} means the target SMD is a
-Breslow score residual evaluated at an Efron fit on tied data, as
-described under {it:Balance against the at-risk person-time target}
-above. {cmd:target_incomplete} is the unusable-increment case just
-described. {cmd:unavailable} means the supporting refit did not complete at
+at-risk interval exists. {cmd:tie_method_efron} means that the fitted model
+contains tied events and uses Efron, so this implementation withholds its
+target-SMD verdict under the policy described above.
+{cmd:target_incomplete} is the unusable-increment case just described. {cmd:unavailable} means the supporting refit did not complete at
 all. {cmd:r(balance_flag)} likewise takes five: {cmd:within_rule} and
 {cmd:exceeds_rule} when a verdict was issued, {cmd:not_identified} and
 {cmd:not_assessed} when it was deliberately withheld, and {cmd:unknown}
 before any verdict could be formed.
+
+{pstd}
+{cmd:r(extra_flag)} is empty when no extra covariate was supplied or none had a
+finite target SMD. Otherwise it takes the same values under the same
+conditions as {cmd:r(balance_flag)} -- {cmd:not_identified} without terminal
+at-risk intervals, {cmd:not_assessed} under Efron ties or unusable increments,
+{cmd:unknown} when the refit did not complete or the contract is nonconverged --
+except that it does not depend on the modeled maximum: a degenerate modeled
+covariate leaves {cmd:r(balance_flag)} without a verdict while the extra
+verdict is still reported.
 
 {pstd}
 {cmd:r(ess_ratio)} is a {bf:row-weight} concentration measure over panel
@@ -456,7 +496,8 @@ disagree sharply.
 {synopt:{cmd:r(ess)}}effective sample size, (sum w)^2 / sum(w^2){p_end}
 {synopt:{cmd:r(ess_ratio)}}effective sample size divided by {cmd:r(N)}{p_end}
 {synopt:{cmd:r(balance_max_shift)}}largest absolute composition shift{p_end}
-{synopt:{cmd:r(balance_max_tsmd)}}largest target SMD; sets {cmd:r(balance_flag)}{p_end}
+{synopt:{cmd:r(balance_max_tsmd)}}largest modeled-covariate target SMD{p_end}
+{synopt:{cmd:r(extra_max_tsmd)}}largest extra-covariate target SMD{p_end}
 {synopt:{cmd:r(refit_N)}}at-risk intervals in visit-model refit{p_end}
 {synopt:{cmd:r(refit_n_censrows)}}terminal at-risk intervals in the refit{p_end}
 {synopt:{cmd:r(refit_ok)}}1 if the verdict refit completed{p_end}
@@ -481,6 +522,7 @@ disagree sharply.
 {synopt:{cmd:r(component)}}{cmd:iiw} or {cmd:final}; which weight was described{p_end}
 {synopt:{cmd:r(leverage)}}{cmd:low}, {cmd:moderate}, or {cmd:adequate}{p_end}
 {synopt:{cmd:r(balance_flag)}}balance verdict; 5 values{p_end}
+{synopt:{cmd:r(extra_flag)}}extra-covariate verdict; empty without extras{p_end}
 {synopt:{cmd:r(result_columns)}}column names for {cmd:r(balance)}{p_end}
 {synopt:{cmd:r(xlsx)}}written workbook; only with {opt xlsx()}{p_end}
 {synopt:{cmd:r(sheet)}}Excel worksheet written (export only){p_end}
@@ -491,12 +533,21 @@ disagree sharply.
 {p2col 5 28 32 2:Matrices}{p_end}
 {synopt:{cmd:r(balance)}}covariate composition statistics and flags{p_end}
 {synopt:{cmd:r(hr_unweighted)}}refitted visit-intensity model HRs{p_end}
+{synopt:{cmd:r(target)}}per-covariate target comparison{p_end}
 {p2colreset}{...}
 
 {pstd}
 {cmd:r(balance)} contains the unweighted mean, weighted mean, unweighted SD,
 composition shift, absolute shift, N, missing count, and modeled-covariate
 flag.
+
+{pstd}
+{cmd:r(target)} has the same rows and contains the IIW-weighted visit mean, the
+at-risk person-time target mean, the target SMD, and the modeled-covariate
+flag. Rows with {cmd:modeled} = 1 set {cmd:r(balance_max_tsmd)} and
+{cmd:r(balance_flag)}; rows with {cmd:modeled} = 0 set
+{cmd:r(extra_max_tsmd)} and {cmd:r(extra_flag)}.
+Entries are missing when the refit that supports the target did not complete.
 
 
 {marker references}{...}
@@ -514,7 +565,8 @@ while the visit intensity is {it:lambda-0}(t)exp({it:gamma}'Z), so the weight
 cancels the intensity and the IIW-weighted sum over observed visits has the
 same expectation as the integral over at-risk person-time in {it:dLambda-0}
 units (their eq. 9, p. 7). The equality of the two distributions is what
-{it:target SMD} measures, and it is 0 under a correct visit model.
+{it:target SMD} measures; its population value is 0 under a correct visit
+model, while an estimated target SMD need not be exactly 0.
 
 {pstd}
 The {cmd:0.10} {opt balcut()} and the {it:leverage} thresholds remain package

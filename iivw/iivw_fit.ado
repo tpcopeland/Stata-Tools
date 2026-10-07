@@ -1,4 +1,4 @@
-*! iivw_fit Version 4.3.4  2026/09/30
+*! iivw_fit Version 4.3.5  2026/10/06
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -99,11 +99,11 @@ program define iivw_fit, eclass
          UNWeighted ///
          ID(varname) TIME(varname) ///
          VCE(string asis) ///
-         BOOTstrap(integer -999999) REFITweights ALLOWFAILEDReps ///
+         BOOTstrap(string) REFITweights ALLOWFAILEDReps ///
          CIType(string) ///
          Level(cilevel) noLOG ///
          REPLACE ALLOWNONCONVerged EXPERIMENTALmixed ///
-         SAVing(string asis) RNGSTREAM(integer -999999) ///
+         SAVing(string asis) RNGSTREAM(string) ///
          GEEopts(string asis) MIXEDopts(string asis) COLlect]
 
     * =========================================================================
@@ -115,21 +115,29 @@ program define iivw_fit, eclass
 
     * Defaults needed before metadata checks because timespec(none) does not
     * require a time variable in unweighted mode.
+    local __iivw_family_explicit = ("`family'" != "")
+    local __iivw_link_explicit = ("`link'" != "")
     if "`model'" == "" local model "gee"
     if "`family'" == "" local family "gaussian"
     if "`timespec'" == "" local timespec "linear"
 
-    * bootstrap() default is an out-of-band SENTINEL so three states stay
-    * distinct: option omitted (sentinel) triggers the 999-draw refit-bootstrap
-    * default; an explicit bootstrap(0) is the legacy "no bootstrap, use the
-    * fixed sandwich" spelling; and an explicit negative like bootstrap(-1) is an
-    * INVALID value that must still error at the >= 0 check below. The sentinel is
-    * far outside any value a user would type, so bootstrap(-1) is never mistaken
-    * for "unset". Normalise only the sentinel back to 0.
-    * (Broke test_iivw_expanded E21 and test_iivw_fit_adversarial A16 before this.)
-    local _boot_sentinel = -999999
-    local _boot_explicit = (`bootstrap' != `_boot_sentinel')
-    if `bootstrap' == `_boot_sentinel' local bootstrap 0
+    * Omission is represented by an empty string, outside the numeric domain.
+    * A typed value must parse as the integer option it replaced did: 20,
+    * 20.0 and 2e1 are the same integer; a non-integer or out-of-range value
+    * is refused.
+    local _boot_explicit = ("`bootstrap'" != "")
+    if `_boot_explicit' {
+        local __iivw_intok = 0
+        capture confirm number `bootstrap'
+        if _rc == 0 local __iivw_intok = ///
+            (`bootstrap' == floor(`bootstrap') & abs(`bootstrap') < 2147483621)
+        if !`__iivw_intok' {
+            display as error "bootstrap() must be an integer >= 0"
+            error 198
+        }
+        local bootstrap = `bootstrap'
+    }
+    else local bootstrap 0
 
     if "`unweighted'" == "" {
         if "`id'" != "" {
@@ -309,9 +317,8 @@ program define iivw_fit, eclass
         * as syntax's default collapsed all three states: bootstrap typos
         * silently launched 999 draws, and fixed,reps(0) silently passed even
         * though fixed takes no suboptions.
-        local _vce_reps_sentinel = -999999
         local 0 `", `_vcesub'"'
-        capture syntax [, REPS(integer -999999) SEED(string) FIXEDWEIGHTS]
+        capture syntax [, REPS(string) SEED(string) FIXEDWEIGHTS]
         if _rc {
             display as error "invalid vce() suboptions: `_vcesub'"
             display as error "  allowed: reps(#), seed(#), fixedweights"
@@ -319,7 +326,7 @@ program define iivw_fit, eclass
         }
 
         if inlist("`_vcemethod'", "fixed", "stacked") {
-            if `reps' != `_vce_reps_sentinel' | ///
+            if "`reps'" != "" | ///
                 "`seed'" != "" | "`fixedweights'" != "" {
                 display as error "vce(`_vcemethod') takes no suboptions"
                 display as error "  it is an analytic sandwich; there are no replicates"
@@ -336,9 +343,18 @@ program define iivw_fit, eclass
             * a single replicate); fewer than 999 is allowed but stamped
             * uncleared-low-reps below, because the coverage gate was frozen at
             * 999 and a smaller run has not earned the release claim.
-            if `reps' == `_vce_reps_sentinel' {
+            if "`reps'" == "" {
                 local reps 999
             }
+            local __iivw_intok = 0
+            capture confirm number `reps'
+            if _rc == 0 local __iivw_intok = ///
+                (`reps' == floor(`reps') & abs(`reps') < 2147483621)
+            if !`__iivw_intok' {
+                display as error "reps() must be an integer >= 2"
+                error 198
+            }
+            local reps = `reps'
             if `reps' < 2 {
                 display as error "vce(bootstrap) needs reps() >= 2"
                 display as error "  a bootstrap variance is undefined from a single draw"
@@ -526,8 +542,18 @@ program define iivw_fit, eclass
     * Both are meaningless without draws, and silently ignoring an option the
     * user typed is how a sharded run ends up pooling a file that was never
     * written. Refuse instead.
-    local _rngstream_sentinel = -999999
-    local _rngstream_explicit = (`rngstream' != `_rngstream_sentinel')
+    local _rngstream_explicit = ("`rngstream'" != "")
+    if `_rngstream_explicit' {
+        local __iivw_intok = 0
+        capture confirm number `rngstream'
+        if _rc == 0 local __iivw_intok = ///
+            (`rngstream' == floor(`rngstream') & abs(`rngstream') < 2147483621)
+        if !`__iivw_intok' {
+            display as error "rngstream() must be an integer between 1 and 32768"
+            error 198
+        }
+        local rngstream = `rngstream'
+    }
 
     if `"`saving'"' != "" & `bootstrap' == 0 {
         display as error "saving() requires bootstrap draws"
@@ -634,6 +660,26 @@ program define iivw_fit, eclass
     * without strok, markout silently marks EVERY observation out for a
     * string variable and the fit dies with a misleading "no observations".
     markout `touse' `cluster', strok
+    if "`model'" == "mixed" markout `touse' `panel_id', strok
+
+    local __iivw_gee_sources ""
+    local __iivw_trial_source ""
+    if "`model'" == "gee" {
+        local __iivw_famword : word 1 of `family'
+        local __iivw_famarg : word 2 of `family'
+        local __iivw_famword = lower("`__iivw_famword'")
+        if "`__iivw_famword'" != "" & "`__iivw_famarg'" != "" {
+            if "`__iivw_famword'" == ///
+                    substr("binomial",1,strlen("`__iivw_famword'")) {
+                capture confirm numeric variable `__iivw_famarg'
+                if _rc == 0 {
+                    local __iivw_trial_source "`__iivw_famarg'"
+                    local __iivw_gee_sources "`__iivw_famarg'"
+                    markout `touse' `__iivw_famarg'
+                }
+            }
+        }
+    }
     if "`timespec'" != "none" {
         markout `touse' `panel_time'
     }
@@ -659,6 +705,7 @@ program define iivw_fit, eclass
         local 0 `", `geeopts'"'
         capture syntax [, OFFset(varname numeric) EXPosure(varname numeric) *]
         if _rc == 0 {
+            local __iivw_gee_sources "`__iivw_gee_sources' `offset' `exposure'"
             if "`offset'"   != "" markout `touse' `offset'
             if "`exposure'" != "" markout `touse' `exposure'
         }
@@ -670,6 +717,35 @@ program define iivw_fit, eclass
         local in `"`__iivw_savein'"'
         local offset ""
         local exposure ""
+        local options ""
+    }
+
+    local __iivw_mixed_sources ""
+    if "`model'" == "mixed" & `"`mixedopts'"' != "" {
+        local __iivw_save0 `"`0'"'
+        local __iivw_savevl `"`varlist'"'
+        local __iivw_saveif `"`if'"'
+        local __iivw_savein `"`in'"'
+        local 0 `", `mixedopts'"'
+        capture syntax [, RESiduals(string asis) *]
+        if _rc == 0 {
+            local __iivw_rescomma = strpos(`"`residuals'"', ",")
+            if `__iivw_rescomma' > 0 {
+                local 0 = substr(`"`residuals'"', `__iivw_rescomma', .)
+                capture syntax [, BY(varname) T(varname numeric) *]
+                if _rc == 0 {
+                    local __iivw_mixed_sources "`by' `t'"
+                    markout `touse' `by' `t', strok
+                }
+            }
+        }
+        local 0 `"`__iivw_save0'"'
+        local varlist `"`__iivw_savevl'"'
+        local if `"`__iivw_saveif'"'
+        local in `"`__iivw_savein'"'
+        local residuals ""
+        local by ""
+        local t ""
         local options ""
     }
 
@@ -704,32 +780,44 @@ program define iivw_fit, eclass
         error 2000
     }
 
-    * A depvar with no variation in the estimation sample is a data pathology,
-    * and it must be diagnosed HERE rather than left to the fitting engine.
-    * glm's answer on a constant outcome depends on the processor count: at
-    * c(processors)=16 the IRLS start happens to be feasible and it returns a
-    * degenerate fit (rc 0, slope 0), while at `set processors 1' the same
-    * bit-identical weights produce r(1400) "initial values not feasible".
-    * CLAUDE.md directs putting `set processors 1' in a profile.do for parallel
-    * QA, so the documented practice was what made the return code flip and the
-    * suite non-deterministic. Neither outcome is useful to a user: there is no
-    * outcome variance to model either way. Fail closed with a named cause so
-    * the return code is a function of the data alone.
+    * Package policy: require variation in the modeled response and diagnose
+    * the refusal before calling the engine. This deterministic precheck keeps
+    * the existing constant-response support fence; it is not an identifiability
+    * theorem for every GLM family. Native grouped-binomial and Poisson models
+    * can have positive information even when their observed response is constant.
+    * A variable grouped-binomial denominator changes the modeled proportion,
+    * so test successes/trials rather than the raw success count below.
     *
     * summarize, meanonly does NOT set r(sd) -- it computes only N/mean/min/max
     * -- so the min==max comparison is the correct constant test for this call.
-    quietly summarize `depvar' if `touse', meanonly
+    local __iivw_ycheck "`depvar'"
+    local __iivw_ycheck_label "`depvar'"
+    if "`__iivw_trial_source'" != "" {
+        tempvar __iivw_yfrac
+        quietly gen double `__iivw_yfrac' = ///
+            `depvar'/`__iivw_trial_source' if `touse'
+        local __iivw_ycheck "`__iivw_yfrac'"
+        local __iivw_ycheck_label "`depvar'/`__iivw_trial_source'"
+    }
+    quietly summarize `__iivw_ycheck' if `touse', meanonly
     if r(N) > 0 & r(min) == r(max) {
-        display as error "`depvar' has no variation in the estimation sample"
+        display as error "`__iivw_ycheck_label' has no variation in the estimation sample"
         display as error "  every retained observation takes the value " ///
             `"`=strtrim(string(r(min), "%12.0g"))'"'
-        display as error "  a weighted outcome model needs outcome variance to fit"
+        display as error "  iivw_fit currently requires variation in the modeled response"
         error 198
     }
 
     * Validate model type
     if !inlist("`model'", "gee", "mixed") {
         display as error "model() must be gee or mixed"
+        error 198
+    }
+
+    if "`model'" == "mixed" & ///
+            (`__iivw_family_explicit' | `__iivw_link_explicit') {
+        display as error "family() and link() require model(gee)"
+        display as error "  model(mixed) fits a Gaussian identity-link model"
         error 198
     }
 
@@ -1065,7 +1153,7 @@ program define iivw_fit, eclass
     * any point rolls the whole dataset back.
 
     local __iivw_protected ///
-        "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var'"
+        "`depvar' `indepvars' `panel_id' `panel_time' `cluster' `weight_var' `__iivw_gee_sources' `__iivw_mixed_sources'"
     local __iivw_protected ///
         "`__iivw_protected' `categorical' `interaction' `rep_visitcov' `rep_lagvars'"
     local __iivw_protected ///
@@ -1291,6 +1379,8 @@ program define iivw_fit, eclass
                 }
 
                 gen byte `tcat_name' = (`panel_time' == `tlev') if `touse'
+                char `tcat_name'[_iivw_fit_expr] ///
+                    "cond(missing(`panel_time'),.,`panel_time'==`tlev')"
                 label variable `tcat_name' `"`tvar_label': `lev_text' (vs. `base_text')"'
                 local time_vars "`time_vars' `tcat_name'"
                 local time_vars_created "`time_vars_created' `tcat_name'"
@@ -1313,6 +1403,7 @@ program define iivw_fit, eclass
                 }
                 local __iivw_created_vars "`__iivw_created_vars' `prefix'time_sq"
                 gen double `prefix'time_sq = `panel_time'^2
+                char `prefix'time_sq[_iivw_fit_expr] "`panel_time'^2"
                 label variable `prefix'time_sq "Time squared"
                 local time_vars "`time_vars' `prefix'time_sq"
                 local time_vars_created "`time_vars_created' `prefix'time_sq"
@@ -1330,6 +1421,7 @@ program define iivw_fit, eclass
                 }
                 local __iivw_created_vars "`__iivw_created_vars' `prefix'time_cu"
                 gen double `prefix'time_cu = `panel_time'^3
+                char `prefix'time_cu[_iivw_fit_expr] "`panel_time'^3"
                 label variable `prefix'time_cu "Time cubed"
                 local time_vars "`time_vars' `prefix'time_cu"
                 local time_vars_created "`time_vars_created' `prefix'time_cu"
@@ -1364,6 +1456,7 @@ program define iivw_fit, eclass
                     }
                     local __iivw_created_vars "`__iivw_created_vars' `prefix'tns1"
                     gen double `prefix'tns1 = `panel_time'
+                    char `prefix'tns1[_iivw_fit_expr] "`panel_time'"
                     local time_vars "`prefix'tns1"
                     local time_vars_created "`prefix'tns1"
                 }
@@ -1405,6 +1498,7 @@ program define iivw_fit, eclass
                     }
                     local __iivw_created_vars "`__iivw_created_vars' `prefix'tns1"
                     gen double `prefix'tns1 = `panel_time'
+                    char `prefix'tns1[_iivw_fit_expr] "`panel_time'"
                     local time_vars "`prefix'tns1"
                     local time_vars_created "`prefix'tns1"
 
@@ -1434,6 +1528,8 @@ program define iivw_fit, eclass
                             (max(0, `panel_time' - `t_pen')^3 - ///
                              max(0, `panel_time' - `t_last')^3) / ///
                             (`t_last' - `t_pen')
+                        char `prefix'tns`jj'[_iivw_fit_expr] ///
+                            "(max(0,`panel_time'-`knot`j'')^3-max(0,`panel_time'-`t_last')^3)/(`t_last'-`knot`j'')-(max(0,`panel_time'-`t_pen')^3-max(0,`panel_time'-`t_last')^3)/(`t_last'-`t_pen')"
                         local time_vars "`time_vars' `prefix'tns`jj'"
                         local time_vars_created "`time_vars_created' `prefix'tns`jj'"
                     }
@@ -1647,6 +1743,8 @@ program define iivw_fit, eclass
                 }
                 local __iivw_created_vars "`__iivw_created_vars' `vname'"
                 quietly gen byte `vname' = (`cvar' == `lev') if `touse'
+                char `vname'[_iivw_fit_expr] ///
+                    "cond(missing(`cvar'),.,`cvar'==`lev')"
                 label variable `vname' `"`vlabel'"'
                 local dummy_list "`dummy_list' `vname'"
                 local cat_vars_created "`cat_vars_created' `vname'"
@@ -1779,6 +1877,7 @@ program define iivw_fit, eclass
                 }
                 local __iivw_created_vars "`__iivw_created_vars' `ix_name'"
                 gen double `ix_name' = `ivar' * `tvar'
+                char `ix_name'[_iivw_fit_expr] "`ivar'*`tvar'"
 
                 local ix_time_part "`suffix'"
                 if `tvar_is_cat' {
@@ -2213,6 +2312,21 @@ program define iivw_fit, eclass
         }
     }
 
+    if `bootstrap' == 0 | "`refitweights'" == "" {
+        quietly replace `touse' = e(sample)
+        quietly count if `touse'
+        if r(N) != e(N) {
+            display as error "iivw_fit: engine N and estimation sample disagree"
+            error 459
+        }
+    }
+
+    * Restore the original grouping variable after the observed mixed bootstrap
+    * evaluation: its temporary one-to-one relabeling has been dropped.
+    if `bootstrap' > 0 & "`model'" == "mixed" {
+        ereturn local ivars "`panel_id'"
+    }
+
     * =========================================================================
     * REPLICATE ACCOUNTING
     * =========================================================================
@@ -2323,11 +2437,13 @@ program define iivw_fit, eclass
         tempvar __iivw_mu
         quietly predict double `__iivw_mu' if e(sample), mu
 
+        local __iivw_stk_nocons ""
+        if missing(colnumb(e(b), "_cons")) local __iivw_stk_nocons "noconstant"
         _iivw_stacked_vce `all_covars' if e(sample), ///
             depvar(`depvar') mu(`__iivw_mu') ///
             wtvar(`weight_var') cluster(`cluster') subject(`panel_id') ///
             varfunc(`stacked_varfunc') ///
-            scoreterms(`stacked_terms') ainv(`stacked_ainv') nuisall
+            scoreterms(`stacked_terms') ainv(`stacked_ainv') nuisall `__iivw_stk_nocons'
 
         tempname __iivw_Vstk __iivw_Vfix __iivw_Vglm
         matrix `__iivw_Vstk' = r(V_stacked)
@@ -2376,6 +2492,25 @@ program define iivw_fit, eclass
         }
 
         ereturn repost V = `__iivw_Vstk'
+        * glm's e(chi2)/e(p) were computed from the fixed-weight V just
+        * replaced. Recompute the model-wide Wald test (all slopes; glm's own
+        * convention excludes the intercept) from the covariance being posted,
+        * so exporters of the standard model-test scalars do not pair a
+        * fixed-weight test with stacked standard errors.
+        if strtrim("`all_covars'") != "" {
+            quietly test `all_covars'
+            local __iivw_stk_chi2 = r(chi2)
+            local __iivw_stk_dfm = r(df)
+            local __iivw_stk_p = r(p)
+            ereturn scalar chi2 = `__iivw_stk_chi2'
+            ereturn scalar df_m = `__iivw_stk_dfm'
+            ereturn scalar p = `__iivw_stk_p'
+        }
+        else {
+            ereturn scalar chi2 = .
+            ereturn scalar df_m = 0
+            ereturn scalar p = .
+        }
         * e(vce) is Stata's own label for what e(V) IS. Leaving it at "cluster"
         * after replacing the matrix would misdescribe it to every consumer that
         * reads the standard field rather than the package-specific one. The
@@ -2443,6 +2578,45 @@ program define iivw_fit, eclass
         else if "`citype'" == "bca" {
             matrix `iivw_ci_selected'[1,`j'] = el(`iivw_ci_bca',1,`j')
             matrix `iivw_ci_selected'[2,`j'] = el(`iivw_ci_bca',2,`j')
+        }
+    }
+
+    * Bootstrap-derived intervals (percentile, basic, bca) are refused when a
+    * retained coefficient's selected endpoints are undefined: BCa can have an
+    * undefined bias correction or acceleration while b and V are finite. Exact
+    * native omission flags keep deliberately omitted terms separate from
+    * unusable intervals. A Wald interval whose model variance is missing is the
+    * engine's own result (glm posts a missing SE for some active terms), so it
+    * is reported by a note and the fit stands; e(iivw_interval_available) stays
+    * 1 and the compact table shows such a term as (omitted).
+    if "`citype'" != "none" {
+        tempname __iivw_ci_omit
+        quietly _ms_omit_info e(b)
+        matrix `__iivw_ci_omit' = r(omit)
+        local __iivw_ci_names : colfullnames e(b)
+        local __iivw_ci_wmiss ""
+        forvalues j = 1/`iivw_k' {
+            if el(`__iivw_ci_omit', 1, `j') == 0 {
+                local __iivw_ci_lo = el(`iivw_ci_selected', 1, `j')
+                local __iivw_ci_hi = el(`iivw_ci_selected', 2, `j')
+                if missing(`__iivw_ci_lo', `__iivw_ci_hi') | ///
+                    `__iivw_ci_lo' > `__iivw_ci_hi' {
+                    local __iivw_ci_name : word `j' of `__iivw_ci_names'
+                    if "`citype'" == "wald" {
+                        local __iivw_ci_wmiss "`__iivw_ci_wmiss' `__iivw_ci_name'"
+                    }
+                    else {
+                        display as error "`citype' interval is undefined for `__iivw_ci_name'"
+                        display as error "  no selected interval has been committed; increase the draw count"
+                        display as error "  or use another supported interval after checking the analysis"
+                        error 498
+                    }
+                }
+            }
+        }
+        if "`__iivw_ci_wmiss'" != "" {
+            display as text "note: no Wald interval for" as result "`__iivw_ci_wmiss'" ///
+                as text ": the model variance is missing or nonpositive"
         }
     }
 
@@ -2639,10 +2813,13 @@ program define iivw_fit, eclass
         tempname __iivw_b_pointonly
         matrix `__iivw_b_pointonly' = e(b)
         local __iivw_N_pointonly = e(N)
+        local __iivw_offset_pointonly "`e(offset)'"
         ereturn post `__iivw_b_pointonly', esample(`touse') ///
             obs(`__iivw_N_pointonly') depname(`depvar')
         ereturn local cmd "iivw_fit"
         ereturn local properties "b"
+        if "`__iivw_offset_pointonly'" != "" ///
+            ereturn local offset "`__iivw_offset_pointonly'"
         * The underlying model's e() is gone, so its predict program cannot
         * run; the linear predictor from e(b) is what remains. Name it, so
         * predict goes through _iivw_fit_p's design-column check below.
@@ -2888,6 +3065,16 @@ program define iivw_fit, eclass
     }
     ereturn local iivw_design_token "`__iivw_fit_token'"
     ereturn local iivw_design_vars "`__iivw_stamp_vars'"
+    local __iivw_expr_j = 0
+    foreach __iivw_v of local __iivw_stamp_vars {
+        local ++__iivw_expr_j
+        local __iivw_expr : char `__iivw_v'[_iivw_fit_expr]
+        ereturn local iivw_expr`__iivw_expr_j' "`__iivw_expr'"
+    }
+    if "`e(estat_cmd)'" != "" & "`e(estat_cmd)'" != "_iivw_fit_estat" {
+        ereturn local iivw_estat "`e(estat_cmd)'"
+        ereturn local estat_cmd "_iivw_fit_estat"
+    }
 
     * Make the saved replicate file self-describing. Stata's bootstrap prefix
     * writes the draws, the observed estimates and the column stripes, but

@@ -43,7 +43,7 @@
 *   Every arm     no fit fails or reports non-convergence (attrition 0).
 *   A, B, D       per estimator and coefficient: |bias| <= 4 MCSE;
 *                 coverage in 0.95 +/- 3*sqrt(0.95*0.05/m);
-*                 meanSE/empSD in 1 +/- 3/sqrt(2m).
+*                 RMS_SE/empSD in 1 +/- 3 paired-delta MCSE.
 *   A, B, D       doc-claim pins, per coefficient: the default and nuisance
 *                 mean SEs within 0.6 percent of each other, and coverages
 *                 within 0.002 (one replication in 500) of each other.  The
@@ -458,16 +458,28 @@ gen double truth = cond(k == 1, 0.5, 0.3)
 gen byte usable = !missing(b, se) & rc == 0 & conv == 1
 gen byte covered = abs(b - truth) <= `Z'*se if usable
 gen long nfit = 1
-collapse (sum) usable nfit (mean) meanb=b meanse=se coverage=covered ///
-    (sd) empsd=b (mean) truth, by(scen n est k)
+* RMS reported SE estimates sqrt(E[Vhat]); mean(SE) estimates another target.
+* Use paired delta influences across replications for ratio Monte Carlo SE.
+gen double b_usable = b if usable
+gen double vhat = se^2 if usable
+bysort scen n est k: egen double mean_b_rep = mean(b_usable)
+gen double squared_error = (b_usable - mean_b_rep)^2
+bysort scen n est k: egen double mean_v_rep = mean(vhat)
+bysort scen n est k: egen double mean_error_rep = mean(squared_error)
+gen double ratio_delta = 0.5*(vhat/mean_v_rep - 1) - ///
+    0.5*(squared_error/mean_error_rep - 1) if usable
+collapse (sum) usable nfit (mean) meanb=b_usable meanse=se meanv=vhat coverage=covered ///
+    (sd) empsd=b_usable delta_sd=ratio_delta (mean) truth, by(scen n est k)
+gen double rmsse = sqrt(meanv)
 gen double bias = meanb - truth
 gen double mcse = empsd / sqrt(usable)
-gen double ratio = meanse / empsd
+gen double ratio = rmsse / empsd
+gen double ratio_mcse = ratio * delta_sd / sqrt(usable)
 sort scen n k est
-display as text _newline "scen      n  est       coef  reps  bias      empSD    meanSE   SE/SD   cover"
+display as text _newline "scen      n  est       coef  reps  bias      empSD    meanSE   RMS_SE   SE/SD   cover"
 forvalues i = 1/`=_N' {
     display as text %-4s scen[`i'] %7.0f n[`i'] "  " %-8s est[`i'] "  b" k[`i'] ///
-        %6.0f usable[`i'] %9.4f bias[`i'] %9.4f empsd[`i'] %9.4f meanse[`i'] ///
+        %6.0f usable[`i'] %9.4f bias[`i'] %9.4f empsd[`i'] %9.4f meanse[`i'] %9.4f rmsse[`i'] ///
         %8.3f ratio[`i'] %8.3f coverage[`i']
 }
 
@@ -475,7 +487,13 @@ forvalues i = 1/`=_N' {
     local lab = scen[`i'] + " n=" + string(n[`i']) + " " + est[`i'] + " b" + string(k[`i'])
     local m = usable[`i']
     local cband = 3*sqrt(0.95*0.05/`m')
-    local rband = 3/sqrt(2*`m')
+    local rband = 3*ratio_mcse[`i']
+    if `m' <= 1 | missing(ratio[`i'], ratio_mcse[`i']) | empsd[`i'] <= 0 {
+        display as error "  FAIL: `lab': unavailable calibration moments"
+        local ++test_count
+        local ++fail_count
+        continue
+    }
 
     local ++test_count
     if usable[`i'] == nfit[`i'] & nfit[`i'] > 0 {
@@ -510,11 +528,11 @@ forvalues i = 1/`=_N' {
     local ++test_count
     if abs(ratio[`i'] - 1) <= `rband' {
         local ++pass_count
-        display as result "  PASS: `lab': meanSE/empSD " %5.3f ratio[`i'] " in 1 +/- " %5.3f `rband'
+        display as result "  PASS: `lab': RMS_SE/empSD " %5.3f ratio[`i'] " in 1 +/- " %5.3f `rband'
     }
     else {
         local ++fail_count
-        display as error "  FAIL: `lab': meanSE/empSD " %5.3f ratio[`i'] " outside 1 +/- " %5.3f `rband'
+        display as error "  FAIL: `lab': RMS_SE/empSD " %5.3f ratio[`i'] " outside 1 +/- " %5.3f `rband'
     }
 }
 

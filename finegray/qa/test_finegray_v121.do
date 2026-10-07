@@ -210,12 +210,22 @@ local pass_count = `pass_count' + r(pass)
 local fail_count = `fail_count' + r(fail)
 
 **# 6. An unused zero competing-event denominator is not a violation
+* AMENDED 2026-10-06 (audit M04).  Since the 1.3.4 identifiable-region rule,
+* this fixture's two cause events (.005, .007) are themselves observed before
+* the sample's last gap (subjects 1-3 have all exited by .010; everyone else
+* enters at .30 or later), so their own A(X_i-) is zero and the fit draws its
+* coefficient and baseline mass entirely from outside the identifiable region.
+* 1.3.7 fitted it at rc 0 only because the single-cell guard skipped cause
+* events -- the M04 defect.  The original premise is now unreachable on that
+* path: a pre-gap competing exit with no later cause event forces every cause
+* event to precede the gap, which M04 refuses.  The fixture therefore now
+* pins that refusal; test_finegray_audit_2026_10_05_method T6/T7 carry the
+* M04 negative and admissible controls.
 local ++test_count
 capture noisily {
     _fg121_positivity_data
-    finegray z1, compete(status) cause(1) nolog
-    assert e(converged) == 1
-    assert e(N_compete) == 1
+    capture noisily finegray z1, compete(status) cause(1) nolog
+    assert _rc == 459
 }
 local _rc = _rc
 _fg121_result `_rc' FG121-6

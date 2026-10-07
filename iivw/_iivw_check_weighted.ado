@@ -1,4 +1,4 @@
-*! _iivw_check_weighted Version 4.3.4  2026/09/30
+*! _iivw_check_weighted Version 4.3.5  2026/10/06
 *! Verify the stored weights still describe the data in memory before fitting
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -99,6 +99,11 @@ program define _iivw_check_weighted, rclass
         display as error ""
         display as error "  Re-run `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' on the current data."
         display as error "  (Re-sorting the data is safe and does not trigger this.)"
+        display as error ""
+        display as error "  If the data have not changed, the weighting contract may have been"
+        display as error "  stored by an earlier iivw version, which signed fewer columns (for"
+        display as error "  example, not the untrimmed iw_raw/tw_raw snapshots). Re-running"
+        display as error "  `__iivw_smcl_lb'bf:iivw_weight`__iivw_smcl_rb' with the same options rebuilds it."
         error 459
     }
 

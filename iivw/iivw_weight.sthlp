@@ -339,18 +339,30 @@ ends at different times for different people.
 
 {pmore}
 A visit falling {bf:on} the end of follow-up is allowed: that subject was at
-risk right up to the boundary and is seen at it. Both orderings against the
-last visit -- this one and {opt maxfu()}'s -- are judged past a relative
-tolerance of 1e-6 rather than exactly, because {opt censor()} and {opt time()}
-usually descend from the same calendar dates by different expressions and are
-often stored at different types. A {cmd:float} holding {cmd:days/365.25} sits
-up to one float epsilon (~6e-08 relative) below the {cmd:double} holding the
-same quantity; without the tolerance that gap reads as a visit after
-censoring. 1e-6 relative is roughly 1/2700 of a day on a time scale in years,
-so no substantive violation is absorbed. Storing both as {cmd:double} is still
-worth doing: near six years a {cmd:float} year count cannot separate two
-instants closer together than about 15 seconds, so it is the wrong type for a
-time variable whatever this tolerance does.
+risk right up to the boundary and is seen at it, and gets no terminal interval.
+Both orderings against the last visit -- this one and {opt maxfu()}'s -- are
+judged {bf:exactly} on the stored values, so every positive interval between
+the last visit and the end of follow-up enters the risk set, however short it
+is against the clock's origin or unit. The one exception is a {cmd:float}.
+{opt censor()} and {opt time()} usually descend from the same calendar dates
+by different expressions, and a {cmd:float} holding {cmd:days/365.25} differs
+from the {cmd:double} holding the same quantity by up to half a float unit.
+Under a {cmd:float} {opt time()} the end of follow-up is rounded to float
+before it is compared or used; no recorded visit time can lie between an
+endpoint and its float rounding, so this changes no risk set. Under a
+{cmd:float} {opt censor()} with a non-float {opt time()}, an end of follow-up
+that differs from the subject's last visit but equals it after rounding to
+float is moved onto that visit: no terminal interval is added and no ordering
+error is raised, and a note reports how many subjects were treated this way.
+That is refused (error 198) when the end lies above the last visit and any
+subject's recorded visit falls between the two, because dropping that gap
+would remove the subject from a real event's risk set; store {opt censor()}
+and {opt time()} at the same precision and rerun.
+Storing both as {cmd:double} is still worth doing: near six years a
+{cmd:float} year count cannot separate two instants closer together than about
+15 seconds, so it is the wrong type for a time variable, and recasting it to
+{cmd:double} afterwards does not recover the lost digits -- rebuild it from
+the original dates.
 
 {pmore}
 {bf:This is a risk-set boundary, not a censoring model.} {cmd:iivw_weight}
@@ -372,7 +384,9 @@ different option here.
 {phang}
 {opt maxfu(#)} gives a single end of follow-up shared by every subject. It is the
 convenient form when all subjects are followed for the same length of time. No
-visit may occur after it.
+visit may occur after it. The value is kept at full double precision (decimal,
+scientific, or {cmd:%21x} hexadecimal notation are accepted) and stored so that
+it reads back as exactly the same number.
 
 {phang}
 {opt endatlastvisit} declares that follow-up genuinely ends at each subject's
@@ -400,8 +414,9 @@ subject becomes at risk for the visit process at the first observed
 visit. This removes the circularity of conditioning the baseline visit on
 baseline covariates; when {opt lagvars()} is also used, the baseline measurement
 then legitimately predicts the {it:second} visit rather than itself. Subjects with
-only one visit are not an error: they contribute a baseline row (raw IIW
-weight 1, rescaled with the rest) and, given an end of follow-up, an at-risk
+only one visit are not an error: they contribute a baseline row whose IIW
+component is exactly 1 after modeled-event weights are normalized and, given
+an end of follow-up, an at-risk
 interval running out to it. At least one subject must still have two or more
 visits, so the model has events to fit. Under {opt baseline(entry)}, {opt entry()} is
 ignored -- the first visit defines risk onset.
@@ -466,8 +481,9 @@ them untouched while the identical weight on a subject with few visits was cut
 several-fold. {cmd:r(n_trunc_treat_id)} reports how many subjects were bounded
 and {cmd:r(n_trunc_treat)} how many panel rows carry a clipped
 weight; {cmd:r(trunc_treat_unit)} records the unit. {opt truncvisit()} and
-{opt truncfinal()} are unaffected and remain row percentiles, because those
-weights genuinely vary from visit to visit within a subject.
+{opt truncfinal()} are unaffected and remain row percentiles. Visit weights
+and final IIW or FIPTIW weights can vary within a subject; {opt truncfinal()}
+also uses row percentiles for subject-constant IPTW-only final weights.
 
 {pmore}
 The rule behind the split is that a trimming percentile belongs at the unit
@@ -512,7 +528,10 @@ below the upper. They compose: components are bounded first, then the product of
 the bounded components. Each reports its own count and its own realized
 cutpoints, and each keeps the untrimmed component beside the trimmed one --
 {it:prefix}{cmd:iw_raw} and {it:prefix}{cmd:tw_raw} -- so a reader can see
-exactly which rows moved and by how much.
+exactly which rows moved and by how much. These snapshots are bound into the
+stored weighting contract like the other owned columns: editing or dropping
+one makes the downstream commands refuse the weights (error 459) until
+{cmd:iivw_weight} is rerun.
 
 {phang}
 {opt truncate(# #)} was removed in 2.0.0 and now errors. {bf:Users of iivw 1.x:} it
@@ -582,7 +601,14 @@ score contribution for the subject). The parameter list, in the same order, is
 stored in {cmd:r(score_terms)} and in the dataset characteristic
 {cmd:_dta[_iivw_score_terms]}; the count is {cmd:r(n_score)}. The columns carry
 the usual iivw ownership mark and are cleared by a later run that does not ask
-for them.
+for them under the same {opt generate()} prefix; columns under a different
+prefix are left alone. A column that occupies one of those names without the
+ownership mark, or that is an input to the current call, is refused (error
+110) rather than discarded. A subject outside the treatment model's estimation
+sample -- for example, missing a {opt treat_cov()} value -- has a zero
+{cmd:ns} contribution for every treatment-model and prevalence term, because
+it contributes nothing to those estimating equations, while its visit-model
+terms are kept.
 
 {phang2}
 It is an option rather than a default because the column count depends on the

@@ -178,14 +178,26 @@ required and is outside the scope of this command.
 {phang}
 {opt family(string)} specifies the GLM family distribution for GEE models. Default
 is {cmd:gaussian} (identity link, for continuous outcomes). Other common
-choices: {cmd:binomial} for binary outcomes, {cmd:poisson} for count outcomes. Only used
-when {cmd:model(gee)} is specified.
+choices: {cmd:binomial} for binary outcomes, {cmd:poisson} for count outcomes.
+Grouped binomial data are specified as in {cmd:glm}, {cmd:family(binomial} {it:varname}{cmd:)},
+where {it:varname} holds each row's number of trials; rows with a missing trial
+count leave the estimation sample. {cmd:model(mixed)} fits a Gaussian
+identity-link model, so {opt family()} and {opt link()} are refused there
+rather than ignored.
+
+{pmore}
+{cmd:iivw_fit} requires variation in the modeled response and refuses (error
+198) a response that is constant in the estimation sample. For grouped
+binomial data with a trial-count variable, the modeled response is the
+proportion {it:depvar}/{it:varname}, so constant success counts with varying
+trial counts are accepted. This is a package support policy, not a statement
+that every GLM family is unidentified at a constant response.
 
 {phang}
 {opt link(string)} specifies the GLM link function. If omitted, the canonical
 link for the specified family is used (identity for gaussian, logit for
 binomial, log for poisson). Override when you need a non-canonical link (e.g.,
-{cmd:family(binomial) link(log)} for risk ratios).
+{cmd:family(binomial) link(log)} for risk ratios). Refused with {cmd:model(mixed)}.
 
 {phang}
 {opt times:pec(string)} specifies how time enters the outcome model. {cmd:linear} (default)
@@ -389,6 +401,11 @@ not differentiable in the nuisance parameters and the delta method the sandwich
 rests on does not apply there. Use {cmd:vce(bootstrap, reps(999))} for a trimmed
 weighting, a non-canonical link, or {opt model(mixed)}. Which nuisance
 parameters were propagated is recorded in {cmd:e(iivw_stacked_terms)}.
+Intercept-only outcome models and {cmd:geeopts(noconstant)} designs are
+supported. The model-wide Wald test in {cmd:e(chi2)}, {cmd:e(df_m)}, and
+{cmd:e(p)} is recomputed from the stacked {cmd:e(V)} (all slopes; missing with
+{cmd:e(df_m)}=0 for an intercept-only model), so it never pairs a fixed-weight
+test with stacked standard errors.
 
 {pmore}
 {cmd:vce(bootstrap, reps(#) fixedweights)} bootstraps with the weights held
@@ -412,7 +429,7 @@ explicitly requests the weights-known sandwich standard errors
 instead takes the refit-bootstrap default, while a bare FIPTIW fit is point-only,
 and a positive count applies the {cmd:bootstrap} prefix with clustering at
 {opt cluster()}, which defaults to the subject ID stored by
-{cmd:iivw_weight}. Negative values are not allowed. Prefer {opt vce()}; a plain
+{cmd:iivw_weight}. Negative and non-integer values are refused. Prefer {opt vce()}; a plain
 {cmd:bootstrap(#)} was ambiguous because it meant fixed weights only by the
 absence of {opt refitweights}. Positive legacy counts must be at least 2.
 
@@ -600,6 +617,16 @@ by {opt cit:ype()}. {cmd:wald} uses coefficient {+/-} {it:z} {cmd:*} SE, whereas
 bootstrap endpoints. {cmd:citype(none)} prints coefficients only. The selected
 endpoints are stored in {cmd:e(iivw_ci)}; Stata's additional bootstrap results
 remain available through {helpb estat bootstrap}.
+If a {cmd:citype(percentile)}, {cmd:citype(basic)} or {cmd:citype(bca)} interval
+is undefined for any retained (non-omitted) coefficient, for example a BCa bias
+correction that cannot be computed from a small or degenerate draw set, the fit
+stops with error 498 rather than reporting {cmd:e(iivw_interval_available)}=1;
+use more draws or another {opt cit:ype()}. A {cmd:citype(wald)} interval for a
+coefficient whose model variance is missing or nonpositive (the underlying
+{cmd:glm} can post a missing standard error for an active term) does not stop
+the fit: a note names each such coefficient, {cmd:e(iivw_interval_available)}
+stays 1, the compact table shows the term as {cmd:(omitted)}, and its endpoints
+in {cmd:e(iivw_ci)} are missing.
 
 {dlgtab:Reporting}
 
@@ -632,7 +659,14 @@ needs no acknowledgment.
 {phang}
 {opt replace} allows overwriting existing time, categorical, and interaction
 variables created by a previous {cmd:iivw_fit} call. Without {opt replace},
-the command errors if any generated variable already exists.
+the command errors if any generated variable already exists. {opt replace}
+never overwrites a variable the current call uses as an input, even one an
+earlier {cmd:iivw_fit} generated: the outcome, predictors, panel id and time,
+cluster, weight, weighting-model inputs, and the auxiliary inputs named in
+{opt geeopts()} ({opt offset()}, {opt exposure()}), a grouped-binomial
+trial-count variable in {opt family()}, and the {cmd:by()} and {cmd:t()}
+variables of {cmd:mixedopts(residuals(}{it:...}{cmd:))}. Such a collision exits
+with error 198 and leaves the data unchanged.
 
 {phang}
 {opt col:lect} adds the {cmd:collect:} prefix to non-bootstrap
@@ -866,11 +900,14 @@ stable at the boundaries of the time range.
 {bf:Convergence}
 
 {pstd}
-After fitting the GEE or mixed model, {cmd:iivw_fit} checks whether the
-estimation converged. If not, a warning is displayed. Non-convergence
-typically indicates model misspecification, collinear predictors, or
-extreme weights. This check is skipped when using {opt bootstrap()},
-since the bootstrap wrapper does not expose convergence status.
+After fitting the GEE or mixed model, {cmd:iivw_fit} checks convergence.
+A nonconverged observed outcome fit is refused with error 430. On a single-fit
+route, an applicable explicit {opt allownonconverged} override allows the fit
+to continue with a warning and an unusable-for-diagnostics stamp. Both fixed-weight and refit
+bootstrap wrappers check the observed evaluation and each resampled outcome
+fit. Missing convergence status or nonconvergence is an error inside those
+wrappers, and {opt allownonconverged} does not override that outcome gate.
+Nonconvergence can indicate misspecification, collinearity, or extreme weights.
 
 {pstd}
 {bf:Table export with collect and regtab}
@@ -1315,7 +1352,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(cmd)}}{cmd:iivw_fit}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector{p_end}
 {synopt:{cmd:e(V)}}covariance matrix; absent for point-only FIPTIW{p_end}
-{synopt:{cmd:e(sample)}}estimation-sample indicator{p_end}
+{synopt:{cmd:e(sample)}}estimation-sample indicator; the rows the outcome engine used{p_end}
 
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Macros}{p_end}
@@ -1324,6 +1361,9 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_predict)}}underlying predict; {cmd:_predict} if point-only{p_end}
 {synopt:{cmd:e(iivw_design_token)}}ID stamped on this fit's design columns{p_end}
 {synopt:{cmd:e(iivw_design_vars)}}design columns this fit generated{p_end}
+{synopt:{cmd:e(iivw_expr}{it:#}{cmd:)}}expression that generated the {it:#}th design column{p_end}
+{synopt:{cmd:e(estat_cmd)}}{cmd:_iivw_fit_estat}, when the underlying model has an estat hook{p_end}
+{synopt:{cmd:e(iivw_estat)}}underlying model's estat hook (e.g., {cmd:mixed_estat}){p_end}
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
 {synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
@@ -1369,6 +1409,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synoptset 24 tabbed}{...}
 {p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations in the outcome equation{p_end}
+{synopt:{cmd:e(chi2)}, {cmd:e(df_m)}, {cmd:e(p)}}model Wald test; from the stacked {cmd:e(V)} under {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(level)}}confidence level used to construct {cmd:e(iivw_ci)}{p_end}
 {synopt:{cmd:e(iivw_stabilization_validated)}}1 if {opt stabcov()} matches outcome design{p_end}
 {synopt:{cmd:e(iivw_vce_locked)}}1 if underlying VCE passed variance lock{p_end}
@@ -1431,11 +1472,35 @@ design columns {cmd:iivw_fit} generated for this fit (categorical-time
 dummies, time powers, splines, categorical dummies, interactions) are still
 the ones it built; after {cmd:estimates restore} of an earlier fit whose
 columns a later fit rebuilt with {opt replace}, it exits with error 459
-rather than predicting from columns whose meaning changed. Refit the model to
-predict from it again. A point-only fit ({cmd:citype(none)}, or a bare
+rather than predicting from columns whose meaning changed. It also compares
+each nonmissing generated value in the rows selected by {cmd:predict}'s
+{it:if} and {it:in} with the expression that generated it (stored in
+{cmd:e(iivw_expr}{it:#}{cmd:)}); if the source of a generated column was edited
+(for example, the raw time variable of a quadratic or spline trend) or dropped,
+it exits with error 459 rather than combining an edited term with a stale one.
+For the same reason, {cmd:margins, at()} and {cmd:predict} at counterfactual
+values of a raw time variable that feeds generated columns (for example
+{cmd:margins, at(t=(1 2))} after {cmd:timespec(quadratic)}) exit with error 459:
+the generated columns would no longer match their stored expressions. Setting
+{cmd:at()} on the generated columns as well is refused too. To predict at other
+times, set the raw time and every generated column consistently in a copy of the
+data (for example {cmd:replace t = 2} and {cmd:replace _iivw_time_sq = 4}) and
+run {cmd:predict}, or refit with the times of interest in the data.
+{cmd:margins, dydx(}{it:x}{cmd:)} for a predictor that is not a generated
+column is unaffected.
+New rows whose generated columns agree with the stored expressions can be
+predicted. Refit the model, or restore the data it was fitted on, to predict
+from it again. Estimates stored by a version of {cmd:iivw_fit} that did not
+record these expressions must be refitted before {cmd:predict} when the fit
+generated design columns. After {cmd:model(mixed)}, {cmd:predict}'s
+{cmd:reffects}, {cmd:residuals}, and {cmd:fitted} options and {cmd:estat}
+subcommands such as {cmd:estat group}, {cmd:estat sd}, and {cmd:estat ic} run
+the native {cmd:mixed} routines on the fitted model. A point-only fit ({cmd:citype(none)}, or a bare
 FIPTIW fit) retains coefficients in {cmd:e(b)} but deliberately posts no
-{cmd:e(V)}, and the underlying model's other results are not kept. Its
-{cmd:predict} offers the linear prediction ({cmd:xb}) only, through the same
+{cmd:e(V)}, and the underlying model's other results are not kept, except for
+the {cmd:offset()}/{cmd:exposure()} term in {cmd:e(offset)}. Its
+{cmd:predict} offers the linear prediction ({cmd:xb}, including any offset;
+{cmd:nooffset} excludes it) only, through the same
 design-column check; {cmd:stdp}, model-specific statistics such as {cmd:mu},
 and inference-dependent postestimation are unavailable unless an interval
 method was explicitly requested.

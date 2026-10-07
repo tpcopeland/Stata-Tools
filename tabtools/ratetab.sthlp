@@ -121,9 +121,15 @@ outcome, a Poisson model with an indicator per level, person-time as exposure,
 and variance clustered on {it:varname}, as is appropriate for repeated
 events in the same person; the number of clusters is displayed and stored in
 {cmd:r(clusters)}, because the clustered variance is unreliable with few
-clusters. A level whose events all come from one cluster has no clustered
-interval and is printed without one. A level with no events shows the exact
-limits (0, -ln(alpha/2)/Y) whatever the method.
+clusters. A level gets no clustered interval, and is printed without one and
+counted in {cmd:r(N_noci)}, when its exposure comes from only one fitted cluster
+(the clustered variance is then undefined) or when its clustered variance is zero,
+nonpositive or missing, as when every cluster's score is zero. Events concentrated
+in one of several exposure clusters do not remove the interval: the clusters with
+exposure and no events still contribute nonzero scores, so the variance is positive and
+the interval is printed. Separately, few clusters make the clustered variance
+unreliable whatever the events. A level with no events shows the exact limits
+(0, -ln(alpha/2)/Y) whatever the method.
 
 {phang}
 {opt level(#)} sets the confidence level of the rate intervals, from 10 to

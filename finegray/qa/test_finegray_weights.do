@@ -1053,7 +1053,10 @@ capture noisily {
     file open `fh19' using "`cap19'", read text
     file read `fh19' line
     while r(eof) == 0 {
-        if strpos(`"`line'"', "the id variable id used by the fit is not in the data") > 0 ///
+        * The id is part of the joint-row tuple (e(rowsigvars)), so
+        * _finegray_check_data (audit 2026-10-05 R03) refuses first, with the
+        * message pinned here.
+        if strpos(`"`line'"', "estimation variable id no longer exists") > 0 ///
             local saw19 = 1
         if strpos(`"`line'"', "has changed since the fit") > 0 local sawold19 = 1
         file read `fh19' line

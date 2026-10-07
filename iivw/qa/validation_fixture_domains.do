@@ -29,6 +29,7 @@ program define _fx_visit_domains, rclass
     * GEE. Its point equation is weighted normal equations; solve independently.
     mata: X=(st_data(.,"time"),J(st_nobs(),1,1)); Y=st_data(.,"y"); w=st_data(.,"_iivw_iw"); use=(!missing(Y):&!missing(w):&(w:>0)); X=select(X,use);Y=select(Y,use);w=select(w,use);st_matrix("`W'",(invsym(quadcross(X,w,X))*quadcross(X,w,Y))')
     mata: mata drop X Y w use
+    assert !matmissing(`B') & !matmissing(`W')
     assert mreldif(`B',`W')<1e-9
     local tests=1
     local pass=1
@@ -53,9 +54,11 @@ program define _fx_visit_domains, rclass
         local ++tests
         capture noisily {
             iivw_fit y, vce(fixed) timespec(linear) level(`level') nolog
+            assert !matmissing(e(b)) & !matmissing(`W')
             assert mreldif(e(b),`W')<1e-9
             assert e(level)==`level'
             lincom time, level(`level')
+            assert !missing(r(lb),r(ub),r(estimate),r(se)) & r(se)>=0
             assert reldif(r(lb),r(estimate)-invnormal(1-(1-`level'/100)/2)*r(se))<1e-10
             assert reldif(r(ub),r(estimate)+invnormal(1-(1-`level'/100)/2)*r(se))<1e-10
         }

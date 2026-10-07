@@ -215,6 +215,12 @@ local core_suites validation_fixture_phase2_iivw validation_fixture_analytical v
     test_iivw_v420_shard ///
     test_iivw_codexaudit_2026_09_27_a ///
     test_iivw_codexaudit_2026_09_27_b ///
+    test_iivw_audit_2026_10_05_weight ///
+    test_iivw_audit_2026_10_05_fit ///
+    test_iivw_audit_2026_10_05_bootstrap ///
+    test_iivw_audit_2026_10_05_diag ///
+    test_iivw_audit_2026_10_05_shared ///
+    test_iivw_audit_2026_10_05_qadocs ///
     test_iivw_route_grid ///
     test_iivw_route_grid_fixes ///
     test_iivw_state_lifecycle ///

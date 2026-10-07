@@ -1,4 +1,4 @@
-*! _iivw_stacked_vce Version 4.3.4  2026/09/30
+*! _iivw_stacked_vce Version 4.3.5  2026/10/06
 *! Two-step (stacked) influence-function sandwich for a weighted GEE fit whose
 *! weights were estimated by iivw_weight.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -86,11 +86,11 @@ program define _iivw_stacked_vce, rclass
     set varabbrev off
     capture noisily {
 
-    syntax varlist(numeric) [if], DEPvar(varname numeric) ///
+    syntax [varlist(numeric default=none)] [if], DEPvar(varname numeric) ///
         MU(varname numeric) ///
         WTVar(varname numeric) CLuster(varname) ///
         VARfunc(string) SCoreterms(string) AINV(string) [NUISall ///
-        SUBject(varname)]
+        SUBject(varname) NOCONStant]
 
     if "`subject'" == "" local subject "`cluster'"
 
@@ -259,13 +259,23 @@ program define _iivw_stacked_vce, rclass
         }
     }
 
-    mata: _iivw_stacked_nest("`varlist' `one'", "`bread'", "`res'", ///
+    local xvars "`varlist'"
+    local cn "`varlist'"
+    if "`noconstant'" == "" {
+        local xvars "`xvars' `one'"
+        local cn "`cn' _cons"
+    }
+    if strtrim("`xvars'") == "" {
+        display as error "stacked variance: empty outcome design"
+        error 198
+    }
+
+    mata: _iivw_stacked_nest("`xvars'", "`bread'", "`res'", ///
         "`ndlist'", "`nslist'", "`cidx'", "`sidx'", "`touse'", "`nuse'", ///
         "`Ainv'", `M', `Mout', "`Vs'", "`Vf'", "`G'")
 
     * Name the returned matrices for the design the caller fitted, so a reader
     * of e(V) sees coefficient names and not c1..cp.
-    local cn "`varlist' _cons"
     matrix rownames `Vs' = `cn'
     matrix colnames `Vs' = `cn'
     matrix rownames `Vf' = `cn'
