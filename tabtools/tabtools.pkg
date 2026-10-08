@@ -28,7 +28,7 @@ d
 d Requires: Stata version 17+ (all commands)
 d Optional: eplot for forest plots from comptab/hrcomptab companion frames
 d
-d Distribution-Date: 20261007
+d Distribution-Date: 20261008
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -119,6 +119,7 @@ f tabcell.ado
 f tabcell.sthlp
 f _tabcell_render.ado
 f _tabtools_fmt_p.ado
+f _tabtools_fmt_pct.ado
 f ratetab.ado
 f ratetab.sthlp
 f outtab.ado

@@ -1,4 +1,4 @@
-*! desctab Version 2.5.6  2026/10/07 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.6.0  2026/10/08 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -983,7 +983,8 @@ program define desctab, rclass
                             local _mstr `"`r(display)'"'
                         }
                         else {
-                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            _tabtools_fmt_pct, value(`_mval' / `_max_n_`_lv'' * 100) format(`percformat')
+                            local _mpct `"`r(text)'"'
                             local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
                             if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
                         }
@@ -1003,7 +1004,8 @@ program define desctab, rclass
                             qui replace _cr_`_lv' = `"`r(display)'"' in `_new'
                         }
                         else if !missing(`_mval') & `_mval' > 0 {
-                            local _mpct = string(`_mval' / `_max_n_`_lv'' * 100, "`percformat'")
+                            _tabtools_fmt_pct, value(`_mval' / `_max_n_`_lv'' * 100) format(`percformat')
+                            local _mpct `"`r(text)'"'
                             local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
                             if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
                             qui replace _cr_`_lv' = "`_mstr'" in `_new'
@@ -1429,10 +1431,20 @@ program define desctab, rclass
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
                 local _hp_var `"`hperc_scratch_for_`_hcol''"'
+                * The percentage keeps its historical round(, 0.001) step,
+                * except where that step alone would print 0.0 or 100.0 for
+                * a group that is neither none nor all of the total: there
+                * the unrounded share goes to _tabtools_fmt_pct.
+                tempvar _hp_pct _hp_txt
+                gen double `_hp_pct' = round(`_hp_var' / `_hden', 0.001) * 100 ///
+                    if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
+                replace `_hp_pct' = 100 * `_hp_var' / `_hden' ///
+                    if !missing(`_hp_pct') & inlist(string(`_hp_pct', "%9.1f"), "0.0", "100.0")
+                _tabtools_fmt_pct `_hp_pct', format(%9.1f) generate(`_hp_txt')
                 * stata-dev-ignore: unchecked-commit — appends a percentage to an existing header cell; a zero denominator or missing numerator correctly matches no row and leaves the header unchanged
-                replace `_hcol' = `_hcol' + " " + "(" + ///
-                    string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
-                    "`percsign'" + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
+                replace `_hcol' = `_hcol' + " " + "(" + `_hp_txt' + ///
+                    "`percsign'" + ")" if !missing(`_hp_pct')
+                drop `_hp_pct' `_hp_txt'
             }
 
             foreach _htmp of local hperc_scratch {

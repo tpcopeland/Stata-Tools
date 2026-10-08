@@ -161,7 +161,7 @@ both in the first column and the table body between them. {opt xlsx()},
 refused before anything is written.{p_end}
 
 {phang}
-{opt dig:its(#)} decimal places for survival estimates and CIs (default 1, range 0-6){p_end}
+{opt dig:its(#)} decimal places for survival estimates and CIs (default 1, range 0-6). A survival (or {opt reverse}) percentage above 0 and below 100 never prints as 0 or 100: where the format would round it there, it gains one decimal at a time, up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A true 0 or 100 prints as before.{p_end}
 
 {phang}
 {opt ev:ents} add aggregate Events / N row per group{p_end}

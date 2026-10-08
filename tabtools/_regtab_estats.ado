@@ -1,4 +1,4 @@
-*! _regtab_estats Version 2.5.6  2026/10/07
+*! _regtab_estats Version 2.6.0  2026/10/08
 *! generic stats() e(name) values from the collection
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
