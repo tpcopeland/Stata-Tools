@@ -1,4 +1,4 @@
-*! _regtab_cmdsets Version 2.5.6  2026/10/07
+*! _regtab_cmdsets Version 2.6.0  2026/10/08
 *! cmdset levels in the order regtab's columns use
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

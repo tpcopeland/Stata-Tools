@@ -1,4 +1,4 @@
-*! _regtab_role Version 2.5.6  2026/10/07
+*! _regtab_role Version 2.6.0  2026/10/08
 *! structural role of one collected coefficient
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

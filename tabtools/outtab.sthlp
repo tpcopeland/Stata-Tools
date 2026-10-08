@@ -68,7 +68,8 @@
 outcome (within each panel when {opt panels()} is given) and shows
 events/N (%) in the exposed group (exposure = 1), then in the comparator group
 (exposure = 0), then one ratio with its confidence interval per model
-specification. Each model is fitted with {opt estimator()} on the row's
+specification. The percentage follows {helpb tabcell}'s rule: a share that is
+neither none nor all never prints as 0 or 100. Each model is fitted with {opt estimator()} on the row's
 sample, as {it:cmd outcome exposure covariates} {cmd:if} {it:sample}{cmd:,} {it:options}, and
 the exposure's estimate and limits are read from {cmd:r(table)} and formatted
 with {helpb tabcell}. The table is written by {helpb puttab}, so the

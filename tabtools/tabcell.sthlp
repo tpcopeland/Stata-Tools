@@ -254,7 +254,8 @@ with {opt ci()}.
 {opt ci(exact)} adds to {cmd:tabcell np} the exact binomial (Clopper-Pearson)
 confidence interval of the percentage {it:n}/{it:d}, printed after a semicolon
 in the format of the percentage
-({opt pformat()}): {cmd:2 (10.0; 1.2, 31.7)}. The limits are the beta quantiles
+({opt pformat()}): {cmd:2 (10.0; 1.2, 31.7)}; where the percentage gained decimals under the
+rule in {opt pformat()}, the limits carry the same decimals: {cmd:1 (<0.01; 0.00, 0.01)}. The limits are the beta quantiles
 B(a/2; n, d-n+1) and B(1-a/2; n+1, d-n), a = 1 - {opt level()}/100,
 computed with {cmd:invibeta()} and {cmd:invibetatail()}; when n = 0 the lower
 limit is 0, and when n = d the upper limit is 100, exactly as
@@ -340,7 +341,7 @@ names are not case-sensitive. The number is the same in every style, so
 percentage of {cmd:np} and {cmd:enp}; {opt nformat()} also formats the count of
 {cmd:tabcell n} (default {cmd:%12.0fc}, as in {helpb table1_tc}, so 12345 prints
 as {cmd:12,345}). The percentage is omitted when the denominator is
-0. Negative counts and counts larger than their total are refused.
+0. A percentage above 0 and below 100 never prints as 0 or 100: where the format would round it there, it gains one decimal at a time, up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A true 0 or 100 prints as before. Negative counts and counts larger than their total are refused.
 
 {phang}
 {opt mincell(#)} prints a count from 1 to #-1 as {cmd:<}#, without its

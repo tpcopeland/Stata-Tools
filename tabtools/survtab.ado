@@ -1,4 +1,4 @@
-*! survtab Version 2.5.6  2026/10/07
+*! survtab Version 2.6.0  2026/10/08
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -696,7 +696,8 @@ capture noisily {
             local _s = `surv_g`g'_t`t''
             if !missing(`_s') {
                 if "`reverse'" != "" local _s = 1 - `_s'
-                qui replace c`col' = strtrim(string(`_s' * 100, "%21.`digits'f")) + "%" in `row'
+                _tabtools_fmt_pct, value(`_s' * 100) format(%21.`digits'f)
+                qui replace c`col' = strtrim(`"`r(text)'"') + "%" in `row'
             }
         }
 

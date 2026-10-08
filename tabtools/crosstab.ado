@@ -1,4 +1,4 @@
-*! crosstab Version 2.5.6  2026/10/07
+*! crosstab Version 2.6.0  2026/10/08
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -562,19 +562,22 @@ capture noisily {
             else local _cell_str = string(`_freq_val', "%11.0fc")
             if "`colpct'" != "" & !`_sc_pct_blocked' {
                 if `_col_total' > 0 {
-                    local _pct = strtrim(string(`_freq_val' / `_col_total' * 100, "%21.`digits'f"))
+                    _tabtools_fmt_pct, value(`_freq_val' / `_col_total' * 100) format(%21.`digits'f)
+                    local _pct = strtrim(`"`r(text)'"')
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
             else if "`rowpct'" != "" & !`_sc_pct_blocked' {
                 if `_row_total' > 0 {
-                    local _pct = strtrim(string(`_freq_val' / `_row_total' * 100, "%21.`digits'f"))
+                    _tabtools_fmt_pct, value(`_freq_val' / `_row_total' * 100) format(%21.`digits'f)
+                    local _pct = strtrim(`"`r(text)'"')
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }
             else if "`totalpct'" != "" & !`_sc_pct_blocked' {
                 if `_total_n' > 0 {
-                    local _pct = strtrim(string(`_freq_val' / `_total_n' * 100, "%21.`digits'f"))
+                    _tabtools_fmt_pct, value(`_freq_val' / `_total_n' * 100) format(%21.`digits'f)
+                    local _pct = strtrim(`"`r(text)'"')
                     local _cell_str "`_cell_str' (`_pct'%)"
                 }
             }

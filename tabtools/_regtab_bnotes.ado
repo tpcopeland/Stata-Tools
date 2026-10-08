@@ -1,4 +1,4 @@
-*! _regtab_bnotes Version 2.5.6  2026/10/07
+*! _regtab_bnotes Version 2.6.0  2026/10/08
 *! the fit's own constraint notes for every coefficient of the active e(b)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

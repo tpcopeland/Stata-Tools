@@ -1,4 +1,4 @@
-*! _tabcell_render Version 2.5.6  2026/10/07
+*! _tabcell_render Version 2.6.0  2026/10/08
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -194,6 +194,17 @@ program define _tabcell_render, rclass
         quietly gen strL `_sepv' = ""
         mata: st_sstore(., st_local("_sepv"), J(st_nobs(), 1, st_local("sep") == "" ? ", " : st_local("sep")))
         quietly {
+            if inlist("`form'", "np", "enp") {
+                * The percentage of forms np and enp follows the package rule
+                * in _tabtools_fmt_pct: a share that is neither none nor all
+                * never prints as 0 or 100. _pdc holds the decimals wherever
+                * the rule escalated, so interval limits print to match.
+                tempvar _pv _ptx _pdc
+                gen double `_pv' = 100 * `v1' / `v2' if `touse' & !`bad' & `v2' > 0
+                _tabtools_fmt_pct `_pv' if `touse' & !`bad' & `v2' > 0, ///
+                    format(`pformat') generate(`_ptx') decimals(`_pdc')
+                replace `_ptx' = strtrim(`_ptx')
+            }
             if "`form'" == "est" | "`form'" == "iqr" {
                 replace `generate' = strtrim(string(`v1', "`fmt'")) + " (" + ///
                     strtrim(string(`v2', "`fmt'")) + `_sepv' + ///
@@ -223,8 +234,7 @@ program define _tabcell_render, rclass
             else if "`form'" == "np" & !`_ci' & "`nocount'" != "" {
                 * pct alone (the zero denominator is a bad row above)
                 * stata-dev-ignore: unchecked-commit — generate() is the caller's tempvar; the caller refuses an empty sample and this program refuses bad (zero-denominator or missing) rows above, unless missing() is given
-                replace `generate' = strtrim(string(100 * `v1' / `v2', "`pformat'")) ///
-                    if `touse' & !`bad'
+                replace `generate' = `_ptx' if `touse' & !`bad'
                 if `mincell' > 0 {
                     replace `generate' = "`_dash'" if `touse' & !`bad' & ///
                         `v1' >= 1 & `v1' < `mincell'
@@ -233,7 +243,7 @@ program define _tabcell_render, rclass
             else if "`form'" == "np" & !`_ci' {
                 * n (%): the percentage is omitted when the denominator is 0
                 replace `generate' = strtrim(string(`v1', "`nformat'")) + ///
-                    cond(`v2' > 0, " (" + strtrim(string(100 * `v1' / `v2', "`pformat'")) + ")", "") ///
+                    cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
                     if `touse' & !`bad'
                 if `mincell' > 0 {
                     replace `generate' = "<`mincell'" if `touse' & !`bad' & ///
@@ -256,18 +266,26 @@ program define _tabcell_render, rclass
                     noisily display as error "tabcell np, ci(exact): the interval could not be computed in `r(N)' cell(s)"
                     exit 459
                 }
+                * the limits print at the estimate's decimals where the
+                * percentage rule escalated, at pformat() elsewhere
+                tempvar _lotx _hitx
+                local _psep = cond(regexm(`"`pformat'"', "^%-?0?[0-9]+,"), ",", ".")
+                gen strL `_lotx' = strtrim(string(100 * `_lo', "`pformat'")) if `_show'
+                gen strL `_hitx' = strtrim(string(100 * `_hi', "`pformat'")) if `_show'
+                replace `_lotx' = strtrim(string(100 * `_lo', "%21`_psep'" + string(`_pdc') + "f")) ///
+                    if `_show' & !missing(`_pdc')
+                replace `_hitx' = strtrim(string(100 * `_hi', "%21`_psep'" + string(`_pdc') + "f")) ///
+                    if `_show' & !missing(`_pdc')
                 if "`nocount'" != "" {
                     * pct (lo, hi): the percentage and its interval alone
-                    replace `generate' = strtrim(string(100 * `v1' / `v2', "`pformat'")) + ///
-                        " (" + strtrim(string(100 * `_lo', "`pformat'")) + `_sepv' + ///
-                        strtrim(string(100 * `_hi', "`pformat'")) + ")" ///
+                    replace `generate' = `_ptx' + ///
+                        " (" + `_lotx' + `_sepv' + `_hitx' + ")" ///
                         if `touse' & !`bad'
                 }
                 else {
                     replace `generate' = strtrim(string(`v1', "`nformat'")) + ///
-                        cond(`v2' > 0, " (" + strtrim(string(100 * `v1' / `v2', "`pformat'")) + ///
-                        "; " + strtrim(string(100 * `_lo', "`pformat'")) + `_sepv' + ///
-                        strtrim(string(100 * `_hi', "`pformat'")) + ")", "") ///
+                        cond(`v2' > 0, " (" + `_ptx' + ///
+                        "; " + `_lotx' + `_sepv' + `_hitx' + ")", "") ///
                         if `touse' & !`bad'
                 }
                 if `mincell' > 0 {
@@ -332,7 +350,7 @@ program define _tabcell_render, rclass
             else if "`form'" == "enp" {
                 replace `generate' = strtrim(string(`v1', "`nformat'")) + "/" + ///
                     strtrim(string(`v2', "`nformat'")) + ///
-                    cond(`v2' > 0, " (" + strtrim(string(100 * `v1' / `v2', "`pformat'")) + ")", "") ///
+                    cond(`v2' > 0, " (" + `_ptx' + ")", "") ///
                     if `touse' & !`bad'
                 if `mincell' > 0 {
                     * a masked event count loses its percentage; a masked total

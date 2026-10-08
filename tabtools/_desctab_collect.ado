@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.5.6  2026/10/07
+*! _desctab_collect Version 2.6.0  2026/10/08
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1254,7 +1254,8 @@ program define _desctab_collect, rclass
                     }
                     local _perc ""
                     if `_pct' < . {
-                        local _perc = string(`_pct', "`_pfmt'")
+                        _tabtools_fmt_pct, value(`_pct') format(`_pfmt')
+                        local _perc `"`r(text)'"'
                         if "`nospacelowpercent'" == "" & `_pct' < 10 & !inlist("`_perc'", "10", "10.0", "10.00") {
                             local _perc = " " + "`_perc'"
                         }
@@ -1398,7 +1399,8 @@ program define _desctab_collect, rclass
                         }
                         local _perc ""
                         if `_pct' < . {
-                            local _perc = string(`_pct', "`_pfmt'")
+                            _tabtools_fmt_pct, value(`_pct') format(`_pfmt')
+                            local _perc `"`r(text)'"'
                             if "`nospacelowpercent'" == "" & "`extraspace'" == "" & `_pct' < 10 & !inlist("`_perc'", "10", "10.0", "10.00") {
                                 local _perc = " " + "`_perc'"
                             }
