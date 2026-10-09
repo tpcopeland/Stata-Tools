@@ -192,8 +192,8 @@ baseline EDSS measurement. Default is {cmd:730} (2 years). If no measurement
 exists within this window, the earliest available EDSS is used.
 
 {phang}
-{opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
-progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
+{opt threetier} applies the three-tier progression threshold of
+Kappos et al. (2018) ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
 {ul:>}= 0.5 if > 5.5), exactly as in {helpb cdp}. The default two-tier rule is
 preserved for backward compatibility.
 
@@ -372,25 +372,21 @@ becomes the new baseline for subsequent progression detection.{p_end}
 Kappos L, et al. Contribution of relapse-independent progression vs
 relapse-associated worsening to overall confirmed disability accumulation in
 typical relapsing multiple sclerosis in a pooled analysis of 2 randomized
-clinical trials. {it:JAMA Neurology}. 2020;77(9):1132{c -}1140.
-
-{phang}
-Lublin FD, et al. Defining the clinical course of multiple sclerosis: the 2013
-revisions. {it:Neurology}. 2014;83(3):278{c -}286.
+clinical trials. {it:JAMA Neurology}. 2020;77(9):1132{c -}1140. doi:10.1001/jamaneurol.2020.1568
 
 {phang}
 Portaccio E, et al. Progression independent of relapse activity in relapsing
 multiple sclerosis: impact and relationship with secondary
-progression. {it:Journal of Neurology}. 2024;271(8):5074{c -}5082.
+progression. {it:Journal of Neurology}. 2024;271(8):5074{c -}5082. doi:10.1007/s00415-024-12448-4
 
 {phang}
 Portaccio E, et al. Toward a unified definition of progression independent of
-relapse activity in multiple sclerosis. {it:Neurology}. 2025;105(8):e213977.
+relapse activity in multiple sclerosis. {it:Neurology}. 2025;105(8):e213977. doi:10.1212/WNL.0000000000213977
 
 {phang}
 University of California San Francisco MS-EPIC Team, et al. Silent progression
 in disease activity-free relapsing multiple
-sclerosis. {it:Annals of Neurology}. 2019;85(5):653{c -}666.
+sclerosis. {it:Annals of Neurology}. 2019;85(5):653{c -}666. doi:10.1002/ana.25463
 
 
 {marker author}{...}

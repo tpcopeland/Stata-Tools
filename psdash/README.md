@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.4** | 2026-09-30
+**Version 1.7.5** | 2026-10-09
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -394,6 +394,8 @@ matrix list r(balance)
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **v1.7.5** (9 Oct 2026): Help References now give a DOI for every entry.
 
 - **v1.7.4** (30 Sep 2026): One-arm zero variances now count as variance imbalance (infinite ratios use `.a`); both-arm constants retain their undefined VR convention. Weighted balance normalizes each covariate's available-case weights within each arm, preserving diagnostics under extreme positive rescaling. Crump trimming selects the first empirical inequality crossing on an ascending 0.001 grid through 0.500 and errors if no crossing retains observations. Balance row headers now say `SMD status` to distinguish the row's SMD check from the panel verdict.
 

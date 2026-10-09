@@ -328,7 +328,7 @@ StataCorp. Stata Base Reference Manual: ci (Methods and formulas, Poisson mean).
 
 {phang}
 Ulm K. 1990. A simple method to calculate the confidence interval of a standardized mortality ratio
-(SMR). American Journal of Epidemiology 131: 373-375.
+(SMR). American Journal of Epidemiology 131: 373-375. doi:10.1093/oxfordjournals.aje.a115507.
 
 
 {marker author}{...}

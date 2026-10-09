@@ -310,11 +310,11 @@ date.{p_end}
 {phang}
 Kappos L, et al. Inclusion of brain volume loss in a revised measure of
 'no evidence of disease activity' (NEDA-4) in relapsing-remitting
-multiple sclerosis. {it:Multiple Sclerosis Journal}. 2016;22(10):1297{c -}1305.
+multiple sclerosis. {it:Multiple Sclerosis Journal}. 2016;22(10):1297{c -}1305. doi:10.1177/1352458515616701
 
 {phang}
 Confavreux C, Vukusic S. Natural history of multiple sclerosis: a unifying
-concept. {it:Brain}. 2006;129(3):606{c -}616.
+concept. {it:Brain}. 2006;129(3):606{c -}616. doi:10.1093/brain/awl007
 
 
 {marker author}{...}

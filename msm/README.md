@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.11** | 2026-09-30
+**Version 1.4.12** | 2026-10-09
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 
@@ -496,6 +496,8 @@ These are export commands. Their durable output is the Excel workbook; they do n
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.4.12** (2026-10-09): Help References now give a DOI for every entry.
 
 - **1.4.11** (2026-09-30): Failed `msm_prepare` and `msm_weight` calls restore the caller's original sort metadata as well as its physical row order. Protocol descriptions retain literal quotes, macro-like text and Unicode in display, returned text and exported files. Report text and CSV numbers retain the requested decimal precision. Failed predictions preserve the caller's RNG state, returned results and prediction identifier counter. Weighting preserves active estimation results and restores caller returned results, RNG state and the identifier counter on failure. Guard and operational refusals in the dispatcher, preparation, validation, diagnosis, fitting, plotting, reporting, protocol and sensitivity commands preserve caller returned results. Validation retains its documented findings on a completed strict check. Commands that temporarily sort data restore the original sort keys and row order.
 

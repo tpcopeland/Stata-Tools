@@ -468,11 +468,11 @@ When {cmd:validate} is specified, additional scalars are stored:
 
 {pstd}Andersen PK, Gill RD. Cox's regression model for counting processes: a
 large sample study. {it:Annals of Statistics}. 1982;10(4):1100–1120
-doi 10.1214/aos/1176345976.{p_end}
+doi:10.1214/aos/1176345976.{p_end}
 
 {pstd}Prentice RL, Williams BJ, Peterson AV. On the regression analysis of
 multivariate failure time data. {it:Biometrika}. 1981;68(2):373–379
-doi 10.1093/biomet/68.2.373.{p_end}
+doi:10.1093/biomet/68.2.373.{p_end}
 
 {title:Also see}
 

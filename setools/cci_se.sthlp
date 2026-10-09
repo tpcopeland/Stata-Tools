@@ -70,6 +70,12 @@ automatically from each row's {opt date()} value, so diagnosis records spanning
 decades of registry data can be processed in a single call.
 
 {pstd}
+The code lists follow the 2023 corrigendum to that article (Ludvigsson et al.
+2023), which adds K70.9 to the ICD-10 mild liver codes, deletes ICD-9 code 173
+from the cancer codes, deletes ICD-10 Z11.4 from the AIDS codes, and replaces
+Z71.1 with Z71.7.
+
+{pstd}
 {bf:What you need:} Long-format data with one or more rows per patient, where each
 row represents a diagnosis record. You supply a patient ID, one or more string
 variables containing ICD codes, and a date variable.
@@ -387,7 +393,12 @@ Sweden. {it:Clinical Epidemiology}. 2021;13:21{c -}41. doi:10.2147/CLEP.S282475 
 {phang}
 Charlson ME, Pompei P, Ales KL, MacKenzie CR. A new method of classifying
 prognostic comorbidity in longitudinal studies: development and
-validation. {it:Journal of Chronic Diseases}. 1987;40(5):373{c -}383. {p_end}
+validation. {it:Journal of Chronic Diseases}. 1987;40(5):373{c -}383. doi:10.1016/0021-9681(87)90171-8 {p_end}
+
+{phang}
+Ludvigsson JF, Appelros P, Askling J, et al. Adaptation of the Charlson
+comorbidity index for register-based research in Sweden [Corrigendum].
+{it:Clinical Epidemiology}. 2023;15:753{c -}754. doi:10.2147/CLEP.S425901 {p_end}
 
 
 {marker author}{...}

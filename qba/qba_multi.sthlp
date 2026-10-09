@@ -312,13 +312,13 @@ replicates are invalid, suggesting the distributions may be too wide.
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 12.
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 12. doi:10.1007/978-3-030-82673-4
 
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative
 bias analysis for misclassified binary variables and binary unmeasured
-confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633.
+confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633. doi:10.1093/ije/dyad053
 
 
 {title:Author}

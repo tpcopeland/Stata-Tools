@@ -756,7 +756,7 @@ the numerator: P(treatment)/P(treatment | covariates) for treated subjects and
 (1-P(treatment))/(1-P(treatment | covariates)) for untreated
 subjects. Stabilization reduces weight variability without changing the
 estimand. This is the stabilized weight of Robins, Hernan & Brumback
-(2000); note that the FIPTIW papers below write the treatment weight in its
+(2000) and of Hernan and Robins (2020, chapter 12); note that the FIPTIW papers below write the treatment weight in its
 {it:unstabilized} form (1/e and 1/(1-e)), so the weight {cmd:iivw_weight} reports is
 proportional to theirs within each treatment arm, not identical to it.
 
@@ -1347,7 +1347,7 @@ variables. {it:Canadian Journal of Statistics}
 {phang}
 Hertz-Picciotto I, Rockhill B. 1997. Validity and efficiency of approximation
 methods for tied survival times in Cox regression. {it:Biometrics}
-53(3): 1151-1156.
+53(3): 1151-1156. doi:10.2307/2533573.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with
@@ -1360,6 +1360,15 @@ Coulombe J, Moodie EEM, Platt RW. 2021. Weighted regression analysis to correct
 for informative monitoring times and confounders in longitudinal
 studies. {it:Biometrics}
 77(1): 162-174. doi:10.1111/biom.13285.
+
+{phang}
+Crump RK, Hotz VJ, Imbens GW, Mitnik OA. 2009. Dealing with limited overlap in
+estimation of average treatment effects. {it:Biometrika}
+96(1): 187-199. doi:10.1093/biomet/asn055.
+
+{phang}
+Hernan MA, Robins JM. 2020. {it:Causal Inference: What If}. Boca Raton:
+Chapman & Hall/CRC.
 
 {phang}
 Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal

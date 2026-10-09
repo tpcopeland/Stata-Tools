@@ -1,4 +1,4 @@
-*! _tabtools_flatframe Version 2.6.0  2026/10/08
+*! _tabtools_flatframe Version 2.6.1  2026/10/09
 *! Flatten a regtab/effecttab display dataset for frame(name, flat)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

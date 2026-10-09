@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.5  06oct2026}
+{* *! version 4.3.6  09oct2026}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -434,7 +434,7 @@ data subject to irregular observation. {it:Statistics in Medicine}
 
 {phang}
 Pullenayegum EM. 2026. IrregLong: Analysis of longitudinal data with irregular
-observation times. R package version 0.4.1. CRAN.
+observation times. R package version 0.4.1. CRAN. doi:10.32614/cran.package.irreglong.
 
 
 {marker results}{...}
@@ -464,7 +464,7 @@ answer.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.5, 2026-10-06{p_end}
+{pstd}Version 4.3.6, 2026-10-09{p_end}
 
 
 {title:Also see}

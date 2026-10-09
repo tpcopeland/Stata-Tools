@@ -1,7 +1,7 @@
 v 3
 d 'SIMTAB': Publication-ready Monte Carlo simulation performance tables
 d Timothy P Copeland, Karolinska Institutet
-d Distribution-Date: 20260930
+d Distribution-Date: 20261009
 d License: MIT
 f simtab.ado
 f simtab.sthlp

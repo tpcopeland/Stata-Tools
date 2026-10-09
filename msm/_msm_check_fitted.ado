@@ -1,4 +1,4 @@
-*! _msm_check_fitted Version 1.4.11  2026/09/30
+*! _msm_check_fitted Version 1.4.12  2026/10/09
 *! Require a complete, current, dataset-owned fitted model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.4  30sep2026}{...}
+{* *! version 1.7.5  09oct2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -1296,30 +1296,32 @@ Timothy P Copeland, Karolinska Institutet{p_end}
 Austin, P. C. (2009). Balance diagnostics for comparing the distribution
 of baseline covariates between treatment groups in propensity-score matched
 samples. {it:Statistics in Medicine}, 28(25), 3083-3107.
+doi:10.1002/sim.3697.
 
 {phang}
 Austin, P. C. (2011). An introduction to propensity score methods for reducing
 the effects of confounding in observational
-studies. {it:Multivariate Behavioral Research}, 46(3), 399-424.
+studies. {it:Multivariate Behavioral Research}, 46(3), 399-424. doi:10.1080/00273171.2011.568786.
 
 {phang}
 Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009). Dealing with
 limited overlap in estimation of average treatment effects. {it:Biometrika}, 96(1),
-187-199.
+187-199. doi:10.1093/biomet/asn055.
 
 {phang}
 Li, F., & Li, F. (2019). Propensity score weighting for causal inference with
-multiple treatments. {it:Annals of Applied Statistics}, 13(4), 2389-2415.
+multiple treatments. {it:Annals of Applied Statistics}, 13(4), 2389-2415. doi:10.1214/19-aoas1282.
 
 {phang}
 McCaffrey, D. F., Griffin, B. A., Almirall, D., Slaughter, M. E., Ramchand,
 R., & Burgette, L. F. (2013). A tutorial on propensity score estimation for
 multiple treatments using generalized boosted models. {it:Statistics in Medicine},
-32(19), 3388-3414.
+32(19), 3388-3414. doi:10.1002/sim.5753.
 
 {phang}
 Greifer, N. (2026). {it:cobalt: Covariate balance tables and plots}. R package
 documentation. {browse "https://ngreifer.github.io/cobalt/":https://ngreifer.github.io/cobalt/}.
+doi:10.32614/CRAN.package.cobalt.
 
 
 {title:Also see}

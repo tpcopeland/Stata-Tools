@@ -1,4 +1,4 @@
-*! _iivw_endpoint Version 4.3.5  2026/10/06
+*! _iivw_endpoint Version 4.3.6  2026/10/09
 *! End-of-follow-up policy shared by every command that builds the
 *! Andersen-Gill visit risk set: the exact maxfu() scalar token, and each
 *! subject's effective end of follow-up compared with its last visit.

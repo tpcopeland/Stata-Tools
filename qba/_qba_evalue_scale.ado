@@ -1,4 +1,4 @@
-*! _qba_evalue_scale Version 1.1.4  2026/09/30
+*! _qba_evalue_scale Version 1.1.5  2026/10/09
 *! Internal helper: report which VanderWeele-Ding Table 2 scale an E-value used
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

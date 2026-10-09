@@ -1,4 +1,4 @@
-*! tvtools Version 1.17.7  2026/10/01
+*! tvtools Version 1.17.8  2026/10/09
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Department of Clinical Neuroscience, Karolinska Institutet

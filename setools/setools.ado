@@ -1,4 +1,4 @@
-*! setools Version 1.5.9  2026/10/02
+*! setools Version 1.5.10  2026/10/09
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -260,7 +260,7 @@ across separate releases.{p_end}
 {pstd}{cmd:crosstab} offers two trend tests, and they answer different questions. {opt trend}
 runs a {bf:Spearman rank-correlation} test — a general ordinal-by-ordinal
 association across the ordered column levels — and is the right default when
-both variables are ordinal. {opt cochran} runs the classic {bf:Cochran-Armitage} test for
+both variables are ordinal. {opt cochran} runs the classic {bf:Cochran-Armitage} test (Armitage 1955) for
 a {bf:linear trend in a binary outcome across an ordered exposure}: {it:rowvar} must be
 binary (the outcome), and the ordered {it:colvar} supplies the column
 scores. Column scores are the numeric {it:colvar} values, so recoding {it:colvar} (for
@@ -351,6 +351,13 @@ With {opt smallcells()}, a protected {cmd:r(N)} is returned as {cmd:.p} or
 frame carries characteristics {cmd:tabtools_smallcells},
 {cmd:tabtools_suppression_codes}, and
 {cmd:tabtools_suppression_scope}.{p_end}
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Armitage P. 1955. Tests for linear trends in proportions and frequencies.
+{it:Biometrics} 11: 375-386. doi:10.2307/3001775.{p_end}
 
 {marker alsosee}{title:Also see}
 

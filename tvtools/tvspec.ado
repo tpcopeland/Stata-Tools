@@ -1,4 +1,4 @@
-*! tvspec Version 1.17.7  2026/10/01
+*! tvspec Version 1.17.8  2026/10/09
 *! Build a tvbuild specification frame one source at a time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

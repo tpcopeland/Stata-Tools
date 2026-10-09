@@ -801,7 +801,7 @@ such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd
 
 {phang}Austin PC. Balance diagnostics for comparing the distribution of baseline
 covariates between treatment groups in propensity-score matched
-samples. Statistics in Medicine 2009; 28: 3083-3107.{p_end}
+samples. Statistics in Medicine 2009; 28: 3083-3107. doi:10.1002/sim.3697.{p_end}
 {phang}Lopez MJ, Gutman R. Estimation of causal effects with multiple treatments: a
 review and new ideas. Statistical Science
 2017; 32: 432-454. doi:10.1214/17-STS612.{p_end}

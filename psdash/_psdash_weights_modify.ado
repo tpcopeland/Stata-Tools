@@ -1,4 +1,4 @@
-*! _psdash_weights_modify Version 1.7.4  2026/09/30
+*! _psdash_weights_modify Version 1.7.5  2026/10/09
 *! Create trimmed, truncated, or stabilized weights
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper

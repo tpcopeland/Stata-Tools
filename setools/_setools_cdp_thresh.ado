@@ -1,4 +1,4 @@
-*! _setools_cdp_thresh Version 1.5.9  2026/10/02
+*! _setools_cdp_thresh Version 1.5.10  2026/10/09
 *! setools internal: EDSS progression threshold column from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -9,7 +9,7 @@
 * per-row threshold column to create.
 *
 * Two-tier (default, backward compatible): >=1.0 if baseline <=5.5, else >=0.5.
-* Three-tier (Lublin 2014 / Kappos consensus): >=1.5 if baseline 0,
+* Three-tier (Kappos et al. 2018): >=1.5 if baseline 0,
 *   >=1.0 if baseline 1.0-5.5, >=0.5 if baseline >5.5.
 
 program define _setools_cdp_thresh, nclass

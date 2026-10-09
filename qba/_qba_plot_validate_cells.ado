@@ -1,4 +1,4 @@
-*! _qba_plot_validate_cells Version 1.1.4  2026/09/30
+*! _qba_plot_validate_cells Version 1.1.5  2026/10/09
 *! Internal helper: validate qba_plot 2x2 cell options
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,6 +1,6 @@
 # diagtab — Diagnostic accuracy and cutoff analysis
 
-**Version 2.0.2** | 2026-09-30
+**Version 2.0.3** | 2026-10-09
 
 `diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
 
@@ -164,6 +164,8 @@ Run `demo/demo_diagtab.do` from a repository checkout to regenerate `demo/demo_d
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
 
 - **2.0.2** (2026-09-30): Filename preflight now examines the actual quoted path and reports invalid characters accurately. Existing refusal of quote characters and shell metacharacters is retained; filenames with spaces and Unicode remain accepted. Diagnostic calculations and cold helper loading preserve caller native S_1–S_6 globals and matastrict. Titles and footnotes retain literal macro-looking bytes in table and export contents. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure.
 

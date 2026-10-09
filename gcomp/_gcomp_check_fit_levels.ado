@@ -1,4 +1,4 @@
-*! _gcomp_check_fit_levels Version 2.0.2  2026/09/30
+*! _gcomp_check_fit_levels Version 2.0.3  2026/10/09
 *! Reject prediction levels absent from the actual component estimation sample
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

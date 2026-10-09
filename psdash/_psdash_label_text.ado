@@ -1,4 +1,4 @@
-*! _psdash_label_text Version 1.7.4  2026/09/30
+*! _psdash_label_text Version 1.7.5  2026/10/09
 *! Inert, verbatim display text for a treatment level's value label
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

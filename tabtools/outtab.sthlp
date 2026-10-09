@@ -266,7 +266,7 @@ observed; {cmd:N_cc} below {cmd:n1}+{cmd:n0} is listwise loss),
 
 {phang}
 Zou G. 2004. A modified Poisson regression approach to prospective studies with binary
-data. American Journal of Epidemiology 159: 702-706.
+data. American Journal of Epidemiology 159: 702-706. doi:10.1093/aje/kwh090.
 
 
 {marker author}{...}

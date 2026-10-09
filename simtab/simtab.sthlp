@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.2  2026/09/30}{...}
+{* *! version 2.0.3  09oct2026}{...}
 {viewerjumpto "Package" "simtab##package"}{...}
 {viewerjumpto "Syntax" "simtab##syntax"}{...}
 {viewerjumpto "Description" "simtab##description"}{...}
@@ -446,10 +446,12 @@ publish the analytical results, including output-side failures.
 {title:References}
 
 {pstd}Morris TP, White IR, Crowther MJ. Using simulation studies to evaluate
-statistical methods. {it:Stat Med}. 2019;38(11):2074-2102.{p_end}
+statistical methods. {it:Stat Med}. 2019;38(11):2074-2102.
+doi:10.1002/sim.8086.{p_end}
 
 {pstd}White IR. simsum: Analyses of simulation studies including Monte Carlo
-error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
+error. {it:Stata Journal}. 2010;10(3):369-385.
+doi:10.1177/1536867x1001000305.{p_end}
 
 {pstd}siman (UCL): the analysis-and-graph suite for simulation studies,
 {browse "https://github.com/UCL/siman":github.com/UCL/siman}.{p_end}
@@ -465,6 +467,6 @@ error. {it:Stata Journal}. 2010;10(3):369-385.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.2, 2026-09-30{p_end}
+{pstd}Version 2.0.3, 2026-10-09{p_end}
 
 {hline}

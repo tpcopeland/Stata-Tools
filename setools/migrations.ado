@@ -1,4 +1,4 @@
-*! migrations Version 1.5.9  2026/10/02
+*! migrations Version 1.5.10  2026/10/09
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 *! Author: Timothy P Copeland, Karolinska Institutet

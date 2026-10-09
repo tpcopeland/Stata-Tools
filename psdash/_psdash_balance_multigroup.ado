@@ -1,4 +1,4 @@
-*! _psdash_balance_multigroup Version 1.7.4  2026/09/30
+*! _psdash_balance_multigroup Version 1.7.5  2026/10/09
 *! Multi-group covariate balance statistics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _gcomp_split_interventions Version 2.0.2  2026/09/30
+*! _gcomp_split_interventions Version 2.0.3  2026/10/09
 *! Split only top-level arm commas, retaining Stata expression bytes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

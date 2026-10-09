@@ -644,7 +644,8 @@ subject is retained in the Fine-Gray risk set. An {it:internal} time-varying
 covariate is not known there: the subject has failed from another cause, and
 its covariate path has no meaning after that. {cmd:finegray} refuses records
 whose covariates vary within {cmd:id()} for that reason, and {opt tvc()} does
-not change it. Bellach et al. (2019) ground that limitation. See
+not change it. Bellach et al. (2019), Austin, Latouche and Fine (2020), and
+Poguntke et al. (2018) ground that limitation. See
 {helpb stcox} for a cause-specific model when internal time-varying covariates
 are scientifically appropriate.
 
@@ -1448,6 +1449,13 @@ model analyses for competing risk data. {it:Statistics in Medicine} 2017; 36(27)
 {pstd}{browse "https://doi.org/10.1002/sim.7501":doi:10.1002/sim.7501}{p_end}
 
 {pstd}
+Austin PC, Latouche A, Fine JP. A review of the use of time-varying covariates
+in the Fine-Gray subdistribution hazard competing risk regression model.
+{it:Statistics in Medicine} 2020; 39(2): 103-113.
+
+{pstd}{browse "https://doi.org/10.1002/sim.8399":doi:10.1002/sim.8399}{p_end}
+
+{pstd}
 Austin PC, Lee DS, Fine JP. Introduction to the analysis of survival data in
 the presence of competing risks. {it:Circulation} 2016; 133(6): 601-609.
 
@@ -1511,6 +1519,13 @@ with cumulative sums of residuals. {it:Lifetime Data Analysis} 2015; 21(2): 197-
 (online 2014).
 
 {pstd}{browse "https://doi.org/10.1007/s10985-014-9313-9":doi:10.1007/s10985-014-9313-9}{p_end}
+
+{pstd}
+Poguntke I, Schumacher M, Beyersmann J, Wolkewitz M. Simulation shows
+undesirable results for competing risks analysis with time-dependent covariates
+for clinical outcomes. {it:BMC Medical Research Methodology} 2018; 18: 79.
+
+{pstd}{browse "https://doi.org/10.1186/s12874-018-0535-5":doi:10.1186/s12874-018-0535-5}{p_end}
 
 {pstd}
 Wogu AF, Zhao S, Nichols HB, Cai J. Proportional subdistribution hazards

@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 2.0.2** | 2026-09-30
+**Version 2.0.3** | 2026-10-09
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 
@@ -450,6 +450,8 @@ Monte Carlo and finite-bootstrap error are sampling approximations. `saving()` w
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+- **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
 
 - **2.0.2** (2026-09-30): Failed `gcomp` calls restore the caller's RNG state, including structural-input refusals after `seed()` validation and errors after partial simulation. Failed calls also retain caller scalar, macro and matrix results in `r()`. Successful simulations retain their draw order. Successful and failed calls preserve caller-owned native reshape and legacy component-result global macros. Intervention expressions retain nested function commas and quoted commas when separating regimes. Categorical intervention assignments refuse categories absent from the original analytic data, including assignments produced by dynamic simulated histories. Component predictions also refuse factor levels absent from their actual estimation sample. Successful and failed calls retain the caller's Mata strict-mode setting. Component tables honor `noeform` when displaying native coefficients, preserve a configured closed `putexcel` context, and refuse an open caller workbook before export. Failed table calls retain caller scalar, macro and matrix results in `r()`.
 

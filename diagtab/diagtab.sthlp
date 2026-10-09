@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.2  30sep2026}{...}
+{* *! version 2.0.3  09oct2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -310,23 +310,28 @@ denominators are nonzero.{p_end}
 {phang}
 Clopper, C. J., and E. S. Pearson. 1934. The use of confidence or fiducial
 limits illustrated in the case of the binomial. {it:Biometrika} 26: 404-413.
+doi:10.1093/biomet/26.4.404.
 
 {phang}
 DeLong, E. R., D. M. DeLong, and D. L. Clarke-Pearson. 1988. Comparing the
 areas under two or more correlated receiver operating characteristic curves: A
 nonparametric approach. {it:Biometrics} 44: 837-845.
+doi:10.2307/2531595.
 
 {phang}
 Glas, A. S., J. G. Lijmer, M. H. Prins, G. J. Bonsel,
 and P. M. M. Bossuyt. 2003. The diagnostic odds ratio: A single indicator of
 test performance. {it:Journal of Clinical Epidemiology} 56: 1129-1135.
+doi:10.1016/s0895-4356(03)00177-x.
 
 {phang}
 Wilson, E. B. 1927. Probable inference, the law of succession, and statistical
 inference. {it:Journal of the American Statistical Association} 22: 209-212.
+doi:10.1080/01621459.1927.10502953.
 
 {phang}
 Youden, W. J. 1950. Index for rating diagnostic tests. {it:Cancer} 3: 32-35.
+doi:10.1002/1097-0142(1950)3:1<32::aid-cncr2820030106>3.0.co;2-3.
 
 {marker alsosee}{title:Also see}
 
@@ -338,6 +343,6 @@ Youden, W. J. 1950. Index for rating diagnostic tests. {it:Cancer} 3: 32-35.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.2, 2026-09-30{p_end}
+{pstd}Version 2.0.3, 2026-10-09{p_end}
 
 {hline}

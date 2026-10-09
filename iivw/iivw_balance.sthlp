@@ -12,6 +12,7 @@
 {viewerjumpto "Interpreting results" "iivw_balance##interpreting"}{...}
 {viewerjumpto "Examples" "iivw_balance##examples"}{...}
 {viewerjumpto "Stored results" "iivw_balance##results"}{...}
+{viewerjumpto "What is and is not sourced" "iivw_balance##sourcing"}{...}
 {viewerjumpto "References" "iivw_balance##references"}{...}
 {viewerjumpto "Author" "iivw_balance##author"}{...}
 {title:Title}
@@ -550,11 +551,11 @@ flag. Rows with {cmd:modeled} = 1 set {cmd:r(balance_max_tsmd)} and
 Entries are missing when the refit that supports the target did not complete.
 
 
-{marker references}{...}
-{title:References}
+{marker sourcing}{...}
+{title:What is and is not sourced}
 
 {pstd}
-{bf:What is and is not sourced.} The weights being diagnosed come from
+The weights being diagnosed come from
 Buzkova & Lumley (2007) (see {helpb iivw_weight}). The effective sample size is
 Kish's, {it:ESS} = (sum of weights)^2 / (sum of squared weights).
 
@@ -577,6 +578,10 @@ distribution it is supposed to represent -- rather than the earlier
 weighted-versus-unweighted movement, but the cut is still a rule of thumb, not
 a validated threshold. Treat {cmd:r(leverage)} and {cmd:r(balance_flag)} as
 descriptive summaries, not as tests.
+
+
+{marker references}{...}
+{title:References}
 
 {phang}
 Buzkova P, Lumley T. 2007. Longitudinal data analysis for generalized linear

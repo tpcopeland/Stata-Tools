@@ -1,4 +1,4 @@
-*! _desctab_collect Version 2.6.0  2026/10/08
+*! _desctab_collect Version 2.6.1  2026/10/09
 *! Consolidated aggregation helper for desctab and table1_tc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

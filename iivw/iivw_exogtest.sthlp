@@ -552,7 +552,7 @@ variables. {it:Canadian Journal of Statistics}
 {phang}
 Hertz-Picciotto I, Rockhill B. 1997. Validity and efficiency of approximation
 methods for tied survival times in Cox regression. {it:Biometrics}
-53(3): 1151-1156.
+53(3): 1151-1156. doi:10.2307/2533573.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004. Analysis of longitudinal data with

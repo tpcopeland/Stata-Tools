@@ -220,7 +220,7 @@ RR = 1.5 with treatment and RR = 2.0 with the outcome?{p_end}
 {phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational
 research: introducing the
-E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
+E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274. doi:10.7326/m16-2607.
 
 
 {marker author}{...}

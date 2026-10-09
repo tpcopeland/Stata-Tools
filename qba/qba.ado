@@ -1,4 +1,4 @@
-*! qba Version 1.1.4  2026/09/30
+*! qba Version 1.1.5  2026/10/09
 *! Quantitative Bias Analysis toolkit for epidemiologic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
