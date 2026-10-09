@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.4.11  2026/09/30
+*! msm_diagnose Version 1.4.12  2026/10/09
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

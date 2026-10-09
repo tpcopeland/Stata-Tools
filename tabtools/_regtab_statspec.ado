@@ -1,4 +1,4 @@
-*! _regtab_statspec Version 2.6.0  2026/10/08
+*! _regtab_statspec Version 2.6.1  2026/10/09
 *! parse stats() e(name) items and statlabels()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

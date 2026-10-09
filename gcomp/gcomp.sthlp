@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.2  30sep2026}{...}
+{* *! version 2.0.3  09oct2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -1099,10 +1099,12 @@ and {cmd:K+1} is the simulated observed regime. The dataset characteristic
 Daniel RM, De Stavola BL, Cousens SN (2011). gformula: Estimating causal
 effects in the presence of time-varying confounding or mediation using the
 g-computation formula. {it:The Stata Journal} 11(4):479-517.
+doi:10.1177/1536867X1201100401.
 
 {phang}
 Daniel RM, De Stavola BL, Cousens SN, Vansteelandt S (2015). Causal
 mediation analysis with multiple mediators. {it:Biometrics} 71(1):1-14.
+doi:10.1111/biom.12248.
 
 {phang}
 StataCorp LLC (2025). {it:nbreg — Negative binomial regression}.{break}
@@ -1112,11 +1114,13 @@ StataCorp LLC (2025). {it:nbreg — Negative binomial regression}.{break}
 Robins JM (1986). A new approach to causal inference in mortality studies with
 a sustained exposure period — application to control of the healthy worker
 survivor effect. {it:Mathematical Modelling} 7(9-12):1393-1512.
+doi:10.1016/0270-0255(86)90088-6.
 
 {phang}
 Taubman SL, Robins JM, Mittleman MA, Hernan MA (2009). Intervening on risk
 factors for coronary heart disease: an application of the parametric
 g-formula. {it:International Journal of Epidemiology} 38(6):1599-1611.
+doi:10.1093/ije/dyp192.
 
 {phang}
 VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediation}
@@ -1130,7 +1134,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 2.0.2, 2026-09-30{p_end}
+{pstd}Version 2.0.3, 2026-10-09{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

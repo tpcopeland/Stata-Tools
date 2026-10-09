@@ -1,4 +1,4 @@
-*! _diagtab_common Version 2.0.2  2026/09/30
+*! _diagtab_common Version 2.0.3  2026/10/09
 *! Shared utility programs for diagtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 

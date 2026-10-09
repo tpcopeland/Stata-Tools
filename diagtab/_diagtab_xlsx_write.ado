@@ -1,4 +1,4 @@
-*! _diagtab_xlsx_write Version 2.0.2  2026/09/30
+*! _diagtab_xlsx_write Version 2.0.3  2026/10/09
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

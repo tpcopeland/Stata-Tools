@@ -543,17 +543,17 @@ substantially reduced usable information.{p_end}
 {pstd}
 Hernan MA, Brumback B, Robins JM. 2000. Marginal structural models to estimate
 the causal effect of zidovudine on the survival of HIV-positive men. {it:Epidemiology}
-11(5): 561-570. Grounds the stabilized IPTW/IPCW construction, the
+11(5): 561-570. doi:10.1097/00001648-200009000-00012. Grounds the stabilized IPTW/IPCW construction, the
 within-period censor-first timing, the numerator contract, and the smooth
 time-dependent intercept (p. 564).
 
 {pstd}
 Robins JM, Hernan MA, Brumback B. 2000. Marginal structural models and causal
-inference in epidemiology. {it:Epidemiology} 11(5): 550-560.
+inference in epidemiology. {it:Epidemiology} 11(5): 550-560. doi:10.1097/00001648-200009000-00011.
 
 {pstd}
 Cole SR, Hernan MA. 2008. Constructing inverse probability weights for
-marginal structural models. {it:American Journal of Epidemiology} 168(6): 656-664. Grounds
+marginal structural models. {it:American Journal of Epidemiology} 168(6): 656-664. doi:10.1093/aje/kwn164. Grounds
 the probability-support policy and repair disclosure.
 
 

@@ -169,7 +169,7 @@ within the unit:
 | Source | Weight trimmed | Unit in that paper |
 |---|---|---|
 | **Lee, Lessler & Stuart 2011**, PLOS ONE 6(3):e18174 (held, open access) | point-treatment PS weight | subject — "N = 500 observations", and it equates the words directly: "persons, roughly 12 observations" |
-| **Crump, Hotz, Imbens & Mitnik 2009**, Biometrika 96(1):187–199 (not held) | point-treatment PS | discards **units** by propensity score |
+| **Crump, Hotz, Imbens & Mitnik 2009**, Biometrika 96(1):187–199 (held, manuscript copy) | point-treatment PS | discards **units** by propensity score |
 | **Stürmer et al.** (not held) | point-treatment PS | percentiles of the treated/untreated PS **distributions** ⇒ subjects |
 | **Cole & Hernán 2008** (held, no PDF) | MSM weight — a **time-varying cumulative product** | person-time **record** |
 

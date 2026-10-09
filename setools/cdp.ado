@@ -1,4 +1,4 @@
-*! cdp Version 1.5.9  2026/10/02
+*! cdp Version 1.5.10  2026/10/09
 *! Confirmed Disability Progression from baseline EDSS
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -8,7 +8,7 @@ Confirmed Disability Progression (CDP) Algorithm:
 
 1. Baseline EDSS: First measurement within baselinewindow of diagnosis date
    (or earliest available if none within window)
-2. Progression threshold (two-tier default; threetier for Lublin/Kappos rule):
+2. Progression threshold (two-tier default; threetier for Kappos 2018 rule):
    - two-tier:  ≥1.0 if baseline ≤5.5, ≥0.5 if baseline >5.5
    - threetier: ≥1.5 if baseline 0, ≥1.0 if 1.0-5.5, ≥0.5 if >5.5
 3. Confirmation (confirmtype): sustained (min of all later EDSS, default) or

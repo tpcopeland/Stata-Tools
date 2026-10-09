@@ -1,5 +1,6 @@
 * crossval_bstrata.do - cross-validation of bstrata() against crrSC::crrs
 * Package: finegray
+* Reference software (corpus row): reference-software-crrSC-1.1.2
 *
 * crrs() is the reference implementation of Zhou, Latouche, Rocha & Fine (2011),
 * "Competing risks regression for stratified data", Biometrics 67(2):661-670 --

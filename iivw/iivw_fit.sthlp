@@ -1539,6 +1539,11 @@ irregular, outcome-dependent follow-up. {it:Journal of the Royal Statistical}
 66(3): 791-813. doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
+Rabe-Hesketh S, Skrondal A. 2006. Multilevel modelling of complex survey data.
+{it:Journal of the Royal Statistical Society: Series A (Statistics in Society)}
+169(4): 805-827. doi:10.1111/j.1467-985X.2006.00426.x.
+
+{phang}
 Saul BC, Hudgens MG. 2020. The calculus of M-estimation in R with geex. {it:Journal of Statistical Software} 92(2).
 
 {phang}

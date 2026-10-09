@@ -493,7 +493,8 @@ limits illustrated in the case of the binomial. {it:Biometrika}
 
 {phang}
 Thulin, M. 2014. The cost of using exact confidence intervals for a binomial
-proportion. {it:Electronic Journal of Statistics} 8: 817-840.{p_end}
+proportion. {it:Electronic Journal of Statistics} 8: 817-840.
+{browse "https://doi.org/10.1214/14-ejs909"}.{p_end}
 
 
 {marker author}{...}

@@ -1,4 +1,4 @@
-*! _msm_timefixed Version 1.4.11  2026/09/30
+*! _msm_timefixed Version 1.4.12  2026/10/09
 *! Identify variables that are not exactly time-fixed within identifier
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

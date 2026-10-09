@@ -241,11 +241,11 @@ uncertainty is strongly recommended.
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 4.
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 4. doi:10.1007/978-3-030-82673-4
 
 {phang}
 Greenland S. Basic methods for sensitivity analysis of
-biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
+biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116. doi:10.1093/ije/25.6.1107
 
 
 {title:Author}

@@ -40,30 +40,30 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | --- | --- | --- | --- |
 | [comorbidity](comorbidity) | Charlson, Elixhauser, or custom scores from wide ICD-10 fields, with hierarchy rules and component indicators | ![version](https://img.shields.io/badge/version-1.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [pygrid](pygrid) | Person-period denominator grids with zero-filled event attachment (`pygrid`, `pyattach`) | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--30-brightgreen) |
-| [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.9-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
-| [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.17.7-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--01-brightgreen) |
+| [setools](setools) | Swedish registry tools: Swedish Charlson index, ICD-7 to ICD-10 (`cci_se`), migration exclusions and censoring (`migrations`), MS progression endpoints (`sustainedss`, `cdp`, `pira`) | ![version](https://img.shields.io/badge/version-1.5.10-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [tvtools](tvtools) | Time-varying exposure datasets for survival analysis: exposure episodes (`tvexpose`), merges (`tvmerge`), events (`tvevent`), IPTW/IPCW weights (`tvweight`), age bands, and diagnostics | ![version](https://img.shields.io/badge/version-1.17.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
 
 ### Causal inference and survival
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [cstat_surv](cstat_surv) | Harrell's C after `stcox`, with a leave-one-out jackknife SE and CI | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic | ![version](https://img.shields.io/badge/version-1.3.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--07-brightgreen) |
-| [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.3.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--06-brightgreen) |
-| [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.11-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
+| [finegray](finegray) | Fast Fine-Gray competing-risks regression, with prediction, cumulative incidence, and a proportional subdistribution hazards diagnostic | ![version](https://img.shields.io/badge/version-1.3.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [gcomp](gcomp) | Parametric g-computation for time-varying confounding and mediation; `gcomptab` tabulates the results | ![version](https://img.shields.io/badge/version-2.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [iivw](iivw) | Inverse-intensity (IIW), IPTW, and combined FIPTIW weighting for irregularly timed visits, with diagnostics for informative visit processes | ![version](https://img.shields.io/badge/version-4.3.6-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [msm](msm) | Marginal structural models with IPTW, end to end: prepare, weight, diagnose, fit, predict, sensitivity analysis, report | ![version](https://img.shields.io/badge/version-1.4.12-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [psdash](psdash) | Propensity score diagnostics: overlap, balance (SMD, Love plot), weight distribution, common support; after `teffects`, `logit`/`probit`, `msm`, and more | ![version](https://img.shields.io/badge/version-1.7.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [qba](qba) | Quantitative bias analysis for misclassification, selection bias, and unmeasured confounding: simple or probabilistic, chainable, plotted | ![version](https://img.shields.io/badge/version-1.1.5-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
 
 ### Tables and reporting
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
-| [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
+| [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
 | [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.1.9-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
-| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.6.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--08-brightgreen) |
+| [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
+| [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.6.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
 
 ### Graphics
 

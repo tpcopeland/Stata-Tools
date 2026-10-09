@@ -1,4 +1,4 @@
-*! outtab Version 2.6.0  2026/10/08
+*! outtab Version 2.6.1  2026/10/09
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

@@ -1,4 +1,4 @@
-*! _msm_uuid Version 1.4.11  2026/09/30
+*! _msm_uuid Version 1.4.12  2026/10/09
 *! Mint a session-unique artifact identifier for MSM pipeline stages
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

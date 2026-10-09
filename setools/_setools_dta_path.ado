@@ -1,4 +1,4 @@
-*! _setools_dta_path Version 1.5.9  2026/10/02
+*! _setools_dta_path Version 1.5.10  2026/10/09
 *! setools internal: canonicalize an effective Stata dataset path
 *! Author: Timothy P Copeland, Karolinska Institutet
 

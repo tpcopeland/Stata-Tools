@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.17.7** | 2026-10-01
+**Version 1.17.8** | 2026-10-09
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -470,6 +470,10 @@ Result names below are returned in `r()` after successful execution; option-depe
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.17.8 (2026-10-09)
+
+- Help References give DOIs in the standard `doi:` form.
 
 ### 1.17.7 (2026-10-01)
 

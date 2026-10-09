@@ -1,4 +1,4 @@
-*! qba_plot Version 1.1.4  2026/09/30
+*! qba_plot Version 1.1.5  2026/10/09
 *! Visualization for quantitative bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

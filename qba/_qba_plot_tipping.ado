@@ -1,4 +1,4 @@
-*! _qba_plot_tipping Version 1.1.4  2026/09/30
+*! _qba_plot_tipping Version 1.1.5  2026/10/09
 *! Internal helper: qba tipping plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

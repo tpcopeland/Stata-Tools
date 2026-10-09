@@ -77,7 +77,7 @@ instead.{p_end}
 EDSS. By default a {bf:two-tier} rule is used:{p_end}
 {phang3}{hline 2} Baseline EDSS {ul:<}= 5.5: requires {ul:>}= 1.0 point increase{p_end}
 {phang3}{hline 2} Baseline EDSS > 5.5: requires {ul:>}= 0.5 point increase{p_end}
-{phang2}With {opt threetier}, the canonical Lublin (2014) / Kappos three-tier rule
+{phang2}With {opt threetier}, the three-tier rule of Kappos et al. (2018)
 is used instead: {ul:>}= 1.5 if baseline is 0, {ul:>}= 1.0 if baseline is 1.0-5.5,
 {ul:>}= 0.5 if baseline > 5.5.{p_end}
 
@@ -137,8 +137,8 @@ which to search for the baseline EDSS measurement. The default is {cmd:730}
 available measurement is used.
 
 {phang}
-{opt threetier} applies the canonical Lublin (2014) / Kappos three-tier
-progression threshold ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
+{opt threetier} applies the three-tier progression threshold of
+Kappos et al. (2018) ({ul:>}= 1.5 if baseline EDSS is 0, {ul:>}= 1.0 if 1.0-5.5,
 {ul:>}= 0.5 if > 5.5). Without it, the two-tier rule ({ul:>}= 1.0 if {ul:<}= 5.5,
 {ul:>}= 0.5 if > 5.5) is used. The default is two-tier for backward
 compatibility; choose {opt threetier} to match modern phase-3 MS trial protocols.
@@ -317,20 +317,16 @@ analysis or logistic regression.{p_end}
 {title:References}
 
 {pstd}
-Lublin FD, Reingold SC, Cohen JA, et al. 2014. Defining the clinical course of
-multiple sclerosis: the 2013 revisions. {it:Neurology} 83: 278-286.
-
-{pstd}
 Kappos L, Butzkueven H, Wiendl H, et al. 2018. Greater sensitivity to multiple
 sclerosis disability worsening and progression events using a roving versus a
 fixed reference value in a prospective cohort
-study. {it:Multiple Sclerosis Journal} 24: 963-973.
+study. {it:Multiple Sclerosis Journal} 24: 963-973. doi:10.1177/1352458517709619
 
 {pstd}
 Kappos L, Wolinsky JS, Giovannoni G, et al. 2020. Contribution of
 relapse-independent progression vs relapse-associated worsening to overall
 confirmed disability accumulation in typical relapsing multiple sclerosis in a
-pooled analysis of 2 randomized clinical trials. {it:JAMA Neurology} 77: 1132-1140.
+pooled analysis of 2 randomized clinical trials. {it:JAMA Neurology} 77: 1132-1140. doi:10.1001/jamaneurol.2020.1568
 
 
 {marker author}{...}

@@ -1,4 +1,4 @@
-*! _msm_tbl_sens Version 1.4.11  2026/09/30
+*! _msm_tbl_sens Version 1.4.12  2026/10/09
 *! Author: Timothy P Copeland, Karolinska Institutet
 program define _msm_tbl_sens, nclass
     version 16.0

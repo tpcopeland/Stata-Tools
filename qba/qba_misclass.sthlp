@@ -461,17 +461,17 @@ inflated back to the source population before the correction:
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 6.
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. Chapter 6. doi:10.1007/978-3-030-82673-4
 
 {phang}
 Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity
 analyses of misclassified binary
-variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376.
+variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376. doi:10.1093/ije/dyi184
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. SAS and R code for probabilistic quantitative
 bias analysis for misclassified binary variables and binary unmeasured
-confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633.
+confounders. {it:Int J Epidemiol}. 2023;52(5):1624-1633. doi:10.1093/ije/dyad053
 
 
 {title:Author}

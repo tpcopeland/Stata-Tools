@@ -1,4 +1,4 @@
-*! _iivw_fit_replay Version 4.3.5  2026/10/06
+*! _iivw_fit_replay Version 4.3.6  2026/10/09
 *! Replay a stored iivw_fit result, including asymmetric bootstrap intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass (displays only; touches neither r() nor e())

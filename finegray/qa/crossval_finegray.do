@@ -1,5 +1,6 @@
 * crossval_finegray.do - Cross-validation suite for finegray package
 * Tests: systematic vs stcrreg, strata, robust/cluster SEs, CIF, DGP, R oracles
+* Reference software (corpus row): reference-software-cmprsk-2.2-12
 * Package: finegray v1.2.0
 
 clear all

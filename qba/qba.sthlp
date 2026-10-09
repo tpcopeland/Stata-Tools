@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  30sep2026}{...}
+{* *! version 1.1.5  09oct2026}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -228,31 +228,31 @@ only reads that contract; it does not install or provide those commands.
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021.
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. doi:10.1007/978-3-030-82673-4
 
 {phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational
-research: introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274.
+research: introducing the E-value. {it:Ann Intern Med}. 2017;167(4):268-274. doi:10.7326/M16-2607
 
 {phang}
 Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured
 confounders in epidemiologic database studies of
-therapeutics. {it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303.
+therapeutics. {it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303. doi:10.1002/pds.1200
 
 {phang}
 Fox MP, Lash TL, Greenland S. A method to automate probabilistic sensitivity
 analyses of misclassified binary
-variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376.
+variables. {it:Int J Epidemiol}. 2005;34(6):1370-1376. doi:10.1093/ije/dyi184
 
 {phang}
 Greenland S. Basic methods for sensitivity analysis of
-biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116.
+biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116. doi:10.1093/ije/25.6.1107
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.4, 2026-09-30{p_end}
+{pstd}Version 1.1.5, 2026-10-09{p_end}
 
 {hline}

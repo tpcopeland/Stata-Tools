@@ -1,5 +1,6 @@
 * crossval_finegray_zzf_ties.do - TIED delayed-entry data: Stata engine vs the
 * published ZZF weight (independent R construction) and survival::finegray
+* Reference software (corpus rows): reference-software-survival-3.8-6, reference-software-mstate-0.3.3
 * Package: finegray
 *
 * WHAT THIS ANSWERS.  crossval_finegray_zzf.do settles, on continuous data,

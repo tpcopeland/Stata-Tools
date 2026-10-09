@@ -327,7 +327,7 @@ parameters are held at their baseline values ({opt base_p1()},
 
 {phang}
 Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
-{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021.
+{it:Epidemiologic Data}. 2nd ed. Cham: Springer; 2021. doi:10.1007/978-3-030-82673-4
 
 
 {title:Author}

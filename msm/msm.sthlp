@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.11  30sep2026}{...}
+{* *! version 1.4.12  09oct2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -348,21 +348,21 @@ or weighted mean difference, but do not expect those fits to work with
 
 {phang}
 Robins JM, Hernan MA, Brumback B. Marginal structural models and causal
-inference in epidemiology. {it:Epidemiology}. 2000;11(5):550-560.
+inference in epidemiology. {it:Epidemiology}. 2000;11(5):550-560. doi:10.1097/00001648-200009000-00011.
 
 {phang}
 Hernan MA, Brumback B, Robins JM. Marginal structural models to estimate the
 causal effect of zidovudine on the survival of HIV-positive
-men. {it:Epidemiology}. 2000;11(5):561-570.
+men. {it:Epidemiology}. 2000;11(5):561-570. doi:10.1097/00001648-200009000-00012.
 
 {phang}
 Cole SR, Hernan MA. Constructing inverse probability weights for marginal
-structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
+structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664. doi:10.1093/aje/kwn164.
 
 {phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational
 research: introducing the
-E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
+E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274. doi:10.7326/m16-2607.
 
 {phang}
 Hernan MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman &

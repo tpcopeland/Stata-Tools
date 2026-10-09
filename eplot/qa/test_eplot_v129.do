@@ -21,6 +21,9 @@ local failed_tests ""
 **# Estimates-mode numerical contracts
 
 **## Finite residual degrees of freedom use t inference
+* Contract source (corpus key stata-ereturn): [P] ereturn, dof(#): e(df_r) selects t
+* statistics for the displayed significance levels and intervals; absent e(df_r),
+* normal statistics apply.
 local ++test_count
 capture noisily {
     sysuse auto, clear

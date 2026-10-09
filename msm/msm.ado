@@ -1,4 +1,4 @@
-*! msm Version 1.4.11  2026/09/30
+*! msm Version 1.4.12  2026/10/09
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

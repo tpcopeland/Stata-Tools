@@ -1,4 +1,4 @@
-*! _gcomp_check_categorical Version 2.0.2  2026/09/30
+*! _gcomp_check_categorical Version 2.0.3  2026/10/09
 *! Refuse categorical intervention values absent from the original analytic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -131,7 +131,7 @@ variance of the difference is the sum of the group-specific Greenwood RMST
 variances; the CI and p-value are returned as {cmd:r(rmst_diff_se)},
 {cmd:r(rmst_diff_lb)}, {cmd:r(rmst_diff_ub)}, and {cmd:r(rmst_diff_p)}. The RMST
 difference (and its CI) is the interpretable, proportional-hazards-free
-between-group contrast, in the same time units as {opt rmst()}.{p_end}
+between-group contrast (Royston and Parmar 2013), in the same time units as {opt rmst()}.{p_end}
 
 {phang}
 {opt level(#)} sets the confidence level used for median survival, RMST, and
@@ -330,6 +330,15 @@ each returned group.{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}survival estimates at each timepoint by group{p_end}
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Royston P, Parmar MKB. 2013. Restricted mean survival time: an alternative to the
+hazard ratio for the design and analysis of randomized trials with a time-to-event
+outcome. {it:BMC Medical Research Methodology} 13: 152.
+doi:10.1186/1471-2288-13-152.{p_end}
 
 {marker alsosee}{title:Also see}
 

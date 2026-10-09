@@ -210,7 +210,7 @@ the existing file.
 
 {phang}
 Robins JM, Hernan MA, Brumback B. Marginal structural models and causal
-inference in epidemiology. {it:Epidemiology}. 2000;11(5):550-560.
+inference in epidemiology. {it:Epidemiology}. 2000;11(5):550-560. doi:10.1097/00001648-200009000-00011.
 
 {phang}
 Hernan MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman &

@@ -431,12 +431,12 @@ contract.
 {phang}
 Hernan, M. A., B. Brumback, and J. M. Robins. 2000. Marginal structural models
 to estimate the causal effect of zidovudine on the survival of HIV-positive
-men. {it:Epidemiology} 11: 561-570.
+men. {it:Epidemiology} 11: 561-570. doi:10.1097/00001648-200009000-00012.
 {p_end}
 
 {phang}
 Robins, J. M., M. A. Hernan, and B. Brumback. 2000. Marginal structural models
-and causal inference in epidemiology. {it:Epidemiology} 11: 550-560.
+and causal inference in epidemiology. {it:Epidemiology} 11: 550-560. doi:10.1097/00001648-200009000-00011.
 {p_end}
 
 

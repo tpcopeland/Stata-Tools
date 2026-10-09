@@ -1,4 +1,4 @@
-*! _tvbuild_carry_meta Version 1.17.7  2026/10/01
+*! _tvbuild_carry_meta Version 1.17.8  2026/10/09
 *! Carry display format, labels, value labels, and characteristics between frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
