@@ -34,6 +34,8 @@ capture program drop _eplot_calc_range
 capture program drop _eplot_effect_axis_labels
 capture program drop _eplot_build_reflines
 capture program drop _eplot_build_favors
+capture program drop _eplot_effect_title
+capture program drop _eplot_axis_line
 capture program drop _eplot_value_margin
 capture program drop _eplot_apply_coeflabels
 capture program drop _eplot_apply_keep

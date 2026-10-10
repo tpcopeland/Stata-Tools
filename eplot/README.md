@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.5.1** | 2026-10-10
+**Version 1.6.0** | 2026-10-10
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -264,14 +264,14 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 |--------|-------|----------------------|
 | `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
 | `logscale` | D, E, M, F | Draw the effect axis on a logarithmic scale with multiplicative padding and decade ticks; all plotted values, `null()`, and `xline()` positions must be positive, and the null defaults to 1 |
-| `rescale(#)` | D, E, M, F | Nonmissing, nonzero multiplier for estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
-| `xline(numlist[, line_options label(strlist)])` | D, E, M, F | Add reference lines; bare positions use a light dashed style; `label()` gives one label per line, drawn at the top of the plot beside the line (a row above the header with `values`; beside the first row in vertical layout) |
+| `rescale(#)` | D, E, M, F | Nonmissing, nonzero multiplier for estimates and limits on the estimation scale (with `eform`, `rescale(10)` plots `exp(10*b)`); negative factors preserve lower/upper ordering; default is `1` |
+| `xline(numlist[, line_options label(strlist[, size() color() placement()])])` | D, E, M, F | Add reference lines; repeatable, one style per occurrence; bare positions use a light dashed style; `label()` gives one label per line, drawn at the top of the plot beside the line (left of it in the right half of the axis; a row above the header with `values`; beside the first row in vertical layout) |
 | `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation; the axis range extends to every numeric tick; draws no grid (including a scheme grid) unless its suboptions include `grid` |
 | `nogrid` | D, E, M, F | Suppress the grid `eplot` draws with its default ticks |
-| `null(#)` | D, E, M, F | Nonmissing null line position; default is `0`, or `1` with `eform` |
+| `null(#[, line_options])` | D, E, M, F | Nonmissing null line position; default is `0`, or `1` with `eform`; line options replace the dashed gray style; not drawn when off the axis |
 | `nonull` | D, E, M, F | Suppress the null line |
-| `level(#)` | E, M | Confidence level for constructed intervals; default is current `c(level)`, normally 95 |
-| `noci` | D, E, M, F | Suppress all interval geometry: whiskers are omitted and data/frame pooled rows are drawn as markers rather than diamonds |
+| `level(#)` | D, E, M, F | Confidence level for constructed intervals; default is current `c(level)`, normally 95; in data/frame mode it only labels the default title, which reads 95 without it |
+| `noci` | D, E, M, F | Suppress all interval geometry: whiskers are omitted and data/frame pooled rows are drawn as markers rather than diamonds; the axis ranges on the point estimates |
 | `cicap` | D, E, M, F | Use capped `rcap` intervals instead of `rspike` |
 
 ### Display, significance, and meta-analysis
@@ -279,19 +279,21 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `dp(#)` | D, E, M, F | Nonnegative decimal places for `values`; default is `2` |
-| `effect(string)` | D, E, M, F | Effect-axis title, and the `values` header unless `vtitle()` is set; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
+| `effect(string[, atnull])` | D, E, M, F | Effect-axis title, and the `values` header unless `vtitle()` is set; `atnull` centres the title under the null on its own row (size and color from `xtitle()`); data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
 | `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%5.2f`, or a format based on `dp()` |
 | `vsize(textsizestyle)`, `vcolor(colorstyle)` | D, E single, M, F | `values` text size and color; defaults are `vsmall` and `gs4`; `vsize(small)` matches the row labels |
 | `vtitle(string)` | D, E single, M, F | Header above the `values` column; default is the `effect()` text |
 | `vmissing(string)` | D, F | `values` text on type 2 (missing/excluded) rows; default is `Not estimated`; `vmissing("")` leaves them blank; string `reference` rows stay blank |
+| `baselevels`, `vreference(string)` | E single | Show factor base levels as reference rows (no marker); `values` text `1.00 (reference)` with `eform`, `0.00 (reference)` otherwise, or `vreference()`; not in `r(k)`/`r(table)` |
 | `labsize(textsizestyle)` | D, E, M, F | Row-label size; default is `small` |
 | `stars` | D, E single, M 2-column, F | Append p-value stars to `values`; data mode requires `pvalue()`, while frame mode uses `pvalue()` or an auto-detected `pvalue` variable |
 | `sigcolors` | D, E single, M, F | Color single-model effects by whether the interval excludes `null()`; multi-model estimates use `palette()` colors |
 | `sigcolor(color)` | D, E single, M, F | Significant-effect color when `sigcolors` is set; default is `cranberry` |
 | `insigncolor(color)` | D, E single, M, F | Non-significant-effect color when `sigcolors` is set; default is `gs10` |
-| `favors(left right[, ends below arrows])` | D, E, M, F | Directional labels for a horizontal effect axis: centred either side of the null by default, `ends` at the axis ends, `below` under the tick labels, `arrows` adds direction arrows; a null outside the plotted range moves centred labels to the ends |
+| `favors(left right[, ends below arrows size() color() gap()])` | D, E, M, F | Directional labels for a horizontal effect axis: centred on each half of the labelled tick span by default, in the tick-label size, `ends` at the axis ends, `below` under the tick labels (`gap()` sets the spacing), `arrows` adds direction arrows, `size()`/`color()` style the text; a null not strictly inside the tick span moves centred labels to the ends |
 | `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text as-is to the graph note; values are not computed |
+| `hetrow` | D, F | Show the heterogeneity text as a row (`I² = …, τ² = …, Q = …`) under the last overall row instead of in the note |
 | `style(name)` | D, E, M, F | Presets: `forest`, `coef`, `lancet`, `jama`, `nejm`, and `bmj`; explicit options override preset defaults |
 
 ### Layout and model comparison
@@ -299,10 +301,10 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `horizontal` / `vertical` | D, E, M, F | Horizontal is the default; the two orientations are mutually exclusive |
-| `sort` | D, E, M, F | Sort regular effects by estimate; may not be combined with `order()` |
-| `order(coeflist)` | D, E, M, F | Explicit order; unmatched names are placed last; may not be combined with `sort` |
+| `sort` | D, E, M, F | Sort regular effects by estimate within their block (between header, pooled, and blank rows, and within each `groups()` list); global without such rows; may not be combined with `order()` |
+| `order(coeflist)` | D, E, M, F | Explicit order; unlisted rows follow in their original order; a name that matches nothing exits with `r(198)`; may not be combined with `sort` |
 | `modellabels(strlist)` | E multi | Exactly one legend label per model |
-| `offset(#)` | E multi | Nonmissing, nonnegative vertical model spacing; default is `0.15` |
+| `offset(#)` | E multi | Nonmissing, nonnegative vertical model spacing; default is `0.15`, reduced with more than five models so a coefficient's models span at most 0.6 rows |
 | `palette(colorlist)` | E multi | Exactly one color per model; the default palette `navy cranberry forest_green dkorange purple teal maroon olive_teal` cycles for a ninth model onward |
 | `legendopts(string)` | E multi | Additional legend options; default is `rows(1) pos(6) size(small)` |
 
@@ -316,11 +318,13 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `boxscale(#)` | D, F | Nonmissing, positive weighted-box scaling; default is `100` percent |
 | `nobox` | D, F | Replace weight-proportional squares with standard markers |
 | `nodiamonds` | D, F | Replace pooled-effect diamonds with standard markers |
+| `diamondcolor(overall [subgroup])` | D, F | Diamond outline colors; default `black` and `maroon` |
 | `cicolor(color)` | D, E, M, F | CI line color; default follows `mcolor()` in single-model plots, while multi-model estimates use `palette()` colors |
 | `ciwidth(lwstyle)` | D, E, M, F | CI line width; default is `medium` |
 | `title(string)`, `subtitle(string)`, `note(string)` | D, E, M, F | Graph title, subtitle, and note |
 | `name(string)`, `saving(filename)`, `scheme(schemename)` | D, E, M, F | Graph name, saved graph path, and scheme |
-| `plotregion(options)`, `graphregion(options)`, `aspect(#)` | D, E, M, F | Standard Stata graph-region and aspect options |
+| `plotregion(options)`, `graphregion(options)`, `aspect(#)` | D, E, M, F | Standard Stata graph-region and aspect options; with `values`, `plotregion()` is merged with the values-column margin |
+| `export(frame[, replace])` | D, E, M, F | Write the plotted rows (label, estimate, ll, ul, pos, and type, weight, model_id, pvalue, values where available) to a frame that `eplot, frame()` reads back; the values are as plotted, so add `null(1)` (and `logscale`) after `eform` |
 | `xscale()`, `yscale()` | D, E, M, F | Axis style suboptions such as `lcolor()`, `lwidth()`, `fextend`, `line` are merged into the axes `eplot` builds; `range()`, `log`, `nolog`, `reverse`, `noreverse`, and `axis()` exit with `r(198)` |
 | `twoway` options | D, E, M, F | Other options are appended to the generated `twoway` command |
 
@@ -368,6 +372,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.6.0** (2026-10-10): `effect("...", atnull)` centres the effect-axis title under the null on its own row (drawn as the label of a second effect axis with the same range and scale), rather than on the plot region, which with `values` runs on under the values column; `xtitle(, size() color())` still styles it. `favors()` labels are now centred on each half of the labelled tick span rather than between the null and the data edges, use the effect-axis tick-label size (an `xlabel(, labsize())` size, or the scheme's tick-label style) instead of a fixed `vsmall`, and take `size()`, `color()`, and, with `below`, `gap()`; a null on a tick-span end moves them to the axis ends with a note. With `values`, `eplot` draws the effect axis line itself so it stops at the end of the effect range instead of running under the values column, forwarding `xscale()` line styling. From a design review: `rescale()` with `eform` now multiplies the coefficient before exponentiating (`exp(10*b)`, where it had plotted `10*exp(b)`); `sort` keeps each effect within its header, pooled-row, or `groups()` block instead of moving rows under another block's header; a null line outside the axis is no longer emitted (twoway drew it unclipped), and `favors()` widens the range to the null; a user `plotregion()` is merged with the values-column margin instead of clipping the column; a repeated `xline()` is validated, ranged, and styled like the first; an `order()` name that matches nothing exits with r(198); `noci` ranges on the point estimates. New: `null(#, line_options)`, `baselevels` and `vreference()`, `diamondcolor()`, `hetrow`, `export()`, `level()` labelling in data and frame modes, and `xline(..., label(..., size() color() placement()))`; labels of lines in the right half of the axis read leftward. With `values`, a default axis title drops the " (95% CI)" that the column header carries; with more than five models the default `offset()` shrinks; narrow `logscale` ranges get default ticks symmetric about the null; in-plot `favors()` text sits on a white box.
 - **1.5.1** (2026-10-10): `eform` now follows Stata's rule for which parameters are exponentiated (the first `e(k_eform)` equations, default the first), so cutpoints, variance components, and ancillary parameters are no longer exponentiated onto a ratio axis; parameters in the `/` equation are omitted in estimates mode, where they had been plotted with a symmetric Wald interval and a p-value Stata does not report. Plotting named estimates no longer clears active results posted by `ereturn post` without `e(cmd)`, and `eplot .` accepts them. `rename()` mapping two coefficients of one model to the same name now exits with r(198) instead of merging them onto one row, and a `coeflabels()` or variable label equal to another coefficient's name is no longer relabelled a second time. Frame mode checks an `in` range against the `frame()` source rather than the active dataset. The effect axis now reaches every `xline()` position and a point estimate outside its interval; such lines had been drawn off the plot region at rc 0, and a null line outside the data range is now reported with a note. `logscale` refuses a nonpositive point estimate or `xlabel()` tick, and `vformat()` must be a numeric format. Multi-model `r(table)` rows follow display order, and the constant-suppressed note prints only when a constant is dropped.
 - **1.5.0** (2026-10-10): New `vsize()`, `vcolor()`, and `labsize()` set the `values` text and row-label styling (the values had been fixed one size below the labels), and `vtitle()` heads the values column separately from the `effect()` axis title. Type 2 rows print `Not estimated` in the values column, configurable with `vmissing()`. `xscale()`/`yscale()` now accept axis style suboptions such as `lcolor()`, `lwidth()`, and `fextend`; only geometry suboptions (`range()`, `log`, `reverse`, `axis()` and their negations) are refused. A user `xlabel()` now suppresses a grid the scheme would draw unless it asks for `grid`, and `nogrid` removes the default grid. `xline()` takes `label()` to label each line at the top of the plot (a row above the values header with `values`). The effect axis now extends to every numeric tick, user-supplied or default, on linear and `logscale` axes, so ticks outside the data are no longer drawn off a log axis or dropped; identical `xlabel()` lists whose outermost ticks lie beyond each panel's data give panels a common range when `values` is off. `favors()` takes `ends`, `below`, and `arrows`; when `null()` lies outside the plotted range, centred favors labels, which had been placed off the axis and silently not drawn, now move to the axis ends with a note.
 

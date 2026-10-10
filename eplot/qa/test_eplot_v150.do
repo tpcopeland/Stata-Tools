@@ -122,9 +122,12 @@ capture noisily {
     assert !missing(r(size), `lab_size')
     assert reldif(r(size), `lab_size') < 1e-6
     assert "`r(fill)'" == "#000000"
-    * The column header follows vsize() too.
+    * The column header follows vsize() too.  1.6.0: with values the default
+    * axis title drops the " (95% CI)" the header carries.
     _v150_svgtext, graph(v150_t2) text("Estimate (95% CI)")
-    assert r(n) == 2
+    assert r(n) == 1
+    _v150_svgtext, graph(v150_t2) text("Estimate")
+    assert r(n) == 1
     * An RGB triplet is drawn as specified, not as the default color.
     eplot es lo hi, labels(lab) type(t) values null(1) vcolor("255 0 0") ///
         name(v150_t2c, replace)
@@ -391,14 +394,15 @@ else {
 
 **# favors() placement
 
-**## Default placement is unchanged; ends anchors labels at the axis ends
+**## Default centred placement; ends anchors labels at the axis ends
+* 1.6.0: favors() text takes the tick_label style (was size(vsmall)).
 local ++test_count
 capture noisily {
     use `v150_base', clear
     eplot es lo hi, labels(lab) type(t) null(1) favors("Shorter" "Longer") ///
         name(v150_t12, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', `"`"Shorter"', size(vsmall) color(gs5) placement(c))"') > 0
+    assert strpos(`"`cmd'"', `"`"Shorter"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
     assert strpos(`"`cmd'"', "range(0 7))") > 0
     eplot es lo hi, labels(lab) type(t) null(1) ///
         favors("Shorter" "Longer", ends) name(v150_t12b, replace)
@@ -406,8 +410,8 @@ capture noisily {
     assert regexm(`"`cmd'"', "xscale\(range\(([^ ]+) ([^)]+)\)\)")
     local xlo = regexs(1)
     local xhi = regexs(2)
-    assert strpos(`"`cmd'"', `"text(6.5 `xlo' `"Shorter"', size(vsmall) color(gs5) placement(e))"') > 0
-    assert strpos(`"`cmd'"', `"text(6.5 `xhi' `"Longer"', size(vsmall) color(gs5) placement(w))"') > 0
+    assert strpos(`"`cmd'"', `"text(6.5 `xlo' `"Shorter"', tstyle(tick_label) color(gs5) placement(e))"') > 0
+    assert strpos(`"`cmd'"', `"text(6.5 `xhi' `"Longer"', tstyle(tick_label) color(gs5) placement(w))"') > 0
 }
 if _rc == 0 local ++pass_count
 else {
@@ -462,13 +466,21 @@ local ++test_count
 capture noisily {
     use `v150_base', clear
     keep if t == 1 & es > 1
-    eplot es lo hi, labels(lab) favors("Left" "Right") name(v150_t14, replace)
+    * 1.6.0: favors() widens the range to the null, so the labels centre on
+    * each side of it; with nonull the range is not widened and the labels
+    * still move to the axis ends.
+    eplot es lo hi, labels(lab) favors("Left" "Right") name(v150_t14a, replace)
+    local cmd `"`r(cmd)'"'
+    assert regexm(`"`cmd'"', "xscale\(range\(([^ ]+) ([^)]+)\)\)")
+    assert real(regexs(1)) < 0
+    assert strpos(`"`cmd'"', `"`"Left"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
+    eplot es lo hi, labels(lab) nonull favors("Left" "Right") name(v150_t14, replace)
     local cmd `"`r(cmd)'"'
     assert regexm(`"`cmd'"', "xscale\(range\(([^ ]+) ([^)]+)\)\)")
     local xlo = regexs(1)
     local xhi = regexs(2)
-    assert strpos(`"`cmd'"', `"`xlo' `"Left"', size(vsmall) color(gs5) placement(e))"') > 0
-    assert strpos(`"`cmd'"', `"`xhi' `"Right"', size(vsmall) color(gs5) placement(w))"') > 0
+    assert strpos(`"`cmd'"', `"`xlo' `"Left"', tstyle(tick_label) color(gs5) placement(e))"') > 0
+    assert strpos(`"`cmd'"', `"`xhi' `"Right"', tstyle(tick_label) color(gs5) placement(w))"') > 0
 }
 if _rc == 0 local ++pass_count
 else {
@@ -718,8 +730,8 @@ capture noisily {
     assert r(n) == 1
     local y_lab = r(y)
     _v150_svgtext, graph(v150_t21) text("Estimate (95% CI)")
-    assert r(n) == 2
-    * Bold header is the first match; its baseline is lower on the page.
+    assert r(n) == 1
+    * The header's baseline is lower on the page than the label's.
     assert !missing(r(y), `y_lab')
     assert !missing(`y_lab', r(y))
     assert `y_lab' < r(y)

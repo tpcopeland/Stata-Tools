@@ -1089,26 +1089,33 @@ else {
 capture graph drop _v2_t46
 
 * Test 47: Data-mode sort keeps non-effect rows in their original slots
+* 1.6.0: pooled and blank rows bound sort blocks, and effects are sorted
+* within each block (pre-1.6.0 they were sorted across the blocks).
 local ++test_count
 capture noisily {
     clear
     input str10 study double(es lci uci) byte type
     "A"        3  2.5  3.5  1
+    "D"        0.5 0.2 0.8  1
     "Overall"  9  8.0 10.0  5
     "B"        1  0.5  1.5  1
     "Blank"    .    .    .  6
     "C"        2  1.5  2.5  1
+    "E"        1.5 1.2 1.8  1
     end
     tempfile sort_input
     quietly save `sort_input'
     eplot es lci uci, labels(study) type(type) sort ///
         name(_v2_t47, replace)
     local sorted_rows : rownames r(table)
-    assert `"`sorted_rows'"' == "B Overall C A"
-    assert r(table)[1, 1] == 1
-    assert r(table)[2, 1] == 9
-    assert r(table)[3, 1] == 2
-    assert r(table)[4, 1] == 3
+    * Each block is sorted within itself: D before A, E before C.
+    assert `"`sorted_rows'"' == "D A Overall B E C"
+    assert r(table)[1, 1] == 0.5
+    assert r(table)[2, 1] == 3
+    assert r(table)[3, 1] == 9
+    assert r(table)[4, 1] == 1
+    assert r(table)[5, 1] == 1.5
+    assert r(table)[6, 1] == 2
     quietly ds
     local current_vars `r(varlist)'
     preserve

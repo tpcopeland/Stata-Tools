@@ -377,11 +377,12 @@ capture {
     end
 
     // Without eform: null should be at 0
-    eplot es lci uci, labels(study) null(0) name(val10a, replace)
+    // 1.6.0 omits an off-axis null line, so the axes reach the null.
+    eplot es lci uci, labels(study) null(0) xlabel(0(0.2)1) name(val10a, replace)
     local cmd0 `"`r(cmd)'"'
 
     // With eform: null should be at 1 (automatic)
-    eplot es lci uci, labels(study) eform name(val10b, replace)
+    eplot es lci uci, labels(study) eform xlabel(1 1.5 2 2.5) name(val10b, replace)
     local cmd1 `"`r(cmd)'"'
 
     assert r(N) == 1
