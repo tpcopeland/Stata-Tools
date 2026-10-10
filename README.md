@@ -69,7 +69,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
-| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.5.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--10-brightgreen) |
+| [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.5.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--10-brightgreen) |
 | [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.3.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--30-brightgreen) |
 | [spaghetti](spaghetti) | Individual trajectories over time, with optional group means and CIs | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--08--05-brightgreen) |

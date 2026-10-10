@@ -1,4 +1,4 @@
-*! eplot Version 1.5.0  2026/10/10
+*! eplot Version 1.5.1  2026/10/10
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -134,10 +134,21 @@ program define _eplot_parse_mode, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax [anything] [if] [in] [, Matrix(name) FRame(name) *]
+        // An in range belongs to the frame() source, so frame mode is decided
+        // before syntax checks the range against the caller's dataset.
+        local _input `"`0'"'
+        capture syntax [anything(everything)] [, Matrix(name) FRame(name) *]
+        local _frame_first = (_rc == 0 & "`frame'" != "" & "`matrix'" == "")
+        local 0 `"`_input'"'
+        if !`_frame_first' {
+            syntax [anything] [if] [in] [, Matrix(name) FRame(name) *]
+        }
 
         local _mode ""
-        if "`matrix'" != "" {
+        if `_frame_first' {
+            local _mode "frame"
+        }
+        else if "`matrix'" != "" {
             local _mode "matrix"
         }
         else if "`frame'" != "" {
@@ -218,6 +229,21 @@ program define _eplot_frame, rclass
     set varabbrev off
 
     capture noisily {
+        // Copy and enter the source frame before the full parse: syntax checks
+        // an in range against the current dataset, which must be the source.
+        local _input `"`0'"'
+        syntax [anything(everything)] , FRame(name) [*]
+        capture confirm frame `frame'
+        if _rc {
+            display as error "frame(`frame') not found"
+            exit 111
+        }
+        tempname _workframe
+        frame copy `frame' `_workframe'
+        local _frame_created 1
+        frame change `_workframe'
+
+        local 0 `"`_input'"'
         syntax [if] [in] , FRame(name) ///
             [ ///
             ESTimate(name) ///
@@ -232,12 +258,6 @@ program define _eplot_frame, rclass
             * ///
             ]
 
-        capture confirm frame `frame'
-        if _rc {
-            display as error "frame(`frame') not found"
-            exit 111
-        }
-
         if "`estimate'" == "" local estimate "estimate"
         if "`ll'" == "" local ll "ll"
         if "`ul'" == "" local ul "ul"
@@ -246,11 +266,6 @@ program define _eplot_frame, rclass
             display as error "specify only one of type() or rowtype()"
             exit 198
         }
-
-        tempname _workframe
-        frame copy `frame' `_workframe'
-        local _frame_created 1
-        frame change `_workframe'
 
         capture confirm numeric variable `estimate'
         if _rc {
@@ -640,6 +655,13 @@ program define _eplot_data, rclass
         }
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
+    // string() returns "" for a nonnumeric format, which would blank every
+    // value at rc=0.
+    capture confirm numeric format `vformat'
+    if _rc {
+        display as error "vformat() must be a valid numeric display format"
+        exit 198
+    }
     // Values-column and row-label text.  *# sizes resolve against eplot's
     // defaults (vsmall values, small labels), not the scheme's.
     if "`vcolor'" == "" local vcolor "gs4"
@@ -979,7 +1001,7 @@ program define _eplot_data, rclass
 
     // Determine plot range and effect-axis ticks
     _eplot_calc_range `lci' `uci' if inlist(`rowtype', 1, 3, 5), ///
-        extralow(`pi_lci') extrahigh(`pi_uci') `logscale'
+        extralow(`pi_lci') extrahigh(`pi_uci') point(`es') `logscale'
     local xmin = `s(min)'
     local xmax = `s(max)'
     local xrange = `s(range)'
@@ -998,10 +1020,18 @@ program define _eplot_data, rclass
     // The effect range must reach every labelled tick.  twoway widens a
     // linear axis to its labels, but on a log axis a tick outside range() is
     // drawn off the axis or dropped at rc=0, so eplot widens it itself.
-    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale' ///
+        xline(`xline')
     if "`s(min)'" != "" {
         if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
         if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
+    // The null line is not added to the range (a plot whose intervals all
+    // exclude it keeps its data range), so say when it cannot be drawn.  A
+    // values column already extends the right end past a null above the data.
+    if "`nonull'" == "" & (`null' < `xmin_pad' | (`null' > `xmax_pad' & ///
+        !("`values'" != "" & "`horizontal'" != ""))) {
+        display as text "(note: the null line at `null' lies outside the plotted range and is not drawn; include it in xlabel() or xline(), or specify nonull)"
     }
 
     // --- Values annotation ---
@@ -1034,7 +1064,7 @@ program define _eplot_data, rclass
         }
 
         _eplot_value_anchor, min(`xmin') max(`xmax') null(`null') gap(`vgap') ///
-            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+            axisopts(`"`_effect_axis_opts'"') xline(`xline') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
         _eplot_value_margin `val_text', header(`"`vtitle'"') scale(`_vscale')
@@ -1612,7 +1642,9 @@ program define _eplot_estimates, rclass
             local drop `"`drop' _cons"'
         }
 
-        // eform -> auto-suppress constant (exp(_cons) is not meaningful)
+        // eform -> auto-suppress constant (exp(_cons) is not meaningful).
+        // The note is printed after keep(), and only if a constant is dropped.
+        local _eform_cons 0
         if "`eform'" != "" & "`noconstant'" == "" {
             // Only add if not already in drop list
             local _has_cons 0
@@ -1621,7 +1653,7 @@ program define _eplot_estimates, rclass
             }
             if !`_has_cons' {
                 local drop `"`drop' _cons"'
-                display as text "(note: constant suppressed with eform)"
+                local _eform_cons 1
             }
         }
 
@@ -1823,6 +1855,13 @@ program define _eplot_estimates, rclass
             "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
         exit 198
     }
+    if `"`vformat'"' != "" {
+        capture confirm numeric format `vformat'
+        if _rc {
+            display as error "vformat() must be a valid numeric display format"
+            exit 198
+        }
+    }
     if "`vformat'" == "" local vformat "%5.`dp'f"
     // Values-column and row-label text.  *# sizes resolve against eplot's
     // defaults (vsmall values, small labels), not the scheme's.
@@ -1874,9 +1913,15 @@ program define _eplot_estimates, rclass
         }
     }
 
+    // Active results are identified by e(b) as well as e(cmd): ereturn post
+    // leaves e(cmd) empty, and those results must be neither refused nor
+    // cleared by the restore of a named model below.
+    capture confirm matrix e(b)
+    local had_est = (!_rc | "`e(cmd)'" != "")
+
     // Validate current estimates if needed
     if `dot_idx' > 0 {
-        if "`e(cmd)'" == "" {
+        if !`had_est' {
             display as error "no estimation results found"
             display as error "run a regression command first, or specify stored estimate names"
             exit 301
@@ -1884,7 +1929,6 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Save and extract current estimates before any restore ======
-    local had_est = ("`e(cmd)'" != "")
     if `had_est' {
         tempname __est_save
         _est hold `__est_save', copy
@@ -1914,6 +1958,7 @@ program define _eplot_estimates, rclass
         }
         matrix `b_dot' = e(b)
         matrix `V_dot' = e(V)
+        local _keform_dot "`e(k_eform)'"
         _eplot_coef_df, b(`b_dot') df(`dfv_dot')
     }
 
@@ -2062,6 +2107,14 @@ program define _eplot_estimates, rclass
         using `postfn', replace
     local _post_open 1
 
+    // Free parameters in the "/" equation (cutpoints, variances, ln_p,
+    // lnalpha, ...) are not effects: Stata reports them on their own
+    // metric, without a test, so they are never plotted.  Under eform only
+    // the equations Stata itself exponentiates are kept: the first
+    // e(k_eform) equations (default 1), as [R] ml display documents.
+    local _n_anc 0
+    local _n_noneform 0
+
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
 
@@ -2070,10 +2123,22 @@ program define _eplot_estimates, rclass
             local k = colsof(`b_dot')
             _eplot_matrix_coefnames, matrix(`b_dot')
             local names `"`s(names)'"'
+            _eplot_eform_eqs, matrix(`b_dot') keform(`_keform_dot')
+            local _eqs `"`s(eqs)'"'
+            local _eform_eqs `"`s(eform_eqs)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
+                local _eq_i : word `i' of `_eqs'
                 local this_var = `V_dot'[`i', `i']
+                if "`_eq_i'" == "/" {
+                    if `this_var' > 0 & !missing(`this_var') local ++_n_anc
+                    continue
+                }
+                if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
+                    if `this_var' > 0 & !missing(`this_var') local ++_n_noneform
+                    continue
+                }
                 if missing(`this_var') | `this_var' < 0 {
                     display as error "e(V) contains an invalid variance for coefficient `nm'"
                     exit 498
@@ -2123,10 +2188,22 @@ program define _eplot_estimates, rclass
             local k = colsof(`bm')
             _eplot_matrix_coefnames, matrix(`bm')
             local names `"`s(names)'"'
+            _eplot_eform_eqs, matrix(`bm') keform(`e(k_eform)')
+            local _eqs `"`s(eqs)'"'
+            local _eform_eqs `"`s(eform_eqs)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
+                local _eq_i : word `i' of `_eqs'
                 local this_var = `Vm'[`i', `i']
+                if "`_eq_i'" == "/" {
+                    if `this_var' > 0 & !missing(`this_var') local ++_n_anc
+                    continue
+                }
+                if "`eform'" != "" & !`: list _eq_i in _eform_eqs' {
+                    if `this_var' > 0 & !missing(`this_var') local ++_n_noneform
+                    continue
+                }
                 if missing(`this_var') | `this_var' < 0 {
                     display as error `"e(V) for '`est_name'' contains an invalid variance for coefficient `nm'"'
                     exit 498
@@ -2149,6 +2226,12 @@ program define _eplot_estimates, rclass
 
     postclose `posthn'
     local _post_open 0
+    if `_n_anc' > 0 {
+        display as text "(note: `_n_anc' ancillary parameter(s) in equation / omitted)"
+    }
+    if `_n_noneform' > 0 {
+        display as text "(note: `_n_noneform' parameter(s) outside the exponentiated equation(s) omitted with eform)"
+    }
 
     // Return to the caller's dataset before unholding so the hidden e(sample)
     // marker created by _est hold is present when the estimate is restored.
@@ -2180,6 +2263,10 @@ program define _eplot_estimates, rclass
     if `"`keep'"' != "" {
         _eplot_apply_keep coef_name, keep(`keep')
     }
+    if `_eform_cons' {
+        quietly count if coef_name == "_cons" | substr(coef_name, -6, .) == ":_cons"
+        if r(N) > 0 display as text "(note: constant suppressed with eform)"
+    }
     if `"`drop'"' != "" {
         _eplot_apply_drop coef_name, drop(`drop')
     }
@@ -2196,7 +2283,24 @@ program define _eplot_estimates, rclass
     // Apply rename (before groups/headers so group specs match renamed names)
     if `"`rename'"' != "" {
         _eplot_apply_rename coef_name, rename(`rename')
+        // rename() may align coefficients across models, but two
+        // coefficients of one model on one row would plot as a single effect.
+        tempvar _rn_dup _rn_row
+        quietly gen long `_rn_row' = _n
+        quietly bysort coef_name model_id : gen byte `_rn_dup' = (_N > 1)
+        sort `_rn_row'
+        quietly count if `_rn_dup'
+        if r(N) > 0 {
+            quietly levelsof coef_name if `_rn_dup', local(_rn_dupnames) clean
+            display as error `"rename() maps more than one coefficient of the same model to: `_rn_dupnames'"'
+            exit 198
+        }
+        drop `_rn_dup' `_rn_row'
     }
+    // Labels are matched on this immutable post-rename identity, so a label
+    // that equals another coefficient's name is never relabelled.
+    tempvar coef_key
+    quietly gen str244 `coef_key' = coef_name
 
     // ====== P-values (compute BEFORE eform) ======
     if `n_models' == 1 {
@@ -2330,6 +2434,9 @@ program define _eplot_estimates, rclass
     else {
         gen byte _rowtype = 1
         local n_items = `n_coefs'
+        // The merge above leaves rows in coefficient-name order; r(table)
+        // follows display order, as in single-model mode.
+        sort _base_pos model_id
 
         // Warn if groups/headers specified in multi-model mode
         if `"`groups'"' != "" | `"`headers'"' != "" | `gap' > 0 {
@@ -2339,21 +2446,22 @@ program define _eplot_estimates, rclass
 
     }
 
-    // ====== Apply coefficient labels (highest precedence) ======
-    // coeflabels() is applied FIRST, while coef_name still holds the original
-    // estimation names that coeflabels() keys on. The auto-label pass below
-    // then only touches coefficients coeflabels() did not rename, so a
-    // user-supplied label always wins over the variable-label default.
-    if `"`coeflabels'"' != "" {
-        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
-    }
-
-    // ====== Auto-label remaining coefficients from variable labels ======
+    // ====== Auto-label coefficients from variable labels ======
+    // Both label passes key on the immutable post-rename identity, never on
+    // coef_name, so a label equal to another coefficient's name is not
+    // matched again.  coeflabels() runs second, so a user-supplied label
+    // always wins over the variable-label default.  Header rows inserted by
+    // groups()/headers() have an empty key and are never relabelled.
     if `_n_autolabels' > 0 {
         forvalues _ai = 1/`_n_autolabels' {
             quietly replace coef_name = `"`_autoval_`_ai''"' ///
-                if coef_name == `"`_autokey_`_ai''"'
+                if `coef_key' == `"`_autokey_`_ai''"'
         }
+    }
+
+    // ====== Apply coefficient labels (highest precedence) ======
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels') key(`coef_key')
     }
 
     // ====== Significance stars (string labels from pre-eform p-values) ======
@@ -2395,10 +2503,18 @@ program define _eplot_estimates, rclass
     // The effect range must reach every labelled tick.  twoway widens a
     // linear axis to its labels, but on a log axis a tick outside range() is
     // drawn off the axis or dropped at rc=0, so eplot widens it itself.
-    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale' ///
+        xline(`xline')
     if "`s(min)'" != "" {
         if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
         if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
+    // The null line is not added to the range (a plot whose intervals all
+    // exclude it keeps its data range), so say when it cannot be drawn.  A
+    // values column already extends the right end past a null above the data.
+    if "`nonull'" == "" & (`null' < `xmin_pad' | (`null' > `xmax_pad' & ///
+        !("`values'" != "" & "`horizontal'" != ""))) {
+        display as text "(note: the null line at `null' lies outside the plotted range and is not drawn; include it in xlabel() or xline(), or specify nonull)"
     }
 
     // ====== Values annotation (single-model only) ======
@@ -2419,7 +2535,7 @@ program define _eplot_estimates, rclass
             if _rowtype == 1 & !missing(es)
 
         _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
-            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+            axisopts(`"`_effect_axis_opts'"') xline(`xline') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
@@ -2973,7 +3089,9 @@ program define _eplot_matrix, rclass
             local drop `"`drop' _cons"'
         }
 
-        // eform -> auto-suppress constant (exp(_cons) is not meaningful)
+        // eform -> auto-suppress constant (exp(_cons) is not meaningful).
+        // The note is printed after keep(), and only if a constant is dropped.
+        local _eform_cons 0
         if "`eform'" != "" & "`noconstant'" == "" {
             local _has_cons 0
             foreach _d of local drop {
@@ -2981,7 +3099,7 @@ program define _eplot_matrix, rclass
             }
             if !`_has_cons' {
                 local drop `"`drop' _cons"'
-                display as text "(note: constant suppressed with eform)"
+                local _eform_cons 1
             }
         }
 
@@ -3072,6 +3190,13 @@ program define _eplot_matrix, rclass
             local effect "Estimate (`level'% CI)"
         }
     }
+    if `"`vformat'"' != "" {
+        capture confirm numeric format `vformat'
+        if _rc {
+            display as error "vformat() must be a valid numeric display format"
+            exit 198
+        }
+    }
     if "`vformat'" == "" local vformat "%5.`dp'f"
     // Values-column and row-label text.  *# sizes resolve against eplot's
     // defaults (vsmall values, small labels), not the scheme's.
@@ -3123,7 +3248,7 @@ program define _eplot_matrix, rclass
     if r(N) > 0 {
         quietly replace coef_name = `coef_eq' + ":" + coef_name if `coef_eq' != ""
     }
-    drop `stripe_row' `stripe_dup' `coef_eq'
+    drop `stripe_row' `stripe_dup'
 
     forvalues i = 1/`nrows' {
         quietly replace es = `matrix'[`i', 1] in `i'
@@ -3168,9 +3293,26 @@ program define _eplot_matrix, rclass
         }
     }
 
+    // Rows in the "/" equation are ancillary parameters on their own
+    // metric (e.g. cutpoints or variances from a transposed r(table)), and
+    // _diparm# rows are transformed ancillary parameters (alpha, sigma_u,
+    // rho); Stata never exponentiates either.
+    if "`eform'" != "" {
+        quietly count if `coef_eq' == "/" | regexm(`coef_eq', "^_diparm[0-9]*$")
+        if r(N) > 0 {
+            display as text "(note: `r(N)' ancillary parameter(s) in equation / or _diparm omitted with eform)"
+            quietly drop if `coef_eq' == "/" | regexm(`coef_eq', "^_diparm[0-9]*$")
+        }
+    }
+    drop `coef_eq'
+
     // Apply keep/drop
     if `"`keep'"' != "" {
         _eplot_apply_keep coef_name, keep(`keep')
+    }
+    if `_eform_cons' {
+        quietly count if coef_name == "_cons" | substr(coef_name, -6, .) == ":_cons"
+        if r(N) > 0 display as text "(note: constant suppressed with eform)"
     }
     if `"`drop'"' != "" {
         _eplot_apply_drop coef_name, drop(`drop')
@@ -3273,7 +3415,9 @@ program define _eplot_matrix, rclass
     // Axis range
     local _ls_opt ""
     if "`logscale'" != "" local _ls_opt ", logscale"
-    _eplot_calc_range lci uci `_ls_opt'
+    // A 3-column matrix supplies its own limits, so the point estimate may
+    // lie outside them.
+    _eplot_calc_range lci uci, point(es) `logscale'
     local data_xmin = `s(min)'
     local data_xmax = `s(max)'
     local data_range = `s(range)'
@@ -3292,10 +3436,18 @@ program define _eplot_matrix, rclass
     // The effect range must reach every labelled tick.  twoway widens a
     // linear axis to its labels, but on a log axis a tick outside range() is
     // drawn off the axis or dropped at rc=0, so eplot widens it itself.
-    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale' ///
+        xline(`xline')
     if "`s(min)'" != "" {
         if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
         if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
+    // The null line is not added to the range (a plot whose intervals all
+    // exclude it keeps its data range), so say when it cannot be drawn.  A
+    // values column already extends the right end past a null above the data.
+    if "`nonull'" == "" & (`null' < `xmin_pad' | (`null' > `xmax_pad' & ///
+        !("`values'" != "" & "`horizontal'" != ""))) {
+        display as text "(note: the null line at `null' lies outside the plotted range and is not drawn; include it in xlabel() or xline(), or specify nonull)"
     }
 
     // Values annotation
@@ -3315,7 +3467,7 @@ program define _eplot_matrix, rclass
             `_star_suf'
 
         _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
-            axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
+            axisopts(`"`_effect_axis_opts'"') xline(`xline') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos'
         _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
@@ -3758,6 +3910,7 @@ program define _eplot_calc_range, sclass
         syntax varlist(numeric min=2 max=2) [if] [in] [, ///
             EXTRALOW(varname numeric) ///
             EXTRAHIgh(varname numeric) ///
+            POINT(varname numeric) ///
             LOGScale ///
         ]
 
@@ -3781,6 +3934,14 @@ program define _eplot_calc_range, sclass
         }
         if "`extrahigh'" != "" {
             quietly summarize `extrahigh' `if' `in', meanonly
+            if r(N) > 0 & r(max) > `xmax' local xmax = r(max)
+        }
+        // A user-supplied point estimate may lie outside its own interval;
+        // the axis must still reach it (and a log axis must reject it if it
+        // is nonpositive).
+        if "`point'" != "" {
+            quietly summarize `point' `if' `in', meanonly
+            if r(N) > 0 & r(min) < `xmin' local xmin = r(min)
             if r(N) > 0 & r(max) > `xmax' local xmax = r(max)
         }
 
@@ -3857,11 +4018,13 @@ program define _eplot_effect_axis_labels, sclass
             local _xl_nogrid 0
             if `"`_xl_rest'"' != "" {
                 local 0 `"`_xl_rest'"'
-                capture syntax [, GRID NOGRID *]
-                if _rc == 0 {
-                    local _xl_grid = ("`grid'" != "")
-                    local _xl_nogrid = ("`nogrid'" != "")
-                }
+                // syntax reads GRID and NOGRID as one on/off pair, so each
+                // spelling is detected in its own parse.
+                capture syntax [, GRID *]
+                if _rc == 0 local _xl_grid = ("`grid'" != "")
+                local 0 `"`_xl_rest'"'
+                capture syntax [, noGRID *]
+                if _rc == 0 local _xl_nogrid = ("`grid'" == "nogrid")
             }
             if `_xl_grid' & "`_top_nogrid'" != "" {
                 display as error "nogrid may not be combined with xlabel(..., grid)"
@@ -4325,7 +4488,8 @@ program define _eplot_value_anchor, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, MIN(real) MAX(real) NULL(real) GAP(real) [AXISopts(string asis) NONULL LOGScale]
+        syntax, MIN(real) MAX(real) NULL(real) GAP(real) [AXISopts(string asis) ///
+            XLine(string asis) NONULL LOGScale]
 
         if missing(`gap') | `gap' < 0 {
             display as error "vgap() must be nonmissing and nonnegative"
@@ -4337,7 +4501,7 @@ program define _eplot_value_anchor, sclass
         // column on the null line whenever every interval sat left of it.
         local _right = `max'
         if "`nonull'" == "" & `null' > `_right' local _right = `null'
-        _eplot_tick_range, spec(`axisopts') `logscale'
+        _eplot_tick_range, spec(`axisopts') `logscale' xline(`xline')
         if "`s(max)'" != "" {
             if `s(max)' > `_right' local _right = `s(max)'
         }
@@ -4365,14 +4529,15 @@ end
 // wrapped in quotes): s(min) and s(max) of the tick positions, empty when no
 // position is numeric.  Quoted tokens are tick labels, not positions, and
 // everything after the first unquoted comma is suboptions.  Under logscale
-// nonpositive positions are ignored because they cannot be drawn.
+// a nonpositive tick cannot be drawn and is refused.  xline() positions,
+// when given, also count toward the range.
 capture program drop _eplot_tick_range
 program define _eplot_tick_range, sclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax [, SPEC(string asis) LOGScale]
+        syntax [, SPEC(string asis) LOGScale XLine(string asis)]
 
         local _s = strtrim(`"`spec'"')
         if substr(`"`_s'"', 1, 1) == char(34) | ///
@@ -4390,10 +4555,33 @@ program define _eplot_tick_range, sclass
             capture numlist `"`_tok'"'
             if _rc continue
             foreach _v of numlist `r(numlist)' {
-                if "`logscale'" != "" & `_v' <= 0 continue
+                if "`logscale'" != "" & `_v' <= 0 {
+                    display as error ///
+                        "xlabel() tick `_v' cannot be drawn on a logarithmic axis"
+                    exit 198
+                }
                 if missing(`_min') | `_v' < `_min' local _min = `_v'
                 if missing(`_max') | `_v' > `_max' local _max = `_v'
             }
+        }
+        // An xline() drawn outside range() lands off the plot region at
+        // rc=0, so the range must also reach every requested position.
+        // Nonpositive positions on a log axis are refused by
+        // _eplot_build_reflines and are skipped here.
+        local _refs ""
+        if `"`xline'"' != "" {
+            gettoken _xl_pos : xline, parse(",")
+            if `"`_xl_pos'"' != "," {
+                capture numlist `"`_xl_pos'"'
+                if _rc == 0 local _refs "`_refs' `r(numlist)'"
+            }
+        }
+        foreach _v of local _refs {
+            capture confirm number `_v'
+            if _rc continue
+            if "`logscale'" != "" & `_v' <= 0 continue
+            if missing(`_min') | `_v' < `_min' local _min = `_v'
+            if missing(`_max') | `_v' > `_max' local _max = `_v'
         }
         sreturn clear
         if !missing(`_min') {
@@ -4488,10 +4676,18 @@ program define _eplot_apply_coeflabels, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, COEFLabels(string asis)
+        syntax varname, COEFLabels(string asis) [KEY(varname)]
 
         local labelvar `varlist'
         local remaining `"`coeflabels'"'
+
+        // Match on an immutable copy of the names, never on the variable
+        // being relabelled: a label that equals another coefficient's name
+        // must not be matched by a later specification.
+        if "`key'" == "" {
+            tempvar key
+            quietly clonevar `key' = `labelvar'
+        }
 
         while `"`remaining'"' != "" {
             gettoken coef remaining : remaining, parse("=")
@@ -4517,13 +4713,13 @@ program define _eplot_apply_coeflabels, nclass
                 exit 198
             }
 
-            quietly count if `labelvar' == "`coef'"
+            quietly count if `key' == "`coef'"
             if r(N) == 0 {
                 display as error `"coeflabels() coefficient '`coef'' not found"'
                 exit 198
             }
 
-            quietly replace `labelvar' = `"`label'"' if `labelvar' == "`coef'"
+            quietly replace `labelvar' = `"`label'"' if `key' == "`coef'"
         }
     }
     local rc = _rc
@@ -4832,6 +5028,44 @@ program define _eplot_process_headers, rclass
             quietly replace `labelvar' = `"`label'"' in `newN'
             quietly replace `typevar' = 0 in `newN'
         }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
+// Helper: Equations of e(b) and the equations eform exponentiates
+// =============================================================================
+// s(eqs) holds one equation name per column ("_" when there is none).
+// s(eform_eqs) holds the first KEFORM distinct equations other than "/", in
+// stripe order: [R] ml display applies an eform option to the first
+// e(k_eform) equations, and to the first equation when e(k_eform) is unset.
+
+capture program drop _eplot_eform_eqs
+program define _eplot_eform_eqs, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, Matrix(name) [KEFORM(string)]
+
+        local k_eform = real("`keform'")
+        if missing(`k_eform') | `k_eform' < 1 local k_eform 1
+
+        local eqs : coleq `matrix'
+        local distinct : list uniq eqs
+        local slash "/"
+        local distinct : list distinct - slash
+        local eform_eqs ""
+        local n_distinct : word count `distinct'
+        forvalues j = 1/`=min(`k_eform', `n_distinct')' {
+            local eform_eqs "`eform_eqs' `: word `j' of `distinct''"
+        }
+
+        sreturn clear
+        sreturn local eqs `"`eqs'"'
+        sreturn local eform_eqs `"`eform_eqs'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
