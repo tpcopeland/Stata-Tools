@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  10oct2026}{...}
+{* *! version 1.6.1  10oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -587,7 +587,8 @@ title. A title that itself ends in ", atnull" is read as the suboption. The titl
 ({cmd:ytitle()} in vertical layout), but its text must come from
 {opt effect()}: {cmd:xtitle()} text with {cmd:atnull} is an error. The title is
 drawn as the only label of a second effect axis on the same side, so do not
-add options to {cmd:axis(2)}. When the null lies outside the effect axis the
+add options to {cmd:axis(2)}; with {cmd:favors(, below)} it is instead added
+text on the null, below the favors labels. When the null lies outside the effect axis the
 title is centred as usual and a note says so.
 
 {phang}
@@ -715,11 +716,14 @@ settings; a preset's colors are defaults that yield to the per-model
 {opt favors(left right[, suboptions])} adds directional annotation text
 (horizontal layout only). Provide exactly two nonempty labels, quoting labels
 that contain spaces, e.g., {cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
-the clinical interpretation of each direction. By default each label is centred
-between {opt null()} and the first or last labelled tick on its side (the
-padded axis end when the axis has no numeric ticks), in a row below the last
-effect, in the size of the effect-axis tick labels, on a white box so grid
-lines do not run through it (use {cmd:below} with a dark plot region).
+the clinical interpretation of each direction. Each label is anchored at
+{opt null()} and reads outward from it: the left label ends, and the right
+label starts, {cmd:gap()} from the null, whatever the length of the text, the
+tick span, or the size of the graph, so neither crosses the null line or its
+tick label, in {cmd:graph combine} too. By default the labels sit in a row
+below the last effect, in the size of the effect-axis tick labels, with the
+null line running between them; grid lines, when drawn, cross the row (use
+{cmd:below} to keep the labels clear of every line).
 Suboptions:
 
 {p2colset 9 20 22 2}{...}
@@ -728,16 +732,26 @@ Suboptions:
 {p2col:{cmd:arrows}}add arrows pointing away from the null, e.g., "{c -}> Favors Control"{p_end}
 {p2col:{cmd:size(}{it:textsizestyle}{cmd:)}}text size; default is the {cmd:xlabel(, labsize())} size, or the scheme's tick-label size{p_end}
 {p2col:{cmd:color(}{it:colorstyle}{cmd:)}}text color; default {cmd:gs5}{p_end}
-{p2col:{cmd:gap(}{it:size}{cmd:)}}with {cmd:below}, the gap between the tick labels and the labels; default {cmd:*10}{p_end}
+{p2col:{cmd:gap(}{it:#}{cmd:)}}the gap between each label and the null, in relative size units (as in {cmd:margin()}); default {cmd:1.5}; {cmd:gap(*}{it:#}{cmd:)} scales the default{p_end}
 {p2colreset}{...}
 
 {pmore}
-{cmd:ends} and {cmd:below} may not be combined, and {cmd:gap()} requires
-{cmd:below}. {cmd:below} uses the effect axis's minor-label slot
-({cmd:xmlabel()}); with {cmd:effect(, atnull)} the title sits on its own row
-under it. When {opt null()} is not strictly inside the labelled tick span,
-centred labels would sit on the null or fall off the axis, so {cmd:eplot}
-places them at the axis ends and says so in a note.
+{cmd:ends} and {cmd:below} may not be combined, and {cmd:gap()} may not be
+combined with {cmd:ends}. {cmd:twoway} centres axis labels on their position,
+so {cmd:below} draws the labels as added text hung from the bottom edge of the
+plot region, under the tick labels by the scheme's tick length, tick-label gap,
+and tick-label size (or the
+{cmd:xlabel(, labsize() labgap() tlength() tposition())} values); it sets the bottom plot-region margin to 0, with a note
+when {cmd:plotregion(margin())} gave one, and moves the effect-axis title down
+to clear the labels. With {cmd:effect(, atnull)} the title is hung on the null
+the same way, below the labels. Rotated ({cmd:angle()}) or multi-line tick
+labels, and sizes in absolute units (such as {cmd:labsize(10pt)} or
+{cmd:size(10pt)}), cannot be measured, so the labels then sit inside the plot
+and a note says so. In either row a long label is not clipped at the edge of
+the plot region and nothing warns when it runs past the graph; shorten it or
+widen the axis on that side with {cmd:xlabel()} or {cmd:xscale(range())}. When {opt null()} is
+not strictly inside the labelled tick span, one side has no room, so
+{cmd:eplot} places the labels at the axis ends and says so in a note.
 
 {dlgtab:Prediction intervals (data and frame modes)}
 
@@ -1213,7 +1227,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.6.0, 10oct2026{p_end}
+{pstd}Version 1.6.1, 10oct2026{p_end}
 
 
 {marker alsosee}{...}
