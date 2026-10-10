@@ -396,13 +396,15 @@ else {
 
 **## Default centred placement; ends anchors labels at the axis ends
 * 1.6.0: favors() text takes the tick_label style (was size(vsmall)).
+* 1.6.1: the labels are anchored at the null, reading outward (was centred).
 local ++test_count
 capture noisily {
     use `v150_base', clear
     eplot es lo hi, labels(lab) type(t) null(1) favors("Shorter" "Longer") ///
         name(v150_t12, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', `"`"Shorter"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
+    assert strpos(`"`cmd'"', `"text(6.5 1 `"Shorter"', tstyle(tick_label) color(gs5) placement(w) margin(r=1.5 l=0 t=0 b=0))"') > 0
+    assert strpos(`"`cmd'"', `"text(6.5 1 `"Longer"', tstyle(tick_label) color(gs5) placement(e) margin(l=1.5 r=0 t=0 b=0))"') > 0
     assert strpos(`"`cmd'"', "range(0 7))") > 0
     eplot es lo hi, labels(lab) type(t) null(1) ///
         favors("Shorter" "Longer", ends) name(v150_t12b, replace)
@@ -426,8 +428,10 @@ capture noisily {
     eplot es lo hi, labels(lab) type(t) null(1) ///
         favors("Shorter" "Longer", below arrows) name(v150_t13, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', "xmlabel(") > 0
+    * 1.6.1: hung under the tick labels from the null (was xmlabel()).
+    assert strpos(`"`cmd'"', "xmlabel(") == 0
     assert strpos(`"`cmd'"', "placement(c)") == 0
+    assert strpos(`"`cmd'"', "placement(sw)") > 0 & strpos(`"`cmd'"', "placement(se)") > 0
     * No extra bottom row when the labels are outside the plot.
     assert strpos(`"`cmd'"', "range(0 6))") > 0
     local larr = uchar(8592)
@@ -473,7 +477,7 @@ capture noisily {
     local cmd `"`r(cmd)'"'
     assert regexm(`"`cmd'"', "xscale\(range\(([^ ]+) ([^)]+)\)\)")
     assert real(regexs(1)) < 0
-    assert strpos(`"`cmd'"', `"`"Left"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
+    assert strpos(`"`cmd'"', `"`"Left"', tstyle(tick_label) color(gs5) placement(w) margin(r=1.5"') > 0
     eplot es lo hi, labels(lab) nonull favors("Left" "Right") name(v150_t14, replace)
     local cmd `"`r(cmd)'"'
     assert regexm(`"`cmd'"', "xscale\(range\(([^ ]+) ([^)]+)\)\)")

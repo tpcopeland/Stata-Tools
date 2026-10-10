@@ -1,4 +1,4 @@
-*! eplot Version 1.6.0  2026/10/10
+*! eplot Version 1.6.1  2026/10/10
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1469,13 +1469,22 @@ program define _eplot_data, rclass
     // labels drawn inside the plot need the extra bottom row.
     local favors_cmd ""
     local _fav_inside 0
+    local _fav_below 0
+    local _fav_reserve 0
+    local _fav_titletop 0
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
             minpad(`xmin_pad') maxpad(`xmax_pad') ///
-            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale'
+            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale' ///
+            bottom(`=`pos_max' + 1') scheme(`scheme')
         local favors_cmd `"`s(cmd)'"'
         local _fav_inside = `s(inside)'
+        local _fav_below = `s(below)'
+        if `_fav_below' {
+            local _fav_reserve = `s(reserve)'
+            local _fav_titletop = `s(titletop)'
+        }
     }
 
     // --- Graph options ---
@@ -1492,8 +1501,11 @@ program define _eplot_data, rclass
         hi(`=cond("`horizontal'" != "", `_xscale_max', `xmax_pad')') ///
         at(`pos_max') text(`"`effect'"') ///
         size(`=cond(`_has_vals', "medsmall", "")') ///
-        `_eff_atnull' `horizontal' `logscale' passthru(`options')
+        `_eff_atnull' `horizontal' `logscale' passthru(`options') ///
+        reserve(`_fav_reserve') ///
+        bottom(`=`pos_max' + 1') titletop(`_fav_titletop')
     local _eff_title_opts `"`s(opts)'"'
+    local _eff_title_after `"`s(after)'"'
     local graphcmd `"`graphcmd' `s(plot)'"'
     // A values column extends the x range, so eplot draws the axis line
     // itself and stops it at the end of the effect range.
@@ -1626,6 +1638,12 @@ program define _eplot_data, rclass
         }
         local _plotregion_use `"margin(`_pr_m') `_pr_rest'"'
     }
+    // favors(, below) hangs its text from the bottom edge of the plot
+    // region, so the axis must run along that edge.
+    if `_fav_below' {
+        _eplot_pr_nobottom, spec(`_plotregion_use') user(`_pr_margin')
+        local _plotregion_use `"`s(spec)'"'
+    }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     }
@@ -1651,6 +1669,7 @@ program define _eplot_data, rclass
     if `"`options'"' != "" {
         local graphcmd `"`graphcmd' `options'"'
     }
+    if `"`_eff_title_after'"' != "" local graphcmd `"`graphcmd' `_eff_title_after'"'
     if `_axis_drawn' local graphcmd `"`graphcmd' xscale(noline)"'
 
     // Favors annotation (horizontal mode only)
@@ -3106,13 +3125,22 @@ program define _eplot_estimates, rclass
     // labels drawn inside the plot need the extra bottom row.
     local favors_cmd ""
     local _fav_inside 0
+    local _fav_below 0
+    local _fav_reserve 0
+    local _fav_titletop 0
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
             minpad(`xmin_pad') maxpad(`xmax_pad') ///
-            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale'
+            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale' ///
+            bottom(`=`pos_max' + 1') scheme(`scheme')
         local favors_cmd `"`s(cmd)'"'
         local _fav_inside = `s(inside)'
+        local _fav_below = `s(below)'
+        if `_fav_below' {
+            local _fav_reserve = `s(reserve)'
+            local _fav_titletop = `s(titletop)'
+        }
     }
 
     local _xscale_max = `xmax_pad'
@@ -3126,8 +3154,11 @@ program define _eplot_estimates, rclass
         hi(`=cond("`horizontal'" != "", `_xscale_max', `xmax_pad')') ///
         at(`pos_max') text(`"`effect'"') ///
         size(`=cond(`_has_vals', "medsmall", "")') ///
-        `_eff_atnull' `horizontal' `logscale' passthru(`options')
+        `_eff_atnull' `horizontal' `logscale' passthru(`options') ///
+        reserve(`_fav_reserve') ///
+        bottom(`=`pos_max' + 1') titletop(`_fav_titletop')
     local _eff_title_opts `"`s(opts)'"'
+    local _eff_title_after `"`s(after)'"'
     local graphcmd `"`graphcmd' `s(plot)'"'
     // A values column extends the x range, so eplot draws the axis line
     // itself and stops it at the end of the effect range.
@@ -3240,6 +3271,12 @@ program define _eplot_estimates, rclass
         }
         local _plotregion_use `"margin(`_pr_m') `_pr_rest'"'
     }
+    // favors(, below) hangs its text from the bottom edge of the plot
+    // region, so the axis must run along that edge.
+    if `_fav_below' {
+        _eplot_pr_nobottom, spec(`_plotregion_use') user(`_pr_margin')
+        local _plotregion_use `"`s(spec)'"'
+    }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     }
@@ -3265,6 +3302,7 @@ program define _eplot_estimates, rclass
     if `"`options'"' != "" {
         local graphcmd `"`graphcmd' `options'"'
     }
+    if `"`_eff_title_after'"' != "" local graphcmd `"`graphcmd' `_eff_title_after'"'
     if `_axis_drawn' local graphcmd `"`graphcmd' xscale(noline)"'
 
     // Favors annotation (horizontal mode only)
@@ -4083,13 +4121,22 @@ program define _eplot_matrix, rclass
     // labels drawn inside the plot need the extra bottom row.
     local favors_cmd ""
     local _fav_inside 0
+    local _fav_below 0
+    local _fav_reserve 0
+    local _fav_titletop 0
     if `"`favors'"' != "" & "`horizontal'" != "" {
         local _fav_top = `pos_max' + 1.5
         _eplot_build_favors, favors(`favors') null(`null') ///
             minpad(`xmin_pad') maxpad(`xmax_pad') ///
-            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale'
+            axisopts(`"`_effect_axis_opts'"') top(`_fav_top') `logscale' ///
+            bottom(`=`pos_max' + 1') scheme(`scheme')
         local favors_cmd `"`s(cmd)'"'
         local _fav_inside = `s(inside)'
+        local _fav_below = `s(below)'
+        if `_fav_below' {
+            local _fav_reserve = `s(reserve)'
+            local _fav_titletop = `s(titletop)'
+        }
     }
 
     local _xscale_max = `xmax_pad'
@@ -4103,8 +4150,11 @@ program define _eplot_matrix, rclass
         hi(`=cond("`horizontal'" != "", `_xscale_max', `xmax_pad')') ///
         at(`pos_max') text(`"`effect'"') ///
         size(`=cond(`_has_vals', "medsmall", "")') ///
-        `_eff_atnull' `horizontal' `logscale' passthru(`options')
+        `_eff_atnull' `horizontal' `logscale' passthru(`options') ///
+        reserve(`_fav_reserve') ///
+        bottom(`=`pos_max' + 1') titletop(`_fav_titletop')
     local _eff_title_opts `"`s(opts)'"'
+    local _eff_title_after `"`s(after)'"'
     local graphcmd `"`graphcmd' `s(plot)'"'
     // A values column extends the x range, so eplot draws the axis line
     // itself and stops it at the end of the effect range.
@@ -4184,12 +4234,19 @@ program define _eplot_matrix, rclass
         }
         local _plotregion_use `"margin(`_pr_m') `_pr_rest'"'
     }
+    // favors(, below) hangs its text from the bottom edge of the plot
+    // region, so the axis must run along that edge.
+    if `_fav_below' {
+        _eplot_pr_nobottom, spec(`_plotregion_use') user(`_pr_margin')
+        local _plotregion_use `"`s(spec)'"'
+    }
     if `"`_plotregion_use'"' != "" local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     if `"`graphregion'"' != "" local graphcmd `"`graphcmd' graphregion(`graphregion')"'
     if "`aspect'" != "" local graphcmd `"`graphcmd' aspect(`aspect')"'
     if "`name'" != "" local graphcmd `"`graphcmd' name(`name')"'
     if `"`saving'"' != "" local graphcmd `"`graphcmd' saving(`saving')"'
     if `"`options'"' != "" local graphcmd `"`graphcmd' `options'"'
+    if `"`_eff_title_after'"' != "" local graphcmd `"`graphcmd' `_eff_title_after'"'
     // A passed-through xscale() line style would turn the native axis line
     // back on, so eplot's noline comes after it.
     if `_axis_drawn' local graphcmd `"`graphcmd' xscale(noline)"'
@@ -5105,7 +5162,8 @@ program define _eplot_build_favors, sclass
     set varabbrev off
     capture noisily {
         syntax, FAVors(string asis) NULL(real) TOP(real) ///
-            MINPad(real) MAXPad(real) [AXISopts(string asis) LOGScale]
+            MINPad(real) MAXPad(real) [AXISopts(string asis) LOGScale ///
+            BOTTom(real -1) SCHeme(string)]
 
         // Labels run up to the first comma outside quotes; suboptions follow.
         local _fav_labels ""
@@ -5133,7 +5191,7 @@ program define _eplot_build_favors, sclass
         // Placement suboptions follow a comma: below puts the labels under
         // the axis tick labels, ends aligns them with the axis ends, and
         // arrows adds direction arrows pointing away from the null.  size()
-        // and color() style the text; gap() spaces the below row.
+        // and color() style the text; gap() spaces the labels from the null.
         local 0 `"`_fav_rest'"'
         capture syntax [, BELow ENDs ARRows SIze(string) COLor(string asis) ///
             GAP(string)]
@@ -5145,16 +5203,22 @@ program define _eplot_build_favors, sclass
             display as error "favors() suboptions below and ends may not be combined"
             exit 198
         }
-        if `"`gap'"' != "" & "`below'" == "" {
-            display as error "favors() suboption gap() requires below"
+        if `"`gap'"' != "" & "`ends'" != "" {
+            display as error "favors() suboption gap() may not be combined with ends"
             exit 198
         }
+        // gap() is a margin in relative size units, or *# times the default.
+        local _gap 1.5
         if `"`gap'"' != "" {
             local gap = strtrim(`"`gap'"')
-            if !regexm(`"`gap'"', "^\*?[0-9]*\.?[0-9]+(pt|in|cm|rs)?$") {
-                display as error `"favors() gap() must be a size such as 2, *8, or 3pt, not {bf:`gap'}"'
+            if !regexm(`"`gap'"', "^\*?[0-9]*\.?[0-9]+$") {
+                display as error `"favors() gap() must be a nonnegative size such as 2 or *2, not {bf:`gap'}"'
                 exit 198
             }
+            if substr(`"`gap'"', 1, 1) == "*" {
+                local _gap = `_gap' * real(substr(`"`gap'"', 2, .))
+            }
+            else local _gap = real(`"`gap'"')
         }
         if `"`size'"' != "" {
             capture _eplot_check_textsize, option(size) spec(`"`size'"') default(1)
@@ -5181,15 +5245,16 @@ program define _eplot_build_favors, sclass
             substr(`"`_ax'"', 1, 2) == char(96) + char(34) {
             gettoken _ax : _ax
         }
-        if `"`size'"' == "" {
-            gettoken _ax_ticks _ax_rest : _ax, parse(",")
-            if `"`_ax_ticks'"' == "," local _ax_rest `", `_ax_rest'"'
-            if `"`_ax_rest'"' != "" {
-                local 0 `"`_ax_rest'"'
-                capture syntax [, LABSize(string) *]
-                if _rc == 0 local size `"`labsize'"'
-            }
+        local _favsize `"`size'"'
+        local _ticksize ""
+        gettoken _ax_ticks _ax_rest : _ax, parse(",")
+        if `"`_ax_ticks'"' == "," local _ax_rest `", `_ax_rest'"'
+        if `"`_ax_rest'"' != "" {
+            local 0 `"`_ax_rest'"'
+            capture syntax [, LABSize(string) *]
+            if _rc == 0 local _ticksize `"`labsize'"'
         }
+        if `"`size'"' == "" local size `"`_ticksize'"'
 
         local _fav_left = trim(`"`_fav_left'"')
         local _fav_right = trim(`"`_fav_right'"')
@@ -5204,12 +5269,13 @@ program define _eplot_build_favors, sclass
             local _fav_right `"`_fav_right' `=uchar(8594)'"'
         }
 
-        // Centred labels sit midway between the null and each end of the
-        // labelled tick span, so the pair balances under the tick labels
-        // whatever the data cover.  Without numeric ticks the padded axis
-        // range stands in.  A null at or beyond either end would put a label
-        // on the null or off the axis (dropped by twoway at rc=0), so the
-        // labels move to the axis ends.
+        // Each label reads outward from the null: the left label's right
+        // edge and the right label's left edge sit gap() from it, whatever
+        // the text length, the tick span, or the size of the graph (the gap
+        // is in relative size units, which graph combine scales with the
+        // text).  A null at or beyond either end of the labelled tick span
+        // (the padded axis range without numeric ticks) leaves no room on
+        // one side, so the labels move to the axis ends.
         local _lo = `minpad'
         local _hi = `maxpad'
         _eplot_tick_range, spec(`axisopts') `logscale'
@@ -5224,11 +5290,43 @@ program define _eplot_build_favors, sclass
                 "(note: null(`null') is not inside the labelled effect axis; favors() labels placed at the axis ends)"
             local ends "ends"
             local below ""
-            local gap ""
+        }
+        if "`below'" != "" & `bottom' < 0 {
+            display as error "favors(, below) needs the bottom of the plot region"
+            exit 198
+        }
+
+        // twoway's axis labels are always centred on their position, so
+        // below draws the labels as added text hung from the bottom edge of
+        // the plot region (a plot region with no bottom margin, where the
+        // axis line runs), which twoway does not clip.  The top margin steps
+        // past the tick, the tick-to-label gap, the tick labels, and a gap,
+        // all in the relative units the scheme draws the axis in.  Labels of
+        // unknown height would be overprinted, so the row then moves into
+        // the plot.
+        local _reserve 0
+        local _titletop 0
+        if "`below'" != "" {
+            local _ml ""
+            if strpos(`"`_ax_ticks'"', char(34) + " " + char(34)) local _ml "multiline"
+            _eplot_favors_metrics, scheme(`"`scheme'"') axisrest(`"`_ax_rest'"') ///
+                favsize(`"`_favsize'"') `_ml'
+            if !`s(ok)' {
+                display as text ///
+                    `"(note: favors(, below) cannot measure the effect axis with `s(why)'; favors() labels placed inside the plot)"'
+                local below ""
+            }
+            else {
+                local _drop = `s(tick)' + `s(tickgap)' + `s(label)' + 1
+                local _titletop = `_drop' + `s(favlabel)' + 1
+                local _reserve = `s(favlabel)' + 2
+            }
         }
 
         local _tstyle "tstyle(tick_label)"
         if `"`size'"' != "" local _tstyle `"`_tstyle' size(`size')"'
+        local _n = string(`null', "%18.0g")
+        local _g = string(`_gap', "%18.0g")
         local cmd ""
         if "`ends'" != "" {
             // Anchor each label at its axis end, reading inward.
@@ -5237,40 +5335,206 @@ program define _eplot_build_favors, sclass
             local cmd ///
                 `"`cmd' text(`top' `maxpad' `"`_fav_right'"', `_tstyle' color(`color') placement(w))"'
         }
+        else if "`below'" != "" {
+            local _t = string(`_drop', "%9.4f")
+            local _b = string(`bottom', "%18.0g")
+            local cmd ///
+                `"text(`_b' `_n' `"`_fav_left'"', `_tstyle' color(`color') placement(sw) margin(t=`_t' r=`_g' l=0 b=0))"'
+            local cmd ///
+                `"`cmd' text(`_b' `_n' `"`_fav_right'"', `_tstyle' color(`color') placement(se) margin(t=`_t' l=`_g' r=0 b=0))"'
+        }
         else {
-            // The visual midpoint of a log axis is the geometric mean.
-            if "`logscale'" != "" & `_lo' > 0 & `null' > 0 {
-                local _fav_x_left = exp((ln(`_lo') + ln(`null')) / 2)
-                local _fav_x_right = exp((ln(`null') + ln(`_hi')) / 2)
-            }
-            else {
-                local _fav_x_left = (`_lo' + `null') / 2
-                local _fav_x_right = (`null' + `_hi') / 2
-            }
-            if "`below'" != "" {
-                // Minor-axis labels sit on the axis itself, below the major
-                // tick labels, so reference lines never cross them.
-                if `"`gap'"' == "" local gap "*10"
-                local _labsize ""
-                if `"`size'"' != "" local _labsize `" labsize(`size')"'
-                local _xl = string(`_fav_x_left', "%18.0g")
-                local _xr = string(`_fav_x_right', "%18.0g")
-                local cmd `"xmlabel(`_xl' `"`_fav_left'"' `_xr' `"`_fav_right'"', noticks nogrid labgap(`gap') labstyle(tick_label)`_labsize' labcolor(`color'))"'
-            }
-            else {
-                // An opaque box keeps grid lines from running through the
-                // text inside the plot region.
-                local _box "box fcolor(white) lcolor(white) margin(small)"
-                local cmd ///
-                    `"text(`top' `_fav_x_left' `"`_fav_left'"', `_tstyle' color(`color') placement(c) `_box')"'
-                local cmd ///
-                    `"`cmd' text(`top' `_fav_x_right' `"`_fav_right'"', `_tstyle' color(`color') placement(c) `_box')"'
-            }
+            // A row inside the plot, with the null line running between the
+            // labels.  The text carries no opaque box: added text is drawn
+            // over every line, a box reaching the null would blank it there,
+            // and bmargin() does not move added text.
+            local cmd ///
+                `"text(`top' `_n' `"`_fav_left'"', `_tstyle' color(`color') placement(w) margin(r=`_g' l=0 t=0 b=0))"'
+            local cmd ///
+                `"`cmd' text(`top' `_n' `"`_fav_right'"', `_tstyle' color(`color') placement(e) margin(l=`_g' r=0 t=0 b=0))"'
         }
 
         sreturn clear
         sreturn local cmd `"`cmd'"'
         sreturn local inside = ("`below'" == "")
+        sreturn local below = ("`below'" != "")
+        sreturn local reserve = string(`_reserve', "%9.4f")
+        sreturn local titletop = string(`_titletop', "%9.4f")
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_favors_metrics
+program define _eplot_favors_metrics, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    local _gname ""
+    capture noisily {
+        // Sizes of the effect axis below the plot region, in relative size
+        // units: the outward part of a major tick, the tick-to-label gap, the
+        // tick-label height, and the favors() text height.  They come from
+        // the scheme the graph uses (loaded by a nodraw graph), overridden
+        // by the xlabel() suboptions after the comma.  The fallbacks are
+        // s2color's.
+        syntax [, SCHeme(string) AXISrest(string asis) FAVsize(string) ///
+            MULTIline]
+        local _tick "tiny"
+        local _gap "half_tiny"
+        local _label "medsmall"
+        local _pos "outside"
+        if `"`scheme'"' == "" local scheme `"`c(scheme)'"'
+        tempname _gname
+        capture quietly twoway scatteri 0 0, nodraw name(`_gname') ///
+            scheme(`scheme')
+        if _rc == 0 {
+            foreach _k in tick tickgap tick_label {
+                local _v `"`.__SCHEME.gsize.`_k''"'
+                if `"`_v'"' != "" {
+                    if "`_k'" == "tick" local _tick `"`_v'"'
+                    if "`_k'" == "tickgap" local _gap `"`_v'"'
+                    if "`_k'" == "tick_label" local _label `"`_v'"'
+                }
+            }
+            local _v `"`.__SCHEME.tickposition.axis_tick'"'
+            if `"`_v'"' != "" local _pos `"`_v'"'
+        }
+        // s(ok) 0 says the axis cannot be measured: rotated or multi-line
+        // tick labels, or a size in absolute units, whose height in
+        // relative units depends on the graph's size.
+        local _ok 1
+        local _why ""
+        if "`multiline'" != "" {
+            local _ok 0
+            local _why "multi-line tick labels"
+        }
+        _eplot_gsize, spec(`"`_tick'"') default(1.3888)
+        local _tick = `s(val)'
+        _eplot_gsize, spec(`"`_gap'"') default(0.6944)
+        local _gap = `s(val)'
+        _eplot_gsize, spec(`"`_label'"') default(3.4722)
+        local _label = `s(val)'
+
+        local _noticks 0
+        // asis keeps a caller's compound quotes, which syntax would reject.
+        local axisrest = strtrim(`"`axisrest'"')
+        if substr(`"`axisrest'"', 1, 2) == char(96) + char(34) {
+            gettoken axisrest : axisrest
+        }
+        if `"`axisrest'"' != "" {
+            local 0 `"`axisrest'"'
+            capture syntax [, LABSize(string) LABGap(string) TLength(string) ///
+                TPosition(string) NOTICKs ANGle(string) *]
+            if _rc == 0 {
+                local angle = lower(strtrim(`"`angle'"'))
+                // 0 or horizontal (any abbreviation) leaves labels level.
+                local _level = inlist(`"`angle'"', "", "0") | ///
+                    (`"`angle'"' != "" & ///
+                    substr("horizontal", 1, length(`"`angle'"')) == `"`angle'"')
+                if !`_level' {
+                    local _ok 0
+                    local _why "rotated tick labels"
+                }
+                if `"`labsize'"' != "" {
+                    _eplot_gsize, spec(`"`labsize'"') default(`_label')
+                    local _label = `s(val)'
+                    if !`s(ok)' {
+                        local _ok 0
+                        local _why "xlabel(, labsize(`labsize'))"
+                    }
+                }
+                if `"`labgap'"' != "" {
+                    _eplot_gsize, spec(`"`labgap'"') default(`_gap')
+                    local _gap = `s(val)'
+                    if !`s(ok)' {
+                        local _ok 0
+                        local _why "xlabel(, labgap(`labgap'))"
+                    }
+                }
+                if `"`tlength'"' != "" {
+                    _eplot_gsize, spec(`"`tlength'"') default(`_tick')
+                    local _tick = `s(val)'
+                    if !`s(ok)' {
+                        local _ok 0
+                        local _why "xlabel(, tlength(`tlength'))"
+                    }
+                }
+                if `"`tposition'"' != "" local _pos `"`tposition'"'
+                if "`noticks'" != "" local _noticks 1
+            }
+        }
+        local _pos = lower(strtrim(`"`_pos'"'))
+        if `_noticks' | substr(`"`_pos'"', 1, 1) == "i" local _tick 0
+        else if substr(`"`_pos'"', 1, 1) == "c" local _tick = `_tick' / 2
+
+        local _fav = `_label'
+        if `"`favsize'"' != "" {
+            _eplot_gsize, spec(`"`favsize'"') default(`_label')
+            local _fav = `s(val)'
+            if !`s(ok)' {
+                local _ok 0
+                local _why "favors(, size(`favsize'))"
+            }
+        }
+
+        sreturn clear
+        sreturn local tick = `_tick'
+        sreturn local tickgap = `_gap'
+        sreturn local label = `_label'
+        sreturn local favlabel = `_fav'
+        sreturn local ok = `_ok'
+        sreturn local why `"`_why'"'
+    }
+    local rc = _rc
+    if "`_gname'" != "" capture graph drop `_gname'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_gsize
+program define _eplot_gsize, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        // A size style (named or numeric) in relative size units; *# scales
+        // the default.  Anything else, such as an absolute unit (whose
+        // relative size depends on the graph's size), returns the default
+        // with s(ok) 0.
+        syntax, DEFault(real) [SPEC(string)]
+        local spec = strtrim(`"`spec'"')
+        local val = `default'
+        local ok 1
+        if `"`spec'"' != "" {
+            local ok 0
+            if substr(`"`spec'"', 1, 1) == "*" {
+                local _m = real(substr(`"`spec'"', 2, .))
+                if !missing(`_m') {
+                    local val = `default' * `_m'
+                    local ok 1
+                }
+            }
+            else if !missing(real(`"`spec'"')) {
+                local val = real(`"`spec'"')
+                local ok 1
+            }
+            else {
+                tempname _sz
+                capture findfile `"gsize-`spec'.style"'
+                if _rc == 0 capture .`_sz' = .gsize.new, style(`spec')
+                if _rc == 0 {
+                    capture local _v = `.`_sz'.val'
+                    if _rc == 0 & !missing(`_v') {
+                        local val = `_v'
+                        local ok 1
+                    }
+                }
+            }
+        }
+        sreturn local val = `val'
+        sreturn local ok = `ok'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -5287,14 +5551,27 @@ program define _eplot_effect_title, sclass
         // region; atnull writes it as the only label of a second effect axis
         // placed on the same side as the first, so it sits on the null.  The
         // second axis carries the first axis's range and log setting, and an
-        // invisible point at the null creates it.
+        // invisible point at the null creates it.  reserve() is the height
+        // of favors(, below) text hung under the tick labels, which the
+        // title steps over; an atnull title is then hung from the same
+        // edge, at bottom(), titletop() below it.
         syntax, NULL(real) LO(real) HI(real) AT(real) ///
             [TEXT(string asis) SIze(string) ATNULL HORizontal LOGScale ///
-            PASSthru(string asis)]
+            PASSthru(string asis) RESERVE(real 0) ///
+            BOTTom(real 0) TITLETop(real 0)]
 
         local _ax = cond("`horizontal'" != "", "x", "y")
         local _sizeopt ""
         if `"`size'"' != "" local _sizeopt `", size(`size')"'
+        local _r = string(`reserve', "%9.4f")
+        if `reserve' > 0 {
+            // An empty title would take no room, so a blank one holds it.
+            local _tt `"`text'"'
+            gettoken _tt : _tt
+            if strtrim(`"`_tt'"') == "" local text `"" ""'
+            if `"`size'"' != "" local _sizeopt `", size(`size') margin(t+`_r')"'
+            else local _sizeopt `", margin(t+`_r')"'
+        }
         local opts `"`_ax'title(`text'`_sizeopt')"'
         local plot ""
 
@@ -5308,6 +5585,7 @@ program define _eplot_effect_title, sclass
             // xtitle() (ytitle() when vertical); its text comes from effect().
             local _tsize `"`size'"'
             local _tcolor ""
+            local _tcol ""
             local 0 `", `passthru'"'
             capture syntax [, XTItle(string asis) YTItle(string asis) *]
             if _rc == 0 {
@@ -5328,7 +5606,10 @@ program define _eplot_effect_title, sclass
                     capture syntax [, SIze(string) COLor(string asis) *]
                     if _rc == 0 {
                         if `"`size'"' != "" local _tsize `"`size'"'
-                        if `"`color'"' != "" local _tcolor `" labcolor(`color')"'
+                        if `"`color'"' != "" {
+                            local _tcolor `" labcolor(`color')"'
+                            local _tcol `" color(`color')"'
+                        }
                     }
                 }
             }
@@ -5349,11 +5630,43 @@ program define _eplot_effect_title, sclass
                 local _angle " angle(90)"
             }
             local opts `"`_ax'title("") `_ax'title("", axis(2)) `_ax'scale(axis(2) `_log'range(`_lo' `_hi') noline alt) `_ax'label(`_n' `text', axis(2) noticks nogrid`_angle' labstyle(axis_title)`_labsize'`_tcolor' labgap(*6))"'
+            if `reserve' > 0 {
+                // Under favors(, below) a second axis would stack under the
+                // tick labels, beneath the hung favors row, at a distance
+                // twoway sets.  The title is hung from the plot-region edge
+                // too, a 1-unit gap under that row, and a blank title in its
+                // size holds the room.
+                local _ts ""
+                if `"`_tsize'"' != "" local _ts `" size(`_tsize')"'
+                local _b = string(`bottom', "%18.0g")
+                local _m = string(`titletop', "%9.4f")
+                local plot ""
+                local opts `"xtitle(" ",`_ts' margin(t+`_r')) text(`_b' `_n' `text', tstyle(axis_title)`_ts'`_tcol' placement(s) margin(t=`_m' l=0 r=0 b=0))"'
+            }
+        }
+
+        // A passed-through xtitle("") comes after these options and would
+        // drop the blank title holding the room for favors(, below), so
+        // s(after) restores it after the passed-through options.
+        local after ""
+        if `reserve' > 0 & "`horizontal'" != "" {
+            local 0 `", `passthru'"'
+            capture syntax [, XTItle(string asis) *]
+            if _rc == 0 & `"`xtitle'"' != "" {
+                gettoken _ptext : xtitle, parse(",")
+                if `"`_ptext'"' != "," {
+                    gettoken _ptext : _ptext
+                    if strtrim(`"`_ptext'"') == "" {
+                        local after `"xtitle(" ", margin(t+`_r'))"'
+                    }
+                }
+            }
         }
 
         sreturn clear
         sreturn local opts `"`opts'"'
         sreturn local plot `"`plot'"'
+        sreturn local after `"`after'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -5406,6 +5719,55 @@ program define _eplot_axis_line, sclass
             local _hi = string(`hi', "%18.0g")
             sreturn local plot `"(pci `_y' `_lo' `_y' `_hi', lstyle(axisline)`_style')"'
         }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+capture program drop _eplot_pr_nobottom
+program define _eplot_pr_nobottom, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        // Sets the bottom plot-region margin of a plotregion() spec to zero,
+        // after any margin eplot or the user gave; says so when a user
+        // margin may have set the bottom.
+        syntax [, SPEC(string asis) USER(string asis)]
+        _eplot_plotregion, spec(`spec')
+        local _m `"`s(margin)'"'
+        local _rest `"`s(rest)'"'
+        if `"`user'"' != "" {
+            local _sides 1
+            foreach _tok of local user {
+                if !regexm(`"`_tok'"', "^[lrt][-+=][0-9]*\.?[0-9]+$") local _sides 0
+            }
+            if !`_sides' {
+                display as text "(note: favors(, below) sets the bottom plot-region margin to 0)"
+            }
+        }
+        // A named margin cannot be mixed with side edits, so each one is
+        // written out as its four sides first.
+        local _out ""
+        foreach _tok of local _m {
+            if regexm(`"`_tok'"', "^[lrtb][-+=][0-9]*\.?[0-9]+$") | ///
+                !missing(real(`"`_tok'"')) {
+                local _out `"`_out' `_tok'"'
+                continue
+            }
+            capture findfile `"margin-`_tok'.style"'
+            if _rc {
+                local _out `"`_out' `_tok'"'
+                continue
+            }
+            tempname _ms
+            .`_ms' = .margin.new, style(`_tok')
+            local _out `"`_out' l=`.`_ms'.left' r=`.`_ms'.right' t=`.`_ms'.top' b=`.`_ms'.bottom'"'
+        }
+        local _m = strtrim(`"`_out' b=0"')
+        sreturn clear
+        sreturn local spec `"margin(`_m') `_rest'"'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

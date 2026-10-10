@@ -1,6 +1,6 @@
 *! test_eplot_v160.do - Regression tests for eplot 1.6.0
-*! Covers favors() labels centred on each half of the labelled tick span (log
-*! and linear, below and inside), their tick-label text size and the size(),
+*! Covers favors() labels (anchored at the null since 1.6.1; log and linear,
+*! below and inside), their tick-label text size and the size(),
 *! color() and gap() suboptions, the ends fallback when the null sits on a tick
 *! span end, effect(, atnull) placing the axis title on the null in every mode
 *! and both orientations, its fallbacks and refusals, and the effect axis line
@@ -113,9 +113,10 @@ local tick_opts "xlabel(0.8 1 1.2 1.4 1.6, format(%3.1f) labsize(small))"
 
 **# favors() placement and text
 
-**## below: labels centred on each half of the tick span, not the data
-* Pre-1.6.0 the labels sat midway between the null and the interval ends
-* (0.91 and 1.22), off-balance under ticks running 0.8 to 1.6.
+**## below: labels under the tick labels, reading outward from the null
+* Pre-1.6.0 the labels sat midway between the null and the interval ends.
+* 1.6.0 centred them on each half of the tick span; 1.6.1 anchors them at
+* the null (test_eplot_v161.do measures the gaps).
 local ++test_count
 capture noisily {
     use `v160_base', clear
@@ -123,32 +124,27 @@ capture noisily {
         vtitle("TR (95% CI)") favors("Shorter" "Longer", below) ///
         name(v160_t1, replace)
     local cmd `"`r(cmd)'"'
-    local xl = exp((ln(0.8) + ln(1)) / 2)
-    local xr = exp((ln(1) + ln(1.6)) / 2)
-    assert strpos(`"`cmd'"', "xmlabel(" + string(`xl', "%18.0g") + " ") > 0
-    assert strpos(`"`cmd'"', " " + string(`xr', "%18.0g") + " ") > 0
-    * Drawn midway between the tick labels, in their text size.
+    assert strpos(`"`cmd'"', "xmlabel(") == 0
+    assert strpos(`"`cmd'"', `" 1 `"Shorter"', tstyle(tick_label) size(small) color(gs5) placement(sw)"') > 0
+    assert strpos(`"`cmd'"', `" 1 `"Longer"', tstyle(tick_label) size(small) color(gs5) placement(se)"') > 0
+    * Drawn either side of the null, below the tick labels, in their size.
     _v160_svgtext, graph(v160_t1) text("0.8")
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
-    local x08 = r(x)
     local tsize = r(size)
     _v160_svgtext, graph(v160_t1) text("1.0")
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     local x10 = r(x)
     local ytick = r(y)
-    _v160_svgtext, graph(v160_t1) text("1.6")
-    assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
-    local x16 = r(x)
     _v160_svgtext, graph(v160_t1) text("Shorter")
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     assert r(n) == 1
-    assert abs(r(x) - (`x08' + `x10') / 2) < 1
+    assert r(x) < `x10'
     assert !missing(r(size), `tsize') & reldif(r(size), `tsize') < 1e-6
     assert !missing(r(y), `ytick') & r(y) > `ytick'
     _v160_svgtext, graph(v160_t1) text("Longer")
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     assert r(n) == 1
-    assert abs(r(x) - (`x10' + `x16') / 2) < 1
+    assert r(x) > `x10'
     assert !missing(r(size), `tsize') & reldif(r(size), `tsize') < 1e-6
 }
 if _rc == 0 local ++pass_count
@@ -157,7 +153,8 @@ else {
     local failed_tests "`failed_tests' 1"
 }
 
-**## Inside the plot and on a linear axis the tick span also sets the centres
+**## Inside the plot and on a linear axis the labels meet at the null
+* 1.6.1: anchored at the null gap() clear of it, unboxed (was centred).
 local ++test_count
 capture noisily {
     use `v160_base', clear
@@ -168,8 +165,8 @@ capture noisily {
     eplot d dl du, labels(lab) xlabel(-0.4(0.2)0.6) ///
         favors("Less" "More") name(v160_t2, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', `"text(4.5 -.2 `"Less"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
-    assert strpos(`"`cmd'"', `"text(4.5 .3 `"More"', tstyle(tick_label) color(gs5) placement(c) box"') > 0
+    assert strpos(`"`cmd'"', `"text(4.5 0 `"Less"', tstyle(tick_label) color(gs5) placement(w) margin(r=1.5 l=0 t=0 b=0))"') > 0
+    assert strpos(`"`cmd'"', `"text(4.5 0 `"More"', tstyle(tick_label) color(gs5) placement(e) margin(l=1.5 r=0 t=0 b=0))"') > 0
 }
 if _rc == 0 local ++pass_count
 else {
@@ -185,7 +182,9 @@ capture noisily {
         favors("Shorter" "Longer", below size(medium) color(navy) gap(*6)) ///
         name(v160_t3, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', "labgap(*6) labstyle(tick_label) labsize(medium) labcolor(navy))") > 0
+    * 1.6.1: gap() is the gap from the null; *6 is six times the default 1.5.
+    assert strpos(`"`cmd'"', "size(medium) color(navy) placement(sw)") > 0
+    assert strpos(`"`cmd'"', " r=9 l=0 b=0))") > 0
     _v160_svgtext, graph(v160_t3) text("1.0")
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     local tsize = r(size)
@@ -193,13 +192,14 @@ capture noisily {
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     assert !missing(r(size), `tsize') & r(size) > `tsize'
     assert lower("`r(fill)'") == "#1a476f"
-    * Without size() the xlabel() labsize() is reused; the default gap is *10.
+    * Without size() the xlabel() labsize() is reused; the default gap is 1.5.
     eplot tr lo hi, labels(lab) type(t) logscale `tick_opts' ///
         favors("Shorter" "Longer", below) name(v160_t3b, replace)
-    assert strpos(`"`r(cmd)'"', "labgap(*10) labstyle(tick_label) labsize(small) labcolor(gs5))") > 0
+    assert strpos(`"`r(cmd)'"', "tstyle(tick_label) size(small) color(gs5) placement(sw)") > 0
+    assert strpos(`"`r(cmd)'"', " r=1.5 l=0 b=0))") > 0
     eplot tr lo hi, labels(lab) type(t) logscale `tick_opts' ///
         favors("Shorter" "Longer", size(small)) name(v160_t3c, replace)
-    assert strpos(`"`r(cmd)'"', `"tstyle(tick_label) size(small) color(gs5) placement(c) box"') > 0
+    assert strpos(`"`r(cmd)'"', `"tstyle(tick_label) size(small) color(gs5) placement(w) margin(r=1.5"') > 0
 }
 if _rc == 0 local ++pass_count
 else {
@@ -231,8 +231,11 @@ local ++test_count
 capture noisily {
     use `v160_base', clear
     local ok "labels(lab) type(t) logscale"
+    * 1.6.1: gap() no longer requires below; it is refused with ends and
+    * takes a relative size only.
     eplot tr lo hi, `ok' favors("A" "B", below gap(*5)) name(v160_t5, replace)
-    foreach bad in "gap(*5)" "below gap(wide)" "size(huge2)" ///
+    eplot tr lo hi, `ok' favors("A" "B", gap(2)) name(v160_t5b, replace)
+    foreach bad in "ends gap(2)" "below gap(wide)" "below gap(3pt)" "size(huge2)" ///
         "color(notacolor)" "color(red blue)" "sideways" {
         capture noisily eplot tr lo hi, `ok' favors("A" "B", `bad')
         assert _rc == 198
