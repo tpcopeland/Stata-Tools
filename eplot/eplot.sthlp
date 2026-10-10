@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  10oct2026}{...}
+{* *! version 1.5.1  10oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -195,7 +195,11 @@ For estimation results with multiple equations, repeated coefficient names
 retain their equation prefix so distinct effects are not overlaid. Single-equation
 models continue to align by coefficient name in multi-model comparisons. Plotting
 named estimates preserves the caller's active estimation results, including an
-initially empty {cmd:e()} state.
+initially empty {cmd:e()} state or results posted by {cmd:ereturn post} without
+{cmd:e(cmd)}. Parameters in the {cmd:/} equation (cutpoints, variance
+components, and ancillary parameters such as {cmd:/lnalpha} or {cmd:/ln_p}) are
+always omitted with a note: Stata reports no Wald {it:p}-value for them and
+computes their confidence intervals on a transformed metric.
 
 {pmore}
 Intervals and p-values follow each model's estimation distribution: {cmd:eplot}
@@ -243,7 +247,8 @@ contain numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}; if present, string
 
 {pstd}
 When {opt eform} is specified, the constant ({cmd:_cons}) is automatically
-suppressed because exp(_cons) is not interpretable.
+suppressed because exp(_cons) is not interpretable. A note is displayed only
+when a constant is actually dropped.
 
 {pstd}
 {bf:Mode detection.} Mode detection gives precedence to data mode when the first
@@ -378,7 +383,9 @@ drops the constant ({cmd:_cons}) from the plot. This is shorthand for
 {opt rename(spec)} {bf:[E]} renames coefficients for
 display. Syntax: {cmd:rename(oldname = newname oldname2 = newname2)}. Each
 mapping must contain nonempty names around {cmd:=}, and every source name must
-match a coefficient.
+match a coefficient. Mapping two coefficients of the same model to one name
+exits with {cmd:r(198)}; mapping coefficients of different models to one name
+aligns them on a shared row.
 
 {dlgtab:Labeling}
 
@@ -426,7 +433,13 @@ estimates mode, the x-axis label is set automatically (e.g., "Odds Ratio" after
 {cmd:logit} or {cmd:melogit}, "Hazard Ratio" after {cmd:stcox}, "IRR" after
 {cmd:poisson}). {cmd:streg} and {cmd:mestreg} are labeled "Hazard Ratio" only
 in the proportional-hazards metric; accelerated failure-time fits keep the
-generic label.
+generic label. In estimates mode {opt eform} follows Stata's own rule for which
+parameters are exponentiated: only coefficients of the first {cmd:e(k_eform)}
+equations (the first equation when {cmd:e(k_eform)} is not set) are
+transformed, and coefficients of further equations, such as the selection
+equation of {cmd:heckman}, are omitted with a note. In matrix mode, rows in the
+{cmd:/} or {cmd:_diparm}{it:#} equations of a transposed {cmd:r(table)} are
+omitted under {opt eform}.
 
 {phang}
 {opt logscale} draws the effect axis on a logarithmic scale, which is the
@@ -434,8 +447,9 @@ natural presentation for ratio effects such as odds, hazard, risk, and
 incidence-rate ratios. Axis padding is multiplicative rather than additive, so
 the padded limits stay strictly positive, and the ticks are placed on a decade
 lattice (for example {cmd:0.5 1 2 5 10 20}) instead of an evenly spaced linear
-one. Every plotted value must be strictly positive; {cmd:eplot} exits with
-{cmd:r(198)} otherwise. The null line defaults to {cmd:1} under {opt logscale}
+one. Every plotted value, including a point estimate that lies outside its own
+interval, must be strictly positive; {cmd:eplot} exits with {cmd:r(198)}
+otherwise, as it does for a nonpositive {opt xlabel()} tick. The null line defaults to {cmd:1} under {opt logscale}
 even without {opt eform}, and {opt null()} and {opt xline()} positions must be
 positive.
 
@@ -452,7 +466,11 @@ nonmissing and nonzero.
 {opt null(#)}
 sets the position of the null hypothesis line. Default is {cmd:0} (or
 {cmd:1} when {opt eform} is specified). Override to use a different reference
-value. The position must be a nonmissing number.
+value. The position must be a nonmissing number. When every interval lies on
+one side of the null, the axis keeps the data range and {cmd:eplot} notes that
+the null line is not drawn; add the null to {opt xlabel()} or {opt xline()} to
+show it. A null above the data is still drawn when {opt values} is specified,
+because the values column extends the axis past it.
 
 {phang}
 {opt nonull}
@@ -460,7 +478,8 @@ suppresses the null hypothesis line entirely.
 
 {phang}
 {opt xline(numlist[, line_options label(strlist)])}
-adds additional vertical reference lines at the specified positions. By default
+adds additional vertical reference lines at the specified positions. The effect
+axis extends to every position. By default
 the added lines use a light dashed style; supply {it:line_options} after a comma
 (for example, {cmd:xline(0.5, lpattern(dash) lcolor(red))}) to override the
 appearance of every added line.
@@ -541,7 +560,8 @@ showing the point estimate and confidence interval (e.g., "0.85 (0.72,
 {opt vformat(fmt)} sets the numeric format for the {opt values} annotation. Default is
 {cmd:%5.2f} (or {cmd:%5.}{it:dp}{cmd:f} when {opt dp()} is specified). Example: {cmd:vformat(%6.3f)}. {cmd:eplot}
 automatically widens the values column margin when formatted text is longer
-than the default layout.
+than the default layout. {it:fmt} must be a numeric display format;
+{cmd:eplot} exits with {cmd:r(198)} otherwise.
 
 {phang}
 {opt vgap(#)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the gap between the
@@ -1091,7 +1111,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.0, 10oct2026{p_end}
+{pstd}Version 1.5.1, 10oct2026{p_end}
 
 
 {marker alsosee}{...}
