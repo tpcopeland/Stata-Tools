@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.1  10oct2026}{...}
+{* *! version 1.6.0  10oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -82,20 +82,20 @@ Plot from a graph-ready frame:
 {synopt:{opt res:cale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
-{synopt:{opt xl:ine(numlist[, line_options label(strlist)])}}add (labelled) reference lines{p_end}
+{synopt:{opt xl:ine(numlist[, line_options label(strlist[, opts])])}}add (labelled) reference lines; repeatable{p_end}
 {synopt:{opt xlab:el(spec)}}effect-axis tick specification{p_end}
 {synopt:{opt nogr:id}}suppress the effect-axis grid{p_end}
-{synopt:{opt null(#)}}null hypothesis line position{p_end}
+{synopt:{opt null(#[, line_options])}}null hypothesis line position and style{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
 
 {syntab:Confidence intervals}
-{synopt:{opt lev:el(#)}}CI level; default is {cmd:c(level)}{p_end}
+{synopt:{opt lev:el(#)}}CI level; default is {cmd:c(level)} (data mode: label only, default 95){p_end}
 {synopt:{opt noci}}suppress all interval geometry{p_end}
 {synopt:{opt cic:ap}}draw capped CI lines{p_end}
 
 {syntab:Display}
 {synopt:{opt dp(#)}}decimal places; default is 2{p_end}
-{synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
+{synopt:{opt eff:ect(string[, atnull])}}x-axis title for effect sizes; {cmd:atnull} centres it on the null{p_end}
 {synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
 {synopt:{opt vg:ap(#)}}values-column gap; default 0.15{p_end}
@@ -103,13 +103,15 @@ Plot from a graph-ready frame:
 {synopt:{opt vc:olor(colorstyle)}}values text color; default {cmd:gs4}{p_end}
 {synopt:{opt vti:tle(string)}}values-column header; default {opt effect()}{p_end}
 {synopt:{opt vmiss:ing(string)}}values text for type 2 rows{p_end}
+{synopt:{opt base:levels}}show factor base levels as reference rows (estimates){p_end}
+{synopt:{opt vref:erence(string)}}values text for base-level rows{p_end}
 {synopt:{opt labsize(textsizestyle)}}row-label text size; default {cmd:small}{p_end}
 {synopt:{opt star:s}}add significance stars to values{p_end}
 {synopt:{opt sigc:olors}}color markers by CI significance{p_end}
 {synopt:{opt sigc:olor(color)}}significant-effect color{p_end}
 {synopt:{opt insignc:olor(color)}}non-significant-effect color{p_end}
 {synopt:{opt sty:le(name)}}plot style preset{p_end}
-{synopt:{opt f:avors(left right[, ends below arrows])}}directional annotation text{p_end}
+{synopt:{opt f:avors(left right[, suboptions])}}directional annotation text{p_end}
 
 {syntab:Prediction intervals (data and frame modes)}
 {synopt:{opt pi(lci_var uci_var)}}draw prediction-interval whiskers{p_end}
@@ -118,6 +120,7 @@ Plot from a graph-ready frame:
 {synopt:{opt i:2(string)}}display I-squared value in note{p_end}
 {synopt:{opt tau:2(string)}}display tau-squared value in note{p_end}
 {synopt:{opt q:stat(string)}}display Q statistic in note{p_end}
+{synopt:{opt het:row}}show the statistics as a row instead of in the note{p_end}
 
 {syntab:Layout}
 {synopt:{opt hor:izontal}}horizontal layout (default){p_end}
@@ -138,6 +141,7 @@ Plot from a graph-ready frame:
 {synopt:{opt boxs:cale(#)}}scale weighted boxes; default {cmd:100}{p_end}
 {synopt:{opt nobox}}suppress weighted boxes{p_end}
 {synopt:{opt nodi:amonds}}replace pooled diamonds with markers{p_end}
+{synopt:{opt diamondc:olor(colors)}}overall [subgroup] diamond colors{p_end}
 {synopt:{opt cico:lor(color)}}CI line color{p_end}
 {synopt:{opt ciw:idth(lwstyle)}}CI line width{p_end}
 
@@ -149,6 +153,7 @@ Plot from a graph-ready frame:
 {synopt:{opt sav:ing(filename)}}save graph to file{p_end}
 {synopt:{opt scheme(schemename)}}graph scheme{p_end}
 {synopt:{opt plotr:egion(options)}}plot region options{p_end}
+{synopt:{opt exp:ort(frame[, replace])}}write the plotted rows to a frame{p_end}
 {synopt:{opt graphr:egion(options)}}graph region options{p_end}
 {synopt:{opt asp:ect(#)}}aspect ratio{p_end}
 {synopt:{opt xsc:ale(axis_suboptions)}}x-axis style; range set by {cmd:eplot}{p_end}
@@ -447,30 +452,38 @@ natural presentation for ratio effects such as odds, hazard, risk, and
 incidence-rate ratios. Axis padding is multiplicative rather than additive, so
 the padded limits stay strictly positive, and the ticks are placed on a decade
 lattice (for example {cmd:0.5 1 2 5 10 20}) instead of an evenly spaced linear
-one. Every plotted value, including a point estimate that lies outside its own
+one. When the data span less than a 3-fold range and contain the null, the
+default ticks are instead {it:null}*{it:r}^{it:k} for the smallest {it:r} of
+1.1, 1.25, 1.5, and 2 giving 4 to 9 ticks (e.g. {cmd:0.8 1 1.25 1.56}), which
+are symmetric about the null on the log axis. Every plotted value, including a point estimate that lies outside its own
 interval, must be strictly positive; {cmd:eplot} exits with {cmd:r(198)}
 otherwise, as it does for a nonpositive {opt xlabel()} tick. The null line defaults to {cmd:1} under {opt logscale}
 even without {opt eform}, and {opt null()} and {opt xline()} positions must be
 positive.
 
 {phang}
-{opt rescale(#)} multiplies all estimates and confidence limits by {it:#} before
-plotting. Useful for rescaling units (e.g., per 10-unit increase). With a
-negative multiplier, {cmd:eplot} swaps the transformed endpoints so the lower
-limit remains less than or equal to the upper limit. The factor must be
-nonmissing and nonzero.
+{opt rescale(#)} multiplies all estimates and confidence limits by {it:#} on
+the estimation scale. Useful for rescaling units (e.g., per 10-unit increase).
+With {opt eform} the multiplication comes first, so {cmd:rescale(10)} plots
+exp(10{it:b}), the ratio per 10 units. With a negative multiplier, {cmd:eplot}
+swaps the transformed endpoints so the lower limit remains less than or equal
+to the upper limit. The factor must be nonmissing and nonzero.
 
 {dlgtab:Reference lines}
 
 {phang}
-{opt null(#)}
+{opt null(#[, line_options])}
 sets the position of the null hypothesis line. Default is {cmd:0} (or
 {cmd:1} when {opt eform} is specified). Override to use a different reference
-value. The position must be a nonmissing number. When every interval lies on
+value. The position must be a nonmissing number. {it:line_options} after a
+comma replace the default dashed gray style, e.g.,
+{cmd:null(1, lcolor(black) lpattern(solid))}. When every interval lies on
 one side of the null, the axis keeps the data range and {cmd:eplot} notes that
-the null line is not drawn; add the null to {opt xlabel()} or {opt xline()} to
-show it. A null above the data is still drawn when {opt values} is specified,
-because the values column extends the axis past it.
+the null line is not drawn (and does not emit it); add the null to
+{opt xlabel()} or {opt xline()} to show it. With {opt favors()} the range
+always includes the null, because the labels read away from it. A null above
+the data is still drawn when {opt values} is specified, because the values
+column extends the axis past it.
 
 {phang}
 {opt nonull}
@@ -482,15 +495,23 @@ adds additional vertical reference lines at the specified positions. The effect
 axis extends to every position. By default
 the added lines use a light dashed style; supply {it:line_options} after a comma
 (for example, {cmd:xline(0.5, lpattern(dash) lcolor(red))}) to override the
-appearance of every added line.
+appearance of every added line. {opt xline()} may be repeated to give lines
+different styles, e.g., {cmd:xline(0.5, lcolor(red)) xline(2, lcolor(blue))};
+every occurrence extends the axis and is checked like the first.
 
 {pmore}
 {opt label(strlist)} labels the lines, one string per position in the order
 given, e.g., {cmd:xline(1.13 1.30, label("Women vs men, 18-39" ""))}; an empty
 string leaves that line unlabelled, and a single line's label need not be
-quoted. Each label is drawn at the top of the plot, just right of its line, so
-it stays clear of the rows and of the {opt favors()} text; with {opt values} it
-sits a row above the values-column header. In vertical layout
+quoted. Each label is drawn at the top of the plot, just right of its line (just
+left of it for a line in the right half of the effect range, so it stays inside
+the plot), clear of the rows and of the {opt favors()} text; with {opt values} it
+sits a row above the values-column header. Suboptions after a comma inside
+{opt label()} style the text: {cmd:size()}, {cmd:color()}, and
+{cmd:placement(auto|e|w|ne|nw|se|sw|c)}, e.g.,
+{cmd:xline(1.3, label("Cut-off", size(small) color(black)))}; the defaults are
+{cmd:size(vsmall)}, {cmd:color(gs5)}, and {cmd:placement(auto)}. Text after a
+comma that is not one of these stays part of an unquoted label. In vertical layout
 the label sits above the line beside the first row. A count that does not match
 the positions exits with {cmd:r(198)}.
 
@@ -515,16 +536,20 @@ default ticks. It may not be combined with {cmd:xlabel(..., grid)}.
 {dlgtab:Confidence intervals}
 
 {phang}
-{opt level(#)} {bf:[E]} {bf:[M]} sets the confidence level for interval
-construction. The default is the current {cmd:c(level)}. In data and frame
-modes, confidence limits are taken directly from the supplied variables.
+{opt level(#)} sets the confidence level for interval construction in
+estimates and matrix modes. The default is the current {cmd:c(level)}. In data
+and frame modes, confidence limits are taken directly from the supplied
+variables, so {opt level()} only labels them: it sets the "{it:#}% CI" text of
+the default {opt effect()} title, which reads 95 without {opt level()}
+whatever {cmd:c(level)} is, and changes no interval.
 
 {phang}
 {opt noci}
 suppresses all interval geometry. Regular-effect whiskers are omitted, and
 pooled rows (data/frame {opt type()} 3 and 5) are drawn as plain markers
 instead of diamonds, because the diamond encodes the interval in its
-width. Only point estimates are plotted.
+width. Only point estimates are plotted, and the axis range is set by them
+rather than by the hidden intervals.
 
 {phang}
 {opt cic:ap}
@@ -541,7 +566,7 @@ is {cmd:2}. Must be a nonnegative integer. Ignored if {opt vformat()} is
 specified.
 
 {phang}
-{opt effect(string)} sets the x-axis title (or y-axis title in vertical
+{opt effect(string[, atnull])} sets the x-axis title (or y-axis title in vertical
 layout). Default is "Estimate (95% CI)", or "Effect (95% CI)" when {opt eform} is
 specified; estimates mode uses "Coefficient ({it:#}% CI)" at the {opt level()}
 in effect, and matrix mode reports that level in place of 95. Override with a custom label such as
@@ -549,12 +574,35 @@ in effect, and matrix mode reports that level in place of 95. Override with a cu
 always reads "95% CI" because the confidence limits are supplied directly and
 {cmd:eplot} cannot know their level; set {opt effect()} explicitly if your intervals are
 not 95%. With {opt values}, {opt effect()} also heads the values column unless
-{opt vtitle()} is specified.
+{opt vtitle()} is specified; when {opt effect()} is not given either, the
+column header takes the default text and the axis title drops its
+" ({it:#}% CI)" suffix, so the two do not repeat each other.
+
+{pmore}
+{cmd:atnull} places the title directly under the {opt null()} value on its own
+row, instead of centred on the plot region, which with {opt values} runs on
+under the values column. For example,
+{cmd:effect("Time ratio", atnull)}. {cmd:effect(, atnull)} keeps the default
+title. A title that itself ends in ", atnull" is read as the suboption. The title's size and color still come from {cmd:xtitle(, size() color())}
+({cmd:ytitle()} in vertical layout), but its text must come from
+{opt effect()}: {cmd:xtitle()} text with {cmd:atnull} is an error. The title is
+drawn as the only label of a second effect axis on the same side, so do not
+add options to {cmd:axis(2)}. When the null lies outside the effect axis the
+title is centred as usual and a note says so.
 
 {phang}
 {opt values} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} annotates each row with formatted text
 showing the point estimate and confidence interval (e.g., "0.85 (0.72,
 0.99)"). Requires horizontal layout. See also {opt vformat()} for custom formatting.
+The x range runs on to the values column, so {cmd:eplot} draws the effect axis
+line itself and stops it at the end of the effect range rather than under the
+column; line styling given in {cmd:xscale()} ({cmd:lcolor()}, {cmd:lwidth()},
+{cmd:lpattern()}, {cmd:lstyle()}) is applied to it. With {cmd:xscale(noline)},
+{cmd:xscale(line)}, {cmd:xscale(off)}, or a {opt plotregion(margin())} of your
+own, the axis line is twoway's own. A {opt plotregion()} without {cmd:margin()}
+is merged with the values-column margin; a {cmd:margin()} of explicit sides
+({cmd:l+2 t=1} ...) without a right side gets the column's right margin added,
+and any other {cmd:margin()} is used as given, with a note.
 
 {phang}
 {opt vformat(fmt)} sets the numeric format for the {opt values} annotation. Default is
@@ -593,6 +641,15 @@ gives each its own wording.
 (missing or excluded) rows; default is "Not estimated". {cmd:vmissing("")} leaves
 those rows blank. Rows whose string {opt type()} is {cmd:"reference"} also map to
 type 2 but are reference categories, not missing estimates, so they stay blank.
+
+{phang}
+{opt baselevels} {bf:[E single-model]} shows the base level of each factor
+variable (e.g. {cmd:1b.rep78}) as a reference row in its stripe position, with
+no marker or interval. With {opt values} its text is "1.00 (reference)" under
+{opt eform} and "0.00 (reference)" otherwise (in the {opt vformat()} format);
+{opt vreference(string)} replaces it. Reference rows count in {cmd:r(N)} but not
+in {cmd:r(k)} or {cmd:r(table)}. Base levels of interactions and omitted
+(collinear) terms are not shown. Multi-model calls exit with {cmd:r(198)}.
 
 {phang}
 {opt labsize(textsizestyle)} sets the size of the row labels; default is
@@ -655,24 +712,32 @@ settings; a preset's colors are defaults that yield to the per-model
 {p2colreset}{...}
 
 {phang}
-{opt favors(left right[, ends below arrows])} adds directional annotation text
+{opt favors(left right[, suboptions])} adds directional annotation text
 (horizontal layout only). Provide exactly two nonempty labels, quoting labels
 that contain spaces, e.g., {cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
 the clinical interpretation of each direction. By default each label is centred
-between {opt null()} and the data edge on its side, in a row below the last
-effect. Suboptions:
+between {opt null()} and the first or last labelled tick on its side (the
+padded axis end when the axis has no numeric ticks), in a row below the last
+effect, in the size of the effect-axis tick labels, on a white box so grid
+lines do not run through it (use {cmd:below} with a dark plot region).
+Suboptions:
 
 {p2colset 9 20 22 2}{...}
 {p2col:{cmd:ends}}anchor the labels at the left and right ends of the effect axis, reading inward, clear of lines near the null{p_end}
 {p2col:{cmd:below}}draw the labels below the axis tick labels, where no reference line crosses them{p_end}
 {p2col:{cmd:arrows}}add arrows pointing away from the null, e.g., "{c -}> Favors Control"{p_end}
+{p2col:{cmd:size(}{it:textsizestyle}{cmd:)}}text size; default is the {cmd:xlabel(, labsize())} size, or the scheme's tick-label size{p_end}
+{p2col:{cmd:color(}{it:colorstyle}{cmd:)}}text color; default {cmd:gs5}{p_end}
+{p2col:{cmd:gap(}{it:size}{cmd:)}}with {cmd:below}, the gap between the tick labels and the labels; default {cmd:*10}{p_end}
 {p2colreset}{...}
 
 {pmore}
-{cmd:ends} and {cmd:below} may not be combined. {cmd:below} uses the effect axis's
-minor-label slot ({cmd:xmlabel()}). When {opt null()} lies outside the plotted range,
-centred labels would fall off the axis, so {cmd:eplot} places them at the axis ends
-and says so in a note.
+{cmd:ends} and {cmd:below} may not be combined, and {cmd:gap()} requires
+{cmd:below}. {cmd:below} uses the effect axis's minor-label slot
+({cmd:xmlabel()}); with {cmd:effect(, atnull)} the title sits on its own row
+under it. When {opt null()} is not strictly inside the labelled tick span,
+centred labels would sit on the null or fall off the axis, so {cmd:eplot}
+places them at the axis ends and says so in a note.
 
 {dlgtab:Prediction intervals (data and frame modes)}
 
@@ -702,6 +767,12 @@ displays the between-study variance ({it:tau}{c 178}) in the graph note.
 {opt qstat(string)} {bf:[D,F]} displays the Q statistic (Cochran's Q) in the graph
 note. Example: {cmd:qstat("8.63, df=5, p=0.125")}.
 
+{phang}
+{opt hetrow} {bf:[D,F]} shows the {opt i2()}, {opt tau2()}, and {opt qstat()}
+text as a row under the last overall (type 5) row, as "I{c 178} = ..., {it:tau}{c 178}
+= ..., Q = ...", instead of in the graph note. It requires at least one of
+them.
+
 {dlgtab:Layout}
 
 {phang}
@@ -717,15 +788,21 @@ with {opt horizontal}.
 
 {phang}
 {opt sort}
-sorts coefficients by effect size, smallest at top. In data and frame modes,
-only regular effects (type 1) are sorted; headers, pooled estimates, and
-blank rows keep their original positions.
+sorts coefficients by effect size, smallest at top. Only regular effects are
+sorted, and only within their block: headers, pooled estimates, het-info and
+blank rows (including those added by {opt groups()} and {opt headers()}) keep
+their positions, the effects between two of them are sorted among themselves,
+and each {opt groups()} list is sorted within its own rows. Without such rows
+the sort is global. In multi-model estimates mode coefficients are sorted by
+the first model's estimate.
 
 {phang}
 {opt ord:er(coeflist)}
 specifies an explicit ordering of coefficients. List the coefficient names
-(or labels, in data mode) in the desired display order. Unmatched names are
-placed at the end. It may not be combined with {opt sort}.
+(or labels, in data mode) in the desired display order. Rows not listed keep
+their relative order after the listed ones. A listed name that matches no
+coefficient exits with {cmd:r(198)}, as in {opt keep()} and {opt drop()}. It
+may not be combined with {opt sort}.
 
 {dlgtab:Multi-model (estimates mode)}
 
@@ -738,8 +815,11 @@ option requires multiple models and its label count must match exactly.
 {phang}
 {opt offset(#)} {bf:[E]}
 controls the vertical spacing between models when overlaying multiple
-estimates on the same coefficient row. Default is {cmd:0.15}. Increase for
-more visual separation; decrease for tighter grouping. The value must be
+estimates on the same coefficient row. Default is {cmd:0.15}, reduced to
+0.6/({it:models}-1) with more than five models so one coefficient's markers
+never span more than 0.6 of a row; a larger {opt offset()} that spreads them
+over 0.9 rows or more draws a note. Increase for more visual separation;
+decrease for tighter grouping. The value must be
 nonmissing and nonnegative, and the option requires multiple models.
 
 {phang}
@@ -804,6 +884,12 @@ draws pooled effects (type 3 and 5 rows) as standard markers instead of
 diamonds.
 
 {phang}
+{opt diamondcolor(overall [subgroup])} {bf:[D,F]}
+sets the outline color of the overall (type 5) and subgroup (type 3)
+diamonds; default {cmd:black} and {cmd:maroon}. One color serves both, e.g.,
+{cmd:diamondcolor(cranberry)}; quote an RGB triplet.
+
+{phang}
 {opt cico:lor(color)}
 sets the CI line color. Default matches the marker color. In multi-model
 estimates mode it takes either one color, applied to every model, or exactly
@@ -818,7 +904,23 @@ sets the CI line width. Default is {cmd:medium}.
 
 {phang}
 {opt title(string)}, {opt subtitle(string)}, and {opt note(string)}
-set the graph title, subtitle, and note.
+set the graph title, subtitle, and note. Without {opt note()}, data and frame
+modes write an automatic note when pooled diamonds or heterogeneity statistics
+are drawn; {cmd:note("")} removes it.
+
+{phang}
+{opt export(framename[, replace])} writes the plotted rows, in display order,
+to a new frame: {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pos} (the
+row position), {cmd:type} (data and estimates modes), {cmd:weight} (data mode),
+{cmd:model_id} (estimates mode), {cmd:pvalue} when available, and
+{cmd:values} (the values-column text) with {opt values}. The values are as
+plotted, after {opt eform} and {opt rescale()}, and inserted header and spacer
+rows are included, so {cmd:eplot, frame(}{it:framename}{cmd:)} redraws a
+single-model plot without those options; add {cmd:null(1)} (and
+{opt logscale} if it was used) when the original used {opt eform}, since the
+read-back values are already ratios. An existing frame requires
+{cmd:replace}; the current frame and, in frame mode, the {opt frame()} source
+may not be named.
 
 {phang}
 {opt name(string)} names the graph in memory. {opt saving(filename)} saves
@@ -1075,15 +1177,15 @@ custom text.
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(N)}}display rows, including generated headers{p_end}
-{synopt:{cmd:r(k)}}plotted coefficients, excluding headers/diamonds{p_end}
+{synopt:{cmd:r(N)}}display rows, including generated headers, {opt baselevels} reference rows, and the {opt hetrow} row{p_end}
+{synopt:{cmd:r(k)}}plotted coefficients, excluding headers/diamonds and reference rows{p_end}
 {synopt:{cmd:r(n_models)}}number of models plotted (estimates mode only){p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(cmd)}}the full {cmd:twoway} command that was executed{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}plotted effects ({it:b}, {it:ll}, {it:ul}){p_end}
+{synopt:{cmd:r(table)}}plotted effects ({it:b}, {it:ll}, {it:ul}); no reference rows{p_end}
 {synopt:{cmd:r(pvalues)}}p-values per plotted effect, when available{p_end}
 
 {pstd}
@@ -1111,7 +1213,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.1, 10oct2026{p_end}
+{pstd}Version 1.6.0, 10oct2026{p_end}
 
 
 {marker alsosee}{...}

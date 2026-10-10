@@ -487,16 +487,17 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     quietly regress price mpg weight
-    eplot ., null(-999) noconstant nodraw
+    * 1.6.0 omits an off-axis null line, so each axis reaches -999.
+    eplot ., null(-999) noconstant xlabel(-1000 0) nodraw
     assert strpos(`"`r(cmd)'"', "xline(-999,") > 0
     matrix R = (1, .5, 1.5)
-    eplot, matrix(R) null(-999) nodraw
+    eplot, matrix(R) null(-999) xlabel(-1000 0 2) nodraw
     assert strpos(`"`r(cmd)'"', "xline(-999,") > 0
     clear
     input double(es lci uci)
     0.1 -0.1 0.3
     end
-    eplot es lci uci, null(-999) nodraw
+    eplot es lci uci, null(-999) xlabel(-1000 0 1) nodraw
     assert strpos(`"`r(cmd)'"', "xline(-999,") > 0
     capture eplot es lci uci, null(.) nodraw
     assert _rc == 198

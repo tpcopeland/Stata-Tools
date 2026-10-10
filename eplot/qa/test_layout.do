@@ -207,7 +207,7 @@ capture noisily {
     local start_default = strpos(`"`cmd_default'"', "`prefix'")
     assert `start_default' > 0
     local rest_default = substr(`"`cmd_default'"', `start_default' + length("`prefix'"), .)
-    local stop_default = strpos(`"`rest_default'"', " t+2 b+2))")
+    local stop_default = strpos(`"`rest_default'"', " t+2 b")
     assert `stop_default' > 1
     local default_margin = real(substr(`"`rest_default'"', 1, `stop_default' - 1))
 
@@ -218,7 +218,7 @@ capture noisily {
     local start = strpos(`"`cmd'"', "`prefix'")
     assert `start' > 0
     local rest = substr(`"`cmd'"', `start' + length("`prefix'"), .)
-    local stop = strpos(`"`rest'"', " t+2 b+2))")
+    local stop = strpos(`"`rest'"', " t+2 b")
     assert `stop' > 1
     local right_margin = real(substr(`"`rest'"', 1, `stop' - 1))
     assert `right_margin' > `default_margin'
