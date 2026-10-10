@@ -696,7 +696,7 @@ capture noisily {
     capture finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0) nolog
     assert _rc == 198
     capture finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(-1) nolog
-    assert _rc != 0
+    assert _rc == 198
     * numlist's own `ascending' rejects a repeat before the parser sees it; what
     * matters is that neither reaches the engine.
     capture finegray x1 x2, compete(status) cause(1) tvc(x1) tsplit(0.5 0.5) nolog

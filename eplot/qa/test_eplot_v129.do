@@ -109,10 +109,15 @@ capture noisily {
     input str8 label double(es ll ul pi_ll pi_ul)
     "A" 1 .5 1.5 .2 2
     end
+    * Ticks inside the padded range, so the range is the padded PI span.
     eplot es ll ul, labels(label) pi(pi_ll pi_ul) rescale(-2) ///
-        name(eplot_v129_t3, replace)
+        xlabel(-4 -3 -2 -1) name(eplot_v129_t3, replace)
     local cmd `"`r(cmd)'"'
     assert strpos(`"`cmd'"', "xscale(range(-4.18 -.22))") > 0
+    * Default ticks -4(1)0: since 1.5.0 the range reaches the 0 tick.
+    eplot es ll ul, labels(label) pi(pi_ll pi_ul) rescale(-2) ///
+        name(eplot_v129_t3, replace)
+    assert strpos(`"`r(cmd)'"', "xscale(range(-4.18 0))") > 0
 }
 if _rc == 0 local ++pass_count
 else {

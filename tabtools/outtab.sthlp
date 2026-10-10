@@ -87,7 +87,8 @@ results are held and restored, so {cmd:outtab} leaves {cmd:e()} as it found it.
 
 {phang}
 {opt exposure(varname)} is the 0/1 exposure. Other values are refused, as are
-outcomes or panel indicators that are not 0/1. Observations with a missing
+outcomes or panel indicators that are not 0/1, and an exposure that takes only
+one of the two values in the sample. Observations with a missing
 outcome are left out of that outcome's row.
 
 {phang}

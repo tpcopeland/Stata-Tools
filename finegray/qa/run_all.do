@@ -76,6 +76,7 @@ local quick_files validation_fixture_recovery.do validation_fixture_matrix.do te
     test_finegray_nullcase.do ///
     test_finegray_horizon_precision.do test_finegray_cif_overflow.do ///
     test_finegray_numeric_prediction.do test_finegray_numeric_estimation.do ///
+    test_finegray_basehaz_tvc.do ///
     test_finegray_codexaudit_2026_09_27_a.do ///
     test_finegray_codexaudit_2026_09_27_b.do ///
     test_finegray_fv_base_terms.do test_finegray_user_text.do ///

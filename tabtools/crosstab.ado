@@ -1,4 +1,4 @@
-*! crosstab Version 2.6.1  2026/10/09
+*! crosstab Version 2.6.2  2026/10/10
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -625,12 +625,12 @@ capture noisily {
     qui set obs `row'
     local _p_row = `row'
     local _trend_row = 0
-    local _p_str = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
-    * A truncated p-value already carries its own operator, so the sentence has
-    * to change operator too: "p = <0.001" is not a sentence. Build the phrase
-    * from an operator/value pair rather than gluing "= " onto the rendered
-    * string.
-    local _p_phrase = cond(`_p' < 0.001, "p < 0.001", "p = " + string(`_p', "%5.3f"))
+    * The package p-value rule (regtab's): a truncated value carries its own
+    * operator, so the sentence uses r(phrase) ("p < 0.001"), never
+    * "p = <0.001".
+    _tabtools_format_p, pvalue(`_p')
+    local _p_phrase `"`r(phrase)'"'
+    if `"`_p_phrase'"' == "" local _p_phrase "p = ."
     if `_sc_suppress_derived' {
         qui replace c1 = `"`_test_name': Suppressed"' in `row'
         local ++_sc_nderived
@@ -675,13 +675,16 @@ capture noisily {
         local row = `row' + 1
         qui set obs `row'
         local _trend_row = `row'
-        local _pt_str = cond(`_p_trend' < 0.001, "<0.001", string(`_p_trend', "%5.3f"))
+        _tabtools_format_p, pvalue(`_p_trend')
+        * "P for trend < 0.001", not "P for trend = <0.001"
+        local _pt_phr = substr(`"`r(phrase)'"', 3, .)
+        if `"`_pt_phr'"' == "" local _pt_phr "= ."
         local _trend_lbl = cond("`cochran'" != "", "P for trend (Cochran-Armitage)", "P for trend")
         if `_sc_suppress_derived' {
             qui replace c1 = `"`_trend_lbl' = Suppressed"' in `row'
             local ++_sc_nderived
         }
-        else qui replace c1 = `"`_trend_lbl' = `_pt_str'"' in `row'
+        else qui replace c1 = `"`_trend_lbl' `_pt_phr'"' in `row'
     }
 
     local num_rows = _N

@@ -341,7 +341,12 @@ names are not case-sensitive. The number is the same in every style, so
 percentage of {cmd:np} and {cmd:enp}; {opt nformat()} also formats the count of
 {cmd:tabcell n} (default {cmd:%12.0fc}, as in {helpb table1_tc}, so 12345 prints
 as {cmd:12,345}). The percentage is omitted when the denominator is
-0. A percentage above 0 and below 100 never prints as 0 or 100: where the format would round it there, it gains one decimal at a time, up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A true 0 or 100 prints as before. Negative counts and counts larger than their total are refused.
+0. A percentage above 0 and below 100 never prints as 0 or 100: where the
+format would round it there, it gains one decimal at a time, up to two or the
+format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it
+still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A
+true 0 or 100 prints as before. Negative counts and counts larger than their
+total are refused.
 
 {phang}
 {opt mincell(#)} prints a count from 1 to #-1 as {cmd:<}#, without its
@@ -493,8 +498,8 @@ limits illustrated in the case of the binomial. {it:Biometrika}
 
 {phang}
 Thulin, M. 2014. The cost of using exact confidence intervals for a binomial
-proportion. {it:Electronic Journal of Statistics} 8: 817-840.
-{browse "https://doi.org/10.1214/14-ejs909"}.{p_end}
+proportion. {it:Electronic Journal of Statistics} 8:
+817-840. {browse "https://doi.org/10.1214/14-ejs909"}.{p_end}
 
 
 {marker author}{...}

@@ -1,4 +1,4 @@
-*! _tabtools_fitcount Version 2.6.1  2026/10/09
+*! _tabtools_fitcount Version 2.6.2  2026/10/10
 *! Fit-time event, people, and person-time counts for regtab (tabtools fitcount)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -459,7 +459,7 @@ program define _tabtools_fitcount, rclass
 	local rc = _rc
 	if `_restore_needed' capture restore
 	capture mata: mata drop _tt_fc_*
-	* cleanup zone: the fit's rc is already saved in rc, and the caller's current collection is restored best-effort
+	* stata-dev-ignore: capture-rc, capture_rc — cleanup zone; the fit's rc is already saved in rc, and the caller's current collection is restored best-effort
 	if `_coll_switched' capture quietly collect set `_coll0'
 	set varabbrev `_orig_varabbrev'
 	if `rc' exit `rc'

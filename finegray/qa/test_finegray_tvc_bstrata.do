@@ -549,7 +549,7 @@ capture noisily {
     assert e(converged) == 1
     assert `"`e(bstrata_noevent)'"' == "3"
     capture finegray_cif, at(x1=0 x2=0) bstratum(3) attime(0.5) nograph
-    assert _rc != 0
+    assert _rc == 459
     quietly finegray_cif, at(x1=0 x2=0) bstratum(1) attime(0.5) nograph
     assert !missing(r(table)[1, 2])
 }

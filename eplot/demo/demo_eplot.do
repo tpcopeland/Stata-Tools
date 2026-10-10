@@ -1,6 +1,6 @@
 /*  demo_eplot.do - Generate screenshots for eplot
 
-    Produces 8 graphs:
+    Produces 10 graphs:
       1. Multi-model coefficient comparison     -> multi_model.png
       2. Forest plot with values annotation      -> forest_values.png
       3. Grouped coefficient plot                -> grouped_coefplot.png
@@ -9,6 +9,11 @@
       6. Matrix mode                             -> matrix_mode.png
       7. Single-model values demo                -> coef_values.png
       8. Meta-analysis with heterogeneity        -> meta_heterogeneity.png
+      9. Time-ratio forest plot by sex and age   -> time_ratio_forest.png
+     10. Two panels with shared axis styling     -> panel_consistency.png
+
+    Run from the Stata-Tools repository root; graphs use the white_tableau
+    scheme from the sibling tc_schemes package.
 */
 
 version 16.0
@@ -27,9 +32,22 @@ capture mkdir "`pkg_dir'"
 **# Install local packages and set the graph scheme
 capture ado uninstall eplot
 quietly net install eplot, from("`c(pwd)'/eplot") replace
+which eplot
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
-set scheme plotplainblind
+
+* Resolve the scheme and assert it took effect; a missing scheme must stop the
+* demo rather than fall back silently to the default scheme.
+capture findfile scheme-white_tableau.scheme
+if _rc {
+    display as error "scheme white_tableau not found after tc_schemes install"
+    exit 601
+}
+set scheme white_tableau
+if "`c(scheme)'" != "white_tableau" {
+    display as error "scheme white_tableau did not take effect (c(scheme) = `c(scheme)')"
+    exit 198
+}
 
 **# 1. Multi-model coefficient comparison
 
@@ -64,6 +82,8 @@ capture graph close _all
 
 **# 2. Forest plot with values annotation and subgroups
 
+* vsize(small) draws the values at the row-label size.
+
 clear
 input str24 study double(es lci uci weight) byte type
 "Cardiovascular"         .     .     .    .  0
@@ -82,7 +102,7 @@ input str24 study double(es lci uci weight) byte type
 end
 
 eplot es lci uci, labels(study) weights(weight) type(type) ///
-    values vformat(%4.2f) nonull ///
+    values vformat(%4.2f) vsize(small) nonull ///
     effect("Hazard Ratio (95% CI)") ///
     title("Treatment Effect on Organ-Specific Outcomes")
 
@@ -150,10 +170,12 @@ capture graph close _all
 
 **# 6. Matrix mode
 
+* The matrix already holds odds ratios, so the null line belongs at 1.
+
 matrix R = (1.82, 1.21, 2.74 \ 0.73, 0.54, 0.99 \ 1.45, 1.08, 1.95 \ 1.12, 0.78, 1.61)
 matrix rownames R = "Drug_A" "Drug_B" "Drug_C" "Drug_D"
 
-eplot, matrix(R) ///
+eplot, matrix(R) null(1) ///
     effect("Odds Ratio (95% CI)") ///
     coeflabels(Drug_A = "Drug A (experimental)" ///
                Drug_B = "Drug B (standard)" ///
@@ -206,6 +228,90 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 
 graph export "`pkg_dir'/meta_heterogeneity.png", replace width(1400)
 capture graph close _all
+
+**# 9. Time-ratio forest plot by sex and age group
+
+* Synthetic subgroup results from an accelerated failure time model: time ratios
+* for time to first cardiovascular event, SNRI versus SSRI new users. A time
+* ratio above 1 means the event came later under SNRI. Men aged 80+ had too few
+* events to fit the model, so that row is type 2 and prints "Not estimated".
+* The dashed extra line marks the overall time ratio and is labelled at the top.
+clear
+input str20 group double(tr lci uci) byte type
+"Men"                .     .     .   0
+"  18-39"         1.21  1.04  1.41   1
+"  40-59"         1.09  0.97  1.22   1
+"  60-79"         1.03  0.94  1.13   1
+"  80+"              .     .     .   2
+""                   .     .     .   6
+"Women"              .     .     .   0
+"  18-39"         1.34  1.16  1.55   1
+"  40-59"         1.12  1.01  1.24   1
+"  60-79"         0.97  0.88  1.07   1
+"  80+"           0.88  0.73  1.06   1
+""                   .     .     .   6
+"All participants" 1.08  1.03  1.13  5
+end
+
+eplot tr lci uci, labels(group) type(type) logscale ///
+    values vformat(%4.2f) vsize(small) vcolor(black) ///
+    effect("Time ratio (log scale)") vtitle("Time ratio (95% CI)") ///
+    xlabel(0.7 "0.7" 0.8 "0.8" 1 "1.0" 1.25 "1.25" 1.5 "1.5") ///
+    xscale(lcolor(black) lwidth(medthin) fextend) ///
+    xline(1.08, lcolor(gs8) lpattern(dash) label("Overall 1.08")) ///
+    favors("Favors SSRI" "Favors SNRI", ends arrows) ///
+    title("Time to first cardiovascular event, SNRI vs SSRI") ///
+    subtitle("Accelerated failure time model by sex and age group (synthetic data)")
+
+graph export "`pkg_dir'/time_ratio_forest.png", replace width(1400)
+capture graph close _all
+
+**# 10. Two panels with shared axis styling
+
+* Two outcomes reported side by side should look like one figure: the same
+* ticks, axis line, text sizes, and favors labels. Keeping the shared options in
+* one local guarantees the panels cannot drift apart. A user xlabel() also drops
+* the scheme grid, so neither panel carries grid lines the other lacks. Each
+* panel still computes its own axis range from its data, so choose ticks that lie
+* within the data of every panel.
+local shared `"logscale xlabel(0.7 "0.7" 1 "1.0" 1.4 "1.4") xscale(lcolor(black) lwidth(medthin) fextend) values vformat(%4.2f) vsize(small) vcolor(black) labsize(small) effect("Hazard ratio") vtitle("HR (95% CI)") vmissing("Too few events") favors("Favors SNRI" "Favors SSRI", below arrows)"'
+
+clear
+input str16 subgroup double(hr lci uci) byte type
+"Age < 60"     0.84  0.72  0.98  1
+"Age 60+"      0.93  0.83  1.04  1
+"Women"        0.86  0.76  0.97  1
+"Men"          0.94  0.81  1.09  1
+"Diabetes"     0.97  0.67  1.41  1
+"No diabetes"  0.91  0.83  1.00  1
+"Overall"      0.89  0.82  0.97  5
+end
+
+eplot hr lci uci, labels(subgroup) type(type) `shared' ///
+    title("A. Cardiovascular event", size(medium)) ///
+    name(panel_cv, replace) nodraw
+
+clear
+input str16 subgroup double(hr lci uci) byte type
+"Age < 60"     1.18  0.88  1.58  1
+"Age 60+"      1.31  1.05  1.63  1
+"Women"        1.27  1.01  1.60  1
+"Men"          1.10  0.69  1.75  1
+"Diabetes"        .     .     .  2
+"No diabetes"  1.24  1.03  1.49  1
+"Overall"      1.25  1.06  1.47  5
+end
+
+eplot hr lci uci, labels(subgroup) type(type) `shared' ///
+    title("B. Gastrointestinal bleeding", size(medium)) ///
+    name(panel_gi, replace) nodraw
+
+graph combine panel_cv panel_gi, cols(2) xsize(12) ysize(5) ///
+    title("Subgroup hazard ratios, SNRI vs SSRI (synthetic data)")
+
+graph export "`pkg_dir'/panel_consistency.png", replace width(1800)
+capture graph close _all
+capture graph drop panel_cv panel_gi
 
 **# Cleanup
 estimates drop _all

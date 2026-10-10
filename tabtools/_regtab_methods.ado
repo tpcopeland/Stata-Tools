@@ -1,4 +1,4 @@
-*! _regtab_methods Version 2.6.1  2026/10/09
+*! _regtab_methods Version 2.6.2  2026/10/10
 *! regtab block: the methods sentence (r(methods))
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

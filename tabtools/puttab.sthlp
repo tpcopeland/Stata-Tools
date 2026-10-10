@@ -126,7 +126,7 @@ and matrices in memory are left unchanged.{p_end}
 {synoptset 26 tabbed}{...}
 {synopt:{cmd:using} {it:filename}}optional Excel target workbook{p_end}
 {synopt:{opt sh:eet(string)}}Excel sheet name; default is {cmd:Table}{p_end}
-{synopt:{opt csv(filename)}}also write the assembled table to a CSV file{p_end}
+{synopt:{opt csv(filename)}}write the assembled table to a CSV file{p_end}
 {synopt:{opt markdown(filename)}}export as GitHub-Flavored Markdown{p_end}
 {synopt:{opt mdappend}}append the Markdown table to an existing file{p_end}
 {synopt:{opt open}}open Excel output after export{p_end}
@@ -161,7 +161,9 @@ and matrices in memory are left unchanged.{p_end}
 {it:Detailed option contracts}{p_end}
 
 {phang}
-{opt csv(filename)} also write the assembled table to a CSV file. The CSV
+{opt csv(filename)} write the assembled table to a CSV file. At least one of
+{cmd:using}, {opt csv()}, and {opt markdown()} is required; {opt csv()} alone
+writes only the CSV. The CSV
 mirrors the workbook with {opt title()} written as the first row and
 {opt footnote()} as the last row, both in the first column and the table body
 between them.{p_end}

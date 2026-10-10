@@ -140,14 +140,15 @@ capture noisily {
 
     capture frame drop _eto2
     quietly effecttab, frame(_eto2, replace)
+    * 2.6.2 labels interaction cells from the value and variable labels
 
     _eto_has _eto2 "empty," c2
     assert r(n) == 0
-    _eto_cell _eto2 "3.grp#0.sex" c1
+    _eto_cell _eto2 "Three # Sex = 0" c1
     assert "`r(cell)'" == "Empty"
-    _eto_cell _eto2 "3.grp#0.sex" c2
+    _eto_cell _eto2 "Three # Sex = 0" c2
     assert "`r(cell)'" == ""
-    _eto_cell _eto2 "3.grp#1.sex" c1
+    _eto_cell _eto2 "Three # Sex = 1" c1
     assert real("`r(cell)'") < .
 }
 if _rc == 0 {

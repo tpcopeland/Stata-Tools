@@ -1974,7 +1974,8 @@ capture noisily {
     assert "`_own_b'" != ""
     * a fit with no factor terms drops the prior run's own columns
     quietly finegray ifp tumsize, compete(status) cause(1) nolog
-    capture ds _fg_grp*
+    capture ds _fg_*
+    assert _rc == 111
     * bootstrap refits inside the same dataset
     quietly finegray ifp tumsize i.pelnode, compete(status) cause(1) nolog
     quietly finegray_cif, attime(5) ci bootstrap(25) seed(31) nograph

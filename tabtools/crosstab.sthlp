@@ -33,7 +33,10 @@ Markdown export
 frequencies, percentages, and association measures (OR, RR, RD). {it:rowvar}
 and {it:colvar} must be numeric categorical variables. The command supports
 Pearson's chi-squared test, Fisher's exact test (auto-selected when expected
-cells are sparse), and a Spearman rank-correlation trend test.{p_end}
+cells are sparse), and a Spearman rank-correlation trend test. Test and trend
+p-values print by the package rule shared with {helpb regtab}: {cmd:< 0.001}
+below 0.001, three decimals below 0.10, two decimals from 0.10, and
+{cmd:> 0.99} above 0.99.{p_end}
 
 {marker options}{title:Options}
 
@@ -125,7 +128,12 @@ workbook with {opt title()} written as the first row and {opt footnote()} as
 the last row, both in the first column and the table body between them.{p_end}
 
 {phang}
-{opt dig:its(#)} decimal places for percentages and association measures (default 1, range 0-6). A percentage above 0 and below 100 never prints as 0 or 100: where the format would round it there, it gains one decimal at a time, up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A true 0 or 100 prints as before.{p_end}
+{opt dig:its(#)} decimal places for percentages and association measures
+(default 1, range 0-6). A percentage above 0 and below 100 never prints as 0
+or 100: where the format would round it there, it gains one decimal at a time,
+up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04},
+{cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99}
+at that precision. A true 0 or 100 prints as before.{p_end}
 
 {phang}
 {opt ex:act} force Fisher's exact test{p_end}
@@ -356,8 +364,8 @@ frame carries characteristics {cmd:tabtools_smallcells},
 {title:References}
 
 {phang}
-Armitage P. 1955. Tests for linear trends in proportions and frequencies.
-{it:Biometrics} 11: 375-386. doi:10.2307/3001775.{p_end}
+Armitage P. 1955. Tests for linear trends in proportions and
+frequencies. {it:Biometrics} 11: 375-386. doi:10.2307/3001775.{p_end}
 
 {marker alsosee}{title:Also see}
 

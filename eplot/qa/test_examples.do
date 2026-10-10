@@ -238,6 +238,35 @@ if _rc == 0 local ++pass_count
 else local failed_tests "`failed_tests' 14"
 capture graph drop _all
 
+* Example 15: labelled reference line, values styling, favors at the ends.
+local ++test_count
+capture noisily {
+    clear
+    input str14 group tr lci uci byte type
+    "Men, 18-39"     1.20 1.05 1.37 1
+    "Men, 40-59"     1.10 0.98 1.24 1
+    "Men, 60+"       .    .    .    2
+    "Women, 18-39"   1.35 1.18 1.55 1
+    "Women, 40-59"   0.92 0.80 1.06 1
+    end
+    eplot tr lci uci, labels(group) type(type) values logscale ///
+        effect("Time ratio") vtitle("Time ratio (95% CI)") vsize(small) ///
+        xlabel(0.8 1 1.2 1.5) xscale(lcolor(black) fextend) ///
+        xline(1.13, label("Women vs men, 18-39")) ///
+        favors("Shorter" "Longer", ends arrows)
+    local cmd `"`r(cmd)'"'
+    assert r(N) == 5
+    assert r(k) == 4
+    assert strpos(`"`cmd'"', "mlabsize(small)") > 0
+    assert strpos(`"`cmd'"', "{bf:Time ratio (95% CI)}") > 0
+    assert strpos(`"`cmd'"', "xlabel(0.8 1 1.2 1.5, nogrid)") > 0
+    assert strpos(`"`cmd'"', `"`"Women vs men, 18-39"'"') > 0
+    assert strpos(`"`cmd'"', "placement(w)") > 0
+}
+if _rc == 0 local ++pass_count
+else local failed_tests "`failed_tests' 15"
+capture graph drop _all
+
 capture estimates drop _all
 * `clear' rather than `clear all': `clear all' drops programs, including the
 * shared sentinel helper this suite is about to call.

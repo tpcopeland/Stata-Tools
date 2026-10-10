@@ -1,4 +1,4 @@
-*! _regtab_remeta Version 2.6.1  2026/10/09
+*! _regtab_remeta Version 2.6.2  2026/10/10
 *! regtab block: random-effects, factor, and equation labels before rendering
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -222,10 +222,31 @@ quietly {
     if _rc == 0 {
         local _fv_collevels `s(levels)'
         foreach _fvterm of local _fv_collevels {
+            * An interaction ("1.foreign#c.weight", "c.mpg#c.weight") gets its
+            * labels from the components' variable and value labels; collect
+            * would print the raw key.
+            if strpos("`_fvterm'", "#") > 0 {
+                _tabtools_fvterm_label `"`_fvterm'"'
+                if `"`macval(_fvt_label)'"' == "" continue
+                local ++_fvrow_label_n
+                local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
+                local _fvrow_lab_`_fvrow_label_n' : copy local _fvt_label
+                if `"`_fvt_parent'"' == "" continue
+                local _fvrow_parent_seen = 0
+                forvalues _fvp = 1/`_fvrow_parent_n' {
+                    if `"`_fvrow_parent_var_`_fvp''"' == `"`_fvt_parent'"' ///
+                        local _fvrow_parent_seen = 1
+                }
+                if !`_fvrow_parent_seen' {
+                    local ++_fvrow_parent_n
+                    local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvt_parent'"'
+                    local _fvrow_parent_lab_`_fvrow_parent_n' : copy local _fvt_plabel
+                }
+                continue
+            }
             if regexm("`_fvterm'", "^([0-9]+)\.(.+)$") {
                 local _fvval = regexs(1)
                 local _fvvar = regexs(2)
-                if strpos("`_fvvar'", "#") > 0 continue
                 capture confirm variable `_fvvar'
                 if _rc == 0 {
                     local _fvrow_parent_seen = 0

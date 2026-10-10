@@ -1,4 +1,4 @@
-*! corrtab Version 2.6.1  2026/10/09
+*! corrtab Version 2.6.2  2026/10/10
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -327,7 +327,8 @@ program define corrtab, rclass
                         }
                         if "`pvalues'" != "" {
                             if !missing(`_p') {
-                                local _pstr = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
+                                _tabtools_format_p, pvalue(`_p')
+                                local _pstr `"`r(value)'"'
                                 local _rstr "`_rstr' (`_pstr')"
                             }
                         }

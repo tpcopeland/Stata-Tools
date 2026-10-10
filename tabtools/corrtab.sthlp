@@ -143,7 +143,10 @@ Excel, CSV, and frame exports{p_end}
 {opt open} open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {phang}
-{opt pval:ues} show p-values in parentheses instead of stars; cannot be combined with {opt star()}{p_end}
+{opt pval:ues} show p-values in parentheses instead of stars; cannot be
+combined with {opt star()}. The p-values print by the package rule shared with
+{helpb regtab}: {cmd:<0.001} below 0.001, three decimals below 0.10, two
+decimals from 0.10, and {cmd:>0.99} above 0.99.{p_end}
 
 {phang}
 {opt sheet(string)} Excel sheet name; default is {cmd:"Correlation"}. After

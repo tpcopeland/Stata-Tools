@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        full
-date:        2026-10-07T16:46:39Z
+date:        2026-10-10T03:01:09Z
 verdict:     PASS
-pkg_tree:    7bf07860a2c4ca9bdc17b2dffc2a814724fb9a81 (uncommitted-changes-present)
-head_commit: 4eecca4d09d61df0cfe773fc2024b015920b5fe6
+pkg_tree:    aaf577878282420c4e0920d89024166d03d5ab56 (uncommitted-changes-present)
+head_commit: d1b6de1a6c2a32dd2862f5d78746b7e35d60d283
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/3aca557e-151b-49b9-b547-e09f900ecb61/scratchpad/lane/finegray [matches-source-repo (tracked files incl. qa/; 371 files) manifest-sha256 021ec4afe3cb09b3d6dcd1f2d5aea2a43439f5941811c3d0e0240e5c9ecd1a47]
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/a9bd4937-829a-4a83-8b59-df1923ebddcf/scratchpad/lane_full2/finegray [matches-source-repo (tracked files incl. qa/; 371 files) manifest-sha256 e95778f7987fdca80dc1487a54262f6ddbc28db215f815973cb3c76ab19a5c31]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   PASS
@@ -65,6 +65,7 @@ RESULT: test_finegray_horizon_precision tests=12 pass=12 fail=0
 RESULT: test_finegray_cif_overflow tests=9 pass=9 fail=0
 RESULT: test_finegray_numeric_prediction tests=10 pass=10 fail=0
 RESULT: test_finegray_numeric_estimation tests=14 pass=14 fail=0
+RESULT: test_finegray_basehaz_tvc tests=5 pass=5 fail=0
 RESULT: test_finegray_codexaudit_2026_09_27_a tests=14 pass=14 fail=0
 RESULT: test_finegray_codexaudit_2026_09_27_b tests=10 pass=10 fail=0
 RESULT: test_finegray_fv_base_terms tests=9 pass=9 fail=0
@@ -109,5 +110,5 @@ RESULT: crossval_public_studies tests=5 pass=5 fail=0 skip=0
 RESULT: crossval_tvc tests=7 pass=7 fail=0 skip=0
 RESULT: crossval_tvc_bstrata tests=6 pass=6 fail=0 skip=0
 RESULT: crossval_pweight tests=2 pass=2 fail=0 skip=0
-RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=23
-RESULT: run_all tests=92 pass=92 fail=0 skip=0
+RESULT: validation_variance_default_mc tests=110 pass=110 fail=0 smoke=0 secs=20
+RESULT: run_all tests=93 pass=93 fail=0 skip=0

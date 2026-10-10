@@ -325,7 +325,7 @@ capture noisily {
     * with an rclass command that posts no r(table) before the refusal.
     quietly summarize x
     capture finegray_cif, at(x=.) attime(1) nograph
-    assert _rc != 0
+    assert _rc == 198
     * r(table) in an expression is a missing scalar when absent, so ask
     * whether the matrix exists rather than copy it.
     capture matrix list r(table)

@@ -1,4 +1,4 @@
-*! puttab Version 2.6.1  2026/10/09
+*! puttab Version 2.6.2  2026/10/10
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -179,8 +179,9 @@ program define puttab, rclass
         * ----- output file validation -----
         local _has_using = `"`using'"' != ""
         local _has_markdown = `"`markdown'"' != ""
-        if !`_has_using' & !`_has_markdown' {
-            noisily display as error "specify using or markdown()"
+        * csv() is a sink of its own, as it is for regtab and outtab
+        if !`_has_using' & !`_has_markdown' & `"`csv'"' == "" {
+            noisily display as error "specify using, csv(), or markdown()"
             exit 198
         }
         if "`open'" != "" & !`_has_using' {

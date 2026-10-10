@@ -462,7 +462,8 @@ capture noisily {
     frame _v3 {
         generate long rn = _n
         quietly summarize rn if strtrim(A) == "x", meanonly
-        assert strtrim(A[r(min) - 1]) == "1.foreign#mpg"
+        * 2.6.2: the interaction level is labelled from its components
+        assert strtrim(A[r(min) - 1]) == "Foreign # Mileage (mpg)"
         quietly summarize rn if strtrim(A) == "y", meanonly
         assert strtrim(A[r(min) - 1]) == "Foreign"
     }

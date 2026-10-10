@@ -1046,8 +1046,14 @@ coefficients. It carries no information and is dropped whole, so its levels
 cannot be misread as reference categories of the equations that were
 estimated.{p_end}
 {p 4 8 2}- Interaction rows: an interaction term heads a single parent row for
-all of its level combinations, named for the interacted variables
-({cmd:grp#sex}).{p_end}
+all of its level combinations, labelled from the interacted variables'
+labels ({it:Car origin # Weight (lbs.)}), with each combination indented
+beneath and named in full ({it:Foreign # Weight (lbs.)}, or
+{it:Female # Black} for two factors), so it never repeats a main-effect row's
+label. A level with no value label reads {it:variable label = level}. A
+product of continuous variables has no parent row and reads
+{it:Mileage (mpg) # Weight (lbs.)}. A label set on the collection with
+{cmd:collect label levels colname} is kept.{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()},
 {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar
 commands use the same {opt digits()} precision as the main coefficient

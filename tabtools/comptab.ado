@@ -1,4 +1,4 @@
-*! comptab Version 2.6.1  2026/10/09
+*! comptab Version 2.6.2  2026/10/10
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1015,7 +1015,7 @@ program define _comptab_rates, rclass
                 }
                 local _max_dr = `_fn' - 3
                 if `_max_dr' < 1 {
-                    display as error "Model frame '`_fname'' has no data rows"
+                    display as error "Model frame '`_source_original_`_f''' has no data rows"
                     exit 198
                 }
 
@@ -1082,13 +1082,13 @@ program define _comptab_rates, rclass
                 numlist `"`_rowspec`_f''"'
                 local expanded`_f' `r(numlist)'
                 if `_max_dr' < 1 {
-                    display as error "Model frame '`_fname'' has no data rows"
+                    display as error "Model frame '`_source_original_`_f''' has no data rows"
                     exit 198
                 }
 
                 foreach _rr of local expanded`_f' {
                     if `_rr' < 1 | `_rr' > `_max_dr' {
-                        display as error "Row `_rr' out of range for frame '`_fname'' (valid: 1-`_max_dr')"
+                        display as error "Row `_rr' out of range for frame '`_source_original_`_f''' (valid: 1-`_max_dr')"
                         exit 198
                     }
                 }
@@ -2546,7 +2546,8 @@ program define _comptab_vertical, rclass
             }
             local _max_dr = `_fn' - 3
             if `_max_dr' < 1 {
-                noisily display as error "Frame '`_fname'' has no data rows (only `_fn' total rows)"
+                * name the caller's frame, not the snapshot copy being read
+                noisily display as error "Frame '`_source_original_`f''' has no data rows (only `_fn' total rows)"
                 exit 198
             }
 
@@ -2567,7 +2568,7 @@ program define _comptab_vertical, rclass
                     }
                 }
                 if !`_matched' {
-                    noisily display as error `"rownames(): pattern "`_pat'" not found in frame '`_fname''"'
+                    noisily display as error `"rownames(): pattern "`_pat'" not found in frame '`_source_original_`f'''"'
                     noisily display as error "rownames() matches rendered row labels in column A, not source variable names"
                     exit 198
                 }
@@ -2609,12 +2610,13 @@ program define _comptab_vertical, rclass
             }
             local _max_dr = `_fn' - 3
             if `_max_dr' < 1 {
-                noisily display as error "Frame '`_fname'' has no data rows (only `_fn' total rows)"
+                * name the caller's frame, not the snapshot copy being read
+                noisily display as error "Frame '`_source_original_`f''' has no data rows (only `_fn' total rows)"
                 exit 198
             }
             foreach r of local expanded`f' {
                 if `r' < 1 | `r' > `_max_dr' {
-                    noisily display as error "Row `r' out of range for frame '`_fname'' (valid: 1-`_max_dr')"
+                    noisily display as error "Row `r' out of range for frame '`_source_original_`f''' (valid: 1-`_max_dr')"
                     exit 198
                 }
             }

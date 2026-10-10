@@ -1,4 +1,4 @@
-*! survtab Version 2.6.1  2026/10/09
+*! survtab Version 2.6.2  2026/10/10
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -158,7 +158,18 @@ capture noisily {
     }
 
     * Default options
-    if "`timeunit'" == "" local timeunit "years"
+    if "`timeunit'" == "" {
+        local timeunit "years"
+        * the default labels times, medians, and RMST as years; say so when
+        * the stset time variable is a date and no scale() made it years
+        _tabtools_st_timescale
+        if "`_st_unit'" != "" {
+            noisily display as text "Note: analysis time is in `_st_unit' (`_st_timevar' has a date format and stset has no scale()),"
+            noisily display as text "      but times, medians, and RMST are labelled in years. stset with scale() to"
+            if "`_st_unit'" == "days" noisily display as text "      analyse in years, or specify timeunit(days)."
+            else noisily display as text "      analyse in years."
+        }
+    }
     if !inlist("`timeunit'", "years", "months", "days", "weeks") {
         noisily display as error "timeunit() must be years, months, days, or weeks"
         exit 198
@@ -655,8 +666,15 @@ capture noisily {
         qui replace c1 = "  (`_level_txt'% CI)" in `row'
         forvalues g = 1/`n_groups' {
             local col = 1 + `g'
-            if !missing(`med_lo_g`g'') & !missing(`med_hi_g`g'') {
-                qui replace c`col' = "(" + strtrim(string(`med_lo_g`g'', "%21.`digits'f")) + ", " + strtrim(string(`med_hi_g`g'', "%21.`digits'f")) + ")" in `row'
+            * A bound the survivor function never crosses is "not reached" (NR),
+            * as stci reports it missing. Dropping the whole cell would discard
+            * a finite lower limit that is reportable.
+            if !missing(`med_lo_g`g'') | !missing(`med_hi_g`g'') {
+                local _mlo "NR"
+                local _mhi "NR"
+                if !missing(`med_lo_g`g'') local _mlo = strtrim(string(`med_lo_g`g'', "%21.`digits'f"))
+                if !missing(`med_hi_g`g'') local _mhi = strtrim(string(`med_hi_g`g'', "%21.`digits'f"))
+                qui replace c`col' = "(`_mlo', `_mhi')" in `row'
             }
         }
     }
@@ -926,6 +944,16 @@ capture noisily {
         noisily display as text "Note: times beyond the last observed follow-up of a group repeat the final"
         noisily display as text "      Kaplan-Meier estimate and are not supported by the data:"
         noisily display as text `"      `macval(_beyond)'"'
+        * Exported tables carry the same caveat, since a reader of the file
+        * never sees the console note.
+        local _beyond_fn `"Times beyond a group's last follow-up repeat the final Kaplan-Meier estimate and are not supported by the data: `macval(_beyond)'."'
+        if `"`macval(footnote)'"' == "" local footnote : copy local _beyond_fn
+        else {
+            * a user footnote that does not end a sentence is closed first
+            mata: st_local("_fn_end", strofreal(ustrregexm(strtrim(st_local("footnote")), "[.!?]$")))
+            if `_fn_end' local footnote `"`macval(footnote)' `macval(_beyond_fn)'"'
+            else local footnote `"`macval(footnote)'. `macval(_beyond_fn)'"'
+        }
     }
 
 **# CSV Export

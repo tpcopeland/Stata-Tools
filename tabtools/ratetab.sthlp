@@ -111,7 +111,10 @@ person-years when person-time is in years.
 {phang}
 {opt pyscale(#)} divides person-time before display, rate computation and
 {cmd:r(estimates)}, so the person-time column is in the scaled
-unit; {cmd:pyscale(365.25)} turns days into years.
+unit; {cmd:pyscale(365.25)} turns days into years. With {cmd:stset} data, no
+{opt pyscale()}, and a time variable with a date format but no {cmd:scale()},
+analysis time is in days (or milliseconds) while the header reads person-years,
+so {cmd:ratetab} prints a note naming the {opt pyscale()} that converts it.
 
 {phang}
 {opt ci(method)} sets the interval. {cmd:exact} gives exact Poisson limits for

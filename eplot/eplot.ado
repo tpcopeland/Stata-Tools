@@ -1,4 +1,4 @@
-*! eplot Version 1.4.3  2026/09/30
+*! eplot Version 1.5.0  2026/10/10
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -450,6 +450,12 @@ program define _eplot_data, rclass
             VALues ///
             VFormat(string) ///
             VGap(real 0.15) ///
+            VSize(string) ///
+            VColor(string) ///
+            VTItle(string) ///
+            VMISSing(string asis) ///
+            LABSIZE(string) ///
+            NOGRid ///
             STARs ///
             PValue(varname numeric) ///
             SIGColors ///
@@ -500,7 +506,7 @@ program define _eplot_data, rclass
 
         // Each color option must name exactly one valid color: twoway draws
         // the default color at rc=0 for a list or an unknown name.
-        foreach _copt in mcolor cicolor sigcolor insigncolor {
+        foreach _copt in mcolor cicolor sigcolor insigncolor vcolor {
             if `"``_copt''"' != "" {
                 _eplot_check_color, option(`_copt') spec(``_copt'')
             }
@@ -634,6 +640,33 @@ program define _eplot_data, rclass
         }
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
+    // Values-column and row-label text.  *# sizes resolve against eplot's
+    // defaults (vsmall values, small labels), not the scheme's.
+    if "`vcolor'" == "" local vcolor "gs4"
+    // An RGB triplet must be quoted before it enters mlabcolor(), or twoway
+    // reads a list and draws the default color.
+    if `: word count `vcolor'' > 1 local vcolor `""`vcolor'""'
+    if `"`vsize'"' == "" local vsize "vsmall"
+    _eplot_check_textsize, option(vsize) spec(`vsize') default(2.0833)
+    local vsize "`s(spec)'"
+    local _vscale = `s(val)' / 2.0833
+    if `"`labsize'"' == "" local labsize "small"
+    _eplot_check_textsize, option(labsize) spec(`labsize') default(2.777)
+    local labsize "`s(spec)'"
+    // vmissing() is parsed asis so vmissing("") can blank the text.
+    local _vmiss_text "Not estimated"
+    if `"`vmissing'"' != "" {
+        local _vm = strtrim(`"`vmissing'"')
+        if substr(`"`_vm'"', 1, 1) == char(34) | ///
+            substr(`"`_vm'"', 1, 2) == char(96) + char(34) {
+            gettoken _vm _vm_rest : _vm
+            if strtrim(`"`_vm_rest'"') != "" {
+                display as error "vmissing() takes one string"
+                exit 198
+            }
+        }
+        local _vmiss_text `"`_vm'"'
+    }
 
     // Color defaults
     if "`mcolor'" == "" local mcolor "navy"
@@ -956,18 +989,27 @@ program define _eplot_data, rclass
 
     if `"`xlabel'"' != "" {
         _eplot_effect_axis_labels, min(`xmin') max(`xmax') ///
-            xlabel(`xlabel') `logscale'
+            xlabel(`xlabel') `logscale' `nogrid'
     }
     else {
-        _eplot_effect_axis_labels, min(`xmin') max(`xmax') `logscale'
+        _eplot_effect_axis_labels, min(`xmin') max(`xmax') `logscale' `nogrid'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
+    // The effect range must reach every labelled tick.  twoway widens a
+    // linear axis to its labels, but on a log axis a tick outside range() is
+    // drawn off the axis or dropped at rc=0, so eplot widens it itself.
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    if "`s(min)'" != "" {
+        if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
+        if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
 
     // --- Values annotation ---
     local val_cmd ""
     if "`values'" != "" & "`horizontal'" == "" {
         display as text "(note: values annotation requires horizontal layout)"
     }
+    if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & "`horizontal'" != "" {
         tempvar val_text val_x
         quietly gen str `val_text' = string(`es', "`vformat'") ///
@@ -975,21 +1017,37 @@ program define _eplot_data, rclass
             + ", " + string(`uci', "`vformat'") + ")" + `_dm_star' ///
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
+        // Type 2 (missing/excluded) rows state that no estimate exists.  A
+        // string type of "reference" also maps to 2 but is a reference
+        // category, which is not "not estimated", so it stays blank.
+        if `"`_vmiss_text'"' != "" {
+            tempvar _vm_row
+            quietly gen byte `_vm_row' = (`rowtype' == 2)
+            if "`type'" != "" {
+                capture confirm string variable `type'
+                if _rc == 0 {
+                    quietly replace `_vm_row' = 0 ///
+                        if lower(strtrim(`type')) == "reference"
+                }
+            }
+            quietly replace `val_text' = `"`_vmiss_text'"' if `_vm_row' == 1
+        }
+
         _eplot_value_anchor, min(`xmin') max(`xmax') null(`null') gap(`vgap') ///
             axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
-        _eplot_value_margin `val_text', header(`"`effect'"')
+        _eplot_value_margin `val_text', header(`"`vtitle'"') scale(`_vscale')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
     }
 
     // --- Build graph command ---
     // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
     // string), and twoway reads mcolor(0 128 0) as a list and draws black.
     // Re-quote any multi-word color before it enters the graph command.
-    foreach _c in mcolor cicolor sigcolor insigncolor {
+    foreach _c in mcolor cicolor sigcolor insigncolor vcolor {
         local _nw : word count ``_c''
         if `_nw' > 1 local `_c' `""``_c''""'
     }
@@ -1166,20 +1224,25 @@ program define _eplot_data, rclass
     }
 
     // Add diamonds to graph command
-    if "`diamond_cmd'" != "" {
+    if `"`diamond_cmd'"' != "" {
         local graphcmd `"`graphcmd' `diamond_cmd'"'
     }
 
     // Add values annotation
-    if "`val_cmd'" != "" {
+    if `"`val_cmd'"' != "" {
         local graphcmd `"`graphcmd' `val_cmd'"'
     }
 
+    // Labelled reference lines put their text at the top of the plot,
+    // opposite the favors() text (horizontal), or beside the first row.
+    // A values header owns the top row, so the labels sit a row above it.
     local _xline_opt ""
     if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
     _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull' `logscale'
+        `horizontal' `nonull' `logscale' ///
+        labpos(`=cond("`horizontal'" != "", cond("`values'" != "", -0.45, 0.3), 0.05)')
     local refline_cmd `"`s(cmd)'"'
+    local refline_text `"`s(textcmd)'"'
 
     // --- Y-axis labels (row labels) ---
     local ylabels ""
@@ -1200,6 +1263,19 @@ program define _eplot_data, rclass
     quietly summarize `pos', meanonly
     local pos_max = r(max)
 
+    // Favors annotation (horizontal mode only); built here because only
+    // labels drawn inside the plot need the extra bottom row.
+    local favors_cmd ""
+    local _fav_inside 0
+    if `"`favors'"' != "" & "`horizontal'" != "" {
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`xmin') max(`xmax') minpad(`xmin_pad') maxpad(`xmax_pad') ///
+            top(`_fav_top') `logscale'
+        local favors_cmd `"`s(cmd)'"'
+        local _fav_inside = `s(inside)'
+    }
+
     // --- Graph options ---
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
@@ -1210,24 +1286,26 @@ program define _eplot_data, rclass
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks valuelabel)"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(`labsize') nogrid noticks valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
         local graphcmd `"`graphcmd' xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`vtitle'}"', size(`vsize') placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        if `"`favors'"' != "" {
+        if `_fav_inside' {
             local ypad_hi = `pos_max' + 2
         }
+        local _lab_lo = cond("`values'" != "", -0.85, -0.2)
+        if `"`refline_text'"' != "" & `ypad_lo' > `_lab_lo' local ypad_lo = `_lab_lo'
         local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
-        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid valuelabel)"'
+        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(`labsize') nogrid valuelabel)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("")"'
         local graphcmd `"`graphcmd' ytitle(`"`effect'"')"'
@@ -1236,8 +1314,11 @@ program define _eplot_data, rclass
     }
 
     // Reference lines
-    if "`refline_cmd'" != "" {
+    if `"`refline_cmd'"' != "" {
         local graphcmd `"`graphcmd' `refline_cmd'"'
+    }
+    if `"`refline_text'"' != "" {
+        local graphcmd `"`graphcmd' `refline_text'"'
     }
 
     // Legend
@@ -1269,7 +1350,7 @@ program define _eplot_data, rclass
     }
     else {
         local _autonote ""
-        if "`nodiamonds'" == "" & "`noci'" == "" & "`diamond_cmd'" != "" {
+        if "`nodiamonds'" == "" & "`noci'" == "" & `"`diamond_cmd'"' != "" {
             local _autonote "Diamonds represent pooled estimates."
             if "`weights'" != "" & "`nobox'" == "" {
                 local _autonote "`_autonote' Boxes proportional to study weight."
@@ -1324,11 +1405,8 @@ program define _eplot_data, rclass
     }
 
     // Favors annotation (horizontal mode only)
-    if `"`favors'"' != "" & "`horizontal'" != "" {
-        local _fav_top = `pos_max' + 1.5
-        _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`xmin') max(`xmax') top(`_fav_top') `logscale'
-        local graphcmd `"`graphcmd' `s(cmd)'"'
+    if `"`favors_cmd'"' != "" {
+        local graphcmd `"`graphcmd' `favors_cmd'"'
     }
 
     // Shared weight-scale anchors for split weighted-box layers (see above).
@@ -1486,6 +1564,11 @@ program define _eplot_estimates, rclass
             VALues ///
             VFormat(string) ///
             VGap(real 0.15) ///
+            VSize(string) ///
+            VColor(string) ///
+            VTItle(string) ///
+            LABSIZE(string) ///
+            NOGRid ///
             STARs ///
             SIGColors ///
             SIGColor(string) ///
@@ -1619,6 +1702,9 @@ program define _eplot_estimates, rclass
         local _mm_invalid ""
         if `_values_supplied' local _mm_invalid "`_mm_invalid' values"
         if `vgap' != 0.15 local _mm_invalid "`_mm_invalid' vgap()"
+        if `"`vsize'"' != "" local _mm_invalid "`_mm_invalid' vsize()"
+        if `"`vcolor'"' != "" local _mm_invalid "`_mm_invalid' vcolor()"
+        if `"`vtitle'"' != "" local _mm_invalid "`_mm_invalid' vtitle()"
         if `_stars_supplied' local _mm_invalid "`_mm_invalid' stars"
         if `_sigcolors_supplied' local _mm_invalid "`_mm_invalid' sigcolors"
         if `_sigcolor_supplied' local _mm_invalid "`_mm_invalid' sigcolor()"
@@ -1673,7 +1759,7 @@ program define _eplot_estimates, rclass
     // combination is refused.  Colors from a style() preset are defaults and
     // yield to the palette; only explicitly supplied colors are used here.
     if `n_models' == 1 {
-        foreach _copt in mcolor cicolor sigcolor insigncolor {
+        foreach _copt in mcolor cicolor sigcolor insigncolor vcolor {
             if `"``_copt''"' != "" {
                 _eplot_check_color, option(`_copt') spec(``_copt'')
             }
@@ -1738,6 +1824,19 @@ program define _eplot_estimates, rclass
         exit 198
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
+    // Values-column and row-label text.  *# sizes resolve against eplot's
+    // defaults (vsmall values, small labels), not the scheme's.
+    if "`vcolor'" == "" local vcolor "gs4"
+    // An RGB triplet must be quoted before it enters mlabcolor(), or twoway
+    // reads a list and draws the default color.
+    if `: word count `vcolor'' > 1 local vcolor `""`vcolor'""'
+    if `"`vsize'"' == "" local vsize "vsmall"
+    _eplot_check_textsize, option(vsize) spec(`vsize') default(2.0833)
+    local vsize "`s(spec)'"
+    local _vscale = `s(val)' / 2.0833
+    if `"`labsize'"' == "" local labsize "small"
+    _eplot_check_textsize, option(labsize) spec(`labsize') default(2.777)
+    local labsize "`s(spec)'"
     if "`offset'" == "" local offset 0.15
 
     // Default palette for multi-model.  Beyond its cardinality the palette
@@ -2287,18 +2386,27 @@ program define _eplot_estimates, rclass
 
     if `"`xlabel'"' != "" {
         _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
-            xlabel(`xlabel') `logscale'
+            xlabel(`xlabel') `logscale' `nogrid'
     }
     else {
-        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale'
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale' `nogrid'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
+    // The effect range must reach every labelled tick.  twoway widens a
+    // linear axis to its labels, but on a log axis a tick outside range() is
+    // drawn off the axis or dropped at rc=0, so eplot widens it itself.
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    if "`s(min)'" != "" {
+        if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
+        if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
 
     // ====== Values annotation (single-model only) ======
     local val_cmd ""
     if "`values'" != "" & "`horizontal'" == "" {
         display as text "(note: values annotation requires horizontal layout)"
     }
+    if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & `n_models' == 1 & "`horizontal'" != "" {
         local _star_suf ""
         if "`stars'" != "" {
@@ -2314,17 +2422,17 @@ program define _eplot_estimates, rclass
             axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos' if !missing(_val_text)
-        _eplot_value_margin _val_text, header(`"`effect'"')
+        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
     }
 
     // ====== Build graph command ======
     // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
     // string), and twoway reads mcolor(0 128 0) as a list and draws black.
     // Re-quote any multi-word color before it enters the graph command.
-    foreach _c in mcolor cicolor sigcolor insigncolor {
+    foreach _c in mcolor cicolor sigcolor insigncolor vcolor {
         local _nw : word count ``_c''
         if `_nw' > 1 local `_c' `""``_c''""'
     }
@@ -2452,7 +2560,7 @@ program define _eplot_estimates, rclass
     }
 
     // Values annotation
-    if "`val_cmd'" != "" {
+    if `"`val_cmd'"' != "" {
         local graphcmd `"`graphcmd' `val_cmd'"'
     }
 
@@ -2492,6 +2600,30 @@ program define _eplot_estimates, rclass
         0.5 - `offset' * `n_models' / 2, 0)
     local ypad_hi = `pos_max' + 1
 
+    // Labelled reference lines put their text at the top of the plot,
+    // opposite the favors() text (horizontal), or beside the first row.
+    // A values header owns the top row, so the labels sit a row above it.
+    local _xline_opt ""
+    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
+    _eplot_build_reflines, null(`null') `_xline_opt' ///
+        `horizontal' `nonull' `logscale' ///
+        labpos(`=cond("`horizontal'" != "", cond("`values'" != "" & `n_models' == 1, -0.45, 0.3), `ypad_lo' + 0.05)')
+    local refline_cmd `"`s(cmd)'"'
+    local refline_text `"`s(textcmd)'"'
+
+    // Favors annotation (horizontal mode only); built here because only
+    // labels drawn inside the plot need the extra bottom row.
+    local favors_cmd ""
+    local _fav_inside 0
+    if `"`favors'"' != "" & "`horizontal'" != "" {
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`data_xmin') max(`data_xmax') minpad(`xmin_pad') ///
+            maxpad(`xmax_pad') top(`_fav_top') `logscale'
+        local favors_cmd `"`s(cmd)'"'
+        local _fav_inside = `s(inside)'
+    }
+
     local _xscale_max = `xmax_pad'
     local _logopt ""
     if "`logscale'" != "" local _logopt "log "
@@ -2499,35 +2631,35 @@ program define _eplot_estimates, rclass
         if "`values'" != "" & `n_models' == 1 {
             local _xscale_max = `val_xpos'
         }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(`labsize') nogrid noticks)"'
         local graphcmd `"`graphcmd' ytitle("") xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" & `n_models' == 1 {
             local _val_hdr_y = 0.3
             local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`vtitle'}"', size(`vsize') placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        if `"`favors'"' != "" {
+        if `_fav_inside' {
             local ypad_hi = `pos_max' + 2
         }
+        local _lab_lo = cond("`values'" != "" & `n_models' == 1, -0.85, -0.2)
+        if `"`refline_text'"' != "" & `ypad_lo' > `_lab_lo' local ypad_lo = `_lab_lo'
         local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
-        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(`labsize') nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(`_logopt'range(`xmin_pad' `xmax_pad'))"'
         local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
-    local _xline_opt ""
-    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
-    _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull' `logscale'
-    local refline_cmd `"`s(cmd)'"'
-    if "`refline_cmd'" != "" {
+    if `"`refline_cmd'"' != "" {
         local graphcmd `"`graphcmd' `refline_cmd'"'
+    }
+    if `"`refline_text'"' != "" {
+        local graphcmd `"`graphcmd' `refline_text'"'
     }
 
     // Legend
@@ -2599,11 +2731,8 @@ program define _eplot_estimates, rclass
     }
 
     // Favors annotation (horizontal mode only)
-    if `"`favors'"' != "" & "`horizontal'" != "" {
-        local _fav_top = `pos_max' + 1.5
-        _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`data_xmin') max(`data_xmax') top(`_fav_top') `logscale'
-        local graphcmd `"`graphcmd' `s(cmd)'"'
+    if `"`favors_cmd'"' != "" {
+        local graphcmd `"`graphcmd' `favors_cmd'"'
     }
 
     // ====== Execute graph ======
@@ -2804,6 +2933,11 @@ program define _eplot_matrix, rclass
             VALues ///
             VFormat(string) ///
             VGap(real 0.15) ///
+            VSize(string) ///
+            VColor(string) ///
+            VTItle(string) ///
+            LABSIZE(string) ///
+            NOGRid ///
             SORT ///
             ORDer(string asis) ///
             SIGColors ///
@@ -2853,7 +2987,7 @@ program define _eplot_matrix, rclass
 
         // Each color option must name exactly one valid color: twoway draws
         // the default color at rc=0 for a list or an unknown name.
-        foreach _copt in mcolor cicolor sigcolor insigncolor {
+        foreach _copt in mcolor cicolor sigcolor insigncolor vcolor {
             if `"``_copt''"' != "" {
                 _eplot_check_color, option(`_copt') spec(``_copt'')
             }
@@ -2939,6 +3073,19 @@ program define _eplot_matrix, rclass
         }
     }
     if "`vformat'" == "" local vformat "%5.`dp'f"
+    // Values-column and row-label text.  *# sizes resolve against eplot's
+    // defaults (vsmall values, small labels), not the scheme's.
+    if "`vcolor'" == "" local vcolor "gs4"
+    // An RGB triplet must be quoted before it enters mlabcolor(), or twoway
+    // reads a list and draws the default color.
+    if `: word count `vcolor'' > 1 local vcolor `""`vcolor'""'
+    if `"`vsize'"' == "" local vsize "vsmall"
+    _eplot_check_textsize, option(vsize) spec(`vsize') default(2.0833)
+    local vsize "`s(spec)'"
+    local _vscale = `s(val)' / 2.0833
+    if `"`labsize'"' == "" local labsize "small"
+    _eplot_check_textsize, option(labsize) spec(`labsize') default(2.777)
+    local labsize "`s(spec)'"
     if "`mcolor'" == "" local mcolor "navy"
     if "`cicolor'" == "" local cicolor "`mcolor'"
     if "`ciwidth'" == "" local ciwidth "medium"
@@ -3136,18 +3283,27 @@ program define _eplot_matrix, rclass
 
     if `"`xlabel'"' != "" {
         _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
-            xlabel(`xlabel') `logscale'
+            xlabel(`xlabel') `logscale' `nogrid'
     }
     else {
-        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale'
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') `logscale' `nogrid'
     }
     local _effect_axis_opts `"`s(axisopts)'"'
+    // The effect range must reach every labelled tick.  twoway widens a
+    // linear axis to its labels, but on a log axis a tick outside range() is
+    // drawn off the axis or dropped at rc=0, so eplot widens it itself.
+    _eplot_tick_range, spec(`"`_effect_axis_opts'"') `logscale'
+    if "`s(min)'" != "" {
+        if `s(min)' < `xmin_pad' local xmin_pad = `s(min)'
+        if `s(max)' > `xmax_pad' local xmax_pad = `s(max)'
+    }
 
     // Values annotation
     local val_cmd ""
     if "`values'" != "" & "`horizontal'" == "" {
         display as text "(note: values annotation requires horizontal layout)"
     }
+    if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & "`horizontal'" != "" {
         local _star_suf ""
         if "`stars'" != "" {
@@ -3162,17 +3318,17 @@ program define _eplot_matrix, rclass
             axisopts(`"`_effect_axis_opts'"') `nonull' `logscale'
         local val_xpos = `s(xpos)'
         gen double _val_x = `val_xpos'
-        _eplot_value_margin _val_text, header(`"`effect'"')
+        _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(`vsize') mlabcolor(`vcolor'))"'
     }
 
     // Build graph
     // An RGB color reaches this point unquoted ("0 128 0" parsed as a plain
     // string), and twoway reads mcolor(0 128 0) as a list and draws black.
     // Re-quote any multi-word color before it enters the graph command.
-    foreach _c in mcolor cicolor sigcolor insigncolor {
+    foreach _c in mcolor cicolor sigcolor insigncolor vcolor {
         local _nw : word count ``_c''
         if `_nw' > 1 local `_c' `""``_c''""'
     }
@@ -3217,7 +3373,7 @@ program define _eplot_matrix, rclass
     }
 
     // Values
-    if "`val_cmd'" != "" {
+    if `"`val_cmd'"' != "" {
         local graphcmd `"`graphcmd' `val_cmd'"'
     }
 
@@ -3234,6 +3390,31 @@ program define _eplot_matrix, rclass
     // Graph options
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
+
+    // Labelled reference lines put their text at the top of the plot,
+    // opposite the favors() text (horizontal), or beside the first row.
+    // A values header owns the top row, so the labels sit a row above it.
+    local _xline_opt ""
+    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
+    _eplot_build_reflines, null(`null') `_xline_opt' ///
+        `horizontal' `nonull' `logscale' ///
+        labpos(`=cond("`horizontal'" != "", cond("`values'" != "", -0.45, 0.3), 0.05)')
+    local refline_cmd `"`s(cmd)'"'
+    local refline_text `"`s(textcmd)'"'
+
+    // Favors annotation (horizontal mode only); built here because only
+    // labels drawn inside the plot need the extra bottom row.
+    local favors_cmd ""
+    local _fav_inside 0
+    if `"`favors'"' != "" & "`horizontal'" != "" {
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`data_xmin') max(`data_xmax') minpad(`xmin_pad') ///
+            maxpad(`xmax_pad') top(`_fav_top') `logscale'
+        local favors_cmd `"`s(cmd)'"'
+        local _fav_inside = `s(inside)'
+    }
+
     local _xscale_max = `xmax_pad'
     local _logopt ""
     if "`logscale'" != "" local _logopt "log "
@@ -3241,33 +3422,34 @@ program define _eplot_matrix, rclass
         if "`values'" != "" {
             local _xscale_max = `val_xpos'
         }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(`labsize') nogrid noticks)"'
         local graphcmd `"`graphcmd' ytitle("") xscale(`_logopt'range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`vtitle'}"', size(`vsize') placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        if `"`favors'"' != "" {
+        if `_fav_inside' {
             local ypad_hi = `pos_max' + 2
         }
+        local _lab_lo = cond("`values'" != "", -0.85, -0.2)
+        if `"`refline_text'"' != "" & `ypad_lo' > `_lab_lo' local ypad_lo = `_lab_lo'
         local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
-        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(`labsize') nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(`_logopt'range(`xmin_pad' `xmax_pad'))"'
         local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
-    local _xline_opt ""
-    if `"`xline'"' != "" local _xline_opt `"xline(`xline')"'
-    _eplot_build_reflines, null(`null') `_xline_opt' ///
-        `horizontal' `nonull' `logscale'
-    local graphcmd `"`graphcmd' `s(cmd)'"'
+    local graphcmd `"`graphcmd' `refline_cmd'"'
+    if `"`refline_text'"' != "" {
+        local graphcmd `"`graphcmd' `refline_text'"'
+    }
 
     // Legend off
     local graphcmd `"`graphcmd' legend(off)"'
@@ -3289,11 +3471,8 @@ program define _eplot_matrix, rclass
     if `"`options'"' != "" local graphcmd `"`graphcmd' `options'"'
 
     // Favors annotation (horizontal mode only)
-    if `"`favors'"' != "" & "`horizontal'" != "" {
-        local _fav_top = `pos_max' + 1.5
-        _eplot_build_favors, favors(`favors') null(`null') ///
-            min(`data_xmin') max(`data_xmax') top(`_fav_top') `logscale'
-        local graphcmd `"`graphcmd' `s(cmd)'"'
+    if `"`favors_cmd'"' != "" {
+        local graphcmd `"`graphcmd' `favors_cmd'"'
     }
 
     // Execute.  Keep the analytical payload available when an optional
@@ -3657,12 +3836,41 @@ program define _eplot_effect_axis_labels, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, MIN(real) MAX(real) [XLABel(string asis) LOGScale]
+        syntax, MIN(real) MAX(real) [XLABel(string asis) LOGScale NOGRid]
 
         local _ticks ""
         local _grid ""
+        local _top_nogrid "`nogrid'"
         if trim(`"`xlabel'"') != "" & `"`xlabel'"' != `""""' {
             local _ticks `"`xlabel'"'
+            // A user xlabel() replaces eplot's own grid, but the scheme's
+            // grid would still draw behind the rows; suppress it unless the
+            // user's suboptions ask for one.
+            gettoken _xl_ticks _xl_rest : xlabel, parse(",")
+            // xlabel(, grid): gettoken returns the leading comma as the
+            // token, so the suboptions are everything after it.
+            if `"`_xl_ticks'"' == "," {
+                local _xl_rest `", `_xl_rest'"'
+                local _xl_ticks ""
+            }
+            local _xl_grid 0
+            local _xl_nogrid 0
+            if `"`_xl_rest'"' != "" {
+                local 0 `"`_xl_rest'"'
+                capture syntax [, GRID NOGRID *]
+                if _rc == 0 {
+                    local _xl_grid = ("`grid'" != "")
+                    local _xl_nogrid = ("`nogrid'" != "")
+                }
+            }
+            if `_xl_grid' & "`_top_nogrid'" != "" {
+                display as error "nogrid may not be combined with xlabel(..., grid)"
+                exit 198
+            }
+            if !`_xl_grid' & !`_xl_nogrid' {
+                if `"`_xl_rest'"' == "" local _grid ", nogrid"
+                else local _grid " nogrid"
+            }
         }
         else {
             // A linear tick lattice is unusable on a log axis: floor(min/delta)
@@ -3707,6 +3915,7 @@ program define _eplot_effect_axis_labels, sclass
                 local _ticks `"`_min_text'(`_delta_text')`_max_text'"'
             }
             local _grid ", grid glcolor(gs12) glwidth(vthin)"
+            if "`_top_nogrid'" != "" local _grid ", nogrid"
         }
         sreturn clear
         sreturn local axisopts `"`_ticks'`_grid'"'
@@ -3802,16 +4011,55 @@ program define _eplot_guard_scale, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        // eplot owns the effect axis: it always emits its own xscale()/yscale().
-        // A passthrough copy is silently dropped or silently wins with a range
-        // eplot did not compute, so reject it rather than draw a wrong figure.
-        capture syntax [, XSCale(passthru) YSCale(passthru) *]
-        if _rc == 0 & (`"`xscale'"' != "" | `"`yscale'"' != "") {
-            display as error ///
-                "xscale() and yscale() may not be passed through to eplot"
-            display as error ///
-                "eplot builds the effect axis itself; use logscale for a logarithmic effect axis"
-            exit 198
+        // eplot owns the geometry of both axes: it always emits its own
+        // xscale()/yscale() with range() (and log/reverse).  Scale options are
+        // merged-implicit, so a user copy placed after eplot's is merged into
+        // it: style suboptions (lcolor(), lwidth(), fextend, line, ...) pass
+        // through, but a geometry suboption would silently override a range
+        // eplot computed, so it is refused.  syntax binds only the first
+        // occurrence of a repeated option, so every occurrence is checked.
+        local _rest `"`0'"'
+        local _more 1
+        while `_more' {
+            local 0 `"`_rest'"'
+            capture syntax [, XSCale(string asis) YSCale(string asis) *]
+            if _rc | (`"`xscale'"' == "" & `"`yscale'"' == "") {
+                local _more 0
+                continue
+            }
+            local _rest `", `options'"'
+            foreach _ax in xscale yscale {
+                if `"``_ax''"' == "" continue
+                // syntax swallows the opposite spelling of an on/off option
+                // without reporting it (LOG accepts nolog as a no-op, noLOG
+                // accepts log), so parse once per spelling.
+                local 0 `", ``_ax''"'
+                // twoway accepts range() abbreviated to r(), so match it too.
+                capture syntax [, Range(string asis) LOG REVerse ///
+                    AXis(string asis) *]
+                if _rc {
+                    display as error "`_ax'(``_ax'') is not a valid axis scale specification"
+                    exit 198
+                }
+                local _bad ""
+                if `"`range'"' != "" local _bad "`_bad' range()"
+                if "`log'" != "" local _bad "`_bad' log"
+                if "`reverse'" != "" local _bad "`_bad' reverse"
+                if `"`axis'"' != "" local _bad "`_bad' axis()"
+                local 0 `", ``_ax''"'
+                capture syntax [, noLOG noREVerse *]
+                if _rc == 0 {
+                    if "`log'" == "nolog" local _bad "`_bad' nolog"
+                    if "`reverse'" == "noreverse" local _bad "`_bad' noreverse"
+                }
+                if "`_bad'" != "" {
+                    display as error ///
+                        "`_ax'() may carry axis style suboptions only;`_bad' not allowed"
+                    display as error ///
+                        "eplot sets the axis range itself; use logscale for a logarithmic effect axis"
+                    exit 198
+                }
+            }
         }
     }
     local rc = _rc
@@ -3826,9 +4074,11 @@ program define _eplot_build_reflines, sclass
     local _numlist_rc 0
     set varabbrev off
     capture noisily {
-        syntax, NULL(real) [XLine(string asis) HORizontal NONULL LOGScale]
+        syntax, NULL(real) [XLine(string asis) HORizontal NONULL LOGScale ///
+            LABPos(real 0.3)]
 
         local cmd ""
+        local textcmd ""
         if "`nonull'" == "" {
             if "`horizontal'" != "" {
                 local cmd `"xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
@@ -3846,12 +4096,44 @@ program define _eplot_build_reflines, sclass
             if `"`_xl_rest'"' != "" {
                 gettoken _xl_comma _xl_supp : _xl_rest, parse(",")
             }
+            // label() is eplot's own suboption (one string per position); the
+            // remaining suboptions are the line style passed to twoway.
+            local _xl_labels ""
+            local _xl_has_label 0
+            if `"`_xl_supp'"' != "" {
+                local 0 `", `_xl_supp'"'
+                capture syntax [, LABel(string asis) *]
+                if _rc == 0 & `"`label'"' != "" {
+                    local _xl_labels `"`label'"'
+                    local _xl_has_label 1
+                    local _xl_supp `"`options'"'
+                }
+            }
             if `"`_xl_supp'"' == "" local _xl_supp "lcolor(gs10) lpattern(shortdash)"
             capture noisily numlist "`_xl_pos'"
             local _numlist_rc = _rc
             if `_numlist_rc' == 0 {
                 local _xl_values "`r(numlist)'"
+                local _n_vals : word count `_xl_values'
+                if `_xl_has_label' {
+                    local _n_labs : word count `_xl_labels'
+                    // One line position takes the whole text as its label,
+                    // so label(Women at 18-39) need not be quoted.
+                    if `_n_vals' == 1 & `_n_labs' > 1 & ///
+                        substr(trim(`"`_xl_labels'"'), 1, 1) != char(34) & ///
+                        substr(trim(`"`_xl_labels'"'), 1, 2) != "`" + char(34) {
+                        local _xl_labels `"`"`_xl_labels'"'"'
+                        local _n_labs 1
+                    }
+                    if `_n_labs' != `_n_vals' {
+                        display as error ///
+                            "xline() label() requires one label per line position (`_n_vals')"
+                        exit 198
+                    }
+                }
+                local _i 0
                 foreach val of local _xl_values {
+                    local ++_i
                     if "`logscale'" != "" & `val' <= 0 {
                         display as error ///
                             "xline(`val') cannot be drawn on a logarithmic axis"
@@ -3863,6 +4145,19 @@ program define _eplot_build_reflines, sclass
                     else {
                         local cmd `"`cmd' yline(`val', `_xl_supp')"'
                     }
+                    if `_xl_has_label' {
+                        local _lab : word `_i' of `_xl_labels'
+                        if trim(`"`_lab'"') == "" continue
+                        // The label sits beside the line at the plot edge
+                        // opposite the favors() text, starting just past
+                        // the line so the line does not run through it.
+                        if "`horizontal'" != "" {
+                            local textcmd `"`textcmd' text(`labpos' `val' `"`_lab'"', size(vsmall) color(gs5) placement(e) margin(l+1))"'
+                        }
+                        else {
+                            local textcmd `"`textcmd' text(`val' `labpos' `"`_lab'"', size(vsmall) color(gs5) placement(ne))"'
+                        }
+                    }
                 }
             }
         }
@@ -3870,6 +4165,7 @@ program define _eplot_build_reflines, sclass
         if `_numlist_rc' == 0 {
             sreturn clear
             sreturn local cmd `"`cmd'"'
+            sreturn local textcmd `"`textcmd'"'
         }
     }
     local rc = _rc
@@ -3884,37 +4180,109 @@ program define _eplot_build_favors, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real) [LOGScale]
+        syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real) ///
+            [MINPad(string) MAXPad(string) LOGScale]
 
-        gettoken _fav_left favors : favors, bind
-        gettoken _fav_right favors : favors, bind
+        // Labels run up to the first comma outside quotes; suboptions follow.
+        local _fav_labels ""
+        local _fav_rest ""
+        local _work `"`favors'"'
+        while `"`_work'"' != "" {
+            gettoken _tok _work : _work, parse(", ") bind quotes
+            if `"`_tok'"' == "," {
+                local _fav_rest `", `_work'"'
+                local _work ""
+            }
+            else local _fav_labels `"`_fav_labels' `_tok'"'
+        }
+        gettoken _fav_left _fav_labels : _fav_labels, bind
+        gettoken _fav_right _fav_labels : _fav_labels, bind
 
         local _left_check = trim(subinstr(`"`_fav_left'"', char(34), "", .))
         local _right_check = trim(subinstr(`"`_fav_right'"', char(34), "", .))
-        local _fav_rest = trim(`"`favors'"')
         if `"`_left_check'"' == "" | `"`_right_check'"' == "" | ///
-            `"`_fav_rest'"' != "" {
+            trim(`"`_fav_labels'"') != "" {
             display as error "favors() requires exactly two nonempty labels"
             exit 198
         }
 
-        // The visual midpoint of a log axis is the geometric mean.
-        if "`logscale'" != "" & `min' > 0 & `max' > 0 & `null' > 0 {
-            local _fav_x_left = exp((ln(`min') + ln(`null')) / 2)
-            local _fav_x_right = exp((ln(`null') + ln(`max')) / 2)
+        // Placement suboptions follow a comma: below puts the labels under
+        // the axis tick labels, ends aligns them with the axis ends, and
+        // arrows adds direction arrows pointing away from the null.
+        local 0 `"`_fav_rest'"'
+        capture syntax [, BELow ENDs ARRows]
+        if _rc {
+            display as error "favors() suboptions are below, ends, and arrows"
+            exit 198
         }
-        else {
-            local _fav_x_left = (`min' + `null') / 2
-            local _fav_x_right = (`null' + `max') / 2
+        if "`below'" != "" & "`ends'" != "" {
+            display as error "favors() suboptions below and ends may not be combined"
+            exit 198
         }
 
-        local cmd ///
-            `"text(`top' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
-        local cmd ///
-            `"`cmd' text(`top' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+        local _fav_left = trim(`"`_fav_left'"')
+        local _fav_right = trim(`"`_fav_right'"')
+        if substr(`"`_fav_left'"', 1, 1) == char(34) {
+            local _fav_left : word 1 of `_fav_left'
+        }
+        if substr(`"`_fav_right'"', 1, 1) == char(34) {
+            local _fav_right : word 1 of `_fav_right'
+        }
+        if "`arrows'" != "" {
+            local _fav_left `"`=uchar(8592)' `_fav_left'"'
+            local _fav_right `"`_fav_right' `=uchar(8594)'"'
+        }
+
+        local _lo = `min'
+        local _hi = `max'
+        if "`minpad'" != "" local _lo = `minpad'
+        if "`maxpad'" != "" local _hi = `maxpad'
+        // Centred labels sit midway between the null and each data edge.  A
+        // null outside the plotted range would put a label off the axis,
+        // where twoway drops it at rc=0, so the labels move to the axis ends.
+        if "`ends'" == "" & (`null' < `_lo' | `null' > `_hi') {
+            display as text ///
+                "(note: null(`null') lies outside the plotted range; favors() labels placed at the axis ends)"
+            local ends "ends"
+            local below ""
+        }
+
+        local cmd ""
+        if "`ends'" != "" {
+            // Anchor each label at its axis end, reading inward.
+            local cmd ///
+                `"text(`top' `_lo' `"`_fav_left'"', size(vsmall) color(gs5) placement(e))"'
+            local cmd ///
+                `"`cmd' text(`top' `_hi' `"`_fav_right'"', size(vsmall) color(gs5) placement(w))"'
+        }
+        else {
+            // The visual midpoint of a log axis is the geometric mean.
+            if "`logscale'" != "" & `min' > 0 & `max' > 0 & `null' > 0 {
+                local _fav_x_left = exp((ln(`min') + ln(`null')) / 2)
+                local _fav_x_right = exp((ln(`null') + ln(`max')) / 2)
+            }
+            else {
+                local _fav_x_left = (`min' + `null') / 2
+                local _fav_x_right = (`null' + `max') / 2
+            }
+            if "`below'" != "" {
+                // Minor-axis labels sit on the axis itself, below the major
+                // tick labels, so reference lines never cross them.
+                local _xl = string(`_fav_x_left', "%18.0g")
+                local _xr = string(`_fav_x_right', "%18.0g")
+                local cmd `"xmlabel(`_xl' `"`_fav_left'"' `_xr' `"`_fav_right'"', noticks nogrid labgap(*10) labsize(vsmall) labcolor(gs5))"'
+            }
+            else {
+                local cmd ///
+                    `"text(`top' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
+                local cmd ///
+                    `"`cmd' text(`top' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+            }
+        }
 
         sreturn clear
         sreturn local cmd `"`cmd'"'
+        sreturn local inside = ("`below'" == "")
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -3927,7 +4295,7 @@ program define _eplot_value_margin, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, HEADer(string asis) [MINimum(integer 18)]
+        syntax varname, HEADer(string asis) [MINimum(integer 18) SCale(real 1)]
 
         tempvar _val_len
         quietly gen double `_val_len' = length(`varlist') if !missing(`varlist')
@@ -3937,7 +4305,10 @@ program define _eplot_value_margin, sclass
         local header_len = length(`"`header'"')
         if `header_len' > `maxlen' local maxlen = `header_len'
 
-        local right_margin = ceil(`maxlen' * 0.75 + 3)
+        // 0.75 margin units per character is calibrated for vsmall text;
+        // scale() is the values text size relative to vsmall.
+        if missing(`scale') | `scale' <= 0 local scale 1
+        local right_margin = ceil(`maxlen' * 0.75 * `scale' + 3)
         if `right_margin' < `minimum' local right_margin = `minimum'
 
         sreturn clear
@@ -3966,24 +4337,10 @@ program define _eplot_value_anchor, sclass
         // column on the null line whenever every interval sat left of it.
         local _right = `max'
         if "`nonull'" == "" & `null' > `_right' local _right = `null'
-        gettoken _tickspec : axisopts, parse(",")
-        local _tickspec = subinstr(`"`_tickspec'"', `"""', " ", .)
-        local _tickmax .
-        capture numlist `"`_tickspec'"'
-        if _rc == 0 {
-            foreach _t of numlist `r(numlist)' {
-                if missing(`_tickmax') | `_t' > `_tickmax' local _tickmax = `_t'
-            }
+        _eplot_tick_range, spec(`axisopts') `logscale'
+        if "`s(max)'" != "" {
+            if `s(max)' > `_right' local _right = `s(max)'
         }
-        else {
-            foreach _t of local _tickspec {
-                capture confirm number `_t'
-                if _rc == 0 {
-                    if missing(`_tickmax') | `_t' > `_tickmax' local _tickmax = `_t'
-                }
-            }
-        }
-        if !missing(`_tickmax') & `_tickmax' > `_right' local _right = `_tickmax'
 
         if "`logscale'" != "" {
             local _span = ln(`_right' / `min')
@@ -4000,6 +4357,123 @@ program define _eplot_value_anchor, sclass
         sreturn local xpos = string(`_xpos', "%18.0g")
     }
     local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Numeric extent of an axis-label spec ("ticks [, suboptions]", optionally
+// wrapped in quotes): s(min) and s(max) of the tick positions, empty when no
+// position is numeric.  Quoted tokens are tick labels, not positions, and
+// everything after the first unquoted comma is suboptions.  Under logscale
+// nonpositive positions are ignored because they cannot be drawn.
+capture program drop _eplot_tick_range
+program define _eplot_tick_range, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [, SPEC(string asis) LOGScale]
+
+        local _s = strtrim(`"`spec'"')
+        if substr(`"`_s'"', 1, 1) == char(34) | ///
+            substr(`"`_s'"', 1, 2) == char(96) + char(34) {
+            gettoken _s : _s
+        }
+        local _min .
+        local _max .
+        local _rest `"`_s'"'
+        while `"`_rest'"' != "" {
+            gettoken _tok _rest : _rest, parse(", ") quotes
+            if `"`_tok'"' == "," continue, break
+            if strtrim(`"`_tok'"') == "" continue
+            if inlist(substr(`"`_tok'"', 1, 1), char(34), char(96)) continue
+            capture numlist `"`_tok'"'
+            if _rc continue
+            foreach _v of numlist `r(numlist)' {
+                if "`logscale'" != "" & `_v' <= 0 continue
+                if missing(`_min') | `_v' < `_min' local _min = `_v'
+                if missing(`_max') | `_v' > `_max' local _max = `_v'
+            }
+        }
+        sreturn clear
+        if !missing(`_min') {
+            sreturn local min = string(`_min', "%18.0g")
+            sreturn local max = string(`_max', "%18.0g")
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Validate that SPEC is one Stata textsizestyle ([G-4] textsizestyle): a
+// named style (a gsize-<name>.style file on the adopath), a nonnegative
+// relative size # or #rs, an absolute #pt, #in, or #cm, or *# relative to
+// eplot's own DEFAULT size.  twoway prints "named style ... not found" for an
+// unknown name and draws its default at rc=0, so eplot refuses it here.
+// s(spec) is the size to emit (*# is resolved against DEFAULT, because a *#
+// in mlabsize() or labsize() would scale the scheme default instead).
+// s(val) is the approximate relative size used to widen the values margin;
+// absolute units assume the default 4-inch graph height, on which 8pt is
+// relative size 2.777 (gsize-small.style).
+capture program drop _eplot_check_textsize
+program define _eplot_check_textsize, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _fh_open 0
+    set varabbrev off
+    capture noisily {
+        syntax , OPTion(name) SPEC(string) DEFault(real)
+
+        local v = lower(strtrim(`"`spec'"'))
+        local _val .
+        local _emit `"`v'"'
+        if regexm(`"`v'"', "^\*([0-9]*\.?[0-9]+)$") {
+            local _val = `default' * real(regexs(1))
+            local _emit = string(`_val', "%9.4g")
+        }
+        else if regexm(`"`v'"', "^([0-9]*\.?[0-9]+)(rs|pt|in|cm)?$") {
+            // regexs() of an unmatched optional group prints an error at
+            // rc=0, so the unit is read as whatever follows the number.
+            local _numtxt = regexs(1)
+            local _num = real(`"`_numtxt'"')
+            local _unit = substr(`"`v'"', strlen(`"`_numtxt'"') + 1, .)
+            if inlist("`_unit'", "", "rs") local _val = `_num'
+            else if "`_unit'" == "pt" local _val = `_num' * 2.777 / 8
+            else if "`_unit'" == "in" local _val = `_num' * 72 * 2.777 / 8
+            else if "`_unit'" == "cm" local _val = `_num' * 72 / 2.54 * 2.777 / 8
+        }
+        else if regexm(`"`v'"', "^[a-z_][a-z0-9_]*$") {
+            capture findfile gsize-`v'.style
+            if _rc == 0 {
+                tempname _fh
+                file open `_fh' using `"`r(fn)'"', read text
+                local _fh_open 1
+                file read `_fh' _line
+                while r(eof) == 0 {
+                    if regexm(`"`_line'"', "^[ ]*set[ ]+val[ ]+([0-9]*\.?[0-9]+)") {
+                        local _val = real(regexs(1))
+                    }
+                    file read `_fh' _line
+                }
+                file close `_fh'
+                local _fh_open 0
+                // A named style without a readable size still exists; only
+                // the margin estimate falls back to eplot's default.
+                if missing(`_val') local _val = `default'
+            }
+        }
+        if missing(`_val') {
+            display as error `"`option'() must be one valid text size, not {bf:`macval(spec)'}"'
+            display as error "use a size name (e.g. vsmall, small, medium), a number, *#, or #pt"
+            exit 198
+        }
+        sreturn clear
+        sreturn local spec `"`_emit'"'
+        sreturn local val = string(`_val', "%9.4g")
+    }
+    local rc = _rc
+    if `_fh_open' capture file close `_fh'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

@@ -573,7 +573,15 @@ capture noisily {
         xlsx("`output_dir'/_val_survtab_med.xlsx") sheet("median") ///
         frame(_val_survmed)
 
-    local ci_1 `"(`=string(`med_lb_1', "%5.1f")', `=string(`med_ub_1', "%5.1f")')"'
+    * 2.6.2: a limit stci reports as missing (not reached) prints NR, and
+    * the cell is blank only when neither limit was reached
+    forvalues g = 1/2 {
+        local _lo = cond(missing(`med_lb_`g''), "NR", strtrim(string(`med_lb_`g'', "%5.1f")))
+        local _hi = cond(missing(`med_ub_`g''), "NR", strtrim(string(`med_ub_`g'', "%5.1f")))
+        local ci_`g' "(`_lo', `_hi')"
+        if missing(`med_lb_`g'') & missing(`med_ub_`g'') local ci_`g' ""
+    }
+    assert !missing(`med_lb_2') & missing(`med_ub_2')
     local med_1_fmt : display %5.1f `med_1'
     local med_2_fmt : display %5.1f `med_2'
     local med_1_fmt = strtrim("`med_1_fmt'")
@@ -584,7 +592,7 @@ capture noisily {
         assert c3[3] == "`med_2_fmt'"
         assert c1[4] == "  (95% CI)"
         assert c2[4] == "`ci_1'"
-        assert c3[4] == ""
+        assert c3[4] == "`ci_2'"
     }
     assert r(median_1) == `med_1'
     assert r(median_2) == `med_2'
@@ -668,7 +676,7 @@ capture noisily {
         sheet("Cross") boldp(0.05)
     shell `python_cmd' "`checker'" "`output_dir'/crosstab_boldp.xlsx" --sheet Cross ///
         --row-contains-bold "Pearson's chi-squared test" ///
-        --row-contains-bold "P for trend =" ///
+        --row-contains-bold "P for trend" ///
         --result-file "`output_dir'/crosstab_boldp.txt"
     file open _fh using "`output_dir'/crosstab_boldp.txt", read text
     file read _fh _line

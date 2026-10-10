@@ -1,4 +1,4 @@
-*! _regtab_optstr Version 2.6.1  2026/10/09
+*! _regtab_optstr Version 2.6.2  2026/10/10
 *! display-option text of a collected command line
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

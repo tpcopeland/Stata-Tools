@@ -1,4 +1,4 @@
-*! regtab Version 2.6.1  2026/10/09
+*! regtab Version 2.6.2  2026/10/10
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1584,8 +1584,13 @@ if `_fvrow_parent_n' > 0 {
 }
 if `_fvrow_label_n' > 0 {
     forvalues _fvi = 1/`_fvrow_label_n' {
+        * an interaction row is matched on its raw key while it still shows
+        * collect's default text ("0.foreign#weight" for 0.foreign#c.weight),
+        * so a label the caller set on the collection is kept
+        local _fv_dflt = ustrregexra(`"`_fvrow_pat_`_fvi''"', "(^|#)c\.", "$1")
         replace A = `"`macval(_fvrow_lab_`_fvi')'"' ///
-            if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
+            if (strtrim(A) == `"`_fvrow_pat_`_fvi''"' | ///
+            (strtrim(_raw_A) == `"`_fvrow_pat_`_fvi''"' & strtrim(A) == `"`_fv_dflt'"')) & _n >= 3
     }
 }
 

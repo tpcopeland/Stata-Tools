@@ -1,4 +1,4 @@
-*! ratetab Version 2.6.1  2026/10/09
+*! ratetab Version 2.6.2  2026/10/10
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -52,7 +52,7 @@ program define ratetab, rclass
         syntax varlist(min=1) [if] [in] , [EVents(varlist numeric) ///
             EXPosure(varlist numeric) PER(real 1000) CI(string) Level(real -1) ///
             SMALLcells(integer -1) NOSMALLcells CFormat(string) DIGits(integer -1) ///
-            PYDigits(integer 0) PYScale(real 1) SEP(string) ///
+            PYDigits(integer 0) PYScale(string) SEP(string) ///
             OUTLabels(string) EXPLabels(string) UNITlabel(string) ///
             ZEROCells(string) MASKtext(string) EXCLUDEMasked SAVing(string asis) *]
 
@@ -73,9 +73,29 @@ program define ratetab, rclass
             display as error "per() must be a positive number"
             exit 198
         }
+        * pyscale() is parsed as text so a given pyscale(1) (a deliberate
+        * person-time unit) can be told from the default
+        local _py_given = `"`pyscale'"' != ""
+        if !`_py_given' local pyscale 1
+        capture confirm number `pyscale'
+        if _rc {
+            display as error "pyscale() must be a positive number"
+            exit 198
+        }
         if `pyscale' <= 0 | missing(`pyscale') {
             display as error "pyscale() must be a positive number"
             exit 198
+        }
+        * person-time is headed as person-years; say so when the stset time
+        * variable is a date and no scale turned days into years
+        if `_st' & !`_py_given' {
+            _tabtools_st_timescale
+            if "`_st_unit'" != "" {
+                display as text "Note: analysis time is in `_st_unit' (`_st_timevar' has a date format and stset has no scale());"
+                display as text "      person-time is reported in `_st_unit' under a person-years header. Specify"
+                if "`_st_unit'" == "days" display as text "      pyscale(365.25) for person-years."
+                else display as text "      pyscale(31557600000) for person-years."
+            }
         }
         if `level' == -1 local level = c(level)
         if `level' < 10 | `level' > 99.99 {

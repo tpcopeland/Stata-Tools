@@ -201,7 +201,7 @@ capture noisily {
     _fgs_plant
     qa_state_snapshot, tag(cif_bad)
     capture finegray_cif, at(nosuchvar=1) nograph
-    assert _rc != 0
+    assert _rc == 198
     qa_state_compare, tag(cif_bad)
 }
 _fgs_result `=_rc' "FS-2 finegray_cif leaves caller state intact (success + error)"

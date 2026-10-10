@@ -38,7 +38,8 @@ def _tt_file_cells():
         for row,code in enumerate([1,2,5,9],3):
             assert [t.cell(row,c).value for c in (2,3,4,5)]==[str(code),'5 (25.0%)','5 (25.0%)','10']
         assert [t.cell(7,c).value for c in (2,3,4,5)]==['Total','20','20','40']
-        assert t['B8'].value=="Pearson's chi-squared test: chi2 = 0.00, p = 1.000"
+        # 2.6.2: p from 0.10 prints two decimals (the package p-value rule)
+        assert t['B8'].value=="Pearson's chi-squared test: chi2 = 0.00, p = 1.00"
         assert t.max_row==8 and t.max_column==5
     else:
         assert t['B4'].value=='Exact sequence 1–40'

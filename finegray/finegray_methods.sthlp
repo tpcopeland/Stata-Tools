@@ -291,9 +291,8 @@ competing-event subjects from later risk sets, while {cmd:finegray} carries
 the last value forward. The two agree when every stratum ends with a
 censoring. When one ends with an event they need not, and in the package's
 simulation the difference reached about a fifth of the coefficient's Monte
-Carlo standard deviation. The psi term is checked
-against a numerical derivative of the fitted score in the package's QA suite
-(see the {browse "https://github.com/tpcopeland/Stata-Tools/tree/main/finegray/qa":qa directory} of the source repository).
+Carlo standard deviation. The psi term agrees with a numerical derivative
+of the fitted score.
 
 {pstd}
 {bf:Under delayed entry.} Fine and Gray's psi is the influence of the
@@ -308,16 +307,15 @@ indicator form of an empirical average. {opt nuisance} on a delayed-entry fit
 adds v_i + w_i, computed against the package's own fitted weights: the
 product form G(t-)H(t-) the engine holds reproduces b/S(t-) on every
 collision class under the events, then censorings, then entries tie
-ordering that the delayed-entry censoring Kaplan-Meier follows (checked on
-the Stata engine against the direct b/S construction on tied data in the
-package's QA suite; before 1.3.5 only the R reference implementation had
-been checked, and the engine's ordering differed), so
+ordering that the delayed-entry censoring Kaplan-Meier follows (the engine
+agrees with the direct b/S construction on tied data; before 1.3.5 the
+engine's ordering differed), so
 the appendix's terms apply to the weights actually used. Across an
 observation gap (below) the pooled-weight estimator on the identifiable
 region is the published estimator itself, the pre-gap subject contributes
 exactly zero to both the score and the appendix terms, and the
 nuisance-adjusted variance equals the one computed on the identifiable
-sample (pinned in the QA suite), so {opt nuisance} is accepted
+sample, so {opt nuisance} is accepted
 there. On the pooled single-cell path a cause event before the last gap is
 refused with {cmd:r(459)}, with or without {opt nuisance}: the published form
 is undefined there (see the gap discussion below). Without delayed entry b/S(t-) is G(t-) itself, and the three-term
@@ -351,11 +349,7 @@ differed by up to 3.1 percent (mean 0.2 percent), and on simulated
 right-censored data without strata the default's standard errors were within
 0.11 percent of {cmd:stcrreg}'s while individual covariance elements differed
 by up to 8.9 percent. {opt nuisance} is an opt-in defined for the pooled
-weight alone. The package's QA suite, which is distributed with the source in
-the {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository}
-and not with the installed package, holds that study
-({cmd:validation_variance_default_mc.do}) and a simulation study of the Wald
-coverage of each candidate under delayed entry.
+weight alone.
 
 {pstd}
 {bf:Why it stops at the coefficients.} {helpb finegray_cif} and
@@ -844,8 +838,8 @@ and Zhang, Zhang and Fine's b_g/S_g on the full sample counts the pre-gap
 members in n_g but in no risk set after the gap, with S_g untouched when
 the lone pre-gap subject was censored: B_g = (n*_g/n_g) B*_g, which is the
 full-n_j divisor above. So the product form reproduces the published form
-wherever the published form is finite (verified on the Stata engine to
-1e-13 in the package's QA suite). The region is the sample's own,
+wherever the published form is finite (the two agree to 1e-13). The region
+is the sample's own,
 not the joint cell's: under {opt truncstrata()} alone G is pooled, and an
 early censoring while subjects of other entry strata are at risk is
 legitimate information about the pooled G. Versions 1.3.0-1.3.4 estimated
@@ -1025,10 +1019,7 @@ estimator as {cmd:survival::finegray(weights=)} followed by a weighted
 {cmd:coxph} -- coefficients, robust and cluster-robust standard errors, and the
 weighted baseline. A finite-simulation recovery check also exercises one
 outcome- and covariate-dependent sampling scenario; passing its tolerance
-bands does not establish consistency under that design or other designs. The package's QA suite, which is
-distributed with the source in the
-{browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools repository} and
-not with the installed package, exercises these identities.
+bands does not establish consistency under that design or other designs.
 
 {pstd}
 {bf:What is refused, and why.} {opt nuisance}: Wogu et al. write the psi
@@ -1450,8 +1441,7 @@ model analyses for competing risk data. {it:Statistics in Medicine} 2017; 36(27)
 
 {pstd}
 Austin PC, Latouche A, Fine JP. A review of the use of time-varying covariates
-in the Fine-Gray subdistribution hazard competing risk regression model.
-{it:Statistics in Medicine} 2020; 39(2): 103-113.
+in the Fine-Gray subdistribution hazard competing risk regression model. {it:Statistics in Medicine} 2020; 39(2): 103-113.
 
 {pstd}{browse "https://doi.org/10.1002/sim.8399":doi:10.1002/sim.8399}{p_end}
 

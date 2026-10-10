@@ -100,6 +100,9 @@ def main() -> int:
     args = parser.parse_args()
 
     program_count, class_missing, wrapper_missing = audit(args.pkg_dir)
+    # 120 since 2.6.2: _tabtools_collect_atmatrix, _tabtools_st_timescale, and
+    # _tabtools_fvterm_label with its _tabtools_fvterm_atrow and
+    # _tabtools_fvterm_num (margins at() and interaction row labels).
     # 115 since 2.6.0: _tabtools_fmt_pct (the shared percentage display rule).
     # 114 since _tabtools_fitcount_rec (fitcount's string records as r()
     # macros, so collect stores them whatever their length).
@@ -122,7 +125,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 115 and not class_missing and not wrapper_missing
+    passed = program_count == 120 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

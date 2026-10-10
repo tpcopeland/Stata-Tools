@@ -181,6 +181,8 @@ local test_files "`test_files' test_bugfix_2026_10_06_m.do"
 local test_files "`test_files' test_bugfix_2026_10_06_n.do"
 local test_files "`test_files' test_ratetab_v254_cluster.do"
 local test_files "`test_files' test_pct_floor.do"
+local test_files "`test_files' test_fixes_2026_10_10.do"
+local test_files "`test_files' test_qa_gaps_2026_10_10.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"

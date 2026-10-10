@@ -297,11 +297,11 @@ capture noisily {
     _fgfvb_stale `b' `V' "_fg_a_2Xx _fg_a_3Xx"
     assert "`e(designvars)'" == "_fg_a_2Xx _fg_a_3Xx" & _b[1b.a#c.x] == 0
     capture noisily finegray_predict xbs, xb
-    assert _rc != 0
+    assert _rc == 198
     capture confirm variable xbs
     assert _rc != 0
     capture noisily finegray_cif, attime(1) nograph
-    assert _rc != 0
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS: FVB-8 stale narrow-design results are refused"

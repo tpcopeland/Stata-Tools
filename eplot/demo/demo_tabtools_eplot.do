@@ -5,35 +5,104 @@
     regtab/effecttab/comptab carries a graph-ready companion frame that
     eplot turns into a forest plot - no manual re-entry of estimates.
 
-    This same demo ships in both the tabtools/demo and eplot/demo folders.
+    This same demo ships in both the tabtools/demo and eplot/demo folders;
+    the copies differ only in pkg_dir, which writes each copy's outputs to
+    its own package demo folder.
 
     Produces:
-      1. Console output (regtab + comptab tables) -> .log -> .md via logdoc
+      1. Console output (regtab + comptab tables) -> console_tabtools_eplot.log
       2. Single-model forest plot (regtab -> eplot)   -> forest_regtab.png
       3. Model-comparison forest plot (comptab forest) -> forest_comptab.png
 */
 
-version 16.0
+version 17.0
+
+* --- Session isolation ---------------------------------------------------
+* This demo installs three packages. Doing that in the user's real sysdirs
+* would PERSISTENTLY replace their installed tabtools, eplot and tc_schemes --
+* a documentation asset must not repackage someone's ado tree. Install into
+* disposable PLUS/PERSONAL trees instead, and snapshot every session setting
+* this file changes so that sourcing it into a live session is also safe.
+* This mirrors demo_tabtools.do; keep the two in step.
+local _orig_plus "`c(sysdir_plus)'"
+local _orig_personal "`c(sysdir_personal)'"
+local _orig_scheme "`c(scheme)'"
+local _orig_linesize = c(linesize)
+local _orig_varabbrev "`c(varabbrev)'"
+local _orig_more "`c(more)'"
+tempname _demo_id
+local _demo_tag = subinstr("`_demo_id'", "__", "", .)
+local _demo_plus "`c(tmpdir)'/tabtools_eplot_demo_plus_`_demo_tag'"
+local _demo_personal "`c(tmpdir)'/tabtools_eplot_demo_personal_`_demo_tag'"
+local _demo_isolated 0
+local _demo_success ""
+local _demo_scheme_dir ""
+local _demo_scheme_added 0
+* The graphs use scheme white_tableau. Look for it now, while the user's own
+* PLUS/PERSONAL are still on the path: once the disposable trees replace
+* them, a scheme installed there can no longer be found, and a graph would
+* silently fall back to the default scheme.
+capture findfile scheme-white_tableau.scheme
+if !_rc {
+    * the file's directory, on either path separator
+    local _demo_scheme_dir = ustrregexra("`r(fn)'", "[/\\\\][^/\\\\]*$", "")
+}
+
+capture noisily {
 set varabbrev off
 set linesize 120
 
 * --- Paths ---
 * This file lives in either tabtools/demo or eplot/demo; both packages live
-* in the same Stata-Tools repo, so install both from c(pwd).
-local pkg_dir "eplot/demo"
+* in the same Stata-Tools repo, so install both from the repo root.
 local repo_root "`c(pwd)'"
+capture confirm file "`repo_root'/tabtools/tabtools.pkg"
+if _rc {
+    local repo_root = subinstr("`repo_root'", "/tabtools/demo", "", 1)
+    local repo_root = subinstr("`repo_root'", "/eplot/demo", "", 1)
+    capture confirm file "`repo_root'/tabtools/tabtools.pkg"
+    if _rc {
+        display as error "Run demo_tabtools_eplot.do from the Stata-Tools repo root, tabtools/demo, or eplot/demo"
+        exit 601
+    }
+}
+local pkg_dir "`repo_root'/eplot/demo"
 capture mkdir "`pkg_dir'"
 
-* --- Install both packages from local source ---
+* --- Install all three packages into the disposable tree ---
+capture mkdir "`_demo_plus'"
+capture mkdir "`_demo_personal'"
+sysdir set PLUS "`_demo_plus'"
+sysdir set PERSONAL "`_demo_personal'"
+discard
+local _demo_isolated 1
+
 capture ado uninstall tabtools
 quietly net install tabtools, from("`repo_root'/tabtools") replace
 capture ado uninstall eplot
 quietly net install eplot, from("`repo_root'/eplot") replace
 
 * --- Graph scheme ---
+* tc_schemes ships white_tableau; if this checkout's copy lacks it, put back
+* the directory where the scheme was found before the sandbox (it holds only
+* scheme and style files, so it cannot shadow the sandboxed packages).
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
-set scheme plotplainblind
+capture findfile scheme-white_tableau.scheme
+if _rc & "`_demo_scheme_dir'" != "" {
+    adopath ++ "`_demo_scheme_dir'"
+    local _demo_scheme_added 1
+}
+capture findfile scheme-white_tableau.scheme
+if _rc {
+    display as error "demo_tabtools_eplot.do needs scheme white_tableau (tc_schemes)"
+    exit 111
+}
+set scheme white_tableau
+if "`c(scheme)'" != "white_tableau" {
+    display as error "demo expects scheme white_tableau; got `c(scheme)'"
+    exit 9
+}
 
 **# Build analysis dataset
 use "`repo_root'/_data/cohort.dta", clear
@@ -57,7 +126,9 @@ label variable hypertension "Hypertension"
 label variable prior_cvd "Prior CVD"
 
 **# Console output
-capture log close _all
+* Close only this demo's named log (not _all) so the demo stays embeddable in
+* the release gate without closing the caller's log. Matches demo_tabtools.do.
+capture log close demo
 log using "`pkg_dir'/console_tabtools_eplot.log", replace text name(demo) nomsg
 
 * # tabtools + eplot integration
@@ -92,6 +163,7 @@ noisily comptab m_crude m_adj, rows(1 \ 1) ///
 log close demo
 
 **# Graph 1: single-model forest plot (regtab -> eplot)
+assert "`c(scheme)'" == "white_tableau"
 * The companion frame stored above is plotted with eplot frame mode.
 eplot, frame(or_effects) labels(label) rowtype(rowtype) ///
     null(1) values stars vformat(%4.2f) ///
@@ -102,6 +174,7 @@ graph export "`pkg_dir'/forest_regtab.png", replace width(1400)
 capture graph close _all
 
 **# Graph 2: model-comparison forest plot (comptab forest one-step)
+assert "`c(scheme)'" == "white_tableau"
 * comptab's forest option calls eplot directly from the composite frame.
 collect clear
 quietly collect: logistic cv_event treated
@@ -120,16 +193,31 @@ comptab g_crude g_adj, rows(1 \ 1) ///
 graph export "`pkg_dir'/forest_comptab.png", replace width(1400)
 capture graph close _all
 
-**# Convert console log to markdown via logdoc
-capture ado uninstall logdoc
-quietly net install logdoc, from("`repo_root'/logdoc") replace
-logdoc using "`pkg_dir'/console_tabtools_eplot.log", ///
-    output("`pkg_dir'/console_tabtools_eplot.md") ///
-    format(md) replace quiet
-
 * --- Cleanup ---
 clear
 capture frame change default
 foreach f in or_effects m_crude m_adj e_crude e_adj g_crude g_adj ge_crude ge_adj {
     capture frame drop `f'
 }
+
+local _demo_success "1"
+}
+local _rc = _rc
+if "`_demo_success'" == "1" local _rc = 0
+
+* --- Restore the session exactly as we found it -------------------------
+if `_demo_scheme_added' capture adopath - "`_demo_scheme_dir'"
+set scheme `_orig_scheme'
+set linesize `_orig_linesize'
+set varabbrev `_orig_varabbrev'
+set more `_orig_more'
+if `_demo_isolated' {
+    capture ado uninstall tabtools
+    capture ado uninstall eplot
+    capture ado uninstall tc_schemes
+    sysdir set PLUS "`_orig_plus'"
+    sysdir set PERSONAL "`_orig_personal'"
+    discard
+    capture shell rm -rf "`_demo_plus'" "`_demo_personal'"
+}
+if `_rc' exit `_rc'
