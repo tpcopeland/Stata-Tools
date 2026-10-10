@@ -179,15 +179,15 @@ capture noisily {
     _rto_cell _rto4 "1" c1
     assert "`r(cell)'" == "Omitted"
     * an interaction cell containing the base level of either factor
-    _rto_cell _rto4 "1.grp#0.sex" c1
+    _rto_cell _rto4 "One # Sex = 0" c1
     assert "`r(cell)'" == "Reference"
     * cells that identify no observations
-    _rto_cell _rto4 "1.grp#1.sex" c1
+    _rto_cell _rto4 "One # Sex = 1" c1
     assert "`r(cell)'" == "Empty"
-    _rto_cell _rto4 "2.grp#0.sex" c1
+    _rto_cell _rto4 "Two # Sex = 0" c1
     assert "`r(cell)'" == "Empty"
     * a cell dropped for collinearity
-    _rto_cell _rto4 "2.grp#1.sex" c1
+    _rto_cell _rto4 "Two # Sex = 1" c1
     assert "`r(cell)'" == "Omitted"
 }
 if _rc == 0 {
@@ -297,7 +297,7 @@ capture noisily {
     assert "`r(cell)'" == "Ref."
     _rto_cell _rto8 "1" c1
     assert "`r(cell)'" == "(omitted)"
-    _rto_cell _rto8 "1.grp#1.sex" c1
+    _rto_cell _rto8 "One # Sex = 1" c1
     assert "`r(cell)'" == "(empty)"
 
     capture frame drop _rto8b
@@ -532,13 +532,15 @@ capture noisily {
     capture frame drop _rto15
     quietly regtab, frame(_rto15, replace)
 
-    _rto_count _rto15 "grp#sex" A
+    * 2.6.2 labels the term from its variable labels and each level from its
+    * value labels ("One # Sex = 0"); one parent row heads all the levels
+    _rto_count _rto15 "Group # Sex" A
     assert r(n) == 1
     frame _rto15 {
-        quietly count if strpos(strtrim(A), "grp#0.sex") == 1 & _n >= 4
+        quietly count if strpos(strtrim(A), "grp#") == 1 & _n >= 4
         assert r(N) == 0
-        quietly count if strpos(strtrim(A), "grp#1.sex") == 1 & _n >= 4
-        assert r(N) == 0
+        quietly count if inlist(strtrim(A), "One # Sex = 0", "One # Sex = 1") & _n >= 4
+        assert r(N) == 2
     }
 }
 if _rc == 0 {
@@ -634,11 +636,11 @@ capture noisily {
     capture frame drop _rto18
     quietly regtab, frame(_rto18, replace)
 
-    _rto_cell _rto18 "0.foreign#1.rep78" c1
+    _rto_cell _rto18 "Domestic # Repair record 1978 = 1" c1
     assert "`r(cell)'" == "Reference"
-    _rto_cell _rto18 "1.foreign#1.rep78" c1
+    _rto_cell _rto18 "Foreign # Repair record 1978 = 1" c1
     assert "`r(cell)'" == "Empty"
-    _rto_cell _rto18 "1.foreign#2.rep78" c1
+    _rto_cell _rto18 "Foreign # Repair record 1978 = 2" c1
     assert "`r(cell)'" == "Empty"
     * the nbreg main-effect level: first body row labelled "1"
     _rto_cell _rto18 "1" c4

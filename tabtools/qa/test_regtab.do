@@ -5254,11 +5254,14 @@ capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price i.foreign##c.mpg
+    local _v188_lab : label (foreign) 1
+    local _v188_mpg : variable label mpg
     regtab, frame(_v188_b) keep(1.foreign#c.mpg)
+    * 2.6.2: the interaction level is labelled from its components
     frame _v188_b {
-        quietly count if strpos(A, "foreign#mpg") > 0
+        quietly count if strtrim(A) == "`_v188_lab' # `_v188_mpg'"
         assert !missing(r(N))
-        assert r(N) >= 1
+        assert r(N) == 1
     }
     capture frame drop _v188_b
 }

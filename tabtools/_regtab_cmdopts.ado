@@ -1,4 +1,4 @@
-*! _regtab_cmdopts Version 2.6.1  2026/10/09
+*! _regtab_cmdopts Version 2.6.2  2026/10/10
 *! parse option text with the estimator's own abbreviations
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

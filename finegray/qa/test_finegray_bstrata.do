@@ -647,11 +647,11 @@ capture noisily {
 
     quietly replace ctr = 3 - ctr if ctr < 3 & _n <= 20
     capture noisily finegray_cif, attime(1) bstratum(1) nograph
-    assert _rc != 0
+    assert _rc == 459
     capture noisily finegray_predict _B11c, cif ci
-    assert _rc != 0
+    assert _rc == 459
     capture noisily finegray_phtest
-    assert _rc != 0
+    assert _rc == 459
 }
 local _rc = _rc
 _fgbs_result `_rc' "B11 altering bstrata() after the fit fails post-estimation closed"

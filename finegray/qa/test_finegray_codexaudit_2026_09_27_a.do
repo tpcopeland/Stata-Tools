@@ -524,17 +524,17 @@ capture noisily {
         mata: mata clear
         mata: mata set matastrict `s'
         capture finegray_cif, at(x=0) attime(1) nograph
-        assert _rc != 0
+        assert _rc == 3000
         assert "`c(matastrict)'" == "`s'"
         mata: mata clear
         mata: mata set matastrict `s'
         capture finegray_predict double c1, cif
-        assert _rc != 0
+        assert _rc == 3000
         assert "`c(matastrict)'" == "`s'"
         mata: mata clear
         mata: mata set matastrict `s'
         capture finegray_predict double s1, schoenfeld
-        assert _rc != 0
+        assert _rc == 3000
         assert "`c(matastrict)'" == "`s'"
     }
 }

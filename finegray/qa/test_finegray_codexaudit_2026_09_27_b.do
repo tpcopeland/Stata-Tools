@@ -276,7 +276,7 @@ capture noisily {
     _fgcab_chkmats `fgmats'
     * a failure after parsing (unknown cause value) too
     capture finegray x, compete(status) cause(7) nolog
-    assert _rc != 0
+    assert _rc == 198
     _fgcab_chkmats `fgmats'
     matrix drop `fgmats'
 }

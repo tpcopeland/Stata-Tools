@@ -1,4 +1,4 @@
-*! outtab Version 2.6.1  2026/10/09
+*! outtab Version 2.6.2  2026/10/10
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -185,6 +185,15 @@ program define outtab, rclass
         if r(N) {
             display as error "exposure() must be coded 0/1; `r(N)' observation(s) are not"
             exit 459
+        }
+        * Both groups must exist: with one value the table would print the
+        * absent group as 0/0 under a label invented from its code.
+        forvalues _code = 0/1 {
+            quietly count if `touse' & `exposure' == `_code'
+            if r(N) == 0 {
+                display as error "exposure() is never `_code' in the sample; outtab compares exposure = 1 with exposure = 0"
+                exit 2000
+            }
         }
         foreach _y of local varlist {
             quietly count if `touse' & !missing(`_y') & !inlist(`_y', 0, 1)

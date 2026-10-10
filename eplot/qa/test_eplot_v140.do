@@ -33,7 +33,10 @@ capture noisily {
     "c" 6.00 3.00 20.0
     end
 
-    eplot es lci uci, labels(lab) logscale name(eplot_v140_t1, replace)
+    * Ticks inside the padded range leave the padding as the range.  Since
+    * 1.5.0 a tick beyond the pad widens the range to reach it (below).
+    eplot es lci uci, labels(lab) logscale xlabel(1 2 5 10) ///
+        name(eplot_v140_t1, replace)
     local cmd = r(cmd)
     assert regexm(`"`cmd'"', "xscale\(log range\(([^ ]+) ([^)]+)\)\)")
     local _rmin = real(regexs(1))
@@ -49,6 +52,20 @@ capture noisily {
     assert reldif(`_rmin', `_want_min') < 1e-6
     assert !missing(`_rmax', `_want_max')
     assert reldif(`_rmax', `_want_max') < 1e-6
+    * The default decade lattice brackets the data, so its end ticks lie at
+    * or beyond the pad and the range reaches them.
+    eplot es lci uci, labels(lab) logscale name(eplot_v140_t1b, replace)
+    local cmd = r(cmd)
+    assert regexm(`"`cmd'"', "xscale\(log range\(([^ ]+) ([^)]+)\)\)")
+    local _rmin = real(regexs(1))
+    local _rmax = real(regexs(2))
+    assert !missing(`_rmin', `_rmax')
+    assert `_rmin' > 0
+    assert `_rmin' <= `_want_min' * (1 + 1e-9)
+    assert `_rmax' >= `_want_max' * (1 - 1e-9)
+    assert regexm(`"`cmd'"', "xlabel\( *([^ ]+) ")
+    assert !missing(real(regexs(1)), `_rmin')
+    assert reldif(real(regexs(1)), `_rmin') < 1e-9
 }
 if _rc == 0 local ++pass_count
 else {

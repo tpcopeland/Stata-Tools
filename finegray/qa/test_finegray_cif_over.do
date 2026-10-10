@@ -422,7 +422,7 @@ capture noisily {
     quietly finegray i.pelnode ifp tumsize, compete(status) cause(1)
     capture finegray_cif, over(pelnode) ci nograph ///
         saving("`c(tmpdir)'/no_such_dir_ov/x.dta", replace)
-    assert _rc != 0
+    assert _rc == 603
     assert colsof(r(table)) == 6
     assert "`r(over)'" == "pelnode"
     assert "`r(levels)'" == "0 1"

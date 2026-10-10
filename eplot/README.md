@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.4.3** | 2026-09-30
+**Version 1.5.0** | 2026-10-10
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -59,7 +59,7 @@ Data mode uses the three variables as estimate, lower confidence limit, and uppe
 
 Frame mode requires numeric `estimate`, `ll`, and `ul` variables unless `estimate()`, `ll()`, and `ul()` override those names. It automatically uses string `label`, numeric or string `rowtype` or `type`, numeric `weight` or `weights`, and numeric `pvalue` variables when they are present; `type()` and `rowtype()` are mutually exclusive. Frame mode reuses the data-mode plotting options, including groups, headers, pooled rows, weights, prediction intervals, and heterogeneity notes.
 
-The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires sibling `tabtools`, `tc_schemes`, and `logdoc` packages, the `_data/` fixtures, and Stata 17 or later.
+The optional `tabtools` bridge lets `regtab`, `effecttab`, `comptab`, and `hrcomptab` produce companion frames for `eplot, frame()`. The repository demo documents that workflow and requires sibling `tabtools` and `tc_schemes` packages, the `_data/` fixtures, and Stata 17 or later.
 
 ## Worked Examples
 
@@ -149,22 +149,81 @@ eplot ., noconstant eform style(lancet) values ///
 
 In estimates mode, `eform` sets the null line to 1 and suppresses `_cons` automatically.
 
+### 6. Publication forest plot: values column, labelled reference line, and favors
+
+Subgroup time ratios on a log axis, with the values printed at the row-label size and an extra reference line at the overall estimate (synthetic data).
+
+```stata
+clear
+input str20 group double(tr lci uci) byte type
+"Men"                .     .     .   0
+"  18-39"         1.21  1.04  1.41   1
+"  40-59"         1.09  0.97  1.22   1
+"  60-79"         1.03  0.94  1.13   1
+"  80+"              .     .     .   2
+""                   .     .     .   6
+"Women"              .     .     .   0
+"  18-39"         1.34  1.16  1.55   1
+"  40-59"         1.12  1.01  1.24   1
+"  60-79"         0.97  0.88  1.07   1
+"  80+"           0.88  0.73  1.06   1
+""                   .     .     .   6
+"All participants" 1.08  1.03  1.13  5
+end
+
+eplot tr lci uci, labels(group) type(type) logscale ///
+    values vformat(%4.2f) vsize(small) vcolor(black) ///
+    effect("Time ratio (log scale)") vtitle("Time ratio (95% CI)") ///
+    xlabel(0.7 "0.7" 0.8 "0.8" 1 "1.0" 1.25 "1.25" 1.5 "1.5") ///
+    xscale(lcolor(black) lwidth(medthin) fextend) ///
+    xline(1.08, lcolor(gs8) lpattern(dash) label("Overall 1.08")) ///
+    favors("Favors SSRI" "Favors SNRI", ends arrows)
+```
+
+![Time-ratio forest plot by sex and age group on a log axis with a Not estimated row and a labelled reference line](demo/time_ratio_forest.png)
+
+The type 2 row prints `Not estimated` in the values column (`vmissing()` changes the text). `effect()` titles the axis while `vtitle()` heads the values column, and `vsize(small)` matches the default row-label size (`labsize()` sets the labels). The `xline()` label sits at the top of the plot (a row above the values header), `favors(..., ends arrows)` anchors the direction labels at the ends of the effect range, and `xscale()` styles the axis line without touching the range `eplot` computes. Because `xlabel()` is user-supplied, no grid is drawn unless it asks for one with `xlabel(..., grid)`; with default ticks, `nogrid` removes the grid.
+
+### 7. Consistent panels: shared axis styling
+
+Keep the styling options for a multi-panel figure in one local so the panels cannot drift apart.
+
+```stata
+local shared `"logscale xlabel(0.7 "0.7" 1 "1.0" 1.4 "1.4") xscale(lcolor(black) lwidth(medthin) fextend) values vformat(%4.2f) vsize(small) vcolor(black) labsize(small) effect("Hazard ratio") vtitle("HR (95% CI)") vmissing("Too few events") favors("Favors SNRI" "Favors SSRI", below arrows)"'
+
+* ... load panel A results (hr lci uci subgroup type) ...
+eplot hr lci uci, labels(subgroup) type(type) `shared' ///
+    title("A. Cardiovascular event", size(medium)) name(panel_cv, replace) nodraw
+
+* ... load panel B results ...
+eplot hr lci uci, labels(subgroup) type(type) `shared' ///
+    title("B. Gastrointestinal bleeding", size(medium)) name(panel_gi, replace) nodraw
+
+graph combine panel_cv panel_gi, cols(2) xsize(12) ysize(5)
+```
+
+![Two side-by-side subgroup hazard-ratio panels with identical axis styling](demo/panel_consistency.png)
+
+Each panel computes its own effect-axis range from its data, so choose ticks that fall within the data of every panel. The full data for both panels are in `demo/demo_eplot.do`.
+
 ## Gallery
 
-The eight core figures below are reproducible from a repository checkout; run `demo/demo_eplot.do` to regenerate them. Run `demo/demo_tabtools_eplot.do` to regenerate the two bridge figures; that optional integration workflow also needs sibling `tabtools`, `tc_schemes`, `logdoc`, the repository `_data/` fixtures, and Stata 17 or later. These demos are checkout workflows and are not part of the `net install` payload.
+The ten core figures below are reproducible from a repository checkout; run `demo/demo_eplot.do` from the repository root to regenerate them (it draws them in the `white_tableau` scheme from the sibling `tc_schemes` package). Run `demo/demo_tabtools_eplot.do` to regenerate the two bridge figures; that optional integration workflow also needs sibling `tabtools` and `tc_schemes`, the repository `_data/` fixtures, and Stata 17 or later. These demos are checkout workflows and are not part of the `net install` payload.
 
 | Output | Command focus |
 |--------|---------------|
 | ![Single-model coefficient plot with formatted estimates and capped confidence intervals](demo/coef_values.png) | `values` after a single regression |
 | ![Crude versus adjusted treatment-effect forest plot from comptab](demo/forest_comptab.png) | `comptab` forest bridge |
 | ![Adjusted odds-ratio forest plot from a regtab companion frame](demo/forest_regtab.png) | `regtab` to `eplot, frame()` |
-| ![Grouped meta-analysis forest plot with weighted boxes and pooled diamonds](demo/forest_values.png) | `type()`, `weights()`, and pooled rows |
+| ![Grouped meta-analysis forest plot with weighted boxes and pooled diamonds](demo/forest_values.png) | `type()`, `weights()`, pooled rows, and `vsize(small)` values |
 | ![Grouped odds-ratio coefficient plot with section headers](demo/grouped_coefplot.png) | `groups()` and `eform` |
 | ![Lancet-style coefficient plot with cranberry diamonds and capped intervals](demo/lancet_style.png) | `style(lancet)` |
-| ![Odds-ratio forest plot generated from a matrix](demo/matrix_mode.png) | Three-column `matrix()` input |
+| ![Odds-ratio forest plot generated from a matrix](demo/matrix_mode.png) | Three-column `matrix()` input with `null(1)` |
 | ![Meta-analysis forest plot with prediction intervals and heterogeneity note](demo/meta_heterogeneity.png) | `pi()`, `i2()`, `tau2()`, and `qstat()` |
 | ![Three-model coefficient comparison with separate legend colors](demo/multi_model.png) | `modellabels()` and `palette()` |
+| ![Two side-by-side subgroup hazard-ratio panels with identical axis styling](demo/panel_consistency.png) | Shared `xlabel()`, `xscale()`, text sizes, `vmissing()`, and `favors(, below arrows)` across panels |
 | ![Coefficient plot with contrasting significant and non-significant colors](demo/sigcolors.png) | `sigcolors`, `sigcolor()`, and `insigncolor()` |
+| ![Time-ratio forest plot by sex and age group on a log axis with a Not estimated row and a labelled reference line](demo/time_ratio_forest.png) | `logscale`, `vtitle()`, `vsize()`, labelled `xline()`, and `favors(, ends arrows)` |
 
 ## Key Options
 
@@ -206,8 +265,9 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `eform` | D, E, M, F | Exponentiate estimates and limits; the null defaults to 1 instead of 0 |
 | `logscale` | D, E, M, F | Draw the effect axis on a logarithmic scale with multiplicative padding and decade ticks; all plotted values, `null()`, and `xline()` positions must be positive, and the null defaults to 1 |
 | `rescale(#)` | D, E, M, F | Nonmissing, nonzero multiplier for estimates and limits; negative factors preserve lower/upper ordering; default is `1` |
-| `xline(numlist[, line_options])` | D, E, M, F | Add reference lines; bare positions use a light dashed style |
-| `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation |
+| `xline(numlist[, line_options label(strlist)])` | D, E, M, F | Add reference lines; bare positions use a light dashed style; `label()` gives one label per line, drawn at the top of the plot beside the line (a row above the header with `values`; beside the first row in vertical layout) |
+| `xlabel(spec)` | D, E, M, F | Set effect-axis ticks in either orientation; the axis range extends to every numeric tick; draws no grid (including a scheme grid) unless its suboptions include `grid` |
+| `nogrid` | D, E, M, F | Suppress the grid `eplot` draws with its default ticks |
 | `null(#)` | D, E, M, F | Nonmissing null line position; default is `0`, or `1` with `eform` |
 | `nonull` | D, E, M, F | Suppress the null line |
 | `level(#)` | E, M | Confidence level for constructed intervals; default is current `c(level)`, normally 95 |
@@ -219,14 +279,18 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `dp(#)` | D, E, M, F | Nonnegative decimal places for `values`; default is `2` |
-| `effect(string)` | D, E, M, F | Effect-axis title; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
+| `effect(string)` | D, E, M, F | Effect-axis title, and the `values` header unless `vtitle()` is set; data/frame default to `Estimate (95% CI)` or `Effect (95% CI)` with `eform`, while estimates/matrix use the current CI level |
 | `values` | D, E single, M, F | Annotate rows with estimate and interval text; requires horizontal layout |
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%5.2f`, or a format based on `dp()` |
+| `vsize(textsizestyle)`, `vcolor(colorstyle)` | D, E single, M, F | `values` text size and color; defaults are `vsmall` and `gs4`; `vsize(small)` matches the row labels |
+| `vtitle(string)` | D, E single, M, F | Header above the `values` column; default is the `effect()` text |
+| `vmissing(string)` | D, F | `values` text on type 2 (missing/excluded) rows; default is `Not estimated`; `vmissing("")` leaves them blank; string `reference` rows stay blank |
+| `labsize(textsizestyle)` | D, E, M, F | Row-label size; default is `small` |
 | `stars` | D, E single, M 2-column, F | Append p-value stars to `values`; data mode requires `pvalue()`, while frame mode uses `pvalue()` or an auto-detected `pvalue` variable |
 | `sigcolors` | D, E single, M, F | Color single-model effects by whether the interval excludes `null()`; multi-model estimates use `palette()` colors |
 | `sigcolor(color)` | D, E single, M, F | Significant-effect color when `sigcolors` is set; default is `cranberry` |
 | `insigncolor(color)` | D, E single, M, F | Non-significant-effect color when `sigcolors` is set; default is `gs10` |
-| `favors(left right)` | D, E, M, F | Add directional labels below a horizontal effect axis |
+| `favors(left right[, ends below arrows])` | D, E, M, F | Directional labels for a horizontal effect axis: centred either side of the null by default, `ends` at the axis ends, `below` under the tick labels, `arrows` adds direction arrows; a null outside the plotted range moves centred labels to the ends |
 | `i2(string)`, `tau2(string)`, `qstat(string)` | D, F | Add supplied heterogeneity text as-is to the graph note; values are not computed |
 | `style(name)` | D, E, M, F | Presets: `forest`, `coef`, `lancet`, `jama`, `nejm`, and `bmj`; explicit options override preset defaults |
 
@@ -257,6 +321,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `title(string)`, `subtitle(string)`, `note(string)` | D, E, M, F | Graph title, subtitle, and note |
 | `name(string)`, `saving(filename)`, `scheme(schemename)` | D, E, M, F | Graph name, saved graph path, and scheme |
 | `plotregion(options)`, `graphregion(options)`, `aspect(#)` | D, E, M, F | Standard Stata graph-region and aspect options |
+| `xscale()`, `yscale()` | D, E, M, F | Axis style suboptions such as `lcolor()`, `lwidth()`, `fextend`, `line` are merged into the axes `eplot` builds; `range()`, `log`, `nolog`, `reverse`, `noreverse`, and `axis()` exit with `r(198)` |
 | `twoway` options | D, E, M, F | Other options are appended to the generated `twoway` command |
 
 ## Stored Results
@@ -285,7 +350,7 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 - `groups()`, `headers()`, and `gap()` apply to data/frame mode and single-model estimates; multi-model-only options (`modellabels()`, `offset()`, `palette()`, and `legendopts()`) require multiple estimates.
 - `eform` exponentiates supplied values, sets the null to 1, and suppresses `_cons` automatically in estimates and matrix modes.
 - `logscale` requires strictly positive values; a non-positive plotted value, `null()`, or `xline()` position exits with `r(198)` rather than drawing a collapsed axis. Below a threefold spread the tick lattice falls back to linear positions, which remain valid on a log axis.
-- `xscale()` and `yscale()` may not be passed through to `twoway`: `eplot` computes the effect-axis range itself, so a passthrough copy exits with `r(198)`. Use `logscale` for a logarithmic effect axis.
+- `eplot` computes each axis range itself. `xscale()` and `yscale()` accept style suboptions only; `range()`, `log`, `reverse`, `axis()`, and their negations exit with `r(198)`. Use `logscale` for a logarithmic effect axis.
 - In data mode, three leading numeric variables win mode detection even if their names also match stored estimates; use `eplot .`, `matrix()`, or `frame()` to disambiguate.
 - In multi-model estimates, `palette()` sets per-model colors by default. `mcolor()` and `cicolor()` each take one color for every model or exactly one color per model (quote RGB triplets in a list); `mcolor()` may not be combined with `palette()`, and `sigcolors` is single-model-only. A `style()` preset's colors yield to the palette. The default palette cycles for a ninth model onward, so model *m* uses color `mod(m-1, 8) + 1`.
 - Style presets supply defaults only; explicitly supplied options take precedence, and a preset's `values` component applies only where `values` itself does.
@@ -302,6 +367,8 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.5.0** (2026-10-10): New `vsize()`, `vcolor()`, and `labsize()` set the `values` text and row-label styling (the values had been fixed one size below the labels), and `vtitle()` heads the values column separately from the `effect()` axis title. Type 2 rows print `Not estimated` in the values column, configurable with `vmissing()`. `xscale()`/`yscale()` now accept axis style suboptions such as `lcolor()`, `lwidth()`, and `fextend`; only geometry suboptions (`range()`, `log`, `reverse`, `axis()` and their negations) are refused. A user `xlabel()` now suppresses a grid the scheme would draw unless it asks for `grid`, and `nogrid` removes the default grid. `xline()` takes `label()` to label each line at the top of the plot (a row above the values header with `values`). The effect axis now extends to every numeric tick, user-supplied or default, on linear and `logscale` axes, so ticks outside the data are no longer drawn off a log axis or dropped; identical `xlabel()` lists whose outermost ticks lie beyond each panel's data give panels a common range when `values` is off. `favors()` takes `ends`, `below`, and `arrows`; when `null()` lies outside the plotted range, centred favors labels, which had been placed off the axis and silently not drawn, now move to the axis ends with a note.
 
 - **1.4.3** (2026-09-30): Estimates containing factor coefficients can be plotted after their source variable is absent from the current dataset. Missing variable/value labels now fall back to the factor variable name and level; the analytic coefficient stripe remains exact, and available labels retain their existing behavior.
 

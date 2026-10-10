@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.3  30sep2026}{...}
+{* *! version 1.5.0  10oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -82,8 +82,9 @@ Plot from a graph-ready frame:
 {synopt:{opt res:cale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
-{synopt:{opt xl:ine(numlist[, line_options])}}add vertical reference lines{p_end}
+{synopt:{opt xl:ine(numlist[, line_options label(strlist)])}}add (labelled) reference lines{p_end}
 {synopt:{opt xlab:el(spec)}}effect-axis tick specification{p_end}
+{synopt:{opt nogr:id}}suppress the effect-axis grid{p_end}
 {synopt:{opt null(#)}}null hypothesis line position{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
 
@@ -98,12 +99,17 @@ Plot from a graph-ready frame:
 {synopt:{opt val:ues}}annotate rows with formatted effects{p_end}
 {synopt:{opt vf:ormat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
 {synopt:{opt vg:ap(#)}}values-column gap; default 0.15{p_end}
+{synopt:{opt vs:ize(textsizestyle)}}values text size; default {cmd:vsmall}{p_end}
+{synopt:{opt vc:olor(colorstyle)}}values text color; default {cmd:gs4}{p_end}
+{synopt:{opt vti:tle(string)}}values-column header; default {opt effect()}{p_end}
+{synopt:{opt vmiss:ing(string)}}values text for type 2 rows{p_end}
+{synopt:{opt labsize(textsizestyle)}}row-label text size; default {cmd:small}{p_end}
 {synopt:{opt star:s}}add significance stars to values{p_end}
 {synopt:{opt sigc:olors}}color markers by CI significance{p_end}
 {synopt:{opt sigc:olor(color)}}significant-effect color{p_end}
 {synopt:{opt insignc:olor(color)}}non-significant-effect color{p_end}
 {synopt:{opt sty:le(name)}}plot style preset{p_end}
-{synopt:{opt f:avors(left right)}}directional annotation text{p_end}
+{synopt:{opt f:avors(left right[, ends below arrows])}}directional annotation text{p_end}
 
 {syntab:Prediction intervals (data and frame modes)}
 {synopt:{opt pi(lci_var uci_var)}}draw prediction-interval whiskers{p_end}
@@ -145,6 +151,8 @@ Plot from a graph-ready frame:
 {synopt:{opt plotr:egion(options)}}plot region options{p_end}
 {synopt:{opt graphr:egion(options)}}graph region options{p_end}
 {synopt:{opt asp:ect(#)}}aspect ratio{p_end}
+{synopt:{opt xsc:ale(axis_suboptions)}}x-axis style; range set by {cmd:eplot}{p_end}
+{synopt:{opt ysc:ale(axis_suboptions)}}y-axis style; range set by {cmd:eplot}{p_end}
 {synopt:{it:twoway_options}}other {help twoway} options{p_end}
 {synoptline}
 
@@ -308,7 +316,7 @@ dataset. Accepted values:
 {p2line}
 {p2col:0}Header or label row (no point or CI){p_end}
 {p2col:1}Regular effect (individual study or coefficient){p_end}
-{p2col:2}Missing or excluded row{p_end}
+{p2col:2}Missing or excluded row (see {opt vmissing()}){p_end}
 {p2col:3}Subgroup pooled effect (drawn as a diamond){p_end}
 {p2col:4}Heterogeneity information row{p_end}
 {p2col:5}Overall pooled effect (drawn as a diamond){p_end}
@@ -451,17 +459,39 @@ value. The position must be a nonmissing number.
 suppresses the null hypothesis line entirely.
 
 {phang}
-{opt xline(numlist[, line_options])}
+{opt xline(numlist[, line_options label(strlist)])}
 adds additional vertical reference lines at the specified positions. By default
 the added lines use a light dashed style; supply {it:line_options} after a comma
 (for example, {cmd:xline(0.5, lpattern(dash) lcolor(red))}) to override the
 appearance of every added line.
 
+{pmore}
+{opt label(strlist)} labels the lines, one string per position in the order
+given, e.g., {cmd:xline(1.13 1.30, label("Women vs men, 18-39" ""))}; an empty
+string leaves that line unlabelled, and a single line's label need not be
+quoted. Each label is drawn at the top of the plot, just right of its line, so
+it stays clear of the rows and of the {opt favors()} text; with {opt values} it
+sits a row above the values-column header. In vertical layout
+the label sits above the line beside the first row. A count that does not match
+the positions exits with {cmd:r(198)}.
+
 {phang}
 {opt xlabel(spec)}
 controls the tick marks on the effect axis. In horizontal layout this maps
 to Stata's {cmd:xlabel()}; in vertical layout it maps to {cmd:ylabel()}, so
-you can control the effect scale without worrying about orientation.
+you can control the effect scale without worrying about orientation. The
+effect-axis range is extended to include every numeric tick position given, on
+a linear or a {opt logscale} axis, so no labelled tick falls off the axis;
+identical {opt xlabel()} lists therefore give separate graphs a common effect
+range when the outermost ticks lie beyond each graph's data plus {cmd:eplot}'s
+5% padding and {opt values} is not specified. With the
+default ticks {cmd:eplot} draws a light grid; a user {opt xlabel()} draws no grid,
+including one the scheme would draw, unless its suboptions include {cmd:grid}
+(e.g., {cmd:xlabel(0.5 1 2, grid)}).
+
+{phang}
+{opt nogrid} suppresses the effect-axis grid that {cmd:eplot} draws with its
+default ticks. It may not be combined with {cmd:xlabel(..., grid)}.
 
 {dlgtab:Confidence intervals}
 
@@ -499,7 +529,8 @@ in effect, and matrix mode reports that level in place of 95. Override with a cu
 {cmd:effect("Odds Ratio (95% CI)")}. In data and frame modes the default label
 always reads "95% CI" because the confidence limits are supplied directly and
 {cmd:eplot} cannot know their level; set {opt effect()} explicitly if your intervals are
-not 95%.
+not 95%. With {opt values}, {opt effect()} also heads the values column unless
+{opt vtitle()} is specified.
 
 {phang}
 {opt values} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} annotates each row with formatted text
@@ -518,6 +549,34 @@ effect axis and the {opt values} column as a fraction of the axis span (of its
 log span under {opt logscale}); default is 0.15. The column starts to the right of
 the widest interval, the null line when it is drawn and the last labelled tick,
 so no reference line or tick label runs through it.
+
+{phang}
+{opt vsize(textsizestyle)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the size of
+the {opt values} text and its column header; default is {cmd:vsmall}, one step
+smaller than the row labels, and {cmd:vsize(small)} matches the default row
+labels. Any {help textsizestyle} is accepted, and {cmd:*}{it:#} is relative to
+{cmd:vsmall}. A larger size widens the values margin accordingly, and an
+unknown size exits with {cmd:r(198)}.
+
+{phang}
+{opt vcolor(colorstyle)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the color of
+the {opt values} text; default is {cmd:gs4}. It must name one valid color.
+
+{phang}
+{opt vtitle(string)} {bf:[D,F]} {bf:[E single-model]} {bf:[M]} sets the bold header
+above the {opt values} column. The default is the {opt effect()} text, which
+remains the axis title, so {cmd:effect("Time ratio") vtitle("Time ratio (95% CI)")}
+gives each its own wording.
+
+{phang}
+{opt vmissing(string)} {bf:[D,F]} sets the {opt values} text printed on type 2
+(missing or excluded) rows; default is "Not estimated". {cmd:vmissing("")} leaves
+those rows blank. Rows whose string {opt type()} is {cmd:"reference"} also map to
+type 2 but are reference categories, not missing estimates, so they stay blank.
+
+{phang}
+{opt labsize(textsizestyle)} sets the size of the row labels; default is
+{cmd:small}. {cmd:*}{it:#} is relative to {cmd:small}.
 
 {phang}
 {opt stars} {bf:[D,F]} {bf:[E single-model]} {bf:[M 2-col]}
@@ -576,10 +635,24 @@ settings; a preset's colors are defaults that yield to the per-model
 {p2colreset}{...}
 
 {phang}
-{opt favors(left right)} adds directional annotation text below the x-axis
+{opt favors(left right[, ends below arrows])} adds directional annotation text
 (horizontal layout only). Provide exactly two nonempty labels, quoting labels
 that contain spaces, e.g., {cmd:favors("Favors Treatment" "Favors Control")}. Useful in forest plots to show
-the clinical interpretation of each direction.
+the clinical interpretation of each direction. By default each label is centred
+between {opt null()} and the data edge on its side, in a row below the last
+effect. Suboptions:
+
+{p2colset 9 20 22 2}{...}
+{p2col:{cmd:ends}}anchor the labels at the left and right ends of the effect axis, reading inward, clear of lines near the null{p_end}
+{p2col:{cmd:below}}draw the labels below the axis tick labels, where no reference line crosses them{p_end}
+{p2col:{cmd:arrows}}add arrows pointing away from the null, e.g., "{c -}> Favors Control"{p_end}
+{p2colreset}{...}
+
+{pmore}
+{cmd:ends} and {cmd:below} may not be combined. {cmd:below} uses the effect axis's
+minor-label slot ({cmd:xmlabel()}). When {opt null()} lies outside the plotted range,
+centred labels would fall off the axis, so {cmd:eplot} places them at the axis ends
+and says so in a note.
 
 {dlgtab:Prediction intervals (data and frame modes)}
 
@@ -740,13 +813,20 @@ inside the option argument when needed.
 pass plot-region, graph-region, and aspect-ratio settings to {cmd:twoway}.
 
 {phang}
+{opt xscale(axis_suboptions)} and {opt yscale(axis_suboptions)} style the axes,
+e.g., {cmd:xscale(lcolor(black) lwidth(medthin) fextend)} to match another
+panel's axis line, or {cmd:yscale(line)} to draw the row axis line {cmd:eplot}
+hides by default. {cmd:eplot} computes each axis's range itself and emits its own
+{opt xscale()}/{opt yscale()}; your suboptions are merged into them. Geometry
+suboptions {cmd:range()}, {cmd:log}, {cmd:nolog}, {cmd:reverse},
+{cmd:noreverse}, and {cmd:axis()} are rejected with {cmd:r(198)} rather than
+silently overriding the computed range. Use {opt logscale} for a logarithmic
+effect axis.
+
+{phang}
 {it:twoway_options} are any other options accepted by {help twoway}. They are
 appended to the generated graph command; inspect {cmd:r(cmd)} when debugging
-passthrough behavior. {opt xscale()} and {opt yscale()} are the exception because
-{cmd:eplot} computes the effect-axis range itself and emits its own
-{opt xscale()}/{opt yscale()}; a passthrough copy is rejected with {cmd:r(198)}
-rather than silently overriding or being overridden. Use {opt logscale} for a
-logarithmic effect axis.
+passthrough behavior.
 
 
 {marker examples}{...}
@@ -872,6 +952,25 @@ logarithmic effect axis.
 {phang2}{cmd:. end}{p_end}
 {phang2}{cmd:. eplot es lci uci, labels(study) weights(weight) type(type) values vformat(%4.2f) i2("42.1%") tau2("0.021") qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)}{p_end}
 
+{pstd}
+{bf:Example 15: Labelled reference line, matched text sizes, and favors at the axis ends}
+
+{pstd}
+The type 2 row prints "Not estimated" in the values column. {opt effect()} titles
+the axis, {opt vtitle()} heads the values column, and {opt vsize(small)} draws the
+values at the row-label size. The extra line is labelled at the top of the plot,
+and the {opt favors()} text sits at the axis ends, away from both lines.
+
+{phang2}{stata "clear":. clear}{p_end}
+{phang2}{cmd:. input str14 group tr lci uci byte type}{p_end}
+{phang2}{cmd:. "Men, 18-39"     1.20 1.05 1.37 1}{p_end}
+{phang2}{cmd:. "Men, 40-59"     1.10 0.98 1.24 1}{p_end}
+{phang2}{cmd:. "Men, 60+"       .    .    .    2}{p_end}
+{phang2}{cmd:. "Women, 18-39"   1.35 1.18 1.55 1}{p_end}
+{phang2}{cmd:. "Women, 40-59"   0.92 0.80 1.06 1}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. eplot tr lci uci, labels(group) type(type) values logscale effect("Time ratio") vtitle("Time ratio (95% CI)") vsize(small) xlabel(0.8 1 1.2 1.5) xscale(lcolor(black) fextend) xline(1.13, label("Women vs men, 18-39")) favors("Shorter" "Longer", ends arrows)}{p_end}
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -992,7 +1091,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.3, 30sep2026{p_end}
+{pstd}Version 1.5.0, 10oct2026{p_end}
 
 
 {marker alsosee}{...}

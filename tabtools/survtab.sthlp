@@ -161,7 +161,12 @@ both in the first column and the table body between them. {opt xlsx()},
 refused before anything is written.{p_end}
 
 {phang}
-{opt dig:its(#)} decimal places for survival estimates and CIs (default 1, range 0-6). A survival (or {opt reverse}) percentage above 0 and below 100 never prints as 0 or 100: where the format would round it there, it gains one decimal at a time, up to two or the format's own decimals if more ({cmd:0.3}, {cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or {cmd:>99.99} at that precision. A true 0 or 100 prints as before.{p_end}
+{opt dig:its(#)} decimal places for survival estimates and CIs (default 1,
+range 0-6). A survival (or {opt reverse}) percentage above 0 and below 100
+never prints as 0 or 100: where the format would round it there, it gains one
+decimal at a time, up to two or the format's own decimals if more ({cmd:0.3},
+{cmd:0.04}, {cmd:99.6}), and if it still reads 0 or 100 prints {cmd:<0.01} or
+{cmd:>99.99} at that precision. A true 0 or 100 prints as before.{p_end}
 
 {phang}
 {opt ev:ents} add aggregate Events / N row per group{p_end}
@@ -193,7 +198,10 @@ Excel, CSV, and frame exports{p_end}
 {opt mdappend} append the Markdown table to an existing file; requires {opt markdown()}{p_end}
 
 {phang}
-{opt med:ian} include median survival with a confidence interval at the requested level{p_end}
+{opt med:ian} include median survival with a confidence interval at the
+requested level. A median, or a confidence limit, that the survivor function
+never reaches prints as {cmd:NR} (not reached), so a finite lower limit is
+kept: {cmd:(22.0, NR)}.{p_end}
 
 {phang}
 {opt open} open the Excel file after export{p_end}
@@ -225,7 +233,8 @@ time after a group's last observed follow-up time ({cmd:_t}) reports the final
 Kaplan-Meier estimate carried forward, the usual flat extension of the
 product-limit curve. The data do not support that value, so {cmd:survtab}
 prints a note after the table naming each such group and time, with the
-group's last follow-up, and returns the same text in
+group's last follow-up, appends the same caveat to the {opt footnote()} of
+the Excel, CSV, and Markdown output, and returns the text in
 {cmd:r(beyond_support)} as "{it:label}: {it:times} (last follow-up {it:#})",
 groups separated by "; " (set only when some time is beyond support). A
 time equal to the last follow-up is within
@@ -234,7 +243,10 @@ beyond any group's support.{p_end}
 
 {phang}
 {opt timeu:nit(string)} time unit label: {cmd:years} (default), {cmd:months}, {cmd:days},
-{cmd:weeks}{p_end}
+{cmd:weeks}. The label does not rescale analysis time. When it is left at the
+default and the {cmd:stset} time variable has a date format with no
+{cmd:scale()}, so that analysis time is in days, {cmd:survtab} prints a note
+saying so.{p_end}
 
 {phang}
 {opt title(string)} table title in row 1{p_end}
@@ -337,8 +349,8 @@ each returned group.{p_end}
 {phang}
 Royston P, Parmar MKB. 2013. Restricted mean survival time: an alternative to the
 hazard ratio for the design and analysis of randomized trials with a time-to-event
-outcome. {it:BMC Medical Research Methodology} 13: 152.
-doi:10.1186/1471-2288-13-152.{p_end}
+outcome. {it:BMC Medical Research Methodology} 13:
+152. doi:10.1186/1471-2288-13-152.{p_end}
 
 {marker alsosee}{title:Also see}
 

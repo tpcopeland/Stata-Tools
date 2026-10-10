@@ -1,12 +1,12 @@
 # finegray QA run receipt
 # committed evidence; run_all.log itself is gitignored and transient.
 lane:        gates
-date:        2026-10-07T15:34:46Z
+date:        2026-10-10T02:29:46Z
 verdict:     PASS
-pkg_tree:    7bf07860a2c4ca9bdc17b2dffc2a814724fb9a81 (uncommitted-changes-present)
-head_commit: 4eecca4d09d61df0cfe773fc2024b015920b5fe6
+pkg_tree:    aaf577878282420c4e0920d89024166d03d5ab56 (clean)
+head_commit: d1b6de1a6c2a32dd2862f5d78746b7e35d60d283
 provenance:  --source-repo -> /home/tpcopeland/Stata-Tools
-run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/3aca557e-151b-49b9-b547-e09f900ecb61/scratchpad/lane/finegray [matches-source-repo (tracked files incl. qa/; 371 files) manifest-sha256 848eb10f0ca55bdf5105344c3f80a93fbb752709178d0deb80f44de85e674bf5]
+run_tree:    /tmp/claude-1000/-home-tpcopeland-Stata-Dev/a9bd4937-829a-4a83-8b59-df1923ebddcf/scratchpad/lane_gates/finegray [matches-source-repo (tracked files incl. qa/; 371 files) manifest-sha256 04e850404e1c62759d35b86914765f72e1b0312a860260aea5d50e10e086e69c]
 stata_bin:   stata-mp
 R_version:   4.6.1
 fg02_gate:   not-applicable

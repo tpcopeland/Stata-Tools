@@ -1,4 +1,4 @@
-*! _tabtools_set Version 2.6.1  2026/10/09
+*! _tabtools_set Version 2.6.2  2026/10/10
 *! Session destinations and defaults behind tabtools set / tabtools query
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

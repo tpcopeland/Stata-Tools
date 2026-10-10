@@ -960,10 +960,12 @@ capture noisily {
     set varabbrev on
     sysuse auto, clear
     capture finegray price mpg, compete(rep78) cause(1)
+    assert _rc == 119
     assert c(varabbrev) == "on"
     set varabbrev off
     sysuse auto, clear
     capture finegray price mpg, compete(rep78) cause(1)
+    assert _rc == 119
     assert c(varabbrev) == "off"
     set varabbrev on
 }
@@ -1815,9 +1817,11 @@ capture noisily {
     _setup_hypoxia
     quietly regress ifp tumsize
     capture finegray_phtest
+    assert _rc == 301
     assert c(varabbrev) == "on"
     set varabbrev off
     capture finegray_phtest
+    assert _rc == 301
     assert c(varabbrev) == "off"
     set varabbrev on
 }
@@ -2134,9 +2138,11 @@ capture noisily {
     _setup_hypoxia
     quietly regress ifp tumsize
     capture finegray_predict xb_hat
+    assert _rc == 301
     assert c(varabbrev) == "on"
     set varabbrev off
     capture finegray_predict xb_hat
+    assert _rc == 301
     assert c(varabbrev) == "off"
     set varabbrev on
 }

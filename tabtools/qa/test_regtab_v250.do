@@ -296,6 +296,10 @@ else {
 }
 
 **# B2 interaction cells
+* Cells are found by the frame's _term key: since 2.6.2 the printed label of
+* an interaction level comes from the variables' labels while they are in
+* memory and from collect's key once they are dropped (pass 2), so the key is
+* the one stable handle.
 * B2a: stintreg i.drug##i.v with the cell drug 3 x v 2 empty. Stata's rule
 * for a full factorial: a cell with drug at its base (1) or v at its base (0)
 * is a base cell; the empty cell is not estimable. Expected from the data,
@@ -317,10 +321,10 @@ capture noisily {
         assert `n_3_2' == 0 & `n_2_2' > 0 & `n_1_2' > 0
         if `pass' == 2 drop drug v
         quietly regress age studytime
-        regtab, notestlabel("NE") frame(_b2, replace flat)
+        regtab, notestlabel("NE") frame(_b2, replace flat keys)
         foreach d in 1 2 3 {
             foreach w in 0 1 2 {
-                _v250_cell _b2 "`d'.drug#`w'.v" c1
+                _v250_kcell _b2 "`d'.drug#`w'.v" c1
                 local c `"`r(cell)'"'
                 if `d' == 1 | `w' == 0 assert "`c'" == "Reference"
                 else if `n_`d'_`w'' == 0 assert "`c'" == "NE"
@@ -353,10 +357,10 @@ capture noisily {
         if `pass' >= 2 quietly tabtools fitcount, events(_d) terms
         if `pass' == 3 drop v
         quietly regress age studytime
-        regtab, notestlabel("NE") frame(_b2c, replace flat)
-        _v250_cell _b2c "0.v#age" c1
+        regtab, notestlabel("NE") frame(_b2c, replace flat keys)
+        _v250_kcell _b2c "0.v#age" c1
         assert "`r(cell)'" == "Reference"
-        _v250_cell _b2c "1.v#age" c1
+        _v250_kcell _b2c "1.v#age" c1
         assert !missing(real("`r(cell)'"))
     }
 }
@@ -396,20 +400,20 @@ capture noisily {
             local n_`d'_`w' = r(N)
         }
     }
-    regtab, notestlabel("NE") omitlabel("Om") frame(_b2, replace flat)
+    regtab, notestlabel("NE") omitlabel("Om") frame(_b2, replace flat keys)
     foreach d in 1 2 3 {
         foreach w in 0 1 2 {
-            _v250_cell _b2 "`d'.drug#`w'.v" c1
+            _v250_kcell _b2 "`d'.drug#`w'.v" c1
             local c `"`r(cell)'"'
             if `d' == 1 | `w' == 0 assert "`c'" == "Reference"
             else if `n_`d'_`w'' == 0 assert "`c'" == "NE"
             else assert !missing(real("`c'"))
-            _v250_cell _b2 "`d'.drug#`w'.v" c4
+            _v250_kcell _b2 "`d'.drug#`w'.v" c4
             local c `"`r(cell)'"'
             if `d' == 1 | `w' == 0 assert "`c'" == "Reference"
             else if `n_`d'_`w'' == 0 assert "`c'" == "NE"
             else assert !missing(real("`c'"))
-            _v250_cell _b2 "`d'.drug#`w'.v" c7
+            _v250_kcell _b2 "`d'.drug#`w'.v" c7
             local c `"`r(cell)'"'
             local ln `"`lnote_`d'_`w''"'
             if `"`ln'"' == "(base)" assert "`c'" == "Reference"
@@ -448,10 +452,10 @@ capture noisily {
     quietly collect get e(), tags(cmdset[1])
     quietly tabtools fitcount, events(_d) terms
     quietly regress age studytime
-    regtab, notestlabel("NE") frame(_b2, replace flat)
+    regtab, notestlabel("NE") frame(_b2, replace flat keys)
     foreach d in 1 2 3 {
         foreach w in 0 1 2 {
-            _v250_cell _b2 "`d'.drug#`w'.v" c1
+            _v250_kcell _b2 "`d'.drug#`w'.v" c1
             local c `"`r(cell)'"'
             if `"`note_`d'_`w''"' == "(base)" assert "`c'" == "Reference"
             else if `"`note_`d'_`w''"' == "(empty)" assert "`c'" == "NE"
@@ -463,10 +467,10 @@ capture noisily {
     quietly stintreg i.drug#i.v age, interval(t0 t1) distribution(weibull)
     quietly collect get e(), tags(cmdset[1])
     quietly regress age studytime
-    regtab, notestlabel("NE") frame(_b2, replace flat)
-    frame _b2: quietly count if strpos(rowlabel, "drug#") & strtrim(c1) == "Reference"
+    regtab, notestlabel("NE") frame(_b2, replace flat keys)
+    frame _b2: quietly count if strpos(_term, "drug#") & strtrim(c1) == "Reference"
     assert r(N) == 0
-    _v250_cell _b2 "1.drug#2.v" c1
+    _v250_kcell _b2 "1.drug#2.v" c1
     assert "`r(cell)'" == "NE"
 }
 if _rc == 0 {

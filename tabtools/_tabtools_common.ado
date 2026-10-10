@@ -1,4 +1,4 @@
-*! _tabtools_common Version 2.6.1  2026/10/09
+*! _tabtools_common Version 2.6.2  2026/10/10
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -783,8 +783,13 @@ program _tabtools_strip_outer_quotes, rclass
 end
 
 * =============================================================================
-* _tabtools_format_p: Shared p-value rendering without downward truncation
+* _tabtools_format_p: one p-value as text, by the package display rule
 * =============================================================================
+* The rule of regtab.ado and _tabtools_fmt_p.ado (which documents it), for a
+* single value: "<0.001" below 10^-pdp, pdp decimals below 0.10, highpdp
+* decimals from 0.10, and ">0.99" above 1 - 10^-highpdp. r(value) is the cell
+* text; r(phrase) is the same value in a sentence ("p < 0.001", "p = 0.012"),
+* since "p = <0.001" is not one. A missing p returns both empty.
 
 capture program drop _tabtools_format_p
 program _tabtools_format_p, rclass
@@ -795,14 +800,29 @@ program _tabtools_format_p, rclass
     syntax , PVALUE(real) [PDP(integer 3) HIGHPDP(integer 2)]
     if `pdp' < 1 | `highpdp' < 1 exit 198
     local _out ""
+    local _phrase ""
     if !missing(`pvalue') {
-        if `pvalue' < 10^(-`pdp') local _out "<`=string(10^(-`pdp'), "%21.`pdp'f")'"
-        else if `pvalue' < 1 & `pvalue' > 1 - 10^(-`highpdp') {
-            local _out ">`=string(1 - 10^(-`highpdp'), "%21.`highpdp'f")'"
+        local _pmin = 10^(-`pdp')
+        local _pmax = 1 - 10^(-`highpdp')
+        if `pvalue' < `_pmin' {
+            local _num = strtrim(string(`_pmin', "%21.`pdp'f"))
+            local _out "<`_num'"
+            local _phrase "p < `_num'"
         }
-        else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
+        else if `pvalue' > `_pmax' & `pvalue' < 1 {
+            local _num = strtrim(string(`_pmax', "%21.`highpdp'f"))
+            local _out ">`_num'"
+            local _phrase "p > `_num'"
+        }
+        else {
+            if `pvalue' < 0.10 local _out = strtrim(string(`pvalue', "%21.`pdp'f"))
+            else local _out = strtrim(string(`pvalue', "%21.`highpdp'f"))
+            if substr("`_out'", 1, 1) == "." local _out "0`_out'"
+            local _phrase "p = `_out'"
+        }
     }
     return local value `"`_out'"'
+    return local phrase `"`_phrase'"'
     }
     local _rc_outer = _rc
     set varabbrev `_orig_varabbrev'

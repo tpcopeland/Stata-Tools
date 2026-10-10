@@ -805,6 +805,7 @@ if `nbad' {
 }
 if `receipt_rc' & `nopen' == 0 {
     display as error "qa_grid_receipt failed with no open cells declared"
+    local ++nbad
 }
 
 capture scalar drop G_No G_Nf G_Nc G_Nz G_VPOST G_c G_e0 G_e1

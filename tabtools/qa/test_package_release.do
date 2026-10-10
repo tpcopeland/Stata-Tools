@@ -167,6 +167,9 @@ capture noisily {
     file open `_program_contract_fh' using "`_program_contract_status'", read text
     file read `_program_contract_fh' _program_contract_line
     file close `_program_contract_fh'
+    * 120 programs since 2.6.2 added _tabtools_collect_atmatrix,
+    * _tabtools_st_timescale, and _tabtools_fvterm_label with its
+    * _tabtools_fvterm_atrow and _tabtools_fvterm_num (row labels);
     * 115 programs since 2.6.0 added _tabtools_fmt_pct (percentage rule);
     * 114 programs since _tabtools_fitcount_rec (fitcount's long records);
     * 113 programs since round 2 added _regtab_bnotes, _regtab_classes,
@@ -180,7 +183,7 @@ capture noisily {
     * the codex audit of 2026-09-26 (C8) removed the unused
     * _stacktab_get_subopt with the substring block parser.
     assert `"`_program_contract_line'"' == ///
-        "PASS programs=115 class_missing=0 wrapper_missing=0"
+        "PASS programs=120 class_missing=0 wrapper_missing=0"
 }
 if _rc == 0 {
     display as result "  PASS: all shipped programs declare a class and restore varabbrev"

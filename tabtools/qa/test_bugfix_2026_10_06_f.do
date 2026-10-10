@@ -1,8 +1,9 @@
 * test_bugfix_2026_10_06_f.do - review of the wave-1 changes (A: regtab, B: desctab
 * and the rate/survival/cross tables)
 *
-* F1 a lint waiver must name a rule the linter knows (an unknown code is
-*    silently inert, so the line it was meant to excuse would be unguarded)
+* F1 a waiver must name a rule code one of the checkers knows (an unknown
+*    code is silently inert, so the line it was meant to excuse would be
+*    unguarded); every code on a waiver line is checked
 * F2 a stats(groups) request no model can meet leaves the session as it found it
 * F3 regtab's numeric equation order (_regtab_eqkeys now sorts in Mata): the
 *    levels 2 < 10 and -1 < 1 are ordered numerically and each header's
@@ -44,27 +45,76 @@ program define _f_hits, rclass
     scalar drop _f_n
 end
 
-**# F1: no waiver in the package names a rule code the linter does not know
+* _f_badcodes(FILE, MARKER, KNOWN): waiver codes on FILE's waiver lines that
+* are not in KNOWN. The code list is the text after MARKER up to the dash that
+* opens the reason, split on commas, so every code on the line is checked.
+capture mata: mata drop _f_badcodes()
+mata:
+real scalar _f_badcodes(string scalar file, string scalar marker,
+    string scalar known)
+{
+    string colvector l
+    string rowvector t, k
+    string scalar c
+    real scalar i, j, b
+
+    k = tokens(known)
+    l = cat(file)
+    l = select(l, strpos(l, marker) :> 0)
+    b = 0
+    for (i = 1; i <= rows(l); i++) {
+        c = substr(l[i], strpos(l[i], marker) + strlen(marker), .)
+        c = ustrregexra(c, "\s+(\u2014|\u2013|-)\s.*$", "")
+        t = tokens(subinstr(c, ",", " "))
+        for (j = 1; j <= cols(t); j++) {
+            if (!anyof(k, t[j])) {
+                printf("{err}    unknown waiver code %s\n", t[j])
+                b++
+            }
+        }
+    }
+    return(b)
+}
+end
+
+**# F1: every waiver in the package names a rule code a checker knows
 local ++test_count
 capture noisily {
-    * the code is spelt with a hyphen (capture-rc); an underscore spelling is
-    * an unknown code and excuses nothing
-    local nd1 "stata-dev-"
-    local nd2 "ignore: capture_rc"
-    local files : dir "`pkg_dir'" files "*.ado"
+    * A waiver whose code no checker knows is inert, so the line it was
+    * meant to excuse is unguarded. The two checkers spell the capture rule
+    * differently: the source validator's code is capture_rc and the linter's
+    * is capture-rc, so a waiver for both names both. This list is every code
+    * the checkers define that the package uses; a misspelt code fails here.
+    * The marker is assembled from two pieces so this file does not itself
+    * read as a reference to the development repository.
+    local known "ambient-fallback capture-rc capture_rc cf-one-directional"
+    local known "`known' double-macro-transport hardcoded-tempname identity-fold"
+    local known "`known' missing-passes-reldif omitted-coef-display"
+    local known "`known' pinned-constant-no-derivation rc-only-test shape-dispatch"
+    local known "`known' unchecked-commit unseeded-draw vacuous-tolerance"
+    local nd1 "stata"
+    local nd2 "-dev-ignore:"
     local bad 0
-    foreach f of local files {
-        _f_hits "`pkg_dir'/`f'" "`nd1'`nd2'"
-        local bad = `bad' + r(n)
+    foreach sub in "" "qa" {
+        local dir = cond("`sub'" == "", "`pkg_dir'", "`pkg_dir'/`sub'")
+        foreach ext in ado do {
+            local files : dir "`dir'" files "*.`ext'"
+            foreach f of local files {
+                mata: st_local("_f_bad", strofreal(_f_badcodes("`dir'/`f'", ///
+                    st_local("nd1") + st_local("nd2"), st_local("known"))))
+                if `_f_bad' > 0 display as error "    `sub'/`f': `_f_bad' unknown waiver code(s)"
+                local bad = `bad' + `_f_bad'
+            }
+        }
     }
     assert `bad' == 0
 }
 if _rc == 0 {
-    display as result "  PASS: F1 no waiver uses the unknown code capture_rc"
+    display as result "  PASS: F1 every waiver code is one a checker knows"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: F1 unknown waiver code (rc=`=_rc', `bad' line(s))"
+    display as error "  FAIL: F1 unknown waiver code (rc=`=_rc', `bad' code(s))"
     local ++fail_count
 }
 

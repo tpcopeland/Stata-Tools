@@ -1,4 +1,4 @@
-*! effecttab Version 2.6.1  2026/10/09
+*! effecttab Version 2.6.2  2026/10/10
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -846,6 +846,50 @@ quietly {
 		capture quietly collect levelsof colname
 		if _rc == 0 & "`type'" != "teffects" {
 			local _fv_collevels `s(levels)'
+			* margins at() rows ("2._at", "1._at#0.female") are named by the
+			* scenario values the collection holds, as margins prints them
+			local _fv_atopt ""
+			local _fv_conslab ""
+			local _fv_hascons : list posof "_cons" in _fv_collevels
+			if strpos(`" `_fv_collevels'"', "._at") > 0 | `_fv_hascons' {
+				tempname _fv_atmat
+				_tabtools_collect_atmatrix, matrix(`_fv_atmat')
+				local _fv_nat = r(n_at)
+				local _fv_conf = r(conflict)
+				local _fv_single = r(single)
+				local _fv_nsets = r(n_sets)
+				local _fv_atcols `"`r(atcols)'"'
+				local _fv_atstats `"`r(atstats)'"'
+				if `_fv_nat' > 0 & `_fv_conf' == 0 {
+					local _fv_atopt `"atmatrix(`_fv_atmat') atcols(`_fv_atcols') atstats(`_fv_atstats')"'
+				}
+				if `_fv_conf' == 1 {
+					noisily display as text "Note: the collection holds margins calls with different at() values;" ///
+						" at() rows keep their scenario numbers (1._at, 2._at, ...)"
+				}
+				local _fv_ncmd 1
+				capture quietly collect levelsof cmdset
+				if _rc == 0 {
+					local _fv_ncmd : word count `s(levels)'
+					if `_fv_ncmd' < 1 local _fv_ncmd 1
+				}
+				* margins names its overall margin _cons, which collect labels
+				* "Intercept". It is the margin of one scenario only when every
+				* margins call in the collection posted that same scenario;
+				* columns from calls with different (or no) at() share the row,
+				* which then reads "Margin" rather than any one call's scenario.
+				if `_fv_hascons' {
+					local _fv_conslab "Overall"
+					if `_fv_conf' == 1 | (`_fv_nat' > 0 & `_fv_nsets' < `_fv_ncmd') {
+						local _fv_conslab "Margin"
+					}
+					else if `_fv_single' == 1 & `"`_fv_atopt'"' != "" {
+						_tabtools_fvterm_label "1._at", `_fv_atopt'
+						mata: st_local("_fv_conslab", strtrim(st_local("_fvt_label")))
+						if inlist(`"`macval(_fv_conslab)'"', "", "as observed") local _fv_conslab "Overall"
+					}
+				}
+			}
 			foreach _fvterm of local _fv_collevels {
 				local _fv_relabelled = 0
 				forvalues _ci = 1/`_cnmap_n' {
@@ -853,6 +897,26 @@ quietly {
 						local _fv_relabelled = 1
 				}
 				if `_fv_relabelled' continue
+				* interactions and at() scenarios: _tabtools_fvterm_label.ado
+				if strpos("`_fvterm'", "#") > 0 | regexm("`_fvterm'", "^[0-9]+\._at$") {
+					_tabtools_fvterm_label `"`_fvterm'"', `_fv_atopt'
+					if `"`macval(_fvt_label)'"' == "" continue
+					local ++_fvrow_label_n
+					local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
+					local _fvrow_lab_`_fvrow_label_n' : copy local _fvt_label
+					if `"`_fvt_parent'"' == "" continue
+					local _fvrow_parent_seen = 0
+					forvalues _fvp = 1/`_fvrow_parent_n' {
+						if `"`_fvrow_parent_var_`_fvp''"' == `"`_fvt_parent'"' ///
+							local _fvrow_parent_seen = 1
+					}
+					if !`_fvrow_parent_seen' {
+						local ++_fvrow_parent_n
+						local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvt_parent'"'
+						local _fvrow_parent_lab_`_fvrow_parent_n' : copy local _fvt_plabel
+					}
+					continue
+				}
 				if regexm("`_fvterm'", "^([0-9]+)\.(.+)$") {
 					local _fvval = regexs(1)
 					local _fvvar = regexs(2)
@@ -1061,8 +1125,16 @@ quietly {
 			if strtrim(A) == `"`_fvrow_parent_var_`_fvp''"' & _n >= 3
 	}
 	forvalues _fvi = 1/`_fvrow_label_n' {
+		* interaction rows match on the raw key while they still show
+		* collect's default text, as in regtab
+		local _fv_dflt = ustrregexra(`"`_fvrow_pat_`_fvi''"', "(^|#)c\.", "$1")
 		quietly replace A = `"`macval(_fvrow_lab_`_fvi')'"' ///
-			if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
+			if (strtrim(A) == `"`_fvrow_pat_`_fvi''"' | ///
+			(strtrim(_raw_A) == `"`_fvrow_pat_`_fvi''"' & strtrim(A) == `"`_fv_dflt'"')) & _n >= 3
+	}
+	if `"`macval(_fv_conslab)'"' != "" & !`_from_matrix' {
+		quietly replace A = `"`macval(_fv_conslab)'"' ///
+			if _n >= 3 & strtrim(_raw_A) == "_cons" & strtrim(A) == "Intercept"
 	}
 	forvalues _obs = 3/`=_N' {
 		local _row_has_data = 0

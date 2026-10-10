@@ -245,11 +245,11 @@ capture noisily {
     assert `"`e(postest)'"' == "unavailable_mi"
 
     capture finegray_predict double xbhat, xb
-    assert _rc != 0
+    assert _rc == 301
     capture finegray_cif, at(x=0 z=0)
-    assert _rc != 0
+    assert _rc == 301
     capture finegray_phtest
-    assert _rc != 0
+    assert _rc == 301
 }
 local _rc = _rc
 _fgml_result `_rc' ///
@@ -750,7 +750,7 @@ capture noisily {
         capture finegray_cif, at(x=0 z=0)
         assert _rc == 301
         capture finegray_phtest
-        assert _rc != 0
+        assert _rc == 301
     }
 
     _fgml_data, lt(0)

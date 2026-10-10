@@ -1,6 +1,6 @@
 # tabtools — Publication-ready tables for Stata
 
-**Version 2.6.1** | 2026-10-09
+**Version 2.6.2** | 2026-10-10
 
 `tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
 
@@ -533,6 +533,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.6.2** (2026-10-10): `survtab median` prints a confidence limit the survivor function never reaches as `NR` instead of blanking the whole interval, so a finite lower limit is kept (`(22.0, NR)`); its beyond-follow-up caveat now also goes into the Excel, CSV and Markdown footnote. `effecttab` labels `margins, at()` rows with their scenario values (`Age (years) = 40`), the overall margin as `Overall` rather than `Intercept`, and interaction rows from value labels; `regtab` labels interaction rows the same way (`Car origin # Weight (lbs.)` over `Foreign # Weight (lbs.)`). `puttab` and `outtab` accept `csv()` as the only output; `outtab` refuses an exposure with only one value in the sample instead of printing the absent group as 0/0. `ratetab` and `survtab` print a note when `stset` time is in days but labelled as years. `crosstab` and `corrtab` p-values follow the package rule shared with `regtab` (`P for trend < 0.001`, not `= <0.001`).
 - **2.6.1** (2026-10-09): Help References give DOIs throughout; `crosstab` cites Armitage (1955) for the trend test and `survtab` cites Royston and Parmar (2013) for the RMST contrast.
 - **2.6.0** (2026-10-08): A percentage that is neither none nor all of its denominator no longer prints as 0 or 100. Where the requested decimals would round it to 0 or 100, it gains one decimal at a time, up to two or the format's own decimals if more (`0` becomes `0.3`, `0.0` becomes `0.04`, `100` becomes `99.6`), and if it still reads 0 or 100 prints `<0.01` or `>99.99` at that precision (decimal-comma formats keep their comma). A true zero or a whole group still prints `0` or `100`. The rule is shared by `desctab`/`table1_tc` (binary and categorical rows, `missing` and `missingsummary` rows, `headerperc`), `crosstab`, `tabcell` (forms `np` and `enp`; exact interval limits print at the same decimals as an escalated percentage), `outtab` events/N (%) cells (through `tabcell enp`) and `survtab` survival percentages. `headerperc` no longer appends `(.)` when a group's sample size cannot be read.
 - **2.5.6** (2026-10-07): `puttab panel()` heading rows (and so `stacktab` panel headings) are no longer merged across the table. The heading sits in the row-label column, bold and ruled above, with the other cells blank, and that column is now widened to fit the heading text (up to the usual 50-character cap), where before headings were left out of the width.
