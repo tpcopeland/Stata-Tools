@@ -717,41 +717,27 @@ if (all(zt$gh_matches)) {
 
 
 # =====================================================================
-# mstate SENTINEL -- reproduce or retire the crprep discrepancy
+# mstate SENTINEL -- why mstate::crprep is not used as an oracle
 #
-# mstate::crprep breaks ties with an ABSOLUTE epsilon on the TIME scale:
-#     prec <- .Machine$double.eps * prec.factor      # prec.factor = 1000 -> ~2.2e-13
-#     survfit(Surv(Tstart, Tstop + ifelse(status==cens, prec, 0), ...))
-#     summary(surv.cens, times = tmp.time - prec)
+# CAUSE (diagnosed 2026-10-11 against mstate 0.3.3 with survival 3.8.6). crprep assigns its weights with `data.weight$weight.cens[order(tmp.time)] <- summary(surv.cens, times = tmp.time - prec)$surv` and `data.weight$weight.trunc[order(-tmp.time)] <- summary(surv.trunc, times = -tmp.time)$surv`, and the same per stratum. The left-hand side assumes summary.survfit() returns its values sorted by time; survival 3.8.6 returns them in the order the `times` were supplied, so whenever tmp.time is unsorted the censoring and entry weights land on the wrong rows. That is what produces censoring weights above 1 and coefficients that no longer estimate the Fine-Gray model. Sorting the lookup times (`times = sort(tmp.time) - prec`, `times = sort(-tmp.time)`) removes the defect: the patched crprep reproduces cmprsk::crr and survival::finegray on mstate's aidssi example (-1.004302, censoring weights 0.0152 to 1.00) and this sentinel's direct ZZF equation to 2e-8 at both time scales.
 #
-# A double carries ~15-16 significant digits, so once times reach ~1e3,
-# `Tstop + 2.2e-13` rounds straight back to `Tstop` and the tie-breaking becomes
-# a SILENT NO-OP.  That is a units choice masquerading as a statistical one.
+# THE ORIGINAL HYPOTHESIS, NOT THE CAUSE. This block was written to test whether crprep's ABSOLUTE tie-breaking offset on the time scale (prec <- .Machine$double.eps * 1000, about 2.2e-13) silently no-ops once times reach about 1e3, by fitting one fixture on time scales x1 and x1000. It does not explain the discrepancy: stock crprep already disagrees at x1, and the patched crprep is bit-identical at x1 and x1000 on this fixture. The absolute offset remains a units hazard for TIED times, which this continuous fixture does not exercise. The scale test is kept as a regression probe; stock crprep 0.3.3 still fails it.
 #
-# Falsifiable prediction: run the SAME fixture on two time scales (x1 and x1000).
-# The statistical content is identical, so a correct implementation must return
-# identical coefficients.  If crprep's answers move with the scale, the defect is
-# the epsilon -- not the Geskus method -- and mstate stays quarantined.
-# survival::finegray works in rank space and must be immune.
+# crprep stays QUARANTINED. The block exercises the installed, unpatched mstate; patching a third-party function inside an oracle script would change what the oracle is. survival::finegray works in rank space and must be immune to the scale change.
 # =====================================================================
 cat("\n---------------------------------------------------------------------\n")
-cat("mstate SENTINEL: is the crprep discrepancy an absolute-epsilon artifact?\n")
+cat("mstate SENTINEL: crprep 0.3.3 weight misalignment (unsorted summary.survfit lookups)\n")
 cat("  same fixture, time scale x1 vs x1000.  Scale-invariant => immune.\n")
 cat("---------------------------------------------------------------------\n")
 
-#  RESULT, 2026-07-13, mstate 0.3.3 -- the discrepancy is REPRODUCED and mstate is
-#  NOT a usage error on our part.  On mstate's OWN example dataset (aidssi), using
-#  mstate's OWN documented idiom from ?crprep:
+#  RESULT, 2026-07-13, mstate 0.3.3 -- the discrepancy is REPRODUCED and is NOT a usage error on our part. On mstate's OWN example dataset (aidssi), using mstate's OWN documented idiom from ?crprep:
 #
 #      cmprsk::crr           : -1.004302
 #      survival::finegray    : -1.004302     <- agree to 2.7e-15
 #      mstate::crprep (docs) : -0.969784     <- gap 0.0345
 #      crprep weight.cens range: 0.0155 .. 65.40
 #
-#  A Fine-Gray censoring weight is G(t)/G(X_i) with G decreasing: it CANNOT exceed
-#  1.  crprep emits weights up to 65.  Two independent implementations agree to
-#  machine precision against it.  The aidssi check is reproduced below so the
-#  claim is falsifiable rather than asserted.
+#  A Fine-Gray censoring weight is G(t)/G(X_i) with G decreasing: it CANNOT exceed 1. crprep emits weights up to 65 because of the row misalignment described above. The aidssi check is reproduced below so the claim is falsifiable rather than asserted.
 sent <- gen_fg(400, trunc = "independent", cens_by_group = FALSE, seed = SEED + 99)
 sent$wgroup <- 0L
 
@@ -805,7 +791,8 @@ if (!is.null(aidssi_check)) {
               aidssi_check$mstate, abs(aidssi_check$crr - aidssi_check$mstate)))
   cat(sprintf("      crprep weight.cens range = %.4f .. %.2f  (a FG censoring weight CANNOT exceed 1)\n",
               aidssi_check$wrange[1], aidssi_check$wrange[2]))
-  cat("      -> our usage is the documented one; the discrepancy is mstate's.\n\n")
+  cat("      -> our usage is the documented one; the gap is crprep's row misalignment\n")
+  cat("         of summary.survfit() results (see the SENTINEL VERDICT below).\n\n")
 }
 
 s1 <- fit_scaled(sent, 1)
@@ -825,19 +812,24 @@ ms_drift <- max(abs(s1$mstate - s2$mstate))
 sv_drift <- max(abs(s1$survival - s2$survival))
 cat("\n")
 cat("SENTINEL VERDICT: mstate::crprep 0.3.3 is QUARANTINED -- it is not an oracle.\n")
-cat("  1. Scale dependence. survival and the direct equation are BIT-IDENTICAL at x1 and\n")
-cat("     x1000 (drift 0). crprep ", if (is.na(ms_drift)) "FAILS OUTRIGHT" else sprintf("drifts %.2e", ms_drift),
+cat("  Cause, read from source: crprep stores summary.survfit() results with\n")
+cat("     `weight.cens[order(tmp.time)] <-` (and `weight.trunc[order(-tmp.time)] <-`),\n")
+cat("     assuming they come back time-sorted. survival 3.8.6 returns them in the order\n")
+cat("     the times were supplied, so the weights land on the wrong rows. Sorting the\n")
+cat("     lookup times fixes it: patched crprep matches crr and survival::finegray on\n")
+cat("     aidssi (-1.004302) and the direct equation here at x1 and x1000.\n")
+cat("  1. Scale probe. survival and the direct equation are BIT-IDENTICAL at x1 and\n")
+cat("     x1000 (drift 0). Stock crprep ", if (is.na(ms_drift)) "FAILS OUTRIGHT" else sprintf("drifts %.2e", ms_drift),
     " at x1000",
     if (!is.null(s2$mstate_err)) paste0(' ("', s2$mstate_err, '")') else "", ".\n", sep = "")
-cat("     Cause, read from source: prec <- .Machine$double.eps * 1000 (~2.2e-13) is an\n")
-cat("     ABSOLUTE offset on the time scale. Doubles carry ~15-16 significant digits, so\n")
-cat("     once times reach ~1e3, `Tstop + prec` rounds back to `Tstop` and the tie-breaking\n")
-cat("     silently no-ops. Whether crprep works is a function of the units you chose.\n")
+cat("     The misaligned weights, not the absolute epsilon (prec ~2.2e-13), explain\n")
+cat("     this: patched crprep is identical at both scales on this tie-free fixture.\n")
 cat("  2. It disagrees at x1 too, and NOT because of our usage -- see the aidssi control\n")
 cat("     above: on mstate's own data with mstate's own documented idiom, crr and\n")
 cat("     survival::finegray agree to 2.7e-15 and crprep is 0.0345 away, with censoring\n")
 cat("     weights up to 65 where the maximum possible value is 1.\n")
-cat("  DO NOT copy crprep's epsilon device into production. Rank-space ordering (what\n")
+cat("  DO NOT copy crprep's epsilon device into production: an absolute offset on the\n")
+cat("  time scale is still a units hazard at tied times. Rank-space ordering (what\n")
 cat("  survival::finegray does, and what Geskus p.40 prescribes) is exact and scale-free.\n")
 write.csv(data.frame(
   impl  = rep(c("direct", "survival", "mstate"), each = 2),
