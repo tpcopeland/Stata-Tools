@@ -7,7 +7,9 @@ version 16.0
 
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
-adopath ++ "`pkg_dir'"
+capture ado uninstall datamap
+quietly net install datamap, from("`pkg_dir'") force
+discard
 local test_count = 0
 local pass_count = 0
 local fail_count = 0

@@ -6,7 +6,9 @@ set more off
 capture log close _all
 log using validation_datamap_fixture_primitives.log,text replace
 local pkg_dir=substr("`c(pwd)'",1,strlen("`c(pwd)'")-3)
-adopath ++ "`pkg_dir'"
+capture ado uninstall datamap
+quietly net install datamap, from("`pkg_dir'") force
+discard
 do _qa_fx_a7.do
 do _qa_hostile.do
 do _qa_state.do

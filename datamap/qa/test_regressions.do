@@ -14,7 +14,7 @@ local failed_tests ""
 local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 capture ado uninstall datamap
-adopath ++ "`pkg_dir'"
+quietly net install datamap, from("`pkg_dir'") force
 discard
 
 capture program drop _reg_record

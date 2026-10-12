@@ -1,4 +1,4 @@
-*! _datacheck_complete Version 1.9.2  2026/10/05
+*! _datacheck_complete Version 1.9.3  2026/10/12
 *! datacheck complete(): complete cases over a varlist
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

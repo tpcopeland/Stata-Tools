@@ -705,8 +705,13 @@ capture noisily {
         local lem = r(N)
         quietly count if g == "`lv'" & y >= `md' & !missing(y)
         local gem = r(N)
-        * n: a count of 1..4 prints as <5
-        local e1 = cond(`cnt' >= 1 & `cnt' < 5, "<5", strtrim(string(`cnt', "%10.4g")))
+        quietly count if g == "`lv'"
+        local nr = r(N)
+        * n: a count of 1..4 prints as <5; a count whose complement in the
+        * group's rows (its missing count) is 1..4 prints as [suppr.]
+        local e1 = cond(`cnt' >= 1 & `cnt' < 5, "<5", ///
+            cond(`nr' - `cnt' >= 1 & `nr' - `cnt' < 5, "[suppr.]", ///
+            strtrim(string(`cnt', "%10.4g"))))
         * mean: withheld unless five on each side of it
         local e2 = cond(`le' < 5 | `ge' < 5, "[suppr.]", strtrim(string(`mu', "%10.4g")))
         * sd: withheld below five observations
@@ -717,7 +722,7 @@ capture noisily {
             assert `"`r(c)'"' == `"`e`j''"'
             if "`r(c)'" == "[suppr.]" | "`r(c)'" == "<5" local ++nsup
             * no shown count is below the mask
-            if `j' == 1 & substr("`r(c)'", 1, 1) != "<" assert real("`r(c)'") >= 5
+            if `j' == 1 & !inlist("`r(c)'", "<5", "[suppr.]") assert real("`r(c)'") >= 5
         }
     }
     * the planted small groups (D has 2 values, E has 2) are masked

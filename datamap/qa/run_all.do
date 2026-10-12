@@ -47,7 +47,8 @@ local quick_suites ///
     test_dataqa_v190_groupkeys.do ///
     test_datacheck_v190_hostile.do ///
     test_datamap_v190_review.do ///
-    test_datamap_quoting_linebreaks.do
+    test_datamap_quoting_linebreaks.do ///
+    test_datamap_v193.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///
@@ -89,6 +90,7 @@ sysdir set PLUS "`sandbox_plus'"
 sysdir set PERSONAL "`sandbox_personal'"
 
 local suite_count : word count `suites'
+local old_adopath `"$S_ADO"'
 local suite_pass = 0
 local suite_fail = 0
 
@@ -111,6 +113,21 @@ else {
             local ++suite_pass
         }
         discard
+        * the suite must leave the sandbox-installed copy as the one that resolves
+        local resolved ""
+        capture quietly findfile datamap.ado
+        if !_rc local resolved `"`r(fn)'"'
+        if strpos(`"`resolved'"', `"`sandbox_plus'"') != 1 {
+            display as error "`suite' left datamap.ado resolving outside the install sandbox: `resolved'"
+            if !`suite_rc' {
+                local --suite_pass
+                local ++suite_fail
+            }
+            global S_ADO `"`old_adopath'"'
+            capture ado uninstall datamap
+            quietly net install datamap, from("`pkg_dir'") replace
+            discard
+        }
     }
 }
 

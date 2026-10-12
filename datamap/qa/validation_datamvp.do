@@ -1,4 +1,4 @@
-* validation_datamvp.do — Known-answer and invariant tests for datamvp v1.2.1
+* validation_datamvp.do — Known-answer and invariant tests
 * Self-contained: generates own test data
 
 clear all

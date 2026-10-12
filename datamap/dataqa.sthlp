@@ -72,7 +72,10 @@ the server, after checking that it holds no small cell.
 Every subcommand works in a temporary frame; the data in memory are never
 touched. {cmd:using} {it:ledger} defaults to the ledger set by
 {cmd:dataqa set}, and {opt run()} to its run label. The ledger's columns are
-listed under {opt ledger()} in {help datacheck##options:datacheck}.
+listed under {opt ledger()} in {help datacheck##options:datacheck}. {cmd:report}, {cmd:assert}, {cmd:export}, and {cmd:compare}
+refuse a ledger whose {cmd:status} is not a string variable, or has a row whose
+status is not one of {bf:pass}, {bf:fail}, {bf:warn}, {bf:review}, or
+{bf:error}, with error 610.
 
 
 {marker subcommands}{...}
@@ -183,10 +186,8 @@ dataset with rows now and none in the baseline is not an error. {opt expect()}
 still works, alone or together with {opt baseline()}. Calls
 without a dataset name cannot be matched and are not checked. With no
 baseline, from the call or the session, {opt optional()} is ignored with a
-note, so a do-file may carry it before the first baseline run exists;
-{opt baseledger()} without a baseline is r(198). A
-dataset name with a space goes in compound quotes in {opt expect()} and
-{opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'} {it:d}{cmd:)}.
+note, so a do-file may carry it before the first baseline run exists; {opt baseledger()}
+without a baseline is r(198). A dataset name with a space goes in compound quotes in {opt expect()} and {opt optional()}, as in {cmd:optional(}{cmd:`"}{it:b c}{cmd:"'} {it:d}{cmd:)}.
 
 {dlgtab:dataqa export}
 

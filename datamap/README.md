@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.9.2** | 2026-10-05
+**Version 1.9.3** | 2026-10-12
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -379,6 +379,16 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.9.3 (2026-10-12)
+
+- Fix: `datacheck` `inrange()`, `stat()`, and `makespec()` bounds are compared at full double precision, so a `makespec()` spec passes `checks()` on the data it was written from.
+- Fix: `groupstat()` under `maskrare` masks a count cell whose complement in the group's rows or nonmissing rows is a small cell, masks a `pmiss` cell when the group's missing or nonmissing count is small, and withholds the pooled `pmiss` value when any group cell is masked.
+- Fix: `datamap, missing(pattern)` reports "Observations with complete data" as suppressed (complementary) when the all-observed pattern is masked.
+- Fix: `dataqa report`, `assert`, `export`, and `compare` refuse (r(610)) a ledger whose `status` is not a string or holds a value other than pass, fail, warn, review, or error; `dataqa assert` matches dataset names containing spaces.
+- Fix: `datamvp, graph(patterns)` no longer fails when the data hold variables named `patid` or `patorder`.
+- Fix: the dataset date span is computed within one date format family; `%th` and `%ty` are no longer mixed.
+- Fix: `nofreq` also suppresses the value frequencies in the `detect(binary)` section.
 
 ### 1.9.2 (2026-10-05)
 

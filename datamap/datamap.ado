@@ -1,4 +1,4 @@
-*! datamap Version 1.9.2  2026/10/05
+*! datamap Version 1.9.3  2026/10/12
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1335,7 +1335,7 @@ program define _datamap_ProcessVariables, nclass
 
 	// Binary variables section (if detect_binary enabled)
 	if `detect_binary' {
-		_datamap_ProcessBinary `fh' "`classifications'" "`format'" `obs' `mincell'
+		_datamap_ProcessBinary `fh' "`classifications'" "`format'" `obs' `mincell' "`nofreq'"
 	}
 
 	// Data quality flags (if quality checks enabled)
@@ -1663,18 +1663,27 @@ void _datamap_cellmask(string scalar cmat, real scalar m, string scalar hmat)
 // Missing-pattern front end: counts in variable `cvar' of the current frame
 // (sorted most frequent first); rows past `nshow' are not printed.  Writes
 // locals _ph1 ... _ph<nshow>.  Reads the column directly, so there is no
-// matrix-size ceiling on the number of distinct patterns.
-void _datamap_patmask(string scalar cvar, real scalar m, real scalar nshow)
+// matrix-size ceiling on the number of distinct patterns.  The all-observed
+// pattern (text in local `ccloc', matched in string variable `pvar') is
+// printed as the complete-data count wherever it ranks, so it is a shown
+// cell, never part of the withheld pool; its code is written to _phcc
+// (0 = the complete-data count may print).
+void _datamap_patmask(string scalar cvar, real scalar m, real scalar nshow,
+	string scalar pvar, string scalar ccloc)
 {
-	real colvector c, pre, h
+	real colvector c, pre, h, cc
 	real scalar k
 
 	c = st_data(., cvar)
 	pre = (1::rows(c)) :> nshow
+	cc = (st_sdata(., pvar) :== st_local(ccloc))
+	pre = pre :* (cc :== 0)
 	h = _datamap_cellmask_core(c, m, pre)
 	for (k = 1; k <= min((nshow, rows(c))); k++) {
 		st_local("_ph" + strofreal(k), strofreal(h[k]))
 	}
+	st_local("_phcc", "0")
+	if (sum(cc) > 0) st_local("_phcc", strofreal(max(select(h, cc))))
 }
 end
 
@@ -2651,7 +2660,7 @@ local _drop_rc = _rc
 if !inlist(`_drop_rc', 0, 111) exit `_drop_rc'
 program define _datamap_ProcessBinary, nclass
 	version 16.0
-	args fh classifications format obs mincell
+	args fh classifications format obs mincell nofreq
 
 	// Frame, not -preserve-: see _datamap_ProcessDatasetText.
 	tempname _cfr
@@ -2688,6 +2697,11 @@ program define _datamap_ProcessBinary, nclass
 		file write `fh' _n
 		file write `fh' "  Type: `vtype' (binary)" _n
 		file write `fh' "  Missing: `nmiss' obs (`pctmiss'%)" _n
+		// nofreq suppresses frequency tables here as for categoricals
+		if "`nofreq'" != "" {
+			file write `fh' _n
+			continue
+		}
 
 		// Show frequency distribution
 		// tempnames: fixed names clobbered caller matrices vals/freqs
@@ -3311,6 +3325,46 @@ program define _datamap_SummarizeMissing, nclass
 		file write `fh' "  Variables with >50% missing: 0" _n
 	}
 	file write `fh' "  Variables with >10% missing: `n_gt10'" _n
+	// missing(pattern): the joint missingness patterns across the variables
+	// that have any missing value.  Before 1.6.9 the pattern keyword was
+	// parsed and then ignored, so it printed exactly what detail printed.
+	// A pattern is a cross-variable combination, so cells below mincell()
+	// are suppressed like any frequency cell.  The patterns are masked
+	// before the complete-case line is written, since that line is the
+	// all-observed pattern cell.
+	local _cc_hide = 0
+	local npv : word count `anymiss_vars'
+	if `pattern_check' & `npv' > 0 & `npv' <= 2045 {
+		tempvar pat
+		quietly gen str`npv' `pat' = ""
+		foreach vn of local anymiss_vars {
+			quietly replace `pat' = `pat' + cond(missing(`vn'), ".", "+")
+		}
+		// Tabulate in a frame: sorting here would reorder the caller's data.
+		tempname pfr
+		frame put `pat', into(`pfr')
+		frame `pfr' {
+			rename `pat' pattern
+			quietly contract pattern, freq(n)
+			gsort -n pattern
+			local npat = _N
+			local nshow = min(`npat', 10)
+			forvalues k = 1/`nshow' {
+				local pat`k' = pattern[`k']
+				local n`k' = n[`k']
+			}
+			// Patterns beyond the printed ten are withheld already; they
+			// pool with any suppressed pattern (see _datamap_cellmask_core).
+			// The all-observed pattern is printed as the complete-data
+			// count, so it never joins that pool; when the mask withholds
+			// it, the complete-data line is withheld too.
+			local _allobs = `npv' * "+"
+			mata: _datamap_patmask("n", `mincell', `nshow', "pattern", "_allobs")
+		}
+		frame drop `pfr'
+		if `_phcc' != 0 local _cc_hide = 1
+	}
+
 	// The complete-case count is the all-observed pattern cell (and its
 	// complement the rows with any missing): it obeys mincell() like any cell,
 	// or it would print the very count the pattern table suppresses.
@@ -3319,15 +3373,12 @@ program define _datamap_SummarizeMissing, nclass
 		(`_n_incomplete' > 0 & `_n_incomplete' < `mincell')) {
 		file write `fh' "  Observations with complete data: suppressed (<`mincell' in a cell)" _n
 	}
+	else if `_cc_hide' {
+		file write `fh' "  Observations with complete data: suppressed (complementary)" _n
+	}
 	else file write `fh' "  Observations with complete data: `n_complete' (`pct_complete'%)" _n
 
-	// missing(pattern): the joint missingness patterns across the variables
-	// that have any missing value.  Before 1.6.9 the pattern keyword was
-	// parsed and then ignored, so it printed exactly what detail printed.
-	// A pattern is a cross-variable combination, so cells below mincell()
-	// are suppressed like any frequency cell.
 	if `pattern_check' {
-		local npv : word count `anymiss_vars'
 		file write `fh' "  Missing-value patterns (+ observed, . missing):" _n
 		if `npv' == 0 {
 			file write `fh' "    (no missing values)" _n
@@ -3337,29 +3388,6 @@ program define _datamap_SummarizeMissing, nclass
 		}
 		else {
 			file write `fh' "    Pattern variables, in order:`anymiss_vars'" _n
-			tempvar pat
-			quietly gen str`npv' `pat' = ""
-			foreach vn of local anymiss_vars {
-				quietly replace `pat' = `pat' + cond(missing(`vn'), ".", "+")
-			}
-			// Tabulate in a frame: sorting here would reorder the caller's data.
-			tempname pfr
-			frame put `pat', into(`pfr')
-			frame `pfr' {
-				rename `pat' pattern
-				quietly contract pattern, freq(n)
-				gsort -n pattern
-				local npat = _N
-				local nshow = min(`npat', 10)
-				forvalues k = 1/`nshow' {
-					local pat`k' = pattern[`k']
-					local n`k' = n[`k']
-				}
-				// Patterns beyond the printed ten are withheld already; they
-				// pool with any suppressed pattern (see _datamap_cellmask_core).
-				mata: _datamap_patmask("n", `mincell', `nshow')
-			}
-			frame drop `pfr'
 			file write `fh' "    Distinct patterns: `npat'" _n
 			forvalues k = 1/`nshow' {
 				if `_ph`k'' == 1 {
@@ -3445,8 +3473,11 @@ program define _datamap_GenerateDatasetSummary, nclass
 		_datamap_DateFamily, vfmt("`vfmt'")
 		if r(is_date) {
 			local fam "`r(family)'"
-			if !inlist("`fam'", "td", "tc", "tw", "tm", "tq") {
-				local fam "other"
+			// %th and %ty count half-years and years: each is its own
+			// family.  A format DateFamily does not name (%tb, %tg) is
+			// compared only with that exact format.
+			if "`fam'" == "other" {
+				local fam = "other" + subinstr("`vfmt'", "%-", "%", 1)
 			}
 
 			// Prefer %td family; otherwise use first family encountered

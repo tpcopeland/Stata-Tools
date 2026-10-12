@@ -1,4 +1,4 @@
-*! dataqa Version 1.9.2  2026/10/05
+*! dataqa Version 1.9.3  2026/10/12
 *! Session defaults and a structured QA ledger over datacheck gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -227,6 +227,19 @@ program define _dataqa_load, rclass
             }
         }
         if `"`run'"' != "" quietly keep if run == `"`run'"'
+        // the writers (datacheck, _datacheck_errrow) give every row one of
+        // these statuses; any other value would read as neither pass nor
+        // failure, and an edited or damaged ledger would pass assert
+        capture confirm string variable status
+        if _rc {
+            display as error `"dataqa `who': `file' is not a datacheck ledger (status is not a string variable)"'
+            exit 610
+        }
+        quietly count if !inlist(status, "pass", "fail", "warn", "review", "error")
+        if r(N) > 0 {
+            display as error `"dataqa `who': `file' has `r(N)' row(s) with a status other than pass, fail, warn, review, or error; the ledger is damaged or was edited"'
+            exit 610
+        }
         local N = _N
     }
     return local file `"`file'"'
@@ -722,7 +735,8 @@ program define _dataqa_assert, rclass
                 quietly levelsof _dn if _dn != "", local(baseds)
             }
             foreach ds of local baseds {
-                if `: list ds in nowds' continue
+                // posof, not -list in-: a name with spaces is one element
+                if `: list posof `"`ds'"' in nowds' continue
                 local isopt = 0
                 foreach o of local _optl {
                     if `"`o'"' == `"`ds'"' local isopt = 1

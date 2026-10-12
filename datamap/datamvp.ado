@@ -1,4 +1,4 @@
-*! datamvp Version 1.9.2  2026/10/05
+*! datamvp Version 1.9.3  2026/10/12
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -1757,6 +1757,9 @@ program define datamvp, rclass byable(recall) sortpreserve
                         * drawn in the order the table lists them
                         gsort -`ng' `mv_n' `mv_patt'
                         keep in 1/`npat_graph'
+                        * only the plotted columns: a user variable named
+                        * patorder or patid would block the gen below
+                        keep `ng' `mv_n' `mv_patt'
                         local pat1 = `mv_patt'[1]
                         gen int patorder = _n
                         * Use wider pattern ID for better display

@@ -1,4 +1,4 @@
-*! _datacheck_bound Version 1.9.2  2026/10/05
+*! _datacheck_bound Version 1.9.3  2026/10/12
 *! Parse a range bound (number, date literal, or date string) for a variable
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -40,10 +40,7 @@ program define _datacheck_bound, rclass
             capture scalar `val' = (`_bare') + 0
             local _rc_eval = _rc
         }
-        if !`_rc_eval' {
-            local out = scalar(`val')
-        }
-        else {
+        if `_rc_eval' {
             local clean `"`_bare'"'
             if strpos("`vfmt'", "%tc") | strpos("`vfmt'", "%tC") {
                 scalar `val' = clock(`"`clean'"', "DMYhms")
@@ -80,11 +77,12 @@ program define _datacheck_bound, rclass
                 display as error `"could not parse range bound `_bare' for `v'"'
                 exit 198
             }
-            local out = scalar(`val')
         }
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
-    return scalar value = `out'
+    // the scalar, not a macro copy: a decimal round trip keeps only 16
+    // digits and can move a bound off a value the data holds
+    return scalar value = scalar(`val')
 end

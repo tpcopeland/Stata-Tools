@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.2  5oct2026}{...}
+{* *! version 1.9.3  12oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -265,7 +265,8 @@ continuous variables. The variables still appear with their basic properties.
 
 {phang}
 {opt nofr:eq} suppresses frequency tables for categorical variables. Variables
-are still listed and classified.
+are still listed and classified. Under {opt detect(binary)} it also suppresses
+the value frequencies of binary variables.
 
 {phang}
 {opt nola:bels} suppresses the "Value Label Definitions" section at the end of
@@ -437,7 +438,9 @@ number of complete-case observations.{p_end}
 patterns across the variables that have any missing value: the variables in
 dataset order, the number of distinct patterns, and the ten most frequent
 patterns ({bf:+} observed, {bf:.} missing) with their counts. Pattern counts below
-{opt mincell()} are suppressed.{p_end}
+{opt mincell()} are suppressed, and when the all-observed pattern is masked
+{bf:Observations with complete data} reads {bf:suppressed (complementary)}. Masking protects
+each printed cell, not combinations of cells: per-variable missing counts together with pattern counts can narrow a masked pattern.{p_end}
 
 {dlgtab:Sample data}
 
@@ -675,7 +678,7 @@ Combine multiple privacy and content options:{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.9.2 {hline 2} 5oct2026{p_end}
+{pstd}Version 1.9.3 {hline 2} 12oct2026{p_end}
 
 
 {title:Also see}

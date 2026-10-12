@@ -1,4 +1,4 @@
-*! _datacheck_coverage Version 1.9.2  2026/10/05
+*! _datacheck_coverage Version 1.9.3  2026/10/12
 *! datacheck coverage(): delivered-file date coverage (a band family)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

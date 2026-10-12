@@ -2,7 +2,9 @@
 clear all
 version 16.0
 local pkg_dir "`c(pwd)'/.."
-adopath ++ "`pkg_dir'"
+capture ado uninstall datamap
+quietly net install datamap, from("`pkg_dir'") force
+discard
 set seed 26082421
 local pass_count = 0
 local fail_count = 0

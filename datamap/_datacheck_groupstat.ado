@@ -1,4 +1,4 @@
-*! _datacheck_groupstat Version 1.9.2  2026/10/05
+*! _datacheck_groupstat Version 1.9.3  2026/10/12
 *! datacheck groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -295,13 +295,13 @@ program define _datacheck_groupstat, rclass
                     }
                     else if "`st'" == "n" {
                         quietly bysort `g': egen double `gv`j'' = count(`v') if !missing(`g')
-                        quietly generate byte `nn`j'' = 1
+                        quietly by `g': egen long `nn`j'' = total(!missing(`v'))
                         local keep "`keep' `gv`j'' `nn`j''"
                     }
                     else if "`st'" == "distinct" {
                         quietly egen byte `tg`j'' = tag(`g' `v') if !missing(`g') & !missing(`v')
                         quietly bysort `g': egen double `gv`j'' = total(`tg`j'') if !missing(`g')
-                        quietly generate byte `nn`j'' = 1
+                        quietly by `g': egen long `nn`j'' = total(!missing(`v'))
                         local keep "`keep' `gv`j'' `nn`j''"
                     }
                     else {
@@ -346,6 +346,7 @@ program define _datacheck_groupstat, rclass
                                 local nmk = `MN'[`j', `k']
                                 local val_`k'_`j' = regexr(string(`nmk' / `MNG'[1, `k'], "%21x"), "^[+]", "")
                                 local nm_`k'_`j' = `nmk'
+                                local ng_`k'_`j' = `MNG'[1, `k']
                             }
                             else {
                                 local val_`k'_`j' = regexr(string(`gv`j''[`k'], "%21x"), "^[+]", "")
@@ -418,13 +419,29 @@ program define _datacheck_groupstat, rclass
                         local ++j
                         local x = regexr(string(`val_`k'_`j'', "%21x"), "^[+]", "")
                         local shown = 1
+                        local _cpl = 0
                         if missing(`x') local s "."
                         else if "`st'" == "pmiss" {
-                            if `mask' > 0 & `nm_`k'_`j'' >= 1 & `nm_`k'_`j'' < `mask' local shown = 0
+                            // as stat(pmiss): a small missing or nonmissing
+                            // count in the group masks the share
+                            local _nmc = `nm_`k'_`j''
+                            local _nnc = `ng_`k'_`j'' - `nm_`k'_`j''
+                            if `mask' > 0 & ((`_nmc' >= 1 & `_nmc' < `mask') | ///
+                                (`_nnc' >= 1 & `_nnc' < `mask')) local shown = 0
                             local s = strtrim(string(`x', "%10.4g"))
                         }
                         else if inlist("`st'", "sum", "n", "distinct") {
-                            if `mask' > 0 & `x' >= 1 & `x' < `mask' & `x' == floor(`x') local shown = 0
+                            // as stat(): a count whose complement in the
+                            // group's rows, or its nonmissing rows, is a
+                            // small cell gives that cell back
+                            if `mask' > 0 & `x' >= 1 & `x' == floor(`x') {
+                                if `x' < `mask' local shown = 0
+                                else if (`n_`k'' - `x' >= 1 & `n_`k'' - `x' < `mask') | ///
+                                    (`nn_`k'_`j'' - `x' >= 1 & `nn_`k'_`j'' - `x' < `mask') {
+                                    local shown = 0
+                                    local _cpl = 1
+                                }
+                            }
                             local s = strtrim(string(`x', "%10.4g"))
                         }
                         else if "`st'" == "sd" | "`st'" == "ess" {
@@ -438,6 +455,8 @@ program define _datacheck_groupstat, rclass
                         if !`shown' {
                             local s = cond(inlist("`st'", "sum", "n", "distinct"), "<`mask'", ///
                                 "[suppr.]")
+                            // a complement cell: the count itself is large
+                            if `_cpl' local s "[suppr.]"
                             local anymask = 1
                             local cm_`j' = 1
                         }
@@ -445,13 +464,14 @@ program define _datacheck_groupstat, rclass
                         local s_`k'_`j' "`s'"
                     }
                 }
-                // For n, sum, and distinct the pooled value minus the shown groups
-                // would give back a pooled-away group or a masked cell, so the
-                // pooled value is withheld when either exists.
+                // For n, sum, distinct, and pmiss (a share of a count) the
+                // pooled value minus the shown groups would give back a
+                // pooled-away group or a masked cell, so the pooled value is
+                // withheld when either exists.
                 local j = 0
                 foreach v of local gvars {
                     local ++j
-                    if `mask' > 0 & inlist("`st'", "sum", "n", "distinct") & (`nsmall' > 0 | `cm_`j'') {
+                    if `mask' > 0 & inlist("`st'", "sum", "n", "distinct", "pmiss") & (`nsmall' > 0 | `cm_`j'') {
                         local pools_`j' "[suppr.]"
                         local pshown_`j' = 0
                         local anymask = 1

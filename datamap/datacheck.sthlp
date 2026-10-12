@@ -295,7 +295,8 @@ strings such as {cmd:01jan2010} or {cmd:2010-01-01}, read in the variable's own
 date unit; for a date variable a date string is never evaluated as
 arithmetic, and a bound naming a variable is an error. A bound written {cmd:.} is open: {cmd:inrange(exit_date . td(31dec2025))}
 has no lower bound. Missing values are
-never outside a range.
+never outside a range. Bounds are compared at full double precision, so a
+{opt makespec()} spec passes {opt checks()} on the data it was written from.
 
 {phang}
 {opt all:owed(spec)} asserts that variables contain only declared values. The
@@ -381,7 +382,8 @@ observations, {cmd:pmiss} of no rows) is a violation; {cmd:sum}, {cmd:n}, and
 with the bounds at float precision, but a mean, sd, or sum is compared
 exactly, in double precision: a float variable holding 0.2 in every row has
 mean 0.20000000298 and fails {cmd:stat(mean x 0 0.2)}. Set such a band a
-little wider than float resolution, as in {cmd:stat(mean x 0 0.2000001)}.
+little wider than float resolution, as in {cmd:stat(mean x 0 0.2000001)}. Band
+bounds are compared at full double precision.
 
 {phang}
 {opt bin:ary(varlist)} asserts that each variable is a 0/1 flag: every
@@ -619,6 +621,14 @@ whose value is undefined is reported as undefined. A passing band and an entry w
 read as before.
 
 {pmore}
+Under {opt maskrare}, a count cell ({cmd:n}, {cmd:sum}, {cmd:distinct}) reads
+{bf:[suppr.]} when the group's rows, or its nonmissing rows, minus the count
+is between 1 and {it:m}-1, and {bf:<}{it:m} when the count itself is in that
+range. A {cmd:pmiss} cell is masked when the group's missing or nonmissing
+count is 1 to {it:m}-1. The pooled value, {cmd:pmiss} included, is withheld
+when any group cell is masked.
+
+{pmore}
 A colon after a list of statistics, {cmd:groupstat(}{it:statistic statistic} ...{cmd::} {it:var}{cmd:, by(}{it:groupvars}{cmd:)}
 [{cmd:min(}{it:#}{cmd:)}] [{cmd:if} {it:exp}]{cmd:)},
 prints one table with a column per statistic, for example
@@ -714,7 +724,7 @@ or allowed values, and a candidate {cmd:isid} key. It describes the data as
 they are; review it before treating it as a gate contract, and never use it
 as a source of bands. Numeric bounds and levels are written at full precision
 and string levels in double quotes, so {opt checks()} reads the file back as a
-passing spec on the same data. A string variable with a level containing a
+passing spec on the same data; bounds are compared at full double precision. A string variable with a level containing a
 double quote, a backtick, a dollar sign, or a backslash gets no {cmd:allowed}
 row.
 

@@ -1,4 +1,4 @@
-*! datacheck Version 1.9.2  2026/10/05
+*! datacheck Version 1.9.3  2026/10/12
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -933,9 +933,9 @@ program define datacheck, rclass
                     }
                 }
                 _datacheck_bound `sv' `"`lo'"'
-                local lo_num = r(value)
+                local lo_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
                 _datacheck_bound `sv' `"`hi'"'
-                local hi_num = r(value)
+                local hi_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
                 if `lo_num' > `hi_num' {
                     display as error `"stat() lower bound exceeds upper bound: `part'"'
                     exit 198
@@ -1006,11 +1006,11 @@ program define datacheck, rclass
                     local hi_num = .
                     if !`lo_open' {
                         _datacheck_bound `iv' `"`lo'"'
-                        local lo_num = r(value)
+                        local lo_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
                     }
                     if !`hi_open' {
                         _datacheck_bound `iv' `"`hi'"'
-                        local hi_num = r(value)
+                        local hi_num = regexr(strofreal(r(value), "%21x"), "^[+]", "")
                     }
                     if !`lo_open' & !`hi_open' & `lo_num' > `hi_num' {
                         display as error `"inrange() lower bound exceeds upper bound: `part'"'
