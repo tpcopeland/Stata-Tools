@@ -122,10 +122,10 @@ Version 1.1
 | `event` | Primary endpoint | Numeric | 0 (0.0%) | Unique=2<br>0 Censored (872; 72.7%)<br>1 Event (328; 27.3%) |
 | `treatment` | Randomization arm | Numeric | 0 (0.0%) | Unique=2<br>0 Control (617; 51.4%)<br>1 Active (583; 48.6%) |
 | `site` | Study site | Numeric | 0 (0.0%) | Unique=7<br>1 Stockholm (207; 17.2%)<br>2 Gothenburg (202; 16.8%)<br>3 Malm
-> o (189; 15.8%)<br>4 Uppsala (209; 17.4%)<br>5 Linkoping (196; 16.3%)<br>6 Lund (194; 16.2%)<br>9 Satellite clinic (sup
-> pressed <5) |
-| `rare_marker` | Rare clinical marker | Numeric | 0 (0.0%) | Unique=2<br>0 Absent (1197; 99.8%)<br>1 Present (suppresse
-> d <5) |
+> o (suppressed, complementary)<br>4 Uppsala (209; 17.4%)<br>5 Linkoping (196; 16.3%)<br>6 Lund (194; 16.2%)<br>9 Satell
+> ite clinic (suppressed <5) |
+| `rare_marker` | Rare clinical marker | Numeric | 0 (0.0%) | Unique=2<br>0 Absent (suppressed, complementary)<br>1 Pres
+> ent (suppressed <5) |
 
 
 ## Notes
@@ -143,7 +143,7 @@ Version 1.1
 
 **Author:** Timothy P Copeland, Karolinska Institutet
 
-**Last Updated:** 29 Sep 2026
+**Last Updated:** 12 Oct 2026
 
 ```
 

@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 29 Sep 2026 13:44:38
+Generated: 12 Oct 2026 11:35:31
 
 ========================================
 DATASET: _demo_auto.dta
@@ -179,7 +179,7 @@ Unique Values: 5
 
   Frequencies:
     1 = 1: suppressed (<5)
-    2 = 2: 8 (10.8%)
+    2 = 2: suppressed (complementary)
     3 = 3: 30 (40.5%)
     4 = 4: 18 (24.3%)
     5 = 5: 11 (14.9%)

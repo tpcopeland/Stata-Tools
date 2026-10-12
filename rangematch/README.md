@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.10** | 2026-10-12
+**Version 1.5.11** | 2026-10-12
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -361,6 +361,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.11** (2026-10-12): The first `rangematch` call in a Stata session no longer echoes the full Mata backend source (about 2,500 lines) into the Results window and any open log while the backend compiles. A backend that fails to compile still stops with its return code, now under a one-line "failed to compile" message instead of the Mata diagnostic.
 - **1.5.10** (2026-10-12): `tolerance()` now judges whether a master interval is empty on its widened bounds (`low - t`, `high + t`), so an interval inverted only by decimal noise (`low = 0.1 + 0.2`, `high = 0.3`) matches as documented instead of matching nothing; in overlap mode this applies to the master interval, while using intervals are still judged on their recorded bounds. `tolerance(0)` behaviour is unchanged. A missing (open) bound now removes its side's restriction exactly: under `closed(left|right|none)` a key equal to the largest (or smallest) storable double was excluded by a strict comparison against the internal stand-in for infinity, and in overlap mode an interval starting at `c(maxdouble)` with an open end, or one with an open start ending at the smallest storable double, was judged empty or missed its open-ended counterpart. A `tolerance()` shift that runs past the double range is now treated as an open bound rather than clamped, so a strict closure no longer drops a key at that limit.
 - **1.5.9** (2026-10-04): Under `nosort`, the sweep backend now breaks tied using keys on the original using row, so tied rows no longer reorder between runs (the pairs were always correct). A master value-label definition attached to no variable is now carried on the memory and `frame()` routes (`saving()` stores only attached definitions).
 - **1.5.8** (2026-09-30): The caller's `matastrict` setting is restored after the first backend compilation, including on a compilation error.

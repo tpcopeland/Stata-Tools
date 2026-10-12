@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.10  2026/10/12
+*! _rangematch_mata Version 1.5.11  2026/10/12
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -40,12 +40,12 @@ capture mata: mata drop _rm_copy_vl_defs()
 
 * Compile with strict declarations, then restore the caller's setting.
 local _rm_compile_strict = c(matastrict)
-capture noisily mata:
+capture mata:
 mata set matastrict on
 
 string scalar _rm_mata_version()
 {
-    return("1.5.10")
+    return("1.5.11")
 }
 
 // ============================================================================
@@ -2442,4 +2442,7 @@ void _rm_generate_distance(
 end
 local _rm_compile_rc = _rc
 mata: mata set matastrict `_rm_compile_strict'
-if `_rm_compile_rc' exit `_rm_compile_rc'
+if `_rm_compile_rc' {
+    display as error "rangematch Mata backend failed to compile (r(`_rm_compile_rc')); reinstall rangematch"
+    exit `_rm_compile_rc'
+}

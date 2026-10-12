@@ -30,14 +30,14 @@ title: "console_datacheck"
 datacheck: 1200 obs, 7 variables profiled  (complete cases: 760 = 63.3%)
 
 QUICK REFERENCE
-  Variable              Class       Type       Miss%   Unique  Flag
-  patient_id            continuous  double      0.0%    >1000
-  age                   continuous  double      0.0%      450  outliers
-  sex                   categorical double      0.0%        2
-  smoking               categorical double     15.7%        3  missing
-  bmi                   continuous  double      7.6%      238  missing
-  pct_adherence         continuous  double     19.3%      534  missing
-  site                  categorical double      0.0%        7  rare
+  Variable              Class       Type           Miss%   Unique  Flag
+  patient_id            continuous  double          0.0%    >1000
+  age                   continuous  double          0.0%      450  outliers
+  sex                   categorical double          0.0%        2
+  smoking               categorical double         15.7%        3  missing
+  bmi                   continuous  double          7.6%      238  missing
+  pct_adherence         continuous  double         19.3%      534  missing
+  site                  categorical double          0.0%        7  rare
 
 CONTINUOUS
   patient_id:  N=1200  mean=    100601  sd=     346.6
@@ -70,7 +70,7 @@ CATEGORICAL
 
 MISSINGNESS
   smoking                 188 missing  (15.7%)
-  bmi                     91 missing  ( 7.6%)
+  bmi                     91 missing  (7.6%)
   pct_adherence           232 missing  (19.3%)
 
 KEY STRUCTURE
@@ -93,9 +93,9 @@ KEY STRUCTURE
 datacheck: 1200 obs, 2 variables profiled  (complete cases: 968 = 80.7%)
 
 QUICK REFERENCE
-  Variable              Class       Type       Miss%   Unique  Flag
-  age                   continuous  double      0.0%      450
-  pct_adherence         continuous  double     19.3%      534  missing
+  Variable              Class       Type           Miss%   Unique  Flag
+  age                   continuous  double          0.0%      450
+  pct_adherence         continuous  double         19.3%      534  missing
 
 CONTINUOUS
   age:  N=1200  mean=     57.59  sd=      12.1
@@ -110,7 +110,7 @@ KEY STRUCTURE
   (id() not given; inferred from identifier-like names)
   key (patient_id):  1200 obs, 1200 distinct, records/key min/median/max = 1/1/1, 0 key(s) with >1 record
 
-WARNINGS (2)
+WARNINGS (2): _demo_cohort
   inrange(age): 1 obs outside [18, 110]  (min -3, max 97.7)
   inrange(pct_adherence): 110 obs outside [0, 100]  (min 25.1, max 147.3)
 

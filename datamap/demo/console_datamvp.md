@@ -24,13 +24,13 @@ title: "console_datamvp"
 ```
 
 ```
-Variable     | Type     Obs    Miss   %Miss   Variable label
--------------+----------------------------------------
-x3           |  double     52     28   35.0   Biomarker C
-x1           |  double     60     20   25.0   Biomarker A
-x2           |  double     60     20   25.0   Biomarker B
-x4           |  double     70     10   12.5   Biomarker D
-------------------------------------------------------
+Variable     | Type      Obs   Miss  %Miss  Variable label
+-------------+---------------------------------------------
+x3           |  double    52     28   35.0  Biomarker C
+x1           |  double    60     20   25.0  Biomarker A
+x2           |  double    60     20   25.0  Biomarker B
+x4           |  double    70     10   12.5  Biomarker D
+-----------------------------------------------------------
 
 Missing value patterns
 
@@ -70,13 +70,13 @@ Mean missing/obs:              0.97
 ```
 
 ```
-Variable     | Type     Obs    Miss   %Miss   Variable label
--------------+----------------------------------------
-x1           |  double     60     20   25.0   Biomarker A
-x2           |  double     60     20   25.0   Biomarker B
-x3           |  double     52     28   35.0   Biomarker C
-x4           |  double     70     10   12.5   Biomarker D
-------------------------------------------------------
+Variable     | Type      Obs   Miss  %Miss  Variable label
+-------------+---------------------------------------------
+x1           |  double    60     20   25.0  Biomarker A
+x2           |  double    60     20   25.0  Biomarker B
+x3           |  double    52     28   35.0  Biomarker C
+x4           |  double    70     10   12.5  Biomarker D
+-----------------------------------------------------------
 
 Missing value patterns
 
@@ -104,7 +104,7 @@ Mean missing/obs:              0.97
 --------------------------------------------------
 
 Monotone missingness test:
-  Observations with monotone pattern:       41 ( 51.2%)
+  Observations with monotone pattern: 41 (51.2%)
   Pattern is non-monotone
 
 ```

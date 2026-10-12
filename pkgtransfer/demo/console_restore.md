@@ -11,6 +11,7 @@ title: "console_restore"
 ```
 Restoring installation pathways to online sources...
 Installation pathways restored!
+Previous stata.trk saved as /tmp/St1153929.000001_dir/destination_plus/stata.trk.backup
 ```
 
 ```stata
@@ -33,9 +34,10 @@ macros:
 * Do not erase or edit this file
 * It is used by Stata to track the ado and help
 * files you have installed.
+
 S https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer
 N pkgtransfer.pkg
-D 11 Aug 2026
+D 12 Oct 2026
 U 1
 d pkgtransfer feature demo
 f p/pkgtransfer.ado

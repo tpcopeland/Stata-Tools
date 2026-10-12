@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated: 29 Sep 2026 13:44:38
+Generated: 12 Oct 2026 11:35:31
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -273,7 +273,7 @@ Unique Values: 7
   Frequencies:
     1 = Stockholm: 207 (17.3%)
     2 = Gothenburg: 202 (16.8%)
-    3 = Malmo: 189 (15.8%)
+    3 = Malmo: suppressed (complementary)
     4 = Uppsala: 209 (17.4%)
     5 = Linkoping: 196 (16.3%)
     6 = Lund: 194 (16.2%)
@@ -293,7 +293,7 @@ Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Absent: 1197 (99.8%)
+    0 = Absent: suppressed (complementary)
     1 = Present: suppressed (<5)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models.
@@ -519,7 +519,7 @@ rare_marker: Rare clinical marker
   Type: double (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Absent): 1197 (99.8%)
+    0 (Absent): suppressed (complementary)
     1 (Present): suppressed (<5)
 
 ========================================
