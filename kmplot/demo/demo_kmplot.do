@@ -39,11 +39,16 @@ else {
 local pkg_dir "`demo_dir'"
 
 **# Scheme
+* Gallery figures use white_tableau.  Resolve it explicitly and stop if it is
+* missing, so the PNGs never fall back silently to another scheme.
 local old_scheme "`c(scheme)'"
-capture set scheme plotplainblind
+capture findfile scheme-white_tableau.scheme
 if _rc {
-    set scheme `old_scheme'
+    display as error "scheme white_tableau not found; install it (ssc install schemepack) before regenerating the gallery"
+    exit 601
 }
+set scheme white_tableau
+assert "`c(scheme)'" == "white_tableau"
 capture log close _all
 
 capture noisily {

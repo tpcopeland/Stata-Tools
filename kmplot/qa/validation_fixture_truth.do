@@ -60,8 +60,11 @@ program define _qakm_oracle
             if missing(expected) assert missing(LM[`row',3])
             else qa_assert_equal LM[`row',3] expected, property("enumerated Kaplan-Meier landmark") tol(1e-12)
             if `k'==0 | tv<mint {
-                qa_assert_equal LM[`row',4] expected, property("time-zero lower anchor")
-                qa_assert_equal LM[`row',5] expected, property("time-zero upper anchor")
+                * 1.4.0 contract: no bounds where S = 1, as in -sts list-.
+                assert missing(LM[`row',4], LM[`row',5])
+            }
+            else if !missing(expected) & (S==0 | S==1) {
+                assert missing(LM[`row',4], LM[`row',5])
             }
             else if !missing(expected) & S>0 & S<1 & gw>0 {
                 scalar z=invnormal(.975)

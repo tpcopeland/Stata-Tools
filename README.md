@@ -25,14 +25,14 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [asof](asof) | Attach one measurement per ID and anchor date ("as-of" join), with explicit direction, selection, tie, and window rules | ![version](https://img.shields.io/badge/version-0.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.3.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [codescan](codescan) | Flag, count, and summarize diagnosis, procedure, and drug codes across wide code fields, by regex or prefix, within time windows | ![version](https://img.shields.io/badge/version-4.3.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [compress_tc](compress_tc) | Shrink string-heavy datasets: strL conversion, then `compress` | ![version](https://img.shields.io/badge/version-1.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`datacheck`), a QA ledger (`dataqa`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.9.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [datamap](datamap) | Document data without exposing it: privacy-safe maps and Markdown dictionaries (`datamap`, `datadict`), QC gates (`dataprobe`), a QA ledger (`dataqa`), missing-value patterns (`datamvp`) | ![version](https://img.shields.io/badge/version-1.9.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.9-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.11-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.12-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 
 ### Cohorts, registries, and time-varying data
 
@@ -70,7 +70,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | Package | What it does | Version | Updated |
 | --- | --- | --- | --- |
 | [eplot](eplot) | Forest and coefficient plots from variables, stored estimates, matrices, or frames | ![version](https://img.shields.io/badge/version-1.7.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.3.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [kmplot](kmplot) | Kaplan-Meier and cumulative-failure curves with CIs, risk tables, landmarks, medians, and censor marks | ![version](https://img.shields.io/badge/version-1.4.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [raincloud](raincloud) | Raincloud plots: density, raw points, and box summary in one figure | ![version](https://img.shields.io/badge/version-1.0.4-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [spaghetti](spaghetti) | Individual trajectories over time, with optional group means and CIs | ![version](https://img.shields.io/badge/version-1.0.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [swimlane](swimlane) | Swimmer and state swimlane plots for patient timelines | ![version](https://img.shields.io/badge/version-0.1.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |

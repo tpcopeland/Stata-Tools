@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.1  30sep2026}{...}
+{* *! version 1.4.0  12oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -9,11 +9,13 @@
 {viewerjumpto "Method notes" "kmplot##methods"}{...}
 {viewerjumpto "Examples" "kmplot##examples"}{...}
 {viewerjumpto "Stored results" "kmplot##results"}{...}
+{viewerjumpto "References" "kmplot##references"}{...}
 {viewerjumpto "Author" "kmplot##author"}{...}
 {title:Title}
 
 {p2colset 5 18 20 2}{...}
-{p2col:{cmd:kmplot} {hline 2}}Publication-ready Kaplan-Meier survival and cumulative failure plots{p_end}
+{p2col:{cmd:kmplot} {hline 2}}Publication-ready Kaplan-Meier survival and cumulative
+failure plots{p_end}
 {p2colreset}{...}
 
 
@@ -35,7 +37,7 @@
 
 {syntab:Confidence intervals}
 {synopt:{opt ci}}show confidence intervals{p_end}
-{synopt:{opt l:evel(#)}}confidence level; default {bf:95}{p_end}
+{synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt cis:tyle(string)}}CI display: band or line{p_end}
 {synopt:{opt cio:pacity(#)}}band opacity 0-100; default {bf:12}{p_end}
 {synopt:{opt citr:ansform(string)}}CI transform: loglog, log, plain{p_end}
@@ -43,6 +45,7 @@
 {syntab:Median}
 {synopt:{opt med:ian}}draw median survival reference lines{p_end}
 {synopt:{opt mediana:nnotate}}annotate median values in plot note{p_end}
+{synopt:{opt medianf:ormat(%fmt)}}median display format; default {bf:%9.0g}{p_end}
 
 {syntab:Risk table}
 {synopt:{opt risk:table}}add number-at-risk table below plot{p_end}
@@ -67,7 +70,7 @@
 {synopt:{opt pvalueat(y x)}}p-value graph coordinates{p_end}
 
 {syntab:Appearance}
-{synopt:{opt col:ors(colorlist)}}line colors{p_end}
+{synopt:{opt col:ors(colorlist)}}line colors; default Okabe-Ito palette{p_end}
 {synopt:{opt lw:idth(string)}}line width; default medthick{p_end}
 {synopt:{opt lp:attern(patternlist)}}line patterns; default solid{p_end}
 
@@ -99,17 +102,19 @@ Data must be {cmd:stset} before using {cmd:kmplot}.
 {title:Description}
 
 {pstd}
-{cmd:kmplot} produces publication-quality Kaplan-Meier survival curves
-or cumulative failure plots with one command. It replaces the tedious
-customization workflow typically needed with {cmd:sts graph} by providing
-sensible defaults for confidence bands, number-at-risk tables, median
-survival lines, censoring marks, log-rank p-values, and colorblind-safe
-styling.
+{cmd:kmplot} draws Kaplan-Meier survival curves, or cumulative failure
+curves, for {cmd:stset} data. One call can add pointwise confidence bands, a
+number-at-risk table aligned with the time axis, median reference lines,
+censoring marks, and the log-rank p-value. It can also return fixed-time
+estimates and save the plotted curve and risk-table data.
 
 {pstd}
-All plots use step-function rendering with the current Stata scheme by
-default. Colors, line widths, patterns, titles, and all graph elements
-are fully customizable.
+Curves are drawn as step functions with {cmd:twoway} in the current
+scheme. Line colors, widths, and patterns, the titles, labels, legend, and
+note have their own options; other {help twoway_options} are passed through. The
+default colors come from the Okabe-Ito palette, chosen to stay
+distinguishable under red-green color-vision deficiency. Text sizes in the
+risk table and the style of the median reference lines are fixed.
 
 
 {marker options}{...}
@@ -130,7 +135,9 @@ and the curve starts at 0 instead of 1.{p_end}
 {phang}{opt ci} displays confidence intervals around the KM curve.{p_end}
 
 {phang}{opt level(#)} sets the confidence level for {opt ci}. The default is
-{bf:95}; values must be greater than 0 and less than 100. Requires {opt ci}.{p_end}
+{cmd:level(95)} or as set by {helpb set level}. As elsewhere in Stata, the value
+must lie between 10 and 99.99 and have at most two decimal places. Requires
+{opt ci}.{p_end}
 
 {phang}{opt cistyle(string)} sets the CI display style. {bf:band} (default) shows shaded
 bands; {bf:line} shows dashed lines. Requires {opt ci}.{p_end}
@@ -150,6 +157,12 @@ line is drawn.{p_end}
 
 {phang}{opt medianannotate} adds median values to the graph note. Requires {opt median}.{p_end}
 
+{phang}{opt medianformat(%fmt)} sets the numeric ({cmd:%f}, {cmd:%g}, or {cmd:%e}) display
+format of the median values in
+the graph note and the console summary; the default is {bf:%9.0g}, so that
+medians on a fractional time scale are not rounded away. {cmd:r(median_#)}
+always holds the full value. Requires {opt median}.{p_end}
+
 {dlgtab:Risk table}
 
 {phang}{opt risktable} adds a number-at-risk table below the main plot. The table shows the
@@ -166,6 +179,11 @@ the main plot's y axis and the two time axes align without inserting blank
 space inside either plotting region. Schemes that place the y axis on the
 right-hand side, such as {cmd:economist}, mirror that column and are not
 supported with {opt risktable}.{p_end}
+
+{phang}With probability or importance weights, at-risk and event counts can be
+fractional; such cells are printed to one decimal place (for example,
+{cmd:13.3}). {cmd:r(risktable)} and {opt risksaving()} keep the full
+values.{p_end}
 
 {phang}{opt riskevents} adds cumulative event counts to the risk table
 in compact {it:N (events)} format (e.g., {cmd:14 (3)}, {cmd:5,682 (424)}). This is the
@@ -186,16 +204,6 @@ three groups. Requires {opt risktable} or {opt risksaving()}.{p_end}
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
 maximum observed time. Requires {opt risktable} or {opt risksaving()}.{p_end}
 
-{phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
-this is placed directly below and closer to the x-axis value labels than to
-the risk table. Default is "Analysis time".{p_end}
-
-{phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
-labels are placed below the main plot and above the x-axis title on the same
-x scale as the risk-table columns. A solid horizontal rule separates the
-title from the first risk-table row. Numeric positions are also used when
-{opt timepoints()} is omitted.{p_end}
-
 {dlgtab:Fixed-time summaries}
 
 {phang}{opt landmark(numlist)} returns estimates at fixed analysis times. In survival mode,
@@ -203,7 +211,8 @@ the returned estimate is S(t). With {opt failure}, it is 1 - S(t). If {opt ci} i
 specified, lower and upper bounds are included in {cmd:r(landmarks)}. Explicit
 times retain double precision. Beyond a group's last observed follow-up,
 estimates and bounds are missing unless survival has reached zero (failure has
-reached one); that terminal value remains defined.{p_end}
+reached one); that terminal value remains defined. Bounds are missing wherever
+the survival estimate is exactly 1 or 0 (see {it:{help kmplot##methods:Method notes}}).{p_end}
 
 {dlgtab:Censoring}
 
@@ -219,7 +228,8 @@ all). Values must be at least 1, and the option requires {opt censor}.{p_end}
 the plot. Requires {opt by()} and at least two groups in the analysis
 sample.{p_end}
 
-{phang}{opt pvaluepos(string)} positions the p-value text: {bf:bottomright} (default), {bf:topright},
+{phang}{opt pvaluepos(string)} positions the p-value
+text: {bf:bottomright} (default), {bf:topright},
 {bf:topleft}, {bf:bottomleft}.{p_end}
 
 {phang}{opt pvalueformat(string)} sets the numeric display format used in
@@ -235,8 +245,16 @@ coordinate. It may not be combined with {opt pvaluepos()}.{p_end}
 
 {dlgtab:Appearance}
 
-{phang}{opt colors(colorlist)} sets one or more curve colors. If omitted,
-{cmd:kmplot} uses a colorblind-safe palette and recycles it as needed.{p_end}
+{phang}{opt colors(colorlist)} sets one or more curve colors, as Stata color
+names or quoted RGB triplets, for example {cmd:colors(navy "213 94 0")}. Shorter
+lists are recycled across groups. If omitted, {cmd:kmplot} uses seven colors
+from the Okabe-Ito palette (Okabe and Ito 2008), in the order blue
+({cmd:"0 114 178"}), vermilion, black, sky blue, reddish purple, orange, and
+bluish green. Under simulated protanopia and deuteranopia (Machado, Oliveira,
+and Fernandes 2009) any two of the first five remain clearly distinguishable; with
+more than five groups, add {opt lpattern()} so that curves do not depend
+on color alone. With {opt ci} bands, any opacity given in a color (for
+example {cmd:navy%50}) applies to the line; the band uses {opt ciopacity()}.{p_end}
 
 {phang}{opt lwidth(string)} sets curve line width; the default is
 {bf:medthick}.{p_end}
@@ -248,6 +266,16 @@ coordinate. It may not be combined with {opt pvaluepos()}.{p_end}
 
 {phang}{opt title(string)} and {opt subtitle(string)} set the graph title and
 subtitle.{p_end}
+
+{phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
+this is placed directly below and closer to the x-axis value labels than to
+the risk table. Default is "Analysis time".{p_end}
+
+{phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
+labels are placed below the main plot and above the x-axis title on the same
+x scale as the risk-table columns. A solid horizontal rule separates the
+title from the first risk-table row. Numeric positions are also used when
+{opt timepoints()} is omitted.{p_end}
 
 {phang}{opt ytitle(string)} sets the y-axis title. The default is "Survival
 probability" or "Cumulative failure", according to the plot type.{p_end}
@@ -283,7 +311,8 @@ paths with spaces are supported, for example {cmd:export("figure 1.pdf", replace
 graph. The saved dataset contains {cmd:group}, {cmd:group_label},
 {cmd:time}, {cmd:estimate}, {cmd:se}, {cmd:lower}, {cmd:upper},
 {cmd:censor}, and {cmd:anchor}. The estimate is survival in the default
-mode and cumulative failure with {opt failure}.{p_end}
+mode and cumulative failure with {opt failure}. {cmd:se}, {cmd:lower}, and
+{cmd:upper} are missing where the survival estimate is 1 or 0.{p_end}
 
 {phang}{opt risksaving(filename[, replace])} saves risk-table counts in a
 Stata dataset with {cmd:group}, {cmd:group_label}, {cmd:time},
@@ -304,8 +333,14 @@ underlying {cmd:twoway} call.{p_end}
 {pstd}
 {cmd:kmplot} uses Stata's survival-time machinery after {cmd:stset}. Kaplan-Meier
 estimates and Greenwood standard errors are generated with
-{cmd:sts generate}. Confidence intervals use the requested {opt level()} and the selected
-transformation: log-log by default, log, or plain Wald intervals.{p_end}
+{cmd:sts generate} (Kaplan and Meier
+1958; StataCorp, {manlink ST sts generate}). Confidence intervals use the requested
+{opt level()} and the selected
+transformation: log-log by default, log, or plain Wald intervals. Bounds are
+reported only where 0 < S(t) < 1. Where the estimate is exactly 1 (before the
+first event, including the time-zero anchor) or exactly 0, the bounds are
+missing under every transformation, as in {cmd:sts list}; shaded bands
+therefore begin at the first event time.{p_end}
 
 {pstd}
 The {opt failure} option plots cumulative failure, {bf:1 - S(t)}, from the
@@ -322,6 +357,12 @@ log-rank test are unsupported. Saved standard errors are missing with
 probability weights. In multiple-record data, subjects are counted once per
 timepoint. Contiguous records within the same group are not treated as
 censoring; departures from a group are.{p_end}
+
+{pstd}
+With {cmd:stset} importance weights ({cmd:iweight}s), {opt ci} and {opt pvalue}
+are allowed, as they are by {cmd:sts}, and the Greenwood standard errors and the
+log-rank test then treat the weights as frequency counts. Use them only when
+that interpretation is intended.{p_end}
 
 
 {marker examples}{...}
@@ -357,12 +398,13 @@ censoring; departures from a group are.{p_end}
 {phang2}{cmd:. matrix list r(landmarks)}{p_end}
 {phang2}{cmd:. matrix list r(risktable)}{p_end}
 
-{pstd}Delayed entry with explicit risk-table timepoints{p_end}
-{phang2}{cmd:. stset exit, failure(event) enter(time enter) id(id)}{p_end}
-{phang2}{cmd:. kmplot, by(group) risktable timepoints(0 6 12 24)}{p_end}
-
 {pstd}Custom p-value text and coordinates{p_end}
 {phang2}{cmd:. kmplot, by(drug) pvalue pvalueformat(%6.4f) pvaluetext("Log-rank P") pvalueat(.9 10)}{p_end}
+
+{pstd}Delayed entry: age as the time scale, with explicit risk-table timepoints{p_end}
+{phang2}{cmd:. webuse diet, clear}{p_end}
+{phang2}{cmd:. stset dox, failure(fail) origin(time dob) enter(time doe) scale(365.25) id(id)}{p_end}
+{phang2}{cmd:. kmplot, by(hienergy) risktable timepoints(40 50 60 70) xtitle("Age (years)")}{p_end}
 
 
 {marker results}{...}
@@ -375,7 +417,7 @@ censoring; departures from a group are.{p_end}
 {p2col 5 16 20 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}number of observations{p_end}
 {synopt:{cmd:r(n_groups)}}number of groups{p_end}
-{synopt:{cmd:r(level)}}confidence level{p_end}
+{synopt:{cmd:r(level)}}confidence level that applies to {opt ci}{p_end}
 {synopt:{cmd:r(ci)}}1 if {opt ci} was requested{p_end}
 {synopt:{cmd:r(failure)}}1 if {opt failure} was requested{p_end}
 {synopt:{cmd:r(n_landmarks)}}number of requested landmark timepoints{p_end}
@@ -384,7 +426,7 @@ censoring; departures from a group are.{p_end}
 {synopt:{cmd:r(p)}}log-rank p-value when computed{p_end}
 {synopt:{cmd:r(pvalue_y)}}explicit p-value y coordinate{p_end}
 {synopt:{cmd:r(pvalue_x)}}explicit p-value x coordinate{p_end}
-{synopt:{cmd:r(median_)}}median scalar family by group{p_end}
+{synopt:{cmd:r(median_#)}}median for group {it:#}, when reached{p_end}
 
 {p2col 5 16 20 2: Macros}{p_end}
 {synopt:{cmd:r(cmd)}}{cmd:kmplot}{p_end}
@@ -416,6 +458,12 @@ censoring; departures from a group are.{p_end}
 {synopt:{cmd:r(risktable)}}risk-table count matrix{p_end}
 
 {pstd}
+{cmd:r(median_#)} is stored with {opt median}, for each group {it:#} whose curve
+reaches 0.5 (1, 2, ... in the order of {cmd:r(group_labels)}); groups whose
+median is not reached store no scalar. {cmd:r(level)} is stored even without
+{opt ci}, as the level {opt ci} would use.{p_end}
+
+{pstd}
 The p-value macros are stored only after computing the log-rank p-value, and
 {cmd:r(pvalue_at)} is empty unless {opt pvalueat()} was specified.{p_end}
 
@@ -425,15 +473,40 @@ specified. Analytical returns remain available if the file write fails, even
 though {cmd:kmplot} exits with the graph-export error.{p_end}
 
 
+{marker references}{...}
+{title:References}
+
+{phang}
+Kaplan, E. L., and P. Meier. 1958. Nonparametric estimation from incomplete
+observations. {it:Journal of the American Statistical Association} 53: 457{c -}481. {browse "https://doi.org/10.1080/01621459.1958.10501452":doi:10.1080/01621459.1958.10501452}.{p_end}
+
+{phang}
+Machado, G. M., M. M. Oliveira, and L. A. F. Fernandes. 2009. A
+physiologically-based model for simulation of color vision
+deficiency. {it:IEEE Transactions on Visualization and Computer Graphics} 15: 1291{c -}1298. {browse "https://doi.org/10.1109/TVCG.2009.113":doi:10.1109/TVCG.2009.113}.{p_end}
+
+{phang}
+Okabe, M., and K. Ito. 2008. Color Universal Design (CUD): How to make
+figures and presentations that are friendly to colorblind
+people. {browse "https://jfly.uni-koeln.de/color/"}.{p_end}
+
+{phang}
+StataCorp. {it:Stata Survival Analysis Reference Manual}. College Station, TX: Stata
+Press. See {manlink ST stset}, {manlink ST sts generate}, {manlink ST sts list}, and
+{manlink ST sts test} for the Greenwood standard error, the log-log
+confidence interval, and the log-rank test.{p_end}
+
+
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.3.1, 2026-09-30{p_end}
+{pstd}Version 1.4.0, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
 
-{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version
+installed here.{p_end}
 
 {hline}

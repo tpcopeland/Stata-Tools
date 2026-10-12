@@ -41,6 +41,9 @@ capture noisily {
     kmplot, ci saving("`curve'", replace)
     preserve
     use "`curve'", clear
+    * 1.4.0: bounds are missing at S = 1, so the band starts at the first
+    * event; only rows with bounds carry band coordinates.
+    keep if !missing(lower, upper)
     sort time
     gen double prevlo = cond(_n==1,lower,lower[_n-1])
     gen double prevhi = cond(_n==1,upper,upper[_n-1])
@@ -54,7 +57,7 @@ capture noisily {
     local tt : word 3 of `cols'
     rename `tt' time
     gen long coord = _n
-    assert _N == 12
+    assert _N == 10
     merge m:1 time using "`oracle'", assert(match) nogen
     assert !missing(`hi',`lo',lower,upper,prevlo,prevhi)
     assert `hi' == cond(mod(coord,2)==0,upper,prevhi)

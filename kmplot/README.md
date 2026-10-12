@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.3.1** | 2026-10-12
+**Version 1.4.0** | 2026-10-12
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -132,12 +132,13 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `by(varname)` | none | Stratify curves by a numeric or string variable |
 | `failure` | survival | Plot cumulative failure, `1 - S(t)`, instead of survival |
 | `ci` | off | Draw confidence intervals |
-| `level(#)` | 95 | Set the confidence level for `ci`; values must be between 0 and 100, exclusive |
+| `level(#)` | `c(level)` (95 unless changed by `set level`) | Set the confidence level for `ci`; values must lie between 10 and 99.99 with at most two decimal places |
 | `cistyle(string)` | `band` | Use shaded bands or dashed `line` intervals; requires `ci` |
 | `ciopacity(#)` | 12 | Set shaded-band opacity from 0 to 100; requires `ci` with band intervals |
 | `citransform(string)` | `loglog` | Use `loglog`, `log`, or `plain` confidence intervals; requires `ci` |
 | `median` | off | Draw median reference lines for groups whose median is reached |
 | `medianannotate` | off | Add median values to the graph note; requires `median` |
+| `medianformat(%fmt)` | `%9.0g` | Numeric (`%f`, `%g`, `%e`) display format for medians in the graph note and console summary; requires `median` |
 | `risktable` | off | Add a separated number-at-risk table below the graph, with the time axis above it |
 | `riskevents` | off | Add cumulative events as `N (events)` in the risk table; requires `risktable` |
 | `riskcompact` | off | Synonym for `riskevents`; requires `risktable` |
@@ -152,7 +153,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `pvalueformat(string)` | `%5.3f` | Set the numeric display format for the p-value |
 | `pvaluetext(string)` | `Log-rank p` | Set the text printed before the p-value |
 | `pvalueat(y x)` | none | Place the p-value at explicit graph coordinates; may not be combined with `pvaluepos()` |
-| `colors(colorlist)` | colorblind-safe palette | Set curve colors |
+| `colors(colorlist)` | Okabe-Ito palette | Set curve colors as Stata color names or quoted RGB triplets; the default is blue, vermilion, black, sky blue, reddish purple, orange, and bluish green, which stay distinguishable under simulated red-green color-vision deficiency for up to five groups |
 | `lwidth(string)` | `medthick` | Set curve line width |
 | `lpattern(patternlist)` | `solid` | Set curve line patterns |
 | `title(string)` | none | Set the graph title |
@@ -167,7 +168,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `name(string)` | `kmplot` | Set the graph name |
 | `aspectratio(string)` | none | Set the graph aspect ratio |
 | `export(string)` | none | Export to a file; the format is inferred from `.pdf`, `.png`, `.eps`, or `.svg`, and graph-export suboptions are passed through |
-| `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables |
+| `saving(filename[, replace])` | none | Save curve data with `group`, `group_label`, `time`, `estimate`, `se`, `lower`, `upper`, `censor`, and `anchor` variables; `se`, `lower`, and `upper` are missing where the survival estimate is 1 or 0 |
 | `risksaving(filename[, replace])` | none | Save risk-table data with `group`, `group_label`, `time`, `at_risk`, `events`, and cumulative censoring exits in `censored` |
 
 `kmplot` also accepts standard `twoway` graph options through its trailing pass-through syntax.
@@ -182,7 +183,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 |--------|---------|
 | `r(N)` | Number of observations in the analysis sample |
 | `r(n_groups)` | Number of plotted groups |
-| `r(level)` | Confidence level used |
+| `r(level)` | Confidence level that applies to `ci` (stored even when `ci` is not requested) |
 | `r(failure)` | 1 if `failure` was requested, otherwise 0 |
 | `r(ci)` | 1 if `ci` was requested, otherwise 0 |
 | `r(n_landmarks)` | Number of requested landmark timepoints |
@@ -191,7 +192,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(p)` | Log-rank p-value when `pvalue` was used with `by()` and at least two groups were present |
 | `r(pvalue_y)` | Explicit p-value y coordinate when `pvalueat()` was used with `pvalue` |
 | `r(pvalue_x)` | Explicit p-value x coordinate when `pvalueat()` was used with `pvalue` |
-| `r(median_)` | Group-specific median result family; actual returned names are `r(median_1)`, `r(median_2)`, and so on, for groups whose median is reached |
+| `r(median_#)` | Median for group `#` (`r(median_1)`, `r(median_2)`, ...), stored with `median` for groups whose median is reached |
 
 ### Macros
 
@@ -232,25 +233,29 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 
 - Run `stset` before `kmplot`; the command uses the current survival-time definition and analysis sample.
 - `failure` is the complement of the Kaplan-Meier survival estimate, `1 - S(t)`. It is not a competing-risk cumulative incidence function, and `kmplot` does not implement Aalen-Johansen or Fine-Gray estimators.
-- Confidence intervals use Greenwood standard errors with the selected `level()` and `citransform()`; `loglog` is the default, with `log` and `plain` alternatives.
+- Confidence intervals use Greenwood standard errors with the selected `level()` and `citransform()`; `loglog` is the default, with `log` and `plain` alternatives. Bounds are reported only where 0 < S(t) < 1: where the estimate is exactly 1 (before the first event, including the time-zero anchor) or exactly 0, they are missing under every transform, as in `sts list`, so shaded bands begin at the first event.
 - `pvalue` uses Stata's log-rank test and requires `by()` with at least two groups in the analysis sample.
 - If a group's survival curve does not reach 0.5, `median` draws no line for that group and its median entry is missing in `r(medians)`.
 - Risk-table counts honor delayed entry, active `stset` weights, and subject identifiers. In multiple-record data, each subject is counted once at a timepoint; contiguous records within the same group are not marked as censoring, while departures from a group and terminal censored records are counted in `censored`.
+- Landmarks beyond a group's last observed follow-up are missing unless its survival curve has reached zero.
+- Probability weights support point estimates and weighted counts; `ci` and `pvalue` are refused, and saved standard errors are missing. Fractional weighted counts are printed to one decimal place in the risk table, while `r(risktable)` and `risksaving()` keep the full values.
+- With importance weights, `ci` and `pvalue` are allowed, as in `sts`, and treat the weights as frequency counts.
 - `saving()` and `risksaving()` support the `replace` suboption only; `export()` passes graph-export suboptions to Stata.
 
 ## References
 
 - Kaplan EL, Meier P. “Nonparametric Estimation from Incomplete Observations.” *Journal of the American Statistical Association* 53(282), 457–481 (1958). [doi:10.1080/01621459.1958.10501452](https://doi.org/10.1080/01621459.1958.10501452)
-- StataCorp. [Survival Analysis Reference Manual](https://www.stata.com/manuals/st.pdf), including `stset`, `sts generate`, and `sts test`.
+- StataCorp. [Survival Analysis Reference Manual](https://www.stata.com/manuals/st.pdf), including `stset`, `sts generate`, `sts list`, and `sts test`.
+- Machado GM, Oliveira MM, Fernandes LAF. “A Physiologically-based Model for Simulation of Color Vision Deficiency.” *IEEE Transactions on Visualization and Computer Graphics* 15(6), 1291–1298 (2009). [doi:10.1109/TVCG.2009.113](https://doi.org/10.1109/TVCG.2009.113)
+- Okabe M, Ito K. “Color Universal Design (CUD): How to make figures and presentations that are friendly to Colorblind people” (2008). [jfly.uni-koeln.de/color](https://jfly.uni-koeln.de/color/)
 
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
-Landmarks beyond a group’s last observed follow-up are missing unless its survival curve has reached zero. Probability weights support point estimates and weighted counts; `ci` and `pvalue` are refused, and saved standard errors are missing.
-
 ## Version History
 
+- **1.4.0** (2026-10-12): Default colors are now the Okabe-Ito palette, which stays distinguishable under simulated red-green color-vision deficiency (the previous default put cranberry and forest green next to each other); quoted RGB colors now work in `colors()`. `level()` defaults to `c(level)` and follows Stata's 10–99.99 rule. Fractional weighted risk-table counts are printed to one decimal place. Confidence bounds are missing wherever the estimate is exactly 1 or 0, under every transform, as in `sts list`. Added `medianformat()`, with a `%9.0g` default replacing the fixed `%6.1f`. Medians on tied data now match `stci` and R `survival`: where the curve is exactly 0.5 but stored a rounding error above it, 1.3.1 reported the next event time instead of the start of that plateau. Saved standard errors are missing where the estimate has reached 0, as in `sts list`, and an opacity given in `colors()` no longer disables the confidence-band colour. The help file gains a References section and a runnable delayed-entry example.
 - **1.3.1** (2026-09-30): Preserve continuous-time landmark/risk requests and shaded-band coordinates; limit landmarks to supported follow-up unless survival reaches zero; retain censor markers beyond 32,740 observations; handle quoted annotations, comma-containing titles and output paths; allow probability-weighted point estimates and counts while refusing unsupported inference.
 
 - **1.3.0** (2026-08-21): Rebuilt the risk-table layout. Group labels now occupy the risk table's y-axis label column instead of sitting inside the plotting region, so the main plot's time origin returns to its own y axis while the two time axes stay aligned; the label gutter, the row-label gap and the right-hand reserve are derived from the rendered text rather than from fixed margins. Risk-table counts and event counts are formatted with thousands separators.

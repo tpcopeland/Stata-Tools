@@ -21,7 +21,8 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 ## Conventions
 
-- `test_*` files cover functional and regression behavior; `validation_*` files provide published, hand-computed, invariant, or simulated-truth oracles. `crossval_kmplot_sts.do` compares with native Stata survival commands.
+- `test_*` files cover functional and regression behavior; `validation_*` files provide published, hand-computed, invariant, or simulated-truth oracles. `crossval_kmplot_survfit.do` is the external reference (R `survival::survfit`); `crossval_kmplot_sts.do` is a self-consistency check against `sts generate`, the engine `kmplot` itself calls.
+- `crossval_kmplot_survfit.do` needs `Rscript` on the PATH with the `survival` package; the help-example smoke in `test_kmplot_v140.do` runs `webuse diet` and needs network access. Neither is skipped when unavailable: the suite fails.
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero on failure; `full` permits no skips.
 - Suites sandbox `PLUS` and `PERSONAL` under `c(tmpdir)` through `_kmplot_qa_common.do`, then install the local package without touching the user’s ado tree.
 - Paths derive from `c(pwd)`; no suite contains a machine-local path.
@@ -44,6 +45,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `test_kmplot_v129.do` | Rendered-SVG alignment under two graph layouts, custom axis specifications, and margin reserves for labels and large endpoint counts. |
 | `test_kmplot_v1210.do` | Stale in-memory risk-table helper replacement and repeated-call helper reload behavior. |
 | `test_kmplot_v131.do` | F1–F8: band coordinates, precise times, support limits, large censor counters, quoted labels, comma titles/paths, pweights; hostile times, the nine-string corpus through all six label options, and state fingerprints. |
+| `test_kmplot_v140.do` | 2026-10-12 clarity audit: Okabe-Ito default palette checked under simulated protan/deutan/tritan vision (Machado et al. 2009) and RGB colours at every sink; fractional weighted risk-table cells; `c(level)` default and Stata's level range; every help example run from the installed help file; lifecycle (`qa_lifecycle`, saved-file freshness) and surface parity (`qa_surface_parity`: r(), console, saved data); missing bounds at S = 1 and S = 0; `medianformat()` and tied-data medians against `stci`; the version-literal guard; iweight inference. |
 | `test_kmplot_v130.do` | Rendered-SVG geometry of the combined risk-table layout across four schemes and three canvas sizes: the main plot's time origin sits on its own y axis, both panels share that origin, row labels clear the time-zero count and the vertical table title, the final count fits inside the graph boundary, and each panel carries the other's label set invisibly. Also pins comma-formatted counts and the helper's margin contract. |
 
 ### Validation
@@ -52,26 +54,30 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 |---|---|
 | `validation_kmplot_recovery.do` | Kaplan–Meier’s published worked example and multi-seed survival recovery under two censoring DGPs. |
 | `validation_kmplot.do` | Saved estimates, confidence intervals, medians, risk tables, p-values, and landmark results against independent calculations and Stata survival commands. |
+| `validation_fixture_truth.do` | Canonical A2 fixture: 40 hand-enumerated cases for survival/failure landmarks, Greenwood log-log limits, risk/event/censor tables, medians, and log-rank probabilities, with life-table hostile variants and positive time scaling. |
+| `validation_kmplot_calibration.do` | Coverage of the 95% pointwise interval under all three `citransform()` choices at S = .75 and .50, R = 1000 exponential replicates; `smoke` argument runs 25. |
 
 ### Cross-validation
 
 | File | Covers |
 |---|---|
-| `crossval_kmplot_sts.do` | 200 seeded tied-time landmark comparisons against `sts generate`, with independent follow-up support checks. |
+| `crossval_kmplot_survfit.do` | External reference: R `survival::survfit` (log-log CI, counting-process risk sets) on 2 scenarios x 40 replicates x 2 groups with delayed entry, continuous and tied times; estimates, bounds, numbers at risk, and medians (R's plateau-midpoint convention mapped to Stata's plateau start). Script: `crossval_kmplot_survfit.R`. |
+| `crossval_kmplot_sts.do` | Self-consistency: 200 seeded tied-time landmark comparisons against `sts generate`, with independent follow-up support checks. |
 
 ### Support
 
 | File | Covers |
 |---|---|
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
-| `_qa_hostile.do`, `_qa_state.do` | Vendored hostile fixtures and caller-state fingerprints, loaded by v131. |
+| `test_fixture_domains.do` | Legal and illegal `level()`, `ciopacity()`, `censorthin()`, and `riskheight()` values on canonical life tables, with caller-state fingerprints. |
+| `_qa_hostile.do`, `_qa_state.do`, `_qa_metamorphic.do`, `_qa_fx_a2.do`, `_qa_lifecycle.do`, `_qa_parity.do` | Vendored qa-lib helpers (never edited; `check qa kmplot --view vendored`). |
 | `_kmplot_qa_common.do` | Sandboxed local installation and shared artifact assertions. |
 
 ## Coverage map
 
-| Command | Functional | Validation | Also exercised in |
+| Command | Functional | Validation | Cross-val |
 |---|---|---|---|
-| `kmplot` | `test_kmplot.do`, `test_kmplot_errors.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v130.do`, `test_kmplot_v131.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do` | `crossval_kmplot_sts.do`; local install and helper auto-load through `_kmplot_qa_common.do` |
+| `kmplot` | `test_kmplot.do`, `test_kmplot_errors.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v130.do`, `test_kmplot_v131.do`, `test_kmplot_v140.do`, `test_fixture_domains.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do`, `validation_fixture_truth.do`, `validation_kmplot_calibration.do` | `crossval_kmplot_survfit.do`, `crossval_kmplot_sts.do`; local install and helper auto-load through `_kmplot_qa_common.do` |
 
 ## Lane membership
 
@@ -80,8 +86,20 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | Lane | Suites |
 |---|---|
 | `quick` | `test_kmplot.do`, `test_kmplot_errors.do` |
-| `core` | `quick` plus eight version-regression suites, recovery, and comprehensive validation |
-| `full` | `core` plus `crossval_kmplot_sts.do` |
+| `core` | `quick` plus `validation_fixture_truth.do`, `test_fixture_domains.do`, nine version-regression suites (v124-v140), recovery, and comprehensive validation |
+| `full` | `core` plus `crossval_kmplot_sts.do`, `crossval_kmplot_survfit.do`, and `validation_kmplot_calibration.do` |
+
+## Evidence layers
+
+One row per estimator route. Cells name files only; `check qa kmplot --view evidence` derives each state from lane membership and the `run qa` receipts. Risk-table counts and medians are deterministic functions of the risk sets and the KM curve, so they owe no calibration.
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| KM survival / cumulative failure estimate (`landmark()`, `saving()`) | `validation_kmplot_recovery.do` | `crossval_kmplot_survfit.do`; `crossval_kmplot_sts.do` | `validation_kmplot_recovery.do` | none: no inference reported |
+| Pointwise confidence interval (`ci`, `citransform()`, `level()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | `validation_kmplot_calibration.do` |
+| Number at risk, events, censoring (`risktable`, `risksaving()`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | none: deterministic transform |
+| Median (`median`) | `validation_fixture_truth.do` | `crossval_kmplot_survfit.do` | none: paper publishes no worked example | none: no inference reported |
+| Log-rank p-value (`pvalue`) | `validation_fixture_truth.do` | `crossval_kmplot_sts.do` | none: paper publishes no worked example | none: no inference reported |
 
 The canonical A2 suite `validation_fixture_truth.do` runs in core/full. Its 40 cases check survival/failure landmarks, Greenwood log-log limits, risk/event/censor tables, medians and log-rank probabilities against independent risk-table calculations, with all A2 life-table hostile variants and positive time scaling. Vendored `_qa_fx_a2.do` and `_qa_hostile.do` match the canonical sources. The new scope covers unweighted two-group curves; weighted and other plotting routes remain covered by existing suites and need fixture adoption.
 
