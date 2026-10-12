@@ -663,17 +663,24 @@ if `run_only' == 0 | `run_only' == `test_count' {
 * SECTION 8: VALID OS OPTIONS
 * ============================================================
 
-* Test 23: os(Windows) accepted
+* Test 23: os(Windows) return and script contract
 local ++test_count
-local test_desc "os(Windows) accepted without error"
+local test_desc "os(Windows) returns its target and keeps the script commands"
 _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
+        pkgtransfer, dofile(no_os.do)
+        local no_os_script = fileread("no_os.do")
         pkgtransfer, os(Windows)
+        assert "`r(os)'" == "Windows"
+        assert "`r(download_mode)'" == "script_only"
         confirm file "pkgtransfer.do"
         assert strpos(fileread("pkgtransfer.do"), "install") > 0
+        * os() selects plugins only in bundles; the script is unchanged
+        assert fileread("pkgtransfer.do") == `"`macval(no_os_script)'"'
         capture erase "pkgtransfer.do"
+        capture erase "no_os.do"
         quietly cd "`orig_dir'"
     }
     if _rc == 0 {
@@ -689,17 +696,24 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* Test 24: os(Unix) accepted
+* Test 24: os(Unix) return and script contract
 local ++test_count
-local test_desc "os(Unix) accepted without error"
+local test_desc "os(Unix) returns its target and keeps the script commands"
 _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
+        pkgtransfer, dofile(no_os.do)
+        local no_os_script = fileread("no_os.do")
         pkgtransfer, os(Unix)
+        assert "`r(os)'" == "Unix"
+        assert "`r(download_mode)'" == "script_only"
         confirm file "pkgtransfer.do"
         assert strpos(fileread("pkgtransfer.do"), "install") > 0
+        * os() selects plugins only in bundles; the script is unchanged
+        assert fileread("pkgtransfer.do") == `"`macval(no_os_script)'"'
         capture erase "pkgtransfer.do"
+        capture erase "no_os.do"
         quietly cd "`orig_dir'"
     }
     if _rc == 0 {
@@ -715,17 +729,24 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
 }
 
-* Test 25: os(MacOSX) accepted
+* Test 25: os(MacOSX) return and script contract
 local ++test_count
-local test_desc "os(MacOSX) accepted without error"
+local test_desc "os(MacOSX) returns its target and keeps the script commands"
 _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         quietly cd "`tmpdir'"
+        pkgtransfer, dofile(no_os.do)
+        local no_os_script = fileread("no_os.do")
         pkgtransfer, os(MacOSX)
+        assert "`r(os)'" == "MacOSX"
+        assert "`r(download_mode)'" == "script_only"
         confirm file "pkgtransfer.do"
         assert strpos(fileread("pkgtransfer.do"), "install") > 0
+        * os() selects plugins only in bundles; the script is unchanged
+        assert fileread("pkgtransfer.do") == `"`macval(no_os_script)'"'
         capture erase "pkgtransfer.do"
+        capture erase "no_os.do"
         quietly cd "`orig_dir'"
     }
     if _rc == 0 {

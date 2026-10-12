@@ -15,8 +15,8 @@ args mode extra
 local mode = lower(trim("`mode'"))
 if "`mode'" == "" local mode "full"
 
-if "`extra'" != "" | !inlist("`mode'", "quick", "core", "full") {
-    display as error "Usage: do run_all.do [quick|core|full]"
+if "`extra'" != "" | !inlist("`mode'", "quick", "core", "full", "network") {
+    display as error "Usage: do run_all.do [quick|core|full|network]"
     display as error ///
         "RESULT: run_all tests=1 pass=0 fail=1 skip=0"
     exit 198
@@ -31,6 +31,17 @@ local suite_count 0
 local suite_pass 0
 local suite_fail 0
 
+* Opt-in network lane: live internet sources and a local HTTP server
+if "`mode'" == "network" {
+    foreach network_suite in test_pkgtransfer_network test_pkgtransfer_http {
+        capture noisily do "`qa_dir'/`network_suite'.do"
+        local network_rc = _rc
+        local ++suite_count
+        if `network_rc' == 0 local ++suite_pass
+        else local ++suite_fail
+    }
+}
+else {
 capture noisily do "`qa_dir'/test_pkgtransfer.do"
 local functional_rc = _rc
 local ++suite_count
@@ -73,7 +84,7 @@ local ++suite_count
 if `hostile_rc' == 0 local ++suite_pass
 else local ++suite_fail
 
-foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_isolation {
+foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_v113 test_pkgtransfer_isolation {
     capture noisily do "`qa_dir'/`review_suite'.do"
     local review_rc = _rc
     local ++suite_count
@@ -100,18 +111,13 @@ if inlist("`mode'", "core", "full") {
     else local ++suite_fail
 }
 
+}
+
 macro drop RUN_TEST_QUIET RUN_TEST_MACHINE RUN_TEST_NUMBER
 capture log close _all
 
+* Each suite prints its own RESULT line above; this is the lane total.
 display _n as text "pkgtransfer `mode' QA lane"
-display as text "  functional rc = `functional_rc'"
-display as text "  regression rc = `regression_rc'"
-display as text "  deep review rc = `deep_review_rc'"
-display as text "  OS filter rc = `os_filter_rc'"
-display as text "  installed rc = `installed_rc'"
-if inlist("`mode'", "core", "full") {
-    display as text "  validation rc = `validation_rc'"
-}
 
 if `suite_fail' > 0 {
     display as error ///

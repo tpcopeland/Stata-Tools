@@ -31,10 +31,9 @@ run "`pkg_dir'/pkgtransfer.ado"
 capture log close _all
 log using "`pkg_dir'/qa/validation_pkgtransfer.log", replace text nomsg name(val_pkgtransfer)
 
-display _n "{hline 70}"
+* PKGTRANSFER VALIDATION TESTS
 display "PKGTRANSFER VALIDATION TESTS"
 display "Date: `c(current_date)' `c(current_time)'"
-display "{hline 70}" _n
 
 local n_tests 0
 local n_passed 0
@@ -471,9 +470,7 @@ if _rc != 0 {
 * SUMMARY
 * =============================================================================
 
-display _n "{hline 70}"
 display "PKGTRANSFER VALIDATION SUMMARY"
-display "{hline 70}"
 display as text "Tests run:    `n_tests'"
 display as result "Tests passed: `n_passed'"
 if `n_failed' > 0 {

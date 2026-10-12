@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.1.2  2026/09/30
+*! pkgtransfer Version 1.1.3  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -32,11 +32,6 @@
 program define pkgtransfer, rclass
 	version 16.0
 	local _varabbrev `c(varabbrev)'
-    * Native import delimited uses the non-temporary scalar cv.
-    tempname _old_cv
-    capture confirm scalar cv
-    local _had_cv = !_rc
-    if `_had_cv' scalar `_old_cv' = scalar(cv)
 	local _did_preserve 0
 	local _staging_created 0
 	local _registry_created 0
@@ -76,6 +71,23 @@ program define pkgtransfer, rclass
 
 /* Check For Errors */
 quietly {
+
+	/* Standalone restore only rewrites stata.trk; refuse options it cannot honor */
+	local _restore_only = "`restore'" != "" & "`download'" == ""
+	if `_restore_only' {
+		local _restore_conflicts ""
+		foreach opt in limited skip os dofile zipfile {
+			if `"`macval(`opt')'"' != "" ///
+				local _restore_conflicts "`_restore_conflicts' `opt'()"
+		}
+		if "`_restore_conflicts'" != "" {
+			noisily display as error ///
+				"restore without download() cannot be combined with:`_restore_conflicts'"
+			noisily display as error ///
+				"Standalone restore rewrites every pkgtransfer source marker in stata.trk."
+			exit 198
+		}
+	}
 
 	/* Error if stata.trk file doesn't exist */
 	capture confirm file "`plusdir'stata.trk"
@@ -120,7 +132,15 @@ quietly {
 				local trk_unique "`trk_unique' `pkg'"
 			}
 		}
-		if "`trk_duplicates'" != "" {
+		/* Reinstalling a bundle over an existing copy leaves two entries;
+		   restore must still run on that tracker, so it only warns. */
+		if "`trk_duplicates'" != "" & `_restore_only' {
+			noisily display as text ///
+				"Note: stata.trk lists more than one copy of:`trk_duplicates'"
+			noisily display as text ///
+				"Use -ado dir- and -ado uninstall [#]- to remove the older copy."
+		}
+		else if "`trk_duplicates'" != "" {
 			noisily display as error ///
 				"ERROR: The following packages appear in multiple package repositories:`trk_duplicates'"
 			noisily display as error ///
@@ -175,7 +195,8 @@ quietly {
 			if "`os'" == "Windows" local _plugin_platform_regex "^WIN"
 			else if "`os'" == "Unix" ///
 				local _plugin_platform_regex "^(LINUX|UNIX)"
-			else local _plugin_platform_regex "^MAC"
+			* [R] net: MACARM64/MACINTEL64 (GUI), OSX.ARM64/OSX.X8664 (console)
+			else local _plugin_platform_regex "^(MAC|OSX)"
 		}
 
 		/* Error if dofile not specified correctly */
@@ -306,11 +327,13 @@ quietly{
 
 			/* Generate List of Packages and Sources */
 			tempfile pkg_list
-			import delimited using "`plusdir'stata.trk", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+			_pkgtransfer_read_lines using "`plusdir'stata.trk"
 			keep if substr(v1, 1, 2) == "N " | substr(v1, 1, 1) == "S"
 			gen url = v1[_n-1]
 			drop if substr(v1, 1, 1) == "S"
-			replace url = subinstr(url,"S ","",.)
+			replace url = substr(url, 3, .)
+			* Exact recorded source, kept for the restore marker
+			gen src_orig = url
 			gen package = substr(v1, strpos(v1, "N ") + 2, strpos(v1, ".pkg") - strpos(v1, "N ") - 2)
 			sort package
 			if "`skip'" != ""{
@@ -336,7 +359,20 @@ quietly{
 			}
 				else if "`limited'" == "" {
 					local pkg_list_for_do ""
-					levelsof package if (strpos(url,"http://") | strpos(url,"https://") | strpos(url,".edu/") | strpos(url,".org/") | strpos(url,".com/")) , local(pkg_list_for_do) clean
+					* net install records either a URL or an absolute path
+					tempvar online_source
+					gen byte `online_source' = ///
+						regexm(url, "^[A-Za-z][A-Za-z0-9+.-]+://")
+					levelsof package if `online_source', ///
+						local(pkg_list_for_do) clean
+					levelsof package if !`online_source', ///
+						local(local_path_pkgs) clean
+					if `"`local_path_pkgs'"' != "" {
+						noisily display as text ///
+							"Note: omitted packages installed from a local path: `local_path_pkgs'"
+						noisily display as text ///
+							"Name them in limited() to include them."
+					}
 					gen keep_these = 0
 					foreach name of local pkg_list_for_do {
 						replace keep_these = 1 if package == "`name'"
@@ -390,15 +426,15 @@ quietly{
 
 			// Get data from stata.trk
 			tempfile pkg_list pkg_url plugin_temp
-			import delimited using "`plusdir'stata.trk", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
-			keep if substr(v1,1,2) == "S " | substr(v1,1,2) == "N " | substr(v1,1,2) == "f " | substr(v1,1,2) == "g " | substr(v1[_n-3],1,2) == "N " | substr(v1,1,2) == "d "
+			_pkgtransfer_read_lines using "`plusdir'stata.trk"
+			keep if substr(v1,1,2) == "S " | substr(v1,1,2) == "N " | substr(v1,1,2) == "f " | substr(v1,1,2) == "g " | substr(v1,1,2) == "d " | strtrim(v1) == "e"
 			gen row2 = _n
 			replace row2 = row2 + 2.5 if substr(v1,1,2) == "S "
 			sort row2
 			replace v1 = subinstr(v1,"\","/",.) if substr(v1,1,2) != "S "
-			split v1, p("N ")
-			replace v12 = "" if !strpos(v12,".pkg")
-			gen package = subinstr(v12,".pkg","",.)
+			* Package names come only from N records, never from d text
+			gen package = subinstr(substr(v1, 3, .), ".pkg", "", .) ///
+				if substr(v1,1,2) == "N "
 			replace package = package[_n-1] if package == ""
 			if "`skip'" != ""{
 				local skiplist "`skip'"
@@ -407,19 +443,6 @@ quietly{
 				}
 			}
 			sort package row2
-			gen row = _n
-			replace row = -9999 if strpos(package,"github")
-			replace row = -9998 if strpos(package,"markdoc")
-			replace row = -9997 if strpos(package,"weaver")
-			replace row = -9996 if strpos(package,"statax")
-			replace row = -9995 if strpos(package,"datadoc")
-			replace row = -9994 if strpos(package,"md2smcl")
-			replace row = -9993 if strpos(package,"colorcode")
-			replace row = -9992 if strpos(package,"neat")
-			replace row = -9991 if strpos(package,"machinelearning")
-			replace row = -9990 if strpos(package,"diagram")
-			replace row = -9989 if strpos(package,"rcall")
-			sort row row2
 			keep v1 package
 			quietly count if package != ""
 			local _selected_records = r(N)
@@ -483,7 +506,7 @@ quietly{
 				replace `pkg_order' = 1 in `_pkg_obs'
 				sort `pkg_order'
 				drop `pkg_order'
-				outfile v1 using "pkgtransfer_files/`name'.pkg", noquote replace
+				_pkgtransfer_write_lines using "pkgtransfer_files/`name'.pkg"
 			}
 
             use "`pkg_list'", replace
@@ -538,11 +561,19 @@ quietly{
 				capture erase "pkgtransfer_files/`plugin_name'"
 
 				// import pkg from offline
-				import delimited using "`pkg_source_url'", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
-				keep if (substr(lower(v1),1,2) == "g " | ///
-					substr(lower(v1),1,2) == "h ") & ///
-					strpos(v1,"`plugin_name'")
+				_pkgtransfer_read_lines using "`pkg_source_url'"
 				replace v1 = subinstr(v1, char(9), " ", .)
+				keep if substr(lower(v1),1,2) == "g " | ///
+					substr(lower(v1),1,2) == "h "
+				* Match the installed file name exactly, not as a substring
+				local plugin_base = regexr(`"`plugin_name'"', "^.*/", "")
+				tempvar plugin_target
+				gen strL `plugin_target' = cond(substr(lower(v1),1,2) == "h ", ///
+					word(v1, 2), cond(word(v1, 4) != "", word(v1, 4), word(v1, 3)))
+				replace `plugin_target' = ///
+					regexr(subinstr(`plugin_target', "\", "/", .), "^.*/", "")
+				keep if `plugin_target' == `"`plugin_base'"'
+				drop `plugin_target'
 				if `_os_requested' {
 					drop if substr(lower(v1),1,2) == "g " & ///
 						!regexm(upper(word(v1, 2)), ///
@@ -621,12 +652,13 @@ quietly{
 				save "`plugin_temp'", replace
 
 				// get current pkg file
-				import delimited using "pkgtransfer_files/`package'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				_pkgtransfer_read_lines using "pkgtransfer_files/`package'.pkg"
 				quietly count if strtrim(lower(v1)) == "e"
 				local had_end_marker = r(N) > 0
 				drop if strtrim(lower(v1)) == "e"
 				// drop plugin file name
-				drop if substr(lower(v1),1,2) == "f " & strpos(v1,"`plugin_name'")
+				drop if substr(lower(v1),1,2) == "f " & ///
+					regexr(strtrim(substr(v1, 3, .)), "^.*/", "") == `"`plugin_base'"'
 				// append new file names for plugins
 				append using "`plugin_temp'"
 				if `had_end_marker' {
@@ -635,7 +667,7 @@ quietly{
 					replace v1 = "e" in `_end_obs'
 				}
 				// update package file
-				outfile v1 using "pkgtransfer_files/`package'.pkg", noquote replace
+				_pkgtransfer_write_lines using "pkgtransfer_files/`package'.pkg"
 					use "`pluginfiles'", replace
 				}
 				}
@@ -680,6 +712,7 @@ quietly{
 			if `_online_packages' > 0 {
 			quietly forvalues i = 1/`_online_packages' {
                 local curr_url = url[`i']
+                local curr_src = src_orig[`i']
                 local curr_pkg = package[`i']
 
 				* Network retry logic for package download (3 attempts)
@@ -705,7 +738,7 @@ quietly{
 
 				// Store description from first line
 				clear
-				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				_pkgtransfer_read_lines using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg"
 				gen package = "`curr_pkg'"
 				keep if substr(v1,1,2) == "d "
 				keep if _n == 1
@@ -715,7 +748,9 @@ quietly{
 
 				// First, create a separate dataset for file copying
 				clear
-				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				_pkgtransfer_read_lines using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg"
+				* Directive fields may be tab-separated; word() splits on spaces only
+				replace v1 = subinstr(v1, char(9), " ", .) if lower(substr(v1, 1, 1)) != "d"
 
 				keep if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
 				if `_os_requested' {
@@ -830,7 +865,8 @@ quietly{
 
 				// Last, read and modify the entire .pkg file
 				clear
-				import delimited using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+				_pkgtransfer_read_lines using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg"
+				replace v1 = subinstr(v1, char(9), " ", .) if lower(substr(v1, 1, 1)) != "d"
 				if `_os_requested' {
 					drop if substr(lower(v1),1,2) == "g " & ///
 						!regexm(upper(word(v1, 2)), ///
@@ -868,7 +904,7 @@ quietly{
 				drop if strtrim(lower(v1)) == "e"
 				local _obs = _N + 1
 				set obs `_obs'
-				replace v1 = "d pkgtransfer-source `curr_url'" in `_obs'
+				replace v1 = "d pkgtransfer-source `curr_src'" in `_obs'
 				if `had_end_marker' {
 					local _end_obs = _N + 1
 					set obs `_end_obs'
@@ -876,7 +912,7 @@ quietly{
 				}
 
 				// Save the modified complete .pkg file
-				outfile v1 using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", noquote replace
+				_pkgtransfer_write_lines using "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg"
 
 				use "`pkg_list'", clear
 
@@ -905,7 +941,7 @@ quietly{
 			replace `toc_order' = 1 in `_toc_obs'
 			sort `toc_order'
 			drop `toc_description' `toc_order'
-            outfile v1 using "pkgtransfer_files/stata.toc", noquote replace
+            _pkgtransfer_write_lines using "pkgtransfer_files/stata.toc"
             clear
 
 			local date = string(year(date("`c(current_date)'", "DMY")), "%4.0f") + "_" + string(month(date("`c(current_date)'", "DMY")), "%02.0f") + "_" + string(day(date("`c(current_date)'", "DMY")), "%02.0f")
@@ -926,10 +962,12 @@ quietly{
 			file write `_installer_fh' "capture noisily {" _n
 			file write `_installer_fh' "    cd " `"""' ///
 				"\`package_dir'" `"""' _n
-			file write `_installer_fh' "    unzipfile " `"""' "`macval(zipfile)'" `"""' ", replace" _n
+			* The installer runs beside the archive, so it names only the file
+			local zip_base = regexr(subinstr(`"`macval(zipfile)'"', "\", "/", .), "^.*/", "")
+			file write `_installer_fh' "    unzipfile " `"""' "`macval(zip_base)'" `"""' ", replace" _n
 			file write `_installer_fh' "    foreach pkg in `pkg_list_for_do' {" _n
 			file write `_installer_fh' "        net install \`pkg', from(" ///
-				`"""' "\`package_dir'/pkgtransfer_files" `"""' ")" _n
+				`"""' "\`package_dir'/pkgtransfer_files" `"""' ") replace" _n
 			file write `_installer_fh' "    }" _n
 			file write `_installer_fh' "}" _n
 			file write `_installer_fh' "local _pkgtransfer_rc = _rc" _n
@@ -971,9 +1009,7 @@ quietly{
 			if "`restore'" != "" {
 				if !`_returns_ready' local _returns_ready 1
 				noisily display "Restoring installation pathways to online sources..."
-			* Backup stata.trk before modifying
-			copy "`plusdir'stata.trk" "`plusdir'stata.trk.backup", replace
-			import delimited using "`plusdir'stata.trk", delim("||||||||") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
+			_pkgtransfer_read_lines using "`plusdir'stata.trk"
 			* Recognize private markers and URL-shaped legacy markers
 			tempvar restore_marker
 			gen byte `restore_marker' = ///
@@ -987,6 +1023,14 @@ quietly{
 				noisily display as text "Restore requires packages installed from a pkgtransfer ZIP archive."
 			}
 			else {
+				* Back up before modifying; never overwrite an earlier backup
+				local trk_backup "`plusdir'stata.trk.backup"
+				local backup_n 0
+				while fileexists("`trk_backup'") {
+					local ++backup_n
+					local trk_backup "`plusdir'stata.trk.backup`backup_n'"
+				}
+				copy "`plusdir'stata.trk" "`trk_backup'"
 				gen row_id = _n
 				gen entry_id = sum(substr(v1,1,2) == "S ")
 				* Extract original URLs from private and legacy backup lines
@@ -1002,8 +1046,9 @@ quietly{
 				replace v1 = "S " + orig_url if substr(v1,1,2) == "S " & !missing(orig_url)
 				drop if `restore_marker'
 				drop row_id entry_id orig_url `restore_marker'
-				outfile v1 using "`plusdir'stata.trk", noquote replace
+				_pkgtransfer_write_lines using "`plusdir'stata.trk"
 				noisily display "Installation pathways restored!"
+				noisily display as text "Previous stata.trk saved as `trk_backup'"
 			}
 		}
 
@@ -1017,8 +1062,6 @@ local _did_preserve 0
 
 		/* Clean up on success or error */
 		local rc = _rc
-        if `_had_cv' scalar cv = scalar(`_old_cv')
-        else capture scalar drop cv
         if `_output_cwd_changed' {
             capture quietly cd `"`_output_cwd'"'
             if _rc & !`rc' local rc = _rc
@@ -1164,3 +1207,67 @@ program define _pkgtransfer_cleanup_staging, nclass
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
 end
+
+* Load a text file into strL v1, one observation per line. Unlike
+* import delimited, every line (blank, piped, quoted, long) is kept.
+capture program drop _pkgtransfer_read_lines
+program define _pkgtransfer_read_lines, nclass
+	version 16.0
+	local _varabbrev `c(varabbrev)'
+	set varabbrev off
+	tempname fh
+	local _file_open 0
+
+	capture noisily {
+		syntax using/
+		local source `"`using'"'
+		if regexm(`"`source'"', "^[A-Za-z][A-Za-z0-9+.-]+://") {
+			tempfile remote_copy
+			copy `"`source'"' `"`remote_copy'"'
+			local source `"`remote_copy'"'
+		}
+		clear
+		quietly generate strL v1 = ""
+		file open `fh' using `"`source'"', read text
+		local _file_open 1
+		file read `fh' line
+		local n 0
+		while r(eof) == 0 {
+			local ++n
+			quietly set obs `n'
+			mata: st_sstore(`n', "v1", st_local("line"))
+			file read `fh' line
+		}
+		file close `fh'
+		local _file_open 0
+		quietly compress v1
+	}
+	local rc = _rc
+	if `_file_open' capture file close `fh'
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
+end
+*
+
+* Write v1 one line per observation, staged so the target is replaced whole.
+capture program drop _pkgtransfer_write_lines
+program define _pkgtransfer_write_lines, nclass
+	version 16.0
+	local _varabbrev `c(varabbrev)'
+	set varabbrev off
+	tempname mfh mlines mi
+	tempfile staged
+
+	capture noisily {
+		syntax using/
+		mata: `mfh' = fopen(st_local("staged"), "w"); `mlines' = st_sdata(., "v1"); for (`mi' = 1; `mi' <= rows(`mlines'); `mi'++) fput(`mfh', `mlines'[`mi']); fclose(`mfh')
+		copy `"`staged'"' `"`using'"', replace
+	}
+	local rc = _rc
+	* stata-dev-ignore: capture-rc, capture_rc — cleanup zone; the write's rc is already saved in rc
+	if `rc' capture mata: fclose(`mfh')
+	capture mata: mata drop `mfh' `mlines' `mi'
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
+end
+*

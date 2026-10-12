@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  30sep2026}{...}
+{* *! version 1.1.3  12oct2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -80,9 +80,13 @@ bundle, while the original {cmd:g}/{cmd:G} installation semantics are preserved.
 {opt limited(pkglist)} restricts the operation to a specific set of
 packages. {it:pkglist} should be a space-separated list of package names, exactly
 as they appear in the {cmd:stata.trk} file. For example,
-{cmd:limited(estout outreg2)}. When {opt limited()} is not specified, {cmd:pkgtransfer}
-processes all packages listed in the {cmd:stata.trk} file. Repeated package names
-are normalized to one selection while preserving the order supplied.
+{cmd:limited(estout outreg2)}. When {opt limited()} is not specified,
+{opt download(local)} processes every package listed in {cmd:stata.trk}, while
+the default mode and {opt download(online)} process the packages whose recorded
+source is a URL ({it:scheme}{cmd:://}..., such as {cmd:https://}). Packages
+installed from a local absolute path are omitted from those two modes, and a
+note names them; name them in {opt limited()} to include them. Repeated package
+names are normalized to one selection while preserving the order supplied.
 
 {phang}
 {opt skip(pkglist)} excludes the specified packages from the transfer. {it:pkglist}
@@ -96,18 +100,32 @@ failing. Repeated names are normalized to one exclusion.
 {phang}
 {opt restore} restores installation pathways in {cmd:stata.trk} to point to original
 online sources after a local installation. Can be used as a standalone option
-({cmd:pkgtransfer, restore}) or combined with {opt download()}. This works only for
-packages installed from {cmd:pkgtransfer}-generated ZIP archives, which embed the
-original source URL as backup metadata. A backup of {cmd:stata.trk} is created
-before modification. If no backup URLs are found, a warning is displayed.
+({cmd:pkgtransfer, restore}) or combined with {opt download()}. Standalone
+{opt restore} cannot be combined with
+{opt limited()}, {opt skip()}, {opt os()}, {opt dofile()}, or {opt zipfile()}. With or
+without {opt download()}, {opt restore} rewrites every backup marker in
+{cmd:stata.trk}; {opt limited()} and {opt skip()} do not narrow it. This
+works only for packages installed from {cmd:pkgtransfer}-generated ZIP
+archives, which embed the original source URL as backup metadata. Before
+modifying {cmd:stata.trk}, {cmd:pkgtransfer} copies it to
+{cmd:stata.trk.backup}, or to {cmd:stata.trk.backup1}, {cmd:stata.trk.backup2},
+... when earlier backups exist; an existing backup is never overwritten. All
+other tracker lines are kept unchanged. If no backup URLs are found, a warning
+is displayed and nothing is written. If the installer upgraded an existing
+copy, {cmd:stata.trk} lists that package twice; {opt restore} still runs and
+names the duplicates, which {cmd:ado dir} and {cmd:ado uninstall [}{it:#}{cmd:]}
+can remove.
 
 {dlgtab:Advanced}
 
 {phang}
 {opt os(string)} specifies the target operating system for the installation script
 cleanup commands and limits an offline bundle to plugin variants for that OS. Valid
-options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. When omitted, the
-installer uses the current OS and an offline bundle includes every OS plugin variant.
+options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. Plugin platforms are
+matched by family: {cmd:WIN}* for Windows, {cmd:LINUX}* or {cmd:UNIX}* for Unix,
+and {cmd:MAC}* or {cmd:OSX.}* for MacOSX, which includes the console platforms
+{cmd:OSX.ARM64} and {cmd:OSX.X8664}. When omitted, the installer uses the
+current OS and an offline bundle includes every OS plugin variant.
 
 {phang}
 {opt dofile(filename)} specifies a custom name for the generated do-file. The
@@ -117,8 +135,9 @@ characters. Default is {cmd:pkgtransfer.do}.
 {phang}
 {opt zipfile(filename)} specifies a custom name for the generated ZIP file. The
 filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with
-{opt download()}. The generated installer references the selected filename and
-quotes it so paths containing spaces remain valid. Shell metacharacters and quote
+{opt download()}. The generated installer refers to the archive by its file
+name only (without the directory), so keep the do-file and ZIP file in the same
+directory and run the installer from there. Shell metacharacters and quote
 characters are not allowed.
 
 {marker examples}{...}
@@ -215,7 +234,8 @@ exits with the original nonzero return code.
 {pstd}
 Generated offline installers use local macros, restore the caller's working
 directory, and propagate installation failures without overwriting a caller's
-global {cmd:package_dir} macro.
+global {cmd:package_dir} macro. They install with {cmd:net install ..., replace},
+so an older copy on the destination is upgraded.
 
 {pstd}
 Bundle creation refuses conflicting payload paths and paths reserved for package
@@ -230,7 +250,7 @@ uses net install to bootstrap it.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.2 - 2026-09-30{p_end}
+{pstd}Version 1.1.3 - 2026-10-12{p_end}
 
 
 {hline}

@@ -1,6 +1,6 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.1.2** | 2026-09-30
+**Version 1.1.3** | 2026-10-12
 
 `pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
@@ -49,12 +49,12 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 
 `pkgtransfer` reads the `stata.trk` file in the current PLUS directory (`c(sysdir_plus)`). It uses the package names, source URLs, and file records there to select packages and construct the requested transfer outputs.
 
-- With no options, it writes a do-file containing `ssc install`, `net install`, or `github install` commands for eligible recorded sources.
+- With no options, it writes a do-file containing `ssc install`, `net install`, or `github install` commands for eligible recorded sources. A source is eligible when `stata.trk` records it as a URL (`scheme://...`, for example `http://` or `https://`); packages installed from a local absolute path are omitted from the default and `download(online)` modes, and a note names them. Name them in `limited()` to include them. `download(local)` includes every tracked package.
 - With `download(online)`, it downloads package descriptors and files from their recorded online sources, then creates an archive and an installer do-file.
 - With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining platform-specific plugins from their sources. Omit `os()` to bundle every platform variant, or specify it to retain only the target OS variants.
 - With `restore`, it uses backup source metadata embedded by a transfer bundle to restore online URLs in `stata.trk`.
 
-Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files; it leaves the extracted folder in place because its cleanup commands are disabled for safety.
+Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files with `net install ..., replace`, so an older copy on the destination is upgraded; it leaves the extracted folder in place because its cleanup commands are disabled for safety. The installer refers to the archive by its file name only, so keep the `.do` and `.zip` files together and run the installer from that directory (or set `package_dir` inside it).
 
 Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Parent-relative plugin sources are rebased into the archive, plugin `g`/`G` installation semantics are preserved, and unsafe absolute or remaining parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory. Generated `.pkg` files and `stata.toc` use Stata's version-3 distribution format.
 
@@ -126,7 +126,7 @@ Run this on a machine where packages were installed from a `pkgtransfer` offline
 pkgtransfer, restore
 ```
 
-The command backs up the current PLUS `stata.trk` as `stata.trk.backup`, replaces source lines when embedded backup URLs are available, and removes those backup records from the active tracking file.
+When embedded backup URLs are present, the command first copies the current PLUS `stata.trk` to `stata.trk.backup` (or `stata.trk.backup1`, `stata.trk.backup2`, ... when earlier backups exist; an existing backup is never overwritten), then replaces the source lines and removes those backup records. Every other tracker line is kept byte for byte. When no backup URLs are present, nothing is written. Standalone `restore` cannot be combined with `limited()`, `skip()`, `os()`, `dofile()`, or `zipfile()`. If the installer upgraded an existing copy, `stata.trk` lists the package twice; `restore` still runs and names the duplicates, which can be removed with `ado dir` and `ado uninstall [#]`.
 
 ## Demo
 
@@ -369,21 +369,21 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 |------|----------------------------------|
 | Default | `pkgtransfer.do`, or the name supplied by `dofile()`, containing online installation commands |
 | `download(online)` or `download(local)` | The installer do-file plus `pkgtransfer_files.zip`, or the name supplied by `zipfile()`; the archive contains package descriptors, package files, and `stata.toc` |
-| `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, and `stata.trk.backup` is created first |
+| `restore` | The current PLUS `stata.trk` is rewritten when backup URLs are present, after a copy is saved as `stata.trk.backup` (numbered `stata.trk.backup1`, ... if that name is taken) |
 
 Bundle creation rejects conflicting source identities at the same archive path, including reserved descriptors and `stata.toc`. Installer and archive paths must be outside `pkgtransfer_files`.
 
-Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the exact archive name selected by `zipfile()`, uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
+Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the file name of the archive selected by `zipfile()` (without its directory), uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
 
 ## Key Options
 
 | Option | Default | Behavior |
 |--------|---------|----------|
 | `download(local|online)` | omitted | Selects offline bundle creation from local PLUS files or recorded online sources; when omitted, creates an online-install script only |
-| `limited(pkglist)` | all eligible packages | Restricts the operation to the space-separated package names supplied; names must be present in `stata.trk` |
+| `limited(pkglist)` | all eligible packages | Restricts the operation to the space-separated package names supplied; names must be present in `stata.trk`. Without it, the default and `download(online)` modes omit packages installed from a local path (with a note) |
 | `skip(pkglist)` | none | Excludes the exact package names supplied |
-| `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()` |
-| `os(Windows|Unix|MacOSX)` | current `c(os)`; all plugin variants | Sets the installer target OS and limits offline bundles to matching plugin variants when explicitly supplied |
+| `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()`. Alone, it rejects `limited()`, `skip()`, `os()`, `dofile()`, and `zipfile()` |
+| `os(Windows|Unix|MacOSX)` | current `c(os)`; all plugin variants | Sets the installer target OS and limits offline bundles to matching plugin variants when explicitly supplied: `WIN*` for Windows, `LINUX*`/`UNIX*` for Unix, and `MAC*`/`OSX.*` (including the console platforms `OSX.ARM64` and `OSX.X8664`) for MacOSX |
 | `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters or quote characters |
 | `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters or quote characters, and is valid only with `download()` |
 
@@ -414,11 +414,13 @@ After package selection has succeeded, capturing a later output-write or archive
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
 - `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.
 - `download(local)` uses the copies currently installed in PLUS, but platform-specific plugin files are downloaded from their sources because PLUS contains only the current platform build. Omitted `os()` downloads every platform variant; explicit `os()` downloads only matching variants. A missing tracked file aborts bundle creation rather than producing a partial archive.
-- `restore` works only when a bundle has embedded original-source backup records. It creates `stata.trk.backup` before changing the active tracking file.
-- The generated offline installer does not add `replace` or `force` to its local `net install` commands. If the destination already has the package, edit the generated installer as needed.
+- `restore` works only when a bundle has embedded original-source backup records. It saves a numbered backup of `stata.trk` before changing the active tracking file and never overwrites an earlier backup.
+- The generated offline installer uses `net install ..., replace`, so it upgrades a copy already on the destination. Stata then records the package twice in `stata.trk`; other `pkgtransfer` modes refuse such a tracker (error 459) until the older copy is removed with `ado uninstall [#]`.
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
+
+- **1.1.3** (2026-10-12): `restore` and bundle creation read and write tracker and descriptor files line by line, so lines containing `|`, blank lines, quotes, tabs, and long lines are no longer truncated or dropped. The offline installer names the archive by file name only and installs with `replace`. `os(MacOSX)` keeps the `OSX.ARM64`/`OSX.X8664` console platforms. The default and `download(online)` modes name the local-path packages they omit, and online sources are recognized by URL scheme. `restore` keeps earlier backups (numbered), backs up only when it changes the tracker, runs on trackers that list a package twice, and rejects options it cannot honor. Plugin records match whole file names, and `d` text can no longer reassign package records in local bundles. `download(online)` parses tab-separated descriptor records (for example `traj`), and its restore marker keeps the tracker's source exactly as recorded.
 
 - **1.1.2** (2026-09-30): Preserve an existing numeric or string `cv` scalar, or its absence, across native delimited imports on success and errors.
 

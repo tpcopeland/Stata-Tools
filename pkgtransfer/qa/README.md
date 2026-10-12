@@ -7,10 +7,10 @@ The `pkgtransfer` QA suite covers transfer-script generation, local and online b
 ```bash
 cd pkgtransfer/qa
 stata-mp -b do run_all.do          # full lane (default)
-stata-mp -b do run_all.do quick    # functional and regression tests
-stata-mp -b do run_all.do core     # quick plus validation
-stata-mp -b do test_pkgtransfer_v105.do
-stata-mp -b do test_pkgtransfer_v110.do
+stata-mp -b do run_all.do quick    # functional, regression, error, and isolation suites
+stata-mp -b do run_all.do core     # quick plus the fixture and validation suites
+stata-mp -b do run_all.do network  # opt-in: live internet sources and a local HTTP server
+stata-mp -b do test_pkgtransfer_v113.do
 ```
 
 Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Stata batch mode's shell status alone.
@@ -38,36 +38,42 @@ Gate on the terminal `RESULT: <name> tests=N pass=N fail=N skip=N` line, not Sta
 | `test_pkgtransfer_v105.do` | Version-3 distribution metadata, SSC and parent-relative plugin handling, directive-case and install witnesses, multi-plugin bundles, restore-marker namespacing, and runner isolation. |
 | `test_pkgtransfer_v110.do` | Default all-platform plugin bundles, explicit OS filtering for local and online modes, removal of redundant target copies, and installation from a filtered descriptor. |
 | `test_pkgtransfer_installed.do` | Fresh `net install`, installed-command execution, and bundled helper definitions in a local transfer archive. |
-| `test_pkgtransfer_errors.do` | Exact public parser rejection for download, OS, dofile, and zipfile contracts. |
-| `test_pkgtransfer_hostile.do` | Shell-metacharacter filenames and nonexistent-package refusal. |
+| `test_pkgtransfer_errors.do` | Public parser rejection for download, OS, dofile, zipfile extension (with `download()`), and zipfile without `download()`; asserts rc and the displayed message. |
+| `test_pkgtransfer_hostile.do` | Shell-metacharacter filenames and nonexistent-package refusal; asserts rc and the displayed message. |
 | `validation_pkgtransfer.do` | Known-answer script content, filtering, filenames, return values, and mode contracts. |
 | `test_pkgtransfer_v111.do` | Cross-package plugin/ordinary/metadata collisions, gtools-substring OS selection, output paths, GitHub bootstrap, session fingerprints, lifecycle replay, console/return parity, 54 hostile-string cells, and help rendering with a positive control. |
+| `test_pkgtransfer_v113.do` | Byte-exact `restore` of trackers with headers, blank lines, pipes, quotes, tabs, and long lines; piped and long `d` lines in local and online bundles; `N` records as the only package-name source; relocated installer (archive base name); installer `replace` upgrade followed by `restore` on the resulting duplicate tracker; `os(MacOSX)` console platforms and every [R] net platform family; local-path omission note and URL-scheme rule; numbered never-overwritten `stata.trk` backups; standalone `restore` option refusal; whole-name plugin matching; rc 498 (plugin without platform record) and rc 693 (blocked bundle directory); tab-separated two-field `g` records with one plugin name in several platform directories (`traj` shape) in online bundles; online restore markers that keep the tracker source exactly. Fixture trackers include a header, a blank line, and a pipe. |
+| `test_pkgtransfer_network.do` | Live-internet round trip (network lane): `fre` and `gtools` from SSC, `traj` from andrew.cmu.edu (tab-separated two-field `g` records, one plugin name in eight platform directories), and `datefix` from raw.githubusercontent.com through script-only output, `download(online)`, `download(local)` with each `os()`, a relocated install on a clean target where the `gtools` and `traj` plugins compute, and an exact `restore` of every live source. Unreachable sources fail. |
+| `test_pkgtransfer_http.do` | Descriptor served by `python3 -m http.server` on 127.0.0.1 (network lane; Linux/macOS): `OSX.ARM64`, `G` case, `../` sources, tab-separated fields, and piped/quoted `d` text through online and local bundles, install of this platform's plugin on a target, and exact `restore`. A server that does not start fails. |
 | `test_pkgtransfer_isolation.do` | Real caller installation and exact tracker/code preservation across the error and hostile suites. |
 | `_qa_state.do` | Vendored session fingerprint helper. |
 | `_qa_hostile.do` | Vendored hostile-string corpus. |
 | `_qa_lifecycle.do` | Vendored lifecycle replay helper. |
 | `_qa_parity.do` | Vendored surface-parity helper. |
+| `_qa_fx_a7.do` | Vendored qa-lib A7 fixture helper (deterministic labelled datasets and owned file trees); the name is the qa-lib archetype name, used by the three fixture suites. |
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner. |
 
 ## Lane membership
 
 | Lane | Suites |
 |---|---|
-| `quick` | Functional, regression, installed-user, and error-contract suites in `run_all.do`. |
-| `core` | `quick` plus `validation_pkgtransfer.do` |
+| `quick` | `test_pkgtransfer.do`, `test_pkgtransfer_v104.do`, `test_pkgtransfer_v105.do`, `test_pkgtransfer_v110.do`, `test_pkgtransfer_installed.do`, `test_pkgtransfer_errors.do`, `test_pkgtransfer_hostile.do`, `test_pkgtransfer_v111.do`, `test_pkgtransfer_v113.do`, `test_pkgtransfer_isolation.do` |
+| `core` | `quick` plus `validation_pkgtransfer_fixture_contract.do`, `validation_pkgtransfer_fixture_primitives.do`, `test_pkgtransfer_fixture_state.do`, and `validation_pkgtransfer.do` |
 | `full` | Same membership as `core`; default release gate |
+| `network` | `test_pkgtransfer_network.do` and `test_pkgtransfer_http.do` only; opt-in, needs internet access and `python3` |
 
-`quick` is a subset of `core`; `core` and `full` are identical because the package has no external-oracle or slow-test lane.
+`quick` is a subset of `core`; `core` and `full` are identical. `network` is separate so the release gate stays deterministic and offline; run it before a release that touches download, plugin, or restore code.
 
 ## Known gaps
 
-- Network behavior is tested with local `file://`-style sources; availability and behavior of arbitrary third-party package repositories are outside the package's deterministic QA boundary.
+- The deterministic lanes use local-path sources; real HTTP and live repositories are exercised only by the opt-in `network` lane, whose live sources (SSC, andrew.cmu.edu, GitHub) can move or go offline.
+- Windows targets and Windows-written trackers are not exercised on a Windows machine.
 
 ## Coverage map
 
 | Command | Regression witnesses |
 |---|---|
-| `pkgtransfer` | `test_pkgtransfer_v111.do` covers both bundle routes and published package/output returns; `test_pkgtransfer_isolation.do` measures caller installation survival. Existing functional and validation suites cover the rest of the option and return surface. |
+| `pkgtransfer` | `test_pkgtransfer_v111.do` covers both bundle routes and published package/output returns; `test_pkgtransfer_v113.do` covers tracker and descriptor fidelity, the generated installer, `restore` backups and option refusal, OS platform families, the rc 498/693 routes, tab-separated two-field `g` records in online bundles, and exact online restore markers; `test_pkgtransfer_network.do` and `test_pkgtransfer_http.do` (network lane) cover live HTTP sources; `test_pkgtransfer_isolation.do` measures caller installation survival. Existing functional and validation suites cover the rest of the option and return surface. |
 
 archetypes: A7(pkgtransfer)
 
