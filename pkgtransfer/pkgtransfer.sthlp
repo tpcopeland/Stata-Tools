@@ -249,8 +249,11 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.1.3, 2026-10-12{p_end}
 
-{pstd}Version 1.1.3 - 2026-10-12{p_end}
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
 
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
 
 {hline}

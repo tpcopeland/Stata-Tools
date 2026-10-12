@@ -283,6 +283,11 @@ van Walraven, C., P. C. Austin, A. Jennings, H. Quan, and A. J. Forster. 2009. A
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Version 1.0.3, 2026-09-30{p_end}
 
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+
 {title:Also see}
 
 {psee}{helpb codescan}{p_end}

@@ -1,5 +1,7 @@
 # asof
 
+**Version 0.1.1** | 2026-10-12
+
 `asof` attaches one measurement record per identifier and anchor date from a long Stata dataset. It makes direction, selection, tie, protocol-window, and observability-window rules explicit while keeping the master data in memory.
 
 ## Quick Start

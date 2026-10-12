@@ -1,6 +1,6 @@
 # raincloud — Raincloud plots for distributional comparisons
 
-**Version 1.0.4** | 2026-09-30
+**Version 1.0.4** | 2026-10-12
 
 `raincloud` combines a kernel-density cloud, jittered observations, and a box-and-whisker summary in one graph. It is for Stata users comparing distribution shape, raw values, and robust summaries across one or more groups.
 

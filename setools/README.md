@@ -1,6 +1,6 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.5.10** | 2026-10-09
+**Version 1.5.10** | 2026-10-12
 
 `setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
 

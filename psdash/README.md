@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.5** | 2026-10-09
+**Version 1.7.5** | 2026-10-12
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 

@@ -1,6 +1,6 @@
 # massdesas — Batch convert SAS datasets to Stata format
 
-**Version 1.0.2** | 2026-08-05
+**Version 1.0.2** | 2026-10-12
 
 `massdesas` recursively converts SAS `.sas7bdat` datasets to Stata `.dta` files, preserving the directory tree and writing each result beside its source. It is for Stata users who need to batch-convert a collection of SAS files with optional lowercase variable names and controlled source-file deletion.
 

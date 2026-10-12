@@ -1,6 +1,6 @@
 # spaghetti — Longitudinal trajectory plots with mean overlays
 
-**Version 1.0.1** | 2026-08-05
+**Version 1.0.1** | 2026-10-12
 
 `spaghetti` draws individual trajectories for long-format repeated-measures data in one Stata graph. It is for analysts who need to inspect change over time by group, add mean and confidence-band overlays, or declutter large panels with sampling and highlights.
 

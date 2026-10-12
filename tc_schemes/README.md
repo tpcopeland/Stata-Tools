@@ -1,6 +1,6 @@
 # tc_schemes — Consolidated Stata graph schemes
 
-**Version 1.1.1** | 2026-08-05
+**Version 1.1.1** | 2026-10-12
 
 `tc_schemes` bundles 45 Stata graph schemes from blindschemes, schemepack, cleanplots, scheme-modern, and the original `rdbu`, `ki`, and `ki_black` schemes. It gives applied Stata users one installable catalog command for browsing schemes and checking that the package is present with `which tc_schemes`.
 

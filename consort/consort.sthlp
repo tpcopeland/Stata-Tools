@@ -461,6 +461,12 @@ On some systems you may need to use {cmd:pip3} instead of {cmd:pip}.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.1.2, 2026-09-29{p_end}
+
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
 
 
 {title:Also see}

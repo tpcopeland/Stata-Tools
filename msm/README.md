@@ -1,6 +1,6 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.12** | 2026-10-09
+**Version 1.4.12** | 2026-10-12
 
 `msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
 

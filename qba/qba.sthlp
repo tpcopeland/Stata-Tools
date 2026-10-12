@@ -255,4 +255,9 @@ biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116. doi:10.1093/ije/25.6.1107
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Version 1.1.5, 2026-10-09{p_end}
 
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+
 {hline}

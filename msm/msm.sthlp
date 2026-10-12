@@ -412,9 +412,12 @@ With {opt status}:
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-Department of Clinical Neuroscience
-{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.4.12, 2026-10-09{p_end}
+
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
 
 {hline}

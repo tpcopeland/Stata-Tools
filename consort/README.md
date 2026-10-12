@@ -1,6 +1,6 @@
 # consort — CONSORT-style exclusion flowcharts for observational research
 
-**Version 1.1.2** | 2026-09-29
+**Version 1.1.2** | 2026-10-12
 
 `consort` records sequential exclusions from a Stata dataset and renders the resulting participant-flow diagram. It is for analysts who need reproducible exclusion counts, publication-ready flowcharts, and optional machine-readable exports.
 

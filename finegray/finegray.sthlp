@@ -1093,6 +1093,8 @@ studies. {it:American Journal of Applied Mathematics} 2021; 9(5): 165-185.
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
 
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+
 
 {title:Also see}
 

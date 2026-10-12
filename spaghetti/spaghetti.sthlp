@@ -343,6 +343,11 @@ use a normal approximation: mean +/- invnormal(0.975) * SE.
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}Version 1.0.1, 2026-08-05{p_end}
 
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+
 
 {title:Also see}
 

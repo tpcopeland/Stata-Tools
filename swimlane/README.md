@@ -1,6 +1,6 @@
 # swimlane — Swimmer and state swimlane plots
 
-**Version 0.1.1** | 2026-09-30
+**Version 0.1.1** | 2026-10-12
 
 `swimlane` draws swimmer and state swimlane plots for clinical and longitudinal data. It accepts wide subject-level, long interval, or `stset` input and can also write the canonical lane table.
 

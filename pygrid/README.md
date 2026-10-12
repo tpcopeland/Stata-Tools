@@ -1,6 +1,6 @@
 # pygrid
 
-**Version 1.0.1** | 2026-08-30
+**Version 1.0.1** | 2026-10-12
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 

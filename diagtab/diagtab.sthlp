@@ -339,10 +339,15 @@ doi:10.1002/1097-0142(1950)3:1<32::aid-cncr2820030106>3.0.co;2-3.
 {helpb roctab}, {helpb diagt}
 {p_end}
 
-{marker author}{title:Author}
+{marker author}{...}
+{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-
 {pstd}Version 2.0.3, 2026-10-09{p_end}
+
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
 
 {hline}

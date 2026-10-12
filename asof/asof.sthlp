@@ -268,10 +268,12 @@ Select the latest record on or before the end of observable follow-up:
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland, Karolinska Institutet
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 0.1.1, 2026-09-30{p_end}
 
-{pstd}
-Version 0.1.1, 2026-09-30
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
 
 {hline}

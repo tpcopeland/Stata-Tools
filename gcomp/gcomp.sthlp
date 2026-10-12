@@ -1131,14 +1131,14 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
-
 {pstd}Version 2.0.3, 2026-10-09{p_end}
 
-{pstd}
-This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,
-London School of Hygiene and Tropical Medicine).
+{pstd}Report bugs and suggestions at{break}
+{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
+
+{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}
+
+{pstd}This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel, London School of Hygiene and Tropical Medicine).{p_end}
 
 
 {marker seealso}{...}

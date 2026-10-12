@@ -1,6 +1,6 @@
 # simtab — Monte Carlo simulation performance tables
 
-**Version 2.0.3** | 2026-10-09
+**Version 2.0.3** | 2026-10-12
 
 `simtab` computes and renders publication-ready performance tables from replication-level simulation results or pre-computed summaries. It exports styled Excel, CSV, Markdown, rendered-frame, and numeric-frame outputs.
 

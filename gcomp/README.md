@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and longitudinal interventions
 
-**Version 2.0.3** | 2026-10-09
+**Version 2.0.3** | 2026-10-12
 
 `gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
 

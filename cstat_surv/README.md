@@ -1,6 +1,6 @@
 # cstat_surv — Harrell's C-statistic after `stcox`
 
-**Version 1.0.2** | 2026-09-30
+**Version 1.0.2** | 2026-10-12
 
 `cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, a leave-one-out jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
 

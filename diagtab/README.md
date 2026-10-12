@@ -1,6 +1,6 @@
 # diagtab — Diagnostic accuracy and cutoff analysis
 
-**Version 2.0.3** | 2026-10-09
+**Version 2.0.3** | 2026-10-12
 
 `diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
 
