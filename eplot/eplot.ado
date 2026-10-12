@@ -1,4 +1,4 @@
-*! eplot Version 1.7.1  2026/10/12
+*! eplot Version 1.7.2  2026/10/12
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -1409,7 +1409,7 @@ program define _eplot_data, rclass
     _eplot_title_axisline, null(`null') lo(`xmin_pad') hi(`xmax_pad') ///
         posmax(`pos_max') hasvals(`_has_vals') valxpos(`val_xpos') ///
         text(`"`effect'"') `_eff_atnull' `horizontal' `logscale' ///
-        passthru(`options') plotregion(`plotregion') ///
+        passthru(`options') xlabspec(`xlabel') plotregion(`plotregion') ///
         favinside(`_fav_inside') reserve(`_fav_reserve') ///
         titletop(`_fav_titletop')
     local graphcmd `"`graphcmd'`_title_plots'"'
@@ -1434,11 +1434,19 @@ program define _eplot_data, rclass
     local graphcmd `"`graphcmd' legend(off)"'
 
     // Titles
+    // With a values column the plot region runs on under the column, so a
+    // title centred on it would sit off to the right; it is centred on the
+    // whole graph instead.  span comes first: title options merge, so the
+    // user's title() suboptions still apply.
+    local _tspan ""
+    if `_has_vals' local _tspan " title(, span)"
+    local _sspan ""
+    if `_has_vals' local _sspan " subtitle(, span)"
     if `"`title'"' != "" {
-        local graphcmd `"`graphcmd' title(`title')"'
+        local graphcmd `"`graphcmd'`_tspan' title(`title')"'
     }
     if `"`subtitle'"' != "" {
-        local graphcmd `"`graphcmd' subtitle(`subtitle')"'
+        local graphcmd `"`graphcmd'`_sspan' subtitle(`subtitle')"'
     }
     // Build heterogeneity stats string (plain text for graph note); hetrow
     // has already placed it as a row.
@@ -2949,7 +2957,7 @@ program define _eplot_estimates, rclass
     _eplot_title_axisline, null(`null') lo(`xmin_pad') hi(`xmax_pad') ///
         posmax(`pos_max') hasvals(`_has_vals') valxpos(`val_xpos') ///
         text(`"`effect'"') `_eff_atnull' `horizontal' `logscale' ///
-        passthru(`options') plotregion(`plotregion') ///
+        passthru(`options') xlabspec(`xlabel') plotregion(`plotregion') ///
         favinside(`_fav_inside') reserve(`_fav_reserve') ///
         titletop(`_fav_titletop')
     local graphcmd `"`graphcmd'`_title_plots'"'
@@ -2992,11 +3000,19 @@ program define _eplot_estimates, rclass
     }
 
     // Titles
+    // With a values column the plot region runs on under the column, so a
+    // title centred on it would sit off to the right; it is centred on the
+    // whole graph instead.  span comes first: title options merge, so the
+    // user's title() suboptions still apply.
+    local _tspan ""
+    if `_has_vals' local _tspan " title(, span)"
+    local _sspan ""
+    if `_has_vals' local _sspan " subtitle(, span)"
     if `"`title'"' != "" {
-        local graphcmd `"`graphcmd' title(`title')"'
+        local graphcmd `"`graphcmd'`_tspan' title(`title')"'
     }
     if `"`subtitle'"' != "" {
-        local graphcmd `"`graphcmd' subtitle(`subtitle')"'
+        local graphcmd `"`graphcmd'`_sspan' subtitle(`subtitle')"'
     }
     if `"`note'"' != "" {
         local graphcmd `"`graphcmd' note(`note')"'
@@ -3779,7 +3795,7 @@ program define _eplot_matrix, rclass
     _eplot_title_axisline, null(`null') lo(`xmin_pad') hi(`xmax_pad') ///
         posmax(`pos_max') hasvals(`_has_vals') valxpos(`val_xpos') ///
         text(`"`effect'"') `_eff_atnull' `horizontal' `logscale' ///
-        passthru(`options') plotregion(`plotregion') ///
+        passthru(`options') xlabspec(`xlabel') plotregion(`plotregion') ///
         favinside(`_fav_inside') reserve(`_fav_reserve') ///
         titletop(`_fav_titletop')
     local graphcmd `"`graphcmd'`_title_plots'"'
@@ -3801,8 +3817,16 @@ program define _eplot_matrix, rclass
     local graphcmd `"`graphcmd' legend(off)"'
 
     // Titles
-    if `"`title'"' != "" local graphcmd `"`graphcmd' title(`title')"'
-    if `"`subtitle'"' != "" local graphcmd `"`graphcmd' subtitle(`subtitle')"'
+    // With a values column the plot region runs on under the column, so a
+    // title centred on it would sit off to the right; it is centred on the
+    // whole graph instead.  span comes first: title options merge, so the
+    // user's title() suboptions still apply.
+    local _tspan ""
+    if `_has_vals' local _tspan " title(, span)"
+    local _sspan ""
+    if `_has_vals' local _sspan " subtitle(, span)"
+    if `"`title'"' != "" local graphcmd `"`graphcmd'`_tspan' title(`title')"'
+    if `"`subtitle'"' != "" local graphcmd `"`graphcmd'`_sspan' subtitle(`subtitle')"'
     if `"`note'"' != "" local graphcmd `"`graphcmd' note(`note')"'
 
     _eplot_plotregion_use, plotregion(`plotregion') prmargin(`_pr_margin') ///
@@ -4134,10 +4158,22 @@ program define _eplot_title_axisline, nclass
         syntax, NULL(string) LO(string) HI(string) POSMax(string) ///
             HASVals(integer) [VALXpos(string) TEXT(string asis) ATNULL ///
             HORizontal LOGScale PASSthru(string asis) PLOTRegion(string asis) ///
-            FAVInside(integer 0) RESERVE(string) TITLETop(string)]
+            FAVInside(integer 0) RESERVE(string) TITLETop(string) ///
+            XLABSpec(string asis)]
 
         local _xscale_max = `hi'
         if `hasvals' local _xscale_max = `valxpos'
+        // With a values column the x range runs on past the effect axis, so
+        // the effect title is centred on the visible axis, lo() to hi(), not
+        // on the plot region (a geometric midpoint on a log scale).
+        local _centeropt ""
+        if `hasvals' & "`horizontal'" != "" & "`atnull'" == "" {
+            if "`logscale'" != "" & `lo' > 0 & `hi' > 0 {
+                local _mid = exp((ln(`lo') + ln(`hi')) / 2)
+            }
+            else local _mid = (`lo' + `hi') / 2
+            local _centeropt "center(`=string(`_mid', "%18.0g")')"
+        }
         local ypad_hi = `posmax' + 1
         if "`horizontal'" != "" & `favinside' local ypad_hi = `posmax' + 2
         _eplot_effect_title, null(`null') lo(`lo') ///
@@ -4145,7 +4181,7 @@ program define _eplot_title_axisline, nclass
             at(`posmax') text(`text') ///
             size(`=cond(`hasvals', "medsmall", "")') ///
             `atnull' `horizontal' `logscale' passthru(`passthru') ///
-            reserve(`reserve') ///
+            reserve(`reserve') `_centeropt' xlabspec(`xlabspec') ///
             bottom(`=`posmax' + 1') titletop(`titletop')
         local _eff_title_opts `"`s(opts)'"'
         local _eff_title_after `"`s(after)'"'
@@ -5642,10 +5678,17 @@ program define _eplot_effect_title, sclass
         // of favors(, below) text hung under the tick labels, which the
         // title steps over; an atnull title is then hung from the same
         // edge, at bottom(), titletop() below it.
+        // center() is the midpoint of the visible effect axis when a values
+        // column extends the x range past it: the title is then hung there
+        // the same way as an atnull title, since twoway would centre it on
+        // the whole plot region, values column included.  A passed-through
+        // xtitle() text is then moved there too and blanked on the native
+        // title by s(after).
         syntax, NULL(real) LO(real) HI(real) AT(real) ///
             [TEXT(string asis) SIze(string) ATNULL HORizontal LOGScale ///
             PASSthru(string asis) RESERVE(real 0) ///
-            BOTTom(real 0) TITLETop(real 0)]
+            BOTTom(real 0) TITLETop(real 0) CENTer(real -999) ///
+            XLABSpec(string asis)]
 
         local _ax = cond("`horizontal'" != "", "x", "y")
         local _sizeopt ""
@@ -5667,9 +5710,79 @@ program define _eplot_effect_title, sclass
                 "(note: null(`null') lies outside the effect axis; effect(, atnull) ignored and the title centred)"
             local atnull ""
         }
+        local _centre 0
+        if "`atnull'" == "" & `center' != -999 & "`horizontal'" != "" {
+            // The centred title is the label of a second x axis and carries
+            // only a passed-through xtitle()'s text, size(), and color().
+            // Everything else leaves twoway's own title in place: nothing to
+            // centre (no effect() or xtitle() text); xtitle("") suppressing
+            // it; other xtitle() suboptions (placement, orientation, margin,
+            // ...), which the user set to control it; a user axis(2), which
+            // the second axis would collide with; xscale(alt), which moves
+            // the axis and its title to the top; and xscale(off), which
+            // hides both.
+            local _tt `"`text'"'
+            gettoken _tt : _tt
+            local _blank = (strtrim(`"`_tt'"') == "")
+            local _native 0
+            local _why ""
+            // eplot's own xlabel() is not passed through.
+            if regexm(`"`passthru' `xlabspec'"', "axis[(][ ]*2[ ]*[)]") local _native 1
+            local 0 `", `passthru'"'
+            capture syntax [, XTItle(string asis) *]
+            if _rc local _native 1
+            else if `"`xtitle'"' != "" {
+                // A repeated xtitle() is merged by twoway; it is left to it.
+                local _xt1 `"`xtitle'"'
+                local 0 `", `options'"'
+                capture syntax [, XTItle(string asis) *]
+                if _rc | `"`xtitle'"' != "" {
+                    local _native 1
+                    local _why "a repeated xtitle()"
+                }
+                local xtitle `"`_xt1'"'
+                _parse comma _ptext _prest : xtitle
+                local _ptext = strtrim(`"`_ptext'"')
+                if `"`_ptext'"' == `""""' local _native 1
+                else if `"`_ptext'"' != "" local _blank 0
+                local 0 `"`_prest'"'
+                capture syntax [, SIze(string) COLor(string asis)]
+                if _rc & `"`_why'"' == "" {
+                    local _native 1
+                    local _why "xtitle() options other than size() and color()"
+                }
+            }
+            // xscale() may be repeated; any one of them asking for alt or off.
+            local _rest `", `passthru'"'
+            local _more 1
+            while `_more' & !`_native' {
+                local 0 `"`_rest'"'
+                capture syntax [, XSCale(string asis) *]
+                if _rc | `"`xscale'"' == "" {
+                    local _more 0
+                    continue
+                }
+                local _rest `", `options'"'
+                local 0 `", `xscale'"'
+                capture syntax [, ALT OFF *]
+                if _rc == 0 & "`alt'`off'" != "" local _native 1
+            }
+            if `"`_why'"' != "" {
+                display as text ///
+                    "(note: `_why' `=cond(substr("`_why'", 1, 2) == "a ", "leaves", "leave")' the axis title to twoway, centred on the plot region, which runs on under the values column)"
+            }
+            if `_blank' | `_native' local center = -999
+        }
+        if "`atnull'" == "" & `center' != -999 & "`horizontal'" != "" {
+            local atnull "atnull"
+            local null = `center'
+            local _centre 1
+        }
+        local _user_text 0
         if "`atnull'" != "" {
             // The title's size and color still come from a passed-through
-            // xtitle() (ytitle() when vertical); its text comes from effect().
+            // xtitle() (ytitle() when vertical); its text comes from effect(),
+            // or, when centring, from that xtitle() if it gives any.
             local _tsize `"`size'"'
             local _tcolor ""
             local _tcol ""
@@ -5678,13 +5791,19 @@ program define _eplot_effect_title, sclass
             if _rc == 0 {
                 local _t `"``_ax'title'"'
                 if `"`_t'"' != "" {
-                    gettoken _ttext _trest : _t, parse(",")
-                    if `"`_ttext'"' == "," {
-                        local _trest `", `_trest'"'
-                        local _ttext ""
-                    }
+                    // _parse comma keeps the text's quotes, so several
+                    // quoted lines survive.
+                    _parse comma _ttext _trest : _t
                     local _ttext = strtrim(`"`_ttext'"')
-                    if !inlist(`"`_ttext'"', "", `""""') {
+                    if !inlist(`"`_ttext'"', "", `""""') & `_centre' {
+                        if substr(`"`_ttext'"', 1, 1) == char(34) | ///
+                            substr(`"`_ttext'"', 1, 2) == char(96) + char(34) {
+                            local text `"`_ttext'"'
+                        }
+                        else local text `"`"`_ttext'"'"'
+                        local _user_text 1
+                    }
+                    else if !inlist(`"`_ttext'"', "", `""""') {
                         display as error ///
                             "`_ax'title() text may not be combined with effect(, atnull); put the title in effect()"
                         exit 198
@@ -5716,7 +5835,11 @@ program define _eplot_effect_title, sclass
                 local plot `"(scatteri `_n' `_a', msymbol(none) yaxis(2))"'
                 local _angle " angle(90)"
             }
-            local opts `"`_ax'title("") `_ax'title("", axis(2)) `_ax'scale(axis(2) `_log'range(`_lo' `_hi') noline alt) `_ax'label(`_n' `text', axis(2) noticks nogrid`_angle' labstyle(axis_title)`_labsize'`_tcolor' labgap(*6))"'
+            // An axis label takes several lines only inside compound quotes.
+            local _lab `"`text'"'
+            local _nlines : word count `text'
+            if `_nlines' > 1 local _lab `"`"`text'"'"'
+            local opts `"`_ax'title("") `_ax'title("", axis(2)) `_ax'scale(axis(2) `_log'range(`_lo' `_hi') noline alt) `_ax'label(`_n' `_lab', axis(2) noticks nogrid`_angle' labstyle(axis_title)`_labsize'`_tcolor' labgap(*6))"'
             if `reserve' > 0 {
                 // Under favors(, below) a second axis would stack under the
                 // tick labels, beneath the hung favors row, at a distance
@@ -5748,6 +5871,18 @@ program define _eplot_effect_title, sclass
                     }
                 }
             }
+        }
+
+        // A centred title that took its text from a passed-through xtitle()
+        // blanks that xtitle(), which follows these options, on the native
+        // title (keeping the room favors(, below) needs).
+        if `_user_text' {
+            if `reserve' > 0 {
+                local _ts ""
+                if `"`_tsize'"' != "" local _ts `" size(`_tsize')"'
+                local after `"xtitle(" ",`_ts' margin(t+`_r'))"'
+            }
+            else local after `"xtitle("")"'
         }
 
         sreturn clear

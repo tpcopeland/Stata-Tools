@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.1  12oct2026}{...}
+{* *! version 1.7.2  12oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -627,9 +627,21 @@ column header takes the default text and the axis title drops its
 " ({it:#}% CI)" suffix, so the two do not repeat each other.
 
 {pmore}
+With {opt values} (horizontal layout), the plot region runs on under the values
+column, so the title is centred on the drawn effect axis instead of on the plot
+region, drawn the way an {cmd:atnull} title is. A passed-through {cmd:xtitle()}
+may give the text and {cmd:size()} and {cmd:color()}, which are carried over.
+{cmd:twoway} places the title itself, centred on the plot region, when
+{cmd:xtitle("")} suppresses it, when {cmd:xtitle()} has any other suboption
+(such as {cmd:placement()}, {cmd:justification()}, {cmd:orientation()}, or
+{cmd:margin()}) or is given more than once (in both cases a note says so), and
+when {cmd:xscale(alt)} moves the axis to the top or {cmd:xscale(off)} hides it.
+An option naming {cmd:axis(2)} exits with error 198, as {cmd:eplot} draws a
+single effect axis.
+
+{pmore}
 {cmd:atnull} places the title directly under the {opt null()} value on its own
-row, instead of centred on the plot region, which with {opt values} runs on
-under the values column. For example,
+row, instead of centred on the effect axis. For example,
 {cmd:effect("Time ratio", atnull)}. {cmd:effect(, atnull)} keeps the default
 title. A title that itself ends in ", atnull" is read as the suboption. The
 title's size and color still come from {cmd:xtitle(, size() color())}
@@ -985,7 +997,11 @@ sets the CI line width. Default is {cmd:medium}.
 {opt title(string)}, {opt subtitle(string)}, and {opt note(string)}
 set the graph title, subtitle, and note. Without {opt note()}, data and frame
 modes write an automatic note when pooled diamonds or heterogeneity statistics
-are drawn; {cmd:note("")} removes it.
+are drawn; {cmd:note("")} removes it. With a {opt values} column the title and
+subtitle are centred on the whole graph ({cmd:span}), as the plot region then
+runs on under the column; suboptions given in {opt title()} and
+{opt subtitle()} still apply, and {cmd:title(}{it:...}{cmd:, nospan)} centres a
+title on the plot region again.
 
 {phang}
 {opt export(framename[, replace])} writes the plotted rows, in display order,
@@ -1335,7 +1351,7 @@ alone.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.1, 2026-10-12{p_end}
+{pstd}Version 1.7.2, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

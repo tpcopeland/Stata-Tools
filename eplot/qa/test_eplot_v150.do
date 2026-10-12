@@ -501,7 +501,8 @@ capture noisily {
     eplot es lo hi, labels(lab) type(t) values null(1) effect("Time ratio") ///
         vtitle("Time ratio (95% CI)") name(v150_t15, replace)
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', `"xtitle(`"Time ratio"', size(medsmall))"') > 0
+    * Since 1.7.2 the title is the axis(2) label centred on the drawn axis.
+    assert strpos(`"`cmd'"', `"`"Time ratio"', axis(2) noticks nogrid labstyle(axis_title) labsize(medsmall)"') > 0
     assert strpos(`"`cmd'"', `"`"{bf:Time ratio (95% CI)}"'"') > 0
     _v150_svgtext, graph(v150_t15) text("Time ratio (95% CI)")
     assert r(n) == 1 & r(bold) == 1

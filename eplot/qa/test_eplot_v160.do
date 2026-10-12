@@ -809,12 +809,14 @@ capture noisily {
     assert _rc == 198
     * values: the default axis title drops the CI suffix the header carries.
     eplot es lo hi, labels(lab) type(t) logscale values nodraw
-    assert strpos(`"`r(cmd)'"', `"xtitle(`"Estimate"', size(medsmall))"') > 0
+    * Since 1.7.2 the title is the axis(2) label centred on the drawn axis.
+    assert strpos(`"`r(cmd)'"', `"`"Estimate"', axis(2) noticks nogrid labstyle(axis_title) labsize(medsmall)"') > 0
     assert strpos(`"`r(cmd)'"', "{bf:Estimate (95% CI)}") > 0
     * A user effect() is never shortened.
     eplot es lo hi, labels(lab) type(t) logscale values ///
         effect("Ratio (95% CI)") nodraw
-    assert strpos(`"`r(cmd)'"', `"xtitle(`"Ratio (95% CI)"', size(medsmall))"') > 0
+    * Since 1.7.2 the title is the axis(2) label centred on the drawn axis.
+    assert strpos(`"`r(cmd)'"', `"`"Ratio (95% CI)"', axis(2) noticks nogrid labstyle(axis_title) labsize(medsmall)"') > 0
 }
 if _rc == 0 local ++pass_count
 else {
