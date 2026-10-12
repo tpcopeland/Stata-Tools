@@ -73,6 +73,9 @@ capture noisily {
 
     quietly logdoc using "`source_smcl'", output("`output_html'") format(html) replace quiet
     confirm file "`output_html'"
+    * the 31-character-basename conversion carried the source text through
+    local hit = strpos(fileread("`output_html'"), "31_CHAR_SENTINEL")
+    assert `hit' > 0
     assert !missing(r(nblocks))
     assert r(nblocks) > 0
     assert protected[1] == 11

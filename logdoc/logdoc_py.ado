@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.1.9  2026/09/30
+*! logdoc_py Version 1.2.0  2026/10/12
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -50,8 +50,20 @@ program define logdoc_py, rclass
     _logdoc_py_select, python(`"`python'"') ///
         selected(_selected) version(_version) source(_source) ///
         renderer(_renderer) config(_config_path) configread(_config_read) ///
-        `verbose'
+        failsource(_failsource) failpython(_failpython) `verbose'
 
+    if `"`_selected'"' == "" & "`_failsource'" == "global" {
+        display as error `"Python from {c S|}LOGDOC_PYTHON not usable: `_failpython'"'
+        display as error "clear it with: global LOGDOC_PYTHON, or repair it with: logdoc_py, python(<working python>) set"
+        exit 601
+    }
+    if `"`_selected'"' == "" & "`_failsource'" == "config" {
+        local _where "the project ./.logdocrc"
+        if `"`_config_path'"' != ".logdocrc" local _where "the global ~/.logdocrc"
+        display as error `"Python from python= in `_where' not usable: `_failpython'"'
+        display as error "edit or remove python= in that file, or repair it with: logdoc_py, python(<working python>) save replace"
+        exit 601
+    }
     if `"`_selected'"' == "" {
         display as error "Python 3.6+ not found"
         display as error "run logdoc_py, verbose to see candidate checks"
@@ -174,7 +186,8 @@ program define _logdoc_py_select
     capture noisily {
 
     syntax , selected(name) version(name) source(name) renderer(name) ///
-        config(name) configread(name) [PYthon(string) Verbose]
+        config(name) configread(name) failsource(name) failpython(name) ///
+        [PYthon(string) Verbose]
 
     local scriptpath ""
     _logdoc_py_find_script, result(scriptpath)
@@ -197,9 +210,9 @@ program define _logdoc_py_select
         local src`n' "option"
     }
     else {
-        local ++n
-        local cand`n' "Stata python:"
-        local src`n' "stata"
+        * Same precedence as logdoc itself: $LOGDOC_PYTHON, then .logdocrc
+        * python=, then Stata's python:, then PATH defaults.  Explicit
+        * settings outrank Stata python and never fall through if invalid.
         if `"$LOGDOC_PYTHON"' != "" {
             local ++n
             local cand`n' `"$LOGDOC_PYTHON"'
@@ -210,6 +223,9 @@ program define _logdoc_py_select
             local cand`n' `"`config_python'"'
             local src`n' "config"
         }
+        local ++n
+        local cand`n' "Stata python:"
+        local src`n' "stata"
         if "`c(os)'" == "Windows" {
             foreach default in "py -3" "python" "python3" {
                 local ++n
@@ -229,6 +245,8 @@ program define _logdoc_py_select
     local chosen ""
     local chosen_version ""
     local chosen_source ""
+    local bad_source ""
+    local bad_python ""
     forvalues i = 1/`n' {
         local _cand_i `"`cand`i''"'
         local _src_i "`src`i''"
@@ -250,8 +268,16 @@ program define _logdoc_py_select
             local chosen_source "`r(source)'"
             continue, break
         }
+        * An explicitly selected Python never falls through to another one.
+        if inlist("`_src_i'", "global", "config") {
+            local bad_source "`_src_i'"
+            local bad_python `"`_cand_i'"'
+            continue, break
+        }
     }
 
+    c_local `failsource' "`bad_source'"
+    c_local `failpython' `"`bad_python'"'
     c_local `selected' `"`chosen'"'
     c_local `version' `"`chosen_version'"'
     c_local `source' "`chosen_source'"
@@ -492,44 +518,44 @@ program define _logdoc_py_find_script
 
     syntax , result(name)
 
+    * Order (identical in logdoc's _logdoc_find_script): beside the resolved
+    * logdoc.ado, then the sibling py/ directory (net install puts
+    * logdoc_render.py in PLUS/py/), then any other adopath copy.  The
+    * current directory is only a last resort.
     local _found ""
-    capture findfile logdoc_render.py
+    capture findfile logdoc.ado
     if _rc == 0 {
-        local path "`r(fn)'"
-        _logdoc_py_expand_tilde, path(`"`path'"') result(path)
-        capture confirm file "`path'"
-        if !_rc local _found `"`path'"'
-    }
-
-    if `"`_found'"' == "" {
-        foreach ado in logdoc_py.ado logdoc.ado {
-            capture findfile `ado'
-            if _rc == 0 {
-                local adopath "`r(fn)'"
-                _logdoc_py_expand_tilde, path(`"`adopath'"') result(adopath)
-                _logdoc_py_dirname, path(`"`adopath'"') result(adodir)
-                if "`adodir'" != "" {
-                    capture confirm file "`adodir'/logdoc_render.py"
-                    if !_rc {
-                        local _found `"`adodir'/logdoc_render.py"'
-                        continue, break
-                    }
+        local adopath "`r(fn)'"
+        _logdoc_py_expand_tilde, path(`"`adopath'"') result(adopath)
+        _logdoc_py_dirname, path(`"`adopath'"') result(adodir)
+        if "`adodir'" != "" {
+            foreach d in "`adodir'" "`adodir'/../py" {
+                if `"`_found'"' == "" {
+                    capture confirm file "`d'/logdoc_render.py"
+                    if !_rc local _found `"`d'/logdoc_render.py"'
                 }
             }
         }
     }
-
     if `"`_found'"' == "" {
-        capture confirm file "logdoc_render.py"
-        if !_rc local _found "logdoc_render.py"
+        capture findfile logdoc_render.py
+        if _rc == 0 {
+            local path "`r(fn)'"
+            _logdoc_py_expand_tilde, path(`"`path'"') result(path)
+            * "." is on the adopath and is reported as ./name; skip it
+            local incwd = strpos("`path'", "/") == 0 & strpos("`path'", "\") == 0
+            if substr("`path'", 1, 2) == "./" | substr("`path'", 1, 2) == ".\" {
+                local incwd 1
+            }
+            capture confirm file "`path'"
+            if !_rc & !`incwd' local _found `"`path'"'
+        }
     }
-    if `"`_found'"' == "" {
-        capture confirm file "../logdoc_render.py"
-        if !_rc local _found "../logdoc_render.py"
-    }
-    if `"`_found'"' == "" {
-        capture confirm file "logdoc/logdoc_render.py"
-        if !_rc local _found "logdoc/logdoc_render.py"
+    foreach cand in "logdoc_render.py" "../logdoc_render.py" "logdoc/logdoc_render.py" {
+        if `"`_found'"' == "" {
+            capture confirm file "`cand'"
+            if !_rc local _found "`cand'"
+        }
     }
     c_local `result' `"`_found'"'
 
@@ -577,9 +603,15 @@ program define _logdoc_py_read_config
         file open `fh' using `"`cfg'"', read text
         file read `fh' line
         while r(eof) == 0 {
-            if regexm(`"`line'"', "^[ 	]*python[ 	]*=(.*)$") {
-                local value = strtrim(regexs(1))
-                local value_path `"`cfg'"'
+            * Grammar shared with logdoc: key=value or key = value, whitespace
+            * trimmed, # comment lines skipped, key case-insensitive.
+            local _ltrim = ustrtrim(`"`line'"')
+            if substr(`"`_ltrim'"', 1, 1) != "#" & ///
+                regexm(`"`_ltrim'"', "^([A-Za-z][A-Za-z0-9_]*)[ 	]*=[ 	]*(.*)$") {
+                if lower(regexs(1)) == "python" {
+                    local value = ustrtrim(regexs(2))
+                    local value_path `"`cfg'"'
+                }
             }
             file read `fh' line
         }
@@ -627,7 +659,9 @@ program define _logdoc_py_save_config, rclass
         file open `infh' using "`cfg'", read text
         file read `infh' line
         while r(eof) == 0 {
-            if regexm(`"`line'"', "^[ 	]*python[ 	]*=") {
+            local _ltrim = ustrtrim(`"`line'"')
+            if substr(`"`_ltrim'"', 1, 1) != "#" & ///
+                regexm(`"`_ltrim'"', "^[Pp][Yy][Tt][Hh][Oo][Nn][ 	]*=") {
                 local saw_python 1
                 if "`replace'" == "" {
                     display as error ".logdocrc already contains python=; specify replace to update it"

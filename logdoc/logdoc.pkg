@@ -1,5 +1,5 @@
 v 3
-d 'LOGDOC': Convert Stata log files to HTML, Markdown, Word, LaTeX, or PDF
+d 'LOGDOC': Convert Stata logs to HTML, Markdown, Quarto, Word, LaTeX, or PDF
 d
 d logdoc converts Stata .smcl, .log, or .do files into styled,
 d self-contained documents. Output formats include HTML, Markdown,
@@ -8,7 +8,7 @@ d HTML output is faithful by default: Stata's monospace alignment,
 d SMCL input/result/error coloring, and table spacing are preserved.
 d Syntax highlighting, parsed HTML tables, collapsible output, copy
 d buttons, and Download .do controls are opt-in. Uses Python 3
-d (standard library only, no external dependencies).
+d (standard library only; PDF output needs xhtml2pdf or wkhtmltopdf).
 d Combine mode merges several logs into one report; accent() applies
 d a simple brand color without custom CSS. Global ~/.logdocrc defaults
 d can be overridden by project-level .logdocrc files.
@@ -26,7 +26,7 @@ d KW: Quarto
 d
 d Requires: Stata version 16, Python 3.6+
 d
-d Distribution-Date: 20260930
+d Distribution-Date: 20261012
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -37,6 +37,4 @@ f logdoc.sthlp
 f logdoc_py.ado
 f logdoc_py.sthlp
 f logdoc_render.py
-f logdoc_light.css
-f logdoc_dark.css
 f logdoc.dlg

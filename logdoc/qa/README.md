@@ -18,7 +18,7 @@ stata-mp -b do test_logdoc_v117.do         # one standalone suite
 
 ## Conventions
 
-- `test_*` covers functional and regression behavior; `validation_*` checks known output content and invariants. There is no `crossval_*` layer because this deterministic renderer has no independent external implementation.
+- `test_*` covers functional and regression behavior; `validation_*` checks known output content and invariants. There is no `crossval_*` layer; faithful layout is checked against Stata's own `translate` output in `test_logdoc_render_fidelity.do`.
 - Every runnable suite ends with `RESULT: <name> tests=N pass=N fail=N` and exits nonzero when `fail` is nonzero; the full lane permits no skips.
 - The curated runner sandboxes `PLUS` and `PERSONAL` under `c(tmpdir)`, reinstalls `logdoc` from the package directory before each suite, and restores the caller's sysdirs.
 - Paths derive from `c(pwd)`; no suite contains a machine-local repository path.
@@ -49,12 +49,18 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | `test_logdoc_wrapped_output.do` | Text-log lines wrapped at the linesize: output continuations stay in their output fence whatever they start with, wrapped lines keep their trailing blanks, wrapped commands stay together, and a wrapped closing log header is skipped whole |
 | `test_logdoc_hostile.do` | Shell-hostile paths, quoted space-containing paths, 31-character basenames, extended missing values, and caller-data preservation |
 | `test_logdoc_errors.do` | Exact early and late public error codes, output non-creation, active-estimate preservation, and varabbrev restoration |
+| `test_logdoc_render_fidelity.do` | Faithful layout against Stata's own `translate` output for estimation and table logs, inline SMCL tag text, literal braces in text logs, user `name:` output lines, image-only graph embedding, and unterminated tables |
+| `test_logdoc_config_run.do` | Python resolution order and invalid explicit selections, `.logdocrc` grammar and quiet/verbose precedence, `run` version and `r(input)`, `replay, format()` paths, `start` output collisions, PDF temp cleanup, and dispatcher return forwarding |
+| `test_logdoc_fixture_paths.do` | Hostile renderer/interpreter paths, Unicode output, replay cache, and caller-state preservation |
 
 ### Validation
 
 | File | Covers |
 |---|---|
 | `validation_logdoc.do` | Known-answer HTML/Markdown/SMCL rendering and artifact-content validation |
+| `validation_logdoc_fixture_contract.do` | Wrapped log/SMCL content in Markdown and HTML, extensionless output refusal, and Python renderer resolution |
+| `validation_logdoc_fixture_primitives.do` | Opaque transcript rendering and caller-state preservation across renderer and interpreter checks |
+| `validation_logdoc_precision.do` | Exact numeric tokens retained in generated text |
 
 ### Support
 
@@ -63,18 +69,19 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | `run_all.do` | Curated `quick`, `core`, and `full` lane runner |
 | `tools/check_review_regressions.py` | Independent fixture builder and artifact-content oracle for the review regressions |
 | `tools/_logdoc_check_sthlp_width.py` | Self-contained Stata Viewer column-width oracle for released help files |
+| `_qa_fx_a7.do`, `_qa_state.do`, `_qa_hostile.do` | Fixture and caller-state helpers loaded by the fixture suites |
 
 ## Coverage map
 
 | Command/subcommand | Functional | Validation | Also exercised in |
 |---|---|---|---|
-| `logdoc` conversion | `test_logdoc.do`, `test_logdoc_wrapped_output.do` | `validation_logdoc.do` | Documentation examples, error contracts, Phase 7–8, refactor, and version regressions through v1.1.9 |
-| `logdoc start` / `stop` | Phase 7–8 | — | Refactor guards and version regressions |
+| `logdoc` conversion | `test_logdoc.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_render_fidelity.do` | `validation_logdoc.do`, fixture and precision validations | Documentation examples, error contracts, Phase 7–8, refactor, and version regressions through v1.1.9 |
+| `logdoc start` / `stop` | Phase 7–8, `test_logdoc_config_run.do` | — | Refactor guards and version regressions |
 | `logdoc batch` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.9 |
 | `logdoc combine` | Phase 7–8 | — | Refactor guards and version regressions through v1.1.9 |
 | `logdoc diff` | Phase 7–8 | — | Refactor guards |
-| `logdoc replay` | Phase 7–8 | — | Refactor guards and version regressions |
-| `logdoc_py` | `test_logdoc_py.do` | — | Error contracts and version/release-surface regressions through v1.1.9 |
+| `logdoc replay` | Phase 7–8, `test_logdoc_config_run.do` | — | Refactor guards and version regressions |
+| `logdoc_py` | `test_logdoc_py.do`, `test_logdoc_config_run.do` | — | Error contracts and version/release-surface regressions through v1.1.9 |
 
 ## Lane membership
 
@@ -83,25 +90,5 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | Lane | Suites |
 |---|---|
 | `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
-| `core` | `quick` plus `validation_logdoc.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, and `test_logdoc_v119.do` |
+| `core` | `quick` plus `validation_logdoc_precision.do`, `validation_logdoc_fixture_contract.do`, `test_logdoc_fixture_paths.do`, `validation_logdoc_fixture_primitives.do`, `validation_logdoc.do`, `test_logdoc_render_fidelity.do`, `test_logdoc_config_run.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, and `test_logdoc_v119.do` |
 | `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |
-
-archetypes: A7(logdoc logdoc_py)
-
-## Canonical fixture adoption
-
-Real wrapped log/SMCL content in Markdown and HTML, existing extensionless output refusal and actual Python renderer resolution. Trailing line blanks are normalized by the renderer; this suite asserts semantic text, not byte identity. These are implemented suites; independent adoption signoff is pending. Remaining unexercised public routes and generic minima remain visible in the fixture census.
-
-| File | Coverage | Lanes |
-| --- | --- | --- |
-| `validation_logdoc_fixture_contract.do` | Canonical fixture truth and hostile contracts | core/full |
-| `test_logdoc_fixture_paths.do` | Actual hostile renderer/interpreter refusal, Unicode output, replay-cache and caller state contracts | core/full |
-| `validation_logdoc_fixture_primitives.do` | Actual opaque transcript rendering and full hostile caller preservation on renderer and interpreter checks | core/full |
-
-## Numerical precision suites
-
-These suites compare actual returned, dataset, text or workbook values to independently derived numerical truth. Lane membership below follows the existing runner; full-lane results after these additions remain unverified.
-
-| File | Scope | Cases | Lanes |
-| --- | --- | --- | --- |
-| `validation_logdoc_precision.do` | Exact numerical tokens retained in actual generated text. | 1 | core/full |

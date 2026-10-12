@@ -25,6 +25,26 @@ local workspace_root = regexr("`repo_root'", "/[^/]+$", "")
 capture ado uninstall logdoc
 net install logdoc, from("`pkgdir'") replace
 
+* Line scanner for output-content assertions: r(n) lines containing the token,
+* r(first) the first such line number, r(fence1) the first line starting with a
+* triple backtick fence, r(line1) the first line of the file.
+capture program drop _lgqa_scan
+program define _lgqa_scan, rclass
+    args file token
+    mata: _lgqa_lines = cat(st_local("file"))
+    mata: _lgqa_hit = selectindex(strpos(_lgqa_lines, st_local("token")) :> 0)
+    mata: _lgqa_fence = selectindex(substr(_lgqa_lines, 1, 3) :== char(96) + char(96) + char(96))
+    mata: st_local("n", strofreal(length(_lgqa_hit)))
+    mata: st_local("first", strofreal(length(_lgqa_hit) ? _lgqa_hit[1] : 0))
+    mata: st_local("fence1", strofreal(length(_lgqa_fence) ? _lgqa_fence[1] : 0))
+    mata: st_local("line1", length(_lgqa_lines) ? _lgqa_lines[1] : "")
+    mata: mata drop _lgqa_lines _lgqa_hit _lgqa_fence
+    return scalar n = `n'
+    return scalar first = `first'
+    return scalar fence1 = `fence1'
+    return local line1 `"`line1'"'
+end
+
 local test_pass = 0
 local test_fail = 0
 local test_total = 0
@@ -67,9 +87,7 @@ capture erase "`outdir'/test_title.html"
 capture erase "`outdir'/test_replace.html"
 capture erase "`outdir'/test_qmd.qmd"
 
-* -----------------------------------------------------------------------
 * T1: Basic HTML generation
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_basic.html") replace
@@ -90,15 +108,25 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T2: Markdown generation
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_md.md") ///
         format(md) replace
     confirm file "`outdir'/test_md.md"
     assert "`r(format)'" == "md"
+    * YAML front matter first, then a fenced block holding the command, then output
+    _lgqa_scan "`outdir'/test_md.md" "sysuse auto, clear"
+    assert `"`r(line1)'"' == "---"
+    assert r(n) == 1
+    assert !missing(r(fence1))
+    assert !missing(r(first))
+    assert r(fence1) > 0 & r(first) == r(fence1) + 1
+    local t2_cmdline = r(first)
+    _lgqa_scan "`outdir'/test_md.md" "6165.257"
+    assert !missing(r(n))
+    assert !missing(r(first))
+    assert r(n) == 1 & r(first) > `t2_cmdline'
 }
 if _rc == 0 {
     display as result "PASS: T2 - Markdown generation"
@@ -109,15 +137,19 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T3: Dark theme
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_dark.html") ///
         theme(dark) replace
     confirm file "`outdir'/test_dark.html"
     assert "`r(theme)'" == "dark"
+    * dark CSS background present in the dark file and absent from the light T1 file
+    _lgqa_scan "`outdir'/test_dark.html" "#191a1f"
+    assert !missing(r(n))
+    assert r(n) > 0
+    _lgqa_scan "`outdir'/test_basic.html" "#191a1f"
+    assert r(n) == 0
 }
 if _rc == 0 {
     display as result "PASS: T3 - Dark theme"
@@ -128,9 +160,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T4: Preformatted option
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_pre.html") ///
@@ -146,9 +176,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T5: Nofold option
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_nofold.html") ///
@@ -164,9 +192,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T6: Format both
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_both.html") ///
@@ -183,9 +209,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T7: Custom title
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_title.html") ///
@@ -201,9 +225,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T8: Replace option required
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture {
     * File already exists from T1
@@ -218,9 +240,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T9: Replace option works
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_replace.html") replace
@@ -237,44 +257,54 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T10: PDF generation
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily logdoc_py, pdf quiet
-local has_pdf_converter = (_rc == 0)
+local pdf_check_rc = _rc
+local pdf_ok = 0
+if `pdf_check_rc' == 0 local pdf_ok = (r(pdf_ok) == 1)
 capture erase "`outdir'/test_pdf.pdf"
+tempfile pdflog
+capture log close _t10log
+quietly log using "`pdflog'", text replace name(_t10log)
 capture noisily logdoc using "`smcl_fixture'", ///
     output("`outdir'/test_pdf.pdf") format(pdf) replace
 local pdf_rc = _rc
-local pdf_content_ok = 0
-if `pdf_rc' == 0 {
-    capture noisily {
+quietly log close _t10log
+capture noisily {
+    if `pdf_ok' {
+        * converter present: conversion must succeed and write a real PDF
+        assert `pdf_check_rc' == 0
+        assert `pdf_rc' == 0
         confirm file "`outdir'/test_pdf.pdf"
         tempname pdfh
         file open `pdfh' using "`outdir'/test_pdf.pdf", read text
         file read `pdfh' pdfsig
         file close `pdfh'
-        assert strpos("`pdfsig'", "%PDF") == 1
+        assert strpos(`"`pdfsig'"', "%PDF") == 1
     }
-    local pdf_content_ok = (_rc == 0)
+    else {
+        * no converter: both entry points fail with the documented rc and message
+        display as text "NOTE: T10 - no PDF converter; asserting the dependency error contract"
+        assert `pdf_check_rc' == 601
+        assert `pdf_rc' == 601
+        capture confirm file "`outdir'/test_pdf.pdf"
+        assert _rc != 0
+        _lgqa_scan "`pdflog'" "no PDF converter found"
+        assert !missing(r(n))
+        assert r(n) >= 1
+    }
 }
-if `has_pdf_converter' & `pdf_rc' == 0 & `pdf_content_ok' {
-    display as result "PASS: T10 - PDF generation"
-    local test_pass = `test_pass' + 1
-}
-else if !`has_pdf_converter' & inlist(`pdf_rc', 198, 601) {
-    display as result "PASS: T10 - PDF dependency correctly enforced"
+if _rc == 0 {
+    display as result "PASS: T10 - PDF generation (converter available=`pdf_ok')"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error "FAIL: T10 - PDF generation (dependency=`has_pdf_converter', rc=`pdf_rc', content=`pdf_content_ok')"
+    display as error "FAIL: T10 - PDF generation (converter=`pdf_ok', check rc=`pdf_check_rc', rc=`pdf_rc')"
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T11: Invalid theme
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture {
     logdoc using "`smcl_fixture'", output("`outdir'/bad.html") theme(blue) replace
@@ -288,9 +318,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T12: Missing input file
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture {
     logdoc using "/nonexistent/file.smcl", output("`outdir'/bad.html") replace
@@ -304,9 +332,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T13: Run option rejects non-.do file
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture {
     logdoc using "`smcl_fixture'", output("`outdir'/bad.html") run replace
@@ -320,9 +346,11 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
+* run-mode children write their batch .log into the cwd; keep it out of qa/
+local run_cwd "`c(pwd)'"
+quietly cd "`outdir'"
+
 * T14: Run option with actual .do file
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     * Create a simple .do file
@@ -349,9 +377,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T14b: Run option sets child Stata linesize to maximum
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 local _old_linesize = c(linesize)
 capture noisily {
@@ -393,9 +419,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T14c: Run option still works when .do file relies on batch log
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 local _old_linesize = c(linesize)
 capture noisily {
@@ -435,9 +459,9 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
+quietly cd "`run_cwd'"
+
 * T15: Log file output
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     * Test with a .log file (plain text)
@@ -464,9 +488,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T16: Return values
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_returns.html") ///
@@ -485,9 +507,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T17: Preformatted + nofold combined
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_prenofold.html") ///
@@ -503,38 +523,34 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T18: Raincloud SMCL (different structure)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
-capture confirm file "`rc_fixture'"
+capture noisily {
+    logdoc using "`rc_fixture'", output("`outdir'/test_raincloud.html") replace
+    confirm file "`outdir'/test_raincloud.html"
+}
 if _rc == 0 {
-    capture noisily {
-        logdoc using "`rc_fixture'", output("`outdir'/test_raincloud.html") replace
-        confirm file "`outdir'/test_raincloud.html"
-    }
-    if _rc == 0 {
-        display as result "PASS: T18 - Raincloud SMCL conversion"
-        local test_pass = `test_pass' + 1
-    }
-    else {
-        display as error "FAIL: T18 - Raincloud SMCL (rc = " _rc ")"
-        local test_fail = `test_fail' + 1
-    }
+    display as result "PASS: T18 - Raincloud SMCL conversion"
+    local test_pass = `test_pass' + 1
 }
 else {
-    display as text "SKIP: T18 - Raincloud fixture not found"
-    local test_total = `test_total' - 1
+    display as error "FAIL: T18 - Raincloud SMCL (rc = " _rc ")"
+    local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T19: Nodots option
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_nodots.html") ///
         nodots replace
     confirm file "`outdir'/test_nodots.html"
+    * prompt stripped from the command line; default output keeps it
+    _lgqa_scan "`outdir'/test_nodots.html" ">. summarize price mpg weight"
+    assert r(n) == 0
+    _lgqa_scan "`outdir'/test_nodots.html" ">summarize price mpg weight<"
+    assert r(n) == 1
+    _lgqa_scan "`outdir'/test_basic.html" ">. summarize price mpg weight"
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "PASS: T19 - Nodots option"
@@ -545,14 +561,17 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T20: Date option
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_date.html") ///
         date("March 2026") replace
     confirm file "`outdir'/test_date.html"
+    _lgqa_scan "`outdir'/test_date.html" "March 2026"
+    assert !missing(r(n))
+    assert r(n) >= 1
+    _lgqa_scan "`outdir'/test_basic.html" "March 2026"
+    assert r(n) == 0
 }
 if _rc == 0 {
     display as result "PASS: T20 - Date option"
@@ -563,15 +582,24 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T21: Nodots + date + dark combined
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_combo.html") ///
         nodots date("2026-03-15") theme(dark) replace
     confirm file "`outdir'/test_combo.html"
     assert "`r(theme)'" == "dark"
+    * all three options took effect in one file
+    _lgqa_scan "`outdir'/test_combo.html" "#191a1f"
+    assert !missing(r(n))
+    assert r(n) > 0
+    _lgqa_scan "`outdir'/test_combo.html" "2026-03-15"
+    assert !missing(r(n))
+    assert r(n) >= 1
+    _lgqa_scan "`outdir'/test_combo.html" ">. summarize price mpg weight"
+    assert r(n) == 0
+    _lgqa_scan "`outdir'/test_combo.html" ">summarize price mpg weight<"
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "PASS: T21 - Nodots + date + dark combined"
@@ -582,9 +610,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T22: Nodots with Markdown
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_nodots.md") ///
@@ -601,9 +627,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T23: varabbrev restore — preserved when OFF (v1.2.1 fix)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     set varabbrev off
@@ -621,9 +645,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T24: varabbrev restore — preserved when ON
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     set varabbrev on
@@ -639,9 +661,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T25: varabbrev restore on error path
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     set varabbrev off
@@ -659,9 +679,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T26: format(both) with no-extension output (v1.2.1 fix)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     capture erase "`outdir'/test_noext.html"
@@ -680,9 +698,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T27: format(both) with .md extension
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     capture erase "`outdir'/test_both_md.html"
@@ -701,9 +717,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T28: output() abbreviation — out() works (v1.2.1 fix)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", out("`outdir'/test_abbrev.html") replace
@@ -718,9 +732,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T29: replace abbreviation — rep works
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_reabbrev.html") replace
@@ -736,9 +748,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T30: Package installation — core files discoverable
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     which logdoc
@@ -756,14 +766,22 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T31: Quarto Markdown generation
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_qmd.qmd") replace
     confirm file "`outdir'/test_qmd.qmd"
     assert "`r(format)'" == "qmd"
+    * Quarto: YAML front matter (title) first, then the fenced command and output
+    _lgqa_scan "`outdir'/test_qmd.qmd" "title:"
+    assert `"`r(line1)'"' == "---" & r(first) == 2
+    _lgqa_scan "`outdir'/test_qmd.qmd" "sysuse auto, clear"
+    assert !missing(r(n))
+    assert !missing(r(fence1))
+    assert !missing(r(first))
+    assert r(n) == 1 & r(fence1) > 0 & r(first) == r(fence1) + 1
+    _lgqa_scan "`outdir'/test_qmd.qmd" "6165.257"
+    assert r(n) == 1
 }
 if _rc == 0 {
     display as result "PASS: T31 - Quarto Markdown generation"
@@ -774,43 +792,61 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
-* T32: Stata Python default beats stale .logdocrc python path
-* -----------------------------------------------------------------------
+* T32: Python precedence contract: bad .logdocrc python= is an error (601), never a
+* fall-through; with no global/config Stata's python is used
 local test_total = `test_total' + 1
 capture noisily {
-    local t32_dir "`outdir'/t32_stata_first"
+    * this machine contract needs Stata's python configured; absence is a failure
+    assert `has_stata_python' == 1
+    local t32_global_saved `"$LOGDOC_PYTHON"'
+    global LOGDOC_PYTHON
+    local t32_dir "`outdir'/t32_python_order"
     capture mkdir "`t32_dir'"
     cd "`t32_dir'"
+    capture erase ".logdocrc"
     quietly file open t32cfg using ".logdocrc", write text replace
     file write t32cfg "python=/definitely/not/logdoc/config-python" _n
     file close t32cfg
+    capture erase "`outdir'/test_bad_config.html"
 
-    if `has_stata_python' {
-        logdoc using "`smcl_fixture'", ///
-            output("`outdir'/test_stata_first_config.html") replace quiet
-        confirm file "`outdir'/test_stata_first_config.html"
-        assert `"$LOGDOC_LAST_PYTHON"' == "`stata_python'"
-    }
-    else {
-        display as result "SKIP: T32 - Stata Python is not configured"
-    }
+    * (a) bad config python: rc 601 naming .logdocrc, no output written
+    tempfile t32log
+    capture log close _t32log
+    quietly log using "`t32log'", text replace name(_t32log)
+    capture noisily logdoc using "`smcl_fixture'", ///
+        output("`outdir'/test_bad_config.html") replace quiet
+    local t32_rc = _rc
+    quietly log close _t32log
+    assert `t32_rc' == 601
+    _lgqa_scan "`t32log'" ".logdocrc"
+    assert !missing(r(n))
+    assert r(n) >= 1
+    capture confirm file "`outdir'/test_bad_config.html"
+    assert _rc != 0
+
+    * (b) no config, no global: Stata's python
+    erase ".logdocrc"
+    global LOGDOC_LAST_PYTHON
+    logdoc using "`smcl_fixture'", ///
+        output("`outdir'/test_stata_first_config.html") replace quiet
+    confirm file "`outdir'/test_stata_first_config.html"
+    assert `"$LOGDOC_LAST_PYTHON"' == "`stata_python'"
     cd "`qadir'"
+    global LOGDOC_PYTHON `"`t32_global_saved'"'
 }
 if _rc == 0 {
-    display as result "PASS: T32 - Stata Python default precedes .logdocrc python"
+    display as result "PASS: T32 - bad .logdocrc python errors (601); default is Stata python"
     local test_pass = `test_pass' + 1
 }
 else {
-    display as error "FAIL: T32 - Stata-first .logdocrc precedence (rc = " _rc ")"
+    display as error "FAIL: T32 - Python precedence contract (rc = " _rc ")"
     capture cd "`qadir'"
+    global LOGDOC_PYTHON `"`t32_global_saved'"'
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T33: r(accent) and r(secondary) return contract for format(both)
 * (closes the documented-return coverage gap; both are dispatcher-forwarded)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     capture erase "`outdir'/test_ret_both.html"
@@ -830,9 +866,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* -----------------------------------------------------------------------
 * T34: r(accent) empty without accent(); single-format omits r(secondary)
-* -----------------------------------------------------------------------
 local test_total = `test_total' + 1
 capture noisily {
     logdoc using "`smcl_fixture'", output("`outdir'/test_ret_single.html") replace
@@ -848,9 +882,7 @@ else {
     local test_fail = `test_fail' + 1
 }
 
-* =======================================================================
 * RESULTS
-* =======================================================================
 display ""
 local suite_rc = 0
 if `test_fail' > 0 {

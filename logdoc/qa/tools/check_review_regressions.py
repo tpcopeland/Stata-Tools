@@ -34,7 +34,14 @@ if a.action == 'setup':
         (d / 'out.md').chmod(0o444)
     if a.case.startswith('F3'):
         (d / 'source').mkdir()
-        (d / 'source' / 'a.log').write_text('. graph export "graph.svg", replace\n')
+        log = '. graph export "graph.svg", replace\n'
+        if a.case == 'F3-tex':
+            # svg is skipped in LaTeX; png and pdf are referenced
+            log += ('. graph export "graph.png", replace\n'
+                    '. graph export "graph.pdf", replace\n')
+            (d / 'source' / 'graph.png').write_text('PNG PLACEHOLDER SOURCE')
+            (d / 'source' / 'graph.pdf').write_text('PDF PLACEHOLDER SOURCE')
+        (d / 'source' / 'a.log').write_text(log)
         (d / 'source' / 'graph.svg').write_text('<svg>CORRECT SOURCE GRAPH</svg>')
         (d / 'graph.svg').write_text('<svg>WRONG CWD GRAPH</svg>')
     if a.case == 'F4':
@@ -60,7 +67,12 @@ else:
             assert 'source/graph.svg' in text
         elif a.case == 'F3-tex':
             text = (d / 'out.tex').read_text()
-            assert 'source/graph.svg' in text
+            # pdflatex cannot include svg; png and pdf exports are referenced
+            inc = re.findall(r'\\includegraphics\[[^\]]*\]\{([^}]*)\}', text)
+            assert len(inc) == 2, inc
+            assert not any(x.endswith('.svg') for x in inc), inc
+            assert 'source/graph.png' in text
+            assert 'source/graph.pdf' in text
         else:
             text = (d / 'out.html').read_text()
             payloads = re.findall(r'data:image/[^;]+;base64,([^"\s]+)', text)

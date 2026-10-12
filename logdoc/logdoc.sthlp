@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.9  30sep2026}{...}
+{* *! version 1.2.0  12oct2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -149,9 +149,11 @@ tables, collapsible output, copy buttons, and Download .do controls are
 available only when explicitly requested.
 
 {pstd}
-The command uses Python 3 (standard library only, no external dependencies)
-to expand SMCL tags, preserve Stata output, embed graphs, and render to
-the chosen format.
+The command uses Python 3 to expand SMCL tags, preserve Stata output, embed
+graphs, and render to the chosen format. Inline SMCL text such as
+command, highlight, and error markup and links is rendered; unknown brace
+directives and braces in plain-text {bf:.log} files are printed
+literally. Everything except {cmd:format(pdf)} needs only the Python standard library.
 
 {pstd}
 {bf:Input formats:}
@@ -191,7 +193,9 @@ Wraps an interactive session. {cmd:logdoc start} opens a background SMCL
 log; {cmd:logdoc stop} closes the log and converts it. This eliminates the two-step
 "log then convert" workflow. If the conversion fails, {cmd:logdoc stop} keeps the
 captured SMCL log and prints its path so the session transcript can be
-converted manually.
+converted manually. If the output file already exists and neither {opt replace}
+nor {opt append} (option or {cmd:.logdocrc}) is in effect, {cmd:logdoc start}
+stops immediately with return code 602, before any logging begins.
 
 {phang2}{cmd:. logdoc start, output("session.html") theme(dark)}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
@@ -228,11 +232,18 @@ Quarto Markdown, LaTeX, and {opt format(both)}.
 {pstd}
 Re-runs the most recent {cmd:logdoc} conversion using the last resolved
 options, with optional overrides. Useful for quickly switching themes
-or formats without retyping metadata or filtering options. If the
+or formats without retyping metadata or filtering options. With
+{opt format()}, the output goes to the original path with the new format's
+extension (for example {cmd:report.html} becomes {cmd:report.md}), so the
+earlier output of another format is not overwritten. If the
 previous conversion used {opt run}, replay re-executes the .do file in
 batch mode (with the same {opt stataexe()} setting) before converting. The
 latest successful live-session transcript remains in temporary storage
-for replay until a successful conversion of another input replaces it.
+for replay until a successful conversion of another input replaces it. A
+successful {cmd:logdoc combine}, {cmd:logdoc batch}, or {cmd:logdoc diff}
+clears the replay state, so a later {cmd:logdoc replay} stops with
+"the last logdoc command ({it:combine}) cannot be replayed" until another
+single conversion is run.
 
 {phang2}{cmd:. logdoc replay, theme(dark)}{p_end}
 
@@ -288,7 +299,9 @@ edition, date/time, and current data filename.
 
 {phang}
 {opt run} executes the input .do file in batch mode before converting. Automatically
-sets {opt replace} for the output file. The child session is launched with the batch
+sets {opt replace} for the output file. The do-file runs at the child Stata
+session's own version (no {cmd:version} is forced), exactly as when run by
+hand. The child session is launched with the batch
 Stata executable matching the running flavor and operating
 system: {bf:stata-mp}/{bf:stata-se}/{bf:stata} on Unix and macOS,
 {bf:StataMP-64}/{bf:StataSE-64}/{bf:Stata-64} on Windows. The chosen binary must be on the
@@ -389,9 +402,12 @@ to embed alongside commands. Format: {cmd:@block N: text} or
 
 {phang}
 {opt python(string)} specifies an explicit path to the Python 3 executable. If
-omitted, {cmd:logdoc} first uses Stata's configured Python executable from
-{cmd:python query}; project and system-path fallbacks are used only when Stata's
-Python is unavailable.
+omitted, {cmd:logdoc} uses the first of: {cmd:$LOGDOC_PYTHON} (set by
+{cmd:logdoc_py, set}); {cmd:python=} in {cmd:.logdocrc} (global
+{cmd:~/.logdocrc}, then the project file); Stata's configured Python from
+{cmd:python query}; then {cmd:python3} or {cmd:python} on the system path. A
+Python selected through {cmd:$LOGDOC_PYTHON} or {cmd:.logdocrc} that cannot be
+used is an error naming its source, not a silent fallback.
 
 {phang}
 {opt quiet} suppresses all status messages.
@@ -542,17 +558,23 @@ Replay with different theme:
 {p2col 5 18 22 2: Scalars}{p_end}
 {synopt:{cmd:r(nblocks)}}number of rendered content blocks parsed{p_end}
 {synopt:{cmd:r(filesize)}}output file size in bytes{p_end}
-{synopt:{cmd:r(ngraphs)}}number of graph export commands detected{p_end}
+{synopt:{cmd:r(ngraphs)}}number of successful image graph exports detected{p_end}
 {synopt:{cmd:r(ntables)}}number of table blocks detected{p_end}
 {synopt:{cmd:r(nwarnings)}}number of renderer warnings{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output file path{p_end}
-{synopt:{cmd:r(input)}}effective input file path{p_end}
+{synopt:{cmd:r(input)}}input path as given after {cmd:using}{p_end}
 {synopt:{cmd:r(format)}}output format used{p_end}
 {synopt:{cmd:r(theme)}}theme used{p_end}
 {synopt:{cmd:r(accent)}}accent color used, if specified{p_end}
 {synopt:{cmd:r(secondary)}}secondary output path (only with {opt format(both)}){p_end}
+
+{pstd}
+{cmd:r(input)} is the path exactly as given after {cmd:using}. With {opt run}
+it is the .do file, not its transcript. After {cmd:logdoc start} and
+{cmd:logdoc stop} there is no {cmd:using} file, so it is the temporary session
+transcript.
 
 {pstd}
 {cmd:logdoc combine} stores the same conversion results plus:
@@ -611,9 +633,16 @@ For graph quality, set dimensions before export:{break}
 {phang}
 A global {cmd:~/.logdocrc} file can set defaults across projects, and a project
 {cmd:.logdocrc} file in the working directory overrides those defaults. Command-line
-options override both files. Format: one {it:key}{cmd:=}{it:value} per line (e.g., {cmd:theme=dark}
-or {cmd:accent=#005ea8}). For Python setup diagnostics, run {helpb logdoc_py}; it follows
-the same Stata-first Python convention as {cmd:logdoc}.
+options override both files, and a command-line {opt verbose} overrides a
+configured {cmd:quiet} (and vice versa). Format: one {it:key}{cmd:=}{it:value}
+or {it:key} {cmd:=} {it:value} per line (e.g., {cmd:theme=dark} or
+{cmd:accent=#005ea8}); surrounding whitespace is trimmed, lines starting with
+{cmd:#} are comments, and keys are case-insensitive. Switch options such as
+{cmd:quiet} or {cmd:replace} take {cmd:1}, {cmd:true}, {cmd:yes}, or {cmd:on}
+(on) and {cmd:0}, {cmd:false}, {cmd:no}, {cmd:off}, or an empty value
+(off); any other value is an error (rc 198) naming the key and file. For Python
+setup diagnostics, run {helpb logdoc_py}; it uses the same Python resolution order
+as {cmd:logdoc}.
 
 
 {marker troubleshooting}{...}
@@ -623,17 +652,25 @@ the same Stata-first Python convention as {cmd:logdoc}.
 {bf:Python 3 not found}: Run {cmd:python query} to inspect Stata's configured
 Python and {cmd:logdoc_py, check verbose} to see all candidates. Use
 {cmd:set python_exec} to configure Python for Stata, or use {opt python(path)}
-for an explicit one-command override.
+for an explicit one-command override. If the error says the Python from
+{cmd:$LOGDOC_PYTHON} or {cmd:.logdocrc} is not usable, clear
+{cmd:$LOGDOC_PYTHON}, edit {cmd:python=} in the file named, or repair it with
+{cmd:logdoc_py, python(}{it:path}{cmd:) set} or {cmd:save replace}.
 
 {phang}
 {bf:Empty output}: Check that the input file is not empty and is valid
 SMCL or log format. An empty input produces no output.
 
 {phang}
-{bf:Graphs not embedded}: Graphs are embedded only when a
-{cmd:graph export} command appears in the log AND the image file exists
-relative to the input file's directory (the execution directory for {opt run}
-or live capture). Use absolute paths for reliability.
+{bf:Graphs not embedded}: Graphs are embedded only when a successful
+{cmd:graph export} command to an image file ({cmd:.png}, {cmd:.jpg}, {cmd:.gif},
+or {cmd:.svg}) appears in the log AND the file exists relative to the input
+file's directory (the execution directory for {opt run} or live
+capture). Failed exports and other file types (for example {cmd:.pdf} or {cmd:.eps}) are
+skipped in HTML and Markdown output. LaTeX output references {cmd:.png},
+{cmd:.jpg}, {cmd:.pdf}, and {cmd:.eps} exports by path; {cmd:.svg} and
+{cmd:.gif} exports are skipped there with a warning. Use absolute paths for
+reliability.
 
 {phang}
 {bf:Tables not formatted}: Tables are rendered as monospace by default for
@@ -655,7 +692,8 @@ files that do not exist.
 {bf:Python 3.6+} must be installed. The recommended setup is Stata's
 {cmd:python:} integration configured with {cmd:set python_exec}; {cmd:logdoc}
 then launches the renderer with that same executable. No external Python
-packages are required -- {cmd:logdoc} uses only the standard library.
+packages are required except for {cmd:format(pdf)}; all other formats use
+only the standard library.
 
 {pstd}
 Stata 16.0 or later. {opt format(docx)} requires Stata 17+. {opt format(pdf)} requires
@@ -722,7 +760,7 @@ either is available:
 
 {pstd}
 See {helpb logdoc_py} for the full detection order, verbose diagnostics, and
-the portable setup contract.
+the Python resolution rules.
 
 
 {marker author}{...}

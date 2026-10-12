@@ -1,13 +1,27 @@
 *! validation_logdoc_precision.do -- precise numerical payload, independent input arithmetic
 *! Author: Timothy P Copeland, Karolinska Institutet
-* Phase2 S1 probe; no session-hygiene or cosmetic contract claim.
+* Validation: high-precision numerical text (15 significant digits, near-one, tiny, large)
+* survives SMCL-to-markdown conversion unchanged.
 version 16.0
 clear all
 set more off
 capture log close _all
 log using "validation_logdoc_precision.log", text replace
-local pkg_dir=substr("`c(pwd)'",1,strlen("`c(pwd)'")-3)
-adopath ++ "`pkg_dir'"
+local qadir = regexr("`c(pwd)'", "/+$", "")
+capture confirm file "`qadir'/logdoc.pkg"
+if _rc == 0 {
+    local pkg_dir "`qadir'"
+}
+else {
+    local pkg_dir = regexr("`qadir'", "/qa/?$", "")
+}
+capture confirm file "`pkg_dir'/logdoc.pkg"
+if _rc {
+    display as error "Could not locate logdoc package root from c(pwd)=`c(pwd)'"
+    exit 601
+}
+capture ado uninstall logdoc
+quietly net install logdoc, from("`pkg_dir'") replace
 local tests 0
 local pass 0
 local fail 0

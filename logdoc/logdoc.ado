@@ -1,4 +1,4 @@
-*! logdoc Version 1.1.9  2026/09/30
+*! logdoc Version 1.2.0  2026/10/12
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -46,70 +46,17 @@ program define logdoc, rclass
     }
     local _dispatch_rc = _rc
 
+    * Forward the child's returns unchanged.  return add itself exits r(9)
+    * when the failed child posted no returns, so only call it when a payload
+    * exists and the child's rc survives.
     local _r_scalars : r(scalars)
     local _r_macros : r(macros)
     local _r_matrices : r(matrices)
-    foreach _r_name of local _r_scalars {
-        local _r_scalar_`_r_name' = r(`_r_name')
-    }
-    foreach _r_name of local _r_macros {
-        local _r_macro_`_r_name' `"`r(`_r_name')'"'
-    }
-
-    * return add itself exits r(9) when the failed child posted no returns.
-    * Only forward a payload that actually exists, so the child's rc survives.
     if `"`_r_scalars'`_r_macros'`_r_matrices'"' != "" {
         return add
     }
 
     if `_dispatch_rc' exit `_dispatch_rc'
-
-    if strpos(" `_r_scalars' ", " nblocks ") {
-        return scalar nblocks = `_r_scalar_nblocks'
-    }
-    if strpos(" `_r_scalars' ", " filesize ") {
-        return scalar filesize = `_r_scalar_filesize'
-    }
-    if strpos(" `_r_scalars' ", " ngraphs ") {
-        return scalar ngraphs = `_r_scalar_ngraphs'
-    }
-    if strpos(" `_r_scalars' ", " ntables ") {
-        return scalar ntables = `_r_scalar_ntables'
-    }
-    if strpos(" `_r_scalars' ", " nwarnings ") {
-        return scalar nwarnings = `_r_scalar_nwarnings'
-    }
-    if strpos(" `_r_scalars' ", " n_sources ") {
-        return scalar n_sources = `_r_scalar_n_sources'
-    }
-    if strpos(" `_r_scalars' ", " n_files ") {
-        return scalar n_files = `_r_scalar_n_files'
-    }
-    if strpos(" `_r_scalars' ", " n_failed ") {
-        return scalar n_failed = `_r_scalar_n_failed'
-    }
-
-    if strpos(" `_r_macros' ", " output ") {
-        return local output `"`_r_macro_output'"'
-    }
-    if strpos(" `_r_macros' ", " input ") {
-        return local input `"`_r_macro_input'"'
-    }
-    if strpos(" `_r_macros' ", " format ") {
-        return local format `"`_r_macro_format'"'
-    }
-    if strpos(" `_r_macros' ", " theme ") {
-        return local theme `"`_r_macro_theme'"'
-    }
-    if strpos(" `_r_macros' ", " accent ") {
-        return local accent `"`_r_macro_accent'"'
-    }
-    if strpos(" `_r_macros' ", " secondary ") {
-        return local secondary `"`_r_macro_secondary'"'
-    }
-    if strpos(" `_r_macros' ", " compare ") {
-        return local compare `"`_r_macro_compare'"'
-    }
 
     } // end capture noisily
 
@@ -130,6 +77,7 @@ program define _logdoc_convert, rclass
     set varabbrev off
     tempname _sizefh
     local _sizefh_open = 0
+    local _pdf_candidate ""
 
     capture noisily {
 
@@ -174,6 +122,7 @@ program define _logdoc_convert, rclass
     }
 
     local _config_python ""
+    local _config_python_file ""
     local _config_files ""
     local _home : environment HOME
     if `"`_home'"' != "" {
@@ -191,15 +140,23 @@ program define _logdoc_convert, rclass
         file open `rcfh' using `"`_config_file'"', read text
         file read `rcfh' _rcline
         while r(eof) == 0 {
-            local _rcline_trim = strtrim(`"`_rcline'"')
-            if regexm(`"`_rcline_trim'"', "^([A-Za-z][A-Za-z0-9_]*)=(.*)$") {
+            * Grammar shared with logdoc_py and _logdoc_config_value:
+            * "key=value" or "key = value", whitespace trimmed, # comments.
+            local _rcws " `=char(9)'"
+            local _rcline_trim = ustrtrim(`"`_rcline'"')
+            if substr(`"`_rcline_trim'"', 1, 1) != "#" & ///
+                regexm(`"`_rcline_trim'"', ///
+                "^([A-Za-z][A-Za-z0-9_]*)[`_rcws']*=[`_rcws']*(.*)$") {
                 local _rckey = lower(regexs(1))
-                local _rcval = regexs(2)
+                local _rcval = ustrtrim(regexs(2))
                 if strpos(" `_config_keys' ", " `_rckey' ") {
+                    _logdoc_rcflag, key(`_rckey') value(`"`_rcval'"') ///
+                        file(`"`_config_file'"') result(_rcval)
                     local _user_value `"`_user_`_rckey''"'
                     if `"`_user_value'"' == "" {
                         if "`_rckey'" == "python" {
                             local _config_python `"`_rcval'"'
+                            local _config_python_file `"`_config_file'"'
                         }
                         else {
                             local `_rckey' `"`_rcval'"'
@@ -210,6 +167,21 @@ program define _logdoc_convert, rclass
             file read `rcfh' _rcline
         }
         file close `rcfh'
+    }
+
+    * Command-line quiet/verbose (both together were rejected above) beats
+    * a config-supplied opposite; two conflicting config values are an error.
+    if "`quiet'" != "" & "`verbose'" != "" {
+        if "`_user_verbose'" != "" {
+            local quiet ""
+        }
+        else if "`_user_quiet'" != "" {
+            local verbose ""
+        }
+        else {
+            display as error "quiet and verbose are mutually exclusive (.logdocrc)"
+            exit 198
+        }
     }
 
     * --- U1: Auto-detect format from output file extension ---
@@ -355,7 +327,9 @@ program define _logdoc_convert, rclass
         local _runwrapper_path "`_runwrapper_base'.do"
         local _runlog_path "`_runwrapper_base'.smcl"
         quietly file open `_runfh' using "`_runwrapper_path'", write text replace
-        file write `_runfh' "version 16.0" _n
+        * No version line: the do-file runs under the child session's own
+        * version, exactly as when run by hand, so newer syntax (e.g. Stata 17
+        * table, statistic()) parses.  A pinned "version 16.0" broke it (rc 198).
         file write `_runfh' "capture log close _logdoc_run" _n
         file write `_runfh' `"log using "`_runlog_path'", replace smcl name(_logdoc_run) nomsg"' _n
         file write `_runfh' "quietly set linesize 255" _n
@@ -393,6 +367,10 @@ program define _logdoc_convert, rclass
             else           local _stataexe "stata"
         }
         shell "`_stataexe'" -b do "`_runwrapper_path'"
+        * Batch mode also writes <wrapper name>.log into the working
+        * directory; the SMCL wrapper log is the transcript, so drop it.
+        local _runbatchlog = substr("`_runwrapper_base'", strlen("`_runwrapdir'") + 1, .)
+        capture erase "`_runbatchlog'.log"
 
         capture confirm file "`_runstatus'"
         if _rc {
@@ -426,9 +404,6 @@ program define _logdoc_convert, rclass
         }
         local input_file "`_runlog_path'"
         local _runwrapper_was_input 1
-        if "`quiet'" == "" {
-            display as text "Log captured: `input_file'"
-        }
     }
     else {
         * Check input exists
@@ -468,13 +443,14 @@ program define _logdoc_convert, rclass
 
     * Find Python executable
     if "`python'" == "" {
-        _logdoc_resolve_python, result(python) configpython(`"`_config_python'"')
+        _logdoc_resolve_python, result(python) source(_pysrc) ///
+            configpython(`"`_config_python'"') configfile(`"`_config_python_file'"')
     }
 
     _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
 
     * --- R4 + R6: Validate Python installation and version ---
-    _logdoc_check_python "`python'"
+    _logdoc_check_python "`python'" "`_pysrc'" `"`_pysrc_file'"'
 
     * Find logdoc_render.py
     local scriptpath ""
@@ -485,20 +461,8 @@ program define _logdoc_convert, rclass
         exit 601
     }
 
-    * Find CSS files (expand ~ like _logdoc_find_script does)
-    local light_css ""
-    local dark_css ""
-    _logdoc_find_css, light(light_css) dark(dark_css)
     _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
         context("renderer path")
-    if "`light_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`light_css'"') ///
-            context("light CSS path")
-    }
-    if "`dark_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
-            context("dark CSS path")
-    }
 
     * Build command (quote python path for paths with spaces)
     local cmd `""`python'" "`scriptpath'" "`input_file'" "`output'""'
@@ -558,17 +522,9 @@ program define _logdoc_convert, rclass
         local cmd `"`cmd' --date-file "`datefile'""'
     }
 
-    * --- F8: Custom CSS passthrough ---
+    * --- F8: Custom CSS passthrough (theme CSS is built into the renderer) ---
     if "`css'" != "" {
         local cmd `"`cmd' --css "`css'""'
-    }
-    else {
-        if "`light_css'" != "" {
-            local cmd `"`cmd' --light-css "`light_css'""'
-        }
-        if "`dark_css'" != "" {
-            local cmd `"`cmd' --dark-css "`dark_css'""'
-        }
     }
     if "`accent'" != "" {
         local cmd `"`cmd' --accent "`accent'""'
@@ -656,11 +612,6 @@ program define _logdoc_convert, rclass
         local cmd `"`cmd' --annotate "`annotate'""'
     }
 
-    * --- R3: Windows path normalization for Python args ---
-    if "`c(os)'" == "Windows" {
-        local cmd = subinstr(`"`cmd'"', "\", "/", .)
-    }
-
     * --- F2/F1/F7: Handle docx/pdf via HTML intermediary ---
     * For docx/pdf: redirect Python output to a tempfile, convert after
     local _actual_format "`format'"
@@ -682,6 +633,14 @@ program define _logdoc_convert, rclass
             `""`_temphtml_path'""', 1)
         local cmd = subinstr(`"`cmd'"', "--format docx", "--format html", 1)
         local cmd = subinstr(`"`cmd'"', "--format pdf", "--format html", 1)
+    }
+
+    * --- R3: Windows path normalization for Python args ---
+    * Must follow the docx/pdf substitution above: that subinstr matches the
+    * output path as the user typed it, and normalizing backslashes first
+    * would make it miss on Windows (HTML bytes would land in out.docx).
+    if "`c(os)'" == "Windows" {
+        local cmd = subinstr(`"`cmd'"', "\", "/", .)
     }
 
     * Execute (capture stdout for I1 metadata)
@@ -850,7 +809,7 @@ program define _logdoc_convert, rclass
                 exit 601
             }
         }
-        copy "`_pdf_candidate'" "`output'", replace
+        quietly copy "`_pdf_candidate'" "`output'", replace
         capture confirm file "`output'"
         if _rc {
             capture erase "`_temphtml_path'"
@@ -949,6 +908,7 @@ program define _logdoc_convert, rclass
         capture macro drop LOGDOC_SESSION_INPUT LOGDOC_SESSION_BASE
     }
 
+    global LOGDOC_LAST_COMMAND ""
     global LOGDOC_LAST_INPUT `"`using'"'
     global LOGDOC_LAST_OUTPUT `"`output'"'
     global LOGDOC_LAST_FORMAT `"`format'"'
@@ -988,7 +948,8 @@ program define _logdoc_convert, rclass
 
     * Return values
     return local output "`output'"
-    return local input "`input_file'"
+    * The user's own input (the .do file under run), not the erased wrapper log
+    return local input `"`using'"'
     return local format "`_actual_format'"
     return local theme "`theme'"
     return local accent "`accent'"
@@ -1007,6 +968,8 @@ program define _logdoc_convert, rclass
 
     local rc = _rc
     if `_sizefh_open' capture file close `_sizefh'
+    * The .pdf candidate is not a Stata tempfile name, so Stata never erases it
+    if `"`_pdf_candidate'"' != "" capture erase `"`_pdf_candidate'"'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
@@ -1081,6 +1044,39 @@ program define _logdoc_start
             `_graphheight_num' != floor(`_graphheight_num') {
             display as error "graphheight() must be a positive integer"
             exit 198
+        }
+    }
+
+    * Fail now, not at stop, when the destination exists and neither replace
+    * nor append (option or .logdocrc) allows it; same rule as convert.
+    local _start_replace "`replace'"
+    local _start_append "`append'"
+    local _start_format "`format'"
+    * Validate the whole config now (a bad flag value is rc 198 here, with no
+    * session started), and read the keys that decide the overwrite check.
+    _logdoc_config_value, key(replace) result(_cfg_replace) validate
+    if "`_start_replace'" == "" local _start_replace "`_cfg_replace'"
+    if "`_start_append'" == "" {
+        _logdoc_config_value, key(append) result(_start_append)
+    }
+    if "`_start_format'" == "" {
+        _logdoc_config_value, key(format) result(_start_format)
+    }
+    if "`_start_replace'" == "" & "`_start_append'" == "" {
+        local _start_paths `"`output'"'
+        if "`_start_format'" == "both" {
+            local _start_primary ""
+            local _start_secondary ""
+            _logdoc_both_paths, output("`output'") ///
+                primary(_start_primary) secondary(_start_secondary)
+            local _start_paths `"`_start_primary' `_start_secondary'"'
+        }
+        foreach _start_path of local _start_paths {
+            capture confirm file `"`_start_path'"'
+            if !_rc {
+                display as error `"file "`_start_path'" already exists; use replace option"'
+                exit 602
+            }
         }
     }
 
@@ -1418,6 +1414,7 @@ program define _logdoc_combine, rclass
         local _user_`_cfgkey' `"``_cfgkey''"'
     }
     local _config_python ""
+    local _config_python_file ""
     local _config_files ""
     local _home : environment HOME
     if `"`_home'"' != "" {
@@ -1435,15 +1432,23 @@ program define _logdoc_combine, rclass
         file open `rcfh' using `"`_config_file'"', read text
         file read `rcfh' _rcline
         while r(eof) == 0 {
-            local _rcline_trim = strtrim(`"`_rcline'"')
-            if regexm(`"`_rcline_trim'"', "^([A-Za-z][A-Za-z0-9_]*)=(.*)$") {
+            * Grammar shared with logdoc_py and _logdoc_config_value:
+            * "key=value" or "key = value", whitespace trimmed, # comments.
+            local _rcws " `=char(9)'"
+            local _rcline_trim = ustrtrim(`"`_rcline'"')
+            if substr(`"`_rcline_trim'"', 1, 1) != "#" & ///
+                regexm(`"`_rcline_trim'"', ///
+                "^([A-Za-z][A-Za-z0-9_]*)[`_rcws']*=[`_rcws']*(.*)$") {
                 local _rckey = lower(regexs(1))
-                local _rcval = regexs(2)
+                local _rcval = ustrtrim(regexs(2))
                 if strpos(" `_config_keys' ", " `_rckey' ") {
+                    _logdoc_rcflag, key(`_rckey') value(`"`_rcval'"') ///
+                        file(`"`_config_file'"') result(_rcval)
                     local _user_value `"`_user_`_rckey''"'
                     if `"`_user_value'"' == "" {
                         if "`_rckey'" == "python" {
                             local _config_python `"`_rcval'"'
+                            local _config_python_file `"`_config_file'"'
                         }
                         else {
                             local `_rckey' `"`_rcval'"'
@@ -1454,6 +1459,19 @@ program define _logdoc_combine, rclass
             file read `rcfh' _rcline
         }
         file close `rcfh'
+    }
+
+    if "`quiet'" != "" & "`verbose'" != "" {
+        if "`_user_verbose'" != "" {
+            local quiet ""
+        }
+        else if "`_user_quiet'" != "" {
+            local verbose ""
+        }
+        else {
+            display as error "quiet and verbose are mutually exclusive (.logdocrc)"
+            exit 198
+        }
     }
 
     gettoken _using sources : sources, bind
@@ -1597,10 +1615,11 @@ program define _logdoc_combine, rclass
     }
 
     if "`python'" == "" {
-        _logdoc_resolve_python, result(python) configpython(`"`_config_python'"')
+        _logdoc_resolve_python, result(python) source(_pysrc) ///
+            configpython(`"`_config_python'"') configfile(`"`_config_python_file'"')
     }
     _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
-    _logdoc_check_python "`python'"
+    _logdoc_check_python "`python'" "`_pysrc'" `"`_pysrc_file'"'
 
     local scriptpath ""
     _logdoc_find_script, result(scriptpath)
@@ -1610,19 +1629,8 @@ program define _logdoc_combine, rclass
         exit 601
     }
 
-    local light_css ""
-    local dark_css ""
-    _logdoc_find_css, light(light_css) dark(dark_css)
     _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
         context("renderer path")
-    if "`light_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`light_css'"') ///
-            context("light CSS path")
-    }
-    if "`dark_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
-            context("dark CSS path")
-    }
 
     local cmd `""`python'" "`scriptpath'" "`_first_source'" "`output'""'
     local cmd `"`cmd' --format `format' --theme `theme'"'
@@ -1650,14 +1658,6 @@ program define _logdoc_combine, rclass
 
     if "`css'" != "" {
         local cmd `"`cmd' --css "`css'""'
-    }
-    else {
-        if "`light_css'" != "" {
-            local cmd `"`cmd' --light-css "`light_css'""'
-        }
-        if "`dark_css'" != "" {
-            local cmd `"`cmd' --dark-css "`dark_css'""'
-        }
     }
     if "`accent'" != "" local cmd `"`cmd' --accent "`accent'""'
     if "`verbose'" != "" local cmd `"`cmd' --verbose"'
@@ -1778,6 +1778,10 @@ program define _logdoc_combine, rclass
             shell xdg-open "`_openfile'" > /dev/null 2>&1 &
         }
     }
+
+    * combine produces a document from several inputs; replay cannot redo it
+    global LOGDOC_LAST_INPUT ""
+    global LOGDOC_LAST_COMMAND "combine"
 
     return local output "`output'"
     return local input `"`_source_list'"'
@@ -1945,6 +1949,10 @@ program define _logdoc_batch, rclass
         display as result "`_count' files processed, `_failed' failed"
     }
 
+    * batch ends a series of conversions; replay would redo only the last file
+    global LOGDOC_LAST_INPUT ""
+    global LOGDOC_LAST_COMMAND "batch"
+
     return scalar n_files = `_count'
     return scalar n_failed = `_failed'
     if `_failed' == `_count' exit `_first_rc'
@@ -2012,7 +2020,12 @@ program define _logdoc_diff, rclass
         }
     }
     if "`python'" == "" {
-        _logdoc_resolve_python, result(python)
+        local _config_python ""
+        local _config_python_file ""
+        _logdoc_config_value, key(python) result(_config_python) ///
+            file(_config_python_file)
+        _logdoc_resolve_python, result(python) source(_pysrc) ///
+            configpython(`"`_config_python'"') configfile(`"`_config_python_file'"')
     }
 
     _logdoc_validate_shell_path, path(`"`python'"') context("Python executable")
@@ -2020,7 +2033,7 @@ program define _logdoc_diff, rclass
         _logdoc_validate_shell_path, path(`"`css'"') context("css()")
     }
 
-    _logdoc_check_python "`python'"
+    _logdoc_check_python "`python'" "`_pysrc'" `"`_pysrc_file'"'
 
     local scriptpath ""
     _logdoc_find_script, result(scriptpath)
@@ -2029,20 +2042,8 @@ program define _logdoc_diff, rclass
         exit 601
     }
 
-    * Find CSS files
-    local light_css ""
-    local dark_css ""
-    _logdoc_find_css, light(light_css) dark(dark_css)
     _logdoc_validate_shell_path, path(`"`scriptpath'"') ///
         context("renderer path")
-    if "`light_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`light_css'"') ///
-            context("light CSS path")
-    }
-    if "`dark_css'" != "" {
-        _logdoc_validate_shell_path, path(`"`dark_css'"') ///
-            context("dark CSS path")
-    }
 
     * Build command
     local cmd `""`python'" "`scriptpath'" "`using'" "`output'""'
@@ -2051,14 +2052,6 @@ program define _logdoc_diff, rclass
 
     if "`css'" != "" {
         local cmd `"`cmd' --css "`css'""'
-    }
-    else {
-        if "`light_css'" != "" {
-            local cmd `"`cmd' --light-css "`light_css'""'
-        }
-        if "`dark_css'" != "" {
-            local cmd `"`cmd' --dark-css "`dark_css'""'
-        }
     }
     if "`accent'" != "" {
         local cmd `"`cmd' --accent "`accent'""'
@@ -2088,6 +2081,9 @@ program define _logdoc_diff, rclass
         display as result "Output: `output'"
     }
 
+    global LOGDOC_LAST_INPUT ""
+    global LOGDOC_LAST_COMMAND "diff"
+
     return local output "`output'"
     return local input "`using'"
     return local compare "`compare'"
@@ -2113,7 +2109,13 @@ program define _logdoc_replay, rclass
     syntax [, THeme(string) Format(string) OPEN]
 
     if `"$LOGDOC_LAST_INPUT"' == "" {
-        display as error "no previous logdoc call to replay"
+        if `"$LOGDOC_LAST_COMMAND"' != "" {
+            display as error ///
+                "the last logdoc command ($LOGDOC_LAST_COMMAND) cannot be replayed"
+        }
+        else {
+            display as error "no previous logdoc call to replay"
+        }
         exit 198
     }
 
@@ -2123,7 +2125,29 @@ program define _logdoc_replay, rclass
     if "`format'" != "" local _replay_format "`format'"
     if "`theme'" != "" local _replay_theme "`theme'"
 
-    local _replay_args `"using `"$LOGDOC_LAST_INPUT"', output(`"$LOGDOC_LAST_OUTPUT"') format(`_replay_format') theme(`_replay_theme')"'
+    * A format() override must not reuse the old output path: the new format
+    * would overwrite the previous document (Markdown bytes in the .html).
+    * Swap the extension to the new format's, never keeping another format's
+    * file as the destination.
+    local _replay_output `"$LOGDOC_LAST_OUTPUT"'
+    if "`_replay_format'" != `"$LOGDOC_LAST_FORMAT"' {
+        local _old_ext ""
+        local _new_ext ""
+        _logdoc_format_ext, format(`"$LOGDOC_LAST_FORMAT"') ext(_old_ext)
+        _logdoc_format_ext, format("`_replay_format'") ext(_new_ext)
+        local _out_lower = lower(`"`_replay_output'"')
+        local _old_len = strlen("`_old_ext'")
+        local _new_len = strlen("`_new_ext'")
+        if substr("`_out_lower'", -`_old_len', .) == "`_old_ext'" {
+            local _replay_output = substr(`"`_replay_output'"', 1, ///
+                strlen(`"`_replay_output'"') - `_old_len') + "`_new_ext'"
+        }
+        else if substr("`_out_lower'", -`_new_len', .) != "`_new_ext'" {
+            local _replay_output `"`_replay_output'`_new_ext'"'
+        }
+    }
+
+    local _replay_args `"using `"$LOGDOC_LAST_INPUT"', output(`"`_replay_output'"') format(`_replay_format') theme(`_replay_theme')"'
     if `"$LOGDOC_LAST_TITLE"' != "" {
         local _replay_args `"`_replay_args' title(`"$LOGDOC_LAST_TITLE"')"'
     }
@@ -2319,63 +2343,6 @@ end
 
 
 * ---------------------------------------------------------------------------
-* Helper: find default CSS files
-* ---------------------------------------------------------------------------
-
-capture program drop _logdoc_find_css
-program define _logdoc_find_css
-    version 16.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-
-    syntax , light(name) dark(name)
-
-    local _light_css ""
-    local _dark_css ""
-
-    * Prefer a CSS file in the caller's current directory.  `findfile'
-    * searches adopath first, so an installed PLUS copy otherwise shadows a
-    * project-local theme when QA or a user runs from another directory.
-    capture confirm file "logdoc_light.css"
-    if _rc == 0 {
-        local _light_css "logdoc_light.css"
-    }
-    else {
-        capture findfile logdoc_light.css
-        if _rc == 0 local _light_css "`r(fn)'"
-        if substr("`_light_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`_light_css'", 2, .)
-            local _light_css "`homedir'`rest'"
-        }
-    }
-
-    capture confirm file "logdoc_dark.css"
-    if _rc == 0 {
-        local _dark_css "logdoc_dark.css"
-    }
-    else {
-        capture findfile logdoc_dark.css
-        if _rc == 0 local _dark_css "`r(fn)'"
-        if substr("`_dark_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`_dark_css'", 2, .)
-            local _dark_css "`homedir'`rest'"
-        }
-    }
-
-    c_local `light' "`_light_css'"
-    c_local `dark' "`_dark_css'"
-
-    }
-    local rc = _rc
-    set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
-end
-
-
-* ---------------------------------------------------------------------------
 * Helper: write a caller-owned tempfile argument
 * ---------------------------------------------------------------------------
 
@@ -2496,60 +2463,53 @@ program define _logdoc_find_script
 
     syntax , result(name)
 
+    * Order (identical in logdoc_py): beside the resolved logdoc.ado, then the
+    * sibling py/ directory (net install puts logdoc_render.py in PLUS/py/),
+    * then any other adopath copy.  The current directory is only a last
+    * resort, so a stray logdoc_render.py there never beats the installed one.
     local _found ""
-
-    * 1. Try local package paths first when running from the repo/worktree
-    capture confirm file "logdoc_render.py"
-    if !_rc {
-        local _found "logdoc_render.py"
+    local _homedir : environment HOME
+    capture findfile logdoc.ado
+    if _rc == 0 {
+        local _adopath "`r(fn)'"
+        if substr("`_adopath'", 1, 1) == "~" {
+            local _rest = substr("`_adopath'", 2, .)
+            local _adopath "`_homedir'`_rest'"
+        }
+        local _slashpos = max(strrpos("`_adopath'", "/"), strrpos("`_adopath'", "\"))
+        if `_slashpos' > 0 {
+            local _adodir = substr("`_adopath'", 1, `_slashpos' - 1)
+            foreach _d in "`_adodir'" "`_adodir'/../py" {
+                if "`_found'" == "" {
+                    capture confirm file "`_d'/logdoc_render.py"
+                    if !_rc local _found "`_d'/logdoc_render.py"
+                }
+            }
+        }
     }
-    if "`_found'" == "" {
-        capture confirm file "../logdoc_render.py"
-        if !_rc local _found "../logdoc_render.py"
-    }
-    if "`_found'" == "" {
-        capture confirm file "logdoc/logdoc_render.py"
-        if !_rc local _found "logdoc/logdoc_render.py"
-    }
-
-    * 2. Try findfile (searches adopath)
     if "`_found'" == "" {
         capture findfile logdoc_render.py
         if _rc == 0 {
-            local path "`r(fn)'"
-            * Expand ~ if present
-            if substr("`path'", 1, 1) == "~" {
-                local homedir : environment HOME
-                local rest = substr("`path'", 2, .)
-                local path "`homedir'`rest'"
+            local _path "`r(fn)'"
+            if substr("`_path'", 1, 1) == "~" {
+                local _rest = substr("`_path'", 2, .)
+                local _path "`_homedir'`_rest'"
             }
-            capture confirm file "`path'"
-            if !_rc local _found "`path'"
+            * "." is on the adopath and findfile reports it as ./name
+            local _incwd = strpos("`_path'", "/") == 0 & strpos("`_path'", "\") == 0
+            if substr("`_path'", 1, 2) == "./" | substr("`_path'", 1, 2) == ".\" {
+                local _incwd 1
+            }
+            capture confirm file "`_path'"
+            if !_rc & !`_incwd' local _found "`_path'"
         }
     }
-
-    * 3. Try alongside the located logdoc.ado file
-    if "`_found'" == "" {
-        capture findfile logdoc.ado
-        if _rc == 0 {
-            local adopath "`r(fn)'"
-            if substr("`adopath'", 1, 1) == "~" {
-                local homedir : environment HOME
-                local rest = substr("`adopath'", 2, .)
-                local adopath "`homedir'`rest'"
-            }
-            local _slashpos = strrpos("`adopath'", "/")
-            if `_slashpos' == 0 {
-                local _slashpos = strrpos("`adopath'", "\")
-            }
-            if `_slashpos' > 0 {
-                local adodir = substr("`adopath'", 1, `_slashpos' - 1)
-                capture confirm file "`adodir'/logdoc_render.py"
-                if !_rc local _found "`adodir'/logdoc_render.py"
-            }
+    foreach _cand in "logdoc_render.py" "../logdoc_render.py" "logdoc/logdoc_render.py" {
+        if "`_found'" == "" {
+            capture confirm file "`_cand'"
+            if !_rc local _found "`_cand'"
         }
     }
-
     c_local `result' "`_found'"
 
     }
@@ -2560,7 +2520,117 @@ end
 
 
 * ---------------------------------------------------------------------------
-* Helper: resolve Python executable using Stata's configured Python first
+* Helper: read one key from ~/.logdocrc then ./.logdocrc (project wins).
+* Same grammar as the convert reader and logdoc_py: key=value or
+* key = value, whitespace trimmed, # comment lines and blanks skipped.
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_config_value
+program define _logdoc_config_value
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    tempname _cvfh
+    capture noisily {
+
+    syntax , key(string) result(name) [file(name) VALidate]
+
+    local _want = lower("`key'")
+    local _val ""
+    local _val_file ""
+    local _cv_files ""
+    local _home : environment HOME
+    if `"`_home'"' != "" {
+        capture confirm file `"`_home'/.logdocrc"'
+        if !_rc local _cv_files `"`_cv_files' `"`_home'/.logdocrc"'"'
+    }
+    capture confirm file ".logdocrc"
+    if !_rc local _cv_files `"`_cv_files' `".logdocrc"'"'
+
+    local _cvws " `=char(9)'"
+    foreach _cv_file of local _cv_files {
+        file open `_cvfh' using `"`_cv_file'"', read text
+        file read `_cvfh' _cvline
+        while r(eof) == 0 {
+            local _cvtrim = ustrtrim(`"`_cvline'"')
+            if substr(`"`_cvtrim'"', 1, 1) != "#" & ///
+                regexm(`"`_cvtrim'"', ///
+                "^([A-Za-z][A-Za-z0-9_]*)[`_cvws']*=[`_cvws']*(.*)$") {
+                local _cvkey = lower(regexs(1))
+                local _cvraw = ustrtrim(regexs(2))
+                * validate: every flag value in the file is checked, as convert
+                * would, so a bad value fails now rather than at logdoc stop
+                if "`validate'" != "" {
+                    _logdoc_rcflag, key(`_cvkey') value(`"`_cvraw'"') ///
+                        file(`"`_cv_file'"') result(_cvdiscard)
+                }
+                if "`_cvkey'" == "`_want'" {
+                    local _val = `"`_cvraw'"'
+                    _logdoc_rcflag, key(`_want') value(`"`_val'"') ///
+                        file(`"`_cv_file'"') result(_val)
+                    local _val_file `"`_cv_file'"'
+                }
+            }
+            file read `_cvfh' _cvline
+        }
+        file close `_cvfh'
+    }
+
+    c_local `result' `"`_val'"'
+    if "`file'" != "" c_local `file' `"`_val_file'"'
+
+    }
+    local rc = _rc
+    capture file close `_cvfh'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: interpret a .logdocrc value.  Flag keys take 1/true/yes/on (on) or
+* 0/false/no/off/empty (off, returned as empty); anything else is rc 198
+* naming the key and file.  Other keys pass through unchanged.
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_rcflag
+program define _logdoc_rcflag
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , key(string) file(string) result(name) [value(string)]
+
+    local _flag_keys "stamp nograph linenumbers toc append notebook email"
+    local _flag_keys "`_flag_keys' preformatted nofold nodots run open replace"
+    local _flag_keys "`_flag_keys' quiet verbose fold highlight tables copy"
+    local _flag_keys "`_flag_keys' download legacy generated"
+    local _out `"`value'"'
+    if strpos(" `_flag_keys' ", " `key' ") {
+        local _v = lower(strtrim(`"`value'"'))
+        if inlist("`_v'", "1", "true", "yes", "on") {
+            local _out "1"
+        }
+        else if inlist("`_v'", "", "0", "false", "no", "off") {
+            local _out ""
+        }
+        else {
+            display as error `"invalid value "`value'" for `key' in `file'; use 1/true/yes/on or 0/false/no/off"'
+            exit 198
+        }
+    }
+    c_local `result' `"`_out'"'
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: resolve the Python executable (explicit settings before Stata python)
 * ---------------------------------------------------------------------------
 
 capture program drop _logdoc_resolve_python
@@ -2570,25 +2640,33 @@ program define _logdoc_resolve_python
     set varabbrev off
     capture noisily {
 
-    syntax , result(name) [configpython(string)]
+    syntax , result(name) source(name) [configpython(string) configfile(string)]
 
-    local _stata_pyexec ""
-    capture quietly python: from sfi import Macro; import sys; Macro.setLocal("_stata_pyexec", sys.executable)
-    local _stata_rc = _rc
-    if `_stata_rc' == 0 & `"`_stata_pyexec'"' != "" {
-        c_local `result' `"`_stata_pyexec'"'
-    }
-    else if `"$LOGDOC_PYTHON"' != "" {
+    * Precedence: python() option (handled by the callers) > $LOGDOC_PYTHON
+    * > .logdocrc python= > Stata's python: > PATH defaults.  Stata's python
+    * comes after the explicit settings so logdoc_py, set/save are honored.
+    if `"$LOGDOC_PYTHON"' != "" {
         c_local `result' `"$LOGDOC_PYTHON"'
+        c_local `source' "global"
     }
     else if `"`configpython'"' != "" {
         c_local `result' `"`configpython'"'
-    }
-    else if "`c(os)'" == "Windows" {
-        c_local `result' "python"
+        c_local `source' "config"
+        c_local _pysrc_file `"`configfile'"'
     }
     else {
-        c_local `result' "python3"
+        local _stata_pyexec ""
+        capture quietly python: from sfi import Macro; import sys; Macro.setLocal("_stata_pyexec", sys.executable)
+        local _stata_rc = _rc
+        if `_stata_rc' == 0 & `"`_stata_pyexec'"' != "" {
+            c_local `result' `"`_stata_pyexec'"'
+        }
+        else if "`c(os)'" == "Windows" {
+            c_local `result' "python"
+        }
+        else {
+            c_local `result' "python3"
+        }
     }
 
     }
@@ -2609,7 +2687,22 @@ program define _logdoc_check_python
     set varabbrev off
     capture noisily {
 
-    args python_exe
+    args python_exe python_source python_file
+
+    * An explicitly selected Python ($LOGDOC_PYTHON, .logdocrc python=) never
+    * falls through to another interpreter; a failure names its source.
+    local _srcmsg ""
+    local _fixmsg ""
+    if "`python_source'" == "global" {
+        local _srcmsg `"Python from {c S|}LOGDOC_PYTHON not usable: `python_exe'"'
+        local _fixmsg "clear it with: global LOGDOC_PYTHON, or repair it with: logdoc_py, python(<working python>) set"
+    }
+    else if "`python_source'" == "config" {
+        local _where "the project ./.logdocrc"
+        if `"`python_file'"' != ".logdocrc" local _where "the global ~/.logdocrc"
+        local _srcmsg `"Python from python= in `_where' not usable: `python_exe'"'
+        local _fixmsg "edit or remove python= in that file, or run: logdoc_py, python(<working python>) save replace"
+    }
 
     _logdoc_validate_shell_path, path(`"`python_exe'"') context("Python executable")
 
@@ -2619,6 +2712,10 @@ program define _logdoc_check_python
     * Check if Python responded
     capture confirm file "`pycheck'"
     if _rc {
+        if `"`_srcmsg'"' != "" {
+            display as error `"`_srcmsg'"'
+            display as error "`_fixmsg'"
+        }
         display as error "Python 3 not found"
         display as error "logdoc requires Python 3.6+ to be installed and on your PATH"
         display as error "tried: `python_exe'"
@@ -2632,6 +2729,10 @@ program define _logdoc_check_python
     file close `_pyfh'
 
     if !regexm("`_pyline'", "Python") {
+        if `"`_srcmsg'"' != "" {
+            display as error `"`_srcmsg'"'
+            display as error "`_fixmsg'"
+        }
         display as error "Python 3 not found"
         display as error "logdoc requires Python 3.6+ to be installed and on your PATH"
         display as error "tried: `python_exe'"
@@ -2643,6 +2744,10 @@ program define _logdoc_check_python
         local _pymajor = real(regexs(1))
         local _pyminor = real(regexs(2))
         if `_pymajor' < 3 | (`_pymajor' == 3 & `_pyminor' < 6) {
+            if `"`_srcmsg'"' != "" {
+                display as error `"`_srcmsg'"'
+                display as error "`_fixmsg'"
+            }
             display as error "Python `_pymajor'.`_pyminor' found but logdoc requires Python 3.6+"
             display as error "upgrade Python or specify a different path with python() option"
             exit 601

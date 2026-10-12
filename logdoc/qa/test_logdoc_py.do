@@ -43,6 +43,12 @@ capture quietly python: from sfi import Macro; import sys; Macro.setLocal("stata
 if _rc == 0 & `"`stata_python'"' != "" local has_stata_python 1
 
 **# Installed Surface And Default Check
+capture program drop _py_has
+program define _py_has, rclass
+    syntax using/ , Pattern(string)
+    return scalar found = (strpos(fileread(`"`using'"'), `"`pattern'"') > 0)
+end
+
 **## PY-T1: package manifest installs command, help, and renderer
 local ++test_total
 * stata-dev-ignore: rc-only-test — installation probe: whether the command, help, and renderer resolve on the adopath IS the whole content under test; `which'/`findfile' produce nothing else to assert
@@ -220,10 +226,10 @@ else {
     local ++test_fail
 }
 
-**## PY-T8: Stata configured Python beats session global and config
+**## PY-T8: session global and config outrank Stata configured Python
 local ++test_total
 capture noisily {
-    local t8_dir "`scratch_dir'/t8_stata_first"
+    local t8_dir "`scratch_dir'/t8_explicit_first"
     capture mkdir "`t8_dir'"
     cd "`t8_dir'"
 
@@ -237,37 +243,37 @@ capture noisily {
     }
     global LOGDOC_PYTHON "`global_python'"
     quietly file open cfg using ".logdocrc", write text replace
-    file write cfg "python=`global_python'" _n
+    file write cfg "python=`detected_python'" _n
     file close cfg
 
     logdoc_py, quiet
-    if `has_stata_python' {
-        assert r(python_source) == "stata"
-        assert r(python) == "`stata_python'"
-    }
-    else {
-        assert r(python_source) == "global"
-        assert r(python) == "`global_python'"
-    }
+    assert r(ok) == 1
+    assert r(python_source) == "global"
+    assert r(python) == "`global_python'"
     assert r(config) == ".logdocrc"
-    cd "`start_pwd'"
+
+    * config alone (no global) also outranks Stata python:
     global LOGDOC_PYTHON
+    logdoc_py, quiet
+    assert r(python_source) == "config"
+    assert r(python) == "`detected_python'"
+    cd "`start_pwd'"
 }
 if _rc == 0 {
-    display as result "PASS: PY-T8 - Stata configured Python has default precedence"
+    display as result "PASS: PY-T8 - global and config outrank Stata python:"
     local ++test_pass
 }
 else {
-    display as error "FAIL: PY-T8 - Stata-first detection precedence (rc = " _rc ")"
+    display as error "FAIL: PY-T8 - explicit-first detection precedence (rc = " _rc ")"
     capture cd "`start_pwd'"
     global LOGDOC_PYTHON
     local ++test_fail
 }
 
-**## PY-T9: invalid global falls through to Stata/config fallback
+**## PY-T9: invalid global fails and names $LOGDOC_PYTHON (no fall-through)
 local ++test_total
 capture noisily {
-    local t9_dir "`scratch_dir'/t9_after_bad_global"
+    local t9_dir "`scratch_dir'/t9_bad_global"
     capture mkdir "`t9_dir'"
     cd "`t9_dir'"
     global LOGDOC_PYTHON "/definitely/not/logdoc/global-python"
@@ -276,34 +282,43 @@ capture noisily {
     file write cfg "python=`detected_python'" _n
     file close cfg
 
-    logdoc_py, quiet
-    if `has_stata_python' {
-        assert r(python_source) == "stata"
-        assert r(python) == "`stata_python'"
-    }
-    else {
-        assert r(python_source) == "config"
-        assert r(python) == "`detected_python'"
-    }
-    assert r(config) == ".logdocrc"
+    local old_ls = c(linesize)
+    set linesize 250
+    capture log close _t9
+    quietly log using "t9.log", text replace nomsg name(_t9)
+    capture noisily logdoc_py, quiet
+    local t9_rc = _rc
+    quietly log close _t9
+    set linesize `old_ls'
+    assert `t9_rc' == 601
+    _py_has using "t9.log", pattern("LOGDOC_PYTHON not usable: /definitely/not/logdoc/global-python")
+    assert r(found) == 1
+    _py_has using "t9.log", pattern("clear it with: global LOGDOC_PYTHON")
+    assert r(found) == 1
+
+    * explicit python() still works and ignores the stale global
+    logdoc_py, python("`detected_python'") quiet
+    assert r(ok) == 1
+    assert r(python_source) == "option"
     cd "`start_pwd'"
     global LOGDOC_PYTHON
 }
 if _rc == 0 {
-    display as result "PASS: PY-T9 - invalid global uses next valid fallback"
+    display as result "PASS: PY-T9 - invalid global fails naming its source"
     local ++test_pass
 }
 else {
-    display as error "FAIL: PY-T9 - fallback after invalid global (rc = " _rc ")"
+    display as error "FAIL: PY-T9 - invalid global handling (rc = " _rc ")"
+    capture log close _t9
     capture cd "`start_pwd'"
     global LOGDOC_PYTHON
     local ++test_fail
 }
 
-**## PY-T10: invalid config falls through to Stata/path defaults
+**## PY-T10: invalid config fails and names .logdocrc (no fall-through)
 local ++test_total
 capture noisily {
-    local t10_dir "`scratch_dir'/t10_default_after_bad_config"
+    local t10_dir "`scratch_dir'/t10_bad_config"
     capture mkdir "`t10_dir'"
     cd "`t10_dir'"
     global LOGDOC_PYTHON
@@ -311,26 +326,37 @@ capture noisily {
     file write cfg "python=/definitely/not/logdoc/config-python" _n
     file close cfg
 
-    local expect_source "path"
-    if `has_stata_python' local expect_source "stata"
-    logdoc_py, quiet
+    local old_ls = c(linesize)
+    set linesize 250
+    capture log close _t10
+    quietly log using "t10.log", text replace nomsg name(_t10)
+    capture noisily logdoc_py, quiet
+    local t10_rc = _rc
+    quietly log close _t10
+    set linesize `old_ls'
+    assert `t10_rc' == 601
+    _py_has using "t10.log", pattern("Python from python= in the project ./.logdocrc not usable: /definitely/not/logdoc/config-python")
+    assert r(found) == 1
+
+    * repair path: set/save with a valid python() works despite stale config
+    logdoc_py, python("`detected_python'") save replace quiet
     assert r(ok) == 1
-    assert r(python_source) == "`expect_source'"
-    if `has_stata_python' assert r(python) == "`stata_python'"
-    assert r(config) == ".logdocrc"
+    logdoc_py, quiet
+    assert r(python_source) == "config"
+    assert r(python) == "`detected_python'"
     cd "`start_pwd'"
 }
 if _rc == 0 {
-    display as result "PASS: PY-T10 - invalid config falls through to default candidates"
+    display as result "PASS: PY-T10 - invalid config fails naming its source"
     local ++test_pass
 }
 else {
-    display as error "FAIL: PY-T10 - default fallback after invalid config (rc = " _rc ")"
+    display as error "FAIL: PY-T10 - invalid config handling (rc = " _rc ")"
+    capture log close _t10
     capture cd "`start_pwd'"
     local ++test_fail
 }
 
-**# set Action
 **## PY-T11: set stores LOGDOC_PYTHON and returns diagnostics
 local ++test_total
 capture noisily {

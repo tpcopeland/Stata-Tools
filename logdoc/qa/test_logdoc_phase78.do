@@ -76,9 +76,7 @@ file write `fh3' `"@command "regress": Regression command detected"' _n
 file close `fh3'
 
 
-* =========================================================================
 * P78-T1: Notebook mode produces notebook-cell divs
-* =========================================================================
 local test_total = `test_total' + 1
 local t1_out "`outdir'/t1_notebook.html"
 capture erase "`t1_out'"
@@ -109,9 +107,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T2: logdoc batch converts multiple files
-* =========================================================================
 local test_total = `test_total' + 1
 local batchout "`outdir'/batch_output"
 capture mkdir "`batchout'"
@@ -145,9 +141,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T3: Append option adds content to existing file
-* =========================================================================
 local test_total = `test_total' + 1
 local t3_out "`outdir'/t3_append.html"
 capture erase "`t3_out'"
@@ -198,9 +192,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T4: Email mode produces no <style> block
-* =========================================================================
 local test_total = `test_total' + 1
 local t4_out "`outdir'/t4_email.html"
 capture erase "`t4_out'"
@@ -247,9 +239,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T5: Annotate mode adds annotation aside elements
-* =========================================================================
 local test_total = `test_total' + 1
 local t5_out "`outdir'/t5_annotate.html"
 capture erase "`t5_out'"
@@ -280,9 +270,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T6: logdoc diff produces diff output
-* =========================================================================
 local test_total = `test_total' + 1
 local t6_out "`outdir'/t6_diff.html"
 capture erase "`t6_out'"
@@ -321,9 +309,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T7: Replay without prior call -> error 198
-* =========================================================================
 local test_total = `test_total' + 1
 * Clear the replay global to ensure clean state
 global LOGDOC_LAST_ARGS ""
@@ -341,9 +327,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T8: Basic HTML still works (regression)
-* =========================================================================
 local test_total = `test_total' + 1
 local t8_out "`outdir'/t8_basic.html"
 capture erase "`t8_out'"
@@ -382,9 +366,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T9: Session mode carries annotate() into logdoc stop
-* =========================================================================
 local test_total = `test_total' + 1
 local t9_out "`outdir'/t9_session.html"
 local _old_linesize = c(linesize)
@@ -441,9 +423,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T10: Replay preserves metadata while allowing overrides
-* =========================================================================
 local test_total = `test_total' + 1
 local t10_out "`outdir'/t10_replay.html"
 capture erase "`t10_out'"
@@ -501,9 +481,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T11: batch format(docx) uses .docx outputs, not mislabeled .html files
-* =========================================================================
 local test_total = `test_total' + 1
 local t11_dir "`outdir'/batch_docx"
 capture mkdir "`t11_dir'"
@@ -527,12 +505,39 @@ if _rc == 0 {
     capture confirm file "`t11_dir'/test_input2.html"
     if !_rc local _html_leak = 1
 
-    if `_docx_ok' & !`_html_leak' {
-        display as result "P78-T11 PASS: batch docx outputs use the correct extension"
+    * content: each .docx is a zip (PK magic) whose word/document.xml holds fixture output
+    local _docx_content = 1
+    if `_docx_ok' {
+        local t11_start "`c(pwd)'"
+        local t11_tok_test_input "summarize price"
+        local t11_tok_test_input2 "display 3+3"
+        foreach t11_name in test_input test_input2 {
+            local t11_x "`outdir'/t11_unzip_`t11_name'"
+            capture mkdir "`t11_x'"
+            tempname t11_fh
+            file open `t11_fh' using "`t11_dir'/`t11_name'.docx", read text
+            file read `t11_fh' t11_sig
+            file close `t11_fh'
+            if substr(`"`t11_sig'"', 1, 2) != "PK" local _docx_content = 0
+            quietly cd "`t11_x'"
+            capture quietly unzipfile "`t11_dir'/`t11_name'.docx", replace
+            local t11_unzip_rc = _rc
+            quietly cd "`t11_start'"
+            if `t11_unzip_rc' local _docx_content = 0
+            else {
+                capture confirm file "`t11_x'/word/document.xml"
+                if _rc local _docx_content = 0
+                else if strpos(fileread("`t11_x'/word/document.xml"), "`t11_tok_`t11_name''") == 0 local _docx_content = 0
+            }
+        }
+    }
+
+    if `_docx_ok' & !`_html_leak' & `_docx_content' {
+        display as result "P78-T11 PASS: batch docx outputs use the correct extension and hold converted content"
         local test_pass = `test_pass' + 1
     }
     else {
-        display as error "P78-T11 FAIL: batch docx output paths are mislabeled"
+        display as error "P78-T11 FAIL: batch docx output mislabeled or content wrong (docx=`_docx_ok' leak=`_html_leak' content=`_docx_content')"
         local test_fail = `test_fail' + 1
     }
 }
@@ -542,9 +547,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T12: python() accepts executable paths with spaces
-* =========================================================================
 local test_total = `test_total' + 1
 local t12_out "`outdir'/t12_space_python.html"
 capture erase "`t12_out'"
@@ -595,9 +598,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T13: Markdown append keeps a single YAML front matter block
-* =========================================================================
 local test_total = `test_total' + 1
 local t13_out "`outdir'/t13_append.md"
 capture erase "`t13_out'"
@@ -628,9 +629,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T14: TeX append keeps a single LaTeX document wrapper
-* =========================================================================
 local test_total = `test_total' + 1
 local t14_out "`outdir'/t14_append.tex"
 capture erase "`t14_out'"
@@ -674,9 +673,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T15: TeX graph references are relative to the output file
-* =========================================================================
 local test_total = `test_total' + 1
 local t15_graph "`outdir'/t15_graph.png"
 local t15_smcl "`outdir'/t15_graph.smcl"
@@ -734,9 +731,7 @@ else {
 }
 
 
-* =========================================================================
 * P78-T16: Missing wkhtmltopdf fails cleanly without writing HTML as .pdf
-* =========================================================================
 local test_total = `test_total' + 1
 local t16_pdf "`outdir'/t16_missing.pdf"
 local t16_do "`outdir'/t16_missing_pdf.do"
@@ -793,9 +788,7 @@ else {
 }
 
 
-* =========================================================================
 * Summary
-* =========================================================================
 * Summary
 local suite_rc = 0
 if `test_fail' > 0 {

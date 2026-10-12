@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.1.9** | 2026-09-30
+**Version 1.2.0** | 2026-10-12
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -96,7 +96,7 @@ Enhancements are opt-in so that the default HTML remains a readable Stata transc
 
 If `format()` is omitted, the output extension selects `md`, `qmd`, `tex`, `docx`, or `pdf`; otherwise the default is `html`. With `format(both)`, an `.html` output path produces a matching `.md` file, an `.md` path produces a matching `.html` file, and a path without an extension produces both formats with those extensions.
 
-Configuration values use one `key=value` entry per line. `logdoc` reads `~/.logdocrc` first and then `.logdocrc` in the current working directory, so project settings override global settings and command options override both. The Python companion uses the same configuration files; its default candidate order is Stata's configured Python, `$LOGDOC_PYTHON`, configuration files, and platform commands such as `python3` or `python`.
+Configuration values use one `key=value` entry per line. `logdoc` reads `~/.logdocrc` first and then `.logdocrc` in the current working directory, so project settings override global settings and command options override both. Each line is `key=value` or `key = value`; whitespace is trimmed, lines starting with `#` are comments, and keys are case-insensitive. Switch keys such as `quiet` or `replace` take `1`, `true`, `yes`, or `on` (on) and `0`, `false`, `no`, `off`, or empty (off); any other value exits 198 naming the key and file. A command-line `verbose` overrides a configured `quiet` and vice versa. The Python companion uses the same configuration files and the same Python resolution order: the `python()` option, `$LOGDOC_PYTHON`, `python=` in the configuration files, Stata's configured Python, then platform commands such as `python3` or `python`. A Python selected through `$LOGDOC_PYTHON` or a configuration file that cannot be used is an error naming its source, not a silent fallback.
 
 ## Worked Examples
 
@@ -146,7 +146,7 @@ logdoc using "analysis.smcl", output("regressions.html") ///
 
 ### 5. Capture a live session
 
-`logdoc start` opens a temporary SMCL log and sets the session line size to 255; `logdoc stop` closes the log, restores the previous line size, and converts the captured session.
+`logdoc start` stops with return code 602 right away if the output file already exists and neither `replace` nor `append` is in effect, then opens a temporary SMCL log and sets the session line size to 255; `logdoc stop` closes the log, restores the previous line size, and converts the captured session.
 
 ```stata
 logdoc start, output("session.html") theme(dark) notebook replace
@@ -158,7 +158,7 @@ logdoc stop
 
 ### 6. Run a do-file before conversion
 
-With an existing `analysis.do`, `run` executes it in a child Stata session and converts the resulting SMCL log. The output is automatically replaceable, and `stataexe()` can override the detected child executable. If the child do-file fails, `logdoc` returns its exact Stata return code, leaves the output untouched, and reports the preserved child log.
+With an existing `analysis.do`, `run` executes it in a child Stata session and converts the resulting SMCL log. The output is automatically replaceable, and `stataexe()` can override the detected child executable. The do-file runs at the child Stata session's own version, and `r(input)` is the `.do` file. If the child do-file fails, `logdoc` returns its exact Stata return code, leaves the output untouched, and reports the preserved child log.
 
 ```stata
 logdoc using "analysis.do", output("run.html") run
@@ -180,7 +180,7 @@ logdoc diff using "logs/old.smcl", compare("logs/new.smcl") ///
 
 ### 8. Append and replay a conversion
 
-Append mode adds a second log to an existing HTML, Markdown, Quarto Markdown, LaTeX, or dual-format output. An HTML target must already be a logdoc document, and its footer is preserved. Replay remembers the last resolved conversion settings and accepts theme, format, and open overrides.
+Append mode adds a second log to an existing HTML, Markdown, Quarto Markdown, LaTeX, or dual-format output. An HTML target must already be a logdoc document, and its footer is preserved. Replay remembers the last resolved conversion settings and accepts theme, format, and open overrides; with `format()` the output goes to the original path with the new format's extension, so the earlier output of another format is kept.
 
 ```stata
 logdoc using "analysis.smcl", output("project.html") replace
@@ -239,7 +239,7 @@ logdoc replay [, theme() format() open]
 - `logdoc diff` always writes HTML and accepts `replace`, `theme()`, `python()`, `css()`, `accent()`, and `quiet`.
 - `logdoc batch` defaults to HTML and writes each matching input basename to the chosen output directory with the selected output extension(s). Inputs sharing an output basename are rejected before conversion.
 - `logdoc combine` supports `html`, `md`, `qmd`, `tex`, and `both`; it rejects `docx` and `pdf`.
-- `logdoc replay` requires a previous conversion in the current Stata session and reuses all remembered options except for its documented overrides. The latest successful session transcript is retained in temporary storage until a successful conversion of another input replaces it.
+- `logdoc replay` requires a previous single conversion in the current Stata session (a successful `combine`, `batch`, or `diff` clears it, and replay then stops with a message naming that command) and reuses all remembered options except for its documented overrides. The latest successful session transcript is retained in temporary storage until a successful conversion of another input replaces it.
 
 ### `logdoc_py` syntax and actions
 
@@ -304,7 +304,7 @@ logdoc_py [, check|set|save|install(string) python(path) pdf ///
 | `open` | Opens the primary output in the default browser or application | Off |
 | `append` | Appends to an existing `html`, `md`, `qmd`, `tex`, or `both` output | Off |
 | `annotate(filename)` | Adds notes using `@block N: text` or `@command "pattern": text` entries | None |
-| `python(string)` | Selects an explicit Python 3 executable | Stata Python, then configured and system candidates |
+| `python(string)` | Selects an explicit Python 3 executable | `$LOGDOC_PYTHON`, `.logdocrc` `python=`, Stata Python, then system candidates |
 | `quiet` | Suppresses status messages | Off |
 | `verbose` | Shows renderer processing details | Off |
 | `replace` | Allows overwriting existing output files | Off |
@@ -326,7 +326,7 @@ logdoc_py [, check|set|save|install(string) python(path) pdf ///
 | `quiet` | Suppresses nonessential output | Off |
 | `verbose` | Shows candidate and renderer checks | Off |
 
-`logdoc_py` checks candidates in this order when `python()` is omitted: Stata's configured Python, `$LOGDOC_PYTHON`, `python=` in global then project `.logdocrc`, and platform commands such as `python3`, `python`, or `py -3`. `quiet` and `verbose` are mutually exclusive.
+`logdoc_py` checks candidates in this order when `python()` is omitted: `$LOGDOC_PYTHON`, `python=` in global then project `.logdocrc`, Stata's configured Python, and platform commands such as `python3`, `python`, or `py -3`. An unusable `$LOGDOC_PYTHON` or `.logdocrc` Python exits 601 naming its source instead of falling through. `quiet` and `verbose` are mutually exclusive.
 
 ## Stored Results
 
@@ -337,7 +337,7 @@ Conversion, `logdoc stop`, `logdoc combine`, and `logdoc replay` return the conv
 | Result | Type | Meaning |
 |--------|------|---------|
 | `r(output)` | Macro | Output path supplied or resolved |
-| `r(input)` | Macro | Input path used for rendering; with `run`, this may be the captured temporary log |
+| `r(input)` | Macro | Input path as given after `using`: with `run`, the `.do` file; after `logdoc start`/`stop`, the temporary session transcript |
 | `r(format)` | Macro | Format used |
 | `r(theme)` | Macro | Theme used |
 | `r(accent)` | Macro | Accent color, if supplied |
@@ -376,8 +376,8 @@ On a successful call, `logdoc_py` returns:
 ## Assumptions and Limits
 
 - SMCL is the preferred input because plain `.log` files do not retain Stata's input, result, and error color tags.
-- Graphs are embedded when a `graph export` command is detected and the referenced image can be resolved; relative paths resolve from the log directory, or the execution directory for `run` and live capture. Absolute paths remain absolute. `nograph` disables this scan.
-- HTML embeds graph images, while Markdown, Quarto Markdown, and LaTeX use image references that must remain resolvable when the output is moved.
+- Graphs are embedded when a successful `graph export` to an image file (`.png`, `.jpg`, `.gif`, `.svg`) is detected and the file can be resolved; failed exports and other file types are skipped; relative paths resolve from the log directory, or the execution directory for `run` and live capture. Absolute paths remain absolute. `nograph` disables this scan.
+- HTML embeds graph images, while Markdown, Quarto Markdown, and LaTeX use image references that must remain resolvable when the output is moved (LaTeX references `.png`, `.jpg`, `.pdf`, and `.eps` exports; `.svg` and `.gif` exports are skipped there with a warning).
 - `format(qmd)` produces rendered Markdown with Quarto front matter; it does not create executable Quarto code cells.
 - `format(docx)` is unavailable before Stata 17. `format(pdf)` needs `xhtml2pdf` or `wkhtmltopdf`; check it with `logdoc_py, check pdf`.
 - `logdoc combine` does not create Word or PDF output. `append` is unsupported for Word and PDF.
@@ -394,6 +394,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.0** (2026-10-12): Faithful rendering now matches Stata's own `translate` layout ({col} no longer adds stray spaces); inline SMCL text such as `{cmd:}`, `{hi:}`, `{err:}` and link text is kept; braces in plain-text logs and output lines such as `name: ...` are no longer dropped; only successful image exports are embedded as graphs, and LaTeX references only pdflatex-compatible files. Python selection now honours `python()`, then `$LOGDOC_PYTHON` (`logdoc_py, set`), then `.logdocrc`, then Stata's configured Python, and an unusable explicit selection is an error naming its source. `run` executes the do-file at the child Stata's own version, returns the do-file as `r(input)`, and leaves no batch log in the working directory; `replay, format()` writes a new file with the matching extension; `start` refuses an existing output immediately; `.logdocrc` accepts `key = value` and `#` comments, and a command-line `verbose`/`quiet` overrides the config; PDF temporary files are removed. Enhanced HTML always uses the built-in theme CSS (the separate `logdoc_light.css`/`logdoc_dark.css` files, which `net install` never installed, are gone, so a stray copy in the working directory can no longer restyle output); `.logdocrc` flags accept 1/true/yes/on and 0/false/no/off and reject other values; `replay` after `combine`, `batch`, or `diff` is an error rather than silently re-running an older conversion. The renderer interprets SMCL directives only in the forms Stata accepts, keeps error colouring across font switches, detects SMCL without a leading header or behind a byte-order mark, drops `log off`/`log on` banners, caps repeat counts, keeps Markdown fences and LaTeX listings intact when output contains backticks or `\end{...}`, and detects `gr export` and exports inside loops.
 - **1.1.9** (2026-09-30): Reject hard-linked source/output collisions and ambiguous batch basenames; require every renderer output to succeed; resolve graphs from the source or capture execution directory; filter combined sources without order dependence; retain session transcripts for replay and preserve configured Python; return the actual primary combine path and final Word/PDF size.
 
 - **1.1.8** (2026-09-27): Output lines that a text log wrapped at the linesize stay whole in Markdown and the other formats: the `> ` continuation stays in the output block whatever it starts with (a continuation starting with a letter used to be moved to a separate command block), the first part keeps its trailing blanks so the continuation lines up, and a log header whose path wraps is skipped whole.

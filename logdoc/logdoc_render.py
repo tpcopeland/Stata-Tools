@@ -23,8 +23,6 @@ Options:
     --preformatted           Compatibility alias; HTML tables are monospace by default
     --nofold                 Compatibility alias; folding is off by default
     --css PATH               Custom CSS file path
-    --light-css PATH         Path to light theme CSS
-    --dark-css PATH          Path to dark theme CSS
 
 No external dependencies — uses only the Python standard library.
 """
@@ -35,7 +33,6 @@ import datetime
 import difflib
 import html as html_mod
 import json
-import mimetypes
 import os
 import re
 import sys
@@ -537,6 +534,7 @@ SMCL_CHAR_MAP = {
     "{c TLC}": "┌", "{c TRC}": "┐", "{c BLC}": "└", "{c BRC}": "┘",
     "{c TT}": "┬", "{c BT}": "┴", "{c LT}": "├", "{c RT}": "┤",
     "{c +}": "┼", "{c |}": "│", "{c -}": "─",
+    "{c -(}": "{", "{c )-}": "}",
     "{c S|}": "§", "{c 0xa3}": "£", "{c 0xa9}": "©",
     "{c 0xae}": "®", "{c 0xb0}": "°", "{c 0xb1}": "±",
     "{c 0xb2}": "²", "{c 0xb3}": "³", "{c 0xb7}": "·",
@@ -551,12 +549,14 @@ SMCL_CHAR_MAP = {
 
 class Block:
     """A semantic block of SMCL content."""
-    __slots__ = ("kind", "lines", "raw_lines")
+    __slots__ = ("kind", "lines", "raw_lines", "state")
 
     def __init__(self, kind, lines=None, raw_lines=None):
         self.kind = kind            # command, table, error, graph_ref, output
         self.lines = lines or []    # expanded text lines
         self.raw_lines = raw_lines or []  # original SMCL lines
+        # SMCL layout state ({p2colset}); parse_blocks shares one per source
+        self.state = new_smcl_state()
 
 
 def classify_raw_line(line):
@@ -625,9 +625,148 @@ def normalize_smcl_continuations(raw_lines):
     return normalized
 
 
+def _smcl_visible_blank(line):
+    return not re.sub(r'\{[^}]*\}', '', line).strip()
+
+
+def join_smcl_paragraphs(raw_lines):
+    """Join the physical lines of an SMCL paragraph into one line.
+
+    In paragraph mode ({p ...} through {p_end} or a blank line) Stata joins
+    the source lines with single spaces before wrapping, so an error such as
+    "{p 0 4 2}" / "file x" / "already exists" / "{p_end}" prints as one
+    line.  Nothing is joined across a command echo.
+    """
+    out = []
+    i = 0
+    n = len(raw_lines)
+    while i < n:
+        line = raw_lines[i]
+        if not _SMCL_PARA_START_RE.search(line) or "{p_end}" in line:
+            out.append(line)
+            i += 1
+            continue
+        pieces = [line.rstrip()]
+        j = i + 1
+        while j < n:
+            nxt = raw_lines[j]
+            if classify_raw_line(nxt) in ("command", "continuation",
+                                          "command_blank"):
+                break
+            if _smcl_visible_blank(nxt) and "{p_end}" not in nxt:
+                break
+            # a new paragraph directive starts a new paragraph
+            if _SMCL_PARA_START_RE.search(nxt):
+                break
+            pieces.append(nxt.strip())
+            j += 1
+            if "{p_end}" in nxt:
+                break
+        joined = ""
+        for piece in pieces:
+            visible = re.sub(r'\{[^}]*\}', '', joined)
+            if visible.strip() and not visible.endswith(" ") and \
+                    not _smcl_visible_blank(piece):
+                joined += " " + piece
+            else:
+                joined += piece
+        out.append(joined)
+        i = j
+    return out
+
+
+_SMCL_MODE_LINE_RE = re.compile(
+    r'^\s*(?:\{(?:sf|ul off|\.-)\})*\{(com|txt|text|res|result|err|error|inp|input)\}')
+
+
+def _text_log_wrap_width(raw_lines):
+    """The linesize a plain-text log was written at, from its own lines.
+
+    Stata cuts a wrapped command echo at exactly the linesize and never
+    writes a longer line, so a log with a wrapped line has the linesize as
+    its longest line length.  Below Stata's minimum linesize (40) nothing
+    can have wrapped: 0.
+    """
+    width = max((len(line.rstrip("\r\n")) for line in raw_lines),
+                default=0)
+    return width if width >= 40 else 0
+
+
+def _is_command_continuation(prev, line, is_smcl, wrap_width=0):
+    """True when `line` continues the command echo whose last line is prev.
+
+    {com}> is always a continuation.  In SMCL a bare "> " line continues
+    the command (its {com} mode is still on) while output always opens with
+    its own mode tag, so "{res}> x" is output.  A text log carries no tags:
+    there "> " continues the command only when the previous line was cut at
+    the log's linesize (`wrap_width`, from _text_log_wrap_width) or ends
+    with ///; otherwise it is output starting "> ".
+    """
+    stripped = line.strip()
+    if stripped.startswith("{com}>"):
+        return True
+    if is_smcl:
+        return bool(re.match(r'>(\s|$)', line.lstrip()))
+    if not re.match(r'>(\s|$)', line):
+        return False
+    # prev is brace-escaped ({c -(}): measure the text as written
+    prev_text = prev.replace("{c -(}", "{").replace("{c )-}", "}")
+    prev_text = prev_text.rstrip("\r\n")
+    return prev_text.rstrip().endswith("///") or (
+        wrap_width > 0 and len(prev_text) == wrap_width)
+
+
+def _is_smcl_text(raw_lines):
+    """True when the input is SMCL rather than a plain-text log.
+
+    SMCL when an {smcl} header line appears among the first nonblank lines
+    (blank lines or a BOM may precede it), or when the file has lines that
+    start with SMCL mode tags: at least one {com} line and one {txt}/{res}/
+    {err}/{inp} line.  A plain log that merely contains braces (JSON, a
+    displayed "{x}") has neither, so its braces stay literal.
+    """
+    nonblank = 0
+    for line in raw_lines:
+        stripped = line.strip().lstrip("\ufeff")
+        if not stripped:
+            continue
+        if stripped.startswith("{smcl}"):
+            return True
+        nonblank += 1
+        if nonblank >= 10:
+            break
+    kinds = set()
+    for line in raw_lines:
+        m = _SMCL_MODE_LINE_RE.match(line)
+        if m:
+            kinds.add("com" if m.group(1) == "com" else "other")
+            if len(kinds) == 2:
+                return True
+    return False
+
+
+def _escape_plain_braces(line):
+    """Protect literal braces of a plain-text log from SMCL expansion."""
+    return line.replace("{", "\x00").replace("}", "{c )-}").replace(
+        "\x00", "{c -(}")
+
+
 def parse_blocks(raw_lines):
-    """Parse raw SMCL lines into semantic blocks."""
-    raw_lines = normalize_smcl_continuations(raw_lines)
+    """Parse raw SMCL lines into semantic blocks.
+
+    A plain-text log (no {smcl} header) carries no markup, so its braces are
+    literal output: they are escaped to {c -(}/{c )-} before parsing and
+    survive expansion unchanged.
+    """
+    is_smcl = _is_smcl_text(raw_lines)
+    wrap_width = 0
+    if not is_smcl:
+        wrap_width = _text_log_wrap_width(raw_lines)
+        raw_lines = [_escape_plain_braces(line) for line in raw_lines]
+        raw_lines = normalize_smcl_continuations(raw_lines)
+    else:
+        raw_lines = join_smcl_paragraphs(
+            normalize_smcl_continuations(raw_lines))
     blocks = []
     i = 0
     n = len(raw_lines)
@@ -636,27 +775,33 @@ def parse_blocks(raw_lines):
         line = raw_lines[i]
         ltype = classify_raw_line(line)
 
-        # Skip log open/close metadata
-        if _is_log_metadata(line):
+        # Skip the log open/close banner (name/log/log type/opened on
+        # cluster).  A lone "name: ..." output line is user output.
+        if _banner_at(raw_lines, i):
+            if _is_log_rule(line):
+                i += 1
             i = _skip_log_metadata(raw_lines, i)
             continue
 
         # Skip SMCL structural markers that do not render visible content.
         stripped = line.strip()
         if stripped in ("{smcl}", "{.-}", "") or \
-           re.match(r'^(?:\{(?:com|txt|sf|ul off)\})+$', stripped) or \
-           re.match(r'^(?:\{(?:com|txt|sf|ul off)\})*\{\.-\}(?:\{(?:com|txt|sf|ul off)\})*$', stripped):
+           re.match(r'^(?:\{(?:com|txt|sf|ul off|smcl|\.-)\})+$', stripped):
             i += 1
             continue
 
         if ltype == "command" or ltype == "continuation":
             # Extract clean command text to check for log commands
             cmd_clean = re.sub(r'\{[^}]*\}', '', line).strip()
-            if re.match(r'\.\s*log\s+(close|using|open)', cmd_clean):
+            if re.match(r'\.\s*log\s+(close|using|open|off|on)\b',
+                        cmd_clean):
                 # Skip log open/close commands and their metadata
                 i += 1
                 while i < n and (_is_log_metadata(raw_lines[i]) or
                                  _is_wrap_continuation(raw_lines[i])):
+                    i += 1
+                # a text log closes its banner with a rule of dashes
+                if i < n and _is_log_rule(raw_lines[i]):
                     i += 1
                 if i < n and raw_lines[i].strip() == "":
                     i += 1
@@ -667,9 +812,9 @@ def parse_blocks(raw_lines):
             block.raw_lines.append(line)
             i += 1
             while i < n:
-                ntype = classify_raw_line(raw_lines[i])
-                if ntype in ("continuation", "plain_continuation") or \
-                        _is_wrap_continuation(raw_lines[i]):
+                if _is_command_continuation(block.raw_lines[-1],
+                                            raw_lines[i], is_smcl,
+                                            wrap_width):
                     block.raw_lines.append(raw_lines[i])
                     i += 1
                 else:
@@ -686,15 +831,21 @@ def parse_blocks(raw_lines):
             block = Block("table")
             block.raw_lines.append(line)
             i += 1
-            # Gather until table_bottom
+            # Gather until table_bottom.  A {c TT} with no {c BT} before the
+            # next command (or the end of the log) is not a table: keep it
+            # as ordinary output and leave the command to the main loop.
+            closed = False
             while i < n:
-                block.raw_lines.append(raw_lines[i])
-                if classify_raw_line(raw_lines[i]) == "table_bottom":
-                    i += 1
+                ntype = classify_raw_line(raw_lines[i])
+                if ntype in ("command", "continuation", "command_blank"):
                     break
+                block.raw_lines.append(raw_lines[i])
                 i += 1
-            else:
-                i = min(i, n)
+                if ntype == "table_bottom":
+                    closed = True
+                    break
+            if not closed:
+                block.kind = "output"
             blocks.append(block)
             continue
 
@@ -715,12 +866,19 @@ def parse_blocks(raw_lines):
         i += 1
         while i < n:
             ntype = classify_raw_line(raw_lines[i])
-            if ntype in ("output", "blank", "plain_continuation"):
+            if ntype in ("output", "blank", "plain_continuation") and \
+                    not _banner_at(raw_lines, i):
                 block.raw_lines.append(raw_lines[i])
                 i += 1
             else:
                 break
         blocks.append(block)
+
+    # one layout state per source document ({p2colset} carries across
+    # its lines, never into another file of a combined document)
+    state = new_smcl_state()
+    for block in blocks:
+        block.state = state
 
     return blocks
 
@@ -730,7 +888,43 @@ def _is_log_metadata(line):
     stripped = line.strip()
     # Remove leading SMCL tags
     clean = re.sub(r'\{[^}]*\}', '', stripped).strip()
-    return bool(re.match(r'(name|log|log type|opened on|closed on):\s+', clean))
+    return bool(re.match(
+        r'(name|log|log type|opened on|closed on|paused on|resumed on):\s+',
+        clean))
+
+
+def _is_log_banner(lines, start):
+    """True when the metadata-looking line at `start` opens a log banner.
+
+    Stata's log open/close banner is a cluster of name:/log:/log type:/
+    opened on:/closed on: lines.  It counts as a banner only when the
+    cluster has a "log type:" line and an "opened on:"/"closed on:" line, so
+    user output such as "name: John Smith" is kept.
+    """
+    keys = set()
+    i = start
+    while i < len(lines) and _is_log_metadata(lines[i]):
+        clean = re.sub(r'\{[^}]*\}', '', lines[i]).strip()
+        keys.add(clean.split(":", 1)[0])
+        i += 1
+        while i < len(lines) and _is_wrap_continuation(lines[i]):
+            i += 1
+    return "log type" in keys and bool(
+        keys & {"opened on", "closed on", "paused on", "resumed on"})
+
+
+def _is_log_rule(line):
+    """A plain-text log's banner rule: a line of dashes only."""
+    clean = re.sub(r'\{[^}]*\}', '', line).strip()
+    return bool(re.fullmatch(r'-{20,}', clean))
+
+
+def _banner_at(lines, i):
+    """True when a log open/close banner (or its leading rule) is at i."""
+    if _is_log_metadata(lines[i]):
+        return _is_log_banner(lines, i)
+    return (_is_log_rule(lines[i]) and i + 1 < len(lines) and
+            _is_log_metadata(lines[i + 1]) and _is_log_banner(lines, i + 1))
 
 
 def _skip_log_metadata(lines, start):
@@ -742,6 +936,9 @@ def _skip_log_metadata(lines, start):
             # a long log path wraps onto "> " lines
             while i < len(lines) and _is_wrap_continuation(lines[i]):
                 i += 1
+            continue
+        if _is_log_rule(lines[i]):
+            i += 1
             continue
         stripped = lines[i].strip()
         clean = re.sub(r'\{[^}]*\}', '', stripped).strip()
@@ -870,218 +1067,395 @@ def _find_matching_brace(line, start):
     return -1
 
 
-def expand_smcl_line(line, mode="text"):
+# Directive forms below were checked one by one against Stata's own
+# translate (smcl2log): Stata interprets a directive only in the forms its
+# manual ([P] smcl) defines and prints any other form -- {lm}, {sub:E},
+# {braces}, {"a": 1}, {foo:bar}, {opt}, {ul} -- literally, braces included.
+
+# Colour/mode directives: {res}, {res:text}.  The span class they open in
+# HTML; None is plain text.
+_SMCL_COLOR_CLASSES = {
+    "com": "cmd", "cmd": "cmd", "input": "cmd", "inp": "cmd",
+    "res": "res", "result": "res", "hi": "res", "hilite": "res",
+    "err": "err", "error": "err",
+    "txt": None, "text": None,
+}
+# Font directives: {bf}, {bf:text}.  As switches they change the face, not
+# the colour, so they never close a colour span ({err}x {bf}y{sf} z stays
+# in err).  Only the inline form is styled.
+_SMCL_FONT_TAGS = {
+    "bf": ("<strong>", "</strong>"), "it": ("<em>", "</em>"),
+    "sf": ("", ""), "rm": ("", ""),
+}
+# Syntax placeholders: {varname} -> varname, {varname:x} -> varnamex.
+_SMCL_PLACEHOLDERS = {
+    "var": "varname", "varname": "varname", "varlist": "varlist",
+    "vars": "varlist", "depvar": "depvar", "depvars": "depvars",
+    "depvarlist": "depvarlist", "indepvars": "indepvars", "newvar": "newvar",
+}
+# No-argument fixed text: {ifin} -> [if] [in].
+_SMCL_FIXED = {"ifin": "[if] [in]", "weight": "[weight]", "dtype": "[type]"}
+# Links shown as their text, or their argument when there is no text:
+# {help a:T} -> T, {browse "http://x"} -> http://x.
+_SMCL_LINKS = {
+    "help", "helpb", "search", "view", "net", "ado", "update", "dialog",
+    "browse", "stata", "matacmd", "mansection", "manpage",
+}
+# Directives valid only as {name:text}; they show the text.
+_SMCL_TEXT_ONLY = {
+    "title", "bind", "dlgtab", "help_d", "search_d", "view_d", "net_d",
+    "netfrom_d", "ado_d", "update_d", "back", "clearmore", "right",
+    "center", "centre", "rcenter", "rcentre", "syntab",
+}
+# Argument-free directives with no visible output.
+_SMCL_SILENT = {
+    "smcl", "asis", "s6hlp", "reset", "...", ".-", "p_end", "p2line",
+    "p2colreset", "synoptset", "break",
+}
+# Paragraph directives and their first-line indent.
+_SMCL_PARA_INDENT = {
+    "pstd": 4, "psee": 4, "phang": 4, "pmore": 8, "pin": 8, "phang2": 8,
+    "pmore2": 12, "pin2": 12, "phang3": 12, "pmore3": 16, "pin3": 16,
+}
+_SMCL_PARA_START_RE = re.compile(
+    r'\{(?:p(?:\s+\d+)*|pstd|psee|phang[23]?|pmore[23]?|pin[23]?)\}')
+
+# Upper bound on any repeat count ({dup}, {hline}, {space}, {col}): a
+# hostile count must not exhaust memory.
+SMCL_MAX_REPEAT = 10000
+
+# {p2col} column layout: (first col, second col, continuation col), 1-based.
+# Stata's default layout puts the second column at 31 (verified against
+# translate smcl2log); {p2colset} overrides it until {p2colreset}.
+_P2COL_DEFAULT = (1, 31, 33)
+
+
+def new_smcl_state():
+    """Fresh layout state for one source document."""
+    return {"p2col": _P2COL_DEFAULT}
+
+
+def _split_smcl_tag(tag_inner):
+    """Split a directive into (name, args, text-or-None).
+
+    The text starts after the first colon outside double quotes and nested
+    braces, so {browse "http://x.org":label} keeps the URL in its args.
+    """
+    depth = 0
+    in_quote = False
+    head, text = tag_inner, None
+    for k, ch in enumerate(tag_inner):
+        if ch == '"':
+            in_quote = not in_quote
+        elif in_quote:
+            continue
+        elif ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+        elif ch == ':' and depth == 0:
+            head, text = tag_inner[:k], tag_inner[k + 1:]
+            break
+    parts = head.strip().split(None, 1)
+    name = parts[0] if parts else ""
+    args = parts[1].strip() if len(parts) > 1 else ""
+    return name, args, text
+
+
+def _vis_len(text, mode):
+    """Visible width of expanded text: tags removed, entities unescaped."""
+    if mode == "html":
+        return len(html_mod.unescape(re.sub(r'<[^>]+>', '', text)))
+    return len(text)
+
+
+def _unquote_args(args):
+    """A link argument as Stata shows it: surrounding quotes removed."""
+    m = re.fullmatch(r'"([^"]*)"', args.strip())
+    return m.group(1) if m else args.strip()
+
+
+def _repeat(n):
+    return min(max(0, n), SMCL_MAX_REPEAT)
+
+
+def expand_smcl_line(line, mode="text", state=None):
     """Expand SMCL tags in a single line.
 
-    mode="text": strip all tags to plain text (for Markdown)
+    mode="text": strip all tags to plain text (Markdown fences, LaTeX)
     mode="html": convert style tags to HTML spans
+    state: layout state shared by the lines of one document ({p2colset});
+    a fresh state is used when omitted.
+
+    A directive in a form Stata does not define is output text, as in
+    Stata's own rendering.
     """
+    if state is None:
+        state = new_smcl_state()
     result = []
     col = 0
     i = 0
     current_style = None
 
+    def emit_text(text):
+        nonlocal col
+        result.append(html_mod.escape(text) if mode == "html" else text)
+        col += len(text)
+
+    def emit_expanded(inner):
+        nonlocal col
+        result.append(inner)
+        col += _vis_len(inner, mode)
+
+    def expand(text):
+        return expand_smcl_line(text, mode, state)
+
     while i < len(line):
-        if line[i] == '{':
-            j = _find_matching_brace(line, i)
-            if j == -1:
-                ch = html_mod.escape(line[i]) if mode == "html" else line[i]
-                result.append(ch)
-                col += 1
-                i += 1
-                continue
-            tag_full = line[i:j+1]
-            tag_inner = line[i+1:j]
-            i = j + 1
-
-            # {col N} — pad to column N (1-based)
-            m = re.match(r'col\s+(\d+)', tag_inner)
-            if m:
-                target = int(m.group(1)) - 1
-                spaces = max(1, target - col)
-                result.append(' ' * spaces)
-                col += spaces
-                continue
-
-            # {hline N} / {hline}
-            m = re.match(r'hline\s+(\d+)', tag_inner)
-            if m:
-                n = int(m.group(1))
-                ch = '─' * n
-                result.append(ch)
-                col += n
-                continue
-            if tag_inner == 'hline':
-                ch = '─' * 79
-                result.append(ch)
-                col += 79
-                continue
-
-            # {space N}
-            m = re.match(r'space\s+(\d+)', tag_inner)
-            if m:
-                n = int(m.group(1))
-                result.append(' ' * n)
-                col += n
-                continue
-
-            # Box-drawing characters {c XX}
-            if tag_full in SMCL_CHAR_MAP:
-                ch = SMCL_CHAR_MAP[tag_full]
-                result.append(ch)
-                col += 1
-                continue
-
-            # {bf:text} → bold (recursively expand inner content)
-            m = re.match(r'bf:(.+)', tag_inner)
-            if m:
-                inner = expand_smcl_line(m.group(1), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                if mode == "html":
-                    result.append(f'<strong>{inner}</strong>')
-                else:
-                    result.append(f'**{inner}**')
-                col += len(plain)
-                continue
-
-            # {it:text} → italic (recursively expand inner content)
-            m = re.match(r'it:(.+)', tag_inner)
-            if m:
-                inner = expand_smcl_line(m.group(1), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                if mode == "html":
-                    result.append(f'<em>{inner}</em>')
-                else:
-                    result.append(f'*{inner}*')
-                col += len(plain)
-                continue
-
-            # {result:text} — inline result coloring (recursively expand)
-            m = re.match(r'result:(.+)', tag_inner)
-            if m:
-                inner = expand_smcl_line(m.group(1), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                if mode == "html":
-                    result.append(f'<span class="res">{inner}</span>')
-                else:
-                    result.append(inner)
-                col += len(plain)
-                continue
-
-            # {res:text} — same as result:text (recursively expand)
-            m = re.match(r'res:(.+)', tag_inner)
-            if m:
-                inner = expand_smcl_line(m.group(1), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                if mode == "html":
-                    result.append(f'<span class="res">{inner}</span>')
-                else:
-                    result.append(inner)
-                col += len(plain)
-                continue
-
-            # {txt:text} — inline text-style content
-            m = re.match(r'(?:txt|text):(.+)', tag_inner)
-            if m:
-                inner = expand_smcl_line(m.group(1), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                result.append(inner)
-                col += len(plain)
-                continue
-
-            # {lalign N:text}, {ralign N:text}, {center N:text}
-            m = re.match(r'(lalign|ralign|center)\s+(\d+):(.+)', tag_inner)
-            if m:
-                align = m.group(1)
-                width = int(m.group(2))
-                inner = expand_smcl_line(m.group(3), mode)
-                plain = re.sub(r'<[^>]+>', '', inner)
-                pad = max(0, width - len(plain))
-                if align == "ralign":
-                    rendered = ' ' * pad + inner
-                elif align == "center":
-                    left = pad // 2
-                    rendered = ' ' * left + inner + ' ' * (pad - left)
-                else:
-                    rendered = inner + ' ' * pad
-                result.append(rendered)
-                col += len(plain) + pad
-                continue
-
-            # {help topic##|_new:text} → link.  Anchor the expression: the
-            # earlier non-greedy pattern could satisfy every optional group
-            # after a single character, so {help regress} became a link to
-            # ?r rather than ?regress.
-            m = re.match(r'help\s+([^\s:]+?)(?:##\|_new)?(?::(.*))?$', tag_inner)
-            if m:
-                topic = m.group(1)
-                display_text = m.group(2) or topic
-                if mode == "html":
-                    url = html_mod.escape(
-                        f"https://www.stata.com/help.cgi?{topic}", quote=True
-                    )
-                    result.append(
-                        f'<a href="{url}" class="help-link">'
-                        f'{html_mod.escape(display_text, quote=True)}</a>'
-                    )
-                else:
-                    result.append(display_text)
-                col += len(display_text)
-                continue
-
-            # {helpb topic} → bold help link
-            m = re.match(r'helpb\s+(\S+)', tag_inner)
-            if m:
-                topic = m.group(1)
-                if mode == "html":
-                    url = html_mod.escape(
-                        f"https://www.stata.com/help.cgi?{topic}", quote=True
-                    )
-                    result.append(
-                        f'<a href="{url}" class="help-link">'
-                        f'<strong>{html_mod.escape(topic)}</strong></a>'
-                    )
-                else:
-                    result.append(f'**{topic}**')
-                col += len(topic)
-                continue
-
-            # Style markers: {com}, {res}, {txt}, {err}
-            if mode == "html":
-                if tag_inner in ("com", "cmd"):
-                    if current_style:
-                        result.append('</span>')
-                    result.append('<span class="cmd">')
-                    current_style = "cmd"
-                    continue
-                elif tag_inner == "res":
-                    if current_style:
-                        result.append('</span>')
-                    result.append('<span class="res">')
-                    current_style = "res"
-                    continue
-                elif tag_inner == "err" or tag_inner == "error":
-                    if current_style:
-                        result.append('</span>')
-                    result.append('<span class="err">')
-                    current_style = "err"
-                    continue
-                elif tag_inner == "txt":
-                    if current_style:
-                        result.append('</span>')
-                    current_style = None
-                    continue
-
-            # All other tags — silently skip
-            # ({smcl}, {sf}, {ul off}, {p_end}, {.-}, {p}, etc.)
-            continue
-        else:
-            ch = line[i]
-            if mode == "html":
-                ch = html_mod.escape(ch)
-            result.append(ch)
-            col += 1
+        if line[i] != '{':
+            emit_text(line[i])
             i += 1
+            continue
+
+        j = _find_matching_brace(line, i)
+        if j == -1:
+            emit_text(line[i])
+            i += 1
+            continue
+        tag_full = line[i:j+1]
+        tag_inner = line[i+1:j]
+        i = j + 1
+        name, args, text = _split_smcl_tag(tag_inner)
+        plain = text is None and not args
+
+        # {col N} -- move to column N (1-based).  Stata adds no space when
+        # the output is already at or past column N.
+        m = re.fullmatch(r'col\s+(\d+)', tag_inner)
+        if m:
+            spaces = max(0, _repeat(int(m.group(1))) - 1 - col)
+            result.append(' ' * spaces)
+            col += spaces
+            continue
+
+        # {hline N} / {hline}
+        m = re.fullmatch(r'hline(?:\s+(\d+))?', tag_inner)
+        if m:
+            n = _repeat(int(m.group(1))) if m.group(1) else 79
+            result.append('─' * n)
+            col += n
+            continue
+
+        # {space N}
+        m = re.fullmatch(r'space\s+(\d+)', tag_inner)
+        if m:
+            n = _repeat(int(m.group(1)))
+            result.append(' ' * n)
+            col += n
+            continue
+
+        # {tab}: to the next multiple of 8
+        if name == "tab" and plain:
+            n = 8 - col % 8
+            result.append(' ' * n)
+            col += n
+            continue
+
+        # Box-drawing and named characters {c XX}
+        if tag_full in SMCL_CHAR_MAP:
+            emit_text(SMCL_CHAR_MAP[tag_full])
+            continue
+        # {c 0xNN} / {c NNN} / {char NNN}: character by code
+        m = re.fullmatch(r'(?:c|char)\s+(0x[0-9a-fA-F]+|\d+)', tag_inner)
+        if m:
+            try:
+                emit_text(chr(int(m.group(1), 0)))
+            except (ValueError, OverflowError):
+                emit_text(tag_full)
+            continue
+
+        # {lalign N:text}, {ralign N:text}, {center N:text}, {rcenter N:text}
+        m = re.fullmatch(r'(lalign|ralign|center|centre|rcenter|rcentre)'
+                         r'\s+(\d+):(.*)', tag_inner, re.DOTALL)
+        if m:
+            align = m.group(1)
+            width = _repeat(int(m.group(2)))
+            inner = expand(m.group(3))
+            pad = max(0, width - _vis_len(inner, mode))
+            if align == "ralign":
+                rendered = ' ' * pad + inner
+            elif align == "lalign":
+                rendered = inner + ' ' * pad
+            else:
+                left = (pad + 1) // 2 if align.startswith("r") else pad // 2
+                rendered = ' ' * left + inner + ' ' * (pad - left)
+            emit_expanded(rendered)
+            continue
+
+        # {dup N:text} → text repeated N times (bounded)
+        if name == "dup" and text is not None and re.fullmatch(r'\d+', args):
+            inner = expand(text)
+            count = _repeat(int(args))
+            if _vis_len(inner, mode) > 0:
+                count = min(count,
+                            max(1, SMCL_MAX_REPEAT // _vis_len(inner, mode)))
+            emit_expanded(inner * count)
+            continue
+
+        # Colour directives: {res:x} inline, {res} switch
+        if name in _SMCL_COLOR_CLASSES and not args:
+            cls = _SMCL_COLOR_CLASSES[name]
+            if text is not None:
+                inner = expand(text)
+                if mode == "html" and cls:
+                    result.append(f'<span class="{cls}">{inner}</span>')
+                    col += _vis_len(inner, mode)
+                else:
+                    emit_expanded(inner)
+            elif mode == "html":
+                if current_style:
+                    result.append('</span>')
+                    current_style = None
+                if cls:
+                    result.append(f'<span class="{cls}">')
+                    current_style = cls
+            continue
+
+        # Font directives: {bf:x} inline; {bf}/{sf}/{it}/{rm} switches
+        # change the face only and are dropped.
+        if name in _SMCL_FONT_TAGS and not args:
+            if text is not None:
+                inner = expand(text)
+                open_tag, close_tag = _SMCL_FONT_TAGS[name]
+                if mode == "html" and open_tag:
+                    result.append(f"{open_tag}{inner}{close_tag}")
+                    col += _vis_len(inner, mode)
+                else:
+                    emit_expanded(inner)
+            continue
+
+        # {ul:x} inline; {ul on}/{ul off} switches ({ul} alone is literal)
+        if name == "ul":
+            if text is not None and not args:
+                inner = expand(text)
+                if mode == "html":
+                    result.append(f"<u>{inner}</u>")
+                    col += _vis_len(inner, mode)
+                else:
+                    emit_expanded(inner)
+                continue
+            if text is None and args in ("on", "off"):
+                continue
+
+        # Syntax placeholders and fixed syntax text
+        if name in _SMCL_PLACEHOLDERS and not args:
+            emit_text(_SMCL_PLACEHOLDERS[name])
+            if text is not None:
+                emit_expanded(expand(text))
+            continue
+        if name in _SMCL_FIXED and plain:
+            emit_text(_SMCL_FIXED[name])
+            continue
+
+        # Links: {help a}, {help a:T}, {help "a b"}, {browse "url":T}
+        if (name in _SMCL_LINKS and args) or (
+                name == "update" and text is not None and not args):
+            shown = _unquote_args(args)
+            if name in ("help", "helpb") and mode == "html":
+                topic = re.sub(r'##\|_new$', '', shown)
+                inner = (expand(text) if text is not None
+                         else html_mod.escape(shown, quote=True))
+                if name == "helpb":
+                    inner = f"<strong>{inner}</strong>"
+                url = html_mod.escape(
+                    f"https://www.stata.com/help.cgi?{topic}", quote=True)
+                result.append(f'<a href="{url}" class="help-link">{inner}</a>')
+                col += _vis_len(inner, mode)
+            elif text is not None:
+                emit_expanded(expand(text))
+            else:
+                emit_text(shown)
+            continue
+
+        # {manhelp topic SECTION[:text]} → [SECTION] topic|text
+        if name in ("manhelp", "manhelpi") and len(args.split()) >= 2:
+            topic, section = args.split()[:2]
+            emit_text(f"[{section}] " + (text if text is not None else topic))
+            continue
+        # {manlink SECTION entry} → [SECTION] entry (the colon is literal)
+        if name in ("manlink", "manlinki") and (args or text is not None):
+            rest = tag_inner.strip()[len(name):].strip()
+            parts = rest.split(None, 1)
+            emit_text(f"[{parts[0]}] " + (parts[1] if len(parts) > 1 else ""))
+            continue
+
+        # {opt name[:rest]} → name+rest; {opth name(arg)} → name(arg)
+        if name == "opt" and args:
+            emit_text(args + (text if text is not None else ""))
+            continue
+        if name == "opth" and "(" in args and text is None:
+            emit_text(args)
+            continue
+        # {cmdab:reg:ress} → regress (the colon marks the abbreviation)
+        if name == "cmdab" and text is not None and not args:
+            emit_expanded(expand(text.replace(":", "")))
+            continue
+
+        # Text-only directives: {title:x}, {bind:x}, {right:x}, ...
+        if name in _SMCL_TEXT_ONLY and text is not None and not args:
+            emit_expanded(expand(text))
+            continue
+
+        # {p2colset # # # #} / {p2col [# # # #]:first}second
+        if name == "p2colset" and text is None:
+            nums = [int(x) for x in re.findall(r'\d+', args)]
+            if len(nums) >= 3:
+                state["p2col"] = tuple(_repeat(x) for x in nums[:3])
+            continue
+        if name in ("p2col", "synopt", "p2coldent") and text is not None:
+            nums = [_repeat(int(x)) for x in re.findall(r'\d+', args)]
+            c1, c2, c3 = (tuple(nums[:3]) if len(nums) >= 3
+                          else state["p2col"])
+            pad = max(0, c1 - 1 - col)
+            result.append(' ' * pad)
+            col += pad
+            emit_expanded(expand(text))
+            if col < c2 - 1:
+                result.append(' ' * (c2 - 1 - col))
+                col = c2 - 1
+            else:
+                # first column too wide: the second column starts on a new
+                # line at the continuation column
+                result.append('\n' + ' ' * (c3 - 1))
+                col = c3 - 1
+            continue
+
+        # Paragraph directives: indent the (joined) paragraph's first line
+        if text is None and (
+                (name == "p" and re.fullmatch(r'[\d\s]*', args)) or
+                (name in _SMCL_PARA_INDENT and not args)):
+            nums = re.findall(r'\d+', args)
+            indent = (int(nums[0]) if nums else 0) if name == "p" \
+                else _SMCL_PARA_INDENT[name]
+            pad = max(0, _repeat(indent) - col)
+            result.append(' ' * pad)
+            col += pad
+            continue
+
+        # Directives with no visible output
+        if name in _SMCL_SILENT and plain:
+            continue
+        if name == "marker" and ((args and len(args.split()) == 1
+                                  and text is None) or
+                                 (text is not None and not args)):
+            continue
+        if name in ("viewerjumpto", "vieweralsosee", "viewerdialog") and \
+                len(args.split()) >= 2:
+            continue
+        if name == "ccl" and args and text is None:
+            # current-value class: the value is not in the log
+            continue
+
+        # Any other form is literal output, as in Stata
+        emit_text(tag_full)
 
     # Close any open style span
     if mode == "html" and current_style:
@@ -1090,37 +1464,7 @@ def expand_smcl_line(line, mode="text"):
     return ''.join(result)
 
 
-def _visible_len(line):
-    """Length of a line excluding HTML tags."""
-    return len(re.sub(r'<[^>]+>', '', line))
-
-
 _SEP_CHARS = set("─┬┼┴│├┤┌┐└┘")
-
-
-def _is_separator_line(line):
-    """Check if a line is a box-drawing separator (only ─ and connectors)."""
-    text = re.sub(r'<[^>]+>', '', line).strip()
-    return bool(text) and all(ch in _SEP_CHARS for ch in text)
-
-
-def _pad_separator_lines(lines):
-    """Pad separator lines with ─ to match the widest line in the block."""
-    if not lines:
-        return lines
-
-    max_width = max(_visible_len(line) for line in lines)
-
-    result = []
-    for line in lines:
-        if _is_separator_line(line):
-            vis_len = _visible_len(line)
-            if vis_len < max_width:
-                # Extend with ─ at the end (before trailing whitespace)
-                stripped = line.rstrip()
-                line = stripped + '─' * (max_width - vis_len)
-        result.append(line)
-    return result
 
 
 def expand_block(block, mode="text"):
@@ -1133,28 +1477,32 @@ def expand_block(block, mode="text"):
     raws = block.raw_lines
     block.lines = []
     for k, raw_line in enumerate(raws):
-        line = expand_smcl_line(raw_line, mode)
+        line = expand_smcl_line(raw_line, mode, block.state)
         wrapped = (block.kind == "output" and k + 1 < len(raws)
                    and _is_wrap_continuation(raws[k + 1]))
         block.lines.append(line.rstrip("\r\n") if wrapped else line.rstrip())
-    # Pad separator lines to match the widest data line
-    block.lines = _pad_separator_lines(block.lines)
 
 
 def extract_command_text(line, strip_dots=False):
     """Extract the command text from a raw SMCL command line."""
+    # A loop-body echo "{txt}  2{com}.     cmd" keeps its "2. " prompt
+    text = re.sub(r'^((?:\{[^}]*\})*\s*\d+)(?:\{[^}]*\})*\.\s+', r'\1. ',
+                  line.strip())
     # Remove {com}. prefix
-    text = re.sub(r'\{com\}\.\s*', '', line.strip())
+    text = re.sub(r'\{com\}\.\s*', '', text)
     # Remove {com}> prefix for continuations
     text = re.sub(r'\{com\}>\s*', '', text)
-    # Strip remaining tags
+    # Strip remaining tags; escaped literal braces ({c -(}, {c )-}) are
+    # command text, so restore them rather than dropping them
+    text = text.replace("{c -(}", "\x00").replace("{c )-}", "\x01")
     text = re.sub(r'\{[^}]*\}', '', text)
+    text = text.replace("\x00", "{").replace("\x01", "}")
     # Remove trailing ///
     text = re.sub(r'\s*///\s*$', '', text)
     text = text.strip()
     if strip_dots:
-        # Remove leading ". " or "> " prompt
-        text = re.sub(r'^[.>]\s*', '', text)
+        # Remove leading ". ", "> " or loop-body "2. " prompt
+        text = re.sub(r'^(?:\d+\.\s+|[.>]\s*)', '', text)
     return text
 
 
@@ -1332,24 +1680,169 @@ def should_fold(command_text, output_lines, nofold=False):
 # Stage 5: Graph embedding
 # ---------------------------------------------------------------------------
 
-def detect_graph_exports(blocks, nograph=False):
-    """Find graph export commands as ordered (filename, block_index) pairs."""
+# Graph files a browser can show in <img> (HTML) or Markdown ![](...).
+IMAGE_GRAPH_EXTS = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".svg": "image/svg+xml",
+}
+# Graph files the LaTeX output references with \includegraphics.  The file
+# is referenced by path, never read.  Only types pdflatex handles with the
+# graphicx package alone: .svg and .gif are not (svg needs the svg package
+# plus Inkscape; gif is unsupported), so those exports are skipped and
+# counted as warnings.  .eps works through graphicx's automatic epstopdf.
+LATEX_GRAPH_EXTS = {".png", ".jpg", ".jpeg", ".pdf", ".eps"}
+LATEX_SKIPPED_EXTS = {".svg", ".gif"}
+
+
+def _graph_export_failed(blocks, idx):
+    """True when the output of the command at `idx` reports an error."""
+    for block in blocks[idx + 1:_graph_group_end(blocks, idx)]:
+        if block.kind == "command":
+            continue
+        if block.kind == "error":
+            return True
+        for raw in block.raw_lines:
+            clean = re.sub(r'\{[^}]*\}', '', raw).strip()
+            if re.match(r'r\(\d+\);$', clean):
+                return True
+    return False
+
+
+# Stata's graph export formats and the file extension each corresponds to.
+_GRAPH_FORMAT_EXTS = {
+    "png": ".png", "jpg": ".jpg", "jpeg": ".jpg", "gif": ".gif",
+    "svg": ".svg", "pdf": ".pdf", "eps": ".eps", "ps": ".ps",
+    "tif": ".tif", "tiff": ".tif", "emf": ".emf", "wmf": ".wmf",
+}
+# "graph export" as Stata accepts it: graph or gr (gra/grap are not valid
+# abbreviations; Stata reports them as unrecognized commands).
+_GRAPH_EXPORT_RE = re.compile(r'(?:^|[\s;:])(?:graph|gr)\s+export\s+(.*)$',
+                              re.IGNORECASE)
+# Stata's success note, e.g. "file x.png written in PNG format" (also
+# "saved as ... format", with or without parentheses).
+_GRAPH_SAVED_RE = re.compile(
+    r'^\(?file (.+?) (?:written in|saved as) ([A-Za-z0-9]+) format\)?$')
+
+
+class GraphRef(str):
+    """A graph file name that also carries its export format extension."""
+    ext = ""
+
+
+def _graph_ref(filename, ext):
+    ref = GraphRef(filename)
+    ref.ext = ext
+    return ref
+
+
+def _is_loop_body_echo(block):
+    """A command block echoing a numbered loop/program line ("  2. cmd")."""
+    return block.kind == "command" and bool(re.match(
+        r'\s*\d+\.\s', extract_command_text(block.raw_lines[0])))
+
+
+def _graph_group_end(blocks, idx):
+    """End (exclusive) of the command at idx with its output, extended over
+    the numbered loop-body echoes that follow it."""
+    j = idx + 1
+    while j < len(blocks) and (blocks[j].kind != "command" or
+                               _is_loop_body_echo(blocks[j])):
+        j += 1
+    return j
+
+
+def _group_command_texts(blocks, idx):
+    """Command texts of the command at idx, including numbered loop-body
+    echoes ("  2. graph export ...") that follow it."""
+    end = _graph_group_end(blocks, idx)
+    texts = []
+    for block in blocks[idx:end]:
+        if block.kind == "command":
+            texts.append(" ".join(extract_command_text(raw, strip_dots=True)
+                                  for raw in block.raw_lines))
+            continue
+        for raw in block.raw_lines:
+            clean = expand_smcl_line(raw, "text", block.state)
+            m = re.match(r'\s*\d+\.\s+(.*)$', clean)
+            if m:
+                texts.append(m.group(1).strip())
+    return texts
+
+
+def _graph_saved_notes(blocks, idx):
+    """(filename, extension) from Stata's success notes after idx."""
+    notes = []
+    for block in blocks[idx + 1:_graph_group_end(blocks, idx)]:
+        if block.kind == "command":
+            continue
+        for raw in block.raw_lines:
+            clean = expand_smcl_line(raw, "text", block.state).strip()
+            m = _GRAPH_SAVED_RE.match(clean)
+            if m:
+                ext = _GRAPH_FORMAT_EXTS.get(m.group(2).lower())
+                if ext:
+                    notes.append((m.group(1), ext))
+    return notes
+
+
+def _graph_export_target(args):
+    """(filename, extension) from the arguments of a graph export command,
+    or None when the name cannot be read from the echo (a macro)."""
+    m = re.match(r'\s*(?:"([^"]+)"|([^\s,]+))(.*)$', args)
+    if not m:
+        return None
+    filename = m.group(1) or m.group(2)
+    if "`" in filename or "$" in filename:
+        return None
+    fmt = re.search(r'\bas\(\s*([A-Za-z0-9]+)\s*\)', m.group(3))
+    if fmt:
+        ext = _GRAPH_FORMAT_EXTS.get(fmt.group(1).lower(), "")
+    else:
+        ext = os.path.splitext(filename)[1].lower()
+        ext = _GRAPH_FORMAT_EXTS.get(ext.lstrip("."), ext)
+    return filename, ext
+
+
+def detect_graph_exports(blocks, nograph=False, exts=None):
+    """Find graph exports as ordered (filename, block_index) pairs.
+
+    The files are read from Stata's own "file ... written in FORMAT format"
+    notes when present (they name the real file even inside loops and with
+    as() and no extension); otherwise from the export command itself.  Only
+    exports whose format the target can show are returned (`exts`, default:
+    browser image types).  A failed export, or one naming a non-image file,
+    is never embedded or linked.  Each filename is a GraphRef carrying its
+    format extension.
+    """
     if nograph:
         return []
+    if exts is None:
+        exts = IMAGE_GRAPH_EXTS
     graph_files = []
+    covered = 0
     for idx, block in enumerate(blocks):
-        if block.kind != "command":
+        if block.kind != "command" or idx < covered:
             continue
-        cmd_text = " ".join(
-            extract_command_text(raw_line) for raw_line in block.raw_lines
-        )
-        # Skip comments — they can contain "graph export" in descriptive text
-        if cmd_text.startswith("*") or cmd_text.startswith("//"):
+        covered = _graph_group_end(blocks, idx)
+        exports = []
+        for text in _group_command_texts(blocks, idx):
+            # Skip comments: they can mention "graph export" in prose
+            if text.startswith("*") or text.startswith("//"):
+                continue
+            m = _GRAPH_EXPORT_RE.search(text)
+            if m:
+                exports.append(m.group(1))
+        if not exports:
             continue
-        m = re.search(r'graph\s+export\s+(?:"([^"]+)"|(\S+))', cmd_text, re.IGNORECASE)
-        if m:
-            filename = m.group(1) or m.group(2).rstrip(",")
-            graph_files.append((filename, idx))
+        found = _graph_saved_notes(blocks, idx)
+        if not found:
+            if _graph_export_failed(blocks, idx):
+                continue
+            found = [t for t in (_graph_export_target(a) for a in exports)
+                     if t is not None]
+        for filename, ext in found:
+            if ext in exts:
+                graph_files.append((_graph_ref(filename, ext), idx))
     return graph_files
 
 
@@ -1366,13 +1859,15 @@ def _resolve_graph_path(filepath, base_dir):
 
 def embed_image_base64(filepath, base_dir):
     """Read an image file and return a base64 data URI, or None."""
+    ext = getattr(filepath, "ext", "") or \
+        os.path.splitext(filepath)[1].lower()
     filepath = _resolve_graph_path(filepath, base_dir)
     if filepath is None:
         return None
 
-    mime, _ = mimetypes.guess_type(filepath)
+    mime = IMAGE_GRAPH_EXTS.get(ext)
     if mime is None:
-        mime = "image/png"
+        return None
 
     try:
         with open(filepath, "rb") as f:
@@ -1620,7 +2115,10 @@ def _parse_estimation_table(block):
 
     Returns (headers, rows) or None.
     """
-    lines = block.lines
+    # Work on visible text: the cells are HTML-escaped once by the caller,
+    # so entities from the expanded lines (P&gt;|t|) are decoded here.
+    lines = [html_mod.unescape(re.sub(r'<[^>]+>', '', line))
+             for line in block.lines]
     if not lines:
         return None
 
@@ -2242,6 +2740,19 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
 # Stage 7: Markdown Renderer
 # ---------------------------------------------------------------------------
 
+def _md_fence(content):
+    """A backtick fence longer than any backtick run inside `content`."""
+    runs = [len(r) for r in re.findall(r'`+', content)]
+    return "`" * max(3, max(runs, default=0) + 1)
+
+
+def _md_link_target(path):
+    """A Markdown link destination; <...> form when it has spaces/parens."""
+    if re.search(r'[\s()]', path) and not re.search(r'[<>]', path):
+        return f"<{path}>"
+    return path
+
+
 def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
                     date=None, base_dir=".", output_dir=None,
                     footer=None, stamp=None, nograph=False,
@@ -2295,9 +2806,10 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
                     clean_lines.append(text)
             cmd_str = "\n".join(clean_lines)
 
-            parts.append("```stata")
+            fence = _md_fence(cmd_str)
+            parts.append(fence + "stata")
             parts.append(cmd_str)
-            parts.append("```")
+            parts.append(fence)
             parts.append("")
 
             # Graph reference — resolve path relative to the output .md file
@@ -2308,15 +2820,16 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
                     rel_path = os.path.relpath(
                         abs_gfile, os.path.abspath(output_dir))
                     display_name = os.path.basename(gfile)
-                    parts.append(f"![{display_name}]({rel_path})")
+                    parts.append(f"![{display_name}]({_md_link_target(rel_path)})")
                     parts.append("")
 
         elif block.kind == "table":
             content = "\n".join(block.lines)
             if content.strip():
-                parts.append("```")
+                fence = _md_fence(content)
+                parts.append(fence)
                 parts.append(content)
-                parts.append("```")
+                parts.append(fence)
                 parts.append("")
 
         elif block.kind == "error":
@@ -2331,9 +2844,10 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
             text_only = re.sub(r'<[^>]+>', '', content).strip()
             if not text_only:
                 continue
-            parts.append("```")
+            fence = _md_fence(content)
+            parts.append(fence)
             parts.append(content)
-            parts.append("```")
+            parts.append(fence)
             parts.append("")
 
     # Stamp
@@ -2360,6 +2874,31 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
 # Stage 8: LaTeX Renderer
 # ---------------------------------------------------------------------------
 
+def _latex_verbatim_env(begin, env, content):
+    """Lines of a verbatim-like LaTeX environment holding `content`.
+
+    verbatim and lstlisting end at the first literal \\end{<env>}, so an
+    output line containing it is set outside the environment with \\verb
+    (delimiter chosen from characters absent in the line) and the
+    environment is reopened after it.
+    """
+    term = "\\end{" + env + "}"
+    out = [begin]
+    for line in content.split("\n"):
+        if term not in line:
+            out.append(line)
+            continue
+        out.append(term)
+        delim = next((c for c in "|!+@#~=;:/" if c not in line), None)
+        if delim is not None:
+            out.append("\\noindent\\verb" + delim + line + delim + "\\par")
+        else:
+            out.append("\\noindent\\texttt{" + _latex_escape(line) + "}\\par")
+        out.append(begin)
+    out.append(term)
+    return out
+
+
 def _latex_escape(text):
     """Escape special LaTeX characters in plain text."""
     replacements = [
@@ -2383,7 +2922,8 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
                  base_dir=".", footer=None, stamp=None, nograph=False,
                  generated=False, output_dir=None):
     """Render parsed blocks to a LaTeX document."""
-    graph_files = detect_graph_exports(blocks, nograph=nograph)
+    graph_files = detect_graph_exports(blocks, nograph=nograph,
+                                       exts=LATEX_GRAPH_EXTS)
     if output_dir is None:
         output_dir = base_dir
 
@@ -2479,9 +3019,9 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
                     clean_lines.append(text)
             cmd_str = "\n".join(clean_lines)
 
-            parts.append(r"\begin{lstlisting}[style=statacommand]")
-            parts.append(cmd_str)
-            parts.append(r"\end{lstlisting}")
+            parts.extend(_latex_verbatim_env(
+                r"\begin{lstlisting}[style=statacommand]", "lstlisting",
+                cmd_str))
             parts.append("")
 
             # Graph reference (use external file path, not base64)
@@ -2503,18 +3043,16 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
         elif block.kind == "table":
             content = "\n".join(block.lines)
             if content.strip():
-                parts.append(r"\begin{verbatim}")
-                parts.append(content)
-                parts.append(r"\end{verbatim}")
+                parts.extend(_latex_verbatim_env(
+                    r"\begin{verbatim}", "verbatim", content))
                 parts.append("")
 
         elif block.kind == "error":
             content = "\n".join(block.lines)
             if content.strip():
                 parts.append(r"{\color{stataerror}")
-                parts.append(r"\begin{verbatim}")
-                parts.append(content)
-                parts.append(r"\end{verbatim}")
+                parts.extend(_latex_verbatim_env(
+                    r"\begin{verbatim}", "verbatim", content))
                 parts.append(r"}")
                 parts.append("")
 
@@ -2523,9 +3061,9 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
             text_only = re.sub(r'<[^>]+>', '', content).strip()
             if not text_only:
                 continue
-            parts.append(r"\begin{lstlisting}[style=stataoutput]")
-            parts.append(content)
-            parts.append(r"\end{lstlisting}")
+            parts.extend(_latex_verbatim_env(
+                r"\begin{lstlisting}[style=stataoutput]", "lstlisting",
+                content))
             parts.append("")
 
     # Stamp
@@ -2613,31 +3151,24 @@ def convert_html_to_pdf(html_path, pdf_path):
 # ---------------------------------------------------------------------------
 
 def load_css(css_path):
-    """Load CSS from file, return empty string if not found."""
+    """Load the user's --css file; empty string if not found."""
     if css_path and os.path.isfile(css_path):
         with open(css_path, "r", encoding="utf-8", errors="replace") as f:
             return f.read()
     return ""
 
 
-def find_css_file(name, script_dir):
-    """Find a CSS file by name, checking script directory."""
-    path = os.path.join(script_dir, name)
-    if os.path.isfile(path):
-        return path
-    return None
-
-
 def read_text_file(path):
-    """Read a text file with the same encoding cascade used for logs."""
-    for encoding in ("utf-8", "latin-1"):
-        try:
-            with open(path, "r", encoding=encoding) as f:
-                return f.read()
-        except (UnicodeDecodeError, ValueError):
-            continue
-    with open(path, "r", errors="replace") as f:
-        return f.read()
+    """Read a text file as UTF-8 (a leading BOM removed), else Latin-1.
+
+    Latin-1 maps every byte, so the fallback always decodes.
+    """
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        with open(path, "r", encoding="latin-1") as f:
+            return f.read()
 
 
 def read_combine_manifest(path):
@@ -2698,10 +3229,16 @@ def apply_accent_css(theme_css, accent):
 """
 
 
-def metadata_for_blocks(blocks, base_dir=".", nograph=False):
+def metadata_for_blocks(blocks, base_dir=".", nograph=False, latex=False):
     """Return composable metadata counts for a parsed block list."""
-    graph_files = detect_graph_exports(blocks, nograph=nograph)
+    graph_files = detect_graph_exports(
+        blocks, nograph=nograph,
+        exts=LATEX_GRAPH_EXTS if latex else None)
     nwarnings = 0
+    if latex:
+        # Successful exports LaTeX cannot include are skipped: one warning each
+        nwarnings += len(detect_graph_exports(
+            blocks, nograph=nograph, exts=LATEX_SKIPPED_EXTS))
     for gfile, _gidx in graph_files:
         if _resolve_graph_path(gfile, base_dir) is None:
             nwarnings += 1
@@ -3113,10 +3650,6 @@ def main():
                         help="Custom CSS file path")
     parser.add_argument("--accent", default=None,
                         help="Accent color as #RRGGBB")
-    parser.add_argument("--light-css", default=None,
-                        help="Path to light theme CSS")
-    parser.add_argument("--dark-css", default=None,
-                        help="Path to dark theme CSS")
     parser.add_argument("--verbose", action="store_true",
                         help="Print block count and timing to stderr")
     parser.add_argument("--footer", default=None,
@@ -3183,7 +3716,7 @@ def main():
             )
             sys.exit(1)
 
-    for attr in ("css", "light_css", "dark_css", "annotate"):
+    for attr in ("css", "annotate"):
         path = getattr(args, attr)
         if path and not os.path.isfile(path):
             print_metadata(0, 0)
@@ -3259,7 +3792,7 @@ def main():
     if args.check_output_only:
         return
 
-    # R2: Read input with encoding cascade: UTF-8 -> Latin-1 -> replace.
+    # R2: Read input with encoding cascade: UTF-8 -> Latin-1.
     raw_text = read_text_file(args.input)
 
     # Determine title
@@ -3293,18 +3826,17 @@ def main():
     ))
 
     # Determine CSS -- default HTML uses a compact faithful core stylesheet.
-    # Opt-in enhancements load the full theme CSS.
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Opt-in enhancements use the full built-in theme CSS (the single source:
+    # net install does not install .css files).  --css replaces it with the
+    # user's own stylesheet.
     if not args.css and not use_enhanced_html and args.format in ("html", "both"):
         theme_css = CSS_CORE_DARK if args.theme == "dark" else CSS_CORE_LIGHT
     elif args.css:
         theme_css = load_css(args.css)
     elif args.theme == "dark":
-        css_path = args.dark_css or find_css_file("logdoc_dark.css", script_dir)
-        theme_css = load_css(css_path) or CSS_DARK
+        theme_css = CSS_DARK
     else:
-        css_path = args.light_css or find_css_file("logdoc_light.css", script_dir)
-        theme_css = load_css(css_path) or CSS_LIGHT
+        theme_css = CSS_LIGHT
     theme_css = apply_accent_css(theme_css, args.accent)
 
     # C7: Load annotations if provided
@@ -3559,7 +4091,8 @@ def main():
 
     # I1: Print metadata for .ado to capture
     nblocks = len(blocks)
-    stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph)
+    stats = metadata_for_blocks(blocks, base_dir, nograph=args.nograph,
+                                latex=(fmt == "tex"))
     # Compute total output filesize
     total_size = 0
     if fmt in ("html", "both"):

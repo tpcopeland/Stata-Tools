@@ -81,7 +81,7 @@ program define _logdoc_v117_state_probe, rclass
     }
     else if "`case'" == "resolve_python" {
         set varabbrev on
-        capture noisily _logdoc_resolve_python, result(found)
+        capture noisily _logdoc_resolve_python, result(found) source(found_source)
         local child_rc = _rc
         local observed "`c(varabbrev)'"
         set varabbrev on
@@ -351,6 +351,8 @@ file write `fh' "file close marker" _n
 file close `fh'
 shell env PATH="`empty_path'" "`stata_exe'" -b do "`pdf_child'" ///
     > "`pdf_child_out'" 2>&1
+* Batch mode writes the child log into the working directory.
+capture erase "pdf_state_child.log"
 capture confirm file "`pdf_marker'"
 if _rc == 0 {
     display as result "V117-T11 PASS: py_check_pdf restores varabbrev on rejection"

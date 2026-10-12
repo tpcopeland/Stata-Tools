@@ -61,7 +61,9 @@ local test_fail = 0
 local test_total = 0
 local oldpwd "`c(pwd)'"
 
-local outdir "`c(tmpdir)'/logdoc_refactor_guards"
+* Unique per run so concurrent lanes never share a directory
+tempfile _rg_base
+local outdir "`_rg_base'_logdoc_refactor_guards"
 capture mkdir "`outdir'"
 
 local smcl_fixture "`outdir'/guard_input.smcl"
@@ -176,7 +178,9 @@ else {
 }
 
 * ---------------------------------------------------------------------------
-* G4: Adopath/current-directory CSS discovery feeds enhanced HTML
+* G4: A stray logdoc_light.css in the working directory is never used (theme
+* CSS is built into the renderer; css() is the supported override).  copy
+* enables the enhanced route that embeds the toolbar CSS.
 * ---------------------------------------------------------------------------
 local test_total = `test_total' + 1
 local cssdir "`outdir'/css_discovery"
@@ -193,13 +197,14 @@ capture noisily {
     cd "`oldpwd'"
 }
 if _rc == 0 {
-    _logdoc_guard_contains "`g4_out'" "ADOPATH_LIGHT_GUARD" g4_css
-    if `g4_css' {
-        display as result "G4 PASS: discovered light CSS used for enhanced HTML"
+    _logdoc_guard_contains "`g4_out'" "ADOPATH_LIGHT_GUARD" g4_stray
+    _logdoc_guard_contains "`g4_out'" "#ffffff" g4_light
+    if !`g4_stray' & `g4_light' {
+        display as result "G4 PASS: built-in light CSS used; working-directory copy ignored"
         local test_pass = `test_pass' + 1
     }
     else {
-        display as error "G4 FAIL: discovered CSS sentinel missing"
+        display as error "G4 FAIL: stray working-directory CSS used or light theme missing"
         local test_fail = `test_fail' + 1
     }
 }
@@ -515,6 +520,8 @@ file close `g14fh'
 
 local g14_out "`outdir'/g14_child.out"
 shell HOME="`g14_home'" stata-mp -b do "`g14_child'" > "`g14_out'" 2>&1
+* Batch mode writes the child log into the working directory.
+capture erase "g14_child.log"
 local g14_global_dark = 0
 local g14_global_accent = 0
 local g14_project_light = 0
