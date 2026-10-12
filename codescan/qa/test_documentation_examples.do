@@ -683,6 +683,82 @@ else {
 
 display ""
 
+**# Help Example 2: the lookback window visibly excludes a matching code
+
+* Patient 2's E102 row (visit 22020) is after index 21915, so a 365-day
+* lookback drops it. dm1 "E10" matches only that row: with the window pid 2
+* has dm1 = 0, without it dm1 = 1. Oracle read off the setup rows.
+local ++test_count
+capture noisily {
+    _load_codescan_setup
+    codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
+        define(dm1 "E10") lookback(365) inclusive collapse
+    assert _N == 3
+    assert dm1 == 0 if pid == 2
+    assert dm1 == 0
+    _load_codescan_setup
+    codescan dx1 dx2, id(pid) define(dm1 "E10") collapse
+    assert _N == 3
+    assert dm1 == (pid == 2)
+}
+if _rc == 0 {
+    display as result "  PASS: help Example 2 window excludes pid 2's E102"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: help Example 2 window effect (error `=_rc')"
+    local ++fail_count
+}
+
+**# Help collapse entry: ids with no analyzed row leave the result and denominator
+
+* lookback(10) inclusive keeps visits 21905..21915. In-window rows: pid 1
+* (21914, E110) and pid 3 (21910, Z00). Every row of pid 2 (21900, 22020) is
+* outside, so pid 2 is dropped: 2 collapsed rows, r(N) = 2, dm2 prevalence
+* 1/2 = 50%. The documented cohort recipe restores pid 2 with dm2 = 0, giving
+* 1/3 of the cohort.
+local ++test_count
+capture noisily {
+    tempfile _cohort _dm2_pid
+    _load_codescan_setup
+    preserve
+    keep pid
+    quietly duplicates drop
+    local _n_cohort = _N
+    quietly save `"`_cohort'"'
+    restore
+    codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
+        define(dm2 "E11") lookback(10) inclusive collapse ///
+        saving(`"`_dm2_pid'"', replace)
+    assert r(N) == 2
+    matrix _ex = r(summary)
+    assert !missing(el(_ex, 1, 2)) & reldif(el(_ex, 1, 2), 50) < 1e-12
+    matrix drop _ex
+    assert _N == 2
+    quietly count if pid == 2
+    assert r(N) == 0
+    assert `_n_cohort' - _N == 1
+    * The recipe from the collapse entry, verbatim apart from file names.
+    use `"`_cohort'"', clear
+    merge 1:1 pid using `"`_dm2_pid'"', nogenerate keep(master match)
+    replace dm2 = 0 if missing(dm2)
+    assert _N == 3
+    assert dm2 == (pid == 1)
+    quietly summarize dm2
+    scalar _ex_pct = 100 * r(mean)
+    assert !missing(scalar(_ex_pct))
+    assert reldif(scalar(_ex_pct), 100 / 3) < 1e-12
+    scalar drop _ex_pct
+}
+if _rc == 0 {
+    display as result "  PASS: collapse drops ids with no analyzed row; cohort recipe"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: collapse dropped-id contract / cohort recipe (error `=_rc')"
+    local ++fail_count
+}
+
 **# Settings hygiene
 
 * This suite must not leak a session setting to whatever runs next.

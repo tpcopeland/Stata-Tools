@@ -1,4 +1,4 @@
-*! codescan Version 4.3.1  2026/10/12
+*! codescan Version 4.3.2  2026/10/12
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -538,6 +538,8 @@ program define codescan, rclass
     if _rc local _need_definitions_helper = 1
     capture mata: mata which _codescan_ws_edge()
     if _rc local _need_definitions_helper = 1
+    capture mata: mata which _codescan_parse_labels()
+    if _rc local _need_definitions_helper = 1
     if `_need_definitions_helper' {
         capture findfile _codescan_definitions.ado
         if _rc == 0 {
@@ -602,7 +604,7 @@ program define codescan, rclass
         if `n_labels' > 0 {
             forvalues i = 1/`n_labels' {
                 local lab_name_`i' "`r(lab_name_`i')'"
-                local lab_label_`i' `"`r(lab_label_`i')'"'
+                mata: st_local("lab_label_`i'", st_global("r(lab_label_`i')"))
             }
         }
 
@@ -840,75 +842,14 @@ program define codescan, rclass
     * PARSE LABEL()
     * =========================================================================
     * Note: codefile labels already populated above; label() can override them
-    if `"`label'"' != "" {
-        local lab_remaining `"`label'"'
-        while `"`lab_remaining'"' != "" {
-            * Find the first backslash that is OUTSIDE a quoted string so the
-            * "\" entry separator can still be used, while a backslash inside
-            * quoted label text (e.g. a Windows path "C:\dir") does not split
-            * the entry mid-quote. Toggle in_quotes on each double-quote.
-            local _lr_len = length(`"`lab_remaining'"')
-            local bspos = 0
-            local _inq  = 0
-            forvalues _c = 1/`_lr_len' {
-                local _ch = substr(`"`lab_remaining'"', `_c', 1)
-                if `"`_ch'"' == `"""' {
-                    local _inq = !`_inq'
-                }
-                else if `"`_ch'"' == "\" & !`_inq' {
-                    local bspos = `_c'
-                    continue, break
-                }
-            }
-            if `bspos' > 0 {
-                local lab_segment = substr(`"`lab_remaining'"', 1, `bspos' - 1)
-                local lab_remaining = substr(`"`lab_remaining'"', `bspos' + 1, .)
-            }
-            else {
-                local lab_segment `"`lab_remaining'"'
-                local lab_remaining ""
-            }
-            local lab_segment = strtrim(`"`lab_segment'"')
-            if `"`lab_segment'"' == "" continue
-
-            * gettoken: first token = name, remaining = label text
-            gettoken lab_nm lab_txt : lab_segment
-            * gettoken strips quotes from the extracted token but NOT from
-            * the remaining part. Strip outer quotes from label text.
-            local lab_txt = strtrim(`"`lab_txt'"')
-            if substr(`"`lab_txt'"', 1, 1) == `"""' {
-                local lab_txt = substr(`"`lab_txt'"', 2, strlen(`"`lab_txt'"') - 2)
-            }
-
-            if "`lab_nm'" == "" | `"`lab_txt'"' == "" {
-                display as error "label(): each entry needs a name and label text"
-                exit 198
-            }
-
-            * Once the outer quotes are off, a well-formed entry's text holds no
-            * double quote at all. Anything that still does was mis-parsed, and
-            * both ways of getting here used to produce a WRONG LABEL at rc=0:
-            *
-            *   label(dm2 "Diabetes" | htn "Hypertension")
-            *       label() separates entries with \ ; define() uses |. With |
-            *       this is ONE entry whose text is  Diabetes" | htn "Hypertension
-            *       — dm2 gets that nonsense, htn gets nothing.
-            *
-            *   label(dm2 `"He said "yes""')
-            *       The strip below removes plain quotes only, so the compound
-            *       markers survive into the label itself. Embedded quotes are
-            *       not supported; saying so beats emitting `"He said "yes""' as
-            *       a variable label, a bar label, and an export cell.
-            if strpos(`"`lab_txt'"', `"""') > 0 {
-                display as error `"label(): the label text for `lab_nm' contains a double quote"'
-                display as error "label text may not contain quotes; entries are separated by \ (backslash), not |"
-                exit 198
-            }
-
-            local ++n_labels
-            local lab_name_`n_labels' "`lab_nm'"
-            local lab_label_`n_labels' `"`lab_txt'"'
-        }
+    if `"`macval(label)'"' != "" {
+        * Split in Mata: the text is free text, and any Stata-level scan of it
+        * re-expands a backtick or $ inside it (compound-quoted text used to die
+        * with r(132), and `name' or $name in a label was expanded or broke the
+        * parse). _codescan_parse_labels appends lab_name_#/lab_label_# after
+        * the codefile labels already counted in n_labels.
+        mata: st_local("_lab_rc", strofreal(_codescan_parse_labels(st_local("label"))))
+        if `_lab_rc' exit `_lab_rc'
 
         * Validate label names match condition names (with generate-prefix fallback)
         forvalues j = 1/`n_labels' {
@@ -1741,8 +1682,8 @@ program define codescan, rclass
         local _cs_dlab_`i' `"`def_name_`i''"'
         forvalues j = 1/`n_labels' {
             if "`lab_name_`j''" == "`def_name_`i''" {
-                if `"`lab_label_`j''"' != "" {
-                    local _cs_dlab_`i' `"`lab_label_`j''"'
+                if `"`macval(lab_label_`j')'"' != "" {
+                    local _cs_dlab_`i' `"`macval(lab_label_`j')'"'
                 }
             }
         }
@@ -1757,23 +1698,23 @@ program define codescan, rclass
 
         forvalues j = 1/`n_labels' {
             if "`lab_name_`j''" == "`name'" {
-                local lbl `"`lab_label_`j''"'
+                local lbl `"`macval(lab_label_`j')'"'
             }
         }
 
-        if `"`lbl'"' != "" {
-            label variable `name' `"`lbl'"'
+        if `"`macval(lbl)'"' != "" {
+            label variable `name' `"`macval(lbl)'"'
             if "`earliestdate'" != "" {
-                label variable `name'_first `"Earliest `lbl' Date"'
+                label variable `name'_first `"Earliest `macval(lbl)' Date"'
             }
             if "`latestdate'" != "" {
-                label variable `name'_last `"Latest `lbl' Date"'
+                label variable `name'_last `"Latest `macval(lbl)' Date"'
             }
             if "`countdate'" != "" {
-                label variable `name'_count `"`lbl' Date Count"'
+                label variable `name'_count `"`macval(lbl)' Date Count"'
             }
             if "`countrows'" != "" {
-                label variable `name'_nrows `"`lbl' Row Count"'
+                label variable `name'_nrows `"`macval(lbl)' Row Count"'
             }
         }
         else {
@@ -1859,9 +1800,9 @@ program define codescan, rclass
         * a longer label is truncated with a trailing "~" rather than allowed to
         * push the numeric columns out of alignment. ustrlen()/usubstr() so a
         * multibyte label is cut on a character, not inside one.
-        local _dlab `"`_cs_dlab_`i''"'
-        if ustrlen(`"`_dlab'"') > 21 {
-            local _dlab = usubstr(`"`_dlab'"', 1, 20) + "~"
+        local _dlab `"`macval(_cs_dlab_`i')'"'
+        if ustrlen(`"`macval(_dlab)'"') > 21 {
+            local _dlab = usubstr(`"`macval(_dlab)'"', 1, 20) + "~"
         }
         if "`countmode'" != "" & "`merge'" != "" {
             * merge+countmode: compute from patient-level (one row per patient).
@@ -1906,12 +1847,12 @@ program define codescan, rclass
         * table with r(132) — an error message that names neither label() nor
         * the condition it came from.
         if "`countmode'" != "" {
-            display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_total_match' ///
+            display as text `"  `macval(_dlab)'"' _col(24) as result %9.0fc `n_total_match' ///
                 _col(36) as result %9.0fc `n_match' ///
                 _col(48) as result `_prev_fmt' `pct' as text "%"
         }
         else {
-            display as text `"  `_dlab'"' _col(24) as result %9.0fc `n_match' ///
+            display as text `"  `macval(_dlab)'"' _col(24) as result %9.0fc `n_match' ///
                 _col(36) as result `_prev_fmt' `pct' as text "%"
         }
 
@@ -2079,8 +2020,8 @@ program define codescan, rclass
                 " matching slot instead)"
         }
         forvalues i = 1/`n_conditions' {
-            local name `"`_cs_dlab_`i''"'
-            display as text `"  `name': "' _continue
+            local name `"`macval(_cs_dlab_`i')'"'
+            display as text `"  `macval(name)': "' _continue
             local first = 1
             local j = 0
             foreach var of local varlist {
@@ -2230,7 +2171,7 @@ program define codescan, rclass
                 gen str80 condition = ""
                 gen double prevalence = .
                 forvalues i = 1/`n_conditions' {
-                    replace condition = `"`_cs_dlab_`i''"' in `i'
+                    replace condition = `"`macval(_cs_dlab_`i')'"' in `i'
                     replace prevalence = `summary'[`i', 2] in `i'
                 }
                 gsort -prevalence
@@ -2241,7 +2182,7 @@ program define codescan, rclass
                     * Compound quotes: a label is free text and may contain a
                     * double quote, which plain quotes would let terminate the
                     * argument early.
-                    label define `_glab' `_gi' `"`_gcond'"', add
+                    label define `_glab' `_gi' `"`macval(_gcond)'"', add
                 }
                 label values order `_glab'
             }
@@ -2281,7 +2222,7 @@ program define codescan, rclass
             gen str244 exclusion = ""
             forvalues i = 1/`n_conditions' {
                 replace condition = "`def_name_`i''" in `i'
-                replace label = `"`_cs_dlab_`i''"' in `i'
+                replace label = `"`macval(_cs_dlab_`i')'"' in `i'
                 replace matches = `summary'[`i', 1] in `i'
                 replace total_hits = `summary'[`i', 3] in `i'
                 replace positive_units = `summary'[`i', 4] in `i'
@@ -2422,7 +2363,7 @@ program define codescan, rclass
                     replace exclusion = `"`def_excl_`i''"' in `i'
                     forvalues j = 1/`n_labels' {
                         if "`lab_name_`j''" == "`def_name_`i''" {
-                            replace label = `"`lab_label_`j''"' in `i'
+                            replace label = `"`macval(lab_label_`j')'"' in `i'
                         }
                     }
                 }

@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.3.1  2026/10/12
+*! _codescan_definitions Version 4.3.2  2026/10/12
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -239,6 +239,7 @@ capture mata: mata drop _codescan_validate_regex()
 capture mata: mata drop _codescan_regex_literal_dot()
 capture mata: mata drop _codescan_define_seps()
 capture mata: mata drop _codescan_ws_edge()
+capture mata: mata drop _codescan_parse_labels()
 mata:
 // Regex whitespace is significant, so codescan never trims a regex pattern.
 // Flag the edge whitespace that is probably a typo: "begins" when the first
@@ -306,6 +307,102 @@ string scalar _codescan_define_seps(string scalar s)
         out = out + ch
     }
     return(out)
+}
+
+// Split label() into name/text entries without ever handing the text to the
+// Stata macro processor. label() text is free text: a backtick or a $ in it
+// must reach the variable label, the console, the graph and the export as
+// typed. The previous Stata-level loop re-expanded the option while scanning
+// it, so compound-quoted text died with "too few quotes" (r(132)) and a
+// backtick or $ in the text was expanded or broke the parse.
+// Entries are separated by a backslash outside quotes; quote state follows
+// _codescan_define_seps ("..." toggles, `"..."' nests). Each entry is a
+// condition name, then the text, optionally wrapped in "..." or `"..."'.
+// Entries are appended to lab_name_#/lab_label_# after the n_labels already
+// present (codefile labels). Returns 0, or 198 after printing the error.
+real scalar _codescan_parse_labels(string scalar s)
+{
+    real scalar   i, n, dq, cq, start, k, p, sp, tb
+    string scalar ch, nx, seg, nm, txt
+    string colvector segs
+
+    n     = strlen(s)
+    dq    = 0
+    cq    = 0
+    start = 1
+    segs  = J(0, 1, "")
+    for (i = 1; i <= n; i++) {
+        ch = substr(s, i, 1)
+        nx = (i < n ? substr(s, i + 1, 1) : "")
+        if (!dq & ch == char(96) & nx == char(34)) {
+            cq++
+            i++
+            continue
+        }
+        if (cq & ch == char(34) & nx == char(39)) {
+            cq--
+            i++
+            continue
+        }
+        if (!cq & ch == char(34)) {
+            dq = !dq
+            continue
+        }
+        if (!cq & !dq & ch == char(92)) {
+            segs = segs \ substr(s, start, i - start)
+            start = i + 1
+        }
+    }
+    segs = segs \ substr(s, start, .)
+
+    k = strtoreal(st_local("n_labels"))
+    if (missing(k)) k = 0
+    for (i = 1; i <= rows(segs); i++) {
+        seg = strtrim(segs[i])
+        if (seg == "") continue
+        sp = strpos(seg, " ")
+        tb = strpos(seg, char(9))
+        p  = (sp & tb ? min((sp, tb)) : max((sp, tb)))
+        if (p) {
+            nm  = substr(seg, 1, p - 1)
+            txt = strtrim(substr(seg, p + 1, .))
+        }
+        else {
+            nm  = seg
+            txt = ""
+        }
+        if (strlen(txt) >= 4 & substr(txt, 1, 2) == char(96) + char(34) &
+            substr(txt, -2, 2) == char(34) + char(39)) {
+            txt = substr(txt, 3, strlen(txt) - 4)
+        }
+        else if (strlen(txt) >= 2 & substr(txt, 1, 1) == char(34) &
+            substr(txt, -1, 1) == char(34)) {
+            txt = substr(txt, 2, strlen(txt) - 2)
+        }
+        if (nm == "" | txt == "") {
+            errprintf("label(): each entry needs a name and label text\n")
+            return(198)
+        }
+        if (!st_isname(nm)) {
+            errprintf("label(): %s is not a valid condition name\n", nm)
+            return(198)
+        }
+        // Once its outer quotes are off, a well-formed entry's text holds no
+        // double quote. One that still does was mis-parsed, e.g.
+        // label(dm2 "Diabetes" | htn "Hypertension") with define()'s | as
+        // separator, or label(dm2 `"He said "yes""'). Refuse rather than
+        // emit the debris as a label.
+        if (strpos(txt, char(34))) {
+            errprintf("label(): the label text for %s contains a double quote\n", nm)
+            errprintf("label text may not contain quotes; entries are separated by \\ (backslash), not |\n")
+            return(198)
+        }
+        k++
+        st_local("lab_name_" + strofreal(k), nm)
+        st_local("lab_label_" + strofreal(k), txt)
+    }
+    st_local("n_labels", strofreal(k))
+    return(0)
 }
 
 // Does a regex REQUIRE a literal period somewhere? nodots strips every period

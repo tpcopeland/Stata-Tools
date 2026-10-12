@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.3.1** | 2026-10-12
+**Version 4.3.2** | 2026-10-12
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -201,7 +201,7 @@ The workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx) contains
 codescan varlist [if] [in], define(string asis) | codefile(string) [options]
 ```
 
-Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion`, `label`, and `match` columns (column names are case-insensitive). When `match` is present it must hold the same value on every row (`mode(regex)` or `mode(prefix)`, optionally `nocase` and `nodots`), and the call must use those options. Values in codefile fields must not contain global-macro references such as `$name` or `${name}`; a lone `$`, including the regex end-of-string anchor, is allowed. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
+Exactly one of `define()` or `codefile()` is required. Inline definitions use `name "pattern" [~ "exclusion" ...] | name2 "pattern2"`; a codefile is a CSV or Stata dataset with string `name` and `pattern` columns and optional string `exclusion`, `label`, and `match` columns (column names are case-insensitive). When `match` is present it must hold the same value on every row (`mode(regex)` or `mode(prefix)`, optionally `nocase` and `nodots`), and the call must use those options. Values in the `name`, `pattern`, `exclusion`, and `match` fields must not contain a backquote or a global-macro reference such as `$name` or `${name}`; a lone `$`, including the regex end-of-string anchor, is allowed. The `label` field is carried verbatim, backquotes and `$` included. No field may contain a double quote immediately followed by an apostrophe. Condition names must be valid, unique Stata names no longer than 26 characters so generated date/count suffixes remain within Stata's name limit.
 
 ### `codescan_describe`
 
@@ -346,8 +346,9 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 - The reported prevalence is the prevalence of the supplied code definition, not the prevalence of the underlying disease; positive predictive value and sensitivity of the codes determine the gap between the two.
 - Scan variables must be fixed-width strings; `tostring` handles numeric variables through temporary strings, while `strL` variables are rejected and should be converted first.
 - Empty strings and the bare `.` placeholder are skipped as code values; with `nodots`, values that become empty after periods are removed are skipped too.
-- `date()` and `refdate()` must be numeric Stata daily dates; datetime variables such as `%tc` are rejected because windows are measured in days.
+- `date()` and `refdate()` must be numeric Stata dates, and windows require daily (`%td`) dates. Datetime variables (`%tc`, `%tC`) are always rejected; weekly, monthly, quarterly, half-yearly, yearly, and business-calendar variables (`%tw`, `%tm`, `%tq`, `%th`, `%ty`, `%tb`) are rejected whenever `lookback()` or `lookforward()` is used, because windows are measured in days; without a window they are accepted and `earliestdate`, `latestdate`, and `countdate` summarize them in their own unit.
 - Missing `id()` values are excluded from `collapse` and `merge`, and rows with missing dates are excluded whenever a time window is active.
+- `collapse` keeps only ids with at least one analyzed row. An id whose rows are all excluded by `if`/`in`, a missing `id()`, a missing date, or the window is absent from the collapsed data and from the `r(summary)` prevalence denominator, so that prevalence is among ids with an analyzed row, not among the cohort. For a cohort denominator, merge the collapsed file onto the cohort and replace missing indicators with 0 where no analyzed row should count as no match. Under `merge`, such ids keep their rows and receive missing (`.`) indicators.
 - `unmatched()` and `matched_code()` are row-level outputs and are not retained after `collapse`; use `merge` when they must remain with encounter rows.
 - Rules apply equally to every variable in the varlist; when first-listed diagnosis validity matters, scan positions separately or use distinct `generate()` prefixes.
 - Labels are presentation text only: identifiers in `r(conditions)`, matrix row names, and the export `condition` column remain the condition names.
@@ -369,6 +370,11 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.3.2 (2026-10-12)
+
+- `label()` text and codefile `label` values are now passed through verbatim. Compound-quoted text, the usual way to pass a label held in a macro (``label(dm2 `"`lbl'"')``), failed with `r(132)` "too few quotes"; a backtick or `$` in the text was expanded or broke the parse. Variable labels, the console table, the `detail` table, graph bar labels, the export `label` column, and `save()` codefiles now carry the text exactly as typed. Text containing a double quote is still refused with `r(198)`. A codefile `label` value may now contain a backquote or `$` (previously refused), so a label written by `save()` reads back through `codefile()`; the other codefile fields keep the refusal.
+- Documentation: `collapse` omits ids that have no analyzed row (because of `if`/`in`, a missing `id()` or date, or the window), and the `r(summary)` prevalence denominator excludes them too. The help and README now state this and show how to get a cohort denominator. The README date limits now list the non-daily formats that windows reject. Help Example 2 now shows the lookback window excluding a matching code. The `codescan_describe` help gains the bug-report and up-to-date-release lines.
 
 ### 4.3.1 (2026-10-12)
 

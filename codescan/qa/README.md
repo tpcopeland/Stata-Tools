@@ -100,12 +100,14 @@ The suite probes for it and exits `499` when it is missing — it does not skip.
 | `test_codescan_v424.do` | v4.2.4, 10 of 13 proven red on 4.2.3: `tostring` writes numeric codes exactly in `codescan` and `codescan_describe` (a 13-digit double code matching its own digits instead of `1.23457e+12`; float `401.9`/`250.01` reading back as typed; 400 random codes round-tripping text → number → scanned text against the generating text as oracle); a `%tm` date and a left-aligned `%-tc` datetime refused under `lookback()`, and every other non-daily unit (`%tw`/`%tq`/`%th`/`%ty`/`%tb`, `%-` forms) refused on either `date()` or `refdate()` while `%-td` still runs; `export(.csv)` writing the prevalence with an explicit `format()` and at full precision without it; and `merge` keeping `: sortedby` (truncated at a sort key the call replaced). Three blocks are contract pins that pass on 4.2.3 too: extended missing never matching under `nocase nodots`, an unwindowed `%tm` date still summarized in its own unit, and session hygiene |
 | `test_codescan_v430.do` | v4.3.0, 15 of 20 proven red on 4.2.5: a one-observation dataset with an empty or `.` cell scanning instead of dying at Mata `r(3301)` (regex and prefix); row-level indicators missing on rows outside the window or `if`/`in`, with `summarize`, `count if !missing()`, `unmatched()` and `r(N)` agreeing (binary and `countmode`); `nodots` refusing a regex `\.` or `[.]` in an inclusion or exclusion; `codescan_describe` returning a Latin-1 code and chapter byte for byte and drafting a regex-escaped `.` chapter that matches only its own rows; `export()`/`save()` aliased through a symlink refused up front for new and for existing (`replace`) targets; `save()` writing the `match` column and `codefile()` refusing a call with different matching options, and malformed `match` values; the sensitivity table honouring `format()`. Five blocks are contract pins that pass on 4.2.5 too: collapse/merge person-level values unchanged, the regex any-character `.` still accepted under `nodots`, distinct targets in one directory, a codefile without `match` in any mode, and session hygiene |
 | `test_codescan_v431.do` | v4.3.1 regression tests: `codescan_describe` returns all seven distinct codes byte for byte; a regex pattern or exclusion keeps its outer spaces and matches them literally, with a note in the log for an edge space (`define()` and `codefile()`); a prefix pattern still trims its outer spaces; an internal space is kept; an all-space pattern is accepted with the note; a regex with optional leading spaces (`" *I21"`) gets no note; the regex backreference matches (nocase folds case) and the empty-match guards still refuse; a failed `export()` rolls back the indicator, the collapse under `preserve`, and the dataset, with a valid-export positive control; blank trailing `codefile()` rows are ignored and a row with an empty name is refused; `|` and `~` without spaces parse like the spaced forms and a quoted `|` stays alternation; `saving()` refuses a `.csv`/`.tsv`/`.txt`/`.xlsx`/`.xls` extension and writes nothing, and accepts a tempfile, a hex-extension tempfile-style name, a `.v2` name, and an upper-case `.DTA` name; the describe draft carries a `match` column and round-trips through `codefile()` for regex-escaped and letter-only chapters; `codescan_describe` with one code works and a `save()` to a missing directory fails with `r(603)` before any `r()` is posted |
+| `test_codescan_v432.do` | v4.3.2, 4 of 4 proven red on 4.3.1: compound-quoted `label()` text carrying a backtick and a `$` reaches the variable label, the date-summary labels, the console table and the export `label` column byte for byte (4.3.1 died at `r(199)`/`r(132)`); the same text round-trips through `save()` and `codefile()` while the pattern column and a `"'` label still refuse; a backslash separates entries only outside quotes; the double-quote, missing-text, invalid-name and unknown-condition refusals are `r(198)` (the embedded-quote one used to die at `r(132)`) |
 | `test_codescan_perf_equiv.do` | v2.0.4: distinct-value memoization equivalence vs brute-force reference + row-order determinism |
 | `test_codescan_oracle.do` | Seeded randomized rowwise prefix-count parity against a direct `substr()` oracle, including preservation of a helper-like source variable |
 | `test_codescan_adversarial.do` | Hostile inputs: wide varlists, metachars, dup IDs/dates |
 | `test_codescan_describe_adversarial.do` | `codescan_describe` hostile inputs, including the empty-inventory save and session-state paths |
 | `test_codescan_stress_adversarial.do` | Scale/sparsity/name-collision stress |
 | `test_codescan_hostile.do` | Output/helper-pattern name collisions, empty and malformed definitions, repeated replacement, and source-value preservation |
+| `test_codescan_axes.do` | qa-lib axis probes (vendored `_qa_state`, `_qa_lifecycle`, `_qa_parity`, `_qa_hostile`): `codescan_describe` caller-state fingerprint on success and on `r(198)`; `codescan` and `codescan_describe` file outputs reproduced across foreign fit A → B → restore A, with a `replace` rewrite leaving no stale rows; windowed `codescan` prevalence equal in `r()`, console, CSV and workbook with an id dropped from the denominator; `codescan_describe` percent equal in `r()` and console; the `label()` hostile-string corpus; codes above `c(maxlong)` and a prefix pair through `tostring` in both commands |
 | `test_codescan_install_docs.do` | `net install` smoke + help/README example reality |
 | `test_documentation_examples.do` | Every documented example runs as shown, asserted against hand-computed expectations: README Quick Start, row-level indicators, regex/varlist, collapse+window, prefix, export+saving, exclusion, `frame()`, `merge`, multi-window (+`r(sensitivity_n)`), `save()`→`codefile()` reuse, hits-vs-cases + `allslots` attribution, `label()` reaching output while machine names stay put, and the `codescan_describe` `top()`, `save()`, `nodots`, `if`, and `tostring` examples |
 | `test_release_integrity.do` | Version sync, `.pkg`/`stata.toc` surface, no dev paths/debris, self-contained SMCL rendering with a positive control |
@@ -149,7 +151,10 @@ The suite probes for it and exits `499` when it is missing — it does not skip.
 | `benchmark_codescan_vs_manual.do` | Exploratory head-to-head vs a hand-coded `gen`/`replace` + `regexm()` loop for the same task; asserts identical columns, reports the time ratio; not in any lane |
 | `tools/check_codescan_artifacts.py` | Package-local `xlsx` and `svg` artifact checker (openpyxl) |
 | `_qa_fx_a5.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_lifecycle.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_parity.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 
 Neither benchmark is a gate: both are **exploratory** and have no reproducible wall-time threshold, because timings are machine- and load-dependent. They print timings for a human to read; nothing fails on a slow run. Run them by hand:
@@ -167,7 +172,7 @@ Performance *correctness* is gated instead by `test_codescan_perf_equiv.do`, whi
 
 | Command | Functional | Validation | Cross-val |
 |---|---|---|---|
-| `codescan` | Command, option, error, adversarial, regression and fixture names/files suites | Matching/count/window/output/DGP and canonical contract/window oracles | Official ICD-10 rowwise parity |
+| `codescan` | Command, option, error, adversarial, regression and fixture names/files suites | Matching/count/window/output/DGP and canonical contract/window oracles | `crossval_codescan_icd10.do` (official ICD-10 rowwise parity) |
 | `codescan_describe` | Describe adversarial, command and fixture name/contract suites | Exact describe inventory and raw-frequency oracles | — |
 
 ## Lane membership
@@ -183,10 +188,20 @@ Performance *correctness* is gated instead by `test_codescan_perf_equiv.do`, whi
 
 Benchmarks are exploratory, run by hand, and excluded from correctness lanes.
 
+## Evidence layers
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `codescan` row-level regex/prefix matching | `validation_codescan_dgp_recovery.do`; `validation_codescan_dgp_recovery2.do` | `crossval_codescan_icd10.do` | `validation_codescan_public_known_answers.do#K2` | none: no inference reported |
+| `codescan` patient-level collapse/merge with windows | `validation_codescan_dgp_recovery.do` | none: deterministic transform | none: paper publishes no worked example | none: no inference reported |
+| `codescan_describe` code inventory | `validation_codescan_describe.do` | none: deterministic transform | none: no grounding paper (exploratory inventory with no published estimand) | none: no inference reported |
+
 ## Known gaps
 
-Prefix matching retains whitespace; the canonical regex explicitly admits leading spaces. These distinct predicates are checked separately rather than equated with normalized clinical codes.
+Code values in the data are matched as stored in both modes: leading or trailing whitespace in a data value is not trimmed (prefix-mode patterns are trimmed; data values are not), and the canonical fixture-contract code regex explicitly admits leading spaces. These distinct predicates are checked separately rather than equated with normalized clinical codes.
 
 ## Adversarial coverage notes
 
 The adversarial and stress suites concentrate on wide varlists, sparse strings, punctuation and regex metacharacters, case variation, missing IDs and dates, duplicate IDs, numeric `tostring`, output-name collisions, invalid option combinations, repeated calls in one session, installation behaviour, documentation examples, and release metadata. `run_all.do` restores `c(pwd)` to the QA directory after each suite so an install-smoke test cannot poison downstream path derivation.
+
+qa-lib axis cells (`check qa codescan --view axes`) are probed in `test_codescan_axes.do`, plus the existing `codescan` fingerprints in `test_fixture_files.do` and the `codescan_describe` fingerprint in `validation_fixture_contract.do`. Receipt: fingerprint 2/2, fingerprint-error 2/2, lifecycle 2/2, parity 2/2, hostile-strings 1/1, hostile-fixture 2/2. `codescan` is rclass and reads no `e()`, so its lifecycle cells run it as the postestimation step across foreign `regress` fits and compare its file outputs (CSV checksum, `.dta` datasignature) after restore. The hostile-strings corpus goes through `label()`; the two corpus strings containing a double quote are refused with `r(198)` by contract.

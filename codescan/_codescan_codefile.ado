@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.3.1  2026/10/12
+*! _codescan_codefile Version 4.3.2  2026/10/12
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -141,6 +141,11 @@ program define _codescan_parse_codefile, rclass
     * the data, before any value is pulled into a local, so the check itself
     * cannot be broken by the value it is checking. A lone double quote round-
     * trips correctly and is still accepted.
+    *
+    * The label column is the exception: since 4.3.2 every label site reads
+    * its text through macval() or Mata, so a backquote or $ in a label is
+    * carried verbatim (and save() can write one). Only the compound-quote
+    * closer, which no quoting can carry, is still refused there.
     local _cf_qcols name pattern
     if `_cf_has_excl'  local _cf_qcols `_cf_qcols' exclusion
     if `_cf_has_label' local _cf_qcols `_cf_qcols' label
@@ -149,11 +154,16 @@ program define _codescan_parse_codefile, rclass
     local _cf_qerr = 0
     foreach _qc of local _cf_qcols {
         capture drop `_cf_qbad'
-        quietly gen byte `_cf_qbad' = ///
-            strpos(`_qc', char(34) + char(39)) > 0 | ///
-            strpos(`_qc', char(96)) > 0 | ///
-            ustrregexm(`_qc', char(92) + char(36) + "[A-Za-z_]") | ///
-            strpos(`_qc', char(36) + char(123)) > 0
+        if "`_qc'" == "label" {
+            quietly gen byte `_cf_qbad' = strpos(`_qc', char(34) + char(39)) > 0
+        }
+        else {
+            quietly gen byte `_cf_qbad' = ///
+                strpos(`_qc', char(34) + char(39)) > 0 | ///
+                strpos(`_qc', char(96)) > 0 | ///
+                ustrregexm(`_qc', char(92) + char(36) + "[A-Za-z_]") | ///
+                strpos(`_qc', char(36) + char(123)) > 0
+        }
         quietly count if `_cf_qbad' == 1
         if r(N) > 0 {
             local _cf_qn = r(N)
@@ -243,10 +253,10 @@ program define _codescan_parse_codefile, rclass
 
         if `_cf_has_label' {
             local _lbl = strtrim(label[`i'])
-            if `"`_lbl'"' != "" {
+            if `"`macval(_lbl)'"' != "" {
                 local ++n_labels
                 local lab_name_`n_labels' "`def_name_`i''"
-                local lab_label_`n_labels' `"`_lbl'"'
+                local lab_label_`n_labels' `"`macval(_lbl)'"'
             }
         }
         if `_cf_has_excl' {
@@ -317,7 +327,7 @@ program define _codescan_parse_codefile, rclass
     if `n_labels' > 0 {
         forvalues i = 1/`n_labels' {
             return local lab_name_`i' "`lab_name_`i''"
-            return local lab_label_`i' `"`lab_label_`i''"'
+            return local lab_label_`i' `"`macval(lab_label_`i')'"'
         }
     }
 end

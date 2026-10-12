@@ -47,6 +47,7 @@ local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
     test_codescan_v203_hardening test_codescan_v300_critical ///
     test_codescan_v410 test_codescan_v415 test_codescan_v421 ///
     test_codescan_v422 test_codescan_v424 test_codescan_v430 test_codescan_v431 ///
+    test_codescan_v432 ///
     test_codescan_perf_equiv ///
     validation_codescan validation_codescan_extended validation_countrows
 
@@ -61,7 +62,8 @@ local core_suites `quick_suites' validation_fixture_contract test_fixture_names 
     validation_codescan_output validation_codescan_describe ///
     validation_codescan_describe_adversarial validation_codescan_crosscheck ///
     test_codescan_adversarial test_codescan_describe_adversarial ///
-    test_codescan_stress_adversarial test_codescan_hostile test_codescan_oracle
+    test_codescan_stress_adversarial test_codescan_hostile test_codescan_oracle ///
+    test_codescan_axes
 
 * Independent implementation lane: the official Stata ICD-10 classifier on a
 * fixed public Stata Press dataset is the row-level oracle for codescan.

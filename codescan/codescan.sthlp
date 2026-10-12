@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.1  12oct2026}{...}
+{* *! version 4.3.2  12oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -349,9 +349,12 @@ without the column, or with it empty on every row, is accepted under any
 options.
 
 {pmore}
-Values in codefile fields must not contain global-macro references such as
-{cmd:$name} or {cmd:${c -(}name{c )-}}, because they cannot survive Stata's macro quoting
-safely. A lone {cmd:$}, including the regex end-of-string anchor, is allowed.
+Values in the {bf:name}, {bf:pattern}, {bf:exclusion}, and {bf:match} fields must
+not contain a backquote or a global-macro reference such as {cmd:$name} or
+{cmd:${c -(}name{c )-}}, because they cannot survive Stata's macro quoting safely. A
+lone {cmd:$}, including the regex end-of-string anchor, is allowed. The
+{bf:label} field is carried verbatim, backquotes and {cmd:$} included. No field may
+contain a double quote immediately followed by an apostrophe.
 
 {pmore}
 Use a codefile when definitions should be version-controlled, reused across
@@ -465,6 +468,22 @@ windowing is used.
 condition variables are collapsed with {cmd:(max)} so that any qualifying row
 sets the patient-level indicator to 1. With {cmd:countmode}, condition variables
 are collapsed with {cmd:(sum)} instead.
+
+{pmore}
+The collapsed data hold only the {cmd:id()} values that have at least one
+analyzed row. An id whose rows are all excluded -- by {cmd:if}/{cmd:in}, a
+missing {cmd:id()}, a missing {cmd:date()}/{cmd:refdate()}, or the
+{cmd:lookback()}/{cmd:lookforward()} window -- is absent from the result and
+from the denominator of the {cmd:r(summary)} prevalence, which is therefore the
+prevalence among ids with an analyzed row, not among the full cohort. For a
+cohort denominator, merge the collapsed file onto the cohort and set the
+missing indicators to 0 where "no analyzed row" should count as "no match":
+
+{phang2}{cmd:. codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///}{p_end}
+{phang2}{cmd:    define(dm2 "E11") lookback(365) collapse saving(dm2_pid, replace)}{p_end}
+{phang2}{cmd:. use cohort, clear}{p_end}
+{phang2}{cmd:. merge 1:1 pid using dm2_pid, nogenerate keep(master match)}{p_end}
+{phang2}{cmd:. replace dm2 = 0 if missing(dm2)}{p_end}
 
 {phang}
 {opt mer:ge} computes patient-level results exactly as {cmd:collapse} would, then
@@ -728,7 +747,8 @@ date, or the window. So {cmd:count if !missing(}{it:name}{cmd:)} reproduces
 When a window is active, {cmd:r(N)} refers to the analyzed sample after {cmd:if},
 {cmd:in}, missing-date filtering, and window restrictions. After
 {cmd:collapse}/{cmd:merge}, {cmd:r(N)} instead reports the number of unique
-patient IDs represented in the final summary.
+patient IDs represented in the final summary: ids with no analyzed row are not
+counted (see {opt collapse}).
 
 
 {marker remarks}{...}
@@ -891,7 +911,11 @@ before {cmd:index_dt} (inclusive). {cmd:alldates} creates {cmd:_first},
 
 {pstd}
 Patient 2's second encounter (E102, 2020-04-15) falls {it:after} the index
-date, so it is excluded by the lookback window.
+date, so the lookback window excludes it. E102 matches none of the three
+definitions, so the exclusion changes nothing in this result. Add a condition
+that E102 matches to see the window act: with {cmd:define(dm1 "E10")} and the
+same window, patient 2 has {cmd:dm1} = 0; without {cmd:lookback()} and
+{cmd:refdate()}, patient 2 has {cmd:dm1} = 1.
 
 {pstd}
 {bf:Example 3: Prefix matching for procedure codes}
@@ -1106,7 +1130,7 @@ than a changing numerator.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.1, 2026-10-12{p_end}
+{pstd}Version 4.3.2, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
