@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.11  2026/10/12
+*! rangematch Version 1.5.12  2026/10/12
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -941,7 +941,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.11"
+    local _rm_required_mata_version "1.5.12"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -967,11 +967,30 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Parse syntax
     * -------------------------------------------------------------------
-    local _rm_cmdline `"rangematch `0'"'
+    * macval(): Stata re-scans substituted text for macro references, so a
+    * plain `0' would expand a ` or $ inside a quoted filename right here.
+    local _rm_cmdline `"rangematch `macval(0)'"'
     * Keep the unparsed argument list: `syntax' consumes `0', and the
     * empty-argument screen below scans the original line to tell an
     * explicitly empty option from an omitted one (syntax cannot).
-    local _rm_raw0 `"`0'"'
+    local _rm_raw0 `"`macval(0)'"'
+
+    * Refuse a macro character anywhere in the arguments. One reaches here only
+    * when the caller protected it (macval(), a literal), and later expansions
+    * of option values re-scan it: a ` swallowed the rest of a line and could
+    * break out of the captured block (stranding the __rm_* frames, so every
+    * later call failed r(110)), and a $name expanded to a global. Compound-
+    * quote delimiters are syntax, not content, and a $ that cannot start a
+    * global reference (US$) is left alone. Checked in Mata: nothing expands.
+    mata: st_local("_rm_macro_char", strofreal(regexm( ///
+        subinstr(subinstr(st_local("_rm_raw0"), char(96) + char(34), ""), ///
+            char(34) + char(39), ""), ///
+        "[" + char(96) + "]|[" + char(36) + "][A-Za-z_{]")))
+    if `_rm_macro_char' {
+        display as error "rangematch arguments may not contain " char(96) ///
+            " or a " char(36) "name reference; Stata would expand it as a macro"
+        exit 198
+    }
 
     syntax anything(name=interval id="keyvar low high") ///
         [if] [in] using/ , ///
@@ -982,6 +1001,19 @@ program define rangematch, rclass
           CLOSED(string) NEARest(string) TIES(string) SEED(string) ///
           TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
+
+    * Refuse a file or frame name holding a macro character. `syntax' stores
+    * one intact, but every later `"`using'"' expansion re-scans it: a ` opens
+    * a macro reference that swallows the rest of the line, and a $ expands to
+    * a global's contents. Read through Mata so this check expands nothing.
+    * saving() gets the same screen once its filename is unquoted, below.
+    mata: st_local("_rm_macro_char", strofreal( ///
+        strpos(st_local("using"), char(96)) | strpos(st_local("using"), char(36))))
+    if `_rm_macro_char' {
+        display as error "using file or frame name may not contain " char(96) " or " char(36) ///
+            "; Stata would expand it as a macro reference"
+        exit 198
+    }
 
     * A repeated by() variable names the same partition as one mention. Left
     * as typed, the group catalog renamed the first copy and then failed
@@ -1335,9 +1367,9 @@ program define rangematch, rclass
 
     local saving_file ""
     local saving_replace ""
-    if `"`saving'"' != "" {
+    if `"`macval(saving)'"' != "" {
         _parse comma saving_file saving_opts : saving
-        if `"`saving_file'"' == "" {
+        if `"`macval(saving_file)'"' == "" {
             display as error "saving() requires a filename"
             exit 198
         }
@@ -1347,6 +1379,19 @@ program define rangematch, rclass
         * expansion then swallows as an undefined macro reference -- silently
         * discarding the filename and rerouting output in place of saving.
         gettoken saving_file : saving_file
+        * Every later `"`saving_file'"' expansion re-scans the name. A ` there
+        * opened a macro reference that swallowed the rest of the line (r(199)
+        * with the workspace frames stranded, so every later call failed
+        * r(110)), and a $ expanded to a global's contents, so the output was
+        * written under a different name at rc 0. Refuse both, via Mata.
+        mata: st_local("_rm_macro_char", strofreal( ///
+            strpos(st_local("saving_file"), char(96)) | ///
+            strpos(st_local("saving_file"), char(36))))
+        if `_rm_macro_char' {
+            display as error "saving() filename may not contain " char(96) ///
+                " or " char(36) "; Stata would expand it as a macro reference"
+            exit 198
+        }
         if `"`saving_file'"' == "" {
             display as error "saving() requires a filename"
             exit 198
@@ -2423,7 +2468,7 @@ program define rangematch, rclass
         return local count "`count'"
         return local verbose "`verbose'"
         return local backend "`_rm_backend'"
-        return local cmdline `"`_rm_cmdline'"'
+        return local cmdline `"`macval(_rm_cmdline)'"'
         return local cmd "rangematch"
     }
     if `rc' exit `rc'

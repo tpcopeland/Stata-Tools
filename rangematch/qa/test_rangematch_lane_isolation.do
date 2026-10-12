@@ -25,6 +25,9 @@
 *! T4 teardown restores both trees exactly
 *! T5 teardown leaves the user's copy installed and resolvable
 *! T6 a failed first-time bootstrap restores both trees and clears its cycle
+*! T7 no suite puts the source directory on the adopath, in either the
+*!    append (adopath +) or the prepend (adopath ++) form (clarity audit
+*!    2026-10-12, MINOR #5: three fixture suites prepended it unnoticed)
 
 clear all
 version 16.1
@@ -210,6 +213,46 @@ if `ok' {
 else {
     local ++fail_count
     display as error "T6 FAIL: failed bootstrap rc=`failed_boot_rc' left PLUS=`c(sysdir_plus)' PERSONAL=`c(sysdir_personal)' isolated=$RM_QA_ISOLATED"
+}
+
+**# T7 — no suite adds the source directory to the adopath
+* Static scan of every .do in qa/. A source entry ahead of the sandbox makes a
+* suite test the source tree while reading as an installed-copy test, so this
+* catches both `adopath +' and `adopath ++' with a pkg_dir argument. The one
+* exemption is test_rangematch_demo_contract.do putting back an entry it found
+* and stripped (had_pkg_on_path), which restores rather than adds.
+local ++test_count
+capture mata: mata drop _iso_scan_adopath()
+mata:
+void _iso_scan_adopath(string scalar qa_dir)
+{
+    string colvector files, lines
+    string scalar s, hits
+    real scalar i, j
+    files = sort(dir(qa_dir, "files", "*.do"), 1)
+    hits = ""
+    for (i = 1; i <= rows(files); i++) {
+        lines = cat(qa_dir + "/" + files[i])
+        for (j = 1; j <= rows(lines); j++) {
+            s = strtrim(lines[j])
+            if (substr(s, 1, 1) == "*" | substr(s, 1, 2) == "//") continue
+            if (!regexm(s, "(^|[ ])adopath[ ]+[+]")) continue
+            if (!strpos(s, char(96) + "pkg_dir" + char(39))) continue
+            if (strpos(s, "had_pkg_on_path")) continue
+            hits = hits + " " + files[i] + ":" + strofreal(j)
+        }
+    }
+    st_local("adopath_hits", strtrim(hits))
+}
+end
+mata: _iso_scan_adopath(st_local("qa_dir"))
+if `"`adopath_hits'"' == "" {
+    local ++pass_count
+    display as result "PASS T7: no suite adds the source directory to the adopath"
+}
+else {
+    local ++fail_count
+    display as error "T7 FAIL: source directory added to the adopath at `adopath_hits'"
 }
 
 **# Hand the session back exactly as it was found

@@ -1,5 +1,7 @@
 *! bench_rangematch.do  12may2026
 *! Benchmark rangematch against SSC rangejoin on synthetic range joins
+*! WARNING: starts with -clear all-, which discards the data, frames, and
+*! stored results in memory. Save your work before running it.
 
 version 16.1
 clear all

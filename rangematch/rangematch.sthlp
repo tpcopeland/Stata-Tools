@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.11  12oct2026}{...}
+{* *! version 1.5.12  12oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -33,8 +33,8 @@
 {cmd:using}
 {it:filename_or_framename}
 {ifin}
-{cmd:,}
-[{it:options}]
+[{cmd:,}
+{it:options}]
 
 {pstd}Interval-overlap mode (the master [{it:low}, {it:high}] interval overlaps
 the using [{it:ulow}, {it:uhigh}] interval):{p_end}
@@ -99,10 +99,13 @@ the using [{it:ulow}, {it:uhigh}] interval):{p_end}
 {cmd:rangematch} performs a range join between the dataset in memory (the master)
 and a using dataset stored on disk or in a named frame. For each observation in
 the master, it finds every observation in the using dataset whose {it:keyvar}
-lies inside the master observation's interval.
+lies inside the master observation's interval. In interval-overlap mode, set
+by {opt overlap(ulow uhigh)}, it instead finds every using observation whose
+interval [{it:ulow}, {it:uhigh}] overlaps the master interval [{it:low},
+{it:high}]; see {opt overlap()} under {help rangematch##options:Options}.
 
 {pstd}
-In the standard variable-bound form,
+In the standard variable-bound form of point-in-interval mode,
 
 {p 12 12 2}
 using.{it:keyvar} is compared with [master.{it:low}, master.{it:high}]
@@ -422,7 +425,14 @@ is allowed only with {opt frame()}.
 {opt sav:ing(filename[, replace])} saves the output dataset to {it:filename}
 instead of replacing the current dataset. Specify the {opt replace} suboption
 inside {opt saving()} to overwrite an existing file. {opt saving()} may not be
-combined with {opt frame()}, {opt dryrun}, or {opt count}.
+combined with {opt frame()}, {opt dryrun}, or {opt count}. A {it:filename}
+containing a left single quote ({cmd:{c 96}}) or a dollar sign ({cmd:$}) is
+refused with r(198), because Stata would expand it as a macro reference and
+write a different file; the same applies to the filename or frame name after
+{cmd:using}. In any other argument, a left single quote or a {cmd:$} followed
+by a name (a global macro reference that the caller protected with
+{cmd:macval()}) is also refused with r(198); a {cmd:$} that cannot start a
+reference, as in {cmd:if cur == "US$"}, is accepted.
 
 {phang}
 {opt stats} displays a match-density table: matched master rows, unmatched
@@ -556,7 +566,8 @@ frame must be different from the current frame.
 {bf:Migrating from rangejoin}
 
 {pstd}
-Most {cmd:rangejoin} calls translate directly:
+A {cmd:rangejoin} call with variable bounds, or with scalar bounds added to a
+same-named master {it:keyvar}, keeps its syntax:
 
 {p 12 12 2}
 {cmd:rangejoin key lo hi using file}
@@ -568,11 +579,46 @@ becomes
 {cmd:rangematch key lo hi using file}
 
 {pstd}
-{cmd:rangematch} adds frame-safe output through {opt frame()}, scalar-offset bounds such
-as {cmd:-30 30}, explicit unmatched-row control through {opt unmatch:ed()}, nearest-match
-selection through {opt near:est()}, signed distances through {opt dist:ance()}, and output
-saving through {opt sav:ing()}. It also accepts an existing frame after {cmd:using},
-avoiding temporary files in frame-based workflows.
+Both commands compute scalar bounds such as {cmd:-30 30} by adding them to the
+master {it:keyvar}, and both treat a missing variable bound as open-ended. {cmd:rangematch}
+adds frame-safe output through {opt frame()}, explicit
+unmatched-row control through {opt unmatch:ed()}, nearest-match selection
+through {opt near:est()}, signed distances through {opt dist:ance()}, interval
+overlap through {opt overlap()}, and output saving through {opt sav:ing()}. It
+also accepts an existing frame after {cmd:using}, avoiding temporary files in
+frame-based workflows.
+
+{pstd}
+Two {cmd:rangejoin} behaviors do not carry over:
+
+{phang}
+o {bf:Constant bounds with no master {it:keyvar}.} {cmd:rangejoin key 0 10 using file}
+uses the constants as absolute bounds when the master has no variable named
+{cmd:key}. {cmd:rangematch} reads scalar bounds only as offsets from the master
+{it:keyvar} and stops with r(111). To port such a call, generate the bounds
+first: {cmd:generate double lo = 0}, {cmd:generate double hi = 10}, then
+{cmd:rangematch key lo hi using file}.
+
+{phang}
+o {bf:A missing master {it:keyvar} with variable bounds.} {cmd:rangejoin} never
+matches a master observation whose {it:keyvar} is missing. With variable bounds,
+{cmd:rangematch} matches on {it:low} and {it:high} alone and carries a master
+{it:keyvar} as an ordinary variable, so such an observation can match, and a
+ported call returns extra matched rows without an error. {opt miss:ing()} does
+not change this: with variable bounds it governs the bounds and the using
+{it:keyvar}, not a carried master {it:keyvar}. To
+reproduce {cmd:rangejoin}, set aside the missing-{it:keyvar} rows and append
+them back as unmatched rows. An {it:if} condition alone is not enough, because
+observations excluded by {it:if} are left out of the output:
+
+{p 12 12 2}
+{cmd:preserve}{break}
+{cmd:keep if missing(key)}{break}
+{cmd:tempfile nokey}{break}
+{cmd:save `nokey'}{break}
+{cmd:restore}{break}
+{cmd:rangematch key lo hi using file if !missing(key)}{break}
+{cmd:append using `nokey'}
 
 {pstd}
 {bf:Migrating from joinby}
@@ -703,7 +749,7 @@ of each master event date:
 {phang2}{cmd:. format event_date %td}{p_end}
 {phang2}{cmd:. save `events'}{p_end}
 {phang2}{cmd:. use `master', clear}{p_end}
-{phang2}{stata "rangematch event_date -30 30 using `events', frame(matches) replace stats":. rangematch event_date -30 30 using `events', frame(matches) replace stats}{p_end}
+{phang2}{cmd:. rangematch event_date -30 30 using `events', frame(matches) replace stats}{p_end}
 {phang2}{cmd:. frame matches: list}{p_end}
 
 {pstd}
@@ -883,7 +929,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.11, 2026-10-12{p_end}
+{pstd}Version 1.5.12, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
@@ -895,5 +941,11 @@ command to produce output. Counts alone do not establish that output exists.
 
 {psee}
 Online: {helpb merge}, {helpb joinby}, {helpb frames}, {helpb rangestat}, {helpb rangejoin}
+
+{pstd}
+{cmd:rangejoin} is by Robert Picard, and {cmd:rangestat} is by Robert Picard,
+Nicholas J. Cox, and Roberto Ferrer; both are available from SSC. {cmd:rangematch}
+follows {cmd:rangejoin}'s syntax for bounds, and the migration
+notes above describe where the two differ.
 
 {hline}

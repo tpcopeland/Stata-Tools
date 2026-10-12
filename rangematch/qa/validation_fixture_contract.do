@@ -9,8 +9,9 @@ set varabbrev off
 capture log close fxcontract
 log using "validation_fixture_contract.log", replace text nomsg name(fxcontract)
 local qa_dir "`c(pwd)'"
-local pkg_dir = regexr("`qa_dir'", "/qa$", "")
-adopath ++ "`pkg_dir'"
+quietly do "`qa_dir'/_rangematch_qa_common.do"
+* Resolve rangematch from the lane's sandbox install, never the source tree.
+_rm_qa_bootstrap
 do "`qa_dir'/_qa_fx_a4.do"
 do "`qa_dir'/_qa_state.do"
 

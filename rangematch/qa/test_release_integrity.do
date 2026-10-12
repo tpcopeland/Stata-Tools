@@ -414,7 +414,7 @@ local qa_files : dir "`qa_dir'" files "*.do"
 local not_suites "profile.do"
 local qa_files : list qa_files - not_suites
 * Frozen qa-lib vendors explicitly target16.0; ordinary suites remain16.1.
-local canonical_vendors "_qa_fx_a4.do _qa_state.do _qa_hostile.do _qa_metamorphic.do"
+local canonical_vendors "_qa_fx_a4.do _qa_state.do _qa_hostile.do _qa_metamorphic.do _qa_parity.do _qa_lifecycle.do"
 local n_qa = 0
 local bad_ver ""
 foreach f of local qa_files {

@@ -4,7 +4,7 @@
 *!   T1  the first rangematch call after `clear all' (backend not in memory)
 *!       writes no Mata source into an open text log, under both a plain call
 *!       and a `noisily' call; the log holds only the command's own output.
-*!   T2  that first call loads the 1.5.11 backend and returns the expected
+*!   T2  that first call loads the current backend and returns the expected
 *!       match count (the silent load is not a skipped load).
 
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
@@ -86,15 +86,15 @@ capture noisily {
     assert _N == 6
     local got ""
     mata: st_local("got", _rm_mata_version())
-    assert "`got'" == "1.5.11"
+    assert "`got'" == "1.5.12"
 }
 if _rc {
     local ++FAIL
-    display as error "FAIL: T2 silent load installs backend 1.5.11 and matches"
+    display as error "FAIL: T2 silent load installs the current backend and matches"
 }
 else {
     local ++PASS
-    display as result "PASS: T2 silent load installs backend 1.5.11 and matches"
+    display as result "PASS: T2 silent load installs the current backend and matches"
 }
 
 display "RESULT: test_rangematch_v1511 tests=`TESTS' pass=`PASS' fail=`FAIL'"

@@ -39,10 +39,11 @@ archetypes: A4
 - `run_all.do` sandboxes `PLUS` and `PERSONAL` under `c(tmpdir)` via
   `_rangematch_qa_common.do`, installs once, and restores both trees on setup
   failure, suite failure, scanner failure, and normal completion. No suite may
-  `ado uninstall` against the caller's real tree or append the source directory
-  to the adopath: the lane must not edit the environment of the person running
-  it, and must test the installed copy rather than the source directory.
-  `test_rangematch_lane_isolation.do` is the gate on both.
+  `ado uninstall` against the caller's real tree or add the source directory
+  to the adopath (`adopath +` or `adopath ++`): the lane must not edit the
+  environment of the person running it, and must test the installed copy
+  rather than the source directory. `test_rangematch_lane_isolation.do` is the
+  gate on both; its T7 scans every suite for a source-directory adopath entry.
 - Every suite declares `version 16.1`, the package's advertised floor.
   `test_release_integrity.do` enforces it across the directory. This bounds the
   syntax interpreter only; it is not a substitute for a real 16.1 binary.
@@ -103,7 +104,7 @@ archetypes: A4
 | `test_documentation_examples.do` | README/help examples as installed-user workflows |
 | `test_rangematch_doc_contract.do` | Advertised-surface axis: exact point/overlap option sets, argument forms, enum alternatives, and comma grammar; parser parity; verbatim examples; native `inrange()` missing-bound parity; reviewed help markup, filename, and unmatched contracts; overlapping missing-row exclusion counts and the documented failure-time `r()` contract, including that the once-unscoped "a captured error leaves no counts" sentence stays scoped to `missing(error)`; missing-row diagnostic union/overlap wording; cleanup-safe install/net-get distribution contract |
 | `test_rangematch_demo_contract.do` | Demo hygiene: forces a setup error after `PLUS` moves but before `PERSONAL` moves, then asserts propagation, both sysdirs, logs, `more`, `varabbrev`, `linesize`, and RNG state are restored |
-| `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, and failed-bootstrap restoration |
+| `test_rangematch_lane_isolation.do` | RM-I17 gate: sandbox resolution, simulated user-install preservation, exact teardown, failed-bootstrap restoration, and a static scan that no suite adds the source directory to the adopath |
 | `test_rangematch_bench_smoke.do` | RM-I19 gate: analytic expected counts for all six shipped scenarios, rc=0 wrong-count rejection, installed-comparator parity, optional-comparator skip, small known answer, and adopath/session restoration |
 | `test_rangematch_runner_contract.do` | RM-I20 gate: strict sentinel scanner rejects missing/nested, wrong-name, duplicate, inconsistent-count, and reported-failure fixtures |
 | `test_release_integrity.do` | Version/date/package surface and release metadata, including both badges on the unique rangematch table row |
@@ -152,7 +153,9 @@ archetypes: A4
 | `test_rangematch_v157.do` | v1.5.7 regressions: `keepusing()` ranges/wildcards/`_all` expand in the using source's own order with file/frame parity (a frame range spanning the key once dropped it at rc=0; file `_all`/`*` with `by()` once failed r(103)), `overlap(u u)` degenerate point intervals under both closures, repeated `by()` variables, and invalid-name refusal on both sources |
 | `test_rangematch_v159.do` | v1.5.9 regressions: sweep-backend `nosort` output lists tied-key using rows in original-row order and identically across runs (Mata's unstable sort once reordered ~2,997 of 3,000 tied rows between identical calls); a master value-label definition attached to no variable survives the memory and `frame()` routes, keeps its name against a conflicting using mapping, and is shared with an identical one; `saving()` drops it exactly as Stata's `save` does (premise guard, since a fixture loaded from disk never holds one) |
 | `test_rangematch_v1510.do` | v1.5.10 regressions: `tolerance()` judges a master interval empty only if `low - t > high + t` (decimal-noise inversion matches at `1e-9`, nothing at `0`; the equality edge honours the closure; `unmatched(master)` retained-row counts move), overlap mode widens the master only while `r(N_using_inverted)` stays raw; a missing bound is exactly open at `c(maxdouble)` / `2*c(mindouble)` on the sweep, binary, `nearest()` and overlap backends under every `closed()`; an overflowing tolerance shift is open rather than clamped; a missing-key master row with scalar offsets matches nothing at `tolerance(0.5)` and `8e307`; seeded 288-run `nearest()` x `ties()` fuzz with open bounds against a joinby/cross oracle |
-| `test_rangematch_v1511.do` | v1.5.11 regressions: the first `rangematch` call with the backend not in memory (plain and `noisily`) writes no Mata source or `mata (type end to exit)` banner into an open text log, and that silent load still installs backend 1.5.11 and returns the expected matches |
+| `test_rangematch_v1511.do` | v1.5.11 regressions: the first `rangematch` call with the backend not in memory (plain and `noisily`) writes no Mata source or `mata (type end to exit)` banner into an open text log, and that silent load still installs the current backend and returns the expected matches |
+| `test_rangematch_v1512.do` | v1.5.12 regressions: a backend copy broken mid-file (after the old sentinel position) makes two consecutive calls both stop with r(3000) and the one-line message, never r(3499), with no sentinel left and `matastrict` restored; `run ... verbose` shows the Mata diagnostic; the shipped backend reloads afterwards; the sentinel is defined last. Also runs the 1.5.12 documentation claims: scalar bounds as master-key offsets, r(111) with no master key, a missing master key matching under variable bounds, the help's rangejoin porting recipe, the bracketed point-mode comma, the overlap Description sentence, no `{stata}` example link, and the benchmark `clear all` warning |
+| `test_rangematch_axes.do` | qa-lib adversarial axis probes: fingerprint-error (failed `saving()`, bad `closed()`, macro-character filename), lifecycle (foreign estimates around a `saving()` call), parity (matched count across r(), console and the in-place/frame/saving/dryrun routes; `distance()` in a frame), hostile-strings (`saving()` and `using` names from the qa-lib corpus written byte-exact or refused r(198) with no stranded frames), hostile-fixture (`by()` on codes above maxlong and on 32-character near-twin names, against a joinby oracle) |
 | `test_rangematch_regress_options_output.do` | Option and output-contract regressions: `keepusing()` pre-validation, date/datetime format preservation, stats-gated density results, `tolerance()` boundaries, output order |
 | `test_rangematch_regress_performance.do` | Performance-path regressions |
 | `test_rangematch_regress_backend_selection.do` | Backend selection: automatic sweep for monotone joins, binary fallback for nonmonotone intervals |
@@ -193,6 +196,8 @@ archetypes: A4
 | `_expected_warnings.txt` | Warnings the suite provokes on purpose; consumed by `qa log-review` |
 | `_qa_fx_a4.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_qa_hostile.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_lifecycle.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_parity.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_qa_metamorphic.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 
@@ -200,7 +205,7 @@ archetypes: A4
 
 | Command | Functional | Validation | Cross-val | Also Exercised In |
 |---------|------------|------------|-----------|-------------------|
-| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz, public_examples, canonical point/interval contracts | survival::neardate, data.table::foverlaps on ChickWeight and pbcseq | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity and private compile-fault state |
+| `rangematch` | install, basic, by, overlap, missing, adversarial, return/routing/display/backend/saving, version regressions | known_answers, manual, nearest, oracle, overlap_oracle, option_fuzz, public_examples, canonical point/interval contracts | `crossval_survival_neardate.do` (survival::neardate); `crossval_datatable_public_studies.do` (data.table::foverlaps on ChickWeight and pbcseq) | documentation examples, exact doc contract, demo/bootstrap cleanup, strict runner contract, benchmark truth/parity, and release integrity and private compile-fault state |
 
 The external layer compares exact pair identities, not only counts. R companions build their expected results at runtime from independent implementations and public datasets; no expected pair is copied from `rangematch`.
 
@@ -210,6 +215,16 @@ The external layer compares exact pair identities, not only counts. R companions
 |------|--------|
 | `quick` | All `test_*.do` suites listed in `run_all.do`, including complete backend/output parity, edge, label, missing-using, tie, behavior-named regression, documentation, doc-contract, demo-contract, lane-isolation, benchmark-smoke, strict runner-contract, install, and release gates |
 | `full` | All `quick` suites plus every `validation_*.do` and `crossval_*.do` suite explicitly listed in `run_all.do` |
+
+## Evidence layers
+
+`rangematch` is a deterministic join: nothing is estimated, so known-truth recovery and inference calibration do not apply. The external layer is reference parity on exact pair identities.
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `rangematch` point-in-interval, all pairs | `none: deterministic transform` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
+| `rangematch` interval overlap, all pairs | `none: deterministic transform` | `crossval_datatable_public_studies.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
+| `rangematch` point-in-interval, `nearest()` | `none: deterministic transform` | `crossval_survival_neardate.do` | `none: no grounding paper (deterministic join; grounded by its reference implementations)` | `none: no inference reported` |
 
 ## Known gaps
 

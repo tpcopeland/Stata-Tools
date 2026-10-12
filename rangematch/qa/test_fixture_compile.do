@@ -9,8 +9,12 @@ set varabbrev off
 capture log close fxcompile
 log using "test_fixture_compile.log", replace text nomsg name(fxcompile)
 local qa_dir "`c(pwd)'"
-local pkg_dir=regexr("`qa_dir'","/qa$","")
-adopath ++ "`pkg_dir'"
+quietly do "`qa_dir'/_rangematch_qa_common.do"
+* Resolve rangematch from the lane's sandbox install, never the source tree.
+_rm_qa_bootstrap
+* Break a private copy of the INSTALLED backend, the file users load.
+capture findfile _rangematch_mata.ado
+local backend_src "`r(fn)'"
 * Mutate private temporary copies only; shipped definitions remain untouched.
 mata:
 void _fx_break_compile(string scalar src, string scalar dest)
@@ -28,7 +32,7 @@ void _fx_break_compile(string scalar src, string scalar dest)
 }
 end
 tempfile broken1
-mata: _fx_break_compile(st_local("pkg_dir")+"/_rangematch_mata.ado",st_local("broken1"))
+mata: _fx_break_compile(st_local("backend_src"),st_local("broken1"))
 local tests=0
 local pass=0
 local fail=0

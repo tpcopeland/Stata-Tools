@@ -1,6 +1,6 @@
 # rangematch — Range joins for interval data
 
-**Version 1.5.11** | 2026-10-12
+**Version 1.5.12** | 2026-10-12
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
@@ -198,6 +198,8 @@ net get rangematch, from("https://raw.githubusercontent.com/tpcopeland/Stata-Too
 do bench_rangematch.do
 ```
 
+The benchmark starts with `clear all`, which discards the data, frames, and stored results in memory. Save your work before running it.
+
 ## Command Reference
 
 ### Syntax
@@ -352,6 +354,8 @@ The command also returns parsing and routing macros. Macros marked as conditiona
 - Large joins can produce many output rows. Use `by()`, `keepusing()`, and `maxpairs()` to limit work or stop before materialization; use `rangestat` instead when only range summaries are needed.
 - `ties(first)` and `ties(last)` select by original using row order, which can be undesirable when row order is related to enrollment, site, or another selection process. Use `ties(random)` with `seed()` when an order-independent tie choice is needed.
 - `frame()` cannot target the current frame, the using source frame, or a name beginning with `__rm_`; those private frame names are reserved for workspace management. `verbose` also requires three unused Stata timers.
+- Porting from `rangejoin`: with variable bounds, a master row whose key is missing can match in `rangematch` (the key is carried, not matched on), while `rangejoin` never matches it; and constant bounds with no master key are an error rather than absolute bounds. See "Migrating from rangejoin" in `help rangematch` for the porting recipe.
+- `saving()` and `using` names containing `` ` `` or `$` are refused with r(198): Stata would expand them as macro references. In any other argument, a `` ` `` or a `$name` that reached `rangematch` unexpanded (protected with `macval()`) is also refused; a `$` that cannot start a reference, such as `"US$"`, is accepted.
 - `saving()` cannot be combined with `frame()`, `dryrun`, or `count`, and `replace` is meaningful only for a `frame()` target or the `saving()` suboption.
 - Failed `missing(error)` calls exit before posting `r()` results. `assert()` failures also abort before a successful result is available.
 
@@ -361,6 +365,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.5.12** (2026-10-12): A Mata backend that fails to compile no longer leaves a half-loaded backend behind. The next `rangematch` call used to skip the reload and stop with an opaque `r(3499)`; it now retries and reports the same compile error. The message names the running Stata version and the 16.1 requirement, and `run _rangematch_mata.ado verbose` shows the Mata diagnostic. The help's "Migrating from rangejoin" notes now state that `rangejoin` also adds scalar bounds to a same-named master key, and describe the two `rangejoin` behaviors that do not carry over: constant bounds with no master key (an error in `rangematch`), and a missing master key with variable bounds, which `rangejoin` never matches and `rangematch` can match. A `saving()` or `using` name containing `` ` `` or `$`, or a `` ` `` or `$name` in any other argument, is now refused with r(198). Before, a `` ` `` in `saving()`, `seed()`, `generate()`, `masterid()`, `usingid()`, `distance()` or `by()` stopped the call and left the `__rm_*` workspace frames behind, so every later call in the session failed with r(110); a `$` in `saving()` was expanded as a global, so the output was written under a different name at rc 0.
 - **1.5.11** (2026-10-12): The first `rangematch` call in a Stata session no longer echoes the full Mata backend source (about 2,500 lines) into the Results window and any open log while the backend compiles. A backend that fails to compile still stops with its return code, now under a one-line "failed to compile" message instead of the Mata diagnostic.
 - **1.5.10** (2026-10-12): `tolerance()` now judges whether a master interval is empty on its widened bounds (`low - t`, `high + t`), so an interval inverted only by decimal noise (`low = 0.1 + 0.2`, `high = 0.3`) matches as documented instead of matching nothing; in overlap mode this applies to the master interval, while using intervals are still judged on their recorded bounds. `tolerance(0)` behaviour is unchanged. A missing (open) bound now removes its side's restriction exactly: under `closed(left|right|none)` a key equal to the largest (or smallest) storable double was excluded by a strict comparison against the internal stand-in for infinity, and in overlap mode an interval starting at `c(maxdouble)` with an open end, or one with an open start ending at the smallest storable double, was judged empty or missed its open-ended counterpart. A `tolerance()` shift that runs past the double range is now treated as an open bound rather than clamped, so a strict closure no longer drops a key at that limit.
 - **1.5.9** (2026-10-04): Under `nosort`, the sweep backend now breaks tied using keys on the original using row, so tied rows no longer reorder between runs (the pairs were always correct). A master value-label definition attached to no variable is now carried on the memory and `frame()` routes (`saving()` stores only attached definitions).

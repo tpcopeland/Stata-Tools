@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.11  2026/10/12
+*! _rangematch_mata Version 1.5.12  2026/10/12
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -39,14 +39,17 @@ capture mata: mata drop _rm_generate_distance()
 capture mata: mata drop _rm_copy_vl_defs()
 
 * Compile with strict declarations, then restore the caller's setting.
+*
+* The block is compiled under -capture- because Mata echoes every source line of
+* a block into the Results window and any open log, even under -run-. That also
+* hides the compile diagnostic, so -run _rangematch_mata.ado verbose- compiles
+* under -capture noisily- to show it.
+args _rm_compile_mode
+local _rm_compile_prefix "capture"
+if `"`_rm_compile_mode'"' == "verbose" local _rm_compile_prefix "capture noisily"
 local _rm_compile_strict = c(matastrict)
-capture mata:
+`_rm_compile_prefix' mata:
 mata set matastrict on
-
-string scalar _rm_mata_version()
-{
-    return("1.5.11")
-}
 
 // ============================================================================
 // Empty-option-argument scanner.
@@ -2439,10 +2442,28 @@ void _rm_generate_distance(
     st_framecurrent(oldframe)
 }
 
+// The loaded-version sentinel is defined LAST. A compile error aborts the
+// block, so the sentinel exists only when every function above compiled;
+// rangematch.ado reloads whenever it is absent. Defined first, it survived a
+// later failure and the next call skipped the reload and died with r(3499).
+string scalar _rm_mata_version()
+{
+    return("1.5.12")
+}
+
 end
 local _rm_compile_rc = _rc
 mata: mata set matastrict `_rm_compile_strict'
 if `_rm_compile_rc' {
-    display as error "rangematch Mata backend failed to compile (r(`_rm_compile_rc')); reinstall rangematch"
+    * Belt and braces: never leave a sentinel that vouches for a partial load.
+    capture mata: mata drop _rm_mata_version()
+    local _rm_compile_file "_rangematch_mata.ado"
+    capture findfile _rangematch_mata.ado
+    if _rc == 0 local _rm_compile_file `"`r(fn)'"'
+    display as error "rangematch Mata backend failed to compile (r(`_rm_compile_rc')) under Stata `c(stata_version)'"
+    display as error "rangematch requires Stata 16.1 or newer; on a supported Stata the installed files may be damaged, so reinstall rangematch"
+    if `"`_rm_compile_mode'"' != "verbose" {
+        display as error `"to see the Mata diagnostic, type: run "`_rm_compile_file'" verbose"'
+    }
     exit `_rm_compile_rc'
 }
