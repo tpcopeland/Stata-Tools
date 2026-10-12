@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.3.0** | 2026-10-04
+**Version 4.3.1** | 2026-10-12
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -66,7 +66,7 @@ Run separate scans with `generate()` when diagnosis, procedure, or medication fi
 
 `mode(regex)` is the default. Every inclusion and exclusion pattern is anchored at the start of the code, so `"E11"` matches `E110` and `E119` but not `AE11`; character classes and alternation are supported. Codes are matched exactly as stored: leading or trailing spaces are not trimmed, so a padded `" E11"` does not match `"E11"` (`codescan_describe` lists such values as separate codes; clean them with `strtrim()` first). `mode(prefix)` treats pipe-separated tokens as simple starts-with prefixes and is useful when regex features are unnecessary.
 
-The unquoted `|` in `define()` separates conditions, while a `|` inside a quoted pattern is part of that regex or prefix list. Use `~` after an inclusion pattern for exclusions, for example `define(dm2 "E11" ~ "E116")`.
+The unquoted `|` in `define()` separates conditions, while a `|` inside a quoted pattern is part of that regex or prefix list. Use `~` after an inclusion pattern for exclusions, for example `define(dm2 "E11" ~ "E116")`; spaces around the unquoted `|` and `~` are optional. In `mode(regex)` whitespace is significant and never trimmed (`" *I21"` is a valid pattern); a note flags a pattern or exclusion that begins with an unquantified space or ends with a space. `mode(prefix)` trims each prefix, so there `" I10"` means `"I10"`. The regex anchor is the non-capturing `^(?:...)`, so backreferences such as `"(A)\1"` count the pattern's own groups.
 
 Regex patterns that can match without consuming a character are rejected because an anchored empty match would identify every code; empty alternatives in prefix lists are rejected for the same reason. In `mode(regex)`, use `.` to match any nonempty code rather than `.*`; in `mode(prefix)`, a period is literal. `nocase` enables unicode-aware case-insensitive matching, and `nodots` removes periods from the data before matching without changing the stored data. Under `nodots`, a pattern that requires a literal period is rejected because it can never match: a dotted prefix in `mode(prefix)`, or an escaped `\.` or `[.]` in `mode(regex)`.
 
@@ -209,7 +209,7 @@ Exactly one of `define()` or `codefile()` is required. Inline definitions use `n
 codescan_describe varlist [if] [in] [, top(#) nodots tostring save(filename [, replace])]
 ```
 
-The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter (each pattern regex-escaped, so a `.` chapter matches only codes starting with a period), then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`. When the inventory is empty, `save()` writes the four-column header with no data rows.
+The command pools nonempty values across all selected variables, excluding the bare `.` placeholder, reports the most frequent codes, and groups all codes by their first character. Use `save()` to write a draft CSV with one row per first-character chapter (each pattern regex-escaped, so a `.` chapter matches only codes starting with a period), then edit the names, patterns, exclusions, and labels before using it with `codescan, codefile()`. A space chapter is drafted as `[ ]`. When any drafted pattern is a regex (an escaped metacharacter or `[ ]`), the draft's `match` column is `mode(regex)`, so `codefile()` refuses it under other options instead of matching nothing; a draft of plain letters and digits leaves `match` empty. When the inventory is empty, `save()` writes the header with no data rows.
 
 ## Key Options
 
@@ -369,6 +369,17 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.3.1 (2026-10-12)
+
+- `codescan_describe` no longer crashes with `r(198)` on codes Stata reads as operator or factor syntax (`E11.A`, `i.x`, `1[A`); such codes, and ones like `A#B` that Stata silently rewrote, get an alias row name, with the exact value in `r(top_code_#)`.
+- In `mode(regex)`, a pattern or exclusion that begins with an unquantified space or ends with a space now prints a note: the space is matched literally, so `" I10"` silently matched nothing in regex mode while prefix mode (which trims) matched `I10`. Regex whitespace is still significant (`" *I21"` is unchanged). Codefile `name` and `label` fields are trimmed.
+- The regex anchor is now the non-capturing `^(?:...)`; backreferences such as `"(A)\1"` never matched before.
+- Unquoted `|` and `~` in `define()` no longer need surrounding spaces (`define(dm2 "E11"|htn "I10")`).
+- Codefile rows that are blank in every column (trailing `,,,` rows from a spreadsheet) are ignored; row numbers in codefile errors refer to the file.
+- `saving()` rejects a `.csv`, `.tsv`, `.txt`, `.xlsx`, or `.xls` extension instead of writing a Stata dataset named, say, `rules.csv`.
+- After a failed late output rolls the data back, `r(newvars)` and `r(frame)` are empty and `r(collapsed)` and `r(merged)` are 0; the analytic results are kept.
+- `codescan_describe, save()`: the draft writes a `match` column and records `mode(regex)` when a chapter pattern is a regex, so `mode(prefix)` refuses it rather than matching nothing; a missing output directory is refused before the table prints. Singular counts and header spacing in the display are fixed.
 
 ### 4.3.0 (2026-10-04)
 

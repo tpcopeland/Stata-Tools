@@ -1,4 +1,4 @@
-*! codescan Version 4.3.0  2026/10/04
+*! codescan Version 4.3.1  2026/10/12
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -95,6 +95,7 @@ program define codescan, rclass
     local _outputs_created   = 0
     local _data_collapsed    = 0
     local _merge_collapsing  = 0
+    local _r_posted          = 0
     * Native use/save macros are visible through Mata even when the extended
     * Stata macro functions omit them. Preserve their presence and exact bytes.
     mata: st_local("_had_fn",strofreal(sum(st_dir("global","macro","*"):=="S_FN")>0))
@@ -358,6 +359,22 @@ program define codescan, rclass
             checkexists defext(.dta)
         local _saving_fn `"`r(filename)'"'
         local _saving_replace = r(replace)
+        * saving() writes a Stata dataset. Any other extension was honoured
+        * literally, so saving(rules.csv) silently wrote a .dta named .csv.
+        * Refuse the text/spreadsheet extensions a user means for save() or
+        * export(). A denylist, not "any lettered extension": Stata tempfile
+        * names carry hex (St12345.00000d) or .tmp extensions and must pass.
+        local _sv_base = substr(`"`_saving_fn'"', ///
+            max(strrpos(`"`_saving_fn'"', "/"), strrpos(`"`_saving_fn'"', "\")) + 1, .)
+        local _sv_ext = ""
+        if strrpos(`"`_sv_base'"', ".") > 0 {
+            local _sv_ext = strtrim(lower(substr(`"`_sv_base'"', strrpos(`"`_sv_base'"', ".") + 1, .)))
+        }
+        if inlist(`"`_sv_ext'"', "csv", "tsv", "txt", "xlsx", "xls") {
+            display as error `"saving(): `_saving_fn' must be a .dta file; saving() writes the result dataset"'
+            display as error "  to write the rules to a CSV codefile use save(); to export results use export()"
+            exit 198
+        }
     }
 
     * Validate date/refdate are numeric
@@ -517,6 +534,10 @@ program define codescan, rclass
     if _rc local _need_definitions_helper = 1
     capture mata: mata which _codescan_regex_literal_dot()
     if _rc local _need_definitions_helper = 1
+    capture mata: mata which _codescan_define_seps()
+    if _rc local _need_definitions_helper = 1
+    capture mata: mata which _codescan_ws_edge()
+    if _rc local _need_definitions_helper = 1
     if `_need_definitions_helper' {
         capture findfile _codescan_definitions.ado
         if _rc == 0 {
@@ -662,6 +683,18 @@ program define codescan, rclass
                 name(`macval(def_name_`i')') ///
                 pattern(`macval(_pat_arg)') ///
                 exclusion(`macval(_excl_arg)')
+            * Regex whitespace is matched literally and never trimmed (" *I21"
+            * is a real pattern). Note edge whitespace that looks accidental,
+            * at most once per condition: pattern first, then exclusion.
+            local _ws_kind "pattern"
+            mata: st_local("_ws_edge", _codescan_ws_edge(st_local("def_pattern_`i'")))
+            if "`_ws_edge'" == "" {
+                local _ws_kind "exclusion"
+                mata: st_local("_ws_edge", _codescan_ws_edge(st_local("def_excl_`i'")))
+            }
+            if "`_ws_edge'" != "" {
+                display as text "(note: regex `_ws_kind' for `def_name_`i'' `_ws_edge' with a space, which must match literally; remove it if unintended)"
+            }
         }
     }
     else {
@@ -2178,6 +2211,7 @@ program define codescan, rclass
     if "`cooccurrence'" != ""          return matrix cooccurrence = `cooc', copy
     if `_has_sensitivity'              return matrix sensitivity = `sensitivity', copy
     if `_has_sensitivity'              return matrix sensitivity_n = `sensitivity_n', copy
+    local _r_posted = 1
 
     * =========================================================================
     * GRAPH — prevalence bar chart (O1)
@@ -2495,9 +2529,22 @@ program define codescan, rclass
         * so the collapsed result is analytical payload — it survives a failed
         * side effect for the same reason r() does. The snapshot paths are
         * unaffected: preserve and frame() still restore in full.
+        local _outputs_gone = `_rolled_back'
         if !`_rolled_back' & !`_data_collapsed' & "`_outputs'" != "" & `_outputs_created' {
             capture noisily _codescan_cleanup_outputs, outputs("`_outputs'") ///
                 scanvars("`varlist'") protected("`id' `date' `refdate'")
+            if _rc == 0 local _outputs_gone = 1
+        }
+        * r() was posted before the late outputs so the analysis survives a
+        * failed graph/export/save/saving. Once the rollback has removed the
+        * outputs, the data-state results must say so: no new variables, no
+        * collapse or merge left in memory, no frame written. The analytic
+        * payload (r(N), r(summary), ...) is kept.
+        if `_r_posted' & `_outputs_gone' {
+            return local newvars ""
+            return scalar collapsed = 0
+            return scalar merged = 0
+            return local frame ""
         }
     }
     if `_had_fn' mata: st_global("S_FN",st_local("_caller_fn"))

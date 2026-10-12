@@ -303,7 +303,7 @@ capture noisily {
         import delimited using "`empty_csv'", clear varnames(1) stringcols(_all)
         assert _N == 0
         unab cols : _all
-        assert "`cols'" == "name pattern exclusion label"
+        assert "`cols'" == "name pattern exclusion label match"
         confirm string variable name
         confirm string variable pattern
         confirm string variable exclusion
@@ -398,7 +398,7 @@ else {
     local ++fail_count
 }
 
-**# T9: failed save() preserves data, clears preserve state, and keeps r()
+**# T9: failed save() refused before output, preserves data, posts no r()
 
 local ++test_count
 capture noisily {
@@ -415,13 +415,11 @@ capture noisily {
     return clear
     capture codescan_describe dx1, save("`badfile'")
     local save_rc = _rc
-    assert `save_rc' != 0
+    * The directory is checked before any output, so the refusal is r(603)
+    * and nothing is posted to r().
+    assert `save_rc' == 603
     assert "`c(varabbrev)'" == "on"
-    assert r(n_unique) == 2
-    assert r(n_entries) == 2
-    matrix _desc_top = r(top_codes)
-    assert rowsof(_desc_top) == 2
-    matrix drop _desc_top
+    assert "`r(n_unique)'" == ""
     * `cf _all using' is one-directional: it compares the variables present
     * in memory and cannot see one that was dropped from it, so the exact
     * inventory is proven against the snapshot file's own varlist right
@@ -434,7 +432,7 @@ capture noisily {
     assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: T9 - invalid save() keeps r() and restores state"
+    display as result "  PASS: T9 - invalid save() refused before output, posts no r()"
     local ++pass_count
 }
 else {

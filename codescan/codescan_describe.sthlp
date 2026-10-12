@@ -1,6 +1,5 @@
 {smcl}
 {vieweralsosee "codescan" "help codescan"}{...}
-{vieweralsosee "[D] contract" "help contract"}{...}
 {vieweralsosee "[D] tostring" "help tostring"}{...}
 {viewerjumpto "Syntax" "codescan_describe##syntax"}{...}
 {viewerjumpto "Description" "codescan_describe##description"}{...}
@@ -51,7 +50,7 @@ rules: {it:What codes are actually present in these variables?}
 The command pools nonempty values across all specified wide-format code
 variables (for example {cmd:dx1} through {cmd:dx30}), counts how often each
 unique code appears, and then summarizes the inventory by the first character
-of each code. The output has two panels:
+of each code. The output has up to three panels:
 
 {phang2}1. A {bf:top-code table} showing the most common codes ranked by
 frequency, with percent and cumulative percent columns.{p_end}
@@ -59,6 +58,10 @@ frequency, with percent and cumulative percent columns.{p_end}
 {phang2}2. A {bf:chapter summary} grouping all codes by their first character
 (for ICD-10 these correspond roughly to diagnosis chapters), with code count
 and entry count per group.{p_end}
+
+{phang2}3. {bf:Suggested patterns}, shown when there are at least two
+chapters: a ready-to-edit {cmd:define()} entry for each of the five largest chapters, with
+its code and entry counts. These are the same rules {cmd:save()} writes.{p_end}
 
 {pstd}
 This quickly shows whether your data are dominated by diagnosis chapters,
@@ -101,13 +104,13 @@ value must be a positive integer. The default is {cmd:top(20)}. Use a large
 value such as {cmd:top(100)} if you want to inspect rare codes as well.
 
 {phang}
-{opt nodots} strips periods from each code value before tabulating. This is
+{opt nod:ots} strips periods from each code value before tabulating. This is
 useful when dotted and undotted forms should be treated as the same code — for
 example, {cmd:E11.0} and {cmd:E110} would be counted together. The original
 data are never modified.
 
 {phang}
-{opt tostring} converts numeric variables in {varlist} to string before
+{opt tostr:ing} converts numeric variables in {varlist} to string before
 tabulating. Use this when code variables were inadvertently imported as
 numeric rather than text. Each value is written as the shortest decimal text
 that reads back as the stored number: integers in full, never in scientific
@@ -121,19 +124,25 @@ variables are rejected — convert them first with {helpb compress} or
 
 {phang}
 {opt save(filename [, replace])} writes a draft CSV codefile based on the chapter summary. The
-file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}. Each row is a
+file contains the columns {cmd:name}, {cmd:pattern}, {cmd:exclusion}, {cmd:label}, and
+{cmd:match}. Each row is a
 first-character chapter such as {cmd:chapter_E}. If no codes remain, the file
-contains the four-column header and no data rows. Punctuation chapter characters
+contains the header and no data rows. Punctuation chapter characters
 are converted to valid, unique Stata names. Each {cmd:pattern} is the chapter's
-leading character, regex-escaped when it is a regex metacharacter
-(a {cmd:.} chapter is written {cmd:\.}, a {cmd:$} chapter {cmd:\$}), because
-{cmd:codescan} reads a codefile in {cmd:mode(regex)} by default and an unescaped
-{cmd:.} would match every code. The draft carries no {cmd:match} column, so it is
-accepted under any matching options. Open it in a spreadsheet
+leading character. When that character is a regex metacharacter it is
+regex-escaped (a {cmd:.} chapter is written {cmd:\.}, a {cmd:$} chapter {cmd:\$}),
+and a space chapter is written as the class {cmd:[ ]}, because
+{cmd:mode(prefix)} trims a bare space to an empty prefix. Such a pattern is a regex, and in {cmd:mode(prefix)}
+it would match nothing, so whenever the draft contains one, every row's
+{cmd:match} column is {cmd:mode(regex)} and {helpb codescan} refuses to read the
+draft under other matching options rather than return an empty cohort. A draft
+whose chapters are all ordinary characters (letters, digits) leaves {cmd:match}
+empty and is accepted under any matching options. Open it in a spreadsheet
 and refine into real scan rules before using with {helpb codescan:codescan, codefile()}. The
 filename must end in {cmd:.csv}; quotes, shell metacharacters, and control
-characters inside the filename are rejected. An existing file is never
-overwritten: {cmd:save()} refuses the write unless {cmd:replace} is specified as
+characters inside the filename are rejected, as is a directory that does not
+exist ({cmd:r(603)}); these checks run before anything is displayed. An
+existing file is never overwritten: {cmd:save()} refuses the write unless {cmd:replace} is specified as
 a suboption, as in {cmd:save(draft.csv, replace)}.
 
 
@@ -205,8 +214,8 @@ frequency:
 
 {pstd}
 The output shows one table of the top codes (ranked by frequency, with percent
-and cumulative percent) and a second table grouping all codes by their first
-character.
+and cumulative percent), a second table grouping all codes by their first
+character, and suggested {cmd:define()} entries for the largest chapters.
 
 {pstd}
 Technical users can inspect the returned matrix
@@ -293,7 +302,10 @@ the row name whenever it can be one.
 Not every code can. Stata caps a matrix row name at 32 characters, and a name
 is also unusable if it begins or ends with a space, or contains a double quote,
 a dollar sign, a backquote, or a colon — all of which occur in fixed-width
-registry extracts. Such a row receives a bounded, collision-free alias
+registry extracts — or if Stata would read it as operator or factor-variable
+syntax, as it does {cmd:E11.A}, {cmd:i.x}, {cmd:1[A}, and {cmd:A#B}. Each
+candidate name is tried on a scratch matrix and kept only if it reads back
+unchanged. Such a row receives a bounded, collision-free alias
 ({cmd:_cs_code_1} in {cmd:r(top_codes)}, {cmd:_cs_chapter_1} in
 {cmd:r(chapters)}) rather than a silently mangled name. An interior space is
 fine and is left alone, so a code such as {cmd:A B} keeps its own row name.

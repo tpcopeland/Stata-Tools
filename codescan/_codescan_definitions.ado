@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.3.0  2026/10/04
+*! _codescan_definitions Version 4.3.1  2026/10/12
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -19,8 +19,13 @@ program define _codescan_parse_define, rclass
     local all_names ""
 
     * tokenize respects quotes: "I2[0-5]|I6[0-9]" stays as one token
-    * Unquoted | becomes a separate token (space-separated)
     * Format: name "pattern" [~ "excl" ...] | name "pattern" | ...
+    * tokenize splits on spaces only, so an unquoted separator written without
+    * them -- dm2 "E11"|htn "I10", dm2 "E11"~"E116" -- glued onto its
+    * neighbour and was rejected as a bad name. Space out every unquoted | and
+    * ~ that touches a quote, a space, or either end; a | or ~ inside a quoted
+    * pattern, or between two characters of an unquoted pattern, is untouched.
+    mata: st_local("define", _codescan_define_seps(st_local("define")))
     tokenize `"`define'"'
 
     local i = 1
@@ -232,7 +237,77 @@ end
 * does not crash with "_codescan_validate_regex() already exists" (r3000).
 capture mata: mata drop _codescan_validate_regex()
 capture mata: mata drop _codescan_regex_literal_dot()
+capture mata: mata drop _codescan_define_seps()
+capture mata: mata drop _codescan_ws_edge()
 mata:
+// Regex whitespace is significant, so codescan never trims a regex pattern.
+// Flag the edge whitespace that is probably a typo: "begins" when the first
+// character is a space or tab NOT quantified by the next character (" *I21"
+// is a deliberate "optional spaces" and is not flagged), "ends" when the last
+// character is a space or tab. Returns "" when neither applies.
+string scalar _codescan_ws_edge(string scalar pat)
+{
+    string scalar c1, c2, cn
+    if (pat == "") return("")
+    c1 = substr(pat, 1, 1)
+    c2 = substr(pat, 2, 1)
+    cn = substr(pat, strlen(pat), 1)
+    if ((c1 == " " | c1 == char(9)) & !(c2 == "*" | c2 == "+" | c2 == "?" | c2 == "{")) {
+        return("begins")
+    }
+    if (cn == " " | cn == char(9)) return("ends")
+    return("")
+}
+
+// Space out the define() separators | and ~ that sit outside quotes and touch
+// a quote, a space, or either end of the string, so tokenize sees them as
+// tokens of their own. Quote state follows Stata: "..." toggles, and a
+// compound `"..."' nests. Only ASCII delimiters are inspected, so UTF-8
+// continuation bytes pass through untouched. A | or ~ between two ordinary
+// characters (an unquoted pattern such as E11|E12) is left as it was.
+string scalar _codescan_define_seps(string scalar s)
+{
+    real scalar   i, n, dq, cq, edge
+    string scalar ch, nx, prv, out
+
+    n   = strlen(s)
+    dq  = 0
+    cq  = 0
+    out = ""
+    for (i = 1; i <= n; i++) {
+        ch = substr(s, i, 1)
+        nx = (i < n ? substr(s, i + 1, 1) : "")
+        if (!dq & ch == char(96) & nx == char(34)) {
+            cq++
+            out = out + ch + nx
+            i++
+            continue
+        }
+        if (cq & ch == char(34) & nx == char(39)) {
+            cq--
+            out = out + ch + nx
+            i++
+            continue
+        }
+        if (!cq & ch == char(34)) {
+            dq = !dq
+            out = out + ch
+            continue
+        }
+        if (!cq & !dq & (ch == "|" | ch == "~")) {
+            prv  = (i > 1 ? substr(s, i - 1, 1) : "")
+            edge = (prv == "" | prv == " " | prv == char(34) | prv == char(39) |
+                    nx == "" | nx == " " | nx == char(34) | nx == char(96))
+            if (edge) {
+                out = out + " " + ch + " "
+                continue
+            }
+        }
+        out = out + ch
+    }
+    return(out)
+}
+
 // Does a regex REQUIRE a literal period somewhere? nodots strips every period
 // from the data before matching, so an escaped "\." or the one-character class
 // "[.]" can never match, and the pattern silently identifies nothing (as an
@@ -408,9 +483,9 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // ({2,1}, leading *) and bad groups still slip through and make regexm()
     // silently return 0 (a false-zero cohort). ustrregexm() returns -1 (not a
     // Stata error) on a structurally invalid ICU pattern, so probe the
-    // *anchored* form the scanner actually uses ("^(...)" — see
+    // *anchored* form the scanner actually uses ("^(?:...)" — see
     // _codescan_mata_scan) and reject -1.
-    if (ustrregexm("__codescan_probe__", "^(" + pat + ")") == -1) {
+    if (ustrregexm("__codescan_probe__", "^(?:" + pat + ")") == -1) {
         errprintf("{err}" + ptype + " for %s: invalid regex pattern: %s\n", cname, pat)
         exit(198)
     }
@@ -420,12 +495,12 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // other patterns can also match the empty string: "()", "(())", "A*", "A?",
     // "A{0}", nested empty groups. ICU compiles every one of them, so neither
     // the structural pass nor the compile probe rejects them. Anchored as
-    // "^(pat)" — the form _codescan_mata_scan actually applies — an
+    // "^(?:pat)" — the form _codescan_mata_scan actually applies — an
     // empty-capable pattern matches the start of EVERY nonempty code: as an
     // inclusion it silently yields a cohort of everyone, as an exclusion it
     // silently removes every match. Both are analytic-validity failures that
     // return rc=0. Probe the anchored form against "" and reject a match.
-    if (ustrregexm("", "^(" + pat + ")") == 1) {
+    if (ustrregexm("", "^(?:" + pat + ")") == 1) {
         errprintf("{err}" + ptype + " for %s: pattern can match an empty string (matches every code): %s\n", cname, pat)
         // Mata string literals have no backslash escape for a double quote, so
         // this message is written without embedded quotes on purpose.
@@ -468,7 +543,7 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
     // Legitimate patterns are untouched: "\bE11" consumes E11 on every probe it
     // matches, so it never trips this.
     for (k = 32; k <= 126; k++) {
-        if (ustrregexm(char(k) + "00", "^(" + pat + ")") == 1) {
+        if (ustrregexm(char(k) + "00", "^(?:" + pat + ")") == 1) {
             if (ustrregexs(0) == "") {
                 errprintf("{err}" + ptype + " for %s: pattern matches without consuming any characters (zero-width): %s\n", cname, pat)
                 // No backslash in this literal on purpose: Mata printf-style

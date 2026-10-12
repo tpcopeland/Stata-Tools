@@ -1,4 +1,4 @@
-*! codescan_describe Version 4.3.0  2026/10/04
+*! codescan_describe Version 4.3.1  2026/10/12
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -43,7 +43,8 @@ program define codescan_describe, rclass
     local _save_fn ""
     local _save_replace = 0
     if `"`save'"' != "" {
-        _codescan_parse_filespec, spec(`"`save'"') context(save()) checkexists
+        _codescan_parse_filespec, spec(`"`save'"') context(save()) ///
+            checkexists checkdir
         local _save_fn `"`r(filename)'"'
         local _save_replace = r(replace)
         local _save_ext = lower(substr(`"`_save_fn'"', -4, .))
@@ -149,11 +150,15 @@ program define codescan_describe, rclass
         matrix rownames `chapters' = none
     }
     else {
-    * Display header
+    * Display header. Counts are formatted then trimmed: a fixed-width
+    * %10.0fc padded "7 total entries" out to "         7 total entries".
+    local _hdr_codes = strtrim(string(`total_codes', "%15.0fc"))
+    local _hdr_entries = strtrim(string(`total_entries', "%15.0fc"))
     display as text _n "codescan describe: `nvars' variable" ///
-        cond(`nvars' > 1, "s", "") ", " as result `total_codes' ///
-        as text " unique codes, " as result %10.0fc `total_entries' ///
-        as text " total entries"
+        cond(`nvars' > 1, "s", "") ", " as result "`_hdr_codes'" ///
+        as text " unique code" cond(`total_codes' == 1, "", "s") ", " ///
+        as result "`_hdr_entries'" ///
+        as text " total entr" cond(`total_entries' == 1, "y", "ies")
 
     * Display top-N codes
     display as text ""
@@ -171,12 +176,17 @@ program define codescan_describe, rclass
             _col(44) as result %9.1f `_cum_pct' as text "%"
     }
     if `total_codes' > `top' {
-        display as text "  ... (`=`total_codes' - `top'' more codes)"
+        local _n_more = `total_codes' - `top'
+        display as text "  ... (`_n_more' more code" ///
+            cond(`_n_more' == 1, "", "s") ")"
     }
 
     * Build r(top_codes) matrix from Mata-returned locals
     matrix `top_codes' = J(`show', 3, .)
     local _tc_rnames ""
+    * Trial matrix for the row-name round trip below.
+    tempname _rn_probe
+    matrix `_rn_probe' = J(1, 1, 0)
     local _tc_cum = 0
     forvalues i = 1/`show' {
         local _tc_freq = `_desc_freq_`i''
@@ -194,9 +204,20 @@ program define codescan_describe, rclass
         * Stata answers that by silently substituting its positional default
         * (r1, r2, ...) at rc=0, so " PAD" and ":Q1" came back as "PAD" and
         * "Q1". Testing only the length let every one of those through.
+        * The static screen cannot know every name Stata's matrix-stripe
+        * parser reads as operator or factor syntax: "E11.A", "i.x" and "1[A"
+        * abort "matrix rownames" with r(198), and "A#B" is silently rewritten
+        * to "c.A#c.B". So a screened name is also tried on a 1x1 matrix and
+        * kept only if the stripe reads back as exactly that name.
         local _tc_rowname "_cs_code_`i'"
         if `_desc_code_safe_`i'' {
-            local _tc_rowname `"`macval(_desc_code_`i')'"'
+            capture matrix rownames `_rn_probe' = `"`macval(_desc_code_`i')'"'
+            local _rn_ok = (_rc == 0)
+            if `_rn_ok' {
+                mata: st_local("_rn_ok", strofreal(st_matrixrowstripe( ///
+                    st_local("_rn_probe")) == ("", st_local("_desc_code_`i'"))))
+            }
+            if `_rn_ok' local _tc_rowname `"`macval(_desc_code_`i')'"'
         }
         * A short code can itself equal an alias selected for an earlier long
         * code, so check every proposed row name, not only generated aliases.
@@ -248,7 +269,13 @@ program define codescan_describe, rclass
         matrix `chapters'[`i', 2] = `_desc_ch_entries_`i''
         local _ch_rowname "_cs_chapter_`i'"
         if `_desc_ch_safe_`i'' {
-            local _ch_rowname `"`macval(_desc_ch_`i')'"'
+            capture matrix rownames `_rn_probe' = `"`macval(_desc_ch_`i')'"'
+            local _rn_ok = (_rc == 0)
+            if `_rn_ok' {
+                mata: st_local("_rn_ok", strofreal(st_matrixrowstripe( ///
+                    st_local("_rn_probe")) == ("", st_local("_desc_ch_`i'"))))
+            }
+            if `_rn_ok' local _ch_rowname `"`macval(_desc_ch_`i')'"'
         }
         * No collision loop here, unlike r(top_codes). A chapter is always ONE
         * character (usubstr(code, 1, 1)) and the chapters are distinct by
@@ -293,7 +320,8 @@ program define codescan_describe, rclass
             local ne = `_desc_ch_entries_`i''
             display as text "    define(`_desc_rule_name_`i'' " as result ///
                 char(34) + ustrunescape("`_desc_ch_pat_hex_`i''") + char(34) ///
-                as text ") — `nc' codes, `ne' entries"
+                as text ") — `nc' code" cond(`nc' == 1, "", "s") ///
+                ", `ne' entr" cond(`ne' == 1, "y", "ies")
         }
     }
     }
@@ -312,6 +340,15 @@ program define codescan_describe, rclass
                 gen str244 pattern = ""
                 gen str244 exclusion = ""
                 gen str80 label = ""
+                * A metacharacter or space chapter is written as a regex
+                * (escaped, or "[ ]" for a space: prefix mode trims a bare " "),
+                * and such a pattern means something else in mode(prefix). The
+                * match column then records mode(regex), so codefile() refuses
+                * the draft under other options instead of matching nothing.
+                * A draft of plain leading characters leaves it empty and works
+                * under any matching options.
+                gen str40 match = ""
+                if `_desc_draft_regex' replace match = "mode(regex)"
                 * The pattern is the chapter's own leading character, regex-
                 * escaped (a "." chapter must not become match-everything), and
                 * stored from the raw local through Mata: the hex transport
@@ -323,7 +360,7 @@ program define codescan_describe, rclass
                         mata: st_sstore(`i', "pattern", st_local("_desc_ch_pat_`i'"))
                     }
                 }
-                keep name pattern exclusion label
+                keep name pattern exclusion label match
                 export delimited using `"`_save_fn'"', replace
             }
             restore
@@ -459,6 +496,7 @@ void _codescan_describe_tabulate()
     st_local("_desc_total_entries", strofreal(total_entries))
     st_local("_desc_total_codes", strofreal(n_unique))
 
+    st_local("_desc_draft_regex", "0")
     if (n_unique == 0) {
         st_local("_desc_show", "0")
         st_local("_desc_n_chapters", "0")
@@ -552,6 +590,9 @@ void _codescan_describe_tabulate()
                  _codescan_regex_escape1(sch_keys[ci]))
         st_local("_desc_ch_pat_hex_" + strofreal(i),
                  ustrtohex(_codescan_regex_escape1(sch_keys[ci])))
+        if (_codescan_regex_escape1(sch_keys[ci]) != sch_keys[ci]) {
+            st_local("_desc_draft_regex", "1")
+        }
     }
 }
 
@@ -559,8 +600,11 @@ void _codescan_describe_tabulate()
 // codefile in regex mode, so an unescaped metacharacter chapter is either
 // invalid ("(", "*") or silently broader than the chapter ("." matches every
 // code). Escaping makes the rule mean "codes beginning with this character".
+// A space chapter is written "[ ]": mode(prefix) trims a bare " " to an
+// empty prefix, and in regex a bare leading space draws the whitespace note.
 string scalar _codescan_regex_escape1(string scalar c)
 {
+    if (c == " ") return("[ ]")
     if (strlen(c) == 1 & strpos("\^$.|?*+()[]{}", c) > 0) return("\" + c)
     return(c)
 }

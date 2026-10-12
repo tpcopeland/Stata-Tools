@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.0  04oct2026}{...}
+{* *! version 4.3.1  12oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -222,7 +222,7 @@ medication codes need different dictionaries, run separate scans and add
 {pstd}
 In the default {cmd:mode(regex)}, {cmd:codescan} uses Stata's {cmd:ustrregexm()}
 function and automatically adds a start-of-string anchor. The rule
-{cmd:define(dm2 "E11")} is checked like {cmd:ustrregexm(code, "^(E11)")}: the code
+{cmd:define(dm2 "E11")} is checked like {cmd:ustrregexm(code, "^(?:E11)")}: the code
 must start with {cmd:E11}.
 
 {phang2}{cmd:"E11"} matches {cmd:E110}, {cmd:E119}, and {cmd:E11.9}; it does
@@ -271,7 +271,7 @@ before writing rules; it pools the nonempty codes across the listed variables.
 {dlgtab:Definition source}
 
 {phang}
-{opt define(string)} specifies one or more condition definitions separated by
+{opt def:ine(string asis)} specifies one or more condition definitions separated by
 {cmd:|}. Each definition has the form
 {cmd:name "pattern" [~ "exclusion" [~ "exclusion2" ...]]}.{p_end}
 
@@ -281,13 +281,25 @@ Example: {cmd:define(dm2 "E11" | htn "I1[0-35]" | dm_comp "E10[2-7]")}.{p_end}
 {pmore}
 In {cmd:regex} mode, each inclusion and exclusion pattern is automatically
 anchored at the start of the code value. For example, {cmd:"E11"} is treated
-as {cmd:^(E11)}.
+as {cmd:^(?:E11)}. The anchoring group is non-capturing, so a backreference
+counts the pattern's own groups: {cmd:"(A)\1"} matches codes beginning {cmd:AA}.
+
+{pmore}
+In {cmd:mode(regex)}, whitespace in a pattern or exclusion is significant
+and is never trimmed: {cmd:" *I21"} means "optional spaces, then {cmd:I21}",
+and {cmd:" I10"} matches only codes that begin with a space. Because a stray
+edge space is usually a typo, {cmd:codescan} prints a note when a regex
+pattern or exclusion begins with a space that no quantifier follows, or ends
+with a space; the pattern is still used as written. In {cmd:mode(prefix)},
+each pipe-separated prefix is trimmed, so {cmd:" I10"} means {cmd:"I10"}.
 
 {pmore}
 An unquoted {cmd:|} separates definitions in {cmd:define()}; a {cmd:|} inside a
 quoted pattern remains part of that regex or prefix list. For example,
 {cmd:define(metastatic "C7[7-9]|C80")} is one condition, while
-{cmd:define(dm2 "E11" | htn "I1[0-35]")} is two conditions.
+{cmd:define(dm2 "E11" | htn "I1[0-35]")} is two conditions. Spaces around
+the unquoted {cmd:|} and {cmd:~} are optional, so
+{cmd:define(dm2 "E11"~"E116"|htn "I10")} is read the same way.
 
 {pmore}
 In {cmd:prefix} mode, pipe-separated tokens are treated as alternative
@@ -305,7 +317,7 @@ characters so that {cmd:_first}, {cmd:_last}, {cmd:_count}, and {cmd:_nrows} suf
 fit inside Stata's 32-character variable-name limit.
 
 {phang}
-{opt codefile(string)} reads definitions from a CSV or {cmd:.dta} dataset. The
+{opt codef:ile(string)} reads definitions from a CSV or {cmd:.dta} dataset. The
 file must contain string variables {bf:name} and {bf:pattern}. Optional columns
 are {bf:label}, {bf:exclusion}, and {bf:match}. Column names are matched case-insensitively,
 and exactly one column may supply each of the five fields: a file carrying two
@@ -316,7 +328,13 @@ is rejected rather than resolved to one of them.
 The {bf:name} column must contain valid, unique Stata names no longer than 26
 characters. The {bf:pattern} column supplies the inclusion rule. The {bf:exclusion}
 column supplies one or more exclusions separated by {cmd:|}. The {bf:label} column is
-used for variable labels and displayed/exported condition labels.
+used for variable labels and displayed/exported condition labels. Leading and
+trailing spaces are removed from {bf:name} and {bf:label}; {bf:pattern} and
+{bf:exclusion} are read verbatim and follow the same whitespace rules as
+{cmd:define()}. Rows on
+which every column is empty, such as the trailing {cmd:,,,} rows a spreadsheet
+can leave behind, are ignored; a row with some fields filled and {bf:name} or
+{bf:pattern} empty is still an error, reported by its row number in the file.
 
 {pmore}
 The {bf:match} column records the matching options the rules were written for,
@@ -346,7 +364,7 @@ separate {cmd:codescan} calls with {cmd:generate()} prefixes when different
 variable groups need different dictionaries.
 
 {phang}
-{opt label(string)} assigns labels to named conditions. Entries are separated by
+{opt lab:el(string asis)} assigns labels to named conditions. Entries are separated by
 {cmd:\}, not {cmd:|}. For example
 {cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")} labels two conditions. If
 labels were supplied
@@ -403,7 +421,7 @@ stored on Stata's daily date scale. It is required for windowing and for
 {cmd:earliestdate}, {cmd:latestdate}, and {cmd:countdate}.
 
 {phang}
-{opt refdate(varname)} specifies the reference date used by
+{opt refd:ate(varname)} specifies the reference date used by
 {cmd:lookback()} and {cmd:lookforward()}. It must also be a numeric daily date.
 
 {pmore}
@@ -417,7 +435,7 @@ monthly, quarterly, half-yearly, yearly, or business-calendar format
 own unit.
 
 {phang}
-{opt lookback(#|numlist)} limits matches to observations within a backward window
+{opt lookb:ack(#|numlist)} limits matches to observations within a backward window
 relative to {cmd:refdate}. Every value must be a nonnegative integer. A single
 value such as {cmd:lookback(365)} scans one window. A
 numlist such as {cmd:lookback(90 365 1825)} or {cmd:lookback(30(30)90)} performs a
@@ -428,11 +446,11 @@ value would add a second {cmd:r(sensitivity)} column under a duplicate column
 name, so it is rejected.
 
 {phang}
-{opt lookforward(#)} takes a non-negative integer and limits matches to observations within a forward window
+{opt lookf:orward(#)} takes a non-negative integer and limits matches to observations within a forward window
 relative to {cmd:refdate}. The argument must be a nonnegative integer.
 
 {phang}
-{opt inclusive} includes {cmd:refdate} in a single-direction window. When both
+{opt incl:usive} includes {cmd:refdate} in a single-direction window. When both
 {cmd:lookback()} and {cmd:lookforward()} are specified, {cmd:refdate} is always
 included and {cmd:inclusive} is unnecessary.
 
@@ -443,13 +461,13 @@ windowing is used.
 {dlgtab:Result dataset}
 
 {phang}
-{opt collapse} reduces the data to one row per {cmd:id()}. By default the
+{opt coll:apse} reduces the data to one row per {cmd:id()}. By default the
 condition variables are collapsed with {cmd:(max)} so that any qualifying row
 sets the patient-level indicator to 1. With {cmd:countmode}, condition variables
 are collapsed with {cmd:(sum)} instead.
 
 {phang}
-{opt merge} computes patient-level results exactly as {cmd:collapse} would, then
+{opt mer:ge} computes patient-level results exactly as {cmd:collapse} would, then
 merges them back onto the original row structure, in the original row order
 and with the data's sort order ({cmd:sortedby}) intact. Every row of an
 {cmd:id()} with at least one analyzed row receives that id's patient-level
@@ -461,23 +479,23 @@ in every condition variable: missing marks "not analyzed" and is distinct from 0
 ("analyzed, no match"), mirroring the three-state {cmd:unmatched()} design.
 
 {phang}
-{opt earliestdate}, {opt latestdate}, and {opt countdate} create {it:name}_first, {it:name}_last, and
+{opt earliest:date}, {opt latest:date}, and {opt count:date} create {it:name}_first, {it:name}_last, and
 {it:name}_count variables, respectively. These require {cmd:date()} plus either {cmd:collapse}
 or {cmd:merge}. {cmd:countdate} counts unique dates with at least one qualifying match.
 
 {phang}
-{opt countrows} creates {it:name}_nrows variables containing the number of rows
+{opt countr:ows} creates {it:name}_nrows variables containing the number of rows
 (observations) with a qualifying match for each condition. Unlike {cmd:countdate},
 which counts unique dates, {cmd:countrows} counts raw rows. This requires {cmd:collapse}
 or {cmd:merge} but does not require {cmd:date()}. With {cmd:countmode}, {cmd:_nrows} sums the per-row
 match counts rather than simply counting rows with any match.
 
 {phang}
-{opt alldates} is shorthand for specifying {cmd:earliestdate latestdate countdate}. It
+{opt alld:ates} is shorthand for specifying {cmd:earliestdate latestdate countdate}. It
 does not include {cmd:countrows}.
 
 {phang}
-{opt preserve} wraps the destructive part of {cmd:collapse} or {cmd:merge} in
+{opt pre:serve} wraps the destructive part of {cmd:collapse} or {cmd:merge} in
 {cmd:preserve}/{cmd:restore}. Summary output and returned results remain available, but
 the created variables are not left in the active dataset. On that path,
 {cmd:r(newvars)} is empty because nothing remains in memory.
@@ -490,16 +508,20 @@ frame already exists, add {cmd:replace}. The named frame must differ from the
 current frame; {cmd:codescan} cannot write its result into the frame it is reading.
 
 {phang}
-{opt saving(filename [, replace])} saves the final result dataset to disk after
+{opt sav:ing(filename [, replace])} saves the final result dataset to disk after
 {cmd:collapse} or {cmd:merge}. The only supported suboption is {cmd:replace}, and
 without it an existing file is never overwritten. A {it:filename} with no
 extension gets {cmd:.dta}, and it is that name — the one actually written — that
-the overwrite check authorizes, before any scanning or other output begins.
+the overwrite check authorizes, before any scanning or other output
+begins. Because {cmd:saving()} always writes a Stata dataset, a {cmd:.csv}, {cmd:.tsv},
+{cmd:.txt}, {cmd:.xlsx}, or {cmd:.xls} extension, such as
+{cmd:saving(rules.csv)}, is rejected with {cmd:r(198)}. Use {cmd:save()} to write
+the rules to a CSV codefile, or {cmd:export()} to write the summary table.
 
 {dlgtab:Diagnostics and reporting}
 
 {phang}
-{opt detail} displays and returns a per-variable contribution table in
+{opt det:ail} displays and returns a per-variable contribution table in
 {cmd:r(varcounts)}. Counts reflect effective matches after exclusions.
 
 {pmore}
@@ -513,7 +535,7 @@ way -- only the attribution moves. Row totals therefore equal the number of
 matching observations, not the number of matching code slots.
 
 {pmore}
-{opt allslots} counts every matching slot instead, so an observation with the
+{opt alls:lots} counts every matching slot instead, so an observation with the
 condition in two variables adds one to each. The table then does not depend on
 {varlist} order and its row totals equal the slot-hit totals reported by
 {cmd:countmode}. The indicator variables stay 0/1 -- {cmd:allslots} changes only
@@ -529,12 +551,12 @@ redundant with {cmd:countmode}, which already counts every slot.
 counts.
 
 {phang}
-{opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
+{opt cooc:currence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
 of pairwise counts. In row-level mode it counts observations. After
 {cmd:collapse} or {cmd:merge}, it counts unique {cmd:id()} values.
 
 {phang}
-{opt unmatched(name)} creates a row-level flag with three states: 1 when an
+{opt unm:atched(name)} creates a row-level flag with three states: 1 when an
 analyzed observation matched no condition, 0 when an analyzed observation
 matched at least one, and missing ({cmd:.}) when the row was not analyzed at
 all. Rows fall outside the analysis sample when they are excluded by {cmd:if} or
@@ -548,7 +570,7 @@ from the flag, so {cmd:count if `name' == 1} counts genuine non-matches and
 {cmd:count if !missing(`name')} reproduces {cmd:r(N)} at the row level.
 
 {phang}
-{opt matched_code(name)} creates a row-level string variable containing the first
+{opt match:ed_code(name)} creates a row-level string variable containing the first
 code value that survived inclusion and exclusion checks for any condition. It
 is empty when nothing matched. The variable is {cmd:str244}, or as wide as the
 widest scanned variable when that exceeds 244 characters (capped at
@@ -558,10 +580,10 @@ prints a note when you ask for it on that path -- but it is retained under
 {cmd:merge}.
 
 {phang}
-{opt graph} draws a horizontal bar chart of condition prevalence.
+{opt gr:aph} draws a horizontal bar chart of condition prevalence.
 
 {phang}
-{opt export(filename [, replace])} writes the summary table to {cmd:.csv} or
+{opt exp:ort(filename [, replace])} writes the summary table to {cmd:.csv} or
 {cmd:.xlsx}. An existing file is never overwritten unless the {cmd:replace}
 suboption is given. Exported columns are {cmd:condition}, {cmd:label},
 {cmd:matches}, {cmd:total_hits}, {cmd:positive_units}, {cmd:prevalence},
@@ -577,7 +599,7 @@ receives a second sheet named {cmd:cooccurrence} with a {cmd:condition} column a
 column per condition containing the pairwise count.
 
 {phang}
-{opt format(%fmt)} controls the displayed and exported format of the prevalence
+{opt for:mat(%fmt)} controls the displayed and exported format of the prevalence
 column, the multi-window sensitivity table, and the {cmd:graph} bar labels. The
 default prevalence format is {cmd:%9.1f}. In an {cmd:.xlsx} export
 the format is the cell's number format and the cell keeps full precision. A
@@ -588,24 +610,25 @@ digits ({cmd:format(%9.2f)} writes {cmd:33.33}); without {cmd:format()} the
 {dlgtab:Matching behavior and naming}
 
 {phang}
-{opt mode(string)} chooses the matching engine. {cmd:regex} is the default and
+{opt mod:e(string)} chooses the matching engine. {cmd:regex} is the default and
 anchors each pattern at the start of the code. {cmd:prefix} compares simple
 pipe-separated prefixes and is usually faster on large datasets.
 
 {phang}
-{opt level(#)} truncates each {it:inclusion} prefix to {it:#} characters before
+{opt lev:el(#)} truncates each {it:inclusion} prefix to {it:#} characters before
 scanning; {it:exclusion} patterns (those after {cmd:~}) are matched at full
 precision. This gives level-{it:#} matching with full-precision exclusions. It
 is meaningful only in {cmd:mode(prefix)} and must be an integer between 1 and
-10; {cmd:level(0)} is rejected rather than ignored.
+10; {cmd:level(0)} is rejected rather than ignored. In {cmd:mode(regex)} it is
+still validated, then ignored with a note.
 
 {phang}
-{opt nocase} makes matching case-insensitive. Prefix mode uses unicode case
+{opt noc:ase} makes matching case-insensitive. Prefix mode uses unicode case
 folding; regex mode uses the ICU case-insensitive flag without rewriting the
 pattern, so escapes such as {cmd:\d} retain their meaning.
 
 {phang}
-{opt nodots} strips periods from each code value during matching. The original
+{opt nod:ots} strips periods from each code value during matching. The original
 data are unchanged. Patterns are matched against the {it:undotted} form of the
 data, so write them without dots: in {cmd:mode(prefix)} a pattern that contains
 a period (for example {cmd:"E11.0"}) can never match a stripped value like
@@ -619,20 +642,22 @@ so it is rejected in an inclusion or an exclusion for the same reason (a dead
 exclusion would silently exclude nothing).
 
 {phang}
-{opt tostring} converts numeric variables in {varlist} to temporary strings for scanning,
+{opt tostr:ing} converts numeric variables in {varlist} to temporary strings for scanning,
 leaving the original numeric variables unchanged. This is helpful when code
 variables were imported as numeric rather than text. Each value is written as
 the shortest decimal text that reads back as the stored number: integers in
 full, never in scientific notation ({cmd:1234567890123}, not
 {cmd:1.23457e+12}), and a {cmd:float} holding 250.01 as {cmd:250.01}, not
 {cmd:250.0099945}. Missing values, including {cmd:.a}-{cmd:.z}, are treated as
-empty codes. Leading zeros cannot be recovered from a number, so codes such as
+empty codes. As with Stata's {cmd:string()}, a non-integer between -1 and 1
+is written without a leading zero ({cmd:.5}, not {cmd:0.5}), so write patterns
+for such codes accordingly. Leading zeros cannot be recovered from a number, so codes such as
 {cmd:0101} must be stored as strings. Scan variables must be
 fixed-width strings ({cmd:str#}); {cmd:strL} variables are rejected — convert them first
 with {helpb compress} or {helpb recast}.
 
 {phang}
-{opt countmode} stores integer counts rather than 0/1 indicators. At the row
+{opt countm:ode} stores integer counts rather than 0/1 indicators. At the row
 level, each count is the number of code slots in {varlist} that matched the
 condition. Under {cmd:collapse} or {cmd:merge}, patient-level counts are sums
 across qualifying rows.
@@ -658,19 +683,19 @@ repeat hits -- so {cmd:total_hits} is missing rather than a copy of
 {cmd:positive_units}.
 
 {phang}
-{opt generate(prefix)} prefixes all created variable names, including date-summary
+{opt gen:erate(prefix)} prefixes all created variable names, including date-summary
 variables. This is useful when diagnosis, procedure, and
 medication scans should coexist in the same dataset.
 
 {phang}
-{opt replace} allows overwriting existing output variables and existing frames
+{opt rep:lace} allows overwriting existing output variables and existing frames
 named in {cmd:frame()}, but scan variables named in {varlist} are never valid
 output targets. It governs variables and frames only; overwriting a {it:file}
 requires the {cmd:replace} suboption of {cmd:export()}, {cmd:save()}, or
 {cmd:saving()}.
 
 {phang}
-{opt noisily} prints progress notes during execution, including per-condition
+{opt noi:sily} prints progress notes during execution, including per-condition
 match totals.
 
 
@@ -1027,7 +1052,17 @@ which makes the table independent of {varlist} order.
 {cmd:r(N)} counts analyzed observations at the row level and unique {cmd:id()}
 values after {cmd:collapse} or {cmd:merge}. {cmd:r(newvars)} lists the variables
 left in memory on exit; it is empty after {cmd:preserve} or {cmd:frame()},
-because nothing was left behind. {cmd:r(n_excluded_missingdate)} is returned
+because nothing was left behind.
+
+{pstd}
+{cmd:r()} is posted before {cmd:graph}, {cmd:export()}, {cmd:save()},
+{cmd:saving()}, and {cmd:frame()} run, so the analytic results ({cmd:r(N)},
+{cmd:r(summary)}, and the rest) survive when one of those outputs fails. If the
+failure rolls the data back -- with {cmd:preserve}, or when the created
+variables are removed -- the results that describe the data in memory say
+so: {cmd:r(newvars)} and {cmd:r(frame)} are empty and {cmd:r(collapsed)} and
+{cmd:r(merged)} are 0. After {cmd:collapse} without {cmd:preserve}, the
+collapsed data are kept and {cmd:r()} still describes them. {cmd:r(n_excluded_missingdate)} is returned
 only when a window was requested, and counts the rows dropped for a missing
 {cmd:date()} or {cmd:refdate()}.
 

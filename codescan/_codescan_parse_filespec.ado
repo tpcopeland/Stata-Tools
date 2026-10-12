@@ -1,4 +1,4 @@
-*! _codescan_parse_filespec Version 4.3.0  2026/10/04
+*! _codescan_parse_filespec Version 4.3.1  2026/10/12
 *! Parse a "filename [, replace]" option spec and enforce overwrite authorization
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -15,6 +15,11 @@ DESCRIPTION:
     The existence check runs at option-validation time, before any data
     mutation or file handle, so a refusal leaves both the caller's data and the
     existing file untouched.
+
+OPTIONS:
+    checkexists - refuse an existing target unless replace was given
+    checkdir    - refuse a target whose directory does not exist (r(603))
+    defext(.x)  - append .x when the base name has no extension
 
 RETURNS:
     r(filename) - the unquoted filename
@@ -36,7 +41,7 @@ program define _codescan_parse_filespec, rclass
     * char(34) that _codescan_validate_path rejects as unsafe) and hides the
     * suboption comma inside an apparent quoted region. Plain `string' consumes
     * exactly the transport layer and hands over the caller's own text.
-    syntax , SPEC(string) CONTEXT(string) [CHECKEXISTS DEFExt(string)]
+    syntax , SPEC(string) CONTEXT(string) [CHECKEXISTS CHECKDIR DEFExt(string)]
 
     local _replace = 0
 
@@ -102,13 +107,30 @@ program define _codescan_parse_filespec, rclass
 
     _codescan_validate_path, path(`"`_fn'"') context(`context')
 
+    * checkdir: refuse a target whose directory does not exist now, before
+    * any work or output, rather than with r(603) from the final write.
+    if "`checkdir'" != "" {
+        local _fn_dir = substr(`"`_fn'"', 1, ///
+            max(strrpos(`"`_fn'"', "/"), strrpos(`"`_fn'"', "\")))
+        if `"`_fn_dir'"' != "" {
+            mata: st_local("_dir_ok", strofreal(direxists(st_local("_fn_dir"))))
+            if !`_dir_ok' {
+                display as error `"`context': directory does not exist: `_fn_dir'"'
+                exit 603
+            }
+        }
+    }
+
     * Overwrite authorization. Without this, a typo or a repeated run silently
     * destroys an existing dictionary, audit table, or workbook.
     if "`checkexists'" != "" & !`_replace' {
         capture confirm file `"`_fn'"'
         if _rc == 0 {
             display as error `"`context': file already exists: `_fn'"'
-            display as error `"  specify `context'(`_fn', replace) to overwrite it"'
+            * context is the option as written, "save()"; drop its "()"
+            * so the hint reads save(file, replace), not save()(file, ...).
+            local _ctx_nm = subinstr("`context'", "()", "", .)
+            display as error `"  specify `_ctx_nm'(`_fn', replace) to overwrite it"'
             exit 602
         }
     }

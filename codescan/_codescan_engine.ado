@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.3.0  2026/10/04
+*! _codescan_engine Version 4.3.1  2026/10/12
 *! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan
@@ -96,14 +96,17 @@ void _codescan_mata_scan()
         }
     }
 
-    // Pre-build anchored regex patterns (avoid repeated string concat)
+    // Pre-build anchored regex patterns (avoid repeated string concat).
+    // The anchor group is non-capturing: a capturing "^(" wrapper became group
+    // 1, so a user backreference \1 pointed at the whole pattern and could
+    // never match. The validator in _codescan_definitions.ado uses the same form.
     if (!is_prefix) {
         anchored_pats = J(ncond, 1, "")
         anchored_excl = J(ncond, 1, "")
         for (i = 1; i <= ncond; i++) {
-            anchored_pats[i] = (use_nocase ? "(?i)^(" : "^(") + patterns[i] + ")"
+            anchored_pats[i] = (use_nocase ? "(?i)^(?:" : "^(?:") + patterns[i] + ")"
             if (excl_patterns[i] != "") {
-                anchored_excl[i] = (use_nocase ? "(?i)^(" : "^(") + excl_patterns[i] + ")"
+                anchored_excl[i] = (use_nocase ? "(?i)^(?:" : "^(?:") + excl_patterns[i] + ")"
             }
         }
     }

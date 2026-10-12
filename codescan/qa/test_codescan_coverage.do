@@ -1050,7 +1050,7 @@ capture noisily {
     import delimited using "_codescan_describe_save.csv", varnames(1) ///
         stringcols(_all) clear
     unab _dsv_cols : _all
-    assert "`_dsv_cols'" == "name pattern exclusion label"
+    assert "`_dsv_cols'" == "name pattern exclusion label match"
     * One draft rule per first-character chapter present in the data: E (E110,
     * E119 both), I, J, K -- four rows, not five, and the pattern is the
     * chapter character rather than the code.

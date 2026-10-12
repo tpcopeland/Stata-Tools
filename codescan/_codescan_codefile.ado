@@ -1,4 +1,4 @@
-*! _codescan_codefile Version 4.3.0  2026/10/04
+*! _codescan_codefile Version 4.3.1  2026/10/12
 *! Private codefile helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -108,6 +108,23 @@ program define _codescan_parse_codefile, rclass
         if "`_cfopt'" == "match"     local _cf_has_match = 1
     }
 
+    * Fully blank rows -- every column empty or whitespace, e.g. the trailing
+    * ",,," rows a spreadsheet leaves behind -- carry no rule, so drop them
+    * before validation instead of refusing the file as "empty name". A row
+    * with any field filled is kept and validated as before. Each kept row
+    * remembers its position in the file so messages still name the real row.
+    unab _cf_allvars : *
+    tempvar _cf_filerow _cf_blank
+    quietly gen long `_cf_filerow' = _n
+    quietly gen byte `_cf_blank' = 1
+    foreach _v of local _cf_allvars {
+        capture confirm string variable `_v'
+        if _rc quietly replace `_cf_blank' = 0 if !missing(`_v')
+        else   quietly replace `_cf_blank' = 0 if strtrim(`_v') != ""
+    }
+    quietly drop if `_cf_blank'
+    quietly drop `_cf_blank'
+
     quietly count
     local n_conditions = r(N)
     if `n_conditions' == 0 {
@@ -128,8 +145,7 @@ program define _codescan_parse_codefile, rclass
     if `_cf_has_excl'  local _cf_qcols `_cf_qcols' exclusion
     if `_cf_has_label' local _cf_qcols `_cf_qcols' label
     if `_cf_has_match' local _cf_qcols `_cf_qcols' match
-    tempvar _cf_qbad _cf_qrow
-    quietly gen long `_cf_qrow' = _n
+    tempvar _cf_qbad
     local _cf_qerr = 0
     foreach _qc of local _cf_qcols {
         capture drop `_cf_qbad'
@@ -141,7 +157,7 @@ program define _codescan_parse_codefile, rclass
         quietly count if `_cf_qbad' == 1
         if r(N) > 0 {
             local _cf_qn = r(N)
-            quietly summarize `_cf_qrow' if `_cf_qbad' == 1, meanonly
+            quietly summarize `_cf_filerow' if `_cf_qbad' == 1, meanonly
             local _cf_qfirst = r(min)
             if !`_cf_qerr' {
                 display as error "codefile(): unusable quoting character in the file"
@@ -212,16 +228,21 @@ program define _codescan_parse_codefile, rclass
         }
     }
 
+    * Leading/trailing spaces are trimmed from the name and label (match is
+    * normalized above). Patterns and exclusions are kept verbatim: regex
+    * whitespace is significant (" *I21"), prefix mode trims each alternative
+    * itself, and codescan notes suspicious regex edge whitespace.
     local all_names ""
     local n_labels = 0
     forvalues i = 1/`n_conditions' {
-        local def_name_`i' = name[`i']
+        local _cf_frow_`i' = `_cf_filerow'[`i']
+        local def_name_`i' = strtrim(name[`i'])
         local def_pattern_`i' = pattern[`i']
         local def_excl_`i' ""
         local all_names "`all_names' `def_name_`i''"
 
         if `_cf_has_label' {
-            local _lbl = label[`i']
+            local _lbl = strtrim(label[`i'])
             if `"`_lbl'"' != "" {
                 local ++n_labels
                 local lab_name_`n_labels' "`def_name_`i''"
@@ -243,18 +264,18 @@ program define _codescan_parse_codefile, rclass
     forvalues i = 1/`n_conditions' {
         if "`def_name_`i''" == "" {
             local ++_cf_nerr
-            local _cf_errors `"`_cf_errors'"row `i': empty name" "'
+            local _cf_errors `"`_cf_errors'"row `_cf_frow_`i'': empty name" "'
         }
         if `"`def_pattern_`i''"' == "" {
             local ++_cf_nerr
-            local _cf_errors `"`_cf_errors'"row `i': empty pattern" "'
+            local _cf_errors `"`_cf_errors'"row `_cf_frow_`i'': empty pattern" "'
         }
         if "`def_name_`i''" != "" {
             capture confirm name `def_name_`i''
             if _rc {
                 local ++_cf_nerr
                 local _bad_nm "`def_name_`i''"
-                local _cf_errors `"`_cf_errors'"row `i': [`_bad_nm'] is not a valid Stata name" "'
+                local _cf_errors `"`_cf_errors'"row `_cf_frow_`i'': [`_bad_nm'] is not a valid Stata name" "'
             }
         }
         * Case-insensitive: distinct-by-case names are almost always a typo and
@@ -263,7 +284,7 @@ program define _codescan_parse_codefile, rclass
             if strlower("`def_name_`i''") == strlower("`def_name_`j''") & "`def_name_`i''" != "" {
                 local ++_cf_nerr
                 local _dup_nm "`def_name_`i''"
-                local _cf_errors `"`_cf_errors'"row `i': duplicate name [`_dup_nm'] (same as row `j', ignoring case)" "'
+                local _cf_errors `"`_cf_errors'"row `_cf_frow_`i'': duplicate name [`_dup_nm'] (same as row `_cf_frow_`j'', ignoring case)" "'
                 continue, break
             }
         }
