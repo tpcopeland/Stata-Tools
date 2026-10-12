@@ -45,6 +45,7 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | `test_logdoc_v114.do` | Executable paths with spaces, SMCL help links, `r(compare)`, and the Stata help render oracle |
 | `test_logdoc_v115.do` | Source/output collision, child-run failure, HTML structure and injection, renderer atomicity, direct-CLI validation, and platform regressions |
 | `test_logdoc_v119.do` | Source identity, partial writes, graph payload provenance, batch collisions, combine order, session replay/Python selection, primary paths, and final DOCX/PDF sizes |
+| `test_logdoc_v121.do` | Relative graph paths: a log in `logs/` embeds a graph exported to `figs/` from the working directory (HTML data URI and `../figs/` Markdown link), the input file's directory still takes precedence when both hold the path, and a graph in neither place is still reported missing |
 | `test_logdoc_v117.do` | Config allowlisting, dotted output paths, quoted comma filenames, zero-result batch errors, helper state restoration, and help-table width |
 | `test_logdoc_wrapped_output.do` | Text-log lines wrapped at the linesize: output continuations stay in their output fence whatever they start with, wrapped lines keep their trailing blanks, wrapped commands stay together, and a wrapped closing log header is skipped whole |
 | `test_logdoc_hostile.do` | Shell-hostile paths, quoted space-containing paths, 31-character basenames, extended missing values, and caller-data preservation |
@@ -90,5 +91,5 @@ The DOCX/PDF regressions use Stata’s `html2docx` and Python `xhtml2pdf` and `p
 | Lane | Suites |
 |---|---|
 | `quick` | `test_logdoc.do`, `test_logdoc_py.do` |
-| `core` | `quick` plus `validation_logdoc_precision.do`, `validation_logdoc_fixture_contract.do`, `test_logdoc_fixture_paths.do`, `validation_logdoc_fixture_primitives.do`, `validation_logdoc.do`, `test_logdoc_render_fidelity.do`, `test_logdoc_config_run.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, and `test_logdoc_v119.do` |
+| `core` | `quick` plus `validation_logdoc_precision.do`, `validation_logdoc_fixture_contract.do`, `test_logdoc_fixture_paths.do`, `validation_logdoc_fixture_primitives.do`, `validation_logdoc.do`, `test_logdoc_render_fidelity.do`, `test_logdoc_config_run.do`, `test_logdoc_phase78.do`, `test_documentation_examples.do`, `test_logdoc_v114.do`, `test_logdoc_v115.do`, `test_logdoc_v117.do`, `test_logdoc_wrapped_output.do`, `test_logdoc_hostile.do`, `test_logdoc_errors.do`, `test_logdoc_v119.do`, and `test_logdoc_v121.do` |
 | `full` (default) | `core` plus `test_logdoc_refactor_guards.do`, `test_logdoc_v111.do`, and `test_logdoc_v112.do` |

@@ -1,4 +1,4 @@
-*! logdoc_py Version 1.2.0  2026/10/12
+*! logdoc_py Version 1.2.1  2026/10/12
 *! Find, check, and save Python configuration for logdoc
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

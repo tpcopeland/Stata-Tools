@@ -43,32 +43,11 @@ body { background: #ffffff; color: #212529;
 <h1>Run Option Example</h1>
 </header>
 <main class="logdoc-body">
-<div class="stata-log-wrap"><pre class="stata-log"><span class="cmd">. sysuse auto, clear</span>
-(1978 automobile data)
-
-<span class="cmd">. summarize price mpg weight</span>
-    Variable │        Obs        Mean    Std. dev.       Min        Max
-─────────────┼─────────────────────────────────────────────────────────
-       price │<span class="res">         74    6165.257    2949.496       3291      15906</span>
-         mpg │<span class="res">         74     21.2973    5.785503         12         41</span>
-      weight │<span class="res">         74    3019.459    777.1936       1760       4840</span>
-
-<span class="cmd">. regress price mpg weight</span>
-      Source │       SS           df       MS      Number of obs   =<span class="res">        74</span>
-─────────────┼──────────────────────────────────   F(2, 71)        = <span class="res">    14.74</span>
-       Model │ <span class="res">  186321280         2  93160639.9   </span>Prob &gt; F        =<span class="res">    0.0000</span>
-    Residual │ <span class="res">  448744116        71  6320339.67   </span>R-squared       =<span class="res">    0.2934</span>
-─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.2735</span>
-       Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res">   2514</span>
-
-─────────────┬────────────────────────────────────────────────────────────────────────
-        price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
-─────────────┼────────────────────────────────────────────────────────────────────────
-         mpg │ <span class="res">  -49.51222    86.15604     -0.57    0.567     -221.3025      122.278</span>
-      weight │ <span class="res">   1.746559    .6413538      2.72    0.008       .467736     3.025382</span>
-       _cons │ <span class="res">   1946.069     3597.05      0.54    0.590     -5226.245     9118.382</span>
-─────────────┴────────────────────────────────────────────────────────────────────────
-<span class="res"></span></pre></div>
+<div class="stata-log-wrap"><pre class="stata-log"><span class="cmd">. quietly set linesize 255</span>
+<span class="cmd">. capture noisily do &quot;logdoc/demo/run_example.do&quot;</span>
+<span class="cmd">. version 16.0</span>
+<span class="cmd">. set more off</span>
+<span class="cmd">. capture log close _all</span></pre></div>
 </main>
 </article>
 </body>

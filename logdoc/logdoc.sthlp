@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  12oct2026}{...}
+{* *! version 1.2.1  12oct2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}
@@ -666,7 +666,10 @@ SMCL or log format. An empty input produces no output.
 {cmd:graph export} command to an image file ({cmd:.png}, {cmd:.jpg}, {cmd:.gif},
 or {cmd:.svg}) appears in the log AND the file exists relative to the input
 file's directory (the execution directory for {opt run} or live
-capture). Failed exports and other file types (for example {cmd:.pdf} or {cmd:.eps}) are
+capture) or, failing that, relative to the current working directory.
+A graph found only through the working directory is embedded without a
+warning, so a stale file of the same name there is used silently. Failed
+exports and other file types (for example {cmd:.pdf} or {cmd:.eps}) are
 skipped in HTML and Markdown output. LaTeX output references {cmd:.png},
 {cmd:.jpg}, {cmd:.pdf}, and {cmd:.eps} exports by path; {cmd:.svg} and
 {cmd:.gif} exports are skipped there with a warning. Use absolute paths for

@@ -1,6 +1,6 @@
 # logdoc — Faithful Stata log conversion
 
-**Version 1.2.0** | 2026-10-12
+**Version 1.2.1** | 2026-10-12
 
 `logdoc` converts Stata `.smcl` and `.log` files into shareable HTML, Markdown, Quarto Markdown, Word, LaTeX, or PDF documents, and can run `.do` files before conversion. It is for Stata users who want to preserve output alignment and, for SMCL input, Stata's input/result/error colors while adding optional report controls.
 
@@ -376,7 +376,7 @@ On a successful call, `logdoc_py` returns:
 ## Assumptions and Limits
 
 - SMCL is the preferred input because plain `.log` files do not retain Stata's input, result, and error color tags.
-- Graphs are embedded when a successful `graph export` to an image file (`.png`, `.jpg`, `.gif`, `.svg`) is detected and the file can be resolved; failed exports and other file types are skipped; relative paths resolve from the log directory, or the execution directory for `run` and live capture. Absolute paths remain absolute. `nograph` disables this scan.
+- Graphs are embedded when a successful `graph export` to an image file (`.png`, `.jpg`, `.gif`, `.svg`) is detected and the file can be resolved; failed exports and other file types are skipped; relative paths resolve from the log directory (the execution directory for `run` and live capture), then from the current working directory. Absolute paths remain absolute. `nograph` disables this scan.
 - HTML embeds graph images, while Markdown, Quarto Markdown, and LaTeX use image references that must remain resolvable when the output is moved (LaTeX references `.png`, `.jpg`, `.pdf`, and `.eps` exports; `.svg` and `.gif` exports are skipped there with a warning).
 - `format(qmd)` produces rendered Markdown with Quarto front matter; it does not create executable Quarto code cells.
 - `format(docx)` is unavailable before Stata 17. `format(pdf)` needs `xhtml2pdf` or `wkhtmltopdf`; check it with `logdoc_py, check pdf`.
@@ -394,6 +394,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.1** (2026-10-12): A relative `graph export` path is looked up in the input file's directory and then in the current working directory, so a log kept in a subdirectory (`log using logs/analysis.smcl`) still embeds graphs exported relative to the project root (`graph export figs/a.png`) when logdoc runs from that root. Previously only the input file's directory was checked and such graphs were reported as not found.
 - **1.2.0** (2026-10-12): Faithful rendering now matches Stata's own `translate` layout ({col} no longer adds stray spaces); inline SMCL text such as `{cmd:}`, `{hi:}`, `{err:}` and link text is kept; braces in plain-text logs and output lines such as `name: ...` are no longer dropped; only successful image exports are embedded as graphs, and LaTeX references only pdflatex-compatible files. Python selection now honours `python()`, then `$LOGDOC_PYTHON` (`logdoc_py, set`), then `.logdocrc`, then Stata's configured Python, and an unusable explicit selection is an error naming its source. `run` executes the do-file at the child Stata's own version, returns the do-file as `r(input)`, and leaves no batch log in the working directory; `replay, format()` writes a new file with the matching extension; `start` refuses an existing output immediately; `.logdocrc` accepts `key = value` and `#` comments, and a command-line `verbose`/`quiet` overrides the config; PDF temporary files are removed. Enhanced HTML always uses the built-in theme CSS (the separate `logdoc_light.css`/`logdoc_dark.css` files, which `net install` never installed, are gone, so a stray copy in the working directory can no longer restyle output); `.logdocrc` flags accept 1/true/yes/on and 0/false/no/off and reject other values; `replay` after `combine`, `batch`, or `diff` is an error rather than silently re-running an older conversion. The renderer interprets SMCL directives only in the forms Stata accepts, keeps error colouring across font switches, detects SMCL without a leading header or behind a byte-order mark, drops `log off`/`log on` banners, caps repeat counts, keeps Markdown fences and LaTeX listings intact when output contains backticks or `\end{...}`, and detects `gr export` and exports inside loops.
 - **1.1.9** (2026-09-30): Reject hard-linked source/output collisions and ambiguous batch basenames; require every renderer output to succeed; resolve graphs from the source or capture execution directory; filter combined sources without order dependence; retain session transcripts for replay and preserve configured Python; return the actual primary combine path and final Word/PDF size.
 

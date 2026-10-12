@@ -61,7 +61,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | --- | --- | --- | --- |
 | [consort](consort) | CONSORT-style exclusion flowcharts, recorded as you drop observations | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--09--29-brightgreen) |
 | [diagtab](diagtab) | Diagnostic accuracy with CIs, ROC AUC, and cutoff analysis; console, Excel, CSV, Markdown, or frame output | ![version](https://img.shields.io/badge/version-2.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
-| [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [logdoc](logdoc) | Turn `.smcl`, `.log`, or `.do` files into HTML, Markdown, Quarto, Word, LaTeX, or PDF | ![version](https://img.shields.io/badge/version-1.2.1-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [simtab](simtab) | Monte Carlo simulation performance metrics with MCSEs, as publication-ready tables | ![version](https://img.shields.io/badge/version-2.0.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--09-brightgreen) |
 | [tabtools](tabtools) | Manuscript tables to Excel and Markdown: Table 1 (`table1_tc`), regression (`regtab`), treatment effects (`effecttab`), survival (`survtab`), and more | ![version](https://img.shields.io/badge/version-2.6.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--10-brightgreen) |
 

@@ -35,7 +35,7 @@ sysdir set PERSONAL "`personal_dir'"
 discard
 
 local suites "test_logdoc test_logdoc_py"
-local core "validation_logdoc_precision validation_logdoc_fixture_contract test_logdoc_fixture_paths validation_logdoc_fixture_primitives validation_logdoc test_logdoc_render_fidelity test_logdoc_config_run test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119"
+local core "validation_logdoc_precision validation_logdoc_fixture_contract test_logdoc_fixture_paths validation_logdoc_fixture_primitives validation_logdoc test_logdoc_render_fidelity test_logdoc_config_run test_logdoc_phase78 test_documentation_examples test_logdoc_v114 test_logdoc_v115 test_logdoc_v117 test_logdoc_wrapped_output test_logdoc_hostile test_logdoc_errors test_logdoc_v119 test_logdoc_v121"
 if inlist("`lane'", "core", "full") local suites "`suites' `core'"
 if "`lane'" == "full" local suites "`suites' test_logdoc_refactor_guards test_logdoc_v111 test_logdoc_v112"
 

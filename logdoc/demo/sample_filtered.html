@@ -51,38 +51,38 @@ body { background: #ffffff; color: #212529;
 ─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.5230</span>
        Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res"> 2037.2</span>
 
-─────────────┬────────────────────────────────────────────────────────────────────────
-        price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
-─────────────┼────────────────────────────────────────────────────────────────────────
-         mpg │ <span class="res">  -13.40719    72.10761     -0.19    0.853     -157.2579     130.4436</span>
-      weight │ <span class="res">   5.716181    1.016095      5.63    0.000      3.689127     7.743235</span>
-      length │ <span class="res">  -92.48018     33.5912     -2.75    0.008     -159.4928    -25.46758</span>
-             │────────────────────────────────────────────────────────────────────────
+─────────────┬────────────────────────────────────────────────────────────────
+       price │ Coefficient  Std. err.      t    P&gt;|t|     [95% conf. interval]
+─────────────┼────────────────────────────────────────────────────────────────
+         mpg │<span class="res">  -13.40719   72.10761    -0.19   0.853    -157.2579    130.4436</span>
+      weight │<span class="res">   5.716181   1.016095     5.63   0.000     3.689127    7.743235</span>
+      length │<span class="res">  -92.48018    33.5912    -2.75   0.008    -159.4928   -25.46758</span>
+             │
      foreign │
-    Foreign  │ <span class="res">   3550.194    655.4564      5.42    0.000      2242.594     4857.793</span>
-       _cons │ <span class="res">    5515.58    5241.941      1.05    0.296     -4941.807     15972.97</span>
-─────────────┴────────────────────────────────────────────────────────────────────────
+    Foreign  │<span class="res">   3550.194   655.4564     5.42   0.000     2242.594    4857.793</span>
+       _cons │<span class="res">    5515.58   5241.941     1.05   0.296    -4941.807    15972.97</span>
+─────────────┴────────────────────────────────────────────────────────────────
 <span class="res"></span>
 <span class="cmd">margins foreign, atmeans</span>
 <span class="res"></span>
- Adjusted predictions                                       Number of obs  = <span class="res">74</span>
- Model VCE: <span class="res">OLS</span>
+Adjusted predictions                                        Number of obs = <span class="res">74</span>
+Model VCE: <span class="res">OLS</span>
 
-<span class="res">Linear prediction, predict()</span>
+Expression: <span class="res">Linear prediction, predict()</span>
 At: mpg       = <span class="res"> 21.2973</span> (mean)
-weight    = <span class="res">3019.459</span> (mean)
-length    = <span class="res">187.9324</span> (mean)
-0.foreign = <span class="res">.7027027</span> (mean)
-1.foreign = <span class="res">.2972973</span> (mean)
+    weight    = <span class="res">3019.459</span> (mean)
+    length    = <span class="res">187.9324</span> (mean)
+    0.foreign = <span class="res">.7027027</span> (mean)
+    1.foreign = <span class="res">.2972973</span> (mean)
 
-<span class="res"></span>─────────────┬───────────────────────────────────────────────────────────────────────
+<span class="res"></span>─────────────┬────────────────────────────────────────────────────────────────
              │            Delta-method
-             │     Margin    std. err.       t    P&gt;|t|      [95% con f. interval]
-─────────────┼───────────────────────────────────────────────────────────────────────
+             │     Margin   std. err.      t    P&gt;|t|     [95% conf. interval]
+─────────────┼────────────────────────────────────────────────────────────────
      foreign │
-   Domestic  │ <span class="res">   5109.794    306.6837     16.66    0.000      4497.977     5721.611</span>
-    Foreign  │ <span class="res">   8659.987    517.9058     16.72    0.000      7626.794     9693.181</span>
-─────────────┴───────────────────────────────────────────────────────────────────────
+   Domestic  │<span class="res">   5109.794   306.6837    16.66   0.000     4497.977    5721.611</span>
+    Foreign  │<span class="res">   8659.987   517.9058    16.72   0.000     7626.794    9693.181</span>
+─────────────┴────────────────────────────────────────────────────────────────
 <span class="res"></span>
 <span class="cmd">quietly regress price mpg weight</span></pre></div>
 </main>

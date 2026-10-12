@@ -87,17 +87,17 @@ Domestic │ <span class="res">       52  6072.423  3097.104    4782.5      3291
 ─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.5230</span>
        Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res"> 2037.2</span>
 </pre></div>
-<div class="output-block diff-removed"><pre>─────────────┬────────────────────────────────────────────────────────────────────────
-        price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
-─────────────┼────────────────────────────────────────────────────────────────────────
-         mpg │ <span class="res">  -13.40719    72.10761     -0.19    0.853     -157.2579     130.4436</span>
-      weight │ <span class="res">   5.716181    1.016095      5.63    0.000      3.689127     7.743235</span>
-      length │ <span class="res">  -92.48018     33.5912     -2.75    0.008     -159.4928    -25.46758</span>
-             │────────────────────────────────────────────────────────────────────────
+<div class="output-block diff-removed"><pre>─────────────┬────────────────────────────────────────────────────────────────
+       price │ Coefficient  Std. err.      t    P&gt;|t|     [95% conf. interval]
+─────────────┼────────────────────────────────────────────────────────────────
+         mpg │<span class="res">  -13.40719   72.10761    -0.19   0.853    -157.2579    130.4436</span>
+      weight │<span class="res">   5.716181   1.016095     5.63   0.000     3.689127    7.743235</span>
+      length │<span class="res">  -92.48018    33.5912    -2.75   0.008    -159.4928   -25.46758</span>
+             │
      foreign │
-    Foreign  │ <span class="res">   3550.194    655.4564      5.42    0.000      2242.594     4857.793</span>
-       _cons │ <span class="res">    5515.58    5241.941      1.05    0.296     -4941.807     15972.97</span>
-─────────────┴────────────────────────────────────────────────────────────────────────</pre></div>
+    Foreign  │<span class="res">   3550.194   655.4564     5.42   0.000     2242.594    4857.793</span>
+       _cons │<span class="res">    5515.58   5241.941     1.05   0.296    -4941.807    15972.97</span>
+─────────────┴────────────────────────────────────────────────────────────────</pre></div>
 <div class="diff-label">+ sample_followup.smcl</div>
 <div class="output-block diff-added"><pre>. * # Follow-up Model</pre></div>
 <div class="output-block diff-added"><pre>. generate double weight_tons = weight / 2000</pre></div>
@@ -110,20 +110,20 @@ Domestic │ <span class="res">       52  6072.423  3097.104    4782.5      3291
 ─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.5256</span>
        Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res"> 2031.4</span>
 </pre></div>
-<div class="output-block diff-added"><pre>──────────────┬────────────────────────────────────────────────────────────────────────
-         price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
-──────────────┼────────────────────────────────────────────────────────────────────────
-          mpg │ <span class="res">   263.1875    110.7961      2.38    0.020      42.15527     484.2197</span>
-              │────────────────────────────────────────────────────────────────────────
+<div class="output-block diff-added"><pre>──────────────┬────────────────────────────────────────────────────────────────
+        price │ Coefficient  Std. err.      t    P&gt;|t|     [95% conf. interval]
+──────────────┼────────────────────────────────────────────────────────────────
+          mpg │<span class="res">   263.1875   110.7961     2.38   0.020     42.15527    484.2197</span>
+              │
       foreign │
-     Foreign  │ <span class="res">   11240.33    2751.681      4.08    0.000      5750.878     16729.78</span>
-              │────────────────────────────────────────────────────────────────────────
+     Foreign  │<span class="res">   11240.33   2751.681     4.08   0.000     5750.878    16729.78</span>
+              │
 foreign#c.mpg │
-     Foreign  │ <span class="res">  -307.2166    108.5307     -2.83    0.006     -523.7294    -90.70368</span>
-              │────────────────────────────────────────────────────────────────────────
-  weight_tons │ <span class="res">   9227.177    1450.992      6.36    0.000      6332.527     12121.83</span>
-        _cons │ <span class="res">  -14449.58     4425.72     -3.26    0.002     -23278.65     -5620.51</span>
-──────────────┴────────────────────────────────────────────────────────────────────────</pre></div>
+     Foreign  │<span class="res">  -307.2166   108.5307    -2.83   0.006    -523.7294   -90.70368</span>
+              │
+  weight_tons │<span class="res">   9227.177   1450.992     6.36   0.000     6332.527    12121.83</span>
+        _cons │<span class="res">  -14449.58    4425.72    -3.26   0.002    -23278.65    -5620.51</span>
+──────────────┴────────────────────────────────────────────────────────────────</pre></div>
 </div>
 <div class="output-block diff-context"><pre><span class="res"></span></pre></div>
 <div class="diff-group">
@@ -132,33 +132,33 @@ foreign#c.mpg │
 <div class="output-block diff-removed"><pre>. * ## Margins</pre></div>
 <div class="output-block diff-removed"><pre>. margins foreign, atmeans</pre></div>
 <div class="output-block diff-removed"><pre><span class="res"></span>
- Adjusted predictions                                       Number of obs  = <span class="res">74</span>
- Model VCE: <span class="res">OLS</span>
+Adjusted predictions                                        Number of obs = <span class="res">74</span>
+Model VCE: <span class="res">OLS</span>
 
-<span class="res">Linear prediction, predict()</span>
+Expression: <span class="res">Linear prediction, predict()</span>
 At: mpg       = <span class="res"> 21.2973</span> (mean)
-weight    = <span class="res">3019.459</span> (mean)
-length    = <span class="res">187.9324</span> (mean)
-0.foreign = <span class="res">.7027027</span> (mean)
-1.foreign = <span class="res">.2972973</span> (mean)
+    weight    = <span class="res">3019.459</span> (mean)
+    length    = <span class="res">187.9324</span> (mean)
+    0.foreign = <span class="res">.7027027</span> (mean)
+    1.foreign = <span class="res">.2972973</span> (mean)
 </pre></div>
-<div class="output-block diff-removed"><pre><span class="res"></span>─────────────┬───────────────────────────────────────────────────────────────────────
+<div class="output-block diff-removed"><pre><span class="res"></span>─────────────┬────────────────────────────────────────────────────────────────
              │            Delta-method
-             │     Margin    std. err.       t    P&gt;|t|      [95% con f. interval]
-─────────────┼───────────────────────────────────────────────────────────────────────
+             │     Margin   std. err.      t    P&gt;|t|     [95% conf. interval]
+─────────────┼────────────────────────────────────────────────────────────────
      foreign │
-   Domestic  │ <span class="res">   5109.794    306.6837     16.66    0.000      4497.977     5721.611</span>
-    Foreign  │ <span class="res">   8659.987    517.9058     16.72    0.000      7626.794     9693.181</span>
-─────────────┴───────────────────────────────────────────────────────────────────────</pre></div>
+   Domestic  │<span class="res">   5109.794   306.6837    16.66   0.000     4497.977    5721.611</span>
+    Foreign  │<span class="res">   8659.987   517.9058    16.72   0.000     7626.794    9693.181</span>
+─────────────┴────────────────────────────────────────────────────────────────</pre></div>
 <div class="diff-label">+ sample_followup.smcl</div>
 <div class="output-block diff-added"><pre><span class="cmd">. estimates store interaction</span></pre></div>
 <div class="output-block diff-added"><pre>. * # Follow-up Graph</pre></div>
-<div class="output-block diff-added"><pre>. twoway ///</pre></div>
-<div class="output-block diff-added"><pre>&gt;     (scatter price mpg if foreign == 0, mcolor(navy%65)) ///
+<div class="output-block diff-added"><pre>. twoway ///
+&gt;     (scatter price mpg if foreign == 0, mcolor(navy%65)) ///
 &gt;     (scatter price mpg if foreign == 1, mcolor(maroon%65)) ///
 &gt;     (lfit price mpg if foreign == 0, lcolor(navy)) ///
-&gt;     (lfit price mpg if foreign == 1, lcolor(maroon)), ///</pre></div>
-<div class="output-block diff-added"><pre>&gt;     legend(order(1 &quot;Domestic&quot; 2 &quot;Foreign&quot;) pos(6) rows(1)) ///
+&gt;     (lfit price mpg if foreign == 1, lcolor(maroon)), ///
+&gt;     legend(order(1 &quot;Domestic&quot; 2 &quot;Foreign&quot;) pos(6) rows(1)) ///
 &gt;     title(&quot;Price and Mileage by Origin&quot;) ///
 &gt;     xtitle(&quot;Mileage (mpg)&quot;) ytitle(&quot;Price&quot;)</pre></div>
 </div>
@@ -167,22 +167,22 @@ length    = <span class="res">187.9324</span> (mean)
 <div class="diff-label">− sample_analysis.smcl</div>
 <div class="output-block diff-removed"><pre>. * # Tabulations</pre></div>
 <div class="output-block diff-removed"><pre>. tabulate foreign rep78, row</pre></div>
-<div class="output-block diff-removed"><pre>┌────────────────┐─────────────────────────────────────────────────────────────
+<div class="output-block diff-removed"><pre>┌────────────────┐
 │ Key            │
-├────────────────┤─────────────────────────────────────────────────────────────
+├────────────────┤
 │   <em>frequency</em>    │
 │ <em>row percentage</em> │
-└────────────────┘─────────────────────────────────────────────────────────────
+└────────────────┘
 
            │                   Repair record 1978
 Car origin │         1          2          3          4          5 │     Total
-───────────┼───────────────────────────────────────────────────────┼───────────
+───────────┼───────────────────────────────────────────────────────┼──────────
   Domestic │<span class="res">         2          8         27          9          2 </span>│<span class="res">        48 </span>
            │<span class="res">      4.17      16.67      56.25      18.75       4.17 </span>│<span class="res">    100.00 </span>
-───────────┼───────────────────────────────────────────────────────┼───────────
+───────────┼───────────────────────────────────────────────────────┼──────────
    Foreign │<span class="res">         0          0          3          9          9 </span>│<span class="res">        21 </span>
            │<span class="res">      0.00       0.00      14.29      42.86      42.86 </span>│<span class="res">    100.00 </span>
-───────────┼───────────────────────────────────────────────────────┼───────────
+───────────┼───────────────────────────────────────────────────────┼──────────
      Total │<span class="res">         2          8         30         18         11 </span>│<span class="res">        69 </span>
            │<span class="res">      2.90      11.59      43.48      26.09      15.94 </span>│<span class="res">    100.00 </span>
 </pre></div>

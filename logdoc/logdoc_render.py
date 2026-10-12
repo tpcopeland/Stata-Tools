@@ -1847,13 +1847,21 @@ def detect_graph_exports(blocks, nograph=False, exts=None):
 
 
 def _resolve_graph_path(filepath, base_dir):
-    """Return an absolute graph path if it exists, otherwise None."""
+    """Return an absolute graph path if it exists, otherwise None.
+
+    A relative path is tried against base_dir (the input's directory, or the
+    execution directory for run/live capture), then against the current
+    working directory, which is Stata's c(pwd) when logdoc shells out. The
+    second lookup covers a log written to a subdirectory while graphs were
+    exported relative to the project root.
+    """
     filepath = filepath.replace('\\', '/')
     if os.path.isabs(filepath):
         return filepath if os.path.isfile(filepath) else None
-    candidate = os.path.join(base_dir, filepath)
-    if os.path.isfile(candidate):
-        return os.path.abspath(candidate)
+    for root in (base_dir, os.getcwd()):
+        candidate = os.path.join(root, filepath)
+        if os.path.isfile(candidate):
+            return os.path.abspath(candidate)
     return None
 
 

@@ -649,7 +649,8 @@ quietly finegray ifp tumsize pelnode, compete(status) cause(1) nolog
 finegray_cif, ci `gstyle' ///
     ytitle("Cumulative incidence of cause 1") ///
     xtitle("Analysis time (years)") ///
-    title("Fine-Gray cumulative incidence with 95% band")
+    title("Fine-Gray cumulative incidence with 95% band") ///
+    ylabel(0(0.1)0.5) yscale(range(0 0.5))
 graph export "`pkg_dir'/finegray_cif.png", replace width(1400)
 capture graph close _all
 
