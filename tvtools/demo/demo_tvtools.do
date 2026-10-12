@@ -27,8 +27,10 @@
       - recurrent-event PWP/AG formatting (enum stratum + gap-time clock)
       - harmonized option names (tvage id/dob/entry/exit; tvevent start/stop)
 
-    Graph styling: the demo saves and restores c(scheme) but never sets one,
-    so the plots render in whatever scheme the caller selected beforehand.
+    Install and graph styling: the demo installs tvtools (and tc_schemes) from
+    the sibling checkout, so it exercises what a user installs; it does not
+    rely on a copy already on the adopath. The plots are pinned to
+    white_tableau, and the caller's c(scheme) is restored at the end.
 */
 
 version 16.0
@@ -159,6 +161,23 @@ capture noisily {
         display as error "could not locate demo_tvtools.do; pass its directory as the first argument"
         exit 601
     }
+
+**# Install from the local checkout and pin the graph scheme
+* The package root is the parent of demo_dir and the repository root its
+* parent. The scheme is resolved before anything else is installed or changed
+* so the graphs never fall back to whatever scheme the caller had selected.
+    mata: st_local("demo_pkg_dir", pathresolve(st_local("demo_dir"), ".."))
+    mata: st_local("demo_repo_dir", pathresolve(st_local("demo_dir"), "../.."))
+    capture confirm file "`demo_repo_dir'/tc_schemes/tc_schemes.pkg"
+    if _rc == 0 {
+        quietly net install tc_schemes, from("`demo_repo_dir'/tc_schemes") replace
+    }
+    capture quietly set scheme white_tableau
+    if _rc {
+        display as error "scheme white_tableau not found; install tc_schemes (expected at `demo_repo_dir'/tc_schemes)"
+        exit 601
+    }
+    quietly net install tvtools, from("`demo_pkg_dir'") replace
     which tvtools
 
 **# Synthetic data generation

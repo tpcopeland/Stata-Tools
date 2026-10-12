@@ -42,8 +42,11 @@ capture mkdir "`demo_dir'"
 
 ado dir
 local old_plus "`c(sysdir_plus)'"
-local demo_plus "`c(tmpdir)'/gcomp_demo_plus"
-capture mkdir "`demo_plus'"
+* A tempfile name is unique to this Stata process, so concurrent runs
+* (demo_gcomp.do next to demo_gcomptab.do) never share a PLUS directory.
+tempfile demo_plus_stub
+local demo_plus "`demo_plus_stub'_plus"
+mkdir "`demo_plus'"
 sysdir set PLUS "`demo_plus'"
 quietly net install gcomp, from("`pkg_dir'") replace
 adopath ++ "`demo_plus'"
@@ -191,5 +194,19 @@ confirm file "`demo_dir'/demo_gcomptab.xlsx"
 confirm file "`demo_dir'/component_models.md"
 adopath - "`demo_plus'"
 sysdir set PLUS "`old_plus'"
+* Remove the per-run PLUS directory: its subdirectories, then the directory.
+local demo_subdirs : dir "`demo_plus'" dirs "*"
+foreach d of local demo_subdirs {
+    local demo_files : dir "`demo_plus'/`d'" files "*"
+    foreach f of local demo_files {
+        capture erase "`demo_plus'/`d'/`f'"
+    }
+    capture rmdir "`demo_plus'/`d'"
+}
+local demo_files : dir "`demo_plus'" files "*"
+foreach f of local demo_files {
+    capture erase "`demo_plus'/`f'"
+}
+capture rmdir "`demo_plus'"
 clear
 display "RESULT: demo_gcomp sheets=3 status=PASS"

@@ -300,7 +300,7 @@ tvsplit, id(id) start(start) stop(stop) ///
 
 ## Demo
 
-Regenerate the checked-in figures and console assets by running [demo/demo_tvtools.do](demo/demo_tvtools.do) from a repository checkout; the demo script creates its own synthetic data and is not part of the `net install` payload.
+Regenerate the checked-in figures and console assets by running [demo/demo_tvtools.do](demo/demo_tvtools.do) from a repository checkout; the demo script creates its own synthetic data and is not part of the `net install` payload. It installs `tvtools` (and the `white_tableau` scheme from `tc_schemes`) from the neighbouring checkout directories, so run it from a full Stata-Tools checkout; it leaves those installs in your PLUS directory, and restores your graph scheme at the end.
 
 ```stata
 local demo_dir "/path/to/checked-out/tvtools/demo"

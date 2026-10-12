@@ -7,16 +7,15 @@
     Run from the Stata-Tools repo root, the codescan package directory, or
     codescan/demo/ — the package root is resolved from c(pwd).
 
-    Optional: tc_schemes (plotplainblind). The demo uses it when it is already
-    installed and falls back to the current scheme otherwise; it never installs
-    or uninstalls it.
+    Graph scheme: white_tableau, from tc_schemes. The demo installs tc_schemes
+    from the sibling checkout (<repo>/tc_schemes) and stops with an error if the
+    scheme cannot be found, rather than drawing in a fallback scheme.
 
-    Side effect: this demo (re)installs codescan into your real PLUS directory
-    from the local source (ado uninstall + net install) and leaves it there. If
-    you had a GitHub/SSC build of codescan installed, you will be on the local
-    build after running this. Re-run `net install codescan` from your usual
-    source to switch back. (The demo deliberately does not sandbox PLUS, so an
-    already-installed tc_schemes stays visible for the graph scheme.)
+    Side effect: this demo (re)installs codescan and tc_schemes into your PLUS
+    directory from the local source and leaves them there. If you had a
+    GitHub/SSC build of either installed, you will be on the local build after
+    running this. Re-run `net install` from your usual source to switch back.
+    Run it with sandboxed PLUS/PERSONAL directories to avoid this.
 */
 
 version 16.0
@@ -64,16 +63,23 @@ capture ado uninstall codescan
 quietly net install codescan, from("`src_dir'") replace
 
 * --- Graph scheme ---
-* Use tc_schemes when the user already has it; never install or uninstall a
-* sibling package on their behalf. Restore the original scheme on exit.
+* The demo standard is white_tableau (tc_schemes). It is installed from the
+* sibling checkout when present, and resolved here, before the chart is drawn,
+* so the graph never falls back silently to whatever scheme the caller had.
+* The caller's scheme is restored on exit.
 local _orig_scheme "`c(scheme)'"
 local _scheme_set = 0
-capture findfile scheme-plotplainblind.scheme
+local repo_dir "`src_dir'/.."
+capture confirm file "`repo_dir'/tc_schemes/tc_schemes.pkg"
 if _rc == 0 {
-    set scheme plotplainblind
-    local _scheme_set = 1
+    quietly net install tc_schemes, from("`repo_dir'/tc_schemes") replace
 }
-else display as text "(note: tc_schemes not installed; using the current scheme `_orig_scheme')"
+capture quietly set scheme white_tableau
+if _rc {
+    display as error "scheme white_tableau not found; install tc_schemes (expected at `repo_dir'/tc_schemes)"
+    exit 601
+}
+local _scheme_set = 1
 
 capture noisily {
 
@@ -166,6 +172,10 @@ codescan dx1 dx2 dx3 dx4, ///
     id(pid) collapse ///
     graph
 
+* codescan's graph call takes no graph options, so the right-hand margin is
+* widened on the drawn graph: without it the longest bar label ("60.0") is
+* clipped at the edge of the exported image.
+graph display, margin(r+8)
 graph export "`pkg_dir'/prevalence_chart.png", replace width(1200)
 capture graph close _all
 

@@ -12,9 +12,13 @@ set varabbrev off
 local pkg_dir "compress_tc/demo"
 capture mkdir "`pkg_dir'"
 
-* --- Load and reload command ---
+* --- Install package from local source ---
+* net install copies the main ado and its helpers (_compress_tc_bytes,
+* _compress_tc_human), so the demo runs what a user installs.
 capture program drop compress_tc
-quietly run compress_tc/compress_tc.ado
+capture program drop _compress_tc_bytes
+capture program drop _compress_tc_human
+quietly net install compress_tc, from("`c(pwd)'/compress_tc") replace
 
 * --- Setup data ---
 sysuse auto, clear
