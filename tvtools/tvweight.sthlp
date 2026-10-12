@@ -332,7 +332,13 @@ keys stop with error 459 before outputs are retained.
 {phang}
 {opt time(varname)} specifies the time variable. When specified with {opt id()}, time
 fixed effects are added to the propensity score model. This is the standard
-approach for marginal structural models with time-varying treatments.
+approach for marginal structural models with time-varying treatments. {it:time}
+must be numeric. Nonnegative integer times enter as {cmd:i.}{it:time}; when any
+value is fractional or negative, a note is displayed and the fixed effects use
+one indicator per distinct value, indexed in time order (the same model). A
+model stored with {opt estname()} and the displayed regression tables then
+refer to that internal index rather than to {it:time}; {cmd:r()} model strings
+still name {it:time}.
 
 {phang}
 {opt estname(name)} stores the fitted propensity model under {it:name} via

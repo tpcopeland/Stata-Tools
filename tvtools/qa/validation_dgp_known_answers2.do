@@ -684,7 +684,8 @@ else {
 **# =========================================================================
 * DGP: 1 person, interval [01jan2015, 31dec2015], primary event 01jul2015,
 * type(single). After censoring, the single retained row is [01jan,01jul];
-* timegen(days) = stop - first_start = 01jul - 01jan = 181 elapsed days.
+* timegen(days) = stop - first_start + 1 = 01jul - 01jan + 1 = 182 closed
+* days (1.18.0; the stset mapping is (start - 1, stop]).
 local ++test_count
 local t_pass = 1
 capture noisily {
@@ -706,11 +707,11 @@ capture noisily {
         generate(fail) type(single) timegen(tt) timeunit(days)
 
     sort id start
-    if tt[_N] != 181 {
-        di as error "  FAIL [S31.tg]: timegen=`=tt[_N]' expected=181"
+    if tt[_N] != 182 {
+        di as error "  FAIL [S31.tg]: timegen=`=tt[_N]' expected=182"
         local t_pass = 0
     }
-    else di as result "  PASS [S31.tg]: elapsed time = 181 days (stop - entry)"
+    else di as result "  PASS [S31.tg]: elapsed time = 182 days (stop - entry + 1)"
 }
 if _rc & `t_pass' {
     di as error "  FAIL [S31.run]: rc=`=_rc'"

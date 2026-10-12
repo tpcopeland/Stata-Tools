@@ -165,3 +165,13 @@ local release_suites `release_suites' `sweep_suites'
 local manifest_suites `manifest_suites' `sweep_suites'
 local manifest_counts `manifest_counts' 6 12
 local manifest_allow_skips `manifest_allow_skips' 0 0
+
+**# 1.18.0 clarity fixes: quantity-aware splitting, dose x washout, timegen,
+**# lag x window, tvmerge intersection loss, quoted labels; qa-lib axis probes
+local v1180_suites test_tvtools_v1180 test_qa_axes
+local core_suites `core_suites' `v1180_suites'
+local full_suites `full_suites' `v1180_suites'
+local release_suites `release_suites' `v1180_suites'
+local manifest_suites `manifest_suites' `v1180_suites'
+local manifest_counts `manifest_counts' 14 29
+local manifest_allow_skips `manifest_allow_skips' 0 0

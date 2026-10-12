@@ -1,4 +1,4 @@
-*! tvmerge Version 1.17.8  2026/10/09
+*! tvmerge Version 1.18.0  2026/10/12
 *! Merge multiple time-varying exposure datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -38,7 +38,9 @@ Output and naming options:
 
 Diagnostic and validation options:
   check              - Display coverage diagnostics
-  validatecoverage   - Verify all person-time accounted for (check for gaps)
+  validatecoverage   - Count gaps between consecutive output rows; time lost to
+                       the intersection of input coverage is always reported
+                       in r(n_persontime_lost), with or without this option
   validateoverlap    - Verify overlapping periods make sense
   summarize          - Display summary statistics of start/stop dates
 
@@ -1078,6 +1080,17 @@ program define tvmerge, rclass
         }
         drop `_overlap_check' `_overlap_maxstop'
 
+        * Input coverage ledger. The merge keeps only the intersection of the
+        * sources' coverage, so person-time covered by one source but not by
+        * another disappears from the output. Record every source's intervals
+        * so that loss can be measured and reported, never silently absorbed.
+        tempfile _cov_in
+        preserve
+        keep id `startname' `stopname'
+        rename (`startname' `stopname') (__cov_s __cov_e)
+        quietly save `_cov_in', replace
+        restore
+
         tempfile merged_data
         save `merged_data', replace
 
@@ -1441,6 +1454,14 @@ program define tvmerge, rclass
             }
             drop `_overlap_check_k' `_overlap_maxstop_k'
 
+            * Add this source's intervals to the input coverage ledger.
+            preserve
+            keep id start_k stop_k
+            rename (start_k stop_k) (__cov_s __cov_e)
+            quietly append using `_cov_in'
+            quietly save `_cov_in', replace
+            restore
+
             tempfile ds_k_clean
             save `ds_k_clean', replace
             
@@ -1798,6 +1819,52 @@ program define tvmerge, rclass
         }
         local n_dups = `n_before_dedup' - `n_after_dedup'
 
+        * Person-time lost to the intersection: days covered by at least one
+        * source (union over sources, per person) minus days the output covers.
+        * Both sides use the shared interval-union engine, so overlapping or
+        * nested rows count each day once.
+        local n_persontime_lost = 0
+        local n_ids_persontime_lost = 0
+        tempfile _cov_out
+        preserve
+        quietly {
+            if _N > 0 {
+                keep id `startname' `stopname'
+                tempvar _ud_out
+                _tvtools_interval_union, id(id) start(`startname') ///
+                    stop(`stopname') uniondays(`_ud_out')
+                bysort id: keep if _n == 1
+                keep id `_ud_out'
+                rename `_ud_out' __cov_out
+            }
+            else {
+                keep id
+                generate double __cov_out = .
+            }
+            save `_cov_out', replace
+            use `_cov_in', clear
+            tempvar _ud_in
+            _tvtools_interval_union, id(id) start(__cov_s) stop(__cov_e) ///
+                uniondays(`_ud_in')
+            bysort id: keep if _n == 1
+            keep id `_ud_in'
+            merge 1:1 id using `_cov_out', keep(master match) nogenerate
+            replace __cov_out = 0 if missing(__cov_out)
+            generate double __cov_lost = `_ud_in' - __cov_out
+            summarize __cov_lost, meanonly
+            if r(N) > 0 local n_persontime_lost = r(sum)
+            count if __cov_lost > 0
+            local n_ids_persontime_lost = r(N)
+        }
+        restore
+        if `n_persontime_lost' > 0 {
+            noisily display as text "Note: `n_persontime_lost' person-day(s) for " ///
+                "`n_ids_persontime_lost' person(s) are covered by some but not all " ///
+                "input datasets and are absent from the output"
+            noisily display as text "      (tvmerge keeps only time covered by every dataset;" ///
+                " see r(n_persontime_lost))"
+        }
+
         local n_input_overlaps = 0
         forvalues ds_index = 1/`numds' {
             local n_input_overlaps = `n_input_overlaps' + `n_overlaps_ds`ds_index''
@@ -2081,6 +2148,8 @@ program define tvmerge, rclass
         return scalar n_gaps = `n_gaps'
         return scalar n_overlaps = `n_overlaps'
         return scalar n_input_overlaps = `n_input_overlaps'
+        return scalar n_persontime_lost = `n_persontime_lost'
+        return scalar n_ids_persontime_lost = `n_ids_persontime_lost'
         return scalar n_duplicates_dropped = `n_dups'
         forvalues ds_index = 1/`numds' {
             return scalar n_invalid_ds`ds_index' = `invalid_ds`ds_index''

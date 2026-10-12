@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.17.8  09oct2026}{...}
+{* *! version 1.18.0  12oct2026}{...}
 {vieweralsosee "tvbuild" "help tvbuild"}{...}
 {vieweralsosee "tvspec" "help tvspec"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -166,7 +166,11 @@ authoritative form for row-specific bounds and histories containing gaps.
 when a row is split. An interval total is the amount attributable to one closed
 source row and is apportioned by inclusive overlap days; pieces must sum to the
 source total. A cumulative history is the amount known at the start of a model
-row. It is non-anticipating and is carried unchanged when that row is split.
+row. It is non-anticipating and is carried unchanged when that row is split. Every
+command that splits rows applies these rules: {cmd:tvmerge} and
+{cmd:tvevent} through their quantity options, and {cmd:tvsplit} and
+{cmd:tvband} by reading the {cmd:[tvtools_quantity]} characteristic described
+below. Untagged variables are copied unchanged onto every piece.
 
 {pstd}
 {cmd:tvmerge} and {cmd:tvevent} use {opt rate()}, {opt total()}, and
@@ -180,8 +184,7 @@ start and carries {cmd:[tvtools_history_point] = start}.
 
 {pstd}
 {bf:Recency.} {opt recency()} requires
-{opt recencyunit(days|years)}; version 1.7 does not guess between the formerly
-contradictory code and documentation. Day cutpoints must be positive whole
+{opt recencyunit(days|years)}; the unit is never guessed. Day cutpoints must be positive whole
 days. Year cutpoints are converted once to whole elapsed days as
 {cmd:round(365.25 * cutpoint)}. Converted boundaries must be unique and
 strictly increasing.
@@ -403,7 +406,7 @@ To install or update tvtools:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.17.8, 2026-10-09{p_end}
+{pstd}Version 1.18.0, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

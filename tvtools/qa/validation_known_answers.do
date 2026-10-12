@@ -1750,8 +1750,8 @@ else {
 *   [22160, 22188] → DROPPED
 *   Final rows: 5 (rows 1-4 unchanged, row 5 = split)
 *
-*   timegen = (stop - first_start) / 365.25
-*   Event row: (22112 - 21915) / 365.25 = 197/365.25 = 0.5393 years
+*   timegen = (stop - first_start + 1) / 365.25
+*   Event row: (22112 - 21915 + 1) / 365.25 = 198/365.25 = 0.5421 years
 
 display as text _newline "WORKFLOW 9: 3-way merge → tvevent with timegen"
 
@@ -1895,8 +1895,8 @@ capture noisily {
         display as result "  PASS [W9.2.stop]: event at Jul15"
     }
 
-    * timegen on event row = (22112 - 21915) / 365.25 = 0.5393
-    local exp_time = (22112 - 21915) / 365.25
+    * timegen on event row = (22112 - 21915 + 1) / 365.25 = 0.5421
+    local exp_time = (22112 - 21915 + 1) / 365.25
     if abs(time_yrs[5] - `exp_time') > 0.001 {
         display as error "  FAIL [W9.2.timegen]: expected " %6.4f `exp_time' ///
             ", got " %6.4f time_yrs[5]

@@ -201,9 +201,15 @@ those source variable labels is preserved verbatim.
 {phang}
 {opt timegen(newvar)} creates a new variable containing the cumulative time
 since each person's first interval start (study entry). For each row, this
-calculates stop - first_start, giving the time elapsed from the person's entry
-to the end of that interval. This is the analysis time typically used in
-survival models.
+calculates {it:stop} - {it:first_start} + 1: the number of closed follow-up
+days from entry through the end of that row, so a row ending on the entry day
+has time 1. It is the right-hand bound of the package's survival-time mapping
+({it:start}-1, {it:stop}] shifted to entry. With {cmd:timeunit(days)} it can
+be declared directly: {cmd:generate double t0 = t - (stop - start + 1)} and
+{cmd:stset t, id(id) time0(t0) failure(...)}. An event on the entry day is
+kept. The {opt gaptime} clock keeps its own offset convention
+({it:stop} - origin, declared with {cmd:time0(gap0 - 1)}), so in stratum 1 it
+is one day smaller than {opt timegen()}.
 
 {phang}
 {opt timeunit(string)} specifies the unit for {cmd:timegen()}. Options are

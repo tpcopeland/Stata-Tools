@@ -501,7 +501,7 @@ frame tc_e8 {
     local e8_val = r(mean)
 }
 }
-local ok = (`e8_rc' == 0 & "`e8_tv'" == "_elapsed" & `e8_val' == 75)
+local ok = (`e8_rc' == 0 & "`e8_tv'" == "_elapsed" & `e8_val' == 76)
 _tvc_check `ok' "E8 timegen() records elapsed time in the requested unit" ///
     "rc=`e8_rc' var=`e8_tv' value=`e8_val'"
 

@@ -1369,7 +1369,8 @@ else {
 * SECTION E: TIME GENERATION & MISC (Tests 17-20)
 
 * TEST 17: timegen(days) exact calculation
-* 3 intervals covering Jan1-Dec31. timegen(days) = stop - first_start.
+* 3 intervals covering Jan1-Dec31. timegen(days) = stop - first_start + 1
+* (closed days from entry through the row's stop; 1.18.0).
 
 display "TEST 17: timegen(days) exact calculation"
 local test17_pass = 1
@@ -1415,27 +1416,27 @@ else {
         local test17_pass = 0
     }
     else {
-        * Last row: _time should be stop - first_start
+        * Last row: _time should be stop - first_start + 1
         * first_start = Jan1. Last stop = Dec31.
-        * _time = Dec31 - Jan1 = 365
+        * _time = Dec31 - Jan1 + 1 = 366
         quietly su _time
         local max_time = r(max)
-        if `max_time' == 365 {
-            display as result "  PASS [17.max_time]: max _time=365 days"
+        if `max_time' == 366 {
+            display as result "  PASS [17.max_time]: max _time=366 days"
         }
         else {
-            display as error "  FAIL [17.max_time]: max _time=`max_time', expected 365"
+            display as error "  FAIL [17.max_time]: max _time=`max_time', expected 366"
             local test17_pass = 0
         }
 
-        * First row: _time = Apr30 - Jan1 = 120
+        * First row: _time = Apr30 - Jan1 + 1 = 121
         * Jan=31, Feb=29(leap), Mar=31, Apr=30 → Apr30 is day 121 → Apr30-Jan1=120
         local first_time = _time[1]
-        if `first_time' == 120 {
-            display as result "  PASS [17.first_time]: first _time=120 days"
+        if `first_time' == 121 {
+            display as result "  PASS [17.first_time]: first _time=121 days"
         }
         else {
-            display as error "  FAIL [17.first_time]: first _time=`first_time', expected 120"
+            display as error "  FAIL [17.first_time]: first _time=`first_time', expected 121"
             local test17_pass = 0
         }
     }
@@ -1451,7 +1452,7 @@ else {
     display as error "TEST 17: FAILED"
 }
 
-* TEST 18: timegen(months): stop - first_start / 30.4375
+* TEST 18: timegen(months): (stop - first_start + 1) / 30.4375
 
 display "TEST 18: timegen(months) conversion"
 local test18_pass = 1
@@ -1478,7 +1479,7 @@ else {
         * Last row: (Dec31-Jan1) / 30.4375 = 365 / 30.4375 ≈ 11.993
         quietly su _time
         local max_time = r(max)
-        local expected_months = 365 / 30.4375
+        local expected_months = 366 / 30.4375
         assert_approx `max_time' `expected_months' 0.01 "18.max_months"
     }
 }
@@ -1493,7 +1494,7 @@ else {
     display as error "TEST 18: FAILED"
 }
 
-* TEST 19: timegen(years): stop - first_start / 365.25
+* TEST 19: timegen(years): (stop - first_start + 1) / 365.25
 
 display "TEST 19: timegen(years) conversion"
 local test19_pass = 1
@@ -1520,7 +1521,7 @@ else {
         * Last row: 365 / 365.25 ≈ 0.9993
         quietly su _time
         local max_time = r(max)
-        local expected_years = 365 / 365.25
+        local expected_years = 366 / 365.25
         assert_approx `max_time' `expected_years' 0.001 "19.max_years"
     }
 }

@@ -1,4 +1,4 @@
-*! tvbuild Version 1.17.8  2026/10/09
+*! tvbuild Version 1.18.0  2026/10/12
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -94,9 +94,9 @@ program define tvbuild, rclass
     * string `""' and a present one arrives with its own quotes still attached.
     local sourceusing    `sourceusing'
     local eventusing     `eventusing'
-    local referencelabel `referencelabel'
-    local label          `label'
-    local eventlabel     `eventlabel'
+    local referencelabel `macval(referencelabel)'
+    local label          `macval(label)'
+    local eventlabel     `macval(eventlabel)'
 
     **# ---------------------------------------------------------------------
     **# Mode selection and mutual exclusions
@@ -105,7 +105,7 @@ program define tvbuild, rclass
         exposure reference generate referencelabel label
     local _inline_used ""
     foreach o of local _inline_opts {
-        if `"``o''"' != "" local _inline_used "`_inline_used' `o'"
+        if `"`macval(`o')'"' != "" local _inline_used "`_inline_used' `o'"
     }
 
     if "`specframe'" != "" & "`_inline_used'" != "" {
@@ -302,7 +302,7 @@ program define tvbuild, rclass
     }
     _tvbuild_normalize_spec, planframe(`_plan') `_nsopts' ///
         sourceusing(`"`sourceusing'"') reference(`reference') ///
-        referencelabel(`"`referencelabel'"') label(`"`label'"')
+        referencelabel(`"`macval(referencelabel)'"') label(`"`macval(label)'"')
 
     local n_sources    = r(n_sources)
     local spec_version = r(spec_version)
@@ -642,7 +642,7 @@ program define tvbuild, rclass
                 outframe(`_evout') id(`id') eventdate(`eventdate') ///
                 startname(`startname') stopname(`stopname') ///
                 eventtype(`eventtype') eventgenerate(`eventgenerate') ///
-                eventlabel(`"`eventlabel'"') compete(`compete') ///
+                eventlabel(`"`macval(eventlabel)'"') compete(`compete') ///
                 timegen(`timegen') timeunit(`timeunit') ///
                 enum(`enum') `gaptime' gapstart(`gapstart') gapstop(`gapstop') ///
                 ratevars(`rate_out') totalvars(`total_out') cumvars(`cum_out')

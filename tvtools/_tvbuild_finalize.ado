@@ -1,4 +1,4 @@
-*! _tvbuild_finalize Version 1.17.8  2026/10/09
+*! _tvbuild_finalize Version 1.18.0  2026/10/12
 *! Attach master payload and impose tvbuild's committed schema on the result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -159,7 +159,9 @@ program define _tvbuild_finalize, rclass
     frame change `masterframe'
     local _dtalab : data label
     frame change `resframe'
-    if `"`_dtalab'"' != "" label data `"`_dtalab'"'
+    if `"`macval(_dtalab)'"' != "" {
+        label data `"`macval(_dtalab)'"'
+    }
 
     char _dta[tvtools_tvbuild]           "tvbuild"
     char _dta[tvtools_tvbuild_schema]    "1"

@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.17.8** | 2026-10-12
+**Version 1.18.0** | 2026-10-12
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -283,7 +283,7 @@ tvweight tv_class, covariates(age female) id(id) time(period) ///
 
 ### 7. Split one interval on several time axes
 
-`tvsplit` accepts one or more axes and carries the other variables onto every resulting row.
+`tvsplit` accepts one or more axes and carries the other variables onto every resulting row. Variables tagged as interval totals (for example `tvmerge, total()` output) are apportioned by inclusive days instead, so the pieces sum to the source total (a band dropped by `min()` or `max()` takes its share with it); rates and row-start cumulative histories are copied unchanged.
 
 ```stata
 clear
@@ -360,7 +360,7 @@ tvexpose using filename, id(varname) start(varname) exposure(varname) ///
     [reference(#)] entry(varname) exit(varname) [options]
 ```
 
-Options are `stop()`, `reference()`, `generate()`, `saveas()`, `frameout()`, `replace`, `merge()`, `evertreated`, `currentformer`, `duration()`, `dose`, `dosecuts()`, `continuousunit()`, `expandunit()`, `bytype`, `recency()`, `recencyunit()`, `grace()`, `lag()`, `washout()`, `pointtime`, `fillgaps()`, `carryforward()`, `keepvars()`, `check`, `gaps`, `overlaps`, `summarize`, `validate`, `priority()`, `split`, `layer`, `combine()`, `window()`, `switching`, `switchingdetail`, `statetime`, `keepdates`, `referencelabel()`, `label()`, `flow`, `dropinvalid`, and `verbose`. Categorical output is the default; `dose` defaults `reference(0)`, `grace(0)`, `merge(0)`, `lag(0)`, `washout(0)`, and a derived `tv_<exposure>` output name.
+Options are `stop()`, `reference()`, `generate()`, `saveas()`, `frameout()`, `replace`, `merge()`, `evertreated`, `currentformer`, `duration()`, `dose`, `dosecuts()`, `continuousunit()`, `expandunit()`, `bytype`, `recency()`, `recencyunit()`, `grace()`, `lag()`, `washout()`, `pointtime`, `fillgaps()`, `carryforward()`, `keepvars()`, `check`, `gaps`, `overlaps`, `summarize`, `validate`, `priority()`, `split`, `layer`, `combine()`, `window()`, `switching`, `switchingdetail`, `statetime`, `keepdates`, `referencelabel()`, `label()`, `flow`, `dropinvalid`, `verbose`, and the technical `nofastpath`. Categorical output is the default; `dose` defaults `reference(0)`, `grace(0)`, `merge(0)`, `lag(0)`, `washout(0)`, and a derived `tv_<exposure>` output name; `dose` cannot be combined with a nonzero `washout()`.
 
 ### `tvmerge`
 
@@ -369,7 +369,7 @@ tvmerge [dataset1 dataset2 ...], id(varname) start(namelist) stop(namelist) expo
 tvmerge, frames(namelist) id(varname) start(namelist) stop(namelist) exposure(namelist) [options]
 ```
 
-Options are `frames()`, `generate()`, `prefix()`, `startname()`, `stopname()`, `idname()`, `dateformat()`, `saveas()`, `frameout()`, `replace`, `keep()`, `continuous()`, `rate()`, `total()`, `cumulative()`, `dropinvalid`, `batch()`, `force`, `check`, `validatecoverage`, `validateoverlap`, `summarize`, `flow`, and `verbose`. `continuous()` is the deprecated alias for `total()`.
+Options are `frames()`, `generate()`, `prefix()`, `startname()`, `stopname()`, `idname()`, `dateformat()`, `saveas()`, `frameout()`, `replace`, `keep()`, `continuous()`, `rate()`, `total()`, `cumulative()`, `dropinvalid`, `batch()`, `force`, `check`, `validatecoverage`, `validateoverlap`, `summarize`, `flow`, and `verbose`. `continuous()` is the deprecated alias for `total()`. The output covers only days present in every input; days covered by some inputs but not all are reported in a note and in `r(n_persontime_lost)`.
 
 ### `tvevent`
 
@@ -422,7 +422,7 @@ The package’s intervals are closed and inclusive, so duration is `stop - start
 
 ### Quantities and exposure definitions
 
-`rate()` variables remain rates when intervals are split; `total()` variables are apportioned by inclusive overlap days; and `cumulative()` variables are row-start histories carried unchanged. `continuous()` is a deprecated alias for `total()` in `tvmerge` and `tvevent`.
+`rate()` variables remain rates when intervals are split; `total()` variables are apportioned by inclusive overlap days; and `cumulative()` variables are row-start histories carried unchanged. `continuous()` is a deprecated alias for `total()` in `tvmerge` and `tvevent`. `tvsplit` and `tvband` apply the same rules to variables carrying the `[tvtools_quantity]` characteristic that `tvmerge`, `tvevent`, `tvexpose`, and `tvpanel` write.
 
 In `tvexpose`, categorical output uses `reference()` for uncovered time, while `dose` mode defaults the reference to zero. `continuousunit()` accepts days, weeks, months, quarters, or years; `expandunit()` defaults to that unit when continuous exposure is requested and uses fixed average widths of 7, 30.4375, 91.3125, or 365.25 days anchored at each episode start.
 
@@ -436,13 +436,13 @@ Result names below are returned in `r()` after successful execution; option-depe
 | `tvspec` | Scalars `n_sources`; macros `specframe`, `source_name` for `add`, and `source_names` for `list` |
 | `tvbuild` | Scalars `dryrun`, `spec_version`, `n_sources`, `N_persons`, `event_stage`, `dates_kept`, and committed-run `N_periods`, `n_gap_ids`, `uncovered_days`; macros `idvar`, `entryvar`, `exitvar`, `startvar`, `stopvar`, `source_names`, `payload_vars`, `exposure_vars`, `rate_vars`, `total_vars`, `cumulative_vars`, `specframe`, `frameout`, `coverage`, `manifestframe`, `eventvar`, `timevar`, `enumvar`, `gapstartvar`, `gapstopvar`, `datasignature`; matrices `source_counts`, `stage_counts` |
 | `tvexpose` | Scalars for persons, periods, total/exposed/unexposed time, invalid-input counts, window bounds, combined states, and by-type variables; macros `genvar`, `frameout`, `overlap_ids`, `recency_unit`, `recency_cutdays`, `combine_map`, `bytype_map`; matrix `flow` when requested |
-| `tvmerge` | Scalars for observations, persons, datasets, quantity counts, invalid rows, gaps, overlaps, and duplicates; macros for datasets, exposure/quantity variables, output names, and destinations; matrix `flow` when requested |
+| `tvmerge` | Scalars for observations, persons, datasets, quantity counts, invalid rows, gaps, overlaps, person-time lost to the input intersection (`n_persontime_lost`, `n_ids_persontime_lost`), and duplicates; macros for datasets, exposure/quantity variables, output names, and destinations; matrix `flow` when requested |
 | `tvevent` | Scalars `N`, `N_events`, quantity counts, invalid-input counts, and event validation counts; macros `generate`, `startvar`, `stopvar`, `timegen`, `enum`, `gapstart`, `gapstop`, and quantity variables; matrix `flow` when requested |
 | `tvdiagnose` | Scalars for each requested diagnostic, coverage/gap/overlap summaries, exposure levels, and graph status; macros `id`, `start`, `stop`, `graph_name`; matrix `exposure_summary` when `summarize` runs |
 | `tvweight` | Scalars for sample size, levels, ESS, weight distribution, overlap, positivity, truncation, and graph status; macros for model, weight, output, treatment/censoring, and balance settings; scalar `ess_combined` and matrix `balance` in the corresponding modes |
 | `tvage` | Scalars `n_persons`, `n_persons_in`, `n_persons_dropped`, `n_observations`, `groupwidth`; macros `varname`, `startvar`, `stopvar` |
-| `tvband` | Scalars `n_persons`, `n_observations`, `width`; macros `axistype`, `varname`, `startvar`, `stopvar` |
-| `tvsplit` | Scalars `n_axes`, `n_persons`, `n_observations`; macros `agevar`, `calvar`, `fuvar`, `startvar`, `stopvar` when applicable |
+| `tvband` | Scalars `n_persons`, `n_observations`, `width`; macros `axistype`, `varname`, `startvar`, `stopvar`, `total_vars` |
+| `tvsplit` | Scalars `n_axes`, `n_persons`, `n_observations`; macros `agevar`, `calvar`, `fuvar`, `startvar`, `stopvar`, `total_vars` when applicable |
 | `tvpanel` | Scalars for persons, observations, width, and invalid-input counts; macros `periodvar`, `startvar`, `stopvar`, `classvar`, `cumvars` |
 
 ## Assumptions and Limits
@@ -451,7 +451,7 @@ Result names below are returned in `r()` after successful execution; option-depe
 - Identifiers are structural keys, so source names and storage types must agree and commands never pad, guess, or silently remap them.
 - `tvage`, `tvband`, and `tvsplit` require numeric identifiers; map string IDs deliberately before calling them.
 - `tvage` intentionally returns only the identifier and generated age interval variables; save or merge covariates separately.
-- `tvmerge` expects interval inputs, and `force` restricts mismatched-ID inputs to their intersection rather than inventing missing records.
+- `tvmerge` expects interval inputs and keeps only person-time covered by every input; `force` restricts mismatched-ID inputs to their intersection rather than inventing missing records. The dropped person-days are counted in `r(n_persontime_lost)`.
 - `tvevent` treats single events as terminal and recurring event stubs as ordered `stub1` through `stubK` members; noncanonical or noncontiguous stubs are rejected.
 - `tvdiagnose` counts global coverage by interval union, but category summaries can have multi-membership when exposure levels overlap.
 - `tvbuild` coordinates construction and provenance but does not run `stset`, an outcome model, an overlap-resolution choice, or a causal model.
@@ -461,15 +461,34 @@ Result names below are returned in `r()` after successful execution; option-depe
 
 ## References
 
-- Robins JM, Hernán MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550–560.
-- Cole SR, Hernán MA. Constructing inverse probability weights for marginal structural models. *American Journal of Epidemiology*. 2008;168(6):656–664.
-- Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score weighting. *Journal of the American Statistical Association*. 2018;113(521):390–400.
+The help files cite these sources; `tvevent` uses the first two and `tvweight` the rest.
+
+- Andersen PK, Gill RD. Cox's regression model for counting processes: a large sample study. *Annals of Statistics*. 1982;10(4):1100–1120. doi:10.1214/aos/1176345976
+- Prentice RL, Williams BJ, Peterson AV. On the regression analysis of multivariate failure time data. *Biometrika*. 1981;68(2):373–379. doi:10.1093/biomet/68.2.373
+- Robins JM, Hernán MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550–560. doi:10.1097/00001648-200009000-00011
+- Cole SR, Hernán MA. Constructing inverse probability weights for marginal structural models. *American Journal of Epidemiology*. 2008;168(6):656–664. doi:10.1093/aje/kwn164
+- Austin PC, Stuart EA. Moving towards best practice when using inverse probability of treatment weighting (IPTW) using the propensity score to estimate causal treatment effects in observational studies. *Statistics in Medicine*. 2015;34(28):3661–3679. doi:10.1002/sim.6607
+- Li F, Morgan KL, Zaslavsky AM. Balancing covariates via propensity score weighting. *Journal of the American Statistical Association*. 2018;113(521):390–400. doi:10.1080/01621459.2016.1260466
+- Li L, Greene T. A weighting analogue to pair matching in propensity score analysis. *International Journal of Biostatistics*. 2013;9(2):215–234. doi:10.1515/ijb-2012-0030
+- Yoshida K, Hernández-Díaz S, Solomon DH, Jackson JW, Gagne JJ, Glynn RJ, Franklin JM. Matching weights to simultaneously compare three treatment groups: comparison to three-way matching. *Epidemiology*. 2017;28(3):387–395. doi:10.1097/EDE.0000000000000627
+- Austin PC. Balance diagnostics for comparing the distribution of baseline covariates between treatment groups in propensity-score matched samples. *Statistics in Medicine*. 2009;28(25):3083–3107. doi:10.1002/sim.3697
+- Austin PC. An introduction to propensity score methods for reducing the effects of confounding in observational studies. *Multivariate Behavioral Research*. 2011;46(3):399–424. doi:10.1080/00273171.2011.568786
 
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.18.0 (2026-10-12)
+
+- `tvsplit` and `tvband` now apply the suite's quantity contract. A variable tagged as an interval total (`[tvtools_quantity] "total"`, as written by `tvmerge, total()` and `tvevent, total()`) is apportioned by inclusive days so the pieces sum to the source total; previously every piece carried the full total, so splitting one 100-unit row into three summed to 300. Rates and row-start cumulative histories are still copied unchanged, unknown quantity metadata exits with r(498), and both commands return `r(total_vars)`.
+- `tvexpose, dose` with a nonzero `washout()` now exits with r(198). A cumulative dose already persists after its episode, so the washout tail only spread the amount over extra days and understated the dose taken by a given date (30 units over days 100–129 read as 23.33 on day 170 under `washout(60)`).
+- `tvevent, timegen()` now counts closed days from entry through each row's stop (`stop - first_start + 1`), matching the package's `(start - 1, stop]` survival-time mapping. Previously an event on the entry day had time 0 and `stset` dropped it. Values from earlier versions are one day (or 1/30.4375 month, 1/365.25 year) smaller.
+- `tvmerge` now measures person-time present in some inputs but absent from the intersected output, displays a note when it is positive, and returns `r(n_persontime_lost)` and `r(n_ids_persontime_lost)`. Previously unequal per-source follow-up silently shortened the output.
+- `tvexpose` and `tvbuild` keep `label()` and `referencelabel()` text verbatim, including double quotes, backticks, and dollar signs. Previously a double quote or backtick exited with an unexplained r(198) or r(132), and text such as `$name` was silently replaced by the contents of a global macro. Exposure value-label text, `keepvars()` labels, and entry/exit labels are carried the same way, as are the master dataset label in `tvbuild` and `tvevent` event labels (`eventlabel()` and date-variable labels), including through `tvbuild`. The dose overlap path no longer prints a `duplicates drop` report.
+- `tvweight` with `id()` and `time()` accepts fractional or negative time values: the time fixed effects index the distinct values in time order (the same model) and a note says so. Previously the factor-variable expansion failed and the command reported a misleading convergence failure (r(452)). A string `time()` now exits with r(109).
+- Help: the `tvexpose` dose example now passes a total supply (`rx_total`) rather than a daily rate; `lag()` documents that it truncates episodes and removes those of `lag()` days or fewer; `window()` documents that it is anchored on the lagged start and clipped by the washout-extended stop; `nofastpath` is documented as a technical option; cumulative values step only at row boundaries. `tvmerge` documents its coverage intersection. README References now list every source the help files cite.
 
 ### 1.17.8 (2026-10-09)
 

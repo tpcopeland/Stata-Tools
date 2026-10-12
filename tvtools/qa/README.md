@@ -44,6 +44,7 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `crossval_tvevent_recurring.do` | `Rscript` | Same policy |
 | `crossval_public_heart.do`, `crossval_public_pbc.do` | `Rscript` and R package `survival` | Same policy; `survival` or oracle failures are hard failures once R is present |
 | External/full/release integration | Sibling `rangematch` and `psdash` packages | Hard failure |
+| `test_package_fixtures.do` (core and above) | `python3` on `PATH` with the `pyreadstat` package, used by `tools/fixture_manifest.py` (install with `python3 -m pip install pyreadstat`) | Hard failure: the checker writes no status file and the suite fails with r(601) |
 | Dialog release check | A graphical Stata session via `run_dialog_gui.sh` | Run separately from the batch runner |
 
 ## File index
@@ -103,6 +104,8 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `test_tvtools_catalog.do` | Dispatcher catalog completeness and classifications. |
 | `test_tvtools_v1141.do` | Weighting and dispatcher regressions from the 1.14 line. |
 | `test_tvtools_v1172.do` | Release regressions for caller state, extra exposure maps, empty-output schemas, event clocks, quoted labels, and reference-label failure handling. |
+| `test_tvtools_v1180.do` | Release regressions for quantity-aware `tvsplit`/`tvband` splitting, the `dose` x `washout()` refusal, closed-day `timegen()`, `lag()` x `window()` anchoring and lag truncation, `tvmerge` intersection loss (`r(n_persontime_lost)`), quoted label text in `tvexpose` (option text, bytype value-label text, keepvars and entry/exit labels), a quiet dose sweep, and the help dose example. |
+| `test_qa_axes.do` | qa-lib adversarial axes for all 12 public commands: caller-state fingerprint on an error path, r() versus frame/file/console parity, the `tvspec` lifecycle, the hostile-string corpus through `tvexpose`/`tvbuild` `label()` and `referencelabel()`, and hostile fractional `time()` values in `tvweight, cumulative`. |
 | `test_tvtools_v1173.do` | Release regressions with daily oracles: layer precedence under entry clipping, clipped dose apportionment, pre-entry washout and acute windows, last-stop `fillgaps()`, unflagged terminal events, and whole-number band widths. |
 | `test_tvweight.do` | `tvweight` functional surface. |
 | `test_tvweight_cumprod.do` | Cumulative-weight product engine. |
@@ -191,6 +194,8 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `_qa_state.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `run_all.do` | Canonical lane runner and terminal result aggregation. |
 | `_qa_hostile.do` | Byte-vendored binary64 hostile-time primitive used by named daily-date refusal controls. |
+| `_qa_parity.do` | Byte-identical vendored qa-lib helper; never edited here. |
+| `_qa_lifecycle.do` | Byte-identical vendored qa-lib helper; never edited here. |
 | `_tvtools_qa_common.do` | Sandboxed install, cleanup, result parsing, exact comparison, and shared assertions. |
 | `_tvtools_qa_manifest.do` | Authoritative lane membership, pinned result counts, and skip policy. |
 | `data/generate_test_data.do` | Regenerates selected canonical fixtures for deliberate review. |
@@ -206,14 +211,14 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `tvtools` | `test_tvtools`, `test_tvtools_catalog` | `validation_known_answers` | `crossval_tvtools` | integration, state, release |
 | `tvbuild` | dryrun, construct, commit, manifest, regressions | `validation_tvbuild_conservation` | frozen primitive pipelines | integration, state, fixtures |
 | `tvspec` | `test_tvspec` | hand-built plan equivalence | — | `tvbuild` suites |
-| `tvexpose` | command, diagnostics, fast path, `test_tvtools_v1173.do` | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
-| `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases and canonical daily/domain contracts |
-| `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
+| `tvexpose` | command, diagnostics, fast path, `test_tvtools_v1173.do`, `test_tvtools_v1180.do` | exposure audit, known answers, public-study workflows | `crossval_tvexpose_expand`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
+| `tvmerge` | command, frame-native, `idname()`, `test_tvtools_v1172.do`, `test_tvtools_v1180.do` | merge audit, known answers, public-study workflows | `crossval_tvmerge_mata`, public PBC, drift guard | integration, state, edge cases and canonical daily/domain contracts |
+| `tvevent` | command, segments, `test_tvtools_v1172.do`, `test_tvtools_v1173.do`, `test_tvtools_v1180.do` | event audit, known answers, public-study workflows | `crossval_tvevent_recurring`, public PBC | integration, state, edge cases and canonical daily/domain contracts |
 | `tvdiagnose` | `test_tvdiagnose` | diagnostic audit and known answers | `crossval_tvtools` | integration, verbose and canonical graph/state/domain paths |
 | `tvweight` | command, cumulative product, regressions | balance, recovery, canonical finite-cell propensity suites and Phase2 numerical relations | `crossval_tvweight_ipcw`, `crossval_tvtools` | optional integration and state |
 | `tvage` | command and regression suites | `validation_tvage` | `crossval_tvtools` | naming, missing-value and canonical calendar suites |
-| `tvband` | command, hand oracle, `test_tvtools_v1173.do` | `validation_tvband` | — | naming, missing-value and canonical calendar suites |
-| `tvsplit` | `test_tvsplit`, `test_tvtools_v1173.do` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
+| `tvband` | command, hand oracle, `test_tvtools_v1173.do`, `test_tvtools_v1180.do` | `validation_tvband` | — | naming, missing-value and canonical calendar suites |
+| `tvsplit` | `test_tvsplit`, `test_tvtools_v1173.do`, `test_tvtools_v1180.do` | split audit, known answers, public-study workflows | `crossval_tvsplit_lexis`, public Stanford heart | options and missing-value suites |
 | `tvpanel` | `test_tvpanel` | panel audit and known answers | — | integration and missing-value suites |
 
 ## Lane membership
@@ -229,6 +234,18 @@ archetypes: A4(tvage tvband tvbuild tvdiagnose tvevent tvexpose tvmerge tvpanel 
 | `release` | `full` plus distribution/install/help/menu contracts; GUI dialogs remain delegated to `run_dialog_gui.sh`. |
 | `meta` | Runner-contract suite only. |
 | Manual | `baseline_*` capture/replay and `benchmark_*` timing files are invoked directly and are not correctness lanes. |
+
+## Evidence layers
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `tvweight` point-treatment IPTW, stabilized and unstabilized | `validation_tvweight_recovery.do` | `crossval_tvtools.do` | `none: paper publishes no worked example` | `none: no inference reported` |
+| `tvweight` cumulative MSM weights | `validation_tvweight_msm_recovery.do` | `crossval_tvtools.do` | `none: paper publishes no worked example` | `none: no inference reported` |
+| `tvweight` IPCW cumulative censoring weights | `crossval_tvweight_ipcw.do` | `crossval_tvweight_ipcw.do` | `none: paper publishes no worked example` | `none: no inference reported` |
+| `tvexpose` exposure tiling and continuous expansion | `none: deterministic transform` | `crossval_tvexpose_expand.do; crossval_public_pbc.do` | `none: no grounding paper (interval construction is grounded by its reference implementations)` | `none: deterministic transform` |
+| `tvmerge` interval intersection | `none: deterministic transform` | `crossval_tvmerge_mata.do; crossval_public_pbc.do` | `none: no grounding paper (interval construction is grounded by its reference implementations)` | `none: deterministic transform` |
+| `tvevent` event placement and recurrent-event clocks | `none: deterministic transform` | `crossval_tvevent_recurring.do; crossval_public_pbc.do` | `none: no grounding paper (counting-process layout is grounded by its reference implementations)` | `none: deterministic transform` |
+| `tvsplit` Lexis splitting | `none: deterministic transform` | `crossval_tvsplit_lexis.do; crossval_public_heart.do` | `none: no grounding paper (interval construction is grounded by its reference implementations)` | `none: deterministic transform` |
 
 ## Known gaps
 

@@ -751,7 +751,7 @@ label data "Events for cumulative time test"
 save "${DATA_DIR}/events_cumtime_test.dta", replace
 
 * Test 4.9.3: timegen Cumulative Time with Multi-Interval Data
-* Purpose: Verify timegen calculates stop - first_start (cumulative time)
+* Purpose: Verify timegen calculates stop - first_start + 1 (closed days)
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 4.9.3: timegen Cumulative Time (Multi-Interval)"
@@ -765,7 +765,7 @@ capture {
 
     * Calculate expected cumulative time for verification
     bysort id (start): gen double first_start = start[1]
-    gen double expected = stop - first_start
+    gen double expected = stop - first_start + 1
 
     * Verify timegen matches expected cumulative time for ALL rows
     gen byte match = abs(cum_time - expected) < 0.001
@@ -773,13 +773,13 @@ capture {
     assert r(N) == 0
 
     * Verify specific values for event rows:
-    * Person 1: event at 22150, cumulative = 22150-21915 = 235
-    * Person 2: event at 22100, cumulative = 22100-21915 = 185
+    * Person 1: event at 22150, cumulative = 22150-21915+1 = 236
+    * Person 2: event at 22100, cumulative = 22100-21915+1 = 186
     quietly sum cum_time if id == 1 & outcome == 1
-    assert abs(r(mean) - 235) < 2
+    assert r(mean) == 236
 
     quietly sum cum_time if id == 2 & outcome == 1
-    assert abs(r(mean) - 185) < 2
+    assert r(mean) == 186
 }
 if _rc == 0 {
     display as result "  PASS: timegen correctly calculates cumulative time"
@@ -2995,12 +2995,10 @@ display "TEST 4A: Timegen exact calculation (days/months/years)"
 
 local test4a_pass = 1
 
-* Interval [2020-01-01, 2020-07-18] = 199 days
-* timegen in days  = 199
-* timegen in months = 199/30.4375 ≈ 6.538
-* timegen in years  = 199/365.25 ≈ 0.5449
-* Note: tvevent timegen uses interval length (stop - start + 1? or stop - start?)
-* Need to read the ado to confirm, but testing actual vs expected is key
+* Interval [2020-01-01, 2020-07-18] holds 200 closed days.
+* timegen = stop - first_start + 1 (1.18.0): days 200, months 200/30.4375,
+* years 200/365.25. Exact, not within a tolerance: a one-day tolerance
+* accepted both conventions and hid the stset off-by-one (clarity I3).
 
 * Create a single interval dataset
 clear
@@ -3015,11 +3013,9 @@ gen id = 1
 gen start = mdy(1,1,2020)
 gen stop  = mdy(7,18,2020)    // Jan1 to Jul18
 
-* Verify the interval length
-local interval_days = mdy(7,18,2020) - mdy(1,1,2020)
-* tvevent typically generates timegen as (stop - start) or (stop - start + 1)
-* We need to check which convention tvevent uses - we'll examine the actual output
-display "  INFO: Raw interval length (stop-start): `interval_days' days"
+* Closed-day length of the interval
+local interval_days = mdy(7,18,2020) - mdy(1,1,2020) + 1
+display "  INFO: Closed interval length: `interval_days' days"
 
 gen tv_exp = 1    // exposure value
 save "$TVTOOLS_QA_RUN_DIR/tve4a_intervals.dta", replace
@@ -3039,7 +3035,7 @@ else {
     display "  INFO: t_days = `actual_days'"
 
     * Check it's approximately the interval length (within 1 day tolerance)
-    if abs(`actual_days' - `interval_days') <= 1 | abs(`actual_days' - `interval_days' - 1) <= 0 {
+    if `actual_days' == `interval_days' {
         display as result "  PASS [4a.days]: t_days=`actual_days', interval=`interval_days'"
     }
     else {
@@ -3060,8 +3056,8 @@ if _rc == 0 {
     local expected_months = `interval_days' / 30.4375
     local diff = abs(`actual_months' - `expected_months')
     display "  INFO: t_months = `actual_months', expected ≈ `expected_months'"
-    if `diff' < 0.5 {
-        display as result "  PASS [4a.months]: t_months within 0.5 of expected"
+    if `diff' < 1e-10 {
+        display as result "  PASS [4a.months]: t_months equals expected"
     }
     else {
         display as error "  FAIL [4a.months]: t_months=`actual_months', expected≈`expected_months', diff=`diff'"
@@ -3085,8 +3081,8 @@ if _rc == 0 {
     local expected_years = `interval_days' / 365.25
     local diff = abs(`actual_years' - `expected_years')
     display "  INFO: t_years = `actual_years', expected ≈ `expected_years'"
-    if `diff' < 0.1 {
-        display as result "  PASS [4a.years]: t_years within 0.1 of expected"
+    if `diff' < 1e-10 {
+        display as result "  PASS [4a.years]: t_years equals expected"
     }
     else {
         display as error "  FAIL [4a.years]: t_years=`actual_years', expected≈`expected_years', diff=`diff'"

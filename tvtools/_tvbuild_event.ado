@@ -1,4 +1,4 @@
-*! _tvbuild_event Version 1.17.8  2026/10/09
+*! _tvbuild_event Version 1.18.0  2026/10/12
 *! Run tvbuild's optional event stage through the shared tvevent engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -83,12 +83,15 @@ program define _tvbuild_event, rclass
     * compound quotes -- correct for a plain `string' destination -- makes
     * `asis' hand tvevent one quoted string instead of a pair, and every
     * eventlabel() value fails with r(198).
-    if `"`eventlabel'"' != "" local _eopts `"`_eopts' eventlabel(`eventlabel')"'
+    * Block form with macval(): an inline `if' re-expands its command text.
+    if `"`macval(eventlabel)'"' != "" {
+        local _eopts `"`macval(_eopts)' eventlabel(`macval(eventlabel)')"'
+    }
 
     frame change `outframe'
     capture noisily quietly tvevent, frame(`accframe') id(`id') ///
         date(`eventdate') type(`eventtype') ///
-        start(`startname') stop(`stopname') `_eopts'
+        start(`startname') stop(`stopname') `macval(_eopts)'
     local _erc = _rc
     local _n_ev = r(N_events)
     frame change `_caller_frame'

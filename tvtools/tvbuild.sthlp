@@ -322,7 +322,9 @@ using the {helpb tvevent} label grammar.
 
 {phang}
 {opt timegen(name)} creates an elapsed-time variable and {opt timeunit()}
-gives its unit, defaulting to {cmd:days}. {opt timeunit()} is invalid without
+gives its unit, defaulting to {cmd:days}. Elapsed time counts closed days from
+entry through each row's stop ({it:stop} - {it:first start} + 1), as in
+{helpb tvevent}. {opt timeunit()} is invalid without
 {opt timegen()}.
 
 {phang}

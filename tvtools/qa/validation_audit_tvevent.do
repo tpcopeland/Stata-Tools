@@ -169,7 +169,7 @@ capture noisily {
     confirm variable outcome ed elapsed seq gs ge
     assert _N == 1
     assert outcome == 0 & missing(ed)
-    assert elapsed == 9 & seq == 1 & gs == 0 & ge == 9
+    assert elapsed == 10 & seq == 1 & gs == 0 & ge == 9
     assert r(N) == 1 & r(N_events) == 0
     assert "`r(enum)'" == "seq" & "`r(gapstart)'" == "gs"
     assert "`r(gapstop)'" == "ge" & "`r(timegen)'" == "elapsed"
@@ -194,7 +194,7 @@ capture noisily {
     tvevent using "`base_intervals'", id(id) date(eventdate) ///
         generate(outcome) timegen(elapsed) validate
     confirm variable outcome eventdate elapsed
-    assert _N == 1 & outcome == 0 & missing(eventdate) & elapsed == 9
+    assert _N == 1 & outcome == 0 & missing(eventdate) & elapsed == 10
     assert r(N) == 1 & r(N_events) == 0
 }
 if _rc == 0 {
@@ -219,7 +219,7 @@ capture noisily {
         gapstart(gs) gapstop(ge) validate
     confirm variable outcome ed elapsed seq gs ge cohort
     assert _N == 1
-    assert outcome == 0 & missing(ed) & elapsed == 9
+    assert outcome == 0 & missing(ed) & elapsed == 10
     assert seq == 1 & gs == 0 & ge == 9 & cohort == 42
     assert r(N) == 1 & r(N_events) == 0
     assert "`r(enum)'" == "seq" & "`r(gapstart)'" == "gs"

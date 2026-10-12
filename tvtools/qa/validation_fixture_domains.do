@@ -200,7 +200,7 @@ program define _fx_tv_domains, rclass
             tvevent using `baseline', id(id) date(eventdate) type(single) generate(failure) timegen(elapsed) timeunit(`unit')
             assert r(N_events)==2
             local divisor=cond("`unit'"=="days",1,cond("`unit'"=="months",30.4375,365.25))
-            assert !missing(elapsed) & reldif(elapsed,(stop-`origin')/`divisor')<1e-7
+            assert !missing(elapsed) & reldif(elapsed,(stop-`origin'+1)/`divisor')<1e-7
             assert failure==1 if stop==`origin'+4
             assert stop<=`origin'+4
         }

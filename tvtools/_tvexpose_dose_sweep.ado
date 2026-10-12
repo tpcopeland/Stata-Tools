@@ -1,4 +1,4 @@
-*! _tvexpose_dose_sweep Version 1.17.8  2026/10/09
+*! _tvexpose_dose_sweep Version 1.18.0  2026/10/12
 *! Allocate overlapping dose periods with the shared interval plane sweep
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -29,7 +29,7 @@ program define _tvexpose_dose_sweep, nclass
         quietly use "`segments'", clear
         preserve
         keep id
-        duplicates drop
+        quietly duplicates drop
         sort id
         generate long `_gid' = _n
         quietly save "`_xwalk'", replace

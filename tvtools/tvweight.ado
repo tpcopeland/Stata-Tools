@@ -1,4 +1,4 @@
-*! tvweight Version 1.17.8  2026/10/09
+*! tvweight Version 1.18.0  2026/10/12
 *! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -442,6 +442,14 @@ program define tvweight, rclass sortpreserve
     }
     local _outputs_touched = 1
 
+    if "`time'" != "" {
+        capture confirm numeric variable `time'
+        if _rc {
+            display as error "time() must be a numeric variable"
+            exit 109
+        }
+    }
+
     * Mark estimation sample BEFORE level checks
     marksample touse
     markout `touse' `_raw_model_vars'
@@ -541,9 +549,23 @@ program define tvweight, rclass sortpreserve
 
     * Panel-aware: include time fixed effects when id()/time() specified
     local panel_mode = 0
+    local time_fe "`time'"
     if "`id'" != "" & "`time'" != "" {
         local panel_mode = 1
-        local all_covars "`all_covars' i.`time'"
+        * Factor notation accepts only nonnegative integers, so a fractional or
+        * negative time stopped the logit with a misleading convergence
+        * message. One indicator per distinct time value is the same fixed-
+        * effects model, so index the distinct values in time order instead.
+        * Codes are assigned over the estimation sample only.
+        quietly count if `touse' & (`time' != floor(`time') | `time' < 0)
+        if r(N) > 0 {
+            tempvar _time_fe
+            quietly egen long `_time_fe' = group(`time') if `touse'
+            local time_fe "`_time_fe'"
+            display as text "Note: time() has non-integer or negative values;" ///
+                " time fixed effects use one indicator per distinct value, in time order"
+        }
+        local all_covars "`all_covars' i.`time_fe'"
 
         * Report panel structure
         tempvar _nobs_per_id _id_tag
@@ -807,9 +829,13 @@ program define tvweight, rclass sortpreserve
         tempvar _num_p
         local _num_model_failed = 0
         local _num_rhs "`numcovariates'"
-        if `panel_mode' local _num_rhs "`_num_rhs' i.`time'"
+        if `panel_mode' local _num_rhs "`_num_rhs' i.`time_fe'"
         if "`_num_rhs'" != "" {
             local numerator_model : list retokenize _num_rhs
+            * Display and return terms by the caller's time() name, never an
+            * internal index (no-op when time() enters as itself).
+            local numerator_model : subinstr local numerator_model ///
+                "i.`time_fe'" "i.`time'", all
             display as text "  Numerator model: `exposure' on `numerator_model'"
             if "`model'" == "logit" {
                 capture quietly logit `exposure' `_num_rhs' if `touse', nolog
@@ -1002,7 +1028,7 @@ program define tvweight, rclass sortpreserve
         * Pooled logistic censoring model: P(censored at end of interval | past).
         * Time fixed effects parallel the treatment model's panel handling.
         local cens_covars "`censorcovariates'"
-        if `panel_mode' local cens_covars "`cens_covars' i.`time'"
+        if `panel_mode' local cens_covars "`cens_covars' i.`time_fe'"
         tempvar pc
         local cens_vce ""
         if `panel_mode' local cens_vce "vce(cluster `id')"
@@ -1054,8 +1080,10 @@ program define tvweight, rclass sortpreserve
             * censoring numerator carries follow-up time and may retain the
             * past-treatment/baseline history selected by the analyst.
             tempvar _num_pc
-            local _cens_num_rhs "`censnumcovariates' i.`time'"
+            local _cens_num_rhs "`censnumcovariates' i.`time_fe'"
             local censor_numerator_model : list retokenize _cens_num_rhs
+            local censor_numerator_model : subinstr local censor_numerator_model ///
+                "i.`time_fe'" "i.`time'", all
             display as text ///
                 "  Censoring numerator model: `ipcw' on `censor_numerator_model'"
             capture quietly logit `ipcw' `_cens_num_rhs' if `touse', nolog

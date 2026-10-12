@@ -110,6 +110,9 @@
 {synopt:{opt flow}}report attrition and return {cmd:r(flow)}{p_end}
 {synopt:{opt verbose}}show diagnostic IDs and dates{p_end}
 
+{syntab:Technical}
+{synopt:{opt nofast:path}}use the general engine, not the fast path{p_end}
+
 {synoptline}
 {p2colreset}{...}
 
@@ -298,7 +301,18 @@ inside follow-up. Each output
 row contains cumulative dose known before that row starts; the current row's
 dose is not included. The {cmd:reference()} option defaults to 0 for
 {cmd:dose} mode and can be omitted. The {cmd:bytype} option is not supported
-with dose.
+with dose. {opt washout()} is also refused with {cmd:dose} (error 198): a
+cumulative dose already persists after its episode ends, so a washout tail
+would only spread the amount over extra days and understate the dose taken by
+a given date. {opt lag()} is allowed; see {help tvexpose##lag_washout:Lag and washout options}.
+
+{pmore}
+Cumulative values step only at row boundaries (episode starts and stops,
+{opt dosecuts()} thresholds, and {opt expandunit()} rows), because each row
+carries the amount known before it starts. With long episodes the history
+therefore lags actual accumulation by up to one episode; add
+{opt expandunit()} for a finer grid. The same convention applies to
+{opt continuousunit()}.
 
 {pmore}
 {bf:Important:} The {cmd:dose} option is a modifier, not a container. The dose variable
@@ -428,19 +442,28 @@ analytically distinct states could share one value. The allocator replaces it.
 {phang}
 {opt lag(#)} specifies a lag period in days before exposure becomes active. Exposure
 status changes # days after the start date rather than immediately. Used to
-model delayed biological effects.
+model delayed biological effects. The lag truncates each episode rather than
+shifting it: the start moves # days later and the stop is unchanged. An
+episode of # days or fewer therefore has no exposed days and is removed; the
+count is returned in {cmd:r(n_lag_removed)}. With {cmd:dose}, an episode's full
+amount is apportioned over its shortened span, and an episode removed by the
+lag contributes no dose.
 
 {phang}
 {opt washout(#)} specifies that exposure effects persist for # days after the stop
 date. Exposure status remains active until # days past the recorded end,
 including for an episode that ended before study entry but whose washout
-reaches it. Used to model residual effects.
+reaches it. Used to model residual effects. It may not be combined with
+{cmd:dose}.
 
 {phang}
 {opt window(# #)} specifies minimum and maximum days for an acute exposure
-window relative to each episode's original start. {cmd:window(a b)} keeps the
-closed interval from start + a through start + b, clipped to the episode and
-study bounds. It does not select episodes by their duration. The chosen offsets
+window relative to each episode's start after {opt lag()} is applied. {cmd:window(a b)}
+keeps the closed interval from {it:s} + a through
+{it:s} + b, where {it:s} is the recorded start plus any {opt lag()}. The window
+is clipped to the episode's stop after {opt washout()} has extended it, and to
+the study bounds. For example, an episode starting on day 100 with
+{cmd:lag(10) window(1 7)} is exposed on days 111 through 117. It does not select episodes by their duration. The chosen offsets
 are returned in {cmd:r(window_min)} and {cmd:r(window_max)}.
 
 
@@ -571,6 +594,16 @@ change the output. The table is returned automatically with {cmd:dropinvalid}.
 or overlapping exposure categories. Without {cmd:verbose}, only summary
 counts are shown and a hint to use {cmd:verbose} is displayed.
 
+{dlgtab:Technical}
+
+{phang}
+{opt nofastpath} forces the general construction engine. By default, eligible
+calls (the default time-varying categorical mode with a {opt stop()} variable,
+whole-number codes, no within-person overlaps, and no data-handling,
+competing-exposure, pattern, or diagnostic options) are built by a compiled
+fast path that produces the same output. The option exists for verification and troubleshooting; it never
+changes results, only speed.
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -693,9 +726,20 @@ months). To report years on that grid, specify
 {phang3}{cmd:recency(30 90) recencyunit(days) generate(recency_group)}{p_end}
 
 {pstd}{bf:Cumulative dose}{p_end}
+
+{pstd}
+{cmd:dose} reads {cmd:exposure()} as the total amount supplied over the whole
+episode, not a daily rate. Convert the daily dose to a total supply first; the
+three episodes then supply 470, 920, and 520 units, so the cumulative histories
+cross both cutpoints.
+
+{phang2}{cmd:. use `episodes', clear}{p_end}
+{phang2}{cmd:. generate double rx_total = daily_dose * (rx_stop - rx_start + 1)}{p_end}
+{phang2}{cmd:. tempfile dose_episodes}{p_end}
+{phang2}{cmd:. save `dose_episodes'}{p_end}
 {phang2}{cmd:. use `cohort', clear}{p_end}
-{phang2}{cmd:. tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
-{phang3}{cmd:exposure(daily_dose) entry(study_entry) exit(study_exit) dose ///}{p_end}
+{phang2}{cmd:. tvexpose using `dose_episodes', id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(rx_total) entry(study_entry) exit(study_exit) dose ///}{p_end}
 {phang3}{cmd:dosecuts(300 900) generate(cum_dose)}{p_end}
 
 {pstd}{bf:Temporary-file and frame outputs}{p_end}

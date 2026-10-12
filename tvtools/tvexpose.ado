@@ -1,4 +1,4 @@
-*! tvexpose Version 1.17.8  2026/10/09
+*! tvexpose Version 1.18.0  2026/10/12
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -499,7 +499,7 @@ program define tvexpose, rclass
     }
 
     * Set default reference label if not specified
-    if "`referencelabel'" == "" local referencelabel "Unexposed"
+    if `"`macval(referencelabel)'"' == "" local referencelabel "Unexposed"
     
     * Flag error if bytype with default or dose
     if (("`evertreated'" == "") & ("`currentformer'" == "") & ("`duration'" == "") & ///
@@ -581,6 +581,17 @@ program define tvexpose, rclass
     }
     if `washout' < 0 {
         noisily display as error "washout() cannot be negative"
+        exit 198
+    }
+    * dose output is a row-start cumulative history: once an episode's amount
+    * is known it persists to exit, so there is no exposure status for washout()
+    * to extend. Spreading the amount over a washout tail would only dilute the
+    * dose taken by a given date (and clip part of it at exit), so the
+    * combination is refused rather than given an emergent meaning.
+    if "`dose'" != "" & `washout' > 0 {
+        noisily display as error "washout() may not be specified with dose"
+        noisily display as error "cumulative dose already persists after each episode ends;" ///
+            " washout() would only spread the amount over the washout days"
         exit 198
     }
     if `fillgaps' < 0 {
@@ -1168,12 +1179,12 @@ program define tvexpose, rclass
         `_tvx_bad_eval' `_tvx_bad_exposure'
     
     * Store original exposure variable label for later use
-    if "`label'" != "" {
-        local exp_label "`label'"
+    if `"`macval(label)'"' != "" {
+        local exp_label `"`macval(label)'"'
     }
     else {
         local exp_label : variable label `exposure'
-        if "`exp_label'" == "" {
+        if `"`macval(exp_label)'"' == "" {
             local exp_label "Exposure variable"
         }
     }
@@ -1722,7 +1733,8 @@ program define tvexpose, rclass
     * Different exposure types may overlap; need to decide how to handle
     * Four strategies available:
     *   1. split: Create separate periods at all boundary points (every combination)
-    *   2. combine: Encode overlaps as combined exposure value (val1*100 + val2)
+    *   2. combine: Give each simultaneous state its own allocated code (above every
+    *      observed value; composition in a value label and r(combine_map))
     *   3. priority: Highest-ranked active value wins each day; lower ranks resume
     * Default (none specified): Later exposures take precedence (simple truncation)
 
@@ -2580,18 +2592,18 @@ program define tvexpose, rclass
     
     * Restore variable and value labels for keepvars and study dates
     * This ensures labels from master dataset are preserved in output
-    if "`study_entry_varlab'" != "" {
-        label variable study_entry "`study_entry_varlab'"
+    if `"`macval(study_entry_varlab)'"' != "" {
+        label variable study_entry `"`macval(study_entry_varlab)'"'
     }
-    if "`study_exit_varlab'" != "" {
-        label variable study_exit "`study_exit_varlab'"
+    if `"`macval(study_exit_varlab)'"' != "" {
+        label variable study_exit `"`macval(study_exit_varlab)'"'
     }
     
     if "`keepvars'" != "" {
         foreach var of local keepvars {
             * Restore variable label
-            if "`varlab_`var''" != "" {
-                label variable `var' "`varlab_`var''"
+            if `"`macval(varlab_`var')'"' != "" {
+                label variable `var' `"`macval(varlab_`var')'"'
             }
             
             * Restore value labels if they existed
@@ -2646,10 +2658,12 @@ program define tvexpose, rclass
     * refresh of the master windows. The append-based build inherits whatever
     * the earlier merge attached, so re-apply them here to reach the same
     * observable metadata by either route.
-    if `_tvx_fast_build' & "`study_entry_varlab'" != "" ///
-        label variable study_entry "`study_entry_varlab'"
-    if `_tvx_fast_build' & "`study_exit_varlab'" != "" ///
-        label variable study_exit "`study_exit_varlab'"
+    if `_tvx_fast_build' & `"`macval(study_entry_varlab)'"' != "" {
+        label variable study_entry `"`macval(study_entry_varlab)'"'
+    }
+    if `_tvx_fast_build' & `"`macval(study_exit_varlab)'"' != "" {
+        label variable study_exit `"`macval(study_exit_varlab)'"'
+    }
 
     if `_tvx_fast_build' sort id exp_start exp_stop exp_value
 
@@ -2763,16 +2777,16 @@ program define tvexpose, rclass
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
-                if "`vallab'" == "" local vallab "`exp_type_val'"
-                if "`label'" != "" {
-                    label var `stub_name'`suffix' "`label' (`vallab')"
+                if `"`macval(vallab)'"' == "" local vallab "`exp_type_val'"
+                if `"`macval(label)'"' != "" {
+                    label var `stub_name'`suffix' `"`macval(label)' (`macval(vallab)')"'
                 }
                 else {
-                    label var `stub_name'`suffix' "Ever exposed: `vallab'"
+                    label var `stub_name'`suffix' `"Ever exposed: `macval(vallab)'"'
                 }
 
                 * Define and apply value labels
-                label define `stub_name'labels_`suffix' 0 "Never `vallab'" 1 "Ever `vallab'", replace
+                label define `stub_name'labels_`suffix' 0 `"Never `macval(vallab)'"' 1 `"Ever `macval(vallab)'"', replace
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
             }
             
@@ -2820,7 +2834,7 @@ program define tvexpose, rclass
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-                label variable `stub_name'`suffix' "`varlab_`suffix''"
+                label variable `stub_name'`suffix' `"`macval(varlab_`suffix')'"'
             }
 
             * Keep original categorical exposure in exp_value
@@ -2912,12 +2926,12 @@ program define tvexpose, rclass
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
-                if "`vallab'" == "" local vallab "`exp_type_val'"
-                if "`label'" != "" {
-                    label var `stub_name'`suffix' "`label' (`vallab')"
+                if `"`macval(vallab)'"' == "" local vallab "`exp_type_val'"
+                if `"`macval(label)'"' != "" {
+                    label var `stub_name'`suffix' `"`macval(label)' (`macval(vallab)')"'
                 }
                 else {
-                    label var `stub_name'`suffix' "`vallab'"
+                    label var `stub_name'`suffix' `"`macval(vallab)'"'
                 }
 
                 * Define and apply value labels
@@ -2970,7 +2984,7 @@ program define tvexpose, rclass
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-                label variable `stub_name'`suffix' "`varlab_`suffix''"
+                label variable `stub_name'`suffix' `"`macval(varlab_`suffix')'"'
             }
         }
         else {
@@ -3197,12 +3211,12 @@ program define tvexpose, rclass
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
-                if "`vallab'" == "" local vallab "`exp_type_val'"
-                if "`label'" != "" {
-                    label var `stub_name'`suffix' "`label' (`vallab')"
+                if `"`macval(vallab)'"' == "" local vallab "`exp_type_val'"
+                if `"`macval(label)'"' != "" {
+                    label var `stub_name'`suffix' `"`macval(label)' (`macval(vallab)')"'
                 }
                 else {
-                    label var `stub_name'`suffix' "Cumulative `vallab' exposure (`cont_unit')"
+                    label var `stub_name'`suffix' `"Cumulative `macval(vallab)' exposure (`cont_unit')"'
                 }
 
                 * Clean up intermediate variables
@@ -3255,7 +3269,7 @@ program define tvexpose, rclass
             foreach exp_type_val of local exp_types {
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
-                label variable `stub_name'`suffix' "`varlab_`suffix''"
+                label variable `stub_name'`suffix' `"`macval(varlab_`suffix')'"'
             }
 
         }
@@ -3635,9 +3649,9 @@ program define tvexpose, rclass
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
-                if "`vallab'" == "" local vallab "`exp_type_val'"
+                if `"`macval(vallab)'"' == "" local vallab "`exp_type_val'"
 
-                label define `stub_name'labels_`suffix' `reference' "`referencelabel'", replace
+                label define `stub_name'labels_`suffix' `reference' `"`macval(referencelabel)'"', replace
                 if `n_cuts' > 0 {
                     local first_cut = `1'
                     local first_cut_str = string(`first_cut', "%9.0f")
@@ -3664,11 +3678,11 @@ program define tvexpose, rclass
                 }
 
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-                if "`label'" != "" {
-                    label var `stub_name'`suffix' "`label' (`vallab')"
+                if `"`macval(label)'"' != "" {
+                    label var `stub_name'`suffix' `"`macval(label)' (`macval(vallab)')"'
                 }
                 else {
-                    label var `stub_name'`suffix' "`vallab' exposure duration"
+                    label var `stub_name'`suffix' `"`macval(vallab)' exposure duration"'
                 }
 
                 * Clean up temporary variables for this type
@@ -3728,7 +3742,7 @@ program define tvexpose, rclass
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-                label variable `stub_name'`suffix' "`varlab_`suffix''"
+                label variable `stub_name'`suffix' `"`macval(varlab_`suffix')'"'
             }
 
             * Keep original categorical exposure in exp_value AND the duration_<type> variables
@@ -3950,7 +3964,7 @@ program define tvexpose, rclass
             * (collision-safe name so a caller's same-named label is never clobbered)
             _tvtools_new_vallabel, base(dur_labels)
             local _dur_lbl "`r(name)'"
-            label define `_dur_lbl' `reference' "`referencelabel'"
+            label define `_dur_lbl' `reference' `"`macval(referencelabel)'"'
             if `n_cuts' > 0 {
                 local first_cut = `1'
                 local first_cut_str = string(`first_cut', "%9.0f")
@@ -4269,32 +4283,32 @@ program define tvexpose, rclass
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
-                if "`vallab'" == "" local vallab "`exp_type_val'"
-                if "`label'" != "" {
-                    label var `stub_name'`suffix' "`label' (`vallab')"
+                if `"`macval(vallab)'"' == "" local vallab "`exp_type_val'"
+                if `"`macval(label)'"' != "" {
+                    label var `stub_name'`suffix' `"`macval(label)' (`macval(vallab)')"'
                 }
                 else {
-                    label var `stub_name'`suffix' "Recency category: `vallab'"
+                    label var `stub_name'`suffix' `"Recency category: `macval(vallab)'"'
                 }
 
                 * Define and apply value labels for recency categories
-                label define `stub_name'labels_`suffix' `reference' "Never `vallab'", replace
-                label define `stub_name'labels_`suffix' 1 "Current `vallab'", add
+                label define `stub_name'labels_`suffix' `reference' `"Never `macval(vallab)'"', replace
+                label define `stub_name'labels_`suffix' 1 `"Current `macval(vallab)'"', add
                 if `n_cuts' > 0 {
                     local cat = 2
                     if "`1'" != "" {
-                        label define `stub_name'labels_`suffix' `cat' "<`1'd since `vallab'", add
+                        label define `stub_name'labels_`suffix' `cat' `"<`1'd since `macval(vallab)'"', add
                         local cat = `cat' + 1
                     }
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev = ``=`i'-1''
                         local curr = ``i''
-                        label define `stub_name'labels_`suffix' `cat' "`prev'-<`curr'd since `vallab'", add
+                        label define `stub_name'labels_`suffix' `cat' `"`prev'-<`curr'd since `macval(vallab)'"', add
                         local cat = `cat' + 1
                         local i = `i' + 1
                     }
-                    label define `stub_name'labels_`suffix' `cat' "`last_cut'+ d since `vallab'", add
+                    label define `stub_name'labels_`suffix' `cat' `"`last_cut'+ d since `macval(vallab)'"', add
                 }
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
 
@@ -4351,7 +4365,7 @@ program define tvexpose, rclass
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-                label variable `stub_name'`suffix' "`varlab_`suffix''"
+                label variable `stub_name'`suffix' `"`macval(varlab_`suffix')'"'
             }
 
             * Keep original categorical exposure in exp_value
@@ -4537,10 +4551,10 @@ program define tvexpose, rclass
         
         if "`exp_vallabel'" != "" {
             * Value label exists - add or modify the reference category
-            capture label define `exp_vallabel' `reference' "`referencelabel'", modify
+            capture label define `exp_vallabel' `reference' `"`macval(referencelabel)'"', modify
             if _rc != 0 {
                 * modify failed, try add
-                label define `exp_vallabel' `reference' "`referencelabel'", add
+                label define `exp_vallabel' `reference' `"`macval(referencelabel)'"', add
             }
         }
         else {
@@ -4549,7 +4563,7 @@ program define tvexpose, rclass
             local _short_gen = substr("`generate'", 1, 25)
             local _tv_lbl_name "_tvlbl_`_short_gen'"
             quietly levelsof exp_value, local(all_vals)
-            label define `_tv_lbl_name' `reference' "`referencelabel'", replace
+            label define `_tv_lbl_name' `reference' `"`macval(referencelabel)'"', replace
             * Codes allocated by combine() are labelled with the composition
             * they stand for, not with the bare allocated number.
             foreach val of local all_vals {
@@ -4832,10 +4846,10 @@ program define tvexpose, rclass
     label variable start "Period start date"
     label variable stop "Period stop date"
     if `skip_main_var' == 0 {
-        if "`exp_type'" == "currentformer" & "`label'" == "" {
+        if "`exp_type'" == "currentformer" & `"`macval(label)'"' == "" {
             label variable `generate' "Never/current/former exposure"
         }
-        else if "`exp_type'" == "dose" & "`label'" == "" {
+        else if "`exp_type'" == "dose" & `"`macval(label)'"' == "" {
             if "`dose_cuts'" != "" {
                 label variable `generate' "Cumulative dose category"
             }
@@ -4844,7 +4858,7 @@ program define tvexpose, rclass
             }
         }
         else {
-            label variable `generate' "`exp_label'"
+            label variable `generate' `"`macval(exp_label)'"'
         }
     }
     * Note: When bytype is used (skip_main_var == 1), exp_value has been dropped
@@ -5044,8 +5058,8 @@ program define tvexpose, rclass
         if "`keepdates'" != "" {
             capture confirm variable study_entry
             if _rc == 0 {
-                if "`study_entry_varlab'" != "" {
-                    label variable study_entry "`study_entry_varlab'"
+                if `"`macval(study_entry_varlab)'"' != "" {
+                    label variable study_entry `"`macval(study_entry_varlab)'"'
                 }
                 if "`study_entry_vallab'" != "" {
                     capture confirm file "`_lbl_stub'_study_entry.do"
@@ -5057,8 +5071,8 @@ program define tvexpose, rclass
             }
             capture confirm variable study_exit
             if _rc == 0 {
-                if "`study_exit_varlab'" != "" {
-                    label variable study_exit "`study_exit_varlab'"
+                if `"`macval(study_exit_varlab)'"' != "" {
+                    label variable study_exit `"`macval(study_exit_varlab)'"'
                 }
                 if "`study_exit_vallab'" != "" {
                     capture confirm file "`_lbl_stub'_study_exit.do"
@@ -5076,8 +5090,8 @@ program define tvexpose, rclass
                 * Restore variable label
                 capture confirm variable `var'
                 if _rc == 0 {
-                    if "`varlab_`var''" != "" {
-                        label variable `var' "`varlab_`var''"
+                    if `"`macval(varlab_`var')'"' != "" {
+                        label variable `var' `"`macval(varlab_`var')'"'
                     }
                     
                     * Restore value labels if they were saved

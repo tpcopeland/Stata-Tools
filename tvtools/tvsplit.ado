@@ -1,4 +1,4 @@
-*! tvsplit Version 1.17.8  2026/10/09
+*! tvsplit Version 1.18.0  2026/10/12
 *! Multi-timescale Lexis splitting of follow-up intervals
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -8,7 +8,8 @@
 *!   time axes -- age (relative to date of birth), calendar period, and elapsed
 *!   time since a reference date -- so that every output sub-interval falls in
 *!   exactly one band on every requested axis (a Lexis diagram). Existing
-*!   covariates ride along on each split row, so the result is ready for
+*!   covariates ride along on each split row (interval totals tagged
+*!   [tvtools_quantity] "total" are apportioned by days), so the result is ready for
 *!   age- and period-adjusted Cox or Poisson models. Equivalent to repeated
 *!   Stata stsplit / R Epi::Lexis multi-timescale splitting.
 *!
@@ -227,14 +228,17 @@ program define tvsplit, rclass
     if "`age'" != "" {
         _tvband_split, start(`start') stop(`stop') type(age) origin(`aorig_f') ///
             width(`awidth') min(`amin') max(`amax') generate(`agen') label
+        local total_vars "`r(total_vars)'"
     }
     if "`calendar'" != "" {
         _tvband_split, start(`start') stop(`stop') type(calendar) ///
             width(`cwidth') anchor(`canchor') generate(`cgen') label
+        local total_vars "`r(total_vars)'"
     }
     if "`elapsed'" != "" {
         _tvband_split, start(`start') stop(`stop') type(elapsed) origin(`eorig_f') ///
             width(`ewidth') unit(`eunit') min(`emin') max(`emax') generate(`egen') label
+        local total_vars "`r(total_vars)'"
     }
 
     sort `id' `start'
@@ -270,6 +274,7 @@ program define tvsplit, rclass
     if "`elapsed'" != ""  return local fuvar   "`egen'"
     return local startvar "`start'"
     return local stopvar  "`stop'"
+    return local total_vars "`total_vars'"
 
     } // end capture noisily
     local rc = _rc

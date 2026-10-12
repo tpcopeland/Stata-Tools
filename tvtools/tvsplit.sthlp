@@ -68,6 +68,16 @@ commutative over the union of cut points, the order of the axes does not affect
 the result. Existing covariates are carried onto every split row.
 
 {pstd}
+Variables carrying the {cmd:[tvtools_quantity]} characteristic follow the
+suite's quantity rules (see {help tvtools##contracts:Data contracts}): an
+interval total ({cmd:"total"}, for example {cmd:tvmerge, total()} output) is
+apportioned by inclusive days, so the pieces sum to the source total (the
+share of a band dropped by {opt min()} or {opt max()} is dropped with it); a
+rate or a row-start cumulative history is copied unchanged. Any other value of the
+characteristic is refused with error 498. The apportioned totals are listed in
+{cmd:r(total_vars)}.
+
+{pstd}
 For splitting on a single axis (and for {opt saveas()} convenience), see
 {helpb tvband}; {helpb tvage} is the age-only special case.
 
@@ -185,6 +195,7 @@ day-unit elapsed boundaries are also exact.
 {synopt:{cmd:r(fuvar)}}elapsed band variable (if {opt elapsed()} used){p_end}
 {synopt:{cmd:r(startvar)}}name of the interval start variable{p_end}
 {synopt:{cmd:r(stopvar)}}name of the interval stop variable{p_end}
+{synopt:{cmd:r(total_vars)}}interval totals apportioned across split rows{p_end}
 
 
 {marker author}{...}

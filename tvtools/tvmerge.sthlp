@@ -112,6 +112,17 @@ of exposure periods. The command creates all possible overlapping combinations
 between datasets (cartesian product).
 
 {pstd}
+{bf:Coverage is intersected.} An output row exists only on days that every input
+dataset covers for that person. Days covered by some inputs but not by others
+(for example, one source followed to day 999 and another only to day 499) are
+absent from the output. {cmd:tvmerge} counts those days as the per-person union
+of input coverage minus output coverage, displays a note when the count is
+positive, and returns it in {cmd:r(n_persontime_lost)}, with the number of
+affected persons in {cmd:r(n_ids_persontime_lost)}. Give every source the same
+follow-up window (for example, by running {cmd:tvexpose} with the same
+{opt entry()} and {opt exit()}) to keep this at zero.
+
+{pstd}
 {bf:Exposure types}: {cmd:tvmerge} distinguishes categorical exposures and
 three continuous-quantity algebras:
 
@@ -325,7 +336,9 @@ intervals.
 {opt validatecoverage} checks the running union of each person's intervals for
 gaps. A start more than one day after the maximum prior stop is a gap. This
 running-maximum rule remains correct for nested and crossing rows. The count is
-returned in {cmd:r(n_gaps)}.
+returned in {cmd:r(n_gaps)}. It inspects the output only, so it does not detect
+person-time removed by the intersection of input coverage; that is always
+reported in {cmd:r(n_persontime_lost)}.
 
 {phang}
 {opt validateoverlap} evaluates every active prior interval within person and
@@ -533,6 +546,8 @@ numbers.
 {synopt:{cmd:r(n_input_overlaps)}}input rows overlapping a running prior maximum{p_end}
 {synopt:{cmd:r(n_input_overlaps_ds#)}}input overlaps in source dataset #{p_end}
 {synopt:{cmd:r(n_gaps)}}output coverage gaps found{p_end}
+{synopt:{cmd:r(n_persontime_lost)}}person-days lost to the intersection{p_end}
+{synopt:{cmd:r(n_ids_persontime_lost)}}persons with {cmd:r(n_persontime_lost)} > 0{p_end}
 {synopt:{cmd:r(n_overlaps)}}identical-vector output overlap pairs{p_end}
 {synopt:{cmd:r(n_duplicates_dropped)}}full-row duplicates removed{p_end}
 

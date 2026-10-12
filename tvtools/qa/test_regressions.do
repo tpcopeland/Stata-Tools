@@ -3192,12 +3192,18 @@ else {
 
 * SECTION 24: Documentation release regressions
 
-* TEST 24.1: public help Author sections use the canonical project form only
+* TEST 24.1: public help Author sections use the canonical project form only.
+* Sub-command help carries the one-line author string and nothing else. The
+* flagship tvtools.sthlp carries the canonical extended block (write-sthlp
+* section 3k): author, Version line, bug-report URL, GitHub note -- in order.
 local ++test_count
 capture noisily {
     local qa_dir "`c(pwd)'"
     local pkg_dir = substr("`qa_dir'", 1, strlen("`qa_dir'") - 3)
     local canonical "{pstd}Timothy P Copeland, Karolinska Institutet{p_end}"
+    local flag_report "{pstd}Report bugs and suggestions at{break}"
+    local flag_browse `"{browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}"'
+    local flag_note "{pstd}Check GitHub for the most up-to-date release; it may be newer than the version installed here.{p_end}"
     local help_files tvage tvdiagnose tvevent tvexpose tvmerge tvpanel tvtools tvweight
 
     foreach h of local help_files {
@@ -3209,10 +3215,17 @@ capture noisily {
         local canonical_count = 0
         local other_count = 0
         local other_line ""
+        local flag_pos = 0
+        local flag_bad = 0
+        local header_version ""
 
         file read `fh' line
         while r(eof) == 0 {
             local trimmed = strtrim(`"`line'"')
+            if "`header_version'" == "" & ///
+                regexm(`"`trimmed'"', "^\{\* \*! version ([0-9]+\.[0-9]+\.[0-9]+)") {
+                local header_version = regexs(1)
+            }
 
             if `"`trimmed'"' == "{marker author}{...}" {
                 local in_author = 1
@@ -3225,6 +3238,22 @@ capture noisily {
                     substr(`"`trimmed'"', 1, 8) == "{marker " | ///
                     `"`trimmed'"' == "{hline}" {
                     local in_author = 0
+                }
+                else if `"`trimmed'"' != "" & "`h'" == "tvtools" {
+                    local ++flag_pos
+                    if `flag_pos' == 1 local ok = `"`trimmed'"' == `"`canonical'"'
+                    else if `flag_pos' == 2 {
+                        local ok = regexm(`"`trimmed'"', "^\{pstd\}Version ([0-9]+\.[0-9]+\.[0-9]+), [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\{p_end\}$")
+                        if `ok' local ok = regexs(1) == "`header_version'"
+                    }
+                    else if `flag_pos' == 3 local ok = `"`trimmed'"' == `"`flag_report'"'
+                    else if `flag_pos' == 4 local ok = `"`trimmed'"' == `"`flag_browse'"'
+                    else if `flag_pos' == 5 local ok = `"`trimmed'"' == `"`flag_note'"'
+                    else local ok = 0
+                    if !`ok' {
+                        local ++flag_bad
+                        display as error `"flagship Author line `flag_pos' unexpected: `trimmed'"'
+                    }
                 }
                 else if `"`trimmed'"' != "" {
                     if `"`trimmed'"' == `"`canonical'"' {
@@ -3241,8 +3270,15 @@ capture noisily {
         }
         file close `fh'
 
-        assert `canonical_count' == 1
-        assert `other_count' == 0
+        if "`h'" == "tvtools" {
+            assert "`header_version'" != ""
+            assert `flag_pos' == 5
+            assert `flag_bad' == 0
+        }
+        else {
+            assert `canonical_count' == 1
+            assert `other_count' == 0
+        }
     }
 }
 if _rc == 0 {

@@ -1,4 +1,4 @@
-*! tvevent Version 1.17.8  2026/10/09
+*! tvevent Version 1.18.0  2026/10/12
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -955,13 +955,13 @@ program define tvevent, rclass
         if "`type'" == "recurring" {
             local first_evar : word 1 of `eventvars'
             local orig_date_label : variable label `first_evar'
-            local lab_1 `"`orig_date_label'"'
+            local lab_1 : copy local orig_date_label
             if `"`lab_1'"' == "" local lab_1 "Event: `date'"
             local num_compete = 0
         }
         else {
             local orig_date_label : variable label `date'
-            local lab_1 `"`orig_date_label'"'
+            local lab_1 : copy local orig_date_label
             if `"`lab_1'"' == "" local lab_1 "Event: `date'"
             local num_compete : word count `compete'
             if `num_compete' > 0 {
@@ -1507,23 +1507,23 @@ program define tvevent, rclass
         * intervals are a prior tvevent output); label define has no replace-
         * from-scratch form and errors r(110) on an existing name.
         label define `_ev_lbl_name' 0 "Censored"
-        label define `_ev_lbl_name' 1 `"`lab_1'"', add
+        label define `_ev_lbl_name' 1 `"`macval(lab_1)'"', add
         
         if "`compete'" != "" {
             local i = 1
             local label_idx = 2
             foreach v of local compete {
-                local this_lab `"`c_lab_`i''"'
-                label define `_ev_lbl_name' `label_idx' `"`this_lab'"', add
+                local this_lab : copy local c_lab_`i'
+                label define `_ev_lbl_name' `label_idx' `"`macval(this_lab)'"', add
                 local i = `i' + 1
                 local label_idx = `label_idx' + 1
             }
         }
         
         * B. Apply User Overrides
-        if `"`eventlabel'"' != "" {
+        if `"`macval(eventlabel)'"' != "" {
             * Use 'modify' to overwrite specific values or add new ones
-            capture label define `_ev_lbl_name' `eventlabel', modify
+            capture label define `_ev_lbl_name' `macval(eventlabel)', modify
             if _rc {
                  noisily di as error "Error applying eventlabel(). Ensure syntax follows 'value \"Label\"' pairs."
                  exit 198
@@ -1668,10 +1668,14 @@ program define tvevent, rclass
 
         **# 8. GENERATE TIME VARIABLE
         if "`timegen'" != "" {
-            * Calculate cumulative time from person's first interval start to current stop
+            * Closed-day elapsed time from the person's first interval start
+            * through the end of the current row: [first_start, stop] holds
+            * stop - first_start + 1 days. This is the right-hand bound of the
+            * suite's stset mapping (start - 1, stop], shifted to entry, so an
+            * event on the entry day has time 1, not 0 (which stset excludes).
             tempvar first_start days_from_entry
             bysort `id' (`startvar'): gen double `first_start' = `startvar'[1]
-            gen double `days_from_entry' = `stopvar' - `first_start'
+            gen double `days_from_entry' = `stopvar' - `first_start' + 1
             if "`timeunit'" == "days" {
                 gen double `timegen' = `days_from_entry'
                 label var `timegen' "Time since entry (days)"
@@ -1765,7 +1769,7 @@ program define tvevent, rclass
         local l : label `lblname' `v'
         * indent(4) with pad(26) keeps the nested colon in the same column as
         * the parent rows, which use indent(2) with the default pad(28).
-        _tvtools_row "`v'", value(`"`l'"') indent(4) pad(26)
+        _tvtools_row "`v'", value(`"`macval(l)'"') indent(4) pad(26)
     }
     _tvtools_rule
 

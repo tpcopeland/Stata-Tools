@@ -1,4 +1,4 @@
-*! _tvtools_row Version 1.17.8  2026/10/09
+*! _tvtools_row Version 1.18.0  2026/10/12
 *! Print one aligned label/value row of a tvtools report
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -35,7 +35,7 @@ program define _tvtools_row
         display as error "_tvtools_row: indent() must be non-negative"
         exit 198
     }
-    if `"`value'"' != "" & `"`num'"' != "" {
+    if `"`macval(value)'"' != "" & `"`num'"' != "" {
         display as error "_tvtools_row: specify value() or num(), not both"
         exit 198
     }
@@ -50,21 +50,21 @@ program define _tvtools_row
 
     if `"`num'"' != "" {
         if `"`fmt'"' == "" local fmt "%14.0fc"
-        if `"`note'"' != "" {
+        if `"`macval(note)'"' != "" {
             display as text %-`_w's `"`_text'"' " : " ///
-                as result `fmt' `num' as text `"  `note'"'
+                as result `fmt' `num' as text `"  `macval(note)'"'
         }
         else {
             display as text %-`_w's `"`_text'"' " : " as result `fmt' `num'
         }
     }
-    else if `"`value'"' != "" {
-        if `"`note'"' != "" {
+    else if `"`macval(value)'"' != "" {
+        if `"`macval(note)'"' != "" {
             display as text %-`_w's `"`_text'"' " : " ///
-                as result `"`value'"' as text `"  `note'"'
+                as result `"`macval(value)'"' as text `"  `macval(note)'"'
         }
         else {
-            display as text %-`_w's `"`_text'"' " : " as result `"`value'"'
+            display as text %-`_w's `"`_text'"' " : " as result `"`macval(value)'"'
         }
     }
     else {

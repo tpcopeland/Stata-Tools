@@ -1,4 +1,4 @@
-*! _tvbuild_make_source Version 1.17.8  2026/10/09
+*! _tvbuild_make_source Version 1.18.0  2026/10/12
 *! Turn one tvbuild specification row into one normalised interval frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -111,18 +111,18 @@ program define _tvbuild_make_source, rclass
         * reference code is added to that label; when it does not, a new label
         * gives every observed code its own number as text and the reference
         * code the reference label.
-        if `"`_rlab'"' == "" local _rlab "Unexposed"
+        if `"`macval(_rlab)'"' == "" local _rlab "Unexposed"
         local _outvar : word 1 of `_ov'
         local _exp_vallabel : value label exp_value
         if "`_exp_vallabel'" != "" {
-            capture label define `_exp_vallabel' `_ref' `"`_rlab'"', modify
-            if _rc label define `_exp_vallabel' `_ref' `"`_rlab'"', add
+            capture label define `_exp_vallabel' `_ref' `"`macval(_rlab)'"', modify
+            if _rc label define `_exp_vallabel' `_ref' `"`macval(_rlab)'"', add
         }
         else {
             local _short = substr("`_outvar'", 1, 25)
             local _newlbl "_tvlbl_`_short'"
             quietly levelsof exp_value, local(_allvals)
-            label define `_newlbl' `_ref' `"`_rlab'"', replace
+            label define `_newlbl' `_ref' `"`macval(_rlab)'"', replace
             foreach _v of local _allvals {
                 if `_v' != `_ref' label define `_newlbl' `_v' "`_v'", add
             }
@@ -130,10 +130,12 @@ program define _tvbuild_make_source, rclass
         }
 
         * ---- the output variable label ---------------------------------
-        if `"`_vlab'"' != "" local _outlab `"`_vlab'"'
-        else if `"`_srclab'"' != "" local _outlab `"`_srclab'"'
-        else local _outlab "Exposure variable"
-        label variable exp_value `"`_outlab'"'
+        * `: copy local' never re-expands the text; an inline `if ... local x
+        * `"..."'' would, and mangles a label holding a backtick or dollar.
+        local _outlab "Exposure variable"
+        if `"`macval(_srclab)'"' != "" local _outlab : copy local _srclab
+        if `"`macval(_vlab)'"' != "" local _outlab : copy local _vlab
+        label variable exp_value `"`macval(_outlab)'"'
 
         * The constructor promotes the category column to double so a study
         * bound cannot overflow it. tvexpose restores the narrow type with its

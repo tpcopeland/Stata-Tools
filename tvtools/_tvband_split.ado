@@ -1,4 +1,4 @@
-*! _tvband_split Version 1.17.8  2026/10/09
+*! _tvband_split Version 1.18.0  2026/10/12
 *! Shared single-axis interval splitter for tvband / tvsplit / tvage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -8,7 +8,9 @@
 *!   date-derived axis (age, calendar period, or elapsed time since a
 *!   reference date), adding a band variable and overwriting start/stop with
 *!   the per-band sub-interval boundaries. All other variables ride along on
-*!   each split row, so covariates and previously-added bands are preserved.
+*!   each split row, so covariates and previously-added bands are preserved,
+*!   except variables tagged [tvtools_quantity] "total", which are apportioned
+*!   by inclusive overlap days so the pieces sum to the source total.
 *!   Calling the engine once per axis composes to a full Lexis grid (interval
 *!   splitting is commutative over the union of cut points), which is how
 *!   tvsplit performs multi-timescale splitting.
@@ -139,6 +141,39 @@ program define _tvband_split, rclass
         quietly gen double `b1' = floor((year(`stop')  - `anchorval') / `width')
     }
 
+    * --- Quantity contract (tvtools.sthlp, Data contracts) -----------------
+    * Variables tagged [tvtools_quantity] follow the suite's split algebra:
+    * an interval total is apportioned by inclusive overlap days so the pieces
+    * sum to the source total; a rate or a row-start cumulative history is
+    * carried unchanged. Untagged covariates ride along unchanged. Unknown
+    * metadata cannot be mapped, so it is refused rather than guessed.
+    local qtotal ""
+    foreach v of varlist _all {
+        if inlist("`v'", "`start'", "`stop'", "`origin'") continue
+        local q : char `v'[tvtools_quantity]
+        if `"`q'"' == "" continue
+        if `"`q'"' == "total" {
+            capture confirm numeric variable `v'
+            if _rc {
+                display as error "_tvband_split: interval total `v' must be numeric"
+                exit 109
+            }
+            local qtotal "`qtotal' `v'"
+        }
+        else if !inlist(`"`q'"', "rate", "cumulative") {
+            display as error `"_tvband_split: unknown [tvtools_quantity] metadata on `v': `q'"'
+            display as error "expected rate, total, or cumulative"
+            exit 498
+        }
+    }
+    local qtotal : list retokenize qtotal
+    if "`qtotal'" != "" {
+        tempvar odur
+        quietly gen double `odur' = `stop' - `start' + 1
+        * A fractional share must not be truncated by an integer storage type.
+        quietly recast double `qtotal'
+    }
+
     * --- Expand each interval into one row per band it traverses ----------
     tempvar row k bidx
     quietly gen long `row' = _n
@@ -188,6 +223,11 @@ program define _tvband_split, rclass
     * --- Drop degenerate sub-intervals -----------------------------------
     quietly drop if `stop' < `start'
 
+    * --- Apportion interval totals over the surviving pieces ------------
+    foreach v of local qtotal {
+        quietly replace `v' = `v' * (`stop' - `start' + 1) / `odur'
+    }
+
     quietly count
     if r(N) == 0 {
         display as error "_tvband_split: no intervals remain after splitting/bounds"
@@ -221,5 +261,6 @@ program define _tvband_split, rclass
     quietly count
     return scalar n_obs = r(N)
     return local genvar  "`generate'"
+    return local total_vars "`qtotal'"
     return local axistype "`type'"
 end

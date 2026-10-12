@@ -75,7 +75,17 @@ birthdays);{p_end}
 
 {pstd}
 All other variables are carried onto each split row, so covariates are
-preserved. Intervals are inclusive integer Stata dates that abut as
+preserved. Variables carrying the {cmd:[tvtools_quantity]} characteristic follow the
+suite's quantity rules (see {help tvtools##contracts:Data contracts}): an
+interval total ({cmd:"total"}, for example {cmd:tvmerge, total()} output) is
+apportioned by inclusive days, so the pieces sum to the source total (the
+share of a band dropped by {opt min()} or {opt max()} is dropped with it); a
+rate or a row-start cumulative history is copied unchanged. Any other value of the
+characteristic is refused with error 498. The apportioned totals are listed in
+{cmd:r(total_vars)}.
+
+{pstd}
+Intervals are inclusive integer Stata dates that abut as
 {cmd:stop + 1 == next start}, matching the rest of the {help tvtools} suite, so
 the output merges with {helpb tvexpose} and {helpb tvmerge} output and feeds
 {helpb stset}. To split on several axes at once (a Lexis diagram), use
@@ -217,6 +227,7 @@ is split independently.
 {synopt:{cmd:r(varname)}}name of the band variable{p_end}
 {synopt:{cmd:r(startvar)}}name of the interval start variable{p_end}
 {synopt:{cmd:r(stopvar)}}name of the interval stop variable{p_end}
+{synopt:{cmd:r(total_vars)}}interval totals apportioned across split rows{p_end}
 
 
 {marker author}{...}

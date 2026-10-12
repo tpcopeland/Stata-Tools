@@ -1,4 +1,4 @@
-*! _tvbuild_normalize_spec Version 1.17.8  2026/10/09
+*! _tvbuild_normalize_spec Version 1.18.0  2026/10/12
 *! Normalise either tvbuild input form into one internal plan frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -226,8 +226,8 @@ program define _tvbuild_normalize_spec, rclass
                 ref(`"`_c_reference'"') ///
                 rvars(`"`_c_rate_vars'"') tvars(`"`_c_total_vars'"') ///
                 cvars(`"`_c_cumulative_vars'"') ///
-                rlab(`"`_c_reference_label'"') vlab(`"`_c_variable_label'"') ///
-                desc(`"`_c_description'"')
+                rlab(`"`macval(_c_reference_label)'"') vlab(`"`macval(_c_variable_label)'"') ///
+                desc(`"`macval(_c_description)'"')
         }
         local n_sources = `_nrows'
     }
@@ -246,7 +246,7 @@ program define _tvbuild_normalize_spec, rclass
             ivars(`"`exposure'"') ovars(`"`generate'"') ///
             ref(`"`reference'"') ///
             rvars("") tvars("") cvars("") ///
-            rlab(`"`referencelabel'"') vlab(`"`label'"') ///
+            rlab(`"`macval(referencelabel)'"') vlab(`"`macval(label)'"') ///
             desc("one-source shortcut")
         local n_sources = 1
     }
@@ -434,7 +434,7 @@ program define _tvbuild_normalize_spec, rclass
                     "`_where': an intervals source takes no reference code; it is already constructed"
                 exit 198
             }
-            if `"`rlab'`vlab'"' != "" {
+            if `"`macval(rlab)'`macval(vlab)'"' != "" {
                 noisily display as error ///
                     "`_where': reference_label and variable_label describe an episodes source only"
                 exit 198
@@ -501,9 +501,9 @@ program define _tvbuild_write_plan_row
         replace rate_vars       = strtrim(stritrim(`"`rvars'"')) in `index'
         replace total_vars      = strtrim(stritrim(`"`tvars'"')) in `index'
         replace cumulative_vars = strtrim(stritrim(`"`cvars'"')) in `index'
-        replace reference_label = `"`rlab'"'                    in `index'
-        replace variable_label  = `"`vlab'"'                    in `index'
-        replace description     = `"`desc'"'                    in `index'
+        replace reference_label = `"`macval(rlab)'"'                    in `index'
+        replace variable_label  = `"`macval(vlab)'"'                    in `index'
+        replace description     = `"`macval(desc)'"'                    in `index'
         replace reference       = `_refval'                     in `index'
     }
     frame change `_here'

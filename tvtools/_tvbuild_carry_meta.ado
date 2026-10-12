@@ -1,4 +1,4 @@
-*! _tvbuild_carry_meta Version 1.17.8  2026/10/09
+*! _tvbuild_carry_meta Version 1.18.0  2026/10/12
 *! Carry display format, labels, value labels, and characteristics between frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -151,7 +151,7 @@ program define _tvbuild_carry_meta, rclass
             exit 111
         }
         format `_dv' `_fmt'
-        label variable `_dv' `"`_vlb'"'
+        label variable `_dv' `"`macval(_vlb)'"'
         frame change `_caller_frame'
 
         * Copy one characteristic at a time. Characteristic names may use all
@@ -160,7 +160,7 @@ program define _tvbuild_carry_meta, rclass
             frame change `srcframe'
             local _charval : char `_sv'[`_c']
             frame change `dstframe'
-            char `_dv'[`_c'] `"`_charval'"'
+            char `_dv'[`_c'] `"`macval(_charval)'"'
         }
         frame change `_caller_frame'
 

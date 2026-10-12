@@ -1,4 +1,4 @@
-*! tvband Version 1.17.8  2026/10/09
+*! tvband Version 1.18.0  2026/10/12
 *! Split follow-up intervals along a single date-derived axis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package
@@ -125,6 +125,7 @@ program define tvband, rclass
     _tvband_split, start(`start') stop(`stop') type(`type') generate(`generate') ///
         `originopt' width(`width') min(`min') max(`max') unit(`unit') ///
         anchor(`anchor') label
+    local total_vars "`r(total_vars)'"
 
     * --- Rename interval vars if requested -------------------------------
     if "`startgen'" != "" & "`startgen'" != "`start'" {
@@ -186,6 +187,7 @@ program define tvband, rclass
     return local varname "`generate'"
     return local startvar "`startout'"
     return local stopvar "`stopout'"
+    return local total_vars "`total_vars'"
 
     } // end capture noisily
     local rc = _rc

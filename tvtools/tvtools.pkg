@@ -3,8 +3,9 @@ d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Tools for constructing and analyzing time-varying exposures in Stata.
 d Handles episode-format data, creates person-period datasets, merges
-d time-varying covariates, and calculates time-weighted exposures for
-d observational studies.
+d time-varying covariates, splits follow-up on age, calendar, and elapsed
+d time, and estimates inverse probability of treatment and censoring weights
+d for observational studies.
 d
 d Requires: Stata version 16+
 d
