@@ -509,21 +509,23 @@ else {
     local failed_tests "`failed_tests' 9"
 }
 
-**# 10. failed generation clears stale margins provenance
+**# 10. a rejected generation call keeps provenance; the bridge still guards
+* Since 1.2.8 a call rejected before touching the data leaves the previous
+* provenance in place (the data it describes are unchanged). A model that is
+* not the flattened varlist is still refused by the bridge.
 local ++test_count
 capture noisily {
     sysuse auto, clear
     fvgen i.foreign##c.mpg
-    assert `"`: char _dta[fvgen_terms]'"' != ""
-    capture fvgen i.foreign##c.mpg, vsref("bad template")
-    assert _rc == 198
-    assert `"`: char _dta[fvgen_terms]'"' == ""
+    local terms0 `"`: char _dta[fvgen_terms]'"'
+    assert `"`terms0'"' != ""
+    _fvgen_qa_assert_error, rc(198) msg("vsref() must contain @") : fvgen i.foreign##c.mpg, vsref("bad template")
+    assert `"`: char _dta[fvgen_terms]'"' == `"`terms0'"'
     quietly regress price mpg foreign
-    capture fvgen, margins
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("could not locate r(allvars)") : fvgen, margins
 }
 if _rc == 0 {
-    display as result "  PASS: generation error clears stale margins provenance"
+    display as result "  PASS: rejected generation keeps provenance; unrelated model refused"
     local ++pass_count
 }
 else {

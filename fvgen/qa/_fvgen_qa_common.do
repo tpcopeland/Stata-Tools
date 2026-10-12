@@ -80,3 +80,41 @@ program define _fvgen_make_data
     * Outcome.
     generate double y = 2*age + 3*bmi + 5*arm + rnormal()
 end
+
+* _fvgen_qa_assert_error, rc(#) msg(text) : command
+* Runs command, asserts it exits with exactly rc(#) AND that its output
+* contains msg(text). Many fvgen paths share r(198), so the rc alone cannot
+* tell which check fired; the message identifies the site.
+capture program drop _fvgen_qa_assert_error
+program define _fvgen_qa_assert_error
+    version 16.0
+    gettoken spec 0 : 0, parse(":")
+    gettoken colon cmd : 0, parse(":")
+    local 0 `"`spec'"'
+    syntax , rc(integer) msg(string)
+    tempfile lf
+    tempname fh
+    local _ls = c(linesize)
+    set linesize 255
+    quietly log using `"`lf'"', text name(_fvgen_qa_err) replace
+    capture noisily `cmd'
+    local got = _rc
+    quietly log close _fvgen_qa_err
+    set linesize `_ls'
+    if `got' != `rc' {
+        display as error "_fvgen_qa_assert_error: expected r(`rc'), got r(`got') from: `cmd'"
+        exit 9
+    }
+    local found 0
+    file open `fh' using `"`lf'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', `"`msg'"') local found 1
+        file read `fh' line
+    }
+    file close `fh'
+    if !`found' {
+        display as error `"_fvgen_qa_assert_error: r(`rc') without expected message "`msg'" from: `cmd'"'
+        exit 9
+    }
+end

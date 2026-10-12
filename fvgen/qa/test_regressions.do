@@ -587,6 +587,170 @@ else {
     local failed_tests "`failed_tests' 18"
 }
 
+**# 19. A rejected run leaves the previous run's provenance intact
+* 1.2.7 cleared every _dta[fvgen_*] char before validating, so a call that
+* correctly failed r(110) still made the earlier model unusable by margins.
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    fvgen i.foreign##c.mpg
+    regress price `r(allvars)'
+    generate byte _rep78_3 = 1
+    _fvgen_qa_assert_error, rc(110) msg("variable '_rep78_3' already exists") : fvgen i.rep78
+    local spec : char _dta[fvgen_spec]
+    assert "`spec'" == "i.foreign mpg i.foreign#c.mpg"
+    fvgen, margins
+    assert "`r(margins)'" == "active"
+    assert "`e(fvgen_margins)'" == "1"
+    assert strpos(`"`e(fvgen_native_cmdline)'"', "regress price i.foreign mpg i.foreign#c.mpg")
+    * a call that has nothing to materialize is also rejected without
+    * touching the provenance
+    sysuse auto, clear
+    fvgen i.foreign##c.mpg
+    regress price `r(allvars)'
+    _fvgen_qa_assert_error, rc(198) msg("no variables to materialize") : fvgen ib1.foreign if foreign == 1
+    local spec : char _dta[fvgen_spec]
+    assert "`spec'" == "i.foreign mpg i.foreign#c.mpg"
+    fvgen, margins
+    assert "`e(fvgen_margins)'" == "1"
+}
+if _rc == 0 {
+    display as result "  PASS: rejected run keeps prior provenance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: provenance after rejected run (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 19"
+}
+
+**# 20. margins replays the user's command line under the user's varabbrev
+* 1.2.7 forced varabbrev off for the refit, so an abbreviated depvar that the
+* flattened fit accepted made the native replay fail r(111).
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    set varabbrev on
+    fvgen i.foreign##c.mpg
+    regress pri `r(allvars)'
+    local flat_r2 = e(r2)
+    fvgen, margins
+    assert "`c(varabbrev)'" == "on"
+    assert "`e(depvar)'" == "price"
+    assert !missing(e(r2), `flat_r2')
+    assert reldif(e(r2), `flat_r2') < 1e-12
+    set varabbrev off
+}
+local rc20 = _rc
+set varabbrev off
+if `rc20' == 0 {
+    display as result "  PASS: refit honours the caller's varabbrev on"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: varabbrev during margins refit (rc=`rc20')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 20"
+}
+
+**# 21. Generated-name length is counted in characters, not bytes
+local ++test_count
+capture noisily {
+    clear
+    set obs 10
+    * 29 two-byte characters: _<29>_1 is 32 characters (62 bytes)
+    generate byte ååååååååååååååååååååååååååååå = mod(_n, 2)
+    fvgen i.ååååååååååååååååååååååååååååå
+    confirm variable _ååååååååååååååååååååååååååååå_1
+    * 30 characters: _<30>_1 is 33 characters and must still be refused
+    generate byte åååååååååååååååååååååååååååååå = mod(_n, 2)
+    local k0 = c(k)
+    _fvgen_qa_assert_error, rc(198) msg("exceeds the 32-character limit") : fvgen i.åååååååååååååååååååååååååååååå
+    assert c(k) == `k0'
+}
+if _rc == 0 {
+    display as result "  PASS: 32-character Unicode names accepted, 33 refused"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Unicode name length (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 21"
+}
+
+**# 22. ref() naming one variable twice reports the duplicate
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local k0 = c(k)
+    _fvgen_qa_assert_error, rc(198) msg("ref(): variable 'rep78' specified more than once") : fvgen i.rep78, ref(rep78 2, rep78 4)
+    * reported as a duplicate even when the second level is also invalid
+    _fvgen_qa_assert_error, rc(198) msg("ref(): variable 'rep78' specified more than once") : fvgen i.rep78, ref(rep78 2, rep78 99)
+    assert c(k) == `k0'
+}
+if _rc == 0 {
+    display as result "  PASS: duplicate ref() variable reported"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: duplicate ref() variable (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 22"
+}
+
+**# 23. Under center + replace, a weight that reads a centered copy is refused
+* Under center + replace, the centered copy is dropped before the weight is read.
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    generate double _mpg_c = 1 + mod(_n, 3)
+    generate double keep_w = _mpg_c
+    * prior provenance and the data must survive every refused weight type
+    fvgen i.rep78
+    local spec0 : char _dta[fvgen_spec]
+    local sig0  : char _dta[fvgen_signature]
+    local k0 = c(k)
+    foreach wt in aw fw pw iw {
+        _fvgen_qa_assert_error, rc(198) msg("the weight expression uses '_mpg_c'") : fvgen i.foreign##c.mpg [`wt'=2*_mpg_c], center replace
+        confirm variable _mpg_c
+        assert _mpg_c == keep_w
+        assert c(k) == `k0'
+        assert "`: char _dta[fvgen_spec]'" == "`spec0'"
+        assert "`: char _dta[fvgen_signature]'" == "`sig0'"
+    }
+    fvgen, drop
+    * without replace the collision stays an r(110) existence error
+    _fvgen_qa_assert_error, rc(110) msg("variable '_mpg_c' already exists") : fvgen i.foreign##c.mpg [aw=_mpg_c], center
+    * a weight naming a non-centered output is read before that output is
+    * replaced, so it is not refused, with or without center
+    generate double _foreign_1 = 1 + mod(_n, 2)
+    generate double keep_f = _foreign_1
+    fvgen i.foreign [aw=_foreign_1], replace
+    replace _foreign_1 = keep_f
+    fvgen i.foreign##c.mpg [aw=_foreign_1], center replace
+    quietly summarize mpg [aw=keep_f]
+    assert !missing(_mpg_c, mpg - r(mean))
+    assert reldif(_mpg_c, mpg - r(mean)) < 1e-12
+    drop _foreign_1 keep_f
+    * names that merely contain an output name, including Unicode letters
+    generate double w_mpg_c2 = keep_w
+    generate double _mpg_cé = keep_w
+    generate double é_mpg_c = keep_w
+    foreach w in w_mpg_c2 _mpg_cé é_mpg_c {
+        fvgen i.foreign##c.mpg [aw=`w'], center replace
+        assert "`r(genvars)'" == "_mpg_c _foreign_1 _foreignXmpg_1"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: weight reading a centered copy refused under center + replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: weight/output collision (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 23"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

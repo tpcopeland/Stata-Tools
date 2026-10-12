@@ -19,9 +19,10 @@ capture noisily {
     2 2 32
     end
     generate byte fv_group_1 = 77
-    capture noisily fvgen i.group, prefix(fv_) alllevels
-    local call_rc = _rc
-    assert `call_rc' != 0
+    _fvgen_qa_assert_error, rc(110) msg("variable 'fv_group_1' already exists") : fvgen i.group, prefix(fv_) alllevels
+    * the preflight refused before creating the other planned indicator
+    capture confirm variable fv_group_2
+    assert _rc == 111
     assert fv_group_1 == 77
     assert sentinel[1] == 31
 }
@@ -32,8 +33,7 @@ capture noisily {
     clear
     set obs 0
     generate byte group = .
-    capture noisily fvgen i.group
-    assert _rc != 0
+    _fvgen_qa_assert_error, rc(2000) msg("no observations") : fvgen i.group
     assert _N == 0
 }
 if _rc == 0 local ++pass_count

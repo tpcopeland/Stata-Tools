@@ -18,8 +18,7 @@ local failed_tests ""
 local ++test_count
 capture noisily {
     _fvgen_make_data
-    capture fvgen i.grp##i.arm##c.age
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("supports up to 2-way interactions") : fvgen i.grp##i.arm##c.age
 }
 if _rc == 0 {
     display as result "  PASS: 3-way interaction rejected (198)"
@@ -36,8 +35,7 @@ local ++test_count
 capture noisily {
     _fvgen_make_data
     * a 28-character prefix pushes prefix+arm_1 past the 32-char limit
-    capture fvgen i.arm, prefix(abcdefghijklmnopqrstuvwxyzab)
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("exceeds the 32-character limit") : fvgen i.arm, prefix(abcdefghijklmnopqrstuvwxyzab)
 }
 if _rc == 0 {
     display as result "  PASS: over-long generated name rejected (198)"
@@ -54,8 +52,7 @@ local ++test_count
 capture noisily {
     _fvgen_make_data
     fvgen i.arm##c.age
-    capture fvgen i.arm##c.age
-    assert _rc == 110
+    _fvgen_qa_assert_error, rc(110) msg("already exists; specify the replace option") : fvgen i.arm##c.age
 }
 if _rc == 0 {
     display as result "  PASS: name collision rejected (110)"
@@ -71,8 +68,7 @@ else {
 local ++test_count
 capture noisily {
     _fvgen_make_data
-    capture fvgen i.arm##c.age if age > 1e12
-    assert _rc == 2000
+    _fvgen_qa_assert_error, rc(2000) msg("no observations") : fvgen i.arm##c.age if age > 1e12
 }
 if _rc == 0 {
     display as result "  PASS: empty sample rejected (2000)"
@@ -88,14 +84,10 @@ else {
 local ++test_count
 capture noisily {
     _fvgen_make_data
-    capture fvgen i.arm##i.grp, ref(grp)
-    assert _rc == 198
-    capture fvgen i.arm##c.age, ref(age 2)
-    assert _rc == 198
-    capture fvgen i.arm##i.grp, ref(grp 9)
-    assert _rc == 198
-    capture fvgen i.arm##i.grp, ref(nosuchvar 1)
-    assert _rc == 111
+    _fvgen_qa_assert_error, rc(198) msg("ref() expects variable/level pairs") : fvgen i.arm##i.grp, ref(grp)
+    _fvgen_qa_assert_error, rc(198) msg("age==2 is not an observed level") : fvgen i.arm##c.age, ref(age 2)
+    _fvgen_qa_assert_error, rc(198) msg("grp==9 is not an observed level") : fvgen i.arm##i.grp, ref(grp 9)
+    _fvgen_qa_assert_error, rc(111) msg("ref(): variable 'nosuchvar' not found") : fvgen i.arm##i.grp, ref(nosuchvar 1)
 }
 if _rc == 0 {
     display as result "  PASS: ref() error paths (198/198/198/111)"
@@ -111,12 +103,9 @@ else {
 local ++test_count
 capture noisily {
     _fvgen_make_data
-    capture fvgen i.arm##i.grp, simple(arm)
-    assert _rc == 198
-    capture fvgen i.arm##c.age, simple(bmi)
-    assert _rc == 198
-    capture fvgen i.arm i.grp, simple(arm)
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("interacts with a categorical term") : fvgen i.arm##i.grp, simple(arm)
+    _fvgen_qa_assert_error, rc(198) msg("simple(): 'bmi' is not a factor") : fvgen i.arm##c.age, simple(bmi)
+    _fvgen_qa_assert_error, rc(198) msg("simple(): 'arm' is not a factor") : fvgen i.arm i.grp, simple(arm)
 }
 if _rc == 0 {
     display as result "  PASS: simple() error paths (198 x3)"
@@ -133,8 +122,7 @@ local ++test_count
 capture noisily {
     _fvgen_make_data
     foreach s in "o.grp" "2o.grp" "i.arm#2o.grp" "i.arm##2o.grp" "c.age#2o.grp" {
-        capture fvgen `s'
-        assert _rc == 198
+        _fvgen_qa_assert_error, rc(198) msg("does not support the omit operator") : fvgen `s'
     }
     * legitimate no-base (ibn.) and explicit base (ibN.) are NOT rejected
     capture fvgen ibn.grp
@@ -156,11 +144,9 @@ else {
 local ++test_count
 capture noisily {
     _fvgen_make_data
-    capture fvgen i.arm##i.grp, ref(grp "Nonesuch")
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("not found among observed levels of grp") : fvgen i.arm##i.grp, ref(grp "Nonesuch")
     * a label string that matches no observed level is 198
-    capture fvgen i.arm##i.grp, ref(arm "x") replace
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("not found among observed levels of arm") : fvgen i.arm##i.grp, ref(arm "x") replace
 }
 if _rc == 0 {
     display as result "  PASS: ref() bad value-label string rejected"
@@ -178,8 +164,7 @@ capture noisily {
     _fvgen_make_data
     set varabbrev on
     local before "`c(varabbrev)'"
-    capture fvgen i.grp##i.arm##c.age
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("supports up to 2-way interactions") : fvgen i.grp##i.arm##c.age
     assert "`c(varabbrev)'" == "`before'"
     set varabbrev off
 }
@@ -190,7 +175,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: varabbrev restore (rc=`=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' 5"
+    local failed_tests "`failed_tests' 6"
 }
 
 **# 7. varabbrev is restored after success and drop success paths
@@ -220,12 +205,10 @@ local ++test_count
 capture noisily {
     _fvgen_make_data
     * a template missing the @ placeholder is rejected with 198
-    capture fvgen i.grp, vsref("vs base")
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("vsref() must contain @") : fvgen i.grp, vsref("vs base")
     * drop takes no other options, so vsref alongside drop is 198
     fvgen i.grp
-    capture fvgen, drop vsref("(vs. @)")
-    assert _rc == 198
+    _fvgen_qa_assert_error, rc(198) msg("drop does not take varlists") : fvgen, drop vsref("(vs. @)")
     * cleanup
     capture fvgen, drop
 }

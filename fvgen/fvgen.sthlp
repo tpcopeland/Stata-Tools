@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.7  30sep2026}{...}
+{* *! version 1.2.8  12oct2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -61,7 +61,8 @@ syntax for {helpb margins}:
 {synopt:{opt pre:fix(name)}}prefix generated names; default is {cmd:_}{p_end}
 {synopt:{opt replace}}overwrite colliding variable names{p_end}
 {synopt:{opt xsym:bol(string)}}symbol joining interaction labels; default is {cmd:×}{p_end}
-{synopt:{opt drop}}drop all fvgen-generated variables{p_end}
+{syntab:Teardown}
+{synopt:{opt drop}}drop all fvgen-generated variables; used alone{p_end}
 {syntab:Postestimation}
 {synopt:{opt margins}}refit with native factor syntax for {cmd:margins}{p_end}
 {synopt:{opt stor:e(name)}}with {opt margins}, store the clone as {it:name}{p_end}
@@ -99,24 +100,14 @@ The motivation is friendlier export. Estimating with native factor-variable
 notation ({cmd:regress y i.sex##c.age}) makes table commands emit extra
 factor-variable header rows for each interaction. Running the same model on the
 flattened variables produced by {cmd:fvgen} yields one clean, self-labeled
-row per coefficient. In a full-rank design, the flattened regression reproduces
-the native model's coefficients, standard errors, and fit. With empty cells or
-other exact collinearity, the two regressions span the same model space and have
-the same fitted values, but Stata may choose different omitted columns, so
-individual reported coefficients and standard errors need not map one-to-one.
+row per coefficient, and the flattened model is an exact reparameterization of
+the native one (see {help fvgen##remarks:Remarks}).
 
 {pstd}
-Why not just relabel the coefficients inside an export tool? Tools such as
-{helpb estout:esttab}'s {cmd:varlabels()} or the {helpb collect} / {helpb etable}
-relabeling options let you rename rows, but you must spell out a label for each
-interaction term, and the renaming is local to that one tool. {cmd:fvgen} works
-at the {it:variable} level instead: it reads each factor's value labels and
-builds the row labels automatically (level {cmd:2 "Female"} interacted with
-{cmd:age} becomes {cmd:Female × Age}), and because the result is ordinary
-labeled variables those labels flow through {it:any} downstream consumer —
-{helpb collect}, {helpb estout:esttab}, {helpb putexcel}, the
-{help tabtools:tabtools} family, or a hand-built table — with no per-tool
-relabeling.
+Export-tool relabeling (for example {helpb estout:esttab}'s {cmd:varlabels()} or
+{helpb collect} label options) needs a hand-written label per interaction term
+in each tool. {cmd:fvgen} builds the labels once, from the value labels, as
+ordinary variable labels that every downstream table command reads.
 
 {pstd}
 The generated variable names and a combined varlist ready for an estimation
@@ -155,7 +146,9 @@ centering mean is weighted (a {cmd:pweight} is treated as an {cmd:aweight} for
 the mean, which is numerically identical). Centering shifts where the
 lower-order coefficients are anchored but leaves the interaction coefficient and
 the model fit unchanged, so the exact-reparameterization guarantee holds for any
-centering constant.
+centering constant. With {opt simple()}, the continuous main term is absorbed,
+so its centered copy is still created and listed in {cmd:r(genvars)} (it enters
+the per-group slopes) but does not appear in {cmd:r(allvars)}.
 
 {phang}
 {opt ref(spec)} sets the reference (base) level for one or more factor variables,
@@ -237,21 +230,16 @@ left untouched. The number and names of the dropped variables are returned in
 model on the exact varlist returned by {cmd:fvgen}. It reconstructs the native
 factor-variable command from {cmd:fvgen}'s provenance and reruns the estimator,
 so the estimator itself supplies the hidden factor-variable metadata that
-{helpb margins} expects. The active estimate is changed so {helpb margins} can
-operate on the original factor variables. The bridge conservatively verifies a
-stored signature of every data variable present when {cmd:fvgen} ran, plus its
-generated variables, before refitting. If any signed variable was changed,
-dropped, or recast, the bridge exits with error 498 and asks you to rerun
-{cmd:fvgen} and the flattened estimator. A variable added after {cmd:fvgen} does
-not invalidate the bridge. After the refit, the bridge also verifies that the
-native model is the same model as the flattened one: the same estimation sample,
-{cmd:e(N)}, rank, number of free coefficients, and (where posted) log
-likelihood. A mismatch, which arises when {cmd:fvgen} ran on a different
-{cmd:if}/{cmd:in} sample than the estimator (levels outside the {cmd:fvgen}
-sample were lumped with the base in the flattened fit) or with {opt alllevels}
-and {cmd:noconstant}, exits with error 498. If the native replay errors, reports
-nonconvergence, or fails this check, the bridge returns that failure and
-restores the original active estimate.
+{helpb margins} expects; the native refit becomes the active estimate. The
+bridge exits with error 498, leaving the original active estimate in place, if
+any data variable present when {cmd:fvgen} ran (or any generated variable) has
+since been changed, dropped, or recast, or if the refit is not the same model as
+the flattened fit (same estimation sample, {cmd:e(N)}, rank, free coefficients,
+and log likelihood where posted). The usual cause of the latter is running
+{cmd:fvgen} on a different {cmd:if}/{cmd:in} sample than the estimator, or
+{opt alllevels} with {cmd:noconstant}. Variables added after {cmd:fvgen} do not
+invalidate the bridge. A replay error or nonconvergence also restores the
+original estimate.
 
 {phang}
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
@@ -394,7 +382,7 @@ message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
 {synopt:{cmd:r(k_int)}}number of interaction variables{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(spec)}}expanded specification with {opt ref()} bases{p_end}
+{synopt:{cmd:r(spec)}}effective spec after {opt ref()} and {opt simple()}{p_end}
 {synopt:{cmd:r(allvars)}}all model variables, ordered for estimation{p_end}
 {synopt:{cmd:r(mainvars)}}main-effect variables only{p_end}
 {synopt:{cmd:r(intvars)}}interaction variables only{p_end}
@@ -429,7 +417,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.7, 2026-09-30{p_end}
+{pstd}Version 1.2.8, 2026-10-12{p_end}
 
 
 {title:Also see}

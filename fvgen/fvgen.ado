@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.7  2026/09/30
+*! fvgen Version 1.2.8  2026/10/12
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -113,8 +113,10 @@ program define fvgen, rclass
             }
             local _fvgen_est_held = 1
 
+            * The refit replays the user's command line, so it runs under the
+            * caller's varabbrev setting rather than fvgen's forced off.
+            _fvgen_margins_repost `_orig_varabbrev'
             if "`store'" != "" {
-                _fvgen_margins_repost
                 if "`replace'" != "" capture estimates drop `store'
                 estimates store `store'
                 return local stored "`store'"
@@ -122,7 +124,6 @@ program define fvgen, rclass
                 local _fvgen_store_done "`store'"
             }
             else {
-                _fvgen_margins_repost
                 return local margins "active"
                 local _fvgen_margins_active = 1
                 local _fvgen_keep_native = 1
@@ -147,13 +148,9 @@ program define fvgen, rclass
                     }
                 }
             }
-            char _dta[fvgen_spec] ""
-            char _dta[fvgen_terms] ""
-            char _dta[fvgen_allvars] ""
-            char _dta[fvgen_genvars] ""
-            char _dta[fvgen_centered] ""
-            char _dta[fvgen_sigvars] ""
-            char _dta[fvgen_signature] ""
+            foreach _c in spec terms allvars genvars centered sigvars signature {
+                char _dta[fvgen_`_c'] ""
+            }
             local _dropped : list clean _dropped
             local _nd : word count `_dropped'
             return local dropped  "`_dropped'"
@@ -173,14 +170,6 @@ program define fvgen, rclass
                 display as error "fvvarlist required"
                 exit 100
             }
-
-            char _dta[fvgen_spec] ""
-            char _dta[fvgen_terms] ""
-            char _dta[fvgen_allvars] ""
-            char _dta[fvgen_genvars] ""
-            char _dta[fvgen_centered] ""
-            char _dta[fvgen_sigvars] ""
-            char _dta[fvgen_signature] ""
 
             local _fvgen_prevars ""
             if `=c(k)' > 0 unab _fvgen_prevars : _all
@@ -277,6 +266,10 @@ program define fvgen, rclass
                     if _rc {
                         display as error "ref(): variable '`rv'' not found"
                         exit 111
+                    }
+                    if `: list rv in refvars' {
+                        display as error "ref(): variable '`rv'' specified more than once"
+                        exit 198
                     }
                     * Resolve the level: an integer code, else a value-label string.
                     local _numeric_level = 0
@@ -436,69 +429,84 @@ program define fvgen, rclass
             fvexpand `expandspec' if `touse'
             local terms `r(varlist)'
 
-            **# First pass: reject higher-order interactions; capture base levels
-            * The base level of each factor (the term flagged r(base)) is recorded
-            * in parallel name/level lists (not name-keyed macros, which overflow
-            * Stata's 31-char local-name limit for long variable names) so vsref()
-            * can append "(vs. <base label>)" to main-effect labels.
+            **# Plan pass: one parse per term
+            * Reject higher-order interactions and record, per term, the source
+            * variables, continuous terms (for center), factor base levels (for
+            * vsref), and the generated name ("." when the term produces none:
+            * a continuous main, an omitted base, or an empty cell). Base levels
+            * and centered names live in parallel lists, not name-keyed macros,
+            * which would overflow the 31-char local-name limit.
+            local sourcevars    ""
+            local contvars      ""
             local _vsbasevars   ""
             local _vsbaselevels ""
-            local sourcevars    ""
+            local _tnames       ""
+            local _k_out        0
             foreach t of local terms {
                 _ms_parse_parts `t'
-                if "`r(type)'" == "variable" | "`r(type)'" == "factor" {
+                local newname "."
+                if "`r(type)'" == "variable" {
                     local sourcevars "`sourcevars' `r(name)'"
+                    local contvars   "`contvars' `r(name)'"
+                    local ++_k_out
+                }
+                else if "`r(type)'" == "factor" {
+                    local sourcevars "`sourcevars' `r(name)'"
+                    if `"`vsref'"' != "" & r(base) {
+                        local _vsbasevars   "`_vsbasevars' `r(name)'"
+                        local _vsbaselevels "`_vsbaselevels' `=r(level)'"
+                    }
+                    * Omitted levels are skipped, except the base under alllevels.
+                    if !r(omit) | (`alllev' & r(base)) {
+                        local newname "`prefix'`r(name)'_`=r(level)'"
+                    }
                 }
                 else if "`r(type)'" == "interaction" {
+                    if r(k_names) > 2 {
+                        display as error ///
+                            "fvgen supports up to 2-way interactions; '`t'' is higher-order"
+                        exit 198
+                    }
                     local sourcevars "`sourcevars' `r(name1)' `r(name2)'"
+                    if strpos("`r(op1)'", "c") local contvars "`contvars' `r(name1)'"
+                    if strpos("`r(op2)'", "c") local contvars "`contvars' `r(name2)'"
+                    if !r(omit) {
+                        local suff ""
+                        if !strpos("`r(op1)'", "c") local suff "`suff'_`=r(level1)'"
+                        if !strpos("`r(op2)'", "c") local suff "`suff'_`=r(level2)'"
+                        local newname "`prefix'`r(name1)'X`r(name2)'`suff'"
+                    }
                 }
-                if "`r(type)'" == "interaction" & r(k_names) > 2 {
-                    display as error ///
-                        "fvgen supports up to 2-way interactions; '`t'' is higher-order"
-                    exit 198
-                }
-                if `"`vsref'"' != "" & "`r(type)'" == "factor" & r(base) {
-                    local _vsbasevars   "`_vsbasevars' `r(name)'"
-                    local _vsbaselevels "`_vsbaselevels' `=r(level)'"
-                }
+                local _tnames "`_tnames' `newname'"
+                if "`newname'" != "." local ++_k_out
+            }
+            if !`_k_out' {
+                display as error "fvgen: no variables to materialize from '`varlist''"
+                exit 198
             }
             local sourcevars : list uniq sourcevars
+            local contvars   : list uniq contvars
 
-            **# Plan optional centered copies
             * A centered copy is reused by both main effects and products so the
             * product is the product of centered terms.
-            local contvars  ""
             local cmapvars  ""
             local cmapnames ""
             if "`center'" != "" {
-                * Parallel var/name lists map each centered original to its copy
-                * (name-keyed macros would overflow the 31-char local-name limit).
-                foreach t of local terms {
-                    _ms_parse_parts `t'
-                    if "`r(type)'" == "variable" {
-                        local contvars `contvars' `r(name)'
-                    }
-                    else if "`r(type)'" == "interaction" {
-                        if strpos("`r(op1)'", "c") local contvars `contvars' `r(name1)'
-                        if strpos("`r(op2)'", "c") local contvars `contvars' `r(name2)'
-                    }
-                }
-                local contvars : list uniq contvars
+                local cmapvars "`contvars'"
                 foreach cv of local contvars {
-                    local cname "`prefix'`cv'_c"
-                    local cmapvars  "`cmapvars' `cv'"
-                    local cmapnames "`cmapnames' `cname'"
+                    local cmapnames "`cmapnames' `prefix'`cv'_c"
                 }
             }
 
             **# Preflight every generated name before changing the dataset
-            * Reject collisions between planned outputs and with source variables.
-            * Existing unrelated variables are allowed only under replace. Running
-            * the full preflight first prevents late r(110)/r(198) failures from
-            * leaving earlier generated variables behind.
+            * Reject over-long names, collisions with source variables, and
+            * distinct terms mapping to one name; an existing unrelated variable
+            * is allowed only under replace. Checking the full plan first means
+            * a late failure cannot leave earlier generated variables behind.
             local plannednames ""
-            foreach newname of local cmapnames {
-                if length("`newname'") > 32 {
+            foreach newname in `cmapnames' `_tnames' {
+                if "`newname'" == "." continue
+                if ustrlen("`newname'") > 32 {
                     display as error ///
                         "fvgen: generated name '`newname'' exceeds the 32-character limit; use a shorter prefix()"
                     exit 198
@@ -521,106 +529,72 @@ program define fvgen, rclass
                 local plannednames "`plannednames' `newname'"
             }
 
-            foreach t of local terms {
-                _ms_parse_parts `t'
-                local ty "`r(type)'"
-                local newname ""
-                if "`ty'" == "factor" {
-                    local omit = r(omit)
-                    local base = r(base)
-                    if `omit' & !(`alllev' & `base') continue
-                    local newname "`prefix'`r(name)'_`=r(level)'"
-                }
-                else if "`ty'" == "interaction" {
-                    if r(omit) continue
-                    local n1 "`r(name1)'"
-                    local o1 "`r(op1)'"
-                    local l1 = r(level1)
-                    local n2 "`r(name2)'"
-                    local o2 "`r(op2)'"
-                    local l2 = r(level2)
-                    local f1 = (strpos("`o1'", "c") == 0)
-                    local f2 = (strpos("`o2'", "c") == 0)
-                    local suff ""
-                    if `f1' local suff "`suff'_`l1'"
-                    if `f2' local suff "`suff'_`l2'"
-                    local newname "`prefix'`n1'X`n2'`suff'"
-                }
-                if "`newname'" == "" continue
-                if length("`newname'") > 32 {
-                    display as error ///
-                        "fvgen: generated name '`newname'' exceeds the 32-character limit; use a shorter prefix()"
-                    exit 198
-                }
-                if `: list newname in sourcevars' {
-                    display as error ///
-                        "fvgen: generated name '`newname'' collides with a source variable; choose a different prefix()"
-                    exit 198
-                }
-                if `: list newname in plannednames' {
-                    display as error ///
-                        "fvgen: distinct terms map to the same generated name '`newname''; rename a source variable or choose a different prefix()"
-                    exit 198
-                }
-                capture confirm new variable `newname'
-                if _rc & "`replace'" == "" {
-                    display as error "fvgen: variable '`newname'' already exists; specify the replace option"
-                    exit 110
-                }
-                local plannednames "`plannednames' `newname'"
-            }
-
-            **# Create centered copies after the name preflight succeeds
-            if "`center'" != "" {
-                foreach cv of local contvars {
-                    local _ci : list posof "`cv'" in cmapvars
-                    local cname : word `_ci' of `cmapnames'
-                    _fvgen_newvar `cname' "`replace'"
-                    quietly summarize `cv' `wmean' if `touse', meanonly
-                    quietly generate double `cname' = `cv' - r(mean)
-                    local clab : variable label `cv'
-                    mata: st_local("_label_empty", strofreal(st_local("clab") == ""))
-                    if `_label_empty' local clab "`cv'"
-                    _fvgen_setlabel `cname' `"`macval(clab)' (centered)"'
-                    char `cname'[fvgen_role] "centered"
-                    char `cname'[fvgen_term] "c.`cv'"
-                    local genvars `genvars' `cname'
+            * Under center + replace, an existing centered copy is dropped
+            * before the weighted centering mean is computed, so a weight that
+            * reads that variable would be destroyed mid-run.
+            if "`center'" != "" & "`replace'" != "" & `"`exp'"' != "" {
+                foreach cname of local cmapnames {
+                    if ustrregexm(`"`exp'"', "(^|[^\p{L}\p{N}_])`cname'([^\p{L}\p{N}_]|$)") {
+                        display as error ///
+                            "fvgen: the weight expression uses '`cname'', which center would regenerate; rename it or choose a different prefix()"
+                        exit 198
+                    }
                 }
             }
 
-            **# Second pass: build the main-effect and interaction variables
+            **# Invalidate the previous run's provenance
+            * Only now that the plan is valid: a rejected call leaves an earlier,
+            * still-valid flattened model usable by fvgen, margins.
+            foreach _c in spec terms allvars genvars centered sigvars signature {
+                char _dta[fvgen_`_c'] ""
+            }
+
+            **# Create centered copies
+            local genvars ""
+            foreach cv of local cmapvars {
+                local _ci : list posof "`cv'" in cmapvars
+                local cname : word `_ci' of `cmapnames'
+                if "`replace'" != "" capture drop `cname'
+                quietly summarize `cv' `wmean' if `touse', meanonly
+                quietly generate double `cname' = `cv' - r(mean)
+                local clab : variable label `cv'
+                mata: st_local("_label_empty", strofreal(st_local("clab") == ""))
+                if `_label_empty' local clab "`cv'"
+                _fvgen_setlabel `cname' `"`macval(clab)' (centered)"'
+                char `cname'[fvgen_role] "centered"
+                char `cname'[fvgen_term] "c.`cv'"
+                local genvars `genvars' `cname'
+            }
+
+            **# Build pass: create the main-effect and interaction variables
             local mainvars ""
             local intvars ""
             local allvars ""
+            local _ti 0
 
             foreach t of local terms {
+                local ++_ti
+                local newname : word `_ti' of `_tnames'
                 _ms_parse_parts `t'
                 local ty "`r(type)'"
 
                 if "`ty'" == "variable" {
-                    * Continuous main effect.
+                    * Continuous main effect: the centered copy, or the original
+                    * passed through untouched.
                     local v "`r(name)'"
                     if "`center'" != "" {
                         local _ci : list posof "`v'" in cmapvars
-                        local use : word `_ci' of `cmapnames'
-                        local mainvars `mainvars' `use'
-                        local allvars  `allvars'  `use'
+                        local v : word `_ci' of `cmapnames'
                     }
-                    else {
-                        * Pass the original variable through untouched.
-                        local mainvars `mainvars' `v'
-                        local allvars  `allvars'  `v'
-                    }
+                    local mainvars `mainvars' `v'
+                    local allvars  `allvars'  `v'
                 }
                 else if "`ty'" == "factor" {
-                    local omit = r(omit)
-                    local base = r(base)
-                    * Skip omitted levels, except keep the base when alllevels asked.
-                    if `omit' & !(`alllev' & `base') continue
+                    if "`newname'" == "." continue
                     local v  "`r(name)'"
                     local L  = r(level)
-                    local newname "`prefix'`v'_`L'"
-                    _fvgen_newvar `newname' "`replace'"
+                    local base = r(base)
+                    if "`replace'" != "" capture drop `newname'
                     quietly generate double `newname' = (`v' == `L') if !missing(`v')
                     _fvgen_partlabel `v' `L'
                     mata: st_local("_flab", st_global("r(label)"))
@@ -642,61 +616,35 @@ program define fvgen, rclass
                     local allvars  `allvars'  `newname'
                 }
                 else if "`ty'" == "interaction" {
-                    if r(omit) continue
+                    if "`newname'" == "." continue
                     local n1 "`r(name1)'"
-                    local o1 "`r(op1)'"
                     local l1 = r(level1)
                     local n2 "`r(name2)'"
-                    local o2 "`r(op2)'"
                     local l2 = r(level2)
-                    local f1 = (strpos("`o1'", "c") == 0)
-                    local f2 = (strpos("`o2'", "c") == 0)
+                    local f1 = (strpos("`r(op1)'", "c") == 0)
+                    local f2 = (strpos("`r(op2)'", "c") == 0)
 
-                    * Resolve the modeling expression and name suffix for each side.
-                    local stem "`prefix'`n1'X`n2'"
-                    local suff ""
-                    if `f1' {
-                        local e1 "(`n1' == `l1')"
-                        local m1 "`n1'"
-                        local suff "`suff'_`l1'"
-                        _fvgen_partlabel `n1' `l1'
-                        mata: st_local("lab1", st_global("r(label)"))
-                    }
-                    else {
-                        if "`center'" != "" {
-                            local _ci : list posof "`n1'" in cmapvars
-                            local use1 : word `_ci' of `cmapnames'
+                    * Resolve the modeling expression and label for each side.
+                    forvalues s = 1/2 {
+                        if `f`s'' {
+                            local e`s' "(`n`s'' == `l`s'')"
+                            _fvgen_partlabel `n`s'' `l`s''
+                            mata: st_local("lab`s'", st_global("r(label)"))
                         }
-                        else local use1 "`n1'"
-                        local e1 "`use1'"
-                        local m1 "`n1'"
-                        local lab1 : variable label `n1'
-                        mata: st_local("_label_empty", strofreal(st_local("lab1") == ""))
-                        if `_label_empty' local lab1 "`n1'"
-                    }
-                    if `f2' {
-                        local e2 "(`n2' == `l2')"
-                        local m2 "`n2'"
-                        local suff "`suff'_`l2'"
-                        _fvgen_partlabel `n2' `l2'
-                        mata: st_local("lab2", st_global("r(label)"))
-                    }
-                    else {
-                        if "`center'" != "" {
-                            local _ci : list posof "`n2'" in cmapvars
-                            local use2 : word `_ci' of `cmapnames'
+                        else {
+                            local e`s' "`n`s''"
+                            if "`center'" != "" {
+                                local _ci : list posof "`n`s''" in cmapvars
+                                local e`s' : word `_ci' of `cmapnames'
+                            }
+                            local lab`s' : variable label `n`s''
+                            mata: st_local("_label_empty", strofreal(st_local("lab`s'") == ""))
+                            if `_label_empty' local lab`s' "`n`s''"
                         }
-                        else local use2 "`n2'"
-                        local e2 "`use2'"
-                        local m2 "`n2'"
-                        local lab2 : variable label `n2'
-                        mata: st_local("_label_empty", strofreal(st_local("lab2") == ""))
-                        if `_label_empty' local lab2 "`n2'"
                     }
 
-                    local newname "`stem'`suff'"
-                    _fvgen_newvar `newname' "`replace'"
-                    quietly generate double `newname' = `e1' * `e2' if !missing(`m1', `m2')
+                    if "`replace'" != "" capture drop `newname'
+                    quietly generate double `newname' = `e1' * `e2' if !missing(`n1', `n2')
                     * Label priority: a continuous self-interaction reads "<var>²";
                     * a simple() moderator interaction reads "<continuous> (<level>)";
                     * everything else joins the two sides with the x symbol.
@@ -715,11 +663,6 @@ program define fvgen, rclass
                     local genvars `genvars' `newname'
                     local allvars `allvars' `newname'
                 }
-            }
-
-            if "`allvars'" == "" {
-                display as error "fvgen: no variables to materialize from '`varlist''"
-                exit 198
             }
 
             **# Dataset-level provenance for post-estimation margins-ready clones
@@ -777,33 +720,6 @@ program define fvgen, rclass
     }
 end
 
-**# Helper: validate a candidate variable name (length + collision)
-capture program drop _fvgen_newvar
-program define _fvgen_newvar, nclass
-    version 16.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-        args name replace
-        if length("`name'") > 32 {
-            display as error ///
-                "fvgen: generated name '`name'' exceeds the 32-character limit; use a shorter prefix()"
-            exit 198
-        }
-        capture confirm new variable `name'
-        if _rc {
-            if "`replace'" == "" {
-                display as error "fvgen: variable '`name'' already exists; specify the replace option"
-                exit 110
-            }
-            capture drop `name'
-        }
-    }
-    local rc = _rc
-    set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
-end
-
 **# Helper: build a friendly label for one factor level (returns r(label))
 capture program drop _fvgen_partlabel
 program define _fvgen_partlabel, rclass
@@ -856,6 +772,9 @@ end
 capture program drop _fvgen_margins_repost
 program define _fvgen_margins_repost, eclass
     version 16.0
+    * args: the caller's varabbrev setting, restored for the native replay only
+    args user_varabbrev
+    if "`user_varabbrev'" == "" local user_varabbrev = c(varabbrev)
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -948,9 +867,11 @@ program define _fvgen_margins_repost, eclass
         quietly _ms_omit_info e(b)
         local flat_free = colsof(e(b)) - r(k_omit)
 
+        set varabbrev `user_varabbrev'
         capture quietly `native_cmdline'
-        if _rc {
-            local native_rc = _rc
+        local native_rc = _rc
+        set varabbrev off
+        if `native_rc' {
             display as error ///
                 "fvgen, margins could not rerun the estimator with native factor-variable syntax"
             display as error `"`native_cmdline'"'
