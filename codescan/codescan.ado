@@ -1,4 +1,4 @@
-*! codescan Version 4.3.2  2026/10/12
+*! codescan Version 4.3.3  2026/10/12
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -539,6 +539,8 @@ program define codescan, rclass
     capture mata: mata which _codescan_ws_edge()
     if _rc local _need_definitions_helper = 1
     capture mata: mata which _codescan_parse_labels()
+    if _rc local _need_definitions_helper = 1
+    capture mata: mata which _codescan_smcl_literal()
     if _rc local _need_definitions_helper = 1
     if `_need_definitions_helper' {
         capture findfile _codescan_definitions.ado
@@ -1804,6 +1806,9 @@ program define codescan, rclass
         if ustrlen(`"`macval(_dlab)'"') > 21 {
             local _dlab = usubstr(`"`macval(_dlab)'"', 1, 20) + "~"
         }
+        * The label is free text: escape SMCL braces after truncating, so
+        * {bf:x} prints as typed and the 21-column cut counts visible text.
+        mata: st_local("_dlab", _codescan_smcl_literal(st_local("_dlab")))
         if "`countmode'" != "" & "`merge'" != "" {
             * merge+countmode: compute from patient-level (one row per patient).
             * Patients with no in-window rows come back from the merge with a
@@ -2020,7 +2025,8 @@ program define codescan, rclass
                 " matching slot instead)"
         }
         forvalues i = 1/`n_conditions' {
-            local name `"`macval(_cs_dlab_`i')'"'
+            * Escape SMCL braces so the label prints literally.
+            mata: st_local("name", _codescan_smcl_literal(st_local("_cs_dlab_`i'")))
             display as text `"  `macval(name)': "' _continue
             local first = 1
             local j = 0
@@ -2179,6 +2185,9 @@ program define codescan, rclass
                 tempname _glab
                 forvalues _gi = 1/`=_N' {
                     local _gcond = condition[`_gi']
+                    * Graph text interprets SMCL too; escape the braces so
+                    * the bar label shows the text as typed.
+                    mata: st_local("_gcond", _codescan_smcl_literal(st_local("_gcond")))
                     * Compound quotes: a label is free text and may contain a
                     * double quote, which plain quotes would let terminate the
                     * argument early.

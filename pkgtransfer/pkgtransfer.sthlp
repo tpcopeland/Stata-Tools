@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  12oct2026}{...}
+{* *! version 1.2.1  12oct2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -66,8 +66,13 @@ installed by platform-specific {cmd:g} or {cmd:G} records (plugins, or any other
 file type); those files are downloaded for every platform even with
 {opt download(local)}, because the local PLUS directory only contains the current
 platform's version. If a package's source descriptor cannot be read, its files are
-bundled as installed on this machine and a note names the package; a package
-with a {cmd:.plugin} file then fails instead. By default, every OS variant is bundled; explicitly specifying
+bundled as installed on this machine and a note names the package. Two cases
+fail instead (r(601)), with a message naming the package: a package with a
+{cmd:.plugin} file, and a package installed from a {cmd:pkgtransfer} bundle whose
+{cmd:pkgtransfer_files} folder is no longer readable, because its platform-specific
+files cannot be identified without the descriptor. For the second case, run
+{cmd:pkgtransfer, restore} on its own first so that the original source is
+read. By default, every OS variant is bundled; explicitly specifying
 {opt os()} limits platform files and descriptor records to that OS. A
 {cmd:g}-installed file with no record for the requested OS is an error
 (r(498)), as is a {cmd:.plugin} file with no platform record at all. Bundled
@@ -111,7 +116,9 @@ online sources after a local installation. Can be used as a standalone option
 ({cmd:pkgtransfer, restore}) or combined with {opt download()}. Combined with
 {opt download()}, {cmd:pkgtransfer} first writes the bundle and then restores
 {it:this} machine's {cmd:stata.trk}; it is the same as running the two commands in
-sequence, which is useful on a machine that was itself set up from a bundle. Standalone
+sequence. Because the bundle is written first, the combination does not help a
+machine set up from a bundle whose {cmd:pkgtransfer_files} folder has been
+removed; there, run {cmd:pkgtransfer, restore} alone first, then {opt download()}. Standalone
 {opt restore} cannot be combined with
 {opt limited()}, {opt skip()}, {opt os()}, {opt dofile()}, {opt zipfile()}, or {opt replace}. With or
 without {opt download()}, {opt restore} rewrites every backup marker in
@@ -119,8 +126,10 @@ without {opt download()}, {opt restore} rewrites every backup marker in
 works only for packages installed from {cmd:pkgtransfer}-generated ZIP
 archives, which embed the original source URL as backup metadata. A bundle made
 on a machine that was itself set up from a bundle carries the original source
-forward, so {opt restore} returns the first machine's source after any number
-of transfers. Before
+forward in {cmd:stata.trk}, so {opt restore} returns the first machine's source
+after any number of transfers. Until {opt restore} is run, {opt download(local)} on
+such a machine reads package descriptors from the bundle folder that
+{cmd:stata.trk} records. Before
 modifying {cmd:stata.trk}, {cmd:pkgtransfer} copies it to
 {cmd:stata.trk.backup}, or to {cmd:stata.trk.backup1}, {cmd:stata.trk.backup2},
 ... when earlier backups exist; an existing backup is never overwritten. All
@@ -295,7 +304,7 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.0, 2026-10-12{p_end}
+{pstd}Version 1.2.1, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

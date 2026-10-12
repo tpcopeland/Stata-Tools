@@ -373,8 +373,11 @@ hold estimate, lower CI, upper CI, and p-value columns in that order. This
 path leaves any active {cmd:collect} labels and layout unchanged. Before anything
 is shown or written, every row is checked: a nonmissing p-value must lie in
 [0, 1] and a nonmissing lower limit must not exceed the upper limit; otherwise
-{cmd:effecttab} exits with error 198 naming the row. Missing values are allowed,
-and the estimate is not required to lie inside its interval.{p_end}
+{cmd:effecttab} exits with error 198 naming the row. Missing values are allowed. The estimate
+is not required to lie inside its interval, because percentile and
+bias-corrected bootstrap intervals need not contain it; a row whose estimate lies
+outside its interval is named in a note, since that is also what a matrix with
+its columns in the wrong order looks like.{p_end}
 {p 4 8 2}- {opt eplotframe()}: stores a graph-ready companion frame for {helpb eplot} containing
 {cmd:label}, {cmd:estimate}, {cmd:ll}, {cmd:ul}, {cmd:pvalue}, {cmd:model}, {cmd:model_label}, {cmd:rowtype}, and source-row
 metadata. When {opt frame()} is also set, the display frame records the companion in
@@ -483,7 +486,10 @@ two rows would get the same name, the later one takes a suffix
 {pstd}The {cmd:r(methods)} description names the {cmd:teffects} estimator only
 when it can be read from the collected command line; otherwise it says
 {it:teffects} without naming one, and never uses the estimates active in
-{cmd:e()}.{p_end}
+{cmd:e()}. It names the estimand from the {cmd:e(stat)} collected with the fit: "Average
+treatment effects" ({cmd:ate}), "Average treatment effects on the
+treated" ({cmd:atet}), or "Potential-outcome means" ({cmd:pomeans}); a collection
+without {cmd:e(stat)} gives "Treatment effects".{p_end}
 
 {marker seealso}{title:Also see}
 

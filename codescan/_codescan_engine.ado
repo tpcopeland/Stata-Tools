@@ -1,4 +1,4 @@
-*! _codescan_engine Version 4.3.2  2026/10/12
+*! _codescan_engine Version 4.3.3  2026/10/12
 *! codescan Mata scanning engine (single-pass memoized scan, co-occurrence, sensitivity)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: Mata function library for codescan

@@ -1,4 +1,4 @@
-*! _regtab_modelnoun Version 2.6.3  2026/10/12
+*! _regtab_modelnoun Version 2.6.4  2026/10/12
 *! the model named in the methods sentence
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

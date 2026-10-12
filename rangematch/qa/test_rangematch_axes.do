@@ -14,7 +14,8 @@
 *!                         a distance agrees between r()-free oracle and frame
 *!   D  hostile-strings    saving() and using names from the qa-lib corpus are
 *!                         written and reported byte-exact, or refused r(198)
-*!                         when they hold ` or $, with no stranded frames
+*!                         when they hold ` or a $ that can start a global
+*!                         reference, with no stranded frames
 *!   E  hostile-fixture    by() on codes above maxlong, negative and prefix-
 *!                         pair codes, and on 32-character names that differ
 *!                         only in the last character, against a joinby oracle
@@ -230,12 +231,14 @@ foreach g of local hs_names {
     capture noisily {
         quietly use `"`master'"', clear
         mata: st_local("s", st_global("`g'"))
-        mata: st_local("macro_char", strofreal(strpos(st_local("s"), char(96)) | strpos(st_local("s"), char(36))))
+        * The command's rule: a ` anywhere, or a $ before an ASCII letter, _,
+        * {, $ or a non-printable-ASCII byte (one that can start a reference).
+        mata: st_local("macro_char", strofreal(regexm(st_local("s"), "[" + char(96) + "]|[" + char(36) + "]([A-Za-z_{" + char(36) + "]|[^ -~])")))
         mata: st_local("f", st_local("out_dir") + "/sv_" + st_local("s") + ".dta")
         mata: st_local("uf", st_local("out_dir") + "/us_" + st_local("s") + ".dta")
-        * Stage the using file under the hostile name. A name holding ` or $
-        * is refused before any file is read, so it needs no staged file (and
-        * could not be saved safely: save would expand it too).
+        * Stage the using file under the hostile name. A name holding a macro
+        * character is refused before any file is read, so it needs no staged
+        * file (and could not be saved safely: save would expand it too).
         if !`macro_char' {
             preserve
             quietly use `"`u'"', clear
@@ -325,6 +328,11 @@ program define _ax_oracle_check
     quietly use `"`got'"', clear
     assert _N == `nw'
     assert _N > 0
+    * Both sides kept exactly mid uid; prove the varlists agree so the
+    * compare cannot be blind to a dropped variable.
+    unab got_vars : _all
+    quietly describe using `"`want'"', varlist
+    assert "`got_vars'" == "`r(varlist)'"
     quietly cf _all using `"`want'"'
 end
 
@@ -394,11 +402,13 @@ capture noisily {
     quietly use `"`mn'"', clear
     quietly rangematch key lo hi using `"`un'"', by(`n1') unmatched(none) keepusing(uid)
     quietly summarize uid if mid == 1, meanonly
+    assert !missing(r(N)) & r(N) > 0
     local s1 = r(sum)
     quietly use `"`mn'"', clear
     quietly rangematch key lo hi using `"`un'"', by(`n2') unmatched(none) keepusing(uid)
     quietly summarize uid if mid == 1, meanonly
-    assert `s1' != r(sum)
+    assert !missing(r(N)) & r(N) > 0
+    assert !missing(`s1', r(sum)) & `s1' != r(sum)
 }
 if _rc {
     local ++FAIL

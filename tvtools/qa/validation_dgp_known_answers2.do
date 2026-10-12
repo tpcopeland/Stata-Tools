@@ -646,7 +646,8 @@ capture noisily {
     }
     else di as result "  PASS [S30.enum]: PWP stratum = 1,2,3"
 
-    * Gap clock resets to 0 each stratum and stop = elapsed days within stratum.
+    * Gap clock resets to 0 each stratum and stop = closed days since the
+    * previous event (or entry), so the three gap stops sum to the 365 days.
     quietly count if t0 != 0
     if r(N) != 0 {
         di as error "  FAIL [S30.t0]: `r(N)' rows with gap-start != 0"
@@ -654,11 +655,11 @@ capture noisily {
     }
     else di as result "  PASS [S30.t0]: gap-time start resets to 0"
 
-    if t1[1] != 90 | t1[2] != 152 | t1[3] != 120 {
-        di as error "  FAIL [S30.t1]: gap stops [`=t1[1]',`=t1[2]',`=t1[3]'] expected [90,152,120]"
+    if t1[1] != 91 | t1[2] != 153 | t1[3] != 121 {
+        di as error "  FAIL [S30.t1]: gap stops [`=t1[1]',`=t1[2]',`=t1[3]'] expected [91,153,121]"
         local t_pass = 0
     }
-    else di as result "  PASS [S30.t1]: gap-time stops = 90,152,120"
+    else di as result "  PASS [S30.t1]: gap-time stops = 91,153,121"
 
     * Total person-time is retained (recurring does not censor): 365.
     gen double pt = stop - start + 1

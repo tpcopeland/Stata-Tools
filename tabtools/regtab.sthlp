@@ -140,9 +140,13 @@ main table begins at {cmd:B2}.{p_end}
 
 {pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the random
 intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula MOR =
-exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mecloglog}, and for
+exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)), eq. (5) of Austin and Merlo
+({it:Statistics in Medicine} 36: 3257-3277, sec. 4.5.2; see {help regtab##references:References}). For {cmd:mecloglog}, and for
 {cmd:mestreg} in the log-hazard metric, the conversion produces a
-{bf:Median Hazard Ratio (MHR)}. An {cmd:mestreg} fit in the time metric
+{bf:Median Hazard Ratio (MHR)} by the same formula, eq. (4) of Austin, Wagner, and
+Merlo ({it:Statistics in Medicine} 36: 928-938, sec. 2.2), given there for a
+proportional hazards model with a normally distributed random intercept on the
+log hazard. An {cmd:mestreg} fit in the time metric
 ({cmd:time}; TR header) keeps its random-intercept row as the variance it is,
 labelled {cmd:var(_cons[}{it:group}{cmd:])} (or "Variance: {it:Group} (Intercept)"
 under {opt relabel}): its random effect acts on log time, so a median hazard
@@ -164,7 +168,9 @@ random-effects rows if desired.{p_end}
 
 {phang}
 {opt addr:ow(string asis)} append custom label/value rows below the table (see
-Remarks for syntax). A row ending in {cmd:, after(}{it:term}{cmd:)} is placed inside the table
+Remarks for syntax). Values go to the models' columns in order; fewer values
+leave the remaining models blank, and more values than models is an error
+(r(198)), as for {opt addcol()}. A row ending in {cmd:, after(}{it:term}{cmd:)} is placed inside the table
 body instead: right after the coefficient row whose raw name is {it:term}, matched
 exactly and case-sensitively as {opt keep()} matches ({cmd:after(3.rep78)}, {cmd:after(mpg)}),
 or, when {it:term} is a factor variable, after the last level of that factor's
@@ -1082,7 +1088,7 @@ fails, {cmd:regtab} exits with error 459 rather than substituting active
 blank. For GEE models
 ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full
 maximum likelihood. When dispersion is fixed at 1, a requested {cmd:aic} therefore
-falls back to QICu ({cmd:deviance + 2p}); QICu can also be requested directly via
+falls back to QICu ({cmd:deviance + 2p}; Cui 2007, eq. 2); QICu can also be requested directly via
 {cmd:stats(qic)}. Standard binomial and Poisson GEE fits use this fixed scale, and
 continuous fits may request it explicitly with {cmd:scale(1)}. If {cmd:e(phi)}
 is estimated or otherwise differs from 1, {cmd:regtab} leaves QICu unavailable
@@ -1091,7 +1097,9 @@ option and {cmd:r(qic_}{it:#}{cmd:)} names are retained for backward
 compatibility. ICC is computed per model from variance components in the
 collected results when that variance decomposition is defined. Latent-response
 ICC uses the link-specific level-1 variance
-(logit: {cmd:pi^2/3}; probit: 1; complementary log-log: {cmd:pi^2/6}). For
+(logit: {cmd:pi^2/3}; probit: 1; complementary log-log: {cmd:pi^2/6}), as in
+{bf:[ME] estat icc}, Methods and formulas; Austin and Merlo (sec. 4.5.1; see
+{help regtab##references:References}) give the logit and probit forms. For
 model families without a defined level-1 variance, ICC is left blank rather
 than guessed. If the collection yields no usable ICC components for supported
 models, {cmd:regtab} exits with error 459 rather than substituting active
@@ -1391,9 +1399,25 @@ keeps the name {cmd:r(qic_}{it:#}{cmd:)} for backward compatibility; read it as
 QICu.{p_end}
 
 {pstd}
-See Cui J (2007), QIC program and model selection in GEE analyses,
-{it:Stata Journal} 7(2):209-220, which gives QIC (eq. 1) and QICu (eq. 2) as
-Pan defined them.{p_end}
+Cui (2007) gives QIC (eq. 1) and QICu (eq. 2) as Pan defined them.{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Austin, P. C., and J. Merlo. 2017. Intermediate and advanced topics in
+multilevel logistic regression analysis. {it:Statistics in Medicine}
+36: 3257-3277. {browse "https://doi.org/10.1002/sim.7336"}.{p_end}
+
+{phang}
+Austin, P. C., P. Wagner, and J. Merlo. 2017. The median hazard ratio: a useful
+measure of variance and general contextual effects in multilevel survival
+analysis. {it:Statistics in Medicine} 36: 928-938. {browse "https://doi.org/10.1002/sim.7188"}.{p_end}
+
+{phang}
+Cui, J. 2007. QIC program and model selection in GEE analyses. {it:Stata Journal}
+7: 209-220. {browse "https://doi.org/10.1177/1536867X0700700205"}.{p_end}
 
 {marker seealso}{...}
 {title:Also see}

@@ -48,6 +48,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | `test_combinations.do` | Option combinations against native fits: `margins store()` after `prefix()`/`vsref()`/`xsymbol()`, `ref()` + `simple()`, `ref()` + `center` + `aweight`, and `simple()` + `alllevels`. |
 | `test_provenance.do` | Variable and dataset provenance, teardown returns, idempotence, pass-through survival, `clonevar` copies and renamed generated variables surviving `drop`, and strict drop syntax. |
 | `test_margins.do` | Active and stored margins clones, estimator-family and VCE parity, survey replay, bootstrap/jackknife replay from `e(rngstate)` with the caller's RNG state kept, the variance-fingerprint refusal under a `_qa_state` error-path fingerprint, a `qa_lifecycle` fit A / fit B / restore probe, store replacement, and unsupported paths. |
+| `test_margins_replay_safety.do` | Side effects of the margins replay: `saving()`-type options (bootstrap and jackknife prefixes, `vce(bootstrap, saving())`, the `sa()` abbreviation, without `replace`) are refused with r(198) and the saved file's checksum and variable list are unchanged; `sav*` variable names are not false positives; `mi estimate, post` is refused by name; a failed replay shows the estimator's own error message; `permute` and `simulate` leave nothing replayable; null cases for no active estimates and missing `e(b)`, `e(V)` or `e(cmdline)` (r(301)). |
 | `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, nonconvergence rejection, native-refit model-equivalence guards (if-sample and `alllevels` + `noconstant` mismatches), `store()` clobber protection, partial value-label fallback, string / `i(numlist)` rejection, provenance kept after a rejected run, the margins replay under the caller's `varabbrev`, character-counted Unicode name lengths, duplicate `ref()` variables, and weights that read a centered copy under `center` + `replace`. |
 | `test_fvgen_hostile.do` | Adversarial namespace collision (r(110), no partial output) and empty data (r(2000)). |
 | `test_fvgen_oracle.do` | 200 seeded row-level indicator and product oracles over varied shapes (2-5 levels, level gaps, missing values) plus generated-name shadow preservation. |
@@ -73,7 +74,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 
 | Command | Functional | Validation | Also exercised in |
 |---------|------------|------------|-------------------|
-| `fvgen` | `test_fvgen`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_combinations`, `test_regressions` | `validation_fvgen`, `test_fvgen_oracle` | `test_fvgen_hostile`, `test_package_release` |
+| `fvgen` | `test_fvgen`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions` | `validation_fvgen`, `test_fvgen_oracle` | `test_fvgen_hostile`, `test_package_release` |
 
 ## Lane membership
 
@@ -82,7 +83,7 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | Lane | Suites |
 |------|--------|
 | `quick` | `test_fvgen` |
-| `core` | `quick` plus `validation_fixture_truth`, `validation_fixture_matrix`, `test_fixture_metadata`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_combinations`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
+| `core` | `quick` plus `validation_fixture_truth`, `validation_fixture_matrix`, `test_fixture_metadata`, `test_ref`, `test_simple`, `test_errors`, `test_provenance`, `test_margins`, `test_margins_replay_safety`, `test_combinations`, `test_regressions`, `test_fvgen_hostile`, `test_fvgen_oracle`, and `validation_fvgen` |
 | `full` | `core` plus `test_package_release` |
 
 `validation_fixture_truth.do` has three cases that compare every materialized indicator/product with its labelled-group arithmetic and verify drop removes exactly the six generated variables. Unsorted and label-gap variants are consumed.

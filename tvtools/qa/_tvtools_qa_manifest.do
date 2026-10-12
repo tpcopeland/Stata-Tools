@@ -175,3 +175,12 @@ local release_suites `release_suites' `v1180_suites'
 local manifest_suites `manifest_suites' `v1180_suites'
 local manifest_counts `manifest_counts' 14 29
 local manifest_allow_skips `manifest_allow_skips' 0 0
+
+**# 1.18.1 clarity fix: PWP gap-time clock on the closed-day grid
+local v1181_suites test_tvevent_pwp_gaptime
+local core_suites `core_suites' `v1181_suites'
+local full_suites `full_suites' `v1181_suites'
+local release_suites `release_suites' `v1181_suites'
+local manifest_suites `manifest_suites' `v1181_suites'
+local manifest_counts `manifest_counts' 5
+local manifest_allow_skips `manifest_allow_skips' 0

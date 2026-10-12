@@ -1,4 +1,4 @@
-*! _tvtools_interval_union Version 1.18.0  2026/10/12
+*! _tvtools_interval_union Version 1.18.1  2026/10/12
 *! Clipped running-maximum interval union, gap, and overlap engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Part of the tvtools package

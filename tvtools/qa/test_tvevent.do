@@ -1744,10 +1744,10 @@ capture noisily {
     assert stratum[1] == 1 & stratum[2] == 2 & stratum[3] == 3 if id[1]==1
     * gap-time resets to 0 at the start of each stratum
     assert t0[1] == 0 & t0[2] == 0 & t0[3] == 0 if id[1]==1
-    * first gap length = 150-100 = 50
-    assert t[1] == 50 if id[1]==1
-    * second gap length = 300-151 = 149
-    assert t[2] == 149 if id[1]==1
+    * first gap: closed days 100..150 = 150-100+1 = 51
+    assert t[1] == 51 if id[1]==1
+    * second gap: closed days 151..300 = 300-151+1 = 150
+    assert t[2] == 150 if id[1]==1
 }
 if _rc == 0 {
     display as result "TEST 25: PASSED (recurrent enum + gap-time clock)"

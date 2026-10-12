@@ -26,6 +26,14 @@ log using "run_all.log", replace text nomsg
 * freshly installed package whose index `ado dir' printed one line earlier --
 * the index form is not a usable API.
 quietly do "`c(pwd)'/_rangematch_qa_common.do"
+
+* Record this process's tempfile token (St<pid>) and the token-named entries
+* already in c(tmpdir), so a passing lane can remove exactly the scratch trees
+* its suites created (clarity 2026-10-12 final, MINOR #3).
+_rm_qa_tmp_token
+local tmp_token "`_rm_tmp_token'"
+local tmp_before `"`macval(_rm_tmp_before)'"'
+
 capture noisily _rm_qa_bootstrap
 local bootstrap_rc = _rc
 if `bootstrap_rc' {
@@ -67,6 +75,7 @@ local suites ///
     test_rangematch_v1510.do ///
     test_rangematch_v1511.do ///
     test_rangematch_v1512.do ///
+    test_rangematch_dollar_paths.do ///
     test_rangematch_axes.do ///
     test_rangematch_v101.do ///
     test_rangematch_missing_option.do ///
@@ -220,6 +229,21 @@ if `fail_count' > 0 {
     log close _all
     exit 9
 }
+
+* A passing lane cleans up after itself: remove every c(tmpdir) entry named
+* with this process's token that was not there before the first suite
+* (sandbox PLUS/PERSONAL trees holding installed copies, fixture and crossval
+* directories), then require that none is left. The ado trees were restored
+* above, so nothing still resolves from these directories. A failing lane
+* returned earlier and keeps them for diagnosis.
+mata: st_local("tmp_left", strofreal(_rm_qa_tmp_sweep(st_local("tmp_token"), st_local("tmp_before"))))
+if `tmp_left' {
+    display as error "`tmp_left' scratch entries named `tmp_token' remain in c(tmpdir)"
+    display "RESULT: run_all suites=`suite_count' pass=`pass_count' fail=`fail_count'"
+    log close _all
+    exit 9
+}
+display as text "c(tmpdir) scratch entries named `tmp_token': removed, none left"
 
 display as result "ALL RANGEMATCH QA SUITES PASSED"
 display "RESULT: run_all suites=`suite_count' pass=`pass_count' fail=`fail_count'"

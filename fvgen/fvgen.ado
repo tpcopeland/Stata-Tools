@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.9  2026/10/12
+*! fvgen Version 1.2.10  2026/10/12
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -852,6 +852,25 @@ program define _fvgen_margins_repost, eclass
             display as error "fvgen, margins requires e(cmdline) so the estimator can be rerun with native factor-variable syntax"
             exit 301
         }
+        * mi estimate posts only the per-imputation command in e(cmdline);
+        * replaying it is not the combined MI fit, so refuse it by name.
+        if `"`e(mi)'"' == "mi" {
+            display as error ///
+                "fvgen, margins cannot replay mi estimate results; e(cmdline) holds only the per-imputation command. Fit the model natively with factor-variable syntax"
+            exit 198
+        }
+        * The replay re-executes e(cmdline).  A saving() option (any
+        * abbreviation, prefix or vce() suboption, e.g. bootstrap, jackknife,
+        * mi estimate, bayes) or another save*() option would rewrite the
+        * user's file, so refuse rather than touch it.
+        if ustrregexm(`"`cmdline'"', "(^|[\s,(])(sa|sav[A-Za-z0-9_]*)\s*\(", 1) {
+            display as error ///
+                "fvgen, margins: the estimation command line has a saving()-type option, and replaying it would rewrite that file"
+            display as error ///
+                "refit without saving() before calling fvgen, margins, or fit the model natively with factor-variable syntax"
+            display as error `"`cmdline'"'
+            exit 198
+        }
 
         local cmd_pad `" `cmdline' "'
         local varseq  `" `allvars'"'
@@ -912,7 +931,9 @@ program define _fvgen_margins_repost, eclass
             }
         }
         set varabbrev `user_varabbrev'
-        capture quietly `native_cmdline'
+        * noisily keeps the estimator's own error message visible on failure;
+        * quietly still suppresses its output on success.
+        capture noisily quietly `native_cmdline'
         local native_rc = _rc
         set varabbrev off
         set rngstate `user_rngstate'

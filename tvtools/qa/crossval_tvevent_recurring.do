@@ -3,15 +3,17 @@
 *!  PART A  Independent in-Stata oracle (always runs). For randomized multi-event
 *!          persons, the PWP stratum and gap-time clock are recomputed FROM THE
 *!          EVENT-DATE SET (a different derivation than tvevent's running-sum over
-*!          output rows): stratum at calendar date s = 1 + #{events < s}; the gap
-*!          origin is (last event before s)+1, or the person's entry for stratum 1.
-*!          tvevent's enum/t0/t must match this row-for-row.
+*!          output rows): stratum at calendar date s = 1 + #{events < s}; the
+*!          gap clock is time since the previous event E (or entry, E = entry-1)
+*!          on the closed-day grid, (start-1-E, stop-E]. tvevent's enum/t0/t
+*!          must match this row-for-row.
 *!  PART B  R cross-computation. R reads tvevent's (id,start,stop,ev)
 *!          output and independently rebuilds the stratum and gap-time clock with
 *!          its own cumulative logic; must agree exactly. Different language/engine.
 *!
 *!  Conventions checked: inclusive [start,stop]; event marked on the segment ending
-*!  at the event date; next stratum begins at event_date+1; gap-time resets to 0.
+*!  at the event date; next stratum begins at event_date+1; gap-time resets to 0
+*!  and a row ending on its stratum's first day has gap stop 1, not 0.
 clear all
 set more off
 set varabbrev off
@@ -92,24 +94,33 @@ capture noisily {
     merge m:1 id using `events', nogen
 
     gen long enum_oracle = 1
-    gen double origin_oracle = .
+    gen double prev_oracle = .
     forvalues k = 1/`K' {
         replace enum_oracle = enum_oracle + 1 if !missing(ev`k') & ev`k' < start
-        replace origin_oracle = max(origin_oracle, ev`k') ///
+        replace prev_oracle = max(prev_oracle, ev`k') ///
             if !missing(ev`k') & ev`k' < start
     }
-    * stratum > 1: origin = (last event before start) + 1; stratum 1: entry
-    replace origin_oracle = origin_oracle + 1 if !missing(origin_oracle)
-    bysort id (start): replace origin_oracle = start[1] if missing(origin_oracle)
+    * Previous failure time: the last event day before the row (stratum > 1),
+    * or entry - 1 for stratum 1 (the AG mapping puts day d at (d-1, d]).
+    bysort id (start): replace prev_oracle = start[1] - 1 if missing(prev_oracle)
 
-    gen double t0_oracle = start - origin_oracle
-    gen double t_oracle  = stop  - origin_oracle
+    * PWP gap time = analysis time minus the previous failure time.
+    gen double t0_oracle = (start - 1) - prev_oracle
+    gen double t_oracle  = stop - prev_oracle
 
     assert stratum == enum_oracle
     assert t0 == t0_oracle
     assert t  == t_oracle
     * sanity: every stratum's first row has gap-time 0
     bysort id (start): assert t0 == 0 if _n == 1 | stratum != stratum[_n-1]
+    * the documented PWP-GT declaration keeps every row and every event
+    quietly count if ev_flag > 0 & !missing(ev_flag)
+    local n_ev = r(N)
+    egen long id_stratum = group(id stratum)
+    stset t, time0(t0) failure(ev_flag) id(id_stratum)
+    assert _st == 1
+    quietly count if _d == 1
+    assert r(N) == `n_ev'
 }
 if _rc == 0 {
     display as result "  PASS [A]: enum + gap-time match the event-date oracle (row-for-row)"
@@ -159,7 +170,7 @@ if `has_rscript' {
         file write _rf "    if (i==1 || enum_r[i] != enum_r[i-1]) cur <- g\$start[i]" _n
         file write _rf "    origin[i] <- cur" _n
         file write _rf "  }" _n
-        file write _rf "  t0_r <- g\$start - origin; t_r <- g\$stop - origin" _n
+        file write _rf "  t0_r <- g\$start - origin; t_r <- g\$stop - origin + 1" _n
         file write _rf "  if (any(enum_r != g\$stratum) || any(t0_r != g\$t0) || any(t_r != g\$t)) ok <- FALSE" _n
         file write _rf "}" _n
         file write _rf "writeLines(if (ok) 'MATCH' else 'MISMATCH', args[2])" _n

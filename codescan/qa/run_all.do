@@ -48,6 +48,7 @@ local quick_suites test_codescan test_codescan_v1_fixes test_codescan_errors ///
     test_codescan_v410 test_codescan_v415 test_codescan_v421 ///
     test_codescan_v422 test_codescan_v424 test_codescan_v430 test_codescan_v431 ///
     test_codescan_v432 ///
+    test_codescan_display_labels ///
     test_codescan_perf_equiv ///
     validation_codescan validation_codescan_extended validation_countrows
 

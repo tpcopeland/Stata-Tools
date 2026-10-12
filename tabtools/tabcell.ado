@@ -1,4 +1,4 @@
-*! tabcell Version 2.6.3  2026/10/12
+*! tabcell Version 2.6.4  2026/10/12
 *! One formatter for publication cells: estimate (CI), p, n, n (%), e/n (%), median (IQR), rate (CI)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -31,7 +31,7 @@ SYNTAX
     local of the caller (c_local) or a global; on error the macro is cleared,
     so a captured failure never leaves a stale cell behind.
 
-    ci(exact) (np): the exact binomial (Clopper-Pearson 1934) interval for the
+    ci(exact) (np): the exact binomial (Clopper-Pearson) interval for the
     percentage, n (pct; lo, hi), with lo = invibeta(n, d-n+1, a/2) and
     hi = invibetatail(n+1, d-n, a/2); lo = 0 when n = 0 and hi = 1 when n = d,
     as in [R] ci, Methods and formulas, and Thulin (2014, eq. 4).

@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_read Version 2.6.3  2026/10/12
+*! _tabtools_xlsx_read Version 2.6.4  2026/10/12
 *! Read an Excel sheet into the current dataset through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

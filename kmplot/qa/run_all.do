@@ -13,14 +13,19 @@ if "`extra'" != "" {
 if "`mode'" == "" {
     local mode "full"
 }
-if !inlist("`mode'", "quick", "core", "full") {
-    display as error "mode must be quick, core, or full"
+if !inlist("`mode'", "quick", "core", "full", "calibration") {
+    display as error "mode must be quick, core, full, or calibration"
     exit 198
 }
 
 local quick_suites "test_kmplot.do test_kmplot_errors.do"
-local core_suites "validation_fixture_truth.do test_fixture_domains.do `quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do test_kmplot_v129.do test_kmplot_v1210.do test_kmplot_v130.do test_kmplot_v131.do test_kmplot_v140.do validation_kmplot_recovery.do validation_kmplot.do"
-local full_suites "`core_suites' crossval_kmplot_sts.do crossval_kmplot_survfit.do validation_kmplot_calibration.do"
+local core_suites "validation_fixture_truth.do test_fixture_domains.do `quick_suites' test_kmplot_v124.do test_kmplot_v125.do test_kmplot_v126.do test_kmplot_v127.do test_kmplot_v129.do test_kmplot_v1210.do test_kmplot_v130.do test_kmplot_v131.do test_kmplot_v140.do test_kmplot_v141.do validation_kmplot_recovery.do validation_kmplot.do"
+local full_suites "`core_suites' crossval_kmplot_sts.do crossval_kmplot_survfit.do"
+* Coverage simulation (R = 1000, ~40 min). Not in full: the bounds it
+* calibrates are pinned exactly by validation_kmplot.do (closed form) and
+* crossval_kmplot_survfit.do (R survfit, all three transforms). Run it when
+* the interval code changes or before a release.
+local calibration_suites "validation_kmplot_calibration.do"
 local suites "``mode'_suites'"
 
 local qa_dir "`c(pwd)'"

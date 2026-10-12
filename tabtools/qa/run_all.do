@@ -1,5 +1,7 @@
 * run_all.do - QA runner for tabtools (flat layout)
-* Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|core|quick|release|benchmark]
+* Usage: cd into qa/ directory, then:
+*   stata-mp -b do run_all.do [full|core|quick|release|benchmark] [k:n]
+*   stata-mp -b do run_all.do files <suite.do> [<suite.do> ...]
 *
 * Lanes:
 *   full      - curated functional, validation, and crossval suite (default)
@@ -7,6 +9,14 @@
 *   core      - functional and known-answer validation suites
 *   release   - full plus benchmark_tabtools_speed.do
 *   benchmark - benchmark_tabtools_speed.do only
+*   files     - only the named suites; each must belong to the release lane
+*
+* k:n runs shard k of n: every n-th file of the lane, starting at position k.
+* Shards are meant to run in separate copies of the package tree, because
+* suites write fixed-name outputs into qa/. The separator is a colon because
+* batch mode names its log after the last path component of the arguments, so
+* "1/6" would write 6.log instead of run_all.log. A shard launcher must check
+* that the SHARD_FILE lines of all shards cover the lane exactly once.
 *
 * The runner installs the package into a sandboxed PLUS/PERSONAL so the
 * user's real ado tree is never touched, and restores it afterwards.
@@ -17,12 +27,36 @@ set processors 1
 set varabbrev off
 version 17.0
 
-args lane extra
+gettoken lane rest : 0
 local lane = lower(strtrim("`lane'"))
+local rest = strtrim("`rest'")
 if "`lane'" == "" local lane "full"
-if "`extra'" != "" | !inlist("`lane'", "full", "core", "quick", "release", "benchmark") {
-    display as error "Usage: run_all.do [full|core|quick|release|benchmark]"
+local usage "Usage: run_all.do [full|core|quick|release|benchmark] [k:n]  or  run_all.do files <suite.do> ..."
+if !inlist("`lane'", "full", "core", "quick", "release", "benchmark", "files") {
+    display as error "`usage'"
     exit 198
+}
+local shard_k = 0
+local shard_n = 0
+local requested_files ""
+if "`lane'" == "files" {
+    local requested_files "`rest'"
+    if "`requested_files'" == "" {
+        display as error "`usage'"
+        exit 198
+    }
+}
+else if "`rest'" != "" {
+    if !regexm("`rest'", "^([0-9]+):([0-9]+)$") {
+        display as error "`usage'"
+        exit 198
+    }
+    local shard_k = real(regexs(1))
+    local shard_n = real(regexs(2))
+    if `shard_n' < 1 | `shard_k' < 1 | `shard_k' > `shard_n' {
+        display as error "shard must be k:n with 1 <= k <= n; got `rest'"
+        exit 198
+    }
 }
 
 local qa_dir "`c(pwd)'"
@@ -184,6 +218,8 @@ local test_files "`test_files' test_pct_floor.do"
 local test_files "`test_files' test_fixes_2026_10_10.do"
 local test_files "`test_files' test_qa_gaps_2026_10_10.do"
 local test_files "`test_files' test_clarity_2026_10_12.do"
+local test_files "`test_files' test_ratetab_rateratio_refusal.do"
+local test_files "`test_files' test_clarity_final_2026_10_12.do"
 
 local validation_files "validation_tabtools_precision.do validation_stacktab_precision_controls.do"
 local validation_files "`validation_files' validation_corrtab.do"
@@ -225,8 +261,45 @@ else if "`lane'" == "benchmark" {
 else if "`lane'" == "release" {
     local all_files "`full_files' `benchmark_files'"
 }
+else if "`lane'" == "files" {
+    * A named suite outside the release lane is refused rather than run, so a
+    * typo cannot turn into a green lane that ran nothing.
+    local known "`full_files' `benchmark_files'"
+    local all_files : list uniq requested_files
+    local unknown : list all_files - known
+    if "`unknown'" != "" {
+        display as error "not in the release lane:`unknown'"
+        capture ado uninstall tabtools
+        global TABTOOLS_QA_OUTPUT_DIR
+        sysdir set PLUS "`orig_plus'"
+        sysdir set PERSONAL "`orig_personal'"
+        discard
+        capture shell rm -rf "`plus_dir'" "`personal_dir'" "`run_output_dir'"
+        exit 198
+    }
+}
 else {
     local all_files "`full_files'"
+}
+
+local lane_total : list sizeof all_files
+if `shard_n' > 0 {
+    local shard_files ""
+    local pos = 0
+    foreach f of local all_files {
+        local ++pos
+        if mod(`pos' - 1, `shard_n') == `shard_k' - 1 {
+            local shard_files "`shard_files' `f'"
+        }
+    }
+    local all_files "`shard_files'"
+    * Parsed by the shard launcher to prove the shards partition the lane
+    * exactly once. One file per line: a single long line wraps at the log linesize.
+    local shard_count : list sizeof all_files
+    display "SHARD: `shard_k':`shard_n' lane=`lane' lane_total=`lane_total' count=`shard_count'"
+    foreach f of local all_files {
+        display "SHARD_FILE: `f'"
+    }
 }
 
 * Read skip list
@@ -359,7 +432,7 @@ if `n_fail' > 0 {
 * fail on any skip; quick remains advisory.
 if `n_skip' > 0 {
     display as text "Skipped files came from _skip.txt:`skipped_files'"
-    if inlist("`lane'", "core", "full", "release", "benchmark") {
+    if inlist("`lane'", "core", "full", "release", "benchmark", "files") {
         display as error "`n_skip' file(s) were skipped; the `lane' lane requires every discovered file to run"
         display as error "remove the _skip.txt entries, or use the quick lane if a skip is intended"
         local suite_rc = 1

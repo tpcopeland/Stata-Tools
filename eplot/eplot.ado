@@ -1,4 +1,4 @@
-*! eplot Version 1.7.0  2026/10/12
+*! eplot Version 1.7.1  2026/10/12
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -516,6 +516,11 @@ program define _eplot_data, rclass
         if "`sigcolors'" == "" & (`"`sigcolor'"' != "" | `"`insigncolor'"' != "") {
             display as error "sigcolor() and insigncolor() require sigcolors"
             exit 198
+        }
+        // msymbol() must be one valid symbol: twoway ignores extra symbols
+        // and draws the default for an unknown name at rc=0.
+        if `"`msymbol'"' != "" {
+            _eplot_check_symbol, option(msymbol) max(1) spec(`msymbol')
         }
 
         // ====== Style presets (apply BEFORE user overrides) ======
@@ -1877,6 +1882,9 @@ program define _eplot_estimates, rclass
             display as error "sigcolor() and insigncolor() require sigcolors"
             exit 198
         }
+        if `"`msymbol'"' != "" {
+            _eplot_check_symbol, option(msymbol) max(1) spec(`msymbol')
+        }
     }
     else {
         // Every element of a per-model color list must itself be one color.
@@ -1910,6 +1918,9 @@ program define _eplot_estimates, rclass
         if `_n_ms' > 1 & `_n_ms' != `n_models' {
             display as error "msymbol() with multiple models requires one symbol or exactly one symbol per model (`n_models')"
             exit 198
+        }
+        if `"`msymbol'"' != "" {
+            _eplot_check_symbol, option(msymbol) max(`n_models') spec(`msymbol')
         }
     }
     if `_offset_supplied' {
@@ -3277,6 +3288,11 @@ program define _eplot_matrix, rclass
             display as error "sigcolor() and insigncolor() require sigcolors"
             exit 198
         }
+        // msymbol() must be one valid symbol: twoway ignores extra symbols
+        // and draws the default for an unknown name at rc=0.
+        if `"`msymbol'"' != "" {
+            _eplot_check_symbol, option(msymbol) max(1) spec(`msymbol')
+        }
 
         // ====== Style presets (apply BEFORE user overrides) ======
         if "`style'" != "" {
@@ -4417,6 +4433,59 @@ program define _eplot_check_color, nclass
             display as error `"`option'() must be one valid color, not {bf:`macval(spec)'}"'
             display as error "use a color name (e.g. navy, navy*.5, navy%50) or a quoted RGB triplet such as " `"""' "0 128 0" `"""'
             exit 198
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// Validate SPEC as a list of at most MAX(#) Stata symbolstyles ([G-4]
+// symbolstyle): a synonym from the [G-4] table (O D T S + X A a | V o d s t
+// x v Oh Dh Th Sh oh dh th sh p i) or a named style with a
+// symbol-<name>.style file on the adopath (circle, smx, point, none, ...).
+// twoway does not refuse anything else: an unknown name only prints "named
+// style ... not found" and draws the default symbol at rc=0, and extra
+// symbols in a list for one scatter series are ignored, so eplot refuses
+// both here with r(198), as _eplot_check_color does for colors.  Names are
+// case-sensitive, as in twoway.  Stylelist shorthands (".", "=", "..") are
+// refused: eplot draws each series itself and has its own default.
+capture program drop _eplot_check_symbol
+program define _eplot_check_symbol, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , OPTion(name) MAX(integer) [SPEC(string asis)]
+
+        local _n : word count `spec'
+        if `_n' == 0 {
+            display as error "`option'() is empty; omit it for the default symbol"
+            exit 198
+        }
+        if `_n' > `max' {
+            if `max' == 1 {
+                display as error `"`option'() must be one symbol, not {bf:`macval(spec)'}"'
+                display as error "one symbol per model is allowed only with several stored estimates"
+            }
+            else {
+                display as error "`option'() with multiple models requires one symbol or exactly one symbol per model (`max')"
+            }
+            exit 198
+        }
+        local _syn "O D T S + X A a | V o d s t x v Oh Dh Th Sh oh dh th sh p i"
+        foreach _s of local spec {
+            local _ok 0
+            if `: list _s in _syn' local _ok 1
+            else if regexm(`"`_s'"', "^[A-Za-z_][A-Za-z0-9_]*$") {
+                capture findfile symbol-`_s'.style
+                if _rc == 0 local _ok 1
+            }
+            if !`_ok' {
+                display as error `"`option'(): {bf:`macval(_s)'} is not a marker symbol"'
+                display as error "use a symbolstyle such as O, D, T, S, Oh, circle, or diamond_hollow; see {help symbolstyle}"
+                exit 198
+            }
         }
     }
     local rc = _rc

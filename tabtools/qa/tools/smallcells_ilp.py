@@ -409,10 +409,14 @@ def check_case(dirn, cid, spec, opts, k):
         if len(mrows) > 1:
             raise ValueError(f"case {cid}: {len(mrows)} Missing rows for {name}")
         if mrows:
+            # The Missing row follows the level rows' format (tabtools 2.6.4):
+            # % (n) under percent_n, and under slashN its denominator is the
+            # group N of the header, the same N its percentage is over.
             apply(mrows[0],
                   lambda g: list(miss.values()) if g is None else [miss[g]],
-                  lambda g: allunits if g is None else units[g],
-                  pctden=lambda g: allN if g is None else [nidx[g]])
+                  lambda g: allN if g is None else [nidx[g]],
+                  pctden=lambda g: allN if g is None else [nidx[g]],
+                  first=pct_first)
     # the truth must satisfy every published constraint (parser sanity)
     x = np.array(model.truth, dtype=float)
     a, lo, hi = model.matrices()

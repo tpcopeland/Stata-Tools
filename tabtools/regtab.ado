@@ -1,4 +1,4 @@
-*! regtab Version 2.6.3  2026/10/12
+*! regtab Version 2.6.4  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -45,6 +45,13 @@ SYNTAX:
 	        (log-hazard metric) and mecloglog, it becomes Median Hazard Ratio
 	        (MHR); mestreg in the time metric keeps the variance. CI bounds
 	        are transformed on the same scale. Use nore to suppress.
+	        exp(sqrt(2*var) * invnormal(0.75)): MOR, austin-merlo-2017
+	        (Stat Med 36:3257), sec. 4.5.2 eq. (5); MHR, austin-wagner-merlo-2017
+	        (Stat Med 36:928), sec. 2.2 eq. (4).
+	ICC (latent response): sigma2_u / (sigma2_u + gamma), gamma = pi^2/3
+	        (logit), 1 (probit), pi^2/6 (cloglog): [ME] estat icc, Methods and
+	        formulas; logit and probit also austin-merlo-2017, sec. 4.5.1.
+	        QICu = deviance + 2p: Cui 2007, Stata J 7:209, eq. (2).
 
 */
 

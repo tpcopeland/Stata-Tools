@@ -7,9 +7,13 @@
 *   cont  continuous event times, 40% delayed entry, administrative censoring
 *   ties  the same draws rounded up to multiples of 0.5 (tied event times)
 * Each group is compared at landmarks 1-4 (inside follow-up by design) for
-* the KM estimate, the log-log 95% bounds, and the number at risk with
+* the KM estimate, the 95% bounds under every citransform() (loglog, log,
+* plain; R's conf.type log-log, log, plain), and the number at risk with
 * delayed entry; medians are compared in both scenarios, with R's
 * plateau-midpoint convention mapped to Stata's plateau-start convention.
+* The log-rank p-value (pvalue) is compared with R survdiff(rho = 0) on the
+* same draws with entry times ignored (survdiff refuses delayed entry), so
+* it is checked on right-censored data with and without tied times.
 * Requires Rscript on the PATH with the survival package
 * (install.packages("survival")).
 
@@ -22,7 +26,7 @@ _kmplot_qa_bootstrap
 
 local times "1 2 3 4"
 local nrep 40
-tempfile sim rin rout
+tempfile sim rin rout rlr
 set seed 20261012
 clear
 set obs `=`nrep' * 60'
@@ -46,8 +50,9 @@ order scenario rep grp t0 t d
 save "`sim'"
 export delimited scenario rep grp t0 t d using "`rin'.csv", replace
 
-shell Rscript "`qa_dir'/crossval_kmplot_survfit.R" "`rin'.csv" "`rout'.csv" "`times'" > "`rout'.txt" 2>&1
+shell Rscript "`qa_dir'/crossval_kmplot_survfit.R" "`rin'.csv" "`rout'.csv" "`times'" "`rlr'.csv" > "`rout'.txt" 2>&1
 capture confirm file "`rout'.csv"
+if _rc == 0 capture confirm file "`rlr'.csv"
 if _rc {
     type "`rout'.txt"
     display as error "Rscript did not produce reference output; install R and the survival package"
@@ -55,8 +60,10 @@ if _rc {
 }
 type "`rout'.txt"
 import delimited using "`rout'.csv", clear case(preserve) stringcols(1) asdouble
-tempfile ref
+tempfile ref lrref
 save "`ref'"
+import delimited using "`rlr'.csv", clear case(preserve) stringcols(1) asdouble
+save "`lrref'"
 
 local test_count = 0
 local pass_count = 0
@@ -69,13 +76,19 @@ foreach sc in cont ties {
         kmplot, by(grp) ci landmark(`times') median ///
             risksaving("`c(tmpdir)'/kmcv_risk.dta", replace) timepoints(`times') ///
             name(kmcv, replace)
-        tempname L R
+        tempname L R Llog Lpl
         matrix `L' = r(landmarks)
         matrix `R' = r(risktable)
         forvalues g = 1/2 {
             local med_`g' = .
             capture local med_`g' = r(median_`g')
         }
+        quietly kmplot, by(grp) ci citransform(log) landmark(`times') ///
+            nodraw name(kmcv, replace)
+        matrix `Llog' = r(landmarks)
+        quietly kmplot, by(grp) ci citransform(plain) landmark(`times') ///
+            nodraw name(kmcv, replace)
+        matrix `Lpl' = r(landmarks)
         use "`ref'", clear
         quietly keep if scenario == "`sc'" & rep == `r'
         sort grp time
@@ -88,6 +101,11 @@ foreach sc in cont ties {
             assert abs(`L'[`i', 3] - surv[`i']) < 1e-10
             assert abs(`L'[`i', 4] - lower[`i']) < 1e-8
             assert abs(`L'[`i', 5] - upper[`i']) < 1e-8
+            assert !missing(lower_log[`i'], upper_log[`i'], lower_plain[`i'], upper_plain[`i'])
+            assert abs(`Llog'[`i', 4] - lower_log[`i']) < 1e-8
+            assert abs(`Llog'[`i', 5] - upper_log[`i']) < 1e-8
+            assert abs(`Lpl'[`i', 4] - lower_plain[`i']) < 1e-8
+            assert abs(`Lpl'[`i', 5] - upper_plain[`i']) < 1e-8
             assert `R'[`i', 3] == n_risk[`i']
             local ++test_count
             local ++pass_count
@@ -117,6 +135,31 @@ foreach sc in cont ties {
         }
     }
 }
+* Log-rank p-value against survdiff on right-censored data (entry ignored).
+local n_lr = 0
+foreach sc in cont ties {
+    forvalues r = 1/`nrep' {
+        use "`lrref'", clear
+        quietly keep if scenario == "`sc'" & rep == `r'
+        assert _N == 1
+        local p_ref = p[1]
+        local chi_ref = chisq[1]
+        use "`sim'", clear
+        quietly keep if scenario == "`sc'" & rep == `r'
+        quietly stset t, failure(d)
+        kmplot, by(grp) pvalue name(kmcv, replace)
+        assert !missing(r(p), `p_ref')
+        assert reldif(r(p), `p_ref') < 1e-8
+        quietly sts test grp
+        assert !missing(r(chi2), `chi_ref')
+        assert reldif(r(chi2), `chi_ref') < 1e-8
+        local ++n_lr
+        local ++test_count
+        local ++pass_count
+    }
+}
+display as text "log-rank p-values matched to survdiff: `n_lr'"
+assert `n_lr' == 2 * `nrep'
 capture erase "`c(tmpdir)'/kmcv_risk.dta"
 display as text "exact S = 0.5 plateaus mapped: `n_plateau'"
 assert `n_plateau' > 0

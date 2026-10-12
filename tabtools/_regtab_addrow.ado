@@ -1,4 +1,4 @@
-*! _regtab_addrow Version 2.6.3  2026/10/12
+*! _regtab_addrow Version 2.6.4  2026/10/12
 *! regtab block: addrow() rows, appended or placed inside a factor block
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -137,6 +137,12 @@ if `"`macval(addrow)'"' != "" {
         while `"`macval(_ar_vals)'"' != "" {
             gettoken _ar_v _ar_vals : _ar_vals
             local _ar_m = `_ar_m' + 1
+            * a value beyond the last model has no column: refused, as
+            * addcol() refuses it, never dropped
+            if `_ar_m' > `n_models' {
+                noisily display as error `"addrow(): "`macval(_ar_label)'" has more values than the `n_models' models"'
+                exit 198
+            }
             local col = (`_ar_m' - 1) * 3 + 1
             if `col' <= `n' {
                 replace c`col' = `"`macval(_ar_v)'"' in `=`curr_n'+1'

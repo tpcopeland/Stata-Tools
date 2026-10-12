@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.7.0** | 2026-10-12
+**Version 1.7.1** | 2026-10-12
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -313,7 +313,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | Option | Modes | Contract and default |
 |--------|-------|----------------------|
 | `mcolor(color)` | D, E, M, F | Marker color; default is `navy` in single-model plots, while multi-model estimates use `palette()` colors |
-| `msymbol(symbol)` | D, E, M, F | Marker symbol; default is `O`. With multiple models, one symbol for every model or exactly one per model, e.g. `msymbol(O D T)`, so models differ by shape as well as color |
+| `msymbol(symbol)` | D, E, M, F | Marker symbol (any `symbolstyle`, case-sensitive); default is `O`. An unknown name, or a list outside multi-model estimates mode, exits with `r(198)`. With multiple models, one symbol for every model or exactly one per model, e.g. `msymbol(O D T)`, so models differ by shape as well as color |
 | `msize(size)` | D, E, M, F | Marker size; default is `medium`, or `medsmall` for multi-model estimates |
 | `boxscale(#)` | D, F | Nonmissing, positive weighted-box scaling; default is `100` percent |
 | `nobox` | D, F | Replace weight-proportional squares with standard markers |
@@ -363,6 +363,15 @@ For a single estimates model or a matrix, `r(table)` is k × 3. For multiple est
 
 ## References
 
+Estimates mode follows the rules in these Stata manual entries:
+
+- StataCorp. [[P] ereturn](https://www.stata.com/manuals/pereturn.pdf) — Post the estimation results. *Stata Programming Reference Manual*. t statistics with `e(df_r)` degrees of freedom when it is posted, normal statistics otherwise.
+- StataCorp. [[ME] mixed](https://www.stata.com/manuals/memixed.pdf) — Multilevel mixed-effects linear regression. *Stata Multilevel Mixed-Effects Reference Manual*. Parameter-specific `e(df)` after `dfmethod()`, and `e(V_df)` after `dfmethod(kroger)`.
+- StataCorp. [[MI] mi estimate](https://www.stata.com/manuals/mimiestimate.pdf) — Estimation using multiple imputations. *Stata Multiple-Imputation Reference Manual*. Parameter-specific `e(df_mi)`; `e(b)` and `e(V)` are stored only with `post`.
+- StataCorp. [[R] ml](https://www.stata.com/manuals/rml.pdf) — Maximum likelihood estimation, options for use with `ml display`. *Stata Base Reference Manual*. `eform` exponentiates only the first `e(k_eform)` equations, by default the first.
+
+Related commands:
+
 - [coefplot](https://repec.sowi.unibe.ch/stata/coefplot/) by Ben Jann — a comprehensive coefficient-plot command available from SSC
 - [metan](https://ideas.repec.org/c/boc/bocode/s456798.html) — a user-written meta-analysis command available from SSC
 - `meta forestplot` — the official meta-analysis forest-plot command
@@ -373,6 +382,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.7.1** (2026-10-12): `msymbol()` is now validated as colors are: a name that is not a Stata symbolstyle exits with `r(198)` instead of drawing the default symbol at rc 0, and outside multi-model estimates mode a list of symbols exits with `r(198)` instead of plotting only the first. The help file gains a References section citing the Stata manual entries whose rules estimates mode follows (`[P] ereturn`, `[ME] mixed`, `[MI] mi estimate`, `[R] ml`).
 - **1.7.0** (2026-10-12): Data and frame modes no longer drop a row with a missing estimate or interval silently: a note names each row left out of the plot (by its `labels()` text or observation number) and points to `type()` code 2 for keeping it as a labelled row. A row with exactly one missing confidence limit now exits with `r(198)`, as an incomplete `pi()` pair already did. In multi-model estimates mode `msymbol()` takes one symbol per model, so models can be told apart by shape in greyscale print. The automatic `eform` axis title now covers `ologit`, `mlogit` (RRR), `glm` with logit or log links, `zip`, `tpoisson`, `tnbreg`, `gnbreg`, `stcrreg` (SHR), `binreg`, and accelerated failure-time `streg`/`mestreg` (Time Ratio), each matching the column name of the command's own table; these had read "Effect".
 - **1.6.2** (2026-10-12): After `mixed, dfmethod(kroger)` the standard errors come from `e(V_df)`, which Stata pairs with the Kenward-Roger df, instead of `e(V)`, so intervals and p-values match Stata's table. `keep()` and `drop()` exit with r(198) naming any name or pattern that matches nothing, where they had been silently ignored, and match `eq:name` in estimates and matrix modes; `drop(_cons)`, the automatic constant drop of `noconstant` and `eform`, and a `drop()` name already removed by `keep()` or omitted remain non-errors. `dp(5)` and higher no longer build an invalid format that blanked the values text; fixed formats round the estimate and both limits half away from zero on their decimal values (2.675 prints as 2.68), print a rounded zero as `0.00`, and keep one notation per row. Matrix mode applies `coeflabels()` after `order()`, as the help documents. `groups()` gathers each group's members under its header at the first member's position, refuses a coefficient listed in two groups, and its `gap()` spacer no longer ties with the next header. `rename()` applies all mappings at once, so swaps and chains work. A data-mode `values vcolor()` RGB triplet no longer breaks `export()` with r(199). Coefficients constrained to a fixed value are omitted with a note, `order()` no longer prints a missing-values message, and `logscale` ranges wider than twelve decades get a thinned decade lattice instead of linear ticks.
 - **1.6.1** (2026-10-10): `favors()` labels are anchored at the null and read outward from it: the left label's right edge and the right label's left edge sit `gap()` from the null whatever their length, the tick span, or the size of the graph (including `graph combine`), where 1.6.0 centred each label on its half of the tick span and a long label could run over the null line and its tick label. `below` hangs the labels under the tick labels from the plot-region edge (whose bottom margin it sets to zero), spaced from the scheme's tick length, tick gap, and tick-label size, and the effect-axis title, centred or `atnull`, moves down to clear them (also under a passed-through `xtitle("")`); rotated or multi-line tick labels and absolute-unit sizes, which cannot be measured, put the labels inside the plot with a note. `gap()` is now the gap from the null in relative size units (default 1.5; `*#` scales it), applies with or without `below`, and is refused with `ends`. In-plot labels no longer sit on a white box, which blanked the null line between them.

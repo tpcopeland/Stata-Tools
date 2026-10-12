@@ -1,4 +1,4 @@
-*! kmplot Version 1.4.0  2026/10/12
+*! kmplot Version 1.4.1  2026/10/12
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -189,8 +189,8 @@ program define kmplot, rclass
             noisily display as error "timepoints() requires risktable or risksaving()"
             exit 198
         }
-        if `_riskheight_specified' & "`risktable'" == "" & `"`risksaving'"' == "" {
-            noisily display as error "riskheight() requires risktable or risksaving()"
+        if `_riskheight_specified' & "`risktable'" == "" {
+            noisily display as error "riskheight() requires risktable"
             exit 198
         }
         if `_censorthin_specified' & "`censor'" == "" {
@@ -610,12 +610,14 @@ program define kmplot, rclass
                 graphname(`_kmplot_risk_graph') ///
                 `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
                 `rt_height_opt' `rt_flags' ///
-                callerversion("1.4.0") toptimeaxis
+                callerversion("1.4.1") toptimeaxis
             matrix `risktable_mat' = r(risktable)
             local has_risktable_mat = 1
             local risk_timepoints "`r(timepoints)'"
             local n_timepoints = r(n_timepoints)
-            local riskheight_used = r(riskheight)
+            * The height applies only to a drawn table; risksaving() alone
+            * draws none, so no height is reported.
+            if "`risktable'" != "" local riskheight_used = r(riskheight)
             local risk_plot_left = r(plot_margin_left)
             local risk_plot_right = r(plot_margin_right)
             local risk_row_offset = r(row_offset)
@@ -772,11 +774,39 @@ program define kmplot, rclass
         * the previous bound forward (horizontal segment), then step to the new
         * bound (vertical riser). Drawn in data order (no sort).
 
+        * Drawn bounds.  The stored bounds stay missing where the curve has
+        * reached S = 0 (F = 1 in failure mode), as in -sts list-, but the
+        * interval on [t(k-1), t(k)) belongs to S(t(k-1)) > 0.  As -sts graph-
+        * does, the drawn band and CI lines carry the last bounds to the time
+        * the curve reaches 0, so they end where the curve ends.
+        if "`ci'" != "" {
+            tempvar plb pub cseen cend cendn cendt clb cub
+            quietly {
+                gen double `plb' = `km_lb'
+                gen double `pub' = `km_ub'
+                local s_end = cond("`failure'" != "", 1, 0)
+                bysort `grpid' (_t): gen long `cseen' = ///
+                    sum(!missing(`km_lb', `km_ub'))
+                by `grpid': gen byte `cend' = (`km_s' == `s_end' & ///
+                    missing(`km_lb', `km_ub') & `cseen' > 0)
+                by `grpid': gen long `cendn' = sum(`cend')
+                by `grpid': gen double `cendt' = _t if `cend' & `cendn' == 1
+                by `grpid': replace `cendt' = `cendt'[_n - 1] if missing(`cendt')
+                gen double `clb' = `km_lb'
+                gen double `cub' = `km_ub'
+                by `grpid': replace `clb' = `clb'[_n - 1] if missing(`clb')
+                by `grpid': replace `cub' = `cub'[_n - 1] if missing(`cub')
+                replace `plb' = `clb' if `cend' & _t == `cendt'
+                replace `pub' = `cub' if `cend' & _t == `cendt'
+                drop `cseen' `cend' `cendn' `cendt' `clb' `cub'
+            }
+        }
+
         if "`ci'" != "" & "`cistyle'" == "band" {
             tempvar bgrp btime blo bhi btag
             * Use source row indices; event times and bounds never pass through text.
             quietly bysort `grpid' _t: gen byte `btag' = ///
-                (_n == 1 & !missing(`km_lb', `km_ub'))
+                (_n == 1 & !missing(`plb', `pub'))
             quietly count if `btag'
             local band_pts = 2 * r(N)
             if `band_pts' > 0 {
@@ -797,13 +827,13 @@ program define kmplot, rclass
                     if `_prev' > 0 {
                         if `grpid'[`_prev'] == `grpid'[`_src'] local _carry = `_prev'
                     }
-                    quietly replace `blo' = `km_lb'[`_carry'] in `_br'
-                    quietly replace `bhi' = `km_ub'[`_carry'] in `_br'
+                    quietly replace `blo' = `plb'[`_carry'] in `_br'
+                    quietly replace `bhi' = `pub'[`_carry'] in `_br'
                     local ++_br
                     quietly replace `bgrp' = `grpid'[`_src'] in `_br'
                     quietly replace `btime' = _t[`_src'] in `_br'
-                    quietly replace `blo' = `km_lb'[`_src'] in `_br'
-                    quietly replace `bhi' = `km_ub'[`_src'] in `_br'
+                    quietly replace `blo' = `plb'[`_src'] in `_br'
+                    quietly replace `bhi' = `pub'[`_src'] in `_br'
                     local _prev = `_src'
                 }
                 local has_stepband = 1
@@ -853,8 +883,8 @@ program define kmplot, rclass
                 local colidx = mod(`g' - 1, `ncolors') + 1
                 local col : word `colidx' of `colors'
                 if "`col'" == "" local col "black"
-                local tw_layers `"`macval(tw_layers)' (line `km_lb' _t if `grpid' == `g' & !missing(`km_lb'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
-                local tw_layers `"`macval(tw_layers)' (line `km_ub' _t if `grpid' == `g' & !missing(`km_ub'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `plb' _t if `grpid' == `g' & !missing(`plb'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
+                local tw_layers `"`macval(tw_layers)' (line `pub' _t if `grpid' == `g' & !missing(`pub'), lcolor("`col'") lwidth(thin) lpattern(dash) sort connect(J))"'
             }
         }
 

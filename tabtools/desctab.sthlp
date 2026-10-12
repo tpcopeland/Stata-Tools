@@ -226,7 +226,21 @@ missing codes ({cmd:.} and {cmd:.a}-{cmd:.z}) form the one Missing category show
 chi-square or Fisher test uses that same coding{p_end}
 
 {phang}
-{opt missings:ummary} add missing data summary row per variable{p_end}
+{opt missings:ummary} add missing data summary row per variable. The Missing row
+follows the cell format of the level rows: {it:n} (%) by default, % ({it:n}) under
+{opt percent_n}, the percentage alone under {opt percent} (and in percent-only
+weighted columns), and {it:n}/{it:N} (%) under {opt slashN}.{p_end}
+
+{pstd}
+{bf:Percentage denominators.} With column percentages (the default; {opt catrowperc}
+makes them row percentages), a categorical level's percentage is its count over
+the column's {it:non-missing} count for that variable (the sum of the column's
+level counts), which can be smaller than the group N in the header: with 12 of 52
+missing, the levels' percentages are out of 40. The Missing row's percentage is
+over the group N in the header (12 of 52 is 23%), and under {opt slashN} its
+denominator is that group N. Observations with a missing {opt by()} variable are
+in no group column and not in the {opt total()} column either, whose N is the sum
+of the group Ns.{p_end}
 
 {phang}
 {opt smallc:ells(#[, primary])} suppresses every positive count below {it:#} and adds

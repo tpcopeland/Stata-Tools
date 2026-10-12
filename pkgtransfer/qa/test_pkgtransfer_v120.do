@@ -713,8 +713,12 @@ else {
     display as error "  FAIL: os() without a matching g record (rc `test_rc')"
 }
 
-**# 12. A .plugin package whose source descriptor is unreadable fails
+**# 12. A .plugin package (no bundle marker) with an unreadable descriptor fails
 
+* Scope: a package installed directly from a source that is no longer
+* readable. The error names the package, its descriptor, and the remedy
+* rather than echoing a bare "file not found" (1.2.1). The bundle-installed
+* (marker) route is tests 13-14.
 local ++test_count
 local t "`work'/t12"
 tempname fh
@@ -728,9 +732,15 @@ capture noisily {
     file write `fh' "f p/gonep.plugin" _n "f p/gonep.ado" _n "e" _n
     file close `fh'
     quietly cd "`t'"
+    log using "`t'/p12.log", text replace name(v120p12)
     capture noisily pkgtransfer, download(local) dofile(b.do) zipfile(b.zip)
     local call_rc = _rc
-    assert `call_rc' != 0
+    log close v120p12
+    assert `call_rc' == 601
+    local p12 = fileread("`t'/p12.log")
+    assert strpos(`"`p12'"', ///
+        "Could not read the source descriptor of gonep: `t'/gone/gonep.pkg") > 0
+    assert strpos(`"`p12'"', "exclude it with skip(gonep)") > 0
     capture confirm file "b.zip"
     assert _rc == 601
     local staged : dir "." dirs "pkgtransfer_files"
@@ -738,6 +748,7 @@ capture noisily {
 }
 local test_rc = _rc
 capture file close `fh'
+capture log close v120p12
 capture erase "`qa_plus'/p/gonep.plugin"
 capture erase "`qa_plus'/p/gonep.ado"
 quietly cd "`orig_dir'"
@@ -750,6 +761,131 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' plugin_unread"
     display as error "  FAIL: plugin package with unreadable descriptor (rc `test_rc')"
+}
+
+**# 13-14. Second hop from a bundle-installed machine whose folder is gone
+
+* I1 (clarity 2026-10-12 final): such a machine's S line names the previous
+* machine's deleted pkgtransfer_files, so the descriptor that identifies g/G
+* files cannot be read. download(local) must refuse (rc 601) naming the
+* package and -pkgtransfer, restore- (alone or combined with restore, leaving
+* stata.trk untouched); it must never ship this platform's build as F. After
+* a standalone restore the hop reads the original source and ships the
+* Windows build only.
+capture program drop _v120_hop2_repo
+program define _v120_hop2_repo
+    version 16.0
+    syntax, DIR(string) NAME(name) TARGET(string)
+    mkdir "`dir'"
+    _v120_write using "`dir'/`name'.ado", text("program define `name'")
+    tempname fh
+    file open `fh' using "`dir'/`name'.pkg", write text replace
+    file write `fh' "v 3" _n "d `name' second-hop fixture" _n "f `name'.ado" _n
+    foreach platform in LINUX64 WIN64 MACARM64 {
+        local p = lower("`platform'")
+        file write `fh' "g `platform' b_`p'.bin `target'" _n
+        _v120_write using "`dir'/b_`p'.bin", text("`name' build `platform'")
+    }
+    file write `fh' "e" _n
+    file close `fh'
+    file open `fh' using "`dir'/stata.toc", write text replace
+    file write `fh' "v 3" _n "p `name'" _n
+    file close `fh'
+end
+
+local hop2_cases "hop2plug:hop2.plugin hop2jar:hop2.jar"
+foreach hop2_case of local hop2_cases {
+    gettoken hname htarget : hop2_case, parse(":")
+    local htarget = substr("`htarget'", 2, .)
+    local ++test_count
+    local t "`work'/t13_`hname'"
+    capture noisily {
+        mkdir "`t'"
+        foreach d in p1 p2 h1 h2 x {
+            mkdir "`t'/`d'"
+        }
+        _v120_hop2_repo, dir("`t'/repo") name(`hname') target(`htarget')
+        sysdir set PLUS "`t'/p1"
+        quietly cd "`t'/h1"
+        net install `hname', from("`t'/repo")
+        pkgtransfer, download(local) dofile(b.do) zipfile(b.zip)
+        sysdir set PLUS "`t'/p2"
+        do "b.do"
+        * The installed copy is this platform's build
+        * net install puts .jar files in PLUS/jar, others in PLUS/<letter>
+        local letter = cond(substr("`htarget'", -4, .) == ".jar", "jar", ///
+            substr("`htarget'", 1, 1))
+        assert fileread("`t'/p2/`letter'/`htarget'") == ///
+            fileread("`t'/repo/b_linux64.bin")
+        _v120_count_lines using "`t'/p2/stata.trk", ///
+            text("S `t'/h1/pkgtransfer_files")
+        assert r(n) == 1
+        * The unpacked folder is removed after installation
+        _pkgtransfer_cleanup_staging, directory("`t'/h1/pkgtransfer_files")
+        local trk_before = fileread("`t'/p2/stata.trk")
+
+        quietly cd "`t'/h2"
+        log using "`t'/h2/refuse.log", text replace name(v120hop2)
+        capture noisily pkgtransfer, download(local) os(Windows) ///
+            dofile(b.do) zipfile(b.zip)
+        local call_rc = _rc
+        capture noisily pkgtransfer, download(local) os(Windows) restore ///
+            dofile(c.do) zipfile(c.zip)
+        local combined_rc = _rc
+        log close v120hop2
+        assert `call_rc' == 601
+        assert `combined_rc' == 601
+        local refuse = fileread("`t'/h2/refuse.log")
+        assert strpos(`"`refuse'"', ///
+            "Could not read the source descriptor of `hname': `t'/h1/pkgtransfer_files/`hname'.pkg") > 0
+        assert strpos(`"`refuse'"', ///
+            "`hname' was installed from a pkgtransfer bundle") > 0
+        assert strpos(`"`refuse'"', "Run -pkgtransfer, restore- first") > 0
+        assert strpos(`"`refuse'"', "Note: could not read") == 0
+        foreach out in b.do b.zip c.do c.zip {
+            capture confirm file "`out'"
+            assert _rc == 601
+        }
+        local staged : dir "." dirs "pkgtransfer_files"
+        assert `"`staged'"' == ""
+        assert fileread("`t'/p2/stata.trk") == `"`trk_before'"'
+
+        * Documented remedy: restore alone, then the hop reads the original
+        pkgtransfer, restore
+        pkgtransfer, download(local) os(Windows) dofile(b.do) zipfile(b.zip)
+        assert r(N_packages) == 1
+        quietly cd "`t'/x"
+        unzipfile "`t'/h2/b.zip", replace
+        local desc "pkgtransfer_files/`hname'.pkg"
+        _v120_count_lines using "`desc'", text("g WIN64 b_win64.bin `htarget'")
+        assert r(n) == 1
+        _v120_count_lines using "`desc'", text("g ") prefix
+        assert r(n) == 1
+        foreach dropped in "F `htarget'" "f `htarget'" {
+            _v120_count_lines using "`desc'", text("`dropped'")
+            assert r(n) == 0
+        }
+        assert fileread("pkgtransfer_files/b_win64.bin") == ///
+            fileread("`t'/repo/b_win64.bin")
+        foreach absent in `htarget' b_linux64.bin b_macarm64.bin {
+            capture confirm file "pkgtransfer_files/`absent'"
+            assert _rc == 601
+        }
+    }
+    local test_rc = _rc
+    capture log close v120hop2
+    sysdir set PLUS "`qa_plus'"
+    quietly cd "`orig_dir'"
+    capture quietly _pkgtransfer_cleanup_staging, directory("`t'")
+    if `test_rc' == 0 {
+        local ++pass_count
+        display as result "  PASS: second hop (`htarget') refuses until restore, then ships WIN64"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' hop2_`hname'"
+        display as error "  FAIL: second hop from bundle-installed machine, `htarget' (rc `test_rc')"
+    }
 }
 
 **# Cleanup and result

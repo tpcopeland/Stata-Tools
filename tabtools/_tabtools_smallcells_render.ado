@@ -1,4 +1,4 @@
-*! _tabtools_smallcells_render Version 2.6.3  2026/10/12
+*! _tabtools_smallcells_render Version 2.6.4  2026/10/12
 *! Render safe disclosure-control strings and numeric extended missings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

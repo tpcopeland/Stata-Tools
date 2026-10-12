@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.12  12oct2026}{...}
+{* *! version 1.5.13  12oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -425,14 +425,15 @@ is allowed only with {opt frame()}.
 {opt sav:ing(filename[, replace])} saves the output dataset to {it:filename}
 instead of replacing the current dataset. Specify the {opt replace} suboption
 inside {opt saving()} to overwrite an existing file. {opt saving()} may not be
-combined with {opt frame()}, {opt dryrun}, or {opt count}. A {it:filename}
-containing a left single quote ({cmd:{c 96}}) or a dollar sign ({cmd:$}) is
-refused with r(198), because Stata would expand it as a macro reference and
-write a different file; the same applies to the filename or frame name after
-{cmd:using}. In any other argument, a left single quote or a {cmd:$} followed
-by a name (a global macro reference that the caller protected with
-{cmd:macval()}) is also refused with r(198); a {cmd:$} that cannot start a
-reference, as in {cmd:if cur == "US$"}, is accepted.
+combined with {opt frame()}, {opt dryrun}, or {opt count}. In any argument,
+including this {it:filename} and the filename or frame name after
+{cmd:using}, a left single quote ({cmd:{c 96}}) or a {cmd:$} that can start a
+global macro reference is refused with r(198), because a later expansion would
+replace it with a macro's contents. A {cmd:$} is refused when it is followed
+by a letter, an underscore, {cmd:{c -(}}, another {cmd:$}, a non-ASCII
+character, or a control character such as a tab. A {cmd:$} at the
+end or followed by a digit, a space, or other punctuation stays literal and is
+accepted, as in {cmd:\\server\share$\data.dta} or {cmd:if cur == "US$"}.
 
 {phang}
 {opt stats} displays a match-density table: matched master rows, unmatched
@@ -929,7 +930,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.12, 2026-10-12{p_end}
+{pstd}Version 1.5.13, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

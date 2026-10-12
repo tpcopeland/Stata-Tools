@@ -1,4 +1,4 @@
-*! desctab Version 2.6.3  2026/10/12 - Consolidated descriptive Table 1 engine
+*! desctab Version 2.6.4  2026/10/12 - Consolidated descriptive Table 1 engine
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -948,6 +948,14 @@ program define desctab, rclass
                 if r(N) > 0 local _sc_nhidden_`_lv' 1
             }
         }
+        * The Missing row follows the cell format of the level rows above it:
+        * percent prints the percentage alone, percent_n prints % (n), and
+        * slashN prints the count over its denominator, the group N. The
+        * weighted columns of wtcompare are percent-only unless wtn or
+        * percent_n restores the count; its crude columns follow the options.
+        local _ms_pctonly = "`percent'" != "" | (`has_wt' & "`wtcompare'" != "" & !`_show_wtn')
+        local _ms_cr_pctonly = "`percent'" != ""
+        local _ms_pctfirst = "`percent_n'" != ""
         forvalues _obs = 1/`_nobs_before' {
             * Compare the cell itself: a label holding a double quote must
             * never pass through a macro inside simple quotes.
@@ -983,10 +991,12 @@ program define desctab, rclass
                             local _mstr `"`r(display)'"'
                         }
                         else {
-                            _tabtools_fmt_pct, value(`_mval' / `_max_n_`_lv'' * 100) format(`percformat')
-                            local _mpct `"`r(text)'"'
-                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
-                            if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
+                            _desctab_misscell, count(`_mval') denom(`_max_n_`_lv'') ///
+                                nformat(`nformat') percformat(`percformat') ///
+                                percsign(`percsign') pctonly(`_ms_pctonly') ///
+                                pctfirst(`_ms_pctfirst') slash(`="`slashN'" != ""') ///
+                                nhidden(`_sc_nhidden_`_lv'')
+                            local _mstr `"`r(text)'"'
                         }
                         qui replace `groupnum'`_lv' = "`_mstr'" in `_new'
                         if "`smallcells'" != "" qui replace _scmask_`_lv' = `_sc_mcode' in `_new'
@@ -1004,10 +1014,12 @@ program define desctab, rclass
                             qui replace _cr_`_lv' = `"`r(display)'"' in `_new'
                         }
                         else if !missing(`_mval') & `_mval' > 0 {
-                            _tabtools_fmt_pct, value(`_mval' / `_max_n_`_lv'' * 100) format(`percformat')
-                            local _mpct `"`r(text)'"'
-                            local _mstr = string(`_mval', "`nformat'") + " (" + "`_mpct'" + "`percsign'" + ")"
-                            if `_sc_nhidden_`_lv'' local _mstr = string(`_mval', "`nformat'")
+                            _desctab_misscell, count(`_mval') denom(`_max_n_`_lv'') ///
+                                nformat(`nformat') percformat(`percformat') ///
+                                percsign(`percsign') pctonly(`_ms_cr_pctonly') ///
+                                pctfirst(`_ms_pctfirst') slash(`="`slashN'" != ""') ///
+                                nhidden(`_sc_nhidden_`_lv'')
+                            local _mstr `"`r(text)'"'
                             qui replace _cr_`_lv' = "`_mstr'" in `_new'
                         }
                         else qui replace _cr_`_lv' = "0" in `_new'

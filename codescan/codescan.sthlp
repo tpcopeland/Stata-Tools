@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.2  12oct2026}{...}
+{* *! version 4.3.3  12oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -383,6 +383,13 @@ column of the displayed table, the {cmd:detail} table, the bar labels of
 {cmd:graph}, and a dedicated {cmd:label} column in {cmd:export()}. A label longer
 than the console column is truncated there with a trailing {cmd:~}; it reaches
 the export whole.
+
+{pmore}
+Label text is carried verbatim: a backquote or {cmd:$} in it is not expanded,
+and SMCL markup (directives in braces) is shown as typed in the console,
+{cmd:detail}, and {cmd:graph} rather than interpreted. To pass a label
+held in a local macro, use compound quotes, as in
+{cmd:label(dm2 `"`lbl'"')}.
 
 {pmore}
 Labels never become identifiers. {cmd:r(conditions)}, the row names of every
@@ -933,7 +940,7 @@ prefixes:
 {pstd}
 Use {cmd:~} to exclude specific codes that would otherwise be caught by the
 inclusion pattern. Here {cmd:dm2} matches all {cmd:E11*} codes except
-{cmd:E116} (unspecified hypoglycaemia):
+{cmd:E116} (type 2 diabetes mellitus with other specified complications):
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")}{p_end}
 
@@ -1130,7 +1137,7 @@ than a changing numerator.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.2, 2026-10-12{p_end}
+{pstd}Version 4.3.3, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

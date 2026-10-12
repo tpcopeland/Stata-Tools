@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.2.0  2026/10/12
+*! pkgtransfer Version 1.2.1  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 * Writes an online reinstall script, or an offline bundle (do-file + ZIP),
@@ -510,13 +510,37 @@ quietly{
 			save "`src_desc'", emptyok replace
 			local _desc_read ""
 			local _desc_unread ""
+			local _desc_unread_rc ""
+			* A package installed from a bundle carries a restore marker; its S
+			* line names the previous machine's staging folder, not the source
+			use "`pkg_list'", clear
+			tempvar marker_rec
+			gen byte `marker_rec' = substr(v1,1,21) == "d pkgtransfer-source " | ///
+				(substr(v1,1,4) == "d S " & regexm(substr(v1,5,.), "^[A-Za-z]+://"))
+			local _marker_pkgs ""
+			quietly count if `marker_rec'
+			if r(N) levelsof package if `marker_rec', local(_marker_pkgs) clean
 			foreach name of local pkg_list_for_do {
 				use "`pkg_url'", clear
 				quietly keep if package == "`name'"
 				local desc_url `"`=url[1]'/`name'.pkg"'
 				capture _pkgtransfer_read_lines using `"`desc_url'"'
-				if _rc {
+				local desc_rc = _rc
+				if `desc_rc' {
+					local from_bundle : list name in _marker_pkgs
+					* g/G files cannot be identified; refuse rather than ship
+					* this machine's build labelled as the requested platform
+					if `from_bundle' {
+						noisily display as error ///
+							`"Could not read the source descriptor of `name': `desc_url'"'
+						noisily display as error ///
+							"`name' was installed from a pkgtransfer bundle whose folder is no longer readable, so its platform-specific (g/G) files cannot be identified."
+						noisily display as error ///
+							"Run -pkgtransfer, restore- first (on its own), then rerun download(local) to read the original source."
+						exit 601
+					}
 					local _desc_unread "`_desc_unread' `name'"
+					local _desc_unread_rc "`_desc_unread_rc' `desc_rc'"
 					continue
 				}
 				local _desc_read "`_desc_read' `name'"
@@ -616,8 +640,16 @@ quietly{
 				// g/h records of the source descriptor read above
 				local desc_was_read : list package in _desc_read
 				if !`desc_was_read' {
-					* Report the original read failure for a plugin package
-					_pkgtransfer_read_lines using "`pkg_source_url'"
+					* A .plugin file's platform builds come only from the descriptor
+					local desc_pos : list posof "`package'" in _desc_unread
+					local desc_rc : word `desc_pos' of `_desc_unread_rc'
+					noisily display as error ///
+						`"Could not read the source descriptor of `package': `pkg_source_url'"'
+					noisily display as error ///
+						"Its plugin `plugin_name' has platform-specific builds that only that descriptor identifies."
+					noisily display as error ///
+						"Make the source reachable, or exclude it with skip(`package')."
+					exit `desc_rc'
 				}
 				use "`src_desc'" if package == "`package'", clear
 				drop package

@@ -1,4 +1,4 @@
-*! tvevent Version 1.18.0  2026/10/12
+*! tvevent Version 1.18.1  2026/10/12
 *! Add event/failure flags to time-varying datasets
 *! Author: Timothy P Copeland, Karolinska Institutet
 *!
@@ -228,8 +228,10 @@ program define tvevent, rclass
         if "`enum'" == "" local enum "_enum"
         if "`gaptime'" != "" | "`gapstart'" != "" | "`gapstop'" != "" {
             local do_gaptime = 1
-            if "`gapstart'" == "" local gapstart "_t0"
-            if "`gapstop'" == "" local gapstop "_t"
+            * Defaults avoid stset's reserved _t0/_t, which the PWP-GT
+            * declaration would otherwise collide with (r(110)).
+            if "`gapstart'" == "" local gapstart "_gapstart"
+            if "`gapstop'" == "" local gapstop "_gapstop"
         }
         else local do_gaptime = 0
     }
@@ -1735,8 +1737,13 @@ program define tvevent, rclass
                         `startvar'[1], `_event_end'[_n-1]) ///
                         if _n == 1 | `enum' != `enum'[_n-1]
                     by `id' `enum': replace `_origin' = `_origin'[1]
+                    * Closed-day grid: a row [start, stop] is the analysis
+                    * interval (start - 1, stop], and the previous event (or
+                    * entry) ends at origin - 1. Gap time since it is therefore
+                    * (start - origin, stop - origin + 1]: a row ending on its
+                    * origin day has length 1, not 0 (PWP 1981, sec. 2).
                     gen double `gapstart' = `startvar' - `_origin'
-                    gen double `gapstop' = `stopvar' - `_origin'
+                    gen double `gapstop' = `stopvar' - `_origin' + 1
                     drop `_origin' `_event_end'
                     label var `gapstart' "Gap-time start (PWP-GT)"
                     label var `gapstop' "Gap-time stop (PWP-GT)"

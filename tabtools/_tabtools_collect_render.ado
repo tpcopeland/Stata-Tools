@@ -1,4 +1,4 @@
-*! _tabtools_collect_render Version 2.6.3  2026/10/12
+*! _tabtools_collect_render Version 2.6.4  2026/10/12
 *! Render selected collect layouts from collect save .stjson into current dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

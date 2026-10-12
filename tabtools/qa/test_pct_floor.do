@@ -309,8 +309,10 @@ capture noisily {
     table1_tc, by(grp) vars(x contn) missingsummary wt(w) wtcompare clear
     _f_cell Missing, col(Cr_0)
     _f_is `"`r(s)'"' "1 (0.1)"
+    * the weighted column is percent-only (no wtn/percent_n): from 2.6.4 its
+    * Missing row prints the percentage alone, like its level rows
     _f_cell Missing, col(Wt_0)
-    _f_is `"`r(s)'"' "1 (0.1)"
+    _f_is `"`r(s)'"' "0.1"
     * headerperc: two groups of 1 in 3,000 print 0.03
     clear
     quietly set obs 3000

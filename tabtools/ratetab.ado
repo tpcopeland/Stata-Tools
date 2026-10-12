@@ -1,4 +1,4 @@
-*! ratetab Version 2.6.3  2026/10/12
+*! ratetab Version 2.6.4  2026/10/12
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -60,6 +60,33 @@ program define ratetab, rclass
             OUTLabels(string) EXPLabels(string) UNITlabel(string) PTUnit(string) ///
             ZEROCells(string) MASKtext(string) EXCLUDEMasked SAVing(string asis) *]
 
+        * rateratio is refused, not passed to stratetab. stratetab's rate
+        * ratio divides the rate of one exposure group by the same-labelled
+        * category of the first, with a variance that adds the two log-rate
+        * variances because the groups are independent samples. ratetab's
+        * grouping variables partition one sample, so the groups it would
+        * compare are levels of different variables over overlapping
+        * observations: neither the ratio nor its interval means anything.
+        * stratetab declares rateratio in lower case, so only the full word
+        * reaches it; the scan below matches exactly that word, each option
+        * with its parenthesized argument bound as one token (a title()
+        * holding the word is not the option). It sets no other local:
+        * a second syntax call would clear varlist, if and in.
+        local _rt_rr 0
+        local _rt_rest : copy local options
+        while `"`macval(_rt_rest)'"' != "" {
+            gettoken _rt_tok _rt_rest : _rt_rest, bind
+            if `"`macval(_rt_tok)'"' == "rateratio" local _rt_rr 1
+        }
+        if `_rt_rr' {
+            display as error "ratetab: rateratio is not available"
+            display as error "  stratetab's rate ratio compares independent exposure groups; ratetab's grouping"
+            display as error "  variables split one sample, so it would divide rates of overlapping groups"
+            display as error "  For rate ratios between the levels of one variable, fit {bf:poisson _d i.}{it:var}{bf:, exposure(}{it:pt}{bf:) irr}"
+            display as error "  with {it:pt} = _t - _t0 on stset data, or use {helpb ir} or {helpb stir}"
+            exit 198
+        }
+
         **# Source of events and person-time
         local _st 0
         if "`events'" == "" & "`exposure'" == "" {
@@ -103,6 +130,15 @@ program define ratetab, rclass
                 local _py_hint "365.25"
                 if "`_st_unit'" != "days" local _py_hint "31557600000"
                 display as text "      person-time and rates are labelled in person-`_st_unit'. Specify pyscale(`_py_hint') for person-years."
+            }
+        }
+        * Otherwise the person-years label is a default, not a finding: unless
+        * stset scale() turned days into years, say so (as survtab does).
+        if !`_py_given' & `"`ptunit'"' == "" {
+            local _rt_bs : char _dta[st_bs]
+            if !`_st' | !inlist(real("`_rt_bs'"), 365, 365.25) {
+                display as text "Note: person-time is labelled in person-years by default (ratetab does not infer the unit);"
+                display as text "      specify ptunit() or pyscale() if analysis time is not in years."
             }
         }
         local _pt_noun "person-years"

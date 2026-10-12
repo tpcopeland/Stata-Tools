@@ -1,9 +1,8 @@
 v 3
 d 'PKGTRANSFER': Module to capture all currently installed packages via .do or .zip
 d
-d Transfers Stata packages between machines or user profiles.
-d Exports the current list of installed ado packages and reimports them
-d on another system, preserving installation paths and metadata.
+d Writes a reinstall script or an offline bundle from the packages tracked
+d in PLUS, and restores their source URLs.
 d
 d Requires: Stata version 16
 d

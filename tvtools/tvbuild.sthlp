@@ -100,8 +100,8 @@ cohort and one or more longitudinal sources
 {synopt:{opt timeu:nit(days|months|years)}}unit for {opt timegen()}; default {cmd:days}{p_end}
 {synopt:{opt enum(name)}}recurrent-event stratum{p_end}
 {synopt:{opt gapt:ime}}produce gap-time bounds{p_end}
-{synopt:{opt gapsta:rt(name)}}gap-time start; default {cmd:_t0}{p_end}
-{synopt:{opt gapsto:p(name)}}gap-time stop; default {cmd:_t}{p_end}
+{synopt:{opt gapsta:rt(name)}}gap-time start; default {cmd:_gapstart}{p_end}
+{synopt:{opt gapsto:p(name)}}gap-time stop; default {cmd:_gapstop}{p_end}
 
 {syntab:Transaction}
 {synopt:{opt manifest:frame(name)}}manifest frame; default {it:frameout}{cmd:_manifest}{p_end}
@@ -330,8 +330,9 @@ entry through each row's stop ({it:stop} - {it:first start} + 1), as in
 {phang}
 {opt enum(name)}, {opt gaptime}, {opt gapstart(name)}, and {opt gapstop(name)}
 carry the existing recurrent-event contracts. {opt gapstart()} and
-{opt gapstop()} require {opt gaptime}; under it they default to {cmd:_t0} and
-{cmd:_t}.
+{opt gapstop()} require {opt gaptime}; under it they default to
+{cmd:_gapstart} and {cmd:_gapstop}, the closed-day gap-time bounds described in
+{helpb tvevent}, which can be declared directly with {cmd:stset}.
 
 
 {marker specframe}{...}

@@ -1,4 +1,4 @@
-*! _regtab_cellnote Version 2.6.3  2026/10/12
+*! _regtab_cellnote Version 2.6.4  2026/10/12
 *! parse cellnote("row label" model# "text" [\ ...])
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

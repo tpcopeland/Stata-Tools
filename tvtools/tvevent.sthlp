@@ -62,8 +62,8 @@ via {opt frame()}; supply one or the other.
 {syntab:Recurrent-event formatting (PWP/AG; requires type(recurring))}
 {synopt:{opt enum(name)}}event-sequence stratum (default: _enum){p_end}
 {synopt:{opt gap:time}}add gap-time clock reset at each event{p_end}
-{synopt:{opt gapstart(name)}}name for the gap-time start (default: _t0){p_end}
-{synopt:{opt gapstop(name)}}name for the gap-time stop (default: _t){p_end}
+{synopt:{opt gapstart(name)}}gap-time start; default {cmd:_gapstart}{p_end}
+{synopt:{opt gapstop(name)}}gap-time stop; default {cmd:_gapstop}{p_end}
 
 {syntab:Data handling}
 {synopt:{opt keep:vars(varlist)}}extra event-dataset variables to keep{p_end}
@@ -207,9 +207,8 @@ has time 1. It is the right-hand bound of the package's survival-time mapping
 ({it:start}-1, {it:stop}] shifted to entry. With {cmd:timeunit(days)} it can
 be declared directly: {cmd:generate double t0 = t - (stop - start + 1)} and
 {cmd:stset t, id(id) time0(t0) failure(...)}. An event on the entry day is
-kept. The {opt gaptime} clock keeps its own offset convention
-({it:stop} - origin, declared with {cmd:time0(gap0 - 1)}), so in stratum 1 it
-is one day smaller than {opt timegen()}.
+kept. The {opt gaptime} clock uses the same closed-day convention, so in
+stratum 1 its stop equals {opt timegen()} in days.
 
 {phang}
 {opt timeunit(string)} specifies the unit for {cmd:timegen()}. Options are
@@ -261,10 +260,16 @@ stratifier for Prentice-Williams-Peterson (PWP) recurrent-event models. The
 default name is {cmd:_enum}.
 
 {phang}
-{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock with origin at
-the first observed start for stratum 1 and the day after the preceding event for
-later strata, written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
-{cmd:_t0}/{cmd:_t}). Time between observation windows remains part of elapsed
+{opt gaptime} (requires {cmd:type(recurring)}) adds a gap-time clock: the time
+since the preceding event, or since entry in stratum 1. The origin is the first
+observed start for stratum 1 and the day after the preceding event for later
+strata. Each row's gap interval is ({it:start} - origin, {it:stop} - origin + 1],
+the package's ({it:start}-1, {it:stop}] mapping measured from the end of the
+preceding event day, so a row ending on its origin day (an event on the entry
+day, or on the day after the previous event) has gap time 1, not 0. The bounds
+are written to {cmd:gapstart()}/{cmd:gapstop()} (defaults
+{cmd:_gapstart}/{cmd:_gapstop}) and can be declared directly with
+{cmd:stset}. Time between observation windows remains part of elapsed
 gap time: re-entry after a gap does not reset the clock. This is the time scale
 for the PWP gap-time model. The three standard
 recurrent-event analyses are
@@ -273,14 +278,15 @@ then: first generate {cmd:double analysis_t0 = start - 1}. {break}
 {cmd:stset stop, time0(analysis_t0) failure(`generate') id(id) exit(time .)}
 so follow-up continues after each failure. {break}{bf:PWP total time}: use the
 same declaration and add {cmd:strata(`enum')} to the model. {break}
-{bf:PWP gap time}: use {cmd:egen long id_stratum = group(id `enum')} and generate
-{cmd:double gap_t0 = _t0 - 1}, then declare
-{cmd:stset _t, time0(gap_t0) failure(`generate') id(id_stratum)} and add
+{bf:PWP gap time}: use {cmd:egen long id_stratum = group(id `enum')}, then declare
+{cmd:stset _gapstop, time0(_gapstart) failure(`generate') id(id_stratum)} and add
 {cmd:strata(`enum')} plus person-clustered standard errors to the model.
 
 {phang}
 {opt gapstart(name)} and {opt gapstop(name)} name the two gap-time clock
-variables. Defaults are {cmd:_t0} and {cmd:_t}.
+variables. Defaults are {cmd:_gapstart} and {cmd:_gapstop}. Versions before
+1.18.1 defaulted to {cmd:_t0}/{cmd:_t}, which collide with the variables
+{cmd:stset} creates, and wrote a stop one day smaller.
 
 {phang}
 {opt replace} permits output variables already present in the interval data to
@@ -413,8 +419,7 @@ labels come from {cmd:event_date} and {cmd:death_date} in the event master.
 {phang2}{cmd:. generate double ag_t0 = start - 1}{p_end}
 {phang2}{cmd:. stset stop, id(id) failure(hospitalized) time0(ag_t0) exit(time .)}{p_end}
 {phang2}{cmd:. egen long id_stratum = group(id event_no)}{p_end}
-{phang2}{cmd:. generate double pwp_t0 = gap0 - 1}{p_end}
-{phang2}{cmd:. stset gap1, id(id_stratum) failure(hospitalized) time0(pwp_t0)}{p_end}
+{phang2}{cmd:. stset gap1, id(id_stratum) failure(hospitalized) time0(gap0)}{p_end}
 
 {marker results}{...}
 {title:Stored results}

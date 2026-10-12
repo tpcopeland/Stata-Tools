@@ -123,7 +123,11 @@ the headers and in {cmd:r(methods)} ("person-days") and prints a note naming the
 {cmd:r(methods)}; {cmd:ptunit(months)} gives "Person-months" and "Per 1,000
 person-months". The default is person-years, or the unit of a date-formatted
 {cmd:stset} time variable as described under {opt pyscale()}. It is a label
-only; {opt pyscale()} does the conversion.
+only; {opt pyscale()} does the conversion. When neither {opt ptunit()} nor
+{opt pyscale()} is given and no {cmd:stset} {cmd:scale()} of 365 or 365.25 turned
+days into years (or the data come from {opt events()} and {opt exposure()}),
+{cmd:ratetab} prints a note that person-time is labelled in person-years by
+default: it does not infer the unit.
 
 {phang}
 {opt ci(method)} sets the interval. {cmd:exact} gives exact Poisson limits for
@@ -187,7 +191,8 @@ person-time (all empty); use {cmd:dash} to tell them apart.
 
 {phang}
 {opt digits(#)} sets the decimal places of the rate and its
-limits. {opt cformat(%fmt)} instead applies any numeric display format (for example
+limits. A nonzero rate or limit that rounds to 0 at those decimals is counted in a
+note after the table (see {helpb stratetab}). {opt cformat(%fmt)} instead applies any numeric display format (for example
 {cmd:%9.1fc}); string and date formats are refused.
 
 {phang}
@@ -236,8 +241,13 @@ any work and written after the table.
 {phang}
 All other options are passed to {helpb stratetab}: {opt xlsx()},
 {opt sheet()}, {opt title()}, {opt footnote()} (passed unchanged), {opt csv()},
-{opt markdown()}, {opt mdappend}, {opt frame()}, {opt rateratio}, and its
-formatting options.
+{opt markdown()}, {opt mdappend}, {opt frame()}, and its formatting options. {cmd:stratetab}'s
+{opt rateratio} is refused (r(198)): it compares independent
+exposure groups, adding the variances of their log rates, whereas the grouping
+variables of {cmd:ratetab} split one sample, so it would divide rates of
+overlapping groups. For rate ratios between the levels of one variable, fit
+{cmd:poisson _d i.}{it:var}{cmd:, exposure(}{it:pt}{cmd:) irr} with {it:pt} =
+{cmd:_t - _t0} on {cmd:stset} data, or use {helpb ir} or {helpb stir}.
 
 
 {marker methods}{...}

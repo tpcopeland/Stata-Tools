@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.6.3  12oct2026}{...}
+{* *! version 2.6.4  12oct2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Choosing puttab, comptab, or stacktab" "tabtools##assembly"}{...}
@@ -625,7 +625,7 @@ is rewritten rather than rebuilt from numbers.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.6.3, 2026-10-12{p_end}
+{pstd}Version 2.6.4, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

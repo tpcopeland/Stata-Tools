@@ -1,4 +1,4 @@
-*! effecttab Version 2.6.3  2026/10/12
+*! effecttab Version 2.6.4  2026/10/12
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -287,7 +287,8 @@ quietly {
 		* result before anything is shown or written. A nonmissing p-value
 		* lies in [0, 1] and a nonmissing interval has lower <= upper; missing
 		* values stay allowed. The estimate is not required to lie inside its
-		* interval, which is not true of every method.
+		* interval, which is not true of every method; a row where it does
+		* not is named in a note (below).
 		capture confirm matrix `from'
 		* stata-dev-ignore: shape-dispatch — a from() matrix under 4 columns is refused with r(198) at the _ncols check below; this guard only skips the range checks
 		if !_rc & colsof(`from') >= 4 {
@@ -307,6 +308,19 @@ quietly {
 					noisily display as error ///
 						`"from() row `_vr' (`macval(_vrn)'): lower limit `_vlo' exceeds upper limit `_vhi'"'
 					exit 198
+				}
+				* An estimate outside its own interval is possible (percentile
+				* and bias-corrected bootstrap intervals need not contain it),
+				* so it is not refused; it is also the mark of a column-order
+				* mistake, so each such row is named.
+				if !missing(`from'[`_vr', 1]) & !missing(`from'[`_vr', 2]) & ///
+					!missing(`from'[`_vr', 3]) & ///
+					(`from'[`_vr', 1] < `from'[`_vr', 2] | `from'[`_vr', 1] > `from'[`_vr', 3]) {
+					local _vb = strtrim(string(`from'[`_vr', 1], "%12.0g"))
+					local _vlo = strtrim(string(`from'[`_vr', 2], "%12.0g"))
+					local _vhi = strtrim(string(`from'[`_vr', 3], "%12.0g"))
+					noisily display as text ///
+						`"Note: from() row `_vr' (`macval(_vrn)'): estimate `_vb' lies outside its interval [`_vlo', `_vhi']; columns are read as estimate, lower limit, upper limit, p-value"'
 				}
 			}
 		}
@@ -448,7 +462,7 @@ quietly {
 			if "`_et_k'" == "" local _et_k 0
 			forvalues _i = 1/`_et_k' {
 				mata: st_local("_et_lv", st_global("s(level`_i')"))
-				if !inlist("`_et_lv'", "cmd", "cmdline") continue
+				if !inlist("`_et_lv'", "cmd", "cmdline", "stat") continue
 				local ++_et_rl_n
 				local _et_rl_present `_et_rl_present' `_et_lv'
 				mata: st_local("_et_rl_lbl_`_et_rl_n'", st_global("s(label`_i')"))
@@ -459,23 +473,25 @@ quietly {
 			}
 		}
 		capture {
-			collect layout (cmdset) (result[cmd cmdline])
+			collect layout (cmdset) (result[cmd cmdline stat])
 		}
 			if _rc == 0 {
 				preserve
 				* stata-dev-ignore: capture-rc — _rc is consumed by the "if _rc" on the first statement after the closing brace
 				capture {
 					_tabtools_collect_render, type(meta) rowdim(cmdset) ///
-						results(cmd cmdline) dropempty
+						results(cmd cmdline stat) dropempty
 
 					local _meta_col_cmd ""
 					local _meta_col_cmdline ""
+					local _meta_col_stat ""
 				ds
 				local _meta_allvars `r(varlist)'
 				foreach _v of local _meta_allvars {
 					local _hdr = strtrim(`_v'[1])
 					if "`_hdr'" == "cmd" local _meta_col_cmd "`_v'"
 					if "`_hdr'" == "cmdline" local _meta_col_cmdline "`_v'"
+					if "`_hdr'" == "stat" local _meta_col_stat "`_v'"
 				}
 
 				if "`_meta_col_cmd'" != "" {
@@ -484,6 +500,10 @@ quietly {
 						local _r = `_m' + 1
 						local collect_cmd_`_m' = lower(strtrim(`_meta_col_cmd'[`_r']))
 						local collect_cmdline_`_m' = strtrim(`_meta_col_cmdline'[`_r'])
+						* teffects' estimand (e(stat): ate, atet, pomeans) as
+						* collected with the fit; empty for margins
+						local collect_stat_`_m' ""
+						if "`_meta_col_stat'" != "" local collect_stat_`_m' = lower(strtrim(`_meta_col_stat'[`_r']))
 					}
 				}
 			}
@@ -1597,13 +1617,19 @@ quietly {
 					local _te_subcmd = regexs(1)
 				}
 			}
-			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
-			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
-			else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"
-			else if "`_te_subcmd'" == "ipwra" local _methods "Average treatment effects estimated using inverse probability weighted regression adjustment"
-			else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
-			else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
-			else local _methods "Average treatment effects estimated using teffects"
+			* The estimand is the collected e(stat) of that fit, never the
+			* active e(). A collection without it names no estimand.
+			local _te_est "Treatment effects"
+			if "`collect_stat_1'" == "ate" local _te_est "Average treatment effects"
+			else if "`collect_stat_1'" == "atet" local _te_est "Average treatment effects on the treated"
+			else if "`collect_stat_1'" == "pomeans" local _te_est "Potential-outcome means"
+			if "`_te_subcmd'" == "ipw" local _methods "`_te_est' estimated using inverse probability weighting"
+			else if "`_te_subcmd'" == "ra" local _methods "`_te_est' estimated using regression adjustment"
+			else if "`_te_subcmd'" == "aipw" local _methods "`_te_est' estimated using augmented inverse probability weighting"
+			else if "`_te_subcmd'" == "ipwra" local _methods "`_te_est' estimated using inverse probability weighted regression adjustment"
+			else if "`_te_subcmd'" == "psmatch" local _methods "`_te_est' estimated using propensity score matching"
+			else if "`_te_subcmd'" == "nnmatch" local _methods "`_te_est' estimated using nearest-neighbor matching"
+			else local _methods "`_te_est' estimated using teffects"
 			local _methods "`_methods' with `_ci_level'% confidence intervals."
 		}
 	}

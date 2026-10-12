@@ -490,6 +490,8 @@ else {
 }
 
 **# 9. drop clears dataset-level margins provenance
+* null case: missing metadata. After drop the fvgen provenance chars are gone,
+* so the bridge must refuse (r(198)) rather than replay without provenance.
 local ++test_count
 capture noisily {
     sysuse auto, clear

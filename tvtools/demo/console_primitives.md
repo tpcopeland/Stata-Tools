@@ -16,7 +16,7 @@ noisily tvtools
 
 ```
 tvtools - Time-Varying Exposure Analysis Suite
-Version 1.17.3
+Version 1.18.1
 --------------------------------------------------------------------
 Data Preparation
   tvbuild    - Build a committed interval frame end to end

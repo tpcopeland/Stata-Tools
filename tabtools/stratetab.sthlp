@@ -117,7 +117,11 @@ files / outcomes). If not specified, exposures are labeled as "Exposure 1",
 
 {phang}
 {opt digits(integer 1)} specifies the number of decimal places for rates and
-confidence intervals. Must be between 0 and 10. Default is 1.
+confidence intervals. Must be between 0 and 10. Default is 1. A nonzero rate or
+confidence limit that rounds to 0 at the decimals shown (by {opt digits()} or a
+fixed {opt cformat()}) would print as a zero it is not; {cmd:stratetab} counts
+such numbers in a note after the table, suggesting more decimals or a larger rate
+multiplier ({opt ratescale()}). The printed cells are unchanged.
 
 {phang}
 {opt cformat(%fmt)} applies a full Stata numeric display format to each rate
@@ -232,7 +236,10 @@ by the log-normal (Wald) method at the resolved level, the same level used for
 the rate intervals and returned in {cmd:r(ci_level)}: the interval is
 exp(ln IRR +/- z*sqrt(1/D1 + 1/D0)), with D1 and D0 the events of the compared
 and reference groups. Each log rate has variance 1/D, as for the log SMR in
-Breslow and Day (1987, eq. 2.9); the two variances add because the groups are independent. This is
+Breslow and Day (1987, eq. 2.9); the two variances add because the groups are independent
+samples, the form printed in the SAS/STAT 14.1 User's Guide, STDRATE procedure,
+Details: Rate, "Confidence Interval for Rate Ratio Statistic"
+({browse "https://support.sas.com/documentation/cdl/en/statug/68162/HTML/default/statug_stdrate_details01.htm"}). This is
 not the exact conditional interval that {helpb ir} reports.{p_end}
 
 {pstd}

@@ -2,7 +2,7 @@
 *
 * Oracles: hand-built strings; the exact binomial limits from Stata's own
 * cii proportions, exact (r(lb), r(ub)) and, independently of any beta
-* quantile, from the defining tail equations of Clopper and Pearson (1934):
+* quantile, from the defining tail equations (Thulin 2014, eq. 1-2):
 * Pr(K >= k | p = lb) = a/2 and Pr(K <= k | p = ub) = a/2, K ~ binomial(d, p),
 * evaluated with binomialtail() and binomial(). The footnote styles are
 * checked against the table style's number (tabcell p, table style), which
@@ -314,7 +314,7 @@ else {
     local ++fail_count
 }
 
-**# CI2: the limits solve Clopper and Pearson's tail equations
+**# CI2: the limits solve the exact (Clopper-Pearson) tail equations
 * Independent of invibeta(): at p = lb, Pr(K >= k) = a/2; at p = ub,
 * Pr(K <= k) = a/2. And just inside the interval both tails exceed a/2.
 capture noisily {

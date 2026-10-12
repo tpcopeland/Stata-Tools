@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.3.2** | 2026-10-12
+**Version 4.3.3** | 2026-10-12
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -370,6 +370,11 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.3.3 (2026-10-12)
+
+- Label text now displays literally in the console table, the `detail` table, and `graph` bar labels. These interpreted SMCL markup, so `label(dm2 "{bf:Bold}")` printed bold "Bold" and the 21-character console cut counted the markup. Braces are now escaped for display only; variable labels, the export `label` column, and `save()` codefiles are unchanged.
+- Documentation: help Example 4 now glosses the excluded code `E116` correctly as "type 2 diabetes mellitus with other specified complications" (it said "unspecified hypoglycaemia", which is ICD-10 `E16.2`). The `label()` entry now says that label text is carried verbatim and shows how to pass a label held in a macro with compound quotes.
 
 ### 4.3.2 (2026-10-12)
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.9  12oct2026}{...}
+{* *! version 1.2.10  12oct2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
@@ -265,7 +265,16 @@ native refit choose a different omitted-column basis; both cases exit with
 error 498, so fit such models natively. The bridge leaves your current
 random-number state unchanged. Variables added after {cmd:fvgen} do not
 invalidate the bridge. A replay error or nonconvergence also restores the
-original estimate.
+original estimate, and the estimator's own error message is shown. Because the
+bridge reruns the saved command line, it refuses (error 198) a command line
+with a {cmd:saving()} option or any other {cmd:sav}{it:*}{cmd:()} option,
+including prefix and {cmd:vce()} suboptions such as
+{cmd:bootstrap, saving()} and {cmd:vce(bootstrap, saving())}, so the replay
+never rewrites your file; refit without {cmd:saving()} or fit the model
+natively. Results from {cmd:mi estimate} are also refused (error 198). An
+estimator option that creates variables makes the replay fail rather than
+overwrite them. A user-written estimator that writes files without a
+{cmd:sav}{it:*}{cmd:()} option is not detected; fit such models natively.
 
 {phang}
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
@@ -451,7 +460,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.9, 2026-10-12{p_end}
+{pstd}Version 1.2.10, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

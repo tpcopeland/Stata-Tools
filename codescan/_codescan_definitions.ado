@@ -1,4 +1,4 @@
-*! _codescan_definitions Version 4.3.2  2026/10/12
+*! _codescan_definitions Version 4.3.3  2026/10/12
 *! Private definition helpers for codescan
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -240,7 +240,31 @@ capture mata: mata drop _codescan_regex_literal_dot()
 capture mata: mata drop _codescan_define_seps()
 capture mata: mata drop _codescan_ws_edge()
 capture mata: mata drop _codescan_parse_labels()
+capture mata: mata drop _codescan_smcl_literal()
 mata:
+// Escape SMCL braces so free text displays literally. Label text reaches the
+// console, the detail table and graph value labels, all of which interpret
+// SMCL ({bf:...}, {c ...}, {&alpha}). Each { becomes {c -(} and each } becomes
+// {c )-} in one byte-wise pass, so the braces of an inserted escape are never
+// re-escaped. { and } are ASCII, so no UTF-8 continuation byte can match.
+// Callers truncate first and escape last, so truncation counts the characters
+// the reader sees, not markup bytes.
+string scalar _codescan_smcl_literal(string scalar s)
+{
+    real scalar   i, n
+    string scalar ch, out
+
+    n   = strlen(s)
+    out = ""
+    for (i = 1; i <= n; i++) {
+        ch = substr(s, i, 1)
+        if (ch == "{")      out = out + "{c -(}"
+        else if (ch == "}") out = out + "{c )-}"
+        else                out = out + ch
+    }
+    return(out)
+}
+
 // Regex whitespace is significant, so codescan never trims a regex pattern.
 // Flag the edge whitespace that is probably a typo: "begins" when the first
 // character is a space or tab NOT quantified by the next character (" *I21"

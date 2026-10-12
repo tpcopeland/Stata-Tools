@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.12  2026/10/12
+*! rangematch Version 1.5.13  2026/10/12
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -941,7 +941,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.12"
+    local _rm_required_mata_version "1.5.13"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -980,15 +980,22 @@ program define rangematch, rclass
     * of option values re-scan it: a ` swallowed the rest of a line and could
     * break out of the captured block (stranding the __rm_* frames, so every
     * later call failed r(110)), and a $name expanded to a global. Compound-
-    * quote delimiters are syntax, not content, and a $ that cannot start a
-    * global reference (US$) is left alone. Checked in Mata: nothing expands.
+    * quote delimiters are syntax, not content. A $ is refused only where it
+    * can start a global reference: before an ASCII letter, _, {, another $
+    * ($$x expands x, then the result), or any byte outside printable ASCII
+    * (a Unicode letter starts a name; anything else non-ASCII is refused
+    * rather than guessed at). A $ at the end or before a digit, space or other
+    * ASCII punctuation stays literal under re-expansion (US$, \\srv\share$\),
+    * so it is left alone. The same pattern screens using and saving() names.
+    * Checked in Mata: nothing expands.
+    mata: st_local("_rm_mc_re", "[" + char(96) + "]|[" + char(36) + ///
+        "]([A-Za-z_{" + char(36) + "]|[^ -~])")
     mata: st_local("_rm_macro_char", strofreal(regexm( ///
         subinstr(subinstr(st_local("_rm_raw0"), char(96) + char(34), ""), ///
-            char(34) + char(39), ""), ///
-        "[" + char(96) + "]|[" + char(36) + "][A-Za-z_{]")))
+            char(34) + char(39), ""), st_local("_rm_mc_re"))))
     if `_rm_macro_char' {
         display as error "rangematch arguments may not contain " char(96) ///
-            " or a " char(36) "name reference; Stata would expand it as a macro"
+            " or a " char(36) " that starts a global macro reference"
         exit 198
     }
 
@@ -1004,14 +1011,16 @@ program define rangematch, rclass
 
     * Refuse a file or frame name holding a macro character. `syntax' stores
     * one intact, but every later `"`using'"' expansion re-scans it: a ` opens
-    * a macro reference that swallows the rest of the line, and a $ expands to
-    * a global's contents. Read through Mata so this check expands nothing.
-    * saving() gets the same screen once its filename is unquoted, below.
+    * a macro reference that swallows the rest of the line, and a $ that can
+    * start a reference expands to a global's contents. A $ that cannot
+    * (\\server\share$\...) stays literal and is accepted. Read through
+    * Mata so this check expands nothing. saving() gets the same screen once
+    * its filename is unquoted, below.
     mata: st_local("_rm_macro_char", strofreal( ///
-        strpos(st_local("using"), char(96)) | strpos(st_local("using"), char(36))))
+        regexm(st_local("using"), st_local("_rm_mc_re"))))
     if `_rm_macro_char' {
-        display as error "using file or frame name may not contain " char(96) " or " char(36) ///
-            "; Stata would expand it as a macro reference"
+        display as error "using file or frame name may not contain " char(96) ///
+            " or a " char(36) " that starts a global macro reference"
         exit 198
     }
 
@@ -1382,14 +1391,14 @@ program define rangematch, rclass
         * Every later `"`saving_file'"' expansion re-scans the name. A ` there
         * opened a macro reference that swallowed the rest of the line (r(199)
         * with the workspace frames stranded, so every later call failed
-        * r(110)), and a $ expanded to a global's contents, so the output was
-        * written under a different name at rc 0. Refuse both, via Mata.
+        * r(110)), and a $name expanded to a global's contents, so the output
+        * was written under a different name at rc 0. Refuse both, via Mata;
+        * a $ that cannot start a reference (share$\) stays literal.
         mata: st_local("_rm_macro_char", strofreal( ///
-            strpos(st_local("saving_file"), char(96)) | ///
-            strpos(st_local("saving_file"), char(36))))
+            regexm(st_local("saving_file"), st_local("_rm_mc_re"))))
         if `_rm_macro_char' {
             display as error "saving() filename may not contain " char(96) ///
-                " or " char(36) "; Stata would expand it as a macro reference"
+                " or a " char(36) " that starts a global macro reference"
             exit 198
         }
         if `"`saving_file'"' == "" {

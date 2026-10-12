@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  12oct2026}{...}
+{* *! version 1.7.1  12oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -186,8 +186,8 @@ from the arguments you supply:
 {bf:1. Data mode} — you supply three numeric variables ({it:esvar lcivar ucivar}). {cmd:eplot}
 treats them as point estimates and confidence limits. This is the mode for
 meta-analysis results, pre-computed estimates, or any tabular effect data that
-already lives in your dataset. An effect row needs an estimate and both limits.
-A row with no estimate, or with neither limit, is left out of the plot, and
+already lives in your dataset. An effect row needs an estimate and both
+limits. A row with no estimate, or with neither limit, is left out of the plot, and
 {cmd:eplot} prints a note naming each such row (by its {opt labels()} text, or
 by observation number); to keep it in the plot as a labelled row, give it
 {opt type()} code 2 (see {opt vmissing()}). Limits come in pairs: a row with
@@ -476,8 +476,8 @@ plotting. Use this after models estimated on the log scale — for example,
 ratios). The null line is automatically set to 1 instead of 0. In single-model
 estimates mode, the x-axis label names the column the command's own table
 names: "Odds Ratio" after {cmd:logit}, {cmd:logistic}, {cmd:clogit},
-{cmd:ologit}, and their {cmd:xt} and {cmd:me} forms; "RRR" after {cmd:mlogit};
-"IRR" after {cmd:poisson}, {cmd:xtpoisson}, {cmd:mepoisson}, {cmd:nbreg},
+{cmd:ologit}, and their {cmd:xt} and {cmd:me} forms; "RRR" after
+{cmd:mlogit}; "IRR" after {cmd:poisson}, {cmd:xtpoisson}, {cmd:mepoisson}, {cmd:nbreg},
 {cmd:menbreg}, {cmd:zip}, {cmd:tpoisson}, {cmd:tnbreg}, and {cmd:gnbreg}; "SHR" after
 {cmd:stcrreg}; "Hazard Ratio" after {cmd:stcox} and proportional-hazards
 {cmd:streg} or {cmd:mestreg}; "Time Ratio" after accelerated failure-time
@@ -930,10 +930,14 @@ combined, because both set the per-model marker colors.
 
 {phang}
 {opt msymbol(symbol)}
-sets the marker symbol. Default is {cmd:O} (filled circle). In multi-model
-estimates mode, {opt msymbol()} takes either one symbol, applied to every
-model, or exactly one symbol per model, for example {cmd:msymbol(O D T)}.
-Models are otherwise told apart by color alone, which is lost in greyscale
+sets the marker symbol. Default is {cmd:O} (filled circle). The symbol is any
+{help symbolstyle}: a synonym such as {cmd:O}, {cmd:Dh}, or {cmd:x}, or a
+style name such as {cmd:circle_hollow}; names are case-sensitive, and an
+unknown name exits with {cmd:r(198)}. Outside multi-model estimates mode,
+{opt msymbol()} takes one symbol, and a list exits with {cmd:r(198)}. In
+multi-model estimates mode, it takes either one symbol, applied to every
+model, or exactly one symbol per model, for example {cmd:msymbol(O D T)}; models
+are otherwise told apart by color alone, which is lost in greyscale
 print and weak for readers with color-vision deficiency, so a per-model symbol
 list is recommended when the graph may be printed in grey.
 
@@ -1287,11 +1291,51 @@ that cannot be represented as matrix stripes leave the graph unchanged
 but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so on.
 
 
+{marker references}{...}
+{title:References}
+
+{pstd}
+In estimates mode, {cmd:eplot} reproduces the intervals and p-values of
+Stata's own coefficient table from the posted results. The rules it follows
+are documented in these entries of the Stata manuals:
+
+{phang}
+StataCorp. {browse "https://www.stata.com/manuals/pereturn.pdf":[P] ereturn}
+{hline 2} Post the estimation results. In
+{it:Stata Programming Reference Manual}. College Station, TX: Stata
+Press. Grounds the choice of t statistics with {cmd:e(df_r)} degrees of
+freedom when it is posted, and normal statistics otherwise.{p_end}
+
+{phang}
+StataCorp. {browse "https://www.stata.com/manuals/memixed.pdf":[ME] mixed}
+{hline 2} Multilevel mixed-effects linear regression. In
+{it:Stata Multilevel Mixed-Effects Reference Manual}. College Station,
+TX: Stata Press. Grounds the parameter-specific degrees of freedom in
+{cmd:e(df)} after {cmd:dfmethod()}, and the variance matrix {cmd:e(V_df)}
+after {cmd:dfmethod(kroger)}.{p_end}
+
+{phang}
+StataCorp. {browse "https://www.stata.com/manuals/mimiestimate.pdf":[MI] mi estimate}
+{hline 2} Estimation using multiple imputations. In
+{it:Stata Multiple-Imputation Reference Manual}. College Station, TX: Stata
+Press. Grounds the parameter-specific degrees of freedom in
+{cmd:e(df_mi)}, and the rule that {cmd:e(b)} and {cmd:e(V)} are stored only
+with {cmd:post}.{p_end}
+
+{phang}
+StataCorp. {browse "https://www.stata.com/manuals/rml.pdf":[R] ml}
+{hline 2} Maximum likelihood estimation, options for use with
+{cmd:ml display}. In {it:Stata Base Reference Manual}. College Station,
+TX: Stata Press. Grounds the {opt eform} scope: only the first
+{cmd:e(k_eform)} equations are exponentiated, by default the first equation
+alone.{p_end}
+
+
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.0, 2026-10-12{p_end}
+{pstd}Version 1.7.1, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

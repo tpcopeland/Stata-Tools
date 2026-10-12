@@ -1,4 +1,4 @@
-*! _tabtools_match_rows Version 2.6.3  2026/10/12
+*! _tabtools_match_rows Version 2.6.4  2026/10/12
 *! Match raw coefficient identities and factor components
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

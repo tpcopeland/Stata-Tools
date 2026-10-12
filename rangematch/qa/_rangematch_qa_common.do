@@ -249,3 +249,96 @@ program define _rm_qa_scan_sentinels, rclass
     mata: st_local("_rm_issues", _rm_qa_sentinel_issues(st_local("using")))
     return local issues "`_rm_issues'"
 end
+
+* Scratch-tree cleanup under c(tmpdir) (clarity 2026-10-12 final, MINOR #3).
+*
+* Suites build sandbox PLUS/PERSONAL trees, fixture directories and crossval
+* workdirs under c(tmpdir), named with the lane's Stata tempfile token
+* (St<pid>). A passing lane used to leave about 20 of them behind, several
+* still holding installed rangematch copies. run_all.do lists the token-named
+* entries before the first suite, and after a passing lane removes every
+* token-named entry that was not there at the start, then asserts none is
+* left. A failing lane keeps them for diagnosis.
+*
+*   _rm_qa_tmp_token  -> local _rm_tmp_token (St<pid>) and local
+*                        _rm_tmp_before (the token-named entries already
+*                        there, joined by char(31): names may hold spaces,
+*                        and a Mata global would not survive `clear all')
+*   mata: _rm_qa_tmp_sweep(token, before)  removes the new entries and
+*                        returns how many remain
+capture mata: mata drop _rm_qa_tmp_entries()
+capture mata: mata drop _rm_qa_rmtree()
+capture mata: mata drop _rm_qa_tmp_sweep()
+mata:
+// Names in c(tmpdir) that carry the token followed by "." or "_" (so pid 123
+// does not claim St1234.*).
+string colvector _rm_qa_tmp_entries(string scalar token)
+{
+    string colvector all, keep
+    real scalar i
+    string scalar re
+    all = dir(c("tmpdir"), "files", "*") \ dir(c("tmpdir"), "dirs", "*")
+    keep = J(0, 1, "")
+    re = token + "[._]"
+    for (i = 1; i <= rows(all); i++) {
+        if (regexm(all[i], re)) keep = keep \ all[i]
+    }
+    return(keep)
+}
+
+// Depth-first removal of a directory tree. Returns the number of entries
+// that could not be removed.
+real scalar _rm_qa_rmtree(string scalar path)
+{
+    string colvector f, d
+    real scalar i, bad
+    bad = 0
+    f = dir(path, "files", "*", 1)
+    for (i = 1; i <= rows(f); i++) bad = bad + (_unlink(f[i]) != 0)
+    d = dir(path, "dirs", "*", 1)
+    for (i = 1; i <= rows(d); i++) bad = bad + _rm_qa_rmtree(d[i])
+    bad = bad + (_rmdir(path) != 0)
+    return(bad)
+}
+
+// Remove every token-named entry not present in before; return how many
+// token-named entries outside before remain afterwards.
+real scalar _rm_qa_tmp_sweep(string scalar token, string scalar joined)
+{
+    string colvector now, before
+    string rowvector t
+    string scalar p
+    real scalar i, left
+    t = tokens(joined, char(31))
+    before = (cols(t) ? select(t, t :!= char(31))' : J(0, 1, ""))
+    now = _rm_qa_tmp_entries(token)
+    for (i = 1; i <= rows(now); i++) {
+        if (anyof(before, now[i])) continue
+        p = pathjoin(c("tmpdir"), now[i])
+        if (direxists(p)) (void) _rm_qa_rmtree(p)
+        else (void) _unlink(p)
+    }
+    now = _rm_qa_tmp_entries(token)
+    left = 0
+    for (i = 1; i <= rows(now); i++) {
+        if (!anyof(before, now[i])) {
+            left++
+            printf("{err}left in c(tmpdir): %s\n", now[i])
+        }
+    }
+    return(left)
+}
+end
+
+capture program drop _rm_qa_tmp_token
+program define _rm_qa_tmp_token
+    version 16.1
+    tempfile _rm_probe
+    mata: st_local("_t", pathbasename(st_local("_rm_probe")))
+    * Stata names tempfiles St<pid>.<n> on Unix; keep the part before ".".
+    local _p = strpos("`_t'", ".")
+    if `_p' > 1 local _t = substr("`_t'", 1, `_p' - 1)
+    c_local _rm_tmp_token "`_t'"
+    mata: st_local("_b", invtokens(_rm_qa_tmp_entries(st_local("_t"))', char(31)))
+    c_local _rm_tmp_before `"`macval(_b)'"'
+end

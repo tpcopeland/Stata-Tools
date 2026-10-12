@@ -1,4 +1,4 @@
-*! stratetab Version 2.6.3  2026/10/12
+*! stratetab Version 2.6.4  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -659,7 +659,8 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 					local _irr = `_r_exp' / `_r_ref'
 					* Wald interval on the log scale: var(ln rate) = 1/D, as for the
 					* log SMR in Breslow and Day 1987, eq. 2.9; summed over the two
-					* independent groups
+					* independent groups, as printed in sas-stdrate-2015 (SAS/STAT
+					* 14.1 STDRATE, "Confidence Interval for Rate Ratio Statistic")
 					local _se_ln = sqrt(1/`_d_exp' + 1/`_d_ref')
 					local IRR_o`o'_e`e'_`i' = `_irr'
 					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - `_ci_z' * `_se_ln')
@@ -735,6 +736,7 @@ if `"`cformat'"' != "" {
 	}
 }
 local exp_rows ""
+local _n_round0 0
 
 * Data rows by exposure group
 forvalues e = 1/`n_exposures' {
@@ -820,6 +822,19 @@ forvalues e = 1/`n_exposures' {
 			if `_masked' local rt_fmt "–"
 			if `_zero_cell' local rt_fmt `"`_zero_txt'"'
 			if `_nopt' local rt_fmt ""
+			* A nonzero rate or limit that rounds to 0 at the shown decimals
+			* prints as a zero it is not: counted for a note after the table
+			if !`_masked' & !`_zero_cell' & !`_nopt' {
+				local _zu = cond(`"`cformat'"' != "", `_cfunit', `_unit')
+				if `_zu' > 0 {
+					foreach _zx in Rate Lower Upper {
+						local _zv = ``_zx'_o`o'_e`e'_`i''
+						if !missing(`_zv') {
+							if `_zv' > 0 & round(`_zv', `_zu') == 0 local ++_n_round0
+						}
+					}
+				}
+			}
 			quietly replace c`col' = `"`macval(rt_fmt)'"' in `new'
 			local col = `col' + 1
 
@@ -910,6 +925,10 @@ local _c1_row3 = c1[3]
 quietly replace c1 = "" in 3
 noisily _tabtools_console_display `ncols' `"`macval(title)'"', datastart(4)
 quietly replace c1 = `"`_c1_row3'"' in 3
+if `_n_round0' > 0 {
+	noi di as text "Note: `_n_round0' nonzero rate(s) or confidence limit(s) round to 0 at the decimals shown;"
+	noi di as text "      increase digits() or the rate multiplier (per() in ratetab, ratescale() in stratetab)."
+}
 
 * Frame output is staged here and committed only after every export has
 * succeeded, so a failed xlsx write neither creates nor replaces frame().

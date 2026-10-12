@@ -1,4 +1,4 @@
-*! _regtab_fvbase Version 2.6.3  2026/10/12
+*! _regtab_fvbase Version 2.6.4  2026/10/12
 *! base levels of a model's factor variables, from its own specification
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

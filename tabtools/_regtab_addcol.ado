@@ -1,4 +1,4 @@
-*! _regtab_addcol Version 2.6.3  2026/10/12
+*! _regtab_addcol Version 2.6.4  2026/10/12
 *! addcol() columns of a transposed table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -94,8 +94,9 @@ program define _regtab_addcol, nclass
 				gettoken _ac_v _ac_vals : _ac_vals
 				local ++_ac_m
 				if `_ac_m' > `n_models' {
-					display as error `"addcol(): ""' as result `"`macval(_ac_label)'"' ///
-						as error `"" has more values than the `n_models' models"'
+					* one as-error string: under regtab's quietly an "as result"
+					* segment is not shown, which printed an empty label
+					noisily display as error `"addcol(): "`macval(_ac_label)'" has more values than the `n_models' models"'
 					exit 198
 				}
 				quietly replace c`_ac_col' = `"`macval(_ac_v)'"' in `=2 + `_ac_m''

@@ -1,4 +1,4 @@
-*! _tabcell_render Version 2.6.3  2026/10/12
+*! _tabcell_render Version 2.6.4  2026/10/12
 *! Vectorised cell renderer behind tabcell (scalar and generate() forms)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -251,7 +251,7 @@ program define _tabcell_render, rclass
                 }
             }
             else if "`form'" == "np" {
-                * n (pct; lo, hi): Clopper-Pearson (1934) limits as beta
+                * n (pct; lo, hi): exact (Clopper-Pearson) limits as beta
                 * quantiles (Thulin 2014, eq. 4; [R] ci, Methods and
                 * formulas): lo = B(a/2; n, d-n+1), hi = B(1-a/2; n+1, d-n),
                 * with the tail skipped at n = 0 (lo = 0) and n = d (hi = 1)

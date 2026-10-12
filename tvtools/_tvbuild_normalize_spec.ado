@@ -1,4 +1,4 @@
-*! _tvbuild_normalize_spec Version 1.18.0  2026/10/12
+*! _tvbuild_normalize_spec Version 1.18.1  2026/10/12
 *! Normalise either tvbuild input form into one internal plan frame
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -19,7 +19,11 @@ quietly do "`c(pwd)'/_rangematch_qa_common.do"
 _rm_qa_bootstrap
 
 local _orig_pwd "`c(pwd)'"
-local tmp "`c(tmpdir)'/rangematch_v101"
+* Process-unique name carrying the tempfile token, so the lane's c(tmpdir)
+* sweep owns it (it used to be a fixed rangematch_v101 that every run left).
+tempfile _v101_tok
+mata: st_local("_v101_tok", subinstr(pathbasename(st_local("_v101_tok")), ".", "_"))
+local tmp "`c(tmpdir)'/rm_v101_`_v101_tok'"
 cap mkdir "`tmp'"
 cd "`tmp'"
 
@@ -135,6 +139,9 @@ local ++TESTS
 di as result "PASS T7: extensionless file with no .dta companion errors 601"
 
 cd "`_orig_pwd'"
+mata: (void) _rm_qa_rmtree(st_local("tmp"))
+mata: st_local("_v101_left", strofreal(direxists(st_local("tmp"))))
+assert `_v101_left' == 0
 * Terminal sentinel (RM-I20): assert-driven, so reaching this line is the
 * pass condition and its ABSENCE is what a runner must treat as failure.
 display "RESULT: test_rangematch_v101 tests=`TESTS' pass=`TESTS' fail=0"

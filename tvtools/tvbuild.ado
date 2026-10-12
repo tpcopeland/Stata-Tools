@@ -1,4 +1,4 @@
-*! tvbuild Version 1.18.0  2026/10/12
+*! tvbuild Version 1.18.1  2026/10/12
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -260,8 +260,8 @@ program define tvbuild, rclass
             exit 198
         }
         if "`gaptime'" != "" {
-            if "`gapstart'" == "" local gapstart "_t0"
-            if "`gapstop'"  == "" local gapstop  "_t"
+            if "`gapstart'" == "" local gapstart "_gapstart"
+            if "`gapstop'"  == "" local gapstop  "_gapstop"
         }
     }
 

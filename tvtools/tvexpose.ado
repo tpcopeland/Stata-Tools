@@ -1,4 +1,4 @@
-*! tvexpose Version 1.18.0  2026/10/12
+*! tvexpose Version 1.18.1  2026/10/12
 *! Create time-varying exposure variables for survival analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

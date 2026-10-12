@@ -1,4 +1,4 @@
-*! stacktab Version 2.6.3  2026/10/12
+*! stacktab Version 2.6.4  2026/10/12
 *! Assemble multi-sheet composite Excel tables from source blocks
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -589,7 +589,7 @@ program define stacktab, rclass
 
         if "`append'" == "" & "`sheetreplace'" == "" & ///
             `_sheet_bounds_rc' == 0 {
-            display as error `"stacktab: sheet `"`macval(sheet)'"' already exists; specify append or sheetreplace"'
+            display as error `"stacktab: sheet "`macval(sheet)'" already exists; specify append or sheetreplace"'
             exit 602
         }
         if "`append'" != "" & `_sheet_bounds_rc' == 0 & `existing_rows' > 0 {

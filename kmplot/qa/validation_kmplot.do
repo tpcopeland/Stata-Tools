@@ -104,6 +104,68 @@ else {
     local ++fail_count
 }
 
+**## V2b: CI bounds match manual log and plain calculations
+* log:   lb, ub = S * exp(-/+ z*se/S), upper clamped at 1
+* plain: lb, ub = S -/+ z*se, clamped to [0, 1]
+* Bounds exist only where 0 < S < 1 and se > 0, as for log-log.
+
+foreach tr in log plain {
+    local ++test_count
+    capture noisily {
+        sysuse cancer, clear
+        stset studytime, failure(died)
+
+        tempfile v2b_expected v2b_curve
+        tempvar expected_s expected_se expected_lb expected_ub
+        quietly sts generate `expected_s' = s
+        quietly sts generate `expected_se' = se(s)
+        local z = invnormal(0.975)
+        local ok "`expected_s' > 0 & `expected_s' < 1 & `expected_se' > 0"
+        if "`tr'" == "log" {
+            quietly gen double `expected_lb' = `expected_s' * ///
+                exp(-`z' * `expected_se' / `expected_s') if `ok'
+            quietly gen double `expected_ub' = min(1, `expected_s' * ///
+                exp(`z' * `expected_se' / `expected_s')) if `ok'
+        }
+        else {
+            quietly gen double `expected_lb' = max(0, `expected_s' - ///
+                `z' * `expected_se') if `ok'
+            quietly gen double `expected_ub' = min(1, `expected_s' + ///
+                `z' * `expected_se') if `ok'
+        }
+        * The clamp must be exercised, or a missing clamp would pass unseen.
+        if "`tr'" == "plain" {
+            quietly count if `expected_lb' == 0 | `expected_ub' == 1
+            assert r(N) > 0
+        }
+        preserve
+        keep _t `expected_lb' `expected_ub'
+        collapse (mean) `expected_lb' `expected_ub', by(_t)
+        rename _t time
+        save "`v2b_expected'"
+        restore
+
+        kmplot, ci citransform(`tr') saving("`v2b_curve'", replace) ///
+            name(v2b, replace)
+        use "`v2b_curve'", clear
+        keep if anchor == 0
+        collapse (mean) lower upper, by(time)
+        merge 1:1 time using "`v2b_expected'", assert(match) nogen
+        assert abs(lower - `expected_lb') < 1e-12 if !missing(`expected_lb')
+        assert abs(upper - `expected_ub') < 1e-12 if !missing(`expected_ub')
+        assert missing(lower) == missing(`expected_lb')
+        assert missing(upper) == missing(`expected_ub')
+    }
+    if _rc == 0 {
+        display as result "  PASS: V2b CI bounds match manual `tr'"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V2b CI bounds match manual `tr' (rc=`=_rc')"
+        local ++fail_count
+    }
+}
+
 **## V3: 1-KM equals failure mode
 * The failure option should produce F(t) = 1 - S(t)
 

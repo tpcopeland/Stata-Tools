@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  12oct2026}{...}
+{* *! version 1.4.1  12oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -198,7 +198,7 @@ line color. Requires {opt risktable}.{p_end}
 {phang}{opt riskheight(#)} sets the vertical size of the risk-table graph
 inside the combined plot. If omitted, {cmd:kmplot} uses 25 for small risk
 tables and increases the height automatically when there are more than
-three groups. Requires {opt risktable} or {opt risksaving()}.{p_end}
+three groups. Requires {opt risktable}.{p_end}
 
 {phang}{opt timepoints(numlist)} specifies the timepoints for the risk
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
@@ -233,7 +233,8 @@ text: {bf:bottomright} (default), {bf:topright},
 {bf:topleft}, {bf:bottomleft}.{p_end}
 
 {phang}{opt pvalueformat(string)} sets the numeric display format used in
-the p-value annotation, for example {cmd:pvalueformat(%6.4f)}.{p_end}
+the p-value annotation, for example {cmd:pvalueformat(%6.4f)}. Whatever the
+format, p-values below 0.001 are shown as {bf:< 0.001}.{p_end}
 
 {phang}{opt pvaluetext(string)} changes the label printed before the p-value. For example,
 {cmd:pvaluetext("Stratified log-rank P")} displays that label with the formatted
@@ -340,7 +341,10 @@ transformation: log-log by default, log, or plain Wald intervals. Bounds are
 reported only where 0 < S(t) < 1. Where the estimate is exactly 1 (before the
 first event, including the time-zero anchor) or exactly 0, the bounds are
 missing under every transformation, as in {cmd:sts list}; shaded bands
-therefore begin at the first event time.{p_end}
+therefore begin at the first event time. Where a curve steps to 0 (1 with
+{opt failure}), the drawn band or CI lines carry the last bounds to that
+time, as {cmd:sts graph, ci} does, so they end where the curve ends; the
+returned and saved bounds stay missing there.{p_end}
 
 {pstd}
 The {opt failure} option plots cumulative failure, {bf:1 - S(t)}, from the
@@ -422,7 +426,7 @@ that interpretation is intended.{p_end}
 {synopt:{cmd:r(failure)}}1 if {opt failure} was requested{p_end}
 {synopt:{cmd:r(n_landmarks)}}number of requested landmark timepoints{p_end}
 {synopt:{cmd:r(n_timepoints)}}number of risk-table timepoints{p_end}
-{synopt:{cmd:r(riskheight)}}risk-table graph height used{p_end}
+{synopt:{cmd:r(riskheight)}}risk-table height, with {opt risktable}{p_end}
 {synopt:{cmd:r(p)}}log-rank p-value when computed{p_end}
 {synopt:{cmd:r(pvalue_y)}}explicit p-value y coordinate{p_end}
 {synopt:{cmd:r(pvalue_x)}}explicit p-value x coordinate{p_end}
@@ -437,7 +441,7 @@ that interpretation is intended.{p_end}
 {synopt:{cmd:r(cistyle)}}CI style used{p_end}
 {synopt:{cmd:r(citransform)}}CI transform used{p_end}
 {synopt:{cmd:r(colors)}}color list used{p_end}
-{synopt:{cmd:r(lpattern)}}line-pattern list used{p_end}
+{synopt:{cmd:r(lpattern)}}line-pattern list supplied, if any{p_end}
 {synopt:{cmd:r(timepoints)}}risk-table timepoints used{p_end}
 {synopt:{cmd:r(landmark_times)}}landmark timepoints requested{p_end}
 {synopt:{cmd:r(group_labels)}}group labels separated by {bf: | }{p_end}
@@ -501,7 +505,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.0, 2026-10-12{p_end}
+{pstd}Version 1.4.1, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

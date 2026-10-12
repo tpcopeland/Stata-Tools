@@ -257,7 +257,8 @@ in the format of the percentage
 ({opt pformat()}): {cmd:2 (10.0; 1.2, 31.7)}; where the percentage gained decimals under the
 rule in {opt pformat()}, the limits carry the same decimals: {cmd:1 (<0.01; 0.00, 0.01)}. The limits are the beta quantiles
 B(a/2; n, d-n+1) and B(1-a/2; n+1, d-n), a = 1 - {opt level()}/100,
-computed with {cmd:invibeta()} and {cmd:invibetatail()}; when n = 0 the lower
+computed with {cmd:invibeta()} and {cmd:invibetatail()} (Thulin 2014, eq. 4; {bf:[R] ci},
+Methods and formulas); when n = 0 the lower
 limit is 0, and when n = d the upper limit is 100, exactly as
 {cmd:cii proportions} {it:d} {it:n}{cmd:, exact} computes them (it then labels
 the interval one-sided at 1 - a/2; {cmd:tabcell} prints the same numbers). The
@@ -490,11 +491,6 @@ With {opt generate()}, it stores {cmd:r(N)} (rows printed with a number), {cmd:r
 
 {marker references}{...}
 {title:References}
-
-{phang}
-Clopper, C. J., and E. S. Pearson. 1934. The use of confidence or fiducial
-limits illustrated in the case of the binomial. {it:Biometrika}
-26: 404-413. {browse "https://doi.org/10.1093/biomet/26.4.404"}.{p_end}
 
 {phang}
 Thulin, M. 2014. The cost of using exact confidence intervals for a binomial

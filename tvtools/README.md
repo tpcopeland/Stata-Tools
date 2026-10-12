@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.18.0** | 2026-10-12
+**Version 1.18.1** | 2026-10-12
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -479,6 +479,11 @@ The help files cite these sources; `tvevent` uses the first two and `tvweight` t
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.18.1 (2026-10-12)
+
+- `tvevent, gaptime` (and `tvbuild, gaptime`) now writes the gap-time clock on the package's closed-day grid: each row's gap interval is (`start - origin`, `stop - origin + 1`], the time since the preceding event (or entry), so a row ending on its origin day has gap time 1. Previously the stop was one day smaller, a row ending on its origin day had gap time 0, and the documented PWP gap-time `stset` declaration excluded it, losing an event on the entry day or on the day after a previous event. `gapstop()` values from earlier versions are one day smaller; `gapstart()` values are unchanged. The help recipe is now `stset gapstop, time0(gapstart) failure(...) id(id_stratum)`, with no offset variable.
+- The default gap-time names are now `_gapstart` and `_gapstop`. The former defaults `_t0` and `_t` collided with the variables `stset` creates, so the documented declaration exited with r(110).
 
 ### 1.18.0 (2026-10-12)
 

@@ -113,8 +113,8 @@ foreach reversed in 0 1 {
         assert _N == 7
         assert seq == cond(start == 1, 1, cond(start == 4, 2, 3)) if id == 1
         assert seq == 1 & _failure == 0 if id == 2
-        assert _t0 == 0
-        assert _t == stop - start
+        assert _gapstart == 0
+        assert _gapstop == stop - start + 1
         assert _failure == (stop == 3 | stop == 6) if id == 1
         bysort id start stop: assert seq == seq[1]
     }
@@ -259,9 +259,9 @@ capture noisily {
         enum(seq) gaptime
     assert _N == 12
     assert seq == cond(start == 1, 1, cond(start < 16, 2, 3)) if id == 1
-    assert _t0 == start - cond(seq == 1, 1, cond(seq == 2, 4, 16)) if id == 1
-    assert _t == stop - cond(seq == 1, 1, cond(seq == 2, 4, 16)) if id == 1
-    assert seq == 1 & _t0 == start - 5 & _t == stop - 5 if id == 2
+    assert _gapstart == start - cond(seq == 1, 1, cond(seq == 2, 4, 16)) if id == 1
+    assert _gapstop == stop - cond(seq == 1, 1, cond(seq == 2, 4, 16)) + 1 if id == 1
+    assert seq == 1 & _gapstart == start - 5 & _gapstop == stop - 5 + 1 if id == 2
     assert _failure == (stop == 3 | stop == 15) if id == 1
     assert _failure == 0 if id == 2
 }
