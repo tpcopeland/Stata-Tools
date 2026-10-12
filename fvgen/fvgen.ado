@@ -1,4 +1,4 @@
-*! fvgen Version 1.2.8  2026/10/12
+*! fvgen Version 1.2.9  2026/10/12
 *! Flatten factor-variable interactions into labeled main-effect and product variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -18,8 +18,9 @@ labels so regression exports show one clean row per coefficient instead of the
 extra factor-variable header rows produced by the i.a##c.b approach.
 
 Generated variables carry provenance characteristics (fvgen_role,
-fvgen_term) so downstream tools can recognize, group, and tear them down;
-fvgen, drop removes every fvgen-generated variable in the dataset.
+fvgen_term, fvgen_name) so downstream tools can recognize, group, and tear
+them down; fvgen, drop removes every fvgen-generated variable still under its
+generated name (a clonevar copy or a renamed variable is left in place).
 fvgen, margins rebuilds the active flattened estimation result with native
 factor-variable syntax so Stata's margins can read the original factor
 structure using the estimator's own postestimation metadata.
@@ -72,7 +73,7 @@ program define fvgen, rclass
         local _drop_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`margins'`store'`vsref'`replace'`xsymbol'"'
         local _margins_extras `"`if'`in'`weight'`alllevels'`center'`prefix'`ref'`simple'`vsref'`xsymbol'`drop'"'
         if "`prefix'" == "" local prefix "_"
-        if "`xsymbol'" == "" local xsymbol "×"
+        if `"`xsymbol'"' == "" local xsymbol "×"
         local alllev = ("`alllevels'" != "")
         if !`_has_vl' local varlist ""
 
@@ -131,8 +132,12 @@ program define fvgen, rclass
         }
         else if "`drop'" != "" {
             **# Teardown mode: drop every fvgen-generated variable
-            * Generated variables are tagged with a fvgen_role characteristic;
-            * remove exactly those, leaving pass-through originals untouched.
+            * Generated variables are tagged with a fvgen_role characteristic
+            * and stamped with their own name in fvgen_name. clonevar copies
+            * characteristics, so a variable is dropped only while its stamp
+            * still equals its name: clonevar copies and renamed generated
+            * variables are left in place. An empty stamp is a variable made
+            * before 1.2.9 and keeps the old role-only rule.
             if `_has_vl' | `"`_drop_extras'"' != "" {
                 display as error ///
                     "drop does not take varlists, qualifiers, weights, or other options; use {cmd:fvgen, drop} alone to remove all fvgen-generated variables"
@@ -142,7 +147,8 @@ program define fvgen, rclass
             if `=c(k)' > 0 {
                 foreach v of varlist * {
                     local _role : char `v'[fvgen_role]
-                    if "`_role'" != "" {
+                    local _stamp : char `v'[fvgen_name]
+                    if "`_role'" != "" & inlist("`_stamp'", "", "`v'") {
                         drop `v'
                         local _dropped "`_dropped' `v'"
                     }
@@ -335,6 +341,13 @@ program define fvgen, rclass
                                 local cv = substr("`comp'", `dotpos' + 1, .)
                                 local idx : list posof "`cv'" in refvars
                                 if `idx' & substr("`op'", 1, 1) == "i" {
+                                    * ibn. asks for every level with no base;
+                                    * ref() would silently impose one.
+                                    if strpos("`op'", "bn") {
+                                        display as error ///
+                                            "ref(): '`cv'' is specified as ibn.`cv' (no base level); remove it from ref() or write i.`cv'"
+                                        exit 198
+                                    }
                                     local rl : word `idx' of `reflevels'
                                     local comp "ib`rl'.`cv'"
                                     local matched "`matched' `cv'"
@@ -563,6 +576,7 @@ program define fvgen, rclass
                 _fvgen_setlabel `cname' `"`macval(clab)' (centered)"'
                 char `cname'[fvgen_role] "centered"
                 char `cname'[fvgen_term] "c.`cv'"
+                char `cname'[fvgen_name] "`cname'"
                 local genvars `genvars' `cname'
             }
 
@@ -611,6 +625,7 @@ program define fvgen, rclass
                     _fvgen_setlabel `newname' `"`macval(_flab)'"'
                     char `newname'[fvgen_role] "main"
                     char `newname'[fvgen_term] "`t'"
+                    char `newname'[fvgen_name] "`newname'"
                     local mainvars `mainvars' `newname'
                     local genvars  `genvars'  `newname'
                     local allvars  `allvars'  `newname'
@@ -645,11 +660,12 @@ program define fvgen, rclass
 
                     if "`replace'" != "" capture drop `newname'
                     quietly generate double `newname' = `e1' * `e2' if !missing(`n1', `n2')
-                    * Label priority: a continuous self-interaction reads "<var>²";
+                    * Label priority: a continuous self-interaction reads "<var>²"
+                    * ("<var>^2" when xsymbol() is plain ASCII);
                     * a simple() moderator interaction reads "<continuous> (<level>)";
                     * everything else joins the two sides with the x symbol.
                     if "`n1'" == "`n2'" & `f1' == 0 & `f2' == 0 {
-                        mata: st_local("_ilab", st_local("lab1") + "²")
+                        mata: st_local("_ilab", st_local("lab1") + (ustrlen(st_local("xsymbol")) == strlen(st_local("xsymbol")) ? "^2" : "²"))
                     }
                     else if "`simplemod'" != "" & ("`n1'" == "`simplemod'" | "`n2'" == "`simplemod'") {
                         if "`n1'" == "`simplemod'" mata: st_local("_ilab", st_local("lab2") + " (" + st_local("lab1") + ")")
@@ -659,6 +675,7 @@ program define fvgen, rclass
                     _fvgen_setlabel `newname' `"`macval(_ilab)'"'
                     char `newname'[fvgen_role] "interaction"
                     char `newname'[fvgen_term] "`t'"
+                    char `newname'[fvgen_name] "`newname'"
                     local intvars `intvars' `newname'
                     local genvars `genvars' `newname'
                     local allvars `allvars' `newname'
@@ -692,9 +709,13 @@ program define fvgen, rclass
             local _displayvars : list allvars | genvars
             display as text _n "fvgen created " as result `: word count `genvars'' ///
                 as text " variable(s) from " as result "`expandspec'" as text ":"
+            * Labels are shown literally (macval), and an unlabeled
+            * pass-through variable shows its name, as label fallbacks do.
             foreach v of local _displayvars {
                 local lb : variable label `v'
-                display as text "    " as result %-28s "`v'" as text `" `lb'"'
+                mata: st_local("_label_empty", strofreal(st_local("lb") == ""))
+                if `_label_empty' local lb "`v'"
+                display as text "    " as result %-28s "`v'" as text `" `macval(lb)'"'
             }
         }
     }
@@ -866,11 +887,35 @@ program define _fvgen_margins_repost, eclass
         local flat_ll   = e(ll)
         quietly _ms_omit_info e(b)
         local flat_free = colsof(e(b)) - r(k_omit)
+        * The variance is part of the fingerprint too: a resampling VCE
+        * (bootstrap: prefix, vce(bootstrap)) redraws its replicates on
+        * replay, so a matching sample and fit would still hide a different
+        * V.  Replaying from the fit's posted e(rngstate) redraws the same
+        * replicates; the V check below catches anything that still differs.
+        tempname flat_b flat_V flat_omit
+        matrix `flat_b' = e(b)
+        matrix `flat_V' = e(V)
+        matrix `flat_omit' = r(omit)
+        local flat_rngstate `"`e(rngstate)'"'
+        local flat_resample = inlist("`e(vce)'", "bootstrap", "jackknife", "brr", "sdr") | ///
+            inlist("`e(prefix)'", "bootstrap", "jackknife")
 
+        * The caller's RNG state is restored after the replay, so the bridge
+        * never moves the user's random-number stream.
+        local user_rngstate = c(rngstate)
+        if `"`flat_rngstate'"' != "" {
+            capture set rngstate `flat_rngstate'
+            if _rc {
+                display as error ///
+                    "fvgen, margins: the fit's random-number state (e(rngstate)) does not match the current generator c(rng_current) = `c(rng_current)'; set rng to the generator used for the fit, or fit the model natively"
+                exit 498
+            }
+        }
         set varabbrev `user_varabbrev'
         capture quietly `native_cmdline'
         local native_rc = _rc
         set varabbrev off
+        set rngstate `user_rngstate'
         if `native_rc' {
             display as error ///
                 "fvgen, margins could not rerun the estimator with native factor-variable syntax"
@@ -905,12 +950,37 @@ program define _fvgen_margins_repost, eclass
         if !missing(`flat_ll') & !missing(e(ll)) {
             if reldif(`flat_ll', e(ll)) > 1e-6 local _mismatch "`_mismatch' log-likelihood"
         }
+        * Variance: compare the free (non-omitted, non-base) coefficients
+        * position by position.  When the free b vectors agree, both fits use
+        * the same basis and V must agree too.  A rank-deficient design may
+        * pick a different omitted-column basis, so then V is not comparable
+        * element-wise; that is accepted for a deterministic VCE (same model,
+        * same V up to the basis) but refused for a resampling VCE, whose
+        * replay cannot be verified.
+        if "`_mismatch'" == "" {
+            tempname nat_omit
+            quietly _ms_omit_info e(b)
+            matrix `nat_omit' = r(omit)
+            capture confirm matrix e(V)
+            if _rc {
+                local _mismatch "`_mismatch' variance"
+            }
+            else {
+                mata: _fvgen_vcheck("`flat_b'", "`flat_V'", "`flat_omit'", "`nat_omit'", `flat_resample')
+                if `_fvgen_vbad' == 1 local _mismatch "`_mismatch' variance"
+                if `_fvgen_vbad' == 2 {
+                    display as error ///
+                        "fvgen, margins: a resampling variance cannot be verified because the native refit chose a different omitted-column basis (exact collinearity, e.g. alllevels); fit the model natively"
+                    exit 498
+                }
+            }
+        }
         local _mismatch : list uniq _mismatch
         if "`_mismatch'" != "" {
             display as error ///
                 "fvgen, margins: the native refit is not the same model as the active flattened estimates (differs in:`_mismatch')"
             display as error ///
-                "this happens when fvgen ran on a different if/in sample than the estimator, or with alllevels and noconstant; rerun fvgen on the estimation sample, or fit the model natively"
+                "this happens when fvgen ran on a different if/in sample than the estimator, or with alllevels and noconstant; a variance difference means a resampling VCE could not be replayed exactly; rerun fvgen on the estimation sample, or fit the model natively"
             display as error `"`native_cmdline'"'
             exit 498
         }
@@ -922,4 +992,41 @@ program define _fvgen_margins_repost, eclass
     local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+end
+
+**# Mata: variance fingerprint for the margins bridge (sets local _fvgen_vbad)
+* Free columns (omit flag 0) are compared in order.  Aligned free b (mreldif
+* <= 1e-4) means one basis, so V must match: both are scaled by the flattened
+* standard errors (a scale-free comparison) and must agree to 1e-4, which is
+* far above ML convergence noise and far below any bootstrap redraw.
+* Unaligned free b is a different basis after exact collinearity: accepted
+* (0) for a deterministic VCE, unverifiable (2) for a resampling VCE.
+capture mata: mata drop _fvgen_vcheck()
+mata:
+void _fvgen_vcheck(string scalar fb, string scalar fv, string scalar fo,
+    string scalar no, real scalar resample)
+{
+    real rowvector bf, bn, kf, kn
+    real colvector sd
+    real matrix Vf, Vn, S
+    real scalar bad
+
+    kf = selectindex(st_matrix(fo) :== 0)
+    kn = selectindex(st_matrix(no) :== 0)
+    bad = 1
+    if (cols(kf) == cols(kn) & cols(kf) > 0) {
+        bf = st_matrix(fb)[kf]
+        bn = st_matrix("e(b)")[kn]
+        Vf = st_matrix(fv)[kf', kf]
+        Vn = st_matrix("e(V)")[kn', kn]
+        if (mreldif(bf, bn) <= 1e-4) {
+            sd = sqrt(diagonal(Vf))
+            sd = sd + (sd :<= 0)
+            S = sd * sd'
+            bad = (mreldif(Vf :/ S, Vn :/ S) > 1e-4)
+        }
+        else bad = 2 * (resample != 0)
+    }
+    st_local("_fvgen_vbad", strofreal(bad))
+}
 end

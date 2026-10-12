@@ -222,6 +222,51 @@ else {
     local failed_tests "`failed_tests' 8"
 }
 
+**# 9. ref() naming an ibn. (no-base) factor is rejected (198)
+* Clarity audit 2026-10-12 M2: ref() silently rewrote ibn.VAR to ibL.VAR and
+* dropped the level the user asked for. ref() on another factor still works.
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    _fvgen_qa_assert_error, rc(198) msg("ref(): 'arm' is specified as ibn.arm (no base level)") : fvgen ibn.arm##c.age, ref(arm 0)
+    capture confirm variable _arm_0
+    assert _rc == 111
+    fvgen ibn.arm##c.age i.grp, ref(grp 3)
+    confirm variable _arm_0 _arm_1 _grp_1 _grp_2
+    capture confirm variable _grp_3
+    assert _rc == 111
+}
+if _rc == 0 {
+    display as result "  PASS: ref() on ibn. factor rejected; other factors unaffected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: ref() on ibn. factor (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9"
+}
+
+**# 10. xsymbol() containing a double quote is accepted literally
+* Clarity audit 2026-10-12 M3: the default test used simple quotes and failed
+* with r(132) on an embedded double quote.
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    fvgen i.arm##c.age, xsymbol(`"""')
+    local lb : variable label _armXage_1
+    mata: st_local("hasq", strofreal(strpos(st_local("lb"), char(34)) > 0))
+    assert `hasq' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: xsymbol() with a double quote"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: xsymbol() with a double quote (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

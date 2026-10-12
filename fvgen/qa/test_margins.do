@@ -9,6 +9,8 @@ version 16.0
 * Margins repost tests for fvgen.
 do _fvgen_qa_common.do
 _fvgen_qa_bootstrap
+quietly do "_qa_state.do"
+quietly do "_qa_lifecycle.do"
 
 local test_count = 0
 local pass_count = 0
@@ -532,6 +534,218 @@ else {
     display as error "  FAIL: failed-generation provenance cleanup (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 10"
+}
+
+**# 11. Resampling VCEs: the bridge replays the fit's own replicates
+* Clarity audit 2026-10-12 I1: the bridge replayed bootstrap from the
+* caller's current RNG state, so the native clone's V (and every margins SE)
+* came from a different bootstrap draw than the flattened table, at rc 0.
+* The flattened and native fits share one seed, so their replicates and V
+* agree exactly; the clone must reproduce both, and the caller's RNG state
+* must be left where it was.
+capture program drop _fvgen_resample_check
+program define _fvgen_resample_check
+    version 16.0
+    args label native flat
+    sysuse auto, clear
+    set seed 4242
+    quietly `native'
+    quietly margins, dydx(mpg) at(foreign=(0 1))
+    tempname nb nV fV
+    matrix `nb' = r(b)
+    matrix `nV' = r(V)
+
+    sysuse auto, clear
+    quietly fvgen i.foreign##c.mpg
+    local av `r(allvars)'
+    local flatcmd : subinstr local flat "@AV" "`av'", all
+    set seed 4242
+    quietly `flatcmd'
+    matrix `fV' = e(V)
+    * Advance the caller's stream so a replay from it would differ.
+    local burn = runiform()
+    local rng_before = c(rngstate)
+    fvgen, margins
+    assert c(rngstate) == "`rng_before'"
+    assert "`e(fvgen_margins)'" == "1"
+    mata: _fvgen_qa_free_v("`fV'")
+    assert `_fvgen_qa_vdiff' < 1e-10
+    quietly margins, dydx(mpg) at(foreign=(0 1))
+    assert mreldif(r(b), `nb') < 1e-10
+    assert mreldif(r(V), `nV') < 1e-10
+end
+capture mata: mata drop _fvgen_qa_free_v()
+mata:
+void _fvgen_qa_free_v(string scalar fv)
+{
+    real matrix V
+    real rowvector keep
+    V = st_matrix("e(V)")
+    keep = selectindex(diagonal(V)' :!= 0)
+    st_local("_fvgen_qa_vdiff", strofreal(mreldif(V[keep', keep], st_matrix(fv))))
+}
+end
+
+local ++test_count
+capture noisily {
+    _fvgen_resample_check "bootstrap prefix" ///
+        "bootstrap, reps(25): regress price i.foreign##c.mpg" ///
+        "bootstrap, reps(25): regress price @AV"
+    _fvgen_resample_check "vce(bootstrap)" ///
+        "regress price i.foreign##c.mpg, vce(bootstrap, reps(25))" ///
+        "regress price @AV, vce(bootstrap, reps(25))"
+    _fvgen_resample_check "jackknife prefix" ///
+        "jackknife: regress price i.foreign##c.mpg" ///
+        "jackknife: regress price @AV"
+    _fvgen_resample_check "glm vce(bootstrap)" ///
+        "glm price i.foreign##c.mpg, family(gaussian) vce(bootstrap, reps(20))" ///
+        "glm price @AV, family(gaussian) vce(bootstrap, reps(20))"
+    * the last clone is the native glm refit with its bootstrap variance
+    assert "`e(cmd)'" == "glm" & "`e(vce)'" == "bootstrap"
+    assert strpos("`e(fvgen_native_cmdline)'", "i.foreign#c.mpg") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: resampling VCEs replay the fit's replicates; RNG state kept"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: resampling VCE replay (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 11"
+}
+
+**# 12. A variance that differs is refused (498) and changes nothing
+* The fingerprint now compares V on the free coefficients. A flattened fit
+* whose V was altered after estimation is not the native model's V: the bridge
+* must refuse with 498, name the variance, and leave every piece of caller
+* state (e(), data, chars, RNG, settings) exactly as it found it.
+capture program drop _fvgen_inflate_v
+program define _fvgen_inflate_v, eclass
+    version 16.0
+    tempname V
+    matrix `V' = 1.5 * e(V)
+    ereturn repost V = `V'
+end
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    quietly fvgen i.foreign##c.mpg
+    quietly regress price `r(allvars)'
+    _fvgen_inflate_v
+    tempname Vheld
+    matrix `Vheld' = e(V)
+    tempfile errorlog
+    qa_state_snapshot, tag(vrefuse)
+    log using "`errorlog'", text replace name(vrefuse)
+    capture noisily fvgen, margins
+    local gotrc = _rc
+    log close vrefuse
+    qa_state_compare, tag(vrefuse)
+    assert `gotrc' != 0
+    assert `gotrc' == 498
+    mata: st_local("named", strofreal(any(strpos(cat(st_local("errorlog")), "differs in:variance"))))
+    assert `named' == 1
+    assert "`e(cmd)'" == "regress" & "`e(fvgen_margins)'" == ""
+    assert mreldif(e(V), `Vheld') == 0
+}
+if _rc == 0 {
+    display as result "  PASS: altered variance refused with 498, caller state unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: variance fingerprint refusal (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12"
+}
+
+**# 12b. Variance check: ML noise passes; unverifiable resampling is refused
+* Review of the I1 fix: a 1e-6 element-wise V tolerance refused a plain
+* truncreg fit whose native refit differs only by ML convergence noise
+* (~2e-6). alllevels with a constant under a resampling VCE gives the refit a
+* different omitted-column basis, so its variance cannot be verified and is
+* refused with an accurate message. A fit whose generator type was changed
+* afterwards cannot be replayed and is refused, not failed with r(198).
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    quietly fvgen i.foreign##c.mpg
+    local av `r(allvars)'
+    quietly truncreg price `av' weight, ll(3500)
+    fvgen, margins
+    assert "`e(cmd)'" == "truncreg" & "`e(fvgen_margins)'" == "1"
+
+    sysuse auto, clear
+    quietly fvgen i.foreign##c.mpg, alllevels
+    local al `r(allvars)'
+    set seed 515
+    quietly regress price `al' weight, vce(bootstrap, reps(30))
+    _fvgen_qa_assert_error, rc(498) msg("different omitted-column basis") : fvgen, margins
+    assert "`e(cmd)'" == "regress" & "`e(fvgen_margins)'" == ""
+    * the same alllevels design with a deterministic VCE is still accepted
+    quietly regress price `al' weight
+    fvgen, margins
+    assert "`e(fvgen_margins)'" == "1"
+
+    sysuse auto, clear
+    quietly fvgen i.foreign##c.mpg
+    local av `r(allvars)'
+    local rng0 = c(rng)
+    set rng kiss32
+    set seed 3
+    quietly regress price `av', vce(bootstrap, reps(20))
+    set rng mt64
+    local rng_before = c(rngstate)
+    _fvgen_qa_assert_error, rc(498) msg("does not match the current generator") : fvgen, margins
+    assert c(rngstate) == "`rng_before'"
+    assert "`e(cmd)'" == "regress" & "`e(fvgen_margins)'" == ""
+    set rng `rng0'
+}
+if _rc == 0 {
+    display as result "  PASS: variance check tolerates ML noise; unverifiable replays refused"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: variance check tolerance / refusals (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12b"
+}
+
+**# 13. Lifecycle: the stored clone describes fit A after a later fit B
+* Fit A is a bootstrap fit; fit B regenerates the same names on a restricted
+* sample and refits. Restoring A, the active bridge and the margins run on
+* its clone must reproduce exactly what they gave the first time (or refuse
+* with the documented 498). The active form is used because qa_lifecycle
+* drops variables a post command creates, and estimates store creates one.
+capture program drop _fvlc_fita
+program define _fvlc_fita
+    version 16.0
+    sysuse auto, clear
+    fvgen i.foreign##c.mpg
+    set seed 9090
+    regress price `r(allvars)', vce(bootstrap, reps(20))
+end
+capture program drop _fvlc_fitb
+program define _fvlc_fitb
+    version 16.0
+    fvgen i.foreign##c.mpg if rep78 >= 3, replace
+    regress price `r(allvars)' if rep78 >= 3
+end
+local ++test_count
+capture noisily {
+    qa_lifecycle, fita(_fvlc_fita) fitb(_fvlc_fitb) ///
+        post(fvgen, margins; margins, dydx(mpg) at(foreign=(0 1))) refusal(498)
+    * qa_lifecycle leaves fit A (the flattened bootstrap fit) active
+    assert "`e(cmd)'" == "regress" & "`e(vce)'" == "bootstrap"
+    assert "`e(fvgen_margins)'" == "" & e(N) == 74
+}
+if _rc == 0 {
+    display as result "  PASS: margins clone lifecycle reproduces fit A"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: margins clone lifecycle (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13"
 }
 
 **# Summary

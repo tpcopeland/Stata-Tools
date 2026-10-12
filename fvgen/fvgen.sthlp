@@ -1,8 +1,11 @@
 {smcl}
-{* *! version 1.2.8  12oct2026}{...}
+{* *! version 1.2.9  12oct2026}{...}
 {vieweralsosee "[R] fvvarlist" "help fvvarlist"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] label" "help label"}{...}
+{vieweralsosee "[R] xi" "help xi"}{...}
+{vieweralsosee "[R] margins" "help margins"}{...}
+{vieweralsosee "[R] fvset" "help fvset"}{...}
 {viewerjumpto "Syntax" "fvgen##syntax"}{...}
 {viewerjumpto "Description" "fvgen##description"}{...}
 {viewerjumpto "Options" "fvgen##options"}{...}
@@ -110,6 +113,16 @@ in each tool. {cmd:fvgen} builds the labels once, from the value labels, as
 ordinary variable labels that every downstream table command reads.
 
 {pstd}
+The closest official tool is {helpb xi}, which also materializes indicator and
+product variables ({cmd:xi i.foreign*mpg} creates {cmd:_Iforeign_1} and
+{cmd:_IforXmpg_1}, labeled {cmd:foreign==1} and {cmd:(foreign==1)*mpg}). What
+{cmd:fvgen} adds is labels built from value labels, the modern factor-variable
+syntax ({cmd:ibN.}, {cmd:ibn.}, {cmd:c.}, {cmd:##}), per-factor reference levels
+and per-group slopes, provenance characteristics with a matching teardown
+({cmd:fvgen, drop}), and a bridge back to native factor variables for
+{helpb margins}.
+
+{pstd}
 The generated variable names and a combined varlist ready for an estimation
 command are returned in {cmd:r()}. A typical workflow is:
 
@@ -214,14 +227,19 @@ and is left untouched.
 {opt xsymbol(string)} sets the symbol placed between the two sides of an
 interaction label. The default is the multiplication sign {cmd:×}; specify
 {cmd:xsymbol(x)} for a plain ASCII label such as {cmd:Female x Age}. A
-continuous self-interaction ({cmd:c.age##c.age}) is always labeled with a
-superscript two ({cmd:Age²}) regardless of {opt xsymbol()}.
+continuous self-interaction ({cmd:c.age##c.age}) is labeled with a superscript
+two ({cmd:Age²}); when {opt xsymbol()} is plain ASCII, it is labeled
+{cmd:Age^2} instead, so an ASCII request yields ASCII labels throughout.
 
 {phang}
 {opt drop} removes every variable a previous {cmd:fvgen} run generated. It is used alone —
 {cmd:fvgen, drop} — and takes no {it:fvvarlist}. Generated variables are recognized by
-their {cmd:fvgen_role} characteristic (see {it:Remarks}), so pass-through originals are
-left untouched. The number and names of the dropped variables are returned in
+their {cmd:fvgen_role} characteristic and must still carry the name {cmd:fvgen} gave them
+(see {it:Remarks}), so pass-through originals are left untouched. A copy made with
+{helpb clonevar} inherits the characteristics, including a name stamp that no
+longer matches its own name, and is kept; so is a
+generated variable you have {helpb rename}d, which then belongs to you. The
+number and names of the dropped variables are returned in
 {cmd:r(k_dropped)} and {cmd:r(dropped)}. This completes the create-use-drop loop: run
 {cmd:fvgen}, estimate, export, then {cmd:fvgen, drop} before the next model.
 
@@ -235,9 +253,17 @@ bridge exits with error 498, leaving the original active estimate in place, if
 any data variable present when {cmd:fvgen} ran (or any generated variable) has
 since been changed, dropped, or recast, or if the refit is not the same model as
 the flattened fit (same estimation sample, {cmd:e(N)}, rank, free coefficients,
-and log likelihood where posted). The usual cause of the latter is running
-{cmd:fvgen} on a different {cmd:if}/{cmd:in} sample than the estimator, or
-{opt alllevels} with {cmd:noconstant}. Variables added after {cmd:fvgen} do not
+log likelihood where posted, and variance matrix). The usual cause of the latter
+is running {cmd:fvgen} on a different {cmd:if}/{cmd:in} sample than the
+estimator, or {opt alllevels} with {cmd:noconstant}. A resampling variance
+({cmd:bootstrap:} or {cmd:vce(bootstrap)}) is replayed from the fit's posted
+{cmd:e(rngstate)}, so the native refit redraws the same replicates; a variance
+that still differs exits with error 498. The fit's generator must still be the
+current one ({cmd:set rng}), and a resampling variance cannot be verified when
+exact collinearity (for example {opt alllevels} with a constant) makes the
+native refit choose a different omitted-column basis; both cases exit with
+error 498, so fit such models natively. The bridge leaves your current
+random-number state unchanged. Variables added after {cmd:fvgen} do not
 invalidate the bridge. A replay error or nonconvergence also restores the
 original estimate.
 
@@ -245,7 +271,8 @@ original estimate.
 {opt store(name)} is used with {opt margins}. Instead of leaving the native
 clone active, {cmd:fvgen} stores the margins-ready clone as {it:name} and
 restores the active flattened result. This is the safest workflow when the same
-model will be exported by {help tabtools:regtab}: run {cmd:regtab} from the
+model will be exported by a table command such as {cmd:regtab} (from the
+{cmd:tabtools} package, if installed): run {cmd:regtab} from the
 flattened estimate, then {cmd:estimates restore} the stored clone before running
 {cmd:margins}.
 
@@ -280,10 +307,12 @@ original {cmd:i.}/{cmd:c.} specification and reruns it quietly. This lets
 {helpb margins} use the estimator's own factor-variable metadata, including
 base levels in {cmd:at()}. Both the margins estimates and their variance
 matrices reproduce the unflattened fit for linear, GLM, binary, count,
-censored, ordered, multinomial, panel, and survey estimators. Use
+censored, ordered, multinomial, panel, and survey estimators, and for
+bootstrap and jackknife variances, which are replayed from the fit's random-number
+state and then checked against the flattened variance. Use
 {cmd:fvgen, margins store(name)} to store a margins-ready
 clone while restoring the active flattened result for clean
-{help tabtools:regtab} or other table export. The active model must have been
+table export (for example with {cmd:regtab} from {cmd:tabtools}, if installed). The active model must have been
 fit with the exact varlist returned by {cmd:fvgen}; if you reorder or hand-edit
 that varlist, rerun the model first. The bridge is not available after
 {opt center}, and any estimator that cannot be rerun from its saved command
@@ -293,12 +322,15 @@ fit natively. Other factor-aware tools such as {helpb contrast} and
 up to two-way interactions are supported (see {help fvgen##syntax:Syntax}).
 
 {pstd}
-{bf:Provenance characteristics.} Every generated variable carries two
+{bf:Provenance characteristics.} Every generated variable carries three
 characteristics so downstream tools can recognize and group
-it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {cmd:centered}, and
+it: {cmd:char }{it:var}{cmd:[fvgen_role]} is {cmd:main}, {cmd:interaction}, or {cmd:centered},
 {cmd:char }{it:var}{cmd:[fvgen_term]} records the factor-variable term it came from (for
-example {cmd:1.foreign#c.mpg}). {cmd:fvgen, drop} uses {cmd:fvgen_role} to identify exactly the
-variables it created. Dataset-level provenance also records the effective
+example {cmd:1.foreign#c.mpg}), and {cmd:char }{it:var}{cmd:[fvgen_name]} records the name
+{cmd:fvgen} gave it. {cmd:fvgen, drop} removes a variable only when it has a {cmd:fvgen_role}
+and its {cmd:fvgen_name} still equals its name, so a {helpb clonevar} copy or a renamed
+variable is never dropped. (A variable made by {cmd:fvgen} before version 1.2.9 has no
+{cmd:fvgen_name} and is identified by {cmd:fvgen_role} alone.) Dataset-level provenance also records the effective
 specification, generated-variable inventory, and a signature of every data
 variable present when {cmd:fvgen} ran plus its generated data. The {opt margins}
 bridge uses this conservative signature to reject stale refits.
@@ -309,7 +341,9 @@ an indicator for every level of {it:var}, equivalent to requesting
 {opt alllevels} for that factor. The explicit {help fvvarlist:omit} operator
 ({cmd:o.}, {cmd:}{it:#}{cmd:o.}) is not supported and is rejected with a clear
 message; restrict the sample with {cmd:if}/{cmd:in} or set a base with
-{opt ref()} instead.
+{opt ref()} instead. A factor written as {cmd:ibn.}{it:var} cannot also be named in
+{opt ref()}, which would silently impose the base that {cmd:ibn.} removes, so
+that combination is an error.
 
 
 {marker examples}{...}
@@ -417,7 +451,7 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.8, 2026-10-12{p_end}
+{pstd}Version 1.2.9, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
@@ -428,9 +462,9 @@ With {opt margins}, {cmd:fvgen} stores:
 {title:Also see}
 
 {psee}
-Manual: {manlink R fvvarlist}, {manlink R regress}, {manlink D label}
+Manual: {manlink R fvvarlist}, {manlink R fvset}, {manlink R xi}, {manlink R margins}, {manlink R regress}, {manlink D label}
 
 {psee}
-Online: {helpb fvvarlist}, {helpb regress}, {helpb label}
+Online: {helpb fvvarlist}, {helpb fvset}, {helpb xi}, {helpb margins}, {helpb regress}, {helpb label}
 
 {hline}

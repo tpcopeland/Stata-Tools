@@ -44,14 +44,14 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | `test_fvgen.do` | Core generation surface, returns, labels, naming, options, missingness, qualifiers, all four weight types, and weighted level discovery. |
 | `test_ref.do` | Per-factor reference levels, native `ibN.` equivalence, quoted value-label resolution, `alllevels`, and `fvset` preservation. |
 | `test_simple.do` | Per-group slope parameterization, labels, multi-level moderators, retained main effects, and `simple()` with `center`. |
-| `test_errors.do` | Exact error codes and messages for unsupported specifications and options plus `varabbrev` restoration on success and failure. |
+| `test_errors.do` | Exact error codes and messages for unsupported specifications and options (including `ref()` on an `ibn.` factor), `xsymbol()` with an embedded double quote, plus `varabbrev` restoration on success and failure. |
 | `test_combinations.do` | Option combinations against native fits: `margins store()` after `prefix()`/`vsref()`/`xsymbol()`, `ref()` + `simple()`, `ref()` + `center` + `aweight`, and `simple()` + `alllevels`. |
-| `test_provenance.do` | Variable and dataset provenance, teardown returns, idempotence, pass-through survival, and strict drop syntax. |
-| `test_margins.do` | Active and stored margins clones, estimator-family and VCE parity, survey replay, store replacement, and unsupported paths. |
+| `test_provenance.do` | Variable and dataset provenance, teardown returns, idempotence, pass-through survival, `clonevar` copies and renamed generated variables surviving `drop`, and strict drop syntax. |
+| `test_margins.do` | Active and stored margins clones, estimator-family and VCE parity, survey replay, bootstrap/jackknife replay from `e(rngstate)` with the caller's RNG state kept, the variance-fingerprint refusal under a `_qa_state` error-path fingerprint, a `qa_lifecycle` fit A / fit B / restore probe, store replacement, and unsupported paths. |
 | `test_regressions.do` | Review regressions for name collisions, exact reference-label mapping, stale-data guards, replay-failure restoration, nonconvergence rejection, native-refit model-equivalence guards (if-sample and `alllevels` + `noconstant` mismatches), `store()` clobber protection, partial value-label fallback, string / `i(numlist)` rejection, provenance kept after a rejected run, the margins replay under the caller's `varabbrev`, character-counted Unicode name lengths, duplicate `ref()` variables, and weights that read a centered copy under `center` + `replace`. |
 | `test_fvgen_hostile.do` | Adversarial namespace collision (r(110), no partial output) and empty data (r(2000)). |
 | `test_fvgen_oracle.do` | 200 seeded row-level indicator and product oracles over varied shapes (2-5 levels, level gaps, missing values) plus generated-name shadow preservation. |
-| `test_fixture_metadata.do` | Literal hostile labels through centered, factor, reference, interaction, simple-slope, square and continuous-product routes; Unicode 80-character truncation; exact name twins/singleton and named factor-domain/empty-sample refusals. |
+| `test_fixture_metadata.do` | Literal hostile labels through centered, factor, reference, interaction, simple-slope, square and continuous-product routes; the console listing printed literally with an unlabeled pass-through shown by name; the ASCII `^2` square label; Unicode 80-character truncation; exact name twins/singleton and named factor-domain/empty-sample refusals. |
 | `test_package_release.do` | Isolated install resolution, repeated autoload, every visible help workflow, and help-render integrity with a positive control. |
 
 ### Validation
@@ -94,7 +94,18 @@ Suites that call `_fvgen_qa_bootstrap` redirect `PLUS` and `PERSONAL` to tempora
 | `_qa_fx_a1.do` | Byte-for-byte canonical cross-sectional fixture vendor |
 | `_qa_hostile.do` | Byte-for-byte primitive/assertion helper vendor |
 | `_qa_state.do` | Byte-for-byte session-fingerprint helper vendor |
+| `_qa_lifecycle.do` | Byte-for-byte stored-results lifecycle helper vendor |
 
 The matrix consumes every A1 minimum in requested factor/continuous roles; `separate` enters as a transformed continuous input and `near_positivity` as changed factor support, so neither is represented as an estimator claim. Every generated row is checked by arithmetic derived before the command. Finite OLS predictions and native marginal derivatives are checked independently of the candidate clone. The metadata suite checks actual read-back labels across nine hostile texts and each label path, preserving intentional suffixes and the documented 80-character Unicode truncation.
 
 Fixture coverage still owed: route-specific weight/reference/margins variants beyond these finite controls and writer contracts where applicable; no interval consumer is declared. Archetype declarations retain census obligations; a green runtime subset does not meet the full census.
+
+## Evidence layers
+
+`fvgen` implements no estimator: it materializes a design and replays the user's own estimator, so known-answer arithmetic and parity with Stata's native factor-variable fits are its outside evidence.
+
+| Route | Recovery | Reference parity | Published reproduction | Inference calibration |
+|---|---|---|---|---|
+| `fvgen` indicator and product construction | `validation_fixture_truth.do`; `test_fvgen_oracle.do` | `none: deterministic transform` | `none: no grounding paper (general utility; the reference is Stata's own factor-variable expansion)` | `none: deterministic transform` |
+| `fvgen` flattened-model native-design equivalence | `validation_fvgen.do`; `validation_fixture_matrix.do` | `none: deterministic transform` | `none: no grounding paper (general utility; the reference is Stata's own factor-variable expansion)` | `none: no inference reported` |
+| `fvgen, margins` native refit, estimate and variance | `test_margins.do` | `none: deterministic transform` | `none: no grounding paper (general utility; the reference is the native factor-variable refit)` | `none: no inference reported` |

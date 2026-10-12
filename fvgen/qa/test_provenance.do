@@ -200,6 +200,45 @@ else {
     local failed_tests "`failed_tests' 7"
 }
 
+**# 8. drop keeps clonevar copies and renamed generated variables
+* Clarity audit 2026-10-12 I2: clonevar copies characteristics, so a role-only
+* teardown deleted a user's clone. Each generated variable is now stamped with
+* its own name (fvgen_name) and dropped only while the stamp matches.
+local ++test_count
+capture noisily {
+    _fvgen_make_data
+    fvgen i.arm##c.age
+    assert "`: char _arm_1[fvgen_name]'" == "_arm_1"
+    assert "`: char _armXage_1[fvgen_name]'" == "_armXage_1"
+    clonevar myclone = _arm_1
+    assert "`: char myclone[fvgen_role]'" == "main"
+    rename _armXage_1 kept_product
+    * a pre-1.2.9 generated variable carries a role but no name stamp
+    generate double legacy = 1
+    char legacy[fvgen_role] "main"
+    fvgen, drop
+    assert r(k_dropped) == 2
+    assert "`r(dropped)'" == "_arm_1 legacy"
+    confirm variable myclone kept_product age arm
+    capture confirm variable _arm_1
+    assert _rc == 111
+    capture confirm variable legacy
+    assert _rc == 111
+    * a second teardown finds nothing more to drop
+    fvgen, drop
+    assert r(k_dropped) == 0
+    confirm variable myclone kept_product
+}
+if _rc == 0 {
+    display as result "  PASS: drop keeps clonevar copies and renamed variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: drop clone/rename safety (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

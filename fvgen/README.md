@@ -1,6 +1,6 @@
 # fvgen — Flatten factor-variable interactions into labeled variables
 
-**Version 1.2.8** | 2026-10-12
+**Version 1.2.9** | 2026-10-12
 
 `fvgen` turns Stata factor-variable specifications into ordinary, labeled main-effect and interaction variables for regression tables and other exports. It returns a ready-to-use `r(allvars)` varlist while preserving the estimable design of the native model.
 
@@ -40,11 +40,13 @@ For a local Stata-Tools checkout, use the same command with `from("/path/to/Stat
 
 `fvgen` expands `i.` factors into indicator variables, passes continuous terms through as ordinary variables, and turns `#` or `##` interactions into products. The default base level is omitted for categorical main effects; value labels become variable labels, and generated names use a prefix plus the source variable and level. Before changing the dataset, it rejects output plans in which distinct terms collapse to one generated name or an output would overwrite a source variable.
 
-The command supports main effects and up to two-way interactions. It returns a combined `r(allvars)` varlist in estimation order, along with separate main-effect, interaction, and newly generated-variable lists. Generated variables carry `fvgen_role` and `fvgen_term` characteristics so `fvgen, drop` can remove only variables created by `fvgen`. Dataset-level provenance conservatively signs every variable present when `fvgen` runs, plus its generated variables, so the margins bridge can reject stale data.
+The command supports main effects and up to two-way interactions. It returns a combined `r(allvars)` varlist in estimation order, along with separate main-effect, interaction, and newly generated-variable lists. Generated variables carry `fvgen_role`, `fvgen_term`, and `fvgen_name` characteristics so `fvgen, drop` can remove only variables created by `fvgen` that still have the name `fvgen` gave them; a `clonevar` copy or a renamed generated variable is kept. Dataset-level provenance conservatively signs every variable present when `fvgen` runs, plus its generated variables, so the margins bridge can reject stale data.
 
 The `if` or `in` qualifier and any weight control which levels and interaction cells are discovered, while generated variables are filled for all observations. To reproduce the native model for a restricted sample, use the same qualifiers and weights in the estimation command. Source-variable missing values remain missing in the generated indicators and products. With `center`, the weight also determines the centering mean.
 
 In the default uncentered workflow, estimating on `r(allvars)` spans the same model space and reproduces the corresponding native factor-variable model's fit. When the design is full rank, matching terms also have the same coefficients and standard errors. With empty cells or other exact collinearity, Stata may choose a different omitted-column basis, so individual reported coefficients and standard errors need not map one-to-one even though fitted values and fit agree. Centering changes the interpretation of lower-order coefficients but leaves the interaction coefficient and model fit unchanged.
+
+Official `xi` also creates indicator and product variables (`xi i.foreign*mpg` makes `_Iforeign_1` and `_IforXmpg_1`, labeled `foreign==1` and `(foreign==1)*mpg`). `fvgen` adds labels built from value labels, modern factor-variable syntax (`ibN.`, `ibn.`, `c.`, `##`), per-factor reference levels and per-group slopes, provenance with a matching teardown, and a bridge back to native factor variables for `margins`.
 
 ## Worked Examples
 
@@ -149,10 +151,10 @@ This mode takes no varlist, qualifiers, weights, or other generation options. It
 | `vsref(string)` | Off | Append the base label to categorical main-effect labels; the template must contain `@`, and the displayed base honors `ref()`. |
 | `prefix(name)` | `_` | Prefix generated names; a name longer than Stata's 32-character limit is an error. |
 | `replace` | Off | Overwrite unrelated existing variables whose names collide with generated names; structural output/output and output/source collisions are always rejected. With `margins store(name)`, refresh an existing stored clone; without `replace`, an existing stored estimate of that name is an error (r(110)). |
-| `xsymbol(string)` | `×` | Set the symbol joining interaction labels; `xsymbol(x)` uses ASCII, while a continuous self-interaction is always labeled with `²`. |
+| `xsymbol(string)` | `×` | Set the symbol joining interaction labels; `xsymbol(x)` uses ASCII; a continuous self-interaction is labeled with `²`, or `^2` when `xsymbol()` is plain ASCII. |
 | `margins` | Off | Rebuild the active estimate with native factor-variable syntax for Stata's `margins` command. |
 | `store(name)` | Not used | Use only with `margins` to store the native refit under `name` and restore the flattened estimate. |
-| `drop` | Off | Use alone to remove all `fvgen`-generated variables and return their names and count. |
+| `drop` | Off | Use alone to remove all `fvgen`-generated variables still under their generated names and return their names and count; `clonevar` copies and renamed generated variables are kept. |
 
 ## Stored Results
 
@@ -188,9 +190,9 @@ The native-factor result produced by `fvgen, margins` also carries these nonstan
 
 - Higher-order interactions with three or more factors are rejected; use a native factor-variable model or split the workflow.
 - The explicit omit operator `o.` is rejected because `fvgen` cannot infer whether it should be materialized; restrict the sample with `if` or `in`, or set a base with `ref()` instead.
-- A no-base factor such as `ibn.foreign` materializes every observed level, equivalent to `alllevels` for that factor. Empty cells and omitted interaction terms are not materialized.
+- A no-base factor such as `ibn.foreign` materializes every observed level, equivalent to `alllevels` for that factor. Empty cells and omitted interaction terms are not materialized. Naming an `ibn.` factor in `ref()` is an error (r(198)).
 - Generated variable names must fit Stata's 32-character limit, and generated variable labels are truncated at Stata's 80-character limit.
-- The `margins` bridge requires active estimation results with `e(b)`, `e(V)`, and a saved command line, plus current `fvgen` provenance from the exact `r(allvars)` varlist. Changing, dropping, or recasting any variable present when `fvgen` ran, or any generated variable, invalidates the bridge; adding a variable afterward does not. The estimator must be rerunnable and converge with native factor variables and support `margins`, and the native refit must be the same model as the flattened fit (same estimation sample, N, rank, free coefficients, and log likelihood where posted); a mismatch, e.g. after running `fvgen` on a different `if`/`in` sample than the estimator or with `alllevels` plus `noconstant`, exits with r(498). Use the native model directly for `contrast` and `pwcompare`; the bridge is not available after `center`.
+- The `margins` bridge requires active estimation results with `e(b)`, `e(V)`, and a saved command line, plus current `fvgen` provenance from the exact `r(allvars)` varlist. Changing, dropping, or recasting any variable present when `fvgen` ran, or any generated variable, invalidates the bridge; adding a variable afterward does not. The estimator must be rerunnable and converge with native factor variables and support `margins`, and the native refit must be the same model as the flattened fit (same estimation sample, N, rank, free coefficients, log likelihood where posted, and variance matrix); a mismatch, e.g. after running `fvgen` on a different `if`/`in` sample than the estimator or with `alllevels` plus `noconstant`, exits with r(498). Bootstrap and jackknife variances (`bootstrap:` prefix or `vce(bootstrap)`) are replayed from the fit's posted `e(rngstate)` so the native refit redraws the same replicates, then checked against the flattened variance; the caller's random-number state is left unchanged. A resampling variance is refused (r(498)) when the generator type was changed after the fit (`set rng`) or when exact collinearity, such as `alllevels` with a constant, gives the native refit a different omitted-column basis; fit such models natively. Use the native model directly for `contrast` and `pwcompare`; the bridge is not available after `center`.
 
 ## References
 
@@ -204,6 +206,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.2.9** (2026-10-12): `fvgen, margins` no longer swaps in a different bootstrap variance: a resampling fit is replayed from its posted `e(rngstate)`, the model check now also compares the variance matrix (r(498) on mismatch), and the caller's random-number state is restored afterward. `fvgen, drop` no longer deletes `clonevar` copies of generated variables (generated variables are stamped with their own name in `fvgen_name`). `ref()` naming an `ibn.` factor is now an error instead of silently imposing a base. `xsymbol()` containing a double quote works. The console listing shows labels literally and falls back to the variable name for an unlabeled pass-through variable. A squared continuous term is labeled `^2` when `xsymbol()` is plain ASCII. The help file positions `fvgen` against `xi` and links `xi`, `margins`, and `fvset`.
 - **1.2.8** (2026-10-12): A rejected `fvgen` call no longer erases the previous run's provenance, so `fvgen, margins` still works for the earlier model. `fvgen, margins` replays the estimator under the caller's `varabbrev` setting. Generated-name length is counted in characters, not bytes, so Unicode names up to 32 characters are accepted. `ref()` naming one variable twice now reports the duplicate. Under `center` and `replace`, a weight that reads a centered copy `fvgen` would regenerate is refused instead of being dropped mid-run. Internal simplification: one parse and one name check per term.
 - **1.2.7** (2026-09-30): Preserve literal quotes, backticks, dollar signs and Unicode when building labels for centered copies, factor indicators and interactions, including reference suffixes. The documented 80-character label limit and suffix rules are unchanged.
 - **1.2.6** (2026-09-29): The margins bridge now refuses (r(498)) a native refit that is not the same model as the flattened fit (different estimation sample, N, rank, free coefficients, or log likelihood), which previously substituted a different model silently after `fvgen ... if` or `alllevels` with `noconstant`; `margins store(name)` no longer silently overwrites an existing stored estimate without `replace`; a level missing from an attached value label is labeled `var=level` instead of a bare number; string variables and `i(numlist)` factors with `ref()`/`simple()` get accurate errors.

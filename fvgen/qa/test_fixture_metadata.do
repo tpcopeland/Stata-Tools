@@ -190,6 +190,35 @@ foreach kind in negative big {
     if _rc local ++fail
     else local ++pass
 }
+local ++tests
+capture noisily {
+    * expect: EXACT (console listing shows labels literally; unlabeled
+    * pass-through shows its name; ASCII xsymbol gives an ASCII square)
+    * Clarity audit 2026-10-12 M1, N3, N2.
+    sysuse auto, clear
+    global QA_FV_NOEXPAND "EXPANDED"
+    local text = "Miles " + char(96) + "x' per " + char(36) + "QA_FV_NOEXPAND gal"
+    mata: st_varlabel("mpg", st_local("text"))
+    label variable weight ""
+    tempfile listlog
+    log using "`listlog'", text replace name(listing)
+    fvgen i.foreign##c.mpg weight
+    log close listing
+    mata: L = cat(st_local("listlog")); st_local("literal", strofreal(any(strpos(L, st_local("text"))))); st_local("expanded", strofreal(any(strpos(L, "EXPANDED")))); st_local("named", strofreal(any(ustrregexm(L, "^ +weight +weight$"))))
+    assert `literal' == 1 & `expanded' == 0 & `named' == 1
+    * the variable's own label is not touched by the display fallback
+    assert `"`: variable label weight'"' == ""
+    quietly fvgen, drop
+    quietly fvgen c.mpg#c.mpg, xsymbol(x) prefix(sq_)
+    mata: st_local("ascii", strofreal(st_varlabel("sq_mpgXmpg") == st_local("text") + "^2"))
+    assert `ascii' == 1
+    quietly fvgen c.mpg#c.mpg, prefix(sq_) replace
+    mata: st_local("super", strofreal(st_varlabel("sq_mpgXmpg") == st_local("text") + "²"))
+    assert `super' == 1
+    macro drop QA_FV_NOEXPAND
+}
+if _rc local ++fail
+else local ++pass
 display "RESULT: test_fixture_metadata tests=`tests' pass=`pass' fail=`fail' skip=0"
 log close
 if `fail' exit 9
