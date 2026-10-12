@@ -1,4 +1,4 @@
-*! eplot Version 1.6.1  2026/10/10
+*! eplot Version 1.6.2  2026/10/12
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -220,12 +220,7 @@ program define _eplot_frame, rclass
     local _orig_frame "`c(frame)'"
     local _frame_created 0
     local _data_rc 0
-    local _has_results 0
-    local _has_table 0
-    local _has_pvalues 0
-    local _r_N .
-    local _r_k .
-    local _r_cmd ""
+    local _data_ran 0
     set varabbrev off
 
     capture noisily {
@@ -375,32 +370,9 @@ program define _eplot_frame, rclass
             local _data_opts `"pi(`pi') `_data_opts'"'
         }
 
+        local _data_ran 1
         capture noisily _eplot_data `estimate' `ll' `ul' `if' `in', `_data_opts'
         local _data_rc = _rc
-
-        // Forward only results the data-mode helper actually posted (see the
-        // public wrapper: absent r() scalars and matrices do not error).
-        local _rsc : r(scalars)
-        local _rmc : r(macros)
-        local _rmt : r(matrices)
-        local _need_sc "N k"
-        local _miss_sc : list _need_sc - _rsc
-        if "`_miss_sc'" == "" & `: list posof "cmd" in _rmc' {
-            local _has_results 1
-            local _r_N = r(N)
-            local _r_k = r(k)
-            local _r_cmd `"`r(cmd)'"'
-            if `: list posof "table" in _rmt' {
-                tempname _r_table
-                matrix `_r_table' = r(table)
-                local _has_table 1
-            }
-            if `: list posof "pvalues" in _rmt' {
-                tempname _r_pvalues
-                matrix `_r_pvalues' = r(pvalues)
-                local _has_pvalues 1
-            }
-        }
     }
     local rc = _rc
 
@@ -416,17 +388,12 @@ program define _eplot_frame, rclass
     if `rc' == 0 & `_cleanup_rc' != 0 local rc = `_cleanup_rc'
     if `rc' == 0 & `_data_rc' != 0 local rc = `_data_rc'
 
-    if `_has_results' {
-        return scalar N = `_r_N'
-        return scalar k = `_r_k'
-        return local cmd `"`_r_cmd'"'
-        if `_has_table' {
-            return matrix table = `_r_table'
-        }
-        if `_has_pvalues' {
-            return matrix pvalues = `_r_pvalues'
-        }
-    }
+    // Forward what the data-mode helper posted (a failed rclass program
+    // posts only what it returned before failing, and nothing otherwise);
+    // the frame commands above leave r() untouched.  The public wrapper
+    // gates on the complete result set.  Before _eplot_data runs, r() is
+    // the caller's and must not be forwarded.
+    if `_data_ran' return add
 
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
@@ -534,10 +501,10 @@ program define _eplot_data, rclass
             * ///
             ]
 
-        // nocons -> add _cons to drop list
-        if "`noconstant'" != "" {
-            local drop `"`drop' _cons"'
-        }
+        // nocons -> drop _cons.  An automatic drop is optional: unlike a
+        // name the user wrote in drop(), it may match nothing.
+        local _auto_drop ""
+        if "`noconstant'" != "" local _auto_drop "_cons"
 
         // Each color option must name exactly one valid color: twoway draws
         // the default color at rc=0 for a list or an unknown name.
@@ -688,10 +655,6 @@ program define _eplot_data, rclass
     if `"`_null_opts'"' != "" & "`nonull'" != "" {
         display as text "(note: null() line options have no effect with nonull)"
     }
-    if `"`vreference'"' != "" & "`baselevels'" == "" {
-        display as error "vreference() requires baselevels"
-        exit 198
-    }
     if "`logscale'" != "" & "`nonull'" == "" & `null' <= 0 {
         display as error ///
             "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
@@ -735,7 +698,10 @@ program define _eplot_data, rclass
         local vtitle `"`effect'"'
         local effect = regexr(`"`effect'"', " \([0-9.]+% CI\)$", "")
     }
-    if "`vformat'" == "" local vformat "%5.`dp'f"
+    // The width leaves room for the decimals and an integer part of up to
+    // twenty digits: a fixed width below dp()+2 is not a valid format, and
+    // string() switches a value too wide for its format to %g.
+    if "`vformat'" == "" local vformat "%`=`dp' + 22'.`dp'f"
     // string() returns "" for a nonnumeric format, which would blank every
     // value at rc=0.
     capture confirm numeric format `vformat'
@@ -823,14 +789,8 @@ program define _eplot_data, rclass
         quietly gen int `rowtype' = 1
     }
     quietly gen byte `gapflag' = 0
-
-    quietly count if missing(`rowtype') | `rowtype' != floor(`rowtype') | ///
-        !inrange(`rowtype', 0, 6)
-    if r(N) > 0 {
-        display as error "type() contains an unknown row type; use codes 0-6 or a documented string value"
-        restore
-        exit 198
-    }
+    // Every row-type value was validated inside if/in before markout, and
+    // the string mapping above covers each accepted spelling.
 
     quietly count if inlist(`rowtype', 1, 3, 5) & ///
         !missing(`lci') & !missing(`uci') & `lci' > `uci'
@@ -906,13 +866,19 @@ program define _eplot_data, rclass
     }
 
     // Apply keep/drop against the source identities
+    // Rows removed by keep() still count as matched for drop().
+    local _known ""
+    if `"`keep'"' != "" & `"`drop'"' != "" {
+        quietly levelsof `label_str', local(_known)
+    }
     if `"`keep'"' != "" {
         _eplot_apply_keep `label_str', keep(`keep')
     }
-    if `"`drop'"' != "" {
-        _eplot_apply_drop `label_str', drop(`drop')
+    if `"`drop'"' != "" | "`_auto_drop'" != "" {
+        _eplot_apply_drop `label_str', drop(`drop') optional(`_auto_drop') ///
+            known(`_known')
     }
-    if `"`keep'"' != "" | `"`drop'"' != "" {
+    if `"`keep'"' != "" | `"`drop'"' != "" | "`_auto_drop'" != "" {
         quietly count
         if r(N) == 0 {
             display as error "no rows to plot after keep/drop"
@@ -998,15 +964,15 @@ program define _eplot_data, rclass
     if "`hetrow'" != "" {
         // I² and τ² keep the row short: it is a row label and sets the
         // width of the label column.
-        local _het_row ""
-        if `"`i2'"' != "" local _het_row "I`=uchar(178)' = `i2'"
+        local _het_row `""'
+        if `"`i2'"' != "" local _het_row `"I`=uchar(178)' = `i2'"'
         if `"`tau2'"' != "" {
-            if `"`_het_row'"' != "" local _het_row "`_het_row', "
-            local _het_row "`_het_row'`=uchar(964)'`=uchar(178)' = `tau2'"
+            if `"`_het_row'"' != "" local _het_row `"`_het_row', "'
+            local _het_row `"`_het_row'`=uchar(964)'`=uchar(178)' = `tau2'"'
         }
         if `"`qstat'"' != "" {
-            if `"`_het_row'"' != "" local _het_row "`_het_row', "
-            local _het_row "`_het_row'Q = `qstat'"
+            if `"`_het_row'"' != "" local _het_row `"`_het_row', "'
+            local _het_row `"`_het_row'Q = `qstat'"'
         }
         if `"`_het_row'"' == "" {
             display as error "hetrow requires i2(), tau2(), or qstat()"
@@ -1164,10 +1130,9 @@ program define _eplot_data, rclass
     if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & "`horizontal'" != "" {
         tempvar val_text val_x
-        quietly gen str `val_text' = string(`es', "`vformat'") ///
-            + " (" + string(`lci', "`vformat'") ///
-            + ", " + string(`uci', "`vformat'") + ")" + `_dm_star' ///
-            if inlist(`rowtype', 1, 3, 5) & !missing(`es')
+        _eplot_value_text `val_text' if inlist(`rowtype', 1, 3, 5) & ///
+            !missing(`es'), vars(`es' `lci' `uci') format(`vformat') ///
+            suffix(`_dm_star')
 
         // Type 2 (missing/excluded) rows state that no estimate exists.  A
         // string type of "reference" also maps to 2 but is a reference
@@ -1566,17 +1531,17 @@ program define _eplot_data, rclass
     }
     // Build heterogeneity stats string (plain text for graph note); hetrow
     // has already placed it as a row.
-    local _het_text ""
+    local _het_text `""'
     if "`hetrow'" == "" & `"`i2'"' != "" {
-        local _het_text "I-squared = `i2'"
+        local _het_text `"I-squared = `i2'"'
     }
     if "`hetrow'" == "" & `"`tau2'"' != "" {
-        if `"`_het_text'"' != "" local _het_text "`_het_text', "
-        local _het_text "`_het_text'tau-squared = `tau2'"
+        if `"`_het_text'"' != "" local _het_text `"`_het_text', "'
+        local _het_text `"`_het_text'tau-squared = `tau2'"'
     }
     if "`hetrow'" == "" & `"`qstat'"' != "" {
-        if `"`_het_text'"' != "" local _het_text "`_het_text', "
-        local _het_text "`_het_text'Q = `qstat'"
+        if `"`_het_text'"' != "" local _het_text `"`_het_text', "'
+        local _het_text `"`_het_text'Q = `qstat'"'
     }
 
     if `"`note'"' != "" {
@@ -1590,16 +1555,16 @@ program define _eplot_data, rclass
                 local _autonote "`_autonote' Boxes proportional to study weight."
             }
         }
-        if "`_het_text'" != "" {
-            if "`_autonote'" != "" {
-                local _autonote "`_autonote' `_het_text'"
+        if `"`_het_text'"' != "" {
+            if `"`_autonote'"' != "" {
+                local _autonote `"`_autonote' `_het_text'"'
             }
             else {
-                local _autonote "`_het_text'"
+                local _autonote `"`_het_text'"'
             }
         }
-        if "`_autonote'" != "" {
-            local graphcmd `"`graphcmd' note("`_autonote'", size(vsmall) position(5))"'
+        if `"`_autonote'"' != "" {
+            local graphcmd `"`graphcmd' note(`"`_autonote'"', size(vsmall) position(5))"'
         }
     }
 
@@ -1686,7 +1651,7 @@ program define _eplot_data, rclass
             local _exp_vars "`_exp_vars' `pvalue'"
             local _exp_names "`_exp_names' pvalue"
         }
-        if "`val_cmd'" != "" {
+        if `"`val_cmd'"' != "" {
             local _exp_vars "`_exp_vars' `val_text'"
             local _exp_names "`_exp_names' values"
         }
@@ -1803,6 +1768,7 @@ end
 // =============================================================================
 
 capture program drop _eplot_estimates
+// stata-dev-ignore: return_class_match — ereturn clear only empties the e() that restoring a named model left when no results were active
 program define _eplot_estimates, rclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
@@ -1896,10 +1862,10 @@ program define _eplot_estimates, rclass
             * ///
             ]
 
-        // nocons -> add _cons to drop list
-        if "`noconstant'" != "" {
-            local drop `"`drop' _cons"'
-        }
+        // nocons -> drop _cons.  An automatic drop is optional: unlike a
+        // name the user wrote in drop(), it may match nothing.
+        local _auto_drop ""
+        if "`noconstant'" != "" local _auto_drop "_cons"
 
         // eform -> auto-suppress constant (exp(_cons) is not meaningful).
         // The note is printed after keep(), and only if a constant is dropped.
@@ -1911,7 +1877,7 @@ program define _eplot_estimates, rclass
                 if "`_d'" == "_cons" local _has_cons 1
             }
             if !`_has_cons' {
-                local drop `"`drop' _cons"'
+                local _auto_drop "_cons"
                 local _eform_cons 1
             }
         }
@@ -2154,7 +2120,10 @@ program define _eplot_estimates, rclass
             exit 198
         }
     }
-    if "`vformat'" == "" local vformat "%5.`dp'f"
+    // The width leaves room for the decimals and an integer part of up to
+    // twenty digits: a fixed width below dp()+2 is not a valid format, and
+    // string() switches a value too wide for its format to %g.
+    if "`vformat'" == "" local vformat "%`=`dp' + 22'.`dp'f"
     // Values-column and row-label text.  *# sizes resolve against eplot's
     // defaults (vsmall values, small labels), not the scheme's.
     if "`vcolor'" == "" local vcolor "gs4"
@@ -2261,7 +2230,7 @@ program define _eplot_estimates, rclass
         matrix `b_dot' = e(b)
         matrix `V_dot' = e(V)
         local _keform_dot "`e(k_eform)'"
-        _eplot_coef_df, b(`b_dot') df(`dfv_dot')
+        _eplot_coef_df, b(`b_dot') df(`dfv_dot') v(`V_dot')
     }
 
     // Auto-detect the effect label from the requested model, not from an
@@ -2422,7 +2391,7 @@ program define _eplot_estimates, rclass
     tempname posthn
     tempfile postfn
     quietly postfile `posthn' str244 coef_name double(es se lci uci df) byte model_id ///
-        byte isbase using `postfn', replace
+        byte isbase str244 _coef_full using `postfn', replace
     local _post_open 1
 
     // Free parameters in the "/" equation (cutpoints, variances, ln_p,
@@ -2432,6 +2401,10 @@ program define _eplot_estimates, rclass
     // e(k_eform) equations (default 1), as [R] ml display documents.
     local _n_anc 0
     local _n_noneform 0
+    local _zero_names ""
+    // Every coefficient of every model, before keep() or any omission, so a
+    // drop() term that names one is never an error.
+    local _known ""
 
     forvalues m = 1/`n_models' {
         local est_name : word `m' of `estlist'
@@ -2441,12 +2414,15 @@ program define _eplot_estimates, rclass
             local k = colsof(`b_dot')
             _eplot_matrix_coefnames, matrix(`b_dot')
             local names `"`s(names)'"'
+            local _fnames : colfullnames `b_dot'
+            local _known `"`_known' `names' `_fnames'"'
             _eplot_eform_eqs, matrix(`b_dot') keform(`_keform_dot')
             local _eqs `"`s(eqs)'"'
             local _eform_eqs `"`s(eform_eqs)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
+                local _fn : word `i' of `_fnames'
                 local _eq_i : word `i' of `_eqs'
                 local this_var = `V_dot'[`i', `i']
                 if "`_eq_i'" == "/" {
@@ -2468,7 +2444,12 @@ program define _eplot_estimates, rclass
                 // kept as a reference row with no estimate.
                 if `this_var' == 0 {
                     if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") {
-                        post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1)
+                        post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1) ("`_fn'")
+                    }
+                    else if !regexm("`nm'", "(^|[:#])[0-9]*c?(b|o|bo|ob)\.") {
+                        // Not an omitted or base term: a coefficient
+                        // constrained to a fixed value has no interval.
+                        local _zero_names "`_zero_names' `nm'"
                     }
                     continue
                 }
@@ -2481,7 +2462,7 @@ program define _eplot_estimates, rclass
 
                 post `posthn' ("`nm'") (`b_dot'[1, `i']) (`_se_i') ///
                     (`b_dot'[1, `i'] - `_crit_i' * `_se_i') ///
-                    (`b_dot'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0)
+                    (`b_dot'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0) ("`_fn'")
             }
         }
         else {
@@ -2508,17 +2489,20 @@ program define _eplot_estimates, rclass
             }
             matrix `bm' = e(b)
             matrix `Vm' = e(V)
-            _eplot_coef_df, b(`bm') df(`dfvm')
+            _eplot_coef_df, b(`bm') df(`dfvm') v(`Vm')
 
             local k = colsof(`bm')
             _eplot_matrix_coefnames, matrix(`bm')
             local names `"`s(names)'"'
+            local _fnames : colfullnames `bm'
+            local _known `"`_known' `names' `_fnames'"'
             _eplot_eform_eqs, matrix(`bm') keform(`e(k_eform)')
             local _eqs `"`s(eqs)'"'
             local _eform_eqs `"`s(eform_eqs)'"'
 
             forvalues i = 1/`k' {
                 local nm : word `i' of `names'
+                local _fn : word `i' of `_fnames'
                 local _eq_i : word `i' of `_eqs'
                 local this_var = `Vm'[`i', `i']
                 if "`_eq_i'" == "/" {
@@ -2538,7 +2522,12 @@ program define _eplot_estimates, rclass
                 // kept as a reference row with no estimate.
                 if `this_var' == 0 {
                     if "`baselevels'" != "" & regexm("`nm'", "(^|:)[0-9]+b\.[^#]+$") {
-                        post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1)
+                        post `posthn' ("`nm'") (.) (.) (.) (.) (.) (`m') (1) ("`_fn'")
+                    }
+                    else if !regexm("`nm'", "(^|[:#])[0-9]*c?(b|o|bo|ob)\.") {
+                        // Not an omitted or base term: a coefficient
+                        // constrained to a fixed value has no interval.
+                        local _zero_names "`_zero_names' `nm'"
                     }
                     continue
                 }
@@ -2551,7 +2540,7 @@ program define _eplot_estimates, rclass
 
                 post `posthn' ("`nm'") (`bm'[1, `i']) (`_se_i') ///
                     (`bm'[1, `i'] - `_crit_i' * `_se_i') ///
-                    (`bm'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0)
+                    (`bm'[1, `i'] + `_crit_i' * `_se_i') (`_df_i') (`m') (0) ("`_fn'")
             }
         }
     }
@@ -2563,6 +2552,10 @@ program define _eplot_estimates, rclass
     }
     if `_n_noneform' > 0 {
         display as text "(note: `_n_noneform' parameter(s) outside the exponentiated equation(s) omitted with eform)"
+    }
+    local _zero_names : list uniq _zero_names
+    if "`_zero_names'" != "" {
+        display as text "(note: zero-variance (constrained) coefficient(s) omitted: `=strtrim("`_zero_names'")')"
     }
 
     // Return to the caller's dataset before unholding so the hidden e(sample)
@@ -2588,19 +2581,23 @@ program define _eplot_estimates, rclass
     preserve
     local _restore_needed 1
     use `postfn', clear
+    // The full eq:name identity, so keep()/drop() can select eq:coef even
+    // when the plotted name carries no equation prefix.
+    local coef_full "_coef_full"
 
     // ====== Transform data ======
 
     // Apply keep/drop
     if `"`keep'"' != "" {
-        _eplot_apply_keep coef_name, keep(`keep')
+        _eplot_apply_keep coef_name, keep(`keep') fullname(`coef_full')
     }
     if `_eform_cons' {
         quietly count if coef_name == "_cons" | substr(coef_name, -6, .) == ":_cons"
         if r(N) > 0 display as text "(note: constant suppressed with eform)"
     }
-    if `"`drop'"' != "" {
-        _eplot_apply_drop coef_name, drop(`drop')
+    if `"`drop'"' != "" | "`_auto_drop'" != "" {
+        _eplot_apply_drop coef_name, drop(`drop') optional(`_auto_drop') ///
+            fullname(`coef_full') known(`_known')
     }
 
     // Check we have data
@@ -2681,11 +2678,8 @@ program define _eplot_estimates, rclass
         sort _sort_es _first_seen model_id
         drop _sort_es
     }
-    else if "`sort'" != "" {
-        sort _first_seen model_id
-    }
     else if `"`order'"' != "" {
-        gen long _order_rank = .
+        quietly gen long _order_rank = .
         local o 0
         local _unmatched ""
         foreach coef of local order {
@@ -2891,14 +2885,9 @@ program define _eplot_estimates, rclass
     if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & `n_models' == 1 & "`horizontal'" != "" {
         local _star_suf ""
-        if "`stars'" != "" {
-            local _star_suf `" + _star"'
-        }
-        gen str _val_text = string(es, "`vformat'") ///
-            + " (" + string(lci, "`vformat'") ///
-            + ", " + string(uci, "`vformat'") + ")" ///
-            `_star_suf' ///
-            if _rowtype == 1 & !missing(es)
+        if "`stars'" != "" local _star_suf "suffix(_star)"
+        _eplot_value_text _val_text if _rowtype == 1 & !missing(es), ///
+            vars(es lci uci) format(`vformat') `_star_suf'
         if "`baselevels'" != "" {
             local _vref `"`vreference'"'
             if `"`_vref'"' == "" {
@@ -2910,7 +2899,7 @@ program define _eplot_estimates, rclass
         _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
             axisopts(`"`_effect_axis_opts'"') xline(`_xline_pos') `nonull' `logscale'
         local val_xpos = `s(xpos)'
-        gen double _val_x = `val_xpos' if !missing(_val_text)
+        quietly gen double _val_x = `val_xpos' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`vtitle'"') scale(`_vscale')
         local _val_right_margin = `s(right_margin)'
 
@@ -3382,25 +3371,19 @@ program define _eplot_estimates, rclass
             }
             matrix colnames `_rtable' = `_cnames'
 
-            // Fill matrix: iterate over unique coefficients
-            local _ri 0
+            // Fill matrix in one pass: _base_pos numbers the unique
+            // coefficients 1..k in display order, so it is the row index.
+            forvalues j = 1/`=_N' {
+                local _ri = _base_pos[`j']
+                if _coef_tag[`j'] == 1 local _rnm_`_ri' = coef_name[`j']
+                local _col = (model_id[`j'] - 1) * 3 + 1
+                matrix `_rtable'[`_ri', `_col'] = es[`j']
+                matrix `_rtable'[`_ri', `_col' + 1] = lci[`j']
+                matrix `_rtable'[`_ri', `_col' + 2] = uci[`j']
+            }
             local _rnames ""
-            forvalues i = 1/`=_N' {
-                if _coef_tag[`i'] != 1 continue
-                local ++_ri
-                local _rnm = coef_name[`i']
-                local _coef_pos = _base_pos[`i']
-                local _rnames `"`_rnames' `"`_rnm'"'"'
-
-                // Fill in values for each model
-                forvalues j = 1/`=_N' {
-                    if _base_pos[`j'] != `_coef_pos' continue
-                    local _mid = model_id[`j']
-                    local _col = (`_mid' - 1) * 3 + 1
-                    matrix `_rtable'[`_ri', `_col'] = es[`j']
-                    matrix `_rtable'[`_ri', `_col' + 1] = lci[`j']
-                    matrix `_rtable'[`_ri', `_col' + 2] = uci[`j']
-                }
+            forvalues _ri = 1/`_ntab' {
+                local _rnames `"`_rnames' `"`_rnm_`_ri''"'"'
             }
             capture matrix rownames `_rtable' = `_rnames'
             if _rc {
@@ -3562,10 +3545,10 @@ program define _eplot_matrix, rclass
             * ///
             ]
 
-        // nocons -> add _cons to drop list
-        if "`noconstant'" != "" {
-            local drop `"`drop' _cons"'
-        }
+        // nocons -> drop _cons.  An automatic drop is optional: unlike a
+        // name the user wrote in drop(), it may match nothing.
+        local _auto_drop ""
+        if "`noconstant'" != "" local _auto_drop "_cons"
 
         // eform -> auto-suppress constant (exp(_cons) is not meaningful).
         // The note is printed after keep(), and only if a constant is dropped.
@@ -3576,7 +3559,7 @@ program define _eplot_matrix, rclass
                 if "`_d'" == "_cons" local _has_cons 1
             }
             if !`_has_cons' {
-                local drop `"`drop' _cons"'
+                local _auto_drop "_cons"
                 local _eform_cons 1
             }
         }
@@ -3682,10 +3665,6 @@ program define _eplot_matrix, rclass
     if `"`_null_opts'"' != "" & "`nonull'" != "" {
         display as text "(note: null() line options have no effect with nonull)"
     }
-    if `"`vreference'"' != "" & "`baselevels'" == "" {
-        display as error "vreference() requires baselevels"
-        exit 198
-    }
     if "`logscale'" != "" & "`nonull'" == "" & `null' <= 0 {
         display as error ///
             "null(`null') cannot be drawn on a logarithmic axis; specify a positive null() or nonull"
@@ -3722,7 +3701,10 @@ program define _eplot_matrix, rclass
             exit 198
         }
     }
-    if "`vformat'" == "" local vformat "%5.`dp'f"
+    // The width leaves room for the decimals and an integer part of up to
+    // twenty digits: a fixed width below dp()+2 is not a valid format, and
+    // string() switches a value too wide for its format to %g.
+    if "`vformat'" == "" local vformat "%`=`dp' + 22'.`dp'f"
     // Values-column and row-label text.  *# sizes resolve against eplot's
     // defaults (vsmall values, small labels), not the scheme's.
     if "`vcolor'" == "" local vcolor "gs4"
@@ -3760,6 +3742,11 @@ program define _eplot_matrix, rclass
     // Splitting the rownames list into words would shift every label after a
     // name that contains a space onto the wrong effect.
     mata: st_sstore(., ("`coef_eq'", "coef_name"), st_matrixrowstripe("`matrix'"))
+    // The full eq:name identity, so keep()/drop() select eq:coef whether
+    // or not the plotted name keeps its equation prefix.
+    tempvar coef_full
+    quietly gen str244 `coef_full' = cond(!inlist(`coef_eq', "", "_"), ///
+        `coef_eq' + ":" + coef_name, coef_name)
 
     // As in estimates mode, repeated row names keep their equation prefix so
     // distinct effects (e.g. the same covariate in two equations) remain
@@ -3831,16 +3818,24 @@ program define _eplot_matrix, rclass
     }
     drop `coef_eq'
 
+    // Rows removed by keep() still count as matched for drop().
+    local _known ""
+    if `"`keep'"' != "" & `"`drop'"' != "" {
+        quietly levelsof coef_name, local(_known)
+        quietly levelsof `coef_full', local(_kfull)
+        local _known `"`_known' `_kfull'"'
+    }
     // Apply keep/drop
     if `"`keep'"' != "" {
-        _eplot_apply_keep coef_name, keep(`keep')
+        _eplot_apply_keep coef_name, keep(`keep') fullname(`coef_full')
     }
     if `_eform_cons' {
         quietly count if coef_name == "_cons" | substr(coef_name, -6, .) == ":_cons"
         if r(N) > 0 display as text "(note: constant suppressed with eform)"
     }
-    if `"`drop'"' != "" {
-        _eplot_apply_drop coef_name, drop(`drop')
+    if `"`drop'"' != "" | "`_auto_drop'" != "" {
+        _eplot_apply_drop coef_name, drop(`drop') optional(`_auto_drop') ///
+            fullname(`coef_full') known(`_known')
     }
 
     quietly count
@@ -3850,11 +3845,6 @@ program define _eplot_matrix, rclass
         exit 2000
     }
     local n_coefs = r(N)
-
-    // Apply labels
-    if `"`coeflabels'"' != "" {
-        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
-    }
 
     // Stars p-value computation (BEFORE eform, only for 2-col matrices with SE)
     if "`stars'" != "" & `ncols' == 2 {
@@ -3908,7 +3898,7 @@ program define _eplot_matrix, rclass
         sort es _orig
     }
     else if `"`order'"' != "" {
-        gen long _order_rank = .
+        quietly gen long _order_rank = .
         local o 0
         local _unmatched ""
         foreach coef of local order {
@@ -3929,6 +3919,12 @@ program define _eplot_matrix, rclass
         quietly replace _order_rank = 1000 + _orig if missing(_order_rank)
         sort _order_rank
         drop _order_rank
+    }
+
+    // Display labels run LAST, after keep()/drop() and order(), so every
+    // selection keys on the original row names, as in estimates mode.
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
     }
 
     // Positions
@@ -4000,12 +3996,8 @@ program define _eplot_matrix, rclass
     if `"`vtitle'"' == "" local vtitle `"`effect'"'
     if "`values'" != "" & "`horizontal'" != "" {
         local _star_suf ""
-        if "`stars'" != "" {
-            local _star_suf `" + _star"'
-        }
-        gen str _val_text = string(es, "`vformat'") ///
-            + " (" + string(lci, "`vformat'") ///
-            + ", " + string(uci, "`vformat'") + ")" ///
+        if "`stars'" != "" local _star_suf "suffix(_star)"
+        _eplot_value_text _val_text, vars(es lci uci) format(`vformat') ///
             `_star_suf'
 
         _eplot_value_anchor, min(`data_xmin') max(`data_xmax') null(`null') gap(`vgap') ///
@@ -4446,16 +4438,32 @@ end
 // is specific to each coefficient") and e(df) after mixed, dfmethod().  A
 // vector is used only when its column stripe is identical to e(b)'s;
 // otherwise the model-wide e(df_r) applies to every coefficient.
+// With v(), the variance matrix named there is replaced by e(V_df) when it
+// exists with e(b)'s stripe: after mixed, dfmethod(kroger) the
+// Kenward-Roger df pair with the adjusted e(V_df), not e(V), and Stata's
+// r(table) uses e(V_df) ([ME] mixed, Stored results).
 capture program drop _eplot_coef_df
 program define _eplot_coef_df, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax, B(name) DF(name)
+        syntax, B(name) DF(name) [V(name)]
 
         local k = colsof(`b')
         local _bnames : colfullnames `b'
+        if "`v'" != "" {
+            capture confirm matrix e(V_df)
+            if _rc == 0 {
+                tempname _vdf
+                matrix `_vdf' = e(V_df)
+                local _vr : rowfullnames `_vdf'
+                local _vc : colfullnames `_vdf'
+                if `"`_vr'"' == `"`_bnames'"' & `"`_vc'"' == `"`_bnames'"' {
+                    matrix `v' = `_vdf'
+                }
+            }
+        }
         local _found 0
         foreach _cand in df_mi df {
             capture confirm matrix e(`_cand')
@@ -4846,6 +4854,22 @@ program define _eplot_log_ticks, sclass
                         local _out `"`_out' `_v' "`_lab'""'
                     }
                     continue, break
+                }
+            }
+            // Beyond twelve decades no lattice above fits: label every k-th
+            // decade (at most twelve ticks) rather than fall through to a
+            // linear lattice, which a log axis cannot show.
+            if `"`_out'"' == "" {
+                local _p0 = floor(log10(`_lo') + 1e-9)
+                local _p1 = ceil(log10(`_hi') - 1e-9)
+                local _step = max(1, ceil((`_p1' - `_p0') / 11))
+                local _p1 = `_p0' + ceil((`_p1' - `_p0') / `_step') * `_step'
+                forvalues _p = `_p0'(`_step')`_p1' {
+                    local _v = string(10^(`_p'), "%12.0g")
+                    local _lab "`_v'"
+                    if abs(`_p') > 4 local _lab = "1e" + cond(`_p' < 0, "-", "+") + string(abs(`_p'))
+                    if substr("`_lab'", 1, 1) == "." local _lab "0`_lab'"
+                    local _out `"`_out' `_v' "`_lab'""'
                 }
             }
         }
@@ -5876,6 +5900,73 @@ program define _eplot_export, nclass
     if `rc' exit `rc'
 end
 
+capture program drop _eplot_value_text
+program define _eplot_value_text, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        // The values-column text "b (ll, ul)[stars]", built the same way in
+        // every mode.  A fixed (%f) format with d decimals rounds each cell
+        // half away from zero on its decimal value first: string() alone
+        // rounds a binary tie to even (12.5 -> "12" at %#.0f), and
+        // round(x, 0.01) misses decimal ties such as 2.675, whose binary
+        // value lies just below the tie.  |x|*10^d is split into integer and
+        // fraction, and a fraction within a few units of double precision of
+        // .5 counts as the tie.  The estimate and both limits round alike, a
+        // value that rounds to zero prints unsigned (never "-0.00"), and when
+        // any cell of a row is too wide for the format (string() then
+        // switches it to exponent notation) all three cells of that row use
+        // exponent notation.  Other formats (%g, %e) go to string() as given.
+        syntax newvarname [if], Vars(varlist numeric min=3 max=3) ///
+            Format(string) [SUFfix(varname string)]
+        marksample touse, novarlist
+        tokenize `vars'
+        local _d ""
+        if regexm(`"`format'"', "^%-?~?0?[0-9]*\.([0-9]+)fc?$") {
+            local _d = real(regexs(1))
+            tempname _sc
+            scalar `_sc' = 10^`_d'
+        }
+        local _cells ""
+        tempvar _sx _fl _anyexp
+        forvalues _j = 1/3 {
+            tempvar _c`_j' _r`_j'
+            if "`_d'" != "" {
+                quietly gen double `_sx' = abs(``_j'') * `_sc' if `touse'
+                quietly gen double `_fl' = floor(`_sx')
+                quietly replace `_fl' = `_fl' + 1 if !missing(`_sx') & ///
+                    `_sx' - `_fl' >= 0.5 - min(16 * c(epsdouble) * `_sx', 1e-6)
+                quietly gen double `_r`_j'' = cond(``_j'' < 0, -1, 1) * `_fl' / `_sc' if `touse'
+                drop `_sx' `_fl'
+            }
+            else {
+                quietly gen double `_r`_j'' = ``_j'' if `touse'
+            }
+            quietly gen str `_c`_j'' = string(`_r`_j'', "`format'") if `touse'
+        }
+        if "`_d'" != "" {
+            quietly gen byte `_anyexp' = regexm(`_c1', "e[-+]") | ///
+                regexm(`_c2', "e[-+]") | regexm(`_c3', "e[-+]")
+            forvalues _j = 1/3 {
+                quietly replace `_c`_j'' = string(`_r`_j'', "%`=`_d' + 7'.`_d'e") ///
+                    if `_anyexp' & `touse'
+            }
+        }
+        forvalues _j = 1/3 {
+            quietly replace `_c`_j'' = substr(`_c`_j'', 2, .) ///
+                if regexm(`_c`_j'', "^-0([.,]0*)?$")
+        }
+        local _suf ""
+        if "`suffix'" != "" local _suf "+ `suffix'"
+        quietly gen str `varlist' = `_c1' + " (" + `_c2' + ", " + `_c3' + ")" ///
+            `_suf' if `touse'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 capture program drop _eplot_value_margin
 program define _eplot_value_margin, sclass
     version 16.0
@@ -6161,28 +6252,9 @@ program define _eplot_apply_keep, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, KEEP(string asis)
-
-        local labelvar `varlist'
-
-        tempvar tokeep basename
-        quietly gen byte `tokeep' = 0
-        quietly gen str244 `basename' = `labelvar'
-        quietly replace `basename' = substr(`labelvar', strpos(`labelvar', ":") + 1, .) ///
-            if strpos(`labelvar', ":") > 0
-
-        foreach pattern of local keep {
-            if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-                quietly replace `tokeep' = 1 if ///
-                    strmatch(`labelvar', "`pattern'") | strmatch(`basename', "`pattern'")
-            }
-            else {
-                quietly replace `tokeep' = 1 if ///
-                    `labelvar' == "`pattern'" | `basename' == "`pattern'"
-            }
-        }
-
-        quietly keep if `tokeep'
+        syntax varname, KEEP(string asis) [FULLname(varname string)]
+        if "`fullname'" != "" local fullname "fullname(`fullname')"
+        _eplot_select `varlist', mode(keep) terms(`keep') `fullname'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -6199,25 +6271,95 @@ program define _eplot_apply_drop, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, DROP(string asis)
+        syntax varname [, DROP(string asis) OPTional(string) ///
+            FULLname(varname string) KNOWN(string asis)]
+        if "`fullname'" != "" local fullname "fullname(`fullname')"
+        _eplot_select `varlist', mode(drop) terms(`drop') ///
+            optional(`optional') `fullname' known(`known')
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
+// Helper: keep()/drop() selection, one matcher for both
+// =============================================================================
+// A name or pattern is matched against the plotted name, the name without its
+// equation prefix, and (with fullname()) the full eq:name.  Each keep() term
+// must match a row, or the command exits r(198) naming it: a typo would
+// otherwise select rows silently.  A drop() term must match a row or a name
+// in known() (the model's full coefficient set, or the rows before keep(), so
+// a term already removed by keep() or omitted as a constrained coefficient is
+// not an error).  _cons is exempt in drop(), as are optional() terms (the
+// automatic constant drop of noconstant and eform): a model without a
+// constant is not an error.
+
+capture program drop _eplot_select
+program define _eplot_select, nclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, MODE(string) [TERMS(string asis) OPTional(string) ///
+            FULLname(varname string) KNOWN(string asis)]
 
         local labelvar `varlist'
 
-        tempvar basename
+        tempvar sel hit basename
+        quietly gen byte `sel' = 0
+        quietly gen byte `hit' = 0
         quietly gen str244 `basename' = `labelvar'
         quietly replace `basename' = substr(`labelvar', strpos(`labelvar', ":") + 1, .) ///
             if strpos(`labelvar', ":") > 0
+        if "`fullname'" == "" local fullname `labelvar'
 
-        foreach pattern of local drop {
-            if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-                quietly drop if ///
-                    strmatch(`labelvar', "`pattern'") | strmatch(`basename', "`pattern'")
+        local _unmatched ""
+        local _n_req : word count `terms'
+        local _all `"`terms' `optional'"'
+        local _w 0
+        foreach pattern of local _all {
+            local ++_w
+            local _wild = strpos(`"`pattern'"', "*") > 0 | strpos(`"`pattern'"', "?") > 0
+            if `_wild' {
+                quietly replace `hit' = strmatch(`labelvar', `"`pattern'"') | ///
+                    strmatch(`basename', `"`pattern'"') | strmatch(`fullname', `"`pattern'"')
             }
             else {
-                quietly drop if ///
-                    `labelvar' == "`pattern'" | `basename' == "`pattern'"
+                quietly replace `hit' = `labelvar' == `"`pattern'"' | ///
+                    `basename' == `"`pattern'"' | `fullname' == `"`pattern'"'
             }
+            quietly count if `hit'
+            local _found = r(N) > 0
+            if !`_found' & "`mode'" == "drop" {
+                if `_w' > `_n_req' | `"`pattern'"' == "_cons" local _found 1
+            }
+            if !`_found' & "`mode'" == "drop" {
+                foreach _k of local known {
+                    local _kb `"`_k'"'
+                    if strpos(`"`_k'"', ":") > 0 {
+                        local _kb = substr(`"`_k'"', strpos(`"`_k'"', ":") + 1, .)
+                    }
+                    if `_wild' {
+                        if strmatch(`"`_k'"', `"`pattern'"') | ///
+                            strmatch(`"`_kb'"', `"`pattern'"') local _found 1
+                    }
+                    else if `"`_k'"' == `"`pattern'"' | `"`_kb'"' == `"`pattern'"' {
+                        local _found 1
+                    }
+                    if `_found' continue, break
+                }
+            }
+            if !`_found' local _unmatched `"`_unmatched' `pattern'"'
+            quietly replace `sel' = 1 if `hit'
         }
+        if `"`_unmatched'"' != "" {
+            display as error `"`mode'() did not match:`_unmatched'"'
+            exit 198
+        }
+
+        if "`mode'" == "keep" quietly keep if `sel'
+        else quietly drop if `sel'
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'
@@ -6234,10 +6376,18 @@ program define _eplot_apply_rename, nclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
+        // All renames apply at once against the ORIGINAL names, so a swap
+        // (a=b b=a) and a chain (a=b b=c) mean what they say.  Each old
+        // name must exist and may be renamed only once.  Two different
+        // originals may share a new name (aligning models); the caller
+        // refuses two coefficients of one model on one row.
         syntax varname, REName(string asis)
 
         local labelvar `varlist'
         local remaining `"`rename'"'
+        tempvar orig
+        quietly clonevar `orig' = `labelvar'
+        local _seen ""
 
         while `"`remaining'"' != "" {
             gettoken oldname remaining : remaining, parse("=")
@@ -6263,13 +6413,18 @@ program define _eplot_apply_rename, nclass
                 exit 198
             }
 
-            quietly count if `labelvar' == "`oldname'"
+            quietly count if `orig' == "`oldname'"
             if r(N) == 0 {
                 display as error `"rename() coefficient '`oldname'' not found"'
                 exit 198
             }
+            if `: list oldname in _seen' {
+                display as error `"rename() renames coefficient '`oldname'' more than once"'
+                exit 198
+            }
+            local _seen `"`_seen' `oldname'"'
 
-            quietly replace `labelvar' = `"`newname'"' if `labelvar' == "`oldname'"
+            quietly replace `labelvar' = `"`newname'"' if `orig' == "`oldname'"
         }
     }
     local rc = _rc
@@ -6287,6 +6442,14 @@ program define _eplot_process_groups, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
+        // groups(coefs = "label" ...): the members of each group are moved
+        // together, in display order, to the position of the group's first
+        // member in display order, and the header goes directly above them.
+        // Rows outside every group keep their order.  A coefficient may
+        // belong to one group only.  With gap(), a blank row follows every
+        // group except the last one displayed.  posvar must hold distinct
+        // display positions; it is renumbered 1..N before the header and
+        // gap rows are added.
         syntax varlist(min=4 max=4), GRoups(string asis) [GAP(real 0) ///
             GRPvar(varname numeric)]
 
@@ -6299,12 +6462,14 @@ program define _eplot_process_groups, rclass
         local remaining `"`groups'"'
         local n_groups 0
         local group_coefs ""
+        local _all_members ""
 
         if missing(`gap') | `gap' < 0 {
             display as error "gap() must be nonmissing and nonnegative"
             exit 198
         }
 
+        // Pass 1: parse and validate every group.
         while `"`remaining'"' != "" {
             gettoken token remaining : remaining, bind
             local token = trim(`"`token'"')
@@ -6338,47 +6503,16 @@ program define _eplot_process_groups, rclass
                         display as error `"groups() coefficient '`group_coef'' not found"'
                         exit 198
                     }
+                    if `: list group_coef in _all_members' {
+                        display as error `"groups() lists coefficient '`group_coef'' in more than one group"'
+                        exit 198
+                    }
+                    local _all_members `"`_all_members' `group_coef'"'
                 }
 
                 local ++n_groups
-                if "`grpvar'" != "" {
-                    foreach group_coef of local group_coefs {
-                        quietly replace `grpvar' = `n_groups' ///
-                            if `labelvar' == `"`group_coef'"'
-                    }
-                }
-                local first_coef : word 1 of `group_coefs'
-                local n_group_coefs : word count `group_coefs'
-                local last_coef : word `n_group_coefs' of `group_coefs'
-
-                quietly count if `labelvar' == `"`first_coef'"'
-                if r(N) > 0 {
-                    quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
-                    local header_pos = r(mean) - 0.5
-
-                    local newN = _N + 1
-                    quietly set obs `newN'
-                    quietly replace `posvar' = `header_pos' in `newN'
-                    quietly replace `labelvar' = `"`label'"' in `newN'
-                    quietly replace `typevar' = 0 in `newN'
-                    quietly replace `gapflagvar' = 0 in `newN'
-                }
-
-                if `gap' > 0 & trim(`"`remaining'"') != "" {
-                    quietly count if `labelvar' == `"`last_coef'"'
-                    if r(N) > 0 {
-                        quietly summarize `posvar' if `labelvar' == `"`last_coef'"', meanonly
-                        local gap_pos = r(mean) + 0.5
-
-                        local newN = _N + 1
-                        quietly set obs `newN'
-                        quietly replace `posvar' = `gap_pos' in `newN'
-                        quietly replace `labelvar' = "" in `newN'
-                        quietly replace `typevar' = 6 in `newN'
-                        quietly replace `gapflagvar' = 1 in `newN'
-                    }
-                }
-
+                local _gmem_`n_groups' `"`group_coefs'"'
+                local _glab_`n_groups' `"`label'"'
                 local group_coefs ""
             }
             else {
@@ -6389,6 +6523,57 @@ program define _eplot_process_groups, rclass
         if trim(`"`group_coefs'"') != "" {
             display as error "groups() requires each coefficient list to be followed by = label"
             exit 198
+        }
+
+        // Pass 2: gather each group's members at its first member.
+        tempvar key gid ord
+        quietly gen double `key' = `posvar'
+        quietly gen long `gid' = 0
+        quietly gen long `ord' = _n
+        forvalues g = 1/`n_groups' {
+            foreach group_coef of local _gmem_`g' {
+                quietly replace `gid' = `g' if `labelvar' == `"`group_coef'"'
+            }
+            quietly summarize `posvar' if `gid' == `g', meanonly
+            quietly replace `key' = r(min) if `gid' == `g'
+        }
+        sort `key' `posvar' `ord'
+        quietly replace `posvar' = _n
+        if "`grpvar'" != "" {
+            quietly replace `grpvar' = `gid' if `gid' > 0 // stata-dev-ignore: unchecked-commit — grpvar is the caller's tempvar
+        }
+
+        // Pass 3: a header above each group and, with gap(), a blank row
+        // after every group but the last one displayed.
+        local _last_first = -1
+        local _last_g 0
+        forvalues g = 1/`n_groups' {
+            quietly summarize `posvar' if `gid' == `g', meanonly
+            local _first_`g' = r(min)
+            local _lastpos_`g' = r(max)
+            if r(min) > `_last_first' {
+                local _last_first = r(min)
+                local _last_g `g'
+            }
+        }
+        forvalues g = 1/`n_groups' {
+            local newN = _N + 1
+            quietly set obs `newN'
+            quietly replace `posvar' = `_first_`g'' - 0.5 in `newN'
+            quietly replace `labelvar' = `"`_glab_`g''"' in `newN'
+            quietly replace `typevar' = 0 in `newN'
+            quietly replace `gapflagvar' = 0 in `newN'
+
+            // The gap sits between the group and the next row's header
+            // (at its first member - 0.5), so the two never tie.
+            if `gap' > 0 & `g' != `_last_g' {
+                local newN = _N + 1
+                quietly set obs `newN'
+                quietly replace `posvar' = `_lastpos_`g'' + 0.25 in `newN'
+                quietly replace `labelvar' = "" in `newN'
+                quietly replace `typevar' = 6 in `newN'
+                quietly replace `gapflagvar' = 1 in `newN'
+            }
         }
 
         return scalar n_groups = `n_groups'
@@ -6460,7 +6645,7 @@ program define _eplot_block_sort, nclass
 end
 
 capture program drop _eplot_process_headers
-program define _eplot_process_headers, rclass
+program define _eplot_process_headers, nclass
     version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off

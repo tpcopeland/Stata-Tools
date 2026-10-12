@@ -38,11 +38,6 @@ local machine = $RUN_TEST_MACHINE
 local run_only = $RUN_TEST_NUMBER
 
 **# PATH CONFIGURATION
-else if "`c(os)'" == "Unix" {
-}
-else {
-}
-
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"

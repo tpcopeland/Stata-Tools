@@ -229,8 +229,10 @@ capture noisily {
     estimates store m1
     capture noisily eplot m1, rename(mpg = weight)
     assert _rc == 198
-    capture noisily eplot m1, rename(mpg = weight weight = mpg)
-    assert _rc == 198
+    * Since 1.6.2 renames apply at once, so a swap is accepted.
+    eplot m1, nodraw rename(mpg = weight weight = mpg)
+    matrix T = r(table)
+    assert T[1,1] == _b[mpg] & T[2,1] == _b[weight]
 }
 if _rc == 0 local ++pass_count
 else {

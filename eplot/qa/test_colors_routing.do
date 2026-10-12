@@ -31,7 +31,7 @@ net install eplot, from("`pkg_dir'") replace
 
 local nfail 0
 * C1a-c (3), C1d-e (2), I1a-c (3), M1 (1), varabbrev paths (2)
-local ncheck 11
+local ncheck 12
 
 *------------------------------------------------------------------------------
 * C1: insigncolor() is honored (estimates mode)
@@ -126,6 +126,10 @@ if "`c(varabbrev)'" != "on" {
     local ++nfail
 }
 cap eplot nonesuch3
+if _rc == 0 {
+    di as error "FAIL: eplot nonesuch3 did not error"
+    local ++nfail
+}
 if "`c(varabbrev)'" != "on" {
     di as error "FAIL: varabbrev not restored after error path"
     local ++nfail
@@ -140,5 +144,5 @@ else {
     di as error "`nfail' test_colors_routing CHECK(S) FAILED"
 }
 
-_eplot_qa_result test_colors_routing, tests(11) pass(`=`ncheck'-`nfail'') fail(`nfail') skip(0)
+_eplot_qa_result test_colors_routing, tests(`ncheck') pass(`=`ncheck'-`nfail'') fail(`nfail') skip(0)
 if `nfail' > 0 exit 9

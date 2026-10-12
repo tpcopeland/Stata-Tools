@@ -172,7 +172,7 @@ capture noisily {
     * An unmatched keep() must fail loudly rather than draw an empty graph.
     _sel_fixture
     capture noisily eplot es lo hi, labels(lab) keep(ZZZ) name(_sel_t3c, replace)
-    assert _rc == 2000
+    assert _rc == 198
 
     _sel_fixture
     capture noisily eplot es lo hi, labels(lab) drop(A B _cons) name(_sel_t3d, replace)
@@ -658,7 +658,7 @@ capture noisily {
 
     * The same holds when selection fails.
     capture noisily eplot es lo hi, labels(lab) keep(ZZZ) name(_sel_t12, replace)
-    assert _rc == 2000
+    assert _rc == 198
     assert _N == `before_N'
     assert lab[3] == "_cons"
     assert "`c(varabbrev)'" == "on"

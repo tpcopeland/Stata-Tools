@@ -314,7 +314,8 @@ capture noisily {
     assert !missing(r(n), r(x), r(y), r(size)) & r(n) >= 1
     assert !missing(r(x), `xt') & r(n) == 1 & r(x) < `xt'
     * Rotated text: its anchor is level with the tick label's centre.
-    assert !missing(r(y), `y1') & abs(r(y) - `y1') < 60
+    * Measured difference 0 at a 100-unit font; allow a tenth of the text size.
+    assert !missing(r(y), r(size), `y1') & abs(r(y) - `y1') < 0.1 * r(size)
     sysuse auto, clear
     quietly logit foreign mpg weight headroom
     eplot ., drop(_cons) eform values effect("Odds ratio", atnull) ///
