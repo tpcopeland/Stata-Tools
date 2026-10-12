@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  12oct2026}{...}
+{* *! version 1.4.2  12oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -230,7 +230,14 @@ sample.{p_end}
 
 {phang}{opt pvaluepos(string)} positions the p-value
 text: {bf:bottomright} (default), {bf:topright},
-{bf:topleft}, {bf:bottomleft}.{p_end}
+{bf:topleft}, {bf:bottomleft}. The anchor sits 5% of the y range inside the
+top or bottom of the drawn y axis, taken as the span of the plotted curves,
+bands, and median lines together with any numeric {opt ylabel()} list. Top
+positions are centred vertically on the anchor; bottom positions draw the
+text above it, clear of the time axis. The coordinates and placement used are returned in
+{cmd:r(pvalue_y)}, {cmd:r(pvalue_x)}, and {cmd:r(pvalue_placement)}. The
+position is fixed and does not avoid the curves or the legend; use
+{opt pvalueat()} to place the text elsewhere.{p_end}
 
 {phang}{opt pvalueformat(string)} sets the numeric display format used in
 the p-value annotation, for example {cmd:pvalueformat(%6.4f)}. Whatever the
@@ -428,8 +435,8 @@ that interpretation is intended.{p_end}
 {synopt:{cmd:r(n_timepoints)}}number of risk-table timepoints{p_end}
 {synopt:{cmd:r(riskheight)}}risk-table height, with {opt risktable}{p_end}
 {synopt:{cmd:r(p)}}log-rank p-value when computed{p_end}
-{synopt:{cmd:r(pvalue_y)}}explicit p-value y coordinate{p_end}
-{synopt:{cmd:r(pvalue_x)}}explicit p-value x coordinate{p_end}
+{synopt:{cmd:r(pvalue_y)}}p-value text y coordinate{p_end}
+{synopt:{cmd:r(pvalue_x)}}p-value text x coordinate{p_end}
 {synopt:{cmd:r(median_#)}}median for group {it:#}, when reached{p_end}
 
 {p2col 5 16 20 2: Macros}{p_end}
@@ -455,6 +462,7 @@ that interpretation is intended.{p_end}
 {synopt:{cmd:r(pvalue_format)}}p-value numeric format{p_end}
 {synopt:{cmd:r(pvalue_pos)}}p-value position keyword{p_end}
 {synopt:{cmd:r(pvalue_at)}}explicit p-value coordinates, if specified{p_end}
+{synopt:{cmd:r(pvalue_placement)}}p-value text placement ({bf:c} with {opt pvalueat()}){p_end}
 
 {p2col 5 16 20 2: Matrices}{p_end}
 {synopt:{cmd:r(medians)}}group and median columns{p_end}
@@ -505,7 +513,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.1, 2026-10-12{p_end}
+{pstd}Version 1.4.2, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

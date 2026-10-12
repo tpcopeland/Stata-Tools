@@ -1,4 +1,4 @@
-*! kmplot Version 1.4.1  2026/10/12
+*! kmplot Version 1.4.2  2026/10/12
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -610,7 +610,7 @@ program define kmplot, rclass
                 graphname(`_kmplot_risk_graph') ///
                 `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
                 `rt_height_opt' `rt_flags' ///
-                callerversion("1.4.1") toptimeaxis
+                callerversion("1.4.2") toptimeaxis
             matrix `risktable_mat' = r(risktable)
             local has_risktable_mat = 1
             local risk_timepoints "`r(timepoints)'"
@@ -990,26 +990,90 @@ program define kmplot, rclass
                 local p_y = `pvalue_y'
                 local p_x = `pvalue_x'
             }
-            else if "`pvaluepos'" == "topleft" {
-                local p_y = 0.95
-                local p_x = `tmax' * 0.05
-                local p_place "e"
-            }
-            else if "`pvaluepos'" == "bottomleft" {
-                local p_y = 0.05
-                local p_x = `tmax' * 0.05
-                local p_place "ne"
-            }
-            else if "`pvaluepos'" == "bottomright" {
-                local p_y = 0.02
-                local p_x = `tmax' * 0.98
-                local p_place "sw"
-            }
             else {
-                * topright (fallthrough)
-                local p_y = 0.95
-                local p_x = `tmax' * 0.95
-                local p_place "w"
+                * Keyword positions sit 5% inside the drawn y range, with the
+                * text growing away from the nearer x axis edge.  text() at a
+                * coordinate outside the axis range is not drawn, and
+                * ylabel()/yscale(range()) can only widen that range, so the
+                * union of the plotted values and the ylabel() numlist is
+                * always on the axis.
+                quietly summarize `km_s', meanonly
+                local p_ylo = r(min)
+                local p_yhi = r(max)
+                local p_yvars ""
+                if "`ci'" != "" & "`cistyle'" == "band" & `has_stepband' {
+                    local p_yvars "`blo' `bhi'"
+                }
+                else if "`ci'" != "" & "`cistyle'" == "line" {
+                    local p_yvars "`plb' `pub'"
+                }
+                foreach _pv of local p_yvars {
+                    quietly summarize `_pv', meanonly
+                    if r(N) > 0 {
+                        local p_ylo = min(`p_ylo', r(min))
+                        local p_yhi = max(`p_yhi', r(max))
+                    }
+                }
+                if "`median'" != "" {
+                    if `any_med' {
+                        local p_ylo = min(`p_ylo', 0)
+                        local p_yhi = max(`p_yhi', 0.5)
+                    }
+                }
+                local p_lab_ok = 1
+                local p_lab_lo = 0
+                local p_lab_hi = 1
+                if `"`ylabel'"' != "" {
+                    local p_lab_ok = 0
+                    local p_lab_spec `"`ylabel'"'
+                    local p_lab_comma = strpos(`"`p_lab_spec'"', ",")
+                    if `p_lab_comma' > 0 {
+                        local p_lab_spec = ///
+                            strtrim(substr(`"`p_lab_spec'"', 1, `p_lab_comma' - 1))
+                    }
+                    capture numlist `"`p_lab_spec'"', sort
+                    if _rc == 0 {
+                        local p_lab_ok = 1
+                        local p_lab_vals `r(numlist)'
+                        local p_lab_n : word count `p_lab_vals'
+                        local p_lab_lo : word 1 of `p_lab_vals'
+                        local p_lab_hi : word `p_lab_n' of `p_lab_vals'
+                    }
+                }
+                if `p_lab_ok' {
+                    local p_ylo = min(`p_ylo', `p_lab_lo')
+                    local p_yhi = max(`p_yhi', `p_lab_hi')
+                }
+                if !(`p_yhi' > `p_ylo') {
+                    local p_ylo = min(`p_ylo', 0)
+                    local p_yhi = max(`p_yhi', 1)
+                }
+                local p_ytop = `p_yhi' - 0.05 * (`p_yhi' - `p_ylo')
+                local p_ybot = `p_ylo' + 0.05 * (`p_yhi' - `p_ylo')
+                if "`pvaluepos'" == "topleft" {
+                    local p_y = `p_ytop'
+                    local p_x = `tmax' * 0.05
+                    local p_place "e"
+                }
+                else if "`pvaluepos'" == "bottomleft" {
+                    local p_y = `p_ybot'
+                    local p_x = `tmax' * 0.05
+                    local p_place "ne"
+                }
+                else if "`pvaluepos'" == "bottomright" {
+                    local p_y = `p_ybot'
+                    local p_x = `tmax' * 0.98
+                    local p_place "nw"
+                }
+                else {
+                    * topright (fallthrough)
+                    local p_y = `p_ytop'
+                    local p_x = `tmax' * 0.95
+                    local p_place "w"
+                }
+                local pvalue_y = `p_y'
+                local pvalue_x = `p_x'
+                local pvalue_place "`p_place'"
             }
             local tw_opts `"`macval(tw_opts)' text(`p_y' `p_x' `"`macval(_plot_pval_text)'"', placement(`p_place') size(vsmall) color(gs5))"'
         }
@@ -1413,6 +1477,7 @@ program define kmplot, rclass
         return local pvalue_format "`pvalue_format'"
         return local pvalue_pos "`pvaluepos'"
         return local pvalue_at `"`pvalueat'"'
+        return local pvalue_placement "`pvalue_place'"
     }
     if "`by'" != "" {
         return local by "`by'"

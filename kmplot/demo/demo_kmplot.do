@@ -2,14 +2,18 @@
 
     Author: Timothy P Copeland, Karolinska Institutet
 
-    Uses sysuse cancer to produce publication-ready Kaplan-Meier plots.
+    Uses sysuse cancer to produce publication-ready Kaplan-Meier plots,
+    then the repository's synthetic registry cohort (_data/) for a
+    registry-scale panel and fixed-time landmark estimates.
     Each section showcases a different feature or combination.
 
     Outputs:
-      1. Graphs (9 PNGs) -> .png
+      1. Graphs (10 PNGs) -> .png
+      2. Console output (landmark estimates) -> .log -> .md via logdoc
 */
 
 version 16.0
+set linesize 120
 
 **# Paths
 local start_dir "`c(pwd)'"
@@ -37,6 +41,12 @@ else {
 	    }
 	}
 local pkg_dir "`demo_dir'"
+local data_dir "`pkg_root'/../_data"
+capture confirm file "`data_dir'/cohort.dta"
+if _rc {
+    display as error "demo_kmplot.do needs the repository's _data/ directory beside kmplot/"
+    exit 601
+}
 
 **# Scheme
 * Gallery figures use white_tableau.  Resolve it explicitly and stop if it is
@@ -66,6 +76,9 @@ quietly run "`pkg_root'/_kmplot_risktable.ado"
 
 **# Setup data
 sysuse cancer, clear
+* cancer.dta labels drugs 2 and 3 "Other" and "NA"; its notes call them two
+* alternative treatments, so name them that way instead of showing "NA"
+label define type 2 "Drug A" 3 "Drug B", modify
 stset studytime, failure(died)
 
 **## 1. Basic KM curve (single group, no options)
@@ -157,6 +170,44 @@ kmplot, by(drug) ci level(90) risktable ///
 graph export "`pkg_dir'/km_pvalue_level.png", replace width(1200)
 capture graph close _all
 
+**## 10. Registry-scale cumulative incidence
+
+* 15,000 synthetic SSRI and SNRI initiators from the repository's _data/;
+* time to first cardiovascular event, p-value in its default position
+use "`data_dir'/cohort.dta", clear
+merge 1:1 id using "`data_dir'/treatment.dta", nogenerate
+merge 1:1 id using "`data_dir'/outcomes.dta", nogenerate keepusing(cv_event_date)
+generate byte cv = !missing(cv_event_date) & cv_event_date <= study_exit
+generate double exit = cond(cv, cv_event_date, study_exit)
+stset exit, failure(cv) origin(study_entry) scale(365.25)
+
+kmplot, by(treated) failure ci risktable pvalue ///
+    title("First cardiovascular event") ///
+    xtitle("Years since initiation") ///
+    name(demo10, replace)
+graph export "`pkg_dir'/km_registry_failure.png", replace width(1200)
+capture graph close _all
+
+**## 11. Fixed-time estimates with landmark()
+
+log using "`pkg_dir'/console_landmarks.log", replace text name(demo) nomsg
+
+* # Cumulative incidence at 1, 5, and 10 years
+
+* Rows are indexed by group: 1, 2, ... in the order of r(group_labels)
+kmplot, by(treated) failure ci landmark(1 5 10) name(demo11, replace)
+display as text "Groups: " as result `"`r(group_labels)'"'
+matrix list r(landmarks), format(%7.4f)
+
+log close demo
+capture graph close _all
+
+**## Convert console log to markdown via logdoc
+capture ado uninstall logdoc
+quietly net install logdoc, from("`pkg_root'/../logdoc") replace
+logdoc using "`pkg_dir'/console_landmarks.log", ///
+    output("`pkg_dir'/console_landmarks.md") format(md) replace quiet
+
 }
 local rc = _rc
 
@@ -167,4 +218,4 @@ capture log close _all
 capture set scheme `old_scheme'
 capture clear
 if `rc' exit `rc'
-display as result "RESULT: demo_kmplot tests=9 pass=9 fail=0"
+display as result "RESULT: demo_kmplot tests=11 pass=11 fail=0"

@@ -1,6 +1,6 @@
 # kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
 
-**Version 1.4.1** | 2026-10-12
+**Version 1.4.2** | 2026-10-12
 
 `kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
 
@@ -111,7 +111,7 @@ kmplot, by(drug) ci cistyle(line) citransform(log) colors(navy maroon dkorange) 
 
 ## Gallery
 
-Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below from `sysuse cancer`. The images are repository documentation assets and are not part of the `net install` payload.
+Run `demo/demo_kmplot.do` from a repository checkout to regenerate the PNGs below from `sysuse cancer` and, for the registry-scale panel and the landmark output, from the synthetic cohort in the repository's `_data/`. The images are repository documentation assets and are not part of the `net install` payload.
 
 | Output | Command focus |
 |--------|---------------|
@@ -124,6 +124,29 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | ![Custom survival plot with line confidence intervals, colors, patterns, and p-value placement](demo/km_custom_style.png) | `cistyle(line)`, `colors()`, `lpattern()`, and `pvaluepos()` |
 | ![Plain Wald confidence bands with custom opacity and a p-value note](demo/km_plain_ci.png) | `citransform(plain)`, `ciopacity()`, and `note()` |
 | ![Stratified survival plot with a 90 percent confidence level and custom p-value label](demo/km_pvalue_level.png) | `level(90)`, `pvaluetext()`, and `pvalueformat()` |
+| ![Cumulative incidence of a first cardiovascular event in 15,000 synthetic SSRI and SNRI initiators, with a risk table and log-rank p-value](demo/km_registry_failure.png) | Registry-scale `failure` with `risktable`; p-value in its default position |
+
+### Landmark output from the demo
+
+`landmark()` returns the estimate at fixed analysis times in `r(landmarks)`, with bounds when `ci` is specified. Rows are indexed by group in the order of `r(group_labels)`. From the same synthetic cohort:
+
+```stata
+kmplot, by(treated) failure ci landmark(1 5 10)
+matrix list r(landmarks), format(%7.4f)
+```
+
+```
+Groups: SSRI | SNRI
+
+r(landmarks)[6,5]
+       group      time  estimate     lower     upper
+r1    1.0000    1.0000    0.0536    0.0491    0.0585
+r2    1.0000    5.0000    0.2243    0.2154    0.2335
+r3    1.0000   10.0000    0.3678    0.3564    0.3795
+r4    2.0000    1.0000    0.0517    0.0463    0.0576
+r5    2.0000    5.0000    0.2258    0.2150    0.2370
+r6    2.0000   10.0000    0.3816    0.3675    0.3961
+```
 
 ## Options
 
@@ -149,7 +172,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `censor` | off | Show censoring marks on the curves |
 | `censorthin(#)` | 1 | Show every Nth censor mark; requires `censor` and a value of at least 1 |
 | `pvalue` | off | Display the log-rank p-value; requires `by()` |
-| `pvaluepos(string)` | `bottomright` | Place the p-value at `bottomright`, `topright`, `topleft`, or `bottomleft` |
+| `pvaluepos(string)` | `bottomright` | Place the p-value at `bottomright`, `topright`, `topleft`, or `bottomleft`, anchored 5% inside the drawn y range |
 | `pvalueformat(string)` | `%5.3f` | Set the numeric display format for the p-value; p-values below 0.001 are shown as `< 0.001` whatever the format |
 | `pvaluetext(string)` | `Log-rank p` | Set the text printed before the p-value |
 | `pvalueat(y x)` | none | Place the p-value at explicit graph coordinates; may not be combined with `pvaluepos()` |
@@ -190,8 +213,8 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(n_timepoints)` | Number of risk-table timepoints, or 0 when neither `risktable` nor `risksaving()` was used |
 | `r(riskheight)` | Risk-table height when `risktable` is specified |
 | `r(p)` | Log-rank p-value when `pvalue` was used with `by()` and at least two groups were present |
-| `r(pvalue_y)` | Explicit p-value y coordinate when `pvalueat()` was used with `pvalue` |
-| `r(pvalue_x)` | Explicit p-value x coordinate when `pvalueat()` was used with `pvalue` |
+| `r(pvalue_y)` | Y coordinate of the drawn p-value text when the log-rank p-value was computed |
+| `r(pvalue_x)` | X coordinate of the drawn p-value text when the log-rank p-value was computed |
 | `r(median_#)` | Median for group `#` (`r(median_1)`, `r(median_2)`, ...), stored with `median` for groups whose median is reached |
 
 ### Macros
@@ -220,6 +243,7 @@ Run `demo/demo_kmplot.do` from a package checkout to regenerate the PNGs below f
 | `r(pvalue_format)` | P-value numeric format when the log-rank p-value was computed |
 | `r(pvalue_pos)` | P-value position keyword when the log-rank p-value was computed |
 | `r(pvalue_at)` | Explicit p-value coordinates when supplied; otherwise empty when the log-rank p-value was computed |
+| `r(pvalue_placement)` | Placement of the p-value text relative to its anchor (`c` with `pvalueat()`) when the log-rank p-value was computed |
 
 ### Matrices
 
@@ -255,6 +279,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.4.2** (2026-10-12): The default `pvaluepos(bottomright)` p-value text no longer sits on or under the time axis (it was anchored at y = 0.02 and drawn below that point, so a risk-table layout struck it through with the axis line). Every `pvaluepos()` keyword now anchors the text 5% inside the drawn y range, taken from the plotted curves, bands, and median lines plus any numeric `ylabel()` list, so a custom `ylabel()` such as `ylabel(0(.2).6)` no longer drops the top positions off the axis, where Stata did not draw them. `r(pvalue_y)` and `r(pvalue_x)` now hold the coordinates used for every position, not only `pvalueat()`, and the new `r(pvalue_placement)` holds the placement.
 - **1.4.1** (2026-10-12): Confidence bands and CI lines no longer stop one interval early where a curve reaches 0 (1 with `failure`); as in `sts graph, ci`, they carry the last bounds to the time the curve ends, while returned and saved bounds stay missing there. `riskheight()` now requires `risktable` (it had no effect with `risksaving()` alone), and `r(riskheight)` is stored only when a risk table is drawn. The help file documents the fixed `< 0.001` p-value floor and that `r(lpattern)` holds the supplied pattern list, if any.
 - **1.4.0** (2026-10-12): Default colors are now the Okabe-Ito palette, which stays distinguishable under simulated red-green color-vision deficiency (the previous default put cranberry and forest green next to each other); quoted RGB colors now work in `colors()`. `level()` defaults to `c(level)` and follows Stata's 10–99.99 rule. Fractional weighted risk-table counts are printed to one decimal place. Confidence bounds are missing wherever the estimate is exactly 1 or 0, under every transform, as in `sts list`. Added `medianformat()`, with a `%9.0g` default replacing the fixed `%6.1f`. Medians on tied data now match `stci` and R `survival`: where the curve is exactly 0.5 but stored a rounding error above it, 1.3.1 reported the next event time instead of the start of that plateau. Saved standard errors are missing where the estimate has reached 0, as in `sts list`, and an opacity given in `colors()` no longer disables the confidence-band colour. The help file gains a References section and a runnable delayed-entry example.
 - **1.3.1** (2026-09-30): Preserve continuous-time landmark/risk requests and shaded-band coordinates; limit landmarks to supported follow-up unless survival reaches zero; retain censor markers beyond 32,740 observations; handle quoted annotations, comma-containing titles and output paths; allow probability-weighted point estimates and counts while refusing unsupported inference.
