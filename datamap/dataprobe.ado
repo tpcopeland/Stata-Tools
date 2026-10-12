@@ -1,4 +1,4 @@
-*! dataprobe Version 1.9.3  2026/10/12
+*! dataprobe Version 1.10.0  2026/10/12
 *! Console QC and expectation-gate command for the datamap package
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

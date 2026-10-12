@@ -23,8 +23,8 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.9.3",
-  "generated": "12 Oct 2026 11:35:31",
+  "datamap_version": "1.10.0",
+  "generated": "12 Oct 2026 23:47:12",
   "format": "json",
   "datasets": [
     {

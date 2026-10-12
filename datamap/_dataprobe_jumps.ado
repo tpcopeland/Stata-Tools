@@ -1,4 +1,4 @@
-*! _dataprobe_jumps Version 1.9.3  2026/10/12
+*! _dataprobe_jumps Version 1.10.0  2026/10/12
 *! dataprobe jumps(): implausible jumps between consecutive repeated measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

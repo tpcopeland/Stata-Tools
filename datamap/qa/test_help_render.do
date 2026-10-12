@@ -48,12 +48,16 @@ program define _datamap_sthlp_render, rclass
         file read `fh' line
         while r(eof) == 0 {
             local ++nlines
-            if regexm(`"`line'"', "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)") {
-                local shown = subinstr(`"`line'"', "{", char(1), .)
-                local shown = subinstr(`"`shown'"', "}", char(2), .)
-                local shown = subinstr(`"`shown'"', char(1), "{c -(}", .)
-                local shown = subinstr(`"`shown'"', char(2), "{c )-}", .)
-                display as error "  literal SMCL in `f': `shown'"
+            // in Mata: a wrapped help line can hold half of a compound
+            // quote, which `"`line'"' cannot parse (r(132))
+            mata: st_local("_hit", strofreal(regexm(st_local("line"), ///
+                "\{(pstd|phang|pmore|pin|p_end|psee|synopt|p2col|cmd:|it:|bf:|opt |opth |helpb |hline|title:|marker |dlgtab:|break)")))
+            if `_hit' {
+                mata: st_local("shown", subinstr(subinstr(subinstr( ///
+                    st_local("line"), "{", char(1)), "}", "{c )-}"), ///
+                    char(1), "{c -(}"))
+                mata: displayas("error"); printf("  literal SMCL in %s: %s\n", ///
+                    st_local("f"), st_local("shown"))
                 local ++hits
             }
             file read `fh' line

@@ -48,7 +48,8 @@ local quick_suites ///
     test_dataprobe_v190_hostile.do ///
     test_datamap_v190_review.do ///
     test_datamap_quoting_linebreaks.do ///
-    test_datamap_v193.do
+    test_datamap_v193.do ///
+    test_datamvp_graph_text.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///

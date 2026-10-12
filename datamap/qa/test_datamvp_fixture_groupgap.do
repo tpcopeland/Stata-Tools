@@ -73,8 +73,10 @@ foreach gap in 0 20 100 {
         assert _N==12
         isid varname overid
         assert inrange(overid,1,4)
-        assert pctmiss==0 if varname==3
-        assert pctmiss==100 if inlist(varname,1,2)
+        * varname is the variable's position in the varlist (x all_missing
+        * extended); before 1.10.0 it was the alphabetical code of the name
+        assert pctmiss==0 if varname==1
+        assert pctmiss==100 if inlist(varname,2,3)
         restore
         graph display gap_test
         graph export "`svg'", name(gap_test) as(svg) replace

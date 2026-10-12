@@ -1,4 +1,4 @@
-*! datamvp Version 1.9.3  2026/10/12
+*! datamvp Version 1.10.0  2026/10/12
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Missing value pattern analysis with enhanced features
@@ -77,6 +77,7 @@ program define datamvp, rclass byable(recall) sortpreserve
         MINCell(integer -999999999) /// mask counts below #
         MASKrare                /// mask counts below mincell() (default 5)
         BYTable(varname)        /// percent missing by group
+        VARLabels               /// variable labels on graph axes and keys
     ]
 
     * Session defaults from dataqa set: explicit option > session default
@@ -97,8 +98,11 @@ program define datamvp, rclass byable(recall) sortpreserve
     local _m = `mincell'
     if "`maskrare'" != "" & `_m' == 0 local _m = 5
 
-    mata: st_local("title", _datamvp_graph_text(st_local("title")))
-    mata: st_local("subtitle", _datamvp_graph_text(st_local("subtitle")))
+    * title()/subtitle() arrive asis.  Text before a top-level comma becomes
+    * quoted, escaped graph lines ("a" "b" is two lines, unquoted text one
+    * literal line); suboptions after it pass to the native option.
+    mata: _datamvp_graph_parse("title")
+    mata: _datamvp_graph_parse("subtitle")
 
     local _user_minmissing = (`minmissing' != -999999999)
     local _user_maxmissing = (`maxmissing' != -999999999)
@@ -129,7 +133,8 @@ program define datamvp, rclass byable(recall) sortpreserve
             di as err "option {bf:scheme()} requires {bf:graph()} option"
             exit 198
         }
-        if `"`macval(title)'"' != "" | `"`macval(subtitle)'"' != "" {
+        if `"`macval(title)'`macval(title_sub)'"' != "" | ///
+            `"`macval(subtitle)'`macval(subtitle_sub)'"' != "" {
             di as err "options {bf:title()} and {bf:subtitle()} require {bf:graph()} option"
             exit 198
         }
@@ -177,6 +182,13 @@ program define datamvp, rclass byable(recall) sortpreserve
     if "`colorramp'" != "" & !inlist("`colorramp'", "bluered", "redblue", "grayscale") {
         di as err "colorramp() must be one of: bluered, redblue, grayscale"
         exit 198
+    }
+
+    if "`varlabels'" != "" {
+        if "`graph'" == "" | strpos(lower("`graph'"), "pattern") {
+            di as err "option {bf:varlabels} requires graph(bar), graph(matrix), or graph(correlation)"
+            exit 198
+        }
     }
 
     * Validate stratification options (gby, over, stacked)
@@ -1305,13 +1317,38 @@ program define datamvp, rclass byable(recall) sortpreserve
         }
 
         * Build title/subtitle options
+        * title and subtitle hold quoted, escaped graph strings, and
+        * title_sub/subtitle_sub the suboptions.  With suboptions but no
+        * text, the default text is kept: graph merges a later title(, ...)
+        * into an earlier title(), so titleopts always follow the default.
         local titleopts ""
-        if `"`macval(title)'"' != "" {
-            local titleopts `"title(`"`macval(title)'"')"'
+        if `"`macval(title_sub)'"' != "" {
+            local titleopts `"title(`macval(title)', `macval(title_sub)')"'
+        }
+        else if `"`macval(title)'"' != "" {
+            local titleopts `"title(`macval(title)')"'
         }
         local subtitleopts ""
-        if `"`macval(subtitle)'"' != "" {
-            local subtitleopts `"subtitle(`"`macval(subtitle)'"')"'
+        if `"`macval(subtitle_sub)'"' != "" {
+            local subtitleopts `"subtitle(`macval(subtitle)', `macval(subtitle_sub)')"'
+        }
+        else if `"`macval(subtitle)'"' != "" {
+            local subtitleopts `"subtitle(`macval(subtitle)')"'
+        }
+
+        * Axis and key text per variable: the name, or under varlabels the
+        * variable label when it has one, escaped for graph text
+        // varname holds each variable's position, so relabel() # is that
+        // position; over() truncates value labels at 32 characters and
+        // relabel() does not
+        local _varrelabel ""
+        local _varlegend ""
+        tokenize `varlist'
+        forv i = 1/`nvar' {
+            mata: st_local("_vdisp_`i'", _datamvp_axis_text( ///
+                st_local("`i'"), "`varlabels'" != ""))
+            local _varrelabel `"`_varrelabel' `i' "`_vdisp_`i''""'
+            local _varlegend `"`_varlegend' label(`i' "`_vdisp_`i''")"'
         }
 
         * -----------------------------------------------------------------
@@ -1355,7 +1392,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     local nrows = `nvar' * `gby_nlev'
                     clear
                     set obs `nrows'
-                    gen str32 varname = ""
+                    gen int varname = .
                     gen double pctmiss = .
                     gen int varorder = .
                     gen int gbyid = .
@@ -1369,7 +1406,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                         mata: st_vlmodify(st_local("gby_graph_label"), ///
                             `_gbi', st_local("_gby_gt_`_gbi'"))
                         forv i = 1/`nvar' {
-                            replace varname = "``i''" in `row'
+                            replace varname = `i' in `row'
                             replace varorder = `i' in `row'
                             replace gbyid = `_gbi' in `row'
                             local ++row
@@ -1420,11 +1457,12 @@ program define datamvp, rclass byable(recall) sortpreserve
                     di as txt "(graph not drawn: every bar comes from a count below `_m')"
                 }
                 else {
-                    `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
-                        by(gbyid, note("") `macval(titleopts)' ///
-                            `macval(subtitleopts)') ///
+                    // the default title sits inside by(), so it is drawn
+                    // once over the facets, not once per facet
+                    `barcmd' pctmiss, over(varname, relabel(`_varrelabel') label(labsize(`labsz'))) ///
+                        by(gbyid, note("") `bartitle_text' ///
+                            `macval(titleopts)' `macval(subtitleopts)') ///
                         ytitle("Percent missing") ///
-                        `bartitle_text' ///
                         blabel(bar, format(%4.1f) size(tiny)) ///
                         bar(1, color(`barcolor')) ///
                         `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
@@ -1439,7 +1477,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     local nrows = `nvar' * `over_nlev'
                     clear
                     set obs `nrows'
-                    gen str32 varname = ""
+                    gen int varname = .
                     gen double pctmiss = .
                     gen int varorder = .
                     gen int overid = .
@@ -1453,7 +1491,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                         mata: st_vlmodify(st_local("over_graph_label"), ///
                             `_ovi', st_local("_over_gt_`_ovi'"))
                         forv i = 1/`nvar' {
-                            replace varname = "``i''" in `row'
+                            replace varname = `i' in `row'
                             replace varorder = `i' in `row'
                             replace overid = `_ovi' in `row'
                             local ++row
@@ -1516,7 +1554,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 }
                 else {
                     `barcmd' pctmiss, over(overid, `gapopts') ///
-                        over(varname, sort(varorder) label(labsize(`labsz'))) ///
+                        over(varname, relabel(`_varrelabel') label(labsize(`labsz'))) ///
                         ytitle("Percent missing") ///
                         `bartitle_text' ///
                         `macval(titleopts)' `macval(subtitleopts)' ///
@@ -1542,7 +1580,6 @@ program define datamvp, rclass byable(recall) sortpreserve
                             if `: word `i' of `_gmask'' local _p = .
                         }
                         gen double pct`i' = `_p'
-                        label var pct`i' "``i''"
                     }
                 }
 
@@ -1572,7 +1609,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                         ytitle("Percent missing") ///
                         `bartitle_text' ///
                         `macval(titleopts)' `macval(subtitleopts)' ///
-                        legend(rows(2) position(6) size(vsmall)) ///
+                        legend(`_varlegend' rows(2) position(6) size(vsmall)) ///
                         `baropts' ///
                         `schemeopts' `nameopts' `savingopts' `drawopts' `graphoptions'
                     if `_ngmask' > 0 di as txt "(graph: `_ngmask' bar(s) from counts below `_m' withheld)"
@@ -1584,7 +1621,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                 qui {
                     clear
                     set obs `nvar'
-                    gen str32 varname = ""
+                    gen int varname = .
                     gen double pctmiss = .
                     gen int varorder = _n
 
@@ -1594,7 +1631,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                         if `_m' > 0 {
                             if `: word `i' of `_gmask'' local _p = .
                         }
-                        replace varname = "``i''" in `i'
+                        replace varname = `i' in `i'
                         replace pctmiss = `_p' in `i'
                     }
                 }
@@ -1610,7 +1647,7 @@ program define datamvp, rclass byable(recall) sortpreserve
                     di as txt "(graph not drawn: every bar comes from a count below `_m')"
                 }
                 else {
-                    `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
+                    `barcmd' pctmiss, over(varname, relabel(`_varrelabel') label(labsize(`labsz'))) ///
                         ytitle("Percent missing") ///
                         `bartitle_text' ///
                         `macval(titleopts)' `macval(subtitleopts)' ///
@@ -1696,11 +1733,11 @@ program define datamvp, rclass byable(recall) sortpreserve
                 * Put graph-level titles inside by() so facet labels remain visible.
                 local patby_titleopts `"`macval(titleopts)'"'
                 if `"`macval(title)'"' == "" {
-                    local patby_titleopts `"title("Missing Value Patterns by `gby'")"'
+                    local patby_titleopts `"title("Missing Value Patterns by `gby'") `macval(titleopts)'"'
                 }
                 local patby_subtitleopts `"`macval(subtitleopts)'"'
                 if `"`macval(subtitle)'"' == "" {
-                    local patby_subtitleopts `"subtitle("(Top `top' patterns per group)")"'
+                    local patby_subtitleopts `"subtitle("(Top `top' patterns per group)") `macval(subtitleopts)'"'
                 }
 
                 * Adjust label size
@@ -1853,7 +1890,8 @@ program define datamvp, rclass byable(recall) sortpreserve
 
                 * Create value labels for variable axis
                 forv i = 1/`nvar' {
-                    label define `varaxis_label' `i' "``i''", add
+                    mata: st_vlmodify(st_local("varaxis_label"), ///
+                        `i', st_local("_vdisp_`i'"))
                 }
                 label values `varid' `varaxis_label'
             }
@@ -2044,8 +2082,8 @@ program define datamvp, rclass byable(recall) sortpreserve
             local ylabels ""
             tokenize `varlist'
             forv i = 1/`nvar' {
-                local xlabels `"`xlabels' `i' "``i''""'
-                local ylabels `"`ylabels' `i' "``i''""'
+                local xlabels `"`xlabels' `i' "`_vdisp_`i''""'
+                local ylabels `"`ylabels' `i' "`_vdisp_`i''""'
             }
 
             * Execute the graph
@@ -2123,21 +2161,102 @@ program define datamvp, rclass byable(recall) sortpreserve
 end
 
 capture mata: mata drop _datamvp_graph_text()
+capture mata: mata drop _datamvp_graph_lines()
+capture mata: mata drop _datamvp_graph_parse()
+capture mata: mata drop _datamvp_axis_text()
 mata:
+// Escape text for a graph string: $, `, and " print literally
 string scalar _datamvp_graph_text(string scalar text)
 {
-    real scalar nchar
-
-    nchar = strlen(text)
-    while (nchar >= 4 & substr(text, 1, 2) == char(96) + char(34) &
-        substr(text, nchar - 1, 2) == char(34) + char(39)) {
-        text = substr(text, 3, nchar - 4)
-        nchar = strlen(text)
-    }
     text = subinstr(text, char(36), "{char 36}")
     text = subinstr(text, char(96), "{char 96}")
     text = subinstr(text, char(34), "{char 34}")
     return(text)
+}
+
+// Split the asis payload in local `name' at its first comma outside
+// quotes: the text becomes graph lines in `name', the suboptions go to
+// `name'_sub unchanged for the native title()/subtitle()
+void _datamvp_graph_parse(string scalar name)
+{
+    string scalar s, c2
+    real scalar i, n, depth, inq, cut
+
+    s = st_local(name)
+    n = strlen(s)
+    depth = 0
+    inq = 0
+    cut = 0
+    for (i = 1; i <= n & !cut; i++) {
+        c2 = substr(s, i, 2)
+        if (!inq & c2 == char(96) + char(34)) {
+            depth++
+            i++
+        }
+        else if (depth > 0 & !inq & c2 == char(34) + char(39)) {
+            depth--
+            i++
+        }
+        else if (depth == 0 & substr(s, i, 1) == char(34)) inq = !inq
+        else if (depth == 0 & !inq & substr(s, i, 1) == ",") cut = i
+    }
+    if (cut) {
+        st_local(name + "_sub", strtrim(substr(s, cut + 1, .)))
+        s = substr(s, 1, cut - 1)
+    }
+    else st_local(name + "_sub", "")
+    st_local(name, _datamvp_graph_lines(s))
+}
+
+// An asis title()/subtitle() text as quoted, escaped graph lines.
+// One or more quoted strings ("..." or `"..."') are one line each, with
+// the outer quotes removed; any other text is one literal line.
+string scalar _datamvp_graph_lines(string scalar text)
+{
+    transmorphic scalar t
+    string rowvector tok
+    string scalar s, lq, rq, out
+    real scalar i, n, ok
+
+    s = strtrim(text)
+    if (s == "") return("")
+    lq = char(96) + char(34)
+    rq = char(34) + char(39)
+    t = tokeninit(" ", J(1, 0, ""), (char(34) + char(34), lq + rq), 0, 0)
+    tokenset(t, s)
+    tok = tokengetall(t)
+    ok = (cols(tok) > 0)
+    for (i = 1; i <= cols(tok) & ok; i++) {
+        n = strlen(tok[i])
+        if (n >= 4 & substr(tok[i], 1, 2) == lq &
+            substr(tok[i], n - 1, 2) == rq) {
+            tok[i] = substr(tok[i], 3, n - 4)
+        }
+        else if (n >= 2 & substr(tok[i], 1, 1) == char(34) &
+            substr(tok[i], n, 1) == char(34)) {
+            tok[i] = substr(tok[i], 2, n - 2)
+        }
+        else ok = 0
+    }
+    if (!ok) tok = s
+    out = ""
+    for (i = 1; i <= cols(tok); i++) {
+        out = out + (i > 1 ? " " : "") + char(34) +
+            _datamvp_graph_text(tok[i]) + char(34)
+    }
+    return(out)
+}
+
+// Axis/key text for one variable: its label under varlabels when the
+// label is nonblank, otherwise its name
+string scalar _datamvp_axis_text(string scalar vn, real scalar uselab)
+{
+    string scalar lab
+
+    lab = ""
+    if (uselab) lab = st_varlabel(vn)
+    if (strtrim(lab) == "") lab = vn
+    return(_datamvp_graph_text(lab))
 }
 end
 

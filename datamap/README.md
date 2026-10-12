@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.9.3** | 2026-10-12
+**Version 1.10.0** | 2026-10-12
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `dataprobe`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -204,7 +204,7 @@ The script installs the local `datamap` source plus `logdoc` and `tc_schemes` fr
 - [Generated JSON metadata](demo/datamap_metadata.json)
 - [Clinical Markdown dictionary](demo/datadict_clinical.md)
 
-![Horizontal bar chart showing the percentage missing for x1, x2, x3, and x4 in the shipped demo dataset](demo/missingness_bar.png)
+![Horizontal bar chart showing the percentage missing for Biomarker A, B, C, and D (variables x1 to x4) in the shipped demo dataset](demo/missingness_bar.png)
 
 ## Command Reference
 
@@ -300,7 +300,7 @@ The default output is `data_dictionary.md`. `date()` sets document metadata, whi
 | `minfreq(1)`, `notable`, `skip`, `sort`, `nodrop`, `percent`, `cumulative`, `ascending`, `minmissing()`, `maxmissing()`, `nosummary`, `wide` | Pattern table filters, ordering, and display. |
 | `correlate`, `monotone`, `bytable()`, `generate()`, `save()` | Missingness analysis, percent missing by group, and reusable outputs. |
 | `mincell()`, `maskrare`, `top()` | Small-cell masking, pooling of rare patterns, and a cap on the pattern table. |
-| `graph(bar\|patterns\|matrix\|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
+| `graph(bar\|patterns\|matrix\|correlation)`, `scheme()`, `title()`, `subtitle()`, `gname()`, `gsaving()`, `nodraw`, `varlabels`, `horizontal`, `vertical`, `top()`, `barcolor()`, `misscolor()`, `obscolor()`, `textlabels`, `colorramp()`, `gby()`, `over()`, `stacked`, `groupgap()`, `legendopts()`, `graphoptions()` | Graph types, styling, grouping, and export. |
 
 Under `mincell()` or `maskrare`, patterns below the threshold are pooled into one final row, so the displayed frequencies still sum to N. `top()` caps the pattern table (at 20 by default under masking) and pools the rest into the same row. The default graph orientation for `graph(bar)` is horizontal. `matrix` graphs automatically sample up to 500 observations when the dataset is larger and accept only the documented `sample(#)` and `sort` suboptions. The command accepts at most 244 variables. `generate()` checks every output name before creating variables and refuses to overwrite existing targets.
 
@@ -379,6 +379,14 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.10.0 (2026-10-12)
+
+- Fix: `datamvp` graph `title()` and `subtitle()` no longer print their own quote marks: `title("Missingness by variable")` drew `"Missingness by variable"`. Each quoted string is now one line, as in Stata's `title()`; text with no quotes is one line; `title("")` draws no title; quotes, dollar signs, and backticks inside the text still print as written. Affected every graph type.
+- Fix: `datamvp` `title()` and `subtitle()` suboptions after a comma (`size()`, `color()`, `position()`, `ring()`, `span`, ...) are passed to the graph instead of being drawn as text; `title(, ring(0))` restyles the default title.
+- `datamvp, graph(bar) gby()` draws its default title once over the facets instead of once per facet, as `graph(patterns) gby()` already did.
+- Fix: `datamvp, graph(bar) gby()` and `over()` keep a value label written with compound quotes literally instead of stripping them.
+- New: `datamvp, varlabels` labels the variable axis of `graph(bar)` and `graph(matrix)`, both axes of `graph(correlation)`, and the `stacked` legend with variable labels; variables without a label keep their name.
 
 ### 1.9.3 (2026-10-12)
 

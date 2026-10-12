@@ -65,11 +65,12 @@ help for {cmd:datamvp}
 {syntab:Graphics}
 {synopt:{opt gr:aph(type)}}graph: {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
 {synopt:{opt sch:eme(schemename)}}graph scheme{p_end}
-{synopt:{opt ti:tle(string)}}graph title{p_end}
-{synopt:{opt sub:title(string)}}graph subtitle{p_end}
+{synopt:{opt ti:tle(tinfo)}}graph title and its suboptions{p_end}
+{synopt:{opt sub:title(tinfo)}}graph subtitle and its suboptions{p_end}
 {synopt:{opt gn:ame(name)}}name the graph in memory{p_end}
 {synopt:{opt gsav:ing(filename)}}save graph to file{p_end}
 {synopt:{opt nodraw}}suppress graph display{p_end}
+{synopt:{opt varl:abels}}label axes and keys with variable labels{p_end}
 {synopt:{opt graphopt:ions(twoway_options)}}additional options passed to graph{p_end}
 
 {syntab:Bar/Patterns graph options}
@@ -303,11 +304,36 @@ each cell. Use {opt colorramp()} to change the color scheme.
 {opt scheme(schemename)} specifies the graph scheme to use.
 
 {phang}
-{opt title(string)} specifies a custom title for the graph. If not specified,
-a default title is used based on the graph type.
+{opt title(tinfo)} specifies a custom title for the graph. If not specified,
+a default title is used based on the graph type. {it:tinfo} is
+{it:text} [{cmd:,} {it:{help title_options}}], as in Stata's {cmd:title()}:
+
+{phang2}
+o  Each quoted string is one line: {cmd:title("Line one" "Line two")}. Use
+compound quotes for text that contains double quotes, as in
+{cmd:title(`"Say "hi""')}.{p_end}
+{phang2}
+o  Text with no quotes at all is one line: {cmd:title(Missing data)}.{p_end}
+{phang2}
+o  Text that mixes quoted and unquoted parts, such as {cmd:title(a "b" c)},
+is drawn as one literal line. Stata's {cmd:title()} draws only part of such
+text, so quote every line instead.{p_end}
+{phang2}
+o  Suboptions after a comma outside the quotes, such as {cmd:size()},
+{cmd:color()}, {cmd:position()}, {cmd:ring()}, and {cmd:span}, are passed to
+the graph's {cmd:title()}: {cmd:title("Missingness", size(large) span)}. Suboptions
+with no text, as in {cmd:title(, ring(0))}, restyle the default title.{p_end}
+{phang2}
+o  {cmd:title("")} draws no title.{p_end}
+
+{pmore}
+Quotes, dollar signs, and backticks inside the text are printed as written. Braces
+are not escaped: as in any graph text, SMCL directives in braces, such as
+bold and italic markup, are interpreted.
 
 {phang}
-{opt sub:title(string)} specifies a custom subtitle for the graph.
+{opt sub:title(tinfo)} specifies a custom subtitle for the graph, with the
+same rules as {opt title()}.
 
 {phang}
 {opt gname(name)} names the graph in memory, allowing you to save or manipulate
@@ -320,6 +346,16 @@ Stata graph saving options like {cmd:gsaving(mygraph.gph, replace)}.
 {phang}
 {opt nodraw} suppresses the display of the graph. Useful when you only want to
 save the graph to a file.
+
+{phang}
+{opt varlabels} labels the variable axis of {cmd:graph(bar)} and
+{cmd:graph(matrix)}, both axes of {cmd:graph(correlation)}, and the legend of
+{cmd:graph(bar) stacked} with each variable's label instead of its name. A
+variable with no label keeps its name. The default is variable names. Not
+available with {cmd:graph(patterns)}, whose bars are patterns, not
+variables. Quotes, dollar signs, and backticks in a label are printed as
+written; SMCL directives in braces are interpreted, as in any graph text. The
+same holds for the value labels of {opt gby()} and {opt over()}.
 
 {phang}
 {opt graphoptions(twoway_options)} specifies additional options passed directly
@@ -449,6 +485,9 @@ command. Example: {cmd:legendopts(rows(2) position(3))}
 
 {pstd}Bar chart with variables sorted by missingness{p_end}
 {phang2}{stata "datamvp, sort graph(bar)":. datamvp, sort graph(bar)}{p_end}
+
+{pstd}Bar chart labelled with variable labels{p_end}
+{phang2}{stata "datamvp, graph(bar) varlabels":. datamvp, graph(bar) varlabels}{p_end}
 
 {pstd}Vertical bar chart with custom color{p_end}
 {phang2}{stata "datamvp, graph(bar) vertical barcolor(maroon)":. datamvp, graph(bar) vertical barcolor(maroon)}{p_end}

@@ -440,7 +440,7 @@ log close datamvp
 
 **# datamvp missingness bar graph
 use "`pkg_dir'/_demo_missing.dta", clear
-datamvp x1 x2 x3 x4, graph(bar) ///
+datamvp x1 x2 x3 x4, graph(bar) varlabels ///
     title("Missingness by variable") nodraw gname(dmvp_bar)
 graph display dmvp_bar
 graph export "`pkg_dir'/missingness_bar.png", as(png) width(1400) replace

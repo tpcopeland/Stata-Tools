@@ -26,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 12 Oct 2026 11:35:31
+Generated: 12 Oct 2026 23:47:12
 
 ========================================
 DATASET: _demo_cohort.dta

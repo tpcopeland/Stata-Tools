@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.3  12oct2026}{...}
+{* *! version 1.10.0  12oct2026}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
@@ -676,7 +676,7 @@ Combine multiple privacy and content options:{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.9.3, 2026-10-12{p_end}
+{pstd}Version 1.10.0, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

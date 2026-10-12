@@ -1,4 +1,4 @@
-*! _dataprobe_groupstat Version 1.9.3  2026/10/12
+*! _dataprobe_groupstat Version 1.10.0  2026/10/12
 *! dataprobe groupstat(): a statistic by group against the pooled value
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
