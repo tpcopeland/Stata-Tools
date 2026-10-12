@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.2  12oct2026}{...}
+{* *! version 1.7.0  12oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -186,7 +186,13 @@ from the arguments you supply:
 {bf:1. Data mode} — you supply three numeric variables ({it:esvar lcivar ucivar}). {cmd:eplot}
 treats them as point estimates and confidence limits. This is the mode for
 meta-analysis results, pre-computed estimates, or any tabular effect data that
-already lives in your dataset.
+already lives in your dataset. An effect row needs an estimate and both limits.
+A row with no estimate, or with neither limit, is left out of the plot, and
+{cmd:eplot} prints a note naming each such row (by its {opt labels()} text, or
+by observation number); to keep it in the plot as a labelled row, give it
+{opt type()} code 2 (see {opt vmissing()}). Limits come in pairs: a row with
+exactly one missing limit exits with {cmd:r(198)}, as an incomplete
+{opt pi()} pair does. Frame mode applies the same rule.
 
 {phang2}
 {bf:2. Estimates mode} — you supply nothing, a single {cmd:.} (for the active model), or
@@ -299,7 +305,8 @@ variable contract is numeric {cmd:estimate}, {cmd:ll}, and {cmd:ul}, with
 optional string {cmd:label}, numeric or string {cmd:rowtype} or {cmd:type},
 numeric {cmd:pvalue}, and numeric {cmd:weight} or {cmd:weights}. The active dataset and active graph
 scheme are left unchanged unless the user supplies normal graph options such as
-{opt scheme()}.
+{opt scheme()}. Rows with a missing estimate or interval are handled as in data
+mode: noted and left out, or refused when exactly one limit is missing.
 
 {phang}
 {opt labels(varname)} {bf:[D,F]} specifies a string variable containing labels for each
@@ -467,11 +474,17 @@ is accepted as an alias.
 plotting. Use this after models estimated on the log scale — for example,
 {cmd:logit} (odds ratios), {cmd:stcox} (hazard ratios), or {cmd:poisson} (incidence-rate
 ratios). The null line is automatically set to 1 instead of 0. In single-model
-estimates mode, the x-axis label is set automatically (e.g., "Odds Ratio" after
-{cmd:logit} or {cmd:melogit}, "Hazard Ratio" after {cmd:stcox}, "IRR" after
-{cmd:poisson}). {cmd:streg} and {cmd:mestreg} are labeled "Hazard Ratio" only
-in the proportional-hazards metric; accelerated failure-time fits keep the
-generic label. In estimates mode {opt eform} follows Stata's own rule for which
+estimates mode, the x-axis label names the column the command's own table
+names: "Odds Ratio" after {cmd:logit}, {cmd:logistic}, {cmd:clogit},
+{cmd:ologit}, and their {cmd:xt} and {cmd:me} forms; "RRR" after {cmd:mlogit};
+"IRR" after {cmd:poisson}, {cmd:xtpoisson}, {cmd:mepoisson}, {cmd:nbreg},
+{cmd:menbreg}, {cmd:zip}, {cmd:tpoisson}, {cmd:tnbreg}, and {cmd:gnbreg}; "SHR" after
+{cmd:stcrreg}; "Hazard Ratio" after {cmd:stcox} and proportional-hazards
+{cmd:streg} or {cmd:mestreg}; "Time Ratio" after accelerated failure-time
+{cmd:streg} or {cmd:mestreg}; for {cmd:glm}, "Odds Ratio" with a logit link and
+"Risk Ratio" or "IRR" with a log link (binomial, or Poisson and negative
+binomial families); and the label {cmd:binreg} posts. Other models, whose
+table reads {cmd:exp(b)}, keep the generic "Effect". In estimates mode {opt eform} follows Stata's own rule for which
 parameters are exponentiated: only coefficients of the first {cmd:e(k_eform)}
 equations (the first equation when {cmd:e(k_eform)} is not set) are
 transformed, and coefficients of further equations, such as the selection
@@ -917,7 +930,12 @@ combined, because both set the per-model marker colors.
 
 {phang}
 {opt msymbol(symbol)}
-sets the marker symbol. Default is {cmd:O} (filled circle).
+sets the marker symbol. Default is {cmd:O} (filled circle). In multi-model
+estimates mode, {opt msymbol()} takes either one symbol, applied to every
+model, or exactly one symbol per model, for example {cmd:msymbol(O D T)}.
+Models are otherwise told apart by color alone, which is lost in greyscale
+print and weak for readers with color-vision deficiency, so a per-model symbol
+list is recommended when the graph may be printed in grey.
 
 {phang}
 {opt msize(size)}
@@ -1273,7 +1291,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.6.2, 2026-10-12{p_end}
+{pstd}Version 1.7.0, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}
@@ -1288,7 +1306,7 @@ but cause all returned row names to fall back to {cmd:row1}, {cmd:row2}, and so 
 Help: {help twoway}, {help graph}, {help estimates store}, {help graph combine}
 
 {psee}
-Stata 18+: {help meta forestplot} (official meta-analysis forest plots)
+{help meta forestplot} (official meta-analysis forest plots)
 
 {psee}
 User-written: {cmd:coefplot} (Ben Jann, SSC), {cmd:metan} (SSC)

@@ -41,10 +41,10 @@ local core_suites `quick_suites' ///
     test_selection_labels ///
     test_regressions test_eplot_v128 test_eplot_v129 test_eplot_v140 ///
     test_eplot_v142 test_eplot_v150 test_eplot_v151 test_eplot_v160 test_eplot_v161 ///
-    test_eplot_v162
+    test_eplot_v162 test_eplot_v170 test_adversarial
 
 * Canonical release QA: core plus known-answer validation.
-local full_suites `core_suites' validation_eplot_precision validation_eplot test_examples validation_eplot_fixture_contract
+local full_suites `core_suites' validation_eplot_precision validation_eplot test_examples validation_eplot_fixture_contract test_help_examples
 
 local suite_list ``mode'_suites'
 

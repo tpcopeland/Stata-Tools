@@ -443,11 +443,12 @@ capture noisily {
     quietly streg age drug, distribution(weibull)
     eplot ., eform nodraw
     assert strpos(`"`r(cmd)'"', "Hazard Ratio (95% CI)") > 0
-    * Accelerated failure time: exp(b) is a time ratio, not a hazard ratio.
+    * Accelerated failure time: exp(b) is a time ratio, not a hazard ratio
+    * (1.7.0 names it as Stata's own table does; it had read "Effect").
     quietly streg age drug, distribution(lognormal)
     eplot ., eform nodraw
     assert strpos(`"`r(cmd)'"', "Hazard Ratio") == 0
-    assert strpos(`"`r(cmd)'"', "Effect (95% CI)") > 0
+    assert strpos(`"`r(cmd)'"', "Time Ratio (95% CI)") > 0
 }
 if _rc == 0 local ++pass_count
 else {

@@ -374,9 +374,27 @@ capture noisily {
     "Study B" 0.3 0.1 0.5
     end
 
+    tempfile t12log
+    local _ls = c(linesize)
+    set linesize 255
+    log using `"`t12log'"', text name(_t12) replace
     eplot es lci uci, labels(study) name(_v202_t12, replace)
-    * Only 2 valid rows (missing row excluded by markout)
-    assert r(N) == 2
+    * Only 2 valid rows: the missing row is left out of the plot ...
+    local t12N = r(N)
+    log close _t12
+    set linesize `_ls'
+    assert `t12N' == 2
+    * ... and named in a note (1.7.0), not dropped silently.
+    tempname fh
+    local t12hit 0
+    file open `fh' using `"`t12log'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`macval(line)'"', "(note: 1 row(s) not plotted because the estimate or the interval is missing: Missing;") local t12hit 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `t12hit' == 1
 }
 if _rc == 0 {
     display as result "  PASS: Test 12 - Mix of valid and missing rows"
