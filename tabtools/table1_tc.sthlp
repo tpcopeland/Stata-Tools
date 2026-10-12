@@ -796,8 +796,8 @@ generalized boosted models. Statistics in Medicine
 2013; 32: 3388-3414. doi:10.1002/sim.5753.{p_end}
 {phang}Yang D, Dalton JE. A unified approach to measuring the effect size between
 two groups using SAS. SAS Global Forum 2012, Paper 335-2012.{p_end}
-{phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics
-1979; 35: 908-909.{p_end}
+{phang}Limpert E, Stahel WA, Abbt M. Log-normal distributions across the
+sciences: keys and clues. BioScience 2001; 51(5): 341-352. doi:10.1641/0006-3568(2001)051[0341:lndats]2.0.co;2.{p_end}
 {phang}table1_mc - Mark Chatfield, The University of Queensland, Australia.{p_end}
 
 

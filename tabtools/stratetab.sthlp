@@ -25,7 +25,7 @@
 {cmd:stratetab}{cmd:,} {opt using(filelist)} {opt outcomes(integer)}
 [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)}
 {opt outlabels(string)} {opt outcomeid:s(string)} {opt explabels(string)} {opt digits(integer 1)}
-{opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}
+{opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt ptu:nit(string)}
 {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio}
 {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra}
 {opt border:style(string)} {opt font(string)} {opt fontsize(#)} {opt headers:hade}
@@ -188,6 +188,12 @@ interval label tracks the resolved level. Keep {opt unitlabel()} synchronized
 with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
+{opt ptunit(string)} names the person-time unit in the headers. The default
+headers are "Person-Years (PY)" and "Per 1,000 PY (95% CI)"; {cmd:ptunit(days)}
+gives "Person-days" and "Per 1,000 person-days (95% CI)". It is a label
+only; {opt pyscale()} and {opt ratescale()} change the numbers.
+
+{phang}
 {opt pyscale(real 1)} divides person-years values by the specified factor. Default
 is 1 (no scaling). The factor must be positive and nonmissing.
 
@@ -222,8 +228,12 @@ levels are rejected. The resolved level is shown in headers, returned in
 group is the first exposure group (displays "Ref."). The returned
 {cmd:r(ratios)} matrix has one row per non-reference exposure category and one
 column per outcome. The interval is computed
-by the log-normal method at the resolved level, the same level used for the
-rate intervals and returned in {cmd:r(ci_level)}.{p_end}
+by the log-normal (Wald) method at the resolved level, the same level used for
+the rate intervals and returned in {cmd:r(ci_level)}: the interval is
+exp(ln IRR +/- z*sqrt(1/D1 + 1/D0)), with D1 and D0 the events of the compared
+and reference groups. Each log rate has variance 1/D, as for the log SMR in
+Breslow and Day (1987, eq. 2.9); the two variances add because the groups are independent. This is
+not the exact conditional interval that {helpb ir} reports.{p_end}
 
 {pstd}
 The log-normal interval assumes independent, nonoverlapping rate
@@ -398,6 +408,15 @@ number of exposure groups (total files / outcomes).
 {synopt:{cmd:r(outcome_ids)}}machine-readable outcome identities{p_end}
 {synopt:{cmd:r(markdown)}}Markdown filename (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph with rate and CI provenance{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Breslow NE, Day NE. 1987. {it:Statistical Methods in Cancer Research, Volume II: The}
+{it:Design and Analysis of Cohort Studies}. IARC Scientific Publications
+No. 82. Lyon: International Agency for Research on Cancer.{p_end}
 
 
 {marker author}{...}

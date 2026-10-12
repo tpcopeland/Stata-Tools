@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_write Version 2.6.2  2026/10/10
+*! _tabtools_xlsx_write Version 2.6.3  2026/10/12
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -56,8 +56,8 @@ program define _tabtools_xlsx_write, rclass
         * stata-dev-ignore: capture-rc — error-path cleanup after local rc = _rc; a failed close must not mask the export error, which exit rc raises below
         capture mata: `book'.close_book()
         capture mata: mata drop `book'
-        if `rc' == 603 | `rc' == 608 | `rc' == 610 {
-            noisily display as error "Hint: ensure the xlsx file is not open in another application"
+        if inlist(`rc', 603, 608, 610, 16106) {
+            capture noisily _tabtools_export_hint `"`using'"'
         }
         exit `rc'
     }

@@ -301,8 +301,8 @@ label reads {it:variable label = level}. A label set on the collection with
 {p 4 8 2}{cmd:margins, at()} rows are labelled with the scenario values the
 collection holds, as {cmd:margins} prints them: {cmd:at(age=(40 60))} gives
 {it:Age (years) = 40} and {it:Age (years) = 60} under an {it:at()} heading,
-and a scenario that also fixes a factor reads {it:Age (years) = 40, Male}.
-Covariates left as observed are not named; one set to a statistic carries it
+and a scenario that also fixes a factor reads
+{it:Age (years) = 40, Male}. Covariates left as observed are not named; one set to a statistic carries it
 ({it:Age (years) = 47.58 (mean)}, {it:Sex (mean): Male = 0.47, Female = 0.53}),
 and an {cmd:asbalanced} factor reads {it:Sex (asbalanced)}. When the collection holds
 {cmd:margins} calls with different {cmd:at()} values, a row number would name

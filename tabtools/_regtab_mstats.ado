@@ -1,4 +1,4 @@
-*! _regtab_mstats Version 2.6.2  2026/10/10
+*! _regtab_mstats Version 2.6.3  2026/10/12
 *! regtab block: per-model statistics for stats() from the collection
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -239,7 +239,7 @@ quietly {
 
                         * Compute QIC_u from deviance + rank only for xtgee
                         * models whose dispersion is fixed at phi=1.
-                        * NOTE: this is Pan (2001) QIC_u, the fixed-penalty
+                        * NOTE: this is Pan's QIC_u (Cui 2007, eq. 2), the fixed-penalty
                         * approximation, NOT QIC. Pan's QIC penalty is
                         * 2*trace(Omega*Sigma); QIC_u replaces that trace with
                         * the rank. Pan's unknown-dispersion case requires one
@@ -261,7 +261,7 @@ quietly {
                         * collection holds no e(Cns), so equality constraints
                         * are not netted out in that capped case (a constraint
                         * fixing a coefficient is: its SE is 0).
-                        * Pan (2001) defines QICu's penalty as 2p with p the
+                        * Pan's QICu penalty is 2p (Cui 2007, eq. 2), with p the
                         * number of model parameters, so QICu follows suit.
                         local _k_param = `stat_rank_`m''
                         local _vce_m ""

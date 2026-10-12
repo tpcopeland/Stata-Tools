@@ -1,4 +1,4 @@
-*! _tabtools_collect_atmatrix Version 2.6.2  2026/10/10
+*! _tabtools_collect_atmatrix Version 2.6.3  2026/10/12
 *! margins at() values held in the current collection, as a matrix
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

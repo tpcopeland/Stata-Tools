@@ -125,7 +125,7 @@ def main() -> int:
     # 75 since 2.1.18: _tabtools_xlsx_deferred_styles (direct-XML cell styles).
     # 74 since the codex audit of 2026-09-26 (C8): stacktab's substring
     # suboption scanner _stacktab_get_subopt was replaced by a Mata tokenizer.
-    passed = program_count == 120 and not class_missing and not wrapper_missing
+    passed = program_count == 121 and not class_missing and not wrapper_missing
     verdict = "PASS" if passed else "FAIL"
     summary = (
         f"{verdict} programs={program_count} class_missing={len(class_missing)} "

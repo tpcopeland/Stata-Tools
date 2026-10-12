@@ -99,7 +99,8 @@ model. {opt modellabels()} names them in the headers ("Crude, RR (95% CI)").
 {phang}
 {opt estimator(cmd[, options])} is the estimation command and its options, for
 example {cmd:estimator(poisson, irr vce(cluster id))} for risk ratios by
-modified Poisson regression with variance clustered on the mother (Zou 2004). The
+modified (robust-variance) Poisson regression (Chen et al. 2018), here with the
+variance clustered on the mother. The
 ratio is read from {cmd:r(table)} as the command reports it, so ask for
 the ratio scale there ({cmd:irr}, {cmd:or}, {cmd:eform}) or give {opt eform}, not
 both: {opt eform} with an estimator that already reports the ratio is an error. The
@@ -266,8 +267,9 @@ observed; {cmd:N_cc} below {cmd:n1}+{cmd:n0} is listwise loss),
 {title:References}
 
 {phang}
-Zou G. 2004. A modified Poisson regression approach to prospective studies with binary
-data. American Journal of Epidemiology 159: 702-706. doi:10.1093/aje/kwh090.
+Chen W, Qian L, Shi J, Franklin M. 2018. Comparing performance between log-binomial and
+robust Poisson regression models for estimating risk ratios under model
+misspecification. BMC Medical Research Methodology 18: 63. doi:10.1186/s12874-018-0519-5.
 
 
 {marker author}{...}

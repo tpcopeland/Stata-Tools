@@ -1172,7 +1172,11 @@ bracket notation is shown: {cmd:var(_cons[district])}, {cmd:var(_cons[school])},
 {cmd:var(e)}. Random effects are sorted by level (outermost first) after fixed
 effects. Models with random slopes and covariance terms (e.g.,
 {cmd:|| school: treatment, cov(unstructured)}) produce additional rows such as
-{it:Variance: School (Treatment)} and {it:Covariance: School (Treatment, Intercept)}.{p_end}
+{it:Variance: School (Treatment)} and
+{it:Covariance: School (Treatment, Intercept)}. Residual terms that Stata
+qualifies by equation, such as {cmd:var(e.y)} after {cmd:tobit} or
+{cmd:meglm}, are labelled {it:Residual Variance (y)}, and
+{cmd:sd(e.y)} is labelled {it:Residual SD (y)}.{p_end}
 
 {pstd}Auto-detected coefficient labels and conditional formatting:{p_end}
 {phang2}{cmd:. collect clear}{p_end}
@@ -1387,10 +1391,9 @@ keeps the name {cmd:r(qic_}{it:#}{cmd:)} for backward compatibility; read it as
 QICu.{p_end}
 
 {pstd}
-See Pan W (2001), Akaike's information criterion in generalized estimating
-equations, {it:Biometrics} 57:120-125; and Cui J (2007),
-QIC program and model selection in GEE analyses, {it:Stata Journal}
-7(2):209-220.{p_end}
+See Cui J (2007), QIC program and model selection in GEE analyses,
+{it:Stata Journal} 7(2):209-220, which gives QIC (eq. 1) and QICu (eq. 2) as
+Pan defined them.{p_end}
 
 {marker seealso}{...}
 {title:Also see}

@@ -1,4 +1,4 @@
-*! puttab Version 2.6.2  2026/10/10
+*! puttab Version 2.6.3  2026/10/12
 *! Style an in-memory table (current data, a frame, or a matrix) as one Excel sheet
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -32,6 +32,7 @@ program define puttab, rclass
     set varabbrev off
     local _restore_needed = 0
     local _book_open = 0
+    local _xlsx_written = 0
     local _return_ready = 0
     tempname _xlsx_book
     local _ret_rows .
@@ -1005,6 +1006,7 @@ program define puttab, rclass
             if `_sess_xlsx' _tabtools_set_sinks xlsxstart
             _tabtools_xlsx_write using `"`using'"', sheet(`"`macval(sheet)'"') book(`_xlsx_book')
             local _book_open = 1
+            local _xlsx_written = 1
             * Excel matches an existing sheet case-insensitively; style, report,
             * and return the spelling actually in the workbook.
             mata: st_local("sheet", st_global("r(sheet)"))
@@ -1066,9 +1068,11 @@ program define puttab, rclass
         }
     }
     if `rc' {
-        if `rc' == 603 | `rc' == 608 | `rc' == 610 {
-            if "`_sink'" == "xlsx" {
-                noisily display as error "Hint: ensure the xlsx file is not open in another application"
+        if inlist(`rc', 603, 608, 610, 16106) {
+            * a failed sheet write printed its hint in _tabtools_xlsx_write;
+            * a failure after it (styling, closing the book) needs its own
+            if "`_sink'" == "xlsx" & `_xlsx_written' {
+                capture noisily _tabtools_export_hint `"`using'"'
             }
             else if "`_sink'" == "markdown" {
                 noisily display as error "Hint: check that the Markdown file's directory exists and the file is writable"

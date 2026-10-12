@@ -1,4 +1,4 @@
-*! survtab Version 2.6.2  2026/10/10
+*! survtab Version 2.6.3  2026/10/12
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -168,6 +168,14 @@ capture noisily {
             noisily display as text "      but times, medians, and RMST are labelled in years. stset with scale() to"
             if "`_st_unit'" == "days" noisily display as text "      analyse in years, or specify timeunit(days)."
             else noisily display as text "      analyse in years."
+        }
+        else {
+            * the unit is not inferred: unless stset scale() turned days into
+            * years, say that the years label is a default, not a finding
+            local _st_bs : char _dta[st_bs]
+            if !inlist(real("`_st_bs'"), 365, 365.25) {
+                noisily display as text "Note: times are labelled in years by default (survtab does not infer the unit); specify timeunit() if analysis time is not in years."
+            }
         }
     }
     if !inlist("`timeunit'", "years", "months", "days", "weeks") {
@@ -1082,7 +1090,6 @@ capture noisily {
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
-            noisily display as error "Hint: ensure the xlsx file is not open in another application"
             restore
             exit `_export_rc'
         }

@@ -1,4 +1,4 @@
-*! crosstab Version 2.6.2  2026/10/10
+*! crosstab Version 2.6.3  2026/10/12
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -848,7 +848,6 @@ capture noisily {
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
-            noisily display as error "Hint: ensure the xlsx file is not open in another application"
             restore
             exit `_export_rc'
         }

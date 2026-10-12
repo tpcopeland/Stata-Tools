@@ -1,4 +1,4 @@
-*! effecttab Version 2.6.2  2026/10/10
+*! effecttab Version 2.6.3  2026/10/12
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1629,7 +1629,6 @@ quietly {
 			if _rc {
 				local _export_rc = _rc
 				noisily display as error `"Failed to export to `xlsx', sheet `macval(sheet)'"'
-				noisily display as error "Check file permissions and that file is not open in Excel"
 			capture erase "`temp_xlsx'"
 			restore
 			error `_export_rc'

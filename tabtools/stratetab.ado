@@ -1,4 +1,4 @@
-*! stratetab Version 2.6.2  2026/10/10
+*! stratetab Version 2.6.3  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -26,6 +26,7 @@ DESCRIPTION:
 	eventdigits: Decimal places for events (default 0)
 	pydigits:    Decimal places for person-years (default 0)
 	unitlabel:   Unit label for rate column (default "1,000")
+	ptunit:      Person-time unit named in the headers (default: Person-Years (PY))
 	pyscale:     Divides person-years by this value (default 1 = no scaling)
 	ratescale:   Multiplies rates by this value (default 1000)
 */
@@ -75,7 +76,7 @@ _tabtools_require_helpers
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) OUTCOMEIDs(string asis) explabels(string) ///
 	digits(integer -1) eventdigits(integer 0) pydigits(integer 0) ///
-	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
+	unitlabel(string) PTUnit(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) FONT(string) FONTSIZE(integer -1) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string) MARKdown(string) MDAPPend FRAme(string) ///
@@ -386,6 +387,15 @@ qui {
 if `"`macval(unitlabel)'"' == "" {
 	local unitlabel "1,000"
 }
+* ptunit() names the person-time unit in the headers ("days" gives
+* "Person-days" and "Per 1,000 person-days"); default is person-years (PY)
+local ptunit = strtrim(`"`ptunit'"')
+local _pt_head "Person-Years (PY)"
+local _pt_rate "PY"
+if `"`ptunit'"' != "" {
+	local _pt_head `"Person-`ptunit'"'
+	local _pt_rate `"person-`ptunit'"'
+}
 
 * Process each file and store data
 * Files are organized: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
@@ -647,6 +657,9 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				local _ref_masked_o`o'_e`e'_`i' = (`smallcells' > 0 & `_d_ref' >= 1 & `_d_ref' < `smallcells')
 				if `_d_ref' > 0 & `_d_exp' > 0 & `_r_ref' > 0 {
 					local _irr = `_r_exp' / `_r_ref'
+					* Wald interval on the log scale: var(ln rate) = 1/D, as for the
+					* log SMR in Breslow and Day 1987, eq. 2.9; summed over the two
+					* independent groups
 					local _se_ln = sqrt(1/`_d_exp' + 1/`_d_ref')
 					local IRR_o`o'_e`e'_`i' = `_irr'
 					local IRRlo_o`o'_e`e'_`i' = exp(ln(`_irr') - `_ci_z' * `_se_ln')
@@ -694,9 +707,9 @@ local col = 2
 forvalues o = 1/`outcomes' {
 	quietly replace c`col' = "Events" in `new'
 	local col = `col' + 1
-	quietly replace c`col' = "Person-Years (PY)" in `new'
+	quietly replace c`col' = `"`_pt_head'"' in `new'
 	local col = `col' + 1
-	quietly replace c`col' = `"Per `macval(unitlabel)' PY (`_ci_level_txt'% CI)"' in `new'
+	quietly replace c`col' = `"Per `macval(unitlabel)' `_pt_rate' (`_ci_level_txt'% CI)"' in `new'
 	local col = `col' + 1
 	if "`rateratio'" != "" {
 		quietly replace c`col' = "IRR (`_ci_level_txt'% CI)" in `new'
@@ -1043,7 +1056,6 @@ return local methods "Incidence rates and confidence intervals were formatted at
 		if _rc {
 			local saved_rc = _rc
 			noi di as err "Failed to export to `macval(xlsx)'"
-			noi di as err "Hint: ensure the xlsx file is not open in another application"
 		local _fatal_rc = `saved_rc'
 		exit `saved_rc'
 	}
@@ -1193,7 +1205,7 @@ return local methods "Incidence rates and confidence intervals were formatted at
 				capture mata: `_xlsx_book'.close_book()  // stata-dev-ignore: capture-rc — error-path teardown of the workbook handle; an already-closed handle is the expected failure
 				capture mata: mata drop `_xlsx_book'
 				noi di as err "Excel formatting failed with error `saved_rc'"
-				noi di as err "Hint: ensure the xlsx file is not open in another application"
+				capture noisily _tabtools_export_hint `"`macval(xlsx)'"'
 				local _fatal_rc = `saved_rc'
 				exit `saved_rc'
 			}

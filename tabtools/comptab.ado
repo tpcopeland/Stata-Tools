@@ -1,4 +1,4 @@
-*! comptab Version 2.6.2  2026/10/10
+*! comptab Version 2.6.3  2026/10/12
 *! Compose vertical model tables or rate-interlocked Table 2 layouts
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1976,7 +1976,6 @@ program define _comptab_rates, rclass
             if _rc {
                 local _export_rc = _rc
                 display as error "Failed to export to `xlsx'"
-                display as error "Hint: ensure the xlsx file is not open in another application"
                 exit `_export_rc'
             }
             * Excel sheet names are case-insensitive; keep the workbook's own
@@ -2889,7 +2888,7 @@ program define _comptab_vertical, rclass
             forvalues _stat = 1/`_source_cols_per_model' {
                 local _target_c = (`_target_m' - 1) * `_source_cols_per_model' + `_stat'
                 local _source_c = (`_source_m' - 1) * `_source_cols_per_model' + `_stat'
-                frame `_fname': replace c`_target_c' = ///
+                frame `_fname': quietly replace c`_target_c' = ///
                     `_source_copy_`f'_`_source_c''
             }
         }
@@ -3524,7 +3523,6 @@ program define _comptab_vertical, rclass
         if _rc {
             local _export_rc = _rc
             noisily display as error `"Failed to export to `xlsx', sheet `macval(sheet)'"'
-            noisily display as error "Check file permissions and that file is not open in Excel"
             restore
             exit `_export_rc'
         }

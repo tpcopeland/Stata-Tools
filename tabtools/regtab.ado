@@ -1,4 +1,4 @@
-*! regtab Version 2.6.2  2026/10/10
+*! regtab Version 2.6.3  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -2569,7 +2569,6 @@ if `_has_xlsx' {
     if _rc {
         local _export_rc = _rc
         noisily display as error `"Failed to export to `xlsx', sheet `macval(sheet)'"'
-        noisily display as error "Check file permissions and that file is not open in Excel"
         capture erase "`temp_xlsx'"
         restore
         error `_export_rc'

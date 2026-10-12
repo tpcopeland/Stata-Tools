@@ -246,7 +246,9 @@ beyond any group's support.{p_end}
 {cmd:weeks}. The label does not rescale analysis time. When it is left at the
 default and the {cmd:stset} time variable has a date format with no
 {cmd:scale()}, so that analysis time is in days, {cmd:survtab} prints a note
-saying so.{p_end}
+saying so. Otherwise, unless {cmd:stset} used {cmd:scale(365.25)} or
+{cmd:scale(365)}, a one-line note says that the years label is the default and
+was not inferred from the data.{p_end}
 
 {phang}
 {opt title(string)} table title in row 1{p_end}
@@ -349,8 +351,8 @@ each returned group.{p_end}
 {phang}
 Royston P, Parmar MKB. 2013. Restricted mean survival time: an alternative to the
 hazard ratio for the design and analysis of randomized trials with a time-to-event
-outcome. {it:BMC Medical Research Methodology} 13:
-152. doi:10.1186/1471-2288-13-152.{p_end}
+outcome. {it:BMC Medical Research Methodology}
+13: 152. doi:10.1186/1471-2288-13-152.{p_end}
 
 {marker alsosee}{title:Also see}
 

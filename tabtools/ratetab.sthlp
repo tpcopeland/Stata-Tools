@@ -33,6 +33,7 @@
 {syntab:Rates}
 {synopt:{opt per(#)}}rate per # person-time units; default {cmd:1000}{p_end}
 {synopt:{opt pys:cale(#)}}divide person-time by #; default 1{p_end}
+{synopt:{opt ptu:nit(string)}}person-time unit in the headers{p_end}
 {synopt:{opt ci(method)}}{cmd:exact} (default), {cmd:poisson}, or {cmd:cluster(}{it:varname}{cmd:)}{p_end}
 {synopt:{opt l:evel(#)}}confidence level; default {cmd:c(level)}{p_end}
 {synopt:{opt small:cells(#)}}mask 1 to #-1 events as {cmd:<}#{p_end}
@@ -113,8 +114,16 @@ person-years when person-time is in years.
 {cmd:r(estimates)}, so the person-time column is in the scaled
 unit; {cmd:pyscale(365.25)} turns days into years. With {cmd:stset} data, no
 {opt pyscale()}, and a time variable with a date format but no {cmd:scale()},
-analysis time is in days (or milliseconds) while the header reads person-years,
-so {cmd:ratetab} prints a note naming the {opt pyscale()} that converts it.
+analysis time is in days (or milliseconds). {cmd:ratetab} then names that unit in
+the headers and in {cmd:r(methods)} ("person-days") and prints a note naming the
+{opt pyscale()} that converts it to years.
+
+{phang}
+{opt ptunit(string)} names the person-time unit in the headers and in
+{cmd:r(methods)}; {cmd:ptunit(months)} gives "Person-months" and "Per 1,000
+person-months". The default is person-years, or the unit of a date-formatted
+{cmd:stset} time variable as described under {opt pyscale()}. It is a label
+only; {opt pyscale()} does the conversion.
 
 {phang}
 {opt ci(method)} sets the interval. {cmd:exact} gives exact Poisson limits for
@@ -327,11 +336,9 @@ and {cmd:ub} (rates per {opt per()}, unmasked).
 {title:References}
 
 {phang}
-StataCorp. Stata Base Reference Manual: ci (Methods and formulas, Poisson mean). College Station, TX: Stata Press.
-
-{phang}
-Ulm K. 1990. A simple method to calculate the confidence interval of a standardized mortality ratio
-(SMR). American Journal of Epidemiology 131: 373-375. doi:10.1093/oxfordjournals.aje.a115507.
+StataCorp LLC (2025). {it:Stata 19 Base Reference Manual}: ci - Confidence intervals for means,
+proportions, and variances (Methods and formulas, Poisson mean, p. 296). College Station,
+TX: Stata Press.
 
 
 {marker author}{...}

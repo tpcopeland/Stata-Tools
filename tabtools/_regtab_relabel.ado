@@ -1,4 +1,4 @@
-*! _regtab_relabel Version 2.6.2  2026/10/10
+*! _regtab_relabel Version 2.6.3  2026/10/12
 *! regtab block: relabel random-effects rows (relabel)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -21,6 +21,11 @@ program define _regtab_relabel, nclass
 quietly {
 * Relabel random effects if requested
 if "`relabel'" != "" {
+    * Equation-qualified residual terms (tobit, intreg, meglm, ...):
+    * var(e.y) / sd(e.y) are one token; relabel the whole token so the
+    * depvar stays in its own parentheses.
+    replace A = ustrregexra(A, "var\(e\.([^()]+)\)", "Residual Variance (\$1)")
+    replace A = ustrregexra(A, "sd\(e\.([^()]+)\)", "Residual SD (\$1)")
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
 
         * --- Per-level relabeling (bracket notation) ---
@@ -173,12 +178,10 @@ if "`relabel'" != "" {
     else {
         * Fallback: no random effects info, use generic labels
         replace A = subinstr(A, "var(_cons)", "Variance (Intercept)", .)
-        replace A = subinstr(A, "var(e.", "Variance (Residual", .)
         replace A = subinstr(A, "var(e)", "Residual Variance", .)
         replace A = subinstr(A, "var(", "Variance (", .)
         replace A = subinstr(A, "cov(", "Covariance (", .)
         replace A = subinstr(A, "sd(_cons)", "SD (Intercept)", .)
-        replace A = subinstr(A, "sd(e.", "SD (Residual", .)
         replace A = subinstr(A, "sd(", "SD (", .)
         * Log-scale parameters: handle all levels (lns1_1_1, lns2_1_1, ...)
         if `_n_re_levels' > 0 {

@@ -3,7 +3,7 @@
 * variables (names, types, formats, variable and value labels)
 *
 * Oracles: event and person-time sums written into the fixture by hand;
-* exact Poisson limits by the chi-square route (Ulm 1990):
+* exact Poisson limits by the chi-square route ([R] ci, Poisson mean):
 *     lower = invchi2(2D, alpha/2) / 2 / Y,  upper = invchi2(2(D+1), 1-alpha/2) / 2 / Y
 * not the invpoisson() route ratetab uses. Workbook cells are read back with
 * openpyxl (tools/xlsx_facts.py), CSV and Markdown as raw lines, the console

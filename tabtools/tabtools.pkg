@@ -39,6 +39,7 @@ f tabtools_tips.ado
 f tabtools_tips.sthlp
 f _tabtools_common.ado
 f _tabtools_xlsx_write.ado
+f _tabtools_export_hint.ado
 f _tabtools_markdown_write.ado
 f _tabtools_visible_vars.ado
 f _tabtools_colwidth.ado

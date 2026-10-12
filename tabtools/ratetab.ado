@@ -1,4 +1,4 @@
-*! ratetab Version 2.6.2  2026/10/10
+*! ratetab Version 2.6.3  2026/10/12
 *! Events, person-time and incidence rates (CI) by grouping variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -11,8 +11,7 @@ ESTIMAND
 INTERVALS (ci())
     exact    (default) Exact Poisson limits for the count, divided by Y:
              Pr(K >= D | l1) = alpha/2 and Pr(K <= D | l2) = alpha/2
-             ([R] ci, Methods and formulas, "Poisson mean"; Ulm 1990, Am J
-             Epidemiol 131:373-375, the chi-square form of the same limits).
+             ([R] ci, Methods and formulas, "Poisson mean").
              l1 = invpoissontail(D, alpha/2), l2 = invpoisson(D, alpha/2).
     poisson  strate's default: rate * exp(-/+ z / sqrt(D)), the quadratic
              approximation to the Poisson log likelihood for the log rate
@@ -42,6 +41,11 @@ is a stratetab frame that comptab, rateframe() accepts.
 capture program drop ratetab
 program define ratetab, rclass
     version 17.0
+    * Refusals before ratetab posts its own results leave the caller's r()
+    * as it was (the package rule; corrtab, crosstab, desctab do the same).
+    tempname _caller_r
+    _return hold `_caller_r'
+    local _own_r_posted 0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _work _est _clus _save
@@ -53,7 +57,7 @@ program define ratetab, rclass
             EXPosure(varlist numeric) PER(real 1000) CI(string) Level(real -1) ///
             SMALLcells(integer -1) NOSMALLcells CFormat(string) DIGits(integer -1) ///
             PYDigits(integer 0) PYScale(string) SEP(string) ///
-            OUTLabels(string) EXPLabels(string) UNITlabel(string) ///
+            OUTLabels(string) EXPLabels(string) UNITlabel(string) PTUnit(string) ///
             ZEROCells(string) MASKtext(string) EXCLUDEMasked SAVing(string asis) *]
 
         **# Source of events and person-time
@@ -86,17 +90,25 @@ program define ratetab, rclass
             display as error "pyscale() must be a positive number"
             exit 198
         }
-        * person-time is headed as person-years; say so when the stset time
-        * variable is a date and no scale turned days into years
-        if `_st' & !`_py_given' {
+        * person-time is headed as person-years unless ptunit() names
+        * another unit. When the stset time variable is a date and no scale
+        * turned days into years, the headers and r(methods) name the unit
+        * the data are in, and a note gives the pyscale() for years.
+        local ptunit = strtrim(`"`ptunit'"')
+        if `_st' & !`_py_given' & `"`ptunit'"' == "" {
             _tabtools_st_timescale
             if "`_st_unit'" != "" {
+                local ptunit "`_st_unit'"
                 display as text "Note: analysis time is in `_st_unit' (`_st_timevar' has a date format and stset has no scale());"
-                display as text "      person-time is reported in `_st_unit' under a person-years header. Specify"
-                if "`_st_unit'" == "days" display as text "      pyscale(365.25) for person-years."
-                else display as text "      pyscale(31557600000) for person-years."
+                local _py_hint "365.25"
+                if "`_st_unit'" != "days" local _py_hint "31557600000"
+                display as text "      person-time and rates are labelled in person-`_st_unit'. Specify pyscale(`_py_hint') for person-years."
             }
         }
+        local _pt_noun "person-years"
+        if `"`ptunit'"' != "" local _pt_noun `"person-`ptunit'"'
+        local _pt_opt ""
+        if `"`ptunit'"' != "" local _pt_opt `"ptunit(`"`ptunit'"')"'
         if `level' == -1 local level = c(level)
         if `level' < 10 | `level' > 99.99 {
             display as error "level() must be between 10 and 99.99"
@@ -332,6 +344,11 @@ program define ratetab, rclass
         local _keep : list uniq _keep
         frame put `_keep' if `touse', into(`_work')
         local _work_made 1
+        * a fixed row order: sums and fits below run in (level, row) order,
+        * so a rerun on the same data is bit-identical (a plain sort breaks
+        * ties at random, and the sum order moves the last bit)
+        tempvar _ord
+        frame `_work': quietly gen long `_ord' = _n
         local _nrows 0
         matrix `_clus' = J(`n_grp', `n_out', .)
         local _n_zero 0
@@ -353,6 +370,7 @@ program define ratetab, rclass
                 frame `_work' {
                     tempvar _grp _dl _lo _hi
                     quietly egen long `_grp' = group(`_gv'), label
+                    quietly sort `_grp' `_ord'
                     quietly levelsof `_grp', local(_levs)
                     * saving(): the grouping variable's own value of each
                     * level, exact (%21x for numbers), for the saved file
@@ -372,7 +390,7 @@ program define ratetab, rclass
                     quietly gen double `_lo' = .
                     quietly gen double `_hi' = .
                     if "`_ci'" == "cluster" {
-                        quietly bysort `_grp': egen double `_dl' = total(`_e')
+                        quietly by `_grp': egen double `_dl' = total(`_e')
                         * rows without person-time carry no events (refused above)
                         * and no information; leave them out explicitly so the
                         * fit's sample is known in advance
@@ -391,6 +409,9 @@ program define ratetab, rclass
                                 quietly summarize `_x' if `_grp' == `_l' & `_dl' >= `_dmin' & `_x' > 0, meanonly
                                 matrix `_init' = nullmat(`_init'), ln(`_Dl' / r(sum))
                             }
+                            * the sandwich sums scores by cluster: sort by cluster
+                            * and row so that sum runs in a fixed order too
+                            quietly sort `_clusvar' `_ord'
                             capture noisily quietly poisson `_e' ibn.`_grp' if `_dl' >= `_dmin' & `_x' > 0 & !missing(`_grp'), ///
                                 exposure(`_x') noconstant vce(cluster `_clusvar') from(`_init', copy)
                             if _rc {
@@ -423,6 +444,7 @@ program define ratetab, rclass
                     }
                     preserve
                     quietly drop if missing(`_grp')
+                    quietly sort `_grp' `_ord'
                     quietly collapse (sum) _D = `_e' _Y = `_x' (max) _lo_c = `_lo' _hi_c = `_hi', by(`_grp')
                     * a level with no person-time for this outcome has no
                     * computable rate: its rate and limits stay missing and
@@ -506,20 +528,24 @@ program define ratetab, rclass
         capture noisily stratetab, using(`_files') outcomes(`n_out') ///
             outlabels(`"`outlabels'"') explabels(`"`explabels'"') level(`level') ///
             ratescale(`per') unitlabel(`"`unitlabel'"') pydigits(`pydigits') ///
-            `_fmt_opt' `macval(_sep_opt)' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
+            `_pt_opt' `_fmt_opt' `macval(_sep_opt)' `_sc_opt' `_zc_opt' `_mt_opt' `macval(options)'
         local _st_rc = _rc
         * read what is needed before return add hands r() over
         local _sc_used = r(smallcells)
         local _frame_out `"`r(frame)'"'
-        return add
+        * a refusal or export failure inside stratetab is ratetab's own
+        * refusal: exit before taking stratetab's r(), so the caller's r()
+        * is restored below
         if `_st_rc' exit `_st_rc'
+        local _own_r_posted 1
+        return add
         if `"`_frame_out'"' != "" {
             frame `_frame_out': char _dta[tabtools_producer] "ratetab"
             frame `_frame_out': char _dta[tabtools_ci_method] "`_ci'"
         }
 
         **# Returns and the methods sentence
-        local _m "Incidence rates per `unitlabel' person-years with `level'% confidence intervals"
+        local _m "Incidence rates per `unitlabel' `_pt_noun' with `level'% confidence intervals"
         if "`_ci'" == "exact" local _m "`_m' from exact Poisson limits for the event count"
         if "`_ci'" == "poisson" local _m "`_m' from the quadratic approximation to the Poisson log likelihood for the log rate"
         if "`_ci'" == "cluster" {
@@ -689,5 +715,11 @@ program define ratetab, rclass
         capture erase "`_f'.dta"
     }
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `rc' {
+        if !`_own_r_posted' {
+            _return restore `_caller_r'
+            return add
+        }
+        exit `rc'
+    }
 end

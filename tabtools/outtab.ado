@@ -1,4 +1,4 @@
-*! outtab Version 2.6.2  2026/10/10
+*! outtab Version 2.6.3  2026/10/12
 *! Binary outcomes by a binary exposure: events/N (%) per group and one ratio per model
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -14,7 +14,7 @@ SYNTAX
 
 One row per outcome (and per panel when panels() names sample indicators).
 Each model is fitted with the estimator the user names (default
-poisson, irr vce(robust): Zou 2004's modified Poisson); the ratio is read from
+poisson, irr vce(robust): modified Poisson, Chen et al. 2018); the ratio is read from
 r(table) for the exposure and formatted by tabcell, so a failed, non-converged
 or non-estimable fit prints text, never ". (., .)". Rows are written by
 puttab.
@@ -23,6 +23,10 @@ puttab.
 capture program drop outtab
 program define outtab, rclass
     version 17.0
+    * outtab posts r() only once the table is complete; any refusal or
+    * failure before that leaves the caller's r() as it was.
+    tempname _caller_r
+    _return hold `_caller_r'
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     tempname _stage _res _hold
@@ -493,5 +497,9 @@ program define outtab, rclass
     if `_held' capture _estimates unhold `_hold'
     if `_stage_made' capture frame drop `_stage'
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `rc' {
+        _return restore `_caller_r'
+        return add
+        exit `rc'
+    }
 end
