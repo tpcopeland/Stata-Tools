@@ -204,7 +204,7 @@ capture noisily {
     assert r(n) == 1
     _v113_count_lines using "pkgtransfer_files/alpha.pkg", text("`long_d'")
     assert r(n) == 1
-    _v113_count_lines using "pkgtransfer_files/alpha.pkg", text("f alpha.ado")
+    _v113_count_lines using "pkgtransfer_files/alpha.pkg", text("F alpha.ado")
     assert r(n) == 1
     _v113_count_lines using "pkgtransfer_files/stata.toc", ///
         text("p alpha alpha: a | piped description")
@@ -248,7 +248,7 @@ capture noisily {
     quietly cd "x"
     unzipfile "../b.zip", replace
     confirm file "pkgtransfer_files/alpha.ado"
-    _v113_count_lines using "pkgtransfer_files/alpha.pkg", text("f alpha.ado")
+    _v113_count_lines using "pkgtransfer_files/alpha.pkg", text("F alpha.ado")
     assert r(n) == 1
     _v113_count_lines using "pkgtransfer_files/alpha.pkg", ///
         text("d see N beta.pkg for the companion package")

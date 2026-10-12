@@ -1,8 +1,8 @@
 # pkgtransfer — Transfer installed Stata packages between machines
 
-**Version 1.1.3** | 2026-10-12
+**Version 1.2.0** | 2026-10-12
 
-`pkgtransfer` creates a reproducible Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It is for users moving a Stata setup to another machine or sharing a controlled package set.
+`pkgtransfer` creates a Stata installation script or an offline package bundle from the packages tracked in the current PLUS directory. It reproduces package *sources*, not installed *versions*; see [Assumptions and Limits](#assumptions-and-limits). It is for users moving a Stata setup to another machine or sharing a controlled package set.
 
 ## Quick Start
 
@@ -28,7 +28,7 @@ The default run writes only the script; it does not download package files. It u
 - Internet access for `download(online)` and for running a generated online-install script
 - The `github` command on the destination if the generated script contains `github install` lines
 
-`download(local)` copies package files from the current PLUS directory, but it still contacts source URLs for platform-specific `.plugin` files.
+`download(local)` copies package files from the current PLUS directory, but it still reads each package's source descriptor and downloads files installed by platform-specific `g`/`G` records (plugins and any other file type).
 
 ## Installation
 
@@ -51,12 +51,12 @@ net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stat
 
 - With no options, it writes a do-file containing `ssc install`, `net install`, or `github install` commands for eligible recorded sources. A source is eligible when `stata.trk` records it as a URL (`scheme://...`, for example `http://` or `https://`); packages installed from a local absolute path are omitted from the default and `download(online)` modes, and a note names them. Name them in `limited()` to include them. `download(local)` includes every tracked package.
 - With `download(online)`, it downloads package descriptors and files from their recorded online sources, then creates an archive and an installer do-file.
-- With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining platform-specific plugins from their sources. Omit `os()` to bundle every platform variant, or specify it to retain only the target OS variants.
+- With `download(local)`, it copies the package files already present in the current PLUS directory, while obtaining files installed by `g`/`G` platform records from their sources. It identifies those files from each package's source descriptor, whatever their extension. Omit `os()` to bundle every platform variant, or specify it to retain only the target OS variants; a `g`-installed file with no record for the requested OS stops bundle creation (error 498). If a source descriptor cannot be read, a note names the package and its files are bundled as installed here (a package with a `.plugin` file fails instead).
 - With `restore`, it uses backup source metadata embedded by a transfer bundle to restore online URLs in `stata.trk`.
 
 Standard output files are written in the current working directory. The offline installer unpacks the archive selected by `zipfile()`—`pkgtransfer_files.zip` by default—and installs the selected packages from the extracted local files with `net install ..., replace`, so an older copy on the destination is upgraded; it leaves the extracted folder in place because its cleanup commands are disabled for safety. The installer refers to the archive by its file name only, so keep the `.do` and `.zip` files together and run the installer from that directory (or set `package_dir` inside it).
 
-Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Parent-relative plugin sources are rebased into the archive, plugin `g`/`G` installation semantics are preserved, and unsafe absolute or remaining parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory. Generated `.pkg` files and `stata.toc` use Stata's version-3 distribution format.
+Nested ordinary and plugin paths recorded by package descriptors are preserved in offline bundles. Parent-relative plugin sources are rebased into the archive, `g`/`G` and `F` installation semantics are preserved (an `F` file such as runtime `.dta` data is installed into PLUS on the destination, not dropped as an ancillary file), and unsafe absolute or remaining parent-traversal paths are rejected before a tracked file can escape the command-owned staging directory. Generated `.pkg` files and `stata.toc` use Stata's version-3 distribution format.
 
 ## Worked Examples
 
@@ -362,7 +362,7 @@ e
 ### Syntax
 
 ```stata
-pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(Windows|Unix|MacOSX) dofile(filename.do) zipfile(filename.zip)]
+pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(Windows|Unix|MacOSX) dofile(filename.do) zipfile(filename.zip) replace]
 ```
 
 ### Generated files
@@ -375,7 +375,7 @@ pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(
 
 Bundle creation rejects conflicting source identities at the same archive path, including reserved descriptors and `stata.toc`. Installer and archive paths must be outside `pkgtransfer_files`.
 
-Existing do-file and archive targets with the same names are replaced. Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the file name of the archive selected by `zipfile()` (without its directory), uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
+An existing do-file or archive is not overwritten unless `replace` is specified (error 602 otherwise, before anything is written). Bundle creation refuses to reuse an existing `pkgtransfer_files` directory, preventing unrelated files in that directory from being archived or deleted; move or remove it before rerunning a download mode. Invocation-owned staging files are removed after an error. The generated offline installer references the file name of the archive selected by `zipfile()` (without its directory), uses only local macros, restores the caller's working directory, and stops if a package cannot be installed.
 
 ## Key Options
 
@@ -384,12 +384,13 @@ Existing do-file and archive targets with the same names are replaced. Bundle cr
 | `download(local|online)` | omitted | Selects offline bundle creation from local PLUS files or recorded online sources; when omitted, creates an online-install script only |
 | `limited(pkglist)` | all eligible packages | Restricts the operation to the space-separated package names supplied; names must be present in `stata.trk`. Without it, the default and `download(online)` modes omit packages installed from a local path (with a note) |
 | `skip(pkglist)` | none | Excludes the exact package names supplied |
-| `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()`. Alone, it rejects `limited()`, `skip()`, `os()`, `dofile()`, and `zipfile()` |
+| `restore` | off | Restores embedded online source URLs in `stata.trk`; it may be used alone or with `download()`. With `download()`, the bundle is written first and then this machine's `stata.trk` is restored, as if the two commands were run in sequence. Alone, it rejects `limited()`, `skip()`, `os()`, `dofile()`, `zipfile()`, and `replace` |
 | `os(Windows|Unix|MacOSX)` | current `c(os)`; all plugin variants | Sets the installer target OS and limits offline bundles to matching plugin variants when explicitly supplied: `WIN*` for Windows, `LINUX*`/`UNIX*` for Unix, and `MAC*`/`OSX.*` (including the console platforms `OSX.ARM64` and `OSX.X8664`) for MacOSX |
 | `dofile(filename)` | `pkgtransfer.do` | Sets the generated do-file name; it must end in `.do` and may not contain shell metacharacters or quote characters |
 | `zipfile(filename)` | `pkgtransfer_files.zip` | Sets the generated archive name; it must end in `.zip`, may not contain shell metacharacters or quote characters, and is valid only with `download()` |
+| `replace` | off | Allows an existing do-file or archive to be overwritten |
 
-The values for `download()` and `os()` are case-sensitive as shown. A package named in `limited()` that is not present in `stata.trk` produces an error, and the same package may not appear in both `limited()` and `skip()`. `zipfile()` is not valid without `download()`.
+The values for `download()` and `os()` may be given in any case; `r(os)` and `r(download_mode)` use the spellings shown. A package named in `limited()` that is not present in `stata.trk` produces an error, and the same package may not appear in both `limited()` and `skip()`. `zipfile()` is not valid without `download()`.
 
 ## Stored Results
 
@@ -415,16 +416,20 @@ After package selection has succeeded, capturing a later output-write or archive
 - Only packages and sources recorded in the current PLUS directory's `stata.trk` are considered. Other adopath locations and untracked files are not reconstructed.
 - The default mode does not fetch package files. Its generated commands require internet access on the destination, and GitHub-origin entries require the `github` command there.
 - `download(online)` depends on the recorded source URLs and network availability. A missing or inaccessible required descriptor or package file aborts bundle creation.
-- `download(local)` uses the copies currently installed in PLUS, but platform-specific plugin files are downloaded from their sources because PLUS contains only the current platform build. Omitted `os()` downloads every platform variant; explicit `os()` downloads only matching variants. A missing tracked file aborts bundle creation rather than producing a partial archive.
-- `restore` works only when a bundle has embedded original-source backup records. It saves a numbered backup of `stata.trk` before changing the active tracking file and never overwrites an earlier backup.
+- **Sources, not versions.** The default script and `download(online)` install whatever each recorded source offers when they run, so a package updated upstream since it was installed here arrives at its newer version. Use `download(local)` to carry the installed `.ado`, help, and data files.
+- `download(local)` uses the copies currently installed in PLUS, but files installed by `g`/`G` platform records are downloaded from their *current* sources because PLUS contains only this platform's build, so a bundled plugin can come from a newer release than the bundled `.ado` file. Omitted `os()` downloads every platform variant; explicit `os()` downloads only matching variants. A missing tracked file aborts bundle creation rather than producing a partial archive.
+- Packages from E. F. Haghish's GitHub pages are mapped to `https://raw.githubusercontent.com/haghish/<pkg>/master` and written as `github install haghish/<pkg>, stable`, which installs the latest release. `download(online)` fails for such a repository whose default branch is not `master`.
+- `restore` works only when a bundle has embedded original-source backup records. A bundle made on a machine that was itself set up from a bundle carries the original source forward, so `restore` returns the first machine's source after any number of transfers. It saves a numbered backup of `stata.trk` before changing the active tracking file and never overwrites an earlier backup.
 - The generated offline installer uses `net install ..., replace`, so it upgrades a copy already on the destination. Stata then records the package twice in `stata.trk`; other `pkgtransfer` modes refuse such a tracker (error 459) until the older copy is removed with `ado uninstall [#]`.
 - The command preserves the dataset in memory while it reads and writes package-tracking and transfer files.
 
 ## Version History
 
+- **1.2.0** (2026-10-12): **Behaviour change:** an existing do-file or ZIP file is no longer overwritten silently; add the new `replace` option to scripts that rerun `pkgtransfer` with the same output names. Offline bundles keep `F` records, so runtime data a package forces into PLUS (for example `F data.dta`) is installed on the destination instead of being dropped; `download(local)` writes every tracked file as `F`. `download(local)` identifies `g`/`G`-installed files from each source descriptor rather than by the `.plugin` extension, so `os()` also filters platform-specific `.jar`, `.dll`, data, and other files. A second transfer from a bundle-installed machine carries the original source forward, and `restore` picks the original source from bundles made by earlier versions. `download()` and `os()` accept any case. The duplicate-tracker error names `ado dir` and `ado uninstall [#]`. The help file gains Remarks on source-versus-version fidelity.
+
 - **1.1.3** (2026-10-12): `restore` and bundle creation read and write tracker and descriptor files line by line, so lines containing `|`, blank lines, quotes, tabs, and long lines are no longer truncated or dropped. The offline installer names the archive by file name only and installs with `replace`. `os(MacOSX)` keeps the `OSX.ARM64`/`OSX.X8664` console platforms. The default and `download(online)` modes name the local-path packages they omit, and online sources are recognized by URL scheme. `restore` keeps earlier backups (numbered), backs up only when it changes the tracker, runs on trackers that list a package twice, and rejects options it cannot honor. Plugin records match whole file names, and `d` text can no longer reassign package records in local bundles. `download(online)` parses tab-separated descriptor records (for example `traj`), and its restore marker keeps the tracker's source exactly as recorded.
 
-- **1.1.2** (2026-09-30): Preserve an existing numeric or string `cv` scalar, or its absence, across native delimited imports on success and errors.
+- **1.1.2** (2026-09-30): Bundle creation leaves a scalar named `cv` in the caller's session unchanged.
 
 - **1.1.1** (2026-09-29): Reject conflicting bundle payload and metadata paths; resolve output paths before staging and confirm outputs after cleanup; select plugin platforms independently of filenames; bootstrap the selected github package with net install. QA now preserves caller installations across every suite.
 

@@ -471,7 +471,7 @@ capture noisily {
     do "`qa_dir'/_qa_lifecycle.do"
     sysuse auto, clear
     qa_lifecycle, fita(regress price mpg) fitb(regress price mpg length) ///
-        post(pkgtransfer, limited(alpha) dofile(lifecycle.do))
+        post(pkgtransfer, limited(alpha) dofile(lifecycle.do) replace)
     _pkgtransfer_v111_line using lifecycle.do
     assert strtrim(r(line)) == `"net install alpha, replace from("`work'/alpha/")"'
 }
@@ -538,7 +538,8 @@ capture noisily {
             local text : copy global `g'
             local vao = c(varabbrev)
             local selector ""
-            if "`option'" == "skip" local selector "limited(alpha)"
+            * Each accepted skip() cell rewrites the default do-file
+            if "`option'" == "skip" local selector "limited(alpha) replace"
             capture pkgtransfer, `option'(`"`macval(text)'"') `selector' 
             local command_rc = _rc
             display as text "Hostile cell: `option' `g' rc=`command_rc'"

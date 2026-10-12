@@ -1,33 +1,8 @@
-*! pkgtransfer Version 1.1.3  2026/10/12
+*! pkgtransfer Version 1.2.0  2026/10/12
 *! Author: Timothy P Copeland, Karolinska Institutet
 
-/*
-    DESCRIPTION:
-    'pkgtransfer' facilitates the transfer of installed Stata packages between computers or Stata installations.
-    It offers two primary modes of operation: online and offline.
-
-    - Online Mode: 'pkgtransfer' generates a do-file containing the necessary 'net install', 'ssc install', or
-      'github install' commands to replicate the package installation on a new machine with internet access.
-
-    - Offline Mode: 'pkgtransfer' downloads all package files and creates both a local installation script
-      ('pkgtransfer.do') and a ZIP archive ('pkgtransfer_files.zip'). This enables package installation
-      on machines without internet access.
-
-    The command intelligently handles packages from diverse sources, including the SSC archive, personal websites,
-    and GitHub repositories (leveraging the 'github' command by E.F. Haghish).
-
-    SYNTAX:
-    pkgtransfer [, DOWNload(string) LIMited(string) SKIP(string) REStore
-        OS(string) DOfile(string) ZIPfile(string)]
-
-		os(string):			Specifies the destination OS and limits plugin binaries to that OS. If omitted, all OS variants are bundled. Valid options are: "MacOSX", "Unix", or "Windows"
-
-		download(string):	Create a ZIP file of all packages and a do-file for local installation. Specify "local" if you with to capture local copies of packages and files and "online" if you wish to capture online copies of packages and files.
-
-		limited(STRING):	Restricts the operation to only the specified packages. 'string' is a space-separated list of package names.
-
-		restore:			Restores installation pathways to point to online sources after local installation.
-*/
+* Writes an online reinstall script, or an offline bundle (do-file + ZIP),
+* from the packages tracked in the PLUS stata.trk. See help pkgtransfer.
 
 program define pkgtransfer, rclass
 	version 16.0
@@ -49,7 +24,12 @@ program define pkgtransfer, rclass
 
 	capture noisily {
 
-	syntax [, DOWNload(string) LIMited(string) SKIP(string) REStore OS(string) DOfile(string) ZIPfile(string)]
+	syntax [, DOWNload(string) LIMited(string) SKIP(string) REStore OS(string) DOfile(string) ZIPfile(string) replace]
+	* download() and os() accept any case; returns use the canonical spelling
+	local download = lower(`"`download'"')
+	if lower(`"`os'"') == "windows" local os "Windows"
+	else if lower(`"`os'"') == "unix" local os "Unix"
+	else if lower(`"`os'"') == "macosx" local os "MacOSX"
 	local _os_requested = (`"`os'"' != "")
 	local _plugin_platform_regex ""
 
@@ -76,9 +56,10 @@ quietly {
 	local _restore_only = "`restore'" != "" & "`download'" == ""
 	if `_restore_only' {
 		local _restore_conflicts ""
-		foreach opt in limited skip os dofile zipfile {
+		foreach opt in limited skip os dofile zipfile replace {
 			if `"`macval(`opt')'"' != "" ///
-				local _restore_conflicts "`_restore_conflicts' `opt'()"
+				local _restore_conflicts = "`_restore_conflicts' `opt'" + ///
+					cond("`opt'" == "replace", "", "()")
 		}
 		if "`_restore_conflicts'" != "" {
 			noisily display as error ///
@@ -144,7 +125,7 @@ quietly {
 			noisily display as error ///
 				"ERROR: The following packages appear in multiple package repositories:`trk_duplicates'"
 			noisily display as error ///
-				"Please use -ado update- to remove duplicate packages (oldest removed)."
+				"Use -ado dir- and -ado uninstall [#]- to remove the older copy."
 			exit 459
 		}
 
@@ -246,6 +227,19 @@ quietly {
 
 		/* If OS is not specified, use current OS */
 		if "`os'" == "" local os "`c(os)'"
+
+		/* Existing outputs are kept unless replace is specified */
+		if "`replace'" == "" & !`_restore_only' {
+			local _outputs "dofile"
+			if "`download'" != "" local _outputs "dofile zipfile"
+			foreach output of local _outputs {
+				if fileexists(`"`macval(`output')'"') {
+					noisily display as error ///
+						`"file `macval(`output')' already exists; specify replace to overwrite it"'
+					exit 602
+				}
+			}
+		}
 }
 
 /* Resolve output paths before staging can own or delete any files. */
@@ -382,14 +376,9 @@ quietly{
 			else{
 				local pkg_list_for_do "`limited'"
 				gen keep_these = 0
-				foreach name of local pkg_list_for_do{
-					quietly count if package == "`name'"
-					if r(N) == 0 {
-						noisily display "Note: Package `name' not currently installed"
-					}
-					else {
-						replace keep_these = 1 if package == "`name'"
-					}
+				* limited() names were validated against stata.trk above
+				foreach name of local pkg_list_for_do {
+					replace keep_these = 1 if package == "`name'"
 				}
 				drop if keep_these == 0
 			}
@@ -456,14 +445,9 @@ quietly{
 			else{
 				local pkg_list_for_do "`limited'"
 				gen keep_these = 0
-				foreach name of local pkg_list_for_do{
-					quietly count if package == "`name'"
-					if r(N) == 0 {
-						noisily display "Note: Package `name' not currently installed"
-					}
-					else {
-						replace keep_these = 1 if package == "`name'"
-					}
+				* limited() names were validated against stata.trk above
+				foreach name of local pkg_list_for_do {
+					replace keep_these = 1 if package == "`name'"
 				}
 					drop if keep_these == 0
 				}
@@ -494,8 +478,16 @@ quietly{
 				use "`pkg_list'", replace
 				keep if package == "`name'"
 				replace v1 = substr(v1, 1, 2) + regexr(regexr(substr(v1, 3, .), "^\.\.\/", ""), "^[^\/]+\/", "") if substr(lower(v1), 1, 2) == "f " | substr(lower(v1), 1, 2) == "g "
-				* Preserve the original source under a private restore marker
-				replace v1 = "d pkgtransfer-source " + substr(v1, 3, .) ///
+				* Every tracked file was installed into the system directories, so
+				* F keeps runtime data (F x.dta) installed; F x.ado equals f x.ado
+				replace v1 = "F " + substr(v1, 3, .) if substr(v1, 1, 2) == "f "
+				* Preserve the original source under a private restore marker.
+				* A package installed from a bundle already carries the original
+				* marker; its S line names the previous machine's staging folder.
+				quietly count if substr(v1,1,21) == "d pkgtransfer-source " | ///
+					(substr(v1,1,4) == "d S " & regexm(substr(v1,5,.), "^[A-Za-z]+://"))
+				if r(N) > 0 drop if substr(v1,1,2) == "S "
+				else replace v1 = "d pkgtransfer-source " + substr(v1, 3, .) ///
 					if substr(v1,1,2) == "S "
 				drop if substr(v1,1,2) == "N "
 				tempvar pkg_order
@@ -509,8 +501,69 @@ quietly{
 				_pkgtransfer_write_lines using "pkgtransfer_files/`name'.pkg"
 			}
 
+			// Read each source descriptor: a tracked file installed by a g/G
+			// record takes the platform route whatever its extension
+			tempfile src_desc platform_files
+			clear
+			gen strL v1 = ""
+			gen package = ""
+			save "`src_desc'", emptyok replace
+			local _desc_read ""
+			local _desc_unread ""
+			foreach name of local pkg_list_for_do {
+				use "`pkg_url'", clear
+				quietly keep if package == "`name'"
+				local desc_url `"`=url[1]'/`name'.pkg"'
+				capture _pkgtransfer_read_lines using `"`desc_url'"'
+				if _rc {
+					local _desc_unread "`_desc_unread' `name'"
+					continue
+				}
+				local _desc_read "`_desc_read' `name'"
+				replace v1 = subinstr(v1, char(9), " ", .)
+				keep if substr(lower(v1),1,2) == "g " | substr(lower(v1),1,2) == "h "
+				gen package = "`name'"
+				append using "`src_desc'"
+				save "`src_desc'", replace
+			}
+			use "`src_desc'", clear
+			keep if substr(lower(v1),1,2) == "g "
+			gen file_base = cond(word(v1, 4) != "", word(v1, 4), word(v1, 3))
+			replace file_base = regexr(subinstr(file_base, "\", "/", .), "^.*/", "")
+			keep package file_base
+			if _N > 0 duplicates drop
+			gen byte platform_route = 1
+			save "`platform_files'", replace
+
+			use "`pkg_list'", replace
+			tempvar record_order
+			gen long `record_order' = _n
+			gen file_base = regexr(strtrim(substr(v1, 3, .)), "^.*/", "") ///
+				if substr(v1,1,2) == "f "
+			merge m:1 package file_base using "`platform_files'", ///
+				keep(1 3) nogen
+			replace platform_route = 1 if substr(v1,1,2) == "f " & ///
+				regexm(file_base, "\.plugin$")
+			replace platform_route = 0 if missing(platform_route)
+			sort `record_order'
+			drop file_base `record_order'
+			save "`pkg_list'", replace
+
+			* Without a descriptor, g/G files cannot be told apart from f files
+			local _unread_plain ""
+			foreach name of local _desc_unread {
+				quietly count if package == "`name'" & platform_route
+				if r(N) == 0 local _unread_plain "`_unread_plain' `name'"
+			}
+			if "`_unread_plain'" != "" {
+				noisily display as text ///
+					"Note: could not read the source descriptor of:`_unread_plain'"
+				noisily display as text ///
+					"Their files are bundled as installed on this machine; platform-specific (g) files cannot be identified."
+			}
+
             use "`pkg_list'", replace
-			keep if substr(v1,1,2) == "f " & !strpos(v1,".plugin")
+			keep if substr(v1,1,2) == "f " & !platform_route
 			replace v1 = subinstr(v1,"\","/",.)
 			replace v1 = substr(v1,3,.)
 			gen source_file = "`plusdir'" + v1
@@ -538,7 +591,7 @@ quietly{
 			tempfile pluginfiles
 			noisily display "Copying OS-specific plugins from online..."
             use "`pkg_list'", replace
-			keep if substr(lower(v1),1,2) == "f " & strpos(v1,".plugin")
+			keep if substr(lower(v1),1,2) == "f " & platform_route
 			rename v1 plugin_name
 			merge m:1 package using "`pkg_url'", nogen keep(3)
 			replace plugin_name = subinstr(plugin_name,"f ","",.)
@@ -560,11 +613,14 @@ quietly{
 				// Remove the stale installed-platform copy before replacement
 				capture erase "pkgtransfer_files/`plugin_name'"
 
-				// import pkg from offline
-				_pkgtransfer_read_lines using "`pkg_source_url'"
-				replace v1 = subinstr(v1, char(9), " ", .)
-				keep if substr(lower(v1),1,2) == "g " | ///
-					substr(lower(v1),1,2) == "h "
+				// g/h records of the source descriptor read above
+				local desc_was_read : list package in _desc_read
+				if !`desc_was_read' {
+					* Report the original read failure for a plugin package
+					_pkgtransfer_read_lines using "`pkg_source_url'"
+				}
+				use "`src_desc'" if package == "`package'", clear
+				drop package
 				* Match the installed file name exactly, not as a substring
 				local plugin_base = regexr(`"`plugin_name'"', "^.*/", "")
 				tempvar plugin_target
@@ -581,11 +637,14 @@ quietly{
 				}
 
 				// Normalize descriptor paths and download every matching plugin
-				noisily display "Downloading plugins for `package'..."
+				noisily display "Downloading platform files for `package'..."
 				quietly count if substr(lower(v1),1,2) == "g "
 				if r(N) == 0 {
+					local file_kind = cond(regexm(`"`plugin_name'"', "\.plugin$"), ///
+						"Plugin", "Platform file")
+					local for_os = cond(`_os_requested', " for os(`os')", "")
 					noisily display as error ///
-						"Plugin `plugin_name' has no platform record"
+						"`file_kind' `plugin_name' has no platform record`for_os'"
 					exit 498
 				}
 				quietly forvalues u = 1/`=_N' {
@@ -879,7 +938,8 @@ quietly{
 						"\", "/", .) if substr(lower(v1), 1, 2) == "f "
 					replace `manifest_f' = regexr(`manifest_f', "^\.\.\/", "") ///
 						if substr(lower(v1), 1, 2) == "f "
-					replace v1 = "f " + `manifest_f' ///
+					* Keep the directive's case: F installs non-ado types into PLUS
+					replace v1 = substr(v1, 1, 1) + " " + `manifest_f' ///
 						if substr(lower(v1), 1, 2) == "f "
 					gen strL `manifest_gp' = word(v1, 2) ///
 						if substr(lower(v1), 1, 2) == "g "
@@ -898,13 +958,19 @@ quietly{
 						cond(`manifest_gt' != "", " " + `manifest_gt', "") ///
 						if substr(lower(v1), 1, 2) == "g "
 
-				// Add a private backup URL marker for restore functionality
+				// Add a private backup URL marker for restore functionality,
+				// unless the source is itself a bundle that already names it
+				quietly count if substr(v1,1,21) == "d pkgtransfer-source " | ///
+					(substr(v1,1,4) == "d S " & regexm(substr(v1,5,.), "^[A-Za-z]+://"))
+				local has_marker = r(N) > 0
 				quietly count if strtrim(lower(v1)) == "e"
 				local had_end_marker = r(N) > 0
 				drop if strtrim(lower(v1)) == "e"
-				local _obs = _N + 1
-				set obs `_obs'
-				replace v1 = "d pkgtransfer-source `curr_src'" in `_obs'
+				if !`has_marker' {
+					local _obs = _N + 1
+					set obs `_obs'
+					replace v1 = "d pkgtransfer-source `curr_src'" in `_obs'
+				}
 				if `had_end_marker' {
 					local _end_obs = _N + 1
 					set obs `_end_obs'
@@ -1038,9 +1104,11 @@ quietly{
 					substr(v1,1,21) == "d pkgtransfer-source "
 				replace orig_url = substr(v1, 5, .) if ///
 					substr(v1,1,4) == "d S " & `restore_marker'
-				* Fill orig_url backward within each entry to reach the S line
+				* Carry the entry's last marker back to its S line. Bundles made
+				* before 1.2.0 stacked a later hop's marker ahead of the original,
+				* so the last marker is the original source.
 				gsort entry_id -row_id
-				by entry_id: replace orig_url = orig_url[_n-1] if missing(orig_url) & !missing(orig_url[_n-1])
+				by entry_id: replace orig_url = orig_url[_n-1] if !missing(orig_url[_n-1])
 				sort row_id
 				* Replace S lines with original URL where backup exists
 				replace v1 = "S " + orig_url if substr(v1,1,2) == "S " & !missing(orig_url)

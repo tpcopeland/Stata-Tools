@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.3  12oct2026}{...}
+{* *! version 1.2.0  12oct2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -28,9 +28,8 @@
 {synopt:{opt os(string)}}target OS and plugin filter{p_end}
 {synopt:{cmdab:do:file(}{it:filename}{cmd:)}}custom name for generated do-file{p_end}
 {synopt:{cmdab:zip:file(}{it:filename}{cmd:)}}custom name for generated ZIP file{p_end}
-
+{synopt:{opt replace}}overwrite an existing do-file or ZIP file{p_end}
 {synoptline}
-{p 4 4 2}
 
 {marker description}{...}
 {title:Description}
@@ -49,24 +48,33 @@ installed from various sources, including SSC, personal websites, and GitHub
 (using the {browse "https://github.com/haghish/github":github} command).
 
 {p 4 4 2}
-{cmd:NOTE}: It is strongly suggested that when using the {opt download()} option, first
-{cmd:pkgtransfer} is run without options to save all the original package
-installation commands for online installation and the resulting {cmd:pkgtransfer.do}
-is moved to a separate folder.
+The output is a list of package {it:sources}, not a snapshot of package
+{it:versions}; see {help pkgtransfer##remarks:Remarks}.
 
+{marker options}{...}
 {title:Options}
 
 {dlgtab:Main}
 
 {phang}
 {opt download(string)} specifies the download mode for creating offline installation
-packages. {opt download(online)} downloads all package files from the internet and
+packages: {bf:local} or {bf:online}, in any case. {opt download(online)} downloads all package files from the internet and
 creates a ZIP archive and local installation do-file. {opt download(local)} copies
 package files from your local PLUS directory instead of downloading
-them. Platform-specific plugin files are downloaded from the internet even with
+them. {opt download(local)} reads each package's source descriptor to find files
+installed by platform-specific {cmd:g} or {cmd:G} records (plugins, or any other
+file type); those files are downloaded for every platform even with
 {opt download(local)}, because the local PLUS directory only contains the current
-platform's version. By default, every OS variant is bundled; explicitly specifying
-{opt os()} limits plugin files and descriptor records to that OS. When neither {opt download()}
+platform's version. If a package's source descriptor cannot be read, its files are
+bundled as installed on this machine and a note names the package; a package
+with a {cmd:.plugin} file then fails instead. By default, every OS variant is bundled; explicitly specifying
+{opt os()} limits platform files and descriptor records to that OS. A
+{cmd:g}-installed file with no record for the requested OS is an error
+(r(498)), as is a {cmd:.plugin} file with no platform record at all. Bundled
+descriptors keep {cmd:F} records, so data or other non-ado files that the source
+forced into the system directories are installed there on the
+destination; {opt download(local)} writes every tracked file as an {cmd:F} record,
+because a tracked file was installed into the system directories. When neither {opt download()}
 nor {opt restore} is specified, {cmd:pkgtransfer} generates a do-file
 ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive). Bundle
 creation refuses to reuse an existing {cmd:pkgtransfer_files} directory, so move or
@@ -100,13 +108,19 @@ failing. Repeated names are normalized to one exclusion.
 {phang}
 {opt restore} restores installation pathways in {cmd:stata.trk} to point to original
 online sources after a local installation. Can be used as a standalone option
-({cmd:pkgtransfer, restore}) or combined with {opt download()}. Standalone
+({cmd:pkgtransfer, restore}) or combined with {opt download()}. Combined with
+{opt download()}, {cmd:pkgtransfer} first writes the bundle and then restores
+{it:this} machine's {cmd:stata.trk}; it is the same as running the two commands in
+sequence, which is useful on a machine that was itself set up from a bundle. Standalone
 {opt restore} cannot be combined with
-{opt limited()}, {opt skip()}, {opt os()}, {opt dofile()}, or {opt zipfile()}. With or
+{opt limited()}, {opt skip()}, {opt os()}, {opt dofile()}, {opt zipfile()}, or {opt replace}. With or
 without {opt download()}, {opt restore} rewrites every backup marker in
 {cmd:stata.trk}; {opt limited()} and {opt skip()} do not narrow it. This
 works only for packages installed from {cmd:pkgtransfer}-generated ZIP
-archives, which embed the original source URL as backup metadata. Before
+archives, which embed the original source URL as backup metadata. A bundle made
+on a machine that was itself set up from a bundle carries the original source
+forward, so {opt restore} returns the first machine's source after any number
+of transfers. Before
 modifying {cmd:stata.trk}, {cmd:pkgtransfer} copies it to
 {cmd:stata.trk.backup}, or to {cmd:stata.trk.backup1}, {cmd:stata.trk.backup2},
 ... when earlier backups exist; an existing backup is never overwritten. All
@@ -120,8 +134,8 @@ can remove.
 
 {phang}
 {opt os(string)} specifies the target operating system for the installation script
-cleanup commands and limits an offline bundle to plugin variants for that OS. Valid
-options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. Plugin platforms are
+cleanup commands and limits an offline bundle to platform-file variants for that OS. Valid
+options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}, in any case. Plugin platforms are
 matched by family: {cmd:WIN}* for Windows, {cmd:LINUX}* or {cmd:UNIX}* for Unix,
 and {cmd:MAC}* or {cmd:OSX.}* for MacOSX, which includes the console platforms
 {cmd:OSX.ARM64} and {cmd:OSX.X8664}. When omitted, the installer uses the
@@ -139,6 +153,35 @@ filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only v
 name only (without the directory), so keep the do-file and ZIP file in the same
 directory and run the installer from there. Shell metacharacters and quote
 characters are not allowed.
+
+{phang}
+{opt replace} permits {cmd:pkgtransfer} to overwrite an existing do-file or ZIP
+file. Without it, an existing output is an error (r(602)) and nothing is written.
+
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{cmd:pkgtransfer} records where packages came from, not which versions were
+installed:
+
+{phang2}o{space 2}The default script and {opt download(online)} install whatever the
+recorded source offers {it:now}. If a package has been updated since it was
+installed here, the destination gets the newer version.{p_end}
+
+{phang2}o{space 2}{opt download(local)} is the only mode that preserves the installed
+{cmd:.ado}, help, and other files. Files installed by {cmd:g}/{cmd:G} records,
+such as plugins, are still downloaded from the current source, so they may come
+from a newer release than the bundled {cmd:.ado} files.{p_end}
+
+{phang2}o{space 2}Packages from E. F. Haghish's GitHub pages are mapped to
+{cmd:https://raw.githubusercontent.com/haghish/}{it:pkg}{cmd:/master} and written as
+{cmd:github install haghish/}{it:pkg}{cmd:, stable}, which installs the latest
+release. A repository whose default branch is not {cmd:master} fails in
+{opt download(online)}.{p_end}
+
+{phang2}o{space 2}Only packages recorded in the current PLUS {cmd:stata.trk} are
+considered.{p_end}
 
 {marker examples}{...}
 {title:Examples}
@@ -186,11 +229,14 @@ Generates a do-file for all packages except "gtools".
 Downloads packages with custom output file names.
 
 {p 4 4 2}
+{cmd:. pkgtransfer, dofile(my_install.do) replace}
+{break}
+Rewrites an existing {cmd:my_install.do}.
+
+{p 4 4 2}
 {cmd:. pkgtransfer, restore}
 {break}
 Restores online source URLs in {cmd:stata.trk} for packages previously installed via pkgtransfer ZIP archive.
-
-{p 4 4 2}
 
 {marker results}{...}
 {title:Stored results}
@@ -205,9 +251,9 @@ Restores online source URLs in {cmd:stata.trk} for packages previously installed
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(package_list)}}list of packages processed{p_end}
 {synopt:{cmd:r(download_mode)}}local, online, script_only, or restore{p_end}
-{synopt:{cmd:r(os)}}target operating system{p_end}
-{synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
-{synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode specified){p_end}
+{synopt:{cmd:r(os)}}target operating system ({cmd:Windows}, {cmd:Unix}, or {cmd:MacOSX}){p_end}
+{synopt:{cmd:r(dofile)}}do-file name or path as specified{p_end}
+{synopt:{cmd:r(zipfile)}}ZIP file name or path as specified (download modes){p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -249,7 +295,7 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.3, 2026-10-12{p_end}
+{pstd}Version 1.2.0, 2026-10-12{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

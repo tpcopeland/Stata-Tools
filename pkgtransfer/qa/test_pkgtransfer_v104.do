@@ -197,7 +197,7 @@ capture noisily {
     file read `nested_pkg' line
     while r(eof) == 0 {
         if `"`macval(line)'"' == ///
-            "f nested/nestedfixture.ado" local found_nested 1
+            "F nested/nestedfixture.ado" local found_nested 1
         file read `nested_pkg' line
     }
     file close `nested_pkg'

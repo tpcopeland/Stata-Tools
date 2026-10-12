@@ -31,7 +31,7 @@ Each package folder has a README with worked examples; `help <package>` has the 
 | [datefix](datefix) | Convert imported date strings to Stata dates, detecting day/month order and reporting values that fail | ![version](https://img.shields.io/badge/version-1.1.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [fvgen](fvgen) | Turn factor-variable interactions into labeled main-effect and product variables for clean regression export | ![version](https://img.shields.io/badge/version-1.2.8-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [massdesas](massdesas) | Convert every `.sas7bdat` in a directory tree to `.dta` | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
-| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.1.3-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
+| [pkgtransfer](pkgtransfer) | Move your installed packages to another machine, by online reinstall or offline ZIP | ![version](https://img.shields.io/badge/version-1.2.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 | [rangematch](rangematch) | Range join: match records whose key falls in, or whose interval overlaps, each master interval (file or frame) | ![version](https://img.shields.io/badge/version-1.5.11-blue) | ![updated](https://img.shields.io/badge/updated-2026--10--12-brightgreen) |
 
 ### Cohorts, registries, and time-varying data
