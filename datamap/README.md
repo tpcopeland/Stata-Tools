@@ -2,7 +2,7 @@
 
 **Version 1.9.3** | 2026-10-12
 
-`datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `datacheck`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
+`datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `dataprobe`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
 ## Quick Start
 
@@ -34,13 +34,13 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 |---------|---------|
 | `datamap` | Create aggregate text or JSON documentation for one dataset or a collection of `.dta` files |
 | `datadict` | Create a Markdown data dictionary with optional metadata, missingness, statistics, and separate-file output |
-| `datacheck` | Profile data in the console and enforce declared invariants, sanity bands, and schema comparisons |
-| `dataqa` | Set session QA defaults and report, assert, compare, and export the ledger `datacheck` writes |
+| `dataprobe` | Profile data in the console and enforce declared invariants, sanity bands, and schema comparisons |
+| `dataqa` | Set session QA defaults and report, assert, compare, and export the ledger `dataprobe` writes |
 | `datamvp` | Tabulate missing-value patterns, test monotone missingness, and draw missingness graphs |
 
 ## How It Works
 
-`datamap`, `datadict`, and `datacheck` use the same classifier. It applies `exclude()` first, then explicit `continuous()`, `categorical()`, and date overrides, followed by string type, date formats, value labels or low cardinality, and continuous fallback; `config()` can supply reusable settings.
+`datamap`, `datadict`, and `dataprobe` use the same classifier. It applies `exclude()` first, then explicit `continuous()`, `categorical()`, and date overrides, followed by string type, date formats, value labels or low cardinality, and continuous fallback; `config()` can supply reusable settings.
 
 The default input is the dataset in memory. `single()` reads one `.dta` file, `directory()` scans `.dta` files, and `filelist()` reads a named list of files; add `recursive` for nested directories. `datadict` also accepts a line-delimited `manifest()` and can use a varlist only with in-memory data or `single()` input.
 
@@ -48,7 +48,7 @@ The default input is the dataset in memory. `single()` reads one `.dta` file, `d
 
 `datamap` and `datadict` aggregate values by default. `datamap`'s `samples()` option deliberately adds row-level sample values; use `exclude()` and `datesafe` when those rows must not expose identifiers or date values. `mincell(5)` is the default small-cell threshold for categorical and binary frequencies, and `uniqcap(1000)` is the default cap for distinct-value counts.
 
-On successful in-memory runs, `datamap` and `datadict` leave the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged. File-based routes preserve and restore the caller's data; `datacheck` always restores it, and `datamvp` is `sortpreserve`.
+On successful in-memory runs, `datamap` and `datadict` leave the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged. File-based routes preserve and restore the caller's data; `dataprobe` always restores it, and `datamvp` is `sortpreserve`.
 
 ## Choosing a Workflow
 
@@ -56,7 +56,7 @@ On successful in-memory runs, `datamap` and `datadict` leave the caller's observ
 |------|---------|--------|
 | Build a technical inventory for a handoff or pipeline | `datamap` | Privacy-aware text or JSON map with classifications, summaries, and optional samples |
 | Publish a readable variable reference | `datadict` | CommonMark Markdown with optional metadata, missingness, statistics, and notes |
-| Inspect or gate a dataset before analysis | `datacheck` | Console profile, expectation verdict, and optional profile or violation artifact |
+| Inspect or gate a dataset before analysis | `dataprobe` | Console profile, expectation verdict, and optional profile or violation artifact |
 | Keep a structured record of every gate run | `dataqa` | Ledger rows per gate entry, a register draft, and an assert that every expected dataset was checked |
 | Understand joint missingness | `datamvp` | Pattern-frequency table, monotone test, generated indicators, or graph |
 
@@ -141,8 +141,8 @@ datadict, directory("`inputs'") recursive separate outdir("`outputs'") suffix("_
 
 ```stata
 sysuse auto, clear
-datacheck price mpg weight, detail outliers(3)
-datacheck, expectn(74) isid(make) notmissing(price mpg weight) inrange(mpg 10 50)
+dataprobe price mpg weight, detail outliers(3)
+dataprobe, expectn(74) isid(make) notmissing(price mpg weight) inrange(mpg 10 50)
 ```
 
 Gate failures exit with return code 9; add `warn` when violations should be reported without stopping the do-file.
@@ -154,9 +154,9 @@ sysuse auto, clear
 tempfile baseline violations
 local baseline "`baseline'.dta"
 local violations "`violations'.dta"
-datacheck, saving("`baseline'", replace)
+dataprobe, saving("`baseline'", replace)
 generate byte readme_added = 1
-datacheck, compare("`baseline'") violations("`violations'", replace) warn
+dataprobe, compare("`baseline'") violations("`violations'", replace) warn
 ```
 
 `compare()` reports added, dropped, type-changed, and class-changed variables; `violations()` can save a structured `.dta` artifact or write to a frame.
@@ -178,13 +178,13 @@ graph export auto_missing.png, as(png) replace
 tempfile ledger
 dataqa set maskrare mincell(5) ledger("`ledger'") run(demo)
 sysuse auto, clear
-datacheck, gatesonly isid(make) rule("heavy": weight > 1500) bands(expectn(70 80) stat(mean mpg 18 25)) name(auto_cars)
+dataprobe, gatesonly isid(make) rule("heavy": weight > 1500) bands(expectn(70 80) stat(mean mpg 18 25)) name(auto_cars)
 dataqa report
 dataqa assert, expect(auto_cars)
 dataqa set clear
 ```
 
-Each gate entry, passed or failed, becomes one ledger row with its kind (invariant, band, or review), masked observation, and expectation. `dataqa assert` exits with return code 9 if any gate in the run failed (or an invariant only warned under bare `warn`), the run has no rows, or a named dataset has no rows; `dataqa report, markdown()` drafts register rows that list the dispositions each kind allows, and `dataqa report, bands` lists every declared band and `stat()` invariant beside its observed value. A `datacheck` call that exits with any error other than a gate failure leaves a call-error row, so `dataqa assert` cannot pass over a call that never ran. Under `dataqa set ... collect` a failing gate records its rows and returns 0, leaving `dataqa assert` as the single halting point; `dataqa assert, baseline(label)` halts when a dataset of the baseline run has no rows now, unless it is listed in `optional()`; `dataqa set ... baseline()` stores the baseline so `compare` and `assert` need no arguments.
+Each gate entry, passed or failed, becomes one ledger row with its kind (invariant, band, or review), masked observation, and expectation. `dataqa assert` exits with return code 9 if any gate in the run failed (or an invariant only warned under bare `warn`), the run has no rows, or a named dataset has no rows; `dataqa report, markdown()` drafts register rows that list the dispositions each kind allows, and `dataqa report, bands` lists every declared band and `stat()` invariant beside its observed value. A `dataprobe` call that exits with any error other than a gate failure leaves a call-error row, so `dataqa assert` cannot pass over a call that never ran. Under `dataqa set ... collect` a failing gate records its rows and returns 0, leaving `dataqa assert` as the single halting point; `dataqa assert, baseline(label)` halts when a dataset of the baseline run has no rows now, unless it is listed in `optional()`; `dataqa set ... baseline()` stores the baseline so `compare` and `assert` need no arguments.
 
 ## Demo
 
@@ -199,7 +199,7 @@ The script installs the local `datamap` source plus `logdoc` and `tc_schemes` fr
 - [Privacy-safe map transcript](demo/console_datamap_privacy.md)
 - [JSON output transcript](demo/console_datamap_json.md)
 - [Markdown dictionary transcript](demo/console_datadict.md)
-- [Console QC transcript](demo/console_datacheck.md)
+- [Console QC transcript](demo/console_dataprobe.md)
 - [Missingness-pattern transcript](demo/console_datamvp.md)
 - [Generated JSON metadata](demo/datamap_metadata.json)
 - [Clinical Markdown dictionary](demo/datadict_clinical.md)
@@ -224,13 +224,13 @@ datadict [varlist] [, options]
 
 See [datadict.sthlp](datadict.sthlp) for Markdown column contracts, manifests, metadata, conversion, and separate-output workflows.
 
-### `datacheck`
+### `dataprobe`
 
 ```stata
-datacheck [varlist] [if] [in] [, options]
+dataprobe [varlist] [if] [in] [, options]
 ```
 
-See [datacheck.sthlp](datacheck.sthlp) for profile fields, gate syntax, reusable `.dta` check specifications, comparison artifacts, and return codes.
+See [dataprobe.sthlp](dataprobe.sthlp) for profile fields, gate syntax, reusable `.dta` check specifications, comparison artifacts, and return codes.
 
 ### `dataqa`
 
@@ -242,7 +242,7 @@ dataqa export [using ledger], saving() [run() replace threshold()]
 dataqa compare [using ledger] [, run() baseline() baseledger() ntol() stattol()]
 ```
 
-See [dataqa.sthlp](dataqa.sthlp) for the session defaults, the register grammar, and the dispositions each kind allows; the ledger columns are listed under `ledger()` in [datacheck.sthlp](datacheck.sthlp).
+See [dataqa.sthlp](dataqa.sthlp) for the session defaults, the register grammar, and the dispositions each kind allows; the ledger columns are listed under `ledger()` in [dataprobe.sthlp](dataprobe.sthlp).
 
 ### `datamvp`
 
@@ -279,7 +279,7 @@ See [datamvp.sthlp](datamvp.sthlp) for pattern filters, monotone tests, generate
 
 The default output is `data_dictionary.md`. `date()` sets document metadata, while `datevars()` overrides which variables are classified as dates.
 
-### `datacheck`
+### `dataprobe`
 
 | Options | Purpose |
 |-------|----------------------|
@@ -327,7 +327,7 @@ The help files document the complete stored-result contracts. The following tabl
 | `r(mode)`, `r(files)`, `r(outputs)`, `r(output)` | Input mode, input paths, output paths, and combined output path when applicable. |
 | `r(metadata)` | Saved metadata path when `saving()` is used. |
 
-### `datacheck`
+### `dataprobe`
 
 | Result | Meaning |
 |--------|---------|
@@ -364,7 +364,7 @@ The help files document the complete stored-result contracts. The following tabl
 - `mincell()` suppresses categorical and binary frequency cells below the threshold, and `uniqcap()` reports a lower-bound count when the distinct-value cap is exceeded.
 - `datamap` and `datadict` in-memory failures are not rolled back after partial processing; use file-based input or a copy when failure isolation is required.
 - `datadict` requires an existing `outdir()` for separate outputs, and `checks()`, `compare()`, and file-based `violations()`/`makespec()` routes use Stata datasets rather than text specifications.
-- `datacheck` treats `warn` as a non-halting gate mode for every gate and `bandwarn` as one for sanity bands only; without them, failed expectations exit with return code 9.
+- `dataprobe` treats `warn` as a non-halting gate mode for every gate and `bandwarn` as one for sanity bands only; without them, failed expectations exit with return code 9.
 - Stored results are never masked; only printed output is. The working `dataqa` ledger and `datamvp` `save()` files hold small cells and belong with the data; `dataqa export` writes the copy that may leave the server and refuses one that shows a small cell.
 - `datamvp` is limited to 244 analyzed variables, and generated indicator names are shortened and disambiguated to stay within Stata's name limit; reserved-name or existing-target collisions stop with an error before any output variable is created.
 
@@ -372,7 +372,7 @@ The help files document the complete stored-result contracts. The following tabl
 
 `datamvp` is a fork of Jeroen Weesie's `mvpatterns` (STB-61: dm91); attribution and implementation notes are in [datamvp.sthlp](datamvp.sthlp).
 
-`datacheck`'s `stat(ess ...)` is the Kish effective sample size, (sum w)^2 / sum w^2: Kish, L. 1965. *Survey Sampling*. New York: Wiley.
+`dataprobe`'s `stat(ess ...)` is the Kish effective sample size, (sum w)^2 / sum w^2: Kish, L. 1965. *Survey Sampling*. New York: Wiley.
 
 ## QA
 
@@ -382,7 +382,8 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ### 1.9.3 (2026-10-12)
 
-- Fix: `datacheck` `inrange()`, `stat()`, and `makespec()` bounds are compared at full double precision, so a `makespec()` spec passes `checks()` on the data it was written from.
+- **Renamed: `datacheck` is now `dataprobe`.** The old name collided with the SSC package `datacheck` (Bhaskaran, 2011): either install blocked the other, and `net install, replace` overwrote one package's `datacheck.ado` with the other's. Replace `datacheck` with `dataprobe` in do-files; syntax, options, stored results, and the `help dataprobe` file are otherwise unchanged. Ledgers and `makespec()` spec files written by `datacheck` are read unchanged. Uninstall the old version first (`ado uninstall datamap`) so the old `datacheck.ado` does not linger. Version-history entries below 1.9.3 keep the old name.
+- Fix: `dataprobe` `inrange()`, `stat()`, and `makespec()` bounds are compared at full double precision, so a `makespec()` spec passes `checks()` on the data it was written from.
 - Fix: `groupstat()` under `maskrare` masks a count cell whose complement in the group's rows or nonmissing rows is a small cell, masks a `pmiss` cell when the group's missing or nonmissing count is small, and withholds the pooled `pmiss` value when any group cell is masked.
 - Fix: `datamap, missing(pattern)` reports "Observations with complete data" as suppressed (complementary) when the all-observed pattern is masked.
 - Fix: `dataqa report`, `assert`, `export`, and `compare` refuse (r(610)) a ledger whose `status` is not a string or holds a value other than pass, fail, warn, review, or error; `dataqa assert` matches dataset names containing spaces.

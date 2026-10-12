@@ -206,7 +206,7 @@ masking, a cell is shown as {bf:.} when its group has fewer than {it:m} rows or
 its missing count, or the count observed, is between 1 and {it:m}-1, and the
 two final columns use the shown cells only. The unmasked percentages, and the
 two final columns over all groups, are returned in {cmd:r(miss_by)}. The
-computation is shared with {help datacheck:datacheck, groupstat(pmiss ...)}.
+computation is shared with {help dataprobe:dataprobe, groupstat(pmiss ...)}.
 
 {dlgtab:Small cells}
 

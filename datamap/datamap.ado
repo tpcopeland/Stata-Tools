@@ -1616,7 +1616,7 @@ end
 // Small-cell mask with complementary suppression.  The row count N and the
 // missing count are both printed, so a lone suppressed cell equals
 // N - missing - (shown cells): primary suppression alone disclosed it exactly.
-// Following datacheck's maskrare rule, the smallest shown cell joins the
+// Following dataprobe's maskrare rule, the smallest shown cell joins the
 // withheld set until the set has at least two members and its pooled count is
 // at least the threshold, or nothing is left to withhold.  Codes: 0 = shown,
 // 1 = below the threshold, 2 = withheld as a complement.  Cells flagged in

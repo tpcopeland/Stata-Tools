@@ -69,7 +69,7 @@ local ++tests
 capture noisily {
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_qc)
-    quietly datacheck, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
+    quietly dataprobe, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
     assert r(N)==40 & r(n_failed)==0 & r(n_errors)==0
     assert r(n_checks)==4 & r(n_passed)==4
     qa_state_compare, tag(dm_qc)
@@ -143,7 +143,7 @@ capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     qa_state_snapshot, tag(dm_qc)
-    quietly datacheck, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
+    quietly dataprobe, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
     assert r(N)==40 & r(n_failed)==0 & r(n_errors)==0
     assert r(n_checks)==4 & r(n_passed)==4
     qa_state_compare, tag(dm_qc)
@@ -217,7 +217,7 @@ capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(miss_all_column)
     qa_state_snapshot, tag(dm_qc)
-    quietly datacheck, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
+    quietly dataprobe, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
     assert r(N)==40 & r(n_failed)==0 & r(n_errors)==0
     assert r(n_checks)==4 & r(n_passed)==4
     qa_state_compare, tag(dm_qc)
@@ -291,7 +291,7 @@ capture noisily {
     * expect: REFUSED
     qa_fx_a7_labelled, clear seed(37) perturb(single_row)
     qa_state_snapshot, tag(dm_qc)
-    capture noisily datacheck, gatesonly expectn(1) isid(id) binary(y) allowed(group 1 2 5 9)
+    capture noisily dataprobe, gatesonly expectn(1) isid(id) binary(y) allowed(group 1 2 5 9)
     assert _rc==9
     assert r(N)==1 & r(n_failed)==1 & r(n_errors)==1
     assert r(n_checks)==4 & r(n_passed)==3
@@ -366,7 +366,7 @@ capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(boundary_values)
     qa_state_snapshot, tag(dm_qc)
-    quietly datacheck, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
+    quietly dataprobe, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
     assert r(N)==40 & r(n_failed)==0 & r(n_errors)==0
     assert r(n_checks)==4 & r(n_passed)==4
     qa_state_compare, tag(dm_qc)
@@ -440,7 +440,7 @@ capture noisily {
     * expect: INVARIANT
     qa_fx_a7_labelled, clear seed(37) perturb(unsorted)
     qa_state_snapshot, tag(dm_qc)
-    quietly datacheck, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
+    quietly dataprobe, gatesonly expectn(40) isid(id) binary(y) allowed(group 1 2 5 9)
     assert r(N)==40 & r(n_failed)==0 & r(n_errors)==0
     assert r(n_checks)==4 & r(n_passed)==4
     qa_state_compare, tag(dm_qc)

@@ -136,7 +136,7 @@ else {
     local failed_tests "`failed_tests' 5"
 }
 
-**# datacheck stored-result name collisions
+**# dataprobe stored-result name collisions
 
 local ++test_count
 capture noisily {
@@ -144,12 +144,12 @@ capture noisily {
     set obs 4
     generate byte abcdefghijklmnopqrstuvwxyza = mod(_n, 2)
     generate long abcdefghijklmnopqrstuvwxyzb = _n
-    quietly datacheck, id(abcdefghijklmnopqrstuvwxyza \ abcdefghijklmnopqrstuvwxyzb)
+    quietly dataprobe, id(abcdefghijklmnopqrstuvwxyza \ abcdefghijklmnopqrstuvwxyzb)
     assert r(n_dup_abcdefghijklmnopqrstuvwxyz) == 2
     assert r(n_dup_abcdefghijklmnopqrstuvwx_2) == 0
 }
 local rc = _rc
-_reg_record `rc' "datacheck disambiguates truncated duplicate-key returns"
+_reg_record `rc' "dataprobe disambiguates truncated duplicate-key returns"
 if `rc' == 0 local ++pass_count
 else {
     local ++fail_count

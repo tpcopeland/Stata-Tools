@@ -95,7 +95,7 @@ foreach b in "2020-01-01" "2020/01/01" "01jan2020" "td(01jan2020)" {
         local expect = r(N)
         assert `expect' == 12
         capture erase "`work'/led_b01.dta"
-        capture datacheck, gatesonly inrange(dt `b' .) ledger("`work'/led_b01.dta")
+        capture dataprobe, gatesonly inrange(dt `b' .) ledger("`work'/led_b01.dta")
         assert _rc == 9
         _v180_obsnum "`work'/led_b01.dta"
         assert r(num) == `expect'
@@ -120,12 +120,12 @@ capture noisily {
     * the median lies in [01jun2019, 01jun2021]; as arithmetic the band
     * would be [2012, 2014], i.e. 1965
     assert inrange(r(p50), mdy(6, 1, 2019), mdy(6, 1, 2021))
-    datacheck, gatesonly stat(median dt 2019-06-01 2021-06-01)
+    dataprobe, gatesonly stat(median dt 2019-06-01 2021-06-01)
     assert r(n_errors) == 0
-    capture datacheck, gatesonly stat(median dt 2021-01-01 2021-06-01)
+    capture dataprobe, gatesonly stat(median dt 2021-01-01 2021-06-01)
     assert _rc == 9
     * as arithmetic lo 2017 > hi 1977 and the call errors r(198)
-    datacheck, gatesonly coverage(dt 2019-01-01 2020-12-31, gap(60))
+    dataprobe, gatesonly coverage(dt 2019-01-01 2020-12-31, gap(60))
     assert r(n_errors) == 0
 }
 local rc = _rc
@@ -143,16 +143,16 @@ local ++tests
 capture noisily {
     _v180_dates
     capture erase "`work'/led_b03.dta"
-    capture datacheck, gatesonly inrange(mo 2020-01 .) ledger("`work'/led_b03.dta")
+    capture dataprobe, gatesonly inrange(mo 2020-01 .) ledger("`work'/led_b03.dta")
     assert _rc == 9
     _v180_obsnum "`work'/led_b03.dta"
     assert r(num) == 12
     * %tc: 01jan2020 is clock time, not 21915 milliseconds
-    capture datacheck, gatesonly inrange(tc 01jan2020 .) ledger("`work'/led_b03.dta")
+    capture dataprobe, gatesonly inrange(tc 01jan2020 .) ledger("`work'/led_b03.dta")
     assert _rc == 9
     _v180_obsnum "`work'/led_b03.dta"
     assert r(num) == 12
-    datacheck, gatesonly inrange(tc 01jan2019 31dec2020)
+    dataprobe, gatesonly inrange(tc 01jan2019 31dec2020)
     assert r(n_errors) == 0
 }
 local rc = _rc
@@ -170,13 +170,13 @@ local ++tests
 capture noisily {
     _v180_dates
     * as an expression, id would be id[1] = 1 and the gate would pass
-    capture datacheck, gatesonly inrange(id 0 dt)
+    capture dataprobe, gatesonly inrange(id 0 dt)
     assert _rc == 198
-    capture datacheck, gatesonly stat(mean id 0 dt)
+    capture dataprobe, gatesonly stat(mean id 0 dt)
     assert _rc == 198
-    datacheck, gatesonly inrange(id 1e0 24)
+    dataprobe, gatesonly inrange(id 1e0 24)
     assert r(n_errors) == 0
-    capture datacheck, gatesonly inrange(id 1e0 23)
+    capture dataprobe, gatesonly inrange(id 1e0 23)
     assert _rc == 9
 }
 local rc = _rc
@@ -194,7 +194,7 @@ local ++tests
 capture noisily {
     _v180_dates
     capture erase "`work'/led_b05.dta"
-    capture datacheck, gatesonly inrange(dt 01jan2020 .) ledger("`work'/led_b05.dta")
+    capture dataprobe, gatesonly inrange(dt 01jan2020 .) ledger("`work'/led_b05.dta")
     assert _rc == 9
     _v180_obsnum "`work'/led_b05.dta"
     local o `"`r(observed)'"'
@@ -221,7 +221,7 @@ capture noisily {
     restore
     capture log close c01
     log using "`work'/c01.log", replace text name(c01)
-    capture noisily datacheck mpg price, compare("`work'/base72.dta") maskrare nomissing
+    capture noisily dataprobe mpg price, compare("`work'/base72.dta") maskrare nomissing
     local crc = _rc
     log close c01
     assert `crc' == 9
@@ -232,7 +232,7 @@ capture noisily {
     assert strpos(`"`t'"', "baseline [suppressed]") > 0
     * without masking both counts print
     log using "`work'/c01b.log", replace text name(c01)
-    capture noisily datacheck mpg price, compare("`work'/base72.dta") nomissing
+    capture noisily dataprobe mpg price, compare("`work'/base72.dta") nomissing
     log close c01
     local t = fileread("`work'/c01b.log")
     assert strpos(`"`t'"', "N: current 74, baseline 72, delta 2") > 0
@@ -256,7 +256,7 @@ capture noisily {
     keep in 1/3
     capture log close c02
     log using "`work'/c02.log", replace text name(c02)
-    capture noisily datacheck mpg price, compare("`work'/base74.dta") maskrare nomissing
+    capture noisily dataprobe mpg price, compare("`work'/base74.dta") maskrare nomissing
     log close c02
     local t = fileread("`work'/c02.log")
     assert strpos(`"`t'"', "N: current <5, baseline [suppressed], delta [suppressed]") > 0
@@ -284,10 +284,10 @@ capture noisily {
     * oracle: group 1 has 3 rows, mean 1000, outside [5, 15]
     quietly summarize x if g == 1
     assert r(N) == 3 & r(mean) == 1000
-    capture datacheck, gatesonly groupstat(mean x, by(g) band(5 15))
+    capture dataprobe, gatesonly groupstat(mean x, by(g) band(5 15))
     assert _rc == 9
     capture erase "`work'/led_g01.dta"
-    capture datacheck, gatesonly groupstat(mean x, by(g) band(5 15)) maskrare ///
+    capture dataprobe, gatesonly groupstat(mean x, by(g) band(5 15)) maskrare ///
         ledger("`work'/led_g01.dta")
     assert _rc == 9
     preserve
@@ -299,7 +299,7 @@ capture noisily {
     assert missing(observed_num) & obs_masked == 1
     restore
     * an explicit min() leaves the small group out by choice
-    datacheck, gatesonly groupstat(mean x, by(g) band(5 15) min(5)) maskrare
+    dataprobe, gatesonly groupstat(mean x, by(g) band(5 15) min(5)) maskrare
     assert r(n_errors) == 0
 }
 local rc = _rc
@@ -317,9 +317,9 @@ local ++tests
 capture noisily {
     capture erase "`work'/led_q01.dta"
     sysuse auto, clear
-    datacheck, gatesonly isid(make) ledger("`work'/led_q01.dta", run(A)) name(cars)
-    datacheck, gatesonly isid(make) ledger("`work'/led_q01.dta", run(B)) name(trucks)
-    datacheck, gatesonly isid(make) ledger("`work'/led_q01.dta", run(B)) name(cars)
+    dataprobe, gatesonly isid(make) ledger("`work'/led_q01.dta", run(A)) name(cars)
+    dataprobe, gatesonly isid(make) ledger("`work'/led_q01.dta", run(B)) name(trucks)
+    dataprobe, gatesonly isid(make) ledger("`work'/led_q01.dta", run(B)) name(cars)
     dataqa report using "`work'/led_q01.dta", markdown("`work'/q01.md") replace
     assert r(n_rows) == 2
     local t = fileread("`work'/q01.md")
@@ -342,8 +342,8 @@ local ++tests
 capture noisily {
     capture erase "`work'/led_q02.dta"
     sysuse auto, clear
-    datacheck, gatesonly isid(make) ledger("`work'/led_q02.dta", run(U))
-    datacheck, gatesonly isid(make) maskrare mincell(3) ledger("`work'/led_q02.dta", run(L))
+    dataprobe, gatesonly isid(make) ledger("`work'/led_q02.dta", run(U))
+    dataprobe, gatesonly isid(make) maskrare mincell(3) ledger("`work'/led_q02.dta", run(L))
     capture log close q02
     log using "`work'/q02.log", replace text name(q02)
     capture noisily dataqa export using "`work'/led_q02.dta", run(U) saving("`work'/rel.dta") replace
@@ -353,7 +353,7 @@ capture noisily {
     log close q02
     assert `e1' == 459 & `e2' == 459
     * a house threshold above the mask names the low mask
-    datacheck, gatesonly isid(make) maskrare ledger("`work'/led_q02.dta", run(M))
+    dataprobe, gatesonly isid(make) maskrare ledger("`work'/led_q02.dta", run(M))
     log using "`work'/q02b.log", replace text name(q02)
     capture noisily dataqa export using "`work'/led_q02.dta", run(M) saving("`work'/rel.dta") replace threshold(10)
     local e3 = _rc
@@ -394,7 +394,7 @@ capture noisily {
         drop u
         set sortseed `s'
         capture erase "`work'/led_j01.dta"
-        datacheck, gatesonly jumps(id t v) ledger("`work'/led_j01.dta")
+        dataprobe, gatesonly jumps(id t v) ledger("`work'/led_j01.dta")
         _v180_obsnum "`work'/led_j01.dta"
         local seen "`seen' `r(num)'"
     }
@@ -419,7 +419,7 @@ local ++tests
 capture noisily {
     _v180_rows "1 1 10 | 1 2 . | 1 3 1000 | 2 1 5 | 2 . 500 | 2 2 6"
     capture erase "`work'/led_j02.dta"
-    datacheck, gatesonly jumps(id t v) ledger("`work'/led_j02.dta")
+    dataprobe, gatesonly jumps(id t v) ledger("`work'/led_j02.dta")
     _v180_obsnum "`work'/led_j02.dta"
     * oracle: 10 -> 1000 once the missing value is skipped; id 2's row with
     * a missing time is not a measure, so 5 -> 6 only
@@ -427,7 +427,7 @@ capture noisily {
     use "`work'/led_j02.dta", clear
     assert strpos(message[1], "same-time") == 0
     _v180_rows "1 1 10 | 1 1 10"
-    datacheck, gatesonly jumps(id t v) ledger("`work'/led_j02.dta")
+    dataprobe, gatesonly jumps(id t v) ledger("`work'/led_j02.dta")
     use "`work'/led_j02.dta", clear
     assert strpos(message[_N], "same-time measures in 1 persons ordered by value") > 0
 }
@@ -450,11 +450,11 @@ capture noisily {
     generate y = _n
     capture log close z01
     log using "`work'/z01.log", replace text name(z01)
-    datacheck x y, maskrare nomissing
+    dataprobe x y, maskrare nomissing
     datamvp x y, maskrare nodrop
     log close z01
     local t = fileread("`work'/z01.log")
-    * datacheck header: 0 complete cases of 3 rows
+    * dataprobe header: 0 complete cases of 3 rows
     assert strpos(`"`t'"', "(complete cases: 0 = 0.0%)") > 0
     assert strpos(`"`t'"', "all but") == 0
     * datamvp summary and variable table: y has 0 missing, x has 3
@@ -479,7 +479,7 @@ local ++tests
 capture noisily {
     sysuse auto, clear
     capture erase "`work'/a, b.dta"
-    datacheck, gatesonly isid(make) ledger("`work'/a, b.dta", run(A))
+    dataprobe, gatesonly isid(make) ledger("`work'/a, b.dta", run(A))
     confirm file "`work'/a, b.dta"
     preserve
     use "`work'/a, b.dta", clear
@@ -487,7 +487,7 @@ capture noisily {
     restore
     capture log close l01
     log using "`work'/l01.log", replace text name(l01)
-    capture noisily datacheck, gatesonly isid(make) ledger("`work'/l01.dta, run(A)")
+    capture noisily dataprobe, gatesonly isid(make) ledger("`work'/l01.dta, run(A)")
     local lrc = _rc
     log close l01
     assert `lrc' == 198
@@ -506,7 +506,7 @@ else {
     display as result "PASS: L01 ledger() quoting"
 }
 
-**## L02 dataqa set refuses datacheck's ledger(file, run()) form
+**## L02 dataqa set refuses dataprobe's ledger(file, run()) form
 local ++tests
 capture noisily {
     macro drop DATAMAP_DQ
@@ -536,10 +536,10 @@ capture noisily {
     preserve
     keep in 1/3
     * 3 rows: n_scope and the mean are withheld under the mask
-    datacheck, gatesonly isid(make) stat(mean price 0 100000) maskrare ///
+    dataprobe, gatesonly isid(make) stat(mean price 0 100000) maskrare ///
         name(cars) ledger("`work'/led_c03.dta", run(B0))
     restore
-    datacheck, gatesonly isid(make) stat(mean price 0 100000) maskrare ///
+    dataprobe, gatesonly isid(make) stat(mean price 0 100000) maskrare ///
         name(cars) ledger("`work'/led_c03.dta", run(R1))
     capture log close c03
     log using "`work'/c03.log", replace text name(c03)
@@ -570,8 +570,8 @@ local ++tests
 capture noisily {
     capture erase "`work'/led_c04.dta"
     sysuse auto, clear
-    datacheck, gatesonly isid(make) name(cars) ledger("`work'/led_c04.dta", run(B0))
-    datacheck, gatesonly isid(make) name(cars) ledger("`work'/led_c04.dta", run(R1))
+    dataprobe, gatesonly isid(make) name(cars) ledger("`work'/led_c04.dta", run(B0))
+    dataprobe, gatesonly isid(make) name(cars) ledger("`work'/led_c04.dta", run(R1))
     * a ledger edited or written elsewhere: the baseline N is 0
     preserve
     use "`work'/led_c04.dta", clear

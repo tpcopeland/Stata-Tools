@@ -1,5 +1,5 @@
 *! test_datamap_v182.do Version 1.0.0  2026/10/01
-*! Regressions for 1.8.2: datacheck by() groupwise counts from one pass,
+*! Regressions for 1.8.2: dataprobe by() groupwise counts from one pass,
 *! deterministic frequency-table and pattern-graph ties, datadict reuse of
 *! classifier counts with gated percentiles, datamvp correlate on weighted
 *! patterns, legacy globals and saving() notes kept literally
@@ -82,7 +82,7 @@ end
 **# B01 GROUPWISE MISSINGNESS and SUMMARY match count-loop oracles
 
 * Oracle: one -count if- per group and variable on the fixture, the route
-* datacheck took before 1.8.2.
+* dataprobe took before 1.8.2.
 capture noisily {
     _v182_groups
     tempvar g
@@ -118,7 +118,7 @@ capture noisily {
     assert `exp_m' == 5
     local f "`work'/b01.log"
     log using "`f'", replace text name(b01)
-    datacheck x s sl z, by(site) exclude(z)
+    dataprobe x s sl z, by(site) exclude(z)
     * log close clears r(): read the returns first
     local gmv "`r(group_missing_vars)'"
     local ngmv = r(n_group_missing_vars)
@@ -166,7 +166,7 @@ capture noisily {
     _v182_groups
     local f "`work'/b02.log"
     log using "`f'", replace text name(b02)
-    datacheck z, by(site) exclude(z)
+    dataprobe z, by(site) exclude(z)
     local ngmv = r(n_group_missing_vars)
     log close b02
     assert `ngmv' == 0
@@ -200,7 +200,7 @@ capture noisily {
     local fr0 "`r(frames)'"
     datasignature
     local sig0 "`r(datasignature)'"
-    quietly datacheck x s sl z, by(site) exclude(z) maskrare mincell(3)
+    quietly dataprobe x s sl z, by(site) exclude(z) maskrare mincell(3)
     quietly frames dir
     assert "`r(frames)'" == "`fr0'"
     datasignature
@@ -243,7 +243,7 @@ capture noisily {
         drop _u
         local f "`work'/t01_`seed'.log"
         log using "`f'", replace text name(t01)
-        datacheck lev, maxfreq(20)
+        dataprobe lev, maxfreq(20)
         log close t01
         tempname fh
         local got ""
@@ -481,7 +481,7 @@ else {
 
 **# S01 the caller's S_1, S_FN, and S_FNDATE come back byte for byte
 
-* datamap, datadict, and datacheck save these legacy globals and put them
+* datamap, datadict, and dataprobe save these legacy globals and put them
 * back on exit.  The put-back was a one-line -if- around -global-, which
 * expands its command a second time: a value holding $name or `name' came
 * back rewritten (here "$V182G" became "G182" and `vname' became "").  On
@@ -500,9 +500,9 @@ capture noisily {
     local c2 "datamap, output(`work'/s01|bad.txt) format(json)"
     local c3 "datadict, single(`s01dta') output(`work'/s01.md)"
     local c4 "datadict, single(`work'/s01_none) output(`work'/s01_b.md)"
-    local c5 "datacheck price mpg"
-    local c6 "datacheck price, expectn(1)"
-    local c7 "datacheck s01_no_such_var"
+    local c5 "dataprobe price mpg"
+    local c6 "dataprobe price, expectn(1)"
+    local c7 "dataprobe s01_no_such_var"
     local c8 "datamvp rep78 price, notable"
     local c9 "datamvp s01_no_such_var"
     forvalues k = 1/9 {
@@ -540,7 +540,7 @@ else {
 
 * _datamap_post_metadata_rows built the first note and characteristic with a
 * one-line -if-, so $name and `name' in them were expanded: `vname' became the
-* variable's own name in the datamap and datacheck saving() rows.
+* variable's own name in the datamap and dataprobe saving() rows.
 global V182G "G182"
 capture noisily {
     sysuse auto, clear
@@ -551,7 +551,7 @@ capture noisily {
     quietly save "`s02dta'", replace
     quietly datamap, single("`s02dta'") output("`work'/s02.txt") saving("`work'/s02_dm.dta", replace)
     use "`s02dta'", clear
-    quietly datacheck price mpg, saving("`work'/s02_dc.dta", replace)
+    quietly dataprobe price mpg, saving("`work'/s02_dc.dta", replace)
     foreach m in s02_dm s02_dc {
         use "`work'/`m'.dta", clear
         quietly keep if variable == "price"

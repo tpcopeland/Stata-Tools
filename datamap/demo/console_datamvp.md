@@ -4,7 +4,7 @@ title: "console_datamvp"
 
 ## Missing-value pattern table
 
-<!-- * datamvp (datacheck's patterns engine) tabulates which variables are jointly -->
+<!-- * datamvp (dataprobe's patterns engine) tabulates which variables are jointly -->
 
 <!-- * missing. The biomarker dataset has nested missingness (x1 absent after obs 60, -->
 

@@ -89,8 +89,8 @@ quietly set obs 200
 generate double y = runiform()
 local S1 "`W'/spec1.dta"
 capture erase "`S1'"
-quietly datacheck y, makespec("`S1'", replace)
-capture noisily datacheck y, checks("`S1'") gatesonly
+quietly dataprobe y, makespec("`S1'", replace)
+capture noisily dataprobe y, checks("`S1'") gatesonly
 _cv `=_rc' "F1 a makespec() spec passes checks() on its own data"
 * the spec bound is the observed extreme, not a rounded neighbour
 preserve
@@ -105,7 +105,7 @@ _cv `=!(real("`a2'") == scalar(`ymax'))' "F1 the spec upper bound reads back as 
 * a value one ulp above the bound still fails: the gate is not loosened
 preserve
 quietly replace y = scalar(`ymax') + epsdouble() * scalar(`ymax') in 1
-capture noisily datacheck y, checks("`S1'") gatesonly
+capture noisily dataprobe y, checks("`S1'") gatesonly
 local rcx = _rc
 restore
 _cv `=!(`rcx' == 9)' "F1 positive control: a value one ulp above the spec max fails (rc 9)"
@@ -114,24 +114,24 @@ _cv `=!(`rcx' == 9)' "F1 positive control: a value one ulp above the spec max fa
 clear
 quietly set obs 5
 generate double y = 0.1 + 0.2
-capture noisily datacheck y, gatesonly inrange(y 0 .30000000000000004)
+capture noisily dataprobe y, gatesonly inrange(y 0 .30000000000000004)
 _cv `=_rc' "F1 inrange() keeps a 17-digit upper bound exactly"
-capture noisily datacheck y, gatesonly inrange(y 0 .3)
+capture noisily dataprobe y, gatesonly inrange(y 0 .3)
 _cv `=!(_rc == 9)' "F1 positive control: inrange(y 0 .3) fails for y = .1 + .2"
-capture noisily datacheck y, gatesonly inrange(y .30000000000000004 1)
+capture noisily dataprobe y, gatesonly inrange(y .30000000000000004 1)
 _cv `=_rc' "F1 inrange() keeps a 17-digit lower bound exactly"
 * .3 sits one ulp below that lower bound: a bound rounded to .3 would pass it
 generate double y3 = .3
-capture noisily datacheck y3, gatesonly inrange(y3 .30000000000000004 1)
+capture noisily dataprobe y3, gatesonly inrange(y3 .30000000000000004 1)
 _cv `=!(_rc == 9)' "F1 .3 fails a lower bound of .30000000000000004 (not rounded to .3)"
-capture noisily datacheck y, gatesonly stat(mean y 0 .30000000000000004)
+capture noisily dataprobe y, gatesonly stat(mean y 0 .30000000000000004)
 _cv `=_rc' "F1 stat() keeps a 17-digit upper bound exactly"
-capture noisily datacheck y, gatesonly stat(mean y 0 .3)
+capture noisily dataprobe y, gatesonly stat(mean y 0 .3)
 _cv `=!(_rc == 9)' "F1 positive control: stat(mean y 0 .3) fails for y = .1 + .2"
 * the violation text still shows the bounds as the user wrote them
 local L1 "`W'/led1.dta"
 capture erase "`L1'"
-capture noisily datacheck y, gatesonly inrange(y 0 .1) ledger("`L1'", run(f1))
+capture noisily dataprobe y, gatesonly inrange(y 0 .1) ledger("`L1'", run(f1))
 preserve
 quietly use "`L1'", clear
 quietly keep if family == "inrange"
@@ -148,7 +148,7 @@ quietly set obs 60
 generate g = cond(_n <= 30, 1, 2)
 generate x = cond(_n <= 30 & _n > 1, ., _n)
 log using "`W'/f2a.log", text replace name(_v3)
-capture noisily datacheck x, maskrare gatesonly groupstat(pmiss x, by(g))
+capture noisily dataprobe x, maskrare gatesonly groupstat(pmiss x, by(g))
 log close _v3
 _v3_row "`W'/f2a.log" "1"
 local r1 `"`r(row)'"'
@@ -160,7 +160,7 @@ _cv `=!(`n9667' == 0 & strpos(`"`r1'"', "[suppr.]"))' ///
     "F2 pmiss .9667 (1 nonmissing of 30) is masked under maskrare"
 _cv `=!(`npool' == 0)' "F2 the pooled pmiss beside a masked group is withheld"
 log using "`W'/f2b.log", text replace name(_v3)
-capture noisily datacheck x, gatesonly groupstat(pmiss x, by(g))
+capture noisily dataprobe x, gatesonly groupstat(pmiss x, by(g))
 log close _v3
 _v3_count "`W'/f2b.log" ".9667"
 local c1 = r(n)
@@ -174,27 +174,27 @@ generate g = cond(_n <= 30, 1, 2)
 generate x = cond(_n == 1, ., _n)
 generate z = 1
 log using "`W'/f2c.log", text replace name(_v3)
-capture noisily datacheck z x, by(g) maskrare groupstat(n x, by(g))
+capture noisily dataprobe z x, by(g) maskrare groupstat(n x, by(g))
 log close _v3
 _v3_row "`W'/f2c.log" "1"
 local r1 `"`r(row)'"'
 _cv `=!(!regexm(`"`r1'"', " 29$") & strpos(`"`r1'"', "[suppr.]"))' ///
     "F2 n x = 29 of 30 rows is masked as a complement cell"
 log using "`W'/f2d.log", text replace name(_v3)
-capture noisily datacheck x, gatesonly groupstat(n x, by(g))
+capture noisily dataprobe x, gatesonly groupstat(n x, by(g))
 log close _v3
 _v3_row "`W'/f2d.log" "1"
 _cv `=!regexm(`"`r(row)'"', " 29$")' "F2 positive control: unmasked, n x prints 29"
 * distinct is a count too: 29 distinct values among 30 rows
 log using "`W'/f2e.log", text replace name(_v3)
-capture noisily datacheck x, maskrare gatesonly groupstat(distinct x, by(g))
+capture noisily dataprobe x, maskrare gatesonly groupstat(distinct x, by(g))
 log close _v3
 _v3_row "`W'/f2e.log" "1"
 _cv `=!(!regexm(`"`r(row)'"', " 29$") & strpos(`"`r(row)'"', "[suppr.]"))' ///
     "F2 distinct x = 29 of 30 rows is masked as a complement cell"
 * the multi-statistic table keeps its columns apart
 log using "`W'/f2f.log", text replace name(_v3)
-capture noisily datacheck x, maskrare gatesonly groupstat(sum n: x, by(g))
+capture noisily dataprobe x, maskrare gatesonly groupstat(sum n: x, by(g))
 log close _v3
 _v3_row "`W'/f2f.log" "1"
 local r1 `"`r(row)'"'
@@ -300,7 +300,7 @@ _cv `=!(`nraw' == 1 & r(n) == 0)' ///
 sysuse auto, clear
 local L4 "`W'/led4.dta"
 capture erase "`L4'"
-quietly datacheck price mpg, gatesonly isid(make) ledger("`L4'", run(r1))
+quietly dataprobe price mpg, gatesonly isid(make) ledger("`L4'", run(r1))
 capture noisily dataqa assert using "`L4'", run(r1)
 _cv `=_rc' "F4 positive control: an untouched ledger passes assert"
 preserve
@@ -349,9 +349,9 @@ _cv `=!(`ok6' == 1 & r(n) == 0)' "F6 %th and %ty are not mixed in the date span"
 tempfile led7
 quietly dataqa set ledger("`led7'") run(A)
 sysuse auto, clear
-quietly datacheck, gatesonly isid(make) name(b c)
+quietly dataprobe, gatesonly isid(make) name(b c)
 quietly dataqa set ledger("`led7'") run(B) baseline(A)
-quietly datacheck, gatesonly isid(make) name(b c)
+quietly dataprobe, gatesonly isid(make) name(b c)
 capture noisily dataqa assert, run(B)
 local rc7 = _rc
 macro drop DATAMAP_DQ
@@ -359,9 +359,9 @@ _cv `rc7' "F7 a baseline dataset named 'b c' present in both runs passes assert"
 * the dataset really is absent: still caught
 tempfile led7b
 quietly dataqa set ledger("`led7b'") run(A)
-quietly datacheck, gatesonly isid(make) name(b c)
+quietly dataprobe, gatesonly isid(make) name(b c)
 quietly dataqa set ledger("`led7b'") run(B) baseline(A)
-quietly datacheck, gatesonly isid(make) name(d e)
+quietly dataprobe, gatesonly isid(make) name(d e)
 capture noisily dataqa assert, run(B)
 local rc7b = _rc
 macro drop DATAMAP_DQ

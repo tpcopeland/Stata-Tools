@@ -24,8 +24,8 @@ local quick_suites ///
     test_datamap.do ///
     test_datamap_errors.do ///
     test_datadict_v14.do ///
-    test_datacheck.do ///
-    test_datacheck_gates.do ///
+    test_dataprobe.do ///
+    test_dataprobe_gates.do ///
     test_dataqa.do ///
     test_datamvp.do ///
     test_regressions.do ///
@@ -36,23 +36,23 @@ local quick_suites ///
     test_datamap_v171.do ///
     test_datamap_v180.do ///
     test_datamap_v182.do ///
-    test_datacheck_v190_groupstat.do ///
-    test_datacheck_v190_coverage.do ///
+    test_dataprobe_v190_groupstat.do ///
+    test_dataprobe_v190_coverage.do ///
     test_dataqa_v190.do ///
     test_dataqa_v190_collect.do ///
-    test_datacheck_v190_byrule.do ///
-    test_datacheck_v190_smallcells.do ///
+    test_dataprobe_v190_byrule.do ///
+    test_dataprobe_v190_smallcells.do ///
     test_dataqa_v190_defaults.do ///
-    test_datacheck_v190_groupfreq.do ///
+    test_dataprobe_v190_groupfreq.do ///
     test_dataqa_v190_groupkeys.do ///
-    test_datacheck_v190_hostile.do ///
+    test_dataprobe_v190_hostile.do ///
     test_datamap_v190_review.do ///
     test_datamap_quoting_linebreaks.do ///
     test_datamap_v193.do
 
 local core_suites ///
     validation_datamap_precision.do validation_dataqa_writer_precision.do ///
-    validation_datamap_fixture_contract.do validation_datamap_fixture_primitives.do test_datamap_fixture_domains.do test_datamap_fixture_option_strings.do test_datamvp_fixture_groupgap.do test_datamvp_fixture_reshape_state.do test_datamap_fixture_files.do test_datacheck_fixture_ledger_quotes.do validation_datadict_fixture_contract.do validation_dataqa_fixture_contract.do test_dataqa_fixture_state.do test_datamvp_fixture_state.do ///
+    validation_datamap_fixture_contract.do validation_datamap_fixture_primitives.do test_datamap_fixture_domains.do test_datamap_fixture_option_strings.do test_datamvp_fixture_groupgap.do test_datamvp_fixture_reshape_state.do test_datamap_fixture_files.do test_dataprobe_fixture_ledger_quotes.do validation_datadict_fixture_contract.do validation_dataqa_fixture_contract.do test_dataqa_fixture_state.do test_datamvp_fixture_state.do ///
     `quick_suites' ///
     test_datamap_bugfixes.do ///
     test_datamap_paths.do ///

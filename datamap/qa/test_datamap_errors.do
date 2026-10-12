@@ -52,7 +52,7 @@ _dme_record `block_rc' "datamvp rejects minfreq(0) without changing data; minfre
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
-**# datacheck mid-path empty-sample error after preserve
+**# dataprobe mid-path empty-sample error after preserve
 
 local ++test_count
 capture noisily {
@@ -63,20 +63,20 @@ capture noisily {
     generate double value = 10 + _n
     generate byte marker = 74
 
-    capture noisily datacheck value if id < 0
+    capture noisily dataprobe value if id < 0
     local call_rc = _rc
     assert `call_rc' == 2000
     assert _N == 4
     assert marker == 74
     assert value == 10 + _n
 
-    capture noisily datacheck value
+    capture noisily dataprobe value
     local legal_rc = _rc
     assert `legal_rc' == 0
     assert r(N) == 4
 }
 local block_rc = _rc
-_dme_record `block_rc' "datacheck rejects an empty if-sample atomically; nonempty input works"
+_dme_record `block_rc' "dataprobe rejects an empty if-sample atomically; nonempty input works"
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 

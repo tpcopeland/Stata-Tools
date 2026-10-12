@@ -4,7 +4,7 @@
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[R] summarize" "help summarize"}{...}
 {vieweralsosee "datadict" "help datadict"}{...}
-{vieweralsosee "datacheck" "help datacheck"}{...}
+{vieweralsosee "dataprobe" "help dataprobe"}{...}
 {vieweralsosee "dataqa" "help dataqa"}{...}
 {vieweralsosee "datamvp" "help datamvp"}{...}
 {viewerjumpto "Package commands" "datamap##commands"}{...}
@@ -32,8 +32,8 @@ installs:
 
 {p2colset 5 18 20 2}{...}
 {p2col:{helpb datadict}}Markdown data dictionaries from Stata datasets{p_end}
-{p2col:{helpb datacheck}}console QC profiling and expectation gates{p_end}
-{p2col:{helpb dataqa}}session defaults and a QA ledger over {cmd:datacheck}{p_end}
+{p2col:{helpb dataprobe}}console QC profiling and expectation gates{p_end}
+{p2col:{helpb dataqa}}session defaults and a QA ledger over {cmd:dataprobe}{p_end}
 {p2col:{helpb datamvp}}missing-value pattern analysis{p_end}
 {p2colreset}{...}
 
@@ -130,9 +130,9 @@ observations are exported unless you explicitly request sample rows with
 
 {pstd}
 The package has four more commands: {help datadict} writes a Markdown data
-dictionary, {help datacheck} profiles a dataset in the console and gates on
+dictionary, {help dataprobe} profiles a dataset in the console and gates on
 declared expectations, {help dataqa} keeps a structured QA ledger over
-{cmd:datacheck} gate calls, and {help datamvp} tabulates missing-value
+{cmd:dataprobe} gate calls, and {help datamvp} tabulates missing-value
 patterns.
 
 {pstd}
@@ -235,7 +235,7 @@ appending. {opt append} is not allowed with {cmd:format(json)}.
 {phang}
 {opt sav:ing(filename[, replace])} writes a common Stata metadata dataset with
 one row per source variable. The schema is shared with {help datadict} and
-{help datacheck}: it includes source command, source path, output path, dataset
+{help dataprobe}: it includes source command, source path, output path, dataset
 name and label, variable name, storage type, display format, value label, class,
 N, source variable count, missing count and percent, unique count, labels,
 notes, characteristics, numeric summaries, and Stata datasignature when
@@ -687,7 +687,7 @@ Combine multiple privacy and content options:{p_end}
 {title:Also see}
 
 {psee}
-{help datadict}, {help datacheck}, {help dataqa}, {help datamvp},
+{help datadict}, {help dataprobe}, {help dataqa}, {help datamvp},
 {manlink D describe}, {manlink D codebook}, {manlink R summarize}
 {p_end}
 

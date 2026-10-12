@@ -339,7 +339,7 @@ clear
 set obs 3
 gen caller = 42
 set varabbrev on
-datacheck, single("`work'/groups.dta") by(site) expectn(2) warn
+dataprobe, single("`work'/groups.dta") by(site) expectn(2) warn
 assert r(n_groups) == 2 & r(n_failed) == 0
 assert c(varabbrev) == "on"
 assert _N == 3 & caller == 42
@@ -370,7 +370,7 @@ clear
 set obs 3
 gen caller = 42
 set varabbrev on
-datacheck, single("`work'/groups.dta") over(site) expectn(2) warn
+dataprobe, single("`work'/groups.dta") over(site) expectn(2) warn
 assert r(n_groups) == 2 & r(n_failed) == 0
 assert c(varabbrev) == "on"
 assert _N == 3 & caller == 42
@@ -452,7 +452,7 @@ capture noisily {
 clear
 set obs 6
 gen __f = mod(_n, 2)
-datacheck __f,
+dataprobe __f,
 assert r(N) == 6 & r(n_categorical) == 1
 
 assert __f == mod(_n, 2)
@@ -477,7 +477,7 @@ capture noisily {
 clear
 set obs 6
 gen __f = mod(_n, 2)
-datacheck __f, rare(4)
+dataprobe __f, rare(4)
 assert r(N) == 6 & r(n_categorical) == 1
 assert r(n_rare_vars) == 1
 assert __f == mod(_n, 2)
@@ -506,11 +506,11 @@ file open cfg using "`work'/flags.cfg", write text replace
 file write cfg "gatesonly = yes" _n
 file close cfg
 log using "`work'/cfg.txt", name(cfglog) replace text
-noisily datacheck, config("`work'/flags.cfg")
+noisily dataprobe, config("`work'/flags.cfg")
 assert r(gatesonly) == 1
 log close cfglog
 log using "`work'/direct.txt", name(directlog) replace text
-noisily datacheck, gatesonly
+noisily dataprobe, gatesonly
 assert r(gatesonly) == 1
 log close directlog
 * Compare only profile/gate display, excluding command and log headers.
@@ -521,7 +521,7 @@ local dirbody ""
 local copying = 0
 file read cr line
 while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "datacheck:") == 1 local copying = 1
+    if strpos(`"`macval(line)'"', "dataprobe:") == 1 local copying = 1
     if substr(`"`macval(line)'"', 1, 2) == ". " local copying = 0
     if `copying' local cfgbody `"`macval(cfgbody)'`macval(line)'"'
     file read cr line
@@ -529,7 +529,7 @@ while r(eof) == 0 {
 local copying = 0
 file read dr line
 while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "datacheck:") == 1 local copying = 1
+    if strpos(`"`macval(line)'"', "dataprobe:") == 1 local copying = 1
     if substr(`"`macval(line)'"', 1, 2) == ". " local copying = 0
     if `copying' local dirbody `"`macval(dirbody)'`macval(line)'"'
     file read dr line
@@ -563,11 +563,11 @@ file open cfg using "`work'/flags.cfg", write text replace
 file write cfg "onlyflagged = yes" _n
 file close cfg
 log using "`work'/cfg.txt", name(cfglog) replace text
-noisily datacheck, config("`work'/flags.cfg")
+noisily dataprobe, config("`work'/flags.cfg")
 assert r(onlyflagged) == 1
 log close cfglog
 log using "`work'/direct.txt", name(directlog) replace text
-noisily datacheck, onlyflagged
+noisily dataprobe, onlyflagged
 assert r(onlyflagged) == 1
 log close directlog
 * Compare only profile/gate display, excluding command and log headers.
@@ -578,7 +578,7 @@ local dirbody ""
 local copying = 0
 file read cr line
 while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "datacheck:") == 1 local copying = 1
+    if strpos(`"`macval(line)'"', "dataprobe:") == 1 local copying = 1
     if substr(`"`macval(line)'"', 1, 2) == ". " local copying = 0
     if `copying' local cfgbody `"`macval(cfgbody)'`macval(line)'"'
     file read cr line
@@ -586,7 +586,7 @@ while r(eof) == 0 {
 local copying = 0
 file read dr line
 while r(eof) == 0 {
-    if strpos(`"`macval(line)'"', "datacheck:") == 1 local copying = 1
+    if strpos(`"`macval(line)'"', "dataprobe:") == 1 local copying = 1
     if substr(`"`macval(line)'"', 1, 2) == ". " local copying = 0
     if `copying' local dirbody `"`macval(dirbody)'`macval(line)'"'
     file read dr line
@@ -753,7 +753,7 @@ else {
     display as result "PASS: datadict fingerprint error"
 }
 
-**## Caller fingerprint datacheck success
+**## Caller fingerprint dataprobe success
 local ++tests
 capture noisily {
     clear
@@ -766,20 +766,20 @@ capture noisily {
     char _dta[user] "untouched"
     set varabbrev on
     qa_state_snapshot, tag(state) rreturn
-    datacheck x
+    dataprobe x
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datacheck fingerprint success (rc=`rc')"
+    display as error "FAIL: dataprobe fingerprint success (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datacheck fingerprint success"
+    display as result "PASS: dataprobe fingerprint success"
 }
 
-**## Caller fingerprint datacheck error
+**## Caller fingerprint dataprobe error
 local ++tests
 capture noisily {
     clear
@@ -792,18 +792,18 @@ capture noisily {
     char _dta[user] "untouched"
     set varabbrev on
     qa_state_snapshot, tag(state) rreturn
-    capture datacheck, unknownoption
+    capture dataprobe, unknownoption
     assert _rc == 198
     qa_state_compare, tag(state) allow(r)
 }
 local rc = _rc
 if `rc' {
     local ++fail
-    display as error "FAIL: datacheck fingerprint error (rc=`rc')"
+    display as error "FAIL: dataprobe fingerprint error (rc=`rc')"
 }
 else {
     local ++pass
-    display as result "PASS: datacheck fingerprint error"
+    display as result "PASS: dataprobe fingerprint error"
 }
 
 **## Caller fingerprint datamvp success

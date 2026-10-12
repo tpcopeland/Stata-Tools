@@ -198,7 +198,7 @@ else {
     display as result "PASS: datadict exact numeric metadata double cells"
 }
 
-**# datacheck dataqa valid masked numeric ledger transport
+**# dataprobe dataqa valid masked numeric ledger transport
 local ++tests
 capture noisily {
     qa_fx_a7_labelled, clear seed(37)
@@ -228,7 +228,7 @@ capture noisily {
     expand 5
     assert _N==20
     tempfile ledger exported
-    quietly datacheck, gatesonly maskrare mincell(5) stat(mean x 0 3 \ sum tiny 0 1 \ sd nearone 0 1) ledger("`ledger'", run(precision)) name(precise)
+    quietly dataprobe, gatesonly maskrare mincell(5) stat(mean x 0 3 \ sum tiny 0 1 \ sd nearone 0 1) ledger("`ledger'", run(precision)) name(precise)
     * Three stat entries belong to one evaluated gate family.
     assert r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0
     quietly dataqa export using "`ledger'", run(precision) saving("`exported'") threshold(5)
@@ -252,11 +252,11 @@ capture noisily {
 }
 if _rc {
     local ++fail
-    display as error "FAIL: datacheck dataqa valid masked numeric ledger transport; rc=" _rc
+    display as error "FAIL: dataprobe dataqa valid masked numeric ledger transport; rc=" _rc
 }
 else {
     local ++pass
-    display as result "PASS: datacheck dataqa valid masked numeric ledger transport"
+    display as result "PASS: dataprobe dataqa valid masked numeric ledger transport"
 }
 
 **# datamvp nonterminating missingness counts

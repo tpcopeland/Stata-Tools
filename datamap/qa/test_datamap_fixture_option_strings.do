@@ -58,7 +58,7 @@ capture noisily {
     local ledgerB `"`root'/ledger_B.dta"'
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(ledger_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) ledger("@v@")) inside(`""`ledgerA'" "`ledgerB'""') outside(`""`root'/absent/ledger.dta""') check(_dm_ledger_check)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) ledger("@v@")) inside(`""`ledgerA'" "`ledgerB'""') outside(`""`root'/absent/ledger.dta""') check(_dm_ledger_check)
     assert r(n_cells)==3 & r(n_violations)==0
     qa_state_compare, tag(ledger_domain)
 }

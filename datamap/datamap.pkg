@@ -9,8 +9,8 @@ d
 d The package includes five commands:
 d - datamap: Generate privacy-safe dataset documentation (text or JSON)
 d - datadict: Generate Markdown data dictionaries
-d - datacheck: Console QC profiling and expectation gates
-d - dataqa: Session defaults and a structured QA ledger over datacheck
+d - dataprobe: Console QC profiling and expectation gates
+d - dataqa: Session defaults and a structured QA ledger over dataprobe
 d - datamvp: Missing-value pattern analysis (fork of mvpatterns)
 d
 d Requires: Stata version 16
@@ -29,8 +29,8 @@ f datamap.ado
 f datamap.sthlp
 f datadict.ado
 f datadict.sthlp
-f datacheck.ado
-f datacheck.sthlp
+f dataprobe.ado
+f dataprobe.sthlp
 f datamvp.ado
 f datamvp.sthlp
 f dataqa.ado
@@ -47,25 +47,25 @@ f _datamap_validate_path.ado
 f _datamap_version.ado
 f _datamap_dqdefaults.ado
 f _datamap_missby.ado
-f _datacheck_mcount.ado
-f _datacheck_mshare.ado
-f _datacheck_statval.ado
-f _datacheck_events.ado
-f _datacheck_intervals.ado
-f _datacheck_keyset.ado
-f _datacheck_constant.ado
-f _datacheck_sets.ado
-f _datacheck_smallcells.ado
-f _datacheck_jumps.ado
-f _datacheck_byrule.ado
-f _datacheck_coverage.ado
-f _datacheck_heaping.ado
-f _datacheck_complete.ado
-f _datacheck_groupstat.ado
-f _datacheck_bandsparse.ado
-f _datacheck_errrow.ado
-f _datacheck_ledger.ado
-f _datacheck_qshow.ado
-f _datacheck_bound.ado
-f _datacheck_groupmiss.ado
-f _datacheck_gtext.ado
+f _dataprobe_mcount.ado
+f _dataprobe_mshare.ado
+f _dataprobe_statval.ado
+f _dataprobe_events.ado
+f _dataprobe_intervals.ado
+f _dataprobe_keyset.ado
+f _dataprobe_constant.ado
+f _dataprobe_sets.ado
+f _dataprobe_smallcells.ado
+f _dataprobe_jumps.ado
+f _dataprobe_byrule.ado
+f _dataprobe_coverage.ado
+f _dataprobe_heaping.ado
+f _dataprobe_complete.ado
+f _dataprobe_groupstat.ado
+f _dataprobe_bandsparse.ado
+f _dataprobe_errrow.ado
+f _dataprobe_ledger.ado
+f _dataprobe_qshow.ado
+f _dataprobe_bound.ado
+f _dataprobe_groupmiss.ado
+f _dataprobe_gtext.ado

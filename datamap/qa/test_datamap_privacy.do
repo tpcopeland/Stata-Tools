@@ -284,10 +284,10 @@ capture noisily {
     _priv_mfix
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    capture noisily datacheck, gatesonly rule("r3": !r3) maskrare mincell(5) violations(pm_v, replace)
+    capture noisily dataprobe, gatesonly rule("r3": !r3) maskrare mincell(5) violations(pm_v, replace)
     local rc1 = _rc
-    capture noisily datacheck, gatesonly rule("r7": !r7) maskrare mincell(5) warn
-    capture noisily datacheck, gatesonly rule("r3u": !r3) warn
+    capture noisily dataprobe, gatesonly rule("r7": !r7) maskrare mincell(5) warn
+    capture noisily dataprobe, gatesonly rule("r3u": !r3) warn
     log close _pm
     assert `rc1' == 9
     _priv_count using "`mlog'", needle("rule(r3): <5 obs fail")
@@ -318,8 +318,8 @@ capture noisily {
     replace id = 1 in 2/3
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    capture noisily datacheck, gatesonly isid(id) maskrare violations(pm_v, replace)
-    capture noisily datacheck, gatesonly isid(id) warn
+    capture noisily dataprobe, gatesonly isid(id) maskrare violations(pm_v, replace)
+    capture noisily dataprobe, gatesonly isid(id) warn
     log close _pm
     _priv_count using "`mlog'", needle("isid(id): not unique — <5 duplicated rows")
     assert r(n) == 1
@@ -344,7 +344,7 @@ local ++test_count
 capture noisily {
     _priv_mfix
     replace x = . in 1/2
-    capture datacheck, gatesonly inrange(id 4 40) allowed(sex 1 2) forbid(sex 9) ///
+    capture dataprobe, gatesonly inrange(id 4 40) allowed(sex 1 2) forbid(sex 9) ///
         notvalues(sex 9) regex(code "^[A-Z][0-9]+$") notmissing(x) binary(flag) ///
         nodups maskrare warn violations(pm_v, replace)
     assert r(n_violations) == 7
@@ -356,7 +356,7 @@ capture noisily {
     assert r(N) == 7
     frame pm_v: count if gate == "binary" & observed == "only 1 observed (<5 missing)"
     assert r(N) == 1
-    capture datacheck, gatesonly by(grp) expectn(40) maskrare warn violations(pm_v, replace)
+    capture dataprobe, gatesonly by(grp) expectn(40) maskrare warn violations(pm_v, replace)
     frame pm_v: count if observed == "<5"
     assert r(N) == 1
 }
@@ -378,7 +378,7 @@ capture noisily {
     gen double y = cond(_n <= 38, ., 1)
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    datacheck x y grp, by(grp) maskrare
+    dataprobe x y grp, by(grp) maskrare
     local pmk = r(masked)
     log close _pm
     assert `pmk' == 1
@@ -419,7 +419,7 @@ capture noisily {
     gen byte j = cond(_n <= 3, 1, 2)
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    datacheck k j, categorical(k j) maskrare nomissing
+    dataprobe k j, categorical(k j) maskrare nomissing
     log close _pm
     * k: level 1 (3) is small, levels 2 (17) and 3 (20) are shown and the
     * pool {1} would be 40 - 37 = 3, so the smallest shown level (2) joins it
@@ -442,7 +442,7 @@ else {
     local ++fail_count
 }
 
-* ---- D3/D4: datacheck, patterns maskrare passes the masking to datamvp ----
+* ---- D3/D4: dataprobe, patterns maskrare passes the masking to datamvp ----
 local ++test_count
 capture noisily {
     clear
@@ -454,7 +454,7 @@ capture noisily {
     }
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    datacheck v1-v6, patterns maskrare nomissing
+    dataprobe v1-v6, patterns maskrare nomissing
     log close _pm
     _priv_count using "`mlog'", needle("other patterns (")
     assert r(n) == 1
@@ -471,7 +471,7 @@ capture noisily {
     assert `small' == 0
 }
 if _rc == 0 {
-    display as result "  PASS: D4 datacheck patterns maskrare: no pattern frequency below 5 is printed"
+    display as result "  PASS: D4 dataprobe patterns maskrare: no pattern frequency below 5 is printed"
     local ++pass_count
 }
 else {
@@ -485,7 +485,7 @@ capture noisily {
     _priv_mfix
     local pl "`c(tmpdir)'/priv_ledger_v180.dta"
     capture erase "`pl'"
-    capture datacheck, gatesonly rule("r3": !r3 \ "r7": !r7) by(grp) expectn(1 100) ///
+    capture dataprobe, gatesonly rule("r3": !r3 \ "r7": !r7) by(grp) expectn(1 100) ///
         maskrare warn ledger("`pl'", run(p1))
     use "`pl'", clear
     * group 1 (3 rows): n_scope masked; the 3-row rule failure is masked
@@ -513,9 +513,9 @@ capture noisily {
     _priv_mfix
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    datacheck, gatesonly isid(id) maskrare
-    capture noisily datacheck, gatesonly rule("r3": !r3) maskrare mincell(10)
-    datacheck, gatesonly isid(id)
+    dataprobe, gatesonly isid(id) maskrare
+    capture noisily dataprobe, gatesonly rule("r3": !r3) maskrare mincell(10)
+    dataprobe, gatesonly isid(id)
     log close _pm
     _priv_count using "`mlog'", needle("0 violations [masked <5]")
     assert r(n) == 1
@@ -611,7 +611,7 @@ capture noisily {
     gen byte ev = cond(_n <= 13 | _n == 101, 1, 0)
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    datacheck, gatesonly groupstat(n y, by(g) \ sum ev, by(g)) maskrare
+    dataprobe, gatesonly groupstat(n y, by(g) \ sum ev, by(g)) maskrare
     log close _pm
     * 50 + 50 shown; pooled 103 would give group 3's 3 rows; 13 + 0 shown,
     * pooled 14 would give its 1 event
@@ -638,7 +638,7 @@ capture noisily {
     set obs 100
     gen double x = cond(_n <= 98, ., 1)
     gen long id = _n
-    capture datacheck, gatesonly notmissing(x) rule("big": id <= 2) maskrare warn violations(pm_v, replace)
+    capture dataprobe, gatesonly notmissing(x) rule("big": id <= 2) maskrare warn violations(pm_v, replace)
     * 98 missing of 100 leaves 2 observed; 98 rows fail the rule, 2 pass
     frame pm_v: assert observed[1] == "all but <5 missing"
     frame pm_v: assert observed[2] == "all but <5 fail"
@@ -647,7 +647,7 @@ capture noisily {
     * the profile and the gate agree in one call
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
-    capture noisily datacheck x, notmissing(x) maskrare
+    capture noisily dataprobe x, notmissing(x) maskrare
     log close _pm
     _priv_count using "`mlog'", needle("98")
     assert r(n) == 0
@@ -675,7 +675,7 @@ capture noisily {
     capture log close _pm
     log using "`mlog'", text replace name(_pm)
     * expectn fails in every group (warn), so each group's N is printed
-    capture noisily datacheck, gatesonly by(g) expectn(1000 2000) constant(g: id) ///
+    capture noisily dataprobe, gatesonly by(g) expectn(1000 2000) constant(g: id) ///
         maskrare warn ledger("`pl'", run(r2))
     log close _pm
     * group 3 (3 rows) is withheld, and group 1 joins it so that 103 minus

@@ -19,7 +19,7 @@ set linesize 255
 *
 * The assertion: the study-form section (30 calls plus compare, report, export,
 * assert) stays within STUDY_MULT times the bare section (the same 30 gate
-* calls as datacheck, gatesonly with no name, signature, ledger, collect, or
+* calls as dataprobe, gatesonly with no name, signature, ledger, collect, or
 * maskrare).  The benchmark first verifies that every call ran: the ledger
 * holds rows for all 30 declared names, no error rows, and no failed gates.
 * Reported, not asserted: (a) the per-call cost of signature (datasignature on
@@ -61,7 +61,7 @@ foreach f in ledger.dta keys.dta results.dta export.dta report.md {
     capture erase "`W'/`f'"
 }
 
-* the gate list: r(spec) is the datacheck option text of gate k, r(res) is 1
+* the gate list: r(spec) is the dataprobe option text of gate k, r(res) is 1
 * when the gate runs on the results table
 capture program drop _bm_spec
 program define _bm_spec, rclass
@@ -168,14 +168,14 @@ program define _bm_run
         if `onres' {
             preserve
             quietly use "$BM_W/results.dta", clear
-            datacheck, gatesonly `s' `extra'
+            dataprobe, gatesonly `s' `extra'
             local nc = r(n_checks)
             local nf = r(n_failed)
             local ne = r(n_errors)
             restore
         }
         else {
-            datacheck, gatesonly `s' `extra'
+            dataprobe, gatesonly `s' `extra'
             local nc = r(n_checks)
             local nf = r(n_failed)
             local ne = r(n_errors)
@@ -242,29 +242,29 @@ forvalues i = 1/3 {
 timer off 4
 timer on 5
 forvalues i = 1/3 {
-    quietly datacheck, gatesonly isid(id start)
+    quietly dataprobe, gatesonly isid(id start)
 }
 timer off 5
 timer on 6
 forvalues i = 1/3 {
-    quietly datacheck, gatesonly isid(id start) signature
+    quietly dataprobe, gatesonly isid(id start) signature
 }
 timer off 6
 
 * ---- (b) spec F3: the same gates with by(site), 300 levels, and without by()
 local f3 `"rule("order": start < stop) inrange(x1 -6 6) stat(mean x1 -1 1)"'
 timer on 7
-quietly datacheck, gatesonly rule("order": start < stop)
+quietly dataprobe, gatesonly rule("order": start < stop)
 timer off 7
 timer on 8
-capture quietly datacheck, gatesonly rule("order": start < stop) by(site)
+capture quietly dataprobe, gatesonly rule("order": start < stop) by(site)
 local rc_by1 = _rc
 timer off 8
 timer on 9
-quietly datacheck, gatesonly `f3'
+quietly dataprobe, gatesonly `f3'
 timer off 9
 timer on 10
-capture quietly datacheck, gatesonly `f3' by(site)
+capture quietly dataprobe, gatesonly `f3' by(site)
 local rc_by3 = _rc
 timer off 10
 

@@ -3,7 +3,7 @@ set more off
 version 16.0
 set linesize 255
 
-* test_dataqa.do - dataqa set/report/assert/export/compare and the datacheck
+* test_dataqa.do - dataqa set/report/assert/export/compare and the dataprobe
 * ledger() it reads (datamap 1.8.0 E2, L1, L2).  Expected values come from
 * the fixture designs; the register draft is compared with a hand-written
 * golden file (golden/dataqa_report.md) with the date column normalized.
@@ -100,20 +100,20 @@ capture noisily {
     file write fh "mincell = 9" _n
     file close fh
     dataqa set mincell(3)
-    datacheck, gatesonly isid(id) config("`cfg'")
+    dataprobe, gatesonly isid(id) config("`cfg'")
     assert r(mincell) == 3
-    datacheck, gatesonly isid(id) mincell(7) config("`cfg'")
+    dataprobe, gatesonly isid(id) mincell(7) config("`cfg'")
     assert r(mincell) == 7
     dataqa set clear
-    datacheck, gatesonly isid(id) config("`cfg'")
+    dataprobe, gatesonly isid(id) config("`cfg'")
     assert r(mincell) == 9
     * nomaskrare overrides a session maskrare and says so
     dataqa set maskrare
     capture log close _dql
     log using "`lg'", text replace name(_dql)
-    datacheck, gatesonly isid(id) nomaskrare
+    dataprobe, gatesonly isid(id) nomaskrare
     local mk = r(maskrare)
-    datacheck, gatesonly isid(id)
+    dataprobe, gatesonly isid(id)
     local mk2 = r(maskrare)
     log close _dql
     assert `mk' == 0 & `mk2' == 1
@@ -123,7 +123,7 @@ capture noisily {
     assert r(n) == 1
     dataqa set clear
     global DATAMAP_DQ "notanoption(1)"
-    capture datacheck, gatesonly isid(id)
+    capture dataprobe, gatesonly isid(id)
     assert _rc == 198
     macro drop DATAMAP_DQ
 }
@@ -138,12 +138,12 @@ capture noisily {
     * alpha: isid passes; rule fails on x = 19, 20 (2 rows); the band on
     * mean x (10.5) warns under bandwarn; review counts x = 1, 2
     _dq_fix
-    capture datacheck, gatesonly isid(id) rule("big": x <= 18) ///
+    capture dataprobe, gatesonly isid(id) rule("big": x <= 18) ///
         bands(stat(mean x 0 5)) review("low": x < 3) name(alpha)
     assert _rc == 9
     assert r(ledger_seq) == 1
     _dq_fix
-    datacheck, gatesonly isid(id) name(beta)
+    dataprobe, gatesonly isid(id) name(beta)
     assert r(ledger_seq) == 2
     assert "`r(ledger)'" == "`L'"
     dataqa set clear
@@ -160,8 +160,8 @@ capture noisily {
     assert r(N) == 1
     count if family == "review" & status == "review" & kind == "review"
     assert r(N) == 1
-    * the ledger records the installed datacheck version, whatever it is
-    quietly _datamap_version datacheck
+    * the ledger records the installed dataprobe version, whatever it is
+    quietly _datamap_version dataprobe
     assert run == "g1" & version == "`r(version)'" & "`r(version)'" != "unknown" & masked == 1 & mincell == 5
     assert missing(observed_num) if obs_masked == 1
     restore
@@ -221,10 +221,10 @@ capture noisily {
     * a run where every invariant passed, and every dataset is present
     dataqa set maskrare ledger("`L'") run(g2)
     _dq_fix
-    datacheck, gatesonly isid(id) name(alpha)
+    dataprobe, gatesonly isid(id) name(alpha)
     _dq_fix
     replace x = x + 1
-    datacheck, gatesonly isid(id)
+    dataprobe, gatesonly isid(id)
     dataqa set clear
     capture dataqa assert using "`L'", run(g2) expect(alpha)
     assert _rc == 0
@@ -234,7 +234,7 @@ capture noisily {
     * an invariant downgraded by bare warn still fails the assert
     dataqa set maskrare ledger("`L'") run(g3)
     _dq_fix
-    capture datacheck, gatesonly rule("big": x <= 18) warn name(alpha)
+    capture dataprobe, gatesonly rule("big": x <= 18) warn name(alpha)
     dataqa set clear
     capture dataqa assert using "`L'", run(g3)
     assert _rc == 9
@@ -257,12 +257,12 @@ capture noisily {
     * an unmasked call is refused
     capture erase "`L2'"
     _dq_fix
-    datacheck, gatesonly isid(id) ledger("`L2'", run(u1))
+    dataprobe, gatesonly isid(id) ledger("`L2'", run(u1))
     capture dataqa export using "`L2'", run(u1) saving("`EX'") replace
     assert _rc == 459
     * a mask below the house threshold that prints 4 is refused
     _dq_fix
-    capture datacheck, gatesonly rule("big": x <= 16) maskrare mincell(3) warn ledger("`L2'", run(u2))
+    capture dataprobe, gatesonly rule("big": x <= 16) maskrare mincell(3) warn ledger("`L2'", run(u2))
     capture dataqa export using "`L2'", run(u2) saving("`EX'") replace
     assert _rc == 459
     * threshold() only raises the floor: a mask of 3 is refused at threshold(3)
@@ -270,7 +270,7 @@ capture noisily {
     assert _rc == 459
     * a masked row that kept observed_num (a leak) is refused
     _dq_fix
-    capture datacheck, gatesonly rule("big": x <= 18) maskrare warn ledger("`L2'", run(u3))
+    capture dataprobe, gatesonly rule("big": x <= 18) maskrare warn ledger("`L2'", run(u3))
     capture dataqa export using "`L2'", run(u3) saving("`EX'") replace
     assert _rc == 0
     preserve
@@ -282,9 +282,9 @@ capture noisily {
     assert _rc == 459
     * a scope with a literal identifier is blanked in the release copy
     _dq_fix
-    capture datacheck if id != 1234, gatesonly isid(id) maskrare ledger("`L2'", run(u4))
+    capture dataprobe if id != 1234, gatesonly isid(id) maskrare ledger("`L2'", run(u4))
     _dq_fix
-    capture datacheck if x > 2, gatesonly isid(id) maskrare ledger("`L2'", run(u4))
+    capture dataprobe if x > 2, gatesonly isid(id) maskrare ledger("`L2'", run(u4))
     dataqa export using "`L2'", run(u4) saving("`EX'") replace
     assert r(n_scope_dropped) == 1
     preserve
@@ -302,14 +302,14 @@ capture noisily {
     set obs 100
     gen long id = _n
     gen double x = _n
-    datacheck, gatesonly isid(id) stat(mean x 0 100) name(cohort) signature ledger("`L2'", run(b0))
+    dataprobe, gatesonly isid(id) stat(mean x 0 100) name(cohort) signature ledger("`L2'", run(b0))
     local sig0 "`r(signature)'"
     assert "`r(ledger)'" == "`L2'"
     quietly datasignature
     assert "`sig0'" == "`r(datasignature)'" & "`sig0'" != ""
     * 4% fewer rows: within ntol(0.05)
     drop in 1/4
-    datacheck, gatesonly isid(id) stat(mean x 0 100) name(cohort) signature ledger("`L2'", run(b1))
+    dataprobe, gatesonly isid(id) stat(mean x 0 100) name(cohort) signature ledger("`L2'", run(b1))
     capture log close _dql
     log using "`lg'", text replace name(_dql)
     dataqa compare using "`L2'", run(b1) baseline(b0)
@@ -327,7 +327,7 @@ capture noisily {
     set obs 94
     gen long id = _n
     gen double x = _n + 3
-    datacheck, gatesonly isid(id) name(cohort) ledger("`L2'", run(b2))
+    dataprobe, gatesonly isid(id) name(cohort) ledger("`L2'", run(b2))
     capture log close _dql
     log using "`lg'", text replace name(_dql)
     dataqa compare using "`L2'", run(b2) baseline(b0)
@@ -356,7 +356,7 @@ capture noisily {
     local notl "`c(tmpdir)'/dq_not_a_ledger.dta"
     save "`notl'", replace
     _dq_fix
-    capture datacheck, gatesonly isid(id) ledger("`notl'")
+    capture dataprobe, gatesonly isid(id) ledger("`notl'")
     assert _rc == 610
     * the verdict and r() are still set when the ledger write fails
     assert r(n_checks) == 1
@@ -368,7 +368,7 @@ capture noisily {
     * profile-only calls write no rows
     capture erase "`L2'"
     _dq_fix
-    quietly datacheck, ledger("`L2'")
+    quietly dataprobe, ledger("`L2'")
     capture confirm file "`L2'"
     assert _rc == 601
 }
@@ -393,10 +393,10 @@ capture noisily {
     * the gate fails, the data are fixed, the same call is rerun
     _dq_fix
     replace x = . in 1/3
-    capture datacheck, gatesonly name(auto) notmissing(x)
+    capture dataprobe, gatesonly name(auto) notmissing(x)
     assert _rc == 9
     _dq_fix
-    datacheck, gatesonly name(auto) notmissing(x)
+    dataprobe, gatesonly name(auto) notmissing(x)
     capture dataqa assert, expect(auto)
     assert _rc == 0
     assert r(n_failed) == 0 & r(N) == 1 & r(n_superseded) == 1
@@ -411,7 +411,7 @@ capture noisily {
     gen dt = td(06jun2020) + _n
     replace dt = td(01jan2021) in 1/10
     format dt %td
-    capture datacheck, gatesonly name(dates) heaping(dt, max(0.1))
+    capture dataprobe, gatesonly name(dates) heaping(dt, max(0.1))
     assert _rc == 9
     capture dataqa assert
     assert _rc == 9 & r(n_failed) == 1
@@ -422,9 +422,9 @@ capture noisily {
     dataqa set maskrare mincell(5) ledger("`L3'") run(r2)
     _dq_fix
     replace x = . in 1/3
-    capture datacheck, gatesonly notmissing(x)
+    capture dataprobe, gatesonly notmissing(x)
     _dq_fix
-    datacheck, gatesonly notmissing(x)
+    dataprobe, gatesonly notmissing(x)
     capture dataqa assert
     assert _rc == 9 & r(n_failed) == 1 & r(n_superseded) == 0
     * export keeps one row per gate: only the fixed rerun leaves
@@ -450,14 +450,14 @@ capture noisily {
     * run r0 is a baseline in the same ledger
     dataqa set maskrare ledger("`L4'") run(r0)
     _dq_fix
-    datacheck, gatesonly isid(id) name(alpha)
+    dataprobe, gatesonly isid(id) name(alpha)
     * session 1 of run r1: alpha fails, beta passes
     dataqa set maskrare ledger("`L4'") run(r1)
     _dq_fix
-    capture datacheck, gatesonly rule("big": x <= 18) name(alpha)
+    capture dataprobe, gatesonly rule("big": x <= 18) name(alpha)
     assert _rc == 9
     _dq_fix
-    datacheck, gatesonly isid(id) name(beta)
+    dataprobe, gatesonly isid(id) name(beta)
     * session 2 without replace: a note, and the rows are kept
     capture log close _dql
     log using "`lg'", text replace name(_dql)
@@ -485,7 +485,7 @@ capture noisily {
     * replace is an action, not a stored default
     assert `"$DATAMAP_DQ"' == `"maskrare ledger("`L4'") run(r1)"'
     _dq_fix
-    datacheck, gatesonly rule("big": x <= 20) name(alpha)
+    dataprobe, gatesonly rule("big": x <= 20) name(alpha)
     preserve
     use "`L4'", clear
     count if run == "r1"
@@ -530,24 +530,24 @@ capture noisily {
     * D1: a failed inrange(x 0 10) is not cleared by rerunning the gate
     * with wider bounds; that would widen an invariant in code
     _dq_fix
-    capture datacheck, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
+    capture dataprobe, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
     assert _rc == 9
-    datacheck, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(r1))
+    dataprobe, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(r1))
     capture dataqa assert using "`L6'", run(r1)
     assert _rc == 9 & r(n_failed) == 1 & r(n_superseded) == 0
     dataqa report using "`L6'", run(r1)
     assert r(n_failed) == 1 & r(N) == 2
     * the same bounds rerun on fixed data still supersede the failure
     replace x = min(x, 10)
-    datacheck, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
+    dataprobe, gatesonly inrange(x 0 10) name(cohort) ledger("`L6'", run(r1))
     capture dataqa assert using "`L6'", run(r1)
     assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 1
     * D2: two entries on one variable are compared one by one.  The
     * baseline has [0, 10] and [0, 100]; a run with only [0, 100] reports
     * [0, 10] absent
     _dq_fix
-    capture datacheck, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b0))
-    datacheck, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(b1))
+    capture dataprobe, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b0))
+    dataprobe, gatesonly inrange(x 0 100) name(cohort) ledger("`L6'", run(b1))
     capture log close _dql
     log using "`lg'", text replace name(_dql)
     dataqa compare using "`L6'", run(b1) baseline(b0)
@@ -559,7 +559,7 @@ capture noisily {
     * 6 of 20 rows fewer: each entry's N change is flagged, not one for both
     drop in 1/6
     replace x = min(x, 10)
-    datacheck, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b2))
+    dataprobe, gatesonly inrange(x 0 10 \ x 0 100) name(cohort) ledger("`L6'", run(b2))
     dataqa compare using "`L6'", run(b2) baseline(b0)
     assert r(n_flags) == 2
 }
@@ -577,10 +577,10 @@ capture noisily {
     set obs 40
     gen byte lv = ceil(_n / 20)
     gen byte ev = _n <= 25
-    capture datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
+    capture dataprobe, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
     assert _rc == 9
     replace ev = 1
-    datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
+    dataprobe, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L7'", run(r1))
     capture dataqa assert using "`L7'", run(r1)
     assert _rc == 0 & r(n_failed) == 0 & r(n_superseded) == 1
     * groupstat() band: group 2's mean fails with "by(g) = 2" in grp
@@ -588,28 +588,28 @@ capture noisily {
     set obs 40
     gen byte g = ceil(_n / 20)
     gen double x = cond(g == 2, 10, 1)
-    capture datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
+    capture dataprobe, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
     dataqa report using "`L7'", run(r2)
     assert r(n_warned) == 1
     replace x = 1
-    datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
+    dataprobe, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L7'", run(r2))
     dataqa report using "`L7'", run(r2)
     assert r(n_warned) == 0 & r(n_superseded) == 2
-    * a datacheck by() call keeps one row per by() group from its latest
+    * a dataprobe by() call keeps one row per by() group from its latest
     * call: notmissing fails in both foreign groups, then passes
     sysuse auto, clear
-    capture datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
+    capture dataprobe, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
     assert _rc == 9
     replace rep78 = 3 if missing(rep78)
-    datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
+    dataprobe, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r3))
     capture dataqa assert using "`L7'", run(r3)
     assert _rc == 0 & r(N) == 2 & r(n_superseded) == 2
     * the same gate under another by() grouping is another gate
     sysuse auto, clear
-    capture datacheck, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r4))
-    datacheck, gatesonly name(auto) notmissing(mpg) ledger("`L7'", run(r4))
+    capture dataprobe, gatesonly name(auto) by(foreign) notmissing(rep78) ledger("`L7'", run(r4))
+    dataprobe, gatesonly name(auto) notmissing(mpg) ledger("`L7'", run(r4))
     replace rep78 = 3 if missing(rep78)
-    datacheck, gatesonly name(auto) notmissing(rep78) ledger("`L7'", run(r4))
+    dataprobe, gatesonly name(auto) notmissing(rep78) ledger("`L7'", run(r4))
     capture dataqa assert using "`L7'", run(r4)
     assert _rc == 9 & r(n_failed) == 2 & r(n_superseded) == 0
 }
@@ -622,9 +622,9 @@ local L5 "`DQD'/self.dta"
 capture erase "`L5'"
 capture noisily {
     _dq_fix
-    datacheck, gatesonly isid(id) maskrare name(alpha) ledger("`L5'", run(s1))
+    dataprobe, gatesonly isid(id) maskrare name(alpha) ledger("`L5'", run(s1))
     _dq_fix
-    datacheck, gatesonly isid(id) maskrare name(beta) ledger("`L5'", run(s2))
+    dataprobe, gatesonly isid(id) maskrare name(beta) ledger("`L5'", run(s2))
     preserve
     use "`L5'", clear
     local n0 = _N

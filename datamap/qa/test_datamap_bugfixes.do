@@ -671,7 +671,7 @@ capture noisily {
 	char grp[origin] "kept char"
 	datamap, output("`tmp_dir'/_c20.txt") exclude(ssn) ///
 		saving("`tmp_dir'/_c20_meta.dta", replace)
-	datacheck, exclude(ssn) saving("`tmp_dir'/_c20_dc.dta", replace)
+	dataprobe, exclude(ssn) saving("`tmp_dir'/_c20_dc.dta", replace)
 	foreach f in _c20_meta _c20_dc {
 		preserve
 		use "`tmp_dir'/`f'.dta", clear

@@ -27,7 +27,7 @@ capture noisily {
     set obs 1
     generate double x=1.2345678912345e-12
     tempfile ledger baseline current
-    quietly datacheck, gatesonly stat(mean x 0 1) ledger("`ledger'",run(fx)) name(precise)
+    quietly dataprobe, gatesonly stat(mean x 0 1) ledger("`ledger'",run(fx)) name(precise)
     assert r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0
     use "`ledger'",clear
     assert _N==1 & family=="stat" & label=="mean x" & masked==0 & obs_masked==0
@@ -72,7 +72,7 @@ capture noisily {
     tempfile ledger exported
     expand 5
     assert _N==20
-    capture noisily datacheck, gatesonly maskrare mincell(5) groupstat(mean x, by(g) band(0 0)) ledger("`ledger'",run(fx)) name(precise)
+    capture noisily dataprobe, gatesonly maskrare mincell(5) groupstat(mean x, by(g) band(0 0)) ledger("`ledger'",run(fx)) name(precise)
     local result=_rc
     assert `result'==9
     quietly dataqa export using "`ledger'", run(fx) saving("`exported'") threshold(5)

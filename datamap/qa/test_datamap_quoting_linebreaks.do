@@ -4,9 +4,9 @@ version 16.0
 set linesize 255
 
 * test_datamap_quoting_linebreaks.do - compound quotes and line breaks in
-* user text, across datacheck, its call-error ledger row, dataqa, and the
+* user text, across dataprobe, its call-error ledger row, dataqa, and the
 * datamap text map.
-* E  a failing datacheck call writes its call-error row whatever the quoting
+* E  a failing dataprobe call writes its call-error row whatever the quoting
 *    (E5: a passing call keeps a compound-quoted run() label, once stored empty)
 *    of ledger(), run(), name() and the rest of the line (the writer stopped
 *    with r(132) on a compound quote, so dataqa assert passed over the call)
@@ -76,7 +76,7 @@ capture noisily {
     quietly datasignature
     local sig0 "`r(datasignature)'"
     local va0 = c(varabbrev)
-    capture noisily datacheck, gatesonly notmissing(nosuchvar) ledger(`"`L'"', run(`"r 1"')) name(`"my data"')
+    capture noisily dataprobe, gatesonly notmissing(nosuchvar) ledger(`"`L'"', run(`"r 1"')) name(`"my data"')
     assert _rc == 111
     quietly datasignature
     assert "`r(datasignature)'" == "`sig0'"
@@ -90,7 +90,7 @@ capture noisily {
     assert dataset == "my data"
     * the message is the command text exactly as typed
     mata: st_local("ok", strofreal(st_sdata(1, "message") == ///
-        "datacheck call exited with rc 111: datacheck , gatesonly notmissing(nosuchvar) ledger(" + ///
+        "dataprobe call exited with rc 111: dataprobe , gatesonly notmissing(nosuchvar) ledger(" + ///
         st_local("LQ") + st_local("L") + st_local("RQ") + ", run(" + st_local("LQ") + "r 1" + ///
         st_local("RQ") + ")) name(" + st_local("LQ") + "my data" + st_local("RQ") + ")"))
     assert `ok' == 1
@@ -113,7 +113,7 @@ capture noisily {
     sysuse auto, clear
     local L "`W'/e2.dta"
     capture erase "`L'"
-    capture noisily datacheck, gatesonly notanoption ledger(`"`L'"', run(`"z w"')) name(`"x y"')
+    capture noisily dataprobe, gatesonly notanoption ledger(`"`L'"', run(`"z w"')) name(`"x y"')
     assert _rc == 198
     preserve
     quietly use "`L'", clear
@@ -126,7 +126,7 @@ capture noisily {
     * a plain-quoted twin gives the same row
     local L2 "`W'/e2b.dta"
     capture erase "`L2'"
-    capture noisily datacheck, gatesonly notanoption ledger("`L2'", run("z w")) name("x y")
+    capture noisily dataprobe, gatesonly notanoption ledger("`L2'", run("z w")) name("x y")
     assert _rc == 198
     preserve
     quietly use "`L2'", clear
@@ -150,7 +150,7 @@ capture noisily {
     sysuse auto, clear
     local L "`W'/e3.dta"
     capture erase "`L'"
-    capture noisily datacheck, gatesonly rule(`"heavy: nosuch > 1"') ledger("`L'")
+    capture noisily dataprobe, gatesonly rule(`"heavy: nosuch > 1"') ledger("`L'")
     assert _rc == 111
     preserve
     quietly use "`L'", clear
@@ -178,7 +178,7 @@ capture noisily {
     local L "`W'/e4.dta"
     capture erase "`L'"
     dataqa set ledger("`L'") run(s4)
-    capture noisily datacheck, gatesonly isid(nosuch) name(`"sess data"')
+    capture noisily dataprobe, gatesonly isid(nosuch) name(`"sess data"')
     local rc1 = _rc
     dataqa set clear
     assert `rc1' == 111
@@ -205,8 +205,8 @@ capture noisily {
     sysuse auto, clear
     local L "`W'/e5.dta"
     capture erase "`L'"
-    datacheck, gatesonly isid(make) ledger(`"`L'"', run(`"r 5"')) name(auto)
-    datacheck, gatesonly isid(make) ledger(`"`L'"', run(r5plain)) name(auto)
+    dataprobe, gatesonly isid(make) ledger(`"`L'"', run(`"r 5"')) name(auto)
+    dataprobe, gatesonly isid(make) ledger(`"`L'"', run(r5plain)) name(auto)
     preserve
     quietly use "`L'", clear
     assert _N == 2
@@ -234,10 +234,10 @@ capture noisily {
     capture erase "`L'"
     * a failing gate whose label carries SMCL, then a failing call whose
     * command text carries braces, a dollar sign and a quoted literal
-    capture noisily datacheck, gatesonly rule("{bf:heavy}": weight < 2000) ledger("`L'", run(d)) name(auto)
+    capture noisily dataprobe, gatesonly rule("{bf:heavy}": weight < 2000) ledger("`L'", run(d)) name(auto)
     assert _rc == 9
-    * \$ keeps the do-file from expanding $y; datacheck receives a literal $
-    capture noisily datacheck, gatesonly rule(`"lit: make != "{x}\$y""') notmissing(nosuch) ledger("`L'", run(d)) name(auto2)
+    * \$ keeps the do-file from expanding $y; dataprobe receives a literal $
+    capture noisily dataprobe, gatesonly rule(`"lit: make != "{x}\$y""') notmissing(nosuch) ledger("`L'", run(d)) name(auto2)
     assert _rc == 111
     preserve
     quietly use "`L'", clear
@@ -291,10 +291,10 @@ capture noisily {
         local ++k
         local L`k' "`W'/p1_`form'.dta"
         capture erase "`L`k''"
-        if "`form'" == "plain" capture noisily datacheck, gatesonly rule(a: make != "" \ b: price > 5000) ledger("`L`k''")
-        if "`form'" == "whole" capture noisily datacheck, gatesonly rule(`"a: make != "" \ b: price > 5000"') ledger("`L`k''")
-        if "`form'" == "entry" capture noisily datacheck, gatesonly rule(`"a: make != """' \ `"b: price > 5000"') ledger("`L`k''")
-        if "`form'" == "qlabel" capture noisily datacheck, gatesonly rule(`""a": make != "" \ "b": price > 5000"') ledger("`L`k''")
+        if "`form'" == "plain" capture noisily dataprobe, gatesonly rule(a: make != "" \ b: price > 5000) ledger("`L`k''")
+        if "`form'" == "whole" capture noisily dataprobe, gatesonly rule(`"a: make != "" \ b: price > 5000"') ledger("`L`k''")
+        if "`form'" == "entry" capture noisily dataprobe, gatesonly rule(`"a: make != """' \ `"b: price > 5000"') ledger("`L`k''")
+        if "`form'" == "qlabel" capture noisily dataprobe, gatesonly rule(`""a": make != "" \ "b": price > 5000"') ledger("`L`k''")
         assert _rc == 9
         assert r(n_failed) == 1
         _lb_rows "`L`k''"
@@ -333,9 +333,9 @@ capture noisily {
     local Lb "`W'/p2b.dta"
     capture erase "`La'"
     capture erase "`Lb'"
-    datacheck, gatesonly review(amc: strpos(make, "AMC") == 1) ///
+    dataprobe, gatesonly review(amc: strpos(make, "AMC") == 1) ///
         byrule(foreign (price): "ord": make != "" & price >= price[_n-1] | _n == 1) ledger("`La'")
-    datacheck, gatesonly review(`"amc: strpos(make, "AMC") == 1"') ///
+    dataprobe, gatesonly review(`"amc: strpos(make, "AMC") == 1"') ///
         byrule(`"foreign (price): "ord": make != "" & price >= price[_n-1] | _n == 1"') ledger("`Lb'")
     _lb_rows "`La'"
     local ra `"`r(rows)'"'
@@ -368,12 +368,12 @@ capture noisily {
     tempfile lg
     log using "`lg'", text replace name(p3log)
     * a byrule spec quoted as a whole
-    capture noisily datacheck, gatesonly byrule("foreign (price): ord: _n >= 1")
+    capture noisily dataprobe, gatesonly byrule("foreign (price): ord: _n >= 1")
     local r1 = _rc
     * a wrapper that swallows the label's opening quote
-    capture noisily datacheck, gatesonly rule(`"heavy": weight > 1"')
+    capture noisily dataprobe, gatesonly rule(`"heavy": weight > 1"')
     local r2 = _rc
-    capture noisily datacheck, gatesonly review(`"cheap": price < 4000"')
+    capture noisily dataprobe, gatesonly review(`"cheap": price < 4000"')
     local r3 = _rc
     log close p3log
     assert `r1' == 198 & `r2' == 198 & `r3' == 198

@@ -1082,7 +1082,7 @@ program define datamvp, rclass byable(recall) sortpreserve
             exit 2000
         }
         * one computation of missingness by group for the whole package:
-        * datacheck groupstat(pmiss ...) reads the same helper
+        * dataprobe groupstat(pmiss ...) reads the same helper
         _datamap_missby `varlist', by(`bytable') touse(`_bt')
         local G = r(G)
         forvalues k = 1/`G' {

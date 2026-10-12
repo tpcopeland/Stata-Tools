@@ -74,11 +74,11 @@ else {
     local ++fail_count
 }
 
-* T3: datacheck's optional profile writer also preserves the path.
+* T3: dataprobe's optional profile writer also preserves the path.
 local ++test_count
 capture noisily {
     use "`input'", clear
-    datacheck, saving("`check_meta'", replace) warn
+    dataprobe, saving("`check_meta'", replace) warn
     confirm file "`check_meta'"
     * `confirm file' alone passes on an empty stub; the saved metadata must
     * actually be a readable dataset with rows, not a truncated placeholder.
@@ -90,11 +90,11 @@ capture noisily {
     assert _rc == 601
 }
 if _rc == 0 {
-    display as result "  PASS: T`test_count' - datacheck preserves parenthesized saving path"
+    display as result "  PASS: T`test_count' - dataprobe preserves parenthesized saving path"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T`test_count' - datacheck parenthesized saving path (rc=`=_rc')"
+    display as error "  FAIL: T`test_count' - dataprobe parenthesized saving path (rc=`=_rc')"
     local ++fail_count
 }
 

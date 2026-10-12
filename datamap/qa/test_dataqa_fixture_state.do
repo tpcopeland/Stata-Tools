@@ -21,7 +21,7 @@ foreach setting in off on {
             qa_fx_a7_labelled, clear seed(37)
             tempfile ledger output
             quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
-            quietly datacheck, gatesonly isid(id) expectn(40) allowed(group 1 2 5 9) name(canonical)
+            quietly dataprobe, gatesonly isid(id) expectn(40) allowed(group 1 2 5 9) name(canonical)
             if inlist("`route'","report","export") {
                 tempname f
                 file open `f' using "`output'", write text replace

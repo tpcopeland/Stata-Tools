@@ -1,5 +1,5 @@
 *! dataqa Version 1.9.3  2026/10/12
-*! Session defaults and a structured QA ledger over datacheck gate calls
+*! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
@@ -10,7 +10,7 @@
 //   dataqa export [using ledger], run() saving() [replace threshold()]
 //   dataqa compare [using ledger], run() baseline() [baseledger() ntol() stattol()]
 //
-// The ledger is the dataset datacheck ledger() appends to: one row per gate
+// The ledger is the dataset dataprobe ledger() appends to: one row per gate
 // entry, passed or failed, and one per review item.  Every subcommand works
 // in a temporary frame; the data in memory are never touched.
 program define dataqa, rclass
@@ -67,7 +67,7 @@ program define _dataqa_set, rclass
     local run = subinstr(`"`run'"', char(34), "", .)
     local baseline = strtrim(subinstr(`"`baseline'"', char(34), "", .))
     local baseledger = strtrim(subinstr(`"`baseledger'"', char(34), "", .))
-    // datacheck's ledger(file, run()) form: here run() is its own option
+    // dataprobe's ledger(file, run()) form: here run() is its own option
     if regexm(`"`ledger'"', "^(.*[^ ])[ ]*,[ ]*run\((.*)\)$") {
         local _lf = regexs(1)
         local _lr = regexs(2)
@@ -124,7 +124,7 @@ program define _dataqa_set, rclass
             capture noisily {
                 frame `sf' {
                     if "`replace'" == "" {
-                        // a file that is not a ledger is refused by datacheck
+                        // a file that is not a ledger is refused by dataprobe
                         capture quietly use run using `"`ledger'"', clear
                         if !_rc {
                             capture confirm string variable run
@@ -139,7 +139,7 @@ program define _dataqa_set, rclass
                         foreach v in run seq dataset family label status kind observed observed_num {
                             capture confirm variable `v'
                             if _rc {
-                                display as error `"dataqa set: `ledger' is not a datacheck ledger (no variable `v'); replace left it untouched"'
+                                display as error `"dataqa set: `ledger' is not a dataprobe ledger (no variable `v'); replace left it untouched"'
                                 exit 610
                             }
                         }
@@ -171,7 +171,7 @@ program define _dataqa_set, rclass
     global DATAMAP_DQ `"`spec'"'
     display as text "dataqa session defaults: " as result `"`spec'"'
     if "`collect'" != "" {
-        display as text "  collect: a datacheck call whose gates fail records its rows and returns rc 0;" ///
+        display as text "  collect: a dataprobe call whose gates fail records its rows and returns rc 0;" ///
             " dataqa assert is the halting point"
         if `"`ledger'"' == "" display as text "  note: collect needs a ledger; a call without ledger() still exits 9"
     }
@@ -208,7 +208,7 @@ program define _dataqa_load, rclass
         exit 198
     }
     _datamap_validate_path `"`file'"', option(using)
-    // the writers' path rule (datacheck ledger(), dataqa set): .dta is
+    // the writers' path rule (dataprobe ledger(), dataqa set): .dta is
     // added to a basename without a suffix, any suffix is kept as given
     mata: st_local("_ext", pathsuffix(st_local("file")))
     if `"`_ext'"' == "" local file `"`file'.dta"'
@@ -222,17 +222,17 @@ program define _dataqa_load, rclass
         foreach v in run seq dataset family label status kind observed observed_num {
             capture confirm variable `v'
             if _rc {
-                display as error `"dataqa `who': `file' is not a datacheck ledger (no variable `v')"'
+                display as error `"dataqa `who': `file' is not a dataprobe ledger (no variable `v')"'
                 exit 610
             }
         }
         if `"`run'"' != "" quietly keep if run == `"`run'"'
-        // the writers (datacheck, _datacheck_errrow) give every row one of
+        // the writers (dataprobe, _dataprobe_errrow) give every row one of
         // these statuses; any other value would read as neither pass nor
         // failure, and an edited or damaged ledger would pass assert
         capture confirm string variable status
         if _rc {
-            display as error `"dataqa `who': `file' is not a datacheck ledger (status is not a string variable)"'
+            display as error `"dataqa `who': `file' is not a dataprobe ledger (status is not a string variable)"'
             exit 610
         }
         quietly count if !inlist(status, "pass", "fail", "warn", "review", "error")
@@ -250,7 +250,7 @@ end
 // Reduce the ledger rows in memory to the latest call of each gate within
 // its run.  The keys are defined here only, for report, assert, export and
 // compare alike.  A gate is dataset without (modified), family, label,
-// variable, scope, expectation, and the variables of a datacheck by() call.
+// variable, scope, expectation, and the variables of a dataprobe by() call.
 // The expectation is part of it, so a rerun with changed bounds is a new
 // gate and cannot hide the old failure (that would widen an invariant in
 // code).  The level part of grp is not: events() and a groupstat() band
@@ -258,10 +258,10 @@ end
 // rerun writes one row without it, and each must supersede the other.
 // Every row of the gate's latest call is kept.  A row with no dataset name
 // is never superseded: an unnamed call cannot be told apart from another
-// unnamed dataset.  grp names a datacheck by() group by its VALUES,
+// unnamed dataset.  grp names a dataprobe by() group by its VALUES,
 // "by(site year | site=3 year=2015)", so the group is the same group when a
 // level is added between runs; strings are written in brackets with every
-// quote, macro, bracket and SMCL character as \xHH (see _datacheck_gtext).
+// quote, macro, bracket and SMCL character as \xHH (see _dataprobe_gtext).
 // A group withheld under maskrare, and every ledger written before 1.9.0,
 // carries its number, "by(site year group 7)", which can name another level
 // if the data change; compare detects a value/number mix (_dataqa_gforms).
@@ -282,7 +282,7 @@ program define _dataqa_latest, rclass
     }
     tempvar ord mx gate
     quietly generate long `ord' = _n
-    // the by() variables of a datacheck by() call, "by(foreign group 1)" or
+    // the by() variables of a dataprobe by() call, "by(foreign group 1)" or
     // "by(foreign | foreign=1)" -> "by(foreign)"; a helper's own level ("lv = 2", "by(g) = 2") drops
     quietly generate strL `gate' = ""
     quietly replace `gate' = "by(" + regexs(1) + ")" if regexm(grp, "^by\(([^()]*) group [0-9]+\)")
@@ -450,7 +450,7 @@ program define _dataqa_report, rclass
             local n_callerr = r(N)
         }
         if `n_callerr' > 0 {
-            display as error "  `n_callerr' call error row(s): a datacheck call exited with an error and ran no gates (dataqa assert halts):"
+            display as error "  `n_callerr' call error row(s): a dataprobe call exited with an error and ran no gates (dataqa assert halts):"
             frame `lf' {
                 forvalues j = 1/`=_N' {
                     if status[`j'] != "error" continue
@@ -771,7 +771,7 @@ program define _dataqa_assert, rclass
                 forvalues j = 1/`=_N' {
                     if !_bad[`j'] continue
                     // as text: no quote, macro or SMCL character in a label or
-                    // value is live, as datacheck prints it
+                    // value is live, as dataprobe prints it
                     mata: st_local("m", _dataqa_show(st_sdata(`j', "message")))
                     local d = dataset[`j']
                     if `"`d'"' == "" local d "(unnamed)"
@@ -1135,7 +1135,7 @@ program define _dataqa_compare, rclass
     if `rc' exit `rc'
 end
 
-// Display text for a stored ledger message, as datacheck prints it: a line
+// Display text for a stored ledger message, as dataprobe prints it: a line
 // break, tab or other control character as \n, \r, \t or \xHH, a brace as
 // {c -(}, and a backtick, double quote and dollar sign as {char N}.
 capture mata: mata drop _dataqa_show()

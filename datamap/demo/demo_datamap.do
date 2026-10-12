@@ -5,7 +5,7 @@
       2. Console output (privacy-safe text map)    -> .log -> .md via logdoc
       3. Console output (JSON + compact output)    -> .log -> .md via logdoc
       4. Console output (Markdown dictionary)      -> .log -> .md via logdoc
-      5. Console output (datacheck QC + gates)     -> .log -> .md via logdoc
+      5. Console output (dataprobe QC + gates)     -> .log -> .md via logdoc
       6. Console output (datamvp missing patterns) -> .log -> .md via logdoc
       7. In-memory datasignature checks            -> console output
       8. Text maps                                 -> .txt
@@ -31,7 +31,7 @@ foreach f in datamap_auto.txt datamap_clinical.txt datamap_missing.txt ///
     console_datamap_compact.log console_datamap_compact.md ///
     console_datamap_missing.log console_datamap_missing.md ///
     console_datadict.log console_datadict.md ///
-    console_datacheck.log console_datacheck.md ///
+    console_dataprobe.log console_dataprobe.md ///
     console_datamvp.log console_datamvp.md {
     capture erase "`pkg_dir'/`f'"
 }
@@ -391,19 +391,19 @@ noisily _demo_type_matches using "`pkg_dir'/datadict_clinical.md", ///
 
 log close datadict
 
-**# datacheck: console QC profile and expectation gates
+**# dataprobe: console QC profile and expectation gates
 capture log close _all
-log using "`pkg_dir'/console_datacheck.log", replace text name(datacheck) nomsg
+log using "`pkg_dir'/console_dataprobe.log", replace text name(dataprobe) nomsg
 
 * # Console QC profile
 
-* datacheck profiles the data in memory: per-class distributions, missingness,
+* dataprobe profiles the data in memory: per-class distributions, missingness,
 * key structure, and quality flags. The cohort carries a deliberate age = -3
 * outlier, a 115% adherence value, a rare "Satellite clinic" site, and missing
 * biomarkers. Its 1,200 distinct IDs also exercise v1.6.0's capped count display.
 
 use "`pkg_dir'/_demo_cohort.dta", clear
-noisily datacheck patient_id age sex smoking bmi pct_adherence site, ///
+noisily dataprobe patient_id age sex smoking bmi pct_adherence site, ///
     id(patient_id) outliers(3) rare(5)
 
 * # Expectation gate (warn mode)
@@ -411,10 +411,10 @@ noisily datacheck patient_id age sex smoking bmi pct_adherence site, ///
 * The same expectations run as a gate. With warn, violations are reported and
 * execution continues; drop warn to halt the do-file with r(9) instead.
 
-noisily datacheck age pct_adherence, expectn(1200) isid(patient_id) ///
+noisily dataprobe age pct_adherence, expectn(1200) isid(patient_id) ///
     notmissing(age sex) inrange(age 18 110 \ pct_adherence 0 100) warn
 
-log close datacheck
+log close dataprobe
 
 **# datamvp: missing-value pattern analysis
 capture log close _all
@@ -422,7 +422,7 @@ log using "`pkg_dir'/console_datamvp.log", replace text name(datamvp) nomsg
 
 * # Missing-value pattern table
 
-* datamvp (datacheck's patterns engine) tabulates which variables are jointly
+* datamvp (dataprobe's patterns engine) tabulates which variables are jointly
 * missing. The biomarker dataset has nested missingness (x1 absent after obs 60,
 * x4 after obs 70), so a few patterns dominate.
 
@@ -469,11 +469,11 @@ _demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
     text("| Variable | Label | Type | Missing | Statistics/Values |")
 _demo_assert_contains using "`pkg_dir'/datadict_clinical.md", ///
     text(">1000")
-_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
     text("QUICK REFERENCE")
-_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
     text(">1000")
-_demo_assert_contains using "`pkg_dir'/console_datacheck.log", ///
+_demo_assert_contains using "`pkg_dir'/console_dataprobe.log", ///
     text("WARNINGS (2)")
 _demo_assert_contains using "`pkg_dir'/console_datamap_privacy.log", ///
     text("In-memory integrity check: datamap left the datasignature unchanged")
@@ -496,7 +496,7 @@ else {
 }
 
 foreach section in datamap_privacy datamap_json datamap_compact datamap_missing ///
-    datadict datacheck datamvp {
+    datadict dataprobe datamvp {
     logdoc using "`pkg_dir'/console_`section'.log", ///
         output("`pkg_dir'/console_`section'.md") ///
         format(md) replace quiet

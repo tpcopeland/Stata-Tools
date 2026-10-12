@@ -1,0 +1,295 @@
+*! test_dataprobe_fixture_ledger_quotes.do -- actual filename bytes and unchanged ledger dispatch
+*! Author: Timothy P Copeland, Karolinska Institutet
+version 16.0
+clear all
+set more off
+capture log close _all
+log using test_dataprobe_fixture_ledger_quotes.log, text replace
+local pkg_dir=substr("`c(pwd)'",1,strlen("`c(pwd)'")-3)
+capture ado uninstall datamap
+quietly net install datamap, from("`pkg_dir'") force
+discard
+do _qa_fx_a7.do
+do _qa_state.do
+local tests 0
+local pass 0
+local fail 0
+
+**# simple_spaces
+local ++tests
+local root ""
+capture noisily {
+    * expect: EXACT
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger spaces.dta"'
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger("`ledger'", run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==1
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger("`ledger'", run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==2
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N==2 & run=="qa same" & family=="expectn" & observed_num==40 & n_scope==40 & status=="pass"
+    assert seq==_n
+    restore
+    python: _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; _leaf=Path(Macro.getLocal("ledger")).name; assert set(_ld_after)-set(_ld_before)=={_leaf}; assert all(_ld_after[k]==v for k,v in _ld_before.items())
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: simple_spaces rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: simple_spaces"
+}
+
+**# compound_spaces
+local ++tests
+local root ""
+capture noisily {
+    * expect: EXACT
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger spaces.dta"'
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==1
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==2
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N==2 & run=="qa same" & family=="expectn" & observed_num==40 & n_scope==40 & status=="pass"
+    assert seq==_n
+    restore
+    python: _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; _leaf=Path(Macro.getLocal("ledger")).name; assert set(_ld_after)-set(_ld_before)=={_leaf}; assert all(_ld_after[k]==v for k,v in _ld_before.items())
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: compound_spaces rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: compound_spaces"
+}
+
+**# simple_unicode
+local ++tests
+local root ""
+capture noisily {
+    * expect: EXACT
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger Å.dta"'
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger("`ledger'", run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==1
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger("`ledger'", run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==2
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N==2 & run=="qa same" & family=="expectn" & observed_num==40 & n_scope==40 & status=="pass"
+    assert seq==_n
+    restore
+    python: _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; _leaf=Path(Macro.getLocal("ledger")).name; assert set(_ld_after)-set(_ld_before)=={_leaf}; assert all(_ld_after[k]==v for k,v in _ld_before.items())
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: simple_unicode rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: simple_unicode"
+}
+
+**# compound_unicode
+local ++tests
+local root ""
+capture noisily {
+    * expect: EXACT
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger Å.dta"'
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==1
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    qa_state_snapshot, tag(ledger_quotes)
+    quietly dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0 & r(ledger_seq)==2
+    assert `"`r(ledger)'"'==`"`macval(ledger)'"'
+    qa_state_compare, tag(ledger_quotes)
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N==2 & run=="qa same" & family=="expectn" & observed_num==40 & n_scope==40 & status=="pass"
+    assert seq==_n
+    restore
+    python: _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; _leaf=Path(Macro.getLocal("ledger")).name; assert set(_ld_after)-set(_ld_before)=={_leaf}; assert all(_ld_after[k]==v for k,v in _ld_before.items())
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: compound_unicode rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: compound_unicode"
+}
+
+**# quote_directory
+local ++tests
+local root ""
+capture noisily {
+    * expect: REFUSED
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger spaces.dta"'
+    python: from sfi import Macro; Macro.setLocal("ledger",Macro.getLocal("root")+'/spaces "quotes" Å/ledger.dta')
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    tempfile cause
+    log using "`cause'", name(ledgercause) text replace
+    capture noisily dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    local original_rc=_rc
+    log close ledgercause
+    assert `original_rc'==198
+    qa_state_compare, tag(ledger_quotes)
+    python: assert "illegal characters in ledger() path" in Path(Macro.getLocal("cause")).read_text(); assert _ld_before=={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: quote_directory rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: quote_directory"
+}
+
+**# quote_leaf
+local ++tests
+local root ""
+capture noisily {
+    * expect: REFUSED
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger spaces.dta"'
+    python: from sfi import Macro; Macro.setLocal("ledger",Macro.getLocal("root")+'/ledger "literal" Å.dta')
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    tempfile cause
+    log using "`cause'", name(ledgercause) text replace
+    capture noisily dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', run("qa same"))
+    local original_rc=_rc
+    log close ledgercause
+    assert `original_rc'==198
+    qa_state_compare, tag(ledger_quotes)
+    python: assert "illegal characters in ledger() path" in Path(Macro.getLocal("cause")).read_text(); assert _ld_before=={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: quote_leaf rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: quote_leaf"
+}
+
+**# bad_suboption
+local ++tests
+local root ""
+capture noisily {
+    * expect: REFUSED
+    * (the call is refused; its call-error row is the one write)
+    qa_fx_a7_files, clear seed(37) perturb(path_hostile)
+    local root `"`r(root)'"'
+    local ledger `"`root'/ledger spaces.dta"'
+    python: from pathlib import Path; from sfi import Macro; _ld_before={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}
+    qa_fx_a7_labelled, clear seed(37)
+    qa_state_snapshot, tag(ledger_quotes)
+    tempfile cause
+    log using "`cause'", name(ledgercause) text replace
+    capture noisily dataprobe, gatesonly expectn(40) ledger(`"`macval(ledger)'"', not_an_option)
+    local original_rc=_rc
+    log close ledgercause
+    assert `original_rc'==198
+    qa_state_compare, tag(ledger_quotes)
+    * The call failed after the ledger path was read, so it leaves one
+    * call-error row there (rc 198), as the plain-quoted form always did;
+    * nothing else in the tree changes.  Before 1.9.0's quoting fix the
+    * compound-quoted path made the row writer stop with r(132).
+    python: assert "the only suboption is run(string)" in Path(Macro.getLocal("cause")).read_text(); assert "could not be written" not in Path(Macro.getLocal("cause")).read_text(); _ld_after={str(p.relative_to(Path(Macro.getLocal("root")))):p.read_bytes() for p in Path(Macro.getLocal("root")).rglob("*") if p.is_file()}; assert set(_ld_after)-set(_ld_before)=={"ledger spaces.dta"}, sorted(set(_ld_after)^set(_ld_before)); assert all(_ld_after[k]==v for k,v in _ld_before.items())
+    preserve
+    quietly use `"`macval(ledger)'"', clear
+    assert _N == 1
+    assert family == "call" & status == "error" & kind == "invariant"
+    assert observed_num == 198 & observed == "rc 198"
+    assert run == ""
+    assert strpos(message, "dataprobe call exited with rc 198: dataprobe ") == 1
+    assert strpos(message, "not_an_option") > 0
+    restore
+}
+local outcome=_rc
+capture log close ledgercause
+capture restore
+if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
+if `outcome' {
+    local ++fail
+    display as error "FAIL: bad_suboption rc=" `outcome'
+}
+else {
+    local ++pass
+    display as result "PASS: bad_suboption"
+}
+
+display "RESULT: test_dataprobe_fixture_ledger_quotes tests=`tests' pass=`pass' fail=`fail'"
+log close
+if `fail' exit 1

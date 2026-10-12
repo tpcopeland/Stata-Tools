@@ -94,7 +94,7 @@ _cv `=!(`rbc' == 12 & `rd' == 2)' "R1 setup: groups b and c hold 12 rows"
 capture erase "`W'/r1.dta"
 capture log close _rv
 log using "`W'/r1.log", text replace name(_rv)
-capture noisily datacheck, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1.dta")
+capture noisily dataprobe, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1.dta")
 local rc1 = _rc
 log close _rv
 _cv `=!(`rc1' == 9)' "R1 the band fails, exit 9"
@@ -121,7 +121,7 @@ local rbig = r(N)
 capture erase "`W'/r1c.dta"
 capture log close _rv
 log using "`W'/r1c.log", text replace name(_rv)
-capture noisily datacheck, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1c.dta")
+capture noisily dataprobe, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1c.dta")
 log close _rv
 _rv_count "`W'/r1c.log" "2 groups above (rows `rbig')"
 _cv `=!(`rbig' == 20 & r(n) >= 1)' "R1 control: two groups of 10 rows each show rows 20"
@@ -137,7 +137,7 @@ generate x = cond(g == "b", 100, -100)
 capture log close _rv
 capture erase "`W'/r1m.dta"
 log using "`W'/r1m.log", text replace name(_rv)
-capture noisily datacheck, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1m.dta")
+capture noisily dataprobe, gatesonly groupstat(mean x, by(g) band(0 50) min(1)) maskrare mincell(7) ledger("`W'/r1m.dta")
 log close _rv
 _rv_count "`W'/r1m.log" "rows 9)"
 _cv `=!(r(n) == 0)' "R1 mixed: the large direction's rows would recover the small group"
@@ -150,11 +150,11 @@ capture erase "`L'"
 clear
 quietly set obs 10
 generate long id = _n
-quietly datacheck, gatesonly isid(id) name(`"b c"') ledger("`L'", run(b0))
-quietly datacheck, gatesonly isid(id) name(d) ledger("`L'", run(b0))
-quietly datacheck, gatesonly isid(id) name(d) ledger("`L'", run(r1))
-quietly datacheck, gatesonly isid(id) name(`"b c"') ledger("`L'", run(r2))
-quietly datacheck, gatesonly isid(id) name(d) ledger("`L'", run(r2))
+quietly dataprobe, gatesonly isid(id) name(`"b c"') ledger("`L'", run(b0))
+quietly dataprobe, gatesonly isid(id) name(d) ledger("`L'", run(b0))
+quietly dataprobe, gatesonly isid(id) name(d) ledger("`L'", run(r1))
+quietly dataprobe, gatesonly isid(id) name(`"b c"') ledger("`L'", run(r2))
+quietly dataprobe, gatesonly isid(id) name(d) ledger("`L'", run(r2))
 capture quietly dataqa assert using "`L'", run(r1) baseline(b0)
 _cv `=!(_rc == 9)' "R2 a baseline dataset with a space that vanished halts"
 capture quietly dataqa assert using "`L'", run(r1) baseline(b0) optional(`"b c"')
@@ -181,17 +181,17 @@ clear
 quietly set obs 4
 generate double n1 = 0
 foreach t in "mincell(1)" "mincell(0)" "maskrare rare(1)" "maskrare mincell(1)" {
-    capture quietly datacheck, gatesonly smallcells(n1) `t'
+    capture quietly dataprobe, gatesonly smallcells(n1) `t'
     _cv `=!(_rc == 198)' "R3a smallcells() with `t' is refused, rc 198"
 }
-capture quietly datacheck, gatesonly smallcells(n1)
+capture quietly dataprobe, gatesonly smallcells(n1)
 _cv `=!(_rc == 198)' "R3a smallcells() with no threshold, rc 198"
-capture quietly datacheck, gatesonly smallcells(n1) mincell(2)
+capture quietly dataprobe, gatesonly smallcells(n1) mincell(2)
 _cv `=!(_rc == 0)' "R3a mincell(2) is the smallest accepted threshold"
 replace n1 = 1 in 1
-capture quietly datacheck, gatesonly smallcells(n1) mincell(2)
+capture quietly dataprobe, gatesonly smallcells(n1) mincell(2)
 _cv `=!(_rc == 9)' "R3a mincell(2): a count of 1 fails"
-capture quietly datacheck, gatesonly smallcells(n1) maskrare rare(2)
+capture quietly dataprobe, gatesonly smallcells(n1) maskrare rare(2)
 _cv `=!(_rc == 9)' "R3a maskrare rare(2): a count of 1 fails"
 
 **# R3b float by() values in the ledger text
@@ -205,7 +205,7 @@ generate double dm = cond(_n <= 200, -1.5, .a)
 generate long id = _n
 tempvar gg
 quietly egen long `gg' = group(f), missing
-quietly _datacheck_gtext f, group(`gg')
+quietly _dataprobe_gtext f, group(`gg')
 _cv `=!(r(G) == 4)' "R3b four float groups"
 local ok = 1
 local nx = 0
@@ -221,12 +221,12 @@ _cv `=!(`ok' == 1 & `nx' == 0)' "R3b float 0.1 0.2 1 2 read back with float(real
 _cv `=!(`"`r(led1)'"' == "f=.1" & `"`r(led2)'"' == "f=.2" & `"`r(led3)'"' == "f=1" & `"`r(led4)'"' == "f=2")' "R3b float texts are f=.1 f=.2 f=1 f=2"
 _cv `=!(`"`r(disp1)'"' == ".1")' "R3b the display form is the same short text"
 quietly egen long `gg'2 = group(dd), missing
-quietly _datacheck_gtext dd, group(`gg'2)
+quietly _dataprobe_gtext dd, group(`gg'2)
 local s1 = substr(`"`r(led1)'"', 4, .)
 local s2 = substr(`"`r(led2)'"', 4, .)
 _cv `=!(real("`s1'") == 1/3 & real("`s2'") == 2/3 & strpos(`"`r(led1)'`r(led2)'"', "X") == 0)' "R3b double 1/3 and 2/3 round-trip exactly, no hex"
 quietly egen long `gg'3 = group(ii dm), missing
-quietly _datacheck_gtext ii dm, group(`gg'3)
+quietly _dataprobe_gtext ii dm, group(`gg'3)
 _cv `=!(`"`r(led1)'"' == "ii=2015 dm=-1.5" & `"`r(led2)'"' == "ii=2016 dm=.a")' "R3b integer, short decimal and extended missing keep their text"
 * a random battery: every float and double value round-trips and none is hex
 clear
@@ -238,7 +238,7 @@ generate long k = _n
 local bad = 0
 forvalues i = 1/300 {
     foreach v in fr dr {
-        quietly _datacheck_gtext `v', row(`i')
+        quietly _dataprobe_gtext `v', row(`i')
         local s `"`r(val)'"'
         if "`v'" == "fr" & float(real("`s'")) != fr[`i'] local ++bad
         if "`v'" == "dr" & real("`s'") != dr[`i'] local ++bad
@@ -254,8 +254,8 @@ generate long id = _n
 generate float f = cond(_n <= 20, 0.1, 0.3)
 local L3 "`W'/r3.dta"
 capture erase "`L3'"
-quietly datacheck, gatesonly by(f) isid(id) name(cohort) ledger("`L3'", run(p0))
-quietly datacheck, gatesonly by(f) isid(id) name(cohort) ledger("`L3'", run(p1))
+quietly dataprobe, gatesonly by(f) isid(id) name(cohort) ledger("`L3'", run(p0))
+quietly dataprobe, gatesonly by(f) isid(id) name(cohort) ledger("`L3'", run(p1))
 preserve
 quietly use "`L3'", clear
 quietly keep if run == "p0"
@@ -279,7 +279,7 @@ generate long id = _n
 generate int yr = cond(_n <= 20, 2015, 2016)
 local L4 "`W'/r4.dta"
 capture erase "`L4'"
-quietly datacheck, gatesonly by(yr) isid(id) name(cohort) ledger("`L4'", run(q0))
+quietly dataprobe, gatesonly by(yr) isid(id) name(cohort) ledger("`L4'", run(q0))
 preserve
 quietly use "`L4'", clear
 quietly count if strpos(grp, "yr=2015")

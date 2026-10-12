@@ -4,10 +4,10 @@ set more off
 version 16.0
 
 * test_datamap_float_format.do - regressions for no IEEE float-precision noise
-* in datamap/datadict/datacheck text output. Guards the round()->write and raw-value-write
+* in datamap/datadict/dataprobe text output. Guards the round()->write and raw-value-write
 * sites fixed in 1.4.1: continuous DISTRIBUTION stats, panel/survival/survey
 * detection ranges, the missing-data summary %, sample-observation rows, and the
-* datacheck inrange gate message. Pre-1.4.1 these emitted values like
+* dataprobe inrange gate message. Pre-1.4.1 these emitted values like
 * "49.40000000000001%", "SD: 777.1900000000001", "max 96.80000000000001".
 
 capture log close _all
@@ -67,7 +67,7 @@ quietly {
     gen double bmi = rnormal(27.5, 5.2)
     gen double sbp = rnormal(135, 20)
 
-    * outlier / out-of-range driver for datacheck inrange gate
+    * outlier / out-of-range driver for dataprobe inrange gate
     gen double age = round(rnormal(58, 12), 0.1)
     replace age = -3 in 1
     replace age = 96.8 in 2
@@ -155,23 +155,23 @@ else {
     local ++fail_count
 }
 
-**# T4: datacheck inrange gate message is clean
+**# T4: dataprobe inrange gate message is clean
 local ++test_count
 capture noisily {
     use "`tmp_dir'/_ff_cohort.dta", clear
     capture log close dc
     log using "`tmp_dir'/_ff_dc.log", replace text name(dc) nomsg
-    capture noisily datacheck age bmi, inrange(age 18 110 \ bmi 10 60) warn
+    capture noisily dataprobe age bmi, inrange(age 18 110 \ bmi 10 60) warn
     log close dc
     _ff_count_noise using "`tmp_dir'/_ff_dc.log"
     assert r(n) == 0
 }
 if _rc == 0 {
-    di as result "  T`test_count': PASS - datacheck gate message clean"
+    di as result "  T`test_count': PASS - dataprobe gate message clean"
     local ++pass_count
 }
 else {
-    di as error "  T`test_count': FAIL - float noise in datacheck output: `r(sample)'"
+    di as error "  T`test_count': FAIL - float noise in dataprobe output: `r(sample)'"
     local ++fail_count
 }
 

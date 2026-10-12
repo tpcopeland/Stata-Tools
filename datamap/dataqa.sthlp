@@ -1,6 +1,6 @@
 {smcl}
 {* *! dataqa (version recorded in datamap.sthlp)}{...}
-{vieweralsosee "datacheck" "help datacheck"}{...}
+{vieweralsosee "dataprobe" "help dataprobe"}{...}
 {vieweralsosee "datamvp" "help datamvp"}{...}
 {vieweralsosee "datamap" "help datamap"}{...}
 {viewerjumpto "Syntax" "dataqa##syntax"}{...}
@@ -15,7 +15,7 @@
 {title:Title}
 
 {phang}
-{bf:dataqa} {hline 2} Session defaults and a structured QA ledger over {cmd:datacheck} gate calls
+{bf:dataqa} {hline 2} Session defaults and a structured QA ledger over {cmd:dataprobe} gate calls
 
 
 {marker syntax}{...}
@@ -41,7 +41,7 @@
 {synoptset 24 tabbed}{...}
 {synopthdr:set options}
 {synoptline}
-{synopt:{opt mask:rare}}mask small cells in {cmd:datacheck} and {cmd:datamvp}{p_end}
+{synopt:{opt mask:rare}}mask small cells in {cmd:dataprobe} and {cmd:datamvp}{p_end}
 {synopt:{opt min:cell(#)}}the mask threshold{p_end}
 {synopt:{opt led:ger(filename)}}ledger every gate call appends to{p_end}
 {synopt:{opt run(string)}}run label for ledger rows, such as the date{p_end}
@@ -59,7 +59,7 @@
 {title:Description}
 
 {pstd}
-{cmd:dataqa} turns the log-reading QA review loop into a structured ledger. {help datacheck}
+{cmd:dataqa} turns the log-reading QA review loop into a structured ledger. {help dataprobe}
 appends one row per gate entry, passed or failed, and one per
 review item, to the ledger named by {cmd:dataqa set ledger()} (or by its own
 {opt ledger()} option). {cmd:dataqa report} summarizes the ledger and drafts
@@ -72,7 +72,7 @@ the server, after checking that it holds no small cell.
 Every subcommand works in a temporary frame; the data in memory are never
 touched. {cmd:using} {it:ledger} defaults to the ledger set by
 {cmd:dataqa set}, and {opt run()} to its run label. The ledger's columns are
-listed under {opt ledger()} in {help datacheck##options:datacheck}. {cmd:report}, {cmd:assert}, {cmd:export}, and {cmd:compare}
+listed under {opt ledger()} in {help dataprobe##options:dataprobe}. {cmd:report}, {cmd:assert}, {cmd:export}, and {cmd:compare}
 refuse a ledger whose {cmd:status} is not a string variable, or has a row whose
 status is not one of {bf:pass}, {bf:fail}, {bf:warn}, {bf:review}, or
 {bf:error}, with error 610.
@@ -85,7 +85,7 @@ status is not one of {bf:pass}, {bf:fail}, {bf:warn}, {bf:review}, or
 
 {pstd}
 {cmd:dataqa set} {it:options} stores session defaults in the global
-{cmd:DATAMAP_DQ}, read by {cmd:datacheck} and {cmd:datamvp}. The options may be
+{cmd:DATAMAP_DQ}, read by {cmd:dataprobe} and {cmd:datamvp}. The options may be
 written with or without a leading comma, so a do-file can carry
 {cmd:dataqa set maskrare mincell($mincell) ledger("$working/qa_ledger.dta") run($dt) $qa_calib}
 with {cmd:global qa_calib bandwarn} under the synthetic switch. Each
@@ -103,7 +103,7 @@ label. Without {opt replace}, {cmd:dataqa set} prints a note when the run alread
 has rows; they are then read with the session's own rows.
 
 {pstd}
-A {cmd:datacheck} call under a ledger that exits for any reason other than a
+A {cmd:dataprobe} call under a ledger that exits for any reason other than a
 gate failure (exit 9) or Break, such as a parse error, a misspelled option, a
 bad {opt rule()} expression, or a missing variable, appends one error row before
 it exits with its own return code: {cmd:family} {cmd:call}, {cmd:status}
@@ -123,7 +123,7 @@ open rows, {cmd:dataqa compare} flags a call that errors now, and
 {pstd}
 Precedence is: an option typed on the command line, then the session default,
 then a {opt config()} file. An explicit {cmd:nomaskrare} overrides a session
-{opt maskrare}, and {cmd:datacheck} prints a note when it does. Every PASS line
+{opt maskrare}, and {cmd:dataprobe} prints a note when it does. Every PASS line
 and violation heading ends with the active masking, such as {bf:[masked <5]},
 so a log shows that masking was on.
 
@@ -237,21 +237,21 @@ run on an extract.
 {dlgtab:Options for dataqa set}
 
 {phang}
-{opt mask:rare} turns on {opt maskrare} in every later {cmd:datacheck} and
+{opt mask:rare} turns on {opt maskrare} in every later {cmd:dataprobe} and
 {cmd:datamvp} call, so no small count is printed. A call that types
 {cmd:nomaskrare} overrides it.
 
 {phang}
 {opt min:cell(#)} sets the mask threshold, a nonnegative integer, passed to
 both commands as {opt mincell()}. Without it, the threshold under
-{opt maskrare} is {opt rare()} or 5 in {cmd:datacheck} and 5 in {cmd:datamvp}.
+{opt maskrare} is {opt rare()} or 5 in {cmd:dataprobe} and 5 in {cmd:datamvp}.
 
 {phang}
-{opt led:ger(filename)} names the ledger every later {cmd:datacheck} call
+{opt led:ger(filename)} names the ledger every later {cmd:dataprobe} call
 appends to, as with its {opt ledger()} option. {opt .dta} is added to a
 filename without a suffix, as {cmd:save} does; a name with any other suffix, such as
 {cmd:qa.v2} or a {cmd:tempfile} path, is used as given. Every
-{cmd:dataqa} subcommand and {cmd:datacheck} read and write the same
+{cmd:dataqa} subcommand and {cmd:dataprobe} read and write the same
 file under this rule.
 
 {phang}
@@ -280,16 +280,16 @@ requires {opt baseline()} (r(198) otherwise) and takes the same suffix rule as
 the current run. An explicit {opt baseledger()} wins over the session one.
 
 {phang}
-{opt bandwarn} turns on {opt bandwarn} in every later {cmd:datacheck} call,
+{opt bandwarn} turns on {opt bandwarn} in every later {cmd:dataprobe} call,
 so failing sanity bands warn while invariants still halt. Set it only for a
 synthetic run, where the bands are not calibrated.
 
 {phang}
-{opt sig:nature} turns on {opt signature} in every later {cmd:datacheck}
+{opt sig:nature} turns on {opt signature} in every later {cmd:dataprobe}
 call, so the ledger records each dataset's {help datasignature}.
 
 {phang}
-{opt collect} makes a {cmd:datacheck} call under a ledger record a gate failure
+{opt collect} makes a {cmd:dataprobe} call under a ledger record a gate failure
 instead of halting on it. The call still prints its violation block and writes
 its rows, but it returns 0 with {cmd:r(n_failed)} and {cmd:r(n_errors)} set, and
 prints one line saying the failures were recorded and that {cmd:dataqa assert}
@@ -304,7 +304,7 @@ everywhere. {cmd:dataqa set clear} removes it with the other defaults.
 {opt replace} removes the rows of {opt run()} from {opt ledger()} when the
 defaults are set, so the run starts afresh; rows of other runs are kept. It
 requires both {opt ledger()} and {opt run()}, acts once, and is not stored
-with the defaults. A file that is not a datacheck ledger is refused with
+with the defaults. A file that is not a dataprobe ledger is refused with
 r(610) and left untouched.
 
 {dlgtab:Options for report, assert, export, and compare}
@@ -359,7 +359,7 @@ default to 0.05.
 
 {pstd}
 The kind of a failed row, fixed where its gate was declared (see
-{help datacheck##kinds:datacheck}), limits the dispositions the register may
+{help dataprobe##kinds:dataprobe}), limits the dispositions the register may
 record:
 
 {phang2}{bf:invariant}: {it:code fixed}, or {it:accepted: <reason>} with the PI consulted.{p_end}
@@ -379,9 +379,9 @@ propose widening an invariant.
 {phang2}{cmd:. tempfile ledger}{p_end}
 {phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`ledger'") run(demo)}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
 {phang2}{cmd:. sysuse lifeexp, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(country) name(lifeexp)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(country) name(lifeexp)}{p_end}
 
 {pstd}Summarize, draft the register, and assert that both datasets were checked:{p_end}
 {phang2}{cmd:. dataqa report}{p_end}
@@ -407,19 +407,19 @@ blanks it:{p_end}
 {phang2}{cmd:. tempfile ledger qalog md release}{p_end}
 {phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`ledger'") run(base) replace}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
 {phang2}{cmd:. sysuse nlsw88, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)}{p_end}
-{phang2}{cmd:. capture datacheck, minversion(1.9.0)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)}{p_end}
+{phang2}{cmd:. capture dataprobe, minversion(1.9.0)}{p_end}
 {phang2}{cmd:. if _rc display as error "datamap 1.9.0 or later is needed"}{p_end}
 {phang2}{cmd:. global qa_synth 0}{p_end}
 {phang2}{cmd:. global qa_baseline = cond($qa_synth, "", "base")}{p_end}
 {phang2}{cmd:. dataqa set maskrare mincell(5) ledger("`ledger'") run(now) collect baseline($qa_baseline) replace}{p_end}
 {phang2}{cmd:. log using "`qalog'", name(qa) text replace}{p_end}
 {phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)}{p_end}
 {phang2}{cmd:. sysuse nlsw88, clear}{p_end}
-{phang2}{cmd:. datacheck, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)}{p_end}
+{phang2}{cmd:. dataprobe, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)}{p_end}
 {phang2}{cmd:. log close qa}{p_end}
 {phang2}{cmd:. dataqa compare}{p_end}
 {phang2}{cmd:. dataqa report, markdown("`md'") replace bands}{p_end}
@@ -465,7 +465,7 @@ stores {cmd:r(n_flags)} and {cmd:r(baseline)}, and with {opt baseline()}
 {title:Also see}
 
 {psee}
-{help datacheck}, {help datamvp}, {help datamap}
+{help dataprobe}, {help datamvp}, {help datamap}
 {p_end}
 
 {hline}

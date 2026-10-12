@@ -81,9 +81,9 @@ local map_txt "`tmp_dir'/v15_datamap.txt"
 local map_meta "`tmp_dir'/v15_datamap_meta.dta"
 local dict_md "`tmp_dir'/v15_datadict.md"
 local dict_meta "`tmp_dir'/v15_datadict_meta.dta"
-local check_meta "`tmp_dir'/v15_datacheck_meta.dta"
-local base_meta "`tmp_dir'/v15_datacheck_base.dta"
-local changed_meta "`tmp_dir'/v15_datacheck_changed_meta.dta"
+local check_meta "`tmp_dir'/v15_dataprobe_meta.dta"
+local base_meta "`tmp_dir'/v15_dataprobe_base.dta"
+local changed_meta "`tmp_dir'/v15_dataprobe_changed_meta.dta"
 local cfg "`tmp_dir'/v15_config.txt"
 
 _v15_make_data
@@ -176,12 +176,12 @@ else {
 }
 
 * ============================================================
-* 3. datacheck saving() uses the common schema and preserves legacy aliases
+* 3. dataprobe saving() uses the common schema and preserves legacy aliases
 * ============================================================
 local ++test_count
 capture noisily {
     use "`dta'", clear
-    datacheck, saving("`check_meta'", replace) exclude(id) ///
+    dataprobe, saving("`check_meta'", replace) exclude(id) ///
         continuous(score) categorical(note) date(visit_date) warn
 
     assert strpos("`r(excluded_vars)'", "id") > 0
@@ -191,7 +191,7 @@ capture noisily {
 
     preserve
     use "`check_meta'", clear
-    _v15_common_schema datacheck
+    _v15_common_schema dataprobe
     confirm variable varname
     confirm variable dc_class
     quietly count if variable == "score" & class == "continuous" & dc_class == "continuous"
@@ -201,11 +201,11 @@ capture noisily {
     restore
 }
 if _rc == 0 {
-    display as result "  PASS: datacheck saving() common schema and legacy aliases"
+    display as result "  PASS: dataprobe saving() common schema and legacy aliases"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datacheck saving() schema regression (error `=_rc')"
+    display as error "  FAIL: dataprobe saving() schema regression (error `=_rc')"
     local ++fail_count
 }
 
@@ -223,7 +223,7 @@ capture noisily {
     assert strpos("`r(date_vars)'", "visit_date") > 0
 
     use "`dta'", clear
-    datacheck, config("`cfg'") saving("`check_meta'", replace) warn
+    dataprobe, config("`cfg'") saving("`check_meta'", replace) warn
     assert r(mincell) == 5
     assert strpos("`r(excluded_vars)'", "id") > 0
     assert strpos("`r(continuous_vars)'", "score") > 0
@@ -231,7 +231,7 @@ capture noisily {
     assert strpos("`r(date_vars)'", "visit_date") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: shared config() applies across datamap and datacheck"
+    display as result "  PASS: shared config() applies across datamap and dataprobe"
     local ++pass_count
 }
 else {
@@ -240,19 +240,19 @@ else {
 }
 
 * ============================================================
-* 5. datacheck compare() detects schema drift from saved metadata
+* 5. dataprobe compare() detects schema drift from saved metadata
 * ============================================================
 local ++test_count
 capture noisily {
     use "`dta'", clear
-    datacheck, saving("`base_meta'", replace) exclude(id) warn gatesonly
+    dataprobe, saving("`base_meta'", replace) exclude(id) warn gatesonly
 
     use "`dta'", clear
     drop note
     recast double score
     gen byte bmi = 20 + mod(_n, 4)
     quietly save "`dta_changed'", replace
-    datacheck, compare("`base_meta'") saving("`changed_meta'", replace) ///
+    dataprobe, compare("`base_meta'") saving("`changed_meta'", replace) ///
         exclude(id) continuous(score) warn
     assert r(compare_added) == 1
     assert r(compare_dropped) == 1
@@ -266,16 +266,16 @@ capture noisily {
     assert strpos("`r(violations)'", "compare") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datacheck compare() detects saved-profile schema drift"
+    display as result "  PASS: dataprobe compare() detects saved-profile schema drift"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datacheck compare() regression (error `=_rc')"
+    display as error "  FAIL: dataprobe compare() regression (error `=_rc')"
     local ++fail_count
 }
 
 * ============================================================
-* 6. datacheck compare() accepts legacy datacheck saving aliases
+* 6. dataprobe compare() accepts legacy dataprobe saving aliases
 * ============================================================
 local ++test_count
 capture noisily {
@@ -287,16 +287,16 @@ capture noisily {
     quietly save "`legacy_meta'", replace
 
     use "`dta_changed'", clear
-    datacheck, compare("`legacy_meta'") exclude(id) warn gatesonly
+    dataprobe, compare("`legacy_meta'") exclude(id) warn gatesonly
     assert r(compare_added) == 1
     assert strpos("`r(compare_added_vars)'", "bmi") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: datacheck compare() accepts legacy metadata aliases"
+    display as result "  PASS: dataprobe compare() accepts legacy metadata aliases"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: datacheck compare() legacy alias regression (error `=_rc')"
+    display as error "  FAIL: dataprobe compare() legacy alias regression (error `=_rc')"
     local ++fail_count
 }
 

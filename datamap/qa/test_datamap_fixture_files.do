@@ -134,7 +134,7 @@ else {
     display as result "PASS: datadict path_noext"
 }
 
-**# datacheck path_hostile
+**# dataprobe path_hostile
 local ++tests
 local root ""
 capture noisily {
@@ -146,7 +146,7 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    capture noisily datacheck, gatesonly expectn(40) ledger(`"`macval(output)'"')
+    capture noisily dataprobe, gatesonly expectn(40) ledger(`"`macval(output)'"')
     local original_rc=_rc
     assert `original_rc'==198
     qa_state_compare, tag(dm_files)
@@ -157,14 +157,14 @@ capture restore
 if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck path_hostile rc=" `outcome'
+    display as error "FAIL: dataprobe path_hostile rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck path_hostile"
+    display as result "PASS: dataprobe path_hostile"
 }
 
-**# datacheck path_noext
+**# dataprobe path_noext
 local ++tests
 local root ""
 capture noisily {
@@ -176,7 +176,7 @@ capture noisily {
     python: _dm_tree_before={str(p.relative_to(__import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")))):p.read_bytes() for p in __import__("pathlib").Path(__import__("sfi").Macro.getLocal("root")).rglob("*") if p.is_file()}
     qa_fx_a7_labelled, clear seed(37)
     qa_state_snapshot, tag(dm_files)
-    capture noisily datacheck, gatesonly expectn(40) ledger(`"`macval(output)'"')
+    capture noisily dataprobe, gatesonly expectn(40) ledger(`"`macval(output)'"')
     local original_rc=_rc
     assert `original_rc'==610
     qa_state_compare, tag(dm_files)
@@ -187,11 +187,11 @@ capture restore
 if `"`root'"'!="" capture noisily qa_fx_a7_cleanup, root(`"`macval(root)'"')
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck path_noext rc=" `outcome'
+    display as error "FAIL: dataprobe path_noext rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck path_noext"
+    display as result "PASS: dataprobe path_noext"
 }
 
 **# datamvp path_hostile

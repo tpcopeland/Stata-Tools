@@ -197,7 +197,7 @@ path, dataset name and label, variable name, storage type, display format, value
 label name, class, N, number of variables in the source dataset, missing count
 and percent, unique count, variable label, notes, characteristics, numeric
 summary statistics when available, source command, and datasignature. The
-schema is shared with {help datamap} and {help datacheck}. Specify
+schema is shared with {help datamap} and {help dataprobe}. Specify
 {cmd:replace} to overwrite an existing file.
 
 {pmore}

@@ -4,7 +4,7 @@
 *! Program class: rclass
 
 // DATAMAP_DQ holds the option string written by -dataqa set-.  Every
-// consumer (datacheck, datamvp, dataqa) reads it through this parser, so the
+// consumer (dataprobe, datamvp, dataqa) reads it through this parser, so the
 // grammar is defined once.  Precedence is applied by the caller: an explicit
 // option beats a session default, which beats a config() file.
 program define _datamap_dqdefaults, rclass

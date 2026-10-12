@@ -26,7 +26,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)
@@ -89,7 +89,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)
@@ -152,7 +152,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)
@@ -215,7 +215,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)
@@ -278,7 +278,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)
@@ -341,7 +341,7 @@ capture noisily {
     quietly dataqa set ledger("`ledger'") run(fx) maskrare mincell(5)
     assert `"`r(defaults)'"'==`"maskrare mincell(5) ledger("`ledger'") run(fx)"'
     qa_state_snapshot, tag(gate_ledger)
-    quietly datacheck, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
+    quietly dataprobe, gatesonly isid(id) expectn(`N') allowed(group 1 2 5 9) name(canonical)
     assert r(n_checks)==3 & r(n_passed)==3 & r(n_failed)==0
     qa_state_compare, tag(gate_ledger)
     qa_state_snapshot, tag(gate_ledger)

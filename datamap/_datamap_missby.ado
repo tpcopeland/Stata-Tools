@@ -6,7 +6,7 @@
 // Syntax: _datamap_missby varlist, by(varlist) touse(varname)
 //
 // The single computation of missingness by group in the package: datamvp
-// bytable() and datacheck groupstat(pmiss ...) both read it, so the two
+// bytable() and dataprobe groupstat(pmiss ...) both read it, so the two
 // cannot disagree.  Groups are the nonmissing combinations of by() among
 // rows with touse == 1 (egen group order).
 //

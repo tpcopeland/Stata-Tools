@@ -4,7 +4,7 @@ version 16.0
 set linesize 255
 
 * test_dataqa_v190_collect.do - R4 (an error row for any non-gate exit of a
-* datacheck call under a ledger) and W3 (dataqa set collect).  The planted
+* dataprobe call under a ledger) and W3 (dataqa set collect).  The planted
 * defects: a call that fails to parse, a misspelled option, a bad rule()
 * expression and a missing variable must each leave an error row that
 * dataqa assert halts on; collect must change only the exit of a gate
@@ -95,8 +95,8 @@ foreach bad in `"rule("bad": x >>> 3)"' `"isdi(id)"' `"rule("e": nosuchvar > 3)"
         _dq_fix
         capture erase "`L'"
         dataqa set ledger("`L'") run(r`k')
-        datacheck, gatesonly isid(id) name(auto)
-        capture datacheck, gatesonly name(auto) `bad'
+        dataprobe, gatesonly isid(id) name(auto)
+        capture dataprobe, gatesonly name(auto) `bad'
         local rc_call = _rc
         assert `rc_call' != 0 & `rc_call' != 9
         _dq_nstat "`L'" r`k' error
@@ -131,7 +131,7 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(ok)
-    datacheck, gatesonly isid(id) name(auto)
+    dataprobe, gatesonly isid(id) name(auto)
     dataqa assert, run(ok)
     assert r(n_errors) == 0
     dataqa set clear
@@ -143,7 +143,7 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(mv)
-    capture datacheck nosuchvar, gatesonly isid(id)
+    capture dataprobe nosuchvar, gatesonly isid(id)
     assert _rc == 111
     _dq_nstat "`L'" mv error
     assert r(n) == 1
@@ -157,7 +157,7 @@ _dq `=_rc' "R4: a missing variable (rc 111) writes an error row with an empty da
 capture noisily {
     _dq_fix
     capture erase "`L2'"
-    capture datacheck, gatesonly ledger("`L2'", run(ex1)) name(zed) isdi(id)
+    capture dataprobe, gatesonly ledger("`L2'", run(ex1)) name(zed) isdi(id)
     assert _rc == 198
     preserve
     quietly use "`L2'", clear
@@ -173,9 +173,9 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(mp)
-    datacheck, gatesonly isid(id) name(auto)
-    datacheck, minversion(1.0.0)
-    capture datacheck, minversion(99.0.0)
+    dataprobe, gatesonly isid(id) name(auto)
+    dataprobe, minversion(1.0.0)
+    capture dataprobe, minversion(99.0.0)
     assert _rc == 198
     _dq_nstat "`L'" mp error
     assert r(n) == 0
@@ -190,7 +190,7 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(g9)
-    capture datacheck, gatesonly rule("big": x <= 18) name(auto)
+    capture dataprobe, gatesonly rule("big": x <= 18) name(auto)
     assert _rc == 9
     _dq_nstat "`L'" g9 error
     assert r(n) == 0
@@ -205,10 +205,10 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(ns)
-    capture datacheck, gatesonly name(auto) isdi(id)
-    capture datacheck, gatesonly name(auto) isdi(id)
-    datacheck, gatesonly isid(id) name(auto)
-    datacheck, gatesonly isid(id) name(auto)
+    capture dataprobe, gatesonly name(auto) isdi(id)
+    capture dataprobe, gatesonly name(auto) isdi(id)
+    dataprobe, gatesonly isid(id) name(auto)
+    dataprobe, gatesonly isid(id) name(auto)
     capture dataqa assert, run(ns)
     assert _rc == 9
     assert r(n_errors) == 2
@@ -219,7 +219,7 @@ _dq `=_rc' "R4: error rows are not superseded by later calls of the same dataset
 * an unwritable ledger: the original rc comes back with a note
 capture noisily {
     _dq_fix
-    capture datacheck, gatesonly name(auto) isdi(id) ledger("/nonexistent_dq_dir/none.dta")
+    capture dataprobe, gatesonly name(auto) isdi(id) ledger("/nonexistent_dq_dir/none.dta")
     assert _rc == 198
 }
 _dq `=_rc' "R4: a failed error-row write still exits with the original rc"
@@ -230,10 +230,10 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(b0)
-    datacheck, gatesonly isid(id) name(auto)
+    dataprobe, gatesonly isid(id) name(auto)
     dataqa set ledger("`L'") run(c1)
-    capture datacheck, gatesonly name(auto) isdi(id)
-    datacheck, gatesonly isid(id) name(auto)
+    capture dataprobe, gatesonly name(auto) isdi(id)
+    dataprobe, gatesonly isid(id) name(auto)
     dataqa set clear
     capture log close _dql
     log using "`LG'", text replace name(_dql)
@@ -286,13 +286,13 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(w0)
-    capture datacheck, gatesonly rule("big": x <= 18) name(auto)
+    capture dataprobe, gatesonly rule("big": x <= 18) name(auto)
     assert _rc == 9
     dataqa set ledger("`L'") run(w1) collect
     assert strpos(`"$DATAMAP_DQ"', "collect") > 0
     capture log close _dql
     log using "`LG'", text replace name(_dql)
-    capture noisily datacheck, gatesonly rule("big": x <= 18) name(auto)
+    capture noisily dataprobe, gatesonly rule("big": x <= 18) name(auto)
     local crc = _rc
     local nf = r(n_failed)
     local ne = r(n_errors)
@@ -320,7 +320,7 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set ledger("`L'") run(w2) collect
-    capture datacheck, gatesonly isid(id) name(auto) isdi(id)
+    capture dataprobe, gatesonly isid(id) name(auto) isdi(id)
     assert _rc == 198
     _dq_nstat "`L'" w2 error
     assert r(n) == 1
@@ -334,7 +334,7 @@ capture noisily {
     capture erase "`L'"
     dataqa set ledger("`L'") run(bw1) collect bandwarn
     * only a band fails: no halt, no failed row, assert passes
-    datacheck, gatesonly isid(id) bands(stat(mean x 0 5)) name(alpha)
+    dataprobe, gatesonly isid(id) bands(stat(mean x 0 5)) name(alpha)
     _dq_nstat "`L'" bw1 warn
     assert r(n) == 1
     _dq_nstat "`L'" bw1 fail
@@ -342,7 +342,7 @@ capture noisily {
     dataqa assert, run(bw1)
     * an invariant fails as well: rc 0 under collect, assert halts
     dataqa set ledger("`L'") run(bw2) collect bandwarn
-    datacheck, gatesonly rule("big": x <= 18) bands(stat(mean x 0 5)) name(alpha)
+    dataprobe, gatesonly rule("big": x <= 18) bands(stat(mean x 0 5)) name(alpha)
     assert !missing(r(n_failed)) & r(n_failed) >= 1
     _dq_nstat "`L'" bw2 warn
     assert r(n) == 1
@@ -360,7 +360,7 @@ capture noisily {
     dataqa set collect
     capture log close _dql
     log using "`LG'", text replace name(_dql)
-    capture noisily datacheck, gatesonly rule("big": x <= 18) name(auto)
+    capture noisily dataprobe, gatesonly rule("big": x <= 18) name(auto)
     local crc = _rc
     log close _dql
     assert `crc' == 9
@@ -375,7 +375,7 @@ capture log close _dql
 capture noisily {
     _dq_fix
     dataqa set collect
-    capture datacheck, gatesonly rule("big": x <= 18) name(auto) ledger("/nonexistent_dq_dir/none.dta")
+    capture dataprobe, gatesonly rule("big": x <= 18) name(auto) ledger("/nonexistent_dq_dir/none.dta")
     assert _rc != 0
     dataqa set clear
 }
@@ -386,7 +386,7 @@ capture noisily {
     _dq_fix
     capture erase "`L'"
     dataqa set collect
-    datacheck, gatesonly rule("big": x <= 18) name(auto) ledger("`L'", run(ex))
+    dataprobe, gatesonly rule("big": x <= 18) name(auto) ledger("`L'", run(ex))
     assert r(n_failed) == 1
     _dq_nstat "`L'" ex fail
     assert r(n) == 1

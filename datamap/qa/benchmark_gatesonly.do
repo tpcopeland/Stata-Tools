@@ -40,18 +40,18 @@ gen int year = 2000 + floor(runiform()*20)
 * warm-up: load and compile the ado files outside the timers
 preserve
 quietly keep in 1/1000
-quietly datacheck, gatesonly isid(id start) rule("ok": start < stop)
+quietly dataprobe, gatesonly isid(id start) rule("ok": start < stop)
 restore
 
 timer clear
 timer on 1
-datacheck, gatesonly isid(id start) rule("ok": start < stop)
+dataprobe, gatesonly isid(id start) rule("ok": start < stop)
 timer off 1
 timer on 2
-datacheck id start stop, gatesonly isid(id start) rule("ok": start < stop)
+dataprobe id start stop, gatesonly isid(id start) rule("ok": start < stop)
 timer off 2
 timer on 3
-datacheck, gatesonly isid(id start) by(year)
+dataprobe, gatesonly isid(id start) by(year)
 timer off 3
 timer on 4
 quietly isid id start
@@ -88,11 +88,11 @@ capture noisily {
     replace stop = start in 17
     replace c3 = 9 in 1/3
     local call `"isid(id start) nodups rule("ok": start < stop) inrange(x1 -4 4 \ x2 x3 -5 5) allowed(c3 0 1 2 3) notmissing(x4) stat(mean x5 -0.01 0.01 \ sum _d 9000 11000 \ distinct id 200000 200000) binary(_d) events(_d: c1 c2) intervals(id start stop, contiguous) constant(id: year) review("big": x6 > 3) complete(x7 x8) bands(expectn(900000 1100000)) bandwarn warn"'
-    capture datacheck, gatesonly `call' violations(bv_wide, replace)
+    capture dataprobe, gatesonly `call' violations(bv_wide, replace)
     local v1 "`r(violations)'"
     local c1 "`r(checks_run)'"
     local n1 = r(n_violations)
-    capture datacheck id start stop _d c1 c2 c3 x1-x8 year, gatesonly `call' violations(bv_narrow, replace)
+    capture dataprobe id start stop _d c1 c2 c3 x1-x8 year, gatesonly `call' violations(bv_narrow, replace)
     assert "`r(violations)'" == "`v1'" & "`r(checks_run)'" == "`c1'" & r(n_violations) == `n1'
     frame bv_wide: local nw = _N
     frame bv_narrow: assert _N == `nw'

@@ -3,7 +3,7 @@ set more off
 version 16.0
 set linesize 255
 
-* test_dataqa_v190_groupkeys.do - I4 (the ledger records a datacheck by()
+* test_dataqa_v190_groupkeys.do - I4 (the ledger records a dataprobe by()
 * group by its values, and dataqa compare pairs groups by them) and the blank
 * string by() label fix.  Oracles: count if for every group size, a hand
 * decode of each escaped value against the data, and the number-keyed pairing
@@ -137,7 +137,7 @@ capture noisily {
     capture erase "`L'"
     capture log close _dql
     log using "`LG'", text replace name(_dql)
-    capture noisily datacheck, by(s) notmissing(x) name(bl) ledger("`L'", run(r1))
+    capture noisily dataprobe, by(s) notmissing(x) name(bl) ledger("`L'", run(r1))
     local rc1 = _rc
     log close _dql
     assert `rc1' == 9
@@ -174,7 +174,7 @@ capture noisily {
     capture erase "`L'"
     capture log close _dql
     log using "`LG'", text replace name(_dql)
-    capture noisily datacheck, by(v) notmissing(y) name(nm) ledger("`L'", run(r1))
+    capture noisily dataprobe, by(v) notmissing(y) name(nm) ledger("`L'", run(r1))
     log close _dql
     assert _rc == 9
     foreach code in "." ".a" ".b" {
@@ -212,7 +212,7 @@ capture noisily {
     label define sl 3 "Beta" 4 "Delta"
     label values site sl
     capture erase "`L'"
-    datacheck, gatesonly by(site year) notmissing(id) name(f1) ledger("`L'", run(r1))
+    dataprobe, gatesonly by(site year) notmissing(id) name(f1) ledger("`L'", run(r1))
     preserve
     quietly use "`L'", clear
     quietly keep if family == "notmissing"
@@ -224,7 +224,7 @@ capture noisily {
     restore
     * relabel: the same groups, so the ledger is unchanged
     label define sl 3 "Gamma" 4 "Zeta", modify
-    datacheck, gatesonly by(site year) notmissing(id) name(f1) ledger("`L'", run(r2))
+    dataprobe, gatesonly by(site year) notmissing(id) name(f1) ledger("`L'", run(r2))
     preserve
     quietly use "`L'", clear
     quietly keep if family == "notmissing"
@@ -273,7 +273,7 @@ capture noisily {
     gen str30 h = hv
     drop hv
     capture erase "`L'"
-    capture noisily datacheck, gatesonly by(h) notmissing(x) name(h1) ledger("`L'", run(r1))
+    capture noisily dataprobe, gatesonly by(h) notmissing(x) name(h1) ledger("`L'", run(r1))
     assert _rc == 9
     * every distinct value is one group; 22 rows hold 21 distinct (row 18 repeats row 1)
     quietly levelsof h, local(dv)
@@ -306,7 +306,7 @@ capture noisily {
     assert n_scope == nobs
     restore
     * the ledger reads back, and the same data pair 1:1 with itself
-    capture datacheck, gatesonly by(h) notmissing(x) name(h1) ledger("`L'", run(r2))
+    capture dataprobe, gatesonly by(h) notmissing(x) name(h1) ledger("`L'", run(r2))
     assert _rc == 9
     dataqa compare using "`L'", run(r2) baseline(r1)
     assert r(n_flags) == 0
@@ -327,13 +327,13 @@ capture noisily {
     gen byte site = cond(_n <= 10, 2, cond(_n <= 30, 3, 4))
     gen double x = 1
     capture erase "`L'"
-    datacheck, gatesonly by(site) notmissing(x) name(ins) ledger("`L'", run(r1))
+    dataprobe, gatesonly by(site) notmissing(x) name(ins) ledger("`L'", run(r1))
     clear
     set obs 85
     gen long id = _n
     gen byte site = cond(_n <= 15, 1, cond(_n <= 25, 2, cond(_n <= 45, 3, 4)))
     gen double x = 1
-    datacheck, gatesonly by(site) notmissing(x) name(ins) ledger("`L'", run(r2))
+    dataprobe, gatesonly by(site) notmissing(x) name(ins) ledger("`L'", run(r2))
     * by value: every surviving group pairs with itself (no N drift), site 1 is new
     capture log close _dql
     log using "`LG'", text replace name(_dql)
@@ -441,7 +441,7 @@ capture noisily {
     capture erase "`L'"
     capture log close _dql
     log using "`LG'", text replace name(_dql)
-    capture noisily datacheck, by(site) notmissing(x) isid(id) maskrare mincell(5) name(mk) ledger("`L'", run(r1))
+    capture noisily dataprobe, by(site) notmissing(x) isid(id) maskrare mincell(5) name(mk) ledger("`L'", run(r1))
     log close _dql
     assert _rc == 0
     * site 7777 has 3 rows: below the mask, so it is withheld everywhere
@@ -472,7 +472,7 @@ capture noisily {
     * the same call without the mask names every group, 7777 included: the
     * mask is what holds the value back
     capture erase "`L'"
-    datacheck, gatesonly by(site) notmissing(x) name(mk) ledger("`L'", run(r1))
+    dataprobe, gatesonly by(site) notmissing(x) name(mk) ledger("`L'", run(r1))
     preserve
     quietly use "`L'", clear
     quietly count if grp == "by(site | site=7777)"
@@ -492,7 +492,7 @@ capture noisily {
     label values lv lvl
     gen byte ev = _n <= 25
     capture erase "`L'"
-    capture noisily datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
+    capture noisily dataprobe, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
     assert _rc == 9
     preserve
     quietly use "`L'", clear
@@ -500,14 +500,14 @@ capture noisily {
     assert _N == 1 & grp == "lv = 2"
     restore
     replace ev = 1
-    datacheck, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
+    dataprobe, gatesonly name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
     dataqa assert using "`L'", run(r1)
     assert r(n_failed) == 0 & r(n_superseded) == 1
     * inside by(): by value, then the level, and the passing rerun supersedes
     replace ev = _n <= 25
     gen byte g = 1 + (_n > 20)
     capture erase "`L'"
-    capture noisily datacheck, gatesonly by(g) name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
+    capture noisily dataprobe, gatesonly by(g) name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
     assert _rc == 9
     preserve
     quietly use "`L'", clear
@@ -515,7 +515,7 @@ capture noisily {
     assert _N == 1 & grp == "by(g | g=2); lv = 2"
     restore
     replace ev = 1
-    datacheck, gatesonly by(g) name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
+    dataprobe, gatesonly by(g) name(ev) events(ev: lv, min(10)) ledger("`L'", run(r1))
     dataqa assert using "`L'", run(r1)
     assert r(n_failed) == 0 & r(n_superseded) == 2
 }
@@ -528,22 +528,22 @@ capture noisily {
     gen byte g = ceil(_n / 20)
     gen double x = cond(g == 2, 10, 1)
     capture erase "`L'"
-    capture noisily datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
+    capture noisily dataprobe, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
     dataqa report using "`L'", run(r1)
     assert r(n_warned) == 1
     replace x = 1
-    datacheck, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
+    dataprobe, gatesonly name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
     dataqa report using "`L'", run(r1)
     assert r(n_warned) == 0 & r(n_superseded) == 2
     * under by(): by value + groupstat level; superseded by the passing rerun
     gen byte h = 1
     replace x = cond(g == 2, 10, 1)
     capture erase "`L'"
-    capture noisily datacheck, gatesonly by(h) name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
+    capture noisily dataprobe, gatesonly by(h) name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
     dataqa report using "`L'", run(r1)
     assert r(n_warned) == 1
     replace x = 1
-    datacheck, gatesonly by(h) name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
+    dataprobe, gatesonly by(h) name(gs) groupstat(mean x, by(g) band(0 2)) warn ledger("`L'", run(r1))
     dataqa report using "`L'", run(r1)
     assert r(n_warned) == 0
 }

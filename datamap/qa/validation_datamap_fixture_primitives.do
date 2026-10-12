@@ -80,7 +80,7 @@ capture noisily {
     * expect: EXACT
     qa_hostile_names, clear
     qa_state_snapshot, tag(dc_primitive)
-    quietly datacheck, gatesonly expectn(20) require(y Y abcdefghijklmnopqrstuvwxyz_1234a abcdefghijklmnopqrstuvwxyz_1234b)
+    quietly dataprobe, gatesonly expectn(20) require(y Y abcdefghijklmnopqrstuvwxyz_1234a abcdefghijklmnopqrstuvwxyz_1234b)
     assert r(N)==20 & r(n_checks)==2 & r(n_passed)==2 & r(n_failed)==0
     qa_state_compare, tag(dc_primitive)
 
@@ -127,7 +127,7 @@ capture noisily {
     * expect: EXACT
     qa_hostile_names, clear
     tempfile ledger release
-    quietly datacheck, gatesonly expectn(20) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
+    quietly dataprobe, gatesonly expectn(20) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
     assert r(n_checks)==1 & r(n_passed)==1
     qa_state_snapshot, tag(dqa_primitive)
     quietly dataqa assert using `"`ledger'"', run(primitive) expect(actual)
@@ -220,7 +220,7 @@ capture noisily {
     * expect: EXACT
     qa_hostile_codes, clear
     qa_state_snapshot, tag(dc_primitive)
-    quietly datacheck, gatesonly expectn(15) require(code y)
+    quietly dataprobe, gatesonly expectn(15) require(code y)
     assert r(N)==15 & r(n_checks)==2 & r(n_passed)==2 & r(n_failed)==0
     qa_state_compare, tag(dc_primitive)
 
@@ -267,7 +267,7 @@ capture noisily {
     * expect: EXACT
     qa_hostile_codes, clear
     tempfile ledger release
-    quietly datacheck, gatesonly expectn(15) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
+    quietly dataprobe, gatesonly expectn(15) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
     assert r(n_checks)==1 & r(n_passed)==1
     qa_state_snapshot, tag(dqa_primitive)
     quietly dataqa assert using `"`ledger'"', run(primitive) expect(actual)
@@ -389,7 +389,7 @@ capture noisily {
     python: _dm_corpus=[__import__("sfi").Macro.getGlobal(g) for g in __import__("sfi").Macro.getLocal("corpus").split()]
 
     qa_state_snapshot, tag(dc_primitive)
-    quietly datacheck, gatesonly expectn(40) require(id group shared y x text date all_missing onelevel extended caption)
+    quietly dataprobe, gatesonly expectn(40) require(id group shared y x text date all_missing onelevel extended caption)
     assert r(N)==40 & r(n_checks)==2 & r(n_passed)==2 & r(n_failed)==0
     qa_state_compare, tag(dc_primitive)
 
@@ -456,7 +456,7 @@ capture noisily {
     python: _dm_corpus=[__import__("sfi").Macro.getGlobal(g) for g in __import__("sfi").Macro.getLocal("corpus").split()]
 
     tempfile ledger release
-    quietly datacheck, gatesonly expectn(40) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
+    quietly dataprobe, gatesonly expectn(40) ledger(`"`ledger'"', run(primitive)) name(actual) maskrare mincell(5)
     assert r(n_checks)==1 & r(n_passed)==1
     qa_state_snapshot, tag(dqa_primitive)
     quietly dataqa assert using `"`ledger'"', run(primitive) expect(actual)

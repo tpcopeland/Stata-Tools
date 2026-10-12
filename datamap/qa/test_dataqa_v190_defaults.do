@@ -52,7 +52,7 @@ program define _dq_run
     gen long id = _n
     dataqa set ledger("`L'") run(`run')
     foreach n of local names {
-        datacheck, gatesonly isid(id) name(`n')
+        dataprobe, gatesonly isid(id) name(`n')
     }
     dataqa set clear
 end
@@ -274,7 +274,7 @@ capture noisily {
 }
 _dq `=_rc' "refusals: baseledger without baseline, hostile characters; optional() without a baseline is ignored"
 
-**# datacheck and datamvp tolerate the new tokens
+**# dataprobe and datamvp tolerate the new tokens
 capture noisily {
     erase "`LC'"
     clear
@@ -283,11 +283,11 @@ capture noisily {
     gen double x = mod(_n, 5)
     gen byte g = mod(_n, 3)
     dataqa set maskrare mincell(5) ledger("`LC'") run(tol) baseline(b0) baseledger("`LB'") signature
-    datacheck, gatesonly isid(id) name(tolgate)
+    dataprobe, gatesonly isid(id) name(tolgate)
     _dq_nrows "`LC'" tol
     assert r(n) == 1
     * a call that fails still writes its error row through the same parser
-    capture datacheck, gatesonly isid(nonexistent) name(tolbad)
+    capture dataprobe, gatesonly isid(nonexistent) name(tolbad)
     assert _rc != 0
     _dq_nrows "`LC'" tol
     assert r(n) == 2
@@ -295,15 +295,15 @@ capture noisily {
     assert _rc == 0
     * hand-written global with the tokens in any order
     global DATAMAP_DQ `"baseledger("`LB'") baseline(b0) maskrare"'
-    datacheck, gatesonly isid(id)
+    dataprobe, gatesonly isid(id)
     datamvp x g
     * a malformed tail is still refused with the clean-up hint
     global DATAMAP_DQ `"baseline(b0) notanoption"'
-    capture datacheck, gatesonly isid(id)
+    capture dataprobe, gatesonly isid(id)
     assert _rc == 198
     dataqa set clear
 }
-_dq `=_rc' "datacheck (gate and error row) and datamvp accept baseline/baseledger tokens in DATAMAP_DQ"
+_dq `=_rc' "dataprobe (gate and error row) and datamvp accept baseline/baseledger tokens in DATAMAP_DQ"
 
 **# Ledger path rule: writers and readers agree on one file
 * foo.v2 -> foo.v2 (a suffix is kept, as save does), foo -> foo.dta,
@@ -327,13 +327,13 @@ capture noisily {
         clear
         set obs 12
         gen long id = _n
-        * writer 1: datacheck ledger(); writer 2: dataqa set; writer 3: error row
-        datacheck, gatesonly isid(id) name(w1) ledger("`P'", run(r1))
+        * writer 1: dataprobe ledger(); writer 2: dataqa set; writer 3: error row
+        dataprobe, gatesonly isid(id) name(w1) ledger("`P'", run(r1))
         assert `"`r(ledger)'"' == `"`W'"'
         confirm file `"`W'"'
         dataqa set ledger("`P'") run(r1)
-        datacheck, gatesonly isid(id) name(w2)
-        capture datacheck, gatesonly isid(nonexistent) name(w3)
+        dataprobe, gatesonly isid(id) name(w2)
+        capture dataprobe, gatesonly isid(nonexistent) name(w3)
         assert _rc != 0
         dataqa set clear
         _dq_nrows "`W'" r1
@@ -382,10 +382,10 @@ capture noisily {
     tempfile ledger qalog md release
     dataqa set maskrare mincell(5) ledger("`ledger'") run(base) replace
     sysuse auto, clear
-    datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
+    dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
     sysuse nlsw88, clear
-    datacheck, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
-    capture datacheck, minversion(1.9.0)
+    dataprobe, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
+    capture dataprobe, minversion(1.9.0)
     if _rc display as error "datamap 1.9.0 or later is needed"
     assert _rc == 0
     global qa_synth 0
@@ -394,9 +394,9 @@ capture noisily {
     assert strpos(`"$DATAMAP_DQ"', "baseline(base)") > 0 & strpos(`"$DATAMAP_DQ"', "collect") > 0
     log using "`qalog'", name(qa) text replace
     sysuse auto, clear
-    datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
+    dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
     sysuse nlsw88, clear
-    datacheck, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
+    dataprobe, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
     log close qa
     dataqa compare
     local cmp_flags = r(n_flags)
@@ -435,16 +435,16 @@ capture noisily {
     tempfile ledger
     dataqa set maskrare mincell(5) ledger("`ledger'") run(base) replace
     sysuse auto, clear
-    datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
+    dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
     sysuse nlsw88, clear
-    datacheck, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
+    dataprobe, gatesonly isid(idcode) bands(stat(mean age 38 41)) name(nlsw)
     * the synthetic switch on: no baseline at all
     global qa_synth 1
     global qa_baseline = cond($qa_synth, "", "base")
     dataqa set maskrare mincell(5) ledger("`ledger'") run(now) collect baseline($qa_baseline) replace
     assert strpos(`"$DATAMAP_DQ"', "baseline") == 0
     sysuse auto, clear
-    datacheck, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
+    dataprobe, gatesonly isid(make) bands(stat(mean mpg 18 25)) name(auto_cars)
     dataqa compare
     assert `"`r(baseline)'"' == ""
     * switch off again: nlsw never ran now, so the session baseline halts
@@ -458,9 +458,9 @@ capture noisily {
     * a planted failing invariant, collected, halts at assert
     dataqa set maskrare mincell(5) ledger("`ledger'") run(bad) collect baseline(base)
     sysuse auto, clear
-    datacheck, gatesonly isid(make) stat(mean mpg 40 50) name(auto_cars)
+    dataprobe, gatesonly isid(make) stat(mean mpg 40 50) name(auto_cars)
     sysuse nlsw88, clear
-    datacheck, gatesonly isid(idcode) name(nlsw)
+    dataprobe, gatesonly isid(idcode) name(nlsw)
     capture dataqa assert
     assert _rc == 9
     assert !missing(r(n_failed)) & r(n_failed) >= 1

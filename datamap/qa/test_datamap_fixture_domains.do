@@ -184,14 +184,14 @@ else {
     display as result "PASS: datadict uniqcap"
 }
 
-**# datacheck maxcat lower domain
+**# dataprobe maxcat lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) maxcat(@v@)) inside(1 2 100) outside(0 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -199,21 +199,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck maxcat rc=" `outcome'
+    display as error "FAIL: dataprobe maxcat rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck maxcat"
+    display as result "PASS: dataprobe maxcat"
 }
 
-**# datacheck maxfreq lower domain
+**# dataprobe maxfreq lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) maxfreq(@v@)) inside(1 2 100) outside(0 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -221,21 +221,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck maxfreq rc=" `outcome'
+    display as error "FAIL: dataprobe maxfreq rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck maxfreq"
+    display as result "PASS: dataprobe maxfreq"
 }
 
-**# datacheck rare lower domain
+**# dataprobe rare lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) rare(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) rare(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -243,21 +243,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck rare rc=" `outcome'
+    display as error "FAIL: dataprobe rare rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck rare"
+    display as result "PASS: dataprobe rare"
 }
 
-**# datacheck outliers lower domain
+**# dataprobe outliers lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) outliers(@v@)) inside(0 1 100) outside(-1 .) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) outliers(@v@)) inside(0 1 100) outside(-1 .) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
     assert r(n_cells)==5 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -265,21 +265,21 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck outliers rc=" `outcome'
+    display as error "FAIL: dataprobe outliers rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck outliers"
+    display as result "PASS: dataprobe outliers"
 }
 
-**# datacheck mincell lower domain
+**# dataprobe mincell lower domain
 local ++tests
 capture noisily {
     * expect: EXACT
     qa_fx_a7_labelled, clear seed(37) perturb(label_gaps)
     tempfile output metadata
     qa_state_snapshot, tag(dm_domain)
-    qa_option_domain, command(datacheck, gatesonly expectn(40) mincell(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
+    qa_option_domain, command(dataprobe, gatesonly expectn(40) mincell(@v@)) inside(0 1 100) outside(-1 . 1.5) check(assert r(N)==40 & r(n_checks)==1 & r(n_passed)==1 & r(n_failed)==0)
     assert r(n_cells)==6 & r(n_violations)==0
     qa_state_compare, tag(dm_domain)
 }
@@ -287,11 +287,11 @@ local outcome=_rc
 capture restore
 if `outcome' {
     local ++fail
-    display as error "FAIL: datacheck mincell rc=" `outcome'
+    display as error "FAIL: dataprobe mincell rc=" `outcome'
 }
 else {
     local ++pass
-    display as result "PASS: datacheck mincell"
+    display as result "PASS: dataprobe mincell"
 }
 
 **# datamvp minfreq lower domain

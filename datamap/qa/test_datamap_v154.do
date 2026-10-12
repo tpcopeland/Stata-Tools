@@ -68,10 +68,10 @@ foreach spec in "maxc(-1)" "maxfr(-1)" "mince(-1)" {
 
 foreach spec in "maxc(-1)" "maxfr(-1)" "rare(-1)" "outl(-1)" "mince(-1)" {
     local ++test_count
-    capture noisily datacheck, `spec'
+    capture noisily dataprobe, `spec'
     local ok = (_rc == 198)
     local pass_count = `pass_count' + `ok'
-    _v154_record `ok' "datacheck rejects `spec'"
+    _v154_record `ok' "dataprobe rejects `spec'"
 }
 
 **# Invalid configured thresholds
@@ -88,10 +88,10 @@ local pass_count = `pass_count' + `ok'
 _v154_record `ok' "datadict rejects invalid configured maxcat"
 
 local ++test_count
-capture noisily datacheck, config("`badcfg'")
+capture noisily dataprobe, config("`badcfg'")
 local ok = (_rc == 198)
 local pass_count = `pass_count' + `ok'
-_v154_record `ok' "datacheck rejects invalid configured maxcat"
+_v154_record `ok' "dataprobe rejects invalid configured maxcat"
 
 **# datamvp validation and no-op rejection
 

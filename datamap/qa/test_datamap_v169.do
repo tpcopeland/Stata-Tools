@@ -103,7 +103,7 @@ capture noisily {
     global V169_NEEDLE "21916 = 21916"
     _v169_has "`tmp_dir'/t1.txt"
     assert r(found) == 0
-    datacheck d1 tc1
+    dataprobe d1 tc1
     local dv "`r(date_vars)'"
     assert `: list posof "d1" in dv' > 0 & `: list posof "tc1" in dv' > 0
     datadict, output("`tmp_dir'/t1.md")
@@ -112,7 +112,7 @@ capture noisily {
     assert r(found) == 1
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "%-td/%-tc classify as date in datamap, datacheck, datadict"
+_v169_record `test_rc' `pass_count' `fail_count' "%-td/%-tc classify as date in datamap, dataprobe, datadict"
 
 **# T2: JSON output stays valid with tab and other control bytes in labels
 local ++test_count
@@ -355,32 +355,32 @@ capture noisily {
 local test_rc = _rc
 _v169_record `test_rc' `pass_count' `fail_count' "datadict counts hostile string levels exactly"
 
-**# T12: datacheck value/range gates compare floats at float precision
+**# T12: dataprobe value/range gates compare floats at float precision
 local ++test_count
 capture noisily {
     clear
     set obs 20
     gen float dose = cond(mod(_n, 2), 0.1, 0.2)
-    datacheck, allowed(dose 0.1 0.2) inrange(dose 0 0.2) warn
+    dataprobe, allowed(dose 0.1 0.2) inrange(dose 0 0.2) warn
     assert r(n_violations) == 0
-    datacheck, forbid(dose 0.1) warn
+    dataprobe, forbid(dose 0.1) warn
     assert r(n_violations) == 1
-    datacheck, notvalues(dose 0.2) warn
+    dataprobe, notvalues(dose 0.2) warn
     assert r(n_violations) == 1
     * bounds beyond float range must not flag every row
-    datacheck, inrange(dose -1e40 1e40) warn
+    dataprobe, inrange(dose -1e40 1e40) warn
     assert r(n_violations) == 0
-    datacheck, inrange(dose 0.15 1e40) warn
+    dataprobe, inrange(dose 0.15 1e40) warn
     assert r(n_violations) == 1
     * doubles keep exact comparison
     gen double ddose = 0.1
-    datacheck, allowed(ddose 0.1) warn
+    dataprobe, allowed(ddose 0.1) warn
     assert r(n_violations) == 0
 }
 local test_rc = _rc
-_v169_record `test_rc' `pass_count' `fail_count' "datacheck float gates (allowed/inrange/forbid/notvalues)"
+_v169_record `test_rc' `pass_count' `fail_count' "dataprobe float gates (allowed/inrange/forbid/notvalues)"
 
-**# T13: datacheck display: span units and hostile/float levels
+**# T13: dataprobe display: span units and hostile/float levels
 local ++test_count
 capture noisily {
     clear
@@ -391,7 +391,7 @@ capture noisily {
     gen float f = cond(mod(_n, 2), 0.1, 0.2)
     capture log close _v169probe
     log using "`tmp_dir'/t13.log", text replace name(_v169probe)
-    datacheck ym s f, categorical(s f)
+    dataprobe ym s f, categorical(s f)
     log close _v169probe
     global V169_NEEDLE "span=19 months"
     _v169_has "`tmp_dir'/t13.log"
@@ -408,7 +408,7 @@ capture noisily {
 }
 local test_rc = _rc
 capture log close _v169probe
-_v169_record `test_rc' `pass_count' `fail_count' "datacheck span units and level display"
+_v169_record `test_rc' `pass_count' `fail_count' "dataprobe span units and level display"
 
 **# T14: datamvp sort keeps input order on ties; matrix graph label is private
 local ++test_count
@@ -498,7 +498,7 @@ capture noisily {
 local test_rc = _rc
 _v169_record `test_rc' `pass_count' `fail_count' "datamvp gby()/over() bars on float levels"
 
-**# T17: datacheck never flags or lists excluded variables
+**# T17: dataprobe never flags or lists excluded variables
 local ++test_count
 capture noisily {
     clear
@@ -508,7 +508,7 @@ capture noisily {
     gen double k = _n
     capture log close _v169probe
     log using "`tmp_dir'/t17.log", text replace name(_v169probe)
-    datacheck, exclude(secret) patterns
+    dataprobe, exclude(secret) patterns
     local mv "`r(missing_vars)'"
     local fv "`r(flagged_vars)'"
     local nmv = r(n_missing_vars)
@@ -524,7 +524,7 @@ capture noisily {
 }
 local test_rc = _rc
 capture log close _v169probe
-_v169_record `test_rc' `pass_count' `fail_count' "datacheck exclude() stays out of missing/flagged lists"
+_v169_record `test_rc' `pass_count' `fail_count' "dataprobe exclude() stays out of missing/flagged lists"
 
 **# T18: format(json) refuses text-only sections
 local ++test_count

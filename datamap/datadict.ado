@@ -464,7 +464,7 @@ void _datadict_str_levels(string scalar vname, real scalar maxlevels,
 }
 
 // Small-cell mask with complementary suppression (same rule as datamap's
-// _datamap_cellmask_core and datacheck's maskrare): N and the missing count are
+// _datamap_cellmask_core and dataprobe's maskrare): N and the missing count are
 // printed, so a lone suppressed cell is recoverable by subtraction; the
 // smallest shown cell joins the withheld set until it has at least two members
 // and a pooled count of at least m.  0 = shown, 1 = below m, 2 = complement.

@@ -112,9 +112,9 @@ program define _dq_run
     dataqa set ledger("`L'") run(`run')
     foreach n of local names {
         if "`n'" == "alpha" & "`bad'" != "" {
-            capture datacheck, gatesonly isid(id) rule("big": x <= 18) name(alpha)
+            capture dataprobe, gatesonly isid(id) rule("big": x <= 18) name(alpha)
         }
-        else datacheck, gatesonly isid(id) name(`n')
+        else dataprobe, gatesonly isid(id) name(`n')
     }
     dataqa set clear
 end
@@ -366,23 +366,23 @@ capture noisily {
     capture erase "`L'"
     dataqa set maskrare mincell(5) ledger("`L'") run(g1) bandwarn
     _dq_fix
-    capture datacheck, gatesonly isid(id) rule("big": x <= 18) ///
+    capture dataprobe, gatesonly isid(id) rule("big": x <= 18) ///
         bands(stat(mean x 0 5)) review("low": x < 3) name(alpha)
     assert _rc == 9
     _dq_fix
-    datacheck, gatesonly isid(id) name(beta)
+    dataprobe, gatesonly isid(id) name(beta)
     dataqa set maskrare mincell(5) ledger("`L'") run(bd)
     _dq_fix
-    capture datacheck, gatesonly isid(id) rule("big": x <= 18) ///
+    capture dataprobe, gatesonly isid(id) rule("big": x <= 18) ///
         stat(mean x 10 11 \ n x 0 3 if x < 3) ///
         bands(stat(mean x 0 5) expectn(15 25)) name(alpha)
     assert _rc == 9
     _dq_fix
-    capture datacheck, gatesonly stat(sum x 0 100) name(beta)
+    capture dataprobe, gatesonly stat(sum x 0 100) name(beta)
     assert _rc == 9
     dataqa set maskrare mincell(5) ledger("`L'") run(nb)
     _dq_fix
-    datacheck, gatesonly isid(id) review("low": x < 3) name(alpha)
+    dataprobe, gatesonly isid(id) review("low": x < 3) name(alpha)
     dataqa set clear
     * the oracle for the true values the table must show
     _dq_fix
@@ -478,7 +478,7 @@ capture noisily {
     capture erase "`LU'"
     dataqa set ledger("`LU'") run(u)
     _dq_fix
-    datacheck, gatesonly stat(n x 0 3 if x < 3) name(alpha)
+    dataprobe, gatesonly stat(n x 0 3 if x < 3) name(alpha)
     dataqa set clear
     dataqa report using "`LU'", run(u) bands markdown("`MD'") replace
     assert r(n_bands) == 1
