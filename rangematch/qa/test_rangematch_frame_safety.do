@@ -219,6 +219,9 @@ capture noisily {
     _rm_make_src rm_src
     _rm_make_master
     capture rangematch key mlow mhigh using rm_src, frame(rm_src) replace dryrun
+    * A dry run writes no frame, so naming the source is not a collision: the
+    * call must succeed (measured rc 0), not merely leave the source intact.
+    assert _rc == 0
     frame rm_src {
         confirm variable using_sentinel
         quietly count

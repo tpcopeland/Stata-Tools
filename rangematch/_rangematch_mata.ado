@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.5.9  2026/10/04
+*! _rangematch_mata Version 1.5.10  2026/10/12
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -9,8 +9,11 @@ capture mata: mata drop _rm_build_pairs_sweep()
 capture mata: mata drop _rm_build_pairs_overlap()
 capture mata: mata drop _rm_overlap_count_group()
 capture mata: mata drop _rm_overlap_emit_group()
+capture mata: mata drop _rm_overlap_m_first()
+capture mata: mata drop _rm_overlap_master_end()
 capture mata: mata drop _rm_interval_nonempty()
 capture mata: mata drop _rm_prepare_sweep_master()
+capture mata: mata drop _rm_sweep_sortedness()
 capture mata: mata drop _rm_pctile()
 capture mata: mata drop _rm_compute_match_stats()
 capture mata: mata drop _rm_post_pair_results()
@@ -42,7 +45,7 @@ mata set matastrict on
 
 string scalar _rm_mata_version()
 {
-    return("1.5.9")
+    return("1.5.10")
 }
 
 // ============================================================================
@@ -152,32 +155,21 @@ string scalar _rm_dta_name(string scalar fname)
     return(fname)
 }
 
-void _rm_prepare_sweep_master(
-    string scalar master_frame,
-    real scalar sort_allowed
-)
+// Sortedness of a sweep master matrix (cols 1=gid, 2=low, 3=high), as the
+// sweep needs it: within each by()-group, low nondecreasing (required) and
+// high nondecreasing (enables the right-pointer sweep). Groups must also be
+// ascending. Returns (lo_ready, hi_ready). The caller passes `low' with a
+// missing (open) bound already mapped to mindouble(), and `high' with a
+// missing (open) bound left missing, which Mata orders above every double --
+// the same orderings the sweep itself compares on.
+real rowvector _rm_sweep_sortedness(real matrix M)
 {
-    string scalar oldframe
-    real matrix M
     real scalar nm, i, gid_i, last_gid, last_lo, last_hi
-    real scalar ready, lo_ready, hi_ready, sweep_mode
+    real scalar lo_ready, hi_ready
 
-    oldframe = st_framecurrent()
-    sort_allowed = (sort_allowed != 0)
-    ready = 1
+    nm = rows(M)
     lo_ready = 1
     hi_ready = 1
-    sweep_mode = 2
-
-    st_framecurrent(master_frame)
-    M = st_data(., .)
-    nm = rows(M)
-
-    for (i = 1; i <= nm; i++) {
-        if (M[i, 2] >= .) M[i, 2] = mindouble()
-        if (M[i, 3] >= .) M[i, 3] = maxdouble()
-    }
-
     last_gid = .
     last_lo = .
     last_hi = .
@@ -198,38 +190,50 @@ void _rm_prepare_sweep_master(
         last_lo = M[i, 2]
         last_hi = M[i, 3]
     }
-    ready = lo_ready
-    sweep_mode = (hi_ready ? 2 : 1)
+    return((lo_ready, hi_ready))
+}
+
+void _rm_prepare_sweep_master(
+    string scalar master_frame,
+    real scalar sort_allowed
+)
+{
+    string scalar oldframe
+    real matrix M, Ms
+    real colvector p
+    real rowvector rdy
+    real scalar nm, i, ready, sweep_mode
+
+    oldframe = st_framecurrent()
+    sort_allowed = (sort_allowed != 0)
+
+    st_framecurrent(master_frame)
+    M = st_data(., .)
+    nm = rows(M)
+
+    // Order on the values the sweep compares: an open (missing) low is
+    // -infinity, represented by mindouble(); an open (missing) high stays
+    // missing, which Mata already orders above every double. Only the copy
+    // Ms carries the low sentinel. If a sort is needed, the ORIGINAL rows are
+    // stored back in sorted order, so a missing bound is still missing when
+    // the sweep reads the frame: that is how the sweep knows the bound was
+    // open rather than a stored value equal to the sentinel.
+    Ms = M
+    for (i = 1; i <= nm; i++) {
+        if (Ms[i, 2] >= .) Ms[i, 2] = mindouble()
+    }
+
+    rdy = _rm_sweep_sortedness(Ms)
+    ready = rdy[1]
+    sweep_mode = (rdy[2] ? 2 : 1)
 
     if (!ready & sort_allowed) {
-        M = sort(M, (1, 2, 3, 4))
-        ready = 1
-        lo_ready = 1
-        hi_ready = 1
-        last_gid = .
-        last_lo = .
-        last_hi = .
-        for (i = 1; i <= nm; i++) {
-            gid_i = trunc(M[i, 1])
-            if (i > 1) {
-                if (gid_i < last_gid) {
-                    lo_ready = 0
-                    hi_ready = 0
-                    break
-                }
-                if (gid_i == last_gid) {
-                    if (M[i, 2] < last_lo) lo_ready = 0
-                    if (M[i, 3] < last_hi) hi_ready = 0
-                }
-            }
-            last_gid = gid_i
-            last_lo = M[i, 2]
-            last_hi = M[i, 3]
-        }
-        ready = lo_ready
-        sweep_mode = (hi_ready ? 2 : 1)
+        p = order(Ms, (1, 2, 3, 4))
+        rdy = _rm_sweep_sortedness(Ms[p, .])
+        ready = rdy[1]
+        sweep_mode = (rdy[2] ? 2 : 1)
         if (ready & nm > 0) {
-            st_store(., (1..cols(M)), M)
+            st_store(., (1..cols(M)), M[p, .])
         }
     }
 
@@ -437,7 +441,7 @@ void _rm_build_pairs_sweep(
     real scalar progress_next, progress_step
     real scalar progress_pct, progress_last
     real scalar nu_all, track_using
-    real scalar right_sweep, jhi
+    real scalar right_sweep, jhi, lo_open, lft, rgt
 
     oldframe = st_framecurrent()
     keep_unmatched_using = (keep_unmatched_using != 0)
@@ -540,14 +544,25 @@ void _rm_build_pairs_sweep(
     for (i = 1; i <= nm; i++) {
         g = M[i, 1]
         gid_i = trunc(g)
-        lo = (M[i, 2] >= . ? mindouble() : M[i, 2])
-        hi = (M[i, 3] >= . ? maxdouble() : M[i, 3])
-        // Clamp the tolerance shift to the finite double range. Without this,
-        // mindouble() - tolerance (or maxdouble() + tolerance) overflows to
-        // missing for tolerance >~ 1e290; a missing lo_search sorts above every
-        // key and silently drops all matches (max/min ignore the missing).
-        lo_search = max((lo - tolerance, mindouble()))
-        hi_search = min((hi + tolerance, maxdouble()))
+        // Open (missing) bounds. A missing high stays missing: Mata orders it
+        // above every double, so the strict test of closed(left|none) still
+        // admits a key equal to c(maxdouble). (The old maxdouble() sentinel
+        // equals c(maxdouble) and excluded that key.) A missing low has no
+        // such value -- mindouble() is storable -- so lo_open sends the row
+        // down an explicit "no lower restriction" path below.
+        //
+        // A tolerance shift that leaves the double range is open too: Mata
+        // returns missing on overflow, and low - t below every double (or
+        // high + t above every double) restricts nothing. Clamping the shift
+        // to mindouble()/maxdouble() instead made a strict closure drop a key
+        // equal to that limit even though the widened bound lies beyond it.
+        lo = M[i, 2]
+        hi = M[i, 3]
+        lo_search = lo - tolerance
+        lo_open = (lo_search >= .)
+        if (lo_open) lo_search = mindouble()
+        hi_search = hi + tolerance
+        if (hi_search >= .) hi_search = .
         mobs = M[i, 4]
 
         if (gid_i != cur_gid) {
@@ -563,7 +578,25 @@ void _rm_build_pairs_sweep(
         }
 
         nmatch = 0
-        if (!(lo > hi | gstart == 0)) {
+        // Emptiness is judged on the tolerance-widened bounds, so tolerance()
+        // rescues an interval inverted only by representation noise (e.g.
+        // low = 0.1 + 0.2 > high = 0.3). With tolerance(0) this is lo > hi.
+        if (lo_open & !(lo_search > hi_search | gstart == 0)) {
+            // No lower restriction: every key in the group from its first row,
+            // inclusive. The end comes from a binary search so the shared sweep
+            // pointers are not disturbed; open-low rows sort first in a group,
+            // so later rows still advance those pointers monotonically.
+            lft = gstart
+            if (closed_code == 1 | closed_code == 3) {
+                jhi = _rm_bsearch_right(ukeys, hi_search, gstart, gend)
+            }
+            else {
+                jhi = _rm_bsearch_last_lt(ukeys, hi_search, gstart, gend)
+            }
+            rgt = (jhi == 0 ? gstart : jhi + 1)
+            nmatch = rgt - lft
+        }
+        else if (!(lo_search > hi_search | gstart == 0)) {
             if (closed_code == 1 | closed_code == 2) {
                 while (left <= gend) {
                     if (ukeys[left] >= lo_search) break
@@ -601,9 +634,11 @@ void _rm_build_pairs_sweep(
                 if (jhi == 0 | jhi < left) right = left
                 else right = jhi + 1
             }
-            nmatch = right - left
-            if (nmatch < 0) nmatch = 0
+            lft = left
+            rgt = right
+            nmatch = rgt - lft
         }
+        if (nmatch < 0) nmatch = 0
 
         if (nmatch == 0) {
             if (keep_unmatched_master) {
@@ -643,14 +678,14 @@ void _rm_build_pairs_sweep(
                 }
             }
             if (track_using) {
-                matched_using[uobs[|left, 1 \ right - 1, 1|], 1] =
+                matched_using[uobs[|lft, 1 \ rgt - 1, 1|], 1] =
                     J(nmatch, 1, 1)
             }
             if (!dryrun) {
                 mi[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
                     J(nmatch, 1, mobs)
                 ui[|n_pairs + 1, 1 \ n_pairs + nmatch, 1|] =
-                    uobs[|left, 1 \ right - 1, 1|]
+                    uobs[|lft, 1 \ rgt - 1, 1|]
             }
             n_pairs = n_pairs + nmatch
         }
@@ -745,7 +780,7 @@ void _rm_build_pairs(
     real scalar progress_next, progress_step, progress_pct
     real scalar progress_last, lo_search, hi_search
     real scalar max_gid, gid_i, pos, target, needed
-    real scalar track_using, ridx
+    real scalar track_using, ridx, lo_open
 
     oldframe = st_framecurrent()
     compute_stats = (compute_stats != 0)
@@ -776,11 +811,9 @@ void _rm_build_pairs(
         }
     }
 
-    // Replace missing bounds
-    for (i = 1; i <= nm; i++) {
-        if (M[i, 2] >= .) M[i, 2] = mindouble()
-        if (M[i, 3] >= .) M[i, 3] = maxdouble()
-    }
+    // Missing (open) bounds are resolved per row in the loop below rather than
+    // replaced here: a missing high stays missing (above every double), and a
+    // missing low sets lo_open. See _rm_build_pairs_sweep().
 
     // Sort using by (gid, key, uobs). The trailing uobs (col 3, unique) is a
     // tiebreaker that makes the order of equal-key rows deterministic: Mata's
@@ -849,15 +882,20 @@ void _rm_build_pairs(
         g    = M[i, 1]
         lo   = M[i, 2]
         hi   = M[i, 3]
-        // Clamp the tolerance shift to the finite double range (see the sweep
-        // backend): an unclamped shift overflows to missing for a large
-        // tolerance and drops every match. max/min ignore the missing operand.
-        lo_search = max((lo - tolerance, mindouble()))
-        hi_search = min((hi + tolerance, maxdouble()))
+        // A missing bound, or a tolerance shift that overflows the double
+        // range (Mata returns missing), is open on that side; see the sweep
+        // backend. An open high stays missing, above every double.
+        lo_search = lo - tolerance
+        lo_open = (lo_search >= .)
+        if (lo_open) lo_search = mindouble()
+        hi_search = hi + tolerance
+        if (hi_search >= .) hi_search = .
         mobs = M[i, 4]
         mkey = (nearest_code == 0 ? . : M[i, 5])
 
-        if (lo > hi) {
+        // Empty only if inverted AFTER the tolerance widening (see the sweep
+        // backend); with tolerance(0) this is lo > hi.
+        if (lo_search > hi_search) {
             if (keep_unmatched_master) {
                 if (maxpairs > 0 & (n_pairs + 1) > maxpairs) {
                     st_framecurrent(oldframe)
@@ -911,6 +949,10 @@ void _rm_build_pairs(
                     jlo = _rm_bsearch_first_gt(ukeys, lo_search, gstart, gend)
                     jhi = _rm_bsearch_last_lt(ukeys, hi_search, gstart, gend)
                 }
+                // An open low places no lower restriction, whatever closed()
+                // says: a strict test against the mindouble() stand-in would
+                // drop a stored key equal to it.
+                if (lo_open) jlo = gstart
             }
         }
 
@@ -1190,10 +1232,11 @@ void _rm_build_pairs(
 // Inverted bounds (lo > hi) are empty under either closure, so an inverted
 // using interval can never be a genuine overlap match.
 //
-// Validity is a property of the recorded data, so it is evaluated on the raw
-// bounds (after open-ended missing->+/-inf substitution) and is deliberately
-// NOT widened by tolerance(): tolerance fuzzes boundary comparisons between two
-// genuine intervals; it does not promote an empty interval into a nonempty one.
+// A using interval is judged on its raw bounds (after open-ended
+// missing->+/-inf substitution): tolerance() widens only the master interval,
+// so it never promotes an empty using interval into a nonempty one. A master
+// interval is judged on its tolerance-widened bounds (low - t, high + t), as
+// in point mode, so tolerance() rescues one inverted only by decimal noise.
 // Screening the two cross-interval inequalities alone is insufficient, because
 // those are sufficient only once both intervals are known to be nonempty.
 real scalar _rm_interval_nonempty(
@@ -1203,6 +1246,51 @@ real scalar _rm_interval_nonempty(
 )
 {
     return(both ? (lo <= hi) : (lo < hi))
+}
+
+// Does master i open strictly before using j? Open lows are -inf: two open
+// lows tie (the using row then "opens first", as for equal finite lows), an
+// open low precedes every finite one, and otherwise the stored lows compare.
+// When this is true, using j and every later using row in the group has a
+// finite low (open lows sort first), so the master-first branch can
+// binary-search the stored using lows directly.
+real scalar _rm_overlap_m_first(
+    real scalar mopen,
+    real scalar mlo,
+    real scalar uopen,
+    real scalar ulo
+)
+{
+    if (uopen) return(0)
+    if (mopen) return(1)
+    return(mlo < ulo)
+}
+
+// Last master position in [i, me] whose low lies below (closed(none)) or at
+// (closed(both)) a using row's high, or 0 if none. Masters with an open low
+// (-inf) always qualify and form the prefix of the range (they sort first in
+// a group; vmnegopen = -open is nondecreasing), so they are counted without
+// comparing their mindouble() placeholder, which can equal a stored high.
+real scalar _rm_overlap_master_end(
+    real colvector vmlo,
+    real colvector vmnegopen,
+    real scalar target,
+    real scalar i,
+    real scalar me,
+    real scalar both
+)
+{
+    real scalar lastopen, s, e
+
+    lastopen = _rm_bsearch_right(vmnegopen, -1, i, me)
+    s = (lastopen ? lastopen + 1 : i)
+    e = 0
+    if (s <= me) {
+        e = (both ? _rm_bsearch_right(vmlo, target, s, me)
+                  : _rm_bsearch_last_lt(vmlo, target, s, me))
+    }
+    if (e == 0) e = lastopen
+    return(e)
 }
 
 // Forward-scan sweep over one group, COUNTING pass. Adds each master's match
@@ -1218,8 +1306,11 @@ real scalar _rm_interval_nonempty(
 void _rm_overlap_count_group(
     real colvector vmlo,
     real colvector vmhi,
+    real colvector vmopen,
+    real colvector vmnegopen,
     real colvector vulo,
     real colvector vuhi,
+    real colvector vuopen,
     real scalar ms,
     real scalar me,
     real scalar us,
@@ -1234,15 +1325,14 @@ void _rm_overlap_count_group(
     i = ms
     j = us
     while (i <= me & j <= ue) {
-        if (vmlo[i] < vulo[j]) {
+        if (_rm_overlap_m_first(vmopen[i], vmlo[i], vuopen[j], vulo[j])) {
             e = (both ? _rm_bsearch_right(vulo, vmhi[i], j, ue)
                       : _rm_bsearch_last_lt(vulo, vmhi[i], j, ue))
             if (e >= j) cnt_point[i] = cnt_point[i] + (e - j + 1)
             i++
         }
         else {
-            e = (both ? _rm_bsearch_right(vmlo, vuhi[j], i, me)
-                      : _rm_bsearch_last_lt(vmlo, vuhi[j], i, me))
+            e = _rm_overlap_master_end(vmlo, vmnegopen, vuhi[j], i, me, both)
             if (e >= i) {
                 cnt_diff[i] = cnt_diff[i] + 1
                 cnt_diff[e + 1] = cnt_diff[e + 1] - 1
@@ -1267,9 +1357,12 @@ void _rm_overlap_count_group(
 void _rm_overlap_emit_group(
     real colvector vmlo,
     real colvector vmhi,
+    real colvector vmopen,
+    real colvector vmnegopen,
     real colvector vmidx,
     real colvector vulo,
     real colvector vuhi,
+    real colvector vuopen,
     real colvector vuobs,
     real scalar ms,
     real scalar me,
@@ -1290,7 +1383,7 @@ void _rm_overlap_emit_group(
     i = ms
     j = us
     while (i <= me & j <= ue) {
-        if (vmlo[i] < vulo[j]) {
+        if (_rm_overlap_m_first(vmopen[i], vmlo[i], vuopen[j], vulo[j])) {
             e = (both ? _rm_bsearch_right(vulo, vmhi[i], j, ue)
                       : _rm_bsearch_last_lt(vulo, vmhi[i], j, ue))
             idx = vmidx[i]
@@ -1309,8 +1402,7 @@ void _rm_overlap_emit_group(
             i++
         }
         else {
-            e = (both ? _rm_bsearch_right(vmlo, vuhi[j], i, me)
-                      : _rm_bsearch_last_lt(vmlo, vuhi[j], i, me))
+            e = _rm_overlap_master_end(vmlo, vmnegopen, vuhi[j], i, me, both)
             target = vuobs[j]
             n = e - i + 1
             if (n > 0) {
@@ -1366,6 +1458,8 @@ void _rm_build_pairs_overlap(
     real scalar progress_next, progress_step, progress_pct, progress_last
     real scalar max_gid, gid_i, track_using, both
     real scalar nvm, nvu, a, b, g, us, ue, running, need_emit
+    real scalar mlo_s, mhi_s, mlo_open
+    real colvector uopen, vuopen, vmopen, vmnegopen
 
     oldframe = st_framecurrent()
     keep_unmatched_using = (keep_unmatched_using != 0)
@@ -1385,16 +1479,18 @@ void _rm_build_pairs_overlap(
     nu_all = nu
     matched_using = (track_using ? J(nu_all, 1, 0) : J(0, 1, 0))
 
-    // Open-ended using bounds: missing ulo -> -inf, missing uhi -> +inf
+    // Open-ended bounds. A missing high stays missing, which Mata orders
+    // above every double and so acts as +inf. A missing low has no such value
+    // (mindouble() is itself storable, as 2*c(mindouble)), so it is carried as
+    // an explicit open flag (using column 5) and given mindouble() only as a
+    // placeholder; every lower-bound comparison consults the flag first. Open
+    // lows sort FIRST within a group, so they form a prefix the sweep treats
+    // as -inf. Stand-ins alone were wrong under closed(none) at the limits:
+    // (c(maxdouble), .) was judged empty, and (., 2*c(mindouble)) was judged
+    // empty or failed to overlap an open-low counterpart.
+    U = (nu > 0 ? (U, (U[., 2] :>= .)) : J(0, 5, .))
     for (u = 1; u <= nu; u++) {
-        if (U[u, 2] >= .) U[u, 2] = mindouble()
-        if (U[u, 3] >= .) U[u, 3] = maxdouble()
-    }
-
-    // Open-ended master bounds
-    for (i = 1; i <= nm; i++) {
-        if (M[i, 2] >= .) M[i, 2] = mindouble()
-        if (M[i, 3] >= .) M[i, 3] = maxdouble()
+        if (U[u, 5]) U[u, 2] = mindouble()
     }
 
     // Sort using by (gid, ulo, uobs). The trailing uobs (col 4, unique) is a
@@ -1404,11 +1500,12 @@ void _rm_build_pairs_overlap(
     // order) would be unstable. Keys stay sorted, so binary search is
     // unaffected.
     if (nu > 0) {
-        Usorted = sort(U, (1, 2, 4))
+        Usorted = sort(U, (1, -5, 2, 4))
         ugid = Usorted[., 1]
         ulo  = Usorted[., 2]
         uhi  = Usorted[., 3]
         uobs = Usorted[., 4]
+        uopen = Usorted[., 5]
         // Screen using intervals for closure-aware nonemptiness. Invalid
         // (inverted or open-degenerate) rows stay in the arrays so the binary
         // search and group map are untouched, but they can never be emitted as
@@ -1417,7 +1514,7 @@ void _rm_build_pairs_overlap(
         // which is the correct disposition for an empty interval.
         uvalid = J(nu, 1, 0)
         for (u = 1; u <= nu; u++) {
-            uvalid[u] = _rm_interval_nonempty(ulo[u], uhi[u], both)
+            uvalid[u] = (uopen[u] | _rm_interval_nonempty(ulo[u], uhi[u], both))
         }
     }
     else {
@@ -1425,6 +1522,7 @@ void _rm_build_pairs_overlap(
         ulo  = J(0, 1, .)
         uhi  = J(0, 1, .)
         uobs = J(0, 1, .)
+        uopen = J(0, 1, .)
         uvalid = J(0, 1, .)
     }
 
@@ -1470,6 +1568,7 @@ void _rm_build_pairs_overlap(
     vulo  = J(nvu, 1, .)
     vuhi  = J(nvu, 1, .)
     vuobs = J(nvu, 1, .)
+    vuopen = J(nvu, 1, .)
     p = 0
     for (u = 1; u <= nu; u++) {
         if (uvalid[u]) {
@@ -1478,6 +1577,7 @@ void _rm_build_pairs_overlap(
             vulo[p]  = ulo[u]
             vuhi[p]  = uhi[u]
             vuobs[p] = uobs[u]
+            vuopen[p] = uopen[u]
         }
     }
 
@@ -1500,53 +1600,62 @@ void _rm_build_pairs_overlap(
     }
 
     // Valid master rows, tolerance-shifted, sorted by (gid, mlo_s, orig row).
-    // Validity is judged on the RAW bounds, exactly as before: the shift cannot
-    // rescue an empty interval.
+    // Master validity is judged on the SHIFTED bounds (mlo - t, mhi + t), as
+    // in the point backends: tolerance() is documented as absorbing decimal
+    // representation noise, and a master interval inverted only by that noise
+    // (low = 0.1 + 0.2 > high = 0.3) must not silently match nothing. With
+    // tolerance(0) the shifted bounds are the raw bounds. Using-side validity
+    // stays on the RAW bounds (uvalid above): tolerance() widens only the
+    // master interval, never a using interval, so it does not promote an empty
+    // using interval -- and r(N_using_inverted) counts the same raw inversion.
     //
-    // The sweep needs mlo_s <= mhi_s, and it gets that from tolerance being
-    // NONNEGATIVE -- widening a nonempty interval leaves it nonempty. That is
-    // enforced by the caller (rangematch.ado rejects a negative or nonfinite
-    // tolerance()), not here. It is a real coupling, not a comment: a negative
-    // tolerance would invert the shifted master interval, and the sweep would
-    // then trust a free half-test that no longer holds and emit wrong pairs at
-    // rc=0. The prefix-rescan this replaced tested both inequalities outright,
-    // so it did not care. If that guard is ever relaxed, screen the SHIFTED
-    // bounds here too.
+    // Screening the shifted bounds is also what the sweep needs: its free
+    // half-test assumes mlo_s <= mhi_s (closed(both)) or mlo_s < mhi_s
+    // (closed(none)) for every swept master row.
     //
     // Column 4 carries the original master row index -- it makes ties
     // reproducible (Mata's sort() does not order them deterministically) and is
     // how the emit pass finds its way back to original row order.
-    nvm = 0
-    for (i = 1; i <= nm; i++) {
-        if (_rm_interval_nonempty(M[i, 2], M[i, 3], both)) nvm++
-    }
-    VM = J(nvm, 4, .)
+    // Column 5 is the open-low flag, sorted first within a group as on the
+    // using side.
+    VM = J(nm, 5, .)
     p = 0
     for (i = 1; i <= nm; i++) {
-        if (_rm_interval_nonempty(M[i, 2], M[i, 3], both)) {
+        // A missing bound, or a tolerance shift that overflows the double
+        // range (Mata returns missing), is open on that side; see the point
+        // sweep backend. An open high stays missing, i.e. +inf.
+        mlo_s = M[i, 2] - tolerance
+        mlo_open = (mlo_s >= .)
+        if (mlo_open) mlo_s = mindouble()
+        mhi_s = M[i, 3] + tolerance
+        if (mhi_s >= .) mhi_s = .
+        if (mlo_open | _rm_interval_nonempty(mlo_s, mhi_s, both)) {
             p++
             VM[p, 1] = M[i, 1]
-            // Clamp the tolerance shift to the finite double range (see the
-            // sweep backend): an unclamped shift overflows to missing for a
-            // large tolerance and drops every match.
-            VM[p, 2] = max((M[i, 2] - tolerance, mindouble()))
-            VM[p, 3] = min((M[i, 3] + tolerance, maxdouble()))
+            VM[p, 2] = mlo_s
+            VM[p, 3] = mhi_s
             VM[p, 4] = i
+            VM[p, 5] = mlo_open
         }
     }
+    nvm = p
+    VM = (nvm > 0 ? VM[|1, 1 \ nvm, 5|] : J(0, 5, .))
     if (nvm > 0) {
-        VM = sort(VM, (1, 2, 4))
+        VM = sort(VM, (1, -5, 2, 4))
         vmgid = VM[., 1]
         vmlo  = VM[., 2]
         vmhi  = VM[., 3]
         vmidx = VM[., 4]
+        vmopen = VM[., 5]
     }
     else {
         vmgid = J(0, 1, .)
         vmlo  = J(0, 1, .)
         vmhi  = J(0, 1, .)
         vmidx = J(0, 1, .)
+        vmopen = J(0, 1, .)
     }
+    vmnegopen = -vmopen
     VM = J(0, 0, .)
 
     // ---- Sweep pass 1: how many matches does each master have? -------------
@@ -1570,8 +1679,8 @@ void _rm_build_pairs_overlap(
             ue = vgend_map[gid_i]
         }
         if (us != 0) {
-            _rm_overlap_count_group(vmlo, vmhi, vulo, vuhi, a, b, us, ue, ///
-                both, cnt_point, cnt_diff)
+            _rm_overlap_count_group(vmlo, vmhi, vmopen, vmnegopen, ///
+                vulo, vuhi, vuopen, a, b, us, ue, both, cnt_point, cnt_diff)
         }
         a = b + 1
     }
@@ -1690,7 +1799,8 @@ void _rm_build_pairs_overlap(
                 ue = vgend_map[gid_i]
             }
             if (us != 0) {
-                _rm_overlap_emit_group(vmlo, vmhi, vmidx, vulo, vuhi, vuobs, ///
+                _rm_overlap_emit_group(vmlo, vmhi, vmopen, vmnegopen, ///
+                    vmidx, vulo, vuhi, vuopen, vuobs, ///
                     a, b, us, ue, both, mobs_all, cursor, mi, ui, ///
                     matched_using, track_using, dryrun)
             }

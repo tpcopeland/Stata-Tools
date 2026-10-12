@@ -1,4 +1,4 @@
-*! rangematch Version 1.5.9  2026/10/04
+*! rangematch Version 1.5.10  2026/10/12
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -941,7 +941,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.5.9"
+    local _rm_required_mata_version "1.5.10"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -1481,9 +1481,9 @@ program define rangematch, rclass
     * Apply the policy to the master key. Ordered after the bound screen so a
     * dataset failing both reports the bound diagnostic first, matching the
     * historical message for bound-only data. wildcard is a no-op: the derived
-    * interval sentinel below (`_rm_low'=1, `_rm_high'=0) and nearest's missing
-    * distance already make a missing-key row match nothing, which is the same
-    * contract wildcard gives a missing using key.
+    * interval sentinel below (an inverted pair that no tolerance() can widen)
+    * and nearest's missing distance already make a missing-key row match
+    * nothing, which is the same contract wildcard gives a missing using key.
     if `N_master_key_missing' > 0 & "`missing'" != "wildcard" {
         if "`missing'" == "error" {
             display as error ///
@@ -1825,9 +1825,15 @@ program define rangematch, rclass
         else {
             gen double `_rm_high' = `key' + (`high')
         }
+        * Never-match sentinel for a missing key: an interval that stays
+        * inverted after any legal tolerance() widening, because the backends
+        * judge emptiness on (low - t, high + t). low = c(maxdouble) and
+        * high = 2*c(mindouble) (Mata's mindouble(), still storable) keep
+        * low - t >= 0 > high + t for every finite t <= c(maxdouble). The
+        * former 1/0 pair un-inverted at tolerance(0.5).
         if `uses_key_offsets' {
-            replace `_rm_low' = 1 if `key' >= .
-            replace `_rm_high' = 0 if `key' >= .
+            replace `_rm_low' = c(maxdouble) if `key' >= .
+            replace `_rm_high' = 2 * c(mindouble) if `key' >= .
         }
     }
 

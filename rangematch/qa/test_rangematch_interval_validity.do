@@ -5,9 +5,11 @@
 * Contract under test (symmetric for the master and using sides):
 *   closed(both) -> [lo,hi] nonempty iff lo <= hi   (lo == hi is a valid point)
 *   closed(none) -> (lo,hi) nonempty iff lo <  hi   ((x,x) is empty)
-* Validity is a property of the recorded data and is NOT widened by
-* tolerance(): tolerance fuzzes boundary comparisons between two genuine
-* intervals, it does not promote an empty interval into a nonempty one.
+* A USING interval's validity is a property of its recorded bounds and is NOT
+* widened by tolerance(). A MASTER interval is judged after tolerance()
+* widening (low - t > high + t is empty), so one inverted or degenerate only
+* by representation noise still matches (1.5.10; documented under
+* tolerance() and in the overlap-mode remarks of rangematch.sthlp).
 *
 * On the shipped 1.3.3 code the inverted (C02) and open-degenerate (C03) cells
 * FAIL: the backend screened only master lo > hi and filtered candidates with
@@ -139,21 +141,23 @@ else {
     display as error "FAIL: closed(none) degenerate intervals"
 }
 
-**# T4: tolerance() must not resurrect an empty open-degenerate interval
+**# T4: tolerance() widens a MASTER interval but never a USING interval
 local ++test_count
 local ok = 1
-_rm_assert_cell "master-degenerate (0,0) vs (-1,1) tol=5" 0 0 -1 1 none 5 0
+* master (0,0) widens to (-5,5) and overlaps the raw using (-1,1): one pair
+_rm_assert_cell "master-degenerate (0,0) vs (-1,1) tol=5" 0 0 -1 1 none 5 1
 local ok = `ok' & `_cell_ok'
+* using (0,0) is judged on its recorded bounds: empty whatever the tolerance
 _rm_assert_cell "using-degenerate (-1,1) vs (0,0) tol=5" -1 1 0 0 none 5 0
 local ok = `ok' & `_cell_ok'
 if `ok' {
     local ++pass_count
-    display as result "PASS: tolerance does not widen an empty interval"
+    display as result "PASS: tolerance widens master interval, not using interval"
 }
 else {
     local ++fail_count
     local failed_tests "`failed_tests' T4_tol_degenerate"
-    display as error "FAIL: tolerance widened an empty interval"
+    display as error "FAIL: tolerance master/using interval asymmetry"
 }
 
 **# T5: CONTROL -- closed(both) degenerate is a VALID single point

@@ -408,6 +408,11 @@ display as result "PASS: auxiliary .do files honor the 16.1 version floor"
 * test_rangematch_v16compat.do. A real 16.1 lane remains outstanding.
 local ++test_count
 local qa_files : dir "`qa_dir'" files "*.do"
+* profile.do is not a suite: repo policy puts one (`set processors 1') in the
+* run directory for parallel lanes, and Stata runs it at startup. It carries no
+* version statement and must not be screened as if it were a test file.
+local not_suites "profile.do"
+local qa_files : list qa_files - not_suites
 * Frozen qa-lib vendors explicitly target16.0; ordinary suites remain16.1.
 local canonical_vendors "_qa_fx_a4.do _qa_state.do _qa_hostile.do _qa_metamorphic.do"
 local n_qa = 0

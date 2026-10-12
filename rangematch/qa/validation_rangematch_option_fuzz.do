@@ -132,10 +132,9 @@ forvalues rep = 1/`NREP_POINT' {
     quietly keep if !missing(ukey)
     gen double _lo = cond(missing(lo), mindouble(), lo)
     gen double _hi = cond(missing(hi), maxdouble(), hi)
-    * An inverted master interval is empty and matches nothing, and tolerance()
-    * does not rescue it -- the shift fuzzes comparisons between two genuine
-    * intervals, it does not promote an empty one.
-    quietly keep if _lo <= _hi
+    * A master interval is empty only if still inverted after widening
+    * (low - t > high + t); tolerance() rescues one inverted by noise.
+    quietly keep if (_lo - `tol') <= (_hi + `tol')
     gen double _los = max(_lo - `tol', mindouble())
     gen double _his = min(_hi + `tol', maxdouble())
     if "`closed'" == "both"  quietly keep if ukey >= _los & ukey <= _his
@@ -267,7 +266,7 @@ forvalues rep = 1/`NREP_NEAREST' {
     quietly keep if !missing(mkey) & !missing(m_key)
     gen double _lo = cond(missing(lo), mindouble(), lo)
     gen double _hi = cond(missing(hi), maxdouble(), hi)
-    quietly keep if _lo <= _hi
+    quietly keep if (_lo - `tol') <= (_hi + `tol')
     gen double _los = max(_lo - `tol', mindouble())
     gen double _his = min(_hi + `tol', maxdouble())
     if "`closed'" == "both"  quietly keep if mkey >= _los & mkey <= _his
@@ -443,9 +442,10 @@ forvalues rep = 1/`NREP_OVERLAP' {
     gen double _mhi = cond(missing(hi),  maxdouble(), hi)
     gen double _ulo = cond(missing(ulo), mindouble(), ulo)
     gen double _uhi = cond(missing(uhi), maxdouble(), uhi)
-    * Closure-aware nonemptiness on BOTH sides, judged on the raw bounds.
-    if "`closed'" == "both" quietly keep if _mlo <= _mhi & _ulo <= _uhi
-    else                    quietly keep if _mlo <  _mhi & _ulo <  _uhi
+    * Closure-aware nonemptiness: the master interval on its WIDENED bounds,
+    * the using interval on its recorded bounds.
+    if "`closed'" == "both" quietly keep if (_mlo - `tol') <= (_mhi + `tol') & _ulo <= _uhi
+    else                    quietly keep if (_mlo - `tol') <  (_mhi + `tol') & _ulo <  _uhi
     gen double _mlos = max(_mlo - `tol', mindouble())
     gen double _mhis = min(_mhi + `tol', maxdouble())
     if "`closed'" == "both" quietly keep if _ulo <= _mhis & _uhi >= _mlos

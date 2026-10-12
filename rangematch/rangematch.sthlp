@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.9  04oct2026}{...}
+{* *! version 1.5.10  12oct2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -131,22 +131,9 @@ plus unmatched master observations. With {opt frame()}, it writes the output to
 a named frame and leaves the current data unchanged.
 
 {pstd}
-Output preserves variable labels, value-label attachments and definitions, and
-the master dataset label for both master and carried using variables, as
-{helpb merge} does. Every master value-label definition in memory is carried,
-including one that no variable is attached to; a using definition is carried
-when a carried using variable is attached to it. With {opt saving()}, the file is
-written by {helpb save}, which stores only definitions attached to a variable. If the master and using data define the same value-label
-name with the same mapping, the single definition is shared. If they define it
-with {it:different} mappings, the master keeps the original name and the using
-definition is copied under a collision-free name ({it:name}{cmd:_U}, then
-{it:name}{cmd:_U2}, and so on), to which the carried using variables are
-attached; carried variables sharing one mapping share one copy. Both meanings
-therefore survive, and {helpb decode} on a carried variable returns the using
-data's own text. Neither dataset {helpb notes} nor {helpb char:characteristics}
-are carried onto the output, and that covers variable-level characteristics as
-well as {cmd:_dta[]} ones; unlike {helpb merge}, which leaves the master data in
-place, {cmd:rangematch} rebuilds the result from the matched rows.
+Output preserves variable labels, value labels, and the master dataset label,
+as {helpb merge} does; notes and characteristics are not carried. See
+{it:Labels and metadata} under {help rangematch##remarks:Remarks}.
 
 {pstd}
 If you only need summary statistics over a range, {cmd:rangestat} is usually
@@ -173,14 +160,17 @@ count). Under the default {opt miss:ing(wildcard)} a missing master or using bou
 treated as open-ended on that side, so a fully missing interval matches
 everything in its {opt by()} group; {opt miss:ing(drop)} and {opt miss:ing(error)} instead drop or
 reject rows with a missing bound on either side (see {opt miss:ing()}
-below). {opt tolerance()} shifts the comparison boundaries exactly as in point mode.
+below). {opt tolerance()} widens the master interval exactly as in point mode
+and never widens a using interval.
 
 {pmore}
 An interval is empty unless its bounds are ordered: {it:low} <= {it:high} under
 {opt closed(both)}, and {it:low} < {it:high} under {opt closed(none)}, where the
 degenerate point interval contains nothing. An empty interval on either side --
-master or using -- matches nothing, so inverted bounds ({it:ulow} > {it:uhigh})
-never produce a match. Because inverted bounds are a common registry
+master or using -- matches nothing. A master interval is judged after the
+{opt tolerance()} widening, as in point mode; a using interval is judged on its
+recorded bounds, so inverted using bounds ({it:ulow} > {it:uhigh}) never produce
+a match whatever the tolerance. Because inverted bounds are a common registry
 data-quality defect (swapped start/stop), {cmd:rangematch} counts such using
 intervals, posts the count in {cmd:r(N_using_inverted)}, and prints a non-fatal
 warning rather than passing over them silently; under {opt unmatched(using)} or
@@ -193,9 +183,8 @@ backend, so the full within-{opt by()} Cartesian product is never materialized -
 large memory win over {helpb joinby} followed by a {cmd:keep if} overlap filter on
 registry-scale interval data. {opt closed()} accepts only {bf:both} or {bf:none} in this mode,
 and the point-only options {opt nearest()}, {opt ties()}, {opt distance()}, and scalar offset
-bounds are not allowed. All other options ({opt by()}, {opt unmatched()}, {opt keepusing()},
-{opt frame()}, {opt saving()}, {opt stats}, {opt generate()}, {opt masterid()}, {opt usingid()}, {opt maxpairs()},
-{opt missing()}, and {opt nosort}) behave as documented below. {cmd:r(backend)} reports {cmd:overlap}.
+bounds are not allowed. All other options behave as documented below, and
+{cmd:r(backend)} reports {cmd:overlap}.
 
 {dlgtab:Variables}
 
@@ -288,9 +277,13 @@ uses (lo,hi]; and {opt closed(none)} uses (lo,hi). The default is {opt closed(bo
 {opt tol:erance(#)} applies a nonnegative boundary-comparison tolerance to
 floating-point keys. With tolerance {it:t}, lower-bound comparisons use
 {it:low} - {it:t} and upper-bound comparisons use {it:high} + {it:t}, while
-preserving the requested endpoint closure. This is intended for representation
-noise such as decimal arithmetic, not as a statistical matching rule. The
-default is {cmd:tolerance(0)}.
+preserving the requested endpoint closure; under {opt closed(none)}, for
+example, the interval is ({it:low} - {it:t}, {it:high} + {it:t}). Whether a
+master interval is empty is judged on these widened bounds, so an interval
+inverted only by representation noise -- {it:low} = 0.1 + 0.2 just above
+{it:high} = 0.3 -- still matches. This is intended for representation noise such
+as decimal arithmetic, not as a statistical matching rule. The default is
+{cmd:tolerance(0)}, under which bounds are compared exactly as stored.
 
 {pmore}
 As a related safeguard, {cmd:rangematch} prints a non-fatal warning when a
@@ -459,13 +452,9 @@ reported separately by {cmd:r(N_using_missing)} and
 {opt by()} coding, which is a different fault from unusable using values.
 
 {phang}
-By default, {cmd:rangematch} sorts output by original master row and original
-using row before dropping internal row identifiers.
-
-{phang}
-{opt nosort} skips the final output sort and leaves rows in backend
-materialization order. Matching still uses an internal sort of using keys for
-binary search.
+{opt nosort} skips the final output sort (see {it:Output order} under
+{help rangematch##remarks:Remarks}) and leaves rows in backend materialization
+order. Matching still uses an internal sort of using keys for binary search.
 
 {phang}
 {opt dryr:un} validates the request and reports the output counts without
@@ -481,7 +470,9 @@ no frame is created or replaced.
 {phang}
 {opt verbose} displays additional diagnostic information about loading,
 grouping, matching, output handling, and elapsed seconds for the load, match,
-and materialize phases. Very large joins also display matching progress.
+and materialize phases. Very large joins also display matching progress. Timing
+uses three unused Stata {helpb timer}s; {opt verbose} exits with an error if
+fewer than three are free.
 
 
 {marker remarks}{...}
@@ -491,22 +482,16 @@ and materialize phases. Very large joins also display matching progress.
 {bf:Bounds}
 
 {pstd}
-{it:low} and {it:high} may be numeric variables in the master dataset. They may
-also be numeric scalar offsets from the master {it:keyvar}, provided that
-{it:keyvar} exists as a numeric variable in the master dataset. A literal
-{cmd:.} bound is open-ended.
+The variable-bound and scalar-offset forms are described under
+{help rangematch##description:Description}; a literal {cmd:.} bound is
+open-ended. Missing bound variables and keys follow {opt miss:ing()}: under the
+default, a missing bound removes only its own side's restriction.
 
 {pstd}
-Under the default {opt miss:ing(wildcard)}, missing lower bounds are treated as
-open-ended below and missing upper bounds as open-ended above; a using
-observation with a missing key never matches. {opt miss:ing(drop)} and
-{opt miss:ing(error)} instead drop or reject rows with a missing bound or key on
-either side; see {opt miss:ing()} for the full symmetric policy.
-
-{pstd}
-If the computed lower bound is greater than the computed upper bound, no match
-is possible for that master observation. It is retained when
-{opt unmatch:ed(master)} or {opt unmatch:ed(both)} is active.
+If the computed lower bound, less any {opt tolerance()}, is greater than the
+computed upper bound plus that tolerance, no match is possible for that master
+observation. It is retained when {opt unmatch:ed(master)} or
+{opt unmatch:ed(both)} is active.
 
 {pstd}
 A scalar offset added to a finite {it:keyvar} must itself be
@@ -516,6 +501,33 @@ indistinguishable from the open-ended bound a literal {cmd:.} requests, so
 {cmd:rangematch} reports the affected row count and exits rather than widening
 the interval. Rescale {it:keyvar}, use a smaller offset, or supply bound
 variables.
+
+{pstd}
+{bf:Labels and metadata}
+
+{pstd}
+Output preserves variable labels, value-label attachments and definitions, and
+the master dataset label for both master and carried using variables. Every
+master value-label definition in memory is carried, including one that no
+variable is attached to; a using definition is carried when a carried using
+variable is attached to it. With {opt saving()}, the file is written by
+{helpb save}, which stores only definitions attached to a variable.
+
+{pstd}
+If the master and using data define the same value-label name with the same
+mapping, the single definition is shared. If they define it with
+{it:different} mappings, the master keeps the original name and the using
+definition is copied under a collision-free name ({it:name}{cmd:_U}, then
+{it:name}{cmd:_U2}, and so on), to which the carried using variables are
+attached; carried variables sharing one mapping share one copy. Both meanings
+therefore survive, and {helpb decode} on a carried variable returns the using
+data's own text.
+
+{pstd}
+Neither dataset {helpb notes} nor {helpb char:characteristics} are carried,
+including variable-level characteristics as well as {cmd:_dta[]} ones; unlike
+{helpb merge}, which leaves the master data in place, {cmd:rangematch} rebuilds
+the result from the matched rows.
 
 {pstd}
 {bf:Frames}
@@ -813,7 +825,7 @@ command to produce output. Counts alone do not establish that output exists.
 {synopt:{cmd:r(N_missing_bounds)}}master rows with a missing {it:low} or {it:high}{p_end}
 {synopt:{cmd:r(N_master_key_missing)}}master rows with a missing {it:keyvar}{p_end}
 {synopt:{cmd:r(N_using_missing)}}using rows with a missing key or bound{p_end}
-{synopt:{cmd:r(N_using_inverted)}}using intervals with {it:ulow} > {it:uhigh} (overlap mode){p_end}
+{synopt:{cmd:r(N_using_inverted)}}inverted using intervals; 0 outside overlap mode{p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
 {p2col 5 22 26 2: Match-density scalars, only with {opt stats}}{p_end}
@@ -849,7 +861,7 @@ command to produce output. Counts alone do not establish that output exists.
 {synopt:{cmd:r(frame)}}target frame name, when {opt frame()} is used{p_end}
 {synopt:{cmd:r(saving)}}output filename, when {opt saving()} is used{p_end}
 {synopt:{cmd:r(nearest)}}parsed {opt near:est()} mode{p_end}
-{synopt:{cmd:r(ties)}}parsed {opt ties()} mode{p_end}
+{synopt:{cmd:r(ties)}}{opt ties()} mode; {cmd:all} by default and in overlap mode{p_end}
 {synopt:{cmd:r(seed)}}{opt seed()} value, when specified with {opt ties(random)}{p_end}
 {synopt:{cmd:r(sort)}}{cmd:sort}, when final output sorting is active{p_end}
 {synopt:{cmd:r(nosort)}}{cmd:nosort}, when specified{p_end}
@@ -871,7 +883,7 @@ command to produce output. Counts alone do not establish that output exists.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.5.9, 04oct2026{p_end}
+{pstd}Version 1.5.10, 12oct2026{p_end}
 
 
 {title:Also see}

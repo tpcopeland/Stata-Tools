@@ -72,9 +72,9 @@ end
 * The oracle. A literal reading of the documented contract:
 *   closed(both): ulo <= mhi+tol & uhi >= mlo-tol
 *   closed(none): ulo <  mhi+tol & uhi >  mlo-tol
-* screened by closure-aware nonemptiness on BOTH sides, evaluated on the raw
-* bounds after the open-ended missing -> +/-inf substitution and deliberately
-* not widened by tolerance().
+* screened by closure-aware nonemptiness: the master interval on its widened
+* bounds (mlo - tol, mhi + tol), the using interval on its recorded bounds,
+* both after the open-ended missing -> +/-inf substitution.
 capture program drop _orc_expect
 program define _orc_expect
     syntax , Master(string) Using(string) Both(integer) TOLerance(real) ///
@@ -98,12 +98,12 @@ program define _orc_expect
 
     if `both' {
         quietly generate byte _ok = mg == ug              ///
-            & mlo <= mhi & ulo <= uhi                     ///
+            & mlo - `tolerance' <= mhi + `tolerance' & ulo <= uhi ///
             & ulo <= mhi + `tolerance' & uhi >= mlo - `tolerance'
     }
     else {
         quietly generate byte _ok = mg == ug              ///
-            & mlo < mhi & ulo < uhi                       ///
+            & mlo - `tolerance' < mhi + `tolerance' & ulo < uhi ///
             & ulo < mhi + `tolerance' & uhi > mlo - `tolerance'
     }
     quietly keep if _ok == 1
