@@ -1,4 +1,4 @@
-<img src="../_resources/logos/diagtab_hex.svg" align="right" width="150" alt="diagtab hex logo">
+<p align="center"><img src="../_resources/logos/diagtab_hex.svg" width="150" alt="diagtab hex logo"></p>
 
 # diagtab — Diagnostic accuracy and cutoff analysis
 

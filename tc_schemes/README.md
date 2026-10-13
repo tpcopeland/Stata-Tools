@@ -1,4 +1,4 @@
-<img src="../_resources/logos/tc_schemes_hex.svg" align="right" width="150" alt="tc_schemes hex logo">
+<p align="center"><img src="../_resources/logos/tc_schemes_hex.svg" width="150" alt="tc_schemes hex logo"></p>
 
 # tc_schemes — 45 Stata graph schemes behind one command
 

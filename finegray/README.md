@@ -1,4 +1,4 @@
-<img src="../_resources/logos/finegray_hex.svg" align="right" width="150" alt="finegray hex logo">
+<p align="center"><img src="../_resources/logos/finegray_hex.svg" width="150" alt="finegray hex logo"></p>
 
 # finegray — Fast Fine-Gray competing-risks regression
 

@@ -1,4 +1,4 @@
-<img src="../_resources/logos/consort_hex.svg" align="right" width="150" alt="consort hex logo">
+<p align="center"><img src="../_resources/logos/consort_hex.svg" width="150" alt="consort hex logo"></p>
 
 # consort — Exclusion flowcharts recorded as you drop observations
 

@@ -1,4 +1,4 @@
-<img src="../_resources/logos/logdoc_hex.svg" align="right" width="150" alt="logdoc hex logo">
+<p align="center"><img src="../_resources/logos/logdoc_hex.svg" width="150" alt="logdoc hex logo"></p>
 
 # logdoc — Stata logs to HTML, Markdown, Word, and PDF
 

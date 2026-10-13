@@ -1,4 +1,4 @@
-<img src="../_resources/logos/tabtools_hex.svg" align="right" width="150" alt="tabtools hex logo">
+<p align="center"><img src="../_resources/logos/tabtools_hex.svg" width="150" alt="tabtools hex logo"></p>
 
 # tabtools — Manuscript tables to Excel and Markdown
 

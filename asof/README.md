@@ -1,4 +1,4 @@
-<img src="../_resources/logos/asof_hex.svg" align="right" width="150" alt="asof hex logo">
+<p align="center"><img src="../_resources/logos/asof_hex.svg" width="150" alt="asof hex logo"></p>
 
 # asof — One measurement per ID and anchor date
 

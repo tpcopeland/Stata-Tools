@@ -1,4 +1,4 @@
-<img src="../_resources/logos/codescan_hex.svg" align="right" width="150" alt="codescan hex logo">
+<p align="center"><img src="../_resources/logos/codescan_hex.svg" width="150" alt="codescan hex logo"></p>
 
 # codescan — Scan wide-format code fields without reshaping
 

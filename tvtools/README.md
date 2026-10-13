@@ -1,4 +1,4 @@
-<img src="../_resources/logos/tvtools_hex.svg" align="right" width="150" alt="tvtools hex logo">
+<p align="center"><img src="../_resources/logos/tvtools_hex.svg" width="150" alt="tvtools hex logo"></p>
 
 # tvtools — Time-varying exposure data for survival analysis
 

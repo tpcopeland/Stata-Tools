@@ -1,4 +1,4 @@
-<img src="../_resources/logos/psdash_hex.svg" align="right" width="150" alt="psdash hex logo">
+<p align="center"><img src="../_resources/logos/psdash_hex.svg" width="150" alt="psdash hex logo"></p>
 
 # psdash — Propensity-score diagnostics in one dashboard
 

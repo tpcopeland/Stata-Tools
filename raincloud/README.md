@@ -1,4 +1,4 @@
-<img src="../_resources/logos/raincloud_hex.svg" align="right" width="150" alt="raincloud hex logo">
+<p align="center"><img src="../_resources/logos/raincloud_hex.svg" width="150" alt="raincloud hex logo"></p>
 
 # raincloud — Raincloud plots for distributional comparisons
 

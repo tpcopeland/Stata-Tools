@@ -1,4 +1,4 @@
-<img src="../_resources/logos/simtab_hex.svg" align="right" width="150" alt="simtab hex logo">
+<p align="center"><img src="../_resources/logos/simtab_hex.svg" width="150" alt="simtab hex logo"></p>
 
 # simtab — Monte Carlo simulation performance tables
 

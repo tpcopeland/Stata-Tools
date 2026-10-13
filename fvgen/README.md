@@ -1,4 +1,4 @@
-<img src="../_resources/logos/fvgen_hex.svg" align="right" width="150" alt="fvgen hex logo">
+<p align="center"><img src="../_resources/logos/fvgen_hex.svg" width="150" alt="fvgen hex logo"></p>
 
 # fvgen — Labeled variables from factor-variable interactions
 

@@ -1,4 +1,4 @@
-<img src="../_resources/logos/datefix_hex.svg" align="right" width="150" alt="datefix hex logo">
+<p align="center"><img src="../_resources/logos/datefix_hex.svg" width="150" alt="datefix hex logo"></p>
 
 # datefix — Imported date strings to Stata dates
 

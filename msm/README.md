@@ -1,4 +1,4 @@
-<img src="../_resources/logos/msm_hex.svg" align="right" width="150" alt="msm hex logo">
+<p align="center"><img src="../_resources/logos/msm_hex.svg" width="150" alt="msm hex logo"></p>
 
 # msm — Marginal structural models with IPTW, end to end
 

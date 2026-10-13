@@ -1,4 +1,4 @@
-<img src="../_resources/logos/eplot_hex.svg" align="right" width="150" alt="eplot hex logo">
+<p align="center"><img src="../_resources/logos/eplot_hex.svg" width="150" alt="eplot hex logo"></p>
 
 # eplot — Forest and coefficient plots from any source
 

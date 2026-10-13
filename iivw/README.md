@@ -1,4 +1,4 @@
-<img src="../_resources/logos/iivw_hex.svg" align="right" width="150" alt="iivw hex logo">
+<p align="center"><img src="../_resources/logos/iivw_hex.svg" width="150" alt="iivw hex logo"></p>
 
 # iivw — Inverse intensity weighting for irregular visit data
 

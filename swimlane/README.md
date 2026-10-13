@@ -1,4 +1,4 @@
-<img src="../_resources/logos/swimlane_hex.svg" align="right" width="150" alt="swimlane hex logo">
+<p align="center"><img src="../_resources/logos/swimlane_hex.svg" width="150" alt="swimlane hex logo"></p>
 
 # swimlane — Swimmer and state swimlane plots
 

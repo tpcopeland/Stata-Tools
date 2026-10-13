@@ -1,4 +1,4 @@
-<img src="../_resources/logos/rangematch_hex.svg" align="right" width="150" alt="rangematch hex logo">
+<p align="center"><img src="../_resources/logos/rangematch_hex.svg" width="150" alt="rangematch hex logo"></p>
 
 # rangematch — Range joins for interval data
 

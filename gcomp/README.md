@@ -1,4 +1,4 @@
-<img src="../_resources/logos/gcomp_hex.svg" align="right" width="150" alt="gcomp hex logo">
+<p align="center"><img src="../_resources/logos/gcomp_hex.svg" width="150" alt="gcomp hex logo"></p>
 
 # gcomp — Parametric g-computation for mediation and interventions
 

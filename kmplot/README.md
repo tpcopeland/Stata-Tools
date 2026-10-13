@@ -1,4 +1,4 @@
-<img src="../_resources/logos/kmplot_hex.svg" align="right" width="150" alt="kmplot hex logo">
+<p align="center"><img src="../_resources/logos/kmplot_hex.svg" width="150" alt="kmplot hex logo"></p>
 
 # kmplot — Kaplan-Meier curves with risk tables
 

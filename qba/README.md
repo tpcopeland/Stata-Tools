@@ -1,4 +1,4 @@
-<img src="../_resources/logos/qba_hex.svg" align="right" width="150" alt="qba hex logo">
+<p align="center"><img src="../_resources/logos/qba_hex.svg" width="150" alt="qba hex logo"></p>
 
 # qba — Quantitative bias analysis for epidemiologic data
 

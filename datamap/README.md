@@ -1,4 +1,4 @@
-<img src="../_resources/logos/datamap_hex.svg" align="right" width="150" alt="datamap hex logo">
+<p align="center"><img src="../_resources/logos/datamap_hex.svg" width="150" alt="datamap hex logo"></p>
 
 # datamap — Document and check data without exposing it
 

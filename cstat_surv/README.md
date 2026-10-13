@@ -1,4 +1,4 @@
-<img src="../_resources/logos/cstat_surv_hex.svg" align="right" width="150" alt="cstat_surv hex logo">
+<p align="center"><img src="../_resources/logos/cstat_surv_hex.svg" width="150" alt="cstat_surv hex logo"></p>
 
 # cstat_surv — Harrell's C-statistic after `stcox`
 
