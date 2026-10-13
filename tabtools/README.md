@@ -1,34 +1,64 @@
-# tabtools — Publication-ready tables for Stata
+<img src="../_resources/logos/tabtools_hex.svg" align="right" width="150" alt="tabtools hex logo">
+
+# tabtools — Manuscript tables to Excel and Markdown
 
 **Version 2.6.4** | 2026-10-13
 
-`tabtools` is a Stata suite for turning descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. The commands share output conventions, explicit formatting controls, frames, and stored-result contracts so a table can move from analysis to a report or downstream Stata workflow.
+[![version](https://img.shields.io/badge/version-2.6.4-1a5f91?style=flat-square)](#version-history) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`tabtools` turns descriptive, model, survival, rate, and composite results into publication-ready Excel and GitHub-Flavored Markdown tables. Its commands share one set of output options, so the same rendered table can go to a workbook, a Markdown report, a CSV file, or a Stata frame.
 
 ## Quick Start
 
-Install the package from the public Stata-Tools distribution, then run a table command from any working directory:
+After [installing](#installation), build a baseline table from the synthetic cohort in the repository's `_data/` folder and write it as Markdown (the `replace treated` line is the demo's: it makes treatment depend on age, sex, diabetes, and hypertension, so the two arms differ at baseline):
 
 ```stata
-net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
-sysuse auto, clear
-table1_tc price mpg weight rep78, by(foreign) xlsx("table1.xlsx") sheet("Table 1")
+use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
+merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)
+merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(master match) nolabel
+foreach v in diabetes hypertension {
+    replace `v' = 0 if missing(`v')
+}
+set seed 20261005
+replace treated = runiform() < invlogit(-2.4 + 0.05 * (index_age - 58) - 0.3 * female + 2.2 * diabetes + 2.0 * hypertension)
+table1_tc, by(treated) vars(index_age contn %5.1f \ female bin \ diabetes bin \ hypertension bin) title("Table 1. Baseline Characteristics") markdown("table1.md")
 ```
 
-The command displays a Results preview and writes `table1.xlsx` in the current working directory. Add `frame(table1)` when later Stata commands should consume the rendered table, or add `markdown("table1.md")` for a Markdown report.
+`table1.md` holds exactly this (its `###` heading shown in bold here):
+
+**Table 1. Baseline Characteristics**
+
+| No. (Column %) or Mean±SD | SSRI (N=8,929) | SNRI (N=6,071) | p-value |
+| --- | --- | --- | --- |
+| Age at cohort entry (years) | 55.9±13.4 | 62.0±12.4 | \<0.001 |
+| Female sex | 5,530 (62) | 3,442 (57) | \<0.001 |
+| Diabetes | 2,566 (29) | 4,359 (72) | \<0.001 |
+| Hypertension | 2,765 (31) | 4,282 (71) | \<0.001 |
+
+<sub>The first table of `demo/demo_markdown_report.md`, written by `demo/demo_tabtools.do`, which then appends a `crosstab`, a `corrtab`, and a `puttab` table to the same file with `mdappend`. The demo also merges the outcome file and builds variables this table does not use; they do not change it. The same call prints the table in the Results window, and `xlsx()` or `frame()` would send it to a workbook or a frame as well.</sub>
+
+## Features
+
+- **One set of output options.** A table command can write any of the targets it supports, `xlsx()`, `csv()`, `markdown()`, `frame()`, and, for model and effect tables, a graph-ready `eplotframe()`, from the same rendered table in one call.
+- **Tables from the models you already ran.** `regtab` and `effecttab` format the active `collect` result of `regress`, `logistic`, `margins`, `teffects` and similar commands, and `comptab` combines their frames into one composite table.
+- **Small-cell disclosure control.** `smallcells(#)` in `table1_tc`, `desctab`, and `crosstab` applies primary, complementary, and dependent-result suppression before any output is written, so every sink receives the same redacted table.
+- **Confidence levels that are checked.** An explicit `level()` that conflicts with the level recorded in a collection or a saved `strate` file is an error, not a relabelled interval.
+- **Shared house style.** `tabtools set` and `tabtools get` hold session defaults for font, font size, borders, colours, digits, and p-value emphasis, and `permanent` saves them to a runnable profile.
 
 ## Requirements
 
-The package requires Stata 17 or newer and has no mandatory user-written Stata dependencies.
-
-The model and effect commands expect an active Stata `collect` result created by commands such as `regress`, `logistic`, `margins`, or `teffects`; they format and arrange that collection rather than fitting a model. `survtab` requires data declared with `stset`, while `stratetab` reads `.dta` files written by Stata's `strate, output()` command.
-
-Forest-plot output from `comptab` and `hrcomptab`, and plotting graph-ready `eplotframe()` outputs from `regtab` and `effecttab`, require the optional `eplot` package. The table commands can create those graph-ready frames without eplot.
+- Stata 17 or later
+- No mandatory user-written Stata packages
+- `regtab` and `effecttab` need an active Stata `collect` result created by commands such as `regress`, `logistic`, `margins`, or `teffects`; they format and arrange that collection rather than fitting a model
+- `survtab` needs data declared with `stset`; `stratetab` reads `.dta` files written by Stata's `strate, output()` command
+- Optional: the `eplot` package from Stata-Tools, for forest-plot output from `comptab` and `hrcomptab` and for plotting the `eplotframe()` outputs of `regtab` and `effecttab` (the table commands create those graph-ready frames without it)
 
 ## Installation
 
-Install the released package from the public GitHub distribution with:
-
 ```stata
+capture ado uninstall tabtools
 net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
 ```
 
@@ -70,6 +100,12 @@ For plot-ready composition, create each display frame and its numeric companion 
 
 Shared formatting options include `font()`, `fontsize()`, `borderstyle()`, `headershade`, `headercolor()`, `zebra`, `zebracolor()`, `title()`, `footnote()`, `boldp()`, and `highlight()` where supported. A fresh session resolves the shared baseline as Arial 10-point text with thin borders, while command-specific precision and display defaults are listed below.
 
+### Workbook cell types
+
+Every exported workbook cell is written as **text**, including cells that look numeric. This is deliberate: the majority of published table cells are composite or annotated strings — `5,351 (60)`, `0.82 (0.69, 0.98)`, `<0.001`, `0.54***`, `Reference` — and the commands render each cell to its final string before any sink runs. Re-deriving a numeric type by reparsing the rendered string would have to guess, and would silently convert an annotated cell into a number that no longer matches the table.
+
+The practical consequence is that Excel will not sum, chart, or numerically sort a column of an exported sheet without a conversion step in Excel. For a numeric payload, use `frame()` (Stata frames, with the underlying numeric columns where a command provides them), the `r()` matrices such as `r(table)` and `r(cutoff_table)`, or `eplotframe()` for plotting.
+
 ## Choosing a Workflow
 
 | Need | Start with | Add or follow with |
@@ -87,24 +123,9 @@ Shared formatting options include `font()`, `fontsize()`, `borderstyle()`, `head
 | A dataset, frame, or matrix as a table | `puttab` | `using`, `frame()`, `matrix()`, `varlabels`, or `noheader` |
 | Existing Excel blocks | `stacktab` | `blocks()`, `layout(hstack)`, `append`, or `sheetreplace` |
 
-## Features
-
-- One output vocabulary across descriptive, modeling, survival, rates, and composite workflows.
-- Excel workbooks with named sheets, titles, notes, footnotes, borders, header colors, zebra striping, significance emphasis, and optional post-write opening.
-- GitHub-Flavored Markdown, CSV, Stata frames, and graph-ready eplot frames where supported.
-- Shared session defaults for font, font size, border style, colors, numeric digits, and p-value emphasis through `tabtools set` and `tabtools get`.
-- Explicit confidence-level provenance for collection-based and saved-rate workflows, with errors for conflicting levels and a visible `c(level)` fallback warning when a Stata version omits collection provenance.
-- Strict `smallcells(#)` disclosure control for `table1_tc`, `desctab`, and `crosstab`, with primary, complementary, and dependent-result suppression applied before any output sink.
-
-### Workbook cell types
-
-Every exported workbook cell is written as **text**, including cells that look numeric. This is deliberate: the majority of published table cells are composite or annotated strings — `5,351 (60)`, `0.82 (0.69, 0.98)`, `<0.001`, `0.54***`, `Reference` — and the commands render each cell to its final string before any sink runs. Re-deriving a numeric type by reparsing the rendered string would have to guess, and would silently convert an annotated cell into a number that no longer matches the table.
-
-The practical consequence is that Excel will not sum, chart, or numerically sort a column of an exported sheet without a conversion step in Excel. For a numeric payload, use `frame()` (Stata frames, with the underlying numeric columns where a command provides them), the `r()` matrices such as `r(table)` and `r(cutoff_table)`, or `eplotframe()` for plotting.
-
 ## Worked Examples
 
-### Baseline table
+### 1. Baseline table
 
 ```stata
 sysuse auto, clear
@@ -119,7 +140,7 @@ To protect exact counts below a publication threshold in `table1_tc`, `desctab`,
 table1_tc rep78, by(foreign) vars(rep78 cat) total(after) smallcells(5) frame(table1_safe, replace)
 ```
 
-### Shared formatting profile
+### 2. Shared formatting profile
 
 Use the controller to inspect the suite, set explicit formatting defaults, and save them for reuse in another session:
 
@@ -134,7 +155,7 @@ tabtools get
 
 Use `tabtools, list` for the compact catalog, or replace `category(models)` with another catalog category. The profile contains ordinary `tabtools set` commands and can be version controlled with a project.
 
-### Consolidated descriptive engine
+### 3. Consolidated descriptive engine
 
 ```stata
 sysuse auto, clear
@@ -143,7 +164,7 @@ desctab price mpg weight rep78, by(foreign) smd test frame(descriptive, replace)
 
 `desctab` is the consolidated implementation behind `table1_tc`. It accepts the same variable-type, inference, suppression, weighting, formatting, and output options; `table1_tc` is the stable user-facing frontend.
 
-### Regression and effects
+### 4. Regression and effects
 
 ```stata
 sysuse auto, clear
@@ -158,7 +179,7 @@ effecttab, frame(effects, replace) xlsx("effects.xlsx")
 
 `regtab` and `effecttab` format active collections; they do not fit models. Both can also feed a composite table, and their `eplotframe()` output can be plotted by the optional `eplot` package.
 
-### Categorical and correlation tables
+### 5. Categorical and correlation tables
 
 ```stata
 sysuse auto, clear
@@ -168,7 +189,7 @@ corrtab price mpg weight, spearman full pvalues markdown("correlations.md")
 
 `crosstab` defaults to column percentages and uses a sparse-cell exact test when appropriate. With `smallcells(#)`, it protects the count block and margins, withholds percentages whose numerator or denominator is protected, and suppresses count-dependent tests and effect measures. `corrtab` defaults to Pearson correlations and the lower triangle.
 
-### Survival and rates
+### 6. Survival and rates
 
 ```stata
 webuse drugtr, clear
@@ -183,7 +204,7 @@ stratetab, using("rate_hienergy") outcomes(1) xlsx("rates.xlsx")
 
 `survtab` reports Kaplan–Meier quantities at the requested times. `stratetab` expects the saved `strate` files in exposure-major, outcome-minor order and uses `outcomes()` to interpret that file sequence.
 
-### Composite model table
+### 7. Composite model table
 
 ```stata
 sysuse auto, clear
@@ -198,7 +219,7 @@ comptab model model2, rows("1 2 \ 1 2") xlsx("composite.xlsx")
 
 The source frames must contain compatible row labels. `rows()` takes one numeric row specification per source frame, separated by `\`; here `1 2 \ 1 2` selects the first two rows from both frames. Use `relabel()` or `section()` when the displayed row names or section structure need to be changed; use `hrcomptab` when one of the source frames is a `stratetab` rate frame.
 
-### Direct table output
+### 8. Direct table output
 
 ```stata
 sysuse auto, clear
@@ -208,20 +229,38 @@ puttab price mpg weight, markdown("selected.md")
 
 `puttab` accepts a current-data varlist, `frame(name)`, or `matrix(name)` as its one source. An Excel `using` target is required for workbook output, while Markdown-only output does not need a workbook.
 
-
 ## Demo
 
-The checked-in demo is a repository-checkout workflow. Run `demo/demo_tabtools.do` to regenerate the example workbooks and Markdown report; the demo uses the repository’s `_data/` fixtures and writes results under `demo/`. The checked-in set is 16 workbooks (102 sheets total) plus the Markdown report.
+Run `demo/demo_tabtools.do` from a repository checkout to regenerate the workbooks and the Markdown report below; it uses the repository's `_data/` fixtures and writes under `demo/`. These files are repository documentation assets and are not part of the `net install` payload.
 
-The 2.3 commands each have their own workbook. `demo_ratetab.xlsx` has exact, Poisson, and region-clustered rates, and a `comptab, rateframe() allmodels keyed` table that places crude and adjusted hazard ratios beside the rates. `demo_outtab.xlsx` has events/N by treatment with crude and adjusted risk ratios for four outcomes, plus a two-panel odds-ratio version. `demo_tabcell.xlsx` holds a column of `tabcell` cells, written through a `tabtools set workbook` session destination. The existing workbooks gain sheets for the other 2.3 options: in `demo_regtab.xlsx`, `cformat()`, a flat frame with `reftop`, `transpose`, `cellnote()`, and `tabtools fitcount` counts with `mincount()` masking; in `demo_puttab.xlsx`, `hlines()`/`boldrows()`, `panel()`, and `spanheader()`; plus `stacktab frames()`, `smallcells(5, primary)`, `cellreplace()`, and `cformat()` in `comptab`, `effecttab`, and `stratetab`.
+| File | What it holds |
+| --- | --- |
+| `demo/demo_markdown_report.md` | Four tables appended to one Markdown file with `mdappend`: `table1_tc`, `crosstab` with an odds ratio, a `corrtab` with stars, and `puttab` records |
+| `demo/demo_table1.xlsx` | 16 sheets: `table1_tc` with totals, weights, `wtcompare`, statistics and format variants, missingness, explicit fonts, small cells, and `cellreplace()` |
+| `demo/demo_desctab.xlsx` | 10 sheets: descriptive tables (events, mean and SD, median and IQR) and small cells |
+| `demo/demo_regtab.xlsx` | 18 sheets: logistic, Cox, mixed, Poisson, and GEE tables, multi-model layouts, `keep()`/`drop()`, `addrow()`, `cformat()`, a flat frame with `reftop`, `transpose`, `cellnote()`, and `tabtools fitcount` counts |
+| `demo/demo_regtab_models.xlsx` | 10 sheets: model families (multinomial and ordered logit, OLS, probit, negative binomial, GLM Poisson, panel random effects, quantile, zero-inflated, hurdle) |
+| `demo/demo_effecttab.xlsx` | 5 sheets: `teffects` ATE, a comparison, `margins` and AMEs, and `cformat()` |
+| `demo/demo_comptab.xlsx` | 7 sheets: two source tables and compact, renamed, formatted, and flat composites |
+| `demo/demo_hrcomptab.xlsx` | 1 sheet: a rate-and-hazard-ratio composite |
+| `demo/demo_stratetab.xlsx` | 2 sheets: rates from `strate` output, plain and with `cformat()` |
+| `demo/demo_ratetab.xlsx` | 5 sheets: exact, Poisson, and region-clustered rates, formatted rates, and crude and adjusted hazard ratios beside the rates through `comptab, rateframe() allmodels keyed` |
+| `demo/demo_outtab.xlsx` | 2 sheets: events/N by treatment with crude and adjusted risk ratios for four outcomes, and a two-panel odds-ratio version |
+| `demo/demo_survtab.xlsx` | 3 sheets: Kaplan–Meier survival, RMST, and cumulative incidence |
+| `demo/demo_crosstab.xlsx` | 8 sheets: cross-tabulations with measures, styling, trend tests, row percentages, and small cells |
+| `demo/demo_corrtab.xlsx` | 3 sheets: Pearson, Spearman, and full-matrix correlations |
+| `demo/demo_puttab.xlsx` | 6 sheets: matrix, frame, and collapsed sources, stacked tables with `hlines()`/`boldrows()`, `panel()`, and `spanheader()` |
+| `demo/demo_stacktab.xlsx` | 5 sheets: two source blocks, a stacked composite, a side-by-side layout, and `stacktab frames()` |
+| `demo/demo_tabcell.xlsx` | 1 sheet: a column of `tabcell` cells written through a `tabtools set workbook` session destination |
 
 The `table1_tc`, `desctab`, and `crosstab` workbooks each contain paired `smallcells(5)` examples. The `Small Cells Primary` sheets use a 2×2 table with counts 2/3/3/2, so only below-threshold cells are hidden as `<5`. The `Small Cells Complement` sheets use counts 2/8/6/4, which also hide reconstructive cells as `≥5`. The `Small Cells Primary Mode` sheets rerun the 2/8/6/4 table with `smallcells(5, primary)`, which hides only the two printed counts below 5.
 
-The optional forest-plot demo is `demo/demo_tabtools_eplot.do`. It regenerates the two checked-in graph assets below from `regtab`/`comptab` workflows and requires the optional `eplot` and `tc_schemes` packages in the checkout environment.
+The optional forest-plot demo is `demo/demo_tabtools_eplot.do`. It regenerates the two graphs below from `regtab` and `comptab` workflows and needs the optional `eplot` and `tc_schemes` packages in the checkout.
 
-![Forest plot generated from a regtab eplot frame](demo/forest_regtab.png)
-
-![Forest plot generated from a comptab composite](demo/forest_comptab.png)
+| Output | Command focus |
+| --- | --- |
+| ![Forest plot of adjusted odds ratios for six predictors of cardiovascular events, drawn from a regtab eplot frame, with the estimate and interval printed beside each row](demo/forest_regtab.png) | `regtab, eplotframe()` plotted with `eplot` |
+| ![Forest plot comparing crude and adjusted treatment effects, drawn in one step by comptab forest](demo/forest_comptab.png) | `comptab, forest` |
 
 ## Command Reference
 
@@ -334,7 +373,6 @@ stacktab [using outbook.xlsx], frames(name ["label"] [\ ...]) sheet(sheetname) [
 ```
 
 `stacktab` is Stata 17+ and reads an existing `.xlsx` workbook. `blocks()` identifies the source ranges, `sheet()` identifies the output worksheet, and `layout()` defaults to vertical stacking; `hstack` places blocks horizontally. The default title cell is `A1`, the first table starts at `B2`, and `spacing()` defaults to `0`. `append` and `sheetreplace` control an existing target sheet and cannot be used together. `frames()` stacks in-memory frames such as `table1_tc` output, each under its own panel heading, through `puttab, panel()`.
-
 
 ### `tabcell`
 
@@ -500,7 +538,6 @@ Returns the `stratetab` results plus `r(N)`, `r(per)`, `r(level)`, `r(N_zero)`, 
 
 Returns `r(N_rows)`, `r(N_models)`, `r(N_outcomes)`, `r(N_panels)`, `r(smallcells)`, `r(minevents)`, `r(estimator)`, `r(frame)`, `r(xlsx)`, the counts-and-ratios matrix `r(table)`, and the per-fit diagnostics matrix `r(fits)`.
 
-
 ### `tabtools`
 
 `tabtools` display mode returns `r(commands)`, `r(n_commands)`, `r(version)`, and `r(categories)`. `set` returns the changed setting, `r(permanent)`, `r(profile)`, `r(action)` when clearing, and `r(key)`, the key removed by `set` *key* `clear`; `get` returns `r(font)`, `r(fontsize)`, `r(borderstyle)`, `r(headercolor)`, `r(zebracolor)`, `r(digits)`, and `r(boldp)`. `use` returns `r(action) = "loaded"` and `r(profile)`. `query` returns `r(workbook)`, `r(markdown)`, `r(headershade)`, `r(smallcells)`, `r(smallcells_mode)`, `r(borderstyle)`, `r(workbook_fresh)`, and `r(markdown_fresh)`. `fitcount` returns `r(N)`, `r(events)`, `r(people)`, `r(exposure)`, `r(cmdset)`, `r(collection)`, and, with `terms`, `r(n_terms)` and `r(terms)`.
@@ -536,6 +573,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **2.6.4** (2026-10-12): `ratetab` refuses `rateratio` (r(198)). It used to pass the option to `stratetab`, which divided the rate of each level of the second grouping variable by the same-labelled level of the first, two overlapping groups of one sample, and gave the ratio an interval that assumed independent groups. `desctab, missingsummary` prints the Missing row in the format of the level rows above it: `% (n)` under `percent_n`, the percentage alone under `percent` (and in percent-only weighted columns), and `n/N (%)` under `slashN`; it printed `n (%)` under every format, so 12 missing of 52 read as "12% (23)" under `percent_n`. `effecttab`'s `r(methods)` names the `teffects` estimand it was given (average treatment effects, average treatment effects on the treated, or potential-outcome means, read from the collected `e(stat)`) instead of calling every fit an average treatment effect. `regtab, addrow()` refuses more values than models (r(198)), as `addcol()` does, instead of dropping the extra values; the `addcol()` error now names the column label, which it printed empty. `effecttab, from()` names a row whose estimate lies outside its own interval (still allowed: bootstrap percentile intervals need not contain the estimate). `ratetab` notes when person-time is labelled in person-years by default, and `stratetab` and `ratetab` note when a nonzero rate or limit rounds to 0 at the decimals shown. `stacktab`'s sheet-exists error no longer shows Stata compound quotes. Help: `regtab` gains a References section (doi:10.1002/sim.7336 for the MOR and latent-response ICC, doi:10.1002/sim.7188 for the MHR, Cui 2007 for QICu); `stratetab` cites the SAS STDRATE documentation, which prints the rate-ratio interval; `tabcell` cites Thulin (2014) and [R] ci for the exact binomial limits instead of the unread 1934 paper.
 - **2.6.3** (2026-10-12): `regtab, relabel` labels an equation-qualified residual term as one token: `var(e.yc)` after `tobit` or `meglm` reads `Residual Variance (yc)` instead of `Variance (Residualyc)`, and `sd(e.y)` reads `Residual SD (y)`. `ratetab` names the person-time unit it reports: on `stset` data whose time variable is a date with no `scale()`, the headers read `Person-days` and `Per 1,000 person-days` and `r(methods)` says person-days instead of person-years; the new `ptunit()` option of `ratetab` and `stratetab` names any other unit (`ptunit(months)`). `ratetab` gives bit-identical results when run twice on the same data (sums are taken in a fixed row order) and, like `outtab`, leaves the caller's `r()` unchanged when it refuses a call. `survtab` notes when times are labelled in years by default rather than from the data. A failed xlsx export prints one hint, naming the directory when it does not exist. `desctab, missingsummary` no longer prints `(1 real change made)`. Help: `stratetab` documents the rate-ratio interval and cites Breslow and Day (1987); references for the geometric SD, the modified Poisson model, the exact Poisson limits and QICu now cite sources that were read (Limpert et al. 2001, Chen et al. 2018, the Stata [R] ci manual, Cui 2007).
 - **2.6.2** (2026-10-10): `survtab median` prints a confidence limit the survivor function never reaches as `NR` instead of blanking the whole interval, so a finite lower limit is kept (`(22.0, NR)`); its beyond-follow-up caveat now also goes into the Excel, CSV and Markdown footnote. `effecttab` labels `margins, at()` rows with their scenario values (`Age (years) = 40`), the overall margin as `Overall` rather than `Intercept`, and interaction rows from value labels; `regtab` labels interaction rows the same way (`Car origin # Weight (lbs.)` over `Foreign # Weight (lbs.)`). `puttab` and `outtab` accept `csv()` as the only output; `outtab` refuses an exposure with only one value in the sample instead of printing the absent group as 0/0. `ratetab` and `survtab` print a note when `stset` time is in days but labelled as years. `crosstab` and `corrtab` p-values follow the package rule shared with `regtab` (`P for trend < 0.001`, not `= <0.001`).
+
+<details>
+<summary>Earlier versions</summary>
+
 - **2.6.1** (2026-10-09): Help References give DOIs throughout; `crosstab` cites Armitage (1955) for the trend test and `survtab` cites Royston and Parmar (2013) for the RMST contrast.
 - **2.6.0** (2026-10-08): A percentage that is neither none nor all of its denominator no longer prints as 0 or 100. Where the requested decimals would round it to 0 or 100, it gains one decimal at a time, up to two or the format's own decimals if more (`0` becomes `0.3`, `0.0` becomes `0.04`, `100` becomes `99.6`), and if it still reads 0 or 100 prints `<0.01` or `>99.99` at that precision (decimal-comma formats keep their comma). A true zero or a whole group still prints `0` or `100`. The rule is shared by `desctab`/`table1_tc` (binary and categorical rows, `missing` and `missingsummary` rows, `headerperc`), `crosstab`, `tabcell` (forms `np` and `enp`; exact interval limits print at the same decimals as an escalated percentage), `outtab` events/N (%) cells (through `tabcell enp`) and `survtab` survival percentages. `headerperc` no longer appends `(.)` when a group's sample size cannot be read.
 - **2.5.6** (2026-10-07): `puttab panel()` heading rows (and so `stacktab` panel headings) are no longer merged across the table. The heading sits in the row-label column, bold and ruled above, with the other cells blank, and that column is now widened to fit the heading text (up to the usual 50-character cap), where before headings were left out of the width.
@@ -550,9 +591,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **2.3.0** (2026-10-05): Three new commands: `tabcell` formats one publication cell (estimate (CI), p-value, n (%), e/n (%), median (Q1, Q3)) or a string column; `ratetab` computes events, person-time, and rates with exact, Poisson, or cluster-robust intervals and feeds `comptab, rateframe()`; `outtab` tabulates binary outcomes by exposure with one ratio column per model and explicit fit-failure text. `regtab` adds `cformat()`, `frame(name, flat)`, `reftop`, `cellnote()`, `mincount()`, `transpose`, and `stats(obs events people exposure)`, with counts from the new `tabtools fitcount`; after `mi estimate, esampvaryok` the Observations row now shows `e(N_mi)`. `effecttab` adds `cformat()` and `frame(name, flat)`. `comptab`/`hrcomptab` rate mode adds several models per outcome (`allmodels`), exact keyed placement (`keyed`), rate-only sections, `modelonly`, `cformat()`, `cisep()`, and flat frames. `stratetab` adds `cformat()`, `sep()`, `smallcells()`, and opt-in `zeroexact`. `puttab` adds `panel()`, `panelheader()`, `spanheader()`, and `noheadershade` (which previously was accepted and ignored). `stacktab` adds `frames()`. `table1_tc`, `desctab`, and `crosstab` add `smallcells(#, primary)` and `nosmallcells`; `table1_tc` and `desctab` add `cellreplace()`. Every `footnote()` splits paragraphs on ` \ `. `tabtools set workbook|markdown|headershade|smallcells` and `tabtools query` add session destinations and defaults.
 - **2.2.0** (2026-10-02): `puttab`, `corrtab`, `crosstab`, and `survtab` now draw the suite's boxed border layout under the default, `thin`, and `medium` border styles: a full box around the table body, the header row boxed by its rules, and a rule right of the row-label column, matching `regtab`, `desctab`, and `stratetab`. `borderstyle(academic)` still draws horizontal rules only. `puttab` adds `hlines(numlist)` (rule above data rows), `vlines(numlist)` (rule right of columns), and `boldrows(numlist)` (bold data rows) for a second table stacked in one source; a row or column outside the table is an error.
 - **2.1.20** (2026-10-01): Cochran–Armitage trend results remain stable when numeric scores are translated or rescaled. Regression tables retain separate equations and use collected-model outcome labels; numeric estimates cannot be confused with reference labels. Effect matrices preserve large fixed-format values. Model and composite outputs respect case-sensitive frame names. Composite numeric companions follow displayed model order and reject missing or ambiguous companion rows and companions from a different rendering call. Older saved pairs require recreation for plot-ready composition. Rate-table labels and identities preserve literal text, and unsafe source or export filenames are refused before use. QA adds bug-specific regressions, native R trend-test parity, exact model-return checks, and runner receipt enforcement.
-
 - **2.1.19** (2026-09-30): `survtab` preserves caller estimates and native legacy globals on success and refusal, including an initially empty estimation namespace during median calculation. Numerical results and output options are unchanged. Excel filename aliases in `corrtab`, `crosstab` and `desctab` preserve literal bytes before preflight; the shared validator refuses embedded quotes and macro-looking filename characters with the original named cause. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure. `corrtab` enforces its documented maximum of three unique significance thresholds, restores native Spearman legacy globals, including supported results with undefined correlations.
-
 - **2.1.18** (2026-09-29): Excel export styling no longer goes cell by cell through Stata's `xl()` class, which appends a style record for every styled cell. Cell styles are now written once per distinct format directly into the workbook, so large tables export in seconds instead of minutes: `puttab` on 3,000 rows × 5 columns previously stopped with the misleading r(16141) "invalid alignment format" once the workbook's style records overflowed, and now takes about a second (20,000 rows about 8 seconds); the same 500-row × 5-column `puttab` call drops from 6.1 s to 0.4 s. Every styled cell is identical to the previous output (fonts, fills, borders, alignment, wrap, merges, widths and heights compared cell by cell). If the fast pass ever fails, the styles are applied through `xl()` as before. `headercolor()`/`zebracolor()` names that `xl()` does not recognize (for example `gs14`, `ltblue`, `emerald`) now resolve to Stata's own color definition instead of stopping with r(16136). No stored results or option syntax changed.
 - **2.1.17** (2026-09-29): `desctab`/`table1_tc` `smallcells()` now protects counts that are not printed but follow from printed ones. A categorical variable's missing count (the group N minus its printed levels) and a binary variable's negative and missing counts (from the non-missing denominator its percentage releases) were left unprotected unless `missingsummary` or `slashN` printed them, so a count below the threshold could be recovered exactly by subtraction. Such a count is now a primary cell: printed cells are marked `≥#` where needed, the variable's percentages are withheld and its p-value is suppressed. In a table of two or more variables the group and total sample sizes are no longer withheld as complementary cells: they are printed once for all variables, so another variable's printed counts gave them back, and with `total()` a protected missing count could still be recovered; a count that only withholding them would protect now stops with r(498) naming the variable. `smallcells()` is refused with `wtcompare` unless `wtn` or `percent_n` is given: the weighted columns are percent-only, and a protected variable printed its effective counts there without any label, among the percentages of other variables. Added regressions.
 - **2.1.16** (2026-09-29): Fixes from a reviewer pass over 2.1.15. `crosstab, cochran` reports the correct test for a decreasing trend: the chi-squared was computed as minus z squared, so every decreasing trend showed `r(chi2_trend)` below zero and a p for trend of 1. `crosstab` refuses `trend` with `missing`, as it already refused `cochran` with `missing`: the Spearman test dropped the Missing category the table showed. `crosstab` odds ratios, risk ratios, risk differences and the Cochran-Armitage test, `survtab` with `by()`, and the `desctab`/`table1_tc` categorical SMD now work on variables holding fractional float values such as 0.1 (a defined measure was refused as undefined, `survtab` stopped, and the SMD was left blank). `sheet()` names are written and returned exactly as typed in every command: a name holding `$`, a backtick or a double quote was expanded as macro text, written as a different sheet, or refused with r(132). Loading tabtools no longer switches the session's `matastrict` setting on, which made a user's own Mata functions without declarations fail to compile. Added regressions.
@@ -564,13 +603,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **2.1.10** (2026-09-25): Correctness fixes from an independent review. `regtab` reads each model's scale only from its own options (after the command's top-level comma, with each estimator's abbreviations), so `glm ..., ef` is no longer exponentiated twice, a covariate named `or` no longer suppresses exponentiation, `stcox, nohr`, `logistic, coef`, and time-metric `streg` without `tr` display on the ratio scale their header states, PH-metric `streg` is labelled HR, and collections mixing confidence levels are rejected instead of mislabelled. `hrcomptab` places each model estimate in the rate-table row whose label it matches and errors when a selection cannot be matched exactly, instead of filling rows by position. `table1_tc`/`desctab` accept double quotes in variable and value labels, default the GSD to two decimals, compute categorical SMDs over the levels of the two compared groups, return one `r(table)` row per variable with no 200-row cap, and join the header descriptor consistently using the active `iqrmiddle()`. `stratetab` and `hrcomptab` preserve the caller's data with `preserve` (so `c(filename)` and `c(changed)` are untouched), `stratetab` commits `frame()` only after every export succeeds, supports rate files with no grouping variable, and returns `r(csv)`; its help documents that `ratescale()`/`pyscale()` assume `strate`'s default `per(1)`. `puttab` evaluates `if`/`in` inside a `frame()` source, exports `%t` dates as dates, accepts `matrix(r(table))`, keeps a genuine first data row, and reports the sheet name actually written. Added regressions.
 - **2.1.9** (2026-09-25): `regtab` labels the base level of a factor *Reference* after `nbreg`, `zinb`, `intreg`, and `streg` with an ancillary parameter (e.g. `dist(weibull)`), where it printed *Empty*. Stata 17's `collect` stamps every constrained cell of these fits "empty" even though `e(b)` marks the level `b.` and the estimator's own table reports `(base)`. A model whose only recorded class is "empty" is now treated as unclassified, so its constrained factor levels take the `refcat()` label; models with genuine empty cells (which always also carry a base or omitted cell) keep `emptylabel()`, per model within one collection. The collection cannot separate a base cell from a genuinely empty or collinear one under these estimators, so their interaction terms read *Reference* on every constrained cell. The unclassified fallback also now requires an empty p-value as well as an empty CI, so an estimated level whose interval bound is missing (a near-separated fit printing `(0, .)`) shows its estimate instead of *Reference*. Added `regtab` regressions.
 - **2.1.8** (2026-09-25): Markdown export now keeps row-label indentation. `table1_tc`/`desctab` (three spaces) and `regtab` (two spaces) indent categorical and factor-level rows with leading spaces, which the Markdown writer trimmed and GFM would trim anyway, so level rows sat flush with their variable rows. The shared writer now writes each leading space of a first-column string cell as `&nbsp;`, after escaping so the entity never combines with an escaped `\|`; this applies to every command's `markdown()` sink. Value cells, headers, titles, and footnotes are unchanged, so display-format padding and `spacelowpercent`'s `( 3%)` gain no entities. Added writer, `table1_tc`, and `regtab` regressions.
-
 - **2.1.7** (2026-09-16): `puttab ... varlabels` no longer writes the header twice when its source is a `desctab`/`table1_tc` table returned through `clear` or `frame()`. Those tables are header-shaped -- observation 1 repeats each column's variable label -- and `puttab` now recognizes that observation by content and consumes it as the header row. The observation is kept under `noheader` or without `varlabels`, and an already-deduplicated table is unaffected. Documented the header-shaped `clear`/`frame()` contract in the `desctab` and `table1_tc` help files and added regressions for both sinks.
-
 - **2.1.6** (2026-09-15): Fixed treatment-row selection for nondefault controls, multiple treatment-variable names, mixed-case identifiers, and collections retained after clearing data. Preserved raw coefficient identities when labels repeat. `keep()`/`drop()` now select exact names and factor components; `labelmatch` enables display-label substring selection. Synchronized every shipped ado header and distribution badge.
-
 - **2.1.4** (2026-09-09): Prevented silent truncation when reading sparse Excel worksheets and preserved fallback import errors in `regtab` and `effecttab`. Removed `regtab` substitutions from unrelated active estimation results when collected statistics or random-effects information cannot be recovered. Clarified the independence assumption for rate-ratio intervals, corrected multi-exposure rate-table examples and README command/default descriptions, and added focused regressions. Documented QA scratch dependencies and separated workbook/help-check output from suite verdicts.
-
 - **2.1.3** (2026-09-07): Sized exported Excel columns from each column's own content instead of one shared maximum, through a new `_tabtools_colwidth` helper used by `desctab`, `table1_tc`, `regtab`, `effecttab`, and `comptab`. The descriptive engines previously gave every group column the width of the widest cell in the table, so a single verbose group label - which sits in header row 2 and was counted as content - or one long statistic padded every other column out to match it, routinely against the 30-character ceiling. Each group column is now measured on its own cells; the group label wraps inside that width, with the header row grown to carry the extra lines, and contributes only a damped floor so a long label cannot force a wide, sparse column. The model-table engines did the same across models, sizing every model's estimate, confidence-interval, and p-value columns to the widest model; each model's columns are now measured on that model's own cells, and its merged header wraps against its own block width rather than the whole table. Cell lengths are Unicode display widths, so `±` and `≥` no longer count as two or three characters. Console output is unchanged, and the exported workbook now matches the column proportions the console already showed.
 - **2.1.2** (2026-09-05): Made `survtab` frequency-weighted counts and Greenwood RMST variance replication-consistent with expanded data, and rejected unsupported probability/importance stset weights before output. Corrected `crosstab` labels for ordinary fractional categories and left undefined Spearman diagonals blank for constant or one-observation variables. Added regression coverage across returned matrices, frames, CSV, Markdown, and Excel output.
 - **2.1.1** (2026-09-04): Corrected extended-missing regression statistics, distinct missing-category labels, stable matrix identifiers for rate and survival results, and transactional frame replacement. Tightened private helper contracts and persistent-format validation, and repaired installed help and README contracts.
@@ -602,10 +637,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.5.0** (2026-06-06): Added eplot-ready frames and forest integrations for model and composite tables.
 - **1.3.6** (2026-06-01): Added direct frame, matrix, workbook-block, CSV, and Markdown table workflows.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which tabtools` and your Stata version.
+
+To cite: Copeland TP. *tabtools: Manuscript tables to Excel and Markdown*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/tabtools. Please give the version you used (`which tabtools` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

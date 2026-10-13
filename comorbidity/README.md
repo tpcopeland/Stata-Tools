@@ -1,26 +1,114 @@
+<img src="../_resources/logos/comorbidity_hex.svg" align="right" width="150" alt="comorbidity hex logo">
+
 # comorbidity — Charlson and Elixhauser scores from ICD-10 fields
 
 **Version 1.0.3** | 2026-10-12
+
+[![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `comorbidity` scans wide-format ICD-10 diagnosis fields and creates patient-level Charlson, Elixhauser, or custom weighted scores. It is for analysts who need to turn one or more diagnosis variables per encounter into condition indicators and a reproducible comorbidity score.
 
 ## Quick Start
 
-After installation, scan diagnosis fields and collapse to one row per patient:
+After [installing](#installation) `codescan` and `comorbidity`, score three patients with the original Charlson weights and collapse to one row per patient:
 
 ```stata
 clear
 input long pid str6 dx1 str6 dx2
-1 "I21" "I50"
+1 "I21"  "I50"
 1 "E119" ""
 2 "C780" ""
+3 ""     ""
 end
 
-comorbidity dx1 dx2, id(pid) charlson(original)
-list pid charlson mi chf dm_uncomp metastatic
+comorbidity dx1 dx2, id(pid) charlson(original) collapse band
+list pid charlson mi chf dm_uncomp metastatic, noobs abbreviate(16)
+matrix list r(bands)
 ```
 
-The default output is collapsed by `id()`. In this example, patient 1 has score 3 and patient 2 has score 6.
+```
+  +----------------------------------------------------+
+  | pid   charlson   mi   chf   dm_uncomp   metastatic |
+  |----------------------------------------------------|
+  |   1          3    1     1           1            0 |
+  |   2          6    0     0           0            1 |
+  |   3          0    0     0           0            0 |
+  +----------------------------------------------------+
+```
+
+Patient 1 scores 3 (myocardial infarction, heart failure, uncomplicated diabetes), patient 2 scores 6 (metastatic solid tumor), and patient 3, with no codes, scores 0.
+
+<details>
+<summary>Full console output</summary>
+
+```
+(note: condition pvd matched 0 observations)
+(note: condition cvd matched 0 observations)
+(note: condition dementia matched 0 observations)
+(note: condition copd matched 0 observations)
+(note: condition rheumatic matched 0 observations)
+(note: condition peptic matched 0 observations)
+(note: condition liver_mild matched 0 observations)
+(note: condition dm_comp matched 0 observations)
+(note: condition hemiplegia matched 0 observations)
+(note: condition renal matched 0 observations)
+(note: condition cancer matched 0 observations)
+(note: condition liver_severe matched 0 observations)
+(note: condition hiv matched 0 observations)
+(note: mi and chf overlap in 1 obs, 100% of smaller group)
+
+codescan: 17 conditions, 2 variables, N =          3 pid values
+
+  Condition              Matches   Prevalence
+  --------------------------------------------
+  Myocardial Infarction        1        33.3%
+  Congestive Heart Fai~        1        33.3%
+  Peripheral Vascular ~        0         0.0%
+  Cerebrovascular Dise~        0         0.0%
+  Dementia                     0         0.0%
+  Chronic Pulmonary Di~        0         0.0%
+  Rheumatic Disease            0         0.0%
+  Peptic Ulcer Disease         0         0.0%
+  Mild Liver Disease           0         0.0%
+  Diabetes without Com~        1        33.3%
+  Diabetes with Compli~        0         0.0%
+  Hemiplegia or Parapl~        0         0.0%
+  Renal Disease                0         0.0%
+  Any Malignancy               0         0.0%
+  Moderate or Severe L~        0         0.0%
+  Metastatic Solid Tum~        1        33.3%
+  HIV/AIDS                     0         0.0%
+
+  Collapsed to          3 unique pid values
+
+comorbidity: charlson (original), N =          3
+  score: mean =   3.00, range = [     0.00,      6.00]
+  bands n (<0 / 0 / >0-<3 / 3-<5 / 5+):         0         1         0         1         1
+```
+
+```
+r(bands)[5,2]
+                      n    percent
+score_nega~e          0          0
+      score0          1  33.333333
+    score1_2          0          0
+    score3_4          1  33.333333
+  score5plus          1  33.333333
+```
+
+</details>
+
+<sub>Output copied from `demo/console_output.md`, written by `demo/demo_comorbidity.do`.</sub>
+
+## Features
+
+- **One row per patient by default.** `collapse` is the default output shape; `merge` puts the patient-level indicators and score back on the encounter rows instead.
+- **Named, published schemes.** `charlson(original)` and `charlson(quan2011)` use the Quan et al. (2005) ICD-10 Charlson definitions; `elixhauser(vanwalraven)` uses the Quan Elixhauser definitions with van Walraven weights. The reserved AHRQ scheme names exit with `r(198)` rather than run an approximation.
+- **Hierarchy rules in the open.** Built-in indexes apply stated supersession pairs (complicated over uncomplicated diabetes, metastatic over non-metastatic cancer, and so on) by default; `nohierarchy` returns the unadjusted indicators.
+- **Your own weighted index.** `custom()` reads `name`, `pattern`, and `weight` from a `.csv` or `.dta` file; the schema, names, and weight range are checked before any diagnosis is scanned.
+- **Inputs are protected.** `replace` can overwrite earlier condition and score variables but never `id()`, a diagnosis field, `date()`, or `refdate()`.
 
 ## Requirements
 
@@ -242,12 +330,22 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.2** (2026-09-30): Preserve exact custom double weights and merge sort metadata and the caller’s estimation sample; correct the Quan paralysis boundary; accept case-distinct output names; reject invalid negative windows; protect caller installations during QA
 
 - **1.0.1** (2026-08-30): Prevent custom-weight overflow from changing caller data; strengthen method caveats, released-package wording, and QA oracles
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.0.0** (2026-08-12): Initial release with Charlson original, Charlson Quan 2011, Elixhauser van Walraven, custom weighted code files, and hierarchy handling
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which comorbidity` and your Stata version.
+
+To cite: Copeland TP. *comorbidity: Charlson and Elixhauser scores from ICD-10 fields*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/comorbidity. Please give the version you used (`which comorbidity` prints it).
+
 ## License
 
-MIT License
+MIT (see [LICENSE](../LICENSE))

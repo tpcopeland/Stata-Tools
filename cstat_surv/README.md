@@ -1,12 +1,18 @@
+<img src="../_resources/logos/cstat_surv_hex.svg" align="right" width="150" alt="cstat_surv hex logo">
+
 # cstat_surv — Harrell's C-statistic after `stcox`
 
 **Version 1.0.3** | 2026-10-13
 
-`cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, a leave-one-out jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
+[![version](https://img.shields.io/badge/version-1.0.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Stored Results](#stored-results)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`cstat_surv` measures how well a Cox model discriminates: run it after `stcox` and it reports Harrell's C-statistic with a leave-one-out jackknife standard error, a confidence interval, and the pair counts behind it.
 
 ## Quick Start
 
-Run the command immediately after `stcox` on `stset` survival data:
+After [installing](#installation), fit a Cox model on `stset` data and run the command immediately afterwards:
 
 ```stata
 sysuse cancer, clear
@@ -15,7 +21,14 @@ stcox age
 cstat_surv
 ```
 
-Use `cstat_surv, level(90)` when you want a 90% confidence interval; it can be run right after the first call, without refitting.
+For a 90% interval, type `cstat_surv, level(90)` in place of `cstat_surv`; it can be run right after the first call, without refitting. The command posts its own `e()` results and replaces the Cox estimates. Calling `cstat_surv` again right after itself (for example with a different `level()`) replays those results at the new level without recomputing; it returns r(301), leaving `e()` untouched, if the data changed since `cstat_surv` ran: a different dataset, or an in-place edit of `_t`, `_d`, `_t0`, `_st`, or a Cox covariate or strata variable within the estimation sample. Re-sorting, `preserve`/`restore`, and storage-type changes (`compress`) do not count as changes. Rerun `stcox` if you need the original model results in `e()` again, or to compute a C-statistic for a different model.
+
+## Features
+
+- **Harrell's C for the model you just fitted.** Hazard ratios are predicted from the active `stcox` results and every comparable pair in the estimation sample is compared; an event and a censoring at the same time are comparable, two events at the same time are not (Harrell, Lee and Mark 1996).
+- **Inference included.** A leave-one-out jackknife standard error and a t-based confidence interval at `level()`, with Somers' D (`2C - 1`) and the concordant, discordant, and tied pair counts stored in `e()`.
+- **Refuses what it cannot score.** Delayed entry in the Cox estimation sample and `stcox, tvc()` fits stop with `r(498)` before any prediction, leaving the Cox estimates in place; with weighted Cox fits it notes that the pairs are unweighted.
+- **Posts like an estimator.** `e(b)`, `e(V)`, `e(vcetype)` (`Jackknife`), and `e(sample)` are set, so the C-statistic can be listed, stored, and reported like any other estimate.
 
 ## Requirements
 
@@ -35,91 +48,6 @@ net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata
 | Command | Description |
 |---------|-------------|
 | `cstat_surv` | Calculate Harrell's C-statistic after `stcox` |
-
-## How It Works
-
-`cstat_surv` uses the current `stcox` estimates to predict hazard ratios, compares all comparable pairs among valid observations in the estimation sample, and calculates the proportion of pairs in which higher predicted risk corresponds to earlier failure. It computes the standard error with a leave-one-out jackknife and forms a t-based confidence interval at the requested `level()`.
-
-A pair is comparable when the observation with the shorter survival time experienced the event. Two events at the same survival time are not comparable; an event and a censoring at that same time are comparable because the censored observation is known to have survived at least to the event time.
-
-The C-statistic ranges from 0 to 1. A value of 0.5 indicates no discrimination, values above 0.7 indicate acceptable discrimination, and values above 0.8 indicate excellent discrimination.
-
-The command posts new `e()` results, replacing the active Cox model results. Calling `cstat_surv` again right after itself (for example with a different `level()`) replays those results at the new level without recomputing; it returns r(301), leaving `e()` untouched, if the data changed since `cstat_surv` ran: a different dataset, or an in-place edit of `_t`, `_d`, `_t0`, `_st`, or a Cox covariate or strata variable within the estimation sample. Re-sorting, `preserve`/`restore`, and storage-type changes (`compress`) do not count as changes. Rerun `stcox` if you need the original model results in `e()` again, or to compute a C-statistic for a different model.
-
-## Worked Examples
-
-### 1. Calculate C-statistic after a multivariable Cox model
-
-This complete workflow uses Stata's built-in `cancer` data and reports pair counts with the C-statistic.
-
-```stata
-sysuse cancer, clear
-stset studytime, failure(died)
-stcox age i.drug
-cstat_surv
-```
-
-### 2. Request a 90% confidence interval
-
-The `level()` option changes the confidence level used for the reported interval.
-
-```stata
-sysuse cancer, clear
-stset studytime, failure(died)
-stcox age i.drug c.age#i.drug
-cstat_surv, level(90)
-```
-
-### 3. Compare discrimination across two Cox models
-
-Because `cstat_surv` replaces `e()`, fit the second Cox model before calculating its C-statistic.
-
-```stata
-sysuse cancer, clear
-stset studytime, failure(died)
-
-stcox age
-cstat_surv
-scalar c_age = e(c)
-
-stcox age i.drug c.age#i.drug
-cstat_surv
-display "Age-only C = " %6.4f c_age
-display "Age + drug + interaction C = " %6.4f e(c)
-```
-
-### 4. Read selected stored results
-
-After the command runs, use the stored results for reporting or downstream calculations.
-
-```stata
-sysuse cancer, clear
-stset studytime, failure(died)
-stcox age i.drug
-cstat_surv
-display "C = " %6.4f e(c)
-display "SE = " %6.4f e(se)
-display "Comparable pairs = " %8.0fc e(N_comparable)
-display "Somers' D = " %6.4f e(somers_d)
-```
-
-## Demo
-
-From a checkout of `Stata-Tools`, run `cstat_surv/demo/demo_cstat_surv.do` from the repository root to reproduce console output for a simple model, a more complex model, a custom confidence level, model comparison, and selected stored results. The script writes `cstat_surv/demo/console_output.smcl` and is not part of the `net install` payload.
-
-```stata
-do cstat_surv/demo/demo_cstat_surv.do
-```
-
-## Command Reference
-
-### `cstat_surv`
-
-```stata
-cstat_surv [, level(#)]
-```
-
-Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data declared with `stset`.
 
 ## Key Options
 
@@ -170,6 +98,10 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 - Harrell FE Jr, Lee KL, Mark DB. Multivariable prognostic models: issues in developing models, evaluating assumptions and adequacy, and measuring and reducing errors. *Statistics in Medicine*. 1996;15(4):361–387. [doi:10.1002/(SICI)1097-0258(19960229)15:4<361::AID-SIM168>3.0.CO;2-4](https://doi.org/10.1002/%28SICI%291097-0258%2819960229%2915%3A4%3C361%3A%3AAID-SIM168%3E3.0.CO%3B2-4)
 
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
 ## Version History
 
 - **1.0.3** (2026-10-13): A second `cstat_surv` call after the first (for example with another `level()`) no longer fails with r(301); the repeat call replays the posted results at the new `level()` after checking a `_datasignature` of the data (taken in a fully sorted order, so row order does not matter) (in-place edits to `_t`, `_d`, `_t0`, `_st`, or a covariate return r(301); `e(sigvars)` and `e(datasignature)` are new; nothing is stored in the estimates list, and a restored older `cstat_surv` result is never recomputed against another model).
@@ -181,6 +113,10 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which cstat_surv` and your Stata version.
+
+To cite: Copeland TP. *cstat_surv: Harrell's C-statistic after `stcox`*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/cstat_surv. Please give the version you used (`which cstat_surv` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

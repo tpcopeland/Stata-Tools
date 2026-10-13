@@ -1,26 +1,66 @@
-# psdash — Propensity-score diagnostics for Stata
+<img src="../_resources/logos/psdash_hex.svg" align="right" width="150" alt="psdash hex logo">
+
+# psdash — Propensity-score diagnostics in one dashboard
 
 **Version 1.8.0** | 2026-10-13
 
-psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
+[![version](https://img.shields.io/badge/version-1.8.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`psdash` checks propensity-score overlap, covariate balance, weight stability, and common support, one panel at a time or as a single dashboard with a PASS or FAIL verdict. It reads its inputs from `teffects`, `logit`, `probit`, `mlogit`, or a supported producer contract, or takes a treatment, propensity score, and weights you supply.
 
 ## Quick Start
 
-Run a complete binary-treatment diagnostic workflow from a fitted propensity-score model:
+After [installing](#installation), build the demo's confounded statin cohort, fit a propensity-score model, and run all four diagnostics at once:
 
 ```stata
-sysuse auto, clear
-logit foreign mpg weight length
+clear
+set seed 20260226
+set obs 800
+gen double age = rnormal(55, 12)
+label variable age "Age (years)"
+gen byte female = runiform() < 0.48
+label variable female "Female sex"
+gen double bmi = rnormal(27, 5)
+label variable bmi "Body mass index"
+gen double sbp = rnormal(135, 22)
+label variable sbp "Systolic BP (mmHg)"
+gen double cholesterol = rnormal(200, 40)
+label variable cholesterol "Total cholesterol"
+gen double lp = -3.5 + 0.04*age + 0.6*female + 0.03*bmi + 0.008*sbp
+gen double ps_true = invlogit(lp)
+gen byte statin = runiform() < ps_true
+label variable statin "Statin use"
+label define yn 0 "No" 1 "Yes"
+label values statin yn
+drop lp ps_true
+gen double ldl_change = -15 - 20*statin + 0.3*age + 5*female + 0.5*bmi + rnormal(0, 10)
+label variable ldl_change "LDL change (mg/dL)"
+quietly logit statin age female bmi sbp
 predict double ps, pr
-psdash combined foreign ps, covariates(mpg weight length)
-return list
+gen double ipw = cond(statin==1, 1/ps, 1/(1-ps))
+psdash combined statin ps, covariates(age female bmi sbp cholesterol) wvar(ipw)
 ```
 
-For cross-sectional data, combined requests overlap, balance, weight, and support panels by default and returns an overall PASS or FAIL verdict with the analysis-sample ledger. Its shared sample requires treatment, propensity scores, and requested covariates; automatically generated weight missingness cannot silently remove a positivity-boundary observation, and an undefined requested weight fails before panels run. It skips the balance panel when no covariates are detected; longitudinal producer contracts instead route to period-specific diagnostics.
+<p align="center"><img src="demo/dashboard.png" width="720" alt="Propensity score diagnostics dashboard with four panels: overlapping propensity-score densities for treated and control with common-support bounds, a Love plot where every adjusted standardized mean difference falls inside the 0.1 lines, an IPTW weight histogram with a long control-arm tail, and the common-support region"></p>
+
+<sub>Drawn by `demo/demo_psdash.do` (section 6), which also sets the `white_tableau` scheme and passes `saving()`. In the console the run ends `Overall: FAIL`: balance is achieved, but three weights exceed the default extreme-weight cutoff of 10.</sub>
+
+## Features
+
+- **One verdict across four diagnostics.** `psdash combined` runs the overlap, balance, weight, and support panels on one complete-case sample and returns `r(verdict)` (PASS or FAIL) with `r(warnings)` naming each finding and an analysis-sample ledger.
+- **Reads the model you already fit.** After `teffects ipw`, `ipwra`, or `aipw`, the treatment, covariates, propensity score, estimand (`ate`, `att`, or `atc`), and `e(sample)` are detected; after `logit`, `probit`, or `mlogit` you supply only the predicted scores.
+- **Raw and adjusted balance on one scale.** Both SMD columns are standardized by the same unweighted pooled standard deviation (Austin 2009) for every estimand, alongside variance ratios and weighted Kolmogorov-Smirnov statistics; `strategies()` overlays raw, ATE, ATT, and ATC balance in one Love plot.
+- **Weights you can inspect and repair.** Effective sample size, coefficient of variation, extreme-weight counts, and the maximum-to-mean ratio, with `trim()`, `truncate()`, and `stabilize` written to a new variable through `generate()`.
+- **Binary and multi-group treatments.** Generalized propensity scores through `psvars()`, a full-vector positivity floor (`gpsfloor()`), and Crump et al. (2009) optimal trimming for binary treatments.
+- **Fails closed.** Producer contracts from `msm_weight`, `tte_weight`, `iivw_weight`, `tmle`, and `ltmle` are checked by the producer's own validity guard; missing, stale, unsigned, or unsupported state is an error, never a guess.
 
 ## Requirements
 
-psdash requires Stata 16 or later. Manual workflows and workflows after logit, probit, mlogit, or supported teffects estimators have no additional community-contributed dependency. Automatic detection after tmle, ltmle, msm_weight, tte_weight, or iivw_weight requires the corresponding producer package and a verifiable producer contract.
+- Stata 16 or later
+- No other package for manual workflows or after `logit`, `probit`, `mlogit`, or supported `teffects` estimators
+- Automatic detection after `tmle`, `ltmle`, `msm_weight`, `tte_weight`, or `iivw_weight` requires the corresponding producer package and a verifiable producer contract
 
 ## Installation
 
@@ -90,7 +130,7 @@ When a usable propensity score is available, balance and weights can create temp
 
 ## Worked Examples
 
-### Binary manual workflow
+### 1. Binary manual workflow
 
 This workflow estimates a propensity score, runs each individual panel, and creates an in-support indicator. nograph is optional; it is shown here when the table is the main output.
 
@@ -106,11 +146,9 @@ psdash support foreign ps, crump generate(in_support) nograph
 
 After logit or probit, the estimation context supplies treatment, covariates, and the estimation sample, so a PS-only call such as psdash overlap ps is also supported. With balance or weights, one positional argument plus wvar() (or nowvar for balance) is always explicit treatment-only mode; pass both treatment and PS when both are needed.
 
-### Automatic detection after teffects
+### 2. Automatic detection after teffects
 
 The treatment, covariates, propensity score, estimand, weights, and estimation sample are read from the supported teffects result.
-
-The README keeps one binary and one multi-group workflow explicit; focused option and detection examples follow.
 
 ```stata
 webuse cattaneo2, clear
@@ -120,7 +158,7 @@ psdash combined
 psdash balance, loveplot
 ```
 
-### Precomputed weights and modified weights
+### 3. Precomputed weights and modified weights
 
 Use wvar() when the analysis already has a weight variable, and use generate() before trimming, truncating, or stabilizing so that the original weights remain available.
 
@@ -135,7 +173,7 @@ psdash weights foreign ps, wvar(iptw) trim(99) generate(iptw_trim) replace
 psdash support foreign ps, threshold(0.05) compare nograph
 ```
 
-### Multi-group treatment with generalized propensity scores
+### 4. Multi-group treatment with generalized propensity scores
 
 For a treatment with nonnegative integer levels, pass generalized propensity scores in ascending treatment-level order.
 
@@ -165,7 +203,7 @@ psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)
 
 reference() defaults to the smallest observed treatment level and changes the pairwise balance and group summaries without changing the supplied GPS ordering.
 
-### Detection, verdicts, and publication output
+### 5. Detection, verdicts, and publication output
 
 Use dryrun when you want the resolved analysis inputs before running panels, and use report() when a cross-sectional combined workbook is required.
 
@@ -393,18 +431,19 @@ matrix list r(balance)
 
 ## QA
 
-QA suites and how to run them are documented in [qa/README.md](qa/README.md).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
 - **v1.8.0** (13 Oct 2026): `quietly psdash ...` now suppresses every panel warning line (including the second line of the exact-0/1 propensity-score warning and the two-line GPS-positivity warning), the IMBALANCED / UNDEFINED status cell of the balance table on the binary and multi-group routes, and the WARNING / IMBALANCED / FAIL verdict word (they were written in the error output class, which `quietly` does not silence); the findings stay in `r(warnings)`, `r(n_warnings)` and the verdict. Graph series colours now follow the active scheme (`scheme()` or `set scheme`) instead of fixed navy/cranberry, so default graphs change appearance; the second series uses the scheme's p6 style, which stays distinguishable from p1 in sequential schemes such as viridis. **Numbers change for existing msm users, even without post-event rows:** after msm_weight, `psdash combined` now diagnoses the truncated analysis weight msm_fit uses (`_msm_weight`) instead of the untruncated treatment weight (on msm_example, max weight 2.79 and ESS 3,998 instead of 6.65 and 3,809); `wvar(_msm_tw_weight)` restores the old numbers and is the right input when deciding on truncation. The output and `r(weight_role)` say which weight was diagnosed, and diagnostics are restricted to msm's risk set (`_msm_risk_var` in contract 1.1, `_msm_decision_risk` in 1.0), so legitimate post-event rows no longer force FAIL. Love-plot rows use variable labels, shortened past 40 characters and disambiguated when two are equal (`varnames` restores names); balance accepts `nograph`; the support graph labels its reference lines; the compact multi-group overlap legend is readable; unlabelled multi-group weight legends no longer print literal quotes.
 - **v1.7.5** (9 Oct 2026): Help References now give a DOI for every entry.
-
 - **v1.7.4** (30 Sep 2026): One-arm zero variances now count as variance imbalance (infinite ratios use `.a`); both-arm constants retain their undefined VR convention. Weighted balance normalizes each covariate's available-case weights within each arm, preserving diagnostics under extreme positive rescaling. Crump trimming selects the first empirical inequality crossing on an ascending 0.001 grid through 0.500 and errors if no crossing retains observations. Balance row headers now say `SMD status` to distinguish the row's SMD check from the panel verdict.
+
+<details>
+<summary>Earlier versions</summary>
 
 - **v1.7.3** (29 Sep 2026): Review fixes. Common-support bounds are compared with the data as exact values, so the observation that defines an overlap or support bound is no longer counted outside it (overlap, support, `qtrim()`, `generate()`, multi-group, and longitudinal periods), and `r(lower_bound)`/`r(upper_bound)`/`r(overlap_lower)`/`r(overlap_upper)` are exact. Two-valued covariates stored as non-integer doubles, such as centred indicators, are now treated as binary. A treatment-only `psdash balance` call with `matched` no longer requires a propensity score or reads a stale model, and a `strategies()` overlay whose weight is undefined at an exact 0/1 propensity score now exits with error 459 instead of plotting a silently smaller sample. Balance-table columns stay separated when values are negative and align under the wider matched header, and with `ks` the table now shows the adjusted (weighted) KS column that the adjusted maximum summarizes. Multi-group Love plots, including the dashboard balance panel, show raw and adjusted SMDs per contrast named with the treatment's value labels; value labels are printed verbatim everywhere (a label containing a double quote no longer stops multi-group output). Weight-histogram frequency axes print whole counts, and the help now states that the pooled SMD denominator matches the `cobalt` default only for the ATE.
 - **v1.7.2** (9 Sep 2026): Release-review fixes. Weight ESS, CV, and SD remain stable at extreme scales, including arm and period summaries. Detection clears stale metadata, rejects unusable samples, and preserves error codes. Missing balance and truncation cutoffs are rejected. Combined reports retain every sheet title, and workbook failures retain analytical results; longitudinal diagnostics reject ambiguous period row names and unavailable cross-sectional controls. Help contracts and QA failure reporting were tightened, with new regression coverage.
-
 - **v1.7.1** (4 Sep 2026): Comprehensive audit remediation. Multi-group boundary and missing-weight paths now fail closed without erasing positivity findings; weights and balance expose complete exclusion ledgers, and weights returns both extreme-tail counts. All advertised covariate endpoints accept factor-variable notation, support comparison propagates exact design-mapping failures, reduced-arm `mlogit` samples fail consistently, and detect reports stable automatic-weight labels. Genuine saved TMLE/LTMLE contracts can be rediscovered after reload. QA now resolves both producers through `targetlearn`, separates runner aggregates from leaf assertion totals, derives shipped ado coverage from the manifest, and validates workbook, PDF, and PNG contents. Method prose and leaf examples were expanded and corrected.
 - **v1.7.0** (3 Sep 2026): Fail-closed resolve contract for `iivwcomponent()`. `psdash weights` now refuses a call that supplies both `wvar()` and `iivwcomponent()` instead of silently letting the component selection overwrite the explicit weight variable, and it no longer falls back to the raw `_dta[_iivw_*]` characteristics when `_psdash_detect` has not verified the iivw producer contract, so unsigned or stale metadata can no longer select the weight a diagnostic reports on. New internal helper `_psdash_require_meta`.
 - **v1.6.9** (30 Aug 2026): Review remediation. The dispatcher and detector restore `varabbrev` on every successful path, `support, compare` rejects calls without binary trimming, quoted overlap/support titles round-trip through Excel exports, export helpers clean up workbook resources, and stored-result tables render within Viewer width limits.
@@ -428,10 +467,16 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed teffects binary PS orientation and K=2 non-0/1 auto-weights, and corrected support-threshold and binary variance-ratio handling.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which psdash` and your Stata version.
+
+To cite: Copeland TP. *psdash: Propensity-score diagnostics in one dashboard*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/psdash. Please give the version you used (`which psdash` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

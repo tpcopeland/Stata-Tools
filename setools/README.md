@@ -1,19 +1,35 @@
-# setools — Swedish registry tools for epidemiological cohort studies
+<img src="../_resources/logos/setools_hex.svg" align="right" width="150" alt="setools hex logo">
+
+# setools — Swedish registry cohorts, comorbidity, and MS endpoints
 
 **Version 1.5.10** | 2026-10-12
 
-`setools` provides Stata commands for Swedish registry cohort construction, Charlson comorbidity scoring, and multiple-sclerosis disability-progression endpoints. It is for applied epidemiologists who need reproducible person-level migration, diagnosis, EDSS, and relapse workflows.
+[![version](https://img.shields.io/badge/version-1.5.10-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`setools` turns Swedish registry extracts into analysis-ready cohort variables: a Swedish Charlson Comorbidity Index from ICD-7 through ICD-10 codes, migration exclusions and emigration censoring dates, and multiple-sclerosis disability-progression endpoints from repeated EDSS visits. It is for applied epidemiologists who need these definitions to be reproducible across studies.
 
 ## Quick Start
 
-Install `setools`, open its command browser, and inspect the multiple-sclerosis commands:
+After [installing](#installation), score the Swedish Charlson index on the repository's synthetic diagnosis records (one row per diagnosis in, one row per patient out):
 
 ```stata
-capture ado uninstall setools
-net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools") replace
-setools, detail category(ms)
-return list
+use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear
+cci_se, id(id) icd(icd) date(visit_date) components noisily
+summarize charlson
 ```
+
+`noisily` prints the patient count, the CCI summary, and the prevalence of each of the 18 components; `components` keeps the component indicators (`cci_mi`, `cci_chf`, ... `cci_aids`) beside the `charlson` score. Run `setools, detail` for a grouped list of every command.
+
+## Features
+
+- **Stated data contracts.** `cci_se` turns long diagnosis rows into one row per patient; `migrations` keeps the one-row-per-person cohort and adds a censoring date; the MS commands work on repeated EDSS visits. Generated variable names must be new, so a rerun never overwrites earlier output.
+- **Swedish Charlson weights by diagnosis year.** `cci_se` follows the Ludvigsson et al. (2021) adaptation, picks ICD-7, ICD-8, ICD-9 or ICD-10 definitions from the diagnosis year, applies the liver, diabetes and metastatic-cancer hierarchy rules, and strips dots and Swedish comma separators before matching.
+- **Comorbidity measured before cohort entry.** `indexdate()` drops diagnoses after each patient's index date and `lookback()` bounds the window in days, so the score describes history at entry.
+- **Migration exclusions you can audit.** `migrations` reads wide or long migration files, classifies up to four exclusion types, returns the exclusion flow in `r(flow)`, and with `flag` keeps every cohort row with `mig_excluded` and `mig_exclude_reason` for a flow diagram.
+- **Three MS endpoints, one confirmation engine.** `sustainedss` finds an absolute EDSS threshold crossing, `cdp` a confirmed increase from a diagnosis-anchored baseline (with `roving` and event-level `allevents`), and `pira` classifies the first confirmed progression as PIRA or relapse-associated worsening from a relapse window around its onset.
+- **Censoring inside the command.** `exit()` sets event dates after a per-person exit date to missing, recomputes event indicators, and reports the count in `r(N_censored_exit)`.
 
 ## Requirements
 
@@ -22,8 +38,6 @@ return list
 The public commands have no external software dependency. `pira` additionally requires a separate relapse-event dataset, described below.
 
 ## Installation
-
-Install or update the released package from Stata:
 
 ```stata
 capture ado uninstall setools
@@ -49,6 +63,14 @@ net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 - `migrations` joins a one-row-per-person cohort to a wide or long migration file, applies residency rules, and adds emigration censoring dates.
 - `sustainedss` detects an absolute EDSS threshold crossing, whereas `cdp` measures a confirmed increase from a diagnosis-anchored baseline.
 - `pira` runs the first-event CDP algorithm and classifies that event by its distance from relapse dates.
+
+| Command | Data in memory | What it leaves in memory |
+|---------|----------------|--------------------------|
+| `cci_se` | Long diagnosis rows: `id()`, `icd()`, `date()` | One row per patient with `charlson` (plus components and dates on request) |
+| `migrations` | One row per person with a study-start date, plus `migfile()` | The cohort minus exclusions (all rows with `flag`), plus `migration_out_dt` |
+| `sustainedss` | Repeated EDSS visits | Visit rows of patients with an event (all rows with `keepall`), plus `sustained#_dt` |
+| `cdp` | Repeated EDSS visits and `dxdate()` | Same, plus `cdp_date`; one row per event under `roving allevents` |
+| `pira` | Repeated EDSS visits, `dxdate()`, and a relapse file | Same, plus `pira_date` and `raw_date` |
 
 ## Choosing a Workflow
 
@@ -457,6 +479,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.5.10** (2026-10-09): The three-tier EDSS progression threshold in `cdp` and `pira` is now attributed to its source, Kappos et al. (2018), instead of the 2013 MS course definitions, which give no thresholds. `cci_se` cites the Ludvigsson et al. (2023) corrigendum its code list follows. Help References give DOIs throughout.
 - **1.5.9** (2026-10-02): Restored the default `sustainedss` rule of versions 1.2 to 1.4, which 1.5.0 replaced without a changelog entry. Without `confirmvisit()`, a candidate is again rejected only when an assessment within `confirmwindow()` days falls below the reversal floor and the last assessment in that window is still below `threshold()`, and a date is a candidate when any same-day score meets the threshold. Versions 1.5.0 to 1.5.8 instead rejected a candidate when any later assessment, at any time, fell below the floor, which returned fewer events wherever a later assessment dipped below the floor. The default now reproduces 1.4.1 row for row. Rerun default-mode `sustainedss` results produced with 1.5.0 to 1.5.8; `confirmvisit(window)` and `confirmvisit(unlimited)` are unchanged.
 - **1.5.8** (2026-09-29): Fixed `pira` classifying relapse-associated worsening with a mirrored window. The window was anchored on each relapse, so the defaults called a first CDP RAW when a relapse began up to 30 days before or up to 90 days after the progression onset; a progression 60 days after a relapse was returned as PIRA. The window is now anchored on the CDP onset: a first CDP is RAW when a relapse began from `windowbefore()` days before through `windowafter()` days after its onset (defaults 90 and 30, the published rule). Rerun earlier `pira` results. `cci_se` now rejects conflicting nonmissing `indexdate()` values within one `id()` (r(459)) instead of windowing each row by its own index date, and `pira` accepts a `relapses()` filename without the `.dta` extension.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.5.7** (2026-08-30): Rejected missing or nonpositive sustained-EDSS thresholds, missing or negative reversal floors, and negative CCI lookback windows instead of accepting public sentinel values. Added exact rollback, installed-helper, and self-contained help-render coverage, and repaired over-wide help-table descriptions.
 - **1.5.6** (2026-08-28): Accelerated the registry-scale longitudinal engines without changing their public interface or numerical definitions. `pira, rebaselinerelapse` now uses one forward Mata state-machine pass, while `cdp`, `pira`, and `sustainedss` use a shared sort-free grouped-minimum helper inside their iterative confirmation loops. Added row-level legacy-equivalence validation and a reproducible one-million-visit benchmark.
 - **1.5.5** (2026-08-13): Fixed `migrations` silently dropping the emigration censoring date for a person who immigrated before study start and emigrated permanently after it; because `in_`/`out_` are independently numbered, both events could share one reshape row and the immigration-only pre-filter discarded the row wholesale. This also made wide- and long-format migration files disagree. Corrected the `r(converged)` description in `cdp`, `pira`, and `sustainedss` (it is always 1; non-convergence exits with error r(430)) and removed the unreachable display branches, a no-op wide-format date assignment, and a duplicate-name hazard in the `pira` working varlist.
@@ -475,10 +501,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.1** (2026-04-22): Added long-format migration files, strict daily-date checks, multiple diagnosis variables in `icd()`, and broader workflow coverage.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release of the Swedish registry toolkit.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which setools` and your Stata version.
+
+To cite: Copeland TP. *setools: Swedish registry cohorts, comorbidity, and MS endpoints*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/setools. Please give the version you used (`which setools` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

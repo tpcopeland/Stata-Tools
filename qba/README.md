@@ -1,19 +1,48 @@
-# qba — Quantitative Bias Analysis for Stata
+<img src="../_resources/logos/qba_hex.svg" align="right" width="150" alt="qba hex logo">
+
+# qba — Quantitative bias analysis for epidemiologic data
 
 **Version 1.2.0** | 2026-10-13
 
-`qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
+[![version](https://img.shields.io/badge/version-1.2.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Demo](#demo)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`qba` corrects 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding, with fixed bias parameters or by Monte Carlo simulation over their distributions. It chains several biases in one simulation and draws tornado, distribution, and tipping-point plots for the sensitivity analysis.
 
 ## Quick Start
 
-Start with a fixed-parameter exposure-misclassification analysis of a 2x2 table:
+After [installing](#installation), take a case-control table of pesticide exposure and cancer (observed OR 2.15), correct it for exposure misclassification, selection bias, and an unmeasured confounder in one 5,000-draw simulation, and plot the corrected odds ratios:
 
 ```stata
-qba_misclass, a(136) b(297) c(1432) d(6738) seca(.85) spca(.95)
-return list
+qba_multi, a(136) b(297) c(1432) d(6738) reps(5000) ///
+    seca(.85) spca(.95) ///
+    dist_se("trapezoidal .75 .82 .88 .95") ///
+    dist_sp("trapezoidal .90 .93 .97 1.0") ///
+    sela(.90) selb(.85) selc(.70) seld(.80) ///
+    dist_sela("trapezoidal .82 .87 .95 1.0") ///
+    dist_selb("trapezoidal .75 .82 .88 .95") ///
+    dist_selc("trapezoidal .58 .66 .74 .82") ///
+    dist_seld("trapezoidal .68 .74 .84 .90") ///
+    p1(.40) p0(.20) rrcd(2.0) ///
+    dist_p1("beta 12 18") dist_p0("beta 5 20") ///
+    dist_rr("trapezoidal 1.3 1.7 2.3 3.2") ///
+    seed(20260229) saving("mc_multi_bias.dta", replace)
+qba_plot, distribution using("mc_multi_bias.dta") observed(2.15)
 ```
 
-The command reports the observed and corrected table, the observed and corrected odds ratios, and the corrected-to-observed ratio. Add `measure(RR)` for a risk ratio or `reps()` plus distribution options for a probabilistic analysis.
+<p align="center"><img src="demo/distribution_plot.png" width="576" alt="Histogram and density of 5,000 multi-bias corrected odds ratios, centred below 2, with a green dashed median line left of the red dashed observed OR of 2.15 and a gray solid null line at 1"></p>
+
+<sub>Drawn by `demo/demo_qba.do`, which also sets the `plotplainblind` scheme and adds `title()` and `saving()`.</sub>
+
+## Features
+
+- **Three biases, one interface.** Exposure or outcome misclassification (nondifferential or differential, by the Greenland/Lash matrix method), selection bias from four stratum-specific selection probabilities, and one unmeasured confounder (Schneeweiss or Greenland parameterization, or a signed shift for a linear coefficient).
+- **Fixed or probabilistic.** Each single-bias command runs with fixed parameters or, with `reps()`, draws them from trapezoidal, triangular, uniform, beta, logit-normal, or constant distributions; the percentile interval is labelled a systematic-error simulation interval, not a corrected confidence interval, and `qba_misclass, totalerror` adds random error.
+- **Several biases in one simulation.** `qba_multi` applies the cell-level corrections in the order you give (`order()`, default misclassification then selection) and the confounding correction last.
+- **E-values that state their scale.** `evalue` uses VanderWeele and Ding (2017), converts an OR or HR for a common outcome with `commonoutcome`, and records the scale used in `r(evalue_rr)` and `r(evalue_conv)`.
+- **Corrects the model you just fitted.** `qba_confound, from_model` reads ratio-scale results (logistic, Cox, proportional-hazards `streg`) and supported additive coefficients, and rejects cumulative-hazard, subhazard, and other link scales instead of guessing.
+- **Sensitivity plots.** `qba_plot` draws a tornado plot of up to three parameters, the Monte Carlo distribution from a saved simulation, and a tipping-point grid that marks where the corrected estimate crosses the null.
 
 ## Requirements
 
@@ -433,10 +462,11 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 ## Version History
 
 - **1.2.0** (2026-10-13): Plot legibility. The distribution plot draws the median line in a visible green and the null line solid so it no longer disappears into a grid line; the tornado plot labels the observed and null reference lines and keeps both in range; the tornado null line is now solid gray; tipping tiles are drawn without outlines and use opaque lighter colors (`*` intensity instead of `%` opacity) so overlapping tiles no longer stripe; the distribution histogram fill is lighter (`navy%40` to `navy%25`) so the median line shows through cleanly. `qba_confound` help now explains how to choose rare versus common outcome for E-values and gives the bounding-factor formula.
-
 - **1.1.5** (2026-10-09): Help References now give a DOI for every entry.
-
 - **1.1.4** (2026-09-30): Plotting preserves the exact entry presence and contents of Stata's native graph global on success and refusal, including fresh-session initialization. Continuous numeric options and intermediate analytical results retain double precision, including tiny scientific-notation inputs and saved constant-distribution draws; the original option grammar and range checks are preserved.
+
+<details>
+<summary>Earlier versions</summary>
 
 - **1.1.3** (2026-08-10): Rejected unsupported cumulative-hazard and subhazard model scales, detected supported survival models as hazard ratios, aligned total-error arms on one validity mask, and corrected uncertainty labels and second-edition citations.
 - **1.1.2** (2026-08-09): Rejected unsupported `from_model` link scales instead of silently treating them as additive coefficients, expanded release and option/return QA, and added a self-contained SMCL render gate.
@@ -445,10 +475,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.1** (2026-06-19): Documentation polish, stored-result coverage, helper cleanup, and package metadata refresh.
 - **1.0.0** (2026-06-02): Initial public release covering misclassification, selection bias, unmeasured confounding, multi-bias simulation, and visualization.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which qba` and your Stata version.
+
+To cite: Copeland TP. *qba: Quantitative bias analysis for epidemiologic data*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/qba. Please give the version you used (`which qba` prints it).
+
 ## License
 
-MIT License
+MIT (see [LICENSE](../LICENSE))

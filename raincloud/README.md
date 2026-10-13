@@ -1,19 +1,36 @@
+<img src="../_resources/logos/raincloud_hex.svg" align="right" width="150" alt="raincloud hex logo">
+
 # raincloud — Raincloud plots for distributional comparisons
 
 **Version 1.0.4** | 2026-10-12
+
+[![version](https://img.shields.io/badge/version-1.0.4-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Demo](#demo)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `raincloud` combines a kernel-density cloud, jittered observations, and a box-and-whisker summary in one graph. It is for Stata users comparing distribution shape, raw values, and robust summaries across one or more groups.
 
 ## Quick Start
 
-Compare fuel-efficiency distributions for domestic and foreign cars with Stata's built-in data:
+After [installing](#installation), compare fuel-efficiency distributions for domestic and foreign cars with Stata's built-in data:
 
 ```stata
 sysuse auto, clear
+label variable mpg "Miles per Gallon"
 raincloud mpg, over(foreign) seed(2026)
 ```
 
-The graph shows the density, observed MPG values, and quartile summary for each origin group. `seed(2026)` makes the point jitter reproducible for this plot.
+<p align="center"><img src="demo/raincloud_basic.png" width="720" alt="Two horizontal rainclouds of miles per gallon, Domestic below and Foreign above: a filled density cloud over a box-and-whisker summary with jittered points underneath; foreign cars sit higher and spread wider"></p>
+
+<sub>Drawn by `demo/demo_raincloud.do`, which also adds `title()` and `name()`. `seed(2026)` makes the point jitter reproducible.</sub>
+
+## Features
+
+- **Shape, raw values, and summary at once.** Each group gets a half-violin kernel density, its jittered observations, and a box with median and IQR, so skew, overlap, and outliers are visible together.
+- **Reproducible jitter that leaves your RNG alone.** With `seed(#)` the jitter is the same on every run, and the caller's random-number state is saved and restored.
+- **Horizontal, vertical, or mirrored.** `vertical` swaps the axes, `mirror` draws a full violin, and `nocloud`, `norain`, and `nobox` drop any layer you do not need.
+- **The numbers behind the picture.** `r(stats)` holds `n`, `mean`, `sd`, `median`, `q25`, `q75`, `iqr`, and the `kdensity` bandwidth for every group.
+- **Weights and per-layer styling.** `fweight` and `aweight` are supported, and `cloudopts()`, `pointopts()`, and `boxopts()` pass graph options to each layer.
 
 ## Requirements
 
@@ -250,7 +267,7 @@ matrix list r(stats)
 
 ## QA
 
-QA suites are available in [`qa/`](qa/).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
@@ -258,13 +275,22 @@ QA suites are available in [`qa/`](qa/).
 
 - **1.0.3** (2026-08-11): Preserves analytical results after graph-side failures, supports long group labels through stable row names plus exact label metadata, and corrects mirrored-violin terminology
 - **1.0.2** (2026-08-05): Rejects missing and negative seeds without changing the caller's RNG state
+<details>
+<summary>Earlier versions</summary>
+
 - **1.0.1** (2026-08-05): Corrected shipped help metadata, documented graph options, and validated bandwidth and seed boundaries
 - **1.0.0** (2026-07-10): Initial Stata-Tools release of `raincloud`
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which raincloud` and your Stata version.
+
+To cite: Copeland TP. *raincloud: Raincloud plots for distributional comparisons*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud. Please give the version you used (`which raincloud` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

@@ -1,12 +1,18 @@
-# datefix — Convert imported date strings to Stata daily dates
+<img src="../_resources/logos/datefix_hex.svg" align="right" width="150" alt="datefix hex logo">
+
+# datefix — Imported date strings to Stata dates
 
 **Version 1.1.3** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Version History](#version-history)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `datefix` converts imported string date variables to numeric Stata daily dates for users cleaning data after import. It can infer date order, preserve raw values in a new variable, apply `%td` display formats, and identify values that prevent conversion.
 
 ## Quick Start
 
-Convert an imported day-month-year string in place:
+After [installing](#installation), convert an imported day-month-year string in place:
 
 ```stata
 clear
@@ -20,7 +26,14 @@ datefix visit_date
 list
 ```
 
-The command auto-detects the ordering and displays the converted variable with the default `%tdCCYY/NN/DD` format.
+The command auto-detects the ordering and displays the converted variable with the default `%tdCCYY/NN/DD` format. More examples, including `newvar()`, `topyear()` and `diagnose`, are in `help datefix`.
+
+## Features
+
+- **Detects the date order.** Without `order()`, `datefix` tries MDY, DMY and YMD and keeps the ordering with the most valid parses; `order()` fixes it when the input is ambiguous. Daily dates only: datetime strings fail conversion.
+- **All or nothing.** A nonmissing string that fails to parse stops the command before any variable in the `varlist` is replaced, and an all-missing source stops with `r(2000)`, so a failed or empty conversion is never reported as a success.
+- **Finds the bad values.** `diagnose` lists each distinct unconvertible value with its frequency and observation numbers.
+- **Raw values kept on request.** `newvar()` writes the date to a new variable and keeps the imported string (unless `drop`); `df()` changes only the display format. A numeric input is taken to hold daily dates already and is only formatted or copied.
 
 ## Requirements
 
@@ -39,100 +52,6 @@ net install datefix, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 |---------|-------------|
 | `datefix` | Convert string dates; format or copy existing numeric daily-date values |
 
-## How It Works
-
-- `datefix` processes each variable in `varlist` independently. String variables are parsed with Stata's `date()` function; numeric variables are treated as existing daily-date values and are formatted or copied.
-- If `order()` is omitted, the command tries MDY, DMY, and YMD and selects the ordering with the most valid parses. MDY is preferred when tied for the top count; if YMD and DMY tie above MDY, YMD wins, so use `order()` when the input is ambiguous.
-- Without `newvar()`, a string variable is converted in place. With `newvar()`, the source variable is retained unless `drop` is also specified.
-- `topyear()` is passed to `date()` for interpreting two-digit years, and `df()` changes the display format without changing the stored daily-date value.
-- Any nonmissing string that cannot be parsed causes the conversion to stop before that variable is replaced. The command reports missing-value counts before and after a successful conversion.
-- A source variable with no nonmissing values stops with `r(2000)` before any variable is changed, preventing a zero-result conversion from being reported as successful.
-
-## Worked Examples
-
-### 1. Preserve the imported string and choose a display format
-
-Use `newvar()` when the raw imported value should remain available for auditing.
-
-```stata
-clear
-input str10 visit_date
-"03/14/2020"
-"04/20/2020"
-"05/01/2020"
-end
-
-datefix visit_date, newvar(vdate) order(MDY) df(%tdMonth_DD,_CCYY)
-list visit_date vdate
-```
-
-### 2. Replace the source variable with a new name
-
-Combine `newvar()` and `drop` when the cleaned variable should replace the imported column.
-
-```stata
-clear
-input str10 admit_str
-"06/15/2024"
-"01/22/2024"
-"11/03/2023"
-end
-
-datefix admit_str, newvar(admit_date) drop order(MDY) df(%tdDD/NN/CCYY)
-list
-```
-
-### 3. Interpret two-digit years
-
-Set `topyear()` explicitly when the source contains two-digit years.
-
-```stata
-clear
-input str8 founded
-"07/04/76"
-"11/12/84"
-"05/09/91"
-end
-
-datefix founded, order(MDY) topyear(1900)
-list
-```
-
-### 4. Copy an existing numeric daily date with another format
-
-Numeric input is useful when the values already count days from 01jan1960 but need a new variable or display format.
-
-```stata
-clear
-input double visit_num
-21915
-21945
-21988
-end
-
-datefix visit_num, newvar(visit_date) df(%tdDD_Mon._CCYY)
-list
-```
-
-### 5. Diagnose values that block conversion
-
-With `diagnose`, the command lists distinct unconvertible values, their frequencies, and the observation numbers where they occur before returning an error.
-
-```stata
-clear
-input str12 dob
-"2020/01/15"
-"2020/00/15"
-"2020/13/40"
-"not recorded"
-"2020/00/15"
-end
-
-capture noisily datefix dob, diagnose
-```
-
-The `capture` keeps the expected conversion error from stopping a larger do-file; the failing variable is not created or replaced when a nonmissing value fails.
-
 ## Key Options
 
 Syntax: `datefix varlist [, newvar(name) drop df(%fmt) order(string) topyear(#) diagnose]`. Use one or more source variables; `newvar()` is limited to a single source variable, and `order()` accepts `MDY`, `DMY`, or `YMD` (case-insensitive).
@@ -150,18 +69,6 @@ Syntax: `datefix varlist [, newvar(name) drop df(%fmt) order(string) topyear(#) 
 
 `datefix` defines no stored results and clears incidental `r()` state before returning. Conversion messages, the auto-detected order (when `order()` is omitted), and missing-value counts are printed in the Results window.
 
-## Assumptions and Limits
-
-- Numeric variables are assumed to contain Stata daily dates, measured as days from 01jan1960; `datefix` does not validate their substantive meaning.
-- Datetime strings remain unsupported and fail conversion; colon-separated daily dates are accepted when they match the selected `order()`.
-- A nonmissing string that fails under the chosen order rolls back the entire command, so every variable in a multi-variable `varlist` remains unchanged. Use `diagnose` to locate the failing values.
-- The diagnostic table shows at most 50 distinct failing values and at most 10 observation numbers per value. Displayed values longer than 30 characters are truncated, and the output indicates when additional values or rows are omitted.
-- If date strings are ambiguous, automatic detection is heuristic; specify `order()` for a known input convention.
-
-## References
-
-- Stata `help date()` documents the date-string parsing function used by `datefix`; `help datetime_display_formats` documents the `%td` display formats accepted by `df()`.
-
 ## QA
 
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
@@ -171,14 +78,23 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.1.3** (2026-10-13): The summary line for a numeric input now says the variable is already numeric and only had the date format applied, instead of claiming it was converted.
 - **1.1.2** (2026-08-11): Accepted colon-separated daily dates, rejected all-missing inputs without mutation, preserved literal Unicode diagnostic values, and made help examples and the local-install demo self-contained.
 - **1.1.1** (2026-08-05): Made multi-variable conversion atomic and cleared incidental `r()` state on return.
+
+<details><summary>Earlier versions</summary>
+
 - **1.1.0** (2026-06-25): Added the `diagnose` option, which reports distinct unconvertible values, their frequencies, and observation numbers when conversion fails.
 - **1.0.1** (2026-06-19): Documentation fixes — `df()` and `drop` now render as options in the help file, added section markers, and standardized the author string.
 - **1.0.0** (2026-04-08): Initial release with auto-detection, `newvar()`, custom display formats, and `topyear()` support.
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which datefix` and your Stata version.
+
+To cite: Copeland TP. *datefix: Imported date strings to Stata dates*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/datefix. Please give the version you used (`which datefix` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

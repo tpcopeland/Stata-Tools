@@ -1,30 +1,73 @@
+<img src="../_resources/logos/codescan_hex.svg" align="right" width="150" alt="codescan hex logo">
+
 # codescan — Scan wide-format code fields without reshaping
 
 **Version 4.3.4** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-4.3.4-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
 ## Quick Start
 
-This self-contained example runs after installation and shows inventory, row-level matching, and patient-level output.
+After [installing](#installation), flag six conditions across four ICD-10 diagnosis slots in a 500-patient synthetic extract (three encounters each) and chart patient-level prevalence. The setup builds the same extract as `demo/demo_codescan.do`:
+
+<details>
+<summary>Build the synthetic extract</summary>
 
 ```stata
 clear
-input long pid str6 dx1 str6 dx2
-1 "E110" "I10"
-1 "Z00"  "E119"
-2 "I50"  ""
-2 "E102" ""
-3 "Z00"  ""
-end
+set seed 20260226
+set obs 1500
+generate long pid = ceil(_n / 3)
+bysort pid: generate byte enc = _n
+generate double index_dt = mdy(1,1,2020) + int(runiform() * 730) if enc == 1
+bysort pid (enc): replace index_dt = index_dt[1]
+generate double visit_dt = index_dt - 365 + int(runiform() * 730) if enc == 1
+replace visit_dt = index_dt - 180 + int(runiform() * 540) if enc == 2
+replace visit_dt = index_dt + int(runiform() * 365) if enc == 3
+format index_dt visit_dt %td
+generate double age = 45 + int(runiform() * 40) if enc == 1
+bysort pid (enc): replace age = age[1]
+generate byte female = rbinomial(1, 0.52) if enc == 1
+bysort pid (enc): replace female = female[1]
 
-codescan_describe dx1 dx2
-codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
-codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
-matrix list r(summary)
+* Four diagnosis slots filled at random from a pool of ICD-10 codes
+local all_dx E110 E119 E102 E103 E114 E100 E109 E030 I10 I110 I120 I131 I50 I21 I252 I70 I71 I48 C50 C61 C34 C18 C78 C79 C80 C81 C85 J44 J45 J47 G30 G311 G81 G820 M05 M06 M32 B18 B20 B21 N18 N19 N250 K700 K703 K721 K765 K25 F10 F32 F33 F20 D65 D66 D500 D509 R634 R001 Z00 Z96 Z87
+local n_codes : word count `all_dx'
+forvalues v = 1/4 {
+    generate str6 dx`v' = ""
+    forvalues i = 1/`=_N' {
+        if runiform() < 0.55 + 0.1 * (`v' == 1) {
+            local pick = 1 + int(runiform() * `n_codes')
+            local code : word `pick' of `all_dx'
+            quietly replace dx`v' = "`code'" in `i'
+        }
+    }
+}
 ```
 
-The first `codescan` call leaves one indicator per condition on each row; the second reduces the data to one row per `pid`. A row-level indicator is 1 (or a count) for an analyzed match, 0 for an analyzed non-match, and `.` for a row outside the analysis sample (`if`/`in`, missing date, or window), so `summarize` on it reproduces the reported prevalence. `r(summary)` reports the counts and prevalence for the final analysis unit.
+</details>
+
+```stata
+codescan dx1 dx2 dx3 dx4, define(dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" | cancer "C[0-7]" ~ "C77|C78|C79|C80" | metastatic "C7[789]|C80") label(dm "Diabetes" \ htn "Hypertension" \ chf "Heart failure" \ copd "COPD" \ cancer "Cancer (non-met)" \ metastatic "Metastatic cancer") id(pid) collapse graph
+graph display, margin(r+8)
+```
+
+<p align="center"><img src="demo/prevalence_chart.png" width="720" alt="Horizontal bar chart of patient-level condition prevalence in 500 synthetic patients: diabetes 60.0%, hypertension 38.8%, non-metastatic cancer 36.4%, metastatic cancer 31.0%, COPD 29.8%, heart failure 9.6%"></p>
+
+<sub>Drawn by `demo/demo_codescan.do` with the `white_tableau` scheme. `graph display, margin(r+8)` widens the right margin so the longest bar label is not clipped; `codescan, graph` takes no graph options of its own.</sub>
+
+## Features
+
+- **No reshape, no copies.** The scanned slots are an ordinary varlist (`dx1-dx30`, `dx*`, or several ranges), and the stored codes are never changed: `nodots` and `tostring` work on temporary values.
+- **Three-state indicators.** A row-level indicator is 1 (or a count) for an analyzed match, 0 for an analyzed non-match, and `.` for a row outside the analysis sample, so `summarize` reproduces the reported prevalence.
+- **Rules that cannot silently match everything.** Every pattern is anchored at the start of the code, `~` adds exclusions, and patterns that can match without consuming a character are rejected.
+- **Rows, patients, or both.** Keep encounter rows, `collapse` to one row per `id()`, `merge` patient-level flags back onto the rows, or write the result to a `frame()` and leave the data in memory untouched.
+- **Windows with their denominators.** `lookback()` and `lookforward()` restrict matches around a reference date; several lookback windows return prevalence by window in `r(sensitivity)` and the denominator behind each in `r(sensitivity_n)`.
+- **Rules you can keep.** `codescan_describe` inventories the codes and drafts a codefile; `save()` writes inline rules to a CSV with a `match` column, and `codefile()` refuses a later call whose matching options differ.
 
 ## Requirements
 
@@ -86,7 +129,29 @@ Regex patterns that can match without consuming a character are rejected because
 
 ## Worked Examples
 
-The examples below use this small wide-format dataset. Run the setup before each example that changes the data in memory.
+### 1. Inventory, rows, and patients in one block
+
+This self-contained example shows inventory, row-level matching, and patient-level output.
+
+```stata
+clear
+input long pid str6 dx1 str6 dx2
+1 "E110" "I10"
+1 "Z00"  "E119"
+2 "I50"  ""
+2 "E102" ""
+3 "Z00"  ""
+end
+
+codescan_describe dx1 dx2
+codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
+codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse replace
+matrix list r(summary)
+```
+
+The first `codescan` call leaves one indicator per condition on each row; the second reduces the data to one row per `pid`. A row-level indicator is 1 (or a count) for an analyzed match, 0 for an analyzed non-match, and `.` for a row outside the analysis sample (`if`/`in`, missing date, or window), so `summarize` on it reproduces the reported prevalence. `r(summary)` reports the counts and prevalence for the final analysis unit.
+
+The remaining examples use this small wide-format dataset. Run the setup before each example that changes the data in memory.
 
 ```stata
 clear
@@ -100,7 +165,7 @@ end
 format visit_dt index_dt %td
 ```
 
-### 1. Inspect the inventory
+### 2. Inspect the inventory
 
 Start with `codescan_describe` when you do not yet know which code values or first-character chapters occur in the selected slots.
 
@@ -111,7 +176,7 @@ matrix list r(top_codes)
 
 The command returns the ranked code table in `r(top_codes)` and the first-character summary in `r(chapters)`.
 
-### 2. Create row-level indicators
+### 3. Create row-level indicators
 
 The default regex mode anchors each rule at the start of every selected code value and creates one 0/1 variable per condition.
 
@@ -119,7 +184,7 @@ The default regex mode anchors each rule at the start of every selected code val
 codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]" | chf "I50") replace
 ```
 
-### 3. Collapse within a time window
+### 4. Collapse within a time window
 
 Use `id()` and daily Stata dates when the analysis unit is a patient or other entity. `alldates` requests the first, last, and unique qualifying dates for each condition.
 
@@ -129,7 +194,7 @@ codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
     lookback(365) inclusive collapse alldates replace
 ```
 
-### 4. Match procedure prefixes and avoid name collisions
+### 5. Match procedure prefixes and avoid name collisions
 
 In prefix mode, pipe-separated tokens are alternative prefixes. `generate()` keeps a procedure scan separate from other condition variables.
 
@@ -138,7 +203,7 @@ codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") ///
     mode(prefix) generate(proc_) replace
 ```
 
-### 5. Exclude specific codes and save reusable rules
+### 6. Exclude specific codes and save reusable rules
 
 Use `~` for exceptions and `save()` to write the parsed inline definitions to a CSV. The second call reads that CSV as a reusable codefile.
 
@@ -150,7 +215,7 @@ codescan dx1 dx2, codefile(dm_rules.csv) replace
 
 The CSV contains `name`, `pattern`, `exclusion`, `label`, and `match` columns. `match` records the call's `mode()`, `nocase`, and `nodots`; `codefile()` refuses a later call whose options differ, because the same pattern means something else under other options. The first call creates the condition variables, so `replace` permits the codefile call to recreate them.
 
-### 6. Keep the original data in a frame
+### 7. Keep the original data in a frame
 
 Use `frame()` when the encounter-level data must remain available alongside a collapsed patient-level result.
 
@@ -160,7 +225,7 @@ codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) ///
 frame results: list
 ```
 
-### 7. Compare hits with positive units
+### 8. Compare hits with positive units
 
 `countmode` stores the number of matching code slots rather than binary indicators. `r(summary)` separates those slot hits from the number of observations or IDs with at least one hit.
 
@@ -171,7 +236,7 @@ matrix list r(summary)
 
 Add `detail allslots` in a row-level scan when every matching slot should be credited independently; without `allslots`, binary detail is attributed to the first matching variable in varlist order.
 
-### 8. Run sensitivity windows and write deliverables
+### 9. Run sensitivity windows and write deliverables
 
 Several `lookback()` values require `collapse` or `merge` and return prevalence by window plus the denominator behind each window. The Excel export gets a second sheet when `cooccurrence` is also requested.
 
@@ -187,11 +252,7 @@ matrix list r(sensitivity_n)
 
 ## Demo
 
-The checkout demo `demo/demo_codescan.do` creates synthetic administrative data, produces the prevalence chart and Excel workbook below, and can be run from the Stata-Tools repository root, the `codescan` directory, or `codescan/demo/`. It optionally uses `tc_schemes` when already installed and installs the local codescan source into the caller's PLUS directory, so restore your usual codescan installation afterward if needed.
-
-![Patient-level condition prevalence chart](demo/prevalence_chart.png)
-
-The workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx) contains a summary sheet and a co-occurrence sheet. The image and workbook are regenerated by the named demo script; they are repository checkout assets, not files installed by `net install`.
+The checkout demo `demo/demo_codescan.do` creates the synthetic administrative data used in the [Quick Start](#quick-start), draws the prevalence chart shown there, and writes the Excel workbook [`demo/codescan_results.xlsx`](demo/codescan_results.xlsx), which holds a summary sheet and a co-occurrence sheet. Run it from the Stata-Tools repository root, the `codescan` directory, or `codescan/demo/`. It installs the local `codescan` and `tc_schemes` sources into your PLUS directory and stops if the `white_tableau` scheme cannot be found, so restore your usual installation afterward if needed. The image and workbook are repository checkout assets, not files installed by `net install`.
 
 ## Command Reference
 
@@ -396,6 +457,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - After a failed late output rolls the data back, `r(newvars)` and `r(frame)` are empty and `r(collapsed)` and `r(merged)` are 0; the analytic results are kept.
 - `codescan_describe, save()`: the draft writes a `match` column and records `mode(regex)` when a chapter pattern is a regex, so `mode(prefix)` refuses it rather than matching nothing; a missing output directory is refused before the table prints. Singular counts and header spacing in the display are fixed.
 
+<details>
+<summary>Earlier versions</summary>
+
 ### 4.3.0 (2026-10-04)
 
 - **Behaviour change:** row-level condition variables are now missing (`.`) on rows outside the analysis sample (excluded by `if`/`in`, a missing date, or the time window), instead of 0. They follow the same three-state contract as `unmatched()` and `merge`, so `summarize` and `count if !missing()` agree with the reported prevalence and `r(N)`. `collapse` and `merge` output is unchanged.
@@ -493,10 +557,16 @@ Preserve native `S_FN` and `S_FNDATE` caller macros across internal file operati
 
 - Removed the former comorbidity-scoring features; `codescan` is now a pure wide-format code-field scanner.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which codescan` and your Stata version.
+
+To cite: Copeland TP. *codescan: Scan wide-format code fields without reshaping*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/codescan. Please give the version you used (`which codescan` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

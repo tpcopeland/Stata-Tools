@@ -4,7 +4,7 @@ Repository-level resources. Nothing in this folder is part of any package's `net
 
 | Path | What it is |
 | --- | --- |
-| [`logo-hex.svg`](logo-hex.svg) | Stata-Tools logo (text outlined from Noto Sans ExtraBold, SIL OFL) |
+| [`logos/`](logos) | `logo-hex.svg`, the Stata-Tools logo, and `<package>_hex.svg`, the hex logo at the top of each package README. Text is outlined from Noto Sans ExtraBold (SIL OFL), so the files render without web fonts |
 | [`gallery/`](gallery) | The six figures at the top of the main README. Each `gallery_<name>.do` regenerates its `<name>.png`; the kmplot panel comes from `kmplot/demo/demo_kmplot.do` |
 | [`quickstart/`](quickstart) | The README quickstart as a runnable `quickstart.do`, plus the figure it produces |
 | [`stata-docs/`](stata-docs) | `stata_docs.py`, which turns your own Stata PDF manuals into an offline, searchable library for you or a coding assistant. See its [README](stata-docs/README.md) |

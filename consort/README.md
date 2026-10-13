@@ -1,24 +1,48 @@
-# consort — CONSORT-style exclusion flowcharts for observational research
+<img src="../_resources/logos/consort_hex.svg" align="right" width="150" alt="consort hex logo">
+
+# consort — Exclusion flowcharts recorded as you drop observations
 
 **Version 1.1.3** | 2026-10-13
 
-`consort` records sequential exclusions from a Stata dataset and renders the resulting participant-flow diagram. It is for analysts who need reproducible exclusion counts, publication-ready flowcharts, and optional machine-readable exports.
+[![version](https://img.shields.io/badge/version-1.1.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Demo](#demo)** · **[Troubleshooting](#troubleshooting)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`consort` records each exclusion as you drop observations from a Stata dataset and draws the resulting CONSORT-style participant-flow diagram, with an optional table of the same counts. It is for analysts who want the flowchart and the analysis sample to come from the same code.
 
 ## Quick Start
 
-Build a shaded flowchart from Stata's built-in `auto` data:
+After [installing](#installation) (drawing needs Python 3 with `matplotlib`; see [Requirements](#requirements)), build a five-step exclusion flow for a synthetic cohort of 45,892 patients:
 
 ```stata
-sysuse auto, clear
-preserve
-consort init, initial("Cars in auto.dta")
-consort exclude if missing(rep78), label("Missing repair record")
-consort exclude if foreign, label("Foreign cars")
-consort save, output("consort_auto.png") final("Domestic analytic sample") shading
-restore
+clear
+set obs 45892
+gen byte missing_labs    = (_n <= 3241)
+gen byte age_lt18        = (_n >= 3242 & _n <= 4133)
+gen byte prior_cancer    = (_n >= 4134 & _n <= 6238)
+gen byte lost_followup   = (_n >= 6239 & _n <= 6805)
+gen byte missing_outcome = (_n >= 6806 & _n <= 8698)
+
+consort init, initial("Patients in database 2015-2023")
+consort exclude if missing_labs == 1, label("Missing baseline labs")
+consort exclude if age_lt18 == 1, label("Age < 18 years")
+consort exclude if prior_cancer == 1, label("Prior cancer diagnosis")
+consort exclude if lost_followup == 1, label("Lost to follow-up < 30 days")
+consort exclude if missing_outcome == 1, label("Missing outcome data")
+consort save, output("consort_shaded.png") final("Final Analytic Cohort") shading dpi(300)
 ```
 
-The workflow writes `consort_auto.png` in the current working directory and restores the original data after the diagram is saved. Python 3 with `matplotlib` must be available to Stata's shell; see [Requirements](#requirements) if it is not installed.
+<p align="center"><img src="demo/consort_shaded.png" width="560" alt="Shaded CONSORT-style flowchart: 45,892 patients in the database, five exclusion boxes on the right (missing baseline labs 3,241; age under 18 years 892; prior cancer diagnosis 2,105; lost to follow-up under 30 days 567; missing outcome data 1,893), and a final analytic cohort of 37,194"></p>
+
+<sub>Drawn by `demo/demo_consort.do` (example 2), which also creates an unused `id` variable, wraps the workflow in `preserve`/`restore`, and writes the image into `demo/`.</sub>
+
+## Features
+
+- **Counts taken from the data, not typed in.** `consort exclude if exp` counts the matching observations, records the step, and drops them, so the diagram and the remaining analysis sample cannot drift apart.
+- **Sequential, in your order.** Each condition acts on what earlier exclusions left; a condition matching no observations is reported and skipped rather than drawn as an empty box.
+- **Milestone labels.** `remaining()` names an intermediate population box (such as "Adult cohort"), and `final()` names the last one; unlabelled intermediate boxes show the count only.
+- **The numbers behind the picture.** `csv()` and `xlsx()` write one resolved row per diagram node (`step`, `cohort_label`, `n_remaining`, `exclusion_label`, `n_excluded`, `pct_of_initial`), and `consort save` returns the initial, final, and excluded counts in `r()`.
+- **Print-ready output.** `shading` colours flow and exclusion boxes, `dpi()` sets the resolution, and the bundled `consort_diagram.py` renderer needs only `matplotlib`.
 
 ## Requirements
 
@@ -138,12 +162,16 @@ restore
 
 ## Demo
 
-From a Stata-Tools checkout, run `stata-mp -b do consort/demo/demo_consort.do` from the repository root to regenerate the shipped figures and the CSV/XLSX export example. The demo script is a checkout workflow for documentation assets; it is not part of the `net install` payload.
+From a Stata-Tools checkout, run `stata-mp -b do consort/demo/demo_consort.do` from the repository root to regenerate the four figures below and the CSV/XLSX export example (`demo/flow.csv`, `demo/flow.xlsx`). The demo script is a checkout workflow for documentation assets; it is not part of the `net install` payload.
 
 | Output | Focus |
 |--------|-------|
-| ![Shaded CONSORT-style flowchart for a synthetic cohort](demo/consort_shaded.png) | Sequential exclusions, shading, and high-DPI output |
-| ![CONSORT-style flowchart paired with a resolved export example](demo/consort_export.png) | `csv()` and `xlsx()` output from the same workflow |
+| ![Unshaded CONSORT-style flowchart for a synthetic cohort of 45,892 patients with milestone labels Adult cohort and Minimum follow-up met](demo/consort_flowchart.png) | Sequential exclusions with `remaining()` milestone labels |
+| ![Shaded CONSORT-style flowchart for the same synthetic cohort at 300 dpi](demo/consort_shaded.png) | `shading` and `dpi(300)` |
+| ![CONSORT-style flowchart for the auto data: 74 cars, 5 missing repair record, 21 foreign, 48 in the domestic sample](demo/consort_export.png) | `csv()` and `xlsx()` output from the same workflow |
+| ![Single-step flowchart: 15,000 persons with antidepressant dispensing, 41 with follow-up under 30 days, final cohort 14,959](demo/consort_diagram.png) | One exclusion step |
+
+The numbered figures `demo/01_basic_default.png` to `demo/12_custom_csv.png` are visual-inspection outputs of `demo/make_consort_figures.do` (run from `consort/demo/`), and `demo/consort_demo.png` is the renderer's own demo, from `python consort_diagram.py --demo`.
 
 ## Command Reference
 
@@ -306,7 +334,7 @@ The package uses the CONSORT naming convention for participant-flow diagrams; co
 
 ## QA
 
-QA suites are available in [`qa/`](qa/).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
@@ -314,13 +342,23 @@ QA suites are available in [`qa/`](qa/).
 - **1.1.2** (2026-09-29): Evaluate exclusions once, reject colliding file destinations, preserve quoted labels and CSV records, align diagram/export labels, and support Python executable paths with spaces.
 
 - **1.1.1** (2026-08-05): Clarify final-label return behavior, output-directory requirements, and runnable help examples.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.1.0** (2026-06-24): Add `csv()` and `xlsx()` options to `consort save` for writing a resolved, machine-readable table of the diagram data (one row per node) alongside the figure; paths returned in `r(csv)`/`r(xlsx)`
 - **1.0.0** (2026-04-08): Initial Stata-Tools release for stateful CONSORT-style flowchart generation from Stata
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which consort` and your Stata version.
+
+To cite: Copeland TP. *consort: Exclusion flowcharts recorded as you drop observations*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/consort. Please give the version you used (`which consort` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

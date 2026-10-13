@@ -1,10 +1,18 @@
-# msm — Marginal structural models for longitudinal causal analysis
+<img src="../_resources/logos/msm_hex.svg" align="right" width="150" alt="msm hex logo">
+
+# msm — Marginal structural models with IPTW, end to end
 
 **Version 2.0.0** | 2026-10-13
 
-`msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It prepares and checks the data, builds stabilized IPTW/IPCW, diagnoses balance and positivity over time, fits the weighted outcome model, and standardizes counterfactual risks; companion packages make the tables and figures.
+[![version](https://img.shields.io/badge/version-2.0.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Command Reference](#command-reference)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`msm` estimates marginal structural models for long person-period data with a time-varying treatment and time-varying confounding. It takes you from variable mapping through stabilized inverse-probability weights, longitudinal diagnostics, and a weighted outcome model to standardized risks under always-treated and never-treated strategies; companion packages make the tables and figures.
 
 ## Quick Start
+
+After [installing](#installation), use the bundled person-period example to fit a pooled logistic MSM and obtain counterfactual cumulative-incidence predictions:
 
 ```stata
 capture confirm file msm_example.dta
@@ -20,7 +28,16 @@ msm_fit, model(logistic) outcome_cov(age sex) nolog
 msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345)
 ```
 
-`msm_predict` compares standardized cumulative incidence under always-treated and never-treated strategies.
+`msm_predict` compares standardized cumulative incidence under always-treated and never-treated strategies. The [Demo](#demo) section shows the figures and tables the demo script draws from the same data.
+
+## Features
+
+- **Standardized risks under static strategies.** `msm_predict` returns cumulative incidence (or survival, `type(survival)`) under always-treated and never-treated strategies and, with `difference`, the always-minus-never contrast in `r(rd)`, with Monte Carlo intervals drawn from the outcome model's coefficient covariance.
+- **Stabilized IPTW and IPCW.** `msm_weight` fits the treatment and optional censoring models with the prior treatment added automatically, linear to natural-spline time bases, and percentile truncation; failed fits and probabilities at 0 or 1 are errors unless you name a fallback policy.
+- **Diagnostics built for longitudinal data.** `msm_diagnose` reports treatment balance within period and prior-treatment history, censoring balance, and a positivity floor on the probability of the treatment actually observed; numerator covariates are flagged, not counted as imbalanced.
+- **Weighted pooled logistic, linear, or Cox models.** `msm_fit` clusters sandwich standard errors on the subject identifier by default, adds treatment-history terms (`lag1`, `cumulative`, `duration`, `interaction`), and leaves the native `glm`, `regress` or `stcox` result in `e()`.
+- **State that travels with the data.** The mapping and a signed contract for each stage are stored in dataset characteristics; `msm, status` reports the current stage and the next command, and re-running `msm_prepare` clears what no longer applies.
+- **Graph-ready results.** `msm_predict, frame()` writes one row per period and quantity in the schema `eplot` reads, so tables (`regtab`, `effecttab`), figures, and E-values (`qba_confound`) come from the companion packages.
 
 ## Requirements
 
@@ -79,7 +96,7 @@ msm_prepare → msm_weight → msm_diagnose → msm_fit → msm_predict
 
 Run `msm, status` at any point to see the stage, the mapping, and the next step.
 
-### Choosing a Workflow
+## Choosing a Workflow
 
 | Goal | Workflow |
 |------|----------|
@@ -88,6 +105,24 @@ Run `msm, status` at any point to see the stage, the mapping, and the next step.
 | Weighted hazard ratio | `msm_fit, model(cox)`; prediction is unavailable, report `e()` |
 | Delayed or cumulative treatment effects | `msm_fit, history(lag1 cumulative duration interaction)`; still prediction-compatible |
 | Continuous treatment-history summary | `msm_fit, exposure(varname)` and, where appropriate, `tvcov(varlist)`; estimation only |
+
+### Replacements for the removed commands
+
+| Task (former command) | Replacement |
+|-----------------------|-------------|
+| Coefficient table (`msm_table`, `msm_report`) | `collect: msm_fit ...` then `regtab` (tabtools) |
+| Risk-difference table | `msm_predict, difference` then `matrix RD = r(rd)` and `effecttab, from(RD)` (tabtools) |
+| Raw matrix export | `puttab using file.xlsx, matrix(name)` (tabtools) |
+| Weight distribution (`msm_plot`, `msm_diagnose` pooled block) | `psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight)` |
+| Per-period weights (`msm_diagnose, by_period`) | `psdash combined` |
+| Pooled balance and Love plot (`msm_plot`) | `psdash balance ..., covariates(denominator covariates) wvar(_msm_weight) loveplot` |
+| Risk curve (`msm_plot, type(survival)`) | `msm_predict, frame()` then `twoway` |
+| Risk-difference forest plot | `msm_predict, frame()` then `eplot if strategy == "rd", frame()` |
+| Treatment trajectories (`msm_plot`) | `swimlane` |
+| E-value (`msm_sensitivity`) | `qba_confound, from_model coef(treatment) evalue measure(HR)` (qba) |
+| Data checks (`msm_validate`) | Refusals and `r()` notes in `msm_prepare` and `msm_weight`; positivity in `msm_diagnose` |
+| Protocol (`msm_protocol`) | None; record it in the manuscript or a protocol document |
+| Cross-contrast export (`msm_diagtab`) | None; `frame post` the returns and `puttab, frame()` |
 
 ## Worked Examples
 
@@ -173,7 +208,7 @@ regtab, coef(HR)
 
 ## Demo
 
-`demo/demo_msm.do` regenerates the figures below from `msm_example.dta`.
+`demo/demo_msm.do` regenerates the figures and the results workbook below from `msm_example.dta`. It is a checkout workflow, not part of `net install`.
 
 | Output | Command focus |
 |--------|---------------|
@@ -183,227 +218,7 @@ regtab, coef(HR)
 | ![Love plot for the two denominator covariates, before and after weighting](demo/balance_plot.png) | `psdash balance, loveplot` |
 | [Results workbook](demo/msm_tables.xlsx) | `regtab` and `effecttab` |
 
-<details>
-<summary>Console: msm_fit, regtab, msm_predict, effecttab, qba_confound</summary>
-
-**Fit, tabulate and predict**
-
-```stata
-. collect clear
-```
-
-```stata
-. noisily collect: msm_fit, model(logistic) outcome_cov(age sex)
->     period_spec(quadratic) nolog
-```
-
-```
-----------------------------------------------------------------------
-msm_fit - Weighted Outcome Model
-----------------------------------------------------------------------
-
-Model type:       logistic
-Outcome:          outcome
-Treatment var:    treatment
-Period spec:      quadratic
-Treatment history: none (current-treatment-only; assumes no carryover)
-Covariates:       age sex
-Weight var:       _msm_weight
-SE type:          cluster
-Cluster var:      id
-
-Fitting pooled logistic regression...
-
-
-Generalized linear models                         Number of obs   =      4,537
-Optimization     : ML                             Residual df     =      4,531
-                                                  Scale parameter =          1
-Deviance         =  515.2905984                   (1/df) Deviance =   .1137256
-Pearson          =  4575.829174                   (1/df) Pearson  =   1.009894
-
-Variance function: V(u) = u*(1-u)                 [Bernoulli]
-Link function    : g(u) = ln(u/(1-u))             [Logit]
-
-                                                  AIC             =   .1162201
-Log pseudolikelihood = -257.6452992               BIC             =  -37635.83
-
-                                     (Std. err. adjusted for 500 clusters in id)
---------------------------------------------------------------------------------
-               |               Robust
-       outcome | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
----------------+----------------------------------------------------------------
-     treatment |  -.2662234    .335203    -0.79   0.427    -.9232092    .3907624
-        period |  -.0300596   .1902854    -0.16   0.874    -.4030121    .3428928
-_msm_period_sq |   .0134486   .0216252     0.62   0.534    -.0289361    .0558332
-           age |   .0515743   .0158195     3.26   0.001     .0205686      .08258
-           sex |  -.0919971   .3295391    -0.28   0.780    -.7378818    .5538877
-         _cons |  -7.614846   .9771727    -7.79   0.000     -9.53007   -5.699623
---------------------------------------------------------------------------------
-
-----------------------------------------------------------------------
-Treatment effect (MSM causal estimate):
-  Log-odds:     -0.2662 (SE:  0.3352)
-  Odds ratio:    0.7663 (95% CI:  0.3972 -  1.4781)
-  p-value:       0.4271
-
-Note: standard errors are final-stage, conditional on the estimated IP
-      weights and the observed sample; they do not propagate weight-model
-      estimation uncertainty (see help msm_fit).
-
-Next step: msm_predict for counterfactual predictions
-State check: msm, status
-----------------------------------------------------------------------
-
-```
-
-```stata
-. noisily regtab, xlsx("`tables_xlsx'") sheet("Outcome model") coef(OR)
->     title("Weighted pooled logistic MSM")
-```
-
-```
-Weighted pooled logistic MSM
-  +------------------------------------------------------------+
-  |                             Model                          |
-  |                                OR         95% CI   p-value |
-  | Treatment indicator (0/1)    0.77   (0.40, 1.48)      0.43 |
-  |         Time period (0-9)    0.97   (0.67, 1.41)      0.87 |
-  |            Period squared    1.01   (0.97, 1.06)      0.53 |
-  |   Age at baseline (years)    1.05   (1.02, 1.09)     0.001 |
-  |    Sex (0=Female, 1=Male)    0.91   (0.48, 1.74)      0.78 |
-  +------------------------------------------------------------+
-
-Exported 8 rows × 5 cols to msm_tables.xlsx, sheet Outcome model
-
-```
-
-**Standardized cumulative incidence and risk differences**
-
-```stata
-. noisily msm_predict, times(1 3 5 7 9) difference samples(1000)
->     seed(12345) frame(pred, replace)
-```
-
-```
-----------------------------------------------------------------------
-msm_predict - Counterfactual Predictions
-----------------------------------------------------------------------
-
-Strategy:         both
-Prediction type:  cum_inc
-MC samples:       1000
-Seed used:        12345
-Confidence level: 95%
-Risk difference:  Yes
-
-Computing predictions...
-Running 1000 Monte Carlo simulations...
-
-----------------------------------------------------------------------
-Cumulative Incidence Estimates (95% CI)
-----------------------------------------------------------------------
-
-Period   Never-treat  Always-treat          Diff
---------------------------------------------------
-     1        0.0185        0.0142       -0.0043
-        (0.0109-0.0334)  (0.0073-0.0314)  (-0.0158-0.0082)
-     3        0.0369        0.0284       -0.0084
-        (0.0245-0.0613)  (0.0169-0.0540)  (-0.0305-0.0153)
-     5        0.0572        0.0443       -0.0129
-        (0.0384-0.0937)  (0.0284-0.0762)  (-0.0480-0.0228)
-     7        0.0822        0.0639       -0.0183
-        (0.0561-0.1267)  (0.0421-0.1041)  (-0.0662-0.0309)
-     9        0.1158        0.0906       -0.0252
-        (0.0793-0.1766)  (0.0603-0.1493)  (-0.0911-0.0408)
-
-Reference population: 500 individuals
-
-Note: Monte Carlo intervals draw from the outcome-model covariance only.
-      They condition on the estimated IP weights and the reference sample
-      and do not propagate weight-model estimation.
-----------------------------------------------------------------------
-Predictions written to frame pred
-
-```
-
-```stata
-. matrix RD = r(rd)
-```
-
-```stata
-. matrix rownames RD = "Period 1" "Period 3" "Period 5" "Period 7" "Period 9"
-```
-
-```stata
-. noisily effecttab, from(RD) effect("Risk difference") digits(3)
->     xlsx("`tables_xlsx'") sheet("Risk differences")
->     title("Always minus never treated")
-```
-
-```
-Always minus never treated
-  +--------------------------------------------------------+
-  |            Risk difference            95% CI   p-value |
-  | Period 1            -0.004   (-0.016, 0.008)           |
-  | Period 3            -0.008   (-0.031, 0.015)           |
-  | Period 5            -0.013   (-0.048, 0.023)           |
-  | Period 7            -0.018   (-0.066, 0.031)           |
-  | Period 9            -0.025   (-0.091, 0.041)           |
-  +--------------------------------------------------------+
-
-Exported 8 rows × 5 cols to msm_tables.xlsx, sheet Risk differences
-
-```
-
-**E-value for unmeasured confounding**
-
-```stata
-. noisily qba_confound, from_model coef(treatment) evalue measure(HR)
-```
-
-```
-Quantitative Bias Analysis: Unmeasured Confounding
-
-  Observed HR:    0.7663
-  95% CI:        0.3972 -    1.4781
-  (from last estimation command)
-
-
-E-value (VanderWeele & Ding 2017)
-  Scale: HR used directly as a risk ratio; Table 2 permits this only for a
-         rare outcome (<15% by end of follow-up). For a common outcome
-         specify commonoutcome; the E-value below is otherwise too large.
-  E-value (point):     1.9360
-  E-value (CI):        1.0000
-
-  Interpret against the confounder-treatment and
-  confounder-outcome associations that are plausible here;
-  the E-values of the measured covariates are the natural
-  comparison (VanderWeele & Ding 2017, Table 3).
-
-```
-
-</details>
-
-The longitudinal diagnostics transcript (`msm_prepare`, `msm_weight`, `psdash combined`, `msm_diagnose`) is in [`demo/console_pipeline.md`](demo/console_pipeline.md).
-
-## Companion Packages
-
-| Task (former command) | Replacement |
-|-----------------------|-------------|
-| Coefficient table (`msm_table`, `msm_report`) | `collect: msm_fit ...` then `regtab` (tabtools) |
-| Risk-difference table | `msm_predict, difference` then `matrix RD = r(rd)` and `effecttab, from(RD)` (tabtools) |
-| Raw matrix export | `puttab using file.xlsx, matrix(name)` (tabtools) |
-| Weight distribution (`msm_plot`, `msm_diagnose` pooled block) | `psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight)` |
-| Per-period weights (`msm_diagnose, by_period`) | `psdash combined` |
-| Pooled balance and Love plot (`msm_plot`) | `psdash balance ..., covariates(denominator covariates) wvar(_msm_weight) loveplot` |
-| Risk curve (`msm_plot, type(survival)`) | `msm_predict, frame()` then `twoway` |
-| Risk-difference forest plot | `msm_predict, frame()` then `eplot if strategy == "rd", frame()` |
-| Treatment trajectories (`msm_plot`) | `swimlane` |
-| E-value (`msm_sensitivity`) | `qba_confound, from_model coef(treatment) evalue measure(HR)` (qba) |
-| Data checks (`msm_validate`) | Refusals and `r()` notes in `msm_prepare` and `msm_weight`; positivity in `msm_diagnose` |
-| Protocol (`msm_protocol`) | None; record it in the manuscript or a protocol document |
-| Cross-contrast export (`msm_diagtab`) | None; `frame post` the returns and `puttab, frame()` |
+The console transcripts of the demo are [`demo/console_pipeline.md`](demo/console_pipeline.md) (`msm_prepare`, `msm_weight`, `psdash combined`, `msm_diagnose`) and [`demo/console_results.md`](demo/console_results.md) (`msm_fit`, `regtab`, `msm_predict`, `effecttab`, `qba_confound`).
 
 ## Command Reference
 
@@ -457,6 +272,59 @@ Syntax: ``msm_predict, times(numlist) [strategy(string) type(string) samples(#) 
 - `difference` adds the always-minus-never contrast: `r(rd)` and `r(rd_#)`, or `r(sd)` and `r(sd_#)` under `type(survival)`. A negative period `t` is named `m#` (`r(rd_m2)`, row `tm2`).
 - `frame()` writes one graph-ready row per period and quantity; an existing frame needs `replace`.
 - `extrapolate` allows times beyond the fitted risk-set support.
+
+## Options
+
+The flagship `msm` takes the first four options (`protocol` is still parsed so that it can refuse with a pointer to the manuscript; it was removed in 2.0.0). The remaining rows list the options of the five estimator commands.
+
+| Option | Command | Meaning |
+|--------|---------|---------|
+| `list` | `msm` | Print the five estimator commands |
+| `detail` | `msm` | Describe the commands and the companion map |
+| `status` | `msm` | Report the verified stage, mapping and artifacts |
+| `protocol` | `msm` | Removed in 2.0.0; refuses with return code 198 |
+| `id(varname)` | `msm_prepare` | Individual identifier (required) |
+| `period(varname)` | `msm_prepare` | Integer period variable (required) |
+| `treatment(varname)` | `msm_prepare` | Binary treatment (required) |
+| `outcome(varname)` | `msm_prepare` | Binary outcome (required) |
+| `censor(varname)` | `msm_prepare` | Binary censoring indicator |
+| `covariates(varlist)` | `msm_prepare` | Time-varying covariates |
+| `baseline_covariates(varlist)` | `msm_prepare` | Time-fixed baseline covariates |
+| `treat_d_cov(varlist)` | `msm_weight` | Treatment denominator covariates |
+| `treat_n_cov(varlist)` | `msm_weight` | Treatment numerator covariates |
+| `censor_d_cov(varlist)` | `msm_weight` | Censoring denominator covariates; enables IPCW |
+| `censor_n_cov(varlist)` | `msm_weight` | Censoring numerator covariates |
+| `period_d_spec(spec)` | `msm_weight` | Denominator time basis (default `linear`) |
+| `period_n_spec(spec)` | `msm_weight` | Numerator time basis (default `none`) |
+| `truncate(numlist)` | `msm_weight` | Percentile truncation; off by default |
+| `fitfailure(policy)` | `msm_weight` | Failed-fit policy (default `error`) |
+| `probpolicy(policy)` | `msm_weight` | Probability-support policy (default `error`) |
+| `clip(#)` | `msm_weight` | Clip bound for `probpolicy(clip)` |
+| `preview` | `msm_weight` | Resolve the specification without fitting |
+| `replace` | `msm_weight` | Overwrite existing `_msm_*` weight variables |
+| `nolog` | `msm_weight`, `msm_fit` | Suppress iteration logs |
+| `balance_covariates(varlist)` | `msm_diagnose` | Covariates to balance |
+| `threshold(#)` | `msm_diagnose` | SMD threshold (default 0.1) |
+| `positivity(#)` | `msm_diagnose` | Positivity floor (default 0.01) |
+| `model(string)` | `msm_fit` | `logistic` (default), `linear` or `cox` |
+| `outcome_cov(varlist)` | `msm_fit` | Time-fixed outcome covariates |
+| `exposure(varname)` | `msm_fit` | Continuous treatment-history summary |
+| `tvcov(varlist)` | `msm_fit` | Time-varying companion terms |
+| `history(string)` | `msm_fit` | `lag1`, `cumulative`, `duration`, `interaction` |
+| `period_spec(string)` | `msm_fit` | Outcome time basis (default `quadratic`) |
+| `cluster(varname)` | `msm_fit` | Cluster variable (default the mapped ID) |
+| `vce(string)` | `msm_fit` | Variance estimator |
+| `strata(varlist)` | `msm_fit` | Cox strata |
+| `bootstrap(#)` | `msm_fit` | Reserved |
+| `level(#)` | `msm_fit`, `msm_predict` | Confidence level |
+| `times(numlist)` | `msm_predict` | Periods to predict (required) |
+| `strategy(string)` | `msm_predict` | Strategy (default `both`) |
+| `type(string)` | `msm_predict` | `cum_inc` (default) or `survival` |
+| `samples(#)` | `msm_predict` | Monte Carlo draws (default 100) |
+| `seed(#)` | `msm_predict` | Random-number seed |
+| `difference` | `msm_predict` | Always-minus-never contrast |
+| `extrapolate` | `msm_predict` | Allow times beyond the fitted support |
+| `frame(name[, replace])` | `msm_predict` | Write a graph-ready frame |
 
 ## Stored Results
 
@@ -525,10 +393,11 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 ## Version History
 
 - **2.0.0** (2026-10-13): Breaking. msm is now the estimator core: `msm_prepare`, `msm_weight`, `msm_diagnose` (longitudinal balance and positivity), `msm_fit` and `msm_predict`. Removed `msm_protocol`, `msm_validate`, `msm_plot`, `msm_report`, `msm_table`, `msm_diagtab` and `msm_sensitivity`; running one prints its replacement (tabtools `regtab`/`effecttab`/`puttab`, `psdash`, `eplot`, `swimlane`, `qba_confound`) and exits with return code 199, and the stubs stay for all of 2.x. `msm_diagnose` no longer prints pooled weight summaries (use `psdash`) or accepts `by_period` or `accumulate()`; it adds `r(covariates)`, flags numerator covariates in the pooled table instead of counting them as imbalanced, and flags periods with no treated or no untreated row. `msm_prepare` reports gaps, missing values, constant covariates and sparse periods in `r()`. `msm_predict` adds `frame()` and `r(rd)`, writes nothing to the dataset, and returns `r(rd_m#)` for negative periods (it failed with r(101) before). `msm_weight` writes contract 1.1 (`_msm_risk_var`) so `psdash` restricts to the decision risk set, and prints truncation percentiles as 1st/99th; data weighted by 2.0.0 needs psdash 1.8.0 or later. With no covariates mapped in `msm_prepare`, `msm_diagnose` balances the `treat_d_cov()` covariates. Run `ado uninstall msm` before installing.
-
 - **1.4.12** (2026-10-09): Help References now give a DOI for every entry.
-
 - **1.4.11** (2026-09-30): Failed `msm_prepare` and `msm_weight` calls restore the caller's original sort metadata as well as its physical row order. Protocol descriptions retain literal quotes, macro-like text and Unicode in display, returned text and exported files. Report text and CSV numbers retain the requested decimal precision. Failed predictions preserve the caller's RNG state, returned results and prediction identifier counter. Weighting preserves active estimation results and restores caller returned results, RNG state and the identifier counter on failure. Guard and operational refusals in the dispatcher, preparation, validation, diagnosis, fitting, plotting, reporting, protocol and sensitivity commands preserve caller returned results. Validation retains its documented findings on a completed strict check. Commands that temporarily sort data restore the original sort keys and row order.
+
+<details>
+<summary>Earlier versions</summary>
 
 - **1.4.10** (2026-09-27): `msm_weight, truncate()` counts and caps weights at the exact percentile cutoffs, and `msm_diagnose` counts extreme weights above the exact P99. The cutoffs used to pass through a macro, which could move them by one unit in the last place, so a weight equal to the cutoff was counted as truncated and rewritten slightly off it (off by one in `r(n_truncated)` on ordinary data). `msm_diagnose` no longer prints its imbalanced count when run quietly.
 - **1.4.9** (2026-09-26): The effective sample size reported by `msm_weight`, `msm_diagnose` (overall, by treatment group, and in `r(support)`, `r(treatment_balance)` and `r(censor_balance)`) and `msm_report`, and the weighted SMD of a continuous covariate, no longer become missing when the weights are extremely small or large (near 1e-200 or 1e200, where their squares underflow or overflow); both are computed on weights divided by a power of two. Ordinary weights give the same values to within the last digit or two.
@@ -554,10 +423,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.1** (2026-04-30): Hardened validation edge cases, time-fixed outcome-covariate enforcement, Cox guidance, and protocol export escaping.
 - **1.0.0** (2026-04-26): Initial Stata-Tools release of the MSM workflow suite.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which msm` and your Stata version.
+
+To cite: Copeland TP. *msm: Marginal structural models with IPTW, end to end*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/msm. Please give the version you used (`which msm` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

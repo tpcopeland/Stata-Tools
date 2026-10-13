@@ -1,10 +1,18 @@
+<img src="../_resources/logos/simtab_hex.svg" align="right" width="150" alt="simtab hex logo">
+
 # simtab — Monte Carlo simulation performance tables
 
 **Version 2.0.4** | 2026-10-13
 
+[![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square)](#version-history) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
 `simtab` computes and renders publication-ready performance tables from replication-level simulation results or pre-computed summaries. It exports styled Excel, CSV, Markdown, rendered-frame, and numeric-frame outputs.
 
 ## Quick Start
+
+After [installing](#installation), summarize a small two-method simulation (20 replications each) and keep the numeric results in a frame:
 
 ```stata
 clear
@@ -19,6 +27,13 @@ simtab method, estimate(estimate) se(se) true(true_value) sim(sim) ///
     metrics(mean bias empse meanse coverage n) ///
     plotframe(sim_plot, replace) display
 ```
+
+## Features
+
+- **Performance measures with their Monte Carlo SEs.** Compute mode reports bias, empirical SE, root-mean-square model SE, relative SE error, MSE/RMSE, coverage, power, and nonconvergence, with closed-form Monte Carlo SEs.
+- **Off-nominal coverage is flagged.** A cell whose coverage differs from the nominal level by more than twice its Monte Carlo SE is marked with an asterisk and named in a note, and `warnreps()` warns when a cell has too few replications for precise results.
+- **Compute or ingest.** `from(simsum)`, `from(siman)`, and `from(summary)` render an existing summary in the same layout without recomputing its measures.
+- **A table and the numbers behind it.** `frame()` keeps the rendered table, and `plotframe()` keeps one numeric row per cell with the raw measures and Monte Carlo SEs, as the source for figures.
 
 ## Requirements
 
@@ -80,7 +95,7 @@ simtab method, estimate(estimate) se(se) true(true_value) ///
 
 ## Demo
 
-Run [`demo/demo_simtab.do`](demo/demo_simtab.do) from a repository checkout to regenerate the tracked [`demo/demo_simtab.xlsx`](demo/demo_simtab.xlsx) workbook.
+Run [`demo/demo_simtab.do`](demo/demo_simtab.do) from a repository checkout to regenerate the tracked [`demo/demo_simtab.xlsx`](demo/demo_simtab.xlsx) workbook. Its one sheet, `Performance`, summarizes two methods across two scenarios and two estimands with 100 replications each, using a supplied `coverage()` indicator, `nsim(100)` for nonconvergence, and `theme(nejm)`. The workbook is a repository documentation asset and is not part of the `net install` payload.
 
 ## Key Options
 
@@ -180,16 +195,24 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 - **2.0.4** (2026-10-13): A metric value that rounds to zero prints without a sign: a bias of -0.003 at two decimals showed `-0.00` (and a tiny positive bias `+0.00`); both now show `0.00`, in the console, frames and every export. Values that survive rounding keep their sign. The first call in a session no longer echoes Mata source to the console, and a helper that does not compile now stops with an explicit message and its return code.
 - **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
-
 - **2.0.2** (2026-09-30): Retain double precision for computed means and empirical standard errors when input estimates use byte, int, or float storage; preserve original caller values, types and order. Restore the caller's Mata strict setting after helper compilation, including failed compilation. Preserve prior caller `r()` on refusals before analytical results are prepared; late output failures retain analytical publication.
-
 - **2.0.1** (2026-08-30): Corrected RMS model-SE and inclusive alpha-boundary calculations, protected caller Mata state during Excel export, rejected ambiguous or out-of-range ingest data, and expanded documentation contracts.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **2.0.0** (2026-08-19): Extracted `simtab` into a standalone package while preserving its compute, ingest, export, and stored-result contracts.
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which simtab` and your Stata version.
+
+To cite: Copeland TP. *simtab: Monte Carlo simulation performance tables*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/simtab. Please give the version you used (`which simtab` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

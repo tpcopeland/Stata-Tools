@@ -1,37 +1,111 @@
+<img src="../_resources/logos/rangematch_hex.svg" align="right" width="150" alt="rangematch hex logo">
+
 # rangematch — Range joins for interval data
 
 **Version 1.5.13** | 2026-10-12
+
+[![version](https://img.shields.io/badge/version-1.5.13-1a5f91?style=flat-square)](#version-history) [![Stata 16.1+](https://img.shields.io/badge/Stata-16.1%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `rangematch` joins an in-memory master dataset to a using file or frame by matching points to intervals or intervals to intervals. It is for workflows that need the joined rows themselves, with frame-safe output, unmatched-row controls, nearest matching, diagnostics, and stored results.
 
 ## Quick Start
 
-Run a rolling date-window join and write the result to a separate frame so the current data remain unchanged.
+After [installing](#installation), find the adverse events that fall inside each patient's drug-exposure windows and write the joined rows to a frame, leaving the exposure data in memory unchanged:
 
 ```stata
+set linesize 120
+* Exposure episodes: one row per patient and drug
 clear
-input str1 site int id double event_date
-"A" 1 21915
-"B" 2 21946
+input double patient_id str10 start_string double exposure_days str9 drug
+101 "2020-01-15" 30 "drug_a"
+101 "2020-03-01" 14 "drug_b"
+102 "2020-02-10" 21 "drug_a"
+103 "2020-02-20" 10 "drug_c"
 end
-format event_date %td
-tempfile master events
-save `master'
+generate double exposure_start = daily(start_string, "YMD")
+generate double exposure_end = exposure_start + exposure_days
+format exposure_start exposure_end %td
+drop start_string exposure_days
+tempfile exposures adverse_events
+save "`exposures'"
 
+* Adverse events: one row per event
 clear
-input str1 site int eid double event_date
-"A" 101 21890
-"A" 102 21920
-"B" 103 21950
-"B" 104 21990
+input double patient_id double event_id str10 event_string str18 event_type double severity
+101 1001 "2020-01-20" "rash"      2
+101 1002 "2020-02-20" "headache"  1
+101 1003 "2020-03-10" "nausea"    2
+102 1004 "2020-02-15" "dizziness" 3
+102 1005 "2020-03-20" "fatigue"   1
+103 1006 "2020-02-25" "rash"      1
+104 1007 "2020-02-28" "cough"     1
 end
+generate double event_date = daily(event_string, "YMD")
 format event_date %td
-save `events'
+drop event_string
+save "`adverse_events'"
 
-use `master', clear
-rangematch event_date -30 30 using `events', frame(matches) replace stats
-frame matches: list
+* Events that fall inside each exposure window, same patient only
+use "`exposures'", clear
+rangematch event_date exposure_start exposure_end using "`adverse_events'", by(patient_id) keepusing(event_id event_date event_type severity) generate(match_status) masterid(exposure_row) usingid(event_row) frame(exposure_events) replace stats
+frame exposure_events: list patient_id drug exposure_start exposure_end event_id event_date event_type severity match_status, sepby(patient_id) noobs
 ```
+
+```
+  +----------------------------------------------------------------------------------------------------+
+  | patien~d     drug   exposur~t   exposur~d   event_id   event_d~e   event_t~e   severity   match_~s |
+  |----------------------------------------------------------------------------------------------------|
+  |      101   drug_a   15jan2020   14feb2020       1001   20jan2020        rash          2    matched |
+  |      101   drug_b   01mar2020   15mar2020       1003   10mar2020      nausea          2    matched |
+  |----------------------------------------------------------------------------------------------------|
+  |      102   drug_a   10feb2020   02mar2020       1004   15feb2020   dizziness          3    matched |
+  |----------------------------------------------------------------------------------------------------|
+  |      103   drug_c   20feb2020   01mar2020       1006   25feb2020        rash          1    matched |
+  +----------------------------------------------------------------------------------------------------+
+```
+
+Each exposure window kept the one event inside it. Events outside every window (1002, 1005) and patient 104, who has no exposure, are not joined.
+
+<details>
+<summary>Match summary printed by the stats option</summary>
+
+```
+    Result                       Number of obs
+    ---------------------------------------------------
+    Not matched                                       0
+    Matched                                           4
+    ---------------------------------------------------
+    Total output                                      4
+    Output frame                           exposure_events
+
+    Match density                Value
+    ---------------------------------------------------
+    Matched master rows                               4
+    Unmatched master rows                             0
+    Unmatched using rows                              3
+    Max matches/master row                            1
+    Mean matches/master row                       1.000
+    p50 matches/master row                        1.000
+    p90 matches/master row                        1.000
+    p99 matches/master row                        1.000
+    Master groups with no using rows                  0
+    Master groups considered                          3
+```
+
+</details>
+
+<sub>Output copied from `demo/workflow.md`, written by `demo/demo_rangematch.do`. `set linesize 120` matches the demo; at the default width `list` wraps the same rows into blocks.</sub>
+
+## Features
+
+- **The joined rows themselves.** Output is matched pairs plus, by default, unmatched master rows, with storage types, formats, variable labels, and value labels carried; use `rangestat` instead when only range summaries are needed.
+- **Points in intervals, or overlapping intervals.** `keyvar low high` matches using points that fall inside each master interval; `overlap(ulow uhigh)` matches using intervals that overlap it. Bounds are variables, scalar offsets, or `.` for open.
+- **Your data stay where they are.** `frame()` and `saving()` leave the current data unchanged, `dryrun`/`count` report the output size without writing it, and `maxpairs()` stops before an oversized join is materialized.
+- **Edge rules are options, not accidents.** `closed()` sets endpoint inclusion, `missing()` decides whether a missing bound is open, dropped, or an error, and `tolerance()` absorbs floating-point noise at the boundaries.
+- **Nearest matches with provenance.** `nearest()` with `ties()` keeps the closest using rows; `masterid()`, `usingid()`, and `distance()` record where each row came from and how far apart the keys are.
+- **No Cartesian product.** Binary-search and sweep backends for points and a plane-sweep backend for overlaps avoid materializing every within-group pair; `r(backend)` names the one used.
 
 ## Requirements
 
@@ -74,9 +148,38 @@ The point backends use binary search and can select a sweep backend for compatib
 
 ## Worked Examples
 
-Examples 1, 2, and 5 continue the Quick Start data; examples 3 and 4 are self-contained. Reload the master before each call because an in-place run replaces the data in memory.
+Examples 2, 3, and 6 continue the data created in example 1; examples 4 and 5 are self-contained. Reload the master before each call because an in-place run replaces the data in memory.
 
-### 1. Variable bounds and endpoint closure
+### 1. Rolling date window into a frame
+
+Run a rolling date-window join and write the result to a separate frame so the current data remain unchanged.
+
+```stata
+clear
+input str1 site int id double event_date
+"A" 1 21915
+"B" 2 21946
+end
+format event_date %td
+tempfile master events
+save `master'
+
+clear
+input str1 site int eid double event_date
+"A" 101 21890
+"A" 102 21920
+"B" 103 21950
+"B" 104 21990
+end
+format event_date %td
+save `events'
+
+use `master', clear
+rangematch event_date -30 30 using `events', frame(matches) replace stats
+frame matches: list
+```
+
+### 2. Variable bounds and endpoint closure
 
 Use master variables for the bounds and `closed(left)` for a half-open interval `[low, high)`; `unmatched(none)` keeps only matched pairs.
 
@@ -88,7 +191,7 @@ rangematch event_date lo hi using `events', closed(left) unmatched(none)
 list id eid event_date
 ```
 
-### 2. Nearest matches with provenance and distance
+### 3. Nearest matches with provenance and distance
 
 Scalar offsets define the search window around the master key. `nearest(both)` searches both directions and keeps the minimum absolute distance overall, while the ID and distance options expose provenance and signed separation.
 
@@ -99,7 +202,7 @@ rangematch event_date -40 40 using `events', nearest(both) ties(first) ///
 list id eid event_date master_row using_row delta
 ```
 
-### 3. Patient-specific exposure windows
+### 4. Patient-specific exposure windows
 
 This self-contained workflow carries selected using variables, creates a merge-style match indicator, and writes the joined rows to a frame.
 
@@ -138,7 +241,7 @@ frame exposure_events: list patient_id exposure_start exposure_end ///
     event_date event_type _merge, sepby(patient_id)
 ```
 
-### 4. Interval-overlap matching
+### 5. Interval-overlap matching
 
 Use `overlap(ulow uhigh)` when both datasets contain intervals. In this example, the unmatched second cohort interval is retained by the default `unmatched(master)` behavior.
 
@@ -173,7 +276,7 @@ rangematch entry exit using `episodes', overlap(rx_start rx_stop) ///
 frame exposed: list id entry exit rx_start rx_stop drug, sepby(id)
 ```
 
-### 5. Count before materializing or save to disk
+### 6. Count before materializing or save to disk
 
 Use `count` to inspect output size without changing the data, then use `saving()` when the joined dataset should be written instead of becoming the current data.
 
@@ -189,7 +292,7 @@ return list
 
 ## Demo
 
-The repository-only [`demo/demo_rangematch.do`](demo/demo_rangematch.do) installs the local package into temporary ado trees, runs an exposure-window workflow, and generates workflow and benchmark logs that it converts to Markdown with `logdoc`. Run it from a Stata-Tools checkout; it is not delivered by `net install` and requires the sibling `logdoc` package in that checkout, while SSC `rangestat` and `rangejoin` are optional comparison packages.
+The repository-only [`demo/demo_rangematch.do`](demo/demo_rangematch.do) installs the local package into temporary ado trees, runs the exposure-window workflow shown in the [Quick Start](#quick-start), and generates workflow and benchmark logs that it converts to Markdown with `logdoc`. Run it from a Stata-Tools checkout; it is not delivered by `net install` and requires the sibling `logdoc` package in that checkout, while SSC `rangestat` and `rangejoin` are optional comparison packages.
 
 The shipped [`bench_rangematch.do`](bench_rangematch.do) script runs six synthetic point-in-interval scenarios with analytic expected pair counts and optionally compares an installed `rangejoin`. Retrieve it into the current directory with:
 
@@ -368,6 +471,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.5.13** (2026-10-12): `using` and `saving()` paths containing a `$` that cannot start a global reference, such as `\\server\share$\...`, work again; 1.5.12 refused every `$`. `$$name` and a `$` before a non-ASCII letter are now refused like `$name`.
 - **1.5.12** (2026-10-12): A backend that fails to compile is retried on the next call and reports the same error, instead of failing with `r(3499)`. The help adds `rangejoin` migration notes. A `` ` `` or global reference in any argument is refused with r(198) without stranding the workspace frames. See `help rangematch` for detail.
 - **1.5.11** (2026-10-12): The first `rangematch` call in a Stata session no longer echoes the full Mata backend source (about 2,500 lines) into the Results window and any open log while the backend compiles. A backend that fails to compile still stops with its return code, now under a one-line "failed to compile" message instead of the Mata diagnostic.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.5.10** (2026-10-12): `tolerance()` now judges whether a master interval is empty on its widened bounds (`low - t`, `high + t`), so an interval inverted only by decimal noise (`low = 0.1 + 0.2`, `high = 0.3`) matches as documented instead of matching nothing; in overlap mode this applies to the master interval, while using intervals are still judged on their recorded bounds. `tolerance(0)` behaviour is unchanged. A missing (open) bound now removes its side's restriction exactly: under `closed(left|right|none)` a key equal to the largest (or smallest) storable double was excluded by a strict comparison against the internal stand-in for infinity, and in overlap mode an interval starting at `c(maxdouble)` with an open end, or one with an open start ending at the smallest storable double, was judged empty or missed its open-ended counterpart. A `tolerance()` shift that runs past the double range is now treated as an open bound rather than clamped, so a strict closure no longer drops a key at that limit.
 - **1.5.9** (2026-10-04): Under `nosort`, the sweep backend now breaks tied using keys on the original using row, so tied rows no longer reorder between runs (the pairs were always correct). A master value-label definition attached to no variable is now carried on the memory and `frame()` routes (`saving()` stores only attached definitions).
 - **1.5.8** (2026-09-30): The caller's `matastrict` setting is restored after the first backend compilation, including on a compilation error.
@@ -386,10 +493,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.1.0** (2026-06-25): Added interval-overlap mode.
 - **1.0.0** (2026-05-12): Initial release with frame workspaces, binary-search matching, unmatched controls, nearest matching, diagnostics, and output routing.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which rangematch` and your Stata version.
+
+To cite: Copeland TP. *rangematch: Range joins for interval data*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/rangematch. Please give the version you used (`which rangematch` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

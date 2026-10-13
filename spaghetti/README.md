@@ -1,19 +1,48 @@
+<img src="../_resources/logos/spaghetti_hex.svg" align="right" width="150" alt="spaghetti hex logo">
+
 # spaghetti — Longitudinal trajectory plots with mean overlays
 
 **Version 1.1.0** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-1.1.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Demo](#demo)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `spaghetti` draws individual trajectories for long-format repeated-measures data in one Stata graph. It is for analysts who need to inspect change over time by group, add mean and confidence-band overlays, or declutter large panels with sampling and highlights.
 
 ## Quick Start
 
-After installation, load a longitudinal dataset and add a group-specific mean with a 95% confidence band:
+After [installing](#installation), simulate a 100-person, 12-visit panel and draw 60 sampled trajectories coloured by baseline-score quintile:
 
 ```stata
-webuse nlswork, clear
-spaghetti ln_wage, id(idcode) time(year) by(race) mean(bold ci)
+clear
+set seed 20260226
+set obs 1200
+generate patid = ceil(_n / 12)
+bysort patid: generate months = _n - 1
+generate byte treatment = (patid > 50)
+generate double sdmt = 50 + 1.5*months - 2.5*treatment*months + rnormal(0, 4)
+bysort patid (months): generate double baseline_score = sdmt[1]
+label variable sdmt "SDMT Score"
+label variable months "Months from Baseline"
+
+spaghetti sdmt, id(patid) time(months) colorby(baseline_score) sample(60) seed(42) ///
+    colors("158 202 225" "107 174 214" "66 146 198" "33 113 181" "8 69 148") ///
+    individual(opacity(70) lwidth(thin))
 ```
 
-The graph shows one line per individual, colored by `race`, with a bold mean trajectory and confidence band for each group.
+<p align="center"><img src="demo/colorby.png" width="720" alt="Sixty individual SDMT trajectories over 12 months, coloured in five shades of blue from the lowest to the highest baseline-score quintile, splitting into a rising and a falling bundle"></p>
+
+<sub>Drawn by `demo/demo_spaghetti.do`, which also adds `title()` and `name()`, creates `baseline_score` in two lines, and labels the treatment arms.</sub>
+
+## Features
+
+- **One layer per group, not per person.** Trajectories are drawn as one `line` layer per group with gaps between individuals, so a dense panel does not need hundreds of graph layers.
+- **Means from all the data.** `mean()` computes time-specific means (and an optional 95% band) on the full retained data before `sample()` thins the lines, within `by()` groups when given.
+- **Sampling by person.** `sample()` keeps whole individuals, not rows; `seed()` fixes the selection and the caller's random-number state is restored afterwards.
+- **Highlights that follow the person.** `highlight()` takes any Stata expression and emphasizes every row of each matching individual, with `bgopacity()` fading the rest.
+- **Colour by a person-level value.** `colorby()` splits a continuous variable into up to 5 quantile groups, or uses its levels with `categorical`.
+- **Your data come back untouched.** A successful call restores the original dataset and leaves no helper variables behind.
 
 ## Requirements
 
@@ -205,6 +234,10 @@ Inspect the results with `return list` immediately after the command.
 - `mean(smooth(lowess))` and `mean(smooth(linear))` leave groups with fewer than three collapsed time points unsmoothed.
 - `highlight()` uses valid Stata expressions and propagates a selected condition to all rows for the same ID. `colorby()` cannot be combined with `by()` or `highlight()`.
 
+## QA
+
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
+
 ## Version History
 
 - **1.1.0** (2026-10-13): `colors()` and `individual(color())` now accept quoted RGB, CMYK, and HSV values, `bg`/`fg`, user and scheme-package color files, and `*intensity` (previously quoted values were split into words and silently drawn in a fallback color). Colors Stata cannot draw now error (rc 198): unknown or malformed values, hexadecimal values (drawn black by Stata 17 and earlier), and `%opacity` suffixes, so inputs that previously ran with a wrong color now fail. `individual()` no longer drops `opacity()`/`lwidth()` written after a quoted color. `mean()` plots are now deterministic: an unstable sort could place a person's line-break row before their last visit, joining it to the next person's first visit and giving different drawings on identical calls; the sort is now fully keyed and stable.
@@ -215,6 +248,10 @@ Inspect the results with `return list` immediately after the command.
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which spaghetti` and your Stata version.
+
+To cite: Copeland TP. *spaghetti: Longitudinal trajectory plots with mean overlays*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti. Please give the version you used (`which spaghetti` prints it).
+
 ## License
 
-MIT License; see the repository [LICENSE](../LICENSE).
+MIT (see [LICENSE](../LICENSE))

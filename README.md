@@ -1,4 +1,4 @@
-<p align="center"><img src="_resources/logo-hex.svg" width="170" alt="Stata-Tools"></p>
+<p align="center"><img src="_resources/logos/logo-hex.svg" width="170" alt="Stata-Tools"></p>
 
 <p align="center"><b>Modern epidemiology, in Stata.</b><br>
 Cohort building, time-varying exposures, causal inference, and survival analysis with publication-ready tables and figures, checked against R and Python.</p>
@@ -224,7 +224,7 @@ use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.
 
 ## Resources
 
-[`_resources/`](_resources) holds the logo, the scripts behind every figure on this page, and [`stata_docs.py`](_resources/stata-docs), a standalone tool that turns your own Stata PDF manuals into an offline, searchable library for you or a coding assistant.
+[`_resources/`](_resources) holds the logos (the Stata-Tools hex and one per package), the scripts behind every figure on this page, and [`stata_docs.py`](_resources/stata-docs), a standalone tool that turns your own Stata PDF manuals into an offline, searchable library for you or a coding assistant.
 
 ## Contributing and support
 

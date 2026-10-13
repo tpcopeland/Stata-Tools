@@ -1,10 +1,44 @@
-# eplot — Unified effect plotting from data, estimates, matrices, and frames
+<img src="../_resources/logos/eplot_hex.svg" align="right" width="150" alt="eplot hex logo">
+
+# eplot — Forest and coefficient plots from any source
 
 **Version 1.7.3** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-1.7.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
 ## Quick Start
+
+After [installing](#installation), draw a meta-analysis forest plot with weighted boxes, prediction intervals, a values column, and direction labels from study-level results typed in as data:
+
+```stata
+clear
+input str20 study double(es lci uci pi_lci pi_uci weight) byte type
+"Smith 2018"   -0.42  -0.78  -0.06  -1.15   0.31  12.3  1
+"Jones 2019"   -0.31  -0.58  -0.04  -1.04   0.42  16.8  1
+"Brown 2020"   -0.18  -0.41   0.05  -0.91   0.55  21.5  1
+"Lee 2021"     -0.55  -0.93  -0.17  -1.28   0.18  10.2  1
+"Garcia 2022"  -0.27  -0.49  -0.05  -1.00   0.46  19.1  1
+"Patel 2023"   -0.09  -0.35   0.17  -0.82   0.64  20.1  1
+"Overall"      -0.28  -0.41  -0.15   .       .      .    5
+end
+
+eplot es lci uci, labels(study) weights(weight) type(type) ///
+    values vformat(%4.2f) ///
+    pi(pi_lci pi_uci) ///
+    i2("42.1%") tau2("0.021") qstat("8.63, df=5, p=0.125") ///
+    effect("Mean Difference (95% CI)") ///
+    favors("Favors Treatment" "Favors Control")
+```
+
+<p align="center"><img src="demo/meta_heterogeneity.png" width="720" alt="Meta-analysis forest plot of six studies with weight-proportional boxes, dashed prediction-interval whiskers, an overall diamond, a values column of mean differences with 95% confidence intervals, Favors Treatment and Favors Control labels at the null, and a heterogeneity note"></p>
+
+<sub>Drawn by `demo/demo_eplot.do`, which also sets the `white_tableau` scheme from the `tc_schemes` package and adds `title("Meta-Analysis with Prediction Intervals")`.</sub>
+
+For a coefficient plot of the model you just fitted, `eplot .` reads the active estimation results:
 
 ```stata
 sysuse auto, clear
@@ -12,7 +46,13 @@ regress price mpg weight foreign
 eplot ., drop(_cons) cicap
 ```
 
-`eplot .` plots the active estimation results; `cicap` draws capped confidence intervals.
+## Features
+
+- **Four inputs, one vocabulary.** Variables in memory, active or stored estimates, a matrix, or a frame share one set of selection, labelling, transform, and display options; the Key Options tables mark the few that are mode-specific.
+- **Meta-analysis layouts.** `type()` marks headers, pooled subgroup and overall rows (drawn as diamonds), heterogeneity rows, and spacers; `weights()` sizes the boxes, `pi()` adds prediction-interval whiskers, and `i2()`, `tau2()`, and `qstat()` print heterogeneity text you supply (it is not computed).
+- **Intervals that match Stata's tables.** Estimates mode uses the t distribution with `e(df_r)`, or parameter-specific degrees of freedom after `mi estimate, post` and `mixed, dfmethod()`, and `eform` exponentiates only the equations Stata's own `eform` rule covers.
+- **Publication annotations.** A values column with its own header, size, and format, `favors()` direction labels, labelled `xline()` reference lines, `logscale` axes, and journal presets through `style()`.
+- **No silent drops.** A `keep()` or `drop()` name that matches nothing exits with r(198), and a data row with a missing estimate is left out with a note naming it.
 
 ## Requirements
 
@@ -387,6 +427,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.7.2** (2026-10-12): With a `values` column the effect-axis title is centred on the drawn effect axis rather than on the plot region, which runs on under the column and pushed the title off to the right; a passed-through `xtitle()` text is centred the same way with its `size()` and `color()`, while `xtitle("")`, other `xtitle()` suboptions, a repeated `xtitle()`, `xscale(alt)`, and `xscale(off)` leave the title to twoway as before, and a user `axis(2)` still exits `r(198)`. The graph title and subtitle are centred on the whole graph (`span`) when a values column is drawn; `title(..., nospan)` restores plot-region centring. Layouts without a values column are unchanged.
 - **1.7.1** (2026-10-12): `msymbol()` is now validated as colors are: a name that is not a Stata symbolstyle exits with `r(198)` instead of drawing the default symbol at rc 0, and outside multi-model estimates mode a list of symbols exits with `r(198)` instead of plotting only the first. The help file gains a References section citing the Stata manual entries whose rules estimates mode follows (`[P] ereturn`, `[ME] mixed`, `[MI] mi estimate`, `[R] ml`).
 - **1.7.0** (2026-10-12): Data and frame modes no longer drop a row with a missing estimate or interval silently: a note names each row left out of the plot (by its `labels()` text or observation number) and points to `type()` code 2 for keeping it as a labelled row. A row with exactly one missing confidence limit now exits with `r(198)`, as an incomplete `pi()` pair already did. In multi-model estimates mode `msymbol()` takes one symbol per model, so models can be told apart by shape in greyscale print. The automatic `eform` axis title now covers `ologit`, `mlogit` (RRR), `glm` with logit or log links, `zip`, `tpoisson`, `tnbreg`, `gnbreg`, `stcrreg` (SHR), `binreg`, and accelerated failure-time `streg`/`mestreg` (Time Ratio), each matching the column name of the command's own table; these had read "Effect".
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.6.2** (2026-10-12): After `mixed, dfmethod(kroger)` the standard errors come from `e(V_df)`, which Stata pairs with the Kenward-Roger df, instead of `e(V)`, so intervals and p-values match Stata's table. `keep()` and `drop()` exit with r(198) naming any name or pattern that matches nothing, where they had been silently ignored, and match `eq:name` in estimates and matrix modes; `drop(_cons)`, the automatic constant drop of `noconstant` and `eform`, and a `drop()` name already removed by `keep()` or omitted remain non-errors. `dp(5)` and higher no longer build an invalid format that blanked the values text; fixed formats round the estimate and both limits half away from zero on their decimal values (2.675 prints as 2.68), print a rounded zero as `0.00`, and keep one notation per row. Matrix mode applies `coeflabels()` after `order()`, as the help documents. `groups()` gathers each group's members under its header at the first member's position, refuses a coefficient listed in two groups, and its `gap()` spacer no longer ties with the next header. `rename()` applies all mappings at once, so swaps and chains work. A data-mode `values vcolor()` RGB triplet no longer breaks `export()` with r(199). Coefficients constrained to a fixed value are omitted with a note, `order()` no longer prints a missing-values message, and `logscale` ranges wider than twelve decades get a thinned decade lattice instead of linear ticks.
 - **1.6.1** (2026-10-10): `favors()` labels are anchored at the null and read outward from it: the left label's right edge and the right label's left edge sit `gap()` from the null whatever their length, the tick span, or the size of the graph (including `graph combine`), where 1.6.0 centred each label on its half of the tick span and a long label could run over the null line and its tick label. `below` hangs the labels under the tick labels from the plot-region edge (whose bottom margin it sets to zero), spaced from the scheme's tick length, tick gap, and tick-label size, and the effect-axis title, centred or `atnull`, moves down to clear them (also under a passed-through `xtitle("")`); rotated or multi-line tick labels and absolute-unit sizes, which cannot be measured, put the labels inside the plot with a note. `gap()` is now the gap from the null in relative size units (default 1.5; `*#` scales it), applies with or without `below`, and is refused with `ends`. In-plot labels no longer sit on a white box, which blanked the null line between them.
 - **1.6.0** (2026-10-10): `effect("...", atnull)` centres the effect-axis title under the null on its own row (drawn as the label of a second effect axis with the same range and scale), rather than on the plot region, which with `values` runs on under the values column; `xtitle(, size() color())` still styles it. `favors()` labels are now centred on each half of the labelled tick span rather than between the null and the data edges, use the effect-axis tick-label size (an `xlabel(, labsize())` size, or the scheme's tick-label style) instead of a fixed `vsmall`, and take `size()`, `color()`, and, with `below`, `gap()`; a null on a tick-span end moves them to the axis ends with a note. With `values`, `eplot` draws the effect axis line itself so it stops at the end of the effect range instead of running under the values column, forwarding `xscale()` line styling. From a design review: `rescale()` with `eform` now multiplies the coefficient before exponentiating (`exp(10*b)`, where it had plotted `10*exp(b)`); `sort` keeps each effect within its header, pooled-row, or `groups()` block instead of moving rows under another block's header; a null line outside the axis is no longer emitted (twoway drew it unclipped), and `favors()` widens the range to the null; a user `plotregion()` is merged with the values-column margin instead of clipping the column; a repeated `xline()` is validated, ranged, and styled like the first; an `order()` name that matches nothing exits with r(198); `noci` ranges on the point estimates. New: `null(#, line_options)`, `baselevels` and `vreference()`, `diamondcolor()`, `hetrow`, `export()`, `level()` labelling in data and frame modes, and `xline(..., label(..., size() color() placement()))`; labels of lines in the right half of the axis read leftward. With `values`, a default axis title drops the " (95% CI)" that the column header carries; with more than five models the default `offset()` shrinks; narrow `logscale` ranges get default ticks symmetric about the null; in-plot `favors()` text sits on a white box.
@@ -412,10 +456,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.1.0** (2026-04-19): Added `gap()`, effect-axis `xlabel()` passthrough, dynamic values-column margins, and clearer mode detection.
 - **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes, multi-model comparison, journal presets, significance coloring, and meta-analysis features.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which eplot` and your Stata version.
+
+To cite: Copeland TP. *eplot: Forest and coefficient plots from any source*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/eplot. Please give the version you used (`which eplot` prints it).
+
 ## License
 
-MIT; see the [repository license](../LICENSE).
+MIT (see [LICENSE](../LICENSE))

@@ -1,12 +1,18 @@
-# iivw — Inverse intensity of visit weighting for longitudinal data
+<img src="../_resources/logos/iivw_hex.svg" align="right" width="150" alt="iivw hex logo">
+
+# iivw — Inverse intensity weighting for irregular visit data
 
 **Version 4.3.7** | 2026-10-13
 
-`iivw` corrects over-representation caused by informative visit timing in irregular longitudinal observational data, and can also apply treatment-propensity weights. It gives Stata users a workflow for estimating weights, checking leverage and the person-time target, fitting outcome models, and comparing sampling with measurement-process movement.
+[![version](https://img.shields.io/badge/version-4.3.7-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Inference](#inference)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`iivw` corrects the over-representation of frequently seen patients in irregular longitudinal data by weighting each visit by the inverse of its estimated visit intensity, optionally combined with treatment-propensity weights. It gives Stata users one workflow to build the weights, check their leverage, fit the weighted outcome model, and test whether visit timing depends on the outcome.
 
 ## Quick Start
 
-The following creates a small irregular-visit panel, computes IIW weights, checks them, and fits a weighted population-average model.
+After [installing](#installation), create a small irregular-visit panel, compute IIW weights, check them, and fit a weighted population-average model:
 
 ```stata
 clear
@@ -28,6 +34,15 @@ iivw_fit y x, vce(fixed) nolog
 ```
 
 `vce(fixed)` is explicit here so the short example uses the weights-known analytic sandwich. For weighted GEE fits using IIW or IPTW, the supported default when no variance option is supplied is a 999-draw subject-level refit bootstrap; see [Inference](#inference).
+
+## Features
+
+- **Three weight types from one command.** `iivw_weight` builds inverse intensity weights (IIW) from an Andersen-Gill recurrent-event Cox model, stabilized inverse treatment-propensity weights (IPTW) from a one-row-per-subject logistic model, or their product (FIPTIW), and stores the panel contract with the data.
+- **An observation window you must state.** IIW and FIPTIW require exactly one of `censor()`, `maxfu()`, or `endatlastvisit`; visit-measured variables enter the visit model only as lags through `lagvars()`.
+- **Weights checked before they are used.** `iivw_balance` reports weight leverage, effective sample size, composition shifts, and a target standardized mean difference for the visit model, with a separate verdict for covariates the model left out. Nonconvergence and missing weights stop the analysis unless you opt in.
+- **Inference that says what it covers.** Weighted IIW and IPTW fits default to a 999-draw subject-level bootstrap that refits the weight models in every draw; fixed-weight alternatives are available and labelled as ignoring weight-estimation uncertainty, and every fit records its status in `e(iivw_inference_status)`.
+- **Sampling versus measurement movement.** `iivw_exogtest` tests whether lagged outcomes predict the next visit, and `iivw_diagnose` splits the change in a coefficient into a sampling gap and a measurement-process gap across three stored models.
+- **Bootstraps split across processes.** `saving()` and `rngstream()` let several Stata processes draw one bootstrap, and `iivw_bspool` pools the shards through Stata's `bstat`.
 
 ## Requirements
 
@@ -141,7 +156,9 @@ iivw_exogtest y, id(id) time(time) maxfu(12) ///
 
 ### 5. Sampling movement versus measurement-process movement
 
-Store three comparable models for the coefficient of interest, then ask `iivw_diagnose` to report the sampling gap, artifact gap, and descriptive shares. Use `estimand(contrast)` when the coefficient is a treatment contrast; that reports movement but suppresses the share decomposition. Example 2 left FIPTIW weights stabilized on `treated`, and `iivw_fit` refuses to use them in models that omit `treated`, so the block first rebuilds the IIW weights from Example 1.
+Store three comparable models for the coefficient of interest, then ask `iivw_diagnose` to report the sampling gap, artifact gap, and descriptive shares. Use `estimand(contrast)` when the coefficient is a treatment contrast; that reports movement but suppresses the share decomposition.
+
+Recompute unstabilized IIW weights first: the FIPTIW weights from example 2 were stabilized on `treated`, which these three models leave out, and `iivw_fit` refuses a stabilized weight whose numerator the outcome model does not contain.
 
 ```stata
 iivw_weight, id(id) time(time) visit_cov(x) lagvars(y) maxfu(12) replace nolog
@@ -456,7 +473,7 @@ Weighted `model(mixed)` requires `experimentalmixed` because a single observatio
 
 ## QA
 
-QA suites and how to run them are documented in [qa/README.md](qa/README.md).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
@@ -464,6 +481,9 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - **4.3.6** (2026-10-09): Help References completed: Crump et al. (2009) and Hernán and Robins (2020) in `iivw_weight`, Rabe-Hesketh and Skrondal (2006) in `iivw_fit`, DOIs for Hertz-Picciotto and Rockhill (1997) and the IrregLong package; the `iivw_balance` note on what is and is not sourced is now its own section rather than part of References.
 - **4.3.5** (2026-10-06): Fixes from the 2026-10-05 audit. **Weighting:** the stale-score sweep deletes only columns this prefix owns; end of follow-up is compared exactly, so large time origins and tiny units no longer lose terminal risk intervals, and `maxfu()` keeps its exact value; a float `censor()` that matches the last visit only at float precision is moved onto that visit with a note, and refused when another subject's visit falls in the gap this would drop; treatment-model scores are zero outside the treatment model's sample, so stacked variance uses the full subject union; untrimmed component snapshots are bound by the weight signature; the weight signature no longer depends on `set processors`, so data weighted on one machine can be fitted on another. **Rerun `iivw_weight` once on data weighted by 4.3.4 or earlier:** stored weighting contracts fail the signature check until rebuilt, and data weighted with `scores` and treatment-model exclusions otherwise keeps the old stacked-variance subject loss. **Fit:** `e(sample)`, `e(N)` and clusters match the engine's sample; stacked intercept-only and `noconstant` fits work and the stacked Wald test uses the stacked variance; `family()`/`link()` are refused under `model(mixed)`; grouped-binomial responses are judged as successes/trials; offset, exposure, trials and residual `by()`/`t()` variables cannot be overwritten by generated columns; `predict` checks each generated design column against its stored expression (fits saved before 4.3.5 with generated design columns must be refit to predict, and `margins` at counterfactual raw-time values is refused after generated time columns); native mixed `predict` and `estat` work under `iivw_fit`; point-only linear predictions keep the offset. **Bootstrap and pooling:** auxiliary model inputs join the pooling identity; each shard's own counts are reconciled; an undefined percentile, basic or BCa endpoint is refused rather than posted as available, and a Wald interval with an undefined model variance is reported with a note; stale BCa results are cleared after pooling. **Diagnostics:** `iivw_exogtest` builds risk histories from the selected rows only and counts ties on each fitted sample; `iivw_balance` withholds its verdict under any Efron ties, bases `r(balance_flag)` on modeled covariates only, reports listed unmodeled covariates in a separate verdict `r(extra_flag)` (the misspecification check), and returns `r(target)` for every covariate; `iivw_balance` and `iivw_exogtest` share the weighting end-of-follow-up policy; `iivw_diagnose` distinguishes `xtreg` fe/be estimands and withholds decomposition in contrast mode. **Reporting:** worksheet names round-trip exactly, string cells are written verbatim, the `sheet()` limit is stated in UTF-8 bytes, and a malformed package version header is refused. Help text corrected for entry-only IIW, merged diagnostic cells, IPTW-only weights and bootstrap convergence.
 - **4.3.4** (2026-09-30): Preserve exact caller presence and opaque bytes of native `S_1` and `S_2` across `iivw_balance`, `iivw_weight` and `iivw_exogtest` success or refusal. Treat an already removed owned column as successful rollback instead of reporting false data corruption. Preserve quoted Excel font names through reporting option dispatch instead of silently replacing them with Arial.
+
+<details>
+<summary>Earlier versions</summary>
 
 - **4.3.3** (2026-09-30): `iivw_diagnose` preserves the caller’s variable order after inspecting stored estimates, including refusal after a stored estimate has been restored. Native estimate restoration can otherwise move existing sample-marker columns to the end of the data.
 
@@ -488,10 +508,16 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - **3.2.0** (2026-08-03): Constant outcomes now fail explicitly, follow-up and weight-contract documentation was corrected, and shipped help examples were repaired.
 - **3.1.0** (2026-07-25): Treatment-weight trimming uses subject-level percentiles, while visit and final-weight trimming retain their row-level definitions.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which iivw` and your Stata version.
+
+To cite: Copeland TP. *iivw: Inverse intensity weighting for irregular visit data*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/iivw. Please give the version you used (`which iivw` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

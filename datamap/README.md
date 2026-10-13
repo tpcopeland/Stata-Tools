@@ -1,17 +1,51 @@
-# datamap — Privacy-safe dataset maps and Markdown dictionaries
+<img src="../_resources/logos/datamap_hex.svg" align="right" width="150" alt="datamap hex logo">
+
+# datamap — Document and check data without exposing it
 
 **Version 1.10.1** | 2026-10-13
 
-`datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `dataprobe`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
+[![version](https://img.shields.io/badge/version-1.10.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`datamap` and its companion commands describe a dataset without exposing its rows: privacy-aware text or JSON maps, Markdown data dictionaries, console QC gates that stop a do-file when an expectation fails, a QA ledger of every gate run, and missing-value pattern tables. They are for analysts who must document or hand over data they cannot share.
 
 ## Quick Start
 
-This self-contained example runs after installation and writes a privacy-safe text map for Stata's example data.
+After [installing](#installation), write a Markdown data dictionary for Stata's `auto` data:
 
 ```stata
 sysuse auto, clear
-datamap, output(auto_map.txt)
+datadict, output(auto_dictionary.md) missing stats
 ```
+
+The dictionary's Variables table, as written to the file (frequency cells below the default `mincell(5)` are suppressed):
+
+| Variable | Label | Type | Missing | Statistics/Values |
+|---|---|---|---|---|
+| `make` | Make and model | String | 0 (0.0%) | N=74; 74 unique values |
+| `price` | Price | Numeric | 0 (0.0%) | N=74<br>Median=5,006; IQR=4,195-6,342<br>Mean=6,165 (SD=2,949)<br>Range=3,291-15,906 |
+| `mpg` | Mileage (mpg) | Numeric | 0 (0.0%) | Unique=21<br>12 (suppressed <5)<br>14 (6; 8.1%)<br>15 (suppressed <5)<br>16 (suppressed <5)<br>17 (suppressed <5)<br>18 (9; 12.2%)<br>19 (8; 10.8%)<br>20 (suppressed <5)<br>21 (5; 6.8%)<br>22 (5; 6.8%)<br>23 (suppressed <5)<br>24 (suppressed <5)<br>25 (5; 6.8%)<br>26 (suppressed <5)<br>28 (suppressed <5)<br>29 (suppressed <5)<br>30 (suppressed <5)<br>31 (suppressed <5)<br>34 (suppressed <5)<br>35 (suppressed <5)<br>41 (suppressed <5) |
+| `rep78` | Repair record 1978 | Numeric | 5 (6.8%) | Unique=5<br>1 (suppressed <5)<br>2 (suppressed, complementary)<br>3 (30; 43.5%)<br>4 (18; 26.1%)<br>5 (11; 15.9%) |
+| `headroom` | Headroom (in.) | Numeric | 0 (0.0%) | Unique=8<br>1.5 (suppressed <5)<br>2.0 (13; 17.6%)<br>2.5 (14; 18.9%)<br>3.0 (13; 17.6%)<br>3.5 (15; 20.3%)<br>4.0 (10; 13.5%)<br>4.5 (suppressed <5)<br>5.0 (suppressed <5) |
+| `trunk` | Trunk space (cu. ft.) | Numeric | 0 (0.0%) | Unique=18<br>5 (suppressed <5)<br>6 (suppressed <5)<br>7 (suppressed <5)<br>8 (5; 6.8%)<br>9 (suppressed <5)<br>10 (5; 6.8%)<br>11 (8; 10.8%)<br>12 (suppressed <5)<br>13 (suppressed <5)<br>14 (suppressed <5)<br>15 (5; 6.8%)<br>16 (12; 16.2%)<br>17 (8; 10.8%)<br>18 (suppressed <5)<br>20 (6; 8.1%)<br>21 (suppressed <5)<br>22 (suppressed <5)<br>23 (suppressed <5) |
+| `weight` | Weight (lbs.) | Numeric | 0 (0.0%) | N=74<br>Median=3,190; IQR=2,240-3,600<br>Mean=3,019 (SD=777)<br>Range=1,760-4,840 |
+| `length` | Length (in.) | Numeric | 0 (0.0%) | N=74<br>Median=192; IQR=170-204<br>Mean=188 (SD=22.27)<br>Range=142-233 |
+| `turn` | Turn circle (ft.) | Numeric | 0 (0.0%) | Unique=18<br>31 (suppressed <5)<br>32 (suppressed <5)<br>33 (suppressed <5)<br>34 (6; 8.1%)<br>35 (6; 8.1%)<br>36 (9; 12.2%)<br>37 (suppressed <5)<br>38 (suppressed <5)<br>39 (suppressed <5)<br>40 (6; 8.1%)<br>41 (suppressed <5)<br>42 (7; 9.5%)<br>43 (12; 16.2%)<br>44 (suppressed <5)<br>45 (suppressed <5)<br>46 (suppressed <5)<br>48 (suppressed <5)<br>51 (suppressed <5) |
+| `displacement` | Displacement (cu. in.) | Numeric | 0 (0.0%) | N=74<br>Median=196; IQR=119-250<br>Mean=197 (SD=91.84)<br>Range=79.00-425 |
+| `gear_ratio` | Gear ratio | Numeric | 0 (0.0%) | N=74<br>Median=2.96; IQR=2.73-3.37<br>Mean=3.01 (SD=0.456)<br>Range=2.19-3.89 |
+| `foreign` | Car origin | Numeric | 0 (0.0%) | Unique=2<br>0 Domestic (52; 70.3%)<br>1 Foreign (22; 29.7%) |
+
+<sub>Copied from `demo/datadict_auto.md`, written by `demo/demo_datamap.do` from a saved copy of `auto` through `single()`; the in-memory call above writes the same table, and only the file header above it differs.</sub>
+
+## Features
+
+- **Aggregate by default.** `datamap` and `datadict` write class-level summaries, suppress frequency cells below `mincell(5)`, and cap distinct-value counts at `uniqcap(1000)`; row-level sample values appear only when `samples()` asks for them, and `datesafe` withholds date values.
+- **Your data is left as found.** A successful in-memory run leaves the caller's observations, variables, sort order, labels, characteristics, and data signature unchanged; file-based routes (`single()`, `directory()`, `filelist()`) restore the data in memory.
+- **One classifier for every command.** `datamap`, `datadict`, and `dataprobe` classify variables the same way, with `exclude()`, class overrides, and a reusable `config()` file.
+- **Gates that stop a do-file.** `dataprobe` invariants such as `expectn()`, `isid()`, `inrange()`, and `rule()` exit with return code 9 when they fail; sanity `bands()` and `review()` items are kept apart so they can warn without halting.
+- **A record of every check.** `dataqa` keeps a ledger row per gate entry, `dataqa assert` halts when a gate failed or an expected dataset was never checked, and `dataqa export` refuses a release copy that shows a small cell.
+- **Missing-data patterns.** `datamvp` tabulates joint missingness, tests for monotone missingness, and draws bar, pattern, matrix, and correlation graphs; under `mincell()` or `maskrare` rare patterns are pooled.
 
 ## Requirements
 
@@ -376,13 +410,13 @@ The help files document the complete stored-result contracts. The following tabl
 
 ## QA
 
-QA suites and how to run them are documented in [qa/README.md](qa/README.md).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
 ### 1.10.1 (2026-10-13)
 
-- `datadict` no longer prints a stray space in the heading and table-of-contents entry of a dataset whose file name begins with an underscore (`_demo_cohort.dta` gave `## 1.  Demo Cohort` and anchor `#1--demo-cohort`; now `## 1. Demo Cohort` and `#1-demo-cohort`).
+- `datadict` no longer prints a stray space in the heading and table-of-contents entry of a dataset whose file name begins with an underscore (`_demo_cohort.dta` gave `## 1.` followed by two spaces and `Demo Cohort`, with anchor `#1--demo-cohort`; now `## 1. Demo Cohort` and `#1-demo-cohort`).
 
 ### 1.10.0 (2026-10-12)
 
@@ -406,6 +440,9 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 ### 1.9.2 (2026-10-05)
 
 - `help datamap` opens with a Package commands section linking the help files for `datadict`, `datacheck`, `dataqa`, and `datamvp`.
+
+<details>
+<summary>Earlier versions</summary>
 
 ### 1.9.1 (2026-10-04)
 
@@ -545,10 +582,16 @@ Added shared classifier overrides, project `config()`, metadata exports, and `da
 
 Fixed floating-point formatting in text output, summaries, detection, missingness, and sample rows.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which datamap` and your Stata version.
+
+To cite: Copeland TP. *datamap: Document and check data without exposing it*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/datamap. Please give the version you used (`which datamap` prints it).
+
 ## License
 
-MIT (see the repository [LICENSE](../LICENSE))
+MIT (see [LICENSE](../LICENSE))

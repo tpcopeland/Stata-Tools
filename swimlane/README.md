@@ -1,25 +1,58 @@
+<img src="../_resources/logos/swimlane_hex.svg" align="right" width="150" alt="swimlane hex logo">
+
 # swimlane — Swimmer and state swimlane plots
 
 **Version 0.2.0** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-0.2.0-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Key Options](#key-options)** · **[Demo](#demo)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `swimlane` draws swimmer and state swimlane plots for clinical and longitudinal data. It accepts wide subject-level, long interval, or `stset` input and can also write the canonical lane table.
 
 ## Quick Start
 
-Create one lane per subject with duration bars, event markers, and arrows for ongoing subjects:
+After [installing](#installation), draw a swimmer plot for a small synthetic oncology trial: one bar per patient coloured by arm, event markers, duration labels, and arrows for patients still on treatment.
 
 ```stata
 clear
-input id duration response progression ongoing
-1 140 30 120 1
-2  60 20   . 0
-3  30  .  25 0
-4 200 80 150 1
+input long subject_id str8 display_id byte arm double duration double response double progression double death byte ongoing
+1001 "PT-001" 1 220  40   .   . 1
+1002 "PT-002" 1 180  35 170   . 0
+1003 "PT-003" 1 145  50 120   . 1
+1004 "PT-004" 1 130   .   . 130 0
+1005 "PT-005" 1 112  31  95   . 0
+1006 "PT-006" 1  88   .  72   . 0
+2001 "PT-007" 2 160  28 130   . 1
+2002 "PT-008" 2 118  18  82   . 0
+2003 "PT-009" 2  92  22   .   . 1
+2004 "PT-010" 2  75   .   .  75 0
+2005 "PT-011" 2  55   .  48   . 0
+2006 "PT-012" 2  42  16   .   . 0
 end
+label define treatment_arm 1 "Standard" 2 "Experimental"
+label values arm treatment_arm
 
-swimlane, id(id) duration(duration) events(response progression) ///
-    eventlabels("Response" "Progression") ongoing(ongoing)
+swimlane, id(subject_id) idlabel(display_id) duration(duration) ///
+    events(response progression death) ///
+    eventlabels("Response" "Progression" "Death") ongoing(ongoing) ///
+    colorby(arm) palette(colorblind) barlabel(duration) ///
+    xtitle("Days from enrollment") legend(pos(6) cols(3) holes(3)) ///
+    scheme(modern)
 ```
+
+<p align="center"><img src="demo/swimmer_oncology.png" width="720" alt="Oncology swimmer plot: twelve patients sorted by follow-up, bars coloured Standard or Experimental, response triangles, progression diamonds, death dots, arrows on ongoing bars, and the duration printed at each bar tip"></p>
+
+<sub>Drawn by `demo/demo_swimlane.do`, which also adds `title("Oncology swimmer plot")`, variable labels, and the `savedata()`, `export()`, and `name()` options.</sub>
+
+## Features
+
+- **Three input shapes, one command.** Wide one-row-per-subject data, long interval rows, or `stset` data; `mode(auto)` picks swimmer or state mode from whether `state()` is given.
+- **Coordinates are never repaired.** State intervals are audited for gaps and overlaps and reported (`intervalcheck(warn)` by default), and events outside a subject's observed span are counted in `r(N_events_outside)` rather than clipped.
+- **Readable at 1,000 subjects.** `density(dense)` switches to thin lines, minimal markers, and capped continuations; `laneheight()` sizes the graph physically, and `r(points_per_lane)` with `r(readability_warning)` says when lanes get too thin to see.
+- **Two grouping dimensions.** `blockby()` splits lanes into labelled blocks while `colorby()` colours bars by a second variable; `by()` facets with an aligned or compact lane grid.
+- **Private identifiers stay private.** `idlabel()` prints a display alias while `id()` stays the analytic key.
+- **The data behind the plot.** `savedata()` and `frame()` write the canonical lane table (`.csv`, `.md`, `.dta`, or a frame), `nograph` builds it without drawing, and `addplot()` layers your own `twoway` plots on its variables.
 
 ## Requirements
 
@@ -154,7 +187,7 @@ stset t, failure(d) id(id)
 swimlane, id(id) censor
 ```
 
-## High-density cookbook
+### 6. High-density cookbook
 
 Generate one deterministic large-N fixture, then compare the backward-compatible 60-subject view with physically sized 250- and 1,000-subject output:
 
@@ -195,7 +228,7 @@ swimlane if id <= 250, id(id) duration(duration) density(dense) ///
     by(page) bylayout(compact) idlabels(none) ysize(12)
 ```
 
-### Overview, inspect, drill down, and paginate
+### 7. Overview, inspect, drill down, and paginate
 
 Build the population overview once, link the exported global rank back to the subject data, inspect any rank range, and rerun labelled pages under that fixed order:
 
@@ -228,7 +261,7 @@ forvalues p = 1/20 {
 
 For long source data, use `frlink m:1 id` because each subject has multiple source rows. The initial global rank, not a newly inferred order, then governs the drill-down and every page.
 
-### Sorting recipes
+### 8. Sorting recipes
 
 Every recipe below states missing-value placement explicitly.
 
@@ -438,6 +471,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which swimlane` and your Stata version.
+
+To cite: Copeland TP. *swimlane: Swimmer and state swimlane plots*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/swimlane. Please give the version you used (`which swimlane` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

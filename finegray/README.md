@@ -1,30 +1,39 @@
+<img src="../_resources/logos/finegray_hex.svg" align="right" width="150" alt="finegray hex logo">
+
 # finegray — Fast Fine-Gray competing-risks regression
 
 **Version 1.3.8** | 2026-10-12
 
-`finegray` fits Fine-Gray subdistribution hazard models for a selected competing event in Stata 16 or later. The package also provides individual prediction, cumulative-incidence profiles and curves, proportional-hazards diagnostics, delayed-entry support, a stratified baseline subdistribution hazard, piecewise-constant time-varying effects, sampling (`pweight`) and frequency weights, and optional bootstrap confidence intervals for cumulative-incidence quantities.
+[![version](https://img.shields.io/badge/version-1.3.8-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Options](#options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`finegray` fits Fine-Gray subdistribution hazard models for one event type in the presence of competing events, then turns the fit into cumulative incidence for a covariate profile, a group, or each observation. It handles delayed entry, stratified baselines, piecewise time-varying effects, and sampling weights, working on `stset` data without expanding it.
 
 ## Quick Start
 
-After installation, fit a model and request cumulative incidence at selected horizons:
+After [installing](#installation), model local relapse (`failtype == 1`) in Stata's `hypoxia` data, with distant relapse as the competing event, and draw the cumulative incidence at the covariate means with a 95% band:
 
 ```stata
 webuse hypoxia, clear
 gen byte status = failtype
-stset dftime, failure(dfcens == 1) id(stnum)
-
+stset dftime, failure(dfcens==1) id(stnum)
 finegray ifp tumsize pelnode, compete(status) cause(1)
-finegray_cif, attime(1 5 8) ci
+finegray_cif, ci ylabel(0(0.1)0.5) yscale(range(0 0.5))
 ```
 
-The selected event is `cause(1)` in `status`; `status == 0` is treated as censored by default. The fitted model uses the declared `stset` analysis time and subject identifier.
+<p align="center"><img src="demo/finegray_cif.png" width="720" alt="Fine-Gray cumulative incidence of local relapse over eight years at the covariate means: a dashed step curve rising from about 0.11 to 0.30, inside a shaded pointwise 95% confidence band"></p>
 
-Use `finegray_predict` for observation-level predictions and `finegray_phtest` for a proportional-hazards diagnostic:
+<sub>Drawn by `demo/demo_finegray.do`, which also sets Stata's `sj` scheme with a white graph region and an unboxed legend, and adds `title()`, `ytitle()`, and `xtitle("Analysis time (years)")`.</sub>
 
-```stata
-finegray_predict double cif_hat, cif
-finegray_phtest, time(log)
-```
+## Features
+
+- **Subdistribution hazard ratios on the original rows.** The Fine and Gray (1999) model is fitted by a native Mata scan of the `stset` records; no pseudo-observations or expanded data are created.
+- **Absolute risk, not just ratios.** `finegray_cif` reports cumulative incidence at chosen horizons or as a curve, for a covariate profile (`at()`) or one curve per group (`over()`), with analytic influence-function or bootstrap intervals; `finegray_predict` does the same per observation.
+- **A variance you can name.** The default is a fixed-weight sandwich; `nuisance` adds the censoring-weight (psi) term of Fine and Gray (1999) eq. 7-8, which is the variance `stcrreg` reports; `cluster()` gives the Zhou et al. (2012) cluster-robust form, and every fit records its choice in `e(vce_meat)`.
+- **Beyond right censoring.** Delayed entry with stratified entry and censoring weights (Zhang, Zhang and Fine 2011), a stratified baseline subdistribution hazard (`bstrata()`, Zhou et al. 2011), piecewise-constant effects (`tvc()`), `pweight` and `fweight`, and `mi estimate`.
+- **Works with Stata's postestimation.** Factor variables and interactions post `e(b)` and `e(V)` the way `stcox` does, so `test`, `margins`, `contrast`, and `estimates table` address them directly.
+- **Refuses what it cannot justify.** Covariates that vary within subject, and combinations with no published or derived variance, stop with `r(198)` and a reason instead of returning a number.
 
 ## Requirements
 
@@ -72,7 +81,7 @@ For delayed entry, declare `enter(time ...)` in `stset` and fit with the package
 
 Three different things are called strata here, and they are three separate options. `bstrata(varname)` stratifies the **baseline** subdistribution hazard — the stratified model of Zhou, Latouche, Rocha and Fine (2011), one unconstrained baseline per level with the coefficient vector shared, and the only one of the three that means what `stcox, strata()` means. `strata()` stratifies the censoring distribution, `truncstrata()` the entry distribution. The axes are independent and compose; `bstrata(v) strata(v)` is the paper's regularly stratified regime. `bstrata()` is right-censoring only and is refused with delayed entry, and it requires `bstratum(#)` when asking `finegray_cif` for a curve.
 
-## Performance
+### Performance
 
 There are three ways to fit a Fine-Gray model in Stata: `finegray`, Stata's built-in `stcrreg`, and `stcrprep` (Lambert, SSC) followed by a weighted `stcox`. `stcrreg` forms the weighted risk sets internally at every iteration; `stcrprep` expands the data once with time-dependent censoring weights and hands the expanded rows to `stcox`; `finegray` scans the original rows in Mata and expands nothing.
 
@@ -99,9 +108,9 @@ A `tvc()` fit runs the same scan once per interval, so it costs roughly `J` time
 
 The ratio is flat across a 25-fold change in `N`, which is the point: the piecewise fit is still linear in the original rows and still expands nothing.
 
-Absolute seconds are machine-dependent; the ratios are the portable quantity. All three commands fit the same model — the benchmark scripts print the maximum relative coefficient difference across the three fits alongside the timings (4.6e-11 on `hypoxia`, 1.3e-08 to 3.2e-08 across the simulated sizes). Methodology, the on-demand `stcrprep` install, and how to reproduce the table: [`demo/README.md`](demo/README.md).
+Absolute seconds are machine-dependent; the ratios are the portable quantity. All three commands fit the same model; the benchmark scripts print the maximum relative coefficient difference across the three fits alongside the timings. Methodology, the on-demand `stcrprep` install, and how to reproduce the table: [`demo/README.md`](demo/README.md).
 
-## Which Standard Error Am I Getting?
+### Which standard error am I getting?
 
 One table, and one machine-readable counterpart per row: `e(vce_meat)` for the coefficients, `r(se_method)` for a CIF interval.
 
@@ -125,9 +134,9 @@ One table, and one machine-readable counterpart per row: `e(vce_meat)` for the c
 | `[pweight=]` `norobust` | **refused**, `r(198)` | — |
 | `[fweight=]` | replication semantics: meat Σ w_i s_i s_i', N = Σ w; `norobust` allowed | `fixed_weight` |
 
-`stcrreg`'s variance is the `nuisance` row, not the default: its scores are eta+psi ([ST] stcrreg, Methods and formulas), and `finegray, nuisance` reproduces its `e(V)` to numerical precision on untied right-censored data. The default fixed-weight `e(V)` differs from `stcrreg`'s by the psi terms; on the package's fixtures the standard errors agree to three or four significant figures.
+`stcrreg`'s variance is the `nuisance` row, not the default: its scores are eta+psi ([ST] stcrreg, Methods and formulas), and `finegray, nuisance` reproduces its `e(V)` to numerical precision on untied right-censored data. The default fixed-weight `e(V)` differs from `stcrreg`'s by the psi terms.
 
-How far apart the two variances are depends on whether you average over many datasets or look at one. A simulation built to separate them used censoring rates differing tenfold between covariate groups with a stratified G and 48 percent competing events (n = 300 and 1000), delayed entry with heavy ties, and ten small `bstrata()` strata, 500 replications each. On average the default and `nuisance` standard errors differed by less than 0.6 percent, and their 95 percent coverage by at most 0.002 (one replication in 500). On a single dataset the gap is larger: the two standard errors from the same fit differed by up to 3.1 percent (mean 0.2 percent). On 80 simulated right-censored datasets without strata, the default standard errors were within 0.11 percent of `stcrreg`'s, but individual covariance elements differed by up to 8.9 percent. The fixed-weight variance omits the psi term, so it approximates Fine and Gray's variance. Use `nuisance` when you want the eta+psi variance and the design allows it.
+How far apart the default and `nuisance` variances are, on average and on a single dataset, is reported from simulation in `help finegray_methods`. The fixed-weight variance omits the psi term, so it approximates Fine and Gray's variance. Use `nuisance` when you want the eta+psi variance and the design allows it.
 
 **CIF intervals** — `finegray_cif`, `finegray_predict`:
 
@@ -644,6 +653,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.3.8** (2026-10-07)  ***Pending SSC revision***: pweights rescaled to mean one internally, so results no longer depend on the weight scale; pooled delayed-entry fits outside the positivity domain refused; postestimation checks a digest of the fitting data (estimates from 1.3.7 or earlier must be refit for CIF CIs, Schoenfeld residuals, and `finegray_phtest`); literal `attime()`/`timepoints()` horizons kept exact alongside ranges; prediction accepts all fit-time factor levels; weighted `finegray_cif` works after `mata clear` or `estimates use`; positive delayed-entry probabilities are retained; inactive extreme weights no longer distort risk arithmetic or convergence; postestimation uses the weight column it reconciles; TVC interval masses are preserved separately; tiny CIFs, finite hazard products and extreme cloglog endpoints use stable arithmetic. Methods help cites Austin, Latouche and Fine (2020) and Poguntke et al. (2018) for the time-varying-covariate limitation; help and README no longer point at QA files, which `net install` does not deliver.
 - **1.3.7** (2026-09-29): `e(vcetype)` posted; censoring-floor note counts only weights that read a floored G(t-); factor terms with a base level (`i.grp#c.x`, `i.a#i.b`) now estimated as `stcox` does; `margins` on interaction-only fits fixed; labels containing `$` or backticks carried verbatim; `finegray_cif` gains `plotopts()`/`ciopts()` styling, exact event-time grids, and cleaner `over()` legends; `tsplit()` boundaries kept exact with ranges.
 - **1.3.6** (2026-09-14): `tsplit()` boundaries kept at full precision (were rounded to 9 significant digits); methods help no longer equates the default variance with `stcrreg`'s (that is `nuisance`).
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.3.5** (2026-09-13): Delayed-entry weights fixed for event/censoring ties and observation gaps; `e(refitcmd)` stores the fit-time factor expansion; bootstrap and string-literal weight fixes.
 - **1.3.4** (2026-09-13): Stratified delayed-entry normalizer estimated on the identifiable region; `e(N_lt_prehole)` added.
 - **1.3.3** (2026-09-12): Stratified delayed-entry weight gains the per-stratum normalizer; `nuisance` psi term under `strata()` corrected; `finegray_cif` no longer extends a flat tail past the `timepoints()` grid.
@@ -654,10 +667,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.1.0** (2026-07-10): CIF curves, multiple-record support, stratified censoring, postestimation confidence intervals.
 - **1.0.0** (2026-04-06): ***First SSC Release***.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which finegray` and your Stata version.
+
+To cite: Copeland TP. *finegray: Fast Fine-Gray competing-risks regression*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/finegray. Please give the version you used (`which finegray` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

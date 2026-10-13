@@ -1,44 +1,66 @@
-# tvtools — Time-varying exposure workflow for survival analysis
+<img src="../_resources/logos/tvtools_hex.svg" align="right" width="150" alt="tvtools hex logo">
+
+# tvtools — Time-varying exposure data for survival analysis
 
 **Version 1.18.2** | 2026-10-13
+
+[![version](https://img.shields.io/badge/version-1.18.2-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Commands](#commands)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
 ## Quick Start
 
-This complete example creates its own cohort and episode data, so it runs after installation from any working directory.
+After [installing](#installation), turn raw dispensing records into exposure intervals and draw them for the first 12 people. The block simulates a 200-person cohort with SSRI and SNRI dispensings, exactly as the demo does:
 
 ```stata
 clear
-input long id study_entry study_exit
-1 21915 22280
-2 21915 22280
-end
-format study_entry study_exit %td
+set seed 20260629
+set obs 200
+generate long id = _n
+generate int study_entry = mdy(1, 1, 2015) + int(runiform() * 365)
+generate int study_exit = study_entry + 365 + int(runiform() * 1460)
+format study_entry study_exit %tdCCYY/NN/DD
+generate byte female = rbinomial(1, 0.55)
+generate double age = 40 + int(runiform() * 30)
 tempfile cohort episodes
 save `cohort'
 
-clear
-input long id rx_start rx_stop byte rx_class
-1 21919 21965 1
-1 22024 22069 2
-2 22100 22151 1
-end
+* Raw dispensing records: up to four episodes per person, SSRI or SNRI
+expand 1 + int(runiform() * 4)
+bysort id: generate int seq = _n
+bysort id: generate int duration = 60 + int(runiform() * 300)
+bysort id: generate int rx_start = study_entry if seq == 1
+bysort id: replace rx_start = rx_start[_n-1] + duration[_n-1] + 1 + int(runiform() * 60) if seq > 1
+generate int rx_stop = rx_start + duration
+format rx_start rx_stop %tdCCYY/NN/DD
+generate double p_exposed = invlogit(-1 + 0.02 * age + 0.3 * female)
+generate byte drug = 0
+replace drug = 1 + int(runiform() * 2) if runiform() < p_exposed
+label define drug_lbl 0 "Unexposed" 1 "SSRI" 2 "SNRI"
+label values drug drug_lbl
+drop if drug == 0
+keep id rx_start rx_stop drug
 save `episodes'
 
 use `cohort', clear
-tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
-    start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
-    generate(tv_drug) frameout(analysis) replace
-frame analysis: tvdiagnose, id(id) start(start) stop(stop) ///
-    entry(study_entry) exit(study_exit) all
-frame change analysis
-generate byte _failure = 0
-generate double analysis_t0 = start - 1
-stset stop, id(id) failure(_failure) time0(analysis_t0)
+tvexpose using `episodes', id(id) start(rx_start) stop(rx_stop) exposure(drug) reference(0) entry(study_entry) exit(study_exit) keepdates
+tvdiagnose, id(id) start(rx_start) stop(rx_stop) exposure(tv_drug) swimlane maxids(12)
 ```
 
-`tvbuild` leaves the person-level master unchanged, commits the interval result in frame `analysis`, and creates `analysis_manifest` unless `nomanifest` is specified. The subtraction of one day maps the package’s closed `[start, stop]` intervals to Stata’s open-left survival-time convention.
+<p align="center"><img src="demo/swimlane_plot.png" width="720" alt="Exposure swimlane for 12 people: one horizontal lane per person across 2015 to 2019, coloured by period as Unexposed, SSRI, or SNRI, with each lane running from study entry to study exit"></p>
+
+<sub>Drawn by `demo/demo_tvtools.do`, which also sets the `white_tableau` scheme, creates a `dob` variable in the cohort, and writes the episodes to a named file instead of a tempfile.</sub>
+
+## Features
+
+- **Every day of follow-up accounted for.** Intervals are closed, inclusive Stata daily dates, `[start, stop]`, that tile each person's follow-up with the reference category filling uncovered time; `stset` maps them with `time0(start - 1)`.
+- **One validated call, or every step in view.** `tvbuild` preflights the plan, builds through the same engines as the primitives, and commits the output frame and a provenance manifest as one transaction; `dryrun` validates without committing. `tvexpose` → `tvmerge` → `tvevent` keeps each decision separate.
+- **Identifiers are never guessed.** Source and master IDs must agree in name and storage type; commands never pad, recast, or silently remap them.
+- **Quantities that add up.** `rate()`, `total()`, and `cumulative()` variables follow their own rules when intervals are split, so totals are apportioned by inclusive days and still sum to the source.
+- **Lost person-time is reported.** `tvmerge` counts days present in some inputs but not all in `r(n_persontime_lost)`, and `tvage` counts persons dropped outside `minage()`/`maxage()` in `r(n_persons_dropped)`.
+- **Diagnostics and weights in the same suite.** `tvdiagnose` reports coverage, gaps, overlaps, and exposure summaries and draws swimlanes; `tvweight` estimates IPTW and IPCW weights with balance, effective sample size, and positivity diagnostics.
 
 ## Requirements
 
@@ -103,7 +125,43 @@ Every interval in the construction commands is a closed, inclusive interval of i
 
 ## Worked Examples
 
-The setup block below creates reusable tempfiles for the examples. Run it once in the same Stata session before copying any one of the workflow blocks. It also returns to the default frame and drops the `analysis` frames left by the Quick Start, so the examples can follow it in the same session.
+### 1. From cohort to `stset` in one `tvbuild` call
+
+This complete example creates its own cohort and episode data, so it runs after installation from any working directory without the setup block.
+
+```stata
+clear
+input long id study_entry study_exit
+1 21915 22280
+2 21915 22280
+end
+format study_entry study_exit %td
+tempfile cohort episodes
+save `cohort'
+
+clear
+input long id rx_start rx_stop byte rx_class
+1 21919 21965 1
+1 22024 22069 2
+2 22100 22151 1
+end
+save `episodes'
+
+use `cohort', clear
+tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) ///
+    start(rx_start) stop(rx_stop) exposure(rx_class) reference(0) ///
+    generate(tv_drug) frameout(analysis) replace
+frame analysis: tvdiagnose, id(id) start(start) stop(stop) ///
+    entry(study_entry) exit(study_exit) all
+frame change analysis
+generate byte _failure = 0
+generate double analysis_t0 = start - 1
+stset stop, id(id) failure(_failure) time0(analysis_t0)
+```
+
+`tvbuild` leaves the person-level master unchanged, commits the interval result in frame `analysis`, and creates `analysis_manifest` unless `nomanifest` is specified. The subtraction of one day maps the package’s closed `[start, stop]` intervals to Stata’s open-left survival-time convention.
+
+Example 1 is self-contained. The setup block below creates reusable tempfiles for examples 2 to 8; run it once in the same Stata session before copying any one of those blocks. The setup block also returns to the default frame and drops the `analysis` frames left by example 1, so the later examples can follow it in the same session.
 
 ```stata
 frame change default
@@ -156,7 +214,7 @@ end
 save `recurrent'
 ```
 
-### 1. Plan and commit with `tvbuild`
+### 2. Plan and commit with `tvbuild`
 
 `dryrun` validates the plan and changes nothing; the second call commits the same plan to a named frame and manifest.
 
@@ -171,7 +229,7 @@ tvbuild, sourceusing(`"`episodes'"') id(id) entry(study_entry) exit(study_exit) 
 frame provenance: list stage source_name n_input n_output, noobs
 ```
 
-### 2. Describe multiple sources with `tvspec`
+### 3. Describe multiple sources with `tvspec`
 
 `tvspec` appends one typed row per source and preserves row order; `tvbuild` applies the cross-source rules and performs the build.
 
@@ -187,7 +245,7 @@ tvbuild, specframe(build_spec) id(id) entry(study_entry) exit(study_exit) ///
     frameout(analysis) manifestframe(provenance) replace
 ```
 
-### 3. Keep a primitive workflow in frames
+### 4. Keep a primitive workflow in frames
 
 `frameout()` leaves the caller’s data intact, and `frames()` lets `tvmerge` consume named intermediate results without save/use round trips.
 
@@ -205,7 +263,7 @@ use `events', clear
 tvevent, frame(f_merged) id(id) date(event_date) compete(death_date) generate(_failure)
 ```
 
-### 4. Track dose history on a regular exposure scale
+### 5. Track dose history on a regular exposure scale
 
 In dose mode, `exposure()` is the amount, `reference()` defaults to zero, and cumulative history is measured at the start of each output row.
 
@@ -233,7 +291,7 @@ tvexpose using `"`dose_episodes'"', id(id) start(rx_start) stop(rx_stop) ///
 tvdiagnose, id(id) start(rx_start) stop(rx_stop) exposure(cum_dose) summarize
 ```
 
-### 5. Format recurrent events
+### 6. Format recurrent events
 
 For a wide event stub such as `hosp1`, `hosp2`, and so on, `type(recurring)` creates the event-sequence stratum and `gaptime` adds a reset clock.
 
@@ -253,7 +311,7 @@ tvevent using `recurrent_intervals', id(id) date(hosp) type(recurring) ///
     gaptime gapstart(t0) gapstop(t) timegen(tstop) timeunit(days)
 ```
 
-### 6. Build an MSM panel and estimate weights
+### 7. Build an MSM panel and estimate weights
 
 `tvpanel` emits every entry-anchored period, including reference periods, and `tvweight` can use its period index for a stabilized treatment model.
 
@@ -284,7 +342,7 @@ tvweight tv_class, covariates(age female) id(id) time(period) ///
     stabilized generate(iptw) nolog
 ```
 
-### 7. Split one interval on several time axes
+### 8. Split one interval on several time axes
 
 `tvsplit` accepts one or more axes and carries the other variables onto every resulting row. Variables tagged as interval totals (for example `tvmerge, total()` output) are apportioned by inclusive days instead, so the pieces sum to the source total (a band dropped by `min()` or `max()` takes its share with it); rates and row-start cumulative histories are copied unchanged.
 
@@ -310,9 +368,20 @@ local demo_dir "/path/to/checked-out/tvtools/demo"
 do "`demo_dir'/demo_tvtools.do" "`demo_dir'"
 ```
 
-![Covariate balance love plot](demo/balance_loveplot.png)
+| Output | Command focus |
+|--------|---------------|
+| ![Exposure swimlane: 12 people's follow-up as horizontal lanes coloured Unexposed, SSRI, or SNRI](demo/swimlane_plot.png) | `tvexpose`, then `tvdiagnose, swimlane maxids(12)` |
+| ![Covariate balance love plot: standardized mean differences for age, female, and biomarker before and after weighting](demo/balance_loveplot.png) | `tvweight, ipcw() stabilized balance loveplot` |
 
-![Exposure swimlane plot](demo/swimlane_plot.png)
+Console reports from the same script, converted to Markdown with `logdoc`:
+
+| File | What it shows |
+|------|---------------|
+| [console_primitives.md](demo/console_primitives.md) | `tvexpose` to frames, `tvdiagnose`, `tvmerge`, and `tvevent` without save/use round trips |
+| [console_tvbuild.md](demo/console_tvbuild.md) | The same construction as one `tvbuild` call, with `tvspec`, `dryrun`, the manifest, and a `cf` check against the primitive route |
+| [console_msm.md](demo/console_msm.md) | `tvweight` with IPTW × IPCW, balance, and positivity diagnostics |
+| [console_recurrent.md](demo/console_recurrent.md) | `tvevent, type(recurring)` with an event-sequence stratum and gap-time clock |
+| [console_multigroup.md](demo/console_multigroup.md) | Multinomial `tvweight` and `tvage` age bands |
 
 ## Command Reference
 
@@ -506,6 +575,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 - Help References give DOIs in the standard `doi:` form.
 
+<details>
+<summary>Earlier versions</summary>
+
 ### 1.17.7 (2026-10-01)
 
 - `tvexpose, priority()` now assigns the highest-priority active exposure on every day and resumes a lower-priority exposure after a higher-priority one ends. Previously those resumed days were reported as the reference category at rc 0, and two overlapping same-value episodes with a different value starting between them failed with r(498). `priority()` now uses the same single boundary sweep as `layer` instead of an iterative pairwise resolver. Overlapping exposure values that `priority()` does not rank still exit with r(498), now with a message naming the cause. A value listed twice in `priority()` now exits with r(198); previously the later listing silently set its rank, so `priority(2 1 2)` ranked 1 above 2.
@@ -566,10 +638,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.1** (2026-06-15): Fixed suppressed parser errors, event reshaping bookkeeping, option aliases, and author metadata.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which tvtools` and your Stata version.
+
+To cite: Copeland TP. *tvtools: Time-varying exposure data for survival analysis*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools. Please give the version you used (`which tvtools` prints it).
+
 ## License
 
-MIT License. See [LICENSE](../LICENSE).
+MIT (see [LICENSE](../LICENSE))

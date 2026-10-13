@@ -1,18 +1,37 @@
-# kmplot — Publication-ready Kaplan-Meier survival and cumulative failure plots
+<img src="../_resources/logos/kmplot_hex.svg" align="right" width="150" alt="kmplot hex logo">
+
+# kmplot — Kaplan-Meier curves with risk tables
 
 **Version 1.4.3** | 2026-10-13
 
-`kmplot` creates publication-ready Kaplan-Meier survival or cumulative failure plots for Stata users who need confidence intervals, risk tables, fixed-time estimates, and reusable graph data in one workflow. It uses the current `stset` definition, returns optional risk-table and landmark summaries plus plot metadata in `r()`, and can save curve data with `saving()`.
+[![version](https://img.shields.io/badge/version-1.4.3-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Options](#options)** · **[Gallery](#gallery)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`kmplot` draws Kaplan-Meier survival or cumulative failure curves from `stset` data, with confidence bands, a number-at-risk table, medians, and a log-rank p-value in one command. It returns the risk table, landmark estimates, and plot metadata in `r()`, and can save the curve data for reuse.
 
 ## Quick Start
 
-Use the built-in cancer data to draw stratified survival curves with 95% confidence bands and a number-at-risk table:
+After [installing](#installation), draw a publication-style figure from Stata's own cancer trial data (the `label define` line names the two active drugs, which `cancer.dta` labels "Other" and "NA"):
 
 ```stata
 sysuse cancer, clear
+label define type 2 "Drug A" 3 "Drug B", modify
 stset studytime, failure(died)
-kmplot, by(drug) ci risktable
+kmplot, by(drug) ci median medianannotate pvalue censor risktable riskevents timepoints(0 5 10 15 20 25 30 35)
 ```
+
+<p align="center"><img src="demo/km_publication.png" width="720" alt="Survival by treatment in the cancer data: three Kaplan-Meier curves with shaded confidence bands, censor marks, dashed median lines, a log-rank p-value, and a number-at-risk table with cumulative events below the time axis"></p>
+
+<sub>Drawn by `demo/demo_kmplot.do`, which also sets the `white_tableau` scheme and adds `title()`, `subtitle()`, and `xtitle("Time (months)")`.</sub>
+
+## Features
+
+- **Risk tables that line up.** The number-at-risk table shares the plot's time axis, and its counts honour delayed entry, active `stset` weights, and multiple-record data.
+- **Colour-blind-safe by default.** Curves use the Okabe-Ito palette, chosen to stay distinguishable under simulated red-green colour-vision deficiency for up to five groups; `colors()` takes Stata colour names or quoted RGB triplets.
+- **The numbers behind the picture.** `median`, `landmark()`, and `pvalue` add median lines, fixed-time estimates, and the log-rank p-value, and store them in `r(medians)`, `r(landmarks)`, and `r(p)`.
+- **Follows `sts` conventions.** Greenwood standard errors with log-log (default), log, or plain intervals; bounds are missing where the estimate is exactly 1 or 0, as in `sts list`.
+- **Reusable output.** `saving()` and `risksaving()` write the curve and risk-table datasets; `export()` writes the graph to PDF, PNG, EPS, or SVG.
 
 ## Requirements
 
@@ -282,6 +301,10 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.4.3** (2026-10-13): `medianannotate` with `by()` now reads `Median: Placebo: 8; Drug A: 22; Drug B: 33` (groups that never reach the median show `NR`) instead of the unlabelled `Placebo: 8  Drug A: 22  Drug B: 33`; a single curve still reads `Median: x`. A `by()` value label containing a double quote no longer stops the run with r(198) at the console summary.
 - **1.4.2** (2026-10-12): The default `pvaluepos(bottomright)` p-value text no longer sits on or under the time axis (it was anchored at y = 0.02 and drawn below that point, so a risk-table layout struck it through with the axis line). Every `pvaluepos()` keyword now anchors the text 5% inside the drawn y range, taken from the plotted curves, bands, and median lines plus any numeric `ylabel()` list, so a custom `ylabel()` such as `ylabel(0(.2).6)` no longer drops the top positions off the axis, where Stata did not draw them. `r(pvalue_y)` and `r(pvalue_x)` now hold the coordinates used for every position, not only `pvalueat()`, and the new `r(pvalue_placement)` holds the placement.
 - **1.4.1** (2026-10-12): Confidence bands and CI lines no longer stop one interval early where a curve reaches 0 (1 with `failure`); as in `sts graph, ci`, they carry the last bounds to the time the curve ends, while returned and saved bounds stay missing there. `riskheight()` now requires `risktable` (it had no effect with `risksaving()` alone), and `r(riskheight)` is stored only when a risk table is drawn. The help file documents the fixed `< 0.001` p-value floor and that `r(lpattern)` holds the supplied pattern list, if any.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **1.4.0** (2026-10-12): Default colors are now the Okabe-Ito palette, which stays distinguishable under simulated red-green color-vision deficiency (the previous default put cranberry and forest green next to each other); quoted RGB colors now work in `colors()`. `level()` defaults to `c(level)` and follows Stata's 10–99.99 rule. Fractional weighted risk-table counts are printed to one decimal place. Confidence bounds are missing wherever the estimate is exactly 1 or 0, under every transform, as in `sts list`. Added `medianformat()`, with a `%9.0g` default replacing the fixed `%6.1f`. Medians on tied data now match `stci` and R `survival`: where the curve is exactly 0.5 but stored a rounding error above it, 1.3.1 reported the next event time instead of the start of that plateau. Saved standard errors are missing where the estimate has reached 0, as in `sts list`, and an opacity given in `colors()` no longer disables the confidence-band colour. The help file gains a References section and a runnable delayed-entry example.
 - **1.3.1** (2026-09-30): Preserve continuous-time landmark/risk requests and shaded-band coordinates; limit landmarks to supported follow-up unless survival reaches zero; retain censor markers beyond 32,740 observations; handle quoted annotations, comma-containing titles and output paths; allow probability-weighted point estimates and counts while refusing unsupported inference.
 - **1.3.0** (2026-08-21): Rebuilt the risk-table layout. Group labels now occupy the risk table's y-axis label column instead of sitting inside the plotting region, so the main plot's time origin returns to its own y axis while the two time axes stay aligned; the label gutter, the row-label gap and the right-hand reserve are derived from the rendered text rather than from fixed margins. Risk-table counts and event counts are formatted with thousands separators.
@@ -301,10 +324,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.0.2** (2026-04-22): Refactored the varabbrev wrapper to cover syntax, validation, and main logic; fixed literal-quote rendering in user-supplied title options; and guarded export success messages with file confirmation.
 - **1.0.1** (2026-04-10): Initial Stata-Tools release with Kaplan-Meier, cumulative-failure, risk-table, censoring, median-line, and export support.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which kmplot` and your Stata version.
+
+To cite: Copeland TP. *kmplot: Kaplan-Meier curves with risk tables*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/kmplot. Please give the version you used (`which kmplot` prints it).
+
 ## License
 
-MIT License
+MIT (see [LICENSE](../LICENSE))

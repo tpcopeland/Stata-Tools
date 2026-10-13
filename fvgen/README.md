@@ -1,20 +1,57 @@
-# fvgen — Flatten factor-variable interactions into labeled variables
+<img src="../_resources/logos/fvgen_hex.svg" align="right" width="150" alt="fvgen hex logo">
+
+# fvgen — Labeled variables from factor-variable interactions
 
 **Version 1.2.10** | 2026-10-12
+
+[![version](https://img.shields.io/badge/version-1.2.10-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `fvgen` turns Stata factor-variable specifications into ordinary, labeled main-effect and interaction variables for regression tables and other exports. It returns a ready-to-use `r(allvars)` varlist while preserving the estimable design of the native model.
 
 ## Quick Start
 
-Flatten a categorical-by-continuous interaction and estimate the same model with readable labels:
+After [installing](#installation), flatten a categorical-by-continuous interaction and fit the same model on the labeled variables:
 
 ```stata
 sysuse auto, clear
+regress price i.foreign##c.mpg
 fvgen i.foreign##c.mpg
 regress price `r(allvars)'
 ```
 
-`r(allvars)` contains the pass-through `mpg` variable plus generated indicator and interaction variables. Use that varlist with any downstream table or export command, then run `fvgen, drop` when you are finished.
+The same coefficients, exported from each fit's `r(table)`:
+
+**Before — regress price i.foreign##c.mpg**
+
+| Term | Coef. | 95% CI | p |
+|---|---:|:---:|---:|
+| 0b.foreign | _(base)_ |  |  |
+| 1.foreign | -14 | (-5268, 5241) | 0.996 |
+| mpg | -329 | (-479, -180) | 0.000 |
+| 0b.foreign#co.mpg | _(base)_ |  |  |
+| 1.foreign#c.mpg | 79 | (-145, 303) | 0.485 |
+| Intercept | 12601 | (9553, 15648) | 0.000 |
+
+**After — fvgen i.foreign##c.mpg; regress price r(allvars)**
+
+| Term | Coef. | 95% CI | p |
+|---|---:|:---:|---:|
+| Foreign | -14 | (-5268, 5241) | 0.996 |
+| Mileage (mpg) | -329 | (-479, -180) | 0.000 |
+| Foreign × Mileage (mpg) | 79 | (-145, 303) | 0.485 |
+| Intercept | 12601 | (9553, 15648) | 0.000 |
+
+<sub>From `demo/export_comparison.md`, written by `demo/demo_fvgen.do`, whose small table helper renders each row from `r(table)` using the variable label (after) or the coefficient name (before). Run `fvgen, drop` when you are finished.</sub>
+
+## Features
+
+- **Labels from your data.** Value labels become variable labels, interaction labels join their parts with `×` (or `xsymbol()`), and `vsref()` can name the reference level in each main-effect label.
+- **The same model, flattened.** In the default uncentered workflow, a fit on `r(allvars)` reproduces the native factor-variable model's fit; full-rank designs also reproduce each coefficient and standard error.
+- **Nothing overwritten by accident.** Before changing the dataset, `fvgen` rejects plans in which two terms map to one generated name or an output would overwrite a source variable.
+- **Clean teardown.** Generated variables carry provenance characteristics, so `fvgen, drop` removes only what `fvgen` created and leaves pass-through originals, `clonevar` copies and renamed variables alone.
+- **Back to `margins`.** `fvgen, margins` rebuilds the fit with native factor variables for `margins`, and refuses (r(498)) when the data or the model no longer match.
 
 ## Requirements
 
@@ -209,6 +246,9 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.2.10** (2026-10-12): `fvgen, margins` refuses (r(198)) a command line carrying a `saving()`-type option instead of replaying it, which silently rewrote the user's bootstrap or jackknife replicate file; it also refuses `mi estimate` results by name. A failed native replay now shows the estimator's own error message. The README teardown description now states that `clonevar` copies and renamed generated variables are kept.
 - **1.2.9** (2026-10-12): `fvgen, margins` no longer swaps in a different bootstrap variance: a resampling fit is replayed from its posted `e(rngstate)`, the model check now also compares the variance matrix (r(498) on mismatch), and the caller's random-number state is restored afterward. `fvgen, drop` no longer deletes `clonevar` copies of generated variables (generated variables are stamped with their own name in `fvgen_name`). `ref()` naming an `ibn.` factor is now an error instead of silently imposing a base. `xsymbol()` containing a double quote works. The console listing shows labels literally and falls back to the variable name for an unlabeled pass-through variable. A squared continuous term is labeled `^2` when `xsymbol()` is plain ASCII. The help file positions `fvgen` against `xi` and links `xi`, `margins`, and `fvset`.
 - **1.2.8** (2026-10-12): A rejected `fvgen` call no longer erases the previous run's provenance, so `fvgen, margins` still works for the earlier model. `fvgen, margins` replays the estimator under the caller's `varabbrev` setting. Generated-name length is counted in characters, not bytes, so Unicode names up to 32 characters are accepted. `ref()` naming one variable twice now reports the duplicate. Under `center` and `replace`, a weight that reads a centered copy `fvgen` would regenerate is refused instead of being dropped mid-run. Internal simplification: one parse and one name check per term.
+
+<details><summary>Earlier versions</summary>
+
 - **1.2.7** (2026-09-30): Preserve literal quotes, backticks, dollar signs and Unicode when building labels for centered copies, factor indicators and interactions, including reference suffixes. The documented 80-character label limit and suffix rules are unchanged.
 - **1.2.6** (2026-09-29): The margins bridge now refuses (r(498)) a native refit that is not the same model as the flattened fit (different estimation sample, N, rank, free coefficients, or log likelihood), which previously substituted a different model silently after `fvgen ... if` or `alllevels` with `noconstant`; `margins store(name)` no longer silently overwrites an existing stored estimate without `replace`; a level missing from an attached value label is labeled `var=level` instead of a bare number; string variables and `i(numlist)` factors with `ref()`/`simple()` get accurate errors.
 - **1.2.5** (2026-08-30): Strengthened margins provenance to include outcomes and other pre-existing data, restored active estimates after replay failures, rejected nonconverged native replays, and corrected weight documentation.
@@ -220,10 +260,16 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 - **1.1.0** (2026-06-27): Added `vsref(string)` to append the reference level to categorical main-effect labels via an `@` placeholder.
 - **1.0.0** (2026-06-21): Initial release.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which fvgen` and your Stata version.
+
+To cite: Copeland TP. *fvgen: Labeled variables from factor-variable interactions*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/fvgen. Please give the version you used (`which fvgen` prints it).
+
 ## License
 
-MIT License
+MIT (see [LICENSE](../LICENSE))

@@ -1,29 +1,54 @@
-# gcomp — Parametric g-computation for mediation and longitudinal interventions
+<img src="../_resources/logos/gcomp_hex.svg" align="right" width="150" alt="gcomp hex logo">
+
+# gcomp — Parametric g-computation for mediation and interventions
 
 **Version 2.0.4** | 2026-10-13
 
-`gcomp` estimates causal effects with parametric g-computation and Monte Carlo simulation for cross-sectional mediation and time-varying interventions. `gcomptab` exports mediation and dose-response results to Excel, Markdown, or CSV, and component-model results to Excel, Markdown, CSV, or the Results window.
+[![version](https://img.shields.io/badge/version-2.0.4-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Key Options](#key-options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
+`gcomp` estimates causal effects by parametric g-computation: it fits a model for each variable in the causal order, simulates the outcome under each intervention or mediation world, and bootstraps the whole procedure for inference. `gcomptab` turns the results into Excel, Markdown, or CSV tables.
 
 ## Quick Start
 
-Fit a binary-exposure mediation model and inspect the posted effects:
+After [installing](#installation), decompose the effect of a binary exposure `x` through a continuous mediator `m`, keep the fitted component models, and write them as a Markdown table:
 
 ```stata
 clear
 set seed 12345
-set obs 800
-generate double c = rnormal()
-generate byte x = rbinomial(1, invlogit(.2*c))
-generate byte m = rbinomial(1, invlogit(-.5 + .7*x + .2*c))
-generate byte y = rbinomial(1, invlogit(-1 + .5*x + .7*m + .2*c))
+set obs 400
+gen double c = rnormal()
+gen byte x = rbinomial(1, invlogit(-0.2 + 0.4 * c))
+gen double m = 0.6 * x + 0.3 * c + rnormal()
+gen double y = 0.7 * m + 0.4 * x + 0.2 * c + rnormal()
 
 gcomp y m x c, outcome(y) mediation obe exposure(x) mediator(m) ///
-    commands(m: logit, y: logit) equations(m: x c, y: m x c) ///
-    base_confs(c) simulations(400) samples(50) seed(42)
-ereturn list
+    commands(m: regress, y: regress) equations(m: x c, y: m x c) ///
+    base_confs(c) sim(400) samples(50) seed(42) savemodels
+gcomptab, models markdown("component_models.md") modellabels("Mediator (m) \ Outcome (y)") stats(n)
 ```
 
-The main effect estimates are posted in `e(b)`, with bootstrap standard errors and confidence intervals in `e(se)` and the `e(ci_*)` matrices; non-OCE mediation runs also post named scalars such as `e(tce)`, `e(nde)`, and `e(nie)`.
+`component_models.md`:
+
+| Term | Mediator (m) Coef. | Mediator (m) 95% CI | Mediator (m) p | Outcome (y) Coef. | Outcome (y) 95% CI | Outcome (y) p |
+| --- | --- | --- | --- | --- | --- | --- |
+| x | 0.700 | [0.496, 0.904] | <0.001 | 0.335 | [0.103, 0.568] | 0.005 |
+| c | 0.224 | [0.127, 0.322] | <0.001 | 0.172 | [0.064, 0.281] | 0.002 |
+| _cons | -0.074 | [-0.204, 0.056] | 0.264 | 0.089 | [-0.052, 0.230] | 0.217 |
+| m |  |  |  | 0.755 | [0.648, 0.862] | <0.001 |
+| N | 400 |  |  | 400 |  |  |
+
+<sub>Written by `demo/demo_gcomp.do` (`demo/component_models.md`), which writes the file into `demo/`. The causal effects themselves are printed by `gcomp` and posted in `e(b)`; `gcomptab` without `models` exports them (see [Worked Examples](#worked-examples)). `samples(50)` keeps the demo fast; the default is 1,000.</sub>
+
+## Features
+
+- **Mediation on the outcome scale.** The total causal effect is split into natural direct and indirect effects and the proportion mediated, with a controlled direct effect from `control()`; `obe`, `oce`, `linexp`, `specific`, and `baseline` choose the effect definition, and several causally ordered mediators and post-exposure confounders are allowed.
+- **Time-varying interventions.** Long data with `idvar()` and `tvar()`, static or `dynamic` regimes in `interventions()`, lagged and derived variables, monotone treatment, a competing event in `death()`, and end-of-follow-up (`eofu`) or survival outcomes.
+- **Inference from the whole procedure.** Every bootstrap replicate reruns the full simulation; normal, percentile, and bias-corrected intervals are posted, and `all` adds BCa. A run needs at least 90% of the requested draws to succeed.
+- **Component models beyond logit and regress.** `mlogit`, `ologit`, `poisson`, and NB2 `nbreg` components, plus `structural()` rules that fit a model only where the variable is not fixed by design.
+- **Fit problems are reported, not hidden.** `gcomp` warns whenever a component model uses fewer observations than it was offered; `diagnostics` prints the fitted N, convergence, and fit summaries, and `savemodels` keeps the models for a table.
+- **A maintained `gformula`.** `gcomp` is a fork of SSC `gformula` v1.16 beta by Rhian Daniel with backward-compatible syntax, so existing scripts usually need only the command name changed.
 
 ## Requirements
 
@@ -31,8 +56,6 @@ The main effect estimates are posted in `e(b)`, with bootstrap standard errors a
 - No external Stata package is required; `gcomptab` uses Stata's built-in Results-window, text, and Excel-writing facilities.
 
 ## Installation
-
-Run this in Stata:
 
 ```stata
 capture ado uninstall gcomp
@@ -447,7 +470,7 @@ Monte Carlo and finite-bootstrap error are sampling approximations. `saving()` w
 
 ## QA
 
-QA suites and how to run them are documented in [qa/README.md](qa/README.md).
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
@@ -458,6 +481,10 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - **2.0.2** (2026-09-30): Failed `gcomp` calls restore the caller's RNG state, including structural-input refusals after `seed()` validation and errors after partial simulation. Failed calls also retain caller scalar, macro and matrix results in `r()`. Successful simulations retain their draw order. Successful and failed calls preserve caller-owned native reshape and legacy component-result global macros. Intervention expressions retain nested function commas and quoted commas when separating regimes. Categorical intervention assignments refuse categories absent from the original analytic data, including assignments produced by dynamic simulated histories. Component predictions also refuse factor levels absent from their actual estimation sample. Successful and failed calls retain the caller's Mata strict-mode setting. Component tables honor `noeform` when displaying native coefficients, preserve a configured closed `putexcel` context, and refuse an open caller workbook before export. Failed table calls retain caller scalar, macro and matrix results in `r()`.
 
 - **2.0.1** (2026-08-28): Accelerated longitudinal simulation by absorbing post-death rows in one pass, scanning observed visit support once per variable, and hoisting invariant monotreatment histories out of the visit loop.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **2.0.0** (2026-08-19): Removed journal theme presets from `gcomptab`; use direct formatting options.
 - **1.5.0** (2026-08-19): Added `structural()` rules that fit component models on the nonstructural complement and force deterministic mediator or outcome values from each world’s simulated history.
 - **1.4.8** (2026-08-19): Added unconditional warnings when component models omit eligible observations at fit time, with exact fitted and omitted row counts.
@@ -479,12 +506,18 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 - **1.0.3** (2026-04-22): Restored correct time-varying component-model ordering and tightened minimum-simulation handling.
 - **1.0.2** (2026-04-19): Released the Stata-Tools fork with bundled Excel export through `gcomptab`.
 
+</details>
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
 Original command by Rhian Daniel, London School of Hygiene and Tropical Medicine.
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which gcomp` and your Stata version.
+
+To cite: Copeland TP. *gcomp: Parametric g-computation for mediation and interventions*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/gcomp. Please give the version you used (`which gcomp` prints it), and cite Daniel, De Stavola, and Cousens (2011) for the original `gformula` command.
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

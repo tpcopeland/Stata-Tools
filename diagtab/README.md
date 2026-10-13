@@ -1,10 +1,18 @@
+<img src="../_resources/logos/diagtab_hex.svg" align="right" width="150" alt="diagtab hex logo">
+
 # diagtab — Diagnostic accuracy and cutoff analysis
 
 **Version 2.1.0** | 2026-10-13
 
+[![version](https://img.shields.io/badge/version-2.1.0-1a5f91?style=flat-square)](#version-history) [![Stata 17+](https://img.shields.io/badge/Stata-17%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Options](#options)** · **[Worked Examples](#worked-examples)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
+
 `diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
 
 ## Quick Start
+
+After [installing](#installation), score a logistic model for low birth weight and evaluate it at one cutoff, with the ROC area:
 
 ```stata
 webuse lbw, clear
@@ -12,6 +20,15 @@ logit low age lwt smoke
 predict double phat
 diagtab phat low, cutoff(0.30) auc
 ```
+
+Add `xlsx()`, `csv()`, `markdown()`, or `frame()` to send the same table to a file or a frame.
+
+## Features
+
+- **The standard measures in one call.** Sensitivity, specificity, PPV, NPV, accuracy, both likelihood ratios, the diagnostic odds ratio, and Youden's index, each with its confidence interval.
+- **Binary tests or continuous scores.** `cutoff()` evaluates one threshold, `cutoffs()` builds a threshold table, `optimal` picks the cutoff that maximizes Youden's J, and `auc` adds the ROC area through Stata's `roctab`.
+- **Interval method on record.** Wilson score intervals by default or Clopper–Pearson with `exact`, and `r(methods)` returns a methods paragraph describing the choice.
+- **Predictive values for another population.** `prevalence()` recalculates PPV and NPV at a fixed target prevalence, with delta-method intervals when sensitivity and specificity are both interior estimates.
 
 ## Requirements
 
@@ -80,7 +97,13 @@ diagtab predicted low, prevalence(0.07) exact
 
 ## Demo
 
-Run `demo/demo_diagtab.do` from a repository checkout to regenerate `demo/demo_diagtab.xlsx` with single-cutoff, prevalence-adjusted, and multi-cutoff sheets.
+Run `demo/demo_diagtab.do` from a repository checkout to regenerate `demo/demo_diagtab.xlsx`. The workbook is a repository documentation asset and is not part of the `net install` payload.
+
+| Sheet | What it holds |
+| --- | --- |
+| `Diagnostic` | `cutoff(0.30) auc` on the low-birth-weight model, with `theme(nejm)` |
+| `Prevalence` | The same cutoff with predictive values at `prevalence(0.07)` |
+| `Cutoffs` | A threshold table for `cutoffs(0.20 0.30 0.40 0.50)` |
 
 ## Options
 
@@ -167,16 +190,24 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 - **2.1.0** (2026-10-13): With `prevalence()`, the accuracy row is now labelled "Accuracy (sample)" in the console, Excel, CSV, Markdown and frame output and `r(methods)` states that accuracy is not adjusted to the external prevalence; `r(accuracy)` is unchanged. The first call in a session no longer echoes Mata source to the console, and a helper that does not compile now stops with an explicit message and its return code.
 - **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
-
 - **2.0.2** (2026-09-30): Filename preflight now examines the actual quoted path and reports invalid characters accurately. Existing refusal of quote characters and shell metacharacters is retained; filenames with spaces and Unicode remain accepted. Diagnostic calculations and cold helper loading preserve caller native S_1–S_6 globals and matastrict. Titles and footnotes retain literal macro-looking bytes in table and export contents. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure.
-
 - **2.0.1** (2026-08-30): Preserved all real cutoff values, made multi-cutoff identifiers lossless and unique, preflighted output conflicts, rejected conflicting Excel aliases and invalid font sizes before export, and avoided degenerate prevalence-adjusted intervals at boundary estimates.
+
+<details>
+<summary>Earlier versions</summary>
+
 - **2.0.0** (2026-08-19): Extracted `diagtab` into a standalone package while preserving its command and stored-result contracts.
+
+</details>
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which diagtab` and your Stata version.
+
+To cite: Copeland TP. *diagtab: Diagnostic accuracy and cutoff analysis*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/diagtab. Please give the version you used (`which diagtab` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))

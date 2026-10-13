@@ -1,31 +1,121 @@
-# asof
+<img src="../_resources/logos/asof_hex.svg" align="right" width="150" alt="asof hex logo">
+
+# asof — One measurement per ID and anchor date
 
 **Version 0.1.1** | 2026-10-12
+
+[![version](https://img.shields.io/badge/version-0.1.1-1a5f91?style=flat-square)](#version-history) [![Stata 16+](https://img.shields.io/badge/Stata-16%2B-1a5f91?style=flat-square)](#requirements) [![MIT license](https://img.shields.io/badge/license-MIT-1a5f91?style=flat-square)](../LICENSE) [![Part of Stata-Tools](https://img.shields.io/badge/part%20of-Stata--Tools-0e3a5a?style=flat-square)](../README.md)
+
+**[Quick Start](#quick-start)** · **[Installation](#installation)** · **[Worked Examples](#worked-examples)** · **[Options](#options)** · **[Stata-Tools](../README.md)** · **[Report a bug](https://github.com/tpcopeland/Stata-Tools/issues)**
 
 `asof` attaches one measurement record per identifier and anchor date from a long Stata dataset. It makes direction, selection, tie, protocol-window, and observability-window rules explicit while keeping the master data in memory.
 
 ## Quick Start
 
-This minimal example is self-contained:
+After [installing](#installation), attach to each patient's index date the closest nonmissing score recorded on either side of it:
 
 ```stata
+* Long measurement table: repeated dated scores per patient
+clear
+input long id str10 visit_iso double score
+101 "2024-02-14" 48
+101 "2024-03-15" 52
+101 "2024-06-01" 58
+102 "2024-01-15" 40
+102 "2024-04-10" 59
+102 "2024-04-15" 60
+102 "2024-07-20" 65
+103 "2024-05-15" 70
+103 "2024-06-25" 72
+103 "2024-07-10"  .
+103 "2024-10-15" 75
+105 "2024-02-01" 80
+end
+generate double visit_date = daily(visit_iso, "YMD")
+format visit_date %tdCCYY-NN-DD
 tempfile events
-clear
-input long id double visit_date score
-1 90 4
-1 110 6
-end
-format %td visit_date
 save `events'
+
+* Master cohort in memory: one index date per patient
 clear
-input long id double index_date
-1 100
+input long id str10 index_iso
+101 "2024-02-29"
+102 "2024-04-15"
+103 "2024-07-01"
+104 "2024-08-01"
 end
-format %td index_date
-asof score using `events', id(id) date(visit_date) anchor(index_date) direction(both) select(nearest) generate(score_index) gapname(score_gap)
+generate double index_date = daily(index_iso, "YMD")
+format index_date %tdCCYY-NN-DD
+
+asof score using `events', id(id) date(visit_date) anchor(index_date) direction(both) select(nearest) generate(score_index) datename(score_date) gapname(score_gap) matchname(score_found) noisily
+list id index_date score_index score_date score_gap score_found, noobs sep(0) abbreviate(16)
+return list
 ```
 
-The command creates `score_index`, records the signed day difference in `score_gap`, and leaves every master row in place.
+```
+asof match coverage
+  rule:       both / nearest / ties(before)
+  master:                4
+  keys:                  4
+  matched:               3
+  unmatched:             1
+  missing key:           0
+  using rows:           12
+  eligible:             10
+  ties:                  1
+```
+
+```
+  +-----------------------------------------------------------------------+
+  |  id   index_date   score_index   score_date   score_gap   score_found |
+  |-----------------------------------------------------------------------|
+  | 101   2024-02-29            48   2024-02-14         -15             1 |
+  | 102   2024-04-15            60   2024-04-15           0             1 |
+  | 103   2024-07-01            72   2024-06-25          -6             1 |
+  | 104   2024-08-01             .            .           .             0 |
+  +-----------------------------------------------------------------------+
+```
+
+Patient 101 has scores 15 days before and 15 days after index; the default tie rule takes the earlier one. Patient 104 has no measurements, keeps its row, and is flagged `score_found = 0`. Patient 105 exists only in the measurement table and is ignored.
+
+<details>
+<summary>Stored results from return list</summary>
+
+```
+scalars:
+            r(gap_p50) =  -6
+           r(gap_mean) =  -7
+            r(gap_max) =  0
+            r(gap_min) =  -15
+             r(N_ties) =  1
+         r(N_eligible) =  10
+            r(N_using) =  12
+            r(N_nokey) =  0
+        r(N_unmatched) =  1
+          r(N_matched) =  3
+             r(N_keys) =  4
+           r(N_master) =  4
+
+macros:
+               r(ties) : "before"
+             r(select) : "nearest"
+          r(direction) : "both"
+           r(generate) : "score_index"
+            r(varlist) : "score"
+```
+
+</details>
+
+<sub>Output copied from `demo/console_quick_start.md`, written by `demo/demo_asof.do`, whose measurement table also carries EDSS, EQ-5D, and status columns used by later sections.</sub>
+
+## Features
+
+- **The master data stay put.** The cohort or person-period spine in memory keeps every row and its order; each row gains the selected value plus optional date, signed day-gap, and match-flag variables.
+- **Every selection rule is named.** `direction()` and `select()` are required, so the side of the anchor and the nearest, first, or last choice are always written in the call.
+- **Ties are a stated policy.** Nearest ties default to the record before the anchor, `ties()` chooses another rule or makes a tie an error, and `r(N_ties)` counts how often the rule decided a result.
+- **Protocol and observability windows.** `window()` sets signed day bounds around the anchor and `range()` intersects them with each row's own observation period; carried values must be nonmissing unless `require()` says otherwise.
+- **No cross product.** A Mata scan with binary searches inside each identifier block replaces the per-person `joinby` expansion.
+- **Auditable coverage.** `noisily` prints a match audit, and `r()` returns matched, unmatched, missing-key, eligible, and gap summaries.
 
 ## Requirements
 
@@ -37,6 +127,7 @@ The command creates `score_index`, records the signed day difference in `score_g
 Install the package from Stata-Tools:
 
 ```stata
+capture ado uninstall asof
 net install asof, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/asof") replace
 ```
 
@@ -45,27 +136,6 @@ net install asof, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 | Command | Purpose |
 |---|---|
 | `asof` | Select one eligible using record per identifier-anchor key and attach requested values. |
-
-## Options
-
-| Option | Purpose |
-|---|---|
-| `id()` | Identifier in master and using data. |
-| `date()` | Measurement date in the using data. |
-| `anchor()` | Reference date in the master data. |
-| `direction()` | Eligible side of the anchor: `before`, `onorbefore`, `after`, `onorafter`, or `both`. |
-| `select()` | Choose the `nearest`, `first`, or `last` eligible record. |
-| `window()` | Apply inclusive signed day bounds relative to the anchor. |
-| `range()` | Apply inclusive lower and upper observability variables from the master. |
-| `require()` | Require specified using variables to be nonmissing. |
-| `suffix()` / `prefix()` | Construct output names from carried names. |
-| `generate()` | Supply one explicit output name per carried variable. |
-| `datename()` / `gapname()` / `matchname()` | Store the selected date, signed day gap, and match flag. |
-| `ties()` | Resolve equally ranked records. |
-| `frame()` | Read events from a copied Stata frame. |
-| `replace` | Overwrite existing compatible output variables. |
-| `nowarn` | Suppress the unmatched-observation message. |
-| `noisily` | Display the full coverage report. |
 
 ## How It Works
 
@@ -129,7 +199,7 @@ use `master', clear
 asof eq5d_uk eq5d_se eq_vas using `events', id(id) date(visit_date) anchor(followup_date) direction(onorbefore) select(last) range(study_start followup_date) suffix(_last) datename(eq5d_date_last)
 ```
 
-## Guided Demo
+## Demo
 
 The complete demo script, [`demo/demo_asof.do`](demo/demo_asof.do), builds its invented cohort and measurement history inline, installs the local package into a temporary ado sandbox, and runs five guided workflows. It does not read data from `_data/` or any other directory outside `asof/`. From the repository root, run:
 
@@ -146,7 +216,7 @@ Keep the cohort or person-period spine in memory. Put the repeated, dated measur
 <details>
 <summary>Data layout (click to expand)</summary>
 
-### Master data in memory: one row per patient and index date
+**Master data in memory: one row per patient and index date**
 
 ```stata
 .     list id cohort index_date study_start followup_date,
@@ -164,7 +234,7 @@ Keep the cohort or person-period spine in memory. Put the repeated, dated measur
   +---------------------------------------------------------+
 ```
 
-### Using data: repeated dated measurements per patient
+**Using data: repeated dated measurements per patient**
 
 ```stata
 .     frame asof_demo_events: list id visit_date score edss status,
@@ -199,77 +269,7 @@ Keep the cohort or person-period spine in memory. Put the repeated, dated measur
 
 This call chooses the closest nonmissing score on either side of each index date. `datename()`, `gapname()`, and `matchname()` make the selected record and unmatched rows explicit; `noisily` prints the match audit.
 
-<details>
-<summary>First join, coverage, and stored results (click to expand)</summary>
-
-```stata
-.     asof score using "`events'", id(id) date(visit_date)
->         anchor(index_date) direction(both) select(nearest)
->         generate(score_index) datename(score_date) gapname(score_gap)
->         matchname(score_found) noisily
-```
-
-```
-asof match coverage
-  rule:       both / nearest / ties(before)
-  master:                4
-  keys:                  4
-  matched:               3
-  unmatched:             1
-  missing key:           0
-  using rows:           12
-  eligible:             10
-  ties:                  1
-```
-
-### Stored results make match coverage auditable
-
-```stata
-.     return list
-```
-
-```
-scalars:
-            r(gap_p50) =  -6
-           r(gap_mean) =  -7
-            r(gap_max) =  0
-            r(gap_min) =  -15
-             r(N_ties) =  1
-         r(N_eligible) =  10
-            r(N_using) =  12
-            r(N_nokey) =  0
-        r(N_unmatched) =  1
-          r(N_matched) =  3
-             r(N_keys) =  4
-           r(N_master) =  4
-
-macros:
-               r(ties) : "before"
-             r(select) : "nearest"
-          r(direction) : "both"
-           r(generate) : "score_index"
-            r(varlist) : "score"
-```
-
-### The master rows stay in place and receive the selected values
-
-```stata
-.     list id index_date score_index score_date score_gap score_found,
->         noobs sep(0) abbreviate(16)
-```
-
-```
-  +-----------------------------------------------------------------------+
-  |  id   index_date   score_index   score_date   score_gap   score_found |
-  |-----------------------------------------------------------------------|
-  | 101   2024-02-29            48   2024-02-14         -15             1 |
-  | 102   2024-04-15            60   2024-04-15           0             1 |
-  | 103   2024-07-01            72   2024-06-25          -6             1 |
-  | 104   2024-08-01             .            .           .             0 |
-  +-----------------------------------------------------------------------+
-```
-
-</details>
+It is the [Quick Start](#quick-start) call; its coverage report, master rows, and stored results are shown there.
 
 ### 3. Choose the intended direction, selection, and tie rule
 
@@ -314,7 +314,7 @@ Patient 101 has measurements exactly 15 days before and after index. The compari
 >         generate(last_any) datename(last_date)
 ```
 
-### Nearest defaults to the earlier record when distances tie
+**Nearest defaults to the earlier record when distances tie**
 
 ```stata
 .     list index_date before_nearest before_date after_nearest after_date,
@@ -342,7 +342,7 @@ Patient 101 has measurements exactly 15 days before and after index. The compari
   +---------------------------------------------------------------+
 ```
 
-### `first` and `last` select the earliest and latest eligible dates
+**`first` and `last` select the earliest and latest eligible dates**
 
 ```stata
 .     list first_any first_date last_any last_date,
@@ -509,6 +509,27 @@ macros:
 
 </details>
 
+## Options
+
+| Option | Purpose |
+|---|---|
+| `id()` | Identifier in master and using data. |
+| `date()` | Measurement date in the using data. |
+| `anchor()` | Reference date in the master data. |
+| `direction()` | Eligible side of the anchor: `before`, `onorbefore`, `after`, `onorafter`, or `both`. |
+| `select()` | Choose the `nearest`, `first`, or `last` eligible record. |
+| `window()` | Apply inclusive signed day bounds relative to the anchor. |
+| `range()` | Apply inclusive lower and upper observability variables from the master. |
+| `require()` | Require specified using variables to be nonmissing. |
+| `suffix()` / `prefix()` | Construct output names from carried names. |
+| `generate()` | Supply one explicit output name per carried variable. |
+| `datename()` / `gapname()` / `matchname()` | Store the selected date, signed day gap, and match flag. |
+| `ties()` | Resolve equally ranked records. |
+| `frame()` | Read events from a copied Stata frame. |
+| `replace` | Overwrite existing compatible output variables. |
+| `nowarn` | Suppress the unmatched-observation message. |
+| `noisily` | Display the full coverage report. |
+
 ## Stored Results
 
 | Result | Meaning |
@@ -527,7 +548,7 @@ See `help asof` for the complete syntax, output-name rules, date-unit contract, 
 
 ## QA
 
-See [qa/README.md](qa/README.md) for the test runbook and coverage map.
+QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
@@ -540,6 +561,10 @@ Version 0.1.1, 2026-09-30.
 
 Timothy P Copeland, Karolinska Institutet
 
+Questions and bug reports: [GitHub issues](https://github.com/tpcopeland/Stata-Tools/issues). Please include the first line of `which asof` and your Stata version.
+
+To cite: Copeland TP. *asof: One measurement per ID and anchor date*. Stata-Tools, https://github.com/tpcopeland/Stata-Tools/tree/main/asof. Please give the version you used (`which asof` prints it).
+
 ## License
 
-MIT
+MIT (see [LICENSE](../LICENSE))
