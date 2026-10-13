@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  29sep2026}{...}
+{* *! version 1.1.3  13oct2026}{...}
 {vieweralsosee "[D] drop" "help drop"}{...}
 {vieweralsosee "[D] count" "help count"}{...}
 {viewerjumpto "Syntax" "consort##syntax"}{...}
@@ -321,7 +321,7 @@ If matplotlib is not installed, you can install it with:
 Generate a CONSORT diagram for an antidepressant cohort study:
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata `"consort init, initial("Persons with antidepressant dispensing (N=15,000)")"':. consort init, initial("Persons with antidepressant dispensing (N=15,000)")}{p_end}
+{phang2}{stata `"consort init, initial("Persons with antidepressant dispensing")"':. consort init, initial("Persons with antidepressant dispensing")}{p_end}
 {phang2}{stata `"consort exclude if index_age < 18, label("Age < 18 years")"':. consort exclude if index_age < 18, label("Age < 18 years")}{p_end}
 {phang2}{stata `"consort exclude if study_exit <= study_entry + 30, label("Follow-up < 30 days")"':. consort exclude if study_exit <= study_entry + 30, label("Follow-up < 30 days")}{p_end}
 {phang2}{stata `"consort exclude if missing(education), label("Missing education data")"':. consort exclude if missing(education), label("Missing education data")}{p_end}
@@ -461,7 +461,7 @@ On some systems you may need to use {cmd:pip3} instead of {cmd:pip}.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.2, 2026-09-29{p_end}
+{pstd}Version 1.1.3, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

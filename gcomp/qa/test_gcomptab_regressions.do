@@ -197,7 +197,8 @@ else {
 capture erase "`testdir'/_gcomptab_colon.xlsx"
 
 * ============================================================
-* R4: failed export clears stale r() macros
+* R4: failed export reports nothing new and leaves the caller's r() exactly
+* as it was (the transactional caller-state contract; test_fixture_table_refusals)
 * ============================================================
 
 local ++test_count
@@ -215,14 +216,15 @@ capture noisily {
 
     capture gcomptab, xlsx("`export_blocker'/fail.xlsx") sheet("Fail")
     assert _rc != 0
-    assert `"`r(xlsx)'"' == ""
-    assert `"`r(sheet)'"' == ""
-    assert `"`r(ci)'"' == ""
+    * r() is the caller's pre-call state (the good call), not the failed target
+    assert `"`r(xlsx)'"' == "`testdir'/_gcomptab_good.xlsx"
+    assert `"`r(sheet)'"' == "Good"
+    assert `"`r(ci)'"' == "normal"
 
     capture erase "`export_blocker'"
 }
 if _rc == 0 {
-    display as result "  PASS: R4 failed export clears r()"
+    display as result "  PASS: R4 failed export leaves caller r() untouched"
     local ++pass_count
 }
 else {

@@ -67,6 +67,7 @@ The legacy `external` lane runs only the external-oracle suites; `full` is `quic
 | `test_producer_contracts.do` | Compatibility-matrix rows, version gates, and installed producer guards. |
 | `test_qa_contract_gaps.do` | Return-surface gaps and QA sentinel integrity, including the parser-readability scan over every suite sentinel. |
 | `test_rb01_verdict.do` | Unified machine-readable findings and zero-panel rejection. |
+| `test_quiet_warnings.do` | `quietly` suppresses the panel Warning lines and the verdict word on overlap, weights, support and balance; r(n_warnings) keeps the findings. |
 | `test_rb02_gps_positivity.do` | Full-vector generalized-positivity findings. |
 | `test_rb03_factor_expansion.do` | Factor-variable expansion and detection. |
 | `test_rb0405_teffects_sample.do` | Teffects estimation-sample fidelity and exclusion ledger. |

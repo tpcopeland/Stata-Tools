@@ -4,13 +4,13 @@ d
 d Implements inverse probability of treatment weighted (IPTW) marginal
 d structural models for time-varying treatments and confounders. Provides
 d a complete pipeline: data preparation, weight calculation, diagnostics,
-d outcome modeling, counterfactual prediction, and sensitivity analysis.
+d outcome modeling, and counterfactual prediction.
 d Handles the key challenge of treatment-confounder feedback where standard
 d regression adjustment fails.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261012
+d Distribution-Date: 20261013
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -49,16 +49,7 @@ f msm_table.ado
 f msm_table.sthlp
 f msm_diagtab.ado
 f msm_diagtab.sthlp
-f _msm_tbl_coef.ado
-f _msm_tbl_pred.ado
-f _msm_tbl_bal.ado
-f _msm_tbl_wt.ado
-f _msm_tbl_sens.ado
-f _msm_coef_display_name.ado
-f _msm_coef_pvalue_string.ado
-f _msm_coef_scale_label.ado
 f _msm_contract.ado
-f _msm_crit_dist.ado
 f _msm_invalidate.ado
 f _msm_verify.ado
 f _msm_uuid.ado
@@ -70,24 +61,14 @@ f _msm_mat_clear.ado
 f _msm_check_prepared.ado
 f _msm_check_weighted.ado
 f _msm_check_fitted.ado
-f _msm_check_artifact.ado
 f _msm_get_settings.ado
 f _msm_natural_spline.ado
 f _msm_period_basis.ado
 f _msm_pipeline_state.ado
-f _msm_post_export_open.ado
-f _msm_validate_path.ado
-f _msm_diag_frame_check.ado
 f _msm_smd.ado
 f _msm_ess.ado
 f _msm_time_invariant_hint.ado
 f _msm_timefixed.ado
 f _msm_restore_order.ado
 f _msm_role_check.ado
-f _msm_col_letter.ado
-f _msm_xlsx_colwidths.ado
-f _msm_xlsx_footnote.ado
-f _msm_xlsx_put_number.ado
-f _msm_xlsx_title_header_style.ado
-f _msm_xlsx_zebra.ado
 f msm_example.dta

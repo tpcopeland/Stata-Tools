@@ -186,7 +186,7 @@ noisily psdash weights statin ps, wvar(ipw) stabilize generate(ipw_stabilized)
 noisily summarize ipw ipw_trimmed ipw_stabilized
 log close weight_opts
 
-psdash weights statin ps, wvar(ipw) graph xlabel(0 2 5 10 15) ///
+psdash weights statin ps, wvar(ipw) graph xlabel(0(3)15) ///
     saving("`demo_dir'/weight_distribution.png")
 quietly graph export "`demo_dir'/weight_distribution.png", width(1400) replace
 capture graph close _all

@@ -1,4 +1,4 @@
-*! qba_confound Version 1.1.5  2026/10/09
+*! qba_confound Version 1.2.0  2026/10/13
 *! Unmeasured confounding bias analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

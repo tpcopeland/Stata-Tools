@@ -1,6 +1,6 @@
 # pygrid
 
-**Version 1.0.1** | 2026-10-12
+**Version 1.0.2** | 2026-10-13
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
@@ -24,10 +24,10 @@ Every generated grid carries an integrity stamp over its structural metadata and
 
 ```stata
 pygrid [if] [in], id(varname) start(varname) end(varname) axis(calendar|anniversary|fixed) [options]
-pyattach using filename, id(varname) date(varname) count(name) [options]
+pyattach using filename, id(varname) date(varname) [options]
 ```
 
-Use `help pygrid` and `help pyattach` for the complete option and stored-result contracts.
+`pyattach` needs at least one measure: `count()`, `sum()`, `any()`, or `max()`. Use `help pygrid` and `help pyattach` for the complete option and stored-result contracts.
 
 ## pygrid options
 
@@ -38,8 +38,8 @@ Use `help pygrid` and `help pyattach` for the complete option and stored-result 
 | **end(varname)** | required | Inclusive daily window end. |
 | **axis(rule)** | required | Calendar, anniversary, or fixed periods. |
 | **origin(varname)** | none | Anniversary origin or calendar relative-period origin. |
-| **width(#)** | 1 | Period width. |
-| **unit(unit)** | year | Day, month, or year periods. |
+| **width(#)** | 1 | Period width. Unused with `axis(fixed)`. |
+| **unit(unit)** | year | Day, month, or year periods. Unused with `axis(fixed)`. |
 | **first(#)** | none | First retained period number. |
 | **last(#)** | none | Last retained period number. |
 | **partial(rule)** | keep | Keep, drop, or flag partial periods. |
@@ -96,9 +96,9 @@ Each source row becomes one row per observed calendar year. `keep(cohort)` carri
 ```
 
 ```
-pygrid:            3 persons,            7 period rows
-  empty windows:            0   partial periods:            3
-  person-time:        5.07598   axis: calendar   convention: inclusive
+pygrid: 3 persons, 7 period rows
+  empty windows: 0   partial periods: 3
+  person-time: 5.07598   axis: calendar   convention: inclusive
 
 ```
 
@@ -170,15 +170,23 @@ macros:
 ```
 
 ```
-pyattach:            2 orphan event row(s);            1 have id() absent from the grid
-pyattach:            7 eligible events,            5 attached
-  orphans:            2   zero-event grid rows:            3
-  overall event rate:        .985032
+pyattach: 2 orphan event row(s); 1 have id() absent from the grid
+pyattach: 7 eligible events, 5 attached
+  orphans: 2   zero-event grid rows: 3
+  overall event rate: .985032
 
 ```
 
 ```stata
-. format person_years %9.3f total_cost %9.0fc events_per_py %9.2f
+. format person_years %9.3f
+```
+
+```stata
+. format total_cost %9.0fc
+```
+
+```stata
+. format events_per_py %9.2f
 ```
 
 ```stata
@@ -191,15 +199,15 @@ pyattach:            7 eligible events,            5 attached
   +------------------------------------------------------------------------------------------------+
   |  id     cohort   period   period_start   period_stop   person_years   n_events   events_per_py |
   |------------------------------------------------------------------------------------------------|
-  | 101   Clinic A     2019      15jun2019     31dec2019          0.548          1         1.82625 |
-  | 101   Clinic A     2020      01jan2020     31dec2020          1.002          2       1.9959016 |
-  | 101   Clinic A     2021      01jan2021     31dec2021          0.999          0               0 |
-  | 101   Clinic A     2022      01jan2022     20mar2022          0.216          1       4.6234177 |
+  | 101   Clinic A     2019      15jun2019     31dec2019          0.548          1            1.83 |
+  | 101   Clinic A     2020      01jan2020     31dec2020          1.002          2            2.00 |
+  | 101   Clinic A     2021      01jan2021     31dec2021          0.999          0            0.00 |
+  | 101   Clinic A     2022      01jan2022     20mar2022          0.216          1            4.62 |
   |------------------------------------------------------------------------------------------------|
-  | 102   Clinic B     2020      01jan2020     31dec2020          1.002          0               0 |
-  | 102   Clinic B     2021      01jan2021     31dec2021          0.999          1       1.0006849 |
+  | 102   Clinic B     2020      01jan2020     31dec2020          1.002          0            0.00 |
+  | 102   Clinic B     2021      01jan2021     31dec2021          0.999          1            1.00 |
   |------------------------------------------------------------------------------------------------|
-  | 103   Clinic A     2021      10sep2021     31dec2021          0.309          0               0 |
+  | 103   Clinic A     2021      10sep2021     31dec2021          0.309          0            0.00 |
   +------------------------------------------------------------------------------------------------+
 
 ```
@@ -258,9 +266,9 @@ The first section used common calendar boundaries. Anniversary periods instead s
 ```
 
 ```
-pygrid:            2 persons,            7 period rows
-  empty windows:            0   partial periods:            2
-  person-time:        5.76591   axis: anniversary   convention: inclusive
+pygrid: 2 persons, 7 period rows
+  empty windows: 0   partial periods: 2
+  person-time: 5.76591   axis: anniversary   convention: inclusive
 
 ```
 
@@ -328,9 +336,9 @@ macros:
 ```
 
 ```
-pygrid:            2 persons,            2 period rows
-  empty windows:            0   partial periods:            0
-  person-time:           2106   axis: fixed   convention: inclusive
+pygrid: 2 persons, 2 period rows
+  empty windows: 0   partial periods: 0
+  person-time: 2106   axis: fixed   convention: inclusive
 
 ```
 
@@ -395,9 +403,9 @@ The final example intersects source windows with `clamp()`, delays eligible foll
 ```
 
 ```
-pygrid:            2 persons,            6 period rows
-  empty windows:            1   partial periods:            3
-  person-time:        4.79671   axis: calendar   convention: inclusive
+pygrid: 2 persons, 6 period rows
+  empty windows: 1   partial periods: 3
+  person-time: 4.79671   axis: calendar   convention: inclusive
 
 ```
 
@@ -477,6 +485,7 @@ The checked-in `.log` files are plain-text Stata output; `logdoc` also generates
 
 ## Version history
 
+- **1.0.2** (13 October 2026): Compact `pygrid` and `pyattach` count lines (counts and person-time no longer pad to 12 and 14 columns). Documentation: with `axis(fixed)`, `width()` and `unit()` are unused and `r(width)`/`r(unit)` carry no period size; `pyunit(year)` is a 365.25-day divisor, so calendar years can be 0.999 or 1.002 person-years; the README synopsis no longer lists `count()` as required (at least one of `count()`, `sum()`, `any()`, `max()` is).
 - **1.0.1** (30 August 2026): Rejects reversed source windows, adds tamper-detecting grid integrity stamps while preserving row-reordering support, pins and documents the January 1960 month-block origin, and strengthens rollback QA against asymmetric dataset comparisons.
 - **1.0.0** (12 August 2026): Initial implementation of calendar, anniversary, and fixed grids; exact person-time; coverage and partial-period rules; zero-filled event attachment; orphan policies; and rate construction.
 

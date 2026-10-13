@@ -1,15 +1,14 @@
 {smcl}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
-{vieweralsosee "msm_plot" "help msm_plot"}{...}
-{vieweralsosee "msm_table" "help msm_table"}{...}
-{vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
+{vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {viewerjumpto "Syntax" "msm_predict##syntax"}{...}
 {viewerjumpto "Description" "msm_predict##description"}{...}
 {viewerjumpto "How prediction works" "msm_predict##how"}{...}
 {viewerjumpto "Options" "msm_predict##options"}{...}
 {viewerjumpto "Current limits" "msm_predict##limits"}{...}
 {viewerjumpto "Examples" "msm_predict##examples"}{...}
+{viewerjumpto "Tables and graphs" "msm_predict##curve"}{...}
 {viewerjumpto "Stored results" "msm_predict##stored"}{...}
 {viewerjumpto "Author" "msm_predict##author"}{...}
 
@@ -47,6 +46,9 @@
 
 {syntab:Extrapolation}
 {synopt:{opt extra:polate}}allow predictions beyond fitted period support{p_end}
+
+{syntab:Output}
+{synopt:{cmd:frame(}{it:name}[{cmd:, replace}]{cmd:)}}write graph-ready rows to frame {it:name}{p_end}
 {synoptline}
 
 
@@ -80,9 +82,9 @@ exposure model. Use {cmd:msm, status} to confirm that prediction is available
 before calling this command.
 
 {pstd}
-The prediction matrix is persisted in dataset characteristics and bound to the
-saved fit, allowing {helpb msm_table} to rehydrate the correct predictions
-after the dataset is saved, reloaded, or used after another MSM dataset.
+Results are returned in {cmd:r()} and, with {opt frame()}, in a graph-ready
+frame. {cmd:msm_predict} writes nothing to the dataset, so a prediction cannot
+go stale against a later refit.
 
 
 {marker how}{...}
@@ -142,11 +144,12 @@ computes predictions under always-treated, {cmd:never} under never-treated, and 
 
 {phang}
 {opt diff:erence} computes risk differences (always-treated minus
-never-treated) at each time point with MC confidence intervals. It is intended
-for {cmd:strategy(both)}. With {cmd:strategy(always)} or
-{cmd:strategy(never)}, no risk difference can be computed; the prediction
-matrix contains only that strategy's estimate and interval columns, and no
-{cmd:r(rd_#)} scalars are returned.
+never-treated) at each time point with MC confidence intervals, returned in
+{cmd:r(rd)} and the {cmd:r(rd_}{it:#}{cmd:)} scalars. Under {cmd:type(survival)}
+the contrast is a survival difference, returned as {cmd:r(sd)} and
+{cmd:r(sd_}{it:#}{cmd:)}. It is intended for {cmd:strategy(both)}; with
+{cmd:strategy(always)} or {cmd:strategy(never)} no contrast can be computed and
+none is returned.
 
 {phang}
 {opt type(string)} specifies the output scale. {cmd:cum_inc} (default)
@@ -161,7 +164,9 @@ produce smoother CIs but take longer. Must be at least 10.
 {phang}
 {opt seed(#)} sets the random number seed before the MC simulation for
 reproducibility. If omitted, the command uses the current session RNG state
-and returns the starting state so you can reproduce the results later. Failed prediction calls restore the caller's RNG state, returned results and prediction identifier counter.
+and returns the starting state so you can reproduce the results later. Failed
+prediction calls restore the caller's RNG state, returned results and
+prediction identifier counter.
 
 {phang}
 {opt level(#)} specifies the confidence level. The default is the current {cmd:c(level)}, usually 95.
@@ -171,6 +176,19 @@ and returns the starting state so you can reproduce the results later. Failed pr
 retained by the fitted risk set. By default, out-of-support values in
 {opt times()} produce an error. Use this only when extrapolation beyond the
 fitted data support is intentional.
+
+{phang}
+{cmd:frame(}{it:name}[{cmd:, replace}]{cmd:)} writes one row per time point and
+quantity to frame {it:name}: never treated, always treated, and, with
+{opt difference}, the contrast. The variables follow {helpb eplot}'s frame
+schema: {cmd:label} (for example "Period 5: risk difference"), {cmd:estimate},
+{cmd:ll}, {cmd:ul}, and {cmd:rowtype} ("effect"), plus {cmd:horizon} (the
+period) and {cmd:strategy} ({cmd:never}, {cmd:always}, or
+{cmd:rd}/{cmd:sd}); the values equal {cmd:r(predictions)}. The frame's characteristics record the
+type, level, number of draws and seed. An existing frame requires
+{cmd:replace}; the current frame cannot be named. The request is checked before
+any computation, and a refused or failed prediction leaves any existing frame
+of that name unchanged.
 
 
 {marker limits}{...}
@@ -241,9 +259,42 @@ datasets fitted by older versions.{p_end}
 {phang2}{cmd:. msm_predict, times(1 3 5 7 9) strategy(always) seed(12345)}{p_end}
 
 {pstd}
-{bf:Visualizing predictions.} Follow up with a survival plot:{p_end}
+{bf:Signed periods.} With external periods such as -2 to 7, {cmd:times(-2 0 3)}
+returns {cmd:r(rd_m2)}, {cmd:r(rd_0)} and {cmd:r(rd_3)}; the {cmd:r(rd)} rows
+are named {cmd:tm2}, {cmd:t0} and {cmd:t3}.{p_end}
 
-{phang2}{cmd:. msm_plot, type(survival) times(1 3 5 7 9) seed(12345)}{p_end}
+
+{marker curve}{...}
+{title:Tables and graphs}
+
+{pstd}
+The {opt frame()} rows and {cmd:r(rd)} feed the companion packages
+directly; use at least 500 Monte Carlo draws for published intervals.{p_end}
+
+{phang2}{cmd:. msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345) frame(pred, replace)}{p_end}
+{phang2}{cmd:. matrix RD = r(rd)}{p_end}
+
+{pstd}
+Risk-difference table (tabtools) and forest plot (eplot):{p_end}
+
+{phang2}{cmd:. effecttab, from(RD) effect("Risk difference")}{p_end}
+{phang2}{cmd:. eplot if strategy == "rd", frame(pred) values xline(0)}{p_end}
+
+{pstd}
+Cumulative-incidence curves with Monte Carlo bands, drawn with {helpb twoway}
+from the frame:{p_end}
+
+{phang2}{cmd:. frame pred: twoway}{p_end}
+{phang2}{cmd:    (rarea ll ul horizon if strategy == "never", pstyle(p1) color(%25) lwidth(none))}{p_end}
+{phang2}{cmd:    (connected estimate horizon if strategy == "never", pstyle(p1))}{p_end}
+{phang2}{cmd:    (rarea ll ul horizon if strategy == "always", pstyle(p2) color(%25) lwidth(none))}{p_end}
+{phang2}{cmd:    (connected estimate horizon if strategy == "always", pstyle(p2)),}{p_end}
+{phang2}{cmd:    legend(order(2 "Never treated" 4 "Always treated"))}{p_end}
+{phang2}{cmd:    ytitle("Cumulative incidence") xtitle("Period")}{p_end}
+
+{pstd}
+Type the {cmd:twoway} call on one line or use {cmd:///} continuation in a
+do-file.{p_end}
 
 
 {marker stored}{...}
@@ -255,9 +306,18 @@ datasets fitted by older versions.{p_end}
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(predictions)}}estimates and intervals by strategy{p_end}
+{synopt:{cmd:r(rd)}}risk differences: {cmd:estimate ll ul p} by time{p_end}
+{synopt:{cmd:r(sd)}}survival differences, instead of {cmd:r(rd)}{p_end}
+
+{pstd}
+{cmd:r(rd)} (or {cmd:r(sd)} under {cmd:type(survival)}) is returned with
+{opt difference}. Its rows are named {cmd:t}{it:#} ({cmd:tm}{it:#} for a
+negative period) and its {cmd:p} column is missing, the layout
+{cmd:effecttab, from()} and {cmd:eplot, matrix()} read.
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:rd_#}}risk difference at time #, when requested{p_end}
+{synopt:{cmd:r(rd_}{it:#}{cmd:)}}risk difference at time #, when requested{p_end}
+{synopt:{cmd:r(sd_}{it:#}{cmd:)}}survival difference, instead, under {cmd:type(survival)}{p_end}
 {synopt:{cmd:r(n_times)}}number of time points requested{p_end}
 {synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
 {synopt:{cmd:r(samples)}}number of MC draws used{p_end}
@@ -275,6 +335,7 @@ datasets fitted by older versions.{p_end}
 {synopt:{cmd:r(diff_type)}}contrast type: {cmd:rd} (cum_inc) or {cmd:sd} (survival){p_end}
 {synopt:{cmd:r(draw_method)}}MVN draw: {cmd:eigen}, {cmd:eigen(clipped)}, or {cmd:degenerate}{p_end}
 {synopt:{cmd:r(history_spec)}}built-in history terms used by the fit{p_end}
+{synopt:{cmd:r(frame)}}name of the {opt frame()} written, if any{p_end}
 
 
 {marker author}{...}

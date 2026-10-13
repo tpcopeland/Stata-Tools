@@ -1,4 +1,4 @@
-*! _dataprobe_byrule Version 1.10.0  2026/10/12
+*! _dataprobe_byrule Version 1.10.1  2026/10/13
 *! dataprobe byrule(): a row-level rule evaluated under Stata's by byvars (sortvars): semantics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

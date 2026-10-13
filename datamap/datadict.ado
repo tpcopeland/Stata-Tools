@@ -1,4 +1,4 @@
-*! datadict Version 1.10.0  2026/10/12
+*! datadict Version 1.10.1  2026/10/13
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -598,7 +598,9 @@ program define _datadict_MakeAnchor, rclass
 	args idx name
 
 	// Convert to lowercase and replace spaces/special chars with hyphens
-	local anchor = lower(`"`name'"')
+	// A leading or trailing underscore (_demo_cohort) is not part of the
+	// heading text, so it must not leave a hyphen in the anchor either.
+	local anchor = lower(strtrim(subinstr(`"`name'"', "_", " ", .)))
 	local anchor = ustrregexra(`"`anchor'"', "[ _]", "-")
 	local anchor = ustrregexra(`"`anchor'"', "[^a-z0-9-]", "")
 
@@ -974,7 +976,7 @@ program define _datadict_FormatDisplayName, rclass
 	args dsname
 
 	if `"`dsname'"' == "data_in_memory" local dispname "Data in memory"
-	else local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+	else local dispname = strtrim(proper(subinstr(`"`dsname'"', "_", " ", .)))
 
 	return local dispname `"`dispname'"'
 	}
@@ -2119,7 +2121,7 @@ program define _datadict_ProcessOneDataset, rclass
 				local metadata_source "memory"
 				local metadata_dsname "memory"
 			}
-			else local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+			else local dispname = strtrim(proper(subinstr(`"`dsname'"', "_", " ", .)))
 			mata: st_local("dslabel_safe", _datadict_md_escape(st_local("dslabel")))
 			mata: st_local("filepath_safe", _datadict_md_escape(st_local("filepath")))
 

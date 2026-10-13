@@ -45,7 +45,7 @@ capture noisily {
     assert "`r(unit)'" == "year"
     assert "`r(pyconvention)'" == "inclusive"
     local stamp : char _dta[pygrid_version]
-    assert "`stamp'" == "1.0.1"
+    assert "`stamp'" == "1.0.2"
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("calendar defaults and stored contract") ///

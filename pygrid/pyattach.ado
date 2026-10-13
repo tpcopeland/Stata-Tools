@@ -1,4 +1,4 @@
-*! pyattach Version 1.0.1  2026/08/30
+*! pyattach Version 1.0.2  2026/10/13
 *! Attach zero-filled event measures to a pygrid denominator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -479,8 +479,8 @@ program define pyattach, rclass
             exit 459
         }
         if "`orphan_mode'" == "report" {
-            display as text "pyattach: " as result %12.0fc `N_orphan' ///
-                as text " orphan event row(s); " as result %12.0fc `N_orphan_nokey' ///
+            display as text "pyattach: " as result strtrim(string(`N_orphan', "%15.0fc")) ///
+                as text " orphan event row(s); " as result strtrim(string(`N_orphan_nokey', "%15.0fc")) ///
                 as text " have id() absent from the grid"
         }
 

@@ -1,4 +1,4 @@
-*! _qba_flag_misclass_pair Version 1.1.5  2026/10/09
+*! _qba_flag_misclass_pair Version 1.2.0  2026/10/13
 *! Internal helper: flag nonidentifiable Se/Sp draw pairs
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

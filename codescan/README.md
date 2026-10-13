@@ -1,6 +1,6 @@
 # codescan — Scan wide-format code fields without reshaping
 
-**Version 4.3.3** | 2026-10-12
+**Version 4.3.4** | 2026-10-13
 
 `codescan` scans wide-format diagnosis, procedure, medication, registry, and claims code slots with anchored regex or prefix rules and produces row-level indicators, counts, patient-level summaries, and exports. `codescan_describe` inventories the codes first so you can draft rules from the data you actually have.
 
@@ -370,6 +370,10 @@ The displayed tables, returned matrices, and draft codefile are ordered by desce
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 4.3.4 (2026-10-13)
+
+- Empty conditions are now reported in one summary note (`(note: 13 conditions matched 0 observations: pvd cvd ...)`) instead of one note per condition, which made wrappers such as `comorbidity` print a dozen lines. The same information, with the names listed; a single empty condition keeps the singular wording, and a long list wraps at word boundaries.
 
 ### 4.3.3 (2026-10-12)
 

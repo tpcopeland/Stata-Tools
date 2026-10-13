@@ -164,6 +164,10 @@
           "timeout_seconds": 300
         },
         {
+          "name": "test_gcomp_quiet",
+          "timeout_seconds": 600
+        },
+        {
           "name": "test_models",
           "timeout_seconds": 600
         },

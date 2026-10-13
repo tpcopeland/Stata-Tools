@@ -23,7 +23,7 @@ end
 local test_count 0
 local pass_count 0
 local fail_count 0
-foreach route in msm prepare validate weight diagnose diagtab fit predict plot table report protocol sensitivity {
+foreach route in msm prepare weight diagnose fit predict validate plot table report protocol diagtab sensitivity {
  foreach order in friendly unsorted {
   foreach context in empty full {
   local ++test_count
@@ -54,28 +54,16 @@ foreach route in msm prepare validate weight diagnose diagtab fit predict plot t
     local cause "duplicate (id, period) combinations"
    }
    if "`route'"=="weight" local options "treat_d_cov(l_t) nolog"
-   if "`route'"=="diagtab" {
-    local options `"frame(fx_absent) xlsx("fx_absent.xlsx")"'
-    local expected_rc 111
-    local cause "frame fx_absent not found"
-   }
    if "`route'"=="fit" local options "nolog"
    if "`route'"=="predict" {
     local options "times(1 3) samples(10) seed(9199)"
     local cause "no model has been fitted"
    }
-   if "`route'"=="plot" local options "type(weights)"
-   if "`route'"=="table" {
-    local options `"xlsx("fx_absent.xlsx") coefficients replace"'
-    local cause "coefficients table requires msm_fit"
-   }
-   if "`route'"=="protocol" {
-    local options `"population("adults") treatment("a") confounders("l") outcome("y") causal_contrast("all versus none") weight_spec("IPTW") analysis("pooled logit") format(bogus)"'
-    local cause "format() must be"
-   }
-   if "`route'"=="sensitivity" {
-    local options "evalue"
-    local cause "no model has been fitted"
+   * msm 2.0.0 stubs: refuse with 199 and the replacement, touching nothing.
+   if inlist("`route'","validate","plot","table","report","protocol","diagtab","sensitivity") {
+    local options "anything"
+    local expected_rc 199
+    local cause "was removed in msm 2.0.0"
    }
    tempfile refusal
    capture log close fxref
@@ -90,7 +78,6 @@ foreach route in msm prepare validate weight diagnose diagtab fit predict plot t
    log close fxref
    assert `command_rc'==`expected_rc'
    python: assert __import__('sfi').Macro.getLocal('cause') in open(__import__('sfi').Macro.getLocal('refusal'),encoding='utf-8').read()
-   python: assert not __import__('pathlib').Path('fx_absent.xlsx').exists()
   }
   if !_rc {
    local ++pass_count
@@ -103,59 +90,6 @@ foreach route in msm prepare validate weight diagnose diagtab fit predict plot t
   }
   }
  }
-}
-**# Completed validation findings: published results are documented even on strict198
-foreach mode in ordinary strict {
-    local ++test_count
-    capture noisily {
-        qa_fx_a3_seq, clear n(500) seed(9197)
-        quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t)
-        * Named missing-covariate adapter retains all rows and changes one required value.
-        replace l_t=. in 1
-        sort id, stable
-        quietly regress l_t l0 a
-        tempfile findings
-        capture log close fxref
-        log using "`findings'", text name(fxref)
-        _fx_caller_r
-        qa_state_snapshot, tag(finding) rreturn predict(xb stdp)
-        local option ""
-        if "`mode'"=="strict" local option "strict"
-        * expect: DEGRADED-DECLARED through exact completed validation findings
-        capture noisily msm_validate, `option'
-        local finding_rc=_rc
-        assert !missing(r(n_checks),r(n_errors),r(n_warnings))
-        assert r(n_checks)==10
-        if "`mode'"=="strict" {
-            assert `finding_rc'==198
-            assert r(n_errors)==1 & r(n_warnings)==0
-            assert "`r(validation)'"=="failed"
-        }
-        else {
-            assert `finding_rc'==0
-            assert r(n_errors)==0 & r(n_warnings)==1
-            assert "`r(validation)'"=="passed"
-        }
-        local scalars : r(scalars)
-        local macros : r(macros)
-        local matrices : r(matrices)
-        assert "`scalars'"=="n_warnings n_errors n_checks"
-        assert "`macros'"=="validation"
-        assert "`matrices'"==""
-        * r() is the documented findings; every other fingerprint category remains strict.
-        qa_state_compare, tag(finding) allow(r)
-        log close fxref
-        python: assert 'missing values found' in open(__import__('sfi').Macro.getLocal('findings'),encoding='utf-8').read()
-    }
-    if !_rc {
-        local ++pass_count
-        display "PASS: `mode' completed validation findings"
-    }
-    else {
-        local ++fail_count
-        display "FAIL: `mode' completed validation findings (rc=`=_rc')"
-        capture log close fxref
-    }
 }
 do "`qa_dir'/_record_qa_result.do" test_fixture_reader_refusals `test_count' `pass_count' `fail_count' 0
 display "RESULT: test_fixture_reader_refusals tests=`test_count' pass=`pass_count' fail=`fail_count'"

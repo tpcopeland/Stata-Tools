@@ -1,4 +1,4 @@
-*! _qba_plot_tornado Version 1.1.5  2026/10/09
+*! _qba_plot_tornado Version 1.2.0  2026/10/13
 *! Internal helper: qba tornado plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -202,7 +202,30 @@ program define _qba_plot_tornado, rclass
             }
 
             local obs_line "yline(`obs_meas', lcolor(red) lpattern(dash))"
-            local null_line "yline(`null', lcolor(gs8) lpattern(dot))"
+            local null_line "yline(`null', lcolor(gs6) lwidth(medium) lpattern(solid))"
+
+            * Label the reference lines at the right edge of the plot and keep
+            * them inside the y range so they are always visible.
+            summarize param_value if corrected < ., meanonly
+            local _xmax = r(max)
+            local _nullfmt : display %5.2f `null'
+            local _yrange "`null'"
+            summarize corrected, meanonly
+            local _ylo = min(r(min), `null')
+            local _yhi = max(r(max), `null')
+            if `obs_meas' < . {
+                local _ylo = min(`_ylo', `obs_meas')
+                local _yhi = max(`_yhi', `obs_meas')
+            }
+            local _dy = 0.02 * (`_yhi' - `_ylo')
+            local _nully = `null' + `_dy'
+            local _ref_text `"text(`_nully' `_xmax' "Null (`=strtrim("`_nullfmt'")')", placement(nw) size(small) color(gs6))"'
+            if `obs_meas' < . {
+                local _obsfmt : display %5.2f `obs_meas'
+                local _ref_text `"`_ref_text' text(`=`obs_meas' + `_dy'' `_xmax' "Observed `measurelabel' (`=strtrim("`_obsfmt'")')", placement(nw) size(small) color(red))"'
+                local _yrange "`_yrange' `obs_meas'"
+            }
+            local null_line `"`null_line' `_ref_text' yscale(range(`_yrange'))"'
 
             if `"`title'"' == "" local title "Sensitivity of `measurelabel' to Bias Parameters"
 

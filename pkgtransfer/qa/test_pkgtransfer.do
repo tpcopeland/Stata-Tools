@@ -1069,9 +1069,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
 * SECTION 11: OUTPUT OWNERSHIP AND CALLER STATE
 * ============================================================
 
-* Test 28: Existing staging directory is never reused or deleted
+* Test 28: A user-owned ./pkgtransfer_files is never reused, archived or deleted;
+* bundle creation stages in its own temporary directory and succeeds
 local ++test_count
-local test_desc "Existing staging directory is preserved"
+local test_desc "Existing pkgtransfer_files directory is preserved and not archived"
 _run_test `test_count' "`test_desc'"
 if `run_only' == 0 | `run_only' == `test_count' {
     local test_rc 0
@@ -1089,17 +1090,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
             limited(pkgtransfer) dofile(ownership.do) ///
             zipfile(ownership.zip)
         local command_rc = _rc
-        assert `command_rc' == 602
+        assert `command_rc' == 0
         confirm file "pkgtransfer_files/sentinel.txt"
         file open `sentinel_fh' using ///
             "pkgtransfer_files/sentinel.txt", read text
         file read `sentinel_fh' sentinel_line
         file close `sentinel_fh'
         assert `"`macval(sentinel_line)'"' == "user-owned"
-        capture confirm file "ownership.do"
+        confirm file "ownership.do"
+        confirm file "ownership.zip"
+        * the user's file is not part of the archive
+        mkdir "unpacked_check"
+        quietly cd "unpacked_check"
+        quietly unzipfile "../ownership.zip", replace
+        capture confirm file "pkgtransfer_files/sentinel.txt"
         assert _rc == 601
-        capture confirm file "ownership.zip"
-        assert _rc == 601
+        confirm file "pkgtransfer_files/pkgtransfer.pkg"
+        quietly cd ..
     }
     local test_rc = _rc
     capture file close `sentinel_fh'
@@ -1107,6 +1114,9 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture confirm file "pkgtransfer_files/sentinel.txt"
     if _rc != 601 local cleanup_rc = 9
     capture rmdir "pkgtransfer_files"
+    capture shell rm -rf "unpacked_check"
+    capture erase "ownership.do"
+    capture erase "ownership.zip"
     local ownership_dirs : dir "." dirs "pkgtransfer_files", respectcase
     if `"`ownership_dirs'"' != "" local cleanup_rc = 9
     capture quietly cd "`orig_dir'"

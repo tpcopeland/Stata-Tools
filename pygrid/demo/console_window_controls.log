@@ -6,9 +6,9 @@
 >     axis(calendar) origin(index_date) coverage(coverage_start) ///
 >     clamp(`study_start' `study_stop') relgen(study_year) ///
 >     partial(flag) keep(cohort) saveas("`controlled_grid'") replace noisily
-pygrid:            2 persons,            6 period rows
-  empty windows:            1   partial periods:            3
-  person-time:        4.79671   axis: calendar   convention: inclusive
+pygrid: 2 persons, 6 period rows
+  empty windows: 1   partial periods: 3
+  person-time: 4.79671   axis: calendar   convention: inclusive
 
 . noisily return list
 

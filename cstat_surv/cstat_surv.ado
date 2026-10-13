@@ -1,4 +1,4 @@
-*! cstat_surv Version 1.0.2  2026/09/30
+*! cstat_surv Version 1.0.3  2026/10/13
 *! C-statistic for Cox proportional hazards models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Standalone version with embedded calculation (no somersd dependency)
@@ -21,6 +21,44 @@ program define cstat_surv, eclass
             exit 301
         }
 
+        tempvar touse
+        tempname cstat se_cstat
+        local replay 0
+
+        * A repeat call: e() holds this command's own results. Replay them at
+        * the new level instead of recomputing: the Cox fit they came from is
+        * not available (and an older cstat_surv result restored with
+        * estimates restore must never be paired with a different Cox fit).
+        if "`e(cmd)'" == "cstat_surv" {
+            quietly count if e(sample)
+            local _rp_ok = (r(N) == e(N))
+            if `_rp_ok' {
+                quietly generate byte `touse' = e(sample)
+                capture _cstat_surv_sig `touse' `e(sigvars)'
+                if _rc | `"`r(sig)'"' != `"`e(datasignature)'"' local _rp_ok 0
+                quietly drop `touse'
+            }
+            if !`_rp_ok' {
+                display as error "last estimation was cstat_surv, and the data have changed since it ran"
+                display as error "rerun stcox before using cstat_surv"
+                exit 301
+            }
+            local replay 1
+            quietly generate byte `touse' = e(sample)
+            scalar `cstat' = e(c)
+            scalar `se_cstat' = e(se)
+            local nobs = e(N)
+            local N_comp = e(N_comparable)
+            local N_conc = e(N_concordant)
+            local N_disc = e(N_discordant)
+            local N_tied = e(N_tied)
+            local somers_d = e(somers_d)
+            local df = e(df_r)
+            local _sigvars `"`e(sigvars)'"'
+            local _datasig `"`e(datasignature)'"'
+        }
+
+        if !`replay' {
         * Validation: Check if last estimation was stcox
         if "`e(cmd)'" != "cox" {
             display as error "last estimation was `e(cmd)', not cox"
@@ -58,7 +96,7 @@ program define cstat_surv, eclass
         local wtype "`e(wtype)'"
 
         * Declare temporary variables
-        tempvar hrs touse time event
+        tempvar hrs time event
 
         * Generate predictions
         quietly {
@@ -90,7 +128,6 @@ program define cstat_surv, eclass
         }
 
         * Calculate C-statistic using Mata
-        tempname cstat se_cstat
         mata: _cstat_surv_calc("`hrs'", "`time'", "`event'", "`touse'")
 
         * Check for comparable pairs
@@ -112,6 +149,8 @@ program define cstat_surv, eclass
         * Degrees of freedom (observations - 1)
         local df = `nobs' - 1
 
+        }
+
         * Calculate confidence interval using t-distribution
         local alpha = (100 - `level') / 100
         local t_crit = invttail(`df', `alpha'/2)
@@ -130,6 +169,29 @@ program define cstat_surv, eclass
         matrix colnames `V' = c_statistic
         matrix rownames `V' = c_statistic
 
+        * Signature of the data this result depends on (a replay keeps the one
+        * it just verified)
+        if !`replay' {
+        local _sigvars "_t _d _t0 _st"
+        local _cn : colnames e(b)
+        foreach _nm of local _cn {
+            local _nm = subinstr("`_nm'", "#", " ", .)
+            foreach _comp of local _nm {
+                local _dot = strrpos("`_comp'", ".")
+                if `_dot' local _comp = substr("`_comp'", `_dot' + 1, .)
+                capture confirm numeric variable `_comp'
+                if !_rc local _sigvars "`_sigvars' `_comp'"
+            }
+        }
+        foreach _sv in `e(strata)' {
+            capture confirm numeric variable `_sv'
+            if !_rc local _sigvars "`_sigvars' `_sv'"
+        }
+        local _sigvars : list uniq _sigvars
+        _cstat_surv_sig `touse' `_sigvars'
+        local _datasig `"`r(sig)'"'
+        }
+
         ereturn post `b' `V', obs(`nobs') depname(_t) esample(`touse')
         ereturn scalar c = `cstat'
         ereturn scalar se = `se_cstat'
@@ -145,6 +207,8 @@ program define cstat_surv, eclass
         ereturn local cmd "cstat_surv"
         ereturn local title "Harrell's C-statistic"
         ereturn local vcetype "Jackknife"
+        ereturn local sigvars "`_sigvars'"
+        ereturn local datasignature `"`_datasig'"'
 
         * Display results
         display
@@ -166,6 +230,21 @@ program define cstat_surv, eclass
     local rc = _rc
     set varabbrev `_varabbrev'
     if `rc' exit `rc'
+end
+
+capture program drop _cstat_surv_sig
+program define _cstat_surv_sig, rclass
+    version 16.0
+    gettoken touse vars : 0
+    * Estimation sample only, in a fully keyed order (identical rows are
+    * interchangeable), so the order-dependent checksum is deterministic and
+    * the caller's data and sort order are untouched.
+    preserve
+    quietly keep if `touse'
+    sort `vars'
+    _datasignature `vars', nonames
+    return local sig `"`r(datasignature)'"'
+    restore
 end
 
 version 16.0

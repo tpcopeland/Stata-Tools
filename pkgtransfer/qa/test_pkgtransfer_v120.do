@@ -23,6 +23,8 @@ local qa_original_plus "`r(original_plus)'"
 local qa_original_personal "`r(original_personal)'"
 local qa_plus "`r(plus)'"
 local work "`r(work)'"
+_pkgtransfer_qa_stage_list
+local stage_list0 `"`r(list)'"'
 
 capture program drop pkgtransfer
 run "`pkg_dir'/pkgtransfer.ado"
@@ -538,6 +540,8 @@ capture noisily {
     assert _rc == 601
     local staged : dir "." dirs "pkgtransfer_files"
     assert `"`staged'"' == ""
+    _pkgtransfer_qa_stage_list
+    assert `"`r(list)'"' == `"`stage_list0'"'
 
     * Download mode: the existing do-file is refused too
     capture noisily pkgtransfer, download(local) dofile(mywork.do) zipfile(new.zip)
@@ -691,6 +695,8 @@ capture noisily {
         "Platform file only.jar has no platform record for os(MacOSX)") > 0
     local staged : dir "." dirs "pkgtransfer_files"
     assert `"`staged'"' == ""
+    _pkgtransfer_qa_stage_list
+    assert `"`r(list)'"' == `"`stage_list0'"'
     capture confirm file "b.zip"
     assert _rc == 601
     * A matching OS still bundles
@@ -745,6 +751,8 @@ capture noisily {
     assert _rc == 601
     local staged : dir "." dirs "pkgtransfer_files"
     assert `"`staged'"' == ""
+    _pkgtransfer_qa_stage_list
+    assert `"`r(list)'"' == `"`stage_list0'"'
 }
 local test_rc = _rc
 capture file close `fh'

@@ -109,6 +109,7 @@ quietly {
     format dxdate refdate %td
 }
 
+noisily display "pid 2's only diagnosis is 365 days before refdate: outside the window, so pid 2 is excluded (N = 1)"
 noisily comorbidity dx1, id(pid) charlson(original) collapse ///
     date(dxdate) refdate(refdate) lookback(30) lookforward(10) inclusive
 noisily list pid charlson mi chf, noobs abbreviate(16)

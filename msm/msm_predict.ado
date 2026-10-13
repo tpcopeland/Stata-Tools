@@ -1,4 +1,4 @@
-*! msm_predict Version 1.4.12  2026/10/09
+*! msm_predict Version 2.0.0  2026/10/13
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -64,7 +64,31 @@ program define msm_predict, rclass
     * against the fitted risk-set support below, not by the numlist range.
     syntax , TIMEs(numlist sort integer) ///
         [STRAtegy(string) TYPe(string) SAMPles(integer 100) ///
-         SEED(integer -1) Level(cilevel) DIFFerence EXTRApolate]
+         SEED(integer -1) Level(cilevel) DIFFerence EXTRApolate ///
+         FRAME(string)]
+
+    * frame(name[, replace]): validate before any work so a bad request never
+    * strands a finished computation.
+    local frame_name ""
+    local frame_replace ""
+    if `"`frame'"' != "" {
+        local 0 `"`frame'"'
+        capture syntax name(name=frame_name id="frame name") [, REPlace]
+        if _rc {
+            display as error "frame() must be {it:name}[, replace]"
+            exit 198
+        }
+        local frame_replace "`replace'"
+        if "`frame_name'" == "`c(frame)'" {
+            display as error "frame(`frame_name') may not name the current frame"
+            exit 198
+        }
+        capture confirm frame `frame_name'
+        if _rc == 0 & "`frame_replace'" == "" {
+            display as error "frame `frame_name' already exists; specify frame(`frame_name', replace)"
+            exit 110
+        }
+    }
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -73,7 +97,6 @@ program define msm_predict, rclass
     _msm_check_fitted
     _msm_get_settings
 
-    local _fit_uuid : char _dta[_msm_fit_uuid]
 
     local id        "`_msm_id'"
     local period    "`_msm_period'"
@@ -117,12 +140,12 @@ program define msm_predict, rclass
     if "`predict_disabled'" == "1" {
         display as error "msm_predict is not available for this fit"
         display as error "msm_fit used exposure() or tvcov(); counterfactual standardization is undefined for a continuous or time-varying exposure model."
-        display as error "Use msm_report, msm_table, or msm_sensitivity instead."
+        display as error "Report the fitted coefficients instead: {bf:collect: msm_fit ...} then {bf:regtab} (tabtools)."
         exit 198
     }
     if "`model'" != "logistic" {
         display as error "msm_predict currently only supports logistic model"
-        display as error "Use msm_report, msm_table, or msm_sensitivity for non-logistic fits."
+        display as error "Report non-logistic fits from e(): {bf:collect: msm_fit ...} then {bf:regtab} (tabtools)."
         exit 198
     }
     if "`outcome_cov'" != "" {
@@ -261,11 +284,6 @@ program define msm_predict, rclass
         display as error "Re-run {bf:msm_fit} or check why baseline rows are excluded from _msm_esample."
         restore
         local _restore_needed = 0
-        capture matrix drop _msm_pred_matrix
-        char _dta[_msm_pred_saved]
-        char _dta[_msm_pred_type]
-        char _dta[_msm_pred_strategy]
-        char _dta[_msm_pred_level]
         exit 2000
     }
 
@@ -526,8 +544,84 @@ program define msm_predict, rclass
     * fixed, so these intervals are final-stage, conditional-on-estimated-weights.
     display as text "Note: Monte Carlo intervals draw from the outcome-model covariance only."
     display as text "      They condition on the estimated IP weights and the reference sample"
-    display as text "      and do not propagate weight-model estimation (audit A22)."
+    display as text "      and do not propagate weight-model estimation."
     display as text "{hline 70}"
+
+    * =========================================================================
+    * GRAPH-READY FRAME AND CONTRAST MATRIX
+    * =========================================================================
+
+    * One long row per horizon x quantity, in eplot's frame schema
+    * (label estimate ll ul rowtype) plus horizon and strategy keys.
+    local diff_word = cond("`type'" == "survival", "survival difference", "risk difference")
+    if "`frame_name'" != "" {
+        tempname _pf
+        frame create `_pf' str48 label double horizon str8 strategy ///
+            double(estimate ll ul) str6 rowtype
+        local time_idx = 0
+        foreach t of local times {
+            local ++time_idx
+            foreach _q in never always diff {
+                if "`_q'" == "never" {
+                    if !inlist("`strategy'", "both", "never") continue
+                    local _c = 2
+                    local _lab "Period `t': never treated"
+                    local _key "never"
+                }
+                else if "`_q'" == "always" {
+                    if !inlist("`strategy'", "both", "always") continue
+                    local _c = 5
+                    local _lab "Period `t': always treated"
+                    local _key "always"
+                }
+                else {
+                    if "`difference'" == "" continue
+                    local _c = 8
+                    local _lab "Period `t': `diff_word'"
+                    local _key "`diff_prefix'"
+                }
+                frame post `_pf' ("`_lab'") (`t') ("`_key'") ///
+                    (`results'[`time_idx', `_c']) ///
+                    (`results'[`time_idx', `_c' + 1]) ///
+                    (`results'[`time_idx', `_c' + 2]) ("effect")
+            }
+        }
+        frame `_pf' {
+            label variable label "Row label"
+            label variable horizon "Prediction period"
+            label variable strategy "never, always, or `diff_prefix' (always minus never)"
+            label variable estimate "Point estimate"
+            label variable ll "Lower `level'% Monte Carlo limit"
+            label variable ul "Upper `level'% Monte Carlo limit"
+            label variable rowtype "eplot row type"
+            char _dta[msm_predict_type] "`type'"
+            char _dta[msm_predict_level] "`level'"
+            char _dta[msm_predict_samples] "`samples'"
+            char _dta[msm_predict_seed] `"`seed_used'"'
+        }
+        if "`frame_replace'" != "" capture frame drop `frame_name'
+        frame rename `_pf' `frame_name'
+        display as text "Predictions written to frame " as result "`frame_name'"
+    }
+
+    * r(rd) (cum_inc) or r(sd) (survival): estimate, ll, ul, p (missing), one
+    * row per horizon, the from() layout effecttab and eplot, matrix() read.
+    if "`difference'" != "" {
+        tempname _rdmat
+        matrix `_rdmat' = J(`n_times', 4, .)
+        local _rn ""
+        local time_idx = 0
+        foreach t of local times {
+            local ++time_idx
+            matrix `_rdmat'[`time_idx', 1] = `results'[`time_idx', 8]
+            matrix `_rdmat'[`time_idx', 2] = `results'[`time_idx', 9]
+            matrix `_rdmat'[`time_idx', 3] = `results'[`time_idx', 10]
+            * Signed external periods: t-2 is not a valid row name, so tm2.
+            local _rn "`_rn' t`=cond(`t' < 0, "m", "")'`=abs(`t')'"
+        }
+        matrix colnames `_rdmat' = estimate ll ul p
+        matrix rownames `_rdmat' = `_rn'
+    }
 
     * =========================================================================
     * STORE RESULTS
@@ -542,30 +636,20 @@ program define msm_predict, rclass
             est_always ci_lo_always ci_hi_always
     }
 
-    * Persist the matrix in the dataset, not only in the live Stata session.
-    * The UUID and dependency bind it to this dataset's current fitted model.
-    _msm_uuid
-    local _pred_uuid "`r(uuid)'"
-    _msm_mat_save `results', key(_msm_pred_mat) token(`_pred_uuid')
-    capture matrix drop _msm_pred_matrix
-    matrix _msm_pred_matrix = `results'
-    char _dta[_msm_pred_saved] "1"
-    char _dta[_msm_pred_type] "`type'"
-    char _dta[_msm_pred_strategy] "`strategy'"
-    char _dta[_msm_pred_level] "`level'"
-    char _dta[_msm_pred_uuid] "`_pred_uuid'"
-    char _dta[_msm_pred_dep] "`_fit_uuid'"
-
     * Extract scalars before return matrix
     local time_idx = 0
     foreach t of local times {
         local ++time_idx
         if "`difference'" != "" & "`strategy'" == "both" {
-            local _diff_`t' = `results'[`time_idx', 8]
+            local _tn = cond(`t' < 0, "m", "") + string(abs(`t'))
+            local _diff_`_tn' = `results'[`time_idx', 8]
         }
     }
 
+    if "`difference'" != "" & "`diff_prefix'" == "rd" return matrix rd = `_rdmat'
+    else if "`difference'" != "" return matrix sd = `_rdmat'
     return matrix predictions = `results'
+    return local frame "`frame_name'"
     return local seed `"`seed_used'"'
     return local seed_source "`seed_source'"
     return local seed_state `"`seed_state'"'
@@ -583,12 +667,15 @@ program define msm_predict, rclass
     return scalar extrapolated = `extrapolated'
 
     * The contrast return is named for the actual quantity (audit A14):
-    * rd_<t> under cum_inc, sd_<t> under survival.
+    * rd_<t> under cum_inc, sd_<t> under survival. A signed external period
+    * cannot appear in a name, so t = -2 returns rd_m2.
     local time_idx = 0
     foreach t of local times {
         local ++time_idx
         if "`difference'" != "" & "`strategy'" == "both" {
-            return scalar `diff_prefix'_`t' = `_diff_`t''
+            local _tn = cond(`t' < 0, "m", "") + string(abs(`t'))
+            if "`diff_prefix'" == "rd" return scalar rd_`_tn' = `_diff_`_tn''
+            else return scalar sd_`_tn' = `_diff_`_tn''
         }
     }
 

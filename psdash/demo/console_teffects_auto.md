@@ -10,7 +10,7 @@ title: "console_teffects_auto"
 
 ```
 Iteration 0:   EE criterion =  7.348e-24
-Iteration 1:   EE criterion =  3.610e-31
+Iteration 1:   EE criterion =  6.560e-31
 
 Treatment-effects estimation                    Number of obs     =        800
 Estimator      : inverse-probability weights
@@ -86,7 +86,7 @@ Threshold:      0.100
 
 
 --------------------------------------------------------------------
-           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
+           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj  SMD status
 --------------------------------------------------------------------
                  age |    0.472    0.99    0.007    1.00    Balanced
               female |    0.431    1.03    0.003    1.00    Balanced

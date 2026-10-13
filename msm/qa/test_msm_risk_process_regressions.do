@@ -8,7 +8,8 @@
 *   A11  one authoritative risk-set marker: appending post-risk rows cannot
 *        change any at-risk weight, cutoff, diagnostic, or fitted estimate
 *   A17  signed periods rebased internally; Cox retains every intended row
-*   A25  treatment support counts 0/1 among nonmissing; missing is indeterminate
+*   A25  a period without both treatment groups is flagged by msm_diagnose;
+*        a missing treatment is refused by msm_weight (msm 2.0.0)
 *   A34  r(n_periods) is a distinct count; r(period_span) is separate
 *
 * Every refusal test is paired with a positive control (the same call minus the
@@ -177,7 +178,7 @@ capture noisily {
     * gap: delete period 1 from a 0..T panel -> within-id run 0,2,3,...
     * A gap is a hard WEIGHTING error (audit A09): preparation still describes
     * the data, but msm_weight refuses because the cumulative weight would be
-    * wrong. msm_validate reports it as a diagnostic.
+    * wrong. msm_prepare reports it in r(n_gap_ids).
     _p2_clean_panel
     drop if period == 1
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)
@@ -215,10 +216,15 @@ capture noisily {
     msm_weight, treat_d_cov(L) truncate(1 99) nolog
     msm_fit, model(logistic) vce(cluster id) nolog
     scalar b_base   = _b[treat]
+    * msm 2.0.0: pooled weight summaries left msm_diagnose; compute them on
+    * the risk set directly and compare the longitudinal matrices it returns.
+    quietly summarize _msm_weight if _msm_decision_risk
+    scalar mw_base  = r(mean)
+    scalar mx_base  = r(max)
     msm_diagnose
-    scalar ess_base = r(ess)
-    scalar mw_base  = r(mean_weight)
-    scalar mx_base  = r(max_weight)
+    tempname sup_base tb_base
+    matrix `sup_base' = r(support)
+    matrix `tb_base' = r(treatment_balance)
 
     * append clean post-event follow-up rows (out=0, cens=0) to event-ending ids
     use `base', clear
@@ -263,16 +269,21 @@ capture noisily {
 
     msm_fit, model(logistic) vce(cluster id) nolog
     scalar b_post   = _b[treat]
+    quietly summarize _msm_weight if _msm_decision_risk
+    scalar mw_post  = r(mean)
+    scalar mx_post  = r(max)
     msm_diagnose
-    scalar ess_post = r(ess)
-    scalar mw_post  = r(mean_weight)
-    scalar mx_post  = r(max_weight)
+    tempname sup_post tb_post
+    matrix `sup_post' = r(support)
+    matrix `tb_post' = r(treatment_balance)
 
     * at-risk results must be byte-for-byte invariant to appended post-risk rows
     assert !missing(b_base, b_post)
     assert reldif(b_base, b_post)     < 1e-11
-    assert !missing(ess_base, ess_post)
-    assert reldif(ess_base, ess_post) < 1e-9
+    assert !missing(mreldif(`sup_base', `sup_post'))
+    assert mreldif(`sup_base', `sup_post') < 1e-9
+    assert !missing(mreldif(`tb_base', `tb_post'))
+    assert mreldif(`tb_base', `tb_post') < 1e-9
     assert !missing(mw_base, mw_post)
     assert reldif(mw_base, mw_post)   < 1e-11
     assert !missing(mx_base, mx_post)
@@ -328,43 +339,42 @@ else {
 }
 
 * -------------------------------------------------------------------------
-* A25: treatment support by period counts 0/1 among nonmissing
+* A25: a period without both treatment groups is a support violation, and a
+* missing treatment can no longer pad it (msm 2.0.0: msm_diagnose and
+* msm_weight own the former msm_validate check 10)
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
-    * Contrast two panels with the IDENTICAL missing-treatment pattern in period
-    * 0, differing only in whether a genuine untreated subject exists there. The
-    * support check must fire in the no-untreated case and not in the other.
-    * The old arithmetic (_p_t0 = _N - total(treat)) counted the missing rows as
-    * untreated, so BOTH panels padded-passed positivity and produced equal
-    * warning counts -- this contrast is therefore red on the old code and green
-    * on the new. A bare "validate errored" assertion is a false green: the
-    * separate missing-value check errors on both codes regardless of A25.
+    * Missing treatment cannot masquerade as untreated support: it is refused.
     _p2_clean_panel, seed(22725) nids(400) tper(4)
-    replace treat = 1 if period == 0                       // no genuine untreated
-    replace treat = . if period == 0 & mod(id, 5) == 0     // padded by missing
+    replace treat = 1 if period == 0
+    replace treat = . if period == 0 & mod(id, 5) == 0
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)
-    msm_validate
-    scalar warn_noun = r(n_warnings)
+    assert "`r(missing_vars)'" == "treat"
+    * refused (here the baseline model, which has no untreated row, fails
+    * first; with untreated rows the missing-probability check refuses 459)
+    capture noisily msm_weight, treat_d_cov(L) nolog
+    assert _rc != 0
+    assert "`: char _dta[_msm_weighted]'" == ""
 
+    * A period with no untreated row is flagged as a support violation.
     _p2_clean_panel, seed(22725) nids(400) tper(4)
-    replace treat = . if period == 0 & mod(id, 5) == 0     // same missing pattern
+    replace treat = 1 if period == 1
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)
-    msm_validate
-    scalar warn_un = r(n_warnings)
+    msm_weight, treat_d_cov(L) fitfailure(marginal) nolog
+    msm_diagnose
+    assert r(n_support_violations) == 1
+    assert "`r(support_violation_periods)'" == "1"
 
-    * the extra warning is exactly the support violation the padded count hid
-    assert warn_noun > warn_un
-
-    * positive control: a fully clean panel (treated+untreated each period, no
-    * missing) raises no error even under strict validation
+    * positive control: a clean panel has no violation
     _p2_clean_panel, seed(22725) nids(400) tper(5)
     msm_prepare, id(id) period(period) treatment(treat) outcome(out) covariates(L)
-    msm_validate, strict
-    assert r(n_errors) == 0
+    msm_weight, treat_d_cov(L) nolog
+    msm_diagnose
+    assert r(n_support_violations) == 0
 }
 if _rc == 0 {
-    display as result "PASS A25: missing treatment no longer masquerades as untreated support"
+    display as result "PASS A25: support violations flagged; missing treatment cannot pad support"
     local ++pass_count
 }
 else {

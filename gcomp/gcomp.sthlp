@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.3  09oct2026}{...}
+{* *! version 2.0.4  13oct2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -1131,7 +1131,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.0.3, 2026-10-09{p_end}
+{pstd}Version 2.0.4, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

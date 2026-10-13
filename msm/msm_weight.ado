@@ -1,4 +1,4 @@
-*! msm_weight Version 1.4.12  2026/10/09
+*! msm_weight Version 2.0.0  2026/10/13
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -153,6 +153,17 @@ program define msm_weight, rclass
         if `trunc_lo' >= `trunc_hi' {
             display as error "truncate() lower bound must be less than upper bound"
             exit 198
+        }
+        * English ordinals for display: 1st, 2nd, 3rd, 11th, 99th, 2.5th.
+        foreach _side in lo hi {
+            local _v = `trunc_`_side''
+            local _suf "th"
+            if `_v' == floor(`_v') & !inlist(mod(`_v', 100), 11, 12, 13) {
+                if mod(`_v', 10) == 1 local _suf "st"
+                else if mod(`_v', 10) == 2 local _suf "nd"
+                else if mod(`_v', 10) == 3 local _suf "rd"
+            }
+            local trunc_`_side'_ord "`trunc_`_side''`_suf'"
         }
     }
 
@@ -362,7 +373,7 @@ program define msm_weight, rclass
             " Clip to [`clip', `=1-`clip''] (explicit)"
     }
     if "`truncate'" != "" {
-        display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
+        display as text "Truncation:       " as result "`trunc_lo_ord' - `trunc_hi_ord' percentile"
         if "`truncate_source'" == "symmetric" {
             display as text "Truncate source:  " as result "symmetric shorthand from truncate(`truncate_original')"
         }
@@ -590,7 +601,7 @@ program define msm_weight, rclass
         local n_truncated = 0
         if "`truncate'" != "" {
             display as text ""
-            display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
+            display as text "Truncating weights at `trunc_lo_ord' and `trunc_hi_ord' percentiles..."
 
             * Percentile cutoffs are computed on the risk set only (audit A11).
             * Post-event/post-censor rows carry the last cumulative weight
@@ -783,7 +794,10 @@ program define msm_weight, rclass
         char _dta[_msm_tw_var] "_msm_tw_weight"
         char _dta[_msm_ps_covars] "`treat_d_cov'"
         char _dta[_msm_estimand] "ate"
-        char _dta[_msm_contract_version] "1.0"
+        * Contract 1.1 (msm 2.0.0) names the treatment-decision risk set so a
+        * consumer (psdash) restricts to the rows the weights were built on.
+        char _dta[_msm_risk_var] "_msm_decision_risk"
+        char _dta[_msm_contract_version] "1.1"
 
         _msm_contract weight
         char _dta[_msm_weight_contract] `"`r(contract)'"'

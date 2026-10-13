@@ -1,4 +1,4 @@
-*! _simtab_xlsx_write Version 2.0.3  2026/10/09
+*! _simtab_xlsx_write Version 2.0.4  2026/10/13
 *! Write the current dataset to an Excel sheet through Mata xl()
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -59,8 +59,8 @@ capture mata: mata drop _st_xlsx_write_mata()
 capture mata: mata drop _st_cur_strmat()
 
 local _st_compile_ms = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 class xl scalar _st_xlsx_write_mata(
@@ -140,10 +140,12 @@ string matrix _st_cur_strmat(string scalar varlist)
 }
 
 end
-}
 local _st_compile_rc = _rc
 mata: mata set matastrict `_st_compile_ms'
-if `_st_compile_rc' exit `_st_compile_rc'
+if `_st_compile_rc' {
+    display as error "simtab: a Mata helper in _simtab_xlsx_write.ado did not compile (rc=`_st_compile_rc')"
+    exit `_st_compile_rc'
+}
 
 capture program drop _simtab_xlsx_build_styles
 program define _simtab_xlsx_build_styles, rclass
@@ -176,8 +178,8 @@ capture mata: mata drop _st_xlsx_build_styles_values()
 capture mata: mata drop _st_xlsx_build_styles_error()
 
 local _st_compile_ms = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 void _st_xlsx_build_styles(
@@ -290,10 +292,12 @@ void _st_xlsx_build_styles_error(string scalar message)
 }
 
 end
-}
 local _st_compile_rc = _rc
 mata: mata set matastrict `_st_compile_ms'
-if `_st_compile_rc' exit `_st_compile_rc'
+if `_st_compile_rc' {
+    display as error "simtab: a Mata helper in _simtab_xlsx_write.ado did not compile (rc=`_st_compile_rc')"
+    exit `_st_compile_rc'
+}
 
 capture program drop _simtab_xlsx_apply_styles
 program define _simtab_xlsx_apply_styles, rclass
@@ -356,8 +360,8 @@ capture mata: mata drop _st_xlsx_style_validate_rgb()
 capture mata: mata drop _st_xlsx_style_error()
 
 local _st_compile_ms = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 void _st_xlsx_apply_styles(
@@ -631,10 +635,12 @@ void _st_xlsx_style_error(real scalar row, string scalar message)
 }
 
 end
-}
 local _st_compile_rc = _rc
 mata: mata set matastrict `_st_compile_ms'
-if `_st_compile_rc' exit `_st_compile_rc'
+if `_st_compile_rc' {
+    display as error "simtab: a Mata helper in _simtab_xlsx_write.ado did not compile (rc=`_st_compile_rc')"
+    exit `_st_compile_rc'
+}
 
 * Stata's xl() class never reuses a style record.  A ranged set_font() appends
 * two <font> entries for every cell it touches, and every other cell-level
@@ -821,8 +827,8 @@ capture mata: mata drop _st_xlsx_check_manifest()
 capture mata: mata drop _st_xlsx_filesize()
 
 local _st_compile_ms = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 // Rewrite xl/styles.xml, and every worksheet whose cell format indices move,
@@ -1292,7 +1298,9 @@ void _st_xlsx_verify(string scalar rebuilt, string scalar root)
 }
 
 end
-}
 local _st_compile_rc = _rc
 mata: mata set matastrict `_st_compile_ms'
-if `_st_compile_rc' exit `_st_compile_rc'
+if `_st_compile_rc' {
+    display as error "simtab: a Mata helper in _simtab_xlsx_write.ado did not compile (rc=`_st_compile_rc')"
+    exit `_st_compile_rc'
+}

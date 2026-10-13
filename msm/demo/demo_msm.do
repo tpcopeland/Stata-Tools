@@ -1,13 +1,22 @@
-/*  demo_msm.do - Generate manuscript-ready demo output for msm
+/*  demo_msm.do - Demo output for msm 2.0.0 (estimator core + companions)
 
-    Produces 7 output types:
-      1. Console output (setup + protocol + validation) -> console_pipeline_setup.smcl
-      2. Console output (weighting + diagnostics) -> console_pipeline_diagnostics.smcl
-      3. Console output (fit + prediction + reporting) -> console_pipeline_results.smcl
-      4. Graph (counterfactual cumulative incidence) -> survival_plot.png
-      5. Graph (IP weight distribution) -> weight_plot.png
-      6. Graph (covariate balance) -> balance_plot.png
-      7. Excel exports (protocol, report, tables) -> .xlsx
+    Produces:
+      1. Console output (prepare, weight, longitudinal diagnostics)
+         -> console_pipeline.log -> console_pipeline.md via logdoc
+      2. Console output (fit, tables, prediction, E-value)
+         -> console_results.log -> console_results.md via logdoc
+      3. Graph: counterfactual cumulative incidence (twoway on the
+         msm_predict frame)                          -> survival_plot.png
+      4. Graph: risk difference by period (eplot)    -> rd_forest.png
+      5. Graph: analysis-weight distribution (psdash) -> weight_plot.png
+      6. Graph: Love plot of the denominator covariates (psdash)
+                                                     -> balance_plot.png
+      7. Excel: outcome model (regtab) and risk differences (effecttab)
+                                                     -> msm_tables.xlsx
+
+    Run from the repository root (stata-mp -b do msm/demo/demo_msm.do), from
+    msm/, or from msm/demo/. Packages are installed into a throwaway PLUS and
+    PERSONAL directory; the user's ado tree is never touched.
 */
 
 version 16.0
@@ -15,126 +24,148 @@ capture log close _all
 set more off
 set varabbrev off
 set linesize 120
-capture set scheme plotplainblind
 
-**# Setup
-* Paths are derived from this script's own location so the demo runs from any
-* working directory (audit D08). c(pwd) is only a fallback.
-local pkg_dir "`c(pwd)'/msm/demo"
-capture confirm file "`pkg_dir'/demo_msm.do"
-if _rc {
-    * running from inside msm/demo (the /demo skill's isolated copy)
-    local pkg_dir "`c(pwd)'"
+**# Paths
+* The package root is msm/; companions are its siblings. Only a TRAILING
+* "/demo" is stripped, so a working directory such as projects/demos/repo/... is
+* left intact (1.4.x stripped the first "/demo" anywhere in the path).
+local here "`c(pwd)'"
+if regexm("`here'", "/demo$") & fileexists("`here'/demo_msm.do") {
+    local pkg_root = regexr("`here'", "/demo$", "")
 }
-local pkg_root : subinstr local pkg_dir "/demo" ""
-capture mkdir "`pkg_dir'"
+else if fileexists("`here'/msm/demo/demo_msm.do") {
+    local pkg_root "`here'/msm"
+}
+else if fileexists("`here'/demo/demo_msm.do") {
+    local pkg_root "`here'"
+}
+else {
+    display as error "run demo_msm.do from the repository root, msm/, or msm/demo/"
+    exit 601
+}
+local demo_dir "`pkg_root'/demo"
+local repo_root = regexr("`pkg_root'", "/msm$", "")
+foreach p in msm tabtools psdash eplot qba tc_schemes logdoc {
+    capture confirm file "`repo_root'/`p'/`p'.pkg"
+    if _rc {
+        display as error "package directory `repo_root'/`p' not found"
+        exit 601
+    }
+}
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_root'") replace
+**# Isolated install
+tempfile sandbox
+local plus "`sandbox'_plus"
+local personal "`sandbox'_personal"
+capture mkdir "`plus'"
+capture mkdir "`personal'"
+sysdir set PLUS "`plus'"
+sysdir set PERSONAL "`personal'"
+foreach p in msm tabtools psdash eplot qba tc_schemes logdoc {
+    quietly net install `p', from("`repo_root'/`p'") replace
+}
+set scheme white_tableau
+assert "`c(scheme)'" == "white_tableau"
 
-local data_file "`pkg_root'/msm_example.dta"
-local protocol_xlsx "`pkg_dir'/msm_protocol.xlsx"
-local report_xlsx "`pkg_dir'/msm_report.xlsx"
-local tables_xlsx "`pkg_dir'/msm_tables.xlsx"
+use "`pkg_root'/msm_example.dta", clear
 
-use "`data_file'", clear
+**# Console: preparation, weighting, longitudinal diagnostics
+log using "`demo_dir'/console_pipeline.log", replace text name(pipeline) nomsg
 
-* Demo counts are derived from the data, not hardcoded (audit D06).
-quietly count
-local n_rows = r(N)
-quietly levelsof id, local(_ids)
-local n_ids : word count `_ids'
-quietly summarize period, meanonly
-local p_min = r(min)
-local p_max = r(max)
-local n_periods = `p_max' - `p_min' + 1
-
-**## Console: setup, protocol, validation
-log using "`pkg_dir'/console_pipeline_setup.smcl", replace smcl name(setup) nomsg
-
-noisily msm, detail
-noisily describe
-noisily list id period treatment biomarker comorbidity outcome censored in 1/12, ///
-    sepby(id) noobs
-
-noisily msm_protocol, ///
-    population("Adults followed for `n_periods' discrete periods (N=`n_ids'; `n_rows' person-period observations)") ///
-    treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
-    confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
-    outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
-    causal_contrast("Risk difference in cumulative incidence under always-treated versus never-treated strategies") ///
-    weight_spec("Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation") ///
-    analysis("Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis")
-
-noisily msm_protocol, ///
-    population("Adults followed for `n_periods' discrete periods (N=`n_ids'; `n_rows' person-period observations)") ///
-    treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
-    confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
-    outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
-    causal_contrast("Risk difference in cumulative incidence under always-treated versus never-treated strategies") ///
-    weight_spec("Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation") ///
-    analysis("Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis") ///
-    export("`protocol_xlsx'") format(excel) replace
+* # Prepare, weight and diagnose
 
 noisily msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
-    covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
+    covariates(biomarker comorbidity) baseline_covariates(age sex)
 
-noisily msm_validate, strict verbose
-
-log close setup
-
-**# Diagnostics
-log using "`pkg_dir'/console_pipeline_diagnostics.smcl", replace smcl name(diagnostics) nomsg
-
-* Stabilized IPTW *and* IPCW: the protocol claims informative censoring, so the
-* weights include a censoring model, not just a treatment model (audit D06).
 noisily msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) ///
-    censor_d_cov(biomarker comorbidity age sex) censor_n_cov(age sex) ///
-    truncate(1 99) nolog
+    treat_n_cov(age sex) censor_d_cov(biomarker comorbidity age sex) ///
+    censor_n_cov(age sex) truncate(1 99) nolog
 
-noisily summarize _msm_weight, detail
+* ## Per-period weights and overlap (psdash reads the msm contract)
 
-noisily msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
-    by_period threshold(0.1)
+noisily psdash combined
 
-log close diagnostics
+* ## Balance by period and prior treatment, censoring balance, positivity
 
-**## Diagnostic plots
-msm_plot, type(weights) title("Stabilized IP weight distribution")
-graph export "`pkg_dir'/weight_plot.png", replace width(1200)
+noisily msm_diagnose, threshold(0.1)
+
+log close pipeline
+
+**## Weight and balance graphs
+* Age and sex are stabilized-numerator covariates (treat_n_cov), so the
+* weights keep their distribution on purpose; the Love plot shows only the
+* denominator covariates that weighting is meant to balance.
+psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) ///
+    graph graphoptions(title("Stabilized analysis weight (treatment x censoring)"))
+quietly graph export "`demo_dir'/weight_plot.png", width(1400) replace
 capture graph close _all
 
-msm_plot, type(balance) covariates(biomarker comorbidity age sex) ///
-    threshold(0.1) title("Covariate balance before and after weighting")
-graph export "`pkg_dir'/balance_plot.png", replace width(1200)
+label variable biomarker "Biomarker"
+label variable comorbidity "Comorbidity"
+psdash balance treatment _msm_ps if _msm_decision_risk, ///
+    covariates(biomarker comorbidity) wvar(_msm_weight) loveplot ///
+    title("Balance of the denominator covariates")
+quietly graph export "`demo_dir'/balance_plot.png", width(1400) replace
 capture graph close _all
 
-**# Results
-log using "`pkg_dir'/console_pipeline_results.smcl", replace smcl name(results) nomsg
+**# Console: outcome model, tables, prediction, E-value
+* Write the workbook from inside demo/ so the transcripts print a relative path.
+quietly cd "`demo_dir'"
+local tables_xlsx "msm_tables.xlsx"
+capture erase "`tables_xlsx'"
+log using "`demo_dir'/console_results.log", replace text name(results) nomsg
 
-noisily msm_fit, model(logistic) outcome_cov(age sex) ///
+* # Fit, tabulate and predict
+
+collect clear
+noisily collect: msm_fit, model(logistic) outcome_cov(age sex) ///
     period_spec(quadratic) nolog
+noisily regtab, xlsx("`tables_xlsx'") sheet("Outcome model") coef(OR) ///
+    title("Weighted pooled logistic MSM")
 
-noisily msm_predict, times(1 3 5 7 9) samples(50) difference seed(12345)
+* ## Standardized cumulative incidence and risk differences
 
-noisily msm_sensitivity, evalue
+noisily msm_predict, times(1 3 5 7 9) difference samples(1000) ///
+    seed(12345) frame(pred, replace)
+matrix RD = r(rd)
+matrix rownames RD = "Period 1" "Period 3" "Period 5" "Period 7" "Period 9"
+noisily effecttab, from(RD) effect("Risk difference") digits(3) ///
+    xlsx("`tables_xlsx'") sheet("Risk differences") ///
+    title("Always minus never treated")
 
-noisily msm_report, eform
+* ## E-value for unmeasured confounding
 
-noisily msm_report, export("`report_xlsx'") format(excel) ///
-    eform replace
-
-noisily msm_table, xlsx("`tables_xlsx'") all eform borderstyle(academic) replace
+noisily qba_confound, from_model coef(treatment) evalue measure(HR)
 
 log close results
+quietly cd "`here'"
 
-**## Results plot
-msm_plot, type(survival) times(1 3 5 7 9) samples(50) seed(12345) ///
-    title("Counterfactual cumulative incidence")
-graph export "`pkg_dir'/survival_plot.png", replace width(1200)
+**# Prediction graphs
+eplot if strategy == "rd", frame(pred) values dp(3) xline(0) ///
+    title("Risk difference, always minus never treated") ///
+    effect("Risk difference (95% MC interval)")
+quietly graph export "`demo_dir'/rd_forest.png", width(1400) replace
 capture graph close _all
 
+frame pred {
+    twoway (rarea ll ul horizon if strategy == "never", pstyle(p1) color(%25) lwidth(none)) ///
+        (connected estimate horizon if strategy == "never", pstyle(p1)) ///
+        (rarea ll ul horizon if strategy == "always", pstyle(p2) color(%25) lwidth(none)) ///
+        (connected estimate horizon if strategy == "always", pstyle(p2)), ///
+        legend(order(2 "Never treated" 4 "Always treated") pos(6) rows(1)) ///
+        ytitle("Cumulative incidence") xtitle("Period") ///
+        title("Counterfactual cumulative incidence") ///
+        note("Bands: 95% Monte Carlo intervals, 1,000 draws")
+}
+quietly graph export "`demo_dir'/survival_plot.png", width(1400) replace
+capture graph close _all
+
+**# Convert console logs to markdown via logdoc
+foreach f in console_pipeline console_results {
+    logdoc using "`demo_dir'/`f'.log", output("`demo_dir'/`f'.md") ///
+        format(md) replace quiet
+}
+
+capture frame drop pred
 clear

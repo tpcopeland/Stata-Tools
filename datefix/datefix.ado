@@ -1,4 +1,4 @@
-*! datefix Version 1.1.2  2026/08/11
+*! datefix Version 1.1.3  2026/10/13
 *! Convert string date variables to numeric date formatted variables
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -217,15 +217,21 @@ program define datefix, rclass
         quietly count if missing(`target_var')
         local miss_after = r(N)
 
-        * Display summary
-        if "`newvar'" == "" {
-            display as text "Variable `var' converted to numeric date."
-        }
-        else if "`drop'" == "drop" {
-            display as text "Variable `var' converted to numeric date: `newvar'. Original dropped."
+        * Display summary (numeric inputs are only reformatted, not converted)
+        if `is_string' {
+            local verb "converted to numeric date"
         }
         else {
-            display as text "Variable `var' converted to numeric date: `newvar'. Original retained."
+            local verb "is already numeric; date format applied"
+        }
+        if "`newvar'" == "" {
+            display as text "Variable `var' `verb'."
+        }
+        else if "`drop'" == "drop" {
+            display as text "Variable `var' `verb': `newvar'. Original dropped."
+        }
+        else {
+            display as text "Variable `var' `verb': `newvar'. Original retained."
         }
 
         if `miss_before' == `miss_after' {

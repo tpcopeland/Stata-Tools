@@ -38,6 +38,7 @@ The suites install `massdesas`, `filelist`, and `fs` into process-specific tempo
 | `test_documentation_examples.do` | Executable help-file conversion examples |
 | `test_massdesas_hostile.do` | Missing and empty directories, 31-character filenames, spaces, extended missing values, and caller-state preservation |
 | `test_massdesas_errors.do` | Exact parser, missing-directory, and empty-directory error contracts with CWD, data, order, and varabbrev preservation |
+| `test_massdesas_quiet.do` | The console shows only the `Conversion complete` summary; no `filelist`, `cd`, `replace`, or `levelsof` output leaks. |
 | `test_massdesas_documentation_exact.do` | Static source contract for literal user-path examples; never executes user paths |
 | `test_massdesas_oracle.do` | Independent conversion-output oracle checks |
 

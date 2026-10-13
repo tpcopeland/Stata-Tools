@@ -101,6 +101,7 @@ Budgets are hard upper bounds; each suite also has the timeout recorded below an
 | `test_gcomptab_doseresponse.do` | functional | core | 600s | Stata | dose-response values and mode isolation | fixed | table dose mode |
 | `test_gcomptab_text_export.do` | functional | core | 600s | Stata | Markdown/CSV content predicates | fixed | GCTAB-H03 |
 | `test_theme_removed.do` | regression | core | 300s | Stata | Removed theme() parser rejection | fixed | format API removal |
+| `test_gcomp_quiet.do` | regression | core | 600s | Stata | no Mata source echo on first use; no internal notes from `gcomptab` (mediation, dose-response, models) | 12345, 54321 | console hygiene |
 | `test_models.do` | functional | core | 600s | Stata | component-model table contracts | fixed | H15, GCTAB-H01 |
 | `test_adversarial_gcomptab.do` | adversarial | core | 900s | Stata | path/state/format error matrix | fixed | GCTAB-H02-H06 |
 | `validation_adversarial_gcomp.do` | validation | core | 600s | Stata | empty/support/error invariants | fixed | C07, H13 |

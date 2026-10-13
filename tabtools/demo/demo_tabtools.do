@@ -391,7 +391,7 @@ log off demo
 **# Console: crosstab display
 log on demo
 
-noisily crosstab treated female, or label
+noisily crosstab treated female, or label digits(2)
 
 log off demo
 
@@ -690,7 +690,7 @@ noisily table1_tc, by(treated) ///
     title("Table 1. Baseline Characteristics") ///
     markdown("`markdown_report_export'")
 
-noisily crosstab treated female, or label ///
+noisily crosstab treated female, or label digits(2) ///
     title("Table 2. Treatment by Sex") ///
     markdown("`markdown_report_export'") mdappend
 
@@ -1406,14 +1406,14 @@ corrtab index_age crp prior_hosp, ///
 crosstab treated female, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tabulation") ///
     title("Table 16. Treatment by Sex") ///
-    exact or label
+    exact or label digits(2)
 
 **# Sheet 34: Cross-Tab Measures -- Risk ratio and risk difference
 * Demonstrates: crosstab rr, rd for 2x2 table
 crosstab treated cv_event, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Measures") ///
     title("Table 16a. Treatment-Outcome Association Measures") ///
-    rr rd label ///
+    rr rd label digits(2) ///
     footnote("RR = risk ratio; RD = risk difference with 95% CI.")
 
 **# Sheet 35: Cross-Tab Styled -- boldp() + zebra
@@ -1453,7 +1453,7 @@ crosstab education cv_event, ///
 crosstab treated cv_event, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Row Pct") ///
     title("Table 16d. Treatment-Outcome (Row Percentages)") ///
-    rowpct or label ///
+    rowpct or label digits(2) ///
     footnote("Percentages are row percentages within each treatment group.")
 
 
@@ -2007,7 +2007,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab cformat") noint ///
 * flat frame (one header row as variable labels) that puttab writes as is
 collect clear
 collect: logistic cv_event treated index_age female ib3.education
-regtab, frame(_demo_flat, replace flat) reftop compact noint
+regtab, frame(_demo_flat, replace flat) reftop compact noint digits(3)
 frame _demo_flat: puttab rowlabel c* using "`xlsx_regtab'", ///
     sheet("Flat Reftop") varlabels ///
     title("Table 2c. regtab flat frame written by puttab (reference level on top)")

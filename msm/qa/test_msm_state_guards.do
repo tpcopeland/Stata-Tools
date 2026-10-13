@@ -133,7 +133,7 @@ else {
 }
 
 **# Validation Guards
-**## Hard validation errors fail without strict
+**## No treatment variation is refused by msm_weight (formerly msm_validate)
 local ++test_count
 capture noisily {
     clear
@@ -145,20 +145,23 @@ capture noisily {
 
     msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
 
+    gen double x = id
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) covariates(x)
     set varabbrev on
-    capture msm_validate
-    local validate_rc = _rc
+    capture noisily msm_weight, treat_d_cov(x) nolog
+    local weight_rc = _rc
 
-    assert `validate_rc' == 198
+    assert `weight_rc' == 498
     assert c(varabbrev) == "on"
+    assert "`: char _dta[_msm_weighted]'" == ""
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS SG3: msm_validate reports hard errors without strict"
+    display as result "PASS SG3: msm_weight refuses no treatment variation"
     local ++pass_count
 }
 else {
-    display as error "FAIL SG3: msm_validate hard-error return code (rc=`=_rc')"
+    display as error "FAIL SG3: no-variation refusal (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' SG3"
     set varabbrev off
@@ -209,9 +212,6 @@ capture noisily {
     assert c(varabbrev) == "on"
     _msm_smd x, treatment(treatment)
     assert c(varabbrev) == "on"
-    _msm_col_letter 28
-    assert c(varabbrev) == "on"
-    assert "`result'" == "AB"
     set varabbrev off
 }
 if _rc == 0 {
@@ -256,51 +256,45 @@ else {
 }
 
 **# State Inventory
-**## Full pipeline writes the selected downstream state surface
+**## Downstream commands write no dataset state (msm 2.0.0)
 local ++test_count
 capture noisily {
     _guard_setup_fitted
     msm_predict, times(1 3 5) difference samples(10) seed(90211)
     msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
-    msm_sensitivity, evalue
 
     assert "`: char _dta[_msm_prepared]'" == "1"
     assert "`: char _dta[_msm_weighted]'" == "1"
     assert "`: char _dta[_msm_weight_var]'" == "_msm_weight"
+    assert "`: char _dta[_msm_risk_var]'" == "_msm_decision_risk"
+    assert "`: char _dta[_msm_contract_version]'" == "1.1"
     assert "`: char _dta[_msm_fitted]'" == "1"
     assert "`: char _dta[_msm_model]'" == "logistic"
     assert "`: char _dta[_msm_fit_level]'" == "95"
-    assert "`: char _dta[_msm_pred_saved]'" == "1"
-    assert "`: char _dta[_msm_pred_type]'" == "cum_inc"
-    assert "`: char _dta[_msm_pred_strategy]'" == "both"
-    assert "`: char _dta[_msm_pred_level]'" == "95"
-    assert "`: char _dta[_msm_bal_saved]'" == "1"
-    local bal_threshold : char _dta[_msm_bal_threshold]
-    assert abs(real("`bal_threshold'") - 0.1) < 1e-12
-    assert "`: char _dta[_msm_diag_saved]'" == "1"
-    assert "`: char _dta[_msm_diag_mean]'" != ""
-    assert "`: char _dta[_msm_diag_p50]'" != ""
-    assert "`: char _dta[_msm_diag_ess]'" != ""
-    assert "`: char _dta[_msm_sens_saved]'" == "1"
-    assert "`: char _dta[_msm_sens_effect]'" != ""
-    assert "`: char _dta[_msm_sens_evalue_point]'" != ""
-    assert "`: char _dta[_msm_sens_level]'" == "95"
+    * msm_predict and msm_diagnose are read-only on the dataset
+    foreach c in _msm_pred_saved _msm_pred_type _msm_pred_uuid _msm_pred_mat_id ///
+        _msm_bal_saved _msm_bal_threshold _msm_diag_saved _msm_diag_mean ///
+        _msm_sens_saved {
+        assert `"`: char _dta[`c']'"' == ""
+    }
+    foreach m in _msm_pred_matrix _msm_bal_matrix _msm_tbal_matrix ///
+        _msm_support_matrix _msm_cbal_matrix {
+        capture confirm matrix `m'
+        assert _rc != 0
+    }
 
     msm, status
     assert r(prepared) == 1
     assert r(weighted) == 1
     assert r(fitted) == 1
-    assert r(prediction_saved) == 1
-    assert r(balance_saved) == 1
-    assert r(diagnostics_saved) == 1
-    assert r(sensitivity_saved) == 1
+    assert "`r(next_step)'" == "msm_predict"
 }
 if _rc == 0 {
-    display as result "PASS SG6: full pipeline state inventory is populated"
+    display as result "PASS SG6: downstream commands write no dataset state"
     local ++pass_count
 }
 else {
-    display as error "FAIL SG6: full pipeline state inventory (rc=`=_rc')"
+    display as error "FAIL SG6: downstream state surface (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' SG6"
 }

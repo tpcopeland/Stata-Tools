@@ -120,9 +120,10 @@ capture noisily {
     scalar `events' = r(n_events)
     quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t) baseline_covariates(l0)
     assert r(N) == `rows' & r(n_ids) == 1600 & r(n_events) == `events'
-    quietly msm_validate
-    assert r(n_errors) == 0
+    * msm 2.0.0: the former msm_validate gate is msm_prepare's data checks.
+    assert r(n_gap_ids) == 0 & "`r(missing_vars)'" == ""
     quietly msm_weight, treat_d_cov(l_t l0) nolog
+    local fx_wess = r(ess)
     * ESS from direct double-precision sums, not a package marker.
     quietly summarize _msm_weight, meanonly
     tempname sw sw2 truthess
@@ -131,8 +132,10 @@ capture noisily {
     quietly summarize fx_w2, meanonly
     scalar `sw2' = r(sum)
     scalar `truthess' = `sw'^2/`sw2'
+    * Pooled ESS moved from msm_diagnose to msm_weight/psdash in 2.0.0.
+    assert !missing(`fx_wess', `truthess') & reldif(`fx_wess', `truthess') < 1e-10
     quietly msm_diagnose
-    assert !missing(r(ess), `truthess') & reldif(r(ess), `truthess') < 1e-10
+    assert r(n_support_violations) == 0
     quietly msm_fit, model(logistic) period_spec(cubic) nolog
     assert e(N) == `rows' & e(msm_n_clusters) == 1600
     quietly msm_predict, times(3) difference samples(20) seed(9122)

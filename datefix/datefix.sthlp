@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  11aug2026}{...}
+{* *! version 1.1.3  13oct2026}{...}
 {vieweralsosee "Datetime values" "help datetime"}{...}
 {vieweralsosee "Date functions" "help date()"}{...}
 {cmd:help datefix}
@@ -104,7 +104,7 @@ before returning.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.2, 2026-08-11{p_end}
+{pstd}Version 1.1.3, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

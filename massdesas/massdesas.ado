@@ -1,4 +1,4 @@
-*! massdesas Version 1.0.2  2026/08/05
+*! massdesas Version 1.0.3  2026/10/13
 
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -47,8 +47,8 @@ program define massdesas, rclass
         preserve
         local _preserved = 1
 
-        cd `"`source'"'
-        filelist, dir(`"`source'"') pat("*.sas7bdat") save(`"`sasfiles'"') replace
+        quietly cd `"`source'"'
+        quietly filelist, dir(`"`source'"') pat("*.sas7bdat") save(`"`sasfiles'"') replace
 
         * Validation: Check if any SAS files were found
         use `"`sasfiles'"', clear
@@ -61,21 +61,21 @@ program define massdesas, rclass
         * Normalize path separators using the system's native separator
         local dirsep = c(dirsep)
         if "`dirsep'" == "/" {
-            replace dirname = subinstr(dirname, "\", "/", .)
+            quietly replace dirname = subinstr(dirname, "\", "/", .)
         }
         else {
-            replace dirname = subinstr(dirname, "/", "\", .)
+            quietly replace dirname = subinstr(dirname, "/", "\", .)
         }
-        replace dirname = subinstr(dirname, "`dirsep'`dirsep'", "`dirsep'", .)
+        quietly replace dirname = subinstr(dirname, "`dirsep'`dirsep'", "`dirsep'", .)
 
-        levelsof dirname, local(levels)
+        quietly levelsof dirname, local(levels)
 
         * Initialize counters
         local n_converted 0
         local n_failed 0
 
         foreach l of local levels {
-            cd `"`l'"'
+            quietly cd `"`l'"'
             quietly fs *.sas7bdat
             local filelist `"`r(files)'"'
             local nfiles : word count `filelist'

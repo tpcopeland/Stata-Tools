@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.3.3  12oct2026}{...}
+{* *! version 4.3.4  13oct2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -1137,7 +1137,7 @@ than a changing numerator.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 4.3.3, 2026-10-12{p_end}
+{pstd}Version 4.3.4, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

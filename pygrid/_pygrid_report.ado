@@ -1,4 +1,4 @@
-*! _pygrid_report Version 1.0.1  2026/08/30
+*! _pygrid_report Version 1.0.2  2026/10/13
 *! Display compact pygrid and pyattach reports
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -13,20 +13,20 @@ program define _pygrid_report
             [ AXIS(string) CONVENTION(string) ]
 
         if "`mode'" == "build" {
-            display as text "pygrid: " as result %12.0fc `n1' ///
-                as text " persons, " as result %12.0fc `n2' as text " period rows"
-            display as text "  empty windows: " as result %12.0fc `n3' ///
-                as text "   partial periods: " as result %12.0fc `n4'
-            display as text "  person-time: " as result %14.6g `total' ///
+            display as text "pygrid: " as result strtrim(string(`n1', "%15.0fc")) ///
+                as text " persons, " as result strtrim(string(`n2', "%15.0fc")) as text " period rows"
+            display as text "  empty windows: " as result strtrim(string(`n3', "%15.0fc")) ///
+                as text "   partial periods: " as result strtrim(string(`n4', "%15.0fc"))
+            display as text "  person-time: " as result strtrim(string(`total', "%14.6g")) ///
                 as text "   axis: " as result "`axis'" ///
                 as text "   convention: " as result "`convention'"
         }
         else {
-            display as text "pyattach: " as result %12.0fc `n1' ///
-                as text " eligible events, " as result %12.0fc `n2' as text " attached"
-            display as text "  orphans: " as result %12.0fc `n3' ///
-                as text "   zero-event grid rows: " as result %12.0fc `n4'
-            display as text "  overall event rate: " as result %14.6g `total'
+            display as text "pyattach: " as result strtrim(string(`n1', "%15.0fc")) ///
+                as text " eligible events, " as result strtrim(string(`n2', "%15.0fc")) as text " attached"
+            display as text "  orphans: " as result strtrim(string(`n3', "%15.0fc")) ///
+                as text "   zero-event grid rows: " as result strtrim(string(`n4', "%15.0fc"))
+            display as text "  overall event rate: " as result strtrim(string(`total', "%14.6g"))
         }
     }
     local rc = _rc

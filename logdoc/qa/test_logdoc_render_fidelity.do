@@ -399,7 +399,7 @@ else {
 local ++test_total
 capture noisily {
     mata: v = _ldf_lines(st_local("tag") + ".md"); ///
-        k = 0; for (i = 2; i <= rows(v); i++) if (v[i] == `"display "AFTER_TT""' & v[i - 1] == "```stata") k = i; ///
+        k = 0; for (i = 2; i <= rows(v); i++) if (v[i] == `". display "AFTER_TT""' & v[i - 1] == "```stata") k = i; ///
         st_local("k", strofreal(k)); ///
         st_local("out", strofreal(_ldf_has(_ldf_md(st_local("tag") + ".md"), "AFTER_TT"))); ///
         st_local("rule", strofreal(_ldf_has(_ldf_md(st_local("tag") + ".md"), "-------")))

@@ -1,4 +1,4 @@
-*! compress_tc Version 1.1.1  2026/08/05
+*! compress_tc Version 1.2.0  2026/10/13
 *! Maximally compress string variables via strL conversion + compress
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork Author: Tim Copeland (Forked from strcompress)
@@ -85,6 +85,7 @@ program define compress_tc, rclass
     // Record initial memory (total data)
     quietly memory
     local oldmem = `r(data_data_u)' + `r(data_strl_u)'
+    local strl0 = `r(data_strl_u)'
 
     // Handle zero initial memory
     if `oldmem' == 0 {
@@ -111,6 +112,13 @@ program define compress_tc, rclass
     if "`dryrun'" != "" {
         preserve
         local _preserved 1
+    }
+    // preserve parks a small constant strL residue in the heap (24 B); measure
+    // it so dryrun's projection matches a real run byte for byte
+    local pres_over 0
+    if "`dryrun'" != "" {
+        quietly memory
+        local pres_over = `r(data_strl_u)' - `strl0'
     }
 
     // String variables in scope (str# and strL)
@@ -153,6 +161,22 @@ program define compress_tc, rclass
             local _bt_`i' : type `v'
             _compress_tc_bytes `v'
             local _bb_`i' = r(bytes)
+        }
+    }
+
+    // Before-state for the remaining (non-string-processed) variables, so the
+    // table can account for numeric retyping that compress performs
+    local others : list varlist - processed_vars
+    local o_before 0
+    local o_n 0
+    local o_types ""
+    if "`varsavings'" != "" & "`quietly'" == "" & "`nocompress'" == "" {
+        foreach v of local others {
+            _compress_tc_bytes `v'
+            if r(bytes) != . {
+                local o_before = `o_before' + r(bytes)
+                local o_types `o_types' `v':`: type `v''
+            }
         }
     }
 
@@ -227,7 +251,7 @@ program define compress_tc, rclass
             }
 
             quietly memory
-            local midmem = `r(data_data_u)' + `r(data_strl_u)'
+            local midmem = `r(data_data_u)' + `r(data_strl_u)' - `pres_over'
 
             if "`quietly'" == "" {
                 if `midmem' <= `oldmem' {
@@ -266,6 +290,17 @@ program define compress_tc, rclass
         }
         else {
             compress `varlist'
+            if "`nostrl'" == "" & "`eligible'" != "" {
+                if "`lowmem'" == "" {
+                    display as text "  (compress measures its savings from the strL-converted data;"
+                    display as text "   Overall below is measured against the original data)"
+                }
+                else {
+                    display as text "  (under lowmem, compress's figure covers only this final pass, after"
+                    display as text "   each variable was converted and compressed; Overall below is"
+                    display as text "   measured against the original data)"
+                }
+            }
         }
     }
 
@@ -277,6 +312,16 @@ program define compress_tc, rclass
             _compress_tc_bytes `v'
             local _ab_`i' = r(bytes)
         }
+    }
+
+    local o_after 0
+    foreach ot of local o_types {
+        gettoken ov ot0 : ot, parse(":")
+        local ot0 = substr("`ot0'", 2, .)
+        local nt : type `ov'
+        if "`nt'" != "`ot0'" local ++o_n
+        _compress_tc_bytes `ov'
+        local o_after = `o_after' + r(bytes)
     }
 
     // -------------------------------------------------------------------------
@@ -333,16 +378,39 @@ program define compress_tc, rclass
                 _col(24) as result "`_bt_`i'' -> `_at_`i''" ///
                 _col(44) "`bbh'" _col(57) "`abh'" _col(70) "`svh'"
         }
-        display as text "  Note: strL bytes live in a shared heap and are shown as a dash;"
-        display as text "        use lowmem for measured per-variable strL savings."
+        if `o_n' > 0 {
+            local o_sv = `o_before' - `o_after'
+            _compress_tc_human `o_before'
+            local obh "`r(human)'"
+            _compress_tc_human `o_after'
+            local oah "`r(human)'"
+            _compress_tc_human `o_sv'
+            local osh "`r(human)'"
+            display as text "  (other variables)" _col(24) as result ///
+                "`o_n' retyped" _col(44) "`obh'" _col(57) "`oah'" _col(70) "`osh'"
+        }
+        local any_strl 0
+        forvalues i = 1/`nps' {
+            if "`_at_`i''" == "strL" local any_strl 1
+        }
+        if `any_strl' {
+            if "`lowmem'" == "" {
+                display as text "  Note: strL bytes live in a shared heap and are shown as a dash;"
+                display as text "        use lowmem for measured per-variable strL savings."
+            }
+            else {
+                display as text "  Note: strL bytes live in a shared heap and are shown as a dash in"
+                display as text "        Before/After; Saved is measured per variable (lowmem)."
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
     // Final memory and overall report
     // -------------------------------------------------------------------------
     quietly memory
-    local newmem = `r(data_data_u)' + `r(data_strl_u)'
-    local bytes_strl_final = `r(data_strl_u)'
+    local newmem = `r(data_data_u)' + `r(data_strl_u)' - `pres_over'
+    local bytes_strl_final = `r(data_strl_u)' - `pres_over'
 
     local bytes_saved = `oldmem' - `newmem'
     if `oldmem' > 0 {

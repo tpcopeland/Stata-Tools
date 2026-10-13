@@ -47,6 +47,8 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 | `test_fixture_compile_state.do` | All five actual helper compilation blocks with planted syntax errors under strict off/on, compared with native compiler rc and caller strict/data preservation |
 | `test_fixture_precision.do` | All five estimate storage types under friendly/permuted inputs, independent Bernoulli means/SDs, requested digits0/6 and exact caller fingerprint |
 | `test_simtab.do` | Compute and ingest modes, metrics, MCSEs, every public option, artifacts, frames, caller Mata state, external-oracle adapters, and formatting regressions |
+| `test_simtab_negzero.do` | A value that rounds to zero prints `0.00` without a sign (bias -0.001 and +0.001); values that survive rounding keep it. |
+| `test_simtab_quiet.do` | First simtab call after a cold start (xlsx, csv and markdown exports) prints no Mata source |
 | `test_simtab_errors.do` | Sheet and formatting guards, summary proportion domains, simsum-row uniqueness, output-option conflicts, and symmetric caller-data preservation |
 | `test_simtab_documentation_examples.do` | Executable compute and summary help workflows plus a self-contained SMCL render oracle with a positive control |
 | `test_simtab_oracle.do` | Seeded independent numeric compute-mode oracle for means, RMS model SE, dispersion, coverage, power, failure counts, and plotframe precision |
@@ -73,7 +75,7 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | Command | Functional | Validation | Also exercised in |
 | --- | --- | --- | --- |
-| `simtab` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_oracle.do` | `validation_simtab.do` | installed-user help workflows, render gate, demo, and install smoke |
+| `simtab` | `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_negzero.do`, `test_simtab_oracle.do` | `validation_simtab.do` | installed-user help workflows, render gate, demo, and install smoke |
 
 ## Lane membership
 
@@ -81,8 +83,8 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | Lane | Suites |
 | --- | --- |
-| `quick` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do` |
-| `full` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `validation_simtab.do`, `test_simtab_oracle.do` |
+| `quick` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `test_simtab_negzero.do`, `test_simtab_quiet.do` |
+| `full` | `validation_fixture_truth.do`, `validation_fixture_matrix.do`, `test_fixture_precision.do`, `test_fixture_compile_state.do`, `test_fixture_cold_workbook.do`, `test_fixture_error_returns.do`, `test_fixture_error_payload.do`, `test_simtab.do`, `test_simtab_errors.do`, `test_simtab_documentation_examples.do`, `test_simtab_negzero.do`, `test_simtab_quiet.do`, `validation_simtab.do`, `test_simtab_oracle.do` |
 
 Canonical fixture adoption is in progress. `3` cases in `validation_fixture_truth.do` ran with zero failures in an isolated copy; independent review is pending. Three cases check group means, bias, empirical SD, root-mean-square model SE, MSE and RMSE against exact ten-row integer-block formulas in the numeric companion frame. order(sort) explicitly aligns ordinal output keys after permutation.
 

@@ -1,6 +1,6 @@
 # diagtab — Diagnostic accuracy and cutoff analysis
 
-**Version 2.0.3** | 2026-10-12
+**Version 2.1.0** | 2026-10-13
 
 `diagtab` computes diagnostic accuracy measures and confidence intervals from binary classifications or continuous scores. It produces publication-ready console, Excel, CSV, Markdown, and frame output for clinical diagnostic and screening studies.
 
@@ -165,6 +165,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.1.0** (2026-10-13): With `prevalence()`, the accuracy row is now labelled "Accuracy (sample)" in the console, Excel, CSV, Markdown and frame output and `r(methods)` states that accuracy is not adjusted to the external prevalence; `r(accuracy)` is unchanged. The first call in a session no longer echoes Mata source to the console, and a helper that does not compile now stops with an explicit message and its return code.
 - **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
 
 - **2.0.2** (2026-09-30): Filename preflight now examines the actual quoted path and reports invalid characters accurately. Existing refusal of quote characters and shell metacharacters is retained; filenames with spaces and Unicode remain accepted. Diagnostic calculations and cold helper loading preserve caller native S_1–S_6 globals and matastrict. Titles and footnotes retain literal macro-looking bytes in table and export contents. Early refusals preserve exact caller r() scalars, macros and matrices; analytical payloads still remain available after a later export failure.

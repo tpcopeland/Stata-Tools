@@ -53,6 +53,25 @@ command. The longitudinal route reports its period-specific diagnostics and
 does not run the cross-sectional panel workflow or produce a report workbook.
 
 {pstd}
+After {cmd:msm_weight}, the diagnosed weight defaults to the analysis weight
+{cmd:msm_fit} uses ({cmd:_msm_weight}: treatment times censoring weight, after
+any truncation); the output and {cmd:r(weight_role)} say which weight was
+diagnosed. Specify {cmd:wvar(_msm_tw_weight)} to diagnose the treatment-only
+weight instead; it is untruncated, so it is the right input when deciding
+on truncation, and it reproduces the numbers psdash 1.7.5 reported.
+Diagnostics are restricted to msm's treatment-decision risk
+set: the variable named by the {cmd:_msm_risk_var} characteristic (msm
+contract 1.1) or, under contract 1.0, {cmd:_msm_decision_risk}. Rows after the
+outcome or censoring are excluded by design and counted in
+{cmd:r(n_outside_risk)}, not reported as incomplete.
+
+{pstd}
+Each cross-sectional panel prints a descriptive status line ({cmd:WARNING} or
+{cmd:IMBALANCED} when it has a finding). The machine-readable verdict is
+{cmd:r(verdict)}, {cmd:PASS} or {cmd:FAIL}; any panel finding makes it
+{cmd:FAIL}.
+
+{pstd}
 The complete return contract, including {cmd:r(verdict)},
 {cmd:r(n_warnings)}, and {cmd:r(warnings)}, is listed under
 {help psdash##results:Stored results}.
@@ -104,7 +123,7 @@ variance-ratio findings remain active.
 {opt sav:ing(filename)} saves the combined graph.
 
 {phang}
-{opt sch:eme(schemename)} sets the graph scheme.
+{opt sch:eme(schemename)} sets the graph scheme; series colours follow it.
 
 {phang}
 {opt ti:tle(string)} sets the combined graph title.

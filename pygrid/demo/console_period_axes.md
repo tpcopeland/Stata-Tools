@@ -10,9 +10,9 @@ title: "console_period_axes"
 ```
 
 ```
-pygrid:            2 persons,            7 period rows
-  empty windows:            0   partial periods:            2
-  person-time:        5.76591   axis: anniversary   convention: inclusive
+pygrid: 2 persons, 7 period rows
+  empty windows: 0   partial periods: 2
+  person-time: 5.76591   axis: anniversary   convention: inclusive
 
 ```
 
@@ -80,9 +80,9 @@ macros:
 ```
 
 ```
-pygrid:            2 persons,            2 period rows
-  empty windows:            0   partial periods:            0
-  person-time:           2106   axis: fixed   convention: inclusive
+pygrid: 2 persons, 2 period rows
+  empty windows: 0   partial periods: 0
+  person-time: 2106   axis: fixed   convention: inclusive
 
 ```
 

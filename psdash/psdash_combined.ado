@@ -1,4 +1,4 @@
-*! psdash_combined Version 1.7.5  2026/10/09
+*! psdash_combined Version 1.8.0  2026/10/13
 *! Combined propensity score diagnostics dashboard
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -142,6 +142,8 @@ program define psdash_combined, rclass
     local idvar "`_psd_id'"
     local period "`_psd_period'"
     local regime "`_psd_regime'"
+    local riskvar "`_psd_riskvar'"
+    local weight_role "`_psd_weight_role'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
@@ -202,12 +204,16 @@ program define psdash_combined, rclass
         if "`regime'" != "" local regime_opt `"regime("`regime'")"'
         local source_opt ""
         if "`source'" != "" local source_opt `"source("`source'")"'
+        local risk_opt ""
+        if "`riskvar'" != "" local risk_opt `"riskvar("`riskvar'")"'
+        local wrole_opt ""
+        if "`weight_role'" != "" local wrole_opt `"weightrole("`weight_role'")"'
         _psdash_ltmle_diagnostics, treatment(`treatment') ///
             period(`period') psvar("`psvar'") wvar("`wvar'") ///
             samplevar(`touse') `id_opt' ///
             estimand(`"`estimand'"') `regime_opt' ///
             `method_opt' `contract_opt' `source_opt' ///
-            title(`"`title'"')
+            `risk_opt' `wrole_opt' title(`"`title'"')
         return add
         return local treatment "`treatment'"
         return local psvar "`psvar'"
@@ -578,7 +584,7 @@ program define psdash_combined, rclass
     }
     else {
         local verdict "FAIL"
-        display as text _n "Overall: " as error "FAIL" ///
+        display as text _n "Overall: " as text "{err}FAIL{txt}" ///
             as text " (" as result `_total_nfind' as text " finding(s) across " ///
             as result `_panels_run' as text " panel(s): " as result "`verdict_warnings'" as text ")"
         display as text `"  Findings: `_all_findings'"'

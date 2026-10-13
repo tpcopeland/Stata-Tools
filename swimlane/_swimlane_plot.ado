@@ -1,4 +1,4 @@
-*! _swimlane_plot Version 0.1.1  2026/09/30
+*! _swimlane_plot Version 0.2.0  2026/10/13
 *! Render canonical swimlane frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -29,7 +29,8 @@ program define _swimlane_plot, rclass
              BYLayout(string) ///
              COLORBYPlot ///
              REFLine(numlist) ///
-             COLors(string) ///
+             COLors(string asis) ///
+             BAROPacity(integer -1) ///
              PALette(string) ///
              MSYMbols(string) ///
              MSIZe(string) ///
@@ -59,9 +60,20 @@ program define _swimlane_plot, rclass
         if "`markers'" == "" local markers "full"
         if "`continuation'" == "" local continuation "arrow"
 
-        local colorlist "`colors'"
+        local colorlist ""
+        local ncolors = 0
+        local _rest `"`colors'"'
+        while `"`_rest'"' != "" {
+            gettoken _tok _rest : _rest
+            local ++ncolors
+            local _tok = strtrim(`"`_tok'"')
+            local _c`ncolors' `"`_tok'"'
+        }
+        if `baropacity' != -1 & "`lanetype'" == "line" {
+            display as text "note: baropacity() has no effect with lanetype(line)"
+        }
         local use_scheme_colors = 0
-        if "`colorlist'" == "" {
+        if `ncolors' == 0 {
             if "`palette'" == "colorblind" {
                 local colorlist ///
                     "navy dkorange teal cranberry forest_green purple sienna gs6"
@@ -75,6 +87,12 @@ program define _swimlane_plot, rclass
             else {
                 local colorlist ///
                     "navy cranberry forest_green dkorange purple teal maroon olive gold sienna emidblue eltgreen"
+            }
+        }
+        if `ncolors' == 0 & `use_scheme_colors' == 0 {
+            local ncolors : word count `colorlist'
+            forvalues _i = 1/`ncolors' {
+                local _c`_i' : word `_i' of `colorlist'
             }
         }
         local symbols "`msymbols'"
@@ -107,7 +125,7 @@ program define _swimlane_plot, rclass
             local n_barcolors : word count `barlevels'
             foreach k of local barlevels {
                 local ++plot_i
-                local col : word `k' of `colorlist'
+                local col `"`_c`k''"'
                 if "`col'" == "" local col "gs`=mod(`k',14)'"
                 quietly levelsof series if rowtype == "bar" & series_k == `k', ///
                     local(_lab) clean
@@ -115,14 +133,18 @@ program define _swimlane_plot, rclass
                 if "`lanetype'" == "line" {
                     local barstyle "lwidth(thin)"
                     if !`use_scheme_colors' {
-                        local barstyle "`barstyle' lcolor(`col')"
+                        local barstyle `"`barstyle' lcolor("`col'")"'
                     }
                     local plotlist `"`plotlist' (pcspike lane start lane stop if rowtype == "bar" & series_k == `k', `barstyle')"'
                 }
                 else {
                     local barstyle ""
+                    if `use_scheme_colors' & `baropacity' != -1 {
+                        local barstyle "fcolor(%`baropacity')"
+                    }
                     if !`use_scheme_colors' {
-                        local barstyle "color(`col'%70) lcolor(`col')"
+                        _swimlane_fillstyle `"`col'"' `=cond(`baropacity' == -1, 70, `baropacity')'
+                        local barstyle `"`r(style)'"'
                     }
                     local plotlist `"`plotlist' (rbar start stop lane if rowtype == "bar" & series_k == `k', horizontal barwidth(`barwidth') `barstyle')"'
                 }
@@ -134,7 +156,7 @@ program define _swimlane_plot, rclass
             local n_barcolors : word count `barlevels'
             foreach k of local barlevels {
                 local ++plot_i
-                local col : word `k' of `colorlist'
+                local col `"`_c`k''"'
                 if "`col'" == "" local col "gs`=mod(`k',14)'"
                 quietly levelsof series if rowtype == "bar" & series_k == `k', ///
                     local(_lab) clean
@@ -142,14 +164,18 @@ program define _swimlane_plot, rclass
                 if "`lanetype'" == "line" {
                     local barstyle "lwidth(thin)"
                     if !`use_scheme_colors' {
-                        local barstyle "`barstyle' lcolor(`col')"
+                        local barstyle `"`barstyle' lcolor("`col'")"'
                     }
                     local plotlist `"`plotlist' (pcspike lane start lane stop if rowtype == "bar" & series_k == `k', `barstyle')"'
                 }
                 else {
                     local barstyle ""
+                    if `use_scheme_colors' & `baropacity' != -1 {
+                        local barstyle "fcolor(%`baropacity')"
+                    }
                     if !`use_scheme_colors' {
-                        local barstyle "color(`col'%70) lcolor(`col')"
+                        _swimlane_fillstyle `"`col'"' `=cond(`baropacity' == -1, 70, `baropacity')'
+                        local barstyle `"`r(style)'"'
                     }
                     local plotlist `"`plotlist' (rbar start stop lane if rowtype == "bar" & series_k == `k', horizontal barwidth(`barwidth') `barstyle')"'
                 }
@@ -157,18 +183,21 @@ program define _swimlane_plot, rclass
             }
         }
         else {
-            local barstyle "color(navy%65) lcolor(navy)"
-            if `use_scheme_colors' local barstyle ""
-            else if "`colorlist'" != "" {
-                local col : word 1 of `colorlist'
-                local barstyle "color(`col'%65) lcolor(`col')"
+            local barstyle ""
+            if `use_scheme_colors' & `baropacity' != -1 {
+                local barstyle "fcolor(%`baropacity')"
+            }
+            if !`use_scheme_colors' {
+                local col `"`_c1'"'
+                _swimlane_fillstyle `"`col'"' `=cond(`baropacity' == -1, 65, `baropacity')'
+                local barstyle `"`r(style)'"'
             }
             local ++plot_i
             if "`lanetype'" == "line" {
                 local barstyle "lwidth(thin)"
                 if !`use_scheme_colors' {
-                    local col : word 1 of `colorlist'
-                    local barstyle "`barstyle' lcolor(`col')"
+                    local col `"`_c1'"'
+                    local barstyle `"`barstyle' lcolor("`col'")"'
                 }
                 local plotlist `"`plotlist' (pcspike lane start lane stop if rowtype == "bar", `barstyle')"'
             }
@@ -182,14 +211,14 @@ program define _swimlane_plot, rclass
         foreach k of local intervallevels {
             local ++plot_i
             local _ci = `n_barcolors' + `k'
-            local col : word `_ci' of `colorlist'
+            local col `"`_c`_ci''"'
             if "`col'" == "" local col "gs`=mod(`_ci',14)'"
             quietly levelsof series if rowtype == "interval" & ///
                 series_k == `k', local(_ilab) clean
             local ilab "`_ilab'"
             local intervalstyle "lwidth(thick)"
             if !`use_scheme_colors' {
-                local intervalstyle "`intervalstyle' lcolor(`col')"
+                local intervalstyle `"`intervalstyle' lcolor("`col'")"'
             }
             local plotlist `"`plotlist' (pcspike lane start lane stop if rowtype == "interval" & series_k == `k', `intervalstyle')"'
             local legend_order `"`legend_order' `plot_i' `"`ilab'"'"'
@@ -201,7 +230,7 @@ program define _swimlane_plot, rclass
             foreach k of local eventlevels {
                 local ++plot_i
                 local _ci = `n_barcolors' + `n_intervalcolors' + `k'
-                local col : word `_ci' of `colorlist'
+                local col `"`_c`_ci''"'
                 if "`col'" == "" local col "black"
                 local sym : word `k' of `symbols'
                 if "`sym'" == "" local sym "circle"
@@ -213,7 +242,7 @@ program define _swimlane_plot, rclass
                     "msymbol(`sym') mlwidth(vthin) msize(`msize')"
                 if !`use_scheme_colors' {
                     local eventstyle ///
-                        "`eventstyle' mcolor(`col') mlcolor(white)"
+                        `"`eventstyle' mcolor("`col'") mlcolor(white)"'
                 }
                 local plotlist `"`plotlist' (scatter lane xpoint if rowtype == "event" & series_k == `k', `eventstyle')"'
                 local legend_order `"`legend_order' `plot_i' `"`elab'"'"'
@@ -424,4 +453,18 @@ program define _swimlane_plot, rclass
     if `_changed_frame' capture frame change `_orig_frame'
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+end
+
+* Bar fill style for one color token. An opacity already in the token
+* (e.g. navy%40) wins over the default; the outline never carries opacity.
+program define _swimlane_fillstyle, rclass
+    version 16.0
+    args col opacity
+    local line = ustrregexra(`"`col'"', "%[0-9.]+", "")
+    if strpos(`"`col'"', "%") {
+        return local style `"color("`col'") lcolor("`line'")"'
+    }
+    else {
+        return local style `"color("`col'%`opacity'") lcolor("`line'")"'
+    }
 end

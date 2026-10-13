@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.4.12  2026/10/09
+*! msm_prepare Version 2.0.0  2026/10/13
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -192,9 +192,8 @@ program define msm_prepare, rclass
     * preparation diagnostics.
     * -------------------------------------------------------------------------
     * A within-id period gap corrupts the cumulative weight (audit A09) and is a
-    * hard error in msm_weight; msm_validate reports it as a diagnostic. It is
-    * not rejected here so that preparation and validation can still describe
-    * gapped data. n_periods therefore counts distinct present values, which may
+    * hard error in msm_weight. It is not rejected here so that preparation can
+    * still describe gapped data (r(n_gap_ids)). n_periods therefore counts distinct present values, which may
     * be fewer than the span.
     tempvar _ptag
     quietly bysort `period': gen byte `_ptag' = (_n == 1)
@@ -224,6 +223,44 @@ program define msm_prepare, rclass
         quietly count if `censor' == 1
         local n_censored = r(N)
     }
+
+    * -------------------------------------------------------------------------
+    * Data-quality notes (msm 2.0.0; formerly msm_validate checks 2, 5, 6, 7)
+    *
+    * None of these is an error here: gaps are refused by msm_weight, missing
+    * model inputs are refused by msm_weight's probability check, rows with a
+    * missing outcome stay out of msm_fit's risk set, and a constant covariate
+    * is omitted by the weighting logit. Reporting them at preparation tells the
+    * user before the first model is fitted.
+    * -------------------------------------------------------------------------
+    tempvar _gapflag
+    quietly bysort `id' (`period'): gen byte `_gapflag' = ///
+        (_n > 1 & `period' != `period'[_n-1] + 1)
+    quietly bysort `id': replace `_gapflag' = sum(`_gapflag')
+    quietly by `id': replace `_gapflag' = (_n == _N & `_gapflag' > 0)
+    quietly count if `_gapflag'
+    local n_gap_ids = r(N)
+    drop `_gapflag'
+
+    local missing_vars ""
+    foreach var in `treatment' `outcome' `censor' `covariates' `baseline_covariates' {
+        quietly count if missing(`var')
+        if r(N) > 0 local missing_vars "`missing_vars' `var'"
+    }
+    local missing_vars : list retokenize missing_vars
+
+    local constant_covariates ""
+    foreach var in `covariates' `baseline_covariates' {
+        quietly summarize `var'
+        if r(N) > 0 & r(sd) == 0 local constant_covariates "`constant_covariates' `var'"
+    }
+    local constant_covariates : list retokenize constant_covariates
+
+    tempvar _pn
+    quietly bysort `period': gen long `_pn' = _N
+    quietly summarize `_pn', meanonly
+    local min_period_n = r(min)
+    drop `_pn'
 
     * =========================================================================
     * STORE METADATA IN DATASET CHARACTERISTICS
@@ -300,8 +337,29 @@ program define msm_prepare, rclass
     if "`censor'" != "" {
         display as text "  Censored obs:     " as result %10.0fc `n_censored'
     }
+    if `n_gap_ids' > 0 | "`missing_vars'" != "" | ///
+        "`constant_covariates'" != "" | `min_period_n' < 10 {
+        display as text ""
+        display as text "Data checks:"
+        if `n_gap_ids' > 0 {
+            display as text "  Note: " as result `n_gap_ids' as text ///
+                " individual(s) have non-consecutive periods; msm_weight will refuse them"
+        }
+        if "`missing_vars'" != "" {
+            display as text "  Note: missing values in " as result "`missing_vars'" ///
+                as text "; missing model inputs make msm_weight refuse, and rows with a missing outcome are left out of msm_fit"
+        }
+        if "`constant_covariates'" != "" {
+            display as text "  Note: no variation in " as result "`constant_covariates'" ///
+                as text "; the weighting models will omit it"
+        }
+        if `min_period_n' < 10 {
+            display as text "  Note: the smallest period has " as result `min_period_n' ///
+                as text " row(s); check per-period support with msm_diagnose"
+        }
+    }
     display as text ""
-    display as text "Metadata stored. Next step: {cmd:msm_validate} or {cmd:msm_weight}"
+    display as text "Metadata stored. Next step: {cmd:msm_weight}"
     display as text "{hline 70}"
 
     * Restore caller's physical observation order before returning.
@@ -319,6 +377,10 @@ program define msm_prepare, rclass
     return scalar n_events = `n_events'
     return scalar n_treated = `n_treated'
     return scalar n_censored = `n_censored'
+    return scalar n_gap_ids = `n_gap_ids'
+    return scalar min_period_n = `min_period_n'
+    return local missing_vars "`missing_vars'"
+    return local constant_covariates "`constant_covariates'"
 
     return local id "`id'"
     return local period "`period'"

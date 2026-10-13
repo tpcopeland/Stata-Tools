@@ -64,7 +64,7 @@ local core_suites `quick_suites' validation_fixture_contract test_fixture_names 
     validation_codescan_describe_adversarial validation_codescan_crosscheck ///
     test_codescan_adversarial test_codescan_describe_adversarial ///
     test_codescan_stress_adversarial test_codescan_hostile test_codescan_oracle ///
-    test_codescan_axes
+    test_codescan_axes test_codescan_v434
 
 * Independent implementation lane: the official Stata ICD-10 classifier on a
 * fixed public Stata Press dataset is the row-level oracle for codescan.

@@ -1,4 +1,4 @@
-*! kmplot Version 1.4.2  2026/10/12
+*! kmplot Version 1.4.3  2026/10/13
 *! Publication-ready Kaplan-Meier survival and cumulative failure plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -610,7 +610,7 @@ program define kmplot, rclass
                 graphname(`_kmplot_risk_graph') ///
                 `macval(rt_xtitle_opt)' `rt_xlabel_opt' `rt_ylabel_opt' ///
                 `rt_height_opt' `rt_flags' ///
-                callerversion("1.4.2") toptimeaxis
+                callerversion("1.4.3") toptimeaxis
             matrix `risktable_mat' = r(risktable)
             local has_risktable_mat = 1
             local risk_timepoints "`r(timepoints)'"
@@ -740,29 +740,29 @@ program define kmplot, rclass
             local has_medians_mat = 1
         }
 
-        * Median annotation note
+        * Median annotation note: "Median: x" for one group, and
+        * "Median: label: x; label: y" when by() is used
         local med_note ""
         if "`median'" != "" & "`medianannotate'" != "" {
+            local med_parts ""
             forvalues g = 1/`ngroups' {
                 if `median_`g'' < . {
                     local mfmt : display `median_format' `median_`g''
                     local mfmt = strtrim("`mfmt'")
-                    if `ngroups' > 1 {
-                        local med_note `"`med_note'`grplbl`g'': `mfmt'  "'
-                    }
-                    else {
-                        local med_note "Median: `mfmt'"
-                    }
                 }
                 else {
-                    if `ngroups' > 1 {
-                        local med_note `"`med_note'`grplbl`g'': NR  "'
-                    }
-                    else {
-                        local med_note "Median: NR"
-                    }
+                    local mfmt "NR"
+                }
+                if `ngroups' > 1 {
+                    local med_sep ""
+                    if `g' > 1 local med_sep "; "
+                    local med_parts `"`med_parts'`med_sep'`grplbl`g'': `mfmt'"'
+                }
+                else {
+                    local med_parts "`mfmt'"
                 }
             }
+            local med_note `"Median: `med_parts'"'
         }
 
         * =========================================================================
@@ -1384,10 +1384,10 @@ program define kmplot, rclass
                 if `median_`g'' < . {
                     local mfmt : display `median_format' `median_`g''
                     local mfmt = strtrim("`mfmt'")
-                    display as text "  Median (`grplbl`g''): " as result "`mfmt'"
+                    display as text `"  Median (`grplbl`g''): "' as result "`mfmt'"
                 }
                 else {
-                    display as text "  Median (`grplbl`g''): " as result "NR"
+                    display as text `"  Median (`grplbl`g''): "' as result "NR"
                 }
             }
         }

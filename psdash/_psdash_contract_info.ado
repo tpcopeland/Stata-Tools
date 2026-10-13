@@ -1,4 +1,4 @@
-*! _psdash_contract_info Version 1.7.5  2026/10/09
+*! _psdash_contract_info Version 1.8.0  2026/10/13
 *! Machine-readable producer compatibility matrix for psdash
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -28,8 +28,10 @@ program define _psdash_contract_info, rclass
         local guard "_msm_check_weighted"
         local version_field "_msm_contract_version"
         local min_version "1.0"
-        local max_version "1.0"
-        local fields "_msm_weighted _msm_treatment _msm_ps_var _msm_period _msm_id _msm_tw_var _msm_weight_var _msm_ps_covars _msm_covariates _msm_estimand _msm_contract_version"
+        local max_version "1.1"
+        * 1.1 adds _msm_risk_var (the risk-set indicator). Under 1.0 psdash
+        * uses _msm_decision_risk when it exists.
+        local fields "_msm_weighted _msm_treatment _msm_ps_var _msm_period _msm_id _msm_tw_var _msm_weight_var _msm_ps_covars _msm_covariates _msm_estimand _msm_risk_var _msm_contract_version"
     }
     else if "`source'" == "tte" {
         local guard "_tte_get_weight_state"

@@ -1,6 +1,6 @@
 * test_massdesas.do
 *
-* Functional tests for massdesas v1.0.2 — batch .sas7bdat to .dta conversion
+* Functional tests for massdesas v1.0.3 — batch .sas7bdat to .dta conversion
 *
 * Sections:
 *   1. Installation and dependency checks (Tests 1-3)
@@ -231,7 +231,7 @@ else {
 
 * Test 3: Version string present in header
 local ++test_count
-display as text _n "Test `test_count': Installed header reports Version 1.0.2"
+display as text _n "Test `test_count': Installed header reports Version 1.0.3"
 
 capture noisily {
     findfile massdesas.ado
@@ -239,7 +239,7 @@ capture noisily {
     file open `version_fh' using "`r(fn)'", read text
     file read `version_fh' version_header
     file close `version_fh'
-    assert regexm(`"`version_header'"', "Version 1[.]0[.]2")
+    assert regexm(`"`version_header'"', "Version 1[.]0[.]3")
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -778,7 +778,7 @@ cd `"`original_cwd'"'
 _massdesas_qa_cleanup
 
 **# Summary
-display as text "MASSDESAS FUNCTIONAL TEST SUMMARY (v1.0.2)"
+display as text "MASSDESAS FUNCTIONAL TEST SUMMARY (v1.0.3)"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"
 if `fail_count' > 0 {

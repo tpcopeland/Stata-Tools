@@ -1,4 +1,4 @@
-*! _psdash_export_balance Version 1.7.5  2026/10/09
+*! _psdash_export_balance Version 1.8.0  2026/10/13
 *! Write typed, complete balance tables to Excel
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

@@ -1,22 +1,17 @@
 {smcl}
-{* *! version 1.4.12  09oct2026}{...}
+{* *! version 2.0.0  13oct2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
-{vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
-{vieweralsosee "msm_plot" "help msm_plot"}{...}
-{vieweralsosee "msm_report" "help msm_report"}{...}
-{vieweralsosee "msm_table" "help msm_table"}{...}
-{vieweralsosee "msm_protocol" "help msm_protocol"}{...}
-{vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
 {viewerjumpto "Syntax" "msm##syntax"}{...}
 {viewerjumpto "Options" "msm##options"}{...}
 {viewerjumpto "Description" "msm##description"}{...}
 {viewerjumpto "When to use this package" "msm##when"}{...}
 {viewerjumpto "Commands" "msm##commands"}{...}
 {viewerjumpto "Workflow" "msm##workflow"}{...}
+{viewerjumpto "Companion packages" "msm##companions"}{...}
 {viewerjumpto "Pipeline status" "msm##status"}{...}
 {viewerjumpto "Current scope and limits" "msm##scope"}{...}
 {viewerjumpto "Examples" "msm##examples"}{...}
@@ -27,7 +22,7 @@
 {title:Title}
 
 {phang}
-{bf:msm} {hline 2} Marginal Structural Models suite for Stata
+{bf:msm} {hline 2} Marginal structural models for longitudinal causal analysis
 
 
 {marker syntax}{...}
@@ -40,80 +35,71 @@
 {synoptset 15 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt list}}display command names as a simple list{p_end}
-{synopt:{opt detail}}show detailed descriptions of each command{p_end}
-{synopt:{opt prot:ocol}}show the 7-component MSM protocol framework{p_end}
-{synopt:{opt stat:us}}show pipeline stage and saved artifacts{p_end}
+{synopt:{opt list}}display the command names as a simple list{p_end}
+{synopt:{opt detail}}describe each command and the companion map{p_end}
+{synopt:{opt stat:us}}show the pipeline stage and dataset artifacts{p_end}
 {synoptline}
 
 {pstd}
-With no options, {cmd:msm} displays the command overview and workflow guide.
+With no options, {cmd:msm} displays the command overview and the companion
+map. At most one option may be given.
 
 
 {marker options}{...}
 {title:Options}
 
 {phang}
-{opt list} displays the names of all user-facing commands in the suite.
+{opt list} displays the names of the five estimator commands.
 
 {phang}
-{opt detail} displays a detailed overview of each command and its role in the
-analysis workflow.
+{opt detail} displays a description of each command and the map from
+reporting tasks to companion packages.
 
 {phang}
-{opt prot:ocol} displays the seven-component MSM protocol framework.
+{opt stat:us} reports the current pipeline stage, the mapped variables, the
+weight and fit artifacts in the dataset, and the recommended next command. It
+reads the dataset state without fitting models or modifying the data.
 
-{phang}
-{opt stat:us} reports the current pipeline stage, mapped variables, saved
-artifacts, and recommended next command. It reads the current dataset state
-without fitting models or modifying the data.
+{pstd}
+The {opt protocol} option was removed in msm 2.0.0 together with
+{cmd:msm_protocol}; specifying it exits with return code 198.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:msm} is a comprehensive suite for estimating marginal structural models
-using inverse probability of treatment weighting (IPTW) in longitudinal
-person-period data. It is designed for the common setting where treatment and
-confounders both vary over time and where confounders are simultaneously
-affected by past treatment and predictive of future treatment {hline 1} the
-classic "treatment-confounder feedback" problem.
+{cmd:msm} estimates marginal structural models by inverse probability of
+treatment weighting (IPTW) in longitudinal person-period data. It is designed
+for the setting where treatment and confounders both vary over time and the
+confounders are affected by past treatment and predict future treatment
+{hline 1} the "treatment-confounder feedback" problem.
 
 {pstd}
-Standard regression adjustment for time-varying confounders affected by past
-treatment can block mediated effects or induce collider bias. Under
-consistency, sequential exchangeability, positivity, and adequate specification
-of the treatment, censoring, and marginal outcome models, IPTW creates a
-weighted pseudo-population in which treatment is independent of measured
-confounder history, allowing the weighted outcome model to identify the
-specified marginal causal effect.
+Regression adjustment for time-varying confounders affected by past treatment
+can block mediated effects or induce collider bias. Under consistency,
+sequential exchangeability, positivity, and adequate specification of the
+treatment, censoring, and marginal outcome models, IPTW creates a weighted
+pseudo-population in which treatment is independent of measured confounder
+history, so the weighted outcome model identifies the specified marginal causal
+effect.
 
 {pstd}
-The command automatically adds only the immediately prior treatment to the
-weight models. Sequential exchangeability may require richer measured
-treatment and covariate histories; analysts must construct and supply the
-relevant lagged, cumulative, or trajectory summaries to {helpb msm_weight}.
+The weight models add only the immediately prior treatment
+automatically. Sequential exchangeability may require richer treatment and covariate
+histories; construct the relevant lagged, cumulative, or trajectory summaries
+and supply them to {helpb msm_weight}.
 
 {pstd}
-The package covers the full analysis pipeline:
-
-{phang2}1. {bf:Protocol specification} {hline 2} document the causal question{p_end}
-{phang2}2. {bf:Data preparation} {hline 2} map variables and validate data{p_end}
-{phang2}3. {bf:Weighting} {hline 2} stabilized IPTW and optional IPCW{p_end}
-{phang2}4. {bf:Diagnostics} {hline 2} weight behavior and covariate balance{p_end}
-{phang2}5. {bf:Estimation} {hline 2} weighted outcome model{p_end}
-{phang2}6. {bf:Prediction} {hline 2} counterfactual standardization{p_end}
-{phang2}7. {bf:Reporting} {hline 2} tables, plots, and sensitivity analysis{p_end}
-
+From version 2.0.0, {cmd:msm} is the estimator core: preparation, weighting,
+longitudinal diagnostics, the weighted outcome model, and standardized
+counterfactual prediction. Tables, pooled weight and balance diagnostics,
+figures, and E-values come from companion packages that read the core's
+output directly; see {help msm##companions:Companion packages}.
 
 {pstd}
-The dispatcher, preparation, validation, diagnosis, fitting, plotting,
-reporting, protocol and sensitivity commands preserve caller returned
-results on guard and operational refusals. Temporary sorts preserve the
-caller's original row order and sort keys. A completed
-{helpb msm_validate} check still publishes its documented findings when
-strict mode exits with return code 198.
+Temporary sorts preserve the caller's row order and sort keys, and guard
+refusals preserve the caller's returned results.
 
 
 {marker when}{...}
@@ -128,219 +114,185 @@ individual over time.{p_end}
 {phang2}{bf:Time-varying treatment} that can change between periods.{p_end}
 
 {phang2}{bf:Time-varying confounders} that are affected by past treatment and
-predictive of future treatment (treatment-confounder feedback).{p_end}
+predictive of future treatment.{p_end}
 
 {phang2}{bf:Binary treatment and outcome indicators} (0/1). Linear models use
-the prepared binary outcome on the identity scale, and Cox models estimate
-weighted hazard ratios. The full prediction workflow currently requires a
-binary outcome with a pooled logistic model.{p_end}
+the binary outcome on the identity scale, and Cox models estimate weighted
+hazard ratios. Standardized prediction requires a pooled logistic model.{p_end}
 
 {pstd}
-If your treatment is assigned at a single point in time (not time-varying),
-consider Stata's built-in {helpb teffects ipw} instead.
+If treatment is assigned at a single point in time, consider Stata's
+{helpb teffects ipw} instead.
 
 
 {marker commands}{...}
 {title:Commands}
 
-{dlgtab:Data Preparation}
+{p2colset 5 22 24 2}{...}
+{p2col:{helpb msm_prepare}}map variables, refuse invalid person-period data, report data checks{p_end}
+{p2col:{helpb msm_weight}}stabilized IPTW and optional IPCW{p_end}
+{p2col:{helpb msm_diagnose}}balance by period and treatment history, censoring balance, positivity{p_end}
+{p2col:{helpb msm_fit}}weighted pooled logistic, linear, or Cox outcome model{p_end}
+{p2col:{helpb msm_predict}}standardized risks under always and never treated, risk differences{p_end}
+{p2colreset}{...}
 
-{phang}
-{helpb msm_prepare} {hline 2} Map variables and store metadata. Entry point
-for the pipeline.
-
-{phang}
-{helpb msm_validate} {hline 2} Run 10 data quality checks for person-period
-data.
-
-{dlgtab:Core Engine}
-
-{phang}
-{helpb msm_weight} {hline 2} Estimate stabilized IPTW (+ optional IPCW for
-informative censoring).
-
-{phang}
-{helpb msm_fit} {hline 2} Fit the weighted outcome model: pooled logistic
-(GLM), linear, or Cox PH.
-
-{phang}
-{helpb msm_predict} {hline 2} Generate counterfactual predictions under
-always-treated and never-treated strategies with Monte Carlo CIs.
-
-{dlgtab:Diagnostics and Reporting}
-
-{phang}
-{helpb msm_diagnose} {hline 2} Inspect weight distribution and covariate
-balance (SMD before/after weighting).
-
-{phang}
-{helpb msm_plot} {hline 2} Visualize weights, balance (Love plot), survival
-curves, treatment trajectories, and positivity.
-
-{phang}
-{helpb msm_report} {hline 2} Compact publication-style results table (console,
-CSV, or Excel).
-
-{phang}
-{helpb msm_table} {hline 2} Multi-sheet Excel workbook with all pipeline
-results.
-
-{phang}
-{helpb msm_protocol} {hline 2} Document the MSM study protocol (7 components
-adapted from Hernan et al.).
-
-{phang}
-{helpb msm_sensitivity} {hline 2} E-value and confounding strength bounds for
-unmeasured confounding assessment.
+{pstd}
+{cmd:msm_protocol}, {cmd:msm_validate}, {cmd:msm_plot}, {cmd:msm_report},
+{cmd:msm_table}, {cmd:msm_diagtab} and {cmd:msm_sensitivity} were removed in
+msm 2.0.0. Throughout msm 2.x they remain installed as stubs that print the
+replacement listed below and exit with return code 199.
 
 
 {marker workflow}{...}
-{title:Typical Workflow}
+{title:Workflow}
 
 {p 4 4 2}
-0. {helpb msm_protocol} {hline 1} Document the study design{break}
-1. {helpb msm_prepare} {hline 1} Map variables and store metadata{break}
-2. {helpb msm_validate} {hline 1} Check data quality (10 diagnostics){break}
-3. {helpb msm_weight} {hline 1} Calculate stabilized IP weights{break}
-4. {helpb msm_diagnose} {hline 1} Assess weight distribution and balance{break}
-5. {helpb msm_fit} {hline 1} Fit the weighted outcome model{break}
-6. {helpb msm_predict} {hline 1} Estimate counterfactual outcomes{break}
-7. {helpb msm_plot} {hline 1} Visualize results{break}
-8. {helpb msm_report} / {helpb msm_table} {hline 1} Export publication tables{break}
-9. {helpb msm_sensitivity} {hline 1} Sensitivity analysis
+1. {helpb msm_prepare} {hline 1} map variables and check the data{break}
+2. {helpb msm_weight} {hline 1} estimate stabilized IP weights{break}
+3. {helpb msm_diagnose} {hline 1} longitudinal balance and positivity; pooled
+weights and balance with {cmd:psdash}{break}
+4. {helpb msm_fit} {hline 1} fit the weighted outcome model{break}
+5. {helpb msm_predict} {hline 1} standardized counterfactual risks
 
 {pstd}
-Run {cmd:msm, status} at any point to see where the current dataset sits in
-the pipeline, what outputs are available, and what the recommended next step is.
+Run {cmd:msm, status} at any point to see where the dataset sits in the
+pipeline and what to run next. Re-running {cmd:msm_prepare} clears every
+downstream weight and fit artifact.
+
+
+{marker companions}{...}
+{title:Companion packages}
 
 {pstd}
-{bf:Plain-language command map.} If you are new to MSMs, think of the
-commands as a sequence of practical checks and outputs:
+Each task below reads {cmd:msm} output directly. The companion packages are
+installed separately from Stata-Tools; the core needs none of them.
 
-{phang2}{cmd:msm_prepare} tells the package what each column means.{p_end}
+{phang2}{bf:Coefficient table} (was {cmd:msm_table},
+{cmd:msm_report}): {cmd:collect: msm_fit ...} then {cmd:regtab} (tabtools){p_end}
+{phang2}{bf:Risk-difference table}: {cmd:msm_predict, difference} then
+{cmd:matrix RD = r(rd)} then {cmd:effecttab, from(RD)} (tabtools){p_end}
+{phang2}{bf:Any returned matrix}: {cmd:puttab using} {it:file}{cmd:.xlsx, matrix(r(}{it:name}{cmd:))}
+(tabtools){p_end}
+{phang2}{bf:Weight distribution} (was
+{cmd:msm_plot}): {cmd:psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) graph}{p_end}
+{phang2}{bf:Pooled balance and Love plot}: {cmd:psdash balance treatment}
+{cmd:_msm_ps if _msm_decision_risk, covariates(}{it:denominator covariates}{cmd:)}
+{cmd:wvar(_msm_weight) loveplot}{p_end}
+{phang2}{bf:Per-period weights and overlap}: {cmd:psdash combined} (reads the
+msm contract; analysis weight by default){p_end}
+{phang2}{bf:Risk-difference forest plot}: {cmd:msm_predict, ... frame(F)} then
+{cmd:eplot if strategy == "rd", frame(F)} (eplot){p_end}
+{phang2}{bf:Cumulative-incidence curve}: {cmd:twoway} on the {cmd:frame()}
+rows; see {help msm_predict##curve:msm_predict}{p_end}
+{phang2}{bf:Treatment trajectories}: {cmd:generate pstop = period + 1}, then
+{cmd:swimlane, id(id) start(period) stop(pstop) state(treatment)} (swimlane){p_end}
+{phang2}{bf:E-value} (was
+{cmd:msm_sensitivity}): {cmd:qba_confound, from_model coef(treatment) evalue measure(HR)} (qba){p_end}
+{phang2}{bf:Data checks} (was {cmd:msm_validate}): refusals and {cmd:r()} notes
+in {helpb msm_prepare} and {helpb msm_weight}; positivity and periods without a
+treatment contrast in {helpb msm_diagnose}{p_end}
+{phang2}{bf:Protocol} (was {cmd:msm_protocol}): no replacement; record it in
+the manuscript or a protocol document{p_end}
+{phang2}{bf:Cross-contrast export} (was {cmd:msm_diagtab}): no
+replacement; {cmd:frame post} the returns and export with {cmd:puttab, frame()}{p_end}
 
-{phang2}{cmd:msm_validate} checks whether the person-period data are usable
-before modeling.{p_end}
+{pstd}
+{bf:psdash after msm.} {cmd:psdash combined} (psdash 1.8.0 or later) detects
+the msm contract (version 1.1 from msm 2.0.0), restricts every summary to the decision risk set named in
+{cmd:_dta[_msm_risk_var]}, and diagnoses the analysis weight {cmd:_msm_weight}
+that {cmd:msm_fit} uses unless {cmd:wvar()} names another. For the pooled
+{cmd:psdash weights} and {cmd:psdash balance} calls, restrict to the risk set
+with {cmd:if _msm_decision_risk} as shown above.
 
-{phang2}{cmd:msm_weight} builds the weighted pseudo-population used for causal
-estimation.{p_end}
+{pstd}
+{bf:Balance targets.} Covariates in {cmd:treat_n_cov()} stay in the
+stabilized-weight numerator, so weighting is not meant to balance them; pass
+only the remaining denominator covariates to a pooled balance
+plot; {cmd:msm_diagnose} marks numerator covariates {cmd:target=0}.
 
-{phang2}{cmd:msm_diagnose} checks whether those weights look stable and whether
-covariate balance improved.{p_end}
-
-{phang2}{cmd:msm_fit} estimates the treatment effect in the weighted data.{p_end}
-
-{phang2}{cmd:msm_predict} translates a logistic MSM into absolute predicted
-risks under always-treated and never-treated strategies.{p_end}
-
-{phang2}{cmd:msm_report} and {cmd:msm_table} turn saved pipeline artifacts into
-console, CSV, or Excel tables for reporting.{p_end}
+{pstd}
+{bf:E-values.} A pooled-logistic odds ratio from {cmd:msm_fit} is a ratio of
+per-period odds and approximates a discrete-time hazard ratio when the
+per-period risk is small, hence {cmd:measure(HR)}. Add {cmd:commonoutcome}
+when the cumulative incidence at the end of follow-up (for example from
+{cmd:msm_predict}) is 15% or more; {help qba_confound} documents both choices
+and the bounding factor.
 
 
 {marker status}{...}
 {title:Pipeline status}
 
 {pstd}
-{cmd:msm, status} is a lightweight introspection command. It reads the stored
-{cmd:_dta[_msm_*]} characteristics and saved artifacts already attached to the
-dataset. It does not fit models, recalculate anything, or modify the data.
-
-{pstd}
-The status report shows:
-
-{phang2}The current pipeline stage (not prepared / prepared / weighted / fitted){p_end}
-{phang2}The recommended next command{p_end}
-{phang2}All mapped variables (ID, period, treatment, outcome, covariates){p_end}
-{phang2}Available saved artifacts (weights, predictions, balance, diagnostics,
-sensitivity){p_end}
-{phang2}Summary details for each artifact (e.g., prediction type, balance
-threshold, E-value){p_end}
-
-{pstd}
-Use it before resuming work in a saved dataset, after any pipeline step, or
-whenever you are unsure what has been run.
+{cmd:msm, status} reads the {cmd:_dta[_msm_*]} characteristics and verifies
+each stage the same way the commands do before using it. It reports the
+current stage (not prepared, prepared, weighted, fitted), the recommended next
+command, the mapped variables, and the weight variables and fit artifacts in
+the dataset. {cmd:msm_diagnose} and {cmd:msm_predict} return their results in
+{cmd:r()} (and {cmd:frame()}) and write nothing to the dataset, so they do not
+appear in the status report.
 
 
 {marker scope}{...}
 {title:Current scope and limits}
 
 {phang}
-{bf:Static strategies only.} The prediction workflow supports always-treated,
-never-treated, or both. Dynamic or stochastic treatment regimes are not
-implemented.
+{bf:Static strategies only.} Prediction supports always treated, never
+treated, or both. Dynamic or stochastic regimes are not implemented.
 
 {phang}
-{bf:Prediction requires pooled logistic MSMs.} Run
-{cmd:msm_fit, model(logistic)} before {helpb msm_predict}. Linear and Cox
-models can be estimated, diagnosed, and reported, but prediction is not
-available for them.
+{bf:Prediction requires a pooled logistic MSM.} Linear and Cox fits are
+reported from {cmd:e()}; {helpb msm_predict} refuses them.
 
 {phang}
-{bf:Outcome-model covariates must be time-fixed.} Any {cmd:outcome_cov()} in
-{helpb msm_fit} must be constant within person. Time-varying confounders
+{bf:Outcome-model covariates must be time-fixed.} Time-varying confounders
 belong in the treatment and censoring weight models.
 
 {phang}
-{bf:Common baseline required.} {helpb msm_weight} assumes all individuals
-enter at the same baseline period. Delayed entry / left truncation is not
-supported.
+{bf:Common baseline required.} {helpb msm_weight} refuses delayed entry.
 
 {phang}
-{bf:Observed follow-up is the default horizon.} {helpb msm_predict} rejects
-out-of-range {cmd:times()} unless {cmd:extrapolate} is specified.
+{bf:Observed follow-up is the default horizon.} {helpb msm_predict} refuses
+{cmd:times()} beyond the fitted risk-set support unless {cmd:extrapolate} is
+specified.
+
+{phang}
+{bf:Intervals are conditional on the weights.} {cmd:msm_fit} standard errors
+and {cmd:msm_predict} Monte Carlo intervals do not propagate weight-model
+estimation.
 
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}
-{bf:Prediction-ready end-to-end workflow.} This is the complete pipeline using
-the bundled example dataset:{p_end}
+{bf:Prediction-ready workflow} on the bundled example data, with informative
+censoring:{p_end}
 
 {phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
 {phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
 {phang2}{cmd:. use msm_example.dta, clear}{p_end}
-{phang2}{cmd:. msm_protocol,}{p_end}
-{phang2}{cmd:    population("Adults aged 18-65 with condition X")}{p_end}
-{phang2}{cmd:    treatment("Always treat vs. never treat")}{p_end}
-{phang2}{cmd:    confounders("Biomarker (TV), comorbidity (TV), age, sex")}{p_end}
-{phang2}{cmd:    outcome("Binary clinical endpoint")}{p_end}
-{phang2}{cmd:    causal_contrast("ATE: always treat vs. never treat")}{p_end}
-{phang2}{cmd:    weight_spec("Stabilized IPTW, 1/99 truncation")}{p_end}
-{phang2}{cmd:    analysis("Pooled logistic with robust SE clustered by ID")}{p_end}
-{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
-{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
-{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
-{phang2}{cmd:. msm_validate, strict verbose}{p_end}
-{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
-{phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    by_period threshold(0.1)}{p_end}
-{phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
-{phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
-{phang2}{cmd:. msm_sensitivity, evalue}{p_end}
-{phang2}{cmd:. msm_report, eform}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)}{p_end}
+{phang2}{cmd:    censor(censored) covariates(biomarker comorbidity) baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex)}{p_end}
+{phang2}{cmd:    censor_d_cov(biomarker comorbidity age sex) censor_n_cov(age sex) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. msm_diagnose, threshold(0.1)}{p_end}
+{phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog}{p_end}
+{phang2}{cmd:. msm_predict, times(3 5 7 9) difference samples(500) seed(12345) frame(pred, replace)}{p_end}
 {phang2}{cmd:. msm, status}{p_end}
 
 {pstd}
-{bf:Estimation-only workflow.} Use a Cox or linear model when prediction is
-not needed:{p_end}
+{bf:Estimation-only workflow.} A Cox MSM for a weighted hazard ratio:{p_end}
 
-{phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
-{phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
 {phang2}{cmd:. use msm_example.dta, clear}{p_end}
-{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
-{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
-{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
-{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    treat_n_cov(age sex) nolog}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)}{p_end}
+{phang2}{cmd:    covariates(biomarker comorbidity) baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex) nolog}{p_end}
 {phang2}{cmd:. msm_fit, model(cox) outcome_cov(age sex) nolog}{p_end}
-{phang2}{cmd:. msm_report, eform}{p_end}
+{phang2}{cmd:. stcox, hr}{p_end}
 
 {pstd}
-Use the Cox or linear branches when the estimand is a weighted hazard ratio
-or weighted mean difference, but do not expect those fits to work with
-{helpb msm_predict}.{p_end}
+The companion-package calls for these results are listed under
+{help msm##companions:Companion packages}.{p_end}
 
 
 {marker references}{...}
@@ -377,22 +329,19 @@ Hall/CRC, 2020.
 
 {synoptset 25 tabbed}{...}
 {p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:r(n_commands)}}number of available commands (12){p_end}
+{synopt:{cmd:r(n_commands)}}number of estimator commands (5){p_end}
 
 {pstd}
-With {opt status}, the following additional results are stored:
+With {opt status}, the following additional scalars are stored:
 
-{synopt:{cmd:r(prepared)}}1 if {helpb msm_prepare} state is available{p_end}
-{synopt:{cmd:r(weighted)}}1 if saved weights are available{p_end}
-{synopt:{cmd:r(fitted)}}1 if a saved fit is available{p_end}
-{synopt:{cmd:r(prediction_saved)}}1 if prediction results are available{p_end}
-{synopt:{cmd:r(balance_saved)}}1 if balance results are available{p_end}
-{synopt:{cmd:r(diagnostics_saved)}}1 if diagnostic results are available{p_end}
-{synopt:{cmd:r(sensitivity_saved)}}1 if sensitivity results are available{p_end}
+{synopt:{cmd:r(prepared)}}1 if a verified {cmd:msm_prepare} state exists{p_end}
+{synopt:{cmd:r(weighted)}}1 if verified weights exist{p_end}
+{synopt:{cmd:r(fitted)}}1 if a verified fit exists{p_end}
 
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(version)}}package version number{p_end}
-{synopt:{cmd:r(commands)}}list of all msm commands{p_end}
+{synopt:{cmd:r(commands)}}the five estimator commands{p_end}
+{synopt:{cmd:r(removed)}}the seven commands removed in 2.0.0{p_end}
 
 {pstd}
 With {opt status}:
@@ -413,7 +362,7 @@ With {opt status}:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.12, 2026-10-09{p_end}
+{pstd}Version 2.0.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

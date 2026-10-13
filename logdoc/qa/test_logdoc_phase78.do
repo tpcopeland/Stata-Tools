@@ -645,7 +645,7 @@ if _rc == 0 {
     file open `t14fh' using "`t14_out'", read text
     file read `t14fh' _t14line
     while r(eof) == 0 {
-        local _t14trim = strtrim(`"`_t14line'"')
+        local _t14trim = strtrim(`"`macval(_t14line)'"')
         if substr(`"`_t14trim'"', 1, 14) == `"\documentclass"' {
             local _ndocclass = `_ndocclass' + 1
         }

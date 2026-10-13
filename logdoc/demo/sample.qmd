@@ -20,7 +20,7 @@ date: "28 April 2026"
 ```
 
 ```stata
-tabstat price mpg weight, by(foreign) statistics(n mean sd median min max) columns(statistics)
+. tabstat price mpg weight, by(foreign) statistics(n mean sd median min max) columns(statistics)
 ```
 
 ```
@@ -40,9 +40,6 @@ Domestic │        52  6072.423  3097.104    4782.5      3291     15906
    Total │        74  6165.257  2949.496    5006.5      3291     15906
          │        74   21.2973  5.785503        20        12        41
          │        74  3019.459  777.1936      3190      1760      4840
-```
-
-```
 ─────────┴────────────────────────────────────────────────────────────
 
 ```
@@ -78,7 +75,7 @@ Domestic │        52  6072.423  3097.104    4782.5      3291     15906
 ```
 
 ```stata
-estimates store base
+. estimates store base
 ```
 
 ### Margins
@@ -147,12 +144,12 @@ Car origin │         1          2          3          4          5 │     Tot
 ```
 
 ```stata
-predict double resid, residuals
+. predict double resid, residuals
 ```
 
 ```stata
-histogram resid, normal
->     title("Residual Distribution")
+. histogram resid, normal ///
+>     title("Residual Distribution") ///
 >     xtitle("Residuals") ytitle("Density")
 ```
 
@@ -162,7 +159,7 @@ histogram resid, normal
 ```
 
 ```stata
-graph export "logdoc/demo/residuals.png", replace width(900)
+. graph export "logdoc/demo/residuals.png", replace width(900)
 ```
 
 ![residuals.png](residuals.png)
@@ -173,9 +170,9 @@ file logdoc/demo/residuals.png written in PNG format
 ```
 
 ```stata
-capture graph close _all
+. capture graph close _all
 ```
 
 ```stata
-drop resid
+. drop resid
 ```

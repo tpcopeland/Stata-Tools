@@ -232,27 +232,6 @@ else {
 
 **# D. Successful helper exits restore caller session settings
 
-* D1: missing p-values take an early successful exit but must still restore
-*     the caller's varabbrev setting.
-local ++test_count
-capture noisily {
-    set varabbrev on
-    _msm_coef_pvalue_string, pvalue(.)
-    assert "`r(pvalue)'" == "NA"
-    assert c(varabbrev) == "on"
-}
-local d1_rc = _rc
-set varabbrev off
-if `d1_rc' == 0 {
-    display as result "  PASS D1: p-value helper restores varabbrev after missing value"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL D1: p-value helper leaked varabbrev (rc=`d1_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' D1"
-}
-
 * D2-D4: every early-success period-basis branch restores varabbrev.
 local basis_specs "none linear ns(3)"
 local basis_labels "D2 D3 D4"

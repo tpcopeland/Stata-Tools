@@ -51,7 +51,7 @@ capture noisily {
 if _rc == 0 local ++pass_count
 else local ++fail_count
 
-**# Extended-missing mapped outcomes are reported by strict validation without mutation
+**# Extended-missing mapped outcomes are reported by msm_prepare without mutation
 local ++test_count
 capture noisily {
     _msm_hostile_panel
@@ -64,9 +64,8 @@ capture noisily {
     quietly msm_prepare, id(id) period(period) treatment(treatment_1234567890123456789012) ///
         outcome(outcome_123456789012345678901234) censor(censor_1234567890123456789012345) ///
         covariates(covariate_1234567890123456789012)
-    capture noisily msm_validate, strict
-    local call_rc = _rc
-    assert `call_rc' != 0
+    * msm 2.0.0: msm_prepare reports the extended missing (formerly msm_validate)
+    assert "`r(missing_vars)'" == "outcome_123456789012345678901234"
     assert outcome_123456789012345678901234 == outcome_before
     assert row_before == _n
     assert "`: char _dta[_msm_prepared]'" == "1"

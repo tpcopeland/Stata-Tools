@@ -1,6 +1,6 @@
 {
-  "datamap_version": "1.10.0",
-  "generated": "12 Oct 2026 23:47:12",
+  "datamap_version": "1.10.1",
+  "generated": "13 Oct 2026 02:00:26",
   "format": "json",
   "datasets": [
     {
@@ -8,7 +8,7 @@
       "observations": 1200,
       "variables": 17,
       "label": "Synthetic Clinical Trial Cohort (N=1200)",
-      "data_signature": "1200:17(68284):2844760337:3810411015",
+      "data_signature": "1200:17(68284):809950434:1697081388",
       "sort_order": "",
       "privacy": {
         "mincell": 5,
@@ -329,13 +329,13 @@
           "max_length": null,
           "summary": {
             "n": 1200,
-            "mean": 0.28817500000000001,
-            "sd": 0.27736052367224706,
-            "p25": 0.089999999999999997,
-            "median": 0.20000000000000001,
-            "p75": 0.40000000000000002,
+            "mean": 3.5308666666666668,
+            "sd": 3.3969312917282899,
+            "p25": 1.0800000000000001,
+            "median": 2.4750000000000001,
+            "p75": 4.8550000000000004,
             "min": 0,
-            "max": 1.98
+            "max": 24.210000000000001
           },
           "frequencies": [
           ]

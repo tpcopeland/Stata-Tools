@@ -22,6 +22,8 @@ local qa_original_plus "`r(original_plus)'"
 local qa_original_personal "`r(original_personal)'"
 local qa_plus "`r(plus)'"
 local work "`r(work)'"
+_pkgtransfer_qa_stage_list
+local stage_list0 `"`r(list)'"'
 
 capture program drop pkgtransfer
 run "`pkg_dir'/pkgtransfer.ado"
@@ -653,6 +655,8 @@ capture noisily {
         "Plugin noplat.plugin has no platform record") > 0
     local staged : dir "." dirs "pkgtransfer_files"
     assert `"`staged'"' == ""
+    _pkgtransfer_qa_stage_list
+    assert `"`r(list)'"' == `"`stage_list0'"'
     capture confirm file "b.zip"
     assert _rc == 601
 }
@@ -698,6 +702,8 @@ capture noisily {
         "Could not create bundle directory sub/") > 0
     local staged : dir "." dirs "pkgtransfer_files"
     assert `"`staged'"' == ""
+    _pkgtransfer_qa_stage_list
+    assert `"`r(list)'"' == `"`stage_list0'"'
 }
 local test_rc = _rc
 capture file close `fh'

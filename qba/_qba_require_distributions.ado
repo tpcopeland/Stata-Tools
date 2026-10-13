@@ -1,4 +1,4 @@
-*! _qba_require_distributions Version 1.1.5  2026/10/09
+*! _qba_require_distributions Version 1.2.0  2026/10/13
 *! Internal helper: load qba distribution helpers
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

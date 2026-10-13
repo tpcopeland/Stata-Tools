@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.3  09oct2026}{...}
+{* *! version 2.1.0  13oct2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -118,6 +118,10 @@ interval. Consequently, where available, the adjusted bounds are identical under
 {opt exact} and {opt wilson}, while sensitivity and specificity bounds
 differ; {cmd:r(methods)} states both methods separately. The prevalence is treated as
 {bf:known without error}, so the intervals do not reflect uncertainty in it.{p_end}
+
+{phang2}{bf:Accuracy.} Accuracy depends on prevalence but is not adjusted by
+{opt prevalence()}: it stays the sample value, and its row is labelled
+{bf:Accuracy (sample)} in the table and exports. {cmd:r(accuracy)} is unchanged.{p_end}
 
 {phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of
 Wilson score for the directly estimated binomial proportions (sensitivity,
@@ -343,7 +347,7 @@ doi:10.1002/1097-0142(1950)3:1<32::aid-cncr2820030106>3.0.co;2-3.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 2.0.3, 2026-10-09{p_end}
+{pstd}Version 2.1.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

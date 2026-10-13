@@ -1,4 +1,4 @@
-*! psdash_support Version 1.7.5  2026/10/09
+*! psdash_support Version 1.8.0  2026/10/13
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -475,8 +475,8 @@ program define psdash_support, rclass
     local _pf ""
     local _pfn = 0
     if `n_ps_boundary' > 0 {
-        display as error "Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1."
-        display as error "  Exact boundaries violate strict positivity."
+        display as text "{err}Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1.{txt}"
+        display as text "{err}  Exact boundaries violate strict positivity.{txt}"
         local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
         local ++_pfn
     }
@@ -484,12 +484,12 @@ program define psdash_support, rclass
         display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
     }
     if `pct_outside' > 10 {
-        display as error "Warning: >10% of observations outside common support."
+        display as text "{err}Warning: >10% of observations outside common support.{txt}"
         local _pf `"`_pf' | `=string(`pct_outside',"%4.1f")'% outside common support"'
         local ++_pfn
     }
     if `upper_bound' < `lower_bound' {
-        display as error "Warning: No common support region (upper < lower bound)."
+        display as text "{err}Warning: No common support region (upper < lower bound).{txt}"
         local _pf `"`_pf' | no common support region (upper < lower)"'
         local ++_pfn
     }
@@ -510,7 +510,7 @@ program define psdash_support, rclass
         }
     }
     else if `_pfn' > 0 {
-        display as text _n "Support: " as error "WARNING" ///
+        display as text _n "Support: " as text "{err}WARNING{txt}" ///
             as text " (" as result %4.1f `pct_outside' as text "% outside support; " ///
             as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, crump generate(in_support)}"
@@ -632,18 +632,29 @@ program define psdash_support, rclass
                     local graphoptions `"scheme(`scheme') `graphoptions'"'
                 }
 
-                * Build xline options
+                * Build xline options. xline() has no legend key, so each
+                * reference-line style also gets an empty line plot whose only
+                * job is to label it in the legend.
                 local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
+                local keyplots "(scatteri . ., recast(line) lcolor(gs8) lpattern(dash))"
+                local legend_keys `"1 "Treated" 2 "Control" 3 "Common support bounds""'
+                local legend_rows "rows(1)"
                 if `has_trimming' {
                     local xlines "`xlines' xline(`trim_lower' `trim_upper', lcolor(red) lpattern(shortdash))"
+                    local keyplots "`keyplots' (scatteri . ., recast(line) lcolor(red) lpattern(shortdash))"
+                    local trim_key "Trimming bounds"
+                    if "`crump'" != "" local trim_key "Crump trimming bounds"
+                    local legend_keys `"`legend_keys' 4 "`trim_key'""'
+                    local legend_rows "rows(2)"
                 }
 
                 noisily twoway ///
                     (kdensity `psvar' if `touse' & `treatment' == 1, ///
-                        lcolor(navy) lwidth(medthick)) ///
+                        pstyle(p1) lwidth(medthick)) ///
                     (kdensity `psvar' if `touse' & `treatment' == 0, ///
-                        lcolor(cranberry) lwidth(medthick)), ///
-                    legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
+                        pstyle(p6) lwidth(medthick)) ///
+                    `keyplots', ///
+                    legend(order(`legend_keys') `legend_rows' position(6)) ///
                     xscale(range(0 1)) xtitle("Propensity Score") ytitle("Density") ///
                     title(`"`title'"') ///
                     `xlines' ///
@@ -986,8 +997,8 @@ program define psdash_support, rclass
     * (Li & Li 2019 Assumption 2). Catches a near-zero probability of an
     * unreceived arm that the observed-arm overlap rule below cannot see.
     if `n_gps_violate' > 0 {
-        display as error "Warning: `n_gps_violate' observation(s) violate GPS positivity" ///
-            _n "  (probability of some treatment < `=string(`gpsfloor',"%4.3f")'; min GPS = `=string(`min_gps',"%5.4f")')."
+        display as text "{err}Warning: `n_gps_violate' observation(s) violate GPS positivity" ///
+            _n "{err}  (probability of some treatment < `=string(`gpsfloor',"%4.3f")'; min GPS = `=string(`min_gps',"%5.4f")').{txt}"
         local _pf `"`_pf' | `n_gps_violate' unit(s) below GPS positivity floor `=string(`gpsfloor',"%4.3f")' (min GPS `=string(`min_gps',"%5.4f")')"'
         local ++_pfn
     }
@@ -1005,7 +1016,7 @@ program define psdash_support, rclass
             as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
     }
     else if `_pfn' > 0 {
-        display as text _n "Support: " as error "WARNING" ///
+        display as text _n "Support: " as text "{err}WARNING{txt}" ///
             as text " (" as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
     }

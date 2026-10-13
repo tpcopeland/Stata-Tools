@@ -1,4 +1,4 @@
-*! _psdash_ltmle_diagnostics Version 1.7.5  2026/10/09
+*! _psdash_ltmle_diagnostics Version 1.8.0  2026/10/13
 *! Longitudinal propensity score diagnostics engine (ltmle, msm, tte sources)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -12,13 +12,16 @@ program define _psdash_ltmle_diagnostics, rclass
         syntax , TREATment(varname numeric) PERiod(varname numeric) ///
             PSVAR(string) Wvar(string) SAMPLEvar(varname) ///
             [ID(string) ESTImand(string) REGime(string) METHOD(string) ///
-             CONTRACT(string) TItle(string) SOURCE(string)]
+             CONTRACT(string) TItle(string) SOURCE(string) ///
+             RISKvar(string) WEIGHTROLE(string)]
 
         local psvar = strtrim("`psvar'")
         local wvar = strtrim("`wvar'")
         local id = strtrim("`id'")
         local source = strtrim("`source'")
         if "`source'" == "" local source "ltmle"
+        local riskvar = strtrim("`riskvar'")
+        local weightrole = strtrim("`weightrole'")
 
         if "`psvar'" == "" {
             display as error "`source' contract does not identify a propensity score variable"
@@ -41,6 +44,24 @@ program define _psdash_ltmle_diagnostics, rclass
 
         quietly count if `samplevar'
         local N_input = r(N)
+
+        * Producer risk set (msm: _msm_decision_risk). Rows outside it come
+        * after the outcome or censoring: they carry no treatment decision, so
+        * they are excluded by design rather than reported as incomplete.
+        local n_outside_risk = 0
+        if "`riskvar'" != "" {
+            confirm numeric variable `riskvar'
+            quietly count if `samplevar' & !inlist(`riskvar', 0, 1)
+            if r(N) > 0 {
+                display as error "risk-set indicator `riskvar' must be 0 or 1"
+                display as error "  `r(N)' row(s) in the diagnostic sample have another value or are missing"
+                exit 459
+            }
+            quietly count if `samplevar' & `riskvar' == 0
+            local n_outside_risk = r(N)
+            quietly replace `samplevar' = 0 if `riskvar' == 0
+        }
+
         quietly count if `samplevar' & missing(`treatment')
         local n_missing_treatment = r(N)
         quietly count if `samplevar' & missing(`period')
@@ -58,7 +79,7 @@ program define _psdash_ltmle_diagnostics, rclass
             exit 2000
         }
         local N = r(N)
-        local n_excluded = `N_input' - `N'
+        local n_excluded = `N_input' - `n_outside_risk' - `N'
 
         capture assert inlist(`treatment', 0, 1) if `samplevar'
         if _rc {
@@ -280,12 +301,27 @@ program define _psdash_ltmle_diagnostics, rclass
         display as text "Period:        " as result "`period'"
         display as text "Treatment:     " as result "`treatment'"
         display as text "PS variable:   " as result "`psvar'"
-        display as text "Weight var:    " as result "`wvar'"
+        local _wrole_txt ""
+        if "`weightrole'" == "analysis" {
+            local _wrole_txt " (analysis weight used by the outcome model)"
+            if "`source'" == "msm" local _wrole_txt " (analysis weight used by msm_fit)"
+        }
+        else if "`weightrole'" == "treatment" {
+            local _wrole_txt " (treatment weight only, not the analysis weight)"
+        }
+        else if "`weightrole'" == "user-supplied" {
+            local _wrole_txt " (user-supplied)"
+        }
+        display as text "Weight var:    " as result "`wvar'" as text "`_wrole_txt'"
         if "`estimand'" != "" {
             display as text "Estimand:      " as result strupper("`estimand'")
         }
         if "`regime'" != "" {
             display as text "Regime:        " as result "`regime'"
+        }
+        if "`riskvar'" != "" {
+            display as text "Risk set:      " as result "`riskvar'" ///
+                as text " (" as result `n_outside_risk' as text " row(s) outside excluded)"
         }
         display as text "Obs:           " as result %10.0fc `N'
         if `n_excluded' > 0 {
@@ -370,42 +406,42 @@ program define _psdash_ltmle_diagnostics, rclass
         local _pf ""
         local _pfn = 0
         if `n_excluded' > 0 {
-            display as error "Warning: `n_excluded' incomplete input row(s) excluded from longitudinal diagnostics."
+            display as text "{err}Warning: `n_excluded' incomplete input row(s) excluded from longitudinal diagnostics.{txt}"
             local _pf `"`_pf' | `n_excluded' incomplete input row(s) excluded"'
             local ++_pfn
         }
         if `n_single_arm' > 0 {
-            display as error "Warning: `n_single_arm' period(s) have only one treatment arm (overlap not estimable)."
+            display as text "{err}Warning: `n_single_arm' period(s) have only one treatment arm (overlap not estimable).{txt}"
             local _pf `"`_pf' | `n_single_arm' single-arm period(s) (overlap not estimable)"'
             local ++_pfn
         }
         if `max_pct_outside' > 10 {
-            display as error "Warning: at least one period has >10% outside common support."
+            display as text "{err}Warning: at least one period has >10% outside common support.{txt}"
             local _pf `"`_pf' | max period `=string(`max_pct_outside',"%4.1f")'% outside common support"'
             local ++_pfn
         }
         if `ess_pct' < 50 {
-            display as error "Warning: overall ESS is below 50% of rows in the diagnostic sample."
+            display as text "{err}Warning: overall ESS is below 50% of rows in the diagnostic sample.{txt}"
             local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
             local ++_pfn
         }
         if `min_period_ess' < 50 & `min_period_ess' < . {
-            display as error "Warning: minimum per-period ESS is `=string(`min_period_ess',"%4.1f")'% (period collapse)."
+            display as text "{err}Warning: minimum per-period ESS is `=string(`min_period_ess',"%4.1f")'% (period collapse).{txt}"
             local _pf `"`_pf' | min per-period ESS `=string(`min_period_ess',"%4.1f")'% < 50%"'
             local ++_pfn
         }
         if `min_period_arm_ess' < 50 & `min_period_arm_ess' < . {
-            display as error "Warning: minimum period-by-arm ESS is `=string(`min_period_arm_ess',"%4.1f")'% (arm collapse)."
+            display as text "{err}Warning: minimum period-by-arm ESS is `=string(`min_period_arm_ess',"%4.1f")'% (arm collapse).{txt}"
             local _pf `"`_pf' | min period-arm ESS `=string(`min_period_arm_ess',"%4.1f")'% < 50%"'
             local ++_pfn
         }
         if `n_extreme' > 0 {
-            display as error "Warning: `n_extreme' extreme weight(s) (>10) in the diagnostic sample."
+            display as text "{err}Warning: `n_extreme' extreme weight(s) (>10) in the diagnostic sample.{txt}"
             local _pf `"`_pf' | `n_extreme' extreme weights > 10"'
             local ++_pfn
         }
         if `n_ps_boundary' > 0 {
-            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity."
+            display as text "{err}Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity.{txt}"
             local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
             local ++_pfn
         }
@@ -413,7 +449,7 @@ program define _psdash_ltmle_diagnostics, rclass
         if substr("`_pf'", 1, 1) == "|" local _pf = strtrim(substr("`_pf'", 2, .))
         local _verdict = cond(`_pfn' > 0, "FAIL", "PASS")
         if `_pfn' > 0 {
-            display as text _n "Longitudinal support: " as error "`_verdict'" ///
+            display as text _n "Longitudinal support: " as text "{err}`_verdict'{txt}" ///
                 as text " (" as result `_pfn' as text " finding(s))"
         }
         else {
@@ -426,6 +462,7 @@ program define _psdash_ltmle_diagnostics, rclass
         return scalar N_input = `N_input'
         return scalar N_complete = `N'
         return scalar n_excluded = `n_excluded'
+        return scalar n_outside_risk = `n_outside_risk'
         return scalar n_missing_treatment = `n_missing_treatment'
         return scalar n_missing_period = `n_missing_period'
         return scalar n_missing_ps = `n_missing_ps'
@@ -462,6 +499,8 @@ program define _psdash_ltmle_diagnostics, rclass
         return local treatment "`treatment'"
         return local psvar "`psvar'"
         return local wvar "`wvar'"
+        return local weight_role "`weightrole'"
+        return local riskvar "`riskvar'"
         return local period "`period'"
         return local id "`id'"
         return local estimand "`estimand'"

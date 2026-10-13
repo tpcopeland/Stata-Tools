@@ -1374,6 +1374,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_resample_unit)}}the resampling unit, when bootstrapped{p_end}
 {synopt:{cmd:e(iivw_vce_seed)}}seed set by {opt vce(bootstrap, seed())}{p_end}
 {synopt:{cmd:e(vce)}}variance method; {cmd:stacked} when {opt vce(stacked)}{p_end}
+{synopt:{cmd:e(ivars)}}panel id variable; restored after the observed {cmd:model(mixed)} bootstrap evaluation{p_end}
 {synopt:{cmd:e(iivw_stacked_terms)}}nuisance terms propagated by {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_selfcheck)}}fixed-vs-fitted sandwich reldif; {cmd:vce(stacked)}{p_end}
 {synopt:{cmd:e(iivw_stacked_nclust)}}stacked-sandwich clusters (design union){p_end}

@@ -1,4 +1,4 @@
-*! _psdash_pscheck Version 1.7.5  2026/10/09
+*! _psdash_pscheck Version 1.8.0  2026/10/13
 *! Validate propensity score ranges and positivity warnings
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper
@@ -52,9 +52,9 @@ program define _psdash_pscheck, rclass
         * that assemble their own machine-readable finding surfaces.
         if "`nowarn'" == "" {
             if `n_ps_boundary' > 0 {
-                display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-                display as error "  exact boundaries violate strict positivity"
-                display as error "  some treatment/estimand-specific IP weights may be undefined"
+                display as text "{err}warning: `n_ps_boundary' observations have PS exactly 0 or 1{txt}"
+                display as text "{err}  exact boundaries violate strict positivity{txt}"
+                display as text "{err}  some treatment/estimand-specific IP weights may be undefined{txt}"
             }
             if `n_ps_near' > 0 {
                 if `"`nearmessage'"' == "" {

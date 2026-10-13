@@ -2,8 +2,6 @@
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
-{vieweralsosee "msm_report" "help msm_report"}{...}
-{vieweralsosee "msm_table" "help msm_table"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {viewerjumpto "Syntax" "msm_fit##syntax"}{...}
 {viewerjumpto "Description" "msm_fit##description"}{...}
@@ -65,9 +63,12 @@ which accounts for the within-person correlation from repeated measurements.
 {pstd}
 The command persists the fitted coefficient vector ({cmd:_msm_fit_b}) and
 variance matrix ({cmd:_msm_fit_V}) as Stata matrices so that downstream
-commands ({helpb msm_predict}, {helpb msm_report}, {helpb msm_table},
-{helpb msm_sensitivity}) can access them even if an intervening estimation
-command overwrites {cmd:e()}.
+{helpb msm_predict} can use them even if an intervening estimation command
+overwrites {cmd:e()}. The fit itself is left in {cmd:e()} as the native
+{cmd:glm}, {cmd:regress} or {cmd:stcox} result, so
+{cmd:collect: msm_fit ...} followed by {cmd:regtab} (tabtools), {cmd:estimates store} with {cmd:eplot}
+(eplot), and {cmd:qba_confound, from_model coef(}{it:treatment}{cmd:)} (qba)
+read it directly; see {help msm##companions:Companion packages}.
 
 {pstd}
 For Cox models, {cmd:msm_fit} uses an internal sandbox: any pre-existing
@@ -104,8 +105,9 @@ is not available for linear models.{p_end}
 {p2col:{cmd:model(cox)}}Weighted Cox proportional hazards. Use when the target
 estimand is a weighted hazard ratio. Period terms are not added as covariates
 because time is modeled through the survival-time
-outcome. {helpb msm_predict} is not available for Cox models; use {helpb msm_report},
-{helpb msm_table}, or {helpb msm_sensitivity} for downstream output. If you
+outcome. {helpb msm_predict} is not available for Cox models; report the hazard
+ratio from {cmd:e()} (for example {cmd:collect: msm_fit ...} then
+{cmd:regtab}). If you
 need custom Stata survival postestimation, fit a direct {cmd:stcox} model on
 an explicitly {cmd:stset} dataset using the same weights and covariates.{p_end}
 
@@ -202,8 +204,8 @@ been handled in the weight model.{p_end}
 Passing a term the weights do not justify yields a biased estimate that only
 looks package-blessed. Because there is no binary regime to standardize,
 {helpb msm_predict} and counterfactual standardization are {bf:not defined} in
-this mode and {cmd:msm_predict} will refuse; use {helpb msm_report},
-{helpb msm_table}, or {helpb msm_sensitivity} for downstream output. The
+this mode and {cmd:msm_predict} will refuse; report the coefficients from
+{cmd:e()}. The
 relaxation of the {opt outcome_cov()} time-fixed restriction is gated to
 {cmd:model(cox)} and {cmd:model(logistic)} via {opt tvc:ov()}; the restriction
 existed only to support {cmd:msm_predict} standardization, which is already
@@ -404,8 +406,8 @@ lagged treatment status as a time-varying companion:{p_end}
 {phang2}{cmd:. msm_fit, model(cox) exposure(cum_test_yrs) tvcov(lag_test) outcome_cov(age) vce(cluster id) nolog}{p_end}
 
 {pstd}
-{cmd:msm_predict} is unavailable after this fit; use {helpb msm_report},
-{helpb msm_table}, or {helpb msm_sensitivity}. See
+{cmd:msm_predict} is unavailable after this fit; report the coefficients from
+{cmd:e()}. See
 {help msm_fit##continuous:Continuous and time-varying exposure} for the methods
 contract.
 

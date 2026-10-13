@@ -6,7 +6,7 @@
 *   - continuous-exposure Cox: effect term, e()/char surface, e(effects)
 *   - msm_predict fence and msm,status next-step in exposure/tvcov mode
 *   - tvcov() model gating and term-overlap guards
-*   - msm_sensitivity rendering an exposure fit
+*   - (msm_sensitivity on an exposure fit: retired in msm 2.0.0)
 
 version 16.0
 clear all
@@ -240,42 +240,6 @@ else {
     local failed_tests "`failed_tests' E5"
 }
 
-**# E6: msm_sensitivity renders an exposure fit
-
-local ++test_count
-capture noisily {
-    * baseline (treatment) sensitivity still works
-    _setup_exposure, nolog
-    msm_fit, model(cox) outcome_cov(age sex) vce(cluster id) nolog
-    msm_sensitivity, evalue
-    assert !missing(r(evalue_point))
-
-    * exposure fit: sensitivity finds the exposure coefficient, not treatment
-    * (tvcov is lag_trt, not cum_comp -- see the E2 and E8 notes on N01)
-    _setup_exposure, nolog
-    msm_fit, model(cox) exposure(cum_trt) tvcov(lag_trt) ///
-        outcome_cov(age sex) vce(cluster id) nolog
-    local fit_hr = exp(_b[cum_trt])
-    msm_sensitivity, evalue
-    assert !missing(r(effect), `fit_hr')
-    assert reldif(r(effect), `fit_hr') < 1e-8
-    assert !missing(r(evalue_point))
-
-    * The rendered effect is a real one. Under the old degenerate spec the
-    * exposure was omitted, so fit_hr was exp(0) == 1 and the E-value was 1:
-    * this assertion is what distinguishes "sensitivity found the exposure"
-    * from "sensitivity faithfully rendered a hole".
-    assert abs(`fit_hr' - 1) > 1e-6
-}
-if _rc == 0 {
-    display as result "  PASS E6: msm_sensitivity renders exposure fit"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL E6: msm_sensitivity on exposure fit (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' E6"
-}
 
 **# E7: exposure on logistic also fences predict
 

@@ -10,7 +10,6 @@
 *   A19  MVN draws use a symmetrized eigendecomposition; non-PSD V is refused
 *   A20  linear models use t inference with e(df_r); GLM/Cox use z
 *   A21  vce(robust) only for one-row-per-id; custom clusters must nest id
-*   A33  a missing p-value renders as NA, not 0.99
 *
 * Every refusal test is paired with a positive control (the same call minus the
 * offending element, asserted rc 0). Reference: rc198_error_test_needs_positive_control.
@@ -150,10 +149,14 @@ capture noisily {
     assert r(min_support) == -2
     assert r(max_support) == 1
 
-    * The plotting wrapper must accept the same signed external period scale.
-    msm_plot, type(survival) times(-1 0 1) seed(9) samples(20)
-    assert "`r(plot_type)'" == "survival"
-    capture graph drop _all
+    * The contrast returns and the graph-ready frame accept the same signed
+    * external period scale (msm 2.0.0; 1.4.12 failed with r(101) here).
+    capture frame drop p17
+    msm_predict, times(-1 0 1) difference seed(9) samples(20) frame(p17)
+    assert !missing(r(rd_m1), r(rd_0), r(rd_1))
+    assert "`: rownames r(rd)'" == "tm1 t0 t1"
+    frame p17: assert horizon[1] == -1 & _N == 9
+    frame drop p17
 
     * Cox stores the external origin as a characteristic
     msm_fit, model(cox) vce(cluster id) nolog
@@ -337,27 +340,49 @@ else {
     local failed_tests "`failed_tests' A21b"
 }
 
+
 * =========================================================================
-* A33: a missing p-value renders as NA, not the plausible-but-wrong "0.99".
+* A36: msm_fit prints no generate/replace chatter (msm 2.0.0). 1.4.12 printed
+* "(500 missing values generated)" and "(500 real changes made)" twice while
+* building the at-risk sample, and history() terms added more.
 * =========================================================================
 local ++test_count
 capture noisily {
-    _msm_coef_pvalue_string, pvalue(.)
-    assert "`r(pvalue)'" == "NA"
-    * a genuine large p still renders as a number, capped at 0.99
-    _msm_coef_pvalue_string, pvalue(0.999)
-    assert "`r(pvalue)'" == "0.99"
-    _msm_coef_pvalue_string, pvalue(0.032)
-    assert "`r(pvalue)'" == "0.032"
+    use "`pkg_dir'/msm_example.dta", clear
+    quietly msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    quietly msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        censor_d_cov(biomarker comorbidity) nolog
+    tempfile fitlog
+    local flog "`fitlog'_fit.log"
+    log using "`flog'", text replace name(fitnoise)
+    msm_fit, model(logistic) outcome_cov(age sex) history(lag1 cumulative duration) nolog
+    log close fitnoise
+    tempname fh
+    local noise = 0
+    local lines = 0
+    file open `fh' using "`flog'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local ++lines
+        if strpos(`"`line'"', "missing values generated") local ++noise
+        if strpos(`"`line'"', "real changes made") local ++noise
+        file read `fh' line
+    }
+    file close `fh'
+    assert `lines' > 20
+    assert `noise' == 0
 }
 if _rc == 0 {
-    display as result "PASS A33: missing p-value renders as NA"
+    display as result "PASS A36: msm_fit prints no generate/replace chatter"
     local ++pass_count
 }
 else {
-    display as error "FAIL A33: missing p-value rendering (rc=`=_rc')"
+    display as error "FAIL A36: msm_fit console chatter (rc=`=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' A33"
+    local failed_tests "`failed_tests' A36"
+    capture log close fitnoise
 }
 
 * -------------------------------------------------------------------------

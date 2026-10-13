@@ -80,13 +80,27 @@ the value must be positive.
 {phang}
 {opt love:plot} requests a Love plot of raw and, when weights are applied,
 adjusted SMDs. Multi-group contrasts are named with the treatment's value
-labels, shown verbatim, or with numeric codes for unlabelled levels.
+labels, shown verbatim, or with numeric codes for unlabelled levels. Rows
+are labelled with each covariate's variable label (factor levels as
+{it:label}{cmd::} {it:value label}), or with its name when it has no label.
+Labels over 40 characters are shortened with {cmd:...}; a label shared by two
+rows gets the variable name appended.
+
+{phang}
+{opt varn:ames} labels Love-plot rows and distribution panels with variable
+names instead of variable labels.
+
+{phang}
+{opt nogr:aph} suppresses every balance graph; {opt loveplot},
+{opt strategies()}, {opt distribution()}, and {opt saving()} are then ignored
+with a note. Tables and stored results are unchanged.
 
 {phang}
 {opt sav:ing(filename)} saves the requested graph.
 
 {phang}
-{opt sch:eme(schemename)} sets the graph scheme.
+{opt sch:eme(schemename)} sets the graph scheme. Series colours follow the
+scheme in effect (or {cmd:set scheme}).
 
 {phang}
 {opt graphopt:ions(string)} passes additional graph options.

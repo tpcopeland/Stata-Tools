@@ -78,12 +78,12 @@ Version 1.1
 
 ## Table of Contents
 
-1. [ Demo Cohort](#1--demo-cohort)
+1. [Demo Cohort](#1-demo-cohort)
 2. [Notes](#notes)
 3. [Change Log](#change-log)
 
 
-## 1.  Demo Cohort
+## 1. Demo Cohort
 
 **Filename:** `_demo_cohort.dta`
 **Source path:** `datamap/demo/_demo_cohort.dta`
@@ -117,8 +117,8 @@ Version 1.1
 > .01 (SD=17.96)<br>Range=25.10-147 |
 | `enroll_date` | Date of enrollment | Date | 0 (0.0%) | N=1200<br>Range: 01/01/2021 to 18/06/2023 |
 | `birth_date` | Date of birth | Date | 0 (0.0%) | N=1200<br>Range: 29/11/1924 to 30/11/2000 |
-| `follow_up_time` | Follow-up time (years) | Numeric | 0 (0.0%) | N=1200<br>Median=0.200; IQR=0.090-0.400<br>Mean=0.288
->  (SD=0.277)<br>Range=0-1.98 |
+| `follow_up_time` | Follow-up time (years) | Numeric | 0 (0.0%) | N=1200<br>Median=2.48; IQR=1.08-4.86<br>Mean=3.53 (SD
+> =3.40)<br>Range=0-24.21 |
 | `event` | Primary endpoint | Numeric | 0 (0.0%) | Unique=2<br>0 Censored (872; 72.7%)<br>1 Event (328; 27.3%) |
 | `treatment` | Randomization arm | Numeric | 0 (0.0%) | Unique=2<br>0 Control (617; 51.4%)<br>1 Active (583; 48.6%) |
 | `site` | Study site | Numeric | 0 (0.0%) | Unique=7<br>1 Stockholm (207; 17.2%)<br>2 Gothenburg (202; 16.8%)<br>3 Malm
@@ -143,7 +143,7 @@ Version 1.1
 
 **Author:** Timothy P Copeland, Karolinska Institutet
 
-**Last Updated:** 12 Oct 2026
+**Last Updated:** 13 Oct 2026
 
 ```
 

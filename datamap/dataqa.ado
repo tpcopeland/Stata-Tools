@@ -1,4 +1,4 @@
-*! dataqa Version 1.10.0  2026/10/12
+*! dataqa Version 1.10.1  2026/10/13
 *! Session defaults and a structured QA ledger over dataprobe gate calls
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

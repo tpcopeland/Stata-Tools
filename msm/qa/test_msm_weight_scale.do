@@ -7,9 +7,9 @@
 *        the squares underflowed to 0 or overflowed)
 *   WS2  the ESS helper honours if/in, skips missing weights, and returns
 *        missing for an empty sample
-*   WS3  msm_weight r(ess), msm_diagnose r(ess)/r(ess_pct), the ess columns
-*        of r(support) and r(treatment_balance), and the ESS msm_report
-*        exports agree with an ESS computed in Mata from _msm_weight
+*   WS3  msm_weight r(ess) and the msm_diagnose ess columns of r(support)
+*        and r(treatment_balance) agree with an ESS computed in Mata from
+*        _msm_weight
 *   WS4  the weighted SMD of a continuous covariate is unchanged when the
 *        weights are multiplied by 1e-200 or 1e200 (was missing: sum w^2 and
 *        (sum w)^2 left the double range)
@@ -179,9 +179,9 @@ capture noisily {
     local n_risk = r(N)
     assert reldif(`weight_ess', `want') < 1e-12
 
+    * msm 2.0.0: pooled ESS lives in msm_weight (above) and psdash; the
+    * per-period and per-stratum ESS columns below stay in msm_diagnose.
     msm_diagnose, balance_covariates(L)
-    assert reldif(r(ess), `want') < 1e-12
-    assert reldif(r(ess_pct), 100 * `want' / `n_risk') < 1e-12
 
     tempname sup tb
     matrix `sup' = r(support)
@@ -219,40 +219,6 @@ else {
     local failed_tests "`failed_tests' WS3"
 }
 
-* msm_report exports the ESS over every _msm_weight row (%9.1f).
-local ++test_count
-capture noisily {
-    _ws_panel
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(L) baseline_covariates(bl)
-    msm_weight, treat_d_cov(L bl) treat_n_cov(bl) nolog
-    _ws_mata_ess _msm_weight if !missing(_msm_weight)
-    local want = strtrim(string(r(ess), "%9.1f"))
-    msm_fit, model(logistic) outcome_cov(bl) nolog
-    tempfile rep
-    local csv "`rep'.csv"
-    msm_report, export("`csv'") format(csv) replace
-    tempname fh
-    local got ""
-    file open `fh' using "`csv'", read text
-    file read `fh' line
-    while r(eof) == 0 {
-        if substr(`"`line'"', 1, 4) == "ESS," local got = substr(`"`line'"', 5, .)
-        file read `fh' line
-    }
-    file close `fh'
-    capture erase "`csv'"
-    assert "`got'" == "`want'"
-}
-if _rc == 0 {
-    display as result "  PASS WS3: msm_report exports the Mata-oracle ESS"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL WS3: msm_report ESS (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' WS3r"
-}
 
 **# WS4: weighted continuous SMD at extreme scales
 foreach s in 1 1e-200 1e200 {

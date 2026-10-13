@@ -1,5 +1,5 @@
-*! _msm_pipeline_state Version 1.4.12  2026/10/09
-*! Compute current MSM pipeline stage and saved-artifact state
+*! _msm_pipeline_state Version 2.0.0  2026/10/13
+*! Compute current MSM pipeline stage and its artifacts
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _msm_pipeline_state
@@ -28,26 +28,6 @@ program define _msm_pipeline_state
         local exposure : char _dta[_msm_exposure]
         local tvcov : char _dta[_msm_tvcov]
         local predict_disabled : char _dta[_msm_predict_disabled]
-
-        local pred_flag : char _dta[_msm_pred_saved]
-        local pred_type : char _dta[_msm_pred_type]
-        local pred_strategy : char _dta[_msm_pred_strategy]
-        local pred_level : char _dta[_msm_pred_level]
-
-        local bal_flag : char _dta[_msm_bal_saved]
-        local bal_threshold : char _dta[_msm_bal_threshold]
-
-        local diag_flag : char _dta[_msm_diag_saved]
-        local diag_mean : char _dta[_msm_diag_mean]
-        local diag_p50 : char _dta[_msm_diag_p50]
-        local diag_ess : char _dta[_msm_diag_ess]
-
-        local sens_flag : char _dta[_msm_sens_saved]
-        local sens_effect : char _dta[_msm_sens_effect]
-        local sens_effect_lo : char _dta[_msm_sens_effect_lo]
-        local sens_effect_hi : char _dta[_msm_sens_effect_hi]
-        local sens_effect_label : char _dta[_msm_sens_effect_label]
-        local sens_level : char _dta[_msm_sens_level]
 
         * Stage validity comes from _msm_verify, the same authority the guards
         * use, so `msm, status' can never advertise a stage that the next
@@ -113,30 +93,6 @@ program define _msm_pipeline_state
         }
         local fit_artifacts : list retokenize fit_artifacts
 
-        local pred_saved = 0
-        if "`pred_flag'" == "1" {
-            _msm_check_artifact prediction, nohydrate
-            local pred_saved = r(ok)
-        }
-
-        local bal_saved = 0
-        if "`bal_flag'" == "1" {
-            _msm_check_artifact balance, nohydrate
-            local bal_saved = r(ok)
-        }
-
-        local diag_saved = 0
-        if "`diag_flag'" == "1" {
-            _msm_check_artifact diagnostics, nohydrate
-            local diag_saved = r(ok)
-        }
-
-        local sens_saved = 0
-        if "`sens_flag'" == "1" {
-            _msm_check_artifact sensitivity, nohydrate
-            local sens_saved = r(ok)
-        }
-
         if !`prepared' {
             local id ""
             local period ""
@@ -155,10 +111,6 @@ program define _msm_pipeline_state
             local exposure ""
             local tvcov ""
             local predict_disabled ""
-            local pred_saved = 0
-            local bal_saved = 0
-            local diag_saved = 0
-            local sens_saved = 0
             local weighted = 0
             local fitted = 0
         }
@@ -178,42 +130,23 @@ program define _msm_pipeline_state
             local stage_label "Fitted"
         }
 
+        * msm 2.0.0: downstream steps write no dataset state, so the next step
+        * follows from the verified stage alone.
         local next_step "msm_prepare"
         if !`prepared' {
             local next_step "msm_prepare"
         }
         else if !`weighted' {
-            local next_step "msm_validate or msm_weight"
+            local next_step "msm_weight"
         }
         else if !`fitted' {
-            if !`diag_saved' | !`bal_saved' {
-                local next_step "msm_diagnose or msm_fit"
-            }
-            else {
-                local next_step "msm_fit"
-            }
+            local next_step "msm_diagnose or msm_fit"
         }
         else if "`model'" == "logistic" & "`predict_disabled'" != "1" {
-            if !`pred_saved' {
-                local next_step "msm_predict"
-            }
-            else if !`sens_saved' {
-                local next_step "msm_sensitivity"
-            }
-            else {
-                local next_step "msm_report or msm_table"
-            }
-        }
-        else if "`model'" == "cox" | ("`model'" == "logistic" & "`predict_disabled'" == "1") {
-            if !`sens_saved' {
-                local next_step "msm_sensitivity"
-            }
-            else {
-                local next_step "msm_report or msm_table"
-            }
+            local next_step "msm_predict"
         }
         else {
-            local next_step "msm_report or msm_table"
+            local next_step "regtab (tabtools) or qba_confound (qba)"
         }
 
         if "`weight_var'" == "" & `weighted' {
@@ -234,10 +167,6 @@ program define _msm_pipeline_state
         c_local _msm_state_prepared_why "`prepared_why'"
         c_local _msm_state_weighted_why "`weighted_why'"
         c_local _msm_state_fitted_why "`fitted_why'"
-        c_local _msm_state_pred_saved "`pred_saved'"
-        c_local _msm_state_bal_saved "`bal_saved'"
-        c_local _msm_state_diag_saved "`diag_saved'"
-        c_local _msm_state_sens_saved "`sens_saved'"
 
         c_local _msm_state_id "`id'"
         c_local _msm_state_period "`period'"
@@ -258,21 +187,6 @@ program define _msm_pipeline_state
         c_local _msm_state_tvcov "`tvcov'"
         c_local _msm_state_predict_disabled "`predict_disabled'"
 
-        c_local _msm_state_pred_type "`pred_type'"
-        c_local _msm_state_pred_strategy "`pred_strategy'"
-        c_local _msm_state_pred_level "`pred_level'"
-
-        c_local _msm_state_bal_threshold "`bal_threshold'"
-
-        c_local _msm_state_diag_mean "`diag_mean'"
-        c_local _msm_state_diag_p50 "`diag_p50'"
-        c_local _msm_state_diag_ess "`diag_ess'"
-
-        c_local _msm_state_sens_effect "`sens_effect'"
-        c_local _msm_state_sens_effect_lo "`sens_effect_lo'"
-        c_local _msm_state_sens_effect_hi "`sens_effect_hi'"
-        c_local _msm_state_sens_effect_label "`sens_effect_label'"
-        c_local _msm_state_sens_level "`sens_level'"
     }
     local _rc = _rc
 

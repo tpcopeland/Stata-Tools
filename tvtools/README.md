@@ -1,6 +1,6 @@
 # tvtools — Time-varying exposure workflow for survival analysis
 
-**Version 1.18.1** | 2026-10-12
+**Version 1.18.2** | 2026-10-13
 
 `tvtools` turns person-level follow-up and episode records into analysis-ready time-varying survival data. It gives applied survival analysts transactional builds, composable interval primitives, diagnostics, weighting, fixed-width panels, and exact calendar-timescale splitting.
 
@@ -103,9 +103,12 @@ Every interval in the construction commands is a closed, inclusive interval of i
 
 ## Worked Examples
 
-The setup block below creates reusable tempfiles for the examples. Run it once in the same Stata session before copying any one of the workflow blocks.
+The setup block below creates reusable tempfiles for the examples. Run it once in the same Stata session before copying any one of the workflow blocks. It also returns to the default frame and drops the `analysis` frames left by the Quick Start, so the examples can follow it in the same session.
 
 ```stata
+frame change default
+capture frame drop analysis
+capture frame drop analysis_manifest
 clear
 input long id study_entry study_exit byte female
 1 21915 22280 1
@@ -479,6 +482,10 @@ The help files cite these sources; `tvevent` uses the first two and `tvweight` t
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+### 1.18.2 (2026-10-13)
+
+- Documentation: the README Quick Start followed by Worked Example 1 no longer fails with r(198) (frame `analysis` already existed); the Worked Examples setup block now returns to the default frame and drops the Quick Start frames. The `.pkg` description now says "twelve" public commands.
 
 ### 1.18.1 (2026-10-12)
 

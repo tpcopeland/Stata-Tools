@@ -39,6 +39,7 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 | File | Covers |
 | --- | --- |
 | `test_diagtab.do` | Diagnostic measures, cutoffs, AUC, exports, frames, option conflicts, boundary cells, and formatting regressions |
+| `test_diagtab_quiet.do` | First diagtab call after a cold start (all three file exports) prints no Mata source |
 | `test_diagtab_errors.do` | Public error codes, state preservation, destination preflight, and no-partial-output contracts |
 | `test_diagtab_documentation_examples.do` | Executability of every public help example |
 | `test_diagtab_oracle.do` | Deterministic random-table comparisons against independently computed two-by-two metrics |
@@ -71,7 +72,7 @@ The runner writes suite logs in `qa/`; concurrent runs of the same lane can coll
 
 | Lane | Suites |
 | --- | --- |
-| `quick` | `test_diagtab.do`, `test_diagtab_errors.do`, `test_diagtab_documentation_examples.do` |
+| `quick` | `test_diagtab.do`, `test_diagtab_accuracy_label.do`, `test_diagtab_quiet.do`, `test_diagtab_errors.do`, `test_diagtab_documentation_examples.do` |
 | `full` | All quick suites plus `validation_diagtab.do` and `test_diagtab_oracle.do` |
 
 ## Canonical fixture contract

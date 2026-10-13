@@ -248,6 +248,14 @@ capture noisily {
     capture ado uninstall logdoc
     quietly net install logdoc, from("`repo_dir'/logdoc") replace
 
+    * The restore log names the temporary PLUS directory, which changes on
+    * every run. Replace it with a placeholder so the published output is stable.
+    tempfile restore_clean
+    quietly filefilter "`pkg_dir'/console_restore.log" "`restore_clean'", ///
+        from("`destination_plus'") to("<PLUS>") replace
+    assert r(occurrences) >= 1
+    quietly copy "`restore_clean'" "`pkg_dir'/console_restore.log", replace
+
     foreach output in ///
         console_scripts ///
         console_local_bundle ///

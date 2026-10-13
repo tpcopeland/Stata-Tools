@@ -36,6 +36,8 @@ archetypes: A3
 | `test_spaghetti.do` | Public options, graph behavior, and edge cases. |
 | `test_spaghetti_documentation_examples.do` | Literal safe help workflows on `nlswork` with returned-result assertions. |
 | `test_spaghetti_errors.do` | Exact incompatible-option error paths with data preservation assertions. |
+| `test_spaghetti_colors.do` | `colors()` and `individual(color())` parsing: quoted RGB, sequential palettes and by() colors asserted on exported SVG strokes; invalid colors, `%opacity` suffixes, and short palettes return 198. |
+| `test_spaghetti_determinism.do` | `mean()` plots are byte-identical across `set seed`/`set sortseed` values and no exported SVG path joins two ids (x must increase within every subpath). |
 | `test_spaghetti_hostile.do` | Excess-group and extended-missing hostile-input contracts. |
 
 ### Validation

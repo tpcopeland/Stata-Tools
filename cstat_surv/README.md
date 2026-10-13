@@ -1,6 +1,6 @@
 # cstat_surv — Harrell's C-statistic after `stcox`
 
-**Version 1.0.2** | 2026-10-12
+**Version 1.0.3** | 2026-10-13
 
 `cstat_surv` calculates Harrell's C-statistic for a Cox proportional hazards model after `stcox`. It reports the C-statistic, a leave-one-out jackknife standard error, a confidence interval, and pair counts for survival-model discrimination.
 
@@ -15,7 +15,7 @@ stcox age
 cstat_surv
 ```
 
-Use `cstat_surv, level(90)` when you want a 90% confidence interval.
+Use `cstat_surv, level(90)` when you want a 90% confidence interval; it can be run right after the first call, without refitting.
 
 ## Requirements
 
@@ -44,7 +44,7 @@ A pair is comparable when the observation with the shorter survival time experie
 
 The C-statistic ranges from 0 to 1. A value of 0.5 indicates no discrimination, values above 0.7 indicate acceptable discrimination, and values above 0.8 indicate excellent discrimination.
 
-The command posts new `e()` results, replacing the active Cox model results. Rerun `stcox` if you need the original model results again.
+The command posts new `e()` results, replacing the active Cox model results. Calling `cstat_surv` again right after itself (for example with a different `level()`) replays those results at the new level without recomputing; it returns r(301), leaving `e()` untouched, if the data changed since `cstat_surv` ran: a different dataset, or an in-place edit of `_t`, `_d`, `_t0`, `_st`, or a Cox covariate or strata variable within the estimation sample. Re-sorting, `preserve`/`restore`, and storage-type changes (`compress`) do not count as changes. Rerun `stcox` if you need the original model results in `e()` again, or to compute a C-statistic for a different model.
 
 ## Worked Examples
 
@@ -149,6 +149,8 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 | `e(depvar)` | Macro | `_t` |
 | `e(title)` | Macro | `Harrell's C-statistic` |
 | `e(vcetype)` | Macro | `Jackknife` |
+| `e(sigvars)` | Macro | Variables covered by the data signature (`_t _d _t0 _st`, the Cox covariates, and strata) |
+| `e(datasignature)` | Macro | `_datasignature` of those variables over the estimation sample, taken after sorting by all of them so row order does not matter; checked on a repeat call |
 | `e(b)` | Matrix | Coefficient vector for the C-statistic |
 | `e(V)` | Matrix | Variance-covariance matrix |
 | `e(sample)` | Function | Estimation-sample indicator |
@@ -170,6 +172,7 @@ Run `cstat_surv` immediately after fitting a Cox model with `stcox` on data decl
 
 ## Version History
 
+- **1.0.3** (2026-10-13): A second `cstat_surv` call after the first (for example with another `level()`) no longer fails with r(301); the repeat call replays the posted results at the new `level()` after checking a `_datasignature` of the data (taken in a fully sorted order, so row order does not matter) (in-place edits to `_t`, `_d`, `_t0`, `_st`, or a covariate return r(301); `e(sigvars)` and `e(datasignature)` are new; nothing is stored in the estimates list, and a restored older `cstat_surv` result is never recomputed against another model).
 - **1.0.2** (2026-09-30): Refuse delayed entry in the Cox estimation sample and time-varying coefficients from `tvc()` before predictions or pair calculations, preserving the active estimates.
 - **1.0.1** (2026-08-05): Correct the documented default confidence level and clarify the valid estimation sample used for pair comparisons.
 - **1.0.0** (2026-07-10): Initial Stata-Tools release

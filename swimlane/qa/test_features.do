@@ -432,8 +432,8 @@ capture noisily {
     _swimlane_make_wide
     swimlane, id(id) duration(duration) events(response) ///
         palette(mono) colors(red blue) nograph
-    assert strpos(`"`r(cmdline)'"', "color(red%65)") > 0
-    assert strpos(`"`r(cmdline)'"', "mcolor(blue)") > 0
+    assert strpos(`"`r(cmdline)'"', "color("red%65")") > 0
+    assert strpos(`"`r(cmdline)'"', "mcolor("blue")") > 0
 }
 if _rc == 0 {
     display as result "  PASS: palette presets render and colors() overrides them"

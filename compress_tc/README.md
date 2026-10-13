@@ -1,6 +1,6 @@
 # compress_tc — Two-stage compression for string-heavy Stata data
 
-**Version 1.1.1** | 2026-10-12
+**Version 1.2.0** | 2026-10-13
 
 `compress_tc` reduces memory use in string-heavy Stata datasets by converting fixed-width strings to `strL` and then running Stata's built-in `compress`. It is for users who want a reportable way to apply or preview string-storage changes while retaining the resulting `r()` values.
 
@@ -178,6 +178,7 @@ When `lowmem` performs `strL` conversion, `varsavings` uses measured whole-datas
 
 ## Version History
 
+- **1.2.0** (2026-10-13): The report is now self-explanatory. When strL conversion precedes `compress`, a note says that `compress`'s own "bytes saved" is measured from the strL-converted data (under `lowmem`, from data already converted per variable) while `Overall` is measured against the original data. With `varsavings`, an `(other variables)` row accounts for numeric variables that `compress` retyped, so the table sums to `Overall` when no processed variable stays strL (strL variables show dashes). The strL-heap note prints only when a variable ends as strL. `dryrun` now projects exactly what a real run reports: it no longer counts a 24-byte strL residue left by `preserve`, which understated `r(bytes_saved)` by 24 and reported `r(bytes_strl)` = 24.
 - **1.1.1** (2026-08-05): Corrected the `detail`, `lowmem`, per-variable savings, size-unit, and demo documentation.
 - **1.1.0** (2026-06-19): `varsavings` now reports real per-variable before/after bytes and savings; added `lowmem` (incremental conversion that limits peak memory when the final `compress` stage runs), `dryrun` (preview without modifying data), and `minlength(#)` (skip strL for short strings). Sizes display in the most readable unit (B/KB/MB/GB). New stored results `r(bytes_strl)`, `r(k_converted)`, `r(k_reverted)`, `r(vars_strl)`.
 - **1.0.0** (2026-04-08): Initial Stata-Tools release of the two-stage string-compression workflow.

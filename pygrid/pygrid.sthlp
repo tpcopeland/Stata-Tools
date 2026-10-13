@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30aug2026}{...}
+{* *! version 1.0.2  13oct2026}{...}
 {vieweralsosee "pyattach" "help pyattach"}{...}
 {vieweralsosee "tvband" "help tvband"}{...}
 {vieweralsosee "stsplit" "help stsplit"}{...}
@@ -115,7 +115,10 @@ block containing the origin.
 
 {phang}
 {opt width(#)} and {opt unit(unit)} define period size. Calendar widths must be
-positive integers. Anniversary widths may be positive real numbers.
+positive integers. Anniversary widths may be positive real numbers. With
+{cmd:axis(fixed)} there is a single period spanning the resolved window, so
+{cmd:width()} and {cmd:unit()} are accepted but unused: {cmd:r(width)} and
+{cmd:r(unit)} then echo the defaults (or the values typed) and carry no period size.
 
 {phang}
 {opt first(#)} and {opt last(#)} filter on the generated period number before partial periods are handled.
@@ -141,7 +144,7 @@ records the number of truncated source rows in {cmd:r(N_uncovered)}.
 distinct and may not overwrite variables already in memory.
 
 {phang}
-{opt pyunit(unit)} stores person-time in years or days. Years use a divisor of 365.25.
+{opt pyunit(unit)} stores person-time in years or days. Years use a divisor of 365.25, so a 365-day calendar year is 0.999 person-years and a 366-day year is 1.002.
 
 {phang}
 {opt noinclusive} excludes the terminal day from each generated row. A one-day
@@ -250,8 +253,8 @@ Anniversary grid retaining only complete years:
 
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:r(axis)}}resolved axis{p_end}
-{synopt:{cmd:r(width)}}resolved width{p_end}
-{synopt:{cmd:r(unit)}}resolved period unit{p_end}
+{synopt:{cmd:r(width)}}resolved width (unused with {cmd:axis(fixed)}){p_end}
+{synopt:{cmd:r(unit)}}resolved period unit (unused with {cmd:axis(fixed)}){p_end}
 {synopt:{cmd:r(pyconvention)}}{cmd:inclusive} or {cmd:exclusive}{p_end}
 
 
@@ -259,7 +262,7 @@ Anniversary grid retaining only complete years:
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-08-30{p_end}
+{pstd}Version 1.0.2, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

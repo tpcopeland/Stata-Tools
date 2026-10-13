@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.2  12oct2026}{...}
+{* *! version 1.7.3  13oct2026}{...}
 {vieweralsosee "[G] graph twoway" "help twoway"}{...}
 {vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
@@ -1351,7 +1351,7 @@ alone.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.2, 2026-10-12{p_end}
+{pstd}Version 1.7.3, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -1,4 +1,4 @@
-*! _iivw_reserve_names Version 4.3.6  2026/10/09
+*! _iivw_reserve_names Version 4.3.7  2026/10/13
 *! Validate a command's complete generated-name inventory before any data is
 *! touched: names must be legal, mutually unique, must never collide with a
 *! scientific input, and -- when the caller declares ownership tokens -- must

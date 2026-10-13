@@ -1,4 +1,4 @@
-*! _psdash_crump_alpha Version 1.7.5  2026/10/09
+*! _psdash_crump_alpha Version 1.8.0  2026/10/13
 *! Empirical Crump first-crossing trimming search; Corollary 1 (2009), p. 193
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

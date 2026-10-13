@@ -147,8 +147,8 @@ capture noisily {
     kmplot, by(drug) median medianannotate risktable ///
         timepoints(0 10 20) export("`medsvg'", replace) ///
         name(v125_r5, replace)
-    _kmplot_assert_file_contains using "`medsvg'", pattern("Placebo:")
-    _kmplot_assert_file_contains using "`medsvg'", pattern("8.0")
+    _kmplot_assert_file_contains using "`medsvg'", pattern("Median: Placebo: 8; ")
+    _kmplot_assert_file_contains using "`medsvg'", pattern("; Other: 22; NA: 33")
     erase "`medsvg'"
 }
 if _rc == 0 {

@@ -1,4 +1,4 @@
-*! _qba_plot_tipping Version 1.1.5  2026/10/09
+*! _qba_plot_tipping Version 1.2.0  2026/10/13
 *! Internal helper: qba tipping plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -206,11 +206,11 @@ program define _qba_plot_tipping, rclass
             if `"`title'"' == "" local title "Tipping Point Analysis: `measurelabel'"
 
             twoway (scatter y x if crosses_null == 1, ///
-                    mcolor(cranberry%60) msymbol(square) msize(large)) ///
+                    mcolor(cranberry*.6) mlwidth(none) msymbol(square) msize(large)) ///
                 (scatter y x if crosses_null == 0 & above_obs == 1, ///
-                    mcolor(navy%40) msymbol(square) msize(large)) ///
+                    mcolor(navy*.4) mlwidth(none) msymbol(square) msize(large)) ///
                 (scatter y x if crosses_null == 0 & above_obs == 0, ///
-                    mcolor(dkgreen%40) msymbol(square) msize(large)), ///
+                    mcolor(dkgreen*.4) mlwidth(none) msymbol(square) msize(large)), ///
                 title(`"`title'"') ///
                 xtitle("`param1label'") ytitle("`param2label'") ///
                 legend(order(1 "Crosses null" 2 "Above observed" 3 "Below observed") rows(1) pos(6)) ///

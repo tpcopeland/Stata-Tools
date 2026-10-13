@@ -1,9 +1,6 @@
 {smcl}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
-{vieweralsosee "msm_plot" "help msm_plot"}{...}
-{vieweralsosee "msm_table" "help msm_table"}{...}
-{vieweralsosee "msm_diagtab" "help msm_diagtab"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {viewerjumpto "Syntax" "msm_diagnose##syntax"}{...}
 {viewerjumpto "Description" "msm_diagnose##description"}{...}
@@ -16,7 +13,7 @@
 {title:Title}
 
 {phang}
-{bf:msm_diagnose} {hline 2} Weight diagnostics and covariate balance for MSM
+{bf:msm_diagnose} {hline 2} Longitudinal covariate balance and positivity diagnostics for MSM
 
 
 {marker syntax}{...}
@@ -30,12 +27,8 @@
 {synopthdr}
 {synoptline}
 {synopt:{opth bal:ance_covariates(varlist)}}covariates for SMD balance assessment{p_end}
-{synopt:{opt by_:period}}show weight statistics by period{p_end}
 {synopt:{opt thr:eshold(#)}}SMD balance threshold; default is {cmd:0.1}{p_end}
 {synopt:{opt posit:ivity(#)}}positivity floor; default {cmd:0.01}{p_end}
-{synopt:{opt accum:ulate(name)}}append a diagnostic row to a named frame{p_end}
-{synopt:{opt cont:rast(string)}}label for the accumulated diagnostic row{p_end}
-{synopt:{opt out:come(string)}}outcome label for the accumulate row{p_end}
 {synoptline}
 
 
@@ -43,53 +36,51 @@
 {title:Description}
 
 {pstd}
-{cmd:msm_diagnose} is the diagnostic step that should follow every
-{helpb msm_weight} run. It answers two key questions:
+{cmd:msm_diagnose} reports the diagnostics that are specific to a longitudinal
+MSM and that pooled propensity-score tools cannot produce:
 
-{phang2}1. {bf:Are the weights well-behaved?} It reports the full weight
-distribution (mean, SD, percentiles, min, max), the effective sample size
-(ESS), and per-treatment-group summaries.{p_end}
+{phang2}1. {bf:Treatment balance within period and prior-treatment history},
+with a {cmd:target} flag that separates denominator covariates (expected to
+balance) from stabilized-numerator covariates (not expected to).{p_end}
 
-{phang2}2. {bf:Did weighting achieve longitudinal covariate balance?} It
-computes treatment SMDs within period and prior-treatment history, reports
-period-specific propensity support and ESS, and reports censoring balance
-separately when IPCW was fitted.{p_end}
+{phang2}2. {bf:Censoring balance} by period in the censoring decision risk set,
+when IPCW was fitted.{p_end}
 
-{pstd}
-This command does not change observations or create/drop data variables. It
-reads the {cmd:_msm_weight} variable created by {helpb msm_weight} and the
-variable mapping stored by {helpb msm_prepare}. It does store diagnostic state
-in dataset characteristics so downstream commands can report or export the
-latest diagnostics.
+{phang2}3. {bf:Positivity}: the smallest estimated probability of the treatment
+actually observed in each period, against a floor, and the periods in which no
+decision-risk row was treated or none untreated.{p_end}
 
 {pstd}
-If {cmd:balance_covariates()} is omitted, the command defaults to all
-covariates registered with {helpb msm_prepare} (both time-varying and
-baseline).
+A pooled person-period SMD table is kept as a secondary summary. Every summary
+uses the decision risk set ({cmd:_msm_decision_risk}). The command reads
+{cmd:_msm_weight} from {helpb msm_weight} and the mapping from
+{helpb msm_prepare}; it creates no variables and writes nothing to the
+dataset.
 
 {pstd}
-When balance diagnostics are requested, the balance results are also persisted
-in dataset characteristics and a Stata matrix so that {helpb msm_table} can
-export them to Excel.
+{bf:Weight distributions moved to psdash.} From msm 2.0.0 the pooled weight
+summary (mean, SD, percentiles, ESS, extreme weights) and the per-period weight
+table are produced by {cmd:psdash}, which reads the msm contract and restricts
+to the risk set:
+
+{phang2}{cmd:. psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) detail}{p_end}
+{phang2}{cmd:. psdash combined}{p_end}
+
+{pstd}
+{cmd:msm_weight} also returns the risk-set ESS in {cmd:r(ess)}. The options
+{cmd:by_period}, {cmd:accumulate()}, {cmd:contrast()} and {cmd:outcome()} were
+removed in 2.0.0 and exit with return code 198 naming the replacement.
+
+{pstd}
+If {cmd:balance_covariates()} is omitted, the command uses all covariates
+registered with {helpb msm_prepare} (time-varying and baseline). If none were
+registered, it uses the treatment-denominator covariates given to
+{helpb msm_weight}'s {cmd:treat_d_cov()}. With no covariates at all it exits
+with return code 198.
 
 
 {marker interpreting}{...}
 {title:What to look for}
-
-{pstd}
-{bf:Weight distribution:}
-
-{phang2}{bf:Mean {c ~} 1.0:} Stabilized weights should have a mean near 1. A mean far from 1 suggests
-model misspecification.{p_end}
-
-{phang2}{bf:Effective sample size (ESS):} Measures the effective information
-retained after weighting. ESS = (sum w)^2 / (sum w^2). If ESS is well below
-50% of N, weight variability is high and the analysis will have wide confidence
-intervals. Consider stronger truncation or a simpler weight model.{p_end}
-
-{phang2}{bf:Extreme weights:} Large maximum weights indicate near-positivity
-violations. Use {cmd:by_period} to identify which periods are affected, and
-consider period-specific investigation or truncation.{p_end}
 
 {pstd}
 {bf:Longitudinal covariate balance:}
@@ -104,6 +95,12 @@ covariates expected to balance. Stabilized-numerator covariates have
 {cmd:target=0}: the numerator intentionally retains their target distribution,
 so they must also enter the outcome model rather than be declared balanced
 away.{p_end}
+
+{phang2}{bf:Positivity:} A period flagged by the {opt positivity()} floor holds
+rows whose observed decision had a very small estimated probability; those rows
+carry extreme weights. A period flagged in {cmd:r(n_support_violations)} has no
+treated or no untreated decision at all, so its contrast rests entirely on the
+model's period terms.{p_end}
 
 {phang2}{bf:Censoring separately:} When IPCW is present, censoring SMDs are
 reported by period in the censoring decision risk set. The diagnostic carries
@@ -124,9 +121,13 @@ pseudo-population, not of the crude sample. Consequence: {cmd:raw_smd} and
 {cmd:weighted_smd} are each standardized on their own sample's scale, so the
 pair is not a single series rescaled by a common constant, and a weighted SMD
 can move because the weights changed the spread rather than the location. The
-alternative convention -- one common unweighted denominator for both columns,
-used by default in the R package {cmd:cobalt} -- is not what this command
-reports. For a continuous covariate, the weighted variance is the exact
+alternative convention, one common unweighted denominator for both columns, is
+the default in the R package {cmd:cobalt} (its {cmd:bal.tab()} help: the
+spread is always that of the full, unadjusted sample) and in
+{cmd:psdash balance}. The two conventions are both in use and are kept deliberately; on the
+same weighted data they give slightly different weighted SMDs, so a covariate
+near the threshold can be classified differently by the two commands. Report
+which convention a table uses. For a continuous covariate, the weighted variance is the exact
 reliability-weight estimator
 sum(w)/[sum(w)^2-sum(w^2)] times sum[w(x-xbar_w)^2]. For a dichotomous
 covariate, the denominator uses the weighted prevalence term p_w(1-p_w). Read
@@ -137,9 +138,11 @@ threshold on its own terms.{p_end}
 balance. A positive change means weighting made balance worse for that
 covariate, which warrants investigation.{p_end}
 
-{phang2}The legacy pooled table marks covariates exceeding the threshold with
-{cmd:*}; treat it as a secondary person-period summary, not the primary
-longitudinal balance decision.{p_end}
+{phang2}The pooled table marks covariates exceeding the threshold with {cmd:*}
+and stabilized-numerator covariates with {cmd:(numerator)}; numerator
+covariates are shown but are not counted as balanced or imbalanced. Treat the
+table as a secondary person-period summary, not the primary longitudinal
+balance decision.{p_end}
 
 
 {marker options}{...}
@@ -150,12 +153,8 @@ longitudinal balance decision.{p_end}
 balance. The command computes SMDs between treated and untreated groups both
 without weights (raw) and with the IP weights. If omitted, all covariates
 from {helpb msm_prepare} (both {cmd:covariates()} and
-{cmd:baseline_covariates()}) are used.
-
-{phang}
-{opt by_:period} displays weight distribution statistics (N, mean, SD, min,
-max) separately for each time period. This is useful for identifying periods
-where weights become extreme or where the weight model breaks down.
+{cmd:baseline_covariates()}) are used, or, if none were registered, the
+{cmd:treat_d_cov()} covariates from {helpb msm_weight}.
 
 {phang}
 {opt threshold(#)} sets the SMD threshold for declaring acceptable balance. The
@@ -177,32 +176,9 @@ is returned in {cmd:r(n_positivity_violations)}, and the smallest
 observed-treatment probability anywhere in the risk set is returned in
 {cmd:r(min_obs_probability)}.
 
-{phang}
-{opt accumulate(name)} appends one summary row for the current weighted panel
-to the named {help frames:frame}, creating the frame with a fixed schema on
-first use. This is intended for loops over many pairwise contrasts, where each
-contrast is fit on its own weighted person-period panel: accumulate the
-per-contrast diagnostics into one frame, then export the whole frame as a
-single styled sheet with {helpb msm_diagtab}. Everything {cmd:msm_diagnose}
-otherwise does (console display, {cmd:r()} results, and dataset
-characteristics) is unchanged when {cmd:accumulate()} is given. The frame holds
-the columns {cmd:contrast}, {cmd:outcome}, {cmd:n_obs} (person-periods),
-{cmd:ess}, {cmd:ess_pct}, {cmd:max_weight}, {cmd:p99_weight}, {cmd:n_extreme},
-{cmd:n_imbalanced}, and {cmd:max_abs_smd}. The two balance columns
-({cmd:n_imbalanced} and {cmd:max_abs_smd}) are populated whenever balance is
-assessed -- which includes the default case where {cmd:balance_covariates()} is
-omitted but covariates were registered with {helpb msm_prepare} -- and are left
-missing only when there are no covariates to assess.
-
-{phang}
-{opt contrast(string)} supplies the contrast label written to the
-{cmd:contrast} column of the accumulate row. It is {bf:required} whenever
-{cmd:accumulate()} is given and may contain at most 80 bytes.
-
-{phang}
-{opt outcome(string)} supplies an optional outcome label written to the
-{cmd:outcome} column of the accumulate row. It may contain at most 40 bytes
-and is left empty if not given.
+{pstd}
+{opt by_period}, {opt accumulate()}, {opt contrast()} and {opt outcome()} were
+removed in msm 2.0.0; see {help msm_diagnose##description:Description}.
 
 
 {marker examples}{...}
@@ -223,40 +199,33 @@ and is left empty if not given.
 {phang2}{cmd:. msm_diagnose}{p_end}
 
 {pstd}
-{bf:Explicit covariates with period-level detail:}{p_end}
+{bf:Explicit covariates and a stricter floor:}{p_end}
 
-{phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    by_period threshold(0.1)}{p_end}
+{phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity) threshold(0.1) positivity(0.05)}{p_end}
 
 {pstd}
-{bf:Inspecting the balance matrix programmatically:}{p_end}
+{bf:Inspecting the matrices programmatically:}{p_end}
 
 {phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:. display "`r(covariates)'"}{p_end}
 {phang2}{cmd:. matrix list r(treatment_balance)}{p_end}
 {phang2}{cmd:. matrix list r(support)}{p_end}
 {phang2}{cmd:. capture matrix list r(censor_balance)}{p_end}
 {phang2}{cmd:. matrix list r(balance)} {it:// secondary pooled summary}{p_end}
 
 {pstd}
-{bf:Visualizing the diagnostics.} Follow up with {helpb msm_plot} for weight
-density and Love plots:{p_end}
+{bf:Pooled weights and a Love plot on the balance targets} (psdash):{p_end}
 
-{phang2}{cmd:. msm_plot, type(weights)}{p_end}
-{phang2}{cmd:. msm_plot, type(balance)}{p_end}
+{phang2}{cmd:. psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) graph}{p_end}
+{phang2}{cmd:. psdash balance treatment _msm_ps if _msm_decision_risk,}{p_end}
+{phang2}{cmd:    covariates(biomarker comorbidity) wvar(_msm_weight) loveplot}{p_end}
 
 {pstd}
-{bf:Cross-contrast summary.} Loop over several pairwise contrasts, each on its
-own weighted panel, accumulate one diagnostic row per contrast, then export the
-accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
+{bf:Exporting a matrix} (tabtools):{p_end}
 
-{phang2}{cmd:. capture frame drop wd}{p_end}
-{phang2}{cmd:. foreach c in classA classB {c -(}}{p_end}
-{phang2}{cmd:.     use panel_`c'.dta, clear}{p_end}
-{phang2}{cmd:.     msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) covariates(biomarker comorbidity) baseline_covariates(age sex)}{p_end}
-{phang2}{cmd:.     msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
-{phang2}{cmd:.     msm_diagnose, accumulate(wd) contrast("`c' vs platform") outcome("death")}{p_end}
-{phang2}{cmd:. {c )-}}{p_end}
-{phang2}{cmd:. msm_diagtab, frame(wd) xlsx("contrast_diagnostics.xlsx") replace}{p_end}
+{phang2}{cmd:. msm_diagnose}{p_end}
+{phang2}{cmd:. matrix S = r(support)}{p_end}
+{phang2}{cmd:. puttab using diagnostics.xlsx, matrix(S) sheet(support)}{p_end}
 
 
 {marker stored}{...}
@@ -267,19 +236,18 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(mean_weight)}}mean weight{p_end}
-{synopt:{cmd:r(sd_weight)}}weight standard deviation{p_end}
-{synopt:{cmd:r(min_weight)}}minimum weight{p_end}
-{synopt:{cmd:r(max_weight)}}maximum weight{p_end}
-{synopt:{cmd:r(p1_weight)}}1st percentile weight{p_end}
-{synopt:{cmd:r(p99_weight)}}99th percentile weight{p_end}
-{synopt:{cmd:r(ess)}}effective sample size{p_end}
-{synopt:{cmd:r(ess_pct)}}ESS as a percentage of total observations{p_end}
-{synopt:{cmd:r(n_extreme)}}observations with weights above P99{p_end}
-{synopt:{cmd:r(n_unavailable)}}covariates whose weighted SMD could not be computed{p_end}
+{synopt:{cmd:r(threshold)}}SMD threshold used{p_end}
+{synopt:{cmd:r(n_imbalanced)}}balance targets above the threshold (pooled){p_end}
+{synopt:{cmd:r(n_numerator)}}numerator covariates shown but not counted{p_end}
+{synopt:{cmd:r(n_unavailable)}}targets whose weighted SMD is undefined{p_end}
 {synopt:{cmd:r(positivity_threshold)}}operational positivity floor used{p_end}
 {synopt:{cmd:r(n_positivity_violations)}}periods whose {cmd:obs_min} falls below the floor{p_end}
 {synopt:{cmd:r(min_obs_probability)}}minimum P(observed treatment) in risk set{p_end}
+{synopt:{cmd:r(n_support_violations)}}periods with no treated or no untreated row{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(covariates)}}balance covariates, in matrix index order{p_end}
+{synopt:{cmd:r(support_violation_periods)}}periods counted in {cmd:r(n_support_violations)}{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(treatment_balance)}}primary period/history-specific treatment balance{p_end}
@@ -291,8 +259,8 @@ accumulated frame as a single sheet with {helpb msm_diagtab}:{p_end}
 {cmd:r(treatment_balance)} has columns {cmd:period}, {cmd:history},
 {cmd:covariate}, {cmd:raw_smd}, {cmd:weighted_smd}, {cmd:n_treated},
 {cmd:n_untreated}, {cmd:ess}, and {cmd:target}. At the common baseline,
-{cmd:history=-1}; later rows use prior treatment 0 or 1. The numeric covariate
-index follows the order supplied to {cmd:balance_covariates()}.
+{cmd:history=-1}; later rows use prior treatment 0 or 1. Covariate {it:k} is
+word {it:k} of {cmd:r(covariates)}.
 
 {pstd}
 {cmd:r(censor_balance)} has columns {cmd:period}, {cmd:covariate},
@@ -321,18 +289,13 @@ is reachable only under the explicit {cmd:probpolicy(clip)} opt-in in
 {helpb msm_weight}; the default {cmd:probpolicy(error)} refuses earlier.
 
 {pstd}
-The backward-compatible {cmd:r(balance)} has columns {cmd:raw_smd},
+The secondary {cmd:r(balance)} has rows named by covariate and columns {cmd:raw_smd},
 {cmd:weighted_smd}, and {cmd:pct_change}; it pools person-period rows and is
 therefore secondary. Like every other summary this command reports, it is
 computed on the risk set (rows flagged by {cmd:_msm_decision_risk}). Post-event
 and post-censor rows carry the last cumulative weight forward and are never
 seen by the outcome model, so including them could report large residual
 imbalance for a correctly weighted analysis.
-
-{pstd}
-When {opt accumulate(name)} is specified, {cmd:msm_diagnose} also appends one summary row
-to the named frame (see the {help msm_diagnose##options:Options}); this is a side effect and is not part of
-{cmd:r()}.
 
 
 {marker references}{...}
@@ -342,6 +305,10 @@ to the named frame (see the {help msm_diagnose##options:Options}); this is a sid
 Adenyo D, Guertin JR, Candas B, Sirois C, Talbot D. 2024. Evaluation and
 comparison of covariate balance metrics in studies with time-dependent
 confounding. {it:Statistics in Medicine}. doi:10.1002/sim.10188.{p_end}
+
+{phang}
+Greifer N. cobalt: Covariate Balance Tables and Plots. R package version
+5.0.0. doi:10.32614/CRAN.package.cobalt. Default unweighted SMD denominator.{p_end}
 
 {phang}
 Austin PC, Stuart EA. 2015. Moving towards best practice when using inverse

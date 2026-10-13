@@ -12,7 +12,7 @@ capture mkdir "`sandbox'_plus"
 capture mkdir "`sandbox'_personal"
 sysdir set PLUS "`sandbox'_plus"
 sysdir set PERSONAL "`sandbox'_personal"
-local quick "test_compress_tc test_compress_tc_errors test_compress_tc_hostile test_compress_tc_documentation_examples"
+local quick "test_compress_tc test_compress_tc_report test_compress_tc_errors test_compress_tc_hostile test_compress_tc_documentation_examples"
 local core "`quick' validation_compress_tc_precision validation_compress_tc validation_compress_tc_fixture_contract validation_compress_tc_fixture_primitives"
 local full "`core' crossval_compress_tc test_compress_tc_oracle"
 local tests 0

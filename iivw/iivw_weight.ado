@@ -1,4 +1,4 @@
-*! iivw_weight Version 4.3.6  2026/10/09
+*! iivw_weight Version 4.3.7  2026/10/13
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1792,9 +1792,11 @@ program define iivw_weight, rclass sortpreserve
             * one-sided request the old wording claimed a clip at the 0th or
             * 100th percentile that never happened, and printed a bare "." as
             * its cutpoint.
-            local __iivw_tdesc "at the `tv_lo'th and `tv_hi'th percentiles"
-            if `tv_lo' == 0   local __iivw_tdesc "at the `tv_hi'th percentile (upper tail only)"
-            if `tv_hi' == 100 local __iivw_tdesc "at the `tv_lo'th percentile (lower tail only)"
+            _iivw_ordinal `tv_lo' __iivw_ord_lo
+            _iivw_ordinal `tv_hi' __iivw_ord_hi
+            local __iivw_tdesc "at the `__iivw_ord_lo' and `__iivw_ord_hi' percentiles"
+            if `tv_lo' == 0   local __iivw_tdesc "at the `__iivw_ord_hi' percentile (upper tail only)"
+            if `tv_hi' == 100 local __iivw_tdesc "at the `__iivw_ord_lo' percentile (lower tail only)"
             display as text "Trimming the VISIT component `__iivw_tdesc'..."
             display as text "  Trimmed `__iivw_tv_n' observations (`__iivw_tv_nlo' low, `__iivw_tv_nhi' high)"
             local __iivw_tcut ""
@@ -2164,9 +2166,11 @@ program define iivw_weight, rclass sortpreserve
             * one-sided request the old wording claimed a clip at the 0th or
             * 100th percentile that never happened, and printed a bare "." as
             * its cutpoint.
-            local __iivw_tdesc "at the `tt_lo'th and `tt_hi'th percentiles"
-            if `tt_lo' == 0   local __iivw_tdesc "at the `tt_hi'th percentile (upper tail only)"
-            if `tt_hi' == 100 local __iivw_tdesc "at the `tt_lo'th percentile (lower tail only)"
+            _iivw_ordinal `tt_lo' __iivw_ord_lo
+            _iivw_ordinal `tt_hi' __iivw_ord_hi
+            local __iivw_tdesc "at the `__iivw_ord_lo' and `__iivw_ord_hi' percentiles"
+            if `tt_lo' == 0   local __iivw_tdesc "at the `__iivw_ord_hi' percentile (upper tail only)"
+            if `tt_hi' == 100 local __iivw_tdesc "at the `__iivw_ord_lo' percentile (lower tail only)"
             display as text "Trimming the TREATMENT component `__iivw_tdesc'..."
             display as text "  (percentiles over subjects: the IPT weight is estimated once per subject)"
             display as text "  Trimmed `__iivw_tt_n_id' subject(s) (`__iivw_tt_nlo_id' low, `__iivw_tt_nhi_id' high)"
@@ -2309,9 +2313,11 @@ program define iivw_weight, rclass sortpreserve
         local tf_lo : word 1 of `truncfinal'
         local tf_hi : word 2 of `truncfinal'
         * Describe only the side(s) actually trimmed (SOL-12); see the visit block.
-        local __iivw_tdesc "at the `tf_lo'th and `tf_hi'th percentiles"
-        if `tf_lo' == 0   local __iivw_tdesc "at the `tf_hi'th percentile (upper tail only)"
-        if `tf_hi' == 100 local __iivw_tdesc "at the `tf_lo'th percentile (lower tail only)"
+        _iivw_ordinal `tf_lo' __iivw_ord_lo
+        _iivw_ordinal `tf_hi' __iivw_ord_hi
+        local __iivw_tdesc "at the `__iivw_ord_lo' and `__iivw_ord_hi' percentiles"
+        if `tf_lo' == 0   local __iivw_tdesc "at the `__iivw_ord_hi' percentile (upper tail only)"
+        if `tf_hi' == 100 local __iivw_tdesc "at the `__iivw_ord_lo' percentile (lower tail only)"
         display as text "Trimming the FINAL weight `__iivw_tdesc'..."
 
         quietly {

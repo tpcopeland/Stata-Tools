@@ -54,6 +54,7 @@ A missing dependency is installed and the affected lane rerun; it is not replace
 | `test_qba_v111.do` | Regression locks for HR/IRR, level defaults, and `cloglog` scale handling |
 | `test_qba_v112.do` | Regression locks for missing inputs, save failures, model-scale rejection, option coverage, and release install behavior |
 | `test_qba_v113.do` | Regression locks for estimator-scale handling, total-error validity masks, method labels, and second-edition citations |
+| `test_qba_v120.do` | Plot legibility regressions asserted on exported SVG: distribution median green and solid null line, labelled tornado reference lines, outline-free tipping tiles. |
 | `test_qba_fml2023.do` | Method-alignment contracts from Fox, MacLehose, and Lash plus E-value scale conversions |
 | `test_qba_contract_detect.do` | Consumption of active `tmle`/`ltmle` estimator contracts |
 | `test_qba_docs.do` | Installed examples, documentation tokens, and the self-contained SMCL render oracle with positive control |

@@ -23,8 +23,7 @@ capture noisily {
     tempname b0 b1 p0 p1 mean0 mean1
     qa_fx_a3_seq, clear n(1600) k(1) seed(`fx_seed')
     quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t) baseline_covariates(l0)
-    quietly msm_validate
-    assert r(n_errors) == 0
+    assert r(n_gap_ids) == 0 & "`r(missing_vars)'" == ""
     quietly msm_weight, treat_d_cov(l_t l0) nolog
     forvalues aa = 0/1 {
         gen double fx_num`aa' = _msm_weight*y if a == `aa'
@@ -50,8 +49,7 @@ capture noisily {
     assert r(k) == 1 & _N == 1600
     quietly msm_prepare, id(id) period(period) treatment(a) outcome(y) covariates(l_t) baseline_covariates(l0)
     assert r(n_periods) == 1 & r(n_ids) == 1600
-    quietly msm_validate
-    assert r(n_errors) == 0
+    assert r(n_gap_ids) == 0 & "`r(missing_vars)'" == ""
     quietly msm_weight, treat_d_cov(l_t l0) nolog
     quietly msm_fit, model(logistic) period_spec(none) nolog
     matrix `b1' = e(b)

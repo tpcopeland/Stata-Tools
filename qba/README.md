@@ -1,6 +1,6 @@
 # qba — Quantitative Bias Analysis for Stata
 
-**Version 1.1.5** | 2026-10-12
+**Version 1.2.0** | 2026-10-13
 
 `qba` provides Stata commands for correcting 2x2 tables and effect estimates for misclassification, selection bias, and unmeasured confounding. It also supports multi-bias Monte Carlo analysis and sensitivity plots for epidemiologic studies.
 
@@ -431,6 +431,8 @@ Stores the macros `r(plot_type)`, `r(measure)`, and `r(scheme)`. Tornado and tip
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **1.2.0** (2026-10-13): Plot legibility. The distribution plot draws the median line in a visible green and the null line solid so it no longer disappears into a grid line; the tornado plot labels the observed and null reference lines and keeps both in range; the tornado null line is now solid gray; tipping tiles are drawn without outlines and use opaque lighter colors (`*` intensity instead of `%` opacity) so overlapping tiles no longer stripe; the distribution histogram fill is lighter (`navy%40` to `navy%25`) so the median line shows through cleanly. `qba_confound` help now explains how to choose rare versus common outcome for E-values and gives the bounding-factor formula.
 
 - **1.1.5** (2026-10-09): Help References now give a DOI for every entry.
 

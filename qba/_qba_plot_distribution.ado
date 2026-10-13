@@ -1,4 +1,4 @@
-*! _qba_plot_distribution Version 1.1.5  2026/10/09
+*! _qba_plot_distribution Version 1.2.0  2026/10/13
 *! Internal helper: qba distribution plot branch
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -108,17 +108,17 @@ program define _qba_plot_distribution, rclass
 
             if `"`title'"' == "" local title "Distribution of Corrected `measurelabel'"
 
-            twoway (histogram `result_var', fcolor(navy%40) lcolor(navy%80) ///
+            twoway (histogram `result_var', fcolor(navy%25) lcolor(navy%80) ///
                     bin(50) density) ///
                 (kdensity `result_var', lcolor(navy) lwidth(medthick)), ///
                 xline(`observed', lcolor(red) lwidth(medthick) lpattern(dash)) ///
-                xline(`null', lcolor(gs8) lwidth(medium) lpattern(dot)) ///
-                xline(`med', lcolor(dkgreen) lwidth(medium) lpattern(shortdash)) ///
+                xline(`null', lcolor(gs6) lwidth(medthick) lpattern(solid)) ///
+                xline(`med', lcolor("0 150 60") lwidth(medthick) lpattern(dash)) ///
                 title(`"`title'"') ///
                 xtitle("Corrected `measurelabel'") ///
                 ytitle("Density") ///
                 legend(order(1 "Monte Carlo" 2 "Density") ///
-                    note("Red=observed, Gray=null, Green=median") pos(6) rows(1)) ///
+                    note("Red dashed=observed, Gray solid=null, Green dashed=median") pos(6) rows(1)) ///
                 scheme(`scheme') ///
                 `plotopts'
 

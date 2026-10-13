@@ -182,6 +182,67 @@ local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("odd-width month blocks pin the 1960 origin") ///
     tests(`test_count') passes(`pass_count') fails(`fail_count')
 
+**# Compact report lines
+
+**## Count lines carry no padding gaps
+capture noisily {
+    clear
+    input long id double(window_start window_end)
+        1 100 200
+        2 100 300
+    end
+    tempfile rep
+    local replog "`rep'_rep.log"
+    log using "`replog'", text replace name(pgrep)
+    pygrid, id(id) start(window_start) end(window_end) axis(fixed) pyunit(day) noisily
+    log close pgrep
+    mata: st_local("first", select(cat(st_local("replog")), strpos(cat(st_local("replog")), "pygrid: ") :== 1)[1])
+    assert `"`first'"' == "pygrid: 2 persons, 2 period rows"
+    mata: st_local("pt", select(cat(st_local("replog")), strpos(cat(st_local("replog")), "  person-time: ") :== 1)[1])
+    assert strpos(`"`pt'"', "person-time: 302   axis:") == 3
+    capture erase "`replog'"
+}
+local case_rc = _rc
+capture log close pgrep
+_pygrid_record, rc(`case_rc') name("count lines are compact, not 12-wide padded") ///
+    tests(`test_count') passes(`pass_count') fails(`fail_count')
+
+**## Count lines keep thousands separators
+capture noisily {
+    clear
+    quietly set obs 1500
+    gen long id = _n
+    gen double window_start = 100
+    gen double window_end = 200
+    tempfile big evs
+    local replog "`big'_rep.log"
+    log using "`replog'", text replace name(pgbig)
+    pygrid, id(id) start(window_start) end(window_end) axis(fixed) pyunit(day) noisily
+    log close pgbig
+    mata: st_local("first", select(cat(st_local("replog")), strpos(cat(st_local("replog")), "pygrid: ") :== 1)[1])
+    assert `"`first'"' == "pygrid: 1,500 persons, 1,500 period rows"
+    quietly save `big'
+    * 1,500 attached events plus 1,200 orphans whose ids are absent from the grid
+    clear
+    quietly set obs 2700
+    gen long id = cond(_n <= 1500, _n, 10000 + _n)
+    gen double event_date = 150
+    quietly save `evs'
+    use `big', clear
+    log using "`replog'", text replace name(pgbig)
+    pyattach using `evs', id(id) date(event_date) count(n) orphans(report) noisily
+    log close pgbig
+    mata: st_local("o", select(cat(st_local("replog")), strpos(cat(st_local("replog")), "pyattach: ") :== 1)[1])
+    assert `"`o'"' == "pyattach: 1,200 orphan event row(s); 1,200 have id() absent from the grid"
+    mata: st_local("e", select(cat(st_local("replog")), strpos(cat(st_local("replog")), "pyattach: ") :== 1)[2])
+    assert `"`e'"' == "pyattach: 2,700 eligible events, 1,500 attached"
+    capture erase "`replog'"
+}
+local case_rc = _rc
+capture log close pgbig
+_pygrid_record, rc(`case_rc') name("count lines keep thousands separators") ///
+    tests(`test_count') passes(`pass_count') fails(`fail_count')
+
 **# Summary
 
 capture noisily _pygrid_result test_regressions `test_count' `pass_count' ///

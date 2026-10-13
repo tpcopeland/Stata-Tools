@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, matrices, and frames
 
-**Version 1.7.2** | 2026-10-12
+**Version 1.7.3** | 2026-10-13
 
 `eplot` creates forest plots and coefficient plots from variables, estimation results, matrices, or graph-ready frames. It gives applied Stata users one plotting workflow for effect sizes, confidence intervals, model comparison, and publication-oriented annotations.
 
@@ -284,6 +284,7 @@ Data/frame `type()` values are 0 = header, 1 = regular effect, 2 = missing/exclu
 | `vformat(fmt)` | D, E, M, F | Numeric `values` format; default is `%24.2f`, or `%`*w*`.`*dp*`f` with *w* = *dp* + 22; fixed formats round half away from zero on the decimal value, never print `-0.00`, and show a row in exponent notation when any of its numbers is too wide |
 | `vsize(textsizestyle)`, `vcolor(colorstyle)` | D, E single, M, F | `values` text size and color; defaults are `vsmall` and `gs4`; `vsize(small)` matches the row labels |
 | `vtitle(string)` | D, E single, M, F | Header above the `values` column; default is the `effect()` text |
+| `vgap(#)` | D, E single, M, F | Nonmissing, nonnegative gap between the effect axis and the `values` column, as a fraction of the axis span (of its log span under `logscale`); default is `0.15`. The column starts right of the widest interval, the null line when drawn, and the last labelled tick |
 | `vmissing(string)` | D, F | `values` text on type 2 (missing/excluded) rows; default is `Not estimated`; `vmissing("")` leaves them blank; string `reference` rows stay blank |
 | `baselevels`, `vreference(string)` | E single | Show factor base levels as reference rows (no marker); `values` text `1.00 (reference)` with `eform`, `0.00 (reference)` otherwise, or `vreference()`; not in `r(k)`/`r(table)` |
 | `labsize(textsizestyle)` | D, E, M, F | Row-label size; default is `small` |
@@ -382,6 +383,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.7.3** (2026-10-13): Documentation: the README Key Options table now lists `vgap(#)` (added in 1.4.1 and already documented in the help file).
 - **1.7.2** (2026-10-12): With a `values` column the effect-axis title is centred on the drawn effect axis rather than on the plot region, which runs on under the column and pushed the title off to the right; a passed-through `xtitle()` text is centred the same way with its `size()` and `color()`, while `xtitle("")`, other `xtitle()` suboptions, a repeated `xtitle()`, `xscale(alt)`, and `xscale(off)` leave the title to twoway as before, and a user `axis(2)` still exits `r(198)`. The graph title and subtitle are centred on the whole graph (`span`) when a values column is drawn; `title(..., nospan)` restores plot-region centring. Layouts without a values column are unchanged.
 - **1.7.1** (2026-10-12): `msymbol()` is now validated as colors are: a name that is not a Stata symbolstyle exits with `r(198)` instead of drawing the default symbol at rc 0, and outside multi-model estimates mode a list of symbols exits with `r(198)` instead of plotting only the first. The help file gains a References section citing the Stata manual entries whose rules estimates mode follows (`[P] ereturn`, `[ME] mixed`, `[MI] mi estimate`, `[R] ml`).
 - **1.7.0** (2026-10-12): Data and frame modes no longer drop a row with a missing estimate or interval silently: a note names each row left out of the plot (by its `labels()` text or observation number) and points to `type()` code 2 for keeping it as a labelled row. A row with exactly one missing confidence limit now exits with `r(198)`, as an incomplete `pi()` pair already did. In multi-model estimates mode `msymbol()` takes one symbol per model, so models can be told apart by shape in greyscale print. The automatic `eform` axis title now covers `ologit`, `mlogit` (RRR), `glm` with logit or log links, `zip`, `tpoisson`, `tnbreg`, `gnbreg`, `stcrreg` (SHR), `binreg`, and accelerated failure-time `streg`/`mestreg` (Time Ratio), each matching the column name of the command's own table; these had read "Effect".

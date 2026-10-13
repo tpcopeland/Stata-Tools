@@ -348,19 +348,18 @@ rename dropout censored
 display "  Patients: " %6.0f 386
 display "  Person-periods: " %6.0f _N
 
-* Test 2.1: Data passes msm_validate
+* Test 2.1: Data passes msm_prepare's data checks (formerly msm_validate)
 local ++test_count
 capture {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) censor(censored) ///
         covariates(cd4_sqrt) baseline_covariates(sex age)
 
-    msm_validate
-    display "  Validation errors: " r(n_errors)
-    assert r(n_errors) == 0
+    display "  Gapped ids: " r(n_gap_ids) "; missing: `r(missing_vars)'"
+    assert r(n_gap_ids) == 0
 }
 if _rc == 0 {
-    display as result "  PASS 2.1: Data passes msm_validate"
+    display as result "  PASS 2.1: Data passes msm_prepare data checks"
     local ++pass_count
 }
 else {
@@ -435,8 +434,10 @@ else {
 * Test 2.5: ESS > 50% of N
 local ++test_count
 capture {
-    msm_diagnose
-    local ess_pct = r(ess_pct)
+    * msm 2.0.0: pooled ESS moved out of msm_diagnose; same helper, risk set
+    _msm_ess _msm_weight if _msm_decision_risk
+    local ess_pct = 100 * r(ess) / r(N)
+    assert !missing(`ess_pct')
     display "  ESS: " %5.1f `ess_pct' "%"
     assert `ess_pct' > 50
 }
@@ -723,9 +724,11 @@ capture {
     msm_weight, treat_d_cov(sex race age wt71) ///
         treat_n_cov(sex race) fitfailure(marginal) nolog
 
-    msm_diagnose
+    * msm 2.0.0: pooled ESS moved out of msm_diagnose; same helper, risk set
+    _msm_ess _msm_weight if _msm_decision_risk
     local ess = r(ess)
-    local ess_pct = r(ess_pct)
+    local ess_pct = 100 * r(ess) / r(N)
+    assert !missing(`ess', `ess_pct')
     display "  ESS: " %9.1f `ess' " (" %5.1f `ess_pct' "%)"
     assert `ess_pct' > 50
 }
@@ -913,23 +916,6 @@ else {
     local failed_tests "`failed_tests' 4.5"
 }
 
-* Test 4.6: E-value > 1
-local ++test_count
-capture {
-    msm_sensitivity, evalue
-    local ev = r(evalue_point)
-    display "  E-value: " %7.4f `ev'
-    assert `ev' > 1
-}
-if _rc == 0 {
-    display as result "  PASS 4.6: E-value > 1"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 4.6: E-value should be > 1 (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 4.6"
-}
 
 * Test 4.7: Predictions monotonically increasing over time
 local ++test_count
@@ -1379,8 +1365,10 @@ else {
 * Test 6.7: ESS > 50% of N for combined weights
 local ++test_count
 capture {
-    msm_diagnose
-    local ess_pct = r(ess_pct)
+    * msm 2.0.0: pooled ESS moved out of msm_diagnose; same helper, risk set
+    _msm_ess _msm_weight if _msm_decision_risk
+    local ess_pct = 100 * r(ess) / r(N)
+    assert !missing(`ess_pct')
     display "  ESS%: " %5.1f `ess_pct'
     assert `ess_pct' > 50
 }
@@ -1397,7 +1385,7 @@ else {
 
 * ============================================================
 * V7: DIAGNOSTICS, REPORTING, SENSITIVITY
-* Tests msm_diagnose, msm_report, msm_protocol, msm_sensitivity, msm_plot
+* Tests msm_diagnose (msm_report, msm_protocol, msm_sensitivity and msm_plot left in 2.0.0)
 * Uses msm_example.dta after full pipeline
 * ============================================================
 
@@ -1420,17 +1408,14 @@ local ++test_count
 capture {
     msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
 
-    * Check key return scalars exist
-    assert r(mean_weight) != .
-    assert r(sd_weight) != .
-    assert r(ess) != .
-    assert r(ess_pct) != .
-    assert r(min_weight) != .
-    assert r(max_weight) != .
-    display "  ESS: " %9.1f r(ess) " (" %5.1f r(ess_pct) "%)"
+    * Check the msm 2.0.0 return surface
+    assert "`r(covariates)'" == "biomarker comorbidity age sex"
+    assert !missing(r(n_positivity_violations), r(min_obs_probability))
+    assert !missing(r(n_imbalanced), r(n_support_violations))
+    confirm matrix r(treatment_balance)
 }
 if _rc == 0 {
-    display as result "  PASS 7.1: msm_diagnose returns all scalars"
+    display as result "  PASS 7.1: msm_diagnose returns its longitudinal surface"
     local ++pass_count
 }
 else {
@@ -1439,23 +1424,6 @@ else {
     local failed_tests "`failed_tests' 7.1"
 }
 
-* Test 7.2: msm_diagnose by_period works
-local ++test_count
-capture {
-    msm_diagnose, by_period
-    * Should not error
-    assert !missing(r(ess))
-    assert r(ess) > 0
-}
-if _rc == 0 {
-    display as result "  PASS 7.2: msm_diagnose by_period works"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.2: msm_diagnose by_period failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.2"
-}
 
 * Test 7.3: Balance improves with weighting
 local ++test_count
@@ -1485,144 +1453,12 @@ else {
     local failed_tests "`failed_tests' 7.3"
 }
 
-* Test 7.4: msm_report display mode
-local ++test_count
-capture {
-    msm_report, eform
-    assert !missing(e(N))
-    assert e(N) > 0
-}
-if _rc == 0 {
-    display as result "  PASS 7.4: msm_report display works"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.4: msm_report display failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.4"
-}
 
-* Test 7.5: msm_report CSV export
-local ++test_count
-capture {
-    local csv_file "`qa_dir'/_test_report.csv"
-    msm_report, export("`csv_file'") format(csv) eform replace
-    confirm file "`csv_file'"
-    assert "`r(export)'" == "`csv_file'"
-    assert "`r(format)'" == "csv"
-    preserve
-    import delimited using "`csv_file'", clear varnames(1)
-    assert _N > 0
-    restore
-    erase "`csv_file'"
-}
-if _rc == 0 {
-    display as result "  PASS 7.5: msm_report CSV export works"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.5: msm_report CSV failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.5"
-}
 
-* Test 7.6: msm_protocol with all 7 fields
-local ++test_count
-capture {
-    msm_protocol, ///
-        population("HIV+ adults on ART") ///
-        treatment("HAART initiation vs. no HAART") ///
-        confounders("CD4 count, viral load, age, sex") ///
-        outcome("AIDS-defining illness or death") ///
-        causal_contrast("Always vs. never treated") ///
-        weight_spec("Stabilized IPTW, truncated at 1st/99th") ///
-        analysis("Pooled logistic MSM with quadratic period")
-    assert "`r(population)'" == "HIV+ adults on ART"
-    assert "`r(causal_contrast)'" == "Always vs. never treated"
-}
-if _rc == 0 {
-    display as result "  PASS 7.6: msm_protocol with all 7 fields"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.6: msm_protocol failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.6"
-}
 
-* Test 7.7: msm_sensitivity evalue > 1
-local ++test_count
-capture {
-    msm_sensitivity, evalue
 
-    local ev = r(evalue_point)
-    display "  E-value: " %7.4f `ev'
-    assert `ev' > 1
-}
-if _rc == 0 {
-    display as result "  PASS 7.7: E-value > 1"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.7: E-value should be > 1 (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.7"
-}
 
-* Test 7.8: msm_sensitivity confounding_strength runs
-local ++test_count
-capture {
-    msm_sensitivity, confounding_strength(1.5 2.0)
-    assert !missing(r(bias_factor))
-    assert r(bias_factor) > 0
-    assert !missing(r(corrected_effect))
-    assert r(corrected_effect) > 0
-    display "  Bias factor: " %7.4f r(bias_factor)
-}
-if _rc == 0 {
-    display as result "  PASS 7.8: confounding_strength runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.8: confounding_strength failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.8"
-}
 
-* Test 7.9: msm_plot weights
-local ++test_count
-capture {
-    msm_plot, type(weights)
-    assert "`r(plot_type)'" == "weights"
-    assert !missing(r(n_risk))
-    graph close _all
-}
-if _rc == 0 {
-    display as result "  PASS 7.9: msm_plot weights runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.9: msm_plot weights failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.9"
-}
-
-* Test 7.10: msm_plot positivity
-local ++test_count
-capture {
-    msm_plot, type(positivity)
-    assert "`r(plot_type)'" == "positivity"
-    graph close _all
-}
-if _rc == 0 {
-    display as result "  PASS 7.10: msm_plot positivity runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 7.10: msm_plot positivity failed (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 7.10"
-}
 
 
 * ============================================================
@@ -1652,22 +1488,6 @@ program define _v8_make_data
     drop xb yxb
 end
 
-* Test 8.1: msm_validate fails without msm_prepare
-local ++test_count
-capture {
-    _v8_make_data
-    capture msm_validate
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS 8.1: validate is rejected without prepare"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 8.1: validate should fail without prepare (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 8.1"
-}
 
 * Test 8.2: msm_weight fails without msm_prepare
 local ++test_count
@@ -1859,7 +1679,7 @@ capture {
     gen double _msm_weight = 1
     _msm_qa_register_weights
 
-    msm_diagnose
+    _msm_ess _msm_weight
     local ess_unit = r(ess)
     display "  Unit weights ESS: " %9.4f `ess_unit' " (expected: 4)"
     assert abs(`ess_unit' - 4) < 0.001
@@ -1876,7 +1696,7 @@ capture {
     * covers the weight values -- so the new values are re-registered.
     _msm_qa_register_weights
 
-    msm_diagnose
+    _msm_ess _msm_weight
     local ess_nonunif = r(ess)
     display "  Non-uniform ESS: " %9.4f `ess_nonunif' " (expected: " %9.4f `expected_ess' ")"
     assert abs(`ess_nonunif' - `expected_ess') < 0.001
@@ -1933,105 +1753,7 @@ else {
     local failed_tests "`failed_tests' 10.2"
 }
 
-* Test 10.3: E-value formula verification
-*   E-value = RR + sqrt(RR * (RR - 1))
-*   Known: OR=2.0 => E = 2 + sqrt(2*1) = 2 + 1.414 = 3.414
-*   Known: OR=0.5 => 1/OR=2.0 => E = 3.414 (same as above)
-*   Known: OR=1.5 => E = 1.5 + sqrt(1.5*0.5) = 1.5 + 0.866 = 2.366
-local ++test_count
-capture {
-    * Create minimal data where we can control the OR
-    clear
-    set obs 2000
-    gen long id = _n
-    gen int period = 0
-    set seed 10301
-    gen byte treatment = runiform() < 0.5
-    gen byte outcome = 0
 
-    * Set up so that OR for treatment is approximately 2.0
-    * logit(p) = -3 + ln(2)*treatment => OR = 2
-    local target_logor = ln(2)
-    replace outcome = runiform() < invlogit(-3 + `target_logor' * treatment)
-
-    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
-
-    gen double _msm_weight = 1
-    gen double _msm_tw_weight = 1
-    _msm_qa_register_weights
-
-    msm_fit, model(logistic) period_spec(none) nolog
-
-    * Get fitted OR
-    local fitted_or = exp(_b[treatment])
-
-    * Compute expected E-value from fitted OR
-    local rr_use = `fitted_or'
-    if `rr_use' < 1 {
-        local rr_use = 1 / `rr_use'
-    }
-    local expected_evalue = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
-
-    msm_sensitivity, evalue
-    local computed_evalue = r(evalue_point)
-
-    display "  Fitted OR:           " %9.4f `fitted_or'
-    display "  Expected E-value:    " %9.4f `expected_evalue'
-    display "  msm_sensitivity:     " %9.4f `computed_evalue'
-    assert abs(`computed_evalue' - `expected_evalue') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS 10.3: E-value formula verified"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 10.3: E-value formula (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 10.3"
-}
-
-* Test 10.4: Bias factor formula verification
-*   Bias = (RR_UD * RR_UY) / (RR_UD + RR_UY - 1)
-*   Known: RR_UD=2, RR_UY=3 => Bias = 6/4 = 1.5
-*   Known: RR_UD=1.5, RR_UY=2.0 => Bias = 3.0/2.5 = 1.2
-local ++test_count
-capture {
-    * Own setup (Q01: no longer reuses test 10.3's fit) -- a logistic MSM so
-    * the bias-factor formula has a fitted model to attach to.
-    clear
-    set obs 2000
-    gen long id = _n
-    gen int period = 0
-    set seed 10401
-    gen byte treatment = runiform() < 0.5
-    gen byte outcome = runiform() < invlogit(-3 + ln(2) * treatment)
-    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
-    gen double _msm_weight = 1
-    gen double _msm_tw_weight = 1
-    _msm_qa_register_weights
-    msm_fit, model(logistic) period_spec(none) nolog
-
-    msm_sensitivity, confounding_strength(2.0 3.0)
-    local bf = r(bias_factor)
-    local expected_bf = (2.0 * 3.0) / (2.0 + 3.0 - 1)
-    display "  Bias factor (2,3):   " %9.4f `bf' " (expected: " %9.4f `expected_bf' ")"
-    assert abs(`bf' - `expected_bf') < 0.001
-
-    msm_sensitivity, confounding_strength(1.5 2.0)
-    local bf2 = r(bias_factor)
-    local expected_bf2 = (1.5 * 2.0) / (1.5 + 2.0 - 1)
-    display "  Bias factor (1.5,2): " %9.4f `bf2' " (expected: " %9.4f `expected_bf2' ")"
-    assert abs(`bf2' - `expected_bf2') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS 10.4: Bias factor formula verified"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 10.4: Bias factor formula (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 10.4"
-}
 
 * Test 10.5: Cumulative weight via log-sum equals naive product
 *   Verify that exp(sum(log(w_t))) = product(w_t)
@@ -2297,50 +2019,6 @@ else {
     local failed_tests "`failed_tests' 10.10"
 }
 
-* Test 10.11: E-value for protective effect (OR < 1)
-*   When OR < 1, E-value should use 1/OR
-*   Known: OR=0.5 => 1/OR=2 => E = 2 + sqrt(2) = 3.414
-local ++test_count
-capture {
-    * Create data with a protective treatment effect
-    clear
-    set obs 5000
-    gen long id = _n
-    gen int period = 0
-    set seed 10111
-    gen byte treatment = runiform() < 0.5
-    * OR = 0.5 => log-OR = -0.693
-    gen byte outcome = runiform() < invlogit(-3 - 0.693 * treatment)
-
-    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
-
-    gen double _msm_weight = 1
-    gen double _msm_tw_weight = 1
-    _msm_qa_register_weights
-
-    msm_fit, model(logistic) period_spec(none) nolog
-    local fitted_or = exp(_b[treatment])
-    display "  Fitted OR: " %9.4f `fitted_or' " (target: 0.5)"
-
-    * E-value should use 1/OR since OR < 1
-    local rr_use = cond(`fitted_or' < 1, 1/`fitted_or', `fitted_or')
-    local expected_ev = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
-
-    msm_sensitivity, evalue
-    local computed_ev = r(evalue_point)
-    display "  Expected E-value: " %9.4f `expected_ev'
-    display "  Computed E-value: " %9.4f `computed_ev'
-    assert abs(`computed_ev' - `expected_ev') < 0.01
-}
-if _rc == 0 {
-    display as result "  PASS 10.11: E-value for protective effect"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 10.11: E-value protective (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 10.11"
-}
 
 * Test 10.12: Weighted SMD is smaller than unweighted for confounders
 *   When weights correctly adjust for confounding, SMD should decrease
@@ -2480,55 +2158,6 @@ else {
     local failed_tests "`failed_tests' 10.14"
 }
 
-* Test 10.15: E-value CI when CI crosses null
-*   When the 95% CI includes 1 (null), E-value for CI = 1
-local ++test_count
-capture {
-    * Create data with small/null effect so CI crosses 1
-    clear
-    set seed 10151
-    set obs 200
-    gen long id = _n
-    gen int period = 0
-    gen byte treatment = runiform() < 0.5
-    gen byte outcome = runiform() < invlogit(-3 + 0.01 * treatment)
-
-    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome)
-
-    gen double _msm_weight = 1
-    gen double _msm_tw_weight = 1
-    _msm_qa_register_weights
-
-    msm_fit, model(logistic) period_spec(none) nolog
-    local or = exp(_b[treatment])
-    local se = _se[treatment]
-    local ci_lo = exp(_b[treatment] - 1.96 * `se')
-    local ci_hi = exp(_b[treatment] + 1.96 * `se')
-
-    display "  OR: " %9.4f `or' " CI: [" %7.4f `ci_lo' ", " %7.4f `ci_hi' "]"
-
-    msm_sensitivity, evalue
-    local ev_ci = r(evalue_ci)
-
-    * If CI crosses 1, E-value for CI should be 1
-    if `ci_lo' <= 1 & `ci_hi' >= 1 {
-        display "  CI crosses null => E-value CI should be 1"
-        assert `ev_ci' == 1
-    }
-    else {
-        display "  CI does not cross null => E-value CI > 1"
-        assert `ev_ci' > 1
-    }
-}
-if _rc == 0 {
-    display as result "  PASS 10.15: E-value CI null-crossing behavior"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 10.15: E-value CI null-crossing (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 10.15"
-}
 
 
 * ============================================================
@@ -2970,9 +2599,7 @@ capture {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(L) baseline_covariates(bl)
 
-    * Validate should show always/never/switchers
-    msm_validate
-    assert r(n_errors) == 0
+    assert r(n_gap_ids) == 0
 
     msm_weight, treat_d_cov(L bl) treat_n_cov(bl) nolog
     msm_fit, model(logistic) outcome_cov(bl) period_spec(linear) nolog
@@ -3174,81 +2801,7 @@ else {
 }
 
 
-* ============================================================
-* V12: REGRESSION VALIDATIONS (Codex review 2026-04-01)
-* Validates: strict mode promotion, extrapolation guard,
-*            stale-weight cleanup
-* ============================================================
 
-* --- 12.1: strict mode escalates check 6 (small period N) ---
-local ++test_count
-capture noisily {
-    clear
-    set seed 54321
-    * Small dataset: 20 individuals, 3 periods => some periods have < 10
-    set obs 20
-    gen id = _n
-    expand 3
-    bysort id: gen period = _n - 1
-    gen treatment = runiform() > 0.5
-    gen outcome = 0
-    replace outcome = 1 if runiform() > 0.95
-    gen cov1 = rnormal()
-    * Drop rows to make period 2 small
-    bysort period: drop if period == 2 & _n > 5
-
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(cov1)
-
-    * Without strict: should pass (rc==0) but have warnings
-    msm_validate
-    assert !missing(r(n_warnings))
-    assert r(n_warnings) > 0
-    assert r(n_errors) == 0
-
-    * With strict: warnings become errors
-    capture msm_validate, strict
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS 12.1: strict escalates check 6 warning to error"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 12.1: strict check 6 escalation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 12.1"
-}
-
-* --- 12.2: strict mode escalates check 7 (zero-variation covariate) ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    replace biomarker = 0
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-
-    * Without strict: passes with warnings
-    msm_validate
-    assert !missing(r(n_warnings))
-    assert r(n_warnings) > 0
-    local w_no_strict = r(n_warnings)
-
-    * With strict: fails
-    capture msm_validate, strict
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS 12.2: strict escalates check 7 (zero-variation) to error"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 12.2: strict check 7 escalation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 12.2"
-}
 
 * --- 12.3: msm_predict rejects extrapolation by default ---
 local ++test_count
@@ -3343,41 +2896,6 @@ else {
     local failed_tests "`failed_tests' 12.5"
 }
 
-* --- 12.6: msm_report skips weight section after re-prepare ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-        treat_n_cov(age sex) nolog
-
-    * Re-prepare invalidates weights
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-
-    * msm_report should run without error and not crash on missing weights
-    msm_report
-    * Confirm this genuinely exercised the missing-weights branch, and that
-    * the still-valid fit results the report drew on remain intact.
-    capture confirm variable _msm_weight
-    assert _rc == 111
-    assert !missing(e(N))
-    assert e(N) > 0
-}
-if _rc == 0 {
-    display as result "  PASS 12.6: msm_report handles missing weights after re-prepare"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 12.6: msm_report after re-prepare (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 12.6"
-}
 
 * ============================================================
 * COMBINED SUMMARY

@@ -13,19 +13,8 @@ title: "console_output"
 ```
 
 ```
-(note: condition pvd matched 0 observations)
-(note: condition cvd matched 0 observations)
-(note: condition dementia matched 0 observations)
-(note: condition copd matched 0 observations)
-(note: condition rheumatic matched 0 observations)
-(note: condition peptic matched 0 observations)
-(note: condition liver_mild matched 0 observations)
-(note: condition dm_comp matched 0 observations)
-(note: condition hemiplegia matched 0 observations)
-(note: condition renal matched 0 observations)
-(note: condition cancer matched 0 observations)
-(note: condition liver_severe matched 0 observations)
-(note: condition hiv matched 0 observations)
+(note: 13 conditions matched 0 observations: pvd cvd dementia copd rheumatic
+  peptic liver_mild dm_comp hemiplegia renal cancer liver_severe hiv)
 (note: mi and chf overlap in 1 obs, 100% of smaller group)
 
 codescan: 17 conditions, 2 variables, N =          3 pid values
@@ -99,19 +88,9 @@ score_nega~e          0          0
 ```
 
 ```
-(note: condition cmb_pvd matched 0 observations)
-(note: condition cmb_cvd matched 0 observations)
-(note: condition cmb_dementia matched 0 observations)
-(note: condition cmb_copd matched 0 observations)
-(note: condition cmb_rheumatic matched 0 observations)
-(note: condition cmb_peptic matched 0 observations)
-(note: condition cmb_liver_mild matched 0 observations)
-(note: condition cmb_dm_comp matched 0 observations)
-(note: condition cmb_hemiplegia matched 0 observations)
-(note: condition cmb_renal matched 0 observations)
-(note: condition cmb_cancer matched 0 observations)
-(note: condition cmb_liver_severe matched 0 observations)
-(note: condition cmb_hiv matched 0 observations)
+(note: 13 conditions matched 0 observations: cmb_pvd cmb_cvd cmb_dementia
+  cmb_copd cmb_rheumatic cmb_peptic cmb_liver_mild cmb_dm_comp
+  cmb_hemiplegia cmb_renal cmb_cancer cmb_liver_severe cmb_hiv)
 (note: cmb_mi and cmb_chf overlap in 1 obs, 100% of smaller group)
 
 codescan: 17 conditions, 2 variables, N =          2 pid values
@@ -172,58 +151,41 @@ comorbidity: charlson (quan2011), N =          2
 ```
   elx_chf: 1 matches across 3 variables
   elx_arrhythmia: 0 matches across 3 variables
-(note: condition elx_arrhythmia matched 0 observations)
   elx_valvular: 0 matches across 3 variables
-(note: condition elx_valvular matched 0 observations)
   elx_pulmonary_circ: 0 matches across 3 variables
-(note: condition elx_pulmonary_circ matched 0 observations)
   elx_pvd: 0 matches across 3 variables
-(note: condition elx_pvd matched 0 observations)
   elx_htn_uncomp: 1 matches across 3 variables
   elx_htn_comp: 1 matches across 3 variables
   elx_paralysis: 0 matches across 3 variables
-(note: condition elx_paralysis matched 0 observations)
   elx_neuro_other: 0 matches across 3 variables
-(note: condition elx_neuro_other matched 0 observations)
   elx_copd: 0 matches across 3 variables
-(note: condition elx_copd matched 0 observations)
   elx_dm_uncomp: 0 matches across 3 variables
-(note: condition elx_dm_uncomp matched 0 observations)
   elx_dm_comp: 1 matches across 3 variables
   elx_hypothyroid: 0 matches across 3 variables
-(note: condition elx_hypothyroid matched 0 observations)
   elx_renal: 0 matches across 3 variables
-(note: condition elx_renal matched 0 observations)
   elx_liver: 0 matches across 3 variables
-(note: condition elx_liver matched 0 observations)
   elx_pud: 0 matches across 3 variables
-(note: condition elx_pud matched 0 observations)
   elx_hiv: 0 matches across 3 variables
-(note: condition elx_hiv matched 0 observations)
   elx_lymphoma: 0 matches across 3 variables
-(note: condition elx_lymphoma matched 0 observations)
   elx_metastatic: 1 matches across 3 variables
   elx_solid_tumor: 0 matches across 3 variables
-(note: condition elx_solid_tumor matched 0 observations)
   elx_rheumatoid: 0 matches across 3 variables
-(note: condition elx_rheumatoid matched 0 observations)
   elx_coagulopathy: 0 matches across 3 variables
-(note: condition elx_coagulopathy matched 0 observations)
   elx_obesity: 1 matches across 3 variables
   elx_weight_loss: 0 matches across 3 variables
-(note: condition elx_weight_loss matched 0 observations)
   elx_fluid_electrolyte: 0 matches across 3 variables
-(note: condition elx_fluid_electrolyte matched 0 observations)
   elx_blood_loss_anemia: 0 matches across 3 variables
-(note: condition elx_blood_loss_anemia matched 0 observations)
   elx_deficiency_anemia: 0 matches across 3 variables
-(note: condition elx_deficiency_anemia matched 0 observations)
   elx_alcohol: 0 matches across 3 variables
-(note: condition elx_alcohol matched 0 observations)
   elx_drug: 1 matches across 3 variables
   elx_psychoses: 0 matches across 3 variables
-(note: condition elx_psychoses matched 0 observations)
   elx_depression: 1 matches across 3 variables
+(note: 23 conditions matched 0 observations: elx_arrhythmia elx_valvular
+  elx_pulmonary_circ elx_pvd elx_paralysis elx_neuro_other elx_copd
+  elx_dm_uncomp elx_hypothyroid elx_renal elx_liver elx_pud elx_hiv
+  elx_lymphoma elx_solid_tumor elx_rheumatoid elx_coagulopathy
+  elx_weight_loss elx_fluid_electrolyte elx_blood_loss_anemia
+  elx_deficiency_anemia elx_alcohol elx_psychoses)
 (note: elx_chf and elx_metastatic overlap in 1 obs, 100% of smaller group)
 (note: elx_chf and elx_drug overlap in 1 obs, 100% of smaller group)
 (note: elx_htn_uncomp and elx_htn_comp overlap in 1 obs, 100% of smaller group)
@@ -315,26 +277,23 @@ comorbidity: elixhauser (vanwalraven), N =          3
 ```
 
 ```stata
+. noisily display "pid 2's only diagnosis is 365 days before refdate: outside the window, so pid 2 is excluded (N = 1)"
+```
+
+```
+pid 2's only diagnosis is 365 days before refdate: outside the window, so pid 2 is excluded (N = 1)
+
+```
+
+```stata
 . noisily comorbidity dx1, id(pid) charlson(original) collapse
 >     date(dxdate) refdate(refdate) lookback(30) lookforward(10) inclusive
 ```
 
 ```
-(note: condition pvd matched 0 observations)
-(note: condition cvd matched 0 observations)
-(note: condition dementia matched 0 observations)
-(note: condition copd matched 0 observations)
-(note: condition rheumatic matched 0 observations)
-(note: condition peptic matched 0 observations)
-(note: condition liver_mild matched 0 observations)
-(note: condition dm_uncomp matched 0 observations)
-(note: condition dm_comp matched 0 observations)
-(note: condition hemiplegia matched 0 observations)
-(note: condition renal matched 0 observations)
-(note: condition cancer matched 0 observations)
-(note: condition liver_severe matched 0 observations)
-(note: condition metastatic matched 0 observations)
-(note: condition hiv matched 0 observations)
+(note: 15 conditions matched 0 observations: pvd cvd dementia copd rheumatic
+  peptic liver_mild dm_uncomp dm_comp hemiplegia renal cancer liver_severe
+  metastatic hiv)
 
 codescan: 17 conditions, 1 variable, N =          1 pid values
 Window: 30 days before to 10 days after refdate (inclusive)
@@ -390,21 +349,9 @@ comorbidity: charlson (original), N =          1
 ```
 
 ```
-(note: condition mi matched 0 observations)
-(note: condition chf matched 0 observations)
-(note: condition pvd matched 0 observations)
-(note: condition cvd matched 0 observations)
-(note: condition dementia matched 0 observations)
-(note: condition copd matched 0 observations)
-(note: condition rheumatic matched 0 observations)
-(note: condition peptic matched 0 observations)
-(note: condition liver_mild matched 0 observations)
-(note: condition dm_uncomp matched 0 observations)
-(note: condition dm_comp matched 0 observations)
-(note: condition hemiplegia matched 0 observations)
-(note: condition renal matched 0 observations)
-(note: condition liver_severe matched 0 observations)
-(note: condition hiv matched 0 observations)
+(note: 15 conditions matched 0 observations: mi chf pvd cvd dementia copd
+  rheumatic peptic liver_mild dm_uncomp dm_comp hemiplegia renal
+  liver_severe hiv)
 (note: cancer and metastatic overlap in 1 obs, 100% of smaller group)
 
 codescan: 17 conditions, 2 variables, N =          1 pid values
@@ -458,21 +405,9 @@ comorbidity: charlson (original), N =          1
 ```
 
 ```
-(note: condition mi matched 0 observations)
-(note: condition chf matched 0 observations)
-(note: condition pvd matched 0 observations)
-(note: condition cvd matched 0 observations)
-(note: condition dementia matched 0 observations)
-(note: condition copd matched 0 observations)
-(note: condition rheumatic matched 0 observations)
-(note: condition peptic matched 0 observations)
-(note: condition liver_mild matched 0 observations)
-(note: condition dm_uncomp matched 0 observations)
-(note: condition dm_comp matched 0 observations)
-(note: condition hemiplegia matched 0 observations)
-(note: condition renal matched 0 observations)
-(note: condition liver_severe matched 0 observations)
-(note: condition hiv matched 0 observations)
+(note: 15 conditions matched 0 observations: mi chf pvd cvd dementia copd
+  rheumatic peptic liver_mild dm_uncomp dm_comp hemiplegia renal
+  liver_severe hiv)
 (note: cancer and metastatic overlap in 1 obs, 100% of smaller group)
 
 codescan: 17 conditions, 2 variables, N =          1 pid values

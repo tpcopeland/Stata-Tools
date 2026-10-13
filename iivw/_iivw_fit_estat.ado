@@ -1,4 +1,4 @@
-*! _iivw_fit_estat Version 4.3.6  2026/10/09
+*! _iivw_fit_estat Version 4.3.7  2026/10/13
 *! estat for iivw_fit: delegate to the underlying model's estat under its
 *! native identity, then restore the public fit identity.
 *! Author: Timothy P Copeland, Karolinska Institutet

@@ -1,218 +1,64 @@
 {smcl}
 {vieweralsosee "msm" "help msm"}{...}
-{vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
-{vieweralsosee "msm_predict" "help msm_predict"}{...}
-{vieweralsosee "msm_weight" "help msm_weight"}{...}
-{vieweralsosee "msm_table" "help msm_table"}{...}
+{vieweralsosee "psdash" "help psdash"}{...}
+{vieweralsosee "eplot" "help eplot"}{...}
+{vieweralsosee "swimlane" "help swimlane"}{...}
 {viewerjumpto "Syntax" "msm_plot##syntax"}{...}
 {viewerjumpto "Description" "msm_plot##description"}{...}
-{viewerjumpto "Plot types" "msm_plot##types"}{...}
-{viewerjumpto "Options" "msm_plot##options"}{...}
 {viewerjumpto "Examples" "msm_plot##examples"}{...}
-{viewerjumpto "Stored results" "msm_plot##results"}{...}
-{viewerjumpto "Author" "msm_plot##author"}{...}
-
 {title:Title}
 
-{phang}
-{bf:msm_plot} {hline 2} Visualization for marginal structural models
+{p2colset 5 24 26 2}{...}
+{p2col:{bf:msm_plot} {hline 2}}Removed in msm 2.0.0 (was: weight, balance, survival, trajectory and positivity graphs){p_end}
+{p2colreset}{...}
 
 
 {marker syntax}{...}
 {title:Syntax}
 
-{p 8 17 2}
-{cmdab:msm_plot}
-{cmd:,} {opt type(string)}
-[{it:options}]
+{p 8 16 2}
+{cmd:msm_plot} [{it:anything}]
 
-{synoptset 25 tabbed}{...}
-{synopthdr}
-{synoptline}
-{syntab:Required}
-{synopt:{opt type(string)}}plot type (see below){p_end}
-
-{syntab:Balance plot options}
-{synopt:{opt cov:ariates(varlist)}}covariates for the Love plot{p_end}
-{synopt:{opt thr:eshold(#)}}SMD reference line; default {cmd:0.1}{p_end}
-
-{syntab:Survival plot options}
-{synopt:{opt times(numlist)}}time periods for survival curves{p_end}
-{synopt:{opt samp:les(#)}}MC samples for CI bands; default {cmd:50}{p_end}
-{synopt:{opt seed(#)}}random seed for survival curves{p_end}
-
-{syntab:Trajectory plot options}
-{synopt:{opt n_sample(#)}}individuals to display; default {cmd:50}{p_end}
-
-{syntab:General}
-{synopt:{opt title(string)}}custom graph title{p_end}
-{synopt:{opt saving(string)}}save graph to file{p_end}
-{synopt:{opt replace}}replace existing saved file{p_end}
-{synoptline}
+{pstd}
+Any arguments are ignored; the command prints its replacement and exits with
+return code 199.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:msm_plot} produces diagnostic and results plots for the MSM pipeline. It uses
-the current Stata graph scheme by default. Five plot types are available, each
-designed to help assess a specific aspect of the analysis.
+{cmd:msm_plot} was removed in msm 2.0.0, when msm became the estimator core
+(prepare, weight, diagnose, fit, predict). Running it prints the replacement
+and exits with return code 199. The stub ships for all of msm 2.x so that an
+upgrade with {cmd:net install msm, replace} cannot leave the 1.4.x command
+running against the 2.0 core.
 
 
-{marker types}{...}
-{title:Plot types}
+{title:Replacement}
 
-{phang}
-{bf:weights} {hline 2} Kernel density plots of the IP weight distribution,
-separately for treated and untreated observations. Requires {helpb msm_weight}
-to have been run. Use this to visually assess weight overlap and identify
-extreme values. Well-behaved weights produce roughly symmetric, overlapping
-distributions centered near 1. Only treatment-decision risk-set rows are
-plotted; post-event and post-censor carry-forward rows are excluded.
+{p 4 8 2}
+{bf:weights}: {cmd:psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) graph}{p_end}
+{p 4 8 2}
+{bf:balance}: {cmd:psdash balance treatment _msm_ps if _msm_decision_risk, covariates(...) wvar(_msm_weight) loveplot}{p_end}
+{p 4 8 2}
+{bf:survival}: {cmd:msm_predict, ... frame(F)} then {cmd:twoway} (see {help msm_predict##curve:help msm_predict}){p_end}
+{p 4 8 2}
+{bf:trajectory}: {cmd:gen pstop = period + 1} then {cmd:swimlane, id(id) start(period) stop(pstop) state(treatment)}{p_end}
+{p 4 8 2}
+{bf:positivity}: {cmd:psdash combined, wvar(_msm_weight)} and {cmd:msm_diagnose}{p_end}
 
-{phang}
-{bf:balance} {hline 2} Love plot showing absolute standardized mean differences
-(SMD) before and after weighting. Requires {helpb msm_weight}. Each covariate
-appears as a row with two markers: one for the unweighted SMD and one for the
-weighted SMD. A vertical dashed line marks the {opt threshold()} value
-(default 0.1). Ideally, all weighted markers should fall to the left of the
-threshold line. The markers use the same treatment-decision risk set and SMD
-definitions as {helpb msm_diagnose}; post-risk rows are excluded. This is a
-secondary pooled summary: use {cmd:msm_diagnose}'s period/history table as the
-primary longitudinal balance assessment.
-
-{phang}
-{bf:survival} {hline 2} Counterfactual cumulative incidence curves with
-confidence bands for always-treated and never-treated strategies. Requires
-{helpb msm_fit} with {cmd:model(logistic)}. The command internally runs
-{helpb msm_predict} to generate the curves (using {opt samples()} MC draws),
-then restores any prior prediction state so the plot is non-destructive.
-
-{phang}
-{bf:trajectory} {hline 2} Spaghetti plot of treatment status over time for a
-random sample of individuals. Requires only {helpb msm_prepare}. Useful for
-visualizing treatment switching patterns and whether treatment is truly
-time-varying. Each individual's treatment trajectory is shown as a separate
-line panel.
-
-{phang}
-{bf:positivity} {hline 2} Treatment probability (proportion treated) plotted
-by period. Requires only {helpb msm_prepare}. A horizontal reference line at
-0.5 is included. Use this to identify periods where treatment is nearly
-universal or nearly absent, which indicates positivity concerns.
-
-
-{marker options}{...}
-{title:Options}
-
-{phang}
-{opt type(string)} specifies the plot type. Required. Must be one of
-{cmd:weights}, {cmd:balance}, {cmd:survival}, {cmd:trajectory}, or
-{cmd:positivity}.
-
-{dlgtab:Balance plot}
-
-{phang}
-{opth cov:ariates(varlist)} specifies which covariates to include in the Love
-plot. By default the plot includes denominator-only balance targets from
-{helpb msm_prepare} and excludes stabilized-numerator covariates, whose
-distribution the numerator intentionally retains. An explicit
-{opt covariates()} request is literal and may include those non-targets.
-
-{phang}
-{opt thr:eshold(#)} sets the position of the vertical reference line on the
-Love plot. Default is 0.1.
-
-{dlgtab:Survival plot}
-
-{phang}
-{opth times(numlist)} specifies time periods for the survival/cumulative
-incidence curves. Signed integer periods are allowed. Required when
-{cmd:type(survival)} is specified.
-
-{phang}
-{opt samp:les(#)} specifies MC draws for the confidence bands. Default is
-50 for a faster graphical preview. Increase this value when stable percentile
-endpoints matter; the bands otherwise have the same conditional interpretation
-as those from {helpb msm_predict}.
-
-{phang}
-{opt seed(#)} sets the random seed for the internal {helpb msm_predict} call.
-
-{dlgtab:Trajectory plot}
-
-{phang}
-{opt n_sample(#)} specifies the number of randomly sampled individuals to
-display. Default is 50.
-
-{dlgtab:General}
-
-{phang}
-{opt title(string)} specifies a custom title for the graph. Default titles
-are provided for each plot type.
-
-{phang}
-{opt saving(string)} saves the graph to the specified file path.
-
-{phang}
-{opt replace} allows {opt saving()} to overwrite an existing file.
+{pstd}
+See {help msm##companions:help msm} for the full map from each removed command
+to its replacement.
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}
-{bf:Weight distribution after weighting:}{p_end}
-
-{phang2}{cmd:. msm_plot, type(weights)}{p_end}
-
-{pstd}
-{bf:Love plot for covariate balance:}{p_end}
-
-{phang2}{cmd:. msm_plot, type(balance) threshold(0.1)}{p_end}
-
-{pstd}
-{bf:Treatment probability by period (positivity check):}{p_end}
-
-{phang2}{cmd:. msm_plot, type(positivity)}{p_end}
-
-{pstd}
-{bf:Treatment trajectory spaghetti plot:}{p_end}
-
-{phang2}{cmd:. msm_plot, type(trajectory) n_sample(30) seed(42)}{p_end}
-
-{pstd}
-{bf:Counterfactual survival curves after fitting:}{p_end}
-
-{phang2}{cmd:. msm_plot, type(survival) times(1 3 5 7 9) seed(12345)}{p_end}
-
-{pstd}
-{bf:Saving a plot to file:}{p_end}
-
-{phang2}{cmd:. msm_plot, type(weights) saving(weight_density.gph) replace}{p_end}
-
-
-{marker results}{...}
-{title:Stored results}
-
-{pstd}
-{cmd:msm_plot} stores the following in {cmd:r()}:
-
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(balance)}}raw and weighted SMDs for balance plots{p_end}
-
-{p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_risk)}}decision-risk rows for weight/balance plots{p_end}
-
-{p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(plot_type)}}plot type produced{p_end}
-
-{pstd}
-For a balance plot, {cmd:r(balance)} contains signed SMDs even though the
-graph displays their absolute values. {cmd:r(n_risk)} counts decision-risk
-rows before covariate-specific missing values are excluded.
+{phang2}{cmd:. psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) graph}{p_end}
+{phang2}{cmd:. msm_predict, times(1 3 5 7 9) difference samples(500) seed(1) frame(pred, replace)}{p_end}
+{phang2}{cmd:. eplot if strategy == "rd", frame(pred) values}{p_end}
 
 
 {marker author}{...}

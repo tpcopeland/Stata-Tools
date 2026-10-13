@@ -1699,7 +1699,10 @@ capture noisily {
     local badverdict "PASS/WARN"
     local badverdict "`badverdict'/FAIL"
     assert strpos(fileread("`pkg_dir'/README.md"), "`badverdict'") == 0
-    assert strpos(fileread("`pkg_dir'/README.md"), "clear status labels") > 0
+    * 1.8.0: README says panel status lines are descriptive and r(verdict)
+    * is the PASS/FAIL result (a WARNING panel under FAIL is consistent)
+    assert strpos(fileread("`pkg_dir'/README.md"), "descriptive status line") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), "any panel finding makes the overall verdict FAIL") > 0
 }
 _test_result `=_rc'
 

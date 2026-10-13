@@ -1,4 +1,4 @@
-*! _diagtab_common Version 2.0.3  2026/10/09
+*! _diagtab_common Version 2.1.0  2026/10/13
 *! Shared utility programs for diagtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1199,8 +1199,8 @@ end
 version 17.0
 capture mata: mata drop _dt_strip_outer_quotes()
 local _load_matastrict = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 string scalar _dt_strip_outer_quotes(string scalar x)
@@ -1224,10 +1224,12 @@ string scalar _dt_strip_outer_quotes(string scalar x)
 }
 
 end
-}
 local _load_mata_rc = _rc
 set matastrict `_load_matastrict'
-if `_load_mata_rc' exit `_load_mata_rc'
+if `_load_mata_rc' {
+    display as error "diagtab: Mata helper _dt_strip_outer_quotes() did not compile (rc=`_load_mata_rc')"
+    exit `_load_mata_rc'
+}
 
 * End of file
 capture program drop _diagtab_visible_vars

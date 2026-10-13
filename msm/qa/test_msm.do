@@ -114,63 +114,6 @@ else {
     local failed_tests "`failed_tests' T2.1"
 }
 
-* --- TEST 3: msm_validate ---
-
-use "`pkg_dir'/msm_example.dta", clear
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) censor(censored) ///
-    covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
-
-msm_validate, strict
-
-local ++test_count
-capture noisily {
-    assert r(n_errors) == 0
-}
-if _rc == 0 {
-    display as result "  PASS: validation passes"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: validation passes (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T3.1"
-}
-
-local ++test_count
-capture noisily {
-    assert r(n_checks) == 10
-}
-if _rc == 0 {
-    display as result "  PASS: 10 checks run"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 10 checks run (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T3.2"
-}
-
-* --- TEST 4: msm_validate prerequisite ---
-
-use "`pkg_dir'/msm_example.dta", clear
-
-local ++test_count
-capture noisily {
-    capture msm_validate
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: validate is rejected without prepare"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: validate fails without prepare (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T4.1"
-}
-
 * --- TEST 5: msm_weight - IPTW only ---
 
 use "`pkg_dir'/msm_example.dta", clear
@@ -439,197 +382,25 @@ else {
 
 * --- TEST 10: msm_diagnose ---
 
-msm_diagnose, by_period threshold(0.1)
+msm_diagnose, threshold(0.1)
 
 local ++test_count
 capture noisily {
-    assert !missing(r(ess))
-    assert r(ess) > 0
+    confirm matrix r(treatment_balance)
+    confirm matrix r(support)
+    assert "`r(covariates)'" == "biomarker comorbidity age sex"
+    assert !missing(r(n_positivity_violations), r(min_obs_probability))
+    assert r(min_obs_probability) > 0 & r(min_obs_probability) < 0.5
 }
 if _rc == 0 {
-    display as result "  PASS: ESS returned (" r(ess) ")"
+    display as result "  PASS: longitudinal balance and positivity returned"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: ESS returned (error `=_rc')"
+    display as error "  FAIL: msm_diagnose returns (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T10.1"
 }
-
-local ++test_count
-capture noisily {
-    assert !missing(r(ess_pct))
-    assert r(ess_pct) > 0 & r(ess_pct) <= 100
-}
-if _rc == 0 {
-    display as result "  PASS: ESS% valid (" r(ess_pct) "%)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: ESS% valid (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T10.2"
-}
-
-* --- TEST 11: msm_report ---
-
-local ++test_count
-capture noisily {
-    capture msm_report, eform
-    assert _rc == 0
-    * Not just "no error": the fitted model's estimation results must still
-    * be intact after a display-only report (no export()).
-    assert !missing(e(N))
-    assert e(N) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: report display runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: report display runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T11.1"
-}
-
-tempfile report_csv_anchor
-local report_csv "`report_csv_anchor'.csv"
-local ++test_count
-capture noisily {
-    capture msm_report, export("`report_csv'") format(csv) eform replace
-    assert _rc == 0
-    assert "`r(export)'" == "`report_csv'"
-    assert "`r(format)'" == "csv"
-    confirm file "`report_csv'"
-    * `confirm file' alone passes on an empty stub; the CSV must have rows.
-    preserve
-    import delimited using "`report_csv'", clear varnames(1)
-    assert _N > 0
-    restore
-}
-if _rc == 0 {
-    display as result "  PASS: CSV export runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: CSV export runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T11.2"
-}
-capture erase "`report_csv'"
-
-* --- TEST 12: msm_protocol ---
-
-local ++test_count
-capture noisily {
-    capture msm_protocol, ///
-        population("Adults") treatment("Drug A vs none") ///
-        confounders("biomarker, comorbidity") outcome("Mortality") ///
-        causal_contrast("Always vs never") weight_spec("Stabilized IPTW") ///
-        analysis("Pooled logistic MSM")
-    assert _rc == 0
-    assert "`r(population)'" == "Adults"
-    assert "`r(treatment)'" == "Drug A vs none"
-    assert "`r(causal_contrast)'" == "Always vs never"
-}
-if _rc == 0 {
-    display as result "  PASS: protocol runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: protocol runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T12.1"
-}
-
-* --- TEST 13: msm_sensitivity ---
-
-local ++test_count
-capture noisily {
-    capture msm_sensitivity, evalue
-    assert _rc == 0
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) >= 1
-}
-if _rc == 0 {
-    display as result "  PASS: evalue runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: evalue runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T13.1"
-}
-
-local ++test_count
-capture noisily {
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) > 1
-}
-if _rc == 0 {
-    display as result "  PASS: evalue_point > 1 (" r(evalue_point) ")"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: evalue_point > 1 (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T13.2"
-}
-
-local ++test_count
-capture noisily {
-    capture msm_sensitivity, confounding_strength(1.5 2.0)
-    assert _rc == 0
-    assert r(rr_ud) == 1.5
-    assert r(rr_uy) == 2.0
-    assert !missing(r(bound))
-}
-if _rc == 0 {
-    display as result "  PASS: confounding_strength runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: confounding_strength runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T13.3"
-}
-
-* --- TEST 14: msm_plot ---
-
-local ++test_count
-capture noisily {
-    capture msm_plot, type(weights)
-    assert _rc == 0
-    assert "`r(plot_type)'" == "weights"
-    assert !missing(r(n_risk))
-}
-if _rc == 0 {
-    display as result "  PASS: weights plot runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: weights plot runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T14.1"
-}
-graph close _all
-
-local ++test_count
-capture noisily {
-    capture msm_plot, type(positivity)
-    assert _rc == 0
-    assert "`r(plot_type)'" == "positivity"
-}
-if _rc == 0 {
-    display as result "  PASS: positivity plot runs"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: positivity plot runs (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T14.2"
-}
-graph close _all
 
 * --- TEST 15: msm router ---
 
@@ -638,7 +409,7 @@ capture noisily {
     capture msm
     assert _rc == 0
     assert "`r(version)'" != ""
-    assert r(n_commands) == 12
+    assert r(n_commands) == 5
 }
 if _rc == 0 {
     display as result "  PASS: router runs"
@@ -652,14 +423,15 @@ else {
 
 local ++test_count
 capture noisily {
-    assert r(n_commands) == 12
+    assert r(n_commands) == 5
+    assert "`r(removed)'" == "msm_protocol msm_validate msm_plot msm_report msm_table msm_diagtab msm_sensitivity"
 }
 if _rc == 0 {
-    display as result "  PASS: n_commands = 12"
+    display as result "  PASS: n_commands = 5"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: n_commands != 12 (error `=_rc')"
+    display as error "  FAIL: n_commands != 5 (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' T15.2"
 }
@@ -707,36 +479,6 @@ else {
 }
 
 * --- TEST 17: Helper functions ---
-
-_msm_col_letter 1
-local ++test_count
-capture noisily {
-    assert "`result'" == "A"
-}
-if _rc == 0 {
-    display as result "  PASS: col_letter(1) = A"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: col_letter(1) = A (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T17.1"
-}
-
-_msm_col_letter 27
-local ++test_count
-capture noisily {
-    assert "`result'" == "AA"
-}
-if _rc == 0 {
-    display as result "  PASS: col_letter(27) = AA"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: col_letter(27) = AA (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T17.2"
-}
 
 use "`pkg_dir'/msm_example.dta", clear
 _msm_smd age, treatment(treatment)

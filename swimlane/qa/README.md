@@ -44,6 +44,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 | `test_fixture_global_state.do` | Missing/opaque caller S_1/S_2 globals across success, named early198/late459 and both varabbrev settings; full non-r fingerprint and exact next native summary; prior r() is tested separately. |
 | `test_export.do` | Canonical CSV, Markdown, DTA, and frame output plus return survival after side-effect failure. |
 | `test_features.do` | Long and external events, date formats including absolute wide events and readable calendar axes, compact facets, display labels, palettes, custom overlays, state ordering, censoring, bar labels, and command reconstruction. |
+| `test_colors.do` | `colors()` parsing (quoted RGB, named, `%opacity`, `*intensity`, hex) asserted on exported SVG strokes and opacity; invalid colors and `baropacity()` return 198. |
 | `test_options.do` | Styling, graph save/export, grouping, and `nostset` behavior. |
 | `test_regressions.do` | Deep-review regressions for string roles, canonical-name collisions, pre-collapse intervals, event-only state rows, `stset` analysis-sample contracts, protected frames, help workflows, missing values, and destructive output-option parsing. |
 | `test_return_values.do` | Exact documented scalar, macro, matrix, audit-count, grouping, series, and truncation return contracts. |
@@ -75,7 +76,7 @@ Each suite writes a same-named `.log` in `qa/`, so never run the same package la
 | Lane | Suites |
 |---|---|
 | `quick` | `test_basic.do`, `test_return_values.do`, `test_errors.do`, `test_data_preservation.do`, and `test_regressions.do` |
-| `core` | `quick` plus `validation_fixture_truth.do`, `validation_fixture_intervals.do`, `test_fixture_global_state.do`, `test_fixture_error_returns.do`, `test_fixture_error_estimates.do`, `validation_canonical_tables.do`, `test_export.do`, `test_options.do`, `test_features.do`, `test_density.do`, and `test_documentation_examples.do` |
+| `core` | `quick` plus `validation_fixture_truth.do`, `validation_fixture_intervals.do`, `test_fixture_global_state.do`, `test_fixture_error_returns.do`, `test_fixture_error_estimates.do`, `validation_canonical_tables.do`, `test_export.do`, `test_options.do`, `test_features.do`, `test_colors.do`, `test_density.do`, and `test_documentation_examples.do` |
 | `full` | Same membership as `core` |
 
 ## Known gaps

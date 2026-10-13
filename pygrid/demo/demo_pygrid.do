@@ -103,7 +103,9 @@ noisily pyattach using "`events'", id(person_id) date(event_date) ///
     count(n_events) sum(cost total_cost) any(any_event) ///
     max(severity max_severity) rate(events_per_py) ///
     if(qualifying == 1) orphans(report) noisily
-format person_years %9.3f total_cost %9.0fc events_per_py %9.2f
+format person_years %9.3f
+format total_cost %9.0fc
+format events_per_py %9.2f
 noisily list id cohort period period_start period_stop person_years ///
     n_events events_per_py, ///
     sepby(id) noobs abbreviate(16)

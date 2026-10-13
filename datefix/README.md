@@ -1,6 +1,6 @@
 # datefix — Convert imported date strings to Stata daily dates
 
-**Version 1.1.2** | 2026-10-12
+**Version 1.1.3** | 2026-10-13
 
 `datefix` converts imported string date variables to numeric Stata daily dates for users cleaning data after import. It can infer date order, preserve raw values in a new variable, apply `%td` display formats, and identify values that prevent conversion.
 
@@ -168,6 +168,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **1.1.3** (2026-10-13): The summary line for a numeric input now says the variable is already numeric and only had the date format applied, instead of claiming it was converted.
 - **1.1.2** (2026-08-11): Accepted colon-separated daily dates, rejected all-missing inputs without mutation, preserved literal Unicode diagnostic values, and made help examples and the local-install demo self-contained.
 - **1.1.1** (2026-08-05): Made multi-variable conversion atomic and cleared incidental `r()` state on return.
 - **1.1.0** (2026-06-25): Added the `diagnose` option, which reports distinct unconvertible values, their frequencies, and observation numbers when conversion fails.

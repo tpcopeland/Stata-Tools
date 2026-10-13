@@ -12,9 +12,9 @@ title: "console_window_controls"
 ```
 
 ```
-pygrid:            2 persons,            6 period rows
-  empty windows:            1   partial periods:            3
-  person-time:        4.79671   axis: calendar   convention: inclusive
+pygrid: 2 persons, 6 period rows
+  empty windows: 1   partial periods: 3
+  person-time: 4.79671   axis: calendar   convention: inclusive
 
 ```
 

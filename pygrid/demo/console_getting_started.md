@@ -10,9 +10,9 @@ title: "console_getting_started"
 ```
 
 ```
-pygrid:            3 persons,            7 period rows
-  empty windows:            0   partial periods:            3
-  person-time:        5.07598   axis: calendar   convention: inclusive
+pygrid: 3 persons, 7 period rows
+  empty windows: 0   partial periods: 3
+  person-time: 5.07598   axis: calendar   convention: inclusive
 
 ```
 

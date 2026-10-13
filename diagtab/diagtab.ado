@@ -1,4 +1,4 @@
-*! diagtab Version 2.0.3  2026/10/09
+*! diagtab Version 2.1.0  2026/10/13
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -333,6 +333,9 @@ capture noisily {
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
     local _has_undefined 0
     local _prev_ci_boundary 0
+    * Accuracy is not adjusted by prevalence(); say so on the row label
+    local _acc_suffix ""
+    if `prevalence' > 0 & `prevalence' < 1 local _acc_suffix " (sample)"
     return clear
 
     if "`cutoffs'" != "" {
@@ -550,7 +553,7 @@ capture noisily {
                 else if "`_m'" == "Sp" qui replace c1 = "  Specificity" in `row'
                 else if "`_m'" == "PPV" qui replace c1 = "  PPV" in `row'
                 else if "`_m'" == "NPV" qui replace c1 = "  NPV" in `row'
-                else if "`_m'" == "Acc" qui replace c1 = "  Accuracy" in `row'
+                else if "`_m'" == "Acc" qui replace c1 = "  Accuracy`_acc_suffix'" in `row'
                 if !missing(`_cut`_cuti'_`_m'') {
                     qui replace c2 = strtrim(string(`_cut`_cuti'_`_m'' * 100, "%21.`digits'f")) + "%" in `row'
                 }
@@ -856,7 +859,7 @@ capture noisily {
         else if "`_m'" == "Sp" qui replace c1 = "Specificity" in `row'
         else if "`_m'" == "PPV" qui replace c1 = "PPV" in `row'
         else if "`_m'" == "NPV" qui replace c1 = "NPV" in `row'
-        else if "`_m'" == "Acc" qui replace c1 = "Accuracy" in `row'
+        else if "`_m'" == "Acc" qui replace c1 = "Accuracy`_acc_suffix'" in `row'
         if !missing(``_m'') {
             qui replace c2 = strtrim(string(``_m'' * 100, "%21.`digits'f")) + "%" in `row'
             if !missing(``_m'_lo') & !missing(``_m'_hi') {
@@ -1010,7 +1013,7 @@ capture noisily {
     * identical precisely because neither is used for that quantity.
     if `prevalence' > 0 & `prevalence' < 1 {
         local _methods "`_methods' `_ci_method' `level'% confidence intervals are reported for the directly estimated binomial proportions (sensitivity, specificity, and accuracy)."
-        local _methods "`_methods' Predictive values were adjusted to an external prevalence of `prevalence' by Bayes' theorem. At interior sensitivity and specificity estimates, their `level'% confidence intervals are symmetric delta-method intervals propagating sensitivity and specificity uncertainty at that fixed prevalence, truncated to the unit interval. The external prevalence is treated as known without error, so these intervals do not reflect uncertainty in it."
+        local _methods "`_methods' Predictive values were adjusted to an external prevalence of `prevalence' by Bayes' theorem. At interior sensitivity and specificity estimates, their `level'% confidence intervals are symmetric delta-method intervals propagating sensitivity and specificity uncertainty at that fixed prevalence, truncated to the unit interval. The external prevalence is treated as known without error, so these intervals do not reflect uncertainty in it. Accuracy is the sample value and is not adjusted to the external prevalence."
         if `_prev_ci_boundary' {
             local _methods "`_methods' Adjusted predictive-value confidence intervals are unavailable at boundary sensitivity or specificity estimates and are returned missing to avoid false precision."
         }
@@ -1199,8 +1202,8 @@ version 17.0
 capture mata: mata drop _diagtab_counts_at_cutoffs()
 
 local _load_matastrict = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 real matrix _diagtab_counts_at_cutoffs(
@@ -1240,7 +1243,9 @@ real matrix _diagtab_counts_at_cutoffs(
 }
 
 end
-}
 local _load_mata_rc = _rc
 set matastrict `_load_matastrict'
-if `_load_mata_rc' exit `_load_mata_rc'
+if `_load_mata_rc' {
+    display as error "diagtab: Mata helper _diagtab_counts_at_cutoffs() did not compile (rc=`_load_mata_rc')"
+    exit `_load_mata_rc'
+}

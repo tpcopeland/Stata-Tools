@@ -52,7 +52,7 @@ Gate on the final `RESULT:` sentinel. A missing sentinel, inconsistent arithmeti
 | `test_doc_examples.do` | Executable README and help workflows with semantic value assertions after local installation. |
 | `test_pygrid_errors.do` | Exact public pygrid/pyattach failure codes and no-mutation contracts. |
 | `test_pygrid_hostile.do` | Overlapping episode refusal under an adversarial denominator shape. |
-| `test_regressions.do` | Reversed-window rejection, stamped-grid integrity, order-stable signatures, and the exact multi-month calendar origin. |
+| `test_regressions.do` | Reversed-window rejection, stamped-grid integrity, order-stable signatures, and the exact multi-month calendar origin, and compact (unpadded) count lines. |
 
 ### Validation
 

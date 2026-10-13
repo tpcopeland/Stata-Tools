@@ -3,7 +3,6 @@
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
-{vieweralsosee "msm_validate" "help msm_validate"}{...}
 {viewerjumpto "Syntax" "msm_weight##syntax"}{...}
 {viewerjumpto "Description" "msm_weight##description"}{...}
 {viewerjumpto "How the weights are built" "msm_weight##mechanics"}{...}
@@ -100,11 +99,14 @@ treatment model specification.
 
 {pstd}
 After {cmd:msm_weight}, run {helpb psdash:psdash combined} for a longitudinal
-period-by-period propensity-score overlap and weight diagnostic. It reads the
-treatment, {cmd:_msm_ps}, the treatment weight, and the id/period structure
-from the msm contract and complements {helpb msm_diagnose} (which reports
-period/history-specific balance, separate censoring balance, support, weight
-summaries, and effective sample size).
+period-by-period propensity-score overlap and weight diagnostic, and
+{cmd:psdash weights} for the pooled weight distribution. psdash reads the
+treatment, {cmd:_msm_ps}, the analysis weight {cmd:_msm_weight}, the id/period
+structure and the decision risk set from the msm contract. The contract is
+version 1.1 from msm 2.0.0: {cmd:_dta[_msm_risk_var]} names
+{cmd:_msm_decision_risk}, so psdash restricts to the rows the weights were
+built on. {helpb msm_diagnose} complements it with period/history-specific
+balance, separate censoring balance, and positivity.
 
 
 {marker mechanics}{...}
@@ -256,7 +258,9 @@ extreme weights at the cost of a small amount of bias. Values must lie
 strictly between 0 and 100.
 
 {pstd}
-Weight fitting preserves the caller's active estimation results. Failed calls also restore caller returned results, RNG state and the weight identifier counter.
+Weight fitting preserves the caller's active estimation results. Failed calls
+also restore caller returned results, RNG state and the weight identifier
+counter.
 
 {dlgtab:Model behavior}
 
@@ -393,7 +397,7 @@ which inflates variance. Consider truncation or model simplification.{p_end}
 
 {phang2}{bf:Max/min ratio:} Very large weights indicate near-violations of the
 positivity assumption. Investigate with {helpb msm_diagnose} and
-{helpb msm_plot}.{p_end}
+{cmd:psdash weights}.{p_end}
 
 
 {marker examples}{...}

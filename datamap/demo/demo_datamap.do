@@ -162,7 +162,7 @@ quietly {
     gen double birth_date = enroll_date - round(age * 365.25)
     format birth_date %td
 
-    gen double follow_up_time = round(rexponential(1/3.5), 0.01)
+    gen double follow_up_time = round(rexponential(3.5), 0.01)
     gen double event = rbinomial(1, 0.30)
     label define event_lbl 0 "Censored" 1 "Event"
     label values event event_lbl

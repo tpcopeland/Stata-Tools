@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.2.1  2026/10/12
+*! pkgtransfer Version 1.2.2  2026/10/13
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 * Writes an online reinstall script, or an offline bundle (do-file + ZIP),
@@ -9,6 +9,7 @@ program define pkgtransfer, rclass
 	local _varabbrev `c(varabbrev)'
 	local _did_preserve 0
 	local _staging_created 0
+	local _stage_root ""
 	local _registry_created 0
     local _output_cwd_changed 0
     local _output_cwd `"`c(pwd)'"'
@@ -279,17 +280,20 @@ if "`download'" != "" {
             local probe = regexr(`"`probe'"', "/[^/]+$", "")
             if `"`probe'"' == "/" continue, break
         }
-        local staging = subinstr(`"`_output_cwd'/pkgtransfer_files"', "\", "/", .)
-        if "`c(os)'" == "Windows" {
-            local resolved = lower(`"`resolved'"')
-            local staging = lower(`"`staging'"')
-        }
-        if `"`resolved'"' == `"`staging'"' | ///
-            substr(`"`resolved'"', 1, strlen(`"`staging'/"')) == `"`staging'/"' {
-            noisily display as error "`output'() must be outside pkgtransfer_files"
-            exit 198
-        }
+        local _abs_`output' `"`resolved'"'
     }
+    * Stage in a unique temporary directory, never in ./pkgtransfer_files: the
+    * generated installer unpacks the archive there, so a later bundle run in
+    * the same directory would otherwise refuse to start (r(602)).
+    tempfile _stage_token
+    local _stage_root `"`_stage_token'_pkgtransfer"'
+    capture mkdir `"`_stage_root'"'
+    if _rc {
+        noisily display as error "Could not create the temporary staging directory"
+        exit 603
+    }
+    quietly cd `"`_stage_root'"'
+    local _output_cwd_changed 1
     frame create `_bundle_registry' strL path strL owner
     local _registry_created 1
     _pkgtransfer_prepare_destination, root("pkgtransfer_files") ///
@@ -300,15 +304,15 @@ if "`download'" != "" {
 preserve
 local _did_preserve 1
 
-/* Refuse to reuse an output directory the command does not own */
+/* Create the bundle's staging directory inside the temporary directory */
 if "`download'" != "" {
 	capture mkdir "pkgtransfer_files"
 	if _rc {
 		noisily display as error ///
-			"Output directory pkgtransfer_files already exists or cannot be created"
+			"Could not create the staging directory pkgtransfer_files under `_stage_root'"
 		noisily display as error ///
-			"Move or remove that directory before creating a transfer bundle."
-		exit 602
+			"Check that the system temporary directory is writable."
+		exit 603
 	}
 	local _staging_created 1
 }
@@ -613,7 +617,6 @@ quietly{
 
 			// Fix plugins
 			tempfile pluginfiles
-			noisily display "Copying OS-specific plugins from online..."
             use "`pkg_list'", replace
 			keep if substr(lower(v1),1,2) == "f " & platform_route
 			rename v1 plugin_name
@@ -629,6 +632,7 @@ quietly{
 				quietly count
 				local _plugin_packages = r(N)
 				if `_plugin_packages' > 0 {
+				noisily display "Copying OS-specific plugins from online..."
 				quietly forvalues i = 1(1)`_plugin_packages'{
 				local main_url `"`=url[`i']'"'
 				local pkg_source_url `"`=pkg_source_url[`i']'"'
@@ -1045,7 +1049,7 @@ quietly{
 			local date = string(year(date("`c(current_date)'", "DMY")), "%4.0f") + "_" + string(month(date("`c(current_date)'", "DMY")), "%02.0f") + "_" + string(day(date("`c(current_date)'", "DMY")), "%02.0f")
 
             // Create installation do-file
-			file open `_installer_fh' using "`macval(dofile)'", write replace
+			file open `_installer_fh' using "`macval(_abs_dofile)'", write replace
 			local _installer_open 1
 			file write `_installer_fh' "*pkgtransfer local installation script" _n
 			file write `_installer_fh' "*Generated: `date' $S_TIME" _n _n
@@ -1085,18 +1089,18 @@ quietly{
 			}
 				file close `_installer_fh'
 				local _installer_open 0
-				capture confirm file "`macval(dofile)'"
+				capture confirm file "`macval(_abs_dofile)'"
 				if _rc exit 603
 
 	            // Create ZIP file
-	            zipfile "pkgtransfer_files", saving("`macval(zipfile)'", replace)
-				capture confirm file "`macval(zipfile)'"
+	            zipfile "pkgtransfer_files", saving("`macval(_abs_zipfile)'", replace)
+				capture confirm file "`macval(_abs_zipfile)'"
 				if _rc exit 603
 
 			_pkgtransfer_cleanup_staging, directory("pkgtransfer_files")
 			local _staging_created 0
-                confirm file "`macval(dofile)'"
-                confirm file "`macval(zipfile)'"
+                confirm file "`macval(_abs_dofile)'"
+                confirm file "`macval(_abs_zipfile)'"
 
             // Announce Completion
 			noisily display "Preparation of installation do file and package ZIP file completed!"
@@ -1162,24 +1166,26 @@ local _did_preserve 0
 
 		/* Clean up on success or error */
 		local rc = _rc
+		if `_tracker_open' capture file close `_tracker_fh'
+		if `_installer_open' capture file close `_installer_fh'
+        * Staging is removed while still inside the staging directory
+        if `rc' & `_staging_created' {
+            capture noisily _pkgtransfer_cleanup_staging, ///
+                directory("pkgtransfer_files")
+            if _rc {
+                display as error ///
+                    "Warning: could not remove invocation-owned staging directory"
+            }
+        }
         if `_output_cwd_changed' {
             capture quietly cd `"`_output_cwd'"'
             if _rc & !`rc' local rc = _rc
         }
+        if `"`_stage_root'"' != "" capture rmdir `"`_stage_root'"'
         if `_registry_created' {
             capture frame drop `_bundle_registry'
             if _rc & !`rc' local rc = _rc
         }
-		if `_tracker_open' capture file close `_tracker_fh'
-		if `_installer_open' capture file close `_installer_fh'
-	if `rc' & `_staging_created' {
-		capture noisily _pkgtransfer_cleanup_staging, ///
-			directory("pkgtransfer_files")
-		if _rc {
-			display as error ///
-				"Warning: could not remove invocation-owned staging directory"
-		}
-	}
 		if `rc' & `_did_preserve' capture restore
 		set varabbrev `_varabbrev'
 

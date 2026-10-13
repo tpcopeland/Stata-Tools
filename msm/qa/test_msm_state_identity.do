@@ -67,7 +67,7 @@ end
 *
 * Phase 1 implements the audit's actual A01 fix (#3): b/V are persisted into
 * the dataset. Dataset A therefore reloads carrying ITS OWN coefficients and
-* msm_report legitimately succeeds. Asserting rc!=0 would now fail for a good
+* a downstream consumer legitimately succeeds. Asserting rc!=0 would now fail for a good
 * reason, so these probes assert the stronger property the exit gate really
 * wants: A uses A's numbers, never B's. Both remain red on 1.2.3 (verified).
 local ++test_count
@@ -103,8 +103,8 @@ capture noisily {
     assert !missing(_msm_fit_b[1, 1], `coefA')
     assert reldif(_msm_fit_b[1, 1], `coefA') < 1e-12
 
-    * And the reported effect must be A's, not B's.
-    quietly msm_report
+    * And a downstream consumer must use A's fit, not B's.
+    quietly msm_predict, times(1) samples(10) seed(101)
     assert !missing(_msm_fit_b[1, 1], `coefA')
     assert reldif(_msm_fit_b[1, 1], `coefA') < 1e-12
 }
@@ -203,16 +203,16 @@ capture noisily {
     * Materially alter the treatment the model was fitted on.
     quietly replace trt = 1 - trt
 
-    capture msm_report
+    capture msm_predict, times(1) samples(10) seed(505)
     local edited_rc = _rc
     assert `edited_rc' == 459
 }
 if _rc == 0 {
-    display as result "PASS: S4 edited treatment invalidates downstream reporting"
+    display as result "PASS: S4 edited treatment invalidates downstream prediction"
     local ++pass_count
 }
 else {
-    display as error "FAIL: S4 report ran on data that no longer produced the fit (A02)"
+    display as error "FAIL: S4 prediction ran on data that no longer produced the fit (A02)"
     local ++fail_count
 }
 
@@ -226,16 +226,16 @@ capture noisily {
 
     quietly drop if pid <= 10
 
-    capture msm_report
+    capture msm_predict, times(1) samples(10) seed(606)
     local dropped_rc = _rc
     assert `dropped_rc' == 459
 }
 if _rc == 0 {
-    display as result "PASS: S5 dropped rows invalidate downstream reporting"
+    display as result "PASS: S5 dropped rows invalidate downstream prediction"
     local ++pass_count
 }
 else {
-    display as error "FAIL: S5 report ran after the estimation rows changed (A02)"
+    display as error "FAIL: S5 prediction ran after the estimation rows changed (A02)"
     local ++fail_count
 }
 
@@ -262,7 +262,9 @@ else {
     local ++fail_count
 }
 
-**# S7 - A03: a successful refit must invalidate an existing prediction
+**# S7 - A03: a prediction leaves no dataset state that a refit could strand
+* (msm 2.0.0: predictions live only in r() and frame(), so there is nothing to
+* invalidate; this pins that msm_predict stays read-only on the dataset.)
 local ++test_count
 capture noisily {
     _mk_panel, seed(808)
@@ -277,9 +279,11 @@ capture noisily {
     local pred_ok = (_rc == 0)
 
     if `pred_ok' {
+        assert `"`: char _dta[_msm_pred_saved]'"' == ""
+        capture confirm matrix _msm_pred_matrix
+        assert _rc != 0
         msm_fit, model(logistic) outcome_cov(v) nolog
-        local pred_flag : char _dta[_msm_pred_saved]
-        assert "`pred_flag'" != "1"
+        assert `"`: char _dta[_msm_pred_saved]'"' == ""
     }
     else {
         * Prediction unavailable in this configuration; do not fake a pass.
@@ -287,11 +291,11 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "PASS: S7 refit invalidates the saved prediction"
+    display as result "PASS: S7 msm_predict writes no dataset state"
     local ++pass_count
 }
 else {
-    display as error "FAIL: S7 prediction stayed authorized after refit (A03)"
+    display as error "FAIL: S7 msm_predict wrote dataset state (A03)"
     local ++fail_count
 }
 
@@ -480,19 +484,13 @@ capture noisily {
     assert r(N) == 0
     drop now_row
 
-    quietly msm_report
-    gen long now_row = _n
-    quietly count if caller_row != now_row
-    assert r(N) == 0
-    drop now_row
-
-    quietly msm_sensitivity
+    quietly msm_diagnose, balance_covariates(v)
     gen long now_row = _n
     quietly count if caller_row != now_row
     assert r(N) == 0
 }
 if _rc == 0 {
-    display as result "PASS: S13 weight/fit/predict/report/sensitivity preserve caller order"
+    display as result "PASS: S13 weight/fit/predict/diagnose preserve caller order"
     local ++pass_count
 }
 else {
@@ -500,7 +498,9 @@ else {
     local ++fail_count
 }
 
-**# S14 - A01: prediction and balance matrices travel with their dataset
+**# S14 - A01: prediction and balance results cannot leak across datasets
+* msm 2.0.0 keeps them only in r(); no session matrix or characteristic exists
+* that dataset A could later pick up from dataset B.
 local ++test_count
 capture noisily {
     _mk_panel, seed(1515)
@@ -509,58 +509,20 @@ capture noisily {
     msm_fit, model(logistic) nolog
     msm_predict, times(1) samples(20) seed(1515)
     msm_diagnose, balance_covariates(v)
-    local predA = _msm_pred_matrix[1, 2]
-    local balA = _msm_bal_matrix[1, 2]
-    tempfile dsA downstream_xlsx
-    quietly save "`dsA'"
-
-    * Dataset B overwrites both live session matrices.
-    _mk_panel, seed(1616)
-    msm_prepare, id(pid) period(per) treatment(trt) outcome(outc) censor(cens) covariates(v)
-    msm_weight, treat_d_cov(v) nolog
-    msm_fit, model(logistic) nolog
-    msm_predict, times(1) samples(20) seed(1616)
-    msm_diagnose, balance_covariates(v)
-    local predB = _msm_pred_matrix[1, 2]
-    local balB = _msm_bal_matrix[1, 2]
-    assert reldif(`predA', `predB') > 1e-6 | reldif(`balA', `balB') > 1e-6
-
-    * Exporting A must rehydrate A's own downstream artifacts, never B's.
-    use "`dsA'", clear
-    msm_table, xlsx("`downstream_xlsx'.xlsx") predictions balance replace
-    assert !missing(_msm_pred_matrix[1, 2], `predA')
-    assert reldif(_msm_pred_matrix[1, 2], `predA') < 1e-12
-    assert !missing(_msm_bal_matrix[1, 2], `balA')
-    assert reldif(_msm_bal_matrix[1, 2], `balA') < 1e-12
+    foreach m in _msm_pred_matrix _msm_bal_matrix {
+        capture confirm matrix `m'
+        assert _rc != 0
+    }
+    foreach c in _msm_pred_saved _msm_pred_mat_id _msm_bal_saved _msm_bal_mat_id {
+        assert `"`: char _dta[`c']'"' == ""
+    }
 }
 if _rc == 0 {
-    display as result "PASS: S14 dataset A exports its own prediction and balance artifacts"
+    display as result "PASS: S14 no prediction or balance state outlives r()"
     local ++pass_count
 }
 else {
-    display as error "FAIL: S14 downstream export consumed dataset B's session matrices (A01)"
-    local ++fail_count
-}
-
-**# S15 - A02: msm_table must reject a fitted artifact after its inputs change
-local ++test_count
-capture noisily {
-    _mk_panel, seed(1717)
-    msm_prepare, id(pid) period(per) treatment(trt) outcome(outc) censor(cens) covariates(v)
-    msm_weight, treat_d_cov(v) nolog
-    msm_fit, model(logistic) nolog
-    quietly replace trt = 1 - trt
-
-    tempfile stale_xlsx
-    capture msm_table, xlsx("`stale_xlsx'.xlsx") coefficients replace
-    assert _rc == 459
-}
-if _rc == 0 {
-    display as result "PASS: S15 msm_table rejects edited fitted inputs"
-    local ++pass_count
-}
-else {
-    display as error "FAIL: S15 msm_table exported stale coefficients after data edits (A02)"
+    display as error "FAIL: S14 downstream state persisted outside r() (A01)"
     local ++fail_count
 }
 

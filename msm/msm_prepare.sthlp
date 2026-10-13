@@ -1,6 +1,5 @@
 {smcl}
 {vieweralsosee "msm" "help msm"}{...}
-{vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {viewerjumpto "Syntax" "msm_prepare##syntax"}{...}
@@ -154,13 +153,29 @@ These characteristics travel with the dataset when you {cmd:save} and
 
 {phang2}1. The dataset contains at least one observation.{p_end}
 {phang2}2. One row per individual per time period.{p_end}
-{phang2}3. {cmd:period()} is integer-valued (no gaps expected but
-{helpb msm_validate} will check).{p_end}
+{phang2}3. {cmd:period()} is integer-valued. Gaps are reported in
+{cmd:r(n_gap_ids)} and refused by {helpb msm_weight}.{p_end}
 {phang2}4. {cmd:treatment()} and {cmd:outcome()} are coded 0/1.{p_end}
 {phang2}5. {cmd:censor()}, if used, is coded 0/1.{p_end}
 {phang2}6. All individuals share a common first period.{p_end}
 {phang2}7. {cmd:baseline_covariates()} are constant within person.{p_end}
 {phang2}8. All specified variables must be numeric.{p_end}
+
+{pstd}
+Items 1-5, 7 and 8 and a duplicate (id, period) row are refused here with
+return code 198 (2000 for an empty dataset); a missing {cmd:id()} or
+{cmd:period()} value is refused too.
+
+{pstd}
+{bf:Data checks.} Conditions that are not errors at this stage are reported
+under "Data checks" and returned in {cmd:r()}: individuals with
+non-consecutive periods ({cmd:r(n_gap_ids)}; {cmd:msm_weight} refuses them),
+mapped variables with missing values ({cmd:r(missing_vars)}; missing model
+inputs make {cmd:msm_weight} refuse, and rows with a missing outcome stay out
+of the {cmd:msm_fit} risk set), covariates without variation
+({cmd:r(constant_covariates)}), and the size of the smallest period
+({cmd:r(min_period_n)}, noted below 10 rows). Before msm 2.0.0 these were
+{cmd:msm_validate} checks.
 
 
 {marker examples}{...}
@@ -189,8 +204,8 @@ before an IPTW analysis:{p_end}
 
 {pstd}
 {bf:Restarting after changing covariates.} Re-running {cmd:msm_prepare} clears
-all prior downstream artifacts, so you must re-run {helpb msm_validate} and
-{helpb msm_weight} afterward:{p_end}
+all prior downstream artifacts, so you must re-run {helpb msm_weight}
+afterward:{p_end}
 
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker)}{p_end}
@@ -218,6 +233,8 @@ see the current pipeline state:{p_end}
 {synopt:{cmd:r(n_events)}}number of observations where outcome = 1{p_end}
 {synopt:{cmd:r(n_treated)}}number of observations where treatment = 1{p_end}
 {synopt:{cmd:r(n_censored)}}censored count; 0 without {opt censor()}{p_end}
+{synopt:{cmd:r(n_gap_ids)}}individuals with non-consecutive periods{p_end}
+{synopt:{cmd:r(min_period_n)}}rows in the smallest period{p_end}
 
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(id)}}name of the ID variable{p_end}
@@ -227,6 +244,8 @@ see the current pipeline state:{p_end}
 {synopt:{cmd:r(censor)}}censoring variable; empty if omitted{p_end}
 {synopt:{cmd:r(covariates)}}time-varying covariates{p_end}
 {synopt:{cmd:r(baseline_covariates)}}baseline covariates{p_end}
+{synopt:{cmd:r(missing_vars)}}mapped variables with missing values{p_end}
+{synopt:{cmd:r(constant_covariates)}}mapped covariates without variation{p_end}
 
 
 {marker author}{...}

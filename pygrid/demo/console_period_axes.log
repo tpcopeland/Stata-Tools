@@ -4,9 +4,9 @@
 . 
 . noisily pygrid, id(id) start(index_date) end(followup_date) ///
 >     axis(anniversary) origin(index_date) partial(flag) keep(cohort) noisily
-pygrid:            2 persons,            7 period rows
-  empty windows:            0   partial periods:            2
-  person-time:        5.76591   axis: anniversary   convention: inclusive
+pygrid: 2 persons, 7 period rows
+  empty windows: 0   partial periods: 2
+  person-time: 5.76591   axis: anniversary   convention: inclusive
 
 . format person_years %9.3f
 
@@ -55,9 +55,9 @@ macros:
 >     axis(fixed) generate(window) startgen(observed_start) ///
 >     stopgen(observed_stop) pytime(days_at_risk) pyunit(day) ///
 >     keep(cohort) noisily
-pygrid:            2 persons,            2 period rows
-  empty windows:            0   partial periods:            0
-  person-time:           2106   axis: fixed   convention: inclusive
+pygrid: 2 persons, 2 period rows
+  empty windows: 0   partial periods: 0
+  person-time: 2106   axis: fixed   convention: inclusive
 
 . format observed_start observed_stop %td
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.5  09oct2026}{...}
+{* *! version 1.2.0  13oct2026}{...}
 {vieweralsosee "qba_misclass" "help qba_misclass"}{...}
 {vieweralsosee "qba_selection" "help qba_selection"}{...}
 {vieweralsosee "qba_confound" "help qba_confound"}{...}
@@ -253,7 +253,7 @@ biases. {it:Int J Epidemiol}. 1996;25(6):1107-1116. doi:10.1093/ije/25.6.1107
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.5, 2026-10-09{p_end}
+{pstd}Version 1.2.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

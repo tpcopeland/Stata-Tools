@@ -1,6 +1,6 @@
 # spaghetti — Longitudinal trajectory plots with mean overlays
 
-**Version 1.0.1** | 2026-10-12
+**Version 1.1.0** | 2026-10-13
 
 `spaghetti` draws individual trajectories for long-format repeated-measures data in one Stata graph. It is for analysts who need to inspect change over time by group, add mean and confidence-band overlays, or declutter large panels with sampling and highlights.
 
@@ -156,7 +156,7 @@ spaghetti varname [if] [in], id(varname) time(varname) ///
 | Option | Default and behavior |
 |--------|----------------------|
 | `refline(# [, label("text") style(pattern)])` | Off. Draws a vertical line at the specified time; `style()` defaults to `dash`. |
-| `colors(colorlist)` | `navy cranberry forest_green dkorange purple teal maroon olive_teal`. Supply at least one color for every `by()` or `colorby()` group. |
+| `colors(colorlist)` | `navy cranberry forest_green dkorange purple teal maroon olive_teal`. Entries may be named colors (including scheme-package and user `color-*.style` colors), `bg`/`fg`, or quoted RGB, CMYK, or HSV values such as `"0 114 178"`, each with optional `*intensity`; unknown or malformed colors, hexadecimal values, and `%opacity` suffixes are errors (set opacity with `individual(opacity())`). Supply at least one color for every `by()` or `colorby()` group. |
 | `individual(options)` | `color(gs12) opacity(25) lwidth(vthin)`. Controls non-mean trajectory color, opacity, and line width. |
 | `scheme(schemename)` | The current Stata graph scheme. |
 
@@ -207,6 +207,7 @@ Inspect the results with `return list` immediately after the command.
 
 ## Version History
 
+- **1.1.0** (2026-10-13): `colors()` and `individual(color())` now accept quoted RGB, CMYK, and HSV values, `bg`/`fg`, user and scheme-package color files, and `*intensity` (previously quoted values were split into words and silently drawn in a fallback color). Colors Stata cannot draw now error (rc 198): unknown or malformed values, hexadecimal values (drawn black by Stata 17 and earlier), and `%opacity` suffixes, so inputs that previously ran with a wrong color now fail. `individual()` no longer drops `opacity()`/`lwidth()` written after a quoted color. `mean()` plots are now deterministic: an unstable sort could place a person's line-break row before their last visit, joining it to the next person's first visit and giving different drawings on identical calls; the sort is now fully keyed and stable.
 - **1.0.1** (2026-08-05): Expanded option documentation and corrected help metadata and rendering details
 - **1.0.0** (2026-07-10): Initial Stata-Tools release
 

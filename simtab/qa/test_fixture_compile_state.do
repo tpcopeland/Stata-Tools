@@ -18,24 +18,27 @@ root=Path(Macro.getLocal('pkgdir'))
 out=Path(Macro.getLocal('faults'))
 n=0
 quote=lambda name: chr(96)+name+chr(39)
-rc_tail='if '+quote('_st_compile_rc')+' exit '+quote('_st_compile_rc')
+rc_tail='    exit '+quote('_st_compile_rc')+'\n}'
 for name in ('_simtab_common.ado','_simtab_xlsx_write.ado'):
     source=(root/name).read_text()
     blocks=[]
     start=0
     while True:
-        begin=source.find('local _st_compile_ms = c(matastrict)\ncapture noisily {\nmata:\n',start)
+        begin=source.find('local _st_compile_ms = c(matastrict)\n',start)
         if begin<0: break
         end=source.index(rc_tail,begin)+len(rc_tail)
         blocks.append((begin,end));start=end
     for begin,end in blocks:
         n+=1
         block=source[begin:end]
-        block=block.replace('\nend\n}\n','\nvoid _qa_sim_compile_fault( { }\nend\n}\n',1)
+        assert 'capture mata:\n' in block and 'capture noisily {' not in block
+        block=block.replace('\nend\nlocal _st_compile_rc','\nvoid _qa_sim_compile_fault( { }\nend\nlocal _st_compile_rc',1)
         guarded=source[:begin]+block+source[end:]
         # Actual native compiler is the reference for the preserved rc.
-        native=guarded.replace('local _st_compile_ms = c(matastrict)\ncapture noisily {\nmata:\n','mata:\n')
-        native=native.replace('end\n}\nlocal _st_compile_rc = _rc\nmata: mata set matastrict '+quote('_st_compile_ms')+'\n'+rc_tail,'end')
+        nb=block.replace('local _st_compile_ms = c(matastrict)\n* capture, not capture noisily: noisily makes the autoloader echo the Mata source\ncapture mata:\n','mata:\n',1)
+        nb=nb[:nb.index('end\nlocal _st_compile_rc')]+'end\n'
+        assert nb != block and nb.startswith('mata:') and 'did not compile' in block, 'native block must differ from the guarded block'
+        native=source[:begin]+nb+source[end:]
         (out/f'guarded{n}.do').write_text(guarded)
         (out/f'native{n}.do').write_text(native)
 assert n==5, f'expected five real compilation blocks, got {n}'

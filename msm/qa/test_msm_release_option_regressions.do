@@ -2,8 +2,8 @@
 * Documentation, release-surface, and option-combination regressions.
 *
 * Findings covered (audit 2026-07-12):
-*   A32  one canonical public-command manifest lists all 12 subcommands
-*        (including msm_diagtab) and every listed command resolves
+*   A32  one canonical public-command manifest lists the 5 core subcommands
+*        (msm 2.0.0) and every listed command resolves
 *   A35  incompatible/meaningless option combinations are rejected rc 198;
 *        the umbrella accepts at most one mode option
 *
@@ -29,17 +29,17 @@ local fail_count = 0
 local failed_tests ""
 
 * =========================================================================
-* A32: canonical manifest lists all 12 subcommands incl. msm_diagtab, and
-* every listed command resolves for an installed user.
+* A32: canonical manifest lists the 5 core subcommands, and every listed
+* command resolves for an installed user.
 * =========================================================================
 local ++test_count
 capture noisily {
     msm, list
     local cmds "`r(commands)'"
     local nc = r(n_commands)
-    assert `nc' == 12
-    assert `: word count `cmds'' == 12
-    assert `: list posof "msm_diagtab" in cmds' > 0
+    assert `nc' == 5
+    assert `: word count `cmds'' == 5
+    assert `: list posof "msm_diagtab" in cmds' == 0
     * n_commands must agree with the manifest length, not a stale literal
     assert `nc' == `: word count `cmds''
     * every command in the manifest resolves (installed-user reality)
@@ -49,7 +49,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "PASS A32: manifest lists all 12 commands incl. msm_diagtab; all resolve"
+    display as result "PASS A32: manifest lists the 5 core commands; all resolve"
     local ++pass_count
 }
 else {
@@ -66,7 +66,10 @@ capture noisily {
     * two mode options -> rejected (old code silently honoured one)
     capture msm, list detail
     assert _rc == 198
-    capture msm, protocol status
+    capture msm, detail status
+    assert _rc == 198
+    * the removed protocol mode is refused even alone
+    capture msm, protocol
     assert _rc == 198
     * positive control: a single mode runs
     capture msm, list
@@ -85,7 +88,8 @@ else {
 }
 
 * =========================================================================
-* A35: msm_diagnose rejects contrast()/outcome() without accumulate().
+* A35: msm_diagnose rejects contrast()/outcome() (removed in msm 2.0.0
+* with accumulate(); still parsed so the refusal names the replacement).
 * =========================================================================
 local ++test_count
 capture noisily {
@@ -96,7 +100,7 @@ capture noisily {
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         treat_n_cov(age sex) truncate(1 99) nolog
 
-    * contrast() only labels an accumulate row; alone it is a silent no-op
+    * contrast()/outcome() were accumulate() labels; both are refused
     capture msm_diagnose, contrast("armA")
     assert _rc == 198
     capture msm_diagnose, outcome("death")
@@ -106,7 +110,7 @@ capture noisily {
     assert _rc == 0
 }
 if _rc == 0 {
-    display as result "PASS A35b: msm_diagnose rejects contrast()/outcome() without accumulate()"
+    display as result "PASS A35b: msm_diagnose rejects the removed contrast()/outcome()"
     local ++pass_count
 }
 else {
@@ -115,31 +119,6 @@ else {
     local failed_tests "`failed_tests' A35b"
 }
 
-* =========================================================================
-* A35: msm_protocol rejects export() with format(display).
-* =========================================================================
-local ++test_count
-capture noisily {
-    capture msm_protocol, population("adults") treatment("statin") ///
-        confounders("age ldl") outcome("MI") causal_contrast("always vs never") ///
-        weight_spec("stabilized IPTW") analysis("pooled logistic") ///
-        format(display) export("`c(pwd)'/_p6_noop.csv")
-    assert _rc == 198
-    * positive control: format(display) with no export() runs
-    capture msm_protocol, population("adults") treatment("statin") ///
-        confounders("age ldl") outcome("MI") causal_contrast("always vs never") ///
-        weight_spec("stabilized IPTW") analysis("pooled logistic")
-    assert _rc == 0
-}
-if _rc == 0 {
-    display as result "PASS A35c: msm_protocol rejects display+export"
-    local ++pass_count
-}
-else {
-    display as error "FAIL A35c: msm_protocol display+export (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' A35c"
-}
 
 * -------------------------------------------------------------------------
 if `fail_count' > 0 {

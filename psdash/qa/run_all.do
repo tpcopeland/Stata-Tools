@@ -44,6 +44,7 @@ local suites_quick validation_fixture_truth.do validation_fixture_routes.do test
     test_remaining_audit_regressions.do test_v164_regressions.do ///
     test_v169_regressions.do test_v171_audit_regressions.do ///
     test_v173_audit_regressions.do test_v174_review_regressions.do ///
+    test_v180_regressions.do test_quiet_warnings.do ///
     test_release_detect.do test_release_numeric.do test_release_combined.do ///
     test_producer_contracts.do ///
     test_real_producer_integrations.do ///

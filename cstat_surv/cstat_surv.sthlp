@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  30sep2026}{...}
+{* *! version 1.0.3  13oct2026}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "cstat_surv##syntax"}{...}
@@ -51,7 +51,9 @@ C-statistic measures the model's ability to discriminate between subjects who
 experience the event and those who do not.
 
 {pstd}
-The command must be run immediately after fitting a Cox model with {helpb stcox}. It
+The command must be run immediately after fitting a Cox model with {helpb stcox}, or
+after a previous {cmd:cstat_surv} call, which is replayed at the new {opt level()}
+(r(301), leaving {cmd:e()} untouched, if the data changed since it ran: another dataset, or an in-place edit of {cmd:_t}, {cmd:_d}, {cmd:_t0}, {cmd:_st}, or a Cox covariate or strata variable in the estimation sample; re-sorting and {cmd:preserve}/{cmd:restore} are not changes). It
 calculates the C-statistic directly by comparing all comparable pairs of
 observations, accounting for censoring in survival data.
 
@@ -176,6 +178,8 @@ interval at the current {cmd:c(level)}, along with pair comparison statistics.
 {synopt:{cmd:e(depvar)}}{cmd:_t}{p_end}
 {synopt:{cmd:e(title)}}Harrell's C-statistic{p_end}
 {synopt:{cmd:e(vcetype)}}Jackknife{p_end}
+{synopt:{cmd:e(sigvars)}}variables covered by the data signature{p_end}
+{synopt:{cmd:e(datasignature)}}{cmd:_datasignature} of those variables over the estimation sample, taken after sorting by all of them{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
@@ -201,7 +205,7 @@ reducing errors. {it:Statistics in Medicine}. 1996;15(4):361–387.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-09-30{p_end}
+{pstd}Version 1.0.3, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

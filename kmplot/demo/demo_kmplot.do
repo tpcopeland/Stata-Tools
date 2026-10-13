@@ -135,13 +135,18 @@ capture graph close _all
 
 **## 7. Custom styling: colors, patterns, CI lines
 
-* Two-color scheme with dashed CI lines instead of bands
-* (p-value in the bottom-left corner; survival curves crowd the top-left)
+* Three custom colors and dash patterns, with dashed CI lines instead of bands
+* (p-value in the bottom-left corner; survival curves crowd the top-left).
+* The legend sits below the plot so it cannot cover the upper CI lines, which
+* are not legend entries; the note says what the thin dashed lines are.
+* The note hard-codes 95% because level() is not set, so the default applies.
 kmplot, by(drug) ci cistyle(line) citransform(log) ///
     colors(navy maroon dkorange) ///
     lpattern(solid dash dot) lwidth(thick) ///
     pvalue pvaluepos(bottomleft) ///
-    xlabel(0(5)40) ylabel(0(0.2)1) ///
+    xlabel(0(5)40) ///
+    legend(order(1 "Placebo" 2 "Drug A" 3 "Drug B") rows(1) position(6) size(small)) ///
+    note("Thin dashed lines are 95% confidence limits (log transform)") ///
     aspectratio(0.8) ///
     name(demo7, replace)
 graph export "`pkg_dir'/km_custom_style.png", replace width(1200)
@@ -161,6 +166,8 @@ capture graph close _all
 
 * Custom p-value text + format, user-set 90% CI level, risk table
 * (p-value in the bottom-left corner, clear of the top-right legend)
+* pvaluetext("Log-rank P") is kept deliberately: this panel shows the option's
+* journal-style capital-P label; the other panels use the default "Log-rank p"
 kmplot, by(drug) ci level(90) risktable ///
     pvalue pvaluetext("Log-rank P") pvalueformat(%5.3f) pvaluepos(bottomleft) ///
     timepoints(0 5 10 15 20 25 30 35) ///
@@ -181,7 +188,11 @@ generate byte cv = !missing(cv_event_date) & cv_event_date <= study_exit
 generate double exit = cond(cv, cv_event_date, study_exit)
 stset exit, failure(cv) origin(study_entry) scale(365.25)
 
+* Cumulative failure stays below about 0.6, so the y axis is cut at 0.6
+* (lower bound kept at 0) and the risk table stops at year 15 (follow-up ends at 17.99, so a year-18 column would be all zeros)
 kmplot, by(treated) failure ci risktable pvalue ///
+    ylabel(0(0.1)0.6, format(%3.1f) angle(0) nogrid) ///
+    timepoints(0 3 6 9 12 15) ///
     title("First cardiovascular event") ///
     xtitle("Years since initiation") ///
     name(demo10, replace)

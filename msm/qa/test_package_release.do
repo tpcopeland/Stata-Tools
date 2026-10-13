@@ -26,7 +26,9 @@ local pass_count = 0
 local fail_count = 0
 local failed_tests ""
 
-local public "msm msm_prepare msm_validate msm_weight msm_diagnose msm_diagtab msm_fit msm_predict msm_plot msm_table msm_report msm_protocol msm_sensitivity"
+local public "msm msm_prepare msm_weight msm_diagnose msm_fit msm_predict"
+* Removed in 2.0.0; shipped as stubs that exit 199 for all of 2.x.
+local stubs "msm_protocol msm_validate msm_plot msm_report msm_table msm_diagtab msm_sensitivity"
 
 * Render help through Stata's SMCL interpreter. Source-text grep cannot detect
 * directives that become literal markup only after rendering.
@@ -91,19 +93,20 @@ program define _qa_sthlp_render, rclass
 end
 
 * =========================================================================
-* R1: every public command (umbrella + 12 subcommands) resolves for a user
+* R1: every public command (umbrella + 5) and every removed-command stub
+* resolves for a user
 * =========================================================================
 local ++test_count
 capture noisily {
-    foreach c of local public {
+    foreach c in `public' `stubs' {
         capture which `c'
         assert _rc == 0
     }
-    * exactly thirteen public entry points (umbrella + 12)
-    assert `: word count `public'' == 13
+    assert `: word count `public'' == 6
+    assert `: word count `stubs'' == 7
 }
 if _rc == 0 {
-    display as result "PASS R1: all 13 public entry points resolve"
+    display as result "PASS R1: 6 public entry points and 7 stubs resolve"
     local ++pass_count
 }
 else {
@@ -113,24 +116,23 @@ else {
 }
 
 * =========================================================================
-* R2: the umbrella manifest is the canonical 12-subcommand set incl. msm_diagtab
+* R2: the umbrella manifest is the canonical 5-subcommand core, and r(removed)
+* names exactly the stubs
 * =========================================================================
 local ++test_count
 capture noisily {
     msm, list
     local cmds "`r(commands)'"
-    assert r(n_commands) == 12
-    assert `: word count `cmds'' == 12
-    * every subcommand in the manifest is a real, resolvable command
+    assert r(n_commands) == 5
+    assert "`cmds'" == "msm_prepare msm_weight msm_diagnose msm_fit msm_predict"
     foreach c of local cmds {
         assert `: list posof "`c'" in public' > 0
-        capture which `c'
-        assert _rc == 0
     }
-    assert `: list posof "msm_diagtab" in cmds' > 0
+    local removed "`r(removed)'"
+    assert `: list removed === stubs'
 }
 if _rc == 0 {
-    display as result "PASS R2: umbrella manifest is the canonical 12-command set"
+    display as result "PASS R2: umbrella manifest is the canonical 5-command core"
     local ++pass_count
 }
 else {
@@ -261,11 +263,12 @@ capture noisily {
     capture confirm file "`pkg_dir'/../README.md"
     local root_readme_available = (_rc == 0)
     if `root_readme_available' {
-        mata: st_numscalar("r_root_badge", ///
-            any(strpos(cat(st_local("pkg_dir") + "/../README.md"), ///
-            "msm) | ![version](https://img.shields.io/badge/version-" + ///
-            st_local("version") + "-blue) | ![updated](https://img.shields.io/badge/updated-" + ///
-            subinstr(st_local("iso_date"), "-", "--", .) + "-brightgreen)") :> 0))
+        * The msm row itself must carry the version badge.
+        mata: _qa_root = cat(st_local("pkg_dir") + "/../README.md")
+        mata: st_numscalar("r_root_badge", any( ///
+            (strpos(_qa_root, "| [msm](msm) |") :> 0) :& ///
+            (strpos(_qa_root, "![version](https://img.shields.io/badge/version-" + ///
+            st_local("version") + "-") :> 0)))
         assert r_root_badge == 1
     }
     else {

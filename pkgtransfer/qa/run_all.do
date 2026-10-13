@@ -84,7 +84,7 @@ local ++suite_count
 if `hostile_rc' == 0 local ++suite_pass
 else local ++suite_fail
 
-foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_v113 test_pkgtransfer_v120 test_pkgtransfer_isolation {
+foreach review_suite in test_pkgtransfer_v111 test_pkgtransfer_v113 test_pkgtransfer_v120 test_pkgtransfer_v122 test_pkgtransfer_readme_sequence test_pkgtransfer_isolation {
     capture noisily do "`qa_dir'/`review_suite'.do"
     local review_rc = _rc
     local ++suite_count

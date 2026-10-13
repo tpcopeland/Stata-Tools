@@ -12,7 +12,6 @@ title: "console_local_bundle"
 
 ```
 Starting file copy (2 files) from local directory...
-Copying OS-specific plugins from online...
 Preparation of installation do file and package ZIP file completed!
 ```
 

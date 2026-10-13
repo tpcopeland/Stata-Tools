@@ -127,9 +127,11 @@ capture noisily {
 
     assert strpos(`"`nextline_lc'"', "next step: msm_predict") == 0
     assert strpos(`"`nextline_lc'"', "next step: {cmd:msm_predict") == 0
-    assert strpos(`"`nextline_lc'"', "msm_table") > 0 | ///
-        strpos(`"`nextline_lc'"', "msm_report") > 0 | ///
-        strpos(`"`nextline_lc'"', "msm_sensitivity") > 0
+    * msm 2.0.0: point at the companion table command for e()
+    assert strpos(`"`nextline_lc'"', "regtab") > 0
+    assert strpos(`"`nextline_lc'"', "msm_table") == 0 & ///
+        strpos(`"`nextline_lc'"', "msm_report") == 0 & ///
+        strpos(`"`nextline_lc'"', "msm_sensitivity") == 0
 }
 if _rc == 0 {
     display as result "  PASS FGUIDE2: linear next-step guidance avoids msm_predict"
@@ -163,9 +165,11 @@ capture noisily {
     assert strpos(`"`nextline_lc'"', "next step: {cmd:msm_predict") == 0
     assert strpos(`"`nextline_lc'"', "postestimation") == 0
     assert strpos(`"`nextline_lc'"', "stcox") == 0
-    assert strpos(`"`nextline_lc'"', "msm_table") > 0 | ///
-        strpos(`"`nextline_lc'"', "msm_report") > 0 | ///
-        strpos(`"`nextline_lc'"', "msm_sensitivity") > 0
+    * msm 2.0.0: point at the companion table command for e()
+    assert strpos(`"`nextline_lc'"', "regtab") > 0
+    assert strpos(`"`nextline_lc'"', "msm_table") == 0 & ///
+        strpos(`"`nextline_lc'"', "msm_report") == 0 & ///
+        strpos(`"`nextline_lc'"', "msm_sensitivity") == 0
 }
 if _rc == 0 {
     display as result "  PASS FGUIDE3: Cox next-step guidance avoids msm_predict"

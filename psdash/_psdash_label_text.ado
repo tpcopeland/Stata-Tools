@@ -1,11 +1,13 @@
-*! _psdash_label_text Version 1.7.5  2026/10/09
+*! _psdash_label_text Version 1.8.0  2026/10/13
 *! Inert, verbatim display text for a treatment level's value label
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Internal helper
 
 * Returns r(text): the value label of level() on variable(), or default()
-* (else the level itself) when the level is unlabelled. A value label is
+* (else the level itself) when the level is unlabelled. With varlabel it
+* returns the variable label of variable() instead (default() when unlabelled).
+* maxlen(#) shortens the text to # characters with a trailing "...". A value label is
 * user data and must print exactly as written. Console display and graph
 * text both interpret SMCL, and Stata's graph commands re-expand option text,
 * so braces, backquotes, $ and double quotes are rewritten as SMCL character
@@ -17,11 +19,29 @@ program define _psdash_label_text, rclass
     local _vao = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax , VARiable(varname) LEVel(string) [DEFault(string asis)]
+        syntax , VARiable(varname) [LEVel(string) DEFault(string asis) VARLABel MAXlen(integer 0)]
 
-        local text : label (`variable') `level', strict
-        if `"`macval(text)'"' == "" local text `"`macval(default)'"'
-        if `"`macval(text)'"' == "" local text "`level'"
+        if "`varlabel'" != "" {
+            local text : variable label `variable'
+            if `"`macval(text)'"' == "" local text `"`macval(default)'"'
+        }
+        else {
+            if `"`level'"' == "" {
+                display as error "_psdash_label_text: level() required"
+                exit 198
+            }
+            local text : label (`variable') `level', strict
+            if `"`macval(text)'"' == "" local text `"`macval(default)'"'
+            if `"`macval(text)'"' == "" local text "`level'"
+        }
+
+        * maxlen(): shorten the raw text (before SMCL escaping, so no code is
+        * cut in half) to maxlen characters, ending in "...".
+        if `maxlen' > 3 {
+            mata: st_local("text", ustrlen(st_local("text")) > `maxlen' ? ///
+                usubstr(st_local("text"), 1, `maxlen' - 3) + "..." : ///
+                st_local("text"))
+        }
 
         * Mata reads and writes the macro without expanding it. Placeholders
         * keep the second pass from rewriting braces the first pass added.

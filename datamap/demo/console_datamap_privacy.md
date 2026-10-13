@@ -29,7 +29,7 @@ Disclosure-risk summary excerpt:
 
 ```
 Dataset Documentation
-Generated: 12 Oct 2026 23:47:12
+Generated: 13 Oct 2026 02:00:26
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -40,7 +40,7 @@ METADATA
 Observations: 1200
 Variables: 17
 Label: Synthetic Clinical Trial Cohort (N=1200)
-Data Signature: 1200:17(68284):2844760337:3810411015
+Data Signature: 1200:17(68284):809950434:1697081388
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -167,7 +167,7 @@ Privacy-safe map excerpt:
 
 ```
 Dataset Documentation
-Generated: 12 Oct 2026 23:47:12
+Generated: 13 Oct 2026 02:00:26
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -178,7 +178,7 @@ METADATA
 Observations: 1200
 Variables: 17
 Label: Synthetic Clinical Trial Cohort (N=1200)
-Data Signature: 1200:17(68284):2844760337:3810411015
+Data Signature: 1200:17(68284):809950434:1697081388
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -195,7 +195,7 @@ This dataset contains cross-sectional data. It includes 1200 observations and 17
 
 Survival Analysis Variables Detected
   Likely time variables: follow_up_time
-    follow_up_time range: 0 to 2
+    follow_up_time range: 0 to 24.2
   Likely event indicators: event
     event rate: 27.3%
 
@@ -230,7 +230,7 @@ QUICK REFERENCE
   pct_adherence           double    continuous     19.3%     534
   enroll_date             double    date            0.0%     649
   birth_date              double    date            0.0%   >1000
-  follow_up_time          double    continuous      0.0%     123
+  follow_up_time          double    continuous      0.0%     643
   event                   double    categorical     0.0%       2
   treatment               double    categorical     0.0%       2
   site                    double    categorical     0.0%       7
@@ -280,11 +280,11 @@ Date-safe sample rows:
 ```
 
 ```
-| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .11 | 0 
+| [MASKED] | [MASKED] | [MASKED] | -3 | 1 | 2 | 24.1 | 107 | 1.14 | . | [DATE SUPPRESSED] | [DATE SUPPRESSED] | 1.3 | 0 
 > | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .39 
-> | 0 | 1 | 9 | 1 |
-| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .04 | 
+| [MASKED] | [MASKED] | [MASKED] | 56.1 | 1 | 1 | 26.3 | 90 | 1.49 | 69.9 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | 4.84
+>  | 0 | 1 | 9 | 1 |
+| [MASKED] | [MASKED] | [MASKED] | 84.2 | 1 | 0 | 25 | 136 | .64 | 83.5 | [DATE SUPPRESSED] | [DATE SUPPRESSED] | .52 | 
 > 1 | 1 | 9 | 1 |
 
 ```

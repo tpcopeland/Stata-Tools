@@ -1,4 +1,4 @@
-*! _gcomp_split_interventions Version 2.0.3  2026/10/09
+*! _gcomp_split_interventions Version 2.0.4  2026/10/13
 *! Split only top-level arm commas, retaining Stata expression bytes
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -33,7 +33,8 @@ end
 
 capture mata: mata drop _gcomp_split_arm_locals()
 local _gcomp_split_strict = c(matastrict)
-capture noisily mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 void _gcomp_split_arm_locals(string scalar text)
 {
@@ -108,4 +109,7 @@ void _gcomp_split_arm_locals(string scalar text)
 end
 local _gcomp_split_compile_rc = _rc
 set matastrict `_gcomp_split_strict'
-if `_gcomp_split_compile_rc' exit `_gcomp_split_compile_rc'
+if `_gcomp_split_compile_rc' {
+    display as error "gcomp: Mata helper _gcomp_split_arm_locals() failed to compile (rc=`_gcomp_split_compile_rc')"
+    exit `_gcomp_split_compile_rc'
+}

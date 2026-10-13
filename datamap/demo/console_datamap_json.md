@@ -23,8 +23,8 @@ Documentation generated successfully
 
 ```
 {
-  "datamap_version": "1.10.0",
-  "generated": "12 Oct 2026 23:47:12",
+  "datamap_version": "1.10.1",
+  "generated": "13 Oct 2026 02:00:26",
   "format": "json",
   "datasets": [
     {
@@ -32,7 +32,7 @@ Documentation generated successfully
       "observations": 1200,
       "variables": 17,
       "label": "Synthetic Clinical Trial Cohort (N=1200)",
-      "data_signature": "1200:17(68284):2844760337:3810411015",
+      "data_signature": "1200:17(68284):809950434:1697081388",
       "sort_order": "",
       "privacy": {
         "mincell": 5,

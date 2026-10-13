@@ -1,4 +1,4 @@
-*! psdash_detect Version 1.7.5  2026/10/09
+*! psdash_detect Version 1.8.0  2026/10/13
 *! Report propensity-score auto-detection without running diagnostics
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -75,6 +75,8 @@ program define psdash_detect, rclass
     local idvar "`_psd_id'"
     local period "`_psd_period'"
     local regime "`_psd_regime'"
+    local riskvar "`_psd_riskvar'"
+    local weight_role "`_psd_weight_role'"
     local multigroup "`_psd_multigroup'"
     local K = `_psd_K'
     local levels "`_psd_levels'"
@@ -150,13 +152,24 @@ program define psdash_detect, rclass
         display as text "  " as result "`covariates'"
     }
     if "`wvar'" != "" {
-        display as text "Weights:       " as result "`wvar_label'"
+        local _wrole_txt ""
+        if "`weight_role'" == "analysis" {
+            local _wrole_txt " (analysis weight used by `source'_fit)"
+        }
+        else if "`weight_role'" == "treatment" {
+            local _wrole_txt " (treatment weight only, not the analysis weight)"
+        }
+        else if "`weight_role'" == "user-supplied" {
+            local _wrole_txt " (user-supplied)"
+        }
+        display as text "Weights:       " as result "`wvar_label'" as text "`_wrole_txt'"
     }
     display as text "Estimand:      " as result strupper("`estimand'")
     if "`longitudinal'" == "1" {
         display as text "Longitudinal:  " as result "yes"
         if "`idvar'" != "" display as text "  ID:          " as result "`idvar'"
         if "`period'" != "" display as text "  Period:      " as result "`period'"
+        if "`riskvar'" != "" display as text "  Risk set:    " as result "`riskvar'"
         if "`regime'" != "" display as text "  Regime:      " as result "`regime'"
         if "`method'" != "" display as text "  Method:      " as result "`method'"
         if "`contract_version'" != "" {
@@ -174,6 +187,7 @@ program define psdash_detect, rclass
     return local psvar "`psvar_label'"
     return local covariates "`covariates'"
     return local wvar "`wvar_label'"
+    if "`weight_role'" != "" return local weight_role "`weight_role'"
     return local estimand "`estimand'"
     return scalar n_covariates = `ncovs'
     return scalar psvar_auto = ("`psvar_auto'" == "1")
@@ -193,6 +207,7 @@ program define psdash_detect, rclass
         if "`regime'" != "" return local regime "`regime'"
         if "`method'" != "" return local method "`method'"
         if "`contract_version'" != "" return local contract_version "`contract_version'"
+        if "`riskvar'" != "" return local riskvar "`riskvar'"
     }
 
     }

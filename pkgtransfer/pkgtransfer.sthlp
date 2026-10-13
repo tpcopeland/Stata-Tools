@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.1  12oct2026}{...}
+{* *! version 1.2.2  13oct2026}{...}
 {vieweralsosee "[R] net install" "help net_install"}{...}
 {title:Title}
 
@@ -82,8 +82,9 @@ destination; {opt download(local)} writes every tracked file as an {cmd:F} recor
 because a tracked file was installed into the system directories. When neither {opt download()}
 nor {opt restore} is specified, {cmd:pkgtransfer} generates a do-file
 ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive). Bundle
-creation refuses to reuse an existing {cmd:pkgtransfer_files} directory, so move or
-remove that directory before rerunning a download mode. Missing required package
+creation stages the files in a unique temporary directory, so an existing
+{cmd:pkgtransfer_files} folder (the one an offline installer unpacks next to its
+archive) never blocks, or is touched by, a later bundle run. Missing required package
 files abort bundle creation instead of producing an incomplete archive. Generated
 package descriptors and {cmd:stata.toc} use Stata's version-3
 distribution format. Plugin source and target paths are normalized into the
@@ -294,8 +295,8 @@ so an older copy on the destination is upgraded.
 
 {pstd}
 Bundle creation refuses conflicting payload paths and paths reserved for package
-descriptors or stata.toc. Installer and archive outputs must be outside
-pkgtransfer_files, which is removed after bundling. GitHub-origin entries need
+descriptors or stata.toc. The temporary staging directory is removed after
+bundling, whether it succeeds or fails. GitHub-origin entries need
 github on the destination; when github itself is selected, its generated command
 uses net install to bootstrap it.
 {p_end}
@@ -304,7 +305,7 @@ uses net install to bootstrap it.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.2.1, 2026-10-12{p_end}
+{pstd}Version 1.2.2, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -26,7 +26,7 @@ Documentation generated successfully
 
 ```
 Dataset Documentation
-Generated: 12 Oct 2026 23:47:12
+Generated: 13 Oct 2026 02:00:26
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -37,7 +37,7 @@ METADATA
 Observations: 1200
 Variables: 17
 Label: Synthetic Clinical Trial Cohort (N=1200)
-Data Signature: 1200:17(68284):2844760337:3810411015
+Data Signature: 1200:17(68284):809950434:1697081388
 
 DISCLOSURE RISK SUMMARY
 -----------------------
@@ -71,7 +71,7 @@ QUICK REFERENCE
   pct_adherence           double    continuous     19.3%     534
   enroll_date             double    date            0.0%     649
   birth_date              double    date            0.0%   >1000
-  follow_up_time          double    continuous      0.0%     123
+  follow_up_time          double    continuous      0.0%     643
   event                   double    categorical     0.0%       2
   treatment               double    categorical     0.0%       2
   site                    double    categorical     0.0%       7

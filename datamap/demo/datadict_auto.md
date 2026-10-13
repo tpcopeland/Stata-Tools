@@ -2,12 +2,12 @@
 
 ## Table of Contents
 
-1. [ Demo Auto](#1--demo-auto)
+1. [Demo Auto](#1-demo-auto)
 2. [Notes](#notes)
 3. [Change Log](#change-log)
 
 
-## 1.  Demo Auto
+## 1. Demo Auto
 
 **Filename:** `_demo_auto.dta`  
 **Source path:** `datamap/demo/_demo_auto.dta`  
@@ -46,4 +46,4 @@
 *No changes recorded.*
 
 
-**Last Updated:** 12 Oct 2026
+**Last Updated:** 13 Oct 2026

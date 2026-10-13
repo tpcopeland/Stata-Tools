@@ -1,4 +1,4 @@
-*! psdash_weights Version 1.7.5  2026/10/09
+*! psdash_weights Version 1.8.0  2026/10/13
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -673,29 +673,29 @@ program define psdash_weights, rclass
     local _pf ""
     local _pfn = 0
     if `ess_pct' < 50 {
-        display as error "Warning: ESS is less than 50% of N. Consider trimming weights."
+        display as text "{err}Warning: ESS is less than 50% of N. Consider trimming weights.{txt}"
         local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
         local ++_pfn
     }
     * Per-arm ESS collapse: an aggregate ESS can mask one destroyed arm (B5).
     local _min_arm_ess = min(`ess_pct_t', `ess_pct_c')
     if `_min_arm_ess' < 50 & `_min_arm_ess' < . {
-        display as error "Warning: minimum per-arm ESS is `=string(`_min_arm_ess',"%4.1f")'% of N (arm collapse)."
+        display as text "{err}Warning: minimum per-arm ESS is `=string(`_min_arm_ess',"%4.1f")'% of N (arm collapse).{txt}"
         local _pf `"`_pf' | min per-arm ESS `=string(`_min_arm_ess',"%4.1f")'% < 50%"'
         local ++_pfn
     }
     if `cv' > 1 {
-        display as error "Warning: High CV indicates substantial weight variability."
+        display as text "{err}Warning: High CV indicates substantial weight variability.{txt}"
         local _pf `"`_pf' | weight CV `=string(`cv',"%5.2f")' > 1"'
         local ++_pfn
     }
     if `n_extreme' > 0 {
-        display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
+        display as text "{err}Warning: `n_extreme' extreme weights detected (>`_eh').{txt}"
         local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
         local ++_pfn
     }
     if `max_wt' > `extvhi' {
-        display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
+        display as text "{err}Warning: Maximum weight exceeds `_evh'. Consider truncation.{txt}"
         local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
         local ++_pfn
     }
@@ -704,7 +704,7 @@ program define psdash_weights, rclass
     * explicit, scale-invariant dominance threshold that was printed but never
     * entered the verdict.
     if `max_ratio' >= 20 & `max_ratio' < . {
-        display as error "Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates)."
+        display as text "{err}Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates).{txt}"
         local _pf `"`_pf' | max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20"'
         local ++_pfn
     }
@@ -713,7 +713,7 @@ program define psdash_weights, rclass
     * n_wt_undefined/n_wt_dropped record that narrower failure separately.
     if "`n_ps_boundary'" != "" {
         if `n_ps_boundary' > 0 {
-            display as error "Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity."
+            display as text "{err}Warning: `n_ps_boundary' observation(s) at an exact PS boundary violate strict positivity.{txt}"
             local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary positivity violation(s)"'
             local ++_pfn
         }
@@ -726,7 +726,7 @@ program define psdash_weights, rclass
     * RB-09: user-supplied weights that were missing (and therefore dropped) are
     * surfaced rather than silently reducing the analysis N.
     if `n_wt_dropped' > 0 {
-        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        display as text "{err}Warning: `n_wt_dropped' observation(s) dropped for a missing weight.{txt}"
         local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
         local ++_pfn
     }
@@ -737,7 +737,7 @@ program define psdash_weights, rclass
 
     * Verdict (WARNING on ANY finding, not ESS alone)
     if `_pfn' > 0 {
-        display as text _n "Weights: " as error "WARNING" ///
+        display as text _n "Weights: " as text "{err}WARNING{txt}" ///
             as text " (ESS = " as result %4.1f `ess_pct' as text "% of N; " ///
             as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash weights, truncate(#) generate(w_trunc)}"
@@ -865,9 +865,9 @@ program define psdash_weights, rclass
                 }
 
                 noisily twoway (histogram `wvar' if `touse' & `treatment' == 1 `graph_if', ///
-                           `hist_stat' fcolor(navy%50) lcolor(navy) width(`bw')) ///
+                           `hist_stat' pstyle(p1) fcolor(%50) width(`bw')) ///
                        (histogram `wvar' if `touse' & `treatment' == 0 `graph_if', ///
-                           `hist_stat' fcolor(cranberry%50) lcolor(cranberry) width(`bw')), ///
+                           `hist_stat' pstyle(p6) fcolor(%50) width(`bw')), ///
                        legend(order(1 "Treated" 2 "Control") rows(1) position(6) size(small)) ///
                        xtitle("`weight_xtitle'", size(small)) ///
                        ytitle("`graph_ytitle'", size(small)) ///
@@ -1109,7 +1109,7 @@ program define psdash_weights, rclass
         local _lbl_default "`lev'"
         if "`vallbl'" == "" local _lbl_default "Group `lev'"
         _psdash_label_text, variable(`treatment') level(`lev') ///
-            default("`_lbl_default'")
+            default(`_lbl_default')
         local lbl_`lev' `"`r(text)'"'
         display as text %15s "`lbl_`lev''" _c
     }
@@ -1218,7 +1218,7 @@ program define psdash_weights, rclass
     local _pf ""
     local _pfn = 0
     if `ess_pct' < 50 {
-        display as error "Warning: ESS is less than 50% of N. Consider trimming weights."
+        display as text "{err}Warning: ESS is less than 50% of N. Consider trimming weights.{txt}"
         local _pf `"`_pf' | overall ESS `=string(`ess_pct',"%4.1f")'% < 50%"'
         local ++_pfn
     }
@@ -1229,33 +1229,33 @@ program define psdash_weights, rclass
         if `ess_pct_`lev'' < `_min_grp_ess' local _min_grp_ess = `ess_pct_`lev''
     }
     if `_min_grp_ess' < 50 & `_min_grp_ess' < . {
-        display as error "Warning: minimum per-group ESS is `=string(`_min_grp_ess',"%4.1f")'% of N (group collapse)."
+        display as text "{err}Warning: minimum per-group ESS is `=string(`_min_grp_ess',"%4.1f")'% of N (group collapse).{txt}"
         local _pf `"`_pf' | min per-group ESS `=string(`_min_grp_ess',"%4.1f")'% < 50%"'
         local ++_pfn
     }
     if `cv' > 1 {
-        display as error "Warning: High CV indicates substantial weight variability."
+        display as text "{err}Warning: High CV indicates substantial weight variability.{txt}"
         local _pf `"`_pf' | weight CV `=string(`cv',"%5.2f")' > 1"'
         local ++_pfn
     }
     if `n_extreme' > 0 {
-        display as error "Warning: `n_extreme' extreme weights detected (>`_eh')."
+        display as text "{err}Warning: `n_extreme' extreme weights detected (>`_eh').{txt}"
         local _pf `"`_pf' | `n_extreme' extreme weights > `_eh'"'
         local ++_pfn
     }
     if `n_wt_dropped' > 0 {
-        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        display as text "{err}Warning: `n_wt_dropped' observation(s) dropped for a missing weight.{txt}"
         local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
         local ++_pfn
     }
     * RB-09: max/mean weight ratio dominance threshold (multi-group).
     if `max_ratio' >= 20 & `max_ratio' < . {
-        display as error "Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates)."
+        display as text "{err}Warning: max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20 (a single weight dominates).{txt}"
         local _pf `"`_pf' | max/mean weight ratio `=string(`max_ratio',"%5.1f")' >= 20"'
         local ++_pfn
     }
     if `max_wt' > `extvhi' {
-        display as error "Warning: Maximum weight exceeds `_evh'. Consider truncation."
+        display as text "{err}Warning: Maximum weight exceeds `_evh'. Consider truncation.{txt}"
         local _pf `"`_pf' | max weight `=string(`max_wt',"%6.2f")' > `_evh'"'
         local ++_pfn
     }
@@ -1266,7 +1266,7 @@ program define psdash_weights, rclass
 
     * Verdict (WARNING on ANY finding, not ESS alone)
     if `_pfn' > 0 {
-        display as text _n "Weights: " as error "WARNING" ///
+        display as text _n "Weights: " as text "{err}WARNING{txt}" ///
             as text " (ESS = " as result %4.1f `ess_pct' as text "% of N; " ///
             as result `_pfn' as text " finding(s))"
         display as text "  Consider: {cmd:psdash weights, trim(99) generate(w_trim)} or {cmd:psdash weights, truncate(#) generate(w_trunc)}"
@@ -1389,15 +1389,17 @@ program define psdash_weights, rclass
                 }
 
                 * Build overlaid histograms for K groups
-                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+                * Series colours come from the active scheme in the order p1, p6, p2, p3,
+                * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
+                * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
                 local plot_cmd ""
                 local legend_order ""
                 local gnum = 0
                 foreach lev of local levels {
                     local gnum = `gnum' + 1
-                    local col : word `gnum' of `color_list'
+                    local pst = cond(`gnum' == 1, 1, cond(`gnum' == 2, 6, cond(`gnum' <= 6, `gnum' - 1, mod(`gnum' - 1, 15) + 1)))
                     local lab "`lbl_`lev''"
-                    local plot_cmd `"`plot_cmd' (histogram `wvar' if `touse' & `treatment' == `lev' `graph_if', `hist_stat' fcolor(`col'%50) lcolor(`col') width(`bw'))"'
+                    local plot_cmd `"`plot_cmd' (histogram `wvar' if `touse' & `treatment' == `lev' `graph_if', `hist_stat' pstyle(p`pst') fcolor(%50) width(`bw'))"'
                     local legend_order `"`legend_order' `gnum' "`lab'""'
                 }
 

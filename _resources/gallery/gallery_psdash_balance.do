@@ -16,6 +16,20 @@ merge 1:1 id using _data/comorbidities.dta, nogen
 merge 1:1 id using _data/cci.dta, nogen assert(match)
 generate byte married = (civil_status == 2) if !missing(civil_status)
 
+* psdash 1.8.0 labels Love-plot rows with variable labels; short ones keep the
+* plot region wide enough for the ~350px README tile.
+label variable female "Female"
+label variable index_age "Age"
+label variable education "Education"
+label variable income_quintile "Income quintile"
+label variable born_abroad "Born abroad"
+label variable married "Married"
+label variable diabetes "Diabetes"
+label variable hypertension "Hypertension"
+label variable anxiety "Anxiety"
+label variable prior_cvd "Prior CVD"
+label variable charlson "Charlson index"
+
 local cov female index_age education income_quintile born_abroad married ///
     diabetes hypertension anxiety prior_cvd charlson
 logit treated `cov', nolog

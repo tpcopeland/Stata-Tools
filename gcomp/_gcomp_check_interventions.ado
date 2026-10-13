@@ -1,4 +1,4 @@
-*! _gcomp_check_interventions Version 2.0.3  2026/10/09
+*! _gcomp_check_interventions Version 2.0.4  2026/10/13
 *! Stage an intervention arm without changing the working analytic data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

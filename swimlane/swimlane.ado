@@ -1,4 +1,4 @@
-*! swimlane Version 0.1.1  2026/09/30
+*! swimlane Version 0.2.0  2026/10/13
 *! Swimmer and state swimlane plots for clinical and longitudinal data
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -104,7 +104,8 @@ program define swimlane, rclass sortpreserve
              BYLayout(string) ///
              COLORby(varname) ///
              REFLine(numlist) ///
-             COLors(string) ///
+             COLors(string asis) ///
+             BAROPacity(integer -1) ///
              PALette(string) ///
              MSYMbols(string) ///
              MSIZe(string) ///
@@ -250,6 +251,11 @@ program define swimlane, rclass sortpreserve
                 exit 198
             }
         }
+        if `baropacity' != -1 & (`baropacity' < 0 | `baropacity' > 100) {
+            display as error "baropacity() must be between 0 and 100"
+            exit 198
+        }
+        if `"`colors'"' != "" _swimlane_checkcolors `colors'
         if `barwidth' <= 0 {
             display as error "barwidth() must be positive"
             exit 198
@@ -913,7 +919,8 @@ program define swimlane, rclass sortpreserve
         if "`by'" != "" local _plot_opts `"`_plot_opts' bylayout(`bylayout_l')"'
         if "`colorby'" != "" local _plot_opts `"`_plot_opts' colorbyplot"'
         if "`refline'" != "" local _plot_opts `"`_plot_opts' refline(`refline')"'
-        if `"`colors'"' != "" local _plot_opts `"`_plot_opts' colors(`"`colors'"')"'
+        if `baropacity' != -1 local _plot_opts `"`_plot_opts' baropacity(`baropacity')"'
+        if `"`colors'"' != "" local _plot_opts `"`_plot_opts' colors(`colors')"'
         if "`palette_l'" != "" local _plot_opts `"`_plot_opts' palette(`palette_l')"'
         if `"`msymbols'"' != "" local _plot_opts `"`_plot_opts' msymbols(`"`msymbols'"')"'
         if `"`msize'"' != "" local _plot_opts `"`_plot_opts' msize(`"`msize'"')"'
@@ -1036,4 +1043,94 @@ program define swimlane, rclass sortpreserve
 
     if `_side_rc' exit `_side_rc'
     if `rc' exit `rc'
+end
+
+* Validate colors(). Stata itself ignores an unknown or malformed color
+* without any error (the bar silently falls back), so each token is resolved
+* here the way Stata resolves a colorstyle ([G-4] colorstyle):
+*   - bg, background, fg, foreground, or a named color that exists as a
+*     color-<name>.style file on the adopath (built-ins, scheme packages such
+*     as tc_schemes, and user-defined colors);
+*   - "R G B" (integers 0-255), "C M Y K" (integers 0-255, or all <= 1 as
+*     proportions of ink), or "hsv H S V" (H 0-360, S and V 0-1);
+*   each optionally followed by %opacity (0-100) and/or *intensity (0-255).
+* A bare %# or *# (which Stata reads as "default color") is refused because
+* a palette entry must name a color. #RRGGBB is refused: Stata 17 and earlier
+* draw it black (support in later versions could not be verified).
+program define _swimlane_checkcolors
+    version 16.0
+    local _rest `"`0'"'
+    while `"`_rest'"' != "" {
+        gettoken _tok _rest : _rest
+        local _tok = strtrim(`"`_tok'"')
+        _swimlane_checkcolor `"`_tok'"'
+    }
+end
+
+program define _swimlane_checkcolor
+    version 16.0
+    args tok
+    local base `"`tok'"'
+    local nop 0
+    local nint 0
+    local why ""
+    while `"`why'"' == "" & ustrregexm(`"`base'"', "^(.*)([%*])([0-9]*\.?[0-9]*)$") {
+        local m = ustrregexs(2)
+        local num = ustrregexs(3)
+        local base = ustrregexs(1)
+        if "`num'" == "" | "`num'" == "." {
+            local why "missing number after `m'"
+        }
+        else if "`m'" == "%" {
+            local ++nop
+            if `num' > 100 local why "opacity must be 0-100"
+        }
+        else {
+            local ++nint
+            if `num' > 255 local why "intensity must be 0-255"
+        }
+    }
+    if `"`why'"' == "" & (`nop' > 1 | `nint' > 1) {
+        local why "repeated % or * modifier"
+    }
+    local base = strtrim(`"`base'"')
+    if `"`why'"' == "" & `"`base'"' == "" {
+        local why "a color is required"
+    }
+    if `"`why'"' == "" {
+        if inlist(`"`base'"', "bg", "background", "fg", "foreground") {
+        }
+        else if ustrregexm(`"`base'"', "^[A-Za-z_][A-Za-z0-9_]*$") {
+            capture quietly findfile color-`base'.style
+            if _rc local why "no such color (see graph query colorstyle)"
+        }
+        else if ustrregexm(`"`base'"', "^hsv +([0-9.]+) +([0-9.]+) +([0-9.]+)$") {
+            if real(ustrregexs(1)) > 360 | real(ustrregexs(2)) > 1 | real(ustrregexs(3)) > 1 {
+                local why "hsv needs H 0-360, S 0-1, V 0-1"
+            }
+        }
+        else if ustrregexm(`"`base'"', "^[0-9.]+( +[0-9.]+){2,3}$") {
+            local n : word count `base'
+            local allint = 1
+            local allprop = 1
+            foreach w of local base {
+                if !ustrregexm("`w'", "^[0-9]+$") | real("`w'") > 255 local allint = 0
+                if real("`w'") > 1 | real("`w'") == . local allprop = 0
+            }
+            if `n' == 3 & !`allint' local why "RGB needs three integers 0-255"
+            else if `n' == 4 & !`allint' & !`allprop' {
+                local why "CMYK needs four integers 0-255 or four proportions 0-1"
+            }
+        }
+        else if ustrregexm(`"`base'"', "^#[0-9A-Fa-f]+$") {
+            local why "hexadecimal colors are not supported on Stata 17 and earlier (drawn black); use an RGB triplet such as 0 114 178"
+        }
+        else {
+            local why "not a recognized colorstyle"
+        }
+    }
+    if `"`why'"' != "" {
+        display as error "colors(): invalid color " as text `"`tok'"' as error ": `why'"
+        exit 198
+    }
 end

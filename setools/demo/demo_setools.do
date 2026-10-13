@@ -44,6 +44,15 @@ log using "`pkg_dir'/migrations.smcl", replace smcl name(s3) nomsg
 noisily migrations, migfile("migrations_wide.dta") startvar(study_entry) verbose
 log close s3
 capture erase "migrations_wide.dta"
+* migrations echoes the canonical absolute path under verbose; strip the
+* working-directory prefix so the tracked output is relocatable
+quietly filefilter "`pkg_dir'/migrations.smcl" "`pkg_dir'/migrations_rel.smcl", ///
+    from("`c(pwd)'/") to("") replace
+* a non-match would leave an absolute path in the tracked output. Note that
+* filefilter cannot match a backslash path, so Windows is not handled here.
+assert r(occurrences) >= 1
+copy "`pkg_dir'/migrations_rel.smcl" "`pkg_dir'/migrations.smcl", replace
+erase "`pkg_dir'/migrations_rel.smcl"
 
 * --- 4. sustainedss — Sustained EDSS progression ---
 use "`c(pwd)'/_data/relapses.dta", clear

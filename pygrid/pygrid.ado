@@ -1,4 +1,4 @@
-*! pygrid Version 1.0.1  2026/08/30
+*! pygrid Version 1.0.2  2026/10/13
 *! Build a person-period denominator grid with exact person-time
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

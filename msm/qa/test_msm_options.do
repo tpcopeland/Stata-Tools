@@ -190,95 +190,6 @@ else {
     local failed_tests "`failed_tests' A6"
 }
 
-* --- SECTION B: msm_validate options ---
-
-* --- B1: msm_validate verbose option ---
-local ++test_count
-capture {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) baseline_covariates(age sex)
-    msm_validate, verbose
-    assert r(n_checks) == 10
-}
-if _rc == 0 {
-    display as result "  PASS B1: msm_validate verbose"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL B1: msm_validate verbose (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' B1"
-}
-
-* --- B2: msm_validate strict with data that has gaps ---
-local ++test_count
-capture {
-    use "`pkg_dir'/msm_example.dta", clear
-    * Create a gap by removing period=3 for id=1
-    drop if id == 1 & period == 3
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(biomarker)
-    capture msm_validate, strict
-    * strict should fail because gap is now an error
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS B2: msm_validate strict rejects gaps"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL B2: msm_validate strict gaps (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' B2"
-}
-
-* --- B3: msm_validate non-strict passes with warnings ---
-local ++test_count
-capture {
-    use "`pkg_dir'/msm_example.dta", clear
-    drop if id == 1 & period == 3
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(biomarker)
-    msm_validate
-    assert !missing(r(n_warnings))
-    assert r(n_warnings) > 0
-    assert r(n_errors) == 0
-    assert "`r(validation)'" == "passed"
-}
-if _rc == 0 {
-    display as result "  PASS B3: msm_validate non-strict passes with warnings"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL B3: msm_validate warnings (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' B3"
-}
-
-* --- B4: msm_validate return values completeness ---
-local ++test_count
-capture {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) baseline_covariates(age sex)
-    msm_validate
-    assert r(n_checks) == 10
-    assert r(n_errors) != .
-    assert r(n_warnings) != .
-    assert "`r(validation)'" == "passed"
-}
-if _rc == 0 {
-    display as result "  PASS B4: msm_validate return values"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL B4: msm_validate return values (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' B4"
-}
 
 * --- SECTION C: msm_weight options ---
 
@@ -828,15 +739,17 @@ capture {
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
     msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
 
-    assert r(mean_weight) != .
-    assert r(sd_weight) != .
-    assert r(min_weight) != .
-    assert r(max_weight) != .
-    assert r(p1_weight) != .
-    assert r(p99_weight) != .
-    assert r(ess) != .
-    assert r(ess_pct) != .
-    assert r(n_extreme) != .
+    * msm 2.0.0 surface: longitudinal balance, support, positivity; the
+    * pooled weight scalars moved to msm_weight/psdash.
+    assert "`r(covariates)'" == "biomarker comorbidity age sex"
+    assert r(threshold) == 0.1
+    assert !missing(r(n_imbalanced), r(n_numerator), r(n_unavailable))
+    assert r(n_numerator) == 2
+    assert !missing(r(n_positivity_violations), r(min_obs_probability))
+    assert r(positivity_threshold) == 0.01
+    assert r(n_support_violations) == 0
+    confirm matrix r(treatment_balance)
+    confirm matrix r(support)
 
     * Balance matrix should exist
     tempname bal
@@ -854,29 +767,13 @@ else {
     local failed_tests "`failed_tests' F1"
 }
 
-* --- F2: msm_diagnose by_period option ---
-local ++test_count
-capture {
-    msm_diagnose, by_period
-    assert !missing(r(ess))
-    assert r(ess) > 0
-}
-if _rc == 0 {
-    display as result "  PASS F2: msm_diagnose by_period"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL F2: by_period (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' F2"
-}
 
 * --- F3: msm_diagnose custom threshold ---
 local ++test_count
 capture {
     msm_diagnose, balance_covariates(biomarker comorbidity) threshold(0.05)
-    assert !missing(r(ess))
-    assert r(ess) > 0
+    assert r(threshold) == 0.05
+    assert "`r(covariates)'" == "biomarker comorbidity"
 }
 if _rc == 0 {
     display as result "  PASS F3: msm_diagnose custom threshold"
@@ -892,8 +789,7 @@ else {
 local ++test_count
 capture {
     msm_diagnose
-    assert !missing(r(ess))
-    assert r(ess) > 0
+    assert "`r(covariates)'" == "biomarker comorbidity age sex"
 }
 if _rc == 0 {
     display as result "  PASS F4: msm_diagnose defaults to mapped covariates"
@@ -905,444 +801,6 @@ else {
     local failed_tests "`failed_tests' F4"
 }
 
-* --- SECTION G: msm_plot options ---
-
-* --- G1: msm_plot balance (Love plot) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
-    msm_plot, type(balance) covariates(biomarker comorbidity age sex)
-    assert "`r(plot_type)'" == "balance"
-    assert !missing(r(n_risk))
-    matrix _g1_bal = r(balance)
-    assert rowsof(_g1_bal) > 0
-    graph close _all
-}
-if _rc == 0 {
-    display as result "  PASS G1: msm_plot balance"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL G1: plot balance (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' G1"
-}
-
-* --- G2: msm_plot survival ---
-local ++test_count
-capture {
-    msm_plot, type(survival) times(1 3 5 7 9) samples(20) seed(42)
-    assert "`r(plot_type)'" == "survival"
-    graph close _all
-}
-if _rc == 0 {
-    display as result "  PASS G2: msm_plot survival"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL G2: plot survival (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' G2"
-}
-
-* --- G3: msm_plot trajectory ---
-local ++test_count
-capture {
-    msm_plot, type(trajectory) n_sample(20)
-    assert "`r(plot_type)'" == "trajectory"
-    graph close _all
-}
-if _rc == 0 {
-    display as result "  PASS G3: msm_plot trajectory"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL G3: plot trajectory (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' G3"
-}
-
-* --- G4: msm_plot invalid type ---
-local ++test_count
-capture {
-    capture msm_plot, type(histogram)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS G4: rejects invalid plot type"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL G4: invalid plot type (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' G4"
-}
-
-* --- G5: msm_plot survival without times() ---
-local ++test_count
-capture {
-    capture msm_plot, type(survival)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS G5: survival plot requires times()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL G5: survival times() required (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' G5"
-}
-
-* --- SECTION H: msm_report options ---
-
-* --- H1: msm_report Excel export ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
-    tempfile report_xlsx_anchor
-    local xlsx_file "`report_xlsx_anchor'.xlsx"
-    capture erase "`xlsx_file'"
-    msm_report, export("`xlsx_file'") format(excel) eform replace
-    confirm file "`xlsx_file'"
-    preserve
-    import excel "`xlsx_file'", sheet("Coefficients") clear
-    local _expected_or = exp(_msm_fit_b[1, 1])
-    assert abs(real(B[3]) - `_expected_or') < 0.01
-    assert D[3] != "3"
-    restore
-    capture erase "`xlsx_file'"
-}
-if _rc == 0 {
-    display as result "  PASS H1: msm_report Excel export"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL H1: Excel export (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' H1"
-}
-
-* --- H2: msm_report without eform ---
-local ++test_count
-capture {
-    msm_report
-    assert "`r(format)'" == "display"
-}
-if _rc == 0 {
-    display as result "  PASS H2: msm_report without eform"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL H2: no eform display (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' H2"
-}
-
-* --- H3: msm_report csv requires export() ---
-local ++test_count
-capture {
-    capture msm_report, format(csv)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS H3: CSV requires export()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL H3: CSV export() requirement (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' H3"
-}
-
-* --- H4: msm_report invalid format ---
-local ++test_count
-capture {
-    capture msm_report, format(pdf)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS H4: rejects invalid format"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL H4: invalid format rejection (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' H4"
-}
-
-* --- H5: msm_report custom decimals ---
-local ++test_count
-capture {
-    tempfile report_csv_anchor
-    local csv_file "`report_csv_anchor'.csv"
-    capture erase "`csv_file'"
-    msm_report, export("`csv_file'") format(csv) decimals(2) eform replace
-    confirm file "`csv_file'"
-    assert "`r(export)'" == "`csv_file'"
-    assert "`r(format)'" == "csv"
-    preserve
-    import delimited using "`csv_file'", clear varnames(1)
-    assert _N > 0
-    restore
-    capture erase "`csv_file'"
-}
-if _rc == 0 {
-    display as result "  PASS H5: msm_report custom decimals"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL H5: custom decimals (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' H5"
-}
-
-* --- SECTION I: msm_protocol options ---
-
-* --- I1: msm_protocol CSV export ---
-local ++test_count
-capture {
-    tempfile protocol_csv_anchor
-    local csv_file "`protocol_csv_anchor'.csv"
-    capture erase "`csv_file'"
-    msm_protocol, ///
-        population("Adults age 18+") treatment("Drug A vs placebo") ///
-        confounders("BMI, smoking") outcome("MI") ///
-        causal_contrast("Always vs never") weight_spec("Stabilized IPTW") ///
-        analysis("Pooled logistic") ///
-        export("`csv_file'") format(csv) replace
-    confirm file "`csv_file'"
-    * msm_protocol posts no r(export) (that is msm_report's); the file
-    * itself is confirmed above. Path asserted was: "`csv_file'"
-    assert "`r(format)'" == "csv"
-    assert "`r(population)'" == "Adults age 18+"
-    preserve
-    import delimited using "`csv_file'", clear varnames(1)
-    assert _N > 0
-    restore
-    capture erase "`csv_file'"
-}
-if _rc == 0 {
-    display as result "  PASS I1: msm_protocol CSV export"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL I1: protocol CSV (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' I1"
-}
-
-* --- I2: msm_protocol Excel export ---
-local ++test_count
-capture {
-    tempfile protocol_xlsx_anchor
-    local xlsx_file "`protocol_xlsx_anchor'.xlsx"
-    capture erase "`xlsx_file'"
-    msm_protocol, ///
-        population("Adults") treatment("Statin vs none") ///
-        confounders("LDL, age") outcome("CVD") ///
-        causal_contrast("Always vs never") weight_spec("IPTW") ///
-        analysis("Pooled logistic") ///
-        export("`xlsx_file'") format(excel) replace
-    confirm file "`xlsx_file'"
-    * msm_protocol posts no r(export) (that is msm_report's); the file
-    * itself is confirmed above. Path asserted was: "`xlsx_file'"
-    assert "`r(format)'" == "excel"
-    preserve
-    import excel using "`xlsx_file'", sheet("Protocol") firstrow clear allstring
-    assert _N > 0
-    restore
-    capture erase "`xlsx_file'"
-}
-if _rc == 0 {
-    display as result "  PASS I2: msm_protocol Excel export"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL I2: protocol Excel (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' I2"
-}
-
-* --- I3: msm_protocol LaTeX export ---
-local ++test_count
-capture {
-    tempfile protocol_tex_anchor
-    local tex_file "`protocol_tex_anchor'.tex"
-    capture erase "`tex_file'"
-    msm_protocol, ///
-        population("HIV+ adults") treatment("ART vs no ART") ///
-        confounders("CD4, VL") outcome("Death") ///
-        causal_contrast("Always vs never") weight_spec("IPTW+IPCW") ///
-        analysis("Cox MSM") ///
-        export("`tex_file'") format(latex) replace
-    confirm file "`tex_file'"
-    * msm_protocol posts no r(export) (that is msm_report's); the file
-    * itself is confirmed above. Path asserted was: "`tex_file'"
-    assert "`r(format)'" == "latex"
-    assert strpos(fileread("`tex_file'"), "HIV+ adults") > 0
-    capture erase "`tex_file'"
-}
-if _rc == 0 {
-    display as result "  PASS I3: msm_protocol LaTeX export"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL I3: protocol LaTeX (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' I3"
-}
-
-* --- I4: msm_protocol return values ---
-local ++test_count
-capture {
-    msm_protocol, ///
-        population("Adults") treatment("Drug A") ///
-        confounders("X") outcome("Y") ///
-        causal_contrast("Always vs never") weight_spec("IPTW") ///
-        analysis("GLM")
-    assert "`r(population)'" == "Adults"
-    assert "`r(treatment)'" == "Drug A"
-    assert "`r(format)'" == "display"
-}
-if _rc == 0 {
-    display as result "  PASS I4: msm_protocol return values"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL I4: protocol return values (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' I4"
-}
-
-* --- I5: msm_protocol invalid format ---
-local ++test_count
-capture {
-    capture msm_protocol, ///
-        population("A") treatment("B") confounders("C") outcome("D") ///
-        causal_contrast("E") weight_spec("F") analysis("G") ///
-        format(pdf)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS I5: protocol rejects invalid format"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL I5: invalid format (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' I5"
-}
-
-* --- SECTION J: msm_sensitivity options ---
-
-* --- J1: msm_sensitivity on linear model ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) nolog
-    msm_sensitivity, evalue
-    * Linear model: E-value not available, but should not error
-    assert r(effect) != .
-    assert "`r(effect_label)'" == "Coef"
-}
-if _rc == 0 {
-    display as result "  PASS J1: msm_sensitivity on linear model"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL J1: sensitivity linear (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' J1"
-}
-
-* --- J2: msm_sensitivity on Cox model ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(cox) outcome_cov(age sex) nolog
-    msm_sensitivity, evalue
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) > 1 | r(evalue_point) != .
-    assert "`r(effect_label)'" == "HR"
-}
-if _rc == 0 {
-    display as result "  PASS J2: msm_sensitivity on Cox model"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL J2: sensitivity Cox (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' J2"
-}
-
-* --- J3: msm_sensitivity default to evalue ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
-    msm_sensitivity
-    * No options specified, defaults to evalue
-    assert r(evalue_point) != .
-}
-if _rc == 0 {
-    display as result "  PASS J3: msm_sensitivity defaults to evalue"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL J3: default evalue (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' J3"
-}
-
-* --- J4: msm_sensitivity return values completeness ---
-local ++test_count
-capture {
-    msm_sensitivity, evalue confounding_strength(1.5 2.0)
-    assert r(effect) != .
-    assert r(effect_lo) != .
-    assert r(effect_hi) != .
-    assert r(evalue_point) != .
-    assert r(evalue_ci) != .
-    assert r(bias_factor) != .
-    assert r(corrected_effect) != .
-    assert r(rr_ud) == 1.5
-    assert r(rr_uy) == 2.0
-    assert "`r(model)'" == "logistic"
-}
-if _rc == 0 {
-    display as result "  PASS J4: msm_sensitivity return values complete"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL J4: sensitivity return values (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' J4"
-}
-
-* --- SECTION K: Helper functions ---
-
-* --- K1: _msm_col_letter edge cases ---
-local ++test_count
-capture {
-    _msm_col_letter 26
-    assert "`result'" == "Z"
-    _msm_col_letter 28
-    assert "`result'" == "AB"
-    _msm_col_letter 52
-    assert "`result'" == "AZ"
-}
-if _rc == 0 {
-    display as result "  PASS K1: _msm_col_letter edge cases"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL K1: col_letter edge cases (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' K1"
-}
 
 * --- K2: _msm_natural_spline df=1 (linear) ---
 local ++test_count
@@ -1476,23 +934,19 @@ capture {
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
     msm_predict, times(3 5 9) samples(20) seed(42) difference
     msm_diagnose, balance_covariates(biomarker comorbidity age sex)
-    msm_sensitivity, evalue
 
-    * Check all persisted chars
+    * Check the persisted chars (msm 2.0.0: prepare/weight/fit only;
+    * predict and diagnose are read-only on the dataset)
     local chk : char _dta[_msm_prepared]
     assert "`chk'" == "1"
     local chk : char _dta[_msm_weighted]
     assert "`chk'" == "1"
     local chk : char _dta[_msm_fitted]
     assert "`chk'" == "1"
-    local chk : char _dta[_msm_pred_saved]
-    assert "`chk'" == "1"
-    local chk : char _dta[_msm_bal_saved]
-    assert "`chk'" == "1"
-    local chk : char _dta[_msm_diag_saved]
-    assert "`chk'" == "1"
-    local chk : char _dta[_msm_sens_saved]
-    assert "`chk'" == "1"
+    foreach c in _msm_pred_saved _msm_bal_saved _msm_diag_saved _msm_sens_saved {
+        local chk : char _dta[`c']
+        assert "`chk'" == ""
+    }
     local chk : char _dta[_msm_model]
     assert "`chk'" == "logistic"
     local chk : char _dta[_msm_period_spec]
@@ -1508,27 +962,6 @@ else {
     local failed_tests "`failed_tests' L1"
 }
 
-* --- L2: Persisted matrices for msm_table ---
-local ++test_count
-capture {
-    capture matrix list _msm_pred_matrix
-    assert _rc == 0
-    matrix _l2_pred = _msm_pred_matrix
-    assert rowsof(_l2_pred) > 0
-    capture matrix list _msm_bal_matrix
-    assert _rc == 0
-    matrix _l2_bal = _msm_bal_matrix
-    assert rowsof(_l2_bal) > 0
-}
-if _rc == 0 {
-    display as result "  PASS L2: persisted matrices exist"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL L2: persisted matrices (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' L2"
-}
 
 * =============================================================================
 * SECTION M: AUDIT FIX REGRESSION TESTS
@@ -1572,58 +1005,6 @@ else {
     local failed_tests "`failed_tests' M1"
 }
 
-* --- M2: msm_sensitivity survives intervening estimation (Finding 1) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
-
-    * Overwrite e()
-    quietly logit outcome treatment age sex if period == 0
-
-    * msm_sensitivity should still work from saved matrices
-    msm_sensitivity, evalue
-    assert r(evalue_point) != .
-    assert r(effect) != .
-}
-if _rc == 0 {
-    display as result "  PASS M2: msm_sensitivity survives intervening estimation"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M2: sensitivity after intervening estimation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M2"
-}
-
-* --- M3: msm_report survives intervening estimation (Finding 1) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
-    matrix _m3_fit_b = _msm_fit_b
-
-    * Overwrite e()
-    quietly logit outcome treatment age sex if period == 0
-
-    * msm_report should still work from saved matrices
-    msm_report
-    * Prove msm_report used the SAVED fit, not the intervening logit: the
-    * persisted coefficient matrix must be untouched, and the active
-    * estimation results must still belong to the intervening logit call
-    * (msm_report must read from the msm matrices, not re-run/replace e()).
-    assert mreldif(_msm_fit_b, _m3_fit_b) < 1e-12
-    assert "`e(cmd)'" == "logit"
-}
-if _rc == 0 {
-    display as result "  PASS M3: msm_report survives intervening estimation"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M3: report after intervening estimation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M3"
-}
 
 * --- M4: msm_prepare clears all stale artifacts (Finding 2) ---
 local ++test_count
@@ -1633,15 +1014,14 @@ capture {
     msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
     msm_predict, times(3 5) samples(20) seed(42)
     msm_diagnose, balance_covariates(biomarker comorbidity age sex)
-    msm_sensitivity, evalue
+    * 1.4.x datasets carry downstream chars; plant them to prove re-prepare
+    * still clears legacy state.
+    char _dta[_msm_pred_saved] "1"
+    char _dta[_msm_bal_saved] "1"
+    char _dta[_msm_diag_saved] "1"
+    char _dta[_msm_sens_saved] "1"
 
     * Verify artifacts exist
-    local chk : char _dta[_msm_pred_saved]
-    assert "`chk'" == "1"
-    local chk : char _dta[_msm_bal_saved]
-    assert "`chk'" == "1"
-    local chk : char _dta[_msm_sens_saved]
-    assert "`chk'" == "1"
     local chk : char _dta[_msm_fitted]
     assert "`chk'" == "1"
     capture matrix list _msm_fit_b
@@ -1671,10 +1051,6 @@ capture {
     * Saved matrices should be cleared
     capture matrix list _msm_fit_b
     assert _rc != 0
-    capture matrix list _msm_pred_matrix
-    assert _rc != 0
-    capture matrix list _msm_bal_matrix
-    assert _rc != 0
 }
 if _rc == 0 {
     display as result "  PASS M4: msm_prepare clears all stale artifacts"
@@ -1686,31 +1062,6 @@ else {
     local failed_tests "`failed_tests' M4"
 }
 
-* --- M5: msm_table refuses stale data after re-prepare (Finding 2) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
-    msm_predict, times(3 5) samples(20) seed(42)
-
-    * Re-prepare clears everything
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) baseline_covariates(age sex)
-
-    * msm_table should now fail (no results available)
-    capture msm_table, xlsx("`qa_dir'/test_stale.xlsx") replace
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS M5: msm_table rejects stale data after re-prepare"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M5: stale table rejection (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M5"
-}
 
 * --- M6: Repeated ns() fits succeed (Finding 6) ---
 local ++test_count
@@ -1734,58 +1085,6 @@ else {
     local failed_tests "`failed_tests' M6"
 }
 
-* --- M7: msm_plot survival is non-destructive to saved predictions (Finding 7) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
-
-    * Save predictions with difference
-    msm_predict, times(3 5 9) strategy(both) difference samples(30) seed(42)
-    local pred_cols_before = colsof(_msm_pred_matrix)
-    local pred_rows_before = rowsof(_msm_pred_matrix)
-    local strat_before : char _dta[_msm_pred_strategy]
-    local uuid_before : char _dta[_msm_pred_uuid]
-    local dep_before : char _dta[_msm_pred_dep]
-    tempname pred_before
-    matrix `pred_before' = _msm_pred_matrix
-
-    * Survival plot internally calls msm_predict (fewer times, no difference)
-    * This should NOT overwrite the saved predictions
-    set graphics off
-    msm_plot, type(survival) times(3 5) samples(10) seed(99)
-    set graphics on
-
-    * Verify saved predictions are unchanged
-    local pred_cols_after = colsof(_msm_pred_matrix)
-    local pred_rows_after = rowsof(_msm_pred_matrix)
-    local strat_after : char _dta[_msm_pred_strategy]
-    local uuid_after : char _dta[_msm_pred_uuid]
-    local dep_after : char _dta[_msm_pred_dep]
-
-    assert `pred_cols_before' == `pred_cols_after'
-    assert `pred_rows_before' == `pred_rows_after'
-    assert "`strat_before'" == "`strat_after'"
-    assert "`uuid_before'" == "`uuid_after'"
-    assert "`dep_before'" == "`dep_after'"
-    assert mreldif(`pred_before', _msm_pred_matrix) < 1e-12
-
-    * Prove the dataset-resident payload was restored too, not just the
-    * session-global matrix and display characteristics.
-    matrix drop _msm_pred_matrix
-    _msm_check_artifact prediction
-    assert r(ok) == 1
-    assert mreldif(`pred_before', _msm_pred_matrix) < 1e-12
-}
-if _rc == 0 {
-    display as result "  PASS M7: msm_plot survival is non-destructive"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M7: plot overwrites predictions (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M7"
-}
 
 * --- M8: censor_n_cov without censor_d_cov errors (Finding 12) ---
 local ++test_count
@@ -1809,33 +1108,6 @@ else {
     local failed_tests "`failed_tests' M8"
 }
 
-* --- M9: msm_table uses correct CI level from fit (Finding 10) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) ///
-        level(90) nolog
-
-    * Verify level stored
-    local chk : char _dta[_msm_fit_level]
-    assert "`chk'" == "90"
-
-    * Export coefficient table
-    msm_table, xlsx("`qa_dir'/test_level90.xlsx") coefficients replace
-
-    erase "`qa_dir'/test_level90.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS M9: msm_table uses stored CI level"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M9: CI level propagation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M9"
-    capture erase "`qa_dir'/test_level90.xlsx"
-    capture erase "`qa_dir'/_check_level.txt"
-}
 
 * --- M10: varabbrev is restored after errors (Finding 11) ---
 local ++test_count
@@ -1925,59 +1197,6 @@ else {
     local failed_tests "`failed_tests' M11"
 }
 
-* --- M12: msm router lists msm_table (Finding 14) ---
-local ++test_count
-capture {
-    msm, list
-    local cmd_list "`r(commands)'"
-    * Check msm_table and msm_diagtab are in the command list
-    local found = 0
-    local found_diagtab = 0
-    foreach cmd of local cmd_list {
-        if "`cmd'" == "msm_table" local found = 1
-        if "`cmd'" == "msm_diagtab" local found_diagtab = 1
-    }
-    assert `found' == 1
-    assert `found_diagtab' == 1
-    assert r(n_commands) == 12
-}
-if _rc == 0 {
-    display as result "  PASS M12: msm router includes msm_table"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M12: router msm_table listing (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M12"
-}
-
-* --- M13: msm_sensitivity stores its own level for table export (Finding 10) ---
-local ++test_count
-capture {
-    _setup_pipeline, nolog
-    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) ///
-        level(90) nolog
-
-    * Run sensitivity with different level
-    msm_sensitivity, evalue level(99)
-
-    * Verify sensitivity-specific level stored
-    local sens_lev : char _dta[_msm_sens_level]
-    assert "`sens_lev'" == "99"
-
-    * Fit level should still be 90
-    local fit_lev : char _dta[_msm_fit_level]
-    assert "`fit_lev'" == "90"
-}
-if _rc == 0 {
-    display as result "  PASS M13: sensitivity stores separate CI level"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL M13: sensitivity level storage (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' M13"
-}
 
 * --- M14: _msm_check_fitted rejects when the stored fit is missing ---
 *
@@ -2070,7 +1289,7 @@ capture noisily {
         assert regexm(`"`_vline'"', "Version +([0-9]+\.[0-9]+\.[0-9]+)")
         assert regexs(1) == "`_sthlp_version'"
     }
-    assert `_n_ado' > 40
+    assert `_n_ado' > 30
 
     * The .pkg carries a Distribution-Date in the shipped format.
     local _pkgdate ""
@@ -2123,101 +1342,6 @@ else {
     local failed_tests "`failed_tests' D2"
 }
 
-* --- D3: msm_validate works with int cumulative sum ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    msm_validate
-    assert r(n_checks) == 10
-    assert r(n_errors) == 0
-}
-if _rc == 0 {
-    display as result "  PASS D3: msm_validate with int cumulative sum"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL D3: msm_validate int type (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' D3"
-}
-
-* --- D4: msm_sensitivity r(evalue_point) return name ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, evalue
-    * Verify correct return name
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) > 0
-    assert !missing(r(evalue_ci))
-    assert r(evalue_ci) >= 0
-    assert !missing(r(effect))
-    assert r(effect) > 0
-    assert !missing(r(effect_lo))
-    assert r(effect_lo) > 0
-    assert !missing(r(effect_hi))
-    assert r(effect_hi) > 0
-}
-if _rc == 0 {
-    display as result "  PASS D4: msm_sensitivity returns r(evalue_point)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL D4: sensitivity return names (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' D4"
-}
-
-* --- D5: Linear model sensitivity — E-value skipped, confounding note ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(linear) nolog
-    * E-value should still work (skips evalue for linear, returns effect)
-    msm_sensitivity, evalue
-    assert "`r(effect_label)'" == "Coef"
-    assert "`r(model)'" == "linear"
-    * evalue_point should NOT be returned for linear
-    capture assert r(evalue_point) != .
-    local _evalue_rc = _rc
-    * It's OK if evalue_point is not returned (expected for linear)
-}
-if _rc == 0 {
-    display as result "  PASS D5: linear model sensitivity handles E-value correctly"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL D5: linear sensitivity (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' D5"
-}
-
-* --- D6: Linear model confounding_strength shows RR-scale note ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(linear) nolog
-    msm_sensitivity, confounding_strength(2 3)
-    * For linear models, bias_factor should NOT be returned
-    capture assert r(bias_factor) != .
-    local _bf_rc = _rc
-    * rr_ud and rr_uy should still be returned
-    assert r(rr_ud) == 2
-    assert r(rr_uy) == 3
-}
-if _rc == 0 {
-    display as result "  PASS D6: linear confounding_strength returns rr_ud/rr_uy (no bias_factor)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL D6: linear confounding_strength (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' D6"
-}
 
 * --- D7: Weight carry-forward for non-at-risk observations ---
 local ++test_count
@@ -2266,67 +1390,6 @@ else {
     set varabbrev off
 }
 
-* =============================================================================
-* REGRESSION TESTS (from Codex review 2026-04-01)
-* =============================================================================
-
-* --- R1: msm_validate strict promotes check 6 warning to error ---
-local ++test_count
-capture noisily {
-    clear
-    set seed 12345
-    set obs 30
-    gen id = _n
-    expand 3
-    bysort id: gen period = _n - 1
-    gen treatment = runiform() > 0.5
-    gen outcome = 0
-    replace outcome = 1 if runiform() > 0.95
-    gen cov1 = rnormal()
-
-    * Create a period with fewer than 10 observations by dropping rows
-    * Keep only 5 obs in period 2
-    gen _keep = 1
-    bysort period: replace _keep = 0 if period == 2 & _n > 5
-    quietly drop if _keep == 0
-    drop _keep
-
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) covariates(cov1)
-    capture msm_validate, strict
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS R1: strict promotes check 6 (small period) to error"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL R1: strict check 6 promotion (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' R1"
-}
-
-* --- R2: msm_validate strict promotes check 7 warning to error ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    replace biomarker = 0
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    capture msm_validate, strict
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS R2: strict promotes check 7 (zero-variation cov) to error"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL R2: strict check 7 promotion (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' R2"
-}
 
 * --- R3: msm_predict rejects times beyond max observed period ---
 local ++test_count
@@ -2364,7 +1427,7 @@ else {
     local failed_tests "`failed_tests' R4"
 }
 
-* --- R5: msm_report does not show stale weights after re-prepare ---
+* --- R5: re-prepare drops stale weight variables ---
 local ++test_count
 capture noisily {
     use "`pkg_dir'/msm_example.dta", clear
@@ -2393,26 +1456,6 @@ else {
     local failed_tests "`failed_tests' R5"
 }
 
-* --- R6: msm_validate strict with clean data still passes ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    msm_validate, strict
-    assert r(n_errors) == 0
-}
-if _rc == 0 {
-    display as result "  PASS R6: strict mode passes on clean data"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL R6: strict mode on clean data (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' R6"
-}
 
 * --- R7: msm_fit excludes rows after prior outcome events ---
 local ++test_count
@@ -2535,27 +1578,6 @@ else {
     local failed_tests "`failed_tests' R10"
 }
 
-* --- R11: msm_validate hard errors fail even without strict ---
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    replace treatment = 0
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) ///
-        covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    capture msm_validate
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS R11: msm_validate reports hard errors without strict"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL R11: non-strict hard validation error (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' R11"
-}
 
 * --- R12: msm_fit excludes rows after prior censoring ---
 local ++test_count

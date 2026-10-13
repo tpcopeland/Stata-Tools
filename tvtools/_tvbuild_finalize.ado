@@ -1,4 +1,4 @@
-*! _tvbuild_finalize Version 1.18.1  2026/10/12
+*! _tvbuild_finalize Version 1.18.2  2026/10/13
 *! Attach master payload and impose tvbuild's committed schema on the result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

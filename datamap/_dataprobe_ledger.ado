@@ -1,4 +1,4 @@
-*! _dataprobe_ledger Version 1.10.0  2026/10/12
+*! _dataprobe_ledger Version 1.10.1  2026/10/13
 *! Append one dataprobe call's gate records to a QA ledger dataset
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

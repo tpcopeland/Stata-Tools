@@ -86,11 +86,13 @@ omitted, the detector uses the supported estimation or producer context.
 {synopt:{cmd:r(psvar)}}propensity-score variable{p_end}
 {synopt:{cmd:r(covariates)}}covariates resolved{p_end}
 {synopt:{cmd:r(wvar)}}diagnostic weight variable{p_end}
+{synopt:{cmd:r(weight_role)}}role of {cmd:r(wvar)} after msm: {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(levels)}}treatment-group levels, multigroup{p_end}
 {synopt:{cmd:r(reference)}}reference group, multigroup{p_end}
 {synopt:{cmd:r(iivwcomponent)}}selected iivw component{p_end}
 {synopt:{cmd:r(id)}}longitudinal identifier{p_end}
+{synopt:{cmd:r(riskvar)}}msm risk-set indicator, when the producer supplies one{p_end}
 {synopt:{cmd:r(period)}}longitudinal period variable{p_end}
 {synopt:{cmd:r(regime)}}longitudinal regime metadata{p_end}
 {synopt:{cmd:r(method)}}producer method metadata{p_end}

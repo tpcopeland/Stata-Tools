@@ -1,6 +1,6 @@
 # consort — CONSORT-style exclusion flowcharts for observational research
 
-**Version 1.1.2** | 2026-10-12
+**Version 1.1.3** | 2026-10-13
 
 `consort` records sequential exclusions from a Stata dataset and renders the resulting participant-flow diagram. It is for analysts who need reproducible exclusion counts, publication-ready flowcharts, and optional machine-readable exports.
 
@@ -310,6 +310,7 @@ QA suites are available in [`qa/`](qa/).
 
 ## Version History
 
+- **1.1.3** (2026-10-13): Help Example 1 no longer puts "(N=15,000)" in the `initial()` label (consort already appends `n=`). Diagram boxes now keep their text clear of the box edges: the renderer no longer lets `tight_layout()` shrink the axes, so the measured text size matches the drawn size (about 0.07 in margin instead of 0.04 in).
 - **1.1.2** (2026-09-29): Evaluate exclusions once, reject colliding file destinations, preserve quoted labels and CSV records, align diagram/export labels, and support Python executable paths with spaces.
 
 - **1.1.1** (2026-08-05): Clarify final-label return behavior, output-directory requirements, and runnable help examples.

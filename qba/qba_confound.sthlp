@@ -301,6 +301,62 @@ too large, i.e. it overstates robustness. Specify {opt commonoutcome} to apply
 the Table 2 conversion instead. The scale used is printed with the E-value.
 
 {pstd}
+{bf:Choosing rare or common outcome (for example, after msm).} {cmd:qba_confound}
+does not infer outcome prevalence; you make two choices, and both change the
+E-value (VanderWeele and Ding 2017, Table 2).
+
+{phang2}
+1. {bf:Measure.} Report what the model estimates. A pooled-logistic odds ratio
+from a person-period model such as {cmd:msm_fit} is a ratio of per-period odds.
+It approximates a discrete-time hazard ratio only when the per-period risk is
+small, and in that case you should specify {cmd:measure(HR)}.
+After {cmd:logit}, {cmd:from_model measure(HR)} is accepted for this purpose.
+Use {cmd:measure(OR)} only for an odds ratio of a binary outcome measured once,
+such as a case-control or cross-sectional odds ratio.
+
+{phang2}
+2. {bf:Rare or common.} Judge it from the cumulative incidence of the outcome by
+the end of follow-up in the analysis population (for example, one minus the
+Kaplan-Meier survival at the last time, or the risk reported by
+{cmd:msm_predict}), not from the per-period event rate. Below about 15% the
+outcome is rare: omit {opt commonoutcome}, and the HR or OR enters the E-value
+formula directly. At 15% or more specify {opt commonoutcome}.
+
+{pstd}
+What {opt commonoutcome} then does depends on the measure from step 1. With
+{cmd:measure(HR)} it applies the hazard conversion
+(1-0.5^sqrt(HR)) / (1-0.5^sqrt(1/HR)) ({cmd:r(evalue_conv)} is {cmd:hrcommon});
+with {cmd:measure(OR)} it applies sqrt(OR) ({cmd:sqrtor}). The two differ: for an
+estimate of 2, {cmd:measure(HR) commonoutcome} gives an E-value of 2.61 and
+{cmd:measure(OR) commonoutcome} gives 2.18, so choosing the wrong measure
+changes the answer. The conversion used is printed with the E-value. When
+unsure of prevalence, run with and without {opt commonoutcome}; the converted
+E-value is the smaller, more conservative one.
+
+{pstd}
+{bf:Bounding factor.} For an unmeasured confounder U, let RR_EU be the
+exposure-confounder association and RR_UD the confounder-outcome association,
+both on the risk-ratio scale. Ding and VanderWeele (2016) show that confounding
+cannot inflate the observed risk ratio by more than the joint bounding factor
+
+{p 12 12 2}
+BF = (RR_EU * RR_UD) / (RR_EU + RR_UD - 1)
+
+{pstd}
+so the true risk ratio is at least RR_obs / BF for an observed RR_obs above 1.
+The E-value is the common strength E = RR_EU = RR_UD at which BF equals the
+observed risk ratio: setting E^2 / (2E - 1) = RR_obs and solving gives
+
+{p 12 12 2}
+E-value = RR_obs + sqrt(RR_obs * (RR_obs - 1))
+
+{pstd}
+For an observed risk ratio below 1, use 1/RR_obs. The {opt rrcd()} and
+{opt rrud()} bias factors above are the bias for specific values of the
+confounder prevalences and strength, whereas BF is the largest bias possible for
+given RR_EU and RR_UD, so for binary-confounder parameters consistent with RR_EU and RR_UD the bias factor is bounded by BF.
+
+{pstd}
 {bf:Linear models.} When {opt from_model} detects a supported additive model (e.g., {cmd:regress}), the
 correction is subtractive rather than multiplicative. Specify {opt confeffect()} as
 the signed additive confounder-outcome effect. E-values are not computed
@@ -452,6 +508,10 @@ Fox MP, MacLehose RF, Lash TL. {it:Applying Quantitative Bias Analysis to}
 Schneeweiss S. Sensitivity analysis and external adjustment for unmeasured
 confounders in epidemiologic database studies of
 therapeutics. {it:Pharmacoepidemiol Drug Saf}. 2006;15(5):291-303. doi:10.1002/pds.1200
+
+{phang}
+Ding P, VanderWeele TJ. Sensitivity analysis without assumptions.
+{it:Epidemiology}. 2016;27(3):368-377. doi:10.1097/EDE.0000000000000457
 
 {phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational

@@ -751,6 +751,43 @@ def _escape_plain_braces(line):
         "\x00", "{c -(}")
 
 
+_LOOP_ECHO_RE = re.compile(r'^\s*(\d+)\.\s(.*)$')
+
+
+def _loop_open_depth(text):
+    """+1 when a command echo opens a block with a trailing "{"."""
+    return 1 if re.search(r'(\{c -\(\}|\{)\s*$', text) else 0
+
+
+def _gather_text_loop_body(block, raw_lines, i):
+    """Add the echoed body of a loop to its command block (plain-text logs).
+
+    A text log prints "foreach ... {" and then "  2. body", "  3. }" with no
+    markup, so the body lines look like output. They follow the header
+    directly and are numbered from 2; anything else is left alone.
+    """
+    def plain(line):
+        return re.sub(r'\{[^}]*\}', '', line.replace("{c -(}", "\x00")
+                      .replace("{c )-}", "\x01")).replace("\x00", "{") \
+            .replace("\x01", "}")
+
+    n = len(raw_lines)
+    depth = _loop_open_depth(re.sub(r'\s*///\s*$', '', block.raw_lines[-1]))
+    expected = 2
+    while depth > 0 and i < n:
+        m = _LOOP_ECHO_RE.match(plain(raw_lines[i]))
+        if not m or int(m.group(1)) != expected:
+            break
+        body = m.group(2).strip()
+        block.raw_lines.append(raw_lines[i])
+        i += 1
+        expected += 1
+        depth += _loop_open_depth(body)
+        if body.startswith("}"):
+            depth -= 1
+    return i
+
+
 def parse_blocks(raw_lines):
     """Parse raw SMCL lines into semantic blocks.
 
@@ -819,6 +856,8 @@ def parse_blocks(raw_lines):
                     i += 1
                 else:
                     break
+            if not is_smcl:
+                i = _gather_text_loop_body(block, raw_lines, i)
             blocks.append(block)
             continue
 
@@ -866,7 +905,8 @@ def parse_blocks(raw_lines):
         i += 1
         while i < n:
             ntype = classify_raw_line(raw_lines[i])
-            if ntype in ("output", "blank", "plain_continuation") and \
+            if ntype in ("output", "blank", "plain_continuation",
+                         "table_bottom") and \
                     not _banner_at(raw_lines, i):
                 block.raw_lines.append(raw_lines[i])
                 i += 1
@@ -1483,26 +1523,37 @@ def expand_block(block, mode="text"):
         block.lines.append(line.rstrip("\r\n") if wrapped else line.rstrip())
 
 
-def extract_command_text(line, strip_dots=False):
-    """Extract the command text from a raw SMCL command line."""
+def extract_command_text(line, strip_dots=False, keep_continuation=False):
+    """Extract the command text from a raw SMCL command line.
+
+    keep_continuation keeps the trailing "///" and the indentation after the
+    prompt, so the lines of a multi-line command stay runnable once the
+    prompts are removed (the nodots contract).
+    """
     # A loop-body echo "{txt}  2{com}.     cmd" keeps its "2. " prompt
-    text = re.sub(r'^((?:\{[^}]*\})*\s*\d+)(?:\{[^}]*\})*\.\s+', r'\1. ',
+    text = re.sub(r'^((?:\{[^}]*\})*\s*\d+)(?:\{[^}]*\})*\.' +
+                  (r'\s' if keep_continuation else r'\s+'), r'\1. ',
                   line.strip())
+    gap = r' ?' if keep_continuation else r'\s*'
     # Remove {com}. prefix
-    text = re.sub(r'\{com\}\.\s*', '', text)
+    text = re.sub(r'\{com\}\.' + gap, '', text)
     # Remove {com}> prefix for continuations
-    text = re.sub(r'\{com\}>\s*', '', text)
+    text = re.sub(r'\{com\}>' + gap, '', text)
     # Strip remaining tags; escaped literal braces ({c -(}, {c )-}) are
     # command text, so restore them rather than dropping them
     text = text.replace("{c -(}", "\x00").replace("{c )-}", "\x01")
     text = re.sub(r'\{[^}]*\}', '', text)
     text = text.replace("\x00", "{").replace("\x01", "}")
-    # Remove trailing ///
-    text = re.sub(r'\s*///\s*$', '', text)
-    text = text.strip()
+    if keep_continuation:
+        text = text.rstrip()
+    else:
+        # Remove trailing ///
+        text = re.sub(r'\s*///\s*$', '', text)
+        text = text.strip()
     if strip_dots:
         # Remove leading ". ", "> " or loop-body "2. " prompt
-        text = re.sub(r'^(?:\d+\.\s+|[.>]\s*)', '', text)
+        text = re.sub(r'^(?:\s*\d+\.\s|[.>]\s)', '', text) if keep_continuation \
+            else re.sub(r'^(?:\d+\.\s+|[.>]\s*)', '', text)
     return text
 
 
@@ -2283,7 +2334,8 @@ def render_html_faithful(blocks, title="Stata Output", theme_css="",
     for idx, block in enumerate(blocks):
         if block.kind == "command" and nodots:
             for raw_l in block.raw_lines:
-                cmd = extract_command_text(raw_l, strip_dots=True)
+                cmd = extract_command_text(raw_l, strip_dots=True,
+                                           keep_continuation=True)
                 current_lines.append(
                     f'<span class="cmd">{html_mod.escape(cmd)}</span>'
                 )
@@ -2464,6 +2516,13 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
                 extract_command_text(raw_line, strip_dots=True)
                 for raw_line in block.raw_lines
             ]
+            if nodots:
+                # nodots keeps "///" and the continuation indentation
+                plain_cmd_lines = [
+                    extract_command_text(raw_line, strip_dots=True,
+                                         keep_continuation=True)
+                    for raw_line in block.raw_lines
+                ]
             displayed_lines = []
             for raw_l, expanded_l, pcl in zip(
                     block.raw_lines, block.lines, plain_cmd_lines):
@@ -2748,6 +2807,53 @@ def render_html(blocks, title="Stata Output", theme_css="", preformatted=False,
 # Stage 7: Markdown Renderer
 # ---------------------------------------------------------------------------
 
+_LOOP_BODY_ECHO = re.compile(
+    r'^(?:\{[^}]*\})*\s*\d+(?:\{[^}]*\})*\.\s')
+
+
+def _merge_loop_bodies(blocks):
+    """Join the echoed body lines of a loop into the command block they follow.
+
+    Stata echoes "foreach ... {" and then "  2. body", "  3. }" as separate
+    log lines; the parser starts a block for each, which splits one loop into
+    several fences. The input blocks are not modified.
+    """
+    merged = []
+    for block in blocks:
+        prev = merged[-1] if merged else None
+        if (block.kind == "command" and prev is not None
+                and prev.kind == "command" and block.raw_lines
+                and _LOOP_BODY_ECHO.match(block.raw_lines[0].strip())):
+            joined = Block("command", list(prev.lines) + list(block.lines),
+                           list(prev.raw_lines) + list(block.raw_lines))
+            joined.state = prev.state
+            merged[-1] = joined
+        else:
+            merged.append(block)
+    return merged
+
+
+def _echo_command_lines(block, nodots):
+    """Command lines for a text-mode renderer (Markdown, LaTeX).
+
+    Default is the log's own echo, expanded SMCL: the ". " and "> " prompts
+    and the trailing "///" survive, as in the HTML output. With nodots only
+    the prompts are removed; "///" and the continuation indentation stay, so
+    the lines are runnable as a script. Lines that hold no command text (the
+    bare ". " prompt of a blank command) are skipped either way.
+    """
+    lines = []
+    for raw, expanded in zip(block.raw_lines, block.lines):
+        if not extract_command_text(raw, strip_dots=True):
+            continue
+        if nodots:
+            lines.append(extract_command_text(
+                raw, strip_dots=True, keep_continuation=True))
+        else:
+            lines.append(expanded.rstrip())
+    return lines
+
+
 def _md_fence(content):
     """A backtick fence longer than any backtick run inside `content`."""
     runs = [len(r) for r in re.findall(r'`+', content)]
@@ -2766,6 +2872,7 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
                     footer=None, stamp=None, nograph=False,
                     generated=False):
     """Render parsed blocks to Markdown."""
+    blocks = _merge_loop_bodies(blocks)
     graph_files = detect_graph_exports(blocks, nograph=nograph)
     if output_dir is None:
         output_dir = base_dir
@@ -2807,12 +2914,7 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
                 continue
 
             # Reconstruct clean command for markdown
-            clean_lines = []
-            for raw in block.raw_lines:
-                text = extract_command_text(raw, strip_dots=nodots)
-                if text:
-                    clean_lines.append(text)
-            cmd_str = "\n".join(clean_lines)
+            cmd_str = "\n".join(_echo_command_lines(block, nodots))
 
             fence = _md_fence(cmd_str)
             parts.append(fence + "stata")
@@ -2882,6 +2984,53 @@ def render_markdown(blocks, title="Stata Output", nofold=False, nodots=False,
 # Stage 8: LaTeX Renderer
 # ---------------------------------------------------------------------------
 
+# Box-drawing characters of Stata tables are not defined by inputenc, and
+# listings reads UTF-8 byte by byte; map them to ASCII-safe LaTeX for both
+# verbatim and lstlisting. upquote keeps ` and ' as typed in verbatim text.
+_LATEX_BOX_CHARS = {
+    "\u2502": r"\textbar{}", "\u2500": "-", "\u253c": "+", "\u252c": "+",
+    "\u2534": "+", "\u251c": "+", "\u2524": "+", "\u250c": "+",
+    "\u2510": "+", "\u2514": "+", "\u2518": "+",
+}
+
+
+# Latin-1 letters and symbols common in Stata output (names, labels, units).
+# listings reads UTF-8 byte by byte, so each needs a literate entry; inputenc
+# already handles them in verbatim text.
+_LATEX_LISTING_CHARS = {
+    "\u00e4": r'{\"a}', "\u00f6": r'{\"o}', "\u00fc": r'{\"u}',
+    "\u00c4": r'{\"A}', "\u00d6": r'{\"O}', "\u00dc": r'{\"U}',
+    "\u00df": r'{\ss}', "\u00e9": r"{\'e}", "\u00e8": r'{\`e}',
+    "\u00ea": r'{\^e}', "\u00eb": r'{\"e}', "\u00c9": r"{\'E}",
+    "\u00e1": r"{\'a}", "\u00e0": r'{\`a}', "\u00e2": r'{\^a}',
+    "\u00ed": r"{\'i}", "\u00ec": r'{\`i}', "\u00ee": r'{\^i}',
+    "\u00ef": r'{\"i}', "\u00f3": r"{\'o}", "\u00f2": r'{\`o}',
+    "\u00f4": r'{\^o}', "\u00fa": r"{\'u}", "\u00f9": r'{\`u}',
+    "\u00fb": r'{\^u}', "\u00f1": r'{\~n}', "\u00e7": r'{\c c}',
+    "\u00e5": r'{\r a}', "\u00c5": r'{\r A}', "\u00e6": r'{\ae}',
+    "\u00c6": r'{\AE}', "\u00f8": r'{\o}', "\u00d8": r'{\O}',
+    "\u00b1": r'{\ensuremath{\pm}}', "\u00b0": r'{\textdegree}',
+    "\u00b5": r'{\textmu}', "\u00d7": r'{\ensuremath{\times}}',
+    "\u2013": "{-}", "\u2014": "{--}",
+    "\u2264": r'{\ensuremath{\le}}', "\u2265": r'{\ensuremath{\ge}}',
+}
+
+
+def _latex_unicode_preamble():
+    """Preamble lines that make pdflatex accept Stata's box-drawing tables
+    and common Latin-1 characters in listings."""
+    lines = [r"\usepackage{upquote}", r"\usepackage{textcomp}"]
+    for ch, rep in _LATEX_BOX_CHARS.items():
+        lines.append(r"\DeclareUnicodeCharacter{%04X}{%s}" % (ord(ch), rep))
+    entries = dict(_LATEX_BOX_CHARS)
+    entries.update({ch: rep for ch, rep in _LATEX_LISTING_CHARS.items()})
+    lit = " ".join("{%s}{{%s}}1" % (ch, rep[1:-1] if rep.startswith("{")
+                                    else rep)
+                   for ch, rep in entries.items())
+    lines.append(r"\lstset{upquote=true,extendedchars=true,literate=" + lit + "}")
+    return lines
+
+
 def _latex_verbatim_env(begin, env, content):
     """Lines of a verbatim-like LaTeX environment holding `content`.
 
@@ -2930,6 +3079,7 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
                  base_dir=".", footer=None, stamp=None, nograph=False,
                  generated=False, output_dir=None):
     """Render parsed blocks to a LaTeX document."""
+    blocks = _merge_loop_bodies(blocks)
     graph_files = detect_graph_exports(blocks, nograph=nograph,
                                        exts=LATEX_GRAPH_EXTS)
     if output_dir is None:
@@ -2950,6 +3100,7 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
     parts.append(r"\usepackage{xcolor}")
     parts.append(r"\usepackage{graphicx}")
     parts.append(r"\usepackage[margin=1in]{geometry}")
+    parts.extend(_latex_unicode_preamble())
     parts.append("")
     parts.append(r"\definecolor{statacommand}{RGB}{0,85,170}")
     parts.append(r"\definecolor{stataerror}{RGB}{192,57,43}")
@@ -3020,12 +3171,7 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
                 continue
 
             # Command block
-            clean_lines = []
-            for raw in block.raw_lines:
-                text = extract_command_text(raw, strip_dots=nodots)
-                if text:
-                    clean_lines.append(text)
-            cmd_str = "\n".join(clean_lines)
+            cmd_str = "\n".join(_echo_command_lines(block, nodots))
 
             parts.extend(_latex_verbatim_env(
                 r"\begin{lstlisting}[style=statacommand]", "lstlisting",
@@ -3546,6 +3692,7 @@ def render_combined_latex(sources, args):
     parts.append(r"\usepackage{xcolor}")
     parts.append(r"\usepackage{graphicx}")
     parts.append(r"\usepackage[margin=1in]{geometry}")
+    parts.extend(_latex_unicode_preamble())
     parts.append("")
     parts.append(r"\definecolor{statacommand}{RGB}{0,85,170}")
     parts.append(r"\definecolor{stataerror}{RGB}{192,57,43}")

@@ -260,7 +260,9 @@ class ConsortDiagram:
                 ax.text(box.x, box.y, box.text, ha='center', va='center',
                         fontsize=self.font_size)
 
-        plt.tight_layout()
+        # Keep 1 data unit == 1 inch: tight_layout() would shrink the axes and
+        # make the measured text overflow its box.
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
         return fig, ax
     
     def save(self, filename: str, **kwargs):

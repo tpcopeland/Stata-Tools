@@ -49,6 +49,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | `test_kmplot_v140.do` | 2026-10-12 clarity audit: Okabe-Ito default palette checked under simulated protan/deutan/tritan vision (Machado et al. 2009) and RGB colours at every sink; fractional weighted risk-table cells; `c(level)` default and Stata's level range; every help example run from the installed help file; lifecycle (`qa_lifecycle`, saved-file freshness) and surface parity (`qa_surface_parity`: r(), console, saved data); missing bounds at S = 1 and S = 0; `medianformat()` and tied-data medians against `stci`; the version-literal guard; iweight inference. |
 | `test_kmplot_v141.do` | 2026-10-12 final clarity audit: drawn CI band and CI lines carry the last bounds to the time a curve reaches 0 (1 with `failure`), matched to the `sts graph, ci` serset, per group, while returned and saved bounds stay missing there; `riskheight()` requires `risktable`, and `r(riskheight)` is stored only with a drawn table. |
 | `test_kmplot_v142.do` | P-value text placement: every `pvaluepos()` keyword under survival/failure with and without a risk table, measured in the exported SVG (text wholly inside the main plot region and above y = 0, with a visible gap at the bottom positions); `r(pvalue_y)`, `r(pvalue_x)`, `r(pvalue_placement)` against `sts generate` oracles when `ylabel()` narrows or raises the y range and when median lines hold it at 0; `pvalueat()` placement. |
+| `test_kmplot_v143.do` | `medianannotate` note wording (also labels ending in a digit, with a comma, or with a double quote): with `by()` it reads `Median: label: value; label: value`, honours `medianformat()`, prints `NR` for an unreached median, and a single curve keeps `Median: x`; read from the exported SVG text. |
 | `test_kmplot_v130.do` | Rendered-SVG geometry of the combined risk-table layout across four schemes and three canvas sizes: the main plot's time origin sits on its own y axis, both panels share that origin, row labels clear the time-zero count and the vertical table title, the final count fits inside the graph boundary, and each panel carries the other's label set invisibly. Also pins comma-formatted counts and the helper's margin contract. |
 
 ### Validation
@@ -80,7 +81,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 
 | Command | Functional | Validation | Cross-val |
 |---|---|---|---|
-| `kmplot` | `test_kmplot.do`, `test_kmplot_errors.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v130.do`, `test_kmplot_v131.do`, `test_kmplot_v140.do`, `test_kmplot_v141.do`, `test_kmplot_v142.do`, `test_fixture_domains.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do`, `validation_fixture_truth.do`, `validation_kmplot_calibration.do` | `crossval_kmplot_survfit.do`, `crossval_kmplot_sts.do`; local install and helper auto-load through `_kmplot_qa_common.do` |
+| `kmplot` | `test_kmplot.do`, `test_kmplot_errors.do`, `test_kmplot_v124.do`, `test_kmplot_v125.do`, `test_kmplot_v126.do`, `test_kmplot_v127.do`, `test_kmplot_v129.do`, `test_kmplot_v1210.do`, `test_kmplot_v130.do`, `test_kmplot_v131.do`, `test_kmplot_v140.do`, `test_kmplot_v141.do`, `test_kmplot_v142.do`, `test_kmplot_v143.do`, `test_fixture_domains.do` | `validation_kmplot_recovery.do`, `validation_kmplot.do`, `validation_fixture_truth.do`, `validation_kmplot_calibration.do` | `crossval_kmplot_survfit.do`, `crossval_kmplot_sts.do`; local install and helper auto-load through `_kmplot_qa_common.do` |
 
 ## Lane membership
 
@@ -89,7 +90,7 @@ The runner and suites write logs into `qa/`. Concurrent runs of the same lane re
 | Lane | Suites |
 |---|---|
 | `quick` | `test_kmplot.do`, `test_kmplot_errors.do` |
-| `core` | `quick` plus `validation_fixture_truth.do`, `test_fixture_domains.do`, eleven version-regression suites (v124-v142), recovery, and comprehensive validation |
+| `core` | `quick` plus `validation_fixture_truth.do`, `test_fixture_domains.do`, twelve version-regression suites (v124-v143), recovery, and comprehensive validation |
 | `full` | `core` plus `crossval_kmplot_sts.do` and `crossval_kmplot_survfit.do` |
 | `calibration` | `validation_kmplot_calibration.do` only (about 40 minutes). Kept out of `full` because the bounds it calibrates are pinned exactly: closed form for all three transforms in `validation_kmplot.do` (V2, V2b) and R `survfit` log-log, log and plain bounds to 1e-8 in `crossval_kmplot_survfit.do`. |
 

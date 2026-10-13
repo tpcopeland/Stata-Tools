@@ -1,4 +1,4 @@
-*! iivw_diagnose Version 4.3.6  2026/10/09
+*! iivw_diagnose Version 4.3.7  2026/10/13
 *! Compare stored estimates for IIVW diagnostic decomposition
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

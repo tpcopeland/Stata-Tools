@@ -1,4 +1,4 @@
-*! _pygrid_stamp Version 1.0.1  2026/08/30
+*! _pygrid_stamp Version 1.0.2  2026/10/13
 *! Stamp the dataset contract consumed by pyattach
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass

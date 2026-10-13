@@ -20,7 +20,7 @@ Threshold:      0.100
 
 
 --------------------------------------------------------------------
-           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
+           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj  SMD status
 --------------------------------------------------------------------
                  age |    0.472    0.99    0.013    1.01    Balanced
               female |    0.431    1.03    0.001    1.00    Balanced
@@ -57,7 +57,7 @@ scalars:
     y)                 =  0
       r(n_ps_boundary) =  0
           r(threshold) =  .1
-         r(max_ks_adj) =  .093744814098041
+         r(max_ks_adj) =  .0937448140980411
          r(max_ks_raw) =  .2105117384237494
         r(n_binary_vr) =  1
   r(n_vr_imbalanced_a
@@ -66,7 +66,7 @@ scalars:
     aw)                =  0
     r(n_vr_imbalanced) =  0
        r(n_imbalanced) =  0
-         r(max_vr_adj) =  1.071577802203555
+         r(max_vr_adj) =  1.071577802203554
         r(max_smd_adj) =  .047032989657052
          r(max_vr_raw) =  1.04099727858756
         r(max_smd_raw) =  .4715906455790541

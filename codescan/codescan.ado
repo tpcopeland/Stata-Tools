@@ -1,4 +1,4 @@
-*! codescan Version 4.3.3  2026/10/12
+*! codescan Version 4.3.4  2026/10/13
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -1204,7 +1204,10 @@ program define codescan, rclass
         local _mata_mc_name "`_match_counts'"
         mata: _codescan_mata_scan()
 
-        * Noisily display and zero-match warnings (from Mata-accumulated counts)
+        * Noisily display and zero-match note (from Mata-accumulated counts).
+        * Empty conditions are collected and reported in ONE summary note.
+        local _zero_names ""
+        local _n_zero 0
         forvalues i = 1/`n_conditions' {
             local name "`def_name_`i''"
             local _n_matched = el(`_match_counts', 1, `i')
@@ -1215,8 +1218,26 @@ program define codescan, rclass
             }
 
             if `_n_matched' == 0 {
-                noisily display as text "(note: condition `name' matched 0 observations)"
+                local _zero_names "`_zero_names' `name'"
+                local ++_n_zero
             }
+        }
+        local _zero_names = strtrim("`_zero_names'")
+        if `_n_zero' == 1 {
+            noisily display as text "(note: condition `_zero_names' matched 0 observations)"
+        }
+        else if `_n_zero' > 1 {
+            * One note, wrapped at word boundaries (Stata's own wrap at the line
+            * width would split a long condition name mid-word).
+            local _zl "(note: `_n_zero' conditions matched 0 observations:"
+            foreach _zn of local _zero_names {
+                if strlen("`_zl'") + 1 + strlen("`_zn'") > 76 {
+                    noisily display as text "`_zl'"
+                    local _zl "  `_zn'"
+                }
+                else local _zl "`_zl' `_zn'"
+            }
+            noisily display as text "`_zl')"
         }
 
         * R1: Warn on overlapping conditions (single Mata pass via cross product)

@@ -1,4 +1,4 @@
-*! _dataprobe_events Version 1.10.0  2026/10/12
+*! _dataprobe_events Version 1.10.1  2026/10/13
 *! dataprobe events(): every level of a covariate carries enough events
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

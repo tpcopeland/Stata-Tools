@@ -6,6 +6,20 @@
 \usepackage{xcolor}
 \usepackage{graphicx}
 \usepackage[margin=1in]{geometry}
+\usepackage{upquote}
+\usepackage{textcomp}
+\DeclareUnicodeCharacter{2502}{\textbar{}}
+\DeclareUnicodeCharacter{2500}{-}
+\DeclareUnicodeCharacter{253C}{+}
+\DeclareUnicodeCharacter{252C}{+}
+\DeclareUnicodeCharacter{2534}{+}
+\DeclareUnicodeCharacter{251C}{+}
+\DeclareUnicodeCharacter{2524}{+}
+\DeclareUnicodeCharacter{250C}{+}
+\DeclareUnicodeCharacter{2510}{+}
+\DeclareUnicodeCharacter{2514}{+}
+\DeclareUnicodeCharacter{2518}{+}
+\lstset{upquote=true,extendedchars=true,literate={│}{{\textbar{}}}1 {─}{{-}}1 {┼}{{+}}1 {┬}{{+}}1 {┴}{{+}}1 {├}{{+}}1 {┤}{{+}}1 {┌}{{+}}1 {┐}{{+}}1 {└}{{+}}1 {┘}{{+}}1 {ä}{{\"a}}1 {ö}{{\"o}}1 {ü}{{\"u}}1 {Ä}{{\"A}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1 {ß}{{\ss}}1 {é}{{\'e}}1 {è}{{\`e}}1 {ê}{{\^e}}1 {ë}{{\"e}}1 {É}{{\'E}}1 {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {í}{{\'i}}1 {ì}{{\`i}}1 {î}{{\^i}}1 {ï}{{\"i}}1 {ó}{{\'o}}1 {ò}{{\`o}}1 {ô}{{\^o}}1 {ú}{{\'u}}1 {ù}{{\`u}}1 {û}{{\^u}}1 {ñ}{{\~n}}1 {ç}{{\c c}}1 {å}{{\r a}}1 {Å}{{\r A}}1 {æ}{{\ae}}1 {Æ}{{\AE}}1 {ø}{{\o}}1 {Ø}{{\O}}1 {±}{{\ensuremath{\pm}}}1 {°}{{\textdegree}}1 {µ}{{\textmu}}1 {×}{{\ensuremath{\times}}}1 {–}{{-}}1 {—}{{--}}1 {≤}{{\ensuremath{\le}}}1 {≥}{{\ensuremath{\ge}}}1}
 
 \definecolor{statacommand}{RGB}{0,85,170}
 \definecolor{stataerror}{RGB}{192,57,43}
@@ -63,7 +77,7 @@
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-tabstat price mpg weight, by(foreign) statistics(n mean sd median min max) columns(statistics)
+. tabstat price mpg weight, by(foreign) statistics(n mean sd median min max) columns(statistics)
 \end{lstlisting}
 
 \begin{lstlisting}[style=stataoutput]
@@ -83,9 +97,6 @@ Domestic │        52  6072.423  3097.104    4782.5      3291     15906
    Total │        74  6165.257  2949.496    5006.5      3291     15906
          │        74   21.2973  5.785503        20        12        41
          │        74  3019.459  777.1936      3190      1760      4840
-\end{lstlisting}
-
-\begin{lstlisting}[style=stataoutput]
 ─────────┴────────────────────────────────────────────────────────────
 
 \end{lstlisting}
@@ -121,7 +132,7 @@ Domestic │        52  6072.423  3097.104    4782.5      3291     15906
 \end{verbatim}
 
 \begin{lstlisting}[style=statacommand]
-estimates store base
+. estimates store base
 \end{lstlisting}
 
 \subsection{Margins}
@@ -190,12 +201,12 @@ Car origin │         1          2          3          4          5 │     Tot
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-predict double resid, residuals
+. predict double resid, residuals
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-histogram resid, normal
->     title("Residual Distribution")
+. histogram resid, normal ///
+>     title("Residual Distribution") ///
 >     xtitle("Residuals") ytitle("Density")
 \end{lstlisting}
 
@@ -205,7 +216,7 @@ histogram resid, normal
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-graph export "logdoc/demo/residuals.png", replace width(900)
+. graph export "logdoc/demo/residuals.png", replace width(900)
 \end{lstlisting}
 
 \begin{figure}[htbp]
@@ -219,11 +230,11 @@ file logdoc/demo/residuals.png written in PNG format
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-capture graph close _all
+. capture graph close _all
 \end{lstlisting}
 
 \begin{lstlisting}[style=statacommand]
-drop resid
+. drop resid
 \end{lstlisting}
 
 

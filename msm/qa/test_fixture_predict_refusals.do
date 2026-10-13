@@ -26,15 +26,14 @@ program define _fx_caller_r, rclass
     return local fxbait `"`macval(bait)'"'
 end
 
-foreach cell in strategy times absent opaque draws persist {
-    **# U: actual early/support refusals and planted engine/persistence failures
+foreach cell in strategy times absent opaque draws frame {
+    **# U: actual early/support refusals, a planted engine failure, and a frame() refusal
     * expect: REFUSED with full caller data/order/e/r/RNG/globals preserved
     local ++test_count
     capture noisily {
         * Reload original programs so planted failures do not survive a cell.
         capture program drop msm_predict
-        capture program drop _msm_mat_save
-        foreach fn in _msm_mvn_factor _msm_predict_feature _msm_predict_vectorized _msm_pctile _msm_diff_pctile {
+                foreach fn in _msm_mvn_factor _msm_predict_feature _msm_predict_vectorized _msm_pctile _msm_diff_pctile {
             capture mata: mata drop `fn'()
         }
         quietly run "`qa_dir'/../msm_predict.ado"
@@ -45,7 +44,7 @@ foreach cell in strategy times absent opaque draws persist {
         quietly msm_fit, period_spec(linear) nolog
         quietly msm_predict, times(1 3) samples(10) seed(9164)
         matrix fx_before_predictions=r(predictions)
-        * Preserve a genuinely foreign active fit and its predictions on failure.
+        * Preserve a genuinely foreign active fit on failure.
         quietly regress l_t a l0
         local command "times(1 3) samples(10) seed(9165)"
         local expected_rc 198
@@ -66,18 +65,13 @@ foreach cell in strategy times absent opaque draws persist {
             mata: mata drop _msm_predict_vectorized()
             mata: void _msm_predict_vectorized(string scalar b, string scalar bu, string scalar f, string scalar k, string scalar c, string scalar a, string scalar p, string scalar s, string scalar t, string scalar ty, string scalar kn, string scalar df, real scalar base, real scalar last, real scalar n, real scalar deg, string scalar result, string scalar m0, string scalar m1) { real scalar draw; draw=rnormal(1,1,0,1); errprintf("planted prediction draw failure\n"); _error(3498); }
         }
-        if "`cell'"=="persist" {
-            local expected_rc 603
-            local cause "planted prediction persistence failure"
-            capture program drop _msm_mat_save
-            tempfile fault_source
-            tempname fault_handle
-            file open `fault_handle' using "`fault_source'", write text replace
-            file write `fault_handle' "program define _msm_mat_save" _n
-            file write `fault_handle' `"display as error "planted prediction persistence failure""' _n
-            file write `fault_handle' "exit 603" _n "end" _n
-            file close `fault_handle'
-            run "`fault_source'"
+        if "`cell'"=="frame" {
+            * msm 2.0.0 persists nothing; the late side effect is frame().
+            local expected_rc 110
+            local cause "already exists; specify frame("
+            capture frame drop fxkeep
+            frame create fxkeep
+            local command "times(1 3) samples(10) seed(9165) frame(fxkeep)"
         }
         tempfile refusal
         capture log close fxref
@@ -90,8 +84,12 @@ foreach cell in strategy times absent opaque draws persist {
         qa_state_compare, tag(predictref)
         log close fxref
         assert `command_rc'==`expected_rc'
-        assert !missing(mreldif(_msm_pred_matrix,fx_before_predictions))
-        assert mreldif(_msm_pred_matrix,fx_before_predictions)==0
+        * msm 2.0.0: predictions live only in r() and frame(); no session
+        * matrix or dataset characteristic is written on any path.
+        capture confirm matrix _msm_pred_matrix
+        assert _rc != 0
+        assert `"`: char _dta[_msm_pred_saved]'"' == ""
+        if "`cell'"=="frame" frame fxkeep: assert _N == 0
         python: assert __import__('sfi').Macro.getLocal('cause') in open(__import__('sfi').Macro.getLocal('refusal'),encoding='utf-8').read()
     }
     if !_rc {
@@ -105,7 +103,6 @@ foreach cell in strategy times absent opaque draws persist {
     }
 }
 capture program drop msm_predict
-capture program drop _msm_mat_save
 capture mata: mata drop _msm_predict_vectorized()
 do "`qa_dir'/_record_qa_result.do" test_fixture_predict_refusals `test_count' `pass_count' `fail_count' 0
 display "RESULT: test_fixture_predict_refusals tests=`test_count' pass=`pass_count' fail=`fail_count'"

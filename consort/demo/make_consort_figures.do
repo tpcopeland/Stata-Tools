@@ -259,7 +259,7 @@ display as text "Figure 11: Special characters in labels..."
 _clear_consort_state
 sysuse auto, clear
 
-consort init, initial("All vehicles (n=74)")
+consort init, initial("All vehicles")
 consort exclude if rep78 == ., label("Missing repair record - excluded")
 consort exclude if foreign == 1, label("Non-domestic manufacture")
 consort exclude if price > 10000, label("Price > $10,000")

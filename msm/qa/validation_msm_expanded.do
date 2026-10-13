@@ -45,203 +45,11 @@ program define _setup_pipeline
         treat_n_cov(age sex) truncate(1 99) nolog
 end
 
-* =============================================================================
-* V1: KNOWN-ANSWER E-VALUE TESTS
-* =============================================================================
 
-* --- V1.1: E-value for OR=2.0 ---
-* E-value = RR + sqrt(RR * (RR - 1)) = 2 + sqrt(2*1) = 2 + sqrt(2) ≈ 3.4142
-local ++test_count
-capture noisily {
-    * Create simple data to get OR≈2.0 from logistic model
-    clear
-    set seed 20260321
-    local N = 500
-    local T = 5
-    set obs `=`N' * `T''
-    gen id = ceil(_n / `T')
-    bysort id: gen period = _n - 1
-    gen double bl = .
-    bysort id: replace bl = rnormal() if _n == 1
-    bysort id: replace bl = bl[1]
-    bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
-    * Outcome with known effect: log-OR = ln(2) ≈ 0.693
-    bysort id: gen outcome = (runiform() < invlogit(-4 + 0.693 * treatment + 0.3 * bl))
 
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) baseline_covariates(bl)
-    msm_weight, treat_d_cov(bl) nolog
-    msm_fit, model(logistic) period_spec(linear) nolog
 
-    * Get OR
-    local or = exp(_b[treatment])
 
-    * Now test sensitivity E-value formula directly
-    msm_sensitivity, evalue
 
-    * The E-value should satisfy: E = RR + sqrt(RR*(RR-1))
-    * where RR = r(effect) (the OR in this case)
-    local rr = r(effect)
-    if `rr' < 1 {
-        local rr_use = 1 / `rr'
-    }
-    else {
-        local rr_use = `rr'
-    }
-    local expected_evalue = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
-    local actual_evalue = r(evalue_point)
-
-    display "  OR = " %7.4f r(effect) ", E-value = " %7.4f `actual_evalue' ///
-        ", expected = " %7.4f `expected_evalue'
-    assert abs(`actual_evalue' - `expected_evalue') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS V1.1: E-value formula verified"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V1.1: E-value formula (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V1.1"
-}
-
-* --- V1.2: E-value for protective effect (OR<1) ---
-* If OR=0.5, then 1/OR=2.0, E-value = 2 + sqrt(2) ≈ 3.4142
-local ++test_count
-capture noisily {
-    clear
-    set seed 20260322
-    local N = 500
-    local T = 5
-    set obs `=`N' * `T''
-    gen id = ceil(_n / `T')
-    bysort id: gen period = _n - 1
-    gen double bl = .
-    bysort id: replace bl = rnormal() if _n == 1
-    bysort id: replace bl = bl[1]
-    bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
-    * Protective effect: log-OR = ln(0.5) ≈ -0.693
-    bysort id: gen outcome = (runiform() < invlogit(-3 - 0.693 * treatment + 0.3 * bl))
-
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) baseline_covariates(bl)
-    msm_weight, treat_d_cov(bl) nolog
-    msm_fit, model(logistic) period_spec(linear) nolog
-    msm_sensitivity, evalue
-
-    * The E-value is on the RR scale (audit A12): a common outcome (this fixture's
-    * cumulative incidence exceeds rarethreshold) uses RR=sqrt(OR), a rare one the
-    * OR directly. Mirror whichever transform the command reported, then invert
-    * for a protective effect.
-    local rr_use = r(effect)
-    if "`r(approximation)'" == "common-outcome sqrt(OR)" local rr_use = sqrt(`rr_use')
-    if `rr_use' < 1 local rr_use = 1 / `rr_use'
-    local expected = `rr_use' + sqrt(`rr_use' * (`rr_use' - 1))
-    assert abs(r(evalue_point) - `expected') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS V1.2: E-value for protective effect"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V1.2: E-value protective (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V1.2"
-}
-
-* --- V1.3: E-value is always >= 1 ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, evalue
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) >= 1
-    assert !missing(r(evalue_ci))
-    assert r(evalue_ci) >= 1
-}
-if _rc == 0 {
-    display as result "  PASS V1.3: E-value >= 1"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V1.3: E-value >= 1 (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V1.3"
-}
-
-* =============================================================================
-* V2: KNOWN-ANSWER BIAS FACTOR
-* =============================================================================
-
-* --- V2.1: bias_factor = (RR_UD * RR_UY) / (RR_UD + RR_UY - 1) ---
-* RR_UD=2, RR_UY=3 → (2*3)/(2+3-1) = 6/4 = 1.5
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, confounding_strength(2 3)
-    local expected_bf = (2 * 3) / (2 + 3 - 1)
-    assert abs(r(bias_factor) - `expected_bf') < 0.0001
-    display "  Bias factor: " %7.4f r(bias_factor) " (expected: " %7.4f `expected_bf' ")"
-}
-if _rc == 0 {
-    display as result "  PASS V2.1: Bias factor = 1.5000"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V2.1: Bias factor (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V2.1"
-}
-
-* --- V2.2: bias_factor with RR_UD=RR_UY=2 → (2*2)/(2+2-1) = 4/3 ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, confounding_strength(2 2)
-    local expected_bf = (2 * 2) / (2 + 2 - 1)
-    assert abs(r(bias_factor) - `expected_bf') < 0.0001
-}
-if _rc == 0 {
-    display as result "  PASS V2.2: Bias factor (2,2) = 1.3333"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V2.2: Bias factor (2,2) (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V2.2"
-}
-
-* --- V2.3: corrected effect moves toward the null by the bias factor ---
-* VanderWeele & Ding (2017): effect / B when effect > 1, effect * B when < 1.
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, confounding_strength(2 3)
-    if r(effect) < 1 {
-        local expected_corrected = r(effect) * r(bias_factor)
-        assert !missing(r(corrected_effect))
-        assert r(corrected_effect) > r(effect)
-    }
-    else {
-        local expected_corrected = r(effect) / r(bias_factor)
-        assert !missing(r(effect))
-        assert r(corrected_effect) < r(effect)
-    }
-    assert abs(r(corrected_effect) - `expected_corrected') < 0.0001
-}
-if _rc == 0 {
-    display as result "  PASS V2.3: Corrected effect moves toward null by bias factor"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V2.3: Corrected effect (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V2.3"
-}
 
 * =============================================================================
 * V3: KNOWN-ANSWER SMD
@@ -381,11 +189,13 @@ capture noisily {
     local sum_w2 = r(sum)
     local expected_ess = (`sum_w'^2) / `sum_w2'
 
-    msm_diagnose
+    * msm 2.0.0: the pooled ESS is the shared _msm_ess helper (msm_weight's
+    * r(ess) and msm_diagnose's per-cell ess columns both use it)
+    _msm_ess _msm_weight
     local actual_ess = r(ess)
 
     display "  ESS hand-calc = " %9.2f `expected_ess' ///
-        ", msm_diagnose = " %9.2f `actual_ess'
+        ", _msm_ess = " %9.2f `actual_ess'
     assert abs(`actual_ess' - `expected_ess') < 0.01
 }
 if _rc == 0 {
@@ -415,7 +225,7 @@ capture noisily {
     gen double _msm_tw_weight = 1
     _msm_qa_register_weights
 
-    msm_diagnose
+    _msm_ess _msm_weight
     * ESS with all weights = 1 should equal N
     display "  ESS = " %9.2f r(ess) " (N = 100)"
     assert abs(r(ess) - 100) < 0.01
@@ -616,42 +426,6 @@ else {
     local failed_tests "`failed_tests' V7.1"
 }
 
-* --- V7.2: Null effect → E-value near 1 ---
-local ++test_count
-capture noisily {
-    * Continuing from V7.1 data (need to re-run)
-    clear
-    set seed 20260325
-    local N = 2000
-    local T = 5
-    set obs `=`N' * `T''
-    gen id = ceil(_n / `T')
-    bysort id: gen period = _n - 1
-    gen double bl = .
-    bysort id: replace bl = rnormal() if _n == 1
-    bysort id: replace bl = bl[1]
-    bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
-    bysort id: gen outcome = (runiform() < invlogit(-4 + 0 * treatment + 0.5 * bl))
-
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) baseline_covariates(bl)
-    msm_weight, treat_d_cov(bl) nolog
-    msm_fit, model(logistic) period_spec(linear) nolog
-    msm_sensitivity, evalue
-
-    * E-value should be small (close to 1) for null effect
-    display "  E-value = " %7.4f r(evalue_point) " (expected near 1)"
-    assert r(evalue_point) < 3.0
-}
-if _rc == 0 {
-    display as result "  PASS V7.2: Null effect → low E-value"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V7.2: Null E-value (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V7.2"
-}
 
 * =============================================================================
 * V8: NATURAL SPLINE VALIDATION
@@ -869,19 +643,18 @@ else {
     local failed_tests "`failed_tests' V10.3"
 }
 
-* --- V10.4: msm_diagnose persists balance data ---
+* --- V10.4: msm_diagnose is read-only on the dataset (msm 2.0.0) ---
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_diagnose, balance_covariates(biomarker comorbidity age sex)
-    assert "`: char _dta[_msm_diag_saved]'" == "1"
-    assert "`: char _dta[_msm_bal_saved]'" == "1"
-    assert "`: char _dta[_msm_diag_mean]'" != ""
-    assert "`: char _dta[_msm_diag_ess]'" != ""
-    matrix list _msm_bal_matrix
+    assert "`: char _dta[_msm_diag_saved]'" == ""
+    assert "`: char _dta[_msm_bal_saved]'" == ""
+    capture confirm matrix _msm_bal_matrix
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS V10.4: msm_diagnose persistence"
+    display as result "  PASS V10.4: msm_diagnose leaves no dataset state"
     local ++pass_count
 }
 else {
@@ -890,39 +663,21 @@ else {
     local failed_tests "`failed_tests' V10.4"
 }
 
-* --- V10.5: msm_sensitivity persists E-value ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, evalue
-    assert "`: char _dta[_msm_sens_saved]'" == "1"
-    assert "`: char _dta[_msm_sens_effect]'" != ""
-    assert "`: char _dta[_msm_sens_evalue_point]'" != ""
-}
-if _rc == 0 {
-    display as result "  PASS V10.5: msm_sensitivity persistence"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V10.5: sensitivity persistence (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V10.5"
-}
 
-* --- V10.6: msm_predict persists prediction matrix ---
+* --- V10.6: msm_predict is read-only on the dataset (msm 2.0.0) ---
 local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_fit, outcome_cov(age sex) model(logistic) nolog
     msm_predict, times(1 3 5) samples(20) seed(42)
-    assert "`: char _dta[_msm_pred_saved]'" == "1"
-    assert "`: char _dta[_msm_pred_type]'" == "cum_inc"
-    assert "`: char _dta[_msm_pred_strategy]'" == "both"
-    matrix list _msm_pred_matrix
+    assert "`: char _dta[_msm_pred_saved]'" == ""
+    assert "`: char _dta[_msm_pred_type]'" == ""
+    capture confirm matrix _msm_pred_matrix
+    assert _rc != 0
+    confirm matrix r(predictions)
 }
 if _rc == 0 {
-    display as result "  PASS V10.6: msm_predict persistence"
+    display as result "  PASS V10.6: msm_predict leaves no dataset state"
     local ++pass_count
 }
 else {
@@ -975,16 +730,10 @@ local ++test_count
 capture noisily {
     _setup_pipeline, nolog
     msm_diagnose, balance_covariates(biomarker comorbidity age sex)
-    assert !missing(r(mean_weight))
-    assert r(mean_weight) > 0
-    assert !missing(r(sd_weight))
-    assert r(sd_weight) > 0
-    assert !missing(r(ess))
-    assert r(ess) > 0
-    assert !missing(r(ess_pct))
-    assert r(ess_pct) > 0 & r(ess_pct) <= 100
-    assert !missing(r(n_extreme))
-    assert r(n_extreme) >= 0
+    assert !missing(r(min_obs_probability))
+    assert r(min_obs_probability) > 0 & r(min_obs_probability) < 0.5
+    assert !missing(r(n_positivity_violations), r(n_support_violations))
+    assert r(n_imbalanced) >= 0 & r(n_imbalanced) <= 4
     assert rowsof(r(balance)) == 4
     assert colsof(r(balance)) == 3
 }
@@ -998,38 +747,6 @@ else {
     local failed_tests "`failed_tests' V11.2"
 }
 
-* --- V11.3: msm_sensitivity r() values ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(logistic) nolog
-    msm_sensitivity, evalue confounding_strength(2 3)
-    assert !missing(r(effect))
-    assert r(effect) > 0
-    assert !missing(r(effect_lo))
-    assert r(effect_lo) > 0
-    assert !missing(r(effect_hi))
-    assert r(effect_hi) > 0
-    assert !missing(r(effect_hi))
-    assert r(effect_hi) > r(effect_lo)
-    assert !missing(r(evalue_point))
-    assert r(evalue_point) >= 1
-    assert !missing(r(evalue_ci))
-    assert r(evalue_ci) >= 1
-    assert !missing(r(bias_factor))
-    assert r(bias_factor) > 0
-    assert !missing(r(corrected_effect))
-    assert r(corrected_effect) > 0
-}
-if _rc == 0 {
-    display as result "  PASS V11.3: msm_sensitivity r() values reasonable"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V11.3: sensitivity r() values (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V11.3"
-}
 
 * --- V11.4: msm_predict r() values ---
 local ++test_count
@@ -1203,25 +920,6 @@ else {
     local failed_tests "`failed_tests' V14.1"
 }
 
-* --- V14.2: Cox sensitivity uses HR label ---
-local ++test_count
-capture noisily {
-    _setup_pipeline, nolog
-    msm_fit, outcome_cov(age sex) model(cox) nolog
-    msm_sensitivity, evalue
-    assert "`r(effect_label)'" == "HR"
-    assert !missing(r(effect))
-    assert r(effect) > 0
-}
-if _rc == 0 {
-    display as result "  PASS V14.2: Cox sensitivity uses HR"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V14.2: Cox sensitivity HR (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V14.2"
-}
 
 * =============================================================================
 * V15: PREPARE CLEARS DOWNSTREAM ARTIFACTS
@@ -1251,35 +949,6 @@ else {
     local failed_tests "`failed_tests' V15.1"
 }
 
-* =============================================================================
-* V16: PROTOCOL STORED RESULTS
-* =============================================================================
-
-* --- V16.1: All 8 r() macros stored ---
-local ++test_count
-capture noisily {
-    msm_protocol, population("Pop") treatment("Treat") ///
-        confounders("Conf") outcome("Out") ///
-        causal_contrast("CC") weight_spec("WS") ///
-        analysis("Anal") format(display)
-    assert "`r(population)'" == "Pop"
-    assert "`r(treatment)'" == "Treat"
-    assert "`r(confounders)'" == "Conf"
-    assert "`r(outcome)'" == "Out"
-    assert "`r(causal_contrast)'" == "CC"
-    assert "`r(weight_spec)'" == "WS"
-    assert "`r(analysis)'" == "Anal"
-    assert "`r(format)'" == "display"
-}
-if _rc == 0 {
-    display as result "  PASS V16.1: msm_protocol all r() stored"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL V16.1: protocol r() (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' V16.1"
-}
 
 * =============================================================================
 * SUMMARY

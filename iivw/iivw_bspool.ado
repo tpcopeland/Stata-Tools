@@ -1,4 +1,4 @@
-*! iivw_bspool Version 4.3.6  2026/10/09
+*! iivw_bspool Version 4.3.7  2026/10/13
 *! Pool sharded iivw_fit bootstrap replicate files into one estimation result
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (reposts the current iivw_fit results)

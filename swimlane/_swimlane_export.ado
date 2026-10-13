@@ -1,4 +1,4 @@
-*! _swimlane_export Version 0.1.1  2026/09/30
+*! _swimlane_export Version 0.2.0  2026/10/13
 *! Export canonical swimlane frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

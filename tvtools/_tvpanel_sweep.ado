@@ -1,4 +1,4 @@
-*! _tvpanel_sweep Version 1.18.1  2026/10/12
+*! _tvpanel_sweep Version 1.18.2  2026/10/13
 *! Active class and per-class cumulative exposure on a tvpanel grid in one sweep
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: utility (called internally by tvpanel)

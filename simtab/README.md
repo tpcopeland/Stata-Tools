@@ -1,6 +1,6 @@
 # simtab — Monte Carlo simulation performance tables
 
-**Version 2.0.3** | 2026-10-12
+**Version 2.0.4** | 2026-10-13
 
 `simtab` computes and renders publication-ready performance tables from replication-level simulation results or pre-computed summaries. It exports styled Excel, CSV, Markdown, rendered-frame, and numeric-frame outputs.
 
@@ -178,6 +178,7 @@ QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
 
+- **2.0.4** (2026-10-13): A metric value that rounds to zero prints without a sign: a bias of -0.003 at two decimals showed `-0.00` (and a tiny positive bias `+0.00`); both now show `0.00`, in the console, frames and every export. Values that survive rounding keep their sign. The first call in a session no longer echoes Mata source to the console, and a helper that does not compile now stops with an explicit message and its return code.
 - **2.0.3** (2026-10-09): Help References now give a DOI for every entry.
 
 - **2.0.2** (2026-09-30): Retain double precision for computed means and empirical standard errors when input estimates use byte, int, or float storage; preserve original caller values, types and order. Restore the caller's Mata strict setting after helper compilation, including failed compilation. Preserve prior caller `r()` on refusals before analytical results are prepared; late output failures retain analytical publication.

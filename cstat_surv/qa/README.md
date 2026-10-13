@@ -27,6 +27,7 @@ stata-mp -b do test_cstat_surv_documentation_examples.do
 |---|---|
 | `test_cstat_surv.do` | Functional C-statistic behavior and pair accounting. |
 | `test_cstat_surv_errors.do` | Exact pre-estimation, non-Cox, and invalid-level errors with e() preservation. |
+| `test_cstat_surv_repeat.do` | Repeat `cstat_surv` calls replay the posted results; a restored older result is never recomputed against another Cox fit; a changed dataset or an in-place edit of time, failure or a covariate returns r(301) leaving `e()` intact; re-sort, preserve/restore and `compress` still replay; no estimates-namespace footprint. |
 | `test_cstat_surv_hostile.do` | 32-character covariate names, extended missingness, repeat calls, and refused-path data/e() preservation. |
 | `test_cstat_surv_documentation_examples.do` | Exact self-contained help setup, Cox fit, and C-statistic example. |
 | `validation_cstat_surv.do` | Known-answer and identity checks. |

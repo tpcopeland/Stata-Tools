@@ -1,4 +1,4 @@
-*! qba_misclass Version 1.1.5  2026/10/09
+*! qba_misclass Version 1.2.0  2026/10/13
 *! Misclassification bias analysis for 2x2 tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

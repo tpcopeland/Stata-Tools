@@ -370,18 +370,37 @@ capture noisily {
 
     _pkgtransfer_v111_fixture, work("`work'") plus("`plus'")
     cd "`work'"
+    * Staging lives in a temporary directory, so an output inside the user's
+    * own ./pkgtransfer_files is legitimate: it is written there and the
+    * folder's other files are left alone.
     foreach mode in local online {
         foreach path in "pkgtransfer_files/install.do" "./pkgtransfer_files/install.do" "`work'/pkgtransfer_files/install.do" "dummy/../pkgtransfer_files/install.do" {
-            capture noisily pkgtransfer, download(`mode') limited(alpha) dofile("`path'")
-            local rc = _rc
-            assert `rc' == 198
             capture mkdir pkgtransfer_files
             assert _rc == 0
+            tempname sfh
+            file open `sfh' using "pkgtransfer_files/keep.txt", write text replace
+            file write `sfh' "user-owned" _n
+            file close `sfh'
+            capture noisily pkgtransfer, download(`mode') limited(alpha) dofile("`path'")
+            local rc = _rc
+            assert `rc' == 0
+            confirm file "pkgtransfer_files/install.do"
+            confirm file "pkgtransfer_files/keep.txt"
+            confirm file "pkgtransfer_files.zip"
+            erase "pkgtransfer_files/install.do"
+            erase "pkgtransfer_files/keep.txt"
+            erase "pkgtransfer_files.zip"
             rmdir pkgtransfer_files
         }
-        capture noisily pkgtransfer, download(`mode') limited(alpha) zipfile("./pkgtransfer_files/out.zip")
+        capture mkdir pkgtransfer_files
+        assert _rc == 0
+        capture noisily pkgtransfer, download(`mode') limited(alpha) dofile("o_`mode'.do") zipfile("./pkgtransfer_files/out.zip")
         local rc = _rc
-        assert `rc' == 198
+        assert `rc' == 0
+        confirm file "pkgtransfer_files/out.zip"
+        erase "pkgtransfer_files/out.zip"
+        erase "o_`mode'.do"
+        rmdir pkgtransfer_files
     }
     pkgtransfer, download(online) limited(alpha) dofile("outside.do") zipfile("outside.zip")
     assert r(dofile) == "outside.do"

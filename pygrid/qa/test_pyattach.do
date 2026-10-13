@@ -118,7 +118,7 @@ capture noisily {
         if(kind == 1) orphans(report)
     assert all_events == 2 & kind_events == 1
     local stamp : char _dta[pygrid_version]
-    assert "`stamp'" == "1.0.1"
+    assert "`stamp'" == "1.0.2"
 }
 local case_rc = _rc
 _pygrid_record, rc(`case_rc') name("repeated attachment and stamp persistence") ///

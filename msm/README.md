@@ -1,485 +1,512 @@
 # msm — Marginal structural models for longitudinal causal analysis
 
-**Version 1.4.12** | 2026-10-12
+**Version 2.0.0** | 2026-10-13
 
-`msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It takes you from protocol and variable mapping through stabilized IPTW/IPCW, diagnostics, weighted outcome models, counterfactual prediction, plots, exports, and sensitivity analysis.
+`msm` estimates inverse-probability-weighted marginal structural models for longitudinal person-period data with time-varying treatment and confounding. It prepares and checks the data, builds stabilized IPTW/IPCW, diagnoses balance and positivity over time, fits the weighted outcome model, and standardizes counterfactual risks; companion packages make the tables and figures.
 
 ## Quick Start
-
-Use the bundled person-period example to fit a pooled logistic MSM and obtain counterfactual cumulative-incidence predictions:
 
 ```stata
 capture confirm file msm_example.dta
 if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
 use msm_example.dta, clear
 
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
-msm_validate
+msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+    covariates(biomarker comorbidity) baseline_covariates(age sex)
 msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
     treat_n_cov(age sex) truncate(1 99) nolog
+msm_diagnose
 msm_fit, model(logistic) outcome_cov(age sex) nolog
-msm_predict, times(1 3 5 7 9) difference seed(12345)
+msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345)
 ```
 
-The prediction compares standardized outcomes under always-treated and never-treated strategies. Add `msm_diagnose` before `msm_fit` to inspect weights and longitudinal covariate balance.
+`msm_predict` compares standardized cumulative incidence under always-treated and never-treated strategies.
 
 ## Requirements
 
 - Stata 16 or later
-- No required external dependencies
-- Optional: `psdash` for a per-period propensity-overlap and weight dashboard. Install it separately if needed; the core `msm` workflow does not require it.
+- The core commands need no other package.
+- Optional companions for tables, diagnostics, figures and E-values: [`tabtools`](../tabtools), [`psdash`](../psdash), [`eplot`](../eplot), [`swimlane`](../swimlane) and [`qba`](../qba), all from Stata-Tools. `psdash` must be 1.8.0 or later to read data weighted by msm 2.0.0.
 
 ## Installation
-
-Install the public Stata-Tools package and replace any older copy:
 
 ```stata
 capture ado uninstall msm
 net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
 ```
 
-The command files and help files are installed by `net install`. Download the ancillary example dataset into the current working directory when you want to run the examples:
+Uninstall first when upgrading from 1.4.x: `net install, replace` does not delete files that a new version no longer ships. If `ado uninstall msm` reports that more than one package matches, run `ado dir` and uninstall each `msm` entry by its number, highest first.
+
+Download the example dataset into the working directory:
 
 ```stata
 net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
 ```
 
-To use the optional `psdash` integration, install the public companion package:
+Install the companions you need the same way, for example:
 
 ```stata
-net install psdash, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") replace
+foreach p in tabtools psdash eplot qba swimlane {
+    net install `p', from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/`p'") replace
+}
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `msm` | Show the suite overview or inspect pipeline state |
-| `msm_protocol` | Record the seven components of an MSM study protocol |
-| `msm_prepare` | Map ID, period, treatment, outcome, censoring, and covariate variables |
-| `msm_validate` | Run person-period data-quality checks |
-| `msm_weight` | Estimate stabilized treatment weights and optional censoring weights |
-| `msm_diagnose` | Summarize weights, overlap, effective sample size, and covariate balance |
-| `msm_diagtab` | Export accumulated cross-contrast weight diagnostics to Excel |
-| `msm_fit` | Fit a weighted pooled logistic, linear, or Cox outcome model |
-| `msm_predict` | Predict cumulative incidence or survival under static treatment strategies |
-| `msm_plot` | Draw weight, balance, survival, trajectory, or positivity plots |
-| `msm_report` | Produce one compact report in the Results window, CSV, or Excel |
-| `msm_table` | Export selected or all available pipeline tables to Excel |
-| `msm_sensitivity` | Compute E-values or confounding-strength bounds |
+| `msm` | Overview, companion map, and `msm, status` for the pipeline state |
+| `msm_prepare` | Map ID, period, treatment, outcome, censoring and covariates; refuse invalid person-period data; report data checks |
+| `msm_weight` | Stabilized treatment weights and optional censoring weights |
+| `msm_diagnose` | Balance by period and prior treatment, censoring balance, and positivity |
+| `msm_fit` | Weighted pooled logistic, linear, or Cox outcome model |
+| `msm_predict` | Standardized risks under always and never treated, risk differences, and a graph-ready frame |
+
+`msm_protocol`, `msm_validate`, `msm_plot`, `msm_report`, `msm_table`, `msm_diagtab` and `msm_sensitivity` were removed in 2.0.0. They remain installed as stubs for all of 2.x; each prints its replacement and exits with return code 199.
 
 ## How It Works
 
-`msm` stores the variable mapping and pipeline contracts in dataset characteristics. Weighting creates named analysis variables; fitting, prediction, balance, diagnostics, and sensitivity results are bound to their upstream artifact, and matrix results are serialized with the dataset where needed. Downstream commands verify ownership and dependencies before using those artifacts.
-
-The usual sequence is:
+`msm` stores the variable mapping and a signed contract for each stage in dataset characteristics. `msm_weight` and `msm_fit` verify that the data still match the stage they build on before using it, and re-running `msm_prepare` clears every downstream weight and fit artifact. `msm_diagnose` and `msm_predict` only read: their results are in `r()` (and `msm_predict, frame()`), so nothing they produce can go stale.
 
 ```text
-msm_protocol → msm_prepare → msm_validate → msm_weight
-                                             ↓
-                                        msm_diagnose
-                                             ↓
-                                          msm_fit
-                                             ↓
-                                        msm_predict
-                                             ↓
-                      msm_plot / msm_report / msm_table / msm_sensitivity
+msm_prepare → msm_weight → msm_diagnose → msm_fit → msm_predict
+                  │              │            │           │
+               psdash         psdash       regtab     effecttab · eplot · twoway
+                                           qba_confound
 ```
 
-Run `msm, status` after any step or when reopening a saved dataset. It reports the current stage, mapped variables, available artifacts, fitted model information, and the recommended next command without fitting a model or changing the data. Re-running `msm_prepare` is the restart point for a changed mapping; it clears downstream weighting, fit, prediction, diagnostic, and sensitivity state.
+`msm_weight` creates `_msm_weight` (treatment × censoring weight, the one `msm_fit` uses), `_msm_tw_weight`, optional `_msm_cw_weight`, the propensity score `_msm_ps`, the raw and used model probabilities, and `_msm_decision_risk`, which marks the rows that are real treatment decisions. Post-event and post-censoring rows carry the last weight forward but stay out of every fit and summary.
 
-The weight variables created by `msm_weight` include `_msm_weight` (the final treatment-times-censoring weight), `_msm_tw_weight`, optional `_msm_cw_weight`, `_msm_ps`, raw and used treatment/censoring probabilities, and `_msm_decision_risk`. The persisted risk-set marker keeps post-event and post-censor carry-forward rows out of weight and balance summaries.
+Run `msm, status` at any point to see the stage, the mapping, and the next step.
 
 ### Choosing a Workflow
 
 | Goal | Workflow |
 |------|----------|
-| Document the causal question | Run `msm_protocol` with all seven required components; export it if the protocol belongs in a supplement or manuscript |
-| Estimate standardized risks | Use `msm_prepare`, `msm_validate`, `msm_weight`, `msm_diagnose`, `msm_fit, model(logistic)`, and `msm_predict` |
-| Estimate a weighted identity-scale effect | Use `msm_fit, model(linear)`; its treatment coefficient is a period-specific probability difference, not a standardized cumulative-incidence difference |
-| Estimate a weighted hazard ratio | Use `msm_fit, model(cox)`; prediction is unavailable, but reporting, tables, and sensitivity analysis remain available |
-| Model delayed or cumulative treatment effects | Use `msm_fit, history(lag1 cumulative duration interaction)`; these built-in terms remain compatible with static-regime prediction |
-| Model a continuous treatment-history summary | Use `msm_fit, exposure(varname)` and, when appropriate, `tvcov(varlist)`; this is estimation-only and disables `msm_predict` |
-| Compare several weighted panels | Call `msm_diagnose, accumulate(frame)` for each panel and export the resulting frame with `msm_diagtab` |
+| Standardized risks and risk differences | `msm_prepare`, `msm_weight`, `msm_diagnose`, `msm_fit, model(logistic)`, `msm_predict` |
+| Weighted identity-scale effect | `msm_fit, model(linear)`; the treatment coefficient is a period-specific probability difference, not a standardized risk difference |
+| Weighted hazard ratio | `msm_fit, model(cox)`; prediction is unavailable, report `e()` |
+| Delayed or cumulative treatment effects | `msm_fit, history(lag1 cumulative duration interaction)`; still prediction-compatible |
+| Continuous treatment-history summary | `msm_fit, exposure(varname)` and, where appropriate, `tvcov(varlist)`; estimation only |
 
 ## Worked Examples
 
-### 1. Full prediction-ready pipeline
-
-This complete workflow documents the protocol, includes informative censoring, checks the data, fits a pooled logistic MSM, and exports the main results.
-
-```stata
-net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
-use msm_example.dta, clear
-
-msm_protocol, ///
-    population("Adults followed over discrete periods") ///
-    treatment("Always treated versus never treated") ///
-    confounders("Time-varying biomarker and comorbidity; baseline age and sex") ///
-    outcome("Binary clinical endpoint") ///
-    causal_contrast("Risk difference in cumulative incidence") ///
-    weight_spec("Stabilized IPTW and IPCW, truncated at 1st and 99th percentiles") ///
-    analysis("Pooled logistic MSM with robust SE clustered by ID")
-
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) censor(censored) ///
-    covariates(biomarker comorbidity) baseline_covariates(age sex)
-msm_validate, strict verbose
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) censor_d_cov(biomarker comorbidity age sex) ///
-    censor_n_cov(age sex) truncate(1 99) nolog
-msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
-    by_period threshold(0.1)
-msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
-msm_predict, times(1 3 5 7 9) difference samples(200) seed(12345)
-msm_sensitivity, evalue
-msm_report, eform
-msm_table, xlsx("msm_results.xlsx") all eform replace
-```
-
-The Excel exporters replace only the report, protocol, or selected table sheets when `replace` is specified, preserving unrelated sheets in the same workbook.
-
-### 2. Minimal estimation and prediction
-
-Use this shorter branch when you need the fitted effect and standardized predictions before preparing publication tables.
+### 1. Prediction with censoring weights
 
 ```stata
 use msm_example.dta, clear
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
-msm_validate
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) nolog
-msm_fit, model(logistic) outcome_cov(age sex) nolog
-msm, status
-msm_predict, times(3 5 7 9) difference seed(12345)
-matrix list r(predictions)
-```
-
-The default prediction strategy is `both` and the default output scale is cumulative incidence. Specify `type(survival)` for survival instead.
-
-### 3. Cox estimation without counterfactual prediction
-
-Choose a Cox MSM when the target estimand is a weighted hazard ratio rather than a standardized risk curve.
-
-```stata
-use msm_example.dta, clear
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) nolog
-msm_fit, model(cox) outcome_cov(age sex) vce(cluster id) nolog
-msm_report, eform
-```
-
-`msm_predict` does not support Cox or linear fits. Use `msm_report`, `msm_table`, or `msm_sensitivity` after an estimation-only fit.
-
-### 4. Flexible time bases and censoring weights
-
-Preview a weighting specification before fitting it, then use natural cubic splines when a linear time trend is not adequate.
-
-```stata
-use msm_example.dta, clear
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) censor(censored) ///
-    covariates(biomarker comorbidity) baseline_covariates(age sex)
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) censor_d_cov(biomarker comorbidity age sex) ///
-    censor_n_cov(age sex) period_d_spec(ns(4)) period_n_spec(ns(4)) preview
-return list
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) censor_d_cov(biomarker comorbidity age sex) ///
-    censor_n_cov(age sex) period_d_spec(ns(4)) period_n_spec(ns(4)) ///
+msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+    censor(censored) covariates(biomarker comorbidity) baseline_covariates(age sex)
+msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex) ///
+    censor_d_cov(biomarker comorbidity age sex) censor_n_cov(age sex) ///
     truncate(1 99) nolog
-msm_diagnose, by_period
+msm_diagnose, threshold(0.1)
+msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
+msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345) frame(pred, replace)
+matrix list r(rd)
 ```
 
-The default weighting basis is `period_d_spec(linear) period_n_spec(none)`. Type both option names in full because they share the `period` prefix.
+`msm_diagnose` reports balance within each period and prior-treatment stratum. Age and sex are in `treat_n_cov()`, so the stabilized weights keep their distribution on purpose: they appear as `target=0` and are flagged `(numerator)` in the pooled table rather than counted as imbalanced.
 
-### 5. Accumulate diagnostics across contrasts
+### 2. Tables
 
-For a loop over separately weighted panels, accumulate one row per panel and render the frame as a single Excel sheet. The example below demonstrates the contract with one bundled panel; the same two commands can be called inside a contrast loop.
+```stata
+collect clear
+collect: msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
+regtab, xlsx("msm_results.xlsx") sheet("Outcome model") coef(OR)
+
+msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345)
+matrix RD = r(rd)
+effecttab, from(RD) effect("Risk difference") xlsx("msm_results.xlsx") sheet("Risk differences")
+```
+
+`r(rd)` holds estimate, lower and upper Monte Carlo limits, and an empty p-value column, the layout `effecttab, from()` reads. Any other returned matrix goes to Excel with `puttab using msm_results.xlsx, matrix(name) sheet(name)`.
+
+### 3. Weight and balance diagnostics with psdash
+
+```stata
+psdash combined
+psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight) detail graph
+psdash balance treatment _msm_ps if _msm_decision_risk, ///
+    covariates(biomarker comorbidity) wvar(_msm_weight) loveplot
+```
+
+`psdash combined` reads the msm contract, restricts to the decision risk set and diagnoses the analysis weight `_msm_weight` by default. Pass only denominator covariates to the Love plot; numerator covariates are not balance targets. `psdash` standardizes the weighted SMD by the unweighted pooled SD (the `cobalt` default) while `msm_diagnose` uses the weighted SD (Austin and Stuart 2015, section 4.1.1), so the two can differ slightly near a threshold.
+
+### 4. Figures
+
+```stata
+msm_predict, times(1 3 5 7 9) difference samples(500) seed(12345) frame(pred, replace)
+eplot if strategy == "rd", frame(pred) values xline(0)
+
+frame pred: twoway ///
+    (rarea ll ul horizon if strategy == "never", pstyle(p1) color(%25) lwidth(none)) ///
+    (connected estimate horizon if strategy == "never", pstyle(p1)) ///
+    (rarea ll ul horizon if strategy == "always", pstyle(p2) color(%25) lwidth(none)) ///
+    (connected estimate horizon if strategy == "always", pstyle(p2)), ///
+    legend(order(2 "Never treated" 4 "Always treated")) ///
+    ytitle("Cumulative incidence") xtitle("Period")
+```
+
+The frame has one row per period and quantity (`strategy` is `never`, `always` or `rd`) with `label`, `estimate`, `ll`, `ul` and `rowtype`, eplot's frame schema. Treatment histories: `generate pstop = period + 1`, then `swimlane, id(id) start(period) stop(pstop) state(treatment)`.
+
+### 5. E-value for unmeasured confounding
+
+```stata
+msm_fit, model(logistic) outcome_cov(age sex) period_spec(quadratic) nolog
+qba_confound, from_model coef(treatment) evalue measure(HR)
+```
+
+The pooled-logistic odds ratio is a ratio of per-period odds, close to a discrete-time hazard ratio when the per-period risk is small; hence `measure(HR)`. Add `commonoutcome` when the cumulative incidence at the end of follow-up is 15% or more.
+
+### 6. Cox estimation without prediction
 
 ```stata
 use msm_example.dta, clear
-msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) covariates(biomarker comorbidity) ///
-    baseline_covariates(age sex)
-msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-    treat_n_cov(age sex) nolog
-capture frame drop diagnostics
-msm_diagnose, accumulate(diagnostics) ///
-    contrast("Example panel") outcome("Binary endpoint")
-msm_diagtab, frame(diagnostics) xlsx("contrast_diagnostics.xlsx") ///
-    decimals(2) borderstyle(academic) zebra replace
-```
-
-The accumulated frame has one row per contrast with sample size, ESS, weight summaries, extreme-weight counts, and balance summaries.
-
-### 6. Export a standalone protocol
-
-Protocol documentation does not require a prepared dataset and can be exported before analysis.
-
-```stata
-msm_protocol, ///
-    population("Adults with a chronic condition") ///
-    treatment("Drug A initiation versus no initiation") ///
-    confounders("Baseline and time-varying measured confounders") ///
-    outcome("All-cause mortality") ///
-    causal_contrast("Always treated versus never treated") ///
-    weight_spec("Stabilized IPTW with explicit positivity policy") ///
-    analysis("Weighted pooled logistic regression with clustered SEs") ///
-    export("protocol.csv") format(csv) replace
+msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+    covariates(biomarker comorbidity) baseline_covariates(age sex)
+msm_weight, treat_d_cov(biomarker comorbidity age sex) treat_n_cov(age sex) nolog
+collect clear
+collect: msm_fit, model(cox) outcome_cov(age sex) nolog
+regtab, coef(HR)
 ```
 
 ## Demo
 
-Regenerate the checked-in graphs and workbooks by running `demo/demo_msm.do` from a package checkout. The compatibility entry point `demo/demo_msm_pipeline.do` delegates to the same canonical script.
+`demo/demo_msm.do` regenerates the figures below from `msm_example.dta`.
 
 | Output | Command focus |
 |--------|---------------|
-| ![Counterfactual cumulative-incidence curves for always-treated and never-treated strategies](demo/survival_plot.png) | `msm_plot, type(survival)` |
-| ![Stabilized treatment and censoring weight distributions](demo/weight_plot.png) | `msm_plot, type(weights)` |
-| ![Covariate balance before and after weighting](demo/balance_plot.png) | `msm_plot, type(balance)` |
-| [Protocol workbook](demo/msm_protocol.xlsx) | `msm_protocol` Excel export |
-| [Compact report workbook](demo/msm_report.xlsx) | `msm_report` Excel export |
-| [Multi-sheet results workbook](demo/msm_tables.xlsx) | `msm_table` all available sheets |
+| ![Counterfactual cumulative incidence under always and never treated, with Monte Carlo bands](demo/survival_plot.png) | `msm_predict, frame()` and `twoway` |
+| ![Risk difference by period with 95% Monte Carlo intervals](demo/rd_forest.png) | `eplot, frame()` |
+| ![Distribution of the stabilized analysis weight](demo/weight_plot.png) | `psdash weights` |
+| ![Love plot for the two denominator covariates, before and after weighting](demo/balance_plot.png) | `psdash balance, loveplot` |
+| [Results workbook](demo/msm_tables.xlsx) | `regtab` and `effecttab` |
 
-The demo uses the bundled `msm_example.dta` data and writes the protocol, report, tables, and graphs into the demo directory.
+<details>
+<summary>Console: msm_fit, regtab, msm_predict, effecttab, qba_confound</summary>
+
+**Fit, tabulate and predict**
+
+```stata
+. collect clear
+```
+
+```stata
+. noisily collect: msm_fit, model(logistic) outcome_cov(age sex)
+>     period_spec(quadratic) nolog
+```
+
+```
+----------------------------------------------------------------------
+msm_fit - Weighted Outcome Model
+----------------------------------------------------------------------
+
+Model type:       logistic
+Outcome:          outcome
+Treatment var:    treatment
+Period spec:      quadratic
+Treatment history: none (current-treatment-only; assumes no carryover)
+Covariates:       age sex
+Weight var:       _msm_weight
+SE type:          cluster
+Cluster var:      id
+
+Fitting pooled logistic regression...
+
+
+Generalized linear models                         Number of obs   =      4,537
+Optimization     : ML                             Residual df     =      4,531
+                                                  Scale parameter =          1
+Deviance         =  515.2905984                   (1/df) Deviance =   .1137256
+Pearson          =  4575.829174                   (1/df) Pearson  =   1.009894
+
+Variance function: V(u) = u*(1-u)                 [Bernoulli]
+Link function    : g(u) = ln(u/(1-u))             [Logit]
+
+                                                  AIC             =   .1162201
+Log pseudolikelihood = -257.6452992               BIC             =  -37635.83
+
+                                     (Std. err. adjusted for 500 clusters in id)
+--------------------------------------------------------------------------------
+               |               Robust
+       outcome | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+---------------+----------------------------------------------------------------
+     treatment |  -.2662234    .335203    -0.79   0.427    -.9232092    .3907624
+        period |  -.0300596   .1902854    -0.16   0.874    -.4030121    .3428928
+_msm_period_sq |   .0134486   .0216252     0.62   0.534    -.0289361    .0558332
+           age |   .0515743   .0158195     3.26   0.001     .0205686      .08258
+           sex |  -.0919971   .3295391    -0.28   0.780    -.7378818    .5538877
+         _cons |  -7.614846   .9771727    -7.79   0.000     -9.53007   -5.699623
+--------------------------------------------------------------------------------
+
+----------------------------------------------------------------------
+Treatment effect (MSM causal estimate):
+  Log-odds:     -0.2662 (SE:  0.3352)
+  Odds ratio:    0.7663 (95% CI:  0.3972 -  1.4781)
+  p-value:       0.4271
+
+Note: standard errors are final-stage, conditional on the estimated IP
+      weights and the observed sample; they do not propagate weight-model
+      estimation uncertainty (see help msm_fit).
+
+Next step: msm_predict for counterfactual predictions
+State check: msm, status
+----------------------------------------------------------------------
+
+```
+
+```stata
+. noisily regtab, xlsx("`tables_xlsx'") sheet("Outcome model") coef(OR)
+>     title("Weighted pooled logistic MSM")
+```
+
+```
+Weighted pooled logistic MSM
+  +------------------------------------------------------------+
+  |                             Model                          |
+  |                                OR         95% CI   p-value |
+  | Treatment indicator (0/1)    0.77   (0.40, 1.48)      0.43 |
+  |         Time period (0-9)    0.97   (0.67, 1.41)      0.87 |
+  |            Period squared    1.01   (0.97, 1.06)      0.53 |
+  |   Age at baseline (years)    1.05   (1.02, 1.09)     0.001 |
+  |    Sex (0=Female, 1=Male)    0.91   (0.48, 1.74)      0.78 |
+  +------------------------------------------------------------+
+
+Exported 8 rows × 5 cols to msm_tables.xlsx, sheet Outcome model
+
+```
+
+**Standardized cumulative incidence and risk differences**
+
+```stata
+. noisily msm_predict, times(1 3 5 7 9) difference samples(1000)
+>     seed(12345) frame(pred, replace)
+```
+
+```
+----------------------------------------------------------------------
+msm_predict - Counterfactual Predictions
+----------------------------------------------------------------------
+
+Strategy:         both
+Prediction type:  cum_inc
+MC samples:       1000
+Seed used:        12345
+Confidence level: 95%
+Risk difference:  Yes
+
+Computing predictions...
+Running 1000 Monte Carlo simulations...
+
+----------------------------------------------------------------------
+Cumulative Incidence Estimates (95% CI)
+----------------------------------------------------------------------
+
+Period   Never-treat  Always-treat          Diff
+--------------------------------------------------
+     1        0.0185        0.0142       -0.0043
+        (0.0109-0.0334)  (0.0073-0.0314)  (-0.0158-0.0082)
+     3        0.0369        0.0284       -0.0084
+        (0.0245-0.0613)  (0.0169-0.0540)  (-0.0305-0.0153)
+     5        0.0572        0.0443       -0.0129
+        (0.0384-0.0937)  (0.0284-0.0762)  (-0.0480-0.0228)
+     7        0.0822        0.0639       -0.0183
+        (0.0561-0.1267)  (0.0421-0.1041)  (-0.0662-0.0309)
+     9        0.1158        0.0906       -0.0252
+        (0.0793-0.1766)  (0.0603-0.1493)  (-0.0911-0.0408)
+
+Reference population: 500 individuals
+
+Note: Monte Carlo intervals draw from the outcome-model covariance only.
+      They condition on the estimated IP weights and the reference sample
+      and do not propagate weight-model estimation.
+----------------------------------------------------------------------
+Predictions written to frame pred
+
+```
+
+```stata
+. matrix RD = r(rd)
+```
+
+```stata
+. matrix rownames RD = "Period 1" "Period 3" "Period 5" "Period 7" "Period 9"
+```
+
+```stata
+. noisily effecttab, from(RD) effect("Risk difference") digits(3)
+>     xlsx("`tables_xlsx'") sheet("Risk differences")
+>     title("Always minus never treated")
+```
+
+```
+Always minus never treated
+  +--------------------------------------------------------+
+  |            Risk difference            95% CI   p-value |
+  | Period 1            -0.004   (-0.016, 0.008)           |
+  | Period 3            -0.008   (-0.031, 0.015)           |
+  | Period 5            -0.013   (-0.048, 0.023)           |
+  | Period 7            -0.018   (-0.066, 0.031)           |
+  | Period 9            -0.025   (-0.091, 0.041)           |
+  +--------------------------------------------------------+
+
+Exported 8 rows × 5 cols to msm_tables.xlsx, sheet Risk differences
+
+```
+
+**E-value for unmeasured confounding**
+
+```stata
+. noisily qba_confound, from_model coef(treatment) evalue measure(HR)
+```
+
+```
+Quantitative Bias Analysis: Unmeasured Confounding
+
+  Observed HR:    0.7663
+  95% CI:        0.3972 -    1.4781
+  (from last estimation command)
+
+
+E-value (VanderWeele & Ding 2017)
+  Scale: HR used directly as a risk ratio; Table 2 permits this only for a
+         rare outcome (<15% by end of follow-up). For a common outcome
+         specify commonoutcome; the E-value below is otherwise too large.
+  E-value (point):     1.9360
+  E-value (CI):        1.0000
+
+  Interpret against the confounder-treatment and
+  confounder-outcome associations that are plausible here;
+  the E-values of the measured covariates are the natural
+  comparison (VanderWeele & Ding 2017, Table 3).
+
+```
+
+</details>
+
+The longitudinal diagnostics transcript (`msm_prepare`, `msm_weight`, `psdash combined`, `msm_diagnose`) is in [`demo/console_pipeline.md`](demo/console_pipeline.md).
+
+## Companion Packages
+
+| Task (former command) | Replacement |
+|-----------------------|-------------|
+| Coefficient table (`msm_table`, `msm_report`) | `collect: msm_fit ...` then `regtab` (tabtools) |
+| Risk-difference table | `msm_predict, difference` then `matrix RD = r(rd)` and `effecttab, from(RD)` (tabtools) |
+| Raw matrix export | `puttab using file.xlsx, matrix(name)` (tabtools) |
+| Weight distribution (`msm_plot`, `msm_diagnose` pooled block) | `psdash weights treatment _msm_ps if _msm_decision_risk, wvar(_msm_weight)` |
+| Per-period weights (`msm_diagnose, by_period`) | `psdash combined` |
+| Pooled balance and Love plot (`msm_plot`) | `psdash balance ..., covariates(denominator covariates) wvar(_msm_weight) loveplot` |
+| Risk curve (`msm_plot, type(survival)`) | `msm_predict, frame()` then `twoway` |
+| Risk-difference forest plot | `msm_predict, frame()` then `eplot if strategy == "rd", frame()` |
+| Treatment trajectories (`msm_plot`) | `swimlane` |
+| E-value (`msm_sensitivity`) | `qba_confound, from_model coef(treatment) evalue measure(HR)` (qba) |
+| Data checks (`msm_validate`) | Refusals and `r()` notes in `msm_prepare` and `msm_weight`; positivity in `msm_diagnose` |
+| Protocol (`msm_protocol`) | None; record it in the manuscript or a protocol document |
+| Cross-contrast export (`msm_diagtab`) | None; `frame post` the returns and `puttab, frame()` |
 
 ## Command Reference
 
-The signatures below use full option names. Square brackets mark optional syntax; use `help command` inside Stata for the full command-specific narrative.
+Square brackets mark optional syntax; `help command` in Stata has the full narrative.
 
 ### `msm`
 
-Syntax: ``msm [, list detail protocol status]``
+Syntax: ``msm [, list detail status]``
 
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `list` | List the 12 user-facing subcommands |
-| `detail` | Show command-by-command descriptions |
-| `protocol` | Display the seven-component protocol framework |
-| `status` | Report the current stage, mapped variables, artifacts, and next step |
-
-- With no option, displays the suite overview and workflow.
-- `list` lists the 12 user-facing subcommands.
-- `detail` gives a command-by-command description.
-- `protocol` displays the seven-component protocol framework.
-- `status` reports the current stage, mapped variables, saved artifacts, and recommended next step without modifying the data.
-
-### `msm_protocol`
-
-Syntax: ``msm_protocol, population(string) treatment(string) confounders(string) outcome(string) causal_contrast(string) weight_spec(string) analysis(string) [export(string) format(string) replace]``
-
-- Required: `population()`, `treatment()`, `confounders()`, `outcome()`, `causal_contrast()`, `weight_spec()`, and `analysis()`.
-- `export()` supplies the output path for a file export; it is required with non-display formats.
-- `format()` accepts `display` (default), `csv`, `excel`, or `latex`.
-- `replace` replaces the Protocol sheet or an existing CSV, Excel, or LaTeX file.
+- `list` prints the five estimator commands; `detail` describes them and the companion map; `status` reports the verified stage, mapping and artifacts. At most one may be given. `protocol` was removed in 2.0.0.
 
 ### `msm_prepare`
 
 Syntax: ``msm_prepare, id(varname) period(varname) treatment(varname) outcome(varname) [censor(varname) covariates(varlist) baseline_covariates(varlist)]``
 
-- Required: `id()` identifies individuals; `period()` is an integer-valued time variable; `treatment()` and `outcome()` are numeric 0/1 indicators.
-- `censor()` is optional and must be a numeric 0/1 indicator; `msm_validate` checks that censoring is terminal before weighting.
-- `covariates()` defaults to none and identifies time-varying covariates.
-- `baseline_covariates()` defaults to none and identifies covariates that must be constant within individual.
-- The command rejects duplicate `id()`-`period()` rows, noninteger periods, nonbinary structural indicators, and varying baseline covariates.
-
-### `msm_validate`
-
-Syntax: ``msm_validate [, strict verbose]``
-
-- `strict` is off by default; when specified, warnings become errors.
-- `verbose` is off by default; when specified, affected individuals, periods, variables, or positivity cells are described.
-- The command checks person-period uniqueness, period gaps, terminal outcomes, treatment variation, missingness, small period samples, covariate completeness, treatment histories, censoring patterns, and period-level positivity.
+- Refuses an empty dataset, missing `id()` or `period()`, duplicate `id()`-`period()` rows, non-integer periods, non-binary treatment, outcome or censoring, same-period event and censoring, and baseline covariates that vary within individual.
+- Reports, without refusing, individuals with non-consecutive periods, mapped variables with missing values, covariates without variation, and the size of the smallest period (`r(n_gap_ids)`, `r(missing_vars)`, `r(constant_covariates)`, `r(min_period_n)`).
 
 ### `msm_weight`
 
 Syntax: ``msm_weight [, treat_d_cov(varlist) treat_n_cov(varlist) censor_d_cov(varlist) censor_n_cov(varlist) period_d_spec(spec) period_n_spec(spec) truncate(numlist) fitfailure(policy) probpolicy(policy) clip(#) preview replace nolog]``
 
-- `treat_d_cov()` defaults to the prepared time-varying plus baseline covariates; `treat_n_cov()` defaults to no baseline covariates, leaving an intercept and the automatically added lagged treatment.
-- `censor_d_cov()` is omitted by default; supplying it enables IPCW and requires a mapped `censor()` variable. `censor_n_cov()` defaults to no additional numerator covariates and requires `censor_d_cov()`.
-- `period_d_spec()` defaults to `linear` and `period_n_spec()` defaults to `none`. Each accepts `none`, `linear`, `quadratic`, `cubic`, or `ns(#)`.
-- `truncate()` is off by default; use one percentile for symmetric truncation or two percentiles such as `truncate(1 99)`.
-- `fitfailure()` defaults to `error`. `fitfailure(marginal)` permits a pooled marginal-probability fallback for a failed logistic model.
-- `probpolicy()` defaults to `error`. `probpolicy(clip)` requires `clip(#)`, with `0 < # < 0.5`, and explicitly repairs missing or boundary probabilities.
-- `preview` shows the resolved specifications without fitting models or creating weight variables.
-- `replace` is off by default and is required to overwrite existing `_msm_*` weight variables. `nolog` is off by default and suppresses logistic iteration output when specified.
+- `treat_d_cov()` defaults to the prepared time-varying plus baseline covariates; `treat_n_cov()` defaults to none, leaving an intercept and the automatically added lagged treatment.
+- `censor_d_cov()` enables IPCW and requires a mapped `censor()`; `censor_n_cov()` requires `censor_d_cov()`.
+- `period_d_spec()` defaults to `linear` and `period_n_spec()` to `none`; each accepts `none`, `linear`, `quadratic`, `cubic`, or `ns(#)`.
+- `truncate()` is off by default; `truncate(1)` is shorthand for `truncate(1 99)`.
+- `fitfailure()` and `probpolicy()` default to `error`; `fitfailure(marginal)` and `probpolicy(clip) clip(#)` are explicit sensitivity policies.
+- `preview` resolves the specification without fitting; `replace` overwrites existing `_msm_*` weight variables.
 
 ### `msm_diagnose`
 
-Syntax: ``msm_diagnose [, balance_covariates(varlist) by_period threshold(#) positivity(#) accumulate(name) contrast(string) outcome(string)]``
+Syntax: ``msm_diagnose [, balance_covariates(varlist) threshold(#) positivity(#)]``
 
-- `balance_covariates()` defaults to all covariates registered by `msm_prepare`.
-- `by_period` is off by default and prints weight statistics separately by period.
-- `threshold()` defaults to `0.1` for weighted-SMD balance flags.
-- `positivity()` defaults to `0.01` and is applied to the smallest probability of the treatment actually observed, not simply the lower tail of P(A=1).
-- `accumulate(name)` is off by default and appends one cross-contrast summary row to a named frame. `contrast()` is required with it and accepts at most 80 bytes; `outcome()` is an optional label of at most 40 bytes.
-
-### `msm_diagtab`
-
-Syntax: ``msm_diagtab, frame(name) xlsx(filename) [sheet(string) title(string) footnote(string) decimals(#) threshold(#) font(string) fontsize(#) borderstyle(string) zebra open replace]``
-
-- Required: `frame()` names a nonempty frame produced by repeated `msm_diagnose, accumulate()` calls; `xlsx()` must end in `.xlsx`.
-- `sheet()` defaults to `Weight Diagnostics`; `title()` defaults to a per-contrast ESS, weight, and balance title.
-- `footnote()` defaults to a note defining ESS percentage and the imbalance count.
-- `decimals()` defaults to `3`; `threshold()` defaults to `0.1` and documents the threshold used for the accumulated balance count.
-- `font()` defaults to `Arial`; `fontsize()` defaults to `10`; `borderstyle()` defaults to `thin` and also accepts `medium` or `academic`.
-- `zebra` and `open` are off by default. `replace` is off by default and replaces only the target sheet when specified.
+- `balance_covariates()` defaults to all covariates registered by `msm_prepare`; with none at all the command refuses.
+- `threshold()` defaults to `0.1`; `positivity()` defaults to `0.01` and is applied to the smallest probability of the treatment actually observed.
 
 ### `msm_fit`
 
 Syntax: ``msm_fit [, model(string) outcome_cov(varlist) exposure(varname) tvcov(varlist) history(string) period_spec(string) cluster(varname) vce(string) strata(varlist) bootstrap(#) level(#) nolog]``
 
-- `model()` defaults to `logistic` and accepts `logistic`, `linear`, or `cox`.
-- `outcome_cov()` defaults to none and adds time-fixed outcome covariates. Every treatment or censoring numerator covariate must appear here or, for Cox fits, in `strata()`.
-- `exposure()` defaults to the mapped binary treatment; when supplied it replaces that term with a continuous or time-varying exposure summary.
-- `tvcov()` defaults to none and adds time-varying outcome covariates for logistic or Cox fits. It may not be combined with `history()` and disables prediction.
-- `history()` defaults to none, which records the `no_carryover` assumption. It accepts any of `lag1`, `cumulative`, `duration`, and `interaction`; built-in terms remain prediction-compatible.
-- `period_spec()` defaults to `quadratic` and accepts `none`, `linear`, `quadratic`, `cubic`, or `ns(#)`.
-- `cluster()` defaults to the mapped ID and is an alternative to `vce(cluster varname)`. `vce()` defaults to clustered sandwich SEs at the mapped ID and also accepts `vce(robust)`.
-- `strata()` defaults to none and is available only for `model(cox)`.
-- `bootstrap()` defaults to `0` and is reserved; nonzero bootstrap replication is not implemented.
-- `level()` defaults to the current `c(level)`. `nolog` is off by default and suppresses the model iteration log when specified.
+- `model()` defaults to `logistic` and accepts `logistic`, `linear`, or `cox`. The fit stays in `e()` as the native `glm`, `regress` or `stcox` result.
+- `outcome_cov()` adds time-fixed outcome covariates; every numerator covariate must appear here or, for Cox, in `strata()`.
+- `history()` accepts `lag1`, `cumulative`, `duration`, `interaction`; `period_spec()` defaults to `quadratic` and accepts `none`, `linear`, `quadratic`, `cubic`, or `ns(#)`.
+- `vce()` defaults to sandwich SEs clustered at the mapped ID. `bootstrap()` is reserved.
 
 ### `msm_predict`
 
-Syntax: ``msm_predict, times(numlist) [strategy(string) type(string) samples(#) seed(#) level(#) difference extrapolate]``
+Syntax: ``msm_predict, times(numlist) [strategy(string) type(string) samples(#) seed(#) level(#) difference extrapolate frame(name[, replace])]``
 
-- Required: `times()` gives integer periods on the mapped period scale.
-- `strategy()` defaults to `both` and accepts `always`, `never`, or `both`.
-- `type()` defaults to `cum_inc` and accepts `cum_inc` or `survival`.
-- `difference` is off by default and adds the always-minus-never contrast on the selected scale when `strategy(both)` is used: a risk difference for `cum_inc` or a survival difference for `survival`.
-- `samples()` defaults to `100` Monte Carlo draws and must be at least 10.
-- `seed()` defaults to the current session RNG state; specifying it makes the simulation reproducible. `level()` defaults to `c(level)`.
-- `extrapolate` is off by default; without it, requested times must be within the fitted risk-set support.
-
-### `msm_plot`
-
-Syntax: ``msm_plot, type(string) [covariates(varlist) threshold(#) times(numlist) samples(#) seed(#) n_sample(#) title(string) saving(string) replace]``
-
-- Required: `type()` accepts `weights`, `balance`, `survival`, `trajectory`, or `positivity`. The `positivity` plot shows the marginal proportion treated by period; it is an exploratory support screen, not a conditional positivity diagnostic.
-- For `type(balance)`, `covariates()` defaults to denominator-only balance targets; `threshold()` defaults to `0.1`.
-- For `type(survival)`, `times()` is required, `samples()` defaults to `50`, and `seed()` defaults to the current session RNG state.
-- For `type(trajectory)`, `n_sample()` defaults to `50` randomly sampled individuals.
-- `title()` defaults to a plot-type-specific title; `saving()` is off by default; `replace` is off by default and permits overwriting the saved graph when specified.
-
-### `msm_report`
-
-Syntax: ``msm_report [, export(string) format(string) decimals(#) eform replace title(string) font(string) fontsize(#) borderstyle(string) zebra footnote(string) open]``
-
-- `format()` defaults to `display` and accepts `display`, `csv`, or `excel`. `export()` is required for `csv` and `excel` and is rejected with `format(display)`.
-- `decimals()` defaults to `4`; `eform` is off by default and displays ORs for logistic models or HRs for Cox models when specified.
-- `replace` is off by default and overwrites the CSV or target Excel sheet when specified.
-- For Excel output, `title()` defaults to `MSM Analysis Summary`, `font()` to `Arial`, `fontsize()` to `10`, and `borderstyle()` to `thin`. `borderstyle()` also accepts `medium` or `academic`.
-- `zebra`, `footnote()`, and `open` are off or empty by default; they control Excel-only presentation.
-
-### `msm_table`
-
-Syntax: ``msm_table, xlsx(filename) [coefficients predictions balance weights sensitivity all eform decimals(#) sep(string) title(string) replace font(string) fontsize(#) borderstyle(string) nformat(string) zebra boldp(#) highlight(#) footnote(string) open]``
-
-- Required: `xlsx()` must end in `.xlsx`.
-- With no selection flag, or with `all`, the command exports every available table and silently skips pipeline artifacts that do not exist. Explicitly requested unavailable tables produce an error.
-- Selection flags are `coefficients`, `predictions`, `balance`, `weights`, `sensitivity`, and `all`.
-- `eform` is off by default; `decimals()` defaults to `3`; `sep()` defaults to `", "`; `title()` defaults to a sheet-specific title.
-- `replace` is off by default and replaces only selected sheets. `font()` defaults to `Arial`; `fontsize()` to `10`; `borderstyle()` to `thin`, with `medium` and `academic` also accepted.
-- `nformat()` is empty by default and supplies an Excel number format; `zebra`, `boldp()`, `highlight()`, `footnote()`, and `open` are off or empty by default.
-
-### `msm_sensitivity`
-
-Syntax: ``msm_sensitivity [, evalue confounding_strength(# #) level(#) rarethreshold(#) orapprox]``
-
-- With no option, `evalue` is selected. `evalue` computes point and confidence-limit E-values for logistic or Cox fits; linear fits have no ratio-scale E-value.
-- `confounding_strength(# #)` supplies hypothetical RR(U,D) and RR(U,Y), each at least 1, and returns the bias factor and bias-adjusted bound on the risk-ratio scale.
-- `level()` defaults to `c(level)`. `rarethreshold()` defaults to `0.15` and determines when a logistic OR or Cox HR is used directly as a risk-ratio scale or transformed for a common outcome. Cumulative incidence is evaluated among subjects and risk-set rows that contributed to the saved fit.
-- `orapprox` is off by default and forces the raw OR or HR to be used as the risk-ratio scale even for a common outcome.
+- `strategy()` defaults to `both`; `type()` to `cum_inc` (or `survival`); `samples()` to 100 draws (at least 10; use 500 or more for published intervals).
+- `difference` adds the always-minus-never contrast: `r(rd)` and `r(rd_#)`, or `r(sd)` and `r(sd_#)` under `type(survival)`. A negative period `t` is named `m#` (`r(rd_m2)`, row `tm2`).
+- `frame()` writes one graph-ready row per period and quantity; an existing frame needs `replace`.
+- `extrapolate` allows times beyond the fitted risk-set support.
 
 ## Stored Results
 
-The commands also persist pipeline state in dataset characteristics so that later commands can recover results after intervening Stata work. The package-specific returned results are:
-
 ### `msm`
 
-Always returns `r(version)`, `r(commands)`, and `r(n_commands)`. With `status` it additionally returns `r(stage)`, `r(next_step)`, `r(model)`, `r(id)`, `r(period)`, `r(treatment)`, `r(outcome)`, `r(censor)`, `r(covariates)`, `r(baseline_covariates)`, and the state indicators `r(prepared)`, `r(weighted)`, `r(fitted)`, `r(prediction_saved)`, `r(balance_saved)`, `r(diagnostics_saved)`, and `r(sensitivity_saved)`.
+`r(version)`, `r(commands)`, `r(removed)` and `r(n_commands)`. With `status`: `r(stage)`, `r(next_step)`, `r(model)`, the mapping macros `r(id)`, `r(period)`, `r(treatment)`, `r(outcome)`, `r(censor)`, `r(covariates)`, `r(baseline_covariates)`, and `r(prepared)`, `r(weighted)`, `r(fitted)`.
 
 ### `msm_prepare`
 
-Returns the scalars `r(N)`, `r(n_ids)`, `r(n_periods)`, `r(period_span)`, `r(n_events)`, `r(n_treated)`, and `r(n_censored)`, plus the mapping macros `r(id)`, `r(period)`, `r(treatment)`, `r(outcome)`, `r(censor)`, `r(covariates)`, and `r(baseline_covariates)`.
-
-### `msm_validate`
-
-Returns `r(n_checks)`, `r(n_errors)`, `r(n_warnings)`, and the macro `r(validation)`, which is `passed` when no errors occurred and `failed` otherwise.
+Scalars `r(N)`, `r(n_ids)`, `r(n_periods)`, `r(period_span)`, `r(n_events)`, `r(n_treated)`, `r(n_censored)`, `r(n_gap_ids)`, `r(min_period_n)`; macros `r(id)`, `r(period)`, `r(treatment)`, `r(outcome)`, `r(censor)`, `r(covariates)`, `r(baseline_covariates)`, `r(missing_vars)`, `r(constant_covariates)`.
 
 ### `msm_weight`
 
-In preview mode, returns the resolved specification macros `r(preview)`, `r(treat_d_cov)`, `r(treat_d_cov_source)`, `r(treat_n_cov)`, `r(censor_d_cov)`, `r(censor_n_cov)`, `r(period_d_spec)`, `r(period_n_spec)`, `r(truncate)`, `r(fitfailure_policy)`, and `r(probability_policy)`, plus `r(clip_threshold)` when clipping is selected. After fitting it also returns `r(mean_weight)`, `r(sd_weight)`, `r(min_weight)`, `r(max_weight)`, `r(p1_weight)`, `r(median_weight)`, `r(p99_weight)`, `r(ess)`, `r(n_truncated)`, `r(n_fitfail_fallback)`, `r(fitfailure_fallback)`, `r(n_probability_repairs)`, and the matrix `r(probability_repairs)`. The post-fit macros include `r(weight_var)`, `r(fitfailure_models)`, `r(probability_models)`, and the same resolved specification macros.
+After fitting: `r(mean_weight)`, `r(sd_weight)`, `r(min_weight)`, `r(max_weight)`, `r(p1_weight)`, `r(median_weight)`, `r(p99_weight)`, `r(ess)` (risk set), `r(n_truncated)`, `r(n_fitfail_fallback)`, `r(fitfailure_fallback)`, `r(n_probability_repairs)`, the matrix `r(probability_repairs)`, and the resolved specification macros. `preview` returns the resolved specification only.
 
 ### `msm_diagnose`
 
-Returns `r(mean_weight)`, `r(sd_weight)`, `r(min_weight)`, `r(max_weight)`, `r(p1_weight)`, `r(p99_weight)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(n_unavailable)`, `r(positivity_threshold)`, `r(n_positivity_violations)`, and `r(min_obs_probability)`. The matrices are `r(treatment_balance)`, `r(support)`, optional `r(censor_balance)`, and the secondary pooled summary `r(balance)`.
+Scalars `r(threshold)`, `r(n_imbalanced)`, `r(n_numerator)`, `r(n_unavailable)`, `r(positivity_threshold)`, `r(n_positivity_violations)`, `r(min_obs_probability)`, `r(n_support_violations)`; macros `r(covariates)` and `r(support_violation_periods)`; matrices `r(treatment_balance)`, `r(support)`, optional `r(censor_balance)`, and the secondary pooled `r(balance)`.
 
 ### `msm_fit`
 
-In addition to the standard results from `glm`, `regress`, or `stcox`, returns `e(msm_cmd)`, `e(msm_model)`, `e(msm_treatment)`, `e(msm_exposure)`, `e(msm_tvcov)`, `e(msm_history_spec)`, `e(msm_history_assumption)`, `e(msm_period_spec)`, `e(msm_vce)`, `e(msm_cluster)`, `e(msm_strata)`, `e(msm_inf_dist)`, `e(msm_inf_df)`, `e(msm_n_clusters)`, `e(msm_n_dropped)`, and the matrix `e(effects)`. The named matrices `_msm_fit_b` and `_msm_fit_V` are persisted for downstream commands.
+The standard results of `glm`, `regress` or `stcox`, plus `e(msm_cmd)`, `e(msm_model)`, `e(msm_treatment)`, `e(msm_exposure)`, `e(msm_tvcov)`, `e(msm_history_spec)`, `e(msm_history_assumption)`, `e(msm_period_spec)`, `e(msm_vce)`, `e(msm_cluster)`, `e(msm_strata)`, `e(msm_inf_dist)`, `e(msm_inf_df)`, `e(msm_n_clusters)`, `e(msm_n_dropped)` and the matrix `e(effects)`.
 
 ### `msm_predict`
 
-Returns the matrix `r(predictions)`, the macros `r(seed)`, `r(seed_source)`, `r(seed_state)`, `r(type)`, `r(strategy)`, `r(history_spec)`, `r(diff_type)`, and `r(draw_method)`, plus the scalars `r(n_times)`, `r(n_ref)`, `r(samples)`, `r(level)`, `r(min_support)`, `r(max_support)`, and `r(extrapolated)`. With `difference` and both strategies, it additionally returns `r(rd_#)` for cumulative incidence or `r(sd_#)` for survival at each requested time.
-
-### `msm_plot`
-
-Returns `r(plot_type)`. Weight and balance plots also return `r(n_risk)`; a balance plot additionally returns the signed-SMD matrix `r(balance)`.
-
-### `msm_report`
-
-Returns the macros `r(format)` and, when an export path was supplied, `r(export)`.
-
-### `msm_protocol`
-
-Returns the seven protocol macros `r(population)`, `r(treatment)`, `r(confounders)`, `r(outcome)`, `r(causal_contrast)`, `r(weight_spec)`, and `r(analysis)`, plus `r(format)`.
-
-### `msm_sensitivity`
-
-Returns the effect and interval scalars `r(effect)`, `r(effect_lo)`, `r(effect_hi)`, and `r(effect_se)`. E-value runs add `r(evalue_point)` and `r(evalue_ci)`; confounding-strength runs add `r(bias_factor)`, `r(bound)`, the backward-compatible alias `r(corrected_effect)`, `r(rr_ud)`, and `r(rr_uy)`. When available, `r(cumulative_incidence)`, `r(outcome_prevalence)`, and `r(rare_threshold)` describe the outcome-scale decision for the saved fit sample. The remaining macros are `r(effect_label)`, `r(model)`, `r(rr_scale)`, and `r(approximation)`, with `r(metric_produced)` indicating whether a ratio-scale metric was produced.
-
-### `msm_table` and `msm_diagtab`
-
-These are export commands. Their durable output is the Excel workbook; they do not leave package-specific returned results.
+Matrices `r(predictions)` and, with `difference`, `r(rd)` or `r(sd)`; scalars `r(n_times)`, `r(n_ref)`, `r(samples)`, `r(level)`, `r(min_support)`, `r(max_support)`, `r(extrapolated)`, and `r(rd_#)` or `r(sd_#)`; macros `r(seed)`, `r(seed_source)`, `r(seed_state)`, `r(type)`, `r(strategy)`, `r(history_spec)`, `r(diff_type)`, `r(draw_method)`, `r(frame)`.
 
 ## Assumptions and Limits
 
-- The causal interpretation requires consistency, sequential exchangeability conditional on the measured history, positivity, and adequate treatment, censoring, and marginal outcome-model specification. The commands document and diagnose parts of these conditions but cannot establish them from the data alone.
-- Data must be in long person-period form with unique `id()`-`period()` rows, integer periods, binary treatment and outcome, and a common baseline period. Delayed entry or left truncation is not supported by `msm_weight`.
-- The mapped treatment is intended to vary over time. A treatment assigned once at baseline is outside this suite’s target; consider Stata’s `teffects ipw` for that setting.
-- The prediction workflow supports only static always-treated, never-treated, or both strategies. Dynamic and stochastic regimes are not implemented.
-- The automatic treatment-history term in each weighting logit is only the immediately prior treatment. If exchangeability requires richer lagged, cumulative, or trajectory histories, construct them and include them in `treat_d_cov()` and, where relevant, `censor_d_cov()`.
-- The default structural model uses current treatment and records `no_carryover`. Use `history(lag1 cumulative duration interaction)` for the supported delayed or cumulative terms; the periods must be consecutive and unit-spaced for these terms.
-- `outcome_cov()` variables must be time-fixed. Treatment and censoring numerator covariates are not balanced away, so they must enter the outcome model or, for Cox fits, `strata()`.
-- `exposure()` and `tvcov()` are licensed for treatment-history-derived continuous or time-varying terms, not arbitrary time-varying confounders. They disable counterfactual standardization and therefore `msm_predict`.
-- The censoring models condition on current treatment, following the within-period ordering `L_t → A_t → C_t → Y_t`. This is deliberate and differs from the printed sw-dagger formula in Hernán, Brumback, and Robins (2000).
-- Weighting errors on failed models, missing probabilities, or probabilities at 0 or 1 by default. `fitfailure(marginal)` and `probpolicy(clip) clip(#)` are explicit sensitivity policies, not proof that positivity holds.
-- `msm_predict` rejects requested times outside the fitted risk-set support unless `extrapolate` is specified. Its Monte Carlo intervals propagate fitted outcome-coefficient covariance only; they condition on estimated weights, model selection, and the fitted reference population.
-- `bootstrap()` is reserved and nonzero bootstrap replication is not implemented.
+- The causal interpretation requires consistency, sequential exchangeability given the measured history, positivity, and adequate treatment, censoring and marginal outcome models. The commands diagnose parts of these conditions but cannot establish them.
+- Data must be long person-period data with unique `id()`-`period()` rows, integer periods, binary treatment and outcome, and a common baseline. Delayed entry is not supported.
+- Treatment is meant to vary over time; for a single baseline treatment use `teffects ipw`.
+- Prediction supports only static always-treated and never-treated strategies.
+- The weight models add only the immediately prior treatment automatically. Build richer histories yourself and put them in `treat_d_cov()` and, where relevant, `censor_d_cov()`.
+- `outcome_cov()` variables must be time-fixed, and numerator covariates must enter the outcome model.
+- `exposure()` and `tvcov()` are for treatment-history-derived terms and disable `msm_predict`.
+- The censoring models condition on current treatment (within-period order L, A, C, Y), which differs from the printed sw-dagger formula in Hernán, Brumback and Robins (2000).
+- `msm_fit` standard errors and `msm_predict` Monte Carlo intervals condition on the estimated weights; they do not propagate weight-model estimation.
 
 ## Troubleshooting
 
 | Symptom | Response |
 |---------|----------|
-| `msm_validate` reports gaps or post-event rows | Check that each individual has the intended consecutive periods and no observations remain after an outcome or censoring event |
-| `msm_weight` rejects delayed entry | Align the panel to a shared baseline or stop; left truncation is not supported |
-| Weight means or ESS are poor | Inspect the denominator and numerator histories, period-specific support, and `r(support)` before considering a scientifically justified truncation or model revision |
-| `msm_weight` reports probability support failure | Investigate missing predictors, separation, and positivity first; use `probpolicy(clip) clip(#)` only as an explicitly named sensitivity analysis |
-| Balance remains poor | Inspect `r(treatment_balance)` by period and prior treatment history, and inspect censoring balance separately when IPCW is used |
-| `msm_predict` refuses to run | Confirm that the latest fit used `model(logistic)` without `exposure()` or `tvcov()` and that `times()` lies within fitted support unless extrapolation is deliberate |
-| An Excel export is missing a sheet | Default/all mode exports only available artifacts; request the relevant pipeline step before explicitly selecting a missing sheet |
+| A removed command prints "was removed in msm 2.0.0" | Use the replacement it names; see Companion Packages |
+| `msm_prepare` notes gaps | `msm_weight` will refuse them; expand the grid or drop the incomplete individuals |
+| `msm_weight` rejects delayed entry | Align the panel to a shared baseline |
+| Weight means or ESS are poor | Inspect the treatment histories, `psdash combined`, and `r(support)` before a justified truncation or model revision |
+| `msm_weight` reports probability support failure | Investigate missing predictors, separation and positivity first; `probpolicy(clip) clip(#)` only as a named sensitivity analysis |
+| Balance remains poor | Inspect `r(treatment_balance)` by period and prior treatment; numerator covariates (`target=0`) are not expected to balance |
+| `msm_predict` refuses | Confirm a logistic fit without `exposure()`/`tvcov()` and `times()` within the fitted support |
 
 ## References
 
@@ -496,6 +523,8 @@ These are export commands. Their durable output is the Excel workbook; they do n
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **2.0.0** (2026-10-13): Breaking. msm is now the estimator core: `msm_prepare`, `msm_weight`, `msm_diagnose` (longitudinal balance and positivity), `msm_fit` and `msm_predict`. Removed `msm_protocol`, `msm_validate`, `msm_plot`, `msm_report`, `msm_table`, `msm_diagtab` and `msm_sensitivity`; running one prints its replacement (tabtools `regtab`/`effecttab`/`puttab`, `psdash`, `eplot`, `swimlane`, `qba_confound`) and exits with return code 199, and the stubs stay for all of 2.x. `msm_diagnose` no longer prints pooled weight summaries (use `psdash`) or accepts `by_period` or `accumulate()`; it adds `r(covariates)`, flags numerator covariates in the pooled table instead of counting them as imbalanced, and flags periods with no treated or no untreated row. `msm_prepare` reports gaps, missing values, constant covariates and sparse periods in `r()`. `msm_predict` adds `frame()` and `r(rd)`, writes nothing to the dataset, and returns `r(rd_m#)` for negative periods (it failed with r(101) before). `msm_weight` writes contract 1.1 (`_msm_risk_var`) so `psdash` restricts to the decision risk set, and prints truncation percentiles as 1st/99th; data weighted by 2.0.0 needs psdash 1.8.0 or later. With no covariates mapped in `msm_prepare`, `msm_diagnose` balances the `treat_d_cov()` covariates. Run `ado uninstall msm` before installing.
 
 - **1.4.12** (2026-10-09): Help References now give a DOI for every entry.
 

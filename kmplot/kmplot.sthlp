@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.2  12oct2026}{...}
+{* *! version 1.4.3  13oct2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -513,7 +513,7 @@ confidence interval, and the log-rank test.{p_end}
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.4.2, 2026-10-12{p_end}
+{pstd}Version 1.4.3, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

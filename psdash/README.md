@@ -1,6 +1,6 @@
 # psdash — Propensity-score diagnostics for Stata
 
-**Version 1.7.5** | 2026-10-12
+**Version 1.8.0** | 2026-10-13
 
 psdash is a command family for propensity-score overlap, covariate balance, weight stability, and common-support diagnostics. It can read supported estimation or dataset contracts automatically, or work from manually supplied propensity scores, treatment variables, and weights.
 
@@ -71,7 +71,7 @@ The command family accepts the general form psdash <subcommand> [treatment] [psv
 | After teffects ipw, ipwra, or aipw | Treatment, covariates, propensity scores, estimand, weights, and e(sample) | psdash combined or an individual panel |
 | After cross-sectional tmle | Treatment, _tmle_ps, covariates, and estimand from the producer contract | psdash combined |
 | After ltmle | Period-specific propensity scores, weights, identifiers, and periods | Longitudinal psdash combined diagnostics |
-| After msm_weight | Period-specific treatment propensity, treatment weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
+| After msm_weight | Period-specific treatment propensity, the analysis weight msm_fit uses (wvar(_msm_tw_weight) for the treatment-only weight), the risk-set indicator, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After tte_weight, save_ps | Saved switch/treatment propensity, IP weight, identifiers, and periods | Longitudinal psdash combined diagnostics |
 | After iivw_weight | Treatment propensity, treatment covariates, treatment weight, and iivw component state | Treatment diagnostics and weights, iivwcomponent() |
 | After `logit`/`probit` | Treatment, covariates, and `e(sample)` are read from the estimation context; the predicted PS is supplied by the user | `predict ..., pr`, then a panel command |
@@ -84,7 +84,7 @@ teffects psmatch is rejected because it does not expose the propensity-score pre
 
 Producer-contract integrations call the producing command's validity guard before using detected state and check the stamped contract version against the supported compatibility matrix. Genuine persisted TMLE and LTMLE dataset contracts can be rediscovered after save/reload without active estimation results; ambiguous simultaneous contracts fail rather than being guessed. Missing, stale, unsigned, malformed, future, or otherwise unsupported producer state fails closed with an explicit error. Built-in teffects, logit, probit, and mlogit contexts use their estimation results instead of a producer contract. Supplying treatment and a propensity score explicitly always uses manual mode and does not require a producer contract.
 
-Combined reports use clear status labels, while `r(verdict)` and `r(warnings)` provide the machine-readable result.
+Each panel ends with a descriptive status line (WARNING or IMBALANCED when that panel has a finding), while `r(verdict)` (PASS or FAIL) and `r(warnings)` provide the machine-readable result: any panel finding makes the overall verdict FAIL. Graph series colours follow the active scheme (`scheme()` or `set scheme`), taken in the order p1, p6, p2, p3, ... so the first two series stay distinguishable in sequential schemes.
 
 When a usable propensity score is available, balance and weights can create temporary inverse-probability weights for the requested estimand(); these working variables are not left in the dataset. A supplied wvar() takes precedence where the command allows it. Factor variables and interactions in covariates() or auto-detected model terms are expanded into their design columns before balance is calculated.
 
@@ -227,7 +227,7 @@ The default graph is a kernel-density overlap plot; histogram switches to overla
 ### psdash balance
 
 ```stata
-psdash balance [treatment] [psvar] [if] [in] [, covariates(varlist) wvar(varname) matched threshold(#) nowvar noweights xlsx(filename) sheet(string) loveplot strategies(strategylist) distribution(varlist) smdmatrix(name) saving(filename) scheme(schemename) graphoptions(string) format(string) title(string) name(string) ks estimand(string) vrbounds(# #) psvars(varlist) reference(#)]
+psdash balance [treatment] [psvar] [if] [in] [, covariates(varlist) wvar(varname) matched threshold(#) nowvar noweights xlsx(filename) sheet(string) loveplot nograph varnames strategies(strategylist) distribution(varlist) smdmatrix(name) saving(filename) scheme(schemename) graphoptions(string) format(string) title(string) name(string) ks estimand(string) vrbounds(# #) psvars(varlist) reference(#)]
 ```
 
 The default SMD threshold is 0.1, variance-ratio bounds are 0.5 2.0, the display format is %6.3f, and the Excel sheet is Balance. balance reports raw balance and, when possible, adjusted balance using automatically generated weights unless nowvar/noweights, matched, or a supplied wvar() changes that behavior. loveplot is required for a Love plot; ks adds KS statistics to the displayed table.
@@ -297,7 +297,9 @@ detect has no graph or diagnostic panels. It prints and returns the resolved sou
 | nowvar / noweights | Do not generate or use automatic weights; report raw balance only. |
 | wvar(varname) | Use a precomputed weight variable instead of automatic PS-derived weights. |
 | matched | Report matched/unweighted balance; mutually exclusive with wvar(). |
-| loveplot | Draw a Love plot; off by default. |
+| loveplot | Draw a Love plot; off by default. Rows use variable labels (factor levels as label: value label), falling back to names. |
+| varnames | Label Love-plot rows and distribution panels with variable names instead of labels. |
+| nograph | Suppress every balance graph; loveplot, strategies(), distribution(), and saving() are ignored with a note. |
 | strategies(strategylist) | Overlay requested raw/ATE/ATT/ATC SMD strategies in a Love plot for supported binary workflows. |
 | distribution(varlist) | Draw per-covariate distributional balance plots for the requested variables. |
 | smdmatrix(name) | Save the raw and adjusted SMD matrix under the requested matrix name and return it in r(smd). |
@@ -395,6 +397,7 @@ QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
 
+- **v1.8.0** (13 Oct 2026): `quietly psdash ...` now suppresses every panel warning line (including the second line of the exact-0/1 propensity-score warning and the two-line GPS-positivity warning), the IMBALANCED / UNDEFINED status cell of the balance table on the binary and multi-group routes, and the WARNING / IMBALANCED / FAIL verdict word (they were written in the error output class, which `quietly` does not silence); the findings stay in `r(warnings)`, `r(n_warnings)` and the verdict. Graph series colours now follow the active scheme (`scheme()` or `set scheme`) instead of fixed navy/cranberry, so default graphs change appearance; the second series uses the scheme's p6 style, which stays distinguishable from p1 in sequential schemes such as viridis. **Numbers change for existing msm users, even without post-event rows:** after msm_weight, `psdash combined` now diagnoses the truncated analysis weight msm_fit uses (`_msm_weight`) instead of the untruncated treatment weight (on msm_example, max weight 2.79 and ESS 3,998 instead of 6.65 and 3,809); `wvar(_msm_tw_weight)` restores the old numbers and is the right input when deciding on truncation. The output and `r(weight_role)` say which weight was diagnosed, and diagnostics are restricted to msm's risk set (`_msm_risk_var` in contract 1.1, `_msm_decision_risk` in 1.0), so legitimate post-event rows no longer force FAIL. Love-plot rows use variable labels, shortened past 40 characters and disambiguated when two are equal (`varnames` restores names); balance accepts `nograph`; the support graph labels its reference lines; the compact multi-group overlap legend is readable; unlabelled multi-group weight legends no longer print literal quotes.
 - **v1.7.5** (9 Oct 2026): Help References now give a DOI for every entry.
 
 - **v1.7.4** (30 Sep 2026): One-arm zero variances now count as variance imbalance (infinite ratios use `.a`); both-arm constants retain their undefined VR convention. Weighted balance normalizes each covariate's available-case weights within each arm, preserving diagnostics under extreme positive rescaling. Crump trimming selects the first empirical inequality crossing on an ascending 0.001 grid through 0.500 and errors if no crossing retains observations. Balance row headers now say `SMD status` to distinguish the row's SMD check from the panel verdict.

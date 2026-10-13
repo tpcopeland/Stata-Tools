@@ -1,4 +1,4 @@
-*! _msm_contract Version 1.4.12  2026/10/09
+*! _msm_contract Version 2.0.0  2026/10/13
 *! Build the canonical metadata contract for an MSM pipeline stage
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -42,6 +42,10 @@ program define _msm_contract, rclass
                 _msm_probability_models ///
                 _msm_ps_var _msm_tw_var _msm_ps_covars _msm_estimand ///
                 _msm_contract_version
+            * Contract 1.1 adds _msm_risk_var. Signing it only under 1.1 keeps a
+            * dataset weighted under contract 1.0 (msm 1.4.x) verifiable.
+            local _cv : char _dta[_msm_contract_version]
+            if !inlist("`_cv'", "", "1.0") local keys `keys' _msm_risk_var
         }
         else {
             local keys _msm_fitted _msm_model _msm_period_spec ///

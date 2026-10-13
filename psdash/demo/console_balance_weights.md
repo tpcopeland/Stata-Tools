@@ -20,7 +20,7 @@ Threshold:      0.100
 
 
 ------------------------------------------------------------------------------------
-           Covariate |  SMD Raw  VR Raw  KS Raw  SMD Adj  VR Adj  KS Adj      Status
+           Covariate |  SMD Raw  VR Raw  KS Raw  SMD Adj  VR Adj  KS Adj  SMD status
 ------------------------------------------------------------------------------------
                  age |    0.472    0.99   0.209    0.013    1.01   0.051    Balanced
               female |    0.431    1.03   0.211    0.001    1.00   0.001    Balanced

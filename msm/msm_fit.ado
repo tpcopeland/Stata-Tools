@@ -1,4 +1,4 @@
-*! msm_fit Version 1.4.12  2026/10/09
+*! msm_fit Version 2.0.0  2026/10/13
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -324,17 +324,17 @@ program define msm_fit, eclass
     local n_post_outcome = 0
     local n_post_censor = 0
 
-    bysort `id' (`period'): gen byte `_post_outcome' = ///
+    quietly bysort `id' (`period'): gen byte `_post_outcome' = ///
         (sum(`outcome'[_n-1]) >= 1) if _n > 1
-    replace `_post_outcome' = 0 if missing(`_post_outcome')
+    quietly replace `_post_outcome' = 0 if missing(`_post_outcome')
     quietly count if `_post_outcome' == 1
     local n_post_outcome = r(N)
 
     if "`censor'" != "" {
         tempvar _post_censor
-        bysort `id' (`period'): gen byte `_post_censor' = ///
+        quietly bysort `id' (`period'): gen byte `_post_censor' = ///
             (sum(`censor'[_n-1]) >= 1) if _n > 1
-        replace `_post_censor' = 0 if missing(`_post_censor')
+        quietly replace `_post_censor' = 0 if missing(`_post_censor')
         quietly count if `_post_censor' == 1
         local n_post_censor = r(N)
         gen byte `_esample' = (`_post_outcome' == 0 & `_post_censor' == 0 & ///
@@ -501,21 +501,21 @@ program define msm_fit, eclass
         if `: list posof "lag1" in history' | ///
             `: list posof "interaction" in history' {
             gen byte _msm_hist_lag1 = 0
-            bysort `id' (`period'): replace _msm_hist_lag1 = ///
+            quietly bysort `id' (`period'): replace _msm_hist_lag1 = ///
                 `treatment'[_n-1] if _n > 1
             label variable _msm_hist_lag1 "Prior-period treatment"
             local history_vars_created "`history_vars_created' _msm_hist_lag1"
         }
         if `: list posof "cumulative" in history' {
             gen double _msm_hist_cum = 0
-            bysort `id' (`period'): replace _msm_hist_cum = ///
+            quietly bysort `id' (`period'): replace _msm_hist_cum = ///
                 _msm_hist_cum[_n-1] + `treatment'[_n-1] if _n > 1
             label variable _msm_hist_cum "Cumulative prior treatment periods"
             local history_vars_created "`history_vars_created' _msm_hist_cum"
         }
         if `: list posof "duration" in history' {
             gen double _msm_hist_dur = 0
-            bysort `id' (`period'): replace _msm_hist_dur = ///
+            quietly bysort `id' (`period'): replace _msm_hist_dur = ///
                 cond(missing(`treatment'[_n-1]), ., ///
                 cond(`treatment'[_n-1] == 1, _msm_hist_dur[_n-1] + 1, 0)) ///
                 if _n > 1
@@ -1052,14 +1052,14 @@ program define msm_fit, eclass
     display as text ""
     display as text "Note: standard errors are final-stage, conditional on the estimated IP"
     display as text "      weights and the observed sample; they do not propagate weight-model"
-    display as text "      estimation uncertainty (see {bf:msm_fit} help, audit A22)."
+    display as text "      estimation uncertainty (see {bf:help msm_fit})."
 
     display as text ""
     if "`model'" == "logistic" & "`predict_disabled'" == "" {
         display as text "Next step: {cmd:msm_predict} for counterfactual predictions"
     }
     else {
-        display as text "Next step: {cmd:msm_report}, {cmd:msm_table}, or {cmd:msm_sensitivity}"
+        display as text "Next step: tabulate e() with {cmd:collect: msm_fit ...} then {cmd:regtab} (tabtools)"
         if "`predict_disabled'" != "" {
             display as text "           {cmd:msm_predict} is not available with {cmd:exposure()} or {cmd:tvcov()}"
         }

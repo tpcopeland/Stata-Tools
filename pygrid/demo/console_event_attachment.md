@@ -12,15 +12,23 @@ title: "console_event_attachment"
 ```
 
 ```
-pyattach:            2 orphan event row(s);            1 have id() absent from the grid
-pyattach:            7 eligible events,            5 attached
-  orphans:            2   zero-event grid rows:            3
-  overall event rate:        .985032
+pyattach: 2 orphan event row(s); 1 have id() absent from the grid
+pyattach: 7 eligible events, 5 attached
+  orphans: 2   zero-event grid rows: 3
+  overall event rate: .985032
 
 ```
 
 ```stata
-. format person_years %9.3f total_cost %9.0fc events_per_py %9.2f
+. format person_years %9.3f
+```
+
+```stata
+. format total_cost %9.0fc
+```
+
+```stata
+. format events_per_py %9.2f
 ```
 
 ```stata
@@ -33,15 +41,15 @@ pyattach:            7 eligible events,            5 attached
   +------------------------------------------------------------------------------------------------+
   |  id     cohort   period   period_start   period_stop   person_years   n_events   events_per_py |
   |------------------------------------------------------------------------------------------------|
-  | 101   Clinic A     2019      15jun2019     31dec2019          0.548          1         1.82625 |
-  | 101   Clinic A     2020      01jan2020     31dec2020          1.002          2       1.9959016 |
-  | 101   Clinic A     2021      01jan2021     31dec2021          0.999          0               0 |
-  | 101   Clinic A     2022      01jan2022     20mar2022          0.216          1       4.6234177 |
+  | 101   Clinic A     2019      15jun2019     31dec2019          0.548          1            1.83 |
+  | 101   Clinic A     2020      01jan2020     31dec2020          1.002          2            2.00 |
+  | 101   Clinic A     2021      01jan2021     31dec2021          0.999          0            0.00 |
+  | 101   Clinic A     2022      01jan2022     20mar2022          0.216          1            4.62 |
   |------------------------------------------------------------------------------------------------|
-  | 102   Clinic B     2020      01jan2020     31dec2020          1.002          0               0 |
-  | 102   Clinic B     2021      01jan2021     31dec2021          0.999          1       1.0006849 |
+  | 102   Clinic B     2020      01jan2020     31dec2020          1.002          0            0.00 |
+  | 102   Clinic B     2021      01jan2021     31dec2021          0.999          1            1.00 |
   |------------------------------------------------------------------------------------------------|
-  | 103   Clinic A     2021      10sep2021     31dec2021          0.309          0               0 |
+  | 103   Clinic A     2021      10sep2021     31dec2021          0.309          0            0.00 |
   +------------------------------------------------------------------------------------------------+
 
 ```

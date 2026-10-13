@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.1 30sep2026}{...}
+{* *! version 0.2.0 13oct2026}{...}
 {vieweralsosee "[G-2] graph twoway rbar" "help twoway rbar"}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {viewerjumpto "Syntax" "swimlane##syntax"}{...}
@@ -321,6 +321,14 @@ resolved height is returned even when a cap applies.
 {opt barwidth(#)} controls bar thickness in y-axis units.
 
 {phang}
+{opt baropacity(#)} sets the bar fill opacity as a percentage from 0 to 100. The
+default is 70 for state and {opt colorby()} bars and 65 for single-color bars
+(with {cmd:palette(scheme)} the scheme's own opacity unless this option is given).
+It has no effect, and a note is shown, with {cmd:lanetype(line)}.
+An opacity written into a {opt colors()} entry, such as {cmd:navy%40}, takes
+precedence for that bar. Outlines are always drawn at full opacity.
+
+{phang}
 {opt barlabel(spec)} annotates each lane's bar tip. {cmd:barlabel(duration)}
 prints the bar duration at its right end; {cmd:none} (the default) prints
 nothing. It is supported in swimmer mode only.
@@ -404,7 +412,16 @@ combined with {opt by()} or {opt state()}, and it must be constant within each
 
 {phang}
 {opt colors(colorlist)} overrides the default color order
-({cmd:navy cranberry forest_green dkorange purple teal maroon olive ...}). Colors
+({cmd:navy cranberry forest_green dkorange purple teal maroon olive ...}). Each
+entry is a named color (including colors from installed scheme packages and
+user-defined {cmd:color-}{it:name}{cmd:.style} files), {cmd:bg} or {cmd:fg}, or a
+quoted RGB, CMYK, or HSV value such as {cmd:"0 114 178"} or {cmd:"hsv 240 1 1"}
+(see {help colorstyle}). Any entry may end in {cmd:%}{it:opacity} and/or
+{cmd:*}{it:intensity}. An entry Stata cannot draw is an error (rc 198) instead of a
+silent grey: unknown names, malformed or out-of-range values, a bare
+{cmd:%}{it:#} or {cmd:*}{it:#}, and hexadecimal values (not supported on Stata 17
+and earlier, which draw them black; use an RGB triplet). A {cmd:color-}{it:name}{cmd:.style}
+file created during a session draws black until you type {cmd:discard}. Colors
 are consumed by bars, interval layers, and then event-marker series, so a
 marker is never drawn in the same color as the bar it sits on. Bar fills,
 marker palette, and the plot background otherwise follow the active graph
@@ -699,7 +716,7 @@ publish the command's analytical results, including output-side failures.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 0.1.1, 2026-09-30{p_end}
+{pstd}Version 0.2.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

@@ -8,8 +8,8 @@
 *        double: a weight equal to P99 was then counted as above it and
 *        rewritten one unit in the last place lower (off by one in
 *        r(n_truncated) for several of these seeds)
-*   TC2  msm_diagnose r(n_extreme) counts the risk-set weights strictly above
-*        the P99 of summarize, detail, compared at full precision
+*   (TC2, msm_diagnose r(n_extreme), retired in msm 2.0.0 with the pooled
+*   weight summary; psdash weights reports the extreme-weight count.)
 * Oracles: _pctile / summarize, detail results held in scalars, counted and
 * capped here from a copy of the untruncated weights.
 
@@ -88,33 +88,6 @@ foreach seed in 1 3 4 5 {
     }
 }
 
-**# TC2: msm_diagnose extreme-weight count at the exact P99
-local ++test_count
-capture noisily {
-    local mism 0
-    foreach seed in 1 3 4 5 {
-        _tc_panel `seed'
-        quietly msm_weight, treat_d_cov(L bl) treat_n_cov(bl) nolog
-        tempname p99
-        quietly summarize _msm_weight if _msm_decision_risk, detail
-        scalar `p99' = r(p99)
-        quietly count if _msm_decision_risk & _msm_weight > `p99' & !missing(_msm_weight)
-        local want = r(N)
-        quietly msm_diagnose, balance_covariates(L)
-        display as text "  seed `seed': n_extreme `r(n_extreme)' (oracle `want')"
-        if r(n_extreme) != `want' local ++mism
-    }
-    assert `mism' == 0
-}
-if _rc == 0 {
-    display as result "  PASS TC2: msm_diagnose counts weights above the exact P99"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL TC2: msm_diagnose extreme-weight count (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' TC2"
-}
 
 display as text ""
 display as text "Tests run: " as result `test_count'

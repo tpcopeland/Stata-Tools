@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.7.5  2026/10/09
+*! psdash_balance Version 1.8.0  2026/10/13
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -27,7 +27,9 @@ Options:
     reference(string)   - Reference group for multi-group (default: lowest level)
     xlsx(string)        - Export balance table to Excel
     sheet(string)       - Excel sheet name (default: "Balance")
-    loveplot            - Generate Love plot
+    loveplot            - Generate Love plot (rows use variable labels)
+    nograph             - Suppress all balance graphs
+    varnames            - Label plot rows with variable names
     saving(string)      - Save Love plot to file
     scheme(string)      - Graph scheme
     graphoptions(string)- Additional twoway options for Love plot
@@ -76,6 +78,8 @@ program define psdash_balance, rclass
          xlsx(string) ///
          sheet(string) ///
          LOVEplot ///
+         NOGRaph ///
+         VARNames ///
          SAVing(string) ///
          SCHeme(string) ///
          GRAPHOPTions(string asis) ///
@@ -92,6 +96,19 @@ program define psdash_balance, rclass
 
     if "`noweights'" != "" {
         local nowvar "nowvar"
+    }
+
+    * nograph: tables and returns only. Graph requests are dropped with a note,
+    * as psdash weights does for graph options given without graph.
+    if "`nograph'" != "" {
+        if "`loveplot'" != "" display as text "note: loveplot ignored with nograph"
+        if "`strategies'" != "" display as text "note: strategies() ignored with nograph"
+        if "`distribution'" != "" display as text "note: distribution() ignored with nograph"
+        if `"`saving'"' != "" display as text "note: saving() ignored with nograph"
+        local loveplot ""
+        local strategies ""
+        local distribution ""
+        local saving ""
     }
 
     * Variance-ratio imbalance bounds (default [0.5, 2.0]); configurable via vrbounds()
@@ -542,7 +559,13 @@ program define psdash_balance, rclass
                 local row_line `"`row_line' %8s " `c_ks_adj'""'
             }
         }
-        display `row_line' `status_color' %12s "`status'"
+        if "`status'" == "Balanced" {
+            display `row_line' as result %12s "`status'"
+        }
+        else {
+            * {err} inside a text-class display obeys quietly; as error would not
+            display `row_line' as text _skip(`=12 - length("`status'")') "{err}`status'{txt}"
+        }
 
         local i = `i' + 1
     }
@@ -604,7 +627,7 @@ program define psdash_balance, rclass
     local _pf ""
     local _pfn = 0
     if `n_ps_boundary' > 0 {
-        display as error "Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1."
+        display as text "{err}Warning: `n_ps_boundary' observation(s) have PS exactly 0 or 1.{txt}"
         local _pf `"`_pf' | `n_ps_boundary' exact-PS-boundary observation(s)"'
         local ++_pfn
     }
@@ -612,7 +635,7 @@ program define psdash_balance, rclass
         display as text "Note: `n_ps_near' additional observation(s) have PS < 0.01 or > 0.99."
     }
     if `n_wt_dropped' > 0 {
-        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        display as text "{err}Warning: `n_wt_dropped' observation(s) dropped for a missing weight.{txt}"
         local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
         local ++_pfn
     }
@@ -629,7 +652,7 @@ program define psdash_balance, rclass
     local _balance_findings `"`_pf'"'
     local _balance_nfind = `_pfn'
     if `_pfn' > 0 {
-        display as text _n "Balance: " as error "IMBALANCED" ///
+        display as text _n "Balance: " as text "{err}IMBALANCED{txt}" ///
             as text " (" as result %3.0f `_pfn' as text " finding(s); " ///
             as result %3.0f `n_imbalanced' as text " SMD, " ///
             as result %3.0f `n_vr_imbalanced' as text " VR)"
@@ -644,18 +667,23 @@ program define psdash_balance, rclass
     if "`loveplot'" != "" & "`strategies'" == "" {
         capture noisily {
             quietly {
+                * Row labels: variable (and value) labels unless varnames.
+                _psdash_term_label `_cov_labels', `varnames'
+                forvalues i = 1/`nvars' {
+                    local _plab_`i' `"`r(label_`i')'"'
+                }
                 preserve
 
                 clear
                 set obs `nvars'
-                gen str80 covariate = ""
+                gen str244 covariate = ""
                 gen double smd_raw = .
                 gen double smd_adj = .
                 gen order = _n
 
                 local i = 1
                 foreach var of local varlist {
-                    replace covariate = "`: word `i' of `_cov_labels''" in `i'
+                    replace covariate = "`_plab_`i''" in `i'
                     replace smd_raw = `balance_mat'[`i', 3] in `i'
                     if `has_adj' {
                         replace smd_adj = `balance_mat'[`i', 8] in `i'
@@ -705,12 +733,12 @@ program define psdash_balance, rclass
 
                 if `has_adj' {
                     local plotopts "`plotopts' legend(order(1 "Unadjusted" 2 "Adjusted") rows(1) position(6))"
-                    noisily twoway (scatter order smd_raw, msymbol(circle) mcolor(navy)) ///
-                           (scatter order smd_adj, msymbol(diamond) mcolor(cranberry)), ///
+                    noisily twoway (scatter order smd_raw, msymbol(circle) pstyle(p1)) ///
+                           (scatter order smd_adj, msymbol(diamond) pstyle(p6)), ///
                            `plotopts' `graphoptions' name(`name', replace)
                 }
                 else {
-                    noisily twoway (scatter order smd_raw, msymbol(circle) mcolor(navy)), ///
+                    noisily twoway (scatter order smd_raw, msymbol(circle) pstyle(p1)), ///
                            `plotopts' `graphoptions' legend(off) name(`name', replace)
                 }
 
@@ -784,16 +812,20 @@ program define psdash_balance, rclass
             }
 
             quietly {
+                * Row labels: variable (and value) labels unless varnames.
+                _psdash_term_label `_cov_labels', `varnames'
+                forvalues i = 1/`nvars' {
+                    local _plab_`i' `"`r(label_`i')'"'
+                }
                 preserve
                 clear
                 set obs `nvars'
-                gen str80 covariate = ""
+                gen str244 covariate = ""
                 forvalues s = 1/`nstrat' {
                     gen double smd_`s' = .
                 }
                 forvalues i = 1/`nvars' {
-                    local cv : word `i' of `_cov_labels'
-                    replace covariate = "`cv'" in `i'
+                    replace covariate = "`_plab_`i''" in `i'
                     forvalues s = 1/`nstrat' {
                         replace smd_`s' = `smd_strat'[`i', `s'] in `i'
                     }
@@ -822,13 +854,15 @@ program define psdash_balance, rclass
                 local xmax = ceil(`xmax' * 4) / 4
                 local xstep = cond(`xmax' <= 1, 0.25, cond(`xmax' <= 5, 0.5, cond(`xmax' <= 20, 5, 10)))
 
-                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+                * Series colours come from the active scheme in the order p1, p6, p2, p3,
+                * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
+                * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
                 local symbol_list "circle diamond triangle square plus X smcircle smsquare"
                 local plot_cmd ""
                 forvalues s = 1/`nstrat' {
-                    local col : word `s' of `color_list'
+                    local pst = cond(`s' == 1, 1, cond(`s' == 2, 6, cond(`s' <= 6, `s' - 1, mod(`s' - 1, 15) + 1)))
                     local sym : word `s' of `symbol_list'
-                    local plot_cmd `"`plot_cmd' (scatter order smd_`s', msymbol(`sym') mcolor(`col'))"'
+                    local plot_cmd `"`plot_cmd' (scatter order smd_`s', msymbol(`sym') pstyle(p`pst'))"'
                 }
 
                 local plotopts "xline(-`threshold' `threshold', lcolor(red) lpattern(dash))"
@@ -866,23 +900,25 @@ program define psdash_balance, rclass
                 foreach dv of local distribution {
                     local _dk = `_dk' + 1
                     local _gname "`name'_dist`_dk'"
+                    _psdash_term_label `dv', `varnames'
+                    local _dvlab `"`r(label_1)'"'
                     if `has_adj' {
                         noisily twoway ///
-                            (kdensity `dv' if `treatment'==1 & `touse', lcolor(navy) lpattern(solid)) ///
-                            (kdensity `dv' if `treatment'==0 & `touse', lcolor(cranberry) lpattern(solid)) ///
-                            (kdensity `dv' [aw=`wvar'] if `treatment'==1 & `touse', lcolor(navy) lpattern(dash)) ///
-                            (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', lcolor(cranberry) lpattern(dash)), ///
+                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1) lpattern(solid)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p6) lpattern(solid)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==1 & `touse', pstyle(p1) lpattern(dash)) ///
+                            (kdensity `dv' [aw=`wvar'] if `treatment'==0 & `touse', pstyle(p6) lpattern(dash)), ///
                             legend(order(1 "Treated (raw)" 2 "Control (raw)" ///
                                 3 "Treated (wtd)" 4 "Control (wtd)") size(vsmall) rows(2) position(6)) ///
-                            xtitle("`dv'") ytitle("Density") title("`dv'", size(medium)) ///
+                            xtitle("`_dvlab'") ytitle("Density") title("`_dvlab'", size(medium)) ///
                             name(`_gname', replace) `_go'
                     }
                     else {
                         noisily twoway ///
-                            (kdensity `dv' if `treatment'==1 & `touse', lcolor(navy)) ///
-                            (kdensity `dv' if `treatment'==0 & `touse', lcolor(cranberry)), ///
+                            (kdensity `dv' if `treatment'==1 & `touse', pstyle(p1)) ///
+                            (kdensity `dv' if `treatment'==0 & `touse', pstyle(p6)), ///
                             legend(order(1 "Treated" 2 "Control") size(small) rows(1) position(6)) ///
-                            xtitle("`dv'") ytitle("Density") title("`dv'", size(medium)) ///
+                            xtitle("`_dvlab'") ytitle("Density") title("`_dvlab'", size(medium)) ///
                             name(`_gname', replace) `_go'
                     }
                     local _dist_names "`_dist_names' `_gname'"
@@ -1247,7 +1283,7 @@ program define psdash_balance, rclass
         }
 
         if `cov_imbalanced' {
-            local row_line `"`row_line' as error %12s "IMBALANCED""'
+            local row_line `"`row_line' as text _skip(2) "{err}IMBALANCED{txt}""'
         }
         else {
             local row_line `"`row_line' as result %12s "Balanced""'
@@ -1318,7 +1354,7 @@ program define psdash_balance, rclass
         local ++_pfn
     }
     if `n_wt_dropped' > 0 {
-        display as error "Warning: `n_wt_dropped' observation(s) dropped for a missing weight."
+        display as text "{err}Warning: `n_wt_dropped' observation(s) dropped for a missing weight.{txt}"
         local _pf `"`_pf' | `n_wt_dropped' obs dropped (missing weight)"'
         local ++_pfn
     }
@@ -1331,7 +1367,7 @@ program define psdash_balance, rclass
     local _balance_findings `"`_pf'"'
     local _balance_nfind = `_pfn'
     if `_pfn' > 0 {
-        display as text _n "Balance: " as error "IMBALANCED" ///
+        display as text _n "Balance: " as text "{err}IMBALANCED{txt}" ///
             as text " (" as result %3.0f `_pfn' as text " finding(s); " ///
             as result %3.0f `n_imbalanced' as text " SMD, " ///
             as result %3.0f `n_vr_imbalanced' as text " VR)"
@@ -1354,11 +1390,16 @@ program define psdash_balance, rclass
                     local _gl_`lev' `"`r(text)'"'
                 }
 
+                * Row labels: variable (and value) labels unless varnames.
+                _psdash_term_label `_cov_labels', `varnames'
+                forvalues i = 1/`nvars' {
+                    local _plab_`i' `"`r(label_`i')'"'
+                }
                 preserve
 
                 clear
                 set obs `nvars'
-                gen str80 covariate = ""
+                gen str244 covariate = ""
                 gen order = _n
 
                 * One raw SMD variable per contrast, plus an adjusted one when
@@ -1373,7 +1414,7 @@ program define psdash_balance, rclass
 
                 local i = 1
                 foreach var of local varlist {
-                    replace covariate = "`: word `i' of `_cov_labels''" in `i'
+                    replace covariate = "`_plab_`i''" in `i'
                     local cnum = 0
                     foreach clev of local contrasts {
                         local cnum = `cnum' + 1
@@ -1428,7 +1469,9 @@ program define psdash_balance, rclass
 
                 * Build plot command: per contrast, a hollow raw series and,
                 * when weighted, a solid adjusted series in the same colour.
-                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+                * Series colours come from the active scheme in the order p1, p6, p2, p3,
+                * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
+                * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
                 local symbol_list "circle diamond triangle square plus X smcircle smsquare"
                 local hollow_list "Oh Dh Th Sh plus X smcircle_hollow smsquare_hollow"
                 local plot_cmd ""
@@ -1437,7 +1480,7 @@ program define psdash_balance, rclass
                 local snum = 0
                 foreach clev of local contrasts {
                     local cnum = `cnum' + 1
-                    local col : word `cnum' of `color_list'
+                    local col = cond(`cnum' == 1, 1, cond(`cnum' == 2, 6, cond(`cnum' <= 6, `cnum' - 1, mod(`cnum' - 1, 15) + 1)))
                     local sym : word `cnum' of `symbol_list'
                     local hsym : word `cnum' of `hollow_list'
                     local lbl `"`macval(_gl_`clev')' vs `macval(_gl_`mg_reference')'"'
@@ -1446,14 +1489,14 @@ program define psdash_balance, rclass
                         * the note explains hollow = raw, which keeps the
                         * legend narrow enough for a dashboard panel.
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`hsym') mcolor(`col'))"'
+                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`hsym') pstyle(p`col'))"'
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smda_`cnum', msymbol(`sym') mcolor(`col'))"'
+                        local plot_cmd `"`plot_cmd' (scatter order smda_`cnum', msymbol(`sym') pstyle(p`col'))"'
                         local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
                     }
                     else {
                         local ++snum
-                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`sym') mcolor(`col'))"'
+                        local plot_cmd `"`plot_cmd' (scatter order smd_`cnum', msymbol(`sym') pstyle(p`col'))"'
                         local legend_order `"`macval(legend_order)' `snum' `"`macval(lbl)'"'"'
                     }
                 }

@@ -72,43 +72,10 @@ else {
     set varabbrev off
 }
 
-**## PV2: msm_validate preserves physical observation order
-local ++test_count
-capture noisily {
-    _adv_make_clean_panel
-    set seed 91002
-    gen double shuffle = runiform()
-    sort shuffle
-    gen long row_before = _n
-
-    msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) covariates(x) ///
-        baseline_covariates(bl)
-
-    set varabbrev on
-    msm_validate, strict
-
-    assert c(varabbrev) == "on"
-    assert row_before == _n
-    assert r(n_checks) == 10
-    assert r(n_errors) == 0
-    assert r(n_warnings) == 0
-    assert "`r(validation)'" == "passed"
-    set varabbrev off
-}
-if _rc == 0 {
-    display as result "PASS PV2: msm_validate preserves order on clean data"
-    local ++pass_count
-}
-else {
-    display as error "FAIL PV2: msm_validate order preservation (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' PV2"
-    set varabbrev off
-}
 
 **# Validation Adversarial Cases
-**## PV3: msm_validate rejects post-prepare non-binary treatment mutations
+**## PV3: a post-prepare non-binary treatment edit is refused by msm_weight
+* (msm 2.0.0: formerly msm_validate; the prepare signature now carries it)
 local ++test_count
 capture noisily {
     _adv_make_clean_panel
@@ -118,17 +85,16 @@ capture noisily {
 
     replace treatment = 2 in 1
     set varabbrev on
-    capture msm_validate
-    local validate_rc = _rc
+    capture noisily msm_weight, treat_d_cov(x bl) nolog
+    local weight_rc = _rc
 
-    assert `validate_rc' == 198
+    assert `weight_rc' == 459
     assert c(varabbrev) == "on"
-    assert !missing(r(n_errors))
-    assert r(n_errors) >= 1
+    assert "`: char _dta[_msm_weighted]'" == ""
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS PV3: msm_validate rejects stale non-binary treatment"
+    display as result "PASS PV3: msm_weight rejects stale non-binary treatment"
     local ++pass_count
 }
 else {
@@ -138,7 +104,7 @@ else {
     set varabbrev off
 }
 
-**## PV4: missing key variables warn in non-strict and fail in strict
+**## PV4: a missing outcome is reported by msm_prepare and kept out of the fit
 local ++test_count
 capture noisily {
     _adv_make_clean_panel
@@ -147,15 +113,10 @@ capture noisily {
         baseline_covariates(bl)
 
     replace outcome = . in 1
-    msm_validate
-    assert r(n_errors) == 0
-    assert r(n_warnings) == 1
-
-    capture msm_validate, strict
-    local strict_rc = _rc
-    assert `strict_rc' == 198
-    assert !missing(r(n_errors))
-    assert r(n_errors) >= 1
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) covariates(x) ///
+        baseline_covariates(bl)
+    assert "`r(missing_vars)'" == "outcome"
 }
 if _rc == 0 {
     display as result "PASS PV4: missingness warning/error semantics hold"
@@ -167,23 +128,33 @@ else {
     local failed_tests "`failed_tests' PV4"
 }
 
-**## PV5: strict validation rejects non-terminal censoring
+**## PV5: rows after censoring leave the decision risk set
+* (msm 2.0.0: formerly msm_validate, strict; the risk-set flag now carries it)
 local ++test_count
 capture noisily {
-    _adv_make_clean_panel
-    replace censored = 1 if id == 1 & period == 1
+    use "`pkg_dir'/msm_example.dta", clear
+    * a censoring event at period 1 for one individual followed beyond it
+    bysort id: egen int _np = count(period)
+    quietly levelsof id if _np >= 5 & censored == 0 & outcome == 0, local(_ids)
+    local cid : word 1 of `_ids'
+    drop _np
+    replace censored = 1 if id == `cid' & period == 1
+    replace outcome = 0 if id == `cid' & period == 1
     msm_prepare, id(id) period(period) treatment(treatment) ///
-        outcome(outcome) censor(censored) covariates(x) ///
-        baseline_covariates(bl)
-
-    capture msm_validate, strict
-    local validate_rc = _rc
-
-    assert `validate_rc' == 198
-    assert r(n_errors) == 1
+        outcome(outcome) censor(censored) covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        censor_d_cov(biomarker comorbidity age sex) nolog
+    quietly count if id == `cid' & period > 1 & _msm_decision_risk
+    assert r(N) == 0
+    quietly count if id == `cid' & period <= 1 & _msm_decision_risk
+    assert r(N) == 2
+    quietly msm_fit, model(logistic) outcome_cov(age sex) nolog
+    quietly count if id == `cid' & period >= 1 & _msm_esample
+    assert r(N) == 0
 }
 if _rc == 0 {
-    display as result "PASS PV5: strict validation rejects post-censor rows"
+    display as result "PASS PV5: post-censor rows leave the risk set and the fit"
     local ++pass_count
 }
 else {
@@ -207,11 +178,6 @@ capture noisily {
     capture _msm_check_prepared
     local check_rc = _rc
     assert `check_rc' == 111
-    assert c(varabbrev) == "on"
-
-    capture msm_validate
-    local validate_rc = _rc
-    assert `validate_rc' == 111
     assert c(varabbrev) == "on"
 
     msm, status
@@ -343,10 +309,6 @@ capture noisily {
     assert r(prepared) == 1
     assert r(weighted) == 0
     assert r(fitted) == 0
-    assert r(prediction_saved) == 0
-    assert r(balance_saved) == 0
-    assert r(diagnostics_saved) == 0
-    assert r(sensitivity_saved) == 0
     assert "`r(stage)'" == "prepared"
 }
 if _rc == 0 {

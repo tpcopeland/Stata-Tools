@@ -1,5 +1,5 @@
-*! msm_diagnose Version 1.4.12  2026/10/09
-*! Weight diagnostics and covariate balance for MSM
+*! msm_diagnose Version 2.0.0  2026/10/13
+*! Longitudinal covariate balance and positivity diagnostics for MSM
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 *! Longitudinal balance: Adenyo et al. (2024), doi:10.1002/sim.10188
@@ -9,16 +9,18 @@ Basic syntax:
   msm_diagnose [, options]
 
 Description:
-  Displays weight distribution summaries (mean, SD, percentiles, ESS)
-  and covariate balance (SMD before/after weighting).
+  Diagnostics psdash cannot produce for a longitudinal MSM: covariate balance
+  within period x prior-treatment history (with the stabilized-numerator
+  target flag), censoring-decision balance, and the operational positivity
+  floor on the estimated probability of the OBSERVED treatment decision. A
+  pooled person-period SMD table is kept as a secondary summary. Pooled and
+  by-period weight distributions moved to psdash in msm 2.0.0
+  (psdash weights / psdash combined, wvar(_msm_weight)).
 
 Options:
   balance_covariates(varlist)  - Covariates for balance assessment
-  by_period                    - Show weight stats by period
   threshold(#)                 - SMD threshold for balance (default: 0.1)
-  accumulate(name)             - Append a one-row summary to a named frame
-  contrast(string)             - Contrast label for the accumulate row (required)
-  outcome(string)              - Outcome label for the accumulate row
+  positivity(#)                - Observed-decision probability floor (default: 0.01)
 
 See help msm_diagnose for complete documentation
 */
@@ -44,35 +46,28 @@ program define msm_diagnose, rclass
 
     quietly gen long `_msm_orig_order' = _n
 
-    syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1) ///
-              ACCUMulate(name) CONTrast(string) OUTcome(string) ///
-              POSITivity(real 0.01)]
+    * by_period, accumulate(), contrast() and outcome() were removed in msm
+    * 2.0.0. They are still parsed so the refusal can name the replacement
+    * instead of a bare "option not allowed".
+    syntax [, BALance_covariates(varlist numeric) THReshold(real 0.1) ///
+              POSITivity(real 0.01) ///
+              BY_period ACCUMulate(string) CONTrast(string) OUTcome(string)]
+    if "`by_period'" != "" {
+        display as error "msm_diagnose, by_period was removed in msm 2.0.0"
+        display as error "Use {bf:psdash combined, wvar(_msm_weight)} (psdash) for per-period weight summaries."
+        exit 198
+    }
+    if `"`accumulate'`contrast'`outcome'"' != "" {
+        display as error "msm_diagnose accumulate(), contrast() and outcome() were removed in msm 2.0.0"
+        display as error "Post the returned scalars and matrices to your own frame with {bf:frame post}."
+        exit 198
+    }
 
     * Operational positivity floor (audit A25): the estimated probability of the
     * OBSERVED treatment must stay away from 0, or the inverse-probability weight
     * is unstable (Cole & Hernan 2008). Must be a proper probability floor.
     if `positivity' <= 0 | `positivity' >= 0.5 {
         display as error "positivity() must be strictly between 0 and 0.5; got `positivity'"
-        exit 198
-    }
-
-    * contrast() identifies the accumulate row and is required with accumulate()
-    if "`accumulate'" != "" & `"`contrast'"' == "" {
-        display as error "contrast() is required with accumulate()"
-        exit 198
-    }
-    * contrast()/outcome() only label an accumulate row; without accumulate()
-    * they are silently ignored, so reject the meaningless combination (A35).
-    if "`accumulate'" == "" & (`"`contrast'"' != "" | `"`outcome'"' != "") {
-        display as error "contrast()/outcome() require accumulate()"
-        exit 198
-    }
-    if strlen(`"`macval(contrast)'"') > 80 {
-        display as error "contrast() may not exceed 80 bytes"
-        exit 198
-    }
-    if strlen(`"`macval(outcome)'"') > 40 {
-        display as error "outcome() may not exceed 40 bytes"
         exit 198
     }
 
@@ -84,32 +79,10 @@ program define msm_diagnose, rclass
         exit 198
     }
 
-    * Existing accumulation frames must match the documented fixed schema
-    * exactly. Validate before diagnostics matrices or characteristics are
-    * committed, so a rejected frame leaves the prior pipeline state untouched.
-    if "`accumulate'" != "" {
-        capture frame `accumulate': describe
-        if _rc == 0 {
-            capture noisily frame `accumulate': _msm_diag_frame_check
-            if _rc exit _rc
-        }
-    }
-
-    * Preserve the accumulate labels before the internal `outcome' local (set
-    * from _msm_outcome below) clobbers the user-supplied outcome() option.
-    local _acc_contrast `"`contrast'"'
-    local _acc_outcome  `"`outcome'"'
-
     * Check prerequisites
     _msm_check_prepared
     _msm_check_weighted
     _msm_get_settings
-
-    _msm_uuid
-    local _diag_uuid "`r(uuid)'"
-    _msm_uuid
-    local _bal_uuid "`r(uuid)'"
-    local _weight_uuid : char _dta[_msm_weight_uuid]
 
     local id         "`_msm_id'"
     local period     "`_msm_period'"
@@ -122,115 +95,25 @@ program define msm_diagnose, rclass
         local balance_covariates "`_msm_covariates' `_msm_bl_covs'"
         local balance_covariates = strtrim("`balance_covariates'")
     }
-
-    * =========================================================================
-    * WEIGHT DISTRIBUTION
-    * =========================================================================
-
-    display as text ""
-    display as text "{hline 70}"
-    display as result "msm_diagnose" as text " - Weight Diagnostics"
-    display as text "{hline 70}"
-    display as text ""
-
-    * Overall weight distribution
-    display as text "{bf:Weight Distribution}"
-    display as text ""
-
-    * Pooled weight summaries are computed on the risk set only (audit A11):
-    * carry-forward weights on post-event/post-censor rows are not analytical
-    * observations, and letting them in lets appended post-risk follow-up
-    * change these numbers. _msm_decision_risk is the authoritative marker set
-    * by msm_weight. On data with no post-risk rows it is every row (no-op).
-    quietly summarize _msm_weight if _msm_decision_risk, detail
-    local w_mean = r(mean)
-    local w_sd   = r(sd)
-    local w_min  = r(min)
-    local w_max  = r(max)
-    local w_p1   = r(p1)
-    local w_p5   = r(p5)
-    local w_p25  = r(p25)
-    local w_p50  = r(p50)
-    local w_p75  = r(p75)
-    local w_p95  = r(p95)
-    local w_p99  = r(p99)
-    * The extreme-weight count compares at full precision (a macro's decimal
-    * text need not read back as the same double).
-    tempname w_p99_s
-    scalar `w_p99_s' = r(p99)
-
-    display as text "  Mean:     " as result %9.4f `w_mean'
-    display as text "  SD:       " as result %9.4f `w_sd'
-    display as text "  Min:      " as result %9.4f `w_min'
-    display as text "  P1:       " as result %9.4f `w_p1'
-    display as text "  P5:       " as result %9.4f `w_p5'
-    display as text "  P25:      " as result %9.4f `w_p25'
-    display as text "  Median:   " as result %9.4f `w_p50'
-    display as text "  P75:      " as result %9.4f `w_p75'
-    display as text "  P95:      " as result %9.4f `w_p95'
-    display as text "  P99:      " as result %9.4f `w_p99'
-    display as text "  Max:      " as result %9.4f `w_max'
-
-    * Effective sample size (risk set only, audit A11)
-    * (rescaled weights, so extreme weight scales keep a finite ESS)
-    _msm_ess _msm_weight if _msm_decision_risk
-    local ess = r(ess)
-    local n_total = r(N)
-    local ess_pct = 100 * `ess' / `n_total'
-
-    display as text ""
-    display as text "  ESS:      " as result %9.1f `ess' ///
-        as text " (" as result %4.1f `ess_pct' "%" as text " of " as result `n_total' as text ")"
-
-    * By treatment group
-    display as text ""
-    display as text "  {bf:By treatment group:}"
-
-    forvalues t = 0/1 {
-        local t_label = cond(`t' == 0, "Untreated", "Treated")
-        quietly summarize _msm_weight if _msm_decision_risk & `treatment' == `t', detail
-        local tw_mean = r(mean)
-        local tw_sd = r(sd)
-        local tw_n = r(N)
-
-        _msm_ess _msm_weight if _msm_decision_risk & `treatment' == `t'
-        local tw_ess = r(ess)
-
-        display as text "    `t_label' (n=" as result `tw_n' as text "): mean=" ///
-            as result %6.4f `tw_mean' as text ", SD=" as result %6.4f `tw_sd' ///
-            as text ", ESS=" as result %6.1f `tw_ess'
-    }
-
-    * Extreme weights (risk set only, audit A11)
-    quietly count if _msm_decision_risk & _msm_weight > `w_p99_s' & !missing(_msm_weight)
-    local n_extreme = r(N)
-    if `n_extreme' > 0 {
-        display as text ""
-        display as text "  Extreme weights (>" as result %6.4f `w_p99' as text "): " ///
-            as result `n_extreme' as text " obs"
-    }
-
-    * =========================================================================
-    * BY-PERIOD WEIGHT STATS (optional)
-    * =========================================================================
-
-    if "`by_period'" != "" {
-        display as text ""
-        display as text "{bf:Weight Distribution by Period}"
-        display as text ""
-        display as text %6s "Period" "  " %8s "N" "  " ///
-            %10s "Mean" "  " %10s "SD" "  " %10s "Min" "  " %10s "Max"
-        display as text _dup(60) "-"
-
-        quietly levelsof `period' if _msm_decision_risk, local(periods)
-        foreach p of local periods {
-            quietly summarize _msm_weight if _msm_decision_risk & `period' == `p'
-            display as text %6.0f `p' "  " ///
-                as result %8.0f r(N) "  " ///
-                %10.4f r(mean) "  " %10.4f r(sd) "  " ///
-                %10.4f r(min) "  " %10.4f r(max)
+    * Nothing mapped: fall back to the treatment-denominator covariates
+    if "`balance_covariates'" == "" {
+        local balance_covariates : char _dta[_msm_ps_covars]
+        local balance_covariates = strtrim("`balance_covariates'")
+        if "`balance_covariates'" != "" {
+            display as text "note: no covariates mapped in msm_prepare; using the treatment-denominator covariates: " as result "`balance_covariates'"
         }
     }
+    if "`balance_covariates'" == "" {
+        display as error "msm_diagnose needs at least one balance covariate"
+        display as error "Map covariates() or baseline_covariates() in {bf:msm_prepare}, or specify {bf:balance_covariates()}."
+        exit 198
+    }
+
+    display as text ""
+    display as text "{hline 70}"
+    display as result "msm_diagnose" as text " - Longitudinal Balance and Positivity"
+    display as text "{hline 70}"
+    display as text "Weight distributions: {bf:psdash weights} / {bf:psdash combined, wvar(_msm_weight)}"
 
     * =========================================================================
     * COVARIATE BALANCE (SMD)
@@ -355,10 +238,11 @@ program define msm_diagnose, rclass
             weighted_smd n_treated n_untreated ess target
         matrix colnames `_support' = period N treated untreated ps_min ps_max ///
             obs_min common_lo common_hi n_outside ess
-        capture matrix drop _msm_tbal_matrix
-        capture matrix drop _msm_support_matrix
-        matrix _msm_tbal_matrix = `_tbal'
-        matrix _msm_support_matrix = `_support'
+        * Working copies: `return matrix' MOVES its argument (msm 2.0.0 no
+        * longer leaves _msm_*_matrix globals in the caller's namespace).
+        tempname _tbal_c _support_c
+        matrix `_tbal_c' = `_tbal'
+        matrix `_support_c' = `_support'
         return matrix treatment_balance = `_tbal'
         return matrix support = `_support'
 
@@ -377,7 +261,7 @@ program define msm_diagnose, rclass
         * the observed-decision probability tracks the weight the estimator
         * actually receives.
         *
-        * Read the persisted copy (_msm_support_matrix); `return matrix support'
+        * Read the working copy (`_support_c'); `return matrix support'
         * above MOVES the `_support' tempname, so it no longer exists here.
         quietly summarize `_p_obs' if _msm_decision_risk, meanonly
         local _min_obs_overall = cond(r(N) == 0, ., r(min))
@@ -388,9 +272,9 @@ program define msm_diagnose, rclass
         local _n_pos_viol = 0
         local _pos_viol_periods ""
         local _pos_viol_min = .
-        forvalues _r = 1/`=rowsof(_msm_support_matrix)' {
-            local _p_r  = _msm_support_matrix[`_r', 1]
-            local _obmn = _msm_support_matrix[`_r', 7]
+        forvalues _r = 1/`=rowsof(`_support_c')' {
+            local _p_r  = `_support_c'[`_r', 1]
+            local _obmn = `_support_c'[`_r', 7]
             if !missing(`_obmn') & `_obmn' < `positivity' {
                 local ++_n_pos_viol
                 local _pos_viol_periods "`_pos_viol_periods' `_p_r'"
@@ -399,6 +283,27 @@ program define msm_diagnose, rclass
             }
         }
         local _pos_viol_periods = strtrim("`_pos_viol_periods'")
+
+        * Structural support (msm 2.0.0; formerly msm_validate check 10): a
+        * period in which no decision-risk row is treated, or none untreated,
+        * has no observed contrast at all. The observed-decision floor above
+        * cannot see it, because every row in such a period may have made a
+        * well-supported decision.
+        local _n_nosupp = 0
+        local _nosupp_periods ""
+        forvalues _r = 1/`=rowsof(`_support_c')' {
+            if `_support_c'[`_r', 3] == 0 | `_support_c'[`_r', 4] == 0 {
+                local ++_n_nosupp
+                local _nosupp_periods "`_nosupp_periods' `=`_support_c'[`_r', 1]'"
+            }
+        }
+        local _nosupp_periods = strtrim("`_nosupp_periods'")
+        return scalar n_support_violations = `_n_nosupp'
+        return local support_violation_periods "`_nosupp_periods'"
+        if `_n_nosupp' > 0 {
+            display as error "  WARNING: `_n_nosupp' period(s) have no treated or no untreated decision-risk row: `_nosupp_periods'"
+            display as text "    The treatment contrast in these periods rests entirely on the model's period terms."
+        }
         return scalar positivity_threshold = `positivity'
         return scalar n_positivity_violations = `_n_pos_viol'
         return scalar min_obs_probability = `_min_obs_overall'
@@ -412,7 +317,7 @@ program define msm_diagnose, rclass
 
         display as text ""
         display as text "{bf:Primary treatment balance: period x prior-treatment history}"
-        display as text "  Rows: " as result rowsof(_msm_tbal_matrix) ///
+        display as text "  Rows: " as result rowsof(`_tbal_c') ///
             as text "; covariate numbers follow balance_covariates() order."
         display as text "  target=0 identifies stabilized-numerator covariates retained in the target distribution."
 
@@ -463,11 +368,10 @@ program define msm_diagnose, rclass
                 }
                 matrix colnames `_cbal' = period covariate raw_smd ///
                     weighted_smd n_censored n_uncensored ess
-                capture matrix drop _msm_cbal_matrix
-                matrix _msm_cbal_matrix = `_cbal'
+                local _n_cbal = rowsof(`_cbal')
                 return matrix censor_balance = `_cbal'
                 display as text "{bf:Separate censoring balance: period-specific risk sets}"
-                display as text "  Rows: " as result rowsof(_msm_cbal_matrix)
+                display as text "  Rows: " as result `_n_cbal'
             }
         }
 
@@ -479,7 +383,7 @@ program define msm_diagnose, rclass
         tempvar _pool_use
         quietly gen byte `_pool_use' = _msm_decision_risk
         display as text ""
-        display as text "{bf:Secondary pooled person-period balance (risk set, backward compatibility)}"
+        display as text "{bf:Secondary pooled person-period balance (risk set)}"
         display as text ""
         display as text %20s "Covariate" "  " ///
             %12s "Unweighted" "  " %12s "Weighted" "  " %8s "Change"
@@ -488,6 +392,7 @@ program define msm_diagnose, rclass
         local n_balanced = 0
         local n_imbalanced = 0
         local n_unavailable = 0
+        local n_numerator = 0
         local n_covs : word count `balance_covariates'
 
         tempname bal_matrix
@@ -523,8 +428,15 @@ program define msm_diagnose, rclass
             * A missing weighted SMD is UNAVAILABLE, not imbalanced (audit A26):
             * `abs(.) > threshold' is true in Stata because `.' is +infinity, so
             * the old code silently counted an unavailable SMD as imbalanced.
+            * Stabilized-numerator covariates stay in the target distribution;
+            * weighting is not meant to balance them (target=0 above), so they
+            * are shown but not counted as balanced or imbalanced.
             local bal_flag ""
-            if missing(`smd_w') {
+            if `: list var in _numer_covars' {
+                local bal_flag " (numerator)"
+                local ++n_numerator
+            }
+            else if missing(`smd_w') {
                 local bal_flag " (n/a)"
                 local ++n_unavailable
             }
@@ -544,96 +456,34 @@ program define msm_diagnose, rclass
 
         display as text _dup(58) "-"
         display as text "Threshold: |SMD| < " as result `threshold'
-        display as text "Balanced:   " as result `n_balanced' as text "/" as result `n_covs'
+        if "`: list balance_covariates & _numer_covars'" != "" {
+            display as text "(numerator): stabilized-numerator covariate; not a balance target"
+        }
+        local n_targets = `n_covs' - `n_numerator'
+        display as text "Balanced:   " as result `n_balanced' as text "/" as result `n_targets' ///
+            as text " balance target(s)"
         if `n_imbalanced' > 0 {
             display as text "Imbalanced: " as result `n_imbalanced' as text " covariates marked with *"
         }
         if `n_unavailable' > 0 {
             display as text "Unavailable: " as result `n_unavailable' as text " covariates (SMD could not be computed), marked (n/a)"
         }
-        * Add names and persist for msm_table. The serialized matrix travels
-        * with the dataset and is bound to the current weighting artifact.
         matrix rownames `bal_matrix' = `balance_covariates'
         matrix colnames `bal_matrix' = raw_smd weighted_smd pct_change
-        _msm_mat_save `bal_matrix', key(_msm_bal_mat) token(`_bal_uuid')
-        capture matrix drop _msm_bal_matrix
-        matrix _msm_bal_matrix = `bal_matrix'
-        char _dta[_msm_bal_saved] "1"
-        char _dta[_msm_bal_threshold] "`threshold'"
-        char _dta[_msm_bal_uuid] "`_bal_uuid'"
-        char _dta[_msm_bal_dep] "`_weight_uuid'"
 
         return scalar n_unavailable = `n_unavailable'
+        return scalar n_imbalanced = `n_imbalanced'
+        return scalar n_numerator = `n_numerator'
+        return scalar threshold = `threshold'
         return matrix balance = `bal_matrix'
     }
 
-    * Cross-contrast balance summaries for accumulate(); populated only when
-    * balance was assessed, otherwise left missing.  n_imbalanced reuses the
-    * count already shown above so the summary matches the displayed table.
-    local _diag_nimb = .
-    local _diag_maxabs = .
-    if "`balance_covariates'" != "" {
-        local _diag_nimb = `n_imbalanced'
-        local _diag_maxabs = 0
-        local _R = rowsof(_msm_bal_matrix)
-        forvalues _i = 1/`_R' {
-            local _s = abs(_msm_bal_matrix[`_i', 2])
-            if `_s' < . {
-                if `_s' > `_diag_maxabs' local _diag_maxabs = `_s'
-            }
-        }
-    }
+    * Covariate k in the treatment_balance and censor_balance matrices (column
+    * covariate) and row k of r(balance) is word k of r(covariates).
+    return local covariates "`balance_covariates'"
 
     display as text ""
     display as text "{hline 70}"
-
-    * =========================================================================
-    * RETURN RESULTS
-    * =========================================================================
-
-    return scalar mean_weight = `w_mean'
-    return scalar sd_weight = `w_sd'
-    return scalar min_weight = `w_min'
-    return scalar max_weight = `w_max'
-    return scalar p1_weight = `w_p1'
-    return scalar p99_weight = `w_p99'
-    return scalar ess = `ess'
-    return scalar ess_pct = `ess_pct'
-    return scalar n_extreme = `n_extreme'
-
-    * Persist weight diagnostics for msm_table
-    char _dta[_msm_diag_mean] "`w_mean'"
-    char _dta[_msm_diag_sd] "`w_sd'"
-    char _dta[_msm_diag_min] "`w_min'"
-    char _dta[_msm_diag_max] "`w_max'"
-    char _dta[_msm_diag_p1] "`w_p1'"
-    char _dta[_msm_diag_p50] "`w_p50'"
-    char _dta[_msm_diag_p99] "`w_p99'"
-    char _dta[_msm_diag_ess] "`ess'"
-    char _dta[_msm_diag_ess_pct] "`ess_pct'"
-    char _dta[_msm_diag_saved] "1"
-    char _dta[_msm_diag_uuid] "`_diag_uuid'"
-    char _dta[_msm_diag_dep] "`_weight_uuid'"
-
-    * =========================================================================
-    * CROSS-CONTRAST ACCUMULATION (optional)
-    * =========================================================================
-    * Append one summary row per call to a named frame, creating it with the
-    * fixed schema on first use.  Values come from the locals computed above
-    * (the return-list scalars are not yet in r() inside this program).
-    if "`accumulate'" != "" {
-        capture frame `accumulate': describe
-        if _rc {
-            frame create `accumulate' ///
-                str80 contrast str40 outcome ///
-                double(n_obs ess ess_pct max_weight p99_weight n_extreme ///
-                       n_imbalanced max_abs_smd)
-        }
-        frame post `accumulate' ///
-            (`"`_acc_contrast'"') (`"`_acc_outcome'"') ///
-            (`n_total') (`ess') (`ess_pct') (`w_max') (`w_p99') ///
-            (`n_extreme') (`_diag_nimb') (`_diag_maxabs')
-    }
 
     } /* end capture noisily */
     local _rc = _rc

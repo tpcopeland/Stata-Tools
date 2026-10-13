@@ -1,4 +1,4 @@
-*! _psdash_mgps_graph Version 1.7.5  2026/10/09
+*! _psdash_mgps_graph Version 1.8.0  2026/10/13
 *! Component-by-treatment generalized propensity score graph
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -42,7 +42,9 @@ program define _psdash_mgps_graph, rclass
         if "`scheme'" != "" local scheme_opt "scheme(`scheme')"
         local bwidth_opt ""
         if `bwidth' > 0 local bwidth_opt "bwidth(`bwidth')"
-        local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+        * Series colours come from the active scheme in the order p1, p6, p2, p3,
+        * p4, p5, p7, ...: p6 is the second style because p1 vs p2 is nearly
+        * identical in sequential schemes (viridis, cividis, jet). See psdash.sthlp.
         local title_opt ""
         if `"`title'"' != "" local title_opt `"title(`"`title'"')"'
 
@@ -83,7 +85,7 @@ program define _psdash_mgps_graph, rclass
             noisily frame `compact_frame': graph box _psd_gps, ///
                 over(_psd_component, label(labsize(vsmall))) ///
                 over(`observed_tmp', label(labsize(small))) asyvars ///
-                legend(order(`legend_order') rows(1) position(6) size(tiny)) ///
+                legend(order(`legend_order') rows(1) position(6) size(small)) ///
                 yscale(range(0 1)) ///
                 ylabel(0(.2)1, format(%3.1f) labsize(vsmall) angle(horizontal)) ///
                 ytitle("Generalized propensity score", size(small)) ///
@@ -149,14 +151,13 @@ program define _psdash_mgps_graph, rclass
                     _psdash_label_text, variable(`treatment') ///
                         level(`observed_level')
                     local observed_label `"`r(text)'"'
-                    local color_idx = mod(`group_idx' - 1, 8) + 1
-                    local color : word `color_idx' of `color_list'
+                    local pst = cond(`group_idx' == 1, 1, cond(`group_idx' == 2, 6, cond(`group_idx' <= 6, `group_idx' - 1, mod(`group_idx' - 1, 15) + 1)))
 
                     if "`histogram'" != "" {
-                        local plot_cmd `"`plot_cmd' (histogram `score_var' if `samplevar' & `treatment' == `observed_level', fraction start(`score_min') width(`hist_width') fcolor(`color'%40) lcolor(`color'))"'
+                        local plot_cmd `"`plot_cmd' (histogram `score_var' if `samplevar' & `treatment' == `observed_level', fraction start(`score_min') width(`hist_width') pstyle(p`pst') fcolor(%40))"'
                     }
                     else {
-                        local plot_cmd `"`plot_cmd' (kdensity `score_var' if `samplevar' & `treatment' == `observed_level', lcolor(`color') lwidth(medthick) `bwidth_opt')"'
+                        local plot_cmd `"`plot_cmd' (kdensity `score_var' if `samplevar' & `treatment' == `observed_level', pstyle(p`pst') lwidth(medthick) `bwidth_opt')"'
                     }
                     local legend_order `"`legend_order' `group_idx' `"`observed_label'"'"'
                 }

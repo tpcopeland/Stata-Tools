@@ -31,6 +31,19 @@ capture mkdir "`batch_dir'"
 
 log using "`pkg_dir'/demo_logdoc.log", replace text name(runlog) nomsg
 
+**# Graph scheme
+* Locate the scheme file before PLUS/PERSONAL are sandboxed below: a user
+* scheme (tc_schemes) lives under the real PLUS and is not findable afterwards.
+local scheme_file ""
+capture findfile scheme-white_tableau.scheme
+if _rc == 0 {
+    local scheme_file `"`r(fn)'"'
+    set scheme white_tableau
+}
+else {
+    set scheme s2color
+}
+
 local old_plus "`c(sysdir_plus)'"
 local old_personal "`c(sysdir_personal)'"
 local tmp_root = regexr("`c(tmpdir)'", "/+$", "")
@@ -41,10 +54,15 @@ capture mkdir "`personal_dir'"
 sysdir set PLUS "`plus_dir'"
 sysdir set PERSONAL "`personal_dir'"
 
-**# Graph scheme
-capture set scheme plotplainblind
-if _rc {
-    set scheme s2color
+* Copy only the scheme file into the sandboxed PERSONAL folder (the real PLUS
+* s/ folder also holds installed ado files that would shadow the worktree
+* install below), then verify the scheme still resolves so the graphs are not
+* silently s2color.
+if `"`scheme_file'"' != "" {
+    quietly copy `"`scheme_file'"' `"`personal_dir'/scheme-white_tableau.scheme"', replace
+    capture findfile scheme-white_tableau.scheme
+    assert _rc == 0
+    assert "`c(scheme)'" == "white_tableau"
 }
 
 **# Install command from the worktree

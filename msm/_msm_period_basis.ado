@@ -1,4 +1,4 @@
-*! _msm_period_basis Version 1.4.12  2026/10/09
+*! _msm_period_basis Version 2.0.0  2026/10/13
 *! Build a time basis for the msm weighting models from a period spec
 *! Author: Timothy P Copeland, Karolinska Institutet
 

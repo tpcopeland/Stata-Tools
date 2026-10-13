@@ -19,7 +19,7 @@ local failed_tests ""
 capture program drop _status_setup_pipeline
 program define _status_setup_pipeline
     version 16.0
-    syntax [, WEIGHT FIT PREDICT DIAGNOSE SENSITIVITY]
+    syntax [, WEIGHT FIT PREDICT DIAGNOSE]
 
     local qa_dir "`c(pwd)'"
     local pkg_dir "`qa_dir'/.."
@@ -30,11 +30,11 @@ program define _status_setup_pipeline
         covariates(biomarker comorbidity) ///
         baseline_covariates(age sex)
 
-    if "`weight'`fit'`predict'`diagnose'`sensitivity'" != "" {
+    if "`weight'`fit'`predict'`diagnose'" != "" {
         msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
             treat_n_cov(age sex) truncate(1 99) nolog
     }
-    if "`fit'`predict'`sensitivity'" != "" {
+    if "`fit'`predict'" != "" {
         msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
     }
     if "`predict'" != "" {
@@ -42,9 +42,6 @@ program define _status_setup_pipeline
     }
     if "`diagnose'" != "" {
         msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
-    }
-    if "`sensitivity'" != "" {
-        msm_sensitivity, evalue
     }
 end
 
@@ -141,7 +138,7 @@ capture noisily {
 
     assert `status_rc' == 0
     assert "`stage'" == "prepared"
-    assert "`next_step'" == "msm_validate or msm_weight"
+    assert "`next_step'" == "msm_weight"
     assert `prepared' == 1
     assert `weighted' == 0
     assert `fitted' == 0
@@ -153,7 +150,7 @@ capture noisily {
     assert "`covariates'" == "biomarker comorbidity"
     assert "`baseline_covariates'" == "age sex"
 
-    foreach pat in prepared "msm_validate or msm_weight" biomarker ///
+    foreach pat in prepared "msm_weight" biomarker ///
         comorbidity "age sex" {
         quietly _file_contains_ci using "`status_log'", pattern("`pat'")
         assert r(found) == 1
@@ -169,10 +166,12 @@ else {
     local failed_tests "`failed_tests' STATUS2"
 }
 
-* --- STATUS3: status reports downstream artifacts after full logistic workflow ---
+* --- STATUS3: after the full logistic workflow, status reports the fit and
+* points at msm_predict; downstream steps leave no "saved artifact" rows
+* (msm 2.0.0: predict and diagnose are read-only on the dataset) ---
 local ++test_count
 capture noisily {
-    _status_setup_pipeline, weight fit predict diagnose sensitivity
+    _status_setup_pipeline, weight fit predict diagnose
 
     tempfile status_stub
     local status_log "`status_stub'.log"
@@ -186,32 +185,30 @@ capture noisily {
     local prepared = r(prepared)
     local weighted = r(weighted)
     local fitted = r(fitted)
-    local prediction_saved = r(prediction_saved)
-    local balance_saved = r(balance_saved)
-    local diagnostics_saved = r(diagnostics_saved)
-    local sensitivity_saved = r(sensitivity_saved)
+    local legacy = !missing(r(prediction_saved)) | !missing(r(balance_saved))
     capture log close msmstatus
 
     assert `status_rc' == 0
     assert "`stage'" == "fitted"
-    assert "`next_step'" == "msm_report or msm_table"
+    assert "`next_step'" == "msm_predict"
     assert "`model'" == "logistic"
     assert `prepared' == 1
     assert `weighted' == 1
     assert `fitted' == 1
-    assert `prediction_saved' == 1
-    assert `balance_saved' == 1
-    assert `diagnostics_saved' == 1
-    assert `sensitivity_saved' == 1
+    assert `legacy' == 0
 
-    foreach pat in fitted logistic "msm_report or msm_table" ///
-        "predictions:" "balance results:" "diagnostics:" "sensitivity:" {
+    foreach pat in fitted logistic "msm_predict" "weight variables:" ///
+        "fit artifacts:" "_msm_fit_b" {
         quietly _file_contains_ci using "`status_log'", pattern("`pat'")
         assert r(found) == 1
     }
+    foreach pat in "predictions:" "balance results:" "sensitivity:" {
+        quietly _file_contains_ci using "`status_log'", pattern("`pat'")
+        assert r(found) == 0
+    }
 }
 if _rc == 0 {
-    display as result "  PASS STATUS3: full-pipeline status surfaces saved artifacts"
+    display as result "  PASS STATUS3: full-pipeline status reports the fit and next step"
     local ++pass_count
 }
 else {

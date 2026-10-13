@@ -9,7 +9,7 @@ d for observational studies.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20261012
+d Distribution-Date: 20261013
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -34,7 +34,7 @@ d     capture window menu append item "Time-varying exposures" "Merge TV dataset
 d     capture window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
 d     capture window menu refresh
 d
-d All eleven public commands and their individual help files are linked from
+d All twelve public commands and their individual help files are linked from
 d {cmd:help tvtools}. {cmd:tvbuild} is the recommended front door for building a
 d committed, analysis-ready interval frame in one validated call.
 d

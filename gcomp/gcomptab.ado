@@ -1,4 +1,4 @@
-*! gcomptab Version 2.0.3  2026/10/09
+*! gcomptab Version 2.0.4  2026/10/13
 *! Export gcomp mediation, dose-response, or component-model results
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -288,6 +288,7 @@ quietly {
     preserve
     local _gt_preserved 1
     capture noisily {
+    quietly {
         _gcomptab_build_dataset, title(`"`title'"') effect(`"`effect'"') labels(`"`labels'"') ///
             decimal(`decimal') hascde(`has_cde') tce(`tce') nde(`nde') nie(`nie') ///
             pm(`pm') cde(`cde') setce(`se_tce') sende(`se_nde') senie(`se_nie') ///
@@ -318,6 +319,7 @@ quietly {
             boldp(`boldp') highlight(`highlight') pvaltce(`"`p_tce'"') ///
             pvalnde(`"`p_nde'"') pvalnie(`"`p_nie'"') pvalpm(`"`p_pm'"') ///
             pvalcde(`"`p_cde'"')
+    }
     }
     local _gt_rc = _rc
     if `_gt_preserved' {
@@ -900,12 +902,22 @@ program define _gcomptab_text_export
     if `"`csv'"' != "" {
 		tempname _gc_csv_frame
 		frame put `colvars' in 2/L, into(`_gc_csv_frame')
-		capture noisily frame `_gc_csv_frame' {
+		capture quietly frame `_gc_csv_frame' {
 			foreach _v of local colvars {
 				quietly replace `_v' = "'" + `_v' if ///
 					inlist(substr(`_v',1,1), "=", "+", "-", "@") & missing(real(`_v'))
 			}
 			export delimited `colvars' using `"`csv'"', novarnames quote replace
+		}
+		if _rc {
+			* repeat noisily so the original cause is shown
+			capture noisily frame `_gc_csv_frame' {
+				foreach _v of local colvars {
+					quietly replace `_v' = "'" + `_v' if ///
+						inlist(substr(`_v',1,1), "=", "+", "-", "@") & missing(real(`_v'))
+				}
+				export delimited `colvars' using `"`csv'"', novarnames quote replace
+			}
 		}
 		local _gc_csv_rc = _rc
 		capture frame drop `_gc_csv_frame'
@@ -986,6 +998,7 @@ program define _gcomptab_doseresponse, rclass
     preserve
     local _pres 1
     capture noisily {
+    quietly {
         _gcomptab_dr_build, ci(`"`ci'"') k(`k') decimal(`decimal') ///
             reference(`reference') effect(`"`effect'"') title(`"`title'"') ///
             strategylabels(`"`strategylabels'"') expyears(`expyears') `rd' ///
@@ -1032,6 +1045,7 @@ program define _gcomptab_doseresponse, rclass
             borderstyle(`"`borderstyle'"') hborder(`"`_hborder'"') ///
             `headershade' headercolor(`"`headercolor'"') ///
             `zebra' zebracolor(`"`zebracolor'"') footnote(`"`footnote'"')
+    }
     }
     local _dr_rc = _rc
     if `_pres' capture restore
@@ -1435,6 +1449,7 @@ program define _gcomptab_models, rclass
     }
     tempname _esthold
 capture noisily {
+quietly {
     local _gct_args `"`macval(0)'"'
     syntax [, NOEFORM_seen *]
     local _explicit_noeform = "`noeform_seen'" != ""
@@ -2002,7 +2017,7 @@ capture noisily {
 		* of a merged title row while leaving the shared string orphaned.
 		* Reassert the public title contract after xl() has closed the book.
 		if `"`title'"'!="" {
-			capture noisily {
+			capture quietly {
 				putexcel set `"`xlsx'"', modify sheet(`"`sheet'"')
 				putexcel A1 = `"`title'"', bold
 				putexcel close
@@ -2090,9 +2105,15 @@ capture noisily {
 				}
 			}
 		}
-		capture noisily frame `_gc_text_frame': _gcomptab_text_export, ///
+		capture quietly frame `_gc_text_frame': _gcomptab_text_export, ///
 			colvars(`_gc_text_vars') title(`"`title'"') ///
 			markdown(`"`markdown'"') csv(`"`csv'"')
+		if _rc {
+			* repeat noisily so the original cause is shown
+			capture noisily frame `_gc_text_frame': _gcomptab_text_export, ///
+				colvars(`_gc_text_vars') title(`"`title'"') ///
+				markdown(`"`markdown'"') csv(`"`csv'"')
+		}
 		local _gc_text_rc = _rc
 		capture frame drop `_gc_text_frame'
 		if `_gc_text_rc' exit `_gc_text_rc'
@@ -2152,6 +2173,7 @@ capture noisily {
     if `"`markdown'"' != "" return local markdown `"`markdown'"'
     if `"`csv'"' != ""      return local csv `"`csv'"'
     return matrix table = `_rtab'
+}
 }
     local _rc = _rc
 	capture frame drop `_gc_text_frame'

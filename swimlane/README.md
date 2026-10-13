@@ -1,6 +1,6 @@
 # swimlane — Swimmer and state swimlane plots
 
-**Version 0.1.1** | 2026-10-12
+**Version 0.2.0** | 2026-10-13
 
 `swimlane` draws swimmer and state swimlane plots for clinical and longitudinal data. It accepts wide subject-level, long interval, or `stset` input and can also write the canonical lane table.
 
@@ -306,6 +306,7 @@ swimlane [if] [in], id(varname) [options]
 | `lanetype(string)` | Lane primitive: filled `bar` (default) or thin category-colored `line` |
 | `laneheight(spec)` | Physical height per lane, such as `5pt` or `8px`; faceted output uses a deterministic square-root column layout and accounts for every vertical panel row, while total height is capped at Stata's 800-inch graph limit |
 | `barwidth(#)` | Sets bar thickness in y-axis units; default is 0.6 and the value must be positive |
+| `baropacity(#)` | Bar fill opacity, 0 to 100; default 70 for state and `colorby()` bars, 65 for single-color bars. An opacity inside a `colors()` entry (`navy%40`) wins. Honoured with `palette(scheme)`; has no effect (a note is shown) with `lanetype(line)` |
 | `barlabel(spec)` | `duration` labels bar tips and `none` suppresses labels; default is `none`, and duration labels are swimmer-only |
 | `markers(string)` | Event/censor glyph policy: `full`, `minimal`, or `none`; `auto` resolves to `full` in standard mode |
 | `continuation(string)` | Open-ended treatment mark: `arrow`, `cap`, or `none`; `auto` resolves to `arrow` in standard mode |
@@ -323,7 +324,7 @@ swimlane [if] [in], id(varname) [options]
 | `blockby(varname)` | Adds one-panel headers and separators for contiguous ranked runs of a subject-level variable; it can be paired with `colorby()` to encode a second grouping dimension and is incompatible with `by()` |
 | `colorby(varname)` | Colors swimmer duration bars by a subject-level group and can differ from `blockby()`; it cannot be combined with `by()` or `state()` |
 | `refline(numlist)` | Adds dashed vertical reference lines |
-| `colors(colorlist)` | Overrides the palette; the default is `navy cranberry forest_green dkorange purple teal maroon olive gold sienna emidblue eltgreen`, consumed by bars, interval layers, and then event series |
+| `colors(colorlist)` | Overrides the palette (named colors including scheme-package and user `color-*.style` colors, `bg`/`fg`, or quoted RGB, CMYK, or HSV values such as `"0 114 178"`, each with optional `%opacity`/`*intensity`; unknown or malformed colors, bare `%#`/`*#`, and hexadecimal values are errors); the default is `navy cranberry forest_green dkorange purple teal maroon olive gold sienna emidblue eltgreen`, consumed by bars, interval layers, and then event series |
 | `palette(string)` | Named preset: `default`, `colorblind`, `mono`, or `scheme`; an explicit `colors()` list takes precedence |
 | `msymbols(symbols)` | Sets event marker symbols; default is `circle diamond triangle square plus X` |
 | `msize(markersizestyle)` | Sets event marker size; default is `medium` |
@@ -426,6 +427,8 @@ After a successful run, `swimlane` stores the following in `r()`.
 QA suites and how to run them are documented in [`qa/README.md`](qa/README.md).
 
 ## Version History
+
+- **0.2.0** (2026-10-13): `colors()` now accepts quoted RGB, CMYK, and HSV values, `bg`/`fg`, user and scheme-package color files, `%opacity` and `*intensity` (previously quoted values were split into words and silently drawn grey); a color Stata cannot draw errors (rc 198). Hexadecimal values are rejected (Stata 17 and earlier draw them black). A color file created during a session draws black until `discard`. New `baropacity()` option for bar fill opacity.
 
 - **0.1.1** (2026-09-30): Preserve caller `S_1` and `S_2` globals on success and failure, including absent and literal macro values. Refusals before analytical results are prepared also retain prior caller `r()`; later output failures publish the analytical payload.
 

@@ -1,6 +1,6 @@
 # datamap — Privacy-safe dataset maps and Markdown dictionaries
 
-**Version 1.10.0** | 2026-10-12
+**Version 1.10.1** | 2026-10-13
 
 `datamap` automatically classifies variables and creates privacy-aware aggregate dataset maps in text or JSON. `datadict`, `dataprobe`, `dataqa`, and `datamvp` extend the workflow with Markdown dictionaries, console QC gates, a structured QA ledger, and missing-value pattern analysis.
 
@@ -379,6 +379,10 @@ The help files document the complete stored-result contracts. The following tabl
 QA suites and how to run them are documented in [qa/README.md](qa/README.md).
 
 ## Version History
+
+### 1.10.1 (2026-10-13)
+
+- `datadict` no longer prints a stray space in the heading and table-of-contents entry of a dataset whose file name begins with an underscore (`_demo_cohort.dta` gave `## 1.  Demo Cohort` and anchor `#1--demo-cohort`; now `## 1. Demo Cohort` and `#1-demo-cohort`).
 
 ### 1.10.0 (2026-10-12)
 

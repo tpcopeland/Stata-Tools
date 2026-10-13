@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  05aug2026}{...}
+{* *! version 1.1.0  13oct2026}{...}
 {vieweralsosee "[G-2] graph twoway line" "help line"}{...}
 {vieweralsosee "[R] lowess" "help lowess"}{...}
 {viewerjumpto "Syntax" "spaghetti##syntax"}{...}
@@ -192,11 +192,22 @@ pattern (default: {cmd:dash}).
 
 {phang}
 {opt colors(colorlist)} overrides the default color palette. Default: {cmd:navy}
-{cmd:cranberry forest_green dkorange purple teal maroon olive_teal}.
+{cmd:cranberry forest_green dkorange purple teal maroon olive_teal}. Each entry is
+a named color (including colors from installed scheme packages and user-defined
+{cmd:color-}{it:name}{cmd:.style} files), {cmd:bg} or {cmd:fg}, or a quoted RGB, CMYK,
+or HSV value such as {cmd:"0 114 178"} or {cmd:"hsv 240 1 1"} (see
+{help colorstyle}), optionally followed by {cmd:*}{it:intensity}. An ordered list
+of light-to-dark entries gives a sequential palette for {opt colorby()}. An entry
+Stata cannot draw is an error (rc 198) instead of a silent fallback color:
+unknown names, malformed or out-of-range values, a bare {cmd:*}{it:#},
+hexadecimal values (not supported on Stata 17 and earlier, which draw them
+black), and any {cmd:%}{it:opacity}
+suffix. A {cmd:color-}{it:name}{cmd:.style} file created during a session draws black
+until you type {cmd:discard}. Set trajectory opacity with {opt individual(opacity())}.
 
 {phang}
 {opt individual(options)} controls individual trajectory
-styling. Sub-options: {cmd:color(colorname)}, {cmd:opacity(#)},
+styling. Sub-options: {cmd:color(colorstyle)} (same forms as {opt colors()}), {cmd:opacity(#)},
 {cmd:lwidth(lwstyle)}. Defaults: {cmd:color(gs12)}, {cmd:opacity(25)}, {cmd:lwidth(vthin)}. These
 settings also control the background appearance when {opt highlight()} is used.
 
@@ -341,7 +352,7 @@ use a normal approximation: mean +/- invnormal(0.975) * SE.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-08-05{p_end}
+{pstd}Version 1.1.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

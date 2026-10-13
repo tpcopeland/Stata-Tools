@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  05aug2026}{...}
+{* *! version 1.2.0  13oct2026}{...}
 {vieweralsosee "[D] compress" "help compress"}{...}
 {vieweralsosee "[D] recast" "help recast"}{...}
 {vieweralsosee "[D] memory" "help memory"}{...}
@@ -124,6 +124,15 @@ bytes saved. Sizes are shown in the most readable unit (B, KB, MB, or GB). For
 variables that end as {cmd:strL}, the per-variable bytes live in a shared heap and
 cannot be attributed to a single variable, so they are shown as a dash unless
 {opt lowmem} is also specified (which measures each variable's actual delta).
+An {bf:(other variables)} row accounts for numeric variables that
+{cmd:compress} retyped. When every processed string variable ends as a fixed-width
+type, the table sums to the {bf:Overall} figure; a variable that stays
+{cmd:strL} shows dashes, and {bf:Overall} still includes its heap bytes.
+When strL conversion precedes {cmd:compress}, the {cmd:compress} line "bytes
+saved" is measured from the strL-converted data (under {opt lowmem}, from data
+already converted and compressed one variable at a time), whereas {bf:Overall} is
+measured against the original data. The note about strL bytes is shown only
+when a processed variable ends as {cmd:strL}.
 
 
 {marker results}{...}
@@ -234,7 +243,7 @@ older formats.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.1, 2026-08-05{p_end}
+{pstd}Version 1.2.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

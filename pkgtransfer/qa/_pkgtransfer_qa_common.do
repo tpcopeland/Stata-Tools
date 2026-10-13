@@ -68,6 +68,15 @@ program define _pkgtransfer_qa_setup, rclass
     return local personal `"`personal'"'
 end
 
+* The staging directories bundle creation leaves in the system temporary directory
+capture program drop _pkgtransfer_qa_stage_list
+program define _pkgtransfer_qa_stage_list, rclass
+    version 16.0
+    local tmp = subinstr("`c(tmpdir)'", "\", "/", .)
+    local found : dir "`tmp'" dirs "*_pkgtransfer", respectcase
+    return local list `"`found'"'
+end
+
 capture program drop _pkgtransfer_qa_cleanup
 program define _pkgtransfer_qa_cleanup
     version 16.0

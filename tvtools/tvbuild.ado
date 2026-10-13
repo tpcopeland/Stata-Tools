@@ -1,4 +1,4 @@
-*! tvbuild Version 1.18.1  2026/10/12
+*! tvbuild Version 1.18.2  2026/10/13
 *! Build a committed, analysis-ready interval frame from a cohort and sources
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

@@ -1,4 +1,4 @@
-*! spaghetti Version 1.0.1  2026/08/05
+*! spaghetti Version 1.1.0  2026/10/13
 *! Longitudinal trajectory visualization with group mean overlays
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -22,7 +22,7 @@ program define spaghetti, rclass
          SAMPle(integer 0) SEED(integer -1) ///
          HIGHlight(string asis) COLORby(string asis) ///
          REFline(string asis) EXPort(string asis) ///
-         COLors(string) INDividual(string asis) ///
+         COLors(string asis) INDividual(string asis) ///
          TItle(string asis) SUBtitle(string asis) NOTE(string asis) ///
          NAME(string) SAVing(string asis) SCHeme(string) ///
          PLOTRegion(string asis) GRAPHRegion(string asis) ///
@@ -138,19 +138,21 @@ program define spaghetti, rclass
     }
 
     * --- individual() sub-options ---
+    * Parsed with quote-aware regexes on the original text so that a quoted
+    * color such as color("0 114 178") cannot hide the options after it.
     local ind_color "gs12"
     local ind_opacity 25
     local ind_lwidth "vthin"
     if `"`individual'"' != "" {
-        local _ind_lc = lower(`"`individual'"')
-        if regexm("`_ind_lc'", "color\(([a-z0-9_]+)\)") {
-            local ind_color = regexs(1)
+        if ustrregexm(`"`individual'"', `"(?i)\bcolor\(\s*("[^"]*"|[^)"]*)\s*\)"') {
+            local ind_color = strtrim(subinstr(ustrregexs(1), char(34), "", .))
+            _spaghetti_checkcolor `"`ind_color'"' individual(color())
         }
-        if regexm("`_ind_lc'", "opacity\(([0-9]+)\)") {
-            local ind_opacity = regexs(1)
+        if ustrregexm(`"`individual'"', "(?i)\bopacity\(\s*([0-9]+)\s*\)") {
+            local ind_opacity = ustrregexs(1)
         }
-        if regexm("`_ind_lc'", "lwidth\(([a-z]+)\)") {
-            local ind_lwidth = regexs(1)
+        if ustrregexm(`"`individual'"', "(?i)\blwidth\(\s*([A-Za-z0-9.]+)\s*\)") {
+            local ind_lwidth = ustrregexs(1)
         }
     }
 
@@ -220,18 +222,23 @@ program define spaghetti, rclass
     * =========================================================================
     if "`scheme'" == "" local scheme "`c(scheme)'"
 
-    * Color palette
-    if "`colors'" != "" {
-        local palette "`colors'"
+    * Color palette: one token per entry, so quoted RGB triplets stay whole
+    if `"`colors'"' == "" {
+        local colors "navy cranberry forest_green dkorange purple teal maroon olive_teal"
     }
-    else {
-        local palette ///
-            "navy cranberry forest_green dkorange purple teal maroon olive_teal"
+    local _pal_n 0
+    local _rest `"`colors'"'
+    while `"`_rest'"' != "" {
+        gettoken _tok _rest : _rest
+        local _tok = strtrim(`"`_tok'"')
+        _spaghetti_checkcolor `"`_tok'"' colors
+        local ++_pal_n
+        local _pal`_pal_n' `"`_tok'"'
     }
 
     * Validate palette has enough colors for by-groups
     if "`by'" != "" {
-        local _palette_size : word count `palette'
+        local _palette_size `_pal_n'
         if `n_groups' > `_palette_size' {
             display as error "by() has `n_groups' levels" ///
                 " but colors() has only `_palette_size' colors;" ///
@@ -255,6 +262,10 @@ program define spaghetti, rclass
     * =========================================================================
     preserve
     quietly keep if `touse'
+
+    * Input row order, kept for the whole program: every later sort uses it as
+    * the final key so rows tied on (id, time) keep their input order
+    quietly generate long _spag_origrow = _n
 
     * Count unique individuals
     tempvar _id_tag
@@ -349,7 +360,7 @@ program define spaghetti, rclass
         local n_cb_groups : word count `cb_levels'
 
         * Check palette has enough colors for all groups
-        local palette_size : word count `palette'
+        local palette_size `_pal_n'
         if `n_cb_groups' > `palette_size' {
             display as error "colorby() has `n_cb_groups' levels" ///
                 " but palette has only `palette_size' colors;" ///
@@ -378,21 +389,23 @@ program define spaghetti, rclass
     * INSERT LINE BREAKS
     * =========================================================================
     quietly {
-        gen long _spag_origrow = _n
-
-        bysort `id' (`time'): gen byte _spag_last = (_n == _N)
+        * Fully keyed sort (origrow breaks ties among repeated times)
+        sort `id' `time' _spag_origrow
+        by `id': gen byte _spag_last = (_n == _N)
         expand 2 if _spag_last
 
         * Identify duplicates via original row number
-        sort _spag_origrow
+        sort _spag_origrow, stable
         by _spag_origrow: gen byte _spag_isbreak = (_n == 2)
 
         * Break the line by setting outcome to missing
         replace `outcome' = . if _spag_isbreak
 
-        drop _spag_origrow _spag_last
-        sort `id' `time' _spag_isbreak
-        drop _spag_isbreak
+        drop _spag_last
+        sort `id' `time' _spag_origrow _spag_isbreak
+        * _spag_origrow and _spag_isbreak are kept until after the mean
+        * append so the final sort keeps each break row after its last visit
+        if !`has_mean' drop _spag_origrow _spag_isbreak
     }
 
     * =========================================================================
@@ -401,7 +414,8 @@ program define spaghetti, rclass
     if `has_mean' {
         quietly gen byte _spag_is_mean = 0
         quietly append using `meanfile'
-        sort _spag_is_mean `id' `time'
+        sort _spag_is_mean `id' `time' _spag_origrow _spag_isbreak
+        quietly drop _spag_origrow _spag_isbreak
     }
 
     * Create numeric by-group variable for uniform graph conditions
@@ -427,14 +441,14 @@ program define spaghetti, rclass
     if `"`highlight'"' != "" {
         * Non-highlighted (faded background using individual() settings)
         local ++layer
-        local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_hl == 0 `mean_and', lcolor(`ind_color'%`hl_bgopacity') lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
+        local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_hl == 0 `mean_and', lcolor("`ind_color'%`hl_bgopacity'") lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
 
         * Highlighted
         if "`by'" != "" {
             forvalues g = 1/`n_groups' {
-                local gc : word `g' of `palette'
+                local gc `"`_pal`g''"'
                 local ++layer
-                local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_hl == 1 & _spag_bygrp == `g' `mean_and', lcolor(`gc'%80) lwidth(thin) lpattern(solid) cmissing(n))"'
+                local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_hl == 1 & _spag_bygrp == `g' `mean_and', lcolor("`gc'%80") lwidth(thin) lpattern(solid) cmissing(n))"'
                 local hl_layer_`g' = `layer'
             }
         }
@@ -446,9 +460,9 @@ program define spaghetti, rclass
     else if "`by'" != "" {
         * One layer per by-group
         forvalues g = 1/`n_groups' {
-            local gc : word `g' of `palette'
+            local gc `"`_pal`g''"'
             local ++layer
-            local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_bygrp == `g' `mean_and', lcolor(`gc'%`ind_opacity') lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
+            local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_bygrp == `g' `mean_and', lcolor("`gc'%`ind_opacity'") lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
             local traj_layer_`g' = `layer'
         }
     }
@@ -456,16 +470,16 @@ program define spaghetti, rclass
         * One layer per color group
         forvalues g = 1/`n_cb_groups' {
             local gval : word `g' of `cb_levels'
-            local gc : word `g' of `palette'
+            local gc `"`_pal`g''"'
             local ++layer
-            local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_cb == `gval' `mean_and', lcolor(`gc'%`ind_opacity') lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
+            local graphcmd `"`graphcmd' (line `outcome' `time' if _spag_cb == `gval' `mean_and', lcolor("`gc'%`ind_opacity'") lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
             local cb_layer_`g' = `layer'
         }
     }
     else {
         * Single layer, all trajectories
         local ++layer
-        local graphcmd `"`graphcmd' (line `outcome' `time' `mean_if', lcolor(`ind_color'%`ind_opacity') lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
+        local graphcmd `"`graphcmd' (line `outcome' `time' `mean_if', lcolor("`ind_color'%`ind_opacity'") lwidth(`ind_lwidth') lpattern(solid) cmissing(n))"'
     }
 
     * --- Mean overlay layers ---
@@ -476,17 +490,17 @@ program define spaghetti, rclass
             * CI bands per group
             if `mean_ci' {
                 forvalues g = 1/`n_groups' {
-                    local gc : word `g' of `palette'
+                    local gc `"`_pal`g''"'
                     local ++layer
-                    local graphcmd `"`graphcmd' (rarea _spag_mean_lo _spag_mean_hi `time' if _spag_is_mean == 1 & _spag_bygrp == `g', color(`gc'%20) lwidth(none) lpattern(solid))"'
+                    local graphcmd `"`graphcmd' (rarea _spag_mean_lo _spag_mean_hi `time' if _spag_is_mean == 1 & _spag_bygrp == `g', color("`gc'%20") lwidth(none) lpattern(solid))"'
                 }
             }
 
             * Mean lines per group
             forvalues g = 1/`n_groups' {
-                local gc : word `g' of `palette'
+                local gc `"`_pal`g''"'
                 local ++layer
-                local graphcmd `"`graphcmd' (line _spag_mean_y `time' if _spag_is_mean == 1 & _spag_bygrp == `g', lcolor(`gc') lwidth(`mean_lw') lpattern(solid))"'
+                local graphcmd `"`graphcmd' (line _spag_mean_y `time' if _spag_is_mean == 1 & _spag_bygrp == `g', lcolor("`gc'") lwidth(`mean_lw') lpattern(solid))"'
                 local mean_layer_`g' = `layer'
             }
         }
@@ -638,4 +652,88 @@ program define spaghetti, rclass
     set more `_more'
 
     if `_rc' exit `_rc'
+end
+
+* Validate one color token for colors() or individual(color()). Stata itself ignores an unknown or malformed color
+* without any error (the bar silently falls back), so each token is resolved
+* here the way Stata resolves a colorstyle ([G-4] colorstyle):
+*   - bg, background, fg, foreground, or a named color that exists as a
+*     color-<name>.style file on the adopath (built-ins, scheme packages such
+*     as tc_schemes, and user-defined colors);
+*   - "R G B" (integers 0-255), "C M Y K" (integers 0-255, or all <= 1 as
+*     proportions of ink), or "hsv H S V" (H 0-360, S and V 0-1);
+*   each optionally followed by *intensity (0-255). A %opacity suffix is refused:
+* opacity is set with individual(opacity()).
+* A bare %# or *# (which Stata reads as "default color") is refused because
+* a color must be named. #RRGGBB is refused: this Stata draws it
+* black.
+program define _spaghetti_checkcolor
+    version 16.0
+    args tok opt
+    local base `"`tok'"'
+    local nop 0
+    local nint 0
+    local why ""
+    while `"`why'"' == "" & ustrregexm(`"`base'"', "^(.*)([%*])([0-9]*\.?[0-9]*)$") {
+        local m = ustrregexs(2)
+        local num = ustrregexs(3)
+        local base = ustrregexs(1)
+        if "`num'" == "" | "`num'" == "." {
+            local why "missing number after `m'"
+        }
+        else if "`m'" == "%" {
+            local ++nop
+            if `num' > 100 local why "opacity must be 0-100"
+        }
+        else {
+            local ++nint
+            if `num' > 255 local why "intensity must be 0-255"
+        }
+    }
+    if `"`why'"' == "" & `nop' > 0 {
+        local why "opacity suffix not allowed; set it with individual(opacity(#))"
+    }
+    if `"`why'"' == "" & (`nop' > 1 | `nint' > 1) {
+        local why "repeated % or * modifier"
+    }
+    local base = strtrim(`"`base'"')
+    if `"`why'"' == "" & `"`base'"' == "" {
+        local why "a color is required before the modifier"
+    }
+    if `"`why'"' == "" {
+        if inlist(`"`base'"', "bg", "background", "fg", "foreground") {
+        }
+        else if ustrregexm(`"`base'"', "^[A-Za-z_][A-Za-z0-9_]*$") {
+            capture quietly findfile color-`base'.style
+            if _rc local why "no such color (see graph query colorstyle)"
+        }
+        else if ustrregexm(`"`base'"', "^hsv +([0-9.]+) +([0-9.]+) +([0-9.]+)$") {
+            if real(ustrregexs(1)) > 360 | real(ustrregexs(2)) > 1 | real(ustrregexs(3)) > 1 {
+                local why "hsv needs H 0-360, S 0-1, V 0-1"
+            }
+        }
+        else if ustrregexm(`"`base'"', "^[0-9.]+( +[0-9.]+){2,3}$") {
+            local n : word count `base'
+            local allint = 1
+            local allprop = 1
+            foreach w of local base {
+                if !ustrregexm("`w'", "^[0-9]+$") | real("`w'") > 255 local allint = 0
+                if real("`w'") > 1 | real("`w'") == . local allprop = 0
+            }
+            if `n' == 3 & !`allint' local why "RGB needs three integers 0-255"
+            else if `n' == 4 & !`allint' & !`allprop' {
+                local why "CMYK needs four integers 0-255 or four proportions 0-1"
+            }
+        }
+        else if ustrregexm(`"`base'"', "^#[0-9A-Fa-f]+$") {
+            local why "hexadecimal colors are not supported on Stata 17 and earlier (drawn black); use an RGB triplet such as 0 114 178"
+        }
+        else {
+            local why "not a recognized colorstyle"
+        }
+    }
+    if `"`why'"' != "" {
+        display as error "`opt': invalid color " as text `"`tok'"' as error ": `why'"
+        exit 198
+    }
 end

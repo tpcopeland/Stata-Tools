@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.7.5  2026/10/09
+*! _psdash_detect Version 1.8.0  2026/10/13
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
@@ -47,7 +47,8 @@ program define _psdash_detect, nclass
             _psd_iivw_final_wvar _psd_iivw_visit_wvar ///
             _psd_longitudinal _psd_id _psd_period _psd_regime ///
             _psd_multigroup _psd_K _psd_levels _psd_reference ///
-            _psd_n_estimation _psd_n_excluded _psd_ps_0 _psd_ps_1 {
+            _psd_n_estimation _psd_n_excluded _psd_ps_0 _psd_ps_1 ///
+            _psd_riskvar _psd_weight_role {
         c_local `_psdash_out' ""
     }
 
@@ -591,16 +592,49 @@ program define _psdash_detect, nclass
             confirm numeric variable `msm_period'
             if "`msm_id'" != "" confirm variable `msm_id'
 
-            * Weight: explicit wvar, else treatment weight, else final IP weight
+            * Weight: explicit wvar, else the analysis weight msm_fit uses
+            * (_msm_weight_var: treatment x censoring, after truncation), else
+            * the treatment-only weight. The role travels with the weight so
+            * the output can say which one was diagnosed.
             local msm_wvar "`wvar'"
-            if "`msm_wvar'" == "" local msm_wvar "`msm_twvar'"
-            if "`msm_wvar'" == "" local msm_wvar "`msm_wfinal'"
+            local msm_wrole "user-supplied"
+            if "`msm_wvar'" == "" {
+                local msm_wvar "`msm_wfinal'"
+                local msm_wrole "analysis"
+            }
+            if "`msm_wvar'" == "" {
+                local msm_wvar "`msm_twvar'"
+                local msm_wrole "treatment"
+            }
+            else if "`wvar'" != "" {
+                if "`wvar'" == "`msm_wfinal'" local msm_wrole "analysis"
+                else if "`wvar'" == "`msm_twvar'" local msm_wrole "treatment"
+            }
             if "`msm_wvar'" == "" {
                 display as error "msm contract does not identify a weight variable"
                 exit 198
             }
             confirm variable `msm_wvar'
             confirm numeric variable `msm_wvar'
+
+            * Risk set: msm stamps the treatment-decision risk-set indicator.
+            * Contract 1.1 names it in _msm_risk_var; contract 1.0 (msm
+            * 1.4.12) creates _msm_decision_risk without naming it. Rows
+            * outside the risk set (after the outcome or censoring) are not
+            * treatment decisions and are not diagnosed.
+            local msm_riskvar : char _dta[_msm_risk_var]
+            if "`msm_riskvar'" != "" {
+                capture confirm numeric variable `msm_riskvar', exact
+                if _rc {
+                    display as error "msm contract names risk-set variable `msm_riskvar', which is not a numeric variable in the data"
+                    display as error "  rerun {cmd:msm_weight}"
+                    exit 459
+                }
+            }
+            else {
+                capture confirm numeric variable _msm_decision_risk, exact
+                if !_rc local msm_riskvar "_msm_decision_risk"
+            }
 
             if "`msm_estimand'" == "" local msm_estimand "ate"
             local msm_estimand = strlower("`msm_estimand'")
@@ -619,6 +653,8 @@ program define _psdash_detect, nclass
             c_local _psd_wvar "`msm_wvar'"
             c_local _psd_wvar_auto "0"
             c_local _psd_source "msm"
+            c_local _psd_riskvar "`msm_riskvar'"
+            c_local _psd_weight_role "`msm_wrole'"
             c_local _psd_contract_version "`msm_contract'"
             c_local _psd_longitudinal "1"
             c_local _psd_id "`msm_id'"

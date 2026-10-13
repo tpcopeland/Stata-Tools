@@ -84,13 +84,16 @@ analysis:
 {bf:tornado} - Shows how the corrected estimate changes as each bias parameter
 is varied across its range while other parameters are held at their baseline
 values. This reveals which parameters have the greatest influence on the
-corrected estimate. Up to three parameters can be displayed simultaneously.
+corrected estimate. Up to three parameters can be displayed simultaneously. Each
+parameter is drawn as a one-way sensitivity curve (a line, not a bar), with the
+observed estimate (red dashed) and the null (gray dotted) labelled at the right
+edge of the plot.
 
 {phang}
 {bf:distribution} - Histogram and kernel density plot of corrected estimates
 from a probabilistic bias analysis. Displays the saved systematic-error
 distribution with reference lines for the observed estimate (red dashed), the
-null value (gray dotted), and the median (green dashed). Requires a saved
+null value (gray solid), and the median (green dashed). Requires a saved
 Monte Carlo dataset from a {cmd:saving()} option.
 
 {phang}

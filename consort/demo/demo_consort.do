@@ -5,6 +5,7 @@
       2. Graph (CONSORT flowchart, shaded + high DPI) -> consort_shaded.png
       3. Machine-readable data export (resolved one-row-per-node table)
          -> flow.csv + flow.xlsx   [v1.1.0 feature]
+      4. Graph (short-label diagram) -> consort_diagram.png
 
     Run from the Stata-Tools repo root:
       stata-mp -b do consort/demo/demo_consort.do
@@ -81,6 +82,21 @@ consort exclude if foreign, label("Foreign cars")
 consort save, output("`pkg_dir'/consort_export.png") ///
     final("Domestic sample") ///
     csv("`pkg_dir'/flow.csv") xlsx("`pkg_dir'/flow.xlsx")
+
+restore
+
+**# Example 4: Short-label diagram (consort_diagram.png)
+* The initial label carries no count: the box already prints n=15,000.
+clear
+set obs 15000
+gen double id = _n
+gen byte short_fu = (_n <= 41)
+preserve
+
+consort init, initial("Persons with antidepressant dispensing")
+consort exclude if short_fu == 1, label("Follow-up < 30 days")
+consort save, output("`pkg_dir'/consort_diagram.png") ///
+    final("Final Cohort") dpi(300)
 
 restore
 

@@ -136,8 +136,13 @@ capture noisily {
     matrix S = r(support)
     local _rep_viol   = r(n_positivity_violations)
     local _rep_minobs = r(min_obs_probability)
-    local _rep_maxw   = r(max_weight)
-    local _rep_esspct = r(ess_pct)
+    * msm 2.0.0: pooled max weight and ESS% left msm_diagnose; take them from
+    * the risk-set weights directly (same helper the package uses).
+    quietly summarize _msm_weight if _msm_decision_risk
+    local _rep_maxw   = r(max)
+    _msm_ess _msm_weight if _msm_decision_risk
+    local _rep_esspct = 100 * r(ess) / r(N)
+    assert !missing(`_rep_maxw', `_rep_esspct')
 
     * The support matrix carries obs_min in a named column, in a fixed order.
     local scols : colnames S
@@ -321,16 +326,11 @@ capture noisily {
     quietly count if rowid != _n
     assert r(N) == 0
 
-    * by_period and accumulate() take different code paths through the command.
-    msm_diagnose, balance_covariates(L) by_period
+    * A removed option (msm 2.0.0) is refused early; order is still restored.
+    capture msm_diagnose, balance_covariates(L) by_period
+    assert _rc == 198
     quietly count if rowid != _n
     assert r(N) == 0
-
-    capture frame drop _dc_acc
-    msm_diagnose, balance_covariates(L) accumulate(_dc_acc) contrast("a vs b")
-    quietly count if rowid != _n
-    assert r(N) == 0
-    capture frame drop _dc_acc
 
     * An error path must restore the order too.
     capture msm_diagnose, balance_covariates(L) positivity(0.9)
@@ -537,7 +537,7 @@ capture noisily {
     local dclog "`dcstem'_noise.log"
     capture log close _all
     log using "`dclog'", replace text name(dcnoise)
-    msm_diagnose, balance_covariates(L) by_period
+    msm_diagnose, balance_covariates(L)
     log close dcnoise
 
     tempname fh
@@ -572,9 +572,9 @@ capture log close _all
 
 **# DC8: previously unreferenced stored results
 
-* r(id) from the status controller and r(rr_scale) from msm_sensitivity were
-* the two returns the package audit reported as unreferenced by any QA file.
-* Assert their values, not merely their existence.
+* r(id) from the status controller was reported as unreferenced by any QA
+* file. Assert its value, not merely its existence. (r(rr_scale) left with
+* msm_sensitivity in msm 2.0.0.)
 local ++test_count
 capture noisily {
     _dc_dropped_rows_panel
@@ -587,38 +587,9 @@ capture noisily {
     assert "`r(period)'" == "period"
     assert "`r(treatment)'" == "treat"
 
-    msm_weight, treat_d_cov(L) nolog
-    msm_fit, model(logistic) outcome_cov(L) nolog
-
-    * Drive both rarity branches off rarethreshold() rather than off whatever
-    * event rate this DGP happens to realize, so the test states the contract
-    * (r(rr_scale) tracks the rarity gate) and not an RNG outcome.
-    msm_sensitivity, evalue
-    local _cuminc = r(cumulative_incidence)
-    assert `_cuminc' > 0.01 & `_cuminc' < 0.80
-
-    * Threshold above the cumulative incidence: rare, OR used directly as RR.
-    msm_sensitivity, evalue rarethreshold(0.9)
-    local _scale_rare  = "`r(rr_scale)'"
-    local _approx_rare = "`r(approximation)'"
-    assert strpos("`_scale_rare'", "OR used directly") == 1
-    assert "`_approx_rare'" == "rare-outcome"
-
-    * Threshold below it: common, so the label switches to the sqrt(OR)
-    * transform VanderWeele & Ding prescribe for a common outcome.
-    msm_sensitivity, evalue rarethreshold(0.005)
-    local _scale_common = "`r(rr_scale)'"
-    assert "`_scale_common'" == "sqrt(OR) common-outcome approximation"
-    assert "`r(approximation)'" == "common-outcome sqrt(OR)"
-    assert "`_scale_common'" != "`_scale_rare'"
-
-    * orapprox overrides the transform on a common outcome and says so.
-    msm_sensitivity, evalue rarethreshold(0.005) orapprox
-    assert strpos("`r(rr_scale)'", "OR used directly") == 1
-    assert "`r(approximation)'" == "OR-direct override"
 }
 if _rc == 0 {
-    display as result "  PASS DC8: r(id) and r(rr_scale) carry the documented values"
+    display as result "  PASS DC8: msm, status r(id)/r(period)/r(treatment) carry the mapping"
     local ++pass_count
 }
 else {
@@ -714,102 +685,6 @@ else {
     local failed_tests "`failed_tests' DC9"
 }
 
-**# DC10: Love-plot values use the decision risk set
-
-* msm_diagnose already excludes post-event and post-censor carry-forward rows.
-* The Love plot must use the same analysis sample and expose the plotted values
-* so this can be checked without trying to compare unstable .gph binaries.
-local ++test_count
-capture noisily {
-    _dc_carryforward_panel
-    msm_prepare, id(id) period(period) treatment(treat) outcome(out) ///
-        censor(censored) baseline_covariates(L)
-    msm_weight, treat_d_cov(L) censor_d_cov(L) nolog
-
-    tempvar wL
-    quietly gen double `wL' = _msm_weight * L
-    foreach g in 1 0 {
-        quietly summarize _msm_weight if _msm_decision_risk & ///
-            treat == `g', meanonly
-        local psw`g' = r(sum)
-        quietly summarize `wL' if _msm_decision_risk & treat == `g', meanonly
-        local ppm`g' = r(sum) / `psw`g''
-        local ppv`g' = `ppm`g'' * (1 - `ppm`g'')
-
-        quietly summarize L if _msm_decision_risk & treat == `g', meanonly
-        local pum`g' = r(mean)
-        local puv`g' = `pum`g'' * (1 - `pum`g'')
-
-        quietly summarize _msm_weight if treat == `g', meanonly
-        local asw`g' = r(sum)
-        quietly summarize `wL' if treat == `g', meanonly
-        local apm`g' = r(sum) / `asw`g''
-        local apv`g' = `apm`g'' * (1 - `apm`g'')
-    }
-    local _plot_raw = (`pum1' - `pum0') / sqrt((`puv1' + `puv0') / 2)
-    local _plot_weighted = (`ppm1' - `ppm0') / sqrt((`ppv1' + `ppv0') / 2)
-    local _all_weighted = (`apm1' - `apm0') / sqrt((`apv1' + `apv0') / 2)
-    quietly count if _msm_decision_risk & !missing(treat)
-    local _nrisk = r(N)
-
-    msm_plot, type(balance) covariates(L)
-    matrix PB = r(balance)
-    assert rowsof(PB) == 1
-    assert colsof(PB) == 2
-    assert !missing(PB[1, 1], `_plot_raw')
-    assert reldif(PB[1, 1], `_plot_raw') < 1e-8
-    assert !missing(PB[1, 2], `_plot_weighted')
-    assert reldif(PB[1, 2], `_plot_weighted') < 1e-8
-    assert r(n_risk) == `_nrisk'
-    assert abs(`_all_weighted' - `_plot_weighted') > 0.2
-    capture graph drop _all
-}
-if _rc == 0 {
-    display as result "  PASS DC10: Love plot excludes post-risk carry-forward rows"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL DC10: Love-plot analysis sample (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' DC10"
-}
-
-**# DC11: the default Love plot contains balance targets, not numerator covariates
-
-* Stabilized-numerator covariates are deliberately retained in the target
-* distribution. Treating them as if weighting were supposed to balance them
-* can make a valid stabilized analysis look diagnostically unsuccessful.
-local ++test_count
-capture noisily {
-    use "`pkg_dir'/msm_example.dta", clear
-    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
-        censor(censored) covariates(biomarker comorbidity) ///
-        baseline_covariates(age sex)
-    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
-        treat_n_cov(age sex) nolog
-
-    * Default: denominator-only targets.
-    msm_plot, type(balance)
-    matrix DB = r(balance)
-    local _default_rows : rownames DB
-    assert "`_default_rows'" == "biomarker comorbidity"
-
-    * Explicit requests remain literal, including numerator covariates.
-    msm_plot, type(balance) covariates(age sex)
-    matrix EB = r(balance)
-    local _explicit_rows : rownames EB
-    assert "`_explicit_rows'" == "age sex"
-    capture graph drop _all
-}
-if _rc == 0 {
-    display as result "  PASS DC11: default Love plot contains only balance targets"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL DC11: Love-plot target selection (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' DC11"
-}
 
 **# Summary
 

@@ -1,4 +1,4 @@
-*! simtab Version 2.0.3  2026/10/09
+*! simtab Version 2.0.4  2026/10/13
 *! Render and export a publication-ready Monte Carlo simulation performance table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -808,7 +808,13 @@ program define simtab, rclass
             local _fmt "%20.`_dec'f"
             quietly gen str244 f`_mi' = ""
             quietly replace f`_mi' = strtrim(string(`_vv'*`_sf', "`_fmt'")) if !missing(`_vv')
-            if `_sgn' quietly replace f`_mi' = "+" + f`_mi' if `_vv' > 0 & !missing(`_vv')
+            * A value that rounds to zero carries no sign: -0.003 at two
+            * decimals would print "-0.00", a signed quantity the displayed
+            * precision cannot support (corrtab normalises the same way).
+            quietly replace f`_mi' = substr(f`_mi', 2, .) ///
+                if substr(f`_mi', 1, 1) == "-" & real(substr(f`_mi', 2, .)) == 0
+            if `_sgn' quietly replace f`_mi' = "+" + f`_mi' ///
+                if `_vv' > 0 & !missing(`_vv') & real(f`_mi') != 0
             if "`_suf'" != "" quietly replace f`_mi' = f`_mi' + "`_suf'" if f`_mi' != ""
             if "`tok'" == "coverage" & `_has_covflag' {
                 quietly replace f`_mi' = f`_mi' + "*" if covflag == 1 & f`_mi' != ""

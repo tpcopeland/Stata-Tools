@@ -1,4 +1,4 @@
-*! _dataprobe_statval Version 1.10.0  2026/10/12
+*! _dataprobe_statval Version 1.10.1  2026/10/13
 *! One summary statistic of a variable over a condition, raw and masked
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass

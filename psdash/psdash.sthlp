@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.5  09oct2026}{...}
+{* *! version 1.8.0  13oct2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -65,8 +65,9 @@ missing covariates) are dropped from every panel, and
 contract state. After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal
 period-by-period diagnostics; pooled subcommands require explicit
 variables. After {cmd:msm_weight}, {cmd:psdash combined} reads the treatment propensity
-{cmd:_msm_ps}, the treatment weight, and the id/period structure from the msm
-contract for the same longitudinal diagnostic. After {cmd:tte_weight} with {cmd:save_ps},
+{cmd:_msm_ps}, the analysis weight {cmd:_msm_weight}, the risk-set indicator,
+and the id/period structure from the msm contract for the same longitudinal
+diagnostic. After {cmd:tte_weight} with {cmd:save_ps},
 {cmd:psdash combined} reads the saved switch/treatment propensity, IP weight, and
 trial/period structure from the tte contract. After {cmd:iivw_weight} with {cmd:treat()}
 and {cmd:treat_cov()}, treatment, propensity-score, treatment-covariate, and
@@ -126,7 +127,7 @@ Detailed topics: {helpb psdash_overlap:overlap},
 {cmd:psdash balance} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt match:ed}
 {opt thr:eshold(#)} {opt now:var} {opt now:eights} {opt xlsx(filename)} {opt sheet(string)}
-{opt love:plot} {opt strat:egies(strategylist)} {opt dist:ribution(varlist)}
+{opt love:plot} {opt nogr:aph} {opt varn:ames} {opt strat:egies(strategylist)} {opt dist:ribution(varlist)}
 {opt smdm:atrix(name)} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt f:ormat(string)} {opt ti:tle(string)}
 {opt name(string)} {opt ks} {opt esti:mand(string)} {opt vrb:ounds(# #)}
@@ -284,12 +285,27 @@ non-reference group vs the reference.
 {pstd}
 Subcommands differ in whether a graph is drawn by default. {cmd:overlap} and {cmd:support}
 draw a graph automatically; suppress it with {opt nograph}. {cmd:balance} and {cmd:weights} draw
-none by default; request one with {opt loveplot} and {opt graph} respectively. {cmd:combined}
+none by default; request one with {opt loveplot} and {opt graph} respectively, and
+{cmd:balance} also accepts {opt nograph}, which overrides its graph options. {cmd:combined}
 always assembles the dashboard. The options below apply wherever a graph is
 produced.
 
 {phang}
-{opt scheme(schemename)} specifies the graph scheme.
+{opt scheme(schemename)} specifies the graph scheme. Series colours (treated,
+control, each group, contrast, or strategy) come from the scheme's plot styles,
+so {opt scheme()} and {cmd:set scheme} change them. They are taken in the order
+{cmd:p1}, {cmd:p6}, {cmd:p2}, {cmd:p3}, {cmd:p4}, {cmd:p5}, {cmd:p7}, ...: the
+second series (control, adjusted, or the second group) uses {cmd:p6} because in
+sequential schemes such as viridis, cividis, or jet {cmd:p1} and {cmd:p2} are
+nearly the same colour. Across Stata's built-in schemes and the 45 tc_schemes
+schemes, {cmd:p1} vs {cmd:p6} keeps a CIEDE2000 colour difference of at least
+15.6 (median 46), whereas {cmd:p1} vs {cmd:p2} falls to 5.2. A scheme can
+still define {cmd:p1} and {cmd:p6} alike, and graphs with three or more series
+reuse later styles; check the legend, and use symbols and line patterns,
+which psdash also varies, when colours are close. Grouped box plots in
+{opt compact} multi-group panels use the scheme's own box order.
+Reference lines keep fixed colours: grey dashed for common-support or overlap
+bounds, red for SMD thresholds, trimming bounds, and the practical-positivity floor.
 
 {phang}
 {opt saving(filename)} exports the graph to an image file. The format is determined
@@ -392,7 +408,21 @@ which enforces one complete-case sample across every panel, or an explicit
 {opt loveplot} generates a Love plot showing SMDs for each covariate: raw and,
 when weights are applied, adjusted. For multi-group treatments each contrast
 has a hollow raw and a solid adjusted series, named with the treatment's value
-labels (numeric codes for unlabelled levels); labels are shown verbatim.
+labels (numeric codes for unlabelled levels); labels are shown verbatim. Each
+row is labelled with the covariate's variable label (a factor level as
+{it:variable label}{cmd::} {it:value label}), falling back to the name; the
+console table keeps names. Row labels longer than 40 characters are shortened
+with {cmd:...}, and when two rows would carry the same label the variable name
+is appended in parentheses.
+
+{phang}
+{opt varnames} labels Love-plot rows and {opt distribution()} panels with
+variable names instead of variable labels.
+
+{phang}
+{opt nograph} (balance) suppresses every balance graph. {opt loveplot},
+{opt strategies()}, {opt distribution()}, and {opt saving()} are ignored with a
+note; tables and stored results are unchanged.
 
 {phang}
 {opt strategies(strategylist)} overlays the SMD for several weighting strategies
@@ -780,10 +810,16 @@ rows as if they were cross-sectional observations.
 
 {phang2}
 4. {bf:After msm_weight}: treatment, the per-period treatment propensity
-{cmd:_msm_ps}, the treatment weight {cmd:_msm_tw_weight}, and the id/period
-structure are auto-detected from msm dataset metadata. Run {cmd:psdash combined}
-for the longitudinal diagnostic; it complements {cmd:msm_diagnose} by adding the
-per-period overlap panel.
+{cmd:_msm_ps}, the analysis weight {cmd:_msm_weight} (the weight {cmd:msm_fit}
+uses), and the id/period structure are auto-detected from msm dataset metadata
+(contracts 1.0 and 1.1). Diagnostics are restricted to the treatment-decision
+risk set ({cmd:_msm_risk_var} under contract 1.1, {cmd:_msm_decision_risk}
+under 1.0), so rows after the outcome or censoring are not counted as
+incomplete. Use {cmd:wvar(_msm_tw_weight)} for the treatment-only weight; it is
+untruncated, so it is the right input when deciding whether or where to
+truncate, and it reproduces psdash 1.7.5's numbers. Run
+{cmd:psdash combined} for the longitudinal diagnostic; it complements
+{cmd:msm_diagnose} by adding the per-period overlap panel.
 
 {phang2}
 5. {bf:After tte_weight ..., save_ps}: the trial arm, the saved switch/treatment
@@ -868,10 +904,16 @@ weights; (6) proceed to outcome analysis only when diagnostics are
 satisfactory. {cmd:psdash combined} runs steps 2-5 in a single command.
 
 {pstd}
-{bf:Reading the status lines:} {cmd:PASS} or {cmd:Adequate} means no diagnostic
-crossed the package's default warning threshold. A warning does not prove the
-analysis invalid by itself; it identifies the next check to make and forces the
-combined machine-readable verdict to {cmd:FAIL}. Poor overlap
+{bf:Reading the status lines:} each panel ends with a status line. {cmd:Adequate}
+(balance), {cmd:Acceptable} (weights), or a line without {cmd:WARNING} (overlap,
+support) means no diagnostic in that panel crossed its threshold. {cmd:WARNING}
+(overlap, weights, support) or {cmd:IMBALANCED} (balance) means the panel has at
+least one finding. Panel status lines are descriptive; the only
+machine-readable verdict is {cmd:psdash combined}'s {cmd:r(verdict)}, which is
+{cmd:PASS} or {cmd:FAIL}, and any panel finding makes it {cmd:FAIL}. A
+{cmd:WARNING} panel under an overall {cmd:FAIL} is therefore consistent. A
+finding does not prove the analysis invalid by itself; it identifies the next
+check to make. Poor overlap
 usually calls for tighter eligibility criteria or trimming. Large SMDs point to
 model revision or additional covariates. Low ESS or extreme weights point to
 stabilization, trimming, truncation, or a different estimand.
@@ -1217,6 +1259,8 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(period)}}longitudinal period variable{p_end}
 {synopt:{cmd:r(periods)}}included longitudinal period values{p_end}
 {synopt:{cmd:r(id)}}longitudinal ID variable, when available{p_end}
+{synopt:{cmd:r(riskvar)}}longitudinal risk-set indicator, when the producer supplies one (msm){p_end}
+{synopt:{cmd:r(weight_role)}}role of the diagnosed msm weight: {cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
 {synopt:{cmd:r(contract_version)}}producer contract version{p_end}
@@ -1235,6 +1279,7 @@ panel's diagnostics reliably, run that subcommand on its own. In addition:
 {synopt:{cmd:r(n_common_excluded)}}observations excluded from all panels{p_end}
 {synopt:{cmd:r(N)}}longitudinal diagnostic-sample N{p_end}
 {synopt:{cmd:r(N_input)}, {cmd:r(N_complete)}, {cmd:r(n_excluded)}}longitudinal sample ledger{p_end}
+{synopt:{cmd:r(n_outside_risk)}}longitudinal rows outside the producer risk set, excluded by design{p_end}
 {synopt:{cmd:r(n_missing_treatment)}, {cmd:r(n_missing_period)}, {cmd:r(n_missing_ps)}, {cmd:r(n_missing_weight)}}longitudinal input missingness ledger{p_end}
 {synopt:{cmd:r(longitudinal)}}1 for longitudinal diagnostics{p_end}
 {synopt:{cmd:r(N_periods)}}number of longitudinal periods{p_end}
@@ -1271,6 +1316,7 @@ position.
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(levels)}, {cmd:r(reference)}}multi-group treatment levels/reference{p_end}
 {synopt:{cmd:r(id)}, {cmd:r(period)}, {cmd:r(regime)}, {cmd:r(method)}, {cmd:r(contract_version)}}longitudinal metadata, when applicable{p_end}
+{synopt:{cmd:r(riskvar)}, {cmd:r(weight_role)}}msm risk-set indicator and the role of {cmd:r(wvar)} ({cmd:analysis}, {cmd:treatment}, or {cmd:user-supplied}){p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(n_covariates)}}number of covariates{p_end}
@@ -1284,7 +1330,7 @@ position.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.7.5, 2026-10-09{p_end}
+{pstd}Version 1.8.0, 2026-10-13{p_end}
 
 {pstd}Report bugs and suggestions at{break}
 {browse "https://github.com/tpcopeland/Stata-Tools":https://github.com/tpcopeland/Stata-Tools}{p_end}

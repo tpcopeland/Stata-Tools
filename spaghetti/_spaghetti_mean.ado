@@ -1,4 +1,4 @@
-*! _spaghetti_mean Version 1.0.1  2026/08/05
+*! _spaghetti_mean Version 1.1.0  2026/10/13
 *! Group mean and CI computation for spaghetti plots
 *! Author: Timothy P Copeland, Karolinska Institutet
 

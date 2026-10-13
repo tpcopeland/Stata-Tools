@@ -404,6 +404,7 @@ so {help bootstrap_postestimation:estat bootstrap} describes the pool.{p_end}
 {synopt:{cmd:e(iivw_interval_available)}}always 1{p_end}
 {p2col 5 30 34 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_ci_type)}}the pooled interval type{p_end}
+{synopt:{cmd:e(ci_bca)}, {cmd:e(accel)}, {cmd:e(iivw_ci_bca)}}empty: BCa limits and acceleration are not pooled, so any carried by the anchor shard are removed{p_end}
 {synopt:{cmd:e(iivw_inference_status)}}recomputed; see above{p_end}
 {synopt:{cmd:e(iivw_allowfailedreps)}}1 if failures were accepted{p_end}
 {synopt:{cmd:e(iivw_bs_saving)}}the {cmd:saving()} file, if written{p_end}

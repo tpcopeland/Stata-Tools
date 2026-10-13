@@ -1,9 +1,9 @@
-/*  demo_spaghetti.do - Generate screenshots for spaghetti v1.0.1
+/*  demo_spaghetti.do - Generate screenshots for spaghetti v1.1.0
 
     Produces 8 output types:
       1. Console output (return values)             -> .smcl
       2. Graph: by-group with mean + CI             -> basic_by_mean.png
-      3. Graph: sampled with mean overlay            -> sampled_mean.png
+      3. Graph: sampled, one arm, group mean        -> sampled_mean.png
       4. Graph: highlighted individuals              -> highlight.png
       5. Graph: colorby continuous                   -> colorby.png
       6. Graph: reference line                       -> refline.png
@@ -64,9 +64,11 @@ graph export "`pkg_dir'/basic_by_mean.png", replace width(1200)
 capture graph close _all
 
 * --- 3. Sampled trajectories with mean overlay ---
-spaghetti sdmt, id(patid) time(months) ///
+* One arm only: the two arms trend in opposite directions, so a pooled mean
+* would describe neither. Use by() (graph 2) to overlay a mean per group.
+spaghetti sdmt if treatment == 0, id(patid) time(months) ///
     mean(bold ci) sample(30) seed(42) ///
-    title("Individual Trajectories with Population Mean") ///
+    title("Placebo Arm: Sampled Trajectories with Group Mean") ///
     name(demo_sampled)
 graph export "`pkg_dir'/sampled_mean.png", replace width(1200)
 capture graph close _all
@@ -76,14 +78,17 @@ spaghetti sdmt, id(patid) time(months) by(treatment) ///
     highlight(patid==5 | patid==55 bgopacity(10)) ///
     mean(bold) ///
     title("Highlighted Patient Trajectories") ///
+    note("Highlighted: patient 5 (Placebo) and patient 55 (Active); bold lines are group means") ///
     name(demo_highlight)
 graph export "`pkg_dir'/highlight.png", replace width(1200)
 capture graph close _all
 
-* --- 5. Colorby baseline score ---
+* --- 5. Colorby baseline score (quintiles, sequential palette: light = Q1) ---
 spaghetti sdmt, id(patid) time(months) ///
     colorby(baseline_score) sample(60) seed(42) ///
-    title("Trajectories Colored by Baseline Score") ///
+    colors("158 202 225" "107 174 214" "66 146 198" "33 113 181" "8 69 148") ///
+    individual(opacity(70) lwidth(thin)) ///
+    title("Trajectories Colored by Baseline Score Quintile") ///
     name(demo_colorby)
 graph export "`pkg_dir'/colorby.png", replace width(1200)
 capture graph close _all

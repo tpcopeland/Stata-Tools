@@ -1,4 +1,4 @@
-*! _simtab_common Version 2.0.3  2026/10/09
+*! _simtab_common Version 2.0.4  2026/10/13
 *! Shared utility programs for simtab package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -1187,8 +1187,8 @@ end
 version 17.0
 capture mata: mata drop _st_strip_outer_quotes()
 local _st_compile_ms = c(matastrict)
-capture noisily {
-mata:
+* capture, not capture noisily: noisily makes the autoloader echo the Mata source
+capture mata:
 mata set matastrict on
 
 string scalar _st_strip_outer_quotes(string scalar x)
@@ -1212,10 +1212,12 @@ string scalar _st_strip_outer_quotes(string scalar x)
 }
 
 end
-}
 local _st_compile_rc = _rc
 mata: mata set matastrict `_st_compile_ms'
-if `_st_compile_rc' exit `_st_compile_rc'
+if `_st_compile_rc' {
+    display as error "simtab: a Mata helper in _simtab_common.ado did not compile (rc=`_st_compile_rc')"
+    exit `_st_compile_rc'
+}
 
 capture program drop _simtab_visible_vars
 program define _simtab_visible_vars, nclass
