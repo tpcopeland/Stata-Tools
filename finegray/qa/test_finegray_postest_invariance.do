@@ -1,6 +1,5 @@
-* test_finegray_codexaudit_2026_09_27_a.do
-* Postestimation regressions from the 2026-09-27 Codex audit (F01, F02, F04,
-* F05, F06).  Every check is a known answer or an invariance, read from the
+* test_finegray_postest_invariance.do
+* Postestimation regressions (F01, F02, F04, F05, F06; review of 2026-09-27).  Every check is a known answer or an invariance, read from the
 * numbers the user sees: r(table), the live graph serset, or predict.
 *
 *   F01  The default finegray_cif grid carried each baseline event time
@@ -30,7 +29,7 @@ version 16.0
 
 local qa_dir "`c(pwd)'"
 capture log close _all
-log using "test_finegray_codexaudit_2026_09_27_a.log", replace text name(_fgca)
+log using "test_finegray_postest_invariance.log", replace text name(_fgca)
 do "`qa_dir'/_finegray_qa_common.do"
 quietly _finegray_qa_bootstrap
 
@@ -548,7 +547,7 @@ local fail_count = `fail_count' + r(fail)
 
 **# Summary
 display as text _newline ///
-    "RESULT: test_finegray_codexaudit_2026_09_27_a tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    "RESULT: test_finegray_postest_invariance tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _fgca
 if `fail_count' > 0 exit 1
 exit 0

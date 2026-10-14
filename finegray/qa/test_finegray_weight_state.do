@@ -1,4 +1,4 @@
-*! test_finegray_codexaudit_2026_09_27_b.do - Codex audit 2026-09-27, findings F03 F07 F08 F09
+*! test_finegray_weight_state.do - regressions F03 F07 F08 F09 (review of 2026-09-27)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *
 * F03  No-id() weighted fit: exchanging two external scalars that feed the
@@ -25,7 +25,7 @@ local fail_count = 0
 
 local qa_dir "`c(pwd)'"
 capture log close _all
-log using "test_finegray_codexaudit_2026_09_27_b.log", replace text name(_test_fgcab)
+log using "test_finegray_weight_state.log", replace text name(_test_fgcab)
 do "`qa_dir'/_finegray_qa_common.do"
 quietly _finegray_qa_bootstrap
 
@@ -498,7 +498,7 @@ _fgcab_record `block_rc' "CAB-10 F09 offsets 2000/10000 either reproduce the fit
 if `block_rc' == 0 local ++pass_count
 else local ++fail_count
 
-display "RESULT: test_finegray_codexaudit_2026_09_27_b tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display "RESULT: test_finegray_weight_state tests=`test_count' pass=`pass_count' fail=`fail_count'"
 capture log close _test_fgcab
 if `fail_count' > 0 exit 1
 exit 0

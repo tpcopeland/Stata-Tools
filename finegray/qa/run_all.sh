@@ -371,7 +371,7 @@ fi
 # HEAD, or "uncommitted" if the working tree differs) plus the Stata and R
 # toolchain versions.
 # Provenance.  Prefer --source-repo when given: the run itself is expected to
-# happen in a scratch COPY (CLAUDE.md's isolation practice, and the reason a
+# happen in a separate COPY (the isolation practice in qa/README.md, and the reason a
 # concurrent lane cannot corrupt these logs), and a copy is not a git repo -- so
 # the 2026-07-22 receipt recorded "pkg_tree: not-a-git-repo (unknown)" and
 # "head_commit: unknown", losing the one field the whole block exists to record.

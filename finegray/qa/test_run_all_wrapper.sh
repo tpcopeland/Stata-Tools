@@ -327,7 +327,7 @@ fi
 #
 # UPDATED 2026-09-02.  This check used to require rc == 0 -- and run_all.sh gave
 # it, because a NOT-RUN transfer gate did not set verdict=FAIL.  The release
-# receipt is produced exactly this way (a scratch copy, per CLAUDE.md isolation),
+# receipt is produced exactly this way (a separate copy, per the isolation practice in qa/README.md),
 # so `./run_all.sh full' from a copy printed PASS with the transfer gate never
 # executed.  On the two lanes that CLAIM the gate (full, gates) NOT-RUN is now a
 # FAIL: rc must be non-zero and the receipt verdict must say FAIL, while the

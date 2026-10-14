@@ -247,7 +247,7 @@ capture noisily {
     quietly replace pw = pw / 2 in 1
     * a value-preserving exchange of two subjects' weights: the datasignature
     * over pw catches it (a scalar exchange is covered by
-    * test_finegray_codexaudit_2026_09_27_b.do)
+    * test_finegray_weight_state.do)
     local w1 = pw[1]
     local w2 = pw[2]
     quietly replace pw = `w2' in 1
