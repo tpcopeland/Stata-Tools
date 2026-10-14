@@ -75,7 +75,7 @@ it), and times outside the support are flagged. See
 {help finegray_methods##cif:Cumulative incidence}.
 
 {pstd} The command requires the unchanged {cmd:stset} estimation data: it
-checks the complete original fitting tuples, so a change to the data,
+checks every original estimation record in full, so a change to the data,
 including a permutation of one variable's values across observations, is
 {cmd:r(459)}
 ({cmd:the estimation data no longer reproduce the fitted observation tuples}). Estimates
@@ -183,7 +183,7 @@ which may round a range's endpoints and step: any range endpoint or step that
 at the distinct cause-event times of the fitted baseline. May not be combined
 with {opt attime()}: both name the times the CIF is evaluated at, and
 {opt attime()} additionally selects table output over a plotted curve, so the
-combination is refused rather than resolved silently. Unlike the default grid,
+combination is refused. Unlike the default grid,
 the requested grid is not thinned. Times are used exactly as typed, as for
 {opt attime()}. The plotted curve ends at the last requested time unless that
 time is at or beyond the curve's last cause-event time, in which case the flat
@@ -196,7 +196,7 @@ same range rule applies as for {opt attime()}.
 {phang}
 {bf:After a fit with} {helpb finegray##tvc:tvc()} the CIF is accumulated
 interval by interval. Both analytic {opt ci} and {opt bootstrap(#)} are
-available; the analytic route is fixed-weight. See
+available; analytic intervals treat the weights as fixed. See
 {help finegray_methods##tvc:Time-varying effects}.
 
 {marker bstratum}{...}
@@ -204,7 +204,7 @@ available; the analytic route is fixed-weight. See
 {opt bstratum(#)} names the baseline stratum the CIF belongs to. {bf:Required}
 when the fit has more than one baseline stratum ({cmd:e(k_bstrata)} > 1), since
 a covariate profile alone no longer identifies a curve there. It is refused
-({cmd:r(198)}) after every other fit -- including a {opt bstrata()} fit with a
+({cmd:r(198)}) after every other fit, including a {opt bstrata()} fit with a
 single stratum, which is the unstratified estimator bit for bit and has no
 stratum to name. A value with no estimation-sample subjects or no cause events
 is {cmd:r(459)}. Use {opt over()}
@@ -248,9 +248,9 @@ the standard error and limits differ. The original estimation results and
 {cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
 fweighted fit stores its replication in a weight column rather than in rows, so
 the replicate SD would describe a much smaller design than the fit. The
-analytic {opt ci} needs no resampling under frequency weights -- an fweighted
+analytic {opt ci} needs no resampling under frequency weights: an fweighted
 fit is the fit of the replicated data, so the analytic interval equals the one
-from the expanded data, with the same large-sample approximation -- so use it, or {helpb expand} the data by the
+from the expanded data, with the same large-sample approximation. Use it, or {helpb expand} the data by the
 weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
 unaffected.
 
@@ -263,7 +263,7 @@ reproducibility. It requires {opt bootstrap()}, and must be an integer between
 {opt level(#)} sets the confidence level for {opt ci}; it requires {opt ci}. The
 default is {cmd:c(level)}, which is initially 95 and can be changed by
 {helpb set level}. The value must be between 10 and 99.99 inclusive, with at
-most two decimal places -- the same rule {cmd:finegray} itself applies.
+most two decimal places, the same rule {cmd:finegray} itself applies.
 
 {phang}
 {opt saving(filename[, replace])} writes a dataset containing {cmd:time},
@@ -342,8 +342,8 @@ than six decimals keep Stata's default format.
 {title:Remarks}
 
 {pstd}
-{bf:Left truncation.} Delayed-entry CIF estimates use the ZZF Weight-1 contract
-and move relative to earlier versions and to {helpb stcrreg}. See
+{bf:Left truncation.} Delayed-entry CIF estimates use ZZF Weight 1
+and differ from {helpb stcrreg} and from finegray versions before 1.3.1. See
 {help finegray##lt:Left truncation}.
 
 {pstd}

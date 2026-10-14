@@ -96,13 +96,13 @@ intervals are contiguous and the model covariates,
 weight variables are constant
 within {cmd:id()} (e.g. delayed-entry or {helpb stsplit} data); such records are
 reduced automatically to one risk-set unit. Left-truncated data are
-supported. Constancy is judged exactly -- any difference at all in a field
-documented as constant within {cmd:id()} is refused with {cmd:r(198)} -- while
+supported. Constancy is judged exactly (any difference at all in a field
+documented as constant within {cmd:id()} is refused with {cmd:r(198)}), while
 contiguity is judged relatively: two adjacent records are contiguous when
 |{cmd:_t0} - previous {cmd:_t}| is at most 1e-12 times the larger of the two
 boundaries in absolute value (exactly 0 when both are 0), so the same rule
-applies whatever the time scale and boundaries built by two different
-arithmetic routes are not refused over rounding.
+applies whatever the time scale and boundaries computed in two different
+ways are not refused over rounding.
 {p_end}
 
 {pstd}
@@ -223,7 +223,7 @@ markedly non-proportional {it:without} estimating its effect.
 means what {cmd:stcox}'s {cmd:strata()} means.
 
 {synoptset 18 tabbed}{...}
-{synopt:{cmd:bstrata()}}the baseline subhazard -- what {cmd:stcox, strata()} means{p_end}
+{synopt:{cmd:bstrata()}}the baseline subhazard (as in {cmd:stcox, strata()}){p_end}
 {synopt:{cmd:strata()}}the Kaplan-Meier censoring distribution G{p_end}
 {synopt:{cmd:truncstrata()}}the entry (left-truncation) distribution H{p_end}
 
@@ -250,7 +250,7 @@ lambda_1(t | Z) = lambda_10(t) exp(Z'b(t)),   b(t) = b_j for t in interval j.
 {pmore}
 {opt tvc()} and {opt tsplit()} are required together ({cmd:r(198)}). {it:J} - 1
 boundaries define {it:J} intervals, and each named covariate gets {it:J}
-coefficients -- separate per interval, not main effect plus offsets.
+coefficients: one per interval, not a main effect plus offsets.
 
 {pmore}
 {bf:Intervals are half-open at the left:} ({it:cut_j-1}, {it:cut_j}], so an
@@ -335,7 +335,7 @@ fixed-weight analytic CIF influence function. See
 coefficients; {cmd:r(se_method)} for CIF intervals.
 
 {pmore2}
-{it:Coefficients} -- {cmd:e(b)}, {cmd:e(V)}:
+{it:Coefficients} ({cmd:e(b)}, {cmd:e(V)}):
 
 {p2colset 13 46 48 2}{...}
 {p2col:{bf:you type}}{bf:you get} ({cmd:e(vce_meat)}){p_end}
@@ -355,12 +355,12 @@ coefficients; {cmd:r(se_method)} for CIF intervals.
 {pmore2} {it:CIF intervals}: {opt ci} gives {cmd:analytic}; {opt ci bootstrap()}
 gives {cmd:bootstrap}. Analytic intervals are available after supported
 converged fits, including {opt tvc()}, {opt bstrata()}, and weighted fits. Bootstrap
-intervals support those same fit routes except {cmd:fweight}s; expand
-frequency-weighted data to individual records and refit first. Both routes
+intervals are available after the same fits except {cmd:fweight}s; expand
+frequency-weighted data to individual records and refit first. Both methods
 require the original estimation data and are unavailable after an {cmd:mi}
 fit. Bootstrap resampling is by subject, or by whole cluster after
-{opt cluster()}, and requires at least 25 requested and successful refits. The
-analytic route is fixed-weight in all cases.
+{opt cluster()}, and requires at least 25 requested and successful refits. Analytic
+intervals treat the weights as fixed in all cases.
 
 {marker vcebootstrap}{...}
 {phang}
@@ -395,7 +395,7 @@ results. {opt noshr} and {opt level(#)} are honoured on replay.
 
 {phang}
 {opt coeflegend} redisplays the table with the {cmd:_b[]} name of each
-coefficient in place of its statistics -- the way to read off the exact name of
+coefficient in place of its statistics. Use it to read off the exact name of
 a factor design column or a {opt tvc()} interval coefficient before typing it
 into {helpb test} or {helpb lincom}. It is a replay-only option, and it may not
 be combined with {opt level(#)} or {opt noshr} ({cmd:r(198)}): the legend table
@@ -407,12 +407,12 @@ reports neither an interval nor a coefficient scale.
 building a tall matrix is O(rows^2); for the baseline as a variable at O(N)
 cost, use {cmd:predict, basecshazard}. Use {opt basehaz} when you want the
 matrix itself, or when you will {helpb estimates:estimates save} the fit for a
-later session -- the cached baseline does not cross sessions. With
+later session, because the cached baseline does not cross sessions. With
 {opt tvc()}, {opt basehaz} also posts {cmd:e(basehaz_tvc)} to preserve each
 interval's mass separately. Its columns are {it:bstratum}, {it:interval},
 {it:time} and {it:cumhazard}; the last column accumulates within that
 interval, before adding earlier intervals. A saved TVC fit without this
-payload needs the verified fitting data to rebuild it. If neither the payload
+matrix needs the original estimation data to rebuild it. If neither the matrix
 nor those data are available, CIF prediction refuses with {cmd:r(459)}.
 
 {dlgtab:Optimization}
@@ -499,7 +499,7 @@ subject, with {cmd:e(N)} counting subjects.
 Because that reduction keeps one record per subject, a subject whose failure
 record is not its last record (a second failure after the first, or follow-up
 continued past the failure, both of which {cmd:stset ..., exit(time .)}
-permits) is refused with {cmd:r(198)} rather than silently reduced to its
+permits) is refused with {cmd:r(198)} and is not reduced to its
 last record, because {cmd:finegray} models the subdistribution of a single
 first event per subject. Keep each subject's first event (re-{cmd:stset}
 without {opt exit(time .)}) or recode the outcome.
@@ -562,7 +562,7 @@ requires {opt bstratum(#)} when there is more than one stratum
 A stratum with no cause event is noted and recorded in
 {cmd:e(bstrata_noevent)}, and in {cmd:e(bstrata_noevent_x)} as
 hexadecimal doubles ({cmd:%21x}) that Stata's numeric parser reads back
-exactly -- the readable form rounds a noninteger stratum value, so compare
+exactly; the readable form rounds a noninteger stratum value, so compare
 against the {cmd:%21x} form. Its CIF is refused. With one level,
 {opt bstrata()} is the unstratified estimator, bit for bit. See
 {help finegray_methods##bstrata:Baseline strata}.
@@ -593,10 +593,10 @@ See {help finegray_methods##tvc:Time-varying effects}.
 data via {cmd:stset}'s {cmd:enter()} option.
 
 {pstd}
-{bf:Under delayed entry finegray deliberately disagrees with stcrreg.} It uses
-the Zhang-Zhang-Fine Weight-1 contract. Delayed-entry coefficients, standard
-errors, baselines and CIFs all change relative to {cmd:stcrreg} and to versions
-before 1.3.1. Results with no delayed entry are unchanged, bit for bit. See
+{bf:Under delayed entry finegray differs from stcrreg.} It uses
+the Weight 1 estimator of Zhang, Zhang and Fine (2011). Delayed-entry coefficients, standard
+errors, baselines and CIFs therefore differ from those of {cmd:stcrreg} and of finegray
+versions before 1.3.1. Results without delayed entry are the same as in those versions. See
 {help finegray_methods##lt:Left truncation}.
 
 {pstd}
@@ -607,8 +607,8 @@ entry or censoring depends on a discrete factor, name it in both
 weight. A grouping named in only one option, or different groupings in the
 two, gives the experimental factorized weight. Stratified and factorized
 fits also post
-{cmd:e(lt_norm)} = {cmd:stratum}, the receipt for the per-stratum weight
-normalizer added in 1.3.3; the post-estimation commands refuse a stratified
+{cmd:e(lt_norm)} = {cmd:stratum}, which records that the per-stratum weight
+normalizer (added in 1.3.3) was applied; the post-estimation commands refuse a stratified
 delayed-entry fit that lacks it. On those fits {cmd:e(min_weight_prob)} is the
 smallest normalized denominator b_g/S_g the scan consulted, which is at least
 1/n_g and may exceed 1; without delayed entry it is a censoring
@@ -697,24 +697,24 @@ event counts.
 entry, and {helpb finegray_phtest}. Under {cmd:fweight}s the {opt bootstrap()}
 option of {helpb finegray_cif} and {helpb finegray_predict} is also
 {cmd:r(198)}: {helpb bsample} resamples rows, not the replicated subjects the
-frequency weights stand for. The analytic {opt ci} is exact there -- an
-fweighted fit is the fit of the replicated data -- so use it, or {helpb expand}
+frequency weights stand for. The analytic {opt ci} is exact there (an
+fweighted fit is the fit of the replicated data), so use it, or {helpb expand}
 the data and bootstrap the expanded fit. See
 {help finegray_methods##weights:Design weights}.
 
 {pstd} {bf:A weight declared in {cmd:stset} is not inherited.} Fitting on
 weighted {cmd:stset} data with no command-line weight is {cmd:r(198)}. The
 weight expression must name variables ({cmd:_n}/{cmd:_N} are refused); post-estimation
-reconciles the rebuilt column against {cmd:e(sum_w)} and against
-{cmd:e(wsig)}, a value-sensitive digest of the fit's own weights keyed by each
-observation's whole fitting tuple, the values of the variables listed in
+commands rebuild the weight column and check it against {cmd:e(sum_w)} and
+{cmd:e(wsig)}, a checksum of the fit's weights computed together with each
+observation's values of the variables listed in
 {cmd:e(wsigkeyvars)} (the {cmd:e(datasignature)} variables plus the
-{cmd:stset} {opt id()} and entry variables, as in {cmd:e(rowsigvars)}), so a
-change that leaves the total untouched -- including an exchange of two
-subjects' weights, or of two scalars the weight expression reads -- is refused
-too; a plain re-sort is not. Estimates saved by finegray 1.3.7 or earlier
+{cmd:stset} {opt id()} and entry variables, as in {cmd:e(rowsigvars)}). A
+change that leaves the total weight unchanged, such as exchanging two
+subjects' weights or two scalars the weight expression reads, is therefore refused
+too; re-sorting the data is not. Estimates saved by finegray 1.3.7 or earlier
 carry no {cmd:e(rowsig)} and are refused with {cmd:r(301)} before any weight
-column is rebuilt, on every route that reads the estimation rows; they must be
+column is rebuilt, by every command that reads the estimation records; they must be
 refit (see {help finegray##results:Stored results}).
 
 
@@ -889,7 +889,7 @@ runs as printed.
 {bf:An internal time-varying covariate is refused.} On {cmd:webuse pneumonia}
 ({bf:[ST] stcrreg} example 5) the exposure switches mid-stay, so it varies
 within {cmd:id()} and the fit stops with {cmd:r(198)}. Its value at admission is
-subject-constant and is accepted -- a baseline-exposure model, a different
+subject-constant and is accepted. That is a baseline-exposure model, a different
 estimand from the time-updated coefficient {helpb stcrreg} reports.
 
 {phang2}{cmd:. webuse pneumonia, clear}{p_end}
@@ -1006,8 +1006,8 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(clustvar)}}cluster variable; if {cmd:cluster()} specified{p_end}
 {synopt:{cmd:e(wtype)}}weight type ({cmd:pweight} or {cmd:fweight}); only with weights{p_end}
 {synopt:{cmd:e(wexp)}}weight expression; only with weights{p_end}
-{synopt:{cmd:e(wsig)}}weight-column digest; only with weights{p_end}
-{synopt:{cmd:e(wsigkeyvars)}}tuple variables keying {cmd:e(wsig)}; with weights{p_end}
+{synopt:{cmd:e(wsig)}}checksum of the weights; only with weights{p_end}
+{synopt:{cmd:e(wsigkeyvars)}}variables used in {cmd:e(wsig)}; with weights{p_end}
 {synopt:{cmd:e(vce)}}variance estimation method{p_end}
 {synopt:{cmd:e(vcetype)}}{cmd:Robust}; not set under {opt norobust}{p_end}
 {synopt:{cmd:e(vce_meat)}}which sandwich meat was used{p_end}
@@ -1017,7 +1017,7 @@ Two-interval time-varying effect comparison
 {synopt:{cmd:e(properties)}}b V{p_end}
 {synopt:{cmd:e(datasignature)}}signature of the estimation data{p_end}
 {synopt:{cmd:e(datasignaturevars)}}variables behind {cmd:e(datasignature)}{p_end}
-{synopt:{cmd:e(rowsig)}}order-invariant digest of fitting tuples{p_end}
+{synopt:{cmd:e(rowsig)}}order-invariant checksum of the estimation records{p_end}
 {synopt:{cmd:e(rowsigvars)}}variables behind {cmd:e(rowsig)}{p_end}
 {synopt:{cmd:e(fvsupport_vars)}}factor variables with stored support{p_end}
 {synopt:{cmd:e(fvsupport}{it:#}{cmd:)}}fit-time levels of the {it:#}th such variable{p_end}
@@ -1040,13 +1040,13 @@ purely continuous interaction fits. On a factor fit {cmd:e(b)} is wider than
 {cmd:e(designvars)} by one zero column per omitted base term; under {opt tvc()} it is wider by
 one column per named covariate per extra interval.
 
-{pstd} {cmd:e(rowsig)} and {cmd:e(rowsig_n)} bind every original fitting tuple
-(the {cmd:e(datasignaturevars)} variables plus the {opt stset} {opt id()} and
+{pstd} {cmd:e(rowsig)} and {cmd:e(rowsig_n)} summarize each estimation record
+as a whole (the {cmd:e(datasignaturevars)} variables plus the {opt stset} {opt id()} and
 entry variables, listed in {cmd:e(rowsigvars)}, which {cmd:e(wsigkeyvars)}
-also uses) jointly; the digest hashes values, so {cmd:compress} or
-{cmd:recast} of an id or entry variable is accepted, so the post-estimation
+also uses). The checksum uses values, not storage types, so {cmd:compress} or
+{cmd:recast} of an id or entry variable is accepted, while the post-estimation
 commands detect a permutation of one variable's values across observations
-({cmd:r(459)}); the digest is a finite noncryptographic checksum, not a proof
+({cmd:r(459)}). It is a finite noncryptographic checksum, not a proof
 of dataset equality. {bf:Estimates saved by finegray 1.3.7 or earlier} carry
 no {cmd:e(rowsig)} and must be refit for {helpb finegray_cif} (every form,
 including a point CIF), {cmd:finegray_predict, cif ci},
@@ -1054,8 +1054,8 @@ including a point CIF), {cmd:finegray_predict, cif ci},
 {cmd:r(301)}. Only {cmd:finegray_predict, xb} and, when the saved estimates
 hold {cmd:e(basehaz)} (fitted with {opt basehaz}), {cmd:cif} and
 {cmd:basecshazard} still work; without a posted baseline those two need the
-estimation rows and are {cmd:r(301)} too. There is no pass-through for the
-routes that read estimation rows.
+estimation rows and are {cmd:r(301)} too. This applies to every
+command that reads the estimation records.
 
 
 {marker methods}{...}

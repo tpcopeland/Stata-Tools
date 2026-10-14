@@ -82,9 +82,9 @@ fitted coefficients and baseline move; see
 
 {pstd} {opt cif} evaluates the CIF at each observation's own {cmd:_t}; for a
 common horizon, set a constant time variable and use {opt timevar()}. The
-{opt ci} and {opt schoenfeld} paths verify that the estimation data are
-unchanged ({cmd:r(459)} otherwise). The check covers the complete original
-fitting tuples, so permuting one variable's values across observations is
+{opt ci} and {opt schoenfeld} options verify that the estimation data are
+unchanged ({cmd:r(459)} otherwise). The check covers every original
+estimation record in full, so permuting one variable's values across observations is
 {cmd:r(459)}
 ({cmd:the estimation data no longer reproduce the fitted observation tuples}). Estimates
 saved by finegray 1.3.7 or earlier lack {cmd:e(rowsig)} and must be refit for
@@ -95,7 +95,7 @@ estimates {opt xb} still works on compatible data; {opt cif} and
 ({cmd:e(basehaz)}, from {opt basehaz} at fit time) and are {cmd:r(301)}
 otherwise, because the baseline is then rebuilt from the estimation rows. For
 TVC CIF prediction, refit such older estimates with {opt basehaz} to save the
-separate interval masses in {cmd:e(basehaz_tvc)}. The digest behind this
+separate interval masses in {cmd:e(basehaz_tvc)}. The checksum behind this
 check is a finite noncryptographic checksum, not a proof
 that two datasets are equal. See
 {help finegray_methods##stcrreg:Comparison with stcrreg} and
@@ -114,13 +114,13 @@ that two datasets are equal. See
 H0(t), evaluated at each observation's analysis time ({cmd:_t}, or the variable
 given in {opt timevar()}). This is the same quantity {helpb stcrreg} returns with
 {cmd:predict, basecshazard}, and it is the recommended way to obtain the
-baseline: it costs O(N), whereas {cmd:e(basehaz)} -- which holds the same curve as
-a matrix with one row per event time -- is O(rows^2) to create and so is posted
+baseline: it costs O(N), whereas {cmd:e(basehaz)}, which holds the same curve as
+a matrix with one row per event time, is O(rows^2) to create and so is posted
 only when {cmd:finegray}'s {opt basehaz} option is given. {opt ci} and
 {opt bootstrap()} are not allowed with {opt basecshazard}: the baseline carries no
-covariate profile, and a silently ignored {opt ci} would hand back a bare point
-estimate that looks like a band. Because H0(t) does not depend on the
-covariates, the data in memory need carry only the time variable -- and, after
+covariate profile, and ignoring {opt ci} would return a point
+estimate where a band was requested. Because H0(t) does not depend on the
+covariates, the data in memory need carry only the time variable and, after
 a fit with {opt bstrata()}, the baseline strata variable. The model covariates
 are not required and are not read.
 
@@ -145,13 +145,13 @@ missing prediction.
 evaluated. It requires {opt xb} and a fit made with
 {helpb finegray##tvc:tvc()}; without {opt tvc()} the linear predictor does not
 depend on time and there is nothing to evaluate it at, so {opt attime()} is
-{cmd:r(198)} rather than a silently ignored option.
+{cmd:r(198)}.
 
 {phang}
 {bf:After a fit with} {helpb finegray##tvc:tvc()}: {opt xb} becomes a function of time (scored at each row's
 own {cmd:_t}; {opt attime(#)} scores at one time). {opt cif} accumulates the baseline interval
-by interval. Both analytic {opt ci} and {opt bootstrap(#)} are available; the analytic
-route is fixed-weight. {opt schoenfeld} is {bf:not available} ({cmd:r(198)}). See
+by interval. Both analytic {opt ci} and {opt bootstrap(#)} are available; analytic
+intervals treat the weights as fixed. {opt schoenfeld} is {bf:not available} ({cmd:r(198)}). See
 {help finegray##tvc:Time-varying effects}.
 
 {marker weights}{...}
@@ -239,9 +239,9 @@ results and {cmd:e(sample)} are preserved.
 {cmd:[fweight=}{it:exp}{cmd:]}: {helpb bsample} resamples rows, and an
 fweighted fit stores its replication in a weight column rather than in rows, so
 the replicate SD would describe a much smaller design than the fit. The
-analytic {opt ci} needs no resampling under frequency weights -- an fweighted
+analytic {opt ci} needs no resampling under frequency weights: an fweighted
 fit is the fit of the replicated data, so the analytic interval equals the one
-from the expanded data, with the same large-sample approximation -- so use it, or {helpb expand} the data by the
+from the expanded data, with the same large-sample approximation. Use it, or {helpb expand} the data by the
 weight and bootstrap the expanded fit. {cmd:[pweight=}{it:exp}{cmd:]} fits are
 unaffected.
 
@@ -253,7 +253,7 @@ unaffected.
 {opt level(#)} sets the confidence level for {opt ci}; the default is
 {cmd:c(level)}, which is initially 95; the setting can be changed by
 {helpb set level} and must be between 10 and 99.99 inclusive, with at most
-two decimal places -- the same rule {cmd:finegray} itself applies.
+two decimal places, the same rule {cmd:finegray} itself applies.
 
 {marker fvalign}{...}
 {pstd}
@@ -261,20 +261,20 @@ two decimal places -- the same rule {cmd:finegray} itself applies.
 {bf:value}, not position. Every level observed in the estimation sample is
 accepted, including levels not typed as terms (after {cmd:finegray 2.grp x},
 levels 1 and 3 are scored); an observation at a level the fit never saw is
-{cmd:r(459)}, not silently collapsed onto the base. Estimates without
-{cmd:e(fvsupport_vars)} (older builds) keep the narrower typed-level rule and need a refit. {cmd:xb} honours the
-{cmd:predict} contract {helpb margins} relies on. See
+{cmd:r(459)}; it is not assigned to the base level. Estimates without
+{cmd:e(fvsupport_vars)} (saved by versions before 1.3.8) keep the narrower typed-level rule and need a refit. {cmd:xb} follows the
+{cmd:predict} conventions that {helpb margins} requires. See
 {help finegray_methods##fv:Factor variables and margins}.
 
 
 {marker emptyresult}{...}
 {pstd}
-{bf:Empty results are refused, not committed:} a prediction that can be
+{bf:Empty results are refused:} a prediction that can be
 computed for no observation is an error rather than a column of missing
 values. {opt xb} and {opt cif} exit {cmd:r(2000)} when no observation in the
-prediction sample can be scored -- for example when a covariate in the fit is
+prediction sample can be scored, for example when a covariate in the fit is
 missing on every one of those rows (a covariate missing on {it:some} rows
-leaves those rows missing, as {cmd:predict} does) -- and {opt ci} exits {cmd:r(2000)} when the
+leaves those rows missing, as {cmd:predict} does). {opt ci} exits {cmd:r(2000)} when the
 complementary log-log limits are undefined everywhere, which is what a
 cumulative incidence that is identically zero at the requested horizon (a time
 before the first cause event) produces. The refusal removes any variable the
@@ -363,17 +363,17 @@ baseline
 in {cmd:r()} or {cmd:e()}. The variables are labeled:
 
 {phang2}{cmd:xb}: "Linear prediction (xb)"; after a {opt tvc()} fit the
-evaluation basis is appended -- "Linear prediction (xb) at _t", or
+evaluation basis is appended: "Linear prediction (xb) at _t", or
 "Linear prediction (xb) at t = {it:#}" with {opt attime(#)}{p_end}
 {phang2}{cmd:cif}: "CIF at {it:tvar} (cause {it:#})", where {it:tvar} is
 {cmd:_t} or the {opt timevar()} variable and {it:#} is the cause of interest the
-fit was estimated for - so the label records both the cause and the horizon each
+fit was estimated for, so the label records both the cause and the horizon each
 prediction was evaluated at{p_end}
 {phang2}{it:newvar}{cmd:_lci}: "CIF lower {it:level}% limit"{p_end}
 {phang2}{it:newvar}{cmd:_uci}: "CIF upper {it:level}% limit"{p_end}
 {phang2}{cmd:basecshazard}: "Baseline cumulative subhazard"{p_end}
 {phang2}{cmd:schoenfeld}: "Schoenfeld residual: {it:term}" for each design
-column, where {it:term} is the term exactly as the fit spells it --
+column, where {it:term} is the term exactly as the fit spells it, such as
 {cmd:ifp} for a plain covariate, {cmd:1.pelnode} for a factor indicator,
 {cmd:1.pelnode#c.ifp} for an interaction, which is also the spelling
 {helpb finegray_phtest} reports{p_end}
