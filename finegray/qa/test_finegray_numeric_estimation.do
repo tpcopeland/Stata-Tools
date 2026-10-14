@@ -167,7 +167,7 @@ capture noisily {
     tempname rawsum
     quietly summarize w, meanonly
     scalar `rawsum'=r(sum)
-    * expect: EQUAL -- beta, sandwich, baseline and CIF are representable.
+    * expect: EXACT -- beta, sandwich, baseline and CIF are representable.
     finegray x [pw=w], compete(status) cause(1) nolog basehaz
     assert e(converged)==1
     assert !missing(_b[x],e(V)[1,1],e(ll),e(ll_0),e(basehaz)[1,2])
@@ -221,7 +221,7 @@ capture noisily {
     tempname rawsum
     quietly summarize w, meanonly
     scalar `rawsum'=r(sum)
-    * expect: EQUAL -- beta, sandwich, baseline and CIF are representable.
+    * expect: EXACT -- beta, sandwich, baseline and CIF are representable.
     finegray x [pw=w], compete(status) cause(1) nolog basehaz noadjust
     assert e(converged)==1
     assert !missing(_b[x],e(V)[1,1],e(ll),e(ll_0),e(basehaz)[1,2])
